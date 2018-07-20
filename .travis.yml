@@ -1,0 +1,42 @@
+# Travis config for beacon_chain using Status Nim docker.
+
+matrix:
+  # allow_failures:
+  #   - os: osx
+
+  include:
+    - os: linux
+      sudo: required
+      services:
+        - docker
+      before_install:
+        - docker pull statusteam/nim-base
+      script:
+        - docker run statusteam/nim-base nim --version
+        - docker run -v "$(pwd):/project" -w /project statusteam/nim-base sh -c "nimble install -dy && nimble test"
+
+    - os: osx
+      before_install:
+        - brew update
+        - brew install rocksdb
+        # - brew install gcc
+
+        - git clone https://github.com/nim-lang/nim.git
+        - cd nim
+        - git remote add statusim https://github.com/status-im/nim.git
+        - git fetch statusim
+        - git config --global user.email "you@example.com"
+        - git config --global user.name "Your Name"
+        - for b in $(git branch -a --list 'statusim/status-autopatch-*'); do git merge $b; done
+        - git clone --depth 1 https://github.com/nim-lang/csources.git
+        - cd csources
+        - sh build.sh
+        - cd ..
+        - export PATH=$PWD/bin:$PATH
+        - nim c koch
+        - ./koch boot -d:release
+        - ./koch nimble
+        - cd ..
+
+      script:
+        - nimble install -dy && nimble test
