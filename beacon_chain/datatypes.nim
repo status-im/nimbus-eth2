@@ -14,8 +14,8 @@ type
   AttestationVote* = object
     # Implementation pending https://ethresear.ch/t/implementations-of-proof-of-concept-beacon-chains/2509/5?u=mratsim
 
-  Keccak256_Digest* = distinct Hash256  # TODO, previously Keccak256 fields used the "bytes" type
-  Blake2_256_Digest* = distinct Hash256 # while Blake2 used hash32, but latest spec changed everything to hash32
+  Keccak256_Digest* =  Hash256  # TODO, previously Keccak256 fields used the "bytes" type
+  Blake2_256_Digest* = Hash256 # while Blake2 used hash32, but latest spec changed everything to hash32
 
   BeaconBlock* = object
     parentHash*: Keccak256_Digest             # Hash of the parent block
@@ -53,8 +53,8 @@ type
     currentEpochShuffling: seq[int32] #int24   # The permutation of validators used to determine who cross-links what shard in this epoch
     lastJustifiedEpoch: int64                  # The last justified epoch
     lastFinalizedEpoch: int64                  # The last finalized epoch
-    current_dynasty: int64                     # The current dynasty
-    next_shard: int16                          # The next shard that cross-linking assignment will start from
+    currentDynasty: int64                      # The current dynasty
+    nextShard: int16                           # The next shard that cross-linking assignment will start from
     currentCheckpoint: Keccak256_Digest        # The current FFG checkpoint
     crosslinkRecords: seq[CrosslinkRecord]     # Records about the most recent crosslink `for each shard
     totalDeposits: Int256                      # Total balance of deposits
