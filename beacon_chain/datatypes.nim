@@ -11,9 +11,6 @@ import intsets, eth_common, math
 # ⚠ Spec is updated very often, implementation might quickly be outdated
 
 type
-  AttestationVote* = object
-    # Implementation pending https://ethresear.ch/t/implementations-of-proof-of-concept-beacon-chains/2509/5?u=mratsim
-
   Keccak256_Digest* =  Hash256  # TODO, previously Keccak256 fields used the "bytes" type
   Blake2_256_Digest* = Hash256 # while Blake2 used hash32, but latest spec changed everything to hash32
 
@@ -25,6 +22,15 @@ type
     mainChainRef*: Keccak256_Digest           # Reference to main chain block
     activeStatehash*: Blake2_256_Digest       # Hash of the active state
     crystallizedStateHash*: Blake2_256_Digest # Hash of the crystallized state
+
+  AttestationVote* = object
+    height*: int16
+    parentHash*: Keccak256_Digest
+    checkpointHash*: Blake2_256_Digest
+    shardId*: int16
+    shardBlockHash*: Keccak256_Digest
+    attesterBitfield*: IntSet
+    aggregateSig*: seq[BLSPublicKey]
 
   ActiveState* = IntSet
     # ## Spec
@@ -46,20 +52,20 @@ type
     #   Also, IntSets uses machine int size while we require int64 even on 32-bit platform.
 
   CrystallizedState* = object
-    activeValidators: seq[ValidatorRecord]     # List of active validators
-    queuedValidators: seq[ValidatorRecord]     # List of joined but not yet inducted validators
-    exitedValidators: seq[ValidatorRecord]     # List of removed validators pending withdrawal
-    currentEpoch: int64                        # The current epoch
-    currentEpochShuffling: seq[int32] #int24   # The permutation of validators used to determine who cross-links what shard in this epoch
-    lastJustifiedEpoch: int64                  # The last justified epoch
-    lastFinalizedEpoch: int64                  # The last finalized epoch
-    currentDynasty: int64                      # The current dynasty
-    nextShard: int16                           # The next shard that cross-linking assignment will start from
-    currentCheckpoint: Keccak256_Digest        # The current FFG checkpoint
-    crosslinkRecords: seq[CrosslinkRecord]     # Records about the most recent crosslink `for each shard
-    totalDeposits: Int256                      # Total balance of deposits
-    crosslinkSeed: Keccak256_Digest            # Used to select the committees for each shard
-    crosslinkSeedLastReset: int64              # Last epoch the crosslink seed was reset
+    activeValidators*: seq[ValidatorRecord]     # List of active validators
+    queuedValidators*: seq[ValidatorRecord]     # List of joined but not yet inducted validators
+    exitedValidators*: seq[ValidatorRecord]     # List of removed validators pending withdrawal
+    currentEpoch*: int64                        # The current epoch
+    currentEpochShuffling*: seq[int32] #int24   # The permutation of validators used to determine who cross-links what shard in this epoch
+    lastJustifiedEpoch*: int64                  # The last justified epoch
+    lastFinalizedEpoch*: int64                  # The last finalized epoch
+    currentDynasty*: int64                      # The current dynasty
+    nextShard*: int16                           # The next shard that cross-linking assignment will start from
+    currentCheckpoint*: Keccak256_Digest        # The current FFG checkpoint
+    crosslinkRecords*: seq[CrosslinkRecord]     # Records about the most recent crosslink `for each shard
+    totalDeposits*: Int256                      # Total balance of deposits
+    crosslinkSeed*: Keccak256_Digest            # Used to select the committees for each shard
+    crosslinkSeedLastReset*: int64              # Last epoch the crosslink seed was reset
 
   BLSPublicKey = object
     # Stub for BLS signature
