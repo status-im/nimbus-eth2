@@ -78,11 +78,11 @@ type
     hash: Keccak256_Digest                 # The block hash
 
 const
-  ShardCount*         = 1024                         # a constant referring to the number of shards
-  EthSupplyCap*       = 2^27                         # ~= 134 million
-  DepositSize*        = 32                           # You need to deposit 32 ETH to be a validator in Casper
-  MaxValidatorCount*  = EthSupplyCap div DepositSize # 4_194_304
-  EpochLength*        = 64                           # blocks
-  SlotDuration*       = 8                            # seconds
-  MinCommitteeSize*   = 128                          # (rationale: see recommended minimum 111 here https://vitalik.ca/files/Ithaca201807_Sharding.pdf)
-  EndEpochGracePeriod = 8                            # blocks
+  ShardCount*          = 1024                         # a constant referring to the number of shards
+  EthSupplyCap*        = 2^27                         # ~= 134 million
+  DepositSize*         = 32                           # You need to deposit 32 ETH to be a validator in Casper
+  MaxValidatorCount*   = EthSupplyCap div DepositSize # 4_194_304
+  EpochLength*         = 64                           # blocks
+  SlotDuration*        = 8                            # seconds
+  MinCommitteeSize*    = 128                          # (rationale: see recommended minimum 111 here https://vitalik.ca/files/Ithaca201807_Sharding.pdf)
+  EndEpochGracePeriod* = 8                            # blocks
