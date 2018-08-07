@@ -65,6 +65,7 @@ proc serializeETH[T](x: T): seq[byte] =
   #   -  2 bytes for version
   #   -  8 bytes for offset (int64)
   #   - 32 bytes for Blake2 hash for raw data
+  #   - ??? bytes for schema
   let
     offset = int64(result.len + sizeof(int64) + sizeof(Hash256) + schema.len)
     metadataStart = result.len + sizeof(int64)
