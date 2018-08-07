@@ -99,7 +99,7 @@ proc serializeETH[T](x: T): seq[byte] =
   # Some reports
   echo "Schema: " & $schema
   echo "Schema size: " & $schema.len
-  echo "Raw data offset (== metadata size): " & $offset
+  echo "Raw data offset (== metadata size including schema): " & $offset
   echo "Raw data size (bytes): " & $(result.len - offset)
   echo "Total size (bytes): " & $result.len
 
