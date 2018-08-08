@@ -25,11 +25,11 @@ macro typeToJson*(T: typedesc): untyped =
   ## TODO: Add the possibility to force in lexicographical order
 
   let impl = T.getTypeImpl[1].getTypeImpl               # Access type implementation as a tree
-  var jsonType: JsonNode = newJObject()
+  var typeAsJson: JsonNode = newJObject()
   for field in impl[2]:
     let (fieldName, fieldType) = ($field[0], $field[1]) # convert name and type to string
-    jsonType[fieldName] = %fieldType                    # % creates a JsonNode from the string that we assign to key = fieldName.
-  result = newStrLitNode($jsonType)
+    typeAsJson[fieldName] = %fieldType                    # % creates a JsonNode from the string that we assign to key = fieldName.
+  result = newStrLitNode($typeAsJson)
 
 proc appendBigEndianInt(dst: var seq[byte], src: SomeNumber) =
   ## Append an int as a big-endian int to a sequence of bytes
@@ -59,7 +59,7 @@ proc serializeETH[T](x: T): seq[byte] =
   # Write magic string and version
   result = @[]
   for chr in magic:
-    result.add cast[byte](chr)
+    result.add byte(chr)
   result.add version
 
   # Offset of the raw data (stored as int64 even on 32-bit platform):
