@@ -12,31 +12,69 @@ import intsets, eth_common, math
 
 type
   Keccak256_Digest* =  Hash256  # TODO, previously Keccak256 fields used the "bytes" type
-  Blake2_256_Digest* = Hash256 # while Blake2 used hash32, but latest spec changed everything to hash32
+  Blake2_256_Digest* = Hash256  # while Blake2 used hash32, but latest spec changed everything to hash32
+  Uint24* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
 
   BeaconBlock* = object
-    parentHash*: Keccak256_Digest             # Hash of the parent block
-    slotNumber*: int64                        # Slot number (for the PoS mechanism)
-    randaoReveal*: Keccak256_Digest           # Randao commitment reveal
-    attestationVotes*: seq[AttestationVote]   # Attestation votes
-    mainChainRef*: Keccak256_Digest           # Reference to main chain block
-    activeStatehash*: Blake2_256_Digest       # Hash of the active state
-    crystallizedStateHash*: Blake2_256_Digest # Hash of the crystallized state
+    parent_hash*: Keccak256_Digest                # Hash of the parent block
+    slot_number*: int64                           # Slot number (for the PoS mechanism)
+    randao_reveal*: Keccak256_Digest              # Randao commitment reveal
+    attestations*: seq[AttestationRecord]         # Attestation votes
+    pow_chain_ref*: Keccak256_Digest              # Reference to main chain block
+    active_state_root*: Blake2_256_Digest         # Hash of the active state
+    crystallized_state_root*: Blake2_256_Digest   # Hash of the crystallized state
 
-  AttestationVote* = object
-    height*: int16
-    parentHash*: Keccak256_Digest
-    checkpointHash*: Blake2_256_Digest
-    shardId*: int16
-    shardBlockHash*: Keccak256_Digest
-    attesterBitfield*: IntSet
-    aggregateSig*: seq[BLSPublicKey]
+  ActiveState* = object
+    pending_attestations*: seq[AttestationRecord] # Attestations that have not yet been processed
+    recent_block_hashes*: seq[Keccak256_Digest]   # Most recent 2 * CYCLE_LENGTH block hashes, older to newer
 
-  ActiveState* = IntSet
-    # ## Spec
-    # attestation_count: int64
-    # attester_bitfields: seq[byte]
+  CrystallizedState* = object
+    validators*: seq[ValidatorRecord]             # List of active validators
+    last_state_recalc*: int64                     # Last CrystallizedState recalculation
+    indices_for_heights*: seq[seq[ShardAndCommittee]]
+      # What active validators are part of the attester set
+      # at what height, and in what shard. Starts at slot
+      # last_state_recalc - CYCLE_LENGTH
+    last_justified_slot*: int64                   # The last justified slot
+    justified_streak*: int16                      # Number of consecutive justified slots ending at this one
+    last_finalized_slot*: int64                   # The last finalized slot
+    current_dynasty*: int64                       # The current dynasty
+    crosslinking_start_shard*: int16              # The next shard that cross-linking assignment will start from
+    crosslink_records*: seq[CrosslinkRecord]      # Records about the most recent crosslink for each shard
+    total_deposits*: Int256                       # Total balance of deposits
+    dynasty_seed*: Keccak256_Digest               # Used to select the committees for each shard
+    dynasty_seed_last_reset*: int64               # Last epoch the crosslink seed was reset
 
+  ShardAndCommittee = object
+    shard_id*: int16                              # The shard ID
+    committee*: seq[Uint24]                       # Validator indices
+
+  ValidatorRecord* = object
+    pubkey*: BLSPublicKey                         # The validator's public key
+    withdrawal_shard*: int16                      # What shard the validator's balance will be sent to after withdrawal
+    withdrawal_address*: EthAddress               # And what address
+    randao_commitment*: Keccak256_Digest          # The validator's current RANDAO beacon commitment
+    balance*: int64                               # Current balance
+    start_dynasty*: int64                         # Dynasty where the validator is inducted
+    end_dynasty*: int64                           # Dynasty where the validator leaves
+
+  CrosslinkRecord* = object
+    dynasty: int64                                # What dynasty the crosslink was submitted in
+    hash: Keccak256_Digest                        # The block hash
+
+  BLSPublicKey = object
+    # Stub for BLS signature
+    data: array[32, byte]
+
+  AttestationRecord* = object
+    slot*: int64                                  # Slot number
+    shard_id*: int16                              # Shard ID
+    oblique_parent_hashes*: seq[Keccak256_Digest]
+      # List of block hashes that this signature is signing over that
+      # are NOT part of the current chain, in order of oldest to newest
+    shard_block_hash*: Keccak256_Digest           # Block hash in the in the shard that we are attesting to
+    attester_bitfield*: IntSet                    # Who is participating
+    aggregateSig*: seq[BLSPublicKey]              # The actual signature
     # Note:
     # We use IntSet from Nim Standard library which are efficient sparse bitsets.
     # See: https://nim-lang.org/docs/intsets.html
@@ -51,44 +89,11 @@ type
     #
     #   Also, IntSets uses machine int size while we require int64 even on 32-bit platform.
 
-  CrystallizedState* = object
-    activeValidators*: seq[ValidatorRecord]     # List of active validators
-    queuedValidators*: seq[ValidatorRecord]     # List of joined but not yet inducted validators
-    exitedValidators*: seq[ValidatorRecord]     # List of removed validators pending withdrawal
-    currentEpoch*: int64                        # The current epoch
-    currentEpochShuffling*: seq[int32] #int24   # The permutation of validators used to determine who cross-links what shard in this epoch
-    lastJustifiedEpoch*: int64                  # The last justified epoch
-    lastFinalizedEpoch*: int64                  # The last finalized epoch
-    currentDynasty*: int64                      # The current dynasty
-    nextShard*: int16                           # The next shard that cross-linking assignment will start from
-    currentCheckpoint*: Keccak256_Digest        # The current FFG checkpoint
-    crosslinkRecords*: seq[CrosslinkRecord]     # Records about the most recent crosslink `for each shard
-    totalDeposits*: Int256                      # Total balance of deposits
-    crosslinkSeed*: Keccak256_Digest            # Used to select the committees for each shard
-    crosslinkSeedLastReset*: int64              # Last epoch the crosslink seed was reset
-
-  BLSPublicKey = object
-    # Stub for BLS signature
-    data: array[32, byte]
-
-  ValidatorRecord* = object
-    pubkey: BLSPublicKey                   # The validator's public key
-    withdrawalShard: int16                 # What shard the validator's balance will be sent to after withdrawal
-    withdrawalAddress: EthAddress          # And what address
-    randaoCommitment: Keccak256_Digest     # The validator's current RANDAO beacon commitment
-    balance: int64                         # Current balance
-    switchDynasty: int64                   # Dynasty where the validator can (be inducted | be removed | withdraw their balance)
-
-  CrosslinkRecord* = object
-    epoch: int64                           # What epoch the crosslink was submitted in
-    hash: Keccak256_Digest                 # The block hash
 
 const
   ShardCount*          = 1024                         # a constant referring to the number of shards
-  EthSupplyCap*        = 2^27                         # ~= 134 million
   DepositSize*         = 32                           # You need to deposit 32 ETH to be a validator in Casper
-  MaxValidatorCount*   = EthSupplyCap div DepositSize # 4_194_304
-  EpochLength*         = 64                           # blocks
+  MaxValidatorCount*   = 2^22                         # 4_194_304, this means that ~132M ETH can stake at the same time (= MaxValidator Count * DepositSize)
   SlotDuration*        = 8                            # seconds
+  CycleLength*         = 64                           # slots
   MinCommitteeSize*    = 128                          # (rationale: see recommended minimum 111 here https://vitalik.ca/files/Ithaca201807_Sharding.pdf)
-  EndEpochGracePeriod* = 8                            # blocks
