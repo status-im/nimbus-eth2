@@ -45,7 +45,7 @@ type
     dynasty_seed*: Keccak256_Digest               # Used to select the committees for each shard
     dynasty_seed_last_reset*: int64               # Last epoch the crosslink seed was reset
 
-  ShardAndCommittee = object
+  ShardAndCommittee* = object
     shard_id*: int16                              # The shard ID
     committee*: seq[Uint24]                       # Validator indices
 
@@ -91,9 +91,9 @@ type
 
 
 const
-  ShardCount*          = 1024                         # a constant referring to the number of shards
-  DepositSize*         = 32                           # You need to deposit 32 ETH to be a validator in Casper
-  MaxValidatorCount*   = 2^22                         # 4_194_304, this means that ~132M ETH can stake at the same time (= MaxValidator Count * DepositSize)
-  SlotDuration*        = 8                            # seconds
-  CycleLength*         = 64                           # slots
-  MinCommitteeSize*    = 128                          # (rationale: see recommended minimum 111 here https://vitalik.ca/files/Ithaca201807_Sharding.pdf)
+  SHARD_COUNT*         = 1024 # a constant referring to the number of shards
+  DEPOSITE_SIZE*       = 32   # You need to deposit 32 ETH to be a validator in Casper
+  MAX_VALIDATOR_COUNT* = 2^22 # 4_194_304, this means that ~132M ETH can stake at the same time (= MaxValidator Count * DepositSize)
+  SLOT_DURATION*       = 8    # seconds
+  CYCLE_LENGTH*        = 64   # slots
+  MIN_COMMITTEE_SIZE*  = 128  # (rationale: see recommended minimum 111 here https://vitalik.ca/files/Ithaca201807_Sharding.pdf)

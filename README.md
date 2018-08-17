@@ -10,6 +10,20 @@ Please see [Full Casper chain v2.1](https://notes.ethereum.org/SCIg8AH5SA-O4C1G1
 
 You can check where the beacon chain fits in the Ethereum research ecosystem in the [Status Athenaeum](https://github.com/status-im/athenaeum/blob/b465626cc551e361492e56d32517b2cdadd7493f/ethereum_research_records.json#L38).
 
+## Convention
+
+Ethereum Foundation uses:
+  - snake_case for fields and procedure names
+  - MACRO_CASE for constants
+  - PascalCase for types
+
+Nim NEP-1 recommends:
+  - camelCase for fields and procedure names
+  - PascalCase for constants
+  - PsacalCase for types
+
+To facilitate collaboration and comparison, Nim-beacon-chain uses the Ethereum Foundation convention.
+
 ## Installation
 
 You can install the developement version of the library through nimble with the following command
