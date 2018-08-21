@@ -31,7 +31,7 @@ type
   CrystallizedState* = object
     validators*: seq[ValidatorRecord]             # List of active validators
     last_state_recalc*: int64                     # Last CrystallizedState recalculation
-    indices_for_heights*: seq[seq[ShardAndCommittee]]
+    indices_for_slots*: seq[seq[ShardAndCommittee]]
       # What active validators are part of the attester set
       # at what height, and in what shard. Starts at slot
       # last_state_recalc - CYCLE_LENGTH
