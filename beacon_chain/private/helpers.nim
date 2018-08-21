@@ -91,13 +91,23 @@ func get_indices_for_slot*(crystallized_state: CrystallizedState,
   #       Clarify with EF if light clients will need the beacon chain
 
 func get_block_hash*(active_state: ActiveState,
-        beacon_block: BeaconBlock, slot: int64): Keccak256_Digest =
-
-  # TODO: Spec uses crystallized_state as arg and activ_state.slot_number
-  #       which doesn't exist
+        beacon_block: BeaconBlock, slot: int64): Blake2_256_Digest =
 
   let sback = beacon_block.slot_number - CYCLE_LENGTH * 2
   assert sback <= slot
   assert slot < sback + CYCLE_LENGTH * 2
 
   result = active_state.recent_block_hashes[int slot - sback]
+
+func get_new_recent_block_hashes*(
+  old_block_hashes: seq[Blake2_256_Digest],
+  parent_slot, current_slot: int64,
+  parent_hash: Blake2_256_Digest
+  ): seq[Blake2_256_Digest] =
+
+  # Should throw for `current_slot - CYCLE_LENGTH * 2 - 1` according to spec comment
+  let d = current_slot - parent_slot
+  result = old_block_hashes[d .. ^1]
+  for _ in 0 ..< min(d, old_block_hashes.len):
+    result.add parent_hash
+

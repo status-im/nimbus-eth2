@@ -11,22 +11,21 @@ import intsets, eth_common, math
 # ⚠ Spec is updated very often, implementation might quickly be outdated
 
 type
-  Keccak256_Digest* =  Hash256  # TODO, previously Keccak256 fields used the "bytes" type
-  Blake2_256_Digest* = Hash256  # while Blake2 used hash32, but latest spec changed everything to hash32
+  Blake2_256_Digest* = Hash256  # TODO change to Blake2b-512[0 ..< 32] see https://github.com/status-im/nim-beacon-chain/issues/3
   Uint24* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
 
   BeaconBlock* = object
-    parent_hash*: Keccak256_Digest                # Hash of the parent block
+    parent_hash*: Blake2_256_Digest                # Hash of the parent block
     slot_number*: int64                           # Slot number (for the PoS mechanism)
-    randao_reveal*: Keccak256_Digest              # Randao commitment reveal
+    randao_reveal*: Blake2_256_Digest              # Randao commitment reveal
     attestations*: seq[AttestationRecord]         # Attestation votes
-    pow_chain_ref*: Keccak256_Digest              # Reference to main chain block
+    pow_chain_ref*: Blake2_256_Digest              # Reference to main chain block
     active_state_root*: Blake2_256_Digest         # Hash of the active state
     crystallized_state_root*: Blake2_256_Digest   # Hash of the crystallized state
 
   ActiveState* = object
     pending_attestations*: seq[AttestationRecord] # Attestations that have not yet been processed
-    recent_block_hashes*: seq[Keccak256_Digest]   # Most recent 2 * CYCLE_LENGTH block hashes, older to newer
+    recent_block_hashes*: seq[Blake2_256_Digest]   # Most recent 2 * CYCLE_LENGTH block hashes, older to newer
 
   CrystallizedState* = object
     validators*: seq[ValidatorRecord]             # List of active validators
@@ -42,7 +41,7 @@ type
     crosslinking_start_shard*: int16              # The next shard that cross-linking assignment will start from
     crosslink_records*: seq[CrosslinkRecord]      # Records about the most recent crosslink for each shard
     total_deposits*: Int256                       # Total balance of deposits
-    dynasty_seed*: Keccak256_Digest               # Used to select the committees for each shard
+    dynasty_seed*: Blake2_256_Digest               # Used to select the committees for each shard
     dynasty_seed_last_reset*: int64               # Last epoch the crosslink seed was reset
 
   ShardAndCommittee* = object
@@ -53,14 +52,14 @@ type
     pubkey*: BLSPublicKey                         # The validator's public key
     withdrawal_shard*: int16                      # What shard the validator's balance will be sent to after withdrawal
     withdrawal_address*: EthAddress               # And what address
-    randao_commitment*: Keccak256_Digest          # The validator's current RANDAO beacon commitment
+    randao_commitment*: Blake2_256_Digest          # The validator's current RANDAO beacon commitment
     balance*: int64                               # Current balance
     start_dynasty*: int64                         # Dynasty where the validator is inducted
     end_dynasty*: int64                           # Dynasty where the validator leaves
 
   CrosslinkRecord* = object
     dynasty: int64                                # What dynasty the crosslink was submitted in
-    hash: Keccak256_Digest                        # The block hash
+    hash: Blake2_256_Digest                        # The block hash
 
   BLSPublicKey = object
     # Stub for BLS signature
@@ -69,10 +68,10 @@ type
   AttestationRecord* = object
     slot*: int64                                  # Slot number
     shard_id*: int16                              # Shard ID
-    oblique_parent_hashes*: seq[Keccak256_Digest]
+    oblique_parent_hashes*: seq[Blake2_256_Digest]
       # List of block hashes that this signature is signing over that
       # are NOT part of the current chain, in order of oldest to newest
-    shard_block_hash*: Keccak256_Digest           # Block hash in the in the shard that we are attesting to
+    shard_block_hash*: Blake2_256_Digest           # Block hash in the shard that we are attesting to
     attester_bitfield*: IntSet                    # Who is participating
     aggregateSig*: seq[BLSPublicKey]              # The actual signature
     # Note:

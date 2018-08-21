@@ -21,7 +21,7 @@ func checkPartialCrosslinkRecords*(beaconBlock: BeaconBlock, crystalState: Cryst
     if heightInEpoch < EpochLength - EndEpochGracePeriod:
       assert heightCutoffs[height_in_epoch] <= int(shardCutoffs[si] < heightCutoffs[heightInEpoch + 1]) # TODO Spec unclear
     else:
-      assert vote.shardId == 65535 and vote.shardBlockHash == Keccak256_Digest()
+      assert vote.shardId == 65535 and vote.shardBlockHash == Blake2_256_Digest()
 
     var shard_start, shard_end: int
     if heightInEpoch < EpochLength - 8:
