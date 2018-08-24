@@ -82,11 +82,11 @@ func get_indices_for_slot*(crystallized_state: CrystallizedState,
         slot: int64): seq[ShardAndCommittee] {.noInit.}=
   # TODO: Spec why is active_state an argument?
 
-  let ifh_start = crystallized_state.last_state_recalc - CYCLE_LENGTH
-  assert ifh_start <= slot
-  assert slot < ifh_start + CYCLE_LENGTH * 2
+  let start = crystallized_state.last_state_recalc - CYCLE_LENGTH
+  assert start <= slot
+  assert slot < start + CYCLE_LENGTH * 2
 
-  result = crystallized_state.indices_for_slots[int slot - ifh_start]
+  result = crystallized_state.indices_for_slots[int slot - start]
   # TODO, slot is an int64 will be an issue on int32 arch.
   #       Clarify with EF if light clients will need the beacon chain
 
