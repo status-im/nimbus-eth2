@@ -8,73 +8,29 @@
 # A port of https://github.com/ethereum/research/blob/master/clock_disparity/ghost_node.py
 # Specs: https://ethresear.ch/t/beacon-chain-casper-ffg-rpj-mini-spec/2760
 # Part of Casper+Sharding chain v2.1: https://notes.ethereum.org/SCIg8AH5SA-O4C1G1LYZHQ#
+# Note that implementation is not updated to the latest v2.1 yet
 
 import
-  tables, deques,   # Stdlib
-  nimcrypto,        # Nimble packages
+  tables, deques, strutils,  # Stdlib
+  nimcrypto,                 # Nimble packages
   # ../datatypes, # BeaconBlock is still different from the simulation blocks
-  ./networksim      # From repo
+  # Local imports
+  ./fork_choice_types,
+  ./networksim
 
-import hashes
-func hash(x: MDigest): Hash =
-  # Allow usage of MDigest in hashtables
-  const bytes = x.type.bits div 8
-  result = x.unsafeAddr.hashData(bytes)
+###########################################################
+# Forward declarations
 
-const
-  NOTARIES = 100    # Committee size in Casper v2.1
-  SLOT_SIZE = 6     # Slot duration in Casper v2.1
-  EPOCH_LENGTH = 25 # Cycle length inCasper v2.
+method on_receive(self: Node, obj: BlockOrSig, reprocess = false) {.base.} =
+  raise newException(ValueError, "Not implemented error. Please implement in child types")
 
-    # TODO, clear up if reference semantics are needed
-    # for the tables, Block and Sig
+###########################################################
 
-type
-  Block = ref object
-    contents: array[32, byte]
-    parent_hash: MDigest[256]
-    hash: MDigest[256]
-    height: int # slot in Casper v2.1 spec
-    proposer: int64
-    slot: int64
-
-func min_timestamp(self: Block): int64 =
-  SLOT_SIZE * self.slot
-
-let Genesis = Block()
-
-type
-  Sig = object
-    # TODO: unsure if this is still relevant in Casper v2.1
-    proposer: int64                 # the validator that creates a block
-    targets: seq[MDigest[256]]      # the hash of blocks proposed
-    slot: int64                     # slot number
-    timestamp: int64                # ts in the ref implementation
-    hash: MDigest[384]              # The signature (BLS12-384)
-
-type
-  Node = ref object
-
-    blocks: TableRef[MDigest[256], Block]
-    sigs: TableRef[MDigest[384], Sig]
-    main_chain: seq[MDigest[256]]
-    timequeue: seq[Block]
-    parentqueue: TableRef[MDigest[256], Node]
-    children: TableRef[MDigest[256], seq[MDigest[256]]]
-    scores: TableRef[MDigest[256], int]
-    scores_at_height: TableRef[MDigest[256], int] # Should be slot not height in v2.1
-    justified: TableRef[MDigest[256], bool]
-    finalized: TableRef[MDigest[256], bool]
-    timestamp: int64
-    id: int64
-    network: NetworkSimulator
-    used_parents: TableRef[MDigest[256], Node]
-    processed: TableRef[MDigest[256], Block]
-    sleepy: bool
-    careless: bool
-    first_round: bool
-    last_made_block: int64
-    last_made_sig: int64
+proc broadcast(self: Node, x: Block) =
+  if self.sleepy and self.timestamp != 0:
+    return
+  self.network.broadcast(self, x)
+  self.on_receive(x)
 
 proc log(self: Node, words: string, lvl = 3, all = false) =
   if (self.id == 0 or all) and lvl >= 2:
@@ -86,7 +42,11 @@ func add_to_timequeue(self: Node, obj: Block) =
     inc i
   self.timequeue.insert(obj, i)
 
-func add_to_multiset[K, V](self: Node, multiset: var TableRef[K, V], k: K, v: V) =
+func add_to_multiset[K, V](
+    self: Node,
+    multiset: TableRef[K, seq[V]],
+    k: K,
+    v: V or seq[V]) =
   if k notin multiset:
     multiset[k] = @[]
   multiset[k].add v
@@ -120,3 +80,78 @@ func recalculate_head(self: Node) =
       self.change_head(self.main_chain, self.blocks[new_head])
     else:
       return
+
+proc process_children(self: Node, h: MDigest[256]) =
+  if h in self.parentqueue:
+    for b in self.parentqueue[h]:
+      self.on_receive(b, reprocess = true)
+    self.parentqueue.del h
+
+func get_common_ancestor(self: Node, hash_a, hash_b: MDigest[256]): Block =
+  var (a, b) = (self.blocks[hash_a], self.blocks[hash_b])
+  while b.height > a.height:
+    b = self.blocks[b.parent_hash]
+  while a.height > b.height:
+    a = self.blocks[a.parent_hash]
+  while a.hash != b.hash:
+    a = self.blocks[a.parent_hash]
+    b = self.blocks[b.parent_hash]
+  return a
+
+func is_descendant(self: Node, hash_a, hash_b: MDigest[256]): bool =
+  let a = self.blocks[hash_a]
+  var b = self.blocks[hash_b]
+  while b.height > a.height:
+    b = self.blocks[b.parent_hash]
+  return a.hash == b.hash
+
+proc have_ancestry(self: Node, h: MDigest[256]): bool =
+  let h = BlockHash(raw: h)
+  while h.raw != Genesis.hash:
+    if h notin self.processed:
+      return false
+    let wip = self.processed[h]
+    if wip is Block:
+      h.raw = Block(wip).parent_hash
+  return true
+
+proc on_receive(self: Node, blck: Block, reprocess = false) =
+  block: # Common part of on_receive
+    let hash = BlockHash(raw: blck.hash)
+    if hash in self.processed and not reprocess:
+      return
+    self.processed[hash] = blck
+
+  # parent not yet received
+  if blck.parent_hash notin self.blocks:
+    self.add_to_multiset(self.parentqueue, blck.parent_hash, blck)
+    return
+  # Too early
+  if blck.min_timestamp > self.timestamp:
+    self.add_to_timequeue(blck)
+    return
+  # Add the block
+  self.log("Processing beacon block &" % blck.hash.data[0 .. ^4].toHex(false))
+  self.blocks[blck.hash] = blck
+  # Is the block building on the head? Then add it to the head!
+  if blck.parent_hash == self.main_chain[^1] or self.careless:
+    self.main_chain.add(blck.hash)
+  # Add child record
+  self.add_to_multiset(self.children, blck.parent_hash, blck.hash)
+  # Final steps
+  self.process_children(blck.hash)
+  self.network.broadcast(self, blck)
+
+proc on_receive(self: Node, sig: Sig, reprocess = false) =
+  block: # Common part of on_receive
+    let hash = SigHash(raw: sig.hash)
+    if hash in self.processed and not reprocess:
+      return
+    self.processed[hash] = sig
+
+  if sig.targets[0] notin self.blocks:
+    self.add_to_multiset(self.parentqueue, sig.targets[0], sig)
+    return
+
+  # Get common ancestor
+

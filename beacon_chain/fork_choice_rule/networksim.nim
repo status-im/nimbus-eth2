@@ -9,13 +9,13 @@
 # Specs: https://ethresear.ch/t/beacon-chain-casper-ffg-rpj-mini-spec/2760
 # Part of Casper+Sharding chain v2.1: https://notes.ethereum.org/SCIg8AH5SA-O4C1G1LYZHQ#
 
-import tables
+import
+  tables,
+  ./fork_choice_types
 
-type
-  NetworkSimulator* = ref object
-    agents*: seq[int]
-    latency_distribution_sample*: seq[int]
-    time*: int64
-    objqueue*: Table[int, int]
-    peers*: Table[int, int]
-    reliability*: float
+func broadcast*(self: NetworkSimulator, sender: Node, obj: Block) =
+  for p in self.peers[sender.id]:
+    let recv_time = self.time + self.latency_distribution_sample()
+    if recv_time notin self.objqueue:
+      self.objqueue[recv_time] = @[]
+    self.objqueue[recv_time].add (p, obj)
