@@ -78,7 +78,7 @@ type
     agents*: seq[int]
     latency_distribution_sample*: proc (): int
     time*: int64
-    objqueue*: TableRef[int64, seq[(Node, Block)]]
+    objqueue*: TableRef[int64, seq[(Node, BlockOrSig)]]
     peers*: TableRef[int, seq[Node]]
     reliability*: float
 
@@ -86,7 +86,7 @@ type
     # TODO: unsure if this is still relevant in Casper v2.1
     proposer*: int64                 # the validator that creates a block
     targets*: seq[MDigest[256]]      # the hash of blocks proposed
-    slot*: int64                     # slot number
+    slot*: int32                     # slot number
     timestamp*: int64                # ts in the ref implementation
     hash*: MDigest[384]              # The signature (BLS12-384)
 
@@ -98,7 +98,7 @@ type
     parentqueue*: TableRef[MDigest[256], seq[BlockOrSig]]
     children*: TableRef[MDigest[256], seq[MDigest[256]]]
     scores*: TableRef[MDigest[256], int]
-    scores_at_height*: TableRef[MDigest[256], int] # Should be slot not height in v2.1
+    scores_at_height*: TableRef[array[36, byte], int] # Should be slot not height in v2.1
     justified*: TableRef[MDigest[256], bool]
     finalized*: TableRef[MDigest[256], bool]
     timestamp*: int64

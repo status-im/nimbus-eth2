@@ -13,7 +13,7 @@ import
   tables,
   ./fork_choice_types
 
-func broadcast*(self: NetworkSimulator, sender: Node, obj: Block) =
+func broadcast*(self: NetworkSimulator, sender: Node, obj: BlockOrSig) =
   for p in self.peers[sender.id]:
     let recv_time = self.time + self.latency_distribution_sample()
     if recv_time notin self.objqueue:

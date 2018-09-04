@@ -11,12 +11,12 @@
 # Note that implementation is not updated to the latest v2.1 yet
 
 import
-  tables, deques, strutils,  # Stdlib
-  nimcrypto,                 # Nimble packages
-  # ../datatypes, # BeaconBlock is still different from the simulation blocks
+  # Stdlib
+  tables, deques, strutils, endians, strformat,
+  # Nimble packages
+  nimcrypto,
   # Local imports
-  ./fork_choice_types,
-  ./networksim
+  ./fork_choice_types, ./networksim
 
 ###########################################################
 # Forward declarations
@@ -115,7 +115,7 @@ proc have_ancestry(self: Node, h: MDigest[256]): bool =
       h.raw = Block(wip).parent_hash
   return true
 
-proc on_receive(self: Node, blck: Block, reprocess = false) =
+method on_receive(self: Node, blck: Block, reprocess = false) =
   block: # Common part of on_receive
     let hash = BlockHash(raw: blck.hash)
     if hash in self.processed and not reprocess:
@@ -131,7 +131,7 @@ proc on_receive(self: Node, blck: Block, reprocess = false) =
     self.add_to_timequeue(blck)
     return
   # Add the block
-  self.log("Processing beacon block &" % blck.hash.data[0 .. ^4].toHex(false))
+  self.log "Processing beacon block &" % blck.hash.data[0 .. ^4].toHex(false)
   self.blocks[blck.hash] = blck
   # Is the block building on the head? Then add it to the head!
   if blck.parent_hash == self.main_chain[^1] or self.careless:
@@ -142,7 +142,7 @@ proc on_receive(self: Node, blck: Block, reprocess = false) =
   self.process_children(blck.hash)
   self.network.broadcast(self, blck)
 
-proc on_receive(self: Node, sig: Sig, reprocess = false) =
+method on_receive(self: Node, sig: Sig, reprocess = false) =
   block: # Common part of on_receive
     let hash = SigHash(raw: sig.hash)
     if hash in self.processed and not reprocess:
@@ -152,6 +152,74 @@ proc on_receive(self: Node, sig: Sig, reprocess = false) =
   if sig.targets[0] notin self.blocks:
     self.add_to_multiset(self.parentqueue, sig.targets[0], sig)
     return
-
   # Get common ancestor
+  let anc = self.get_common_ancestor(self.main_chain[^1], sig.targets[0])
+  let max_score = block:
+    var max = 0
+    for i in anc.height + 1 ..< self.main_chain.len:
+      max = max(max, self.scores.getOrDefault(self.main_chain[i], 0))
+    max
+  # Process scoring
+  var max_newchain_score = 0
+  for i in countdown(sig.targets.len - 1, 0):
+    let c = sig.targets[i]
 
+    let slot = sig.slot - 1 - i
+    var slot_key: array[4, byte]
+    bigEndian32(slot_key.addr, slot.unsafeAddr)
+    doAssert self.blocks[c].slot <= slot
+
+    # If a parent and child block have non-consecutive slots, then the parent
+    # block is also considered to be the canonical block at all of the intermediate
+    # slot numbers. We store the scores for the block at each height separately
+    var key: array[36, byte]
+    key[0 ..< 4] = slot_key
+    key[4 ..< 36] = c.data
+    self.scores_at_height[key] = self.scores_at_height.getOrDefault(key, 0) + 1
+
+    # For fork choice rule purposes, the score of a block is the highst score
+    # that it has at any height
+    self.scores[c] = max(self.scores.getOrDefault(c, 0), self.scores_at_height[key])
+
+    # If 2/3 of notaries vote for a block, it is justified
+    if self.scores_at_height[key] == NOTARIES * 2 div 3: # Shouldn't that be >= ?
+      self.justified[c] = true
+      var c2 = c
+      self.log &"Justified: {slot} {($c)[0 ..< 8]}"
+
+      # If EPOCH_LENGTH+1 blocks are justified in a row, the oldest is
+      # considered finalized
+
+      var finalize = true
+      for slot2 in countdown(slot-1, max(slot - EPOCH_LENGTH * 1, 0) - 1):
+        if slot2 < self.blocks[c2].slot:
+          c2 = self.blocks[c2].parent_hash
+
+        var slot_key2: array[4, byte]
+        bigEndian32(slot_key2.addr, slot2.unsafeAddr)
+        var key2: array[36, byte]
+        key[0 ..< 4] = slot_key2
+        key[4 ..< 36] = c2.data
+
+        if self.scores_at_height.getOrDefault(key2, 0) < NOTARIES * 2 div 3:
+          finalize = false
+          self.log &"Not quite finalized: stopped at {slot2} needed {max(slot - EPOCH_LENGTH, 0)}"
+          break
+
+        if slot2 < slot - EPOCH_LENGTH - 1 and finalize and c2 notin self.finalized:
+          self.log &"Finalized: {self.blocks[c2].slot} {($c)[0 ..< 8]}"
+          self.finalized[c2] = true
+
+    # Find the maximum score of a block on the chain that this sig is weighing on
+    if self.blocks[c].slot > anc.slot:
+      max_newchain_score = max(max_newchain_score, self.scores[c])
+
+  # If it's higher, switch over the canonical chain
+  if max_newchain_score > max_score:
+    self.main_chain = self.mainchain[0 ..< anc.height + 1]
+    self.recalculate_head()
+
+  self.sigs[sig.hash] = sig
+
+  # Rebroadcast
+  self.network.broadcast(self, sig)
