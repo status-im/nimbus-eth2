@@ -11,13 +11,16 @@
 # Note that implementation is not updated to the latest v2.1 yet
 
 import
-  tables, deques, strutils, hashes, times, # Stdlib
-  nimcrypto                                # Nimble packages
+  # Stdlib
+  tables, deques, strutils, hashes, times,
+  random,
+  # Nimble packages
+  nimcrypto
 
 const
-  NOTARIES* = 100                        # Committee size in Casper v2.1
-  SLOT_SIZE* = initDuration(seconds = 6) # Slot duration in Casper v2.1
-  EPOCH_LENGTH* = 25                     # Cycle length in Casper v2.
+  NOTARIES* = 100     # Committee size in Casper v2.1
+  SLOT_SIZE* = 6      # Slot duration in Casper v2.1
+  EPOCH_LENGTH* = 25  # Cycle length in Casper v2.
 
 # TODO, clear up if reference semantics are needed
 # for the tables. I.e. what's their maximum size.
@@ -39,14 +42,34 @@ type
     parent_hash*: MDigest[256]
     hash*: MDigest[256]
     height*: int # slot in Casper v2.1 spec
-    proposer*: int64
-    slot*: int64
+    proposer*: int32
+    slot*: int32
 ##########################################
 
 func min_timestamp*(self: Block): Duration =
-  SLOT_SIZE * self.slot
+  const slot_size = initDuration(seconds = SLOT_SIZE)
+  result = slot_size * self.slot
 
 let Genesis* = Block()
+
+proc initBlock*(parent: Block, slot, proposer: int32): Block =
+  new result
+  for val in result.contents.mitems:
+    val = rand(0.byte .. 7.byte)
+  if not parent.isNil:
+    result.parent_hash = parent.hash
+    result.height = parent.height + 1
+
+  var ctx: keccak256
+  ctx.init()
+  ctx.update(result.parent_hash.data)
+  ctx.update(result.contents)
+  ctx.finish(result.hash.data)
+  ctx.clear()
+
+  doAssert slot mod NOTARIES == proposer
+  result.proposer = proposer
+  result.slot = slot
 
 ##########################################
 
@@ -108,7 +131,7 @@ type
     justified*: TableRef[MDigest[256], bool]
     finalized*: TableRef[MDigest[256], bool]
     timestamp*: Duration
-    id*: int
+    id*: int32
     network*: NetworkSimulator
     used_parents*: TableRef[MDigest[256], Node]
     processed*: TableRef[BlockOrSigHash, BlockOrSig]

@@ -28,7 +28,7 @@ method on_receive(self: Node, obj: BlockOrSig, reprocess = false) {.base.} =
 ###########################################################
 
 proc broadcast(self: Node, x: Block) =
-  if self.sleepy and self.timestamp != Duration():
+  if self.sleepy and self.timestamp != DurationZero:
     return
   self.network.broadcast(self, x)
   self.on_receive(x)
@@ -241,3 +241,12 @@ func get_sig_targets(self: Node, start_slot: int32): seq[MDigest[256]] =
     doAssert self.blocks[x].slot <= start_slot - 1 - i
   doAssert result.len == min(EPOCH_LENGTH, start_slot)
 
+proc tick(self: Node) =
+  self.timestamp += initDuration(milliseconds = 100)
+  self.log &"Tick: {self.timestamp}", lvl=1
+  # Make a block?
+  let slot = int32 seconds(self.timestamp div SLOT_SIZE)
+  if slot > self.last_made_block and (slot mod NOTARIES) == self.id:
+    self.broadcast(
+      initBlock(self.blocks[self.main_chain[^1]], slot, self.id)
+    )
