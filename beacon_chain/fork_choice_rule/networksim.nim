@@ -10,7 +10,7 @@
 # Part of Casper+Sharding chain v2.1: https://notes.ethereum.org/SCIg8AH5SA-O4C1G1LYZHQ#
 
 import
-  tables,
+  tables, times,
   ./fork_choice_types
 
 func broadcast*(self: NetworkSimulator, sender: Node, obj: BlockOrSig) =

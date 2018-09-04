@@ -13,6 +13,7 @@
 import
   # Stdlib
   tables, deques, strutils, endians, strformat,
+  times,
   # Nimble packages
   nimcrypto,
   # Local imports
@@ -27,7 +28,7 @@ method on_receive(self: Node, obj: BlockOrSig, reprocess = false) {.base.} =
 ###########################################################
 
 proc broadcast(self: Node, x: Block) =
-  if self.sleepy and self.timestamp != 0:
+  if self.sleepy and self.timestamp != Duration():
     return
   self.network.broadcast(self, x)
   self.on_receive(x)
@@ -191,7 +192,8 @@ method on_receive(self: Node, sig: Sig, reprocess = false) =
       # considered finalized
 
       var finalize = true
-      for slot2 in countdown(slot-1, max(slot - EPOCH_LENGTH * 1, 0) - 1):
+      for slot2 in countdown(slot-1, max(slot - EPOCH_LENGTH * 1, 0)):
+        # Note the max(...)-1 in spec is unneeded, Nim ranges are inclusive
         if slot2 < self.blocks[c2].slot:
           c2 = self.blocks[c2].parent_hash
 
@@ -223,3 +225,19 @@ method on_receive(self: Node, sig: Sig, reprocess = false) =
 
   # Rebroadcast
   self.network.broadcast(self, sig)
+
+func get_sig_targets(self: Node, start_slot: int32): seq[MDigest[256]] =
+  # Get the portion of the main chain that is within the last EPOCH_LENGTH
+  # slots, once again duplicating the parent in cases where the parent and
+  # child's slots are not consecutive
+  result = @[]
+  var i = self.main_chain.high
+  for slot in countdown(start_slot-1, max(start_slot - EPOCH_LENGTH, 0)):
+    # Note the max(...)-1 in spec is unneeded, Nim ranges are inclusive
+    if slot < self.blocks[self.main_chain[i]].slot:
+      dec i
+    result.add self.main_chain[i]
+  for i, x in result:
+    doAssert self.blocks[x].slot <= start_slot - 1 - i
+  doAssert result.len == min(EPOCH_LENGTH, start_slot)
+

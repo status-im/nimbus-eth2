@@ -11,13 +11,13 @@
 # Note that implementation is not updated to the latest v2.1 yet
 
 import
-  tables, deques, strutils, hashes,  # Stdlib
-  nimcrypto                          # Nimble packages
+  tables, deques, strutils, hashes, times, # Stdlib
+  nimcrypto                                # Nimble packages
 
 const
-  NOTARIES* = 100    # Committee size in Casper v2.1
-  SLOT_SIZE* = 6     # Slot duration in Casper v2.1
-  EPOCH_LENGTH* = 25 # Cycle length inCasper v2.
+  NOTARIES* = 100                        # Committee size in Casper v2.1
+  SLOT_SIZE* = initDuration(seconds = 6) # Slot duration in Casper v2.1
+  EPOCH_LENGTH* = 25                     # Cycle length in Casper v2.
 
 # TODO, clear up if reference semantics are needed
 # for the tables. I.e. what's their maximum size.
@@ -43,7 +43,7 @@ type
     slot*: int64
 ##########################################
 
-func min_timestamp*(self: Block): int64 =
+func min_timestamp*(self: Block): Duration =
   SLOT_SIZE * self.slot
 
 let Genesis* = Block()
@@ -71,14 +71,20 @@ method hash*(x: SigHash): Hash =
   ## Allow usage of Sighash in tables
   x.raw.hash
 
+func hash*(x: Duration): Hash =
+  ## Allow usage of Duration in tables
+  # Due to rpivate fields, we use pointer + length as a hack:
+  # https://github.com/nim-lang/Nim/issues/8857
+  result = hashData(x.unsafeAddr, x.sizeof)
+
 #########################################
 
 type
   NetworkSimulator* = ref object
     agents*: seq[int]
-    latency_distribution_sample*: proc (): int
-    time*: int64
-    objqueue*: TableRef[int64, seq[(Node, BlockOrSig)]]
+    latency_distribution_sample*: proc (): Duration
+    time*: Duration
+    objqueue*: TableRef[Duration, seq[(Node, BlockOrSig)]]
     peers*: TableRef[int, seq[Node]]
     reliability*: float
 
@@ -101,7 +107,7 @@ type
     scores_at_height*: TableRef[array[36, byte], int] # Should be slot not height in v2.1
     justified*: TableRef[MDigest[256], bool]
     finalized*: TableRef[MDigest[256], bool]
-    timestamp*: int64
+    timestamp*: Duration
     id*: int
     network*: NetworkSimulator
     used_parents*: TableRef[MDigest[256], Node]
