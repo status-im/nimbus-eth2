@@ -13,7 +13,7 @@
 import
   # Stdlib
   tables, deques, strutils, endians, strformat,
-  times,
+  times, sequtils,
   # Nimble packages
   nimcrypto,
   # Local imports
@@ -27,7 +27,7 @@ method on_receive(self: Node, obj: BlockOrSig, reprocess = false) {.base.} =
 
 ###########################################################
 
-proc broadcast(self: Node, x: Block) =
+proc broadcast(self: Node, x: BlockOrSig) =
   if self.sleepy and self.timestamp != DurationZero:
     return
   self.network.broadcast(self, x)
@@ -250,3 +250,19 @@ proc tick(self: Node) =
     self.broadcast(
       initBlock(self.blocks[self.main_chain[^1]], slot, self.id)
     )
+    self.last_made_block = slot
+  # Make a sig?
+  if slot > self.last_made_sig and (slot mod EPOCH_LENGTH) == self.id mod EPOCH_LENGTH:
+    var sig_from = self.main_chain.high
+    while sig_from > 0 and self.blocks[self.main_chain[sig_from]].slot >= slot - EPOCH_LENGTH:
+      dec sig_from
+    let sig = initSig(self.id, self.get_sig_targets(slot), slot, self.timestamp)
+    self.log &"Sig: {self.id} {sig.slot} {sig.targets.mapIt(($it)[0 ..< 4])}"
+    self.broadcast sig
+    self.last_made_sig = slot
+  # process time queue
+  var first = self.timequeue[0]
+  while self.timequeue.len > 0 and first.min_timestamp <= self.timestamp:
+    self.timequeue.delete(0) # This is expensive, but we can't use a queue due to random insertions in add_to_timequeue
+    self.on_receive(first, reprocess = true)
+    first = self.timequeue[0]

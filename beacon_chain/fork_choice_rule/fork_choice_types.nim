@@ -116,7 +116,7 @@ type
     proposer*: int64                 # the validator that creates a block
     targets*: seq[MDigest[256]]      # the hash of blocks proposed
     slot*: int32                     # slot number
-    timestamp*: int64                # ts in the ref implementation
+    timestamp*: Duration             # ts in the ref implementation
     hash*: MDigest[384]              # The signature (BLS12-384)
 
   Node* = ref object
@@ -138,5 +138,18 @@ type
     sleepy*: bool
     careless*: bool
     first_round*: bool
-    last_made_block*: int64
-    last_made_sig*: int64
+    last_made_block*: int32
+    last_made_sig*: int32
+
+proc initSig*(
+        proposer: int32,
+        targets: seq[MDigest[256]],
+        slot: int32,
+        ts: Duration): Sig =
+  new result
+  result.proposer = proposer
+  result.targets = targets
+  result.slot = slot
+  result.timestamp = ts
+  for val in result.hash.data.mitems:
+    val = rand(0.byte .. 7.byte)
