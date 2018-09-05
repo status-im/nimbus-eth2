@@ -1,42 +1,39 @@
-# Travis config for beacon_chain using Status Nim docker.
+language: c # or other C/C++ variants
 
-matrix:
-  # allow_failures:
-  #   - os: osx
+sudo: false
 
-  include:
-    - os: linux
-      sudo: required
-      services:
-        - docker
-      before_install:
-        - docker pull statusteam/nim-base
-      script:
-        - docker run statusteam/nim-base nim --version
-        - docker run -v "$(pwd):/project" -w /project statusteam/nim-base sh -c "nimble install -dy && nimble test"
+# https://docs.travis-ci.com/user/caching/
+#
+# Caching the whole nim folder is better than relying on ccache - this way, we
+# skip the expensive bootstrap process and linking
+cache:
+  directories:
+    - nim
 
-    - os: osx
-      before_install:
-        - brew update
-        - brew install rocksdb
-        # - brew install gcc
+os:
+  - linux
+  - osx
 
-        - git clone https://github.com/nim-lang/nim.git
-        - cd nim
-        - git remote add statusim https://github.com/status-im/nim.git
-        - git fetch statusim
-        - git config --global user.email "you@example.com"
-        - git config --global user.name "Your Name"
-        - for b in $(git branch -a --list 'statusim/status-autopatch-*'); do git merge $b; done
-        - git clone --depth 1 https://github.com/nim-lang/csources.git
-        - cd csources
-        - sh build.sh
-        - cd ..
-        - export PATH=$PWD/bin:$PATH
-        - nim c koch
-        - ./koch boot -d:release
-        - ./koch nimble
-        - cd ..
+install:
+  # build nim from our own branch - this to avoid the day-to-day churn and
+  # regressions of the fast-paced Nim development while maintaining the
+  # flexibility to apply patches
+  #
+  # check version of remote branch
+  - "export NIMVER=$(git ls-remote https://github.com/status-im/nim.git HEAD | cut -f 1)"
 
-      script:
-        - nimble install -dy && nimble test
+  # after building nim, wipe csources to save on cache space
+  - "{ [ -f nim/$NIMVER/bin/nim ] && [ -f nim/$NIMVER/bin/nimble ] ; } ||
+      { rm -rf nim ;
+        mkdir -p nim ;
+        git clone --depth=1 https://github.com/status-im/nim.git nim/$NIMVER ;
+        cd nim/$NIMVER ;
+        sh build_all.sh ;
+        rm -rf csources ;
+        cd ../.. ;
+      }"
+  - "export PATH=$PWD/nim/$NIMVER/bin:$PATH"
+
+script:
+  - nimble install -y
+  - nimble test

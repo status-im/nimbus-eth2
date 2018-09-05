@@ -1,77 +1,87 @@
-# Appveyor config.
-
 version: '{build}'
 
 cache:
-- nim-0.18.0_x64.zip
-- x86_64-4.9.2-release-win32-seh-rt_v4-rev4.7z
-- i686-4.9.2-release-win32-dwarf-rt_v4-rev4.7z
-- packages -> **\packages.config
-- '%LocalAppData%\NuGet\Cache -> **\packages.config'
+- x86_64-4.9.2-release-win32-seh-rt_v4-rev4.7z -> .appveyor.yml
+- i686-4.9.2-release-win32-dwarf-rt_v4-rev4.7z -> .appveyor.yml
+- Nim -> .appveyor.yml
 
 matrix:
-  fast_finish: true
+  # We always want 32 and 64-bit compilation
+  fast_finish: false
 
-environment:
-  matrix:
-    - MINGW_ARCHIVE: x86_64-4.9.2-release-win32-seh-rt_v4-rev4.7z
-      MINGW_DIR: mingw64
-      # We need to hardcode a mirror otherwise the download fails
-      MINGW_URL: https://ayera.dl.sourceforge.net/project/mingw-w64/Toolchains%20targetting%20Win64/Personal%20Builds/mingw-builds/4.9.2/threads-win32/seh/x86_64-4.9.2-release-win32-seh-rt_v4-rev4.7z
-      # NIM_ARCHIVE: nim-0.18.0_x64.zip
-      # NIM_DIR: nim-0.18.0
-      # NIM_URL: https://nim-lang.org/download/nim-0.18.0_x64.zip
-      platform: x64
-    - MINGW_ARCHIVE: i686-4.9.2-release-win32-dwarf-rt_v4-rev4.7z
-      MINGW_DIR: mingw32
-      # We need to hardcode a mirror otherwise the download fails
-      MINGW_URL: https://netcologne.dl.sourceforge.net/project/mingw-w64/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/4.9.2/threads-win32/dwarf/i686-4.9.2-release-win32-dwarf-rt_v4-rev4.7z
-      # NIM_ARCHIVE: nim-0.18.0_x64.zip
-      # NIM_DIR: nim-0.18.0
-      # NIM_URL: https://nim-lang.org/download/nim-0.18.0_x32.zip
-      platform: x86
+platform:
+  - x86
+  - x64
 
-## Use the following to test against stable
-# install:
-#   - MKDIR %CD%\tools_tmp
-#   - IF not exist "%MINGW_ARCHIVE%" appveyor DownloadFile "%MINGW_URL%" -FileName "%MINGW_ARCHIVE%"
-#   - 7z x -y "%MINGW_ARCHIVE%" -o"%CD%\tools_tmp"> nul
-#   - IF not exist "%NIM_ARCHIVE%" appveyor DownloadFile "%NIM_URL%" -FileName "%NIM_ARCHIVE%"
-#   - 7z x -y "%NIM_ARCHIVE%" -o"%CD%\tools_tmp"> nul
-#   - SET PATH=%CD%\tools_tmp\%NIM_DIR%\bin;%CD%\tools_tmp\%MINGW_DIR%\bin;%PATH%
-#   # - ps: nuget install YourDependency -o "${env:APPVEYOR_BUILD_FOLDER}"
-#   # - ps: cp YourDependency.0.1.2.3/lib/native/bin/x64/libyourdependency.dll yourdependency.dll
-#   - SET PATH=%PATH%;%CD%
-
-## Test against devel with Status patches
 install:
   - setlocal EnableExtensions EnableDelayedExpansion
-  - IF not exist "%MINGW_ARCHIVE%" appveyor DownloadFile "%MINGW_URL%" -FileName "%MINGW_ARCHIVE%"
-  - 7z x -y "%MINGW_ARCHIVE%" > nul
+
+  - IF "%PLATFORM%" == "x86" (
+      SET "MINGW_ARCHIVE=i686-4.9.2-release-win32-dwarf-rt_v4-rev4.7z" &
+      SET "MINGW_URL=https://sourceforge.net/projects/mingw-w64/files/Toolchains%%20targetting%%20Win32/Personal%%20Builds/mingw-builds/4.9.2/threads-win32/dwarf/i686-4.9.2-release-win32-dwarf-rt_v4-rev4.7z" &
+      SET "MINGW_DIR=mingw32"
+    ) ELSE (
+      IF "%PLATFORM%" == "x64" (
+        SET "MINGW_ARCHIVE=x86_64-4.9.2-release-win32-seh-rt_v4-rev4.7z" &
+        SET "MINGW_URL=https://sourceforge.net/projects/mingw-w64/files/Toolchains%%20targetting%%20Win64/Personal%%20Builds/mingw-builds/4.9.2/threads-win32/seh/x86_64-4.9.2-release-win32-seh-rt_v4-rev4.7z" &
+        SET "MINGW_DIR=mingw64"
+      ) else (
+        echo "Unknown platform"
+      )
+    )
+
   - SET PATH=%CD%\%MINGW_DIR%\bin;%CD%\Nim\bin;%PATH%
-  - git clone https://github.com/nim-lang/Nim.git
-  - cd %CD%\Nim
-  - git remote add statusim https://github.com/status-im/Nim.git
-  - git fetch statusim
-  - git config --global user.email "you@example.com"
-  - git config --global user.name "Your Name"
-  - for /f "tokens=*" %%G IN ('git branch -a --list ^"statusim/status-autopatch-*^"') DO (git merge %%G)
-  - git clone --depth 1 https://github.com/nim-lang/csources
-  - cd csources
-  - IF "%PLATFORM%" == "x64" ( build64.bat ) else ( build.bat )
-  - cd ..
-  - bin\nim c koch
-  - koch boot -d:release
-  - koch nimble
+
+  # Unpack mingw
+  - IF NOT EXIST "%MINGW_ARCHIVE%" appveyor DownloadFile "%MINGW_URL%" -FileName "%MINGW_ARCHIVE%"
+  - 7z x -y "%MINGW_ARCHIVE%" > nul
+
+    # build nim from our own branch - this to avoid the day-to-day churn and
+    # regressions of the fast-paced Nim development while maintaining the
+    # flexibility to apply patches
+  - SET "NEED_REBUILD="
+
+  - IF NOT EXIST "Nim\\.git\\" (
+      git clone https://github.com/status-im/Nim.git
+    ) ELSE (
+      ( cd Nim ) &
+      ( git pull ) &
+      ( cd .. )
+    )
+
+  # Rebuild Nim if HEAD has moved or if we don't yet have a cached version
+  - IF NOT EXIST "Nim\\ver.txt" (
+      SET NEED_REBUILD=1
+    ) ELSE (
+      ( CD Nim ) &
+      ( git rev-parse HEAD > ..\\cur_ver.txt ) &
+      ( fc ver.txt ..\\cur_ver.txt > nul ) &
+      ( IF NOT ERRORLEVEL == 0 SET NEED_REBUILD=1 ) &
+      ( cd .. )
+    )
+
+  - IF NOT EXIST "Nim\\bin\\nim.exe" SET NEED_REBUILD=1
+  - IF NOT EXIST "Nim\\bin\\nimble.exe" SET NEED_REBUILD=1
+
+  # after building nim, wipe csources to save on cache space
+  - IF DEFINED NEED_REBUILD (
+      cd Nim &
+      ( IF EXIST "csources" rmdir /s /q csources ) &
+      git clone --depth 1 https://github.com/nim-lang/csources &
+      cd csources &
+      ( IF "%PLATFORM%" == "x64" ( build64.bat ) else ( build.bat ) ) &
+      cd .. &
+      bin\nim c koch &
+      koch boot -d:release &
+      koch nimble &
+      git rev-parse HEAD > ver.txt &
+      rmdir /s /q csources
+    )
+
 build_script:
   - cd C:\projects\%APPVEYOR_PROJECT_SLUG%
   - nimble install -y
-
-build_script:
-  - nimble.exe refresh
-
 test_script:
-#  - git submodule update --init --recursive
-  - nimble.exe test
+  - nimble test
 
 deploy: off
