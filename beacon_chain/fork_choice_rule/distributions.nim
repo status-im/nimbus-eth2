@@ -12,8 +12,9 @@
 
 import math, random
 
-proc normal_distribution(mean = 0.0, std = 1.0): int =
+proc normal_distribution*(mean = 0.0, std = 1.0): int =
   ## Return an integer sampled from a normal distribution (gaussian)
+  ## ⚠ This is not thread-safe
   # Implementation via the Box-Muller method
   # See https://en.wikipedia.org/wiki/Box–Muller_transform
 
@@ -33,7 +34,6 @@ proc normal_distribution(mean = 0.0, std = 1.0): int =
     z0 = R * cos(2 * PI * u2)
   z1 = R * sin(2 * PI * u2)
   return int(z0 * std + mean)
-
 
 when isMainModule:
   import sequtils, stats, strformat
