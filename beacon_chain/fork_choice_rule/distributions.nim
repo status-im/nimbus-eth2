@@ -12,11 +12,14 @@
 
 import math, random
 
-proc normal_distribution*(mean = 0.0, std = 1.0): int =
+proc normal_distribution*(mean = 0, std = 1): int =
   ## Return an integer sampled from a normal distribution (gaussian)
   ## ⚠ This is not thread-safe
   # Implementation via the Box-Muller method
   # See https://en.wikipedia.org/wiki/Box–Muller_transform
+  let
+    mean = mean.float
+    std = std.float
 
   var
     z1 {.global.}: float
@@ -46,8 +49,8 @@ when isMainModule:
     abs(y_true - y)/abs(y_true)
 
   let
-    mu = 1000f
-    sigma = 12f
+    mu = 1000
+    sigma = 12
     a = newSeqWith(10000000, normal_distribution(mean = mu, std = sigma))
 
   var statistics: RunningStat
@@ -61,13 +64,13 @@ when isMainModule:
     echo &"{stat:<20} {value:>9.4f} | Expected: {expected:>9.4f}"
 
   echo &"Statistics on {a.len} samples"
-  report "Mean: ", statistics.mean, mu
-  report "Standard deviation: ", statistics.standardDeviationS, sigma
+  report "Mean: ", statistics.mean, mu.float
+  report "Standard deviation: ", statistics.standardDeviationS, sigma.float
 
   # Absolute error
-  doAssert absolute_error(mu, statistics.mean) < 0.6
-  doAssert absolute_error(sigma, statistics.standardDeviationS) < 0.01
+  doAssert absolute_error(mu.float, statistics.mean) < 0.6
+  doAssert absolute_error(sigma.float, statistics.standardDeviationS) < 0.01
 
   # Relative error
-  doAssert relative_error(mu, statistics.mean) < 0.01
-  doAssert relative_error(sigma, statistics.standardDeviationS) < 0.01
+  doAssert relative_error(mu.float, statistics.mean) < 0.01
+  doAssert relative_error(sigma.float, statistics.standardDeviationS) < 0.01

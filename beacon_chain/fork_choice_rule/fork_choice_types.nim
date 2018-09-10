@@ -104,7 +104,7 @@ func hash*(x: Duration): Hash =
 
 type
   NetworkSimulator* = ref object
-    agents*: seq[int]
+    agents*: seq[Node]
     latency_distribution_sample*: proc (): Duration
     time*: Duration
     objqueue*: TableRef[Duration, seq[(Node, BlockOrSig)]]

@@ -10,8 +10,32 @@
 # Part of Casper+Sharding chain v2.1: https://notes.ethereum.org/SCIg8AH5SA-O4C1G1LYZHQ#
 
 import
-  tables, times,
-  ./fork_choice_types
+  tables, times, sugar, random,
+  ./fork_choice_types, ./distributions
+
+proc initNetworkSimulator*(latency: int): NetworkSimulator =
+  result.latency_distribution_sample = () => initDuration(
+    seconds = max(
+      0,
+      normal_distribution(latency, latency * 2 div 5)
+    )
+  )
+  result.reliability = 0.9
+  result.objqueue = newTable[Duration, seq[(Node, BlockOrSig)]]()
+  result.peers = newTable[int, seq[Node]]()
+
+proc generate_peers*(self: NetworkSimulator, num_peers = 5) =
+  self.peers.clear()
+  var p: seq[Node]
+  for a in self.agents:
+    p.setLen(0) # reset without involving GC/realloc
+    while p.len <= num_peers div 2:
+      p.add self.agents.rand()
+      if p[^1] == a:
+        discard p.pop()
+    self.peers[a.id].add p
+    for peer in p:
+      self.peers[peer.id].add a
 
 func broadcast*(self: NetworkSimulator, sender: Node, obj: BlockOrSig) =
   for p in self.peers[sender.id]:
