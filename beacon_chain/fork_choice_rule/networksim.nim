@@ -11,7 +11,7 @@
 
 import
   tables, times, sugar, random,
-  ./fork_choice_types, ./distributions
+  ./fork_choice_types, ./fork_choice_rule, ./distributions
 
 proc initNetworkSimulator*(latency: int): NetworkSimulator =
   result.latency_distribution_sample = () => initDuration(
@@ -37,9 +37,50 @@ proc generate_peers*(self: NetworkSimulator, num_peers = 5) =
     for peer in p:
       self.peers[peer.id].add a
 
-func broadcast*(self: NetworkSimulator, sender: Node, obj: BlockOrSig) =
-  for p in self.peers[sender.id]:
-    let recv_time = self.time + self.latency_distribution_sample()
-    if recv_time notin self.objqueue:
-      self.objqueue[recv_time] = @[]
-    self.objqueue[recv_time].add (p, obj)
+proc tick(self: NetworkSimulator) =
+  if self.time in self.objqueue:
+    for ro in self.objqueue[self.time]:
+      let (recipient, obj) = ro
+      if rand(1.0) < self.reliability:
+        recipient.on_receive(obj)
+    self.objqueue.del self.time
+  for a in self.agents:
+    a.tick()
+  self.time += initDuration(seconds = 1)
+
+proc run(self: NetworkSimulator, steps: int) =
+  for i in 0 ..< steps:
+    self.tick()
+
+# func broadcast*(self: NetworkSimulator, sender: Node, obj: BlockOrSig)
+#   ## defined in fork_choice_types.nim
+
+proc direct_send(self: NetworkSimulator, to_id: int32, obj: BlockOrSig) =
+  for a in self.agents:
+    if a.id == to_id:
+      let recv_time = self.time + self.latency_distribution_sample()
+      # if recv_time notin self.objqueue: # Unneeded with seq "not nil" changes
+      #   self.objqueue[recv_time] = @[]
+      self.objqueue[recv_time].add (a, obj)
+
+proc knock_offline_random(self: NetworkSimulator, n: int) =
+  var ko = initTable[int32, Node]()
+  while ko.len < n:
+    let c = rand(self.agents)
+    ko[c.id] = c
+  # for c in ko.values: # Unneeded with seq "not nil" changes
+  #   self.peers[c.id] = @[]
+  for a in self.agents:
+    self.peers[a.id] = lc[x | (x <- self.peers[a.id], x.id notin ko), Node] # List comprehension
+
+proc partition(self: NetworkSimulator) =
+  var a = initTable[int32, Node]()
+  while a.len < self.agents.len div 2:
+    let c = rand(self.agents)
+    a[c.id] = c
+  for c in self.agents:
+    if c.id in a:
+      self.peers[c.id] = lc[x | (x <- self.peers[c.id], x.id in a), Node]
+    else:
+      self.peers[c.id] = lc[x | (x <- self.peers[c.id], x.id notin a), Node]
+

@@ -107,7 +107,7 @@ type
     agents*: seq[Node]
     latency_distribution_sample*: proc (): Duration
     time*: Duration
-    objqueue*: TableRef[Duration, seq[(Node, BlockOrSig)]]
+    objqueue*: TableRef[Duration, seq[tuple[recipient: Node, obj: BlockOrSig]]]
     peers*: TableRef[int, seq[Node]]
     reliability*: float
 
@@ -153,3 +153,23 @@ proc initSig*(
   result.timestamp = ts
   for val in result.hash.data.mitems:
     val = rand(0.byte .. 7.byte)
+
+###########################################################
+# Forward declarations
+
+method on_receive*(self: Node, obj: BlockOrSig, reprocess = false) {.base.} =
+  raise newException(ValueError, "Not implemented error. Please implement in child types")
+
+###########################################################
+
+###########################################################
+# Common
+
+func broadcast*(self: NetworkSimulator, sender: Node, obj: BlockOrSig) =
+  for p in self.peers[sender.id]:
+    let recv_time = self.time + self.latency_distribution_sample()
+    if recv_time notin self.objqueue:
+      self.objqueue[recv_time] = @[]
+    self.objqueue[recv_time].add (p, obj)
+
+###########################################################

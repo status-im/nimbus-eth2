@@ -17,15 +17,7 @@ import
   # Nimble packages
   nimcrypto,
   # Local imports
-  ./fork_choice_types, ./networksim
-
-###########################################################
-# Forward declarations
-
-method on_receive(self: Node, obj: BlockOrSig, reprocess = false) {.base.} =
-  raise newException(ValueError, "Not implemented error. Please implement in child types")
-
-###########################################################
+  ./fork_choice_types
 
 proc broadcast(self: Node, x: BlockOrSig) =
   if self.sleepy and self.timestamp != DurationZero:
@@ -48,8 +40,8 @@ func add_to_multiset[K, V](
     multiset: TableRef[K, seq[V]],
     k: K,
     v: V or seq[V]) =
-  if k notin multiset:
-    multiset[k] = @[]
+  # if k notin multiset: # Unneeded with seq "not nil" changes
+  #   multiset[k] = @[]
   multiset[k].add v
 
 func change_head(self: Node, chain: var seq[MDigest[256]], new_head: Block) =
@@ -241,7 +233,7 @@ func get_sig_targets(self: Node, start_slot: int32): seq[MDigest[256]] =
     doAssert self.blocks[x].slot <= start_slot - 1 - i
   doAssert result.len == min(EPOCH_LENGTH, start_slot)
 
-proc tick(self: Node) =
+proc tick*(self: Node) =
   self.timestamp += initDuration(milliseconds = 100)
   self.log &"Tick: {self.timestamp}", lvl=1
   # Make a block?
