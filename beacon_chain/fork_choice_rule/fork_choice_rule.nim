@@ -40,9 +40,7 @@ func add_to_multiset[K, V](
     multiset: TableRef[K, seq[V]],
     k: K,
     v: V or seq[V]) =
-  # if k notin multiset: # Unneeded with seq "not nil" changes
-  #   multiset[k] = @[]
-  multiset[k].add v
+  multiset.mgetOrPut(k, @[]).add v
 
 func change_head(self: Node, chain: var seq[MDigest[256]], new_head: Block) =
   chain.add newSeq[MDigest[256]](new_head.height + 1 - chain.len)
@@ -240,7 +238,9 @@ proc tick*(self: Node) =
   let slot = int32 seconds(self.timestamp div SLOT_SIZE)
   if slot > self.last_made_block and (slot mod NOTARIES) == self.id:
     self.broadcast(
-      initBlock(self.blocks[self.main_chain[^1]], slot, self.id)
+      initBlock(self.blocks[
+        self.main_chain[^1]
+        ], slot, self.id)
     )
     self.last_made_block = slot
   # Make a sig?
@@ -248,13 +248,11 @@ proc tick*(self: Node) =
     var sig_from = self.main_chain.high
     while sig_from > 0 and self.blocks[self.main_chain[sig_from]].slot >= slot - EPOCH_LENGTH:
       dec sig_from
-    let sig = initSig(self.id, self.get_sig_targets(slot), slot, self.timestamp)
+    let sig = newSig(self.id, self.get_sig_targets(slot), slot, self.timestamp)
     self.log &"Sig: {self.id} {sig.slot} {sig.targets.mapIt(($it)[0 ..< 4])}"
     self.broadcast sig
     self.last_made_sig = slot
   # process time queue
-  var first = self.timequeue[0]
-  while self.timequeue.len > 0 and first.min_timestamp <= self.timestamp:
+  while self.timequeue.len > 0 and self.timequeue[0].min_timestamp <= self.timestamp:
     self.timequeue.delete(0) # This is expensive, but we can't use a queue due to random insertions in add_to_timequeue
-    self.on_receive(first, reprocess = true)
-    first = self.timequeue[0]
+    self.on_receive(self.timequeue[0], reprocess = true)

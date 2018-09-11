@@ -13,7 +13,8 @@ import
   tables, times, sugar, random,
   ./fork_choice_types, ./fork_choice_rule, ./distributions
 
-proc initNetworkSimulator*(latency: int): NetworkSimulator =
+proc newNetworkSimulator*(latency: int): NetworkSimulator =
+  new result
   result.latency_distribution_sample = () => initDuration(
     seconds = max(
       0,
@@ -33,11 +34,11 @@ proc generate_peers*(self: NetworkSimulator, num_peers = 5) =
       p.add self.agents.rand()
       if p[^1] == a:
         discard p.pop()
-    self.peers[a.id].add p
+    self.peers.mgetOrPut(a.id, @[]).add p
     for peer in p:
-      self.peers[peer.id].add a
+      self.peers.mgetOrPut(peer.id, @[]).add a
 
-proc tick(self: NetworkSimulator) =
+proc tick*(self: NetworkSimulator) =
   if self.time in self.objqueue:
     for ro in self.objqueue[self.time]:
       let (recipient, obj) = ro

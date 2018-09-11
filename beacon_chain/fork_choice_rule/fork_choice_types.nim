@@ -141,7 +141,7 @@ type
     last_made_block*: int32
     last_made_sig*: int32
 
-proc initSig*(
+proc newSig*(
         proposer: int32,
         targets: seq[MDigest[256]],
         slot: int32,
@@ -153,6 +153,29 @@ proc initSig*(
   result.timestamp = ts
   for val in result.hash.data.mitems:
     val = rand(0.byte .. 7.byte)
+
+proc newNode*(
+    id: int32,
+    network: NetworkSimulator,
+    sleepy, careless = false,
+    timestamp = DurationZero
+  ): Node =
+  new result
+  result.id = id
+  result.network = network
+  result.timestamp = timestamp
+  result.sleepy = sleepy
+  result.careless = careless
+  result.main_chain = @[Genesis.hash]
+  result.blocks = {Genesis.hash: Genesis}.newTable
+
+  # Boilerplate empty initialization
+  result.processed = newTable[BlockOrSigHash, BlockOrSig]()
+  result.children = newTable[MDigest[256], seq[MDigest[256]]]()
+  result.parentqueue = newTable[MDigest[256], seq[BlockOrSig]]()
+  result.scores = newTable[MDigest[256], int]()
+  result.scores_at_height = newTable[array[36, byte], int]()
+  result.sigs = newTable[MDigest[384], Sig]()
 
 ###########################################################
 # Forward declarations
