@@ -27,7 +27,7 @@ proc broadcast(self: Node, x: BlockOrSig) =
 
 proc log(self: Node, words: string, lvl = 3, all = false) =
   if (self.id == 0 or all) and lvl >= 2:
-    echo self.id, words
+    echo self.id, " - ", words
 
 func add_to_timequeue(self: Node, obj: Block) =
   var i = 0
@@ -122,7 +122,7 @@ method on_receive(self: Node, blck: Block, reprocess = false) =
     self.add_to_timequeue(blck)
     return
   # Add the block
-  self.log "Processing beacon block &" % blck.hash.data[0 .. ^4].toHex(false)
+  self.log "Processing beacon block " & blck.hash.data[0 .. ^4].toHex(false)
   self.blocks[blck.hash] = blck
   # Is the block building on the head? Then add it to the head!
   if blck.parent_hash == self.main_chain[^1] or self.careless:
@@ -254,5 +254,5 @@ proc tick*(self: Node) =
     self.last_made_sig = slot
   # process time queue
   while self.timequeue.len > 0 and self.timequeue[0].min_timestamp <= self.timestamp:
-    self.timequeue.delete(0) # This is expensive, but we can't use a queue due to random insertions in add_to_timequeue
     self.on_receive(self.timequeue[0], reprocess = true)
+    self.timequeue.delete(0) # This is expensive, but we can't use a queue due to random insertions in add_to_timequeue

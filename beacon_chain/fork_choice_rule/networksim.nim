@@ -40,16 +40,22 @@ proc generate_peers*(self: NetworkSimulator, num_peers = 5) =
 
 proc tick*(self: NetworkSimulator) =
   if self.time in self.objqueue:
-    for ro in self.objqueue[self.time]:
-      let (recipient, obj) = ro
+    # on_receive, calls broadcast which will enqueue new BlockOrSig in objqueue
+    # so we can't for loop like in EF research repo (modifying length is not allowed)
+    var ros: seq[tuple[recipient: Node, obj: BlockOrSig]]
+    shallowCopy(ros, self.objqueue[self.time])
+    var i = 0
+    while i < ros.len:
+      let (recipient, obj) = ros[i]
       if rand(1.0) < self.reliability:
         recipient.on_receive(obj)
+      inc i
     self.objqueue.del self.time
   for a in self.agents:
     a.tick()
   self.time += initDuration(seconds = 1)
 
-proc run(self: NetworkSimulator, steps: int) =
+proc run*(self: NetworkSimulator, steps: int) =
   for i in 0 ..< steps:
     self.tick()
 

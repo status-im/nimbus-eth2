@@ -25,9 +25,7 @@ for i in 0'i32 ..< NOTARIES:
   )
 
 net.generate_peers()
-
-for i in 0 ..< 100000:
-  net.tick()
+net.run(steps = 100000)
 
 for n in net.agents:
   echo &"Local timestamp: {n.timestamp:>.1}, timequeue len {n.timequeue.len}"

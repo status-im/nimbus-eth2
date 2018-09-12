@@ -176,6 +176,7 @@ proc newNode*(
   result.scores = newTable[MDigest[256], int]()
   result.scores_at_height = newTable[array[36, byte], int]()
   result.sigs = newTable[MDigest[384], Sig]()
+  result.justified = newTable[MDigest[256], bool]()
 
 ###########################################################
 # Forward declarations
