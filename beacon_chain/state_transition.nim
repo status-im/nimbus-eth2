@@ -20,7 +20,7 @@
 
 {.warning: "The official spec at https://notes.ethereum.org/SCIg8AH5SA-O4C1G1LYZHQ# is not fully defining state transitions.".}
 
-import ./datatypes, ./private/helpers
+import ./datatypes, ./private/helpers, intsets
 
 
 func process_block(active_state: ActiveState, crystallized_state: CrystallizedState, blck: BeaconBlock, slot: int64) =
@@ -38,9 +38,9 @@ func process_block(active_state: ActiveState, crystallized_state: CrystallizedSt
       val = get_block_hash(active_state, blck, slot - CYCLE_LENGTH + idx)
     parent_hashes.add attestation.oblique_parent_hashes
 
-    # Let attestation_indices be get_indices_for_slot(crystallized_state, slot)[x], choosing x so that attestation_indices.shard_id equals the shard_id value provided to find the set of validators that is creating this attestation record.
+    # Let attestation_indices be get_shards_and_committees_for_slot(crystallized_state, slot)[x], choosing x so that attestation_indices.shard_id equals the shard_id value provided to find the set of validators that is creating this attestation record.
     let attestation_indices = block:
-      let shard_and_committees = get_indices_for_slot(crystallized_state, slot)
+      let shard_and_committees = get_shards_and_committees_for_slot(crystallized_state, slot)
       var
         x = 1
         record_creator = shard_and_committees[0]

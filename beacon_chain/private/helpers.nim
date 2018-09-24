@@ -67,26 +67,27 @@ func get_new_shuffling*(seed: Blake2_256_Digest, validators: seq[ValidatorRecord
       slots_per_committee *= 2
 
   result = @[]
-  for slot, height_indices in shuffle(avs, seed).split(CYCLE_LENGTH):
-    let shard_indices = height_indices.split(committees_per_slot)
+  for slot, slot_indices in shuffle(avs, seed).split(CYCLE_LENGTH):
+    let shard_indices = slot_indices.split(committees_per_slot)
+    let shard_id_start = crosslinking_start_shard +
+                            slot.int16 * committees_per_slot div slots_per_committee
 
     var committees = newSeq[ShardAndCommittee](shard_indices.len)
     for j, indices in shard_indices:
-      committees[j].shard_id = crosslinking_start_shard +
-                                slot.int16 * committees_per_slot div slots_per_committee + j.int16
+      committees[j].shard_id = (shard_id_start + j.int16) mod SHARD_COUNT
       committees[j].committee = indices
 
     result.add committees
 
-func get_indices_for_slot*(crystallized_state: CrystallizedState,
-        slot: int64): seq[ShardAndCommittee] {.noInit.}=
+func get_shards_and_committees_for_slot*(crystallized_state: CrystallizedState,
+        slot: int64): seq[ShardAndCommittee] =
   # TODO: Spec why is active_state an argument?
 
   let start = crystallized_state.last_state_recalc - CYCLE_LENGTH
   assert start <= slot
   assert slot < start + CYCLE_LENGTH * 2
 
-  result = crystallized_state.indices_for_slots[int slot - start]
+  result = crystallized_state.shard_and_committee_for_slots[int slot - start]
   # TODO, slot is an int64 will be an issue on int32 arch.
   #       Clarify with EF if light clients will need the beacon chain
 
