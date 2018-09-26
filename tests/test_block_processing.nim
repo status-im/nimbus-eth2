@@ -6,5 +6,16 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  ./test_ssz,
-  ./test_block_processing
+  unittest,
+  ../beacon_chain/[datatypes, state_transition]
+
+suite "Block processing":
+  ## For now just test that we can compile and execute block processing with mock data.
+
+  test "Mock process_block":
+    let actState = ActiveState()
+    let crystState = CrystallizedState()
+    let blck = BeaconBlock()
+    let slot = 10
+
+    actState.process_block(crystState, blck, slot)

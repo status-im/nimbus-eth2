@@ -5,13 +5,24 @@
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import intsets, eth_common, math, stint
+import
+  intsets, eth_common, math, stint
+
+import milagro_crypto
+  # nimble install https://github.com/status-im/nim-milagro-crypto@#master
+  # Defines
+  #  - SigKey (private/secret key) (48 bytes)
+  #  - Signature and AggregatedSignature (97 bytes)
+  #  - VerKey (public key) and AggregatedVerKey (192 bytes)
 
 # Implementation based on WIP spec https://notes.ethereum.org/SCIg8AH5SA-O4C1G1LYZHQ?view
 # ⚠ Spec is updated very often, implementation might quickly be outdated
 
 type
-  Blake2_256_Digest* = Hash256  # TODO change to Blake2b-512[0 ..< 32] see https://github.com/status-im/nim-beacon-chain/issues/3
+  # Alias
+  BLSPublicKey* = VerKey
+  BLSaggregateSig* = AggregatedSignature
+  Blake2_256_Digest* = Hash256           # TODO change to Blake2b-512[0 ..< 32] see https://github.com/status-im/nim-beacon-chain/issues/3
   Uint24* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
 
   BeaconBlock* = object
@@ -47,7 +58,7 @@ type
     committee*: seq[Uint24]                       # Validator indices
 
   ValidatorRecord* = object
-    pubkey*: BLSPublicKey                         # The validator's public key
+    pubkey*: VerKey                               # The validator's public key
     withdrawal_shard*: int16                      # What shard the validator's balance will be sent to after withdrawal
     withdrawal_address*: EthAddress               # And what address
     randao_commitment*: Blake2_256_Digest         # The validator's current RANDAO beacon commitment
@@ -60,10 +71,6 @@ type
     slot: int64                                   # What slot
     hash: Blake2_256_Digest                       # The block hash
 
-  BLSPublicKey* = object
-    # Stub for BLS signature
-    data: array[32, byte]
-
   AttestationRecord* = object
     slot*: int64                                  # Slot number
     shard_id*: int16                              # Shard ID
@@ -74,7 +81,7 @@ type
     attester_bitfield*: IntSet                    # Who is participating
     justified_slot*: int64
     justified_block_hash: Blake2_256_Digest
-    aggregateSig*: seq[BLSPublicKey]              # The actual signature
+    aggregateSig*: BLSaggregateSig                # The actual signature
 
     # Note:
     # We use IntSet from Nim Standard library which are efficient sparse bitsets.

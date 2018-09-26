@@ -20,10 +20,13 @@
 
 {.warning: "The official spec at https://notes.ethereum.org/SCIg8AH5SA-O4C1G1LYZHQ# is not fully defining state transitions.".}
 
-import ./datatypes, ./private/helpers, intsets
+import
+  ./datatypes, ./private/helpers,
+  intsets,
+  milagro_crypto # nimble install https://github.com/status-im/nim-milagro-crypto@#master
 
 
-func process_block(active_state: ActiveState, crystallized_state: CrystallizedState, blck: BeaconBlock, slot: int64) =
+func process_block*(active_state: ActiveState, crystallized_state: CrystallizedState, blck: BeaconBlock, slot: int64) =
   # TODO: unfinished spec
 
   for attestation in blck.attestations:
@@ -63,3 +66,4 @@ func process_block(active_state: ActiveState, crystallized_state: CrystallizedSt
 
   # Verify that the slot % len(get_indices_for_slot(crystallized_state, slot-1)[0])'th attester in get_indices_for_slot(crystallized_state, slot-1)[0]is part of at least one of the AttestationRecord objects; this attester can be considered to be the proposer of the block.
   # TODO
+
