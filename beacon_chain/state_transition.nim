@@ -22,7 +22,7 @@
 
 import
   ./datatypes, ./private/helpers,
-  intsets, endians,
+  intsets, endians, nimcrypto,
   milagro_crypto # nimble install https://github.com/status-im/nim-milagro-crypto@#master
 
 
@@ -64,24 +64,30 @@ func process_block*(active_state: ActiveState, crystallized_state: CrystallizedS
     let agg_pubkey = all_pubkeys.initAggregatedKey()
 
     # Verify that aggregate_sig verifies using the group pubkey generated and hash((slot % CYCLE_LENGTH).to_bytes(8, 'big') + parent_hashes + shard_id + shard_block_hash) as the message.
-    let size_p_hashes = attestation.oblique_parent_hashes.len * sizeof(Blake2_256_Digest)
-    let msg_length = 8 + size_p_hashes + 2 + sizeof(Blake2_256_Digest)
-    var msg = newSeq[byte](msg_length)
+    var msg: array[32, byte]
 
-    block: # Build msg
-      var pos = 0
+    block:
+      var ctx: blake2_512 # Context for streaming blake2b computation
+      ctx.init()
 
       let slot_mod_cycle = attestation.slot mod CYCLE_LENGTH
-      bigEndian64(msg[pos].addr, slot_mod_cycle.unsafeAddr)
-      pos += 8
+      var be_slot_mod_cycle: array[8, byte]
+      bigEndian64(be_slot_mod_cycle[0].addr, slot_mod_cycle.unsafeAddr)
+      ctx.update be_slot_mod_cycle
 
-      copyMem(msg[pos].addr, attestation.oblique_parent_hashes[0].unsafeAddr, size_p_hashes)
-      pos += size_p_hashes
+      let size_p_hashes = uint attestation.oblique_parent_hashes.len * sizeof(Blake2_256_Digest)
+      ctx.update(cast[ptr byte](attestation.oblique_parent_hashes[0].unsafeAddr), size_p_hashes)
 
-      bigEndian16(msg[pos].addr, attestation.shard_id.unsafeAddr) # Unsure, spec doesn't mention big-endian representation
-      pos += 2
+      var be_shard_id: array[2, byte]           # Unsure, spec doesn't mention big-endian representation
+      bigEndian16(be_shard_id.addr, attestation.shard_id.unsafeAddr)
+      ctx.update be_shard_id
 
-      copyMem(msg[pos].addr, attestation.shard_block_hash.unsafeAddr, sizeof(Blake2_256_Digest))
+      ctx.update attestation.shard_block_hash.data
+
+      let h = ctx.finish()                      # Full hash (Blake2b-512)
+      msg[0 ..< 32] = h.data.toOpenArray(0, 32) # Keep only the first 32 bytes - https://github.com/ethereum/beacon_chain/issues/60
+
+      ctx.clear()                               # Cleanup context/memory
 
     # For now only check compilation
     # doAssert attestation.aggregate_sig.verifyMessage(msg, agg_pubkey)
