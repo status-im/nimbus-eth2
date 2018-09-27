@@ -22,7 +22,7 @@
 
 import
   ./datatypes, ./private/helpers,
-  intsets,
+  intsets, endians,
   milagro_crypto # nimble install https://github.com/status-im/nim-milagro-crypto@#master
 
 
@@ -56,10 +56,36 @@ func process_block*(active_state: ActiveState, crystallized_state: CrystallizedS
     doAssert attestation.attester_bitfield.len == attestation_indices.committee.len
 
     # Derive a group public key by adding the public keys of all of the attesters in attestation_indices for whom the corresponding bit in attester_bitfield (the ith bit is (attester_bitfield[i // 8] >> (7 - (i %8))) % 2) equals 1
-    # TODO
+    var all_pubkeys: seq[BLSPublicKey] # We have to collect all pubkeys first as aggregate public keys need sorting to avoid some attacks.
+    for attester_idx in attestation_indices.committee:
+      if attester_idx in attestation.attester_bitfield:
+        let validator = crystallized_state.validators[attester_idx]
+        all_pubkeys.add validator.pubkey
+    let agg_pubkey = all_pubkeys.initAggregatedKey()
 
     # Verify that aggregate_sig verifies using the group pubkey generated and hash((slot % CYCLE_LENGTH).to_bytes(8, 'big') + parent_hashes + shard_id + shard_block_hash) as the message.
-    # TODO
+    let size_p_hashes = attestation.oblique_parent_hashes.len * sizeof(Blake2_256_Digest)
+    let msg_length = 8 + size_p_hashes + 2 + sizeof(Blake2_256_Digest)
+    var msg = newSeq[byte](msg_length)
+
+    block: # Build msg
+      var pos = 0
+
+      let slot_mod_cycle = attestation.slot mod CYCLE_LENGTH
+      bigEndian64(msg[pos].addr, slot_mod_cycle.unsafeAddr)
+      pos += 8
+
+      copyMem(msg[pos].addr, attestation.oblique_parent_hashes[0].unsafeAddr, size_p_hashes)
+      pos += size_p_hashes
+
+      bigEndian16(msg[pos].addr, attestation.shard_id.unsafeAddr) # Unsure, spec doesn't mention big-endian representation
+      pos += 2
+
+      copyMem(msg[pos].addr, attestation.shard_block_hash.unsafeAddr, sizeof(Blake2_256_Digest))
+
+    # For now only check compilation
+    # doAssert attestation.aggregate_sig.verifyMessage(msg, agg_pubkey)
+    debugEcho "Aggregate sig verify message: ", attestation.aggregate_sig.verifyMessage(msg, agg_pubkey)
 
   # Extend the list of AttestationRecord objects in the active_state, ordering the new additions in the same order as they came in the block.
   # TODO
