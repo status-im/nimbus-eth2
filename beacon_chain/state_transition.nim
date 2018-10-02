@@ -30,15 +30,17 @@ func process_block*(active_state: ActiveState, crystallized_state: CrystallizedS
   # TODO: unfinished spec
 
   for attestation in blck.attestations:
-    # Verify that slot < block.slot_number and slot >= max(block.slot_number - CYCLE_LENGTH, 0)
+    ## Spec changes: Verify that slot <= parent.slot_number and slot >= max(parent.slot_number - CYCLE_LENGTH + 1, 0)
+    ## (Outdated) Verify that slot < block.slot_number and slot >= max(block.slot_number - CYCLE_LENGTH, 0)
     doAssert slot < blck.slot_number
     doAssert slot >= max(blck.slot_number - CYCLE_LENGTH, 0)
 
-    # Compute parent_hashes = [get_block_hash(active_state, block, slot - CYCLE_LENGTH + i) for i in range(CYCLE_LENGTH - len(oblique_parent_hashes))] + oblique_parent_hashes
+    # Compute parent_hashes = [get_block_hash(active_state, block, slot - CYCLE_LENGTH + i)
+    #  for i in range(1, CYCLE_LENGTH - len(oblique_parent_hashes) + 1)] + oblique_parent_hashes
     # TODO - don't allocate in tight loop
     var parent_hashes = newSeq[Blake2_256_Digest](CYCLE_LENGTH - attestation.oblique_parent_hashes.len)
     for idx, val in parent_hashes.mpairs:
-      val = get_block_hash(active_state, blck, slot - CYCLE_LENGTH + idx)
+      val = get_block_hash(active_state, blck, slot - CYCLE_LENGTH + idx + 1)
     parent_hashes.add attestation.oblique_parent_hashes
 
     # Let attestation_indices be get_shards_and_committees_for_slot(crystallized_state, slot)[x], choosing x so that attestation_indices.shard_id equals the shard_id value provided to find the set of validators that is creating this attestation record.
@@ -70,19 +72,22 @@ func process_block*(active_state: ActiveState, crystallized_state: CrystallizedS
       var ctx: blake2_512 # Context for streaming blake2b computation
       ctx.init()
 
-      let slot_mod_cycle = attestation.slot mod CYCLE_LENGTH
-      var be_slot_mod_cycle: array[8, byte]
-      bigEndian64(be_slot_mod_cycle[0].addr, slot_mod_cycle.unsafeAddr)
-      ctx.update be_slot_mod_cycle
+      var be_slot: array[8, byte]
+      bigEndian64(be_slot[0].addr, attestation.slot.unsafeAddr)
+      ctx.update be_slot
 
-      let size_p_hashes = uint attestation.oblique_parent_hashes.len * sizeof(Blake2_256_Digest)
-      ctx.update(cast[ptr byte](attestation.oblique_parent_hashes[0].unsafeAddr), size_p_hashes)
+      let size_p_hashes = uint parent_hashes.len * sizeof(Blake2_256_Digest)
+      ctx.update(cast[ptr byte](parent_hashes[0].addr), size_p_hashes)
 
       var be_shard_id: array[2, byte]           # Unsure, spec doesn't mention big-endian representation
       bigEndian16(be_shard_id.addr, attestation.shard_id.unsafeAddr)
       ctx.update be_shard_id
 
       ctx.update attestation.shard_block_hash.data
+
+      var be_justified_slot: array[8, byte]
+      bigEndian64(be_justified_slot[0].addr, attestation.justified_slot.unsafeAddr)
+      ctx.update be_justified_slot
 
       let h = ctx.finish()                      # Full hash (Blake2b-512)
       msg[0 ..< 32] = h.data.toOpenArray(0, 32) # Keep only the first 32 bytes - https://github.com/ethereum/beacon_chain/issues/60
