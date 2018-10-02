@@ -21,6 +21,7 @@ import milagro_crypto
 type
   # Alias
   BLSPublicKey* = VerKey
+  BLSsig*       = Signature
   BLSaggregateSig* = AggregatedSignature
   Blake2_256_Digest* = Hash256           # TODO change to Blake2b-512[0 ..< 32] see https://github.com/status-im/nim-beacon-chain/issues/3
   Uint24* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
@@ -58,7 +59,7 @@ type
     committee*: seq[Uint24]                       # Validator indices
 
   ValidatorRecord* = object
-    pubkey*: VerKey                               # The validator's public key
+    pubkey*: BLSPublicKey                         # The validator's public key
     withdrawal_shard*: int16                      # What shard the validator's balance will be sent to after withdrawal
     withdrawal_address*: EthAddress               # And what address
     randao_commitment*: Blake2_256_Digest         # The validator's current RANDAO beacon commitment
@@ -81,7 +82,7 @@ type
     attester_bitfield*: IntSet                    # Who is participating
     justified_slot*: int64
     justified_block_hash: Blake2_256_Digest
-    aggregateSig*: BLSaggregateSig                # The actual signature
+    aggregate_sig*: BLSaggregateSig               # The actual signature
 
     # Note:
     # We use IntSet from Nim Standard library which are efficient sparse bitsets.
