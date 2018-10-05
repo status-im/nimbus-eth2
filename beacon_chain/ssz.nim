@@ -27,14 +27,20 @@ func eatInt[T: SomeInteger or byte](x: var T, data: ptr byte, pos: var int, len:
     bool =
   if pos + x.sizeof > len: return
 
+  # XXX: any better way to get a suitably aligned buffer in nim???
+  # see also: https://github.com/nim-lang/Nim/issues/9206
+  var tmp: uint64
+  var alignedBuf = cast[ptr byte](tmp.addr)
+  copyMem(alignedBuf, data + pos, x.sizeof)
+
   when x.sizeof == 8:
-    bigEndian64(x.addr, data + pos)
+    bigEndian64(x.addr, alignedBuf)
   elif x.sizeof == 4:
-    bigEndian32(x.addr, data + pos)
+    bigEndian32(x.addr, alignedBuf)
   elif x.sizeof == 2:
-    bigEndian16(x.addr, data + pos)
+    bigEndian16(x.addr, alignedBuf)
   elif x.sizeof == 1:
-    x = cast[ptr type x](data + pos)[]
+    x = cast[ptr type x](alignedBuf)[]
   else:
     {.fatal: "Unsupported type deserialization: " & $(type(x)).name.}
 
@@ -52,27 +58,27 @@ func eatSeq[T: SomeInteger or byte](x: var seq[T], data: ptr byte, pos: var int,
     discard eatInt(val, data, pos, len) # Bounds-checked above
   return true
 
-func serInt[T: SomeInteger or byte](dest: var seq[byte], src: T, buffer: var array[sizeof(T), byte]) {.inline.}=
-  when T.sizeof == 8:
-    bigEndian64(buffer.addr, src.unsafeAddr)
-  elif T.sizeof == 4:
-    bigEndian32(buffer.addr, src.unsafeAddr)
-  elif T.sizeof == 2:
-    bigEndian16(buffer.addr, src.unsafeAddr)
+func serInt[T: SomeInteger or byte](dest: var seq[byte], src: T) {.inline.}=
+  # XXX: any better way to get a suitably aligned buffer in nim???
+  var tmp: T
+  var alignedBuf = cast[ptr array[src.sizeof, byte]](tmp.addr)
+  when src.sizeof == 8:
+    bigEndian64(alignedBuf, src.unsafeAddr)
+  elif src.sizeof == 4:
+    bigEndian32(alignedBuf, src.unsafeAddr)
+  elif src.sizeof == 2:
+    bigEndian16(alignedBuf, src.unsafeAddr)
+  elif src.sizeof == 1:
+    copyMem(alignedBuf, src.unsafeAddr, src.sizeof) # careful, aliasing..
   else:
-    dest.add byte(src)
-    return
-  dest.add buffer
+    {.fatal: "Unsupported type deserialization: " & $(type(x)).name.}
 
-func serInt[T: SomeInteger or byte](dest: var seq[byte], src: T) {.inline.} =
-  var buffer: array[T.sizeof, byte]
-  dest.serInt(src, buffer)
+  dest.add alignedBuf[]
 
 func serSeq[T: SomeInteger or byte](dest: var seq[byte], src: seq[T]) =
   dest.serInt src.len.uint32
-  var buffer: array[T.sizeof, byte]
   for val in src:
-    dest.serInt(val, buffer)
+    dest.serInt(val)
 
 # ################### Core functions ###################################
 func deserialize(data: ptr byte, pos: var int, len: int, typ: typedesc[object]):
