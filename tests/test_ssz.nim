@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  unittest, nimcrypto, eth_common, sequtils,
+  unittest, nimcrypto, eth_common, sequtils, options,
   ../beacon_chain/ssz
 
 func filled[N: static[int], T](typ: type array[N, T], value: T): array[N, T] =
@@ -47,9 +47,14 @@ suite "Simple serialization":
   expected_ser &= [byte 0, 0, 0, 3, 'c'.ord, 'o'.ord, 'w'.ord]
 
   test "Deserialization":
-    let deser = expected_ser.deserialize(Foo)
+    let deser = expected_ser.deserialize(Foo).get()
     check: expected_deser == deser
 
   test "Serialization":
     let ser = expected_deser.serialize()
     check: expected_ser == ser
+
+  test "Overflow":
+    check:
+      expected_ser[0..^2].deserialize(Foo).isNone()
+      expected_ser[1..^1].deserialize(Foo).isNone()
