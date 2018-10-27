@@ -102,25 +102,24 @@ proc main(nb_samples: Natural) =
   echo &"{num_validators} public key and message signature pairs generated in {stop - start :>4.3f} s"
   echo &"Throughput: {num_validators.float / (stop - start) :>4.3f} kps/s (keysig pairs/second)"
 
-  echo '\n'
-  echo "#### Benchmark: public keys aggregation"
-  var agg_pubkey: AggregatedVerKey
-  bench "Benchmarking public key aggregation", agg_pubkey:
-    agg_pubkey = initAggregatedKey(pubkey_sig_pairs.pubkeys)
+  ### Bench stuck in ECP2 multiplication at the moment
+  # echo '\n'
+  # echo "#### Benchmark: public keys aggregation"
+  # var agg_pubkey: AggregatedVerKey
+  # bench "Benchmarking public key aggregation", agg_pubkey:
+  #   agg_pubkey = initAggregatedKey(pubkey_sig_pairs.pubkeys)
 
   echo '\n'
   echo "#### Benchmark: signature aggregation"
   var agg_sig: AggregatedSignature
-  bench "Benchmarking public key aggregation", agg_sig:
+  bench "Benchmarking signature aggregation", agg_sig:
     agg_sig = initAggregatedSignature(pubkey_sig_pairs)
 
-  echo '\n'
-  echo "#### Benchmark: message verification"
-  var verif: bool
-  bench "Benchmarking message verification", verif:
-    verif = agg_sig.verifyMessage(msg.data, agg_pubkey)
+  # echo '\n'
+  # echo "#### Benchmark: message verification"
+  # var verif: bool
+  # bench "Benchmarking message verification", verif:
+  #   verif = agg_sig.verifyMessage(msg.data, agg_pubkey)
 
 when isMainModule:
-  main(10)
-
-
+  main(100)
