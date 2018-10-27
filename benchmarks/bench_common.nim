@@ -1,4 +1,5 @@
 import random, times, stats, strformat, math
+export random, times, stats, strformat, math
 
 proc warmup*() =
   # Warmup - make sure cpu is on max perf
@@ -19,7 +20,6 @@ template printStats*(experiment_name: string, compute_result: typed) {.dirty.} =
   echo &"Stddev  time: {stats.standardDeviationS * 1000 :>4.3f} ms"
   echo &"Min     time: {stats.min * 1000 :>4.3f} ms"
   echo &"Max     time: {stats.max * 1000 :>4.3f} ms"
-  echo &"Theoretical perf: {a.size.float / (float(10^6) * stats.mean):>4.3f} MFLOP/s"
   echo "\nDisplay computation result to make sure it's not optimized away"
   echo compute_result # Prevents compiler from optimizing stuff away
 

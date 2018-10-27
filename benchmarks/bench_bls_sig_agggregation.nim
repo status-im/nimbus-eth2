@@ -40,8 +40,7 @@ proc randBytes32(): array[32, byte] =
   for b in result.mitems:
     b = byte rand(0..255)
 
-proc main() =
-
+proc main(nb_samples: Natural) =
   warmup()
   randomize(42) # Random seed for reproducibility
 
@@ -49,17 +48,19 @@ proc main() =
   # Randomize block and attestation parameters
   # so that compiler does not optimize them away
   let
+    fork_version = rand(1 .. 10)
     num_validators = rand(128 .. 1024)
     num_parent_hashes = rand(2 .. 16)
     justified_slot = rand(4096)
     slot = rand(4096 .. 4096 + 256) # 256 slots = 1.1 hour
-    shard_id = rand(high(int16))
+    shard_id = int16 rand(high(int16))
     parent_hashes = newSeqWith(num_parent_hashes, randBytes32())
     shard_block_hash = randBytes32()
 
   echo "\n#### Block parameters"
   echo &"Number of validators:          {num_validators:>64}"
   echo &"Number of block parent hashes: {num_parent_hashes:>64}"
+  echo &"Fork version:                  {fork_version:>64}"
   echo &"Slot:                          {slot:>64}"
   echo &"Shard_id:                      {shard_id:>64}"
   echo &"Parent_hash[0]:                {parent_hashes[0].toHex:>64}"
@@ -71,10 +72,55 @@ proc main() =
   let secret_public_keypairs = newSeqWith(num_validators, newKeyPair())
   var stop = cpuTime()
 
-  echo &"\n{num_validators} key pairs generated in {stop - start :>4.3f} ms"
+  echo '\n'
+  echo "#### Message, crypto keys and signatures"
+  echo &"{num_validators} secret and public keys pairs generated in {stop - start :>4.3f} s"
+  echo &"Throughput: {num_validators.float / (stop - start) :>4.3f} kps/s (key pairs/second)"
 
+  echo '\n'
+  start = cpuTime()
+  let msg = attestation_signed_data(
+              fork_version,
+              slot,
+              shard_id,
+              parent_hashes,
+              shard_block_hash,
+              justified_slot
+              )
+  stop = cpuTime()
+  echo &"Message generated in {(stop - start) * 1_000 :>4.3f} ms"
+
+  echo '\n'
+  var pubkey_sig_pairs: tuple[pubkeys: seq[VerKey], signatures: seq[Signature]]
+  start = cpuTime()
+  for kp in secret_public_keypairs:
+    # Note that message is first passed through
+    # Blake2 384 at the moment
+    pubkey_sig_pairs.pubkeys.add kp.verkey
+    pubkey_sig_pairs.signatures.add kp.sigkey.signMessage(msg.data) # toOpenArray?
+  stop = cpuTime()
+  echo &"{num_validators} public key and message signature pairs generated in {stop - start :>4.3f} s"
+  echo &"Throughput: {num_validators.float / (stop - start) :>4.3f} kps/s (keysig pairs/second)"
+
+  echo '\n'
+  echo "#### Benchmark: public keys aggregation"
+  var agg_pubkey: AggregatedVerKey
+  bench "Benchmarking public key aggregation", agg_pubkey:
+    agg_pubkey = initAggregatedKey(pubkey_sig_pairs.pubkeys)
+
+  echo '\n'
+  echo "#### Benchmark: signature aggregation"
+  var agg_sig: AggregatedSignature
+  bench "Benchmarking public key aggregation", agg_sig:
+    agg_sig = initAggregatedSignature(pubkey_sig_pairs)
+
+  echo '\n'
+  echo "#### Benchmark: message verification"
+  var verif: bool
+  bench "Benchmarking message verification", verif:
+    verif = agg_sig.verifyMessage(msg.data, agg_pubkey)
 
 when isMainModule:
-  main()
+  main(10)
 
 
