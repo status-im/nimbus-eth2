@@ -80,7 +80,7 @@ func get_new_shuffling*(seed: Blake2_256_Digest, validators: seq[ValidatorRecord
     result.add committees
 
 func get_shards_and_committees_for_slot*(crystallized_state: CrystallizedState,
-        slot: int64): seq[ShardAndCommittee] =
+        slot: uint64): seq[ShardAndCommittee] =
   # TODO: Spec why is active_state an argument?
 
   let start = crystallized_state.last_state_recalc - CYCLE_LENGTH
@@ -88,13 +88,13 @@ func get_shards_and_committees_for_slot*(crystallized_state: CrystallizedState,
   assert slot < start + CYCLE_LENGTH * 2
 
   result = crystallized_state.shard_and_committee_for_slots[int slot - start]
-  # TODO, slot is an int64 will be an issue on int32 arch.
+  # TODO, slot is a uint64; will be an issue on int32 arch.
   #       Clarify with EF if light clients will need the beacon chain
 
 func get_block_hash*(active_state: ActiveState,
-        beacon_block: BeaconBlock, slot: int64): Blake2_256_Digest =
+        beacon_block: BeaconBlock, slot: uint64): Blake2_256_Digest =
 
-  let sback = beacon_block.slot_number - CYCLE_LENGTH * 2
+  let sback = beacon_block.slot - CYCLE_LENGTH * 2
   assert sback <= slot
   assert slot < sback + CYCLE_LENGTH * 2
 

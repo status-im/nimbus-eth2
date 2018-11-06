@@ -5,6 +5,9 @@
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+# In process of being updated as of spec from 2018-11-05
+# Commit id 59f32978d489020770ae50e6d45450103445c6ad
+
 import
   intsets, eth_common, math, stint
 
@@ -26,14 +29,22 @@ type
   Blake2_256_Digest* = Hash256           # TODO change to Blake2b-512[0 ..< 32] see https://github.com/status-im/nim-beacon-chain/issues/3
   Uint24* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
 
+  SpecialRecord* = object
+    kind*: SpecialRecordTypes                     # Kind
+    data*: seq[byte]                              # Data
+
   BeaconBlock* = object
-    parent_hash*: Blake2_256_Digest               # Hash of the parent block
-    slot_number*: int64                           # Slot number (for the PoS mechanism)
-    randao_reveal*: Blake2_256_Digest             # Randao commitment reveal
-    attestations*: seq[AttestationRecord]         # Attestation votes
-    pow_chain_ref*: Blake2_256_Digest             # Reference to main chain block
+    slot*: uint64                                 # Slot number
+    randao_reveal*: Blake2_256_Digest             # Proposer RANDAO reveal
+    pow_chain_reference*: Blake2_256_Digest       # Recent PoW chain reference (block hash)
+    ancestor_hashes*: seq[Blake2_256_Digest]      # Skip list of previous beacon block hashes
+                                                  # i'th item is most recent ancestor whose
+                                                  # slot is a multiple of 2**i for
+                                                  # i == 0, ..., 31
     active_state_root*: Blake2_256_Digest         # Hash of the active state
     crystallized_state_root*: Blake2_256_Digest   # Hash of the crystallized state
+    attestations*: seq[AttestationRecord]         # Attestation votes
+    parent_hash*: Blake2_256_Digest               # Hash of the parent block
 
   ActiveState* = object
     pending_attestations*: seq[AttestationRecord] # Attestations that have not yet been processed
@@ -41,7 +52,7 @@ type
 
   CrystallizedState* = object
     validators*: seq[ValidatorRecord]             # List of active validators
-    last_state_recalc*: int64                     # Last CrystallizedState recalculation
+    last_state_recalc*: uint64                    # Last CrystallizedState recalculation
     shard_and_committee_for_slots*: seq[seq[ShardAndCommittee]]
       # What active validators are part of the attester set
       # at what height, and in what shard. Starts at slot
@@ -84,6 +95,23 @@ type
     justified_block_hash: Blake2_256_Digest
     aggregate_sig*: BLSaggregateSig               # The actual signature
 
+  ValidatorStatusCodes* {.pure.} = enum
+    PendingActivation = 0
+    Active = 1
+    PendingExit = 2
+    PendingWithdraw = 3
+    Withdrawn = 4
+    Penalized = 127
+
+  SpecialRecordTypes* {.pure.} = enum
+    Logout = 0
+    CasperSlashing = 1
+    RandaoChange = 2
+
+  ValidatorSetDeltaFlags* {.pure.} = enum
+    Entry = 0
+    Exit = 1
+
     # Note:
     # We use IntSet from Nim Standard library which are efficient sparse bitsets.
     # See: https://nim-lang.org/docs/intsets.html
@@ -100,12 +128,28 @@ type
 
 
 const
-  SHARD_COUNT*          = 1024 # a constant referring to the number of shards
-  DEPOSIT_SIZE*         = 32   # You need to deposit 32 ETH to be a validator in Casper
-  MAX_VALIDATOR_COUNT*  = 2^22 # 4_194_304, this means that ~132M ETH can stake at the same time (= MaxValidator Count * DepositSize)
-  SLOT_DURATION*        = 8    # seconds
-  CYCLE_LENGTH*         = 64   # slots
-  MIN_DYNASTY_LENGTH*   = 256  # slots
-  MIN_COMMITTEE_SIZE*   = 128  # (rationale: see recommended minimum 111 here https://vitalik.ca/files/Ithaca201807_Sharding.pdf)
-  SQRT_E_DROP_TIME*     = 2^20 # a constant set to reflect the amount of time it will take for the quadratic leak to cut nonparticipating validators’ deposits by ~39.4%. Currently set to 2**20 seconds (~12 days).
-  BASE_REWARD_QUOTIENT* = 2^15 # this is the per-slot interest rate assuming all validators are participating, assuming total deposits of 1 ETH. Currently set to 2**15 = 32768, corresponding to ~3.88% annual interest assuming 10 million participating ETH.
+  SHARD_COUNT*                              = 1024 # a constant referring to the number of shards
+  DEPOSIT_SIZE*                             = 2^5  # You need to deposit 32 ETH to be a validator in Casper
+  SLOT_DURATION*                            = 16   # seconds
+  CYCLE_LENGTH*                             = 64   # slots
+  MIN_COMMITTEE_SIZE*                       = 2^7  # validators; 2018-11-05 version of spec also says:
+                                                   # See a recommended `MIN_COMMITTEE_SIZE`  of 111 here
+                                                   # https://vitalik.ca/files/Ithaca201807_Sharding.pdf).
+  SQRT_E_DROP_TIME*                         = 2^16 # slots (~12 days); amount of time it takes for the
+                                                   # quadratic leak to cut deposits of non-participating
+                                                   # validators by ~39.4%
+  BASE_REWARD_QUOTIENT*                     = 2^15 # per-slot interest rate assuming all validators are
+                                                   # participating, assuming total deposits of 1 ETH. It
+                                                   # corresponds to ~3.88% annual interest assuming 10
+                                                   # million participating ETH.
+  MIN_BALANCE*                              = 2^4  # ETH
+  MIN_ONLINE_DEPOSIT_SIZE*                  = 2^4  # ETH
+  GWEI_PER_ETH*                             = 10^9 # Gwei/ETH
+  MIN_VALIDATOR_SET_CHANGE_INTERVAL*        = 2^8  # slots (~1.1 hours)
+  RANDAO_SLOTS_PER_LAYER*                   = 2^12 # slots (~18 hours)
+  WITHDRAWAL_PERIOD*                        = 2^19 # slots (~97 days)
+  SHARD_PERSISTENT_COMMITTEE_CHANGE_PERIOD* = 2^16 # slots (~12 days)
+  MAX_VALIDATOR_CHURN_QUOTIENT*             = 2^5  # At most `1/MAX_VALIDATOR_CHURN_QUOTIENT` of the
+                                                   # validators can change during each validator set
+                                                   # change.
+  INITIAL_FORK_VERSION*                     = 0    # currently behaves like a constant

@@ -16,6 +16,6 @@ suite "Block processing":
     let actState = ActiveState()
     let crystState = CrystallizedState()
     let blck = BeaconBlock()
-    let slot = 10
+    let slot = 10'u
 
     actState.process_block(crystState, blck, slot)
