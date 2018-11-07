@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # In process of being updated as of spec from 2018-11-05
-# Commit id 59f32978d489020770ae50e6d45450103445c6ad
+# https://github.com/ethereum/eth2.0-specs/tree/59f32978d489020770ae50e6d45450103445c6ad
 
 import
   intsets, eth_common, math, stint
