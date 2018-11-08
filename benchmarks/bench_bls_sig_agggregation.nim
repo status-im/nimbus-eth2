@@ -85,12 +85,14 @@ proc main(nb_samples: Natural) =
   let secret_public_keypairs = newSeqWith(num_validators, newKeyPair())
   var stop = cpuTime()
   echo "#### Message crypto keys, signatures and proofs of possession"
+  echo '\n'
   echo &"{num_validators} secret and public keys pairs generated in {stop - start :>4.3f} s"
   echo &"Throughput: {num_validators.float / (stop - start) :>4.3f} kps/s (key pairs/second)"
 
   start = cpuTime()
   let proof_of_possessions = secret_public_keypairs.mapIt(it.generatePoP())
   stop = cpuTime()
+  echo '\n'
   echo &"{num_validators} proof of possessions in {stop - start :>4.3f} s"
   echo &"Throughput: {num_validators.float / (stop - start) :>4.3f} pops/s (proofs-of-possession/second)"
 
@@ -116,6 +118,7 @@ proc main(nb_samples: Natural) =
   stop = cpuTime()
   echo &"{num_validators} public key and message signature pairs generated in {stop - start :>4.3f} s"
   echo &"Throughput: {num_validators.float / (stop - start) :>4.3f} kps/s (keysig pairs/second)"
+  echo '\n'
   echo "Note: message is re-hashed through Blake2B-384."
   echo "      Eth2.0 spec mentions hashing with Blake2b-512 and slicing the first 256-bit."
   echo "      However message signing is unspecified, and Milagro BLS12-384 requires a 384-bit input."
@@ -128,28 +131,20 @@ proc main(nb_samples: Natural) =
   echo "######################"
   echo '\n'
 
-  echo '\n'
-  echo "#### Benchmark: proofs-of-possessions verification"
+  echo &"#### Benchmark: {num_validators} proofs-of-possessions verification"
   var pop_valid: bool
-  bench "Benchmarking proofs-of-possessions verification", pop_valid:
+  bench &"Benchmarking {num_validators} proofs-of-possessions verification", pop_valid:
     for i in 0 ..< proof_of_possessions.len:
       pop_valid = pop_valid and proof_of_possessions[i].verifyPoP(pubkeys[i])
 
-  ### Bench stuck in ECP2 multiplication at the moment
-  echo '\n'
-  echo "#### Benchmark: public keys aggregation"
   var agg_pubkey: VerKey
-  bench "Benchmarking public key aggregation", agg_pubkey:
+  bench &"Benchmarking {num_validators} public keys aggregation", agg_pubkey:
     agg_pubkey = combine(pubkeys)
 
-  echo '\n'
-  echo "#### Benchmark: signature aggregation"
   var agg_sig: Signature
-  bench "Benchmarking signature aggregation", agg_sig:
+  bench &"Benchmarking {num_validators} signatures aggregation", agg_sig:
     agg_sig = combine(signatures)
 
-  echo '\n'
-  echo "#### Benchmark: message verification"
   var msg_verif: bool
   bench "Benchmarking message verification", msg_verif:
     msg_verif = agg_sig.verifyMessage(msg.data, agg_pubkey)

@@ -14,6 +14,7 @@ proc warmup*() =
   echo &"Warmup: {stop - start:>4.4f} s, result {foo} (displayed to avoid compiler optimizing warmup away)"
 
 template printStats*(experiment_name: string, compute_result: typed) {.dirty.} =
+  echo "#################################################################"
   echo "\n" & experiment_name
   echo &"Collected {stats.n} samples in {global_stop - global_start:>4.3f} seconds"
   echo &"Average time: {stats.mean * 1000 :>4.3f} ms"
@@ -22,6 +23,7 @@ template printStats*(experiment_name: string, compute_result: typed) {.dirty.} =
   echo &"Max     time: {stats.max * 1000 :>4.3f} ms"
   echo "\nDisplay computation result to make sure it's not optimized away"
   echo compute_result # Prevents compiler from optimizing stuff away
+  echo '\n'
 
 template bench*(name: string, compute_result: typed, body: untyped) {.dirty.}=
   block: # Actual bench
