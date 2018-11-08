@@ -121,7 +121,7 @@ proc main(nb_samples: Natural) =
   echo '\n'
   echo "Note: message is re-hashed through Blake2B-384."
   echo "      Eth2.0 spec mentions hashing with Blake2b-512 and slicing the first 256-bit."
-  echo "      However message signing is unspecified, and Milagro BLS12-384 requires a 384-bit input."
+  echo "      However message signing is unspecified, and Milagro BLS12-381 requires a 384-bit input."
 
   echo '\n'
   echo "######################"
