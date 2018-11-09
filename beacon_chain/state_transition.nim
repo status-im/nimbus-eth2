@@ -26,21 +26,21 @@ import
   milagro_crypto # nimble install https://github.com/status-im/nim-milagro-crypto@#master
 
 
-func process_block*(active_state: ActiveState, crystallized_state: CrystallizedState, blck: BeaconBlock, slot: int64) =
+func process_block*(active_state: ActiveState, crystallized_state: CrystallizedState, blck: BeaconBlock, slot: uint64) =
   # TODO: unfinished spec
 
   for attestation in blck.attestations:
     ## Spec changes: Verify that slot <= parent.slot_number and slot >= max(parent.slot_number - CYCLE_LENGTH + 1, 0)
     ## (Outdated) Verify that slot < block.slot_number and slot >= max(block.slot_number - CYCLE_LENGTH, 0)
-    doAssert slot < blck.slot_number
-    doAssert slot >= max(blck.slot_number - CYCLE_LENGTH, 0)
+    doAssert slot < blck.slot
+    doAssert slot >= max(blck.slot - CYCLE_LENGTH, 0)
 
     # Compute parent_hashes = [get_block_hash(active_state, block, slot - CYCLE_LENGTH + i)
     #  for i in range(1, CYCLE_LENGTH - len(oblique_parent_hashes) + 1)] + oblique_parent_hashes
     # TODO - don't allocate in tight loop
     var parent_hashes = newSeq[Blake2_256_Digest](CYCLE_LENGTH - attestation.oblique_parent_hashes.len)
     for idx, val in parent_hashes.mpairs:
-      val = get_block_hash(active_state, blck, slot - CYCLE_LENGTH + idx + 1)
+      val = get_block_hash(active_state, blck, slot - CYCLE_LENGTH + cast[uint64](idx) + 1)
     parent_hashes.add attestation.oblique_parent_hashes
 
     # Let attestation_indices be get_shards_and_committees_for_slot(crystallized_state, slot)[x], choosing x so that attestation_indices.shard_id equals the shard_id value provided to find the set of validators that is creating this attestation record.
