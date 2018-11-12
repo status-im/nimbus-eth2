@@ -28,6 +28,7 @@ type
   # Alias
   BLSPublicKey* = VerKey
   BLSsig*       = Signature
+
   Blake2_256_Digest* = Hash256           # TODO change to Blake2b-512[0 ..< 32] see https://github.com/status-im/nim-beacon-chain/issues/3
   Uint24* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
 

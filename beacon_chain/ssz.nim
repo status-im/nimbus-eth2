@@ -9,7 +9,7 @@
 # See https://github.com/ethereum/beacon_chain/issues/100
 # and https://github.com/ethereum/beacon_chain/tree/master/ssz
 
-import ./datatypes, eth_common, endians, typetraits, options
+import ./datatypes, eth_common, endians, typetraits, options, nimcrypto
 
 # ################### Helper functions ###################################
 func `+`[T](p: ptr T, offset: int): ptr T {.inline.}=
