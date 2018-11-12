@@ -58,12 +58,13 @@ func process_block*(active_state: ActiveState, crystallized_state: CrystallizedS
     doAssert attestation.attester_bitfield.len == attestation_indices.committee.len
 
     # Derive a group public key by adding the public keys of all of the attesters in attestation_indices for whom the corresponding bit in attester_bitfield (the ith bit is (attester_bitfield[i // 8] >> (7 - (i %8))) % 2) equals 1
-    var all_pubkeys: seq[BLSPublicKey] # We have to collect all pubkeys first as aggregate public keys need sorting to avoid some attacks.
+    var agg_pubkey: BLSPublicKey
+    var empty: bool
     for attester_idx in attestation_indices.committee:
       if attester_idx in attestation.attester_bitfield:
         let validator = crystallized_state.validators[attester_idx]
-        all_pubkeys.add validator.pubkey
-    let agg_pubkey = all_pubkeys.initAggregatedKey()
+        if empty: agg_pubkey = validator.pubkey
+        else: agg_pubkey.combine(validator.pubkey)
 
     # Verify that aggregate_sig verifies using the group pubkey generated and hash((slot % CYCLE_LENGTH).to_bytes(8, 'big') + parent_hashes + shard_id + shard_block_hash) as the message.
     var msg: array[32, byte]
