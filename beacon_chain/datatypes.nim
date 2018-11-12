@@ -7,6 +7,12 @@
 
 # In process of being updated as of spec from 2018-11-05
 # https://github.com/ethereum/eth2.0-specs/tree/59f32978d489020770ae50e6d45450103445c6ad
+#
+# The latest version can be seen here:
+# https://github.com/ethereum/eth2.0-specs/blob/master/specs/beacon-chain.md
+#
+# How wrong the code is:
+# https://github.com/ethereum/eth2.0-specs/compare/59f32978d489020770ae50e6d45450103445c6ad...master
 
 import
   intsets, eth_common, math, stint
@@ -17,9 +23,6 @@ import milagro_crypto
   #  - SigKey (private/secret key) (48 bytes)
   #  - Signature and AggregatedSignature (97 bytes)
   #  - VerKey (public key) and AggregatedVerKey (192 bytes)
-
-# Implementation based on WIP spec https://notes.ethereum.org/SCIg8AH5SA-O4C1G1LYZHQ?view
-# ⚠ Spec is updated very often, implementation might quickly be outdated
 
 type
   # Alias
