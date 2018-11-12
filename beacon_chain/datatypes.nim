@@ -28,7 +28,7 @@ type
   # Alias
   BLSPublicKey* = VerKey
   BLSsig*       = Signature
-  BLSaggregateSig* = AggregatedSignature
+  # BLSaggregateSig* = AggregatedSignature
   Blake2_256_Digest* = Hash256           # TODO change to Blake2b-512[0 ..< 32] see https://github.com/status-im/nim-beacon-chain/issues/3
   Uint24* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
 
@@ -96,7 +96,7 @@ type
     attester_bitfield*: IntSet                    # Who is participating
     justified_slot*: int64
     justified_block_hash: Blake2_256_Digest
-    aggregate_sig*: BLSaggregateSig               # The actual signature
+  # aggregate_sig*: BLSaggregateSig               # The actual signature
 
   ValidatorStatusCodes* {.pure.} = enum
     PendingActivation = 0
