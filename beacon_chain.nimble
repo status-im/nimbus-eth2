@@ -16,10 +16,7 @@ proc test(name: string, defaultLang = "c") =
   # TODO, don't forget to change defaultLang to `cpp` if the project requires C++
   if not dirExists "build":
     mkDir "build"
-  if not dirExists "nimcache":
-    mkDir "nimcache"
   --run
-  --nimcache: "nimcache"
   switch("out", ("./build/" & name))
   setCommand defaultLang, "tests/" & name & ".nim"
 
