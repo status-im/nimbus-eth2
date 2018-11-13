@@ -59,7 +59,7 @@ func process_block*(active_state: ActiveState, crystallized_state: CrystallizedS
 
     # Derive a group public key by adding the public keys of all of the attesters in attestation_indices for whom the corresponding bit in attester_bitfield (the ith bit is (attester_bitfield[i // 8] >> (7 - (i %8))) % 2) equals 1
     var agg_pubkey: BLSPublicKey
-    var empty: bool
+    var empty = true
     for attester_idx in attestation_indices.committee:
       if attester_idx in attestation.attester_bitfield:
         let validator = crystallized_state.validators[attester_idx]
