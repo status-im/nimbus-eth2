@@ -1,7 +1,11 @@
-import nimcrypto, eth_common, endians, sequtils, algorithm
+import
+  nimcrypto, eth_common, endians, sequtils, algorithm, ./datatypes,
+  milagro_crypto
 
-# Sample treehash implementation based on:
+# Sample hashSSZ implementation based on:
 # https://github.com/ethereum/eth2.0-specs/pull/120
+# and
+# https://github.com/ethereum/beacon_chain/blob/e32464d9c1c82a2b46f2eb83c383654ea1d1ebe6/hash_ssz.py
 # Probably wrong - the spec is pretty bare-bones and no test vectors yet
 
 const CHUNK_SIZE = 128
@@ -77,9 +81,16 @@ proc merkleHash(lst: seq[seq[byte]]): array[32, byte] =
 
     chunkz.setLen(chunkz.len div 2)
 
+  if chunkz.len == 0:
+    # XXX What now? not in spec, shouldn't happen in the real world.. for now,
+    #     just do a dummy
+    result = hash(dataLen)
+    return
+
   result = hash(chunkz[0], dataLen)
 
-proc treeHash*(x: SomeInteger): seq[byte] =
+
+proc hashSSZ*(x: SomeInteger): seq[byte] =
   var v: array[x.sizeof, byte]
   copyMem(v.addr, x.unsafeAddr, x.sizeof)
 
@@ -91,22 +102,48 @@ proc treeHash*(x: SomeInteger): seq[byte] =
   else: {.fatal: "boink: " & $x.sizeof .}
   result = @res
 
-proc treeHash*(x: EthAddress): seq[byte] = @x
-proc treeHash*(x: MDigest): seq[byte] = @(x.data)
-proc treeHash*(x: seq[byte]): seq[byte] = @(hash(x)) # XXX: hash96 also!
-proc treeHash*[T: seq](x: T): seq[byte] =
-  var tmp: seq[seq[byte]]
-  for v in x:
-    tmp.add treeHash(v)
-  result = merkleHash(tmp)
+proc hashSSZ*(x: Uint24): seq[byte] =
+  # XXX broken!
+  @(hashSSZ(x.uint32)[0..2])
 
-proc treeHash*[T](x: T): seq[byte] =
-  # XXX: could probaby compile-time-macro-sort fields...
-  var fields: seq[tuple[name: string, value: seq[byte]]]
-  for name, field in x.fieldPairs:
-    fields.add (name, treeHash(field))
+proc hashSSZ*(x: EthAddress): seq[byte] = @x
+proc hashSSZ*(x: MDigest[32*8]): seq[byte] = @(x.data)
+proc hashSSZ*(x: openArray[byte]): seq[byte] = @(hash(x))
 
+proc hashSSZ*(x: ValidatorRecord): seq[byte] =
+  # for whatever reason, hash_ssz.py code contains special cases for some types..
   var tmp: seq[byte]
-  for name, value in fields.sortedByIt(it.name):
-    tmp.add value.value
+  # tmp.add(x.pubkey) # XXX our code vs spec!
+  tmp.add hashSSZ(x.withdrawal_shard)
+  tmp.add hashSSZ(x.withdrawal_address)
+  tmp.add hashSSZ(x.randao_commitment)
+  tmp.add hashSSZ(x.balance.data.lo) # XXX our code vs spec!
+  tmp.add hashSSZ(x.start_dynasty)
+  tmp.add hashSSZ(x.end_dynasty)
   result = @(hash(tmp))
+
+proc hashSSZ*(x: ShardAndCommittee): seq[byte] =
+  var tmp: seq[byte]
+  var committee: seq[seq[byte]]
+  for v in x.committee: committee.add hashSSZ(v)
+
+  tmp.add hashSSZ(x.shard_id)
+  tmp.add merkleHash(committee)
+  return @(hash(tmp))
+
+proc hashSSZ*[T](x: T): seq[byte] =
+  when T is seq:
+    var tmp: seq[seq[byte]]
+    for v in x:
+      tmp.add hashSSZ(v)
+    result = merkleHash(tmp)
+  else:
+    # XXX: could probaby compile-time-macro-sort fields...
+    var fields: seq[tuple[name: string, value: seq[byte]]]
+    for name, field in x.fieldPairs:
+      fields.add (name, hashSSZ(field))
+
+    var tmp: seq[byte]
+    for name, value in fields.sortedByIt(it.name):
+      tmp.add hashSSZ(value.value)
+    result = @(hash(tmp))
