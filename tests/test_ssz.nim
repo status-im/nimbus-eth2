@@ -7,7 +7,7 @@
 
 import
   unittest, nimcrypto, eth_common, sequtils, options,
-  ../beacon_chain/ssz
+  ../beacon_chain/[datatypes, ssz]
 
 func filled[N: static[int], T](typ: type array[N, T], value: T): array[N, T] =
   for val in result.mitems:
@@ -58,3 +58,18 @@ suite "Simple serialization":
     check:
       expected_ser[0..^2].deserialize(Foo).isNone()
       expected_ser[1..^1].deserialize(Foo).isNone()
+
+suite "Tree hashing":
+  # XXX Nothing but smoke tests for now..
+
+  test "Hash ValidatorRecord":
+    let vr = ValidatorRecord()
+    check: hashSSZ(vr).len > 0
+
+  test "Hash ShardAndCommittee":
+    let sc = ShardAndCommittee()
+    check: hashSSZ(sc).len > 0
+
+  test "Hash integer":
+    check: hashSSZ(0x01'u32) == [0'u8, 0, 0, 1] # big endian!
+    check: hashSSZ(Uint24(0x01)) == [0'u8, 0, 1] # big endian!
