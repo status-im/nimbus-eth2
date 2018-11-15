@@ -50,7 +50,7 @@ type
     parent_hash*: Blake2_256_Digest               # Hash of the parent block
 
   ShardAndCommittee* = object
-    shard_id*: int16                              # The shard ID
+    shard_id*: uint16                             # Shard number
     committee*: seq[Uint24]                       # Validator indices
 
   ShardReassignmentRecord* = object
@@ -69,9 +69,8 @@ type
     exit_slot*: uint64                            # Slot when validator exited (or 0)
 
   CrosslinkRecord* = object
-    dynasty: int64                                # What dynasty the crosslink was submitted in
-    slot: int64                                   # What slot
-    hash: Blake2_256_Digest                       # The block hash
+    slot: uint64                                  # Slot number
+    hash: Blake2_256_Digest                       # Shard chain block hash
 
   AttestationRecord* = object
     slot*: uint64                                  # Slot number
