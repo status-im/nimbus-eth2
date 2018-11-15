@@ -49,10 +49,6 @@ type
     attestations*: seq[AttestationRecord]         # Attestation votes
     parent_hash*: Blake2_256_Digest               # Hash of the parent block
 
-  ActiveState* = object
-    pending_attestations*: seq[AttestationRecord] # Attestations that have not yet been processed
-    recent_block_hashes*: seq[Blake2_256_Digest]  # Most recent 2 * CYCLE_LENGTH block hashes, older to newer
-
   CrystallizedState* = object
     validators*: seq[ValidatorRecord]             # List of active validators
     last_state_recalc*: uint64                    # Last CrystallizedState recalculation
