@@ -49,24 +49,14 @@ type
     attestations*: seq[AttestationRecord]         # Attestation votes
     parent_hash*: Blake2_256_Digest               # Hash of the parent block
 
-  CrystallizedState* = object
-    validators*: seq[ValidatorRecord]             # List of active validators
-    last_state_recalc*: uint64                    # Last CrystallizedState recalculation
-    shard_and_committee_for_slots*: seq[seq[ShardAndCommittee]]
-      # What active validators are part of the attester set
-      # at what height, and in what shard. Starts at slot
-      # last_state_recalc - CYCLE_LENGTH
-    last_justified_slot*: int64                   # The last justified slot
-    justified_streak*: int16                      # Number of consecutive justified slots ending at this one
-    last_finalized_slot*: int64                   # The last finalized slot
-    current_dynasty*: int64                       # The current dynasty
-    crosslink_records*: seq[CrosslinkRecord]      # Records about the most recent crosslink for each shard
-    dynasty_seed*: Blake2_256_Digest              # Used to select the committees for each shard
-    dynasty_seed_last_reset*: int64               # Last epoch the crosslink seed was reset
-
   ShardAndCommittee* = object
     shard_id*: int16                              # The shard ID
     committee*: seq[Uint24]                       # Validator indices
+
+  ShardReassignmentRecord* = object
+    validator_index*: Uint24                      # Which validator to reassign
+    shard*: uint16                                # To which shard
+    slot*: uint64                                 # When
 
   ValidatorRecord* = object
     pubkey*: BLSPublicKey                         # The validator's public key
@@ -102,6 +92,28 @@ type
     shard_block_hash*: Blake2_256_Digest               # Shard block hash
     shard_block_combined_data_root*: Blake2_256_Digest # Root of data between last hash and this one
     justified_slot*: uint64                            # Slot of last justified beacon block referenced in the attestation
+
+  BeaconState* = object
+    validator_set_change_slot*: uint64                     # Slot of last validator set change
+    validators*: seq[ValidatorRecord]                      # List of validators
+    crosslinks*: seq[CrosslinkRecord]                      # Most recent crosslink for each shard
+    last_state_recalculation_slot*: uint64                 # Last cycle-boundary state recalculation
+    last_finalized_slot*: uint64                           # Last finalized slot
+    last_justified_slot*: uint64                           # Last justified slot
+    justified_streak*: uint64                              # Number of consecutive justified slots
+    shard_and_committee_for_slots*: seq[ShardAndCommittee] # Committee members and their assigned shard, per slot
+    persistent_committees*: Uint24                         # Persistent shard committees
+    persistent_committee_reassignments*: seq[ShardReassignmentRecord]
+    next_shuffling_seed*: Blake2_256_Digest                # Randao seed used for next shuffling
+    deposits_penalized_in_period*: uint32                  # Total deposits penalized in the given withdrawal period
+    validator_set_delta_hash_chain*: Blake2_256_Digest     # Hash chain of validator set changes (for light clients to easily track deltas)
+    pre_fork_version*: uint32                              # Parameters relevant to hard forks / versioning.
+    post_fork_version*: uint32                             # Should be updated only by hard forks.
+    fork_slot_number*: uint64
+    pending_attestations*: seq[AttestationRecord]          # Attestations not yet processed
+    pending_specials*: seq[SpecialRecord]                  # Specials not yet been processed
+    recent_block_hashes*: Blake2_256_Digest                # recent beacon block hashes needed to process attestations, older to newer
+    randao_mix*: Blake2_256_Digest                         # RANDAO state
 
   ValidatorStatusCodes* {.pure.} = enum
     PendingActivation = 0
