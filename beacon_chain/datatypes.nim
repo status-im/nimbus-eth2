@@ -87,16 +87,15 @@ type
     hash: Blake2_256_Digest                       # The block hash
 
   AttestationRecord* = object
-    slot*: int64                                  # Slot number
-    shard_id*: int16                              # Shard ID
+    slot*: uint64                                  # Slot number
+    shard*: uint16                                 # Shard ID
     oblique_parent_hashes*: seq[Blake2_256_Digest]
-      # List of block hashes that this signature is signing over that
-      # are NOT part of the current chain, in order of oldest to newest
-    shard_block_hash*: Blake2_256_Digest          # Block hash in the shard that we are attesting to
-    attester_bitfield*: IntSet                    # Who is participating
-    justified_slot*: int64
-    justified_block_hash: Blake2_256_Digest
-    aggregate_sig*: Signature               # The actual signature
+      # Beacon block hashes not part of the current chain, oldest to newest
+    shard_block_hash*: Blake2_256_Digest          # Shard block hash being attested to
+    attester_bitfield*: IntSet                    # Attester participation bitfield (1 bit per attester)
+    justified_slot*: uint64                       # Slot of last justified beacon block
+    justified_block_hash: Blake2_256_Digest       # Hash of last justified beacon block
+    aggregate_sig*: Signature                     # BLS aggregate signature
 
   ValidatorStatusCodes* {.pure.} = enum
     PendingActivation = 0
