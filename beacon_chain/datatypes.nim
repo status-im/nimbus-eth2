@@ -59,13 +59,14 @@ type
     slot*: uint64                                 # When
 
   ValidatorRecord* = object
-    pubkey*: BLSPublicKey                         # The validator's public key
-    withdrawal_shard*: int16                      # What shard the validator's balance will be sent to after withdrawal
-    withdrawal_address*: EthAddress               # And what address
-    randao_commitment*: Blake2_256_Digest         # The validator's current RANDAO beacon commitment
-    balance*: Int128                              # Current balance
-    start_dynasty*: int64                         # Dynasty where the validator is inducted
-    end_dynasty*: int64                           # Dynasty where the validator leaves
+    pubkey*: BLSPublicKey                         # BLS public key
+    withdrawal_shard*: uint16                     # Withdrawal shard number
+    withdrawal_address*: EthAddress               # Withdrawal address
+    randao_commitment*: Blake2_256_Digest         # RANDAO commitment
+    randao_last_change*: uint64                   # Slot the RANDAO commitment was last changed
+    balance*: uint64                              # Balance in Gwei
+    status*: uint8                                # Status code [used to be more enum-like]
+    exit_slot*: uint64                            # Slot when validator exited (or 0)
 
   CrosslinkRecord* = object
     dynasty: int64                                # What dynasty the crosslink was submitted in
