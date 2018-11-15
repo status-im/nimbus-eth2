@@ -10,21 +10,28 @@ import
 
 const CHUNK_SIZE = 128
 
+template withHash(body: untyped): untyped =
+  ## Spec defines hash as BLAKE2b-512(x)[0:32]
+  ## This little helper will init the hash function and return the sliced
+  ## hash:
+  ## let hashOfData = withHash: h.update(data)
+  var h  {.inject.}: blake2_512
+  h.init()
+  body
+  var res: array[32, byte]
+  var tmp = h.finish().data
+  copyMem(res.addr, tmp.addr, 32)
+  res
+
 # XXX varargs openarray, anyone?
 func hash(a: openArray[byte]): array[32, byte] =
-  var h: blake2_512
-  h.init()
-  h.update(a)
-  var tmp = h.finish().data
-  copyMem(result.addr, tmp.addr, 32)
+  withHash:
+    h.update(a)
 
 func hash(a, b: openArray[byte]): array[32, byte] =
-  var h: blake2_512
-  h.init()
-  h.update(a)
-  h.update(b)
-  var tmp = h.finish().data
-  copyMem(result.addr, tmp.addr, 32)
+  withHash:
+    h.update(a)
+    h.update(b)
 
 func nextPowerOf2(v: uint32): uint32 =
   result = v - 1
@@ -36,28 +43,22 @@ func nextPowerOf2(v: uint32): uint32 =
   inc result
 
 func roundUpTo(v, to: int): int =
-  ## Round up to an even boundary of `to`
+  ## Round up `v` to an even boundary of `to`
   ((v + to - 1) div to) * to
 
-# Concatenate a list of homogeneous objects into data and pad it
-proc listToGlob(lst: seq[seq[byte]]): seq[byte] =
-  for x in lst:
-    var y = x
-    y.setLen(nextPowerOf2(len(x).uint32))
-    result.add(y)
-
-  # Pad to chunksize
-  result.setLen(result.len().roundUpTo(CHUNK_SIZE))
+func listToGlob[T](lst: seq[T]): seq[byte]
 
 # XXX: er, how is this _actually_ done?
 func empty(T: typedesc): T = discard
 const emptyChunk = @(empty(array[CHUNK_SIZE, byte]))
 
-proc merkleHash(lst: seq[seq[byte]]): array[32, byte] =
-  ## Merkle tree hash of a list of items
-  # XXX: seq-of-seq looks weird...
+func merkleHash[T](lst: seq[T]): array[32, byte] =
+  ## Merkle tree hash of a list of items flattening list with some padding,
+  ## then dividing the list into CHUNK_SIZE sized chunks
 
   # Turn list into padded data
+  # XXX: the heap allocations here can be avoided by computing the merkle tree
+  #      recursively, but for now keep things simple and aligned with upstream
   var data = listToGlob(lst)
 
   # Store length of list (to compensate for non-bijectiveness of padding)
@@ -82,68 +83,69 @@ proc merkleHash(lst: seq[seq[byte]]): array[32, byte] =
     chunkz.setLen(chunkz.len div 2)
 
   if chunkz.len == 0:
-    # XXX What now? not in spec, shouldn't happen in the real world.. for now,
-    #     just do a dummy
-    result = hash(dataLen)
+    const empty32 = empty(array[32, byte])
+    result = hash(empty32, dataLen)
     return
 
   result = hash(chunkz[0], dataLen)
 
-
-proc hashSSZ*(x: SomeInteger): seq[byte] =
+func hashSSZ*(x: SomeInteger): array[sizeof(x), byte] =
+  ## Integers area all encoded as bigendian and not padded
   var v: array[x.sizeof, byte]
   copyMem(v.addr, x.unsafeAddr, x.sizeof)
 
-  var res: array[x.sizeof, byte]
-  when x.sizeof == 8: bigEndian64(res.addr, v.addr)
-  elif x.sizeof == 4: bigEndian32(res.addr, v.addr)
-  elif x.sizeof == 2: bigEndian16(res.addr, v.addr)
-  elif x.sizeof == 1: res = v
+  when x.sizeof == 8: bigEndian64(result.addr, v.addr)
+  elif x.sizeof == 4: bigEndian32(result.addr, v.addr)
+  elif x.sizeof == 2: bigEndian16(result.addr, v.addr)
+  elif x.sizeof == 1: result = v
   else: {.fatal: "boink: " & $x.sizeof .}
-  result = @res
 
-proc hashSSZ*(x: Uint24): seq[byte] =
-  # XXX broken!
-  @(hashSSZ(x.uint32)[0..2])
+func hashSSZ*(x: Uint24): array[3, byte] =
+  var tmp = hashSSZ(x.uint32) # XXX broken endian!
+  copyMem(result.addr, tmp.addr, 3)
 
-proc hashSSZ*(x: EthAddress): seq[byte] = @x
-proc hashSSZ*(x: MDigest[32*8]): seq[byte] = @(x.data)
-proc hashSSZ*(x: openArray[byte]): seq[byte] = @(hash(x))
+func hashSSZ*(x: EthAddress): array[sizeof(x), byte] = x
+func hashSSZ*(x: MDigest[32*8]): array[32, byte] = x.data
+func hashSSZ*(x: openArray[byte]): array[32, byte] = hash(x)
 
-proc hashSSZ*(x: ValidatorRecord): seq[byte] =
-  # for whatever reason, hash_ssz.py code contains special cases for some types..
-  var tmp: seq[byte]
-  # tmp.add(x.pubkey) # XXX our code vs spec!
-  tmp.add hashSSZ(x.withdrawal_shard)
-  tmp.add hashSSZ(x.withdrawal_address)
-  tmp.add hashSSZ(x.randao_commitment)
-  tmp.add hashSSZ(x.balance.data.lo) # XXX our code vs spec!
-  tmp.add hashSSZ(x.start_dynasty)
-  tmp.add hashSSZ(x.end_dynasty)
-  result = @(hash(tmp))
+func hashSSZ*(x: ValidatorRecord): array[32, byte] =
+  # XXX hash_ssz.py code contains special cases for some types, why?
+  withHash:
+    # tmp.add(x.pubkey) # XXX our code vs spec!
+    h.update hashSSZ(x.withdrawal_shard)
+    h.update hashSSZ(x.withdrawal_address)
+    h.update hashSSZ(x.randao_commitment)
+    h.update hashSSZ(x.balance.data.lo) # XXX our code vs spec!
+    h.update hashSSZ(x.start_dynasty)
+    h.update hashSSZ(x.end_dynasty)
 
-proc hashSSZ*(x: ShardAndCommittee): seq[byte] =
-  var tmp: seq[byte]
-  var committee: seq[seq[byte]]
-  for v in x.committee: committee.add hashSSZ(v)
+func hashSSZ*(x: ShardAndCommittee): array[32, byte] =
+  return withHash:
+    h.update hashSSZ(x.shard_id)
+    h.update merkleHash(x.committee)
 
-  tmp.add hashSSZ(x.shard_id)
-  tmp.add merkleHash(committee)
-  return @(hash(tmp))
-
-proc hashSSZ*[T](x: T): seq[byte] =
+func hashSSZ*[T](x: T): array[32, byte] =
   when T is seq:
-    var tmp: seq[seq[byte]]
-    for v in x:
-      tmp.add hashSSZ(v)
-    result = merkleHash(tmp)
+    return merkleHash(x)
   else:
-    # XXX: could probaby compile-time-macro-sort fields...
+    # XXX could probaby compile-time-macro-sort fields...
     var fields: seq[tuple[name: string, value: seq[byte]]]
     for name, field in x.fieldPairs:
       fields.add (name, hashSSZ(field))
 
-    var tmp: seq[byte]
-    for name, value in fields.sortedByIt(it.name):
-      tmp.add hashSSZ(value.value)
-    result = @(hash(tmp))
+    return withHash:
+      for name, value in fields.sortedByIt(it.name):
+        h.update hashSSZ(value.value)
+
+func listToGlob[T](lst: seq[T]): seq[byte] =
+  ## Concatenate a list of homogeneous objects into data and pad it
+  for x in lst:
+    let
+      y = hashSSZ(x)
+      paddedLen = nextPowerOf2(len(y).uint32).int
+    result.add(y)
+    if paddedLen != len(y):
+      result.setLen(result.len.roundUpTo(paddedLen))
+
+  # Pad to chunksize
+  result.setLen(result.len().roundUpTo(CHUNK_SIZE))

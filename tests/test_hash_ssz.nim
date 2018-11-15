@@ -19,3 +19,6 @@ suite "Tree hashing":
   test "Hash ShardAndCommittee":
     let sc = ShardAndCommittee()
     check: hashSSZ(sc).len > 0
+
+  test "Hash integer":
+    check: hashSSZ(0x01'u32) == [0'u8, 0, 0, 1] # big endian!
