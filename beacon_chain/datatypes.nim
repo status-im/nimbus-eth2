@@ -97,6 +97,16 @@ type
     justified_block_hash: Blake2_256_Digest       # Hash of last justified beacon block
     aggregate_sig*: Signature                     # BLS aggregate signature
 
+  AttestationSignedData* = object
+    fork_version*: uint64                              # Fork version
+    slot*: uint64                                      # Slot number
+    shard*: uint16                                     # Shard number
+    parent_hashes*: seq[Blake2_256_Digest]
+      # CYCLE_LENGTH parent hashes
+    shard_block_hash*: Blake2_256_Digest               # Shard block hash
+    shard_block_combined_data_root*: Blake2_256_Digest # Root of data between last hash and this one
+    justified_slot*: uint64                            # Slot of last justified beacon block referenced in the attestation
+
   ValidatorStatusCodes* {.pure.} = enum
     PendingActivation = 0
     Active = 1
