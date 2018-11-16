@@ -65,7 +65,7 @@ type
     randao_commitment*: Blake2_256_Digest         # RANDAO commitment
     randao_last_change*: uint64                   # Slot the RANDAO commitment was last changed
     balance*: uint64                              # Balance in Gwei
-    status*: uint8                                # Status code [used to be more enum-like]
+    status*: ValidatorStatusCodes                 # Status code
     exit_slot*: uint64                            # Slot when validator exited (or 0)
 
   CrosslinkRecord* = object
@@ -112,7 +112,7 @@ type
     fork_slot_number*: uint64
     pending_attestations*: seq[AttestationRecord]          # Attestations not yet processed
     pending_specials*: seq[SpecialRecord]                  # Specials not yet been processed
-    recent_block_hashes*: Blake2_256_Digest                # recent beacon block hashes needed to process attestations, older to newer
+    recent_block_hashes*: seq[Blake2_256_Digest]           # recent beacon block hashes needed to process attestations, older to newer
     randao_mix*: Blake2_256_Digest                         # RANDAO state
 
   ValidatorStatusCodes* {.pure.} = enum
