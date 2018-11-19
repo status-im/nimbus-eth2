@@ -95,7 +95,7 @@ func get_new_shuffling*(seed: Blake2_256_Digest, validators: seq[ValidatorRecord
     result.add committees
 
 func get_shards_and_committees_for_slot*(state: BeaconState,
-        slot: uint64): ShardAndCommittee =
+        slot: uint64): seq[ShardAndCommittee] =
   # TODO: Spec why is active_state an argument?
   # TODO: this returns a scalar, not vector, but its return type in spec is a seq/list?
 
@@ -103,7 +103,7 @@ func get_shards_and_committees_for_slot*(state: BeaconState,
   assert earliest_slot_in_array <= slot
   assert slot < earliest_slot_in_array + CYCLE_LENGTH * 2
 
-  return state.shard_and_committee_for_slots[int slot - earliest_slot_in_array]
+  return @[state.shard_and_committee_for_slots[int slot - earliest_slot_in_array]]
   # TODO, slot is a uint64; will be an issue on int32 arch.
   #       Clarify with EF if light clients will need the beacon chain
 

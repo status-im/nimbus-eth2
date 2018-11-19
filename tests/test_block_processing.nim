@@ -13,8 +13,8 @@ suite "Block processing":
   ## For now just test that we can compile and execute block processing with mock data.
 
   test "Mock process_block":
-    let actState = ActiveState()
-    let crystState = CrystallizedState()
+    let actState = BeaconState()
+    let crystState = BeaconState()
     let blck = BeaconBlock()
     let slot = 10'u
 

@@ -26,7 +26,7 @@ import
   milagro_crypto # nimble install https://github.com/status-im/nim-milagro-crypto@#master
 
 
-func process_block*(active_state: ActiveState, crystallized_state: CrystallizedState, blck: BeaconBlock, slot: uint64) =
+func process_block*(active_state: BeaconState, crystallized_state: BeaconState, blck: BeaconBlock, slot: uint64) =
   # TODO: unfinished spec
 
   for attestation in blck.attestations:
@@ -40,7 +40,7 @@ func process_block*(active_state: ActiveState, crystallized_state: CrystallizedS
     # TODO - don't allocate in tight loop
     var parent_hashes = newSeq[Blake2_256_Digest](CYCLE_LENGTH - attestation.oblique_parent_hashes.len)
     for idx, val in parent_hashes.mpairs:
-      val = get_block_hash(active_state, blck, slot - CYCLE_LENGTH + cast[uint64](idx) + 1)
+      val = get_block_hash(active_state, blck, cast[int](slot - CYCLE_LENGTH + cast[uint64](idx) + 1))
     parent_hashes.add attestation.oblique_parent_hashes
 
     # Let attestation_indices be get_shards_and_committees_for_slot(crystallized_state, slot)[x], choosing x so that attestation_indices.shard_id equals the shard_id value provided to find the set of validators that is creating this attestation record.
@@ -49,7 +49,7 @@ func process_block*(active_state: ActiveState, crystallized_state: CrystallizedS
       var
         x = 1
         record_creator = shard_and_committees[0]
-      while record_creator.shard_id != attestation.shard_id:
+      while record_creator.shard_id != attestation.shard:
         record_creator = shard_and_committees[x]
         inc x
       record_creator
@@ -84,7 +84,7 @@ func process_block*(active_state: ActiveState, crystallized_state: CrystallizedS
       ctx.update(cast[ptr byte](parent_hashes[0].addr), size_p_hashes)
 
       var be_shard_id: array[2, byte]           # Unsure, spec doesn't mention big-endian representation
-      bigEndian16(be_shard_id.addr, attestation.shard_id.unsafeAddr)
+      bigEndian16(be_shard_id.addr, attestation.shard.unsafeAddr)
       ctx.update be_shard_id
 
       ctx.update attestation.shard_block_hash.data
