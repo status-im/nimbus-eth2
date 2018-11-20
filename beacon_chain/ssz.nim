@@ -12,7 +12,47 @@
 import ./datatypes, eth_common, endians, typetraits, options, nimcrypto
 
 # ################### Helper functions ###################################
-func `+`[T](p: ptr T, offset: int): ptr T {.inline.}=
+
+func len(x: Uint24): int = 3
+
+func toBytesSSZ(x: SomeInteger): array[sizeof(x), byte] =
+  ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
+  ## All integers are serialized as **big endian**.
+
+  when x.sizeof == 8: bigEndian64(result.addr, x.unsafeAddr)
+  elif x.sizeof == 4: bigEndian32(result.addr, x.unsafeAddr)
+  elif x.sizeof == 2: bigEndian16(result.addr, x.unsafeAddr)
+  elif x.sizeof == 1: copyMem(result.addr, x.unsafeAddr, sizeof(result))
+  else: {.fatal: "Unsupported type serialization: " & $(type(x)).name.}
+
+func toBytesSSZ(x: Uint24): array[3, byte] =
+  ## Integers are all encoded as bigendian and not padded
+  let v = x.uint32
+  result[2] = byte(v and 0xff)
+  result[1] = byte((v shr 8) and 0xff)
+  result[0] = byte((v shr 16) and 0xff)
+
+func toBytesSSZ(x: EthAddress): array[sizeof(x), byte] = x
+func toBytesSSZ(x: MDigest[32*8]): array[32, byte] = x.data
+
+func fromBytesSSZUnsafe(T: typedesc[SomeInteger], data: ptr byte): T =
+  ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
+  ## All integers are serialized as **big endian**.
+  ## XXX: Assumes data points to a sufficiently large buffer
+
+  # XXX: any better way to get a suitably aligned buffer in nim???
+  # see also: https://github.com/nim-lang/Nim/issues/9206
+  var tmp: uint64
+  var alignedBuf = cast[ptr byte](tmp.addr)
+  copyMem(alignedBuf, data, result.sizeof)
+
+  when result.sizeof == 8: bigEndian64(result.addr, alignedBuf)
+  elif result.sizeof == 4: bigEndian32(result.addr, alignedBuf)
+  elif result.sizeof == 2: bigEndian16(result.addr, alignedBuf)
+  elif result.sizeof == 1: copyMem(result.addr, alignedBuf, sizeof(result))
+  else: {.fatal: "Unsupported type deserialization: " & $(type(result)).name.}
+
+func `+`[T](p: ptr T, offset: int): ptr T =
   ## Pointer arithmetic: Addition
   const size = sizeof T
   cast[ptr T](cast[ByteAddress](p) +% offset * size)
@@ -23,31 +63,16 @@ func eat(x: var auto, data: ptr byte, pos: var int, len: int): bool =
   inc pos, x.sizeof
   return true
 
-func eatInt[T: SomeInteger or byte](x: var T, data: ptr byte, pos: var int, len: int):
+func eatInt[T: SomeInteger](x: var T, data: ptr byte, pos: var int, len: int):
     bool =
   if pos + x.sizeof > len: return
 
-  # XXX: any better way to get a suitably aligned buffer in nim???
-  # see also: https://github.com/nim-lang/Nim/issues/9206
-  var tmp: uint64
-  var alignedBuf = cast[ptr byte](tmp.addr)
-  copyMem(alignedBuf, data + pos, x.sizeof)
-
-  when x.sizeof == 8:
-    bigEndian64(x.addr, alignedBuf)
-  elif x.sizeof == 4:
-    bigEndian32(x.addr, alignedBuf)
-  elif x.sizeof == 2:
-    bigEndian16(x.addr, alignedBuf)
-  elif x.sizeof == 1:
-    x = cast[ptr type x](alignedBuf)[]
-  else:
-    {.fatal: "Unsupported type deserialization: " & $(type(x)).name.}
+  x = T.fromBytesSSZUnsafe(data + pos)
 
   inc pos, x.sizeof
   return true
 
-func eatSeq[T: SomeInteger or byte](x: var seq[T], data: ptr byte, pos: var int,
+func eatSeq[T: SomeInteger](x: var seq[T], data: ptr byte, pos: var int,
     len: int): bool =
   var items: int32
   if not eatInt(items, data, pos, len): return
@@ -58,27 +83,13 @@ func eatSeq[T: SomeInteger or byte](x: var seq[T], data: ptr byte, pos: var int,
     discard eatInt(val, data, pos, len) # Bounds-checked above
   return true
 
-func serInt[T: SomeInteger or byte](dest: var seq[byte], src: T) {.inline.}=
-  # XXX: any better way to get a suitably aligned buffer in nim???
-  var tmp: T
-  var alignedBuf = cast[ptr array[src.sizeof, byte]](tmp.addr)
-  when src.sizeof == 8:
-    bigEndian64(alignedBuf, src.unsafeAddr)
-  elif src.sizeof == 4:
-    bigEndian32(alignedBuf, src.unsafeAddr)
-  elif src.sizeof == 2:
-    bigEndian16(alignedBuf, src.unsafeAddr)
-  elif src.sizeof == 1:
-    copyMem(alignedBuf, src.unsafeAddr, src.sizeof) # careful, aliasing..
-  else:
-    {.fatal: "Unsupported type deserialization: " & $(type(x)).name.}
+func serInt(dest: var seq[byte], x: SomeInteger) =
+  dest.add x.toBytesSSZ()
 
-  dest.add alignedBuf[]
-
-func serSeq[T: SomeInteger or byte](dest: var seq[byte], src: seq[T]) =
+func serSeq(dest: var seq[byte], src: seq[SomeInteger]) =
   dest.serInt src.len.uint32
   for val in src:
-    dest.serInt(val)
+    dest.add val.toBytesSSZ()
 
 # ################### Core functions ###################################
 func deserialize(data: ptr byte, pos: var int, len: int, typ: typedesc[object]):
@@ -105,13 +116,159 @@ func deserialize*(
 
 func serialize*[T](value: T): seq[byte] =
   for field in value.fields:
-    when field is EthAddress:
-      result.add field
-    elif field is MDigest:
-      result.add field.data
-    elif field is (SomeInteger or byte):
-      result.serInt field
+    when field is (EthAddress | MDigest | SomeInteger):
+      result.add field.toBytesSSZ()
     elif field is seq[SomeInteger or byte]:
       result.serSeq field
     else: # TODO: Serializing subtypes (?, depends on final spec)
       {.fatal: "Unsupported type serialization: " & $typ.name.}
+
+# ################### Hashing ###################################
+
+# Sample hashSSZ implementation based on:
+# https://github.com/ethereum/eth2.0-specs/blob/98312f40b5742de6aa73f24e6225ee68277c4614/specs/simple-serialize.md
+# and
+# https://github.com/ethereum/beacon_chain/pull/134
+# Probably wrong - the spec is pretty bare-bones and no test vectors yet
+
+const CHUNK_SIZE = 128
+
+# ################### Hashing helpers ###################################
+
+template withHash(body: untyped): untyped =
+  ## Spec defines hash as BLAKE2b-512(x)[0:32]
+  ## This little helper will init the hash function and return the sliced
+  ## hash:
+  ## let hashOfData = withHash: h.update(data)
+  var h  {.inject.}: blake2_512
+  h.init()
+  body
+  var res: array[32, byte]
+  var tmp = h.finish().data
+  copyMem(res.addr, tmp.addr, 32)
+  res
+
+# XXX varargs openarray, anyone?
+func hash(a: openArray[byte]): array[32, byte] =
+  withHash:
+    h.update(a)
+
+func hash(a, b: openArray[byte]): array[32, byte] =
+  withHash:
+    h.update(a)
+    h.update(b)
+
+# XXX: er, how is this _actually_ done?
+func empty(T: typedesc): T = discard
+const emptyChunk = @(empty(array[CHUNK_SIZE, byte]))
+
+func merkleHash[T](lst: seq[T]): array[32, byte]
+
+# ################### Hashing interface ###################################
+
+func hashSSZ*(x: SomeInteger): array[sizeof(x), byte] =
+  ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
+  ## All integers are serialized as **big endian**.
+  toBytesSSZ(x)
+
+func hashSSZ*(x: Uint24): array[3, byte] =
+  ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
+  ## All integers are serialized as **big endian**.
+  toBytesSSZ(x)
+
+func hashSSZ*(x: EthAddress): array[sizeof(x), byte] =
+  ## Addresses copied as-is
+  toBytesSSZ(x)
+
+func hashSSZ*(x: MDigest[32*8]): array[32, byte] =
+  ## Hash32 copied as-is
+  toBytesSSZ(x)
+
+func hashSSZ*(x: openArray[byte]): array[32, byte] =
+  ## Blobs are hashed
+  hash(x)
+
+func hashSSZ*(x: ValidatorRecord): array[32, byte] =
+  ## Containers have their fields recursively hashed, concatenated and hashed
+  # XXX hash_ssz.py code contains special cases for some types, why?
+  withHash:
+    # tmp.add(x.pubkey) # XXX uncertain future of public key format
+    h.update hashSSZ(x.withdrawal_shard)
+    h.update hashSSZ(x.withdrawal_address)
+    h.update hashSSZ(x.randao_commitment)
+    h.update hashSSZ(x.randao_last_change)
+    h.update hashSSZ(x.balance)
+    # h.update hashSSZ(x.status) # XXX it's an enum, deal with it
+    h.update hashSSZ(x.exit_slot)
+
+func hashSSZ*(x: ShardAndCommittee): array[32, byte] =
+  return withHash:
+    h.update hashSSZ(x.shard_id)
+    h.update merkleHash(x.committee)
+
+func hashSSZ*[T](x: T): array[32, byte] =
+  when T is seq:
+    ## Sequences are tree-hashed
+    return merkleHash(x)
+  else:
+    ## Containers have their fields recursively hashed, concatenated and hashed
+    # XXX could probaby compile-time-macro-sort fields...
+    var fields: seq[tuple[name: string, value: seq[byte]]]
+    for name, field in x.fieldPairs:
+      fields.add (name, hashSSZ(field))
+
+    return withHash:
+      for name, value in fields.sortedByIt(it.name):
+        h.update hashSSZ(value.value)
+
+# ################### Tree hash ###################################
+
+func merkleHash[T](lst: seq[T]): array[32, byte] =
+  ## Merkle tree hash of a list of homogenous, non-empty items
+
+  # XXX: the heap allocations here can be avoided by computing the merkle tree
+  #      recursively, but for now keep things simple and aligned with upstream
+
+  # Store length of list (to compensate for non-bijectiveness of padding)
+  var dataLen: array[32, byte]
+  var lstLen = uint64(len(lst))
+  bigEndian64(dataLen[32-8].addr, lstLen.addr)
+
+  # Divide into chunks
+  var chunkz: seq[seq[byte]]
+
+  if len(lst) == 0:
+    chunkz.add emptyChunk
+  elif sizeof(hashSSZ(lst[0])) < CHUNK_SIZE:
+    # See how many items fit in a chunk
+    let itemsPerChunk = CHUNK_SIZE div sizeof(hashSSZ(lst[0]))
+
+    chunkz.setLen((len(lst) + itemsPerChunk - 1) div itemsPerChunk)
+
+    # Build a list of chunks based on the number of items in the chunk
+    for i in 0..<chunkz.len:
+      for j in 0..<itemsPerChunk:
+        chunkz[i].add hashSSZ(lst[i * itemsPerChunk + j])
+  else:
+    # Leave large items alone
+    chunkz.setLen(len(lst))
+    for i in 0..<len(lst):
+      chunkz[i].add hashSSZ(lst[i])
+
+  while chunkz.len() > 1:
+    if chunkz.len() mod 2 == 1:
+      chunkz.add emptyChunk
+    for i in 0..<(chunkz.len div 2):
+      # As tradition dictates - one feature, at least one nim bug:
+      # https://github.com/nim-lang/Nim/issues/9684
+      let tmp = @(hash(chunkz[i * 2], chunkz[i * 2 + 1]))
+      chunkz[i] = tmp
+
+    chunkz.setLen(chunkz.len div 2)
+
+  if chunkz.len == 0:
+    const empty32 = empty(array[32, byte])
+    result = hash(empty32, dataLen)
+    return
+
+  result = hash(chunkz[0], dataLen)
