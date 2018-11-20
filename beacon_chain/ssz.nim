@@ -16,7 +16,8 @@ import ./datatypes, eth_common, endians, typetraits, options, nimcrypto
 func len(x: Uint24): int = 3
 
 func toBytesSSZ(x: SomeInteger): array[sizeof(x), byte] =
-  ## Integers are all encoded as bigendian and not padded
+  ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
+  ## All integers are serialized as **big endian**.
 
   when x.sizeof == 8: bigEndian64(result.addr, x.unsafeAddr)
   elif x.sizeof == 4: bigEndian32(result.addr, x.unsafeAddr)
@@ -34,9 +35,10 @@ func toBytesSSZ(x: Uint24): array[3, byte] =
 func toBytesSSZ(x: EthAddress): array[sizeof(x), byte] = x
 func toBytesSSZ(x: MDigest[32*8]): array[32, byte] = x.data
 
-func fromBytesSSZUnsafe(T: typedesc, data: ptr byte): T =
-  ## Integers are all encoded as bigendian and not padded
-  ## Assumes no buffer overruns!
+func fromBytesSSZUnsafe(T: typedesc[SomeInteger], data: ptr byte): T =
+  ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
+  ## All integers are serialized as **big endian**.
+  ## XXX: Assumes data points to a sufficiently large buffer
 
   # XXX: any better way to get a suitably aligned buffer in nim???
   # see also: https://github.com/nim-lang/Nim/issues/9206
@@ -165,11 +167,13 @@ func merkleHash[T](lst: seq[T]): array[32, byte]
 # ################### Hashing interface ###################################
 
 func hashSSZ*(x: SomeInteger): array[sizeof(x), byte] =
-  ## Integers area all encoded as bigendian and not padded
+  ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
+  ## All integers are serialized as **big endian**.
   toBytesSSZ(x)
 
 func hashSSZ*(x: Uint24): array[3, byte] =
-  ## Integers area all encoded as bigendian and not padded
+  ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
+  ## All integers are serialized as **big endian**.
   toBytesSSZ(x)
 
 func hashSSZ*(x: EthAddress): array[sizeof(x), byte] =
@@ -185,15 +189,15 @@ func hashSSZ*(x: openArray[byte]): array[32, byte] =
   hash(x)
 
 func hashSSZ*(x: ValidatorRecord): array[32, byte] =
-  ## Containers have their fields recursivel hashed, concatenated and hashed
+  ## Containers have their fields recursively hashed, concatenated and hashed
   # XXX hash_ssz.py code contains special cases for some types, why?
   withHash:
-    # tmp.add(x.pubkey) # XXX our code vs spec!
+    # tmp.add(x.pubkey) # XXX uncertain future of public key format
     h.update hashSSZ(x.withdrawal_shard)
     h.update hashSSZ(x.withdrawal_address)
     h.update hashSSZ(x.randao_commitment)
     h.update hashSSZ(x.randao_last_change)
-    h.update hashSSZ(x.balance) # XXX our code vs spec!
+    h.update hashSSZ(x.balance)
     # h.update hashSSZ(x.status) # XXX it's an enum, deal with it
     h.update hashSSZ(x.exit_slot)
 
@@ -207,7 +211,7 @@ func hashSSZ*[T](x: T): array[32, byte] =
     ## Sequences are tree-hashed
     return merkleHash(x)
   else:
-    ## Containers have their fields recursivel hashed, concatenated and hashed
+    ## Containers have their fields recursively hashed, concatenated and hashed
     # XXX could probaby compile-time-macro-sort fields...
     var fields: seq[tuple[name: string, value: seq[byte]]]
     for name, field in x.fieldPairs:
