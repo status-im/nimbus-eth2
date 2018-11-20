@@ -5,14 +5,11 @@
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-# In process of being updated as of spec from 2018-11-05
-# https://github.com/ethereum/eth2.0-specs/tree/59f32978d489020770ae50e6d45450103445c6ad
-#
 # The latest version can be seen here:
 # https://github.com/ethereum/eth2.0-specs/blob/master/specs/beacon-chain.md
 #
 # How wrong the code is:
-# https://github.com/ethereum/eth2.0-specs/compare/59f32978d489020770ae50e6d45450103445c6ad...master
+# https://github.com/ethereum/eth2.0-specs/compare/98312f40b5742de6aa73f24e6225ee68277c4614...master
 
 import
   intsets, eth_common, math, stint
@@ -37,17 +34,34 @@ type
     data*: seq[byte]                              # Data
 
   BeaconBlock* = object
+    slot*: uint64                                  # Slot number
+    randao_reveal*: Blake2_256_Digest              # Proposer RANDAO reveal
+    candidate_pow_receipt_root*: Blake2_256_Digest # Recent PoW chain reference (receipt root)
+    ancestor_hashes*: seq[Blake2_256_Digest]       # Skip list of previous beacon block hashes
+                                                   # i'th item is most recent ancestor whose
+                                                   # slot is a multiple of 2**i for
+                                                   # i == 0, ..., 31
+    state_root*: Blake2_256_Digest                 # State root
+    attestations*: seq[AttestationRecord]          # Attestations
+    specials*: seq[SpecialRecord]                  # Specials (e.g. logouts, penalties)
+    proposer_signature*: Signature                 # Proposer signature
+
+  ProposalSignedData* = object
+    fork_version*: uint64                         # Fork version
     slot*: uint64                                 # Slot number
-    randao_reveal*: Blake2_256_Digest             # Proposer RANDAO reveal
-    pow_chain_reference*: Blake2_256_Digest       # Recent PoW chain reference (block hash)
-    ancestor_hashes*: seq[Blake2_256_Digest]      # Skip list of previous beacon block hashes
-                                                  # i'th item is most recent ancestor whose
-                                                  # slot is a multiple of 2**i for
-                                                  # i == 0, ..., 31
-    active_state_root*: Blake2_256_Digest         # Hash of the active state
-    crystallized_state_root*: Blake2_256_Digest   # Hash of the crystallized state
-    attestations*: seq[AttestationRecord]         # Attestation votes
-    parent_hash*: Blake2_256_Digest               # Hash of the parent block
+    shard_id*: uint64                             # Shard ID (or `2**64 - 1` for beacon chain)
+    block_hash*: Blake2_256_Digest                # Block hash
+
+  AttestationSignedData* = object
+    fork_version*: uint64                         # Fork version
+    slot*: uint64                                 # Slot number
+    shard*: uint16                                # Shard number
+    parent_hashes*: seq[Blake2_256_Digest]        # CYCLE_LENGTH parent hashes
+    shard_block_hash*: Blake2_256_Digest          # Shard block hash
+    last_crosslink_hash*: Blake2_256_Digest       # Last crosslink hash
+    shard_block_combined_data_root*: Blake2_256_Digest
+                                                  # Root of data between last hash and this one
+    justified_slot*: uint64                       # Slot of last justified beacon block referenced in the attestation
 
   ShardAndCommittee* = object
     shard_id*: uint16                             # Shard number
@@ -58,40 +72,23 @@ type
     shard*: uint16                                # To which shard
     slot*: uint64                                 # When
 
-  ValidatorRecord* = object
-    pubkey*: BLSPublicKey                         # BLS public key
-    withdrawal_shard*: uint16                     # Withdrawal shard number
-    withdrawal_address*: EthAddress               # Withdrawal address
-    randao_commitment*: Blake2_256_Digest         # RANDAO commitment
-    randao_last_change*: uint64                   # Slot the RANDAO commitment was last changed
-    balance*: uint64                              # Balance in Gwei
-    status*: ValidatorStatusCodes                 # Status code
-    exit_slot*: uint64                            # Slot when validator exited (or 0)
-
   CrosslinkRecord* = object
     slot: uint64                                  # Slot number
     hash: Blake2_256_Digest                       # Shard chain block hash
 
   AttestationRecord* = object
     slot*: uint64                                  # Slot number
-    shard*: uint16                                 # Shard ID
+    shard*: uint16                                 # Shard number
     oblique_parent_hashes*: seq[Blake2_256_Digest]
       # Beacon block hashes not part of the current chain, oldest to newest
     shard_block_hash*: Blake2_256_Digest          # Shard block hash being attested to
+    last_crosslink_hash*: Blake2_256_Digest       # Last crosslink hash
+    shard_block_combined_data_root*: Blake2_256_Digest
+                                                  # Root of data between last hash and this one
     attester_bitfield*: IntSet                    # Attester participation bitfield (1 bit per attester)
     justified_slot*: uint64                       # Slot of last justified beacon block
     justified_block_hash: Blake2_256_Digest       # Hash of last justified beacon block
     aggregate_sig*: Signature                     # BLS aggregate signature
-
-  AttestationSignedData* = object
-    fork_version*: uint64                              # Fork version
-    slot*: uint64                                      # Slot number
-    shard*: uint16                                     # Shard number
-    parent_hashes*: seq[Blake2_256_Digest]
-      # CYCLE_LENGTH parent hashes
-    shard_block_hash*: Blake2_256_Digest               # Shard block hash
-    shard_block_combined_data_root*: Blake2_256_Digest # Root of data between last hash and this one
-    justified_slot*: uint64                            # Slot of last justified beacon block referenced in the attestation
 
   BeaconState* = object
     validator_set_change_slot*: uint64                     # Slot of last validator set change
@@ -107,13 +104,28 @@ type
     next_shuffling_seed*: Blake2_256_Digest                # Randao seed used for next shuffling
     deposits_penalized_in_period*: uint32                  # Total deposits penalized in the given withdrawal period
     validator_set_delta_hash_chain*: Blake2_256_Digest     # Hash chain of validator set changes (for light clients to easily track deltas)
+    current_exit_seq*: uint64                              # Current sequence number for withdrawals
+    genesis_time*: uint64                                  # Genesis time
+    known_pow_receipt_root*: Blake2_256_Digest             # PoW chain reference
+    candidate_pow_receipt_root*: Blake2_256_Digest
+    candidate_pow_receipt_root_votes*: Blake2_256_Digest
     pre_fork_version*: uint32                              # Parameters relevant to hard forks / versioning.
     post_fork_version*: uint32                             # Should be updated only by hard forks.
     fork_slot_number*: uint64
     pending_attestations*: seq[AttestationRecord]          # Attestations not yet processed
-    pending_specials*: seq[SpecialRecord]                  # Specials not yet been processed
     recent_block_hashes*: seq[Blake2_256_Digest]           # recent beacon block hashes needed to process attestations, older to newer
     randao_mix*: Blake2_256_Digest                         # RANDAO state
+
+  ValidatorRecord* = object
+    pubkey*: BLSPublicKey                         # BLS public key
+    withdrawal_shard*: uint16                     # Withdrawal shard number
+    withdrawal_address*: EthAddress               # Withdrawal address
+    randao_commitment*: Blake2_256_Digest         # RANDAO commitment
+    randao_last_change*: uint64                   # Slot the RANDAO commitment was last changed
+    balance*: uint64                              # Balance in Gwei
+    status*: ValidatorStatusCodes                 # Status code
+    exit_slot*: uint64                            # Slot when validator exited (or 0)
+    exit_seq*: uint64                             # Sequence number when validator exited (or 0)
 
   ValidatorStatusCodes* {.pure.} = enum
     PendingActivation = 0
