@@ -44,7 +44,7 @@ type
     state_root*: Blake2_256_Digest                 # State root
     attestations*: seq[AttestationRecord]          # Attestations
     specials*: seq[SpecialRecord]                  # Specials (e.g. logouts, penalties)
-    proposer_signature*: Signature                 # Proposer signature
+    proposer_signature*: BLSSig                    # Proposer signature
 
   ProposalSignedData* = object
     fork_version*: uint64                         # Fork version
@@ -87,8 +87,8 @@ type
                                                   # Root of data between last hash and this one
     attester_bitfield*: IntSet                    # Attester participation bitfield (1 bit per attester)
     justified_slot*: uint64                       # Slot of last justified beacon block
-    justified_block_hash: Blake2_256_Digest       # Hash of last justified beacon block
-    aggregate_sig*: Signature                     # BLS aggregate signature
+    justified_block_hash*: Blake2_256_Digest      # Hash of last justified beacon block
+    aggregate_sig*: BLSSig                        # BLS aggregate signature
 
   BeaconState* = object
     validator_set_change_slot*: uint64                     # Slot of last validator set change
