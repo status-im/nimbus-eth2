@@ -215,7 +215,7 @@ func hashSSZ*[T](x: T): array[32, byte] =
     # XXX could probaby compile-time-macro-sort fields...
     var fields: seq[tuple[name: string, value: seq[byte]]]
     for name, field in x.fieldPairs:
-      fields.add (name, hashSSZ(field))
+      fields.add (name, @(hashSSZ(field)))
 
     return withHash:
       for name, value in fields.sortedByIt(it.name):
