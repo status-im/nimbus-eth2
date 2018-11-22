@@ -9,7 +9,12 @@
 # See https://github.com/ethereum/beacon_chain/issues/100
 # and https://github.com/ethereum/beacon_chain/tree/master/ssz
 
-import ./datatypes, eth_common, endians, typetraits, options, nimcrypto
+import
+  endians, typetraits, options, algorithm,
+  eth_common, nimcrypto,
+  ./datatypes
+
+from milagro_crypto import getRaw
 
 # ################### Helper functions ###################################
 
@@ -206,7 +211,7 @@ func hashSSZ*(x: ShardAndCommittee): array[32, byte] =
     h.update hashSSZ(x.shard_id)
     h.update merkleHash(x.committee)
 
-func hashSSZ*[T](x: T): array[32, byte] =
+func hashSSZ*[T: not enum](x: T): array[32, byte] =
   when T is seq:
     ## Sequences are tree-hashed
     return merkleHash(x)
@@ -215,11 +220,58 @@ func hashSSZ*[T](x: T): array[32, byte] =
     # XXX could probaby compile-time-macro-sort fields...
     var fields: seq[tuple[name: string, value: seq[byte]]]
     for name, field in x.fieldPairs:
-      fields.add (name, hashSSZ(field))
+      fields.add (name, @(hashSSZ(field)))
 
     return withHash:
       for name, value in fields.sortedByIt(it.name):
         h.update hashSSZ(value.value)
+
+# #################################
+# HashSSZ not part of official spec
+func hashSSZ*(x: enum): array[32, byte] =
+  ## TODO - Warning ⚠️: not part of the spec
+  ## as of https://github.com/ethereum/beacon_chain/pull/133/files
+  ## This is a "stub" needed for BeaconBlock hashing
+  static: assert x.sizeof == 1 # Check that the enum fits in 1 byte
+  withHash:
+    h.update [uint8 x]
+
+func hashSSZ*(x: BLSsig): array[32, byte] =
+  ## TODO - Warning ⚠️: not part of the spec
+  ## as of https://github.com/ethereum/beacon_chain/pull/133/files
+  ## This is a "stub" needed for BeaconBlock hashing
+  x.getraw().hash()
+
+func hashSSZ*(x: AttestationRecord): array[32, byte] =
+  ## TODO - Warning ⚠️: not part of the spec
+  ## as of https://github.com/ethereum/beacon_chain/pull/133/files
+  ## This is a "stub" needed for BeaconBlock hashing
+  withHash:
+    h.update hashSSZ(x.slot)
+    h.update hashSSZ(x.shard)
+    h.update hashSSZ(x.oblique_parent_hashes)
+    h.update hashSSZ(x.shard_block_hash)
+    h.update hashSSZ(x.last_crosslink_hash)
+    h.update hashSSZ(x.shard_block_combined_data_root)
+    # h.update hashSSZ(attester_bitfield) # TODO - the bitfield as a specific serialisation format
+    h.update hashSSZ(x.justified_slot)
+    h.update hashSSZ(x.justified_block_hash)
+    h.update hashSSZ(x.aggregate_sig)
+
+func hashSSZ*(x: BeaconBlock): array[32, byte] =
+  ## TODO - Warning ⚠️: not part of the spec
+  ## as of https://github.com/ethereum/beacon_chain/pull/133/files
+  ## This is a "stub" needed for fork_choice_rule
+  ## and networking
+  withHash:
+    h.update hashSSZ(x.slot)
+    h.update hashSSZ(x.randao_reveal)
+    h.update hashSSZ(x.candidate_pow_receipt_root)
+    h.update hashSSZ(x.ancestor_hashes)
+    h.update hashSSZ(x.state_root)
+    h.update hashSSZ(x.attestations)
+    h.update hashSSZ(x.specials)
+    h.update hashSSZ(x.proposer_signature)
 
 # ################### Tree hash ###################################
 

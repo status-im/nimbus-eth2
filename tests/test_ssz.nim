@@ -70,6 +70,11 @@ suite "Tree hashing":
     let sc = ShardAndCommittee()
     check: hashSSZ(sc).len > 0
 
+  test "Hash BeaconBlock":
+    ## TODO: Test genesis hash when spec is updated
+    let bb = BeaconBlock()
+    check: hashSSZ(bb).len > 0
+
   test "Hash integer":
     check: hashSSZ(0x01'u32) == [0'u8, 0, 0, 1] # big endian!
     check: hashSSZ(Uint24(0x01)) == [0'u8, 0, 1] # big endian!
