@@ -6,5 +6,6 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
+  ./test_block_processing,
   ./test_ssz,
-  ./test_block_processing
+  ./test_validator

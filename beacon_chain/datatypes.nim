@@ -21,6 +21,36 @@ import milagro_crypto
   #  - Signature                   (48 bytes - 384-bit)
   #  - VerKey (public key)         (192 bytes)
 
+const
+  SHARD_COUNT*                              = 1024 # a constant referring to the number of shards
+  DEPOSIT_SIZE*                             = 2^5  # You need to deposit 32 ETH to be a validator in Casper
+  MIN_ONLINE_DEPOSIT_SIZE*                  = 2^4  # ETH
+  GWEI_PER_ETH*                             = 10^9 # Gwei/ETH
+  TARGET_COMMITTEE_SIZE*                    = 2^8  # validators
+  SLOT_DURATION*                            = 6    # seconds
+  CYCLE_LENGTH*                             = 64   # slots (~ 6 minutes)
+  MIN_VALIDATOR_SET_CHANGE_INTERVAL*        = 2^8  # slots (~25 minutes)
+  SHARD_PERSISTENT_COMMITTEE_CHANGE_PERIOD* = 2^17 # slots (~9 days)
+  MIN_ATTESTATION_INCLUSION_DELAY*          = 2^2  # slots (~25 minutes)
+  SQRT_E_DROP_TIME*                         = 2^16 # slots (~12 days); amount of time it takes for the
+                                                   # quadratic leak to cut deposits of non-participating
+                                                   # validators by ~39.4%
+  WITHDRAWALS_PER_CYCLE*                    = 2^2  # validators (5.2m ETH in ~6 months)
+  MIN_WITHDRAWAL_PERIOD*                    = 2^13 # slots (~14 hours)
+  DELETION_PERIOD*                          = 2^22 # slots (~290 days)
+  COLLECTIVE_PENALTY_CALCULATION_PERIOD*    = 2^20 # slots (~2.4 months)
+  SLASHING_WHISTLEBLOWER_REWARD_DENOMINATOR* = 2^9 # ?
+  BASE_REWARD_QUOTIENT*                     = 2^15 # per-slot interest rate assuming all validators are
+                                                   # participating, assuming total deposits of 1 ETH. It
+                                                   # corresponds to ~3.88% annual interest assuming 10
+                                                   # million participating ETH.
+  MAX_VALIDATOR_CHURN_QUOTIENT*             = 2^5  # At most `1/MAX_VALIDATOR_CHURN_QUOTIENT` of the
+                                                   # validators can change during each validator set
+                                                   # change.
+  POW_HASH_VOTING_PERIOD*                   = 2^10 # ?
+  POW_CONTRACT_MERKLE_TREE_DEPTH*           = 2^5  #
+  INITIAL_FORK_VERSION*                     = 0    # currently behaves like a constant
+
 type
   # Alias
   BLSPublicKey* = VerKey
@@ -98,7 +128,9 @@ type
     last_finalized_slot*: uint64                           # Last finalized slot
     last_justified_slot*: uint64                           # Last justified slot
     justified_streak*: uint64                              # Number of consecutive justified slots
-    shard_and_committee_for_slots*: seq[seq[ShardAndCommittee]] # Committee members and their assigned shard, per slot
+    shard_and_committee_for_slots*: array[2 * CYCLE_LENGTH, seq[ShardAndCommittee]] ## \
+    ## Committee members and their assigned shard, per slot, covers 2 cycles
+    ## worth of assignments
     persistent_committees*: seq[seq[ValidatorRecord]]      # Persistent shard committees
     persistent_committee_reassignments*: seq[ShardReassignmentRecord]
     next_shuffling_seed*: Blake2_256_Digest                # Randao seed used for next shuffling
@@ -164,34 +196,3 @@ type
     #   with room to spare.
     #
     #   Also, IntSets uses machine int size while we require int64 even on 32-bit platform.
-
-
-const
-  SHARD_COUNT*                              = 1024 # a constant referring to the number of shards
-  DEPOSIT_SIZE*                             = 2^5  # You need to deposit 32 ETH to be a validator in Casper
-  MIN_ONLINE_DEPOSIT_SIZE*                  = 2^4  # ETH
-  GWEI_PER_ETH*                             = 10^9 # Gwei/ETH
-  TARGET_COMMITTEE_SIZE*                    = 2^8  # validators
-  SLOT_DURATION*                            = 6    # seconds
-  CYCLE_LENGTH*                             = 64   # slots (~ 6 minutes)
-  MIN_VALIDATOR_SET_CHANGE_INTERVAL*        = 2^8  # slots (~25 minutes)
-  SHARD_PERSISTENT_COMMITTEE_CHANGE_PERIOD* = 2^17 # slots (~9 days)
-  MIN_ATTESTATION_INCLUSION_DELAY*          = 2^2  # slots (~25 minutes)
-  SQRT_E_DROP_TIME*                         = 2^16 # slots (~12 days); amount of time it takes for the
-                                                   # quadratic leak to cut deposits of non-participating
-                                                   # validators by ~39.4%
-  WITHDRAWALS_PER_CYCLE*                    = 2^2  # validators (5.2m ETH in ~6 months)
-  MIN_WITHDRAWAL_PERIOD*                    = 2^13 # slots (~14 hours)
-  DELETION_PERIOD*                          = 2^22 # slots (~290 days)
-  COLLECTIVE_PENALTY_CALCULATION_PERIOD*    = 2^20 # slots (~2.4 months)
-  SLASHING_WHISTLEBLOWER_REWARD_DENOMINATOR* = 2^9 # ?
-  BASE_REWARD_QUOTIENT*                     = 2^15 # per-slot interest rate assuming all validators are
-                                                   # participating, assuming total deposits of 1 ETH. It
-                                                   # corresponds to ~3.88% annual interest assuming 10
-                                                   # million participating ETH.
-  MAX_VALIDATOR_CHURN_QUOTIENT*             = 2^5  # At most `1/MAX_VALIDATOR_CHURN_QUOTIENT` of the
-                                                   # validators can change during each validator set
-                                                   # change.
-  POW_HASH_VOTING_PERIOD*                   = 2^10 # ?
-  POW_CONTRACT_MERKLE_TREE_DEPTH*           = 2^5  #
-  INITIAL_FORK_VERSION*                     = 0    # currently behaves like a constant

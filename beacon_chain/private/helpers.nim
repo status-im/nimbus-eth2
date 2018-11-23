@@ -8,13 +8,6 @@
 # Helper functions
 import ../datatypes, sequtils, nimcrypto, math
 
-func get_active_validator_indices(validators: openArray[ValidatorRecord]): seq[Uint24] =
-  ## Select the active validators
-  result = @[]
-  for idx, val in validators:
-    if val.status == ACTIVE:
-      result.add idx.Uint24
-
 func shuffle*[T](values: seq[T], seed: Blake2_256_Digest): seq[T] =
   ## Returns the shuffled ``values`` with seed as entropy.
   ## TODO: this calls out for tests, but I odn't particularly trust spec
@@ -38,7 +31,10 @@ func shuffle*[T](values: seq[T], seed: Blake2_256_Digest): seq[T] =
     index = 0
   while index < values_count - 1:
     # Re-hash the `source` to obtain a new pattern of bytes.
-    source = blake2_256.digest source.data
+
+    # XXX "attempting to call undeclared routine init"
+    # source = blake2_256.digest source.data
+
     # Iterate through the `source` bytes in 3-byte chunks.
     for pos in countup(0, 29, 3):
       let remaining = values_count - index
@@ -63,40 +59,12 @@ func shuffle*[T](values: seq[T], seed: Blake2_256_Digest): seq[T] =
         inc index
 
 func split*[T](lst: openArray[T], N: Positive): seq[seq[T]] =
+  ## split lst in N pieces, with each piece having `len(lst) div N` or
+  ## `len(lst) div N + 1` pieces
   # TODO: implement as an iterator
   result = newSeq[seq[T]](N)
   for i in 0 ..< N:
     result[i] = lst[lst.len * i div N ..< lst.len * (i+1) div N] # TODO: avoid alloc via toOpenArray
-
-func get_new_shuffling*(seed: Blake2_256_Digest,
-                        validators: openArray[ValidatorRecord],
-                        crosslinking_start_shard: int
-                        ): seq[seq[ShardAndCommittee]] =
-  ## Split up validators into groups at the start of every epoch,
-  ## determining at what height they can make attestations and what shard they are making crosslinks for
-  ## Implementation should do the following: http://vitalik.ca/files/ShuffleAndAssign.png
-
-  let
-    active_validators = get_active_validator_indices(validators)
-    committees_per_slot = clamp(
-      len(active_validators) div CYCLE_LENGTH div TARGET_COMMITTEE_SIZE,
-      1, SHARD_COUNT div CYCLE_LENGTH)
-    # Shuffle with seed
-    shuffled_active_validator_indices = shuffle(active_validators, seed)
-    # Split the shuffled list into cycle_length pieces
-    validators_per_slot = split(shuffled_active_validator_indices, CYCLE_LENGTH)
-
-  for slot, slot_indices in validators_per_slot:
-    let
-      shard_indices = split(slot_indices, committees_per_slot)
-      shard_id_start = crosslinking_start_shard + slot * committees_per_slot
-
-    var committees = newSeq[ShardAndCommittee](shard_indices.len)
-    for shard_position, indices in shard_indices:
-      committees[shard_position].shard_id = (shard_id_start + shard_position).uint16 mod SHARD_COUNT
-      committees[shard_position].committee = indices
-
-    result.add committees
 
 func get_shards_and_committees_for_slot*(state: BeaconState,
                                          slot: uint64
