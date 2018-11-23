@@ -95,6 +95,20 @@ type
   SpecialRecord* = object
     kind*: SpecialRecordTypes                     # Kind
     data*: seq[byte]                              # Data
+  
+  AttestationRecord* = object
+    slot*: uint64                                  # Slot number
+    shard*: uint16                                 # Shard number
+    oblique_parent_hashes*: seq[Blake2_256_Digest]
+      # Beacon block hashes not part of the current chain, oldest to newest
+    shard_block_hash*: Blake2_256_Digest          # Shard block hash being attested to
+    last_crosslink_hash*: Blake2_256_Digest       # Last crosslink hash
+    shard_block_combined_data_root*: Blake2_256_Digest
+                                                  # Root of data between last hash and this one
+    attester_bitfield*: seq[byte]                 # Attester participation bitfield (1 bit per attester)
+    justified_slot*: uint64                       # Slot of last justified beacon block
+    justified_block_hash*: Blake2_256_Digest      # Hash of last justified beacon block
+    aggregate_sig*: BLSSig                        # BLS aggregate signature
 
   BeaconState* = object
     validator_set_change_slot*: uint64                     # Slot of last validator set change
@@ -108,6 +122,10 @@ type
     shard_and_committee_for_slots*: array[2 * CYCLE_LENGTH, seq[ShardAndCommittee]] ## \
     ## Committee members and their assigned shard, per slot, covers 2 cycles
     ## worth of assignments
+    persistent_committees*: seq[seq[Uint24]]               # Persistent shard committees
+    last_justified_slot*: uint64                           # Last justified slot
+    justified_streak*: uint64                              # Number of consecutive justified slots
+    shard_and_committee_for_slots*: seq[seq[ShardAndCommittee]] # Committee members and their assigned shard, per slot
     persistent_committees*: seq[seq[Uint24]]               # Persistent shard committees
     persistent_committee_reassignments*: seq[ShardReassignmentRecord]
     next_shuffling_seed*: Eth2Digest                       # Randao seed used for next shuffling
@@ -191,3 +209,4 @@ type
     #   with room to spare.
     #
     #   Also, IntSets uses machine int size while we require int64 even on 32-bit platform.
+

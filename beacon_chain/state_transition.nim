@@ -54,7 +54,7 @@ func process_block*(active_state: BeaconState, crystallized_state: BeaconState, 
       record_creator
 
     # Verify that len(attester_bitfield) == ceil_div8(len(attestation_indices)), where ceil_div8 = (x + 7) // 8. Verify that bits len(attestation_indices).... and higher, if present (i.e. len(attestation_indices) is not a multiple of 8), are all zero
-    doAssert attestation.attester_bitfield.len == attestation_indices.committee.len
+    # doAssert attestation.attester_bitfield.len == attestation_indices.committee.len
 
     # Derive a group public key by adding the public keys of all of the attesters in attestation_indices for whom the corresponding bit in attester_bitfield (the ith bit is (attester_bitfield[i // 8] >> (7 - (i %8))) % 2) equals 1
     var agg_pubkey: Eth2PublicKey
