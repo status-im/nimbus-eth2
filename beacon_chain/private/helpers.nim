@@ -32,8 +32,11 @@ func shuffle*[T](values: seq[T], seed: Blake2_256_Digest): seq[T] =
   while index < values_count - 1:
     # Re-hash the `source` to obtain a new pattern of bytes.
 
-    # XXX "attempting to call undeclared routine init"
-    # source = blake2_256.digest source.data
+    # XXX: attempting to call undeclared routine: 'init'
+    # https://github.com/nim-lang/Nim/issues/8677
+    #
+    # mixin init? doesn't seem to be enough
+    #source = blake2_256.digest source.data
 
     # Iterate through the `source` bytes in 3-byte chunks.
     for pos in countup(0, 29, 3):
@@ -69,9 +72,6 @@ func split*[T](lst: openArray[T], N: Positive): seq[seq[T]] =
 func get_shards_and_committees_for_slot*(state: BeaconState,
                                          slot: uint64
                                          ): seq[ShardAndCommittee] =
-  # TODO: Spec why is active_state an argument?
-  # TODO: this returns a scalar, not vector, but its return type in spec is a seq/list?
-
   let earliest_slot_in_array = state.last_state_recalculation_slot - CYCLE_LENGTH
   assert earliest_slot_in_array <= slot
   assert slot < earliest_slot_in_array + CYCLE_LENGTH * 2
@@ -99,6 +99,14 @@ func get_new_recent_block_hashes*(old_block_hashes: seq[Blake2_256_Digest],
     result.add parent_hash
 
 func get_beacon_proposer*(state: BeaconState, slot: uint64): ValidatorRecord =
+  ## From Casper RPJ mini-spec:
+  ## When slot i begins, validator Vidx is expected
+  ## to create ("propose") a block, which contains a pointer to some parent block
+  ## that they perceive as the "head of the chain",
+  ## and includes all of the **attestations** that they know about
+  ## that have not yet been included into that chain.
+  ##
+  ## idx in Vidx == p(i mod N), pi being a random permutation of validators indices (i.e. a committee)
   let
     first_committee = get_shards_and_committees_for_slot(state, slot)[0].committee
     index = first_committee[(slot mod len(first_committee).uint64).int]

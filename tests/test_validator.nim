@@ -15,7 +15,8 @@ func sumCommittees(v: openArray[seq[ShardAndCommittee]]): int =
 
 suite "Validators":
   ## For now just test that we can compile and execute block processing with mock data.
-
+  ## https://github.com/status-im/nim-beacon-chain/issues/1
+  ## https://github.com/sigp/lighthouse/blob/ba548e49a52687a655c61b443b6835d79c6d4236/beacon_chain/validator_shuffling/src/shuffle.rs
   test "Smoke validator shuffling":
     let
       validators = repeat(
