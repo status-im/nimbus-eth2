@@ -13,11 +13,12 @@ requires "nim >= 0.18.0",
   "nimcrypto",
   "https://github.com/status-im/nim-milagro-crypto#master",
   "eth_p2p",
+  "ranges",
   "chronicles",
   "confutils",
   "serialization",
   "json_serialization",
-  "ranges"
+  "json_rpc"
 
 ### Helper functions
 proc test(name: string, defaultLang = "c") =
