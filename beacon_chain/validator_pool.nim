@@ -13,11 +13,12 @@ type
   RandaoValue = seq[bytes]
 
   AttachedValidator* = ref object
-    validatorSlot: int
+    idx*: int
     case kind: ValidatorKind
     of inProcess:
       randaoValue: RandaoValue
       privKey: BLSPrivateKey
+      randaoSecret: seq[bytes]
     else:
       connection: ValidatorConnection
 
@@ -32,8 +33,8 @@ proc addLocalValidator*(pool: var ValidatorPool,
                         privKey: BLSPrivateKey) =
   discard
 
-proc getAttachedValidator*(pool: ValidatorPool,
-                           validatorKey: BLSPublicKey): AttachedValidator =
+proc getValidator*(pool: ValidatorPool,
+                   validatorKey: BLSPublicKey): AttachedValidator =
   pool.validatators.getOrDefault(validatorKey)
 
 proc signBlockProposal*(v: AttachedValidator,

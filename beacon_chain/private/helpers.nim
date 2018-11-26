@@ -98,7 +98,7 @@ func mod_get[T](arr: openarray[T], pos: Natural): T =
   arr[pos mod arr.len]
 
 func get_shard_and_committees_idx*(state: BeaconState, slot: uint64): int =
-  # This replaces `get_shards_and_committees_for_slot` from the spec,
+  # This replaces `get_shards_and_committees_for_slot` from the spec
   # since in Nim, it's not currently efficient to create read-only
   # accessors to expensive-to-copy members (such as sequences).
   let earliest_slot_in_array = state.last_state_recalculation_slot - CYCLE_LENGTH
@@ -107,9 +107,9 @@ func get_shard_and_committees_idx*(state: BeaconState, slot: uint64): int =
   return int(slot - earliest_slot_in_array)
 
 func get_beacon_proposer_idx*(state: BeaconState, slot: int): int =
-  # This replaces `get_beacon_proposer` from the spec,
-  # since in Nim, it's not currently efficient to create read-only
-  # accessors to expensive-to-copy members (such as ValidatorRecord).
+  # This replaces `get_beacon_proposer` from the spec since in Nim,
+  # it's not currently efficient to create read-only accessors to
+  # expensive-to-copy members (such as ValidatorRecord).
   let idx = get_shard_and_committees_idx(state, slot)
   return state.shard_and_committee_for_slots[idx][0].committee.mod_get(slot)
 
