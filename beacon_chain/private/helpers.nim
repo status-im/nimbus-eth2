@@ -31,12 +31,7 @@ func shuffle*[T](values: seq[T], seed: Blake2_256_Digest): seq[T] =
     index = 0
   while index < values_count - 1:
     # Re-hash the `source` to obtain a new pattern of bytes.
-
-    # XXX: attempting to call undeclared routine: 'init'
-    # https://github.com/nim-lang/Nim/issues/8677
-    #
-    # mixin init? doesn't seem to be enough
-    #source = blake2_256.digest source.data
+    source = blake2_256.digest source.data
 
     # Iterate through the `source` bytes in 3-byte chunks.
     for pos in countup(0, 29, 3):

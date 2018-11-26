@@ -8,7 +8,7 @@
 
 import
   options,
-  eth_common,
+  eth_common, nimcrypto/blake2,
   ./datatypes, ./private/helpers
 
 func min_empty_validator(validators: seq[ValidatorRecord], current_slot: uint64): Option[int] =
