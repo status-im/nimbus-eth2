@@ -132,20 +132,20 @@ type
     ## worth of assignments
     persistent_committees*: seq[seq[ValidatorRecord]]      # Persistent shard committees
     persistent_committee_reassignments*: seq[ShardReassignmentRecord]
-    next_shuffling_seed*: Eth2Digest                # Randao seed used for next shuffling
+    next_shuffling_seed*: Eth2Digest                       # Randao seed used for next shuffling
     deposits_penalized_in_period*: uint32                  # Total deposits penalized in the given withdrawal period
-    validator_set_delta_hash_chain*: Eth2Digest     # Hash chain of validator set changes (for light clients to easily track deltas)
+    validator_set_delta_hash_chain*: Eth2Digest            # Hash chain of validator set changes (for light clients to easily track deltas)
     current_exit_seq*: uint64                              # Current sequence number for withdrawals
     genesis_time*: uint64                                  # Genesis time
-    known_pow_receipt_root*: Eth2Digest             # PoW chain reference
+    known_pow_receipt_root*: Eth2Digest                    # PoW chain reference
     candidate_pow_receipt_root*: Eth2Digest
     candidate_pow_receipt_root_votes*: Eth2Digest
     pre_fork_version*: uint32                              # Parameters relevant to hard forks / versioning.
     post_fork_version*: uint32                             # Should be updated only by hard forks.
     fork_slot_number*: uint64
     pending_attestations*: seq[AttestationRecord]          # Attestations not yet processed
-    recent_block_hashes*: seq[Eth2Digest]           # recent beacon block hashes needed to process attestations, older to newer
-    randao_mix*: Eth2Digest                         # RANDAO state
+    recent_block_hashes*: seq[Eth2Digest]                  # recent beacon block hashes needed to process attestations, older to newer
+    randao_mix*: Eth2Digest                                # RANDAO state
 
   ValidatorRecord* = object
     pubkey*: BLSPublicKey                         # BLS public key
