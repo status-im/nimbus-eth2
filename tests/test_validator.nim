@@ -5,8 +5,8 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  math, nimcrypto, unittest, sequtils,
-  ../beacon_chain/[datatypes, validator]
+  math,unittest, sequtils,
+  ../beacon_chain/[datatypes, digest, validator]
 
 func sumCommittees(v: openArray[seq[ShardAndCommittee]]): int =
   for x in v:
@@ -25,7 +25,7 @@ suite "Validators":
         ), 1024)
 
     # XXX the shuffling looks really odd, probably buggy
-    let s = get_new_shuffling(Blake2_256_Digest(), validators, 0)
+    let s = get_new_shuffling(Eth2Digest(), validators, 0)
     check:
       s.len == CYCLE_LENGTH
       sumCommittees(s) == validators.len() # all validators accounted for
