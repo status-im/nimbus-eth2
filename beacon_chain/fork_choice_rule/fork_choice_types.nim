@@ -15,7 +15,8 @@ import
   tables, deques, strutils, hashes, times,
   random,
   # Nimble packages
-  nimcrypto
+  nimcrypto,
+  ../digest
 
 const
   NOTARIES* = 100     # Committee size in Casper v2.1
@@ -33,14 +34,14 @@ type
 
   BlockOrSigHash* = ref object of RootObj
   BlockHash* = ref object of BlockOrSigHash
-    raw*: MDigest[256]
+    raw*: Eth2Digest
   SigHash* = ref object of BlockOrSigHash
     raw*: MDigest[384]
 
   Block* = ref object of BlockOrSig
     contents*: array[32, byte]
-    parent_hash*: MDigest[256]
-    hash*: MDigest[256]
+    parent_hash*: Eth2Digest
+    hash*: Eth2Digest
     height*: int # slot in Casper v2.1 spec
     proposer*: int32
     slot*: int32
@@ -114,26 +115,26 @@ type
   Sig* = ref object of BlockOrSig
     # TODO: unsure if this is still relevant in Casper v2.1
     proposer*: int64                 # the validator that creates a block
-    targets*: seq[MDigest[256]]      # the hash of blocks proposed
+    targets*: seq[Eth2Digest]      # the hash of blocks proposed
     slot*: int32                     # slot number
     timestamp*: Duration             # ts in the ref implementation
     hash*: MDigest[384]              # The signature (BLS12-384)
 
   Node* = ref object
-    blocks*: TableRef[MDigest[256], Block]
+    blocks*: TableRef[Eth2Digest, Block]
     sigs*: TableRef[MDigest[384], Sig]
-    main_chain*: seq[MDigest[256]]
+    main_chain*: seq[Eth2Digest]
     timequeue*: seq[Block]
-    parentqueue*: TableRef[MDigest[256], seq[BlockOrSig]]
-    children*: TableRef[MDigest[256], seq[MDigest[256]]]
-    scores*: TableRef[MDigest[256], int]
+    parentqueue*: TableRef[Eth2Digest, seq[BlockOrSig]]
+    children*: TableRef[Eth2Digest, seq[Eth2Digest]]
+    scores*: TableRef[Eth2Digest, int]
     scores_at_height*: TableRef[array[36, byte], int] # Should be slot not height in v2.1
-    justified*: TableRef[MDigest[256], bool]
-    finalized*: TableRef[MDigest[256], bool]
+    justified*: TableRef[Eth2Digest, bool]
+    finalized*: TableRef[Eth2Digest, bool]
     timestamp*: Duration
     id*: int32
     network*: NetworkSimulator
-    used_parents*: TableRef[MDigest[256], Node]
+    used_parents*: TableRef[Eth2Digest, Node]
     processed*: TableRef[BlockOrSigHash, BlockOrSig]
     sleepy*: bool
     careless*: bool
@@ -143,7 +144,7 @@ type
 
 proc newSig*(
         proposer: int32,
-        targets: seq[MDigest[256]],
+        targets: seq[Eth2Digest],
         slot: int32,
         ts: Duration): Sig =
   new result
@@ -171,12 +172,12 @@ proc newNode*(
 
   # Boilerplate empty initialization
   result.processed = newTable[BlockOrSigHash, BlockOrSig]()
-  result.children = newTable[MDigest[256], seq[MDigest[256]]]()
-  result.parentqueue = newTable[MDigest[256], seq[BlockOrSig]]()
-  result.scores = newTable[MDigest[256], int]()
+  result.children = newTable[Eth2Digest, seq[Eth2Digest]]()
+  result.parentqueue = newTable[Eth2Digest, seq[BlockOrSig]]()
+  result.scores = newTable[Eth2Digest, int]()
   result.scores_at_height = newTable[array[36, byte], int]()
   result.sigs = newTable[MDigest[384], Sig]()
-  result.justified = newTable[MDigest[256], bool]()
+  result.justified = newTable[Eth2Digest, bool]()
 
 ###########################################################
 # Forward declarations

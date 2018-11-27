@@ -21,7 +21,7 @@
 {.warning: "The official spec at https://notes.ethereum.org/SCIg8AH5SA-O4C1G1LYZHQ# is not fully defining state transitions.".}
 
 import
-  ./datatypes, ./private/helpers,
+  ./datatypes, ./digest, ./private/helpers,
   intsets, endians, nimcrypto,
   milagro_crypto # nimble install https://github.com/status-im/nim-milagro-crypto@#master
 
@@ -38,7 +38,7 @@ func process_block*(active_state: BeaconState, crystallized_state: BeaconState, 
     # Compute parent_hashes = [get_block_hash(active_state, block, slot - CYCLE_LENGTH + i)
     #  for i in range(1, CYCLE_LENGTH - len(oblique_parent_hashes) + 1)] + oblique_parent_hashes
     # TODO - don't allocate in tight loop
-    var parent_hashes = newSeq[Blake2_256_Digest](CYCLE_LENGTH - attestation.oblique_parent_hashes.len)
+    var parent_hashes = newSeq[Eth2Digest](CYCLE_LENGTH - attestation.oblique_parent_hashes.len)
     for idx, val in parent_hashes.mpairs:
       val = get_block_hash(active_state, blck, cast[int](slot - CYCLE_LENGTH + cast[uint64](idx) + 1))
     parent_hashes.add attestation.oblique_parent_hashes
@@ -80,7 +80,7 @@ func process_block*(active_state: BeaconState, crystallized_state: BeaconState, 
       bigEndian64(be_slot[0].addr, attestation.slot.unsafeAddr)
       ctx.update be_slot
 
-      let size_p_hashes = uint parent_hashes.len * sizeof(Blake2_256_Digest)
+      let size_p_hashes = uint parent_hashes.len * sizeof(Eth2Digest)
       ctx.update(cast[ptr byte](parent_hashes[0].addr), size_p_hashes)
 
       var be_shard_id: array[2, byte]           # Unsure, spec doesn't mention big-endian representation

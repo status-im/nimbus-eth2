@@ -6,9 +6,9 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # Helper functions
-import ../datatypes, sequtils, nimcrypto, math
+import ../datatypes, ../digest, sequtils, math
 
-func shuffle*[T](values: seq[T], seed: Blake2_256_Digest): seq[T] =
+func shuffle*[T](values: seq[T], seed: Eth2Digest): seq[T] =
   ## Returns the shuffled ``values`` with seed as entropy.
   ## TODO: this calls out for tests, but I odn't particularly trust spec
   ## right now.
@@ -31,7 +31,7 @@ func shuffle*[T](values: seq[T], seed: Blake2_256_Digest): seq[T] =
     index = 0
   while index < values_count - 1:
     # Re-hash the `source` to obtain a new pattern of bytes.
-    source = blake2_256.digest source.data
+    source = eth2hash source.data
 
     # Iterate through the `source` bytes in 3-byte chunks.
     for pos in countup(0, 29, 3):
@@ -75,17 +75,17 @@ func get_shards_and_committees_for_slot*(state: BeaconState,
   # TODO, slot is a uint64; will be an issue on int32 arch.
   #       Clarify with EF if light clients will need the beacon chain
 
-func get_block_hash*(state: BeaconState, current_block: BeaconBlock, slot: int): Blake2_256_Digest =
+func get_block_hash*(state: BeaconState, current_block: BeaconBlock, slot: int): Eth2Digest =
   let earliest_slot_in_array = current_block.slot.int - state.recent_block_hashes.len
   assert earliest_slot_in_array <= slot
   assert slot < current_block.slot.int
 
   return state.recent_block_hashes[slot - earliest_slot_in_array]
 
-func get_new_recent_block_hashes*(old_block_hashes: seq[Blake2_256_Digest],
+func get_new_recent_block_hashes*(old_block_hashes: seq[Eth2Digest],
                                   parent_slot, current_slot: int64,
-                                  parent_hash: Blake2_256_Digest
-                                  ): seq[Blake2_256_Digest] =
+                                  parent_hash: Eth2Digest
+                                  ): seq[Eth2Digest] =
 
   # Should throw for `current_slot - CYCLE_LENGTH * 2 - 1` according to spec comment
   let d = current_slot - parent_slot

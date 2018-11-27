@@ -11,8 +11,8 @@
 
 import
   endians, typetraits, options, algorithm,
-  eth_common, nimcrypto,
-  ./datatypes
+  eth_common, nimcrypto/blake2,
+  ./datatypes, ./digest
 
 from milagro_crypto import getRaw
 
@@ -38,7 +38,7 @@ func toBytesSSZ(x: Uint24): array[3, byte] =
   result[0] = byte((v shr 16) and 0xff)
 
 func toBytesSSZ(x: EthAddress): array[sizeof(x), byte] = x
-func toBytesSSZ(x: MDigest[32*8]): array[32, byte] = x.data
+func toBytesSSZ(x: Eth2Digest): array[32, byte] = x.data
 
 func fromBytesSSZUnsafe(T: typedesc[SomeInteger], data: ptr byte): T =
   ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
@@ -102,7 +102,7 @@ func deserialize(data: ptr byte, pos: var int, len: int, typ: typedesc[object]):
   var t: typ
 
   for field in t.fields:
-    when field is EthAddress | MDigest:
+    when field is EthAddress | Eth2Digest:
       if not eat(field, data, pos, len): return
     elif field is (SomeInteger or byte):
       if not eatInt(field, data, pos, len): return
@@ -140,20 +140,11 @@ const CHUNK_SIZE = 128
 
 # ################### Hashing helpers ###################################
 
-template withHash(body: untyped): untyped =
-  ## Spec defines hash as BLAKE2b-512(x)[0:32]
-  ## This little helper will init the hash function and return the sliced
-  ## hash:
-  ## let hashOfData = withHash: h.update(data)
-  var h  {.inject.}: blake2_512
-  h.init()
-  body
-  var res: array[32, byte]
-  var tmp = h.finish().data
-  copyMem(res.addr, tmp.addr, 32)
-  res
-
 # XXX varargs openarray, anyone?
+template withHash(body: untyped): array[32, byte] =
+  let tmp = withEth2Hash: body
+  toBytesSSZ tmp
+
 func hash(a: openArray[byte]): array[32, byte] =
   withHash:
     h.update(a)
@@ -185,7 +176,7 @@ func hashSSZ*(x: EthAddress): array[sizeof(x), byte] =
   ## Addresses copied as-is
   toBytesSSZ(x)
 
-func hashSSZ*(x: MDigest[32*8]): array[32, byte] =
+func hashSSZ*(x: Eth2Digest): array[32, byte] =
   ## Hash32 copied as-is
   toBytesSSZ(x)
 
@@ -207,14 +198,14 @@ func hashSSZ*(x: ValidatorRecord): array[32, byte] =
     h.update hashSSZ(x.exit_slot)
 
 func hashSSZ*(x: ShardAndCommittee): array[32, byte] =
-  return withHash:
+  withHash:
     h.update hashSSZ(x.shard_id)
     h.update merkleHash(x.committee)
 
 func hashSSZ*[T: not enum](x: T): array[32, byte] =
   when T is seq:
     ## Sequences are tree-hashed
-    return merkleHash(x)
+    merkleHash(x)
   else:
     ## Containers have their fields recursively hashed, concatenated and hashed
     # XXX could probaby compile-time-macro-sort fields...
@@ -222,7 +213,7 @@ func hashSSZ*[T: not enum](x: T): array[32, byte] =
     for name, field in x.fieldPairs:
       fields.add (name, @(hashSSZ(field)))
 
-    return withHash:
+    withHash:
       for name, value in fields.sortedByIt(it.name):
         h.update hashSSZ(value.value)
 

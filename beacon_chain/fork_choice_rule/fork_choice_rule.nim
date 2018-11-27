@@ -42,8 +42,8 @@ func add_to_multiset[K, V](
     v: V or seq[V]) =
   multiset.mgetOrPut(k, @[]).add v
 
-func change_head(self: Node, chain: var seq[MDigest[256]], new_head: Block) =
-  chain.add newSeq[MDigest[256]](new_head.height + 1 - chain.len)
+func change_head(self: Node, chain: var seq[Eth2Digest], new_head: Block) =
+  chain.add newSeq[Eth2Digest](new_head.height + 1 - chain.len)
   var (i, c) = (new_head.height, new_head.hash)
   while c != chain[i]:
     chain[i] = c
@@ -55,8 +55,8 @@ func change_head(self: Node, chain: var seq[MDigest[256]], new_head: Block) =
 func recalculate_head(self: Node) =
   while true:
     var
-      descendant_queue = initDeque[MDigest[256]]()
-      new_head: MDigest[256]
+      descendant_queue = initDeque[Eth2Digest]()
+      new_head: Eth2Digest
       max_count = 0
     descendant_queue.addFirst self.main_chain[^1]
     while descendant_queue.len != 0:
@@ -67,18 +67,18 @@ func recalculate_head(self: Node) =
       if self.scores.getOrDefault(first, 0) > max_count and first != self.main_chain[^1]:
         new_head = first
         max_count = self.scores.getOrDefault(first, 0)
-    if new_head != MDigest[256](): # != default init, a 32-byte array of 0
+    if new_head != Eth2Digest(): # != default init, a 32-byte array of 0
       self.change_head(self.main_chain, self.blocks[new_head])
     else:
       return
 
-proc process_children(self: Node, h: MDigest[256]) =
+proc process_children(self: Node, h: Eth2Digest) =
   if h in self.parentqueue:
     for b in self.parentqueue[h]:
       self.on_receive(b, reprocess = true)
     self.parentqueue.del h
 
-func get_common_ancestor(self: Node, hash_a, hash_b: MDigest[256]): Block =
+func get_common_ancestor(self: Node, hash_a, hash_b: Eth2Digest): Block =
   var (a, b) = (self.blocks[hash_a], self.blocks[hash_b])
   while b.height > a.height:
     b = self.blocks[b.parent_hash]
@@ -89,14 +89,14 @@ func get_common_ancestor(self: Node, hash_a, hash_b: MDigest[256]): Block =
     b = self.blocks[b.parent_hash]
   return a
 
-func is_descendant(self: Node, hash_a, hash_b: MDigest[256]): bool =
+func is_descendant(self: Node, hash_a, hash_b: Eth2Digest): bool =
   let a = self.blocks[hash_a]
   var b = self.blocks[hash_b]
   while b.height > a.height:
     b = self.blocks[b.parent_hash]
   return a.hash == b.hash
 
-proc have_ancestry(self: Node, h: MDigest[256]): bool =
+proc have_ancestry(self: Node, h: Eth2Digest): bool =
   let h = BlockHash(raw: h)
   while h.raw != Genesis.hash:
     if h notin self.processed:
@@ -216,7 +216,7 @@ method on_receive(self: Node, sig: Sig, reprocess = false) =
   # Rebroadcast
   self.network.broadcast(self, sig)
 
-func get_sig_targets(self: Node, start_slot: int32): seq[MDigest[256]] =
+func get_sig_targets(self: Node, start_slot: int32): seq[Eth2Digest] =
   # Get the portion of the main chain that is within the last EPOCH_LENGTH
   # slots, once again duplicating the parent in cases where the parent and
   # child's slots are not consecutive

@@ -8,8 +8,8 @@
 
 import
   options,
-  eth_common, nimcrypto/blake2,
-  ./datatypes, ./private/helpers
+  eth_common,
+  ./datatypes, ./digest, ./private/helpers
 
 func min_empty_validator(validators: seq[ValidatorRecord], current_slot: uint64): Option[int] =
   for i, v in validators:
@@ -21,7 +21,7 @@ func add_validator*(validators: var seq[ValidatorRecord],
                     proof_of_possession: seq[byte],
                     withdrawal_shard: uint16,
                     withdrawal_address: EthAddress,
-                    randao_commitment: Blake2_256_Digest,
+                    randao_commitment: Eth2Digest,
                     status: ValidatorStatusCodes,
                     current_slot: uint64
                     ): int =
@@ -61,7 +61,7 @@ func get_active_validator_indices(validators: openArray[ValidatorRecord]): seq[U
     if val.status == ACTIVE:
       result.add idx.Uint24
 
-func get_new_shuffling*(seed: Blake2_256_Digest,
+func get_new_shuffling*(seed: Eth2Digest,
                         validators: openArray[ValidatorRecord],
                         crosslinking_start_shard: int
                         ): array[CYCLE_LENGTH, seq[ShardAndCommittee]] =
