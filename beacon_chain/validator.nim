@@ -13,14 +13,14 @@ import
 
 func min_empty_validator(validators: seq[ValidatorRecord], current_slot: uint64): Option[int] =
   for i, v in validators:
-      if v.status == WITHDRAWN and v.exit_slot + DELETION_PERIOD.uint64 <= current_slot:
+      if v.status == WITHDRAWN and v.last_status_change_slot + DELETION_PERIOD.uint64 <= current_slot:
           return some(i)
 
 func add_validator*(validators: var seq[ValidatorRecord],
+                    fork_data: ForkData,
                     pubkey: BLSPublicKey,
                     proof_of_possession: seq[byte],
-                    withdrawal_shard: uint16,
-                    withdrawal_address: EthAddress,
+                    withdrawal_credentials: Eth2Digest,
                     randao_commitment: Eth2Digest,
                     status: ValidatorStatusCodes,
                     current_slot: uint64
@@ -36,13 +36,12 @@ func add_validator*(validators: var seq[ValidatorRecord],
   let
     rec = ValidatorRecord(
       pubkey: pubkey,
-      withdrawal_shard: withdrawal_shard,
-      withdrawal_address: withdrawal_address,
+      withdrawal_credentials: withdrawal_credentials,
       randao_commitment: randao_commitment,
-      randao_last_change: current_slot,
+      randao_skips: 0,
       balance: DEPOSIT_SIZE * GWEI_PER_ETH,
       status: status,
-      exit_slot: 0,
+      last_status_change_slot: current_slot,
       exit_seq: 0
     )
 
@@ -88,7 +87,7 @@ func get_new_shuffling*(seed: Eth2Digest,
 
     var committees = newSeq[ShardAndCommittee](shard_indices.len)
     for shard_position, indices in shard_indices:
-      committees[shard_position].shard_id = (shard_id_start + shard_position).uint16 mod SHARD_COUNT
+      committees[shard_position].shard = (shard_id_start + shard_position).uint16 mod SHARD_COUNT
       committees[shard_position].committee = indices
 
     result[slot] = committees

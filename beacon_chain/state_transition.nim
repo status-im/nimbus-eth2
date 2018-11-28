@@ -26,22 +26,21 @@ import
   milagro_crypto # nimble install https://github.com/status-im/nim-milagro-crypto@#master
 
 
+
 func process_block*(active_state: BeaconState, crystallized_state: BeaconState, blck: BeaconBlock, slot: uint64) =
-  # TODO: unfinished spec
+  # TODO: non-attestation verification parts of per-block processing
+
+  #let parent_hash = blck.ancestor_hashes[0]
+  # TODO actually get parent block, which means fixing up BeaconState refs above;
+  # there's no distinction between active/crystallized state anymore, etc.
+  let parent_slot = 0'u64
 
   for attestation in blck.attestations:
-    ## Spec changes: Verify that slot <= parent.slot_number and slot >= max(parent.slot_number - CYCLE_LENGTH + 1, 0)
-    ## (Outdated) Verify that slot < block.slot_number and slot >= max(block.slot_number - CYCLE_LENGTH, 0)
-    doAssert slot < blck.slot
-    doAssert slot >= max(blck.slot - CYCLE_LENGTH, 0)
-
-    # Compute parent_hashes = [get_block_hash(active_state, block, slot - CYCLE_LENGTH + i)
-    #  for i in range(1, CYCLE_LENGTH - len(oblique_parent_hashes) + 1)] + oblique_parent_hashes
-    # TODO - don't allocate in tight loop
-    var parent_hashes = newSeq[Eth2Digest](CYCLE_LENGTH - attestation.oblique_parent_hashes.len)
-    for idx, val in parent_hashes.mpairs:
-      val = get_block_hash(active_state, blck, cast[int](slot - CYCLE_LENGTH + cast[uint64](idx) + 1))
-    parent_hashes.add attestation.oblique_parent_hashes
+    doAssert attestation.data.slot <= blck.slot - MIN_ATTESTATION_INCLUSION_DELAY
+    doAssert attestation.data.slot >= max(parent_slot - CYCLE_LENGTH + 1, 0)
+    #doAssert attestation.data.justified_slot == justification_source if attestation.data.slot >= state.last_state_recalculation_slot else prev_cycle_justification_source
+    # doAssert attestation.data.justified_block_hash == get_block_hash(state, block, attestation.data.justified_slot).
+    # doAssert either attestation.data.last_crosslink_hash or attestation.data.shard_block_hash equals state.crosslinks[shard].shard_block_hash.
 
     # Let attestation_indices be get_shards_and_committees_for_slot(crystallized_state, slot)[x], choosing x so that attestation_indices.shard_id equals the shard_id value provided to find the set of validators that is creating this attestation record.
     let attestation_indices = block:
@@ -49,7 +48,7 @@ func process_block*(active_state: BeaconState, crystallized_state: BeaconState, 
       var
         x = 1
         record_creator = shard_and_committees[0]
-      while record_creator.shard_id != attestation.shard:
+      while record_creator.shard != attestation.data.shard:
         record_creator = shard_and_committees[x]
         inc x
       record_creator
@@ -61,7 +60,9 @@ func process_block*(active_state: BeaconState, crystallized_state: BeaconState, 
     var agg_pubkey: BLSPublicKey
     var empty = true
     for attester_idx in attestation_indices.committee:
-      if attester_idx in attestation.attester_bitfield:
+      # TODO re-enable, but currently this whole function's a nonfunctional stub
+      # because state's lacking.
+      #if attester_idx in attestation.attester_bitfield:
         let validator = crystallized_state.validators[attester_idx]
         if empty:
           agg_pubkey = validator.pubkey
@@ -77,20 +78,22 @@ func process_block*(active_state: BeaconState, crystallized_state: BeaconState, 
       ctx.init()
 
       var be_slot: array[8, byte]
-      bigEndian64(be_slot[0].addr, attestation.slot.unsafeAddr)
+      bigEndian64(be_slot[0].addr, attestation.data.slot.unsafeAddr)
       ctx.update be_slot
 
-      let size_p_hashes = uint parent_hashes.len * sizeof(Eth2Digest)
-      ctx.update(cast[ptr byte](parent_hashes[0].addr), size_p_hashes)
+      # TODO: re-enable these, but parent_hashes isn't in new spec, so
+      # this needs more substantial adjustment.
+      # let size_p_hashes = uint parent_hashes.len * sizeof(Eth2Digest)
+      # ctx.update(cast[ptr byte](parent_hashes[0].addr), size_p_hashes)
 
       var be_shard_id: array[2, byte]           # Unsure, spec doesn't mention big-endian representation
-      bigEndian16(be_shard_id.addr, attestation.shard.unsafeAddr)
+      bigEndian16(be_shard_id.addr, attestation.data.shard.unsafeAddr)
       ctx.update be_shard_id
 
-      ctx.update attestation.shard_block_hash.data
+      ctx.update attestation.data.shard_block_hash.data
 
       var be_justified_slot: array[8, byte]
-      bigEndian64(be_justified_slot[0].addr, attestation.justified_slot.unsafeAddr)
+      bigEndian64(be_justified_slot[0].addr, attestation.data.justified_slot.unsafeAddr)
       ctx.update be_justified_slot
 
       let h = ctx.finish()                      # Full hash (Blake2b-512)

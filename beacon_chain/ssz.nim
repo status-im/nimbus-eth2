@@ -189,17 +189,16 @@ func hashSSZ*(x: ValidatorRecord): array[32, byte] =
   # XXX hash_ssz.py code contains special cases for some types, why?
   withHash:
     # tmp.add(x.pubkey) # XXX uncertain future of public key format
-    h.update hashSSZ(x.withdrawal_shard)
-    h.update hashSSZ(x.withdrawal_address)
-    h.update hashSSZ(x.randao_commitment)
-    h.update hashSSZ(x.randao_last_change)
+    h.update hashSSZ(x.withdrawal_credentials)
+    h.update hashSSZ(x.randao_skips)
     h.update hashSSZ(x.balance)
     # h.update hashSSZ(x.status) # XXX it's an enum, deal with it
-    h.update hashSSZ(x.exit_slot)
+    h.update hashSSZ(x.last_status_change_slot)
+    h.update hashSSZ(x.exit_seq)
 
 func hashSSZ*(x: ShardAndCommittee): array[32, byte] =
   withHash:
-    h.update hashSSZ(x.shard_id)
+    h.update hashSSZ(x.shard)
     h.update merkleHash(x.committee)
 
 func hashSSZ*[T: not enum](x: T): array[32, byte] =
@@ -238,15 +237,9 @@ func hashSSZ*(x: AttestationRecord): array[32, byte] =
   ## as of https://github.com/ethereum/beacon_chain/pull/133/files
   ## This is a "stub" needed for BeaconBlock hashing
   withHash:
-    h.update hashSSZ(x.slot)
-    h.update hashSSZ(x.shard)
-    h.update hashSSZ(x.oblique_parent_hashes)
-    h.update hashSSZ(x.shard_block_hash)
-    h.update hashSSZ(x.last_crosslink_hash)
-    h.update hashSSZ(x.shard_block_combined_data_root)
+    # h.update hashSSZ(x.data) # TODO this is now a sub-object of its own
     # h.update hashSSZ(attester_bitfield) # TODO - the bitfield as a specific serialisation format
-    h.update hashSSZ(x.justified_slot)
-    h.update hashSSZ(x.justified_block_hash)
+    # h.update hashSSZ(x.poc_bitfield) # TODO - same serialization format
     h.update hashSSZ(x.aggregate_sig)
 
 func hashSSZ*(x: BeaconBlock): array[32, byte] =
