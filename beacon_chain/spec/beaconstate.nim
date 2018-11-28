@@ -6,7 +6,6 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  ../extras,
   ./datatypes, ./digest, ./helpers, ./validator
 
 func get_shards_and_committees_for_slot*(state: BeaconState,
