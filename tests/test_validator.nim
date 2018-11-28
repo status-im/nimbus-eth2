@@ -6,7 +6,7 @@
 
 import
   math,unittest, sequtils,
-  ../beacon_chain/[datatypes, digest, validator]
+  ../beacon_chain/spec/[datatypes, digest, validator]
 
 func sumCommittees(v: openArray[seq[ShardAndCommittee]]): int =
   for x in v:

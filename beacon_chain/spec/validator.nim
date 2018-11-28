@@ -9,7 +9,7 @@
 import
   options,
   eth_common,
-  ./datatypes, ./digest, ./private/helpers
+  ./crypto, ./datatypes, ./digest, ./helpers
 
 func min_empty_validator(validators: seq[ValidatorRecord], current_slot: uint64): Option[int] =
   for i, v in validators:
@@ -17,8 +17,7 @@ func min_empty_validator(validators: seq[ValidatorRecord], current_slot: uint64)
           return some(i)
 
 func add_validator*(validators: var seq[ValidatorRecord],
-                    fork_data: ForkData,
-                    pubkey: BLSPublicKey,
+                    pubkey: Eth2PublicKey,
                     proof_of_possession: seq[byte],
                     withdrawal_credentials: Eth2Digest,
                     randao_commitment: Eth2Digest,

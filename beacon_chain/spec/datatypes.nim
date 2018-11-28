@@ -5,6 +5,13 @@
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+# This file contains data types that are part of the spec and thus subject to
+# serialization and spec updates.
+#
+# The spec folder in general contains code that has been hoisted from the
+# specification and that follows the spec as closely as possible, so as to make
+# it easy to keep up-to-date.
+#
 # The latest version can be seen here:
 # https://github.com/ethereum/eth2.0-specs/blob/master/specs/beacon-chain.md
 #
@@ -12,14 +19,8 @@
 # https://github.com/ethereum/eth2.0-specs/compare/126a7abfa86448091a0e037f52966b6a9531a857...master
 
 import
-  intsets, eth_common, math, stint, digest
-
-import milagro_crypto
-  # nimble install https://github.com/status-im/nim-milagro-crypto@#master
-  # Defines
-  #  - SigKey (private/secret key) (48 bytes - 384-bit)
-  #  - Signature                   (48 bytes - 384-bit)
-  #  - VerKey (public key)         (192 bytes)
+  intsets, eth_common, math,
+  ./crypto, ./digest
 
 const
   SHARD_COUNT*                              = 1024 # a constant referring to the number of shards
@@ -55,10 +56,6 @@ const
   INITIAL_FORK_VERSION*                     = 0    #
 
 type
-  # Alias
-  BLSPublicKey* = VerKey
-  BLSsig*       = Signature
-
   Uint24* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
 
   BeaconBlock* = object
@@ -72,13 +69,13 @@ type
     state_root*: Eth2Digest                        # State root
     attestations*: seq[AttestationRecord]          # Attestations
     specials*: seq[SpecialRecord]                  # Specials (e.g. logouts, penalties)
-    proposer_signature*: BLSSig                    # Proposer signature
+    proposer_signature*: Eth2Signature             # Proposer signature
 
   AttestationRecord* = object
     data*: AttestationSignedData                   #
     attester_bitfield*: seq[byte]                  # Attester participation bitfield
     poc_bitfield*: seq[byte]                       # Proof of custody bitfield
-    aggregate_sig*: BLSSig                         # BLS aggregate signature
+    aggregate_sig*: Eth2Signature                  # BLS aggregate signature
 
   AttestationSignedData* = object
     slot*: uint64                                 # Slot number
@@ -127,7 +124,7 @@ type
     randao_mix*: Eth2Digest                                # RANDAO state
 
   ValidatorRecord* = object
-    pubkey*: BLSPublicKey                         # BLS public key
+    pubkey*: Eth2PublicKey                        # Public key
     withdrawal_credentials*: Eth2Digest           # Withdrawal credentials
     randao_commitment*: Eth2Digest                # RANDAO commitment
     randao_skips*: uint64                         # Slot the proposer has skipped (ie. layers of RANDAO expected)

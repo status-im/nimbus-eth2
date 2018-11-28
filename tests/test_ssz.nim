@@ -7,7 +7,7 @@
 
 import
   unittest, nimcrypto, eth_common, sequtils, options,
-  ../beacon_chain/[datatypes, ssz]
+  ../beacon_chain/ssz, ../beacon_chain/spec/datatypes
 
 func filled[N: static[int], T](typ: type array[N, T], value: T): array[N, T] =
   for val in result.mitems:

@@ -21,7 +21,7 @@
 {.warning: "The official spec at https://notes.ethereum.org/SCIg8AH5SA-O4C1G1LYZHQ# is not fully defining state transitions.".}
 
 import
-  ./datatypes, ./digest, ./private/helpers,
+  ./spec/[beaconstate, crypto, datatypes, digest, helpers],
   intsets, endians, nimcrypto,
   milagro_crypto # nimble install https://github.com/status-im/nim-milagro-crypto@#master
 
@@ -57,7 +57,7 @@ func process_block*(active_state: BeaconState, crystallized_state: BeaconState, 
     doAssert attestation.attester_bitfield.len == attestation_indices.committee.len
 
     # Derive a group public key by adding the public keys of all of the attesters in attestation_indices for whom the corresponding bit in attester_bitfield (the ith bit is (attester_bitfield[i // 8] >> (7 - (i %8))) % 2) equals 1
-    var agg_pubkey: BLSPublicKey
+    var agg_pubkey: Eth2PublicKey
     var empty = true
     for attester_idx in attestation_indices.committee:
       # TODO re-enable, but currently this whole function's a nonfunctional stub
