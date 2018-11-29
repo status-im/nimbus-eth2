@@ -21,7 +21,7 @@ Ethereum Foundation uses:
 Nim NEP-1 recommends:
   - camelCase for fields and procedure names
   - PascalCase for constants
-  - PsacalCase for types
+  - PascalCase for types
 
 To facilitate collaboration and comparison, Nim-beacon-chain uses the Ethereum Foundation convention.
 

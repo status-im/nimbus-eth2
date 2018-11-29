@@ -226,11 +226,11 @@ func hashSSZ*(x: enum): array[32, byte] =
   withHash:
     h.update [uint8 x]
 
-func hashSSZ*(x: Eth2Signature): array[32, byte] =
+func hashSSZ*(x: ValidatorSig): array[32, byte] =
   ## TODO - Warning ⚠️: not part of the spec
   ## as of https://github.com/ethereum/beacon_chain/pull/133/files
   ## This is a "stub" needed for BeaconBlock hashing
-  x.getraw().hash()
+  x.getRaw().hash()
 
 func hashSSZ*(x: AttestationRecord): array[32, byte] =
   ## TODO - Warning ⚠️: not part of the spec

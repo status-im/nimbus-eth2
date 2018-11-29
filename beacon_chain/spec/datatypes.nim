@@ -69,13 +69,13 @@ type
     state_root*: Eth2Digest                        # State root
     attestations*: seq[AttestationRecord]          # Attestations
     specials*: seq[SpecialRecord]                  # Specials (e.g. logouts, penalties)
-    proposer_signature*: Eth2Signature             # Proposer signature
+    proposer_signature*: ValidatorSig              # Proposer signature
 
   AttestationRecord* = object
     data*: AttestationSignedData                   #
     attester_bitfield*: seq[byte]                  # Attester participation bitfield
     poc_bitfield*: seq[byte]                       # Proof of custody bitfield
-    aggregate_sig*: Eth2Signature                  # BLS aggregate signature
+    aggregate_sig*: ValidatorSig                   # BLS aggregate signature
 
   AttestationSignedData* = object
     slot*: uint64                                 # Slot number
@@ -93,7 +93,7 @@ type
     block_hash*: Eth2Digest                       # Block hash
 
   SpecialRecord* = object
-    kind*: SpecialRecordTypes                     # Kind
+    kind*: SpecialRecordType                      # Kind
     data*: seq[byte]                              # Data
 
   BeaconState* = object
@@ -124,7 +124,7 @@ type
     randao_mix*: Eth2Digest                                # RANDAO state
 
   ValidatorRecord* = object
-    pubkey*: Eth2PublicKey                        # Public key
+    pubkey*: ValidatorPubKey                      # Public key
     withdrawal_credentials*: Eth2Digest           # Withdrawal credentials
     randao_commitment*: Eth2Digest                # RANDAO commitment
     randao_skips*: uint64                         # Slot the proposer has skipped (ie. layers of RANDAO expected)
@@ -169,7 +169,7 @@ type
     Withdrawn = 4
     Penalized = 127
 
-  SpecialRecordTypes* {.pure.} = enum
+  SpecialRecordType* {.pure.} = enum
     Logout = 0
     CasperSlashing = 1
     RandaoChange = 2
@@ -191,3 +191,27 @@ type
     #   with room to spare.
     #
     #   Also, IntSets uses machine int size while we require int64 even on 32-bit platform.
+
+when true:
+  # TODO: Remove these once RLP serialization is no longer used
+  import nimcrypto, rlp
+  export append, read
+
+  proc append*(rlpWriter: var RlpWriter, value: ValidatorPubKey) =
+    discard
+
+  proc read*(rlp: var Rlp, T: type ValidatorPubKey): T {.inline.} =
+    discard
+
+  proc append*(rlpWriter: var RlpWriter, value: Uint24) =
+    discard
+
+  proc read*(rlp: var Rlp, T: type Uint24): T {.inline.} =
+    discard
+
+  proc append*(rlpWriter: var RlpWriter, value: ValidatorSig) =
+    discard
+
+  proc read*(rlp: var Rlp, T: type ValidatorSig): T {.inline.} =
+    discard
+

@@ -3,13 +3,22 @@ version       = "0.0.1"
 author        = "Status Research & Development GmbH"
 description   = "Eth2.0 research implementation of the beacon chain"
 license       = "MIT or Apache License 2.0"
-srcDir        = "src"
+installDirs   = @["beacon_chain"]
+bin           = @["beacon_chain/beacon_node"]
 
 ### Dependencies
 requires "nim >= 0.18.0",
   "eth_common",
+  "eth_keys",
   "nimcrypto",
-  "https://github.com/status-im/nim-milagro-crypto#master"
+  "https://github.com/status-im/nim-milagro-crypto#master",
+  "eth_p2p",
+  "ranges",
+  "chronicles",
+  "confutils",
+  "serialization",
+  "json_serialization",
+  "json_rpc"
 
 ### Helper functions
 proc test(name: string, defaultLang = "c") =
