@@ -1,6 +1,11 @@
 import
   asyncdispatch2,
-  datatypes, beacon_chain_db
+  spec/datatypes, beacon_chain_db
+
+const
+  WEAK_SUBJECTVITY_PERIOD* = 4 * 30 * 24 * 60 * 60 div SLOT_DURATION
+    # TODO: This needs revisiting.
+    # Why was the validator WITHDRAWAL_PERIOD altered in the spec?
 
 proc obtainTrustedStateSnapshot*(db: BeaconChainDB): Future[BeaconState] {.async.} =
   # In case our latest state is too old, we must obtain a recent snapshot

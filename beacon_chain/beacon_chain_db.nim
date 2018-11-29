@@ -1,7 +1,7 @@
 import
   os, json,
   chronicles, json_serialization, eth_common/eth_types_json_serialization,
-  datatypes
+  spec/datatypes
 
 type
   BeaconChainDB* = ref object

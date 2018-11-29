@@ -1,7 +1,7 @@
 import
   tables, random,
   asyncdispatch2,
-  datatypes
+  spec/[datatypes, crypto]
 
 type
   ValidatorKind = enum
@@ -10,36 +10,40 @@ type
 
   ValidatorConnection = object
 
-  RandaoValue = seq[bytes]
+  RandaoSecret = seq[byte]
 
   AttachedValidator* = ref object
     idx*: int
     case kind: ValidatorKind
     of inProcess:
-      randaoValue: RandaoValue
-      privKey: BLSPrivateKey
-      randaoSecret: seq[bytes]
+      privKey: ValidatorPrivKey
+      randaoSecret: RandaoSecret
     else:
       connection: ValidatorConnection
 
   ValidatorPool* = object
-    validators: Table[BLSPublicKey, AttachedValidator]
+    validators: Table[ValidatorPubKey, AttachedValidator]
 
 proc init*(T: type ValidatorPool): T =
-  result.validators = initTable[BLSPublicKey, AttachedValidator]()
+  result.validators = initTable[ValidatorPubKey, AttachedValidator]()
 
 proc addLocalValidator*(pool: var ValidatorPool,
-                        pubKey: BLSPublicKey,
-                        privKey: BLSPrivateKey) =
-  discard
+                        idx: int,
+                        pubKey: ValidatorPubKey,
+                        privKey: ValidatorPrivKey,
+                        randaoSecret: RandaoSecret) =
+  pool.validators[pubKey] = AttachedValidator(idx: idx,
+                                              kind: inProcess,
+                                              privKey: privKey,
+                                              randaoSecret: randaoSecret)
 
 proc getValidator*(pool: ValidatorPool,
-                   validatorKey: BLSPublicKey): AttachedValidator =
-  pool.validatators.getOrDefault(validatorKey)
+                   validatorKey: ValidatorPubKey): AttachedValidator =
+  pool.validators.getOrDefault(validatorKey)
 
 proc signBlockProposal*(v: AttachedValidator,
-                        proposal: ProposalSignedData): Future[Signature] {.async.} =
-  if v.inProcess:
+                        proposal: ProposalSignedData): Future[ValidatorSig] {.async.} =
+  if v.kind == inProcess:
     await sleepAsync(1)
     # TODO:
     # return sign(proposal, v.privKey)
@@ -49,9 +53,9 @@ proc signBlockProposal*(v: AttachedValidator,
     discard
 
 proc signAttestation*(v: AttachedValidator,
-                      attestation: AttestationSignedData): Future[Signature] {.async.} =
+                      attestation: AttestationSignedData): Future[ValidatorSig] {.async.} =
   # TODO: implement this
-  if v.inProcess:
+  if v.kind == inProcess:
     await sleepAsync(1)
     # TODO:
     # return sign(proposal, v.privKey)

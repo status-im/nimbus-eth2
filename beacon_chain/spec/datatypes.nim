@@ -69,13 +69,13 @@ type
     state_root*: Eth2Digest                        # State root
     attestations*: seq[AttestationRecord]          # Attestations
     specials*: seq[SpecialRecord]                  # Specials (e.g. logouts, penalties)
-    proposer_signature*: Eth2Signature             # Proposer signature
+    proposer_signature*: ValidatorSig              # Proposer signature
 
   AttestationRecord* = object
     data*: AttestationSignedData                   #
     attester_bitfield*: seq[byte]                  # Attester participation bitfield
     poc_bitfield*: seq[byte]                       # Proof of custody bitfield
-    aggregate_sig*: Eth2Signature                  # BLS aggregate signature
+    aggregate_sig*: ValidatorSig                   # BLS aggregate signature
 
   AttestationSignedData* = object
     slot*: uint64                                 # Slot number
@@ -93,22 +93,8 @@ type
     block_hash*: Eth2Digest                       # Block hash
 
   SpecialRecord* = object
-    kind*: SpecialRecordTypes                     # Kind
+    kind*: SpecialRecordType                      # Kind
     data*: seq[byte]                              # Data
-  
-  AttestationRecord* = object
-    slot*: uint64                                  # Slot number
-    shard*: uint16                                 # Shard number
-    oblique_parent_hashes*: seq[Blake2_256_Digest]
-      # Beacon block hashes not part of the current chain, oldest to newest
-    shard_block_hash*: Blake2_256_Digest          # Shard block hash being attested to
-    last_crosslink_hash*: Blake2_256_Digest       # Last crosslink hash
-    shard_block_combined_data_root*: Blake2_256_Digest
-                                                  # Root of data between last hash and this one
-    attester_bitfield*: seq[byte]                 # Attester participation bitfield (1 bit per attester)
-    justified_slot*: uint64                       # Slot of last justified beacon block
-    justified_block_hash*: Blake2_256_Digest      # Hash of last justified beacon block
-    aggregate_sig*: BLSSig                        # BLS aggregate signature
 
   BeaconState* = object
     validator_set_change_slot*: uint64                     # Slot of last validator set change
@@ -122,10 +108,6 @@ type
     shard_and_committee_for_slots*: array[2 * CYCLE_LENGTH, seq[ShardAndCommittee]] ## \
     ## Committee members and their assigned shard, per slot, covers 2 cycles
     ## worth of assignments
-    persistent_committees*: seq[seq[Uint24]]               # Persistent shard committees
-    last_justified_slot*: uint64                           # Last justified slot
-    justified_streak*: uint64                              # Number of consecutive justified slots
-    shard_and_committee_for_slots*: seq[seq[ShardAndCommittee]] # Committee members and their assigned shard, per slot
     persistent_committees*: seq[seq[Uint24]]               # Persistent shard committees
     persistent_committee_reassignments*: seq[ShardReassignmentRecord]
     next_shuffling_seed*: Eth2Digest                       # Randao seed used for next shuffling
@@ -142,7 +124,7 @@ type
     randao_mix*: Eth2Digest                                # RANDAO state
 
   ValidatorRecord* = object
-    pubkey*: Eth2PublicKey                        # Public key
+    pubkey*: ValidatorPubKey                      # Public key
     withdrawal_credentials*: Eth2Digest           # Withdrawal credentials
     randao_commitment*: Eth2Digest                # RANDAO commitment
     randao_skips*: uint64                         # Slot the proposer has skipped (ie. layers of RANDAO expected)
@@ -187,7 +169,7 @@ type
     Withdrawn = 4
     Penalized = 127
 
-  SpecialRecordTypes* {.pure.} = enum
+  SpecialRecordType* {.pure.} = enum
     Logout = 0
     CasperSlashing = 1
     RandaoChange = 2
@@ -209,4 +191,27 @@ type
     #   with room to spare.
     #
     #   Also, IntSets uses machine int size while we require int64 even on 32-bit platform.
+
+when true:
+  # TODO: Remove these once RLP serialization is no longer used
+  import nimcrypto, rlp
+  export append, read
+
+  proc append*(rlpWriter: var RlpWriter, value: ValidatorPubKey) =
+    discard
+
+  proc read*(rlp: var Rlp, T: type ValidatorPubKey): T {.inline.} =
+    discard
+
+  proc append*(rlpWriter: var RlpWriter, value: Uint24) =
+    discard
+
+  proc read*(rlp: var Rlp, T: type Uint24): T {.inline.} =
+    discard
+
+  proc append*(rlpWriter: var RlpWriter, value: ValidatorSig) =
+    discard
+
+  proc read*(rlp: var Rlp, T: type ValidatorSig): T {.inline.} =
+    discard
 

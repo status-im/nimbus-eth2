@@ -1,5 +1,7 @@
 import
-  asyncdispatch2, datatypes, random
+  random,
+  asyncdispatch2,
+  spec/datatypes
 
 type
   Timestamp = uint64 # Unix epoch timestamp in millisecond resolution
@@ -11,16 +13,16 @@ proc timeSinceGenesis*(s: BeaconState): Timestamp =
   Timestamp(int64(fastEpochTime() - s.genesis_time * 1000) -
             detectedClockDrift)
 
-template toSlot*(t: Timestamp): uint64 =
-  t div uint64(SLOT_DURATION * 1000)
+template toSlot*(t: Timestamp): int =
+  int(t div uint64(SLOT_DURATION * 1000))
 
-template slotStart*(s: BeaconState, slot: Natural): Timestamp =
+template slotStart*(s: BeaconState, slot: int): Timestamp =
   (s.genesis_time + uint64(slot * SLOT_DURATION)) * 1000
 
-template slotMiddle*(s: BeaconState, slot: Natural): Timestamp =
-  s.slotStart + SLOT_DURATION * 500
+template slotMiddle*(s: BeaconState, slot: int): Timestamp =
+  s.slotStart(slot) + SLOT_DURATION * 500
 
-template slotEnd*(s: BeaconState, slot: Natural): Timestamp =
+template slotEnd*(s: BeaconState, slot: int): Timestamp =
   s.slotStart(slot + 1)
 
 proc randomTimeInSlot*(s: BeaconState,

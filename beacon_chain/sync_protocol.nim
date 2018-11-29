@@ -1,25 +1,27 @@
 import
-  rlp, asyncdispatch2, ranges/bitranges, eth_p2p, eth_p2p/rlpx,
-  datatypes
+  options,
+  chronicles, rlp, asyncdispatch2, ranges/bitranges, eth_p2p, eth_p2p/rlpx,
+  spec/[datatypes, crypto, digest]
 
 type
   ValidatorChangeLogEntry* = object
     case kind*: ValidatorSetDeltaFlags
     of Entry:
-      pubkey: BLSPublicKey
+      pubkey: ValidatorPubKey
     else:
       index: uint32
 
   ValidatorSet = seq[ValidatorRecord]
 
-protocol BeaconSync(version = 1):
+p2pProtocol BeaconSync(version = 1,
+                       shortName = "bcs"):
   requestResponse:
-    proc getValidatorChangeLog(peer: Peer, changeLogHead: Blake2_256_Digest)
+    proc getValidatorChangeLog(peer: Peer, changeLogHead: Eth2Digest)
 
     proc validatorChangeLog(peer: Peer,
                             signedBlock: BeaconBlock,
                             beaconState: BeaconState,
-                            added: openarray[BLSPublicKey],
+                            added: openarray[ValidatorPubKey],
                             removed: openarray[uint32],
                             order: seq[byte])
 
@@ -33,29 +35,41 @@ type
   ChangeLog = BeaconSync.validatorChangeLog
   ChangeLogEntry = ValidatorChangeLogEntry
 
-iterator changes*(cl: ChangeLog): ChangeLogEntry =
+func validate*(log: ChangeLog): bool =
+  # TODO:
+  # Assert that the number of raised bits in log.order (a.k.a population count)
+  # matches the number of elements in log.added
+  # https://en.wikichip.org/wiki/population_count
+  return true
+
+iterator changes*(log: ChangeLog): ChangeLogEntry =
   var
-    bits = cl.added.len + cl.removed.len
+    bits = log.added.len + log.removed.len
     addedIdx = 0
     removedIdx = 0
 
-  for i in 0 ..< bits:
-    yield if order.getBit(i):
-      ChangeLogEntry(kind: Entry, pubkey: added[addedIdx++])
-    else:
-      ChangeLogEntry(kind: Exit, index: removed[removedIdx++])
+  template nextItem(collection): auto =
+    let idx = `collection Idx`
+    inc `collection Idx`
+    log.collection[idx]
 
-proc getValidatorChangeLog*(node: EthereumNode):
+  for i in 0 ..< bits:
+    yield if log.order.getBit(i):
+      ChangeLogEntry(kind: Entry, pubkey: nextItem(added))
+    else:
+      ChangeLogEntry(kind: Exit, index: nextItem(removed))
+
+proc getValidatorChangeLog*(node: EthereumNode, changeLogHead: Eth2Digest):
                             Future[(Peer, ChangeLog)] {.async.} =
   while true:
-    let peer = node.randomPeerWith(BeaconSync):
+    let peer = node.randomPeerWith(BeaconSync)
     if peer == nil: return
 
-    let res = await peer.getValidatorChangeLog(timeout = 1)
+    let res = await peer.getValidatorChangeLog(changeLogHead, timeout = 1)
     if res.isSome:
       return (peer, res.get)
 
-proc applyValidatorChangeLog*(changeLog: ChangeLog,
+proc applyValidatorChangeLog*(log: ChangeLog,
                               outBeaconState: var BeaconState): bool =
   # TODO:
   #
@@ -72,8 +86,8 @@ proc applyValidatorChangeLog*(changeLog: ChangeLog,
   #
 
   outBeaconState.last_finalized_slot =
-    changeLog.signedBlock.slot div CYCLE_LENGTH
+    log.signedBlock.slot div CYCLE_LENGTH
 
   outBeaconState.validator_set_delta_hash_chain =
-    changeLog.beaconState.validator_set_delta_hash_chain
+    log.beaconState.validator_set_delta_hash_chain
 

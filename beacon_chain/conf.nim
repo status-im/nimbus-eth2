@@ -4,7 +4,7 @@ import
 type
   ValidatorKeyPath* = distinct string
 
-  Configuration* = object
+  BeaconNodeConf* = object
     dataDir* {.
       desc: "The directory where nimbus will store all blockchain data.",
       shorthand: "d",
@@ -24,4 +24,10 @@ type
       desc: "A path to a pair of public and private keys for a validator. " &
             "Nimbus will automatically add the extensions .privkey and .pubkey.",
       shorthand: "v".}: seq[ValidatorKeyPath]
+
+proc parse*(T: type ValidatorKeyPath, input: TaintedString): T =
+  # TODO:
+  # Check that the entered string is a valid base file name and
+  # that it has matching .privkey, .pubkey and .randaosecret files
+  T(input)
 

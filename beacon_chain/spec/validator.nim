@@ -17,7 +17,7 @@ func min_empty_validator(validators: seq[ValidatorRecord], current_slot: uint64)
           return some(i)
 
 func add_validator*(validators: var seq[ValidatorRecord],
-                    pubkey: Eth2PublicKey,
+                    pubkey: ValidatorPubKey,
                     proof_of_possession: seq[byte],
                     withdrawal_credentials: Eth2Digest,
                     randao_commitment: Eth2Digest,

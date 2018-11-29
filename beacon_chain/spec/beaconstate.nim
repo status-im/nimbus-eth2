@@ -8,25 +8,22 @@
 import
   ./datatypes, ./digest, ./helpers, ./validator
 
-func get_shards_and_committees_for_slot*(state: BeaconState,
-                                         slot: uint64
-                                         ): seq[ShardAndCommittee] =
-  let earliest_slot_in_array = state.last_state_recalculation_slot - CYCLE_LENGTH
-  assert earliest_slot_in_array <= slot
-  assert slot < earliest_slot_in_array + CYCLE_LENGTH * 2
+func mod_get[T](arr: openarray[T], pos: Natural): T =
+  arr[pos mod arr.len]
 
-  return state.shard_and_committee_for_slots[int slot - earliest_slot_in_array]
-  # TODO, slot is a uint64; will be an issue on int32 arch.
-  #       Clarify with EF if light clients will need the beacon chain
+func get_shard_and_committees_idx*(state: BeaconState, slot: int): int =
+  # This replaces `get_shards_and_committees_for_slot` from the spec
+  # since in Nim, it's not currently efficient to create read-only
+  # accessors to expensive-to-copy members (such as sequences).
+  let earliest_slot_in_array = state.last_state_recalculation_slot.int - CYCLE_LENGTH
+  doAssert earliest_slot_in_array <= slot and
+           slot < earliest_slot_in_array + CYCLE_LENGTH * 2
+  return int(slot - earliest_slot_in_array)
 
-func get_block_hash*(state: BeaconState, current_block: BeaconBlock, slot: int): Eth2Digest =
-  let earliest_slot_in_array = current_block.slot.int - state.recent_block_hashes.len
-  assert earliest_slot_in_array <= slot
-  assert slot < current_block.slot.int
+proc get_shards_and_committees_for_slot*(state: BeaconState, slot: int): seq[ShardAndCommittee] =
+  return state.shard_and_committee_for_slots[state.get_shard_and_committees_idx(slot)]
 
-  return state.recent_block_hashes[slot - earliest_slot_in_array]
-
-func get_beacon_proposer*(state: BeaconState, slot: uint64): ValidatorRecord =
+func get_beacon_proposer_idx*(state: BeaconState, slot: int): int =
   ## From Casper RPJ mini-spec:
   ## When slot i begins, validator Vidx is expected
   ## to create ("propose") a block, which contains a pointer to some parent block
@@ -35,7 +32,20 @@ func get_beacon_proposer*(state: BeaconState, slot: uint64): ValidatorRecord =
   ## that have not yet been included into that chain.
   ##
   ## idx in Vidx == p(i mod N), pi being a random permutation of validators indices (i.e. a committee)
-  let
-    first_committee = get_shards_and_committees_for_slot(state, slot)[0].committee
-    index = first_committee[(slot mod len(first_committee).uint64).int]
-  state.validators[index]
+
+  # This replaces `get_beacon_proposer` from the spec since in Nim,
+  # it's not currently efficient to create read-only accessors to
+  # expensive-to-copy members (such as ValidatorRecord).
+
+  let idx = get_shard_and_committees_idx(state, slot)
+  return state.shard_and_committee_for_slots[idx][0].committee.mod_get(slot)
+
+func get_block_hash*(state: BeaconState,
+                     current_block: BeaconBlock,
+                     slot: int): Eth2Digest =
+  let earliest_slot_in_array = current_block.slot.int - state.recent_block_hashes.len
+  assert earliest_slot_in_array <= slot
+  assert slot < current_block.slot.int
+
+  return state.recent_block_hashes[slot - earliest_slot_in_array]
+

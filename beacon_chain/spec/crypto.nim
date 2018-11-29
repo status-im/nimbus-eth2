@@ -10,8 +10,13 @@
 # hashed out. This layer helps isolate those chagnes.
 
 import
-  milagro_crypto
+  milagro_crypto, hashes
 
 type
-  Eth2PublicKey* = milagro_crypto.VerKey
-  Eth2Signature* = milagro_crypto.Signature
+  ValidatorPubKey* = milagro_crypto.VerKey
+  ValidatorPrivKey* = milagro_crypto.SigKey
+  ValidatorSig* = milagro_crypto.Signature
+
+template hash*(k: ValidatorPubKey|ValidatorPrivKey): Hash =
+  hash(k.getRaw)
+

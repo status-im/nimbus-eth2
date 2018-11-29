@@ -25,8 +25,6 @@ import
   intsets, endians, nimcrypto,
   milagro_crypto # nimble install https://github.com/status-im/nim-milagro-crypto@#master
 
-
-
 func process_block*(active_state: BeaconState, crystallized_state: BeaconState, blck: BeaconBlock, slot: uint64) =
   # TODO: non-attestation verification parts of per-block processing
 
@@ -44,7 +42,7 @@ func process_block*(active_state: BeaconState, crystallized_state: BeaconState, 
 
     # Let attestation_indices be get_shards_and_committees_for_slot(crystallized_state, slot)[x], choosing x so that attestation_indices.shard_id equals the shard_id value provided to find the set of validators that is creating this attestation record.
     let attestation_indices = block:
-      let shard_and_committees = get_shards_and_committees_for_slot(crystallized_state, slot)
+      let shard_and_committees = get_shards_and_committees_for_slot(crystallized_state, slot.int)
       var
         x = 1
         record_creator = shard_and_committees[0]
@@ -53,11 +51,10 @@ func process_block*(active_state: BeaconState, crystallized_state: BeaconState, 
         inc x
       record_creator
 
-    # Verify that len(attester_bitfield) == ceil_div8(len(attestation_indices)), where ceil_div8 = (x + 7) // 8. Verify that bits len(attestation_indices).... and higher, if present (i.e. len(attestation_indices) is not a multiple of 8), are all zero
-    # doAssert attestation.attester_bitfield.len == attestation_indices.committee.len
+    # TODO: Verify that len(attester_bitfield) == ceil_div8(len(attestation_indices)), where ceil_div8 = (x + 7) // 8. Verify that bits len(attestation_indices).... and higher, if present (i.e. len(attestation_indices) is not a multiple of 8), are all zero
 
     # Derive a group public key by adding the public keys of all of the attesters in attestation_indices for whom the corresponding bit in attester_bitfield (the ith bit is (attester_bitfield[i // 8] >> (7 - (i %8))) % 2) equals 1
-    var agg_pubkey: Eth2PublicKey
+    var agg_pubkey: ValidatorPubKey
     var empty = true
     for attester_idx in attestation_indices.committee:
       # TODO re-enable, but currently this whole function's a nonfunctional stub
