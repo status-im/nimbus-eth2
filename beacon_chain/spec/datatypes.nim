@@ -17,6 +17,11 @@
 #
 # How wrong the code is:
 # https://github.com/ethereum/eth2.0-specs/compare/126a7abfa86448091a0e037f52966b6a9531a857...master
+#
+# These datatypes are used as specifications for serialization - thus should not
+# be altered outside of what the spec says. Likewise, they should not be made
+# `ref` - this can be achieved by wrapping them in higher-level
+# types / composition
 
 import
   intsets, eth_common, math,

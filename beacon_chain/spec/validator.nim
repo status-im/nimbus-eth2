@@ -26,6 +26,8 @@ func get_new_validators*(current_validators: seq[ValidatorRecord],
                          status: ValidatorStatusCodes,
                          current_slot: uint64
                          ): tuple[validators: seq[ValidatorRecord], index: int] =
+  # XXX Spec candidate: inefficient API
+  #
   # Check that validator really did register
   # let signed_message = signed_message = bytes32(pubkey) + withdrawal_credentials + randao_commitment
   # assert BLSVerify(pub=pubkey,

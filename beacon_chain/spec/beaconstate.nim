@@ -114,16 +114,26 @@ func append_to_recent_block_hashes*(old_block_hashes: seq[Eth2Digest],
 proc get_attestation_participants*(state: BeaconState,
                                    attestation_data: AttestationSignedData,
                                    attester_bitfield: seq[byte]): seq[int] =
-    let
-      sncs_for_slot = get_shards_and_committees_for_slot(
-        state, attestation_data.slot)
+  ## Attestation participants in the attestation data are called out in a
+  ## bit field that corresponds to the committee of the shard at the time - this
+  ## function converts it to list of indices in to BeaconState.validators
+  ## Returns empty list if the shard is not found
+  # XXX Linear search through shard list? borderline ok, it's a small list
+  # XXX bitfield type needed, once bit order settles down
+  # XXX iterator candidate
+  let
+    sncs_for_slot = get_shards_and_committees_for_slot(
+      state, attestation_data.slot)
 
-    for snc in sncs_for_slot:
-      if snc.shard == attestation_data.shard:
-        assert len(attester_bitfield) == ceil_div8(len(snc.committee))
-        for i, vindex in snc.committee:
-          let
-            bit = (attester_bitfield[i div 8] shr (7 - (i mod 8))) mod 2
-          if bit == 1:
-              result.add(vindex)
-          return
+  for snc in sncs_for_slot:
+    if snc.shard != attestation_data.shard:
+      continue
+
+    # XXX investigate functional library / approach to help avoid loop bugs
+    assert len(attester_bitfield) == ceil_div8(len(snc.committee))
+    for i, vindex in snc.committee:
+      let
+        bit = (attester_bitfield[i div 8] shr (7 - (i mod 8))) mod 2
+      if bit == 1:
+          result.add(vindex)
+    return # found the shard, we're done
