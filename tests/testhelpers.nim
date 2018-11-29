@@ -5,20 +5,15 @@
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-# Temporary dumping ground for extra types and helpers that could make it into
-# the spec potentially
-
 import
-  ./spec/[crypto, digest]
+  ../beacon_chain/extras,
+  ../beacon_chain/spec/[crypto, datatypes]
 
-const
-  BEACON_CHAIN_SHARD* = 0xffffffffffffffff'u64
+func makeValidatorPubKey(n: int): ValidatorPubKey =
+  result.point.x.a.g[0] = n
 
-type
-  InitialValidator* = object
-    ## Eth1 validator registration contract output
-    pubkey*: ValidatorPubKey
-    deposit_size*: uint64
-    proof_of_possession*: seq[byte]
-    withdrawal_credentials*: Eth2Digest
-    randao_commitment*: Eth2Digest
+func makeInitialValidators*(n = CYCLE_LENGTH): seq[InitialValidator] =
+  for i in 0..<n:
+    result.add InitialValidator(
+      pubkey: makeValidatorPubKey(i)
+    )

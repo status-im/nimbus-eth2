@@ -26,14 +26,20 @@ func on_startup*(initial_validator_entries: openArray[InitialValidator],
   ## must be calculated before creating the genesis block.
   #
   # Induct validators
+  # Not in spec: the system doesn't work unless there are at least CYCLE_LENGTH
+  # validators - there needs to be at least one member in each committee -
+  # good to know for testing, though arguably the system is not that useful at
+  # at that point :)
+  assert initial_validator_entries.len >= CYCLE_LENGTH
+
   var validators: seq[ValidatorRecord]
 
   for v in initial_validator_entries:
     validators = get_new_validators(
         validators,
         ForkData(
-                pre_fork_version: 0,
-                post_fork_version: 0,
+                pre_fork_version: INITIAL_FORK_VERSION,
+                post_fork_version: INITIAL_FORK_VERSION,
                 fork_slot_number: 0xffffffffffffffff'u64
             ),
         v.pubkey,
@@ -44,7 +50,6 @@ func on_startup*(initial_validator_entries: openArray[InitialValidator],
         ACTIVE,
         0
       ).validators
-
   # Setup state
   let
     x = get_new_shuffling(Eth2Digest(), validators, 0)
@@ -69,16 +74,21 @@ func on_startup*(initial_validator_entries: openArray[InitialValidator],
       )
   )
 
-func get_shard_and_committees_index*(state: BeaconState, slot: uint64): uint64 =
+func get_shards_and_committees_index*(state: BeaconState, slot: uint64): uint64 =
+  # TODO spec unsigned-unsafe here
   let earliest_slot_in_array =
-    state.last_state_recalculation_slot - CYCLE_LENGTH
+    if state.last_state_recalculation_slot > CYCLE_LENGTH.uint64:
+      state.last_state_recalculation_slot - CYCLE_LENGTH
+    else:
+      0
+
   doAssert earliest_slot_in_array <= slot and
            slot < earliest_slot_in_array + CYCLE_LENGTH * 2
   slot - earliest_slot_in_array
 
 proc get_shards_and_committees_for_slot*(
     state: BeaconState, slot: uint64): seq[ShardAndCommittee] =
-  let index = state.get_shard_and_committees_index(slot)
+  let index = state.get_shards_and_committees_index(slot)
   state.shard_and_committee_for_slots[index]
 
 func get_beacon_proposer_index*(state: BeaconState, slot: uint64): uint64 =
@@ -91,7 +101,7 @@ func get_beacon_proposer_index*(state: BeaconState, slot: uint64): uint64 =
   ##
   ## idx in Vidx == p(i mod N), pi being a random permutation of validators indices (i.e. a committee)
 
-  let idx = get_shard_and_committees_index(state, slot)
+  let idx = get_shards_and_committees_index(state, slot)
   state.shard_and_committee_for_slots[idx][0].committee.mod_get(slot)
 
 func get_block_hash*(state: BeaconState,
@@ -118,9 +128,9 @@ proc get_attestation_participants*(state: BeaconState,
   ## bit field that corresponds to the committee of the shard at the time - this
   ## function converts it to list of indices in to BeaconState.validators
   ## Returns empty list if the shard is not found
-  # XXX Linear search through shard list? borderline ok, it's a small list
-  # XXX bitfield type needed, once bit order settles down
-  # XXX iterator candidate
+  # TODO Linear search through shard list? borderline ok, it's a small list
+  # TODO bitfield type needed, once bit order settles down
+  # TODO iterator candidate
   let
     sncs_for_slot = get_shards_and_committees_for_slot(
       state, attestation_data.slot)
@@ -129,7 +139,7 @@ proc get_attestation_participants*(state: BeaconState,
     if snc.shard != attestation_data.shard:
       continue
 
-    # XXX investigate functional library / approach to help avoid loop bugs
+    # TODO investigate functional library / approach to help avoid loop bugs
     assert len(attester_bitfield) == ceil_div8(len(snc.committee))
     for i, vindex in snc.committee:
       let

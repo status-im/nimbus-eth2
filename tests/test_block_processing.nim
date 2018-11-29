@@ -6,19 +6,21 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  options, unittest,
-  ../beacon_chain/spec/[datatypes, digest],
-  ../beacon_chain/state_transition
+  options, sequtils, unittest,
+  ./testhelpers,
+  ../beacon_chain/spec/[beaconstate, datatypes, digest],
+  ../beacon_chain/[extras, state_transition]
 
 suite "Block processing":
   ## For now just test that we can compile and execute block processing with mock data.
 
   test "Mock process_block":
     let
-      state = BeaconState()
+      state = on_startup(makeInitialValidators(), 0, Eth2Digest())
       blck = BeaconBlock(
+        slot: 1,
         ancestor_hashes: @[Eth2Digest()]
       )
-      newState = process_block(state, blck).get()
+      newState = process_block(state, blck)
     check:
-      newState.genesis_time == state.genesis_time
+      newState.isNone() # Broken block, should fail processing

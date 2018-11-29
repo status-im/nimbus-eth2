@@ -13,37 +13,23 @@
 
 import
   options,
+  ./extras,
   ./spec/[beaconstate, crypto, datatypes, digest, helpers],
   ./ssz,
   milagro_crypto # nimble install https://github.com/status-im/nim-milagro-crypto@#master
 
-func checkAttestations(state: BeaconState, blck: BeaconBlock):
-    seq[ProcessedAttestation] =
-  discard
+# TODO there's an ugly mix of functional and procedural styles here that
+#      is due to how the spec is mixed as well - once we're past the prototype
+#      stage, this will need clearing up and unification.
 
-func process_block*(state: BeaconState, blck: BeaconBlock): Option[BeaconState] =
-  ## When a new block is received, all participants must verify that the block
-  ## makes sense and update their state accordingly. This function will return
-  ## the new state, unless something breaks along the way
+func checkAttestations(state: BeaconState,
+                       blck: BeaconBlock,
+                       parent_slot: uint64): Option[seq[ProcessedAttestation]] =
+  # TODO perf improvement potential..
+  if blck.attestations.len > MAX_ATTESTATION_COUNT:
+    return
 
-  # XXX: simplistic way to be able to rollback state
-  var state = state
-
-  let
-    parent_hash = blck.ancestor_hashes[0]
-    slot = blck.slot
-    parent_slot = slot - 1 # XXX Not!! can skip slots...
-  # TODO actually get parent block, which means fixing up BeaconState refs above;
-  # there's no distinction between active/crystallized state anymore, etc.
-
-  state.recent_block_hashes =
-    append_to_recent_block_hashes(state.recent_block_hashes, parent_slot, slot,
-      parent_hash)
-
-  state.pending_attestations.add checkAttestations(state, blck)
-
-  doAssert blck.attestations.len <= MAX_ATTESTATION_COUNT
-
+  var res: seq[ProcessedAttestation]
   for attestation in blck.attestations:
     if attestation.data.slot <= blck.slot - MIN_ATTESTATION_INCLUSION_DELAY:
       return
@@ -73,11 +59,88 @@ func process_block*(state: BeaconState, blck: BeaconBlock): Option[BeaconState] 
 
     # For now only check compilation
     # doAssert attestation.aggregate_sig.verifyMessage(msg, agg_pubkey)
-    debugEcho "Aggregate sig verify message: ", attestation.aggregate_sig.verifyMessage(msg, agg_pubkey)
+    debugEcho "Aggregate sig verify message: ",
+      attestation.aggregate_sig.verifyMessage(msg, agg_pubkey)
 
-  return some(state)
-  # Extend the list of AttestationRecord objects in the active_state, ordering the new additions in the same order as they came in the block.
-  # TODO
+    res.add ProcessedAttestation(
+      data: attestation.data,
+      attester_bitfield: attestation.attester_bitfield,
+      poc_bitfield: attestation.poc_bitfield,
+      slot_included: blck.slot
+    )
 
-  # Verify that the slot % len(get_indices_for_slot(state, slot-1)[0])'th attester in get_indices_for_slot(state, slot-1)[0]is part of at least one of the AttestationRecord objects; this attester can be considered to be the proposer of the block.
-  # TODO
+  some(res)
+
+func verifyProposerSignature(state: BeaconState, blck: BeaconBlock): bool =
+  var blck_without_sig = blck
+  blck_without_sig.proposer_signature = ValidatorSig()
+
+  let
+    proposal_hash = hashSSZ(ProposalSignedData(
+      slot: blck.slot,
+      shard: BEACON_CHAIN_SHARD,
+      block_hash: Eth2Digest(data: hashSSZ(blck_without_sig))
+    ))
+
+  verifyMessage(
+    blck.proposer_signature, proposal_hash,
+    state.validators[get_beacon_proposer_index(state, blck.slot).int].pubkey)
+
+func processRandaoReveal(state: var BeaconState,
+                         blck: BeaconBlock,
+                         parent_slot: uint64): bool =
+  # Update randao skips
+  for slot in parentslot + 1 ..< blck.slot:
+    let proposer_index = get_beacon_proposer_index(state, slot)
+    state.validators[proposer_index.int].randao_skips.inc()
+
+  var
+    proposer_index = get_beacon_proposer_index(state, blck.slot)
+    proposer = state.validators[proposer_index.int]
+
+  # Check that proposer commit and reveal match
+  if repeat_hash(blck.randao_reveal, proposer.randao_skips + 1) !=
+      proposer.randao_commitment:
+    return
+
+  # Update state and proposer now that we're alright
+  for i, b in state.randao_mix.data:
+    state.randao_mix.data[i] = b xor blck.randao_reveal.data[i]
+
+  proposer.randao_commitment = blck.randao_reveal
+  proposer.randao_skips = 0
+
+  true
+
+func process_block*(state: BeaconState, blck: BeaconBlock): Option[BeaconState] =
+  ## When a new block is received, all participants must verify that the block
+  ## makes sense and update their state accordingly. This function will return
+  ## the new state, unless something breaks along the way
+
+  # TODO: simplistic way to be able to rollback state
+  var state = state
+
+  let
+    parent_hash = blck.ancestor_hashes[0]
+    slot = blck.slot
+    parent_slot = slot - 1 # TODO Not!! can skip slots...
+  # TODO actually get parent block, which means fixing up BeaconState refs above;
+  # there's no distinction between active/crystallized state anymore, etc.
+
+  state.recent_block_hashes =
+    append_to_recent_block_hashes(state.recent_block_hashes, parent_slot, slot,
+      parent_hash)
+
+  let processed_attestations = checkAttestations(state, blck, parent_slot)
+  if processed_attestations.isNone:
+    return
+
+  state.pending_attestations.add processed_attestations.get()
+
+  if not verifyProposerSignature(state, blck):
+    return
+
+  if not processRandaoReveal(state, blck, parent_slot):
+    return
+
+  some(state) # Looks ok - move on with the updated state

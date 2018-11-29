@@ -60,7 +60,7 @@ suite "Simple serialization":
       expected_ser[1..^1].deserialize(Foo).isNone()
 
 suite "Tree hashing":
-  # XXX Nothing but smoke tests for now..
+  # TODO Nothing but smoke tests for now..
 
   test "Hash ValidatorRecord":
     let vr = ValidatorRecord()

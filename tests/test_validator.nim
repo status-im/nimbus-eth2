@@ -24,7 +24,7 @@ suite "Validators":
           status: ACTIVE
         ), 32*1024)
 
-    # XXX the shuffling looks really odd, probably buggy
+    # TODO the shuffling looks really odd, probably buggy
     let s = get_new_shuffling(Eth2Digest(), validators, 0)
     check:
       s.len == CYCLE_LENGTH

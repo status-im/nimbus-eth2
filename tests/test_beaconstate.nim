@@ -6,7 +6,8 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  unittest,
+  sequtils, unittest,
+  ./testhelpers,
   ../beacon_chain/extras,
   ../beacon_chain/spec/[beaconstate, datatypes, digest]
 
@@ -14,5 +15,5 @@ suite "Beacon state":
   # Smoke test
 
   test "Smoke on_startup":
-    let state = on_startup([InitialValidator()], 0, Eth2Digest())
-    check: state.validators.len == 1
+    let state = on_startup(makeInitialValidators(CYCLE_LENGTH), 0, Eth2Digest())
+    check: state.validators.len == CYCLE_LENGTH

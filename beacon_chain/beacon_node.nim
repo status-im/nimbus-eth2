@@ -148,7 +148,7 @@ proc scheduleCycleActions(node: BeaconNode) =
 
     # Schedule attestations
     let
-      committeesIdx = get_shard_and_committees_index(node.beaconState, slot.uint64)
+      committeesIdx = get_shards_and_committees_index(node.beaconState, slot.uint64)
 
     for shard in node.beaconState.shard_and_committee_for_slots[committees_idx]:
       for validatorIdx in shard.committee:
