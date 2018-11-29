@@ -6,7 +6,13 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  ./test_beaconstate,
-  ./test_block_processing,
-  ./test_ssz,
-  ./test_validator
+  unittest,
+  ../beacon_chain/extras,
+  ../beacon_chain/spec/[beaconstate, datatypes, digest]
+
+suite "Beacon state":
+  # Smoke test
+
+  test "Smoke on_startup":
+    let state = on_startup([InitialValidator()], 0, Eth2Digest())
+    check: state.validators.len == 1

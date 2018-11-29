@@ -99,7 +99,7 @@ type
   BeaconState* = object
     validator_set_change_slot*: uint64                     # Slot of last validator set change
     validators*: seq[ValidatorRecord]                      # List of validators
-    crosslinks*: seq[CrosslinkRecord]                      # Most recent crosslink for each shard
+    crosslinks*: array[SHARD_COUNT, CrosslinkRecord]       # Most recent crosslink for each shard
     last_state_recalculation_slot*: uint64                 # Last cycle-boundary state recalculation
     last_finalized_slot*: uint64                           # Last finalized slot
     justification_source*: uint64                          # Justification source
@@ -119,7 +119,7 @@ type
     candidate_pow_receipt_roots*: seq[CandidatePoWReceiptRootRecord] #
     fork_data*: ForkData                                   # Parameters relevant to hard forks / versioning.
                                                            # Should be updated only by hard forks.
-    pending_attestations*: seq[AttestationRecord]          # Attestations not yet processed
+    pending_attestations*: seq[ProcessedAttestation]       # Attestations not yet processed
     recent_block_hashes*: seq[Eth2Digest]                  # recent beacon block hashes needed to process attestations, older to newer
     randao_mix*: Eth2Digest                                # RANDAO state
 

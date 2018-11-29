@@ -76,3 +76,4 @@ func get_new_recent_block_hashes*(old_block_hashes: seq[Eth2Digest],
   for _ in 0 ..< min(d, old_block_hashes.len):
     result.add parent_hash
 
+func ceil_div8*(v: int): int = (v + 7) div 8

@@ -16,22 +16,39 @@ func min_empty_validator(validators: seq[ValidatorRecord], current_slot: uint64)
       if v.status == WITHDRAWN and v.last_status_change_slot + DELETION_PERIOD.uint64 <= current_slot:
           return some(i)
 
-func add_validator*(validators: var seq[ValidatorRecord],
-                    pubkey: ValidatorPubKey,
-                    proof_of_possession: seq[byte],
-                    withdrawal_credentials: Eth2Digest,
-                    randao_commitment: Eth2Digest,
-                    status: ValidatorStatusCodes,
-                    current_slot: uint64
-                    ): int =
+func get_new_validators*(current_validators: seq[ValidatorRecord],
+                         fork_data: ForkData,
+                         pubkey: ValidatorPubKey,
+                         deposit_size: uint64,
+                         proof_of_possession: seq[byte],
+                         withdrawal_credentials: Eth2Digest,
+                         randao_commitment: Eth2Digest,
+                         status: ValidatorStatusCodes,
+                         current_slot: uint64
+                         ): tuple[validators: seq[ValidatorRecord], index: int] =
   # Check that validator really did register
-  # let signed_message = as_bytes32(pubkey) + as_bytes2(withdrawal_shard) + withdrawal_address + randao_commitment
+  # let signed_message = signed_message = bytes32(pubkey) + withdrawal_credentials + randao_commitment
   # assert BLSVerify(pub=pubkey,
   #                  msg=hash(signed_message),
-  #                  sig=proof_of_possession)
+  #                  sig=proof_of_possession,
+  # domain=get_domain(
+  #     fork_data,
+  #     current_slot,
+  #     DOMAIN_DEPOSIT
+  # ))
 
-  # Pubkey uniqueness
-  # assert pubkey not in [v.pubkey for v in validators]
+  var new_validators = current_validators
+
+  for index, val in new_validators.mpairs():
+    if val.pubkey == pubkey:
+      # assert deposit_size >= MIN_TOPUP_SIZE
+      # assert val.status != WITHDRAWN
+      # assert val.withdrawal_credentials == withdrawal_credentials
+
+      val.balance.inc(deposit_size.int)
+      return (new_validators, index)
+
+  # new validator
   let
     rec = ValidatorRecord(
       pubkey: pubkey,
@@ -44,17 +61,16 @@ func add_validator*(validators: var seq[ValidatorRecord],
       exit_seq: 0
     )
 
-  let index = min_empty_validator(validators, current_slot)
+  let index = min_empty_validator(new_validators, current_slot)
   if index.isNone:
-      validators.add(rec)
-      return len(validators) - 1
+    new_validators.add(rec)
+    (new_validators, len(new_validators) - 1)
   else:
-      validators[index.get()] = rec
-      return index.get()
+    new_validators[index.get()] = rec
+    (new_validators, index.get())
 
-func get_active_validator_indices(validators: openArray[ValidatorRecord]): seq[Uint24] =
+func get_active_validator_indices*(validators: openArray[ValidatorRecord]): seq[Uint24] =
   ## Select the active validators
-  result = @[]
   for idx, val in validators:
     if val.status == ACTIVE:
       result.add idx.Uint24
@@ -86,7 +102,8 @@ func get_new_shuffling*(seed: Eth2Digest,
 
     var committees = newSeq[ShardAndCommittee](shard_indices.len)
     for shard_position, indices in shard_indices:
-      committees[shard_position].shard = (shard_id_start + shard_position).uint16 mod SHARD_COUNT
+      committees[shard_position].shard =
+        uint64(shard_id_start + shard_position) mod SHARD_COUNT
       committees[shard_position].committee = indices
 
     result[slot] = committees
