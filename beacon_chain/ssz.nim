@@ -43,9 +43,9 @@ func toBytesSSZ(x: Eth2Digest): array[32, byte] = x.data
 func fromBytesSSZUnsafe(T: typedesc[SomeInteger], data: ptr byte): T =
   ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
   ## All integers are serialized as **big endian**.
-  ## XXX: Assumes data points to a sufficiently large buffer
+  ## TODO: Assumes data points to a sufficiently large buffer
 
-  # XXX: any better way to get a suitably aligned buffer in nim???
+  # TODO: any better way to get a suitably aligned buffer in nim???
   # see also: https://github.com/nim-lang/Nim/issues/9206
   var tmp: uint64
   var alignedBuf = cast[ptr byte](tmp.addr)
@@ -115,7 +115,7 @@ func deserialize(data: ptr byte, pos: var int, len: int, typ: typedesc[object]):
 func deserialize*(
       data: seq[byte or uint8] or openarray[byte or uint8] or string,
       typ: typedesc[object]): auto {.inline.} =
-  # XXX: returns Option[typ]: https://github.com/nim-lang/Nim/issues/9195
+  # TODO: returns Option[typ]: https://github.com/nim-lang/Nim/issues/9195
   var pos = 0
   return deserialize((ptr byte)(data[0].unsafeAddr), pos, data.len, typ)
 
@@ -140,7 +140,7 @@ const CHUNK_SIZE = 128
 
 # ################### Hashing helpers ###################################
 
-# XXX varargs openarray, anyone?
+# TODO varargs openarray, anyone?
 template withHash(body: untyped): array[32, byte] =
   let tmp = withEth2Hash: body
   toBytesSSZ tmp
@@ -154,9 +154,10 @@ func hash(a, b: openArray[byte]): array[32, byte] =
     h.update(a)
     h.update(b)
 
-# XXX: er, how is this _actually_ done?
+# TODO: er, how is this _actually_ done?
+# Mandatory bug: https://github.com/nim-lang/Nim/issues/9825
 func empty(T: typedesc): T = discard
-const emptyChunk = @(empty(array[CHUNK_SIZE, byte]))
+const emptyChunk = empty(array[CHUNK_SIZE, byte])
 
 func merkleHash[T](lst: seq[T]): array[32, byte]
 
@@ -186,13 +187,13 @@ func hashSSZ*(x: openArray[byte]): array[32, byte] =
 
 func hashSSZ*(x: ValidatorRecord): array[32, byte] =
   ## Containers have their fields recursively hashed, concatenated and hashed
-  # XXX hash_ssz.py code contains special cases for some types, why?
+  # TODO hash_ssz.py code contains special cases for some types, why?
   withHash:
-    # tmp.add(x.pubkey) # XXX uncertain future of public key format
+    # tmp.add(x.pubkey) # TODO uncertain future of public key format
     h.update hashSSZ(x.withdrawal_credentials)
     h.update hashSSZ(x.randao_skips)
     h.update hashSSZ(x.balance)
-    # h.update hashSSZ(x.status) # XXX it's an enum, deal with it
+    # h.update hashSSZ(x.status) # TODO it's an enum, deal with it
     h.update hashSSZ(x.last_status_change_slot)
     h.update hashSSZ(x.exit_seq)
 
@@ -207,7 +208,7 @@ func hashSSZ*[T: not enum](x: T): array[32, byte] =
     merkleHash(x)
   else:
     ## Containers have their fields recursively hashed, concatenated and hashed
-    # XXX could probaby compile-time-macro-sort fields...
+    # TODO could probaby compile-time-macro-sort fields...
     var fields: seq[tuple[name: string, value: seq[byte]]]
     for name, field in x.fieldPairs:
       fields.add (name, @(hashSSZ(field)))
@@ -262,7 +263,7 @@ func hashSSZ*(x: BeaconBlock): array[32, byte] =
 func merkleHash[T](lst: seq[T]): array[32, byte] =
   ## Merkle tree hash of a list of homogenous, non-empty items
 
-  # XXX: the heap allocations here can be avoided by computing the merkle tree
+  # TODO: the heap allocations here can be avoided by computing the merkle tree
   #      recursively, but for now keep things simple and aligned with upstream
 
   # Store length of list (to compensate for non-bijectiveness of padding)
@@ -274,7 +275,7 @@ func merkleHash[T](lst: seq[T]): array[32, byte] =
   var chunkz: seq[seq[byte]]
 
   if len(lst) == 0:
-    chunkz.add emptyChunk
+    chunkz.add @emptyChunk
   elif sizeof(hashSSZ(lst[0])) < CHUNK_SIZE:
     # See how many items fit in a chunk
     let itemsPerChunk = CHUNK_SIZE div sizeof(hashSSZ(lst[0]))
@@ -284,6 +285,9 @@ func merkleHash[T](lst: seq[T]): array[32, byte] =
     # Build a list of chunks based on the number of items in the chunk
     for i in 0..<chunkz.len:
       for j in 0..<itemsPerChunk:
+        if i == chunkz.len - 1:
+          let idx = i * itemsPerChunk + j
+          if idx >= lst.len: break # Last chunk may be partial!
         chunkz[i].add hashSSZ(lst[i * itemsPerChunk + j])
   else:
     # Leave large items alone
@@ -293,7 +297,7 @@ func merkleHash[T](lst: seq[T]): array[32, byte] =
 
   while chunkz.len() > 1:
     if chunkz.len() mod 2 == 1:
-      chunkz.add emptyChunk
+      chunkz.add @emptyChunk
     for i in 0..<(chunkz.len div 2):
       # As tradition dictates - one feature, at least one nim bug:
       # https://github.com/nim-lang/Nim/issues/9684

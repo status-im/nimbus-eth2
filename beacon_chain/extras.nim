@@ -5,8 +5,20 @@
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+# Temporary dumping ground for extra types and helpers that could make it into
+# the spec potentially
+
 import
-  ./test_beaconstate,
-  ./test_block_processing,
-  ./test_ssz,
-  ./test_validator
+  ./spec/[crypto, digest]
+
+const
+  BEACON_CHAIN_SHARD* = 0xffffffffffffffff'u64
+
+type
+  InitialValidator* = object
+    ## Eth1 validator registration contract output
+    pubkey*: ValidatorPubKey
+    deposit_size*: uint64
+    proof_of_possession*: seq[byte]
+    withdrawal_credentials*: Eth2Digest
+    randao_commitment*: Eth2Digest

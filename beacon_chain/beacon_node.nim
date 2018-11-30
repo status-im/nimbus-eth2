@@ -135,8 +135,8 @@ proc scheduleCycleActions(node: BeaconNode) =
     # Schedule block proposals
     let
       slot = cycleStart + i
-      proposerIdx = get_beacon_proposer_idx(node.beaconState, slot)
-      attachedValidator = node.getAttachedValidator(proposerIdx)
+      proposerIdx = get_beacon_proposer_index(node.beaconState, slot.uint64)
+      attachedValidator = node.getAttachedValidator(proposerIdx.int)
 
     if attachedValidator != nil:
       # TODO:
@@ -148,7 +148,7 @@ proc scheduleCycleActions(node: BeaconNode) =
 
     # Schedule attestations
     let
-      committeesIdx = get_shard_and_committees_idx(node.beaconState, slot)
+      committeesIdx = get_shards_and_committees_index(node.beaconState, slot.uint64)
 
     for shard in node.beaconState.shard_and_committee_for_slots[committees_idx]:
       for validatorIdx in shard.committee:
