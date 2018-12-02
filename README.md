@@ -7,7 +7,7 @@
 
 An alternative implementation of the Ethereum beacon chain in Nim.
 
-Please see [Full Casper chain v2.1](https://notes.ethereum.org/SCIg8AH5SA-O4C1G1LYZHQ?view) specs and the Ethereum Foundation [reference implementation](https://github.com/ethereum/beacon_chain).
+Please see [Full Beacon chain](https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md) specs and the Ethereum Foundation [reference implementation](https://github.com/ethereum/beacon_chain).
 
 You can check where the beacon chain fits in the Ethereum research ecosystem in the [Status Athenaeum](https://github.com/status-im/athenaeum/blob/b465626cc551e361492e56d32517b2cdadd7493f/ethereum_research_records.json#L38).
 
