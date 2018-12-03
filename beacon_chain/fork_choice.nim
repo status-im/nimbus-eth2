@@ -5,7 +5,7 @@ import
 type
   Attestation* = object
     validator*: int
-    data*: AttestationSignedData
+    data*: AttestationData
     signature*: ValidatorSig
 
   AttestationPool* = object

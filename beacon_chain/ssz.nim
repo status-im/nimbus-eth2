@@ -194,8 +194,8 @@ func hashSSZ*(x: ValidatorRecord): array[32, byte] =
     h.update hashSSZ(x.randao_skips)
     h.update hashSSZ(x.balance)
     # h.update hashSSZ(x.status) # TODO it's an enum, deal with it
-    h.update hashSSZ(x.last_status_change_slot)
-    h.update hashSSZ(x.exit_seq)
+    h.update hashSSZ(x.latest_status_change_slot)
+    h.update hashSSZ(x.exit_count)
 
 func hashSSZ*(x: ShardAndCommittee): array[32, byte] =
   withHash:

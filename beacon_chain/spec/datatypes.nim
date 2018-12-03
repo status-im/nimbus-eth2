@@ -37,9 +37,8 @@ const
   INITIAL_FORK_VERSION*                     = 0    #
   INITIAL_SLOT_NUMBER*                      = 0    #
   GWEI_PER_ETH*                             = 10^9 # Gwei/ETH
+  ZERO_HASH*                                = Eth2Digest()
   BEACON_CHAIN_SHARD_NUMBER*                = not 0'u64
-  WITHDRAWALS_PER_CYCLE*                    = 2^2  # validators (5.2m ETH in ~6 months)
-  MIN_WITHDRAWAL_PERIOD*                    = 2^13 # slots (~14 hours)
 
   # Time constants
   SLOT_DURATION*                            = 6    # seconds
@@ -82,18 +81,18 @@ type
     proposer_signature*: ValidatorSig              # Proposer signature
 
   AttestationRecord* = object
-    data*: AttestationSignedData                   #
-    attester_bitfield*: seq[byte]                  # Attester participation bitfield
-    poc_bitfield*: seq[byte]                       # Proof of custody bitfield
+    data*: AttestationData
+    participation_bitfield*: seq[byte]             # Attester participation bitfield
+    custody_bitfield*: seq[byte]                   # Proof of custody bitfield
     aggregate_sig*: ValidatorSig                   # BLS aggregate signature
 
-  AttestationSignedData* = object
+  AttestationData* = object
     slot*: uint64                                 # Slot number
     shard*: uint64                                # Shard number
-    block_hash*: Eth2Digest                       # Hash of the block we're signing
-    cycle_boundary_hash*: Eth2Digest              # Hash of the ancestor at the cycle boundary
+    beacon_block_hash*: Eth2Digest                # Hash of the block we're signing
+    epoch_boundary_hash*: Eth2Digest              # Hash of the ancestor at the cycle boundary
     shard_block_hash*: Eth2Digest                 # Shard block hash being attested to
-    last_crosslink_hash*: Eth2Digest              # Last crosslink hash
+    latest_crosslink_hash*: Eth2Digest            # Last crosslink hash
     justified_slot*: uint64                       # Slot of last justified beacon block
     justified_block_hash*: Eth2Digest             # Hash of last justified beacon block
 
@@ -107,31 +106,42 @@ type
     data*: seq[byte]                              # Data
 
   BeaconState* = object
-    validator_set_change_slot*: uint64                     # Slot of last validator set change
-    validators*: seq[ValidatorRecord]                      # List of validators
-    crosslinks*: array[SHARD_COUNT, CrosslinkRecord]       # Most recent crosslink for each shard
-    last_state_recalculation_slot*: uint64                 # Last cycle-boundary state recalculation
-    last_finalized_slot*: uint64                           # Last finalized slot
-    justification_source*: uint64                          # Justification source
-    prev_cycle_justification_source*: uint64               #
-    justified_slot_bitfield*: uint64                       # Recent justified slot bitmask
+    # Validator registry
+    validator_registry*: seq[ValidatorRecord]
+    validator_registry_latest_change_slot*: uint64
+    validator_registry_exit_count*: uint64
+    validator_registry_delta_chain_tip*: Eth2Digest ##\
+    ## For light clients to easily track delta
+
+    # Randomness and committees
+    randao_mix*: Eth2Digest                      # RANDAO state
+    next_seed*: Eth2Digest                       # Randao seed used for next shuffling
     shard_and_committee_for_slots*: array[2 * EPOCH_LENGTH, seq[ShardAndCommittee]] ## \
     ## Committee members and their assigned shard, per slot, covers 2 cycles
     ## worth of assignments
     persistent_committees*: seq[seq[Uint24]]               # Persistent shard committees
     persistent_committee_reassignments*: seq[ShardReassignmentRecord]
-    next_shuffling_seed*: Eth2Digest                       # Randao seed used for next shuffling
-    deposits_penalized_in_period*: uint32                  # Total deposits penalized in the given withdrawal period
-    validator_set_delta_hash_chain*: Eth2Digest            # Hash chain of validator set changes (for light clients to easily track deltas)
-    current_exit_seq*: uint64                              # Current sequence number for withdrawals
-    genesis_time*: uint64                                  # Genesis time
-    candidate_pow_receipt_root*: Eth2Digest                # PoW receipt root
-    candidate_pow_receipt_roots*: seq[CandidatePoWReceiptRootRecord] #
-    fork_data*: ForkData                                   # Parameters relevant to hard forks / versioning.
-                                                           # Should be updated only by hard forks.
-    pending_attestations*: seq[ProcessedAttestation]       # Attestations not yet processed
-    recent_block_hashes*: seq[Eth2Digest]                  # recent beacon block hashes needed to process attestations, older to newer
-    randao_mix*: Eth2Digest                                # RANDAO state
+
+    # Finality
+    previous_justified_slot*: uint64
+    justified_slot*: uint64
+    justified_slot_bitfield*: uint64
+    finalized_slot*: uint64
+
+    latest_crosslinks*: array[SHARD_COUNT, CrosslinkRecord]
+    latest_state_recalculation_slot*: uint64
+    latest_block_hashes*: seq[Eth2Digest] ##\
+    ## Needed to process attestations, older to newer
+    latest_penalized_exit_balances*: seq[uint64] ##\
+    ## Balances penalized in the current withdrawal period
+    latest_attestations*: seq[PendingAttestationRecord]
+
+    processed_pow_receipt_root*: Eth2Digest
+    candidate_pow_receipt_roots*: seq[CandidatePoWReceiptRootRecord]
+
+    genesis_time*: uint64
+    fork_data*: ForkData ##\
+    ## For versioning hard forks
 
   ValidatorRecord* = object
     pubkey*: ValidatorPubKey                      # Public key
@@ -140,12 +150,12 @@ type
     randao_skips*: uint64                         # Slot the proposer has skipped (ie. layers of RANDAO expected)
     balance*: uint64                              # Balance in Gwei
     status*: ValidatorStatusCodes                 # Status code
-    last_status_change_slot*: uint64              # Slot when validator last changed status (or 0)
-    exit_seq*: uint64                             # Sequence number when validator exited (or 0)
+    latest_status_change_slot*: uint64            # Slot when validator last changed status (or 0)
+    exit_count*: uint64                           # Exit counter when validator exited (or 0)
 
   CrosslinkRecord* = object
     slot*: uint64                                 # Slot number
-    hash*: Eth2Digest                             # Shard chain block hash
+    shard_block_hash*: Eth2Digest                 # Shard chain block hash
 
   ShardAndCommittee* = object
     shard*: uint64                                # Shard number
@@ -163,12 +173,12 @@ type
   ForkData* = object
     pre_fork_version*: uint64                     # Previous fork version
     post_fork_version*: uint64                    # Post fork version
-    fork_slot_number*: uint64                     # Fork slot number
+    fork_slot*: uint64                            # Fork slot number
 
-  ProcessedAttestation* = object
-    data*: AttestationSignedData                  # Signed data
-    attester_bitfield*: seq[byte]                 # Attester participation bitfield (2 bits per attester)
-    poc_bitfield*: seq[byte]                      # Proof of custody bitfield
+  PendingAttestationRecord* = object
+    data*: AttestationData                        # Signed data
+    participation_bitfield*: seq[byte]            # Attester participation bitfield
+    custody_bitfield*: seq[byte]                  # Proof of custody bitfield
     slot_included*: uint64                        # Slot in which it was included
 
   ValidatorStatusCodes* {.pure.} = enum

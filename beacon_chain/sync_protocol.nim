@@ -85,9 +85,9 @@ proc applyValidatorChangeLog*(log: ChangeLog,
   # 4. Apply all changes to the validator set
   #
 
-  outBeaconState.last_finalized_slot =
+  outBeaconState.finalized_slot =
     log.signedBlock.slot div EPOCH_LENGTH
 
-  outBeaconState.validator_set_delta_hash_chain =
-    log.beaconState.validator_set_delta_hash_chain
+  outBeaconState.validator_registry_delta_chain_tip =
+    log.beaconState.validator_registry_delta_chain_tip
 

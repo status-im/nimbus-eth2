@@ -7,14 +7,16 @@
 # Helpers and functions pertaining to managing the validator set
 
 import
-  options,
+  options, nimcrypto,
   eth_common,
+  ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers
 
 func min_empty_validator_index(validators: seq[ValidatorRecord], current_slot: uint64): Option[int] =
   for i, v in validators:
-      if v.balance == 0 and v.last_status_change_slot + DELETION_PERIOD.uint64 <= current_slot:
-          return some(i)
+    if v.balance == 0 and
+        v.latest_status_change_slot + DELETION_PERIOD.uint64 <= current_slot:
+      return some(i)
 
 func get_new_validators*(current_validators: seq[ValidatorRecord],
                          fork_data: ForkData,
@@ -59,8 +61,8 @@ func get_new_validators*(current_validators: seq[ValidatorRecord],
       randao_skips: 0,
       balance: deposit,
       status: status,
-      last_status_change_slot: current_slot,
-      exit_seq: 0
+      latest_status_change_slot: current_slot,
+      exit_count: 0
     )
 
   let index = min_empty_validator_index(new_validators, current_slot)
@@ -74,7 +76,7 @@ func get_new_validators*(current_validators: seq[ValidatorRecord],
 func get_active_validator_indices*(validators: openArray[ValidatorRecord]): seq[Uint24] =
   ## Select the active validators
   for idx, val in validators:
-    if val.status == ACTIVE or val.status == PENDING_EXIT:
+    if val.status in {ACTIVE, PENDING_EXIT}:
       result.add idx.Uint24
 
 func get_new_shuffling*(seed: Eth2Digest,
@@ -109,3 +111,65 @@ func get_new_shuffling*(seed: Eth2Digest,
       committees[shard_position].committee = indices
 
     result[slot] = committees
+
+func get_new_validator_registry_delta_chain_tip(
+    current_validator_registry_delta_chain_tip: Eth2Digest,
+    index: Uint24,
+    pubkey: ValidatorPubKey,
+    flag: ValidatorSetDeltaFlags): Eth2Digest =
+  ## Compute the next hash in the validator registry delta hash chain.
+
+  withEth2Hash:
+    h.update hashSSZ(current_validator_registry_delta_chain_tip)
+    h.update hashSSZ(flag.uint8)
+    h.update hashSSZ(index)
+    # TODO h.update hashSSZ(pubkey)
+
+func get_effective_balance*(validator: ValidatorRecord): uint64 =
+    min(validator.balance, MAX_DEPOSIT.uint64)
+
+func exit_validator*(index: Uint24,
+                     state: var BeaconState,
+                     penalize: bool,
+                     current_slot: uint64) =
+  ## Remove the validator with the given `index` from `state`.
+  ## Note that this function mutates `state`.
+
+  state.validator_registry_exit_count.inc()
+
+  var
+    validator = state.validator_registry[index]
+
+  validator.latest_status_change_slot = current_slot
+  validator.exit_count = state.validator_registry_exit_count
+
+  # Remove validator from persistent committees
+  for committee in state.persistent_committees.mitems():
+    for i, validator_index in committee:
+      if validator_index == index:
+        committee.delete(i)
+        break
+
+  if penalize:
+    validator.status = EXITED_WITH_PENALTY
+    state.latest_penalized_exit_balances[
+      (current_slot div COLLECTIVE_PENALTY_CALCULATION_PERIOD.uint64).int].inc(
+        get_effective_balance(validator).int)
+
+    var
+      whistleblower =
+        state.validator_registry[get_beacon_proposer_index(state, current_slot).int]
+      whistleblower_reward =
+        validator.balance div WHISTLEBLOWER_REWARD_QUOTIENT.uint64
+    whistleblower.balance.inc(whistleblower_reward.int)
+    validator.balance.dec(whistleblower_reward.int)
+  else:
+    validator.status = PENDING_EXIT
+
+  state.validator_registry_delta_chain_tip =
+    get_new_validator_registry_delta_chain_tip(
+      state.validator_registry_delta_chain_tip,
+      index,
+      validator.pubkey,
+      EXIT,
+  )
