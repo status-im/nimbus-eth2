@@ -6,7 +6,7 @@ import
 type
   ValidatorChangeLogEntry* = object
     case kind*: ValidatorSetDeltaFlags
-    of Entry:
+    of Activation:
       pubkey: ValidatorPubKey
     else:
       index: uint32
