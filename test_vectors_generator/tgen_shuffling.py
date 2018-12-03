@@ -75,7 +75,9 @@ class ValidatorStatus(IntEnum):
 class ValidatorRecord:
     fields = {
         # Status code
-        'status': 'ValidatorStatus'
+        'status': 'ValidatorStatus',
+        # Extra index field to ease testing/debugging
+        'original_index': 'uint64'
     }
 
     def __init__(self, **kwargs):
@@ -241,22 +243,53 @@ def get_new_shuffling(seed: Hash32,
 
 # ################################################################
 #
+#                       Print helpers
+#
+# ################################################################
+
+def toStrValidator(validators: [ValidatorRecord]) -> str:
+    return ', '.join(
+        f'Val(idx: {val.original_index}, status: {val.status})' for val in validators
+    )
+
+def toStrShardComs(shard_comms: List[List[ShardAndCommittee]]) -> str:
+
+    def strSlot(slot_id: int, sacs: List[ShardAndCommittee]) -> str:
+        result = ', '.join(
+            f'SaC(shard: {sac.shard}, comm: {sac.committee})'
+            for sac in sacs if sac.committee
+        )
+        if result != '': # Only return non-empty slots
+            return f'[Slot {slot_id}: ' + result
+        else:
+            return ''
+
+    return '\n\t'.join(
+        strSlot(slot_id, sacs) for slot_id, sacs in enumerate(shard_comms) if strSlot(slot_id, sacs)
+    )
+
+# ################################################################
+#
 #                       Testing
 #
 # ################################################################
 
 if __name__ == '__main__':
+
+    # Config
     random.seed(int("0xEF00BEAC", 16))
+    num_val = 15 # Number of validators
 
 
     seedhash = bytes(random.randint(0, 255) for byte in range(32))
     list_val_state = list(ValidatorStatus)
-    validators = [ValidatorRecord(status=random.choice(list_val_state)) for num_val in range(256)]
+    validators = [ValidatorRecord(status=random.choice(list_val_state), original_index=num_val) for num_val in range(num_val)]
     crosslinking_start_shard = random.randint(0, SHARD_COUNT)
 
     print(f"Hash: 0x{seedhash.hex()}")
-    print(f"validators: {validators}")
+    print(f"validators: {toStrValidator(validators)}")
     print(f"crosslinking_start_shard: {crosslinking_start_shard}")
 
     shuffle = get_new_shuffling(seedhash, validators, crosslinking_start_shard)
-    print(f"shuffling: {shuffle}")
+    print(f"shuffling: {toStrShardComs(shuffle)}")
+
