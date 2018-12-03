@@ -56,8 +56,13 @@ from typing import(
 )
 
 from enum import IntEnum
+import random
 
 Hash32 = NewType('Hash32', bytes)
+from hashlib import blake2b
+
+def hash(x):
+    return blake2b(x).digest()[:32]
 
 class ValidatorStatus(IntEnum):
     PENDING_ACTIVATION = 0
@@ -65,7 +70,7 @@ class ValidatorStatus(IntEnum):
     EXITED_WITHOUT_PENALTY = 2
     EXITED_WITH_PENALTY = 3
     # Not in specs anymore - https://github.com/ethereum/eth2.0-specs/issues/216
-    PENDING_EXIT = 255
+    PENDING_EXIT = 4
 
 class ValidatorRecord:
     fields = {
@@ -75,8 +80,7 @@ class ValidatorRecord:
 
     def __init__(self, **kwargs):
         for k in self.fields.keys():
-            assert k in kwargs or k in self.defaults
-            setattr(self, k, kwargs.get(k, self.defaults.get(k)))
+            setattr(self, k, kwargs.get(k))
 
     def __setattr__(self, name: str, value: Any) -> None:
         super().__setattr__(name, value)
@@ -96,8 +100,7 @@ class ShardAndCommittee:
 
     def __init__(self, **kwargs):
         for k in self.fields.keys():
-            assert k in kwargs or k in self.defaults
-            setattr(self, k, kwargs.get(k, self.defaults.get(k)))
+            setattr(self, k, kwargs.get(k))
 
     def __setattr__(self, name: str, value: Any) -> None:
         super().__setattr__(name, value)
@@ -115,7 +118,6 @@ SHARD_COUNT           = 2**10 # 1024
 EPOCH_LENGTH          = 2**6  # 64 slots, 6.4 minutes
 TARGET_COMMITTEE_SIZE = 2**8  # 256 validators
 
-
 # ################################################################
 #
 #              Procedures (copy-pasted from specs)
@@ -126,7 +128,7 @@ def get_active_validator_indices(validators: [ValidatorRecord]) -> List[int]:
     """
     Gets indices of active validators from ``validators``.
     """
-    return [i for i, v in enumerate(validators) if v.status in [ACTIVE, PENDING_EXIT]]
+    return [i for i, v in enumerate(validators) if v.status in [ValidatorStatus.ACTIVE, ValidatorStatus.PENDING_EXIT]]
 
 def shuffle(values: List[Any], seed: Hash32) -> List[Any]:
     """
@@ -236,3 +238,25 @@ def get_new_shuffling(seed: Hash32,
         output.append(shards_and_committees_for_slot)
 
     return output
+
+# ################################################################
+#
+#                       Testing
+#
+# ################################################################
+
+if __name__ == '__main__':
+    random.seed(int("0xEF00BEAC", 16))
+
+
+    seedhash = bytes(random.randint(0, 255) for byte in range(32))
+    list_val_state = list(ValidatorStatus)
+    validators = [ValidatorRecord(status=random.choice(list_val_state)) for num_val in range(256)]
+    crosslinking_start_shard = random.randint(0, SHARD_COUNT)
+
+    print(f"Hash: 0x{seedhash.hex()}")
+    print(f"validators: {validators}")
+    print(f"crosslinking_start_shard: {crosslinking_start_shard}")
+
+    shuffle = get_new_shuffling(seedhash, validators, crosslinking_start_shard)
+    print(f"shuffling: {shuffle}")
