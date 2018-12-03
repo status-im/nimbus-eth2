@@ -27,9 +27,9 @@ suite "Validators":
     # TODO the shuffling looks really odd, probably buggy
     let s = get_new_shuffling(Eth2Digest(), validators, 0)
     check:
-      s.len == CYCLE_LENGTH
+      s.len == EPOCH_LENGTH
        # 32k validators means 2 shards validated per slot - the aim is to get
        # TARGET_COMMITTEE_SIZE validators in each shard and there are
-       # CYCLE_LENGTH slots which each will crosslink a different shard
-      s[0].len == 32 * 1024 div (TARGET_COMMITTEE_SIZE * CYCLE_LENGTH)
+       # EPOCH_LENGTH slots which each will crosslink a different shard
+      s[0].len == 32 * 1024 div (TARGET_COMMITTEE_SIZE * EPOCH_LENGTH)
       sumCommittees(s) == validators.len() # all validators accounted for

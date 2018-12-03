@@ -11,15 +11,15 @@ import
   eth_common,
   ./crypto, ./datatypes, ./digest, ./helpers
 
-func min_empty_validator(validators: seq[ValidatorRecord], current_slot: uint64): Option[int] =
+func min_empty_validator_index(validators: seq[ValidatorRecord], current_slot: uint64): Option[int] =
   for i, v in validators:
-      if v.status == WITHDRAWN and v.last_status_change_slot + DELETION_PERIOD.uint64 <= current_slot:
+      if v.balance == 0 and v.last_status_change_slot + DELETION_PERIOD.uint64 <= current_slot:
           return some(i)
 
 func get_new_validators*(current_validators: seq[ValidatorRecord],
                          fork_data: ForkData,
                          pubkey: ValidatorPubKey,
-                         deposit_size: uint64,
+                         deposit: uint64,
                          proof_of_possession: seq[byte],
                          withdrawal_credentials: Eth2Digest,
                          randao_commitment: Eth2Digest,
@@ -47,7 +47,7 @@ func get_new_validators*(current_validators: seq[ValidatorRecord],
       # assert val.status != WITHDRAWN
       # assert val.withdrawal_credentials == withdrawal_credentials
 
-      val.balance.inc(deposit_size.int)
+      val.balance.inc(deposit.int)
       return (new_validators, index)
 
   # new validator
@@ -57,13 +57,13 @@ func get_new_validators*(current_validators: seq[ValidatorRecord],
       withdrawal_credentials: withdrawal_credentials,
       randao_commitment: randao_commitment,
       randao_skips: 0,
-      balance: DEPOSIT_SIZE * GWEI_PER_ETH,
+      balance: deposit,
       status: status,
       last_status_change_slot: current_slot,
       exit_seq: 0
     )
 
-  let index = min_empty_validator(new_validators, current_slot)
+  let index = min_empty_validator_index(new_validators, current_slot)
   if index.isNone:
     new_validators.add(rec)
     (new_validators, len(new_validators) - 1)
@@ -74,13 +74,13 @@ func get_new_validators*(current_validators: seq[ValidatorRecord],
 func get_active_validator_indices*(validators: openArray[ValidatorRecord]): seq[Uint24] =
   ## Select the active validators
   for idx, val in validators:
-    if val.status == ACTIVE:
+    if val.status == ACTIVE or val.status == PENDING_EXIT:
       result.add idx.Uint24
 
 func get_new_shuffling*(seed: Eth2Digest,
                         validators: openArray[ValidatorRecord],
                         crosslinking_start_shard: int
-                        ): array[CYCLE_LENGTH, seq[ShardAndCommittee]] =
+                        ): array[EPOCH_LENGTH, seq[ShardAndCommittee]] =
   ## Split up validators into groups at the start of every epoch,
   ## determining at what height they can make attestations and what shard they are making crosslinks for
   ## Implementation should do the following: http://vitalik.ca/files/ShuffleAndAssign.png
@@ -88,14 +88,14 @@ func get_new_shuffling*(seed: Eth2Digest,
   let
     active_validators = get_active_validator_indices(validators)
     committees_per_slot = clamp(
-      len(active_validators) div CYCLE_LENGTH div TARGET_COMMITTEE_SIZE,
-      1, SHARD_COUNT div CYCLE_LENGTH)
+      len(active_validators) div EPOCH_LENGTH div TARGET_COMMITTEE_SIZE,
+      1, SHARD_COUNT div EPOCH_LENGTH)
     # Shuffle with seed
     shuffled_active_validator_indices = shuffle(active_validators, seed)
     # Split the shuffled list into cycle_length pieces
-    validators_per_slot = split(shuffled_active_validator_indices, CYCLE_LENGTH)
+    validators_per_slot = split(shuffled_active_validator_indices, EPOCH_LENGTH)
 
-  assert validators_per_slot.len() == CYCLE_LENGTH # what split should do..
+  assert validators_per_slot.len() == EPOCH_LENGTH # what split should do..
 
   for slot, slot_indices in validators_per_slot:
     let

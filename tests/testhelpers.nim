@@ -12,7 +12,7 @@ import
 func makeValidatorPubKey(n: int): ValidatorPubKey =
   result.point.x.a.g[0] = n
 
-func makeInitialValidators*(n = CYCLE_LENGTH): seq[InitialValidator] =
+func makeInitialValidators*(n = EPOCH_LENGTH): seq[InitialValidator] =
   for i in 0..<n:
     result.add InitialValidator(
       pubkey: makeValidatorPubKey(i)

@@ -16,7 +16,7 @@
 # https://github.com/ethereum/eth2.0-specs/blob/master/specs/beacon-chain.md
 #
 # How wrong the code is:
-# https://github.com/ethereum/eth2.0-specs/compare/126a7abfa86448091a0e037f52966b6a9531a857...master
+# https://github.com/ethereum/eth2.0-specs/compare/2983e68f0305551083fac7fcf9330c1fc9da3411...master
 #
 # These datatypes are used as specifications for serialization - thus should not
 # be altered outside of what the spec says. Likewise, they should not be made
@@ -29,36 +29,41 @@ import
 
 const
   SHARD_COUNT*                              = 1024 # a constant referring to the number of shards
-  DEPOSIT_SIZE*                             = 2^5  # You need to deposit 32 ETH to be a validator in Casper
-  MIN_TOPUP_SIZE*                           = 1    # ETH
-  MIN_ONLINE_DEPOSIT_SIZE*                  = 2^4  # ETH
-  GWEI_PER_ETH*                             = 10^9 # Gwei/ETH
-  DEPOSITS_FOR_CHAIN_START*                 = 2^14 # deposits
   TARGET_COMMITTEE_SIZE*                    = 2^8  # validators
-  SLOT_DURATION*                            = 6    # seconds
-  CYCLE_LENGTH*                             = 64   # slots (~ 6 minutes)
-  MIN_VALIDATOR_SET_CHANGE_INTERVAL*        = 2^8  # slots (~25 minutes)
-  SHARD_PERSISTENT_COMMITTEE_CHANGE_PERIOD* = 2^17 # slots (~9 days)
-  MIN_ATTESTATION_INCLUSION_DELAY*          = 4    # slots (~25 minutes)
-  SQRT_E_DROP_TIME*                         = 2^9  # slots (~9 days); amount of time it takes for the
-                                                   # quadratic leak to cut deposits of non-participating
-                                                   # validators by ~39.4%
+  MAX_ATTESTATIONS_PER_BLOCK*               = 2^7  # attestations
+  MAX_DEPOSIT*                              = 2^5  # ETH
+  MIN_BALANCE*                              = 2^4  # ETH
+  POW_CONTRACT_MERKLE_TREE_DEPTH*           = 2^5  #
+  INITIAL_FORK_VERSION*                     = 0    #
+  INITIAL_SLOT_NUMBER*                      = 0    #
+  GWEI_PER_ETH*                             = 10^9 # Gwei/ETH
+  BEACON_CHAIN_SHARD_NUMBER*                = not 0'u64
   WITHDRAWALS_PER_CYCLE*                    = 2^2  # validators (5.2m ETH in ~6 months)
   MIN_WITHDRAWAL_PERIOD*                    = 2^13 # slots (~14 hours)
-  DELETION_PERIOD*                          = 2^22 # slots (~290 days)
-  COLLECTIVE_PENALTY_CALCULATION_PERIOD*    = 2^20 # slots (~2.4 months)
+
+  # Time constants
+  SLOT_DURATION*                            = 6    # seconds
+  MIN_ATTESTATION_INCLUSION_DELAY*          = 4    # slots (~25 minutes)
+  EPOCH_LENGTH*                             = 64   # slots (~6.4 minutes)
+  MIN_VALIDATOR_SET_CHANGE_INTERVAL*        = 2^8  # slots (~25.6 minutes)
   POW_RECEIPT_ROOT_VOTING_PERIOD*           = 2^10 # slots (~1.7 hours)
-  SLASHING_WHISTLEBLOWER_REWARD_DENOMINATOR* = 2^9 # ?
+  SHARD_PERSISTENT_COMMITTEE_CHANGE_PERIOD* = 2^17 # slots (~9 days)
+  SQRT_E_DROP_TIME*                         = 2^17 # slots (~9 days); amount of time it takes for the
+                                                   # quadratic leak to cut deposits of non-participating
+                                                   # validators by ~39.4%
+  COLLECTIVE_PENALTY_CALCULATION_PERIOD*    = 2^20 # slots (~2.4 months)
+  DELETION_PERIOD*                          = 2^22 # slots (~290 days)
+
+  # Quotients
   BASE_REWARD_QUOTIENT*                     = 2^11 # per-cycle interest rate assuming all validators are
                                                    # participating, assuming total deposits of 1 ETH. It
                                                    # corresponds to ~2.57% annual interest assuming 10
                                                    # million participating ETH.
-  MAX_VALIDATOR_CHURN_QUOTIENT*             = 2^5  # At most `1/MAX_VALIDATOR_CHURN_QUOTIENT` of the
+  WHISTLEBLOWER_REWARD_QUOTIENT*            = 2^9  # ?
+  INCLUDER_REWARD_QUOTIENT*                 = 2^3  #
+  MAX_CHURN_QUOTIENT*                       = 2^5  # At most `1/MAX_VALIDATOR_CHURN_QUOTIENT` of the
                                                    # validators can change during each validator set
                                                    # change.
-  POW_CONTRACT_MERKLE_TREE_DEPTH*           = 2^5  #
-  MAX_ATTESTATION_COUNT*                    = 2^7  #
-  INITIAL_FORK_VERSION*                     = 0    #
 
 type
   Uint24* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
@@ -110,7 +115,7 @@ type
     justification_source*: uint64                          # Justification source
     prev_cycle_justification_source*: uint64               #
     justified_slot_bitfield*: uint64                       # Recent justified slot bitmask
-    shard_and_committee_for_slots*: array[2 * CYCLE_LENGTH, seq[ShardAndCommittee]] ## \
+    shard_and_committee_for_slots*: array[2 * EPOCH_LENGTH, seq[ShardAndCommittee]] ## \
     ## Committee members and their assigned shard, per slot, covers 2 cycles
     ## worth of assignments
     persistent_committees*: seq[seq[Uint24]]               # Persistent shard committees
@@ -167,20 +172,20 @@ type
     slot_included*: uint64                        # Slot in which it was included
 
   ValidatorStatusCodes* {.pure.} = enum
-    PendingActivation = 0
-    Active = 1
-    PendingExit = 2
-    PendingWithdraw = 3
-    Withdrawn = 4
-    Penalized = 127
+    PENDING_ACITVATION = 0
+    ACTIVE = 1
+    EXITED_WITHOUT_PENALTY = 2
+    EXITED_WITH_PENALTY = 3
+    PENDING_EXIT = 29                             # https://github.com/ethereum/eth2.0-specs/issues/216
 
   SpecialRecordType* {.pure.} = enum
     Logout = 0
     CasperSlashing = 1
     RandaoChange = 2
+    DepositProof = 3
 
   ValidatorSetDeltaFlags* {.pure.} = enum
-    Entry = 0
+    Activation = 0
     Exit = 1
 
     # Note:

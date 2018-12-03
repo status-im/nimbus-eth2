@@ -26,11 +26,11 @@ func on_startup*(initial_validator_entries: openArray[InitialValidator],
   ## must be calculated before creating the genesis block.
   #
   # Induct validators
-  # Not in spec: the system doesn't work unless there are at least CYCLE_LENGTH
+  # Not in spec: the system doesn't work unless there are at least EPOCH_LENGTH
   # validators - there needs to be at least one member in each committee -
   # good to know for testing, though arguably the system is not that useful at
   # at that point :)
-  assert initial_validator_entries.len >= CYCLE_LENGTH
+  assert initial_validator_entries.len >= EPOCH_LENGTH
 
   var validators: seq[ValidatorRecord]
 
@@ -55,10 +55,10 @@ func on_startup*(initial_validator_entries: openArray[InitialValidator],
     x = get_new_shuffling(Eth2Digest(), validators, 0)
 
   # x + x in spec, but more ugly
-  var tmp: array[2 * CYCLE_LENGTH, seq[ShardAndCommittee]]
+  var tmp: array[2 * EPOCH_LENGTH, seq[ShardAndCommittee]]
   for i, n in x:
     tmp[i] = n
-    tmp[CYCLE_LENGTH + i] = n
+    tmp[EPOCH_LENGTH + i] = n
 
   # The spec says to use validators, but it's actually indices..
   let validator_indices = get_active_validator_indices(validators)
@@ -77,13 +77,13 @@ func on_startup*(initial_validator_entries: openArray[InitialValidator],
 func get_shards_and_committees_index*(state: BeaconState, slot: uint64): uint64 =
   # TODO spec unsigned-unsafe here
   let earliest_slot_in_array =
-    if state.last_state_recalculation_slot > CYCLE_LENGTH.uint64:
-      state.last_state_recalculation_slot - CYCLE_LENGTH
+    if state.last_state_recalculation_slot > EPOCH_LENGTH.uint64:
+      state.last_state_recalculation_slot - EPOCH_LENGTH
     else:
       0
 
   doAssert earliest_slot_in_array <= slot and
-           slot < earliest_slot_in_array + CYCLE_LENGTH * 2
+           slot < earliest_slot_in_array + EPOCH_LENGTH * 2
   slot - earliest_slot_in_array
 
 proc get_shards_and_committees_for_slot*(
