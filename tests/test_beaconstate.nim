@@ -15,5 +15,5 @@ suite "Beacon state":
   # Smoke test
 
   test "Smoke on_startup":
-    let state = on_startup(makeInitialValidators(CYCLE_LENGTH), 0, Eth2Digest())
-    check: state.validators.len == CYCLE_LENGTH
+    let state = on_startup(makeInitialValidators(EPOCH_LENGTH), 0, Eth2Digest())
+    check: state.validators.len == EPOCH_LENGTH

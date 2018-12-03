@@ -6,7 +6,7 @@ import
 type
   ValidatorChangeLogEntry* = object
     case kind*: ValidatorSetDeltaFlags
-    of Entry:
+    of Activation:
       pubkey: ValidatorPubKey
     else:
       index: uint32
@@ -55,7 +55,7 @@ iterator changes*(log: ChangeLog): ChangeLogEntry =
 
   for i in 0 ..< bits:
     yield if log.order.getBit(i):
-      ChangeLogEntry(kind: Entry, pubkey: nextItem(added))
+      ChangeLogEntry(kind: Activation, pubkey: nextItem(added))
     else:
       ChangeLogEntry(kind: Exit, index: nextItem(removed))
 
@@ -86,7 +86,7 @@ proc applyValidatorChangeLog*(log: ChangeLog,
   #
 
   outBeaconState.last_finalized_slot =
-    log.signedBlock.slot div CYCLE_LENGTH
+    log.signedBlock.slot div EPOCH_LENGTH
 
   outBeaconState.validator_set_delta_hash_chain =
     log.beaconState.validator_set_delta_hash_chain

@@ -131,7 +131,7 @@ proc scheduleCycleActions(node: BeaconNode) =
   ## attestations from our attached validators.
   let cycleStart = node.beaconState.last_state_recalculation_slot.int
 
-  for i in 0 ..< CYCLE_LENGTH:
+  for i in 0 ..< EPOCH_LENGTH:
     # Schedule block proposals
     let
       slot = cycleStart + i
@@ -170,7 +170,7 @@ proc processBlocks*(node: BeaconNode) {.async.} =
     # 3. Peform block processing / state recalculation / etc
     #
 
-    if b.slot mod CYCLE_LENGTH == 0:
+    if b.slot mod EPOCH_LENGTH == 0:
       node.scheduleCycleActions()
       node.attestations.discardHistoryToSlot(b.slot)
 

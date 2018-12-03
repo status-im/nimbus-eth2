@@ -26,14 +26,14 @@ func checkAttestations(state: BeaconState,
                        blck: BeaconBlock,
                        parent_slot: uint64): Option[seq[ProcessedAttestation]] =
   # TODO perf improvement potential..
-  if blck.attestations.len > MAX_ATTESTATION_COUNT:
+  if blck.attestations.len > MAX_ATTESTATIONS_PER_BLOCK:
     return
 
   var res: seq[ProcessedAttestation]
   for attestation in blck.attestations:
     if attestation.data.slot <= blck.slot - MIN_ATTESTATION_INCLUSION_DELAY:
       return
-    if attestation.data.slot >= max(parent_slot - CYCLE_LENGTH + 1, 0):
+    if attestation.data.slot >= max(parent_slot - EPOCH_LENGTH + 1, 0):
       return
     #doAssert attestation.data.justified_slot == justification_source if attestation.data.slot >= state.last_state_recalculation_slot else prev_cycle_justification_source
     # doAssert attestation.data.justified_block_hash == get_block_hash(state, block, attestation.data.justified_slot).
