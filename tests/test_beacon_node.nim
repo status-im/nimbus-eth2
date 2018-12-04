@@ -1,4 +1,4 @@
-# beacon_chain
+# beacon_node
 # Copyright (c) 2018 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
