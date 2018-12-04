@@ -1,7 +1,7 @@
 import
   os, net,
   asyncdispatch2, chronicles, confutils, eth_p2p, eth_keys,
-  spec/[beaconstate, datatypes], conf, time, fork_choice,
+  spec/[beaconstate, datatypes, helpers], conf, time, fork_choice,
   beacon_chain_db, validator_pool, mainchain_monitor,
   sync_protocol, gossipsub_protocol, trusted_state_snapshots
 
@@ -52,9 +52,9 @@ proc sync*(node: BeaconNode): Future[bool] {.async.} =
     node.beaconState = persistedState[]
     var targetSlot = toSlot timeSinceGenesis(node.beaconState)
 
-    while node.beaconState.last_finalized_slot.int < targetSlot:
+    while node.beaconState.finalized_slot.int < targetSlot:
       var (peer, changeLog) = await node.network.getValidatorChangeLog(
-        node.beaconState.validator_set_delta_hash_chain)
+        node.beaconState.validator_registry_delta_chain_tip)
 
       if peer == nil:
         error "Failed to sync with any peer"
@@ -79,7 +79,7 @@ proc addLocalValidators*(node: BeaconNode) =
     discard
 
 proc getAttachedValidator(node: BeaconNode, idx: int): AttachedValidator =
-  let validatorKey = node.beaconState.validators[idx].pubkey
+  let validatorKey = node.beaconState.validator_registry[idx].pubkey
   return node.attachedValidators.getValidator(validatorKey)
 
 proc makeAttestation(node: BeaconNode,
@@ -129,7 +129,7 @@ proc proposeBlock(node: BeaconNode,
 proc scheduleCycleActions(node: BeaconNode) =
   ## This schedules the required block proposals and
   ## attestations from our attached validators.
-  let cycleStart = node.beaconState.last_state_recalculation_slot.int
+  let cycleStart = node.beaconState.latest_state_recalculation_slot.int
 
   for i in 0 ..< EPOCH_LENGTH:
     # Schedule block proposals
@@ -148,7 +148,7 @@ proc scheduleCycleActions(node: BeaconNode) =
 
     # Schedule attestations
     let
-      committeesIdx = get_shards_and_committees_index(node.beaconState, slot.uint64)
+      committeesIdx = get_shard_and_committees_index(node.beaconState, slot.uint64)
 
     for shard in node.beaconState.shard_and_committee_for_slots[committees_idx]:
       for validatorIdx in shard.committee:

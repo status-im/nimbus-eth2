@@ -9,6 +9,9 @@
 
 import ./datatypes, ./digest, sequtils, math
 
+func mod_get[T](arr: openarray[T], pos: Natural): T =
+  arr[pos mod arr.len]
+
 func shuffle*[T](values: seq[T], seed: Eth2Digest): seq[T] =
   ## Returns the shuffled ``values`` with seed as entropy.
   ## TODO: this calls out for tests, but I odn't particularly trust spec
@@ -83,3 +86,50 @@ func repeat_hash*(v: Eth2Digest, n: SomeInteger): Eth2Digest =
     v
   else:
     repeat_hash(eth2hash(v.data), n - 1)
+
+func get_shard_and_committees_index*(state: BeaconState, slot: uint64): uint64 =
+  # TODO spec unsigned-unsafe here
+  let earliest_slot_in_array =
+    if state.latest_state_recalculation_slot > EPOCH_LENGTH.uint64:
+      state.latest_state_recalculation_slot - EPOCH_LENGTH
+    else:
+      0
+
+  doAssert earliest_slot_in_array <= slot and
+           slot < earliest_slot_in_array + EPOCH_LENGTH * 2
+  slot - earliest_slot_in_array
+
+proc get_shard_and_committees_for_slot*(
+    state: BeaconState, slot: uint64): seq[ShardAndCommittee] =
+  let index = state.get_shard_and_committees_index(slot)
+  state.shard_and_committee_for_slots[index]
+
+func get_beacon_proposer_index*(state: BeaconState, slot: uint64): uint64 =
+  ## From Casper RPJ mini-spec:
+  ## When slot i begins, validator Vidx is expected
+  ## to create ("propose") a block, which contains a pointer to some parent block
+  ## that they perceive as the "head of the chain",
+  ## and includes all of the **attestations** that they know about
+  ## that have not yet been included into that chain.
+  ##
+  ## idx in Vidx == p(i mod N), pi being a random permutation of validators indices (i.e. a committee)
+
+  let idx = get_shard_and_committees_index(state, slot)
+  state.shard_and_committee_for_slots[idx][0].committee.mod_get(slot)
+
+func int_sqrt*(n: SomeInteger): SomeInteger =
+  var
+    x = n
+    y = (x + 1) div 2
+  while y < x:
+    x = y
+    y = (x + n div x) div 2
+  x
+
+func get_fork_version*(fork_data: ForkData, slot: uint64): uint64 =
+  if slot < fork_data.fork_slot: fork_data.pre_fork_version
+  else: fork_data.post_fork_version
+
+func get_domain*(fork_data: ForkData, slot: uint64, domain_type: uint64): uint64 =
+  # TODO Slot overflow? Or is slot 32 bits for all intents and purposes?
+  (get_fork_version(fork_data, slot) shl 32) + domain_type

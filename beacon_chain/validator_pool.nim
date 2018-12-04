@@ -53,7 +53,7 @@ proc signBlockProposal*(v: AttachedValidator,
     discard
 
 proc signAttestation*(v: AttachedValidator,
-                      attestation: AttestationSignedData): Future[ValidatorSig] {.async.} =
+                      attestation: AttestationData): Future[ValidatorSig] {.async.} =
   # TODO: implement this
   if v.kind == inProcess:
     await sleepAsync(1)
