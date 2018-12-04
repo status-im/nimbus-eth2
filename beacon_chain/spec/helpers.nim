@@ -104,7 +104,7 @@ proc get_shard_and_committees_for_slot*(
   let index = state.get_shard_and_committees_index(slot)
   state.shard_and_committee_for_slots[index]
 
-func get_beacon_proposer_index*(state: BeaconState, slot: uint64): uint64 =
+func get_beacon_proposer_index*(state: BeaconState, slot: uint64): Uint24 =
   ## From Casper RPJ mini-spec:
   ## When slot i begins, validator Vidx is expected
   ## to create ("propose") a block, which contains a pointer to some parent block
@@ -133,3 +133,5 @@ func get_fork_version*(fork_data: ForkData, slot: uint64): uint64 =
 func get_domain*(fork_data: ForkData, slot: uint64, domain_type: uint64): uint64 =
   # TODO Slot overflow? Or is slot 32 bits for all intents and purposes?
   (get_fork_version(fork_data, slot) shl 32) + domain_type
+
+func is_power_of_2*(v: uint64): bool = discard # TODO

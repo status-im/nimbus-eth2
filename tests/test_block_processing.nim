@@ -14,13 +14,13 @@ import
 suite "Block processing":
   ## For now just test that we can compile and execute block processing with mock data.
 
-  test "Mock process_block":
+  test "Mock state update":
     let
       state = on_startup(makeInitialValidators(), 0, Eth2Digest())
       blck = BeaconBlock(
         slot: 1,
         ancestor_hashes: @[Eth2Digest()]
       )
-      newState = process_block(state, blck)
+      newState = updateState(state, blck)
     check:
       newState.isNone() # Broken block, should fail processing

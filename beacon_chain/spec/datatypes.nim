@@ -44,7 +44,7 @@ const
   SLOT_DURATION*                            = 6    # seconds
   MIN_ATTESTATION_INCLUSION_DELAY*          = 4    # slots (~25 minutes)
   EPOCH_LENGTH*                             = 64   # slots (~6.4 minutes)
-  MIN_VALIDATOR_SET_CHANGE_INTERVAL*        = 2^8  # slots (~25.6 minutes)
+  MIN_VALIDATOR_REGISTRY_CHANGE_INTERVAL*   = 2^8  # slots (~25.6 minutes)
   POW_RECEIPT_ROOT_VOTING_PERIOD*           = 2^10 # slots (~1.7 hours)
   SHARD_PERSISTENT_COMMITTEE_CHANGE_PERIOD* = 2^17 # slots (~9 days)
   SQRT_E_DROP_TIME*                         = 2^17 # slots (~9 days); amount of time it takes for the
@@ -182,7 +182,7 @@ type
     slot_included*: uint64                        # Slot in which it was included
 
   ValidatorStatusCodes* {.pure.} = enum
-    PENDING_ACITVATION = 0
+    PENDING_ACTIVATION = 0
     ACTIVE = 1
     EXITED_WITHOUT_PENALTY = 2
     EXITED_WITH_PENALTY = 3
