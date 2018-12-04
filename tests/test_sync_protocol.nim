@@ -6,9 +6,12 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  ./test_beaconstate,
-  ./test_block_processing,
-  ./test_ssz,
-  ./test_validator,
-  ./test_beacon_node,
-  ./test_sync_protocol
+  unittest,
+  ./testhelpers,
+  ../beacon_chain/sync_protocol
+
+suite "Sync protocol":
+  # Compile test
+
+  test "Compile":
+    discard
