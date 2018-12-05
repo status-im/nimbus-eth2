@@ -7,13 +7,13 @@
 
 import
   sequtils, unittest,
-  ./testutil,
-  ../beacon_chain/extras,
-  ../beacon_chain/spec/[beaconstate, datatypes, digest]
+  ../beacon_chain/spec/[helpers]
 
-suite "Beacon state":
-  # Smoke test
-
-  test "Smoke on_startup":
-    let state = on_startup(makeInitialValidators(EPOCH_LENGTH), 0, Eth2Digest())
-    check: state.validator_registry.len == EPOCH_LENGTH
+suite "Spec helpers":
+  test "is_power_of_2 should do its job":
+    check:
+      is_power_of_2(1) == true
+      is_power_of_2(2) == true
+      is_power_of_2(3) == false
+      is_power_of_2(4) == true
+      is_power_of_2(not 0'u64) == false

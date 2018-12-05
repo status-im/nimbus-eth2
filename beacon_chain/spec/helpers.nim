@@ -134,4 +134,4 @@ func get_domain*(fork_data: ForkData, slot: uint64, domain_type: uint64): uint64
   # TODO Slot overflow? Or is slot 32 bits for all intents and purposes?
   (get_fork_version(fork_data, slot) shl 32) + domain_type
 
-func is_power_of_2*(v: uint64): bool = discard # TODO
+func is_power_of_2*(v: uint64): bool = (v and (v-1)) == 0

@@ -7,7 +7,7 @@
 
 import
   options, sequtils, unittest,
-  ./testhelpers,
+  ./testutil,
   ../beacon_chain/spec/[beaconstate, datatypes, digest],
   ../beacon_chain/[extras, state_transition]
 
