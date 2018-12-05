@@ -20,3 +20,5 @@ type
 template hash*(k: ValidatorPubKey|ValidatorPrivKey): Hash =
   hash(k.getRaw)
 
+proc pubKey*(pk: ValidatorPrivKey): ValidatorPubKey = fromSigKey(pk)
+
