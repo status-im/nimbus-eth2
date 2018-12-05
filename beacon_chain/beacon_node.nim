@@ -1,7 +1,7 @@
 import
-  os, net,
+  os, net, sequtils,
   asyncdispatch2, chronicles, confutils, eth_p2p, eth_keys,
-  spec/[beaconstate, datatypes, helpers], conf, time, fork_choice,
+  spec/[beaconstate, datatypes, helpers, crypto], conf, time, fork_choice,
   beacon_chain_db, validator_pool, mainchain_monitor,
   sync_protocol, gossipsub_protocol, trusted_state_snapshots
 
@@ -67,16 +67,30 @@ proc sync*(node: BeaconNode): Future[bool] {.async.} =
 
   return true
 
+template findIt(s: openarray, predicate: untyped): int =
+  var res = -1
+  for i, it {.inject.} in s:
+    if predicate:
+      res = i
+      break
+  res
+
 proc addLocalValidators*(node: BeaconNode) =
   for validator in node.config.validatorKeys:
-    # TODO:
     # 1. Parse the validator keys
-    #
+    let privKey = loadPrivKey(validator)
+    let pubKey = privKey.pubKey()
+
     # 2. Check whether the validators exist in the beacon state.
     #    (Report a warning otherwise)
-    #
-    # 3. Add the validators to node.attachedValidators
-    discard
+    let idx = node.beaconState.validator_registry.findIt(it.pubKey == pubKey)
+    if idx == -1:
+      warn "Validator not in registry", pubKey
+    else:
+      # 3. Add the validators to node.attachedValidators
+      # TODO: Parse randao secret
+      node.attachedValidators.addLocalValidator(idx, pubKey, privKey, @[])
+
 
 proc getAttachedValidator(node: BeaconNode, idx: int): AttachedValidator =
   let validatorKey = node.beaconState.validator_registry[idx].pubkey
