@@ -319,6 +319,11 @@ def toStrShardComs(shard_comms: List[List[ShardAndCommittee]]) -> str:
 #
 # ################################################################
 
+## Try to deal with enums - otherwise for "ValidatorStatus.Active" you get [1], instead of 1
+def yaml_ValidatorStatus(dumper, data):
+    return dumper.represent_data(data.value)
+yaml.add_representer(ValidatorStatus, yaml_ValidatorStatus)
+
 if __name__ == '__main__':
     import sys, random
 
@@ -355,4 +360,4 @@ if __name__ == '__main__':
     # yaml.dump(test_cases, sys.stdout)
     with open('test_vector_shuffling.yml', 'w') as outfile:
         yaml.dump(metadata, outfile, default_flow_style=False) # Dump at top level
-        yaml.dump({'test_cases': test_cases}, outfile)
+        yaml.dump({'test_cases': test_cases}, outfile, default_flow_style=False)
