@@ -59,10 +59,18 @@ from enum import IntEnum
 import random
 
 Hash32 = NewType('Hash32', bytes)
-from hashlib import blake2b
 
+## See https://github.com/ethereum/eth2.0-specs/pull/227
+## and https://github.com/ethereum/eth2.0-specs/issues/151
+## Hashing as been changed from Blake2b-512[:32] to Keccak256
+
+# from hashlib import blake2b
+# def hash(x):
+#     return blake2b(x).digest()[:32]
+
+from eth_utils import keccak
 def hash(x):
-    return blake2b(x).digest()[:32]
+    return keccak(x)
 
 class ValidatorStatus(IntEnum):
     PENDING_ACTIVATION = 0
@@ -278,7 +286,7 @@ if __name__ == '__main__':
 
     # Config
     random.seed(int("0xEF00BEAC", 16))
-    num_val = 15 # Number of validators
+    num_val = 256 # Number of validators
 
 
     seedhash = bytes(random.randint(0, 255) for byte in range(32))
