@@ -360,4 +360,4 @@ if __name__ == '__main__':
     # yaml.dump(test_cases, sys.stdout)
     with open('test_vector_shuffling.yml', 'w') as outfile:
         yaml.dump(metadata, outfile, default_flow_style=False) # Dump at top level
-        yaml.dump({'test_cases': test_cases}, outfile, default_flow_style=False)
+        yaml.dump({'test_cases': test_cases}, outfile)         # default_flow_style will unravel "ValidatorRecord" and "committee" line, exploding file size
