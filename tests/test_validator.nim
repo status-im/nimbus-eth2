@@ -8,7 +8,7 @@ import
   math,unittest, sequtils,
   ../beacon_chain/spec/[datatypes, digest, validator]
 
-func sumCommittees(v: openArray[seq[ShardAndCommittee]]): int =
+func sumCommittees(v: openArray[seq[ShardCommittee]]): int =
   for x in v:
     for y in x:
       inc result, y.committee.len

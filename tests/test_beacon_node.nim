@@ -7,7 +7,6 @@
 
 import
   unittest,
-  ./testhelpers,
   ../beacon_chain/beacon_node
 
 suite "Beacon node":

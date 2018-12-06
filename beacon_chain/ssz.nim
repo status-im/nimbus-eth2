@@ -197,7 +197,7 @@ func hashSSZ*(x: ValidatorRecord): array[32, byte] =
     h.update hashSSZ(x.latest_status_change_slot)
     h.update hashSSZ(x.exit_count)
 
-func hashSSZ*(x: ShardAndCommittee): array[32, byte] =
+func hashSSZ*(x: ShardCommittee): array[32, byte] =
   withHash:
     h.update hashSSZ(x.shard)
     h.update merkleHash(x.committee)
@@ -241,7 +241,7 @@ func hashSSZ*(x: AttestationRecord): array[32, byte] =
     # h.update hashSSZ(x.data) # TODO this is now a sub-object of its own
     # h.update hashSSZ(attester_bitfield) # TODO - the bitfield as a specific serialisation format
     # h.update hashSSZ(x.poc_bitfield) # TODO - same serialization format
-    h.update hashSSZ(x.aggregate_sig)
+    h.update hashSSZ(x.aggregate_signature)
 
 func hashSSZ*(x: BeaconBlock): array[32, byte] =
   ## TODO - Warning ⚠️: not part of the spec

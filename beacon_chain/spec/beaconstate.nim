@@ -52,16 +52,16 @@ func on_startup*(initial_validator_entries: openArray[InitialValidator],
     initial_shuffling = get_new_shuffling(Eth2Digest(), validators, 0)
 
   # initial_shuffling + initial_shuffling in spec, but more ugly
-  var shard_and_committee_for_slots: array[2 * EPOCH_LENGTH, seq[ShardAndCommittee]]
+  var shard_committees_at_slots: array[2 * EPOCH_LENGTH, seq[ShardCommittee]]
   for i, n in initial_shuffling:
-    shard_and_committee_for_slots[i] = n
-    shard_and_committee_for_slots[EPOCH_LENGTH + i] = n
+    shard_committees_at_slots[i] = n
+    shard_committees_at_slots[EPOCH_LENGTH + i] = n
 
-  # The spec says to use validators, but it's actually indices..
-  let validator_indices = get_active_validator_indices(validators)
+  # TODO validators vs indices
+  let active_validator_indices = get_active_validator_indices(validators)
 
   let persistent_committees = split(shuffle(
-    validator_indices, ZERO_HASH), SHARD_COUNT)
+    active_validator_indices, ZERO_HASH), SHARD_COUNT)
 
   BeaconState(
     validator_registry: validators,
@@ -72,7 +72,7 @@ func on_startup*(initial_validator_entries: openArray[InitialValidator],
     # Randomness and committees
     randao_mix: ZERO_HASH,
     next_seed: ZERO_HASH,
-    shard_and_committee_for_slots: shard_and_committee_for_slots,
+    shard_committees_at_slots: shard_committees_at_slots,
     persistent_committees: persistent_committees,
 
     # Finality
@@ -112,9 +112,9 @@ func append_to_recent_block_hashes*(old_block_hashes: seq[Eth2Digest],
   result = old_block_hashes
   result.add repeat(parent_hash, d)
 
-proc get_attestation_participants*(state: BeaconState,
+func get_attestation_participants*(state: BeaconState,
                                    attestation_data: AttestationData,
-                                   participation_bitfield: seq[byte]): seq[int] =
+                                   participation_bitfield: seq[byte]): seq[Uint24] =
   ## Attestation participants in the attestation data are called out in a
   ## bit field that corresponds to the committee of the shard at the time - this
   ## function converts it to list of indices in to BeaconState.validators
@@ -138,3 +138,16 @@ proc get_attestation_participants*(state: BeaconState,
       if bit == 1:
           result.add(vindex)
     return # found the shard, we're done
+
+func change_validators*(state: var BeaconState,
+                        current_slot: uint64) =
+  ## Change validator registry.
+
+  let res = get_changed_validators(
+    state.validator_registry,
+    state.latest_penalized_exit_balances,
+    state.validator_registry_delta_chain_tip,
+    current_slot
+  )
+  state.validator_registry = res.validators
+  state.latest_penalized_exit_balances = res.latest_penalized_exit_balances

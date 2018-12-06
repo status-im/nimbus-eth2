@@ -7,7 +7,6 @@
 
 import
   unittest,
-  ./testhelpers,
   ../beacon_chain/sync_protocol
 
 suite "Sync protocol":

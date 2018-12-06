@@ -16,7 +16,7 @@
 # https://github.com/ethereum/eth2.0-specs/blob/master/specs/beacon-chain.md
 #
 # How wrong the code is:
-# https://github.com/ethereum/eth2.0-specs/compare/2983e68f0305551083fac7fcf9330c1fc9da3411...master
+# https://github.com/ethereum/eth2.0-specs/compare/f956135763cbb410a8c28b3a509f14f750ff287c...master
 #
 # These datatypes are used as specifications for serialization - thus should not
 # be altered outside of what the spec says. Likewise, they should not be made
@@ -31,27 +31,30 @@ const
   SHARD_COUNT*                              = 1024 # a constant referring to the number of shards
   TARGET_COMMITTEE_SIZE*                    = 2^8  # validators
   MAX_ATTESTATIONS_PER_BLOCK*               = 2^7  # attestations
-  MAX_DEPOSIT*                              = 2^5  # ETH
   MIN_BALANCE*                              = 2^4  # ETH
-  POW_CONTRACT_MERKLE_TREE_DEPTH*           = 2^5  #
+  MAX_BALANCE_CHURN_QUOTIENT*               = 2^5  # ETH
+  GWEI_PER_ETH*                             = 10^9 # Gwei/ETH
+  BEACON_CHAIN_SHARD_NUMBER*                = not 0'u64
+
+  DEPOSIT_CONTRACT_TREE_DEPTH*              = 2^5  #
+  MIN_DEPOSIT*                              = 2^0  #
+  MAX_DEPOSIT*                              = 2^5  #
+
+  # Initial values
+
   INITIAL_FORK_VERSION*                     = 0    #
   INITIAL_SLOT_NUMBER*                      = 0    #
-  GWEI_PER_ETH*                             = 10^9 # Gwei/ETH
   ZERO_HASH*                                = Eth2Digest()
-  BEACON_CHAIN_SHARD_NUMBER*                = not 0'u64
 
   # Time constants
   SLOT_DURATION*                            = 6    # seconds
   MIN_ATTESTATION_INCLUSION_DELAY*          = 4    # slots (~25 minutes)
   EPOCH_LENGTH*                             = 64   # slots (~6.4 minutes)
-  MIN_VALIDATOR_SET_CHANGE_INTERVAL*        = 2^8  # slots (~25.6 minutes)
+  MIN_VALIDATOR_REGISTRY_CHANGE_INTERVAL*   = 2^8  # slots (~25.6 minutes)
   POW_RECEIPT_ROOT_VOTING_PERIOD*           = 2^10 # slots (~1.7 hours)
   SHARD_PERSISTENT_COMMITTEE_CHANGE_PERIOD* = 2^17 # slots (~9 days)
-  SQRT_E_DROP_TIME*                         = 2^17 # slots (~9 days); amount of time it takes for the
-                                                   # quadratic leak to cut deposits of non-participating
-                                                   # validators by ~39.4%
   COLLECTIVE_PENALTY_CALCULATION_PERIOD*    = 2^20 # slots (~2.4 months)
-  DELETION_PERIOD*                          = 2^22 # slots (~290 days)
+  ZERO_BALANCE_VALIDATOR_TTL*               = 2^22 # slots (~290 days)
 
   # Quotients
   BASE_REWARD_QUOTIENT*                     = 2^11 # per-cycle interest rate assuming all validators are
@@ -60,9 +63,7 @@ const
                                                    # million participating ETH.
   WHISTLEBLOWER_REWARD_QUOTIENT*            = 2^9  # ?
   INCLUDER_REWARD_QUOTIENT*                 = 2^3  #
-  MAX_CHURN_QUOTIENT*                       = 2^5  # At most `1/MAX_VALIDATOR_CHURN_QUOTIENT` of the
-                                                   # validators can change during each validator set
-                                                   # change.
+  INACTIVITY_PENALTY_QUOTIENT*              = 2^34 #
 
 type
   Uint24* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
@@ -84,7 +85,7 @@ type
     data*: AttestationData
     participation_bitfield*: seq[byte]             # Attester participation bitfield
     custody_bitfield*: seq[byte]                   # Proof of custody bitfield
-    aggregate_sig*: ValidatorSig                   # BLS aggregate signature
+    aggregate_signature*: ValidatorSig             # BLS aggregate signature
 
   AttestationData* = object
     slot*: uint64                                 # Slot number
@@ -98,7 +99,7 @@ type
 
   ProposalSignedData* = object
     slot*: uint64                                 # Slot number
-    shard*: uint64                                # Shard number (or `2**64 - 1` for beacon chain)
+    shard*: uint64                                # Shard number (or `BEACON_CHAIN_SHARD_NUMBER` for beacon chain)
     block_hash*: Eth2Digest                       # Block hash
 
   SpecialRecord* = object
@@ -116,7 +117,7 @@ type
     # Randomness and committees
     randao_mix*: Eth2Digest                      # RANDAO state
     next_seed*: Eth2Digest                       # Randao seed used for next shuffling
-    shard_and_committee_for_slots*: array[2 * EPOCH_LENGTH, seq[ShardAndCommittee]] ## \
+    shard_committees_at_slots*: array[2 * EPOCH_LENGTH, seq[ShardCommittee]] ## \
     ## Committee members and their assigned shard, per slot, covers 2 cycles
     ## worth of assignments
     persistent_committees*: seq[seq[Uint24]]               # Persistent shard committees
@@ -157,9 +158,10 @@ type
     slot*: uint64                                 # Slot number
     shard_block_hash*: Eth2Digest                 # Shard chain block hash
 
-  ShardAndCommittee* = object
+  ShardCommittee* = object
     shard*: uint64                                # Shard number
     committee*: seq[Uint24]                       # Validator indices
+    total_validator_count*: uint64                # # Total validator count (for proofs of custody)
 
   ShardReassignmentRecord* = object
     validator_index*: Uint24                      # Which validator to reassign
@@ -170,23 +172,23 @@ type
     candidate_pow_receipt_root*: Eth2Digest       # Candidate PoW receipt root
     votes*: uint64                                # Vote count
 
-  ForkData* = object
-    pre_fork_version*: uint64                     # Previous fork version
-    post_fork_version*: uint64                    # Post fork version
-    fork_slot*: uint64                            # Fork slot number
-
   PendingAttestationRecord* = object
     data*: AttestationData                        # Signed data
     participation_bitfield*: seq[byte]            # Attester participation bitfield
     custody_bitfield*: seq[byte]                  # Proof of custody bitfield
     slot_included*: uint64                        # Slot in which it was included
 
+  ForkData* = object
+    pre_fork_version*: uint64                     # Previous fork version
+    post_fork_version*: uint64                    # Post fork version
+    fork_slot*: uint64                            # Fork slot number
+
   ValidatorStatusCodes* {.pure.} = enum
-    PENDING_ACITVATION = 0
+    PENDING_ACTIVATION = 0
     ACTIVE = 1
-    EXITED_WITHOUT_PENALTY = 2
-    EXITED_WITH_PENALTY = 3
-    PENDING_EXIT = 29                             # https://github.com/ethereum/eth2.0-specs/issues/216
+    ACTIVE_PENDING_EXIT = 2
+    EXITED_WITHOUT_PENALTY = 3
+    EXITED_WITH_PENALTY = 4
 
   SpecialRecordType* {.pure.} = enum
     Logout = 0

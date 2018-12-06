@@ -8,6 +8,7 @@
 import
   ./test_beaconstate,
   ./test_block_processing,
+  ./test_helpers,
   ./test_ssz,
   ./test_validator,
   ./test_beacon_node,

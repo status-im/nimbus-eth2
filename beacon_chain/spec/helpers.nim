@@ -100,11 +100,11 @@ func get_shard_and_committees_index*(state: BeaconState, slot: uint64): uint64 =
   slot - earliest_slot_in_array
 
 proc get_shard_and_committees_for_slot*(
-    state: BeaconState, slot: uint64): seq[ShardAndCommittee] =
+    state: BeaconState, slot: uint64): seq[ShardCommittee] =
   let index = state.get_shard_and_committees_index(slot)
-  state.shard_and_committee_for_slots[index]
+  state.shard_committees_at_slots[index]
 
-func get_beacon_proposer_index*(state: BeaconState, slot: uint64): uint64 =
+func get_beacon_proposer_index*(state: BeaconState, slot: uint64): Uint24 =
   ## From Casper RPJ mini-spec:
   ## When slot i begins, validator Vidx is expected
   ## to create ("propose") a block, which contains a pointer to some parent block
@@ -115,7 +115,7 @@ func get_beacon_proposer_index*(state: BeaconState, slot: uint64): uint64 =
   ## idx in Vidx == p(i mod N), pi being a random permutation of validators indices (i.e. a committee)
 
   let idx = get_shard_and_committees_index(state, slot)
-  state.shard_and_committee_for_slots[idx][0].committee.mod_get(slot)
+  state.shard_committees_at_slots[idx][0].committee.mod_get(slot)
 
 func int_sqrt*(n: SomeInteger): SomeInteger =
   var
@@ -133,3 +133,5 @@ func get_fork_version*(fork_data: ForkData, slot: uint64): uint64 =
 func get_domain*(fork_data: ForkData, slot: uint64, domain_type: uint64): uint64 =
   # TODO Slot overflow? Or is slot 32 bits for all intents and purposes?
   (get_fork_version(fork_data, slot) shl 32) + domain_type
+
+func is_power_of_2*(v: uint64): bool = (v and (v-1)) == 0
