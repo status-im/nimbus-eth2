@@ -66,8 +66,8 @@ suite "Tree hashing":
     let vr = ValidatorRecord()
     check: hashSSZ(vr).len > 0
 
-  test "Hash ShardAndCommittee":
-    let sc = ShardAndCommittee()
+  test "Hash ShardCommittee":
+    let sc = ShardCommittee()
     check: hashSSZ(sc).len > 0
 
   test "Hash BeaconBlock":

@@ -52,10 +52,10 @@ func on_startup*(initial_validator_entries: openArray[InitialValidator],
     initial_shuffling = get_new_shuffling(Eth2Digest(), validators, 0)
 
   # initial_shuffling + initial_shuffling in spec, but more ugly
-  var shard_and_committee_for_slots: array[2 * EPOCH_LENGTH, seq[ShardAndCommittee]]
+  var shard_committees_at_slots: array[2 * EPOCH_LENGTH, seq[ShardCommittee]]
   for i, n in initial_shuffling:
-    shard_and_committee_for_slots[i] = n
-    shard_and_committee_for_slots[EPOCH_LENGTH + i] = n
+    shard_committees_at_slots[i] = n
+    shard_committees_at_slots[EPOCH_LENGTH + i] = n
 
   # TODO validators vs indices
   let active_validator_indices = get_active_validator_indices(validators)
@@ -72,7 +72,7 @@ func on_startup*(initial_validator_entries: openArray[InitialValidator],
     # Randomness and committees
     randao_mix: ZERO_HASH,
     next_seed: ZERO_HASH,
-    shard_and_committee_for_slots: shard_and_committee_for_slots,
+    shard_committees_at_slots: shard_committees_at_slots,
     persistent_committees: persistent_committees,
 
     # Finality

@@ -100,9 +100,9 @@ func get_shard_and_committees_index*(state: BeaconState, slot: uint64): uint64 =
   slot - earliest_slot_in_array
 
 proc get_shard_and_committees_for_slot*(
-    state: BeaconState, slot: uint64): seq[ShardAndCommittee] =
+    state: BeaconState, slot: uint64): seq[ShardCommittee] =
   let index = state.get_shard_and_committees_index(slot)
-  state.shard_and_committee_for_slots[index]
+  state.shard_committees_at_slots[index]
 
 func get_beacon_proposer_index*(state: BeaconState, slot: uint64): Uint24 =
   ## From Casper RPJ mini-spec:
@@ -115,7 +115,7 @@ func get_beacon_proposer_index*(state: BeaconState, slot: uint64): Uint24 =
   ## idx in Vidx == p(i mod N), pi being a random permutation of validators indices (i.e. a committee)
 
   let idx = get_shard_and_committees_index(state, slot)
-  state.shard_and_committee_for_slots[idx][0].committee.mod_get(slot)
+  state.shard_committees_at_slots[idx][0].committee.mod_get(slot)
 
 func int_sqrt*(n: SomeInteger): SomeInteger =
   var

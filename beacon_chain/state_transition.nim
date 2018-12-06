@@ -93,13 +93,13 @@ func processAttestations(state: var BeaconState,
       else:
         agg_pubkey.combine(validator.pubkey)
 
-    # Verify that aggregate_sig verifies using the group pubkey.
+    # Verify that aggregate_signature verifies using the group pubkey.
     let msg = hashSSZ(attestation.data)
 
     # For now only check compilation
-    # doAssert attestation.aggregate_sig.verifyMessage(msg, agg_pubkey)
+    # doAssert attestation.aggregate_signature.verifyMessage(msg, agg_pubkey)
     debugEcho "Aggregate sig verify message: ",
-      attestation.aggregate_sig.verifyMessage(msg, agg_pubkey)
+      attestation.aggregate_signature.verifyMessage(msg, agg_pubkey)
 
     # All checks passed - update state
     # TODO no rollback in case of errors
@@ -301,7 +301,7 @@ func processEpoch(state: var BeaconState, blck: BeaconBlock): bool =
     #      these closures outside this scope, but still..
     let statePtr = state.addr
     func attesting_validators(
-        obj: ShardAndCommittee, shard_block_hash: Eth2Digest): seq[Uint24] =
+        obj: ShardCommittee, shard_block_hash: Eth2Digest): seq[Uint24] =
       flatten(
         mapIt(
           filterIt(concat(this_epoch_attestations, previous_epoch_attestations),
@@ -309,7 +309,7 @@ func processEpoch(state: var BeaconState, blck: BeaconBlock): bool =
               it.data.shard_block_hash == shard_block_hash),
           get_attestation_participants(statePtr[], it.data, it.participation_bitfield)))
 
-    func winning_hash(obj: ShardAndCommittee): Eth2Digest =
+    func winning_hash(obj: ShardCommittee): Eth2Digest =
       # * Let `winning_hash(obj)` be the winning `shard_block_hash` value.
       # ... such that `sum([get_effective_balance(v) for v in attesting_validators(obj, shard_block_hash)])`
       # is maximized (ties broken by favoring lower `shard_block_hash` values).
@@ -329,13 +329,13 @@ func processEpoch(state: var BeaconState, blck: BeaconBlock): bool =
           max_val = val
       max_hash
 
-    func attesting_validators(obj: ShardAndCommittee): seq[Uint24] =
+    func attesting_validators(obj: ShardCommittee): seq[Uint24] =
       attesting_validators(obj, winning_hash(obj))
 
-    func total_attesting_balance(obj: ShardAndCommittee): uint64 =
+    func total_attesting_balance(obj: ShardCommittee): uint64 =
       sum_effective_balances(statePtr[], attesting_validators(obj))
 
-    func total_balance_sac(obj: ShardAndCommittee): uint64 =
+    func total_balance_sac(obj: ShardCommittee): uint64 =
       sum_effective_balances(statePtr[], obj.committee)
 
     func inclusion_slot(v: Uint24): uint64 =
@@ -382,8 +382,8 @@ func processEpoch(state: var BeaconState, blck: BeaconBlock): bool =
       if new_justified_slot.isSome():
         state.justified_slot = new_justified_slot.get()
 
-      for sac in state.shard_and_committee_for_slots:
-        # TODO or just state.shard_and_committee_for_slots[s]?
+      for sac in state.shard_committees_at_slots:
+        # TODO or just state.shard_committees_at_slots[s]?
         for obj in sac:
           if 3'u64 * total_attesting_balance(obj) >= 2'u64 * total_balance_sac(obj):
             state.latest_crosslinks[obj.shard] = CrosslinkRecord(
@@ -392,9 +392,6 @@ func processEpoch(state: var BeaconState, blck: BeaconBlock): bool =
 
     block: # Balance recalculations related to FFG rewards
       let
-        # The portion lost by offline [validators](#dfn-validator) after `D`
-        # epochs is about `D*D/2/inactivity_penalty_quotient`.
-        inactivity_penalty_quotient = SQRT_E_DROP_TIME^2
         time_since_finality = blck.slot - state.finalized_slot
 
       if time_since_finality <= 4'u64 * EPOCH_LENGTH:
@@ -418,7 +415,7 @@ func processEpoch(state: var BeaconState, blck: BeaconBlock): bool =
               v.status == EXITED_WITH_PENALTY:
             v.balance.dec(
               (base_reward(v) + get_effective_balance(v) * time_since_finality div
-                inactivity_penalty_quotient.uint64).int)
+                INACTIVITY_PENALTY_QUOTIENT.uint64).int)
 
         for v in previous_epoch_boundary_attesters:
           let proposer_index = get_beacon_proposer_index(state, inclusion_slot(v))
@@ -426,7 +423,7 @@ func processEpoch(state: var BeaconState, blck: BeaconBlock): bool =
             (base_reward(state.validator_registry[v]) div INCLUDER_REWARD_QUOTIENT.uint64).int)
 
     block: # Balance recalculations related to crosslink rewards
-      for sac in state.shard_and_committee_for_slots[0 ..< EPOCH_LENGTH]:
+      for sac in state.shard_committees_at_slots[0 ..< EPOCH_LENGTH]:
         for obj in sac:
           for vindex in obj.committee:
             let v = state.validator_registry[vindex].addr
@@ -449,33 +446,33 @@ func processEpoch(state: var BeaconState, blck: BeaconBlock): bool =
 
     block: # Validator registry change
       if state.finalized_slot > state.validator_registry_latest_change_slot and
-          allIt(state.shard_and_committee_for_slots,
+          allIt(state.shard_committees_at_slots,
             allIt(it,
               state.latest_crosslinks[it.shard].slot >
                 state.validator_registry_latest_change_slot)):
         state.change_validators(s)
         state.validator_registry_latest_change_slot = s + EPOCH_LENGTH
         for i in 0..<EPOCH_LENGTH:
-          state.shard_and_committee_for_slots[i] =
-            state.shard_and_committee_for_slots[EPOCH_LENGTH + i]
+          state.shard_committees_at_slots[i] =
+            state.shard_committees_at_slots[EPOCH_LENGTH + i]
         # https://github.com/ethereum/eth2.0-specs/issues/223
-        let next_start_shard = (state.shard_and_committee_for_slots[^1][^1].shard + 1) mod SHARD_COUNT
+        let next_start_shard = (state.shard_committees_at_slots[^1][^1].shard + 1) mod SHARD_COUNT
         for i, v in get_new_shuffling(
             state.next_seed, state.validator_registry, next_start_shard):
-          state.shard_and_committee_for_slots[i + EPOCH_LENGTH] = v
+          state.shard_committees_at_slots[i + EPOCH_LENGTH] = v
         state.next_seed = state.randao_mix
       else:
         # If a validator registry change does NOT happen
         for i in 0..<EPOCH_LENGTH:
-          state.shard_and_committee_for_slots[i] =
-            state.shard_and_committee_for_slots[EPOCH_LENGTH + i]
+          state.shard_committees_at_slots[i] =
+            state.shard_committees_at_slots[EPOCH_LENGTH + i]
         let time_since_finality = blck.slot - state.validator_registry_latest_change_slot
-        let start_shard = state.shard_and_committee_for_slots[0][0].shard
+        let start_shard = state.shard_committees_at_slots[0][0].shard
         if time_since_finality * EPOCH_LENGTH <= MIN_VALIDATOR_REGISTRY_CHANGE_INTERVAL.uint64 or
             is_power_of_2(time_since_finality):
           for i, v in get_new_shuffling(
               state.next_seed, state.validator_registry, start_shard):
-            state.shard_and_committee_for_slots[i + EPOCH_LENGTH] = v
+            state.shard_committees_at_slots[i + EPOCH_LENGTH] = v
           state.next_seed = state.randao_mix
           # Note that `start_shard` is not changed from the last epoch.
 
