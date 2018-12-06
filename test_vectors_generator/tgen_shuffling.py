@@ -47,6 +47,19 @@
 
 # ################################################################
 #
+#                       YAML config
+#
+# ################################################################
+
+import yaml    # Requires pyyaml
+
+# Prevent !!str or !!binary tags
+def noop(self, *args, **kw):
+    pass
+yaml.emitter.Emitter.process_tag = noop
+
+# ################################################################
+#
 #                  Imports and simplified types
 #
 # ################################################################
@@ -80,7 +93,7 @@ class ValidatorStatus(IntEnum):
     # Not in specs anymore - https://github.com/ethereum/eth2.0-specs/issues/216
     PENDING_EXIT = 4
 
-class ValidatorRecord:
+class ValidatorRecord(yaml.YAMLObject):
     fields = {
         # Status code
         'status': 'ValidatorStatus',
@@ -98,7 +111,7 @@ class ValidatorRecord:
     def __getattribute__(self, name: str) -> Any:
         return super().__getattribute__(name)
 
-class ShardAndCommittee:
+class ShardAndCommittee(yaml.YAMLObject):
     fields = {
         # Shard number
         'shard': 'uint64',
@@ -281,23 +294,65 @@ def toStrShardComs(shard_comms: List[List[ShardAndCommittee]]) -> str:
 #                       Testing
 #
 # ################################################################
+# if __name__ == '__main__':
+#
+#     # Config
+#     random.seed(int("0xEF00BEAC", 16))
+#     num_val = 256 # Number of validators
+#
+#
+#     seedhash = bytes(random.randint(0, 255) for byte in range(32))
+#     list_val_state = list(ValidatorStatus)
+#     validators = [ValidatorRecord(status=random.choice(list_val_state), original_index=num_val) for num_val in range(num_val)]
+#     crosslinking_start_shard = random.randint(0, SHARD_COUNT)
+#
+#     print(f"Hash: 0x{seedhash.hex()}")
+#     print(f"validators: {toStrValidator(validators)}")
+#     print(f"crosslinking_start_shard: {crosslinking_start_shard}")
+#
+#     shuffle = get_new_shuffling(seedhash, validators, crosslinking_start_shard)
+#     print(f"shuffling: {toStrShardComs(shuffle)}")
+
+# ################################################################
+#
+#                       YAML Generator
+#
+# ################################################################
 
 if __name__ == '__main__':
+    import sys, random
+
+    # Order not preserved - https://github.com/yaml/pyyaml/issues/110
+    metadata = {
+        'title': 'Shuffling Algorithm Tests',
+        'summary': 'Test vectors for shuffling a list based upon a seed using `shuffle`',
+        'test_suite': 'shuffle',
+        'fork': 'tchaikovsky',
+        'version': 1.0
+    }
 
     # Config
     random.seed(int("0xEF00BEAC", 16))
-    num_val = 256 # Number of validators
-
-
-    seedhash = bytes(random.randint(0, 255) for byte in range(32))
+    num_cases = 10
     list_val_state = list(ValidatorStatus)
-    validators = [ValidatorRecord(status=random.choice(list_val_state), original_index=num_val) for num_val in range(num_val)]
-    crosslinking_start_shard = random.randint(0, SHARD_COUNT)
+    test_cases = []
 
-    print(f"Hash: 0x{seedhash.hex()}")
-    print(f"validators: {toStrValidator(validators)}")
-    print(f"crosslinking_start_shard: {crosslinking_start_shard}")
+    for case in range(num_cases):
+        seedhash = bytes(random.randint(0, 255) for byte in range(32))
+        num_val = random.randint(128, 512)
+        input = {
+            'validators': [ValidatorRecord(status=random.choice(list_val_state), original_index=num_val) for num_val in range(num_val)],
+            'crosslinking_start_shard': random.randint(0, SHARD_COUNT)
+        }
+        output = get_new_shuffling(seedhash, input['validators'], input['crosslinking_start_shard'])
 
-    shuffle = get_new_shuffling(seedhash, validators, crosslinking_start_shard)
-    print(f"shuffling: {toStrShardComs(shuffle)}")
+        test_cases.append({
+            'seed': '0x' + seedhash.hex(), 'input': input, 'output': output
+        })
 
+    ## Debug
+    # yaml.dump(metadata, sys.stdout)
+    # yaml.dump(test_cases, sys.stdout)
+    with open('test_vector_shuffling.yml', 'w') as outfile:
+        yaml.dump(metadata, outfile, default_flow_style=False) # Dump at top level
+        yaml.dump({'test_cases': test_cases}, outfile)
