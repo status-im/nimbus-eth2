@@ -1,7 +1,7 @@
 import
   tables, random,
   asyncdispatch2,
-  spec/[datatypes, crypto]
+  spec/[datatypes, crypto, digest], randao
 
 type
   ValidatorKind = enum
@@ -10,14 +10,12 @@ type
 
   ValidatorConnection = object
 
-  RandaoSecret = seq[byte]
-
   AttachedValidator* = ref object
-    idx*: int
+    idx*: int # index in the registry
     case kind: ValidatorKind
     of inProcess:
       privKey: ValidatorPrivKey
-      randaoSecret: RandaoSecret
+      randaoSecret: Randao
     else:
       connection: ValidatorConnection
 
@@ -31,11 +29,12 @@ proc addLocalValidator*(pool: var ValidatorPool,
                         idx: int,
                         pubKey: ValidatorPubKey,
                         privKey: ValidatorPrivKey,
-                        randaoSecret: RandaoSecret) =
-  pool.validators[pubKey] = AttachedValidator(idx: idx,
-                                              kind: inProcess,
-                                              privKey: privKey,
-                                              randaoSecret: randaoSecret)
+                        randaoSecret: Randao) =
+  let v = AttachedValidator(idx: idx,
+                            kind: inProcess,
+                            privKey: privKey,
+                            randaoSecret: randaoSecret)
+  pool.validators[pubKey] = v
 
 proc getValidator*(pool: ValidatorPool,
                    validatorKey: ValidatorPubKey): AttachedValidator =
@@ -59,6 +58,14 @@ proc signAttestation*(v: AttachedValidator,
     await sleepAsync(1)
     # TODO:
     # return sign(proposal, v.privKey)
+  else:
+    # TODO:
+    # send RPC
+    discard
+
+proc randaoReveal*(v: AttachedValidator, commitment: Eth2Digest): Future[Eth2Digest] {.async.} =
+  if v.kind == inProcess:
+    result = v.randaoSecret.reveal(commitment)
   else:
     # TODO:
     # send RPC

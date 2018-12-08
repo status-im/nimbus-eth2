@@ -80,6 +80,7 @@ proc addLocalValidators*(node: BeaconNode) =
     # 1. Parse the validator keys
     let privKey = loadPrivKey(validator)
     let pubKey = privKey.pubKey()
+    let randao = loadRandao(validator)
 
     # 2. Check whether the validators exist in the beacon state.
     #    (Report a warning otherwise)
@@ -89,7 +90,7 @@ proc addLocalValidators*(node: BeaconNode) =
     else:
       # 3. Add the validators to node.attachedValidators
       # TODO: Parse randao secret
-      node.attachedValidators.addLocalValidator(idx, pubKey, privKey, @[])
+      node.attachedValidators.addLocalValidator(idx, pubKey, privKey, randao)
 
 
 proc getAttachedValidator(node: BeaconNode, idx: int): AttachedValidator =
@@ -114,6 +115,8 @@ proc proposeBlock(node: BeaconNode,
   # TODO:
   # 1. Produce a RANDAO reveal from attachedVadalidator.randaoSecret
   # and its matching ValidatorRecord.
+  let randaoCommitment = node.beaconState.validator_registry[validator.idx].randao_commitment
+  proposal.randao_reveal = await validator.randaoReveal(randaoCommitment)
 
   # 2. Get ancestors from the beacon_db
 
