@@ -1,5 +1,5 @@
 import
-  confutils/defs, spec/crypto, milagro_crypto
+  confutils/defs, spec/crypto, milagro_crypto, randao
 
 type
   ValidatorKeyPath* = distinct string
@@ -28,11 +28,11 @@ type
 proc loadPrivKey*(p: ValidatorKeyPath): ValidatorPrivKey =
   initSigKey(cast[seq[byte]](readFile(string(p) & ".privkey")))
 
-proc parse*(T: type ValidatorKeyPath, input: TaintedString): T =
-  discard loadPrivKey(ValidatorKeyPath(input))
+proc loadRandao*(p: ValidatorKeyPath): Randao =
+  initRandao(cast[seq[byte]](readFile(string(p) & ".randao")))
 
-  # TODO:
-  # Check that the entered string is a valid base file name and
-  # that it has matching .privkey, and .randaosecret files
-  T(input)
+proc parse*(T: type ValidatorKeyPath, input: TaintedString): T =
+  result = T(input)
+  discard loadPrivKey(result)
+  discard loadRandao(result)
 
