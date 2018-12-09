@@ -3,7 +3,7 @@ import spec/digest
 type Randao* = object
   seed: Eth2Digest
 
-const MaxRandaoLevels = 10000
+const MaxRandaoLevels = 10000 # TODO: This number is arbitrary
 
 proc initRandao*(seed: Eth2Digest): Randao =
   result.seed = seed
@@ -16,29 +16,21 @@ proc initRandao*(bytes: openarray[byte]): Randao =
   initRandao(bytes)
 
 func repeatHash*(h: Eth2Digest, n: int): Eth2Digest =
-  if n == 0: h
-  else: repeatHash(eth2Hash(h.data), n - 1)
-
-iterator items(r: Randao): Eth2Digest =
-  var h = r.seed
-  for i in 0 .. MaxRandaoLevels:
-    yield h
-    h = eth2hash(h.data)
+  result = h
+  var n = n
+  while n != 0:
+    result = eth2hash(result.data)
+    dec n
 
 proc initialCommitment*(r: Randao): Eth2Digest =
-  var i = 0
-  for h in r:
-    if i == MaxRandaoLevels:
-      return h
-    inc i
+  repeatHash(r.seed, MaxRandaoLevels)
 
-  assert(false, "Unreachable")
-  
 proc reveal*(r: Randao, commitment: Eth2Digest): Eth2Digest =
   if commitment == r.seed:
     raise newException(Exception, "Randao: cannot reveal for seed")
   result = r.seed
-  for h in r:
+  for i in 0 .. MaxRandaoLevels:
+    let h = eth2hash(result.data)
     if h == commitment:
       return
     result = h
@@ -61,4 +53,4 @@ when isMainModule:
   echo "reveal: ", rev
   echo "Took time: ", e - s
 
-  echo r.reveal(eth2hash([1.byte, 2, 3]))
+  echo r.reveal(eth2hash([1.byte, 2, 3])) # Should raise
