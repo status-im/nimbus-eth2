@@ -25,11 +25,14 @@ type
             "Nimbus will automatically add the extensions .privkey and .pubkey.",
       shorthand: "v".}: seq[ValidatorKeyPath]
 
+proc readFileBytes(path: string): seq[byte] =
+  cast[seq[byte]](readFile(path))
+
 proc loadPrivKey*(p: ValidatorKeyPath): ValidatorPrivKey =
-  initSigKey(cast[seq[byte]](readFile(string(p) & ".privkey")))
+  initSigKey(readFileBytes(string(p) & ".privkey"))
 
 proc loadRandao*(p: ValidatorKeyPath): Randao =
-  initRandao(cast[seq[byte]](readFile(string(p) & ".randao")))
+  initRandao(readFileBytes(string(p) & ".randao"))
 
 proc parse*(T: type ValidatorKeyPath, input: TaintedString): T =
   result = T(input)
