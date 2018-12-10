@@ -189,7 +189,7 @@ proc processBlocks*(node: BeaconNode) {.async.} =
 
     if b.slot mod EPOCH_LENGTH == 0:
       node.scheduleCycleActions()
-      node.attestations.discardHistoryToSlot(b.slot)
+      node.attestations.discardHistoryToSlot(b.slot.int)
 
   node.network.subscribe(topicAttestations) do (a: Attestation):
     # TODO
