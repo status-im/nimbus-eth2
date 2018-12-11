@@ -64,17 +64,17 @@ suite "Tree hashing":
 
   test "Hash ValidatorRecord":
     let vr = ValidatorRecord()
-    check: hashSSZ(vr).len > 0
+    check: hash_tree_root(vr).len > 0
 
   test "Hash ShardCommittee":
     let sc = ShardCommittee()
-    check: hashSSZ(sc).len > 0
+    check: hash_tree_root(sc).len > 0
 
   test "Hash BeaconBlock":
     ## TODO: Test genesis hash when spec is updated
     let bb = BeaconBlock()
-    check: hashSSZ(bb).len > 0
+    check: hash_tree_root(bb).len > 0
 
   test "Hash integer":
-    check: hashSSZ(0x01'u32) == [0'u8, 0, 0, 1] # big endian!
-    check: hashSSZ(Uint24(0x01)) == [0'u8, 0, 1] # big endian!
+    check: hash_tree_root(0x01'u32) == [0'u8, 0, 0, 1] # big endian!
+    check: hash_tree_root(Uint24(0x01)) == [0'u8, 0, 1] # big endian!

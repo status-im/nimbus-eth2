@@ -154,22 +154,22 @@ type
   AttestationData* = object
     slot*: uint64
     shard*: uint64
-    beacon_block_hash*: Eth2Digest ##\
+    beacon_block_root*: Eth2Digest ##\
     ## Hash of the block we're signing
 
-    epoch_boundary_hash*: Eth2Digest ##\
+    epoch_boundary_root*: Eth2Digest ##\
     ## Hash of the ancestor at the cycle boundary
 
-    shard_block_hash*: Eth2Digest ##\
+    shard_block_root*: Eth2Digest ##\
     ## Shard block hash being attested to
 
-    latest_crosslink_hash*: Eth2Digest ##\
+    latest_crosslink_root*: Eth2Digest ##\
     ## Last crosslink hash
 
     justified_slot*: uint64 ##\
     ## Slot of last justified beacon block
 
-    justified_block_hash*: Eth2Digest ##\
+    justified_block_root*: Eth2Digest ##\
     ## Hash of last justified beacon block
 
   Deposit* = object
@@ -237,7 +237,7 @@ type
     slot*: uint64
     shard*: uint64 ##\
     ## Shard number (or `BEACON_CHAIN_SHARD_NUMBER` for beacon chain)
-    block_hash*: Eth2Digest
+    block_root*: Eth2Digest
 
   BeaconState* = object
     slot*: uint64
@@ -269,7 +269,7 @@ type
 
     latest_crosslinks*: array[SHARD_COUNT, CrosslinkRecord]
     latest_state_recalculation_slot*: uint64
-    latest_block_hashes*: seq[Eth2Digest] ##\
+    latest_block_roots*: seq[Eth2Digest] ##\
     ## Needed to process attestations, older to newer
     latest_penalized_exit_balances*: seq[uint64] ##\
     ## Balances penalized in the current withdrawal period
@@ -290,7 +290,7 @@ type
 
   CrosslinkRecord* = object
     slot*: uint64                                 # Slot number
-    shard_block_hash*: Eth2Digest                 # Shard chain block hash
+    shard_block_root*: Eth2Digest                 # Shard chain block hash
 
   ShardCommittee* = object
     shard*: uint64                                # Shard number

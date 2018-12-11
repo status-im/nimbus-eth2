@@ -130,7 +130,7 @@ func serialize*[T](value: T): seq[byte] =
 
 # ################### Hashing ###################################
 
-# Sample hashSSZ implementation based on:
+# Sample hash_tree_root implementation based on:
 # https://github.com/ethereum/eth2.0-specs/blob/98312f40b5742de6aa73f24e6225ee68277c4614/specs/simple-serialize.md
 # and
 # https://github.com/ethereum/beacon_chain/pull/134
@@ -163,46 +163,46 @@ func merkleHash[T](lst: seq[T]): array[32, byte]
 
 # ################### Hashing interface ###################################
 
-func hashSSZ*(x: SomeInteger): array[sizeof(x), byte] =
+func hash_tree_root*(x: SomeInteger): array[sizeof(x), byte] =
   ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
   ## All integers are serialized as **big endian**.
   toBytesSSZ(x)
 
-func hashSSZ*(x: Uint24): array[3, byte] =
+func hash_tree_root*(x: Uint24): array[3, byte] =
   ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
   ## All integers are serialized as **big endian**.
   toBytesSSZ(x)
 
-func hashSSZ*(x: EthAddress): array[sizeof(x), byte] =
+func hash_tree_root*(x: EthAddress): array[sizeof(x), byte] =
   ## Addresses copied as-is
   toBytesSSZ(x)
 
-func hashSSZ*(x: Eth2Digest): array[32, byte] =
+func hash_tree_root*(x: Eth2Digest): array[32, byte] =
   ## Hash32 copied as-is
   toBytesSSZ(x)
 
-func hashSSZ*(x: openArray[byte]): array[32, byte] =
+func hash_tree_root*(x: openArray[byte]): array[32, byte] =
   ## Blobs are hashed
   hash(x)
 
-func hashSSZ*(x: ValidatorRecord): array[32, byte] =
+func hash_tree_root*(x: ValidatorRecord): array[32, byte] =
   ## Containers have their fields recursively hashed, concatenated and hashed
   # TODO hash_ssz.py code contains special cases for some types, why?
   withHash:
     # tmp.add(x.pubkey) # TODO uncertain future of public key format
-    h.update hashSSZ(x.withdrawal_credentials)
-    h.update hashSSZ(x.randao_skips)
-    h.update hashSSZ(x.balance)
-    # h.update hashSSZ(x.status) # TODO it's an enum, deal with it
-    h.update hashSSZ(x.latest_status_change_slot)
-    h.update hashSSZ(x.exit_count)
+    h.update hash_tree_root(x.withdrawal_credentials)
+    h.update hash_tree_root(x.randao_skips)
+    h.update hash_tree_root(x.balance)
+    # h.update hash_tree_root(x.status) # TODO it's an enum, deal with it
+    h.update hash_tree_root(x.latest_status_change_slot)
+    h.update hash_tree_root(x.exit_count)
 
-func hashSSZ*(x: ShardCommittee): array[32, byte] =
+func hash_tree_root*(x: ShardCommittee): array[32, byte] =
   withHash:
-    h.update hashSSZ(x.shard)
+    h.update hash_tree_root(x.shard)
     h.update merkleHash(x.committee)
 
-func hashSSZ*[T: not enum](x: T): array[32, byte] =
+func hash_tree_root*[T: not enum](x: T): array[32, byte] =
   when T is seq:
     ## Sequences are tree-hashed
     merkleHash(x)
@@ -212,15 +212,15 @@ func hashSSZ*[T: not enum](x: T): array[32, byte] =
     # TODO or.. https://github.com/ethereum/eth2.0-specs/issues/275
     var fields: seq[tuple[name: string, value: seq[byte]]]
     for name, field in x.fieldPairs:
-      fields.add (name, @(hashSSZ(field)))
+      fields.add (name, @(hash_tree_root(field)))
 
     withHash:
       for name, value in fields.sortedByIt(it.name):
-        h.update hashSSZ(value.value)
+        h.update hash_tree_root(value.value)
 
 # #################################
-# HashSSZ not part of official spec
-func hashSSZ*(x: enum): array[32, byte] =
+# hash_tree_root not part of official spec
+func hash_tree_root*(x: enum): array[32, byte] =
   ## TODO - Warning ⚠️: not part of the spec
   ## as of https://github.com/ethereum/beacon_chain/pull/133/files
   ## This is a "stub" needed for BeaconBlock hashing
@@ -228,13 +228,13 @@ func hashSSZ*(x: enum): array[32, byte] =
   withHash:
     h.update [uint8 x]
 
-func hashSSZ*(x: ValidatorPubKey): array[32, byte] =
+func hash_tree_root*(x: ValidatorPubKey): array[32, byte] =
   ## TODO - Warning ⚠️: not part of the spec
   ## as of https://github.com/ethereum/beacon_chain/pull/133/files
   ## This is a "stub" needed for BeaconBlock hashing
   x.getRaw().hash()
 
-func hashSSZ*(x: ValidatorSig): array[32, byte] =
+func hash_tree_root*(x: ValidatorSig): array[32, byte] =
   ## TODO - Warning ⚠️: not part of the spec
   ## as of https://github.com/ethereum/beacon_chain/pull/133/files
   ## This is a "stub" needed for BeaconBlock hashing
@@ -258,9 +258,9 @@ func merkleHash[T](lst: seq[T]): array[32, byte] =
 
   if len(lst) == 0:
     chunkz.add @emptyChunk
-  elif sizeof(hashSSZ(lst[0])) < CHUNK_SIZE:
+  elif sizeof(hash_tree_root(lst[0])) < CHUNK_SIZE:
     # See how many items fit in a chunk
-    let itemsPerChunk = CHUNK_SIZE div sizeof(hashSSZ(lst[0]))
+    let itemsPerChunk = CHUNK_SIZE div sizeof(hash_tree_root(lst[0]))
 
     chunkz.setLen((len(lst) + itemsPerChunk - 1) div itemsPerChunk)
 
@@ -270,12 +270,12 @@ func merkleHash[T](lst: seq[T]): array[32, byte] =
         if i == chunkz.len - 1:
           let idx = i * itemsPerChunk + j
           if idx >= lst.len: break # Last chunk may be partial!
-        chunkz[i].add hashSSZ(lst[i * itemsPerChunk + j])
+        chunkz[i].add hash_tree_root(lst[i * itemsPerChunk + j])
   else:
     # Leave large items alone
     chunkz.setLen(len(lst))
     for i in 0..<len(lst):
-      chunkz[i].add hashSSZ(lst[i])
+      chunkz[i].add hash_tree_root(lst[i])
 
   while chunkz.len() > 1:
     if chunkz.len() mod 2 == 1:

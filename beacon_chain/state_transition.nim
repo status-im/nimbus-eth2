@@ -72,10 +72,10 @@ func verifyProposerSignature(state: BeaconState, blck: BeaconBlock): bool =
   blck_without_sig.signature = ValidatorSig()
 
   let
-    proposal_hash = hashSSZ(ProposalSignedData(
+    proposal_hash = hash_tree_root(ProposalSignedData(
       slot: state.slot,
       shard: BEACON_CHAIN_SHARD,
-      block_hash: Eth2Digest(data: hashSSZ(blck_without_sig))
+      block_root: Eth2Digest(data: hash_tree_root(blck_without_sig))
     ))
 
   let validator_idx = get_beacon_proposer_index(state, state.slot)
@@ -139,13 +139,13 @@ func processSlot(state: var BeaconState, latest_block: BeaconBlock): bool =
   # TODO state not rolled back in case of failure
 
   let
-    latest_hash = Eth2Digest(data: hashSSZ(latest_block))
+    latest_hash = Eth2Digest(data: hash_tree_root(latest_block))
 
   state.slot += 1
-  state.latest_block_hashes.add latest_hash
+  state.latest_block_roots.add latest_hash
 
-  if state.latest_block_hashes.len < 2 or
-      state.latest_block_hashes[^2] != state.latest_block_hashes[^1]:
+  if state.latest_block_roots.len < 2 or
+      state.latest_block_roots[^2] != state.latest_block_roots[^1]:
     # TODO a bit late for the following checks?
     # https://github.com/ethereum/eth2.0-specs/issues/284
     if latest_block.slot != state.slot:
@@ -181,7 +181,7 @@ func boundary_attestations(
     ): seq[PendingAttestationRecord] =
   # TODO spec - add as helper?
   filterIt(attestations,
-    it.data.epoch_boundary_hash == boundary_hash and
+    it.data.epoch_boundary_root == boundary_hash and
     it.data.justified_slot == state.justified_slot)
 
 func sum_effective_balances(
@@ -193,7 +193,7 @@ func sum_effective_balances(
 
 func lowerThan(candidate, current: Eth2Digest): bool =
   # return true iff candidate is "lower" than current, per spec rule:
-  # "ties broken by favoring lower `shard_block_hash` values"
+  # "ties broken by favoring lower `shard_block_root` values"
   # TODO spec - clarify hash ordering..
   for i, v in current.data:
     if v > candidate.data[i]: return true
@@ -220,7 +220,7 @@ func processEpoch(state: var BeaconState, blck: BeaconBlock): bool =
       reward_quotient = BASE_REWARD_QUOTIENT * int_sqrt(total_balance_in_eth)
 
       # TODO not in spec, convenient
-      epoch_boundary_hash = get_block_hash(state, s)
+      epoch_boundary_root = get_block_root(state, s)
 
     proc base_reward(v: ValidatorRecord): uint64 =
       get_effective_balance(v) div reward_quotient.uint64
@@ -232,7 +232,7 @@ func processEpoch(state: var BeaconState, blck: BeaconBlock): bool =
         s <= it.data.slot and it.data.slot < s + EPOCH_LENGTH)
 
       this_epoch_boundary_attestations =
-        boundary_attestations(state, epoch_boundary_hash,
+        boundary_attestations(state, epoch_boundary_root,
           this_epoch_attestations)
 
       this_epoch_boundary_attesters =
@@ -246,7 +246,7 @@ func processEpoch(state: var BeaconState, blck: BeaconBlock): bool =
         s <= it.data.slot + EPOCH_LENGTH and it.data.slot < s)
 
       previous_epoch_boundary_attestations =
-        boundary_attestations(state, epoch_boundary_hash,
+        boundary_attestations(state, epoch_boundary_root,
           previous_epoch_attestations)
 
       previous_epoch_boundary_attesters =
@@ -260,23 +260,23 @@ func processEpoch(state: var BeaconState, blck: BeaconBlock): bool =
     #      these closures outside this scope, but still..
     let statePtr = state.addr
     func attesting_validators(
-        obj: ShardCommittee, shard_block_hash: Eth2Digest): seq[Uint24] =
+        obj: ShardCommittee, shard_block_root: Eth2Digest): seq[Uint24] =
       flatten(
         mapIt(
           filterIt(concat(this_epoch_attestations, previous_epoch_attestations),
             it.data.shard == obj.shard and
-              it.data.shard_block_hash == shard_block_hash),
+              it.data.shard_block_root == shard_block_root),
           get_attestation_participants(statePtr[], it.data, it.participation_bitfield)))
 
     func winning_hash(obj: ShardCommittee): Eth2Digest =
-      # * Let `winning_hash(obj)` be the winning `shard_block_hash` value.
-      # ... such that `sum([get_effective_balance(v) for v in attesting_validators(obj, shard_block_hash)])`
-      # is maximized (ties broken by favoring lower `shard_block_hash` values).
+      # * Let `winning_hash(obj)` be the winning `shard_block_root` value.
+      # ... such that `sum([get_effective_balance(v) for v in attesting_validators(obj, shard_block_root)])`
+      # is maximized (ties broken by favoring lower `shard_block_root` values).
       let candidates =
         mapIt(
           filterIt(concat(this_epoch_attestations, previous_epoch_attestations),
             it.data.shard == obj.shard),
-          it.data.shard_block_hash)
+          it.data.shard_block_root)
 
       var max_hash = candidates[0]
       var max_val =
@@ -351,7 +351,7 @@ func processEpoch(state: var BeaconState, blck: BeaconBlock): bool =
               2'u64 * total_balance_sac(obj):
             state.latest_crosslinks[obj.shard] = CrosslinkRecord(
               slot: state.latest_state_recalculation_slot + EPOCH_LENGTH,
-              shard_block_hash: winning_hash(obj))
+              shard_block_root: winning_hash(obj))
 
     block: # Justification and finalization rewards and penalties
       let
@@ -468,7 +468,7 @@ func processEpoch(state: var BeaconState, blck: BeaconBlock): bool =
 
     block: # Final updates
       # TODO Remove all attestation records older than slot `s`.
-      state.latest_block_hashes = state.latest_block_hashes[EPOCH_LENGTH..^1]
+      state.latest_block_roots = state.latest_block_roots[EPOCH_LENGTH..^1]
 
   true
 

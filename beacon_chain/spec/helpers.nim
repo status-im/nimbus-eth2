@@ -68,15 +68,15 @@ func split*[T](lst: openArray[T], N: Positive): seq[seq[T]] =
   for i in 0 ..< N:
     result[i] = lst[lst.len * i div N ..< lst.len * (i+1) div N] # TODO: avoid alloc via toOpenArray
 
-func get_new_recent_block_hashes*(old_block_hashes: seq[Eth2Digest],
+func get_new_recent_block_roots*(old_block_roots: seq[Eth2Digest],
                                   parent_slot, current_slot: int64,
                                   parent_hash: Eth2Digest
                                   ): seq[Eth2Digest] =
 
   # Should throw for `current_slot - CYCLE_LENGTH * 2 - 1` according to spec comment
   let d = current_slot - parent_slot
-  result = old_block_hashes[d .. ^1]
-  for _ in 0 ..< min(d, old_block_hashes.len):
+  result = old_block_roots[d .. ^1]
+  for _ in 0 ..< min(d, old_block_roots.len):
     result.add parent_hash
 
 func ceil_div8*(v: int): int = (v + 7) div 8 # TODO use a proper bitarray!

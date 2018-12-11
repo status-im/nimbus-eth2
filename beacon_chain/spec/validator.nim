@@ -36,7 +36,7 @@ func get_new_validators*(current_validators: seq[ValidatorRecord],
   #
   # Check that validator really did register
   # TODO fix tests and enable (nightmare)
-  # let msg = hashSSZ((pubkey, withdrawal_credentials, randao_commitment))
+  # let msg = hash_tree_root((pubkey, withdrawal_credentials, randao_commitment))
   # assert BLSVerify(
   #   pubkey, msg, proof_of_possession,
   #   get_domain(fork_data, current_slot, DOMAIN_DEPOSIT))
@@ -121,10 +121,10 @@ func get_new_validator_registry_delta_chain_tip(
   ## Compute the next hash in the validator registry delta hash chain.
 
   withEth2Hash:
-    h.update hashSSZ(current_validator_registry_delta_chain_tip)
-    h.update hashSSZ(flag.uint8)
-    h.update hashSSZ(index)
-    h.update hashSSZ(pubkey)
+    h.update hash_tree_root(current_validator_registry_delta_chain_tip)
+    h.update hash_tree_root(flag.uint8)
+    h.update hash_tree_root(index)
+    h.update hash_tree_root(pubkey)
 
 func get_effective_balance*(validator: ValidatorRecord): uint64 =
     min(validator.balance, MAX_DEPOSIT)

@@ -82,7 +82,7 @@ func on_startup*(initial_validator_entries: openArray[InitialValidator],
 
     # Recent state
     latest_state_recalculation_slot: INITIAL_SLOT_NUMBER,
-    latest_block_hashes: repeat(ZERO_HASH, EPOCH_LENGTH * 2),
+    latest_block_roots: repeat(ZERO_HASH, EPOCH_LENGTH * 2),
 
      # PoW receipt root
     processed_pow_receipt_root: processed_pow_receipt_root,
@@ -95,19 +95,19 @@ func on_startup*(initial_validator_entries: openArray[InitialValidator],
     ),
   )
 
-func get_block_hash*(state: BeaconState,
+func get_block_root*(state: BeaconState,
                      slot: uint64): Eth2Digest =
   let earliest_slot_in_array =
-    state.slot - len(state.latest_block_hashes).uint64
+    state.slot - len(state.latest_block_roots).uint64
   assert earliest_slot_in_array <= slot
   assert slot < state.slot
-  state.latest_block_hashes[(slot - earliest_slot_in_array).int]
+  state.latest_block_roots[(slot - earliest_slot_in_array).int]
 
-func append_to_recent_block_hashes*(old_block_hashes: seq[Eth2Digest],
+func append_to_recent_block_roots*(old_block_roots: seq[Eth2Digest],
                                     parent_slot, current_slot: uint64,
                                     parent_hash: Eth2Digest): seq[Eth2Digest] =
   let d = current_slot - parent_slot
-  result = old_block_hashes
+  result = old_block_roots
   result.add repeat(parent_hash, d)
 
 func get_attestation_participants*(state: BeaconState,
@@ -180,14 +180,14 @@ func checkAttestation*(state: BeaconState, attestation: Attestation): bool =
   if attestation.data.justified_slot != expected_justified_slot:
     return
 
-  let expected_justified_block_hash =
-    get_block_hash(state, attestation.data.justified_slot)
-  if attestation.data.justified_block_hash != expected_justified_block_hash:
+  let expected_justified_block_root =
+    get_block_root(state, attestation.data.justified_slot)
+  if attestation.data.justified_block_root != expected_justified_block_root:
     return
 
-  if state.latest_crosslinks[attestation.data.shard].shard_block_hash notin [
-      attestation.data.latest_crosslink_hash,
-      attestation.data.shard_block_hash]:
+  if state.latest_crosslinks[attestation.data.shard].shard_block_root notin [
+      attestation.data.latest_crosslink_root,
+      attestation.data.shard_block_root]:
     return
 
   let
@@ -197,7 +197,7 @@ func checkAttestation*(state: BeaconState, attestation: Attestation): bool =
       participants, state.validator_registry[it].pubkey))
 
   # Verify that aggregate_signature verifies using the group pubkey.
-  let msg = hashSSZ(attestation.data)
+  let msg = hash_tree_root(attestation.data)
 
   if not BLSVerify(
         group_public_key, @msg & @[0'u8], attestation.aggregate_signature,
@@ -206,7 +206,7 @@ func checkAttestation*(state: BeaconState, attestation: Attestation): bool =
     return
 
   # To be removed in Phase1:
-  if attestation.data.shard_block_hash != ZERO_HASH:
+  if attestation.data.shard_block_root != ZERO_HASH:
     return
 
   true

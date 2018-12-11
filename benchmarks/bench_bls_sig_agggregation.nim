@@ -9,7 +9,7 @@ func attestation_signed_data(
     slot: int64,
     shard_id: int16,
     parent_hashes: seq[array[32, byte]],
-    shard_block_hash: array[32, byte],
+    shard_block_root: array[32, byte],
     justified_slot: int64
   ): MDigest[256]=
 
@@ -27,7 +27,7 @@ func attestation_signed_data(
   bigEndian16(be_shard_id.addr, shard_id.unsafeAddr)
   ctx.update be_shard_id
 
-  ctx.update shard_block_hash
+  ctx.update shard_block_root
 
   var be_justified_slot: array[8, byte]
   bigEndian64(be_justified_slot[0].addr, justified_slot.unsafeAddr)
@@ -55,7 +55,7 @@ proc main(nb_samples: Natural) =
     slot = rand(4096 .. 4096 + 256) # 256 slots = 1.1 hour
     shard_id = int16 rand(high(int16))
     parent_hashes = newSeqWith(num_parent_hashes, randBytes32())
-    shard_block_hash = randBytes32()
+    shard_block_root = randBytes32()
 
   echo '\n'
   echo "######################"
@@ -70,7 +70,7 @@ proc main(nb_samples: Natural) =
   echo &"Slot:                          {slot:>64}"
   echo &"Shard_id:                      {shard_id:>64}"
   echo &"Parent_hash[0]:                {parent_hashes[0].toHex:>64}"
-  echo &"Shard_block_hash:              {shard_block_hash.toHex:>64}"
+  echo &"shard_block_root:              {shard_block_root.toHex:>64}"
   echo &"justified_slot:                {justified_slot:>64}"
 
   echo '\n'
@@ -102,7 +102,7 @@ proc main(nb_samples: Natural) =
                 slot,
                 shard_id,
                 parent_hashes,
-                shard_block_hash,
+                shard_block_root,
                 justified_slot
               )
   stop = cpuTime()
