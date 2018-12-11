@@ -21,9 +21,10 @@ proc getBeaconBlockRef*(m: MainchainMonitor): Eth2Digest =
   # This should be a simple accessor for the reference kept above
   discard
 
-iterator getValidatorActions*(m: MainchainMonitor,
-                              fromBlock, toBlock: Eth2Digest): SpecialRecord =
-  # It's probably better if this doesn't return a SpecialRecord, but
-  # rather a more readable description of the change that can be packed
-  # in a SpecialRecord by the client of the API.
-  discard
+# TODO update after spec change removed Specials
+# iterator getValidatorActions*(m: MainchainMonitor,
+#                               fromBlock, toBlock: Eth2Digest): SpecialRecord =
+#   # It's probably better if this doesn't return a SpecialRecord, but
+#   # rather a more readable description of the change that can be packed
+#   # in a SpecialRecord by the client of the API.
+#   discard

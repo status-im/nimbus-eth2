@@ -99,7 +99,7 @@ proc getAttachedValidator(node: BeaconNode, idx: int): AttachedValidator =
 
 proc makeAttestation(node: BeaconNode,
                      validator: AttachedValidator) {.async.} =
-  var attestation: Attestation
+  var attestation: AttestationCandidate
   attestation.validator = validator.idx
 
   # TODO: Populate attestation.data
@@ -126,21 +126,22 @@ proc proposeBlock(node: BeaconNode,
     node.mainchainMonitor.getBeaconBlockRef()
 
   for a in node.attestations.each(firstSlot = node.headBlock.slot.int + 1,
-                                  lastSlot = slot - MIN_ATTESTATION_INCLUSION_DELAY):
+                                  lastSlot = slot - MIN_ATTESTATION_INCLUSION_DELAY.int):
     # TODO: this is not quite right,
     # the attestations from individual validators have to be merged.
     # proposal.attestations.add a
     discard
 
-  for r in node.mainchainMonitor.getValidatorActions(
-      node.headBlock.candidate_pow_receipt_root,
-      proposal.candidate_pow_receipt_root):
-    proposal.specials.add r
+  # TODO update after spec change removed specials
+  # for r in node.mainchainMonitor.getValidatorActions(
+  #     node.headBlock.candidate_pow_receipt_root,
+  #     proposal.candidate_pow_receipt_root):
+  #   proposal.specials.add r
 
   var signedData: ProposalSignedData
   # TODO: populate the signed data
 
-  proposal.proposer_signature = await validator.signBlockProposal(signedData)
+  proposal.signature = await validator.signBlockProposal(signedData)
   await node.network.broadcast(topicBeaconBlocks, proposal)
 
 proc scheduleCycleActions(node: BeaconNode) =
@@ -153,7 +154,7 @@ proc scheduleCycleActions(node: BeaconNode) =
     let
       slot = cycleStart + i
       proposerIdx = get_beacon_proposer_index(node.beaconState, slot.uint64)
-      attachedValidator = node.getAttachedValidator(proposerIdx.int)
+      attachedValidator = node.getAttachedValidator(proposerIdx)
 
     if attachedValidator != nil:
       # TODO:

@@ -19,6 +19,6 @@ type
     ## Eth1 validator registration contract output
     pubkey*: ValidatorPubKey
     deposit_size*: uint64
-    proof_of_possession*: seq[byte]
+    proof_of_possession*: ValidatorSig
     withdrawal_credentials*: Eth2Digest
     randao_commitment*: Eth2Digest
