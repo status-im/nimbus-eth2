@@ -57,7 +57,7 @@ iterator changes*(log: ChangeLog): ChangeLogEntry =
     yield if log.order.getBit(i):
       ChangeLogEntry(kind: Activation, pubkey: nextItem(added))
     else:
-      ChangeLogEntry(kind: Exit, index: nextItem(removed))
+      ChangeLogEntry(kind: ValidatorSetDeltaFlags.Exit, index: nextItem(removed))
 
 proc getValidatorChangeLog*(node: EthereumNode, changeLogHead: Eth2Digest):
                             Future[(Peer, ChangeLog)] {.async.} =

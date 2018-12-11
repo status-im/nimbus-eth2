@@ -209,6 +209,7 @@ func hashSSZ*[T: not enum](x: T): array[32, byte] =
   else:
     ## Containers have their fields recursively hashed, concatenated and hashed
     # TODO could probaby compile-time-macro-sort fields...
+    # TODO or.. https://github.com/ethereum/eth2.0-specs/issues/275
     var fields: seq[tuple[name: string, value: seq[byte]]]
     for name, field in x.fieldPairs:
       fields.add (name, @(hashSSZ(field)))
@@ -227,36 +228,17 @@ func hashSSZ*(x: enum): array[32, byte] =
   withHash:
     h.update [uint8 x]
 
-func hashSSZ*(x: ValidatorSig): array[32, byte] =
+func hashSSZ*(x: ValidatorPubKey): array[32, byte] =
   ## TODO - Warning ⚠️: not part of the spec
   ## as of https://github.com/ethereum/beacon_chain/pull/133/files
   ## This is a "stub" needed for BeaconBlock hashing
   x.getRaw().hash()
 
-func hashSSZ*(x: AttestationRecord): array[32, byte] =
+func hashSSZ*(x: ValidatorSig): array[32, byte] =
   ## TODO - Warning ⚠️: not part of the spec
   ## as of https://github.com/ethereum/beacon_chain/pull/133/files
   ## This is a "stub" needed for BeaconBlock hashing
-  withHash:
-    # h.update hashSSZ(x.data) # TODO this is now a sub-object of its own
-    # h.update hashSSZ(attester_bitfield) # TODO - the bitfield as a specific serialisation format
-    # h.update hashSSZ(x.poc_bitfield) # TODO - same serialization format
-    h.update hashSSZ(x.aggregate_signature)
-
-func hashSSZ*(x: BeaconBlock): array[32, byte] =
-  ## TODO - Warning ⚠️: not part of the spec
-  ## as of https://github.com/ethereum/beacon_chain/pull/133/files
-  ## This is a "stub" needed for fork_choice_rule
-  ## and networking
-  withHash:
-    h.update hashSSZ(x.slot)
-    h.update hashSSZ(x.randao_reveal)
-    h.update hashSSZ(x.candidate_pow_receipt_root)
-    h.update hashSSZ(x.ancestor_hashes)
-    h.update hashSSZ(x.state_root)
-    h.update hashSSZ(x.attestations)
-    h.update hashSSZ(x.specials)
-    h.update hashSSZ(x.proposer_signature)
+  x.getRaw().hash()
 
 # ################### Tree hash ###################################
 

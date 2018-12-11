@@ -3,17 +3,17 @@ import
   spec/[datatypes, crypto]
 
 type
-  Attestation* = object
+  AttestationCandidate* = object
     validator*: int
     data*: AttestationData
     signature*: ValidatorSig
 
   AttestationPool* = object
-    attestations: Deque[seq[Attestation]]
+    attestations: Deque[seq[AttestationCandidate]]
     startingSlot: int
 
 proc init*(T: type AttestationPool, startingSlot: int): T =
-  result.attestationsPerSlot = initDeque[seq[Attestation]]()
+  result.attestationsPerSlot = initDeque[seq[AttestationCandidate]]()
   result.startingSlot = startingSlot
 
 proc setLen*[T](d: var Deque[T], len: int) =
@@ -27,7 +27,7 @@ proc setLen*[T](d: var Deque[T], len: int) =
     d.shrink(fromLast = delta)
 
 proc add*(pool: var AttestationPool,
-          attestation: Attestation,
+          attestation: AttestationCandidate,
           beaconState: BeaconState) =
   # The caller of this function is responsible for ensuring that
   # the attestations will be given in a strictly slot increasing order:
@@ -40,7 +40,7 @@ proc add*(pool: var AttestationPool,
   pool.attestations[slotIdxInPool].add attestation
 
 iterator each*(pool: AttestationPool,
-               firstSlot, lastSlot: int): Attestation =
+               firstSlot, lastSlot: int): AttestationCandidate =
   ## Both indices are treated inclusively
   ## TODO: this should return a lent value
   doAssert firstSlot <= lastSlot

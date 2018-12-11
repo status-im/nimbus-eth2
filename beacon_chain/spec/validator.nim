@@ -12,6 +12,9 @@ import
   ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers
 
+func is_active_validator*(validator: ValidatorRecord): bool =
+  validator.status in {ACTIVE, ACTIVE_PENDING_EXIT}
+
 func min_empty_validator_index(validators: seq[ValidatorRecord], current_slot: uint64): Option[int] =
   for i, v in validators:
     if v.balance == 0 and
@@ -23,7 +26,7 @@ func get_new_validators*(current_validators: seq[ValidatorRecord],
                          fork_data: ForkData,
                          pubkey: ValidatorPubKey,
                          deposit: uint64,
-                         proof_of_possession: seq[byte],
+                         proof_of_possession: ValidatorSig,
                          withdrawal_credentials: Eth2Digest,
                          randao_commitment: Eth2Digest,
                          status: ValidatorStatusCodes,
@@ -32,26 +35,20 @@ func get_new_validators*(current_validators: seq[ValidatorRecord],
   # TODO Spec candidate: inefficient API
   #
   # Check that validator really did register
-  # let signed_message = signed_message = bytes32(pubkey) + withdrawal_credentials + randao_commitment
-  # assert BLSVerify(pub=pubkey,
-  #                  msg=hash(signed_message),
-  #                  sig=proof_of_possession,
-  # domain=get_domain(
-  #     fork_data,
-  #     current_slot,
-  #     DOMAIN_DEPOSIT
-  # ))
+  # TODO fix tests and enable (nightmare)
+  # let msg = hashSSZ((pubkey, withdrawal_credentials, randao_commitment))
+  # assert BLSVerify(
+  #   pubkey, msg, proof_of_possession,
+  #   get_domain(fork_data, current_slot, DOMAIN_DEPOSIT))
 
-  var new_validators = current_validators
+  var validators_copy = current_validators
 
-  for index, val in new_validators.mpairs():
-    if val.pubkey == pubkey:
-      # assert deposit_size >= MIN_TOPUP_SIZE
-      # assert val.status != WITHDRAWN
-      # assert val.withdrawal_credentials == withdrawal_credentials
+  for index, validator in validators_copy.mpairs():
+    if validator.pubkey == pubkey:
+      assert validator.withdrawal_credentials == withdrawal_credentials
 
-      val.balance.inc(deposit.int)
-      return (new_validators, index)
+      validator.balance += deposit
+      return (validators_copy, index)
 
   # new validator
   let
@@ -66,18 +63,18 @@ func get_new_validators*(current_validators: seq[ValidatorRecord],
       exit_count: 0
     )
 
-  let index = min_empty_validator_index(new_validators, current_slot)
+  let index = min_empty_validator_index(validators_copy, current_slot)
   if index.isNone:
-    new_validators.add(rec)
-    (new_validators, len(new_validators) - 1)
+    validators_copy.add(rec)
+    (validators_copy, len(validators_copy) - 1)
   else:
-    new_validators[index.get()] = rec
-    (new_validators, index.get())
+    validators_copy[index.get()] = rec
+    (validators_copy, index.get())
 
 func get_active_validator_indices*(validators: openArray[ValidatorRecord]): seq[Uint24] =
   ## Select the active validators
   for idx, val in validators:
-    if val.status in {ACTIVE, ACTIVE_PENDING_EXIT}:
+    if is_active_validator(val):
       result.add idx.Uint24
 
 func get_new_shuffling*(seed: Eth2Digest,
@@ -109,7 +106,7 @@ func get_new_shuffling*(seed: Eth2Digest,
     var committees = newSeq[ShardCommittee](shard_indices.len)
     for shard_position, indices in shard_indices:
       committees[shard_position].shard =
-        uint64(shard_id_start + shard_position.uint64) mod SHARD_COUNT.uint64
+        shard_id_start + shard_position.uint64 mod SHARD_COUNT.uint64
       committees[shard_position].committee = indices
       committees[shard_position].total_validator_count =
         len(active_validator_indices).uint64
@@ -127,24 +124,24 @@ func get_new_validator_registry_delta_chain_tip(
     h.update hashSSZ(current_validator_registry_delta_chain_tip)
     h.update hashSSZ(flag.uint8)
     h.update hashSSZ(index)
-    # TODO h.update hashSSZ(pubkey)
+    h.update hashSSZ(pubkey)
 
 func get_effective_balance*(validator: ValidatorRecord): uint64 =
-    min(validator.balance, MAX_DEPOSIT.uint64)
+    min(validator.balance, MAX_DEPOSIT)
 
 func exit_validator*(index: Uint24,
                      state: var BeaconState,
-                     penalize: bool,
-                     current_slot: uint64) =
+                     new_status: ValidatorStatusCodes) =
   ## Remove the validator with the given `index` from `state`.
   ## Note that this function mutates `state`.
 
-  state.validator_registry_exit_count.inc()
+  state.validator_registry_exit_count += 1
 
   var
-    validator = state.validator_registry[index]
+    validator = addr state.validator_registry[index]
 
-  validator.latest_status_change_slot = current_slot
+  validator.status = new_status
+  validator.latest_status_change_slot = state.slot
   validator.exit_count = state.validator_registry_exit_count
 
   # Remove validator from persistent committees
@@ -154,34 +151,30 @@ func exit_validator*(index: Uint24,
         committee.delete(i)
         break
 
-  if penalize:
-    validator.status = EXITED_WITH_PENALTY
+  if new_status == EXITED_WITH_PENALTY:
     state.latest_penalized_exit_balances[
-      (current_slot div COLLECTIVE_PENALTY_CALCULATION_PERIOD.uint64).int].inc(
-        get_effective_balance(validator).int)
+      (state.slot div COLLECTIVE_PENALTY_CALCULATION_PERIOD).int] +=
+        get_effective_balance(validator[])
 
     var
-      whistleblower =
-        state.validator_registry[get_beacon_proposer_index(state, current_slot).int]
+      whistleblower = addr state.validator_registry[
+        get_beacon_proposer_index(state, state.slot)]
       whistleblower_reward =
-        validator.balance div WHISTLEBLOWER_REWARD_QUOTIENT.uint64
-    whistleblower.balance.inc(whistleblower_reward.int)
-    validator.balance.dec(whistleblower_reward.int)
-  else:
-    validator.status = ACTIVE_PENDING_EXIT
+        validator.balance div WHISTLEBLOWER_REWARD_QUOTIENT
+
+    whistleblower.balance += whistleblower_reward
+    validator.balance -= whistleblower_reward
 
   state.validator_registry_delta_chain_tip =
     get_new_validator_registry_delta_chain_tip(
-      state.validator_registry_delta_chain_tip,
-      index,
-      validator.pubkey,
-      EXIT,
-  )
+      state.validator_registry_delta_chain_tip, index, validator.pubkey,
+      ValidatorSetDeltaFlags.EXIT)
 
-func get_changed_validators*(validators: seq[ValidatorRecord],
-                             latest_penalized_exit_balances: seq[uint64],
-                             validator_registry_delta_chain_tip: Eth2Digest,
-                             current_slot: uint64):
+func get_updated_validator_registry*(
+    validator_registry: seq[ValidatorRecord],
+    latest_penalized_exit_balances: seq[uint64],
+    validator_registry_delta_chain_tip: Eth2Digest,
+    current_slot: uint64):
       tuple[
         validators: seq[ValidatorRecord],
         latest_penalized_exit_balances: seq[uint64],
@@ -190,77 +183,85 @@ func get_changed_validators*(validators: seq[ValidatorRecord],
   ## `validator_registry_delta_chain_tip`.
 
   # TODO inefficient
-  var validators = validators
+  var
+    validator_registry = validator_registry
+    latest_penalized_exit_balances = latest_penalized_exit_balances
 
   # The active validators
-  let active_validator_indices = get_active_validator_indices(validators)
+  let active_validator_indices =
+    get_active_validator_indices(validator_registry)
   # The total effective balance of active validators
   let total_balance = sum(mapIt(
-    active_validator_indices, get_effective_balance(validators[it])))
+    active_validator_indices, get_effective_balance(validator_registry[it])))
 
   # The maximum balance churn in Gwei (for deposits and exits separately)
   let max_balance_churn = max(
-      (MAX_DEPOSIT * GWEI_PER_ETH).uint64,
+      MAX_DEPOSIT * GWEI_PER_ETH,
       total_balance div (2 * MAX_BALANCE_CHURN_QUOTIENT)
   )
 
   # Activate validators within the allowable balance churn
   var balance_churn = 0'u64
   var validator_registry_delta_chain_tip = validator_registry_delta_chain_tip
-  for i in 0..<len(validators):
-    if validators[i].status == PENDING_ACTIVATION and
-        validators[i].balance >= MAX_DEPOSIT.uint64:
+  for i in 0..<len(validator_registry):
+    if validator_registry[i].status == PENDING_ACTIVATION and
+        validator_registry[i].balance >= MAX_DEPOSIT:
       # Check the balance churn would be within the allowance
-      balance_churn.inc(get_effective_balance(validators[i]).int)
+      balance_churn += get_effective_balance(validator_registry[i])
       if balance_churn > max_balance_churn:
           break
 
       # Activate validator
-      validators[i].status = ACTIVE
-      validators[i].latest_status_change_slot = current_slot
+      validator_registry[i].status = ACTIVE
+      validator_registry[i].latest_status_change_slot = current_slot
       validator_registry_delta_chain_tip =
         get_new_validator_registry_delta_chain_tip(
           validator_registry_delta_chain_tip,
           i.Uint24,
-          validators[i].pubkey,
+          validator_registry[i].pubkey,
           ACTIVATION,
         )
 
   # Exit validators within the allowable balance churn
   balance_churn = 0
-  for i in 0..<len(validators):
-    if validators[i].status == ACTIVE_PENDING_EXIT:
+  for i in 0..<len(validator_registry):
+    if validator_registry[i].status == ACTIVE_PENDING_EXIT:
       # Check the balance churn would be within the allowance
-      balance_churn.inc(get_effective_balance(validators[i]).int)
+      balance_churn += get_effective_balance(validator_registry[i])
       if balance_churn > max_balance_churn:
         break
 
       # Exit validator
-      validators[i].status = EXITED_WITHOUT_PENALTY
-      validators[i].latest_status_change_slot = current_slot
+      validator_registry[i].status = EXITED_WITHOUT_PENALTY
+      validator_registry[i].latest_status_change_slot = current_slot
       validator_registry_delta_chain_tip =
         get_new_validator_registry_delta_chain_tip(
           validator_registry_delta_chain_tip,
           i.Uint24,
-          validators[i].pubkey,
-          EXIT,
+          validator_registry[i].pubkey,
+          ValidatorSetDeltaFlags.EXIT,
         )
 
-  # Calculate the total ETH that has been penalized in the last ~2-3 withdrawal periods
-  let period_index = current_slot.int div COLLECTIVE_PENALTY_CALCULATION_PERIOD
+  # Calculate the total ETH that has been penalized in the last ~2-3 withdrawal
+  # periods
+  let period_index =
+    (current_slot div COLLECTIVE_PENALTY_CALCULATION_PERIOD).int
   let total_penalties = (
     (latest_penalized_exit_balances[period_index]) +
-    (if period_index >= 1: latest_penalized_exit_balances[period_index - 1] else: 0) +
-    (if period_index >= 2: latest_penalized_exit_balances[period_index - 2] else: 0)
+    (if period_index >= 1:
+      latest_penalized_exit_balances[period_index - 1] else: 0) +
+    (if period_index >= 2:
+      latest_penalized_exit_balances[period_index - 2] else: 0)
   )
 
   # Calculate penalties for slashed validators
   func to_penalize(v: ValidatorRecord): bool =
     v.status == EXITED_WITH_PENALTY
-  var validators_to_penalize = filter(validators, to_penalize)
-  for v in validators_to_penalize.mitems():
-    v.balance.dec(
+  for v in validator_registry.mitems():
+    if not to_penalize(v): continue
+    v.balance -=
       (get_effective_balance(v) * min(total_penalties * 3, total_balance) div
-      total_balance).int)
+      total_balance)
 
-  (validators, latest_penalized_exit_balances, validator_registry_delta_chain_tip)
+  (validator_registry, latest_penalized_exit_balances,
+    validator_registry_delta_chain_tip)

@@ -7,8 +7,8 @@
 
 import
   math, sequtils,
-  ../extras,
-  ./datatypes, ./digest, ./helpers, ./validator
+  ../extras, ../ssz,
+  ./crypto, ./datatypes, ./digest, ./helpers, ./validator
 
 func on_startup*(initial_validator_entries: openArray[InitialValidator],
                  genesis_time: uint64,
@@ -96,14 +96,12 @@ func on_startup*(initial_validator_entries: openArray[InitialValidator],
   )
 
 func get_block_hash*(state: BeaconState,
-                     current_block: BeaconBlock,
                      slot: uint64): Eth2Digest =
   let earliest_slot_in_array =
-    current_block.slot.int - state.latest_block_hashes.len
-  assert earliest_slot_in_array <= slot.int
-  assert slot < current_block.slot
-
-  state.latest_block_hashes[slot.int - earliest_slot_in_array]
+    state.slot - len(state.latest_block_hashes).uint64
+  assert earliest_slot_in_array <= slot
+  assert slot < state.slot
+  state.latest_block_hashes[(slot - earliest_slot_in_array).int]
 
 func append_to_recent_block_hashes*(old_block_hashes: seq[Eth2Digest],
                                     parent_slot, current_slot: uint64,
@@ -139,15 +137,76 @@ func get_attestation_participants*(state: BeaconState,
           result.add(vindex)
     return # found the shard, we're done
 
-func change_validators*(state: var BeaconState,
-                        current_slot: uint64) =
-  ## Change validator registry.
+func process_ejections*(state: var BeaconState) =
+  ## Iterate through the validator registry
+  ## and eject active validators with balance below ``EJECTION_BALANCE``.
 
-  let res = get_changed_validators(
-    state.validator_registry,
+  for i, v in state.validator_registry.mpairs():
+    if is_active_validator(v) and v.balance < EJECTION_BALANCE:
+      exit_validator(i.Uint24, state, EXITED_WITHOUT_PENALTY)
+
+func update_validator_registry*(state: var BeaconState) =
+  # Update validator registry.
+  # Note that this function mutates ``state``.
+
+  (state.validator_registry,
     state.latest_penalized_exit_balances,
-    state.validator_registry_delta_chain_tip,
-    current_slot
-  )
-  state.validator_registry = res.validators
-  state.latest_penalized_exit_balances = res.latest_penalized_exit_balances
+    state.validator_registry_delta_chain_tip) =
+      get_updated_validator_registry(
+        state.validator_registry,
+        state.latest_penalized_exit_balances,
+        state.validator_registry_delta_chain_tip,
+        state.slot
+      )
+
+func checkAttestation*(state: BeaconState, attestation: Attestation): bool =
+  ## Check that an attestation follows the rules of being included in the state
+  ## at the current slot.
+  ##
+  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#attestations-1
+
+  if attestation.data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= state.slot:
+    return
+
+  if attestation.data.slot + EPOCH_LENGTH >= state.slot:
+    return
+
+  let expected_justified_slot =
+    if attestation.data.slot >= state.slot - (state.slot mod EPOCH_LENGTH):
+      state.justified_slot
+    else:
+      state.previous_justified_slot
+
+  if attestation.data.justified_slot != expected_justified_slot:
+    return
+
+  let expected_justified_block_hash =
+    get_block_hash(state, attestation.data.justified_slot)
+  if attestation.data.justified_block_hash != expected_justified_block_hash:
+    return
+
+  if state.latest_crosslinks[attestation.data.shard].shard_block_hash notin [
+      attestation.data.latest_crosslink_hash,
+      attestation.data.shard_block_hash]:
+    return
+
+  let
+    participants = get_attestation_participants(
+      state, attestation.data, attestation.participation_bitfield)
+    group_public_key = BLSAddPubkeys(mapIt(
+      participants, state.validator_registry[it].pubkey))
+
+  # Verify that aggregate_signature verifies using the group pubkey.
+  let msg = hashSSZ(attestation.data)
+
+  if not BLSVerify(
+        group_public_key, @msg & @[0'u8], attestation.aggregate_signature,
+        get_domain(state.fork_data, attestation.data.slot, DOMAIN_ATTESTATION)
+      ):
+    return
+
+  # To be removed in Phase1:
+  if attestation.data.shard_block_hash != ZERO_HASH:
+    return
+
+  true

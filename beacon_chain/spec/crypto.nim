@@ -20,5 +20,22 @@ type
 template hash*(k: ValidatorPubKey|ValidatorPrivKey): Hash =
   hash(k.getRaw)
 
-proc pubKey*(pk: ValidatorPrivKey): ValidatorPubKey = fromSigKey(pk)
+func pubKey*(pk: ValidatorPrivKey): ValidatorPubKey = fromSigKey(pk)
 
+func BLSAddPubkeys*(keys: openArray[ValidatorPubKey]): ValidatorPubKey =
+  # name from spec!
+
+  var empty = false
+  for key in keys:
+    if empty:
+      result = key
+      empty = false
+    else:
+      result.combine(key)
+
+func BLSVerify*(
+    pubkey: ValidatorPubKey, msg: openArray[byte], sig: ValidatorSig,
+    domain: uint64): bool =
+  # name from spec!
+  # TODO domain!
+  sig.verifyMessage(msg, pubkey)

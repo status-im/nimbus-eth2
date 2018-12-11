@@ -130,8 +130,17 @@ func get_fork_version*(fork_data: ForkData, slot: uint64): uint64 =
   if slot < fork_data.fork_slot: fork_data.pre_fork_version
   else: fork_data.post_fork_version
 
-func get_domain*(fork_data: ForkData, slot: uint64, domain_type: uint64): uint64 =
+func get_domain*(
+    fork_data: ForkData, slot: uint64, domain_type: SignatureDomain): uint64 =
   # TODO Slot overflow? Or is slot 32 bits for all intents and purposes?
-  (get_fork_version(fork_data, slot) shl 32) + domain_type
+  (get_fork_version(fork_data, slot) shl 32) + domain_type.uint32
 
 func is_power_of_2*(v: uint64): bool = (v and (v-1)) == 0
+
+func get_updated_ancestor_hashes*(latest_block: BeaconBlock,
+                                  latest_hash: Eth2Digest): seq[Eth2Digest] =
+    var new_ancestor_hashes = latest_block.ancestor_hashes
+    for i in 0..<32:
+      if latest_block.slot mod 2'u64^i == 0:
+        new_ancestor_hashes[i] = latest_hash
+    new_ancestor_hashes
