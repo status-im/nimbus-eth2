@@ -66,7 +66,7 @@ const
   ## each validator registry change.
 
   GWEI_PER_ETH* = 10'u64^9 # Gwei/ETH
-  BEACON_CHAIN_SHARD_NUMBER* = not 0'u64
+  BEACON_CHAIN_SHARD_NUMBER* = not 0'u64 # 2^64 - 1 in spec
 
   DEPOSIT_CONTRACT_TREE_DEPTH* = 2^5
 
@@ -376,4 +376,3 @@ when true:
 
   proc read*(rlp: var Rlp, T: type ValidatorSig): T {.inline.} =
     discard
-
