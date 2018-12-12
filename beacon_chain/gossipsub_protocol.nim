@@ -43,7 +43,7 @@ proc subscribeImpl(node: EthereumNode,
                    subscriber: TopicMsgHandler) =
   var gossipNet = node.protocolState(GossipSub)
   gossipNet.topicSubscribers[topic] = subscriber
-  for peer in node.peers(GossipSub): peer.subscribeFor(topic)
+  for peer in node.peers(GossipSub): discard peer.subscribeFor(topic)
 
 proc broadcastImpl(node: EthereumNode, topic: string, msgBytes: seq[byte]): seq[Future[void]] {.gcsafe.} =
   var randBytes: array[10, byte];
