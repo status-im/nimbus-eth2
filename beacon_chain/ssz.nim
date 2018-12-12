@@ -121,7 +121,7 @@ func deserialize*(
 
 func serialize*[T](value: T): seq[byte] =
   for field in value.fields:
-    when field is (EthAddress | MDigest | SomeInteger):
+    when field is (EthAddress | Eth2Digest | SomeInteger):
       result.add field.toBytesSSZ()
     elif field is seq[SomeInteger or byte]:
       result.serSeq field
