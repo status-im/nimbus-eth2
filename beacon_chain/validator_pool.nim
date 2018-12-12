@@ -1,7 +1,7 @@
 import
   tables, random,
-  asyncdispatch2,
-  spec/[datatypes, crypto, digest], randao
+  asyncdispatch2, milagro_crypto,
+  spec/[datatypes, crypto, digest], randao, ssz
 
 type
   ValidatorKind = enum
@@ -44,8 +44,10 @@ proc signBlockProposal*(v: AttachedValidator,
                         proposal: ProposalSignedData): Future[ValidatorSig] {.async.} =
   if v.kind == inProcess:
     await sleepAsync(1)
-    # TODO:
-    # return sign(proposal, v.privKey)
+    let proposalRoot = hash_tree_root(proposal)
+
+    # TODO: Should we use proposalRoot as data, or digest in regards to signature?
+    return signMessage(v.privKey, proposalRoot)
   else:
     # TODO:
     # send RPC
@@ -56,8 +58,10 @@ proc signAttestation*(v: AttachedValidator,
   # TODO: implement this
   if v.kind == inProcess:
     await sleepAsync(1)
-    # TODO:
-    # return sign(proposal, v.privKey)
+
+    let attestationRoot = hash_tree_root(attestation)
+    # TODO: Should we use attestationRoot as data, or digest in regards to signature?
+    return signMessage(v.privKey, attestationRoot)
   else:
     # TODO:
     # send RPC
