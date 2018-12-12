@@ -51,8 +51,9 @@ iterator each*(pool: AttestationPool,
 
 proc discardHistoryToSlot*(pool: var AttestationPool, slot: int) =
   ## The index is treated inclusively
-  let slotIdx = slot - pool.startingSlot
-  if slotIdx < 0: return
+  if slot < pool.startingSlot:
+    return
+  let slotIdx = int(slot - pool.startingSlot)
   pool.attestations.shrink(fromFirst = slotIdx + 1)
 
 proc getLatestAttestation*(pool: AttestationPool, validator: ValidatorRecord) =
