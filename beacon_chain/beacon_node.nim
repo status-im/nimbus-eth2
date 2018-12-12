@@ -1,7 +1,7 @@
 import
   os, net, sequtils,
   asyncdispatch2, chronicles, confutils, eth_p2p, eth_keys,
-  spec/[beaconstate, datatypes, helpers, crypto], conf, time, fork_choice,
+  spec/[beaconstate, datatypes, helpers, crypto], conf, time, fork_choice, ssz,
   beacon_chain_db, validator_pool, mainchain_monitor,
   sync_protocol, gossipsub_protocol, trusted_state_snapshots
 
@@ -139,7 +139,9 @@ proc proposeBlock(node: BeaconNode,
   #   proposal.specials.add r
 
   var signedData: ProposalSignedData
-  # TODO: populate the signed data
+  signedData.slot = node.beaconState.slot
+  signedData.shard = BEACON_CHAIN_SHARD_NUMBER
+  signedData.blockRoot.data = hash_tree_root(proposal)
 
   proposal.signature = await validator.signBlockProposal(signedData)
   await node.network.broadcast(topicBeaconBlocks, proposal)
