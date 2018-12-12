@@ -35,11 +35,10 @@ func get_new_validators*(current_validators: seq[ValidatorRecord],
   # TODO Spec candidate: inefficient API
   #
   # Check that validator really did register
-  # TODO fix tests and enable (nightmare)
-  # let msg = hash_tree_root((pubkey, withdrawal_credentials, randao_commitment))
-  # assert BLSVerify(
-  #   pubkey, msg, proof_of_possession,
-  #   get_domain(fork_data, current_slot, DOMAIN_DEPOSIT))
+  let msg = hash_tree_root((pubkey, withdrawal_credentials, randao_commitment))
+  assert BLSVerify(
+    pubkey, msg, proof_of_possession,
+    get_domain(fork_data, current_slot, DOMAIN_DEPOSIT))
 
   var validators_copy = current_validators
 
@@ -157,8 +156,8 @@ func exit_validator*(index: Uint24,
         get_effective_balance(validator[])
 
     var
-      whistleblower = addr state.validator_registry[
-        get_beacon_proposer_index(state, state.slot)]
+      proposer_index = get_beacon_proposer_index(state, state.slot)
+      whistleblower = addr state.validator_registry[proposer_index]
       whistleblower_reward =
         validator.balance div WHISTLEBLOWER_REWARD_QUOTIENT
 

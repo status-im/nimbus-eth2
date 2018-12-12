@@ -12,8 +12,6 @@ import
   ../beacon_chain/spec/[beaconstate, datatypes, digest]
 
 suite "Beacon state":
-  # Smoke test
-
-  test "Smoke on_startup":
+  test "Smoke test on_startup":
     let state = on_startup(makeInitialValidators(EPOCH_LENGTH), 0, Eth2Digest())
     check: state.validator_registry.len == EPOCH_LENGTH

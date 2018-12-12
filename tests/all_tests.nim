@@ -7,7 +7,7 @@
 
 import
   ./test_beaconstate,
-  ./test_block_processing,
+  ./test_state_transition,
   ./test_helpers,
   ./test_ssz,
   ./test_validator,

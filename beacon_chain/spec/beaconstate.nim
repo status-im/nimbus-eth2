@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  math, sequtils,
+  chronicles, math, sequtils,
   ../extras, ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers, ./validator
 
@@ -21,7 +21,7 @@ func on_startup*(initial_validator_entries: openArray[InitialValidator],
   ##
   ## Because the state root hash is part of the genesis block, the beacon state
   ## must be calculated before creating the genesis block.
-  #
+
   # Induct validators
   # Not in spec: the system doesn't work unless there are at least EPOCH_LENGTH
   # validators - there needs to be at least one member in each committee -
@@ -159,16 +159,20 @@ func update_validator_registry*(state: var BeaconState) =
         state.slot
       )
 
-func checkAttestation*(state: BeaconState, attestation: Attestation): bool =
+proc checkAttestation*(state: BeaconState, attestation: Attestation): bool =
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot.
   ##
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#attestations-1
 
-  if attestation.data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= state.slot:
+  if attestation.data.slot + MIN_ATTESTATION_INCLUSION_DELAY >= state.slot:
+    warn("Attestation too new",
+      attestation_slot = attestation.data.slot, state_slot = state.slot)
     return
 
-  if attestation.data.slot + EPOCH_LENGTH >= state.slot:
+  if attestation.data.slot + EPOCH_LENGTH <= state.slot:
+    warn("Attestation too old",
+      attestation_slot = attestation.data.slot, state_slot = state.slot)
     return
 
   let expected_justified_slot =
@@ -178,16 +182,23 @@ func checkAttestation*(state: BeaconState, attestation: Attestation): bool =
       state.previous_justified_slot
 
   if attestation.data.justified_slot != expected_justified_slot:
+    warn("Unexpected justified slot",
+      attestation_justified_slot = attestation.data.justified_slot,
+      expected_justified_slot)
     return
 
   let expected_justified_block_root =
     get_block_root(state, attestation.data.justified_slot)
   if attestation.data.justified_block_root != expected_justified_block_root:
+    warn("Unexpected justified block root",
+      attestation_justified_block_root = attestation.data.justified_block_root,
+      expected_justified_block_root)
     return
 
   if state.latest_crosslinks[attestation.data.shard].shard_block_root notin [
       attestation.data.latest_crosslink_root,
       attestation.data.shard_block_root]:
+    warn("Unexpected crosslink shard_block_root")
     return
 
   let
@@ -203,10 +214,12 @@ func checkAttestation*(state: BeaconState, attestation: Attestation): bool =
         group_public_key, @msg & @[0'u8], attestation.aggregate_signature,
         get_domain(state.fork_data, attestation.data.slot, DOMAIN_ATTESTATION)
       ):
+    warn("Invalid attestation group signature")
     return
 
   # To be removed in Phase1:
   if attestation.data.shard_block_root != ZERO_HASH:
+    warn("Invalid shard block root")
     return
 
   true

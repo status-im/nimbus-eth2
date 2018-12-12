@@ -24,7 +24,7 @@
 # types / composition
 
 import
-  intsets, eth_common, math,
+  eth_common, math,
   ./crypto, ./digest
 
 # TODO Data types:
@@ -210,7 +210,7 @@ type
     ## is formed.
 
     slot*: uint64
-    ancestor_hashes*: seq[Eth2Digest] ##\
+    ancestor_hashes*: array[32, Eth2Digest] ##\
     ## Skip list of previous beacon block hashes i'th item is most recent
     ## ancestor whose slot is a multiple of 2**i for i == 0, ..., 31
 
@@ -339,20 +339,6 @@ type
     DOMAIN_ATTESTATION = 1
     DOMAIN_PROPOSAL = 2
     DOMAIN_EXIT = 3
-
-    # Note:
-    # We use IntSet from Nim Standard library which are efficient sparse bitsets.
-    # See: https://nim-lang.org/docs/intsets.html
-    #
-    # Future:
-    #   IntSets stores the first 34 elements in an array[34, int] instead of a bitfield
-    #   to avoid heap allocation in profiled common cases.
-    #
-    #   In Ethereum we probably always have over 34 attesters given the goal of decentralization.
-    #   Allocating 8 * 34 = 272 bytes on the stack is wasteful, when this can be packed in just 8 bytes
-    #   with room to spare.
-    #
-    #   Also, IntSets uses machine int size while we require int64 even on 32-bit platform.
 
 when true:
   # TODO: Remove these once RLP serialization is no longer used

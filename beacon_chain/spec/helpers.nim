@@ -138,9 +138,9 @@ func get_domain*(
 func is_power_of_2*(v: uint64): bool = (v and (v-1)) == 0
 
 func get_updated_ancestor_hashes*(latest_block: BeaconBlock,
-                                  latest_hash: Eth2Digest): seq[Eth2Digest] =
+                                  latest_root: Eth2Digest): array[32, Eth2Digest] =
     var new_ancestor_hashes = latest_block.ancestor_hashes
     for i in 0..<32:
       if latest_block.slot mod 2'u64^i == 0:
-        new_ancestor_hashes[i] = latest_hash
+        new_ancestor_hashes[i] = latest_root
     new_ancestor_hashes
