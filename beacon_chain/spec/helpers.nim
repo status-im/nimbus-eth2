@@ -82,10 +82,15 @@ func get_new_recent_block_roots*(old_block_roots: seq[Eth2Digest],
 func ceil_div8*(v: int): int = (v + 7) div 8 # TODO use a proper bitarray!
 
 func repeat_hash*(v: Eth2Digest, n: SomeInteger): Eth2Digest =
-  if n == 0:
-    v
-  else:
-    repeat_hash(eth2hash(v.data), n - 1)
+  # Spec version:
+  # if n == 0: v
+  # else: repeat_hash(eth2hash(v.data), n - 1)
+  # Nim is pretty bad at recursion though (max 2k levels / no tco), so:
+  result = v
+  var n = n
+  while n != 0:
+    result = eth2hash(result.data)
+    dec n
 
 func get_shard_and_committees_index*(state: BeaconState, slot: uint64): uint64 =
   # TODO spec unsigned-unsafe here
