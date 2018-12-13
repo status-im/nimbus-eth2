@@ -17,7 +17,7 @@ suite "Block processing":
 
   test "Passes from genesis state, no block":
     let
-      state = on_startup(makeInitialValidators(), 0, Eth2Digest())
+      state = on_startup(makeInitialDeposits(), 0, Eth2Digest())
       latest_block = makeGenesisBlock(state)
       new_state = updateState(state, latest_block, none(BeaconBlock))
     check:
@@ -26,7 +26,7 @@ suite "Block processing":
 
   test "Passes from genesis state, empty block":
     let
-      state = on_startup(makeInitialValidators(), 0, Eth2Digest())
+      state = on_startup(makeInitialDeposits(), 0, Eth2Digest())
       latest_block = makeGenesisBlock(state)
       new_block = makeBlock(state, latest_block)
       new_state = updateState(state, latest_block, some(new_block))
@@ -37,7 +37,7 @@ suite "Block processing":
 
   test "Passes through epoch update, no block":
     var
-      state = on_startup(makeInitialValidators(), 0, Eth2Digest())
+      state = on_startup(makeInitialDeposits(), 0, Eth2Digest())
       latest_block = makeGenesisBlock(state)
 
     for i in 1..EPOCH_LENGTH.int:
@@ -51,7 +51,7 @@ suite "Block processing":
 
   test "Passes through epoch update, empty block":
     var
-      state = on_startup(makeInitialValidators(), 0, Eth2Digest())
+      state = on_startup(makeInitialDeposits(), 0, Eth2Digest())
       latest_block = makeGenesisBlock(state)
 
     for i in 1..EPOCH_LENGTH.int:

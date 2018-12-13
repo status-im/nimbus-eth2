@@ -6,11 +6,145 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  chronicles, math, sequtils,
+  chronicles, math, options, sequtils,
   ../extras, ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers, ./validator
 
-func on_startup*(initial_validator_entries: openArray[InitialValidator],
+func process_deposit(state: var BeaconState,
+                     pubkey: ValidatorPubKey,
+                     deposit: uint64,
+                     proof_of_possession: ValidatorSig,
+                     withdrawal_credentials: Eth2Digest,
+                     randao_commitment: Eth2Digest): Uint24 =
+  ## Process a deposit from Ethereum 1.0.
+  let msg = hash_tree_root((pubkey, withdrawal_credentials, randao_commitment))
+  assert BLSVerify(
+    pubkey, msg, proof_of_possession,
+    get_domain(state.fork_data, state.slot, DOMAIN_DEPOSIT))
+
+  let validator_pubkeys = mapIt(state.validator_registry, it.pubkey)
+
+  if pubkey notin validator_pubkeys:
+    # Add new validator
+    let validator = ValidatorRecord(
+      pubkey: pubkey,
+      withdrawal_credentials: withdrawal_credentials,
+      randao_commitment: randao_commitment,
+      randao_layers: 0,
+      balance: deposit,
+      status: PENDING_ACTIVATION,
+      latest_status_change_slot: state.slot,
+      exit_count: 0
+    )
+
+    let index = min_empty_validator_index(state.validator_registry, state.slot)
+    if index.isNone():
+      state.validator_registry.add(validator)
+      (len(state.validator_registry) - 1).Uint24
+    else:
+      state.validator_registry[index.get()] = validator
+      index.get().Uint24
+  else:
+    # Increase balance by deposit
+    let index = validator_pubkeys.find(pubkey)
+    let validator = addr state.validator_registry[index]
+    assert validator.withdrawal_credentials == withdrawal_credentials
+
+    validator.balance += deposit
+    index.Uint24
+
+func activate_validator(state: var BeaconState,
+                        index: Uint24) =
+  ## Activate the validator with the given ``index``.
+  let validator = addr state.validator_registry[index]
+
+  if validator.status != PENDING_ACTIVATION:
+      return
+
+  validator.status = ACTIVE
+  validator.latest_status_change_slot = state.slot
+  state.validator_registry_delta_chain_tip =
+    get_new_validator_registry_delta_chain_tip(
+      state.validator_registry_delta_chain_tip,
+      index,
+      validator.pubkey,
+      ACTIVATION,
+    )
+
+func initiate_validator_exit(state: var BeaconState,
+                             index: Uint24) =
+  ## Initiate exit for the validator with the given ``index``.
+  let validator = addr state.validator_registry[index]
+  if validator.status != ACTIVE:
+    return
+
+  validator.status = ACTIVE_PENDING_EXIT
+  validator.latest_status_change_slot = state.slot
+
+func exit_validator(state: var BeaconState,
+                     index: Uint24,
+                     new_status: ValidatorStatusCodes) =
+  ## Exit the validator with the given ``index``.
+  ## Note that this function mutates ``state``.
+
+  let
+    validator = addr state.validator_registry[index]
+    prev_status = validator.status
+
+  if prev_status == EXITED_WITH_PENALTY:
+    return
+
+  validator.status = new_status
+  validator.latest_status_change_slot = state.slot
+
+  if new_status == EXITED_WITH_PENALTY:
+    state.latest_penalized_exit_balances[
+      (state.slot div COLLECTIVE_PENALTY_CALCULATION_PERIOD).int] +=
+        get_effective_balance(validator[])
+
+    let
+      whistleblower = addr state.validator_registry[
+        get_beacon_proposer_index(state, state.slot)]
+      whistleblower_reward =
+        validator.balance div WHISTLEBLOWER_REWARD_QUOTIENT
+
+    whistleblower.balance += whistleblower_reward
+    validator.balance -= whistleblower_reward
+
+  if prev_status == EXITED_WITHOUT_PENALTY:
+    return
+
+  # The following updates only occur if not previous exited
+  state.validator_registry_exit_count += 1
+  validator.exit_count = state.validator_registry_exit_count
+  state.validator_registry_delta_chain_tip =
+    get_new_validator_registry_delta_chain_tip(
+      state.validator_registry_delta_chain_tip,
+      index,
+      validator.pubkey,
+      ValidatorSetDeltaFlags.EXIT
+    )
+
+  # Remove validator from persistent committees
+  for committee in state.persistent_committees.mitems():
+    for i, validator_index in committee:
+      if validator_index == index:
+        committee.delete(i)
+        break
+
+func update_validator_status*(state: var BeaconState,
+                              index: Uint24,
+                              new_status: ValidatorStatusCodes) =
+  ##  Update the validator status with the given ``index`` to ``new_status``.
+  ## Handle other general accounting related to this status update.
+  if new_status == ACTIVE:
+      activate_validator(state, index)
+  if new_status == ACTIVE_PENDING_EXIT:
+      initiate_validator_exit(state, index)
+  if new_status in [EXITED_WITH_PENALTY, EXITED_WITHOUT_PENALTY]:
+      exit_validator(state, index, new_status)
+
+func on_startup*(initial_validator_deposits: openArray[Deposit],
                  genesis_time: uint64,
                  processed_pow_receipt_root: Eth2Digest): BeaconState =
   ## BeaconState constructor
@@ -27,44 +161,18 @@ func on_startup*(initial_validator_entries: openArray[InitialValidator],
   # validators - there needs to be at least one member in each committee -
   # good to know for testing, though arguably the system is not that useful at
   # at that point :)
-  assert initial_validator_entries.len >= EPOCH_LENGTH
+  assert initial_validator_deposits.len >= EPOCH_LENGTH
 
-  var validators: seq[ValidatorRecord]
+  var state = BeaconState(
+    # Misc
+    slot: INITIAL_SLOT_NUMBER,
+    genesis_time: genesis_time,
+    fork_data: ForkData(
+        pre_fork_version: INITIAL_FORK_VERSION,
+        post_fork_version: INITIAL_FORK_VERSION,
+        fork_slot: INITIAL_SLOT_NUMBER,
+    ),
 
-  for v in initial_validator_entries:
-    validators = get_new_validators(
-        validators,
-        ForkData(
-                pre_fork_version: INITIAL_FORK_VERSION,
-                post_fork_version: INITIAL_FORK_VERSION,
-                fork_slot: INITIAL_SLOT_NUMBER
-            ),
-        v.pubkey,
-        v.deposit_size,
-        v.proof_of_possession,
-        v.withdrawal_credentials,
-        v.randao_commitment,
-        ACTIVE,
-        INITIAL_SLOT_NUMBER
-      ).validators
-  # Setup state
-  let
-    initial_shuffling = get_new_shuffling(Eth2Digest(), validators, 0)
-
-  # initial_shuffling + initial_shuffling in spec, but more ugly
-  var shard_committees_at_slots: array[2 * EPOCH_LENGTH, seq[ShardCommittee]]
-  for i, n in initial_shuffling:
-    shard_committees_at_slots[i] = n
-    shard_committees_at_slots[EPOCH_LENGTH + i] = n
-
-  # TODO validators vs indices
-  let active_validator_indices = get_active_validator_indices(validators)
-
-  let persistent_committees = split(shuffle(
-    active_validator_indices, ZERO_HASH), SHARD_COUNT)
-
-  BeaconState(
-    validator_registry: validators,
     validator_registry_latest_change_slot: INITIAL_SLOT_NUMBER,
     validator_registry_exit_count: 0,
     validator_registry_delta_chain_tip: ZERO_HASH,
@@ -72,8 +180,6 @@ func on_startup*(initial_validator_entries: openArray[InitialValidator],
     # Randomness and committees
     randao_mix: ZERO_HASH,
     next_seed: ZERO_HASH,
-    shard_committees_at_slots: shard_committees_at_slots,
-    persistent_committees: persistent_committees,
 
     # Finality
     previous_justified_slot: INITIAL_SLOT_NUMBER,
@@ -82,18 +188,43 @@ func on_startup*(initial_validator_entries: openArray[InitialValidator],
 
     # Recent state
     latest_state_recalculation_slot: INITIAL_SLOT_NUMBER,
-    latest_block_roots: repeat(ZERO_HASH, EPOCH_LENGTH * 2),
+    latest_block_roots: repeat(ZERO_HASH, LATEST_BLOCK_ROOTS_COUNT),
 
      # PoW receipt root
     processed_pow_receipt_root: processed_pow_receipt_root,
-    # Misc
-    genesis_time: genesis_time,
-    fork_data: ForkData(
-        pre_fork_version: INITIAL_FORK_VERSION,
-        post_fork_version: INITIAL_FORK_VERSION,
-        fork_slot: INITIAL_SLOT_NUMBER,
-    ),
   )
+
+  # handle initial deposits and activations
+  for deposit in initial_validator_deposits:
+    let validator_index = process_deposit(
+      state,
+      deposit.deposit_data.deposit_parameters.pubkey,
+      deposit.deposit_data.value,
+      deposit.deposit_data.deposit_parameters.proof_of_possession,
+      deposit.deposit_data.deposit_parameters.withdrawal_credentials,
+      deposit.deposit_data.deposit_parameters.randao_commitment
+    )
+    if state.validator_registry[validator_index].balance >= MAX_DEPOSIT:
+      update_validator_status(state, validator_index, ACTIVE)
+
+  # set initial committee shuffling
+  let
+    initial_shuffling =
+      get_new_shuffling(Eth2Digest(), state.validator_registry, 0)
+
+  # initial_shuffling + initial_shuffling in spec, but more ugly
+  for i, n in initial_shuffling:
+    state.shard_committees_at_slots[i] = n
+    state.shard_committees_at_slots[EPOCH_LENGTH + i] = n
+
+  # set initial persistent shuffling
+  let active_validator_indices =
+    get_active_validator_indices(state.validator_registry)
+
+  state.persistent_committees = split(shuffle(
+    active_validator_indices, ZERO_HASH), SHARD_COUNT)
+
+  state
 
 func get_block_root*(state: BeaconState,
                      slot: uint64): Eth2Digest =
@@ -143,7 +274,7 @@ func process_ejections*(state: var BeaconState) =
 
   for i, v in state.validator_registry.mpairs():
     if is_active_validator(v) and v.balance < EJECTION_BALANCE:
-      exit_validator(i.Uint24, state, EXITED_WITHOUT_PENALTY)
+      exit_validator(state, i.Uint24, EXITED_WITHOUT_PENALTY)
 
 func update_validator_registry*(state: var BeaconState) =
   # Update validator registry.

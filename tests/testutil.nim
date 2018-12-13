@@ -37,7 +37,7 @@ func hackReveal(v: ValidatorRecord): Eth2Digest =
     result = tmp
   raise newException(Exception, "can't find randao hack value")
 
-func makeInitialValidator(i: int): InitialValidator =
+func makeDeposit(i: int): Deposit =
   ## Ugly hack for now: we stick the private key in withdrawal_credentials
   ## which means we can repro private key and randao reveal from this data,
   ## for testing :)
@@ -49,17 +49,21 @@ func makeInitialValidator(i: int): InitialValidator =
     pop = signMessage(privkey, hash_tree_root(
       (pubkey, withdrawal_credentials, randao_commitment)))
 
-  InitialValidator(
-    pubkey: pubkey,
-    deposit_size: MAX_DEPOSIT,
-    proof_of_possession: pop,
-    withdrawal_credentials: withdrawal_credentials,
-    randao_commitment: randao_commitment
+  Deposit(
+    deposit_data: DepositData(
+      deposit_parameters: DepositParameters(
+        pubkey: pubkey,
+        proof_of_possession: pop,
+        withdrawal_credentials: withdrawal_credentials,
+        randao_commitment: randao_commitment
+      ),
+      value: MAX_DEPOSIT * GWEI_PER_ETH,
+    )
   )
 
-func makeInitialValidators*(n = EPOCH_LENGTH): seq[InitialValidator] =
+func makeInitialDeposits*(n = EPOCH_LENGTH): seq[Deposit] =
   for i in 0..<n.int:
-    result.add makeInitialValidator(i + 1)
+    result.add makeDeposit(i + 1)
 
 func makeGenesisBlock*(state: BeaconState): BeaconBlock =
   BeaconBlock(
@@ -76,9 +80,6 @@ func makeBlock*(
 
   var new_block = BeaconBlock(
       slot: new_slot,
-      ancestor_hashes:
-        get_updated_ancestor_hashes(
-          latest_block, Eth2Digest(data: hash_tree_root(latest_block))),
       state_root: Eth2Digest(data: hash_tree_root(state)),
       randao_reveal: hackReveal(proposer)
     )
@@ -86,7 +87,7 @@ func makeBlock*(
   let
     signed_data = ProposalSignedData(
       slot: new_block.slot,
-      shard: BEACON_CHAIN_SHARD,
+      shard: BEACON_CHAIN_SHARD_NUMBER,
       block_root: Eth2Digest(data: hash_tree_root(new_block))
     )
     proposal_hash = hash_tree_root(signed_data)
