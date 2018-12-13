@@ -92,21 +92,14 @@ func repeat_hash*(v: Eth2Digest, n: SomeInteger): Eth2Digest =
     result = eth2hash(result.data)
     dec n
 
-func get_shard_and_committees_index*(state: BeaconState, slot: uint64): uint64 =
+func get_shard_committees_index*(state: BeaconState, slot: uint64): uint64 =
   # TODO spec unsigned-unsafe here
-  let earliest_slot_in_array =
-    if state.latest_state_recalculation_slot > EPOCH_LENGTH.uint64:
-      state.latest_state_recalculation_slot - EPOCH_LENGTH
-    else:
-      0
+  doAssert slot + (state.slot mod EPOCH_LENGTH) + EPOCH_LENGTH > state.slot
+  slot + (state.slot mod EPOCH_LENGTH) + EPOCH_LENGTH - state.slot
 
-  doAssert earliest_slot_in_array <= slot and
-           slot < earliest_slot_in_array + EPOCH_LENGTH * 2
-  slot - earliest_slot_in_array
-
-proc get_shard_and_committees_for_slot*(
+proc get_shard_committees_at_slot*(
     state: BeaconState, slot: uint64): seq[ShardCommittee] =
-  let index = state.get_shard_and_committees_index(slot)
+  let index = state.get_shard_committees_index(slot)
   state.shard_committees_at_slots[index]
 
 func get_beacon_proposer_index*(state: BeaconState, slot: uint64): Uint24 =
@@ -119,7 +112,7 @@ func get_beacon_proposer_index*(state: BeaconState, slot: uint64): Uint24 =
   ##
   ## idx in Vidx == p(i mod N), pi being a random permutation of validators indices (i.e. a committee)
 
-  let idx = get_shard_and_committees_index(state, slot)
+  let idx = get_shard_committees_index(state, slot)
   state.shard_committees_at_slots[idx][0].committee.mod_get(slot)
 
 func int_sqrt*(n: SomeInteger): SomeInteger =

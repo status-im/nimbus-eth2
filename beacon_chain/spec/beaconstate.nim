@@ -188,7 +188,6 @@ func on_startup*(initial_validator_deposits: openArray[Deposit],
 
     # Recent state
     latest_state_recalculation_slot: INITIAL_SLOT_NUMBER,
-    latest_block_roots: repeat(ZERO_HASH, LATEST_BLOCK_ROOTS_COUNT),
 
      # PoW receipt root
     processed_pow_receipt_root: processed_pow_receipt_root,
@@ -228,18 +227,10 @@ func on_startup*(initial_validator_deposits: openArray[Deposit],
 
 func get_block_root*(state: BeaconState,
                      slot: uint64): Eth2Digest =
-  let earliest_slot_in_array =
-    state.slot - len(state.latest_block_roots).uint64
-  assert earliest_slot_in_array <= slot
-  assert slot < state.slot
-  state.latest_block_roots[(slot - earliest_slot_in_array).int]
-
-func append_to_recent_block_roots*(old_block_roots: seq[Eth2Digest],
-                                    parent_slot, current_slot: uint64,
-                                    parent_hash: Eth2Digest): seq[Eth2Digest] =
-  let d = current_slot - parent_slot
-  result = old_block_roots
-  result.add repeat(parent_hash, d)
+  doAssert slot + len(state.latest_block_roots).uint64 > state.slot
+  doAssert slot < state.slot
+  state.latest_block_roots[
+    (slot + len(state.latest_block_roots).uint64 - state.slot).int]
 
 func get_attestation_participants*(state: BeaconState,
                                    attestation_data: AttestationData,
@@ -252,7 +243,7 @@ func get_attestation_participants*(state: BeaconState,
   # TODO bitfield type needed, once bit order settles down
   # TODO iterator candidate
   let
-    sncs_for_slot = get_shard_and_committees_for_slot(
+    sncs_for_slot = get_shard_committees_at_slot(
       state, attestation_data.slot)
 
   for snc in sncs_for_slot:
