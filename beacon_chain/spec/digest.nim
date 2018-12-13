@@ -22,6 +22,8 @@
 
 import nimcrypto/[blake2, hash]
 
+export hash.`$`
+
 type
   Eth2Digest* = MDigest[32 * 8] ## `hash32` from spec
   Eth2Hash* = blake2_512 ## Context for hash function

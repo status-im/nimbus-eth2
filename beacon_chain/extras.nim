@@ -8,17 +8,4 @@
 # Temporary dumping ground for extra types and helpers that could make it into
 # the spec potentially
 
-import
-  ./spec/[crypto, digest]
-
-const
-  BEACON_CHAIN_SHARD* = 0xffffffffffffffff'u64
-
-type
-  InitialValidator* = object
-    ## Eth1 validator registration contract output
-    pubkey*: ValidatorPubKey
-    deposit_size*: uint64
-    proof_of_possession*: ValidatorSig
-    withdrawal_credentials*: Eth2Digest
-    randao_commitment*: Eth2Digest
+# TODO Woohoo, nothing for now!

@@ -10,7 +10,7 @@
 #
 # The purpose of this code right is primarily educational, to help piece
 # together the mechanics of the beacon state and to discover potential problem
-# areas.
+# areas. The entry point is `updateState` which is at the bottom of the file!
 #
 # General notes about the code (TODO):
 # * It's inefficient - we quadratically copy, allocate and iterate when there
@@ -34,36 +34,14 @@
 # now.
 
 import
-  math, options, sequtils,
+  chronicles, math, options, sequtils,
   ./extras, ./ssz,
   ./spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
   milagro_crypto
 
-func processAttestations(state: var BeaconState,
-                         blck: BeaconBlock): bool =
-  # Each block includes a number of attestations that the proposer chose. Each
-  # attestation represents an update to a specific shard and is signed by a
-  # committee of validators.
-  # Here we make sanity checks for each attestation and it to the state - most
-  # updates will happen at the epoch boundary where state updates happen in
-  # bulk.
-  if blck.body.attestations.len > MAX_ATTESTATIONS_PER_BLOCK:
-    return
-
-  if not allIt(blck.body.attestations, checkAttestation(state, it)):
-    return
-
-  # All checks passed - update state
-  state.latest_attestations.add mapIt(blck.body.attestations,
-    PendingAttestationRecord(
-      data: it.data,
-      participation_bitfield: it.participation_bitfield,
-      custody_bitfield: it.custody_bitfield,
-      slot_included: state.slot
-    )
-  )
-
-  true
+func flatten[T](v: openArray[seq[T]]): seq[T] =
+  # TODO not in nim - doh.
+  for x in v: result.add x
 
 func verifyProposerSignature(state: BeaconState, blck: BeaconBlock): bool =
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#proposer-signature
@@ -72,98 +50,314 @@ func verifyProposerSignature(state: BeaconState, blck: BeaconBlock): bool =
   blck_without_sig.signature = ValidatorSig()
 
   let
-    proposal_hash = hash_tree_root(ProposalSignedData(
+    signed_data = ProposalSignedData(
       slot: state.slot,
-      shard: BEACON_CHAIN_SHARD,
+      shard: BEACON_CHAIN_SHARD_NUMBER,
       block_root: Eth2Digest(data: hash_tree_root(blck_without_sig))
-    ))
+    )
+    proposal_hash = hash_tree_root(signed_data)
 
-  let validator_idx = get_beacon_proposer_index(state, state.slot)
+  let proposer_index = get_beacon_proposer_index(state, state.slot)
+
   BLSVerify(
-    state.validator_registry[validator_idx].pubkey,
+    state.validator_registry[proposer_index].pubkey,
     proposal_hash, blck.signature,
     get_domain(state.fork_data, state.slot, DOMAIN_PROPOSAL))
 
-func processRandaoReveal(state: var BeaconState,
-                         blck: BeaconBlock): bool =
+func processRandao(state: var BeaconState, blck: BeaconBlock): bool =
+  ## When a validator signs up, they will commit an hash to the block,
+  ## the randao_commitment - this hash is the result of a secret value
+  ## hashed n times.
+  ## The first time the proposer proposes a block, they will hash their secret
+  ## value n-1 times, and provide that as "reveal" - now everyone else can
+  ## verify the reveal by hashing once.
+  ## The next time the proposer proposes, they will reveal the secret value
+  ## hashed n-2 times and so on, and everyone will verify that it matches n-1.
+  ##
+  ## Effectively, the block proposer can only reveal n - 1 times, so better pick
+  ## a large N!
+  ##
+  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#randao
   let
     proposer_index = get_beacon_proposer_index(state, state.slot)
     proposer = addr state.validator_registry[proposer_index]
 
   # Check that proposer commit and reveal match
-  if repeat_hash(blck.randao_reveal, proposer.randao_skips + 1) !=
+  if repeat_hash(blck.randao_reveal, proposer.randao_layers) !=
       proposer.randao_commitment:
-    return
+    return false
 
   # Update state and proposer now that we're alright
   for i, b in state.randao_mix.data:
     state.randao_mix.data[i] = b xor blck.randao_reveal.data[i]
 
   proposer.randao_commitment = blck.randao_reveal
-  proposer.randao_skips = 0
+  proposer.randao_layers = 0
 
-  true
+  return true
 
-func processPoWReceiptRoot(state: var BeaconState, blck: BeaconBlock): bool =
+func processPoWReceiptRoot(state: var BeaconState, blck: BeaconBlock) =
+  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#pow-receipt-root
+
   for x in state.candidate_pow_receipt_roots.mitems():
     if blck.candidate_pow_receipt_root == x.candidate_pow_receipt_root:
       x.votes += 1
-      return true
+      return
 
   state.candidate_pow_receipt_roots.add CandidatePoWReceiptRootRecord(
     candidate_pow_receipt_root: blck.candidate_pow_receipt_root,
     votes: 1
   )
+
+proc processProposerSlashings(state: var BeaconState, blck: BeaconBlock): bool =
+  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#proposer-slashings-1
+
+  if len(blck.body.proposer_slashings) > MAX_PROPOSER_SLASHINGS:
+    warn("PropSlash: too many!",
+      proposer_slashings = len(blck.body.proposer_slashings))
+    return false
+
+  for proposer_slashing in blck.body.proposer_slashings:
+    let proposer = addr state.validator_registry[proposer_slashing.proposer_index]
+    if not BLSVerify(
+        proposer.pubkey,
+        hash_tree_root(proposer_slashing.proposal_data_1),
+        proposer_slashing.proposal_signature_1,
+        get_domain(
+          state.fork_data, proposer_slashing.proposal_data_1.slot,
+          DOMAIN_PROPOSAL)):
+      warn("PropSlash: invalid signature 1")
+      return false
+    if not BLSVerify(
+        proposer.pubkey,
+        hash_tree_root(proposer_slashing.proposal_data_2),
+        proposer_slashing.proposal_signature_2,
+        get_domain(
+          state.fork_data, proposer_slashing.proposal_data_2.slot,
+          DOMAIN_PROPOSAL)):
+      warn("PropSlash: invalid signature 2")
+      return false
+
+    if not (proposer_slashing.proposal_data_1.slot ==
+        proposer_slashing.proposal_data_2.slot):
+      warn("PropSlash: slot mismatch")
+      return false
+
+    if not (proposer_slashing.proposal_data_1.shard ==
+        proposer_slashing.proposal_data_2.shard):
+      warn("PropSlash: shard mismatch")
+      return false
+
+    if not (proposer_slashing.proposal_data_1.block_root ==
+        proposer_slashing.proposal_data_2.block_root):
+      warn("PropSlash: block root mismatch")
+      return false
+
+    if not (proposer.status != EXITED_WITH_PENALTY):
+      warn("PropSlash: wrong status")
+      return false
+
+    update_validator_status(
+      state, proposer_slashing.proposer_index, EXITED_WITH_PENALTY)
+
   return true
 
+func verify_casper_votes(state: BeaconState, votes: SlashableVoteData): bool =
+  if len(votes.aggregate_signature_poc_0_indices) +
+      len(votes.aggregate_signature_poc_1_indices) > MAX_CASPER_VOTES:
+    return false
 
-func processBlock(state: var BeaconState, blck: BeaconBlock): bool =
+  # TODO
+  # let pubs = [
+  #   aggregate_pubkey(mapIt(votes.aggregate_signature_poc_0_indices,
+  #     state.validators[it].pubkey)),
+  #   aggregate_pubkey(mapIt(votes.aggregate_signature_poc_1_indices,
+  #     state.validators[it].pubkey))]
+
+  # return bls_verify_multiple(pubs, [hash_tree_root(votes)+bytes1(0), hash_tree_root(votes)+bytes1(1), signature=aggregate_signature)
+
+  return true
+
+proc indices(vote: SlashableVoteData): seq[Uint24] =
+  vote.aggregate_signature_poc_0_indices &
+    vote.aggregate_signature_poc_1_indices
+
+proc processCasperSlashings(state: var BeaconState, blck: BeaconBlock): bool =
+  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#casper-slashings-1
+  if len(blck.body.casper_slashings) > MAX_CASPER_SLASHINGS:
+    warn("CaspSlash: too many!")
+    return false
+
+  for casper_slashing in blck.body.casper_slashings:
+    if not verify_casper_votes(state, casper_slashing.votes_1):
+      warn("CaspSlash: invalid votes 1")
+      return false
+    if not verify_casper_votes(state, casper_slashing.votes_2):
+      warn("CaspSlash: invalid votes 2")
+      return false
+    if not (casper_slashing.votes_1.data != casper_slashing.votes_2.data):
+      warn("CaspSlash: invalid data")
+      return false
+
+    let intersection = filterIt(
+      indices(casper_slashing.votes_1), it in indices(casper_slashing.votes_2))
+
+    if len(intersection) < 1:
+      warn("CaspSlash: no intersection")
+      return false
+
+    if not (
+        ((casper_slashing.votes_1.data.justified_slot + 1 <
+          casper_slashing.votes_2.data.justified_slot + 1) ==
+        (casper_slashing.votes_2.data.slot < casper_slashing.votes_1.data.slot)) or
+        (casper_slashing.votes_1.data.slot == casper_slashing.votes_2.data.slot)):
+      warn("CaspSlash: some weird long condition failed")
+      return false
+
+    for i in intersection:
+      if state.validator_registry[i].status != EXITED_WITH_PENALTY:
+        update_validator_status(state, i, EXITED_WITH_PENALTY)
+
+  return true
+
+proc processAttestations(state: var BeaconState, blck: BeaconBlock): bool =
+  ## Each block includes a number of attestations that the proposer chose. Each
+  ## attestation represents an update to a specific shard and is signed by a
+  ## committee of validators.
+  ## Here we make sanity checks for each attestation and it to the state - most
+  ## updates will happen at the epoch boundary where state updates happen in
+  ## bulk.
+  ##
+  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#attestations-1
+  if blck.body.attestations.len > MAX_ATTESTATIONS:
+    warn("Attestation: too many!", attestations = blck.body.attestations.len)
+    return false
+
+  if not allIt(blck.body.attestations, checkAttestation(state, it)):
+    return false
+
+  # All checks passed - update state
+  state.latest_attestations.add mapIt(blck.body.attestations,
+    PendingAttestationRecord(
+      data: it.data,
+      participation_bitfield: it.participation_bitfield,
+      custody_bitfield: it.custody_bitfield,
+      slot_included: state.slot,
+    )
+  )
+
+  return true
+
+proc processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
+  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#deposits-1
+  # TODO! Spec writing in progress
+  true
+
+proc processExits(state: var BeaconState, blck: BeaconBlock): bool =
+  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#exits-1
+  if len(blck.body.exits) > MAX_EXITS:
+    warn("Exit: too many!")
+    return false
+
+  for exit in blck.body.exits:
+    let validator = state.validator_registry[exit.validator_index]
+
+    if not BLSVerify(
+        validator.pubkey, ZERO_HASH.data, exit.signature,
+        get_domain(state.fork_data, exit.slot, DOMAIN_EXIT)):
+      warn("Exit: invalid signature")
+      return false
+
+    if not (validator.status == ACTIVE):
+      warn("Exit: validator not active")
+      return false
+
+    if not (state.slot >= exit.slot):
+      warn("Exit: bad slot")
+      return false
+
+    if not (state.slot >=
+        validator.latest_status_change_slot +
+          SHARD_PERSISTENT_COMMITTEE_CHANGE_PERIOD):
+      warn("Exit: not within committee change period")
+
+    update_validator_status(state, exit.validator_index, ACTIVE_PENDING_EXIT)
+
+  return true
+
+proc process_ejections(state: var BeaconState) =
+  ## Iterate through the validator registry and eject active validators with
+  ## balance below ``EJECTION_BALANCE``
+  ##
+  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#ejections
+
+  for index, validator in state.validator_registry:
+    if is_active_validator(validator) and validator.balance < EJECTION_BALANCE:
+        update_validator_status(state, index.Uint24, EXITED_WITHOUT_PENALTY)
+
+proc processBlock(state: var BeaconState, latest_block, blck: BeaconBlock): bool =
+  ## When there's a new block, we need to verify that the block is sane and
+  ## update the state accordingly
+
+  # TODO when there's a failure, we should reset the state!
+  # TODO probably better to do all verification first, then apply state changes
+
+  if blck.slot != state.slot:
+    warn("Unexpected block slot number")
+    return false
+
+  if not verifyProposerSignature(state, blck):
+    warn("Proposer signature not valid")
+    return false
+
+  if not processRandao(state, blck):
+    warn("Randao reveal failed")
+    return false
+
+  processPoWReceiptRoot(state, blck)
+
+  if not processProposerSlashings(state, blck):
+    return false
+
+  if not processCasperSlashings(state, blck):
+    return false
+
   if not processAttestations(state, blck):
-    false
-  elif not verifyProposerSignature(state, blck):
-    false
-  elif not processRandaoReveal(state, blck):
-    false
-  elif not processPoWReceiptRoot(state, blck):
-    false
-  else:
-    true
+    return false
 
-func processSlot(state: var BeaconState, latest_block: BeaconBlock): bool =
+  if not processDeposits(state, blck):
+    return false
+
+  if not processExits(state, blck):
+    return false
+
+  process_ejections(state)
+
+  return true
+
+func processSlot(state: var BeaconState, latest_block: BeaconBlock) =
   ## Time on the beacon chain moves in slots. Every time we make it to a new
   ## slot, a proposer cleates a block to represent the state of the beacon
   ## chain at that time. In case the proposer is missing, it may happen that
   ## the no block is produced during the slot.
   ##
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#per-slot-processing
-  # TODO state not rolled back in case of failure
 
   let
     latest_hash = Eth2Digest(data: hash_tree_root(latest_block))
 
   state.slot += 1
-  state.latest_block_roots.add latest_hash
+  state.validator_registry[
+    get_beacon_proposer_index(state, state.slot)].randao_layers += 1
 
-  if state.latest_block_roots.len < 2 or
-      state.latest_block_roots[^2] != state.latest_block_roots[^1]:
-    # TODO a bit late for the following checks?
-    # https://github.com/ethereum/eth2.0-specs/issues/284
-    if latest_block.slot != state.slot:
-      false
-    elif latest_block.ancestor_hashes !=
-        get_updated_ancestor_hashes(latest_block, latest_hash):
-      false
-    else:
-      processBlock(state, latest_block)
-  else:
-    state.validator_registry[get_beacon_proposer_index(state, state.slot)].randao_skips += 1
-    # Skip all other per-slot processing. Move directly to epoch processing
-    # prison. Do not do any slot updates when passing go.
-    true
+  let
+    previous_block_root = Eth2Digest(data: hash_tree_root(latest_block))
+  for i in 0 ..< state.latest_block_roots.len - 1:
+    state.latest_block_roots[i] = state.latest_block_roots[i + 1]
+  state.latest_block_roots[^1] = previous_block_root
 
-func flatten[T](v: openArray[seq[T]]): seq[T] =
-  # TODO not in nim - doh.
-  for x in v: result.add x
+  if state.slot mod LATEST_BLOCK_ROOTS_COUNT == 0:
+    state.batched_block_roots.add(merkle_root(state.latest_block_roots))
 
 func get_epoch_boundary_attesters(
     state: BeaconState,
@@ -199,11 +393,13 @@ func lowerThan(candidate, current: Eth2Digest): bool =
     if v > candidate.data[i]: return true
   return false
 
-func processEpoch(state: var BeaconState, blck: BeaconBlock): bool =
+func processEpoch(state: var BeaconState, blck: BeaconBlock) =
   ## Epoch processing happens every time we've passed EPOCH_LENGTH blocks.
   ## Because some slots may be skipped, it may happen that we go through the
   ## loop more than once - each time the latest_state_recalculation_slot will be
   ## increased by EPOCH_LENGTH.
+  ##
+  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#per-epoch-processing
 
   while blck.slot >= EPOCH_LENGTH.uint64 + state.latest_state_recalculation_slot:
     # Convenience shortcut, from spec
@@ -470,28 +666,57 @@ func processEpoch(state: var BeaconState, blck: BeaconBlock): bool =
       # TODO Remove all attestation records older than slot `s`.
       state.latest_block_roots = state.latest_block_roots[EPOCH_LENGTH..^1]
 
-  true
-
-func updateState*(state: BeaconState, latest_block: BeaconBlock): Option[BeaconState] =
-  ## Adjust `state` according to the information in `blck`.
-  ## Returns the new state, or `none` if the block is invalid.
-
+proc updateState*(state: BeaconState, latest_block: BeaconBlock,
+    new_block: Option[BeaconBlock]):
+      tuple[state: BeaconState, block_ok: bool] =
+  ## Time in the beacon chain moves by slots. Every time (haha.) that happens,
+  ## we will update the beacon state. Normally, the state updates will be driven
+  ## by the contents of a new block, but it may happen that the block goes
+  ## missing - the state updates happen regardless.
+  ## Each call to this function will advance the state by one slot - new_block,
+  ## if present, must match that slot.
+  #
+  # TODO this function can be written with a loop inside to handle all empty
+  #      slots up to the slot of the new_block - but then again, why not eagerly
+  #      update the state as time passes? Something to ponder...
   # TODO check to which extent this copy can be avoided (considering forks etc),
   #      for now, it serves as a reminder that we need to handle invalid blocks
   #      somewhere..
   # TODO many functions will mutate `state` partially without rolling back
   #      the changes in case of failure (look out for `var BeaconState` and
   #      bool return values...)
-  var state = state
+  # TODO There's a discussion about what this function should do, and when:
+  #      https://github.com/ethereum/eth2.0-specs/issues/284
+  var new_state = state
 
-  # Slot processing is split up into two phases - lightweight updates done
-  # for each slot, and bigger updates done for each epoch.
+  # Per-slot updates - these happen regardless if there is a block or not
+  processSlot(new_state, latest_block)
 
-  # Lightweight updates that happen for every slot
-  if not processSlot(state, latest_block): return
+  let block_ok =
+    if new_block.isSome():
+      # Block updates - these happen when there's a new block being suggested
+      # by the block proposer. Every actor in the network will update its state
+      # according to the contents of this block - but first they will validate
+      # that the block is sane.
+      # TODO what should happen if block processing fails?
+      #      https://github.com/ethereum/eth2.0-specs/issues/293
+      var block_state = new_state
+      if processBlock(block_state, latest_block, new_block.get()):
+        # processBlock will mutate the state! only apply if it worked..
+        # TODO yeah, this too is inefficient
+        new_state = block_state
+        true
+      else:
+        false
+    else:
+      let proposer_index = get_beacon_proposer_index(new_state, new_state.slot)
+      new_state.validator_registry[proposer_index].randao_layers += 1
+      # Skip all other per-slot processing. Move directly to epoch processing
+      # prison. Do not do any slot updates when passing go.
+      true
 
-  # Heavy updates that happen for every epoch
-  if not processEpoch(state, latest_block): return
+  # Heavy updates that happen for every epoch - these never fail (or so we hope)
+  processEpoch(new_state, latest_block)
 
-  # All good, we can return the new state
-  some(state)
+  # State update never fails, but block validation might...
+  (new_state, block_ok)

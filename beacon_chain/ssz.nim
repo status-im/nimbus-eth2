@@ -159,7 +159,7 @@ func hash(a, b: openArray[byte]): array[32, byte] =
 func empty(T: typedesc): T = discard
 const emptyChunk = empty(array[CHUNK_SIZE, byte])
 
-func merkleHash[T](lst: seq[T]): array[32, byte]
+func merkleHash[T](lst: openArray[T]): array[32, byte]
 
 # ################### Hashing interface ###################################
 
@@ -185,25 +185,8 @@ func hash_tree_root*(x: openArray[byte]): array[32, byte] =
   ## Blobs are hashed
   hash(x)
 
-func hash_tree_root*(x: ValidatorRecord): array[32, byte] =
-  ## Containers have their fields recursively hashed, concatenated and hashed
-  # TODO hash_ssz.py code contains special cases for some types, why?
-  withHash:
-    # tmp.add(x.pubkey) # TODO uncertain future of public key format
-    h.update hash_tree_root(x.withdrawal_credentials)
-    h.update hash_tree_root(x.randao_skips)
-    h.update hash_tree_root(x.balance)
-    # h.update hash_tree_root(x.status) # TODO it's an enum, deal with it
-    h.update hash_tree_root(x.latest_status_change_slot)
-    h.update hash_tree_root(x.exit_count)
-
-func hash_tree_root*(x: ShardCommittee): array[32, byte] =
-  withHash:
-    h.update hash_tree_root(x.shard)
-    h.update merkleHash(x.committee)
-
 func hash_tree_root*[T: not enum](x: T): array[32, byte] =
-  when T is seq:
+  when T is seq or T is array:
     ## Sequences are tree-hashed
     merkleHash(x)
   else:
@@ -242,7 +225,7 @@ func hash_tree_root*(x: ValidatorSig): array[32, byte] =
 
 # ################### Tree hash ###################################
 
-func merkleHash[T](lst: seq[T]): array[32, byte] =
+func merkleHash[T](lst: openArray[T]): array[32, byte] =
   ## Merkle tree hash of a list of homogenous, non-empty items
 
   # TODO: the heap allocations here can be avoided by computing the merkle tree

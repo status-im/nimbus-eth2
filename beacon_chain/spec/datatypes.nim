@@ -16,7 +16,7 @@
 # https://github.com/ethereum/eth2.0-specs/blob/master/specs/beacon-chain.md
 #
 # How wrong the code is:
-# https://github.com/ethereum/eth2.0-specs/compare/f956135763cbb410a8c28b3a509f14f750ff287c...master
+# https://github.com/ethereum/eth2.0-specs/compare/8116562049ed80ad1823dd62e98a7483ddf1546c...master
 #
 # These datatypes are used as specifications for serialization - thus should not
 # be altered outside of what the spec says. Likewise, they should not be made
@@ -24,7 +24,7 @@
 # types / composition
 
 import
-  intsets, eth_common, math,
+  eth_common, math,
   ./crypto, ./digest
 
 # TODO Data types:
@@ -55,18 +55,22 @@ const
   ## Once the balance of a validator drops below this, it will be ejected from
   ## the validator pool
 
-  MAX_ATTESTATIONS_PER_BLOCK* = 2^7 # attestations
-
-  MIN_BALANCE* = 2'u64^4 ##\
-  ## Minimum balance in ETH before a validator is removed from the validator
-  ## pool
-
   MAX_BALANCE_CHURN_QUOTIENT* = 2^5 ##\
   ## At most `1/MAX_BALANCE_CHURN_QUOTIENT` of the validators can change during
   ## each validator registry change.
 
   GWEI_PER_ETH* = 10'u64^9 # Gwei/ETH
+
   BEACON_CHAIN_SHARD_NUMBER* = not 0'u64 # 2^64 - 1 in spec
+
+  BLS_WITHDRAWAL_PREFIX_BYTE* = 0'u8
+
+  MAX_CASPER_VOTES* = 2^10
+  LATEST_BLOCK_ROOTS_COUNT* = 2'u64^13
+
+  MIN_BALANCE* = 2'u64^4 ##\
+  ## Minimum balance in ETH before a validator is removed from the validator
+  ## pool
 
   DEPOSIT_CONTRACT_TREE_DEPTH* = 2^5
 
@@ -112,13 +116,19 @@ const
   ## slots (~291 days)
 
   # Quotients
-  BASE_REWARD_QUOTIENT* = 2'u64^11 ##\
-  ## per-cycle interest rate assuming all validators are participating, assuming
-  ## total deposits of 1 ETH. It corresponds to ~2.57% annual interest assuming
-  ## 10 million participating ETH.
+  BASE_REWARD_QUOTIENT* = 2'u64^10 ##\
+  ## The `BASE_REWARD_QUOTIENT` parameter dictates the per-epoch reward. It
+  ## corresponds to ~2.54% annual interest assuming 10 million participating
+  ## ETH in every epoch.
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
   INCLUDER_REWARD_QUOTIENT* = 2'u64^3
   INACTIVITY_PENALTY_QUOTIENT* = 2'u64^34
+
+  MAX_PROPOSER_SLASHINGS* = 2^4
+  MAX_CASPER_SLASHINGS* = 2^4
+  MAX_ATTESTATIONS* = 2^7
+  MAX_DEPOSITS* = 2^4
+  MAX_EXITS* = 2^4
 
 type
   Uint24* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
@@ -198,7 +208,7 @@ type
     # Minimum slot for processing exit
     slot*: uint64
     # Index of the exiting validator
-    validator_index*: uint64
+    validator_index*: Uint24
     # Validator signature
     signature*: ValidatorSig
 
@@ -210,9 +220,7 @@ type
     ## is formed.
 
     slot*: uint64
-    ancestor_hashes*: seq[Eth2Digest] ##\
-    ## Skip list of previous beacon block hashes i'th item is most recent
-    ## ancestor whose slot is a multiple of 2**i for i == 0, ..., 31
+    parent_root*: Eth2Digest
 
     state_root*: Eth2Digest
 
@@ -227,9 +235,9 @@ type
     body*: BeaconBlockBody
 
   BeaconBlockBody* = object
-    attestations*: seq[Attestation]
     proposer_slashings*: seq[ProposerSlashing]
     casper_slashings*: seq[CasperSlashing]
+    attestations*: seq[Attestation]
     deposits*: seq[Deposit]
     exits*: seq[Exit]
 
@@ -274,19 +282,32 @@ type
     latest_penalized_exit_balances*: seq[uint64] ##\
     ## Balances penalized in the current withdrawal period
     latest_attestations*: seq[PendingAttestationRecord]
+    batched_block_roots*: seq[Eth2Digest]
 
     processed_pow_receipt_root*: Eth2Digest
     candidate_pow_receipt_roots*: seq[CandidatePoWReceiptRootRecord]
 
   ValidatorRecord* = object
-    pubkey*: ValidatorPubKey                      # Public key
-    withdrawal_credentials*: Eth2Digest           # Withdrawal credentials
-    randao_commitment*: Eth2Digest                # RANDAO commitment
-    randao_skips*: uint64                         # Slot the proposer has skipped (ie. layers of RANDAO expected)
-    balance*: uint64                              # Balance in Gwei
-    status*: ValidatorStatusCodes                 # Status code
-    latest_status_change_slot*: uint64            # Slot when validator last changed status (or 0)
-    exit_count*: uint64                           # Exit counter when validator exited (or 0)
+    pubkey*: ValidatorPubKey
+    withdrawal_credentials*: Eth2Digest
+    randao_commitment*: Eth2Digest ##\
+    ## RANDAO commitment created by repeatedly taking the hash of a secret value
+    ## so as to create "onion layers" around it. For every block that a
+    ## validator proposes, one level of the onion is peeled. See:
+    ## * https://ethresear.ch/t/rng-exploitability-analysis-assuming-pure-randao-based-main-chain/1825
+    ## * repeat_hash
+    ## * processRandaoReveal
+
+    randao_layers*: uint64 ##\
+    ## Slot the proposer has skipped (ie. layers of RANDAO expected)
+
+    balance*: uint64 # Balance in Gwei
+    status*: ValidatorStatusCodes
+    latest_status_change_slot*: uint64 ##\
+    ## Slot when validator last changed status (or 0)
+
+    exit_count*: uint64 ##\
+    ## Exit counter when validator exited (or 0)
 
   CrosslinkRecord* = object
     slot*: uint64                                 # Slot number
@@ -339,20 +360,6 @@ type
     DOMAIN_ATTESTATION = 1
     DOMAIN_PROPOSAL = 2
     DOMAIN_EXIT = 3
-
-    # Note:
-    # We use IntSet from Nim Standard library which are efficient sparse bitsets.
-    # See: https://nim-lang.org/docs/intsets.html
-    #
-    # Future:
-    #   IntSets stores the first 34 elements in an array[34, int] instead of a bitfield
-    #   to avoid heap allocation in profiled common cases.
-    #
-    #   In Ethereum we probably always have over 34 attesters given the goal of decentralization.
-    #   Allocating 8 * 34 = 272 bytes on the stack is wasteful, when this can be packed in just 8 bytes
-    #   with room to spare.
-    #
-    #   Also, IntSets uses machine int size while we require int64 even on 32-bit platform.
 
 when true:
   # TODO: Remove these once RLP serialization is no longer used

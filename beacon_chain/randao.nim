@@ -1,4 +1,4 @@
-import spec/digest
+import spec/[digest, helpers]
 
 type Randao* = object
   seed: Eth2Digest
@@ -14,13 +14,6 @@ proc initRandao*(bytes: openarray[byte]): Randao =
   var s: Eth2Digest
   s.data[0 .. ^1] = bytes
   initRandao(bytes)
-
-func repeatHash*(h: Eth2Digest, n: int): Eth2Digest =
-  result = h
-  var n = n
-  while n != 0:
-    result = eth2hash(result.data)
-    dec n
 
 proc initialCommitment*(r: Randao): Eth2Digest =
   repeatHash(r.seed, MaxRandaoLevels)

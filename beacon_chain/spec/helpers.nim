@@ -82,10 +82,15 @@ func get_new_recent_block_roots*(old_block_roots: seq[Eth2Digest],
 func ceil_div8*(v: int): int = (v + 7) div 8 # TODO use a proper bitarray!
 
 func repeat_hash*(v: Eth2Digest, n: SomeInteger): Eth2Digest =
-  if n == 0:
-    v
-  else:
-    repeat_hash(eth2hash(v.data), n - 1)
+  # Spec version:
+  # if n == 0: v
+  # else: repeat_hash(eth2hash(v.data), n - 1)
+  # Nim is pretty bad at recursion though (max 2k levels / no tco), so:
+  result = v
+  var n = n
+  while n != 0:
+    result = eth2hash(result.data)
+    dec n
 
 func get_shard_and_committees_index*(state: BeaconState, slot: uint64): uint64 =
   # TODO spec unsigned-unsafe here
@@ -137,10 +142,10 @@ func get_domain*(
 
 func is_power_of_2*(v: uint64): bool = (v and (v-1)) == 0
 
-func get_updated_ancestor_hashes*(latest_block: BeaconBlock,
-                                  latest_hash: Eth2Digest): seq[Eth2Digest] =
-    var new_ancestor_hashes = latest_block.ancestor_hashes
-    for i in 0..<32:
-      if latest_block.slot mod 2'u64^i == 0:
-        new_ancestor_hashes[i] = latest_hash
-    new_ancestor_hashes
+func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
+  # o = [0] * len(values) + values
+  # for i in range(len(values)-1, 0, -1):
+  #     o[i] = hash(o[i*2] + o[i*2+1])
+  # return o[1]
+  # TODO
+  discard

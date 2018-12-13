@@ -11,6 +11,7 @@
 
 import
   milagro_crypto, hashes
+export milagro_crypto.`$`
 
 type
   ValidatorPubKey* = milagro_crypto.VerKey
