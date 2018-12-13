@@ -11,6 +11,10 @@ Please see [Full Beacon chain](https://github.com/ethereum/eth2.0-specs/blob/mas
 
 You can check where the beacon chain fits in the Ethereum research ecosystem in the [Status Athenaeum](https://github.com/status-im/athenaeum/blob/b465626cc551e361492e56d32517b2cdadd7493f/ethereum_research_records.json#L38).
 
+## Test vectors
+
+The Eth 2.0 test vectors and their generators are available in a [dedicated repository](https://github.com/status-im/eth2-testgen).
+
 ## Convention
 
 Ethereum Foundation uses:
