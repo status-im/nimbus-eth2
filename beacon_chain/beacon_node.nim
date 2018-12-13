@@ -197,7 +197,8 @@ proc processBlocks*(node: BeaconNode) {.async.} =
     #
     # 1. Validate the attestation
 
-    node.attestations.add(a, node.beaconState)
+    # node.attestations.add(a, node.beaconState)
+    discard
 
 when isMainModule:
   let config = BeaconNodeConf.load()
