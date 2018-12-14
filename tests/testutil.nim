@@ -73,13 +73,14 @@ func makeGenesisBlock*(state: BeaconState): BeaconBlock =
 
 func makeBlock*(
     state: BeaconState, latest_block: BeaconBlock): BeaconBlock =
+  var next_state = state
+  next_state.slot += 1
   let
-    new_slot = state.slot + 1
     proposer = state.validator_registry[
-      get_beacon_proposer_index(state, new_slot)]
+      get_beacon_proposer_index(next_state, next_state.slot)]
 
   var new_block = BeaconBlock(
-      slot: new_slot,
+      slot: next_state.slot,
       state_root: Eth2Digest(data: hash_tree_root(state)),
       randao_reveal: hackReveal(proposer)
     )
