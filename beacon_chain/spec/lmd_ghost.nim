@@ -41,7 +41,7 @@ type
     # and each attester via it's attester index (from AttestationRecord object)
     # TODO/Question: Should we use the public key? That would defeat the pubkey aggregation purpose
 
-    verified_attestations: Table[AttesterIdx, ref seq[AttestationSignedData]]
+    verified_attestations: Table[AttesterIdx, ref seq[AttestationData]]
       # TODO: We assume that ref seq[AttestationData] is queue, ordered by
       #       a pair (slot, observation time).
     verified_blocks: Table[BlockHash, BeaconBlock]
@@ -49,7 +49,7 @@ type
     justified_head: BeaconBlock
 
 func hash(x: BlockHash): Hash =
-  ## Hash for Blake2 digests for Nim hash tables
+  ## Hash for Keccak digests for Nim hash tables
   # We just slice the first 4 or 8 bytes of the block hash
   # depending of if we are on a 32 or 64-bit platform
   const size = x.sizeof
@@ -57,10 +57,7 @@ func hash(x: BlockHash): Hash =
   result = cast[array[num_hashes, Hash]](x)[0]
 
 func get_parent(store: Store, blck: BeaconBlock): BeaconBlock =
-  ## Ancestor_hashes is of type array[32, BlockHash]
-  ## with ancestor_hashes[i] the most recent parent
-  ## whose slot is a multiple of 2^i
-  store.verified_blocks[blck.ancestor_hashes[0]]
+  store.verified_blocks[blck.parent_root]
 
 func get_ancestor(store: Store, blck: BeaconBlock, slot: uint64): BeaconBlock =
   ## Find the ancestor with a specific slot number
@@ -70,11 +67,11 @@ func get_ancestor(store: Store, blck: BeaconBlock, slot: uint64): BeaconBlock =
     return store.get_ancestor(store.get_parent(blck), slot)
   # TODO: what if the slot was never observed/verified?
 
-func get_latest_attestation(store: Store, validatorIdx: AttesterIdx): AttestationSignedData =
+func get_latest_attestation(store: Store, validatorIdx: AttesterIdx): AttestationData =
   ## Search for the attestation with the highest slot number
   ## If multiple attestation have the same slot number, keep the first one.
 
-  # We assume that in `verified_attestations: Table[AttesterIdx, seq[AttestationSignedData]]`
+  # We assume that in `verified_attestations: Table[AttesterIdx, seq[AttestationData]]`
   # `seq[AttestationSignedData]` is a queue ordered by (slot, observation time)
 
   let attestations = store.verified_attestations[validatorIdx]
@@ -86,4 +83,4 @@ func get_latest_attestation(store: Store, validatorIdx: AttesterIdx): Attestatio
       return
 
 func get_latest_attestation_target(store: Store, validatorIdx: AttesterIdx): BlockHash =
-  store.get_latest_attestation(validatorIdx).block_hash
+  store.get_latest_attestation(validatorIdx).beacon_block_root
