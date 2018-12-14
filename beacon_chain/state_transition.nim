@@ -787,8 +787,8 @@ proc updateState*(state: BeaconState, latest_block: BeaconBlock,
       else:
         false
     else:
-      # Skip all other per-slot processing. Move directly to epoch processing
-      # prison. Do not do any slot updates when passing go.
+      # Skip all per-block processing. Move directly to epoch processing
+      # prison. Do not do any block updates when passing go.
       true
 
   # Heavy updates that happen for every epoch - these never fail (or so we hope)
