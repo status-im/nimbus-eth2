@@ -195,12 +195,8 @@ proc processBlocks*(node: BeaconNode) {.async.} =
       node.attestations.discardHistoryToSlot(b.slot.int)
 
   node.network.subscribe(topicAttestations) do (a: Attestation):
-    # TODO
-    #
-    # 1. Validate the attestation
-
-    # node.attestations.add(a, node.beaconState)
-    discard
+    # Attestations are verified as a aggregated group
+    node.attestations.add(getAttestationCandidate a, node.beaconState)
 
 when isMainModule:
   let config = BeaconNodeConf.load()

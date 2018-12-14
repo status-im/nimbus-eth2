@@ -162,18 +162,18 @@ proc processProposerSlashings(state: var BeaconState, blck: BeaconBlock): bool =
 
   return true
 
-func verify_casper_votes(state: BeaconState, votes: SlashableVoteData): bool =
-  if len(votes.aggregate_signature_poc_0_indices) +
-      len(votes.aggregate_signature_poc_1_indices) > MAX_CASPER_VOTES:
+func verify_slashable_vote_data(state: BeaconState, vote_data: SlashableVoteData): bool =
+  if len(vote_data.aggregate_signature_poc_0_indices) +
+      len(vote_data.aggregate_signature_poc_1_indices) > MAX_CASPER_VOTES:
     return false
 
-  # TODO
-  # let pubs = [
-  #   aggregate_pubkey(mapIt(votes.aggregate_signature_poc_0_indices,
-  #     state.validators[it].pubkey)),
-  #   aggregate_pubkey(mapIt(votes.aggregate_signature_poc_1_indices,
-  #     state.validators[it].pubkey))]
+  let pubs = [
+    BLSAddPubkeys(mapIt(vote_data.aggregate_signature_poc_0_indices,
+      state.validator_registry[it].pubkey)),
+    BLSAddPubkeys(mapIt(vote_data.aggregate_signature_poc_1_indices,
+      state.validator_registry[it].pubkey))]
 
+  # TODO
   # return bls_verify_multiple(pubs, [hash_tree_root(votes)+bytes1(0), hash_tree_root(votes)+bytes1(1), signature=aggregate_signature)
 
   return true
@@ -189,10 +189,10 @@ proc processCasperSlashings(state: var BeaconState, blck: BeaconBlock): bool =
     return false
 
   for casper_slashing in blck.body.casper_slashings:
-    if not verify_casper_votes(state, casper_slashing.votes_1):
+    if not verify_slashable_vote_data(state, casper_slashing.votes_1):
       warn("CaspSlash: invalid votes 1")
       return false
-    if not verify_casper_votes(state, casper_slashing.votes_2):
+    if not verify_slashable_vote_data(state, casper_slashing.votes_2):
       warn("CaspSlash: invalid votes 2")
       return false
     if not (casper_slashing.votes_1.data != casper_slashing.votes_2.data):
