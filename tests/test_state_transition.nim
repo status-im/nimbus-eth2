@@ -66,3 +66,27 @@ suite "Block processing":
 
     check:
       state.slot == latest_block.slot
+
+  test "Increments proposer randao_layers, no block":
+    let
+      state = on_startup(makeInitialDeposits(), 0, Eth2Digest())
+      latest_block = makeGenesisBlock(state)
+      expected_proposer_index = get_beacon_proposer_index(state, state.slot + 1)
+      previous_randao_layers = state.validator_registry[expected_proposer_index].randao_layers
+      new_state = updateState(state, latest_block, none(BeaconBlock))
+    check:
+      new_state.state.validator_registry[expected_proposer_index].randao_layers ==
+        previous_randao_layers + 1
+
+  test "Proposer randao layers unchanged, empty block":
+    let
+      state = on_startup(makeInitialDeposits(), 0, Eth2Digest())
+      latest_block = makeGenesisBlock(state)
+      proposer_index = get_beacon_proposer_index(state, state.slot + 1)
+      previous_randao_layers = state.validator_registry[proposer_index].randao_layers
+      new_block = makeBlock(state, latest_block)
+      new_state = updateState(state, latest_block, some(new_block))
+
+    check:
+      new_state.state.validator_registry[proposer_index].randao_layers ==
+        previous_randao_layers

@@ -787,8 +787,6 @@ proc updateState*(state: BeaconState, latest_block: BeaconBlock,
       else:
         false
     else:
-      let proposer_index = get_beacon_proposer_index(new_state, new_state.slot)
-      new_state.validator_registry[proposer_index].randao_layers += 1
       # Skip all other per-slot processing. Move directly to epoch processing
       # prison. Do not do any slot updates when passing go.
       true
