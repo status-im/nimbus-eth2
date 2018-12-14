@@ -16,7 +16,7 @@ import
   random,
   # Nimble packages
   nimcrypto,
-  ../digest
+  ../../beacon_chain/spec/digest
 
 const
   NOTARIES* = 100     # Committee size in Casper v2.1
