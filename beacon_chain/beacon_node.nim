@@ -195,7 +195,7 @@ proc processBlocks*(node: BeaconNode) {.async.} =
       node.attestations.discardHistoryToSlot(b.slot.int)
 
   node.network.subscribe(topicAttestations) do (a: Attestation):
-    # Attestations are verified as a aggregated group
+    # Attestations are verified as aggregated groups
     node.attestations.add(getAttestationCandidate a, node.beaconState)
 
 when isMainModule:
