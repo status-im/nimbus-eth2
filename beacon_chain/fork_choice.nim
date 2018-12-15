@@ -56,13 +56,18 @@ proc discardHistoryToSlot*(pool: var AttestationPool, slot: int) =
   let slotIdx = int(slot - pool.startingSlot)
   pool.attestations.shrink(fromFirst = slotIdx + 1)
 
-proc getLatestAttestation*(pool: AttestationPool, validator: ValidatorRecord) =
+func getAttestationCandidate*(attestation: Attestation): AttestationCandidate =
+  # TODO: not complete AttestationCandidate object
+  result.data = attestation.data
+  result.signature = attestation.aggregate_signature
+
+func getLatestAttestation*(pool: AttestationPool, validator: ValidatorRecord) =
   discard
 
-proc getLatestAttestationTarget*() =
+func getLatestAttestationTarget*() =
   discard
 
-proc forkChoice*(pool: AttestationPool, oldHead, newBlock: BeaconBlock): bool =
+func forkChoice*(pool: AttestationPool, oldHead, newBlock: BeaconBlock): bool =
   # This will return true if the new block is accepted over the old head block
   discard
 
