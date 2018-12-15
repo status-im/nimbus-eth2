@@ -6,20 +6,18 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # SSZ Serialization (simple serialize)
-# See https://github.com/ethereum/beacon_chain/issues/100
-# and https://github.com/ethereum/beacon_chain/tree/master/ssz
+# See https://github.com/ethereum/eth2.0-specs/blob/master/specs/simple-serialize.md
 
 import
   endians, typetraits, options, algorithm,
-  eth_common, nimcrypto/blake2,
+  eth_common, nimcrypto/blake2, milagro_crypto,
   ./spec/[crypto, datatypes, digest]
 
 from milagro_crypto import getRaw
 
 # ################### Helper functions ###################################
 
-func len(x: Uint24): int = 3
-
+# toBytesSSZ convert simple fixed-length types to their SSZ wire representation
 func toBytesSSZ(x: SomeInteger): array[sizeof(x), byte] =
   ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
   ## All integers are serialized as **big endian**.
@@ -40,7 +38,34 @@ func toBytesSSZ(x: Uint24): array[3, byte] =
 func toBytesSSZ(x: EthAddress): array[sizeof(x), byte] = x
 func toBytesSSZ(x: Eth2Digest): array[32, byte] = x.data
 
-func fromBytesSSZUnsafe(T: typedesc[SomeInteger], data: ptr byte): T =
+# TODO these two are still being debated:
+# https://github.com/ethereum/eth2.0-specs/issues/308#issuecomment-447026815
+func toBytesSSZ(x: ValidatorPubKey|ValidatorSig): auto = x.getRaw()
+
+type TrivialTypes =
+  # Types that serialize down to a fixed-length array - basically, all those
+  # for which toBytesSSZ is defined!
+  # TODO think about this for a bit - depends where the serialization of
+  #      validator keys ends up going..
+  SomeInteger | Uint24 | EthAddress | Eth2Digest | ValidatorPubKey |
+  ValidatorSig
+
+func sszLen(v: TrivialTypes): int =
+  toBytesSSZ(v).len
+
+func sszLen(v: object | tuple): int =
+  result = 4 # Length
+  for field in v.fields:
+    result += sszLen(type field)
+
+func sszLen(v: seq | array): int =
+  result = 4 # Length
+  for i in v:
+    result += sszLen(i)
+
+# fromBytesSSZUnsafe copy wire representation to a Nim variable, assuming
+# there's enough data in the buffer
+func fromBytesSSZUnsafe(T: typedesc[SomeInteger], data: pointer): T =
   ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
   ## All integers are serialized as **big endian**.
   ## TODO: Assumes data points to a sufficiently large buffer
@@ -57,76 +82,128 @@ func fromBytesSSZUnsafe(T: typedesc[SomeInteger], data: ptr byte): T =
   elif result.sizeof == 1: copyMem(result.addr, alignedBuf, sizeof(result))
   else: {.fatal: "Unsupported type deserialization: " & $(type(result)).name.}
 
-func `+`[T](p: ptr T, offset: int): ptr T =
-  ## Pointer arithmetic: Addition
-  const size = sizeof T
-  cast[ptr T](cast[ByteAddress](p) +% offset * size)
+func fromBytesSSZUnsafe(T: typedesc[Uint24], data: pointer): T =
+  ## Integers are all encoded as bigendian and not padded
+  var tmp: uint32
+  let p = cast[ptr UncheckedArray[byte]](data)
+  tmp = tmp or uint32(p[2])
+  tmp = tmp or uint32(p[1]) shl 8
+  tmp = tmp or uint32(p[0]) shl 16
+  result = tmp.Uint24
 
-func eat(x: var auto, data: ptr byte, pos: var int, len: int): bool =
-  if pos + x.sizeof > len: return
-  copyMem(x.addr, data + pos, x.sizeof)
-  inc pos, x.sizeof
-  return true
+func fromBytesSSZUnsafe(T: typedesc[EthAddress], data: pointer): T =
+  copyMem(result.addr, data, sizeof(result))
 
-func eatInt[T: SomeInteger](x: var T, data: ptr byte, pos: var int, len: int):
-    bool =
-  if pos + x.sizeof > len: return
+func fromBytesSSZUnsafe(T: typedesc[Eth2Digest], data: pointer): T =
+  copyMem(result.data.addr, data, sizeof(result.data))
 
-  x = T.fromBytesSSZUnsafe(data + pos)
+proc deserialize[T: TrivialTypes](
+    dest: var T, offset: var int, data: openArray[byte]): bool =
+  # TODO proc because milagro is problematic
+  if offset + sszLen(dest) > data.len():
+    false
+  else:
+    when T is (ValidatorPubKey|ValidatorSig):
+      if T.fromRaw(data[offset..data.len-1], dest):
+        offset += sszLen(dest)
+        true
+      else:
+        false
+    else:
+      dest = fromBytesSSZUnsafe(T, data[offset].unsafeAddr)
+      offset += sszLen(dest)
+      true
 
-  inc pos, x.sizeof
-  return true
+func deserialize[T: enum](dest: var T, offset: var int, data: openArray[byte]): bool =
+  # TODO er, verify the size here, probably an uint64 but...
+  var tmp: uint64
+  if not deserialize(tmp, offset, data):
+    false
+  else:
+    dest = cast[T](tmp)
+    true
 
-func eatSeq[T: SomeInteger](x: var seq[T], data: ptr byte, pos: var int,
-    len: int): bool =
-  var items: int32
-  if not eatInt(items, data, pos, len): return
-  if pos + T.sizeof * items > len: return
+proc deserialize[T: not (enum|TrivialTypes)](
+    dest: var T, offset: var int, data: openArray[byte]): bool =
+  # Length is a prefix, so we'll put a dummy value there and fill it after
+  # serializing
+  var totalLen: uint32
+  if not deserialize(totalLen, offset, data): return false
 
-  x = newSeqUninitialized[T](items)
-  for val in x.mitems:
-    discard eatInt(val, data, pos, len) # Bounds-checked above
-  return true
+  if offset + totalLen.int > data.len(): return false
 
-func serInt(dest: var seq[byte], x: SomeInteger) =
-  dest.add x.toBytesSSZ()
+  let itemEnd = offset + totalLen.int
+  when T is seq:
+    # Items are of homogenous type, but not necessarily homogenous length
+    while offset < itemEnd:
+      dest.setLen dest.len + 1
+      if not deserialize(dest[^1], offset, data): return false
+  elif T is array:
+    var i = 0
+    while offset < itemEnd:
+      if not deserialize(dest[i], offset, data): return false
+      i += 1
+      if i > dest.len: return false
+  else:
+    for field in dest.fields:
+      if not deserialize(field, offset, data):  return false
+    if offset != itemEnd: return false
 
-func serSeq(dest: var seq[byte], src: seq[SomeInteger]) =
-  dest.serInt src.len.uint32
-  for val in src:
-    dest.add val.toBytesSSZ()
+  true
+
+func serialize(dest: var seq[byte], src: TrivialTypes) =
+  dest.add src.toBytesSSZ()
+
+func serialize(dest: var seq[byte], x: enum) =
+  # TODO er, verify the size here, probably an uint64 but...
+  serialize dest, uint64(x)
+
+func serialize[T: not enum](dest: var seq[byte], src: T) =
+  # Length is a prefix, so we'll put a dummy value there and fill it after
+  # serializing
+
+  let lenPos = dest.len()
+  dest.add toBytesSSZ(0'u32)
+
+  when T is seq|array:
+    # If you get an error here that looks like:
+    # type mismatch: got <type range 0..8191(uint64)>
+    # you just used an unsigned int for an array index thinking you'd get
+    # away with it (surprise, surprise: you can't, uints are crippled!)
+    # https://github.com/nim-lang/Nim/issues/9984
+    for val in src:
+      serialize dest, val
+  else:
+    # TODO to sort, or not to sort, that is the question:
+    # TODO or.. https://github.com/ethereum/eth2.0-specs/issues/275
+    when defined(debugFieldSizes) and T is (BeaconState | BeaconBlock):
+      # for research/serialized_sizes, remove when appropriate
+      for name, field in src.fieldPairs:
+        let start = dest.len()
+        serialize dest, field
+        let sz = dest.len() - start
+        debugEcho(name, ": ", sz)
+    else:
+      for field in src.fields:
+        serialize dest, field
+
+  # Write size (we only know it once we've serialized the object!)
+  var objLen = dest.len() - lenPos - 4
+  bigEndian32(dest[lenPos].addr, objLen.addr)
 
 # ################### Core functions ###################################
-func deserialize(data: ptr byte, pos: var int, len: int, typ: typedesc[object]):
-    auto =
-  var t: typ
 
-  for field in t.fields:
-    when field is EthAddress | Eth2Digest:
-      if not eat(field, data, pos, len): return
-    elif field is (SomeInteger or byte):
-      if not eatInt(field, data, pos, len): return
-    elif field is seq[SomeInteger or byte]:
-      if not eatSeq(field, data, pos, len): return
-    else: # TODO: deserializing subtypes (?, depends on final spec)
-      {.fatal: "Unsupported type deserialization: " & $typ.name.}
-  return some(t)
-
-func deserialize*(
-      data: seq[byte or uint8] or openarray[byte or uint8] or string,
-      typ: typedesc[object]): auto {.inline.} =
+proc deserialize*(data: openArray[byte],
+                  typ: typedesc): auto {.inline.} =
   # TODO: returns Option[typ]: https://github.com/nim-lang/Nim/issues/9195
-  var pos = 0
-  return deserialize((ptr byte)(data[0].unsafeAddr), pos, data.len, typ)
+  var ret: typ
+  var offset: int
+  if not deserialize(ret, offset, data): none(typ)
+  else: some(ret)
 
 func serialize*[T](value: T): seq[byte] =
-  for field in value.fields:
-    when field is (EthAddress | Eth2Digest | SomeInteger):
-      result.add field.toBytesSSZ()
-    elif field is seq[SomeInteger or byte]:
-      result.serSeq field
-    else: # TODO: Serializing subtypes (?, depends on final spec)
-      {.fatal: "Unsupported type serialization: " & $typ.name.}
+  # TODO Fields should be sorted, but...
+  serialize(result, value)
 
 # ################### Hashing ###################################
 
@@ -199,7 +276,7 @@ func hash_tree_root*[T: not enum](x: T): array[32, byte] =
 
     withHash:
       for name, value in fields.sortedByIt(it.name):
-        h.update hash_tree_root(value.value)
+        h.update value.value
 
 # #################################
 # hash_tree_root not part of official spec

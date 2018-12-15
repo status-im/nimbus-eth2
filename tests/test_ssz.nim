@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  unittest, nimcrypto, eth_common, sequtils, options,
+  unittest, nimcrypto, eth_common, sequtils, options, milagro_crypto,
   ../beacon_chain/ssz, ../beacon_chain/spec/datatypes
 
 func filled[N: static[int], T](typ: type array[N, T], value: T): array[N, T] =
@@ -39,25 +39,59 @@ suite "Simple serialization":
     )
 
   var expected_ser = @[
-      byte 5,
+      byte 0, 0, 0, 64, # length
+      5,
       '\xFF'.ord, '\xFF'.ord, '\xFF'.ord, '\xFD'.ord,
     ]
   expected_ser &= EthAddress.filled(byte 35)
   expected_ser &= MDigest[256].filled(byte 35).data
   expected_ser &= [byte 0, 0, 0, 3, 'c'.ord, 'o'.ord, 'w'.ord]
 
-  test "Deserialization":
+  test "Object deserialization":
     let deser = expected_ser.deserialize(Foo).get()
     check: expected_deser == deser
 
-  test "Serialization":
+  test "Object serialization":
     let ser = expected_deser.serialize()
     check: expected_ser == ser
 
-  test "Overflow":
+  test "Not enough data":
     check:
       expected_ser[0..^2].deserialize(Foo).isNone()
       expected_ser[1..^1].deserialize(Foo).isNone()
+
+  test "Array roundtrip":
+    let v = [1, 2, 3]
+    let ser = v.serialize()
+    check:
+      deserialize(ser, type(v)).get() == v
+
+  test "Seq roundtrip":
+    let v = @[1, 2, 3]
+    let ser = v.serialize()
+
+    check:
+      deserialize(ser, type(v)).get() == v
+
+  test "Key roundtrip":
+    let v = newSigKey().fromSigKey()
+    let ser = v.serialize()
+
+    check:
+      deserialize(ser, type(v)).get() == v
+
+  # Just to see that we can serialize stuff at all
+  test "Roundtrip main eth2 types":
+    let
+      bb = BeaconBlock(
+        slot: 42,
+        signature: signMessage(newSigKey(), "")
+        )
+      bs = BeaconState(slot: 42)
+
+    check:
+      bb.serialize().deserialize(BeaconBlock).get() == bb
+      bs.serialize().deserialize(BeaconState).get() == bs
 
 suite "Tree hashing":
   # TODO Nothing but smoke tests for now..

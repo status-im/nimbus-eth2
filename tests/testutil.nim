@@ -73,6 +73,10 @@ func makeGenesisBlock*(state: BeaconState): BeaconBlock =
 
 func makeBlock*(
     state: BeaconState, latest_block: BeaconBlock): BeaconBlock =
+  # TODO: this works but looks wrong - we update the slot in the state without
+  #       updating corresponding data - this works because the state update
+  #       code does the same - updates slot, then uses that slot when calling
+  #       beacon_proposer_index, then finally updates the shuffling at the end!
   var next_state = state
   next_state.slot += 1
   let
