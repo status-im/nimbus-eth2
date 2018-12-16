@@ -10,10 +10,10 @@
 
 import
   endians, typetraits, options, algorithm,
-  eth_common, nimcrypto/blake2, milagro_crypto,
+  eth_common, nimcrypto/blake2,
   ./spec/[crypto, datatypes, digest]
 
-from milagro_crypto import getRaw
+from milagro_crypto import getRaw, fromRaw
 
 # ################### Helper functions ###################################
 
@@ -347,10 +347,5 @@ func merkleHash[T](lst: openArray[T]): array[32, byte] =
       chunkz[i] = tmp
 
     chunkz.setLen(chunkz.len div 2)
-
-  if chunkz.len == 0:
-    const empty32 = empty(array[32, byte])
-    result = hash(empty32, dataLen)
-    return
 
   result = hash(chunkz[0], dataLen)
