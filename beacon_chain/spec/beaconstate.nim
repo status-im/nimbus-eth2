@@ -18,7 +18,7 @@ func process_deposit(state: var BeaconState,
                      randao_commitment: Eth2Digest): Uint24 =
   ## Process a deposit from Ethereum 1.0.
   let msg = hash_tree_root((pubkey, withdrawal_credentials, randao_commitment))
-  assert BLSVerify(
+  assert bls_verify(
     pubkey, msg, proof_of_possession,
     get_domain(state.fork_data, state.slot, DOMAIN_DEPOSIT))
 
@@ -326,13 +326,13 @@ proc checkAttestation*(state: BeaconState, attestation: Attestation): bool =
   let
     participants = get_attestation_participants(
       state, attestation.data, attestation.participation_bitfield)
-    group_public_key = BLSAddPubkeys(mapIt(
+    group_public_key = bls_aggregate_pubkeys(mapIt(
       participants, state.validator_registry[it].pubkey))
 
   # Verify that aggregate_signature verifies using the group pubkey.
   let msg = hash_tree_root(attestation.data)
 
-  if not BLSVerify(
+  if not bls_verify(
         group_public_key, @msg & @[0'u8], attestation.aggregate_signature,
         get_domain(state.fork_data, attestation.data.slot, DOMAIN_ATTESTATION)
       ):

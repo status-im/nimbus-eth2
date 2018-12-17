@@ -23,9 +23,7 @@ template hash*(k: ValidatorPubKey|ValidatorPrivKey): Hash =
 
 func pubKey*(pk: ValidatorPrivKey): ValidatorPubKey = fromSigKey(pk)
 
-func BLSAddPubkeys*(keys: openArray[ValidatorPubKey]): ValidatorPubKey =
-  # name from spec!
-
+func bls_aggregate_pubkeys*(keys: openArray[ValidatorPubKey]): ValidatorPubKey =
   var empty = false
   for key in keys:
     if empty:
@@ -34,7 +32,7 @@ func BLSAddPubkeys*(keys: openArray[ValidatorPubKey]): ValidatorPubKey =
     else:
       result.combine(key)
 
-func BLSVerify*(
+func bls_verify*(
     pubkey: ValidatorPubKey, msg: openArray[byte], sig: ValidatorSig,
     domain: uint64): bool =
   # name from spec!

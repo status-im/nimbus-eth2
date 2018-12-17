@@ -59,7 +59,7 @@ func verifyProposerSignature(state: BeaconState, blck: BeaconBlock): bool =
 
   let proposer_index = get_beacon_proposer_index(state, state.slot)
 
-  BLSVerify(
+  bls_verify(
     state.validator_registry[proposer_index].pubkey,
     proposal_hash, blck.signature,
     get_domain(state.fork_data, state.slot, DOMAIN_PROPOSAL))
@@ -119,7 +119,7 @@ proc processProposerSlashings(state: var BeaconState, blck: BeaconBlock): bool =
 
   for proposer_slashing in blck.body.proposer_slashings:
     let proposer = addr state.validator_registry[proposer_slashing.proposer_index]
-    if not BLSVerify(
+    if not bls_verify(
         proposer.pubkey,
         hash_tree_root(proposer_slashing.proposal_data_1),
         proposer_slashing.proposal_signature_1,
@@ -128,7 +128,7 @@ proc processProposerSlashings(state: var BeaconState, blck: BeaconBlock): bool =
           DOMAIN_PROPOSAL)):
       warn("PropSlash: invalid signature 1")
       return false
-    if not BLSVerify(
+    if not bls_verify(
         proposer.pubkey,
         hash_tree_root(proposer_slashing.proposal_data_2),
         proposer_slashing.proposal_signature_2,
@@ -168,9 +168,9 @@ func verify_slashable_vote_data(state: BeaconState, vote_data: SlashableVoteData
     return false
 
   let pubs = [
-    BLSAddPubkeys(mapIt(vote_data.aggregate_signature_poc_0_indices,
+    bls_aggregate_pubkeys(mapIt(vote_data.aggregate_signature_poc_0_indices,
       state.validator_registry[it].pubkey)),
-    BLSAddPubkeys(mapIt(vote_data.aggregate_signature_poc_1_indices,
+    bls_aggregate_pubkeys(mapIt(vote_data.aggregate_signature_poc_1_indices,
       state.validator_registry[it].pubkey))]
 
   # TODO
@@ -262,7 +262,7 @@ proc processExits(state: var BeaconState, blck: BeaconBlock): bool =
   for exit in blck.body.exits:
     let validator = state.validator_registry[exit.validator_index]
 
-    if not BLSVerify(
+    if not bls_verify(
         validator.pubkey, ZERO_HASH.data, exit.signature,
         get_domain(state.fork_data, exit.slot, DOMAIN_EXIT)):
       warn("Exit: invalid signature")
