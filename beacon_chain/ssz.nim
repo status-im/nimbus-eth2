@@ -43,15 +43,17 @@ func toBytesSSZ(x: Eth2Digest): array[32, byte] = x.data
 func toBytesSSZ(x: ValidatorPubKey|ValidatorSig): auto = x.getRaw()
 
 type TrivialTypes =
-  # Types that serialize down to a fixed-length array - basically, all those
-  # for which toBytesSSZ is defined!
+  # Types that serialize down to a fixed-length array - most importantly, these
+  # values don't carry a length prefix in the final encoding. toBytesSSZ
+  # provides the actual nim-type-to-bytes conversion.
   # TODO think about this for a bit - depends where the serialization of
   #      validator keys ends up going..
-  SomeInteger | Uint24 | EthAddress | Eth2Digest | ValidatorPubKey |
-  ValidatorSig
+  # TODO can't put ranges like Uint24 in here:
+  #      https://github.com/nim-lang/Nim/issues/10027
+  SomeInteger | EthAddress | Eth2Digest | ValidatorPubKey | ValidatorSig
 
-func sszLen(v: TrivialTypes): int =
-  toBytesSSZ(v).len
+func sszLen(v: TrivialTypes): int = toBytesSSZ(v).len
+func sszLen(v: Uint24): int = toBytesSSZ(v).len
 
 func sszLen(v: object | tuple): int =
   result = 4 # Length
@@ -114,19 +116,29 @@ proc deserialize[T: TrivialTypes](
       offset += sszLen(dest)
       true
 
+func deserialize(
+    dest: var Uint24, offset: var int, data: openArray[byte]): bool =
+  if offset + sszLen(dest) > data.len():
+    false
+  else:
+    dest = fromBytesSSZUnsafe(Uint24, data[offset].unsafeAddr)
+    offset += sszLen(dest)
+    true
+
 func deserialize[T: enum](dest: var T, offset: var int, data: openArray[byte]): bool =
   # TODO er, verify the size here, probably an uint64 but...
   var tmp: uint64
   if not deserialize(tmp, offset, data):
     false
   else:
+    # TODO what to do with out-of-range values?? rejecting means breaking
+    #      forwards compatibility..
     dest = cast[T](tmp)
     true
 
-proc deserialize[T: not (enum|TrivialTypes)](
+proc deserialize[T: not (enum|TrivialTypes|Uint24)](
     dest: var T, offset: var int, data: openArray[byte]): bool =
-  # Length is a prefix, so we'll put a dummy value there and fill it after
-  # serializing
+  # Length in bytes, followed by each item
   var totalLen: uint32
   if not deserialize(totalLen, offset, data): return false
 
@@ -134,7 +146,8 @@ proc deserialize[T: not (enum|TrivialTypes)](
 
   let itemEnd = offset + totalLen.int
   when T is seq:
-    # Items are of homogenous type, but not necessarily homogenous length
+    # Items are of homogenous type, but not necessarily homogenous length,
+    # cannot pre-allocate item list generically
     while offset < itemEnd:
       dest.setLen dest.len + 1
       if not deserialize(dest[^1], offset, data): return false
@@ -153,16 +166,18 @@ proc deserialize[T: not (enum|TrivialTypes)](
 
 func serialize(dest: var seq[byte], src: TrivialTypes) =
   dest.add src.toBytesSSZ()
+func serialize(dest: var seq[byte], src: Uint24) =
+  dest.add src.toBytesSSZ()
 
 func serialize(dest: var seq[byte], x: enum) =
   # TODO er, verify the size here, probably an uint64 but...
   serialize dest, uint64(x)
 
 func serialize[T: not enum](dest: var seq[byte], src: T) =
-  # Length is a prefix, so we'll put a dummy value there and fill it after
-  # serializing
-
   let lenPos = dest.len()
+
+  # Length is a prefix, so we'll put a dummy 0 here and fill it after
+  # serializing
   dest.add toBytesSSZ(0'u32)
 
   when T is seq|array:
