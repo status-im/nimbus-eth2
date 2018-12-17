@@ -277,7 +277,7 @@ type
 
     latest_crosslinks*: array[SHARD_COUNT, CrosslinkRecord]
     latest_state_recalculation_slot*: uint64
-    latest_block_roots*: array[LATEST_BLOCK_ROOTS_COUNT, Eth2Digest] ##\
+    latest_block_roots*: array[LATEST_BLOCK_ROOTS_COUNT.int, Eth2Digest] ##\
     ## Needed to process attestations, older to newer
     latest_penalized_exit_balances*: seq[uint64] ##\
     ## Balances penalized in the current withdrawal period
