@@ -66,7 +66,7 @@ const
   BLS_WITHDRAWAL_PREFIX_BYTE* = 0'u8
 
   MAX_CASPER_VOTES* = 2^10
-  LATEST_BLOCK_ROOTS_COUNT* = 2'u64^13
+  LATEST_BLOCK_ROOTS_LENGTH* = 2'u64^13
 
   MIN_BALANCE* = 2'u64^4 ##\
   ## Minimum balance in ETH before a validator is removed from the validator
@@ -142,8 +142,8 @@ type
     proposal_signature_2*: ValidatorSig
 
   CasperSlashing* = object
-    votes_1*: SlashableVoteData
-    votes_2*: SlashableVoteData
+    slashable_vote_data_1*: SlashableVoteData
+    slashable_vote_data_2*: SlashableVoteData
 
   SlashableVoteData* = object
     aggregate_signature_poc_0_indices*: seq[Uint24] ##\
@@ -157,9 +157,14 @@ type
 
   Attestation* = object
     data*: AttestationData
-    participation_bitfield*: seq[byte]             # Attester participation bitfield
-    custody_bitfield*: seq[byte]                   # Proof of custody bitfield
-    aggregate_signature*: ValidatorSig             # BLS aggregate signature
+    participation_bitfield*: seq[byte] ##\
+    ## The attesters that are represented in the aggregate signature - each
+    ## bit represents an index in `ShardCommittee.committee`
+
+    custody_bitfield*: seq[byte] ##\
+    ## Proof of custody - Phase 1
+    aggregate_signature*: ValidatorSig ##\
+    ## Aggregate signature of the validators in `custody_bitfield`
 
   AttestationData* = object
     slot*: uint64
@@ -220,9 +225,11 @@ type
     ## is formed.
 
     slot*: uint64
-    parent_root*: Eth2Digest
+    parent_root*: Eth2Digest ##\
+    ##\ Root hash of the previous block
 
-    state_root*: Eth2Digest
+    state_root*: Eth2Digest ##\
+    ##\ The state root, _after_ this block has been processed
 
     randao_reveal*: Eth2Digest ##\
     ## Proposer RANDAO reveal
@@ -261,12 +268,15 @@ type
     ## For light clients to easily track delta
 
     # Randomness and committees
-    randao_mix*: Eth2Digest                      # RANDAO state
-    next_seed*: Eth2Digest                       # Randao seed used for next shuffling
+    randao_mix*: Eth2Digest
+    next_seed*: Eth2Digest ##\
+    ## Randao seed used for next shuffling
+
     shard_committees_at_slots*: array[2 * EPOCH_LENGTH, seq[ShardCommittee]] ## \
     ## Committee members and their assigned shard, per slot, covers 2 cycles
     ## worth of assignments
-    persistent_committees*: seq[seq[Uint24]]               # Persistent shard committees
+
+    persistent_committees*: seq[seq[Uint24]]
     persistent_committee_reassignments*: seq[ShardReassignmentRecord]
 
     # Finality
@@ -277,10 +287,12 @@ type
 
     latest_crosslinks*: array[SHARD_COUNT, CrosslinkRecord]
     latest_state_recalculation_slot*: uint64
-    latest_block_roots*: array[LATEST_BLOCK_ROOTS_COUNT.int, Eth2Digest] ##\
+    latest_block_roots*: array[LATEST_BLOCK_ROOTS_LENGTH.int, Eth2Digest] ##\
     ## Needed to process attestations, older to newer
+
     latest_penalized_exit_balances*: seq[uint64] ##\
     ## Balances penalized in the current withdrawal period
+
     latest_attestations*: seq[PendingAttestationRecord]
     batched_block_roots*: seq[Eth2Digest]
 
@@ -299,7 +311,8 @@ type
     ## * processRandaoReveal
 
     randao_layers*: uint64 ##\
-    ## Slot the proposer has skipped (ie. layers of RANDAO expected)
+    ## Number of proposals the proposer missed, and thus the number of times to
+    ## apply hash function to randao reveal
 
     balance*: uint64 # Balance in Gwei
     status*: ValidatorStatusCodes
@@ -310,18 +323,28 @@ type
     ## Exit counter when validator exited (or 0)
 
   CrosslinkRecord* = object
-    slot*: uint64                                 # Slot number
-    shard_block_root*: Eth2Digest                 # Shard chain block hash
+    slot*: uint64
+    shard_block_root*: Eth2Digest ##\
+    ## Shard chain block root
 
   ShardCommittee* = object
-    shard*: uint64                                # Shard number
-    committee*: seq[Uint24]                       # Validator indices
-    total_validator_count*: uint64                # # Total validator count (for proofs of custody)
+    shard*: uint64
+    committee*: seq[Uint24] ##\
+    ## Committe participants that get to attest to blocks on this shard -
+    ## indices into BeaconState.validator_registry
+
+    total_validator_count*: uint64 ##\
+    ## Total validator count (for proofs of custody)
 
   ShardReassignmentRecord* = object
-    validator_index*: Uint24                      # Which validator to reassign
-    shard*: uint64                                # To which shard
-    slot*: uint64                                 # When
+    validator_index*: Uint24 ##\
+    ## Which validator to reassign
+
+    shard*: uint64 ##\
+    ## To which shard
+
+    slot*: uint64 ##\
+    ## When
 
   CandidatePoWReceiptRootRecord* = object
     candidate_pow_receipt_root*: Eth2Digest       # Candidate PoW receipt root
@@ -337,6 +360,12 @@ type
     pre_fork_version*: uint64                     # Previous fork version
     post_fork_version*: uint64                    # Post fork version
     fork_slot*: uint64                            # Fork slot number
+
+  ValidatorRegistryDeltaBlock* = object
+    latest_registry_delta_root*: Eth2Digest
+    validator_index*: Uint24
+    pubkey*: ValidatorPubKey
+    flag*: ValidatorSetDeltaFlags
 
   ValidatorStatusCodes* {.pure.} = enum
     PENDING_ACTIVATION = 0

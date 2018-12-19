@@ -15,21 +15,28 @@ suite "Block processing":
   ## For now just test that we can compile and execute block processing with
   ## mock data.
 
+  let
+    # Genesis state with minimal number of deposits
+    # TODO bls verification is a bit of a bottleneck here
+    genesisState = get_initial_beacon_state(
+      makeInitialDeposits(), 0, Eth2Digest())
+    genesisBlock = makeGenesisBlock(genesisState)
+
   test "Passes from genesis state, no block":
     let
-      state = on_startup(makeInitialDeposits(), 0, Eth2Digest())
-      latest_block = makeGenesisBlock(state)
-      new_state = updateState(state, latest_block, none(BeaconBlock))
+      state = genesisState
+      latest_block = genesisBlock
+      new_state = updateState(state, latest_block, none(BeaconBlock), false)
     check:
       new_state.state.slot == latest_block.slot + 1
       new_state.block_ok
 
   test "Passes from genesis state, empty block":
     let
-      state = on_startup(makeInitialDeposits(), 0, Eth2Digest())
-      latest_block = makeGenesisBlock(state)
+      state = genesisState
+      latest_block = genesisBlock
       new_block = makeBlock(state, latest_block)
-      new_state = updateState(state, latest_block, some(new_block))
+      new_state = updateState(state, latest_block, some(new_block), false)
 
     check:
       new_state.state.slot == latest_block.slot + 1
@@ -37,11 +44,11 @@ suite "Block processing":
 
   test "Passes through epoch update, no block":
     var
-      state = on_startup(makeInitialDeposits(), 0, Eth2Digest())
-      latest_block = makeGenesisBlock(state)
+      state = genesisState
+      latest_block = genesisBlock
 
     for i in 1..EPOCH_LENGTH.int:
-      let new_state = updateState(state, latest_block, none(BeaconBlock))
+      let new_state = updateState(state, latest_block, none(BeaconBlock), false)
       check:
         new_state.block_ok
       state = new_state.state
@@ -51,13 +58,13 @@ suite "Block processing":
 
   test "Passes through epoch update, empty block":
     var
-      state = on_startup(makeInitialDeposits(), 0, Eth2Digest())
-      latest_block = makeGenesisBlock(state)
+      state = genesisState
+      latest_block = genesisBlock
 
     for i in 1..EPOCH_LENGTH.int:
       var new_block = makeBlock(state, latest_block)
 
-      let new_state = updateState(state, latest_block, some(new_block))
+      let new_state = updateState(state, latest_block, some(new_block), false)
 
       check:
         new_state.block_ok
@@ -69,11 +76,12 @@ suite "Block processing":
 
   test "Increments proposer randao_layers, no block":
     let
-      state = on_startup(makeInitialDeposits(), 0, Eth2Digest())
-      latest_block = makeGenesisBlock(state)
-      proposer_index = get_beacon_proposer_index(state, state.slot + 1)
-      previous_randao_layers = state.validator_registry[proposer_index].randao_layers
-      new_state = updateState(state, latest_block, none(BeaconBlock))
+      state = genesisState
+      latest_block = genesisBlock
+      proposer_index = getNextBeaconProposerIndex(state)
+      previous_randao_layers =
+        state.validator_registry[proposer_index].randao_layers
+      new_state = updateState(state, latest_block, none(BeaconBlock), false)
       updated_proposer = new_state.state.validator_registry[proposer_index]
 
     check:
@@ -81,12 +89,13 @@ suite "Block processing":
 
   test "Proposer randao layers unchanged, empty block":
     let
-      state = on_startup(makeInitialDeposits(), 0, Eth2Digest())
-      latest_block = makeGenesisBlock(state)
-      proposer_index = get_beacon_proposer_index(state, state.slot + 1)
-      previous_randao_layers = state.validator_registry[proposer_index].randao_layers
+      state = genesisState
+      latest_block = genesisBlock
+      proposer_index = getNextBeaconProposerIndex(state)
+      previous_randao_layers =
+        state.validator_registry[proposer_index].randao_layers
       new_block = makeBlock(state, latest_block)
-      new_state = updateState(state, latest_block, some(new_block))
+      new_state = updateState(state, latest_block, some(new_block), false)
       updated_proposer = new_state.state.validator_registry[proposer_index]
 
     check:

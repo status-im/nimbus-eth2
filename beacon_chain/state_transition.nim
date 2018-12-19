@@ -28,7 +28,6 @@
 #   signed bigint semantics - under- and overflows ensue
 # * Sane error handling is missing in most cases (yay, we'll get the chance to
 #   debate exceptions again!)
-#
 # When updating the code, add TODO sections to mark where there are clear
 # improvements to be made - other than that, keep things similar to spec for
 # now.
@@ -44,6 +43,10 @@ func flatten[T](v: openArray[seq[T]]): seq[T] =
   for x in v: result.add x
 
 func verifyProposerSignature(state: BeaconState, blck: BeaconBlock): bool =
+  ## When creating the block, the proposer will sign a version of the block that
+  ## doesn't contain the data (chicken and egg), then add the signature to that
+  ## block.
+
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#proposer-signature
 
   var blck_without_sig = blck
@@ -56,15 +59,14 @@ func verifyProposerSignature(state: BeaconState, blck: BeaconBlock): bool =
       block_root: Eth2Digest(data: hash_tree_root(blck_without_sig))
     )
     proposal_hash = hash_tree_root(signed_data)
-
-  let proposer_index = get_beacon_proposer_index(state, state.slot)
+    proposer_index = get_beacon_proposer_index(state, state.slot)
 
   bls_verify(
     state.validator_registry[proposer_index].pubkey,
     proposal_hash, blck.signature,
     get_domain(state.fork_data, state.slot, DOMAIN_PROPOSAL))
 
-func processRandao(state: var BeaconState, blck: BeaconBlock): bool =
+func processRandao(state: var BeaconState, blck: BeaconBlock, force: bool): bool =
   ## When a validator signs up, they will commit an hash to the block,
   ## the randao_commitment - this hash is the result of a secret value
   ## hashed n times.
@@ -82,10 +84,11 @@ func processRandao(state: var BeaconState, blck: BeaconBlock): bool =
     proposer_index = get_beacon_proposer_index(state, state.slot)
     proposer = addr state.validator_registry[proposer_index]
 
-  # Check that proposer commit and reveal match
-  if repeat_hash(blck.randao_reveal, proposer.randao_layers) !=
-      proposer.randao_commitment:
-    return false
+  if not force:
+    # Check that proposer commit and reveal match
+    if repeat_hash(blck.randao_reveal, proposer.randao_layers) !=
+        proposer.randao_commitment:
+      return false
 
   # Update state and proposer now that we're alright
   for i, b in state.randao_mix.data:
@@ -189,29 +192,32 @@ proc processCasperSlashings(state: var BeaconState, blck: BeaconBlock): bool =
     return false
 
   for casper_slashing in blck.body.casper_slashings:
-    if not verify_slashable_vote_data(state, casper_slashing.votes_1):
-      warn("CaspSlash: invalid votes 1")
-      return false
-    if not verify_slashable_vote_data(state, casper_slashing.votes_2):
-      warn("CaspSlash: invalid votes 2")
-      return false
-    if not (casper_slashing.votes_1.data != casper_slashing.votes_2.data):
+    let
+      slashable_vote_data_1 = casper_slashing.slashable_vote_data_1
+      slashable_vote_data_2 = casper_slashing.slashable_vote_data_2
+      intersection = filterIt(
+        indices(slashable_vote_data_1), it in indices(slashable_vote_data_2))
+
+    if not (slashable_vote_data_1.data != slashable_vote_data_2.data):
       warn("CaspSlash: invalid data")
       return false
 
-    let intersection = filterIt(
-      indices(casper_slashing.votes_1), it in indices(casper_slashing.votes_2))
-
-    if len(intersection) < 1:
+    if not (len(intersection) >= 1):
       warn("CaspSlash: no intersection")
       return false
 
     if not (
-        ((casper_slashing.votes_1.data.justified_slot + 1 <
-          casper_slashing.votes_2.data.justified_slot + 1) ==
-        (casper_slashing.votes_2.data.slot < casper_slashing.votes_1.data.slot)) or
-        (casper_slashing.votes_1.data.slot == casper_slashing.votes_2.data.slot)):
-      warn("CaspSlash: some weird long condition failed")
+      is_double_vote(slashable_vote_data_1.data, slashable_vote_data_2.data) or
+      is_surround_vote(slashable_vote_data_1.data, slashable_vote_data_2.data)):
+      warn("CaspSlash: surround or double vote check failed")
+      return false
+
+    if not verify_slashable_vote_data(state, slashable_vote_data_1):
+      warn("CaspSlash: invalid votes 1")
+      return false
+
+    if not verify_slashable_vote_data(state, slashable_vote_data_2):
+      warn("CaspSlash: invalid votes 2")
       return false
 
     for i in intersection:
@@ -295,22 +301,56 @@ proc process_ejections(state: var BeaconState) =
     if is_active_validator(validator) and validator.balance < EJECTION_BALANCE:
         update_validator_status(state, index.Uint24, EXITED_WITHOUT_PENALTY)
 
-proc processBlock(state: var BeaconState, latest_block, blck: BeaconBlock): bool =
+func processSlot(state: var BeaconState, latest_block: BeaconBlock) =
+  ## Time on the beacon chain moves in slots. Every time we make it to a new
+  ## slot, a proposer cleates a block to represent the state of the beacon
+  ## chain at that time. In case the proposer is missing, it may happen that
+  ## the no block is produced during the slot.
+  ##
+  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#per-slot-processing
+
+  state.slot += 1
+  state.validator_registry[
+    get_beacon_proposer_index(state, state.slot)].randao_layers += 1
+
+  let
+    previous_block_root = Eth2Digest(data: hash_tree_root(latest_block))
+  for i in 0 ..< state.latest_block_roots.len - 1:
+    state.latest_block_roots[i] = state.latest_block_roots[i + 1]
+  state.latest_block_roots[state.latest_block_roots.len - 1] =
+    previous_block_root
+
+  if state.slot mod LATEST_BLOCK_ROOTS_LENGTH == 0:
+    state.batched_block_roots.add(merkle_root(state.latest_block_roots))
+
+
+proc processBlock(
+    state: var BeaconState, blck: BeaconBlock, force: bool): bool =
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly
 
   # TODO when there's a failure, we should reset the state!
   # TODO probably better to do all verification first, then apply state changes
 
-  if blck.slot != state.slot:
+  if not (blck.slot == state.slot):
     warn("Unexpected block slot number")
     return false
 
-  if not verifyProposerSignature(state, blck):
-    warn("Proposer signature not valid")
+  # TODO does this need checking? not in the spec!
+  if not (blck.parent_root == state.latest_block_roots[^1]):
+    warn("Unexpected parent root")
     return false
 
-  if not processRandao(state, blck):
+  if not force:
+    # TODO Technically, we could make processBlock take a generic type instead
+    #      of BeaconBlock - we would then have an intermediate `ProposedBlock`
+    #      type that omits some fields - this way, the compiler would guarantee
+    #      that we don't try to access fields that don't have a value yet
+    if not verifyProposerSignature(state, blck):
+      warn("Proposer signature not valid")
+      return false
+
+  if not processRandao(state, blck, force):
     warn("Randao reveal failed")
     return false
 
@@ -335,34 +375,10 @@ proc processBlock(state: var BeaconState, latest_block, blck: BeaconBlock): bool
 
   return true
 
-func processSlot(state: var BeaconState, latest_block: BeaconBlock) =
-  ## Time on the beacon chain moves in slots. Every time we make it to a new
-  ## slot, a proposer cleates a block to represent the state of the beacon
-  ## chain at that time. In case the proposer is missing, it may happen that
-  ## the no block is produced during the slot.
-  ##
-  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#per-slot-processing
-
-  let
-    latest_hash = Eth2Digest(data: hash_tree_root(latest_block))
-
-  state.slot += 1
-  state.validator_registry[
-    get_beacon_proposer_index(state, state.slot)].randao_layers += 1
-
-  let
-    previous_block_root = Eth2Digest(data: hash_tree_root(latest_block))
-  for i in 0 ..< state.latest_block_roots.len - 1:
-    state.latest_block_roots[i] = state.latest_block_roots[i + 1]
-  state.latest_block_roots[state.latest_block_roots.len - 1] =
-    previous_block_root
-
-  if state.slot mod LATEST_BLOCK_ROOTS_COUNT == 0:
-    state.batched_block_roots.add(merkle_root(state.latest_block_roots))
-
-func get_epoch_boundary_attesters(
+func get_attesters(
     state: BeaconState,
     attestations: openArray[PendingAttestationRecord]): seq[Uint24] =
+  # Union of attesters that participated in some attestations
   # TODO spec - add as helper?
   deduplicate(flatten(mapIt(attestations,
     get_attestation_participants(state, it.data, it.participation_bitfield))))
@@ -381,7 +397,7 @@ func boundary_attestations(
 
 func sum_effective_balances(
     state: BeaconState, validator_indices: openArray[Uint24]): uint64 =
-    # TODO spec - add as helper?
+  # TODO spec - add as helper?
   sum(mapIt(
     validator_indices, get_effective_balance(state.validator_registry[it]))
   )
@@ -408,7 +424,8 @@ func processEpoch(state: var BeaconState) =
     total_balance_in_eth = total_balance div GWEI_PER_ETH
 
     # The per-slot maximum interest rate is `2/reward_quotient`.)
-    base_reward_quotient = BASE_REWARD_QUOTIENT * int_sqrt(total_balance_in_eth)
+    base_reward_quotient =
+      BASE_REWARD_QUOTIENT * integer_squareroot(total_balance_in_eth)
 
   func base_reward(v: ValidatorRecord): uint64 =
     get_effective_balance(v) div base_reward_quotient.uint64 div 4
@@ -433,7 +450,7 @@ func processEpoch(state: var BeaconState) =
         this_epoch_attestations)
 
     this_epoch_boundary_attesters =
-      get_epoch_boundary_attesters(state, this_epoch_attestations)
+      get_attesters(state, this_epoch_attestations)
 
     this_epoch_boundary_attesting_balance =
       sum_effective_balances(state, this_epoch_boundary_attesters)
@@ -444,10 +461,8 @@ func processEpoch(state: var BeaconState) =
       state.slot <= it.data.slot + 2 * EPOCH_LENGTH and
       it.data.slot + EPOCH_LENGTH < state.slot)
 
-    previous_epoch_attesters = flatten(mapIt(
-      previous_epoch_attestations,
-      get_attestation_participants(state, it.data, it.participation_bitfield)
-    ))
+    previous_epoch_attesters =
+      get_attesters(state, previous_epoch_attestations)
 
   let # Previous epoch justified
     previous_epoch_justified_attestations = filterIt(
@@ -455,10 +470,8 @@ func processEpoch(state: var BeaconState) =
         it.data.justified_slot == state.previous_justified_slot
       )
 
-    previous_epoch_justified_attesters = flatten(mapIt(
-      previous_epoch_justified_attestations,
-      get_attestation_participants(state, it.data, it.participation_bitfield)
-    ))
+    previous_epoch_justified_attesters =
+      get_attesters(state, previous_epoch_justified_attestations)
 
     previous_epoch_justified_attesting_balance =
       sum_effective_balances(state, previous_epoch_justified_attesters)
@@ -472,10 +485,8 @@ func processEpoch(state: var BeaconState) =
         state, get_block_root(state, negative_uint_hack),
         previous_epoch_attestations)
 
-    previous_epoch_boundary_attesters = flatten(mapIt(
-      previous_epoch_boundary_attestations,
-      get_attestation_participants(state, it.data, it.participation_bitfield)
-    ))
+    previous_epoch_boundary_attesters =
+      get_attesters(state, previous_epoch_boundary_attestations)
 
     previous_epoch_boundary_attesting_balance =
       sum_effective_balances(state, previous_epoch_boundary_attesters)
@@ -486,10 +497,8 @@ func processEpoch(state: var BeaconState) =
         previous_epoch_attestations,
         it.data.beacon_block_root == get_block_root(state, it.data.slot))
 
-    previous_epoch_head_attesters = flatten(mapIt(
-      previous_epoch_head_attestations,
-      get_attestation_participants(state, it.data, it.participation_bitfield)
-    ))
+    previous_epoch_head_attesters =
+      get_attesters(state, previous_epoch_head_attestations)
 
     previous_epoch_head_attesting_balance =
       sum_effective_balances(state, previous_epoch_head_attesters)
@@ -500,12 +509,11 @@ func processEpoch(state: var BeaconState) =
   let statePtr = state.addr
   func attesting_validators(
       shard_committee: ShardCommittee, shard_block_root: Eth2Digest): seq[Uint24] =
-    flatten(
-      mapIt(
-        filterIt(concat(this_epoch_attestations, previous_epoch_attestations),
-          it.data.shard == shard_committee.shard and
-            it.data.shard_block_root == shard_block_root),
-        get_attestation_participants(statePtr[], it.data, it.participation_bitfield)))
+    let shard_block_attestations =
+      filterIt(concat(this_epoch_attestations, previous_epoch_attestations),
+        it.data.shard == shard_committee.shard and
+          it.data.shard_block_root == shard_block_root)
+    get_attesters(statePtr[], shard_block_attestations)
 
   func winning_hash(obj: ShardCommittee): Eth2Digest =
     # * Let `winning_hash(obj)` be the winning `shard_block_root` value.
@@ -544,13 +552,13 @@ func processEpoch(state: var BeaconState) =
     for a in statePtr[].latest_attestations:
       if v in get_attestation_participants(statePtr[], a.data, a.participation_bitfield):
         return a.slot_included
-    assert false # shouldn't happen..
+    doAssert false # shouldn't happen..
 
   func inclusion_distance(v: Uint24): uint64 =
     for a in statePtr[].latest_attestations:
       if v in get_attestation_participants(statePtr[], a.data, a.participation_bitfield):
         return a.slot_included - a.data.slot
-    assert false # shouldn't happen..
+    doAssert false # shouldn't happen..
 
   block: # Receipt roots
     if state.slot mod POW_RECEIPT_ROOT_VOTING_PERIOD == 0:
@@ -567,23 +575,25 @@ func processEpoch(state: var BeaconState) =
     # TODO why are all bits kept?
     state.justification_bitfield = state.justification_bitfield shl 1
 
-    if 3'u64 * previous_epoch_boundary_attesting_balance >=
-        2'u64 * total_balance:
-      state.justification_bitfield = state.justification_bitfield or 2
-      state.justified_slot = state.slot - 2 * EPOCH_LENGTH
+    # TODO Spec - underflow
+    if state.slot >= 2'u64 * EPOCH_LENGTH:
+      if 3'u64 * previous_epoch_boundary_attesting_balance >=
+          2'u64 * total_balance:
+        state.justification_bitfield = state.justification_bitfield or 2
+        state.justified_slot = state.slot - 2 * EPOCH_LENGTH
 
-    if 3'u64 * this_epoch_boundary_attesting_balance >=
-        2'u64 * total_balance:
-      state.justification_bitfield = state.justification_bitfield or 1
-      state.justified_slot = state.slot - 1 * EPOCH_LENGTH
+      if 3'u64 * this_epoch_boundary_attesting_balance >=
+          2'u64 * total_balance:
+        state.justification_bitfield = state.justification_bitfield or 1
+        state.justified_slot = state.slot - 1 * EPOCH_LENGTH
 
   block: # Finalization
     if
-      (state.previous_justified_slot == state.slot - 2 * EPOCH_LENGTH and
+      (state.previous_justified_slot + 2 * EPOCH_LENGTH == state.slot and
         state.justification_bitfield mod 4 == 3) or
-      (state.previous_justified_slot == state.slot - 3 * EPOCH_LENGTH and
+      (state.previous_justified_slot + 3 * EPOCH_LENGTH == state.slot and
         state.justification_bitfield mod 8 == 7) or
-      (state.previous_justified_slot == state.slot - 4 * EPOCH_LENGTH and
+      (state.previous_justified_slot + 4 * EPOCH_LENGTH == state.slot and
         state.justification_bitfield mod 16 in [15'u64, 14]):
       state.finalized_slot = state.justified_slot
 
@@ -600,42 +610,33 @@ func processEpoch(state: var BeaconState) =
     let
       slots_since_finality = state.slot - state.finalized_slot
 
+    proc update_balance(attesters: openArray[Uint24], attesting_balance: uint64) =
+      # TODO Spec - add helper?
+      for v in attesters:
+        statePtr.validator_registry[v].balance += adjust_for_inclusion_distance(
+          base_reward(statePtr.validator_registry[v]) *
+          attesting_balance div total_balance, inclusion_distance(v))
+
+      for v in active_validator_indices:
+        if v notin attesters:
+          statePtr.validator_registry[v].balance -=
+            base_reward(statePtr.validator_registry[v])
+
     if slots_since_finality <= 4'u64 * EPOCH_LENGTH:
       # Expected FFG source
-      for v in previous_epoch_justified_attesters:
-        state.validator_registry[v].balance += adjust_for_inclusion_distance(
-          base_reward(state.validator_registry[v]) *
-          previous_epoch_justified_attesting_balance div total_balance,
-          inclusion_distance(v))
-
-      for v in active_validator_indices:
-        if v notin previous_epoch_justified_attesters:
-          state.validator_registry[v].balance -=
-            base_reward(state.validator_registry[v])
+      update_balance(
+        previous_epoch_justified_attesters,
+        previous_epoch_justified_attesting_balance)
 
       # Expected FFG target:
-      for v in previous_epoch_boundary_attesters:
-        state.validator_registry[v].balance += adjust_for_inclusion_distance(
-          base_reward(state.validator_registry[v]) *
-          previous_epoch_boundary_attesting_balance div total_balance,
-          inclusion_distance(v))
-
-      for v in active_validator_indices:
-        if v notin previous_epoch_boundary_attesters:
-          state.validator_registry[v].balance -=
-            base_reward(state.validator_registry[v])
+      update_balance(
+        previous_epoch_boundary_attesters,
+        previous_epoch_boundary_attesting_balance)
 
       # Expected beacon chain head:
-      for v in previous_epoch_head_attesters:
-        state.validator_registry[v].balance += adjust_for_inclusion_distance(
-          base_reward(state.validator_registry[v]) *
-          previous_epoch_head_attesting_balance div total_balance,
-          inclusion_distance(v))
-
-      for v in active_validator_indices:
-        if v notin previous_epoch_head_attesters:
-          state.validator_registry[v].balance -=
-            base_reward(state.validator_registry[v])
+      update_balance(
+        previous_epoch_head_attesters,
+        previous_epoch_head_attesting_balance)
 
     else:
       for v in active_validator_indices:
@@ -655,8 +656,7 @@ func processEpoch(state: var BeaconState) =
 
   block: # Attestation inclusion
     for v in previous_epoch_attesters:
-      let proposer_index =
-        get_beacon_proposer_index(state, inclusion_slot(v))
+      let proposer_index = get_beacon_proposer_index(state, inclusion_slot(v))
       state.validator_registry[proposer_index].balance +=
         base_reward(state.validator_registry[v]) div INCLUDER_REWARD_QUOTIENT
 
@@ -745,7 +745,7 @@ func processEpoch(state: var BeaconState) =
     )
 
 proc updateState*(state: BeaconState, latest_block: BeaconBlock,
-    new_block: Option[BeaconBlock]):
+    new_block: Option[BeaconBlock], force: bool):
       tuple[state: BeaconState, block_ok: bool] =
   ## Time in the beacon chain moves by slots. Every time (haha.) that happens,
   ## we will update the beacon state. Normally, the state updates will be driven
@@ -753,6 +753,10 @@ proc updateState*(state: BeaconState, latest_block: BeaconBlock,
   ## missing - the state updates happen regardless.
   ## Each call to this function will advance the state by one slot - new_block,
   ## if present, must match that slot.
+  ##
+  ## The `force` flag is used to skip a few checks, and apply `new_block`
+  ## regardless. We do this because some fields in the block depend on the state
+  ## being updated with the information in the new block.
   #
   # TODO this function can be written with a loop inside to handle all empty
   #      slots up to the slot of the new_block - but then again, why not eagerly
@@ -779,20 +783,34 @@ proc updateState*(state: BeaconState, latest_block: BeaconBlock,
       # TODO what should happen if block processing fails?
       #      https://github.com/ethereum/eth2.0-specs/issues/293
       var block_state = new_state
-      if processBlock(block_state, latest_block, new_block.get()):
+      if processBlock(block_state, new_block.get(), force):
         # processBlock will mutate the state! only apply if it worked..
         # TODO yeah, this too is inefficient
         new_state = block_state
-        true
+        processEpoch(block_state)
+
+        # This is a bit awkward - at the end of processing we verify that the
+        # state we arrive at is what the block producer thought it would be -
+        # meaning that potentially, it could fail verification
+        let expected_state_root = Eth2Digest(data: hash_tree_root(block_state))
+        if force or
+            (new_block.get().state_root == expected_state_root):
+          new_state = block_state
+          true
+        else:
+          warn("State: root verification failed",
+            state_root = new_block.get().state_root, expected_state_root)
+          processEpoch(new_state)
+          false
       else:
         false
     else:
       # Skip all per-block processing. Move directly to epoch processing
       # prison. Do not do any block updates when passing go.
-      true
 
-  # Heavy updates that happen for every epoch - these never fail (or so we hope)
-  processEpoch(new_state)
+      # Heavy updates that happen for every epoch - these never fail (or so we hope)
+      processEpoch(new_state)
+      true
 
   # State update never fails, but block validation might...
   (new_state, block_ok)
