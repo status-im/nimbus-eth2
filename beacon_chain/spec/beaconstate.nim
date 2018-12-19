@@ -144,9 +144,10 @@ func update_validator_status*(state: var BeaconState,
   if new_status in [EXITED_WITH_PENALTY, EXITED_WITHOUT_PENALTY]:
       exit_validator(state, index, new_status)
 
-func on_startup*(initial_validator_deposits: openArray[Deposit],
-                 genesis_time: uint64,
-                 processed_pow_receipt_root: Eth2Digest): BeaconState =
+func get_initial_beacon_state*(
+    initial_validator_deposits: openArray[Deposit],
+    genesis_time: uint64,
+    processed_pow_receipt_root: Eth2Digest): BeaconState =
   ## BeaconState constructor
   ##
   ## Before the beacon chain starts, validators will register in the Eth1 chain

@@ -6,8 +6,8 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  milagro_crypto,
-  ../beacon_chain/[extras, ssz],
+  options, milagro_crypto,
+  ../beacon_chain/[extras, ssz, state_transition],
   ../beacon_chain/spec/[crypto, datatypes, digest, helpers]
 
 const
@@ -71,25 +71,55 @@ func makeGenesisBlock*(state: BeaconState): BeaconBlock =
     state_root: Eth2Digest(data: hash_tree_root(state))
   )
 
-func makeBlock*(
-    state: BeaconState, latest_block: BeaconBlock): BeaconBlock =
+func getNextBeaconProposerIndex*(state: BeaconState): Uint24 =
   # TODO: this works but looks wrong - we update the slot in the state without
   #       updating corresponding data - this works because the state update
   #       code does the same - updates slot, then uses that slot when calling
   #       beacon_proposer_index, then finally updates the shuffling at the end!
   var next_state = state
   next_state.slot += 1
-  let
-    proposer = state.validator_registry[
-      get_beacon_proposer_index(next_state, next_state.slot)]
+  get_beacon_proposer_index(next_state, next_state.slot)
 
-  var new_block = BeaconBlock(
-      slot: next_state.slot,
-      state_root: Eth2Digest(data: hash_tree_root(state)),
-      randao_reveal: hackReveal(proposer)
+proc makeBlock*(state: BeaconState, previous_block: BeaconBlock): BeaconBlock =
+  # Create a block for `state.slot + 1` - like a block proposer would do!
+  # It's a bit awkward - in order to produce a block for N+1, we need to
+  # calculate what the state will look like after that block has been applied,
+  # because the block includes the state root.
+
+  let
+    # Index from the new state, but registry from the old state.. hmm...
+    proposer = state.validator_registry[getNextBeaconProposerIndex(state)]
+
+  var
+    # In order to reuse the state transition function, we first create a dummy
+    # block that has some fields set, and use that to generate the state as it
+    # would look with the new block applied.
+    new_block = BeaconBlock(
+      slot: state.slot + 1,
+
+      # TODO is this checked anywhere?
+      #      https://github.com/ethereum/eth2.0-specs/issues/336
+      parent_root: Eth2Digest(data: hash_tree_root(previous_block)),
+      state_root: Eth2Digest(), # we need the new state first
+      randao_reveal: hackReveal(proposer),
+      candidate_pow_receipt_root: Eth2Digest(), # TODO
+      signature: ValidatorSig(), # we need the rest of the block first!
+      body: BeaconBlockBody() # TODO throw in stuff here...
     )
 
   let
+    next_state = updateState(state, previous_block, some(new_block), true)
+  assert next_state.block_ok
+
+  # Ok, we have the new state as it would look with the block applied - now we
+  # can set the state root in order to be able to create a valid signature
+  new_block.state_root = Eth2Digest(data: hash_tree_root(next_state.state))
+
+  let
+    proposerPrivkey = hackPrivKey(proposer)
+
+    # Once we've collected all the state data, we sign the block data along with
+    # some book-keeping values
     signed_data = ProposalSignedData(
       slot: new_block.slot,
       shard: BEACON_CHAIN_SHARD_NUMBER,
@@ -97,14 +127,18 @@ func makeBlock*(
     )
     proposal_hash = hash_tree_root(signed_data)
 
-    proposerPrivkey = hackPrivKey(proposer)
+  assert proposerPrivkey.fromSigKey() == proposer.pubkey,
+    "signature key should be derived from private key! - wrong privkey?"
 
-  assert proposerPrivkey.fromSigKey() == proposer.pubkey
-
+  # We have a signature - put it in the block and we should be done!
   new_block.signature =
+    # TODO domain missing!
     signMessage(proposerPrivkey, proposal_hash)
 
-  assert verifyMessage(
-    new_block.signature, proposal_hash, proposerPrivkey.fromSigKey())
+  assert bls_verify(
+    proposer.pubkey,
+    proposal_hash, new_block.signature,
+    get_domain(state.fork_data, state.slot, DOMAIN_PROPOSAL)),
+    "we just signed this message - it should pass verification!"
 
   new_block

@@ -111,11 +111,14 @@ func get_beacon_proposer_index*(state: BeaconState, slot: uint64): Uint24 =
   ## that have not yet been included into that chain.
   ##
   ## idx in Vidx == p(i mod N), pi being a random permutation of validators indices (i.e. a committee)
-
+  # TODO this index is invalid outside of the block state transition function
+  #      because presently, `state.slot += 1` happens before this function
+  #      is called - see also testutil.getNextBeaconProposerIndex
   let idx = get_shard_committees_index(state, slot)
   state.shard_committees_at_slots[idx][0].committee.mod_get(slot)
 
-func int_sqrt*(n: SomeInteger): SomeInteger =
+func integer_squareroot*(n: SomeInteger): SomeInteger =
+  ## The largest integer ``x`` such that ``x**2`` is less than ``n``.
   var
     x = n
     y = (x + 1) div 2
@@ -142,3 +145,23 @@ func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
   # return o[1]
   # TODO
   discard
+
+proc is_double_vote*(attestation_data_1: AttestationData,
+                     attestation_data_2: AttestationData): bool =
+  ## Assumes ``attestation_data_1`` is distinct from ``attestation_data_2``.
+  ## Returns True if the provided ``AttestationData`` are slashable
+  ## due to a 'double vote'.
+  attestation_data_1.slot == attestation_data_2.slot
+
+proc is_surround_vote*(attestation_data_1: AttestationData,
+                       attestation_data_2: AttestationData): bool =
+  ## Assumes ``attestation_data_1`` is distinct from ``attestation_data_2``.
+  ## Returns True if the provided ``AttestationData`` are slashable
+  ## due to a 'surround vote'.
+  ## Note: parameter order matters as this function only checks
+  ## that ``attestation_data_1`` surrounds ``attestation_data_2``.
+  (
+    (attestation_data_1.justified_slot < attestation_data_2.justified_slot) and
+    (attestation_data_1.justified_slot + 1 == attestation_data_2.slot) and
+    (attestation_data_2.slot < attestation_data_1.slot)
+  )

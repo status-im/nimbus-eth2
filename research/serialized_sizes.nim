@@ -4,7 +4,8 @@ import
   ../tests/testutil
 
 proc stateSize(deposits: int) =
-  let state = on_startup(makeInitialDeposits(deposits), 0, Eth2Digest())
+  let state = get_initial_beacon_state(
+    makeInitialDeposits(deposits), 0, Eth2Digest())
 
   echo "Validators: ", deposits, ", total: ", state.serialize().len
 
