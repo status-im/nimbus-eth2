@@ -1,36 +1,73 @@
-import os, ospaths, milagro_crypto, nimcrypto, ./spec/digest
+import
+  os, ospaths, strutils, strformat,
+  milagro_crypto, nimcrypto, json_serialization,
+  spec/[datatypes, digest, crypto], conf, randao, time, ssz,
+  ../tests/testutil
 
-proc writeFile(filename: string, content: openarray[byte]) =
-  var s = newString(content.len)
-  if content.len != 0:
-    copyMem(addr s[0], unsafeAddr content[0], content.len)
-  writeFile(filename, s)
+proc writeFile(filename: string, value: auto) =
+  Json.saveFile(filename, value, pretty = true)
+  echo &"Wrote {filename}"
 
-proc genKeys(path: string) =
-  let pk = newSigKey()
-  var randaoSeed: Eth2Digest
-  if randomBytes(randaoSeed.data) != sizeof(randaoSeed.data):
+proc genSingleValidator(path: string): (ValidatorPubKey,
+                                        ValidatorPrivKey,
+                                        Eth2Digest) =
+  var v: PrivateValidatorData
+  v.privKey = newSigKey()
+  if randomBytes(v.randao.seed.data) != sizeof(v.randao.seed.data):
     raise newException(Exception, "Could not generate randao seed")
 
-  createDir(parentDir(path))
-  let pkPath = path & ".privkey"
-  let randaoPath = path & ".randao"
-  writeFile(randaoPath, randaoSeed.data)
-  writeFile(pkPath, pk.getRaw())
-  echo "Generated privkey: ", pkPath
-  echo "Generated randao seed: ", randaoPath
+  writeFile(path, v)
+
+  return (v.privKey.pubKey(), v.privKey, v.randao.initialCommitment)
 
 proc printUsage() =
-  echo "Usage: validator_keygen <path>"
+  echo "Usage: validator_keygen <number-of-validators> <out-path>"
+
+# TODO: Make these more comprehensive and find them a new home
+type
+  Ether* = distinct int64
+  GWei* = distinct int64
+
+template eth*(x: SomeInteger): Ether = Ether(x)
+template gwei*(x: Ether): Gwei = Gwei(int(x) * 1000000000)
 
 proc main() =
-  if paramCount() != 1:
+  if paramCount() != 2:
     printUsage()
     return
 
-  let path = paramStr(1)
-  genKeys(path)
+  let totalValidators = parseInt paramStr(1)
+  if totalValidators < 64:
+    echo "The number of validators must be higher than ", EPOCH_LENGTH, " (EPOCH_LENGTH)"
+    echo "There must be at least one validator assigned per slot."
+    quit 1
 
+  let outPath = paramStr(2)
+
+  var startupData: ChainStartupData
+
+  for i in 1 .. totalValidators:
+    let (pubKey, privKey, randaoCommitment) =
+
+      genSingleValidator(outPath / &"validator-{i:02}.json")
+
+    let withdrawalCredentials = makeFakeHash(i)
+    let proofOfPossession = signMessage(privkey, hash_tree_root(
+      (pubKey, withdrawalCredentials, randaoCommitment)))
+
+    startupData.validatorDeposits.add Deposit(
+      deposit_data: DepositData(
+        value: MAX_DEPOSIT * GWEI_PER_ETH,
+        timestamp: now(),
+        deposit_parameters: DepositParameters(
+          pubkey: pubKey,
+          proof_of_possession: proofOfPossession,
+          withdrawal_credentials: withdrawalCredentials,
+          randao_commitment: randaoCommitment)))
+
+  startupData.genesisTime = now()
+
+  writeFile(outPath / "startup.json", startupData)
 
 when isMainModule:
   main()

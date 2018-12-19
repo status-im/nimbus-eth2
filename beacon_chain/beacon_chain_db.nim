@@ -16,13 +16,16 @@ proc init*(T: type BeaconChainDB, dataDir: string): BeaconChainDB =
 
 proc lastFinalizedState*(db: BeaconChainDB): BeaconStateRef =
   try:
-    var stateJson = parseJson readFile(db.dataRoot / "BeaconState.json")
-    # TODO implement this
+    let stateFile = db.dataRoot / "BeaconState.json"
+    if fileExists stateFile:
+      new result
+      Json.loadFile(stateFile, result[])
   except:
+    error "Failed to load the latest finalized state",
+          err = getCurrentExceptionMsg()
     return nil
 
 proc persistBlock*(db: BeaconChainDB, s: BeaconState, b: BeaconBlock) =
-  let stateJson = StringJsonWriter.encode(s, pretty = true)
-  writeFile(db.dataRoot / "BeaconState.json", stateJson)
+  Json.saveFile(db.dataRoot / "BeaconState.json", s, pretty = true)
   debug "State persisted"
 

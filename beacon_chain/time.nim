@@ -4,10 +4,12 @@ import
   spec/datatypes
 
 type
-  Timestamp = uint64 # Unix epoch timestamp in millisecond resolution
+  Timestamp* = uint64 # Unix epoch timestamp in millisecond resolution
 
 var
   detectedClockDrift: int64
+
+template now*: auto = fastEpochTime()
 
 proc timeSinceGenesis*(s: BeaconState): Timestamp =
   Timestamp(int64(fastEpochTime() - s.genesis_time * 1000) -

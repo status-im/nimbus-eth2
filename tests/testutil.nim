@@ -17,7 +17,7 @@ func makeValidatorPrivKey(i: int): ValidatorPrivKey =
   var i = i + 1 # 0 does not work, as private key...
   copyMem(result.x[0].addr, i.addr, min(sizeof(result.x), sizeof(i)))
 
-func makeFakeHash(i: int): Eth2Digest =
+func makeFakeHash*(i: int): Eth2Digest =
   copyMem(result.data[0].addr, i.unsafeAddr, min(sizeof(result.data), sizeof(i)))
 
 func hackPrivKey(v: ValidatorRecord): ValidatorPrivKey =

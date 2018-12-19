@@ -1,8 +1,8 @@
 import
-  os, net, sequtils,
+  std_shims/os_shims, net, sequtils, options,
   asyncdispatch2, chronicles, confutils, eth_p2p, eth_keys,
-  spec/[beaconstate, datatypes, helpers, crypto], conf, time, fork_choice, ssz,
-  beacon_chain_db, validator_pool, mainchain_monitor,
+  spec/[beaconstate, datatypes, helpers, crypto, digest], conf, time,
+  fork_choice, ssz, beacon_chain_db, validator_pool, mainchain_monitor,
   sync_protocol, gossipsub_protocol, trusted_state_snapshots
 
 type
@@ -34,6 +34,7 @@ proc ensureNetworkKeys*(dataDir: string): KeyPair =
 proc init*(T: type BeaconNode, conf: BeaconNodeConf): T =
   new result
   result.config = conf
+
   result.db = BeaconChainDB.init(string conf.dataDir)
   result.keys = ensureNetworkKeys(string conf.dataDir)
 
@@ -41,13 +42,36 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): T =
   address.ip = parseIpAddress("0.0.0.0")
   address.tcpPort = Port(conf.tcpPort)
   address.udpPort = Port(conf.udpPort)
+
   result.network = newEthereumNode(result.keys, address, 0, nil, clientId)
+
+  writeFile(string(conf.dataDir) / "beacon_node.address",
+            $result.network.listeningAddress)
+
+proc connectToNetwork(node: BeaconNode) {.async.} =
+  var bootstrapNodes = newSeq[ENode]()
+
+  for node in node.config.bootstrapNodes:
+    bootstrapNodes.add initENode(node)
+
+  let bootstrapFile = string node.config.bootstrapNodesFile
+  if bootstrapFile.len > 0:
+    for ln in lines(bootstrapFile):
+      bootstrapNodes.add initENode(string ln)
+
+  if bootstrapNodes.len > 0:
+    await node.network.connectToNetwork(bootstrapNodes)
+  else:
+    node.network.startListening()
 
 proc sync*(node: BeaconNode): Future[bool] {.async.} =
   let persistedState = node.db.lastFinalizedState()
   if persistedState.isNil or
      persistedState[].slotDistanceFromNow() > WEAK_SUBJECTVITY_PERIOD:
-    node.beaconState = await obtainTrustedStateSnapshot(node.db)
+    if node.config.stateSnapshot.isSome:
+      node.beaconState = node.config.stateSnapshot.get
+    else:
+      node.beaconState = await obtainTrustedStateSnapshot(node.db)
   else:
     node.beaconState = persistedState[]
     var targetSlot = toSlot timeSinceGenesis(node.beaconState)
@@ -76,22 +100,19 @@ template findIt(s: openarray, predicate: untyped): int =
   res
 
 proc addLocalValidators*(node: BeaconNode) =
-  for validator in node.config.validatorKeys:
-    # 1. Parse the validator keys
-    let privKey = loadPrivKey(validator)
-    let pubKey = privKey.pubKey()
-    let randao = loadRandao(validator)
+  for validator in node.config.validators:
+    let
+      privKey = validator.privKey
+      pubKey = privKey.pubKey()
+      randao = validator.randao
 
-    # 2. Check whether the validators exist in the beacon state.
-    #    (Report a warning otherwise)
     let idx = node.beaconState.validator_registry.findIt(it.pubKey == pubKey)
     if idx == -1:
       warn "Validator not in registry", pubKey
     else:
-      # 3. Add the validators to node.attachedValidators
-      # TODO: Parse randao secret
       node.attachedValidators.addLocalValidator(idx, pubKey, privKey, randao)
 
+    info "Local validators attached ", count = node.attachedValidators.count
 
 proc getAttachedValidator(node: BeaconNode, idx: int): AttachedValidator =
   let validatorKey = node.beaconState.validator_registry[idx].pubkey
@@ -198,15 +219,38 @@ proc processBlocks*(node: BeaconNode) {.async.} =
     # Attestations are verified as aggregated groups
     node.attestations.add(getAttestationCandidate a, node.beaconState)
 
+var gPidFile: string
+proc createPidFile(filename: string) =
+  createDir splitFile(filename).dir
+  writeFile filename, $getCurrentProcessId()
+  gPidFile = filename
+  addQuitProc proc {.noconv.} = removeFile gPidFile
+
 when isMainModule:
   let config = BeaconNodeConf.load()
-  waitFor syncrhronizeClock()
-  var node = BeaconNode.init config
+  case config.cmd
+  of createChain:
+    let outfile = string config.outputStateFile
+    let initialState = get_initial_beacon_state(
+      config.chainStartupData.validatorDeposits,
+      config.chainStartupData.genesisTime,
+      Eth2Digest())
+    
+    Json.saveFile(outfile, initialState, pretty = true)
+    echo "Wrote ", outfile
+    quit 0
 
-  if not waitFor node.sync():
-    quit 1
+  of noCommand:
+    waitFor syncrhronizeClock()
+    createPidFile(string(config.dataDir) / "beacon_node.pid")
 
-  node.addLocalValidators()
+    var node = BeaconNode.init config
+    waitFor node.connectToNetwork()
 
-  waitFor node.processBlocks()
+    if not waitFor node.sync():
+      quit 1
+
+    node.addLocalValidators()
+
+    waitFor node.processBlocks()
 

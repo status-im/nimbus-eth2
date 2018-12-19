@@ -10,8 +10,11 @@
 # hashed out. This layer helps isolate those chagnes.
 
 import
-  milagro_crypto, hashes
-export milagro_crypto.`$`
+  hashes,
+  milagro_crypto, json_serialization
+
+export
+  json_serialization, milagro_crypto.`$`
 
 type
   ValidatorPubKey* = milagro_crypto.VerKey
@@ -38,3 +41,22 @@ func bls_verify*(
   # name from spec!
   # TODO domain!
   sig.verifyMessage(msg, pubkey)
+
+proc writeValue*(writer: var JsonWriter, value: ValidatorPubKey) {.inline.} =
+  writer.writeValue $value
+
+proc readValue*(reader: var JsonReader, value: var ValidatorPubKey) {.inline.} =
+  value = initVerKey reader.readValue(string)
+
+proc writeValue*(writer: var JsonWriter, value: ValidatorSig) {.inline.} =
+  writer.writeValue $value
+
+proc readValue*(reader: var JsonReader, value: var ValidatorSig) {.inline.} =
+  value = initSignature reader.readValue(string)
+
+proc writeValue*(writer: var JsonWriter, value: ValidatorPrivKey) {.inline.} =
+  writer.writeValue $value
+
+proc readValue*(reader: var JsonReader, value: var ValidatorPrivKey) {.inline.} =
+  value = initSigKey reader.readValue(string)
+
