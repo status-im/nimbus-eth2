@@ -1,7 +1,7 @@
 import spec/[digest, helpers]
 
 type Randao* = object
-  seed: Eth2Digest
+  seed*: Eth2Digest
 
 const MaxRandaoLevels = 10000 # TODO: This number is arbitrary
 

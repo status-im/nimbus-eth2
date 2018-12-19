@@ -20,9 +20,11 @@
 # In our code base, to enable a smooth transition, we call this function
 # `eth2hash`, and it outputs a `Eth2Digest`. Easy to sed :)
 
-import nimcrypto/[blake2, hash]
+import
+  nimcrypto/[blake2, hash], eth_common/eth_types_json_serialization
 
-export hash.`$`
+export
+  eth_types_json_serialization, hash.`$`
 
 type
   Eth2Digest* = MDigest[32 * 8] ## `hash32` from spec

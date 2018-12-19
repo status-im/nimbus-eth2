@@ -392,8 +392,8 @@ type
 
 when true:
   # TODO: Remove these once RLP serialization is no longer used
-  import nimcrypto, rlp
-  export append, read
+  import nimcrypto, rlp, json_serialization
+  export append, read, json_serialization
 
   proc append*(rlpWriter: var RlpWriter, value: ValidatorPubKey) =
     discard
@@ -412,3 +412,5 @@ when true:
 
   proc read*(rlp: var Rlp, T: type ValidatorSig): T {.inline.} =
     discard
+
+

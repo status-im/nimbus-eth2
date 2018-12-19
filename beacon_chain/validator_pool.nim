@@ -25,6 +25,9 @@ type
 proc init*(T: type ValidatorPool): T =
   result.validators = initTable[ValidatorPubKey, AttachedValidator]()
 
+template count*(pool: ValidatorPool): int =
+  pool.validators.len
+
 proc addLocalValidator*(pool: var ValidatorPool,
                         idx: int,
                         pubKey: ValidatorPubKey,
