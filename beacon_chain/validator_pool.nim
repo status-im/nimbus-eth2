@@ -47,10 +47,10 @@ proc signBlockProposal*(v: AttachedValidator,
                         proposal: ProposalSignedData): Future[ValidatorSig] {.async.} =
   if v.kind == inProcess:
     await sleepAsync(1)
-    let proposalRoot = hash_tree_root(proposal)
+    let proposalRoot = hash_tree_root_final(proposal)
 
     # TODO: Should we use proposalRoot as data, or digest in regards to signature?
-    return signMessage(v.privKey, proposalRoot)
+    return signMessage(v.privKey, proposalRoot.data)
   else:
     # TODO:
     # send RPC
@@ -62,9 +62,9 @@ proc signAttestation*(v: AttachedValidator,
   if v.kind == inProcess:
     await sleepAsync(1)
 
-    let attestationRoot = hash_tree_root(attestation)
+    let attestationRoot = hash_tree_root_final(attestation)
     # TODO: Should we use attestationRoot as data, or digest in regards to signature?
-    return signMessage(v.privKey, attestationRoot)
+    return signMessage(v.privKey, attestationRoot.data)
   else:
     # TODO:
     # send RPC

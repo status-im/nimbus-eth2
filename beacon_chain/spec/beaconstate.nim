@@ -17,9 +17,10 @@ func process_deposit(state: var BeaconState,
                      withdrawal_credentials: Eth2Digest,
                      randao_commitment: Eth2Digest): Uint24 =
   ## Process a deposit from Ethereum 1.0.
-  let msg = hash_tree_root((pubkey, withdrawal_credentials, randao_commitment))
+  let msg = hash_tree_root_final(
+    (pubkey, withdrawal_credentials, randao_commitment))
   assert bls_verify(
-    pubkey, msg, proof_of_possession,
+    pubkey, msg.data, proof_of_possession,
     get_domain(state.fork_data, state.slot, DOMAIN_DEPOSIT))
 
   let validator_pubkeys = mapIt(state.validator_registry, it.pubkey)
@@ -249,10 +250,8 @@ func get_attestation_participants*(state: BeaconState,
     # TODO investigate functional library / approach to help avoid loop bugs
     assert len(participation_bitfield) == ceil_div8(len(snc.committee))
     for i, vindex in snc.committee:
-      let
-        bit = (participation_bitfield[i div 8] shr (7 - (i mod 8))) mod 2
-      if bit == 1:
-          result.add(vindex)
+      if bitIsSet(participation_bitfield, i):
+        result.add(vindex)
     return # found the shard, we're done
 
 func process_ejections*(state: var BeaconState) =
@@ -326,10 +325,10 @@ proc checkAttestation*(state: BeaconState, attestation: Attestation): bool =
       participants, state.validator_registry[it].pubkey))
 
   # Verify that aggregate_signature verifies using the group pubkey.
-  let msg = hash_tree_root(attestation.data)
+  let msg = hash_tree_root_final(attestation.data)
 
   if not bls_verify(
-        group_public_key, @msg & @[0'u8], attestation.aggregate_signature,
+        group_public_key, @(msg.data) & @[0'u8], attestation.aggregate_signature,
         get_domain(state.fork_data, attestation.data.slot, DOMAIN_ATTESTATION)
       ):
     warn("Invalid attestation group signature")

@@ -71,12 +71,12 @@ func get_new_validator_registry_delta_chain_tip*(
     flag: ValidatorSetDeltaFlags): Eth2Digest =
   ## Compute the next hash in the validator registry delta hash chain.
 
-  Eth2Digest(data: hash_tree_root(ValidatorRegistryDeltaBlock(
+  hash_tree_root_final(ValidatorRegistryDeltaBlock(
     latest_registry_delta_root: current_validator_registry_delta_chain_tip,
     validator_index: index,
     pubkey: pubkey,
     flag: flag
-  )))
+  ))
 
 func get_effective_balance*(validator: ValidatorRecord): uint64 =
     min(validator.balance, MAX_DEPOSIT * GWEI_PER_ETH)

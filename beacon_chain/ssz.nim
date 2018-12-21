@@ -306,6 +306,13 @@ func hash_tree_root*(x: ValidatorSig): array[32, byte] =
   ## This is a "stub" needed for BeaconBlock hashing
   x.getRaw().hash()
 
+func hash_tree_root_final*(x: object|tuple): Eth2Digest =
+  # TODO suggested for spec:
+  # https://github.com/ethereum/eth2.0-specs/issues/276
+  # only for objects now, else the padding would have to be implemented - not
+  # needed yet..
+  Eth2Digest(data: hash_tree_root(x))
+
 # ################### Tree hash ###################################
 
 func merkleHash[T](lst: openArray[T]): array[32, byte] =

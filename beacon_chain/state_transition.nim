@@ -62,14 +62,14 @@ func verifyProposerSignature(state: BeaconState, blck: BeaconBlock): bool =
     signed_data = ProposalSignedData(
       slot: state.slot,
       shard: BEACON_CHAIN_SHARD_NUMBER,
-      block_root: Eth2Digest(data: hash_tree_root(blck_without_sig))
+      block_root: hash_tree_root_final(blck_without_sig)
     )
-    proposal_hash = hash_tree_root(signed_data)
+    proposal_hash = hash_tree_root_final(signed_data)
     proposer_index = get_beacon_proposer_index(state, state.slot)
 
   bls_verify(
     state.validator_registry[proposer_index].pubkey,
-    proposal_hash, blck.signature,
+    proposal_hash.data, blck.signature,
     get_domain(state.fork_data, state.slot, DOMAIN_PROPOSAL))
 
 func processRandao(
@@ -132,7 +132,7 @@ proc processProposerSlashings(state: var BeaconState, blck: BeaconBlock): bool =
     let proposer = addr state.validator_registry[proposer_slashing.proposer_index]
     if not bls_verify(
         proposer.pubkey,
-        hash_tree_root(proposer_slashing.proposal_data_1),
+        hash_tree_root_final(proposer_slashing.proposal_data_1).data,
         proposer_slashing.proposal_signature_1,
         get_domain(
           state.fork_data, proposer_slashing.proposal_data_1.slot,
@@ -141,7 +141,7 @@ proc processProposerSlashings(state: var BeaconState, blck: BeaconBlock): bool =
       return false
     if not bls_verify(
         proposer.pubkey,
-        hash_tree_root(proposer_slashing.proposal_data_2),
+        hash_tree_root_final(proposer_slashing.proposal_data_2).data,
         proposer_slashing.proposal_signature_2,
         get_domain(
           state.fork_data, proposer_slashing.proposal_data_2.slot,
@@ -469,6 +469,7 @@ func processEpoch(state: var BeaconState) =
       state.slot <= it.data.slot + 2 * EPOCH_LENGTH and
       it.data.slot + EPOCH_LENGTH < state.slot)
 
+  let
     previous_epoch_attesters =
       get_attesters(state, previous_epoch_attestations)
 
@@ -755,7 +756,7 @@ func processEpoch(state: var BeaconState) =
     )
 
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
-  let state_root = Eth2Digest(data: hash_tree_root(state))
+  let state_root = hash_tree_root_final(state)
   if state_root != blck.state_root:
     warn("Block: root verification failed",
       block_state_root = blck.state_root, state_root)

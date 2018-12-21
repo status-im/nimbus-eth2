@@ -27,7 +27,7 @@ proc transition(
 
   var
     state = genesisState
-    latest_block_root = Eth2Digest(data: hash_tree_root(genesisBlock))
+    latest_block_root = hash_tree_root_final(genesisBlock)
 
   for i in 0..<slots:
     if state.slot mod json_interval.uint64 == 0:
@@ -36,8 +36,8 @@ proc transition(
     else:
       write(stdout, ".")
 
-    latest_block_root = Eth2Digest(data: hash_tree_root(
-      addBlock(state, latest_block_root, BeaconBlockBody())))
+    latest_block_root = hash_tree_root_final(
+      addBlock(state, latest_block_root, BeaconBlockBody()))
 
     flushFile(stdout)
 
