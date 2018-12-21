@@ -3,7 +3,7 @@ version       = "0.0.1"
 author        = "Status Research & Development GmbH"
 description   = "Eth2.0 research implementation of the beacon chain"
 license       = "MIT or Apache License 2.0"
-installDirs   = @["beacon_chain"]
+installDirs   = @["beacon_chain", "research"]
 bin           = @[
   "beacon_chain/beacon_node",
   "beacon_chain/validator_keygen",
