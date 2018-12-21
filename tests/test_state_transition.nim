@@ -9,7 +9,7 @@ import
   options, sequtils, unittest,
   ./testutil,
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers],
-  ../beacon_chain/[extras, state_transition]
+  ../beacon_chain/[extras, state_transition, ssz]
 
 suite "Block processing":
   ## For now just test that we can compile and execute block processing with
@@ -25,78 +25,68 @@ suite "Block processing":
   test "Passes from genesis state, no block":
     let
       state = genesisState
-      latest_block = genesisBlock
-      new_state = updateState(state, latest_block, none(BeaconBlock), false)
+      proposer_index = getNextBeaconProposerIndex(state)
+      previous_block_root = Eth2Digest(data: hash_tree_root(genesisBlock))
+      new_state = updateState(
+        state, previous_block_root, none(BeaconBlock), {})
     check:
-      new_state.state.slot == latest_block.slot + 1
       new_state.block_ok
+
+      new_state.state.slot == state.slot + 1
+
+      # When proposer skips their proposal, randao layer is still peeled!
+      new_state.state.validator_registry[proposer_index].randao_layers ==
+        state.validator_registry[proposer_index].randao_layers + 1
 
   test "Passes from genesis state, empty block":
     let
       state = genesisState
-      latest_block = genesisBlock
-      new_block = makeBlock(state, latest_block)
-      new_state = updateState(state, latest_block, some(new_block), false)
+      proposer_index = getNextBeaconProposerIndex(state)
+      previous_block_root = Eth2Digest(data: hash_tree_root(genesisBlock))
+      new_block = makeBlock(state, previous_block_root, BeaconBlockBody())
+      new_state = updateState(
+        state, previous_block_root, some(new_block), {})
 
     check:
-      new_state.state.slot == latest_block.slot + 1
       new_state.block_ok
+
+      new_state.state.slot == state.slot + 1
+
+      # Proposer proposed, no need for additional peeling
+      new_state.state.validator_registry[proposer_index].randao_layers ==
+        state.validator_registry[proposer_index].randao_layers
 
   test "Passes through epoch update, no block":
     var
       state = genesisState
-      latest_block = genesisBlock
+      previous_block_root = Eth2Digest(data: hash_tree_root(genesisBlock))
 
     for i in 1..EPOCH_LENGTH.int:
-      let new_state = updateState(state, latest_block, none(BeaconBlock), false)
+      let new_state = updateState(
+        state, previous_block_root, none(BeaconBlock), {})
       check:
         new_state.block_ok
       state = new_state.state
 
     check:
-      state.slot == latest_block.slot + EPOCH_LENGTH
+      state.slot == genesisState.slot + EPOCH_LENGTH
 
   test "Passes through epoch update, empty block":
     var
       state = genesisState
-      latest_block = genesisBlock
+      previous_block_root = Eth2Digest(data: hash_tree_root(genesisBlock))
 
     for i in 1..EPOCH_LENGTH.int:
-      var new_block = makeBlock(state, latest_block)
+      var new_block = makeBlock(state, previous_block_root, BeaconBlockBody())
 
-      let new_state = updateState(state, latest_block, some(new_block), false)
+      let new_state = updateState(
+        state, previous_block_root, some(new_block), {})
 
       check:
         new_state.block_ok
       state = new_state.state
-      latest_block = new_block
+      if new_state.block_ok:
+        previous_block_root = Eth2Digest(data: hash_tree_root(new_block))
 
     check:
-      state.slot == latest_block.slot
-
-  test "Increments proposer randao_layers, no block":
-    let
-      state = genesisState
-      latest_block = genesisBlock
-      proposer_index = getNextBeaconProposerIndex(state)
-      previous_randao_layers =
-        state.validator_registry[proposer_index].randao_layers
-      new_state = updateState(state, latest_block, none(BeaconBlock), false)
-      updated_proposer = new_state.state.validator_registry[proposer_index]
-
-    check:
-      updated_proposer.randao_layers == previous_randao_layers + 1
-
-  test "Proposer randao layers unchanged, empty block":
-    let
-      state = genesisState
-      latest_block = genesisBlock
-      proposer_index = getNextBeaconProposerIndex(state)
-      previous_randao_layers =
-        state.validator_registry[proposer_index].randao_layers
-      new_block = makeBlock(state, latest_block)
-      new_state = updateState(state, latest_block, some(new_block), false)
-      updated_proposer = new_state.state.validator_registry[proposer_index]
-
-    check:
-      updated_proposer.randao_layers == previous_randao_layers
+      state.slot == genesisState.slot + EPOCH_LENGTH

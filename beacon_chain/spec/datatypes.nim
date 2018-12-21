@@ -67,6 +67,7 @@ const
 
   MAX_CASPER_VOTES* = 2^10
   LATEST_BLOCK_ROOTS_LENGTH* = 2'u64^13
+  LATEST_RANDAO_MIXES_LENGTH* = 2'u64^13
 
   MIN_BALANCE* = 2'u64^4 ##\
   ## Minimum balance in ETH before a validator is removed from the validator
@@ -268,9 +269,7 @@ type
     ## For light clients to easily track delta
 
     # Randomness and committees
-    randao_mix*: Eth2Digest
-    next_seed*: Eth2Digest ##\
-    ## Randao seed used for next shuffling
+    latest_randao_mixes*: array[LATEST_BLOCK_ROOTS_LENGTH.int, Eth2Digest]
 
     shard_committees_at_slots*: array[2 * EPOCH_LENGTH, seq[ShardCommittee]] ## \
     ## Committee members and their assigned shard, per slot, covers 2 cycles
