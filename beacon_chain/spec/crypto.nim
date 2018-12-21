@@ -27,7 +27,7 @@ template hash*(k: ValidatorPubKey|ValidatorPrivKey): Hash =
 func pubKey*(pk: ValidatorPrivKey): ValidatorPubKey = fromSigKey(pk)
 
 func bls_aggregate_pubkeys*(keys: openArray[ValidatorPubKey]): ValidatorPubKey =
-  var empty = false
+  var empty = true
   for key in keys:
     if empty:
       result = key

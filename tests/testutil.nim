@@ -6,9 +6,9 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  options, milagro_crypto,
+  options, milagro_crypto, sequtils,
   ../beacon_chain/[extras, ssz, state_transition],
-  ../beacon_chain/spec/[crypto, datatypes, digest, helpers]
+  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers]
 
 const
   randaoRounds = 100
@@ -107,7 +107,7 @@ proc addBlock*(
       randao_reveal: hackReveal(proposer),
       candidate_pow_receipt_root: Eth2Digest(), # TODO
       signature: ValidatorSig(), # we need the rest of the block first!
-      body: BeaconBlockBody() # TODO throw in stuff here...
+      body: body
     )
 
   var block_ok: bool
@@ -156,3 +156,49 @@ proc makeBlock*(
   # because the block includes the state root.
   var next_state = state
   addBlock(next_state, previous_block_root, body)
+
+proc find_shard_committee(
+    sacs: openArray[ShardCommittee], validator_index: Uint24): ShardCommittee =
+  for sac in sacs:
+    if validator_index in sac.committee: return sac
+  doAssert false
+
+proc makeAttestation*(
+    state: BeaconState, beacon_block_root: Eth2Digest,
+    validator_index: Uint24): Attestation =
+
+  let new_state = updateState(
+    state, beacon_block_root, none(BeaconBlock), {skipValidation})
+  let
+    sac = find_shard_committee(
+      get_shard_committees_at_slot(state, state.slot), validator_index)
+    validator = state.validator_registry[validator_index]
+    sac_index = sac.committee.find(validator_index)
+
+    data = AttestationData(
+      slot: state.slot,
+      shard: sac.shard,
+      beacon_block_root: beacon_block_root,
+      epoch_boundary_root: Eth2Digest(), # TODO
+      shard_block_root: Eth2Digest(), # TODO
+      latest_crosslink_root: Eth2Digest(), # TODO
+      justified_slot: state.justified_slot,
+      justified_block_root:
+        get_block_root(new_state.state, state.justified_slot),
+    )
+
+  assert sac_index != -1, "find_shard_committe should guarantee this"
+
+  var
+    participation_bitfield = repeat(0'u8, ceil_div8(sac.committee.len))
+  bitSet(participation_bitfield, sac_index)
+
+  let
+    msg = hash_tree_root_final(data)
+
+  Attestation(
+    data: data,
+    participation_bitfield: participation_bitfield,
+    aggregate_signature: signMessage(
+      hackPrivKey(validator), @(msg.data) & @[0'u8])
+  )

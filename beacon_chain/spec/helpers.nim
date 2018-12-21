@@ -9,6 +9,14 @@
 
 import ./datatypes, ./digest, sequtils, math
 
+# TODO spec candidate? there's bits in nim-ranges but that one has some API
+#      issues regarding bit endianess that need resolving..
+func bitIsSet*(bitfield: openArray[byte], index: int): bool =
+  (bitfield[index div 8] shr byte(7 - (index mod 8))) mod 2 > 0'u8
+
+func bitSet*(bitfield: var openArray[byte], index: int) =
+  bitfield[index div 8] = bitfield[index div 8] or 1'u8 shl (7 - (index mod 8))
+
 func mod_get[T](arr: openarray[T], pos: Natural): T =
   arr[pos mod arr.len]
 

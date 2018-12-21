@@ -162,7 +162,7 @@ proc proposeBlock(node: BeaconNode,
   var signedData: ProposalSignedData
   signedData.slot = node.beaconState.slot
   signedData.shard = BEACON_CHAIN_SHARD_NUMBER
-  signedData.blockRoot.data = hash_tree_root(proposal)
+  signedData.blockRoot = hash_tree_root_final(proposal)
 
   proposal.signature = await validator.signBlockProposal(signedData)
   await node.network.broadcast(topicBeaconBlocks, proposal)
@@ -235,7 +235,7 @@ when isMainModule:
       config.chainStartupData.validatorDeposits,
       config.chainStartupData.genesisTime,
       Eth2Digest())
-    
+
     Json.saveFile(outfile, initialState, pretty = true)
     echo "Wrote ", outfile
     quit 0

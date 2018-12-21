@@ -43,6 +43,8 @@ import
 # Eventually, we could also differentiate between user/tainted data and
 # internal state that's gone through sanity checks already.
 
+# TODO Many of these constants should go into a config object that can be used
+#      to run.. well.. a chain with different constants!
 const
   SHARD_COUNT* = 1024 ##\
   ## Number of shards supported by the network - validators will jump around

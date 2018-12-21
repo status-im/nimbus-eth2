@@ -52,8 +52,8 @@ proc main() =
       genSingleValidator(outPath / &"validator-{i:02}.json")
 
     let withdrawalCredentials = makeFakeHash(i)
-    let proofOfPossession = signMessage(privkey, hash_tree_root(
-      (pubKey, withdrawalCredentials, randaoCommitment)))
+    let proofOfPossession = signMessage(privkey, hash_tree_root_final(
+      (pubKey, withdrawalCredentials, randaoCommitment)).data)
 
     startupData.validatorDeposits.add Deposit(
       deposit_data: DepositData(
