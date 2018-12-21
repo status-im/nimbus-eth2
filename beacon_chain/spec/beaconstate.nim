@@ -178,10 +178,6 @@ func get_initial_beacon_state*(
     validator_registry_exit_count: 0,
     validator_registry_delta_chain_tip: ZERO_HASH,
 
-    # Randomness and committees
-    randao_mix: ZERO_HASH,
-    next_seed: ZERO_HASH,
-
     # Finality
     previous_justified_slot: INITIAL_SLOT_NUMBER,
     justified_slot: INITIAL_SLOT_NUMBER,
@@ -228,10 +224,9 @@ func get_initial_beacon_state*(
 
 func get_block_root*(state: BeaconState,
                      slot: uint64): Eth2Digest =
-  doAssert slot + len(state.latest_block_roots).uint64 > state.slot
+  doAssert state.slot <= slot + LATEST_BLOCK_ROOTS_LENGTH
   doAssert slot < state.slot
-  state.latest_block_roots[
-    (slot + len(state.latest_block_roots).uint64 - state.slot).int]
+  state.latest_block_roots[slot mod LATEST_BLOCK_ROOTS_LENGTH]
 
 func get_attestation_participants*(state: BeaconState,
                                    attestation_data: AttestationData,

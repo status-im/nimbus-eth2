@@ -42,15 +42,16 @@ func toBytesSSZ(x: Eth2Digest): array[32, byte] = x.data
 # https://github.com/ethereum/eth2.0-specs/issues/308#issuecomment-447026815
 func toBytesSSZ(x: ValidatorPubKey|ValidatorSig): auto = x.getRaw()
 
-type TrivialTypes =
-  # Types that serialize down to a fixed-length array - most importantly, these
-  # values don't carry a length prefix in the final encoding. toBytesSSZ
-  # provides the actual nim-type-to-bytes conversion.
-  # TODO think about this for a bit - depends where the serialization of
-  #      validator keys ends up going..
-  # TODO can't put ranges like Uint24 in here:
-  #      https://github.com/nim-lang/Nim/issues/10027
-  SomeInteger | EthAddress | Eth2Digest | ValidatorPubKey | ValidatorSig
+type
+  TrivialTypes =
+    # Types that serialize down to a fixed-length array - most importantly,
+    # these values don't carry a length prefix in the final encoding. toBytesSSZ
+    # provides the actual nim-type-to-bytes conversion.
+    # TODO think about this for a bit - depends where the serialization of
+    #      validator keys ends up going..
+    # TODO can't put ranges like Uint24 in here:
+    #      https://github.com/nim-lang/Nim/issues/10027
+    SomeInteger | EthAddress | Eth2Digest | ValidatorPubKey | ValidatorSig
 
 func sszLen(v: TrivialTypes): int = toBytesSSZ(v).len
 func sszLen(v: Uint24): int = toBytesSSZ(v).len
@@ -189,8 +190,6 @@ func serialize[T: not enum](dest: var seq[byte], src: T) =
     for val in src:
       serialize dest, val
   else:
-    # TODO to sort, or not to sort, that is the question:
-    # TODO or.. https://github.com/ethereum/eth2.0-specs/issues/275
     when defined(debugFieldSizes) and T is (BeaconState | BeaconBlock):
       # for research/serialized_sizes, remove when appropriate
       for name, field in src.fieldPairs:
@@ -216,17 +215,14 @@ proc deserialize*(data: openArray[byte],
   if not deserialize(ret, offset, data): none(typ)
   else: some(ret)
 
-func serialize*[T](value: T): seq[byte] =
-  # TODO Fields should be sorted, but...
+func serialize*(value: auto): seq[byte] =
   serialize(result, value)
 
 # ################### Hashing ###################################
 
 # Sample hash_tree_root implementation based on:
-# https://github.com/ethereum/eth2.0-specs/blob/98312f40b5742de6aa73f24e6225ee68277c4614/specs/simple-serialize.md
-# and
-# https://github.com/ethereum/beacon_chain/pull/134
-# Probably wrong - the spec is pretty bare-bones and no test vectors yet
+# https://github.com/ethereum/eth2.0-specs/blob/a9328157a87451ee4f372df272ece158b386ec41/specs/simple-serialize.md
+# TODO Probably wrong - the spec is pretty bare-bones and no test vectors yet
 
 const CHUNK_SIZE = 128
 
@@ -277,31 +273,26 @@ func hash_tree_root*(x: openArray[byte]): array[32, byte] =
   ## Blobs are hashed
   hash(x)
 
-func hash_tree_root*[T: not enum](x: T): array[32, byte] =
-  when T is seq or T is array:
-    ## Sequences are tree-hashed
-    merkleHash(x)
-  else:
-    ## Containers have their fields recursively hashed, concatenated and hashed
-    # TODO could probaby compile-time-macro-sort fields...
-    # TODO or.. https://github.com/ethereum/eth2.0-specs/issues/275
-    var fields: seq[tuple[name: string, value: seq[byte]]]
-    for name, field in x.fieldPairs:
-      fields.add (name, @(hash_tree_root(field)))
+func hash_tree_root*[T: seq|array](x: T): array[32, byte] =
+  ## Sequences are tree-hashed
+  merkleHash(x)
 
-    withHash:
-      for name, value in fields.sortedByIt(it.name):
-        h.update value.value
+func hash_tree_root*[T: object|tuple](x: T): array[32, byte] =
+  ## Containers have their fields recursively hashed, concatenated and hashed
+  withHash:
+    for field in x.fields:
+      h.update hash_tree_root(field)
 
 # #################################
 # hash_tree_root not part of official spec
-func hash_tree_root*(x: enum): array[32, byte] =
+func hash_tree_root*(x: enum): array[8, byte] =
   ## TODO - Warning ⚠️: not part of the spec
   ## as of https://github.com/ethereum/beacon_chain/pull/133/files
   ## This is a "stub" needed for BeaconBlock hashing
   static: assert x.sizeof == 1 # Check that the enum fits in 1 byte
-  withHash:
-    h.update [uint8 x]
+  # TODO We've put enums where the spec uses `uint64` - maybe we should not be
+  # using enums?
+  hash_tree_root(uint64(x))
 
 func hash_tree_root*(x: ValidatorPubKey): array[32, byte] =
   ## TODO - Warning ⚠️: not part of the spec
@@ -363,4 +354,4 @@ func merkleHash[T](lst: openArray[T]): array[32, byte] =
 
     chunkz.setLen(chunkz.len div 2)
 
-  result = hash(chunkz[0], dataLen)
+  hash(chunkz[0], dataLen)

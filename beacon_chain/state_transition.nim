@@ -38,6 +38,12 @@ import
   ./spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
   milagro_crypto
 
+type
+  UpdateFlag* = enum
+    skipValidation
+
+  UpdateFlags* = set[UpdateFlag]
+
 func flatten[T](v: openArray[seq[T]]): seq[T] =
   # TODO not in nim - doh.
   for x in v: result.add x
@@ -66,7 +72,8 @@ func verifyProposerSignature(state: BeaconState, blck: BeaconBlock): bool =
     proposal_hash, blck.signature,
     get_domain(state.fork_data, state.slot, DOMAIN_PROPOSAL))
 
-func processRandao(state: var BeaconState, blck: BeaconBlock, force: bool): bool =
+func processRandao(
+    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   ## When a validator signs up, they will commit an hash to the block,
   ## the randao_commitment - this hash is the result of a secret value
   ## hashed n times.
@@ -84,15 +91,16 @@ func processRandao(state: var BeaconState, blck: BeaconBlock, force: bool): bool
     proposer_index = get_beacon_proposer_index(state, state.slot)
     proposer = addr state.validator_registry[proposer_index]
 
-  if not force:
+  if skipValidation notin flags:
     # Check that proposer commit and reveal match
     if repeat_hash(blck.randao_reveal, proposer.randao_layers) !=
         proposer.randao_commitment:
       return false
 
   # Update state and proposer now that we're alright
-  for i, b in state.randao_mix.data:
-    state.randao_mix.data[i] = b xor blck.randao_reveal.data[i]
+  let mix = state.slot mod LATEST_RANDAO_MIXES_LENGTH
+  for i, b in state.latest_randao_mixes[mix].data:
+    state.latest_randao_mixes[mix].data[i] = b xor blck.randao_reveal.data[i]
 
   proposer.randao_commitment = blck.randao_reveal
   proposer.randao_layers = 0
@@ -301,7 +309,7 @@ proc process_ejections(state: var BeaconState) =
     if is_active_validator(validator) and validator.balance < EJECTION_BALANCE:
         update_validator_status(state, index.Uint24, EXITED_WITHOUT_PENALTY)
 
-func processSlot(state: var BeaconState, latest_block: BeaconBlock) =
+func processSlot(state: var BeaconState, previous_block_root: Eth2Digest) =
   ## Time on the beacon chain moves in slots. Every time we make it to a new
   ## slot, a proposer cleates a block to represent the state of the beacon
   ## chain at that time. In case the proposer is missing, it may happen that
@@ -312,20 +320,16 @@ func processSlot(state: var BeaconState, latest_block: BeaconBlock) =
   state.slot += 1
   state.validator_registry[
     get_beacon_proposer_index(state, state.slot)].randao_layers += 1
-
-  let
-    previous_block_root = Eth2Digest(data: hash_tree_root(latest_block))
-  for i in 0 ..< state.latest_block_roots.len - 1:
-    state.latest_block_roots[i] = state.latest_block_roots[i + 1]
-  state.latest_block_roots[state.latest_block_roots.len - 1] =
+  state.latest_randao_mixes[state.slot mod LATEST_RANDAO_MIXES_LENGTH] =
+    state.latest_randao_mixes[(state.slot - 1) mod LATEST_RANDAO_MIXES_LENGTH]
+  state.latest_block_roots[(state.slot - 1) mod LATEST_BLOCK_ROOTS_LENGTH] =
     previous_block_root
 
   if state.slot mod LATEST_BLOCK_ROOTS_LENGTH == 0:
     state.batched_block_roots.add(merkle_root(state.latest_block_roots))
 
-
 proc processBlock(
-    state: var BeaconState, blck: BeaconBlock, force: bool): bool =
+    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly
 
@@ -336,12 +340,16 @@ proc processBlock(
     warn("Unexpected block slot number")
     return false
 
-  # TODO does this need checking? not in the spec!
-  if not (blck.parent_root == state.latest_block_roots[^1]):
+  # Spec does not have this check explicitly, but requires that this condition
+  # holds - so we give verify it as well - this would happen naturally if
+  # `blck.parent_root` was used in `processSlot` - but that doesn't cut it for
+  # blockless slot processing.
+  if not (blck.parent_root ==
+      state.latest_block_roots[(state.slot - 1) mod LATEST_BLOCK_ROOTS_LENGTH]):
     warn("Unexpected parent root")
     return false
 
-  if not force:
+  if skipValidation notin flags:
     # TODO Technically, we could make processBlock take a generic type instead
     #      of BeaconBlock - we would then have an intermediate `ProposedBlock`
     #      type that omits some fields - this way, the compiler would guarantee
@@ -350,7 +358,7 @@ proc processBlock(
       warn("Proposer signature not valid")
       return false
 
-  if not processRandao(state, blck, force):
+  if not processRandao(state, blck, flags):
     warn("Randao reveal failed")
     return false
 
@@ -689,10 +697,10 @@ func processEpoch(state: var BeaconState) =
       let next_start_shard =
         (state.shard_committees_at_slots[^1][^1].shard + 1) mod SHARD_COUNT
       for i, v in get_new_shuffling(
-          state.next_seed, state.validator_registry, next_start_shard):
+          state.latest_randao_mixes[
+            (state.slot - EPOCH_LENGTH) mod LATEST_RANDAO_MIXES_LENGTH],
+          state.validator_registry, next_start_shard):
         state.shard_committees_at_slots[i + EPOCH_LENGTH] = v
-
-      state.next_seed = state.randao_mix
 
     else:
       # If a validator registry change does NOT happen
@@ -707,9 +715,10 @@ func processEpoch(state: var BeaconState) =
           MIN_VALIDATOR_REGISTRY_CHANGE_INTERVAL or
           is_power_of_2(slots_since_finality):
         for i, v in get_new_shuffling(
-            state.next_seed, state.validator_registry, start_shard):
+            state.latest_randao_mixes[
+              (state.slot - EPOCH_LENGTH) mod LATEST_RANDAO_MIXES_LENGTH],
+            state.validator_registry, start_shard):
           state.shard_committees_at_slots[i + EPOCH_LENGTH] = v
-        state.next_seed = state.randao_mix
         # Note that `start_shard` is not changed from the last epoch.
 
   block: # Proposer reshuffling
@@ -719,9 +728,10 @@ func processEpoch(state: var BeaconState) =
     for i in 0..<num_validators_to_reshuffle:
       # Multiplying i to 2 to ensure we have different input to all the required hashes in the shuffling
       # and none of the hashes used for entropy in this loop will be the same
+      # TODO Modulo of hash value.. hm...
       let
-        validator_index = 0.Uint24 # active_validator_indices[hash(state.randao_mix + bytes8(i * 2)) mod len(active_validator_indices)]
-        new_shard = 0'u64 # hash(state.randao_mix + bytes8(i * 2 + 1)) mod SHARD_COUNT
+        validator_index = 0.Uint24 # TODO active_validator_indices[hash(state.latest_randao_mixes[state.slot % LATEST_RANDAO_MIXES_LENGTH] + bytes8(i * 2)) % len(active_validator_indices)]
+        new_shard = 0'u64 # TODO hash(state.randao_mix + bytes8(i * 2 + 1)) mod SHARD_COUNT
         shard_reassignment_record = ShardReassignmentRecord(
           validator_index: validator_index,
           shard: new_shard,
@@ -744,8 +754,17 @@ func processEpoch(state: var BeaconState) =
       not (it.data.slot + EPOCH_LENGTH < state.slot)
     )
 
-proc updateState*(state: BeaconState, latest_block: BeaconBlock,
-    new_block: Option[BeaconBlock], force: bool):
+proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
+  let state_root = Eth2Digest(data: hash_tree_root(state))
+  if state_root != blck.state_root:
+    warn("Block: root verification failed",
+      block_state_root = blck.state_root, state_root)
+    false
+  else:
+    true
+
+proc updateState*(state: BeaconState, previous_block_root: Eth2Digest,
+    new_block: Option[BeaconBlock], flags: UpdateFlags):
       tuple[state: BeaconState, block_ok: bool] =
   ## Time in the beacon chain moves by slots. Every time (haha.) that happens,
   ## we will update the beacon state. Normally, the state updates will be driven
@@ -754,13 +773,16 @@ proc updateState*(state: BeaconState, latest_block: BeaconBlock,
   ## Each call to this function will advance the state by one slot - new_block,
   ## if present, must match that slot.
   ##
-  ## The `force` flag is used to skip a few checks, and apply `new_block`
-  ## regardless. We do this because some fields in the block depend on the state
-  ## being updated with the information in the new block.
+  ## The flags are used to specify that certain validations should be skipped
+  ## for the new block. This is done during block proposal, to create a state
+  ## whose hash can be included in the new block.
   #
   # TODO this function can be written with a loop inside to handle all empty
   #      slots up to the slot of the new_block - but then again, why not eagerly
   #      update the state as time passes? Something to ponder...
+  #      One reason to keep it this way is that you need to look ahead if you're
+  #      the block proposer, though in reality we only need a partial update for
+  #      that
   # TODO check to which extent this copy can be avoided (considering forks etc),
   #      for now, it serves as a reminder that we need to handle invalid blocks
   #      somewhere..
@@ -772,45 +794,35 @@ proc updateState*(state: BeaconState, latest_block: BeaconBlock,
   var new_state = state
 
   # Per-slot updates - these happen regardless if there is a block or not
-  processSlot(new_state, latest_block)
+  processSlot(new_state, previous_block_root)
 
-  let block_ok =
-    if new_block.isSome():
-      # Block updates - these happen when there's a new block being suggested
-      # by the block proposer. Every actor in the network will update its state
-      # according to the contents of this block - but first they will validate
-      # that the block is sane.
-      # TODO what should happen if block processing fails?
-      #      https://github.com/ethereum/eth2.0-specs/issues/293
-      var block_state = new_state
-      if processBlock(block_state, new_block.get(), force):
-        # processBlock will mutate the state! only apply if it worked..
-        # TODO yeah, this too is inefficient
-        new_state = block_state
-        processEpoch(block_state)
-
-        # This is a bit awkward - at the end of processing we verify that the
-        # state we arrive at is what the block producer thought it would be -
-        # meaning that potentially, it could fail verification
-        let expected_state_root = Eth2Digest(data: hash_tree_root(block_state))
-        if force or
-            (new_block.get().state_root == expected_state_root):
-          new_state = block_state
-          true
-        else:
-          warn("State: root verification failed",
-            state_root = new_block.get().state_root, expected_state_root)
-          processEpoch(new_state)
-          false
-      else:
-        false
-    else:
-      # Skip all per-block processing. Move directly to epoch processing
-      # prison. Do not do any block updates when passing go.
-
-      # Heavy updates that happen for every epoch - these never fail (or so we hope)
+  if new_block.isSome():
+    # Block updates - these happen when there's a new block being suggested
+    # by the block proposer. Every actor in the network will update its state
+    # according to the contents of this block - but first they will validate
+    # that the block is sane.
+    # TODO what should happen if block processing fails?
+    #      https://github.com/ethereum/eth2.0-specs/issues/293
+    if processBlock(new_state, new_block.get(), flags):
+      # Block ok so far, proceed with state update
       processEpoch(new_state)
-      true
 
-  # State update never fails, but block validation might...
-  (new_state, block_ok)
+      # This is a bit awkward - at the end of processing we verify that the
+      # state we arrive at is what the block producer thought it would be -
+      # meaning that potentially, it could fail verification
+      if skipValidation in flags or verifyStateRoot(new_state, new_block.get()):
+        # State root is what it should be - we're done!
+        return (new_state, true)
+
+    # Block processing failed, have to start over
+    new_state = state
+    processSlot(new_state, previous_block_root)
+    processEpoch(new_state)
+    (new_state, false)
+  else:
+    # Skip all per-block processing. Move directly to epoch processing
+    # prison. Do not do any block updates when passing go.
+
+    # Heavy updates that happen for every epoch - these never fail (or so we hope)
+    processEpoch(new_state)
+    (new_state, true)

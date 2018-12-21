@@ -80,11 +80,17 @@ func getNextBeaconProposerIndex*(state: BeaconState): Uint24 =
   next_state.slot += 1
   get_beacon_proposer_index(next_state, next_state.slot)
 
-proc makeBlock*(state: BeaconState, previous_block: BeaconBlock): BeaconBlock =
-  # Create a block for `state.slot + 1` - like a block proposer would do!
-  # It's a bit awkward - in order to produce a block for N+1, we need to
-  # calculate what the state will look like after that block has been applied,
-  # because the block includes the state root.
+proc addBlock*(
+    state: var BeaconState, previous_block_root: Eth2Digest,
+    body: BeaconBlockBody): BeaconBlock =
+  # Create and add a block to state - state will advance by one slot!
+  # This is the equivalent of running
+  # updateState(state, prev_block, makeBlock(...), {skipValidation})
+  # but avoids some slow block copies
+
+  state.slot += 1
+  let proposer_index = get_beacon_proposer_index(state, state.slot)
+  state.slot -= 1
 
   let
     # Index from the new state, but registry from the old state.. hmm...
@@ -96,10 +102,7 @@ proc makeBlock*(state: BeaconState, previous_block: BeaconBlock): BeaconBlock =
     # would look with the new block applied.
     new_block = BeaconBlock(
       slot: state.slot + 1,
-
-      # TODO is this checked anywhere?
-      #      https://github.com/ethereum/eth2.0-specs/issues/336
-      parent_root: Eth2Digest(data: hash_tree_root(previous_block)),
+      parent_root: previous_block_root,
       state_root: Eth2Digest(), # we need the new state first
       randao_reveal: hackReveal(proposer),
       candidate_pow_receipt_root: Eth2Digest(), # TODO
@@ -107,13 +110,14 @@ proc makeBlock*(state: BeaconState, previous_block: BeaconBlock): BeaconBlock =
       body: BeaconBlockBody() # TODO throw in stuff here...
     )
 
-  let
-    next_state = updateState(state, previous_block, some(new_block), true)
-  assert next_state.block_ok
+  var block_ok: bool
+  (state, block_ok) = updateState(
+    state, previous_block_root, some(new_block), {skipValidation})
+  assert block_ok
 
   # Ok, we have the new state as it would look with the block applied - now we
   # can set the state root in order to be able to create a valid signature
-  new_block.state_root = Eth2Digest(data: hash_tree_root(next_state.state))
+  new_block.state_root = Eth2Digest(data: hash_tree_root(state))
 
   let
     proposerPrivkey = hackPrivKey(proposer)
@@ -142,3 +146,13 @@ proc makeBlock*(state: BeaconState, previous_block: BeaconBlock): BeaconBlock =
     "we just signed this message - it should pass verification!"
 
   new_block
+
+proc makeBlock*(
+    state: BeaconState, previous_block_root: Eth2Digest,
+    body: BeaconBlockBody): BeaconBlock =
+  # Create a block for `state.slot + 1` - like a block proposer would do!
+  # It's a bit awkward - in order to produce a block for N+1, we need to
+  # calculate what the state will look like after that block has been applied,
+  # because the block includes the state root.
+  var next_state = state
+  addBlock(next_state, previous_block_root, body)
