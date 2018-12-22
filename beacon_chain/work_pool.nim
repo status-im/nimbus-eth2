@@ -1,5 +1,5 @@
 import
-  tables,
+  sequtils, tables,
   milagro_crypto,
   spec/[datatypes, crypto, digest], ssz
 
@@ -19,11 +19,10 @@ type
   # substantial difficulties in network layer aggregation, then adding bits to
   # aid in supporting overlaps is one potential solution
 
-  # TODO repeating array[32, byte] here isn't great
-  # other approaches are possible/better
+  # TODO replace array[32, byte] with Eth2Digest from hash_tree_root_final from
+  # https://github.com/status-im/nim-beacon-chain/pull/47
 
   # It would be better to combine these incrementally, pending above.
-  # This back-loads the work.
   AttestationPool* = object
     attestations: Table[uint64, Table[array[32, byte], seq[Attestation]]]
 
@@ -70,14 +69,35 @@ func getCombined(pool: AttestationPool, attestationData: AttestationData) : Vali
     signatures.add(perShardAttestation.aggregate_signature)
   combine(signatures)
 
+proc bitfieldUnion(accum: var seq[byte], disjunct: seq[byte]) =
+  # TODO replace with nim-ranges
+  doAssert len(accum) == len(disjunct)
+  for i in 0 ..< len(accum):
+    accum[i] = accum[i] or disjunct[i]
+
 func getAggregatedAttestion*(pool: AttestationPool, shard: uint64) : Attestation =
+  # TODO This might turn out to be a non-assertable condition, per, e.g.,
+  # the recent discussion on error handling elsewhere in Nimbus, but it's
+  # likelier that other code shouldn't be just randomly probing shards so
+  # it's useful to start this way and catch logic errors early.
+  assert shard in pool.attestations, "Attempt to query nonexistent shard"
+
   let mostCoveringAttestationData = findMostCovering(pool, shard)
+  # TODO error handling where shard either doesn't exist or empty; needs
+  # more holistic approach
 
   result.data = mostCoveringAttestationData
 
-  # TODO: What's the best way to union participation_bitfield as seq[byte]?
-  # Obvious methods, but a reusable abstraction probably exists.
-  # result.participation_bitfield =
-  # result.custody_bitfield =
+  let freqAttestations = pool.attestations[shard].getOrDefault(result.data.getLookupKey)
+  # TODO probably this should not assert on failure
+
+  # TODO Ugly, due to leaky seq[byte] non-abstraction. nim-ranges should help.
+  result.participation_bitfield = repeat(0'u8, freqAttestations[0].participation_bitfield.len)
+  for freqAttestation in freqAttestations:
+    bitfieldUnion(result.participation_bitfield, freqAttestation.participation_bitfield)
+
+  # TODO 2018-12-22 ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md
+  # doesn't document semantics.
+  # result.custody_bitfield = bitfieldUnion
 
   result.aggregate_signature = getCombined(pool, mostCoveringAttestationData)
