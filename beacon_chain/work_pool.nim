@@ -35,8 +35,8 @@ proc init*(T: type AttestationPool): T =
 func getLookupKey(attestationData: AttestationData): array[0..31, byte] =
   hash_tree_root(attestationData)
 
-proc addAttestation*(pool: var AttestationPool,
-                     attestation: Attestation) =
+proc add*(pool: var AttestationPool,
+          attestation: Attestation) =
   # Should be called for local and remote attestations.
   let key = getLookupKey(attestation.data)
   var attestations = pool.attestations.getOrDefault(attestation.data.shard).getOrDefault(key)
