@@ -15,9 +15,12 @@ import
 func is_active_validator*(validator: ValidatorRecord): bool =
   validator.status in {ACTIVE, ACTIVE_PENDING_EXIT}
 
-func min_empty_validator_index*(validators: seq[ValidatorRecord], current_slot: uint64): Option[int] =
+func min_empty_validator_index*(
+    validators: seq[ValidatorRecord],
+    validator_balances: seq[uint64],
+    current_slot: uint64): Option[int] =
   for i, v in validators:
-    if v.balance == 0 and
+    if validator_balances[i] == 0 and
         v.latest_status_change_slot +
           ZERO_BALANCE_VALIDATOR_TTL.uint64 <= current_slot:
       return some(i)
@@ -77,102 +80,3 @@ func get_new_validator_registry_delta_chain_tip*(
     pubkey: pubkey,
     flag: flag
   ))
-
-func get_effective_balance*(validator: ValidatorRecord): uint64 =
-    min(validator.balance, MAX_DEPOSIT * GWEI_PER_ETH)
-
-func get_updated_validator_registry*(
-    validator_registry: seq[ValidatorRecord],
-    latest_penalized_exit_balances: seq[uint64],
-    validator_registry_delta_chain_tip: Eth2Digest,
-    current_slot: uint64):
-      tuple[
-        validators: seq[ValidatorRecord],
-        latest_penalized_exit_balances: seq[uint64],
-        validator_registry_delta_chain_tip: Eth2Digest] =
-  ## Return changed validator registry and `latest_penalized_exit_balances`,
-  ## `validator_registry_delta_chain_tip`.
-
-  # TODO inefficient
-  var
-    validator_registry = validator_registry
-    latest_penalized_exit_balances = latest_penalized_exit_balances
-
-  # The active validators
-  let active_validator_indices =
-    get_active_validator_indices(validator_registry)
-  # The total effective balance of active validators
-  let total_balance = sum(mapIt(
-    active_validator_indices, get_effective_balance(validator_registry[it])))
-
-  # The maximum balance churn in Gwei (for deposits and exits separately)
-  let max_balance_churn = max(
-      MAX_DEPOSIT * GWEI_PER_ETH,
-      total_balance div (2 * MAX_BALANCE_CHURN_QUOTIENT)
-  )
-
-  # Activate validators within the allowable balance churn
-  var balance_churn = 0'u64
-  var validator_registry_delta_chain_tip = validator_registry_delta_chain_tip
-  for i in 0..<len(validator_registry):
-    if validator_registry[i].status == PENDING_ACTIVATION and
-        validator_registry[i].balance >= MAX_DEPOSIT * GWEI_PER_ETH:
-      # Check the balance churn would be within the allowance
-      balance_churn += get_effective_balance(validator_registry[i])
-      if balance_churn > max_balance_churn:
-          break
-
-      # Activate validator
-      validator_registry[i].status = ACTIVE
-      validator_registry[i].latest_status_change_slot = current_slot
-      validator_registry_delta_chain_tip =
-        get_new_validator_registry_delta_chain_tip(
-          validator_registry_delta_chain_tip,
-          i.Uint24,
-          validator_registry[i].pubkey,
-          ACTIVATION,
-        )
-
-  # Exit validators within the allowable balance churn
-  balance_churn = 0
-  for i in 0..<len(validator_registry):
-    if validator_registry[i].status == ACTIVE_PENDING_EXIT:
-      # Check the balance churn would be within the allowance
-      balance_churn += get_effective_balance(validator_registry[i])
-      if balance_churn > max_balance_churn:
-        break
-
-      # Exit validator
-      validator_registry[i].status = EXITED_WITHOUT_PENALTY
-      validator_registry[i].latest_status_change_slot = current_slot
-      validator_registry_delta_chain_tip =
-        get_new_validator_registry_delta_chain_tip(
-          validator_registry_delta_chain_tip,
-          i.Uint24,
-          validator_registry[i].pubkey,
-          ValidatorSetDeltaFlags.EXIT,
-        )
-
-  # Calculate the total ETH that has been penalized in the last ~2-3 withdrawal
-  # periods
-  let period_index =
-    (current_slot div COLLECTIVE_PENALTY_CALCULATION_PERIOD).int
-  let total_penalties = (
-    (latest_penalized_exit_balances[period_index]) +
-    (if period_index >= 1:
-      latest_penalized_exit_balances[period_index - 1] else: 0) +
-    (if period_index >= 2:
-      latest_penalized_exit_balances[period_index - 2] else: 0)
-  )
-
-  # Calculate penalties for slashed validators
-  func to_penalize(v: ValidatorRecord): bool =
-    v.status == EXITED_WITH_PENALTY
-  for v in validator_registry.mitems():
-    if not to_penalize(v): continue
-    v.balance -=
-      (get_effective_balance(v) * min(total_penalties * 3, total_balance) div
-      total_balance)
-
-  (validator_registry, latest_penalized_exit_balances,
-    validator_registry_delta_chain_tip)

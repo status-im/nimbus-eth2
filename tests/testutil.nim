@@ -46,12 +46,17 @@ func makeDeposit(i: int): Deposit =
     pubkey = privkey.fromSigKey()
     withdrawal_credentials = makeFakeHash(i)
     randao_commitment = repeat_hash(withdrawal_credentials, randaoRounds)
-    pop = signMessage(privkey, hash_tree_root(
-      (pubkey, withdrawal_credentials, randao_commitment)))
+    proof_of_possession_data = DepositInput(
+      pubkey: pubkey,
+      withdrawal_credentials: withdrawal_credentials,
+      randao_commitment: randao_commitment
+    )
+    pop = signMessage(
+      privkey, hash_tree_root_final(proof_of_possession_data).data)
 
   Deposit(
     deposit_data: DepositData(
-      deposit_parameters: DepositParameters(
+      deposit_input: DepositInput(
         pubkey: pubkey,
         proof_of_possession: pop,
         withdrawal_credentials: withdrawal_credentials,

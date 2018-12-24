@@ -35,6 +35,9 @@ func toBytesSSZ(x: Uint24): array[3, byte] =
   result[1] = byte((v shr 8) and 0xff)
   result[0] = byte((v shr 16) and 0xff)
 
+func toBytesSSZ(x: bool): array[1, byte] =
+  [if x: 1'u8 else: 0'u8]
+
 func toBytesSSZ(x: EthAddress): array[sizeof(x), byte] = x
 func toBytesSSZ(x: Eth2Digest): array[32, byte] = x.data
 
@@ -51,7 +54,8 @@ type
     #      validator keys ends up going..
     # TODO can't put ranges like Uint24 in here:
     #      https://github.com/nim-lang/Nim/issues/10027
-    SomeInteger | EthAddress | Eth2Digest | ValidatorPubKey | ValidatorSig
+    SomeInteger | EthAddress | Eth2Digest | ValidatorPubKey | ValidatorSig |
+      bool
 
 func sszLen(v: TrivialTypes): int = toBytesSSZ(v).len
 func sszLen(v: Uint24): int = toBytesSSZ(v).len
@@ -84,6 +88,11 @@ func fromBytesSSZUnsafe(T: typedesc[SomeInteger], data: pointer): T =
   elif result.sizeof == 2: bigEndian16(result.addr, alignedBuf)
   elif result.sizeof == 1: copyMem(result.addr, alignedBuf, sizeof(result))
   else: {.fatal: "Unsupported type deserialization: " & $(type(result)).name.}
+
+func fromBytesSSZUnsafe(T: typedesc[bool], data: pointer): T =
+  # TODO: spec doesn't say what to do if the value is >1 - we'll use the C
+  #       definition for now, but maybe this should be a parse error instead?
+  fromBytesSSZUnsafe(uint8, data) != 0
 
 func fromBytesSSZUnsafe(T: typedesc[Uint24], data: pointer): T =
   ## Integers are all encoded as bigendian and not padded
@@ -251,7 +260,7 @@ func merkleHash[T](lst: openArray[T]): array[32, byte]
 
 # ################### Hashing interface ###################################
 
-func hash_tree_root*(x: SomeInteger): array[sizeof(x), byte] =
+func hash_tree_root*(x: SomeInteger | bool): array[sizeof(x), byte] =
   ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
   ## All integers are serialized as **big endian**.
   toBytesSSZ(x)

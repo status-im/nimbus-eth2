@@ -112,12 +112,12 @@ func processPoWReceiptRoot(state: var BeaconState, blck: BeaconBlock) =
 
   for x in state.candidate_pow_receipt_roots.mitems():
     if blck.candidate_pow_receipt_root == x.candidate_pow_receipt_root:
-      x.votes += 1
+      x.vote_count += 1
       return
 
   state.candidate_pow_receipt_roots.add CandidatePoWReceiptRootRecord(
     candidate_pow_receipt_root: blck.candidate_pow_receipt_root,
-    votes: 1
+    vote_count: 1
   )
 
 proc processProposerSlashings(state: var BeaconState, blck: BeaconBlock): bool =
@@ -306,8 +306,9 @@ proc process_ejections(state: var BeaconState) =
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#ejections
 
   for index, validator in state.validator_registry:
-    if is_active_validator(validator) and validator.balance < EJECTION_BALANCE:
-        update_validator_status(state, index.Uint24, EXITED_WITHOUT_PENALTY)
+    if is_active_validator(validator) and
+        state.validator_balances[index] < EJECTION_BALANCE:
+      update_validator_status(state, index.Uint24, EXITED_WITHOUT_PENALTY)
 
 func processSlot(state: var BeaconState, previous_block_root: Eth2Digest) =
   ## Time on the beacon chain moves in slots. Every time we make it to a new
@@ -403,13 +404,6 @@ func boundary_attestations(
     it.data.epoch_boundary_root == boundary_hash and
     it.data.justified_slot == state.justified_slot)
 
-func sum_effective_balances(
-    state: BeaconState, validator_indices: openArray[Uint24]): uint64 =
-  # TODO spec - add as helper?
-  sum(mapIt(
-    validator_indices, get_effective_balance(state.validator_registry[it]))
-  )
-
 func lowerThan(candidate, current: Eth2Digest): bool =
   # return true iff candidate is "lower" than current, per spec rule:
   # "ties broken by favoring lower `shard_block_root` values"
@@ -435,14 +429,14 @@ func processEpoch(state: var BeaconState) =
     base_reward_quotient =
       BASE_REWARD_QUOTIENT * integer_squareroot(total_balance_in_eth)
 
-  func base_reward(v: ValidatorRecord): uint64 =
-    get_effective_balance(v) div base_reward_quotient.uint64 div 4
+  func base_reward(state: BeaconState, index: Uint24): uint64 =
+    get_effective_balance(state, index) div base_reward_quotient.uint64 div 4
 
   func inactivity_penalty(
-      v: ValidatorRecord, slots_since_finality: uint64): uint64 =
-    base_reward(v) +
-      get_effective_balance(v) *
-        slots_since_finality div INACTIVITY_PENALTY_QUOTIENT
+      state: BeaconState, index: Uint24, epochs_since_finality: uint64): uint64 =
+    base_reward(state, index) +
+      get_effective_balance(state, index) *
+      epochs_since_finality div INACTIVITY_PENALTY_QUOTIENT div 2
 
   # TODO doing this with iterators failed:
   #      https://github.com/nim-lang/Nim/issues/9827
@@ -572,7 +566,7 @@ func processEpoch(state: var BeaconState) =
   block: # Receipt roots
     if state.slot mod POW_RECEIPT_ROOT_VOTING_PERIOD == 0:
       for x in state.candidate_pow_receipt_roots:
-        if x.votes * 2 >= POW_RECEIPT_ROOT_VOTING_PERIOD:
+        if x.vote_count * 2 >= POW_RECEIPT_ROOT_VOTING_PERIOD:
           state.processed_pow_receipt_root = x.candidate_pow_receipt_root
           break
       state.candidate_pow_receipt_roots = @[]
@@ -612,26 +606,26 @@ func processEpoch(state: var BeaconState) =
         if 3'u64 * total_attesting_balance(shard_committee) >=
             2'u64 * total_balance_sac(shard_committee):
           state.latest_crosslinks[shard_committee.shard] = CrosslinkRecord(
-            slot: state.latest_state_recalculation_slot + EPOCH_LENGTH,
+            slot: state.slot + EPOCH_LENGTH,
             shard_block_root: winning_hash(shard_committee))
 
   block: # Justification and finalization
     let
-      slots_since_finality = state.slot - state.finalized_slot
+      epochs_since_finality =
+        (state.slot - state.finalized_slot) div EPOCH_LENGTH
 
     proc update_balance(attesters: openArray[Uint24], attesting_balance: uint64) =
       # TODO Spec - add helper?
       for v in attesters:
-        statePtr.validator_registry[v].balance += adjust_for_inclusion_distance(
-          base_reward(statePtr.validator_registry[v]) *
+        statePtr.validator_balances[v] += adjust_for_inclusion_distance(
+          base_reward(statePtr[], v) *
           attesting_balance div total_balance, inclusion_distance(v))
 
       for v in active_validator_indices:
         if v notin attesters:
-          statePtr.validator_registry[v].balance -=
-            base_reward(statePtr.validator_registry[v])
+          statePtr.validator_balances[v] -= base_reward(statePtr[], v)
 
-    if slots_since_finality <= 4'u64 * EPOCH_LENGTH:
+    if epochs_since_finality <= 4'u64 * EPOCH_LENGTH:
       # Expected FFG source
       update_balance(
         previous_epoch_justified_attesters,
@@ -651,37 +645,35 @@ func processEpoch(state: var BeaconState) =
       for v in active_validator_indices:
         let validator = addr state.validator_registry[v]
         if v notin previous_epoch_justified_attesters:
-          validator[].balance -=
-            inactivity_penalty(validator[], slots_since_finality)
+          state.validator_balances[v] -=
+            inactivity_penalty(state, v, epochs_since_finality)
         if v notin previous_epoch_boundary_attesters:
-          validator[].balance -=
-            inactivity_penalty(validator[], slots_since_finality)
+          state.validator_balances[v] -=
+            inactivity_penalty(state, v, epochs_since_finality)
         if v notin previous_epoch_head_attesters:
-          validator[].balance -=
-            inactivity_penalty(validator[], slots_since_finality)
+          state.validator_balances[v] -=
+            inactivity_penalty(state, v, epochs_since_finality)
         if validator[].status == EXITED_WITH_PENALTY:
-          validator[].balance -=
-            3'u64 * inactivity_penalty(validator[], slots_since_finality)
+          state.validator_balances[v] -=
+            3'u64 * inactivity_penalty(state, v, epochs_since_finality)
 
   block: # Attestation inclusion
     for v in previous_epoch_attesters:
       let proposer_index = get_beacon_proposer_index(state, inclusion_slot(v))
-      state.validator_registry[proposer_index].balance +=
-        base_reward(state.validator_registry[v]) div INCLUDER_REWARD_QUOTIENT
+      state.validator_balances[proposer_index] +=
+        base_reward(state, v) div INCLUDER_REWARD_QUOTIENT
 
   block: # Crosslinks
     for sac in state.shard_committees_at_slots[0 ..< EPOCH_LENGTH]:
       for obj in sac:
         for vindex in obj.committee:
-          let v = state.validator_registry[vindex].addr
-
           if vindex in attesting_validators(obj):
-            v.balance += adjust_for_inclusion_distance(
-              base_reward(v[]) * total_attesting_balance(obj) div
+            state.validator_balances[vindex] += adjust_for_inclusion_distance(
+              base_reward(state, vindex) * total_attesting_balance(obj) div
                 total_balance_sac(obj),
               inclusion_distance(vindex))
           else:
-            v.balance -= base_reward(v[])
+            state.validator_balances[vindex] -= base_reward(state, vindex)
 
   block: # Validator registry
     if state.finalized_slot > state.validator_registry_latest_change_slot and
@@ -709,12 +701,13 @@ func processEpoch(state: var BeaconState) =
         state.shard_committees_at_slots[i] =
           state.shard_committees_at_slots[EPOCH_LENGTH + i]
 
-      let slots_since_finality =
-        state.slot - state.validator_registry_latest_change_slot
-      let start_shard = state.shard_committees_at_slots[0][0].shard
-      if slots_since_finality * EPOCH_LENGTH <=
-          MIN_VALIDATOR_REGISTRY_CHANGE_INTERVAL or
-          is_power_of_2(slots_since_finality):
+      let
+        epochs_since_last_registry_change =
+          (state.slot - state.validator_registry_latest_change_slot) div
+            EPOCH_LENGTH
+        start_shard = state.shard_committees_at_slots[0][0].shard
+
+      if is_power_of_2(epochs_since_last_registry_change):
         for i, v in get_new_shuffling(
             state.latest_randao_mixes[
               (state.slot - EPOCH_LENGTH) mod LATEST_RANDAO_MIXES_LENGTH],
