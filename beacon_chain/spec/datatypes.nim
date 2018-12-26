@@ -100,7 +100,14 @@ const
   MIN_ATTESTATION_INCLUSION_DELAY* = 2'u64^2 ##\
   ## (24 seconds)
   ## Number of slots that attestations stay in the attestation
-  ## pool before being added to a block
+  ## pool before being added to a block.
+  ## The attestation delay exists so that there is time for attestations to
+  ## propagate before the block is created.
+  ## When creating an attestation, the validator will look at the best
+  ## information known to at that time, and may not revise it during the same
+  ## slot (see `is_double_vote`) - the delay gives the validator a chance to
+  ## wait towards the end of the slot and still have time to publish the
+  ## attestation.
 
   EPOCH_LENGTH* = 64 ##\
   ## (~6.4 minutes)

@@ -101,6 +101,9 @@ func repeat_hash*(v: Eth2Digest, n: SomeInteger): Eth2Digest =
     dec n
 
 func get_shard_committees_index*(state: BeaconState, slot: uint64): uint64 =
+  ## Warning: as it stands, this helper only works during state updates _after_
+  ## state.slot has been incremented but before shard_committees_at_slots has
+  ## been updated!
   # TODO spec unsigned-unsafe here
   doAssert slot + (state.slot mod EPOCH_LENGTH) + EPOCH_LENGTH > state.slot
   slot + (state.slot mod EPOCH_LENGTH) + EPOCH_LENGTH - state.slot
@@ -159,6 +162,8 @@ proc is_double_vote*(attestation_data_1: AttestationData,
   ## Assumes ``attestation_data_1`` is distinct from ``attestation_data_2``.
   ## Returns True if the provided ``AttestationData`` are slashable
   ## due to a 'double vote'.
+  ## A double vote is when a validator votes for two attestations within the
+  ## same slot - doing so means risking getting slashed.
   attestation_data_1.slot == attestation_data_2.slot
 
 proc is_surround_vote*(attestation_data_1: AttestationData,

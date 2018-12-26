@@ -20,8 +20,6 @@
 # * We mix procedural and functional styles for no good reason, except that the
 #   spec does so also.
 # * There are no tests, and likely lots of bugs.
-# * For validators, sometimes indices are used and sometimes instances - this
-#   causes unnecessary friction in some sections
 # * For indices, we get a mix of uint64, Uint24 and int - this is currently
 #   swept under the rug with casts
 # * The spec uses uint64 for data types, but functions in the spec often assume
@@ -40,7 +38,12 @@ import
 
 type
   UpdateFlag* = enum
-    skipValidation
+    skipValidation ##\
+    ## The `skipValidation` flag is used to skip over certain checks that are
+    ## normally done when an untrusted block arrives from the network. The
+    ## primary use case for this flag is when a proposer must propose a new
+    ## block - in order to do so, it needs to update the state as if the block
+    ## was valid, before it can sign it.
 
   UpdateFlags* = set[UpdateFlag]
 
@@ -49,12 +52,12 @@ func flatten[T](v: openArray[seq[T]]): seq[T] =
   for x in v: result.add x
 
 func verifyProposerSignature(state: BeaconState, blck: BeaconBlock): bool =
-  ## When creating the block, the proposer will sign a version of the block that
+  ## When creating a block, the proposer will sign a version of the block that
   ## doesn't contain the data (chicken and egg), then add the signature to that
-  ## block.
-
+  ## block. Here, we check that the signature is correct by repeating the same
+  ## process.
+  ##
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#proposer-signature
-
   var blck_without_sig = blck
   blck_without_sig.signature = ValidatorSig()
 
@@ -74,16 +77,17 @@ func verifyProposerSignature(state: BeaconState, blck: BeaconBlock): bool =
 
 func processRandao(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
-  ## When a validator signs up, they will commit an hash to the block,
-  ## the randao_commitment - this hash is the result of a secret value
-  ## hashed n times.
+  ## When a validator signs up, they will include a hash number together with
+  ## the deposit - the randao_commitment. The commitment is formed by hashing
+  ## a secret value N times.
   ## The first time the proposer proposes a block, they will hash their secret
-  ## value n-1 times, and provide that as "reveal" - now everyone else can
-  ## verify the reveal by hashing once.
+  ## value N-1 times, and provide the reuslt as "reveal" - now everyone else can
+  ## verify that the reveal matches the commitment by hashing it once.
   ## The next time the proposer proposes, they will reveal the secret value
-  ## hashed n-2 times and so on, and everyone will verify that it matches n-1.
+  ## hashed N-2 times and so on, and everyone will verify that it matches N-1.
+  ## The previous reveal has now become the commitment!
   ##
-  ## Effectively, the block proposer can only reveal n - 1 times, so better pick
+  ## Effectively, the block proposer can only reveal N-1 times, so better pick
   ## a large N!
   ##
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#randao
@@ -312,7 +316,7 @@ proc process_ejections(state: var BeaconState) =
 
 func processSlot(state: var BeaconState, previous_block_root: Eth2Digest) =
   ## Time on the beacon chain moves in slots. Every time we make it to a new
-  ## slot, a proposer cleates a block to represent the state of the beacon
+  ## slot, a proposer creates a block to represent the state of the beacon
   ## chain at that time. In case the proposer is missing, it may happen that
   ## the no block is produced during the slot.
   ##
@@ -384,7 +388,7 @@ proc processBlock(
 
   return true
 
-func get_attesters(
+func get_attester_indices(
     state: BeaconState,
     attestations: openArray[PendingAttestationRecord]): seq[Uint24] =
   # Union of attesters that participated in some attestations
@@ -460,11 +464,11 @@ func processEpoch(state: var BeaconState) =
         state, get_block_root(state, state.slot-EPOCH_LENGTH),
         this_epoch_attestations)
 
-    this_epoch_boundary_attesters =
-      get_attesters(state, this_epoch_attestations)
+    this_epoch_boundary_attester_indices =
+      get_attester_indices(state, this_epoch_attestations)
 
     this_epoch_boundary_attesting_balance =
-      sum_effective_balances(state, this_epoch_boundary_attesters)
+      sum_effective_balances(state, this_epoch_boundary_attester_indices)
 
   let
     previous_epoch_attestations = filterIt(
@@ -473,8 +477,8 @@ func processEpoch(state: var BeaconState) =
       it.data.slot + EPOCH_LENGTH < state.slot)
 
   let
-    previous_epoch_attesters =
-      get_attesters(state, previous_epoch_attestations)
+    previous_epoch_attester_indices =
+      get_attester_indices(state, previous_epoch_attestations)
 
   let # Previous epoch justified
     previous_epoch_justified_attestations = filterIt(
@@ -482,11 +486,11 @@ func processEpoch(state: var BeaconState) =
         it.data.justified_slot == state.previous_justified_slot
       )
 
-    previous_epoch_justified_attesters =
-      get_attesters(state, previous_epoch_justified_attestations)
+    previous_epoch_justified_attester_indices =
+      get_attester_indices(state, previous_epoch_justified_attestations)
 
     previous_epoch_justified_attesting_balance =
-      sum_effective_balances(state, previous_epoch_justified_attesters)
+      sum_effective_balances(state, previous_epoch_justified_attester_indices)
 
   let # Previous epoch boundary
     # TODO check this with spec...
@@ -497,11 +501,11 @@ func processEpoch(state: var BeaconState) =
         state, get_block_root(state, negative_uint_hack),
         previous_epoch_attestations)
 
-    previous_epoch_boundary_attesters =
-      get_attesters(state, previous_epoch_boundary_attestations)
+    previous_epoch_boundary_attester_indices =
+      get_attester_indices(state, previous_epoch_boundary_attestations)
 
     previous_epoch_boundary_attesting_balance =
-      sum_effective_balances(state, previous_epoch_boundary_attesters)
+      sum_effective_balances(state, previous_epoch_boundary_attester_indices)
 
   let # Previous epoch head
     previous_epoch_head_attestations =
@@ -509,32 +513,33 @@ func processEpoch(state: var BeaconState) =
         previous_epoch_attestations,
         it.data.beacon_block_root == get_block_root(state, it.data.slot))
 
-    previous_epoch_head_attesters =
-      get_attesters(state, previous_epoch_head_attestations)
+    previous_epoch_head_attester_indices =
+      get_attester_indices(state, previous_epoch_head_attestations)
 
     previous_epoch_head_attesting_balance =
-      sum_effective_balances(state, previous_epoch_head_attesters)
+      sum_effective_balances(state, previous_epoch_head_attester_indices)
 
   # TODO this is really hairy - we cannot capture `state` directly, but we
   #      can capture a pointer to it - this is safe because we don't leak
   #      these closures outside this scope, but still..
   let statePtr = state.addr
-  func attesting_validators(
+  func attesting_validator_indices(
       shard_committee: ShardCommittee, shard_block_root: Eth2Digest): seq[Uint24] =
     let shard_block_attestations =
       filterIt(concat(this_epoch_attestations, previous_epoch_attestations),
         it.data.shard == shard_committee.shard and
           it.data.shard_block_root == shard_block_root)
-    get_attesters(statePtr[], shard_block_attestations)
+    get_attester_indices(statePtr[], shard_block_attestations)
 
-  func winning_hash(obj: ShardCommittee): Eth2Digest =
-    # * Let `winning_hash(obj)` be the winning `shard_block_root` value.
-    # ... such that `sum([get_effective_balance(v) for v in attesting_validators(obj, shard_block_root)])`
-    # is maximized (ties broken by favoring lower `shard_block_root` values).
+  func winning_root(shard_committee: ShardCommittee): Eth2Digest =
+    # * Let `winning_root(shard_committee)` be equal to the value of
+    #   `shard_block_root` such that
+    #   `sum([get_effective_balance(state, i) for i in attesting_validator_indices(shard_committee, shard_block_root)])`
+    #   is maximized (ties broken by favoring lower `shard_block_root` values).
     let candidates =
       mapIt(
         filterIt(concat(this_epoch_attestations, previous_epoch_attestations),
-          it.data.shard == obj.shard),
+          it.data.shard == shard_committee.shard),
         it.data.shard_block_root)
 
     # TODO not covered by spec!
@@ -543,22 +548,25 @@ func processEpoch(state: var BeaconState) =
 
     var max_hash = candidates[0]
     var max_val =
-      sum_effective_balances(statePtr[], attesting_validators(obj, max_hash))
+      sum_effective_balances(
+        statePtr[], attesting_validator_indices(shard_committee, max_hash))
     for candidate in candidates[1..^1]:
-      let val = sum_effective_balances(statePtr[], attesting_validators(obj, candidate))
+      let val = sum_effective_balances(
+        statePtr[], attesting_validator_indices(shard_committee, candidate))
       if val > max_val or (val == max_val and candidate.lowerThan(max_hash)):
         max_hash = candidate
         max_val = val
     max_hash
 
-  func attesting_validators(obj: ShardCommittee): seq[Uint24] =
-    attesting_validators(obj, winning_hash(obj))
+  func attesting_validator_indices(shard_committee: ShardCommittee): seq[Uint24] =
+    attesting_validator_indices(shard_committee, winning_root(shard_committee))
 
-  func total_attesting_balance(obj: ShardCommittee): uint64 =
-    sum_effective_balances(statePtr[], attesting_validators(obj))
+  func total_attesting_balance(shard_committee: ShardCommittee): uint64 =
+    sum_effective_balances(
+      statePtr[], attesting_validator_indices(shard_committee))
 
-  func total_balance_sac(obj: ShardCommittee): uint64 =
-    sum_effective_balances(statePtr[], obj.committee)
+  func total_balance_sac(shard_committee: ShardCommittee): uint64 =
+    sum_effective_balances(statePtr[], shard_committee.committee)
 
   block: # Receipt roots
     if state.slot mod POW_RECEIPT_ROOT_VOTING_PERIOD == 0:
@@ -604,7 +612,7 @@ func processEpoch(state: var BeaconState) =
             2'u64 * total_balance_sac(shard_committee):
           state.latest_crosslinks[shard_committee.shard] = CrosslinkRecord(
             slot: state.slot + EPOCH_LENGTH,
-            shard_block_root: winning_hash(shard_committee))
+            shard_block_root: winning_root(shard_committee))
 
   block: # Justification and finalization
     let
@@ -625,43 +633,42 @@ func processEpoch(state: var BeaconState) =
     if epochs_since_finality <= 4'u64 * EPOCH_LENGTH:
       # Expected FFG source
       update_balance(
-        previous_epoch_justified_attesters,
+        previous_epoch_justified_attester_indices,
         previous_epoch_justified_attesting_balance)
 
       # Expected FFG target:
       update_balance(
-        previous_epoch_boundary_attesters,
+        previous_epoch_boundary_attester_indices,
         previous_epoch_boundary_attesting_balance)
 
       # Expected beacon chain head:
       update_balance(
-        previous_epoch_head_attesters,
+        previous_epoch_head_attester_indices,
         previous_epoch_head_attesting_balance)
 
       # Inclusion distance
-      for v in previous_epoch_attesters:
+      for v in previous_epoch_attester_indices:
         statePtr.validator_balances[v] +=
           base_reward(state, v) *
           MIN_ATTESTATION_INCLUSION_DELAY div inclusion_distance(state, v)
 
     else:
-      for v in active_validator_indices:
-        let validator = addr state.validator_registry[v]
-        if v notin previous_epoch_justified_attesters:
-          state.validator_balances[v] -=
-            inactivity_penalty(state, v, epochs_since_finality)
-        if v notin previous_epoch_boundary_attesters:
-          state.validator_balances[v] -=
-            inactivity_penalty(state, v, epochs_since_finality)
-        if v notin previous_epoch_head_attesters:
-          state.validator_balances[v] -=
-            inactivity_penalty(state, v, epochs_since_finality)
-        if validator[].status == EXITED_WITH_PENALTY:
-          state.validator_balances[v] -=
-            3'u64 * inactivity_penalty(state, v, epochs_since_finality)
+      for index in active_validator_indices:
+        if index notin previous_epoch_justified_attester_indices:
+          state.validator_balances[index] -=
+            inactivity_penalty(state, index, epochs_since_finality)
+        if index notin previous_epoch_boundary_attester_indices:
+          state.validator_balances[index] -=
+            inactivity_penalty(state, index, epochs_since_finality)
+        if index notin previous_epoch_head_attester_indices:
+          state.validator_balances[index] -=
+            inactivity_penalty(state, index, epochs_since_finality)
+        if state.validator_registry[index].status == EXITED_WITH_PENALTY:
+          state.validator_balances[index] -=
+            3'u64 * inactivity_penalty(state, index, epochs_since_finality)
 
   block: # Attestation inclusion
-    for v in previous_epoch_attesters:
+    for v in previous_epoch_attester_indices:
       let proposer_index =
         get_beacon_proposer_index(state, inclusion_slot(state, v))
       state.validator_balances[proposer_index] +=
@@ -671,7 +678,7 @@ func processEpoch(state: var BeaconState) =
     for sac in state.shard_committees_at_slots[0 ..< EPOCH_LENGTH]:
       for shard_committee in sac:
         for index in shard_committee.committee:
-          if index in attesting_validators(shard_committee):
+          if index in attesting_validator_indices(shard_committee):
             state.validator_balances[index] +=
               base_reward(state, index) *
               total_attesting_balance(shard_committee) div
@@ -686,7 +693,9 @@ func processEpoch(state: var BeaconState) =
             state.latest_crosslinks[it.shard].slot >
               state.validator_registry_latest_change_slot)):
       update_validator_registry(state)
+
       state.validator_registry_latest_change_slot = state.slot
+
       for i in 0..<EPOCH_LENGTH:
         state.shard_committees_at_slots[i] =
           state.shard_committees_at_slots[EPOCH_LENGTH + i]
@@ -761,9 +770,8 @@ proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   else:
     true
 
-proc updateState*(state: BeaconState, previous_block_root: Eth2Digest,
-    new_block: Option[BeaconBlock], flags: UpdateFlags):
-      tuple[state: BeaconState, block_ok: bool] =
+proc updateState*(state: var BeaconState, previous_block_root: Eth2Digest,
+    new_block: Option[BeaconBlock], flags: UpdateFlags): bool =
   ## Time in the beacon chain moves by slots. Every time (haha.) that happens,
   ## we will update the beacon state. Normally, the state updates will be driven
   ## by the contents of a new block, but it may happen that the block goes
@@ -789,10 +797,10 @@ proc updateState*(state: BeaconState, previous_block_root: Eth2Digest,
   #      bool return values...)
   # TODO There's a discussion about what this function should do, and when:
   #      https://github.com/ethereum/eth2.0-specs/issues/284
-  var new_state = state
+  var old_state = state
 
   # Per-slot updates - these happen regardless if there is a block or not
-  processSlot(new_state, previous_block_root)
+  processSlot(state, previous_block_root)
 
   if new_block.isSome():
     # Block updates - these happen when there's a new block being suggested
@@ -801,26 +809,171 @@ proc updateState*(state: BeaconState, previous_block_root: Eth2Digest,
     # that the block is sane.
     # TODO what should happen if block processing fails?
     #      https://github.com/ethereum/eth2.0-specs/issues/293
-    if processBlock(new_state, new_block.get(), flags):
+    if processBlock(state, new_block.get(), flags):
       # Block ok so far, proceed with state update
-      processEpoch(new_state)
+      processEpoch(state)
 
       # This is a bit awkward - at the end of processing we verify that the
       # state we arrive at is what the block producer thought it would be -
       # meaning that potentially, it could fail verification
-      if skipValidation in flags or verifyStateRoot(new_state, new_block.get()):
+      if skipValidation in flags or verifyStateRoot(state, new_block.get()):
         # State root is what it should be - we're done!
-        return (new_state, true)
+        return true
 
     # Block processing failed, have to start over
-    new_state = state
-    processSlot(new_state, previous_block_root)
-    processEpoch(new_state)
-    (new_state, false)
+    state = old_state
+    processSlot(state, previous_block_root)
+    processEpoch(state)
+    false
   else:
     # Skip all per-block processing. Move directly to epoch processing
     # prison. Do not do any block updates when passing go.
 
     # Heavy updates that happen for every epoch - these never fail (or so we hope)
-    processEpoch(new_state)
-    (new_state, true)
+    processEpoch(state)
+    true
+
+# TODO document this:
+
+# Jacek Sieka
+# @arnetheduck
+# Dec 21 11:32
+# question about making attestations: in the attestation we carry slot and a justified_slot - just to make sure, this justified_slot is the slot that was justified when the state was at slot, not whatever the client may be seeing now? effectively, because we're attesting to MIN_ATTESTATION_INCLUSION_DELAYold states, it might be that we know about a newer justified slot, but don't include it - correct?
+# Danny Ryan
+# @djrtwo
+# Dec 21 11:34
+# You are attesting to what you see as the head of the chain at that slot
+# The MIN_ATTESTATION_INCLUSION_DELAY is just how many slots must past before this message can be included on chain
+# so whatever the justified_slot was inside the state that was associate with the head you are attesting to
+# Jacek Sieka
+# @arnetheduck
+# Dec 21 11:37
+# can I revise an attestation, once I get new information (about the shard or state)?
+# Danny Ryan
+# @djrtwo
+# Dec 21 11:37
+# We are attesting to the exact current state at that slot. The MIN_ATTESTATION_INCLUSION_DELAY is to attempt to reduce centralization risk in light of fast block times (ensure attestations have time to fully propagate so fair playing field on including them on chain)
+# No, if you create two attestations for the same slot, you can be slashed
+# https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#is_double_vote
+# Jacek Sieka
+# @arnetheduck
+# Dec 21 11:39
+# is there any interest for me to publish my attestation before MIN_ATTESTATION_INCLUSION_DELAY-1 time has passed?
+# (apart from the risk of it not being picked up on time)
+# Danny Ryan
+# @djrtwo
+# Dec 21 11:40
+
+# that’s the main risk.
+
+# Note, we’re a bit unsure about MIN_ATTESTATION_INCLUSION_DELAY because it might open up an attestors timing strategy too much. In the case where MIN_ATTESTATION_INCLUSION_DELAY is removed, we just set it to 1
+# part of validator honesty assumption is to attest during your slot. That said, a rational actor might act in any number of interesting ways..
+# Jacek Sieka
+# @arnetheduck
+# Dec 21 11:59
+# I can probably google this somehow, but bls signatures, anyone knows off the top of their head if they have to be combined one by one, or can two group signatures be combined? what happens to overlap then?
+# Danny Ryan
+# @djrtwo
+# Dec 21 12:00
+# Yeah, you can do any linear combination of signatures. but you have to remember the linear combination of pubkeys that constructed
+# if you have two instances of a signature from pubkey p, then you need 2*p in the group pubkey
+# because the attestation bitfield is only 1 bit per pubkey right now, attestations do not support this
+# it could be extended to support N overlaps up to N times per pubkey if we had N bits per validator instead of 1
+# We are shying away from this for the time being. If there end up being substantial difficulties in network layer aggregation, then adding bits to aid in supporting overlaps is one potential solution
+# Jacek Sieka
+# @arnetheduck
+# Dec 21 12:02
+# ah nice, you anticipated my followup question there :) so it's not a straight-off set union operation
+# Danny Ryan
+# @djrtwo
+# Dec 21 12:02
+# depending on the particular network level troubles we run into
+# right
+# aggregatng sigs and pubkeys are both just ec adds https://github.com/ethereum/py-evm/blob/d82b10ae361cde6abbac62f171fcea7809c4e3cf/eth/_utils/bls.py#L191-L202
+# subtractions work too (i suppose this is obvious). You can linearly combine sigs or pubs in any way
+# Jacek Sieka
+# @arnetheduck
+# Dec 21 12:05
+# hm.. well, because one thing I'm thinking of is the scenario where someone attests to some shard head and I receive that attestation.. now, let's say that's an honest attestation, but within that same slot, I have more fresh information about a shard for example.. now, I can either sign the data in the old attestation or churn out a new one, risking that neither of these get enough votes to be useful - does that sound.. accurate?
+# Danny Ryan
+# @djrtwo
+# Dec 21 12:08
+
+# So you won’t just be signing the head of the shard. This isn’t specified yet, but it would be targeting some recent epoch boundary to ensure higher chance of consensus.
+
+# If your recent info is about a better fork in the shard than the one you see the other attester signed, then you are better off signing that fork because if it is winning in your few of the shard chain fork choice, then you would assume it is winning in the view of most attesters shard fork choice
+# If some strange circumstance arose in which you saw a majority of attestations that signed something you think is unexpected before you signed, a rational actor might defect to this majority. An honest actor would sign what they believe to be true
+# in practice, the actor would have to wait some amount of time past when they should have attested to gather this info.
+# also, at the end of the day the validator has to compute the non-outsourcable proof of custody bit, so if the other validators are signing off on some shard chain fork they don’t know about, then they can’t attest to that data anyway
+# (for fear of signing a bad custody bit)
+# so their rational move is to just attest to the data they acutally know about and can accurately compute their proof of custody bit on
+# Jacek Sieka
+# @arnetheduck
+# Dec 21 12:58
+# what's justified_block_root doing in attestation_data? isn't that available already as get_block_root(state, attestation.data.justified_slot)?
+# also, when we sign hash_tree_root(attestation.data) + bytes1(0) - what's the purpose of the 0 byte, given we have domain already?
+# Danny Ryan
+# @djrtwo
+# Dec 21 13:03
+# 0 byte is a stub for the proof of custody bit in phase 0
+# If the attestation is included in a short range fork but still votes for the chain it is added to’s justified_block_root/slot, then we want to count the casper vote
+# likely if I see the head of the chain as different from what ends up being the canonical chain, my view of the latest justified block might still be in accordance with the canonical chain
+# if my attesation is included in a fork, the head i voted on doesn’t necessarily lead back to the justified block in the fork. Without including justified_block_root, my vote could be used in any fork for the same epoch even if the block at that justified_slot height was different
+# Danny Ryan
+# @djrtwo
+# Dec 21 13:14
+# Long story short, because attestations can be included in forks of the head they are actually attesting to, we can’t be sure of the justified_block that was being voted on by just usng the justified_slot. The security of properties of Casper FFG require that the voter makes a firm commitment to the actual source block, not just the height of the source block
+# Jacek Sieka
+# @arnetheduck
+# Dec 21 13:23
+# ok. that's quite a piece. I'm gonna have to draw some diagrams I think :)
+# ah. ok. actually makes sense.. I think :)
+# Jacek Sieka
+# @arnetheduck
+# Dec 21 13:31
+# how does that interact then with the following check:
+
+#     Verify that attestation.data.justified_block_root is equal to get_block_root(state, attestation.data.justified_slot).
+
+# Danny Ryan
+# @djrtwo
+# Dec 21 13:32
+# ah, my bad above. We only include an attestation on chain if it is for the correct source
+# That’s one of the bare minimum requirements to get it included on chain. Without the justified_block_root, we can’t do that check
+# essentially that checks if this attestation is relevant at all to the current fork’s consensus.
+# if the justified_block is wrong, then we know the target of the vote and the head of the attestation are wrong too
+# sorry for the slight mix up there
+# logic still holds — the justified_slot alone is not actually a firm commitment to a particular chain history. You need the associated hash
+# Jacek Sieka
+# @arnetheduck
+# Dec 21 13:35
+# can't you just follow Block.parent_root?
+# well, that, and ultimately.. Block.state_root
+# Danny Ryan
+# @djrtwo
+# Dec 21 13:37
+# The block the attestation is included in might not be for the same fork the attestation was made
+# we first make sure that the attestation and the block that it’s included in match at the justified_slot. if not, throw it out
+# then in the incentives, we give some extra reward if the epoch_boundary_root and the chain match
+# and some extra reward if the beacon_block_root match
+# if all three match, then the attestation is fully agreeing with the canonical chain. +1 casper vote and strengthening the head of the fork choice
+# if just justified_block_root and epoch_boundary_root match then the attestation agrees enough to successfully cast an ffg vote
+# if just justified_block_root match, then at least the attestation agrees on the base of the fork choice, but this isn’t enough to cast an FFG vote
+# Jacek Sieka
+# @arnetheduck
+# Dec 21 13:41
+
+#     if not, throw it out
+
+# it = block or attestation?
+# Danny Ryan
+# @djrtwo
+# Dec 21 13:42
+# well, if you are buildling the block ,you shouldn’t include it (thus throw it out of current consideration). If you are validating a block you just received and that conditon fails for an attestation, throw the block out because it included a bad attestation and is thus invalid
+# The block producer knows when producing the block if they are including bad attestations or other data that will fail state transition
+# and should not do that
+# Jacek Sieka
+# @arnetheduck
+# Dec 21 13:43
+# yeah, that makes sense, just checking
+# ok, I think I'm gonna let that sink in a bit before asking more questions.. thanks :)

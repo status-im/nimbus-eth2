@@ -11,6 +11,10 @@ import
   ./crypto, ./datatypes, ./digest, ./helpers, ./validator
 
 func get_effective_balance*(state: BeaconState, index: Uint24): uint64 =
+  # Validators collect rewards which increases their balance but not their
+  # influence. Validators may also lose balance if they fail to do their duty
+  # in which case their influence decreases. Once they drop below a certain
+  # balance, they're removed from the validator registry.
   min(state.validator_balances[index], MAX_DEPOSIT * GWEI_PER_ETH)
 
 func sum_effective_balances*(
@@ -167,14 +171,14 @@ func exit_validator(state: var BeaconState,
 func update_validator_status*(state: var BeaconState,
                               index: Uint24,
                               new_status: ValidatorStatusCodes) =
-  ##  Update the validator status with the given ``index`` to ``new_status``.
+  ## Update the validator status with the given ``index`` to ``new_status``.
   ## Handle other general accounting related to this status update.
   if new_status == ACTIVE:
-      activate_validator(state, index)
+    activate_validator(state, index)
   if new_status == ACTIVE_PENDING_EXIT:
-      initiate_validator_exit(state, index)
+    initiate_validator_exit(state, index)
   if new_status in [EXITED_WITH_PENALTY, EXITED_WITHOUT_PENALTY]:
-      exit_validator(state, index, new_status)
+    exit_validator(state, index, new_status)
 
 func get_initial_beacon_state*(
     initial_validator_deposits: openArray[Deposit],
@@ -339,7 +343,6 @@ func update_validator_registry*(state: var BeaconState) =
         state.latest_penalized_exit_balances[period_index - 2] else: 0)
     )
 
-
   # Calculate penalties for slashed validators
   for index, validator in state.validator_registry:
     if validator.status == EXITED_WITH_PENALTY:
@@ -349,7 +352,8 @@ func update_validator_registry*(state: var BeaconState) =
 
 proc checkAttestation*(state: BeaconState, attestation: Attestation): bool =
   ## Check that an attestation follows the rules of being included in the state
-  ## at the current slot.
+  ## at the current slot. When acting as a proposer, the same rules need to
+  ## be followed!
   ##
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#attestations-1
 
