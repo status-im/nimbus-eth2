@@ -392,9 +392,6 @@ func get_attesters(
   deduplicate(flatten(mapIt(attestations,
     get_attestation_participants(state, it.data, it.participation_bitfield))))
 
-func adjust_for_inclusion_distance[T](magnitude: T, dist: T): T =
-  magnitude div 2 + (magnitude div 2) * MIN_ATTESTATION_INCLUSION_DELAY div dist
-
 func boundary_attestations(
     state: BeaconState, boundary_hash: Eth2Digest,
     attestations: openArray[PendingAttestationRecord]
@@ -411,6 +408,18 @@ func lowerThan(candidate, current: Eth2Digest): bool =
   for i, v in current.data:
     if v > candidate.data[i]: return true
   return false
+
+func inclusion_slot(state: BeaconState, v: Uint24): uint64 =
+  for a in state.latest_attestations:
+    if v in get_attestation_participants(state, a.data, a.participation_bitfield):
+      return a.slot_included
+  doAssert false # shouldn't happen..
+
+func inclusion_distance(state: BeaconState, v: Uint24): uint64 =
+  for a in state.latest_attestations:
+    if v in get_attestation_participants(state, a.data, a.participation_bitfield):
+      return a.slot_included - a.data.slot
+  doAssert false # shouldn't happen..
 
 func processEpoch(state: var BeaconState) =
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#per-epoch-processing
@@ -551,18 +560,6 @@ func processEpoch(state: var BeaconState) =
   func total_balance_sac(obj: ShardCommittee): uint64 =
     sum_effective_balances(statePtr[], obj.committee)
 
-  func inclusion_slot(v: Uint24): uint64 =
-    for a in statePtr[].latest_attestations:
-      if v in get_attestation_participants(statePtr[], a.data, a.participation_bitfield):
-        return a.slot_included
-    doAssert false # shouldn't happen..
-
-  func inclusion_distance(v: Uint24): uint64 =
-    for a in statePtr[].latest_attestations:
-      if v in get_attestation_participants(statePtr[], a.data, a.participation_bitfield):
-        return a.slot_included - a.data.slot
-    doAssert false # shouldn't happen..
-
   block: # Receipt roots
     if state.slot mod POW_RECEIPT_ROOT_VOTING_PERIOD == 0:
       for x in state.candidate_pow_receipt_roots:
@@ -617,9 +614,9 @@ func processEpoch(state: var BeaconState) =
     proc update_balance(attesters: openArray[Uint24], attesting_balance: uint64) =
       # TODO Spec - add helper?
       for v in attesters:
-        statePtr.validator_balances[v] += adjust_for_inclusion_distance(
+        statePtr.validator_balances[v] +=
           base_reward(statePtr[], v) *
-          attesting_balance div total_balance, inclusion_distance(v))
+          attesting_balance div total_balance
 
       for v in active_validator_indices:
         if v notin attesters:
@@ -641,6 +638,12 @@ func processEpoch(state: var BeaconState) =
         previous_epoch_head_attesters,
         previous_epoch_head_attesting_balance)
 
+      # Inclusion distance
+      for v in previous_epoch_attesters:
+        statePtr.validator_balances[v] +=
+          base_reward(state, v) *
+          MIN_ATTESTATION_INCLUSION_DELAY div inclusion_distance(state, v)
+
     else:
       for v in active_validator_indices:
         let validator = addr state.validator_registry[v]
@@ -659,21 +662,22 @@ func processEpoch(state: var BeaconState) =
 
   block: # Attestation inclusion
     for v in previous_epoch_attesters:
-      let proposer_index = get_beacon_proposer_index(state, inclusion_slot(v))
+      let proposer_index =
+        get_beacon_proposer_index(state, inclusion_slot(state, v))
       state.validator_balances[proposer_index] +=
         base_reward(state, v) div INCLUDER_REWARD_QUOTIENT
 
   block: # Crosslinks
     for sac in state.shard_committees_at_slots[0 ..< EPOCH_LENGTH]:
-      for obj in sac:
-        for vindex in obj.committee:
-          if vindex in attesting_validators(obj):
-            state.validator_balances[vindex] += adjust_for_inclusion_distance(
-              base_reward(state, vindex) * total_attesting_balance(obj) div
-                total_balance_sac(obj),
-              inclusion_distance(vindex))
+      for shard_committee in sac:
+        for index in shard_committee.committee:
+          if index in attesting_validators(shard_committee):
+            state.validator_balances[index] +=
+              base_reward(state, index) *
+              total_attesting_balance(shard_committee) div
+              total_balance_sac(shard_committee)
           else:
-            state.validator_balances[vindex] -= base_reward(state, vindex)
+            state.validator_balances[index] -= base_reward(state, index)
 
   block: # Validator registry
     if state.finalized_slot > state.validator_registry_latest_change_slot and
