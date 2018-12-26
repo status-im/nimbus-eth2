@@ -34,7 +34,7 @@
 
 import
   chronicles, math, options, sequtils,
-  ./extras, ./ssz,
+  ./extras, ./ssz, ./work_pool,
   ./spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
   milagro_crypto
 
