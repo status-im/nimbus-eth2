@@ -1,12 +1,12 @@
 import
-  ../beacon_chain/[ssz],
+  ../beacon_chain/[extras, ssz],
   ../beacon_chain/spec/[beaconstate, datatypes, digest],
   ../tests/testutil,
   cligen
 
 proc stateSize(deposits: int, maxContent = false) =
   var state = get_initial_beacon_state(
-    makeInitialDeposits(deposits), 0, Eth2Digest())
+    makeInitialDeposits(deposits), 0, Eth2Digest(), {skipValidation})
 
   if maxContent:
     # TODO verify this is correct, but generally we collect up to two epochs

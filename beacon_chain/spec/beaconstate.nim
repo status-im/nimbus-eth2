@@ -50,13 +50,17 @@ func process_deposit(state: var BeaconState,
                      deposit: uint64,
                      proof_of_possession: ValidatorSig,
                      withdrawal_credentials: Eth2Digest,
-                     randao_commitment: Eth2Digest): Uint24 =
+                     randao_commitment: Eth2Digest,
+                     flags: UpdateFlags): Uint24 =
   ## Process a deposit from Ethereum 1.0.
-  doAssert validate_proof_of_possession(
-    state, pubkey, proof_of_possession, withdrawal_credentials,
-    randao_commitment)
 
-  let validator_pubkeys = mapIt(state.validator_registry, it.pubkey)
+  if skipValidation notin flags:
+    # TODO return error
+    doAssert validate_proof_of_possession(
+      state, pubkey, proof_of_possession, withdrawal_credentials,
+      randao_commitment)
+
+  let validator_pubkeys = state.validator_registry.mapIt(it.pubkey)
 
   if pubkey notin validator_pubkeys:
     # Add new validator
@@ -183,7 +187,8 @@ func update_validator_status*(state: var BeaconState,
 func get_initial_beacon_state*(
     initial_validator_deposits: openArray[Deposit],
     genesis_time: uint64,
-    processed_pow_receipt_root: Eth2Digest): BeaconState =
+    processed_pow_receipt_root: Eth2Digest,
+    flags: UpdateFlags = {}): BeaconState =
   ## BeaconState constructor
   ##
   ## Before the beacon chain starts, validators will register in the Eth1 chain
@@ -231,7 +236,8 @@ func get_initial_beacon_state*(
       deposit.deposit_data.value,
       deposit.deposit_data.deposit_input.proof_of_possession,
       deposit.deposit_data.deposit_input.withdrawal_credentials,
-      deposit.deposit_data.deposit_input.randao_commitment
+      deposit.deposit_data.deposit_input.randao_commitment,
+      flags
     )
     if state.validator_balances[validator_index] >= MAX_DEPOSIT:
       update_validator_status(state, validator_index, ACTIVE)
@@ -350,19 +356,20 @@ func update_validator_registry*(state: var BeaconState) =
         get_effective_balance(state, index.Uint24) *
           min(total_penalties * 3, total_balance) div total_balance
 
-proc checkAttestation*(state: BeaconState, attestation: Attestation): bool =
+proc checkAttestation*(
+    state: BeaconState, attestation: Attestation, flags: UpdateFlags): bool =
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
   ## be followed!
   ##
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#attestations-1
 
-  if attestation.data.slot + MIN_ATTESTATION_INCLUSION_DELAY >= state.slot:
+  if not (attestation.data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= state.slot):
     warn("Attestation too new",
       attestation_slot = attestation.data.slot, state_slot = state.slot)
     return
 
-  if attestation.data.slot + EPOCH_LENGTH <= state.slot:
+  if not (attestation.data.slot + EPOCH_LENGTH >= state.slot):
     warn("Attestation too old",
       attestation_slot = attestation.data.slot, state_slot = state.slot)
     return
@@ -373,7 +380,7 @@ proc checkAttestation*(state: BeaconState, attestation: Attestation): bool =
     else:
       state.previous_justified_slot
 
-  if attestation.data.justified_slot != expected_justified_slot:
+  if not (attestation.data.justified_slot == expected_justified_slot):
     warn("Unexpected justified slot",
       attestation_justified_slot = attestation.data.justified_slot,
       expected_justified_slot)
@@ -381,33 +388,34 @@ proc checkAttestation*(state: BeaconState, attestation: Attestation): bool =
 
   let expected_justified_block_root =
     get_block_root(state, attestation.data.justified_slot)
-  if attestation.data.justified_block_root != expected_justified_block_root:
+  if not (attestation.data.justified_block_root == expected_justified_block_root):
     warn("Unexpected justified block root",
       attestation_justified_block_root = attestation.data.justified_block_root,
       expected_justified_block_root)
     return
 
-  if state.latest_crosslinks[attestation.data.shard].shard_block_root notin [
+  if not (state.latest_crosslinks[attestation.data.shard].shard_block_root in [
       attestation.data.latest_crosslink_root,
-      attestation.data.shard_block_root]:
+      attestation.data.shard_block_root]):
     warn("Unexpected crosslink shard_block_root")
     return
 
   let
     participants = get_attestation_participants(
       state, attestation.data, attestation.participation_bitfield)
-    group_public_key = bls_aggregate_pubkeys(mapIt(
-      participants, state.validator_registry[it].pubkey))
+    group_public_key = bls_aggregate_pubkeys(
+      participants.mapIt(state.validator_registry[it].pubkey))
 
-  # Verify that aggregate_signature verifies using the group pubkey.
-  let msg = hash_tree_root_final(attestation.data)
+  if skipValidation notin flags:
+    # Verify that aggregate_signature verifies using the group pubkey.
+    let msg = hash_tree_root_final(attestation.data)
 
-  if not bls_verify(
-        group_public_key, @(msg.data) & @[0'u8], attestation.aggregate_signature,
-        get_domain(state.fork_data, attestation.data.slot, DOMAIN_ATTESTATION)
-      ):
-    warn("Invalid attestation group signature")
-    return
+    if not bls_verify(
+          group_public_key, @(msg.data) & @[0'u8], attestation.aggregate_signature,
+          get_domain(state.fork_data, attestation.data.slot, DOMAIN_ATTESTATION)
+        ):
+      warn("Invalid attestation group signature")
+      return
 
   # To be removed in Phase1:
   if attestation.data.shard_block_root != ZERO_HASH:
