@@ -7,7 +7,9 @@ installDirs   = @["beacon_chain", "research"]
 bin           = @[
   "beacon_chain/beacon_node",
   "beacon_chain/validator_keygen",
-  "research/state_sim"]
+  "research/serialized_sizes",
+  "research/state_sim",
+  ]
 
 ### Dependencies
 requires "nim >= 0.18.0",

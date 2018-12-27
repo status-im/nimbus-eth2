@@ -59,7 +59,7 @@ proc main() =
       deposit_data: DepositData(
         value: MAX_DEPOSIT * GWEI_PER_ETH,
         timestamp: now(),
-        deposit_parameters: DepositParameters(
+        deposit_input: DepositInput(
           pubkey: pubKey,
           proof_of_possession: proofOfPossession,
           withdrawal_credentials: withdrawalCredentials,

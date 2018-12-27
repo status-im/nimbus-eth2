@@ -170,7 +170,7 @@ proc proposeBlock(node: BeaconNode,
 proc scheduleCycleActions(node: BeaconNode) =
   ## This schedules the required block proposals and
   ## attestations from our attached validators.
-  let cycleStart = node.beaconState.latest_state_recalculation_slot.int
+  let cycleStart = node.beaconState.slot.int
 
   for i in 0 ..< EPOCH_LENGTH:
     # Schedule block proposals

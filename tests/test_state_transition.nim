@@ -23,38 +23,39 @@ suite "Block processing":
     genesisBlock = makeGenesisBlock(genesisState)
 
   test "Passes from genesis state, no block":
-    let
+    var
       state = genesisState
       proposer_index = getNextBeaconProposerIndex(state)
       previous_block_root = hash_tree_root_final(genesisBlock)
-      new_state = updateState(
-        state, previous_block_root, none(BeaconBlock), {})
+    let block_ok =
+      updateState(state, previous_block_root, none(BeaconBlock), {})
     check:
-      new_state.block_ok
+      block_ok
 
-      new_state.state.slot == state.slot + 1
+      state.slot == genesisState.slot + 1
 
       # When proposer skips their proposal, randao layer is still peeled!
-      new_state.state.validator_registry[proposer_index].randao_layers ==
-        state.validator_registry[proposer_index].randao_layers + 1
+      state.validator_registry[proposer_index].randao_layers ==
+        genesisState.validator_registry[proposer_index].randao_layers + 1
 
   test "Passes from genesis state, empty block":
-    let
+    var
       state = genesisState
       proposer_index = getNextBeaconProposerIndex(state)
       previous_block_root = hash_tree_root_final(genesisBlock)
       new_block = makeBlock(state, previous_block_root, BeaconBlockBody())
-      new_state = updateState(
-        state, previous_block_root, some(new_block), {})
+
+    let block_ok = updateState(
+      state, previous_block_root, some(new_block), {})
 
     check:
-      new_state.block_ok
+      block_ok
 
-      new_state.state.slot == state.slot + 1
+      state.slot == genesisState.slot + 1
 
       # Proposer proposed, no need for additional peeling
-      new_state.state.validator_registry[proposer_index].randao_layers ==
-        state.validator_registry[proposer_index].randao_layers
+      state.validator_registry[proposer_index].randao_layers ==
+        genesisState.validator_registry[proposer_index].randao_layers
 
   test "Passes through epoch update, no block":
     var
@@ -62,11 +63,10 @@ suite "Block processing":
       previous_block_root = hash_tree_root_final(genesisBlock)
 
     for i in 1..EPOCH_LENGTH.int:
-      let new_state = updateState(
+      let block_ok = updateState(
         state, previous_block_root, none(BeaconBlock), {})
       check:
-        new_state.block_ok
-      state = new_state.state
+        block_ok
 
     check:
       state.slot == genesisState.slot + EPOCH_LENGTH
@@ -79,14 +79,13 @@ suite "Block processing":
     for i in 1..EPOCH_LENGTH.int:
       var new_block = makeBlock(state, previous_block_root, BeaconBlockBody())
 
-      let new_state = updateState(
+      let block_ok = updateState(
         state, previous_block_root, some(new_block), {})
 
       check:
-        new_state.block_ok
-      state = new_state.state
-      if new_state.block_ok:
-        previous_block_root = hash_tree_root_final(new_block)
+        block_ok
+
+      previous_block_root = hash_tree_root_final(new_block)
 
     check:
       state.slot == genesisState.slot + EPOCH_LENGTH
@@ -97,8 +96,8 @@ suite "Block processing":
       previous_block_root = hash_tree_root_final(genesisBlock)
 
     # Slot 0 is a finalized slot - won't be making attestations for it..
-    state = updateState(
-        state, previous_block_root, none(BeaconBlock), {}).state
+    discard updateState(
+        state, previous_block_root, none(BeaconBlock), {})
 
     let
       # Create an attestation for slot 1 signed by the only attester we have!
@@ -109,14 +108,14 @@ suite "Block processing":
     # Some time needs to pass before attestations are included - this is
     # to let the attestation propagate properly to interested participants
     while state.slot < MIN_ATTESTATION_INCLUSION_DELAY + 1:
-      state = updateState(
-        state, previous_block_root, none(BeaconBlock), {}).state
+      discard updateState(
+        state, previous_block_root, none(BeaconBlock), {})
 
     let
       new_block = makeBlock(state, previous_block_root, BeaconBlockBody(
         attestations: @[attestation]
       ))
-    state = updateState(state, previous_block_root, some(new_block), {}).state
+    discard updateState(state, previous_block_root, some(new_block), {})
 
     check:
       state.latest_attestations.len == 1
@@ -124,8 +123,8 @@ suite "Block processing":
     # TODO Can't run more than 127 for now:
     # https://github.com/ethereum/eth2.0-specs/issues/352
     while state.slot < 127:
-      state = updateState(
-        state, previous_block_root, none(BeaconBlock), {}).state
+      discard updateState(
+        state, previous_block_root, none(BeaconBlock), {})
 
     # Would need to process more epochs for the attestation to be removed from
     # the state! (per above bug)

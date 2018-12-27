@@ -10,6 +10,41 @@ import
   ../extras, ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers, ./validator
 
+func get_effective_balance*(state: BeaconState, index: Uint24): uint64 =
+  # Validators collect rewards which increases their balance but not their
+  # influence. Validators may also lose balance if they fail to do their duty
+  # in which case their influence decreases. Once they drop below a certain
+  # balance, they're removed from the validator registry.
+  min(state.validator_balances[index], MAX_DEPOSIT * GWEI_PER_ETH)
+
+func sum_effective_balances*(
+    state: BeaconState, validator_indices: openArray[Uint24]): uint64 =
+  # TODO spec - add as helper? Used pretty often
+  for index in validator_indices:
+    result += get_effective_balance(state, index)
+
+func validate_proof_of_possession(state: BeaconState,
+                                  pubkey: ValidatorPubKey,
+                                  proof_of_possession: ValidatorSig,
+                                  withdrawal_credentials: Eth2Digest,
+                                  randao_commitment: Eth2Digest): bool =
+  let proof_of_possession_data = DepositInput(
+    pubkey: pubkey,
+    withdrawal_credentials: withdrawal_credentials,
+    randao_commitment: randao_commitment
+  )
+
+  bls_verify(
+    pubkey,
+    hash_tree_root_final(proof_of_possession_data).data,
+    proof_of_possession,
+    get_domain(
+        state.fork_data,
+        state.slot,
+        DOMAIN_DEPOSIT,
+    )
+  )
+
 func process_deposit(state: var BeaconState,
                      pubkey: ValidatorPubKey,
                      deposit: uint64,
@@ -17,11 +52,9 @@ func process_deposit(state: var BeaconState,
                      withdrawal_credentials: Eth2Digest,
                      randao_commitment: Eth2Digest): Uint24 =
   ## Process a deposit from Ethereum 1.0.
-  let msg = hash_tree_root_final(
-    (pubkey, withdrawal_credentials, randao_commitment))
-  assert bls_verify(
-    pubkey, msg.data, proof_of_possession,
-    get_domain(state.fork_data, state.slot, DOMAIN_DEPOSIT))
+  doAssert validate_proof_of_possession(
+    state, pubkey, proof_of_possession, withdrawal_credentials,
+    randao_commitment)
 
   let validator_pubkeys = mapIt(state.validator_registry, it.pubkey)
 
@@ -32,26 +65,29 @@ func process_deposit(state: var BeaconState,
       withdrawal_credentials: withdrawal_credentials,
       randao_commitment: randao_commitment,
       randao_layers: 0,
-      balance: deposit,
       status: PENDING_ACTIVATION,
       latest_status_change_slot: state.slot,
       exit_count: 0
     )
 
-    let index = min_empty_validator_index(state.validator_registry, state.slot)
+    let index = min_empty_validator_index(
+      state.validator_registry, state.validator_balances, state.slot)
     if index.isNone():
       state.validator_registry.add(validator)
+      state.validator_balances.add(deposit)
       (len(state.validator_registry) - 1).Uint24
     else:
       state.validator_registry[index.get()] = validator
+      state.validator_balances[index.get()] = deposit
       index.get().Uint24
   else:
     # Increase balance by deposit
     let index = validator_pubkeys.find(pubkey)
     let validator = addr state.validator_registry[index]
-    assert validator.withdrawal_credentials == withdrawal_credentials
+    assert state.validator_registry[index].withdrawal_credentials ==
+      withdrawal_credentials
 
-    validator.balance += deposit
+    state.validator_balances[index] += deposit
     index.Uint24
 
 func activate_validator(state: var BeaconState,
@@ -83,10 +119,9 @@ func initiate_validator_exit(state: var BeaconState,
   validator.latest_status_change_slot = state.slot
 
 func exit_validator(state: var BeaconState,
-                     index: Uint24,
-                     new_status: ValidatorStatusCodes) =
+                    index: Uint24,
+                    new_status: ValidatorStatusCodes) =
   ## Exit the validator with the given ``index``.
-  ## Note that this function mutates ``state``.
 
   let
     validator = addr state.validator_registry[index]
@@ -101,16 +136,16 @@ func exit_validator(state: var BeaconState,
   if new_status == EXITED_WITH_PENALTY:
     state.latest_penalized_exit_balances[
       (state.slot div COLLECTIVE_PENALTY_CALCULATION_PERIOD).int] +=
-        get_effective_balance(validator[])
+        get_effective_balance(state, index)
 
     let
-      whistleblower = addr state.validator_registry[
-        get_beacon_proposer_index(state, state.slot)]
+      whistleblower_index =
+        get_beacon_proposer_index(state, state.slot)
       whistleblower_reward =
-        validator.balance div WHISTLEBLOWER_REWARD_QUOTIENT
+        get_effective_balance(state, index) div WHISTLEBLOWER_REWARD_QUOTIENT
 
-    whistleblower.balance += whistleblower_reward
-    validator.balance -= whistleblower_reward
+    state.validator_balances[whistleblower_index] += whistleblower_reward
+    state.validator_balances[index] -= whistleblower_reward
 
   if prev_status == EXITED_WITHOUT_PENALTY:
     return
@@ -136,14 +171,14 @@ func exit_validator(state: var BeaconState,
 func update_validator_status*(state: var BeaconState,
                               index: Uint24,
                               new_status: ValidatorStatusCodes) =
-  ##  Update the validator status with the given ``index`` to ``new_status``.
+  ## Update the validator status with the given ``index`` to ``new_status``.
   ## Handle other general accounting related to this status update.
   if new_status == ACTIVE:
-      activate_validator(state, index)
+    activate_validator(state, index)
   if new_status == ACTIVE_PENDING_EXIT:
-      initiate_validator_exit(state, index)
+    initiate_validator_exit(state, index)
   if new_status in [EXITED_WITH_PENALTY, EXITED_WITHOUT_PENALTY]:
-      exit_validator(state, index, new_status)
+    exit_validator(state, index, new_status)
 
 func get_initial_beacon_state*(
     initial_validator_deposits: openArray[Deposit],
@@ -184,9 +219,6 @@ func get_initial_beacon_state*(
     justified_slot: INITIAL_SLOT_NUMBER,
     finalized_slot: INITIAL_SLOT_NUMBER,
 
-    # Recent state
-    latest_state_recalculation_slot: INITIAL_SLOT_NUMBER,
-
      # PoW receipt root
     processed_pow_receipt_root: processed_pow_receipt_root,
   )
@@ -195,13 +227,13 @@ func get_initial_beacon_state*(
   for deposit in initial_validator_deposits:
     let validator_index = process_deposit(
       state,
-      deposit.deposit_data.deposit_parameters.pubkey,
+      deposit.deposit_data.deposit_input.pubkey,
       deposit.deposit_data.value,
-      deposit.deposit_data.deposit_parameters.proof_of_possession,
-      deposit.deposit_data.deposit_parameters.withdrawal_credentials,
-      deposit.deposit_data.deposit_parameters.randao_commitment
+      deposit.deposit_data.deposit_input.proof_of_possession,
+      deposit.deposit_data.deposit_input.withdrawal_credentials,
+      deposit.deposit_data.deposit_input.randao_commitment
     )
-    if state.validator_registry[validator_index].balance >= MAX_DEPOSIT:
+    if state.validator_balances[validator_index] >= MAX_DEPOSIT:
       update_validator_status(state, validator_index, ACTIVE)
 
   # set initial committee shuffling
@@ -258,27 +290,70 @@ func process_ejections*(state: var BeaconState) =
   ## Iterate through the validator registry
   ## and eject active validators with balance below ``EJECTION_BALANCE``.
 
-  for i, v in state.validator_registry.mpairs():
-    if is_active_validator(v) and v.balance < EJECTION_BALANCE:
-      exit_validator(state, i.Uint24, EXITED_WITHOUT_PENALTY)
+  for index in get_active_validator_indices(state.validator_registry):
+    if state.validator_balances[index] < EJECTION_BALANCE:
+      exit_validator(state, index, EXITED_WITHOUT_PENALTY)
 
 func update_validator_registry*(state: var BeaconState) =
-  # Update validator registry.
-  # Note that this function mutates ``state``.
+  let
+    active_validator_indices =
+      get_active_validator_indices(state.validator_registry)
+    # The total effective balance of active validators
+    total_balance = sum_effective_balances(state, active_validator_indices)
 
-  (state.validator_registry,
-    state.latest_penalized_exit_balances,
-    state.validator_registry_delta_chain_tip) =
-      get_updated_validator_registry(
-        state.validator_registry,
-        state.latest_penalized_exit_balances,
-        state.validator_registry_delta_chain_tip,
-        state.slot
-      )
+    # The maximum balance churn in Gwei (for deposits and exits separately)
+    max_balance_churn = max(
+        MAX_DEPOSIT * GWEI_PER_ETH,
+        total_balance div (2 * MAX_BALANCE_CHURN_QUOTIENT)
+    )
+
+  # Activate validators within the allowable balance churn
+  var balance_churn = 0'u64
+  for index, validator in state.validator_registry:
+    if validator.status == PENDING_ACTIVATION and
+      state.validator_balances[index] >= MAX_DEPOSIT * GWEI_PER_ETH:
+      # Check the balance churn would be within the allowance
+      balance_churn += get_effective_balance(state, index.Uint24)
+      if balance_churn > max_balance_churn:
+        break
+
+      # Activate validator
+      update_validator_status(state, index.Uint24, ACTIVE)
+
+  # Exit validators within the allowable balance churn
+  balance_churn = 0
+  for index, validator in state.validator_registry:
+    if validator.status == ACTIVE_PENDING_EXIT:
+      # Check the balance churn would be within the allowance
+      balance_churn += get_effective_balance(state, index.Uint24)
+      if balance_churn > max_balance_churn:
+        break
+
+      # Exit validator
+      update_validator_status(state, index.Uint24, EXITED_WITHOUT_PENALTY)
+
+  # Calculate the total ETH that has been penalized in the last ~2-3 withdrawal periods
+  let
+    period_index = (state.slot div COLLECTIVE_PENALTY_CALCULATION_PERIOD).int
+    total_penalties = (
+      (state.latest_penalized_exit_balances[period_index]) +
+      (if period_index >= 1:
+        state.latest_penalized_exit_balances[period_index - 1] else: 0) +
+      (if period_index >= 2:
+        state.latest_penalized_exit_balances[period_index - 2] else: 0)
+    )
+
+  # Calculate penalties for slashed validators
+  for index, validator in state.validator_registry:
+    if validator.status == EXITED_WITH_PENALTY:
+      state.validator_balances[index] -=
+        get_effective_balance(state, index.Uint24) *
+          min(total_penalties * 3, total_balance) div total_balance
 
 proc checkAttestation*(state: BeaconState, attestation: Attestation): bool =
   ## Check that an attestation follows the rules of being included in the state
-  ## at the current slot.
+  ## at the current slot. When acting as a proposer, the same rules need to
+  ## be followed!
   ##
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#attestations-1
 

@@ -50,8 +50,16 @@ const
   ## Number of shards supported by the network - validators will jump around
   ## between these shards and provide attestations to their state.
 
-  TARGET_COMMITTEE_SIZE* = 2^8 ##\
+  TARGET_COMMITTEE_SIZE* = 2^7 ##\
   ## Number of validators in the committee attesting to one shard
+  ## Per spec:
+  ## For the safety of crosslinks `TARGET_COMMITTEE_SIZE` exceeds
+  ## [the recommended minimum committee size of 111](https://vitalik.ca/files/Ithaca201807_Sharding.pdf);
+  ## with sufficient active validators (at least
+  ## `EPOCH_LENGTH * TARGET_COMMITTEE_SIZE`), the shuffling algorithm ensures
+  ## committee sizes at least `TARGET_COMMITTEE_SIZE`. (Unbiasable randomness
+  ## with a Verifiable Delay Function (VDF) will improve committee robustness
+  ## and lower the safe minimum committee size.)
 
   EJECTION_BALANCE* = 2'u64^4 ##\
   ## Once the balance of a validator drops below this, it will be ejected from
@@ -71,10 +79,6 @@ const
   LATEST_BLOCK_ROOTS_LENGTH* = 2'u64^13
   LATEST_RANDAO_MIXES_LENGTH* = 2'u64^13
 
-  MIN_BALANCE* = 2'u64^4 ##\
-  ## Minimum balance in ETH before a validator is removed from the validator
-  ## pool
-
   DEPOSIT_CONTRACT_TREE_DEPTH* = 2^5
 
   MIN_DEPOSIT* = 2'u64^0 ##\
@@ -93,18 +97,22 @@ const
   SLOT_DURATION* = 6 ## \
   ## TODO consistent time unit across projects, similar to C++ chrono?
 
-  MIN_ATTESTATION_INCLUSION_DELAY* = 4'u64 ##\
+  MIN_ATTESTATION_INCLUSION_DELAY* = 2'u64^2 ##\
   ## (24 seconds)
   ## Number of slots that attestations stay in the attestation
-  ## pool before being added to a block
+  ## pool before being added to a block.
+  ## The attestation delay exists so that there is time for attestations to
+  ## propagate before the block is created.
+  ## When creating an attestation, the validator will look at the best
+  ## information known to at that time, and may not revise it during the same
+  ## slot (see `is_double_vote`) - the delay gives the validator a chance to
+  ## wait towards the end of the slot and still have time to publish the
+  ## attestation.
 
   EPOCH_LENGTH* = 64 ##\
   ## (~6.4 minutes)
   ## slots that make up an epoch, at the end of which more heavy
   ## processing is done
-
-  MIN_VALIDATOR_REGISTRY_CHANGE_INTERVAL* = 2'u64^8 ##
-  ## slots (~25.6 minutes)
 
   POW_RECEIPT_ROOT_VOTING_PERIOD* = 2'u64^10 ##\
   ## slots (~1.7 hours)
@@ -125,7 +133,7 @@ const
   ## ETH in every epoch.
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
   INCLUDER_REWARD_QUOTIENT* = 2'u64^3
-  INACTIVITY_PENALTY_QUOTIENT* = 2'u64^34
+  INACTIVITY_PENALTY_QUOTIENT* = 2'u64^24
 
   MAX_PROPOSER_SLASHINGS* = 2^4
   MAX_CASPER_SLASHINGS* = 2^4
@@ -190,6 +198,10 @@ type
     justified_block_root*: Eth2Digest ##\
     ## Hash of last justified beacon block
 
+  AttestationDataAndCustodyBit* = object
+    data*: AttestationData
+    poc_bit: bool
+
   Deposit* = object
     merkle_branch*: seq[Eth2Digest] ##\
     ## Receipt Merkle branch
@@ -200,17 +212,17 @@ type
     deposit_data*: DepositData
 
   DepositData* = object
-    deposit_parameters*: DepositParameters
+    deposit_input*: DepositInput
     value*: uint64 ## Value in Gwei
     timestamp*: uint64 # Timestamp from deposit contract
 
-  DepositParameters* = object
+  DepositInput* = object
     pubkey*: ValidatorPubKey
-    proof_of_possession*: ValidatorSig ##\
-    ## BLS proof of possession (a BLS signature)
-
     withdrawal_credentials*: Eth2Digest
     randao_commitment*: Eth2Digest # Initial RANDAO commitment
+    poc_commitment*: Eth2Digest
+    proof_of_possession*: ValidatorSig ##\
+    ## BLS proof of possession (a BLS signature)
 
   Exit* = object
     # Minimum slot for processing exit
@@ -248,8 +260,16 @@ type
     proposer_slashings*: seq[ProposerSlashing]
     casper_slashings*: seq[CasperSlashing]
     attestations*: seq[Attestation]
+    poc_seed_changes*: seq[ProofOfCustodySeedChange]
+    poc_challenges*: seq[ProofOfCustodyChallenge]
+    poc_responses*: seq[ProofOfCustodyResponse]
     deposits*: seq[Deposit]
     exits*: seq[Exit]
+
+  # Phase1:
+  ProofOfCustodySeedChange* = object
+  ProofOfCustodyChallenge* = object
+  ProofOfCustodyResponse* = object
 
   ProposalSignedData* = object
     slot*: uint64
@@ -265,6 +285,9 @@ type
 
     # Validator registry
     validator_registry*: seq[ValidatorRecord]
+    validator_balances*: seq[uint64] ##\
+    ## Validator balances in Gwei!
+
     validator_registry_latest_change_slot*: uint64
     validator_registry_exit_count*: uint64
     validator_registry_delta_chain_tip*: Eth2Digest ##\
@@ -272,6 +295,8 @@ type
 
     # Randomness and committees
     latest_randao_mixes*: array[LATEST_BLOCK_ROOTS_LENGTH.int, Eth2Digest]
+    latest_vdf_outputs*: array[
+      (LATEST_RANDAO_MIXES_LENGTH div EPOCH_LENGTH).int, Eth2Digest]
 
     shard_committees_at_slots*: array[2 * EPOCH_LENGTH, seq[ShardCommittee]] ## \
     ## Committee members and their assigned shard, per slot, covers 2 cycles
@@ -280,6 +305,8 @@ type
     persistent_committees*: seq[seq[Uint24]]
     persistent_committee_reassignments*: seq[ShardReassignmentRecord]
 
+    poc_challenges*: seq[ProofOfCustodyChallenge]
+
     # Finality
     previous_justified_slot*: uint64
     justified_slot*: uint64
@@ -287,7 +314,6 @@ type
     finalized_slot*: uint64
 
     latest_crosslinks*: array[SHARD_COUNT, CrosslinkRecord]
-    latest_state_recalculation_slot*: uint64
     latest_block_roots*: array[LATEST_BLOCK_ROOTS_LENGTH.int, Eth2Digest] ##\
     ## Needed to process attestations, older to newer
 
@@ -315,13 +341,17 @@ type
     ## Number of proposals the proposer missed, and thus the number of times to
     ## apply hash function to randao reveal
 
-    balance*: uint64 # Balance in Gwei
     status*: ValidatorStatusCodes
     latest_status_change_slot*: uint64 ##\
     ## Slot when validator last changed status (or 0)
 
     exit_count*: uint64 ##\
     ## Exit counter when validator exited (or 0)
+
+    poc_commitment*: Eth2Digest
+
+    last_poc_change_slot*: uint64
+    second_last_poc_change_slot*: uint64
 
   CrosslinkRecord* = object
     slot*: uint64
@@ -349,7 +379,7 @@ type
 
   CandidatePoWReceiptRootRecord* = object
     candidate_pow_receipt_root*: Eth2Digest       # Candidate PoW receipt root
-    votes*: uint64                                # Vote count
+    vote_count*: uint64                           # Vote count
 
   PendingAttestationRecord* = object
     data*: AttestationData                        # Signed data
@@ -374,12 +404,6 @@ type
     ACTIVE_PENDING_EXIT = 2
     EXITED_WITHOUT_PENALTY = 3
     EXITED_WITH_PENALTY = 4
-
-  SpecialRecordType* {.pure.} = enum
-    Logout = 0
-    CasperSlashing = 1
-    RandaoChange = 2
-    DepositProof = 3
 
   ValidatorSetDeltaFlags* {.pure.} = enum
     Activation = 0

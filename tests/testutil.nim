@@ -46,12 +46,17 @@ func makeDeposit(i: int): Deposit =
     pubkey = privkey.fromSigKey()
     withdrawal_credentials = makeFakeHash(i)
     randao_commitment = repeat_hash(withdrawal_credentials, randaoRounds)
-    pop = signMessage(privkey, hash_tree_root(
-      (pubkey, withdrawal_credentials, randao_commitment)))
+    proof_of_possession_data = DepositInput(
+      pubkey: pubkey,
+      withdrawal_credentials: withdrawal_credentials,
+      randao_commitment: randao_commitment
+    )
+    pop = signMessage(
+      privkey, hash_tree_root_final(proof_of_possession_data).data)
 
   Deposit(
     deposit_data: DepositData(
-      deposit_parameters: DepositParameters(
+      deposit_input: DepositInput(
         pubkey: pubkey,
         proof_of_possession: pop,
         withdrawal_credentials: withdrawal_credentials,
@@ -72,10 +77,9 @@ func makeGenesisBlock*(state: BeaconState): BeaconBlock =
   )
 
 func getNextBeaconProposerIndex*(state: BeaconState): Uint24 =
-  # TODO: this works but looks wrong - we update the slot in the state without
-  #       updating corresponding data - this works because the state update
-  #       code does the same - updates slot, then uses that slot when calling
-  #       beacon_proposer_index, then finally updates the shuffling at the end!
+  # TODO: This is a special version of get_beacon_proposer_index that takes into
+  #       account the partial update done at the start of slot processing -
+  #       see get_shard_committees_index
   var next_state = state
   next_state.slot += 1
   get_beacon_proposer_index(next_state, next_state.slot)
@@ -94,7 +98,7 @@ proc addBlock*(
 
   let
     # Index from the new state, but registry from the old state.. hmm...
-    proposer = state.validator_registry[getNextBeaconProposerIndex(state)]
+    proposer = state.validator_registry[proposer_index]
 
   var
     # In order to reuse the state transition function, we first create a dummy
@@ -110,8 +114,7 @@ proc addBlock*(
       body: body
     )
 
-  var block_ok: bool
-  (state, block_ok) = updateState(
+  let block_ok = updateState(
     state, previous_block_root, some(new_block), {skipValidation})
   assert block_ok
 
@@ -166,9 +169,10 @@ proc find_shard_committee(
 proc makeAttestation*(
     state: BeaconState, beacon_block_root: Eth2Digest,
     validator_index: Uint24): Attestation =
+  var new_state = state
 
-  let new_state = updateState(
-    state, beacon_block_root, none(BeaconBlock), {skipValidation})
+  let block_ok = updateState(
+    new_state, beacon_block_root, none(BeaconBlock), {skipValidation})
   let
     sac = find_shard_committee(
       get_shard_committees_at_slot(state, state.slot), validator_index)
@@ -184,7 +188,7 @@ proc makeAttestation*(
       latest_crosslink_root: Eth2Digest(), # TODO
       justified_slot: state.justified_slot,
       justified_block_root:
-        get_block_root(new_state.state, state.justified_slot),
+        get_block_root(new_state, state.justified_slot),
     )
 
   assert sac_index != -1, "find_shard_committe should guarantee this"

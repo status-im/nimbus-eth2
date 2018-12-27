@@ -19,7 +19,7 @@ proc lastFinalizedState*(db: BeaconChainDB): BeaconStateRef =
     let stateFile = db.dataRoot / "BeaconState.json"
     if fileExists stateFile:
       new result
-      Json.loadFile(stateFile, result[])
+      # TODO serialization error: Json.loadFile(stateFile, result[])
   except:
     error "Failed to load the latest finalized state",
           err = getCurrentExceptionMsg()
