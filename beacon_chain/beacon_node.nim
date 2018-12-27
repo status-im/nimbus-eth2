@@ -234,7 +234,7 @@ when isMainModule:
     let initialState = get_initial_beacon_state(
       config.chainStartupData.validatorDeposits,
       config.chainStartupData.genesisTime,
-      Eth2Digest())
+      Eth2Digest(), {})
 
     Json.saveFile(outfile, initialState, pretty = true)
     echo "Wrote ", outfile

@@ -32,20 +32,9 @@
 
 import
   chronicles, math, options, sequtils,
-  ./extras, ./ssz, ./work_pool,
+  ./extras, ./ssz,
   ./spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
   milagro_crypto
-
-type
-  UpdateFlag* = enum
-    skipValidation ##\
-    ## The `skipValidation` flag is used to skip over certain checks that are
-    ## normally done when an untrusted block arrives from the network. The
-    ## primary use case for this flag is when a proposer must propose a new
-    ## block - in order to do so, it needs to update the state as if the block
-    ## was valid, before it can sign it.
-
-  UpdateFlags* = set[UpdateFlag]
 
 func flatten[T](v: openArray[seq[T]]): seq[T] =
   # TODO not in nim - doh.
@@ -124,7 +113,8 @@ func processPoWReceiptRoot(state: var BeaconState, blck: BeaconBlock) =
     vote_count: 1
   )
 
-proc processProposerSlashings(state: var BeaconState, blck: BeaconBlock): bool =
+proc processProposerSlashings(
+    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#proposer-slashings-1
 
   if len(blck.body.proposer_slashings) > MAX_PROPOSER_SLASHINGS:
@@ -133,25 +123,26 @@ proc processProposerSlashings(state: var BeaconState, blck: BeaconBlock): bool =
     return false
 
   for proposer_slashing in blck.body.proposer_slashings:
-    let proposer = addr state.validator_registry[proposer_slashing.proposer_index]
-    if not bls_verify(
-        proposer.pubkey,
-        hash_tree_root_final(proposer_slashing.proposal_data_1).data,
-        proposer_slashing.proposal_signature_1,
-        get_domain(
-          state.fork_data, proposer_slashing.proposal_data_1.slot,
-          DOMAIN_PROPOSAL)):
-      warn("PropSlash: invalid signature 1")
-      return false
-    if not bls_verify(
-        proposer.pubkey,
-        hash_tree_root_final(proposer_slashing.proposal_data_2).data,
-        proposer_slashing.proposal_signature_2,
-        get_domain(
-          state.fork_data, proposer_slashing.proposal_data_2.slot,
-          DOMAIN_PROPOSAL)):
-      warn("PropSlash: invalid signature 2")
-      return false
+    let proposer = state.validator_registry[proposer_slashing.proposer_index]
+    if skipValidation notin flags:
+      if not bls_verify(
+          proposer.pubkey,
+          hash_tree_root_final(proposer_slashing.proposal_data_1).data,
+          proposer_slashing.proposal_signature_1,
+          get_domain(
+            state.fork_data, proposer_slashing.proposal_data_1.slot,
+            DOMAIN_PROPOSAL)):
+        warn("PropSlash: invalid signature 1")
+        return false
+      if not bls_verify(
+          proposer.pubkey,
+          hash_tree_root_final(proposer_slashing.proposal_data_2).data,
+          proposer_slashing.proposal_signature_2,
+          get_domain(
+            state.fork_data, proposer_slashing.proposal_data_2.slot,
+            DOMAIN_PROPOSAL)):
+        warn("PropSlash: invalid signature 2")
+        return false
 
     if not (proposer_slashing.proposal_data_1.slot ==
         proposer_slashing.proposal_data_2.slot):
@@ -183,10 +174,10 @@ func verify_slashable_vote_data(state: BeaconState, vote_data: SlashableVoteData
     return false
 
   let pubs = [
-    bls_aggregate_pubkeys(mapIt(vote_data.aggregate_signature_poc_0_indices,
-      state.validator_registry[it].pubkey)),
-    bls_aggregate_pubkeys(mapIt(vote_data.aggregate_signature_poc_1_indices,
-      state.validator_registry[it].pubkey))]
+    bls_aggregate_pubkeys(vote_data.aggregate_signature_poc_0_indices.
+      mapIt(state.validator_registry[it].pubkey)),
+    bls_aggregate_pubkeys(vote_data.aggregate_signature_poc_1_indices.
+      mapIt(state.validator_registry[it].pubkey))]
 
   # TODO
   # return bls_verify_multiple(pubs, [hash_tree_root(votes)+bytes1(0), hash_tree_root(votes)+bytes1(1), signature=aggregate_signature)
@@ -207,8 +198,9 @@ proc processCasperSlashings(state: var BeaconState, blck: BeaconBlock): bool =
     let
       slashable_vote_data_1 = casper_slashing.slashable_vote_data_1
       slashable_vote_data_2 = casper_slashing.slashable_vote_data_2
-      intersection = filterIt(
-        indices(slashable_vote_data_1), it in indices(slashable_vote_data_2))
+      indices2 = indices(slashable_vote_data_2)
+      intersection =
+        indices(slashable_vote_data_1).filterIt(it in indices2)
 
     if not (slashable_vote_data_1.data != slashable_vote_data_2.data):
       warn("CaspSlash: invalid data")
@@ -238,7 +230,8 @@ proc processCasperSlashings(state: var BeaconState, blck: BeaconBlock): bool =
 
   return true
 
-proc processAttestations(state: var BeaconState, blck: BeaconBlock): bool =
+proc processAttestations(
+    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   ## Each block includes a number of attestations that the proposer chose. Each
   ## attestation represents an update to a specific shard and is signed by a
   ## committee of validators.
@@ -251,11 +244,11 @@ proc processAttestations(state: var BeaconState, blck: BeaconBlock): bool =
     warn("Attestation: too many!", attestations = blck.body.attestations.len)
     return false
 
-  if not allIt(blck.body.attestations, checkAttestation(state, it)):
+  if not blck.body.attestations.allIt(checkAttestation(state, it, flags)):
     return false
 
   # All checks passed - update state
-  state.latest_attestations.add mapIt(blck.body.attestations,
+  state.latest_attestations.add blck.body.attestations.mapIt(
     PendingAttestationRecord(
       data: it.data,
       participation_bitfield: it.participation_bitfield,
@@ -271,7 +264,8 @@ proc processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
   # TODO! Spec writing in progress
   true
 
-proc processExits(state: var BeaconState, blck: BeaconBlock): bool =
+proc processExits(
+    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#exits-1
   if len(blck.body.exits) > MAX_EXITS:
     warn("Exit: too many!")
@@ -280,11 +274,12 @@ proc processExits(state: var BeaconState, blck: BeaconBlock): bool =
   for exit in blck.body.exits:
     let validator = state.validator_registry[exit.validator_index]
 
-    if not bls_verify(
-        validator.pubkey, ZERO_HASH.data, exit.signature,
-        get_domain(state.fork_data, exit.slot, DOMAIN_EXIT)):
-      warn("Exit: invalid signature")
-      return false
+    if skipValidation notin flags:
+      if not bls_verify(
+          validator.pubkey, ZERO_HASH.data, exit.signature,
+          get_domain(state.fork_data, exit.slot, DOMAIN_EXIT)):
+        warn("Exit: invalid signature")
+        return false
 
     if not (validator.status == ACTIVE):
       warn("Exit: validator not active")
@@ -369,19 +364,19 @@ proc processBlock(
 
   processPoWReceiptRoot(state, blck)
 
-  if not processProposerSlashings(state, blck):
+  if not processProposerSlashings(state, blck, flags):
     return false
 
   if not processCasperSlashings(state, blck):
     return false
 
-  if not processAttestations(state, blck):
+  if not processAttestations(state, blck, flags):
     return false
 
   if not processDeposits(state, blck):
     return false
 
-  if not processExits(state, blck):
+  if not processExits(state, blck, flags):
     return false
 
   process_ejections(state)
@@ -393,15 +388,18 @@ func get_attester_indices(
     attestations: openArray[PendingAttestationRecord]): seq[Uint24] =
   # Union of attesters that participated in some attestations
   # TODO spec - add as helper?
-  deduplicate(flatten(mapIt(attestations,
-    get_attestation_participants(state, it.data, it.participation_bitfield))))
+  attestations.
+    mapIt(
+      get_attestation_participants(state, it.data, it.participation_bitfield)).
+    flatten().
+    deduplicate()
 
 func boundary_attestations(
     state: BeaconState, boundary_hash: Eth2Digest,
     attestations: openArray[PendingAttestationRecord]
     ): seq[PendingAttestationRecord] =
   # TODO spec - add as helper?
-  filterIt(attestations,
+  attestations.filterIt(
     it.data.epoch_boundary_root == boundary_hash and
     it.data.justified_slot == state.justified_slot)
 
@@ -454,37 +452,36 @@ func processEpoch(state: var BeaconState) =
   # TODO doing this with iterators failed:
   #      https://github.com/nim-lang/Nim/issues/9827
   let
-    this_epoch_attestations =
-      filterIt(state.latest_attestations,
+    current_epoch_attestations =
+      state.latest_attestations.filterIt(
         state.slot <= it.data.slot + EPOCH_LENGTH and
         it.data.slot < state.slot)
 
-    this_epoch_boundary_attestations =
+    current_epoch_boundary_attestations =
       boundary_attestations(
         state, get_block_root(state, state.slot-EPOCH_LENGTH),
-        this_epoch_attestations)
+        current_epoch_attestations)
 
-    this_epoch_boundary_attester_indices =
-      get_attester_indices(state, this_epoch_attestations)
+    current_epoch_boundary_attester_indices =
+      get_attester_indices(state, current_epoch_attestations)
 
-    this_epoch_boundary_attesting_balance =
-      sum_effective_balances(state, this_epoch_boundary_attester_indices)
+    current_epoch_boundary_attesting_balance =
+      sum_effective_balances(state, current_epoch_boundary_attester_indices)
 
   let
-    previous_epoch_attestations = filterIt(
-      state.latest_attestations,
-      state.slot <= it.data.slot + 2 * EPOCH_LENGTH and
-      it.data.slot + EPOCH_LENGTH < state.slot)
+    previous_epoch_attestations =
+      state.latest_attestations.filterIt(
+        state.slot <= it.data.slot + 2 * EPOCH_LENGTH and
+        it.data.slot + EPOCH_LENGTH < state.slot)
 
   let
     previous_epoch_attester_indices =
       get_attester_indices(state, previous_epoch_attestations)
 
   let # Previous epoch justified
-    previous_epoch_justified_attestations = filterIt(
-      concat(this_epoch_attestations, previous_epoch_attestations),
-        it.data.justified_slot == state.previous_justified_slot
-      )
+    previous_epoch_justified_attestations =
+      concat(current_epoch_attestations, previous_epoch_attestations).
+        filterIt(it.data.justified_slot == state.previous_justified_slot)
 
     previous_epoch_justified_attester_indices =
       get_attester_indices(state, previous_epoch_justified_attestations)
@@ -509,8 +506,7 @@ func processEpoch(state: var BeaconState) =
 
   let # Previous epoch head
     previous_epoch_head_attestations =
-      filterIt(
-        previous_epoch_attestations,
+      previous_epoch_attestations.filterIt(
         it.data.beacon_block_root == get_block_root(state, it.data.slot))
 
     previous_epoch_head_attester_indices =
@@ -526,9 +522,9 @@ func processEpoch(state: var BeaconState) =
   func attesting_validator_indices(
       shard_committee: ShardCommittee, shard_block_root: Eth2Digest): seq[Uint24] =
     let shard_block_attestations =
-      filterIt(concat(this_epoch_attestations, previous_epoch_attestations),
-        it.data.shard == shard_committee.shard and
-          it.data.shard_block_root == shard_block_root)
+      concat(current_epoch_attestations, previous_epoch_attestations).
+      filterIt(it.data.shard == shard_committee.shard and
+        it.data.shard_block_root == shard_block_root)
     get_attester_indices(statePtr[], shard_block_attestations)
 
   func winning_root(shard_committee: ShardCommittee): Eth2Digest =
@@ -537,10 +533,9 @@ func processEpoch(state: var BeaconState) =
     #   `sum([get_effective_balance(state, i) for i in attesting_validator_indices(shard_committee, shard_block_root)])`
     #   is maximized (ties broken by favoring lower `shard_block_root` values).
     let candidates =
-      mapIt(
-        filterIt(concat(this_epoch_attestations, previous_epoch_attestations),
-          it.data.shard == shard_committee.shard),
-        it.data.shard_block_root)
+      concat(current_epoch_attestations, previous_epoch_attestations).
+        filterIt(it.data.shard == shard_committee.shard).
+        mapIt(it.data.shard_block_root)
 
     # TODO not covered by spec!
     if candidates.len == 0:
@@ -590,7 +585,7 @@ func processEpoch(state: var BeaconState) =
         state.justification_bitfield = state.justification_bitfield or 2
         state.justified_slot = state.slot - 2 * EPOCH_LENGTH
 
-      if 3'u64 * this_epoch_boundary_attesting_balance >=
+      if 3'u64 * current_epoch_boundary_attesting_balance >=
           2'u64 * total_balance:
         state.justification_bitfield = state.justification_bitfield or 1
         state.justified_slot = state.slot - 1 * EPOCH_LENGTH
@@ -628,6 +623,7 @@ func processEpoch(state: var BeaconState) =
 
       for v in active_validator_indices:
         if v notin attesters:
+          # TODO underflows?
           statePtr.validator_balances[v] -= base_reward(statePtr[], v)
 
     if epochs_since_finality <= 4'u64 * EPOCH_LENGTH:
@@ -654,6 +650,7 @@ func processEpoch(state: var BeaconState) =
 
     else:
       for index in active_validator_indices:
+        # TODO underflows?
         if index notin previous_epoch_justified_attester_indices:
           state.validator_balances[index] -=
             inactivity_penalty(state, index, epochs_since_finality)
@@ -684,12 +681,13 @@ func processEpoch(state: var BeaconState) =
               total_attesting_balance(shard_committee) div
               total_balance_sac(shard_committee)
           else:
+            # TODO underflows?
             state.validator_balances[index] -= base_reward(state, index)
 
   block: # Validator registry
     if state.finalized_slot > state.validator_registry_latest_change_slot and
-        allIt(state.shard_committees_at_slots,
-          allIt(it,
+        state.shard_committees_at_slots.allIt(
+          it.allIt(
             state.latest_crosslinks[it.shard].slot >
               state.validator_registry_latest_change_slot)):
       update_validator_registry(state)

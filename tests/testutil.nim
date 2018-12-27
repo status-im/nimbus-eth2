@@ -37,7 +37,7 @@ func hackReveal(v: ValidatorRecord): Eth2Digest =
     result = tmp
   raise newException(Exception, "can't find randao hack value")
 
-func makeDeposit(i: int): Deposit =
+func makeDeposit(i: int, flags: UpdateFlags): Deposit =
   ## Ugly hack for now: we stick the private key in withdrawal_credentials
   ## which means we can repro private key and randao reveal from this data,
   ## for testing :)
@@ -46,13 +46,18 @@ func makeDeposit(i: int): Deposit =
     pubkey = privkey.fromSigKey()
     withdrawal_credentials = makeFakeHash(i)
     randao_commitment = repeat_hash(withdrawal_credentials, randaoRounds)
-    proof_of_possession_data = DepositInput(
-      pubkey: pubkey,
-      withdrawal_credentials: withdrawal_credentials,
-      randao_commitment: randao_commitment
-    )
-    pop = signMessage(
-      privkey, hash_tree_root_final(proof_of_possession_data).data)
+
+  let pop =
+    if skipValidation in flags:
+      ValidatorSig()
+    else:
+      let proof_of_possession_data = DepositInput(
+        pubkey: pubkey,
+        withdrawal_credentials: withdrawal_credentials,
+        randao_commitment: randao_commitment
+      )
+      signMessage(
+        privkey, hash_tree_root_final(proof_of_possession_data).data)
 
   Deposit(
     deposit_data: DepositData(
@@ -66,9 +71,10 @@ func makeDeposit(i: int): Deposit =
     )
   )
 
-func makeInitialDeposits*(n = EPOCH_LENGTH): seq[Deposit] =
+func makeInitialDeposits*(
+    n = EPOCH_LENGTH, flags: UpdateFlags = {}): seq[Deposit] =
   for i in 0..<n.int:
-    result.add makeDeposit(i + 1)
+    result.add makeDeposit(i + 1, flags)
 
 func makeGenesisBlock*(state: BeaconState): BeaconBlock =
   BeaconBlock(
@@ -86,7 +92,7 @@ func getNextBeaconProposerIndex*(state: BeaconState): Uint24 =
 
 proc addBlock*(
     state: var BeaconState, previous_block_root: Eth2Digest,
-    body: BeaconBlockBody): BeaconBlock =
+    body: BeaconBlockBody, flags: UpdateFlags = {}): BeaconBlock =
   # Create and add a block to state - state will advance by one slot!
   # This is the equivalent of running
   # updateState(state, prev_block, makeBlock(...), {skipValidation})
@@ -137,16 +143,17 @@ proc addBlock*(
   assert proposerPrivkey.fromSigKey() == proposer.pubkey,
     "signature key should be derived from private key! - wrong privkey?"
 
-  # We have a signature - put it in the block and we should be done!
-  new_block.signature =
-    # TODO domain missing!
-    signMessage(proposerPrivkey, proposal_hash)
+  if skipValidation notin flags:
+    # We have a signature - put it in the block and we should be done!
+    new_block.signature =
+      # TODO domain missing!
+      signMessage(proposerPrivkey, proposal_hash)
 
-  assert bls_verify(
-    proposer.pubkey,
-    proposal_hash, new_block.signature,
-    get_domain(state.fork_data, state.slot, DOMAIN_PROPOSAL)),
-    "we just signed this message - it should pass verification!"
+    assert bls_verify(
+      proposer.pubkey,
+      proposal_hash, new_block.signature,
+      get_domain(state.fork_data, state.slot, DOMAIN_PROPOSAL)),
+      "we just signed this message - it should pass verification!"
 
   new_block
 
@@ -168,11 +175,7 @@ proc find_shard_committee(
 
 proc makeAttestation*(
     state: BeaconState, beacon_block_root: Eth2Digest,
-    validator_index: Uint24): Attestation =
-  var new_state = state
-
-  let block_ok = updateState(
-    new_state, beacon_block_root, none(BeaconBlock), {skipValidation})
+    validator_index: Uint24, flags: UpdateFlags = {}): Attestation =
   let
     sac = find_shard_committee(
       get_shard_committees_at_slot(state, state.slot), validator_index)
@@ -187,8 +190,7 @@ proc makeAttestation*(
       shard_block_root: Eth2Digest(), # TODO
       latest_crosslink_root: Eth2Digest(), # TODO
       justified_slot: state.justified_slot,
-      justified_block_root:
-        get_block_root(new_state, state.justified_slot),
+      justified_block_root: get_block_root(state, state.justified_slot),
     )
 
   assert sac_index != -1, "find_shard_committe should guarantee this"
@@ -199,10 +201,14 @@ proc makeAttestation*(
 
   let
     msg = hash_tree_root_final(data)
+    sig =
+      if skipValidation notin flags:
+        signMessage(hackPrivKey(validator), @(msg.data) & @[0'u8])
+      else:
+        ValidatorSig()
 
   Attestation(
     data: data,
     participation_bitfield: participation_bitfield,
-    aggregate_signature: signMessage(
-      hackPrivKey(validator), @(msg.data) & @[0'u8])
+    aggregate_signature: sig
   )
