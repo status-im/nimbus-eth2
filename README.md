@@ -36,12 +36,39 @@ You can install the developement version of the library through nimble with the 
 nimble install https://github.com/status-im/nim-beacon-chain@#master
 ```
 
+## Building and Testing
+
+To try out the implementation, please first make sure you have a [Nim environment configured](https://bitfalls.com/2018/10/09/introduction-into-the-nim-language/).
+
+_Alternatively, fire up our [experimental Vagrant instance with Nim pre-installed](https://our.status.im/setting-up-a-local-vagrant-environment-for-nim-development/) and give us yout feedback about the process!_
+
+Then:
+
+```bash
+git clone git@github.com:status-im/nim-beacon-chain
+cd nim-beacon-chain
+nimble install
+nimble test
+```
+
+This should produce some passing tests.
+
+Additionally, you can run our simulation which generates a genesis file from some randomly generated validators. It then fires up 10 beacon nodes (each hosting 9 validators) which talk to each other and try to do state transitions. The simulation can be run by executing:
+
+```bash
+bash tests/simulation/start.sh
+```
+
+You can find out more about it in the [development update](https://our.status.im/nimbus-development-update-2018-12-2/).
+
 ## License
 
 Licensed and distributed under either of
 
 * MIT license: [LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT
+
+or
+
 * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
 
 at your option. This file may not be copied, modified, or distributed except according to those terms.
-
