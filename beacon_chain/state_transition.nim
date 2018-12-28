@@ -337,7 +337,7 @@ proc processBlock(
   # TODO probably better to do all verification first, then apply state changes
 
   if not (blck.slot == state.slot):
-    warn("Unexpected block slot number")
+    warn "Unexpected block slot number"
     return false
 
   # Spec does not have this check explicitly, but requires that this condition
