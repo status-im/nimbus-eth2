@@ -1,9 +1,9 @@
 import
-  std_shims/os_shims, net, sequtils, options,
+  std_shims/[os_shims, objects], net, sequtils, options,
   asyncdispatch2, chronicles, confutils, eth_p2p, eth_keys,
-  spec/[beaconstate, datatypes, helpers, crypto, digest], conf, time,
-  fork_choice, ssz, beacon_chain_db, validator_pool, mainchain_monitor,
-  sync_protocol, gossipsub_protocol, trusted_state_snapshots
+  spec/[datatypes, digest, crypto, beaconstate, helpers], conf, time,
+  state_transition, fork_choice, ssz, beacon_chain_db, validator_pool, extras,
+  mainchain_monitor, sync_protocol, gossipsub_protocol, trusted_state_snapshots
 
 type
   BeaconNode* = ref object
@@ -13,9 +13,10 @@ type
     config*: BeaconNodeConf
     keys*: KeyPair
     attachedValidators: ValidatorPool
-    attestations: AttestationPool
+    attestationPool: AttestationPool
     headBlock: BeaconBlock
     mainchainMonitor: MainchainMonitor
+    lastScheduledCycle: int
 
 const
   version = "v0.1" # TODO: read this from the nimble file
@@ -35,15 +36,19 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): T =
   new result
   result.config = conf
 
+  result.attachedValidators = ValidatorPool.init
+  init result.attestationPool, 0
+  init result.mainchainMonitor, "", Port(0) # TODO: specify geth address and port
+
   result.db = BeaconChainDB.init(string conf.dataDir)
   result.keys = ensureNetworkKeys(string conf.dataDir)
 
   var address: Address
-  address.ip = parseIpAddress("0.0.0.0")
+  address.ip = parseIpAddress("127.0.0.1")
   address.tcpPort = Port(conf.tcpPort)
   address.udpPort = Port(conf.udpPort)
 
-  result.network = newEthereumNode(result.keys, address, 0, nil, clientId)
+  result.network = newEthereumNode(result.keys, address, 0, nil, clientId, minPeers = 1)
 
   writeFile(string(conf.dataDir) / "beacon_node.address",
             $result.network.listeningAddress)
@@ -60,8 +65,10 @@ proc connectToNetwork(node: BeaconNode) {.async.} =
       bootstrapNodes.add initENode(string ln)
 
   if bootstrapNodes.len > 0:
+    info "Connecting to bootstrap nodes", bootstrapNodes
     await node.network.connectToNetwork(bootstrapNodes)
   else:
+    info "Waiting for connections"
     node.network.startListening()
 
 proc sync*(node: BeaconNode): Future[bool] {.async.} =
@@ -99,6 +106,10 @@ template findIt(s: openarray, predicate: untyped): int =
       break
   res
 
+template isSameKey(lhs, rhs: ValidatorPubKey): bool =
+  # TODO: operator `==` for ValidatorPubKey doesn't work properly at the moment
+  $lhs == $rhs
+
 proc addLocalValidators*(node: BeaconNode) =
   for validator in node.config.validators:
     let
@@ -106,102 +117,182 @@ proc addLocalValidators*(node: BeaconNode) =
       pubKey = privKey.pubKey()
       randao = validator.randao
 
-    let idx = node.beaconState.validator_registry.findIt(it.pubKey == pubKey)
+    let idx = node.beaconState.validator_registry.findIt(isSameKey(it.pubKey, pubKey))
     if idx == -1:
       warn "Validator not in registry", pubKey
     else:
       node.attachedValidators.addLocalValidator(idx, pubKey, privKey, randao)
 
-    info "Local validators attached ", count = node.attachedValidators.count
+  info "Local validators attached ", count = node.attachedValidators.count
 
 proc getAttachedValidator(node: BeaconNode, idx: int): AttachedValidator =
   let validatorKey = node.beaconState.validator_registry[idx].pubkey
   return node.attachedValidators.getValidator(validatorKey)
 
 proc makeAttestation(node: BeaconNode,
-                     validator: AttachedValidator) {.async.} =
-  var attestation: AttestationCandidate
-  attestation.validator = validator.idx
+                     validator: AttachedValidator,
+                     slot: uint64,
+                     shard: uint64,
+                     committeeLen: int,
+                     indexInCommittee: int) {.async.} =
+  doAssert node != nil
+  doAssert validator != nil
 
-  # TODO: Populate attestation.data
+  let
+    headBlockRoot = hash_tree_root_final(node.headBlock)
 
-  attestation.signature = await validator.signAttestation(attestation.data)
+    justifiedBlockRoot = if node.beaconState.justified_slot == node.beaconState.slot: headBlockRoot
+                         else: get_block_root(node.beaconState, node.beaconState.justified_slot)
+
+  var attestationData = AttestationData(
+    slot: slot,
+    shard: shard,
+    beacon_block_root: headBlockRoot,
+    epoch_boundary_root: Eth2Digest(), # TODO
+    shard_block_root: Eth2Digest(), # TODO
+    latest_crosslink_root: Eth2Digest(), # TODO
+    justified_slot: node.beaconState.justified_slot,
+    justified_block_root: justifiedBlockRoot)
+
+  let validatorSignature = await validator.signAttestation(attestationData)
+
+  var participationBitfield = repeat(0'u8, ceil_div8(committeeLen))
+  bitSet(participationBitfield, indexInCommittee)
+
+  var attestation = Attestation(
+    data: attestationData,
+    aggregate_signature: validatorSignature,
+    participation_bitfield: participationBitfield)
+
   await node.network.broadcast(topicAttestations, attestation)
+
+  info "Attestation sent", slot = slot,
+                           shard = shard,
+                           validator = validator.idx
 
 proc proposeBlock(node: BeaconNode,
                   validator: AttachedValidator,
-                  slot: int) {.async.} =
-  var proposal: BeaconBlock
+                  slot: uint64) {.async.} =
+  doAssert node != nil
+  doAssert validator != nil
+  doAssert validator.idx < node.beaconState.validator_registry.len
 
+  let
+    randaoCommitment = node.beaconState.validator_registry[validator.idx].randao_commitment
+    randaoReveal =  await validator.randaoReveal(randaoCommitment)
+    headBlockRoot = hash_tree_root_final(node.headBlock)
+
+  var blockBody = BeaconBlockBody(
+    attestations: node.attestationPool.getAttestationsForBlock(node.beaconState, slot))
+
+  var newBlock = BeaconBlock(
+    slot: slot,
+    parent_root: headBlockRoot,
+    randao_reveal: randaoReveal,
+    candidate_pow_receipt_root: node.mainchainMonitor.getBeaconBlockRef(),
+    signature: ValidatorSig(), # we need the rest of the block first!
+    body: blockBody)
+
+  var state = node.beaconState
   # TODO:
-  # 1. Produce a RANDAO reveal from attachedVadalidator.randaoSecret
-  # and its matching ValidatorRecord.
-  let randaoCommitment = node.beaconState.validator_registry[validator.idx].randao_commitment
-  proposal.randao_reveal = await validator.randaoReveal(randaoCommitment)
+  # Er, this is needed to avoid a failure in `processBlock`, but why is it necessary?
+  # Shouldn't `updateState` skip blocks automatically?
+  state.slot = slot - 1
 
-  # 2. Get ancestors from the beacon_db
+  let ok = updateState(state, headBlockRoot, some(newBlock), {skipValidation})
+  doAssert ok # TODO: err, could this fail somehow?
 
-  # 3. Calculate the correct state hash
+  newBlock.state_root = Eth2Digest(data: hash_tree_root(state))
 
-  proposal.candidate_pow_receipt_root =
-    node.mainchainMonitor.getBeaconBlockRef()
+  var signedData = ProposalSignedData(
+    slot: slot,
+    shard: BEACON_CHAIN_SHARD_NUMBER,
+    blockRoot: hash_tree_root_final(newBlock))
 
-  for a in node.attestations.each(firstSlot = node.headBlock.slot.int + 1,
-                                  lastSlot = slot - MIN_ATTESTATION_INCLUSION_DELAY.int):
-    # TODO: this is not quite right,
-    # the attestations from individual validators have to be merged.
-    # proposal.attestations.add a
-    discard
+  newBlock.signature = await validator.signBlockProposal(signedData)
 
-  # TODO update after spec change removed specials
-  # for r in node.mainchainMonitor.getValidatorActions(
-  #     node.headBlock.candidate_pow_receipt_root,
-  #     proposal.candidate_pow_receipt_root):
-  #   proposal.specials.add r
+  await node.network.broadcast(topicBeaconBlocks, newBlock)
 
-  var signedData: ProposalSignedData
-  signedData.slot = node.beaconState.slot
-  signedData.shard = BEACON_CHAIN_SHARD_NUMBER
-  signedData.blockRoot = hash_tree_root_final(proposal)
+  info "Block proposed", slot = slot,
+                         stateRoot = newBlock.state_root,
+                         blockRoot = signedData.blockRoot,
+                         validator = validator.idx
 
-  proposal.signature = await validator.signBlockProposal(signedData)
-  await node.network.broadcast(topicBeaconBlocks, proposal)
+proc scheduleBlockProposal(node: BeaconNode,
+                           slot: int,
+                           validator: AttachedValidator) =
+  # TODO:
+  # This function exists only to hide a bug with Nim's closures.
+  # If you inline it in `scheduleCycleActions`, you'll see the
+  # internal `doAssert` starting to fail.
+  doAssert validator != nil
 
-proc scheduleCycleActions(node: BeaconNode) =
+  addTimer(node.beaconState.slotStart(slot)) do (p: pointer):
+    doAssert validator != nil
+    asyncCheck proposeBlock(node, validator, slot.uint64)
+
+proc scheduleAttestation(node: BeaconNode,
+                         validator: AttachedValidator,
+                         slot: int,
+                         shard: uint64,
+                         committeeLen: int,
+                         indexInCommittee: int) =
+  # TODO:
+  # This function exists only to hide a bug with Nim's closures.
+  # If you inline it in `scheduleCycleActions`, you'll see the
+  # internal `doAssert` starting to fail.
+  doAssert validator != nil
+
+  addTimer(node.beaconState.slotMiddle(slot)) do (p: pointer):
+    doAssert validator != nil
+    asyncCheck makeAttestation(node, validator, slot.uint64,
+                               shard, committeeLen, indexInCommittee)
+
+proc scheduleCycleActions(node: BeaconNode, cycleStart: int) =
   ## This schedules the required block proposals and
   ## attestations from our attached validators.
-  let cycleStart = node.beaconState.slot.int
+  doAssert node != nil
 
-  for i in 0 ..< EPOCH_LENGTH:
+  # TODO: this copy of the state shouldn't be necessary, but please
+  # see the comments in `get_beacon_proposer_index`
+  var nextState = node.beaconState
+
+  for i in 1 ..< EPOCH_LENGTH:
     # Schedule block proposals
+    nextState.slot = node.beaconState.slot + i.uint64
+
     let
       slot = cycleStart + i
-      proposerIdx = get_beacon_proposer_index(node.beaconState, slot.uint64)
-      attachedValidator = node.getAttachedValidator(proposerIdx)
+      proposerIdx = get_beacon_proposer_index(nextState, nextState.slot.uint64)
+      validator = node.getAttachedValidator(proposerIdx)
 
-    if attachedValidator != nil:
+    if validator != nil:
       # TODO:
       # Warm-up the proposer earlier to try to obtain previous
       # missing blocks if necessary
-
-      addTimer(node.beaconState.slotStart(slot)) do (p: pointer):
-        asyncCheck proposeBlock(node, attachedValidator, slot)
+      scheduleBlockProposal(node, slot, validator)
 
     # Schedule attestations
     let
-      committeesIdx = get_shard_committees_index(node.beaconState, slot.uint64)
+      committeesIdx = get_shard_committees_index(nextState, nextState.slot.uint64)
 
     for shard in node.beaconState.shard_committees_at_slots[committees_idx]:
-      for validatorIdx in shard.committee:
-        let attachedValidator = node.getAttachedValidator(validatorIdx)
-        if attachedValidator != nil:
-          addTimer(node.beaconState.slotMiddle(slot)) do (p: pointer):
-            asyncCheck makeAttestation(node, attachedValidator)
+      for i, validatorIdx in shard.committee:
+        let validator = node.getAttachedValidator(validatorIdx)
+        if validator != nil:
+          scheduleAttestation(node, validator, slot, shard.shard, shard.committee.len, i)
 
-proc processBlocks*(node: BeaconNode) {.async.} =
-  node.scheduleCycleActions()
+  node.lastScheduledCycle = cycleStart
+  let nextCycle = cycleStart + EPOCH_LENGTH
 
+  addTimer(node.beaconState.slotMiddle(nextCycle)) do (p: pointer):
+    if node.lastScheduledCycle != nextCycle:
+      node.scheduleCycleActions(nextCycle)
+
+proc processBlocks*(node: BeaconNode) =
   node.network.subscribe(topicBeaconBlocks) do (b: BeaconBlock):
+    info "Block received", slot = b.slot, stateRoot = b.state_root
+
     # TODO:
     #
     # 1. Check for missing blocks and obtain them
@@ -211,13 +302,21 @@ proc processBlocks*(node: BeaconNode) {.async.} =
     # 3. Peform block processing / state recalculation / etc
     #
 
-    if b.slot mod EPOCH_LENGTH == 0:
-      node.scheduleCycleActions()
-      node.attestations.discardHistoryToSlot(b.slot.int)
+    let slot = b.slot.int
+    if slot mod EPOCH_LENGTH == 0:
+      node.scheduleCycleActions(slot)
+      node.attestationPool.discardHistoryToSlot(slot)
 
   node.network.subscribe(topicAttestations) do (a: Attestation):
-    # Attestations are verified as aggregated groups
-    node.attestations.add(getAttestationCandidate a, node.beaconState)
+    info "Attestation received", slot = a.data.slot,
+                                 shard = a.data.shard
+
+    node.attestationPool.add(a, node.beaconState)
+
+  let cycleStart = node.beaconState.slot.int
+  node.scheduleCycleActions(cycleStart)
+
+  runForever()
 
 var gPidFile: string
 proc createPidFile(filename: string) =
@@ -227,22 +326,15 @@ proc createPidFile(filename: string) =
   addQuitProc proc {.noconv.} = removeFile gPidFile
 
 when isMainModule:
-  let config = BeaconNodeConf.load()
+  let config = load BeaconNodeConf
   case config.cmd
   of createChain:
-    let outfile = string config.outputStateFile
-    let initialState = get_initial_beacon_state(
-      config.chainStartupData.validatorDeposits,
-      config.chainStartupData.genesisTime,
-      Eth2Digest(), {})
-
-    Json.saveFile(outfile, initialState, pretty = true)
-    echo "Wrote ", outfile
+    createStateSnapshot(config.chainStartupData, config.outputStateFile.string)
     quit 0
 
   of noCommand:
     waitFor syncrhronizeClock()
-    createPidFile(string(config.dataDir) / "beacon_node.pid")
+    createPidFile(config.dataDir.string / "beacon_node.pid")
 
     var node = BeaconNode.init config
     waitFor node.connectToNetwork()
@@ -251,6 +343,5 @@ when isMainModule:
       quit 1
 
     node.addLocalValidators()
-
-    waitFor node.processBlocks()
+    node.processBlocks()
 

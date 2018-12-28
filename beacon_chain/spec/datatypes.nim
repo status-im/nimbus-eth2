@@ -438,4 +438,6 @@ when true:
   proc read*(rlp: var Rlp, T: type ValidatorSig): T {.inline.} =
     discard
 
+export
+  writeValue, readValue
 

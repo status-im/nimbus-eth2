@@ -1,6 +1,6 @@
 import
   asyncdispatch2,
-  spec/datatypes, beacon_chain_db
+  spec/[datatypes, crypto, digest, beaconstate], beacon_chain_db, conf
 
 const
   WEAK_SUBJECTVITY_PERIOD* = 4 * 30 * 24 * 60 * 60 div SLOT_DURATION
@@ -28,4 +28,13 @@ proc obtainTrustedStateSnapshot*(db: BeaconChainDB): Future[BeaconState] {.async
   # 5. Check that the state snapshot hash is correct and save it in the DB.
 
   discard
+
+proc createStateSnapshot*(startup: ChainStartupData, outFile: string) =
+  let initialState = get_initial_beacon_state(startup.validatorDeposits,
+                                              startup.genesisTime,
+                                              Eth2Digest(), {})
+
+  var vr: ValidatorRecord
+  Json.saveFile(outFile, initialState, pretty = true)
+  echo "Wrote ", outFile
 

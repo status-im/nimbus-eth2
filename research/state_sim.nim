@@ -5,7 +5,7 @@ import
   milagro_crypto,
   ../tests/[testutil],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers],
-  ../beacon_chain/[extras, ssz, state_transition]
+  ../beacon_chain/[extras, ssz, state_transition, fork_choice]
 
 proc `%`(v: uint64): JsonNode = newJInt(v.BiggestInt)
 proc `%`(v: Eth2Digest): JsonNode = newJString($v)
@@ -16,21 +16,6 @@ proc writeJson*(prefix, slot, v: auto) =
   defer: close(f)
   discard open(f, fmt"{prefix:04}-{slot:08}.json", fmWrite)
   write(f, pretty(%*(v)))
-
-proc combine(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
-  # Combine the signature and participation bitfield, with the assumption that
-  # the same data is being signed!
-  # TODO similar code in work_pool, clean up
-
-  assert tgt.data == src.data
-
-  for i in 0..<len(tgt.participation_bitfield):
-    tgt.participation_bitfield[i] =
-      tgt.participation_bitfield[i] or
-      src.participation_bitfield[i]
-
-  if skipValidation notin flags:
-    tgt.aggregate_signature.combine(src.aggregate_signature)
 
 proc transition(
     slots = 1945,

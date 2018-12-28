@@ -26,13 +26,26 @@ if [ ! -f $SNAPSHOT_FILE ]; then
     --out:$SNAPSHOT_FILE
 fi
 
+MASTER_NODE_ADDRESS_FILE="$SIMULATION_DIR/data-0/beacon_node.address"
+
+# Delete any leftover address files from a previous session
+if [ -f $MASTER_NODE_ADDRESS_FILE ]; then
+  rm $MASTER_NODE_ADDRESS_FILE
+fi
+
 for i in $(seq 0 9); do
-  DATA_DIR=$SIMULATION_DIR/data-$i
-  BOOTSTRAP_NODES_FLAG=--bootstrapNodesFile:"$DATA_DIR/beacon_node.address"
+  BOOTSTRAP_NODES_FLAG="--bootstrapNodesFile:$MASTER_NODE_ADDRESS_FILE"
 
   if [[ "$i" == "0" ]]; then
     BOOTSTRAP_NODES_FLAG=""
+  else
+    # Wait for the master node to write out its address file
+    while [ ! -f $MASTER_NODE_ADDRESS_FILE ]; do
+      sleep 0.1
+    done
   fi
+
+  DATA_DIR=$SIMULATION_DIR/data-$i
 
   beacon_chain/beacon_node \
     --dataDir:"$DATA_DIR" \

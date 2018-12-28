@@ -63,8 +63,8 @@ proc signAttestation*(v: AttachedValidator,
     await sleepAsync(1)
 
     let attestationRoot = hash_tree_root_final(attestation)
-    # TODO: Should we use attestationRoot as data, or digest in regards to signature?
-    return signMessage(v.privKey, attestationRoot.data)
+    # TODO: Avoid the allocations belows
+    return signMessage(v.privKey, @(attestationRoot.data) & @[0'u8])
   else:
     # TODO:
     # send RPC

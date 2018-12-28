@@ -1,12 +1,12 @@
 import
   os, ospaths, strutils, strformat,
-  milagro_crypto, nimcrypto, json_serialization,
+  asyncdispatch2, milagro_crypto, nimcrypto, json_serialization,
   spec/[datatypes, digest, crypto], conf, randao, time, ssz,
   ../tests/testutil
 
 proc writeFile(filename: string, value: auto) =
   Json.saveFile(filename, value, pretty = true)
-  echo &"Wrote {filename}"
+  echo "Wrote ", filename
 
 proc genSingleValidator(path: string): (ValidatorPubKey,
                                         ValidatorPrivKey,
@@ -48,12 +48,18 @@ proc main() =
 
   for i in 1 .. totalValidators:
     let (pubKey, privKey, randaoCommitment) =
-
       genSingleValidator(outPath / &"validator-{i:02}.json")
 
-    let withdrawalCredentials = makeFakeHash(i)
-    let proofOfPossession = signMessage(privkey, hash_tree_root_final(
-      (pubKey, withdrawalCredentials, randaoCommitment)).data)
+    let
+      withdrawalCredentials = makeFakeHash(i)
+
+      proofOfPossessionData = DepositInput(
+        pubkey: pubKey,
+        withdrawal_credentials: withdrawalCredentials,
+        randao_commitment: randaoCommitment)
+
+      proofOfPossession = signMessage(
+        privkey, hash_tree_root_final(proofOfPossessionData).data)
 
     startupData.validatorDeposits.add Deposit(
       deposit_data: DepositData(
@@ -65,7 +71,7 @@ proc main() =
           withdrawal_credentials: withdrawalCredentials,
           randao_commitment: randaoCommitment)))
 
-  startupData.genesisTime = now()
+  startupData.genesisTime = now() div 1000
 
   writeFile(outPath / "startup.json", startupData)
 

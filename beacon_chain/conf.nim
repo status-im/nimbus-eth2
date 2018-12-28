@@ -90,7 +90,7 @@ template mustBeFilePath(input: TaintedString) =
 template handledAsJsonFilename(T: untyped) {.dirty.} =
   proc parseCmdArg*(_: type T, input: TaintedString): T =
     input.mustBeFilePath
-    #return Json.loadFile(string(input), T)
+    return Json.loadFile(string(input), T)
 
 handledAsJsonFilename BeaconState
 handledAsJsonFilename ChainStartupData

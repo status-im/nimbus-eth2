@@ -126,6 +126,8 @@ func get_beacon_proposer_index*(state: BeaconState, slot: uint64): Uint24 =
   #      because presently, `state.slot += 1` happens before this function
   #      is called - see also testutil.getNextBeaconProposerIndex
   let idx = get_shard_committees_index(state, slot)
+  doAssert idx.int < state.shard_committees_at_slots.len
+  doAssert state.shard_committees_at_slots[idx].len > 0
   state.shard_committees_at_slots[idx][0].committee.mod_get(slot)
 
 func integer_squareroot*(n: SomeInteger): SomeInteger =
