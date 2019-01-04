@@ -217,7 +217,7 @@ proc processBlocks*(node: BeaconNode) {.async.} =
 
   node.network.subscribe(topicAttestations) do (a: Attestation):
     # Attestations are verified as aggregated groups
-    node.attestations.add(getAttestationCandidate a, node.beaconState)
+    node.attestations.add(getAttestationCandidate(a, node.beaconState), node.beaconState)
 
 var gPidFile: string
 proc createPidFile(filename: string) =
