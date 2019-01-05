@@ -34,10 +34,10 @@ p2pProtocol GossipSub(version = 1,
     info "GossipSub Peer connecetd", peer
     let gossipNet = peer.networkState
     for topic, _ in gossipNet.topicSubscribers:
-      peer.subscribeFor(topic)
+      asyncCheck peer.subscribeFor(topic)
 
   onPeerDisconnected do (peer: Peer, reason: DisconnectionReason):
-    info "GossipSub Peer disconnected"
+    info "GossipSub Peer disconnected", peer, reason
     writeStackTrace()
 
   proc subscribeFor(peer: Peer, topic: string) =
@@ -45,7 +45,7 @@ p2pProtocol GossipSub(version = 1,
 
   proc emit(peer: Peer, topic: string, msgId: string, msg: string) =
     if msgId in peer.networkState.handledMessages:
-      debug "Ignored previously handled message", msgId
+      trace "Ignored previously handled message", msgId
       return
 
     peer.networkState.handledMessages.incl msgId
@@ -74,7 +74,7 @@ proc broadcastImpl(node: EthereumNode, topic: string, msg: string): seq[Future[v
     warn "Failed to generate random message id"
 
   let msgId = base64.encode(randBytes)
-  debug "Sending GossipSub message", msgId
+  trace "Sending GossipSub message", msgId
 
   for peer in node.peers(GossipSub):
     if topic in peer.state(GossipSub).subscribedFor:

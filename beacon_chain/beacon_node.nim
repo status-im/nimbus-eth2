@@ -14,9 +14,10 @@ type
     keys*: KeyPair
     attachedValidators: ValidatorPool
     attestationPool: AttestationPool
-    headBlock: BeaconBlock
     mainchainMonitor: MainchainMonitor
     lastScheduledCycle: int
+    headBlock: BeaconBlock
+    headBlockRoot: Eth2Digest
 
 const
   version = "v0.1" # TODO: read this from the nimble file
@@ -24,6 +25,8 @@ const
 
   topicBeaconBlocks = "ethereum/2.1/beacon_chain/blocks"
   topicAttestations = "ethereum/2.1/beacon_chain/attestations"
+
+func shortHash(x: auto): string = ($x)[0..7]
 
 proc ensureNetworkKeys*(dataDir: string): KeyPair =
   # TODO:
@@ -138,16 +141,12 @@ proc makeAttestation(node: BeaconNode,
   doAssert node != nil
   doAssert validator != nil
 
-  let
-    headBlockRoot = hash_tree_root_final(node.headBlock)
-
-    justifiedBlockRoot = if node.beaconState.justified_slot == node.beaconState.slot: headBlockRoot
-                         else: get_block_root(node.beaconState, node.beaconState.justified_slot)
+  let justifiedBlockRoot = get_block_root(node.beaconState, node.beaconState.justified_slot)
 
   var attestationData = AttestationData(
     slot: slot,
     shard: shard,
-    beacon_block_root: headBlockRoot,
+    beacon_block_root: node.headBlockRoot,
     epoch_boundary_root: Eth2Digest(), # TODO
     shard_block_root: Eth2Digest(), # TODO
     latest_crosslink_root: Eth2Digest(), # TODO
@@ -168,7 +167,8 @@ proc makeAttestation(node: BeaconNode,
 
   info "Attestation sent", slot = slot,
                            shard = shard,
-                           validator = validator.idx
+                           validator = validator.idx,
+                           signature = shortHash(validatorSignature)
 
 proc proposeBlock(node: BeaconNode,
                   validator: AttachedValidator,
@@ -177,29 +177,29 @@ proc proposeBlock(node: BeaconNode,
   doAssert validator != nil
   doAssert validator.idx < node.beaconState.validator_registry.len
 
+  var state = node.beaconState
+
+  for s in node.beaconState.slot + 1 ..< slot:
+    info "Skipping block", slot = s
+    let ok = updateState(state, node.headBlockRoot, none[BeaconBlock](), {})
+    doAssert ok
+
   let
     randaoCommitment = node.beaconState.validator_registry[validator.idx].randao_commitment
     randaoReveal =  await validator.randaoReveal(randaoCommitment)
-    headBlockRoot = hash_tree_root_final(node.headBlock)
 
   var blockBody = BeaconBlockBody(
     attestations: node.attestationPool.getAttestationsForBlock(node.beaconState, slot))
 
   var newBlock = BeaconBlock(
     slot: slot,
-    parent_root: headBlockRoot,
+    parent_root: node.headBlockRoot,
     randao_reveal: randaoReveal,
     candidate_pow_receipt_root: node.mainchainMonitor.getBeaconBlockRef(),
     signature: ValidatorSig(), # we need the rest of the block first!
     body: blockBody)
 
-  var state = node.beaconState
-  # TODO:
-  # Er, this is needed to avoid a failure in `processBlock`, but why is it necessary?
-  # Shouldn't `updateState` skip blocks automatically?
-  state.slot = slot - 1
-
-  let ok = updateState(state, headBlockRoot, some(newBlock), {skipValidation})
+  let ok = updateState(state, node.headBlockRoot, some(newBlock), {skipValidation})
   doAssert ok # TODO: err, could this fail somehow?
 
   newBlock.state_root = Eth2Digest(data: hash_tree_root(state))
@@ -214,8 +214,7 @@ proc proposeBlock(node: BeaconNode,
   await node.network.broadcast(topicBeaconBlocks, newBlock)
 
   info "Block proposed", slot = slot,
-                         stateRoot = newBlock.state_root,
-                         blockRoot = signedData.blockRoot,
+                         stateRoot = shortHash(newBlock.state_root),
                          validator = validator.idx
 
 proc scheduleBlockProposal(node: BeaconNode,
@@ -290,8 +289,21 @@ proc scheduleCycleActions(node: BeaconNode, cycleStart: int) =
       node.scheduleCycleActions(nextCycle)
 
 proc processBlocks*(node: BeaconNode) =
-  node.network.subscribe(topicBeaconBlocks) do (b: BeaconBlock):
-    info "Block received", slot = b.slot, stateRoot = b.state_root
+  node.network.subscribe(topicBeaconBlocks) do (newBlock: BeaconBlock):
+    info "Block received", slot = newBlock.slot,
+                           stateRoot = shortHash(newBlock.state_root)
+
+    let newBlockRoot = hash_tree_root_final(newBlock)
+
+    for slot in node.beaconState.slot + 1 ..< newBlock.slot:
+      info "Skipping block", slot
+      let ok = updateState(node.beaconState, node.headBlockRoot, none[BeaconBlock](), {})
+
+    let ok = updateState(node.beaconState, node.headBlockRoot, some(newBlock), {})
+    doAssert ok
+
+    node.headBlock = newBlock
+    node.headBlockRoot = newBlockRoot
 
     # TODO:
     #
@@ -302,21 +314,23 @@ proc processBlocks*(node: BeaconNode) =
     # 3. Peform block processing / state recalculation / etc
     #
 
-    let slot = b.slot.int
+    let slot = newBlock.slot.int
     if slot mod EPOCH_LENGTH == 0:
       node.scheduleCycleActions(slot)
       node.attestationPool.discardHistoryToSlot(slot)
 
   node.network.subscribe(topicAttestations) do (a: Attestation):
     info "Attestation received", slot = a.data.slot,
-                                 shard = a.data.shard
+                                 shard = a.data.shard,
+                                 signature = shortHash(a.aggregate_signature)
 
     node.attestationPool.add(a, node.beaconState)
 
-  let cycleStart = node.beaconState.slot.int
-  node.scheduleCycleActions(cycleStart)
+  dynamicLogScope(node = node.config.tcpPort - 50000):
+    let cycleStart = node.beaconState.slot.int
+    node.scheduleCycleActions(cycleStart)
 
-  runForever()
+    runForever()
 
 var gPidFile: string
 proc createPidFile(filename: string) =
