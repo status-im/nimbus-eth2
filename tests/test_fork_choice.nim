@@ -6,11 +6,9 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  ./test_beaconstate,
-  ./test_state_transition,
-  ./test_helpers,
-  ./test_ssz,
-  ./test_validator,
-  ./test_beacon_node,
-  ./test_sync_protocol,
-  ./test_fork_choice
+  unittest, nimcrypto, eth_common, milagro_crypto,
+  ../beacon_chain/spec/datatypes, ../beacon_chain/fork_choice
+
+suite "Fork choice rule and attestation pool":
+  test "Smoke test":
+    var pool = init(AttestationPool, 2)

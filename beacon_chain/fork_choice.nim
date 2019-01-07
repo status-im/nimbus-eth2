@@ -1,7 +1,10 @@
+# test cases, figure out getLatestAttestation, getLatestAttestationTarget
+
+
 import
   deques, options,
   milagro_crypto,
-  spec/[datatypes, crypto, helpers], extras
+  spec/[datatypes, crypto, helpers, digest], extras
 
 type
   AttestationCandidate* = object
@@ -108,13 +111,47 @@ func getAttestationCandidate*(attestation: Attestation): AttestationCandidate =
   result.data = attestation.data
   result.signature = attestation.aggregate_signature
 
-func getLatestAttestation*(pool: AttestationPool, validator: ValidatorRecord) =
-  discard
+func getLatestAttestation*(pool: AttestationPool, validator: ValidatorRecord, state: BeaconState, shard: uint64) : Attestation =
+  # TODO: If several such attestations exist, use the one the validator v
+  # observed first.
 
-func getLatestAttestationTarget*() =
-  discard
+  # Unclear how to link ValidatorRecords with the indexes from the
+  # Attestation pool without the state table, even though spec has
+  # only first to params.
+  var validatorIdx = -1
+  for i in 0 ..< state.validator_registry.len:
+    if state.validator_registry[i] == validator:
+      validatorIdx = i
+      break
+
+  if validatorIdx == -1:
+    # Validator not in validator_registry
+    doAssert false
+
+  let
+    relevantByte = validatorIdx div 8
+    relevantBit = 7 - (validatorIdx mod 8)
+
+  var highestSlot = 0'u64
+  for shardAttestations in pool.attestations.items:
+    let attestation = shardAttestations[shard].get
+
+    # TODO don't assume .get
+    doAssert attestation.participation_bitfield.len > relevantByte
+
+    if (attestation.participation_bitfield[relevantByte] shr relevantBit) mod 2 == 1:
+      # This validator has validated this attestation
+      if attestation.data.slot > highestSlot:
+        highestSlot = attestation.data.slot
+        result = attestation
+
+  # TODO handle lack of found attestation via Option
+
+func getLatestAttestationTarget*(pool: AttestationPool, validator: ValidatorRecord, state: BeaconState, shard: uint64) : Eth2Digest =
+  let latestAttestation = getLatestAttestation(pool, validator, state, shard)
+  # TODO error handling if there's no relevant attestation
+  latestAttestation.data.beacon_block_root
 
 func forkChoice*(pool: AttestationPool, oldHead, newBlock: BeaconBlock): bool =
   # This will return true if the new block is accepted over the old head block
   discard
-
