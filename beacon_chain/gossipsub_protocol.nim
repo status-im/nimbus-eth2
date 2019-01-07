@@ -34,7 +34,7 @@ p2pProtocol GossipSub(version = 1,
     info "GossipSub Peer connecetd", peer
     let gossipNet = peer.networkState
     for topic, _ in gossipNet.topicSubscribers:
-      peer.subscribeFor(topic)
+      discard peer.subscribeFor(topic)
 
   onPeerDisconnected do (peer: Peer, reason: DisconnectionReason):
     info "GossipSub Peer disconnected"
