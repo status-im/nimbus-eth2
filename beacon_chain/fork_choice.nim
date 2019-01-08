@@ -232,11 +232,6 @@ func lmdGhost*(
   #       Nim implementation for cumulative frequencies at
   #       https://github.com/numforge/laser/blob/990e59fffe50779cdef33aa0b8f22da19e1eb328/benchmarks/random_sampling/fenwicktree.nim
 
-  proc childBlockVoteCount(child: Eth2Digest): int =
-    for target, votes in rawVoteCount.pairs:
-      if store.get_ancestor(target, store.blocks[child].slot) == child:
-        result += votes
-
   var head = state.latest_block_roots[state.slot mod LATEST_BLOCK_ROOTS_LENGTH]
   var childVotes = initCountTable[Eth2Digest]()
 
