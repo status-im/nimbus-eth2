@@ -1,8 +1,8 @@
 import
-  deques, options,
+  deques, options, tables,
   milagro_crypto,
   ./spec/[datatypes, crypto, digest, helpers, validator], extras,
-  tables, hashes
+  ./beacon_chain_db
 
 type
   AttestationCandidate* = object
@@ -170,6 +170,18 @@ func getAttestationCandidate*(attestation: Attestation): AttestationCandidate =
 #   - We use a simple fork choice rule without finalized and justified head
 #   - We don't implement "get_latest_attestation(store, validator) -> Attestation"
 #     nor get_latest_attestation_target
+#   - We use block hashes (Eth2Digest) instead of raw blocks where possible
+
+func get_parent(db: BeaconChainDB, blck: Eth2Digest): Eth2Digest =
+  db.blocks[blck].parent_root
+
+func get_ancestor(store: BeaconChainDB, blck: Eth2Digest, slot: uint64): Eth2Digest =
+  ## Find the ancestor with a specific slot number
+  if store.blocks[blck].slot == slot:
+    return blck
+  else:
+    return store.get_ancestor(store.get_parent(blck), slot)
+  # TODO: what if the slot was never observed/verified?
 
 func getVoteCount(participation_bitfield: openarray[byte]): int =
   ## Get the number of votes
@@ -179,8 +191,9 @@ func getVoteCount(participation_bitfield: openarray[byte]): int =
   for validatorIdx in 0 ..< participation_bitfield.len * 8:
     result += int participation_bitfield.bitIsSet(validatorIdx)
 
-func getAttestationVoteCount(pool: AttestationPool, state: BeaconState): CountTable[BlockHash] =
-  ## Returns all blocks that were attested and their vote count for a specific slot.
+func getAttestationVoteCount(pool: AttestationPool, current_slot: int): CountTable[Eth2Digest] =
+  ## Returns all blocks more recent that the current slot
+  ## that were attested and their vote count
   # This replaces:
   #   - get_latest_attestation,
   #   - get_latest_attestation_targets
@@ -191,29 +204,55 @@ func getAttestationVoteCount(pool: AttestationPool, state: BeaconState): CountTa
   # ```
   # Note that attestation_targets in the Eth2 specs can have duplicates
   # while the following implementation will count such blockhash multiple times instead.
-  result = initCountTable[BlockHash]()
-  for attestation in pool.attestations[state.slot.int - pool.startingSlot]:
-    if attestation.isSome:
-      # Increase the block attestation counts by the number of validators aggregated
-      let voteCount = attestation.get.participation_bitfield.getVoteCount()
-      result.inc(attestation.get.data.beacon_block_root, voteCount)
+  result = initCountTable[Eth2Digest]()
 
-func getParent(db: BeaconChainDB, blck: BeaconBlock): BeaconBlock =
-  db.blocks[blck.parent_root]
+  for slot in current_slot - pool.startingSlot ..< pool.attestations.len:
+    for attestation in pool.attestations[slot]:
+      if attestation.isSome:
+        # Increase the block attestation counts by the number of validators aggregated
+        let voteCount = attestation.get.participation_bitfield.getVoteCount()
+        result.inc(attestation.get.data.beacon_block_root, voteCount)
 
-func get_ancestor(store: BeaconChainDB, blck: BeaconBlock, slot: uint64): BeaconBlock =
-  ## Find the ancestor with a specific slot number
-  if blck.slot == slot:
-    return blck
-  else:
-    return store.get_ancestor(store.get_parent(blck), slot)
-  # TODO: what if the slot was never observed/verified?
-
-func lmdGhost*(store: BeaconChainDB, pool: AttestationPool, state: BeaconState): BeaconBlock =
+func lmdGhost*(
+      store: BeaconChainDB,
+      pool: AttestationPool,
+      state: BeaconState,
+      blocksChildren: Table[Eth2Digest, seq[Eth2Digest]]): BeaconBlock =
   # Recompute the new head of the beacon chain according to
   # LMD GHOST (Latest Message Driven - Greediest Heaviest Observed SubTree)
-  let validators = state.validator_registry
 
-  var active_validators: seq[ValidatorRecord]
-  for i in validators.get_active_validator_indices:
-    active_validators.add validators[i]
+  # Raw vote count from all attestations
+  let rawVoteCount = pool.getAttestationVoteCount(state.slot.int)
+
+  # The real vote count for a block also takes into account votes for its children
+
+  # TODO: a Fenwick Tree datastructure to keep track of cumulated votes
+  #       in O(log N) complexity
+  #       https://en.wikipedia.org/wiki/Fenwick_tree
+  #       Nim implementation for cumulative frequencies at
+  #       https://github.com/numforge/laser/blob/990e59fffe50779cdef33aa0b8f22da19e1eb328/benchmarks/random_sampling/fenwicktree.nim
+
+  proc childBlockVoteCount(child: Eth2Digest): int =
+    for target, votes in rawVoteCount.pairs:
+      if store.get_ancestor(target, store.blocks[child].slot) == child:
+        result += votes
+
+  var head = state.latest_block_roots[state.slot mod LATEST_BLOCK_ROOTS_LENGTH]
+  var childVotes = initCountTable[Eth2Digest]()
+
+  while true: # TODO use a O(log N) implementation instead of O(N^2)
+    let children = blocksChildren[head]
+    if children.len == 0:
+      return store.blocks[head]
+
+    # For now we assume that all children are direct descendant of the current head
+    let next_slot = store.blocks[head].slot + 1
+    for child in children:
+      doAssert store.blocks[child].slot == next_slot
+
+    childVotes.clear()
+    for target, votes in rawVoteCount.pairs:
+      if store.blocks[target].slot >= next_slot:
+        childVotes.inc(store.get_ancestor(target, next_slot), votes)
+
+    head = childVotes.largest().key

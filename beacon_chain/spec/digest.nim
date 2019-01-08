@@ -21,7 +21,8 @@
 # `eth2hash`, and it outputs a `Eth2Digest`. Easy to sed :)
 
 import
-  nimcrypto/[blake2, hash], eth_common/eth_types_json_serialization
+  nimcrypto/[blake2, hash], eth_common/eth_types_json_serialization,
+  hashes
 
 export
   eth_types_json_serialization, hash.`$`
@@ -45,3 +46,13 @@ template withEth2Hash*(body: untyped): Eth2Digest =
   var tmp = h.finish()
   copyMem(res.data.addr, tmp.data.addr, sizeof(res))
   res
+
+func hash*(x: Eth2Digest): Hash =
+  ## Hash for Keccak digests for Nim hash tables
+  # Stub for BeaconChainDB
+
+  # We just slice the first 4 or 8 bytes of the block hash
+  # depending of if we are on a 32 or 64-bit platform
+  const size = x.sizeof
+  const num_hashes = size div sizeof(int)
+  result = cast[array[num_hashes, Hash]](x)[0]

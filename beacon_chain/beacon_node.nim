@@ -3,7 +3,8 @@ import
   asyncdispatch2, chronicles, confutils, eth_p2p, eth_keys,
   spec/[datatypes, digest, crypto, beaconstate, helpers], conf, time,
   state_transition, fork_choice, ssz, beacon_chain_db, validator_pool, extras,
-  mainchain_monitor, sync_protocol, gossipsub_protocol, trusted_state_snapshots
+  mainchain_monitor, sync_protocol, gossipsub_protocol, trusted_state_snapshots,
+  tables
 
 type
   BeaconNode* = ref object
@@ -18,6 +19,7 @@ type
     lastScheduledEpoch: uint64
     headBlock: BeaconBlock
     headBlockRoot: Eth2Digest
+    blocksChildren: Table[Eth2Digest, seq[Eth2Digest]]
 
 const
   version = "v0.1" # TODO: read this from the nimble file
