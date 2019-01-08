@@ -1,7 +1,7 @@
 import
   deques, options,
   milagro_crypto,
-  spec/[datatypes, crypto, helpers], extras
+  ./spec/[datatypes, crypto, digest, helpers], extras
 
 type
   AttestationCandidate* = object
@@ -74,6 +74,9 @@ proc add*(pool: var AttestationPool,
     pool.attestations.setLen(slotIdxInPool + 1)
 
   let shard = attestation.data.shard
+  if attestation.data.slot.int > pool.highestSlot:
+    pool.highestSlot = attestation.data.slot.int
+    pool.highestSlotAttestationShard = shard.int
 
   if pool.attestations[slotIdxInPool][shard].isSome:
     combine(pool.attestations[slotIdxInPool][shard].get, attestation, {})
@@ -116,11 +119,27 @@ func getAttestationCandidate*(attestation: Attestation): AttestationCandidate =
   result.data = attestation.data
   result.signature = attestation.aggregate_signature
 
-func getLatestAttestation*(pool: AttestationPool, validator: ValidatorRecord) =
-  discard
+func getLatestAttestation*(pool: AttestationPool): AttestationData =
+  ## Search for the attestation with the highest slot number
+  ## If multiple attestation have the same slot number, keep the first one.
+  #
+  # AttestationPool contains the attestations observed and verified
+  # by the current client. (It might miss some).
+  #
+  # Difference with the spec
+  #   - Contrary to the spec we don't use "validator" as an input.
+  #     Specs assume that there is a global "Store" that keeps track of all attestations
+  #     observed by each invidual client.
+  #     AttestationPool only tracks attestations observed by the current client.
 
-func getLatestAttestationTarget*() =
-  discard
+  var idx = pool.attestations.len - 1
+  # Within a shard we can receive several attestations for the highest slot.
+  while pool.attestations[idx][pool.highestSlotAttestationShard].get.data.slot.int == pool.highestSlot:
+    idx -= 1
+  result = pool.attestations[idx][pool.highestSlotAttestationShard].get.data
+
+func getLatestAttestationTarget*(pool: AttestationPool): Eth2Digest =
+  pool.getLatestAttestation.beacon_block_root
 
 func forkChoice*(pool: AttestationPool, oldHead, newBlock: BeaconBlock): bool =
   # This will return true if the new block is accepted over the old head block
