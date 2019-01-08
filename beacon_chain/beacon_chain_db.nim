@@ -1,11 +1,12 @@
 import
-  os, json,
+  os, json, tables,
   chronicles, json_serialization, eth_common/eth_types_json_serialization,
   spec/[datatypes, digest, crypto]
 
 type
   BeaconChainDB* = ref object
     dataRoot: string
+    blocks*: Table[Eth2Digest, BeaconBlock]
 
   BeaconStateRef* = ref BeaconState
 
