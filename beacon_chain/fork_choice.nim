@@ -1,7 +1,8 @@
 import
   deques, options,
   milagro_crypto,
-  ./spec/[datatypes, crypto, digest, helpers], extras
+  ./spec/[datatypes, crypto, digest, helpers], extras,
+  tables, hashes # For BeaconChainDB stub
 
 type
   AttestationCandidate* = object
@@ -24,6 +25,22 @@ type
   # in each epoch, each shard is going to receive attestations exactly once.
   # Once the epoch is over, we can discard all attestations and start all
   # over again (no need for `discardHistoryToSlot` too).
+
+  # Stub for BeaconChainDB
+  BlockHash = Eth2Digest
+  BeaconChainDB = ref object
+    # API that the BeaconChainDB type should expose
+    blocks: Table[Eth2Digest, BeaconBlock]
+
+func hash(x: BlockHash): Hash =
+  ## Hash for Keccak digests for Nim hash tables
+  # Stub for BeaconChainDB
+
+  # We just slice the first 4 or 8 bytes of the block hash
+  # depending of if we are on a 32 or 64-bit platform
+  const size = x.sizeof
+  const num_hashes = size div sizeof(int)
+  result = cast[array[num_hashes, Hash]](x)[0]
 
 proc init*(T: type AttestationPool, startingSlot: int): T =
   result.attestations = initDeque[array[SHARD_COUNT, Option[Attestation]]]()
@@ -119,6 +136,9 @@ func getAttestationCandidate*(attestation: Attestation): AttestationCandidate =
   result.data = attestation.data
   result.signature = attestation.aggregate_signature
 
+# ##################################################################
+# Specs
+
 func getLatestAttestation*(pool: AttestationPool): AttestationData =
   ## Search for the attestation with the highest slot number
   ## If multiple attestation have the same slot number, keep the first one.
@@ -141,7 +161,19 @@ func getLatestAttestation*(pool: AttestationPool): AttestationData =
 func getLatestAttestationTarget*(pool: AttestationPool): Eth2Digest =
   pool.getLatestAttestation.beacon_block_root
 
-func forkChoice*(pool: AttestationPool, oldHead, newBlock: BeaconBlock): bool =
-  # This will return true if the new block is accepted over the old head block
+func getParent(db: BeaconChainDB, blck: BeaconBlock): BeaconBlock =
+  db.blocks[blck.parent_root]
+
+func get_ancestor(store: BeaconChainDB, blck: BeaconBlock, slot: uint64): BeaconBlock =
+  ## Find the ancestor with a specific slot number
+  if blck.slot == slot:
+    return blck
+  else:
+    return store.get_ancestor(store.get_parent(blck), slot)
+  # TODO: what if the slot was never observed/verified?
+
+func lmdGhost*(store: BeaconChainDB, pool: AttestationPool, start: BeaconBlock): BeaconBlock =
+  # Recompute the new head of the beacon chain according to
+  # LMD GHOST (Latest Message Driven - Greediest Heaviest Observed SubTree)
   discard
 
