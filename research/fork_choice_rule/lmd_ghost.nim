@@ -25,8 +25,8 @@
 import
   tables, hashes,
   milagro_crypto,
-  ./datatypes, ./helpers, ./digest,
-  ../ssz
+  ../../beacon_chain/spec/[datatypes, helpers, digest],
+  ../../beacon_chain/ssz
 
 type
   AttesterIdx = int
