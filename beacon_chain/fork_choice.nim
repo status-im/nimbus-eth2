@@ -1,8 +1,8 @@
 import
   deques, options,
   milagro_crypto,
-  ./spec/[datatypes, crypto, digest, helpers], extras,
-  tables, hashes # For BeaconChainDB stub
+  ./spec/[datatypes, crypto, digest, helpers, validator], extras,
+  tables, hashes
 
 type
   AttestationCandidate* = object
@@ -91,9 +91,6 @@ proc add*(pool: var AttestationPool,
     pool.attestations.setLen(slotIdxInPool + 1)
 
   let shard = attestation.data.shard
-  if attestation.data.slot.int > pool.highestSlot:
-    pool.highestSlot = attestation.data.slot.int
-    pool.highestSlotAttestationShard = shard.int
 
   if pool.attestations[slotIdxInPool][shard].isSome:
     combine(pool.attestations[slotIdxInPool][shard].get, attestation, {})
@@ -138,28 +135,68 @@ func getAttestationCandidate*(attestation: Attestation): AttestationCandidate =
 
 # ##################################################################
 # Specs
+#
+#   The beacon chain fork choice rule is a hybrid that combines justification and finality with Latest Message Driven (LMD) Greediest Heaviest Observed SubTree (GHOST). At any point in time a [validator](#dfn-validator) `v` subjectively calculates the beacon chain head as follows.
+#
+#      * Let `store` be the set of attestations and blocks
+#        that the validator `v` has observed and verified
+#        (in particular, block ancestors must be recursively verified).
+#        Attestations not part of any chain are still included in `store`.
+#      * Let `finalized_head` be the finalized block with the highest slot number.
+#        (A block `B` is finalized if there is a descendant of `B` in `store`
+#        the processing of which sets `B` as finalized.)
+#      * Let `justified_head` be the descendant of `finalized_head`
+#        with the highest slot number that has been justified
+#        for at least `EPOCH_LENGTH` slots.
+#        (A block `B` is justified if there is a descendant of `B` in `store`
+#        the processing of which sets `B` as justified.)
+#        If no such descendant exists set `justified_head` to `finalized_head`.
+#      * Let `get_ancestor(store, block, slot)` be the ancestor of `block` with slot number `slot`.
+#        The `get_ancestor` function can be defined recursively
+#
+#        def get_ancestor(store, block, slot):
+#            return block if block.slot == slot
+#                         else get_ancestor(store, store.get_parent(block), slot)`.
+#
+#      * Let `get_latest_attestation(store, validator)`
+#        be the attestation with the highest slot number in `store` from `validator`.
+#        If several such attestations exist,
+#        use the one the validator `v` observed first.
+#      * Let `get_latest_attestation_target(store, validator)`
+#        be the target block in the attestation `get_latest_attestation(store, validator)`.
+#      * The head is `lmd_ghost(store, justified_head)`. (See specs)
+#
+# Departing from specs:
+#   - We use a simple fork choice rule without finalized and justified head
+#   - We don't implement "get_latest_attestation(store, validator) -> Attestation"
+#     nor get_latest_attestation_target
 
-func getLatestAttestation*(pool: AttestationPool): AttestationData =
-  ## Search for the attestation with the highest slot number
-  ## If multiple attestation have the same slot number, keep the first one.
-  #
-  # AttestationPool contains the attestations observed and verified
-  # by the current client. (It might miss some).
-  #
-  # Difference with the spec
-  #   - Contrary to the spec we don't use "validator" as an input.
-  #     Specs assume that there is a global "Store" that keeps track of all attestations
-  #     observed by each invidual client.
-  #     AttestationPool only tracks attestations observed by the current client.
+func getVoteCount(participation_bitfield: openarray[byte]): int =
+  ## Get the number of votes
+  # TODO: A bitfield type that tracks that information
+  # https://github.com/status-im/nim-beacon-chain/issues/19
 
-  var idx = pool.attestations.len - 1
-  # Within a shard we can receive several attestations for the highest slot.
-  while pool.attestations[idx][pool.highestSlotAttestationShard].get.data.slot.int == pool.highestSlot:
-    idx -= 1
-  result = pool.attestations[idx][pool.highestSlotAttestationShard].get.data
+  for validatorIdx in 0 ..< participation_bitfield.len * 8:
+    result += int participation_bitfield.bitIsSet(validatorIdx)
 
-func getLatestAttestationTarget*(pool: AttestationPool): Eth2Digest =
-  pool.getLatestAttestation.beacon_block_root
+func getAttestationVoteCount(pool: AttestationPool, state: BeaconState): CountTable[BlockHash] =
+  ## Returns all blocks that were attested and their vote count for a specific slot.
+  # This replaces:
+  #   - get_latest_attestation,
+  #   - get_latest_attestation_targets
+  # that are used in lmd_ghost for
+  # ```
+  # attestation_targets = [get_latest_attestation_target(store, validator)
+  #                        for validator in active_validators]
+  # ```
+  # Note that attestation_targets in the Eth2 specs can have duplicates
+  # while the following implementation will count such blockhash multiple times instead.
+  result = initCountTable[BlockHash]()
+  for attestation in pool.attestations[state.slot.int - pool.startingSlot]:
+    if attestation.isSome:
+      # Increase the block attestation counts by the number of validators aggregated
+      let voteCount = attestation.get.participation_bitfield.getVoteCount()
+      result.inc(attestation.get.data.beacon_block_root, voteCount)
 
 func getParent(db: BeaconChainDB, blck: BeaconBlock): BeaconBlock =
   db.blocks[blck.parent_root]
@@ -172,8 +209,11 @@ func get_ancestor(store: BeaconChainDB, blck: BeaconBlock, slot: uint64): Beacon
     return store.get_ancestor(store.get_parent(blck), slot)
   # TODO: what if the slot was never observed/verified?
 
-func lmdGhost*(store: BeaconChainDB, pool: AttestationPool, start: BeaconBlock): BeaconBlock =
+func lmdGhost*(store: BeaconChainDB, pool: AttestationPool, state: BeaconState): BeaconBlock =
   # Recompute the new head of the beacon chain according to
   # LMD GHOST (Latest Message Driven - Greediest Heaviest Observed SubTree)
-  discard
+  let validators = state.validator_registry
 
+  var active_validators: seq[ValidatorRecord]
+  for i in validators.get_active_validator_indices:
+    active_validators.add validators[i]
