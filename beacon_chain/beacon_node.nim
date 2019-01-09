@@ -15,7 +15,7 @@ type
     attachedValidators: ValidatorPool
     attestationPool: AttestationPool
     mainchainMonitor: MainchainMonitor
-    lastScheduledCycle: int
+    lastScheduledEpoch: uint64
     headBlock: BeaconBlock
     headBlockRoot: Eth2Digest
 
@@ -77,7 +77,7 @@ proc connectToNetwork(node: BeaconNode) {.async.} =
 proc sync*(node: BeaconNode): Future[bool] {.async.} =
   let persistedState = node.db.lastFinalizedState()
   if persistedState.isNil or
-     persistedState[].slotDistanceFromNow() > WEAK_SUBJECTVITY_PERIOD:
+     persistedState[].slotDistanceFromNow() > WEAK_SUBJECTVITY_PERIOD.int64:
     if node.config.stateSnapshot.isSome:
       node.beaconState = node.config.stateSnapshot.get
     else:
@@ -86,7 +86,7 @@ proc sync*(node: BeaconNode): Future[bool] {.async.} =
     node.beaconState = persistedState[]
     var targetSlot = toSlot timeSinceGenesis(node.beaconState)
 
-    while node.beaconState.finalized_slot.int < targetSlot:
+    while node.beaconState.finalized_slot < targetSlot:
       var (peer, changeLog) = await node.network.getValidatorChangeLog(
         node.beaconState.validator_registry_delta_chain_tip)
 
@@ -218,11 +218,11 @@ proc proposeBlock(node: BeaconNode,
                          validator = validator.idx
 
 proc scheduleBlockProposal(node: BeaconNode,
-                           slot: int,
+                           slot: uint64,
                            validator: AttachedValidator) =
   # TODO:
   # This function exists only to hide a bug with Nim's closures.
-  # If you inline it in `scheduleCycleActions`, you'll see the
+  # If you inline it in `scheduleEpochActions`, you'll see the
   # internal `doAssert` starting to fail.
   doAssert validator != nil
 
@@ -232,13 +232,13 @@ proc scheduleBlockProposal(node: BeaconNode,
 
 proc scheduleAttestation(node: BeaconNode,
                          validator: AttachedValidator,
-                         slot: int,
+                         slot: uint64,
                          shard: uint64,
                          committeeLen: int,
                          indexInCommittee: int) =
   # TODO:
   # This function exists only to hide a bug with Nim's closures.
-  # If you inline it in `scheduleCycleActions`, you'll see the
+  # If you inline it in `scheduleEpochActions`, you'll see the
   # internal `doAssert` starting to fail.
   doAssert validator != nil
 
@@ -247,7 +247,7 @@ proc scheduleAttestation(node: BeaconNode,
     asyncCheck makeAttestation(node, validator, slot.uint64,
                                shard, committeeLen, indexInCommittee)
 
-proc scheduleCycleActions(node: BeaconNode, cycleStart: int) =
+proc scheduleEpochActions(node: BeaconNode, epoch: uint64) =
   ## This schedules the required block proposals and
   ## attestations from our attached validators.
   doAssert node != nil
@@ -256,14 +256,12 @@ proc scheduleCycleActions(node: BeaconNode, cycleStart: int) =
   # see the comments in `get_beacon_proposer_index`
   var nextState = node.beaconState
 
-  for i in 1 ..< EPOCH_LENGTH:
+  for i in 1.uint64 ..< EPOCH_LENGTH:
     # Schedule block proposals
-    nextState.slot = node.beaconState.slot + i.uint64
-
-    let
-      slot = cycleStart + i
-      proposerIdx = get_beacon_proposer_index(nextState, nextState.slot.uint64)
-      validator = node.getAttachedValidator(proposerIdx)
+    let slot = epoch * EPOCH_LENGTH + i
+    nextState.slot = slot
+    let proposerIdx = get_beacon_proposer_index(nextState, slot)
+    let validator = node.getAttachedValidator(proposerIdx)
 
     if validator != nil:
       # TODO:
@@ -273,7 +271,7 @@ proc scheduleCycleActions(node: BeaconNode, cycleStart: int) =
 
     # Schedule attestations
     let
-      committeesIdx = get_shard_committees_index(nextState, nextState.slot.uint64)
+      committeesIdx = get_shard_committees_index(nextState, slot)
 
     for shard in node.beaconState.shard_committees_at_slots[committees_idx]:
       for i, validatorIdx in shard.committee:
@@ -281,12 +279,12 @@ proc scheduleCycleActions(node: BeaconNode, cycleStart: int) =
         if validator != nil:
           scheduleAttestation(node, validator, slot, shard.shard, shard.committee.len, i)
 
-  node.lastScheduledCycle = cycleStart
-  let nextCycle = cycleStart + EPOCH_LENGTH
+  node.lastScheduledEpoch = epoch
+  let nextEpoch = epoch + 1
 
-  addTimer(node.beaconState.slotMiddle(nextCycle)) do (p: pointer):
-    if node.lastScheduledCycle != nextCycle:
-      node.scheduleCycleActions(nextCycle)
+  addTimer(node.beaconState.slotMiddle(nextEpoch * EPOCH_LENGTH)) do (p: pointer):
+    if node.lastScheduledEpoch != nextEpoch:
+      node.scheduleEpochActions(nextEpoch)
 
 proc processBlocks*(node: BeaconNode) =
   node.network.subscribe(topicBeaconBlocks) do (newBlock: BeaconBlock):
@@ -314,10 +312,9 @@ proc processBlocks*(node: BeaconNode) =
     # 3. Peform block processing / state recalculation / etc
     #
 
-    let slot = newBlock.slot.int
-    if slot mod EPOCH_LENGTH == 0:
-      node.scheduleCycleActions(slot)
-      node.attestationPool.discardHistoryToSlot(slot)
+    let epoch = newBlock.slot.epoch
+    if epoch != node.lastScheduledEpoch:
+      node.scheduleEpochActions(epoch)
 
   node.network.subscribe(topicAttestations) do (a: Attestation):
     info "Attestation received", slot = a.data.slot,
@@ -327,8 +324,8 @@ proc processBlocks*(node: BeaconNode) =
     node.attestationPool.add(a, node.beaconState)
 
   dynamicLogScope(node = node.config.tcpPort - 50000):
-    let cycleStart = node.beaconState.slot.int
-    node.scheduleCycleActions(cycleStart)
+    let epoch = node.beaconState.slot.epoch
+    node.scheduleEpochActions(epoch)
 
     runForever()
 
