@@ -17,6 +17,14 @@ type
     attestations: Deque[array[SHARD_COUNT, Option[Attestation]]]
     startingSlot: int
 
+  # TODO:
+  # The compilicated Deque above is not needed.
+  #
+  # In fact, we can use a simple array with length SHARD_COUNT because
+  # in each epoch, each shard is going to receive attestations exactly once.
+  # Once the epoch is over, we can discard all attestations and start all
+  # over again (no need for `discardHistoryToSlot` too).
+
 proc init*(T: type AttestationPool, startingSlot: int): T =
   result.attestations = initDeque[array[SHARD_COUNT, Option[Attestation]]]()
   result.startingSlot = startingSlot

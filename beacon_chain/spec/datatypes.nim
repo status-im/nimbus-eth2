@@ -94,7 +94,7 @@ const
   ZERO_HASH* = Eth2Digest()
 
   # Time constants
-  SLOT_DURATION* = 6 ## \
+  SLOT_DURATION* = 6'u64 ## \
   ## TODO consistent time unit across projects, similar to C++ chrono?
 
   MIN_ATTESTATION_INCLUSION_DELAY* = 2'u64^2 ##\
@@ -414,6 +414,9 @@ type
     DOMAIN_ATTESTATION = 1
     DOMAIN_PROPOSAL = 2
     DOMAIN_EXIT = 3
+
+template epoch*(slot: int|uint64): auto =
+  slot div EPOCH_LENGTH
 
 when true:
   # TODO: Remove these once RLP serialization is no longer used

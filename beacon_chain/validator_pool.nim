@@ -50,7 +50,7 @@ proc signBlockProposal*(v: AttachedValidator,
     let proposalRoot = hash_tree_root_final(proposal)
 
     # TODO: Should we use proposalRoot as data, or digest in regards to signature?
-    return signMessage(v.privKey, proposalRoot.data)
+    result = signMessage(v.privKey, proposalRoot.data)
   else:
     # TODO:
     # send RPC
@@ -64,7 +64,8 @@ proc signAttestation*(v: AttachedValidator,
 
     let attestationRoot = hash_tree_root_final(attestation)
     # TODO: Avoid the allocations belows
-    return signMessage(v.privKey, @(attestationRoot.data) & @[0'u8])
+    var dataToSign = @(attestationRoot.data) & @[0'u8]
+    result = signMessage(v.privKey, dataToSign)
   else:
     # TODO:
     # send RPC
