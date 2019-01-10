@@ -26,22 +26,6 @@ type
   # Once the epoch is over, we can discard all attestations and start all
   # over again (no need for `discardHistoryToSlot` too).
 
-  # Stub for BeaconChainDB
-  BlockHash = Eth2Digest
-  BeaconChainDB = ref object
-    # API that the BeaconChainDB type should expose
-    blocks: Table[Eth2Digest, BeaconBlock]
-
-func hash(x: BlockHash): Hash =
-  ## Hash for Keccak digests for Nim hash tables
-  # Stub for BeaconChainDB
-
-  # We just slice the first 4 or 8 bytes of the block hash
-  # depending of if we are on a 32 or 64-bit platform
-  const size = x.sizeof
-  const num_hashes = size div sizeof(int)
-  result = cast[array[num_hashes, Hash]](x)[0]
-
 proc init*(T: type AttestationPool, startingSlot: int): T =
   result.attestations = initDeque[array[SHARD_COUNT, Option[Attestation]]]()
   result.startingSlot = startingSlot
