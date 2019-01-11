@@ -53,6 +53,4 @@ func hash*(x: Eth2Digest): Hash =
 
   # We just slice the first 4 or 8 bytes of the block hash
   # depending of if we are on a 32 or 64-bit platform
-  const size = x.sizeof
-  const num_hashes = size div sizeof(int)
-  result = cast[array[num_hashes, Hash]](x)[0]
+  result = cast[ptr Hash](unsafeAddr x)[]
