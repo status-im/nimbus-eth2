@@ -1,6 +1,9 @@
 version: '{build}'
 
 cache:
+- sqlite-dll-win32-x86-3240000.zip -> .appveyor.yml
+- sqlite-dll-win64-x64-3240000.zip -> .appveyor.yml
+- nimbus-deps.zip -> .appveyor.yml
 - x86_64-4.9.2-release-win32-seh-rt_v4-rev4.7z -> .appveyor.yml
 - i686-4.9.2-release-win32-dwarf-rt_v4-rev4.7z -> .appveyor.yml
 - Nim -> .appveyor.yml
@@ -19,22 +22,41 @@ install:
   - IF "%PLATFORM%" == "x86" (
       SET "MINGW_ARCHIVE=i686-4.9.2-release-win32-dwarf-rt_v4-rev4.7z" &
       SET "MINGW_URL=https://sourceforge.net/projects/mingw-w64/files/Toolchains%%20targetting%%20Win32/Personal%%20Builds/mingw-builds/4.9.2/threads-win32/dwarf/i686-4.9.2-release-win32-dwarf-rt_v4-rev4.7z" &
-      SET "MINGW_DIR=mingw32"
+      SET "MINGW_DIR=mingw32" &
+      SET "SQLITE_URL=https://www.sqlite.org/2018/sqlite-dll-win32-x86-3240000.zip" &
+      SET "SQLITE_ARCHIVE=sqlite-dll-win32-x86-3240000.zip" &
+      SET "ROCKSDB_URL=https://github.com/status-im/nimbus-deps/releases/download/nimbus-deps/nimbus-deps.zip" &
+      SET "ROCKSDB_ARCHIVE=nimbus-deps.zip"
     ) ELSE (
       IF "%PLATFORM%" == "x64" (
         SET "MINGW_ARCHIVE=x86_64-4.9.2-release-win32-seh-rt_v4-rev4.7z" &
         SET "MINGW_URL=https://sourceforge.net/projects/mingw-w64/files/Toolchains%%20targetting%%20Win64/Personal%%20Builds/mingw-builds/4.9.2/threads-win32/seh/x86_64-4.9.2-release-win32-seh-rt_v4-rev4.7z" &
-        SET "MINGW_DIR=mingw64"
+        SET "MINGW_DIR=mingw64" &
+        SET "SQLITE_URL=https://www.sqlite.org/2018/sqlite-dll-win64-x64-3240000.zip" &
+        SET "SQLITE_ARCHIVE=sqlite-dll-win64-x64-3240000.zip" &
+        SET "ROCKSDB_URL=https://github.com/status-im/nimbus-deps/releases/download/nimbus-deps/nimbus-deps.zip" &
+        SET "ROCKSDB_ARCHIVE=nimbus-deps.zip"
       ) else (
         echo "Unknown platform"
       )
     )
 
-  - SET PATH=%CD%\%MINGW_DIR%\bin;%CD%\Nim\bin;%PATH%
+  - MKDIR %CD%\bin
+  - SET PATH=%CD%\%MINGW_DIR%\bin;%CD%\bin;%CD%\Nim\bin;%PATH%
 
   # Unpack mingw
   - IF NOT EXIST "%MINGW_ARCHIVE%" appveyor DownloadFile "%MINGW_URL%" -FileName "%MINGW_ARCHIVE%"
   - 7z x -y "%MINGW_ARCHIVE%" > nul
+
+  # Unpack sqlite
+  - IF not exist "%SQLITE_ARCHIVE%" appveyor DownloadFile "%SQLITE_URL%" -FileName "%SQLITE_ARCHIVE%"
+  - 7z x -y "%SQLITE_ARCHIVE%" > nul
+  - IF "%PLATFORM%" == "x64" ( copy %CD%\sqlite3.dll %CD%\bin\sqlite3_64.dll ) ELSE ( copy %CD%\sqlite3.dll %CD%\bin\sqlite3_32.dll )
+
+  # Unpack rocksdb
+  - IF not exist "%ROCKSDB_ARCHIVE%" appveyor DownloadFile "%ROCKSDB_URL%" -FileName "%ROCKSDB_ARCHIVE%"
+  - 7z x -y "%ROCKSDB_ARCHIVE%" > nul
+  - IF "%PLATFORM%" == "x64" ( copy %CD%\x64\librocksdb.dll %CD%\bin\librocksdb.dll ) ELSE ( copy %CD%\x86\librocksdb.dll %CD%\bin\librocksdb.dll )
 
   # build nim from our own branch - this to avoid the day-to-day churn and
   # regressions of the fast-paced Nim development while maintaining the

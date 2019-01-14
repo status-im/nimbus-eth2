@@ -9,10 +9,19 @@ sudo: false
 cache:
   directories:
     - nim
+    - rocksdb
 
-os:
-  - linux
-  - osx
+matrix:
+  include:
+    - os: linux
+      sudo: required
+      before_install:
+        - export INSTALL_PATH=/usr
+        - export NPROC=$(nproc)
+    - os: osx
+      before_install:
+        - export INSTALL_PATH=$HOME # included in DYLD_FALLBACK_LIBRARY_PATH
+        - export NPROC=$(sysctl -n hw.ncpu)
 
 install:
   # build nim from our own branch - this to avoid the day-to-day churn and
@@ -33,6 +42,15 @@ install:
         cd ../.. ;
       }"
   - "export PATH=$PWD/nim/$NIMVER/bin:$PATH"
+
+  # build our own rocksdb to test with a fixed version that we think works
+  - "export ROCKSDBVER=5.14.2"
+  - "[ -f rocksdb/rocksdb-$ROCKSDBVER/Makefile ] || { rm -rf rocksdb ; mkdir -p rocksdb; cd rocksdb; wget https://github.com/facebook/rocksdb/archive/v$ROCKSDBVER.tar.gz && tar xvf v$ROCKSDBVER.tar.gz; cd ..; }"
+  - cd rocksdb/rocksdb-$ROCKSDBVER
+  - "[ -f util/build_version.cc ] || { make util/build_version.cc ; }" # use cached version if possible
+  - export NO_UPDATE_BUILD_VERSION=1
+  - make shared_lib -j$NPROC && sudo make install-shared
+  - cd ../..
 
 script:
   - nimble install -y
