@@ -5,7 +5,8 @@ set -eu
 NUMBER_OF_VALIDATORS=99
 
 cd $(dirname "$0")
-SIMULATION_DIR=$PWD
+SIMULATION_DIR=$PWD/simulation-data
+mkdir -p "$SIMULATION_DIR"
 
 STARTUP_FILE="$SIMULATION_DIR/startup.json"
 SNAPSHOT_FILE="$SIMULATION_DIR/state_snapshot.json"
