@@ -156,15 +156,16 @@ func getAttestationCandidate*(attestation: Attestation): AttestationCandidate =
 #     nor get_latest_attestation_target
 #   - We use block hashes (Eth2Digest) instead of raw blocks where possible
 
-func get_parent(db: BeaconChainDB, blck: Eth2Digest): Eth2Digest =
-  db.blocks[blck].parent_root
+proc get_parent(db: BeaconChainDB, blck: Eth2Digest): Eth2Digest =
+  db.getBlock(blck).parent_root
 
-func get_ancestor(store: BeaconChainDB, blck: Eth2Digest, slot: uint64): Eth2Digest =
+proc get_ancestor(store: BeaconChainDB, blck: Eth2Digest, slot: uint64): Eth2Digest =
   ## Find the ancestor with a specific slot number
-  if store.blocks[blck].slot == slot:
-    return blck
+  let blk = store.getBlock(blck)
+  if blk.slot == slot:
+    blck
   else:
-    return store.get_ancestor(store.get_parent(blck), slot)
+    store.get_ancestor(blk.parent_root, slot) # TODO: Eliminate recursion
   # TODO: what if the slot was never observed/verified?
 
 func getVoteCount(participation_bitfield: openarray[byte]): int =
@@ -197,7 +198,7 @@ func getAttestationVoteCount(pool: AttestationPool, current_slot: int): CountTab
         let voteCount = attestation.get.participation_bitfield.getVoteCount()
         result.inc(attestation.get.data.beacon_block_root, voteCount)
 
-func lmdGhost*(
+proc lmdGhost*(
       store: BeaconChainDB,
       pool: AttestationPool,
       state: BeaconState,
@@ -222,16 +223,16 @@ func lmdGhost*(
   while true: # TODO use a O(log N) implementation instead of O(N^2)
     let children = blocksChildren[head]
     if children.len == 0:
-      return store.blocks[head]
+      return store.getBlock(head)
 
     # For now we assume that all children are direct descendant of the current head
-    let next_slot = store.blocks[head].slot + 1
+    let next_slot = store.getBlock(head).slot + 1
     for child in children:
-      doAssert store.blocks[child].slot == next_slot
+      doAssert store.getBlock(child).slot == next_slot
 
     childVotes.clear()
     for target, votes in rawVoteCount.pairs:
-      if store.blocks[target].slot >= next_slot:
+      if store.getBlock(target).slot >= next_slot:
         childVotes.inc(store.get_ancestor(target, next_slot), votes)
 
     head = childVotes.largest().key

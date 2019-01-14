@@ -1,10 +1,10 @@
 import
-  std_shims/[os_shims, objects], net, sequtils, options,
+  std_shims/[os_shims, objects], net, sequtils, options, tables,
   asyncdispatch2, chronicles, confutils, eth_p2p, eth_keys,
   spec/[datatypes, digest, crypto, beaconstate, helpers], conf, time,
   state_transition, fork_choice, ssz, beacon_chain_db, validator_pool, extras,
   mainchain_monitor, sync_protocol, gossipsub_protocol, trusted_state_snapshots,
-  tables
+  eth_trie/db, eth_trie/backends/rocksdb_backend
 
 type
   BeaconNode* = ref object
@@ -45,7 +45,8 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): T =
   init result.attestationPool, 0
   init result.mainchainMonitor, "", Port(0) # TODO: specify geth address and port
 
-  result.db = BeaconChainDB.init(string conf.dataDir)
+  let trieDB = trieDB newChainDb(string conf.dataDir)
+  result.db = BeaconChainDB.init(trieDB)
   result.keys = ensureNetworkKeys(string conf.dataDir)
 
   var address: Address
