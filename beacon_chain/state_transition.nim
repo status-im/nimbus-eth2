@@ -567,7 +567,7 @@ func processEpoch(state: var BeaconState) =
     if state.slot mod POW_RECEIPT_ROOT_VOTING_PERIOD == 0:
       for x in state.deposit_roots:
         if x.vote_count * 2 >= POW_RECEIPT_ROOT_VOTING_PERIOD:
-          state.processed_pow_receipt_root = x.deposit_root
+          state.latest_deposit_root = x.deposit_root
           break
       state.deposit_roots = @[]
 

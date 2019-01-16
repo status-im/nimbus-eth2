@@ -187,7 +187,7 @@ func update_validator_status*(state: var BeaconState,
 func get_initial_beacon_state*(
     initial_validator_deposits: openArray[Deposit],
     genesis_time: uint64,
-    processed_pow_receipt_root: Eth2Digest,
+    latest_deposit_root: Eth2Digest,
     flags: UpdateFlags = {}): BeaconState =
   ## BeaconState constructor
   ##
@@ -225,7 +225,7 @@ func get_initial_beacon_state*(
     finalized_slot: GENESIS_SLOT,
 
      # PoW receipt root
-    processed_pow_receipt_root: processed_pow_receipt_root,
+    latest_deposit_root: latest_deposit_root,
   )
 
   # handle initial deposits and activations

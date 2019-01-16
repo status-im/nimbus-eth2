@@ -46,6 +46,7 @@ import
 # TODO Many of these constants should go into a config object that can be used
 #      to run.. well.. a chain with different constants!
 const
+  # Misc
   SHARD_COUNT* = 1024 ##\
   ## Number of shards supported by the network - validators will jump around
   ## between these shards and provide attestations to their state.
@@ -73,12 +74,13 @@ const
 
   BEACON_CHAIN_SHARD_NUMBER* = not 0'u64 # 2^64 - 1 in spec
 
-  BLS_WITHDRAWAL_PREFIX_BYTE* = 0'u8
-
   MAX_CASPER_VOTES* = 2^10
   LATEST_BLOCK_ROOTS_LENGTH* = 2'u64^13
   LATEST_RANDAO_MIXES_LENGTH* = 2'u64^13
+  LATEST_PENALIZED_EXIT_LENGTH* = 8192 # epochs
+  MAX_WITHDRAWALS_PER_EPOCHS* = 4 # withdrawals
 
+  # Deposit contract
   DEPOSIT_CONTRACT_TREE_DEPTH* = 2^5
 
   MIN_DEPOSIT* = 2'u64^0 ##\
@@ -91,9 +93,13 @@ const
 
   GENESIS_FORK_VERSION* = 0'u64
   GENESIS_SLOT* = 0'u64
+  GENESIS_START_SHARD* = 0'u64
+  FAR_FUTURE_SLOT* = not 0'u64 # 2^64 - 1 in spec
   ZERO_HASH* = Eth2Digest()
+  # TODO EMPTY_SIGNATURE* =
+  BLS_WITHDRAWAL_PREFIX_BYTE* = 0'u8
 
-  # Time constants
+  # Time parameters
   SLOT_DURATION* = 6'u64 ## \
   ## TODO consistent time unit across projects, similar to C++ chrono?
 
@@ -117,6 +123,9 @@ const
   POW_RECEIPT_ROOT_VOTING_PERIOD* = 2'u64^10 ##\
   ## slots (~1.7 hours)
 
+  SEED_LOOKAHEAD* = 64 ##\
+  ## slots (~6.4 minutes)
+
   SHARD_PERSISTENT_COMMITTEE_CHANGE_PERIOD* = 2'u64^17 ##\
   ## slots (~9 days)
 
@@ -135,6 +144,12 @@ const
   INCLUDER_REWARD_QUOTIENT* = 2'u64^3
   INACTIVITY_PENALTY_QUOTIENT* = 2'u64^24
 
+  # Status flags
+  # Could model this with enum, but following spec closely here
+  INITIATED_EXIT* = 1'u64
+  WITHDRAWABLE* = 2'u64
+
+  # Max operations per block
   MAX_PROPOSER_SLASHINGS* = 2^4
   MAX_CASPER_SLASHINGS* = 2^4
   MAX_ATTESTATIONS* = 2^7
@@ -203,24 +218,25 @@ type
     poc_bit: bool
 
   Deposit* = object
-    merkle_branch*: seq[Eth2Digest] ##\
-    ## Receipt Merkle branch
+    branch*: seq[Eth2Digest] ##\
+    ## Branch in the deposit tree
 
-    merkle_tree_index*: uint64
+    index*: uint64 ##\
+    ## Index in the deposit tree
 
-    ## Deposit data
-    deposit_data*: DepositData
+    deposit_data*: DepositData ##\
+    ## Data
 
   DepositData* = object
-    deposit_input*: DepositInput
     amount*: uint64 ## Value in Gwei
+    deposit_input*: DepositInput
     timestamp*: uint64 # Timestamp from deposit contract
 
   DepositInput* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
     randao_commitment*: Eth2Digest # Initial RANDAO commitment
-    poc_commitment*: Eth2Digest
+    custody_commitment*: Eth2Digest
     proof_of_possession*: ValidatorSig ##\
     ## BLS proof of possession (a BLS signature)
 
@@ -261,14 +277,14 @@ type
     casper_slashings*: seq[CasperSlashing]
     attestations*: seq[Attestation]
     poc_seed_changes*: seq[ProofOfCustodySeedChange]
-    poc_challenges*: seq[ProofOfCustodyChallenge]
+    poc_challenges*: seq[CustodyChallenge]
     poc_responses*: seq[ProofOfCustodyResponse]
     deposits*: seq[Deposit]
     exits*: seq[Exit]
 
   # Phase1:
   ProofOfCustodySeedChange* = object
-  ProofOfCustodyChallenge* = object
+  CustodyChallenge* = object
   ProofOfCustodyResponse* = object
 
   ProposalSignedData* = object
@@ -302,10 +318,17 @@ type
     ## Committee members and their assigned shard, per slot, covers 2 cycles
     ## worth of assignments
 
+    previous_epoch_start_shard*: uint64
+    current_epoch_start_shard*: uint64
+    previous_epoch_calculation_slot*: uint64
+    current_epoch_calculation_slot*: uint64
+    previous_epoch_randao_mix*: Eth2Digest
+    current_epoch_randao_mix*: Eth2Digest
+
     persistent_committees*: seq[seq[Uint24]]
     persistent_committee_reassignments*: seq[ShardReassignmentRecord]
 
-    poc_challenges*: seq[ProofOfCustodyChallenge]
+    poc_challenges*: seq[CustodyChallenge]
 
     # Finality
     previous_justified_slot*: uint64
@@ -313,6 +336,7 @@ type
     justification_bitfield*: uint64
     finalized_slot*: uint64
 
+    # Recent state
     latest_crosslinks*: array[SHARD_COUNT, CrosslinkRecord]
     latest_block_roots*: array[LATEST_BLOCK_ROOTS_LENGTH.int, Eth2Digest] ##\
     ## Needed to process attestations, older to newer
@@ -323,7 +347,7 @@ type
     latest_attestations*: seq[PendingAttestationRecord]
     batched_block_roots*: seq[Eth2Digest]
 
-    processed_pow_receipt_root*: Eth2Digest
+    latest_deposit_root*: Eth2Digest
     deposit_roots*: seq[DepositRootVote]
 
   ValidatorRecord* = object
@@ -345,10 +369,22 @@ type
     latest_status_change_slot*: uint64 ##\
     ## Slot when validator last changed status (or 0)
 
+    activation_slot*: uint64 ##\
+    ## Slot when validator activated
+
+    exit_slot*: uint64 ##\
+    ## Slot when validator exited
+
+    withdrawal_slot*: uint64 ##\
+    ## Slot when validator withdrew
+
+    penalized_slot*: uint64 ##\
+    ## Slot when validator penalized
+
     exit_count*: uint64 ##\
     ## Exit counter when validator exited (or 0)
 
-    poc_commitment*: Eth2Digest
+    custody_commitment*: Eth2Digest
 
     last_poc_change_slot*: uint64
     second_last_poc_change_slot*: uint64
