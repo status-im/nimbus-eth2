@@ -450,7 +450,7 @@ type
     flag*: ValidatorSetDeltaFlags
 
   ValidatorStatusCodes* {.pure.} = enum
-    PENDING_ACTIVATION = 0
+    UNUSED = 0
     ACTIVE = 1
     ACTIVE_PENDING_EXIT = 2
     EXITED_WITHOUT_PENALTY = 3

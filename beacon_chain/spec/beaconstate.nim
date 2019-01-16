@@ -64,11 +64,11 @@ func process_deposit(state: var BeaconState,
   if pubkey notin validator_pubkeys:
     # Add new validator
     let validator = ValidatorRecord(
+      status: UNUSED,
       pubkey: pubkey,
       withdrawal_credentials: withdrawal_credentials,
       randao_commitment: randao_commitment,
       randao_layers: 0,
-      status: PENDING_ACTIVATION,
       activation_slot: FAR_FUTURE_SLOT,
       exit_slot: FAR_FUTURE_SLOT,
       withdrawal_slot: FAR_FUTURE_SLOT,
@@ -333,7 +333,7 @@ func update_validator_registry*(state: var BeaconState) =
   # Activate validators within the allowable balance churn
   var balance_churn = 0'u64
   for index, validator in state.validator_registry:
-    if validator.status == PENDING_ACTIVATION and
+    if validator.activation_slot > state.slot + ENTRY_EXIT_DELAY and
       state.validator_balances[index] >= MAX_DEPOSIT * GWEI_PER_ETH:
       # Check the balance churn would be within the allowance
       balance_churn += get_effective_balance(state, index.Uint24)
