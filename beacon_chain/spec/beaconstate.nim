@@ -178,6 +178,44 @@ func exit_validator*(state: var BeaconState,
         committee.delete(i)
         break
 
+func process_penalties_and_exits_eligible(state: BeaconState, index: int): bool =
+  let validator = state.validator_registry[index]
+  if validator.penalized_slot <= state.slot:
+    # strangely uppercase variable-ish name
+    let PENALIZED_WITHDRAWAL_TIME = (LATEST_PENALIZED_EXIT_LENGTH * EPOCH_LENGTH div 2).uint64
+    return state.slot >= validator.penalized_slot + PENALIZED_WITHDRAWAL_TIME
+  else:
+    return state.slot >= validator.exit_slot + MIN_VALIDATOR_WITHDRAWAL_TIME
+
+func process_penalties_and_exits(state: var BeaconState) =
+  # The active validators
+  let active_validator_indices = get_active_validator_indices(state.validator_registry, state.slot)
+  # The total effective balance of active validators
+  var total_balance : uint64 = 0
+  for i in active_validator_indices:
+    total_balance += get_effective_balance(state, i)
+
+  for index, validator in state.validator_registry:
+    if (state.slot div EPOCH_LENGTH) == (validator.penalized_slot div EPOCH_LENGTH) + LATEST_PENALIZED_EXIT_LENGTH div 2:
+      let
+        e = ((state.slot div EPOCH_LENGTH) mod LATEST_PENALIZED_EXIT_LENGTH).int
+        total_at_start = state.latest_penalized_exit_balances[(e + 1) mod LATEST_PENALIZED_EXIT_LENGTH]
+        total_at_end = state.latest_penalized_exit_balances[e]
+        total_penalties = total_at_end - total_at_start
+        penalty = get_effective_balance(state, index.Uint24) * min(total_penalties * 3, total_balance) div total_balance
+      state.validator_balances[index] -= penalty
+
+  ## 'state' is of type <var BeaconState> which cannot be captured as it
+  ## would violate memory safety, when using nested function approach in
+  ## spec directly. That said, the spec approach evidently is not meant,
+  ## based on its abundant and pointless memory copies, for production.
+  var eligible_indices : seq[Uint24] = @[]
+  for i in 0 ..< len(state.validator_registry):
+    eligible_indices.add i.Uint24
+
+  ## TODO figure out that memory safety issue, which would come up again when
+  ## sorting, and then actually do withdrawals
+
 func get_initial_beacon_state*(
     initial_validator_deposits: openArray[Deposit],
     genesis_time: uint64,
