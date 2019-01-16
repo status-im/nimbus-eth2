@@ -100,16 +100,16 @@ func processRandao(
 
   return true
 
-func processPoWReceiptRoot(state: var BeaconState, blck: BeaconBlock) =
+func processDepositRoot(state: var BeaconState, blck: BeaconBlock) =
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#pow-receipt-root
 
-  for x in state.candidate_pow_receipt_roots.mitems():
-    if blck.candidate_pow_receipt_root == x.candidate_pow_receipt_root:
+  for x in state.deposit_roots.mitems():
+    if blck.deposit_root == x.deposit_root:
       x.vote_count += 1
       return
 
-  state.candidate_pow_receipt_roots.add CandidatePoWReceiptRootRecord(
-    candidate_pow_receipt_root: blck.candidate_pow_receipt_root,
+  state.deposit_roots.add DepositRootVote(
+    deposit_root: blck.deposit_root,
     vote_count: 1
   )
 
@@ -362,7 +362,7 @@ proc processBlock(
     warn("Randao reveal failed")
     return false
 
-  processPoWReceiptRoot(state, blck)
+  processDepositRoot(state, blck)
 
   if not processProposerSlashings(state, blck, flags):
     return false
@@ -565,11 +565,11 @@ func processEpoch(state: var BeaconState) =
 
   block: # Receipt roots
     if state.slot mod POW_RECEIPT_ROOT_VOTING_PERIOD == 0:
-      for x in state.candidate_pow_receipt_roots:
+      for x in state.deposit_roots:
         if x.vote_count * 2 >= POW_RECEIPT_ROOT_VOTING_PERIOD:
-          state.processed_pow_receipt_root = x.candidate_pow_receipt_root
+          state.processed_pow_receipt_root = x.deposit_root
           break
-      state.candidate_pow_receipt_roots = @[]
+      state.deposit_roots = @[]
 
   block: # Justification
     state.previous_justified_slot = state.justified_slot
@@ -700,7 +700,7 @@ func processEpoch(state: var BeaconState) =
 
       let next_start_shard =
         (state.shard_committees_at_slots[^1][^1].shard + 1) mod SHARD_COUNT
-      for i, v in get_new_shuffling(
+      for i, v in get_shuffling(
           state.latest_randao_mixes[
             (state.slot - EPOCH_LENGTH) mod LATEST_RANDAO_MIXES_LENGTH],
           state.validator_registry, next_start_shard):
@@ -719,7 +719,7 @@ func processEpoch(state: var BeaconState) =
         start_shard = state.shard_committees_at_slots[0][0].shard
 
       if is_power_of_2(epochs_since_last_registry_change):
-        for i, v in get_new_shuffling(
+        for i, v in get_shuffling(
             state.latest_randao_mixes[
               (state.slot - EPOCH_LENGTH) mod LATEST_RANDAO_MIXES_LENGTH],
             state.validator_registry, start_shard):

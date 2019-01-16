@@ -31,10 +31,10 @@ func get_active_validator_indices*(validators: openArray[ValidatorRecord]): seq[
     if is_active_validator(val):
       result.add idx.Uint24
 
-func get_new_shuffling*(seed: Eth2Digest,
-                        validators: openArray[ValidatorRecord],
-                        crosslinking_start_shard: uint64
-                        ): array[EPOCH_LENGTH, seq[ShardCommittee]] =
+func get_shuffling*(seed: Eth2Digest,
+                    validators: openArray[ValidatorRecord],
+                    crosslinking_start_shard: uint64
+                    ): array[EPOCH_LENGTH, seq[ShardCommittee]] =
   ## Split up validators into groups at the start of every epoch,
   ## determining at what height they can make attestations and what shard they are making crosslinks for
   ## Implementation should do the following: http://vitalik.ca/files/ShuffleAndAssign.png

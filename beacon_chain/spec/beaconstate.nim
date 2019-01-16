@@ -207,22 +207,22 @@ func get_initial_beacon_state*(
 
   var state = BeaconState(
     # Misc
-    slot: INITIAL_SLOT_NUMBER,
+    slot: GENESIS_SLOT,
     genesis_time: genesis_time,
     fork_data: ForkData(
-        pre_fork_version: INITIAL_FORK_VERSION,
-        post_fork_version: INITIAL_FORK_VERSION,
-        fork_slot: INITIAL_SLOT_NUMBER,
+        pre_fork_version: GENESIS_FORK_VERSION,
+        post_fork_version: GENESIS_FORK_VERSION,
+        fork_slot: GENESIS_SLOT,
     ),
 
-    validator_registry_latest_change_slot: INITIAL_SLOT_NUMBER,
+    validator_registry_latest_change_slot: GENESIS_SLOT,
     validator_registry_exit_count: 0,
     validator_registry_delta_chain_tip: ZERO_HASH,
 
     # Finality
-    previous_justified_slot: INITIAL_SLOT_NUMBER,
-    justified_slot: INITIAL_SLOT_NUMBER,
-    finalized_slot: INITIAL_SLOT_NUMBER,
+    previous_justified_slot: GENESIS_SLOT,
+    justified_slot: GENESIS_SLOT,
+    finalized_slot: GENESIS_SLOT,
 
      # PoW receipt root
     processed_pow_receipt_root: processed_pow_receipt_root,
@@ -233,7 +233,7 @@ func get_initial_beacon_state*(
     let validator_index = process_deposit(
       state,
       deposit.deposit_data.deposit_input.pubkey,
-      deposit.deposit_data.value,
+      deposit.deposit_data.amount,
       deposit.deposit_data.deposit_input.proof_of_possession,
       deposit.deposit_data.deposit_input.withdrawal_credentials,
       deposit.deposit_data.deposit_input.randao_commitment,
@@ -245,7 +245,7 @@ func get_initial_beacon_state*(
   # set initial committee shuffling
   let
     initial_shuffling =
-      get_new_shuffling(Eth2Digest(), state.validator_registry, 0)
+      get_shuffling(Eth2Digest(), state.validator_registry, 0)
 
   # initial_shuffling + initial_shuffling in spec, but more ugly
   for i, n in initial_shuffling:

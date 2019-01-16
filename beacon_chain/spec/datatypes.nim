@@ -89,8 +89,8 @@ const
 
   # Initial values
 
-  INITIAL_FORK_VERSION* = 0'u64
-  INITIAL_SLOT_NUMBER* = 0'u64
+  GENESIS_FORK_VERSION* = 0'u64
+  GENESIS_SLOT* = 0'u64
   ZERO_HASH* = Eth2Digest()
 
   # Time constants
@@ -213,7 +213,7 @@ type
 
   DepositData* = object
     deposit_input*: DepositInput
-    value*: uint64 ## Value in Gwei
+    amount*: uint64 ## Value in Gwei
     timestamp*: uint64 # Timestamp from deposit contract
 
   DepositInput* = object
@@ -249,7 +249,7 @@ type
     randao_reveal*: Eth2Digest ##\
     ## Proposer RANDAO reveal
 
-    candidate_pow_receipt_root*: Eth2Digest
+    deposit_root*: Eth2Digest
 
     signature*: ValidatorSig ##\
     ## Proposer signature
@@ -324,7 +324,7 @@ type
     batched_block_roots*: seq[Eth2Digest]
 
     processed_pow_receipt_root*: Eth2Digest
-    candidate_pow_receipt_roots*: seq[CandidatePoWReceiptRootRecord]
+    deposit_roots*: seq[DepositRootVote]
 
   ValidatorRecord* = object
     pubkey*: ValidatorPubKey
@@ -377,8 +377,8 @@ type
     slot*: uint64 ##\
     ## When
 
-  CandidatePoWReceiptRootRecord* = object
-    candidate_pow_receipt_root*: Eth2Digest       # Candidate PoW receipt root
+  DepositRootVote* = object
+    deposit_root*: Eth2Digest       # Candidate PoW receipt root
     vote_count*: uint64                           # Vote count
 
   PendingAttestationRecord* = object

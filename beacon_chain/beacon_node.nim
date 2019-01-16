@@ -197,7 +197,7 @@ proc proposeBlock(node: BeaconNode,
     slot: slot,
     parent_root: node.headBlockRoot,
     randao_reveal: randaoReveal,
-    candidate_pow_receipt_root: node.mainchainMonitor.getBeaconBlockRef(),
+    deposit_root: node.mainchainMonitor.getBeaconBlockRef(),
     signature: ValidatorSig(), # we need the rest of the block first!
     body: blockBody)
 
