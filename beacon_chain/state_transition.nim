@@ -101,7 +101,7 @@ func processRandao(
   return true
 
 func processDepositRoot(state: var BeaconState, blck: BeaconBlock) =
-  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#pow-receipt-root
+  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#deposit-root
 
   for x in state.deposit_roots.mitems():
     if blck.deposit_root == x.deposit_root:
@@ -263,6 +263,10 @@ proc processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#deposits-1
   # TODO! Spec writing in progress
   true
+
+func initiate_validator_exit(state: var BeaconState, index: int) =
+  var validator = state.validator_registry[index]
+  validator.status_flags = validator.status_flags or INITIATED_EXIT
 
 proc processExits(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =

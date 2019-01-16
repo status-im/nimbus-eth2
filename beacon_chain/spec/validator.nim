@@ -68,6 +68,7 @@ func get_new_validator_registry_delta_chain_tip*(
     current_validator_registry_delta_chain_tip: Eth2Digest,
     index: Uint24,
     pubkey: ValidatorPubKey,
+    slot: uint64,
     flag: ValidatorSetDeltaFlags): Eth2Digest =
   ## Compute the next hash in the validator registry delta hash chain.
 
@@ -75,5 +76,6 @@ func get_new_validator_registry_delta_chain_tip*(
     latest_registry_delta_root: current_validator_registry_delta_chain_tip,
     validator_index: index,
     pubkey: pubkey,
+    slot: slot,
     flag: flag
   ))

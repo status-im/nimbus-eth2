@@ -51,14 +51,13 @@ func process_deposit(state: var BeaconState,
                      proof_of_possession: ValidatorSig,
                      withdrawal_credentials: Eth2Digest,
                      randao_commitment: Eth2Digest,
-                     flags: UpdateFlags): Uint24 =
+                     custody_commitment: Eth2Digest): Uint24 =
   ## Process a deposit from Ethereum 1.0.
 
-  if skipValidation notin flags:
-    # TODO return error
-    doAssert validate_proof_of_possession(
-      state, pubkey, proof_of_possession, withdrawal_credentials,
-      randao_commitment)
+  # TODO return error
+  doAssert validate_proof_of_possession(
+    state, pubkey, proof_of_possession, withdrawal_credentials,
+    randao_commitment)
 
   let validator_pubkeys = state.validator_registry.mapIt(it.pubkey)
 
@@ -71,7 +70,15 @@ func process_deposit(state: var BeaconState,
       randao_layers: 0,
       status: PENDING_ACTIVATION,
       latest_status_change_slot: state.slot,
-      exit_count: 0
+      activation_slot: FAR_FUTURE_SLOT,
+      exit_slot: FAR_FUTURE_SLOT,
+      withdrawal_slot: FAR_FUTURE_SLOT,
+      penalized_slot: FAR_FUTURE_SLOT,
+      exit_count: 0,
+      status_flags: 0,
+      custody_commitment: custody_commitment,
+      latest_custody_reseed_slot: GENESIS_SLOT,
+      penultimate_custody_reseed_slot: GENESIS_SLOT
     )
 
     let index = min_empty_validator_index(
@@ -109,6 +116,7 @@ func activate_validator(state: var BeaconState,
       state.validator_registry_delta_chain_tip,
       index,
       validator.pubkey,
+      validator.activation_slot,
       ACTIVATION,
     )
 
@@ -162,6 +170,7 @@ func exit_validator(state: var BeaconState,
       state.validator_registry_delta_chain_tip,
       index,
       validator.pubkey,
+      validator.exit_slot,
       ValidatorSetDeltaFlags.EXIT
     )
 
@@ -219,16 +228,25 @@ func get_initial_beacon_state*(
     validator_registry_exit_count: 0,
     validator_registry_delta_chain_tip: ZERO_HASH,
 
+    # Randomness and committees
+    previous_epoch_start_shard: GENESIS_START_SHARD,
+    current_epoch_start_shard: GENESIS_START_SHARD,
+    previous_epoch_calculation_slot: GENESIS_SLOT,
+    current_epoch_calculation_slot: GENESIS_SLOT,
+    previous_epoch_randao_mix: ZERO_HASH,
+    current_epoch_randao_mix: ZERO_HASH,
+
     # Finality
     previous_justified_slot: GENESIS_SLOT,
     justified_slot: GENESIS_SLOT,
+    justification_bitfield: 0,
     finalized_slot: GENESIS_SLOT,
 
-     # PoW receipt root
+    # Deposit root
     latest_deposit_root: latest_deposit_root,
   )
 
-  # handle initial deposits and activations
+  # Process initial deposits
   for deposit in initial_validator_deposits:
     let validator_index = process_deposit(
       state,
@@ -237,7 +255,7 @@ func get_initial_beacon_state*(
       deposit.deposit_data.deposit_input.proof_of_possession,
       deposit.deposit_data.deposit_input.withdrawal_credentials,
       deposit.deposit_data.deposit_input.randao_commitment,
-      flags
+      deposit.deposit_data.deposit_input.custody_commitment,
     )
     if state.validator_balances[validator_index] >= MAX_DEPOSIT:
       update_validator_status(state, validator_index, ACTIVE)

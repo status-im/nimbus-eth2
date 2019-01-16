@@ -390,10 +390,15 @@ type
     exit_count*: uint64 ##\
     ## Exit counter when validator exited (or 0)
 
+    status_flags*: uint64
+
     custody_commitment*: Eth2Digest
 
-    last_poc_change_slot*: uint64
-    second_last_poc_change_slot*: uint64
+    latest_custody_reseed_slot*: uint64 ##\
+    ## Slot of latest custody reseed
+
+    penultimate_custody_reseed_slot*: uint64 ##\
+    ## Slot of second-latest custody reseed
 
   CrosslinkRecord* = object
     slot*: uint64
@@ -438,6 +443,7 @@ type
     latest_registry_delta_root*: Eth2Digest
     validator_index*: Uint24
     pubkey*: ValidatorPubKey
+    slot*: uint64
     flag*: ValidatorSetDeltaFlags
 
   ValidatorStatusCodes* {.pure.} = enum
