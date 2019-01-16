@@ -106,11 +106,8 @@ func activate_validator(state: var BeaconState,
   ## Activate the validator with the given ``index``.
   let validator = addr state.validator_registry[index]
 
-  if validator.status != PENDING_ACTIVATION:
-      return
-
   validator.status = ACTIVE
-  validator.latest_status_change_slot = state.slot
+  validator.activation_slot = if genesis: GENESIS_SLOT else: state.slot + ENTRY_EXIT_DELAY
   state.validator_registry_delta_chain_tip =
     get_new_validator_registry_delta_chain_tip(
       state.validator_registry_delta_chain_tip,
@@ -349,7 +346,8 @@ func update_validator_registry*(state: var BeaconState) =
   # Exit validators within the allowable balance churn
   balance_churn = 0
   for index, validator in state.validator_registry:
-    if validator.status == ACTIVE_PENDING_EXIT:
+    if (validator.exit_slot > state.slot + ENTRY_EXIT_DELAY) and
+      ((validator.status_flags and INITIATED_EXIT) == INITIATED_EXIT):
       # Check the balance churn would be within the allowance
       balance_churn += get_effective_balance(state, index.Uint24)
       if balance_churn > max_balance_churn:

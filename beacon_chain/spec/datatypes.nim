@@ -132,6 +132,9 @@ const
   COLLECTIVE_PENALTY_CALCULATION_PERIOD* = 2'u64^20 ##\
   ## slots (~73 days)
 
+  ENTRY_EXIT_DELAY* = 256 ##\
+  ## slots (~25.6 minutes)
+
   ZERO_BALANCE_VALIDATOR_TTL* = 2'u64^22 ##\
   ## slots (~291 days)
 
