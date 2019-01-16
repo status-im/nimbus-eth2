@@ -51,7 +51,7 @@ func process_deposit(state: var BeaconState,
                      proof_of_possession: ValidatorSig,
                      withdrawal_credentials: Eth2Digest,
                      randao_commitment: Eth2Digest,
-                     custody_commitment: Eth2Digest): Uint24 =
+                     custody_commitment: Eth2Digest) : Uint24 =
   ## Process a deposit from Ethereum 1.0.
 
   # TODO return error
@@ -69,7 +69,6 @@ func process_deposit(state: var BeaconState,
       randao_commitment: randao_commitment,
       randao_layers: 0,
       status: PENDING_ACTIVATION,
-      latest_status_change_slot: state.slot,
       activation_slot: FAR_FUTURE_SLOT,
       exit_slot: FAR_FUTURE_SLOT,
       withdrawal_slot: FAR_FUTURE_SLOT,
@@ -92,7 +91,7 @@ func process_deposit(state: var BeaconState,
       state.validator_balances[index.get()] = deposit
       index.get().Uint24
   else:
-    # Increase balance by deposit
+    # Increase balance by deposit amount
     let index = validator_pubkeys.find(pubkey)
     let validator = addr state.validator_registry[index]
     assert state.validator_registry[index].withdrawal_credentials ==
@@ -102,7 +101,8 @@ func process_deposit(state: var BeaconState,
     index.Uint24
 
 func activate_validator(state: var BeaconState,
-                        index: Uint24) =
+                        index: Uint24,
+                        genesis: bool) =
   ## Activate the validator with the given ``index``.
   let validator = addr state.validator_registry[index]
 
@@ -130,9 +130,9 @@ func initiate_validator_exit(state: var BeaconState,
   validator.status = ACTIVE_PENDING_EXIT
   validator.latest_status_change_slot = state.slot
 
-func exit_validator(state: var BeaconState,
-                    index: Uint24,
-                    new_status: ValidatorStatusCodes) =
+func exit_validator*(state: var BeaconState,
+                     index: Uint24,
+                     new_status: ValidatorStatusCodes) =
   ## Exit the validator with the given ``index``.
 
   let
@@ -180,18 +180,6 @@ func exit_validator(state: var BeaconState,
       if validator_index == index:
         committee.delete(i)
         break
-
-func update_validator_status*(state: var BeaconState,
-                              index: Uint24,
-                              new_status: ValidatorStatusCodes) =
-  ## Update the validator status with the given ``index`` to ``new_status``.
-  ## Handle other general accounting related to this status update.
-  if new_status == ACTIVE:
-    activate_validator(state, index)
-  if new_status == ACTIVE_PENDING_EXIT:
-    initiate_validator_exit(state, index)
-  if new_status in [EXITED_WITH_PENALTY, EXITED_WITHOUT_PENALTY]:
-    exit_validator(state, index, new_status)
 
 func get_initial_beacon_state*(
     initial_validator_deposits: openArray[Deposit],
@@ -257,8 +245,15 @@ func get_initial_beacon_state*(
       deposit.deposit_data.deposit_input.randao_commitment,
       deposit.deposit_data.deposit_input.custody_commitment,
     )
+
     if state.validator_balances[validator_index] >= MAX_DEPOSIT:
-      update_validator_status(state, validator_index, ACTIVE)
+      activate_validator(state, validator_index, true)
+
+  # Process initial activations
+  #for validator_index in 0 ..< state.validator_registry.len:
+  #  let vi = validator_index.Uint24
+  #  if get_effective_balance(state, vi) > MAX_DEPOSIT * GWEI_PER_ETH:
+  #    activate_validator(state, vi, true)
 
   # set initial committee shuffling
   let
@@ -349,7 +344,7 @@ func update_validator_registry*(state: var BeaconState) =
         break
 
       # Activate validator
-      update_validator_status(state, index.Uint24, ACTIVE)
+      activate_validator(state, index.Uint24, false)
 
   # Exit validators within the allowable balance churn
   balance_churn = 0
@@ -361,7 +356,7 @@ func update_validator_registry*(state: var BeaconState) =
         break
 
       # Exit validator
-      update_validator_status(state, index.Uint24, EXITED_WITHOUT_PENALTY)
+      exit_validator(state, index.Uint24, EXITED_WITHOUT_PENALTY)
 
   # Calculate the total ETH that has been penalized in the last ~2-3 withdrawal periods
   let

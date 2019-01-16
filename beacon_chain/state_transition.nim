@@ -163,7 +163,7 @@ proc processProposerSlashings(
       warn("PropSlash: wrong status")
       return false
 
-    update_validator_status(
+    exit_validator(
       state, proposer_slashing.proposer_index, EXITED_WITH_PENALTY)
 
   return true
@@ -226,7 +226,7 @@ proc processCasperSlashings(state: var BeaconState, blck: BeaconBlock): bool =
 
     for i in intersection:
       if state.validator_registry[i].status != EXITED_WITH_PENALTY:
-        update_validator_status(state, i, EXITED_WITH_PENALTY)
+        exit_validator(state, i, EXITED_WITH_PENALTY)
 
   return true
 
@@ -298,7 +298,7 @@ proc processExits(
           SHARD_PERSISTENT_COMMITTEE_CHANGE_PERIOD):
       warn("Exit: not within committee change period")
 
-    update_validator_status(state, exit.validator_index, ACTIVE_PENDING_EXIT)
+    exit_validator(state, exit.validator_index, ACTIVE_PENDING_EXIT)
 
   return true
 
@@ -311,7 +311,7 @@ proc process_ejections(state: var BeaconState) =
   for index, validator in state.validator_registry:
     if is_active_validator(validator) and
         state.validator_balances[index] < EJECTION_BALANCE:
-      update_validator_status(state, index.Uint24, EXITED_WITHOUT_PENALTY)
+      exit_validator(state, index.Uint24, EXITED_WITHOUT_PENALTY)
 
 func processSlot(state: var BeaconState, previous_block_root: Eth2Digest) =
   ## Time on the beacon chain moves in slots. Every time we make it to a new
