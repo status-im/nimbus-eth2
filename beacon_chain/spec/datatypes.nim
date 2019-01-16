@@ -135,6 +135,12 @@ const
   ZERO_BALANCE_VALIDATOR_TTL* = 2'u64^22 ##\
   ## slots (~291 days)
 
+  DEPOSIT_ROOT_VOTING_PERIOD* = 2'u64^10 ##\
+  ## slots (~1.7 hours)
+
+  MIN_VALIDATOR_WITHDRAWAL_TIME* = 2'u64^14 ##\
+  ## slots (~27 hours)
+
   # Quotients
   BASE_REWARD_QUOTIENT* = 2'u64^10 ##\
   ## The `BASE_REWARD_QUOTIENT` parameter dictates the per-epoch reward. It
@@ -414,7 +420,7 @@ type
     ## When
 
   DepositRootVote* = object
-    deposit_root*: Eth2Digest       # Candidate PoW receipt root
+    deposit_root*: Eth2Digest
     vote_count*: uint64                           # Vote count
 
   PendingAttestationRecord* = object

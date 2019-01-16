@@ -180,3 +180,29 @@ proc is_surround_vote*(attestation_data_1: AttestationData,
     (attestation_data_1.justified_slot + 1 == attestation_data_2.slot) and
     (attestation_data_2.slot < attestation_data_1.slot)
   )
+
+#func is_active_validator*(validator: ValidatorRecord, slot: uint64): bool =
+#  ### Checks if validator is active
+#  validator.activation_slot <= slot and slot < validator.exit_slot
+
+func is_active_validator*(validator: ValidatorRecord): bool =
+  validator.status in {ACTIVE, ACTIVE_PENDING_EXIT}
+
+func get_active_validator_indices*(validators: openArray[ValidatorRecord], slot: uint64): seq[Uint24] =
+  ## Gets indices of active validators from validators
+  for idx, val in validators:
+    #if is_active_validator(val, slot):
+    if is_active_validator(val):
+      result.add idx.Uint24
+
+func get_committee_count_per_slot*(active_validator_count: int): uint64 =
+  clamp(
+    active_validator_count div EPOCH_LENGTH div TARGET_COMMITTEE_SIZE,
+    1, SHARD_COUNT div EPOCH_LENGTH).uint64
+
+func get_current_epoch_committee_count_per_slot*(state: BeaconState): uint64 =
+  let current_active_validators = get_active_validator_indices(
+    state.validator_registry,
+    state.current_epoch_calculation_slot,
+  )
+  return get_committee_count_per_slot(len(current_active_validators))

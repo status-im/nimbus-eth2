@@ -267,6 +267,13 @@ func get_block_root*(state: BeaconState,
   doAssert slot < state.slot
   state.latest_block_roots[slot mod LATEST_BLOCK_ROOTS_LENGTH]
 
+func get_randao_mix*(state: BeaconState,
+                    slot: uint64): Eth2Digest =
+    ## Returns the randao mix at a recent ``slot``.
+    assert state.slot < slot + LATEST_RANDAO_MIXES_LENGTH
+    assert slot <= state.slot
+    state.latest_randao_mixes[slot mod LATEST_RANDAO_MIXES_LENGTH]
+
 func get_attestation_participants*(state: BeaconState,
                                    attestation_data: AttestationData,
                                    participation_bitfield: seq[byte]): seq[Uint24] =
@@ -355,6 +362,18 @@ func update_validator_registry*(state: var BeaconState) =
       state.validator_balances[index] -=
         get_effective_balance(state, index.Uint24) *
           min(total_penalties * 3, total_balance) div total_balance
+
+  # Perform additional updates
+  state.previous_epoch_calculation_slot = state.current_epoch_calculation_slot
+  state.previous_epoch_start_shard = state.current_epoch_start_shard
+  state.previous_epoch_randao_mix = state.current_epoch_randao_mix
+  state.current_epoch_calculation_slot = state.slot
+  state.current_epoch_start_shard = (state.current_epoch_start_shard + get_current_epoch_committee_count_per_slot(state) * EPOCH_LENGTH) mod SHARD_COUNT
+  state.current_epoch_randao_mix = get_randao_mix(state, state.current_epoch_calculation_slot - SEED_LOOKAHEAD)
+
+  # TODO "If a validator registry update does not happen do the following: ..."
+
+  #process_penalties_and_exits(state)
 
 proc checkAttestation*(
     state: BeaconState, attestation: Attestation, flags: UpdateFlags): bool =

@@ -12,9 +12,6 @@ import
   ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers
 
-func is_active_validator*(validator: ValidatorRecord): bool =
-  validator.status in {ACTIVE, ACTIVE_PENDING_EXIT}
-
 func min_empty_validator_index*(
     validators: seq[ValidatorRecord],
     validator_balances: seq[uint64],
