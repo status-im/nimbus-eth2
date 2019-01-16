@@ -394,24 +394,6 @@ func update_validator_registry*(state: var BeaconState) =
       # Exit validator
       exit_validator(state, index.Uint24, EXITED_WITHOUT_PENALTY)
 
-  # Calculate the total ETH that has been penalized in the last ~2-3 withdrawal periods
-  let
-    period_index = (state.slot div COLLECTIVE_PENALTY_CALCULATION_PERIOD).int
-    total_penalties = (
-      (state.latest_penalized_exit_balances[period_index]) +
-      (if period_index >= 1:
-        state.latest_penalized_exit_balances[period_index - 1] else: 0) +
-      (if period_index >= 2:
-        state.latest_penalized_exit_balances[period_index - 2] else: 0)
-    )
-
-  # Calculate penalties for slashed validators
-  for index, validator in state.validator_registry:
-    if validator.status == EXITED_WITH_PENALTY:
-      state.validator_balances[index] -=
-        get_effective_balance(state, index.Uint24) *
-          min(total_penalties * 3, total_balance) div total_balance
-
   # Perform additional updates
   state.previous_epoch_calculation_slot = state.current_epoch_calculation_slot
   state.previous_epoch_start_shard = state.current_epoch_start_shard
@@ -422,7 +404,7 @@ func update_validator_registry*(state: var BeaconState) =
 
   # TODO "If a validator registry update does not happen do the following: ..."
 
-  #process_penalties_and_exits(state)
+  process_penalties_and_exits(state)
 
 proc checkAttestation*(
     state: BeaconState, attestation: Attestation, flags: UpdateFlags): bool =
