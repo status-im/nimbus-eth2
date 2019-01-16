@@ -67,7 +67,7 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
         withdrawal_credentials: withdrawal_credentials,
         randao_commitment: randao_commitment
       ),
-      value: MAX_DEPOSIT * GWEI_PER_ETH,
+      amount: MAX_DEPOSIT * GWEI_PER_ETH,
     )
   )
 
@@ -78,7 +78,7 @@ func makeInitialDeposits*(
 
 func makeGenesisBlock*(state: BeaconState): BeaconBlock =
   BeaconBlock(
-    slot: INITIAL_SLOT_NUMBER,
+    slot: GENESIS_SLOT,
     state_root: Eth2Digest(data: hash_tree_root(state))
   )
 
@@ -115,7 +115,7 @@ proc addBlock*(
       parent_root: previous_block_root,
       state_root: Eth2Digest(), # we need the new state first
       randao_reveal: hackReveal(proposer),
-      candidate_pow_receipt_root: Eth2Digest(), # TODO
+      deposit_root: Eth2Digest(), # TODO
       signature: ValidatorSig(), # we need the rest of the block first!
       body: body
     )
