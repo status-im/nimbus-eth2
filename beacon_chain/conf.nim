@@ -1,6 +1,7 @@
 import
   os, options,
-  confutils/defs, milagro_crypto, json_serialization,
+  confutils/defs, chronicles/options as chroniclesOptions,
+  milagro_crypto, json_serialization,
   spec/[crypto, datatypes], randao, time
 
 export
@@ -22,6 +23,11 @@ type
     randao*: Randao
 
   BeaconNodeConf* = object
+    logLevel* {.
+      desc: "Sets the log level",
+      defaultValue: enabledLogLevel
+    .}: LogLevel
+
     case cmd* {.
       command
       defaultValue: noCommand.}: StartUpCommand

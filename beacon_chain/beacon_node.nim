@@ -89,6 +89,10 @@ proc sync*(node: BeaconNode): Future[bool] {.async.} =
     node.beaconState = persistedState[]
     var targetSlot = toSlot timeSinceGenesis(node.beaconState)
 
+    let t = now()
+    if t < node.beaconState.genesisTime * 1000:
+      await sleepAsync int(node.beaconState.genesisTime * 1000 - t)
+
     while node.beaconState.finalized_slot < targetSlot:
       var (peer, changeLog) = await node.network.getValidatorChangeLog(
         node.beaconState.validator_registry_delta_chain_tip)
@@ -143,6 +147,9 @@ proc makeAttestation(node: BeaconNode,
                      indexInCommittee: int) {.async.} =
   doAssert node != nil
   doAssert validator != nil
+
+  if node.beaconState.slot == node.beaconState.justified_slot:
+    return
 
   let justifiedBlockRoot = get_block_root(node.beaconState, node.beaconState.justified_slot)
 
@@ -229,7 +236,7 @@ proc scheduleBlockProposal(node: BeaconNode,
   # internal `doAssert` starting to fail.
   doAssert validator != nil
 
-  addTimer(node.beaconState.slotStart(slot)) do (p: pointer):
+  addTimer(node.beaconState.slotStart(slot)) do (x: pointer) {.gcsafe.}:
     doAssert validator != nil
     asyncCheck proposeBlock(node, validator, slot.uint64)
 
@@ -245,7 +252,7 @@ proc scheduleAttestation(node: BeaconNode,
   # internal `doAssert` starting to fail.
   doAssert validator != nil
 
-  addTimer(node.beaconState.slotMiddle(slot)) do (p: pointer):
+  addTimer(node.beaconState.slotMiddle(slot)) do (p: pointer) {.gcsafe.}:
     doAssert validator != nil
     asyncCheck makeAttestation(node, validator, slot.uint64,
                                shard, committeeLen, indexInCommittee)
@@ -341,6 +348,8 @@ proc createPidFile(filename: string) =
 
 when isMainModule:
   let config = load BeaconNodeConf
+  setLogLevel(config.logLevel)
+
   case config.cmd
   of createChain:
     createStateSnapshot(config.chainStartupData, config.outputStateFile.string)

@@ -2,6 +2,10 @@
 
 set -eu
 
+# Set a default value for the env vars usually supplied by nimbus Makefile
+: ${SKIP_BUILDS:=""}
+: ${BUILD_OUTPUTS_DIR:="./build"}
+
 NUMBER_OF_VALIDATORS=99
 
 cd $(dirname "$0")
@@ -14,10 +18,12 @@ SNAPSHOT_FILE="$SIMULATION_DIR/state_snapshot.json"
 cd $(git rev-parse --show-toplevel)
 ROOT_DIR=$PWD
 
+mkdir -p $BUILD_OUTPUTS_DIR
+
 BEACON_NODE_BIN=$BUILD_OUTPUTS_DIR/beacon_node
 VALIDATOR_KEYGEN_BIN=$BUILD_OUTPUTS_DIR/validator_keygen
 
-if [[ ! -z "$SKIP_BUILDS" ]]; then
+if [[ -z "$SKIP_BUILDS" ]]; then
   nim c -o:"$VALIDATOR_KEYGEN_BIN" beacon_chain/validator_keygen
   nim c -o:"$BEACON_NODE_BIN" beacon_chain/beacon_node
 fi
