@@ -101,7 +101,7 @@ func processRandao(
   return true
 
 func processDepositRoot(state: var BeaconState, blck: BeaconBlock) =
-  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#pow-receipt-root
+  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#deposit-root
 
   for x in state.deposit_roots.mitems():
     if blck.deposit_root == x.deposit_root:
@@ -112,6 +112,18 @@ func processDepositRoot(state: var BeaconState, blck: BeaconBlock) =
     deposit_root: blck.deposit_root,
     vote_count: 1
   )
+
+func penalizeValidator(state: var BeaconState, index: Uint24) =
+  exit_validator(state, index, EXITED_WITH_PENALTY)
+  var validator = state.validator_registry[index]
+  #state.latest_penalized_exit_balances[(state.slot div EPOCH_LENGTH) mod LATEST_PENALIZED_EXIT_LENGTH] += get_effective_balance(state, index.Uint24)
+
+  let
+    whistleblower_index = get_beacon_proposer_index(state, state.slot)
+    whistleblower_reward = get_effective_balance(state, index) div WHISTLEBLOWER_REWARD_QUOTIENT
+  state.validator_balances[whistleblower_index] += whistleblower_reward
+  state.validator_balances[index] -= whistleblower_reward
+  validator.penalized_slot = state.slot
 
 proc processProposerSlashings(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
@@ -159,12 +171,11 @@ proc processProposerSlashings(
       warn("PropSlash: block root mismatch")
       return false
 
-    if not (proposer.status != EXITED_WITH_PENALTY):
-      warn("PropSlash: wrong status")
+    if not (proposer.penalized_slot > state.slot):
+      warn("PropSlash: penalized slot")
       return false
 
-    update_validator_status(
-      state, proposer_slashing.proposer_index, EXITED_WITH_PENALTY)
+    penalizeValidator(state, proposer_slashing.proposer_index)
 
   return true
 
@@ -226,7 +237,7 @@ proc processCasperSlashings(state: var BeaconState, blck: BeaconBlock): bool =
 
     for i in intersection:
       if state.validator_registry[i].status != EXITED_WITH_PENALTY:
-        update_validator_status(state, i, EXITED_WITH_PENALTY)
+        exit_validator(state, i, EXITED_WITH_PENALTY)
 
   return true
 
@@ -264,6 +275,10 @@ proc processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
   # TODO! Spec writing in progress
   true
 
+func initiate_validator_exit(state: var BeaconState, index: int) =
+  var validator = state.validator_registry[index]
+  validator.status_flags = validator.status_flags or INITIATED_EXIT
+
 proc processExits(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#exits-1
@@ -281,20 +296,16 @@ proc processExits(
         warn("Exit: invalid signature")
         return false
 
-    if not (validator.status == ACTIVE):
-      warn("Exit: validator not active")
+    if not (validator.exit_slot > state.slot + ENTRY_EXIT_DELAY):
+      warn("Exit: exit/entry too close")
       return false
 
     if not (state.slot >= exit.slot):
       warn("Exit: bad slot")
       return false
 
-    if not (state.slot >=
-        validator.latest_status_change_slot +
-          SHARD_PERSISTENT_COMMITTEE_CHANGE_PERIOD):
-      warn("Exit: not within committee change period")
-
-    update_validator_status(state, exit.validator_index, ACTIVE_PENDING_EXIT)
+    exit_validator(state, exit.validator_index, ACTIVE_PENDING_EXIT)
+    initiate_validator_exit(state, exit.validator_index)
 
   return true
 
@@ -307,7 +318,7 @@ proc process_ejections(state: var BeaconState) =
   for index, validator in state.validator_registry:
     if is_active_validator(validator) and
         state.validator_balances[index] < EJECTION_BALANCE:
-      update_validator_status(state, index.Uint24, EXITED_WITHOUT_PENALTY)
+      exit_validator(state, index.Uint24, EXITED_WITHOUT_PENALTY)
 
 func processSlot(state: var BeaconState, previous_block_root: Eth2Digest) =
   ## Time on the beacon chain moves in slots. Every time we make it to a new
@@ -563,7 +574,7 @@ func processEpoch(state: var BeaconState) =
   func total_balance_sac(shard_committee: ShardCommittee): uint64 =
     sum_effective_balances(statePtr[], shard_committee.committee)
 
-  block: # Receipt roots
+  block: # Deposit roots
     if state.slot mod POW_RECEIPT_ROOT_VOTING_PERIOD == 0:
       for x in state.deposit_roots:
         if x.vote_count * 2 >= POW_RECEIPT_ROOT_VOTING_PERIOD:

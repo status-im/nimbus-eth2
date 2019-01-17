@@ -78,7 +78,7 @@ const
   LATEST_BLOCK_ROOTS_LENGTH* = 2'u64^13
   LATEST_RANDAO_MIXES_LENGTH* = 2'u64^13
   LATEST_PENALIZED_EXIT_LENGTH* = 8192 # epochs
-  MAX_WITHDRAWALS_PER_EPOCHS* = 4 # withdrawals
+  MAX_WITHDRAWALS_PER_EPOCH* = 4 # withdrawals
 
   # Deposit contract
   DEPOSIT_CONTRACT_TREE_DEPTH* = 2^5
@@ -131,6 +131,9 @@ const
 
   COLLECTIVE_PENALTY_CALCULATION_PERIOD* = 2'u64^20 ##\
   ## slots (~73 days)
+
+  ENTRY_EXIT_DELAY* = 256 ##\
+  ## slots (~25.6 minutes)
 
   ZERO_BALANCE_VALIDATOR_TTL* = 2'u64^22 ##\
   ## slots (~291 days)
@@ -390,10 +393,15 @@ type
     exit_count*: uint64 ##\
     ## Exit counter when validator exited (or 0)
 
+    status_flags*: uint64
+
     custody_commitment*: Eth2Digest
 
-    last_poc_change_slot*: uint64
-    second_last_poc_change_slot*: uint64
+    latest_custody_reseed_slot*: uint64 ##\
+    ## Slot of latest custody reseed
+
+    penultimate_custody_reseed_slot*: uint64 ##\
+    ## Slot of second-latest custody reseed
 
   CrosslinkRecord* = object
     slot*: uint64
@@ -438,10 +446,11 @@ type
     latest_registry_delta_root*: Eth2Digest
     validator_index*: Uint24
     pubkey*: ValidatorPubKey
+    slot*: uint64
     flag*: ValidatorSetDeltaFlags
 
   ValidatorStatusCodes* {.pure.} = enum
-    PENDING_ACTIVATION = 0
+    UNUSED = 0
     ACTIVE = 1
     ACTIVE_PENDING_EXIT = 2
     EXITED_WITHOUT_PENALTY = 3
