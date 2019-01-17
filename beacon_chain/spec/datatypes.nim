@@ -120,7 +120,7 @@ const
   ## slots that make up an epoch, at the end of which more heavy
   ## processing is done
 
-  POW_RECEIPT_ROOT_VOTING_PERIOD* = 2'u64^10 ##\
+  ETH1_DATA_VOTING_PERIOD* = 2'u64^10 ##\
   ## slots (~1.7 hours)
 
   SEED_LOOKAHEAD* = 64 ##\
@@ -128,9 +128,6 @@ const
 
   SHARD_PERSISTENT_COMMITTEE_CHANGE_PERIOD* = 2'u64^17 ##\
   ## slots (~9 days)
-
-  COLLECTIVE_PENALTY_CALCULATION_PERIOD* = 2'u64^20 ##\
-  ## slots (~73 days)
 
   ENTRY_EXIT_DELAY* = 256 ##\
   ## slots (~25.6 minutes)
@@ -452,8 +449,6 @@ type
   ValidatorStatusCodes* {.pure.} = enum
     UNUSED = 0
     ACTIVE = 1
-    ACTIVE_PENDING_EXIT = 2
-    EXITED_WITH_PENALTY = 4
 
   ValidatorSetDeltaFlags* {.pure.} = enum
     Activation = 0
