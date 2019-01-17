@@ -304,7 +304,6 @@ proc processExits(
       warn("Exit: bad slot")
       return false
 
-    exit_validator(state, exit.validator_index, ACTIVE_PENDING_EXIT)
     initiate_validator_exit(state, exit.validator_index)
 
   return true
@@ -316,7 +315,7 @@ proc process_ejections(state: var BeaconState) =
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#ejections
 
   for index, validator in state.validator_registry:
-    if is_active_validator(validator) and
+    if is_active_validator(validator, state.slot) and
         state.validator_balances[index] < EJECTION_BALANCE:
       exit_validator(state, index.Uint24, EXITED_WITHOUT_PENALTY)
 
@@ -443,7 +442,7 @@ func processEpoch(state: var BeaconState) =
   # Precomputation
   let
     active_validator_indices =
-      get_active_validator_indices(state.validator_registry)
+      get_active_validator_indices(state.validator_registry, state.slot)
     total_balance = sum_effective_balances(state, active_validator_indices)
     total_balance_in_eth = total_balance div GWEI_PER_ETH
 
@@ -714,7 +713,7 @@ func processEpoch(state: var BeaconState) =
       for i, v in get_shuffling(
           state.latest_randao_mixes[
             (state.slot - EPOCH_LENGTH) mod LATEST_RANDAO_MIXES_LENGTH],
-          state.validator_registry, next_start_shard):
+          state.validator_registry, next_start_shard, state.slot):
         state.shard_committees_at_slots[i + EPOCH_LENGTH] = v
 
     else:
@@ -733,7 +732,7 @@ func processEpoch(state: var BeaconState) =
         for i, v in get_shuffling(
             state.latest_randao_mixes[
               (state.slot - EPOCH_LENGTH) mod LATEST_RANDAO_MIXES_LENGTH],
-            state.validator_registry, start_shard):
+            state.validator_registry, start_shard, state.slot):
           state.shard_committees_at_slots[i + EPOCH_LENGTH] = v
         # Note that `start_shard` is not changed from the last epoch.
 

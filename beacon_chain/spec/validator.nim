@@ -22,22 +22,18 @@ func min_empty_validator_index*(
           ZERO_BALANCE_VALIDATOR_TTL.uint64 <= current_slot:
       return some(i)
 
-func get_active_validator_indices*(validators: openArray[Validator]): seq[Uint24] =
-  ## Select the active validators
-  for idx, val in validators:
-    if is_active_validator(val):
-      result.add idx.Uint24
-
 func get_shuffling*(seed: Eth2Digest,
                     validators: openArray[Validator],
-                    crosslinking_start_shard: uint64
+                    crosslinking_start_shard: uint64, # TODO remove
+                    slot_nonaligned: uint64
                     ): array[EPOCH_LENGTH, seq[ShardCommittee]] =
   ## Split up validators into groups at the start of every epoch,
   ## determining at what height they can make attestations and what shard they are making crosslinks for
   ## Implementation should do the following: http://vitalik.ca/files/ShuffleAndAssign.png
 
   let
-    active_validator_indices = get_active_validator_indices(validators)
+    slot = slot_nonaligned - slot_nonaligned mod EPOCH_LENGTH
+    active_validator_indices = get_active_validator_indices(validators, slot)
     committees_per_slot = clamp(
       len(active_validator_indices) div EPOCH_LENGTH div TARGET_COMMITTEE_SIZE,
       1, SHARD_COUNT div EPOCH_LENGTH).uint64

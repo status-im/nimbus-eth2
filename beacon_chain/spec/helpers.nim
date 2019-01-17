@@ -185,14 +185,13 @@ proc is_surround_vote*(attestation_data_1: AttestationData,
 #  ### Checks if validator is active
 #  validator.activation_slot <= slot and slot < validator.exit_slot
 
-func is_active_validator*(validator: Validator): bool =
+func is_active_validator*(validator: Validator, slot: uint64): bool =
   validator.status in {ACTIVE, ACTIVE_PENDING_EXIT}
 
 func get_active_validator_indices*(validators: openArray[Validator], slot: uint64): seq[Uint24] =
   ## Gets indices of active validators from validators
   for idx, val in validators:
-    #if is_active_validator(val, slot):
-    if is_active_validator(val):
+    if is_active_validator(val, slot):
       result.add idx.Uint24
 
 func get_committee_count_per_slot*(active_validator_count: int): uint64 =

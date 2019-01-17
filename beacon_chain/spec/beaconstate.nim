@@ -295,7 +295,7 @@ func get_initial_beacon_state*(
   # set initial committee shuffling
   let
     initial_shuffling =
-      get_shuffling(Eth2Digest(), state.validator_registry, 0)
+      get_shuffling(Eth2Digest(), state.validator_registry, 0, state.slot)
 
   # initial_shuffling + initial_shuffling in spec, but more ugly
   for i, n in initial_shuffling:
@@ -304,7 +304,7 @@ func get_initial_beacon_state*(
 
   # set initial persistent shuffling
   let active_validator_indices =
-    get_active_validator_indices(state.validator_registry)
+    get_active_validator_indices(state.validator_registry, state.slot)
 
   state.persistent_committees = split(shuffle(
     active_validator_indices, ZERO_HASH), SHARD_COUNT)
@@ -353,14 +353,14 @@ func process_ejections*(state: var BeaconState) =
   ## Iterate through the validator registry
   ## and eject active validators with balance below ``EJECTION_BALANCE``.
 
-  for index in get_active_validator_indices(state.validator_registry):
+  for index in get_active_validator_indices(state.validator_registry, state.slot):
     if state.validator_balances[index] < EJECTION_BALANCE:
       exit_validator(state, index, EXITED_WITHOUT_PENALTY)
 
 func update_validator_registry*(state: var BeaconState) =
   let
     active_validator_indices =
-      get_active_validator_indices(state.validator_registry)
+      get_active_validator_indices(state.validator_registry, state.slot)
     # The total effective balance of active validators
     total_balance = sum_effective_balances(state, active_validator_indices)
 
