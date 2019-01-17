@@ -114,7 +114,7 @@ func processDepositRoot(state: var BeaconState, blck: BeaconBlock) =
   )
 
 func penalizeValidator(state: var BeaconState, index: Uint24) =
-  exit_validator(state, index, EXITED_WITH_PENALTY)
+  exit_validator(state, index)
   var validator = state.validator_registry[index]
   #state.latest_penalized_exit_balances[(state.slot div EPOCH_LENGTH) mod LATEST_PENALIZED_EXIT_LENGTH] += get_effective_balance(state, index.Uint24)
 
@@ -237,7 +237,7 @@ proc processCasperSlashings(state: var BeaconState, blck: BeaconBlock): bool =
 
     for i in intersection:
       if state.validator_registry[i].status != EXITED_WITH_PENALTY:
-        exit_validator(state, i, EXITED_WITH_PENALTY)
+        exit_validator(state, i)
 
   return true
 
@@ -317,7 +317,7 @@ proc process_ejections(state: var BeaconState) =
   for index, validator in state.validator_registry:
     if is_active_validator(validator, state.slot) and
         state.validator_balances[index] < EJECTION_BALANCE:
-      exit_validator(state, index.Uint24, EXITED_WITHOUT_PENALTY)
+      exit_validator(state, index.Uint24)
 
 func processSlot(state: var BeaconState, previous_block_root: Eth2Digest) =
   ## Time on the beacon chain moves in slots. Every time we make it to a new
