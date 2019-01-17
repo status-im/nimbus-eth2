@@ -122,44 +122,21 @@ func activate_validator(state: var BeaconState,
 func initiate_validator_exit(state: var BeaconState,
                              index: Uint24) =
   ## Initiate exit for the validator with the given ``index``.
-  let validator = addr state.validator_registry[index]
-  if validator.status != ACTIVE:
-    return
-
-  validator.status = ACTIVE_PENDING_EXIT
-  validator.latest_status_change_slot = state.slot
+  var validator = state.validator_registry[index]
+  validator.status_flags = validator.status_flags or INITIATED_EXIT
+  state.validator_registry[index] = validator
 
 func exit_validator*(state: var BeaconState,
-                     index: Uint24,
-                     new_status: ValidatorStatusCodes) =
+                     index: Uint24) =
   ## Exit the validator with the given ``index``.
 
-  let
-    validator = addr state.validator_registry[index]
-    prev_status = validator.status
+  let validator = addr state.validator_registry[index]
 
-  if prev_status == EXITED_WITH_PENALTY:
+  # The following updates only occur if not previous exited
+  if validator.exit_slot <= state.slot + ENTRY_EXIT_DELAY:
     return
 
-  validator.status = new_status
-  validator.latest_status_change_slot = state.slot
-
-  if new_status == EXITED_WITH_PENALTY:
-    state.latest_penalized_exit_balances[
-      (state.slot div COLLECTIVE_PENALTY_CALCULATION_PERIOD).int] +=
-        get_effective_balance(state, index)
-
-    let
-      whistleblower_index =
-        get_beacon_proposer_index(state, state.slot)
-      whistleblower_reward =
-        get_effective_balance(state, index) div WHISTLEBLOWER_REWARD_QUOTIENT
-
-    state.validator_balances[whistleblower_index] += whistleblower_reward
-    state.validator_balances[index] -= whistleblower_reward
-
-  if prev_status == EXITED_WITHOUT_PENALTY:
-    return
+  validator.exit_slot = state.slot + ENTRY_EXIT_DELAY
 
   # The following updates only occur if not previous exited
   state.validator_registry_exit_count += 1
@@ -172,13 +149,6 @@ func exit_validator*(state: var BeaconState,
       validator.exit_slot,
       ValidatorSetDeltaFlags.EXIT
     )
-
-  # Remove validator from persistent committees
-  for committee in state.persistent_committees.mitems():
-    for i, validator_index in committee:
-      if validator_index == index:
-        committee.delete(i)
-        break
 
 func process_penalties_and_exits_eligible(state: BeaconState, index: int): bool =
   let validator = state.validator_registry[index]
@@ -355,7 +325,7 @@ func process_ejections*(state: var BeaconState) =
 
   for index in get_active_validator_indices(state.validator_registry, state.slot):
     if state.validator_balances[index] < EJECTION_BALANCE:
-      exit_validator(state, index, EXITED_WITHOUT_PENALTY)
+      exit_validator(state, index)
 
 func update_validator_registry*(state: var BeaconState) =
   let
@@ -394,7 +364,7 @@ func update_validator_registry*(state: var BeaconState) =
         break
 
       # Exit validator
-      exit_validator(state, index.Uint24, EXITED_WITHOUT_PENALTY)
+      exit_validator(state, index.Uint24)
 
   # Perform additional updates
   state.previous_epoch_calculation_slot = state.current_epoch_calculation_slot
