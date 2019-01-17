@@ -285,16 +285,16 @@ type
     proposer_slashings*: seq[ProposerSlashing]
     casper_slashings*: seq[CasperSlashing]
     attestations*: seq[Attestation]
-    poc_seed_changes*: seq[ProofOfCustodySeedChange]
-    poc_challenges*: seq[CustodyChallenge]
-    poc_responses*: seq[ProofOfCustodyResponse]
+    custody_reseeds*: seq[CustodyReseed]
+    custody_challenges*: seq[CustodyChallenge]
+    custody_responses*: seq[CustodyResponse]
     deposits*: seq[Deposit]
     exits*: seq[Exit]
 
   # Phase1:
-  ProofOfCustodySeedChange* = object
+  CustodyReseed* = object
   CustodyChallenge* = object
-  ProofOfCustodyResponse* = object
+  CustodyResponse* = object
 
   ProposalSignedData* = object
     slot*: uint64
@@ -337,7 +337,7 @@ type
     persistent_committees*: seq[seq[Uint24]]
     persistent_committee_reassignments*: seq[ShardReassignmentRecord]
 
-    poc_challenges*: seq[CustodyChallenge]
+    custody_challenges*: seq[CustodyChallenge]
 
     # Finality
     previous_justified_slot*: uint64
