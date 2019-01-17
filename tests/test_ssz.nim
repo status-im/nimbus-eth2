@@ -105,8 +105,8 @@ suite "Simple serialization":
 suite "Tree hashing":
   # TODO Nothing but smoke tests for now..
 
-  test "Hash ValidatorRecord":
-    let vr = ValidatorRecord()
+  test "Hash Validator":
+    let vr = Validator()
     check: hash_tree_root(vr).len > 0
 
   test "Hash ShardCommittee":

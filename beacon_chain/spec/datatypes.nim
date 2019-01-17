@@ -309,7 +309,7 @@ type
     ## For versioning hard forks
 
     # Validator registry
-    validator_registry*: seq[ValidatorRecord]
+    validator_registry*: seq[Validator]
     validator_balances*: seq[uint64] ##\
     ## Validator balances in Gwei!
 
@@ -359,7 +359,7 @@ type
     latest_deposit_root*: Eth2Digest
     deposit_roots*: seq[DepositRootVote]
 
-  ValidatorRecord* = object
+  Validator* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
     randao_commitment*: Eth2Digest ##\

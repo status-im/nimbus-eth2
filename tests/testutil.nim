@@ -20,7 +20,7 @@ func makeValidatorPrivKey(i: int): ValidatorPrivKey =
 func makeFakeHash*(i: int): Eth2Digest =
   copyMem(result.data[0].addr, i.unsafeAddr, min(sizeof(result.data), sizeof(i)))
 
-func hackPrivKey(v: ValidatorRecord): ValidatorPrivKey =
+func hackPrivKey(v: Validator): ValidatorPrivKey =
   ## Extract private key, per above hack
   var i: int
   copyMem(
@@ -28,7 +28,7 @@ func hackPrivKey(v: ValidatorRecord): ValidatorPrivKey =
     min(sizeof(v.withdrawal_credentials.data), sizeof(i)))
   makeValidatorPrivKey(i)
 
-func hackReveal(v: ValidatorRecord): Eth2Digest =
+func hackReveal(v: Validator): Eth2Digest =
   result = v.withdrawal_credentials
   for i in 0..randaoRounds:
     let tmp = repeat_hash(result, 1)

@@ -20,7 +20,7 @@ suite "Validators":
   test "Smoke validator shuffling":
     let
       validators = repeat(
-        ValidatorRecord(
+        Validator(
           status: ACTIVE
         ), 32*1024)
 
