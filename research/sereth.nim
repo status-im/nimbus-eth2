@@ -3,7 +3,7 @@ import
   eth_common, stint, nimcrypto, byteutils
 
 type
-  ValidatorRecord {.packed.} = object
+  Validator {.packed.} = object
     # The validator's public key
     pubkey:  Uint256
     # What shard the validator's balance will be sent to
@@ -111,7 +111,7 @@ proc serializeETH[T](x: T): seq[byte] =
   echo "Total size (bytes): " & $result.len
 
 when isMainModule:
-  let x = ValidatorRecord(
+  let x = Validator(
     pubkey: high(Uint256), # 0xFFFF...FFFF
     withdrawal_shard: 4455,
     withdrawal_address: hexToPaddedByteArray[20]("0x1234"),

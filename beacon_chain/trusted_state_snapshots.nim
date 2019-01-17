@@ -34,7 +34,7 @@ proc createStateSnapshot*(startup: ChainStartupData, outFile: string) =
                                               startup.genesisTime,
                                               Eth2Digest(), {})
 
-  var vr: ValidatorRecord
+  var vr: Validator
   Json.saveFile(outFile, initialState, pretty = true)
   echo "Wrote ", outFile
 

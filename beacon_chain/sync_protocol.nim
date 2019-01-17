@@ -11,7 +11,7 @@ type
     else:
       index: uint32
 
-  ValidatorSet = seq[ValidatorRecord]
+  ValidatorSet = seq[Validator]
 
 p2pProtocol BeaconSync(version = 1,
                        shortName = "bcs"):

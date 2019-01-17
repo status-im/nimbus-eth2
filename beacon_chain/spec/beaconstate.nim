@@ -65,7 +65,7 @@ func process_deposit(state: var BeaconState,
 
   if pubkey notin validator_pubkeys:
     # Add new validator
-    let validator = ValidatorRecord(
+    let validator = Validator(
       status: UNUSED,
       pubkey: pubkey,
       withdrawal_credentials: withdrawal_credentials,

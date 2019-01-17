@@ -13,7 +13,7 @@ import
   ./crypto, ./datatypes, ./digest, ./helpers
 
 func min_empty_validator_index*(
-    validators: seq[ValidatorRecord],
+    validators: seq[Validator],
     validator_balances: seq[uint64],
     current_slot: uint64): Option[int] =
   for i, v in validators:
@@ -22,14 +22,14 @@ func min_empty_validator_index*(
           ZERO_BALANCE_VALIDATOR_TTL.uint64 <= current_slot:
       return some(i)
 
-func get_active_validator_indices*(validators: openArray[ValidatorRecord]): seq[Uint24] =
+func get_active_validator_indices*(validators: openArray[Validator]): seq[Uint24] =
   ## Select the active validators
   for idx, val in validators:
     if is_active_validator(val):
       result.add idx.Uint24
 
 func get_shuffling*(seed: Eth2Digest,
-                    validators: openArray[ValidatorRecord],
+                    validators: openArray[Validator],
                     crosslinking_start_shard: uint64
                     ): array[EPOCH_LENGTH, seq[ShardCommittee]] =
   ## Split up validators into groups at the start of every epoch,
