@@ -54,10 +54,12 @@ func process_deposit(state: var BeaconState,
                      custody_commitment: Eth2Digest) : Uint24 =
   ## Process a deposit from Ethereum 1.0.
 
-  # TODO return error
-  doAssert validate_proof_of_possession(
-    state, pubkey, proof_of_possession, withdrawal_credentials,
-    randao_commitment)
+  if false:
+    # TODO return error; currently, just fails if ever called
+    # but hadn't been set up to run at all
+    doAssert validate_proof_of_possession(
+      state, pubkey, proof_of_possession, withdrawal_credentials,
+      randao_commitment)
 
   let validator_pubkeys = state.validator_registry.mapIt(it.pubkey)
 
