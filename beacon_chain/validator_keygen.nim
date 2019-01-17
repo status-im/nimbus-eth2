@@ -63,7 +63,7 @@ proc main() =
 
     startupData.validatorDeposits.add Deposit(
       deposit_data: DepositData(
-        value: MAX_DEPOSIT * GWEI_PER_ETH,
+        amount: MAX_DEPOSIT * GWEI_PER_ETH,
         timestamp: now(),
         deposit_input: DepositInput(
           pubkey: pubKey,
@@ -71,7 +71,7 @@ proc main() =
           withdrawal_credentials: withdrawalCredentials,
           randao_commitment: randaoCommitment)))
 
-  startupData.genesisTime = now() div 1000
+  startupData.genesisTime = (now() div 1000) + 10
 
   writeFile(outPath / "startup.json", startupData)
 
