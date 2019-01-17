@@ -236,8 +236,8 @@ proc processCasperSlashings(state: var BeaconState, blck: BeaconBlock): bool =
       return false
 
     for i in intersection:
-      if state.validator_registry[i].status != EXITED_WITH_PENALTY:
-        exit_validator(state, i)
+      if state.validator_registry[i].penalized_slot > state.slot:
+        penalize_validator(state, i)
 
   return true
 
@@ -574,9 +574,9 @@ func processEpoch(state: var BeaconState) =
     sum_effective_balances(statePtr[], shard_committee.committee)
 
   block: # Deposit roots
-    if state.slot mod POW_RECEIPT_ROOT_VOTING_PERIOD == 0:
+    if state.slot mod ETH1_DATA_VOTING_PERIOD == 0:
       for x in state.deposit_roots:
-        if x.vote_count * 2 >= POW_RECEIPT_ROOT_VOTING_PERIOD:
+        if x.vote_count * 2 >= ETH1_DATA_VOTING_PERIOD:
           state.latest_deposit_root = x.deposit_root
           break
       state.deposit_roots = @[]
@@ -670,9 +670,6 @@ func processEpoch(state: var BeaconState) =
         if index notin previous_epoch_head_attester_indices:
           state.validator_balances[index] -=
             inactivity_penalty(state, index, epochs_since_finality)
-        if state.validator_registry[index].status == EXITED_WITH_PENALTY:
-          state.validator_balances[index] -=
-            3'u64 * inactivity_penalty(state, index, epochs_since_finality)
 
   block: # Attestation inclusion
     for v in previous_epoch_attester_indices:
