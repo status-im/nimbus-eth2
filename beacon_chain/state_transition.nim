@@ -101,15 +101,15 @@ func processRandao(
   return true
 
 func processDepositRoot(state: var BeaconState, blck: BeaconBlock) =
-  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#deposit-root
+  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#eth1-data
 
-  for x in state.deposit_roots.mitems():
-    if blck.deposit_root == x.deposit_root:
+  for x in state.eth1_data_votes.mitems():
+    if blck.eth1_data == x.eth1_data:
       x.vote_count += 1
       return
 
-  state.deposit_roots.add DepositRootVote(
-    deposit_root: blck.deposit_root,
+  state.eth1_data_votes.add Eth1DataVote(
+    eth1_data: blck.eth1_data,
     vote_count: 1
   )
 
@@ -573,13 +573,13 @@ func processEpoch(state: var BeaconState) =
   func total_balance_sac(shard_committee: ShardCommittee): uint64 =
     sum_effective_balances(statePtr[], shard_committee.committee)
 
-  block: # Deposit roots
+  block: # Eth1 data
     if state.slot mod ETH1_DATA_VOTING_PERIOD == 0:
-      for x in state.deposit_roots:
+      for x in state.eth1_data_votes:
         if x.vote_count * 2 >= ETH1_DATA_VOTING_PERIOD:
-          state.latest_deposit_root = x.deposit_root
+          state.latest_eth1_data = x.eth1_data
           break
-      state.deposit_roots = @[]
+      state.eth1_data_votes = @[]
 
   block: # Justification
     state.previous_justified_slot = state.justified_slot

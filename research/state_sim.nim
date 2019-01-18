@@ -27,7 +27,7 @@ proc transition(
   let
     flags = if validate: {} else: {skipValidation}
     genesisState = get_initial_beacon_state(
-      makeInitialDeposits(validators, flags), 0, Eth2Digest(), flags)
+      makeInitialDeposits(validators, flags), 0, Eth1Data(), flags)
     genesisBlock = makeGenesisBlock(genesisState)
 
   var

@@ -115,7 +115,7 @@ proc addBlock*(
       parent_root: previous_block_root,
       state_root: Eth2Digest(), # we need the new state first
       randao_reveal: hackReveal(proposer),
-      deposit_root: Eth2Digest(), # TODO
+      eth1_data: Eth1Data(), # TODO
       signature: ValidatorSig(), # we need the rest of the block first!
       body: body
     )
