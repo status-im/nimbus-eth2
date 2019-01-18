@@ -6,7 +6,7 @@ import
 
 proc stateSize(deposits: int, maxContent = false) =
   var state = get_initial_beacon_state(
-    makeInitialDeposits(deposits), 0, Eth2Digest(), {skipValidation})
+    makeInitialDeposits(deposits), 0, Eth1Data(), {skipValidation})
 
   if maxContent:
     # TODO verify this is correct, but generally we collect up to two epochs
