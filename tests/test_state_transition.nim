@@ -19,7 +19,7 @@ suite "Block processing":
     # Genesis state with minimal number of deposits
     # TODO bls verification is a bit of a bottleneck here
     genesisState = get_initial_beacon_state(
-      makeInitialDeposits(), 0, Eth2Digest(), {})
+      makeInitialDeposits(), 0, Eth1Data(), {})
     genesisBlock = makeGenesisBlock(genesisState)
 
   test "Passes from genesis state, no block":

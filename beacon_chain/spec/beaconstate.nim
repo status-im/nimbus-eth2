@@ -191,7 +191,7 @@ func process_penalties_and_exits(state: var BeaconState) =
 func get_initial_beacon_state*(
     initial_validator_deposits: openArray[Deposit],
     genesis_time: uint64,
-    latest_deposit_root: Eth2Digest,
+    latest_eth1_data: Eth1Data,
     flags: UpdateFlags = {}): BeaconState =
   ## BeaconState constructor
   ##
@@ -238,7 +238,7 @@ func get_initial_beacon_state*(
     finalized_slot: GENESIS_SLOT,
 
     # Deposit root
-    latest_deposit_root: latest_deposit_root,
+    latest_eth1_data: latest_eth1_data,
   )
 
   # Process initial deposits

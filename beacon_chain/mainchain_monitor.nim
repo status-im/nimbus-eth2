@@ -17,7 +17,7 @@ proc start*(m: var MainchainMonitor) =
   # interface and keep an always-up-to-date receipt reference here
   discard
 
-proc getBeaconBlockRef*(m: MainchainMonitor): Eth2Digest =
+proc getBeaconBlockRef*(m: MainchainMonitor): Eth1Data =
   # This should be a simple accessor for the reference kept above
   discard
 

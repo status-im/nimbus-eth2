@@ -271,7 +271,7 @@ type
     randao_reveal*: Eth2Digest ##\
     ## Proposer RANDAO reveal
 
-    deposit_root*: Eth2Digest
+    eth1_data*: Eth1Data
 
     signature*: ValidatorSig ##\
     ## Proposer signature
@@ -353,8 +353,8 @@ type
     latest_attestations*: seq[PendingAttestationRecord]
     batched_block_roots*: seq[Eth2Digest]
 
-    latest_deposit_root*: Eth2Digest
-    deposit_roots*: seq[DepositRootVote]
+    latest_eth1_data*: Eth1Data
+    eth1_data_votes*: seq[Eth1DataVote]
 
   Validator* = object
     pubkey*: ValidatorPubKey
@@ -424,8 +424,15 @@ type
     slot*: uint64 ##\
     ## When
 
-  DepositRootVote* = object
-    deposit_root*: Eth2Digest
+  Eth1Data* = object
+    deposit_root*: Eth2Digest ##\
+    ## Data being voted for
+
+    vote_count*: Eth2Digest ##\
+    ## Vote count
+
+  Eth1DataVote* = object
+    eth1_data*: Eth1Data
     vote_count*: uint64                           # Vote count
 
   PendingAttestationRecord* = object

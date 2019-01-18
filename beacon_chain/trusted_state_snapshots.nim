@@ -32,7 +32,7 @@ proc obtainTrustedStateSnapshot*(db: BeaconChainDB): Future[BeaconState] {.async
 proc createStateSnapshot*(startup: ChainStartupData, outFile: string) =
   let initialState = get_initial_beacon_state(startup.validatorDeposits,
                                               startup.genesisTime,
-                                              Eth2Digest(), {})
+                                              Eth1Data(), {})
 
   var vr: Validator
   Json.saveFile(outFile, initialState, pretty = true)

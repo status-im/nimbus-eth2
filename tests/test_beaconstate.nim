@@ -14,5 +14,5 @@ import
 suite "Beacon state":
   test "Smoke test get_initial_beacon_state":
     let state = get_initial_beacon_state(
-      makeInitialDeposits(EPOCH_LENGTH, {}), 0, Eth2Digest(), {})
+      makeInitialDeposits(EPOCH_LENGTH, {}), 0, Eth1Data(), {})
     check: state.validator_registry.len == EPOCH_LENGTH
