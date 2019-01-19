@@ -343,7 +343,7 @@ type
     finalized_slot*: uint64
 
     # Recent state
-    latest_crosslinks*: array[SHARD_COUNT, CrosslinkRecord]
+    latest_crosslinks*: array[SHARD_COUNT, Crosslink]
     latest_block_roots*: array[LATEST_BLOCK_ROOTS_LENGTH.int, Eth2Digest] ##\
     ## Needed to process attestations, older to newer
 
@@ -400,7 +400,7 @@ type
     penultimate_custody_reseed_slot*: uint64 ##\
     ## Slot of second-latest custody reseed
 
-  CrosslinkRecord* = object
+  Crosslink* = object
     slot*: uint64
     shard_block_root*: Eth2Digest ##\
     ## Shard chain block root

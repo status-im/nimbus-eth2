@@ -615,7 +615,7 @@ func processEpoch(state: var BeaconState) =
       for shard_committee in sac:
         if 3'u64 * total_attesting_balance(shard_committee) >=
             2'u64 * total_balance_sac(shard_committee):
-          state.latest_crosslinks[shard_committee.shard] = CrosslinkRecord(
+          state.latest_crosslinks[shard_committee.shard] = Crosslink(
             slot: state.slot + EPOCH_LENGTH,
             shard_block_root: winning_root(shard_committee))
 
