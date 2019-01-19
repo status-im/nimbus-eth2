@@ -67,7 +67,7 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
         withdrawal_credentials: withdrawal_credentials,
         randao_commitment: randao_commitment
       ),
-      amount: MAX_DEPOSIT * GWEI_PER_ETH,
+      amount: MAX_DEPOSIT_AMOUNT,
     )
   )
 

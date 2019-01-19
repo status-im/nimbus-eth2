@@ -83,10 +83,10 @@ const
   # Deposit contract
   DEPOSIT_CONTRACT_TREE_DEPTH* = 2^5
 
-  MIN_DEPOSIT* = 2'u64^0 ##\
+  MIN_DEPOSIT_AMOUNT* = 2'u64^0 * GWEI_PER_ETH ##\
   ## Minimum amounth of ETH that can be deposited in one call - deposits can
   ## be used either to top up an existing validator or commit to a new one
-  MAX_DEPOSIT* = 2'u64^5 ##\
+  MAX_DEPOSIT_AMOUNT* = 2'u64^5 * GWEI_PER_ETH ##\
   ## Maximum amounth of ETH that can be deposited in one call
 
   # Initial values
@@ -125,9 +125,6 @@ const
 
   SEED_LOOKAHEAD* = 64 ##\
   ## slots (~6.4 minutes)
-
-  SHARD_PERSISTENT_COMMITTEE_CHANGE_PERIOD* = 2'u64^17 ##\
-  ## slots (~9 days)
 
   ENTRY_EXIT_DELAY* = 256 ##\
   ## slots (~25.6 minutes)
@@ -331,9 +328,7 @@ type
     previous_epoch_randao_mix*: Eth2Digest
     current_epoch_randao_mix*: Eth2Digest
 
-    persistent_committees*: seq[seq[Uint24]]
-    persistent_committee_reassignments*: seq[ShardReassignmentRecord]
-
+    # Custody challenges
     custody_challenges*: seq[CustodyChallenge]
 
     # Finality
@@ -413,16 +408,6 @@ type
 
     total_validator_count*: uint64 ##\
     ## Total validator count (for proofs of custody)
-
-  ShardReassignmentRecord* = object
-    validator_index*: Uint24 ##\
-    ## Which validator to reassign
-
-    shard*: uint64 ##\
-    ## To which shard
-
-    slot*: uint64 ##\
-    ## When
 
   Eth1Data* = object
     deposit_root*: Eth2Digest ##\

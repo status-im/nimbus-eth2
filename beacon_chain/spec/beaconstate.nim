@@ -15,7 +15,7 @@ func get_effective_balance*(state: BeaconState, index: Uint24): uint64 =
   # influence. Validators may also lose balance if they fail to do their duty
   # in which case their influence decreases. Once they drop below a certain
   # balance, they're removed from the validator registry.
-  min(state.validator_balances[index], MAX_DEPOSIT * GWEI_PER_ETH)
+  min(state.validator_balances[index], MAX_DEPOSIT_AMOUNT)
 
 func sum_effective_balances*(
     state: BeaconState, validator_indices: openArray[Uint24]): uint64 =
@@ -253,13 +253,13 @@ func get_initial_beacon_state*(
       deposit.deposit_data.deposit_input.custody_commitment,
     )
 
-    if state.validator_balances[validator_index] >= MAX_DEPOSIT:
+    if state.validator_balances[validator_index] >= MAX_DEPOSIT_AMOUNT:
       activate_validator(state, validator_index, true)
 
   # Process initial activations
   #for validator_index in 0 ..< state.validator_registry.len:
   #  let vi = validator_index.Uint24
-  #  if get_effective_balance(state, vi) > MAX_DEPOSIT * GWEI_PER_ETH:
+  #  if get_effective_balance(state, vi) > MAX_DEPOSIT_AMOUNT:
   #    activate_validator(state, vi, true)
 
   # set initial committee shuffling
@@ -271,13 +271,6 @@ func get_initial_beacon_state*(
   for i, n in initial_shuffling:
     state.shard_committees_at_slots[i] = n
     state.shard_committees_at_slots[EPOCH_LENGTH + i] = n
-
-  # set initial persistent shuffling
-  let active_validator_indices =
-    get_active_validator_indices(state.validator_registry, state.slot)
-
-  state.persistent_committees = split(shuffle(
-    active_validator_indices, ZERO_HASH), SHARD_COUNT)
 
   state
 
@@ -336,7 +329,7 @@ func update_validator_registry*(state: var BeaconState) =
 
     # The maximum balance churn in Gwei (for deposits and exits separately)
     max_balance_churn = max(
-        MAX_DEPOSIT * GWEI_PER_ETH,
+        MAX_DEPOSIT_AMOUNT,
         total_balance div (2 * MAX_BALANCE_CHURN_QUOTIENT)
     )
 
@@ -344,7 +337,7 @@ func update_validator_registry*(state: var BeaconState) =
   var balance_churn = 0'u64
   for index, validator in state.validator_registry:
     if validator.activation_slot > state.slot + ENTRY_EXIT_DELAY and
-      state.validator_balances[index] >= MAX_DEPOSIT * GWEI_PER_ETH:
+      state.validator_balances[index] >= MAX_DEPOSIT_AMOUNT:
       # Check the balance churn would be within the allowance
       balance_churn += get_effective_balance(state, index.Uint24)
       if balance_churn > max_balance_churn:
