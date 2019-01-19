@@ -181,12 +181,9 @@ proc is_surround_vote*(attestation_data_1: AttestationData,
     (attestation_data_2.slot < attestation_data_1.slot)
   )
 
-#func is_active_validator*(validator: Validator, slot: uint64): bool =
-#  ### Checks if validator is active
-#  validator.activation_slot <= slot and slot < validator.exit_slot
-
 func is_active_validator*(validator: Validator, slot: uint64): bool =
-  validator.status == ACTIVE
+  ### Checks if validator is active
+  validator.activation_slot <= slot and slot < validator.exit_slot
 
 func get_active_validator_indices*(validators: openArray[Validator], slot: uint64): seq[Uint24] =
   ## Gets indices of active validators from validators

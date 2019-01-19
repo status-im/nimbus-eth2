@@ -21,7 +21,7 @@ suite "Validators":
     let
       validators = repeat(
         Validator(
-          status: ACTIVE
+          exit_slot: FAR_FUTURE_SLOT
         ), 32*1024)
 
     # TODO the shuffling looks really odd, probably buggy

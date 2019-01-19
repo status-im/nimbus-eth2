@@ -366,7 +366,6 @@ type
     ## Number of proposals the proposer missed, and thus the number of times to
     ## apply hash function to randao reveal
 
-    status*: ValidatorStatusCodes
     latest_status_change_slot*: uint64 ##\
     ## Slot when validator last changed status (or 0)
 
@@ -437,10 +436,6 @@ type
     pubkey*: ValidatorPubKey
     slot*: uint64
     flag*: ValidatorSetDeltaFlags
-
-  ValidatorStatusCodes* {.pure.} = enum
-    UNUSED = 0
-    ACTIVE = 1
 
   ValidatorSetDeltaFlags* {.pure.} = enum
     Activation = 0

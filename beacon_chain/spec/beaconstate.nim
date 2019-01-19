@@ -66,7 +66,6 @@ func process_deposit(state: var BeaconState,
   if pubkey notin validator_pubkeys:
     # Add new validator
     let validator = Validator(
-      status: UNUSED,
       pubkey: pubkey,
       withdrawal_credentials: withdrawal_credentials,
       randao_commitment: randao_commitment,
@@ -108,7 +107,6 @@ func activate_validator(state: var BeaconState,
   ## Activate the validator with the given ``index``.
   let validator = addr state.validator_registry[index]
 
-  validator.status = ACTIVE
   validator.activation_slot = if genesis: GENESIS_SLOT else: state.slot + ENTRY_EXIT_DELAY
   state.validator_registry_delta_chain_tip =
     get_new_validator_registry_delta_chain_tip(
@@ -257,10 +255,10 @@ func get_initial_beacon_state*(
       activate_validator(state, validator_index, true)
 
   # Process initial activations
-  #for validator_index in 0 ..< state.validator_registry.len:
-  #  let vi = validator_index.Uint24
-  #  if get_effective_balance(state, vi) > MAX_DEPOSIT_AMOUNT:
-  #    activate_validator(state, vi, true)
+  for validator_index in 0 ..< state.validator_registry.len:
+    let vi = validator_index.Uint24
+    if get_effective_balance(state, vi) > MAX_DEPOSIT_AMOUNT:
+      activate_validator(state, vi, true)
 
   # set initial committee shuffling
   let
