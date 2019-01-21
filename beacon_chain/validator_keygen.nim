@@ -71,7 +71,7 @@ proc main() =
           withdrawal_credentials: withdrawalCredentials,
           randao_commitment: randaoCommitment)))
 
-  startupData.genesisTime = (now() div 1000) + 10
+  startupData.genesisTime = (now() div 1000)
 
   writeFile(outPath / "startup.json", startupData)
 

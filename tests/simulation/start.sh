@@ -9,7 +9,7 @@ set -eu
 NUMBER_OF_VALIDATORS=99
 
 cd $(dirname "$0")
-SIMULATION_DIR=$PWD/simulation-data
+SIMULATION_DIR=$PWD/data
 mkdir -p "$SIMULATION_DIR"
 
 STARTUP_FILE="$SIMULATION_DIR/startup.json"
@@ -38,7 +38,7 @@ if [ ! -f $SNAPSHOT_FILE ]; then
     --out:$SNAPSHOT_FILE
 fi
 
-MASTER_NODE_ADDRESS_FILE="$SIMULATION_DIR/data-0/beacon_node.address"
+MASTER_NODE_ADDRESS_FILE="$SIMULATION_DIR/node-0/beacon_node.address"
 
 # Delete any leftover address files from a previous session
 if [ -f $MASTER_NODE_ADDRESS_FILE ]; then
@@ -57,7 +57,7 @@ for i in $(seq 0 9); do
     done
   fi
 
-  DATA_DIR=$SIMULATION_DIR/data-$i
+  DATA_DIR=$SIMULATION_DIR/node-$i
 
   $BEACON_NODE_BIN \
     --dataDir:"$DATA_DIR" \

@@ -262,6 +262,8 @@ proc scheduleEpochActions(node: BeaconNode, epoch: uint64) =
   ## attestations from our attached validators.
   doAssert node != nil
 
+  debug "Scheduling epoch actions", epoch
+
   # TODO: this copy of the state shouldn't be necessary, but please
   # see the comments in `get_beacon_proposer_index`
   var nextState = node.beaconState
@@ -299,19 +301,30 @@ proc scheduleEpochActions(node: BeaconNode, epoch: uint64) =
 proc processBlocks*(node: BeaconNode) =
   node.network.subscribe(topicBeaconBlocks) do (newBlock: BeaconBlock):
     info "Block received", slot = newBlock.slot,
-                           stateRoot = shortHash(newBlock.state_root)
+                           stateRoot = shortHash(newBlock.state_root),
+                           currentStateSlot = node.beaconState.slot
+
+    # TODO: This should be replaced with the real fork-choice rule
+    if newBlock.slot <= node.beaconState.slot:
+      debug "Ignoring block"
+      return
 
     let newBlockRoot = hash_tree_root_final(newBlock)
 
+    var state = node.beaconState
     for slot in node.beaconState.slot + 1 ..< newBlock.slot:
       info "Skipping block", slot
-      let ok = updateState(node.beaconState, node.headBlockRoot, none[BeaconBlock](), {})
+      let ok = updateState(state, node.headBlockRoot, none[BeaconBlock](), {})
+      doAssert ok
 
-    let ok = updateState(node.beaconState, node.headBlockRoot, some(newBlock), {})
-    doAssert ok
+    let ok = updateState(state, node.headBlockRoot, some(newBlock), {})
+    if not ok:
+      debug "Ignoring non-validating block"
+      return
 
     node.headBlock = newBlock
     node.headBlockRoot = newBlockRoot
+    node.beaconState = state
 
     # TODO:
     #
@@ -334,7 +347,7 @@ proc processBlocks*(node: BeaconNode) =
     node.attestationPool.add(a, node.beaconState)
 
   dynamicLogScope(node = node.config.tcpPort - 50000):
-    let epoch = node.beaconState.slot.epoch
+    let epoch = node.beaconState.timeSinceGenesis().toSlot div EPOCH_LENGTH
     node.scheduleEpochActions(epoch)
 
     runForever()
@@ -348,7 +361,8 @@ proc createPidFile(filename: string) =
 
 when isMainModule:
   let config = load BeaconNodeConf
-  setLogLevel(config.logLevel)
+  if config.logLevel != LogLevel.NONE:
+    setLogLevel(config.logLevel)
 
   case config.cmd
   of createChain:
