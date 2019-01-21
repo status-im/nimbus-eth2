@@ -63,7 +63,7 @@ proc main() =
 
     startupData.validatorDeposits.add Deposit(
       deposit_data: DepositData(
-        amount: MAX_DEPOSIT * GWEI_PER_ETH,
+        amount: MAX_DEPOSIT_AMOUNT,
         timestamp: now(),
         deposit_input: DepositInput(
           pubkey: pubKey,

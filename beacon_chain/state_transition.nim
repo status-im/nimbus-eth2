@@ -615,7 +615,7 @@ func processEpoch(state: var BeaconState) =
       for shard_committee in sac:
         if 3'u64 * total_attesting_balance(shard_committee) >=
             2'u64 * total_balance_sac(shard_committee):
-          state.latest_crosslinks[shard_committee.shard] = CrosslinkRecord(
+          state.latest_crosslinks[shard_committee.shard] = Crosslink(
             slot: state.slot + EPOCH_LENGTH,
             shard_block_root: winning_root(shard_committee))
 
@@ -732,34 +732,6 @@ func processEpoch(state: var BeaconState) =
             state.validator_registry, start_shard, state.slot):
           state.shard_committees_at_slots[i + EPOCH_LENGTH] = v
         # Note that `start_shard` is not changed from the last epoch.
-
-  block: # Proposer reshuffling
-    let num_validators_to_reshuffle =
-      len(active_validator_indices) div
-        SHARD_PERSISTENT_COMMITTEE_CHANGE_PERIOD.int
-    for i in 0..<num_validators_to_reshuffle:
-      # Multiplying i to 2 to ensure we have different input to all the required hashes in the shuffling
-      # and none of the hashes used for entropy in this loop will be the same
-      # TODO Modulo of hash value.. hm...
-      let
-        validator_index = 0.Uint24 # TODO active_validator_indices[hash(state.latest_randao_mixes[state.slot % LATEST_RANDAO_MIXES_LENGTH] + bytes8(i * 2)) % len(active_validator_indices)]
-        new_shard = 0'u64 # TODO hash(state.randao_mix + bytes8(i * 2 + 1)) mod SHARD_COUNT
-        shard_reassignment_record = ShardReassignmentRecord(
-          validator_index: validator_index,
-          shard: new_shard,
-          slot: state.slot + SHARD_PERSISTENT_COMMITTEE_CHANGE_PERIOD
-        )
-      state.persistent_committee_reassignments.add(shard_reassignment_record)
-
-    while len(state.persistent_committee_reassignments) > 0 and
-        state.persistent_committee_reassignments[0].slot <= state.slot:
-      let reassignment = state.persistent_committee_reassignments[0]
-      state.persistent_committee_reassignments.delete(0)
-      for committee in state.persistent_committees.mitems():
-        if reassignment.validator_index in committee:
-          committee.delete(committee.find(reassignment.validator_index))
-      state.persistent_committees[reassignment.shard.int].add(
-        reassignment.validator_index)
 
   block: # Final updates
     state.latest_attestations.keepItIf(
