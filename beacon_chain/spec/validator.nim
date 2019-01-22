@@ -22,6 +22,44 @@ func min_empty_validator_index*(
           ZERO_BALANCE_VALIDATOR_TTL.uint64 <= current_slot:
       return some(i)
 
+func get_shuffling_prev*(seed: Eth2Digest,
+                    validators: openArray[Validator],
+                    crosslinking_start_shard: uint64, # TODO remove
+                    slot_nonaligned: uint64
+                    ): array[EPOCH_LENGTH, seq[ShardCommittee]] =
+  ## Split up validators into groups at the start of every epoch,
+  ## determining at what height they can make attestations and what shard they are making crosslinks for
+  ## Implementation should do the following: http://vitalik.ca/files/ShuffleAndAssign.png
+
+  let
+    slot = slot_nonaligned - slot_nonaligned mod EPOCH_LENGTH
+    active_validator_indices = get_active_validator_indices(validators, slot)
+    committees_per_slot = clamp(
+      len(active_validator_indices) div EPOCH_LENGTH div TARGET_COMMITTEE_SIZE,
+      1, SHARD_COUNT div EPOCH_LENGTH).uint64
+    # Shuffle with seed
+    shuffled_active_validator_indices = shuffle(active_validator_indices, seed)
+    # Split the shuffled list into cycle_length pieces
+    validators_per_slot = split(shuffled_active_validator_indices, EPOCH_LENGTH)
+
+  assert validators_per_slot.len() == EPOCH_LENGTH # what split should do..
+
+  for slot, slot_indices in validators_per_slot:
+    let
+      shard_indices = split(slot_indices, committees_per_slot)
+      shard_id_start =
+        crosslinking_start_shard + slot.uint64 * committees_per_slot
+
+    var committees = newSeq[ShardCommittee](shard_indices.len)
+    for shard_position, indices in shard_indices:
+      committees[shard_position].shard =
+        shard_id_start + shard_position.uint64 mod SHARD_COUNT.uint64
+      committees[shard_position].committee = indices
+      committees[shard_position].total_validator_count =
+        len(active_validator_indices).uint64
+
+    result[slot] = committees
+
 func get_shuffling*(seed: Eth2Digest,
                     validators: openArray[Validator],
                     crosslinking_start_shard: uint64, # TODO remove

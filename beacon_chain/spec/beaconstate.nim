@@ -263,7 +263,7 @@ func get_initial_beacon_state*(
   # set initial committee shuffling
   let
     initial_shuffling =
-      get_shuffling(Eth2Digest(), state.validator_registry, 0, state.slot)
+      get_shuffling_prev(Eth2Digest(), state.validator_registry, 0, state.slot)
 
   # initial_shuffling + initial_shuffling in spec, but more ugly
   for i, n in initial_shuffling:

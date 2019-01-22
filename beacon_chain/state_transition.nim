@@ -707,7 +707,7 @@ func processEpoch(state: var BeaconState) =
 
       let next_start_shard =
         (state.shard_committees_at_slots[^1][^1].shard + 1) mod SHARD_COUNT
-      for i, v in get_shuffling(
+      for i, v in get_shuffling_prev(
           state.latest_randao_mixes[
             (state.slot - EPOCH_LENGTH) mod LATEST_RANDAO_MIXES_LENGTH],
           state.validator_registry, next_start_shard, state.slot):
@@ -726,7 +726,7 @@ func processEpoch(state: var BeaconState) =
         start_shard = state.shard_committees_at_slots[0][0].shard
 
       if is_power_of_2(epochs_since_last_registry_change):
-        for i, v in get_shuffling(
+        for i, v in get_shuffling_prev(
             state.latest_randao_mixes[
               (state.slot - EPOCH_LENGTH) mod LATEST_RANDAO_MIXES_LENGTH],
             state.validator_registry, start_shard, state.slot):

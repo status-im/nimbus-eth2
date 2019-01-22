@@ -25,7 +25,7 @@ suite "Validators":
         ), 32*1024)
 
     # TODO the shuffling looks really odd, probably buggy
-    let s = get_shuffling(Eth2Digest(), validators, 0, 0)
+    let s = get_shuffling_prev(Eth2Digest(), validators, 0, 0)
     check:
       s.len == EPOCH_LENGTH
        # 32k validators means 2 shards validated per slot - the aim is to get
