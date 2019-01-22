@@ -6,12 +6,12 @@
 
 import
   math,unittest, sequtils,
-  ../beacon_chain/spec/[datatypes, digest, validator]
+  ../beacon_chain/spec/[helpers, datatypes, digest, validator]
 
-func sumCommittees(v: openArray[seq[ShardCommittee]]): int =
+func sumCommittees(v: openArray[seq[Uint24]], reqCommitteeLen: int): int =
   for x in v:
-    for y in x:
-      inc result, y.committee.len
+    assert x.len == reqCommitteeLen
+    inc result, x.len
 
 suite "Validators":
   ## For now just test that we can compile and execute block processing with mock data.
@@ -19,17 +19,15 @@ suite "Validators":
   ## https://github.com/sigp/lighthouse/blob/ba548e49a52687a655c61b443b6835d79c6d4236/beacon_chain/validator_shuffling/src/shuffle.rs
   test "Smoke validator shuffling":
     let
+      num_validators = 32*1024
       validators = repeat(
         Validator(
           exit_slot: FAR_FUTURE_SLOT
-        ), 32*1024)
-
-    # TODO the shuffling looks really odd, probably buggy
-    let s = get_shuffling_prev(Eth2Digest(), validators, 0, 0)
+        ), num_validators)
+      s = get_shuffling(Eth2Digest(), validators, 0)
+      committees = EPOCH_LENGTH * get_committee_count_per_slot(len(validators)).int
     check:
-      s.len == EPOCH_LENGTH
-       # 32k validators means 2 shards validated per slot - the aim is to get
-       # TARGET_COMMITTEE_SIZE validators in each shard and there are
-       # EPOCH_LENGTH slots which each will crosslink a different shard
-      s[0].len == 32 * 1024 div (TARGET_COMMITTEE_SIZE * EPOCH_LENGTH)
-      sumCommittees(s) == validators.len() # all validators accounted for
+      s.len == committees
+       # 32k validators: EPOCH_LENGTH slots * committee_count_per_slot =
+       # EPOCH_LENGTH * committee_count_per_slot committees.
+      sumCommittees(s, num_validators div committees) == validators.len() # all validators accounted for
