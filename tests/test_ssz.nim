@@ -39,14 +39,14 @@ suite "Simple serialization":
     )
 
   var expected_ser = @[
-      byte 0, 0, 0, 67, # length
+      byte 67, 0, 0, 0, # length
       5,
-      '\xFF'.ord, '\xFF'.ord, '\xFF'.ord, '\xFD'.ord,
+      0xFD, 0xFF, 0xFF, 0xFF,
     ]
   expected_ser &= EthAddress.filled(byte 35)
   expected_ser &= MDigest[256].filled(byte 35).data
-  expected_ser &= [byte 0, 0, 0, 3, 'c'.ord, 'o'.ord, 'w'.ord]
-  expected_ser &= [byte 0, 0, 79]
+  expected_ser &= [byte 3, 0, 0, 0, 'c'.ord, 'o'.ord, 'w'.ord]
+  expected_ser &= [byte 79, 0, 0]
 
   test "Object deserialization":
     let deser = expected_ser.deserialize(Foo).get()
@@ -119,5 +119,5 @@ suite "Tree hashing":
     check: hash_tree_root(bb).len > 0
 
   test "Hash integer":
-    check: hash_tree_root(0x01'u32) == [0'u8, 0, 0, 1] # big endian!
-    check: hash_tree_root(Uint24(0x01)) == [0'u8, 0, 1] # big endian!
+    check: hash_tree_root(0x01'u32) == [1'u8, 0, 0, 0] # little endian!
+    check: hash_tree_root(Uint24(0x01)) == [1'u8, 0, 0] # little endian!
