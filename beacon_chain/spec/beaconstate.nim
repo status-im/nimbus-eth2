@@ -260,15 +260,29 @@ func get_initial_beacon_state*(
     if get_effective_balance(state, vi) > MAX_DEPOSIT_AMOUNT:
       activate_validator(state, vi, true)
 
-  # set initial committee shuffling
+  # initial_shuffling + initial_shuffling in spec, but more ugly
+  # TODO remove temporary workaround
+  # previously, shuffling created foo[slot][committee_per_slot]
+  # now that's flattened to [committee_0_slot_0, c_1_s_0, ..., c_2_s_1, c_3_s_1, ...]
+  # so build adapter to keep this working until full conversion to current spec
+  # target structure is array[2 * EPOCH_LENGTH, seq[ShardCommittee]],
+  # where ShardCommittee is: shard*: uint64 / committee*: seq[Uint24]
   let
     initial_shuffling =
-      get_shuffling_prev(Eth2Digest(), state.validator_registry, 0, state.slot)
+      get_shuffling(Eth2Digest(), state.validator_registry, state.slot)
+    committee_count_per_slot = initial_shuffling.len div EPOCH_LENGTH
 
-  # initial_shuffling + initial_shuffling in spec, but more ugly
-  for i, n in initial_shuffling:
-    state.shard_committees_at_slots[i] = n
-    state.shard_committees_at_slots[EPOCH_LENGTH + i] = n
+  for i in 0 ..< EPOCH_LENGTH:
+    state.shard_committees_at_slots[i] = @[]
+    state.shard_committees_at_slots[EPOCH_LENGTH + i] = @[]
+
+  for i, committee2 in initial_shuffling:
+    let slot = i div committee_count_per_slot
+    var sc : ShardCommittee
+    sc.shard = i.uint64
+    sc.committee = committee2
+    state.shard_committees_at_slots[slot] = concat(state.shard_committees_at_slots[slot], @[sc])
+    state.shard_committees_at_slots[EPOCH_LENGTH + slot] = concat(state.shard_committees_at_slots[EPOCH_LENGTH + slot], @[sc])
 
   state
 

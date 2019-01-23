@@ -611,13 +611,15 @@ func processEpoch(state: var BeaconState) =
       state.finalized_slot = state.justified_slot
 
   block: # Crosslinks
-    for sac in state.shard_committees_at_slots:
-      for shard_committee in sac:
-        if 3'u64 * total_attesting_balance(shard_committee) >=
-            2'u64 * total_balance_sac(shard_committee):
-          state.latest_crosslinks[shard_committee.shard] = Crosslink(
-            slot: state.slot + EPOCH_LENGTH,
-            shard_block_root: winning_root(shard_committee))
+    for slot in state.slot - 2 * EPOCH_LENGTH ..< state.slot:
+      discard
+      # TODO implement helpers
+      #let crosslink_committees_at_slot = get_crosslink_committees_at_slot(state, slot)
+      #
+      #for crosslink_committee, shard in crosslink_committees_at_slot.items:
+      #  if 3 * total_attesting_balance(crosslink_committee) >= 2 * total_balance(crosslink_committee):
+      #    state.latest_crosslinks[shard] = Crosslink(
+      #      slot=state.slot, shard_block_root=winning_root(crosslink_committee))
 
   block: # Justification and finalization
     let
@@ -705,14 +707,6 @@ func processEpoch(state: var BeaconState) =
         state.shard_committees_at_slots[i] =
           state.shard_committees_at_slots[EPOCH_LENGTH + i]
 
-      let next_start_shard =
-        (state.shard_committees_at_slots[^1][^1].shard + 1) mod SHARD_COUNT
-      for i, v in get_shuffling_prev(
-          state.latest_randao_mixes[
-            (state.slot - EPOCH_LENGTH) mod LATEST_RANDAO_MIXES_LENGTH],
-          state.validator_registry, next_start_shard, state.slot):
-        state.shard_committees_at_slots[i + EPOCH_LENGTH] = v
-
     else:
       # If a validator registry change does NOT happen
       for i in 0..<EPOCH_LENGTH:
@@ -724,14 +718,6 @@ func processEpoch(state: var BeaconState) =
           (state.slot - state.validator_registry_latest_change_slot) div
             EPOCH_LENGTH
         start_shard = state.shard_committees_at_slots[0][0].shard
-
-      if is_power_of_2(epochs_since_last_registry_change):
-        for i, v in get_shuffling_prev(
-            state.latest_randao_mixes[
-              (state.slot - EPOCH_LENGTH) mod LATEST_RANDAO_MIXES_LENGTH],
-            state.validator_registry, start_shard, state.slot):
-          state.shard_committees_at_slots[i + EPOCH_LENGTH] = v
-        # Note that `start_shard` is not changed from the last epoch.
 
   block: # Final updates
     state.latest_attestations.keepItIf(
