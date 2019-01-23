@@ -9,3 +9,6 @@ build/
 *.la
 *.exe
 *.dll
+
+/tests/simulation/*.json
+
