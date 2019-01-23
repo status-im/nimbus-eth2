@@ -29,7 +29,7 @@ if [[ -z "$SKIP_BUILDS" ]]; then
 fi
 
 if [ ! -f $STARTUP_FILE ]; then
-  $VALIDATOR_KEYGEN_BIN $NUMBER_OF_VALIDATORS "$SIMULATION_DIR"
+  $VALIDATOR_KEYGEN_BIN --validators=$NUMBER_OF_VALIDATORS --outputDir="$SIMULATION_DIR"
 fi
 
 if [ ! -f $SNAPSHOT_FILE ]; then
