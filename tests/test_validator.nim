@@ -10,6 +10,9 @@ import
 
 func sumCommittees(v: openArray[seq[Uint24]], reqCommitteeLen: int): int =
   for x in v:
+    ## This only holds when num_validators is divisible by
+    ## EPOCH_LENGTH * get_committee_count_per_slot(len(validators))
+    ## as, in general, not all committees can be equally sized.
     assert x.len == reqCommitteeLen
     inc result, x.len
 
