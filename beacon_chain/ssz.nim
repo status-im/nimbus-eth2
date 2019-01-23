@@ -20,20 +20,20 @@ from milagro_crypto import getRaw, fromRaw
 # toBytesSSZ convert simple fixed-length types to their SSZ wire representation
 func toBytesSSZ(x: SomeInteger): array[sizeof(x), byte] =
   ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
-  ## All integers are serialized as **big endian**.
+  ## All integers are serialized as **little endian**.
 
-  when x.sizeof == 8: bigEndian64(result.addr, x.unsafeAddr)
-  elif x.sizeof == 4: bigEndian32(result.addr, x.unsafeAddr)
-  elif x.sizeof == 2: bigEndian16(result.addr, x.unsafeAddr)
+  when x.sizeof == 8: littleEndian64(result.addr, x.unsafeAddr)
+  elif x.sizeof == 4: littleEndian32(result.addr, x.unsafeAddr)
+  elif x.sizeof == 2: littleEndian16(result.addr, x.unsafeAddr)
   elif x.sizeof == 1: copyMem(result.addr, x.unsafeAddr, sizeof(result))
   else: {.fatal: "Unsupported type serialization: " & $(type(x)).name.}
 
 func toBytesSSZ(x: Uint24): array[3, byte] =
-  ## Integers are all encoded as bigendian and not padded
+  ## Integers are all encoded as little endian and not padded
   let v = x.uint32
-  result[2] = byte(v and 0xff)
+  result[0] = byte(v and 0xff)
   result[1] = byte((v shr 8) and 0xff)
-  result[0] = byte((v shr 16) and 0xff)
+  result[2] = byte((v shr 16) and 0xff)
 
 func toBytesSSZ(x: bool): array[1, byte] =
   [if x: 1'u8 else: 0'u8]
@@ -74,7 +74,7 @@ func sszLen(v: seq | array): int =
 # there's enough data in the buffer
 func fromBytesSSZUnsafe(T: typedesc[SomeInteger], data: pointer): T =
   ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
-  ## All integers are serialized as **big endian**.
+  ## All integers are serialized as **little endian**.
   ## TODO: Assumes data points to a sufficiently large buffer
 
   # TODO: any better way to get a suitably aligned buffer in nim???
@@ -83,9 +83,9 @@ func fromBytesSSZUnsafe(T: typedesc[SomeInteger], data: pointer): T =
   var alignedBuf = cast[ptr byte](tmp.addr)
   copyMem(alignedBuf, data, result.sizeof)
 
-  when result.sizeof == 8: bigEndian64(result.addr, alignedBuf)
-  elif result.sizeof == 4: bigEndian32(result.addr, alignedBuf)
-  elif result.sizeof == 2: bigEndian16(result.addr, alignedBuf)
+  when result.sizeof == 8: littleEndian64(result.addr, alignedBuf)
+  elif result.sizeof == 4: littleEndian32(result.addr, alignedBuf)
+  elif result.sizeof == 2: littleEndian16(result.addr, alignedBuf)
   elif result.sizeof == 1: copyMem(result.addr, alignedBuf, sizeof(result))
   else: {.fatal: "Unsupported type deserialization: " & $(type(result)).name.}
 
@@ -95,12 +95,12 @@ func fromBytesSSZUnsafe(T: typedesc[bool], data: pointer): T =
   fromBytesSSZUnsafe(uint8, data) != 0
 
 func fromBytesSSZUnsafe(T: typedesc[Uint24], data: pointer): T =
-  ## Integers are all encoded as bigendian and not padded
+  ## Integers are all encoded as littleendian and not padded
   var tmp: uint32
   let p = cast[ptr UncheckedArray[byte]](data)
-  tmp = tmp or uint32(p[2])
+  tmp = tmp or uint32(p[0])
   tmp = tmp or uint32(p[1]) shl 8
-  tmp = tmp or uint32(p[0]) shl 16
+  tmp = tmp or uint32(p[2]) shl 16
   result = tmp.Uint24
 
 func fromBytesSSZUnsafe(T: typedesc[EthAddress], data: pointer): T =
@@ -212,7 +212,7 @@ func serialize[T: not enum](dest: var seq[byte], src: T) =
 
   # Write size (we only know it once we've serialized the object!)
   var objLen = dest.len() - lenPos - 4
-  bigEndian32(dest[lenPos].addr, objLen.addr)
+  littleEndian32(dest[lenPos].addr, objLen.addr)
 
 # ################### Core functions ###################################
 
@@ -262,12 +262,12 @@ func merkleHash[T](lst: openArray[T]): array[32, byte]
 
 func hash_tree_root*(x: SomeInteger | bool): array[sizeof(x), byte] =
   ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
-  ## All integers are serialized as **big endian**.
+  ## All integers are serialized as **little endian**.
   toBytesSSZ(x)
 
 func hash_tree_root*(x: Uint24): array[3, byte] =
   ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
-  ## All integers are serialized as **big endian**.
+  ## All integers are serialized as **little endian**.
   toBytesSSZ(x)
 
 func hash_tree_root*(x: EthAddress): array[sizeof(x), byte] =
@@ -333,7 +333,7 @@ func merkleHash[T](lst: openArray[T]): array[32, byte] =
   # Store length of list (to compensate for non-bijectiveness of padding)
   var dataLen: array[32, byte]
   var lstLen = uint64(len(lst))
-  bigEndian64(dataLen[32-8].addr, lstLen.addr)
+  littleEndian64(dataLen[32-8].addr, lstLen.addr)
 
   # Divide into chunks
   var chunkz: seq[seq[byte]]
