@@ -278,7 +278,7 @@ func get_initial_beacon_state*(
 
   for i, committee2 in initial_shuffling:
     let slot = i div committee_count_per_slot
-    var sc : ShardCommittee
+    var sc: ShardCommittee
     sc.shard = i.uint64
     sc.committee = committee2
     state.shard_committees_at_slots[slot] = concat(state.shard_committees_at_slots[slot], @[sc])
