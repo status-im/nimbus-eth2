@@ -1,8 +1,8 @@
 import
+  confutils,
   ../beacon_chain/[extras, ssz],
   ../beacon_chain/spec/[beaconstate, datatypes, digest],
-  ../tests/testutil,
-  cligen
+  ../tests/testutil
 
 proc stateSize(deposits: int, maxContent = false) =
   var state = get_initial_beacon_state(

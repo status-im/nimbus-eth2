@@ -1,5 +1,5 @@
 import
-  cligen,
+  confutils,
   json, strformat,
   options, sequtils, random,
   milagro_crypto,
@@ -17,13 +17,12 @@ proc writeJson*(prefix, slot, v: auto) =
   discard open(f, fmt"{prefix:04}-{slot:08}.json", fmWrite)
   write(f, pretty(%*(v)))
 
-proc transition(
-    slots = 1945,
-    validators = EPOCH_LENGTH, # One per shard is minimum
-    json_interval = EPOCH_LENGTH,
-    prefix = 0,
-    attesterRatio = 0.0,
-    validate = false) =
+cli do(slots = 1945,
+       validators = EPOCH_LENGTH, # One per shard is minimum
+       json_interval = EPOCH_LENGTH,
+       prefix = 0,
+       attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.0,
+       validate = false):
   let
     flags = if validate: {} else: {skipValidation}
     genesisState = get_initial_beacon_state(
@@ -84,7 +83,3 @@ proc transition(
 
   echo "done!"
 
-dispatch(
-  transition,
-  help = { "attesterRatio": "ratio of validators that attest in each round" }
-)

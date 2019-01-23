@@ -23,8 +23,7 @@ requires "nim >= 0.18.0",
   "confutils",
   "serialization",
   "json_serialization",
-  "json_rpc",
-  "cligen 0.9.18"
+  "json_rpc"
 
 ### Helper functions
 proc test(name: string, defaultLang = "c") =

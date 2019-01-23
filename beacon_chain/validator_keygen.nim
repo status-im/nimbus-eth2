@@ -1,6 +1,6 @@
 import
   os, ospaths, strutils, strformat,
-  asyncdispatch2, milagro_crypto, nimcrypto, json_serialization,
+  asyncdispatch2, milagro_crypto, nimcrypto, json_serialization, confutils,
   spec/[datatypes, digest, crypto], conf, randao, time, ssz,
   ../tests/testutil
 
@@ -20,9 +20,6 @@ proc genSingleValidator(path: string): (ValidatorPubKey,
 
   return (v.privKey.pubKey(), v.privKey, v.randao.initialCommitment)
 
-proc printUsage() =
-  echo "Usage: validator_keygen <number-of-validators> <out-path>"
-
 # TODO: Make these more comprehensive and find them a new home
 type
   Ether* = distinct int64
@@ -31,24 +28,20 @@ type
 template eth*(x: SomeInteger): Ether = Ether(x)
 template gwei*(x: Ether): Gwei = Gwei(int(x) * 1000000000)
 
-proc main() =
-  if paramCount() != 2:
-    printUsage()
-    return
+cli do (validators: int,
+        outputDir: string,
+        startupDelay = 0):
 
-  let totalValidators = parseInt paramStr(1)
-  if totalValidators < 64:
+  if validators < 64:
     echo "The number of validators must be higher than ", EPOCH_LENGTH, " (EPOCH_LENGTH)"
     echo "There must be at least one validator assigned per slot."
     quit 1
 
-  let outPath = paramStr(2)
-
   var startupData: ChainStartupData
 
-  for i in 1 .. totalValidators:
+  for i in 1 .. validators:
     let (pubKey, privKey, randaoCommitment) =
-      genSingleValidator(outPath / &"validator-{i:02}.json")
+      genSingleValidator(outputDir / &"validator-{i:02}.json")
 
     let
       withdrawalCredentials = makeFakeHash(i)
@@ -71,10 +64,7 @@ proc main() =
           withdrawal_credentials: withdrawalCredentials,
           randao_commitment: randaoCommitment)))
 
-  startupData.genesisTime = (now() div 1000)
+  startupData.genesisTime = uint64(int(now() div 1000) + startupDelay)
 
-  writeFile(outPath / "startup.json", startupData)
-
-when isMainModule:
-  main()
+  writeFile(outputDir / "startup.json", startupData)
 
