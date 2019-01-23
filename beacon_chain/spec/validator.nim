@@ -76,14 +76,14 @@ func get_previous_epoch_committee_count_per_slot(state: BeaconState): uint64 =
     state.validator_registry,
     state.previous_epoch_calculation_slot
   )
-  return get_committee_count_per_slot(len(previous_active_validators))
+  get_committee_count_per_slot(len(previous_active_validators))
 
 func get_current_epoch_committee_count_per_slot(state: BeaconState): uint64 =
   let previous_active_validators = get_active_validator_indices(
     state.validator_registry,
     state.current_epoch_calculation_slot
   )
-  return get_committee_count_per_slot(len(previous_active_validators))
+  get_committee_count_per_slot(len(previous_active_validators))
 
 func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64) : seq[tuple[a: seq[Uint24], b: uint64]] =
   ## Returns the list of ``(committee, shard)`` tuples for the ``slot``.
