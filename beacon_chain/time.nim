@@ -11,6 +11,7 @@ var
 
 template now*: auto = fastEpochTime()
 
+# TODO underflow when genesis has not yet happened!
 proc timeSinceGenesis*(s: BeaconState): Timestamp =
   Timestamp(int64(fastEpochTime() - s.genesis_time * 1000) -
             detectedClockDrift)
@@ -39,7 +40,7 @@ proc slotDistanceFromNow*(s: BeaconState): int64 =
   ## Returns how many slots have passed since a particular BeaconState was finalized
   int64(s.timeSinceGenesis() div (SLOT_DURATION * 1000)) - int64(s.finalized_slot)
 
-proc syncrhronizeClock*() {.async.} =
+proc synchronizeClock*() {.async.} =
   ## This should determine the offset of the local clock against a global
   ## trusted time (e.g. it can be obtained from multiple time servers).
 

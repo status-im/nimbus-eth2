@@ -2,6 +2,9 @@
 
 set -eu
 
+# Kill children on ctrl-c
+trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
+
 # Set a default value for the env vars usually supplied by nimbus Makefile
 : ${SKIP_BUILDS:=""}
 : ${BUILD_OUTPUTS_DIR:="./build"}
@@ -24,7 +27,7 @@ BEACON_NODE_BIN=$BUILD_OUTPUTS_DIR/beacon_node
 VALIDATOR_KEYGEN_BIN=$BUILD_OUTPUTS_DIR/validator_keygen
 
 if [[ -z "$SKIP_BUILDS" ]]; then
-  nim c -o:"$VALIDATOR_KEYGEN_BIN" beacon_chain/validator_keygen
+  nim c -o:"$VALIDATOR_KEYGEN_BIN" -d:release beacon_chain/validator_keygen
   nim c -o:"$BEACON_NODE_BIN" beacon_chain/beacon_node
 fi
 
@@ -76,12 +79,4 @@ for i in $(seq 0 9); do
     $BOOTSTRAP_NODES_FLAG &
 done
 
-trap ctrl_c INT
-
-function ctrl_c() {
-  killall beacon_node
-  exit 0
-}
-
-sleep 100000
-
+wait # Stop when all nodes have gone down
