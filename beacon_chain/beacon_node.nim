@@ -29,6 +29,8 @@ const
   topicAttestations = "ethereum/2.1/beacon_chain/attestations"
 
 func shortHash(x: auto): string = ($x)[0..7]
+func shortValidatorKey(node: BeaconNode, validatorIdx: int): string =
+  ($node.beaconState.validator_registry[validatorIdx].pubkey)[0..7]
 
 proc ensureNetworkKeys*(dataDir: string): KeyPair =
   # TODO:
@@ -131,6 +133,8 @@ proc addLocalValidators*(node: BeaconNode) =
     if idx == -1:
       warn "Validator not in registry", pubKey
     else:
+      debug "Attaching validator", validator = shortValidatorKey(node, idx),
+                                   idx, pubKey
       node.attachedValidators.addLocalValidator(idx, pubKey, privKey, randao)
 
   info "Local validators attached ", count = node.attachedValidators.count
@@ -177,7 +181,7 @@ proc makeAttestation(node: BeaconNode,
 
   info "Attestation sent", slot = slot,
                            shard = shard,
-                           validator = validator.idx,
+                           validator = shortValidatorKey(node, validator.idx),
                            signature = shortHash(validatorSignature)
 
 proc proposeBlock(node: BeaconNode,
@@ -189,10 +193,13 @@ proc proposeBlock(node: BeaconNode,
 
   var state = node.beaconState
 
-  for s in node.beaconState.slot + 1 ..< slot:
-    info "Skipping block", slot = s
-    let ok = updateState(state, node.headBlockRoot, none[BeaconBlock](), {})
-    doAssert ok
+  if node.beaconState.slot + 1 < slot:
+    info "Proposing block after slot gap",
+      slot,
+      stateSlot = node.beaconState.slot
+    for s in node.beaconState.slot + 1 ..< slot:
+      let ok = updateState(state, node.headBlockRoot, none[BeaconBlock](), {})
+      doAssert ok
 
   let
     randaoCommitment = node.beaconState.validator_registry[validator.idx].randao_commitment
@@ -225,7 +232,7 @@ proc proposeBlock(node: BeaconNode,
 
   info "Block proposed", slot = slot,
                          stateRoot = shortHash(newBlock.state_root),
-                         validator = validator.idx
+                         validator = shortValidatorKey(node, validator.idx)
 
 proc scheduleBlockProposal(node: BeaconNode,
                            slot: uint64,
@@ -236,7 +243,16 @@ proc scheduleBlockProposal(node: BeaconNode,
   # internal `doAssert` starting to fail.
   doAssert validator != nil
 
+  let at = node.beaconState.slotStart(slot)
+
+  info "Scheduling block proposal",
+    validator = shortValidatorKey(node, validator.idx),
+    slot,
+    fromNow = (at - fastEpochTime()) div 1000
+
   addTimer(node.beaconState.slotStart(slot)) do (x: pointer) {.gcsafe.}:
+    # TODO timers are generally not accurate / guaranteed to fire at the right
+    #      time - need to guard here against early / late firings
     doAssert validator != nil
     asyncCheck proposeBlock(node, validator, slot.uint64)
 
@@ -292,30 +308,40 @@ proc scheduleEpochActions(node: BeaconNode, epoch: uint64) =
           scheduleAttestation(node, validator, slot, shard.shard, shard.committee.len, i)
 
   node.lastScheduledEpoch = epoch
-  let nextEpoch = epoch + 1
+  let
+    nextEpoch = epoch + 1
+    at = node.beaconState.slotMiddle(nextEpoch * EPOCH_LENGTH)
 
-  addTimer(node.beaconState.slotMiddle(nextEpoch * EPOCH_LENGTH)) do (p: pointer):
+  info "Scheduling next epoch update",
+    fromNow = (at - fastEpochTime()) div 1000,
+    nextEpoch
+
+  addTimer(at) do (p: pointer):
     if node.lastScheduledEpoch != nextEpoch:
       node.scheduleEpochActions(nextEpoch)
 
 proc processBlocks*(node: BeaconNode) =
   node.network.subscribe(topicBeaconBlocks) do (newBlock: BeaconBlock):
+    let stateSlot = node.beaconState.slot
     info "Block received", slot = newBlock.slot,
                            stateRoot = shortHash(newBlock.state_root),
-                           currentStateSlot = node.beaconState.slot
+                           stateSlot
 
     # TODO: This should be replaced with the real fork-choice rule
-    if newBlock.slot <= node.beaconState.slot:
+    if newBlock.slot <= stateSlot:
       debug "Ignoring block"
       return
 
     let newBlockRoot = hash_tree_root_final(newBlock)
 
     var state = node.beaconState
-    for slot in node.beaconState.slot + 1 ..< newBlock.slot:
-      info "Skipping block", slot
-      let ok = updateState(state, node.headBlockRoot, none[BeaconBlock](), {})
-      doAssert ok
+    if stateSlot + 1 < newBlock.slot:
+      info "Advancing state past slot gap",
+        blockSlot = newBlock.slot,
+        stateSlot
+      for slot in stateSlot + 1 ..< newBlock.slot:
+        let ok = updateState(state, node.headBlockRoot, none[BeaconBlock](), {})
+        doAssert ok
 
     let ok = updateState(state, node.headBlockRoot, some(newBlock), {})
     if not ok:
@@ -340,17 +366,21 @@ proc processBlocks*(node: BeaconNode) =
       node.scheduleEpochActions(epoch)
 
   node.network.subscribe(topicAttestations) do (a: Attestation):
+    let participants = get_attestation_participants(
+      node.beaconState, a.data, a.participation_bitfield).
+        mapIt(shortValidatorKey(node, it))
+
     info "Attestation received", slot = a.data.slot,
                                  shard = a.data.shard,
-                                 signature = shortHash(a.aggregate_signature)
+                                 signature = shortHash(a.aggregate_signature),
+                                 participants
 
     node.attestationPool.add(a, node.beaconState)
 
-  dynamicLogScope(node = node.config.tcpPort - 50000):
-    let epoch = node.beaconState.timeSinceGenesis().toSlot div EPOCH_LENGTH
-    node.scheduleEpochActions(epoch)
+  let epoch = node.beaconState.timeSinceGenesis().toSlot div EPOCH_LENGTH
+  node.scheduleEpochActions(epoch)
 
-    runForever()
+  runForever()
 
 var gPidFile: string
 proc createPidFile(filename: string) =
@@ -370,15 +400,20 @@ when isMainModule:
     quit 0
 
   of noCommand:
-    waitFor syncrhronizeClock()
+    waitFor synchronizeClock()
     createPidFile(config.dataDir.string / "beacon_node.pid")
 
     var node = BeaconNode.init config
-    waitFor node.connectToNetwork()
 
-    if not waitFor node.sync():
-      quit 1
+    dynamicLogScope(node = node.config.tcpPort - 50000):
+      waitFor node.connectToNetwork()
 
-    node.addLocalValidators()
-    node.processBlocks()
+      if not waitFor node.sync():
+        quit 1
 
+      info "Starting beacon node",
+        slotsSinceFinalization = node.beaconState.slotDistanceFromNow(),
+        stateSlot = node.beaconState.slot
+
+      node.addLocalValidators()
+      node.processBlocks()

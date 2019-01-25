@@ -64,7 +64,7 @@ func verifyProposerSignature(state: BeaconState, blck: BeaconBlock): bool =
     proposal_hash.data, blck.signature,
     get_domain(state.fork_data, state.slot, DOMAIN_PROPOSAL))
 
-func processRandao(
+proc processRandao(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   ## When a validator signs up, they will include a hash number together with
   ## the deposit - the randao_commitment. The commitment is formed by hashing
@@ -86,8 +86,12 @@ func processRandao(
 
   if skipValidation notin flags:
     # Check that proposer commit and reveal match
-    if repeat_hash(blck.randao_reveal, proposer.randao_layers) !=
-        proposer.randao_commitment:
+    let expected = repeat_hash(blck.randao_reveal, proposer.randao_layers)
+    if expected != proposer.randao_commitment:
+      notice "Randao reveal mismatch", reveal = blck.randao_reveal,
+                                       layers = proposer.randao_layers,
+                                       commitment = proposer.randao_commitment,
+                                       expected
       return false
 
   # Update state and proposer now that we're alright
@@ -130,8 +134,8 @@ proc processProposerSlashings(
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#proposer-slashings-1
 
   if len(blck.body.proposer_slashings) > MAX_PROPOSER_SLASHINGS:
-    warn("PropSlash: too many!",
-      proposer_slashings = len(blck.body.proposer_slashings))
+    notice "PropSlash: too many!",
+      proposer_slashings = len(blck.body.proposer_slashings)
     return false
 
   for proposer_slashing in blck.body.proposer_slashings:
@@ -144,7 +148,7 @@ proc processProposerSlashings(
           get_domain(
             state.fork_data, proposer_slashing.proposal_data_1.slot,
             DOMAIN_PROPOSAL)):
-        warn("PropSlash: invalid signature 1")
+        notice "PropSlash: invalid signature 1"
         return false
       if not bls_verify(
           proposer.pubkey,
@@ -153,26 +157,26 @@ proc processProposerSlashings(
           get_domain(
             state.fork_data, proposer_slashing.proposal_data_2.slot,
             DOMAIN_PROPOSAL)):
-        warn("PropSlash: invalid signature 2")
+        notice "PropSlash: invalid signature 2"
         return false
 
     if not (proposer_slashing.proposal_data_1.slot ==
         proposer_slashing.proposal_data_2.slot):
-      warn("PropSlash: slot mismatch")
+      notice "PropSlash: slot mismatch"
       return false
 
     if not (proposer_slashing.proposal_data_1.shard ==
         proposer_slashing.proposal_data_2.shard):
-      warn("PropSlash: shard mismatch")
+      notice "PropSlash: shard mismatch"
       return false
 
     if not (proposer_slashing.proposal_data_1.block_root ==
         proposer_slashing.proposal_data_2.block_root):
-      warn("PropSlash: block root mismatch")
+      notice "PropSlash: block root mismatch"
       return false
 
     if not (proposer.penalized_slot > state.slot):
-      warn("PropSlash: penalized slot")
+      notice "PropSlash: penalized slot"
       return false
 
     penalizeValidator(state, proposer_slashing.proposer_index)
@@ -202,7 +206,7 @@ proc indices(vote: SlashableVoteData): seq[Uint24] =
 proc processCasperSlashings(state: var BeaconState, blck: BeaconBlock): bool =
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#casper-slashings-1
   if len(blck.body.casper_slashings) > MAX_CASPER_SLASHINGS:
-    warn("CaspSlash: too many!")
+    notice "CaspSlash: too many!"
     return false
 
   for casper_slashing in blck.body.casper_slashings:
@@ -214,25 +218,25 @@ proc processCasperSlashings(state: var BeaconState, blck: BeaconBlock): bool =
         indices(slashable_vote_data_1).filterIt(it in indices2)
 
     if not (slashable_vote_data_1.data != slashable_vote_data_2.data):
-      warn("CaspSlash: invalid data")
+      notice "CaspSlash: invalid data"
       return false
 
     if not (len(intersection) >= 1):
-      warn("CaspSlash: no intersection")
+      notice "CaspSlash: no intersection"
       return false
 
     if not (
       is_double_vote(slashable_vote_data_1.data, slashable_vote_data_2.data) or
       is_surround_vote(slashable_vote_data_1.data, slashable_vote_data_2.data)):
-      warn("CaspSlash: surround or double vote check failed")
+      notice "CaspSlash: surround or double vote check failed"
       return false
 
     if not verify_slashable_vote_data(state, slashable_vote_data_1):
-      warn("CaspSlash: invalid votes 1")
+      notice "CaspSlash: invalid votes 1"
       return false
 
     if not verify_slashable_vote_data(state, slashable_vote_data_2):
-      warn("CaspSlash: invalid votes 2")
+      notice "CaspSlash: invalid votes 2"
       return false
 
     for i in intersection:
@@ -252,7 +256,7 @@ proc processAttestations(
   ##
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#attestations-1
   if blck.body.attestations.len > MAX_ATTESTATIONS:
-    warn("Attestation: too many!", attestations = blck.body.attestations.len)
+    notice "Attestation: too many!", attestations = blck.body.attestations.len
     return false
 
   if not blck.body.attestations.allIt(checkAttestation(state, it, flags)):
@@ -283,7 +287,7 @@ proc processExits(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#exits-1
   if len(blck.body.exits) > MAX_EXITS:
-    warn("Exit: too many!")
+    notice "Exit: too many!"
     return false
 
   for exit in blck.body.exits:
@@ -293,15 +297,15 @@ proc processExits(
       if not bls_verify(
           validator.pubkey, ZERO_HASH.data, exit.signature,
           get_domain(state.fork_data, exit.slot, DOMAIN_EXIT)):
-        warn("Exit: invalid signature")
+        notice "Exit: invalid signature"
         return false
 
     if not (validator.exit_slot > state.slot + ENTRY_EXIT_DELAY):
-      warn("Exit: exit/entry too close")
+      notice "Exit: exit/entry too close"
       return false
 
     if not (state.slot >= exit.slot):
-      warn("Exit: bad slot")
+      notice "Exit: bad slot"
       return false
 
     initiate_validator_exit(state, exit.validator_index)
@@ -347,16 +351,21 @@ proc processBlock(
   # TODO probably better to do all verification first, then apply state changes
 
   if not (blck.slot == state.slot):
-    warn "Unexpected block slot number"
+    notice "Unexpected block slot number",
+      blockSlot = blck.slot,
+      stateSlot = state.slot
     return false
 
   # Spec does not have this check explicitly, but requires that this condition
   # holds - so we give verify it as well - this would happen naturally if
   # `blck.parent_root` was used in `processSlot` - but that doesn't cut it for
   # blockless slot processing.
-  if not (blck.parent_root ==
-      state.latest_block_roots[(state.slot - 1) mod LATEST_BLOCK_ROOTS_LENGTH]):
-    warn("Unexpected parent root")
+  let stateParentRoot =
+    state.latest_block_roots[(state.slot - 1) mod LATEST_BLOCK_ROOTS_LENGTH]
+  if not (blck.parent_root == stateParentRoot):
+    notice "Unexpected parent root",
+      blockParentRoot = blck.parent_root,
+      stateParentRoot
     return false
 
   if skipValidation notin flags:
@@ -365,11 +374,10 @@ proc processBlock(
     #      type that omits some fields - this way, the compiler would guarantee
     #      that we don't try to access fields that don't have a value yet
     if not verifyProposerSignature(state, blck):
-      warn("Proposer signature not valid")
+      notice "Proposer signature not valid"
       return false
 
   if not processRandao(state, blck, flags):
-    warn("Randao reveal failed")
     return false
 
   processDepositRoot(state, blck)
@@ -727,8 +735,8 @@ func processEpoch(state: var BeaconState) =
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   let state_root = hash_tree_root_final(state)
   if state_root != blck.state_root:
-    warn("Block: root verification failed",
-      block_state_root = blck.state_root, state_root)
+    notice "Block: root verification failed",
+      block_state_root = blck.state_root, state_root
     false
   else:
     true
