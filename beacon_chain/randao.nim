@@ -13,7 +13,7 @@ proc initRandao*(bytes: openarray[byte]): Randao =
     raise newException(Exception, "Wrong randao size")
   var s: Eth2Digest
   s.data[0 .. ^1] = bytes
-  initRandao(bytes)
+  initRandao(s)
 
 proc initialCommitment*(r: Randao): Eth2Digest =
   repeatHash(r.seed, MaxRandaoLevels)

@@ -49,6 +49,12 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): T =
 
   let trieDB = trieDB newChainDb(string conf.dataDir)
   result.db = BeaconChainDB.init(trieDB)
+
+  if not result.db.isInitialized:
+    # Use stateSnapshot as genesis
+    info "Initializing DB"
+    result.db.persistState(result.config.stateSnapshot.get)
+
   result.keys = ensureNetworkKeys(string conf.dataDir)
 
   var address: Address
@@ -81,14 +87,10 @@ proc connectToNetwork(node: BeaconNode) {.async.} =
 
 proc sync*(node: BeaconNode): Future[bool] {.async.} =
   let persistedState = node.db.lastFinalizedState()
-  if persistedState.isNil or
-     persistedState[].slotDistanceFromNow() > WEAK_SUBJECTVITY_PERIOD.int64:
-    if node.config.stateSnapshot.isSome:
-      node.beaconState = node.config.stateSnapshot.get
-    else:
-      node.beaconState = await obtainTrustedStateSnapshot(node.db)
+  if persistedState.slotDistanceFromNow() > WEAK_SUBJECTVITY_PERIOD.int64:
+    node.beaconState = await obtainTrustedStateSnapshot(node.db)
   else:
-    node.beaconState = persistedState[]
+    node.beaconState = persistedState
     var targetSlot = toSlot timeSinceGenesis(node.beaconState)
 
     let t = now()
@@ -354,6 +356,7 @@ proc processBlocks*(node: BeaconNode) =
     node.headBlock = newBlock
     node.headBlockRoot = newBlockRoot
     node.beaconState = state
+    node.db.persistBlock(node.beaconState, newBlock)
 
     # TODO:
     #

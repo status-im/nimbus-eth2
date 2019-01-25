@@ -16,7 +16,11 @@ type
 p2pProtocol BeaconSync(version = 1,
                        shortName = "bcs"):
   requestResponse:
-    proc getValidatorChangeLog(peer: Peer, changeLogHead: Eth2Digest)
+    proc getValidatorChangeLog(peer: Peer, changeLogHead: Eth2Digest) =
+      var bb: BeaconBlock
+      var bs: BeaconState
+      # TODO: get the changelog from the DB.
+      await peer.validatorChangeLog(reqId, bb, bs, [], [], @[])
 
     proc validatorChangeLog(peer: Peer,
                             signedBlock: BeaconBlock,
@@ -24,11 +28,6 @@ p2pProtocol BeaconSync(version = 1,
                             added: openarray[ValidatorPubKey],
                             removed: openarray[uint32],
                             order: seq[byte])
-
-template `++`(x: var int): int =
-  let y = x
-  inc x
-  y
 
 type
   # A bit shorter names for convenience
