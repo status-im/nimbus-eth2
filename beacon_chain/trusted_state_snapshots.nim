@@ -27,7 +27,7 @@ proc obtainTrustedStateSnapshot*(db: BeaconChainDB): Future[BeaconState] {.async
   #
   # 5. Check that the state snapshot hash is correct and save it in the DB.
 
-  discard
+  assert(false, "Not implemented")
 
 proc createStateSnapshot*(startup: ChainStartupData, outFile: string) =
   let initialState = get_initial_beacon_state(startup.validatorDeposits,
