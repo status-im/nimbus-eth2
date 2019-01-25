@@ -31,7 +31,7 @@ p2pProtocol GossipSub(version = 1,
   # available in LibP2P:
 
   onPeerConnected do (peer: Peer):
-    info "GossipSub Peer connecetd", peer
+    info "GossipSub Peer connected", peer
     let gossipNet = peer.networkState
     for topic, _ in gossipNet.topicSubscribers:
       asyncCheck peer.subscribeFor(topic)
