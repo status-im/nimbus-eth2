@@ -1,7 +1,7 @@
 import
   std_shims/[os_shims, objects], net, sequtils, options, tables,
   asyncdispatch2, chronicles, confutils, eth_p2p, eth_keys,
-  spec/[datatypes, digest, crypto, beaconstate, helpers, validator], conf, time,
+  spec/[datatypes, digest, crypto, beaconstate, helpers], conf, time,
   state_transition, fork_choice, ssz, beacon_chain_db, validator_pool, extras,
   mainchain_monitor, sync_protocol, gossipsub_protocol, trusted_state_snapshots,
   eth_trie/db, eth_trie/backends/rocksdb_backend
@@ -301,14 +301,11 @@ proc scheduleEpochActions(node: BeaconNode, epoch: uint64) =
     let
       committeesIdx = get_shard_committees_index(nextState, slot)
 
-    #for shard in node.beaconState.shard_committees_at_slots[committees_idx]:
-    for crosslink_committee in get_crosslink_committees_at_slot(node.beaconState, committees_idx):
-      #for i, validatorIdx in shard.committee:
-      for i, validatorIdx in crosslink_committee.a:
+    for shard in node.beaconState.shard_committees_at_slots[committees_idx]:
+      for i, validatorIdx in shard.committee:
         let validator = node.getAttachedValidator(validatorIdx)
         if validator != nil:
-          #scheduleAttestation(node, validator, slot, shard.shard, shard.committee.len, i)
-          scheduleAttestation(node, validator, slot, crosslink_committee.b, crosslink_committee.a.len, i)
+          scheduleAttestation(node, validator, slot, shard.shard, shard.committee.len, i)
 
   node.lastScheduledEpoch = epoch
   let

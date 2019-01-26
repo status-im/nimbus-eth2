@@ -538,21 +538,21 @@ func processEpoch(state: var BeaconState) =
   #      these closures outside this scope, but still..
   let statePtr = state.addr
   func attesting_validator_indices(
-      crosslink_committee: tuple[a: seq[Uint24], b: uint64], shard_block_root: Eth2Digest): seq[Uint24] =
+      shard_committee: ShardCommittee, shard_block_root: Eth2Digest): seq[Uint24] =
     let shard_block_attestations =
       concat(current_epoch_attestations, previous_epoch_attestations).
-      filterIt(it.data.shard == crosslink_committee.b and
+      filterIt(it.data.shard == shard_committee.shard and
         it.data.shard_block_root == shard_block_root)
     get_attester_indices(statePtr[], shard_block_attestations)
 
-  func winning_root(crosslink_committee: tuple[a: seq[Uint24], b: uint64]): Eth2Digest =
-    # * Let `winning_root(crosslink_committee)` be equal to the value of
+  func winning_root(shard_committee: ShardCommittee): Eth2Digest =
+    # * Let `winning_root(shard_committee)` be equal to the value of
     #   `shard_block_root` such that
-    #   `sum([get_effective_balance(state, i) for i in attesting_validator_indices(crosslink_committee, shard_block_root)])`
+    #   `sum([get_effective_balance(state, i) for i in attesting_validator_indices(shard_committee, shard_block_root)])`
     #   is maximized (ties broken by favoring lower `shard_block_root` values).
     let candidates =
       concat(current_epoch_attestations, previous_epoch_attestations).
-        filterIt(it.data.shard == crosslink_committee.b).
+        filterIt(it.data.shard == shard_committee.shard).
         mapIt(it.data.shard_block_root)
 
     # TODO not covered by spec!
@@ -562,27 +562,24 @@ func processEpoch(state: var BeaconState) =
     var max_hash = candidates[0]
     var max_val =
       sum_effective_balances(
-        statePtr[], attesting_validator_indices(crosslink_committee, max_hash))
+        statePtr[], attesting_validator_indices(shard_committee, max_hash))
     for candidate in candidates[1..^1]:
       let val = sum_effective_balances(
-        statePtr[], attesting_validator_indices(crosslink_committee, candidate))
+        statePtr[], attesting_validator_indices(shard_committee, candidate))
       if val > max_val or (val == max_val and candidate.lowerThan(max_hash)):
         max_hash = candidate
         max_val = val
     max_hash
 
-  func attesting_validators(crosslink_committee: tuple[a: seq[Uint24], b: uint64]): seq[Uint24] =
-    attesting_validator_indices(crosslink_committee, winning_root(crosslink_committee))
+  func attesting_validator_indices(shard_committee: ShardCommittee): seq[Uint24] =
+    attesting_validator_indices(shard_committee, winning_root(shard_committee))
 
-  func attesting_validator_indices(crosslink_committee: tuple[a: seq[Uint24], b: uint64]): seq[Uint24] =
-    attesting_validator_indices(crosslink_committee, winning_root(crosslink_committee))
-
-  func total_attesting_balance(crosslink_committee: tuple[a: seq[Uint24], b: uint64]): uint64 =
+  func total_attesting_balance(shard_committee: ShardCommittee): uint64 =
     sum_effective_balances(
-      statePtr[], attesting_validator_indices(crosslink_committee))
+      statePtr[], attesting_validator_indices(shard_committee))
 
-  func total_balance_sac(crosslink_committee: tuple[a: seq[Uint24], b: uint64]): uint64 =
-    sum_effective_balances(statePtr[], crosslink_committee.a)
+  func total_balance_sac(shard_committee: ShardCommittee): uint64 =
+    sum_effective_balances(statePtr[], shard_committee.committee)
 
   block: # Eth1 data
     if state.slot mod ETH1_DATA_VOTING_PERIOD == 0:
@@ -692,42 +689,43 @@ func processEpoch(state: var BeaconState) =
         base_reward(state, v) div INCLUDER_REWARD_QUOTIENT
 
   block: # Crosslinks
-    for slot in state.slot - 2 * EPOCH_LENGTH ..< state.slot - EPOCH_LENGTH:
-      let crosslink_committees_at_slot = get_crosslink_committees_at_slot(state, slot)
-      for crosslink_committee in crosslink_committees_at_slot:
-        # TODO https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#crosslinks-1
-        # but this is a best guess based on reasonableness of what "index" is
-        for index in crosslink_committee.a:
-          if index in attesting_validators(crosslink_committee):
-            state.validator_balances[index.int] += base_reward(state, index) * total_attesting_balance(crosslink_committee) div total_balance_sac(crosslink_committee)
+    for sac in state.shard_committees_at_slots[0 ..< EPOCH_LENGTH]:
+      for shard_committee in sac:
+        for index in shard_committee.committee:
+          if index in attesting_validator_indices(shard_committee):
+            state.validator_balances[index] +=
+              base_reward(state, index) *
+              total_attesting_balance(shard_committee) div
+              total_balance_sac(shard_committee)
           else:
             # TODO underflows?
             state.validator_balances[index] -= base_reward(state, index)
 
-  block: # Ejections
-    process_ejections(state)
-
   block: # Validator registry
-    # https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#validator-registry
-    state.previous_epoch_calculation_slot = state.current_epoch_calculation_slot
-    state.previous_epoch_start_shard = state.current_epoch_start_shard
-    state.previous_epoch_randao_mix = state.current_epoch_randao_mix
-
-    if state.finalized_slot > state.validator_registry_update_slot and
-       allIt(
-         0 ..< get_current_epoch_committee_count_per_slot(state).int * EPOCH_LENGTH,
-         state.latest_crosslinks[(state.current_epoch_start_shard + it.uint64) mod SHARD_COUNT].slot > state.validator_registry_update_slot):
+    if state.finalized_slot > state.validator_registry_latest_change_slot and
+        state.shard_committees_at_slots.allIt(
+          it.allIt(
+            state.latest_crosslinks[it.shard].slot >
+              state.validator_registry_latest_change_slot)):
       update_validator_registry(state)
-      state.current_epoch_calculation_slot = state.slot
-      state.current_epoch_start_shard = (state.current_epoch_start_shard + get_current_epoch_committee_count_per_slot(state) * EPOCH_LENGTH) mod SHARD_COUNT
-      state.current_epoch_randao_mix = get_randao_mix(state, state.current_epoch_calculation_slot - SEED_LOOKAHEAD)
+
+      state.validator_registry_latest_change_slot = state.slot
+
+      for i in 0..<EPOCH_LENGTH:
+        state.shard_committees_at_slots[i] =
+          state.shard_committees_at_slots[EPOCH_LENGTH + i]
+
     else:
       # If a validator registry change does NOT happen
-      let epochs_since_last_registry_change = (state.slot - state.validator_registry_update_slot) div EPOCH_LENGTH
-      if is_power_of_2(epochs_since_last_registry_change):
-        state.current_epoch_calculation_slot = state.slot
-        state.current_epoch_randao_mix = get_randao_mix(state, state.current_epoch_calculation_slot - SEED_LOOKAHEAD)
-    # TODO run process_penalties_and_exits
+      for i in 0..<EPOCH_LENGTH:
+        state.shard_committees_at_slots[i] =
+          state.shard_committees_at_slots[EPOCH_LENGTH + i]
+
+      let
+        epochs_since_last_registry_change =
+          (state.slot - state.validator_registry_latest_change_slot) div
+            EPOCH_LENGTH
+        start_shard = state.shard_committees_at_slots[0][0].shard
 
   block: # Final updates
     state.latest_attestations.keepItIf(

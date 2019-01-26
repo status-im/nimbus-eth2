@@ -4,7 +4,7 @@ import
   options, sequtils, random,
   milagro_crypto,
   ../tests/[testutil],
-  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
+  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers],
   ../beacon_chain/[extras, ssz, state_transition, fork_choice]
 
 proc `%`(v: uint64): JsonNode = newJInt(v.BiggestInt)

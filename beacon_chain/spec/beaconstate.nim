@@ -217,7 +217,7 @@ func get_initial_beacon_state*(
         fork_slot: GENESIS_SLOT,
     ),
 
-    validator_registry_update_slot: GENESIS_SLOT,
+    validator_registry_latest_change_slot: GENESIS_SLOT,
     validator_registry_exit_count: 0,
     validator_registry_delta_chain_tip: ZERO_HASH,
 
@@ -260,6 +260,30 @@ func get_initial_beacon_state*(
     if get_effective_balance(state, vi) > MAX_DEPOSIT_AMOUNT:
       activate_validator(state, vi, true)
 
+  # initial_shuffling + initial_shuffling in spec, but more ugly
+  # TODO remove temporary workaround
+  # previously, shuffling created foo[slot][committee_per_slot]
+  # now that's flattened to [committee_0_slot_0, c_1_s_0, ..., c_2_s_1, c_3_s_1, ...]
+  # so build adapter to keep this working until full conversion to current spec
+  # target structure is array[2 * EPOCH_LENGTH, seq[ShardCommittee]],
+  # where ShardCommittee is: shard*: uint64 / committee*: seq[Uint24]
+  let
+    initial_shuffling =
+      get_shuffling(Eth2Digest(), state.validator_registry, state.slot)
+    committee_count_per_slot = initial_shuffling.len div EPOCH_LENGTH
+
+  for i in 0 ..< EPOCH_LENGTH:
+    state.shard_committees_at_slots[i] = @[]
+    state.shard_committees_at_slots[EPOCH_LENGTH + i] = @[]
+
+  for i, committee2 in initial_shuffling:
+    let slot = i div committee_count_per_slot
+    var sc: ShardCommittee
+    sc.shard = i.uint64
+    sc.committee = committee2
+    state.shard_committees_at_slots[slot] = concat(state.shard_committees_at_slots[slot], @[sc])
+    state.shard_committees_at_slots[EPOCH_LENGTH + slot] = concat(state.shard_committees_at_slots[EPOCH_LENGTH + slot], @[sc])
+
   state
 
 func get_block_root*(state: BeaconState,
@@ -277,7 +301,7 @@ func get_randao_mix*(state: BeaconState,
 
 func get_attestation_participants*(state: BeaconState,
                                    attestation_data: AttestationData,
-                                   aggregation_bitfield: seq[byte]): seq[Uint24] =
+                                   participation_bitfield: seq[byte]): seq[Uint24] =
   ## Attestation participants in the attestation data are called out in a
   ## bit field that corresponds to the committee of the shard at the time - this
   ## function converts it to list of indices in to BeaconState.validators
@@ -285,25 +309,20 @@ func get_attestation_participants*(state: BeaconState,
   # TODO Linear search through shard list? borderline ok, it's a small list
   # TODO bitfield type needed, once bit order settles down
   # TODO iterator candidate
+  let
+    sncs_for_slot = get_shard_committees_at_slot(
+      state, attestation_data.slot)
 
-  # Find the committee in the list with the desired shard
-  let crosslink_committees = get_crosslink_committees_at_slot(state, attestation_data.slot)
+  for snc in sncs_for_slot:
+    if snc.shard != attestation_data.shard:
+      continue
 
-  # TODO investigate functional library / approach to help avoid loop bugs
-  assert any(
-    crosslink_committees,
-    func (x: tuple[a: seq[Uint24], b: uint64]): bool = x[1] == attestation_data.shard)
-  let crosslink_committee = mapIt(
-    filterIt(crosslink_committees, it.b == attestation_data.shard),
-    it.a)[0]
-  assert len(aggregation_bitfield) == (len(crosslink_committee) + 7) div 8
-
-  # Find the participating attesters in the committee
-  result = @[]
-  for i, validator_index in crosslink_committee:
-    let aggregation_bit = (aggregation_bitfield[i div 8] shr (7 - (i mod 8))) mod 2
-    if aggregation_bit == 1:
-      result.add(validator_index)
+    # TODO investigate functional library / approach to help avoid loop bugs
+    assert len(participation_bitfield) == ceil_div8(len(snc.committee))
+    for i, vindex in snc.committee:
+      if bitIsSet(participation_bitfield, i):
+        result.add(vindex)
+    return # found the shard, we're done
 
 func process_ejections*(state: var BeaconState) =
   ## Iterate through the validator registry

@@ -125,31 +125,3 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64) : seq[t
        shuffling[(committees_per_slot * offset + i.uint64).int],
        (slot_start_shard + i.uint64) mod SHARD_COUNT
       )
-
-func get_shard_committees_at_slot*(
-    state: BeaconState, slot: uint64): seq[ShardCommittee] =
-  # TODO temporary adapter; remove when all users gone
-  # where ShardCommittee is: shard*: uint64 / committee*: seq[Uint24]
-  let index = state.get_shard_committees_index(slot)
-  #state.shard_committees_at_slots[index]
-  for crosslink_committee in get_crosslink_committees_at_slot(state, slot):
-    var sac: ShardCommittee
-    sac.shard = crosslink_committee.b
-    sac.committee = crosslink_committee.a
-    result.add sac
-
-func get_beacon_proposer_index*(state: BeaconState, slot: uint64): Uint24 =
-  ## From Casper RPJ mini-spec:
-  ## When slot i begins, validator Vidx is expected
-  ## to create ("propose") a block, which contains a pointer to some parent block
-  ## that they perceive as the "head of the chain",
-  ## and includes all of the **attestations** that they know about
-  ## that have not yet been included into that chain.
-  ##
-  ## idx in Vidx == p(i mod N), pi being a random permutation of validators indices (i.e. a committee)
-  ## Returns the beacon proposer index for the ``slot``.
-  # TODO this index is invalid outside of the block state transition function
-  #      because presently, `state.slot += 1` happens before this function
-  #      is called - see also testutil.getNextBeaconProposerIndex
-  let first_committee = get_crosslink_committees_at_slot(state, slot)[0][0]
-  first_committee[slot.int mod len(first_committee)]
