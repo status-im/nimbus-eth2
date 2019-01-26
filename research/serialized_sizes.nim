@@ -1,7 +1,7 @@
 import
   confutils,
   ../beacon_chain/[extras, ssz],
-  ../beacon_chain/spec/[beaconstate, datatypes, digest],
+  ../beacon_chain/spec/[beaconstate, datatypes, digest, validator],
   ../tests/testutil
 
 proc stateSize(deposits: int, maxContent = false) =
@@ -13,8 +13,10 @@ proc stateSize(deposits: int, maxContent = false) =
     #      of attestations, and each block has a cap on the number of
     #      attestations it may hold, so we'll just add so many of them
     state.latest_attestations.setLen(MAX_ATTESTATIONS * EPOCH_LENGTH * 2)
-    let validatorsPerCommittee =
-      len(state.shard_committees_at_slots[0][0].committee) # close enough..
+    let
+      crosslink_committees = get_crosslink_committees_at_slot(state, 0)
+      validatorsPerCommittee =
+        len(crosslink_committees[0].a) # close enough..
     for a in state.latest_attestations.mitems():
       a.participation_bitfield.setLen(validatorsPerCommittee)
   echo "Validators: ", deposits, ", total: ", state.serialize().len
