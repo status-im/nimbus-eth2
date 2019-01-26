@@ -101,34 +101,13 @@ func repeat_hash*(v: Eth2Digest, n: SomeInteger): Eth2Digest =
     dec n
 
 func get_shard_committees_index*(state: BeaconState, slot: uint64): uint64 =
+  # TODO temporary adapter; remove when all users gone
   ## Warning: as it stands, this helper only works during state updates _after_
   ## state.slot has been incremented but before shard_committees_at_slots has
   ## been updated!
   # TODO spec unsigned-unsafe here
   doAssert slot + (state.slot mod EPOCH_LENGTH) + EPOCH_LENGTH > state.slot
   slot + (state.slot mod EPOCH_LENGTH) + EPOCH_LENGTH - state.slot
-
-proc get_shard_committees_at_slot*(
-    state: BeaconState, slot: uint64): seq[ShardCommittee] =
-  let index = state.get_shard_committees_index(slot)
-  state.shard_committees_at_slots[index]
-
-func get_beacon_proposer_index*(state: BeaconState, slot: uint64): Uint24 =
-  ## From Casper RPJ mini-spec:
-  ## When slot i begins, validator Vidx is expected
-  ## to create ("propose") a block, which contains a pointer to some parent block
-  ## that they perceive as the "head of the chain",
-  ## and includes all of the **attestations** that they know about
-  ## that have not yet been included into that chain.
-  ##
-  ## idx in Vidx == p(i mod N), pi being a random permutation of validators indices (i.e. a committee)
-  # TODO this index is invalid outside of the block state transition function
-  #      because presently, `state.slot += 1` happens before this function
-  #      is called - see also testutil.getNextBeaconProposerIndex
-  let idx = get_shard_committees_index(state, slot)
-  doAssert idx.int < state.shard_committees_at_slots.len
-  doAssert state.shard_committees_at_slots[idx].len > 0
-  state.shard_committees_at_slots[idx][0].committee.mod_get(slot)
 
 func integer_squareroot*(n: SomeInteger): SomeInteger =
   ## The largest integer ``x`` such that ``x**2`` is less than ``n``.

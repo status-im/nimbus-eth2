@@ -8,7 +8,7 @@
 import
   options, milagro_crypto, sequtils,
   ../beacon_chain/[extras, ssz, state_transition],
-  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers]
+  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator]
 
 const
   randaoRounds = 100
