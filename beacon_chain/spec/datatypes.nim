@@ -307,7 +307,7 @@ type
     validator_balances*: seq[uint64] ##\
     ## Validator balances in Gwei!
 
-    validator_registry_latest_change_slot*: uint64
+    validator_registry_update_slot*: uint64
     validator_registry_exit_count*: uint64
     validator_registry_delta_chain_tip*: Eth2Digest ##\
     ## For light clients to easily track delta
@@ -316,10 +316,6 @@ type
     latest_randao_mixes*: array[LATEST_BLOCK_ROOTS_LENGTH.int, Eth2Digest]
     latest_vdf_outputs*: array[
       (LATEST_RANDAO_MIXES_LENGTH div EPOCH_LENGTH).int, Eth2Digest]
-
-    shard_committees_at_slots*: array[2 * EPOCH_LENGTH, seq[ShardCommittee]] ## \
-    ## Committee members and their assigned shard, per slot, covers 2 cycles
-    ## worth of assignments
 
     previous_epoch_start_shard*: uint64
     current_epoch_start_shard*: uint64

@@ -8,7 +8,7 @@
 import
   options, sequtils, unittest,
   ./testutil,
-  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers],
+  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
   ../beacon_chain/[extras, state_transition, ssz]
 
 suite "Block processing":
@@ -101,9 +101,11 @@ suite "Block processing":
 
     let
       # Create an attestation for slot 1 signed by the only attester we have!
+      crosslink_committees = get_crosslink_committees_at_slot(state, state.slot)
       attestation = makeAttestation(
         state, previous_block_root,
-        state.shard_committees_at_slots[state.slot][0].committee[0])
+        #state.shard_committees_at_slots[state.slot][0].committee[0])
+        crosslink_committees[0].a[0])
 
     # Some time needs to pass before attestations are included - this is
     # to let the attestation propagate properly to interested participants
