@@ -152,7 +152,7 @@ proc addBlock*(
     assert bls_verify(
       proposer.pubkey,
       proposal_hash, new_block.signature,
-      get_domain(state.fork_data, state.slot, DOMAIN_PROPOSAL)),
+      get_domain(state.fork, state.slot, DOMAIN_PROPOSAL)),
       "we just signed this message - it should pass verification!"
 
   new_block
@@ -189,8 +189,8 @@ proc makeAttestation*(
       epoch_boundary_root: Eth2Digest(), # TODO
       shard_block_root: Eth2Digest(), # TODO
       latest_crosslink_root: Eth2Digest(), # TODO
-      justified_slot: state.justified_slot,
-      justified_block_root: get_block_root(state, state.justified_slot),
+      justified_epoch: state.justified_epoch,
+      justified_block_root: get_block_root(state, get_epoch_start_slot(state.justified_epoch)),
     )
 
   assert sac_index != -1, "find_shard_committe should guarantee this"

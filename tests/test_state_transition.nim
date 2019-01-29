@@ -109,7 +109,7 @@ suite "Block processing":
 
     # Some time needs to pass before attestations are included - this is
     # to let the attestation propagate properly to interested participants
-    while state.slot < MIN_ATTESTATION_INCLUSION_DELAY + 1:
+    while state.slot < GENESIS_SLOT + MIN_ATTESTATION_INCLUSION_DELAY + 1:
       discard updateState(
         state, previous_block_root, none(BeaconBlock), {})
 

@@ -39,7 +39,7 @@ func validate_proof_of_possession(state: BeaconState,
     hash_tree_root_final(proof_of_possession_data).data,
     proof_of_possession,
     get_domain(
-        state.fork_data,
+        state.fork,
         state.slot,
         DOMAIN_DEPOSIT,
     )
@@ -70,10 +70,10 @@ func process_deposit(state: var BeaconState,
       withdrawal_credentials: withdrawal_credentials,
       randao_commitment: randao_commitment,
       randao_layers: 0,
-      activation_slot: FAR_FUTURE_SLOT,
-      exit_slot: FAR_FUTURE_SLOT,
-      withdrawal_slot: FAR_FUTURE_SLOT,
-      penalized_slot: FAR_FUTURE_SLOT,
+      activation_epoch: FAR_FUTURE_EPOCH,
+      exit_epoch: FAR_FUTURE_EPOCH,
+      withdrawal_epoch: FAR_FUTURE_EPOCH,
+      penalized_epoch: FAR_FUTURE_EPOCH,
       exit_count: 0,
       status_flags: 0,
       custody_commitment: custody_commitment,
@@ -101,21 +101,19 @@ func process_deposit(state: var BeaconState,
     state.validator_balances[index] += deposit
     index.Uint24
 
+func get_entry_exit_effect_epoch*(epoch: EpochNumber): EpochNumber =
+  ## An entry or exit triggered in the ``epoch`` given by the input takes effect at
+  ## the epoch given by the output.
+  epoch + 1 + ENTRY_EXIT_DELAY
+
+# TODO: Uint24 -> ValidatorIndex
 func activate_validator(state: var BeaconState,
                         index: Uint24,
                         genesis: bool) =
   ## Activate the validator with the given ``index``.
   let validator = addr state.validator_registry[index]
 
-  validator.activation_slot = if genesis: GENESIS_SLOT else: state.slot + ENTRY_EXIT_DELAY
-  state.validator_registry_delta_chain_tip =
-    get_new_validator_registry_delta_chain_tip(
-      state.validator_registry_delta_chain_tip,
-      index,
-      validator.pubkey,
-      validator.activation_slot,
-      ACTIVATION,
-    )
+  validator.activation_epoch = if genesis: GENESIS_EPOCH else: get_entry_exit_effect_epoch(get_current_epoch(state))
 
 func initiate_validator_exit(state: var BeaconState,
                              index: Uint24) =
@@ -131,44 +129,29 @@ func exit_validator*(state: var BeaconState,
   let validator = addr state.validator_registry[index]
 
   # The following updates only occur if not previous exited
-  if validator.exit_slot <= state.slot + ENTRY_EXIT_DELAY:
+  if validator.exit_epoch <= get_entry_exit_effect_epoch(get_current_epoch(state)):
     return
 
-  validator.exit_slot = state.slot + ENTRY_EXIT_DELAY
+  validator.exit_epoch = get_entry_exit_effect_epoch(get_current_epoch(state))
 
   # The following updates only occur if not previous exited
   state.validator_registry_exit_count += 1
   validator.exit_count = state.validator_registry_exit_count
-  state.validator_registry_delta_chain_tip =
-    get_new_validator_registry_delta_chain_tip(
-      state.validator_registry_delta_chain_tip,
-      index,
-      validator.pubkey,
-      validator.exit_slot,
-      ValidatorSetDeltaFlags.EXIT
-    )
-
-func process_penalties_and_exits_eligible(state: BeaconState, index: int): bool =
-  let validator = state.validator_registry[index]
-  if validator.penalized_slot <= state.slot:
-    # strangely uppercase variable-ish name
-    let PENALIZED_WITHDRAWAL_TIME = (LATEST_PENALIZED_EXIT_LENGTH * EPOCH_LENGTH div 2).uint64
-    return state.slot >= validator.penalized_slot + PENALIZED_WITHDRAWAL_TIME
-  else:
-    return state.slot >= validator.exit_slot + MIN_VALIDATOR_WITHDRAWAL_TIME
 
 func process_penalties_and_exits(state: var BeaconState) =
-  # The active validators
-  let active_validator_indices = get_active_validator_indices(state.validator_registry, state.slot)
+  let
+    current_epoch = get_current_epoch(state)
+    # The active validators
+    active_validator_indices = get_active_validator_indices(state.validator_registry, state.slot)
   # The total effective balance of active validators
   var total_balance : uint64 = 0
   for i in active_validator_indices:
     total_balance += get_effective_balance(state, i)
 
   for index, validator in state.validator_registry:
-    if (state.slot div EPOCH_LENGTH) == (validator.penalized_slot div EPOCH_LENGTH) + LATEST_PENALIZED_EXIT_LENGTH div 2:
+    if current_epoch == validator.penalized_epoch + LATEST_PENALIZED_EXIT_LENGTH div 2:
       let
-        e = ((state.slot div EPOCH_LENGTH) mod LATEST_PENALIZED_EXIT_LENGTH).int
+        e = (current_epoch mod LATEST_PENALIZED_EXIT_LENGTH).int
         total_at_start = state.latest_penalized_exit_balances[(e + 1) mod LATEST_PENALIZED_EXIT_LENGTH]
         total_at_end = state.latest_penalized_exit_balances[e]
         total_penalties = total_at_end - total_at_start
@@ -211,29 +194,31 @@ func get_initial_beacon_state*(
     # Misc
     slot: GENESIS_SLOT,
     genesis_time: genesis_time,
-    fork_data: ForkData(
+    # TODO pre_fork_version -> previous_version, post_fork_version -> current_version,
+    # rm fork_slot init in favor of epoch
+    fork: Fork(
         pre_fork_version: GENESIS_FORK_VERSION,
         post_fork_version: GENESIS_FORK_VERSION,
         fork_slot: GENESIS_SLOT,
     ),
 
-    validator_registry_update_slot: GENESIS_SLOT,
+    validator_registry_update_epoch: GENESIS_EPOCH,
     validator_registry_exit_count: 0,
     validator_registry_delta_chain_tip: ZERO_HASH,
 
     # Randomness and committees
     previous_epoch_start_shard: GENESIS_START_SHARD,
     current_epoch_start_shard: GENESIS_START_SHARD,
-    previous_epoch_calculation_slot: GENESIS_SLOT,
-    current_epoch_calculation_slot: GENESIS_SLOT,
-    previous_epoch_randao_mix: ZERO_HASH,
-    current_epoch_randao_mix: ZERO_HASH,
+    previous_calculation_epoch: GENESIS_EPOCH,
+    current_calculation_epoch: GENESIS_EPOCH,
+    previous_epoch_seed: ZERO_HASH,
+    current_epoch_seed: ZERO_HASH,
 
     # Finality
-    previous_justified_slot: GENESIS_SLOT,
-    justified_slot: GENESIS_SLOT,
+    previous_justified_epoch: GENESIS_EPOCH,
+    justified_epoch: GENESIS_EPOCH,
     justification_bitfield: 0,
-    finalized_slot: GENESIS_SLOT,
+    finalized_epoch: GENESIS_EPOCH,
 
     # Deposit root
     latest_eth1_data: latest_eth1_data,
@@ -267,13 +252,6 @@ func get_block_root*(state: BeaconState,
   doAssert state.slot <= slot + LATEST_BLOCK_ROOTS_LENGTH
   doAssert slot < state.slot
   state.latest_block_roots[slot mod LATEST_BLOCK_ROOTS_LENGTH]
-
-func get_randao_mix*(state: BeaconState,
-                    slot: uint64): Eth2Digest =
-    ## Returns the randao mix at a recent ``slot``.
-    assert state.slot < slot + LATEST_RANDAO_MIXES_LENGTH
-    assert slot <= state.slot
-    state.latest_randao_mixes[slot mod LATEST_RANDAO_MIXES_LENGTH]
 
 func get_attestation_participants*(state: BeaconState,
                                    attestation_data: AttestationData,
@@ -315,6 +293,8 @@ func process_ejections*(state: var BeaconState) =
 
 func update_validator_registry*(state: var BeaconState) =
   let
+    current_epoch = get_current_epoch(state)
+    next_epoch = current_epoch + 1
     active_validator_indices =
       get_active_validator_indices(state.validator_registry, state.slot)
     # The total effective balance of active validators
@@ -329,7 +309,7 @@ func update_validator_registry*(state: var BeaconState) =
   # Activate validators within the allowable balance churn
   var balance_churn = 0'u64
   for index, validator in state.validator_registry:
-    if validator.activation_slot > state.slot + ENTRY_EXIT_DELAY and
+    if validator.activation_epoch > get_entry_exit_effect_epoch(current_epoch) and
       state.validator_balances[index] >= MAX_DEPOSIT_AMOUNT:
       # Check the balance churn would be within the allowance
       balance_churn += get_effective_balance(state, index.Uint24)
@@ -342,7 +322,7 @@ func update_validator_registry*(state: var BeaconState) =
   # Exit validators within the allowable balance churn
   balance_churn = 0
   for index, validator in state.validator_registry:
-    if (validator.exit_slot > state.slot + ENTRY_EXIT_DELAY) and
+    if validator.exit_epoch > get_entry_exit_effect_epoch(current_epoch) and
       ((validator.status_flags and INITIATED_EXIT) == INITIATED_EXIT):
       # Check the balance churn would be within the allowance
       balance_churn += get_effective_balance(state, index.Uint24)
@@ -352,17 +332,19 @@ func update_validator_registry*(state: var BeaconState) =
       # Exit validator
       exit_validator(state, index.Uint24)
 
+  state.validator_registry_update_epoch = current_epoch
+
   # Perform additional updates
-  state.previous_epoch_calculation_slot = state.current_epoch_calculation_slot
-  state.previous_epoch_start_shard = state.current_epoch_start_shard
-  state.previous_epoch_randao_mix = state.current_epoch_randao_mix
-  state.current_epoch_calculation_slot = state.slot
-  state.current_epoch_start_shard = (state.current_epoch_start_shard + get_current_epoch_committee_count_per_slot(state) * EPOCH_LENGTH) mod SHARD_COUNT
-  state.current_epoch_randao_mix = get_randao_mix(state, state.current_epoch_calculation_slot - SEED_LOOKAHEAD)
+  state.current_calculation_epoch = next_epoch
+  state.current_epoch_start_shard = (state.current_epoch_start_shard + get_current_epoch_committee_count(state)) mod SHARD_COUNT
+  state.current_epoch_seed = generate_seed(state, state.current_calculation_epoch)
 
   # TODO "If a validator registry update does not happen do the following: ..."
 
   process_penalties_and_exits(state)
+
+func get_epoch_start_slot*(epoch: EpochNumber): SlotNumber =
+  epoch * EPOCH_LENGTH
 
 proc checkAttestation*(
     state: BeaconState, attestation: Attestation, flags: UpdateFlags): bool =
@@ -382,20 +364,20 @@ proc checkAttestation*(
       attestation_slot = attestation.data.slot, state_slot = state.slot)
     return
 
-  let expected_justified_slot =
-    if attestation.data.slot >= state.slot - (state.slot mod EPOCH_LENGTH):
-      state.justified_slot
+  let expected_justified_epoch =
+    if attestation.data.slot >= get_epoch_start_slot(get_current_epoch(state)):
+      state.justified_epoch
     else:
-      state.previous_justified_slot
+      state.previous_justified_epoch
 
-  if not (attestation.data.justified_slot == expected_justified_slot):
-    warn("Unexpected justified slot",
-      attestation_justified_slot = attestation.data.justified_slot,
-      expected_justified_slot)
+  if not (attestation.data.justified_epoch == expected_justified_epoch):
+    warn("Unexpected justified epoch",
+      attestation_justified_epoch = attestation.data.justified_epoch,
+      expected_justified_epoch)
     return
 
   let expected_justified_block_root =
-    get_block_root(state, attestation.data.justified_slot)
+    get_block_root(state, get_epoch_start_slot(attestation.data.justified_epoch))
   if not (attestation.data.justified_block_root == expected_justified_block_root):
     warn("Unexpected justified block root",
       attestation_justified_block_root = attestation.data.justified_block_root,
@@ -420,7 +402,7 @@ proc checkAttestation*(
 
     if not bls_verify(
           group_public_key, @(msg.data) & @[0'u8], attestation.aggregate_signature,
-          get_domain(state.fork_data, attestation.data.slot, DOMAIN_ATTESTATION)
+          get_domain(state.fork, attestation.data.slot, DOMAIN_ATTESTATION)
         ):
       warn("Invalid attestation group signature")
       return

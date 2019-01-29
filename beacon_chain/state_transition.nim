@@ -62,7 +62,7 @@ func verifyProposerSignature(state: BeaconState, blck: BeaconBlock): bool =
   bls_verify(
     state.validator_registry[proposer_index].pubkey,
     proposal_hash.data, blck.signature,
-    get_domain(state.fork_data, state.slot, DOMAIN_PROPOSAL))
+    get_domain(state.fork, state.slot, DOMAIN_PROPOSAL))
 
 proc processRandao(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
@@ -127,7 +127,7 @@ func penalizeValidator(state: var BeaconState, index: Uint24) =
     whistleblower_reward = get_effective_balance(state, index) div WHISTLEBLOWER_REWARD_QUOTIENT
   state.validator_balances[whistleblower_index] += whistleblower_reward
   state.validator_balances[index] -= whistleblower_reward
-  validator.penalized_slot = state.slot
+  validator.penalized_epoch = get_current_epoch(state)
 
 proc processProposerSlashings(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
@@ -146,7 +146,7 @@ proc processProposerSlashings(
           hash_tree_root_final(proposer_slashing.proposal_data_1).data,
           proposer_slashing.proposal_signature_1,
           get_domain(
-            state.fork_data, proposer_slashing.proposal_data_1.slot,
+            state.fork, proposer_slashing.proposal_data_1.slot,
             DOMAIN_PROPOSAL)):
         notice "PropSlash: invalid signature 1"
         return false
@@ -155,7 +155,7 @@ proc processProposerSlashings(
           hash_tree_root_final(proposer_slashing.proposal_data_2).data,
           proposer_slashing.proposal_signature_2,
           get_domain(
-            state.fork_data, proposer_slashing.proposal_data_2.slot,
+            state.fork, proposer_slashing.proposal_data_2.slot,
             DOMAIN_PROPOSAL)):
         notice "PropSlash: invalid signature 2"
         return false
@@ -175,7 +175,7 @@ proc processProposerSlashings(
       notice "PropSlash: block root mismatch"
       return false
 
-    if not (proposer.penalized_slot > state.slot):
+    if not (proposer.penalized_epoch > get_current_epoch(state)):
       notice "PropSlash: penalized slot"
       return false
 
@@ -240,7 +240,7 @@ proc processCasperSlashings(state: var BeaconState, blck: BeaconBlock): bool =
       return false
 
     for i in intersection:
-      if state.validator_registry[i].penalized_slot > state.slot:
+      if state.validator_registry[i].penalized_epoch > get_current_epoch(state):
         penalize_validator(state, i)
 
   return true
@@ -296,11 +296,11 @@ proc processExits(
     if skipValidation notin flags:
       if not bls_verify(
           validator.pubkey, ZERO_HASH.data, exit.signature,
-          get_domain(state.fork_data, exit.slot, DOMAIN_EXIT)):
+          get_domain(state.fork, exit.slot, DOMAIN_EXIT)):
         notice "Exit: invalid signature"
         return false
 
-    if not (validator.exit_slot > state.slot + ENTRY_EXIT_DELAY):
+    if not (validator.exit_epoch > get_entry_exit_effect_epoch(get_current_epoch(state))):
       notice "Exit: exit/entry too close"
       return false
 
@@ -419,7 +419,7 @@ func boundary_attestations(
   # TODO spec - add as helper?
   attestations.filterIt(
     it.data.epoch_boundary_root == boundary_hash and
-    it.data.justified_slot == state.justified_slot)
+    it.data.justified_epoch == state.justified_epoch)
 
 func lowerThan(candidate, current: Eth2Digest): bool =
   # return true iff candidate is "lower" than current, per spec rule:
@@ -457,6 +457,10 @@ func processEpoch(state: var BeaconState) =
     # The per-slot maximum interest rate is `2/reward_quotient`.)
     base_reward_quotient =
       BASE_REWARD_QUOTIENT * integer_squareroot(total_balance_in_eth)
+
+    current_epoch = get_current_epoch(state)
+    previous_epoch = if current_epoch > GENESIS_EPOCH: current_epoch - 1 else: current_epoch
+    next_epoch = (current_epoch + 1).EpochNumber
 
   func base_reward(state: BeaconState, index: Uint24): uint64 =
     get_effective_balance(state, index) div base_reward_quotient.uint64 div 4
@@ -499,7 +503,7 @@ func processEpoch(state: var BeaconState) =
   let # Previous epoch justified
     previous_epoch_justified_attestations =
       concat(current_epoch_attestations, previous_epoch_attestations).
-        filterIt(it.data.justified_slot == state.previous_justified_slot)
+        filterIt(it.data.justified_epoch == state.previous_justified_epoch)
 
     previous_epoch_justified_attester_indices =
       get_attester_indices(state, previous_epoch_justified_attestations)
@@ -592,50 +596,55 @@ func processEpoch(state: var BeaconState) =
           break
       state.eth1_data_votes = @[]
 
+  # TODO Eth1 data
+  # https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#eth1-data-1
+
+  # Helpers for justification
+  let
+    previous_total_balance = sum_effective_balances(state, get_active_validator_indices(state.validator_registry, previous_epoch))
+    current_total_balance = sum_effective_balances(state, get_active_validator_indices(state.validator_registry, current_epoch))
+
   block: # Justification
-    state.previous_justified_slot = state.justified_slot
+    # https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#justification
 
-    # TODO where's that bitfield type when you need it?
-    # TODO why are all bits kept?
+    # First, update the justification bitfield
+    var new_justified_epoch = state.justified_epoch
     state.justification_bitfield = state.justification_bitfield shl 1
+    if 3'u64 * previous_epoch_boundary_attesting_balance >= 2'u64 * previous_total_balance:
+      state.justification_bitfield = state.justification_bitfield or 2
+      new_justified_epoch = previous_epoch
+    if 3'u64 * current_epoch_boundary_attesting_balance >= 2'u64 * current_total_balance:
+      state.justification_bitfield = state.justification_bitfield or 1
+      new_justified_epoch = current_epoch
 
-    # TODO Spec - underflow
-    if state.slot >= 2'u64 * EPOCH_LENGTH:
-      if 3'u64 * previous_epoch_boundary_attesting_balance >=
-          2'u64 * total_balance:
-        state.justification_bitfield = state.justification_bitfield or 2
-        state.justified_slot = state.slot - 2 * EPOCH_LENGTH
+    # Next, update last finalized epoch if possible
+    if (state.justification_bitfield shr 1) mod 8 == 0b111 and state.previous_justified_epoch == previous_epoch - 2:
+      state.finalized_epoch = state.previous_justified_epoch
+    if (state.justification_bitfield shr 1) mod 4 == 0b11 and state.previous_justified_epoch == previous_epoch - 1:
+      state.finalized_epoch = state.previous_justified_epoch
+    if (state.justification_bitfield shr 0) mod 8 == 0b111 and state.justified_epoch == previous_epoch - 1:
+      state.finalized_epoch = state.justified_epoch
+    if (state.justification_bitfield shr 0) mod 4 == 0b11 and state.justified_epoch == previous_epoch:
+      state.finalized_epoch = state.justified_epoch
 
-      if 3'u64 * current_epoch_boundary_attesting_balance >=
-          2'u64 * total_balance:
-        state.justification_bitfield = state.justification_bitfield or 1
-        state.justified_slot = state.slot - 1 * EPOCH_LENGTH
-
-  block: # Finalization
-    if
-      (state.previous_justified_slot + 2 * EPOCH_LENGTH == state.slot and
-        state.justification_bitfield mod 4 == 3) or
-      (state.previous_justified_slot + 3 * EPOCH_LENGTH == state.slot and
-        state.justification_bitfield mod 8 == 7) or
-      (state.previous_justified_slot + 4 * EPOCH_LENGTH == state.slot and
-        state.justification_bitfield mod 16 in [15'u64, 14]):
-      state.finalized_slot = state.justified_slot
+    # Finally, update the following
+    state.previous_justified_epoch = state.justified_epoch
+    state.justified_epoch = new_justified_epoch
 
   block: # Crosslinks
-    for slot in state.slot - 2 * EPOCH_LENGTH ..< state.slot:
-      discard
-      # TODO implement helpers
-      #let crosslink_committees_at_slot = get_crosslink_committees_at_slot(state, slot)
+    # https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#crosslinks
+    for slot in get_epoch_start_slot(previous_epoch) ..< get_epoch_start_slot(next_epoch):
+      let crosslink_committees_at_slot = get_crosslink_committees_at_slot(state, slot)
       #
       #for crosslink_committee, shard in crosslink_committees_at_slot.items:
       #  if 3 * total_attesting_balance(crosslink_committee) >= 2 * total_balance(crosslink_committee):
       #    state.latest_crosslinks[shard] = Crosslink(
       #      slot=state.slot, shard_block_root=winning_root(crosslink_committee))
 
+  # TODO Rewards and penalties helpers
+
   block: # Justification and finalization
-    let
-      epochs_since_finality =
-        (state.slot - state.finalized_slot) div EPOCH_LENGTH
+    let epochs_since_finality = next_epoch - state.finalized_epoch
 
     proc update_balance(attesters: openArray[Uint24], attesting_balance: uint64) =
       # TODO Spec - add helper?
@@ -692,7 +701,8 @@ func processEpoch(state: var BeaconState) =
         base_reward(state, v) div INCLUDER_REWARD_QUOTIENT
 
   block: # Crosslinks
-    for slot in state.slot - 2 * EPOCH_LENGTH ..< state.slot - EPOCH_LENGTH:
+    # https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#crosslinks-1
+    for slot in get_epoch_start_slot(previous_epoch) ..< get_epoch_start_slot(current_epoch):
       let crosslink_committees_at_slot = get_crosslink_committees_at_slot(state, slot)
       for crosslink_committee in crosslink_committees_at_slot:
         # TODO https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#crosslinks-1
@@ -707,26 +717,29 @@ func processEpoch(state: var BeaconState) =
   block: # Ejections
     process_ejections(state)
 
-  block: # Validator registry
-    # https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#validator-registry
-    state.previous_epoch_calculation_slot = state.current_epoch_calculation_slot
+  block: # Validator registry and shuffling seed data
+    # https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
+    state.previous_calculation_epoch = state.current_calculation_epoch
     state.previous_epoch_start_shard = state.current_epoch_start_shard
-    state.previous_epoch_randao_mix = state.current_epoch_randao_mix
+    state.previous_epoch_seed = state.current_epoch_seed
+    #TODO state.latest_index_roots[next_epoch mod LATEST_INDEX_ROOTS_LENGTH] = hash_tree_root_final(get_active_validator_indices(state.validator_registry, next_epoch))
 
-    if state.finalized_slot > state.validator_registry_update_slot and
+    if state.finalized_epoch > state.validator_registry_update_epoch and
        allIt(
-         0 ..< get_current_epoch_committee_count_per_slot(state).int * EPOCH_LENGTH,
-         state.latest_crosslinks[(state.current_epoch_start_shard + it.uint64) mod SHARD_COUNT].slot > state.validator_registry_update_slot):
+         0 ..< get_current_epoch_committee_count(state).int * EPOCH_LENGTH,
+         state.latest_crosslinks[(state.current_epoch_start_shard + it.uint64) mod SHARD_COUNT].epoch > state.validator_registry_update_epoch):
       update_validator_registry(state)
-      state.current_epoch_calculation_slot = state.slot
-      state.current_epoch_start_shard = (state.current_epoch_start_shard + get_current_epoch_committee_count_per_slot(state) * EPOCH_LENGTH) mod SHARD_COUNT
-      state.current_epoch_randao_mix = get_randao_mix(state, state.current_epoch_calculation_slot - SEED_LOOKAHEAD)
+
+      state.current_epoch_start_shard = (state.current_epoch_start_shard + get_current_epoch_committee_count(state) * EPOCH_LENGTH) mod SHARD_COUNT
+      state.current_epoch_seed = generate_seed(state, state.current_calculation_epoch)
+      state.current_calculation_epoch = next_epoch
     else:
       # If a validator registry change does NOT happen
-      let epochs_since_last_registry_change = (state.slot - state.validator_registry_update_slot) div EPOCH_LENGTH
+      let epochs_since_last_registry_change = current_epoch - state.validator_registry_update_epoch
       if is_power_of_2(epochs_since_last_registry_change):
-        state.current_epoch_calculation_slot = state.slot
-        state.current_epoch_randao_mix = get_randao_mix(state, state.current_epoch_calculation_slot - SEED_LOOKAHEAD)
+        state.current_epoch_seed = generate_seed(state, state.current_calculation_epoch)
+        state.current_calculation_epoch = next_epoch
+        # /Note/ that state.current_epoch_start_shard is left unchanged
     # TODO run process_penalties_and_exits
 
   block: # Final updates

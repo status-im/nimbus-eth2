@@ -119,14 +119,14 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
     y = (x + n div x) div 2
   x
 
-func get_fork_version*(fork_data: ForkData, slot: uint64): uint64 =
-  if slot < fork_data.fork_slot: fork_data.pre_fork_version
-  else: fork_data.post_fork_version
+func get_fork_version*(fork: Fork, slot: uint64): uint64 =
+  if slot < fork.fork_slot: fork.pre_fork_version
+  else: fork.post_fork_version
 
 func get_domain*(
-    fork_data: ForkData, slot: uint64, domain_type: SignatureDomain): uint64 =
+    fork: Fork, slot: uint64, domain_type: SignatureDomain): uint64 =
   # TODO Slot overflow? Or is slot 32 bits for all intents and purposes?
-  (get_fork_version(fork_data, slot) shl 32) + domain_type.uint32
+  (get_fork_version(fork, slot) shl 32) + domain_type.uint32
 
 func is_power_of_2*(v: uint64): bool = (v and (v-1)) == 0
 
@@ -147,6 +147,9 @@ proc is_double_vote*(attestation_data_1: AttestationData,
   ## same slot - doing so means risking getting slashed.
   attestation_data_1.slot == attestation_data_2.slot
 
+func slot_to_epoch*(slot: SlotNumber): EpochNumber =
+  slot div EPOCH_LENGTH
+
 proc is_surround_vote*(attestation_data_1: AttestationData,
                        attestation_data_2: AttestationData): bool =
   ## Assumes ``attestation_data_1`` is distinct from ``attestation_data_2``.
@@ -154,30 +157,65 @@ proc is_surround_vote*(attestation_data_1: AttestationData,
   ## due to a 'surround vote'.
   ## Note: parameter order matters as this function only checks
   ## that ``attestation_data_1`` surrounds ``attestation_data_2``.
+  let
+    source_epoch_1 = attestation_data_1.justified_epoch
+    source_epoch_2 = attestation_data_2.justified_epoch
+    target_epoch_1 = slot_to_epoch(attestation_data_1.slot)
+    target_epoch_2 = slot_to_epoch(attestation_data_2.slot)
+
   (
-    (attestation_data_1.justified_slot < attestation_data_2.justified_slot) and
-    (attestation_data_1.justified_slot + 1 == attestation_data_2.slot) and
-    (attestation_data_2.slot < attestation_data_1.slot)
+    (source_epoch_1 < source_epoch_2) and
+    (source_epoch_2 + 1 == target_epoch_2) and
+    (target_epoch_2 < target_epoch_1)
   )
 
-func is_active_validator*(validator: Validator, slot: uint64): bool =
+func is_active_validator*(validator: Validator, epoch: EpochNumber): bool =
   ### Checks if validator is active
-  validator.activation_slot <= slot and slot < validator.exit_slot
+  validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
-func get_active_validator_indices*(validators: openArray[Validator], slot: uint64): seq[Uint24] =
+# TODO Uint24 -> ValidatorIndex
+func get_active_validator_indices*(validators: openArray[Validator], epoch: EpochNumber): seq[Uint24] =
   ## Gets indices of active validators from validators
   for idx, val in validators:
-    if is_active_validator(val, slot):
+    if is_active_validator(val, epoch):
       result.add idx.Uint24
 
-func get_committee_count_per_slot*(active_validator_count: int): uint64 =
+func get_epoch_committee_count*(active_validator_count: int): uint64 =
   clamp(
     active_validator_count div EPOCH_LENGTH div TARGET_COMMITTEE_SIZE,
-    1, SHARD_COUNT div EPOCH_LENGTH).uint64
+    1, SHARD_COUNT div EPOCH_LENGTH).uint64 * EPOCH_LENGTH
 
-func get_current_epoch_committee_count_per_slot*(state: BeaconState): uint64 =
+func get_current_epoch_committee_count*(state: BeaconState): uint64 =
   let current_active_validators = get_active_validator_indices(
     state.validator_registry,
-    state.current_epoch_calculation_slot,
+    state.current_calculation_epoch,
   )
-  return get_committee_count_per_slot(len(current_active_validators))
+  return get_epoch_committee_count(len(current_active_validators))
+
+func get_current_epoch*(state: BeaconState): EpochNumber =
+  slot_to_epoch(state.slot)
+
+## TODO I've been moving things into helpers because of layering issues
+## but create DAG of which helper functions ref others and topo sort to
+## refactor all of this mess.
+func get_randao_mix*(state: BeaconState,
+                     epoch: EpochNumber): Eth2Digest =
+    ## Returns the randao mix at a recent ``epoch``.
+    assert get_current_epoch(state) - LATEST_RANDAO_MIXES_LENGTH < epoch
+    assert epoch <= get_current_epoch(state)
+
+    state.latest_randao_mixes[epoch mod LATEST_RANDAO_MIXES_LENGTH]
+
+func get_active_index_root(state: BeaconState, epoch: EpochNumber): Eth2Digest =
+  # Returns the index root at a recent ``epoch``.
+  assert get_current_epoch(state) - LATEST_INDEX_ROOTS_LENGTH < epoch
+  assert epoch <= get_current_epoch(state)
+  state.latest_index_roots[epoch mod LATEST_INDEX_ROOTS_LENGTH]
+
+func generate_seed*(state: BeaconState, epoch: EpochNumber): Eth2Digest =
+  # Generate a seed for the given ``epoch``.
+
+  var seed_input : array[32*2, byte]
+  seed_input[0..31] = get_randao_mix(state, epoch - SEED_LOOKAHEAD).data
+  seed_input[32..63] = get_active_index_root(state, epoch).data
+  eth2hash(seed_input)

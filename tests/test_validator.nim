@@ -25,12 +25,12 @@ suite "Validators":
       num_validators = 32*1024
       validators = repeat(
         Validator(
-          exit_slot: FAR_FUTURE_SLOT
+          exit_epoch: FAR_FUTURE_EPOCH
         ), num_validators)
       s = get_shuffling(Eth2Digest(), validators, 0)
-      committees = EPOCH_LENGTH * get_committee_count_per_slot(len(validators)).int
+      committees = get_epoch_committee_count(len(validators)).int
     check:
       s.len == committees
        # 32k validators: EPOCH_LENGTH slots * committee_count_per_slot =
-       # EPOCH_LENGTH * committee_count_per_slot committees.
+       # get_epoch_committee_count committees.
       sumCommittees(s, num_validators div committees) == validators.len() # all validators accounted for

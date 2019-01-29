@@ -89,13 +89,13 @@ proc sync*(node: BeaconNode): Future[bool] {.async.} =
       node.beaconState = await obtainTrustedStateSnapshot(node.db)
   else:
     node.beaconState = persistedState[]
-    var targetSlot = toSlot timeSinceGenesis(node.beaconState)
+    var targetSlot = (toSlot timeSinceGenesis(node.beaconState))
 
     let t = now()
     if t < node.beaconState.genesisTime * 1000:
       await sleepAsync int(node.beaconState.genesisTime * 1000 - t)
 
-    while node.beaconState.finalized_slot < targetSlot:
+    while node.beaconState.finalized_epoch < targetSlot.slot_to_epoch:
       var (peer, changeLog) = await node.network.getValidatorChangeLog(
         node.beaconState.validator_registry_delta_chain_tip)
 
@@ -152,10 +152,10 @@ proc makeAttestation(node: BeaconNode,
   doAssert node != nil
   doAssert validator != nil
 
-  if node.beaconState.slot == node.beaconState.justified_slot:
+  if get_current_epoch(node.beaconState) == node.beaconState.justified_epoch:
     return
 
-  let justifiedBlockRoot = get_block_root(node.beaconState, node.beaconState.justified_slot)
+  let justifiedBlockRoot = get_block_root(node.beaconState, get_epoch_start_slot(node.beaconState.justified_epoch))
 
   var attestationData = AttestationData(
     slot: slot,
@@ -164,7 +164,7 @@ proc makeAttestation(node: BeaconNode,
     epoch_boundary_root: Eth2Digest(), # TODO
     shard_block_root: Eth2Digest(), # TODO
     latest_crosslink_root: Eth2Digest(), # TODO
-    justified_slot: node.beaconState.justified_slot,
+    justified_epoch: node.beaconState.justified_epoch,
     justified_block_root: justifiedBlockRoot)
 
   let validatorSignature = await validator.signAttestation(attestationData)
