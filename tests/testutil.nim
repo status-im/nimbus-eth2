@@ -82,7 +82,7 @@ func makeGenesisBlock*(state: BeaconState): BeaconBlock =
     state_root: Eth2Digest(data: hash_tree_root(state))
   )
 
-func getNextBeaconProposerIndex*(state: BeaconState): Uint24 =
+func getNextBeaconProposerIndex*(state: BeaconState): ValidatorIndex =
   # TODO: This is a special version of get_beacon_proposer_index that takes into
   #       account the partial update done at the start of slot processing -
   #       see get_shard_committees_index
@@ -168,14 +168,14 @@ proc makeBlock*(
   addBlock(next_state, previous_block_root, body)
 
 proc find_shard_committee(
-    sacs: openArray[ShardCommittee], validator_index: Uint24): ShardCommittee =
+    sacs: openArray[ShardCommittee], validator_index: ValidatorIndex): ShardCommittee =
   for sac in sacs:
     if validator_index in sac.committee: return sac
   doAssert false
 
 proc makeAttestation*(
     state: BeaconState, beacon_block_root: Eth2Digest,
-    validator_index: Uint24, flags: UpdateFlags = {}): Attestation =
+    validator_index: ValidatorIndex, flags: UpdateFlags = {}): Attestation =
   let
     sac = find_shard_committee(
       get_shard_committees_at_slot(state, state.slot), validator_index)

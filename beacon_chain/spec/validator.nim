@@ -30,11 +30,10 @@ func xorSeed(seed: Eth2Digest, x: uint64): Eth2Digest =
   for i in 0 ..< 8:
     result.data[31 - i] = result.data[31 - i] xor byte((x shr i*8) and 0xff)
 
-# TODO Uint24 -> ValidatorIndex
 func get_shuffling*(seed: Eth2Digest,
                     validators: openArray[Validator],
                     epoch: EpochNumber
-                    ): seq[seq[Uint24]] =
+                    ): seq[seq[ValidatorIndex]] =
   ## Shuffles ``validators`` into crosslink committees seeded by ``seed`` and ``slot``.
   ## Returns a list of ``EPOCH_LENGTH * committees_per_slot`` committees where each
   ## committee is itself a list of validator indices.
@@ -56,7 +55,7 @@ func get_shuffling*(seed: Eth2Digest,
 
 func get_new_validator_registry_delta_chain_tip*(
     current_validator_registry_delta_chain_tip: Eth2Digest,
-    index: Uint24,
+    index: ValidatorIndex,
     pubkey: ValidatorPubKey,
     slot: uint64,
     flag: ValidatorSetDeltaFlags): Eth2Digest =
@@ -84,7 +83,7 @@ func get_current_epoch_committee_count_per_slot(state: BeaconState): uint64 =
   )
   get_epoch_committee_count(len(current_active_validators))
 
-func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64) : seq[tuple[a: seq[Uint24], b: uint64]] =
+func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64) : seq[tuple[a: seq[ValidatorIndex], b: uint64]] =
   ## Returns the list of ``(committee, shard)`` tuples for the ``slot``.
 
   let
@@ -133,7 +132,7 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64) : seq[t
 func get_shard_committees_at_slot*(
     state: BeaconState, slot: uint64): seq[ShardCommittee] =
   # TODO temporary adapter; remove when all users gone
-  # where ShardCommittee is: shard*: uint64 / committee*: seq[Uint24]
+  # where ShardCommittee is: shard*: uint64 / committee*: seq[ValidatorIndex]
   let index = state.get_shard_committees_index(slot)
   #state.shard_committees_at_slots[index]
   for crosslink_committee in get_crosslink_committees_at_slot(state, slot):
@@ -142,7 +141,7 @@ func get_shard_committees_at_slot*(
     sac.committee = crosslink_committee.a
     result.add sac
 
-func get_beacon_proposer_index*(state: BeaconState, slot: uint64): Uint24 =
+func get_beacon_proposer_index*(state: BeaconState, slot: uint64): ValidatorIndex =
   ## From Casper RPJ mini-spec:
   ## When slot i begins, validator Vidx is expected
   ## to create ("propose") a block, which contains a pointer to some parent block

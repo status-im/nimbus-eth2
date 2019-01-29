@@ -165,13 +165,13 @@ const
   MAX_EXITS* = 2^4
 
 type
-  Uint24* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
+  ValidatorIndex* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
   SlotNumber* = uint64
   EpochNumber* = uint64
 
   # https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#data-structures
   ProposerSlashing* = object
-    proposer_index*: Uint24
+    proposer_index*: ValidatorIndex
     proposal_data_1*: ProposalSignedData
     proposal_signature_1*: ValidatorSig
     proposal_data_2*: ProposalSignedData
@@ -182,10 +182,10 @@ type
     slashable_vote_data_2*: SlashableVoteData
 
   SlashableVoteData* = object
-    aggregate_signature_poc_0_indices*: seq[Uint24] ##\
+    aggregate_signature_poc_0_indices*: seq[ValidatorIndex] ##\
     ## Proof-of-custody indices (0 bits)
 
-    aggregate_signature_poc_1_indices*: seq[Uint24] ##\
+    aggregate_signature_poc_1_indices*: seq[ValidatorIndex] ##\
     ## Proof-of-custody indices (1 bits)
 
     data*: AttestationData
@@ -254,7 +254,7 @@ type
     # Minimum slot for processing exit
     slot*: uint64
     # Index of the exiting validator
-    validator_index*: Uint24
+    validator_index*: ValidatorIndex
     # Validator signature
     signature*: ValidatorSig
 
@@ -395,7 +395,7 @@ type
 
   ShardCommittee* = object
     shard*: uint64
-    committee*: seq[Uint24] ##\
+    committee*: seq[ValidatorIndex] ##\
     ## Committe participants that get to attest to blocks on this shard -
     ## indices into BeaconState.validator_registry
 
@@ -420,13 +420,13 @@ type
     slot_included*: uint64                        # Slot in which it was included
 
   Fork* = object
-    pre_fork_version*: uint64                     # Previous fork version
-    post_fork_version*: uint64                    # Post fork version
-    fork_slot*: uint64                            # Fork slot number
+    previous_version*: uint64                     # Previous fork version
+    current_version*: uint64                    # Current fork version
+    fork_slot*: uint64                            # Fork slot number TODO should be epoch
 
   ValidatorRegistryDeltaBlock* = object
     latest_registry_delta_root*: Eth2Digest
-    validator_index*: Uint24
+    validator_index*: ValidatorIndex
     pubkey*: ValidatorPubKey
     slot*: uint64
     flag*: ValidatorSetDeltaFlags
@@ -455,10 +455,10 @@ when true:
   proc read*(rlp: var Rlp, T: type ValidatorPubKey): T {.inline.} =
     discard
 
-  proc append*(rlpWriter: var RlpWriter, value: Uint24) =
+  proc append*(rlpWriter: var RlpWriter, value: ValidatorIndex) =
     discard
 
-  proc read*(rlp: var Rlp, T: type Uint24): T {.inline.} =
+  proc read*(rlp: var Rlp, T: type ValidatorIndex): T {.inline.} =
     discard
 
   proc append*(rlpWriter: var RlpWriter, value: ValidatorSig) =

@@ -53,9 +53,9 @@ func shuffle*[T](values: seq[T], seed: Eth2Digest): seq[T] =
 
       # Read 3-bytes of `source` as a 24-bit big-endian integer.
       let sample_from_source =
-        source.data[pos].Uint24 shl 16 or
-        source.data[pos+1].Uint24 shl 8 or
-        source.data[pos+2].Uint24
+        source.data[pos].ValidatorIndex shl 16 or
+        source.data[pos+1].ValidatorIndex shl 8 or
+        source.data[pos+2].ValidatorIndex
 
       # Sample values greater than or equal to `sample_max` will cause
       # modulo bias when mapped into the `remaining` range.
@@ -120,8 +120,8 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
   x
 
 func get_fork_version*(fork: Fork, slot: uint64): uint64 =
-  if slot < fork.fork_slot: fork.pre_fork_version
-  else: fork.post_fork_version
+  if slot < fork.fork_slot: fork.previous_version
+  else: fork.current_version
 
 func get_domain*(
     fork: Fork, slot: uint64, domain_type: SignatureDomain): uint64 =
@@ -173,12 +173,11 @@ func is_active_validator*(validator: Validator, epoch: EpochNumber): bool =
   ### Checks if validator is active
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
-# TODO Uint24 -> ValidatorIndex
-func get_active_validator_indices*(validators: openArray[Validator], epoch: EpochNumber): seq[Uint24] =
+func get_active_validator_indices*(validators: openArray[Validator], epoch: EpochNumber): seq[ValidatorIndex] =
   ## Gets indices of active validators from validators
   for idx, val in validators:
     if is_active_validator(val, epoch):
-      result.add idx.Uint24
+      result.add idx.ValidatorIndex
 
 func get_epoch_committee_count*(active_validator_count: int): uint64 =
   clamp(

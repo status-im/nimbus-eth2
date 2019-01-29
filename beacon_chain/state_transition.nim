@@ -20,7 +20,7 @@
 # * We mix procedural and functional styles for no good reason, except that the
 #   spec does so also.
 # * There are no tests, and likely lots of bugs.
-# * For indices, we get a mix of uint64, Uint24 and int - this is currently
+# * For indices, we get a mix of uint64, ValidatorIndex and int - this is currently
 #   swept under the rug with casts
 # * The spec uses uint64 for data types, but functions in the spec often assume
 #   signed bigint semantics - under- and overflows ensue
@@ -117,10 +117,10 @@ func processDepositRoot(state: var BeaconState, blck: BeaconBlock) =
     vote_count: 1
   )
 
-func penalizeValidator(state: var BeaconState, index: Uint24) =
+func penalizeValidator(state: var BeaconState, index: ValidatorIndex) =
   exit_validator(state, index)
   var validator = state.validator_registry[index]
-  #state.latest_penalized_exit_balances[(state.slot div EPOCH_LENGTH) mod LATEST_PENALIZED_EXIT_LENGTH] += get_effective_balance(state, index.Uint24)
+  #state.latest_penalized_exit_balances[(state.slot div EPOCH_LENGTH) mod LATEST_PENALIZED_EXIT_LENGTH] += get_effective_balance(state, index.ValidatorIndex)
 
   let
     whistleblower_index = get_beacon_proposer_index(state, state.slot)
@@ -199,7 +199,7 @@ func verify_slashable_vote_data(state: BeaconState, vote_data: SlashableVoteData
 
   return true
 
-proc indices(vote: SlashableVoteData): seq[Uint24] =
+proc indices(vote: SlashableVoteData): seq[ValidatorIndex] =
   vote.aggregate_signature_poc_0_indices &
     vote.aggregate_signature_poc_1_indices
 
@@ -321,7 +321,7 @@ proc process_ejections(state: var BeaconState) =
   for index, validator in state.validator_registry:
     if is_active_validator(validator, state.slot) and
         state.validator_balances[index] < EJECTION_BALANCE:
-      exit_validator(state, index.Uint24)
+      exit_validator(state, index.ValidatorIndex)
 
 func processSlot(state: var BeaconState, previous_block_root: Eth2Digest) =
   ## Time on the beacon chain moves in slots. Every time we make it to a new
@@ -403,7 +403,7 @@ proc processBlock(
 
 func get_attester_indices(
     state: BeaconState,
-    attestations: openArray[PendingAttestationRecord]): seq[Uint24] =
+    attestations: openArray[PendingAttestationRecord]): seq[ValidatorIndex] =
   # Union of attesters that participated in some attestations
   # TODO spec - add as helper?
   attestations.
@@ -429,13 +429,13 @@ func lowerThan(candidate, current: Eth2Digest): bool =
     if v > candidate.data[i]: return true
   return false
 
-func inclusion_slot(state: BeaconState, v: Uint24): uint64 =
+func inclusion_slot(state: BeaconState, v: ValidatorIndex): uint64 =
   for a in state.latest_attestations:
     if v in get_attestation_participants(state, a.data, a.participation_bitfield):
       return a.slot_included
   doAssert false # shouldn't happen..
 
-func inclusion_distance(state: BeaconState, v: Uint24): uint64 =
+func inclusion_distance(state: BeaconState, v: ValidatorIndex): uint64 =
   for a in state.latest_attestations:
     if v in get_attestation_participants(state, a.data, a.participation_bitfield):
       return a.slot_included - a.data.slot
@@ -462,11 +462,11 @@ func processEpoch(state: var BeaconState) =
     previous_epoch = if current_epoch > GENESIS_EPOCH: current_epoch - 1 else: current_epoch
     next_epoch = (current_epoch + 1).EpochNumber
 
-  func base_reward(state: BeaconState, index: Uint24): uint64 =
+  func base_reward(state: BeaconState, index: ValidatorIndex): uint64 =
     get_effective_balance(state, index) div base_reward_quotient.uint64 div 4
 
   func inactivity_penalty(
-      state: BeaconState, index: Uint24, epochs_since_finality: uint64): uint64 =
+      state: BeaconState, index: ValidatorIndex, epochs_since_finality: uint64): uint64 =
     base_reward(state, index) +
       get_effective_balance(state, index) *
       epochs_since_finality div INACTIVITY_PENALTY_QUOTIENT div 2
@@ -542,14 +542,14 @@ func processEpoch(state: var BeaconState) =
   #      these closures outside this scope, but still..
   let statePtr = state.addr
   func attesting_validator_indices(
-      crosslink_committee: tuple[a: seq[Uint24], b: uint64], shard_block_root: Eth2Digest): seq[Uint24] =
+      crosslink_committee: tuple[a: seq[ValidatorIndex], b: uint64], shard_block_root: Eth2Digest): seq[ValidatorIndex] =
     let shard_block_attestations =
       concat(current_epoch_attestations, previous_epoch_attestations).
       filterIt(it.data.shard == crosslink_committee.b and
         it.data.shard_block_root == shard_block_root)
     get_attester_indices(statePtr[], shard_block_attestations)
 
-  func winning_root(crosslink_committee: tuple[a: seq[Uint24], b: uint64]): Eth2Digest =
+  func winning_root(crosslink_committee: tuple[a: seq[ValidatorIndex], b: uint64]): Eth2Digest =
     # * Let `winning_root(crosslink_committee)` be equal to the value of
     #   `shard_block_root` such that
     #   `sum([get_effective_balance(state, i) for i in attesting_validator_indices(crosslink_committee, shard_block_root)])`
@@ -575,17 +575,17 @@ func processEpoch(state: var BeaconState) =
         max_val = val
     max_hash
 
-  func attesting_validators(crosslink_committee: tuple[a: seq[Uint24], b: uint64]): seq[Uint24] =
+  func attesting_validators(crosslink_committee: tuple[a: seq[ValidatorIndex], b: uint64]): seq[ValidatorIndex] =
     attesting_validator_indices(crosslink_committee, winning_root(crosslink_committee))
 
-  func attesting_validator_indices(crosslink_committee: tuple[a: seq[Uint24], b: uint64]): seq[Uint24] =
+  func attesting_validator_indices(crosslink_committee: tuple[a: seq[ValidatorIndex], b: uint64]): seq[ValidatorIndex] =
     attesting_validator_indices(crosslink_committee, winning_root(crosslink_committee))
 
-  func total_attesting_balance(crosslink_committee: tuple[a: seq[Uint24], b: uint64]): uint64 =
+  func total_attesting_balance(crosslink_committee: tuple[a: seq[ValidatorIndex], b: uint64]): uint64 =
     sum_effective_balances(
       statePtr[], attesting_validator_indices(crosslink_committee))
 
-  func total_balance_sac(crosslink_committee: tuple[a: seq[Uint24], b: uint64]): uint64 =
+  func total_balance_sac(crosslink_committee: tuple[a: seq[ValidatorIndex], b: uint64]): uint64 =
     sum_effective_balances(statePtr[], crosslink_committee.a)
 
   block: # Eth1 data
@@ -646,7 +646,7 @@ func processEpoch(state: var BeaconState) =
   block: # Justification and finalization
     let epochs_since_finality = next_epoch - state.finalized_epoch
 
-    proc update_balance(attesters: openArray[Uint24], attesting_balance: uint64) =
+    proc update_balance(attesters: openArray[ValidatorIndex], attesting_balance: uint64) =
       # TODO Spec - add helper?
       for v in attesters:
         statePtr.validator_balances[v] +=

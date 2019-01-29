@@ -8,7 +8,7 @@ import
   math,unittest, sequtils,
   ../beacon_chain/spec/[helpers, datatypes, digest, validator]
 
-func sumCommittees(v: openArray[seq[Uint24]], reqCommitteeLen: int): int =
+func sumCommittees(v: openArray[seq[ValidatorIndex]], reqCommitteeLen: int): int =
   for x in v:
     ## This only holds when num_validators is divisible by
     ## EPOCH_LENGTH * get_committee_count_per_slot(len(validators))

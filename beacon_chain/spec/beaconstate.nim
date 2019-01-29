@@ -10,7 +10,7 @@ import
   ../extras, ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers, ./validator
 
-func get_effective_balance*(state: BeaconState, index: Uint24): uint64 =
+func get_effective_balance*(state: BeaconState, index: ValidatorIndex): uint64 =
   # Validators collect rewards which increases their balance but not their
   # influence. Validators may also lose balance if they fail to do their duty
   # in which case their influence decreases. Once they drop below a certain
@@ -18,7 +18,7 @@ func get_effective_balance*(state: BeaconState, index: Uint24): uint64 =
   min(state.validator_balances[index], MAX_DEPOSIT_AMOUNT)
 
 func sum_effective_balances*(
-    state: BeaconState, validator_indices: openArray[Uint24]): uint64 =
+    state: BeaconState, validator_indices: openArray[ValidatorIndex]): uint64 =
   # TODO spec - add as helper? Used pretty often
   for index in validator_indices:
     result += get_effective_balance(state, index)
@@ -51,7 +51,7 @@ func process_deposit(state: var BeaconState,
                      proof_of_possession: ValidatorSig,
                      withdrawal_credentials: Eth2Digest,
                      randao_commitment: Eth2Digest,
-                     custody_commitment: Eth2Digest) : Uint24 =
+                     custody_commitment: Eth2Digest) : ValidatorIndex =
   ## Process a deposit from Ethereum 1.0.
 
   if false:
@@ -86,11 +86,11 @@ func process_deposit(state: var BeaconState,
     if index.isNone():
       state.validator_registry.add(validator)
       state.validator_balances.add(deposit)
-      (len(state.validator_registry) - 1).Uint24
+      (len(state.validator_registry) - 1).ValidatorIndex
     else:
       state.validator_registry[index.get()] = validator
       state.validator_balances[index.get()] = deposit
-      index.get().Uint24
+      index.get().ValidatorIndex
   else:
     # Increase balance by deposit amount
     let index = validator_pubkeys.find(pubkey)
@@ -99,16 +99,15 @@ func process_deposit(state: var BeaconState,
       withdrawal_credentials
 
     state.validator_balances[index] += deposit
-    index.Uint24
+    index.ValidatorIndex
 
 func get_entry_exit_effect_epoch*(epoch: EpochNumber): EpochNumber =
   ## An entry or exit triggered in the ``epoch`` given by the input takes effect at
   ## the epoch given by the output.
   epoch + 1 + ENTRY_EXIT_DELAY
 
-# TODO: Uint24 -> ValidatorIndex
 func activate_validator(state: var BeaconState,
-                        index: Uint24,
+                        index: ValidatorIndex,
                         genesis: bool) =
   ## Activate the validator with the given ``index``.
   let validator = addr state.validator_registry[index]
@@ -116,14 +115,14 @@ func activate_validator(state: var BeaconState,
   validator.activation_epoch = if genesis: GENESIS_EPOCH else: get_entry_exit_effect_epoch(get_current_epoch(state))
 
 func initiate_validator_exit(state: var BeaconState,
-                             index: Uint24) =
+                             index: ValidatorIndex) =
   ## Initiate exit for the validator with the given ``index``.
   var validator = state.validator_registry[index]
   validator.status_flags = validator.status_flags or INITIATED_EXIT
   state.validator_registry[index] = validator
 
 func exit_validator*(state: var BeaconState,
-                     index: Uint24) =
+                     index: ValidatorIndex) =
   ## Exit the validator with the given ``index``.
 
   let validator = addr state.validator_registry[index]
@@ -155,16 +154,16 @@ func process_penalties_and_exits(state: var BeaconState) =
         total_at_start = state.latest_penalized_exit_balances[(e + 1) mod LATEST_PENALIZED_EXIT_LENGTH]
         total_at_end = state.latest_penalized_exit_balances[e]
         total_penalties = total_at_end - total_at_start
-        penalty = get_effective_balance(state, index.Uint24) * min(total_penalties * 3, total_balance) div total_balance
+        penalty = get_effective_balance(state, index.ValidatorIndex) * min(total_penalties * 3, total_balance) div total_balance
       state.validator_balances[index] -= penalty
 
   ## 'state' is of type <var BeaconState> which cannot be captured as it
   ## would violate memory safety, when using nested function approach in
   ## spec directly. That said, the spec approach evidently is not meant,
   ## based on its abundant and pointless memory copies, for production.
-  var eligible_indices : seq[Uint24] = @[]
+  var eligible_indices : seq[ValidatorIndex] = @[]
   for i in 0 ..< len(state.validator_registry):
-    eligible_indices.add i.Uint24
+    eligible_indices.add i.ValidatorIndex
 
   ## TODO figure out that memory safety issue, which would come up again when
   ## sorting, and then actually do withdrawals
@@ -194,11 +193,10 @@ func get_initial_beacon_state*(
     # Misc
     slot: GENESIS_SLOT,
     genesis_time: genesis_time,
-    # TODO pre_fork_version -> previous_version, post_fork_version -> current_version,
     # rm fork_slot init in favor of epoch
     fork: Fork(
-        pre_fork_version: GENESIS_FORK_VERSION,
-        post_fork_version: GENESIS_FORK_VERSION,
+        previous_version: GENESIS_FORK_VERSION,
+        current_version: GENESIS_FORK_VERSION,
         fork_slot: GENESIS_SLOT,
     ),
 
@@ -241,7 +239,7 @@ func get_initial_beacon_state*(
 
   # Process initial activations
   for validator_index in 0 ..< state.validator_registry.len:
-    let vi = validator_index.Uint24
+    let vi = validator_index.ValidatorIndex
     if get_effective_balance(state, vi) > MAX_DEPOSIT_AMOUNT:
       activate_validator(state, vi, true)
 
@@ -255,7 +253,7 @@ func get_block_root*(state: BeaconState,
 
 func get_attestation_participants*(state: BeaconState,
                                    attestation_data: AttestationData,
-                                   aggregation_bitfield: seq[byte]): seq[Uint24] =
+                                   aggregation_bitfield: seq[byte]): seq[ValidatorIndex] =
   ## Attestation participants in the attestation data are called out in a
   ## bit field that corresponds to the committee of the shard at the time - this
   ## function converts it to list of indices in to BeaconState.validators
@@ -270,7 +268,7 @@ func get_attestation_participants*(state: BeaconState,
   # TODO investigate functional library / approach to help avoid loop bugs
   assert any(
     crosslink_committees,
-    func (x: tuple[a: seq[Uint24], b: uint64]): bool = x[1] == attestation_data.shard)
+    func (x: tuple[a: seq[ValidatorIndex], b: uint64]): bool = x[1] == attestation_data.shard)
   let crosslink_committee = mapIt(
     filterIt(crosslink_committees, it.b == attestation_data.shard),
     it.a)[0]
@@ -312,12 +310,12 @@ func update_validator_registry*(state: var BeaconState) =
     if validator.activation_epoch > get_entry_exit_effect_epoch(current_epoch) and
       state.validator_balances[index] >= MAX_DEPOSIT_AMOUNT:
       # Check the balance churn would be within the allowance
-      balance_churn += get_effective_balance(state, index.Uint24)
+      balance_churn += get_effective_balance(state, index.ValidatorIndex)
       if balance_churn > max_balance_churn:
         break
 
       # Activate validator
-      activate_validator(state, index.Uint24, false)
+      activate_validator(state, index.ValidatorIndex, false)
 
   # Exit validators within the allowable balance churn
   balance_churn = 0
@@ -325,12 +323,12 @@ func update_validator_registry*(state: var BeaconState) =
     if validator.exit_epoch > get_entry_exit_effect_epoch(current_epoch) and
       ((validator.status_flags and INITIATED_EXIT) == INITIATED_EXIT):
       # Check the balance churn would be within the allowance
-      balance_churn += get_effective_balance(state, index.Uint24)
+      balance_churn += get_effective_balance(state, index.ValidatorIndex)
       if balance_churn > max_balance_churn:
         break
 
       # Exit validator
-      exit_validator(state, index.Uint24)
+      exit_validator(state, index.ValidatorIndex)
 
   state.validator_registry_update_epoch = current_epoch
 
