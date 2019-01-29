@@ -208,7 +208,7 @@ func get_randao_mix*(state: BeaconState,
 func get_active_index_root(state: BeaconState, epoch: EpochNumber): Eth2Digest =
   # Returns the index root at a recent ``epoch``.
   assert get_current_epoch(state) - LATEST_INDEX_ROOTS_LENGTH < epoch
-  assert epoch <= get_current_epoch(state)
+  assert epoch <= get_current_epoch(state) + 1
   state.latest_index_roots[epoch mod LATEST_INDEX_ROOTS_LENGTH]
 
 func generate_seed*(state: BeaconState, epoch: EpochNumber): Eth2Digest =

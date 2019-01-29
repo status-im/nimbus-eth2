@@ -730,15 +730,15 @@ func processEpoch(state: var BeaconState) =
          state.latest_crosslinks[(state.current_epoch_start_shard + it.uint64) mod SHARD_COUNT].epoch > state.validator_registry_update_epoch):
       update_validator_registry(state)
 
+      state.current_calculation_epoch = next_epoch
       state.current_epoch_start_shard = (state.current_epoch_start_shard + get_current_epoch_committee_count(state) * EPOCH_LENGTH) mod SHARD_COUNT
       state.current_epoch_seed = generate_seed(state, state.current_calculation_epoch)
-      state.current_calculation_epoch = next_epoch
     else:
       # If a validator registry change does NOT happen
       let epochs_since_last_registry_change = current_epoch - state.validator_registry_update_epoch
       if is_power_of_2(epochs_since_last_registry_change):
-        state.current_epoch_seed = generate_seed(state, state.current_calculation_epoch)
         state.current_calculation_epoch = next_epoch
+        state.current_epoch_seed = generate_seed(state, state.current_calculation_epoch)
         # /Note/ that state.current_epoch_start_shard is left unchanged
     # TODO run process_penalties_and_exits
 

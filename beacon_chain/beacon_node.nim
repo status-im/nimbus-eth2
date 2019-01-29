@@ -89,7 +89,7 @@ proc sync*(node: BeaconNode): Future[bool] {.async.} =
       node.beaconState = await obtainTrustedStateSnapshot(node.db)
   else:
     node.beaconState = persistedState[]
-    var targetSlot = (toSlot timeSinceGenesis(node.beaconState))
+    var targetSlot = toSlot timeSinceGenesis(node.beaconState)
 
     let t = now()
     if t < node.beaconState.genesisTime * 1000:
