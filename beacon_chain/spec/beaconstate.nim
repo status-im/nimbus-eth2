@@ -50,8 +50,7 @@ func process_deposit(state: var BeaconState,
                      deposit: uint64,
                      proof_of_possession: ValidatorSig,
                      withdrawal_credentials: Eth2Digest,
-                     randao_commitment: Eth2Digest,
-                     custody_commitment: Eth2Digest) : ValidatorIndex =
+                     randao_commitment: Eth2Digest) : ValidatorIndex =
   ## Process a deposit from Ethereum 1.0.
 
   if false:
@@ -76,9 +75,6 @@ func process_deposit(state: var BeaconState,
       penalized_epoch: FAR_FUTURE_EPOCH,
       exit_count: 0,
       status_flags: 0,
-      custody_commitment: custody_commitment,
-      latest_custody_reseed_slot: GENESIS_SLOT,
-      penultimate_custody_reseed_slot: GENESIS_SLOT
     )
 
     let index = min_empty_validator_index(
@@ -231,7 +227,6 @@ func get_initial_beacon_state*(
       deposit.deposit_data.deposit_input.proof_of_possession,
       deposit.deposit_data.deposit_input.withdrawal_credentials,
       deposit.deposit_data.deposit_input.randao_commitment,
-      deposit.deposit_data.deposit_input.custody_commitment,
     )
 
     if state.validator_balances[validator_index] >= MAX_DEPOSIT_AMOUNT:

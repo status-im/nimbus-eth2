@@ -347,7 +347,7 @@ type
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
 
-    # TODO remove randao_commitment, randao_layers, latest_status_change_slot, custody_commitment, latest_custody_reseed_slot, penultimate_custody_reseed_slot
+    # TODO remove randao_commitment, randao_layers, latest_status_change_slot
     randao_commitment*: Eth2Digest ##\
     ## RANDAO commitment created by repeatedly taking the hash of a secret value
     ## so as to create "onion layers" around it. For every block that a
@@ -379,14 +379,6 @@ type
     ## Exit counter when validator exited (or 0)
 
     status_flags*: uint64
-
-    custody_commitment*: Eth2Digest
-
-    latest_custody_reseed_slot*: uint64 ##\
-    ## Slot of latest custody reseed
-
-    penultimate_custody_reseed_slot*: uint64 ##\
-    ## Slot of second-latest custody reseed
 
   Crosslink* = object
     epoch*: uint64
