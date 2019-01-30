@@ -183,7 +183,7 @@ proc processProposerSlashings(
 
   return true
 
-func verify_slashable_vote_data(state: BeaconState, vote_data: SlashableVoteData): bool =
+func verify_slashable_vote_data(state: BeaconState, vote_data: SlashableVote): bool =
   if len(vote_data.aggregate_signature_poc_0_indices) +
       len(vote_data.aggregate_signature_poc_1_indices) > MAX_CASPER_VOTES:
     return false
@@ -199,17 +199,17 @@ func verify_slashable_vote_data(state: BeaconState, vote_data: SlashableVoteData
 
   return true
 
-proc indices(vote: SlashableVoteData): seq[ValidatorIndex] =
+proc indices(vote: SlashableVote): seq[ValidatorIndex] =
   vote.aggregate_signature_poc_0_indices &
     vote.aggregate_signature_poc_1_indices
 
-proc processCasperSlashings(state: var BeaconState, blck: BeaconBlock): bool =
+proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#casper-slashings-1
-  if len(blck.body.casper_slashings) > MAX_CASPER_SLASHINGS:
+  if len(blck.body.attester_slashings) > MAX_CASPER_SLASHINGS:
     notice "CaspSlash: too many!"
     return false
 
-  for casper_slashing in blck.body.casper_slashings:
+  for casper_slashing in blck.body.attester_slashings:
     let
       slashable_vote_data_1 = casper_slashing.slashable_vote_data_1
       slashable_vote_data_2 = casper_slashing.slashable_vote_data_2
@@ -264,7 +264,7 @@ proc processAttestations(
 
   # All checks passed - update state
   state.latest_attestations.add blck.body.attestations.mapIt(
-    PendingAttestationRecord(
+    PendingAttestation(
       data: it.data,
       participation_bitfield: it.participation_bitfield,
       custody_bitfield: it.custody_bitfield,
@@ -385,7 +385,7 @@ proc processBlock(
   if not processProposerSlashings(state, blck, flags):
     return false
 
-  if not processCasperSlashings(state, blck):
+  if not processAttesterSlashings(state, blck):
     return false
 
   if not processAttestations(state, blck, flags):
@@ -403,7 +403,7 @@ proc processBlock(
 
 func get_attester_indices(
     state: BeaconState,
-    attestations: openArray[PendingAttestationRecord]): seq[ValidatorIndex] =
+    attestations: openArray[PendingAttestation]): seq[ValidatorIndex] =
   # Union of attesters that participated in some attestations
   # TODO spec - add as helper?
   attestations.
@@ -414,8 +414,8 @@ func get_attester_indices(
 
 func boundary_attestations(
     state: BeaconState, boundary_hash: Eth2Digest,
-    attestations: openArray[PendingAttestationRecord]
-    ): seq[PendingAttestationRecord] =
+    attestations: openArray[PendingAttestation]
+    ): seq[PendingAttestation] =
   # TODO spec - add as helper?
   attestations.filterIt(
     it.data.epoch_boundary_root == boundary_hash and

@@ -100,7 +100,7 @@ const
   GENESIS_START_SHARD* = 0'u64
   FAR_FUTURE_EPOCH* = not 0'u64 # 2^64 - 1 in spec
   ZERO_HASH* = Eth2Digest()
-  # TODO EMPTY_SIGNATURE* =
+  EMPTY_SIGNATURE* = ValidatorSig()
   BLS_WITHDRAWAL_PREFIX_BYTE* = 0'u8
 
   # Time parameters
@@ -119,16 +119,13 @@ const
   ## wait towards the end of the slot and still have time to publish the
   ## attestation.
 
-  ETH1_DATA_VOTING_PERIOD* = 2'u64^10 ##\
-  ## slots (~1.7 hours)
-
   SEED_LOOKAHEAD* = 64 ##\
   ## slots (~6.4 minutes)
 
   ENTRY_EXIT_DELAY* = 256 ##\
   ## slots (~25.6 minutes)
 
-  DEPOSIT_ROOT_VOTING_PERIOD* = 2'u64^10 ##\
+  ETH1_DATA_VOTING_PERIOD* = 2'u64^10 ##\
   ## slots (~1.7 hours)
 
   MIN_VALIDATOR_WITHDRAWAL_TIME* = 2'u64^14 ##\
@@ -174,19 +171,31 @@ type
     proposal_data_2*: ProposalSignedData
     proposal_signature_2*: ValidatorSig
 
-  CasperSlashing* = object
-    slashable_vote_data_1*: SlashableVoteData
-    slashable_vote_data_2*: SlashableVoteData
+  AttesterSlashing* = object
+    slashable_vote_data_1*: SlashableVote ## \
+    ## First batch of votes
+    slashable_vote_data_2*: SlashableVote ## \
+    ## Second batch of votes
 
-  SlashableVoteData* = object
+  SlashableVote* = object
+    validator_indices*: seq[uint64] ##\
+    ## Validator indices
+
+    custody_bitfield*: seq[byte] ##\
+    ## Custody bitfield
+
+    # TODO rm aggregate_signature_poc_0_indices, aggregate_signature_poc_1_indices
     aggregate_signature_poc_0_indices*: seq[ValidatorIndex] ##\
     ## Proof-of-custody indices (0 bits)
 
     aggregate_signature_poc_1_indices*: seq[ValidatorIndex] ##\
     ## Proof-of-custody indices (1 bits)
 
-    data*: AttestationData
-    aggregate_signature*: ValidatorSig
+    data*: AttestationData ## \
+    ## Attestation data
+
+    aggregate_signature*: ValidatorSig ## \
+    ## Aggregate signature
 
   Attestation* = object
     data*: AttestationData
@@ -195,7 +204,7 @@ type
     ## bit represents an index in `ShardCommittee.committee`
 
     custody_bitfield*: seq[byte] ##\
-    ## Proof of custody - Phase 1
+    ## Custody bitfield
     aggregate_signature*: ValidatorSig ##\
     ## Aggregate signature of the validators in `custody_bitfield`
 
@@ -222,7 +231,7 @@ type
 
   AttestationDataAndCustodyBit* = object
     data*: AttestationData
-    poc_bit: bool
+    custody_bit: bool
 
   Deposit* = object
     branch*: seq[Eth2Digest] ##\
@@ -236,14 +245,13 @@ type
 
   DepositData* = object
     amount*: uint64 ## Value in Gwei
-    deposit_input*: DepositInput
     timestamp*: uint64 # Timestamp from deposit contract
+    deposit_input*: DepositInput
 
   DepositInput* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
     randao_commitment*: Eth2Digest # Initial RANDAO commitment
-    custody_commitment*: Eth2Digest
     proof_of_possession*: ValidatorSig ##\
     ## BLS proof of possession (a BLS signature)
 
@@ -281,7 +289,7 @@ type
 
   BeaconBlockBody* = object
     proposer_slashings*: seq[ProposerSlashing]
-    casper_slashings*: seq[CasperSlashing]
+    attester_slashings*: seq[AttesterSlashing]
     attestations*: seq[Attestation]
     deposits*: seq[Deposit]
     exits*: seq[Exit]
@@ -334,7 +342,7 @@ type
     latest_penalized_exit_balances*: seq[uint64] ##\
     ## Balances penalized in the current withdrawal period
 
-    latest_attestations*: seq[PendingAttestationRecord]
+    latest_attestations*: seq[PendingAttestation]
     batched_block_roots*: seq[Eth2Digest]
 
     latest_eth1_data*: Eth1Data
@@ -399,7 +407,7 @@ type
     eth1_data*: Eth1Data
     vote_count*: uint64                           # Vote count
 
-  PendingAttestationRecord* = object
+  PendingAttestation* = object
     data*: AttestationData                        # Signed data
     participation_bitfield*: seq[byte]            # Attester participation bitfield
     custody_bitfield*: seq[byte]                  # Proof of custody bitfield
