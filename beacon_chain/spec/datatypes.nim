@@ -128,9 +128,6 @@ const
   ENTRY_EXIT_DELAY* = 256 ##\
   ## slots (~25.6 minutes)
 
-  ZERO_BALANCE_VALIDATOR_TTL* = 2'u64^22 ##\
-  ## slots (~291 days)
-
   DEPOSIT_ROOT_VOTING_PERIOD* = 2'u64^10 ##\
   ## slots (~1.7 hours)
 
@@ -347,7 +344,7 @@ type
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
 
-    # TODO remove randao_commitment, randao_layers, latest_status_change_slot
+    # TODO remove randao_commitment, randao_layers
     randao_commitment*: Eth2Digest ##\
     ## RANDAO commitment created by repeatedly taking the hash of a secret value
     ## so as to create "onion layers" around it. For every block that a
@@ -359,9 +356,6 @@ type
     randao_layers*: uint64 ##\
     ## Number of proposals the proposer missed, and thus the number of times to
     ## apply hash function to randao reveal
-
-    latest_status_change_slot*: uint64 ##\
-    ## Slot when validator last changed status (or 0)
 
     activation_epoch*: EpochNumber ##\
     ## Slot when validator activated
@@ -413,8 +407,8 @@ type
 
   Fork* = object
     previous_version*: uint64                     # Previous fork version
-    current_version*: uint64                    # Current fork version
-    fork_slot*: uint64                            # Fork slot number TODO should be epoch
+    current_version*: uint64                      # Current fork version
+    epoch*: uint64                                # Fork epoch number
 
   ValidatorRegistryDeltaBlock* = object
     latest_registry_delta_root*: Eth2Digest

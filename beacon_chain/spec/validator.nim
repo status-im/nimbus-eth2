@@ -12,16 +12,6 @@ import
   ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers
 
-func min_empty_validator_index*(
-    validators: seq[Validator],
-    validator_balances: seq[uint64],
-    current_slot: uint64): Option[int] =
-  for i, v in validators:
-    if validator_balances[i] == 0 and
-        v.latest_status_change_slot +
-          ZERO_BALANCE_VALIDATOR_TTL.uint64 <= current_slot:
-      return some(i)
-
 func xorSeed(seed: Eth2Digest, x: uint64): Eth2Digest =
   ## Integers are all encoded as bigendian
   ## Helper for get_shuffling in lieu of generally better bitwise handling
@@ -154,5 +144,5 @@ func get_beacon_proposer_index*(state: BeaconState, slot: uint64): ValidatorInde
   # TODO this index is invalid outside of the block state transition function
   #      because presently, `state.slot += 1` happens before this function
   #      is called - see also testutil.getNextBeaconProposerIndex
-  let first_committee = get_crosslink_committees_at_slot(state, slot)[0][0]
+  let (first_committee, _) = get_crosslink_committees_at_slot(state, slot)[0]
   first_committee[slot.int mod len(first_committee)]

@@ -34,10 +34,6 @@ suite "Block processing":
 
       state.slot == genesisState.slot + 1
 
-      # When proposer skips their proposal, randao layer is still peeled!
-      state.validator_registry[proposer_index].randao_layers ==
-        genesisState.validator_registry[proposer_index].randao_layers + 1
-
   test "Passes from genesis state, empty block":
     var
       state = genesisState
@@ -52,10 +48,6 @@ suite "Block processing":
       block_ok
 
       state.slot == genesisState.slot + 1
-
-      # Proposer proposed, no need for additional peeling
-      state.validator_registry[proposer_index].randao_layers ==
-        genesisState.validator_registry[proposer_index].randao_layers
 
   test "Passes through epoch update, no block":
     var
@@ -122,9 +114,7 @@ suite "Block processing":
     check:
       state.latest_attestations.len == 1
 
-    # TODO Can't run more than 127 for now:
-    # https://github.com/ethereum/eth2.0-specs/issues/352
-    while state.slot < 127:
+    while state.slot < 191:
       discard updateState(
         state, previous_block_root, none(BeaconBlock), {})
 

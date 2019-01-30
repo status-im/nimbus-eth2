@@ -47,10 +47,10 @@ func validate_proof_of_possession(state: BeaconState,
 
 func process_deposit(state: var BeaconState,
                      pubkey: ValidatorPubKey,
-                     deposit: uint64,
+                     amount: uint64,
                      proof_of_possession: ValidatorSig,
                      withdrawal_credentials: Eth2Digest,
-                     randao_commitment: Eth2Digest) : ValidatorIndex =
+                     randao_commitment: Eth2Digest) =
   ## Process a deposit from Ethereum 1.0.
 
   if false:
@@ -77,16 +77,9 @@ func process_deposit(state: var BeaconState,
       status_flags: 0,
     )
 
-    let index = min_empty_validator_index(
-      state.validator_registry, state.validator_balances, state.slot)
-    if index.isNone():
-      state.validator_registry.add(validator)
-      state.validator_balances.add(deposit)
-      (len(state.validator_registry) - 1).ValidatorIndex
-    else:
-      state.validator_registry[index.get()] = validator
-      state.validator_balances[index.get()] = deposit
-      index.get().ValidatorIndex
+    # Note: In phase 2 registry indices that have been withdrawn for a long time will be recycled.
+    state.validator_registry.add(validator)
+    state.validator_balances.add(amount)
   else:
     # Increase balance by deposit amount
     let index = validator_pubkeys.find(pubkey)
@@ -94,8 +87,7 @@ func process_deposit(state: var BeaconState,
     assert state.validator_registry[index].withdrawal_credentials ==
       withdrawal_credentials
 
-    state.validator_balances[index] += deposit
-    index.ValidatorIndex
+    state.validator_balances[index] += amount
 
 func get_entry_exit_effect_epoch*(epoch: EpochNumber): EpochNumber =
   ## An entry or exit triggered in the ``epoch`` given by the input takes effect at
@@ -189,11 +181,10 @@ func get_initial_beacon_state*(
     # Misc
     slot: GENESIS_SLOT,
     genesis_time: genesis_time,
-    # rm fork_slot init in favor of epoch
     fork: Fork(
         previous_version: GENESIS_FORK_VERSION,
         current_version: GENESIS_FORK_VERSION,
-        fork_slot: GENESIS_SLOT,
+        epoch: GENESIS_EPOCH,
     ),
 
     validator_registry_update_epoch: GENESIS_EPOCH,
@@ -220,7 +211,7 @@ func get_initial_beacon_state*(
 
   # Process initial deposits
   for deposit in initial_validator_deposits:
-    let validator_index = process_deposit(
+    process_deposit(
       state,
       deposit.deposit_data.deposit_input.pubkey,
       deposit.deposit_data.amount,
@@ -229,13 +220,10 @@ func get_initial_beacon_state*(
       deposit.deposit_data.deposit_input.randao_commitment,
     )
 
-    if state.validator_balances[validator_index] >= MAX_DEPOSIT_AMOUNT:
-      activate_validator(state, validator_index, true)
-
   # Process initial activations
   for validator_index in 0 ..< state.validator_registry.len:
     let vi = validator_index.ValidatorIndex
-    if get_effective_balance(state, vi) > MAX_DEPOSIT_AMOUNT:
+    if get_effective_balance(state, vi) >= MAX_DEPOSIT_AMOUNT:
       activate_validator(state, vi, true)
 
   state
