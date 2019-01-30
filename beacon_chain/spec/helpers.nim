@@ -119,9 +119,11 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
     y = (x + n div x) div 2
   x
 
-func get_fork_version*(fork: Fork, slot: uint64): uint64 =
-  if slot < fork.fork_slot: fork.previous_version
-  else: fork.current_version
+func get_fork_version*(fork: Fork, epoch: EpochNumber): uint64 =
+  if epoch < fork.epoch:
+    fork.previous_version
+  else:
+    fork.current_version
 
 func get_domain*(
     fork: Fork, slot: uint64, domain_type: SignatureDomain): uint64 =
