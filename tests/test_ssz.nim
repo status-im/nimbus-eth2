@@ -27,7 +27,7 @@ suite "Simple serialization":
       f2: EthAddress
       f3: MDigest[256]
       f4: seq[byte]
-      f5: Uint24
+      f5: ValidatorIndex
 
   let expected_deser = Foo(
       f0: 5,
@@ -35,7 +35,7 @@ suite "Simple serialization":
       f2: EthAddress.filled(byte 35),
       f3: MDigest[256].filled(byte 35),
       f4: @[byte 'c'.ord, 'o'.ord, 'w'.ord],
-      f5: Uint24(79)
+      f5: ValidatorIndex(79)
     )
 
   var expected_ser = @[
@@ -61,9 +61,9 @@ suite "Simple serialization":
       expected_ser[0..^2].deserialize(Foo).isNone()
       expected_ser[1..^1].deserialize(Foo).isNone()
 
-  test "Uint24 roundtrip":
+  test "ValidatorIndex roundtrip":
     # https://github.com/nim-lang/Nim/issues/10027
-    let v = 79.Uint24
+    let v = 79.ValidatorIndex
     let ser = v.serialize()
     check:
       ser.len() == 3
@@ -120,4 +120,4 @@ suite "Tree hashing":
 
   test "Hash integer":
     check: hash_tree_root(0x01'u32) == [1'u8, 0, 0, 0] # little endian!
-    check: hash_tree_root(Uint24(0x01)) == [1'u8, 0, 0] # little endian!
+    check: hash_tree_root(ValidatorIndex(0x01)) == [1'u8, 0, 0] # little endian!

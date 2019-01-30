@@ -32,32 +32,30 @@ func xorSeed(seed: Eth2Digest, x: uint64): Eth2Digest =
 
 func get_shuffling*(seed: Eth2Digest,
                     validators: openArray[Validator],
-                    slot_nonaligned: uint64
-                    ): seq[seq[Uint24]] =
+                    epoch: EpochNumber
+                    ): seq[seq[ValidatorIndex]] =
   ## Shuffles ``validators`` into crosslink committees seeded by ``seed`` and ``slot``.
   ## Returns a list of ``EPOCH_LENGTH * committees_per_slot`` committees where each
   ## committee is itself a list of validator indices.
   ## Implementation should do the following: http://vitalik.ca/files/ShuffleAndAssign.png
 
   let
-    slot = slot_nonaligned - slot_nonaligned mod EPOCH_LENGTH
+    active_validator_indices = get_active_validator_indices(validators, epoch)
 
-    active_validator_indices = get_active_validator_indices(validators, slot)
-
-    committees_per_slot = get_committee_count_per_slot(len(active_validator_indices)).int
+    committees_per_epoch = get_epoch_committee_count(len(active_validator_indices)).int
 
     # Shuffle
     shuffled_active_validator_indices = shuffle(
       active_validator_indices,
-      xorSeed(seed, slot))
+      xorSeed(seed, epoch))
 
-  # Split the shuffled list into epoch_length * committees_per_slot pieces
-  result = split(shuffled_active_validator_indices, committees_per_slot * EPOCH_LENGTH)
-  assert result.len() == committees_per_slot * EPOCH_LENGTH # what split should do..
+  # Split the shuffled list into committees_per_epoch pieces
+  result = split(shuffled_active_validator_indices, committees_per_epoch)
+  assert result.len() == committees_per_epoch # what split should do..
 
 func get_new_validator_registry_delta_chain_tip*(
     current_validator_registry_delta_chain_tip: Eth2Digest,
-    index: Uint24,
+    index: ValidatorIndex,
     pubkey: ValidatorPubKey,
     slot: uint64,
     flag: ValidatorSetDeltaFlags): Eth2Digest =
@@ -71,65 +69,70 @@ func get_new_validator_registry_delta_chain_tip*(
     flag: flag
   ))
 
-func get_previous_epoch_committee_count_per_slot(state: BeaconState): uint64 =
+func get_previous_epoch_committee_count(state: BeaconState): uint64 =
   let previous_active_validators = get_active_validator_indices(
     state.validator_registry,
-    state.previous_epoch_calculation_slot
+    state.previous_calculation_epoch,
   )
-  get_committee_count_per_slot(len(previous_active_validators))
+  get_epoch_committee_count(len(previous_active_validators))
 
 func get_current_epoch_committee_count_per_slot(state: BeaconState): uint64 =
-  let previous_active_validators = get_active_validator_indices(
+  let current_active_validators = get_active_validator_indices(
     state.validator_registry,
-    state.current_epoch_calculation_slot
+    state.current_calculation_epoch,
   )
-  get_committee_count_per_slot(len(previous_active_validators))
+  get_epoch_committee_count(len(current_active_validators))
 
-func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64) : seq[tuple[a: seq[Uint24], b: uint64]] =
+func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64) : seq[tuple[a: seq[ValidatorIndex], b: uint64]] =
   ## Returns the list of ``(committee, shard)`` tuples for the ``slot``.
 
-  let state_epoch_slot = state.slot - (state.slot mod EPOCH_LENGTH)
-  assert state_epoch_slot <= slot + EPOCH_LENGTH
-  assert slot < state_epoch_slot + EPOCH_LENGTH
-  let offset = slot mod EPOCH_LENGTH
+  let
+    epoch = slot_to_epoch(slot)
+    current_epoch = get_current_epoch(state)
+    previous_epoch = if current_epoch > GENESIS_EPOCH: (current_epoch - 1) else: current_epoch
+    next_epoch = current_epoch + 1
 
-  if slot < state_epoch_slot:
-    let
-      committees_per_slot = get_previous_epoch_committee_count_per_slot(state)
-      shuffling = get_shuffling(
-        state.previous_epoch_randao_mix,
-        state.validator_registry,
-        state.previous_epoch_calculation_slot
-      )
-      slot_start_shard = (state.previous_epoch_start_shard + committees_per_slot * offset) mod SHARD_COUNT
+  assert previous_epoch <= epoch
+  assert epoch < next_epoch
 
-    ## This duplication is ugly, but keeping for sake of closeness with spec code structure
-    ## There are better approaches in general.
-    for i in 0 ..< committees_per_slot.int:
-      result.add (
-       shuffling[(committees_per_slot * offset + i.uint64).int],
-       (slot_start_shard + i.uint64) mod SHARD_COUNT
-      )
-  else:
-    let
-      committees_per_slot = get_current_epoch_committee_count_per_slot(state)
-      shuffling = get_shuffling(
-        state.current_epoch_randao_mix,
-        state.validator_registry,
-        state.current_epoch_calculation_slot
-      )
-      slot_start_shard = (state.current_epoch_start_shard + committees_per_slot * offset) mod SHARD_COUNT
+  func get_epoch_specific_params() : auto =
+    if epoch < current_epoch:
+      let
+        committees_per_epoch = get_previous_epoch_committee_count(state)
+        seed = state.previous_epoch_seed
+        shuffling_epoch = state.previous_calculation_epoch
+        shuffling_start_shard = state.previous_epoch_start_shard
+      (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard)
+    else:
+      let
+        committees_per_epoch = get_current_epoch_committee_count(state)
+        seed = state.current_epoch_seed
+        shuffling_epoch = state.current_calculation_epoch
+        shuffling_start_shard = state.current_epoch_start_shard
+      (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard)
 
-    for i in 0 ..< committees_per_slot.int:
-      result.add (
-       shuffling[(committees_per_slot * offset + i.uint64).int],
-       (slot_start_shard + i.uint64) mod SHARD_COUNT
-      )
+  let (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard) = get_epoch_specific_params()
+
+  let
+    shuffling = get_shuffling(
+      seed,
+      state.validator_registry,
+      shuffling_epoch,
+    )
+    offset = slot mod EPOCH_LENGTH
+    committees_per_slot = committees_per_epoch div EPOCH_LENGTH
+    slot_start_shard = (shuffling_start_shard + committees_per_slot * offset) mod SHARD_COUNT
+
+  for i in 0 ..< committees_per_slot.int:
+    result.add (
+     shuffling[(committees_per_slot * offset + i.uint64).int],
+     (slot_start_shard + i.uint64) mod SHARD_COUNT
+    )
 
 func get_shard_committees_at_slot*(
     state: BeaconState, slot: uint64): seq[ShardCommittee] =
   # TODO temporary adapter; remove when all users gone
-  # where ShardCommittee is: shard*: uint64 / committee*: seq[Uint24]
+  # where ShardCommittee is: shard*: uint64 / committee*: seq[ValidatorIndex]
   let index = state.get_shard_committees_index(slot)
   #state.shard_committees_at_slots[index]
   for crosslink_committee in get_crosslink_committees_at_slot(state, slot):
@@ -138,7 +141,7 @@ func get_shard_committees_at_slot*(
     sac.committee = crosslink_committee.a
     result.add sac
 
-func get_beacon_proposer_index*(state: BeaconState, slot: uint64): Uint24 =
+func get_beacon_proposer_index*(state: BeaconState, slot: uint64): ValidatorIndex =
   ## From Casper RPJ mini-spec:
   ## When slot i begins, validator Vidx is expected
   ## to create ("propose") a block, which contains a pointer to some parent block

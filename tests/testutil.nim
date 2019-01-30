@@ -82,7 +82,7 @@ func makeGenesisBlock*(state: BeaconState): BeaconBlock =
     state_root: Eth2Digest(data: hash_tree_root(state))
   )
 
-func getNextBeaconProposerIndex*(state: BeaconState): Uint24 =
+func getNextBeaconProposerIndex*(state: BeaconState): ValidatorIndex =
   # TODO: This is a special version of get_beacon_proposer_index that takes into
   #       account the partial update done at the start of slot processing -
   #       see get_shard_committees_index
@@ -152,7 +152,7 @@ proc addBlock*(
     assert bls_verify(
       proposer.pubkey,
       proposal_hash, new_block.signature,
-      get_domain(state.fork_data, state.slot, DOMAIN_PROPOSAL)),
+      get_domain(state.fork, state.slot, DOMAIN_PROPOSAL)),
       "we just signed this message - it should pass verification!"
 
   new_block
@@ -168,14 +168,14 @@ proc makeBlock*(
   addBlock(next_state, previous_block_root, body)
 
 proc find_shard_committee(
-    sacs: openArray[ShardCommittee], validator_index: Uint24): ShardCommittee =
+    sacs: openArray[ShardCommittee], validator_index: ValidatorIndex): ShardCommittee =
   for sac in sacs:
     if validator_index in sac.committee: return sac
   doAssert false
 
 proc makeAttestation*(
     state: BeaconState, beacon_block_root: Eth2Digest,
-    validator_index: Uint24, flags: UpdateFlags = {}): Attestation =
+    validator_index: ValidatorIndex, flags: UpdateFlags = {}): Attestation =
   let
     sac = find_shard_committee(
       get_shard_committees_at_slot(state, state.slot), validator_index)
@@ -189,8 +189,8 @@ proc makeAttestation*(
       epoch_boundary_root: Eth2Digest(), # TODO
       shard_block_root: Eth2Digest(), # TODO
       latest_crosslink_root: Eth2Digest(), # TODO
-      justified_slot: state.justified_slot,
-      justified_block_root: get_block_root(state, state.justified_slot),
+      justified_epoch: state.justified_epoch,
+      justified_block_root: get_block_root(state, get_epoch_start_slot(state.justified_epoch)),
     )
 
   assert sac_index != -1, "find_shard_committe should guarantee this"

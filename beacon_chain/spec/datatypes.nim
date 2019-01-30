@@ -75,9 +75,6 @@ const
   BEACON_CHAIN_SHARD_NUMBER* = not 0'u64 # 2^64 - 1 in spec
 
   MAX_CASPER_VOTES* = 2^10
-  LATEST_BLOCK_ROOTS_LENGTH* = 2'u64^13
-  LATEST_RANDAO_MIXES_LENGTH* = 2'u64^13
-  LATEST_PENALIZED_EXIT_LENGTH* = 8192 # epochs
   MAX_WITHDRAWALS_PER_EPOCH* = 4 # withdrawals
 
   # Deposit contract
@@ -89,12 +86,19 @@ const
   MAX_DEPOSIT_AMOUNT* = 2'u64^5 * GWEI_PER_ETH ##\
   ## Maximum amounth of ETH that can be deposited in one call
 
+  # Time parameter, here so that GENESIS_EPOCH can access it
+  EPOCH_LENGTH* = 64 ##\
+  ## (~6.4 minutes)
+  ## slots that make up an epoch, at the end of which more heavy
+  ## processing is done
+
   # Initial values
 
   GENESIS_FORK_VERSION* = 0'u64
-  GENESIS_SLOT* = 0'u64
+  GENESIS_SLOT* = 2'u64^19
+  GENESIS_EPOCH* = GENESIS_SLOT div EPOCH_LENGTH # slot_to_epoch(GENESIS_SLOT)
   GENESIS_START_SHARD* = 0'u64
-  FAR_FUTURE_SLOT* = not 0'u64 # 2^64 - 1 in spec
+  FAR_FUTURE_EPOCH* = not 0'u64 # 2^64 - 1 in spec
   ZERO_HASH* = Eth2Digest()
   # TODO EMPTY_SIGNATURE* =
   BLS_WITHDRAWAL_PREFIX_BYTE* = 0'u8
@@ -115,11 +119,6 @@ const
   ## wait towards the end of the slot and still have time to publish the
   ## attestation.
 
-  EPOCH_LENGTH* = 64 ##\
-  ## (~6.4 minutes)
-  ## slots that make up an epoch, at the end of which more heavy
-  ## processing is done
-
   ETH1_DATA_VOTING_PERIOD* = 2'u64^10 ##\
   ## slots (~1.7 hours)
 
@@ -137,6 +136,12 @@ const
 
   MIN_VALIDATOR_WITHDRAWAL_TIME* = 2'u64^14 ##\
   ## slots (~27 hours)
+
+  # State list lengths
+  LATEST_BLOCK_ROOTS_LENGTH* = 2'u64^13
+  LATEST_RANDAO_MIXES_LENGTH* = 2'u64^13
+  LATEST_INDEX_ROOTS_LENGTH* = 2'u64^13
+  LATEST_PENALIZED_EXIT_LENGTH* = 8192 # epochs
 
   # Quotients
   BASE_REWARD_QUOTIENT* = 2'u64^10 ##\
@@ -160,11 +165,13 @@ const
   MAX_EXITS* = 2^4
 
 type
-  Uint24* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
+  ValidatorIndex* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
+  SlotNumber* = uint64
+  EpochNumber* = uint64
 
   # https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#data-structures
   ProposerSlashing* = object
-    proposer_index*: Uint24
+    proposer_index*: ValidatorIndex
     proposal_data_1*: ProposalSignedData
     proposal_signature_1*: ValidatorSig
     proposal_data_2*: ProposalSignedData
@@ -175,10 +182,10 @@ type
     slashable_vote_data_2*: SlashableVoteData
 
   SlashableVoteData* = object
-    aggregate_signature_poc_0_indices*: seq[Uint24] ##\
+    aggregate_signature_poc_0_indices*: seq[ValidatorIndex] ##\
     ## Proof-of-custody indices (0 bits)
 
-    aggregate_signature_poc_1_indices*: seq[Uint24] ##\
+    aggregate_signature_poc_1_indices*: seq[ValidatorIndex] ##\
     ## Proof-of-custody indices (1 bits)
 
     data*: AttestationData
@@ -210,8 +217,8 @@ type
     latest_crosslink_root*: Eth2Digest ##\
     ## Last crosslink hash
 
-    justified_slot*: uint64 ##\
-    ## Slot of last justified beacon block
+    justified_epoch*: uint64 ##\
+    ## Epoch of last justified beacon block
 
     justified_block_root*: Eth2Digest ##\
     ## Hash of last justified beacon block
@@ -247,7 +254,7 @@ type
     # Minimum slot for processing exit
     slot*: uint64
     # Index of the exiting validator
-    validator_index*: Uint24
+    validator_index*: ValidatorIndex
     # Validator signature
     signature*: ValidatorSig
 
@@ -279,16 +286,8 @@ type
     proposer_slashings*: seq[ProposerSlashing]
     casper_slashings*: seq[CasperSlashing]
     attestations*: seq[Attestation]
-    custody_reseeds*: seq[CustodyReseed]
-    custody_challenges*: seq[CustodyChallenge]
-    custody_responses*: seq[CustodyResponse]
     deposits*: seq[Deposit]
     exits*: seq[Exit]
-
-  # Phase1:
-  CustodyReseed* = object
-  CustodyChallenge* = object
-  CustodyResponse* = object
 
   ProposalSignedData* = object
     slot*: uint64
@@ -299,7 +298,7 @@ type
   BeaconState* = object
     slot*: uint64
     genesis_time*: uint64
-    fork_data*: ForkData ##\
+    fork*: Fork ##\
     ## For versioning hard forks
 
     # Validator registry
@@ -307,36 +306,33 @@ type
     validator_balances*: seq[uint64] ##\
     ## Validator balances in Gwei!
 
-    validator_registry_update_slot*: uint64
+    validator_registry_update_epoch*: uint64
     validator_registry_exit_count*: uint64
+
+    # TODO remove, not in spec anymore
     validator_registry_delta_chain_tip*: Eth2Digest ##\
     ## For light clients to easily track delta
 
     # Randomness and committees
     latest_randao_mixes*: array[LATEST_BLOCK_ROOTS_LENGTH.int, Eth2Digest]
-    latest_vdf_outputs*: array[
-      (LATEST_RANDAO_MIXES_LENGTH div EPOCH_LENGTH).int, Eth2Digest]
-
     previous_epoch_start_shard*: uint64
     current_epoch_start_shard*: uint64
-    previous_epoch_calculation_slot*: uint64
-    current_epoch_calculation_slot*: uint64
-    previous_epoch_randao_mix*: Eth2Digest
-    current_epoch_randao_mix*: Eth2Digest
-
-    # Custody challenges
-    custody_challenges*: seq[CustodyChallenge]
+    previous_calculation_epoch*: EpochNumber
+    current_calculation_epoch*: EpochNumber
+    previous_epoch_seed*: Eth2Digest
+    current_epoch_seed*: Eth2Digest
 
     # Finality
-    previous_justified_slot*: uint64
-    justified_slot*: uint64
+    previous_justified_epoch*: EpochNumber
+    justified_epoch*: EpochNumber
     justification_bitfield*: uint64
-    finalized_slot*: uint64
+    finalized_epoch*: EpochNumber
 
     # Recent state
     latest_crosslinks*: array[SHARD_COUNT, Crosslink]
     latest_block_roots*: array[LATEST_BLOCK_ROOTS_LENGTH.int, Eth2Digest] ##\
     ## Needed to process attestations, older to newer
+    latest_index_roots*: array[LATEST_INDEX_ROOTS_LENGTH.int, Eth2Digest]
 
     latest_penalized_exit_balances*: seq[uint64] ##\
     ## Balances penalized in the current withdrawal period
@@ -350,6 +346,8 @@ type
   Validator* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
+
+    # TODO remove randao_commitment, randao_layers, latest_status_change_slot
     randao_commitment*: Eth2Digest ##\
     ## RANDAO commitment created by repeatedly taking the hash of a secret value
     ## so as to create "onion layers" around it. For every block that a
@@ -365,16 +363,16 @@ type
     latest_status_change_slot*: uint64 ##\
     ## Slot when validator last changed status (or 0)
 
-    activation_slot*: uint64 ##\
+    activation_epoch*: EpochNumber ##\
     ## Slot when validator activated
 
-    exit_slot*: uint64 ##\
+    exit_epoch*: EpochNumber ##\
     ## Slot when validator exited
 
-    withdrawal_slot*: uint64 ##\
+    withdrawal_epoch*: EpochNumber ##\
     ## Slot when validator withdrew
 
-    penalized_slot*: uint64 ##\
+    penalized_epoch*: EpochNumber ##\
     ## Slot when validator penalized
 
     exit_count*: uint64 ##\
@@ -382,22 +380,14 @@ type
 
     status_flags*: uint64
 
-    custody_commitment*: Eth2Digest
-
-    latest_custody_reseed_slot*: uint64 ##\
-    ## Slot of latest custody reseed
-
-    penultimate_custody_reseed_slot*: uint64 ##\
-    ## Slot of second-latest custody reseed
-
   Crosslink* = object
-    slot*: uint64
+    epoch*: uint64
     shard_block_root*: Eth2Digest ##\
     ## Shard chain block root
 
   ShardCommittee* = object
     shard*: uint64
-    committee*: seq[Uint24] ##\
+    committee*: seq[ValidatorIndex] ##\
     ## Committe participants that get to attest to blocks on this shard -
     ## indices into BeaconState.validator_registry
 
@@ -421,14 +411,14 @@ type
     custody_bitfield*: seq[byte]                  # Proof of custody bitfield
     slot_included*: uint64                        # Slot in which it was included
 
-  ForkData* = object
-    pre_fork_version*: uint64                     # Previous fork version
-    post_fork_version*: uint64                    # Post fork version
-    fork_slot*: uint64                            # Fork slot number
+  Fork* = object
+    previous_version*: uint64                     # Previous fork version
+    current_version*: uint64                    # Current fork version
+    fork_slot*: uint64                            # Fork slot number TODO should be epoch
 
   ValidatorRegistryDeltaBlock* = object
     latest_registry_delta_root*: Eth2Digest
-    validator_index*: Uint24
+    validator_index*: ValidatorIndex
     pubkey*: ValidatorPubKey
     slot*: uint64
     flag*: ValidatorSetDeltaFlags
@@ -457,10 +447,10 @@ when true:
   proc read*(rlp: var Rlp, T: type ValidatorPubKey): T {.inline.} =
     discard
 
-  proc append*(rlpWriter: var RlpWriter, value: Uint24) =
+  proc append*(rlpWriter: var RlpWriter, value: ValidatorIndex) =
     discard
 
-  proc read*(rlp: var Rlp, T: type Uint24): T {.inline.} =
+  proc read*(rlp: var Rlp, T: type ValidatorIndex): T {.inline.} =
     discard
 
   proc append*(rlpWriter: var RlpWriter, value: ValidatorSig) =

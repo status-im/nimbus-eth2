@@ -28,7 +28,7 @@ func toBytesSSZ(x: SomeInteger): array[sizeof(x), byte] =
   elif x.sizeof == 1: copyMem(result.addr, x.unsafeAddr, sizeof(result))
   else: {.fatal: "Unsupported type serialization: " & $(type(x)).name.}
 
-func toBytesSSZ(x: Uint24): array[3, byte] =
+func toBytesSSZ(x: ValidatorIndex): array[3, byte] =
   ## Integers are all encoded as little endian and not padded
   let v = x.uint32
   result[0] = byte(v and 0xff)
@@ -52,13 +52,13 @@ type
     # provides the actual nim-type-to-bytes conversion.
     # TODO think about this for a bit - depends where the serialization of
     #      validator keys ends up going..
-    # TODO can't put ranges like Uint24 in here:
+    # TODO can't put ranges like ValidatorIndex in here:
     #      https://github.com/nim-lang/Nim/issues/10027
     SomeInteger | EthAddress | Eth2Digest | ValidatorPubKey | ValidatorSig |
       bool
 
 func sszLen(v: TrivialTypes): int = toBytesSSZ(v).len
-func sszLen(v: Uint24): int = toBytesSSZ(v).len
+func sszLen(v: ValidatorIndex): int = toBytesSSZ(v).len
 
 func sszLen(v: object | tuple): int =
   result = 4 # Length
@@ -94,14 +94,14 @@ func fromBytesSSZUnsafe(T: typedesc[bool], data: pointer): T =
   #       definition for now, but maybe this should be a parse error instead?
   fromBytesSSZUnsafe(uint8, data) != 0
 
-func fromBytesSSZUnsafe(T: typedesc[Uint24], data: pointer): T =
+func fromBytesSSZUnsafe(T: typedesc[ValidatorIndex], data: pointer): T =
   ## Integers are all encoded as littleendian and not padded
   var tmp: uint32
   let p = cast[ptr UncheckedArray[byte]](data)
   tmp = tmp or uint32(p[0])
   tmp = tmp or uint32(p[1]) shl 8
   tmp = tmp or uint32(p[2]) shl 16
-  result = tmp.Uint24
+  result = tmp.ValidatorIndex
 
 func fromBytesSSZUnsafe(T: typedesc[EthAddress], data: pointer): T =
   copyMem(result.addr, data, sizeof(result))
@@ -127,11 +127,11 @@ proc deserialize[T: TrivialTypes](
       true
 
 func deserialize(
-    dest: var Uint24, offset: var int, data: openArray[byte]): bool =
+    dest: var ValidatorIndex, offset: var int, data: openArray[byte]): bool =
   if offset + sszLen(dest) > data.len():
     false
   else:
-    dest = fromBytesSSZUnsafe(Uint24, data[offset].unsafeAddr)
+    dest = fromBytesSSZUnsafe(ValidatorIndex, data[offset].unsafeAddr)
     offset += sszLen(dest)
     true
 
@@ -146,7 +146,7 @@ func deserialize[T: enum](dest: var T, offset: var int, data: openArray[byte]): 
     dest = cast[T](tmp)
     true
 
-proc deserialize[T: not (enum|TrivialTypes|Uint24)](
+proc deserialize[T: not (enum|TrivialTypes|ValidatorIndex)](
     dest: var T, offset: var int, data: openArray[byte]): bool =
   # Length in bytes, followed by each item
   var totalLen: uint32
@@ -176,7 +176,7 @@ proc deserialize[T: not (enum|TrivialTypes|Uint24)](
 
 func serialize(dest: var seq[byte], src: TrivialTypes) =
   dest.add src.toBytesSSZ()
-func serialize(dest: var seq[byte], src: Uint24) =
+func serialize(dest: var seq[byte], src: ValidatorIndex) =
   dest.add src.toBytesSSZ()
 
 func serialize(dest: var seq[byte], x: enum) =
@@ -265,7 +265,7 @@ func hash_tree_root*(x: SomeInteger | bool): array[sizeof(x), byte] =
   ## All integers are serialized as **little endian**.
   toBytesSSZ(x)
 
-func hash_tree_root*(x: Uint24): array[3, byte] =
+func hash_tree_root*(x: ValidatorIndex): array[3, byte] =
   ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
   ## All integers are serialized as **little endian**.
   toBytesSSZ(x)

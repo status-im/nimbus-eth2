@@ -38,7 +38,7 @@ proc randomTimeInSlot*(s: BeaconState,
 
 proc slotDistanceFromNow*(s: BeaconState): int64 =
   ## Returns how many slots have passed since a particular BeaconState was finalized
-  int64(s.timeSinceGenesis() div (SLOT_DURATION * 1000)) - int64(s.finalized_slot)
+  int64(s.timeSinceGenesis() div (SLOT_DURATION * EPOCH_LENGTH * 1000)) - int64(s.finalized_epoch)
 
 proc synchronizeClock*() {.async.} =
   ## This should determine the offset of the local clock against a global
