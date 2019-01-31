@@ -28,6 +28,8 @@ const
   topicBeaconBlocks = "ethereum/2.1/beacon_chain/blocks"
   topicAttestations = "ethereum/2.1/beacon_chain/attestations"
 
+  stateStoragePeriod = EPOCH_LENGTH * 10 # Save states once per this number of slots. TODO: Find a good number.
+
 func shortHash(x: auto): string = ($x)[0..7]
 func shortValidatorKey(node: BeaconNode, validatorIdx: int): string =
   ($node.beaconState.validator_registry[validatorIdx].pubkey)[0..7]
@@ -106,7 +108,8 @@ proc sync*(node: BeaconNode): Future[bool] {.async.} =
         return false
 
       if applyValidatorChangeLog(changeLog, node.beaconState):
-        node.db.persistBlock(node.beaconState, changeLog.signedBlock)
+        node.db.persistState(node.beaconState)
+        node.db.persistBlock(changeLog.signedBlock)
       else:
         warn "Ignoring invalid validator change log", sentFrom = peer
 
@@ -325,6 +328,10 @@ proc scheduleEpochActions(node: BeaconNode, epoch: uint64) =
     if node.lastScheduledEpoch != nextEpoch:
       node.scheduleEpochActions(nextEpoch)
 
+proc stateNeedsSaving(s: BeaconState): bool =
+  # TODO: Come up with a better predicate logic
+  s.slot mod stateStoragePeriod == 0
+
 proc processBlocks*(node: BeaconNode) =
   node.network.subscribe(topicBeaconBlocks) do (newBlock: BeaconBlock):
     let stateSlot = node.beaconState.slot
@@ -356,7 +363,11 @@ proc processBlocks*(node: BeaconNode) =
     node.headBlock = newBlock
     node.headBlockRoot = newBlockRoot
     node.beaconState = state
-    node.db.persistBlock(node.beaconState, newBlock)
+
+    if stateNeedsSaving(node.beaconState):
+      node.db.persistState(node.beaconState)
+
+    node.db.persistBlock(newBlock)
 
     # TODO:
     #

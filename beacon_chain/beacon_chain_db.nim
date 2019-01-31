@@ -4,7 +4,6 @@ import
   spec/[datatypes, digest, crypto],
   eth_trie/db, ssz
 
-const STATE_STORAGE_PERIOD = 1000 # Save states once per this number of slots. TODO: Find a good number.
 
 type
   BeaconChainDB* = ref object
@@ -66,17 +65,12 @@ proc persistState*(db: BeaconChainDB, s: BeaconState) =
       discard
 
   let serializedState = ssz.serialize(s)
+  # TODO: Consider mapping slots and last pointer to state hashes to avoid
+  # duplicating in the db
   db.backend.put(lastFinalizedStateKey(), serializedState)
+  db.backend.put(slotToStateKey(s.slot), serializedState)
 
-  if s.slot mod STATE_STORAGE_PERIOD == 0:
-    # Save slot to state mapping
-    db.backend.put(slotToStateKey(s.slot), serializedState)
-
-proc persistBlock*(db: BeaconChainDB, s: BeaconState, b: BeaconBlock) =
-  var prevState = db.lastFinalizedState()
-
-  db.persistState(s)
-
+proc persistBlock*(db: BeaconChainDB, b: BeaconBlock) =
   let blockHash = b.hash_tree_root_final
   db.backend.put(hashToBlockKey(blockHash), ssz.serialize(b))
   db.backend.put(slotToBlockHashKey(b.slot), blockHash.data)
