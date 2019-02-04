@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  options, milagro_crypto, sequtils,
+  options, sequtils,
   ../beacon_chain/[extras, ssz, state_transition],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator]
 
@@ -43,7 +43,7 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
   ## for testing :)
   let
     privkey = makeValidatorPrivKey(i)
-    pubkey = privkey.fromSigKey()
+    pubkey = privkey.pubKey()
     withdrawal_credentials = makeFakeHash(i)
     randao_commitment = repeat_hash(withdrawal_credentials, randaoRounds)
 
@@ -56,8 +56,8 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
         withdrawal_credentials: withdrawal_credentials,
         randao_commitment: randao_commitment
       )
-      signMessage(
-        privkey, hash_tree_root_final(proof_of_possession_data).data)
+      let domain = 0'u64
+      bls_sign(privkey, hash_tree_root_final(proof_of_possession_data).data, domain)
 
   Deposit(
     deposit_data: DepositData(
@@ -140,14 +140,15 @@ proc addBlock*(
     )
     proposal_hash = hash_tree_root(signed_data)
 
-  assert proposerPrivkey.fromSigKey() == proposer.pubkey,
+  assert proposerPrivkey.pubKey() == proposer.pubkey,
     "signature key should be derived from private key! - wrong privkey?"
 
   if skipValidation notin flags:
     # We have a signature - put it in the block and we should be done!
+    # TODO domain present do something!
     new_block.signature =
-      # TODO domain missing!
-      signMessage(proposerPrivkey, proposal_hash)
+      bls_sign(proposerPrivkey, proposal_hash,
+               get_domain(state.fork, state.slot, DOMAIN_PROPOSAL))
 
     assert bls_verify(
       proposer.pubkey,
@@ -201,9 +202,11 @@ proc makeAttestation*(
 
   let
     msg = hash_tree_root_final(data)
+    # TODO: domain
+    domain = 0'u64
     sig =
       if skipValidation notin flags:
-        signMessage(hackPrivKey(validator), @(msg.data) & @[0'u8])
+        bls_sign(hackPrivKey(validator), @(msg.data) & @[0'u8], domain)
       else:
         ValidatorSig()
 

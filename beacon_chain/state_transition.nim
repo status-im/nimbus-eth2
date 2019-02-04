@@ -33,8 +33,7 @@
 import
   chronicles, math, options, sequtils,
   ./extras, ./ssz,
-  ./spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
-  milagro_crypto
+  ./spec/[beaconstate, crypto, datatypes, digest, helpers, validator]
 
 func flatten[T](v: openArray[seq[T]]): seq[T] =
   # TODO not in nim - doh.

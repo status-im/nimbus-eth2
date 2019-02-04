@@ -13,8 +13,6 @@ import
   eth_common, nimcrypto/blake2,
   ./spec/[crypto, datatypes, digest]
 
-from milagro_crypto import getRaw, fromRaw
-
 # ################### Helper functions ###################################
 
 # toBytesSSZ convert simple fixed-length types to their SSZ wire representation
@@ -43,7 +41,7 @@ func toBytesSSZ(x: Eth2Digest): array[32, byte] = x.data
 
 # TODO these two are still being debated:
 # https://github.com/ethereum/eth2.0-specs/issues/308#issuecomment-447026815
-func toBytesSSZ(x: ValidatorPubKey|ValidatorSig): auto = x.getRaw()
+func toBytesSSZ(x: ValidatorPubKey|ValidatorSig): auto = x.getBytes()
 
 type
   TrivialTypes =
@@ -116,7 +114,7 @@ proc deserialize[T: TrivialTypes](
     false
   else:
     when T is (ValidatorPubKey|ValidatorSig):
-      if T.fromRaw(data[offset..data.len-1], dest):
+      if dest.init(data[offset..data.len-1]):
         offset += sszLen(dest)
         true
       else:
@@ -307,13 +305,13 @@ func hash_tree_root*(x: ValidatorPubKey): array[32, byte] =
   ## TODO - Warning ⚠️: not part of the spec
   ## as of https://github.com/ethereum/beacon_chain/pull/133/files
   ## This is a "stub" needed for BeaconBlock hashing
-  x.getRaw().hash()
+  x.getBytes().hash()
 
 func hash_tree_root*(x: ValidatorSig): array[32, byte] =
   ## TODO - Warning ⚠️: not part of the spec
   ## as of https://github.com/ethereum/beacon_chain/pull/133/files
   ## This is a "stub" needed for BeaconBlock hashing
-  x.getRaw().hash()
+  x.getBytes().hash()
 
 func hash_tree_root_final*(x: object|tuple): Eth2Digest =
   # TODO suggested for spec:

@@ -1,6 +1,5 @@
 import
   sequtils, tables,
-  milagro_crypto,
   spec/[datatypes, crypto, digest], ssz
 
 type

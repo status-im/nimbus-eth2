@@ -1,6 +1,6 @@
 import
   tables, random,
-  asyncdispatch2, milagro_crypto,
+  asyncdispatch2,
   spec/[datatypes, crypto, digest], randao, ssz
 
 type
@@ -50,7 +50,9 @@ proc signBlockProposal*(v: AttachedValidator,
     let proposalRoot = hash_tree_root_final(proposal)
 
     # TODO: Should we use proposalRoot as data, or digest in regards to signature?
-    result = signMessage(v.privKey, proposalRoot.data)
+    # TODO: Use `domain` here
+    let domain = 0'u64
+    result = bls_sign(v.privKey, proposalRoot.data, domain)
   else:
     # TODO:
     # send RPC
@@ -65,7 +67,9 @@ proc signAttestation*(v: AttachedValidator,
     let attestationRoot = hash_tree_root_final(attestation)
     # TODO: Avoid the allocations belows
     var dataToSign = @(attestationRoot.data) & @[0'u8]
-    result = signMessage(v.privKey, dataToSign)
+    # TODO: Use `domain` here
+    let domain = 0'u64
+    result = bls_sign(v.privKey, dataToSign, domain)
   else:
     # TODO:
     # send RPC

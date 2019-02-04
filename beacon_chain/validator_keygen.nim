@@ -1,6 +1,6 @@
 import
   os, ospaths, strutils, strformat,
-  asyncdispatch2, milagro_crypto, nimcrypto, json_serialization, confutils,
+  asyncdispatch2, nimcrypto, json_serialization, confutils,
   spec/[datatypes, digest, crypto], conf, randao, time, ssz,
   ../tests/testutil
 
@@ -12,7 +12,7 @@ proc genSingleValidator(path: string): (ValidatorPubKey,
                                         ValidatorPrivKey,
                                         Eth2Digest) =
   var v: PrivateValidatorData
-  v.privKey = newSigKey()
+  # v.privKey = newSigKey()
   if randomBytes(v.randao.seed.data) != sizeof(v.randao.seed.data):
     raise newException(Exception, "Could not generate randao seed")
 
@@ -51,7 +51,7 @@ cli do (validators: int,
         withdrawal_credentials: withdrawalCredentials,
         randao_commitment: randaoCommitment)
 
-      proofOfPossession = signMessage(
+      proofOfPossession = bls_sign(
         privkey, hash_tree_root_final(proofOfPossessionData).data)
 
     startupData.validatorDeposits.add Deposit(
