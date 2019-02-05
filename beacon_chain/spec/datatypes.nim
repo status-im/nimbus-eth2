@@ -62,7 +62,7 @@ const
   ## with a Verifiable Delay Function (VDF) will improve committee robustness
   ## and lower the safe minimum committee size.)
 
-  EJECTION_BALANCE* = 2'u64^4 ##\
+  EJECTION_BALANCE* = 2'u64^4 * 10'u64^9 ##\
   ## Once the balance of a validator drops below this, it will be ejected from
   ## the validator pool
 
@@ -70,20 +70,20 @@ const
   ## At most `1/MAX_BALANCE_CHURN_QUOTIENT` of the validators can change during
   ## each validator registry change.
 
-  GWEI_PER_ETH* = 10'u64^9 # Gwei/ETH
-
   BEACON_CHAIN_SHARD_NUMBER* = not 0'u64 # 2^64 - 1 in spec
 
-  MAX_CASPER_VOTES* = 2^10
+  MAX_INDICES_PER_SLASHABLE_VOTE* = 2^12 ##\
+  ## votes
+
   MAX_WITHDRAWALS_PER_EPOCH* = 4 # withdrawals
 
   # Deposit contract
   DEPOSIT_CONTRACT_TREE_DEPTH* = 2^5
 
-  MIN_DEPOSIT_AMOUNT* = 2'u64^0 * GWEI_PER_ETH ##\
+  MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9 ##\
   ## Minimum amounth of ETH that can be deposited in one call - deposits can
   ## be used either to top up an existing validator or commit to a new one
-  MAX_DEPOSIT_AMOUNT* = 2'u64^5 * GWEI_PER_ETH ##\
+  MAX_DEPOSIT_AMOUNT* = 2'u64^5 * 10'u64^9 ##\
   ## Maximum amounth of ETH that can be deposited in one call
 
   # Time parameter, here so that GENESIS_EPOCH can access it
@@ -93,9 +93,8 @@ const
   ## processing is done
 
   # Initial values
-
   GENESIS_FORK_VERSION* = 0'u64
-  GENESIS_SLOT* = 2'u64^19
+  GENESIS_SLOT* = 2'u64^63
   GENESIS_EPOCH* = GENESIS_SLOT div EPOCH_LENGTH # slot_to_epoch(GENESIS_SLOT)
   GENESIS_START_SHARD* = 0'u64
   FAR_FUTURE_EPOCH* = not 0'u64 # 2^64 - 1 in spec
@@ -119,17 +118,17 @@ const
   ## wait towards the end of the slot and still have time to publish the
   ## attestation.
 
-  SEED_LOOKAHEAD* = 64 ##\
-  ## slots (~6.4 minutes)
+  SEED_LOOKAHEAD* = 1 ##\
+  ## epochs (~6.4 minutes)
 
-  ENTRY_EXIT_DELAY* = 256 ##\
-  ## slots (~25.6 minutes)
+  ENTRY_EXIT_DELAY* = 4 ##\
+  ## epochs (~25.6 minutes)
 
-  ETH1_DATA_VOTING_PERIOD* = 2'u64^10 ##\
-  ## slots (~1.7 hours)
+  ETH1_DATA_VOTING_PERIOD* = 2'u64^4 ##\
+  ## epochs (~1.7 hours)
 
-  MIN_VALIDATOR_WITHDRAWAL_TIME* = 2'u64^14 ##\
-  ## slots (~27 hours)
+  MIN_VALIDATOR_WITHDRAWAL_TIME* = 2'u64^8 ##\
+  ## epochs (~27 hours)
 
   # State list lengths
   LATEST_BLOCK_ROOTS_LENGTH* = 2'u64^13
@@ -137,7 +136,8 @@ const
   LATEST_INDEX_ROOTS_LENGTH* = 2'u64^13
   LATEST_PENALIZED_EXIT_LENGTH* = 8192 # epochs
 
-  # Quotients
+  # Reward and penalty quotients
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#reward-and-penalty-quotients
   BASE_REWARD_QUOTIENT* = 2'u64^10 ##\
   ## The `BASE_REWARD_QUOTIENT` parameter dictates the per-epoch reward. It
   ## corresponds to ~2.54% annual interest assuming 10 million participating
@@ -153,7 +153,7 @@ const
 
   # Max operations per block
   MAX_PROPOSER_SLASHINGS* = 2^4
-  MAX_CASPER_SLASHINGS* = 2^4
+  MAX_ATTESTER_SLASHINGS* = 2^0
   MAX_ATTESTATIONS* = 2^7
   MAX_DEPOSITS* = 2^4
   MAX_EXITS* = 2^4
@@ -163,7 +163,7 @@ type
   SlotNumber* = uint64
   EpochNumber* = uint64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#data-structures
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     proposer_index*: ValidatorIndex
     proposal_data_1*: ProposalSignedData
@@ -171,25 +171,20 @@ type
     proposal_data_2*: ProposalSignedData
     proposal_signature_2*: ValidatorSig
 
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#attesterslashing
   AttesterSlashing* = object
-    slashable_vote_data_1*: SlashableVote ## \
+    slashable_attestation_1*: SlashableAttestation ## \
     ## First batch of votes
-    slashable_vote_data_2*: SlashableVote ## \
+    slashable_attestation_2*: SlashableAttestation ## \
     ## Second batch of votes
 
-  SlashableVote* = object
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#slashableattestation
+  SlashableAttestation* = object
     validator_indices*: seq[uint64] ##\
     ## Validator indices
 
     custody_bitfield*: seq[byte] ##\
     ## Custody bitfield
-
-    # TODO rm aggregate_signature_poc_0_indices, aggregate_signature_poc_1_indices
-    aggregate_signature_poc_0_indices*: seq[ValidatorIndex] ##\
-    ## Proof-of-custody indices (0 bits)
-
-    aggregate_signature_poc_1_indices*: seq[ValidatorIndex] ##\
-    ## Proof-of-custody indices (1 bits)
 
     data*: AttestationData ## \
     ## Attestation data
@@ -429,11 +424,13 @@ type
     Activation = 0
     Exit = 1
 
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#signature-domains
   SignatureDomain* {.pure.} = enum
     DOMAIN_DEPOSIT = 0
     DOMAIN_ATTESTATION = 1
     DOMAIN_PROPOSAL = 2
     DOMAIN_EXIT = 3
+    DOMAIN_RANDAO = 4
 
 template epoch*(slot: int|uint64): auto =
   slot div EPOCH_LENGTH

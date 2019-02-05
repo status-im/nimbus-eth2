@@ -182,65 +182,73 @@ proc processProposerSlashings(
 
   return true
 
-func verify_slashable_vote_data(state: BeaconState, vote_data: SlashableVote): bool =
-  if len(vote_data.aggregate_signature_poc_0_indices) +
-      len(vote_data.aggregate_signature_poc_1_indices) > MAX_CASPER_VOTES:
+func verify_slashable_attestation(state: BeaconState, slashable_attestation: SlashableAttestation): bool =
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#verify_slashable_attestation
+  # Verify validity of ``slashable_attestation`` fields.
+
+  if anyIt(slashable_attestation.custody_bitfield, it != 0):   # [TO BE REMOVED IN PHASE 1]
     return false
 
-  let pubs = [
-    bls_aggregate_pubkeys(vote_data.aggregate_signature_poc_0_indices.
-      mapIt(state.validator_registry[it].pubkey)),
-    bls_aggregate_pubkeys(vote_data.aggregate_signature_poc_1_indices.
-      mapIt(state.validator_registry[it].pubkey))]
+  if len(slashable_attestation.validator_indices) == 0:
+     return false
 
-  # TODO
-  # return bls_verify_multiple(pubs, [hash_tree_root(votes)+bytes1(0), hash_tree_root(votes)+bytes1(1), signature=aggregate_signature)
+  for i in 0 ..< (len(slashable_attestation.validator_indices) - 1):
+    if slashable_attestation.validator_indices[i] >= slashable_attestation.validator_indices[i + 1]:
+      return false
+
+  if not verify_bitfield(slashable_attestation.custody_bitfield, len(slashable_attestation.validator_indices)):
+    return false
+
+  if len(slashable_attestation.validator_indices) > MAX_INDICES_PER_SLASHABLE_VOTE:
+    return false
+
+  var
+    custody_bit_0_indices: seq[uint64] = @[]
+    custody_bit_1_indices: seq[uint64] = @[]
 
   return true
 
-proc indices(vote: SlashableVote): seq[ValidatorIndex] =
-  vote.aggregate_signature_poc_0_indices &
-    vote.aggregate_signature_poc_1_indices
-
 proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
-  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#casper-slashings-1
-  if len(blck.body.attester_slashings) > MAX_CASPER_SLASHINGS:
+  ## https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#attester-slashings-1
+  if len(blck.body.attester_slashings) > MAX_ATTESTER_SLASHINGS:
     notice "CaspSlash: too many!"
     return false
 
-  for casper_slashing in blck.body.attester_slashings:
+  for attester_slashing in blck.body.attester_slashings:
     let
-      slashable_vote_data_1 = casper_slashing.slashable_vote_data_1
-      slashable_vote_data_2 = casper_slashing.slashable_vote_data_2
-      indices2 = indices(slashable_vote_data_2)
-      intersection =
-        indices(slashable_vote_data_1).filterIt(it in indices2)
+      slashable_attestation_1 = attester_slashing.slashable_attestation_1
+      slashable_attestation_2 = attester_slashing.slashable_attestation_2
 
-    if not (slashable_vote_data_1.data != slashable_vote_data_2.data):
+    if not (slashable_attestation_1.data != slashable_attestation_2.data):
       notice "CaspSlash: invalid data"
       return false
 
-    if not (len(intersection) >= 1):
-      notice "CaspSlash: no intersection"
-      return false
-
     if not (
-      is_double_vote(slashable_vote_data_1.data, slashable_vote_data_2.data) or
-      is_surround_vote(slashable_vote_data_1.data, slashable_vote_data_2.data)):
+      is_double_vote(slashable_attestation_1.data, slashable_attestation_2.data) or
+      is_surround_vote(slashable_attestation_1.data, slashable_attestation_2.data)):
       notice "CaspSlash: surround or double vote check failed"
       return false
 
-    if not verify_slashable_vote_data(state, slashable_vote_data_1):
+    if not verify_slashable_attestation(state, slashable_attestation_1):
       notice "CaspSlash: invalid votes 1"
       return false
 
-    if not verify_slashable_vote_data(state, slashable_vote_data_2):
+    if not verify_slashable_attestation(state, slashable_attestation_2):
       notice "CaspSlash: invalid votes 2"
       return false
 
-    for i in intersection:
-      if state.validator_registry[i].penalized_epoch > get_current_epoch(state):
-        penalize_validator(state, i)
+    let
+      indices2 = slashable_attestation_2.validator_indices
+      slashable_indices =
+        slashable_attestation_1.validator_indices.filterIt(it in indices2)
+
+    if not (len(slashable_indices) >= 1):
+      notice "CaspSlash: no intersection"
+      return false
+
+    for index in slashable_indices:
+      if state.validator_registry[index.int].penalized_epoch > get_current_epoch(state):
+        penalize_validator(state, index.ValidatorIndex)
 
   return true
 
@@ -451,24 +459,10 @@ func processEpoch(state: var BeaconState) =
     active_validator_indices =
       get_active_validator_indices(state.validator_registry, state.slot)
     total_balance = sum_effective_balances(state, active_validator_indices)
-    total_balance_in_eth = total_balance div GWEI_PER_ETH
-
-    # The per-slot maximum interest rate is `2/reward_quotient`.)
-    base_reward_quotient =
-      BASE_REWARD_QUOTIENT * integer_squareroot(total_balance_in_eth)
 
     current_epoch = get_current_epoch(state)
     previous_epoch = if current_epoch > GENESIS_EPOCH: current_epoch - 1 else: current_epoch
     next_epoch = (current_epoch + 1).EpochNumber
-
-  func base_reward(state: BeaconState, index: ValidatorIndex): uint64 =
-    get_effective_balance(state, index) div base_reward_quotient.uint64 div 4
-
-  func inactivity_penalty(
-      state: BeaconState, index: ValidatorIndex, epochs_since_finality: uint64): uint64 =
-    base_reward(state, index) +
-      get_effective_balance(state, index) *
-      epochs_since_finality div INACTIVITY_PENALTY_QUOTIENT div 2
 
   # TODO doing this with iterators failed:
   #      https://github.com/nim-lang/Nim/issues/9827
@@ -640,7 +634,21 @@ func processEpoch(state: var BeaconState) =
       #    state.latest_crosslinks[shard] = Crosslink(
       #      slot=state.slot, shard_block_root=winning_root(crosslink_committee))
 
-  # TODO Rewards and penalties helpers
+  # Rewards and penalties helpers
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#rewards-and-penalties
+  let
+    base_reward_quotient =
+      integer_squareroot(previous_total_balance) div BASE_REWARD_QUOTIENT
+
+  func base_reward(state: BeaconState, index: ValidatorIndex): uint64 =
+    get_effective_balance(state, index) div base_reward_quotient.uint64 div 4
+
+  func inactivity_penalty(
+      state: BeaconState, index: ValidatorIndex, epochs_since_finality: uint64): uint64 =
+    base_reward(state, index) +
+      get_effective_balance(state, index) *
+      epochs_since_finality div INACTIVITY_PENALTY_QUOTIENT div 2
+
 
   block: # Justification and finalization
     let epochs_since_finality = next_epoch - state.finalized_epoch

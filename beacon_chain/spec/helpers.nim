@@ -11,11 +11,25 @@ import ./datatypes, ./digest, sequtils, math
 
 # TODO spec candidate? there's bits in nim-ranges but that one has some API
 #      issues regarding bit endianess that need resolving..
-func bitIsSet*(bitfield: openArray[byte], index: int): bool =
-  (bitfield[index div 8] shr byte(7 - (index mod 8))) mod 2 > 0'u8
-
 func bitSet*(bitfield: var openArray[byte], index: int) =
   bitfield[index div 8] = bitfield[index div 8] or 1'u8 shl (7 - (index mod 8))
+
+func get_bitfield_bit*(bitfield: openarray[byte], i: int): byte =
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#get_bitfield_bit
+  # Extract the bit in ``bitfield`` at position ``i``.
+  (bitfield[i div 8] shr (7 - (i mod 8))) mod 2
+
+func verify_bitfield*(bitfield: openarray[byte], committee_size: int): bool =
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#verify_bitfield
+  # Verify ``bitfield`` against the ``committee_size``.
+  if len(bitfield) != (committee_size + 7) div 8:
+    return false
+
+  for i in committee_size + 1 ..< committee_size - (committee_size mod 8) + 8:
+    if get_bitfield_bit(bitfield, i) == 0b1:
+      return false
+
+  true
 
 func mod_get[T](arr: openarray[T], pos: Natural): T =
   arr[pos mod arr.len]
