@@ -383,7 +383,7 @@ proc checkAttestation*(
 
     if not bls_verify(
           group_public_key, @(msg.data) & @[0'u8], attestation.aggregate_signature,
-          get_domain(state.fork, attestation.data.slot, DOMAIN_ATTESTATION)
+          0, # TODO: get_domain(state.fork, attestation.data.slot, DOMAIN_ATTESTATION)
         ):
       warn("Invalid attestation group signature")
       return
