@@ -55,9 +55,10 @@ p2pProtocol GossipSub(version = 1,
         p.state.sentMessages.incl msgId
         asyncCheck p.emit(topic, msgId, msg)
 
-    let handler = peer.networkState.topicSubscribers.getOrDefault(topic)
-    if handler != nil:
-      await handler(msg)
+    {.gcsafe.}:
+      let handler = peer.networkState.topicSubscribers.getOrDefault(topic)
+      if handler != nil:
+        await handler(msg)
 
 proc subscribeImpl(node: EthereumNode,
                    topic: string,
