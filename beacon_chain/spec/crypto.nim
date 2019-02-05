@@ -46,20 +46,23 @@
 
 import
   hashes,
-  milagro_crypto, json_serialization
+  blscurve, json_serialization
 
 export
-  json_serialization, milagro_crypto.`$`
+  json_serialization
+
+export blscurve.init, blscurve.getBytes, blscurve.combine
 
 type
-  ValidatorPubKey* = milagro_crypto.VerKey
-  ValidatorPrivKey* = milagro_crypto.SigKey
-  ValidatorSig* = milagro_crypto.Signature
+  ValidatorPubKey* = blscurve.VerKey
+  ValidatorPrivKey* = blscurve.SigKey
+  ValidatorSig* = blscurve.Signature
+  ValidatorPKI* = ValidatorPrivKey|ValidatorPubKey|ValidatorSig
 
 template hash*(k: ValidatorPubKey|ValidatorPrivKey): Hash =
-  hash(k.getRaw)
+  hash(k.getBytes())
 
-func pubKey*(pk: ValidatorPrivKey): ValidatorPubKey = fromSigKey(pk)
+func pubKey*(pk: ValidatorPrivKey): ValidatorPubKey = pk.getKey()
 
 func bls_aggregate_pubkeys*(keys: openArray[ValidatorPubKey]): ValidatorPubKey =
   var empty = true
@@ -74,24 +77,28 @@ func bls_verify*(
     pubkey: ValidatorPubKey, msg: openArray[byte], sig: ValidatorSig,
     domain: uint64): bool =
   # name from spec!
-  # TODO domain!
-  sig.verifyMessage(msg, pubkey)
+  sig.verify(msg, domain, pubkey)
+
+func bls_sign*(key: ValidatorPrivKey,
+               msg: openarray[byte], domain: uint64): ValidatorSig =
+  # name from spec!
+  key.sign(domain, msg)
 
 proc writeValue*(writer: var JsonWriter, value: ValidatorPubKey) {.inline.} =
-  writer.writeValue $value
+  writer.writeValue($value)
 
 proc readValue*(reader: var JsonReader, value: var ValidatorPubKey) {.inline.} =
-  value = initVerKey reader.readValue(string)
+  value = VerKey.init(reader.readValue(string))
 
 proc writeValue*(writer: var JsonWriter, value: ValidatorSig) {.inline.} =
-  writer.writeValue $value
+  writer.writeValue($value)
 
 proc readValue*(reader: var JsonReader, value: var ValidatorSig) {.inline.} =
-  value = initSignature reader.readValue(string)
+  value = Signature.init(reader.readValue(string))
 
 proc writeValue*(writer: var JsonWriter, value: ValidatorPrivKey) {.inline.} =
-  writer.writeValue $value
+  writer.writeValue($value)
 
 proc readValue*(reader: var JsonReader, value: var ValidatorPrivKey) {.inline.} =
-  value = initSigKey reader.readValue(string)
+  value = SigKey.init(reader.readValue(string))
 

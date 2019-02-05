@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  unittest, nimcrypto, eth_common, sequtils, options, milagro_crypto,
+  unittest, nimcrypto, eth_common, sequtils, options, blscurve,
   ../beacon_chain/ssz, ../beacon_chain/spec/datatypes
 
 func filled[N: static[int], T](typ: type array[N, T], value: T): array[N, T] =
@@ -83,7 +83,7 @@ suite "Simple serialization":
       deserialize(ser, type(v)).get() == v
 
   test "Key roundtrip":
-    let v = newSigKey().fromSigKey()
+    let v = SigKey.random().getKey()
     let ser = v.serialize()
 
     check:
@@ -94,7 +94,7 @@ suite "Simple serialization":
     let
       bb = BeaconBlock(
         slot: 42,
-        signature: signMessage(newSigKey(), "")
+        signature: sign(SigKey.random(), 0'u64, "")
         )
       bs = BeaconState(slot: 42)
 

@@ -1,7 +1,7 @@
 import
   os, options,
   confutils/defs, chronicles/options as chroniclesOptions,
-  milagro_crypto, json_serialization,
+  json_serialization,
   spec/[crypto, datatypes], randao, time
 
 export
@@ -79,7 +79,7 @@ proc readFileBytes(path: string): seq[byte] =
   cast[seq[byte]](readFile(path))
 
 proc loadPrivKey*(p: ValidatorKeyPath): ValidatorPrivKey =
-  initSigKey(readFileBytes(string(p) & ".privkey"))
+  ValidatorPrivKey.init(readFileBytes(string(p) & ".privkey"))
 
 proc loadRandao*(p: ValidatorKeyPath): Randao =
   initRandao(readFileBytes(string(p) & ".randao"))

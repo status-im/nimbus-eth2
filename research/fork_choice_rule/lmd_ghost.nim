@@ -24,8 +24,7 @@
 
 import
   tables, hashes,
-  milagro_crypto,
-  ../../beacon_chain/spec/[datatypes, helpers, digest],
+  ../../beacon_chain/spec/[datatypes, helpers, digest, crypto],
   ../../beacon_chain/ssz
 
 type

@@ -1,6 +1,5 @@
 import
   deques, options, tables,
-  milagro_crypto,
   ./spec/[datatypes, crypto, digest, helpers, validator], extras,
   ./beacon_chain_db
 

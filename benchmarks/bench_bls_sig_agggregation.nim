@@ -1,6 +1,6 @@
 import
   ./bench_common,
-  milagro_crypto,
+  blscurve,
   nimcrypto, endians, sequtils, times, strformat,
   random
 
@@ -82,7 +82,7 @@ proc main(nb_samples: Natural) =
   echo '\n'
 
   var start = cpuTime()
-  let secret_public_keypairs = newSeqWith(num_validators, newKeyPair())
+  let secret_public_keypairs = newSeqWith(num_validators, KeyPair.random())
   var stop = cpuTime()
   echo "#### Message crypto keys, signatures and proofs of possession"
   echo '\n'
@@ -111,10 +111,11 @@ proc main(nb_samples: Natural) =
   echo '\n'
   var pubkeys: seq[VerKey]
   var signatures: seq[Signature]
+  let domain = 0'u64
   start = cpuTime()
   for kp in secret_public_keypairs:
     pubkeys.add kp.verkey
-    signatures.add kp.sigkey.signMessage(msg.data) # toOpenArray?
+    signatures.add kp.sigkey.sign(domain, msg.data) # toOpenArray?
   stop = cpuTime()
   echo &"{num_validators} public key and message signature pairs generated in {stop - start :>4.3f} s"
   echo &"Throughput: {num_validators.float / (stop - start) :>4.3f} kps/s (keysig pairs/second)"
@@ -147,7 +148,8 @@ proc main(nb_samples: Natural) =
 
   var msg_verif: bool
   bench "Benchmarking message verification", msg_verif:
-    msg_verif = agg_sig.verifyMessage(msg.data, agg_pubkey)
+    let domain = 0'u64
+    msg_verif = agg_sig.verify(msg.data, domain, agg_pubkey)
 
   #####################
   #
