@@ -163,7 +163,7 @@ type
   SlotNumber* = uint64
   EpochNumber* = uint64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#data-structures
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     proposer_index*: ValidatorIndex
     proposal_data_1*: ProposalSignedData
@@ -171,13 +171,15 @@ type
     proposal_data_2*: ProposalSignedData
     proposal_signature_2*: ValidatorSig
 
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#attesterslashing
   AttesterSlashing* = object
-    slashable_vote_data_1*: SlashableVote ## \
+    slashable_attestation_1*: SlashableAttestation ## \
     ## First batch of votes
-    slashable_vote_data_2*: SlashableVote ## \
+    slashable_attestation_2*: SlashableAttestation ## \
     ## Second batch of votes
 
-  SlashableVote* = object
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#slashableattestation
+  SlashableAttestation* = object
     validator_indices*: seq[uint64] ##\
     ## Validator indices
 
@@ -429,11 +431,13 @@ type
     Activation = 0
     Exit = 1
 
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#signature-domains
   SignatureDomain* {.pure.} = enum
     DOMAIN_DEPOSIT = 0
     DOMAIN_ATTESTATION = 1
     DOMAIN_PROPOSAL = 2
     DOMAIN_EXIT = 3
+    DOMAIN_RANDAO = 4
 
 template epoch*(slot: int|uint64): auto =
   slot div EPOCH_LENGTH

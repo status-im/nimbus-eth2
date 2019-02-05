@@ -183,7 +183,7 @@ proc processProposerSlashings(
 
   return true
 
-func verify_slashable_vote_data(state: BeaconState, vote_data: SlashableVote): bool =
+func verify_slashable_vote_data(state: BeaconState, vote_data: SlashableAttestation): bool =
   if len(vote_data.aggregate_signature_poc_0_indices) +
       len(vote_data.aggregate_signature_poc_1_indices) > MAX_INDICES_PER_SLASHABLE_VOTE:
     return false
@@ -199,7 +199,7 @@ func verify_slashable_vote_data(state: BeaconState, vote_data: SlashableVote): b
 
   return true
 
-proc indices(vote: SlashableVote): seq[ValidatorIndex] =
+proc indices(vote: SlashableAttestation): seq[ValidatorIndex] =
   vote.aggregate_signature_poc_0_indices &
     vote.aggregate_signature_poc_1_indices
 
@@ -211,13 +211,13 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
 
   for casper_slashing in blck.body.attester_slashings:
     let
-      slashable_vote_data_1 = casper_slashing.slashable_vote_data_1
-      slashable_vote_data_2 = casper_slashing.slashable_vote_data_2
-      indices2 = indices(slashable_vote_data_2)
+      slashable_attestation_1 = casper_slashing.slashable_attestation_1
+      slashable_attestation_2 = casper_slashing.slashable_attestation_2
+      indices2 = indices(slashable_attestation_2)
       intersection =
-        indices(slashable_vote_data_1).filterIt(it in indices2)
+        indices(slashable_attestation_1).filterIt(it in indices2)
 
-    if not (slashable_vote_data_1.data != slashable_vote_data_2.data):
+    if not (slashable_attestation_1.data != slashable_attestation_2.data):
       notice "CaspSlash: invalid data"
       return false
 
@@ -226,16 +226,16 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
       return false
 
     if not (
-      is_double_vote(slashable_vote_data_1.data, slashable_vote_data_2.data) or
-      is_surround_vote(slashable_vote_data_1.data, slashable_vote_data_2.data)):
+      is_double_vote(slashable_attestation_1.data, slashable_attestation_2.data) or
+      is_surround_vote(slashable_attestation_1.data, slashable_attestation_2.data)):
       notice "CaspSlash: surround or double vote check failed"
       return false
 
-    if not verify_slashable_vote_data(state, slashable_vote_data_1):
+    if not verify_slashable_vote_data(state, slashable_attestation_1):
       notice "CaspSlash: invalid votes 1"
       return false
 
-    if not verify_slashable_vote_data(state, slashable_vote_data_2):
+    if not verify_slashable_vote_data(state, slashable_attestation_2):
       notice "CaspSlash: invalid votes 2"
       return false
 
