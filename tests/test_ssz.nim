@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  unittest, nimcrypto, eth_common, sequtils, options, blscurve,
+  unittest, nimcrypto, eth/common, sequtils, options, blscurve,
   ../beacon_chain/ssz, ../beacon_chain/spec/datatypes
 
 func filled[N: static[int], T](typ: type array[N, T], value: T): array[N, T] =

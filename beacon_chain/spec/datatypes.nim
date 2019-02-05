@@ -24,7 +24,7 @@
 # types / composition
 
 import
-  eth_common, math,
+  eth/common, math,
   ./crypto, ./digest
 
 # TODO Data types:
@@ -437,7 +437,7 @@ template epoch*(slot: int|uint64): auto =
 
 when true:
   # TODO: Remove these once RLP serialization is no longer used
-  import nimcrypto, rlp, json_serialization
+  import nimcrypto, eth/rlp, json_serialization
   export append, read, json_serialization
 
   proc append*(rlpWriter: var RlpWriter, value: ValidatorPubKey) =

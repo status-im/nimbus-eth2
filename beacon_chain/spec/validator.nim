@@ -8,7 +8,7 @@
 
 import
   options, nimcrypto, sequtils, math,
-  eth_common,
+  eth/common,
   ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers
 

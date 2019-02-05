@@ -21,7 +21,7 @@
 # `eth2hash`, and it outputs a `Eth2Digest`. Easy to sed :)
 
 import
-  nimcrypto/[blake2, hash], eth_common/eth_types_json_serialization,
+  nimcrypto/[blake2, hash], eth/common/eth_types_json_serialization,
   hashes
 
 export

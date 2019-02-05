@@ -1,6 +1,6 @@
 import
   options,
-  chronicles, rlp, asyncdispatch2, ranges/bitranges, eth_p2p, eth_p2p/rlpx,
+  chronicles, eth/[rlp, p2p], asyncdispatch2, ranges/bitranges, eth/p2p/rlpx,
   spec/[datatypes, crypto, digest]
 
 type
