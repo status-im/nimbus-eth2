@@ -1,6 +1,6 @@
 import
   json, macros, sequtils, endians,
-  eth_common, stint, nimcrypto, byteutils
+  eth/common, stint, nimcrypto, byteutils
 
 type
   Validator {.packed.} = object

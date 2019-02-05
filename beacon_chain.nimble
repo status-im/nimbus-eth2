@@ -13,11 +13,9 @@ bin           = @[
 
 ### Dependencies
 requires "nim >= 0.18.0",
-  "eth_common",
-  "eth_keys",
+  "https://github.com/status-im/nim-eth",
   "nimcrypto",
   "https://github.com/status-im/nim-blscurve#master",
-  "eth_p2p",
   "ranges",
   "chronicles",
   "confutils",

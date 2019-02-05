@@ -1,8 +1,8 @@
 import
   os, json, tables, options,
-  chronicles, json_serialization, eth_common/eth_types_json_serialization,
+  chronicles, json_serialization, eth/common/eth_types_json_serialization,
   spec/[datatypes, digest, crypto],
-  eth_trie/db, ssz
+  eth/trie/db, ssz
 
 
 type

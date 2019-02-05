@@ -1,7 +1,7 @@
 import
   tables, sets, macros, base64,
-  asyncdispatch2, nimcrypto/sysrand, chronicles, rlp, json_serialization,
-  eth_p2p, eth_p2p/[rlpx, peer_pool],
+  asyncdispatch2, nimcrypto/sysrand, chronicles, json_serialization,
+  eth/[p2p, rlp], eth/p2p/[rlpx, peer_pool],
   spec/[datatypes, crypto]
 
 type
