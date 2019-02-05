@@ -186,13 +186,6 @@ type
     custody_bitfield*: seq[byte] ##\
     ## Custody bitfield
 
-    # TODO rm aggregate_signature_poc_0_indices, aggregate_signature_poc_1_indices
-    aggregate_signature_poc_0_indices*: seq[ValidatorIndex] ##\
-    ## Proof-of-custody indices (0 bits)
-
-    aggregate_signature_poc_1_indices*: seq[ValidatorIndex] ##\
-    ## Proof-of-custody indices (1 bits)
-
     data*: AttestationData ## \
     ## Attestation data
 

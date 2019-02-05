@@ -183,46 +183,62 @@ proc processProposerSlashings(
 
   return true
 
-func verify_slashable_vote_data(state: BeaconState, vote_data: SlashableAttestation): bool =
-  if len(vote_data.aggregate_signature_poc_0_indices) +
-      len(vote_data.aggregate_signature_poc_1_indices) > MAX_INDICES_PER_SLASHABLE_VOTE:
+func get_bitfield_bit(bitfield: seq[byte], i: int): byte =
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#get_bitfield_bit
+  # Extract the bit in ``bitfield`` at position ``i``.
+  (bitfield[i div 8] shr (7 - (i mod 8))) mod 2
+
+func verify_bitfield(bitfield: seq[byte], committee_size: int): bool =
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#verify_bitfield
+  # Verify ``bitfield`` against the ``committee_size``.
+  if len(bitfield) != (committee_size + 7) div 8:
     return false
 
-  let pubs = [
-    bls_aggregate_pubkeys(vote_data.aggregate_signature_poc_0_indices.
-      mapIt(state.validator_registry[it].pubkey)),
-    bls_aggregate_pubkeys(vote_data.aggregate_signature_poc_1_indices.
-      mapIt(state.validator_registry[it].pubkey))]
+  for i in committee_size + 1 ..< committee_size - (committee_size mod 8) + 8:
+    if get_bitfield_bit(bitfield, i) == 0b1:
+      return false
 
-  # TODO
-  # return bls_verify_multiple(pubs, [hash_tree_root(votes)+bytes1(0), hash_tree_root(votes)+bytes1(1), signature=aggregate_signature)
+  true
+
+func verify_slashable_attestation(state: BeaconState, slashable_attestation: SlashableAttestation): bool =
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#verify_slashable_attestation
+  # Verify validity of ``slashable_attestation`` fields.
+
+  if anyIt(slashable_attestation.custody_bitfield, it != 0):   # [TO BE REMOVED IN PHASE 1]
+    return false
+
+  if len(slashable_attestation.validator_indices) == 0:
+     return false
+
+  for i in 0 ..< (len(slashable_attestation.validator_indices) - 1):
+    if slashable_attestation.validator_indices[i] >= slashable_attestation.validator_indices[i + 1]:
+      return false
+
+  if not verify_bitfield(slashable_attestation.custody_bitfield, len(slashable_attestation.validator_indices)):
+    return false
+
+  if len(slashable_attestation.validator_indices) > MAX_INDICES_PER_SLASHABLE_VOTE:
+    return false
+
+  var
+    custody_bit_0_indices: seq[uint64] = @[]
+    custody_bit_1_indices: seq[uint64] = @[]
 
   return true
 
-proc indices(vote: SlashableAttestation): seq[ValidatorIndex] =
-  vote.aggregate_signature_poc_0_indices &
-    vote.aggregate_signature_poc_1_indices
-
 proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
-  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#casper-slashings-1
+  ## https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#attester-slashings-1
   if len(blck.body.attester_slashings) > MAX_ATTESTER_SLASHINGS:
     notice "CaspSlash: too many!"
     return false
 
-  for casper_slashing in blck.body.attester_slashings:
+  for attester_slashing in blck.body.attester_slashings:
     let
-      slashable_attestation_1 = casper_slashing.slashable_attestation_1
-      slashable_attestation_2 = casper_slashing.slashable_attestation_2
-      indices2 = indices(slashable_attestation_2)
-      intersection =
-        indices(slashable_attestation_1).filterIt(it in indices2)
+      slashable_attestation_1 = attester_slashing.slashable_attestation_1
+      slashable_attestation_2 = attester_slashing.slashable_attestation_2
 
     if not (slashable_attestation_1.data != slashable_attestation_2.data):
       notice "CaspSlash: invalid data"
-      return false
-
-    if not (len(intersection) >= 1):
-      notice "CaspSlash: no intersection"
       return false
 
     if not (
@@ -231,17 +247,26 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
       notice "CaspSlash: surround or double vote check failed"
       return false
 
-    if not verify_slashable_vote_data(state, slashable_attestation_1):
+    if not verify_slashable_attestation(state, slashable_attestation_1):
       notice "CaspSlash: invalid votes 1"
       return false
 
-    if not verify_slashable_vote_data(state, slashable_attestation_2):
+    if not verify_slashable_attestation(state, slashable_attestation_2):
       notice "CaspSlash: invalid votes 2"
       return false
 
-    for i in intersection:
-      if state.validator_registry[i].penalized_epoch > get_current_epoch(state):
-        penalize_validator(state, i)
+    let
+      indices2 = slashable_attestation_2.validator_indices
+      slashable_indices =
+        slashable_attestation_1.validator_indices.filterIt(it in indices2)
+
+    if not (len(slashable_indices) >= 1):
+      notice "CaspSlash: no intersection"
+      return false
+
+    for index in slashable_indices:
+      if state.validator_registry[index.int].penalized_epoch > get_current_epoch(state):
+        penalize_validator(state, index.ValidatorIndex)
 
   return true
 
