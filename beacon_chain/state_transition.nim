@@ -185,7 +185,7 @@ proc processProposerSlashings(
 
 func verify_slashable_vote_data(state: BeaconState, vote_data: SlashableVote): bool =
   if len(vote_data.aggregate_signature_poc_0_indices) +
-      len(vote_data.aggregate_signature_poc_1_indices) > MAX_CASPER_VOTES:
+      len(vote_data.aggregate_signature_poc_1_indices) > MAX_INDICES_PER_SLASHABLE_VOTE:
     return false
 
   let pubs = [

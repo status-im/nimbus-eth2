@@ -62,7 +62,7 @@ const
   ## with a Verifiable Delay Function (VDF) will improve committee robustness
   ## and lower the safe minimum committee size.)
 
-  EJECTION_BALANCE* = 2'u64^4 ##\
+  EJECTION_BALANCE* = 2'u64^4 * 10'u64^9 ##\
   ## Once the balance of a validator drops below this, it will be ejected from
   ## the validator pool
 
@@ -72,7 +72,9 @@ const
 
   BEACON_CHAIN_SHARD_NUMBER* = not 0'u64 # 2^64 - 1 in spec
 
-  MAX_CASPER_VOTES* = 2^10
+  MAX_INDICES_PER_SLASHABLE_VOTE* = 2^12 ##\
+  ## votes
+
   MAX_WITHDRAWALS_PER_EPOCH* = 4 # withdrawals
 
   # Deposit contract
@@ -91,9 +93,8 @@ const
   ## processing is done
 
   # Initial values
-
   GENESIS_FORK_VERSION* = 0'u64
-  GENESIS_SLOT* = 2'u64^19
+  GENESIS_SLOT* = 2'u64^63
   GENESIS_EPOCH* = GENESIS_SLOT div EPOCH_LENGTH # slot_to_epoch(GENESIS_SLOT)
   GENESIS_START_SHARD* = 0'u64
   FAR_FUTURE_EPOCH* = not 0'u64 # 2^64 - 1 in spec
