@@ -52,7 +52,9 @@ cli do (validators: int,
         randao_commitment: randaoCommitment)
 
       proofOfPossession = bls_sign(
-        privkey, hash_tree_root_final(proofOfPossessionData).data)
+        privkey, hash_tree_root_final(proofOfPossessionData).data,
+        0 # TODO - domain
+        )
 
     startupData.validatorDeposits.add Deposit(
       deposit_data: DepositData(
