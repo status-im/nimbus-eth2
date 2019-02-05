@@ -183,23 +183,6 @@ proc processProposerSlashings(
 
   return true
 
-func get_bitfield_bit(bitfield: seq[byte], i: int): byte =
-  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#get_bitfield_bit
-  # Extract the bit in ``bitfield`` at position ``i``.
-  (bitfield[i div 8] shr (7 - (i mod 8))) mod 2
-
-func verify_bitfield(bitfield: seq[byte], committee_size: int): bool =
-  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#verify_bitfield
-  # Verify ``bitfield`` against the ``committee_size``.
-  if len(bitfield) != (committee_size + 7) div 8:
-    return false
-
-  for i in committee_size + 1 ..< committee_size - (committee_size mod 8) + 8:
-    if get_bitfield_bit(bitfield, i) == 0b1:
-      return false
-
-  true
-
 func verify_slashable_attestation(state: BeaconState, slashable_attestation: SlashableAttestation): bool =
   # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#verify_slashable_attestation
   # Verify validity of ``slashable_attestation`` fields.

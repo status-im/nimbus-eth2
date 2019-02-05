@@ -174,7 +174,7 @@ func getVoteCount(participation_bitfield: openarray[byte]): int =
   # https://github.com/status-im/nim-beacon-chain/issues/19
 
   for validatorIdx in 0 ..< participation_bitfield.len * 8:
-    result += int participation_bitfield.bitIsSet(validatorIdx)
+    result += int participation_bitfield.get_bitfield_bit(validatorIdx)
 
 func getAttestationVoteCount(pool: AttestationPool, current_slot: int): CountTable[Eth2Digest] =
   ## Returns all blocks more recent that the current slot
