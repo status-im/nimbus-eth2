@@ -205,7 +205,7 @@ proc indices(vote: SlashableVote): seq[ValidatorIndex] =
 
 proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#casper-slashings-1
-  if len(blck.body.attester_slashings) > MAX_CASPER_SLASHINGS:
+  if len(blck.body.attester_slashings) > MAX_ATTESTER_SLASHINGS:
     notice "CaspSlash: too many!"
     return false
 

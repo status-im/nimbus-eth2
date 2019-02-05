@@ -118,17 +118,17 @@ const
   ## wait towards the end of the slot and still have time to publish the
   ## attestation.
 
-  SEED_LOOKAHEAD* = 64 ##\
-  ## slots (~6.4 minutes)
+  SEED_LOOKAHEAD* = 1 ##\
+  ## epochs (~6.4 minutes)
 
-  ENTRY_EXIT_DELAY* = 256 ##\
-  ## slots (~25.6 minutes)
+  ENTRY_EXIT_DELAY* = 4 ##\
+  ## epochs (~25.6 minutes)
 
-  ETH1_DATA_VOTING_PERIOD* = 2'u64^10 ##\
-  ## slots (~1.7 hours)
+  ETH1_DATA_VOTING_PERIOD* = 2'u64^4 ##\
+  ## epochs (~1.7 hours)
 
-  MIN_VALIDATOR_WITHDRAWAL_TIME* = 2'u64^14 ##\
-  ## slots (~27 hours)
+  MIN_VALIDATOR_WITHDRAWAL_TIME* = 2'u64^8 ##\
+  ## epochs (~27 hours)
 
   # State list lengths
   LATEST_BLOCK_ROOTS_LENGTH* = 2'u64^13
@@ -136,7 +136,8 @@ const
   LATEST_INDEX_ROOTS_LENGTH* = 2'u64^13
   LATEST_PENALIZED_EXIT_LENGTH* = 8192 # epochs
 
-  # Quotients
+  # Reward and penalty quotients
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#reward-and-penalty-quotients
   BASE_REWARD_QUOTIENT* = 2'u64^10 ##\
   ## The `BASE_REWARD_QUOTIENT` parameter dictates the per-epoch reward. It
   ## corresponds to ~2.54% annual interest assuming 10 million participating
@@ -152,7 +153,7 @@ const
 
   # Max operations per block
   MAX_PROPOSER_SLASHINGS* = 2^4
-  MAX_CASPER_SLASHINGS* = 2^4
+  MAX_ATTESTER_SLASHINGS* = 2^0
   MAX_ATTESTATIONS* = 2^7
   MAX_DEPOSITS* = 2^4
   MAX_EXITS* = 2^4
