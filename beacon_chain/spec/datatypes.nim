@@ -70,8 +70,6 @@ const
   ## At most `1/MAX_BALANCE_CHURN_QUOTIENT` of the validators can change during
   ## each validator registry change.
 
-  GWEI_PER_ETH* = 10'u64^9 # Gwei/ETH
-
   BEACON_CHAIN_SHARD_NUMBER* = not 0'u64 # 2^64 - 1 in spec
 
   MAX_CASPER_VOTES* = 2^10
@@ -80,10 +78,10 @@ const
   # Deposit contract
   DEPOSIT_CONTRACT_TREE_DEPTH* = 2^5
 
-  MIN_DEPOSIT_AMOUNT* = 2'u64^0 * GWEI_PER_ETH ##\
+  MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9 ##\
   ## Minimum amounth of ETH that can be deposited in one call - deposits can
   ## be used either to top up an existing validator or commit to a new one
-  MAX_DEPOSIT_AMOUNT* = 2'u64^5 * GWEI_PER_ETH ##\
+  MAX_DEPOSIT_AMOUNT* = 2'u64^5 * 10'u64^9 ##\
   ## Maximum amounth of ETH that can be deposited in one call
 
   # Time parameter, here so that GENESIS_EPOCH can access it

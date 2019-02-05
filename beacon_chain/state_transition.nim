@@ -452,24 +452,10 @@ func processEpoch(state: var BeaconState) =
     active_validator_indices =
       get_active_validator_indices(state.validator_registry, state.slot)
     total_balance = sum_effective_balances(state, active_validator_indices)
-    total_balance_in_eth = total_balance div GWEI_PER_ETH
-
-    # The per-slot maximum interest rate is `2/reward_quotient`.)
-    base_reward_quotient =
-      BASE_REWARD_QUOTIENT * integer_squareroot(total_balance_in_eth)
 
     current_epoch = get_current_epoch(state)
     previous_epoch = if current_epoch > GENESIS_EPOCH: current_epoch - 1 else: current_epoch
     next_epoch = (current_epoch + 1).EpochNumber
-
-  func base_reward(state: BeaconState, index: ValidatorIndex): uint64 =
-    get_effective_balance(state, index) div base_reward_quotient.uint64 div 4
-
-  func inactivity_penalty(
-      state: BeaconState, index: ValidatorIndex, epochs_since_finality: uint64): uint64 =
-    base_reward(state, index) +
-      get_effective_balance(state, index) *
-      epochs_since_finality div INACTIVITY_PENALTY_QUOTIENT div 2
 
   # TODO doing this with iterators failed:
   #      https://github.com/nim-lang/Nim/issues/9827
@@ -641,7 +627,21 @@ func processEpoch(state: var BeaconState) =
       #    state.latest_crosslinks[shard] = Crosslink(
       #      slot=state.slot, shard_block_root=winning_root(crosslink_committee))
 
-  # TODO Rewards and penalties helpers
+  # Rewards and penalties helpers
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#rewards-and-penalties
+  let
+    base_reward_quotient =
+      integer_squareroot(previous_total_balance) div BASE_REWARD_QUOTIENT
+
+  func base_reward(state: BeaconState, index: ValidatorIndex): uint64 =
+    get_effective_balance(state, index) div base_reward_quotient.uint64 div 4
+
+  func inactivity_penalty(
+      state: BeaconState, index: ValidatorIndex, epochs_since_finality: uint64): uint64 =
+    base_reward(state, index) +
+      get_effective_balance(state, index) *
+      epochs_since_finality div INACTIVITY_PENALTY_QUOTIENT div 2
+
 
   block: # Justification and finalization
     let epochs_since_finality = next_epoch - state.finalized_epoch
