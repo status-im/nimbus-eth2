@@ -13,7 +13,7 @@ bin           = @[
 
 ### Dependencies
 requires "nim >= 0.18.0",
-  "https://github.com/status-im/nim-eth",
+  "nim-eth",
   "nimcrypto",
   "https://github.com/status-im/nim-blscurve#master",
   "ranges",
@@ -22,7 +22,7 @@ requires "nim >= 0.18.0",
   "serialization",
   "json_serialization",
   "json_rpc",
-  "https://github.com/status-im/nim-chronos"
+  "nim-chronos"
 
 ### Helper functions
 proc test(name: string, defaultLang = "c") =
