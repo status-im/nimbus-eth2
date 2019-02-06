@@ -21,7 +21,8 @@ requires "nim >= 0.18.0",
   "confutils",
   "serialization",
   "json_serialization",
-  "json_rpc"
+  "json_rpc",
+  "https://github.com/status-im/nim-chronos"
 
 ### Helper functions
 proc test(name: string, defaultLang = "c") =

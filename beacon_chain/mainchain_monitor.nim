@@ -1,5 +1,5 @@
 import
-  asyncdispatch2, json_rpc/rpcclient,
+  chronos, json_rpc/rpcclient,
   spec/[datatypes, digest]
 
 type

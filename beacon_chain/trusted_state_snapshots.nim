@@ -1,5 +1,5 @@
 import
-  asyncdispatch2,
+  chronos,
   spec/[datatypes, crypto, digest, beaconstate], beacon_chain_db, conf
 
 const

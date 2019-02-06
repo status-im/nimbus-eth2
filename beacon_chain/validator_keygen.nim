@@ -1,6 +1,6 @@
 import
   os, ospaths, strutils, strformat,
-  asyncdispatch2, nimcrypto, json_serialization, confutils,
+  chronos, nimcrypto, json_serialization, confutils,
   spec/[datatypes, digest, crypto], conf, randao, time, ssz,
   ../tests/testutil
 
