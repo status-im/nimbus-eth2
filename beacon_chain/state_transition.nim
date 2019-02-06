@@ -451,7 +451,7 @@ func inclusion_distance(state: BeaconState, v: ValidatorIndex): uint64 =
 func processEpoch(state: var BeaconState) =
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#per-epoch-processing
 
-  if state.slot mod EPOCH_LENGTH != 0:
+  if (state.slot + 1) mod EPOCH_LENGTH != 0:
     return
 
   # Precomputation
