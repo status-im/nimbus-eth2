@@ -1,6 +1,6 @@
 import
   random,
-  asyncdispatch2,
+  chronos,
   spec/datatypes
 
 type

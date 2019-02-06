@@ -1,6 +1,6 @@
 import
   tables, random,
-  asyncdispatch2,
+  chronos,
   spec/[datatypes, crypto, digest], randao, ssz
 
 type

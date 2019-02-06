@@ -1,6 +1,6 @@
 import
   std_shims/[os_shims, objects], net, sequtils, options, tables,
-  asyncdispatch2, chronicles, confutils, eth/[p2p, keys],
+  chronos, chronicles, confutils, eth/[p2p, keys],
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator], conf, time,
   state_transition, fork_choice, ssz, beacon_chain_db, validator_pool, extras,
   mainchain_monitor, sync_protocol, gossipsub_protocol, trusted_state_snapshots,
