@@ -15,9 +15,6 @@
 # The latest version can be seen here:
 # https://github.com/ethereum/eth2.0-specs/blob/master/specs/beacon-chain.md
 #
-# How wrong the code is:
-# https://github.com/ethereum/eth2.0-specs/compare/8116562049ed80ad1823dd62e98a7483ddf1546c...master
-#
 # These datatypes are used as specifications for serialization - thus should not
 # be altered outside of what the spec says. Likewise, they should not be made
 # `ref` - this can be achieved by wrapping them in higher-level
@@ -78,6 +75,7 @@ const
   MAX_WITHDRAWALS_PER_EPOCH* = 4 # withdrawals
 
   # Deposit contract
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md
   DEPOSIT_CONTRACT_TREE_DEPTH* = 2^5
 
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9 ##\
@@ -93,6 +91,7 @@ const
   ## processing is done
 
   # Initial values
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#initial-values
   GENESIS_FORK_VERSION* = 0'u64
   GENESIS_SLOT* = 2'u64^63
   GENESIS_EPOCH* = GENESIS_SLOT div EPOCH_LENGTH # slot_to_epoch(GENESIS_SLOT)
@@ -103,6 +102,7 @@ const
   BLS_WITHDRAWAL_PREFIX_BYTE* = 0'u8
 
   # Time parameters
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#time-parameters
   SLOT_DURATION* = 6'u64 ## \
   ## TODO consistent time unit across projects, similar to C++ chrono?
 
@@ -127,18 +127,19 @@ const
   ETH1_DATA_VOTING_PERIOD* = 2'u64^4 ##\
   ## epochs (~1.7 hours)
 
-  MIN_VALIDATOR_WITHDRAWAL_TIME* = 2'u64^8 ##\
+  MIN_VALIDATOR_WITHDRAWAL_EPOCHS* = 2'u64^8 ##\
   ## epochs (~27 hours)
 
   # State list lengths
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#state-list-lengths
   LATEST_BLOCK_ROOTS_LENGTH* = 2'u64^13
   LATEST_RANDAO_MIXES_LENGTH* = 2'u64^13
   LATEST_INDEX_ROOTS_LENGTH* = 2'u64^13
   LATEST_PENALIZED_EXIT_LENGTH* = 8192 # epochs
 
   # Reward and penalty quotients
-  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#reward-and-penalty-quotients
-  BASE_REWARD_QUOTIENT* = 2'u64^10 ##\
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#reward-and-penalty-quotients
+  BASE_REWARD_QUOTIENT* = 2'u64^5 ##\
   ## The `BASE_REWARD_QUOTIENT` parameter dictates the per-epoch reward. It
   ## corresponds to ~2.54% annual interest assuming 10 million participating
   ## ETH in every epoch.
@@ -147,11 +148,13 @@ const
   INACTIVITY_PENALTY_QUOTIENT* = 2'u64^24
 
   # Status flags
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#status-flags
   # Could model this with enum, but following spec closely here
   INITIATED_EXIT* = 1'u64
   WITHDRAWABLE* = 2'u64
 
   # Max operations per block
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#max-operations-per-block
   MAX_PROPOSER_SLASHINGS* = 2^4
   MAX_ATTESTER_SLASHINGS* = 2^0
   MAX_ATTESTATIONS* = 2^7
@@ -163,7 +166,7 @@ type
   SlotNumber* = uint64
   EpochNumber* = uint64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#proposerslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     proposer_index*: ValidatorIndex
     proposal_data_1*: ProposalSignedData
@@ -171,38 +174,40 @@ type
     proposal_data_2*: ProposalSignedData
     proposal_signature_2*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#attesterslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#attesterslashing
   AttesterSlashing* = object
     slashable_attestation_1*: SlashableAttestation ## \
     ## First batch of votes
     slashable_attestation_2*: SlashableAttestation ## \
     ## Second batch of votes
 
-  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#slashableattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#slashableattestation
   SlashableAttestation* = object
     validator_indices*: seq[uint64] ##\
     ## Validator indices
 
-    custody_bitfield*: seq[byte] ##\
-    ## Custody bitfield
-
     data*: AttestationData ## \
     ## Attestation data
+
+    custody_bitfield*: seq[byte] ##\
+    ## Custody bitfield
 
     aggregate_signature*: ValidatorSig ## \
     ## Aggregate signature
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#attestation
   Attestation* = object
-    data*: AttestationData
-    participation_bitfield*: seq[byte] ##\
+    aggregation_bitfield*: seq[byte] ##\
     ## The attesters that are represented in the aggregate signature - each
     ## bit represents an index in `ShardCommittee.committee`
 
+    data*: AttestationData
     custody_bitfield*: seq[byte] ##\
     ## Custody bitfield
     aggregate_signature*: ValidatorSig ##\
     ## Aggregate signature of the validators in `custody_bitfield`
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#attestationdata
   AttestationData* = object
     slot*: uint64
     shard*: uint64
@@ -224,10 +229,12 @@ type
     justified_block_root*: Eth2Digest ##\
     ## Hash of last justified beacon block
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#attestationdata
   AttestationDataAndCustodyBit* = object
     data*: AttestationData
     custody_bit: bool
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#deposit
   Deposit* = object
     branch*: seq[Eth2Digest] ##\
     ## Branch in the deposit tree
@@ -238,11 +245,13 @@ type
     deposit_data*: DepositData ##\
     ## Data
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#depositdata
   DepositData* = object
     amount*: uint64 ## Value in Gwei
     timestamp*: uint64 # Timestamp from deposit contract
     deposit_input*: DepositInput
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#depositinput
   DepositInput* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest

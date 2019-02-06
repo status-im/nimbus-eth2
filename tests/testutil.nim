@@ -212,6 +212,6 @@ proc makeAttestation*(
 
   Attestation(
     data: data,
-    participation_bitfield: participation_bitfield,
+    aggregation_bitfield: participation_bitfield,
     aggregate_signature: sig
   )

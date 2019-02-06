@@ -180,7 +180,7 @@ proc makeAttestation(node: BeaconNode,
   var attestation = Attestation(
     data: attestationData,
     aggregate_signature: validatorSignature,
-    participation_bitfield: participationBitfield)
+    aggregation_bitfield: participationBitfield)
 
   await node.network.broadcast(topicAttestations, attestation)
 
@@ -387,7 +387,7 @@ proc processBlocks*(node: BeaconNode) =
 
   node.network.subscribe(topicAttestations) do (a: Attestation):
     let participants = get_attestation_participants(
-      node.beaconState, a.data, a.participation_bitfield).
+      node.beaconState, a.data, a.aggregation_bitfield).
         mapIt(shortValidatorKey(node, it))
 
     info "Attestation received", slot = a.data.slot,

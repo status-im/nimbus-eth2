@@ -46,13 +46,13 @@ proc combine*(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
 
   assert tgt.data == src.data
 
-  for i in 0 ..< tgt.participation_bitfield.len:
+  for i in 0 ..< tgt.aggregation_bitfield.len:
     # TODO:
     # when BLS signatures are combined, we must ensure that
     # the same participant key is not included on both sides
-    tgt.participation_bitfield[i] =
-      tgt.participation_bitfield[i] or
-      src.participation_bitfield[i]
+    tgt.aggregation_bitfield[i] =
+      tgt.aggregation_bitfield[i] or
+      src.aggregation_bitfield[i]
 
   if skipValidation notin flags:
     tgt.aggregate_signature.combine(src.aggregate_signature)
@@ -194,7 +194,7 @@ func getAttestationVoteCount(pool: AttestationPool, current_slot: int): CountTab
     for attestation in pool.attestations[slot]:
       if attestation.isSome:
         # Increase the block attestation counts by the number of validators aggregated
-        let voteCount = attestation.get.participation_bitfield.getVoteCount()
+        let voteCount = attestation.get.aggregation_bitfield.getVoteCount()
         result.inc(attestation.get.data.beacon_block_root, voteCount)
 
 proc lmdGhost*(

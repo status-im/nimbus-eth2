@@ -273,7 +273,7 @@ proc processAttestations(
   state.latest_attestations.add blck.body.attestations.mapIt(
     PendingAttestation(
       data: it.data,
-      participation_bitfield: it.participation_bitfield,
+      participation_bitfield: it.aggregation_bitfield,
       custody_bitfield: it.custody_bitfield,
       slot_included: state.slot,
     )
@@ -436,18 +436,6 @@ func lowerThan(candidate, current: Eth2Digest): bool =
     if v > candidate.data[i]: return true
   return false
 
-func inclusion_slot(state: BeaconState, v: ValidatorIndex): uint64 =
-  for a in state.latest_attestations:
-    if v in get_attestation_participants(state, a.data, a.participation_bitfield):
-      return a.slot_included
-  doAssert false # shouldn't happen..
-
-func inclusion_distance(state: BeaconState, v: ValidatorIndex): uint64 =
-  for a in state.latest_attestations:
-    if v in get_attestation_participants(state, a.data, a.participation_bitfield):
-      return a.slot_included - a.data.slot
-  doAssert false # shouldn't happen..
-
 func processEpoch(state: var BeaconState) =
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#per-epoch-processing
 
@@ -486,8 +474,7 @@ func processEpoch(state: var BeaconState) =
   let
     previous_epoch_attestations =
       state.latest_attestations.filterIt(
-        state.slot <= it.data.slot + 2 * EPOCH_LENGTH and
-        it.data.slot + EPOCH_LENGTH < state.slot)
+        previous_epoch == slot_to_epoch(it.data.slot))
 
   let
     previous_epoch_attester_indices =
@@ -649,6 +636,17 @@ func processEpoch(state: var BeaconState) =
       get_effective_balance(state, index) *
       epochs_since_finality div INACTIVITY_PENALTY_QUOTIENT div 2
 
+  func inclusion_slot(state: BeaconState, v: ValidatorIndex): uint64 =
+    for a in previous_epoch_attestations:
+      if v in get_attestation_participants(state, a.data, a.participation_bitfield):
+        return a.slot_included
+    doAssert false # shouldn't happen..
+
+  func inclusion_distance(state: BeaconState, v: ValidatorIndex): uint64 =
+    for a in previous_epoch_attestations:
+      if v in get_attestation_participants(state, a.data, a.participation_bitfield):
+        return a.slot_included - a.data.slot
+    doAssert false # shouldn't happen..
 
   block: # Justification and finalization
     let epochs_since_finality = next_epoch - state.finalized_epoch
