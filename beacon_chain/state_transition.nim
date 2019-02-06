@@ -273,7 +273,7 @@ proc processAttestations(
   state.latest_attestations.add blck.body.attestations.mapIt(
     PendingAttestation(
       data: it.data,
-      participation_bitfield: it.participation_bitfield,
+      participation_bitfield: it.aggregation_bitfield,
       custody_bitfield: it.custody_bitfield,
       slot_included: state.slot,
     )

@@ -373,7 +373,7 @@ proc checkAttestation*(
 
   let
     participants = get_attestation_participants(
-      state, attestation.data, attestation.participation_bitfield)
+      state, attestation.data, attestation.aggregation_bitfield)
     group_public_key = bls_aggregate_pubkeys(
       participants.mapIt(state.validator_registry[it].pubkey))
 
