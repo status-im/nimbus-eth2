@@ -109,10 +109,6 @@ suite "Tree hashing":
     let vr = Validator()
     check: hash_tree_root(vr).len > 0
 
-  test "Hash ShardCommittee":
-    let sc = ShardCommittee()
-    check: hash_tree_root(sc).len > 0
-
   test "Hash BeaconBlock":
     ## TODO: Test genesis hash when spec is updated
     let bb = BeaconBlock()
