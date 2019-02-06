@@ -12,12 +12,13 @@ proc genSingleValidator(path: string): (ValidatorPubKey,
                                         ValidatorPrivKey,
                                         Eth2Digest) =
   var v: PrivateValidatorData
-  # v.privKey = newSigKey()
+  v.privKey = newPrivKey()
   if randomBytes(v.randao.seed.data) != sizeof(v.randao.seed.data):
     raise newException(Exception, "Could not generate randao seed")
 
   writeFile(path, v)
 
+  assert v.privKey != ValidatorPrivKey(), "Private key shouldn't be zero"
   return (v.privKey.pubKey(), v.privKey, v.randao.initialCommitment)
 
 # TODO: Make these more comprehensive and find them a new home

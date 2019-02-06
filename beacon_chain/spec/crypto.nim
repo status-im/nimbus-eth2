@@ -102,3 +102,4 @@ proc writeValue*(writer: var JsonWriter, value: ValidatorPrivKey) {.inline.} =
 proc readValue*(reader: var JsonReader, value: var ValidatorPrivKey) {.inline.} =
   value = SigKey.init(reader.readValue(string))
 
+proc newPrivKey*(): ValidatorPrivKey = SigKey.random()
