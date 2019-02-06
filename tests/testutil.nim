@@ -169,7 +169,7 @@ proc makeBlock*(
   addBlock(next_state, previous_block_root, body)
 
 proc find_shard_committee(
-    sacs: openArray[ShardCommittee], validator_index: ValidatorIndex): ShardCommittee =
+    sacs: openArray[CrosslinkCommittee], validator_index: ValidatorIndex): CrosslinkCommittee =
   for sac in sacs:
     if validator_index in sac.committee: return sac
   doAssert false
@@ -179,7 +179,7 @@ proc makeAttestation*(
     validator_index: ValidatorIndex, flags: UpdateFlags = {}): Attestation =
   let
     sac = find_shard_committee(
-      get_shard_committees_at_slot(state, state.slot), validator_index)
+      get_crosslink_committees_at_slot(state, state.slot), validator_index)
     validator = state.validator_registry[validator_index]
     sac_index = sac.committee.find(validator_index)
 

@@ -249,12 +249,12 @@ func get_attestation_participants*(state: BeaconState,
   let crosslink_committees = get_crosslink_committees_at_slot(state, attestation_data.slot)
 
   # TODO investigate functional library / approach to help avoid loop bugs
-  assert any(
+  assert anyIt(
     crosslink_committees,
-    func (x: tuple[a: seq[ValidatorIndex], b: uint64]): bool = x[1] == attestation_data.shard)
+    it[1] == attestation_data.shard)
   let crosslink_committee = mapIt(
-    filterIt(crosslink_committees, it.b == attestation_data.shard),
-    it.a)[0]
+    filterIt(crosslink_committees, it.shard == attestation_data.shard),
+    it.committee)[0]
   assert len(aggregation_bitfield) == (len(crosslink_committee) + 7) div 8
 
   # Find the participating attesters in the committee

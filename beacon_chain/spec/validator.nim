@@ -73,7 +73,8 @@ func get_current_epoch_committee_count_per_slot(state: BeaconState): uint64 =
   )
   get_epoch_committee_count(len(current_active_validators))
 
-func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64) : seq[tuple[a: seq[ValidatorIndex], b: uint64]] =
+func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64):
+    seq[CrosslinkCommittee] =
   ## Returns the list of ``(committee, shard)`` tuples for the ``slot``.
 
   let
@@ -118,18 +119,6 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64) : seq[t
      shuffling[(committees_per_slot * offset + i.uint64).int],
      (slot_start_shard + i.uint64) mod SHARD_COUNT
     )
-
-func get_shard_committees_at_slot*(
-    state: BeaconState, slot: uint64): seq[ShardCommittee] =
-  # TODO temporary adapter; remove when all users gone
-  # where ShardCommittee is: shard*: uint64 / committee*: seq[ValidatorIndex]
-  let index = state.get_shard_committees_index(slot)
-  #state.shard_committees_at_slots[index]
-  for crosslink_committee in get_crosslink_committees_at_slot(state, slot):
-    var sac: ShardCommittee
-    sac.shard = crosslink_committee.b
-    sac.committee = crosslink_committee.a
-    result.add sac
 
 func get_beacon_proposer_index*(state: BeaconState, slot: uint64): ValidatorIndex =
   ## From Casper RPJ mini-spec:

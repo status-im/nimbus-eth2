@@ -307,13 +307,16 @@ proc scheduleEpochActions(node: BeaconNode, epoch: uint64) =
       committeesIdx = get_shard_committees_index(nextState, slot)
 
     #for shard in node.beaconState.shard_committees_at_slots[committees_idx]:
-    for crosslink_committee in get_crosslink_committees_at_slot(node.beaconState, committees_idx):
+    for crosslink_committee in get_crosslink_committees_at_slot(
+        node.beaconState, committees_idx):
       #for i, validatorIdx in shard.committee:
-      for i, validatorIdx in crosslink_committee.a:
+      for i, validatorIdx in crosslink_committee.committee:
         let validator = node.getAttachedValidator(validatorIdx)
         if validator != nil:
           #scheduleAttestation(node, validator, slot, shard.shard, shard.committee.len, i)
-          scheduleAttestation(node, validator, slot, crosslink_committee.b, crosslink_committee.a.len, i)
+          scheduleAttestation(
+            node, validator, slot, crosslink_committee.shard,
+            crosslink_committee.committee.len, i)
 
   node.lastScheduledEpoch = epoch
   let

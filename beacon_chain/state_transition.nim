@@ -535,21 +535,21 @@ func processEpoch(state: var BeaconState) =
   #      these closures outside this scope, but still..
   let statePtr = state.addr
   func attesting_validator_indices(
-      crosslink_committee: tuple[a: seq[ValidatorIndex], b: uint64], shard_block_root: Eth2Digest): seq[ValidatorIndex] =
+      crosslink_committee: CrosslinkCommittee, shard_block_root: Eth2Digest): seq[ValidatorIndex] =
     let shard_block_attestations =
       concat(current_epoch_attestations, previous_epoch_attestations).
-      filterIt(it.data.shard == crosslink_committee.b and
+      filterIt(it.data.shard == crosslink_committee.shard and
         it.data.shard_block_root == shard_block_root)
     get_attester_indices(statePtr[], shard_block_attestations)
 
-  func winning_root(crosslink_committee: tuple[a: seq[ValidatorIndex], b: uint64]): Eth2Digest =
+  func winning_root(crosslink_committee: CrosslinkCommittee): Eth2Digest =
     # * Let `winning_root(crosslink_committee)` be equal to the value of
     #   `shard_block_root` such that
     #   `sum([get_effective_balance(state, i) for i in attesting_validator_indices(crosslink_committee, shard_block_root)])`
     #   is maximized (ties broken by favoring lower `shard_block_root` values).
     let candidates =
       concat(current_epoch_attestations, previous_epoch_attestations).
-        filterIt(it.data.shard == crosslink_committee.b).
+        filterIt(it.data.shard == crosslink_committee.shard).
         mapIt(it.data.shard_block_root)
 
     # TODO not covered by spec!
@@ -568,18 +568,18 @@ func processEpoch(state: var BeaconState) =
         max_val = val
     max_hash
 
-  func attesting_validators(crosslink_committee: tuple[a: seq[ValidatorIndex], b: uint64]): seq[ValidatorIndex] =
+  func attesting_validators(crosslink_committee: CrosslinkCommittee): seq[ValidatorIndex] =
     attesting_validator_indices(crosslink_committee, winning_root(crosslink_committee))
 
-  func attesting_validator_indices(crosslink_committee: tuple[a: seq[ValidatorIndex], b: uint64]): seq[ValidatorIndex] =
+  func attesting_validator_indices(crosslink_committee: CrosslinkCommittee): seq[ValidatorIndex] =
     attesting_validator_indices(crosslink_committee, winning_root(crosslink_committee))
 
-  func total_attesting_balance(crosslink_committee: tuple[a: seq[ValidatorIndex], b: uint64]): uint64 =
+  func total_attesting_balance(crosslink_committee: CrosslinkCommittee): uint64 =
     sum_effective_balances(
       statePtr[], attesting_validator_indices(crosslink_committee))
 
-  func total_balance_sac(crosslink_committee: tuple[a: seq[ValidatorIndex], b: uint64]): uint64 =
-    sum_effective_balances(statePtr[], crosslink_committee.a)
+  func total_balance_sac(crosslink_committee: CrosslinkCommittee): uint64 =
+    sum_effective_balances(statePtr[], crosslink_committee.committee)
 
   block: # Eth1 data
     if state.slot mod ETH1_DATA_VOTING_PERIOD == 0:
@@ -714,9 +714,12 @@ func processEpoch(state: var BeaconState) =
       for crosslink_committee in crosslink_committees_at_slot:
         # TODO https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#crosslinks-1
         # but this is a best guess based on reasonableness of what "index" is
-        for index in crosslink_committee.a:
+        for index in crosslink_committee.committee:
           if index in attesting_validators(crosslink_committee):
-            state.validator_balances[index.int] += base_reward(state, index) * total_attesting_balance(crosslink_committee) div total_balance_sac(crosslink_committee)
+            state.validator_balances[index.int] +=
+              base_reward(state, index) *
+                 total_attesting_balance(crosslink_committee) div
+                  total_balance_sac(crosslink_committee)
           else:
             # TODO underflows?
             state.validator_balances[index] -= base_reward(state, index)

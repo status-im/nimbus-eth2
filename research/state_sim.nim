@@ -54,7 +54,7 @@ cli do(slots = 1945,
       # attesterRatio is the fraction of attesters that actually do their
       # work for every slot - we'll randimize it deterministically to give
       # some variation
-      let scass = get_shard_committees_at_slot(state, state.slot)
+      let scass = get_crosslink_committees_at_slot(state, state.slot)
 
       for scas in scass:
         var

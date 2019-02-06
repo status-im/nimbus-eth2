@@ -16,7 +16,7 @@ proc stateSize(deposits: int, maxContent = false) =
     let
       crosslink_committees = get_crosslink_committees_at_slot(state, 0)
       validatorsPerCommittee =
-        len(crosslink_committees[0].a) # close enough..
+        len(crosslink_committees[0].committee) # close enough..
     for a in state.latest_attestations.mitems():
       a.participation_bitfield.setLen(validatorsPerCommittee)
   echo "Validators: ", deposits, ", total: ", state.serialize().len

@@ -98,7 +98,7 @@ proc getAttestationsForBlock*(pool: AttestationPool,
   for slot in firstSlot .. lastSlot:
     let slotDequeIdx = slot.int - pool.startingSlot
     if slotDequeIdx >= pool.attestations.len: return
-    let shardAndComittees = get_shard_committees_at_slot(lastState, slot)
+    let shardAndComittees = get_crosslink_committees_at_slot(lastState, slot)
     for s in shardAndComittees:
       if pool.attestations[slotDequeIdx][s.shard].isSome:
         result.add pool.attestations[slotDequeIdx][s.shard].get

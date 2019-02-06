@@ -382,15 +382,6 @@ type
     shard_block_root*: Eth2Digest ##\
     ## Shard chain block root
 
-  ShardCommittee* = object
-    shard*: uint64
-    committee*: seq[ValidatorIndex] ##\
-    ## Committe participants that get to attest to blocks on this shard -
-    ## indices into BeaconState.validator_registry
-
-    total_validator_count*: uint64 ##\
-    ## Total validator count (for proofs of custody)
-
   Eth1Data* = object
     deposit_root*: Eth2Digest ##\
     ## Data being voted for
@@ -431,6 +422,9 @@ type
     DOMAIN_PROPOSAL = 2
     DOMAIN_EXIT = 3
     DOMAIN_RANDAO = 4
+
+  # TODO: not in spec
+  CrosslinkCommittee* = tuple[committee: seq[ValidatorIndex], shard: uint64]
 
 template epoch*(slot: int|uint64): auto =
   slot div EPOCH_LENGTH
