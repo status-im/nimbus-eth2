@@ -283,9 +283,9 @@ proc scheduleEpochActions(node: BeaconNode, epoch: uint64) =
   # see the comments in `get_beacon_proposer_index`
   var nextState = node.beaconState
 
-  for i in 1.uint64 ..< EPOCH_LENGTH:
+  for i in 0.uint64 ..< EPOCH_LENGTH:
     # Schedule block proposals
-    let slot = epoch * EPOCH_LENGTH + i
+    let slot = epoch * EPOCH_LENGTH + i + 1
     nextState.slot = slot
     let proposerIdx = get_beacon_proposer_index(nextState, slot)
     let validator = node.getAttachedValidator(proposerIdx)
@@ -296,9 +296,10 @@ proc scheduleEpochActions(node: BeaconNode, epoch: uint64) =
       # missing blocks if necessary
       scheduleBlockProposal(node, slot, validator)
 
-    #for shard in node.beaconState.shard_committees_at_slots[committees_idx]:
+    # Schedule attestations
+
     for crosslink_committee in get_crosslink_committees_at_slot(
-        node.beaconState, committees_idx):
+        node.beaconState, slot):
       #for i, validatorIdx in shard.committee:
       for i, validatorIdx in crosslink_committee.committee:
         let validator = node.getAttachedValidator(validatorIdx)
