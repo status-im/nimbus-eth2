@@ -179,13 +179,13 @@ proc get_ancestor(store: BeaconChainDB, blck: Eth2Digest, slot: uint64): Eth2Dig
     store.get_ancestor(blk.parent_root, slot) # TODO: Eliminate recursion
   # TODO: what if the slot was never observed/verified?
 
-func getVoteCount(participation_bitfield: openarray[byte]): int =
+func getVoteCount(aggregation_bitfield: openarray[byte]): int =
   ## Get the number of votes
   # TODO: A bitfield type that tracks that information
   # https://github.com/status-im/nim-beacon-chain/issues/19
 
-  for validatorIdx in 0 ..< participation_bitfield.len * 8:
-    result += int participation_bitfield.get_bitfield_bit(validatorIdx)
+  for validatorIdx in 0 ..< aggregation_bitfield.len * 8:
+    result += int aggregation_bitfield.get_bitfield_bit(validatorIdx)
 
 func getAttestationVoteCount(pool: AttestationPool, current_slot: int): CountTable[Eth2Digest] =
   ## Returns all blocks more recent that the current slot

@@ -12,9 +12,6 @@
 # specification and that follows the spec as closely as possible, so as to make
 # it easy to keep up-to-date.
 #
-# The latest version can be seen here:
-# https://github.com/ethereum/eth2.0-specs/blob/master/specs/beacon-chain.md
-#
 # These datatypes are used as specifications for serialization - thus should not
 # be altered outside of what the spec says. Likewise, they should not be made
 # `ref` - this can be achieved by wrapping them in higher-level
@@ -356,51 +353,62 @@ type
     latest_eth1_data*: Eth1Data
     eth1_data_votes*: seq[Eth1DataVote]
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#validator
   Validator* = object
-    pubkey*: ValidatorPubKey
-    withdrawal_credentials*: Eth2Digest
+    pubkey*: ValidatorPubKey ##\
+    ## BLS public key
+
+    withdrawal_credentials*: Eth2Digest ##\
+    ## Withdrawal credentials
 
     activation_epoch*: EpochNumber ##\
-    ## Slot when validator activated
+    ## Epoch when validator activated
 
     exit_epoch*: EpochNumber ##\
-    ## Slot when validator exited
+    ## Epoch when validator exited
 
     withdrawal_epoch*: EpochNumber ##\
-    ## Slot when validator withdrew
+    ## Epoch when validator withdrew
 
     penalized_epoch*: EpochNumber ##\
-    ## Slot when validator penalized
+    ## Epoch when validator penalized
 
     status_flags*: uint64
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#crosslink
   Crosslink* = object
     epoch*: uint64
     shard_block_root*: Eth2Digest ##\
     ## Shard chain block root
 
-  Eth1Data* = object
-    deposit_root*: Eth2Digest ##\
-    ## Data being voted for
-
-    vote_count*: Eth2Digest ##\
-    ## Vote count
-
-  Eth1DataVote* = object
-    eth1_data*: Eth1Data
-    vote_count*: uint64                           # Vote count
-
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#pendingattestation
   PendingAttestation* = object
-    data*: AttestationData                        # Signed data
-    participation_bitfield*: seq[byte]            # Attester participation bitfield
-    custody_bitfield*: seq[byte]                  # Proof of custody bitfield
-    slot_included*: uint64                        # Slot in which it was included
+    aggregation_bitfield*: seq[byte]          # Attester participation bitfield
+    data*: AttestationData                    # Attestation data
+    custody_bitfield*: seq[byte]              # Custody bitfield
+    inclusion_slot*: uint64                   # Inclusion slot
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#fork
   Fork* = object
     previous_version*: uint64                     # Previous fork version
     current_version*: uint64                      # Current fork version
     epoch*: uint64                                # Fork epoch number
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#eth1data
+  Eth1Data* = object
+    deposit_root*: Eth2Digest ##\
+    ## Data being voted for
+
+    block_hash*: Eth2Digest ##\
+    ## Block hash
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#eth1datavote
+  Eth1DataVote* = object
+    eth1_data*: Eth1Data
+    vote_count*: uint64                           # Vote count
+
+  ## TODO remove or otherwise conditional-compile this, since it's for light
+  ## client but not in spec
   ValidatorRegistryDeltaBlock* = object
     latest_registry_delta_root*: Eth2Digest
     validator_index*: ValidatorIndex
@@ -408,6 +416,8 @@ type
     slot*: uint64
     flag*: ValidatorSetDeltaFlags
 
+  ## TODO remove or otherwise conditional-compile this, since it's for light
+  ## client but not in spec
   ValidatorSetDeltaFlags* {.pure.} = enum
     Activation = 0
     Exit = 1

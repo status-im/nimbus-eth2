@@ -188,8 +188,8 @@ proc makeAttestation*(
   assert sac_index != -1, "find_shard_committe should guarantee this"
 
   var
-    participation_bitfield = repeat(0'u8, ceil_div8(sac.committee.len))
-  bitSet(participation_bitfield, sac_index)
+    aggregation_bitfield = repeat(0'u8, ceil_div8(sac.committee.len))
+  bitSet(aggregation_bitfield, sac_index)
 
   let
     msg = hash_tree_root_final(data)
@@ -203,6 +203,6 @@ proc makeAttestation*(
 
   Attestation(
     data: data,
-    aggregation_bitfield: participation_bitfield,
+    aggregation_bitfield: aggregation_bitfield,
     aggregate_signature: sig
   )
