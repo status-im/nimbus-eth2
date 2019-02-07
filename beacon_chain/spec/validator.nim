@@ -66,13 +66,6 @@ func get_previous_epoch_committee_count(state: BeaconState): uint64 =
   )
   get_epoch_committee_count(len(previous_active_validators))
 
-func get_current_epoch_committee_count_per_slot(state: BeaconState): uint64 =
-  let current_active_validators = get_active_validator_indices(
-    state.validator_registry,
-    state.current_calculation_epoch,
-  )
-  get_epoch_committee_count(len(current_active_validators))
-
 func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64):
     seq[CrosslinkCommittee] =
   ## Returns the list of ``(committee, shard)`` tuples for the ``slot``.
@@ -86,7 +79,7 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64):
   assert previous_epoch <= epoch
   assert epoch < next_epoch
 
-  func get_epoch_specific_params() : auto =
+  template get_epoch_specific_params(): auto =
     if epoch < current_epoch:
       let
         committees_per_epoch = get_previous_epoch_committee_count(state)
@@ -102,7 +95,8 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64):
         shuffling_start_shard = state.current_epoch_start_shard
       (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard)
 
-  let (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard) = get_epoch_specific_params()
+  let (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard) =
+    get_epoch_specific_params()
 
   let
     shuffling = get_shuffling(

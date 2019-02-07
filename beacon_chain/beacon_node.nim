@@ -156,7 +156,9 @@ proc makeAttestation(node: BeaconNode,
   if get_current_epoch(node.beaconState) == node.beaconState.justified_epoch:
     return
 
-  let justifiedBlockRoot = get_block_root(node.beaconState, get_epoch_start_slot(node.beaconState.justified_epoch))
+  let justifiedBlockRoot =
+    get_block_root(node.beaconState,
+      get_epoch_start_slot(node.beaconState.justified_epoch))
 
   var attestationData = AttestationData(
     slot: slot,
@@ -281,9 +283,9 @@ proc scheduleEpochActions(node: BeaconNode, epoch: uint64) =
   # see the comments in `get_beacon_proposer_index`
   var nextState = node.beaconState
 
-  for i in 1.uint64 ..< EPOCH_LENGTH:
+  for i in 0.uint64 ..< EPOCH_LENGTH:
     # Schedule block proposals
-    let slot = epoch * EPOCH_LENGTH + i
+    let slot = epoch * EPOCH_LENGTH + i + 1
     nextState.slot = slot
     let proposerIdx = get_beacon_proposer_index(nextState, slot)
     let validator = node.getAttachedValidator(proposerIdx)
@@ -295,12 +297,9 @@ proc scheduleEpochActions(node: BeaconNode, epoch: uint64) =
       scheduleBlockProposal(node, slot, validator)
 
     # Schedule attestations
-    let
-      committeesIdx = get_shard_committees_index(nextState, slot)
 
-    #for shard in node.beaconState.shard_committees_at_slots[committees_idx]:
     for crosslink_committee in get_crosslink_committees_at_slot(
-        node.beaconState, committees_idx):
+        node.beaconState, slot):
       #for i, validatorIdx in shard.committee:
       for i, validatorIdx in crosslink_committee.committee:
         let validator = node.getAttachedValidator(validatorIdx)
