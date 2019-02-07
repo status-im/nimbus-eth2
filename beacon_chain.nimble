@@ -12,7 +12,7 @@ bin           = @[
   ]
 
 ### Dependencies
-requires "nim >= 0.18.0",
+requires "nim >= 0.19.0",
   "eth",
   "nimcrypto",
   "https://github.com/status-im/nim-blscurve#master",
