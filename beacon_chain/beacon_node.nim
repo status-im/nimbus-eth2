@@ -30,7 +30,12 @@ const
 
   stateStoragePeriod = EPOCH_LENGTH * 10 # Save states once per this number of slots. TODO: Find a good number.
 
-func shortHash(x: auto): string = ($x)[0..7]
+func humaneSlotNum(s: SlotNumber): SlotNumber =
+  s - GENESIS_SLOT
+
+func shortHash(x: auto): string =
+  ($x)[0..7]
+
 func shortValidatorKey(node: BeaconNode, validatorIdx: int): string =
   ($node.beaconState.validator_registry[validatorIdx].pubkey)[0..7]
 
@@ -182,7 +187,7 @@ proc makeAttestation(node: BeaconNode,
 
   await node.network.broadcast(topicAttestations, attestation)
 
-  info "Attestation sent", slot = slot,
+  info "Attestation sent", slot = humaneSlotNum(slot),
                            shard = shard,
                            validator = shortValidatorKey(node, validator.idx),
                            signature = shortHash(validatorSignature)
@@ -198,7 +203,7 @@ proc proposeBlock(node: BeaconNode,
 
   if node.beaconState.slot + 1 < slot:
     info "Proposing block after slot gap",
-      slot,
+      slot = humaneSlotNum(slot),
       stateSlot = node.beaconState.slot
     for s in node.beaconState.slot + 1 ..< slot:
       let ok = updateState(state, node.headBlockRoot, none[BeaconBlock](), {})
@@ -229,7 +234,7 @@ proc proposeBlock(node: BeaconNode,
 
   await node.network.broadcast(topicBeaconBlocks, newBlock)
 
-  info "Block proposed", slot = slot,
+  info "Block proposed", slot = humaneSlotNum(slot),
                          stateRoot = shortHash(newBlock.state_root),
                          validator = shortValidatorKey(node, validator.idx)
 
@@ -246,7 +251,7 @@ proc scheduleBlockProposal(node: BeaconNode,
 
   info "Scheduling block proposal",
     validator = shortValidatorKey(node, validator.idx),
-    slot,
+    slot = humaneSlotNum(slot),
     fromNow = (at - fastEpochTime()) div 1000
 
   addTimer(node.beaconState.slotStart(slot)) do (x: pointer) {.gcsafe.}:
@@ -329,7 +334,7 @@ proc stateNeedsSaving(s: BeaconState): bool =
 proc processBlocks*(node: BeaconNode) =
   node.network.subscribe(topicBeaconBlocks) do (newBlock: BeaconBlock):
     let stateSlot = node.beaconState.slot
-    info "Block received", slot = newBlock.slot,
+    info "Block received", slot = humaneSlotNum(newBlock.slot),
                            stateRoot = shortHash(newBlock.state_root),
                            stateSlot
 
@@ -343,7 +348,7 @@ proc processBlocks*(node: BeaconNode) =
     var state = node.beaconState
     if stateSlot + 1 < newBlock.slot:
       info "Advancing state past slot gap",
-        blockSlot = newBlock.slot,
+        blockSlot = humaneSlotNum(newBlock.slot),
         stateSlot
       for slot in stateSlot + 1 ..< newBlock.slot:
         let ok = updateState(state, node.headBlockRoot, none[BeaconBlock](), {})
@@ -381,7 +386,7 @@ proc processBlocks*(node: BeaconNode) =
       node.beaconState, a.data, a.aggregation_bitfield).
         mapIt(shortValidatorKey(node, it))
 
-    info "Attestation received", slot = a.data.slot,
+    info "Attestation received", slot = humaneSlotNum(a.data.slot),
                                  shard = a.data.shard,
                                  signature = shortHash(a.aggregate_signature),
                                  participants
@@ -424,7 +429,7 @@ when isMainModule:
 
       info "Starting beacon node",
         slotsSinceFinalization = node.beaconState.slotDistanceFromNow(),
-        stateSlot = node.beaconState.slot
+        stateSlot = humaneSlotNum(node.beaconState.slot)
 
       node.addLocalValidators()
       node.processBlocks()

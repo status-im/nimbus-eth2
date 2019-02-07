@@ -168,5 +168,5 @@ func get_beacon_proposer_index*(state: BeaconState, slot: uint64): ValidatorInde
   #      because presently, `state.slot += 1` happens before this function
   #      is called - see also testutil.getNextBeaconProposerIndex
   let (first_committee, _) = get_crosslink_committees_at_slot(state, slot)[0]
-  let idx = int(slot mod SlotNumber(first_committee.len))
+  let idx = int(slot mod uint64(first_committee.len))
   first_committee[idx]
