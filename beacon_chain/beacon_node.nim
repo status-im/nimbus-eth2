@@ -210,7 +210,7 @@ proc proposeBlock(node: BeaconNode,
   var newBlock = BeaconBlock(
     slot: slot,
     parent_root: node.headBlockRoot,
-    randao_reveal: ValidatorSig(), # TODO probably wrong
+    randao_reveal: validator.genRandaoReveal(state),
     eth1_data: node.mainchainMonitor.getBeaconBlockRef(),
     signature: ValidatorSig(), # we need the rest of the block first!
     body: blockBody)

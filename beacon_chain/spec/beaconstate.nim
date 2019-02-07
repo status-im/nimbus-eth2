@@ -47,8 +47,7 @@ func process_deposit(state: var BeaconState,
                      pubkey: ValidatorPubKey,
                      amount: uint64,
                      proof_of_possession: ValidatorSig,
-                     withdrawal_credentials: Eth2Digest,
-                     randao_commitment: Eth2Digest) =
+                     withdrawal_credentials: Eth2Digest) =
   ## Process a deposit from Ethereum 1.0.
 
   if false:
@@ -206,7 +205,6 @@ func get_initial_beacon_state*(
       deposit.deposit_data.amount,
       deposit.deposit_data.deposit_input.proof_of_possession,
       deposit.deposit_data.deposit_input.withdrawal_credentials,
-      deposit.deposit_data.deposit_input.randao_commitment,
     )
 
   # Process initial activations

@@ -1,7 +1,7 @@
 import
   tables, random,
   chronos,
-  spec/[datatypes, crypto, digest], randao, ssz
+  spec/[datatypes, crypto, digest, helpers], randao, ssz
 
 type
   ValidatorKind = enum
@@ -83,3 +83,17 @@ proc randaoReveal*(v: AttachedValidator, commitment: Eth2Digest): Future[Eth2Dig
     # send RPC
     discard
 
+# TODO move elsewhere when something else wants this utility function
+func int_to_bytes32(x: uint64) : array[32, byte] =
+  for i in 0 ..< 8:
+    result[31 - i] = byte((x shr i*8) and 0xff)
+
+func genRandaoReveal*(k: ValidatorPrivKey, state: BeaconState):
+    ValidatorSig =
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#randao
+  bls_sign(k, int_to_bytes32(get_current_epoch(state)),
+           get_domain(state.fork, get_current_epoch(state), DOMAIN_RANDAO))
+
+func genRandaoReveal*(v: AttachedValidator, state: BeaconState):
+    ValidatorSig =
+  genRandaoReveal(v.privKey, state)

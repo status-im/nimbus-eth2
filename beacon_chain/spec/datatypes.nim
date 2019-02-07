@@ -252,7 +252,6 @@ type
   DepositInput* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
-    randao_commitment*: Eth2Digest # Initial RANDAO commitment
     proof_of_possession*: ValidatorSig ##\
     ## BLS proof of possession (a BLS signature)
 

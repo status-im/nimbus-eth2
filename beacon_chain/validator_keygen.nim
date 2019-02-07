@@ -49,8 +49,7 @@ cli do (validators: int,
 
       proofOfPossessionData = DepositInput(
         pubkey: pubKey,
-        withdrawal_credentials: withdrawalCredentials,
-        randao_commitment: randaoCommitment)
+        withdrawal_credentials: withdrawalCredentials)
 
       proofOfPossession = bls_sign(
         privkey, hash_tree_root_final(proofOfPossessionData).data,
@@ -64,8 +63,7 @@ cli do (validators: int,
         deposit_input: DepositInput(
           pubkey: pubKey,
           proof_of_possession: proofOfPossession,
-          withdrawal_credentials: withdrawalCredentials,
-          randao_commitment: randaoCommitment)))
+          withdrawal_credentials: withdrawalCredentials)))
 
   startupData.genesisTime = uint64(int(now() div 1000) + startupDelay)
 
