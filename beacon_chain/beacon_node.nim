@@ -123,10 +123,6 @@ template findIt(s: openarray, predicate: untyped): int =
       break
   res
 
-template isSameKey(lhs, rhs: ValidatorPubKey): bool =
-  # TODO: operator `==` for ValidatorPubKey doesn't work properly at the moment
-  $lhs == $rhs
-
 proc addLocalValidators*(node: BeaconNode) =
   for validator in node.config.validators:
     let
@@ -134,7 +130,7 @@ proc addLocalValidators*(node: BeaconNode) =
       pubKey = privKey.pubKey()
       randao = validator.randao
 
-    let idx = node.beaconState.validator_registry.findIt(isSameKey(it.pubKey, pubKey))
+    let idx = node.beaconState.validator_registry.findIt(it.pubKey == pubKey)
     if idx == -1:
       warn "Validator not in registry", pubKey
     else:

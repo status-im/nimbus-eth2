@@ -51,7 +51,7 @@ import
 export
   json_serialization
 
-export blscurve.init, blscurve.getBytes, blscurve.combine
+export blscurve.init, blscurve.getBytes, blscurve.combine, blscurve.`$`, blscurve.`==`
 
 type
   ValidatorPubKey* = blscurve.VerKey
