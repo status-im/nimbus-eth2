@@ -20,6 +20,7 @@ func xorSeed(seed: Eth2Digest, x: uint64): Eth2Digest =
   for i in 0 ..< 8:
     result.data[31 - i] = result.data[31 - i] xor byte((x shr i*8) and 0xff)
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_shuffling
 func get_shuffling*(seed: Eth2Digest,
                     validators: openArray[Validator],
                     epoch: EpochNumber
@@ -59,6 +60,7 @@ func get_new_validator_registry_delta_chain_tip*(
     flag: flag
   ))
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_previous_epoch_committee_count
 func get_previous_epoch_committee_count(state: BeaconState): uint64 =
   let previous_active_validators = get_active_validator_indices(
     state.validator_registry,
@@ -66,9 +68,22 @@ func get_previous_epoch_committee_count(state: BeaconState): uint64 =
   )
   get_epoch_committee_count(len(previous_active_validators))
 
-func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64):
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_next_epoch_committee_count
+func get_next_epoch_committee_count(state: BeaconState): uint64 =
+  let next_active_validators = get_active_validator_indices(
+    state.validator_registry,
+    get_current_epoch(state) + 1,
+  )
+  get_epoch_committee_count(len(next_active_validators))
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_crosslink_committees_at_slot
+func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64,
+                                       registry_change: bool = false):
     seq[CrosslinkCommittee] =
   ## Returns the list of ``(committee, shard)`` tuples for the ``slot``.
+  ##
+  ## Note: There are two possible shufflings for crosslink committees for a
+  ## ``slot`` in the next epoch -- with and without a `registry_change`
 
   let
     epoch = slot_to_epoch(slot)
@@ -87,12 +102,34 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64):
         shuffling_epoch = state.previous_calculation_epoch
         shuffling_start_shard = state.previous_epoch_start_shard
       (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard)
-    else:
+    elif epoch == current_epoch:
       let
         committees_per_epoch = get_current_epoch_committee_count(state)
         seed = state.current_epoch_seed
         shuffling_epoch = state.current_calculation_epoch
         shuffling_start_shard = state.current_epoch_start_shard
+      (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard)
+    else:
+      assert epoch == next_epoch
+
+      let
+        current_committees_per_epoch = get_current_epoch_committee_count(state)
+        committees_per_epoch = get_next_epoch_committee_count(state)
+        shuffling_epoch = next_epoch
+
+        epochs_since_last_registry_update = current_epoch - state.validator_registry_update_epoch
+        condition = epochs_since_last_registry_update > 1'u64 and
+                    is_power_of_2(epochs_since_last_registry_update)
+        seed = if registry_change or condition:
+                 generate_seed(state, next_epoch)
+               else:
+                 state.current_epoch_seed
+        shuffling_start_shard =
+          if registry_change:
+            (state.current_epoch_start_shard +
+             current_committees_per_epoch) mod SHARD_COUNT
+          else:
+            state.current_epoch_start_shard
       (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard)
 
   let (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard) =
@@ -114,6 +151,7 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64):
      (slot_start_shard + i.uint64) mod SHARD_COUNT
     )
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: BeaconState, slot: uint64): ValidatorIndex =
   ## From Casper RPJ mini-spec:
   ## When slot i begins, validator Vidx is expected
