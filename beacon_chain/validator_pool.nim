@@ -43,16 +43,15 @@ proc getValidator*(pool: ValidatorPool,
                    validatorKey: ValidatorPubKey): AttachedValidator =
   pool.validators.getOrDefault(validatorKey)
 
-proc signBlockProposal*(v: AttachedValidator,
+proc signBlockProposal*(v: AttachedValidator, fork: Fork,
                         proposal: ProposalSignedData): Future[ValidatorSig] {.async.} =
   if v.kind == inProcess:
     await sleepAsync(1)
     let proposalRoot = hash_tree_root_final(proposal)
 
     # TODO: Should we use proposalRoot as data, or digest in regards to signature?
-    # TODO: Use `domain` here
-    let domain = 0'u64
-    result = bls_sign(v.privKey, proposalRoot.data, domain)
+    result = bls_sign(v.privKey, proposalRoot.data,
+      get_domain(fork, proposal.slot, DOMAIN_PROPOSAL))
   else:
     # TODO:
     # send RPC

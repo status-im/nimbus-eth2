@@ -225,7 +225,7 @@ proc proposeBlock(node: BeaconNode,
     shard: BEACON_CHAIN_SHARD_NUMBER,
     blockRoot: hash_tree_root_final(newBlock))
 
-  newBlock.signature = await validator.signBlockProposal(signedData)
+  newBlock.signature = await validator.signBlockProposal(node.beaconState.fork, signedData)
 
   await node.network.broadcast(topicBeaconBlocks, newBlock)
 
