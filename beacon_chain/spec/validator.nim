@@ -92,7 +92,9 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64,
     next_epoch = current_epoch + 1
 
   assert previous_epoch <= epoch
-  assert epoch < next_epoch
+  assert epoch <= next_epoch
+  # TODO - Hack: used to be "epoch < next_epoch"
+  # until https://github.com/status-im/nim-beacon-chain/issues/97
 
   template get_epoch_specific_params(): auto =
     if epoch < current_epoch:
