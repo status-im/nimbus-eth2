@@ -399,13 +399,16 @@ type
     deposit_root*: Eth2Digest ##\
     ## Data being voted for
 
-    vote_count*: Eth2Digest ##\
-    ## Vote count
+    block_hash*: Eth2Digest ##\
+    ## Block hash
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#eth1datavote
   Eth1DataVote* = object
     eth1_data*: Eth1Data
     vote_count*: uint64                           # Vote count
 
+  ## TODO remove or otherwise conditional-compile this, since it's for light
+  ## client but not in spec
   ValidatorRegistryDeltaBlock* = object
     latest_registry_delta_root*: Eth2Digest
     validator_index*: ValidatorIndex
@@ -413,6 +416,8 @@ type
     slot*: uint64
     flag*: ValidatorSetDeltaFlags
 
+  ## TODO remove or otherwise conditional-compile this, since it's for light
+  ## client but not in spec
   ValidatorSetDeltaFlags* {.pure.} = enum
     Activation = 0
     Exit = 1

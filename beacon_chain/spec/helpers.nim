@@ -31,6 +31,7 @@ func verify_bitfield*(bitfield: openarray[byte], committee_size: int): bool =
 
   true
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#shuffle
 func shuffle*[T](values: seq[T], seed: Eth2Digest): seq[T] =
   ## Returns the shuffled ``values`` with seed as entropy.
   ## TODO: this calls out for tests, but I odn't particularly trust spec
@@ -79,6 +80,7 @@ func shuffle*[T](values: seq[T], seed: Eth2Digest): seq[T] =
         swap result[index], result[replacement_position]
         inc index
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#split
 func split*[T](lst: openArray[T], N: Positive): seq[seq[T]] =
   ## split lst in N pieces, with each piece having `len(lst) div N` or
   ## `len(lst) div N + 1` pieces
@@ -152,6 +154,7 @@ proc is_double_vote*(attestation_data_1: AttestationData,
   ## same slot - doing so means risking getting slashed.
   attestation_data_1.slot == attestation_data_2.slot
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#slot_to_epoch
 func slot_to_epoch*(slot: SlotNumber): EpochNumber =
   slot div EPOCH_LENGTH
 
@@ -174,10 +177,12 @@ proc is_surround_vote*(attestation_data_1: AttestationData,
     (target_epoch_2 < target_epoch_1)
   )
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#is_active_validator
 func is_active_validator*(validator: Validator, epoch: EpochNumber): bool =
   ### Checks if validator is active
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_active_validator_indices
 func get_active_validator_indices*(validators: openArray[Validator], epoch: EpochNumber): seq[ValidatorIndex] =
   ## Gets indices of active validators from validators
   for idx, val in validators:
@@ -196,6 +201,7 @@ func get_current_epoch_committee_count*(state: BeaconState): uint64 =
   )
   return get_epoch_committee_count(len(current_active_validators))
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: BeaconState): EpochNumber =
   slot_to_epoch(state.slot)
 
