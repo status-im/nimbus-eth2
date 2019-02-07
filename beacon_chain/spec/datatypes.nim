@@ -259,14 +259,16 @@ type
     proof_of_possession*: ValidatorSig ##\
     ## BLS proof of possession (a BLS signature)
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#exit
   Exit* = object
-    # Minimum slot for processing exit
-    slot*: uint64
+    # Minimum epoch for processing exit
+    exit*: uint64
     # Index of the exiting validator
     validator_index*: ValidatorIndex
     # Validator signature
     signature*: ValidatorSig
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -281,7 +283,7 @@ type
     state_root*: Eth2Digest ##\
     ##\ The state root, _after_ this block has been processed
 
-    randao_reveal*: Eth2Digest ##\
+    randao_reveal*: ValidatorSig ##\
     ## Proposer RANDAO reveal
 
     eth1_data*: Eth1Data
@@ -291,6 +293,7 @@ type
 
     body*: BeaconBlockBody
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     proposer_slashings*: seq[ProposerSlashing]
     attester_slashings*: seq[AttesterSlashing]
@@ -298,12 +301,14 @@ type
     deposits*: seq[Deposit]
     exits*: seq[Exit]
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#proposalsigneddata
   ProposalSignedData* = object
     slot*: uint64
     shard*: uint64 ##\
     ## Shard number (or `BEACON_CHAIN_SHARD_NUMBER` for beacon chain)
     block_root*: Eth2Digest
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#beaconstate
   BeaconState* = object
     slot*: uint64
     genesis_time*: uint64
@@ -316,7 +321,6 @@ type
     ## Validator balances in Gwei!
 
     validator_registry_update_epoch*: uint64
-    validator_registry_exit_count*: uint64
 
     # TODO remove, not in spec anymore
     validator_registry_delta_chain_tip*: Eth2Digest ##\
@@ -355,19 +359,6 @@ type
   Validator* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
-
-    # TODO remove randao_commitment, randao_layers
-    randao_commitment*: Eth2Digest ##\
-    ## RANDAO commitment created by repeatedly taking the hash of a secret value
-    ## so as to create "onion layers" around it. For every block that a
-    ## validator proposes, one level of the onion is peeled. See:
-    ## * https://ethresear.ch/t/rng-exploitability-analysis-assuming-pure-randao-based-main-chain/1825
-    ## * repeat_hash
-    ## * processRandaoReveal
-
-    randao_layers*: uint64 ##\
-    ## Number of proposals the proposer missed, and thus the number of times to
-    ## apply hash function to randao reveal
 
     activation_epoch*: EpochNumber ##\
     ## Slot when validator activated

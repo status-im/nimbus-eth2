@@ -28,15 +28,6 @@ func hackPrivKey(v: Validator): ValidatorPrivKey =
     min(sizeof(v.withdrawal_credentials.data), sizeof(i)))
   makeValidatorPrivKey(i)
 
-func hackReveal(v: Validator): Eth2Digest =
-  result = v.withdrawal_credentials
-  for i in 0..randaoRounds:
-    let tmp = repeat_hash(result, 1)
-    if tmp == v.randao_commitment:
-      return
-    result = tmp
-  raise newException(Exception, "can't find randao hack value")
-
 func makeDeposit(i: int, flags: UpdateFlags): Deposit =
   ## Ugly hack for now: we stick the private key in withdrawal_credentials
   ## which means we can repro private key and randao reveal from this data,
@@ -114,7 +105,7 @@ proc addBlock*(
       slot: state.slot + 1,
       parent_root: previous_block_root,
       state_root: Eth2Digest(), # we need the new state first
-      randao_reveal: hackReveal(proposer),
+      randao_reveal: ValidatorSig(), # TODO
       eth1_data: Eth1Data(), # TODO
       signature: ValidatorSig(), # we need the rest of the block first!
       body: body

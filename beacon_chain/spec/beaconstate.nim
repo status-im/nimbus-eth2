@@ -26,12 +26,10 @@ func sum_effective_balances*(
 func validate_proof_of_possession(state: BeaconState,
                                   pubkey: ValidatorPubKey,
                                   proof_of_possession: ValidatorSig,
-                                  withdrawal_credentials: Eth2Digest,
-                                  randao_commitment: Eth2Digest): bool =
+                                  withdrawal_credentials: Eth2Digest): bool =
   let proof_of_possession_data = DepositInput(
     pubkey: pubkey,
     withdrawal_credentials: withdrawal_credentials,
-    randao_commitment: randao_commitment
   )
 
   bls_verify(
@@ -57,8 +55,7 @@ func process_deposit(state: var BeaconState,
     # TODO return error; currently, just fails if ever called
     # but hadn't been set up to run at all
     doAssert validate_proof_of_possession(
-      state, pubkey, proof_of_possession, withdrawal_credentials,
-      randao_commitment)
+      state, pubkey, proof_of_possession, withdrawal_credentials)
 
   let validator_pubkeys = state.validator_registry.mapIt(it.pubkey)
 
@@ -67,8 +64,6 @@ func process_deposit(state: var BeaconState,
     let validator = Validator(
       pubkey: pubkey,
       withdrawal_credentials: withdrawal_credentials,
-      randao_commitment: randao_commitment,
-      randao_layers: 0,
       activation_epoch: FAR_FUTURE_EPOCH,
       exit_epoch: FAR_FUTURE_EPOCH,
       withdrawal_epoch: FAR_FUTURE_EPOCH,

@@ -85,21 +85,23 @@ proc processRandao(
 
   if skipValidation notin flags:
     # Check that proposer commit and reveal match
-    let expected = repeat_hash(blck.randao_reveal, proposer.randao_layers)
-    if expected != proposer.randao_commitment:
-      notice "Randao reveal mismatch", reveal = blck.randao_reveal,
-                                       layers = proposer.randao_layers,
-                                       commitment = proposer.randao_commitment,
-                                       expected
-      return false
+    # TODO re-enable if appropriate
+    #let expected = repeat_hash(blck.randao_reveal, proposer.randao_layers)
+    #if expected != proposer.randao_commitment:
+    #  notice "Randao reveal mismatch", reveal = blck.randao_reveal,
+    #                                   layers = proposer.randao_layers,
+    #                                   commitment = proposer.randao_commitment,
+    #                                   expected
+    #  return false
+    discard
 
   # Update state and proposer now that we're alright
-  let mix = state.slot mod LATEST_RANDAO_MIXES_LENGTH
-  for i, b in state.latest_randao_mixes[mix].data:
-    state.latest_randao_mixes[mix].data[i] = b xor blck.randao_reveal.data[i]
+  let
+    mix = get_current_epoch(state) mod LATEST_RANDAO_MIXES_LENGTH
+    rr = hash_tree_root_final(blck.randao_reveal).data
 
-  proposer.randao_commitment = blck.randao_reveal
-  proposer.randao_layers = 0
+  for i, b in state.latest_randao_mixes[mix].data:
+    state.latest_randao_mixes[mix].data[i] = b xor rr[i]
 
   return true
 
@@ -336,16 +338,10 @@ func processSlot(state: var BeaconState, previous_block_root: Eth2Digest) =
   ## chain at that time. In case the proposer is missing, it may happen that
   ## the no block is produced during the slot.
   ##
-  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#per-slot-processing
-
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#per-slot-processing
   state.slot += 1
-  state.validator_registry[
-    get_beacon_proposer_index(state, state.slot)].randao_layers += 1
-  state.latest_randao_mixes[state.slot mod LATEST_RANDAO_MIXES_LENGTH] =
-    state.latest_randao_mixes[(state.slot - 1) mod LATEST_RANDAO_MIXES_LENGTH]
   state.latest_block_roots[(state.slot - 1) mod LATEST_BLOCK_ROOTS_LENGTH] =
     previous_block_root
-
   if state.slot mod LATEST_BLOCK_ROOTS_LENGTH == 0:
     state.batched_block_roots.add(merkle_root(state.latest_block_roots))
 
