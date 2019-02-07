@@ -206,17 +206,13 @@ proc proposeBlock(node: BeaconNode,
       let ok = updateState(state, node.headBlockRoot, none[BeaconBlock](), {})
       doAssert ok
 
-  let
-    randaoCommitment = node.beaconState.validator_registry[validator.idx].randao_commitment
-    randaoReveal =  await validator.randaoReveal(randaoCommitment)
-
   var blockBody = BeaconBlockBody(
     attestations: node.attestationPool.getAttestationsForBlock(node.beaconState, slot))
 
   var newBlock = BeaconBlock(
     slot: slot,
     parent_root: node.headBlockRoot,
-    randao_reveal: randaoReveal,
+    randao_reveal: ValidatorSig(), # TODO probably wrong
     eth1_data: node.mainchainMonitor.getBeaconBlockRef(),
     signature: ValidatorSig(), # we need the rest of the block first!
     body: blockBody)
