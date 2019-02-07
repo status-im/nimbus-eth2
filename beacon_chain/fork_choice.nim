@@ -24,6 +24,18 @@ type
   # in each epoch, each shard is going to receive attestations exactly once.
   # Once the epoch is over, we can discard all attestations and start all
   # over again (no need for `discardHistoryToSlot` too).
+  #
+  # Per Danny as of 2018-12-21:
+  # Yeah, you can do any linear combination of signatures. but you have to
+  # remember the linear combination of pubkeys that constructed
+  # if you have two instances of a signature from pubkey p, then you need 2*p
+  # in the group pubkey because the attestation bitfield is only 1 bit per
+  # pubkey right now, attestations do not support this it could be extended to
+  # support N overlaps up to N times per pubkey if we had N bits per validator
+  # instead of 1
+  # We are shying away from this for the time being. If there end up being
+  # substantial difficulties in network layer aggregation, then adding bits to
+  # aid in supporting overlaps is one potential solution
 
 proc init*(T: type AttestationPool, startingSlot: int): T =
   result.attestations = initDeque[array[SHARD_COUNT, Option[Attestation]]]()
