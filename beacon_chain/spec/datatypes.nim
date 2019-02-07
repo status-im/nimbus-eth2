@@ -229,7 +229,7 @@ type
   # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#attestationdata
   AttestationDataAndCustodyBit* = object
     data*: AttestationData
-    custody_bit: bool
+    custody_bit*: bool
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#deposit
   Deposit* = object

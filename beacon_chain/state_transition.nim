@@ -184,8 +184,8 @@ proc processProposerSlashings(
 
   return true
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#verify_slashable_attestation
 func verify_slashable_attestation(state: BeaconState, slashable_attestation: SlashableAttestation): bool =
-  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#verify_slashable_attestation
   # Verify validity of ``slashable_attestation`` fields.
 
   if anyIt(slashable_attestation.custody_bitfield, it != 0):   # [TO BE REMOVED IN PHASE 1]
@@ -208,7 +208,31 @@ func verify_slashable_attestation(state: BeaconState, slashable_attestation: Sla
     custody_bit_0_indices: seq[uint64] = @[]
     custody_bit_1_indices: seq[uint64] = @[]
 
-  return true
+  for i, validator_index in slashable_attestation.validator_indices:
+    if get_bitfield_bit(slashable_attestation.custody_bitfield, i) == 0b0:
+      custody_bit_0_indices.add(validator_index)
+    else:
+      custody_bit_1_indices.add(validator_index)
+
+  # bug in 0.1 version of spec, fixed later; bls_verify is what works
+  bls_verify_multiple(
+    @[
+      bls_aggregate_pubkeys(mapIt(custody_bit_0_indices, state.validator_registry[it.int].pubkey)),
+      bls_aggregate_pubkeys(mapIt(custody_bit_1_indices, state.validator_registry[it.int].pubkey)),
+    ],
+    @[
+      hash_tree_root(AttestationDataAndCustodyBit(
+        data: slashable_attestation.data, custody_bit: false)),
+      hash_tree_root(AttestationDataAndCustodyBit(
+        data: slashable_attestation.data, custody_bit: true)),
+    ],
+    slashable_attestation.aggregate_signature,
+    get_domain(
+      state.fork,
+      slot_to_epoch(slashable_attestation.data.slot),
+      DOMAIN_ATTESTATION,
+    ),
+  )
 
 proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
   ## https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#attester-slashings-1

@@ -10,11 +10,10 @@ import
   ../extras, ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers, ./validator
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_effective_balance
 func get_effective_balance*(state: BeaconState, index: ValidatorIndex): uint64 =
-  # Validators collect rewards which increases their balance but not their
-  # influence. Validators may also lose balance if they fail to do their duty
-  # in which case their influence decreases. Once they drop below a certain
-  # balance, they're removed from the validator registry.
+  ## Return the effective balance (also known as "balance at stake") for a
+  ## validator with the given ``index``.
   min(state.validator_balances[index], MAX_DEPOSIT_AMOUNT)
 
 func sum_effective_balances*(
@@ -82,6 +81,7 @@ func process_deposit(state: var BeaconState,
 
     state.validator_balances[index] += amount
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_entry_exit_effect_epoch
 func get_entry_exit_effect_epoch*(epoch: EpochNumber): EpochNumber =
   ## An entry or exit triggered in the ``epoch`` given by the input takes effect at
   ## the epoch given by the output.
@@ -222,13 +222,15 @@ func get_block_root*(state: BeaconState,
   doAssert slot < state.slot
   state.latest_block_roots[slot mod LATEST_BLOCK_ROOTS_LENGTH]
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_attestation_participants
 func get_attestation_participants*(state: BeaconState,
                                    attestation_data: AttestationData,
-                                   aggregation_bitfield: seq[byte]): seq[ValidatorIndex] =
+                                   bitfield: seq[byte]): seq[ValidatorIndex] =
   ## Attestation participants in the attestation data are called out in a
   ## bit field that corresponds to the committee of the shard at the time - this
   ## function converts it to list of indices in to BeaconState.validators
   ## Returns empty list if the shard is not found
+  ## Return the participant indices at for the ``attestation_data`` and ``bitfield``.
   # TODO Linear search through shard list? borderline ok, it's a small list
   # TODO bitfield type needed, once bit order settles down
   # TODO iterator candidate
@@ -243,12 +245,13 @@ func get_attestation_participants*(state: BeaconState,
   let crosslink_committee = mapIt(
     filterIt(crosslink_committees, it.shard == attestation_data.shard),
     it.committee)[0]
-  assert len(aggregation_bitfield) == (len(crosslink_committee) + 7) div 8
+
+  assert verify_bitfield(bitfield, len(crosslink_committee))
 
   # Find the participating attesters in the committee
   result = @[]
   for i, validator_index in crosslink_committee:
-    let aggregation_bit = (aggregation_bitfield[i div 8] shr (7 - (i mod 8))) mod 2
+    let aggregation_bit = get_bitfield_bit(bitfield, i)
     if aggregation_bit == 1:
       result.add(validator_index)
 

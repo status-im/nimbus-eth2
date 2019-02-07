@@ -14,13 +14,13 @@ import ./datatypes, ./digest, sequtils, math
 func bitSet*(bitfield: var openArray[byte], index: int) =
   bitfield[index div 8] = bitfield[index div 8] or 1'u8 shl (7 - (index mod 8))
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_bitfield_bit
 func get_bitfield_bit*(bitfield: openarray[byte], i: int): byte =
-  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#get_bitfield_bit
   # Extract the bit in ``bitfield`` at position ``i``.
   (bitfield[i div 8] shr (7 - (i mod 8))) mod 2
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#verify_bitfield
 func verify_bitfield*(bitfield: openarray[byte], committee_size: int): bool =
-  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#verify_bitfield
   # Verify ``bitfield`` against the ``committee_size``.
   if len(bitfield) != (committee_size + 7) div 8:
     return false
@@ -113,6 +113,7 @@ func repeat_hash*(v: Eth2Digest, n: SomeInteger): Eth2Digest =
     result = eth2hash(result.data)
     dec n
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
   ## The largest integer ``x`` such that ``x**2`` is less than ``n``.
   var
@@ -123,12 +124,15 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
     y = (x + n div x) div 2
   x
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_fork_version
 func get_fork_version*(fork: Fork, epoch: EpochNumber): uint64 =
+  ## Return the fork version of the given ``epoch``.
   if epoch < fork.epoch:
     fork.previous_version
   else:
     fork.current_version
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_domain
 func get_domain*(
     fork: Fork, epoch: EpochNumber, domain_type: SignatureDomain): uint64 =
   # TODO Slot overflow? Or is slot 32 bits for all intents and purposes?
@@ -151,37 +155,31 @@ func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
   #TODO
   discard
 
-proc is_double_vote*(attestation_data_1: AttestationData,
-                     attestation_data_2: AttestationData): bool =
-  ## Assumes ``attestation_data_1`` is distinct from ``attestation_data_2``.
-  ## Returns True if the provided ``AttestationData`` are slashable
-  ## due to a 'double vote'.
-  ## A double vote is when a validator votes for two attestations within the
-  ## same slot - doing so means risking getting slashed.
-  attestation_data_1.slot == attestation_data_2.slot
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#slot_to_epoch
 func slot_to_epoch*(slot: SlotNumber): EpochNumber =
   slot div EPOCH_LENGTH
 
-proc is_surround_vote*(attestation_data_1: AttestationData,
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#is_double_vote
+func is_double_vote*(attestation_data_1: AttestationData,
+                     attestation_data_2: AttestationData): bool =
+  ## Check if ``attestation_data_1`` and ``attestation_data_2`` have the same
+  ## target.
+  let
+    target_epoch_1 = slot_to_epoch(attestation_data_1.slot)
+    target_epoch_2 = slot_to_epoch(attestation_data_2.slot)
+  target_epoch_1 == target_epoch_2
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#is_surround_vote
+func is_surround_vote*(attestation_data_1: AttestationData,
                        attestation_data_2: AttestationData): bool =
-  ## Assumes ``attestation_data_1`` is distinct from ``attestation_data_2``.
-  ## Returns True if the provided ``AttestationData`` are slashable
-  ## due to a 'surround vote'.
-  ## Note: parameter order matters as this function only checks
-  ## that ``attestation_data_1`` surrounds ``attestation_data_2``.
+  ## Check if ``attestation_data_1`` surrounds ``attestation_data_2``.
   let
     source_epoch_1 = attestation_data_1.justified_epoch
     source_epoch_2 = attestation_data_2.justified_epoch
     target_epoch_1 = slot_to_epoch(attestation_data_1.slot)
     target_epoch_2 = slot_to_epoch(attestation_data_2.slot)
 
-  (
-    (source_epoch_1 < source_epoch_2) and
-    (source_epoch_2 + 1 == target_epoch_2) and
-    (target_epoch_2 < target_epoch_1)
-  )
+  source_epoch_1 < source_epoch_2 and target_epoch_2 < target_epoch_1
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#is_active_validator
 func is_active_validator*(validator: Validator, epoch: EpochNumber): bool =
