@@ -262,7 +262,7 @@ type
   # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#exit
   Exit* = object
     # Minimum epoch for processing exit
-    exit*: uint64
+    epoch*: uint64
     # Index of the exiting validator
     validator_index*: ValidatorIndex
     # Validator signature
@@ -371,9 +371,6 @@ type
 
     penalized_epoch*: EpochNumber ##\
     ## Slot when validator penalized
-
-    exit_count*: uint64 ##\
-    ## Exit counter when validator exited (or 0)
 
     status_flags*: uint64
 

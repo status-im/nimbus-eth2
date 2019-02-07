@@ -305,7 +305,7 @@ proc processExits(
     if skipValidation notin flags:
       if not bls_verify(
           validator.pubkey, ZERO_HASH.data, exit.signature,
-          get_domain(state.fork, exit.slot, DOMAIN_EXIT)):
+          get_domain(state.fork, exit.epoch, DOMAIN_EXIT)):
         notice "Exit: invalid signature"
         return false
 
@@ -313,8 +313,8 @@ proc processExits(
       notice "Exit: exit/entry too close"
       return false
 
-    if not (state.slot >= exit.slot):
-      notice "Exit: bad slot"
+    if not (get_current_epoch(state) >= exit.epoch):
+      notice "Exit: bad epoch"
       return false
 
     initiate_validator_exit(state, exit.validator_index)

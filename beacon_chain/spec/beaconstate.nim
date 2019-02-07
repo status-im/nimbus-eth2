@@ -68,7 +68,6 @@ func process_deposit(state: var BeaconState,
       exit_epoch: FAR_FUTURE_EPOCH,
       withdrawal_epoch: FAR_FUTURE_EPOCH,
       penalized_epoch: FAR_FUTURE_EPOCH,
-      exit_count: 0,
       status_flags: 0,
     )
 
@@ -115,10 +114,6 @@ func exit_validator*(state: var BeaconState,
     return
 
   validator.exit_epoch = get_entry_exit_effect_epoch(get_current_epoch(state))
-
-  # The following updates only occur if not previous exited
-  state.validator_registry_exit_count += 1
-  validator.exit_count = state.validator_registry_exit_count
 
 func process_penalties_and_exits(state: var BeaconState) =
   let
@@ -183,7 +178,6 @@ func get_initial_beacon_state*(
     ),
 
     validator_registry_update_epoch: GENESIS_EPOCH,
-    validator_registry_exit_count: 0,
     validator_registry_delta_chain_tip: ZERO_HASH,
 
     # Randomness and committees

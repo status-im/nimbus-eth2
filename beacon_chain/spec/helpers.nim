@@ -140,9 +140,10 @@ func get_fork_version*(fork: Fork, epoch: EpochNumber): uint64 =
     fork.current_version
 
 func get_domain*(
-    fork: Fork, slot: uint64, domain_type: SignatureDomain): uint64 =
+    fork: Fork, epoch: EpochNumber, domain_type: SignatureDomain): uint64 =
   # TODO Slot overflow? Or is slot 32 bits for all intents and purposes?
-  (get_fork_version(fork, slot) shl 32) + domain_type.uint32
+  # Get the domain number that represents the fork meta and signature domain.
+  (get_fork_version(fork, epoch) shl 32) + domain_type.uint32
 
 func is_power_of_2*(v: uint64): bool = (v and (v-1)) == 0
 
