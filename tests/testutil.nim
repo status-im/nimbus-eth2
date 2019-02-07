@@ -7,11 +7,8 @@
 
 import
   options, sequtils,
-  ../beacon_chain/[extras, ssz, state_transition],
+  ../beacon_chain/[extras, ssz, state_transition, validator_pool],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator]
-
-const
-  randaoRounds = 100
 
 func makeValidatorPrivKey(i: int): ValidatorPrivKey =
   var i = i + 1 # 0 does not work, as private key...
@@ -36,7 +33,6 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
     privkey = makeValidatorPrivKey(i)
     pubkey = privkey.pubKey()
     withdrawal_credentials = makeFakeHash(i)
-    randao_commitment = repeat_hash(withdrawal_credentials, randaoRounds)
 
   let pop =
     if skipValidation in flags:
@@ -45,7 +41,6 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
       let proof_of_possession_data = DepositInput(
         pubkey: pubkey,
         withdrawal_credentials: withdrawal_credentials,
-        randao_commitment: randao_commitment
       )
       let domain = 0'u64
       bls_sign(privkey, hash_tree_root_final(proof_of_possession_data).data, domain)
@@ -56,7 +51,6 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
         pubkey: pubkey,
         proof_of_possession: pop,
         withdrawal_credentials: withdrawal_credentials,
-        randao_commitment: randao_commitment
       ),
       amount: MAX_DEPOSIT_AMOUNT,
     )
@@ -96,6 +90,7 @@ proc addBlock*(
   let
     # Index from the new state, but registry from the old state.. hmm...
     proposer = state.validator_registry[proposer_index]
+    privKey = hackPrivKey(proposer)
 
   var
     # In order to reuse the state transition function, we first create a dummy
@@ -105,7 +100,7 @@ proc addBlock*(
       slot: state.slot + 1,
       parent_root: previous_block_root,
       state_root: Eth2Digest(), # we need the new state first
-      randao_reveal: ValidatorSig(), # TODO
+      randao_reveal: privKey.genRandaoReveal(state),
       eth1_data: Eth1Data(), # TODO
       signature: ValidatorSig(), # we need the rest of the block first!
       body: body
