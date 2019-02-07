@@ -275,9 +275,9 @@ proc processAttestations(
   state.latest_attestations.add blck.body.attestations.mapIt(
     PendingAttestation(
       data: it.data,
-      participation_bitfield: it.aggregation_bitfield,
+      aggregation_bitfield: it.aggregation_bitfield,
       custody_bitfield: it.custody_bitfield,
-      slot_included: state.slot,
+      inclusion_slot: state.slot,
     )
   )
 
@@ -411,7 +411,7 @@ func get_attester_indices(
   # TODO spec - add as helper?
   attestations.
     mapIt(
-      get_attestation_participants(state, it.data, it.participation_bitfield)).
+      get_attestation_participants(state, it.data, it.aggregation_bitfield)).
     flatten().
     deduplicate()
 
@@ -634,14 +634,14 @@ func processEpoch(state: var BeaconState) =
 
   func inclusion_slot(state: BeaconState, v: ValidatorIndex): uint64 =
     for a in previous_epoch_attestations:
-      if v in get_attestation_participants(state, a.data, a.participation_bitfield):
-        return a.slot_included
+      if v in get_attestation_participants(state, a.data, a.aggregation_bitfield):
+        return a.inclusion_slot
     doAssert false # shouldn't happen..
 
   func inclusion_distance(state: BeaconState, v: ValidatorIndex): uint64 =
     for a in previous_epoch_attestations:
-      if v in get_attestation_participants(state, a.data, a.participation_bitfield):
-        return a.slot_included - a.data.slot
+      if v in get_attestation_participants(state, a.data, a.aggregation_bitfield):
+        return a.inclusion_slot - a.data.slot
     doAssert false # shouldn't happen..
 
   block: # Justification and finalization
