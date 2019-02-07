@@ -31,9 +31,6 @@ func verify_bitfield*(bitfield: openarray[byte], committee_size: int): bool =
 
   true
 
-func mod_get[T](arr: openarray[T], pos: Natural): T =
-  arr[pos mod arr.len]
-
 func shuffle*[T](values: seq[T], seed: Eth2Digest): seq[T] =
   ## Returns the shuffled ``values`` with seed as entropy.
   ## TODO: this calls out for tests, but I odn't particularly trust spec
@@ -113,15 +110,6 @@ func repeat_hash*(v: Eth2Digest, n: SomeInteger): Eth2Digest =
   while n != 0:
     result = eth2hash(result.data)
     dec n
-
-func get_shard_committees_index*(state: BeaconState, slot: uint64): uint64 =
-  # TODO temporary adapter; remove when all users gone
-  ## Warning: as it stands, this helper only works during state updates _after_
-  ## state.slot has been incremented but before shard_committees_at_slots has
-  ## been updated!
-  # TODO spec unsigned-unsafe here
-  doAssert slot + (state.slot mod EPOCH_LENGTH) + EPOCH_LENGTH > state.slot
-  slot + (state.slot mod EPOCH_LENGTH) + EPOCH_LENGTH - state.slot
 
 func integer_squareroot*(n: SomeInteger): SomeInteger =
   ## The largest integer ``x`` such that ``x**2`` is less than ``n``.
