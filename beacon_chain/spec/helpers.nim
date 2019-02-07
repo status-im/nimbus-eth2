@@ -135,14 +135,20 @@ func get_domain*(
   # Get the domain number that represents the fork meta and signature domain.
   (get_fork_version(fork, epoch) shl 32) + domain_type.uint32
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#is_power_of_two
 func is_power_of_2*(v: uint64): bool = (v and (v-1)) == 0
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#merkle_root
 func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
-  # o = [0] * len(values) + values
-  # for i in range(len(values)-1, 0, -1):
-  #     o[i] = hash(o[i*2] + o[i*2+1])
-  # return o[1]
-  # TODO
+  ## Merkleize ``values`` (where ``len(values)`` is a power of two) and return
+  ## the Merkle root.
+  #var o = array[len(values) * 2, Eth2Digest]
+  #o[len(values) .. 2*len(values)] = values
+  #for i in countdown(len(values)-1, 0):
+  #  discard
+    #o[i] = hash(o[i*2] + o[i*2+1])
+  #return o[1]
+  #TODO
   discard
 
 proc is_double_vote*(attestation_data_1: AttestationData,
@@ -194,6 +200,7 @@ func get_epoch_committee_count*(active_validator_count: int): uint64 =
     active_validator_count div EPOCH_LENGTH div TARGET_COMMITTEE_SIZE,
     1, SHARD_COUNT div EPOCH_LENGTH).uint64 * EPOCH_LENGTH
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_current_epoch_committee_count
 func get_current_epoch_committee_count*(state: BeaconState): uint64 =
   let current_active_validators = get_active_validator_indices(
     state.validator_registry,
@@ -205,9 +212,7 @@ func get_current_epoch_committee_count*(state: BeaconState): uint64 =
 func get_current_epoch*(state: BeaconState): EpochNumber =
   slot_to_epoch(state.slot)
 
-## TODO I've been moving things into helpers because of layering issues
-## but create DAG of which helper functions ref others and topo sort to
-## refactor all of this mess.
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: BeaconState,
                      epoch: EpochNumber): Eth2Digest =
     ## Returns the randao mix at a recent ``epoch``.
@@ -216,12 +221,14 @@ func get_randao_mix*(state: BeaconState,
 
     state.latest_randao_mixes[epoch mod LATEST_RANDAO_MIXES_LENGTH]
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_active_index_root
 func get_active_index_root(state: BeaconState, epoch: EpochNumber): Eth2Digest =
   # Returns the index root at a recent ``epoch``.
   assert get_current_epoch(state) - LATEST_INDEX_ROOTS_LENGTH < epoch
   assert epoch <= get_current_epoch(state) + 1
   state.latest_index_roots[epoch mod LATEST_INDEX_ROOTS_LENGTH]
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#generate_seed
 func generate_seed*(state: BeaconState, epoch: EpochNumber): Eth2Digest =
   # Generate a seed for the given ``epoch``.
 

@@ -217,6 +217,7 @@ func get_initial_beacon_state*(
 
   state
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_block_root
 func get_block_root*(state: BeaconState,
                      slot: uint64): Eth2Digest =
   doAssert state.slot <= slot + LATEST_BLOCK_ROOTS_LENGTH
