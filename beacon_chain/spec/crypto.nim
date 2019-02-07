@@ -73,14 +73,25 @@ func bls_aggregate_pubkeys*(keys: openArray[ValidatorPubKey]): ValidatorPubKey =
     else:
       result.combine(key)
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/bls_signature.md#bls_verify
 func bls_verify*(
     pubkey: ValidatorPubKey, msg: openArray[byte], sig: ValidatorSig,
     domain: uint64): bool =
   # name from spec!
   sig.verify(msg, domain, pubkey)
 
-func bls_sign*(key: ValidatorPrivKey,
-               msg: openarray[byte], domain: uint64): ValidatorSig =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/bls_signature.md#bls_verify_multiple
+func bls_verify_multiple*(
+    pubkeys: seq[ValidatorPubKey], messages: seq[array[0..31, byte]],
+    sig: ValidatorSig, domain: uint64): bool =
+  let L = len(pubkeys)
+  assert L == len(messages)
+
+  # TODO calculate product of ate pairings; check how sig.verify works
+  true
+
+func bls_sign*(key: ValidatorPrivKey, msg: openarray[byte],
+               domain: uint64): ValidatorSig =
   # name from spec!
   key.sign(domain, msg)
 
