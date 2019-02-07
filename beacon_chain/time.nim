@@ -16,8 +16,9 @@ proc timeSinceGenesis*(s: BeaconState): Timestamp =
   Timestamp(int64(fastEpochTime() - s.genesis_time * 1000) -
             detectedClockDrift)
 
-template toSlot*(t: Timestamp): uint64 =
-  t div (SLOT_DURATION * 1000)
+proc getSlotFromTime*(s: BeaconState, t = now()): SlotNumber =
+  GENESIS_SLOT + uint64((int64(t - s.genesis_time * 1000) - detectedClockDrift) div
+                         int64(SLOT_DURATION * 1000))
 
 template slotStart*(s: BeaconState, slot: uint64): Timestamp =
   (s.genesis_time + (slot * SLOT_DURATION)) * 1000

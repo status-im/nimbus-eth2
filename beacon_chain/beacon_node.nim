@@ -93,7 +93,7 @@ proc sync*(node: BeaconNode): Future[bool] {.async.} =
     node.beaconState = await obtainTrustedStateSnapshot(node.db)
   else:
     node.beaconState = persistedState
-    var targetSlot = toSlot timeSinceGenesis(node.beaconState)
+    var targetSlot = node.beaconState.getSlotFromTime()
 
     let t = now()
     if t < node.beaconState.genesisTime * 1000:
@@ -388,7 +388,7 @@ proc processBlocks*(node: BeaconNode) =
 
     node.attestationPool.add(a, node.beaconState)
 
-  let epoch = node.beaconState.timeSinceGenesis().toSlot div EPOCH_LENGTH
+  let epoch = node.beaconState.getSlotFromTime div EPOCH_LENGTH
   node.scheduleEpochActions(epoch)
 
   runForever()
