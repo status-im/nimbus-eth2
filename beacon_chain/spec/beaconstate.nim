@@ -320,20 +320,21 @@ func get_epoch_start_slot*(epoch: EpochNumber): SlotNumber =
   # Return the starting slot of the given ``epoch``.
   epoch * EPOCH_LENGTH
 
+## https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#attestations-1
 proc checkAttestation*(
     state: BeaconState, attestation: Attestation, flags: UpdateFlags): bool =
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
   ## be followed!
-  ##
-  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#attestations-1
 
-  if not (attestation.data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= state.slot):
+  # Can't underflow, because GENESIS_SLOT > MIN_ATTESTATION_INCLUSION_DELAY
+  if not (attestation.data.slot <= state.slot - MIN_ATTESTATION_INCLUSION_DELAY):
     warn("Attestation too new",
       attestation_slot = attestation.data.slot, state_slot = state.slot)
     return
 
-  if not (attestation.data.slot + EPOCH_LENGTH >= state.slot):
+  if not (state.slot - MIN_ATTESTATION_INCLUSION_DELAY <
+      attestation.data.slot + EPOCH_LENGTH):
     warn("Attestation too old",
       attestation_slot = attestation.data.slot, state_slot = state.slot)
     return
@@ -358,28 +359,62 @@ proc checkAttestation*(
       expected_justified_block_root)
     return
 
-  if not (state.latest_crosslinks[attestation.data.shard].shard_block_root in [
-      attestation.data.latest_crosslink_root,
-      attestation.data.shard_block_root]):
-    warn("Unexpected crosslink shard_block_root")
+  if not (state.latest_crosslinks[attestation.data.shard] in [
+      attestation.data.latest_crosslink,
+      Crosslink(
+        shard_block_root: attestation.data.shard_block_root,
+        epoch: slot_to_epoch(attestation.data.slot))]):
+    warn("Unexpected crosslink shard")
     return
+
+  assert allIt(attestation.custody_bitfield, it == 0) #TO BE REMOVED IN PHASE 1
+  assert anyIt(attestation.aggregation_bitfield, it != 0)
+
+  let crosslink_committee = mapIt(
+    filterIt(get_crosslink_committees_at_slot(state, attestation.data.slot),
+             it.shard == attestation.data.shard),
+    it.committee)[0]
+
+  assert allIt(0 ..< len(crosslink_committee),
+               if get_bitfield_bit(
+                   attestation.aggregation_bitfield, it) == 0b0:
+                 get_bitfield_bit(attestation.custody_bitfield, it) == 0b0
+               else:
+                 true)
 
   let
     participants = get_attestation_participants(
       state, attestation.data, attestation.aggregation_bitfield)
+
+    ## TODO when the custody_bitfield assertion-to-emptiness disappears do this
+    ## and fix the custody_bit_0_participants check to depend on it.
+    # custody_bit_1_participants = {nothing, always, because assertion above}
+    custody_bit_1_participants: seq[ValidatorIndex] = @[]
+    custody_bit_0_participants = participants
+
     group_public_key = bls_aggregate_pubkeys(
       participants.mapIt(state.validator_registry[it].pubkey))
 
+  ## the rest; turns into expensive NOP until then.
   if skipValidation notin flags:
     # Verify that aggregate_signature verifies using the group pubkey.
-    let msg = hash_tree_root_final(attestation.data)
-
-    if not bls_verify(
-          group_public_key, @(msg.data) & @[0'u8], attestation.aggregate_signature,
-          0, # TODO: get_domain(state.fork, attestation.data.slot, DOMAIN_ATTESTATION)
-        ):
-      warn("Invalid attestation group signature")
-      return
+    assert bls_verify_multiple(
+      @[
+        bls_aggregate_pubkeys(mapIt(custody_bit_0_participants,
+                                    state.validator_registry[it].pubkey)),
+        bls_aggregate_pubkeys(mapIt(custody_bit_1_participants,
+                                    state.validator_registry[it].pubkey)),
+      ],
+      @[
+        hash_tree_root(AttestationDataAndCustodyBit(
+          data: attestation.data, custody_bit: false)),
+        hash_tree_root(AttestationDataAndCustodyBit(
+          data: attestation.data, custody_bit: true)),
+      ],
+      attestation.aggregate_signature,
+      get_domain(state.fork, slot_to_epoch(attestation.data.slot),
+                 DOMAIN_ATTESTATION),
+    )
 
   # To be removed in Phase1:
   if attestation.data.shard_block_root != ZERO_HASH:

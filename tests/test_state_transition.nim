@@ -96,7 +96,6 @@ suite "Block processing":
       crosslink_committees = get_crosslink_committees_at_slot(state, state.slot)
       attestation = makeAttestation(
         state, previous_block_root,
-        #state.shard_committees_at_slots[state.slot][0].committee[0])
         crosslink_committees[0].committee[0])
 
     # Some time needs to pass before attestations are included - this is
