@@ -375,6 +375,21 @@ proc checkAttestation*(
              it.shard == attestation.data.shard),
     it.committee)[0]
 
+  # Extra checks not in specs
+  # https://github.com/status-im/nim-beacon-chain/pull/105#issuecomment-462432544
+  assert attestation.aggregation_bitfield.len == (
+            crosslink_committee.len + 7) div 8, (
+              "Error: got " & $attestation.aggregation_bitfield.len &
+              " but expected " & $((crosslink_committee.len + 7) div 8)
+            )
+
+  assert attestation.custody_bitfield.len == (
+            crosslink_committee.len + 7) div 8, (
+              "Error: got " & $attestation.custody_bitfield.len &
+              " but expected " & $((crosslink_committee.len + 7) div 8)
+            )
+  # End extra checks
+
   assert allIt(0 ..< len(crosslink_committee),
     if get_bitfield_bit(attestation.aggregation_bitfield, it) == 0b0:
       # Should always be true in phase 0, because of above assertion
