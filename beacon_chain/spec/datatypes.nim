@@ -274,7 +274,7 @@ type
     # Validator signature
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#beaconblock
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -299,7 +299,7 @@ type
 
     body*: BeaconBlockBody
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     proposer_slashings*: seq[ProposerSlashing]
     attester_slashings*: seq[AttesterSlashing]
@@ -307,14 +307,14 @@ type
     deposits*: seq[Deposit]
     exits*: seq[Exit]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#proposalsigneddata
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#proposalsigneddata
   ProposalSignedData* = object
     slot*: uint64
     shard*: uint64 ##\
     ## Shard number (or `BEACON_CHAIN_SHARD_NUMBER` for beacon chain)
     block_root*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#beaconstate
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#beaconstate
   BeaconState* = object
     slot*: uint64
     genesis_time*: uint64
@@ -328,7 +328,7 @@ type
 
     validator_registry_update_epoch*: uint64
 
-    # TODO remove, not in spec anymore
+    # TODO remove or conditionally compile; not in spec anymore
     validator_registry_delta_chain_tip*: Eth2Digest ##\
     ## For light clients to easily track delta
 
@@ -336,16 +336,16 @@ type
     latest_randao_mixes*: array[LATEST_BLOCK_ROOTS_LENGTH.int, Eth2Digest]
     previous_epoch_start_shard*: uint64
     current_epoch_start_shard*: uint64
-    previous_calculation_epoch*: EpochNumber
-    current_calculation_epoch*: EpochNumber
+    previous_calculation_epoch*: uint64
+    current_calculation_epoch*: uint64
     previous_epoch_seed*: Eth2Digest
     current_epoch_seed*: Eth2Digest
 
     # Finality
-    previous_justified_epoch*: EpochNumber
-    justified_epoch*: EpochNumber
+    previous_justified_epoch*: uint64
+    justified_epoch*: uint64
     justification_bitfield*: uint64
-    finalized_epoch*: EpochNumber
+    finalized_epoch*: uint64
 
     # Recent state
     latest_crosslinks*: array[SHARD_COUNT, Crosslink]
@@ -359,10 +359,11 @@ type
     latest_attestations*: seq[PendingAttestation]
     batched_block_roots*: seq[Eth2Digest]
 
+    # Ethereum 1.0 chain data
     latest_eth1_data*: Eth1Data
     eth1_data_votes*: seq[Eth1DataVote]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#validator
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#validator
   Validator* = object
     pubkey*: ValidatorPubKey ##\
     ## BLS public key
@@ -370,40 +371,40 @@ type
     withdrawal_credentials*: Eth2Digest ##\
     ## Withdrawal credentials
 
-    activation_epoch*: EpochNumber ##\
+    activation_epoch*: uint64 ##\
     ## Epoch when validator activated
 
-    exit_epoch*: EpochNumber ##\
+    exit_epoch*: uint64 ##\
     ## Epoch when validator exited
 
-    withdrawal_epoch*: EpochNumber ##\
+    withdrawal_epoch*: uint64 ##\
     ## Epoch when validator withdrew
 
-    penalized_epoch*: EpochNumber ##\
+    penalized_epoch*: uint64 ##\
     ## Epoch when validator penalized
 
     status_flags*: uint64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#crosslink
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#crosslink
   Crosslink* = object
     epoch*: uint64
     shard_block_root*: Eth2Digest ##\
     ## Shard chain block root
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#pendingattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#pendingattestation
   PendingAttestation* = object
     aggregation_bitfield*: seq[byte]          # Attester participation bitfield
     data*: AttestationData                    # Attestation data
     custody_bitfield*: seq[byte]              # Custody bitfield
     inclusion_slot*: uint64                   # Inclusion slot
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#fork
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#fork
   Fork* = object
     previous_version*: uint64                     # Previous fork version
     current_version*: uint64                      # Current fork version
     epoch*: uint64                                # Fork epoch number
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#eth1data
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#eth1data
   Eth1Data* = object
     deposit_root*: Eth2Digest ##\
     ## Data being voted for
@@ -411,7 +412,7 @@ type
     block_hash*: Eth2Digest ##\
     ## Block hash
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#eth1datavote
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#eth1datavote
   Eth1DataVote* = object
     eth1_data*: Eth1Data
     vote_count*: uint64                           # Vote count
