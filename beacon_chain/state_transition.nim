@@ -140,7 +140,7 @@ proc processProposerSlashings(
     return false
 
   for proposer_slashing in blck.body.proposer_slashings:
-    let proposer = state.validator_registry[proposer_slashing.proposer_index]
+    let proposer = state.validator_registry[proposer_slashing.proposer_index.int]
     if skipValidation notin flags:
       if not bls_verify(
           proposer.pubkey,
@@ -180,7 +180,7 @@ proc processProposerSlashings(
       notice "PropSlash: penalized slot"
       return false
 
-    penalizeValidator(state, proposer_slashing.proposer_index)
+    penalizeValidator(state, proposer_slashing.proposer_index.ValidatorIndex)
 
   return true
 
@@ -324,7 +324,7 @@ proc processExits(
     return false
 
   for exit in blck.body.exits:
-    let validator = state.validator_registry[exit.validator_index]
+    let validator = state.validator_registry[exit.validator_index.int]
 
     if skipValidation notin flags:
       if not bls_verify(
@@ -341,7 +341,7 @@ proc processExits(
       notice "Exit: bad epoch"
       return false
 
-    initiate_validator_exit(state, exit.validator_index)
+    initiate_validator_exit(state, exit.validator_index.int)
 
   return true
 
