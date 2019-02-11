@@ -30,8 +30,6 @@ const
 
   stateStoragePeriod = EPOCH_LENGTH * 10 # Save states once per this number of slots. TODO: Find a good number.
 
-func humaneSlotNum(s: SlotNumber): SlotNumber =
-  s - GENESIS_SLOT
 
 func shortHash(x: auto): string =
   ($x)[0..7]
@@ -51,7 +49,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): T =
   result.config = conf
 
   result.attachedValidators = ValidatorPool.init
-  init result.attestationPool, 0
+  init result.attestationPool, GENESIS_SLOT
   init result.mainchainMonitor, "", Port(0) # TODO: specify geth address and port
 
   let trieDB = trieDB newChainDb(string conf.dataDir)
@@ -236,7 +234,8 @@ proc proposeBlock(node: BeaconNode,
 
   info "Block proposed", slot = humaneSlotNum(slot),
                          stateRoot = shortHash(newBlock.state_root),
-                         validator = shortValidatorKey(node, validator.idx)
+                         validator = shortValidatorKey(node, validator.idx),
+                         idx = validator.idx
 
 proc scheduleBlockProposal(node: BeaconNode,
                            slot: uint64,
@@ -251,6 +250,7 @@ proc scheduleBlockProposal(node: BeaconNode,
 
   info "Scheduling block proposal",
     validator = shortValidatorKey(node, validator.idx),
+    idx = validator.idx,
     slot = humaneSlotNum(slot),
     fromNow = (at - fastEpochTime()) div 1000
 
@@ -288,9 +288,11 @@ proc scheduleEpochActions(node: BeaconNode, epoch: uint64) =
   # see the comments in `get_beacon_proposer_index`
   var nextState = node.beaconState
 
-  for i in 0.uint64 ..< EPOCH_LENGTH:
+  let start = if epoch == GENESIS_EPOCH: 1.uint64 else: 0.uint64
+
+  for i in start ..< EPOCH_LENGTH:
     # Schedule block proposals
-    let slot = epoch * EPOCH_LENGTH + i + 1
+    let slot = epoch * EPOCH_LENGTH + i
     nextState.slot = slot
     let proposerIdx = get_beacon_proposer_index(nextState, slot)
     let validator = node.getAttachedValidator(proposerIdx)

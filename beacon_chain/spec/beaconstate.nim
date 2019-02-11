@@ -37,7 +37,7 @@ func validate_proof_of_possession(state: BeaconState,
     proof_of_possession,
     get_domain(
         state.fork,
-        state.slot,
+        slot_to_epoch(state.slot),
         DOMAIN_DEPOSIT,
     )
   )

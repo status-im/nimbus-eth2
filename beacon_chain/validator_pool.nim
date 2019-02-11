@@ -51,7 +51,7 @@ proc signBlockProposal*(v: AttachedValidator, fork: Fork,
 
     # TODO: Should we use proposalRoot as data, or digest in regards to signature?
     result = bls_sign(v.privKey, proposalRoot.data,
-      get_domain(fork, proposal.slot, DOMAIN_PROPOSAL))
+      get_domain(fork, slot_to_epoch(proposal.slot), DOMAIN_PROPOSAL))
   else:
     # TODO:
     # send RPC

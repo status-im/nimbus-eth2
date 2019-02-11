@@ -15,7 +15,7 @@ type
     # shard number. When we haven't received an attestation for a particular
     # shard yet, the Option value will be `none`
     attestations: Deque[array[SHARD_COUNT, Option[Attestation]]]
-    startingSlot: int
+    startingSlot: uint64
 
   # TODO:
   # The compilicated Deque above is not needed.
@@ -37,7 +37,7 @@ type
   # substantial difficulties in network layer aggregation, then adding bits to
   # aid in supporting overlaps is one potential solution
 
-proc init*(T: type AttestationPool, startingSlot: int): T =
+proc init*(T: type AttestationPool, startingSlot: uint64): T =
   result.attestations = initDeque[array[SHARD_COUNT, Option[Attestation]]]()
   result.startingSlot = startingSlot
 
@@ -74,14 +74,14 @@ proc add*(pool: var AttestationPool,
           beaconState: BeaconState) =
   # The caller of this function is responsible for ensuring that
   # the attestations will be given in a strictly slot increasing order:
-  doAssert attestation.data.slot.int >= pool.startingSlot
+  doAssert attestation.data.slot >= pool.startingSlot
 
   # TODO:
   # Validate that the attestation is authentic (it's properly signed)
   # and make sure that the validator is supposed to make an attestation
   # for the specific shard/slot
 
-  let slotIdxInPool = attestation.data.slot.int - pool.startingSlot
+  let slotIdxInPool = int(attestation.data.slot - pool.startingSlot)
   if slotIdxInPool >= pool.attestations.len:
     pool.attestations.setLen(slotIdxInPool + 1)
 
@@ -104,20 +104,20 @@ proc getAttestationsForBlock*(pool: AttestationPool,
     firstSlot = 0.uint64
     lastSlot = newBlockSlot - MIN_ATTESTATION_INCLUSION_DELAY
 
-  if pool.startingSlot.uint64 + MIN_ATTESTATION_INCLUSION_DELAY <= lastState.slot:
+  if pool.startingSlot + MIN_ATTESTATION_INCLUSION_DELAY <= lastState.slot:
     firstSlot = lastState.slot - MIN_ATTESTATION_INCLUSION_DELAY
 
   for slot in firstSlot .. lastSlot:
-    let slotDequeIdx = slot.int - pool.startingSlot
+    let slotDequeIdx = int(slot - pool.startingSlot)
     if slotDequeIdx >= pool.attestations.len: return
     let shardAndComittees = get_crosslink_committees_at_slot(lastState, slot)
     for s in shardAndComittees:
       if pool.attestations[slotDequeIdx][s.shard].isSome:
         result.add pool.attestations[slotDequeIdx][s.shard].get
 
-proc discardHistoryToSlot*(pool: var AttestationPool, slot: int) =
+proc discardHistoryToSlot*(pool: var AttestationPool, slot: uint64) =
   ## The index is treated inclusively
-  let slot = slot - MIN_ATTESTATION_INCLUSION_DELAY.int
+  let slot = slot - MIN_ATTESTATION_INCLUSION_DELAY
   if slot < pool.startingSlot:
     return
   let slotIdx = int(slot - pool.startingSlot)
@@ -187,7 +187,7 @@ func getVoteCount(aggregation_bitfield: openarray[byte]): int =
   for validatorIdx in 0 ..< aggregation_bitfield.len * 8:
     result += int aggregation_bitfield.get_bitfield_bit(validatorIdx)
 
-func getAttestationVoteCount(pool: AttestationPool, current_slot: int): CountTable[Eth2Digest] =
+func getAttestationVoteCount(pool: AttestationPool, current_slot: uint64): CountTable[Eth2Digest] =
   ## Returns all blocks more recent that the current slot
   ## that were attested and their vote count
   # This replaces:
@@ -202,7 +202,7 @@ func getAttestationVoteCount(pool: AttestationPool, current_slot: int): CountTab
   # while the following implementation will count such blockhash multiple times instead.
   result = initCountTable[Eth2Digest]()
 
-  for slot in current_slot - pool.startingSlot ..< pool.attestations.len:
+  for slot in current_slot - pool.startingSlot ..< pool.attestations.len.uint64:
     for attestation in pool.attestations[slot]:
       if attestation.isSome:
         # Increase the block attestation counts by the number of validators aggregated
@@ -218,7 +218,7 @@ proc lmdGhost*(
   # LMD GHOST (Latest Message Driven - Greediest Heaviest Observed SubTree)
 
   # Raw vote count from all attestations
-  let rawVoteCount = pool.getAttestationVoteCount(state.slot.int)
+  let rawVoteCount = pool.getAttestationVoteCount(state.slot)
 
   # The real vote count for a block also takes into account votes for its children
 

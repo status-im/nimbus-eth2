@@ -39,7 +39,7 @@ func flatten[T](v: openArray[seq[T]]): seq[T] =
   # TODO not in nim - doh.
   for x in v: result.add x
 
-func verifyProposerSignature(state: BeaconState, blck: BeaconBlock): bool =
+proc verifyProposerSignature(state: BeaconState, blck: BeaconBlock): bool =
   ## When creating a block, the proposer will sign a version of the block that
   ## doesn't contain the data (chicken and egg), then add the signature to that
   ## block. Here, we check that the signature is correct by repeating the same
@@ -61,7 +61,7 @@ func verifyProposerSignature(state: BeaconState, blck: BeaconBlock): bool =
   bls_verify(
     state.validator_registry[proposer_index].pubkey,
     proposal_hash.data, blck.signature,
-    get_domain(state.fork, state.slot, DOMAIN_PROPOSAL))
+    get_domain(state.fork, slot_to_epoch(state.slot), DOMAIN_PROPOSAL))
 
 proc processRandao(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
@@ -147,7 +147,7 @@ proc processProposerSlashings(
           hash_tree_root_final(proposer_slashing.proposal_data_1).data,
           proposer_slashing.proposal_signature_1,
           get_domain(
-            state.fork, proposer_slashing.proposal_data_1.slot,
+            state.fork, slot_to_epoch(proposer_slashing.proposal_data_1.slot),
             DOMAIN_PROPOSAL)):
         notice "PropSlash: invalid signature 1"
         return false
@@ -156,7 +156,7 @@ proc processProposerSlashings(
           hash_tree_root_final(proposer_slashing.proposal_data_2).data,
           proposer_slashing.proposal_signature_2,
           get_domain(
-            state.fork, proposer_slashing.proposal_data_2.slot,
+            state.fork, slot_to_epoch(proposer_slashing.proposal_data_2.slot),
             DOMAIN_PROPOSAL)):
         notice "PropSlash: invalid signature 2"
         return false
@@ -401,7 +401,7 @@ proc processBlock(
     #      type that omits some fields - this way, the compiler would guarantee
     #      that we don't try to access fields that don't have a value yet
     if not verifyProposerSignature(state, blck):
-      notice "Proposer signature not valid"
+      notice "Proposer signature not valid", slot = humaneSlotNum(state.slot)
       return false
 
   if not processRandao(state, blck, flags):

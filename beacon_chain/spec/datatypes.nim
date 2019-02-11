@@ -469,6 +469,12 @@ when true:
   proc read*(rlp: var Rlp, T: type ValidatorSig): T {.inline.} =
     discard
 
+func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
+    ($state.validator_registry[validatorIdx].pubkey)[0..7]
+
+func humaneSlotNum*(s: SlotNumber): SlotNumber =
+  s - GENESIS_SLOT
+
 export
   writeValue, readValue
 
