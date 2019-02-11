@@ -17,8 +17,6 @@ func bitSet*(bitfield: var openArray[byte], index: int) =
 # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_bitfield_bit
 func get_bitfield_bit*(bitfield: openarray[byte], i: int): byte =
   # Extract the bit in ``bitfield`` at position ``i``.
-  assert 0 <= i div 8, "i: " & $i & " i div 8: " & $(i div 8)
-  assert i div 8 < bitfield.len, "i: " & $i & " i div 8: " & $(i div 8)
   (bitfield[i div 8] shr (7 - (i mod 8))) mod 2
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#verify_bitfield
