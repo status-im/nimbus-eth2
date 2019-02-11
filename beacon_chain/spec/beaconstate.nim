@@ -376,11 +376,11 @@ proc checkAttestation*(
     it.committee)[0]
 
   assert allIt(0 ..< len(crosslink_committee),
-               if get_bitfield_bit(
-                   attestation.aggregation_bitfield, it) == 0b0:
-                 get_bitfield_bit(attestation.custody_bitfield, it) == 0b0
-               else:
-                 true)
+    if get_bitfield_bit(attestation.aggregation_bitfield, it) == 0b0:
+      # Should always be true in phase 0, because of above assertion
+      get_bitfield_bit(attestation.custody_bitfield, it) == 0b0
+    else:
+      true)
 
   let
     participants = get_attestation_participants(
