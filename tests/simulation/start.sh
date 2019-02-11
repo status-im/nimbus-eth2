@@ -32,7 +32,7 @@ if [[ -z "$SKIP_BUILDS" ]]; then
 fi
 
 if [ ! -f $STARTUP_FILE ]; then
-  $VALIDATOR_KEYGEN_BIN --validators=$NUMBER_OF_VALIDATORS --outputDir="$SIMULATION_DIR"
+  $VALIDATOR_KEYGEN_BIN --validators=$NUMBER_OF_VALIDATORS --outputDir="$SIMULATION_DIR" --startupDelay=2
 fi
 
 if [ ! -f $SNAPSHOT_FILE ]; then
