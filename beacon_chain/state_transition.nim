@@ -86,7 +86,6 @@ proc processRandao(
   if skipValidation notin flags:
     # Check that proposer commit and reveal match
     # TODO re-enable if appropriate
-    #let expected = repeat_hash(blck.randao_reveal, proposer.randao_layers)
     #if expected != proposer.randao_commitment:
     #  notice "Randao reveal mismatch", reveal = blck.randao_reveal,
     #                                   layers = proposer.randao_layers,

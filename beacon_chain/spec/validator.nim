@@ -47,6 +47,13 @@ func get_permuted_index(index: uint64, list_size: uint64, seed: Eth2Digest): uin
   ## Utilizes 'swap or not' shuffling found in
   ## https://link.springer.com/content/pdf/10.1007%2F978-3-642-32009-5_1.pdf
   ## See the 'generalized domain' algorithm on page 3.
+  ##
+  ## This is very slow. Lots of pointless memory allocations. Some methods
+  ## can use updating-with-incremental-chunks-of-preallocated source data,
+  ## while others might have caller-allocated buffers, etc. What this does
+  ## is egregious though. It is allocating tens of thousands of identical,
+  ## small buffers, etc. There's nothing fundamentally inefficient about a
+  ## per-index approach, but naive implementations require optimization.
   result = index
   var pivot_buffer: array[(32+1), byte]
   var source_buffer: array[(32+1+4), byte]
@@ -69,8 +76,8 @@ func get_permuted_index(index: uint64, list_size: uint64, seed: Eth2Digest): uin
 
     let
       source = eth2hash(source_buffer).data
-      byte = source[(position mod 256) div 8]
-      bit = (byte shr (position mod 8)) mod 2
+      byte_value = source[(position mod 256) div 8]
+      bit = (byte_value shr (position mod 8)) mod 2
 
     result = if bit != 0: flip else: result
 
@@ -121,15 +128,16 @@ func get_new_validator_registry_delta_chain_tip*(
     flag: flag
   ))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_previous_epoch_committee_count
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_previous_epoch_committee_count
 func get_previous_epoch_committee_count(state: BeaconState): uint64 =
+  # Return the number of committees in the previous epoch of the given ``state``.
   let previous_active_validators = get_active_validator_indices(
     state.validator_registry,
     state.previous_calculation_epoch,
   )
   get_epoch_committee_count(len(previous_active_validators))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_next_epoch_committee_count
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_next_epoch_committee_count
 func get_next_epoch_committee_count(state: BeaconState): uint64 =
   let next_active_validators = get_active_validator_indices(
     state.validator_registry,
@@ -147,7 +155,7 @@ func get_previous_epoch(state: BeaconState): EpochNumber =
   else:
     current_epoch - 1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_crosslink_committees_at_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_crosslink_committees_at_slot
 func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64,
                                        registry_change: bool = false):
     seq[CrosslinkCommittee] =
@@ -170,6 +178,9 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64,
   template get_epoch_specific_params(): auto =
     if epoch < current_epoch:
       let
+        ## TODO this might be pointless copying; RVO exists, but not sure if
+        ## Nim optimizes out both copies per. Could directly construct tuple
+        ## but this hews closer to spec helper code.
         committees_per_epoch = get_previous_epoch_committee_count(state)
         seed = state.previous_epoch_seed
         shuffling_epoch = state.previous_calculation_epoch
@@ -224,7 +235,7 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64,
      (slot_start_shard + i.uint64) mod SHARD_COUNT
     )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_beacon_proposer_index
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: BeaconState, slot: uint64): ValidatorIndex =
   ## From Casper RPJ mini-spec:
   ## When slot i begins, validator Vidx is expected
