@@ -134,12 +134,12 @@ proc addBlock*(
     # TODO domain present do something!
     new_block.signature =
       bls_sign(proposerPrivkey, proposal_hash,
-               get_domain(state.fork, state.slot, DOMAIN_PROPOSAL))
+               get_domain(state.fork, slot_to_epoch(state.slot), DOMAIN_PROPOSAL))
 
     assert bls_verify(
       proposer.pubkey,
       proposal_hash, new_block.signature,
-      get_domain(state.fork, state.slot, DOMAIN_PROPOSAL)),
+      get_domain(state.fork, slot_to_epoch(state.slot), DOMAIN_PROPOSAL)),
       "we just signed this message - it should pass verification!"
 
   new_block
