@@ -199,5 +199,6 @@ proc makeAttestation*(
   Attestation(
     data: data,
     aggregation_bitfield: aggregation_bitfield,
-    aggregate_signature: sig
+    aggregate_signature: sig,
+    custody_bitfield: repeat(0'u8, ceil_div8(sac.committee.len))
   )
