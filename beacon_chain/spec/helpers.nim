@@ -31,55 +31,6 @@ func verify_bitfield*(bitfield: openarray[byte], committee_size: int): bool =
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#shuffle
-func shuffle*[T](values: seq[T], seed: Eth2Digest): seq[T] =
-  ## Returns the shuffled ``values`` with seed as entropy.
-  ## TODO: this calls out for tests, but I odn't particularly trust spec
-  ## right now.
-
-  let values_count = values.len
-
-  const
-    # Entropy is consumed from the seed in 3-byte (24 bit) chunks.
-    rand_bytes = 3
-    # The highest possible result of the RNG.
-    rand_max = 2^(rand_bytes * 8) - 1
-
-  # The range of the RNG places an upper-bound on the size of the list that
-  # may be shuffled. It is a logic error to supply an oversized list.
-  assert values_count < rand_max
-
-  result = values
-  var
-    source = seed
-    index = 0
-  while index < values_count - 1:
-    # Re-hash the `source` to obtain a new pattern of bytes.
-    source = eth2hash source.data
-
-    # Iterate through the `source` bytes in 3-byte chunks.
-    for pos in countup(0, 29, 3):
-      let remaining = values_count - index
-      if remaining == 1:
-        break
-
-      # Read 3-bytes of `source` as a 24-bit big-endian integer.
-      let sample_from_source =
-        source.data[pos].ValidatorIndex shl 16 or
-        source.data[pos+1].ValidatorIndex shl 8 or
-        source.data[pos+2].ValidatorIndex
-
-      # Sample values greater than or equal to `sample_max` will cause
-      # modulo bias when mapped into the `remaining` range.
-      let sample_max = rand_max - rand_max mod remaining
-
-      # Perform a swap if the consumed entropy will not cause modulo bias.
-      if sample_from_source < sample_max:
-        # Select a replacement index for the current index.
-        let replacement_position = sample_from_source mod remaining + index
-        swap result[index], result[replacement_position]
-        inc index
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#split
 func split*[T](lst: openArray[T], N: Positive): seq[seq[T]] =
   ## split lst in N pieces, with each piece having `len(lst) div N` or

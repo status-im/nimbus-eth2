@@ -12,33 +12,94 @@ import
   ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers
 
-func xorSeed(seed: Eth2Digest, x: uint64): Eth2Digest =
-  ## Integers are all encoded as bigendian
-  ## Helper for get_shuffling in lieu of generally better bitwise handling
-  ## xor least significant/highest-index 8 bytes in place (after copy)
-  result = seed
-  for i in 0 ..< 8:
-    result.data[31 - i] = result.data[31 - i] xor byte((x shr i*8) and 0xff)
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#bytes_to_int
+func bytes_to_int(data: seq[byte]): uint64 =
+  assert data.len == 8
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_shuffling
+  # Little-endian
+  result = 0
+  for i in countdown(7, 0):
+    result = result * 256 + data[i]
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#int_to_bytes1-int_to_bytes2-
+# Borderline worth metaprogramming these, since in practice, only a couple are used.
+func int_to_bytes1(x: int): array[1, byte] =
+  assert x >= 0
+  assert x < 256
+
+  result[0] = x.byte
+
+func int_to_bytes4(x: uint64): array[4, byte] =
+  assert x >= 0'u64
+  assert x < 2'u64^32
+
+  # Little-endian
+  result[0] = ((x shr  0) and 0xff).byte
+  result[1] = ((x shr  8) and 0xff).byte
+  result[2] = ((x shr 16) and 0xff).byte
+  result[3] = ((x shr 24) and 0xff).byte
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_permuted_index
+func get_permuted_index(index: uint64, list_size: uint64, seed: Eth2Digest): uint64 =
+  ## Return `p(index)` in a pseudorandom permutation `p` of `0...list_size-1`
+  ## with ``seed`` as entropy.
+  ##
+  ## Utilizes 'swap or not' shuffling found in
+  ## https://link.springer.com/content/pdf/10.1007%2F978-3-642-32009-5_1.pdf
+  ## See the 'generalized domain' algorithm on page 3.
+  result = index
+  var pivot_buffer: array[(32+1), byte]
+  var source_buffer: array[(32+1+4), byte]
+
+  for round in 0 ..< SHUFFLE_ROUND_COUNT:
+    pivot_buffer[0..31] = seed.data
+    let round_bytes1 = int_to_bytes1(round)[0]
+    pivot_buffer[32] = round_bytes1
+
+    let
+      pivot = bytes_to_int(eth2hash(pivot_buffer).data[0..7]) mod list_size
+      flip = (pivot - index) mod list_size
+      position = max(index, flip)
+
+    ## Tradeoff between slicing (if reusing one larger buffer) and additional
+    ## copies here of seed and `int_to_bytes1(round)`.
+    source_buffer[0..31] = seed.data
+    source_buffer[32] = round_bytes1
+    source_buffer[33..36] = int_to_bytes4(position div 256)
+
+    let
+      source = eth2hash(source_buffer).data
+      byte = source[(position mod 256) div 8]
+      bit = (byte shr (position mod 8)) mod 2
+
+    result = if bit != 0: flip else: result
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_shuffling
 func get_shuffling*(seed: Eth2Digest,
                     validators: openArray[Validator],
                     epoch: EpochNumber
                     ): seq[seq[ValidatorIndex]] =
-  ## Shuffles ``validators`` into crosslink committees seeded by ``seed`` and ``slot``.
-  ## Returns a list of ``EPOCH_LENGTH * committees_per_slot`` committees where each
-  ## committee is itself a list of validator indices.
-  ## Implementation should do the following: http://vitalik.ca/files/ShuffleAndAssign.png
+  ## Shuffles ``validators`` into crosslink committees seeded by ``seed`` and
+  ## ``slot``.
+  ## Returns a list of ``EPOCH_LENGTH * committees_per_slot`` committees where
+  ## each committee is itself a list of validator indices.
+  ##
+  ## TODO: write unit tests for if this produces an "interesting" permutation
+  ## i.e. every number in input exists once and >95%, say, in a different
+  ## place than it began (there are more rigorous approaches, but something)
+  ## By design, get_permuted_index is somewhat difficult to test on its own;
+  ## get_shuffling is first layer where that's straightforward.
 
   let
     active_validator_indices = get_active_validator_indices(validators, epoch)
 
-    committees_per_epoch = get_epoch_committee_count(len(active_validator_indices)).int
+    committees_per_epoch = get_epoch_committee_count(
+      len(active_validator_indices)).int
 
-    # Shuffle
-    shuffled_active_validator_indices = shuffle(
+    shuffled_active_validator_indices = mapIt(
       active_validator_indices,
-      xorSeed(seed, epoch))
+      active_validator_indices[get_permuted_index(
+        it, len(active_validator_indices).uint64, seed).int])
 
   # Split the shuffled list into committees_per_epoch pieces
   result = split(shuffled_active_validator_indices, committees_per_epoch)
