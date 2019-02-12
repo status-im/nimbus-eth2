@@ -181,7 +181,10 @@ proc makeAttestation(node: BeaconNode,
   var attestation = Attestation(
     data: attestationData,
     aggregate_signature: validatorSignature,
-    aggregation_bitfield: participationBitfield)
+    aggregation_bitfield: participationBitfield,
+    # Stub in phase0
+    custody_bitfield: newSeq[byte](participationBitfield.len)
+  )
 
   await node.network.broadcast(topicAttestations, attestation)
 
