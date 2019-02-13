@@ -159,7 +159,8 @@ func process_penalties_and_exits(state: var BeaconState) =
 func get_initial_beacon_state*(
     initial_validator_deposits: openArray[Deposit],
     genesis_time: uint64,
-    latest_eth1_data: Eth1Data): BeaconState =
+    latest_eth1_data: Eth1Data,
+    flags: UpdateFlags = {}): BeaconState =
   ## Get the initial ``BeaconState``.
   ##
   ## Before the beacon chain starts, validators will register in the Eth1 chain
