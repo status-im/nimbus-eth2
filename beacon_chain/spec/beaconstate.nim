@@ -359,6 +359,7 @@ proc checkAttestation*(
     return
 
   let expected_justified_epoch =
+    # https://github.com/ethereum/eth2.0-specs/issues/618
     if attestation.data.slot + 1 >= get_epoch_start_slot(get_current_epoch(state)):
       state.justified_epoch
     else:
@@ -466,5 +467,5 @@ func get_total_balance(state: BeaconState, validators: seq[ValidatorIndex]): Gwe
 func prepare_validator_for_withdrawal(state: var BeaconState, index: ValidatorIndex) =
   ## Set the validator with the given ``index`` with ``WITHDRAWABLE`` flag.
   ## Note that this function mutates ``state``.
-  var validator = state.validator_registry[index]
+  var validator = addr state.validator_registry[index]
   validator.status_flags = validator.status_flags or WITHDRAWABLE

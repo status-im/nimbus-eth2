@@ -122,7 +122,7 @@ func penalizeValidator(state: var BeaconState, index: ValidatorIndex) =
   ## Penalize the validator of the given ``index``.
   ## Note that this function mutates ``state``.
   exit_validator(state, index)
-  var validator = state.validator_registry[index]
+  var validator = addr state.validator_registry[index]
   state.latest_penalized_exit_balances[(get_current_epoch(state) mod
     LATEST_PENALIZED_EXIT_LENGTH).int] += get_effective_balance(state,
       index.ValidatorIndex)
