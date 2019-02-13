@@ -117,10 +117,15 @@ func processDepositRoot(state: var BeaconState, blck: BeaconBlock) =
     vote_count: 1
   )
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#penalize_validator
 func penalizeValidator(state: var BeaconState, index: ValidatorIndex) =
+  ## Penalize the validator of the given ``index``.
+  ## Note that this function mutates ``state``.
   exit_validator(state, index)
   var validator = state.validator_registry[index]
-  #state.latest_penalized_exit_balances[(state.slot div EPOCH_LENGTH) mod LATEST_PENALIZED_EXIT_LENGTH] += get_effective_balance(state, index.ValidatorIndex)
+  state.latest_penalized_exit_balances[(get_current_epoch(state) mod
+    LATEST_PENALIZED_EXIT_LENGTH).int] += get_effective_balance(state,
+      index.ValidatorIndex)
 
   let
     whistleblower_index = get_beacon_proposer_index(state, state.slot)
@@ -183,7 +188,7 @@ proc processProposerSlashings(
 
   return true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#verify_slashable_attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#verify_slashable_attestation
 func verify_slashable_attestation(state: BeaconState, slashable_attestation: SlashableAttestation): bool =
   # Verify validity of ``slashable_attestation`` fields.
 
@@ -213,7 +218,6 @@ func verify_slashable_attestation(state: BeaconState, slashable_attestation: Sla
     else:
       custody_bit_1_indices.add(validator_index)
 
-  # bug in 0.1 version of spec, fixed later; bls_verify is what works
   bls_verify_multiple(
     @[
       bls_aggregate_pubkeys(mapIt(custody_bit_0_indices, state.validator_registry[it.int].pubkey)),

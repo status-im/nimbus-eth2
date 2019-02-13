@@ -22,6 +22,7 @@ func sum_effective_balances*(
   for index in validator_indices:
     result += get_effective_balance(state, index)
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#validate_proof_of_possession<F12>
 func validate_proof_of_possession(state: BeaconState,
                                   pubkey: ValidatorPubKey,
                                   proof_of_possession: ValidatorSig,
@@ -29,6 +30,7 @@ func validate_proof_of_possession(state: BeaconState,
   let proof_of_possession_data = DepositInput(
     pubkey: pubkey,
     withdrawal_credentials: withdrawal_credentials,
+    proof_of_possession: ValidatorSig(),
   )
 
   bls_verify(
@@ -37,14 +39,15 @@ func validate_proof_of_possession(state: BeaconState,
     proof_of_possession,
     get_domain(
         state.fork,
-        slot_to_epoch(state.slot),
+        get_current_epoch(state),
         DOMAIN_DEPOSIT,
     )
   )
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#process_deposit
 func process_deposit(state: var BeaconState,
                      pubkey: ValidatorPubKey,
-                     amount: uint64,
+                     amount: Gwei,
                      proof_of_possession: ValidatorSig,
                      withdrawal_credentials: Eth2Digest) =
   ## Process a deposit from Ethereum 1.0.
@@ -81,30 +84,36 @@ func process_deposit(state: var BeaconState,
 
     state.validator_balances[index] += amount
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_entry_exit_effect_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_entry_exit_effect_epoch
 func get_entry_exit_effect_epoch*(epoch: EpochNumber): EpochNumber =
   ## An entry or exit triggered in the ``epoch`` given by the input takes effect at
   ## the epoch given by the output.
   epoch + 1 + ENTRY_EXIT_DELAY
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#activate_validator
 func activate_validator(state: var BeaconState,
                         index: ValidatorIndex,
                         genesis: bool) =
   ## Activate the validator with the given ``index``.
+  ## Note that this function mutates ``state``.
   let validator = addr state.validator_registry[index]
 
   validator.activation_epoch = if genesis: GENESIS_EPOCH else: get_entry_exit_effect_epoch(get_current_epoch(state))
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit(state: var BeaconState,
                              index: ValidatorIndex) =
   ## Initiate exit for the validator with the given ``index``.
+  ## Note that this function mutates ``state``.
   var validator = state.validator_registry[index]
   validator.status_flags = validator.status_flags or INITIATED_EXIT
   state.validator_registry[index] = validator
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#exit_validator
 func exit_validator*(state: var BeaconState,
                      index: ValidatorIndex) =
   ## Exit the validator with the given ``index``.
+  ## Note that this function mutates ``state``.
 
   let validator = addr state.validator_registry[index]
 
@@ -115,6 +124,8 @@ func exit_validator*(state: var BeaconState,
   validator.exit_epoch = get_entry_exit_effect_epoch(get_current_epoch(state))
 
 func process_penalties_and_exits(state: var BeaconState) =
+  ## Penalize the validator of the given ``index``.
+  ## Note that this function mutates ``state``.
   let
     current_epoch = get_current_epoch(state)
     # The active validators
@@ -148,9 +159,8 @@ func process_penalties_and_exits(state: var BeaconState) =
 func get_initial_beacon_state*(
     initial_validator_deposits: openArray[Deposit],
     genesis_time: uint64,
-    latest_eth1_data: Eth1Data,
-    flags: UpdateFlags = {}): BeaconState =
-  ## BeaconState constructor
+    latest_eth1_data: Eth1Data): BeaconState =
+  ## Get the initial ``BeaconState``.
   ##
   ## Before the beacon chain starts, validators will register in the Eth1 chain
   ## and deposit ETH. When enough many validators have registered, a
@@ -177,6 +187,8 @@ func get_initial_beacon_state*(
     ),
 
     validator_registry_update_epoch: GENESIS_EPOCH,
+
+    # TODO remove or conditionally compile; not in spec anymore
     validator_registry_delta_chain_tip: ZERO_HASH,
 
     # Randomness and committees
@@ -346,7 +358,7 @@ proc checkAttestation*(
     return
 
   let expected_justified_epoch =
-    if attestation.data.slot >= get_epoch_start_slot(get_current_epoch(state)):
+    if attestation.data.slot + 1 >= get_epoch_start_slot(get_current_epoch(state)):
       state.justified_epoch
     else:
       state.previous_justified_epoch
@@ -448,3 +460,10 @@ proc checkAttestation*(
 func get_total_balance(state: BeaconState, validators: seq[ValidatorIndex]): Gwei =
   # Return the combined effective balance of an array of validators.
   foldl(validators, a + get_effective_balance(state, b), 0'u64)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#prepare_validator_for_withdrawal
+func prepare_validator_for_withdrawal(state: var BeaconState, index: ValidatorIndex) =
+  ## Set the validator with the given ``index`` with ``WITHDRAWABLE`` flag.
+  ## Note that this function mutates ``state``.
+  var validator = state.validator_registry[index]
+  validator.status_flags = validator.status_flags or WITHDRAWABLE
