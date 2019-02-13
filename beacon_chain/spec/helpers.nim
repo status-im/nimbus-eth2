@@ -185,12 +185,37 @@ func get_active_index_root(state: BeaconState, epoch: EpochNumber): Eth2Digest =
   assert epoch <= get_current_epoch(state) + ENTRY_EXIT_DELAY
   state.latest_index_roots[epoch mod LATEST_INDEX_ROOTS_LENGTH]
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#bytes_to_int
+func bytes_to_int*(data: seq[byte]): uint64 =
+  assert data.len == 8
+
+  # Little-endian data representation
+  result = 0
+  for i in countdown(7, 0):
+    result = result * 256 + data[i]
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#int_to_bytes1-int_to_bytes2-
-# Have 1, 4, and 32-byte versions. 3+ more and worth metaprogramming.
+# Have 1, 4, and 32-byte versions. 2+ more and maybe worth metaprogramming.
 func int_to_bytes32*(x: uint64) : array[32, byte] =
-  # Little-endian
+  # Little-endian data representation
   for i in 0 ..< 8:
     result[24 + i] = byte((x shr i*8) and 0xff)
+
+func int_to_bytes1*(x: int): array[1, byte] =
+  assert x >= 0
+  assert x < 256
+
+  result[0] = x.byte
+
+func int_to_bytes4*(x: uint64): array[4, byte] =
+  assert x >= 0'u64
+  assert x < 2'u64^32
+
+  # Little-endian data representation
+  result[0] = ((x shr  0) and 0xff).byte
+  result[1] = ((x shr  8) and 0xff).byte
+  result[2] = ((x shr 16) and 0xff).byte
+  result[3] = ((x shr 24) and 0xff).byte
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#generate_seed
 func generate_seed*(state: BeaconState, epoch: EpochNumber): Eth2Digest =

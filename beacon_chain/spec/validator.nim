@@ -12,33 +12,6 @@ import
   ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#bytes_to_int
-func bytes_to_int(data: seq[byte]): uint64 =
-  assert data.len == 8
-
-  # Little-endian
-  result = 0
-  for i in countdown(7, 0):
-    result = result * 256 + data[i]
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#int_to_bytes1-int_to_bytes2-
-# Borderline worth metaprogramming these, since in practice, only a couple are used.
-func int_to_bytes1(x: int): array[1, byte] =
-  assert x >= 0
-  assert x < 256
-
-  result[0] = x.byte
-
-func int_to_bytes4(x: uint64): array[4, byte] =
-  assert x >= 0'u64
-  assert x < 2'u64^32
-
-  # Little-endian
-  result[0] = ((x shr  0) and 0xff).byte
-  result[1] = ((x shr  8) and 0xff).byte
-  result[2] = ((x shr 16) and 0xff).byte
-  result[3] = ((x shr 24) and 0xff).byte
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_permuted_index
 func get_permuted_index(index: uint64, list_size: uint64, seed: Eth2Digest): uint64 =
   ## Return `p(index)` in a pseudorandom permutation `p` of `0...list_size-1`
