@@ -166,8 +166,14 @@ const
 
 type
   ValidatorIndex* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
+
+  ## In principle, these would be better as distinct types. That's a good
+  ## TODO eventually, but Danny has confirmed that the SSZ types will use
+  ## primitive (uint64, etc) types and helper functions annotated ones so
+  ## it would just create pointless casts for now.
   SlotNumber* = uint64
   EpochNumber* = uint64
+  Gwei* = uint64
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#proposerslashing
   ProposerSlashing* = object

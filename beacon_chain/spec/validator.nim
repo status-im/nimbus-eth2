@@ -12,33 +12,75 @@ import
   ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers
 
-func xorSeed(seed: Eth2Digest, x: uint64): Eth2Digest =
-  ## Integers are all encoded as bigendian
-  ## Helper for get_shuffling in lieu of generally better bitwise handling
-  ## xor least significant/highest-index 8 bytes in place (after copy)
-  result = seed
-  for i in 0 ..< 8:
-    result.data[31 - i] = result.data[31 - i] xor byte((x shr i*8) and 0xff)
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_permuted_index
+func get_permuted_index(index: uint64, list_size: uint64, seed: Eth2Digest): uint64 =
+  ## Return `p(index)` in a pseudorandom permutation `p` of `0...list_size-1`
+  ## with ``seed`` as entropy.
+  ##
+  ## Utilizes 'swap or not' shuffling found in
+  ## https://link.springer.com/content/pdf/10.1007%2F978-3-642-32009-5_1.pdf
+  ## See the 'generalized domain' algorithm on page 3.
+  ##
+  ## This is very slow. Lots of pointless memory allocations. Some methods
+  ## can use updating-with-incremental-chunks-of-preallocated source data,
+  ## while others might have caller-allocated buffers, etc. What this does
+  ## is egregious though. It is allocating tens of thousands of identical,
+  ## small buffers, etc. There's nothing fundamentally inefficient about a
+  ## per-index approach, but naive implementations require optimization.
+  result = index
+  var pivot_buffer: array[(32+1), byte]
+  var source_buffer: array[(32+1+4), byte]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_shuffling
+  for round in 0 ..< SHUFFLE_ROUND_COUNT:
+    pivot_buffer[0..31] = seed.data
+    let round_bytes1 = int_to_bytes1(round)[0]
+    pivot_buffer[32] = round_bytes1
+
+    let
+      pivot = bytes_to_int(eth2hash(pivot_buffer).data[0..7]) mod list_size
+      flip = (pivot - index) mod list_size
+      position = max(index, flip)
+
+    ## Tradeoff between slicing (if reusing one larger buffer) and additional
+    ## copies here of seed and `int_to_bytes1(round)`.
+    source_buffer[0..31] = seed.data
+    source_buffer[32] = round_bytes1
+    source_buffer[33..36] = int_to_bytes4(position div 256)
+
+    let
+      source = eth2hash(source_buffer).data
+      byte_value = source[(position mod 256) div 8]
+      bit = (byte_value shr (position mod 8)) mod 2
+
+    if bit != 0:
+      result = flip
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_shuffling
 func get_shuffling*(seed: Eth2Digest,
                     validators: openArray[Validator],
                     epoch: EpochNumber
                     ): seq[seq[ValidatorIndex]] =
-  ## Shuffles ``validators`` into crosslink committees seeded by ``seed`` and ``slot``.
-  ## Returns a list of ``EPOCH_LENGTH * committees_per_slot`` committees where each
-  ## committee is itself a list of validator indices.
-  ## Implementation should do the following: http://vitalik.ca/files/ShuffleAndAssign.png
+  ## Shuffles ``validators`` into crosslink committees seeded by ``seed`` and
+  ## ``slot``.
+  ## Returns a list of ``EPOCH_LENGTH * committees_per_slot`` committees where
+  ## each committee is itself a list of validator indices.
+  ##
+  ## TODO: write unit tests for if this produces an "interesting" permutation
+  ## i.e. every number in input exists once and >95%, say, in a different
+  ## place than it began (there are more rigorous approaches, but something)
+  ## By design, get_permuted_index is somewhat difficult to test on its own;
+  ## get_shuffling is first layer where that's straightforward.
 
   let
     active_validator_indices = get_active_validator_indices(validators, epoch)
 
-    committees_per_epoch = get_epoch_committee_count(len(active_validator_indices)).int
+    committees_per_epoch = get_epoch_committee_count(
+      len(active_validator_indices)).int
 
-    # Shuffle
-    shuffled_active_validator_indices = shuffle(
+    shuffled_active_validator_indices = mapIt(
       active_validator_indices,
-      xorSeed(seed, epoch))
+      active_validator_indices[get_permuted_index(
+        it, len(active_validator_indices).uint64, seed).int])
 
   # Split the shuffled list into committees_per_epoch pieces
   result = split(shuffled_active_validator_indices, committees_per_epoch)
@@ -60,15 +102,16 @@ func get_new_validator_registry_delta_chain_tip*(
     flag: flag
   ))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_previous_epoch_committee_count
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_previous_epoch_committee_count
 func get_previous_epoch_committee_count(state: BeaconState): uint64 =
+  # Return the number of committees in the previous epoch of the given ``state``.
   let previous_active_validators = get_active_validator_indices(
     state.validator_registry,
     state.previous_calculation_epoch,
   )
   get_epoch_committee_count(len(previous_active_validators))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_next_epoch_committee_count
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_next_epoch_committee_count
 func get_next_epoch_committee_count(state: BeaconState): uint64 =
   let next_active_validators = get_active_validator_indices(
     state.validator_registry,
@@ -86,7 +129,7 @@ func get_previous_epoch(state: BeaconState): EpochNumber =
   else:
     current_epoch - 1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_crosslink_committees_at_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_crosslink_committees_at_slot
 func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64,
                                        registry_change: bool = false):
     seq[CrosslinkCommittee] =
@@ -109,6 +152,9 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64,
   template get_epoch_specific_params(): auto =
     if epoch < current_epoch:
       let
+        ## TODO this might be pointless copying; RVO exists, but not sure if
+        ## Nim optimizes out both copies per. Could directly construct tuple
+        ## but this hews closer to spec helper code.
         committees_per_epoch = get_previous_epoch_committee_count(state)
         seed = state.previous_epoch_seed
         shuffling_epoch = state.previous_calculation_epoch
@@ -163,7 +209,7 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64,
      (slot_start_shard + i.uint64) mod SHARD_COUNT
     )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_beacon_proposer_index
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: BeaconState, slot: uint64): ValidatorIndex =
   ## From Casper RPJ mini-spec:
   ## When slot i begins, validator Vidx is expected
