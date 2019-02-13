@@ -79,7 +79,8 @@ func get_permuted_index(index: uint64, list_size: uint64, seed: Eth2Digest): uin
       byte_value = source[(position mod 256) div 8]
       bit = (byte_value shr (position mod 8)) mod 2
 
-    result = if bit != 0: flip else: result
+    if bit != 0:
+      result = flip
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_shuffling
 func get_shuffling*(seed: Eth2Digest,
