@@ -45,7 +45,7 @@ _Alternatively, fire up our [experimental Vagrant instance with Nim pre-installe
 Then:
 
 ```bash
-git clone git@github.com:status-im/nim-beacon-chain
+git clone https://github.com/status-im/nim-beacon-chain
 cd nim-beacon-chain
 nimble install
 nimble test
