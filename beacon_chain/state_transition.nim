@@ -517,7 +517,8 @@ func processEpoch(state: var BeaconState) =
   let # Previous epoch boundary
     # TODO check this with spec...
     negative_uint_hack =
-      if state.slot < 2 * EPOCH_LENGTH: 0'u64 else: state.slot - 2 * EPOCH_LENGTH
+      if state.slot < 2'u64 * EPOCH_LENGTH: 0'u64
+      else: state.slot - 2'u64 * EPOCH_LENGTH
     previous_epoch_boundary_attestations =
       boundary_attestations(
         state, get_block_root(state, negative_uint_hack),

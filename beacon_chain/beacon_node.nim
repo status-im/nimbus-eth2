@@ -28,7 +28,7 @@ const
   topicBeaconBlocks = "ethereum/2.1/beacon_chain/blocks"
   topicAttestations = "ethereum/2.1/beacon_chain/attestations"
 
-  stateStoragePeriod = EPOCH_LENGTH * 10 # Save states once per this number of slots. TODO: Find a good number.
+  stateStoragePeriod = EPOCH_LENGTH.uint64 * 10 # Save states once per this number of slots. TODO: Find a good number.
 
 
 func shortHash(x: auto): string =
@@ -434,7 +434,11 @@ when isMainModule:
 
       info "Starting beacon node",
         slotsSinceFinalization = node.beaconState.slotDistanceFromNow(),
-        stateSlot = humaneSlotNum(node.beaconState.slot)
+        stateSlot = humaneSlotNum(node.beaconState.slot),
+        SHARD_COUNT,
+        EPOCH_LENGTH,
+        SLOT_DURATION,
+        SPEC_VERSION
 
       node.addLocalValidators()
       node.processBlocks()
