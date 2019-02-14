@@ -14,20 +14,21 @@ import ./datatypes, ./digest, sequtils, math
 func bitSet*(bitfield: var openArray[byte], index: int) =
   bitfield[index div 8] = bitfield[index div 8] or 1'u8 shl (7 - (index mod 8))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_bitfield_bit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_bitfield_bit
 func get_bitfield_bit*(bitfield: openarray[byte], i: int): byte =
   # Extract the bit in ``bitfield`` at position ``i``.
   assert 0 <= i div 8, "i: " & $i & " i div 8: " & $(i div 8)
   assert i div 8 < bitfield.len, "i: " & $i & " i div 8: " & $(i div 8)
   (bitfield[i div 8] shr (7 - (i mod 8))) mod 2
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#verify_bitfield
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#verify_bitfield
 func verify_bitfield*(bitfield: openarray[byte], committee_size: int): bool =
   # Verify ``bitfield`` against the ``committee_size``.
   if len(bitfield) != (committee_size + 7) div 8:
     return false
 
-  for i in committee_size + 1 ..< committee_size - (committee_size mod 8) + 8:
+  # Check `bitfield` is padded with zero bits only
+  for i in committee_size ..< (len(bitfield) * 8):
     if get_bitfield_bit(bitfield, i) == 0b1:
       return false
 
@@ -67,7 +68,7 @@ func repeat_hash*(v: Eth2Digest, n: SomeInteger): Eth2Digest =
 
 func ceil_div8*(v: int): int = (v + 7) div 8 # TODO use a proper bitarray!
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#integer_squareroot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
   ## The largest integer ``x`` such that ``x**2`` is less than ``n``.
   var
@@ -78,7 +79,7 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
     y = (x + n div x) div 2
   x
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_fork_version
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_fork_version
 func get_fork_version*(fork: Fork, epoch: EpochNumber): uint64 =
   ## Return the fork version of the given ``epoch``.
   if epoch < fork.epoch:
@@ -86,7 +87,7 @@ func get_fork_version*(fork: Fork, epoch: EpochNumber): uint64 =
   else:
     fork.current_version
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#get_domain
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_domain
 func get_domain*(
     fork: Fork, epoch: EpochNumber, domain_type: SignatureDomain): uint64 =
   # TODO Slot overflow? Or is slot 32 bits for all intents and purposes?
@@ -113,7 +114,7 @@ func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
 func slot_to_epoch*(slot: SlotNumber): EpochNumber =
   slot div EPOCH_LENGTH
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#is_double_vote
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#is_double_vote
 func is_double_vote*(attestation_data_1: AttestationData,
                      attestation_data_2: AttestationData): bool =
   ## Check if ``attestation_data_1`` and ``attestation_data_2`` have the same
@@ -123,7 +124,7 @@ func is_double_vote*(attestation_data_1: AttestationData,
     target_epoch_2 = slot_to_epoch(attestation_data_2.slot)
   target_epoch_1 == target_epoch_2
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#is_surround_vote
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#is_surround_vote
 func is_surround_vote*(attestation_data_1: AttestationData,
                        attestation_data_2: AttestationData): bool =
   ## Check if ``attestation_data_1`` surrounds ``attestation_data_2``.
