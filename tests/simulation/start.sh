@@ -25,14 +25,15 @@ mkdir -p $BUILD_OUTPUTS_DIR
 
 BEACON_NODE_BIN=$BUILD_OUTPUTS_DIR/beacon_node
 VALIDATOR_KEYGEN_BIN=$BUILD_OUTPUTS_DIR/validator_keygen
+SLOT_DURATION="-d:SLOT_DURATION=1" # Default is 6
 
 if [[ -z "$SKIP_BUILDS" ]]; then
-  nim c -o:"$VALIDATOR_KEYGEN_BIN" -d:release beacon_chain/validator_keygen
-  nim c -o:"$BEACON_NODE_BIN" beacon_chain/beacon_node
+  nim c -o:"$VALIDATOR_KEYGEN_BIN" "$SLOT_DURATION" -d:release beacon_chain/validator_keygen
+  nim c -o:"$BEACON_NODE_BIN" "$SLOT_DURATION" beacon_chain/beacon_node
 fi
 
 if [ ! -f $STARTUP_FILE ]; then
-  $VALIDATOR_KEYGEN_BIN --validators=$NUMBER_OF_VALIDATORS --outputDir="$SIMULATION_DIR" --startupDelay=2
+  $VALIDATOR_KEYGEN_BIN --validators=$NUMBER_OF_VALIDATORS --outputDir="$SIMULATION_DIR" # --startupDelay=2
 fi
 
 if [ ! -f $SNAPSHOT_FILE ]; then

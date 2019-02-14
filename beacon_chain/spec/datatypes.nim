@@ -107,7 +107,7 @@ const
 
   # Time parameters
   # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#time-parameters
-  SLOT_DURATION* = 6'u64 ## \
+  SLOT_DURATION*{.intdefine.} = 6'u64 # Compile with -d:SLOT_DURATION=1 for 6x faster slots
   ## TODO consistent time unit across projects, similar to C++ chrono?
 
   MIN_ATTESTATION_INCLUSION_DELAY* = 2'u64^2 ##\
