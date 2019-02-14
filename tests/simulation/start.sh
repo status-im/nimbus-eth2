@@ -25,11 +25,15 @@ mkdir -p $BUILD_OUTPUTS_DIR
 
 BEACON_NODE_BIN=$BUILD_OUTPUTS_DIR/beacon_node
 VALIDATOR_KEYGEN_BIN=$BUILD_OUTPUTS_DIR/validator_keygen
-SLOT_DURATION="-d:SLOT_DURATION=3" # Default is 6
+
+# Run with "SHARD_COUNT=4 ./start.sh" to change these
+DEFS="-d:SHARD_COUNT=${SHARD_COUNT:-4} "
+DEFS+="-d:EPOCH_LENGTH=${EPOCH_LENGTH:-8} "
+DEFS+="-d:SLOT_DURATION=${SLOT_DURATION:-3} "
 
 if [[ -z "$SKIP_BUILDS" ]]; then
-  nim c -o:"$VALIDATOR_KEYGEN_BIN" "$SLOT_DURATION" -d:release beacon_chain/validator_keygen
-  nim c -o:"$BEACON_NODE_BIN" "$SLOT_DURATION" beacon_chain/beacon_node
+  nim c -o:"$VALIDATOR_KEYGEN_BIN" $DEFS -d:release beacon_chain/validator_keygen
+  nim c -o:"$BEACON_NODE_BIN" $DEFS beacon_chain/beacon_node
 fi
 
 if [ ! -f $STARTUP_FILE ]; then

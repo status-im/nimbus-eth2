@@ -40,11 +40,16 @@ import
 # TODO Many of these constants should go into a config object that can be used
 #      to run.. well.. a chain with different constants!
 const
+  SPEC_VERSION* = "0.2.0" ## \
+  ## Spec version we're aiming to be compatible with, right now
+  ## TODO: improve this scheme once we can negotiate versions in protocol
+
   # Misc
   # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#misc
-  SHARD_COUNT* = 1024 ##\
+  SHARD_COUNT* {.intdefine.} = 1024 ##\
   ## Number of shards supported by the network - validators will jump around
   ## between these shards and provide attestations to their state.
+  ## Compile with -d:SHARD_COUNT=4 for fewer shard (= better with low validator counts)
 
   TARGET_COMMITTEE_SIZE* = 2^7 ##\
   ## Number of validators in the committee attesting to one shard
@@ -89,10 +94,11 @@ const
   ## the validator pool
 
   # Time parameter, here so that GENESIS_EPOCH can access it
-  EPOCH_LENGTH* = 64 ##\
+  EPOCH_LENGTH* {.intdefine.} = 64 ##\
   ## (~6.4 minutes)
   ## slots that make up an epoch, at the end of which more heavy
   ## processing is done
+  ## Compile with -d:EPOCH_LENGTH=4 for shorter epochs
 
   # Initial values
   # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#initial-values
