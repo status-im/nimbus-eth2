@@ -2,7 +2,7 @@ import
   os, options,
   confutils/defs, chronicles/options as chroniclesOptions,
   json_serialization,
-  spec/[crypto, datatypes], randao, time
+  spec/[crypto, datatypes], time
 
 export
   json_serialization
@@ -20,7 +20,6 @@ type
 
   PrivateValidatorData* = object
     privKey*: ValidatorPrivKey
-    randao*: Randao
 
   BeaconNodeConf* = object
     logLevel* {.
@@ -81,13 +80,9 @@ proc readFileBytes(path: string): seq[byte] =
 proc loadPrivKey*(p: ValidatorKeyPath): ValidatorPrivKey =
   ValidatorPrivKey.init(readFileBytes(string(p) & ".privkey"))
 
-proc loadRandao*(p: ValidatorKeyPath): Randao =
-  initRandao(readFileBytes(string(p) & ".randao"))
-
 proc parseCmdArg*(T: type ValidatorKeyPath, input: TaintedString): T =
   result = T(input)
   discard loadPrivKey(result)
-  discard loadRandao(result)
 
 template mustBeFilePath(input: TaintedString) =
   if not fileExists(string input):

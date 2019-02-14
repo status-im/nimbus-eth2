@@ -54,18 +54,6 @@ func get_new_recent_block_roots*(old_block_roots: seq[Eth2Digest],
   for _ in 0 ..< min(d, old_block_roots.len):
     result.add parent_hash
 
-# TODO remove; cascades through randao.nim, validator_pool.nim, etc
-func repeat_hash*(v: Eth2Digest, n: SomeInteger): Eth2Digest =
-  # Spec version:
-  # if n == 0: v
-  # else: repeat_hash(eth2hash(v.data), n - 1)
-  # Nim is pretty bad at recursion though (max 2k levels / no tco), so:
-  result = v
-  var n = n
-  while n != 0:
-    result = eth2hash(result.data)
-    dec n
-
 func ceil_div8*(v: int): int = (v + 7) div 8 # TODO use a proper bitarray!
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#integer_squareroot
