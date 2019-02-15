@@ -1,7 +1,7 @@
 import
   tables, random,
   chronos,
-  spec/[datatypes, crypto, digest, helpers], randao, ssz
+  spec/[datatypes, crypto, digest, helpers], ssz
 
 type
   ValidatorKind = enum
@@ -15,7 +15,6 @@ type
     case kind: ValidatorKind
     of inProcess:
       privKey: ValidatorPrivKey
-      randaoSecret: Randao
     else:
       connection: ValidatorConnection
 
@@ -31,12 +30,10 @@ template count*(pool: ValidatorPool): int =
 proc addLocalValidator*(pool: var ValidatorPool,
                         idx: int,
                         pubKey: ValidatorPubKey,
-                        privKey: ValidatorPrivKey,
-                        randaoSecret: Randao) =
+                        privKey: ValidatorPrivKey) =
   let v = AttachedValidator(idx: idx,
                             kind: inProcess,
-                            privKey: privKey,
-                            randaoSecret: randaoSecret)
+                            privKey: privKey)
   pool.validators[pubKey] = v
 
 proc getValidator*(pool: ValidatorPool,
@@ -74,25 +71,13 @@ proc signAttestation*(v: AttachedValidator,
     # send RPC
     discard
 
-proc randaoReveal*(v: AttachedValidator, commitment: Eth2Digest): Future[Eth2Digest] {.async.} =
-  if v.kind == inProcess:
-    result = v.randaoSecret.reveal(commitment)
-  else:
-    # TODO:
-    # send RPC
-    discard
-
-# TODO move elsewhere when something else wants this utility function
-func int_to_bytes32(x: uint64) : array[32, byte] =
-  for i in 0 ..< 8:
-    result[31 - i] = byte((x shr i*8) and 0xff)
-
-func genRandaoReveal*(k: ValidatorPrivKey, state: BeaconState):
+func genRandaoReveal*(k: ValidatorPrivKey, state: BeaconState, slot: SlotNumber):
     ValidatorSig =
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#randao
-  bls_sign(k, int_to_bytes32(get_current_epoch(state)),
-           get_domain(state.fork, get_current_epoch(state), DOMAIN_RANDAO))
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#randao
+  assert slot > state.slot
+  bls_sign(k, int_to_bytes32(slot_to_epoch(slot)),
+    get_domain(state.fork, slot_to_epoch(slot), DOMAIN_RANDAO))
 
-func genRandaoReveal*(v: AttachedValidator, state: BeaconState):
+func genRandaoReveal*(v: AttachedValidator, state: BeaconState, slot: SlotNumber):
     ValidatorSig =
-  genRandaoReveal(v.privKey, state)
+  genRandaoReveal(v.privKey, state, slot)

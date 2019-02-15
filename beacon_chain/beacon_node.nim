@@ -131,7 +131,6 @@ proc addLocalValidators*(node: BeaconNode) =
     let
       privKey = validator.privKey
       pubKey = privKey.pubKey()
-      randao = validator.randao
 
     let idx = node.beaconState.validator_registry.findIt(it.pubKey == pubKey)
     if idx == -1:
@@ -139,7 +138,7 @@ proc addLocalValidators*(node: BeaconNode) =
     else:
       debug "Attaching validator", validator = shortValidatorKey(node, idx),
                                    idx, pubKey
-      node.attachedValidators.addLocalValidator(idx, pubKey, privKey, randao)
+      node.attachedValidators.addLocalValidator(idx, pubKey, privKey)
 
   info "Local validators attached ", count = node.attachedValidators.count
 
@@ -216,7 +215,7 @@ proc proposeBlock(node: BeaconNode,
   var newBlock = BeaconBlock(
     slot: slot,
     parent_root: node.headBlockRoot,
-    randao_reveal: validator.genRandaoReveal(state),
+    randao_reveal: validator.genRandaoReveal(state, state.slot),
     eth1_data: node.mainchainMonitor.getBeaconBlockRef(),
     signature: ValidatorSig(), # we need the rest of the block first!
     body: blockBody)

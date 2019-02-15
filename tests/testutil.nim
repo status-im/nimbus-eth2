@@ -100,7 +100,7 @@ proc addBlock*(
       slot: state.slot + 1,
       parent_root: previous_block_root,
       state_root: Eth2Digest(), # we need the new state first
-      randao_reveal: privKey.genRandaoReveal(state),
+      randao_reveal: privKey.genRandaoReveal(state, state.slot + 1),
       eth1_data: Eth1Data(), # TODO
       signature: ValidatorSig(), # we need the rest of the block first!
       body: body

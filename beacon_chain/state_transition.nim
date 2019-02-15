@@ -39,60 +39,49 @@ func flatten[T](v: openArray[seq[T]]): seq[T] =
   # TODO not in nim - doh.
   for x in v: result.add x
 
-proc verifyProposerSignature(state: BeaconState, blck: BeaconBlock): bool =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#proposer-signature
+func verifyProposerSignature(state: BeaconState, blck: BeaconBlock): bool =
   ## When creating a block, the proposer will sign a version of the block that
   ## doesn't contain the data (chicken and egg), then add the signature to that
   ## block. Here, we check that the signature is correct by repeating the same
   ## process.
-  ##
-  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#proposer-signature
-  var blck_without_sig = blck
-  blck_without_sig.signature = ValidatorSig()
+  var blck_without_signature = blck
+  blck_without_signature.signature = ValidatorSig()
 
   let
     signed_data = ProposalSignedData(
       slot: state.slot,
       shard: BEACON_CHAIN_SHARD_NUMBER,
-      block_root: hash_tree_root_final(blck_without_sig)
+      block_root: hash_tree_root_final(blck_without_signature)
     )
-    proposal_hash = hash_tree_root_final(signed_data)
+    proposal_root = hash_tree_root_final(signed_data)
     proposer_index = get_beacon_proposer_index(state, state.slot)
 
   bls_verify(
     state.validator_registry[proposer_index].pubkey,
-    proposal_hash.data, blck.signature,
-    get_domain(state.fork, slot_to_epoch(state.slot), DOMAIN_PROPOSAL))
+    proposal_root.data, blck.signature,
+    get_domain(state.fork, get_current_epoch(state), DOMAIN_PROPOSAL))
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#randao
 proc processRandao(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
-  ## When a validator signs up, they will include a hash number together with
-  ## the deposit - the randao_commitment. The commitment is formed by hashing
-  ## a secret value N times.
-  ## The first time the proposer proposes a block, they will hash their secret
-  ## value N-1 times, and provide the reuslt as "reveal" - now everyone else can
-  ## verify that the reveal matches the commitment by hashing it once.
-  ## The next time the proposer proposes, they will reveal the secret value
-  ## hashed N-2 times and so on, and everyone will verify that it matches N-1.
-  ## The previous reveal has now become the commitment!
-  ##
-  ## Effectively, the block proposer can only reveal N-1 times, so better pick
-  ## a large N!
-  ##
-  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#randao
   let
     proposer_index = get_beacon_proposer_index(state, state.slot)
     proposer = addr state.validator_registry[proposer_index]
 
   if skipValidation notin flags:
-    # Check that proposer commit and reveal match
-    # TODO re-enable if appropriate
-    #if expected != proposer.randao_commitment:
-    #  notice "Randao reveal mismatch", reveal = blck.randao_reveal,
-    #                                   layers = proposer.randao_layers,
-    #                                   commitment = proposer.randao_commitment,
-    #                                   expected
-    #  return false
-    discard
+    if not bls_verify(
+      proposer.pubkey,
+      int_to_bytes32(get_current_epoch(state)),
+      blck.randao_reveal,
+      get_domain(state.fork, get_current_epoch(state), DOMAIN_RANDAO)):
+
+      notice "Randao mismatch", proposer_pubkey = proposer.pubkey,
+                                message = get_current_epoch(state),
+                                signature = blck.randao_reveal,
+                                slot = state.slot,
+                                blck_slot = blck.slot
+      return false
 
   # Update state and proposer now that we're alright
   let
@@ -102,7 +91,7 @@ proc processRandao(
   for i, b in state.latest_randao_mixes[mix].data:
     state.latest_randao_mixes[mix].data[i] = b xor rr[i]
 
-  return true
+  true
 
 func processDepositRoot(state: var BeaconState, blck: BeaconBlock) =
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#eth1-data
@@ -359,13 +348,12 @@ proc process_ejections(state: var BeaconState) =
         state.validator_balances[index] < EJECTION_BALANCE:
       exit_validator(state, index.ValidatorIndex)
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#per-slot-processing
 func processSlot(state: var BeaconState, previous_block_root: Eth2Digest) =
   ## Time on the beacon chain moves in slots. Every time we make it to a new
   ## slot, a proposer creates a block to represent the state of the beacon
   ## chain at that time. In case the proposer is missing, it may happen that
   ## the no block is produced during the slot.
-  ##
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#per-slot-processing
   state.slot += 1
   state.latest_block_roots[(state.slot - 1) mod LATEST_BLOCK_ROOTS_LENGTH] =
     previous_block_root
@@ -380,6 +368,7 @@ proc processBlock(
   # TODO when there's a failure, we should reset the state!
   # TODO probably better to do all verification first, then apply state changes
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#slot-1
   if not (blck.slot == state.slot):
     notice "Unexpected block slot number",
       blockSlot = blck.slot,

@@ -1,7 +1,7 @@
 import
   os, ospaths, strutils, strformat,
   chronos, nimcrypto, json_serialization, confutils,
-  spec/[datatypes, digest, crypto], conf, randao, time, ssz,
+  spec/[datatypes, digest, crypto], conf, time, ssz,
   ../tests/testutil
 
 proc writeFile(filename: string, value: auto) =
@@ -9,17 +9,13 @@ proc writeFile(filename: string, value: auto) =
   echo "Wrote ", filename
 
 proc genSingleValidator(path: string): (ValidatorPubKey,
-                                        ValidatorPrivKey,
-                                        Eth2Digest) =
+                                        ValidatorPrivKey) =
   var v: PrivateValidatorData
   v.privKey = newPrivKey()
-  if randomBytes(v.randao.seed.data) != sizeof(v.randao.seed.data):
-    raise newException(Exception, "Could not generate randao seed")
-
   writeFile(path, v)
 
   assert v.privKey != ValidatorPrivKey(), "Private key shouldn't be zero"
-  return (v.privKey.pubKey(), v.privKey, v.randao.initialCommitment)
+  return (v.privKey.pubKey(), v.privKey)
 
 # TODO: Make these more comprehensive and find them a new home
 type
@@ -41,7 +37,7 @@ cli do (validators: int,
   var startupData: ChainStartupData
 
   for i in 1 .. validators:
-    let (pubKey, privKey, randaoCommitment) =
+    let (pubKey, privKey) =
       genSingleValidator(outputDir / &"validator-{i:02}.json")
 
     let
