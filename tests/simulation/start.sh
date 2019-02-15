@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -eu
+set -eux
 
 # Kill children on ctrl-c
 trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
@@ -37,13 +37,13 @@ if [[ -z "$SKIP_BUILDS" ]]; then
 fi
 
 if [ ! -f $STARTUP_FILE ]; then
-  $VALIDATOR_KEYGEN_BIN --validators=$NUMBER_OF_VALIDATORS --outputDir="$SIMULATION_DIR" # --startupDelay=2
+  $VALIDATOR_KEYGEN_BIN --validators=$NUMBER_OF_VALIDATORS --outputDir="$SIMULATION_DIR"
 fi
 
 if [ ! -f $SNAPSHOT_FILE ]; then
   $BEACON_NODE_BIN createChain \
     --chainStartupData:$STARTUP_FILE \
-    --out:$SNAPSHOT_FILE
+    --out:$SNAPSHOT_FILE # --genesisOffset=2
 fi
 
 MASTER_NODE_ADDRESS_FILE="$SIMULATION_DIR/node-0/beacon_node.address"

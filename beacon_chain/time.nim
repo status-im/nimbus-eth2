@@ -1,7 +1,7 @@
 import
   random,
   chronos,
-  spec/datatypes
+  spec/[datatypes, helpers]
 
 type
   Timestamp* = uint64 # Unix epoch timestamp in millisecond resolution
@@ -20,17 +20,18 @@ proc getSlotFromTime*(s: BeaconState, t = now()): SlotNumber =
   GENESIS_SLOT + uint64((int64(t - s.genesis_time * 1000) - detectedClockDrift) div
                          int64(SLOT_DURATION * 1000))
 
-template slotStart*(s: BeaconState, slot: uint64): Timestamp =
+func slotStart*(s: BeaconState, slot: SlotNumber): Timestamp =
   (s.genesis_time + (slot * SLOT_DURATION)) * 1000
 
-template slotMiddle*(s: BeaconState, slot: uint64): Timestamp =
+func slotMiddle*(s: BeaconState, slot: SlotNumber): Timestamp =
   s.slotStart(slot) + SLOT_DURATION * 500
 
-template slotEnd*(s: BeaconState, slot: uint64): Timestamp =
+func slotEnd*(s: BeaconState, slot: SlotNumber): Timestamp =
+  # TODO this is actually past the end, by nim inclusive semantics (sigh)
   s.slotStart(slot + 1)
 
 proc randomTimeInSlot*(s: BeaconState,
-                       slot: uint64,
+                       slot: SlotNumber,
                        interval: HSlice[float, float]): Timestamp =
   ## Returns a random moment within the slot.
   ## The interval must be a sub-interval of [0..1].
@@ -39,7 +40,7 @@ proc randomTimeInSlot*(s: BeaconState,
 
 proc slotDistanceFromNow*(s: BeaconState): int64 =
   ## Returns how many slots have passed since a particular BeaconState was finalized
-  int64(s.timeSinceGenesis() div (SLOT_DURATION * EPOCH_LENGTH * 1000)) - int64(s.finalized_epoch)
+  int64(s.getSlotFromTime() - s.finalized_epoch.get_epoch_start_slot)
 
 proc synchronizeClock*() {.async.} =
   ## This should determine the offset of the local clock against a global

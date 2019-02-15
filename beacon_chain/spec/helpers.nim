@@ -102,6 +102,11 @@ func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
 func slot_to_epoch*(slot: SlotNumber): EpochNumber =
   slot div EPOCH_LENGTH
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_epoch_start_slot
+func get_epoch_start_slot*(epoch: EpochNumber): SlotNumber =
+  # Return the starting slot of the given ``epoch``.
+  epoch * EPOCH_LENGTH
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#is_double_vote
 func is_double_vote*(attestation_data_1: AttestationData,
                      attestation_data_2: AttestationData): bool =

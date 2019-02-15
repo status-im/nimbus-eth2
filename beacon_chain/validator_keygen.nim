@@ -12,6 +12,7 @@ proc genSingleValidator(path: string): (ValidatorPubKey,
                                         ValidatorPrivKey) =
   var v: PrivateValidatorData
   v.privKey = newPrivKey()
+
   writeFile(path, v)
 
   assert v.privKey != ValidatorPrivKey(), "Private key shouldn't be zero"
@@ -60,8 +61,6 @@ cli do (validators: int,
           pubkey: pubKey,
           proof_of_possession: proofOfPossession,
           withdrawal_credentials: withdrawalCredentials)))
-
-  startupData.genesisTime = uint64(int(now() div 1000) + startupDelay)
 
   writeFile(outputDir / "startup.json", startupData)
 

@@ -334,11 +334,6 @@ func update_validator_registry*(state: var BeaconState) =
 
   process_penalties_and_exits(state)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_epoch_start_slot
-func get_epoch_start_slot*(epoch: EpochNumber): SlotNumber =
-  # Return the starting slot of the given ``epoch``.
-  epoch * EPOCH_LENGTH
-
 ## https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#attestations-1
 proc checkAttestation*(
     state: BeaconState, attestation: Attestation, flags: UpdateFlags): bool =
