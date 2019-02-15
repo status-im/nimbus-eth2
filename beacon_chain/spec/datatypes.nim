@@ -487,6 +487,9 @@ func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
 func humaneSlotNum*(s: SlotNumber): SlotNumber =
   s - GENESIS_SLOT
 
+func humaneEpochNum*(e: EpochNumber): EpochNumber =
+  e - GENESIS_EPOCH
+
 export
   writeValue, readValue
 

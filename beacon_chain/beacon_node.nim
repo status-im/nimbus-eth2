@@ -102,6 +102,11 @@ proc sync*(node: BeaconNode): Future[bool] {.async.} =
     if t < node.beaconState.genesisTime * 1000:
       await sleepAsync int(node.beaconState.genesisTime * 1000 - t)
 
+    # TODO: change this to a full sync / block download
+    info "Syncing state from remote peers",
+      finalized_epoch = humaneEpochNum(node.beaconState.finalized_epoch),
+      target_slot_epoch = humaneEpochNum(targetSlot.slot_to_epoch)
+
     while node.beaconState.finalized_epoch < targetSlot.slot_to_epoch:
       var (peer, changeLog) = await node.network.getValidatorChangeLog(
         node.beaconState.validator_registry_delta_chain_tip)
@@ -284,7 +289,7 @@ proc scheduleEpochActions(node: BeaconNode, epoch: uint64) =
   ## attestations from our attached validators.
   doAssert node != nil
 
-  debug "Scheduling epoch actions", epoch
+  debug "Scheduling epoch actions", epoch = humaneEpochNum(epoch)
 
   # TODO: this copy of the state shouldn't be necessary, but please
   # see the comments in `get_beacon_proposer_index`
@@ -320,7 +325,7 @@ proc scheduleEpochActions(node: BeaconNode, epoch: uint64) =
 
   node.lastScheduledEpoch = epoch
   let
-    nextEpoch = epoch + 1
+    nextEpoch = humaneEpochNum(epoch + 1)
     at = node.beaconState.slotMiddle(nextEpoch * EPOCH_LENGTH)
 
   info "Scheduling next epoch update",
@@ -416,7 +421,9 @@ when isMainModule:
 
   case config.cmd
   of createChain:
-    createStateSnapshot(config.chainStartupData, config.outputStateFile.string)
+    createStateSnapshot(
+      config.chainStartupData, config.genesisOffset,
+      config.outputStateFile.string)
     quit 0
 
   of noCommand:

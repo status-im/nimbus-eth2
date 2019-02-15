@@ -16,7 +16,6 @@ type
 
   ChainStartupData* = object
     validatorDeposits*: seq[Deposit]
-    genesisTime*: Timestamp
 
   PrivateValidatorData* = object
     privKey*: ValidatorPrivKey
@@ -69,6 +68,11 @@ type
         desc: ""
         shortform: "c".}: ChainStartupData
 
+      genesisOffset* {.
+        desc: "Seconds from now to add to genesis time"
+        shortForm: "g"
+        defaultValue: 0 .}: int
+
       outputStateFile* {.
         desc: "Output file where to write the initial state snapshot"
         longform: "out"
@@ -96,4 +100,3 @@ template handledAsJsonFilename(T: untyped) {.dirty.} =
 handledAsJsonFilename BeaconState
 handledAsJsonFilename ChainStartupData
 handledAsJsonFilename PrivateValidatorData
-

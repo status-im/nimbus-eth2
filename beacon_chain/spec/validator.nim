@@ -144,8 +144,15 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64,
     previous_epoch = get_previous_epoch(state)
     next_epoch = current_epoch + 1
 
-  assert previous_epoch <= epoch, "Previous epoch: " & $previous_epoch & ", epoch: " & $epoch & ", Next epoch: " & $next_epoch 
-  assert epoch <= next_epoch, "Previous epoch: " & $previous_epoch & ", epoch: " & $epoch & ", Next epoch: " & $next_epoch 
+  assert previous_epoch <= epoch,
+    "Previous epoch: " & $humaneEpochNum(previous_epoch) &
+    ", epoch: " & $humaneEpochNum(epoch) &
+    ", Next epoch: " & $humaneEpochNum(next_epoch)
+
+  assert epoch <= next_epoch,
+    "Previous epoch: " & $humaneEpochNum(previous_epoch) &
+    ", epoch: " & $humaneEpochNum(epoch) &
+    ", Next epoch: " & $humaneEpochNum(next_epoch)
   # TODO - Hack: used to be "epoch < next_epoch" (exlusive interval)
   # until https://github.com/status-im/nim-beacon-chain/issues/97
 
