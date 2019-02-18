@@ -128,15 +128,20 @@ proc readValue*(reader: var JsonReader, value: var ValidatorPrivKey) {.inline.} 
 
 proc newPrivKey*(): ValidatorPrivKey = SigKey.random()
 
+# RLP serialization (TODO: remove if no longer necessary)
 proc append*(writer: var RlpWriter, value: ValidatorPubKey) =
   writer.append value.getBytes()
 
 proc read*(rlp: var Rlp, T: type ValidatorPubKey): T {.inline.} =
-  ValidatorPubKey.init rlp.toBytes.toOpenArray
+  let r = rlp.read(seq[byte])
+  if not init(result, r):
+    raise newException(Exception, "Could not init ValidatorPubKey from bytes")
 
 proc append*(writer: var RlpWriter, value: ValidatorSig) =
   writer.append value.getBytes()
 
 proc read*(rlp: var Rlp, T: type ValidatorSig): T {.inline.} =
-  ValidatorSig.init rlp.toBytes.toOpenArray
+  let r = rlp.read(seq[byte])
+  if not init(result, r):
+    raise newException(Exception, "Could not init ValidatorSig from bytes")
 

@@ -13,14 +13,16 @@ type
     kHashToBlock
     kHeadBlock # Pointer to the most recent block seen
     kTailBlock # Pointer to the earliest finalized block
+    kSlotToBlockRoots
 
 func subkey(kind: DbKeyKind): array[1, byte] =
   result[0] = byte ord(kind)
 
-func subkey[N: static int](kind: DbKeyKind, key: array[N, byte]):
-    array[N + 1, byte] =
-  result[0] = byte ord(kind)
-  result[1 .. ^1] = key
+func subkey[T](kind: DbKeyKind, key: T): auto =
+  var res: array[sizeof(T) + 1, byte]
+  res[0] = byte ord(kind)
+  copyMem(addr res[1], unsafeAddr key, sizeof(key))
+  return res
 
 func subkey(kind: type BeaconState, key: Eth2Digest): auto =
   subkey(kHashToState, key.data)
@@ -31,6 +33,26 @@ func subkey(kind: type BeaconBlock, key: Eth2Digest): auto =
 proc init*(T: type BeaconChainDB, backend: TrieDatabaseRef): BeaconChainDB =
   new result
   result.backend = backend
+
+proc toSeq(v: openarray[byte], ofType: type): seq[ofType] =
+  if v.len != 0:
+    assert(v.len mod sizeof(ofType) == 0)
+    let sz = v.len div sizeof(ofType)
+    result = newSeq[ofType](sz)
+    copyMem(addr result[0], unsafeAddr v[0], v.len)
+
+proc putBlock*(db: BeaconChainDB, key: Eth2Digest, value: BeaconBlock) =
+  let slotKey = subkey(kSlotToBlockRoots, value.slot)
+  var blockRootsBytes = db.backend.get(slotKey)
+  var blockRoots = blockRootsBytes.toSeq(Eth2Digest)
+  if key notin blockRoots:
+    db.backend.put(subkey(type value, key), ssz.serialize(value))
+    blockRootsBytes.setLen(blockRootsBytes.len + sizeof(key))
+    copyMem(addr blockRootsBytes[^sizeof(key)], unsafeAddr key, sizeof(key))
+    db.backend.put(slotKey, blockRootsBytes)
+
+proc putHead*(db: BeaconChainDB, key: Eth2Digest) =
+  db.backend.put(subkey(kHeadBlock), key.data) # TODO head block?
 
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
   # TODO: prune old states
@@ -49,9 +71,6 @@ proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
 
 proc putState*(db: BeaconChainDB, value: BeaconState) =
   db.putState(hash_tree_root_final(value), value)
-
-proc putBlock*(db: BeaconChainDB, key: Eth2Digest, value: BeaconBlock) =
-  db.backend.put(subkey(type value, key), ssz.serialize(value))
 
 proc putBlock*(db: BeaconChainDB, value: BeaconBlock) =
   db.putBlock(hash_tree_root_final(value), value)
@@ -80,6 +99,9 @@ proc getHeadBlock*(db: BeaconChainDB): Option[Eth2Digest] =
 
 proc getTailBlock*(db: BeaconChainDB): Option[Eth2Digest] =
   db.get(subkey(kTailBlock), Eth2Digest)
+
+proc getBlockRootsForSlot*(db: BeaconChainDB, slot: uint64): seq[Eth2Digest] =
+  db.backend.get(subkey(kSlotToBlockRoots, slot)).toSeq(Eth2Digest)
 
 proc containsBlock*(
     db: BeaconChainDB, key: Eth2Digest): bool =
