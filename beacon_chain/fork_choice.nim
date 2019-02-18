@@ -15,7 +15,7 @@ type
     # shard number. When we haven't received an attestation for a particular
     # shard yet, the Option value will be `none`
     attestations: Deque[array[SHARD_COUNT, Option[Attestation]]]
-    startingSlot: uint64
+    startingSlot: SlotNumber
 
   # TODO:
   # The compilicated Deque above is not needed.
@@ -37,7 +37,7 @@ type
   # substantial difficulties in network layer aggregation, then adding bits to
   # aid in supporting overlaps is one potential solution
 
-proc init*(T: type AttestationPool, startingSlot: uint64): T =
+proc init*(T: type AttestationPool, startingSlot: SlotNumber): T =
   result.attestations = initDeque[array[SHARD_COUNT, Option[Attestation]]]()
   result.startingSlot = startingSlot
 
@@ -94,14 +94,14 @@ proc add*(pool: var AttestationPool,
 
 proc getAttestationsForBlock*(pool: AttestationPool,
                               lastState: BeaconState,
-                              newBlockSlot: uint64): seq[Attestation] =
+                              newBlockSlot: SlotNumber): seq[Attestation] =
   if newBlockSlot < MIN_ATTESTATION_INCLUSION_DELAY or pool.attestations.len == 0:
     return
 
   doAssert newBlockSlot > lastState.slot
 
   var
-    firstSlot = 0.uint64
+    firstSlot = 0.SlotNumber
     lastSlot = newBlockSlot - MIN_ATTESTATION_INCLUSION_DELAY
 
   if pool.startingSlot + MIN_ATTESTATION_INCLUSION_DELAY <= lastState.slot:
@@ -115,7 +115,7 @@ proc getAttestationsForBlock*(pool: AttestationPool,
       if pool.attestations[slotDequeIdx][s.shard].isSome:
         result.add pool.attestations[slotDequeIdx][s.shard].get
 
-proc discardHistoryToSlot*(pool: var AttestationPool, slot: uint64) =
+proc discardHistoryToSlot*(pool: var AttestationPool, slot: SlotNumber) =
   ## The index is treated inclusively
   let slot = slot - MIN_ATTESTATION_INCLUSION_DELAY
   if slot < pool.startingSlot:
@@ -170,7 +170,8 @@ func getAttestationCandidate*(attestation: Attestation): AttestationCandidate =
 proc get_parent(db: BeaconChainDB, blck: Eth2Digest): Eth2Digest =
   db.getBlock(blck).parent_root
 
-proc get_ancestor(store: BeaconChainDB, blck: Eth2Digest, slot: uint64): Eth2Digest =
+proc get_ancestor(
+    store: BeaconChainDB, blck: Eth2Digest, slot: SlotNumber): Eth2Digest =
   ## Find the ancestor with a specific slot number
   let blk = store.getBlock(blck)
   if blk.slot == slot:
@@ -187,7 +188,8 @@ func getVoteCount(aggregation_bitfield: openarray[byte]): int =
   for validatorIdx in 0 ..< aggregation_bitfield.len * 8:
     result += int aggregation_bitfield.get_bitfield_bit(validatorIdx)
 
-func getAttestationVoteCount(pool: AttestationPool, current_slot: uint64): CountTable[Eth2Digest] =
+func getAttestationVoteCount(
+    pool: AttestationPool, current_slot: SlotNumber): CountTable[Eth2Digest] =
   ## Returns all blocks more recent that the current slot
   ## that were attested and their vote count
   # This replaces:
