@@ -74,7 +74,9 @@ proc signAttestation*(v: AttachedValidator,
 func genRandaoReveal*(k: ValidatorPrivKey, state: BeaconState, slot: SlotNumber):
     ValidatorSig =
   # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#randao
-  assert slot > state.slot
+
+  # Off-by-one? I often get slot == state.slot but the check was "assert slot >= state.slot" (Mamy)
+  assert slot >= state.slot, "input slot: " & $slot & " - beacon state slot: " & $state.slot
   bls_sign(k, int_to_bytes32(slot_to_epoch(slot)),
     get_domain(state.fork, slot_to_epoch(slot), DOMAIN_RANDAO))
 

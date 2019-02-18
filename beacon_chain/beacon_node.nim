@@ -288,7 +288,8 @@ proc scheduleEpochActions(node: BeaconNode, epoch: uint64) =
   ## This schedules the required block proposals and
   ## attestations from our attached validators.
   doAssert node != nil
-
+  doAssert epoch >= GENESIS_EPOCH, $epoch
+  
   debug "Scheduling epoch actions", epoch = humaneEpochNum(epoch)
 
   # TODO: this copy of the state shouldn't be necessary, but please
@@ -325,12 +326,13 @@ proc scheduleEpochActions(node: BeaconNode, epoch: uint64) =
 
   node.lastScheduledEpoch = epoch
   let
-    nextEpoch = humaneEpochNum(epoch + 1)
+    nextEpoch = epoch + 1
+    humaneNextEpoch = humaneEpochNum(nextEpoch)
     at = node.beaconState.slotMiddle(nextEpoch * EPOCH_LENGTH)
 
   info "Scheduling next epoch update",
     fromNow = (at - fastEpochTime()) div 1000,
-    nextEpoch
+    humaneNextEpoch
 
   addTimer(at) do (p: pointer):
     if node.lastScheduledEpoch != nextEpoch:

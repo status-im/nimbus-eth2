@@ -27,9 +27,9 @@ BEACON_NODE_BIN=$BUILD_OUTPUTS_DIR/beacon_node
 VALIDATOR_KEYGEN_BIN=$BUILD_OUTPUTS_DIR/validator_keygen
 
 # Run with "SHARD_COUNT=4 ./start.sh" to change these
-DEFS="-d:SHARD_COUNT=${SHARD_COUNT:-4} "
-DEFS+="-d:EPOCH_LENGTH=${EPOCH_LENGTH:-8} "
-DEFS+="-d:SLOT_DURATION=${SLOT_DURATION:-3} "
+DEFS="-d:SHARD_COUNT=${SHARD_COUNT:-4} "      # Spec default: 1024
+DEFS+="-d:EPOCH_LENGTH=${EPOCH_LENGTH:-8} "   # Spec default: 64
+DEFS+="-d:SLOT_DURATION=${SLOT_DURATION:-4} " # Spec default: 6
 
 if [[ -z "$SKIP_BUILDS" ]]; then
   nim c -o:"$VALIDATOR_KEYGEN_BIN" $DEFS -d:release beacon_chain/validator_keygen
@@ -43,7 +43,7 @@ fi
 if [ ! -f $SNAPSHOT_FILE ]; then
   $BEACON_NODE_BIN createChain \
     --chainStartupData:$STARTUP_FILE \
-    --out:$SNAPSHOT_FILE # --genesisOffset=2
+    --out:$SNAPSHOT_FILE # --genesisOffset=2 # Delay in seconds
 fi
 
 MASTER_NODE_ADDRESS_FILE="$SIMULATION_DIR/node-0/beacon_node.address"
