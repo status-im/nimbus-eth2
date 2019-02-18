@@ -16,7 +16,7 @@ type
     attachedValidators: ValidatorPool
     attestationPool: AttestationPool
     mainchainMonitor: MainchainMonitor
-    lastScheduledEpoch: uint64
+    lastScheduledEpoch: EpochNumber
     headBlock: BeaconBlock
     headBlockRoot: Eth2Digest
     blocksChildren: Table[Eth2Digest, seq[Eth2Digest]]
@@ -153,7 +153,7 @@ proc getAttachedValidator(node: BeaconNode, idx: int): AttachedValidator =
 
 proc makeAttestation(node: BeaconNode,
                      validator: AttachedValidator,
-                     slot: uint64,
+                     slot: SlotNumber,
                      shard: uint64,
                      committeeLen: int,
                      indexInCommittee: int) {.async.} =
@@ -199,7 +199,7 @@ proc makeAttestation(node: BeaconNode,
 
 proc proposeBlock(node: BeaconNode,
                   validator: AttachedValidator,
-                  slot: uint64) {.async.} =
+                  slot: SlotNumber) {.async.} =
   doAssert node != nil
   doAssert validator != nil
   doAssert validator.idx < node.beaconState.validator_registry.len
@@ -245,7 +245,7 @@ proc proposeBlock(node: BeaconNode,
                          idx = validator.idx
 
 proc scheduleBlockProposal(node: BeaconNode,
-                           slot: uint64,
+                           slot: SlotNumber,
                            validator: AttachedValidator) =
   # TODO:
   # This function exists only to hide a bug with Nim's closures.
@@ -265,11 +265,11 @@ proc scheduleBlockProposal(node: BeaconNode,
     # TODO timers are generally not accurate / guaranteed to fire at the right
     #      time - need to guard here against early / late firings
     doAssert validator != nil
-    asyncCheck proposeBlock(node, validator, slot.uint64)
+    asyncCheck proposeBlock(node, validator, slot)
 
 proc scheduleAttestation(node: BeaconNode,
                          validator: AttachedValidator,
-                         slot: uint64,
+                         slot: SlotNumber,
                          shard: uint64,
                          committeeLen: int,
                          indexInCommittee: int) =
@@ -281,10 +281,10 @@ proc scheduleAttestation(node: BeaconNode,
 
   addTimer(node.beaconState.slotMiddle(slot)) do (p: pointer) {.gcsafe.}:
     doAssert validator != nil
-    asyncCheck makeAttestation(node, validator, slot.uint64,
+    asyncCheck makeAttestation(node, validator, slot,
                                shard, committeeLen, indexInCommittee)
 
-proc scheduleEpochActions(node: BeaconNode, epoch: uint64) =
+proc scheduleEpochActions(node: BeaconNode, epoch: EpochNumber) =
   ## This schedules the required block proposals and
   ## attestations from our attached validators.
   doAssert node != nil
