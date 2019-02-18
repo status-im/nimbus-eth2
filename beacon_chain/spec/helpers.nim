@@ -159,6 +159,7 @@ func get_current_epoch_committee_count*(state: BeaconState): uint64 =
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: BeaconState): EpochNumber =
   # Return the current epoch of the given ``state``.
+  doAssert state.slot >= GENESIS_SLOT, $state.slot 
   slot_to_epoch(state.slot)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_randao_mix
