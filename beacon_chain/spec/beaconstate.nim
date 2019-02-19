@@ -22,7 +22,7 @@ func sum_effective_balances*(
   for index in validator_indices:
     result += get_effective_balance(state, index)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#validate_proof_of_possession<F12>
+# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#validate_proof_of_possession
 func validate_proof_of_possession(state: BeaconState,
                                   pubkey: ValidatorPubKey,
                                   proof_of_possession: ValidatorSig,
@@ -67,8 +67,8 @@ func process_deposit(state: var BeaconState,
       withdrawal_credentials: withdrawal_credentials,
       activation_epoch: FAR_FUTURE_EPOCH,
       exit_epoch: FAR_FUTURE_EPOCH,
-      withdrawal_epoch: FAR_FUTURE_EPOCH,
-      penalized_epoch: FAR_FUTURE_EPOCH,
+      withdrawable_epoch: FAR_FUTURE_EPOCH,
+      slashed_epoch: FAR_FUTURE_EPOCH,
       status_flags: 0,
     )
 
@@ -88,7 +88,7 @@ func process_deposit(state: var BeaconState,
 func get_entry_exit_effect_epoch*(epoch: EpochNumber): EpochNumber =
   ## An entry or exit triggered in the ``epoch`` given by the input takes effect at
   ## the epoch given by the output.
-  epoch + 1 + ENTRY_EXIT_DELAY
+  epoch + 1 + ACTIVATION_EXIT_DELAY
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#activate_validator
 func activate_validator(state: var BeaconState,
@@ -136,11 +136,11 @@ func process_penalties_and_exits(state: var BeaconState) =
     total_balance += get_effective_balance(state, i)
 
   for index, validator in state.validator_registry:
-    if current_epoch == validator.penalized_epoch + LATEST_PENALIZED_EXIT_LENGTH div 2:
+    if current_epoch == validator.slashed_epoch + LATEST_SLASHED_EXIT_LENGTH div 2:
       let
-        e = (current_epoch mod LATEST_PENALIZED_EXIT_LENGTH).int
-        total_at_start = state.latest_penalized_exit_balances[(e + 1) mod LATEST_PENALIZED_EXIT_LENGTH]
-        total_at_end = state.latest_penalized_exit_balances[e]
+        e = (current_epoch mod LATEST_SLASHED_EXIT_LENGTH).int
+        total_at_start = state.latest_slashed_balances[(e + 1) mod LATEST_SLASHED_EXIT_LENGTH]
+        total_at_end = state.latest_slashed_balances[e]
         total_penalties = total_at_end - total_at_start
         penalty = get_effective_balance(state, index.ValidatorIndex) * min(total_penalties * 3, total_balance) div total_balance
       state.validator_balances[index] -= penalty
@@ -193,12 +193,12 @@ func get_initial_beacon_state*(
     validator_registry_delta_chain_tip: ZERO_HASH,
 
     # Randomness and committees
-    previous_epoch_start_shard: GENESIS_START_SHARD,
-    current_epoch_start_shard: GENESIS_START_SHARD,
-    previous_calculation_epoch: GENESIS_EPOCH,
-    current_calculation_epoch: GENESIS_EPOCH,
-    previous_epoch_seed: ZERO_HASH,
-    current_epoch_seed: ZERO_HASH,
+    previous_shuffling_start_shard: GENESIS_START_SHARD,
+    current_shuffling_start_shard: GENESIS_START_SHARD,
+    previous_shuffling_epoch: GENESIS_EPOCH,
+    current_shuffling_epoch: GENESIS_EPOCH,
+    previous_shuffling_seed: ZERO_HASH,
+    current_shuffling_seed: ZERO_HASH,
 
     # Finality
     previous_justified_epoch: GENESIS_EPOCH,
@@ -326,9 +326,9 @@ func update_validator_registry*(state: var BeaconState) =
   state.validator_registry_update_epoch = current_epoch
 
   # Perform additional updates
-  state.current_calculation_epoch = next_epoch
-  state.current_epoch_start_shard = (state.current_epoch_start_shard + get_current_epoch_committee_count(state)) mod SHARD_COUNT
-  state.current_epoch_seed = generate_seed(state, state.current_calculation_epoch)
+  state.current_shuffling_epoch = next_epoch
+  state.current_shuffling_start_shard = (state.current_shuffling_start_shard + get_current_epoch_committee_count(state)) mod SHARD_COUNT
+  state.current_shuffling_seed = generate_seed(state, state.current_shuffling_epoch)
 
   # TODO "If a validator registry update does not happen do the following: ..."
 
@@ -463,4 +463,5 @@ func prepare_validator_for_withdrawal(state: var BeaconState, index: ValidatorIn
   ## Set the validator with the given ``index`` with ``WITHDRAWABLE`` flag.
   ## Note that this function mutates ``state``.
   var validator = addr state.validator_registry[index]
+  # TODO rm WITHDRAWABLE, since gone in 0.3.0
   validator.status_flags = validator.status_flags or WITHDRAWABLE

@@ -152,7 +152,7 @@ func get_current_epoch_committee_count*(state: BeaconState): uint64 =
   # Return the number of committees in the current epoch of the given ``state``.
   let current_active_validators = get_active_validator_indices(
     state.validator_registry,
-    state.current_calculation_epoch,
+    state.current_shuffling_epoch,
   )
   get_epoch_committee_count(len(current_active_validators))
 
@@ -178,9 +178,9 @@ func get_active_index_root(state: BeaconState, epoch: EpochNumber): Eth2Digest =
   # Returns the index root at a recent ``epoch``.
 
   # Cannot underflow, since GENESIS_EPOCH > LATEST_RANDAO_MIXES_LENGTH
-  assert get_current_epoch(state) - LATEST_INDEX_ROOTS_LENGTH < epoch
-  assert epoch <= get_current_epoch(state) + ENTRY_EXIT_DELAY
-  state.latest_index_roots[epoch mod LATEST_INDEX_ROOTS_LENGTH]
+  assert get_current_epoch(state) - LATEST_ACTIVE_INDEX_ROOTS_LENGTH < epoch
+  assert epoch <= get_current_epoch(state) + ACTIVATION_EXIT_DELAY
+  state.latest_active_index_roots[epoch mod LATEST_ACTIVE_INDEX_ROOTS_LENGTH]
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#bytes_to_int
 func bytes_to_int*(data: seq[byte]): uint64 =
@@ -219,8 +219,8 @@ func generate_seed*(state: BeaconState, epoch: EpochNumber): Eth2Digest =
   # Generate a seed for the given ``epoch``.
 
   var seed_input : array[32*3, byte]
-  # Cannot underflow, since GENESIS_EPOCH > SEED_LOOKAHEAD
-  seed_input[0..31] = get_randao_mix(state, epoch - SEED_LOOKAHEAD).data
+  # Cannot underflow, since GENESIS_EPOCH > MIN_SEED_LOOKAHEAD
+  seed_input[0..31] = get_randao_mix(state, epoch - MIN_SEED_LOOKAHEAD).data
   seed_input[32..63] = get_active_index_root(state, epoch).data
   seed_input[64..95] = int_to_bytes32(epoch)
   eth2hash(seed_input)

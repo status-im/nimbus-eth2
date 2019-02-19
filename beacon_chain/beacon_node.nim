@@ -444,7 +444,7 @@ when isMainModule:
         stateSlot = humaneSlotNum(node.beaconState.slot),
         SHARD_COUNT,
         EPOCH_LENGTH,
-        SLOT_DURATION,
+        SECONDS_PER_SLOT,
         SPEC_VERSION
 
       node.addLocalValidators()

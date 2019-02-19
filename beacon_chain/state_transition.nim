@@ -112,8 +112,8 @@ func penalizeValidator(state: var BeaconState, index: ValidatorIndex) =
   ## Note that this function mutates ``state``.
   exit_validator(state, index)
   var validator = addr state.validator_registry[index]
-  state.latest_penalized_exit_balances[(get_current_epoch(state) mod
-    LATEST_PENALIZED_EXIT_LENGTH).int] += get_effective_balance(state,
+  state.latest_slashed_balances[(get_current_epoch(state) mod
+    LATEST_SLASHED_EXIT_LENGTH).int] += get_effective_balance(state,
       index.ValidatorIndex)
 
   let
@@ -121,7 +121,8 @@ func penalizeValidator(state: var BeaconState, index: ValidatorIndex) =
     whistleblower_reward = get_effective_balance(state, index) div WHISTLEBLOWER_REWARD_QUOTIENT
   state.validator_balances[whistleblower_index] += whistleblower_reward
   state.validator_balances[index] -= whistleblower_reward
-  validator.penalized_epoch = get_current_epoch(state)
+  validator.slashed_epoch = get_current_epoch(state)
+  validator.withdrawable_epoch = get_current_epoch(state) + LATEST_SLASHED_EXIT_LENGTH
 
 proc processProposerSlashings(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
@@ -169,7 +170,7 @@ proc processProposerSlashings(
       notice "PropSlash: block root mismatch"
       return false
 
-    if not (proposer.penalized_epoch > get_current_epoch(state)):
+    if not (proposer.slashed_epoch > get_current_epoch(state)):
       notice "PropSlash: penalized slot"
       return false
 
@@ -265,7 +266,7 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
       return false
 
     for index in slashable_indices:
-      if state.validator_registry[index.int].penalized_epoch > get_current_epoch(state):
+      if state.validator_registry[index.int].slashed_epoch > get_current_epoch(state):
         penalize_validator(state, index.ValidatorIndex)
 
   return true
@@ -311,11 +312,11 @@ func initiate_validator_exit(state: var BeaconState, index: int) =
 proc processExits(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#exits-1
-  if len(blck.body.exits) > MAX_EXITS:
+  if len(blck.body.voluntary_exits) > MAX_VOLUNTARY_EXITS:
     notice "Exit: too many!"
     return false
 
-  for exit in blck.body.exits:
+  for exit in blck.body.voluntary_exits:
     let validator = state.validator_registry[exit.validator_index.int]
 
     if skipValidation notin flags:
@@ -582,9 +583,9 @@ func processEpoch(state: var BeaconState) =
     sum_effective_balances(statePtr[], crosslink_committee.committee)
 
   block: # Eth1 data
-    if state.slot mod ETH1_DATA_VOTING_PERIOD == 0:
+    if state.slot mod EPOCHS_PER_ETH1_VOTING_PERIOD == 0:
       for x in state.eth1_data_votes:
-        if x.vote_count * 2 >= ETH1_DATA_VOTING_PERIOD:
+        if x.vote_count * 2 >= EPOCHS_PER_ETH1_VOTING_PERIOD:
           state.latest_eth1_data = x.eth1_data
           break
       state.eth1_data_votes = @[]
@@ -716,7 +717,7 @@ func processEpoch(state: var BeaconState) =
       let proposer_index =
         get_beacon_proposer_index(state, inclusion_slot(state, v))
       state.validator_balances[proposer_index] +=
-        base_reward(state, v) div INCLUDER_REWARD_QUOTIENT
+        base_reward(state, v) div ATTESTATION_INCLUSION_REWARD_QUOTIENT
 
   block: # Crosslinks
     # https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#crosslinks-1
@@ -740,27 +741,27 @@ func processEpoch(state: var BeaconState) =
 
   block: # Validator registry and shuffling seed data
     # https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
-    state.previous_calculation_epoch = state.current_calculation_epoch
-    state.previous_epoch_start_shard = state.current_epoch_start_shard
-    state.previous_epoch_seed = state.current_epoch_seed
-    #TODO state.latest_index_roots[next_epoch mod LATEST_INDEX_ROOTS_LENGTH] = hash_tree_root_final(get_active_validator_indices(state.validator_registry, next_epoch))
+    state.previous_shuffling_epoch = state.current_shuffling_epoch
+    state.previous_shuffling_start_shard = state.current_shuffling_start_shard
+    state.previous_shuffling_seed = state.current_shuffling_seed
+    #TODO state.latest_index_roots[next_epoch mod LATEST_ACTIVE_INDEX_ROOTS_LENGTH] = hash_tree_root_final(get_active_validator_indices(state.validator_registry, next_epoch))
 
     if state.finalized_epoch > state.validator_registry_update_epoch and
        allIt(
          0 ..< get_current_epoch_committee_count(state).int * EPOCH_LENGTH,
-         state.latest_crosslinks[(state.current_epoch_start_shard + it.uint64) mod SHARD_COUNT].epoch > state.validator_registry_update_epoch):
+         state.latest_crosslinks[(state.current_shuffling_start_shard + it.uint64) mod SHARD_COUNT].epoch > state.validator_registry_update_epoch):
       update_validator_registry(state)
 
-      state.current_calculation_epoch = next_epoch
-      state.current_epoch_start_shard = (state.current_epoch_start_shard + get_current_epoch_committee_count(state) * EPOCH_LENGTH) mod SHARD_COUNT
-      state.current_epoch_seed = generate_seed(state, state.current_calculation_epoch)
+      state.current_shuffling_epoch = next_epoch
+      state.current_shuffling_start_shard = (state.current_shuffling_start_shard + get_current_epoch_committee_count(state) * EPOCH_LENGTH) mod SHARD_COUNT
+      state.current_shuffling_seed = generate_seed(state, state.current_shuffling_epoch)
     else:
       # If a validator registry change does NOT happen
       let epochs_since_last_registry_change = current_epoch - state.validator_registry_update_epoch
       if is_power_of_2(epochs_since_last_registry_change):
-        state.current_calculation_epoch = next_epoch
-        state.current_epoch_seed = generate_seed(state, state.current_calculation_epoch)
-        # /Note/ that state.current_epoch_start_shard is left unchanged
+        state.current_shuffling_epoch = next_epoch
+        state.current_shuffling_seed = generate_seed(state, state.current_shuffling_epoch)
+        # /Note/ that state.current_shuffling_start_shard is left unchanged
     # TODO run process_penalties_and_exits
 
   block: # Final updates
