@@ -17,8 +17,8 @@ proc writeJson*(prefix, slot, v: auto) =
   write(f, pretty(%*(v)))
 
 cli do(slots = 1945,
-       validators = EPOCH_LENGTH, # One per shard is minimum
-       json_interval = EPOCH_LENGTH,
+       validators = SLOTS_PER_EPOCH, # One per shard is minimum
+       json_interval = SLOTS_PER_EPOCH,
        prefix = 0,
        attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.0,
        validate = false):

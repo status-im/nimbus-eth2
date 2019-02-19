@@ -16,7 +16,7 @@ type
     attachedValidators: ValidatorPool
     attestationPool: AttestationPool
     mainchainMonitor: MainchainMonitor
-    lastScheduledEpoch: EpochNumber
+    lastScheduledEpoch: Epoch
     headBlock: BeaconBlock
     headBlockRoot: Eth2Digest
     blocksChildren: Table[Eth2Digest, seq[Eth2Digest]]
@@ -28,7 +28,7 @@ const
   topicBeaconBlocks = "ethereum/2.1/beacon_chain/blocks"
   topicAttestations = "ethereum/2.1/beacon_chain/attestations"
 
-  stateStoragePeriod = EPOCH_LENGTH.uint64 * 10 # Save states once per this number of slots. TODO: Find a good number.
+  stateStoragePeriod = SLOTS_PER_EPOCH.uint64 * 10 # Save states once per this number of slots. TODO: Find a good number.
 
 
 func shortHash(x: auto): string =
@@ -153,7 +153,7 @@ proc getAttachedValidator(node: BeaconNode, idx: int): AttachedValidator =
 
 proc makeAttestation(node: BeaconNode,
                      validator: AttachedValidator,
-                     slot: SlotNumber,
+                     slot: Slot,
                      shard: uint64,
                      committeeLen: int,
                      indexInCommittee: int) {.async.} =
@@ -199,7 +199,7 @@ proc makeAttestation(node: BeaconNode,
 
 proc proposeBlock(node: BeaconNode,
                   validator: AttachedValidator,
-                  slot: SlotNumber) {.async.} =
+                  slot: Slot) {.async.} =
   doAssert node != nil
   doAssert validator != nil
   doAssert validator.idx < node.beaconState.validator_registry.len
@@ -245,7 +245,7 @@ proc proposeBlock(node: BeaconNode,
                          idx = validator.idx
 
 proc scheduleBlockProposal(node: BeaconNode,
-                           slot: SlotNumber,
+                           slot: Slot,
                            validator: AttachedValidator) =
   # TODO:
   # This function exists only to hide a bug with Nim's closures.
@@ -269,7 +269,7 @@ proc scheduleBlockProposal(node: BeaconNode,
 
 proc scheduleAttestation(node: BeaconNode,
                          validator: AttachedValidator,
-                         slot: SlotNumber,
+                         slot: Slot,
                          shard: uint64,
                          committeeLen: int,
                          indexInCommittee: int) =
@@ -284,7 +284,7 @@ proc scheduleAttestation(node: BeaconNode,
     asyncCheck makeAttestation(node, validator, slot,
                                shard, committeeLen, indexInCommittee)
 
-proc scheduleEpochActions(node: BeaconNode, epoch: EpochNumber) =
+proc scheduleEpochActions(node: BeaconNode, epoch: Epoch) =
   ## This schedules the required block proposals and
   ## attestations from our attached validators.
   doAssert node != nil
@@ -298,9 +298,9 @@ proc scheduleEpochActions(node: BeaconNode, epoch: EpochNumber) =
 
   let start = if epoch == GENESIS_EPOCH: 1.uint64 else: 0.uint64
 
-  for i in start ..< EPOCH_LENGTH:
+  for i in start ..< SLOTS_PER_EPOCH:
     # Schedule block proposals
-    let slot = epoch * EPOCH_LENGTH + i
+    let slot = epoch * SLOTS_PER_EPOCH + i
     nextState.slot = slot
     let proposerIdx = get_beacon_proposer_index(nextState, slot)
     let validator = node.getAttachedValidator(proposerIdx)
@@ -327,7 +327,7 @@ proc scheduleEpochActions(node: BeaconNode, epoch: EpochNumber) =
   node.lastScheduledEpoch = epoch
   let
     nextEpoch = epoch + 1
-    at = node.beaconState.slotMiddle(nextEpoch * EPOCH_LENGTH)
+    at = node.beaconState.slotMiddle(nextEpoch * SLOTS_PER_EPOCH)
 
   info "Scheduling next epoch update",
     fromNow = (at - fastEpochTime()) div 1000,
@@ -403,7 +403,7 @@ proc processBlocks*(node: BeaconNode) =
 
     node.attestationPool.add(a, node.beaconState)
 
-  let epoch = node.beaconState.getSlotFromTime div EPOCH_LENGTH
+  let epoch = node.beaconState.getSlotFromTime div SLOTS_PER_EPOCH
   node.scheduleEpochActions(epoch)
 
   runForever()
@@ -443,7 +443,7 @@ when isMainModule:
         slotsSinceFinalization = node.beaconState.slotDistanceFromNow(),
         stateSlot = humaneSlotNum(node.beaconState.slot),
         SHARD_COUNT,
-        EPOCH_LENGTH,
+        SLOTS_PER_EPOCH,
         SECONDS_PER_SLOT,
         SPEC_VERSION
 

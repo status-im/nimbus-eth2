@@ -11,7 +11,7 @@ import
 func sumCommittees(v: openArray[seq[ValidatorIndex]], reqCommitteeLen: int): int =
   for x in v:
     ## This only holds when num_validators is divisible by
-    ## EPOCH_LENGTH * get_committee_count_per_slot(len(validators))
+    ## SLOTS_PER_EPOCH * get_committee_count_per_slot(len(validators))
     ## as, in general, not all committees can be equally sized.
     assert x.len == reqCommitteeLen
     inc result, x.len
@@ -31,6 +31,6 @@ suite "Validators":
       committees = get_epoch_committee_count(len(validators)).int
     check:
       s.len == committees
-       # 32k validators: EPOCH_LENGTH slots * committee_count_per_slot =
+       # 32k validators: SLOTS_PER_EPOCH slots * committee_count_per_slot =
        # get_epoch_committee_count committees.
       sumCommittees(s, num_validators div committees) == validators.len() # all validators accounted for

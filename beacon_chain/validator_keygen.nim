@@ -31,7 +31,7 @@ cli do (validators: int,
         startupDelay = 0):
 
   if validators < 64:
-    echo "The number of validators must be higher than ", EPOCH_LENGTH, " (EPOCH_LENGTH)"
+    echo "The number of validators must be higher than ", SLOTS_PER_EPOCH, " (SLOTS_PER_EPOCH)"
     echo "There must be at least one validator assigned per slot."
     quit 1
 

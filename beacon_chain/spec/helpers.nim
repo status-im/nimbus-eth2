@@ -34,7 +34,7 @@ func verify_bitfield*(bitfield: openarray[byte], committee_size: int): bool =
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#split
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#split
 func split*[T](lst: openArray[T], N: Positive): seq[seq[T]] =
   ## split lst in N pieces, with each piece having `len(lst) div N` or
   ## `len(lst) div N + 1` pieces
@@ -68,7 +68,7 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
   x
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_fork_version
-func get_fork_version*(fork: Fork, epoch: EpochNumber): uint64 =
+func get_fork_version*(fork: Fork, epoch: Epoch): uint64 =
   ## Return the fork version of the given ``epoch``.
   if epoch < fork.epoch:
     fork.previous_version
@@ -77,7 +77,7 @@ func get_fork_version*(fork: Fork, epoch: EpochNumber): uint64 =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_domain
 func get_domain*(
-    fork: Fork, epoch: EpochNumber, domain_type: SignatureDomain): uint64 =
+    fork: Fork, epoch: Epoch, domain_type: SignatureDomain): uint64 =
   # TODO Slot overflow? Or is slot 32 bits for all intents and purposes?
   # Get the domain number that represents the fork meta and signature domain.
   (get_fork_version(fork, epoch) shl 32) + domain_type.uint32
@@ -98,14 +98,14 @@ func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
   #TODO
   discard
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#slot_to_epoch
-func slot_to_epoch*(slot: SlotNumber): EpochNumber =
-  slot div EPOCH_LENGTH
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#slot_to_epoch
+func slot_to_epoch*(slot: Slot): Epoch =
+  slot div SLOTS_PER_EPOCH
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_epoch_start_slot
-func get_epoch_start_slot*(epoch: EpochNumber): SlotNumber =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_epoch_start_slot
+func get_epoch_start_slot*(epoch: Epoch): Slot =
   # Return the starting slot of the given ``epoch``.
-  epoch * EPOCH_LENGTH
+  epoch * SLOTS_PER_EPOCH
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#is_double_vote
 func is_double_vote*(attestation_data_1: AttestationData,
@@ -129,25 +129,25 @@ func is_surround_vote*(attestation_data_1: AttestationData,
 
   source_epoch_1 < source_epoch_2 and target_epoch_2 < target_epoch_1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#is_active_validator
-func is_active_validator*(validator: Validator, epoch: EpochNumber): bool =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#is_active_validator
+func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   ### Checks if validator is active
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_active_validator_indices
-func get_active_validator_indices*(validators: openArray[Validator], epoch: EpochNumber): seq[ValidatorIndex] =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_active_validator_indices
+func get_active_validator_indices*(validators: openArray[Validator], epoch: Epoch): seq[ValidatorIndex] =
   ## Gets indices of active validators from validators
   for idx, val in validators:
     if is_active_validator(val, epoch):
       result.add idx.ValidatorIndex
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_epoch_committee_count
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_epoch_committee_count
 func get_epoch_committee_count*(active_validator_count: int): uint64 =
   clamp(
-    active_validator_count div EPOCH_LENGTH div TARGET_COMMITTEE_SIZE,
-    1, SHARD_COUNT div EPOCH_LENGTH).uint64 * EPOCH_LENGTH
+    active_validator_count div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
+    1, SHARD_COUNT div SLOTS_PER_EPOCH).uint64 * SLOTS_PER_EPOCH
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_current_epoch_committee_count
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_current_epoch_committee_count
 func get_current_epoch_committee_count*(state: BeaconState): uint64 =
   # Return the number of committees in the current epoch of the given ``state``.
   let current_active_validators = get_active_validator_indices(
@@ -156,15 +156,15 @@ func get_current_epoch_committee_count*(state: BeaconState): uint64 =
   )
   get_epoch_committee_count(len(current_active_validators))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_current_epoch
-func get_current_epoch*(state: BeaconState): EpochNumber =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_current_epoch
+func get_current_epoch*(state: BeaconState): Epoch =
   # Return the current epoch of the given ``state``.
   doAssert state.slot >= GENESIS_SLOT, $state.slot 
   slot_to_epoch(state.slot)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: BeaconState,
-                     epoch: EpochNumber): Eth2Digest =
+                     epoch: Epoch): Eth2Digest =
     ## Returns the randao mix at a recent ``epoch``.
 
     # Cannot underflow, since GENESIS_EPOCH > LATEST_RANDAO_MIXES_LENGTH
@@ -174,7 +174,7 @@ func get_randao_mix*(state: BeaconState,
     state.latest_randao_mixes[epoch mod LATEST_RANDAO_MIXES_LENGTH]
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_active_index_root
-func get_active_index_root(state: BeaconState, epoch: EpochNumber): Eth2Digest =
+func get_active_index_root(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Returns the index root at a recent ``epoch``.
 
   # Cannot underflow, since GENESIS_EPOCH > LATEST_RANDAO_MIXES_LENGTH
@@ -215,7 +215,7 @@ func int_to_bytes4*(x: uint64): array[4, byte] =
   result[3] = ((x shr 24) and 0xff).byte
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#generate_seed
-func generate_seed*(state: BeaconState, epoch: EpochNumber): Eth2Digest =
+func generate_seed*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Generate a seed for the given ``epoch``.
 
   var seed_input : array[32*3, byte]

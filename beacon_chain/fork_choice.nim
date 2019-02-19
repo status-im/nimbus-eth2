@@ -15,7 +15,7 @@ type
     # shard number. When we haven't received an attestation for a particular
     # shard yet, the Option value will be `none`
     attestations: Deque[array[SHARD_COUNT, Option[Attestation]]]
-    startingSlot: SlotNumber
+    startingSlot: Slot
 
   # TODO:
   # The compilicated Deque above is not needed.
@@ -37,7 +37,7 @@ type
   # substantial difficulties in network layer aggregation, then adding bits to
   # aid in supporting overlaps is one potential solution
 
-proc init*(T: type AttestationPool, startingSlot: SlotNumber): T =
+proc init*(T: type AttestationPool, startingSlot: Slot): T =
   result.attestations = initDeque[array[SHARD_COUNT, Option[Attestation]]]()
   result.startingSlot = startingSlot
 
@@ -94,14 +94,14 @@ proc add*(pool: var AttestationPool,
 
 proc getAttestationsForBlock*(pool: AttestationPool,
                               lastState: BeaconState,
-                              newBlockSlot: SlotNumber): seq[Attestation] =
+                              newBlockSlot: Slot): seq[Attestation] =
   if newBlockSlot < MIN_ATTESTATION_INCLUSION_DELAY or pool.attestations.len == 0:
     return
 
   doAssert newBlockSlot > lastState.slot
 
   var
-    firstSlot = 0.SlotNumber
+    firstSlot = 0.Slot
     lastSlot = newBlockSlot - MIN_ATTESTATION_INCLUSION_DELAY
 
   if pool.startingSlot + MIN_ATTESTATION_INCLUSION_DELAY <= lastState.slot:
@@ -115,7 +115,7 @@ proc getAttestationsForBlock*(pool: AttestationPool,
       if pool.attestations[slotDequeIdx][s.shard].isSome:
         result.add pool.attestations[slotDequeIdx][s.shard].get
 
-proc discardHistoryToSlot*(pool: var AttestationPool, slot: SlotNumber) =
+proc discardHistoryToSlot*(pool: var AttestationPool, slot: Slot) =
   ## The index is treated inclusively
   let slot = slot - MIN_ATTESTATION_INCLUSION_DELAY
   if slot < pool.startingSlot:
@@ -142,7 +142,7 @@ func getAttestationCandidate*(attestation: Attestation): AttestationCandidate =
 #        the processing of which sets `B` as finalized.)
 #      * Let `justified_head` be the descendant of `finalized_head`
 #        with the highest slot number that has been justified
-#        for at least `EPOCH_LENGTH` slots.
+#        for at least `SLOTS_PER_EPOCH` slots.
 #        (A block `B` is justified if there is a descendant of `B` in `store`
 #        the processing of which sets `B` as justified.)
 #        If no such descendant exists set `justified_head` to `finalized_head`.
@@ -171,7 +171,7 @@ proc get_parent(db: BeaconChainDB, blck: Eth2Digest): Eth2Digest =
   db.getBlock(blck).parent_root
 
 proc get_ancestor(
-    store: BeaconChainDB, blck: Eth2Digest, slot: SlotNumber): Eth2Digest =
+    store: BeaconChainDB, blck: Eth2Digest, slot: Slot): Eth2Digest =
   ## Find the ancestor with a specific slot number
   let blk = store.getBlock(blck)
   if blk.slot == slot:
@@ -189,7 +189,7 @@ func getVoteCount(aggregation_bitfield: openarray[byte]): int =
     result += int aggregation_bitfield.get_bitfield_bit(validatorIdx)
 
 func getAttestationVoteCount(
-    pool: AttestationPool, current_slot: SlotNumber): CountTable[Eth2Digest] =
+    pool: AttestationPool, current_slot: Slot): CountTable[Eth2Digest] =
   ## Returns all blocks more recent that the current slot
   ## that were attested and their vote count
   # This replaces:

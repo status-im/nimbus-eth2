@@ -85,7 +85,7 @@ func process_deposit(state: var BeaconState,
     state.validator_balances[index] += amount
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_entry_exit_effect_epoch
-func get_entry_exit_effect_epoch*(epoch: EpochNumber): EpochNumber =
+func get_entry_exit_effect_epoch*(epoch: Epoch): Epoch =
   ## An entry or exit triggered in the ``epoch`` given by the input takes effect at
   ## the epoch given by the output.
   epoch + 1 + ACTIVATION_EXIT_DELAY
@@ -171,11 +171,11 @@ func get_initial_beacon_state*(
   ## must be calculated before creating the genesis block.
 
   # Induct validators
-  # Not in spec: the system doesn't work unless there are at least EPOCH_LENGTH
+  # Not in spec: the system doesn't work unless there are at least SLOTS_PER_EPOCH
   # validators - there needs to be at least one member in each committee -
   # good to know for testing, though arguably the system is not that useful at
   # at that point :)
-  assert initial_validator_deposits.len >= EPOCH_LENGTH
+  assert initial_validator_deposits.len >= SLOTS_PER_EPOCH
 
   var state = BeaconState(
     # Misc
@@ -230,7 +230,7 @@ func get_initial_beacon_state*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_block_root
 func get_block_root*(state: BeaconState,
-                     slot: SlotNumber): Eth2Digest =
+                     slot: Slot): Eth2Digest =
   # Return the block root at a recent ``slot``.
 
   doAssert state.slot <= slot + LATEST_BLOCK_ROOTS_LENGTH
@@ -348,7 +348,7 @@ proc checkAttestation*(
     return
 
   if not (state.slot - MIN_ATTESTATION_INCLUSION_DELAY <
-      attestation.data.slot + EPOCH_LENGTH):
+      attestation.data.slot + SLOTS_PER_EPOCH):
     warn("Attestation too old",
       attestation_slot = attestation.data.slot, state_slot = state.slot)
     return

@@ -57,7 +57,7 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
   )
 
 func makeInitialDeposits*(
-    n = EPOCH_LENGTH, flags: UpdateFlags = {}): seq[Deposit] =
+    n = SLOTS_PER_EPOCH, flags: UpdateFlags = {}): seq[Deposit] =
   for i in 0..<n.int:
     result.add makeDeposit(i + 1, flags)
 

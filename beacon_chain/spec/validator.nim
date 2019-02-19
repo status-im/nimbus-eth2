@@ -55,14 +55,14 @@ func get_permuted_index(index: uint64, list_size: uint64, seed: Eth2Digest): uin
     if bit != 0:
       result = flip
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_shuffling
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_shuffling
 func get_shuffling*(seed: Eth2Digest,
                     validators: openArray[Validator],
-                    epoch: EpochNumber
+                    epoch: Epoch
                     ): seq[seq[ValidatorIndex]] =
   ## Shuffles ``validators`` into crosslink committees seeded by ``seed`` and
   ## ``slot``.
-  ## Returns a list of ``EPOCH_LENGTH * committees_per_slot`` committees where
+  ## Returns a list of ``SLOTS_PER_EPOCH * committees_per_slot`` committees where
   ## each committee is itself a list of validator indices.
   ##
   ## TODO: write unit tests for if this produces an "interesting" permutation
@@ -102,7 +102,7 @@ func get_new_validator_registry_delta_chain_tip*(
     flag: flag
   ))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_previous_epoch_committee_count
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_previous_epoch_committee_count
 func get_previous_epoch_committee_count(state: BeaconState): uint64 =
   # Return the number of committees in the previous epoch of the given ``state``.
   let previous_active_validators = get_active_validator_indices(
@@ -111,16 +111,17 @@ func get_previous_epoch_committee_count(state: BeaconState): uint64 =
   )
   get_epoch_committee_count(len(previous_active_validators))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_next_epoch_committee_count
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_next_epoch_committee_count
 func get_next_epoch_committee_count(state: BeaconState): uint64 =
+  ## Return the number of committees in the next epoch of the given ``state``.
   let next_active_validators = get_active_validator_indices(
     state.validator_registry,
     get_current_epoch(state) + 1,
   )
   get_epoch_committee_count(len(next_active_validators))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_previous_epoch
-func get_previous_epoch(state: BeaconState): EpochNumber =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_previous_epoch
+func get_previous_epoch(state: BeaconState): Epoch =
   ## Return the previous epoch of the given ``state``.
   ## If the current epoch is  ``GENESIS_EPOCH``, return ``GENESIS_EPOCH``.
   let current_epoch = get_current_epoch(state)
@@ -129,8 +130,8 @@ func get_previous_epoch(state: BeaconState): EpochNumber =
   else:
     current_epoch - 1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_crosslink_committees_at_slot
-func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64,
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_crosslink_committees_at_slot
+func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot,
                                        registry_change: bool = false):
     seq[CrosslinkCommittee] =
   ## Returns the list of ``(committee, shard)`` tuples for the ``slot``.
@@ -206,8 +207,8 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64,
       state.validator_registry,
       shuffling_epoch,
     )
-    offset = slot mod EPOCH_LENGTH
-    committees_per_slot = committees_per_epoch div EPOCH_LENGTH
+    offset = slot mod SLOTS_PER_EPOCH
+    committees_per_slot = committees_per_epoch div SLOTS_PER_EPOCH
     slot_start_shard = (shuffling_start_shard + committees_per_slot * offset) mod SHARD_COUNT
 
   for i in 0 ..< committees_per_slot.int:

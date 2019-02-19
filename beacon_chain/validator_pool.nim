@@ -71,7 +71,7 @@ proc signAttestation*(v: AttachedValidator,
     # send RPC
     discard
 
-func genRandaoReveal*(k: ValidatorPrivKey, state: BeaconState, slot: SlotNumber):
+func genRandaoReveal*(k: ValidatorPrivKey, state: BeaconState, slot: Slot):
     ValidatorSig =
   # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#randao
 
@@ -80,6 +80,6 @@ func genRandaoReveal*(k: ValidatorPrivKey, state: BeaconState, slot: SlotNumber)
   bls_sign(k, int_to_bytes32(slot_to_epoch(slot)),
     get_domain(state.fork, slot_to_epoch(slot), DOMAIN_RANDAO))
 
-func genRandaoReveal*(v: AttachedValidator, state: BeaconState, slot: SlotNumber):
+func genRandaoReveal*(v: AttachedValidator, state: BeaconState, slot: Slot):
     ValidatorSig =
   genRandaoReveal(v.privKey, state, slot)
