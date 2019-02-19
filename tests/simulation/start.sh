@@ -29,7 +29,7 @@ VALIDATOR_KEYGEN_BIN=$BUILD_OUTPUTS_DIR/validator_keygen
 # Run with "SHARD_COUNT=4 ./start.sh" to change these
 DEFS="-d:SHARD_COUNT=${SHARD_COUNT:-4} "      # Spec default: 1024
 DEFS+="-d:EPOCH_LENGTH=${EPOCH_LENGTH:-8} "   # Spec default: 64
-DEFS+="-d:SLOT_DURATION=${SLOT_DURATION:-4} " # Spec default: 6
+DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-4} " # Spec default: 6
 
 if [[ -z "$SKIP_BUILDS" ]]; then
   nim c -o:"$VALIDATOR_KEYGEN_BIN" $DEFS -d:release beacon_chain/validator_keygen
