@@ -33,7 +33,7 @@ DEFS+="-d:SLOT_DURATION=${SLOT_DURATION:-4} " # Spec default: 6
 
 if [[ -z "$SKIP_BUILDS" ]]; then
   nim c -o:"$VALIDATOR_KEYGEN_BIN" $DEFS -d:release beacon_chain/validator_keygen
-  nim c -o:"$BEACON_NODE_BIN" $DEFS beacon_chain/beacon_node
+  nim c -o:"$BEACON_NODE_BIN" $DEFS --opt:speed beacon_chain/beacon_node
 fi
 
 if [ ! -f $STARTUP_FILE ]; then
