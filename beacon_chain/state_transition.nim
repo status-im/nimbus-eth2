@@ -371,8 +371,8 @@ proc processBlock(
   # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#slot-1
   if not (blck.slot == state.slot):
     notice "Unexpected block slot number",
-      blockSlot = blck.slot,
-      stateSlot = state.slot
+      blockSlot = humaneSlotNum blck.slot,
+      stateSlot = humaneSlotNum state.slot
     return false
 
   # Spec does not have this check explicitly, but requires that this condition
@@ -397,23 +397,29 @@ proc processBlock(
       return false
 
   if not processRandao(state, blck, flags):
+    notice "Randao failure"
     return false
 
   processDepositRoot(state, blck)
 
   if not processProposerSlashings(state, blck, flags):
+    notice "Proposer slashing failure"
     return false
 
   if not processAttesterSlashings(state, blck):
+    notice "Attester slashing failure"
     return false
 
   if not processAttestations(state, blck, flags):
+    notice "Attestations slashing failure"
     return false
 
   if not processDeposits(state, blck):
+    notice "Deposits failure"
     return false
 
   if not processExits(state, blck, flags):
+    notice "Exits failure"
     return false
 
   process_ejections(state)

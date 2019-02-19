@@ -294,15 +294,23 @@ proc scheduleEpochActions(node: BeaconNode, epoch: uint64) =
 
   # TODO: this copy of the state shouldn't be necessary, but please
   # see the comments in `get_beacon_proposer_index`
-  var nextState = node.beaconState
+  var nextState = node.beaconState.addr # Mamy, copying the state is buggy as its not updated
 
   let start = if epoch == GENESIS_EPOCH: 1.uint64 else: 0.uint64
 
   for i in start ..< EPOCH_LENGTH:
     # Schedule block proposals
     let slot = epoch * EPOCH_LENGTH + i
+    debug "TRACE - schedEpochAction: ",
+      newEpoch = humaneEpochNum epoch,
+      i = i,
+      currentSlot = humaneSlotNum nextState.slot,
+      computedCurrentEpoch = humaneEpochNum nextState.slot.slotToEpoch
     nextState.slot = slot
-    let proposerIdx = get_beacon_proposer_index(nextState, slot)
+    debug "TRACE - schedEpochAction: ",
+      slotChangingTo = humaneSlotNum nextState.slot,
+      computedNewEpoch = humaneEpochNum nextState.slot.slotToEpoch
+    let proposerIdx = get_beacon_proposer_index(nextState[], slot)
     let validator = node.getAttachedValidator(proposerIdx)
 
     if validator != nil:
@@ -329,11 +337,18 @@ proc scheduleEpochActions(node: BeaconNode, epoch: uint64) =
     nextEpoch = epoch + 1
     at = node.beaconState.slotMiddle(nextEpoch * EPOCH_LENGTH)
 
+  doAssert nextEpoch > node.beaconState.get_current_epoch, "Next epoch: " &
+    $humaneEpochNum(nextEpoch) &
+    ", current state epoch " &
+    $humaneEpochNum(node.beaconState.get_current_epoch)
+
   info "Scheduling next epoch update",
     fromNow = (at - fastEpochTime()) div 1000,
     epoch = humaneEpochNum(nextEpoch)
 
+  debugEcho "TRACE - before closure: currentSlot ", humaneSlotNum node.beaconState.slot
   addTimer(at) do (p: pointer):
+    debugEcho "TRACE - in closure: currentSlot ", humaneSlotNum node.beaconState.slot
     if node.lastScheduledEpoch != nextEpoch:
       node.scheduleEpochActions(nextEpoch)
 
@@ -350,7 +365,7 @@ proc processBlocks*(node: BeaconNode) =
 
     # TODO: This should be replaced with the real fork-choice rule
     if newBlock.slot <= stateSlot:
-      debug "Ignoring block"
+      debug "Ignoring block for older slot"
       return
 
     let newBlockRoot = hash_tree_root_final(newBlock)
@@ -387,7 +402,7 @@ proc processBlocks*(node: BeaconNode) =
     # 3. Peform block processing / state recalculation / etc
     #
 
-    let epoch = newBlock.slot.epoch
+    let epoch = newBlock.slot.slot_to_epoch
     if epoch != node.lastScheduledEpoch:
       node.scheduleEpochActions(epoch)
 
@@ -403,7 +418,9 @@ proc processBlocks*(node: BeaconNode) =
 
     node.attestationPool.add(a, node.beaconState)
 
-  let epoch = node.beaconState.getSlotFromTime div EPOCH_LENGTH
+  let slot = node.beaconState.getSlotFromTime
+  let epoch = slot.slot_to_epoch
+
   node.scheduleEpochActions(epoch)
 
   runForever()

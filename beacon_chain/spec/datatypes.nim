@@ -455,9 +455,6 @@ type
   # TODO: not in spec
   CrosslinkCommittee* = tuple[committee: seq[ValidatorIndex], shard: uint64]
 
-template epoch*(slot: int|uint64): auto =
-  slot div EPOCH_LENGTH
-
 when true:
   # TODO: Remove these once RLP serialization is no longer used
   import nimcrypto, eth/rlp, json_serialization
