@@ -1,132 +1,8 @@
 import
-  deques, options, tables,
-  ./spec/[datatypes, crypto, digest, helpers, validator], extras,
-  ./beacon_chain_db
-
-type
-  AttestationCandidate* = object
-    validator*: int
-    data*: AttestationData
-    signature*: ValidatorSig
-
-  AttestationPool* = object
-    # The Deque below stores all outstanding attestations per slot.
-    # In each slot, we have an array of all attestations indexed by their
-    # shard number. When we haven't received an attestation for a particular
-    # shard yet, the Option value will be `none`
-    attestations: Deque[array[SHARD_COUNT, Option[Attestation]]]
-    startingSlot: Slot
-
-  # TODO:
-  # The compilicated Deque above is not needed.
-  #
-  # In fact, we can use a simple array with length SHARD_COUNT because
-  # in each epoch, each shard is going to receive attestations exactly once.
-  # Once the epoch is over, we can discard all attestations and start all
-  # over again (no need for `discardHistoryToSlot` too).
-  #
-  # Per Danny as of 2018-12-21:
-  # Yeah, you can do any linear combination of signatures. but you have to
-  # remember the linear combination of pubkeys that constructed
-  # if you have two instances of a signature from pubkey p, then you need 2*p
-  # in the group pubkey because the attestation bitfield is only 1 bit per
-  # pubkey right now, attestations do not support this it could be extended to
-  # support N overlaps up to N times per pubkey if we had N bits per validator
-  # instead of 1
-  # We are shying away from this for the time being. If there end up being
-  # substantial difficulties in network layer aggregation, then adding bits to
-  # aid in supporting overlaps is one potential solution
-
-proc init*(T: type AttestationPool, startingSlot: Slot): T =
-  result.attestations = initDeque[array[SHARD_COUNT, Option[Attestation]]]()
-  result.startingSlot = startingSlot
-
-proc setLen*[T](d: var Deque[T], len: int) =
-  # TODO: The upstream `Deque` type should gain a proper resize API
-  let delta = len - d.len
-  if delta > 0:
-    for i in 0 ..< delta:
-      var defaultVal: T
-      d.addLast(defaultVal)
-  else:
-    d.shrink(fromLast = delta)
-
-proc combine*(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
-  # Combine the signature and participation bitfield, with the assumption that
-  # the same data is being signed!
-  # TODO similar code in work_pool, clean up
-
-  assert tgt.data == src.data
-
-  for i in 0 ..< tgt.aggregation_bitfield.len:
-    # TODO:
-    # when BLS signatures are combined, we must ensure that
-    # the same participant key is not included on both sides
-    tgt.aggregation_bitfield[i] =
-      tgt.aggregation_bitfield[i] or
-      src.aggregation_bitfield[i]
-
-  if skipValidation notin flags:
-    tgt.aggregate_signature.combine(src.aggregate_signature)
-
-proc add*(pool: var AttestationPool,
-          attestation: Attestation,
-          beaconState: BeaconState) =
-  # The caller of this function is responsible for ensuring that
-  # the attestations will be given in a strictly slot increasing order:
-  doAssert attestation.data.slot >= pool.startingSlot
-
-  # TODO:
-  # Validate that the attestation is authentic (it's properly signed)
-  # and make sure that the validator is supposed to make an attestation
-  # for the specific shard/slot
-
-  let slotIdxInPool = int(attestation.data.slot - pool.startingSlot)
-  if slotIdxInPool >= pool.attestations.len:
-    pool.attestations.setLen(slotIdxInPool + 1)
-
-  let shard = attestation.data.shard
-
-  if pool.attestations[slotIdxInPool][shard].isSome:
-    combine(pool.attestations[slotIdxInPool][shard].get, attestation, {})
-  else:
-    pool.attestations[slotIdxInPool][shard] = some(attestation)
-
-proc getAttestationsForBlock*(pool: AttestationPool,
-                              lastState: BeaconState,
-                              newBlockSlot: Slot): seq[Attestation] =
-  if newBlockSlot < MIN_ATTESTATION_INCLUSION_DELAY or pool.attestations.len == 0:
-    return
-
-  doAssert newBlockSlot > lastState.slot
-
-  var
-    firstSlot = 0.Slot
-    lastSlot = newBlockSlot - MIN_ATTESTATION_INCLUSION_DELAY
-
-  if pool.startingSlot + MIN_ATTESTATION_INCLUSION_DELAY <= lastState.slot:
-    firstSlot = lastState.slot - MIN_ATTESTATION_INCLUSION_DELAY
-
-  for slot in firstSlot .. lastSlot:
-    let slotDequeIdx = int(slot - pool.startingSlot)
-    if slotDequeIdx >= pool.attestations.len: return
-    let shardAndComittees = get_crosslink_committees_at_slot(lastState, slot)
-    for s in shardAndComittees:
-      if pool.attestations[slotDequeIdx][s.shard].isSome:
-        result.add pool.attestations[slotDequeIdx][s.shard].get
-
-proc discardHistoryToSlot*(pool: var AttestationPool, slot: Slot) =
-  ## The index is treated inclusively
-  let slot = slot - MIN_ATTESTATION_INCLUSION_DELAY
-  if slot < pool.startingSlot:
-    return
-  let slotIdx = int(slot - pool.startingSlot)
-  pool.attestations.shrink(fromFirst = slotIdx + 1)
-
-func getAttestationCandidate*(attestation: Attestation): AttestationCandidate =
-  # TODO: not complete AttestationCandidate object
-  result.data = attestation.data
-  result.signature = attestation.aggregate_signature
+  deques, options, sequtils, tables,
+  chronicles,
+  ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator], extras,
+  ./attestation_pool, ./beacon_chain_db, ./ssz
 
 # ##################################################################
 # Specs
@@ -204,12 +80,13 @@ func getAttestationVoteCount(
   # while the following implementation will count such blockhash multiple times instead.
   result = initCountTable[Eth2Digest]()
 
-  for slot in current_slot - pool.startingSlot ..< pool.attestations.len.uint64:
-    for attestation in pool.attestations[slot]:
-      if attestation.isSome:
+  # TODO iteration API that hides the startingSlot logic?
+  for slot in current_slot - pool.startingSlot ..< pool.slots.len.uint64:
+    for attestation in pool.slots[slot].attestations:
+      for validation in attestation.validations:
         # Increase the block attestation counts by the number of validators aggregated
-        let voteCount = attestation.get.aggregation_bitfield.getVoteCount()
-        result.inc(attestation.get.data.beacon_block_root, voteCount)
+        let voteCount = validation.aggregation_bitfield.getVoteCount()
+        result.inc(attestation.data.beacon_block_root, voteCount)
 
 proc lmdGhost*(
       store: BeaconChainDB,
