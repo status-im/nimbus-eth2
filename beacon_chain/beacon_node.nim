@@ -301,15 +301,15 @@ proc scheduleEpochActions(node: BeaconNode, epoch: uint64) =
   for i in start ..< EPOCH_LENGTH:
     # Schedule block proposals
     let slot = epoch * EPOCH_LENGTH + i
-    debug "TRACE - schedEpochAction: ",
-      newEpoch = humaneEpochNum epoch,
-      i = i,
-      currentSlot = humaneSlotNum nextState.slot,
-      computedCurrentEpoch = humaneEpochNum nextState.slot.slotToEpoch
+    # debug "TRACE - schedEpochAction: ",
+    #   newEpoch = humaneEpochNum epoch,
+    #   i = i,
+    #   currentSlot = humaneSlotNum nextState.slot,
+    #   computedCurrentEpoch = humaneEpochNum nextState.slot.slotToEpoch
     nextState.slot = slot
-    debug "TRACE - schedEpochAction: ",
-      slotChangingTo = humaneSlotNum nextState.slot,
-      computedNewEpoch = humaneEpochNum nextState.slot.slotToEpoch
+    # debug "TRACE - schedEpochAction: ",
+    #   slotChangingTo = humaneSlotNum nextState.slot,
+    #   computedNewEpoch = humaneEpochNum nextState.slot.slotToEpoch
     let proposerIdx = get_beacon_proposer_index(nextState[], slot)
     let validator = node.getAttachedValidator(proposerIdx)
 
@@ -349,8 +349,9 @@ proc scheduleEpochActions(node: BeaconNode, epoch: uint64) =
     fromNow = (at - fastEpochTime()) div 1000,
     epoch = humaneEpochNum(nextEpoch)
 
-  debugEcho "TRACE - before closure: currentSlot ", humaneSlotNum node.beaconState.slot
+  debug "TRACE - before closure: currentSlot ", stateSlot = humaneSlotNum node.beaconState.slot
   addTimer(at) do (p: pointer):
+    # Chronicles is not GC-safe
     debugEcho "TRACE - in closure: currentSlot ", humaneSlotNum node.beaconState.slot
     if node.lastScheduledEpoch != nextEpoch:
       node.scheduleEpochActions(nextEpoch)
