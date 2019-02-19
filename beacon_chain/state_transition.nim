@@ -370,9 +370,11 @@ proc processBlock(
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#slot-1
   if not (blck.slot == state.slot):
-    notice "Unexpected block slot number",
+    notice "Unexpected block slot number - stackTrace incoming",
       blockSlot = humaneSlotNum blck.slot,
       stateSlot = humaneSlotNum state.slot
+    writeStackTrace()
+    debugEcho "END STACK TRACE"
     return false
 
   # Spec does not have this check explicitly, but requires that this condition
@@ -810,6 +812,12 @@ proc updateState*(state: var BeaconState, previous_block_root: Eth2Digest,
   #      bool return values...)
   # TODO There's a discussion about what this function should do, and when:
   #      https://github.com/ethereum/eth2.0-specs/issues/284
+  
+  debug "TRACE - updateState",
+    oldStateSlot = humaneSlotNum state.slot,
+    proposedBlockSlot = if new_block.isSome(): new_block.get.slot.humaneSlotNum
+                        else: 1010101010
+  
   var old_state = state
 
   # Per-slot updates - these happen regardless if there is a block or not

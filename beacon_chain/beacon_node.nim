@@ -317,6 +317,9 @@ proc scheduleEpochActions(node: BeaconNode, epoch: uint64) =
       # TODO:
       # Warm-up the proposer earlier to try to obtain previous
       # missing blocks if necessary
+      debug "TRACE - sched block proposal: ",
+        nodeSlot = humaneSlotNum node.beaconState.slot,
+        newBlockSlot = humaneSlotNum slot 
       scheduleBlockProposal(node, slot, validator)
 
     # Schedule attestations
