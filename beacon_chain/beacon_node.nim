@@ -3,6 +3,7 @@ import
   chronos, chronicles, confutils, eth/[p2p, keys],
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator], conf, time,
   state_transition, fork_choice, ssz, beacon_chain_db, validator_pool, extras,
+  attestation_pool,
   mainchain_monitor, sync_protocol, gossipsub_protocol, trusted_state_snapshots,
   eth/trie/db, eth/trie/backends/rocksdb_backend
 
@@ -30,7 +31,6 @@ const
 
   stateStoragePeriod = EPOCH_LENGTH.uint64 * 10 # Save states once per this number of slots. TODO: Find a good number.
 
-
 func shortHash(x: auto): string =
   ($x)[0..7]
 
@@ -49,7 +49,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): T =
   result.config = conf
 
   result.attachedValidators = ValidatorPool.init
-  init result.attestationPool, GENESIS_SLOT
+  init result.attestationPool, 42 # TODO compile failure without the dummy int??
   init result.mainchainMonitor, "", Port(0) # TODO: specify geth address and port
 
   let trieDB = trieDB newChainDb(string conf.dataDir)
@@ -160,24 +160,33 @@ proc makeAttestation(node: BeaconNode,
   doAssert node != nil
   doAssert validator != nil
 
-  if get_current_epoch(node.beaconState) == node.beaconState.justified_epoch:
-    return
+  var state = node.beaconState
 
-  let justifiedBlockRoot =
-    get_block_root(node.beaconState,
-      get_epoch_start_slot(node.beaconState.justified_epoch))
+  if state.slot < slot:
+    info "Filling slot gap for attestation",
+      slot = humaneSlotNum(slot),
+      stateSlot = humaneSlotNum(state.slot)
 
-  var attestationData = AttestationData(
-    slot: slot,
-    shard: shard,
-    beacon_block_root: node.headBlockRoot,
-    epoch_boundary_root: Eth2Digest(), # TODO
-    shard_block_root: Eth2Digest(), # TODO
-    latest_crosslink: Crosslink(), # TODO
-    justified_epoch: node.beaconState.justified_epoch,
-    justified_block_root: justifiedBlockRoot)
+    for s in state.slot ..< slot:
+      let ok = updateState(
+        state, node.headBlockRoot, none[BeaconBlock](), {skipValidation})
+      doAssert ok
 
-  let validatorSignature = await validator.signAttestation(attestationData)
+  let
+    justifiedBlockRoot =
+      get_block_root(state, get_epoch_start_slot(state.justified_epoch))
+
+    attestationData = AttestationData(
+      slot: slot,
+      shard: shard,
+      beacon_block_root: node.headBlockRoot,
+      epoch_boundary_root: Eth2Digest(), # TODO
+      shard_block_root: Eth2Digest(), # TODO
+      latest_crosslink: Crosslink(), # TODO
+      justified_epoch: state.justified_epoch,
+      justified_block_root: justifiedBlockRoot)
+
+    validatorSignature = await validator.signAttestation(attestationData)
 
   var participationBitfield = repeat(0'u8, ceil_div8(committeeLen))
   bitSet(participationBitfield, indexInCommittee)
@@ -192,10 +201,12 @@ proc makeAttestation(node: BeaconNode,
 
   await node.network.broadcast(topicAttestations, attestation)
 
-  info "Attestation sent", slot = humaneSlotNum(slot),
-                           shard = shard,
-                           validator = shortValidatorKey(node, validator.idx),
-                           signature = shortHash(validatorSignature)
+  info "Attestation sent",
+    slot = humaneSlotNum(attestationData.slot),
+    shard = attestationData.shard,
+    validator = shortValidatorKey(node, validator.idx),
+    signature = shortHash(validatorSignature),
+    beaconBlockRoot = shortHash(attestationData.beacon_block_root)
 
 proc proposeBlock(node: BeaconNode,
                   validator: AttachedValidator,
@@ -206,16 +217,18 @@ proc proposeBlock(node: BeaconNode,
 
   var state = node.beaconState
 
-  if node.beaconState.slot + 1 < slot:
-    info "Proposing block after slot gap",
+  if state.slot + 1 < slot:
+    info "Filling slot gap for block proposal",
       slot = humaneSlotNum(slot),
-      stateSlot = node.beaconState.slot
-    for s in node.beaconState.slot + 1 ..< slot:
-      let ok = updateState(state, node.headBlockRoot, none[BeaconBlock](), {})
+      stateSlot = humaneSlotNum(state.slot)
+
+    for s in state.slot + 1 ..< slot:
+      let ok = updateState(
+        state, node.headBlockRoot, none[BeaconBlock](), {skipValidation})
       doAssert ok
 
   var blockBody = BeaconBlockBody(
-    attestations: node.attestationPool.getAttestationsForBlock(node.beaconState, slot))
+    attestations: node.attestationPool.getAttestationsForBlock(state, slot))
 
   var newBlock = BeaconBlock(
     slot: slot,
@@ -225,7 +238,8 @@ proc proposeBlock(node: BeaconNode,
     signature: ValidatorSig(), # we need the rest of the block first!
     body: blockBody)
 
-  let ok = updateState(state, node.headBlockRoot, some(newBlock), {skipValidation})
+  let ok =
+    updateState(state, node.headBlockRoot, some(newBlock), {skipValidation})
   doAssert ok # TODO: err, could this fail somehow?
 
   newBlock.state_root = Eth2Digest(data: hash_tree_root(state))
@@ -235,14 +249,15 @@ proc proposeBlock(node: BeaconNode,
     shard: BEACON_CHAIN_SHARD_NUMBER,
     blockRoot: hash_tree_root_final(newBlock))
 
-  newBlock.signature = await validator.signBlockProposal(node.beaconState.fork, signedData)
+  newBlock.signature = await validator.signBlockProposal(state.fork, signedData)
 
   await node.network.broadcast(topicBeaconBlocks, newBlock)
 
-  info "Block proposed", slot = humaneSlotNum(slot),
-                         stateRoot = shortHash(newBlock.state_root),
-                         validator = shortValidatorKey(node, validator.idx),
-                         idx = validator.idx
+  info "Block proposed",
+    slot = humaneSlotNum(slot),
+    stateRoot = shortHash(newBlock.state_root),
+    validator = shortValidatorKey(node, validator.idx),
+    idx = validator.idx
 
 proc scheduleBlockProposal(node: BeaconNode,
                            slot: SlotNumber,
@@ -253,15 +268,20 @@ proc scheduleBlockProposal(node: BeaconNode,
   # internal `doAssert` starting to fail.
   doAssert validator != nil
 
-  let at = node.beaconState.slotStart(slot)
+  let
+    at = node.beaconState.slotStart(slot)
+    now = fastEpochTime()
+
+  if now > at:
+    warn "Falling behind on block proposals", at, now, slot
 
   info "Scheduling block proposal",
     validator = shortValidatorKey(node, validator.idx),
     idx = validator.idx,
     slot = humaneSlotNum(slot),
-    fromNow = (at - fastEpochTime()) div 1000
+    fromNow = (at - now) div 1000
 
-  addTimer(node.beaconState.slotStart(slot)) do (x: pointer) {.gcsafe.}:
+  addTimer(at) do (x: pointer) {.gcsafe.}:
     # TODO timers are generally not accurate / guaranteed to fire at the right
     #      time - need to guard here against early / late firings
     doAssert validator != nil
@@ -279,7 +299,20 @@ proc scheduleAttestation(node: BeaconNode,
   # internal `doAssert` starting to fail.
   doAssert validator != nil
 
-  addTimer(node.beaconState.slotMiddle(slot)) do (p: pointer) {.gcsafe.}:
+  let
+    at = node.beaconState.slotStart(slot)
+    now = fastEpochTime()
+
+  if now > at:
+    warn "Falling behind on attestations", at, now, slot
+
+  debug "Scheduling attestation",
+    validator = shortValidatorKey(node, validator.idx),
+    fromNow = (at - now) div 1000,
+    slot = humaneSlotNum(slot),
+    shard
+
+  addTimer(at) do (p: pointer) {.gcsafe.}:
     doAssert validator != nil
     asyncCheck makeAttestation(node, validator, slot,
                                shard, committeeLen, indexInCommittee)
@@ -288,7 +321,8 @@ proc scheduleEpochActions(node: BeaconNode, epoch: EpochNumber) =
   ## This schedules the required block proposals and
   ## attestations from our attached validators.
   doAssert node != nil
-  doAssert epoch >= GENESIS_EPOCH, "Epoch: " & $epoch & ", humane epoch: " & $humaneSlotNum(epoch)
+  doAssert epoch >= GENESIS_EPOCH,
+    "Epoch: " & $epoch & ", humane epoch: " & $humaneSlotNum(epoch)
 
   debug "Scheduling epoch actions", epoch = humaneEpochNum(epoch)
 
@@ -299,30 +333,28 @@ proc scheduleEpochActions(node: BeaconNode, epoch: EpochNumber) =
   let start = if epoch == GENESIS_EPOCH: 1.uint64 else: 0.uint64
 
   for i in start ..< EPOCH_LENGTH:
-    # Schedule block proposals
     let slot = epoch * EPOCH_LENGTH + i
-    nextState.slot = slot
-    let proposerIdx = get_beacon_proposer_index(nextState, slot)
-    let validator = node.getAttachedValidator(proposerIdx)
+    nextState.slot = slot # ugly trick, see get_beacon_proposer_index
 
-    if validator != nil:
-      # TODO:
-      # Warm-up the proposer earlier to try to obtain previous
-      # missing blocks if necessary
-      scheduleBlockProposal(node, slot, validator)
+    block: # Schedule block proposals
+      let proposerIdx = get_beacon_proposer_index(nextState, slot)
+      let validator = node.getAttachedValidator(proposerIdx)
 
-    # Schedule attestations
+      if validator != nil:
+        # TODO:
+        # Warm-up the proposer earlier to try to obtain previous
+        # missing blocks if necessary
+        scheduleBlockProposal(node, slot, validator)
 
-    for crosslink_committee in get_crosslink_committees_at_slot(
-        node.beaconState, slot):
-      #for i, validatorIdx in shard.committee:
-      for i, validatorIdx in crosslink_committee.committee:
-        let validator = node.getAttachedValidator(validatorIdx)
-        if validator != nil:
-          #scheduleAttestation(node, validator, slot, shard.shard, shard.committee.len, i)
-          scheduleAttestation(
-            node, validator, slot, crosslink_committee.shard,
-            crosslink_committee.committee.len, i)
+    block: # Schedule attestations
+      for crosslink_committee in get_crosslink_committees_at_slot(
+          nextState, slot):
+        for i, validatorIdx in crosslink_committee.committee:
+          let validator = node.getAttachedValidator(validatorIdx)
+          if validator != nil:
+            scheduleAttestation(
+              node, validator, slot, crosslink_committee.shard,
+              crosslink_committee.committee.len, i)
 
   node.lastScheduledEpoch = epoch
   let
@@ -344,9 +376,10 @@ proc stateNeedsSaving(s: BeaconState): bool =
 proc processBlocks*(node: BeaconNode) =
   node.network.subscribe(topicBeaconBlocks) do (newBlock: BeaconBlock):
     let stateSlot = node.beaconState.slot
-    info "Block received", slot = humaneSlotNum(newBlock.slot),
-                           stateRoot = shortHash(newBlock.state_root),
-                           stateSlot
+    info "Block received",
+      slot = humaneSlotNum(newBlock.slot),
+      stateRoot = shortHash(newBlock.state_root),
+      stateSlot = humaneSlotNum(stateSlot)
 
     # TODO: This should be replaced with the real fork-choice rule
     if newBlock.slot <= stateSlot:
@@ -359,7 +392,8 @@ proc processBlocks*(node: BeaconNode) =
     if stateSlot + 1 < newBlock.slot:
       info "Advancing state past slot gap",
         blockSlot = humaneSlotNum(newBlock.slot),
-        stateSlot
+        stateSlot = humaneSlotNum(stateSlot)
+
       for slot in stateSlot + 1 ..< newBlock.slot:
         let ok = updateState(state, node.headBlockRoot, none[BeaconBlock](), {})
         doAssert ok
@@ -396,10 +430,12 @@ proc processBlocks*(node: BeaconNode) =
       node.beaconState, a.data, a.aggregation_bitfield).
         mapIt(shortValidatorKey(node, it))
 
-    info "Attestation received", slot = humaneSlotNum(a.data.slot),
-                                 shard = a.data.shard,
-                                 signature = shortHash(a.aggregate_signature),
-                                 participants
+    info "Attestation received",
+      slot = humaneSlotNum(a.data.slot),
+      shard = a.data.shard,
+      signature = shortHash(a.aggregate_signature),
+      participants,
+      beaconBlockRoot = shortHash(a.data.beacon_block_root)
 
     node.attestationPool.add(a, node.beaconState)
 

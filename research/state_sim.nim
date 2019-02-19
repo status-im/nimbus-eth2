@@ -4,7 +4,7 @@ import
   options, sequtils, random,
   ../tests/[testutil],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
-  ../beacon_chain/[extras, ssz, state_transition, fork_choice]
+  ../beacon_chain/[attestation_pool, extras, ssz, state_transition, fork_choice]
 
 proc `%`(v: uint64): JsonNode = newJInt(v.BiggestInt)
 proc `%`(v: Eth2Digest): JsonNode = newJString($v)
