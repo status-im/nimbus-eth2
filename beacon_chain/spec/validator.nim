@@ -107,7 +107,7 @@ func get_previous_epoch_committee_count(state: BeaconState): uint64 =
   # Return the number of committees in the previous epoch of the given ``state``.
   let previous_active_validators = get_active_validator_indices(
     state.validator_registry,
-    state.previous_calculation_epoch,
+    state.previous_shuffling_epoch,
   )
   get_epoch_committee_count(len(previous_active_validators))
 
@@ -163,16 +163,16 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64,
         ## Nim optimizes out both copies per. Could directly construct tuple
         ## but this hews closer to spec helper code.
         committees_per_epoch = get_previous_epoch_committee_count(state)
-        seed = state.previous_epoch_seed
-        shuffling_epoch = state.previous_calculation_epoch
-        shuffling_start_shard = state.previous_epoch_start_shard
+        seed = state.previous_shuffling_seed
+        shuffling_epoch = state.previous_shuffling_epoch
+        shuffling_start_shard = state.previous_shuffling_start_shard
       (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard)
     elif epoch == current_epoch:
       let
         committees_per_epoch = get_current_epoch_committee_count(state)
-        seed = state.current_epoch_seed
-        shuffling_epoch = state.current_calculation_epoch
-        shuffling_start_shard = state.current_epoch_start_shard
+        seed = state.current_shuffling_seed
+        shuffling_epoch = state.current_shuffling_epoch
+        shuffling_start_shard = state.current_shuffling_start_shard
       (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard)
     else:
       assert epoch == next_epoch
@@ -188,13 +188,13 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: uint64,
         seed = if registry_change or condition:
                  generate_seed(state, next_epoch)
                else:
-                 state.current_epoch_seed
+                 state.current_shuffling_seed
         shuffling_start_shard =
           if registry_change:
-            (state.current_epoch_start_shard +
+            (state.current_shuffling_start_shard +
              current_committees_per_epoch) mod SHARD_COUNT
           else:
-            state.current_epoch_start_shard
+            state.current_shuffling_start_shard
       (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard)
 
   let (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard) =

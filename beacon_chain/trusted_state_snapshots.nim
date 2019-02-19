@@ -3,7 +3,7 @@ import
   spec/[datatypes, crypto, digest, beaconstate], beacon_chain_db, conf
 
 const
-  WEAK_SUBJECTVITY_PERIOD* = uint64(4 * 30 * 24 * 60 * 60) div SLOT_DURATION
+  WEAK_SUBJECTVITY_PERIOD* = uint64(4 * 30 * 24 * 60 * 60) div SECONDS_PER_SLOT
     # TODO: This needs revisiting.
     # Why was the validator WITHDRAWAL_PERIOD altered in the spec?
 

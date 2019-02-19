@@ -18,13 +18,13 @@ proc timeSinceGenesis*(s: BeaconState): Timestamp =
 
 proc getSlotFromTime*(s: BeaconState, t = now()): SlotNumber =
   GENESIS_SLOT + uint64((int64(t - s.genesis_time * 1000) - detectedClockDrift) div
-                         int64(SLOT_DURATION * 1000))
+                         int64(SECONDS_PER_SLOT * 1000))
 
 func slotStart*(s: BeaconState, slot: SlotNumber): Timestamp =
-  (s.genesis_time + (slot * SLOT_DURATION)) * 1000
+  (s.genesis_time + (slot * SECONDS_PER_SLOT)) * 1000
 
 func slotMiddle*(s: BeaconState, slot: SlotNumber): Timestamp =
-  s.slotStart(slot) + SLOT_DURATION * 500
+  s.slotStart(slot) + SECONDS_PER_SLOT * 500
 
 func slotEnd*(s: BeaconState, slot: SlotNumber): Timestamp =
   # TODO this is actually past the end, by nim inclusive semantics (sigh)
@@ -36,7 +36,7 @@ proc randomTimeInSlot*(s: BeaconState,
   ## Returns a random moment within the slot.
   ## The interval must be a sub-interval of [0..1].
   ## Zero marks the begginning of the slot and One marks the end.
-  s.slotStart(slot) + Timestamp(rand(interval) * float(SLOT_DURATION * 1000))
+  s.slotStart(slot) + Timestamp(rand(interval) * float(SECONDS_PER_SLOT * 1000))
 
 proc slotDistanceFromNow*(s: BeaconState): int64 =
   ## Returns how many slots have passed since a particular BeaconState was finalized
