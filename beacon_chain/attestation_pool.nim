@@ -50,7 +50,7 @@ type
     ## We keep one item per slot such that indexing matches slot number
     ## together with startingSlot
 
-    startingSlot*: SlotNumber ## \
+    startingSlot*: Slot ## \
     ## Generally, we keep attestations only until a slot has been finalized -
     ## after that, they may no longer affect fork choice.
 
@@ -206,13 +206,13 @@ proc add*(pool: var AttestationPool,
       attestationSlot =  $humaneSlotNum(attestationSlot)
     pool.startingSlot = attestationSlot
 
-  if pool.startingSlot + pool.slots.len.SlotNumber <= attestationSlot:
+  if pool.startingSlot + pool.slots.len.Slot <= attestationSlot:
     debug "Growing attestation pool",
       attestationSlot =  $humaneSlotNum(attestationSlot),
       startingSlot = $humaneSlotNum(pool.startingSlot)
 
     # Make sure there's a pool entry for every slot, even when there's a gap
-    while pool.startingSlot + pool.slots.len.SlotNumber <= attestationSlot:
+    while pool.startingSlot + pool.slots.len.Slot <= attestationSlot:
       pool.slots.addLast(SlotData())
 
   if pool.startingSlot < state.finalized_epoch.get_epoch_start_slot():
@@ -267,7 +267,7 @@ proc add*(pool: var AttestationPool,
 
 proc getAttestationsForBlock*(pool: AttestationPool,
                               lastState: BeaconState,
-                              newBlockSlot: SlotNumber): seq[Attestation] =
+                              newBlockSlot: Slot): seq[Attestation] =
   if newBlockSlot - GENESIS_SLOT < MIN_ATTESTATION_INCLUSION_DELAY:
     debug "Too early for attestations",
       newBlockSlot = humaneSlotNum(newBlockSlot)
@@ -287,11 +287,11 @@ proc getAttestationsForBlock*(pool: AttestationPool,
     attestationSlot = newBlockSlot - MIN_ATTESTATION_INCLUSION_DELAY
 
   if attestationSlot < pool.startingSlot or
-      attestationSlot >= pool.startingSlot + pool.slots.len.SlotNumber:
+      attestationSlot >= pool.startingSlot + pool.slots.len.Slot:
     info "No attestations",
       attestationSlot = humaneSlotNum(attestationSlot),
       startingSlot = humaneSlotNum(pool.startingSlot),
-      endingSlot = humaneSlotNum(pool.startingSlot + pool.slots.len.SlotNumber)
+      endingSlot = humaneSlotNum(pool.startingSlot + pool.slots.len.Slot)
 
     return
 

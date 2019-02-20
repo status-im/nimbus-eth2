@@ -16,22 +16,22 @@ proc timeSinceGenesis*(s: BeaconState): Timestamp =
   Timestamp(int64(fastEpochTime() - s.genesis_time * 1000) -
             detectedClockDrift)
 
-proc getSlotFromTime*(s: BeaconState, t = now()): SlotNumber =
+proc getSlotFromTime*(s: BeaconState, t = now()): Slot =
   GENESIS_SLOT + uint64((int64(t - s.genesis_time * 1000) - detectedClockDrift) div
                          int64(SECONDS_PER_SLOT * 1000))
 
-func slotStart*(s: BeaconState, slot: SlotNumber): Timestamp =
+func slotStart*(s: BeaconState, slot: Slot): Timestamp =
   (s.genesis_time + (slot * SECONDS_PER_SLOT)) * 1000
 
-func slotMiddle*(s: BeaconState, slot: SlotNumber): Timestamp =
+func slotMiddle*(s: BeaconState, slot: Slot): Timestamp =
   s.slotStart(slot) + SECONDS_PER_SLOT * 500
 
-func slotEnd*(s: BeaconState, slot: SlotNumber): Timestamp =
+func slotEnd*(s: BeaconState, slot: Slot): Timestamp =
   # TODO this is actually past the end, by nim inclusive semantics (sigh)
   s.slotStart(slot + 1)
 
 proc randomTimeInSlot*(s: BeaconState,
-                       slot: SlotNumber,
+                       slot: Slot,
                        interval: HSlice[float, float]): Timestamp =
   ## Returns a random moment within the slot.
   ## The interval must be a sub-interval of [0..1].

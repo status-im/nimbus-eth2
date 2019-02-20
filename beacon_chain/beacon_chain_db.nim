@@ -23,11 +23,11 @@ proc hashToBlockKey(h: Eth2Digest): array[32 + 1, byte] =
   result[0] = byte ord(kHashToBlock)
   result[1 .. ^1] = h.data
 
-proc slotToBlockHashKey(s: SlotNumber): array[sizeof(SlotNumber) + 1, byte] =
+proc slotToBlockHashKey(s: Slot): array[sizeof(Slot) + 1, byte] =
   result[0] = byte ord(kSlotToBlockHash)
   copyMem(addr result[1], unsafeAddr(s), sizeof(s))
 
-proc slotToStateKey(s: SlotNumber): array[sizeof(SlotNumber) + 1, byte] =
+proc slotToStateKey(s: Slot): array[sizeof(Slot) + 1, byte] =
   result[0] = byte ord(kSlotToState)
   copyMem(addr result[1], unsafeAddr(s), sizeof(s))
 

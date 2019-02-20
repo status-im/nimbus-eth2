@@ -178,11 +178,11 @@ method on_receive(self: Node, sig: Sig, reprocess = false) =
       var c2 = c
       self.log &"Justified: {slot} {($c)[0 ..< 8]}"
 
-      # If EPOCH_LENGTH+1 blocks are justified in a row, the oldest is
+      # If SLOTS_PER_EPOCH+1 blocks are justified in a row, the oldest is
       # considered finalized
 
       var finalize = true
-      for slot2 in countdown(slot-1, max(slot - EPOCH_LENGTH * 1, 0)):
+      for slot2 in countdown(slot-1, max(slot - SLOTS_PER_EPOCH * 1, 0)):
         # Note the max(...)-1 in spec is unneeded, Nim ranges are inclusive
         if slot2 < self.blocks[c2].slot:
           c2 = self.blocks[c2].parent_hash
@@ -195,10 +195,10 @@ method on_receive(self: Node, sig: Sig, reprocess = false) =
 
         if self.scores_at_height.getOrDefault(key2, 0) < NOTARIES * 2 div 3:
           finalize = false
-          self.log &"Not quite finalized: stopped at {slot2} needed {max(slot - EPOCH_LENGTH, 0)}"
+          self.log &"Not quite finalized: stopped at {slot2} needed {max(slot - SLOTS_PER_EPOCH, 0)}"
           break
 
-        if slot2 < slot - EPOCH_LENGTH - 1 and finalize and c2 notin self.finalized:
+        if slot2 < slot - SLOTS_PER_EPOCH - 1 and finalize and c2 notin self.finalized:
           self.log &"Finalized: {self.blocks[c2].slot} {($c)[0 ..< 8]}"
           self.finalized[c2] = true
 
@@ -217,19 +217,19 @@ method on_receive(self: Node, sig: Sig, reprocess = false) =
   self.network.broadcast(self, sig)
 
 func get_sig_targets(self: Node, start_slot: int32): seq[Eth2Digest] =
-  # Get the portion of the main chain that is within the last EPOCH_LENGTH
+  # Get the portion of the main chain that is within the last SLOTS_PER_EPOCH
   # slots, once again duplicating the parent in cases where the parent and
   # child's slots are not consecutive
   result = @[]
   var i = self.main_chain.high
-  for slot in countdown(start_slot-1, max(start_slot - EPOCH_LENGTH, 0)):
+  for slot in countdown(start_slot-1, max(start_slot - SLOTS_PER_EPOCH, 0)):
     # Note the max(...)-1 in spec is unneeded, Nim ranges are inclusive
     if slot < self.blocks[self.main_chain[i]].slot:
       dec i
     result.add self.main_chain[i]
   for i, x in result:
     doAssert self.blocks[x].slot <= start_slot - 1 - i
-  doAssert result.len == min(EPOCH_LENGTH, start_slot)
+  doAssert result.len == min(SLOTS_PER_EPOCH, start_slot)
 
 proc tick*(self: Node) =
   self.timestamp += initDuration(milliseconds = 100)
@@ -244,9 +244,9 @@ proc tick*(self: Node) =
     )
     self.last_made_block = slot
   # Make a sig?
-  if slot > self.last_made_sig and (slot mod EPOCH_LENGTH) == self.id mod EPOCH_LENGTH:
+  if slot > self.last_made_sig and (slot mod SLOTS_PER_EPOCH) == self.id mod SLOTS_PER_EPOCH:
     var sig_from = self.main_chain.high
-    while sig_from > 0 and self.blocks[self.main_chain[sig_from]].slot >= slot - EPOCH_LENGTH:
+    while sig_from > 0 and self.blocks[self.main_chain[sig_from]].slot >= slot - SLOTS_PER_EPOCH:
       dec sig_from
     let sig = newSig(self.id, self.get_sig_targets(slot), slot, self.timestamp)
     self.log &"Sig: {self.id} {sig.slot} {sig.targets.mapIt(($it)[0 ..< 4])}"

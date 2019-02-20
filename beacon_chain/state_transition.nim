@@ -452,7 +452,7 @@ func lowerThan(candidate, current: Eth2Digest): bool =
 func processEpoch(state: var BeaconState) =
   ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#per-epoch-processing
 
-  if (state.slot + 1) mod EPOCH_LENGTH != 0:
+  if (state.slot + 1) mod SLOTS_PER_EPOCH != 0:
     return
 
   # Precomputation
@@ -463,19 +463,19 @@ func processEpoch(state: var BeaconState) =
 
     current_epoch = get_current_epoch(state)
     previous_epoch = if current_epoch > GENESIS_EPOCH: current_epoch - 1 else: current_epoch
-    next_epoch = (current_epoch + 1).EpochNumber
+    next_epoch = (current_epoch + 1).Epoch
 
   # TODO doing this with iterators failed:
   #      https://github.com/nim-lang/Nim/issues/9827
   let
     current_epoch_attestations =
       state.latest_attestations.filterIt(
-        state.slot <= it.data.slot + EPOCH_LENGTH and
+        state.slot <= it.data.slot + SLOTS_PER_EPOCH and
         it.data.slot < state.slot)
 
     current_epoch_boundary_attestations =
       boundary_attestations(
-        state, get_block_root(state, state.slot-EPOCH_LENGTH),
+        state, get_block_root(state, state.slot-SLOTS_PER_EPOCH),
         current_epoch_attestations)
 
     current_epoch_boundary_attester_indices =
@@ -507,8 +507,8 @@ func processEpoch(state: var BeaconState) =
   let # Previous epoch boundary
     # TODO check this with spec...
     negative_uint_hack =
-      if state.slot < 2'u64 * EPOCH_LENGTH: 0'u64
-      else: state.slot - 2'u64 * EPOCH_LENGTH
+      if state.slot < 2'u64 * SLOTS_PER_EPOCH: 0'u64
+      else: state.slot - 2'u64 * SLOTS_PER_EPOCH
     previous_epoch_boundary_attestations =
       boundary_attestations(
         state, get_block_root(state, negative_uint_hack),
@@ -677,7 +677,7 @@ func processEpoch(state: var BeaconState) =
           # TODO underflows?
           statePtr.validator_balances[v] -= base_reward(statePtr[], v)
 
-    if epochs_since_finality <= 4'u64 * EPOCH_LENGTH:
+    if epochs_since_finality <= 4'u64 * SLOTS_PER_EPOCH:
       # Expected FFG source
       update_balance(
         previous_epoch_justified_attester_indices,
@@ -748,12 +748,12 @@ func processEpoch(state: var BeaconState) =
 
     if state.finalized_epoch > state.validator_registry_update_epoch and
        allIt(
-         0 ..< get_current_epoch_committee_count(state).int * EPOCH_LENGTH,
+         0 ..< get_current_epoch_committee_count(state).int * SLOTS_PER_EPOCH,
          state.latest_crosslinks[(state.current_shuffling_start_shard + it.uint64) mod SHARD_COUNT].epoch > state.validator_registry_update_epoch):
       update_validator_registry(state)
 
       state.current_shuffling_epoch = next_epoch
-      state.current_shuffling_start_shard = (state.current_shuffling_start_shard + get_current_epoch_committee_count(state) * EPOCH_LENGTH) mod SHARD_COUNT
+      state.current_shuffling_start_shard = (state.current_shuffling_start_shard + get_current_epoch_committee_count(state) * SLOTS_PER_EPOCH) mod SHARD_COUNT
       state.current_shuffling_seed = generate_seed(state, state.current_shuffling_epoch)
     else:
       # If a validator registry change does NOT happen
@@ -766,7 +766,7 @@ func processEpoch(state: var BeaconState) =
 
   block: # Final updates
     state.latest_attestations.keepItIf(
-      not (it.data.slot + EPOCH_LENGTH < state.slot)
+      not (it.data.slot + SLOTS_PER_EPOCH < state.slot)
     )
 
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =

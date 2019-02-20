@@ -18,7 +18,7 @@ import
 #        the processing of which sets `B` as finalized.)
 #      * Let `justified_head` be the descendant of `finalized_head`
 #        with the highest slot number that has been justified
-#        for at least `EPOCH_LENGTH` slots.
+#        for at least `SLOTS_PER_EPOCH` slots.
 #        (A block `B` is justified if there is a descendant of `B` in `store`
 #        the processing of which sets `B` as justified.)
 #        If no such descendant exists set `justified_head` to `finalized_head`.
@@ -47,7 +47,7 @@ proc get_parent(db: BeaconChainDB, blck: Eth2Digest): Eth2Digest =
   db.getBlock(blck).parent_root
 
 proc get_ancestor(
-    store: BeaconChainDB, blck: Eth2Digest, slot: SlotNumber): Eth2Digest =
+    store: BeaconChainDB, blck: Eth2Digest, slot: Slot): Eth2Digest =
   ## Find the ancestor with a specific slot number
   let blk = store.getBlock(blck)
   if blk.slot == slot:
@@ -65,7 +65,7 @@ func getVoteCount(aggregation_bitfield: openarray[byte]): int =
     result += int aggregation_bitfield.get_bitfield_bit(validatorIdx)
 
 func getAttestationVoteCount(
-    pool: AttestationPool, current_slot: SlotNumber): CountTable[Eth2Digest] =
+    pool: AttestationPool, current_slot: Slot): CountTable[Eth2Digest] =
   ## Returns all blocks more recent that the current slot
   ## that were attested and their vote count
   # This replaces:

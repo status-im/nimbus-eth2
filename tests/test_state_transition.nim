@@ -54,21 +54,21 @@ suite "Block processing":
       state = genesisState
       previous_block_root = hash_tree_root_final(genesisBlock)
 
-    for i in 1..EPOCH_LENGTH.int:
+    for i in 1..SLOTS_PER_EPOCH.int:
       let block_ok = updateState(
         state, previous_block_root, none(BeaconBlock), {})
       check:
         block_ok
 
     check:
-      state.slot == genesisState.slot + EPOCH_LENGTH
+      state.slot == genesisState.slot + SLOTS_PER_EPOCH
 
   test "Passes through epoch update, empty block":
     var
       state = genesisState
       previous_block_root = hash_tree_root_final(genesisBlock)
 
-    for i in 1..EPOCH_LENGTH.int:
+    for i in 1..SLOTS_PER_EPOCH.int:
       var new_block = makeBlock(state, previous_block_root, BeaconBlockBody())
 
       let block_ok = updateState(
@@ -80,7 +80,7 @@ suite "Block processing":
       previous_block_root = hash_tree_root_final(new_block)
 
     check:
-      state.slot == genesisState.slot + EPOCH_LENGTH
+      state.slot == genesisState.slot + SLOTS_PER_EPOCH
 
   test "Attestation gets processed at epoch":
     var

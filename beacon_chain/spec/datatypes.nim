@@ -57,7 +57,7 @@ const
   ## For the safety of crosslinks `TARGET_COMMITTEE_SIZE` exceeds
   ## [the recommended minimum committee size of 111](https://vitalik.ca/files/Ithaca201807_Sharding.pdf);
   ## with sufficient active validators (at least
-  ## `EPOCH_LENGTH * TARGET_COMMITTEE_SIZE`), the shuffling algorithm ensures
+  ## `SLOTS_PER_EPOCH * TARGET_COMMITTEE_SIZE`), the shuffling algorithm ensures
   ## committee sizes at least `TARGET_COMMITTEE_SIZE`. (Unbiasable randomness
   ## with a Verifiable Delay Function (VDF) will improve committee robustness
   ## and lower the safe minimum committee size.)
@@ -96,17 +96,17 @@ const
   ## the validator pool
 
   # Time parameter, here so that GENESIS_EPOCH can access it
-  EPOCH_LENGTH* {.intdefine.} = 64 ##\
+  SLOTS_PER_EPOCH* {.intdefine.} = 64 ##\
   ## (~6.4 minutes)
   ## slots that make up an epoch, at the end of which more heavy
   ## processing is done
-  ## Compile with -d:EPOCH_LENGTH=4 for shorter epochs
+  ## Compile with -d:SLOTS_PER_EPOCH=4 for shorter epochs
 
   # Initial values
   # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#initial-values
   GENESIS_FORK_VERSION* = 0'u64
   GENESIS_SLOT* = 2'u64^63
-  GENESIS_EPOCH* = GENESIS_SLOT div EPOCH_LENGTH # slot_to_epoch(GENESIS_SLOT)
+  GENESIS_EPOCH* = GENESIS_SLOT div SLOTS_PER_EPOCH # slot_to_epoch(GENESIS_SLOT)
   GENESIS_START_SHARD* = 0'u64
   FAR_FUTURE_EPOCH* = not 0'u64 # 2^64 - 1 in spec
   ZERO_HASH* = Eth2Digest()
@@ -129,9 +129,6 @@ const
   ## slot (see `is_double_vote`) - the delay gives the validator a chance to
   ## wait towards the end of the slot and still have time to publish the
   ## attestation.
-
-  SLOTS_PER_EPOCH* = 2^6 ##\
-  ## 6.4 minutes
 
   MIN_SEED_LOOKAHEAD* = 1 ##\
   ## epochs (~6.4 minutes)
@@ -185,8 +182,8 @@ type
   ## TODO eventually, but Danny has confirmed that the SSZ types will use
   ## primitive (uint64, etc) types and helper functions annotated ones so
   ## it would just create pointless casts for now.
-  SlotNumber* = uint64
-  EpochNumber* = uint64
+  Slot* = uint64
+  Epoch* = uint64
   Gwei* = uint64
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#proposerslashing
@@ -497,7 +494,7 @@ type
   CrosslinkCommittee* = tuple[committee: seq[ValidatorIndex], shard: uint64]
 
 template epoch*(slot: int|uint64): auto =
-  slot div EPOCH_LENGTH
+  slot div SLOTS_PER_EPOCH
 
 when true:
   # TODO: Remove these once RLP serialization is no longer used
@@ -525,10 +522,10 @@ when true:
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
     ($state.validator_registry[validatorIdx].pubkey)[0..7]
 
-func humaneSlotNum*(s: SlotNumber): SlotNumber =
+func humaneSlotNum*(s: Slot): Slot =
   s - GENESIS_SLOT
 
-func humaneEpochNum*(e: EpochNumber): EpochNumber =
+func humaneEpochNum*(e: Epoch): Epoch =
   e - GENESIS_EPOCH
 
 export

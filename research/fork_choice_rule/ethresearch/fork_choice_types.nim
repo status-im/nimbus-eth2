@@ -21,7 +21,7 @@ import
 const
   NOTARIES* = 100     # Committee size in Casper v2.1
   SLOT_SIZE* = 6      # Slot duration in Casper v2.1
-  EPOCH_LENGTH* = 25  # Cycle length in Casper v2.
+  SLOTS_PER_EPOCH* = 25  # Cycle length in Casper v2.
 
 # TODO, clear up if reference semantics are needed
 # for the tables. I.e. what's their maximum size.
