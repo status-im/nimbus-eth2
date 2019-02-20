@@ -10,7 +10,7 @@ import
   ../extras, ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers, ./validator
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_effective_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_effective_balance
 func get_effective_balance*(state: BeaconState, index: ValidatorIndex): uint64 =
   ## Return the effective balance (also known as "balance at stake") for a
   ## validator with the given ``index``.
@@ -22,7 +22,7 @@ func sum_effective_balances*(
   for index in validator_indices:
     result += get_effective_balance(state, index)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#validate_proof_of_possession
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#validate_proof_of_possession
 func validate_proof_of_possession(state: BeaconState,
                                   pubkey: ValidatorPubKey,
                                   proof_of_possession: ValidatorSig,
@@ -44,7 +44,7 @@ func validate_proof_of_possession(state: BeaconState,
     )
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#process_deposit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#process_deposit
 func process_deposit(state: var BeaconState,
                      pubkey: ValidatorPubKey,
                      amount: Gwei,
@@ -72,7 +72,8 @@ func process_deposit(state: var BeaconState,
       status_flags: 0,
     )
 
-    # Note: In phase 2 registry indices that have been withdrawn for a long time will be recycled.
+    ## Note: In phase 2 registry indices that have been withdrawn for a long
+    ## time will be recycled.
     state.validator_registry.add(validator)
     state.validator_balances.add(amount)
   else:
@@ -84,13 +85,13 @@ func process_deposit(state: var BeaconState,
 
     state.validator_balances[index] += amount
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_entry_exit_effect_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_entry_exit_effect_epoch
 func get_entry_exit_effect_epoch*(epoch: Epoch): Epoch =
   ## An entry or exit triggered in the ``epoch`` given by the input takes effect at
   ## the epoch given by the output.
   epoch + 1 + ACTIVATION_EXIT_DELAY
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#activate_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#activate_validator
 func activate_validator(state: var BeaconState,
                         index: ValidatorIndex,
                         genesis: bool) =
@@ -98,18 +99,21 @@ func activate_validator(state: var BeaconState,
   ## Note that this function mutates ``state``.
   let validator = addr state.validator_registry[index]
 
-  validator.activation_epoch = if genesis: GENESIS_EPOCH else: get_entry_exit_effect_epoch(get_current_epoch(state))
+  validator.activation_epoch =
+    if genesis:
+      GENESIS_EPOCH
+    else:
+      get_entry_exit_effect_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#initiate_validator_exit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit(state: var BeaconState,
                              index: ValidatorIndex) =
   ## Initiate exit for the validator with the given ``index``.
   ## Note that this function mutates ``state``.
-  var validator = state.validator_registry[index]
+  var validator = addr state.validator_registry[index]
   validator.status_flags = validator.status_flags or INITIATED_EXIT
-  state.validator_registry[index] = validator
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#exit_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#exit_validator
 func exit_validator*(state: var BeaconState,
                      index: ValidatorIndex) =
   ## Exit the validator with the given ``index``.
@@ -237,7 +241,7 @@ func get_block_root*(state: BeaconState,
   doAssert slot < state.slot
   state.latest_block_roots[slot mod LATEST_BLOCK_ROOTS_LENGTH]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_attestation_participants
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_attestation_participants
 func get_attestation_participants*(state: BeaconState,
                                    attestation_data: AttestationData,
                                    bitfield: seq[byte]): seq[ValidatorIndex] =
@@ -254,8 +258,10 @@ func get_attestation_participants*(state: BeaconState,
   # TODO bitfield type needed, once bit order settles down
   # TODO iterator candidate
 
-  # Find the committee in the list with the desired shard
-  let crosslink_committees = get_crosslink_committees_at_slot(state, attestation_data.slot)
+  ## Return the participant indices at for the ``attestation_data`` and
+  ## ``bitfield``.
+  let crosslink_committees = get_crosslink_committees_at_slot(
+    state, attestation_data.slot)
 
   assert anyIt(
     crosslink_committees,
@@ -267,7 +273,6 @@ func get_attestation_participants*(state: BeaconState,
   assert verify_bitfield(bitfield, len(crosslink_committee))
 
   # Find the participating attesters in the committee
-  # TODO investigate functional library / approach to help avoid loop bugs
   result = @[]
   for i, validator_index in crosslink_committee:
     let aggregation_bit = get_bitfield_bit(bitfield, i)
@@ -453,7 +458,7 @@ proc checkAttestation*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_total_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_total_balance
 func get_total_balance(state: BeaconState, validators: seq[ValidatorIndex]): Gwei =
   # Return the combined effective balance of an array of validators.
   foldl(validators, a + get_effective_balance(state, b), 0'u64)

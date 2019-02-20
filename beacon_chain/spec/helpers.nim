@@ -14,14 +14,14 @@ import ./datatypes, ./digest, sequtils, math
 func bitSet*(bitfield: var openArray[byte], index: int) =
   bitfield[index div 8] = bitfield[index div 8] or 1'u8 shl (7 - (index mod 8))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_bitfield_bit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_bitfield_bit
 func get_bitfield_bit*(bitfield: openarray[byte], i: int): byte =
   # Extract the bit in ``bitfield`` at position ``i``.
   assert 0 <= i div 8, "i: " & $i & " i div 8: " & $(i div 8)
   assert i div 8 < bitfield.len, "i: " & $i & " i div 8: " & $(i div 8)
   (bitfield[i div 8] shr (7 - (i mod 8))) mod 2
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#verify_bitfield
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#verify_bitfield
 func verify_bitfield*(bitfield: openarray[byte], committee_size: int): bool =
   # Verify ``bitfield`` against the ``committee_size``.
   if len(bitfield) != (committee_size + 7) div 8:
@@ -56,7 +56,7 @@ func get_new_recent_block_roots*(old_block_roots: seq[Eth2Digest],
 
 func ceil_div8*(v: int): int = (v + 7) div 8 # TODO use a proper bitarray!
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#integer_squareroot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
   ## The largest integer ``x`` such that ``x**2`` is less than ``n``.
   var
@@ -67,7 +67,7 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
     y = (x + n div x) div 2
   x
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_fork_version
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_fork_version
 func get_fork_version*(fork: Fork, epoch: Epoch): uint64 =
   ## Return the fork version of the given ``epoch``.
   if epoch < fork.epoch:
@@ -75,28 +75,48 @@ func get_fork_version*(fork: Fork, epoch: Epoch): uint64 =
   else:
     fork.current_version
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_domain
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_domain
 func get_domain*(
     fork: Fork, epoch: Epoch, domain_type: SignatureDomain): uint64 =
-  # TODO Slot overflow? Or is slot 32 bits for all intents and purposes?
   # Get the domain number that represents the fork meta and signature domain.
   (get_fork_version(fork, epoch) shl 32) + domain_type.uint32
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#is_power_of_two
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#is_power_of_two
 func is_power_of_2*(v: uint64): bool = (v and (v-1)) == 0
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.1/specs/core/0_beacon-chain.md#merkle_root
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#merkle_root
 func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
   ## Merkleize ``values`` (where ``len(values)`` is a power of two) and return
   ## the Merkle root.
-  #var o = array[len(values) * 2, Eth2Digest]
-  #o[len(values) .. 2*len(values)] = values
-  #for i in countdown(len(values)-1, 0):
-  #  discard
-    #o[i] = hash(o[i*2] + o[i*2+1])
-  #return o[1]
-  #TODO
-  discard
+  let num_values = len(values)
+
+  # Simplifies boundary conditions
+  assert is_power_of_two(num_values)
+  assert num_values >= 2
+  assert num_values mod 2 == 0
+
+  # TODO reverse ``o`` order and use newSeqWith to avoid pointless zero-filling.
+  var o = repeat(ZERO_HASH, len(values))
+  var hash_buffer: array[2*32, byte]
+
+  # These ``o`` indices get filled from ``values``.
+  let highest_internally_filled_index = (num_values div 2) - 1
+  assert (highest_internally_filled_index + 1) * 2 >= num_values
+
+  for i in countdown(num_values-1, highest_internally_filled_index + 1):
+    hash_buffer[0..31] = values[i*2 - num_values].data
+    hash_buffer[32..63] = values[i*2+1 - num_values].data
+    o[i] = eth2hash(hash_buffer)
+
+  ## These ``o`` indices get filled from other ``o`` indices.
+  assert highest_internally_filled_index * 2 + 1 < num_values
+
+  for i in countdown(highest_internally_filled_index, 1):
+    hash_buffer[0..31] = o[i*2].data
+    hash_buffer[32..63] = o[i*2+1].data
+    o[i] = eth2hash(hash_buffer)
+
+  o[1]
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#slot_to_epoch
 func slot_to_epoch*(slot: Slot): Epoch =
@@ -107,7 +127,7 @@ func get_epoch_start_slot*(epoch: Epoch): Slot =
   # Return the starting slot of the given ``epoch``.
   epoch * SLOTS_PER_EPOCH
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#is_double_vote
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#is_double_vote
 func is_double_vote*(attestation_data_1: AttestationData,
                      attestation_data_2: AttestationData): bool =
   ## Check if ``attestation_data_1`` and ``attestation_data_2`` have the same
@@ -117,7 +137,7 @@ func is_double_vote*(attestation_data_1: AttestationData,
     target_epoch_2 = slot_to_epoch(attestation_data_2.slot)
   target_epoch_1 == target_epoch_2
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#is_surround_vote
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#is_surround_vote
 func is_surround_vote*(attestation_data_1: AttestationData,
                        attestation_data_2: AttestationData): bool =
   ## Check if ``attestation_data_1`` surrounds ``attestation_data_2``.
@@ -193,7 +213,7 @@ func bytes_to_int*(data: seq[byte]): uint64 =
   for i in countdown(7, 0):
     result = result * 256 + data[i]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#int_to_bytes1-int_to_bytes2-
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#int_to_bytes1-int_to_bytes2-
 # Have 1, 4, and 32-byte versions. 2+ more and maybe worth metaprogramming.
 func int_to_bytes32*(x: uint64) : array[32, byte] =
   # Little-endian data representation
@@ -216,7 +236,7 @@ func int_to_bytes4*(x: uint64): array[4, byte] =
   result[2] = ((x shr 16) and 0xff).byte
   result[3] = ((x shr 24) and 0xff).byte
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#generate_seed
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#generate_seed
 func generate_seed*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Generate a seed for the given ``epoch``.
 
