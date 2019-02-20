@@ -10,7 +10,7 @@ import
   ../extras, ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers, ./validator
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_effective_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_effective_balance
 func get_effective_balance*(state: BeaconState, index: ValidatorIndex): uint64 =
   ## Return the effective balance (also known as "balance at stake") for a
   ## validator with the given ``index``.
@@ -22,7 +22,7 @@ func sum_effective_balances*(
   for index in validator_indices:
     result += get_effective_balance(state, index)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#validate_proof_of_possession
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#validate_proof_of_possession
 func validate_proof_of_possession(state: BeaconState,
                                   pubkey: ValidatorPubKey,
                                   proof_of_possession: ValidatorSig,
@@ -44,7 +44,7 @@ func validate_proof_of_possession(state: BeaconState,
     )
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#process_deposit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#process_deposit
 func process_deposit(state: var BeaconState,
                      pubkey: ValidatorPubKey,
                      amount: Gwei,
@@ -72,7 +72,8 @@ func process_deposit(state: var BeaconState,
       status_flags: 0,
     )
 
-    # Note: In phase 2 registry indices that have been withdrawn for a long time will be recycled.
+    ## Note: In phase 2 registry indices that have been withdrawn for a long
+    ## time will be recycled.
     state.validator_registry.add(validator)
     state.validator_balances.add(amount)
   else:
@@ -84,13 +85,13 @@ func process_deposit(state: var BeaconState,
 
     state.validator_balances[index] += amount
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_entry_exit_effect_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_entry_exit_effect_epoch
 func get_entry_exit_effect_epoch*(epoch: Epoch): Epoch =
   ## An entry or exit triggered in the ``epoch`` given by the input takes effect at
   ## the epoch given by the output.
   epoch + 1 + ACTIVATION_EXIT_DELAY
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#activate_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#activate_validator
 func activate_validator(state: var BeaconState,
                         index: ValidatorIndex,
                         genesis: bool) =
@@ -98,18 +99,21 @@ func activate_validator(state: var BeaconState,
   ## Note that this function mutates ``state``.
   let validator = addr state.validator_registry[index]
 
-  validator.activation_epoch = if genesis: GENESIS_EPOCH else: get_entry_exit_effect_epoch(get_current_epoch(state))
+  validator.activation_epoch =
+    if genesis:
+      GENESIS_EPOCH
+    else:
+      get_entry_exit_effect_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#initiate_validator_exit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit(state: var BeaconState,
                              index: ValidatorIndex) =
   ## Initiate exit for the validator with the given ``index``.
   ## Note that this function mutates ``state``.
-  var validator = state.validator_registry[index]
+  var validator = addr state.validator_registry[index]
   validator.status_flags = validator.status_flags or INITIATED_EXIT
-  state.validator_registry[index] = validator
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#exit_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#exit_validator
 func exit_validator*(state: var BeaconState,
                      index: ValidatorIndex) =
   ## Exit the validator with the given ``index``.
@@ -123,38 +127,31 @@ func exit_validator*(state: var BeaconState,
 
   validator.exit_epoch = get_entry_exit_effect_epoch(get_current_epoch(state))
 
-func process_penalties_and_exits(state: var BeaconState) =
-  ## Penalize the validator of the given ``index``.
+func slash_validator*(state: var BeaconState, index: ValidatorIndex) =
+  ## Slash the validator with index ``index``.
   ## Note that this function mutates ``state``.
+
+  let validator = addr state.validator_registry[index]
+  assert state.slot < get_epoch_start_slot(validator.withdrawable_epoch) ##\
+  ## [TO BE REMOVED IN PHASE 2]
+
+  exit_validator(state, index)
+  state.latest_slashed_balances[
+    (get_current_epoch(state) mod LATEST_SLASHED_EXIT_LENGTH).int
+    ] += get_effective_balance(state, index)
+
   let
-    current_epoch = get_current_epoch(state)
-    # The active validators
-    active_validator_indices = get_active_validator_indices(state.validator_registry, state.slot)
-  # The total effective balance of active validators
-  var total_balance : uint64 = 0
-  for i in active_validator_indices:
-    total_balance += get_effective_balance(state, i)
+    whistleblower_index = get_beacon_proposer_index(state, state.slot)
+    whistleblower_reward = get_effective_balance(state, index) div
+      WHISTLEBLOWER_REWARD_QUOTIENT
 
-  for index, validator in state.validator_registry:
-    if current_epoch == validator.slashed_epoch + LATEST_SLASHED_EXIT_LENGTH div 2:
-      let
-        e = (current_epoch mod LATEST_SLASHED_EXIT_LENGTH).int
-        total_at_start = state.latest_slashed_balances[(e + 1) mod LATEST_SLASHED_EXIT_LENGTH]
-        total_at_end = state.latest_slashed_balances[e]
-        total_penalties = total_at_end - total_at_start
-        penalty = get_effective_balance(state, index.ValidatorIndex) * min(total_penalties * 3, total_balance) div total_balance
-      state.validator_balances[index] -= penalty
+  state.validator_balances[whistleblower_index] += whistleblower_reward
+  state.validator_balances[index] -= whistleblower_reward
+  validator.slashed_epoch = get_current_epoch(state)
 
-  ## 'state' is of type <var BeaconState> which cannot be captured as it
-  ## would violate memory safety, when using nested function approach in
-  ## spec directly. That said, the spec approach evidently is not meant,
-  ## based on its abundant and pointless memory copies, for production.
-  var eligible_indices : seq[ValidatorIndex] = @[]
-  for i in 0 ..< len(state.validator_registry):
-    eligible_indices.add i.ValidatorIndex
-
-  ## TODO figure out that memory safety issue, which would come up again when
-  ## sorting, and then actually do withdrawals
+  # Spec bug in v0.3.0, fixed since: it has LATEST_PENALIZED_EXIT_LENGTH
+  validator.withdrawable_epoch = get_current_epoch(state) +
+    LATEST_SLASHED_EXIT_LENGTH
 
 func get_initial_beacon_state*(
     initial_validator_deposits: openArray[Deposit],
@@ -228,7 +225,7 @@ func get_initial_beacon_state*(
 
   state
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_block_root
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_block_root
 func get_block_root*(state: BeaconState,
                      slot: Slot): Eth2Digest =
   # Return the block root at a recent ``slot``.
@@ -237,7 +234,7 @@ func get_block_root*(state: BeaconState,
   doAssert slot < state.slot
   state.latest_block_roots[slot mod LATEST_BLOCK_ROOTS_LENGTH]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_attestation_participants
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_attestation_participants
 func get_attestation_participants*(state: BeaconState,
                                    attestation_data: AttestationData,
                                    bitfield: seq[byte]): seq[ValidatorIndex] =
@@ -254,8 +251,10 @@ func get_attestation_participants*(state: BeaconState,
   # TODO bitfield type needed, once bit order settles down
   # TODO iterator candidate
 
-  # Find the committee in the list with the desired shard
-  let crosslink_committees = get_crosslink_committees_at_slot(state, attestation_data.slot)
+  ## Return the participant indices at for the ``attestation_data`` and
+  ## ``bitfield``.
+  let crosslink_committees = get_crosslink_committees_at_slot(
+    state, attestation_data.slot)
 
   assert anyIt(
     crosslink_committees,
@@ -267,7 +266,6 @@ func get_attestation_participants*(state: BeaconState,
   assert verify_bitfield(bitfield, len(crosslink_committee))
 
   # Find the participating attesters in the committee
-  # TODO investigate functional library / approach to help avoid loop bugs
   result = @[]
   for i, validator_index in crosslink_committee:
     let aggregation_bit = get_bitfield_bit(bitfield, i)
@@ -331,8 +329,6 @@ func update_validator_registry*(state: var BeaconState) =
   state.current_shuffling_seed = generate_seed(state, state.current_shuffling_epoch)
 
   # TODO "If a validator registry update does not happen do the following: ..."
-
-  process_penalties_and_exits(state)
 
 ## https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#attestations-1
 proc checkAttestation*(
@@ -453,15 +449,18 @@ proc checkAttestation*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_total_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_total_balance
 func get_total_balance(state: BeaconState, validators: seq[ValidatorIndex]): Gwei =
   # Return the combined effective balance of an array of validators.
   foldl(validators, a + get_effective_balance(state, b), 0'u64)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#prepare_validator_for_withdrawal
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#prepare_validator_for_withdrawal
 func prepare_validator_for_withdrawal(state: var BeaconState, index: ValidatorIndex) =
-  ## Set the validator with the given ``index`` with ``WITHDRAWABLE`` flag.
+  ## Set the validator with the given ``index`` as withdrawable
+  ## ``MIN_VALIDATOR_WITHDRAWABILITY_DELAY`` after the current epoch.
   ## Note that this function mutates ``state``.
   var validator = addr state.validator_registry[index]
-  # TODO rm WITHDRAWABLE, since gone in 0.3.0
-  validator.status_flags = validator.status_flags or WITHDRAWABLE
+
+  # Bug in 0.3.0 spec; constant got renamed. Use 0.3.0 name.
+  validator.withdrawable_epoch = get_current_epoch(state) +
+    MIN_VALIDATOR_WITHDRAWAL_DELAY

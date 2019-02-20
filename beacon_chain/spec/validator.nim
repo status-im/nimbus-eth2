@@ -217,8 +217,8 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot,
      (slot_start_shard + i.uint64) mod SHARD_COUNT
     )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_beacon_proposer_index
-func get_beacon_proposer_index*(state: BeaconState, slot: uint64): ValidatorIndex =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_beacon_proposer_index
+func get_beacon_proposer_index*(state: BeaconState, slot: Slot): ValidatorIndex =
   ## From Casper RPJ mini-spec:
   ## When slot i begins, validator Vidx is expected
   ## to create ("propose") a block, which contains a pointer to some parent block
