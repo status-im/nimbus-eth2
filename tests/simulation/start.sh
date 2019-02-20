@@ -53,12 +53,18 @@ if [ -f $MASTER_NODE_ADDRESS_FILE ]; then
   rm $MASTER_NODE_ADDRESS_FILE
 fi
 
+# multitail support
+MULTITAIL="${MULTITAIL:-multitail}" # to allow overriding the program name
+USE_MULTITAIL="${USE_MULTITAIL:-no}" # make it an opt-in
+type "$MULTITAIL" &>/dev/null || USE_MULTITAIL="no"
+COMMANDS=()
+
 for i in $(seq 0 9); do
   BOOTSTRAP_NODES_FLAG="--bootstrapNodesFile:$MASTER_NODE_ADDRESS_FILE"
 
   if [[ "$i" == "0" ]]; then
     BOOTSTRAP_NODES_FLAG=""
-  else
+  elif [ "$USE_MULTITAIL" = "no" ]; then
     # Wait for the master node to write out its address file
     while [ ! -f $MASTER_NODE_ADDRESS_FILE ]; do
       sleep 0.1
@@ -67,21 +73,38 @@ for i in $(seq 0 9); do
 
   DATA_DIR=$SIMULATION_DIR/node-$i
 
-  $BEACON_NODE_BIN \
-    --dataDir:"$DATA_DIR" \
-    --validator:"$SIMULATION_DIR/validator-${i}1.json" \
-    --validator:"$SIMULATION_DIR/validator-${i}2.json" \
-    --validator:"$SIMULATION_DIR/validator-${i}3.json" \
-    --validator:"$SIMULATION_DIR/validator-${i}4.json" \
-    --validator:"$SIMULATION_DIR/validator-${i}5.json" \
-    --validator:"$SIMULATION_DIR/validator-${i}6.json" \
-    --validator:"$SIMULATION_DIR/validator-${i}7.json" \
-    --validator:"$SIMULATION_DIR/validator-${i}8.json" \
-    --validator:"$SIMULATION_DIR/validator-${i}9.json" \
+  CMD="$BEACON_NODE_BIN \
+    --dataDir:\"$DATA_DIR\" \
+    --validator:\"$SIMULATION_DIR/validator-${i}1.json\" \
+    --validator:\"$SIMULATION_DIR/validator-${i}2.json\" \
+    --validator:\"$SIMULATION_DIR/validator-${i}3.json\" \
+    --validator:\"$SIMULATION_DIR/validator-${i}4.json\" \
+    --validator:\"$SIMULATION_DIR/validator-${i}5.json\" \
+    --validator:\"$SIMULATION_DIR/validator-${i}6.json\" \
+    --validator:\"$SIMULATION_DIR/validator-${i}7.json\" \
+    --validator:\"$SIMULATION_DIR/validator-${i}8.json\" \
+    --validator:\"$SIMULATION_DIR/validator-${i}9.json\" \
     --tcpPort:5000$i \
     --udpPort:5000$i \
-    --stateSnapshot:"$SNAPSHOT_FILE" \
-    $BOOTSTRAP_NODES_FLAG &
+    --stateSnapshot:\"$SNAPSHOT_FILE\" \
+    $BOOTSTRAP_NODES_FLAG"
+
+  if [ "$USE_MULTITAIL" != "no" ]; then
+    if [ "$i" = "0" ]; then
+      SLEEP="0"
+    else
+      SLEEP="1"
+    fi
+    # "multitail" closes the corresponding panel when a command exits, so let's make sure it doesn't exit
+    COMMANDS+=( " -cT ansi -t 'node #$i' -l 'sleep $SLEEP; $CMD; echo [node execution completed]; while true; do sleep 100; done'" )
+  else
+    eval $CMD &
+  fi
 done
 
-wait # Stop when all nodes have gone down
+if [ "$USE_MULTITAIL" != "no" ]; then
+  eval $MULTITAIL -s 2 -M 0 -x \"beacon chain simulation\" "${COMMANDS[@]}"
+else
+  wait # Stop when all nodes have gone down
+fi
+

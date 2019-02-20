@@ -59,6 +59,12 @@ Additionally, you can run our simulation which generates a genesis file from som
 bash tests/simulation/start.sh
 ```
 
+You can also separate the output from each beacon node in its own panel, using [multitail](http://www.vanheusden.com/multitail/):
+
+```bash
+USE_MULTITAIL="yes" ./tests/simulation/start.sh
+```
+
 You can find out more about it in the [development update](https://our.status.im/nimbus-development-update-2018-12-2/).
 
 ## License
