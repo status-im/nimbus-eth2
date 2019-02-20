@@ -127,38 +127,31 @@ func exit_validator*(state: var BeaconState,
 
   validator.exit_epoch = get_entry_exit_effect_epoch(get_current_epoch(state))
 
-func process_penalties_and_exits(state: var BeaconState) =
-  ## Penalize the validator of the given ``index``.
+func slash_validator*(state: var BeaconState, index: ValidatorIndex) =
+  ## Slash the validator with index ``index``.
   ## Note that this function mutates ``state``.
+
+  let validator = addr state.validator_registry[index]
+  assert state.slot < get_epoch_start_slot(validator.withdrawable_epoch) ##\
+  ## [TO BE REMOVED IN PHASE 2]
+
+  exit_validator(state, index)
+  state.latest_slashed_balances[
+    (get_current_epoch(state) mod LATEST_SLASHED_EXIT_LENGTH).int
+    ] += get_effective_balance(state, index)
+
   let
-    current_epoch = get_current_epoch(state)
-    # The active validators
-    active_validator_indices = get_active_validator_indices(state.validator_registry, state.slot)
-  # The total effective balance of active validators
-  var total_balance : uint64 = 0
-  for i in active_validator_indices:
-    total_balance += get_effective_balance(state, i)
+    whistleblower_index = get_beacon_proposer_index(state, state.slot)
+    whistleblower_reward = get_effective_balance(state, index) div
+      WHISTLEBLOWER_REWARD_QUOTIENT
 
-  for index, validator in state.validator_registry:
-    if current_epoch == validator.slashed_epoch + LATEST_SLASHED_EXIT_LENGTH div 2:
-      let
-        e = (current_epoch mod LATEST_SLASHED_EXIT_LENGTH).int
-        total_at_start = state.latest_slashed_balances[(e + 1) mod LATEST_SLASHED_EXIT_LENGTH]
-        total_at_end = state.latest_slashed_balances[e]
-        total_penalties = total_at_end - total_at_start
-        penalty = get_effective_balance(state, index.ValidatorIndex) * min(total_penalties * 3, total_balance) div total_balance
-      state.validator_balances[index] -= penalty
+  state.validator_balances[whistleblower_index] += whistleblower_reward
+  state.validator_balances[index] -= whistleblower_reward
+  validator.slashed_epoch = get_current_epoch(state)
 
-  ## 'state' is of type <var BeaconState> which cannot be captured as it
-  ## would violate memory safety, when using nested function approach in
-  ## spec directly. That said, the spec approach evidently is not meant,
-  ## based on its abundant and pointless memory copies, for production.
-  var eligible_indices : seq[ValidatorIndex] = @[]
-  for i in 0 ..< len(state.validator_registry):
-    eligible_indices.add i.ValidatorIndex
-
-  ## TODO figure out that memory safety issue, which would come up again when
-  ## sorting, and then actually do withdrawals
+  # Spec bug in v0.3.0, fixed since: it has LATEST_PENALIZED_EXIT_LENGTH
+  validator.withdrawable_epoch = get_current_epoch(state) +
+    LATEST_SLASHED_EXIT_LENGTH
 
 func get_initial_beacon_state*(
     initial_validator_deposits: openArray[Deposit],
@@ -337,8 +330,6 @@ func update_validator_registry*(state: var BeaconState) =
 
   # TODO "If a validator registry update does not happen do the following: ..."
 
-  process_penalties_and_exits(state)
-
 ## https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#attestations-1
 proc checkAttestation*(
     state: BeaconState, attestation: Attestation, flags: UpdateFlags): bool =
@@ -463,10 +454,13 @@ func get_total_balance(state: BeaconState, validators: seq[ValidatorIndex]): Gwe
   # Return the combined effective balance of an array of validators.
   foldl(validators, a + get_effective_balance(state, b), 0'u64)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#prepare_validator_for_withdrawal
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#prepare_validator_for_withdrawal
 func prepare_validator_for_withdrawal(state: var BeaconState, index: ValidatorIndex) =
-  ## Set the validator with the given ``index`` with ``WITHDRAWABLE`` flag.
+  ## Set the validator with the given ``index`` as withdrawable
+  ## ``MIN_VALIDATOR_WITHDRAWABILITY_DELAY`` after the current epoch.
   ## Note that this function mutates ``state``.
   var validator = addr state.validator_registry[index]
-  # TODO rm WITHDRAWABLE, since gone in 0.3.0
-  validator.status_flags = validator.status_flags or WITHDRAWABLE
+
+  # Bug in 0.3.0 spec; constant got renamed. Use 0.3.0 name.
+  validator.withdrawable_epoch = get_current_epoch(state) +
+    MIN_VALIDATOR_WITHDRAWAL_DELAY
