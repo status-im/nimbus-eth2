@@ -163,8 +163,6 @@ const
   # Status flags
   # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#status-flags
   INITIATED_EXIT* = 1'u64
-  # TODO rm WITHDRAWABLE
-  WITHDRAWABLE* = 2'u64
 
   # Max transactions per block
   # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#max-transactions-per-block
