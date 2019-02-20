@@ -162,7 +162,7 @@ func get_current_epoch*(state: BeaconState): Epoch =
   doAssert state.slot >= GENESIS_SLOT, $state.slot 
   slot_to_epoch(state.slot)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_randao_mix
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: BeaconState,
                      epoch: Epoch): Eth2Digest =
     ## Returns the randao mix at a recent ``epoch``.
@@ -173,12 +173,14 @@ func get_randao_mix*(state: BeaconState,
 
     state.latest_randao_mixes[epoch mod LATEST_RANDAO_MIXES_LENGTH]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_active_index_root
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_active_index_root
 func get_active_index_root(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Returns the index root at a recent ``epoch``.
 
-  # Cannot underflow, since GENESIS_EPOCH > LATEST_RANDAO_MIXES_LENGTH
-  assert get_current_epoch(state) - LATEST_ACTIVE_INDEX_ROOTS_LENGTH < epoch
+  ## Cannot underflow, since GENESIS_EPOCH > LATEST_RANDAO_MIXES_LENGTH
+  ## and ACTIVATION_EXIT_DELAY > 0.
+  assert get_current_epoch(state) - LATEST_ACTIVE_INDEX_ROOTS_LENGTH +
+    ACTIVATION_EXIT_DELAY < epoch
   assert epoch <= get_current_epoch(state) + ACTIVATION_EXIT_DELAY
   state.latest_active_index_roots[epoch mod LATEST_ACTIVE_INDEX_ROOTS_LENGTH]
 

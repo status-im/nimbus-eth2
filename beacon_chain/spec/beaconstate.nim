@@ -228,7 +228,7 @@ func get_initial_beacon_state*(
 
   state
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#get_block_root
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_block_root
 func get_block_root*(state: BeaconState,
                      slot: Slot): Eth2Digest =
   # Return the block root at a recent ``slot``.
