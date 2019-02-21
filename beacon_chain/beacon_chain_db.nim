@@ -72,3 +72,25 @@ proc getHead*(db: BeaconChainDB, T: type BeaconBlock): Option[T] =
 proc contains*(
     db: BeaconChainDB, key: Eth2Digest, T: type DbTypes): bool =
   db.backend.contains(subkey(T, key))
+
+proc getAncestors*(
+    db: BeaconChainDB, blck: BeaconBlock,
+    predicate: proc(blck: BeaconBlock): bool = nil): seq[BeaconBlock] =
+  ## Load a chain of ancestors for blck - returns a list of blocks with the
+  ## oldest block last (blck will be at result[0]).
+  ##
+  ## The search will go on until the ancestor cannot be found (or slot 0) or
+  ## the predicate returns true (you found what you were looking for) - the list
+  ## will include the last block as well
+  ## TODO maybe turn into iterator? or add iterator also?
+
+  result = @[blck]
+
+  while result[^1].slot > 0.Slot:
+    let parent = db.get(result[^1].parent_root, BeaconBlock)
+
+    if parent.isNone(): break
+
+    result.add parent.get()
+
+    if predicate != nil and predicate(parent.get()): break

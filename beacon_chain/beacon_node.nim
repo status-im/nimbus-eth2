@@ -451,69 +451,65 @@ proc updateHeadBlock(node: BeaconNode, blck: BeaconBlock) =
   # chain of ancestors of the new block. We will do this by loading each
   # successive parent block and checking if we can find the corresponding state
   # in the database.
-  var parents = @[blck]
-  while true:
-    let top = parents[^1]
+  let
+    ancestors = node.db.getAncestors(blck) do (bb: BeaconBlock) -> bool:
+      node.db.contains(bb.state_root, BeaconState)
+    ancestor = ancestors[^1]
 
-    # We're looking for the most recent state that we have in the database
-    # that also exists on the ancestor chain.
-    if (let prevState = node.db.get(top.state_root, BeaconState);
-        prevState.isSome()):
-      # Got it!
-      notice "Replaying state transitions",
-        stateSlot = humaneSlotNum(node.beaconState.slot),
-        prevStateSlot = humaneSlotNum(prevState.get().slot)
-      node.beaconState = prevState.get()
-      break
+  # Several things can happen, but the most common one should be that we found
+  # a beacon state
+  if (let state = node.db.get(ancestor.state_root, BeaconState); state.isSome()):
+    # Got it!
+    notice "Replaying state transitions",
+      stateSlot = humaneSlotNum(node.beaconState.slot),
+      prevStateSlot = humaneSlotNum(state.get().slot)
+    node.beaconState = state.get()
 
-    if top.slot == 0:
-      # We've arrived at the genesis block and still haven't found what we're
-      # looking for. This is very bad - are we receiving blocks from a different
-      # chain? What's going on?
-      # TODO crashing like this is the wrong thing to do, obviously, but
-      #      we'll do it anyway just to see if it ever happens - if it does,
-      #      it's likely a bug :)
-      error "Couldn't find ancestor state",
-        blockSlot = humaneSlotNum(blck.slot),
-        blockRoot = shortHash(hash_tree_root_final(blck))
-      doAssert false, "Oh noes, we passed big bang!"
-
-    if (let parent = node.db.get(top.parent_root, BeaconBlock); parent.isSome):
-      # We're lucky this time - we found the parent block in the database, so
-      # we put it on the stack and keep looking
-      parents.add(parent.get())
-    else:
-      # We don't have the parent block. This is a bit strange, but may happen
-      # if things are happening seriously out of order or if we're back after
-      # a net split or restart, for example. Once the missing block arrives,
-      # we should retry setting the head block..
-      # TODO implement block sync here
-      # TODO instead of doing block sync here, make sure we are sync already
-      #      elsewhere, so as to simplify the logic of finding the block
-      #      here..
-      error "Parent missing! Too bad, because sync is also missing :/",
-        parentRoot = shortHash(top.parent_root),
-        blockSlot = humaneSlotNum(top.slot)
-      quit("So long")
+  elif ancestor.slot == 0:
+    # We've arrived at the genesis block and still haven't found what we're
+    # looking for. This is very bad - are we receiving blocks from a different
+    # chain? What's going on?
+    # TODO crashing like this is the wrong thing to do, obviously, but
+    #      we'll do it anyway just to see if it ever happens - if it does,
+    #      it's likely a bug :)
+    error "Couldn't find ancestor state",
+      blockSlot = humaneSlotNum(blck.slot),
+      blockRoot = shortHash(hash_tree_root_final(blck))
+    doAssert false, "Oh noes, we passed big bang!"
+  else:
+    # We don't have the parent block. This is a bit strange, but may happen
+    # if things are happening seriously out of order or if we're back after
+    # a net split or restart, for example. Once the missing block arrives,
+    # we should retry setting the head block..
+    # TODO implement block sync here
+    # TODO instead of doing block sync here, make sure we are sync already
+    #      elsewhere, so as to simplify the logic of finding the block
+    #      here..
+    error "Parent missing! Too bad, because sync is also missing :/",
+      parentRoot = shortHash(ancestor.parent_root),
+      blockSlot = humaneSlotNum(ancestor.slot)
+    doAssert false, "So long"
 
   # If we come this far, we found the state root. The last block on the stack
   # is the one that produced this particular state, so we can pop it
   # TODO it might be possible to use the latest block hashes from the state to
   #      do this more efficiently.. whatever!
-  discard parents.pop()
 
-  # Time to replay all the blocks between then and now.
-  while parents.len > 0:
-    let last = parents.pop()
+  # Time to replay all the blocks between then and now. We skip the one because
+  # it's the one that we found the state with, and it has already been
+  # applied
+  for i in countdown(ancestors.len - 2, 0):
+    let last = ancestors[i]
+
     skipSlots(node.beaconState, last.parent_root, last.slot)
 
+    # TODO technically, we should be storing states here, because we're now
+    #      going down a different fork
     let ok = updateState(
       node.beaconState, last.parent_root, some(last),
-      if parents.len == 0: {} else: {skipValidation})
+      if ancestors.len == 0: {} else: {skipValidation})
 
     doAssert(ok)
-
-  doAssert hash_tree_root_final(node.beaconState) == blck.state_root
 
   node.headBlock = blck
   node.headBlockRoot = hash_tree_root_final(blck)
@@ -536,7 +532,6 @@ proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
       blockRoot = shortHash(blockRoot),
       stateSlot = humaneSlotNum(stateSlot)
 
-    updateHeadBlock(node, node.headBlock)
     return
 
   info "Block received",
