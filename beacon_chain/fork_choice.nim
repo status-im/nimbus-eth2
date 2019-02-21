@@ -43,13 +43,10 @@ import
 #     nor get_latest_attestation_target
 #   - We use block hashes (Eth2Digest) instead of raw blocks where possible
 
-proc get_parent(db: BeaconChainDB, blck: Eth2Digest): Eth2Digest =
-  db.getBlock(blck).parent_root
-
 proc get_ancestor(
     store: BeaconChainDB, blck: Eth2Digest, slot: Slot): Eth2Digest =
   ## Find the ancestor with a specific slot number
-  let blk = store.getBlock(blck)
+  let blk = store.get(blck, BeaconBlock).get()
   if blk.slot == slot:
     blck
   else:
@@ -113,16 +110,16 @@ proc lmdGhost*(
   while true: # TODO use a O(log N) implementation instead of O(N^2)
     let children = blocksChildren[head]
     if children.len == 0:
-      return store.getBlock(head)
+      return store.get(head, BeaconBlock).get()
 
     # For now we assume that all children are direct descendant of the current head
-    let next_slot = store.getBlock(head).slot + 1
+    let next_slot = store.get(head, BeaconBlock).get().slot + 1
     for child in children:
-      doAssert store.getBlock(child).slot == next_slot
+      doAssert store.get(child, BeaconBlock).get().slot == next_slot
 
     childVotes.clear()
     for target, votes in rawVoteCount.pairs:
-      if store.getBlock(target).slot >= next_slot:
+      if store.get(target, BeaconBlock).get().slot >= next_slot:
         childVotes.inc(store.get_ancestor(target, next_slot), votes)
 
     head = childVotes.largest().key

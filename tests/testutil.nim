@@ -61,12 +61,6 @@ func makeInitialDeposits*(
   for i in 0..<n.int:
     result.add makeDeposit(i + 1, flags)
 
-func makeGenesisBlock*(state: BeaconState): BeaconBlock =
-  BeaconBlock(
-    slot: GENESIS_SLOT,
-    state_root: Eth2Digest(data: hash_tree_root(state))
-  )
-
 func getNextBeaconProposerIndex*(state: BeaconState): ValidatorIndex =
   # TODO: This is a special version of get_beacon_proposer_index that takes into
   #       account the partial update done at the start of slot processing -

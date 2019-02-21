@@ -43,7 +43,7 @@ fi
 if [ ! -f $SNAPSHOT_FILE ]; then
   $BEACON_NODE_BIN createChain \
     --chainStartupData:$STARTUP_FILE \
-    --out:$SNAPSHOT_FILE # --genesisOffset=2 # Delay in seconds
+    --out:$SNAPSHOT_FILE --genesisOffset=5 # Delay in seconds
 fi
 
 MASTER_NODE_ADDRESS_FILE="$SIMULATION_DIR/node-0/beacon_node.address"
@@ -93,7 +93,7 @@ for i in $(seq 0 9); do
     if [ "$i" = "0" ]; then
       SLEEP="0"
     else
-      SLEEP="1"
+      SLEEP="2"
     fi
     # "multitail" closes the corresponding panel when a command exits, so let's make sure it doesn't exit
     COMMANDS+=( " -cT ansi -t 'node #$i' -l 'sleep $SLEEP; $CMD; echo [node execution completed]; while true; do sleep 100; done'" )

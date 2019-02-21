@@ -200,11 +200,12 @@ proc add*(pool: var AttestationPool,
     ", startingSlot: " & $humaneSlotNum(pool.startingSlot)
 
   if pool.slots.len == 0:
-    # When receiving the first attestation, we want to avoid adding a lot of
-    # empty SlotData items, so we'll cheat a bit here
+    # Because the first attestations may arrive in any order, we'll make sure
+    # to start counting at the last finalized epoch start slot - anything
+    # earlier than that is thrown out by the above check
     info "First attestation!",
       attestationSlot =  $humaneSlotNum(attestationSlot)
-    pool.startingSlot = attestationSlot
+    pool.startingSlot = state.finalized_epoch.get_epoch_start_slot()
 
   if pool.startingSlot + pool.slots.len.Slot <= attestationSlot:
     debug "Growing attestation pool",

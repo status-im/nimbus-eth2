@@ -26,7 +26,7 @@ cli do(slots = 1945,
     flags = if validate: {} else: {skipValidation}
     genesisState = get_initial_beacon_state(
       makeInitialDeposits(validators, flags), 0, Eth1Data(), flags)
-    genesisBlock = makeGenesisBlock(genesisState)
+    genesisBlock = get_initial_beacon_block(genesisState)
 
   var
     attestations: array[MIN_ATTESTATION_INCLUSION_DELAY, seq[Attestation]]

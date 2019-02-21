@@ -372,8 +372,8 @@ proc processBlock(
   # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#slot-1
   if not (blck.slot == state.slot):
     notice "Unexpected block slot number",
-      blockSlot = blck.slot,
-      stateSlot = state.slot
+      blockSlot = humaneSlotNum(blck.slot),
+      stateSlot = humaneSlotNum(state.slot)
     return false
 
   # Spec does not have this check explicitly, but requires that this condition
