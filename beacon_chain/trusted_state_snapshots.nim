@@ -31,7 +31,7 @@ proc obtainTrustedStateSnapshot*(db: BeaconChainDB): Future[BeaconState] {.async
 
 proc createStateSnapshot*(
     startup: ChainStartupData, genesisOffset: int, outFile: string) =
-  let initialState = get_initial_beacon_state(
+  let initialState = get_genesis_beacon_state(
     startup.validatorDeposits,
     uint64(int(fastEpochTime() div 1000) + genesisOffset),
     Eth1Data(), {})

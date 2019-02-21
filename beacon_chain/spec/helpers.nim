@@ -88,12 +88,13 @@ func is_power_of_2*(v: uint64): bool = (v and (v-1)) == 0
 func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
   ## Merkleize ``values`` (where ``len(values)`` is a power of two) and return
   ## the Merkle root.
+  ## https://crypto.stackexchange.com/questions/43430/what-is-the-reason-to-separate-domains-in-the-internal-hash-algorithm-of-a-merkl
   let num_values = len(values)
 
   # Simplifies boundary conditions
-  assert is_power_of_two(num_values)
-  assert num_values >= 2
-  assert num_values mod 2 == 0
+  doAssert is_power_of_two(num_values)
+  doAssert num_values >= 2
+  doAssert num_values mod 2 == 0
 
   # TODO reverse ``o`` order and use newSeqWith to avoid pointless zero-filling.
   var o = repeat(ZERO_HASH, len(values))
