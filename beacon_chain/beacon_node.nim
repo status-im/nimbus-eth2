@@ -59,7 +59,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): T =
   # TODO does it really make sense to load from DB if a state snapshot has been
   #      specified on command line? potentially, this should be the other way
   #      around...
-  if (let head = result.db.getHead(BeaconBlock) ; head.isSome()):
+  if (let head = result.db.getHead(); head.isSome()):
     info "Loading head from database",
       blockSlot = humaneSlotNum(head.get().slot)
     updateHeadBlock(result, head.get())
@@ -70,10 +70,10 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): T =
 
     info "Loaded state from snapshot",
       stateSlot = humaneSlotNum(result.beaconState.slot)
-    result.db.put(result.beaconState)
+    result.db.putState(result.beaconState)
     # The genesis block is special in that we have to store it at hash 0 - in
     # the genesis state, this block has not been applied..
-    result.db.put(result.headBlock)
+    result.db.putBlock(result.headBlock)
 
   result.keys = ensureNetworkKeys(string conf.dataDir)
 
@@ -406,7 +406,7 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
 
   node.attestationPool.add(attestation, node.beaconState)
 
-  if not node.db.contains(attestation.data.beacon_block_root, BeaconBlock):
+  if not node.db.containsBlock(attestation.data.beacon_block_root):
     notice "Attestation block root missing",
       beaconBlockRoot = shortHash(attestation.data.beacon_block_root)
     # TODO download...
@@ -453,12 +453,12 @@ proc updateHeadBlock(node: BeaconNode, blck: BeaconBlock) =
   # in the database.
   let
     ancestors = node.db.getAncestors(blck) do (bb: BeaconBlock) -> bool:
-      node.db.contains(bb.state_root, BeaconState)
+      node.db.containsState(bb.state_root)
     ancestor = ancestors[^1]
 
   # Several things can happen, but the most common one should be that we found
   # a beacon state
-  if (let state = node.db.get(ancestor.state_root, BeaconState); state.isSome()):
+  if (let state = node.db.getState(ancestor.state_root); state.isSome()):
     # Got it!
     notice "Replaying state transitions",
       stateSlot = humaneSlotNum(node.beaconState.slot),
@@ -525,7 +525,7 @@ proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
     blockRoot = hash_tree_root_final(blck)
     stateSlot = node.beaconState.slot
 
-  if node.db.contains(blockRoot, BeaconBlock):
+  if node.db.containsBlock(blockRoot):
     debug "Block already seen",
       slot = humaneSlotNum(blck.slot),
       stateRoot = shortHash(blck.state_root),
@@ -546,7 +546,7 @@ proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
 
   # The block has been validated and it's not in the database yet - first, let's
   # store it there, just to be safe
-  node.db.put(blck)
+  node.db.putBlock(blck)
 
   # Since this is a good block, we should add its attestations in case we missed
   # any. If everything checks out, this should lead to the fork choice selecting
@@ -578,7 +578,7 @@ proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
   updateHeadBlock(node, blck)
 
   if stateNeedsSaving(node.beaconState):
-    node.db.put(node.beaconState)
+    node.db.putState(node.beaconState)
 
 proc run*(node: BeaconNode) =
   node.network.subscribe(topicBeaconBlocks) do (blck: BeaconBlock):

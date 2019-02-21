@@ -15,9 +15,8 @@ suite "Beacon chain DB":
 
   test "empty database":
     check:
-      db.get(Eth2Digest(), BeaconState).isNone
-      db.get(Eth2Digest(), BeaconBlock).isNone
-
+      db.getState(Eth2Digest()).isNone
+      db.getBlock(Eth2Digest()).isNone
 
   test "find ancestors":
     var x: ValidatorSig
@@ -34,17 +33,17 @@ suite "Beacon chain DB":
     doAssert db.getAncestors(a0) == [a0]
     doAssert db.getAncestors(a2) == [a2]
 
-    db.put(a2)
+    db.putBlock(a2)
 
     doAssert db.getAncestors(a0) == [a0]
     doAssert db.getAncestors(a2) == [a2]
 
-    db.put(a1)
+    db.putBlock(a1)
 
     doAssert db.getAncestors(a0) == [a0]
     doAssert db.getAncestors(a2) == [a2, a1]
 
-    db.put(a0)
+    db.putBlock(a0)
 
     doAssert db.getAncestors(a0) == [a0]
     doAssert db.getAncestors(a2) == [a2, a1, a0]

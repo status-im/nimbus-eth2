@@ -46,7 +46,7 @@ import
 proc get_ancestor(
     store: BeaconChainDB, blck: Eth2Digest, slot: Slot): Eth2Digest =
   ## Find the ancestor with a specific slot number
-  let blk = store.get(blck, BeaconBlock).get()
+  let blk = store.getBlock(blck).get()
   if blk.slot == slot:
     blck
   else:
@@ -110,16 +110,16 @@ proc lmdGhost*(
   while true: # TODO use a O(log N) implementation instead of O(N^2)
     let children = blocksChildren[head]
     if children.len == 0:
-      return store.get(head, BeaconBlock).get()
+      return store.getBlock(head).get()
 
     # For now we assume that all children are direct descendant of the current head
-    let next_slot = store.get(head, BeaconBlock).get().slot + 1
+    let next_slot = store.getBlock(head).get().slot + 1
     for child in children:
-      doAssert store.get(child, BeaconBlock).get().slot == next_slot
+      doAssert store.getBlock(child).get().slot == next_slot
 
     childVotes.clear()
     for target, votes in rawVoteCount.pairs:
-      if store.get(target, BeaconBlock).get().slot >= next_slot:
+      if store.getBlock(target).get().slot >= next_slot:
         childVotes.inc(store.get_ancestor(target, next_slot), votes)
 
     head = childVotes.largest().key
