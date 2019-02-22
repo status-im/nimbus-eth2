@@ -519,7 +519,7 @@ func lowerThan(candidate, current: Eth2Digest): bool =
   # TODO spec - clarify hash ordering..
   for i, v in current.data:
     if v > candidate.data[i]: return true
-  return false
+  false
 
 func processEpoch(state: var BeaconState) =
   # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#per-epoch-processing
@@ -528,32 +528,34 @@ func processEpoch(state: var BeaconState) =
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#helper-variables
   let
-    active_validator_indices =
-      get_active_validator_indices(state.validator_registry, state.slot)
-    total_balance = sum_effective_balances(state, active_validator_indices)
-
     current_epoch = get_current_epoch(state)
-    previous_epoch = if current_epoch > GENESIS_EPOCH: current_epoch - 1 else: current_epoch
+    previous_epoch =
+      if current_epoch > GENESIS_EPOCH:
+        current_epoch - 1
+      else:
+        current_epoch
     next_epoch = (current_epoch + 1).Epoch
 
-  # TODO doing this with iterators failed:
-  #      https://github.com/nim-lang/Nim/issues/9827
-  let
+    current_total_balance = get_total_balance(
+      state, get_active_validator_indices(
+        state.validator_registry, current_epoch))
+
+    # TODO doing this with iterators failed:
+    #      https://github.com/nim-lang/Nim/issues/9827
     current_epoch_attestations =
       state.latest_attestations.filterIt(
-        state.slot <= it.data.slot + SLOTS_PER_EPOCH and
-        it.data.slot < state.slot)
+        current_epoch == slot_to_epoch(it.data.slot))
 
     current_epoch_boundary_attestations =
       boundary_attestations(
-        state, get_block_root(state, state.slot-SLOTS_PER_EPOCH),
+        state, get_block_root(state, get_epoch_start_slot(current_epoch)),
         current_epoch_attestations)
 
     current_epoch_boundary_attester_indices =
-      get_attester_indices(state, current_epoch_attestations)
+      get_attester_indices(state, current_epoch_boundary_attestations)
 
     current_epoch_boundary_attesting_balance =
-      sum_effective_balances(state, current_epoch_boundary_attester_indices)
+      get_total_balance(state, current_epoch_boundary_attester_indices)
 
   let
     previous_epoch_attestations =
@@ -667,7 +669,6 @@ func processEpoch(state: var BeaconState) =
   # Helpers for justification
   let
     previous_total_balance = sum_effective_balances(state, get_active_validator_indices(state.validator_registry, previous_epoch))
-    current_total_balance = sum_effective_balances(state, get_active_validator_indices(state.validator_registry, current_epoch))
 
   block: # Justification
     # https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#justification
@@ -733,6 +734,10 @@ func processEpoch(state: var BeaconState) =
         return a.inclusion_slot - a.data.slot
     doAssert false # shouldn't happen..
 
+  # TODO check if/how still useful
+  let active_validator_indices =
+    get_active_validator_indices(state.validator_registry, state.slot)
+
   block: # Justification and finalization
     let epochs_since_finality = next_epoch - state.finalized_epoch
 
@@ -741,7 +746,7 @@ func processEpoch(state: var BeaconState) =
       for v in attesters:
         statePtr.validator_balances[v] +=
           base_reward(statePtr[], v) *
-          attesting_balance div total_balance
+          attesting_balance div current_total_balance
 
       for v in active_validator_indices:
         if v notin attesters:

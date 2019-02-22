@@ -471,7 +471,7 @@ proc checkAttestation*(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_total_balance
-func get_total_balance(state: BeaconState, validators: seq[ValidatorIndex]): Gwei =
+func get_total_balance*(state: BeaconState, validators: seq[ValidatorIndex]): Gwei =
   # Return the combined effective balance of an array of validators.
   foldl(validators, a + get_effective_balance(state, b), 0'u64)
 
