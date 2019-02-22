@@ -277,6 +277,7 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
 
   true
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#attestations-1
 proc processAttestations(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   ## Each block includes a number of attestations that the proposer chose. Each
@@ -285,8 +286,6 @@ proc processAttestations(
   ## Here we make sanity checks for each attestation and it to the state - most
   ## updates will happen at the epoch boundary where state updates happen in
   ## bulk.
-  ##
-  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#attestations-1
   if blck.body.attestations.len > MAX_ATTESTATIONS:
     notice "Attestation: too many!", attestations = blck.body.attestations.len
     return false
@@ -304,33 +303,22 @@ proc processAttestations(
     )
   )
 
-  return true
-
-proc processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
-  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#deposits-1
-  # TODO! Spec writing in progress
   true
 
-func initiate_validator_exit(state: var BeaconState, index: int) =
-  var validator = state.validator_registry[index]
-  validator.status_flags = validator.status_flags or INITIATED_EXIT
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#deposits-1
+func processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
+  # TODO! Spec writing in progress as of v0.3.0
+  true
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#voluntary-exits-1
 proc processExits(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
-  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#exits-1
   if len(blck.body.voluntary_exits) > MAX_VOLUNTARY_EXITS:
     notice "Exit: too many!"
     return false
 
   for exit in blck.body.voluntary_exits:
     let validator = state.validator_registry[exit.validator_index.int]
-
-    if skipValidation notin flags:
-      if not bls_verify(
-          validator.pubkey, ZERO_HASH.data, exit.signature,
-          get_domain(state.fork, exit.epoch, DOMAIN_EXIT)):
-        notice "Exit: invalid signature"
-        return false
 
     if not (validator.exit_epoch > get_entry_exit_effect_epoch(get_current_epoch(state))):
       notice "Exit: exit/entry too close"
@@ -340,9 +328,82 @@ proc processExits(
       notice "Exit: bad epoch"
       return false
 
-    initiate_validator_exit(state, exit.validator_index.int)
+    if skipValidation notin flags:
+      let exit_message = hash_tree_root(
+        # In 0.3.0 spec, this is "Exit", but that's a renaming mismatch
+        VoluntaryExit(
+          epoch: exit.epoch, validator_index: exit.validator_index,
+          signature: EMPTY_SIGNATURE))
+      if not bls_verify(
+          validator.pubkey, exit_message, exit.signature,
+          get_domain(state.fork, exit.epoch, DOMAIN_EXIT)):
+        notice "Exit: invalid signature"
+        return false
 
-  return true
+    initiate_validator_exit(state, exit.validator_index.ValidatorIndex)
+
+  true
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#transfers-1
+proc processTransfers(state: var BeaconState, blck: BeaconBlock,
+                      flags: UpdateFlags): bool =
+  ## Note: Transfers are a temporary functionality for phases 0 and 1, to be
+  ## removed in phase 2.
+  if not (len(blck.body.transfers) <= MAX_TRANSFERS):
+    notice "Transfer: too many transfers"
+    return false
+
+  for transfer in blck.body.transfers:
+    let from_balance = state.validator_balances[transfer.from_field.int]
+
+    if not (from_balance >= transfer.amount):
+      notice "Transfer: source balance too low for amount"
+      return false
+
+    if not (from_balance >= transfer.fee):
+      notice "Transfer: source balance too low for fee"
+      return false
+
+    if not (from_balance == transfer.amount + transfer.fee or from_balance >=
+            transfer.amount + transfer.fee + MIN_DEPOSIT_AMOUNT):
+      notice "Transfer: source balance too low for amount + fee"
+      return false
+
+    if not (state.slot == transfer.slot):
+      notice "Transfer: slot mismatch"
+      return false
+
+    if not (get_current_epoch(state) >=
+        state.validator_registry[transfer.from_field.int].withdrawable_epoch):
+      notice "Transfer: epoch mismatch"
+      return false
+
+    let wc = state.validator_registry[transfer.from_field.int].
+      withdrawal_credentials
+    if not (wc.data[0] == BLS_WITHDRAWAL_PREFIX_BYTE and
+            wc.data[1..^1] == eth2hash(transfer.pubkey.getBytes).data[1..^1]):
+      notice "Transfer: incorrect withdrawal credentials"
+      return false
+
+    if skipValidation notin flags:
+      let transfer_message = hash_tree_root(
+        Transfer(
+          from_field: transfer.from_field, to: transfer.to,
+          amount: transfer.amount, fee: transfer.fee, slot: transfer.slot,
+          signature: EMPTY_SIGNATURE))
+      if bls_verify(
+          pubkey=transfer.pubkey, transfer_message, transfer.signature,
+          get_domain(state.fork, slot_to_epoch(transfer.slot), DOMAIN_TRANSFER)):
+        notice "Transfer: incorrect signature"
+        return false
+
+    state.validator_balances[
+      transfer.from_field.int] -= transfer.amount + transfer.fee
+    state.validator_balances[transfer.to.int] += transfer.amount
+    state.validator_balances[
+      get_beacon_proposer_index(state, state.slot)] += transfer.fee
+
+  true
 
 proc process_ejections(state: var BeaconState) =
   ## Iterate through the validator registry and eject active validators with
@@ -427,9 +488,10 @@ proc processBlock(
   if not processExits(state, blck, flags):
     return false
 
-  process_ejections(state)
+  if not processTransfers(state, blck, flags):
+    return false
 
-  return true
+  true
 
 func get_attester_indices(
     state: BeaconState,
@@ -460,12 +522,11 @@ func lowerThan(candidate, current: Eth2Digest): bool =
   return false
 
 func processEpoch(state: var BeaconState) =
-  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#per-epoch-processing
-
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#per-epoch-processing
   if (state.slot + 1) mod SLOTS_PER_EPOCH != 0:
     return
 
-  # Precomputation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#helper-variables
   let
     active_validator_indices =
       get_active_validator_indices(state.validator_registry, state.slot)

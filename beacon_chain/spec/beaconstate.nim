@@ -106,8 +106,8 @@ func activate_validator(state: var BeaconState,
       get_entry_exit_effect_epoch(get_current_epoch(state))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#initiate_validator_exit
-func initiate_validator_exit(state: var BeaconState,
-                             index: ValidatorIndex) =
+func initiate_validator_exit*(state: var BeaconState,
+                              index: ValidatorIndex) =
   ## Initiate exit for the validator with the given ``index``.
   ## Note that this function mutates ``state``.
   var validator = addr state.validator_registry[index]
@@ -352,7 +352,7 @@ func update_validator_registry*(state: var BeaconState) =
 
   # TODO "If a validator registry update does not happen do the following: ..."
 
-## https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#attestations-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#attestations-1
 proc checkAttestation*(
     state: BeaconState, attestation: Attestation, flags: UpdateFlags): bool =
   ## Check that an attestation follows the rules of being included in the state
@@ -365,6 +365,7 @@ proc checkAttestation*(
       attestation_slot = attestation.data.slot, state_slot = state.slot)
     return
 
+  # Can't underflow, because GENESIS_SLOT > MIN_ATTESTATION_INCLUSION_DELAY
   if not (state.slot - MIN_ATTESTATION_INCLUSION_DELAY <
       attestation.data.slot + SLOTS_PER_EPOCH):
     warn("Attestation too old",
@@ -372,8 +373,7 @@ proc checkAttestation*(
     return
 
   let expected_justified_epoch =
-    # https://github.com/ethereum/eth2.0-specs/issues/618
-    if attestation.data.slot + 1 >= get_epoch_start_slot(get_current_epoch(state)):
+    if slot_to_epoch(attestation.data.slot + 1) >= get_current_epoch(state):
       state.justified_epoch
     else:
       state.previous_justified_epoch
@@ -443,7 +443,6 @@ proc checkAttestation*(
     group_public_key = bls_aggregate_pubkeys(
       participants.mapIt(state.validator_registry[it].pubkey))
 
-  ## the rest; turns into expensive NOP until then.
   if skipValidation notin flags:
     # Verify that aggregate_signature verifies using the group pubkey.
     assert bls_verify_multiple(
