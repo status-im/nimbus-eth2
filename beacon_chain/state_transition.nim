@@ -391,7 +391,7 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
           from_field: transfer.from_field, to: transfer.to,
           amount: transfer.amount, fee: transfer.fee, slot: transfer.slot,
           signature: EMPTY_SIGNATURE))
-      if bls_verify(
+      if not bls_verify(
           pubkey=transfer.pubkey, transfer_message, transfer.signature,
           get_domain(state.fork, slot_to_epoch(transfer.slot), DOMAIN_TRANSFER)):
         notice "Transfer: incorrect signature"
