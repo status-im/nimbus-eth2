@@ -24,7 +24,7 @@ cli do(slots = 1945,
        validate = false):
   let
     flags = if validate: {} else: {skipValidation}
-    genesisState = get_initial_beacon_state(
+    genesisState = get_genesis_beacon_state(
       makeInitialDeposits(validators, flags), 0, Eth1Data(), flags)
     genesisBlock = makeGenesisBlock(genesisState)
 

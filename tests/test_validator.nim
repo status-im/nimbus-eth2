@@ -28,8 +28,12 @@ suite "Validators":
           exit_epoch: FAR_FUTURE_EPOCH
         ), num_validators)
       s = get_shuffling(Eth2Digest(), validators, 0)
+      #s_spec = get_shuffling_spec(Eth2Digest(), validators, 0)
       committees = get_epoch_committee_count(len(validators)).int
     check:
+      ## Enable checking equivalence of spec and optimized versions.
+      ## TODO enable checking against YAML test vectors
+      ## s == s_spec
       s.len == committees
        # 32k validators: SLOTS_PER_EPOCH slots * committee_count_per_slot =
        # get_epoch_committee_count committees.

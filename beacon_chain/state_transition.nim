@@ -39,7 +39,7 @@ func flatten[T](v: openArray[seq[T]]): seq[T] =
   # TODO not in nim - doh.
   for x in v: result.add x
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#proposer-signature
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#proposer-signature
 func verifyProposerSignature(state: BeaconState, blck: BeaconBlock): bool =
   ## When creating a block, the proposer will sign a version of the block that
   ## doesn't contain the data (chicken and egg), then add the signature to that
@@ -62,7 +62,7 @@ func verifyProposerSignature(state: BeaconState, blck: BeaconBlock): bool =
     proposal_root.data, blck.signature,
     get_domain(state.fork, get_current_epoch(state), DOMAIN_PROPOSAL))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#randao
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#randao
 proc processRandao(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   let
@@ -93,9 +93,9 @@ proc processRandao(
 
   true
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#eth1-data
 func processDepositRoot(state: var BeaconState, blck: BeaconBlock) =
-  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#eth1-data
-
+  # TODO verify that there's at most one match
   for x in state.eth1_data_votes.mitems():
     if blck.eth1_data == x.eth1_data:
       x.vote_count += 1
@@ -106,28 +106,34 @@ func processDepositRoot(state: var BeaconState, blck: BeaconBlock) =
     vote_count: 1
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#penalize_validator
-func penalizeValidator(state: var BeaconState, index: ValidatorIndex) =
-  ## Penalize the validator of the given ``index``.
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#slashValidator
+func slashValidator(state: var BeaconState, index: ValidatorIndex) =
+  ## Slash the validator of the given ``index``.
   ## Note that this function mutates ``state``.
-  exit_validator(state, index)
   var validator = addr state.validator_registry[index]
+
+  doAssert state.slot < get_epoch_start_slot(validator.withdrawable_epoch) ##\
+  ## [TO BE REMOVED IN PHASE 2]
+
+  exit_validator(state, index)
   state.latest_slashed_balances[(get_current_epoch(state) mod
     LATEST_SLASHED_EXIT_LENGTH).int] += get_effective_balance(state,
       index.ValidatorIndex)
 
   let
     whistleblower_index = get_beacon_proposer_index(state, state.slot)
-    whistleblower_reward = get_effective_balance(state, index) div WHISTLEBLOWER_REWARD_QUOTIENT
+    whistleblower_reward = get_effective_balance(state, index) div
+      WHISTLEBLOWER_REWARD_QUOTIENT
   state.validator_balances[whistleblower_index] += whistleblower_reward
   state.validator_balances[index] -= whistleblower_reward
   validator.slashed_epoch = get_current_epoch(state)
+
+  # v0.3.0 spec bug, fixed later, involving renamed constants. Use v0.3.0 name.
   validator.withdrawable_epoch = get_current_epoch(state) + LATEST_SLASHED_EXIT_LENGTH
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#proposer-slashings-1
 proc processProposerSlashings(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
-  ## https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#proposer-slashings-1
-
   if len(blck.body.proposer_slashings) > MAX_PROPOSER_SLASHINGS:
     notice "PropSlash: too many!",
       proposer_slashings = len(blck.body.proposer_slashings)
@@ -174,7 +180,7 @@ proc processProposerSlashings(
       notice "PropSlash: penalized slot"
       return false
 
-    penalizeValidator(state, proposer_slashing.proposer_index.ValidatorIndex)
+    slashValidator(state, proposer_slashing.proposer_index.ValidatorIndex)
 
   return true
 
@@ -227,8 +233,8 @@ func verify_slashable_attestation(state: BeaconState, slashable_attestation: Sla
     ),
   )
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#attester-slashings-1
 proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
-  ## https://github.com/ethereum/eth2.0-specs/blob/dev/specs/core/0_beacon-chain.md#attester-slashings-1
   if len(blck.body.attester_slashings) > MAX_ATTESTER_SLASHINGS:
     notice "CaspSlash: too many!"
     return false
@@ -267,9 +273,9 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
 
     for index in slashable_indices:
       if state.validator_registry[index.int].slashed_epoch > get_current_epoch(state):
-        penalize_validator(state, index.ValidatorIndex)
+        slash_validator(state, index.ValidatorIndex)
 
-  return true
+  true
 
 proc processAttestations(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
@@ -355,7 +361,11 @@ func processSlot(state: var BeaconState, previous_block_root: Eth2Digest) =
   ## slot, a proposer creates a block to represent the state of the beacon
   ## chain at that time. In case the proposer is missing, it may happen that
   ## the no block is produced during the slot.
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#slot
   state.slot += 1
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#block-roots
   state.latest_block_roots[(state.slot - 1) mod LATEST_BLOCK_ROOTS_LENGTH] =
     previous_block_root
   if state.slot mod LATEST_BLOCK_ROOTS_LENGTH == 0:
@@ -369,7 +379,7 @@ proc processBlock(
   # TODO when there's a failure, we should reset the state!
   # TODO probably better to do all verification first, then apply state changes
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#slot-1
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#slot-1
   if not (blck.slot == state.slot):
     notice "Unexpected block slot number",
       blockSlot = blck.slot,

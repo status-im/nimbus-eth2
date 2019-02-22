@@ -132,7 +132,7 @@ func slash_validator*(state: var BeaconState, index: ValidatorIndex) =
   ## Note that this function mutates ``state``.
 
   let validator = addr state.validator_registry[index]
-  assert state.slot < get_epoch_start_slot(validator.withdrawable_epoch) ##\
+  doAssert state.slot < get_epoch_start_slot(validator.withdrawable_epoch) ##\
   ## [TO BE REMOVED IN PHASE 2]
 
   exit_validator(state, index)
@@ -153,12 +153,13 @@ func slash_validator*(state: var BeaconState, index: ValidatorIndex) =
   validator.withdrawable_epoch = get_current_epoch(state) +
     LATEST_SLASHED_EXIT_LENGTH
 
-func get_initial_beacon_state*(
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#on-genesis
+func get_genesis_beacon_state*(
     initial_validator_deposits: openArray[Deposit],
     genesis_time: uint64,
     latest_eth1_data: Eth1Data,
     flags: UpdateFlags = {}): BeaconState =
-  ## Get the initial ``BeaconState``.
+  ## Get the genesis ``BeaconState``.
   ##
   ## Before the beacon chain starts, validators will register in the Eth1 chain
   ## and deposit ETH. When enough many validators have registered, a
@@ -186,10 +187,12 @@ func get_initial_beacon_state*(
 
     validator_registry_update_epoch: GENESIS_EPOCH,
 
+    # validator_registry and validator_balances automatically initalized
     # TODO remove or conditionally compile; not in spec anymore
     validator_registry_delta_chain_tip: ZERO_HASH,
 
     # Randomness and committees
+    # latest_randao_mixes automatically initialized
     previous_shuffling_start_shard: GENESIS_START_SHARD,
     current_shuffling_start_shard: GENESIS_START_SHARD,
     previous_shuffling_epoch: GENESIS_EPOCH,
@@ -205,6 +208,11 @@ func get_initial_beacon_state*(
 
     # Deposit root
     latest_eth1_data: latest_eth1_data,
+
+    # Recent state
+    # TODO properly initialize latest_crosslinks
+    # latest_block_roots, latest_active_index_roots, latest_slashed_balances,
+    # latest_attestations, and batched_block_roots automatically initialized.
   )
 
   # Process initial deposits
@@ -222,6 +230,12 @@ func get_initial_beacon_state*(
     let vi = validator_index.ValidatorIndex
     if get_effective_balance(state, vi) >= MAX_DEPOSIT_AMOUNT:
       activate_validator(state, vi, true)
+
+  let genesis_active_index_root = Eth2Digest(data: hash_tree_root(
+    get_active_validator_indices(state.validator_registry, GENESIS_EPOCH)))
+  for index in 0 ..< LATEST_ACTIVE_INDEX_ROOTS_LENGTH:
+    state.latest_active_index_roots[index] = genesis_active_index_root
+  state.current_shuffling_seed = generate_seed(state, GENESIS_EPOCH)
 
   state
 

@@ -12,7 +12,7 @@ import
   ../beacon_chain/spec/[beaconstate, datatypes, digest]
 
 suite "Beacon state":
-  test "Smoke test get_initial_beacon_state":
-    let state = get_initial_beacon_state(
+  test "Smoke test get_genesis_beacon_state":
+    let state = get_genesis_beacon_state(
       makeInitialDeposits(SLOTS_PER_EPOCH, {}), 0, Eth1Data(), {})
     check: state.validator_registry.len == SLOTS_PER_EPOCH

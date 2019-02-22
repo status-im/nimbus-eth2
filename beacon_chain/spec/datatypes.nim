@@ -40,7 +40,7 @@ import
 # TODO Many of these constants should go into a config object that can be used
 #      to run.. well.. a chain with different constants!
 const
-  SPEC_VERSION* = "0.2.0" ## \
+  SPEC_VERSION* = "0.3.0" ## \
   ## Spec version we're aiming to be compatible with, right now
   ## TODO: improve this scheme once we can negotiate versions in protocol
 
@@ -146,7 +146,7 @@ const
   # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#state-list-lengths
   LATEST_BLOCK_ROOTS_LENGTH* = 2'u64^13
   LATEST_RANDAO_MIXES_LENGTH* = 2'u64^13
-  LATEST_ACTIVE_INDEX_ROOTS_LENGTH* = 2'u64^13
+  LATEST_ACTIVE_INDEX_ROOTS_LENGTH* = 8192 # 2'u64^13, epochs
   LATEST_SLASHED_EXIT_LENGTH* = 8192 # epochs
 
   # Reward and penalty quotients
