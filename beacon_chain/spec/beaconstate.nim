@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2019 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -15,12 +15,6 @@ func get_effective_balance*(state: BeaconState, index: ValidatorIndex): uint64 =
   ## Return the effective balance (also known as "balance at stake") for a
   ## validator with the given ``index``.
   min(state.validator_balances[index], MAX_DEPOSIT_AMOUNT)
-
-func sum_effective_balances*(
-    state: BeaconState, validator_indices: openArray[ValidatorIndex]): uint64 =
-  # TODO spec - add as helper? Used pretty often
-  for index in validator_indices:
-    result += get_effective_balance(state, index)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#validate_proof_of_possession
 func validate_proof_of_possession(state: BeaconState,
@@ -302,6 +296,11 @@ func process_ejections*(state: var BeaconState) =
     if state.validator_balances[index] < EJECTION_BALANCE:
       exit_validator(state, index)
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_total_balance
+func get_total_balance*(state: BeaconState, validators: seq[ValidatorIndex]): Gwei =
+  # Return the combined effective balance of an array of validators.
+  foldl(validators, a + get_effective_balance(state, b), 0'u64)
+
 func update_validator_registry*(state: var BeaconState) =
   let
     current_epoch = get_current_epoch(state)
@@ -309,7 +308,7 @@ func update_validator_registry*(state: var BeaconState) =
     active_validator_indices =
       get_active_validator_indices(state.validator_registry, state.slot)
     # The total effective balance of active validators
-    total_balance = sum_effective_balances(state, active_validator_indices)
+    total_balance = get_total_balance(state, active_validator_indices)
 
     # The maximum balance churn in Gwei (for deposits and exits separately)
     max_balance_churn = max(
@@ -469,11 +468,6 @@ proc checkAttestation*(
     return
 
   true
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_total_balance
-func get_total_balance*(state: BeaconState, validators: seq[ValidatorIndex]): Gwei =
-  # Return the combined effective balance of an array of validators.
-  foldl(validators, a + get_effective_balance(state, b), 0'u64)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#prepare_validator_for_withdrawal
 func prepare_validator_for_withdrawal(state: var BeaconState, index: ValidatorIndex) =
