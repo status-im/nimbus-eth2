@@ -96,12 +96,9 @@ func get_shuffling*(seed: Eth2Digest,
     # Share these buffers.
     pivot_buffer: array[(32+1), byte]
     source_buffer: array[(32+1+4), byte]
-    shuffled_active_validator_indices = repeat(0.ValidatorIndex, list_size)
-    sources = repeat(Eth2Digest(), (list_size div 256) + 1) # TODO if works, cleaner?
-
-  ## TODO why isn't toSeq working? are there other options?
-  for i in 0 ..< list_size.int:
-    shuffled_active_validator_indices[i] = i.ValidatorIndex
+    shuffled_active_validator_indices = mapIt(
+      0 ..< list_size.int, it.ValidatorIndex)
+    sources = repeat(Eth2Digest(), max(list_size div 256, 1))
 
   ## The pivot's a function of seed and round only.
   ## This doesn't change across rounds.
@@ -130,10 +127,6 @@ func get_shuffling*(seed: Eth2Digest,
         cur_idx_permutated = shuffled_active_validator_indices[index]
         flip = (pivot - cur_idx_permutated.uint64) mod list_size
         position = max(cur_idx_permutated, flip.int)
-
-      if not ((position div 256) < sources.len):
-        debugEcho position, ", ", sources.len, ", ", list_size
-      assert  (position div 256) < sources.len
 
       let
         source = sources[position div 256].data
