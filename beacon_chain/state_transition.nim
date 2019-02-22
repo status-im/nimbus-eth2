@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2019 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -575,7 +575,7 @@ func processEpoch(state: var BeaconState) =
       get_attester_indices(state, previous_epoch_justified_attestations)
 
     previous_epoch_justified_attesting_balance =
-      sum_effective_balances(state, previous_epoch_justified_attester_indices)
+      get_total_balance(state, previous_epoch_justified_attester_indices)
 
   let # Previous epoch boundary
     # TODO check this with spec...
@@ -591,7 +591,7 @@ func processEpoch(state: var BeaconState) =
       get_attester_indices(state, previous_epoch_boundary_attestations)
 
     previous_epoch_boundary_attesting_balance =
-      sum_effective_balances(state, previous_epoch_boundary_attester_indices)
+      get_total_balance(state, previous_epoch_boundary_attester_indices)
 
   let # Previous epoch head
     previous_epoch_head_attestations =
@@ -602,7 +602,7 @@ func processEpoch(state: var BeaconState) =
       get_attester_indices(state, previous_epoch_head_attestations)
 
     previous_epoch_head_attesting_balance =
-      sum_effective_balances(state, previous_epoch_head_attester_indices)
+      get_total_balance(state, previous_epoch_head_attester_indices)
 
   # TODO this is really hairy - we cannot capture `state` directly, but we
   #      can capture a pointer to it - this is safe because we don't leak
@@ -632,10 +632,10 @@ func processEpoch(state: var BeaconState) =
 
     var max_hash = candidates[0]
     var max_val =
-      sum_effective_balances(
+      get_total_balance(
         statePtr[], attesting_validator_indices(crosslink_committee, max_hash))
     for candidate in candidates[1..^1]:
-      let val = sum_effective_balances(
+      let val = get_total_balance(
         statePtr[], attesting_validator_indices(crosslink_committee, candidate))
       if val > max_val or (val == max_val and candidate.lowerThan(max_hash)):
         max_hash = candidate
@@ -649,11 +649,11 @@ func processEpoch(state: var BeaconState) =
     attesting_validator_indices(crosslink_committee, winning_root(crosslink_committee))
 
   func total_attesting_balance(crosslink_committee: CrosslinkCommittee): uint64 =
-    sum_effective_balances(
+    get_total_balance(
       statePtr[], attesting_validator_indices(crosslink_committee))
 
   func total_balance_sac(crosslink_committee: CrosslinkCommittee): uint64 =
-    sum_effective_balances(statePtr[], crosslink_committee.committee)
+    get_total_balance(statePtr[], crosslink_committee.committee)
 
   block: # Eth1 data
     if state.slot mod EPOCHS_PER_ETH1_VOTING_PERIOD == 0:
@@ -668,7 +668,9 @@ func processEpoch(state: var BeaconState) =
 
   # Helpers for justification
   let
-    previous_total_balance = sum_effective_balances(state, get_active_validator_indices(state.validator_registry, previous_epoch))
+    previous_total_balance = get_total_balance(
+      state, get_active_validator_indices(
+        state.validator_registry, previous_epoch))
 
   block: # Justification
     # https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#justification
