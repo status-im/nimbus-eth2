@@ -1,4 +1,4 @@
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2019 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -32,8 +32,8 @@ func get_permuted_index_spec(index: uint64, list_size: uint64, seed: Eth2Digest)
 
     let
       pivot = bytes_to_int(eth2hash(pivot_buffer).data[0..7]) mod list_size
-      flip = (pivot - index) mod list_size
-      position = max(index, flip)
+      flip = (pivot - result) mod list_size
+      position = max(result, flip)
 
     ## Tradeoff between slicing (if reusing one larger buffer) and additional
     ## copies here of seed and `int_to_bytes1(round)`.
@@ -73,43 +73,8 @@ func get_shuffling_spec*(seed: Eth2Digest, validators: openArray[Validator],
   result = split(shuffled_active_validator_indices, committees_per_epoch)
   assert result.len() == committees_per_epoch # what split should do..
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_permuted_index
-func get_permuted_index(index: uint64, list_size: uint64, seed: Eth2Digest,
-                        pivots: seq[uint64]): uint64 =
-  ## Via https://github.com/protolambda/eth2-shuffle/blob/master/shuffle.go
-  ## Return `p(index)` in a pseudorandom permutation `p` of `0...list_size-1`
-  ## with ``seed`` as entropy.
-  ##
-  ## Utilizes 'swap or not' shuffling found in
-  ## https://link.springer.com/content/pdf/10.1007%2F978-3-642-32009-5_1.pdf
-  ## See the 'generalized domain' algorithm on page 3.
-  result = index
-  var source_buffer: array[(32+1+4), byte]
-
-  doAssert len(pivots) == SHUFFLE_ROUND_COUNT
-
-  for round in 0 ..< SHUFFLE_ROUND_COUNT:
-    let
-      pivot = pivots[round]
-      flip = (pivot - index) mod list_size
-      position = max(index, flip)
-      round_bytes1 = int_to_bytes1(round)[0]
-
-    ## Tradeoff between slicing (if reusing one larger buffer) and additional
-    ## copies here of seed and `int_to_bytes1(round)`.
-    source_buffer[0..31] = seed.data
-    source_buffer[32] = round_bytes1
-    source_buffer[33..36] = int_to_bytes4(position div 256)
-
-    let
-      source = eth2hash(source_buffer).data
-      byte_value = source[(position mod 256) div 8]
-      bit = (byte_value shr (position mod 8)) mod 2
-
-    if bit != 0:
-      result = flip
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_shuffling
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_permuted_index
 func get_shuffling*(seed: Eth2Digest,
                     validators: openArray[Validator],
                     epoch: Epoch
@@ -117,57 +82,70 @@ func get_shuffling*(seed: Eth2Digest,
   ## Via https://github.com/protolambda/eth2-shuffle/blob/master/shuffle.go
   ## Shuffles ``validators`` into crosslink committees seeded by ``seed`` and
   ## ``slot``.
-  ## Returns a list of ``SLOTS_PER_EPOCH * committees_per_slot`` committees where
-  ## each committee is itself a list of validator indices.
-
-  ## The pivot's a function of seed and round only, so precalculate all
-  ## SHUFFLE_ROUND_COUNT pivots, using one buffer.
+  ## Returns a list of ``SLOTS_PER_EPOCH * committees_per_slot`` committees
+  ## where each committee is itself a list of validator indices.
+  ##
+  ## Invert the inner/outer loops from the spec, essentially. Most useful
+  ## hash result re-use occurs within a round.
   let
     active_validator_indices = get_active_validator_indices(validators, epoch)
     list_size = active_validator_indices.len.uint64
+    committees_per_epoch = get_epoch_committee_count(
+      len(active_validator_indices)).int
   var
+    # Share these buffers.
     pivot_buffer: array[(32+1), byte]
+    source_buffer: array[(32+1+4), byte]
+    shuffled_active_validator_indices = repeat(0.ValidatorIndex, list_size)
+    sources = repeat(Eth2Digest(), (list_size div 256) + 1) # TODO if works, cleaner?
 
-    # Allow Nim stdlib to preallocate the correct seq size.
-    pivots = repeat(0'u64, SHUFFLE_ROUND_COUNT)
+  ## TODO why isn't toSeq working? are there other options?
+  for i in 0 ..< list_size.int:
+    shuffled_active_validator_indices[i] = i.ValidatorIndex
 
-  # This doesn't change across rounds.
+  ## The pivot's a function of seed and round only.
+  ## This doesn't change across rounds.
   pivot_buffer[0..31] = seed.data
+  source_buffer[0..31] = seed.data
 
   for round in 0 ..< SHUFFLE_ROUND_COUNT:
     let round_bytes1 = int_to_bytes1(round)[0]
     pivot_buffer[32] = round_bytes1
+    source_buffer[32] = round_bytes1
+
+    # Only one pivot per round.
     let pivot = bytes_to_int(eth2hash(pivot_buffer).data[0..7]) mod list_size
-    pivots[round] = pivot
 
-  let
-    committees_per_epoch = get_epoch_committee_count(
-      len(active_validator_indices)).int
+    ## Only need to run, per round, position div 256 hashes, so precalculate
+    ## them. This consumes memory, but for low-memory devices, it's possible
+    ## to mitigate by some light LRU caching and similar.
+    for reduced_position in 0 ..< list_size.int div 256:
+      source_buffer[33..36] = int_to_bytes4(reduced_position.uint64)
+      sources[reduced_position] = eth2hash(source_buffer)
 
-    shuffled_active_validator_indices = mapIt(
-      active_validator_indices,
-      active_validator_indices[get_permuted_index(
-        it, len(active_validator_indices).uint64, seed, pivots).int])
+    ## Iterate over all the indices. This was in get_permuted_index, but large
+    ## efficiency gains exist in caching and re-using data.
+    for index in 0 ..< list_size.int:
+      let
+        cur_idx_permutated = shuffled_active_validator_indices[index]
+        flip = (pivot - cur_idx_permutated.uint64) mod list_size
+        position = max(cur_idx_permutated, flip.int)
+
+      if not ((position div 256) < sources.len):
+        debugEcho position, ", ", sources.len, ", ", list_size
+      assert  (position div 256) < sources.len
+
+      let
+        source = sources[position div 256].data
+        byte_value = source[(position mod 256) div 8]
+        bit = (byte_value shr (position mod 8)) mod 2
+
+      if bit != 0:
+        shuffled_active_validator_indices[index] = flip.ValidatorIndex
 
   # Split the shuffled list into committees_per_epoch pieces
   result = split(shuffled_active_validator_indices, committees_per_epoch)
   assert result.len() == committees_per_epoch # what split should do..
-
-func get_new_validator_registry_delta_chain_tip*(
-    current_validator_registry_delta_chain_tip: Eth2Digest,
-    index: ValidatorIndex,
-    pubkey: ValidatorPubKey,
-    slot: uint64,
-    flag: ValidatorSetDeltaFlags): Eth2Digest =
-  ## Compute the next hash in the validator registry delta hash chain.
-
-  hash_tree_root_final(ValidatorRegistryDeltaBlock(
-    latest_registry_delta_root: current_validator_registry_delta_chain_tip,
-    validator_index: index,
-    pubkey: pubkey,
-    slot: slot,
-    flag: flag
-  ))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_previous_epoch_committee_count
 func get_previous_epoch_committee_count(state: BeaconState): uint64 =

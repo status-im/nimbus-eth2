@@ -466,15 +466,6 @@ type
 
   ## TODO remove or otherwise conditional-compile this, since it's for light
   ## client but not in spec
-  ValidatorRegistryDeltaBlock* = object
-    latest_registry_delta_root*: Eth2Digest
-    validator_index*: ValidatorIndex
-    pubkey*: ValidatorPubKey
-    slot*: uint64
-    flag*: ValidatorSetDeltaFlags
-
-  ## TODO remove or otherwise conditional-compile this, since it's for light
-  ## client but not in spec
   ValidatorSetDeltaFlags* {.pure.} = enum
     Activation = 0
     Exit = 1
