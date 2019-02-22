@@ -7,10 +7,11 @@
 
 import
   ./test_attestation_pool,
+  ./test_beacon_chain_db,
+  ./test_beacon_node,
   ./test_beaconstate,
-  ./test_state_transition,
   ./test_helpers,
   ./test_ssz,
-  ./test_validator,
-  ./test_beacon_node,
-  ./test_sync_protocol
+  ./test_state_transition,
+  ./test_sync_protocol,
+  ./test_validator

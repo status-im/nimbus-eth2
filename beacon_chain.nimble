@@ -15,7 +15,7 @@ bin           = @[
 requires "nim >= 0.19.0",
   "eth",
   "nimcrypto",
-  "https://github.com/status-im/nim-blscurve#master",
+  "blscurve",
   "ranges",
   "chronicles",
   "confutils",

@@ -20,7 +20,7 @@ suite "Block processing":
     # TODO bls verification is a bit of a bottleneck here
     genesisState = get_genesis_beacon_state(
       makeInitialDeposits(), 0, Eth1Data(), {})
-    genesisBlock = makeGenesisBlock(genesisState)
+    genesisBlock = get_initial_beacon_block(genesisState)
 
   test "Passes from genesis state, no block":
     var

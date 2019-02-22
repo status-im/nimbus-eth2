@@ -20,7 +20,7 @@ suite "Attestation pool processing":
     # TODO bls verification is a bit of a bottleneck here
     genesisState = get_genesis_beacon_state(
       makeInitialDeposits(), 0, Eth1Data(), {skipValidation})
-    genesisBlock = makeGenesisBlock(genesisState)
+    genesisBlock = get_initial_beacon_block(genesisState)
     genesisRoot = hash_tree_root_final(genesisBlock)
 
   test "Can add and retrieve simple attestation":
@@ -38,6 +38,39 @@ suite "Attestation pool processing":
         state, genesisRoot, crosslink_committees[0].committee[0])
 
     pool.add(attestation, state)
+
+    let attestations = pool.getAttestationsForBlock(
+      state, state.slot + MIN_ATTESTATION_INCLUSION_DELAY)
+
+    check:
+      attestations.len == 1
+
+
+  test "Attestations may arrive in any order":
+    var
+      pool = init(AttestationPool, 42)
+      state = genesisState
+    # Slot 0 is a finalized slot - won't be making attestations for it..
+    discard updateState(
+        state, genesisRoot, none(BeaconBlock), {skipValidation})
+
+    let
+      # Create an attestation for slot 1 signed by the only attester we have!
+      crosslink_committees1 = get_crosslink_committees_at_slot(state, state.slot)
+      attestation1 = makeAttestation(
+        state, genesisRoot, crosslink_committees1[0].committee[0])
+
+    discard updateState(
+        state, genesisRoot, none(BeaconBlock), {skipValidation})
+
+    let
+      crosslink_committees2 = get_crosslink_committees_at_slot(state, state.slot)
+      attestation2 = makeAttestation(
+        state, genesisRoot, crosslink_committees2[0].committee[0])
+
+    # test reverse order
+    pool.add(attestation2, state)
+    pool.add(attestation1, state)
 
     let attestations = pool.getAttestationsForBlock(
       state, state.slot + MIN_ATTESTATION_INCLUSION_DELAY)

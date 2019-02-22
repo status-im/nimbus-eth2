@@ -17,7 +17,6 @@ type
     attachedValidators: ValidatorPool
     attestationPool: AttestationPool
     mainchainMonitor: MainchainMonitor
-    lastScheduledEpoch: Epoch
     headBlock: BeaconBlock
     headBlockRoot: Eth2Digest
     blocksChildren: Table[Eth2Digest, seq[Eth2Digest]]
@@ -44,6 +43,8 @@ proc ensureNetworkKeys*(dataDir: string): KeyPair =
   # if necessary
   return newKeyPair()
 
+proc updateHeadBlock(node: BeaconNode, blck: BeaconBlock)
+
 proc init*(T: type BeaconNode, conf: BeaconNodeConf): T =
   new result
   result.config = conf
@@ -55,10 +56,24 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): T =
   let trieDB = trieDB newChainDb(string conf.dataDir)
   result.db = BeaconChainDB.init(trieDB)
 
-  if not result.db.isInitialized:
-    # Use stateSnapshot as genesis
-    info "Initializing DB"
-    result.db.persistState(result.config.stateSnapshot.get)
+  # TODO does it really make sense to load from DB if a state snapshot has been
+  #      specified on command line? potentially, this should be the other way
+  #      around...
+  if (let head = result.db.getHead(); head.isSome()):
+    info "Loading head from database",
+      blockSlot = humaneSlotNum(head.get().slot)
+    updateHeadBlock(result, head.get())
+  else:
+    result.beaconState = result.config.stateSnapshot.get()
+    result.headBlock = get_initial_beacon_block(result.beaconState)
+    result.headBlockRoot = hash_tree_root_final(result.headBlock)
+
+    info "Loaded state from snapshot",
+      stateSlot = humaneSlotNum(result.beaconState.slot)
+    result.db.putState(result.beaconState)
+    # The genesis block is special in that we have to store it at hash 0 - in
+    # the genesis state, this block has not been applied..
+    result.db.putBlock(result.headBlock)
 
   result.keys = ensureNetworkKeys(string conf.dataDir)
 
@@ -91,11 +106,9 @@ proc connectToNetwork(node: BeaconNode) {.async.} =
     node.network.startListening()
 
 proc sync*(node: BeaconNode): Future[bool] {.async.} =
-  let persistedState = node.db.lastFinalizedState()
-  if persistedState.slotDistanceFromNow() > WEAK_SUBJECTVITY_PERIOD.int64:
+  if node.beaconState.slotDistanceFromNow() > WEAK_SUBJECTVITY_PERIOD.int64:
     node.beaconState = await obtainTrustedStateSnapshot(node.db)
   else:
-    node.beaconState = persistedState
     var targetSlot = node.beaconState.getSlotFromTime()
 
     let t = now()
@@ -107,19 +120,26 @@ proc sync*(node: BeaconNode): Future[bool] {.async.} =
       finalized_epoch = humaneEpochNum(node.beaconState.finalized_epoch),
       target_slot_epoch = humaneEpochNum(targetSlot.slot_to_epoch)
 
-    while node.beaconState.finalized_epoch < targetSlot.slot_to_epoch:
-      var (peer, changeLog) = await node.network.getValidatorChangeLog(
-        node.beaconState.validator_registry_delta_chain_tip)
+    # TODO: sync is called at the beginning of the program, but doing this kind
+    #       of catching up here is wrong - if we fall behind on processing
+    #       for whatever reason, we want to be safe against the damage that
+    #       might cause regardless if we just started or have been running for
+    #       long. A classic example where this might happen is when the
+    #       computer goes to sleep - when waking up, we'll be in the middle of
+    #       processing, but behind everyone else.
+    # while node.beaconState.finalized_epoch < targetSlot.slot_to_epoch:
+    #   var (peer, changeLog) = await node.network.getValidatorChangeLog(
+    #     node.beaconState.validator_registry_delta_chain_tip)
 
-      if peer == nil:
-        error "Failed to sync with any peer"
-        return false
+    #   if peer == nil:
+    #     error "Failed to sync with any peer"
+    #     return false
 
-      if applyValidatorChangeLog(changeLog, node.beaconState):
-        node.db.persistState(node.beaconState)
-        node.db.persistBlock(changeLog.signedBlock)
-      else:
-        warn "Ignoring invalid validator change log", sentFrom = peer
+    #   if applyValidatorChangeLog(changeLog, node.beaconState):
+    #     node.db.persistState(node.beaconState)
+    #     node.db.persistBlock(changeLog.signedBlock)
+    #   else:
+    #     warn "Ignoring invalid validator change log", sentFrom = peer
 
   return true
 
@@ -256,6 +276,7 @@ proc proposeBlock(node: BeaconNode,
   info "Block proposed",
     slot = humaneSlotNum(slot),
     stateRoot = shortHash(newBlock.state_root),
+    parentRoot = shortHash(newBlock.parent_root),
     validator = shortValidatorKey(node, validator.idx),
     idx = validator.idx
 
@@ -356,88 +377,215 @@ proc scheduleEpochActions(node: BeaconNode, epoch: Epoch) =
               node, validator, slot, crosslink_committee.shard,
               crosslink_committee.committee.len, i)
 
-  node.lastScheduledEpoch = epoch
   let
     nextEpoch = epoch + 1
-    at = node.beaconState.slotMiddle(nextEpoch * SLOTS_PER_EPOCH)
+    at = node.beaconState.slotStart(nextEpoch.get_epoch_start_slot())
 
   info "Scheduling next epoch update",
     fromNow = (at - fastEpochTime()) div 1000,
     epoch = humaneEpochNum(nextEpoch)
 
   addTimer(at) do (p: pointer):
-    if node.lastScheduledEpoch != nextEpoch:
-      node.scheduleEpochActions(nextEpoch)
+    node.scheduleEpochActions(nextEpoch)
 
 proc stateNeedsSaving(s: BeaconState): bool =
   # TODO: Come up with a better predicate logic
   s.slot mod stateStoragePeriod == 0
 
-proc processBlocks*(node: BeaconNode) =
-  node.network.subscribe(topicBeaconBlocks) do (newBlock: BeaconBlock):
-    let stateSlot = node.beaconState.slot
-    info "Block received",
-      slot = humaneSlotNum(newBlock.slot),
-      stateRoot = shortHash(newBlock.state_root),
+proc onAttestation(node: BeaconNode, attestation: Attestation) =
+  let participants = get_attestation_participants(
+    node.beaconState, attestation.data, attestation.aggregation_bitfield).
+      mapIt(shortValidatorKey(node, it))
+
+  info "Attestation received",
+    slot = humaneSlotNum(attestation.data.slot),
+    shard = attestation.data.shard,
+    signature = shortHash(attestation.aggregate_signature),
+    participants,
+    beaconBlockRoot = shortHash(attestation.data.beacon_block_root)
+
+  node.attestationPool.add(attestation, node.beaconState)
+
+  if not node.db.containsBlock(attestation.data.beacon_block_root):
+    notice "Attestation block root missing",
+      beaconBlockRoot = shortHash(attestation.data.beacon_block_root)
+    # TODO download...
+
+proc skipSlots(state: var BeaconState, parentRoot: Eth2Digest, nextSlot: Slot) =
+  if state.slot + 1 < nextSlot:
+    info "Advancing state past slot gap",
+      targetSlot = humaneSlotNum(nextSlot),
+      stateSlot = humaneSlotNum(state.slot)
+
+    for slot in state.slot + 1 ..< nextSlot:
+      let ok = updateState(state, parentRoot, none[BeaconBlock](), {})
+      doAssert ok, "Empty block state update should never fail!"
+
+proc skipAndUpdateState(
+    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
+  skipSlots(state, blck.parent_root, blck.slot)
+  updateState(state, blck.parent_root, some(blck), flags)
+
+proc updateHeadBlock(node: BeaconNode, blck: BeaconBlock) =
+  # To update the head block, we need to apply it to the state. When things
+  # progress normally, the block we recieve will be a direct child of the
+  # last block we applied to the state:
+
+  if blck.parent_root == node.headBlockRoot:
+    let ok = skipAndUpdateState(node.beaconState, blck, {})
+    doAssert ok, "Nobody is ever going to send a faulty block!"
+
+    node.headBlock = blck
+    node.headBlockRoot = hash_tree_root_final(blck)
+    node.db.putHead(node.headBlockRoot)
+
+    info "Updated head",
+      stateRoot = shortHash(blck.state_root),
+      headBlockRoot = shortHash(node.headBlockRoot),
+      stateSlot = humaneSlotNum(node.beaconState.slot)
+
+    return
+
+  # It appears that the parent root of the proposed new block is different from
+  # what we expected. We will have to rewind the state to a point along the
+  # chain of ancestors of the new block. We will do this by loading each
+  # successive parent block and checking if we can find the corresponding state
+  # in the database.
+  let
+    ancestors = node.db.getAncestors(blck) do (bb: BeaconBlock) -> bool:
+      node.db.containsState(bb.state_root)
+    ancestor = ancestors[^1]
+
+  # Several things can happen, but the most common one should be that we found
+  # a beacon state
+  if (let state = node.db.getState(ancestor.state_root); state.isSome()):
+    # Got it!
+    notice "Replaying state transitions",
+      stateSlot = humaneSlotNum(node.beaconState.slot),
+      prevStateSlot = humaneSlotNum(state.get().slot)
+    node.beaconState = state.get()
+
+  elif ancestor.slot == 0:
+    # We've arrived at the genesis block and still haven't found what we're
+    # looking for. This is very bad - are we receiving blocks from a different
+    # chain? What's going on?
+    # TODO crashing like this is the wrong thing to do, obviously, but
+    #      we'll do it anyway just to see if it ever happens - if it does,
+    #      it's likely a bug :)
+    error "Couldn't find ancestor state",
+      blockSlot = humaneSlotNum(blck.slot),
+      blockRoot = shortHash(hash_tree_root_final(blck))
+    doAssert false, "Oh noes, we passed big bang!"
+  else:
+    # We don't have the parent block. This is a bit strange, but may happen
+    # if things are happening seriously out of order or if we're back after
+    # a net split or restart, for example. Once the missing block arrives,
+    # we should retry setting the head block..
+    # TODO implement block sync here
+    # TODO instead of doing block sync here, make sure we are sync already
+    #      elsewhere, so as to simplify the logic of finding the block
+    #      here..
+    error "Parent missing! Too bad, because sync is also missing :/",
+      parentRoot = shortHash(ancestor.parent_root),
+      blockSlot = humaneSlotNum(ancestor.slot)
+    doAssert false, "So long"
+
+  # If we come this far, we found the state root. The last block on the stack
+  # is the one that produced this particular state, so we can pop it
+  # TODO it might be possible to use the latest block hashes from the state to
+  #      do this more efficiently.. whatever!
+
+  # Time to replay all the blocks between then and now. We skip the one because
+  # it's the one that we found the state with, and it has already been
+  # applied
+  for i in countdown(ancestors.len - 2, 0):
+    let last = ancestors[i]
+
+    skipSlots(node.beaconState, last.parent_root, last.slot)
+
+    # TODO technically, we should be storing states here, because we're now
+    #      going down a different fork
+    let ok = updateState(
+      node.beaconState, last.parent_root, some(last),
+      if ancestors.len == 0: {} else: {skipValidation})
+
+    doAssert(ok)
+
+  node.headBlock = blck
+  node.headBlockRoot = hash_tree_root_final(blck)
+  node.db.putHead(node.headBlockRoot)
+
+  info "Updated head",
+    stateRoot = shortHash(blck.state_root),
+    headBlockRoot = shortHash(node.headBlockRoot),
+    stateSlot = humaneSlotNum(node.beaconState.slot)
+
+proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
+  let
+    blockRoot = hash_tree_root_final(blck)
+    stateSlot = node.beaconState.slot
+
+  if node.db.containsBlock(blockRoot):
+    debug "Block already seen",
+      slot = humaneSlotNum(blck.slot),
+      stateRoot = shortHash(blck.state_root),
+      blockRoot = shortHash(blockRoot),
       stateSlot = humaneSlotNum(stateSlot)
 
-    # TODO: This should be replaced with the real fork-choice rule
-    if newBlock.slot <= stateSlot:
-      debug "Ignoring block"
-      return
+    return
 
-    let newBlockRoot = hash_tree_root_final(newBlock)
+  info "Block received",
+    slot = humaneSlotNum(blck.slot),
+    stateRoot = shortHash(blck.state_root),
+    parentRoot = shortHash(blck.parent_root),
+    blockRoot = shortHash(blockRoot)
 
-    var state = node.beaconState
-    if stateSlot + 1 < newBlock.slot:
-      info "Advancing state past slot gap",
-        blockSlot = humaneSlotNum(newBlock.slot),
-        stateSlot = humaneSlotNum(stateSlot)
+  # TODO we should now validate the block to ensure that it's sane - but the
+  #      only way to do that is to apply it to the state... for now, we assume
+  #      all blocks are good!
 
-      for slot in stateSlot + 1 ..< newBlock.slot:
-        let ok = updateState(state, node.headBlockRoot, none[BeaconBlock](), {})
-        doAssert ok
+  # The block has been validated and it's not in the database yet - first, let's
+  # store it there, just to be safe
+  node.db.putBlock(blck)
 
-    let ok = updateState(state, node.headBlockRoot, some(newBlock), {})
-    if not ok:
-      debug "Ignoring non-validating block"
-      return
+  # Since this is a good block, we should add its attestations in case we missed
+  # any. If everything checks out, this should lead to the fork choice selecting
+  # this particular block as head, eventually (technically, if we have other
+  # attestations, that might not be the case!)
+  for attestation in blck.body.attestations:
+    # TODO attestation pool needs to be taught to deal with overlapping
+    #      attestations!
+    discard # node.onAttestation(attestation)
 
-    node.headBlock = newBlock
-    node.headBlockRoot = newBlockRoot
-    node.beaconState = state
+  if blck.slot <= node.beaconState.slot:
+    # This is some old block that we received (perhaps as the result of a sync)
+    # request. At this point, there's not much we can do, except maybe try to
+    # update the state to the head block (this could have failed before due to
+    # missing blocks!)..
+    # TODO figure out what to do - for example, how to resume setting
+    #      the head block...
+    return
 
-    if stateNeedsSaving(node.beaconState):
-      node.db.persistState(node.beaconState)
+  # TODO We have a block that is newer than our latest state. What now??
+  #      Here, we choose to update our state eagerly, assuming that the block
+  #      is the one that the fork choice would have ended up with anyway, but
+  #      is this a sane strategy? Technically, we could wait for more
+  #      attestations and update the state lazily only when actually needed,
+  #      such as when attesting.
+  # TODO Also, should we update to the block we just got, or run the fork
+  #      choice at this point??
 
-    node.db.persistBlock(newBlock)
+  updateHeadBlock(node, blck)
 
-    # TODO:
-    #
-    # 1. Check for missing blocks and obtain them
-    #
-    # 2. Apply fork-choice rule (update node.headBlock)
-    #
-    # 3. Peform block processing / state recalculation / etc
-    #
+  if stateNeedsSaving(node.beaconState):
+    node.db.putState(node.beaconState)
 
-    let epoch = newBlock.slot.epoch
-    if epoch != node.lastScheduledEpoch:
-      node.scheduleEpochActions(epoch)
+proc run*(node: BeaconNode) =
+  node.network.subscribe(topicBeaconBlocks) do (blck: BeaconBlock):
+    node.onBeaconBlock(blck)
 
-  node.network.subscribe(topicAttestations) do (a: Attestation):
-    let participants = get_attestation_participants(
-      node.beaconState, a.data, a.aggregation_bitfield).
-        mapIt(shortValidatorKey(node, it))
-
-    info "Attestation received",
-      slot = humaneSlotNum(a.data.slot),
-      shard = a.data.shard,
-      signature = shortHash(a.aggregate_signature),
-      participants,
-      beaconBlockRoot = shortHash(a.data.beacon_block_root)
-
-    node.attestationPool.add(a, node.beaconState)
+  node.network.subscribe(topicAttestations) do (attestation: Attestation):
+    node.onAttestation(attestation)
 
   let epoch = node.beaconState.getSlotFromTime div SLOTS_PER_EPOCH
   node.scheduleEpochActions(epoch)
@@ -470,6 +618,10 @@ when isMainModule:
     var node = BeaconNode.init config
 
     dynamicLogScope(node = node.config.tcpPort - 50000):
+      # TODO: while it's nice to cheat by waiting for connections here, we
+      #       actually need to make this part of normal application flow -
+      #       losing all connections might happen at any time and we should be
+      #       prepared to handle it.
       waitFor node.connectToNetwork()
 
       if not waitFor node.sync():
@@ -484,4 +636,4 @@ when isMainModule:
         SPEC_VERSION
 
       node.addLocalValidators()
-      node.processBlocks()
+      node.run()
