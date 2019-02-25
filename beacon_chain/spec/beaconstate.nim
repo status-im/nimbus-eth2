@@ -359,6 +359,8 @@ proc checkAttestation*(
   ## be followed!
 
   # Can't underflow, because GENESIS_SLOT > MIN_ATTESTATION_INCLUSION_DELAY
+  doAssert GENESIS_SLOT > MIN_ATTESTATION_INCLUSION_DELAY
+
   if not (attestation.data.slot <= state.slot - MIN_ATTESTATION_INCLUSION_DELAY):
     warn("Attestation too new",
       attestation_slot = attestation.data.slot, state_slot = state.slot)
