@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2019 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -158,7 +158,7 @@ const
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
   ATTESTATION_INCLUSION_REWARD_QUOTIENT* = 2'u64^3
   INACTIVITY_PENALTY_QUOTIENT* = 2'u64^24
-  MIN_PENALTY_QUOTIENT* = 2^5
+  MIN_PENALTY_QUOTIENT* = 32 # 2^5
 
   # Status flags
   # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#status-flags
@@ -394,7 +394,7 @@ type
     ## Needed to process attestations, older to newer
     latest_active_index_roots*: array[LATEST_ACTIVE_INDEX_ROOTS_LENGTH.int, Eth2Digest]
 
-    latest_slashed_balances*: seq[uint64] ##\
+    latest_slashed_balances*: array[LATEST_SLASHED_EXIT_LENGTH, uint64] ##\
     ## Balances penalized in the current withdrawal period
 
     latest_attestations*: seq[PendingAttestation]
