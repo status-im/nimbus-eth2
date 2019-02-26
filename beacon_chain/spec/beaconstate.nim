@@ -472,7 +472,7 @@ proc checkAttestation*(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#prepare_validator_for_withdrawal
-func prepare_validator_for_withdrawal(state: var BeaconState, index: ValidatorIndex) =
+func prepare_validator_for_withdrawal*(state: var BeaconState, index: ValidatorIndex) =
   ## Set the validator with the given ``index`` as withdrawable
   ## ``MIN_VALIDATOR_WITHDRAWABILITY_DELAY`` after the current epoch.
   ## Note that this function mutates ``state``.
