@@ -12,14 +12,19 @@ trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 NUMBER_OF_VALIDATORS=99
 
 cd $(dirname "$0")
-SIMULATION_DIR=$PWD/data
+
+PWD_CMD="pwd"
+# get native Windows paths on Mingw
+uname | grep -qi mingw && PWD_CMD="pwd -W"
+
+SIMULATION_DIR="$($PWD_CMD)/data"
 mkdir -p "$SIMULATION_DIR"
 
 STARTUP_FILE="$SIMULATION_DIR/startup.json"
 SNAPSHOT_FILE="$SIMULATION_DIR/state_snapshot.json"
 
 cd $(git rev-parse --show-toplevel)
-ROOT_DIR=$PWD
+ROOT_DIR="$($PWD_CMD)"
 
 mkdir -p $BUILD_OUTPUTS_DIR
 
