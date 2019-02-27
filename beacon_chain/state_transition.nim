@@ -711,9 +711,6 @@ func processEpoch(state: var BeaconState) =
     get_total_balance(
       statePtr[], attesting_validator_indices(crosslink_committee))
 
-  func total_balance_sac(crosslink_committee: CrosslinkCommittee): uint64 =
-    get_total_balance(statePtr[], crosslink_committee.committee)
-
   # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#eth1-data-1
   block:
     if next_epoch mod EPOCHS_PER_ETH1_VOTING_PERIOD == 0:
@@ -791,11 +788,11 @@ func processEpoch(state: var BeaconState) =
         return a.inclusion_slot - a.data.slot
     doAssert false
 
-  let active_validator_indices =
-    get_active_validator_indices(state.validator_registry, state.slot)
-
   block: # Justification and finalization
-    let epochs_since_finality = next_epoch - state.finalized_epoch
+    let
+      active_validator_indices =
+        get_active_validator_indices(state.validator_registry, state.slot)
+      epochs_since_finality = next_epoch - state.finalized_epoch
 
     proc update_balance(attesters: openArray[ValidatorIndex], attesting_balance: uint64) =
       # TODO Spec - add helper?
@@ -810,6 +807,7 @@ func processEpoch(state: var BeaconState) =
           statePtr.validator_balances[v] -= base_reward(statePtr[], v)
 
     if epochs_since_finality <= 4'u64:
+      # Case 1: epochs_since_finality <= 4
       # Expected FFG source
       update_balance(
         previous_epoch_attester_indices,
@@ -832,6 +830,7 @@ func processEpoch(state: var BeaconState) =
           MIN_ATTESTATION_INCLUSION_DELAY div inclusion_distance(state, v)
 
     else:
+      # Case 2: epochs_since_finality > 4
       for index in active_validator_indices:
         # TODO underflows?
         if index notin previous_epoch_attester_indices:
@@ -841,29 +840,36 @@ func processEpoch(state: var BeaconState) =
           state.validator_balances[index] -=
             inactivity_penalty(state, index, epochs_since_finality)
         if index notin previous_epoch_head_attester_indices:
+          state.validator_balances[index] -= base_reward(state, index)
+        if state.validator_registry[index].slashed_epoch <= current_epoch:
           state.validator_balances[index] -=
-            inactivity_penalty(state, index, epochs_since_finality)
+            2'u64 * inactivity_penalty(
+              state, index, epochs_since_finality) + base_reward(state, index)
+        if index in previous_epoch_attester_indices:
+          state.validator_balances[index] -=
+            base_reward(state, index) -
+            base_reward(state, index) * MIN_ATTESTATION_INCLUSION_DELAY div
+            inclusion_distance(state, index)
 
-  block: # Attestation inclusion
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#attestation-inclusion
+  block:
     for v in previous_epoch_attester_indices:
       let proposer_index =
         get_beacon_proposer_index(state, inclusion_slot(state, v))
       state.validator_balances[proposer_index] +=
         base_reward(state, v) div ATTESTATION_INCLUSION_REWARD_QUOTIENT
 
-  block: # Crosslinks
-    # https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#crosslinks-1
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#crosslinks-1
+  block:
     for slot in get_epoch_start_slot(previous_epoch) ..< get_epoch_start_slot(current_epoch):
       let crosslink_committees_at_slot = get_crosslink_committees_at_slot(state, slot)
       for crosslink_committee in crosslink_committees_at_slot:
-        # TODO https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#crosslinks-1
-        # but this is a best guess based on reasonableness of what "index" is
         for index in crosslink_committee.committee:
           if index in attesting_validators(crosslink_committee):
             state.validator_balances[index.int] +=
               base_reward(state, index) *
                  total_attesting_balance(crosslink_committee) div
-                  total_balance_sac(crosslink_committee)
+                  get_total_balance(state, crosslink_committee.committee)
           else:
             # TODO underflows?
             state.validator_balances[index] -= base_reward(state, index)
@@ -877,13 +883,17 @@ func processEpoch(state: var BeaconState) =
     state.previous_shuffling_start_shard = state.current_shuffling_start_shard
     state.previous_shuffling_seed = state.current_shuffling_seed
 
-    # TODO verify this shard list
     if state.finalized_epoch > state.validator_registry_update_epoch and
        allIt(
-         0 ..< get_current_epoch_committee_count(state).int * SLOTS_PER_EPOCH,
-         state.latest_crosslinks[(state.current_shuffling_start_shard + it.uint64) mod SHARD_COUNT].epoch > state.validator_registry_update_epoch):
+         0 ..< get_current_epoch_committee_count(state).int,
+         state.latest_crosslinks[
+           (state.current_shuffling_start_shard + it.uint64) mod
+             SHARD_COUNT].epoch > state.validator_registry_update_epoch):
+
+      # update the validator registry and associated fields by running
       update_validator_registry(state)
 
+      # and perform the following updates
       state.current_shuffling_epoch = next_epoch
       state.current_shuffling_start_shard =
         (state.current_shuffling_start_shard +
@@ -892,8 +902,10 @@ func processEpoch(state: var BeaconState) =
         state, state.current_shuffling_epoch)
     else:
       # If a validator registry change does NOT happen
-      let epochs_since_last_registry_change = current_epoch - state.validator_registry_update_epoch
-      if is_power_of_2(epochs_since_last_registry_change):
+      let epochs_since_last_registry_update =
+        current_epoch - state.validator_registry_update_epoch
+      if epochs_since_last_registry_update > 1'u64 and
+          is_power_of_2(epochs_since_last_registry_update):
         state.current_shuffling_epoch = next_epoch
         state.current_shuffling_seed = generate_seed(state, state.current_shuffling_epoch)
         # /Note/ that state.current_shuffling_start_shard is left unchanged

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2019 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -45,6 +45,7 @@
 
 
 import
+  sequtils,
   hashes,
   blscurve, json_serialization
 
@@ -75,20 +76,27 @@ func bls_aggregate_pubkeys*(keys: openArray[ValidatorPubKey]): ValidatorPubKey =
       result.combine(key)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/bls_signature.md#bls_verify
+## The v0.3.0 type signature involves passing a message hash, not a message,
+## but this abstracts isolates hash changes better.
 func bls_verify*(
     pubkey: ValidatorPubKey, msg: openArray[byte], sig: ValidatorSig,
     domain: uint64): bool =
   # name from spec!
   sig.verify(msg, domain, pubkey)
 
-# https://github.com/ethereum/eth2.0-specs/blob/master/specs/bls_signature.md#bls_verify_multiple
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/bls_signature.md#bls_verify_multiple
 func bls_verify_multiple*(
-    pubkeys: seq[ValidatorPubKey], messages: seq[array[0..31, byte]],
+    pubkeys: seq[ValidatorPubKey], message_hashes: seq[array[0..31, byte]],
     sig: ValidatorSig, domain: uint64): bool =
   let L = len(pubkeys)
-  assert L == len(messages)
+  doAssert L == len(message_hashes)
 
-  # TODO calculate product of ate pairings; check how sig.verify works
+  for pubkey_message_hash in zip(pubkeys, message_hashes):
+    let (pubkey, message_hash) = pubkey_message_hash
+
+    #let a = atePairing(
+    #  pubkey, hash_to_G2(keccak256(message_hash), domain))
+
   true
 
 func bls_sign*(key: ValidatorPrivKey, msg: openarray[byte],
