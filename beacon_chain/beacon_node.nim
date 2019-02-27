@@ -100,10 +100,9 @@ proc connectToNetwork(node: BeaconNode) {.async.} =
 
   if bootstrapNodes.len > 0:
     info "Connecting to bootstrap nodes", bootstrapNodes
-    await node.network.connectToNetwork(bootstrapNodes)
   else:
     info "Waiting for connections"
-    node.network.startListening()
+  await node.network.connectToNetwork(bootstrapNodes)
 
 proc sync*(node: BeaconNode): Future[bool] {.async.} =
   if node.beaconState.slotDistanceFromNow() > WEAK_SUBJECTVITY_PERIOD.int64:
