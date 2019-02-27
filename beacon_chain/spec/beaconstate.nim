@@ -296,7 +296,8 @@ func process_ejections*(state: var BeaconState) =
   ## and eject active validators with balance below ``EJECTION_BALANCE``.
 
   for index in get_active_validator_indices(
-      state.validator_registry, current_epoch(state)):
+      # TODO v0.3.0 spec bug, has this as current_epoch(state)
+      state.validator_registry, get_current_epoch(state)):
     if state.validator_balances[index] < EJECTION_BALANCE:
       exit_validator(state, index)
 
