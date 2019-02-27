@@ -202,7 +202,7 @@ proc makeAttestation(node: BeaconNode,
       beacon_block_root: node.headBlockRoot,
       epoch_boundary_root: Eth2Digest(), # TODO
       shard_block_root: Eth2Digest(), # TODO
-      latest_crosslink: Crosslink(epoch: state.latest_crosslinks[shard].epoch), # TODO
+      latest_crosslink: Crosslink(epoch: state.latest_crosslinks[shard].epoch),
       justified_epoch: state.justified_epoch,
       justified_block_root: justifiedBlockRoot)
 

@@ -405,7 +405,7 @@ proc checkAttestation*(
       state_latest_crosslinks_attestation_data_shard =
         state.latest_crosslinks[attestation.data.shard],
       attestation_data_latest_crosslink = attestation.data.latest_crosslink,
-      epoch = slot_to_epoch(attestation.data.slot),
+      epoch = humaneEpochNum(slot_to_epoch(attestation.data.slot)),
       shard_block_root = attestation.data.shard_block_root)
     return
 
