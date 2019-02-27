@@ -791,7 +791,8 @@ func processEpoch(state: var BeaconState) =
   block: # Justification and finalization
     let
       active_validator_indices =
-        get_active_validator_indices(state.validator_registry, state.slot)
+        get_active_validator_indices(
+          state.validator_registry, slot_to_epoch(state.slot))
       epochs_since_finality = next_epoch - state.finalized_epoch
 
     proc update_balance(attesters: openArray[ValidatorIndex], attesting_balance: uint64) =

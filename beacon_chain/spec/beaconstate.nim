@@ -295,7 +295,8 @@ func process_ejections*(state: var BeaconState) =
   ## Iterate through the validator registry
   ## and eject active validators with balance below ``EJECTION_BALANCE``.
 
-  for index in get_active_validator_indices(state.validator_registry, state.slot):
+  for index in get_active_validator_indices(
+      state.validator_registry, current_epoch(state)):
     if state.validator_balances[index] < EJECTION_BALANCE:
       exit_validator(state, index)
 
