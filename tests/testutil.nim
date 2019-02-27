@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2019 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -80,6 +80,11 @@ proc addBlock*(
   state.slot += 1
   let proposer_index = get_beacon_proposer_index(state, state.slot)
   state.slot -= 1
+
+  # Ferret out remaining GENESIS_EPOCH == 0 assumptions in test code
+  doAssert allIt(
+    body.attestations,
+    it.data.latest_crosslink.epoch >= GENESIS_EPOCH)
 
   let
     # Index from the new state, but registry from the old state.. hmm...
@@ -168,7 +173,7 @@ proc makeAttestation*(
       shard: sac.shard,
       beacon_block_root: beacon_block_root,
       epoch_boundary_root: Eth2Digest(), # TODO
-      latest_crosslink: Crosslink(), # TODO
+      latest_crosslink: Crosslink(epoch: state.latest_crosslinks[sac.shard].epoch), # TODO
       shard_block_root: Eth2Digest(), # TODO
       justified_epoch: state.justified_epoch,
       justified_block_root: get_block_root(state, get_epoch_start_slot(state.justified_epoch)),

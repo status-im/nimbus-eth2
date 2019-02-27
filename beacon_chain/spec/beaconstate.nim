@@ -204,10 +204,13 @@ func get_genesis_beacon_state*(
     latest_eth1_data: latest_eth1_data,
 
     # Recent state
-    # TODO properly initialize latest_crosslinks
     # latest_block_roots, latest_active_index_roots, latest_slashed_balances,
     # latest_attestations, and batched_block_roots automatically initialized.
   )
+
+  for i in 0 ..< SHARD_COUNT:
+    state.latest_crosslinks[i] = Crosslink(
+      epoch: GENESIS_EPOCH, shard_block_root: ZERO_HASH)
 
   # Process initial deposits
   for deposit in initial_validator_deposits:
@@ -398,7 +401,12 @@ proc checkAttestation*(
       Crosslink(
         shard_block_root: attestation.data.shard_block_root,
         epoch: slot_to_epoch(attestation.data.slot))]):
-    warn("Unexpected crosslink shard")
+    warn("Unexpected crosslink shard",
+      state_latest_crosslinks_attestation_data_shard =
+        state.latest_crosslinks[attestation.data.shard],
+      attestation_data_latest_crosslink = attestation.data.latest_crosslink,
+      epoch = slot_to_epoch(attestation.data.slot),
+      shard_block_root = attestation.data.shard_block_root)
     return
 
   assert allIt(attestation.custody_bitfield, it == 0) #TO BE REMOVED IN PHASE 1
