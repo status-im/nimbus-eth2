@@ -31,6 +31,9 @@ type
   Eth2Digest* = MDigest[32 * 8] ## `hash32` from spec
   Eth2Hash* = blake2_512 ## Context for hash function
 
+func shortLog*(x: Eth2Digest): string =
+  ($x)[0..7]
+
 func eth2hash*(v: openArray[byte]): Eth2Digest =
   var tmp = Eth2Hash.digest v
   copyMem(result.data.addr, tmp.addr, sizeof(result))

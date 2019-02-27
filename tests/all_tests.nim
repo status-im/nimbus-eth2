@@ -10,6 +10,7 @@ import
   ./test_beacon_chain_db,
   ./test_beacon_node,
   ./test_beaconstate,
+  ./test_block_pool,
   ./test_helpers,
   ./test_ssz,
   ./test_state_transition,

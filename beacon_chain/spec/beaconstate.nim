@@ -366,14 +366,16 @@ proc checkAttestation*(
 
   if not (attestation.data.slot <= state.slot - MIN_ATTESTATION_INCLUSION_DELAY):
     warn("Attestation too new",
-      attestation_slot = attestation.data.slot, state_slot = state.slot)
+      attestation_slot = humaneSlotNum(attestation.data.slot),
+      state_slot = humaneSlotNum(state.slot))
     return
 
   # Can't underflow, because GENESIS_SLOT > MIN_ATTESTATION_INCLUSION_DELAY
   if not (state.slot - MIN_ATTESTATION_INCLUSION_DELAY <
       attestation.data.slot + SLOTS_PER_EPOCH):
     warn("Attestation too old",
-      attestation_slot = attestation.data.slot, state_slot = state.slot)
+      attestation_slot = humaneSlotNum(attestation.data.slot),
+      state_slot = humaneSlotNum(state.slot))
     return
 
   let expected_justified_epoch =
@@ -384,8 +386,9 @@ proc checkAttestation*(
 
   if not (attestation.data.justified_epoch == expected_justified_epoch):
     warn("Unexpected justified epoch",
-      attestation_justified_epoch = attestation.data.justified_epoch,
-      expected_justified_epoch)
+      attestation_justified_epoch =
+        humaneEpochNum(attestation.data.justified_epoch),
+      expected_justified_epoch = humaneEpochNum(expected_justified_epoch))
     return
 
   let expected_justified_block_root =

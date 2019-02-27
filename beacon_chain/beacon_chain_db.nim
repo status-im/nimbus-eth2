@@ -11,7 +11,8 @@ type
   DbKeyKind = enum
     kHashToState
     kHashToBlock
-    kHeadBlock
+    kHeadBlock # Pointer to the most recent block seen
+    kTailBlock # Pointer to the earliest finalized block
 
 func subkey(kind: DbKeyKind): array[1, byte] =
   result[0] = byte ord(kind)
@@ -31,12 +32,6 @@ proc init*(T: type BeaconChainDB, backend: TrieDatabaseRef): BeaconChainDB =
   new result
   result.backend = backend
 
-proc putBlock*(db: BeaconChainDB, key: Eth2Digest, value: BeaconBlock) =
-  db.backend.put(subkey(type value, key), ssz.serialize(value))
-
-proc putHead*(db: BeaconChainDB, key: Eth2Digest) =
-  db.backend.put(subkey(kHeadBlock), key.data) # TODO head block?
-
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
   # TODO: prune old states
   # TODO: it might be necessary to introduce the concept of a "last finalized
@@ -52,11 +47,20 @@ proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
   #       significant (days), meaning replay might be expensive.
   db.backend.put(subkey(type value, key), ssz.serialize(value))
 
+proc putState*(db: BeaconChainDB, value: BeaconState) =
+  db.putState(hash_tree_root_final(value), value)
+
+proc putBlock*(db: BeaconChainDB, key: Eth2Digest, value: BeaconBlock) =
+  db.backend.put(subkey(type value, key), ssz.serialize(value))
+
 proc putBlock*(db: BeaconChainDB, value: BeaconBlock) =
   db.putBlock(hash_tree_root_final(value), value)
 
-proc putState*(db: BeaconChainDB, value: BeaconState) =
-  db.putState(hash_tree_root_final(value), value)
+proc putHeadBlock*(db: BeaconChainDB, key: Eth2Digest) =
+  db.backend.put(subkey(kHeadBlock), key.data) # TODO head block?
+
+proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
+  db.backend.put(subkey(kTailBlock), key.data)
 
 proc get(db: BeaconChainDB, key: auto, T: typedesc): Option[T] =
   let res = db.backend.get(key)
@@ -71,15 +75,11 @@ proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Option[BeaconBlock] =
 proc getState*(db: BeaconChainDB, key: Eth2Digest): Option[BeaconState] =
   db.get(subkey(BeaconState, key), BeaconState)
 
-proc getHead*(db: BeaconChainDB): Option[BeaconBlock] =
-  let key = db.backend.get(subkey(kHeadBlock))
-  if key.len == sizeof(Eth2Digest):
-    var tmp: Eth2Digest
-    copyMem(addr tmp, unsafeAddr key[0], sizeof(tmp))
+proc getHeadBlock*(db: BeaconChainDB): Option[Eth2Digest] =
+  db.get(subkey(kHeadBlock), Eth2Digest)
 
-    db.getBlock(tmp)
-  else:
-    none(BeaconBlock)
+proc getTailBlock*(db: BeaconChainDB): Option[Eth2Digest] =
+  db.get(subkey(kTailBlock), Eth2Digest)
 
 proc containsBlock*(
     db: BeaconChainDB, key: Eth2Digest): bool =
@@ -89,24 +89,15 @@ proc containsState*(
     db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(BeaconBlock, key))
 
-proc getAncestors*(
-    db: BeaconChainDB, blck: BeaconBlock,
-    predicate: proc(blck: BeaconBlock): bool = nil): seq[BeaconBlock] =
+iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
+    tuple[root: Eth2Digest, blck: BeaconBlock] =
   ## Load a chain of ancestors for blck - returns a list of blocks with the
   ## oldest block last (blck will be at result[0]).
   ##
-  ## The search will go on until the ancestor cannot be found (or slot 0) or
-  ## the predicate returns true (you found what you were looking for) - the list
-  ## will include the last block as well
-  ## TODO maybe turn into iterator? or add iterator also?
+  ## The search will go on until the ancestor cannot be found.
 
-  result = @[blck]
+  var root = root
+  while (let blck = db.getBlock(root); blck.isSome()):
+    yield (root, blck.get())
 
-  while result[^1].slot > 0.Slot:
-    let parent = db.getBlock(result[^1].parent_root)
-
-    if parent.isNone(): break
-
-    result.add parent.get()
-
-    if predicate != nil and predicate(parent.get()): break
+    root = blck.get().parent_root

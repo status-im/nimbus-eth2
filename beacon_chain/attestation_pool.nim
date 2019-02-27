@@ -2,7 +2,7 @@ import
   deques, options, sequtils, tables,
   chronicles,
   ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator], extras,
-  ./beacon_chain_db, ./ssz
+  ./beacon_chain_db, ./ssz, ./block_pool
 
 type
   Validation* = object
@@ -25,6 +25,7 @@ type
 
   AttestationEntry* = object
     data*: AttestationData
+    blck: BlockRef
     validations*: seq[Validation] ## \
     ## Instead of aggregating the signatures eagerly, we simply dump them in
     ## this seq and aggregate only when needed
@@ -38,6 +39,10 @@ type
     ## count how popular each world view is (fork choice)
     ## TODO this could be a Table[AttestationData, seq[Validation] or something
     ##      less naive
+
+  UnresolvedAttestation* = object
+    attestation: Attestation
+    tries: int
 
   AttestationPool* = object
     ## The attestation pool keeps all attestations that are known to the
@@ -54,12 +59,21 @@ type
     ## Generally, we keep attestations only until a slot has been finalized -
     ## after that, they may no longer affect fork choice.
 
-proc init*(T: type AttestationPool, dummy: int): T =
-  result.slots = initDeque[SlotData]()
+    blockPool: BlockPool
+
+    unresolved: Table[Eth2Digest, UnresolvedAttestation]
+
+proc init*(T: type AttestationPool, blockPool: BlockPool): T =
+  T(
+    slots: initDeque[SlotData](),
+    blockPool: blockPool,
+    unresolved: initTable[Eth2Digest, UnresolvedAttestation]()
+  )
 
 proc overlaps(a, b: seq[byte]): bool =
   for i in 0..<a.len:
-    if (a[i] and b[i]) > 0'u8: return true
+    if (a[i] and b[i]) > 0'u8:
+      return true
 
 proc combineBitfield(tgt: var seq[byte], src: seq[byte]) =
   for i in 0 ..< tgt.len:
@@ -179,13 +193,10 @@ proc validate(
 
   true
 
-proc add*(pool: var AttestationPool,
-          attestation: Attestation,
-          state: BeaconState) =
-  if not validate(state, attestation, {skipValidation}): return
+proc slotIndex(
+    pool: var AttestationPool, state: BeaconState, attestationSlot: Slot): int =
+  ## Grow and garbage collect pool, returning the deque index of the slot
 
-  let
-    attestationSlot = attestation.data.slot
   # We keep a sliding window of attestations, roughly from the last finalized
   # epoch to now, because these are the attestations that may affect the voting
   # outcome. Some of these attestations will already have been added to blocks,
@@ -227,8 +238,20 @@ proc add*(pool: var AttestationPool,
       pool.slots.popFirst()
       pool.startingSlot += 1
 
+  int(attestationSlot - pool.startingSlot)
+
+proc add*(pool: var AttestationPool,
+          state: BeaconState,
+          attestation: Attestation) =
+  if not validate(state, attestation, {skipValidation}):
+    return
+
+  # TODO inefficient data structures..
+
   let
-    slotData = addr pool.slots[attestationSlot - pool.startingSlot]
+    attestationSlot = attestation.data.slot
+    idx = pool.slotIndex(state, attestationSlot)
+    slotData = addr pool.slots[idx]
     validation = Validation(
       aggregation_bitfield: attestation.aggregation_bitfield,
       custody_bitfield: attestation.custody_bitfield,
@@ -256,18 +279,43 @@ proc add*(pool: var AttestationPool,
 
       if not found:
         a.validations.add(validation)
+        info "Attestation resolved",
+          slot = humaneSlotNum(attestation.data.slot),
+          shard = attestation.data.shard,
+          beaconBlockRoot = shortLog(attestation.data.beacon_block_root),
+          justifiedEpoch = humaneEpochNum(attestation.data.justified_epoch),
+          justifiedBlockRoot = shortLog(attestation.data.justified_block_root),
+          signature = shortLog(attestation.aggregate_signature),
+          validations = a.validations.len() # TODO popcount of union
+
         found = true
 
       break
 
   if not found:
-    slotData.attestations.add(AttestationEntry(
-      data: attestation.data,
-      validations: @[validation]
-    ))
+    if (let blck = pool.blockPool.getOrResolve(
+          attestation.data.beacon_block_root); blck != nil):
+      slotData.attestations.add(AttestationEntry(
+        data: attestation.data,
+        blck: blck,
+        validations: @[validation]
+      ))
+      info "Attestation resolved",
+        slot = humaneSlotNum(attestation.data.slot),
+        shard = attestation.data.shard,
+        beaconBlockRoot = shortLog(attestation.data.beacon_block_root),
+        justifiedEpoch = humaneEpochNum(attestation.data.justified_epoch),
+        justifiedBlockRoot = shortLog(attestation.data.justified_block_root),
+        signature = shortLog(attestation.aggregate_signature),
+        validations = 1
+
+    else:
+      pool.unresolved[attestation.data.beacon_block_root] =
+        UnresolvedAttestation(
+          attestation: attestation,
+        )
 
 proc getAttestationsForBlock*(pool: AttestationPool,
-                              lastState: BeaconState,
                               newBlockSlot: Slot): seq[Attestation] =
   if newBlockSlot - GENESIS_SLOT < MIN_ATTESTATION_INCLUSION_DELAY:
     debug "Too early for attestations",
@@ -321,3 +369,23 @@ proc getAttestationsForBlock*(pool: AttestationPool,
 
     if result.len >= MAX_ATTESTATIONS:
       return
+
+proc resolve*(pool: var AttestationPool, state: BeaconState) =
+  var done: seq[Eth2Digest]
+  var resolved: seq[Attestation]
+
+  for k, v in pool.unresolved.mpairs():
+    if v.tries > 8 or v.attestation.data.slot < pool.startingSlot:
+      done.add(k)
+    else:
+      if pool.blockPool.get(k).isSome():
+        resolved.add(v.attestation)
+        done.add(k)
+      else:
+        inc v.tries
+
+  for k in done:
+    pool.unresolved.del(k)
+
+  for a in resolved:
+    pool.add(state, a)

@@ -269,6 +269,7 @@ func get_beacon_proposer_index*(state: BeaconState, slot: Slot): ValidatorIndex 
   # TODO this index is invalid outside of the block state transition function
   #      because presently, `state.slot += 1` happens before this function
   #      is called - see also testutil.getNextBeaconProposerIndex
+  # TODO is the above still true? the shuffling has changed since it was written
   let (first_committee, _) = get_crosslink_committees_at_slot(state, slot)[0]
   let idx = int(slot mod uint64(first_committee.len))
   first_committee[idx]
