@@ -994,6 +994,16 @@ proc updateState*(state: var BeaconState, previous_block_root: Eth2Digest,
     processEpoch(state)
     true
 
+proc skipSlots*(state: var BeaconState, parentRoot: Eth2Digest, slot: Slot) =
+  if state.slot < slot:
+    info "Advancing state past slot gap",
+      targetSlot = humaneSlotNum(slot),
+      stateSlot = humaneSlotNum(state.slot)
+
+    while state.slot < slot:
+      let ok = updateState(state, parentRoot, none[BeaconBlock](), {})
+      doAssert ok, "Empty block state update should never fail!"
+
 # TODO document this:
 
 # Jacek Sieka

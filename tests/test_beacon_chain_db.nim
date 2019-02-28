@@ -5,7 +5,7 @@
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import  options, unittest, strutils, eth/trie/[db],
+import  options, unittest, sequtils, strutils, eth/trie/[db],
   ../beacon_chain/[beacon_chain_db, ssz],
   ../beacon_chain/spec/[datatypes, digest, crypto]
 
@@ -26,28 +26,26 @@ suite "Beacon chain DB":
 
     let
       a0 = BeaconBlock(slot: 0)
-      a1 = BeaconBlock(slot: 1, parent_root: hash_tree_root_final(a0))
-      a2 = BeaconBlock(slot: 2, parent_root: hash_tree_root_final(a1))
+      a0r = hash_tree_root_final(a0)
+      a1 = BeaconBlock(slot: 1, parent_root: a0r)
+      a1r = hash_tree_root_final(a1)
+      a2 = BeaconBlock(slot: 2, parent_root: a1r)
+      a2r = hash_tree_root_final(a2)
 
-    # TODO check completely kills compile times here
-    doAssert db.getAncestors(a0) == [a0]
-    doAssert db.getAncestors(a2) == [a2]
+    doAssert toSeq(db.getAncestors(a0r)) == []
+    doAssert toSeq(db.getAncestors(a2r)) == []
 
     db.putBlock(a2)
 
-    doAssert db.getAncestors(a0) == [a0]
-    doAssert db.getAncestors(a2) == [a2]
+    doAssert toSeq(db.getAncestors(a0r)) == []
+    doAssert toSeq(db.getAncestors(a2r)) == [(a2r, a2)]
 
     db.putBlock(a1)
 
-    doAssert db.getAncestors(a0) == [a0]
-    doAssert db.getAncestors(a2) == [a2, a1]
+    doAssert toSeq(db.getAncestors(a0r)) == []
+    doAssert toSeq(db.getAncestors(a2r)) == [(a2r, a2), (a1r, a1)]
 
     db.putBlock(a0)
 
-    doAssert db.getAncestors(a0) == [a0]
-    doAssert db.getAncestors(a2) == [a2, a1, a0]
-
-    let tmp = db.getAncestors(a2) do (b: BeaconBlock) -> bool:
-      b.slot == 1
-    doAssert tmp == [a2, a1]
+    doAssert toSeq(db.getAncestors(a0r)) == [(a0r, a0)]
+    doAssert toSeq(db.getAncestors(a2r)) == [(a2r, a2), (a1r, a1), (a0r, a0)]

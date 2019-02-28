@@ -7,7 +7,8 @@
 
 import
   options, sequtils,
-  ../beacon_chain/[extras, ssz, state_transition, validator_pool],
+  eth/trie/[db],
+  ../beacon_chain/[beacon_chain_db, extras, ssz, state_transition, validator_pool],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator]
 
 func makeValidatorPrivKey(i: int): ValidatorPrivKey =
@@ -201,3 +202,13 @@ proc makeAttestation*(
     aggregate_signature: sig,
     custody_bitfield: repeat(0'u8, ceil_div8(sac.committee.len))
   )
+
+proc makeTestDB*(tailState: BeaconState, tailBlock: BeaconBlock): BeaconChainDB =
+  let
+    tailRoot = hash_tree_root_final(tailBlock)
+
+  result = init(BeaconChainDB, newMemoryDB())
+  result.putState(tailState)
+  result.putBlock(tailBlock)
+  result.putTailBlock(tailRoot)
+  result.putHeadBlock(tailRoot)

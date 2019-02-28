@@ -59,6 +59,9 @@ type
   ValidatorSig* = blscurve.Signature
   ValidatorPKI* = ValidatorPrivKey|ValidatorPubKey|ValidatorSig
 
+func shortLog*(x: ValidatorPKI): string =
+  ($x)[0..7]
+
 template hash*(k: ValidatorPubKey|ValidatorPrivKey): Hash =
   hash(k.getBytes())
 

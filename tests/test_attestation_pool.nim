@@ -9,38 +9,40 @@ import
   options, sequtils, unittest,
   ./testutil,
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
-  ../beacon_chain/[attestation_pool, extras, state_transition, ssz]
+  ../beacon_chain/[attestation_pool, block_pool, extras, state_transition, ssz]
 
 suite "Attestation pool processing":
   ## For now just test that we can compile and execute block processing with
   ## mock data.
 
-  let
-    # Genesis state with minimal number of deposits
-    # TODO bls verification is a bit of a bottleneck here
-    genesisState = get_genesis_beacon_state(
-      makeInitialDeposits(), 0, Eth1Data(), {skipValidation})
-    genesisBlock = get_initial_beacon_block(genesisState)
-    genesisRoot = hash_tree_root_final(genesisBlock)
+  # Genesis state with minimal number of deposits
+  var
+    genState = get_genesis_beacon_state(
+      makeInitialDeposits(flags = {skipValidation}), 0, Eth1Data(),
+        {skipValidation})
+    genBlock = get_initial_beacon_block(genState)
+
+    blockPool = BlockPool.init(makeTestDB(genState, genBlock))
 
   test "Can add and retrieve simple attestation":
     var
-      pool = init(AttestationPool, 42)
-      state = genesisState
+      pool = AttestationPool.init(blockPool)
+      state = blockPool.loadTailState()
     # Slot 0 is a finalized slot - won't be making attestations for it..
     discard updateState(
-        state, genesisRoot, none(BeaconBlock), {skipValidation})
+        state.data, state.blck.root, none(BeaconBlock), {skipValidation})
 
     let
       # Create an attestation for slot 1 signed by the only attester we have!
-      crosslink_committees = get_crosslink_committees_at_slot(state, state.slot)
+      crosslink_committees =
+        get_crosslink_committees_at_slot(state.data, state.data.slot)
       attestation = makeAttestation(
-        state, genesisRoot, crosslink_committees[0].committee[0])
+        state.data, state.blck.root, crosslink_committees[0].committee[0])
 
-    pool.add(attestation, state)
+    pool.add(state.data, attestation)
 
     let attestations = pool.getAttestationsForBlock(
-      state, state.slot + MIN_ATTESTATION_INCLUSION_DELAY)
+      state.data.slot + MIN_ATTESTATION_INCLUSION_DELAY)
 
     check:
       attestations.len == 1
@@ -48,32 +50,34 @@ suite "Attestation pool processing":
 
   test "Attestations may arrive in any order":
     var
-      pool = init(AttestationPool, 42)
-      state = genesisState
+      pool = AttestationPool.init(blockPool)
+      state = blockPool.loadTailState()
     # Slot 0 is a finalized slot - won't be making attestations for it..
     discard updateState(
-        state, genesisRoot, none(BeaconBlock), {skipValidation})
+        state.data, state.blck.root, none(BeaconBlock), {skipValidation})
 
     let
       # Create an attestation for slot 1 signed by the only attester we have!
-      crosslink_committees1 = get_crosslink_committees_at_slot(state, state.slot)
+      crosslink_committees1 =
+        get_crosslink_committees_at_slot(state.data, state.data.slot)
       attestation1 = makeAttestation(
-        state, genesisRoot, crosslink_committees1[0].committee[0])
+        state.data, state.blck.root, crosslink_committees1[0].committee[0])
 
     discard updateState(
-        state, genesisRoot, none(BeaconBlock), {skipValidation})
+        state.data, state.blck.root, none(BeaconBlock), {skipValidation})
 
     let
-      crosslink_committees2 = get_crosslink_committees_at_slot(state, state.slot)
+      crosslink_committees2 =
+        get_crosslink_committees_at_slot(state.data, state.data.slot)
       attestation2 = makeAttestation(
-        state, genesisRoot, crosslink_committees2[0].committee[0])
+        state.data, state.blck.root, crosslink_committees2[0].committee[0])
 
     # test reverse order
-    pool.add(attestation2, state)
-    pool.add(attestation1, state)
+    pool.add(state.data, attestation2)
+    pool.add(state.data, attestation1)
 
     let attestations = pool.getAttestationsForBlock(
-      state, state.slot + MIN_ATTESTATION_INCLUSION_DELAY)
+      state.data.slot + MIN_ATTESTATION_INCLUSION_DELAY)
 
     check:
       attestations.len == 1
