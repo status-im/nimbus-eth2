@@ -76,8 +76,6 @@ func bls_aggregate_pubkeys*(keys: openArray[ValidatorPubKey]): ValidatorPubKey =
       result.combine(key)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/bls_signature.md#bls_verify
-## The v0.3.0 type signature involves passing a message hash, not a message,
-## but this abstracts isolates hash changes better.
 func bls_verify*(
     pubkey: ValidatorPubKey, msg: openArray[byte], sig: ValidatorSig,
     domain: uint64): bool =
@@ -91,11 +89,14 @@ func bls_verify_multiple*(
   let L = len(pubkeys)
   doAssert L == len(message_hashes)
 
+  # TODO optimize using multiPairing
   for pubkey_message_hash in zip(pubkeys, message_hashes):
     let (pubkey, message_hash) = pubkey_message_hash
-
-    #let a = atePairing(
-    #  pubkey, hash_to_G2(keccak256(message_hash), domain))
+    # TODO spec doesn't say to handle this specially, but it's silly to
+    # validate without any actual public keys.
+    if pubkey != ValidatorPubKey() and
+       not sig.verify(message_hash, domain, pubkey):
+      return false
 
   true
 
