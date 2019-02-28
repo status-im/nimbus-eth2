@@ -487,24 +487,6 @@ when true:
   import nimcrypto, eth/rlp, json_serialization
   export append, read, json_serialization
 
-  proc append*(rlpWriter: var RlpWriter, value: ValidatorPubKey) =
-    discard
-
-  proc read*(rlp: var Rlp, T: type ValidatorPubKey): T {.inline.} =
-    discard
-
-  proc append*(rlpWriter: var RlpWriter, value: ValidatorIndex) =
-    discard
-
-  proc read*(rlp: var Rlp, T: type ValidatorIndex): T {.inline.} =
-    discard
-
-  proc append*(rlpWriter: var RlpWriter, value: ValidatorSig) =
-    discard
-
-  proc read*(rlp: var Rlp, T: type ValidatorSig): T {.inline.} =
-    discard
-
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
     ($state.validator_registry[validatorIdx].pubkey)[0..7]
 
