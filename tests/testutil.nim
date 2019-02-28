@@ -187,12 +187,15 @@ proc makeAttestation*(
   bitSet(aggregation_bitfield, sac_index)
 
   let
-    msg = hash_tree_root_final(data)
-    # TODO: domain
-    domain = 0'u64
+    msg = hash_tree_root_final(AttestationDataAndCustodyBit(data: data, custody_bit: false))
     sig =
       if skipValidation notin flags:
-        bls_sign(hackPrivKey(validator), @(msg.data) & @[0'u8], domain)
+        bls_sign(
+          hackPrivKey(validator), @(msg.data),
+          get_domain(
+            state.fork,
+            slot_to_epoch(state.slot),
+            DOMAIN_ATTESTATION))
       else:
         ValidatorSig()
 

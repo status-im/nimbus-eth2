@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2019 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -45,6 +45,7 @@
 
 
 import
+  sequtils,
   hashes,
   blscurve, json_serialization
 
@@ -84,14 +85,22 @@ func bls_verify*(
   # name from spec!
   sig.verify(msg, domain, pubkey)
 
-# https://github.com/ethereum/eth2.0-specs/blob/master/specs/bls_signature.md#bls_verify_multiple
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/bls_signature.md#bls_verify_multiple
 func bls_verify_multiple*(
-    pubkeys: seq[ValidatorPubKey], messages: seq[array[0..31, byte]],
+    pubkeys: seq[ValidatorPubKey], message_hashes: seq[array[0..31, byte]],
     sig: ValidatorSig, domain: uint64): bool =
   let L = len(pubkeys)
-  assert L == len(messages)
+  doAssert L == len(message_hashes)
 
-  # TODO calculate product of ate pairings; check how sig.verify works
+  # TODO optimize using multiPairing
+  for pubkey_message_hash in zip(pubkeys, message_hashes):
+    let (pubkey, message_hash) = pubkey_message_hash
+    # TODO spec doesn't say to handle this specially, but it's silly to
+    # validate without any actual public keys.
+    if pubkey != ValidatorPubKey() and
+       not sig.verify(message_hash, domain, pubkey):
+      return false
+
   true
 
 func bls_sign*(key: ValidatorPrivKey, msg: openarray[byte],

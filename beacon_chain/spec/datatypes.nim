@@ -420,10 +420,10 @@ type
     ## Epoch when validator exited
 
     withdrawable_epoch*: uint64 ##\
-    ## Epoch when validator withdrew
+    ## Epoch when validator is eligible to withdraw
 
     slashed_epoch*: uint64 ##\
-    ## Epoch when validator penalized
+    ## Epoch when validator slashed
 
     status_flags*: uint64
 

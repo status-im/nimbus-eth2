@@ -295,7 +295,9 @@ func process_ejections*(state: var BeaconState) =
   ## Iterate through the validator registry
   ## and eject active validators with balance below ``EJECTION_BALANCE``.
 
-  for index in get_active_validator_indices(state.validator_registry, state.slot):
+  for index in get_active_validator_indices(
+      # TODO v0.3.0 spec bug, has this as current_epoch(state)
+      state.validator_registry, get_current_epoch(state)):
     if state.validator_balances[index] < EJECTION_BALANCE:
       exit_validator(state, index)
 
@@ -304,12 +306,15 @@ func get_total_balance*(state: BeaconState, validators: seq[ValidatorIndex]): Gw
   # Return the combined effective balance of an array of validators.
   foldl(validators, a + get_effective_balance(state, b), 0'u64)
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
 func update_validator_registry*(state: var BeaconState) =
+  ## Update validator registry.
+  ## Note that this function mutates ``state``.
   let
     current_epoch = get_current_epoch(state)
-    next_epoch = current_epoch + 1
+    # The active validators
     active_validator_indices =
-      get_active_validator_indices(state.validator_registry, state.slot)
+      get_active_validator_indices(state.validator_registry, current_epoch)
     # The total effective balance of active validators
     total_balance = get_total_balance(state, active_validator_indices)
 
@@ -346,13 +351,6 @@ func update_validator_registry*(state: var BeaconState) =
       exit_validator(state, index.ValidatorIndex)
 
   state.validator_registry_update_epoch = current_epoch
-
-  # Perform additional updates
-  state.current_shuffling_epoch = next_epoch
-  state.current_shuffling_start_shard = (state.current_shuffling_start_shard + get_current_epoch_committee_count(state)) mod SHARD_COUNT
-  state.current_shuffling_seed = generate_seed(state, state.current_shuffling_epoch)
-
-  # TODO "If a validator registry update does not happen do the following: ..."
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#attestations-1
 proc checkAttestation*(
