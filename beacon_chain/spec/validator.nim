@@ -98,7 +98,7 @@ func get_shuffling*(seed: Eth2Digest,
     source_buffer: array[(32+1+4), byte]
     shuffled_active_validator_indices = mapIt(
       0 ..< list_size.int, it.ValidatorIndex)
-    sources = repeat(Eth2Digest(), max(list_size div 256, 1))
+    sources = repeat(Eth2Digest(), (list_size div 256) + 1)
 
   ## The pivot's a function of seed and round only.
   ## This doesn't change across rounds.
