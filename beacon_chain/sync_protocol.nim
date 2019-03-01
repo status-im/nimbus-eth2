@@ -19,13 +19,15 @@ type
     db*: BeaconChainDB
 
 func toHeader(b: BeaconBlock): BeaconBlockHeader =
-  result.slot = b.slot
-  result.parent_root = b.parent_root
-  result.state_root = b.state_root
-  result.randao_reveal = b.randao_reveal
-  result.eth1_data  = b.eth1_data
-  result.signature = b.signature
-  result.body = hash_tree_root_final(b.body)
+  BeaconBlockHeader(
+    slot: b.slot,
+    parent_root: b.parent_root,
+    state_root: b.state_root,
+    randao_reveal: b.randao_reveal,
+    eth1_data : b.eth1_data,
+    signature: b.signature,
+    body: hash_tree_root_final(b.body)
+  )
 
 proc fromHeader(b: var BeaconBlock, h: BeaconBlockHeader) =
   b.slot = h.slot
