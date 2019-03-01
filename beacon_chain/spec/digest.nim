@@ -21,7 +21,7 @@
 # `eth2hash`, and it outputs a `Eth2Digest`. Easy to sed :)
 
 import
-  nimcrypto/[blake2, hash], eth/common/eth_types_json_serialization,
+  nimcrypto/[keccak, hash], eth/common/eth_types_json_serialization,
   hashes
 
 export
@@ -29,7 +29,7 @@ export
 
 type
   Eth2Digest* = MDigest[32 * 8] ## `hash32` from spec
-  Eth2Hash* = blake2_512 ## Context for hash function
+  Eth2Hash* = keccak256 ## Context for hash function
 
 func shortLog*(x: Eth2Digest): string =
   ($x)[0..7]

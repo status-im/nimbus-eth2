@@ -10,7 +10,7 @@
 
 import
   endians, typetraits, options, algorithm,
-  eth/common, nimcrypto/blake2,
+  eth/common, nimcrypto/keccak,
   ./spec/[crypto, datatypes, digest]
 
 # ################### Helper functions ###################################
