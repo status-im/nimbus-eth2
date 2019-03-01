@@ -47,10 +47,10 @@
 import
   sequtils,
   hashes,
-  blscurve, json_serialization, eth/rlp
+  blscurve, json_serialization
 
 export
-  json_serialization, rlp
+  json_serialization
 
 export blscurve.init, blscurve.getBytes, blscurve.combine, blscurve.`$`, blscurve.`==`
 
@@ -127,17 +127,3 @@ proc readValue*(reader: var JsonReader, value: var ValidatorPrivKey) {.inline.} 
   value = SigKey.init(reader.readValue(string))
 
 proc newPrivKey*(): ValidatorPrivKey = SigKey.random()
-
-# RLP serialization (TODO: remove if no longer necessary)
-proc append*(writer: var RlpWriter, value: ValidatorPubKey) =
-  writer.append value.getBytes()
-
-proc read*(rlp: var Rlp, T: type ValidatorPubKey): T {.inline.} =
-  ValidatorPubKey.init rlp.toBytes.toOpenArray
-
-proc append*(writer: var RlpWriter, value: ValidatorSig) =
-  writer.append value.getBytes()
-
-proc read*(rlp: var Rlp, T: type ValidatorSig): T {.inline.} =
-  ValidatorSig.init rlp.toBytes.toOpenArray
-

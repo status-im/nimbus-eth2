@@ -482,6 +482,29 @@ type
   # TODO: not in spec
   CrosslinkCommittee* = tuple[committee: seq[ValidatorIndex], shard: uint64]
 
+when true:
+  # TODO: Remove these once RLP serialization is no longer used
+  import nimcrypto, eth/rlp, json_serialization
+  export append, read, json_serialization
+
+  proc append*(rlpWriter: var RlpWriter, value: ValidatorPubKey) =
+    discard
+
+  proc read*(rlp: var Rlp, T: type ValidatorPubKey): T {.inline.} =
+    discard
+
+  proc append*(rlpWriter: var RlpWriter, value: ValidatorIndex) =
+    discard
+
+  proc read*(rlp: var Rlp, T: type ValidatorIndex): T {.inline.} =
+    discard
+
+  proc append*(rlpWriter: var RlpWriter, value: ValidatorSig) =
+    discard
+
+  proc read*(rlp: var Rlp, T: type ValidatorSig): T {.inline.} =
+    discard
+
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
     ($state.validator_registry[validatorIdx].pubkey)[0..7]
 
@@ -491,7 +514,6 @@ func humaneSlotNum*(s: Slot): Slot =
 func humaneEpochNum*(e: Epoch): Epoch =
   e - GENESIS_EPOCH
 
-import nimcrypto, eth/rlp, json_serialization
-export json_serialization, rlp
-export writeValue, readValue, append, read
+export
+  writeValue, readValue
 
