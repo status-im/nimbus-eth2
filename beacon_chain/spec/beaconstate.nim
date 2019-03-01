@@ -121,6 +121,10 @@ func exit_validator*(state: var BeaconState,
 
   validator.exit_epoch = get_entry_exit_effect_epoch(get_current_epoch(state))
 
+func reduce_balance*(balance: var uint64, amount: uint64) =
+  # Not in spec, but useful to avoid underflow.
+  balance -= min(amount, balance)
+
 func slash_validator*(state: var BeaconState, index: ValidatorIndex) =
   ## Slash the validator with index ``index``.
   ## Note that this function mutates ``state``.
@@ -140,7 +144,7 @@ func slash_validator*(state: var BeaconState, index: ValidatorIndex) =
       WHISTLEBLOWER_REWARD_QUOTIENT
 
   state.validator_balances[whistleblower_index] += whistleblower_reward
-  state.validator_balances[index] -= whistleblower_reward
+  reduce_balance(state.validator_balances[index], whistleblower_reward)
   validator.slashed_epoch = get_current_epoch(state)
 
   # Spec bug in v0.3.0, fixed since: it has LATEST_PENALIZED_EXIT_LENGTH

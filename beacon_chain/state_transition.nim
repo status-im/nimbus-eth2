@@ -125,7 +125,7 @@ func slashValidator(state: var BeaconState, index: ValidatorIndex) =
     whistleblower_reward = get_effective_balance(state, index) div
       WHISTLEBLOWER_REWARD_QUOTIENT
   state.validator_balances[whistleblower_index] += whistleblower_reward
-  state.validator_balances[index] -= whistleblower_reward
+  reduce_balance(state.validator_balances[index], whistleblower_reward)
   validator.slashed_epoch = get_current_epoch(state)
 
   # v0.3.0 spec bug, fixed later, involving renamed constants. Use v0.3.0 name.
@@ -397,8 +397,9 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
         notice "Transfer: incorrect signature"
         return false
 
-    state.validator_balances[
-      transfer.from_field.int] -= transfer.amount + transfer.fee
+    reduce_balance(
+      state.validator_balances[transfer.from_field.int],
+      transfer.amount + transfer.fee)
     state.validator_balances[transfer.to.int] += transfer.amount
     state.validator_balances[
       get_beacon_proposer_index(state, state.slot)] += transfer.fee
@@ -543,7 +544,7 @@ func process_slashings(state: var BeaconState) =
             min(total_penalties * 3, total_balance) div total_balance,
           get_effective_balance(state, index.ValidatorIndex) div
             MIN_PENALTY_QUOTIENT)
-      state.validator_balances[index] -= penalty
+      reduce_balance(state.validator_balances[index], penalty)
 
 func process_exit_queue(state: var BeaconState) =
   ## Process the exit queue.
@@ -804,8 +805,8 @@ func processEpoch(state: var BeaconState) =
 
       for v in active_validator_indices:
         if v notin attesters:
-          # TODO underflows?
-          statePtr.validator_balances[v] -= base_reward(statePtr[], v)
+          reduce_balance(
+            statePtr.validator_balances[v], base_reward(statePtr[], v))
 
     if epochs_since_finality <= 4'u64:
       # Case 1: epochs_since_finality <= 4
@@ -833,24 +834,28 @@ func processEpoch(state: var BeaconState) =
     else:
       # Case 2: epochs_since_finality > 4
       for index in active_validator_indices:
-        # TODO underflows?
         if index notin previous_epoch_attester_indices:
-          state.validator_balances[index] -=
-            inactivity_penalty(state, index, epochs_since_finality)
+          reduce_balance(
+            state.validator_balances[index],
+            inactivity_penalty(state, index, epochs_since_finality))
         if index notin previous_epoch_boundary_attester_indices:
-          state.validator_balances[index] -=
-            inactivity_penalty(state, index, epochs_since_finality)
+          reduce_balance(
+            state.validator_balances[index],
+            inactivity_penalty(state, index, epochs_since_finality))
         if index notin previous_epoch_head_attester_indices:
-          state.validator_balances[index] -= base_reward(state, index)
+          reduce_balance(
+            state.validator_balances[index], base_reward(state, index))
         if state.validator_registry[index].slashed_epoch <= current_epoch:
-          state.validator_balances[index] -=
+          reduce_balance(
+            state.validator_balances[index],
             2'u64 * inactivity_penalty(
-              state, index, epochs_since_finality) + base_reward(state, index)
+              state, index, epochs_since_finality) + base_reward(state, index))
         if index in previous_epoch_attester_indices:
-          state.validator_balances[index] -=
+          reduce_balance(
+            state.validator_balances[index],
             base_reward(state, index) -
             base_reward(state, index) * MIN_ATTESTATION_INCLUSION_DELAY div
-            inclusion_distance(state, index)
+            inclusion_distance(state, index))
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#attestation-inclusion
   block:
@@ -872,8 +877,8 @@ func processEpoch(state: var BeaconState) =
                  total_attesting_balance(crosslink_committee) div
                   get_total_balance(state, crosslink_committee.committee)
           else:
-            # TODO underflows?
-            state.validator_balances[index] -= base_reward(state, index)
+            reduce_balance(
+              state.validator_balances[index], base_reward(state, index))
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#ejections
   process_ejections(state)
