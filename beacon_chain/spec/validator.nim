@@ -12,73 +12,11 @@ import
   ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers
 
-# TODO remove once there are test vectors to check with directly
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_permuted_index
-func get_permuted_index_spec(index: uint64, list_size: uint64, seed: Eth2Digest): uint64 =
-  ## Return `p(index)` in a pseudorandom permutation `p` of `0...list_size-1`
-  ## with ``seed`` as entropy.
-  ##
-  ## Utilizes 'swap or not' shuffling found in
-  ## https://link.springer.com/content/pdf/10.1007%2F978-3-642-32009-5_1.pdf
-  ## See the 'generalized domain' algorithm on page 3.
-  result = index
-  var pivot_buffer: array[(32+1), byte]
-  var source_buffer: array[(32+1+4), byte]
-
-  for round in 0 ..< SHUFFLE_ROUND_COUNT:
-    pivot_buffer[0..31] = seed.data
-    let round_bytes1 = int_to_bytes1(round)[0]
-    pivot_buffer[32] = round_bytes1
-
-    let
-      pivot = bytes_to_int(eth2hash(pivot_buffer).data[0..7]) mod list_size
-      flip = (pivot - result) mod list_size
-      position = max(result, flip)
-
-    ## Tradeoff between slicing (if reusing one larger buffer) and additional
-    ## copies here of seed and `int_to_bytes1(round)`.
-    source_buffer[0..31] = seed.data
-    source_buffer[32] = round_bytes1
-    source_buffer[33..36] = int_to_bytes4(position div 256)
-
-    let
-      source = eth2hash(source_buffer).data
-      byte_value = source[(position mod 256) div 8]
-      bit = (byte_value shr (position mod 8)) mod 2
-
-    if bit != 0:
-      result = flip
-
-# TODO remove once there are test vectors to check with directly
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_shuffling
-func get_shuffling_spec*(seed: Eth2Digest, validators: openArray[Validator],
-                         epoch: Epoch): seq[seq[ValidatorIndex]] =
-  ## Shuffles ``validators`` into crosslink committees seeded by ``seed`` and
-  ## ``slot``.
-  ## Returns a list of ``SLOTS_PER_EPOCH * committees_per_slot`` committees where
-  ## each committee is itself a list of validator indices.
-
-  let
-    active_validator_indices = get_active_validator_indices(validators, epoch)
-
-    committees_per_epoch = get_epoch_committee_count(
-      len(active_validator_indices)).int
-
-    shuffled_active_validator_indices = mapIt(
-      active_validator_indices,
-      active_validator_indices[get_permuted_index_spec(
-        it, len(active_validator_indices).uint64, seed).int])
-
-  # Split the shuffled list into committees_per_epoch pieces
-  result = split(shuffled_active_validator_indices, committees_per_epoch)
-  assert result.len() == committees_per_epoch # what split should do..
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_shuffling
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_permuted_index
-func get_shuffling*(seed: Eth2Digest,
-                    validators: openArray[Validator],
-                    epoch: Epoch
-                    ): seq[seq[ValidatorIndex]] =
+func get_shuffled_seq*(seed: Eth2Digest,
+                       validators: openArray[Validator],
+                       ): seq[ValidatorIndex] =
   ## Via https://github.com/protolambda/eth2-shuffle/blob/master/shuffle.go
   ## Shuffles ``validators`` into crosslink committees seeded by ``seed`` and
   ## ``slot``.
@@ -87,11 +25,7 @@ func get_shuffling*(seed: Eth2Digest,
   ##
   ## Invert the inner/outer loops from the spec, essentially. Most useful
   ## hash result re-use occurs within a round.
-  let
-    active_validator_indices = get_active_validator_indices(validators, epoch)
-    list_size = active_validator_indices.len.uint64
-    committees_per_epoch = get_epoch_committee_count(
-      len(active_validator_indices)).int
+  let list_size = validators.len.uint64
   var
     # Share these buffers.
     pivot_buffer: array[(32+1), byte]
@@ -116,7 +50,7 @@ func get_shuffling*(seed: Eth2Digest,
     ## Only need to run, per round, position div 256 hashes, so precalculate
     ## them. This consumes memory, but for low-memory devices, it's possible
     ## to mitigate by some light LRU caching and similar.
-    for reduced_position in 0 ..< list_size.int div 256:
+    for reduced_position in 0 ..< sources.len:
       source_buffer[33..36] = int_to_bytes4(reduced_position.uint64)
       sources[reduced_position] = eth2hash(source_buffer)
 
@@ -124,9 +58,9 @@ func get_shuffling*(seed: Eth2Digest,
     ## efficiency gains exist in caching and re-using data.
     for index in 0 ..< list_size.int:
       let
-        cur_idx_permutated = shuffled_active_validator_indices[index]
-        flip = (pivot - cur_idx_permutated.uint64) mod list_size
-        position = max(cur_idx_permutated, flip.int)
+        cur_idx_permuted = shuffled_active_validator_indices[index]
+        flip = ((list_size + pivot) - cur_idx_permuted.uint64) mod list_size
+        position = max(cur_idx_permuted, flip.int)
 
       let
         source = sources[position div 256].data
@@ -136,8 +70,26 @@ func get_shuffling*(seed: Eth2Digest,
       if bit != 0:
         shuffled_active_validator_indices[index] = flip.ValidatorIndex
 
+  result = shuffled_active_validator_indices
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_shuffling
+func get_shuffling*(seed: Eth2Digest,
+                    validators: openArray[Validator],
+                    epoch: Epoch
+                    ): seq[seq[ValidatorIndex]] =
+  ## This function is factored to facilitate testing with
+  ## https://github.com/ethereum/eth2.0-test-generators/tree/master/permutated_index
+  ## test vectors, which the split of get_shuffling obfuscates.
+
+  let
+    active_validator_indices = get_active_validator_indices(validators, epoch)
+    committees_per_epoch = get_epoch_committee_count(
+      len(active_validator_indices)).int
+
   # Split the shuffled list into committees_per_epoch pieces
-  result = split(shuffled_active_validator_indices, committees_per_epoch)
+  result = split(
+    get_shuffled_seq(seed, validators),
+    committees_per_epoch)
   assert result.len() == committees_per_epoch # what split should do..
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_previous_epoch_committee_count

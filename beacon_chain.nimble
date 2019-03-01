@@ -22,7 +22,8 @@ requires "nim >= 0.19.0",
   "serialization",
   "json_serialization",
   "json_rpc",
-  "chronos"
+  "chronos",
+  "yaml"
 
 ### Helper functions
 proc test(name: string, defaultLang = "c") =
