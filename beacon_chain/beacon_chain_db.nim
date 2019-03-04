@@ -18,11 +18,14 @@ type
 func subkey(kind: DbKeyKind): array[1, byte] =
   result[0] = byte ord(kind)
 
-func subkey[T](kind: DbKeyKind, key: T): auto =
-  var res: array[sizeof(T) + 1, byte]
-  res[0] = byte ord(kind)
-  copyMem(addr res[1], unsafeAddr key, sizeof(key))
-  return res
+func subkey[N: static int](kind: DbKeyKind, key: array[N, byte]):
+    array[N + 1, byte] =
+  result[0] = byte ord(kind)
+  result[1 .. ^1] = key
+
+func subkey(kind: DbKeyKind, key: uint64): array[sizeof(key) + 1, byte] =
+  result[0] = byte ord(kind)
+  copyMem(addr result[1], unsafeAddr key, sizeof(key))
 
 func subkey(kind: type BeaconState, key: Eth2Digest): auto =
   subkey(kHashToState, key.data)

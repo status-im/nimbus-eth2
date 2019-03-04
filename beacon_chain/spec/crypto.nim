@@ -133,15 +133,13 @@ proc append*(writer: var RlpWriter, value: ValidatorPubKey) =
   writer.append value.getBytes()
 
 proc read*(rlp: var Rlp, T: type ValidatorPubKey): T {.inline.} =
-  let r = rlp.read(seq[byte])
-  if not init(result, r):
-    raise newException(Exception, "Could not init ValidatorPubKey from bytes")
+  result = ValidatorPubKey.init(rlp.toBytes.toOpenArray)
+  rlp.skipElem()
 
 proc append*(writer: var RlpWriter, value: ValidatorSig) =
   writer.append value.getBytes()
 
 proc read*(rlp: var Rlp, T: type ValidatorSig): T {.inline.} =
-  let r = rlp.read(seq[byte])
-  if not init(result, r):
-    raise newException(Exception, "Could not init ValidatorSig from bytes")
+  result = ValidatorSig.init(rlp.toBytes.toOpenArray)
+  rlp.skipElem()
 
