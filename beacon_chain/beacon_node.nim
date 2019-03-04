@@ -4,7 +4,7 @@ import
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator], conf, time,
   state_transition, fork_choice, ssz, beacon_chain_db, validator_pool, extras,
   attestation_pool, block_pool,
-  mainchain_monitor, sync_protocol, gossipsub_protocol, trusted_state_snapshots,
+  mainchain_monitor, gossipsub_protocol, trusted_state_snapshots,
   eth/trie/db, eth/trie/backends/rocksdb_backend
 
 type
@@ -15,7 +15,7 @@ type
     keys*: KeyPair
     attachedValidators: ValidatorPool
     blockPool: BlockPool
-    state: StateData
+    state*: StateData
     attestationPool: AttestationPool
     mainchainMonitor: MainchainMonitor
     potentialHeads: seq[Eth2Digest]
@@ -27,6 +27,12 @@ const
   topicBeaconBlocks = "ethereum/2.1/beacon_chain/blocks"
   topicAttestations = "ethereum/2.1/beacon_chain/attestations"
   topicfetchBlocks = "ethereum/2.1/beacon_chain/fetch"
+
+
+proc onBeaconBlock*(node: BeaconNode, blck: BeaconBlock) {.gcsafe.}
+
+import sync_protocol
+
 
 func shortValidatorKey(node: BeaconNode, validatorIdx: int): string =
   ($node.state.data.validator_registry[validatorIdx].pubkey)[0..7]
@@ -86,6 +92,9 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): T =
 
   result.network =
     newEthereumNode(result.keys, address, 0, nil, clientId, minPeers = 1)
+  let state = result.network.protocolState(BeaconSync)
+  state.node = result
+  state.db = result.db
 
   let
     head = result.blockPool.get(result.db.getHeadBlock().get())

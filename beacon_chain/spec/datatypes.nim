@@ -339,6 +339,18 @@ type
 
     body*: BeaconBlockBody
 
+  BeaconBlockHeader* = object
+    ## Same as BeaconBlock, except `body` is the `hash_tree_root` of the
+    ## associated BeaconBlockBody.
+    # TODO: Dry it up with BeaconBlock
+    slot*: uint64
+    parent_root*: Eth2Digest
+    state_root*: Eth2Digest
+    randao_reveal*: ValidatorSig
+    eth1_data*: Eth1Data
+    signature*: ValidatorSig
+    body*: Eth2Digest
+
   # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     proposer_slashings*: seq[ProposerSlashing]
