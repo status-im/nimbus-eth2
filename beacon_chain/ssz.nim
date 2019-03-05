@@ -10,10 +10,35 @@
 
 import
   endians, typetraits, options, algorithm,
-  eth/common, nimcrypto/keccak,
+  faststreams/input_stream, serialization, eth/common, nimcrypto/keccak,
   ./spec/[crypto, datatypes, digest]
 
 # ################### Helper functions ###################################
+
+export
+  serialization
+
+type
+  SszReader* = object
+    stream: ByteStreamVar
+
+  SszWriter* = object
+    stream: OutputStreamVar
+
+  SszError* = object of SerializationError
+  CorruptedDataError* = object of SszError
+
+  RecordWritingMemo = object
+    initialStreamPos: int
+    sizePrefixCursor: DelayedWriteCursor
+
+serializationFormat SSZ,
+                    Reader = SszReader,
+                    Writer = SszWriter,
+                    PreferedOutput = seq[byte]
+
+proc init*(T: type SszReader, stream: ByteStreamVar): T =
+  result.stream = stream
 
 # toBytesSSZ convert simple fixed-length types to their SSZ wire representation
 func toBytesSSZ(x: SomeInteger): array[sizeof(x), byte] =
@@ -44,7 +69,7 @@ func toBytesSSZ(x: Eth2Digest): array[32, byte] = x.data
 func toBytesSSZ(x: ValidatorPubKey|ValidatorSig): auto = x.getBytes()
 
 type
-  TrivialTypes =
+  TrivialType =
     # Types that serialize down to a fixed-length array - most importantly,
     # these values don't carry a length prefix in the final encoding. toBytesSSZ
     # provides the actual nim-type-to-bytes conversion.
@@ -55,7 +80,7 @@ type
     SomeInteger | EthAddress | Eth2Digest | ValidatorPubKey | ValidatorSig |
       bool
 
-func sszLen(v: TrivialTypes): int = toBytesSSZ(v).len
+func sszLen(v: TrivialType): int = toBytesSSZ(v).len
 func sszLen(v: ValidatorIndex): int = toBytesSSZ(v).len
 
 func sszLen(v: object | tuple): int =
@@ -68,18 +93,18 @@ func sszLen(v: seq | array): int =
   for i in v:
     result += sszLen(i)
 
-# fromBytesSSZUnsafe copy wire representation to a Nim variable, assuming
-# there's enough data in the buffer
-func fromBytesSSZUnsafe(T: typedesc[SomeInteger], data: pointer): T =
+# fromBytesSSZ copies the wire representation to a Nim variable,
+# assuming there's enough data in the buffer
+func fromBytesSSZ(T: type SomeInteger, data: openarray[byte]): T =
   ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
   ## All integers are serialized as **little endian**.
   ## TODO: Assumes data points to a sufficiently large buffer
-
+  doAssert data.len == sizeof(result)
   # TODO: any better way to get a suitably aligned buffer in nim???
   # see also: https://github.com/nim-lang/Nim/issues/9206
   var tmp: uint64
   var alignedBuf = cast[ptr byte](tmp.addr)
-  copyMem(alignedBuf, data, result.sizeof)
+  copyMem(alignedBuf, unsafeAddr data[0], result.sizeof)
 
   when result.sizeof == 8: littleEndian64(result.addr, alignedBuf)
   elif result.sizeof == 4: littleEndian32(result.addr, alignedBuf)
@@ -87,143 +112,133 @@ func fromBytesSSZUnsafe(T: typedesc[SomeInteger], data: pointer): T =
   elif result.sizeof == 1: copyMem(result.addr, alignedBuf, sizeof(result))
   else: {.fatal: "Unsupported type deserialization: " & $(type(result)).name.}
 
-func fromBytesSSZUnsafe(T: typedesc[bool], data: pointer): T =
+func fromBytesSSZ(T: type bool, data: openarray[byte]): T =
   # TODO: spec doesn't say what to do if the value is >1 - we'll use the C
   #       definition for now, but maybe this should be a parse error instead?
-  fromBytesSSZUnsafe(uint8, data) != 0
+  fromBytesSSZ(uint8, data) != 0
 
-func fromBytesSSZUnsafe(T: typedesc[ValidatorIndex], data: pointer): T =
+func fromBytesSSZ(T: type ValidatorIndex, data: openarray[byte]): T =
   ## Integers are all encoded as littleendian and not padded
+  doAssert data.len == 3
   var tmp: uint32
-  let p = cast[ptr UncheckedArray[byte]](data)
-  tmp = tmp or uint32(p[0])
-  tmp = tmp or uint32(p[1]) shl 8
-  tmp = tmp or uint32(p[2]) shl 16
+  tmp = tmp or uint32(data[0])
+  tmp = tmp or uint32(data[1]) shl 8
+  tmp = tmp or uint32(data[2]) shl 16
   result = tmp.ValidatorIndex
 
-func fromBytesSSZUnsafe(T: typedesc[EthAddress], data: pointer): T =
-  copyMem(result.addr, data, sizeof(result))
+func fromBytesSSZ(T: type EthAddress, data: openarray[byte]): T =
+  doAssert data.len == sizeof(result)
+  copyMem(result.addr, unsafeAddr data[0], sizeof(result))
 
-func fromBytesSSZUnsafe(T: typedesc[Eth2Digest], data: pointer): T =
-  copyMem(result.data.addr, data, sizeof(result.data))
+func fromBytesSSZ(T: type Eth2Digest, data: openarray[byte]): T =
+  doAssert data.len == sizeof(result.data)
+  copyMem(result.data.addr, unsafeAddr data[0], sizeof(result.data))
 
-proc deserialize[T: TrivialTypes](
-    dest: var T, offset: var int, data: openArray[byte]): bool =
-  # TODO proc because milagro is problematic
-  if offset + sszLen(dest) > data.len():
-    false
+proc init*(T: type SszWriter, stream: OutputStreamVar): T =
+  result.stream = stream
+
+proc writeValue*(w: var SszWriter, obj: auto)
+
+# This is an alternative lower-level API useful for RPC
+# frameworks that can simulate the serialization of an
+# object without constructing an actual instance:
+proc beginRecord*(w: var SszWriter, T: type): RecordWritingMemo =
+  result.initialStreamPos = w.stream.pos
+  result.sizePrefixCursor = w.stream.delayFixedSizeWrite sizeof(uint32)
+
+template writeField*(w: var SszWriter, name: string, value: auto) =
+  w.writeValue(value)
+
+proc endRecord*(w: var SszWriter, memo: RecordWritingMemo) =
+  let finalSize = uint32(w.stream.pos - memo.initialStreamPos - 4)
+  memo.sizePrefixCursor.endWrite(finalSize.toBytesSSZ)
+
+proc writeValue*(w: var SszWriter, obj: auto) =
+  # We are not using overloads here, because this leads to
+  # slightly better error messages when the user provides
+  # additional overloads for `writeValue`.
+  mixin writeValue
+
+  when obj is ValidatorIndex|TrivialType:
+    w.stream.append obj.toBytesSSZ
+  elif obj is enum:
+    w.stream.append uint64(obj).toBytesSSZ
   else:
-    when T is (ValidatorPubKey|ValidatorSig):
-      if dest.init(data[offset..data.len-1]):
-        offset += sszLen(dest)
-        true
-      else:
-        false
+    let memo = w.beginRecord(obj.type)
+    when obj is seq|array|openarray:
+      # If you get an error here that looks like:
+      # type mismatch: got <type range 0..8191(uint64)>
+      # you just used an unsigned int for an array index thinking you'd get
+      # away with it (surprise, surprise: you can't, uints are crippled!)
+      # https://github.com/nim-lang/Nim/issues/9984
+      for elem in obj:
+        w.writeValue elem
     else:
-      dest = fromBytesSSZUnsafe(T, data[offset].unsafeAddr)
-      offset += sszLen(dest)
-      true
+      obj.serializeFields(fieldName, field):
+        # for research/serialized_sizes, remove when appropriate
+        when defined(debugFieldSizes) and obj is (BeaconState|BeaconBlock):
+          let start = w.stream.pos
+          w.writeValue field
+          debugEcho k, ": ", w.stream.pos - start
+        else:
+          w.writeValue field
+    w.endRecord(memo)
 
-func deserialize(
-    dest: var ValidatorIndex, offset: var int, data: openArray[byte]): bool =
-  if offset + sszLen(dest) > data.len():
-    false
-  else:
-    dest = fromBytesSSZUnsafe(ValidatorIndex, data[offset].unsafeAddr)
-    offset += sszLen(dest)
-    true
+proc readValue*(r: var SszReader, result: var auto) =
+  # We are not using overloads here, because this leads to
+  # slightly better error messages when the user provides
+  # additional overloads for `readValue`.
+  type T = result.type
+  mixin readValue
 
-func deserialize[T: enum](dest: var T, offset: var int, data: openArray[byte]): bool =
-  # TODO er, verify the size here, probably an uint64 but...
-  var tmp: uint64
-  if not deserialize(tmp, offset, data):
-    false
-  else:
+  template checkEof(n: int) =
+    if not r.stream[].ensureBytes(n):
+      raise newException(UnexpectedEofError, "SSZ has insufficient number of bytes")
+
+  when result is ValidatorIndex|TrivialType:
+    let bytesToRead = result.sszLen;
+    checkEof bytesToRead
+
+    when result is ValidatorPubKey|ValidatorSig:
+      if not result.init(r.stream.readBytes(bytesToRead)):
+        raise newException(CorruptedDataError, "Failed to load a BLS key or signature")
+    else:
+      result = T.fromBytesSSZ(r.stream.readBytes(bytesToRead))
+
+  elif result is enum:
     # TODO what to do with out-of-range values?? rejecting means breaking
     #      forwards compatibility..
-    dest = cast[T](tmp)
-    true
+    result = cast[T](r.readValue(uint64))
 
-proc deserialize[T: not (enum|TrivialTypes|ValidatorIndex)](
-    dest: var T, offset: var int, data: openArray[byte]): bool =
-  # Length in bytes, followed by each item
-  var totalLen: uint32
-  if not deserialize(totalLen, offset, data): return false
-
-  if offset + totalLen.int > data.len(): return false
-
-  let itemEnd = offset + totalLen.int
-  when T is seq:
-    # Items are of homogenous type, but not necessarily homogenous length,
-    # cannot pre-allocate item list generically
-    while offset < itemEnd:
-      dest.setLen dest.len + 1
-      if not deserialize(dest[^1], offset, data): return false
-  elif T is array:
-    var i = 0
-    while offset < itemEnd:
-      if not deserialize(dest[i], offset, data): return false
-      i += 1
-      if i > dest.len: return false
+  elif result is string:
+    {.error: "The SSZ format doesn't support the string type yet".}
   else:
-    for field in dest.fields:
-      if not deserialize(field, offset, data):  return false
-    if offset != itemEnd: return false
+    let totalLen = int r.readValue(uint32)
+    checkEof totalLen
 
-  true
+    let endPos = r.stream[].pos + totalLen
+    when T is seq:
+      type ElemType = type(result[0])
+      # Items are of homogenous type, but not necessarily homogenous length,
+      # cannot pre-allocate item list generically
+      while r.stream[].pos < endPos:
+        result.add r.readValue(ElemType)
 
-func serialize(dest: var seq[byte], src: TrivialTypes) =
-  dest.add src.toBytesSSZ()
-func serialize(dest: var seq[byte], src: ValidatorIndex) =
-  dest.add src.toBytesSSZ()
+    elif T is array:
+      type ElemType = type(result[0])
+      var i = 0
+      while r.stream[].pos < endPos:
+        if i > result.len:
+          raise newException(CorruptedDataError, "SSZ includes unexpected bytes past the end of an array")
+        result[i] = r.readValue(ElemType)
+        i += 1
 
-func serialize(dest: var seq[byte], x: enum) =
-  # TODO er, verify the size here, probably an uint64 but...
-  serialize dest, uint64(x)
-
-func serialize[T: not enum](dest: var seq[byte], src: T) =
-  let lenPos = dest.len()
-
-  # Length is a prefix, so we'll put a dummy 0 here and fill it after
-  # serializing
-  dest.add toBytesSSZ(0'u32)
-
-  when T is seq|array:
-    # If you get an error here that looks like:
-    # type mismatch: got <type range 0..8191(uint64)>
-    # you just used an unsigned int for an array index thinking you'd get
-    # away with it (surprise, surprise: you can't, uints are crippled!)
-    # https://github.com/nim-lang/Nim/issues/9984
-    for val in src:
-      serialize dest, val
-  else:
-    when defined(debugFieldSizes) and T is (BeaconState | BeaconBlock):
-      # for research/serialized_sizes, remove when appropriate
-      for name, field in src.fieldPairs:
-        let start = dest.len()
-        serialize dest, field
-        let sz = dest.len() - start
-        debugEcho(name, ": ", sz)
     else:
-      for field in src.fields:
-        serialize dest, field
+      result.deserializeFields(fieldName, field):
+        field = r.readValue(field.type)
 
-  # Write size (we only know it once we've serialized the object!)
-  var objLen = dest.len() - lenPos - 4
-  littleEndian32(dest[lenPos].addr, objLen.addr)
-
-# ################### Core functions ###################################
-
-proc deserialize*(data: openArray[byte],
-                  typ: typedesc): auto {.inline.} =
-  # TODO: returns Option[typ]: https://github.com/nim-lang/Nim/issues/9195
-  var ret: typ
-  var offset: int
-  if not deserialize(ret, offset, data): none(typ)
-  else: some(ret)
-
-func serialize*(value: auto): seq[byte] =
-  serialize(result, value)
+    if r.stream[].pos != endPos:
+      raise newException(CorruptedDataError, "SSZ includes unexpected bytes past the end of the deserialized object")
 
 # ################### Hashing ###################################
 
@@ -251,7 +266,7 @@ func hash(a, b: openArray[byte]): array[32, byte] =
 
 # TODO: er, how is this _actually_ done?
 # Mandatory bug: https://github.com/nim-lang/Nim/issues/9825
-func empty(T: typedesc): T = discard
+func empty(T: type): T = discard
 const emptyChunk = empty(array[CHUNK_SIZE, byte])
 
 func merkleHash[T](lst: openArray[T]): array[32, byte]

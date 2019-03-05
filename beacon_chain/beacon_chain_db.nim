@@ -1,6 +1,6 @@
 import
   os, json, tables, options,
-  chronicles, json_serialization, eth/common/eth_types_json_serialization,
+  chronicles, serialization, json_serialization, eth/common/eth_types_json_serialization,
   spec/[datatypes, digest, crypto],
   eth/trie/db, ssz
 
@@ -37,7 +37,7 @@ proc init*(T: type BeaconChainDB, backend: TrieDatabaseRef): BeaconChainDB =
   result.backend = backend
 
 proc putBlock*(db: BeaconChainDB, key: Eth2Digest, value: BeaconBlock) =
-  db.backend.put(subkey(type value, key), ssz.serialize(value))
+  db.backend.put(subkey(type value, key), SSZ.encode(value))
 
 proc putHead*(db: BeaconChainDB, key: Eth2Digest) =
   db.backend.put(subkey(kHeadBlock), key.data) # TODO head block?
@@ -55,7 +55,7 @@ proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
   #       the previous finalized state, if we have that stored. To consider
   #       here is that the gap between finalized and present state might be
   #       significant (days), meaning replay might be expensive.
-  db.backend.put(subkey(type value, key), ssz.serialize(value))
+  db.backend.put(subkey(type value, key), SSZ.encode(value))
 
 proc putState*(db: BeaconChainDB, value: BeaconState) =
   db.putState(hash_tree_root_final(value), value)
@@ -72,7 +72,10 @@ proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
 proc get(db: BeaconChainDB, key: auto, T: typedesc): Option[T] =
   let res = db.backend.get(key)
   if res.len != 0:
-    ssz.deserialize(res, T)
+    try:
+      some(SSZ.decode(res, T))
+    except SerializationError:
+      none(T)
   else:
     none(T)
 

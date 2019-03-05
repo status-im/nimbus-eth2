@@ -5,7 +5,7 @@ import
   spec/[datatypes, crypto]
 
 type
-  TopicMsgHandler = proc(msg: string): Future[void]
+  TopicMsgHandler = proc (msg: string)
 
   GossipSubPeer* = ref object
     sentMessages: HashSet[string]
@@ -58,16 +58,7 @@ p2pProtocol GossipSub(version = 1,
     {.gcsafe.}:
       let handler = peer.networkState.topicSubscribers.getOrDefault(topic)
       if handler != nil:
-        await handler(msg)
-
-proc subscribeImpl(node: EthereumNode,
-                   topic: string,
-                   subscriber: TopicMsgHandler) =
-  var gossipNet = node.protocolState(GossipSub)
-  gossipNet.topicSubscribers[topic] = subscriber
-
-  for peer in node.peers(GossipSub):
-    discard peer.subscribeFor(topic)
+        handler(msg)
 
 proc broadcastImpl(node: EthereumNode, topic: string, msg: string): seq[Future[void]] {.gcsafe.} =
   var randBytes: array[10, byte];
@@ -81,14 +72,15 @@ proc broadcastImpl(node: EthereumNode, topic: string, msg: string): seq[Future[v
     if topic in peer.state(GossipSub).subscribedFor:
       result.add peer.emit(topic, msgId, msg)
 
-proc makeMessageHandler[MsgType](userHandler: proc(msg: MsgType): Future[void]): TopicMsgHandler =
-  result = proc (msg: string): Future[void] =
+proc subscribe*[MsgType](node: EthereumNode,
+                         topic: string,
+                         userHandler: proc(msg: MsgType)) {.async.}=
+  var gossipNet = node.protocolState(GossipSub)
+  gossipNet.topicSubscribers[topic] = proc (msg: string) =
     userHandler Json.decode(msg, MsgType)
 
-macro subscribe*(node: EthereumNode, topic: string, handler: untyped): untyped =
-  handler.addPragma ident"async"
-  result = newCall(bindSym"subscribeImpl",
-                   node, topic, newCall(bindSym"makeMessageHandler", handler))
+  for peer in node.peers(GossipSub):
+    discard peer.subscribeFor(topic)
 
 proc broadcast*(node: EthereumNode, topic: string, msg: auto) {.async.} =
   await all(node.broadcastImpl(topic, Json.encode(msg)))
