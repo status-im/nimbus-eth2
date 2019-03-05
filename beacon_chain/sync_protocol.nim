@@ -29,13 +29,15 @@ func toHeader(b: BeaconBlock): BeaconBlockHeader =
     body: hash_tree_root_final(b.body)
   )
 
-proc fromHeader(b: var BeaconBlock, h: BeaconBlockHeader) =
+proc fromHeaderAndBody(b: var BeaconBlock, h: BeaconBlockHeader, body: BeaconBlockBody) =
+  assert(hash_tree_root_final(body) == h.body)
   b.slot = h.slot
   b.parent_root = h.parent_root
   b.state_root = h.state_root
   b.randao_reveal = h.randao_reveal
   b.eth1_data = h.eth1_data
   b.signature = h.signature
+  b.body = body
 
 proc importBlocks(node: BeaconNode, roots: openarray[(Eth2Digest, uint64)], headers: openarray[BeaconBlockHeader], bodies: openarray[BeaconBlockBody]) =
   var bodyMap = initTable[Eth2Digest, int]()
@@ -48,8 +50,7 @@ proc importBlocks(node: BeaconNode, roots: openarray[(Eth2Digest, uint64)], head
     let iBody = bodyMap.getOrDefault(h.body, -1)
     if iBody >= 0:
       var blk: BeaconBlock
-      blk.fromHeader(h)
-      blk.body = bodies[iBody]
+      blk.fromHeaderAndBody(h, bodies[iBody])
       node.onBeaconBlock(blk)
       inc goodBlocks
     else:
@@ -115,7 +116,7 @@ p2pProtocol BeaconSync(version = 1,
 
   requestResponse:
     proc getBeaconBlockHeaders(peer: Peer, blockRoot: Eth2Digest, slot: uint64, maxHeaders: int, skipSlots: int) =
-      # TODO: validate maxHeaders
+      # TODO: validate maxHeaders and implement slipSlots
       var s = slot
       var headers = newSeqOfCap[BeaconBlockHeader](maxHeaders)
       let db = peer.networkState.db
