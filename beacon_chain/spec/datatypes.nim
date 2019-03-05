@@ -418,7 +418,6 @@ type
     deposit_index*: uint64
 
     # Not in spec. TODO: don't serialize or deserialize this.
-    # TODO find comment about memoization or caching from spec
     shuffling_cache*: ShufflingCache
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#validator
