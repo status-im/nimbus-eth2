@@ -19,9 +19,7 @@ func sumCommittees(v: openArray[seq[ValidatorIndex]], reqCommitteeLen: int): int
 func checkPermutation(index: int, list_size: uint64,
                       permuted_index: int, seed: Eth2Digest): bool =
   let
-    validators = repeat(
-      Validator(exit_epoch: FAR_FUTURE_EPOCH), list_size)
-    s = get_shuffled_seq(seed, validators)
+    s = get_shuffled_seq(seed, list_size)
   s[index] == permuted_index.ValidatorIndex
 
 suite "Validators":
@@ -35,7 +33,7 @@ suite "Validators":
         Validator(
           exit_epoch: FAR_FUTURE_EPOCH
         ), num_validators)
-      s = get_shuffling(Eth2Digest(), validators, 0)
+      s = get_shuffling(Eth2Digest(), validators, 0, ShufflingCache())
       committees = get_epoch_committee_count(len(validators)).int
     check:
       # def b(s): return "Eth2Digest(data: [0x" + "'u8, 0x".join((s[i:i+2] for i in range(0, 64, 2))) + "'u8])"
