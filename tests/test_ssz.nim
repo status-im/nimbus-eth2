@@ -6,8 +6,9 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  unittest, nimcrypto, eth/common, sequtils, options, blscurve,
-  ../beacon_chain/ssz, ../beacon_chain/spec/datatypes
+  unittest, sequtils, options,
+  nimcrypto, eth/common, blscurve, serialization/testing/generic_suite,
+  ../beacon_chain/ssz, ../beacon_chain/spec/[datatypes, digest]
 
 func filled[N: static[int], T](typ: type array[N, T], value: T): array[N, T] =
   for val in result.mitems:
@@ -35,8 +36,7 @@ suite "Simple serialization":
       f2: EthAddress.filled(byte 35),
       f3: MDigest[256].filled(byte 35),
       f4: @[byte 'c'.ord, 'o'.ord, 'w'.ord],
-      f5: ValidatorIndex(79)
-    )
+      f5: ValidatorIndex(79))
 
   var expected_ser = @[
       byte 67, 0, 0, 0, # length
@@ -49,58 +49,33 @@ suite "Simple serialization":
   expected_ser &= [byte 79, 0, 0]
 
   test "Object deserialization":
-    let deser = expected_ser.deserialize(Foo).get()
+    let deser = SSZ.decode(expected_ser, Foo)
     check: expected_deser == deser
 
   test "Object serialization":
-    let ser = expected_deser.serialize()
+    let ser = SSZ.encode(expected_deser)
     check: expected_ser == ser
 
   test "Not enough data":
-    check:
-      expected_ser[0..^2].deserialize(Foo).isNone()
-      expected_ser[1..^1].deserialize(Foo).isNone()
+    expect SerializationError:
+      let x = SSZ.decode(expected_ser[0..^2], Foo)
+
+    expect SerializationError:
+      let x = SSZ.decode(expected_ser[1..^1], Foo)
 
   test "ValidatorIndex roundtrip":
     # https://github.com/nim-lang/Nim/issues/10027
     let v = 79.ValidatorIndex
-    let ser = v.serialize()
+    let ser = SSZ.encode(v)
     check:
       ser.len() == 3
-      deserialize(ser, type(v)).get() == v
+      SSZ.decode(ser, v.type) == v
 
-  test "Array roundtrip":
-    let v = [1, 2, 3]
-    let ser = v.serialize()
-    check:
-      deserialize(ser, type(v)).get() == v
-
-  test "Seq roundtrip":
-    let v = @[1, 2, 3]
-    let ser = v.serialize()
-
-    check:
-      deserialize(ser, type(v)).get() == v
-
-  test "Key roundtrip":
-    let v = SigKey.random().getKey()
-    let ser = v.serialize()
-
-    check:
-      deserialize(ser, type(v)).get() == v
-
-  # Just to see that we can serialize stuff at all
-  test "Roundtrip main eth2 types":
-    let
-      bb = BeaconBlock(
-        slot: 42,
-        signature: sign(SigKey.random(), 0'u64, "")
-        )
-      bs = BeaconState(slot: 42)
-
-    check:
-      bb.serialize().deserialize(BeaconBlock).get() == bb
-      bs.serialize().deserialize(BeaconState).get() == bs
+  SSZ.roundripTest [1, 2, 3]
+  SSZ.roundripTest @[1, 2, 3]
+  SSZ.roundripTest SigKey.random().getKey()
+  SSZ.roundripTest BeaconBlock(slot: 42, signature: sign(SigKey.random(), 0'u64, ""))
+  SSZ.roundripTest BeaconState(slot: 42)
 
 suite "Tree hashing":
   # TODO Nothing but smoke tests for now..
@@ -117,3 +92,4 @@ suite "Tree hashing":
   test "Hash integer":
     check: hash_tree_root(0x01'u32) == [1'u8, 0, 0, 0] # little endian!
     check: hash_tree_root(ValidatorIndex(0x01)) == [1'u8, 0, 0] # little endian!
+

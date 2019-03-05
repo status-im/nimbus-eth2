@@ -1,18 +1,17 @@
 import
   std_shims/[os_shims, objects], net, sequtils, options, tables,
-  chronos, chronicles, confutils, eth/[p2p, keys],
+  chronos, chronicles, confutils,
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator], conf, time,
   state_transition, fork_choice, ssz, beacon_chain_db, validator_pool, extras,
-  attestation_pool, block_pool,
-  mainchain_monitor, gossipsub_protocol, trusted_state_snapshots,
+  attestation_pool, block_pool, eth2_network,
+  mainchain_monitor, trusted_state_snapshots,
   eth/trie/db, eth/trie/backends/rocksdb_backend
 
 type
   BeaconNode* = ref object
-    network*: EthereumNode
+    network*: Eth2Node
     db*: BeaconChainDB
     config*: BeaconNodeConf
-    keys*: KeyPair
     attachedValidators: ValidatorPool
     blockPool*: BlockPool
     state*: StateData
@@ -21,18 +20,13 @@ type
     potentialHeads: seq[Eth2Digest]
 
 const
-  version = "v0.1" # TODO: read this from the nimble file
-  clientId = "nimbus beacon node " & version
-
   topicBeaconBlocks = "ethereum/2.1/beacon_chain/blocks"
   topicAttestations = "ethereum/2.1/beacon_chain/attestations"
   topicfetchBlocks = "ethereum/2.1/beacon_chain/fetch"
 
-
 proc onBeaconBlock*(node: BeaconNode, blck: BeaconBlock) {.gcsafe.}
 
 import sync_protocol
-
 
 func shortValidatorKey(node: BeaconNode, validatorIdx: int): string =
   ($node.state.data.validator_registry[validatorIdx].pubkey)[0..7]
@@ -40,14 +34,7 @@ func shortValidatorKey(node: BeaconNode, validatorIdx: int): string =
 func slotStart(node: BeaconNode, slot: Slot): Timestamp =
   node.state.data.slotStart(slot)
 
-proc ensureNetworkKeys*(dataDir: string): KeyPair =
-  # TODO:
-  # 1. Check if keys already exist in the data dir
-  # 2. Generate new ones and save them in the directory
-  # if necessary
-  return newKeyPair()
-
-proc init*(T: type BeaconNode, conf: BeaconNodeConf): T =
+proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
   new result
   result.config = conf
 
@@ -83,43 +70,36 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): T =
   result.blockPool = BlockPool.init(result.db)
   result.attestationPool = AttestationPool.init(result.blockPool)
 
-  result.keys = ensureNetworkKeys(string conf.dataDir)
+  result.network = await createEth2Node(Port conf.tcpPort, Port conf.udpPort)
 
-  var address: Address
-  address.ip = parseIpAddress("127.0.0.1")
-  address.tcpPort = Port(conf.tcpPort)
-  address.udpPort = Port(conf.udpPort)
-
-  result.network =
-    newEthereumNode(result.keys, address, 0, nil, clientId, minPeers = 1)
   let state = result.network.protocolState(BeaconSync)
   state.node = result
   state.db = result.db
 
-  let
-    head = result.blockPool.get(result.db.getHeadBlock().get())
+  let head = result.blockPool.get(result.db.getHeadBlock().get())
 
   result.state = result.blockPool.loadTailState()
   result.blockPool.updateState(result.state, head.get().refs)
 
-  writeFile(string(conf.dataDir) / "beacon_node.address",
-            $result.network.listeningAddress)
+  let addressFile = string(conf.dataDir) / "beacon_node.address"
+  result.network.saveConnectionAddressFile(addressFile)
 
 proc connectToNetwork(node: BeaconNode) {.async.} =
-  var bootstrapNodes = newSeq[ENode]()
+  var bootstrapNodes = newSeq[BootstrapAddr]()
 
   for node in node.config.bootstrapNodes:
-    bootstrapNodes.add initENode(node)
+    bootstrapNodes.add BootstrapAddr.init(node)
 
   let bootstrapFile = string node.config.bootstrapNodesFile
   if bootstrapFile.len > 0:
     for ln in lines(bootstrapFile):
-      bootstrapNodes.add initENode(string ln)
+      bootstrapNodes.add BootstrapAddr.init(string ln)
 
   if bootstrapNodes.len > 0:
     info "Connecting to bootstrap nodes", bootstrapNodes
   else:
     info "Waiting for connections"
+
   await node.network.connectToNetwork(bootstrapNodes)
 
 proc sync*(node: BeaconNode): Future[bool] {.async.} =
@@ -598,13 +578,13 @@ proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
     discard # node.onAttestation(attestation)
 
 proc run*(node: BeaconNode) =
-  node.network.subscribe(topicBeaconBlocks) do (blck: BeaconBlock):
+  waitFor node.network.subscribe(topicBeaconBlocks) do (blck: BeaconBlock):
     node.onBeaconBlock(blck)
 
-  node.network.subscribe(topicAttestations) do (attestation: Attestation):
+  waitFor node.network.subscribe(topicAttestations) do (attestation: Attestation):
     node.onAttestation(attestation)
 
-  node.network.subscribe(topicfetchBlocks) do (roots: seq[Eth2Digest]):
+  waitFor node.network.subscribe(topicfetchBlocks) do (roots: seq[Eth2Digest]):
     node.onFetchBlocks(roots)
 
   let nowSlot = node.state.data.getSlotFromTime()
@@ -637,7 +617,7 @@ when isMainModule:
     waitFor synchronizeClock()
     createPidFile(config.dataDir.string / "beacon_node.pid")
 
-    var node = BeaconNode.init config
+    var node = waitFor BeaconNode.init(config)
 
     dynamicLogScope(node = node.config.tcpPort - 50000):
       # TODO: while it's nice to cheat by waiting for connections here, we

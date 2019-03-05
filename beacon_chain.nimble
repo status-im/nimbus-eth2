@@ -1,5 +1,8 @@
+import
+  beacon_chain/version
+
 packageName   = "beacon_chain"
-version       = "0.0.1"
+version       = versionAsStr
 author        = "Status Research & Development GmbH"
 description   = "Eth2.0 research implementation of the beacon chain"
 license       = "MIT or Apache License 2.0"
@@ -23,7 +26,8 @@ requires "nim >= 0.19.0",
   "json_serialization",
   "json_rpc",
   "chronos",
-  "yaml"
+  "yaml",
+  "libp2p"
 
 ### Helper functions
 proc test(name: string, defaultLang = "c") =
