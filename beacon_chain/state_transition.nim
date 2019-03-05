@@ -916,6 +916,8 @@ func processEpoch(state: var BeaconState) =
         state.current_shuffling_seed = generate_seed(state, state.current_shuffling_epoch)
         # /Note/ that state.current_shuffling_start_shard is left unchanged
 
+  updateShufflingCache(state)
+
   ## Regardless of whether or not a validator set change happens run
   ## process_slashings(state) and process_exit_queue(state)
   process_slashings(state)

@@ -15,7 +15,7 @@ import
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_shuffling
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_permuted_index
 func get_shuffled_seq*(seed: Eth2Digest,
-                       validators: openArray[Validator],
+                       list_size: uint64,
                        ): seq[ValidatorIndex] =
   ## Via https://github.com/protolambda/eth2-shuffle/blob/master/shuffle.go
   ## Shuffles ``validators`` into crosslink committees seeded by ``seed`` and
@@ -25,7 +25,6 @@ func get_shuffled_seq*(seed: Eth2Digest,
   ##
   ## Invert the inner/outer loops from the spec, essentially. Most useful
   ## hash result re-use occurs within a round.
-  let list_size = validators.len.uint64
   var
     # Share these buffers.
     pivot_buffer: array[(32+1), byte]
@@ -75,21 +74,31 @@ func get_shuffled_seq*(seed: Eth2Digest,
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_shuffling
 func get_shuffling*(seed: Eth2Digest,
                     validators: openArray[Validator],
-                    epoch: Epoch
+                    epoch: Epoch,
+                    shuffling_cache: ShufflingCache
                     ): seq[seq[ValidatorIndex]] =
   ## This function is factored to facilitate testing with
   ## https://github.com/ethereum/eth2.0-test-generators/tree/master/permutated_index
   ## test vectors, which the split of get_shuffling obfuscates.
+  let list_size = validators.len.uint64
 
   let
     active_validator_indices = get_active_validator_indices(validators, epoch)
     committees_per_epoch = get_epoch_committee_count(
       len(active_validator_indices)).int
+    # Both mapIt-type-conversions are an SSZ artifact. TODO remove.
+    shuffled_seq =
+      if shuffling_cache.seeds[0] == seed and
+         shuffling_cache.list_sizes[0] == list_size:
+        mapIt(shuffling_cache.shuffling_0, it.ValidatorIndex)
+      elif shuffling_cache.seeds[1] == seed and
+           shuffling_cache.list_sizes[1] == list_size:
+        mapIt(shuffling_cache.shuffling_1, it.ValidatorIndex)
+      else:
+        get_shuffled_seq(seed, list_size)
 
   # Split the shuffled list into committees_per_epoch pieces
-  result = split(
-    get_shuffled_seq(seed, validators),
-    committees_per_epoch)
+  result = split(shuffled_seq, committees_per_epoch)
   assert result.len() == committees_per_epoch # what split should do..
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_previous_epoch_committee_count
@@ -196,6 +205,7 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot,
       seed,
       state.validator_registry,
       shuffling_epoch,
+      state.shuffling_cache
     )
     offset = slot mod SLOTS_PER_EPOCH
     committees_per_slot = committees_per_epoch div SLOTS_PER_EPOCH

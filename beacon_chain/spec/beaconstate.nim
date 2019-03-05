@@ -151,6 +151,26 @@ func slash_validator*(state: var BeaconState, index: ValidatorIndex) =
   validator.withdrawable_epoch = get_current_epoch(state) +
     LATEST_SLASHED_EXIT_LENGTH
 
+func update_shuffling_cache*(state: var BeaconState) =
+  let
+    list_size = state.validator_registry.len.uint64
+    shuffling_seq = mapIt(
+      get_shuffled_seq(state.current_shuffling_seed, list_size),
+      # No intrinsic reason for this conversion; SSZ requirement artifact.
+      it.int)
+
+  doAssert state.shuffling_cache.index in [0, 1]
+
+  # Do a dance to keep everything JSON-encodable.
+  state.shuffling_cache.seeds[state.shuffling_cache.index] =
+    state.current_shuffling_seed
+  state.shuffling_cache.list_sizes[state.shuffling_cache.index] = list_size
+  if state.shuffling_cache.index == 0:
+    state.shuffling_cache.shuffling_0 = shuffling_seq
+  else:
+    state.shuffling_cache.shuffling_1 = shuffling_seq
+  state.shuffling_cache.index = 1 - state.shuffling_cache.index
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#on-genesis
 func get_genesis_beacon_state*(
     initial_validator_deposits: openArray[Deposit],
@@ -237,6 +257,8 @@ func get_genesis_beacon_state*(
   for index in 0 ..< LATEST_ACTIVE_INDEX_ROOTS_LENGTH:
     state.latest_active_index_roots[index] = genesis_active_index_root
   state.current_shuffling_seed = generate_seed(state, GENESIS_EPOCH)
+
+  update_shuffling_cache(state)
 
   state
 
