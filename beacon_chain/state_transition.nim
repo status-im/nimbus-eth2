@@ -407,12 +407,14 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#ejections
-func process_ejections(state: var BeaconState) =
+func process_ejections(state: var BeaconState, active_validator_indices: auto) =
   ## Iterate through the validator registry and eject active validators with
   ## balance below ``EJECTION_BALANCE``
-  for index in get_active_validator_indices(
-      # TODO minor 0.3.0 bug: it says just current_epoch(state)
-      state.validator_registry, get_current_epoch(state)):
+  ##
+  ## `active_validator_indices` was already computed in `processEpoch`. Reuse.
+  ## Spec recomputes. This is called before validator reshuffling, so use that
+  ## cached version from beginning of `processEpoch`.
+  for index in active_validator_indices:
     if state.validator_balances[index] < EJECTION_BALANCE:
      exit_validator(state, index)
 
@@ -597,9 +599,11 @@ func processEpoch(state: var BeaconState) =
         current_epoch
     next_epoch = (current_epoch + 1).Epoch
 
-    current_total_balance = get_total_balance(
-      state, get_active_validator_indices(
-        state.validator_registry, current_epoch))
+    active_validator_indices =
+      get_active_validator_indices(state.validator_registry, current_epoch)
+
+    current_total_balance =
+      get_total_balance(state, active_validator_indices)
 
     # TODO doing this with iterators failed:
     #      https://github.com/nim-lang/Nim/issues/9827
@@ -803,9 +807,6 @@ func processEpoch(state: var BeaconState) =
 
   block: # Justification and finalization
     let
-      active_validator_indices =
-        get_active_validator_indices(
-          state.validator_registry, slot_to_epoch(state.slot))
       epochs_since_finality = next_epoch - state.finalized_epoch
 
     proc update_balance(attesters: HashSet[ValidatorIndex], attesting_balance: uint64) =
@@ -947,7 +948,7 @@ func processEpoch(state: var BeaconState) =
               state.validator_balances[index], base_reward(state, index))
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#ejections
-  process_ejections(state)
+  process_ejections(state, active_validator_indices)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
   block:
