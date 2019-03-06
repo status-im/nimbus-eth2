@@ -327,7 +327,7 @@ func process_ejections*(state: var BeaconState, active_validator_indices: auto) 
   ## cached version from beginning of `processEpoch`.
   for index in active_validator_indices:
     if state.validator_balances[index] < EJECTION_BALANCE:
-     exit_validator(state, index)
+      exit_validator(state, index)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_total_balance
 func get_total_balance*(state: BeaconState, validators: auto): Gwei =
