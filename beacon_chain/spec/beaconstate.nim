@@ -308,7 +308,7 @@ func get_attestation_participants*(state: BeaconState,
     filterIt(crosslink_committees, it.shard == attestation_data.shard),
     it.committee)[0]
 
-  assert verify_bitfield(bitfield, len(crosslink_committee))
+  doAssert verify_bitfield(bitfield, len(crosslink_committee))
 
   # Find the participating attesters in the committee
   result = @[]
@@ -328,7 +328,7 @@ func process_ejections*(state: var BeaconState) =
       exit_validator(state, index)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_total_balance
-func get_total_balance*(state: BeaconState, validators: seq[ValidatorIndex]): Gwei =
+func get_total_balance*(state: BeaconState, validators: auto): Gwei =
   # Return the combined effective balance of an array of validators.
   foldl(validators, a + get_effective_balance(state, b), 0'u64)
 
