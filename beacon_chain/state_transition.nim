@@ -925,14 +925,23 @@ func processEpoch(state: var BeaconState) =
     for slot in get_epoch_start_slot(previous_epoch) ..< get_epoch_start_slot(current_epoch):
       let crosslink_committees_at_slot = get_crosslink_committees_at_slot(state, slot)
       for crosslink_committee in crosslink_committees_at_slot:
-        let committee_attesting_validators =
-          toSet(attesting_validators(crosslink_committee))
+        let
+          committee_attesting_validators =
+            toSet(attesting_validators(crosslink_committee))
+          ## Keep numerator and denominator separate to allow different
+          ## orders of operation to keep exact equivalence. TODO, check
+          ## spec to see if this kind of fragility is in spec. Wouldn't
+          ## be great to depend on whether integer (a*b)/c or a*(b/c)'s
+          ## being performed.
+          committee_attesting_balance =
+            total_attesting_balance(crosslink_committee)
+          committee_total_balance =
+            get_total_balance(state, crosslink_committee.committee)
         for index in crosslink_committee.committee:
           if index in committee_attesting_validators:
             state.validator_balances[index.int] +=
-              base_reward(state, index) *
-                 total_attesting_balance(crosslink_committee) div
-                  get_total_balance(state, crosslink_committee.committee)
+              base_reward(state, index) * committee_attesting_balance div
+                committee_total_balance
           else:
             reduce_balance(
               state.validator_balances[index], base_reward(state, index))
