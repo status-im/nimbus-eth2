@@ -406,18 +406,6 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#ejections
-func process_ejections(state: var BeaconState, active_validator_indices: auto) =
-  ## Iterate through the validator registry and eject active validators with
-  ## balance below ``EJECTION_BALANCE``
-  ##
-  ## `active_validator_indices` was already computed in `processEpoch`. Reuse.
-  ## Spec recomputes. This is called before validator reshuffling, so use that
-  ## cached version from beginning of `processEpoch`.
-  for index in active_validator_indices:
-    if state.validator_balances[index] < EJECTION_BALANCE:
-     exit_validator(state, index)
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#per-slot-processing
 func processSlot(state: var BeaconState, previous_block_root: Eth2Digest) =
   ## Time on the beacon chain moves in slots. Every time we make it to a new
