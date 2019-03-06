@@ -31,7 +31,7 @@
 # now.
 
 import
-  algorithm, chronicles, math, options, sequtils,
+  algorithm, collections/sets, chronicles, math, options, sequtils, tables,
   ./extras, ./ssz,
   ./spec/[beaconstate, crypto, datatypes, digest, helpers, validator]
 
@@ -632,7 +632,7 @@ func processEpoch(state: var BeaconState) =
         previous_epoch == slot_to_epoch(it.data.slot))
 
     previous_epoch_attester_indices =
-      get_attester_indices(state, previous_epoch_attestations)
+      toSet(get_attester_indices(state, previous_epoch_attestations))
 
     previous_epoch_attesting_balance =
       get_total_balance(state, previous_epoch_attester_indices)
@@ -646,7 +646,7 @@ func processEpoch(state: var BeaconState) =
         previous_epoch_attestations)
 
     previous_epoch_boundary_attester_indices =
-      get_attester_indices(state, previous_epoch_boundary_attestations)
+      toSet(get_attester_indices(state, previous_epoch_boundary_attestations))
 
     previous_epoch_boundary_attesting_balance =
       get_total_balance(state, previous_epoch_boundary_attester_indices)
@@ -659,7 +659,7 @@ func processEpoch(state: var BeaconState) =
         it.data.beacon_block_root == get_block_root(state, it.data.slot))
 
     previous_epoch_head_attester_indices =
-      get_attester_indices(state, previous_epoch_head_attestations)
+      toSet(get_attester_indices(state, previous_epoch_head_attestations))
 
     previous_epoch_head_attesting_balance =
       get_total_balance(state, previous_epoch_head_attester_indices)
@@ -777,6 +777,9 @@ func processEpoch(state: var BeaconState) =
       INACTIVITY_PENALTY_QUOTIENT div 2
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#justification-and-finalization
+  ## TODO remove inclusion_{slot,distance} when fully replaced, but note
+  ## intentional absence, for spec sync purposes. Both positively invite
+  ## quadratic behavior.
   func inclusion_slot(state: BeaconState, v: ValidatorIndex): uint64 =
     for a in previous_epoch_attestations:
       if v in get_attestation_participants(state, a.data, a.aggregation_bitfield):
@@ -789,6 +792,15 @@ func processEpoch(state: var BeaconState) =
         return a.inclusion_slot - a.data.slot
     doAssert false
 
+  func inclusion_distances(state: BeaconState): auto =
+    result = initTable[ValidatorIndex, uint64]()
+
+    for a in previous_epoch_attestations:
+      for v in get_attestation_participants(
+          state, a.data, a.aggregation_bitfield):
+        if v notin result:
+          result[v] = a.inclusion_slot - a.data.slot
+
   block: # Justification and finalization
     let
       active_validator_indices =
@@ -796,7 +808,7 @@ func processEpoch(state: var BeaconState) =
           state.validator_registry, slot_to_epoch(state.slot))
       epochs_since_finality = next_epoch - state.finalized_epoch
 
-    proc update_balance(attesters: openArray[ValidatorIndex], attesting_balance: uint64) =
+    proc update_balance(attesters: HashSet[ValidatorIndex], attesting_balance: uint64) =
       # TODO Spec - add helper?
       for v in attesters:
         statePtr.validator_balances[v] +=
@@ -826,13 +838,25 @@ func processEpoch(state: var BeaconState) =
         previous_epoch_head_attesting_balance)
 
       # Inclusion distance
+      let distances = inclusion_distances(state)
+
       for v in previous_epoch_attester_indices:
         statePtr.validator_balances[v] +=
           base_reward(state, v) *
-          MIN_ATTESTATION_INCLUSION_DELAY div inclusion_distance(state, v)
+          MIN_ATTESTATION_INCLUSION_DELAY div distances[v]
+        when false:
+          doAssert inclusion_distance(state, v) == distances[v]
 
     else:
       # Case 2: epochs_since_finality > 4
+      let distances =
+        if previous_epoch_attester_indices.len > 0:
+          inclusion_distances(state)
+        else:
+          ## Last case will not occur. If this assumption becomes false,
+          ## indexing into distances will fail.
+          initTable[ValidatorIndex, uint64]()
+
       for index in active_validator_indices:
         if index notin previous_epoch_attester_indices:
           reduce_balance(
@@ -855,13 +879,44 @@ func processEpoch(state: var BeaconState) =
             state.validator_balances[index],
             base_reward(state, index) -
             base_reward(state, index) * MIN_ATTESTATION_INCLUSION_DELAY div
-            inclusion_distance(state, index))
+            distances[index])
+          when false:
+            doAssert inclusion_distance(state, index) == distances[index]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#attestation-inclusion
   block:
+    ## Minimally transform spec algorithm into something non-quadratic, while
+    ## retaining enough resemblance to both verify equivalence and update, if
+    ## it changes. inclusion_slot iterates across previous_epoch_attestations
+    ## until it finds the attester index `v` represented. Instead construct a
+    ## (reverse) index based on one O(n) scan of previous_epoch_attestations,
+    ## then perform O(n) O(1) lookups. Keep same iteration order and rules in
+    ## which first match wins and terminates for each ValidatorIndex.
+    var proposer_indexes = initTable[ValidatorIndex, uint64]()
+
+    # This is the loop from inclusion_slot(...)
+    for a in previous_epoch_attestations:
+      for v in get_attestation_participants(
+          state, a.data, a.aggregation_bitfield):
+        ## Here, though, collect all results (but only, though it shouldn't
+        ## happen regardless, the first proposer index per ValidatorIndex),
+        ## which avoids the quadratic behavior.
+        if v notin proposer_indexes:
+          proposer_indexes[v] = a.inclusion_slot
+
     for v in previous_epoch_attester_indices:
+      ## inclusion_slot(...) doAsserts false if it doesn't find anything, so
+      ## equivalently, simply look up table element, intentionally fragilely
+      ## such that a useful stack trace is produced.
       let proposer_index =
-        get_beacon_proposer_index(state, inclusion_slot(state, v))
+        get_beacon_proposer_index(state, proposer_indexes[v])
+
+      # Ensure this keeps getting compiled to some extent to help compare.
+      when false:
+        let proposer_index_slow =
+          get_beacon_proposer_index(state, inclusion_slot(state, v))
+        doAssert proposer_index == proposer_index_slow
+
       state.validator_balances[proposer_index] +=
         base_reward(state, v) div ATTESTATION_INCLUSION_REWARD_QUOTIENT
 
@@ -870,8 +925,10 @@ func processEpoch(state: var BeaconState) =
     for slot in get_epoch_start_slot(previous_epoch) ..< get_epoch_start_slot(current_epoch):
       let crosslink_committees_at_slot = get_crosslink_committees_at_slot(state, slot)
       for crosslink_committee in crosslink_committees_at_slot:
+        let committee_attesting_validators =
+          toSet(attesting_validators(crosslink_committee))
         for index in crosslink_committee.committee:
-          if index in attesting_validators(crosslink_committee):
+          if index in committee_attesting_validators:
             state.validator_balances[index.int] +=
               base_reward(state, index) *
                  total_attesting_balance(crosslink_committee) div
