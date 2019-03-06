@@ -11,7 +11,7 @@ import
   ../beacon_chain/[beacon_chain_db, extras, ssz, state_transition, validator_pool],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator]
 
-func makeValidatorPrivKey(i: int): ValidatorPrivKey =
+func makeFakeValidatorPrivKey*(i: int): ValidatorPrivKey =
   var i = i + 1 # 0 does not work, as private key...
   copyMem(result.x[0].addr, i.addr, min(sizeof(result.x), sizeof(i)))
 
@@ -24,14 +24,14 @@ func hackPrivKey(v: Validator): ValidatorPrivKey =
   copyMem(
     i.addr, v.withdrawal_credentials.data[0].unsafeAddr,
     min(sizeof(v.withdrawal_credentials.data), sizeof(i)))
-  makeValidatorPrivKey(i)
+  makeFakeValidatorPrivKey(i)
 
 func makeDeposit(i: int, flags: UpdateFlags): Deposit =
   ## Ugly hack for now: we stick the private key in withdrawal_credentials
   ## which means we can repro private key and randao reveal from this data,
   ## for testing :)
   let
-    privkey = makeValidatorPrivKey(i)
+    privkey = makeFakeValidatorPrivKey(i)
     pubkey = privkey.pubKey()
     withdrawal_credentials = makeFakeHash(i)
 

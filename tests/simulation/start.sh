@@ -10,11 +10,12 @@ trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 
 # Set a default value for the env vars usually supplied by nimbus Makefile
 
-NUMBER_OF_VALIDATORS=99
+NUM_VALIDATORS=${1:-100}
+NUM_NODES=${2:-9}
 
 cd $SIM_ROOT
 mkdir -p "$SIMULATION_DIR"
-mkdir -p "$STARTUP_DIR"
+mkdir -p "$VALIDATORS_DIR"
 
 cd $GIT_ROOT
 mkdir -p $BUILD_OUTPUTS_DIR
@@ -24,12 +25,15 @@ DEFS="-d:SHARD_COUNT=${SHARD_COUNT:-4} "      # Spec default: 1024
 DEFS+="-d:SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH:-8} "   # Spec default: 64
 DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-6} " # Spec default: 6
 
-if [ ! -f $STARTUP_FILE ]; then
+LAST_VALIDATOR_NUM=$(( $NUM_VALIDATORS - 1 ))
+LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.json"
+
+if [ ! -f $LAST_VALIDATOR ]; then
   if [[ -z "$SKIP_BUILDS" ]]; then
     nim c -o:"$VALIDATOR_KEYGEN_BIN" $DEFS -d:release beacon_chain/validator_keygen
   fi
 
-  $VALIDATOR_KEYGEN_BIN --validators=$NUMBER_OF_VALIDATORS --outputDir="$STARTUP_DIR"
+  $VALIDATOR_KEYGEN_BIN --validators=$NUM_VALIDATORS --outputDir="$VALIDATORS_DIR"
 fi
 
 if [[ -z "$SKIP_BUILDS" ]]; then
@@ -38,8 +42,10 @@ fi
 
 if [ ! -f $SNAPSHOT_FILE ]; then
   $BEACON_NODE_BIN createChain \
-    --chainStartupData:$STARTUP_FILE \
-    --out:$SNAPSHOT_FILE --genesisOffset=5 # Delay in seconds
+    --validatorsDir:$VALIDATORS_DIR \
+    --out:$SNAPSHOT_FILE \
+    --numValidators=$NUM_VALIDATORS \
+    --genesisOffset=5 # Delay in seconds
 fi
 
 # Delete any leftover address files from a previous session
@@ -53,7 +59,9 @@ USE_MULTITAIL="${USE_MULTITAIL:-no}" # make it an opt-in
 type "$MULTITAIL" &>/dev/null || USE_MULTITAIL="no"
 COMMANDS=()
 
-for i in $(seq 0 8); do
+LAST_NODE=$(( $NUM_NODES - 1 ))
+
+for i in $(seq 0 $LAST_NODE); do
   BOOTSTRAP_NODES_FLAG="--bootstrapNodesFile:$MASTER_NODE_ADDRESS_FILE"
 
   if [[ "$i" == "0" ]]; then

@@ -177,9 +177,8 @@ template findIt(s: openarray, predicate: untyped): int =
   res
 
 proc addLocalValidators*(node: BeaconNode) =
-  for validator in node.config.validators:
+  for privKey in node.config.validators:
     let
-      privKey = validator.privKey
       pubKey = privKey.pubKey()
 
     let idx = node.state.data.validator_registry.findIt(it.pubKey == pubKey)
@@ -276,7 +275,7 @@ proc makeAttestation(node: BeaconNode,
       beacon_block_root: node.state.blck.root,
       epoch_boundary_root: Eth2Digest(), # TODO
       shard_block_root: Eth2Digest(), # TODO
-      latest_crosslink: Crosslink(epoch: state.latest_crosslinks[shard].epoch),
+      latest_crosslink: state.latest_crosslinks[shard],
       justified_epoch: state.justified_epoch,
       justified_block_root: justifiedBlockRoot)
 
@@ -632,8 +631,8 @@ when isMainModule:
   case config.cmd
   of createChain:
     createStateSnapshot(
-      config.chainStartupData, config.genesisOffset,
-      config.outputStateFile.string)
+      config.validatorsDir.string, config.numValidators, config.firstValidator,
+      config.genesisOffset, config.outputStateFile.string)
     quit 0
 
   of noCommand:
