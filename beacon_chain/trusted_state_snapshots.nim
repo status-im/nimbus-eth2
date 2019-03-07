@@ -1,5 +1,5 @@
 import
-  chronos,
+  ospaths, chronos, json_serialization, strformat,
   spec/[datatypes, crypto, digest, beaconstate], beacon_chain_db, conf
 
 const
@@ -30,13 +30,18 @@ proc obtainTrustedStateSnapshot*(db: BeaconChainDB): Future[BeaconState] {.async
   assert(false, "Not implemented")
 
 proc createStateSnapshot*(
-    startup: ChainStartupData, genesisOffset: int, outFile: string) =
+    validatorDir: string, numValidators, firstValidator, genesisOffset: int,
+    outFile: string) =
+
+  var deposits: seq[Deposit]
+  for i in firstValidator..<numValidators:
+    deposits.add Json.loadFile(validatorDir / &"v{i:07}.deposit.json", Deposit)
+
   let initialState = get_genesis_beacon_state(
-    startup.validatorDeposits,
+    deposits,
     uint64(int(fastEpochTime() div 1000) + genesisOffset),
     Eth1Data(), {})
 
   var vr: Validator
   Json.saveFile(outFile, initialState, pretty = true)
   echo "Wrote ", outFile
-

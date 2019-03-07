@@ -5,15 +5,86 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 ![Stability: experimental](https://img.shields.io/badge/stability-experimental-orange.svg)
 
-An alternative implementation of the Ethereum beacon chain in Nim.
+Nimbus beacon chain is a research implementation of the beacon chain component of the upcoming Ethereum Serenity upgrade, aka eth2. See the main [Nimbus](https://github.com/status-im/nimbus/) project for the bigger picture.
 
-Please see [Full Beacon chain](https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md) specs and the Ethereum Foundation [reference implementation](https://github.com/ethereum/beacon_chain).
+## Related
+
+* [status-im/nimbus](https://github.com/status-im/nimbus/): main Nimbus repository - start here to learn more about the Nimbus eco-system
+* [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md): Serenity specification that this project implements
+* [ethereum/beacon_chain]((https://github.com/ethereum/beacon_chain): reference implementation from the Ethereum foundation
 
 You can check where the beacon chain fits in the Ethereum research ecosystem in the [Status Athenaeum](https://github.com/status-im/athenaeum/blob/b465626cc551e361492e56d32517b2cdadd7493f/ethereum_research_records.json#L38).
 
 ## Test vectors
 
 The Eth 2.0 test vectors and their generators are available in a [dedicated repository](https://github.com/status-im/eth2-testgen).
+
+## Building and Testing
+
+The beacon chain components require that you have Nim installed - the easiest way to get started is to head over to the main [Nimbus](https://github.com/status-im/nimbus/) repository and follow the build instructions there. Once you're able to build nimbus:
+
+Then:
+
+```bash
+# Or wherever you cloned nimbus
+cd nimbus
+
+# Prep environment
+make
+./env.sh bash
+
+# You're now in a shell environment that has the right Nim version available
+
+cd..
+
+git clone https://github.com/status-im/nim-beacon-chain
+cd nim-beacon-chain
+
+# Build binaries and run test suite
+nimble build
+nimble test
+```
+
+This should produce some passing tests.
+
+## Beacon node simulation
+
+The beacon node simulation is will create a full peer-to-peer network of beacon nodes and validators, and run the beacon chain in real time. To change network parameters such as shard and validator counts, see [start.sh](tests/simulation/start.sh).
+
+```bash
+# Start beacon chain simulation, resuming from the previous state (if any)
+./tests/simulation/start.sh
+
+# Clear data from last run and restart simulation with a new genesis block
+rf -rf tests/simulation/data ; ./tests/simulation/start.sh
+
+# Run an extra node - by default the network will launch with 9 nodes, each
+# hosting 10 validators. The last 10 validators are lazy bums that hid from the
+# startup script, but you can command them back to work in a separate terminal
+# with:
+./tests/simulation/run_node.sh 9
+```
+
+You can also separate the output from each beacon node in its own panel, using [multitail](http://www.vanheusden.com/multitail/):
+
+```bash
+USE_MULTITAIL="yes" ./tests/simulation/start.sh
+```
+
+You can find out more about it in the [development update](https://our.status.im/nimbus-development-update-2018-12-2/).
+
+_Alternatively, fire up our [experimental Vagrant instance with Nim pre-installed](https://our.status.im/setting-up-a-local-vagrant-environment-for-nim-development/) and give us yout feedback about the process!_
+
+## State transition simulation
+
+The state transition simulator can quickly run the Beacon chain state transition function in isolation and output JSON snapshots of the state. The simulation runs without networking and blocks are processed without slot time delays.
+
+```bash
+cd research
+# build and run state simulator, then display its help - -d:release speeds it
+# up substantially, allowing the simulation of longer runs in reasonable time
+nim c -d:release -r state_sim --help
+```
 
 ## Convention
 
@@ -28,44 +99,6 @@ Nim NEP-1 recommends:
   - PascalCase for types
 
 To facilitate collaboration and comparison, Nim-beacon-chain uses the Ethereum Foundation convention.
-
-## Installation
-
-You can install the developement version of the library through nimble with the following command
-```
-nimble install https://github.com/status-im/nim-beacon-chain@#master
-```
-
-## Building and Testing
-
-To try out the implementation, please first make sure you have a [Nim environment configured](https://bitfalls.com/2018/10/09/introduction-into-the-nim-language/).
-
-_Alternatively, fire up our [experimental Vagrant instance with Nim pre-installed](https://our.status.im/setting-up-a-local-vagrant-environment-for-nim-development/) and give us yout feedback about the process!_
-
-Then:
-
-```bash
-git clone https://github.com/status-im/nim-beacon-chain
-cd nim-beacon-chain
-nimble install
-nimble test
-```
-
-This should produce some passing tests.
-
-Additionally, you can run our simulation which generates a genesis file from some randomly generated validators. It then fires up 10 beacon nodes (each hosting 9 validators) which talk to each other and try to do state transitions. The simulation can be run by executing:
-
-```bash
-bash tests/simulation/start.sh
-```
-
-You can also separate the output from each beacon node in its own panel, using [multitail](http://www.vanheusden.com/multitail/):
-
-```bash
-USE_MULTITAIL="yes" ./tests/simulation/start.sh
-```
-
-You can find out more about it in the [development update](https://our.status.im/nimbus-development-update-2018-12-2/).
 
 ## License
 

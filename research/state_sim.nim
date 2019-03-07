@@ -106,11 +106,11 @@ cli do(slots = 1945,
           for v in scas.committee:
             if (rand(r, high(int)).float * attesterRatio).int <= high(int):
               if first:
-                attestation = makeAttestation(state, latest_block_root, v)
+                attestation = makeAttestation(state, latest_block_root, v, flags)
                 first = false
               else:
                 attestation.combine(
-                  makeAttestation(state, latest_block_root, v), flags)
+                  makeAttestation(state, latest_block_root, v, flags), flags)
 
         if not first:
           # add the attestation if any of the validators attested, as given
@@ -138,6 +138,10 @@ cli do(slots = 1945,
   echo "All time are ms"
   echo &"{\"Average\" :>12}, {\"StdDev\" :>12}, {\"Min\" :>12}, " &
     &"{\"Max\" :>12}, {\"Samples\" :>12}, {\"Test\" :>12}"
+
+  if not validate:
+    echo "Validation is turned off meaning that no BLS operations are performed"
+
   for t in Timers:
     echo fmtTime(timers[t].mean), fmtTime(timers[t].standardDeviationS),
       fmtTime(timers[t].min), fmtTime(timers[t].max), &"{timers[t].n :>12}, ",
