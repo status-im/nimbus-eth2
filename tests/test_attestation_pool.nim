@@ -29,8 +29,7 @@ suite "Attestation pool processing":
       pool = AttestationPool.init(blockPool)
       state = blockPool.loadTailState()
     # Slot 0 is a finalized slot - won't be making attestations for it..
-    discard updateState(
-        state.data, state.blck.root, none(BeaconBlock), {skipValidation})
+    advanceState(state.data, state.blck.root)
 
     let
       # Create an attestation for slot 1 signed by the only attester we have!
@@ -47,14 +46,12 @@ suite "Attestation pool processing":
     check:
       attestations.len == 1
 
-
   test "Attestations may arrive in any order":
     var
       pool = AttestationPool.init(blockPool)
       state = blockPool.loadTailState()
     # Slot 0 is a finalized slot - won't be making attestations for it..
-    discard updateState(
-        state.data, state.blck.root, none(BeaconBlock), {skipValidation})
+    advanceState(state.data, state.blck.root)
 
     let
       # Create an attestation for slot 1 signed by the only attester we have!
@@ -63,8 +60,7 @@ suite "Attestation pool processing":
       attestation1 = makeAttestation(
         state.data, state.blck.root, crosslink_committees1[0].committee[0])
 
-    discard updateState(
-        state.data, state.blck.root, none(BeaconBlock), {skipValidation})
+    advanceState(state.data, state.blck.root)
 
     let
       crosslink_committees2 =

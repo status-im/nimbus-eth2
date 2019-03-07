@@ -112,7 +112,7 @@ proc containsBlock*(
 
 proc containsState*(
     db: BeaconChainDB, key: Eth2Digest): bool =
-  db.backend.contains(subkey(BeaconBlock, key))
+  db.backend.contains(subkey(BeaconState, key))
 
 iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
     tuple[root: Eth2Digest, blck: BeaconBlock] =

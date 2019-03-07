@@ -10,18 +10,50 @@ import  options, unittest, sequtils, strutils, eth/trie/[db],
   ../beacon_chain/spec/[datatypes, digest, crypto]
 
 suite "Beacon chain DB":
-  var
-    db = init(BeaconChainDB, newMemoryDB())
 
   test "empty database":
+    var
+      db = init(BeaconChainDB, newMemoryDB())
+
     check:
       db.getState(Eth2Digest()).isNone
       db.getBlock(Eth2Digest()).isNone
 
-  test "find ancestors":
-    var x: ValidatorSig
-    var y = init(ValidatorSig, x.getBytes())
+  test "sanity check blocks":
+    var
+      db = init(BeaconChainDB, newMemoryDB())
 
+    let
+      blck = BeaconBlock()
+      root = hash_tree_root_final(blck)
+
+    db.putBlock(blck)
+
+    check:
+      db.containsBlock(root)
+      db.getBlock(root).get() == blck
+
+  test "sanity check states":
+    var
+      db = init(BeaconChainDB, newMemoryDB())
+
+    let
+      state = BeaconState()
+      root = hash_tree_root_final(state)
+
+    db.putState(state)
+
+    check:
+      db.containsState(root)
+      db.getState(root).get() == state
+
+  test "find ancestors":
+    var
+      db = init(BeaconChainDB, newMemoryDB())
+      x: ValidatorSig
+      y = init(ValidatorSig, x.getBytes())
+
+     # Silly serialization check that fails without the right import
     check: x == y
 
     let
