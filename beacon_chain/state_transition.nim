@@ -406,16 +406,6 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#ejections
-func process_ejections(state: var BeaconState) =
-  ## Iterate through the validator registry and eject active validators with
-  ## balance below ``EJECTION_BALANCE``
-  for index in get_active_validator_indices(
-      # TODO minor 0.3.0 bug: it says just current_epoch(state)
-      state.validator_registry, get_current_epoch(state)):
-    if state.validator_balances[index] < EJECTION_BALANCE:
-     exit_validator(state, index)
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#per-slot-processing
 func processSlot(state: var BeaconState, previous_block_root: Eth2Digest) =
   ## Time on the beacon chain moves in slots. Every time we make it to a new
@@ -597,9 +587,11 @@ func processEpoch(state: var BeaconState) =
         current_epoch
     next_epoch = (current_epoch + 1).Epoch
 
-    current_total_balance = get_total_balance(
-      state, get_active_validator_indices(
-        state.validator_registry, current_epoch))
+    active_validator_indices =
+      get_active_validator_indices(state.validator_registry, current_epoch)
+
+    current_total_balance =
+      get_total_balance(state, active_validator_indices)
 
     # TODO doing this with iterators failed:
     #      https://github.com/nim-lang/Nim/issues/9827
@@ -803,9 +795,6 @@ func processEpoch(state: var BeaconState) =
 
   block: # Justification and finalization
     let
-      active_validator_indices =
-        get_active_validator_indices(
-          state.validator_registry, slot_to_epoch(state.slot))
       epochs_since_finality = next_epoch - state.finalized_epoch
 
     proc update_balance(attesters: HashSet[ValidatorIndex], attesting_balance: uint64) =
@@ -925,20 +914,29 @@ func processEpoch(state: var BeaconState) =
     for slot in get_epoch_start_slot(previous_epoch) ..< get_epoch_start_slot(current_epoch):
       let crosslink_committees_at_slot = get_crosslink_committees_at_slot(state, slot)
       for crosslink_committee in crosslink_committees_at_slot:
-        let committee_attesting_validators =
-          toSet(attesting_validators(crosslink_committee))
+        let
+          committee_attesting_validators =
+            toSet(attesting_validators(crosslink_committee))
+          ## Keep numerator and denominator separate to allow different
+          ## orders of operation to keep exact equivalence. TODO, check
+          ## spec to see if this kind of fragility is in spec. Wouldn't
+          ## be great to depend on whether integer (a*b)/c or a*(b/c)'s
+          ## being performed.
+          committee_attesting_balance =
+            total_attesting_balance(crosslink_committee)
+          committee_total_balance =
+            get_total_balance(state, crosslink_committee.committee)
         for index in crosslink_committee.committee:
           if index in committee_attesting_validators:
             state.validator_balances[index.int] +=
-              base_reward(state, index) *
-                 total_attesting_balance(crosslink_committee) div
-                  get_total_balance(state, crosslink_committee.committee)
+              base_reward(state, index) * committee_attesting_balance div
+                committee_total_balance
           else:
             reduce_balance(
               state.validator_balances[index], base_reward(state, index))
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#ejections
-  process_ejections(state)
+  process_ejections(state, active_validator_indices)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
   block:

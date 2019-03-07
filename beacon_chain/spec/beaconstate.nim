@@ -317,13 +317,15 @@ func get_attestation_participants*(state: BeaconState,
     if aggregation_bit == 1:
       result.add(validator_index)
 
-func process_ejections*(state: var BeaconState) =
-  ## Iterate through the validator registry
-  ## and eject active validators with balance below ``EJECTION_BALANCE``.
-
-  for index in get_active_validator_indices(
-      # TODO v0.3.0 spec bug, has this as current_epoch(state)
-      state.validator_registry, get_current_epoch(state)):
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#ejections
+func process_ejections*(state: var BeaconState, active_validator_indices: auto) =
+  ## Iterate through the validator registry and eject active validators with
+  ## balance below ``EJECTION_BALANCE``
+  ##
+  ## `active_validator_indices` was already computed in `processEpoch`. Reuse.
+  ## Spec recomputes. This is called before validator reshuffling, so use that
+  ## cached version from beginning of `processEpoch`.
+  for index in active_validator_indices:
     if state.validator_balances[index] < EJECTION_BALANCE:
       exit_validator(state, index)
 
