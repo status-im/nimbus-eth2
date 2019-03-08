@@ -12,7 +12,7 @@ import
   ../beacon_chain/[block_pool, beacon_chain_db, extras, state_transition, ssz]
 
 suite "Block pool processing":
-  var
+  let
     genState = get_genesis_beacon_state(
       makeInitialDeposits(flags = {skipValidation}), 0, Eth1Data(),
         {skipValidation})
@@ -38,7 +38,7 @@ suite "Block pool processing":
       b1Root = hash_tree_root_final(b1)
 
     # TODO the return value is ugly here, need to fix and test..
-    discard pool.add(b1Root, b1)
+    discard pool.add(state, b1Root, b1)
 
     let b1Ref = pool.get(b1Root)
 
@@ -53,19 +53,18 @@ suite "Block pool processing":
       state = pool.loadTailState()
 
     let
-      b1 = addBlock(
-        state.data, state.blck.root, BeaconBlockBody(), {skipValidation})
+      b1 = addBlock(state.data, state.blck.root, BeaconBlockBody(), {})
       b1Root = hash_tree_root_final(b1)
-      b2 = addBlock(state.data, b1Root, BeaconBlockBody(), {skipValidation})
+      b2 = addBlock(state.data, b1Root, BeaconBlockBody(), {})
       b2Root = hash_tree_root_final(b2)
 
-    discard pool.add(b2Root, b2)
+    discard pool.add(state, b2Root, b2)
 
     check:
       pool.get(b2Root).isNone() # Unresolved, shouldn't show up
       b1Root in pool.checkUnresolved()
 
-    discard pool.add(b1Root, b1)
+    discard pool.add(state, b1Root, b1)
 
     let
       b1r = pool.get(b1Root)
