@@ -969,14 +969,16 @@ proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   else:
     true
 
-proc updateState*(state: var BeaconState, previous_block_root: Eth2Digest,
-    new_block: Option[BeaconBlock], flags: UpdateFlags): bool =
+proc updateState*(
+    state: var BeaconState, previous_block_root: Eth2Digest,
+    new_block: BeaconBlock, flags: UpdateFlags): bool =
   ## Time in the beacon chain moves by slots. Every time (haha.) that happens,
   ## we will update the beacon state. Normally, the state updates will be driven
   ## by the contents of a new block, but it may happen that the block goes
   ## missing - the state updates happen regardless.
+  ##
   ## Each call to this function will advance the state by one slot - new_block,
-  ## if present, must match that slot.
+  ## must match that slot. If the update fails, the state will remain unchanged.
   ##
   ## The flags are used to specify that certain validations should be skipped
   ## for the new block. This is done during block proposal, to create a state
@@ -988,59 +990,67 @@ proc updateState*(state: var BeaconState, previous_block_root: Eth2Digest,
   #      One reason to keep it this way is that you need to look ahead if you're
   #      the block proposer, though in reality we only need a partial update for
   #      that
+  # TODO There's a discussion about what this function should do, and when:
+  #      https://github.com/ethereum/eth2.0-specs/issues/284
+
   # TODO check to which extent this copy can be avoided (considering forks etc),
   #      for now, it serves as a reminder that we need to handle invalid blocks
   #      somewhere..
-  # TODO many functions will mutate `state` partially without rolling back
+  #      many functions will mutate `state` partially without rolling back
   #      the changes in case of failure (look out for `var BeaconState` and
   #      bool return values...)
-  # TODO There's a discussion about what this function should do, and when:
-  #      https://github.com/ethereum/eth2.0-specs/issues/284
   var old_state = state
 
   # Per-slot updates - these happen regardless if there is a block or not
   processSlot(state, previous_block_root)
 
-  if new_block.isSome():
-    # Block updates - these happen when there's a new block being suggested
-    # by the block proposer. Every actor in the network will update its state
-    # according to the contents of this block - but first they will validate
-    # that the block is sane.
-    # TODO what should happen if block processing fails?
-    #      https://github.com/ethereum/eth2.0-specs/issues/293
-    if processBlock(state, new_block.get(), flags):
-      # Block ok so far, proceed with state update
-      processEpoch(state)
-
-      # This is a bit awkward - at the end of processing we verify that the
-      # state we arrive at is what the block producer thought it would be -
-      # meaning that potentially, it could fail verification
-      if skipValidation in flags or verifyStateRoot(state, new_block.get()):
-        # State root is what it should be - we're done!
-        return true
-
-    # Block processing failed, have to start over
-    state = old_state
-    processSlot(state, previous_block_root)
+  # Block updates - these happen when there's a new block being suggested
+  # by the block proposer. Every actor in the network will update its state
+  # according to the contents of this block - but first they will validate
+  # that the block is sane.
+  # TODO what should happen if block processing fails?
+  #      https://github.com/ethereum/eth2.0-specs/issues/293
+  if processBlock(state, new_block, flags):
+    # Block ok so far, proceed with state update
     processEpoch(state)
-    false
-  else:
-    # Skip all per-block processing. Move directly to epoch processing
-    # prison. Do not do any block updates when passing go.
 
-    # Heavy updates that happen for every epoch - these never fail (or so we hope)
-    processEpoch(state)
-    true
+    # This is a bit awkward - at the end of processing we verify that the
+    # state we arrive at is what the block producer thought it would be -
+    # meaning that potentially, it could fail verification
+    if skipValidation in flags or verifyStateRoot(state, new_block):
+      # State root is what it should be - we're done!
+      return true
 
-proc skipSlots*(state: var BeaconState, parentRoot: Eth2Digest, slot: Slot) =
+  # Block processing failed, roll back changes
+  state = old_state
+  false
+
+proc advanceState*(
+    state: var BeaconState, previous_block_root: Eth2Digest) =
+  ## Sometimes we need to update the state even though we don't have a block at
+  ## hand - this happens for example when a block proposer fails to produce a
+  ## a block.
+  # TODO In the current spec, this can fail only when the state is inconsistent
+  #      or buggy - how do we handle that? crash?
+
+  # Per-slot updates - these happen regardless if there is a block or not
+  processSlot(state, previous_block_root)
+
+  # Heavy updates that happen for every epoch - these never fail (or so we hope)
+  processEpoch(state)
+
+proc skipSlots*(state: var BeaconState, parentRoot: Eth2Digest, slot: Slot,
+    afterSlot: proc (state: BeaconState) = nil) =
   if state.slot < slot:
-    info "Advancing state past slot gap",
+    debug "Advancing state past slot gap",
       targetSlot = humaneSlotNum(slot),
       stateSlot = humaneSlotNum(state.slot)
 
     while state.slot < slot:
-      let ok = updateState(state, parentRoot, none[BeaconBlock](), {})
-      doAssert ok, "Empty block state update should never fail!"
+      advanceState(state, parentRoot)
+
+      if not afterSlot.isNil:
+        afterSlot(state)
 
 # TODO document this:
 

@@ -330,13 +330,13 @@ proc proposeBlock(node: BeaconNode,
   var newBlock = BeaconBlock(
     slot: slot,
     parent_root: node.state.blck.root,
-    randao_reveal: validator.genRandaoReveal(state, state.slot),
+    randao_reveal: validator.genRandaoReveal(state, slot),
     eth1_data: node.mainchainMonitor.getBeaconBlockRef(),
     signature: ValidatorSig(), # we need the rest of the block first!
     body: blockBody)
 
   let ok =
-    updateState(state, node.state.blck.root, some(newBlock), {skipValidation})
+    updateState(state, node.state.blck.root, newBlock, {skipValidation})
   doAssert ok # TODO: err, could this fail somehow?
 
   newBlock.state_root = Eth2Digest(data: hash_tree_root(state))
@@ -428,43 +428,40 @@ proc scheduleEpochActions(node: BeaconNode, epoch: Epoch) =
     epoch = humaneEpochNum(epoch),
     stateEpoch = humaneEpochNum(node.state.data.slot.slot_to_epoch())
 
+  # In case some late blocks dropped in
+  node.updateHead()
+
   # Sanity check - verify that the current head block is not too far behind
   if node.state.data.slot.slot_to_epoch() + 1 < epoch:
-    # Normally, we update the head state lazily, just before making an
-    # attestation. However, if we skip scheduling attestations, we'll never
-    # run the head update - thus we make an attempt now:
-    node.updateHead()
+    # We're hopelessly behind!
+    #
+    # There's a few ways this can happen:
+    #
+    # * we receive no attestations or blocks for an extended period of time
+    # * all the attestations we receive are bogus - maybe we're connected to
+    #   the wrong network?
+    # * we just started and still haven't synced
+    #
+    # TODO make an effort to find other nodes and sync? A worst case scenario
+    #      here is that the network stalls because nobody is sending out
+    #      attestations because nobody is scheduling them, in a vicious
+    #      circle
+    # TODO diagnose the various scenarios and do something smart...
 
-    if node.state.data.slot.slot_to_epoch() + 1 < epoch:
-      # We're still behind!
-      #
-      # There's a few ways this can happen:
-      #
-      # * we receive no attestations or blocks for an extended period of time
-      # * all the attestations we receive are bogus - maybe we're connected to
-      #   the wrong network?
-      # * we just started and still haven't synced
-      #
-      # TODO make an effort to find other nodes and sync? A worst case scenario
-      #      here is that the network stalls because nobody is sending out
-      #      attestations because nobody is scheduling them, in a vicious
-      #      circle
-      # TODO diagnose the various scenarios and do something smart...
+    let
+      expectedSlot = node.state.data.getSlotFromTime()
+      nextSlot = expectedSlot + 1
+      at = node.slotStart(nextSlot)
 
-      let
-        expectedSlot = node.state.data.getSlotFromTime()
-        nextSlot = expectedSlot + 1
-        at = node.slotStart(nextSlot)
+    notice "Delaying epoch scheduling, head too old - scheduling new attempt",
+      stateSlot = humaneSlotNum(node.state.data.slot),
+      expectedEpoch = humaneEpochNum(epoch),
+      expectedSlot = humaneSlotNum(expectedSlot),
+      fromNow = (at - fastEpochTime()) div 1000
 
-      notice "Delaying epoch scheduling, head too old - scheduling new attempt",
-        stateSlot = humaneSlotNum(node.state.data.slot),
-        expectedEpoch = humaneEpochNum(epoch),
-        expectedSlot = humaneSlotNum(expectedSlot),
-        fromNow = (at - fastEpochTime()) div 1000
-
-      addTimer(at) do (p: pointer):
-        node.scheduleEpochActions(nextSlot.slot_to_epoch())
-      return
+    addTimer(at) do (p: pointer):
+      node.scheduleEpochActions(nextSlot.slot_to_epoch())
+    return
 
   # TODO: is this necessary with the new shuffling?
   #       see get_beacon_proposer_index
@@ -580,7 +577,14 @@ proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
     voluntary_exits = blck.body.voluntary_exits.len,
     transfers = blck.body.transfers.len
 
-  if not node.blockPool.add(blockRoot, blck):
+  var
+    # TODO We could avoid this copy by having node.state as a general cache
+    #      that just holds a random recent state - that would however require
+    #      rethinking scheduling etc, which relies on there being a fairly
+    #      accurate representation of the state available. Notably, when there's
+    #      a reorg, the scheduling might change!
+    stateTmp = node.state
+  if not node.blockPool.add(stateTmp, blockRoot, blck):
     # TODO the fact that add returns a bool that causes the parent block to be
     #      pre-emptively fetched is quite ugly - fix.
     node.fetchBlocks(@[blck.parent_root])

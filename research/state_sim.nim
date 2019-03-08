@@ -46,7 +46,7 @@ cli do(slots = 1945,
        validators = SLOTS_PER_EPOCH, # One per shard is minimum
        json_interval = SLOTS_PER_EPOCH,
        prefix = 0,
-       attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.0,
+       attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.9,
        validate = false):
   let
     flags = if validate: {} else: {skipValidation}

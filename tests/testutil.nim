@@ -107,7 +107,7 @@ proc addBlock*(
     )
 
   let block_ok = updateState(
-    state, previous_block_root, some(new_block), {skipValidation})
+    state, previous_block_root, new_block, {skipValidation})
   assert block_ok
 
   # Ok, we have the new state as it would look with the block applied - now we
@@ -174,8 +174,8 @@ proc makeAttestation*(
       shard: sac.shard,
       beacon_block_root: beacon_block_root,
       epoch_boundary_root: Eth2Digest(), # TODO
-      latest_crosslink: Crosslink(epoch: state.latest_crosslinks[sac.shard].epoch), # TODO
-      crosslink_data_root: Eth2Digest(), # TODO
+      latest_crosslink: state.latest_crosslinks[sac.shard],
+      shard_block_root: Eth2Digest(), # TODO
       justified_epoch: state.justified_epoch,
       justified_block_root: get_block_root(state, get_epoch_start_slot(state.justified_epoch)),
     )

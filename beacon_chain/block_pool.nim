@@ -1,7 +1,7 @@
 import
   bitops, chronicles, options, sequtils, sets, tables,
   ssz, beacon_chain_db, state_transition, extras,
-  spec/[crypto, datatypes, digest]
+  spec/[crypto, datatypes, digest, helpers]
 
 type
   BlockPool* = ref object
@@ -140,10 +140,18 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
     db: db
   )
 
-proc add*(pool: var BlockPool, blockRoot: Eth2Digest, blck: BeaconBlock): bool =
+proc updateState*(
+  pool: BlockPool, state: var StateData, blck: BlockRef) {.gcsafe.}
+
+proc add*(
+    pool: var BlockPool, state: var StateData, blockRoot: Eth2Digest,
+    blck: BeaconBlock): bool {.gcsafe.} =
   ## return false indicates that the block parent was missing and should be
   ## fetched
-  ## TODO reevaluate this API - it's pretty ugly with the bool return
+  ## the state parameter may be updated to include the given block, if
+  ## everything checks out
+  # TODO reevaluate passing the state in like this
+  # TODO reevaluate this API - it's pretty ugly with the bool return
   doAssert blockRoot == hash_tree_root_final(blck)
 
   # Already seen this block??
@@ -169,23 +177,40 @@ proc add*(pool: var BlockPool, blockRoot: Eth2Digest, blck: BeaconBlock): bool =
 
     return true
 
-  # TODO we should now validate the block to ensure that it's sane - but the
-  #      only way to do that is to apply it to the state... for now, we assume
-  #      all blocks are good!
   let parent = pool.blocks.getOrDefault(blck.parent_root)
 
   if parent != nil:
-    # The block is resolved, nothing more to do!
+    # The block might have been in either of these - we don't want any more
+    # work done on its behalf
+    pool.unresolved.del(blockRoot)
+    pool.pending.del(blockRoot)
+
+    # The block is resolved, now it's time to validate it to ensure that the
+    # blocks we add to the database are clean for the given state
+    updateState(pool, state, parent)
+    skipSlots(state.data, parent.root, blck.slot - 1)
+
+    if not updateState(state.data, parent.root, blck, {}):
+      # TODO find a better way to log all this block data
+      notice "Invalid block",
+        blockRoot = shortLog(blockRoot),
+        slot = humaneSlotNum(blck.slot),
+        stateRoot = shortLog(blck.state_root),
+        parentRoot = shortLog(blck.parent_root),
+        signature = shortLog(blck.signature),
+        proposer_slashings = blck.body.proposer_slashings.len,
+        attester_slashings = blck.body.attester_slashings.len,
+        attestations = blck.body.attestations.len,
+        deposits = blck.body.deposits.len,
+        voluntary_exits = blck.body.voluntary_exits.len,
+        transfers = blck.body.transfers.len
+
     let blockRef = BlockRef(
       root: blockRoot
     )
     link(parent, blockRef)
 
     pool.blocks[blockRoot] = blockRef
-    # The block might have been in either of these - we don't want any more
-    # work done on its behalf
-    pool.unresolved.del(blockRoot)
-    pool.pending.del(blockRoot)
 
     # Resolved blocks should be stored in database
     pool.db.putBlock(blockRoot, blck)
@@ -209,7 +234,7 @@ proc add*(pool: var BlockPool, blockRoot: Eth2Digest, blck: BeaconBlock): bool =
     #      running out of stack etc
     let retries = pool.pending
     for k, v in retries:
-      discard pool.add(k, v)
+      discard pool.add(state, k, v)
 
     return true
 
@@ -271,6 +296,8 @@ proc checkUnresolved*(pool: var BlockPool): seq[Eth2Digest] =
       inc v.tries
 
   for k in done:
+    # TODO Need to potentially remove from pool.pending - this is currently a
+    #      memory leak here!
     pool.unresolved.del(k)
 
   # simple (simplistic?) exponential backoff for retries..
@@ -279,24 +306,43 @@ proc checkUnresolved*(pool: var BlockPool): seq[Eth2Digest] =
       result.add(k)
 
 proc skipAndUpdateState(
-    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
-  skipSlots(state, blck.parent_root, blck.slot - 1)
-  updateState(state, blck.parent_root, some(blck), flags)
+    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
+    afterUpdate: proc (state: BeaconState)): bool =
+  skipSlots(state, blck.parent_root, blck.slot - 1, afterUpdate)
+  let ok  = updateState(state, blck.parent_root, blck, flags)
+
+  afterUpdate(state)
+
+  ok
+
+proc maybePutState(pool: BlockPool, state: BeaconState) =
+  # TODO we save state at every epoch start but never remove them - we also
+  #      potentially save multiple states per slot if reorgs happen, meaning
+  #      we could easily see a state explosion
+  if state.slot mod SLOTS_PER_EPOCH == 0:
+    info "Storing state",
+      stateSlot = humaneSlotNum(state.slot),
+      stateRoot = hash_tree_root_final(state) # TODO cache?
+    pool.db.putState(state)
 
 proc updateState*(
     pool: BlockPool, state: var StateData, blck: BlockRef) =
-  if state.blck.root == blck.root:
-    return # State already at the right spot
-
-  # TODO this blockref should never be created, since we trace every blockref
-  #      back to the tail block
-  doAssert (not blck.parent.isNil), "trying to apply genesis block!"
-
+  # Rewind or advance state such that it matches the given block - this may
+  # include replaying from an earlier snapshot if blck is on a different branch
+  # or has advanced to a higher slot number than blck
   var ancestors = @[pool.get(blck)]
 
+  # We need to check the slot because the state might have moved forwards
+  # without blocks
+  if state.blck.root == blck.root and state.data.slot == ancestors[0].data.slot:
+    return # State already at the right spot
+
   # Common case: blck points to a block that is one step ahead of state
-  if state.blck.root == blck.parent.root:
-    let ok = skipAndUpdateState(state.data, ancestors[0].data, {skipValidation})
+  if state.blck.root == ancestors[0].data.parent_root and
+      state.data.slot + 1 == ancestors[0].data.slot:
+    let ok = skipAndUpdateState(
+        state.data, ancestors[0].data, {skipValidation}) do (state: BeaconState):
+      pool.maybePutState(state)
     doAssert ok, "Blocks in database should never fail to apply.."
     state.blck = blck
     state.root = ancestors[0].data.state_root
@@ -329,6 +375,7 @@ proc updateState*(
 
   notice "Replaying state transitions",
     stateSlot = humaneSlotNum(state.data.slot),
+    stateRoot = shortLog(ancestor.data.state_root),
     prevStateSlot = humaneSlotNum(ancestorState.get().slot),
     ancestors = ancestors.len
 
@@ -345,17 +392,20 @@ proc updateState*(
   for i in countdown(ancestors.len - 2, 0):
     let last = ancestors[i]
 
-    skipSlots(state.data, last.data.parent_root, last.data.slot - 1)
+    skipSlots(
+        state.data, last.data.parent_root,
+        last.data.slot - 1) do(state: BeaconState):
+      pool.maybePutState(state)
 
-    # TODO technically, we should be adding states to the database here because
-    #      we're going down a different fork..
     let ok = updateState(
-      state.data, last.data.parent_root, some(last.data), {skipValidation})
-
-    doAssert(ok)
+        state.data, last.data.parent_root, last.data, {skipValidation})
+    doAssert ok,
+      "We only keep validated blocks in the database, should never fail"
 
   state.blck = blck
   state.root = ancestors[0].data.state_root
+
+  pool.maybePutState(state.data)
 
 proc loadTailState*(pool: BlockPool): StateData =
   ## Load the state associated with the current tail in the pool
