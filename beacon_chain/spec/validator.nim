@@ -134,17 +134,20 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot,
   ## ``slot`` in the next epoch -- with and without a `registry_change`
 
   let
-    epoch = slot_to_epoch(slot)
+    # TODO: the + 1 here works around a bug, remove when upgrading to
+    #       some more recent version:
+    # https://github.com/ethereum/eth2.0-specs/pull/732
+    epoch = slot_to_epoch(slot + 1)
     current_epoch = get_current_epoch(state)
     previous_epoch = get_previous_epoch(state)
     next_epoch = current_epoch + 1
 
-  assert previous_epoch <= epoch,
+  doAssert previous_epoch <= epoch,
     "Previous epoch: " & $humaneEpochNum(previous_epoch) &
     ", epoch: " & $humaneEpochNum(epoch) &
     ", Next epoch: " & $humaneEpochNum(next_epoch)
 
-  assert epoch <= next_epoch,
+  doAssert epoch <= next_epoch,
     "Previous epoch: " & $humaneEpochNum(previous_epoch) &
     ", epoch: " & $humaneEpochNum(epoch) &
     ", Next epoch: " & $humaneEpochNum(next_epoch)
@@ -170,7 +173,7 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot,
         shuffling_start_shard = state.current_shuffling_start_shard
       (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard)
     else:
-      assert epoch == next_epoch
+      doAssert epoch == next_epoch
 
       let
         current_committees_per_epoch = get_current_epoch_committee_count(state)

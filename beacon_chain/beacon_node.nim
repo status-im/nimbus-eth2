@@ -265,31 +265,23 @@ proc makeAttestation(node: BeaconNode,
   var state = node.state.data
   skipSlots(state, node.state.blck.root, slot)
 
+  # If we call makeAttestation too late, we must advance head only to `slot`
+  doAssert state.slot == slot,
+    "Corner case: head advanced beyond sheduled attestation slot"
+
   let
-    justifiedBlockRoot =
-      get_block_root(state, get_epoch_start_slot(state.justified_epoch))
-
-    attestationData = AttestationData(
-      slot: slot,
-      shard: shard,
-      beacon_block_root: node.state.blck.root,
-      epoch_boundary_root: Eth2Digest(), # TODO
-      crosslink_data_root: Eth2Digest(), # TODO
-      latest_crosslink: state.latest_crosslinks[shard],
-      justified_epoch: state.justified_epoch,
-      justified_block_root: justifiedBlockRoot)
-
+    attestationData = makeAttestationData(state, shard, node.state.blck.root)
     validatorSignature = await validator.signAttestation(attestationData)
 
-  var participationBitfield = repeat(0'u8, ceil_div8(committeeLen))
-  bitSet(participationBitfield, indexInCommittee)
+  var aggregationBitfield = repeat(0'u8, ceil_div8(committeeLen))
+  bitSet(aggregationBitfield, indexInCommittee)
 
   var attestation = Attestation(
     data: attestationData,
     aggregate_signature: validatorSignature,
-    aggregation_bitfield: participationBitfield,
+    aggregation_bitfield: aggregationBitfield,
     # Stub in phase0
-    custody_bitfield: newSeq[byte](participationBitfield.len)
+    custody_bitfield: newSeq[byte](aggregationBitfield.len)
   )
 
   # TODO what are we waiting for here? broadcast should never block, and never

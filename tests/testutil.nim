@@ -168,17 +168,7 @@ proc makeAttestation*(
       get_crosslink_committees_at_slot(state, state.slot), validator_index)
     validator = state.validator_registry[validator_index]
     sac_index = sac.committee.find(validator_index)
-
-    data = AttestationData(
-      slot: state.slot,
-      shard: sac.shard,
-      beacon_block_root: beacon_block_root,
-      epoch_boundary_root: Eth2Digest(), # TODO
-      latest_crosslink: state.latest_crosslinks[sac.shard],
-      crosslink_data_root: Eth2Digest(), # TODO
-      justified_epoch: state.justified_epoch,
-      justified_block_root: get_block_root(state, get_epoch_start_slot(state.justified_epoch)),
-    )
+    data = makeAttestationData(state, sac.shard, beacon_block_root)
 
   assert sac_index != -1, "find_shard_committe should guarantee this"
 
@@ -187,7 +177,8 @@ proc makeAttestation*(
   bitSet(aggregation_bitfield, sac_index)
 
   let
-    msg = hash_tree_root_final(AttestationDataAndCustodyBit(data: data, custody_bit: false))
+    msg = hash_tree_root_final(
+      AttestationDataAndCustodyBit(data: data, custody_bit: false))
     sig =
       if skipValidation notin flags:
         bls_sign(
@@ -203,7 +194,7 @@ proc makeAttestation*(
     data: data,
     aggregation_bitfield: aggregation_bitfield,
     aggregate_signature: sig,
-    custody_bitfield: repeat(0'u8, ceil_div8(sac.committee.len))
+    custody_bitfield: repeat(0'u8, aggregation_bitfield.len)
   )
 
 proc makeTestDB*(tailState: BeaconState, tailBlock: BeaconBlock): BeaconChainDB =

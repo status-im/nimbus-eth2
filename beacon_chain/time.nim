@@ -21,7 +21,7 @@ proc getSlotFromTime*(s: BeaconState, t = now()): Slot =
                          int64(SECONDS_PER_SLOT * 1000))
 
 func slotStart*(s: BeaconState, slot: Slot): Timestamp =
-  (s.genesis_time + (slot * SECONDS_PER_SLOT)) * 1000
+  (s.genesis_time + ((slot - GENESIS_SLOT) * SECONDS_PER_SLOT)) * 1000
 
 func slotMiddle*(s: BeaconState, slot: Slot): Timestamp =
   s.slotStart(slot) + SECONDS_PER_SLOT * 500
