@@ -249,7 +249,7 @@ func get_initial_beacon_block*(state: BeaconState): BeaconBlock =
     state_root: Eth2Digest(data: hash_tree_root(state))
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_block_root
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_block_root
 func get_block_root*(state: BeaconState,
                      slot: Slot): Eth2Digest =
   # Return the block root at a recent ``slot``.
@@ -306,7 +306,7 @@ func process_ejections*(state: var BeaconState) =
     if state.validator_balances[index] < EJECTION_BALANCE:
       exit_validator(state, index)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_total_balance
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_total_balance
 func get_total_balance*(state: BeaconState, validators: auto): Gwei =
   # Return the combined effective balance of an array of validators.
   foldl(validators, a + get_effective_balance(state, b), 0'u64)

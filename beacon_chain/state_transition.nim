@@ -546,21 +546,17 @@ func process_exit_queue(state: var BeaconState) =
         break
       prepare_validator_for_withdrawal(state, index)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#per-epoch-processing
 func processEpoch(state: var BeaconState) =
   if (state.slot + 1) mod SLOTS_PER_EPOCH != 0:
     return
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#helper-variables
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#helper-variables
   let
     current_epoch = get_current_epoch(state)
-    previous_epoch =
-      if current_epoch > GENESIS_EPOCH:
-        current_epoch - 1
-      else:
-        current_epoch
+    previous_epoch = get_previous_epoch(state)
     next_epoch = (current_epoch + 1).Epoch
 
+    # Spec grabs this later, but it's part of current_total_balance
     active_validator_indices =
       get_active_validator_indices(state.validator_registry, current_epoch)
 
@@ -677,6 +673,9 @@ func processEpoch(state: var BeaconState) =
   func total_attesting_balance(crosslink_committee: CrosslinkCommittee): uint64 =
     get_total_balance(
       statePtr[], attesting_validator_indices(crosslink_committee))
+
+  ## Regarding inclusion_slot and inclusion_distance, as defined they result in
+  ## O(n^2) behavior, so implement slightly differently.
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#eth1-data-1
   block:
@@ -872,7 +871,7 @@ func processEpoch(state: var BeaconState) =
       state.validator_balances[proposer_index] +=
         base_reward(state, v) div ATTESTATION_INCLUSION_REWARD_QUOTIENT
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#crosslinks-1
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#crosslinks-1
   block:
     for slot in get_epoch_start_slot(previous_epoch) ..< get_epoch_start_slot(current_epoch):
       let crosslink_committees_at_slot = get_crosslink_committees_at_slot(state, slot)
