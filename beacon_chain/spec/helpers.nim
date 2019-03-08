@@ -138,7 +138,7 @@ func is_double_vote*(attestation_data_1: AttestationData,
     target_epoch_2 = slot_to_epoch(attestation_data_2.slot)
   target_epoch_1 == target_epoch_2
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#is_surround_vote
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#is_surround_vote
 func is_surround_vote*(attestation_data_1: AttestationData,
                        attestation_data_2: AttestationData): bool =
   ## Check if ``attestation_data_1`` surrounds ``attestation_data_2``.

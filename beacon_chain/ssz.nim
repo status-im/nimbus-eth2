@@ -290,6 +290,21 @@ func hash_tree_root*[T: object|tuple](x: T): array[32, byte] =
     for field in x.fields:
       h.update hash_tree_root(field)
 
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/simple-serialize.md#signed-roots
+func signed_root*[T: object](x: T, field_name: string): array[32, byte] =
+  # TODO write tests for this (check vs hash_tree_root)
+
+  var found_field_name = false
+
+  withHash:
+    for name, field in x.fieldPairs:
+      if name == field_name:
+        found_field_name = true
+        break
+      h.update hash_tree_root(field)
+
+    doAssert found_field_name
+
 # #################################
 # hash_tree_root not part of official spec
 func hash_tree_root*(x: enum): array[8, byte] =
