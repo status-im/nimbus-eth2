@@ -464,7 +464,7 @@ type
     crosslink_data_root*: Eth2Digest ##\
     ## Shard data since the previous crosslink
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#pendingattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#pendingattestation
   PendingAttestation* = object
     aggregation_bitfield*: seq[byte]          # Attester participation bitfield
     data*: AttestationData                    # Attestation data

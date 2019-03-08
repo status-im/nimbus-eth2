@@ -119,15 +119,10 @@ func get_next_epoch_committee_count(state: BeaconState): uint64 =
   )
   get_epoch_committee_count(len(next_active_validators))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_previous_epoch
-func get_previous_epoch(state: BeaconState): Epoch =
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_previous_epoch
+func get_previous_epoch*(state: BeaconState): Epoch =
   ## Return the previous epoch of the given ``state``.
-  ## If the current epoch is  ``GENESIS_EPOCH``, return ``GENESIS_EPOCH``.
-  let current_epoch = get_current_epoch(state)
-  if current_epoch == GENESIS_EPOCH:
-    GENESIS_EPOCH
-  else:
-    current_epoch - 1
+  max(get_current_epoch(state) - 1, GENESIS_EPOCH)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_crosslink_committees_at_slot
 func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot,

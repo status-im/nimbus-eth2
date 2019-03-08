@@ -155,7 +155,7 @@ func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   ### Checks if validator is active
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_active_validator_indices
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_active_validator_indices
 func get_active_validator_indices*(validators: openArray[Validator], epoch: Epoch): seq[ValidatorIndex] =
   ## Gets indices of active validators from validators
   for idx, val in validators:
