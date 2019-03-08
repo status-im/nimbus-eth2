@@ -366,7 +366,7 @@ proc checkAttestation*(
 
   if not (attestation.data.slot >= GENESIS_SLOT):
     warn("Attestation predates genesis slot",
-      attestation_slot = humaneSlotNum(attestation.data.slot),
+      attestation_slot = attestation.data.slot,
       state_slot = humaneSlotNum(state.slot))
     return
 
