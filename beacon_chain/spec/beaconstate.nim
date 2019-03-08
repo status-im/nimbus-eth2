@@ -16,43 +16,25 @@ func get_effective_balance*(state: BeaconState, index: ValidatorIndex): uint64 =
   ## validator with the given ``index``.
   min(state.validator_balances[index], MAX_DEPOSIT_AMOUNT)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#validate_proof_of_possession
-func validate_proof_of_possession(state: BeaconState,
-                                  pubkey: ValidatorPubKey,
-                                  proof_of_possession: ValidatorSig,
-                                  withdrawal_credentials: Eth2Digest): bool =
-  let proof_of_possession_data = DepositInput(
-    pubkey: pubkey,
-    withdrawal_credentials: withdrawal_credentials,
-    proof_of_possession: ValidatorSig(),
-  )
-
-  bls_verify(
-    pubkey,
-    hash_tree_root_final(proof_of_possession_data).data,
-    proof_of_possession,
-    get_domain(
-        state.fork,
-        get_current_epoch(state),
-        DOMAIN_DEPOSIT,
-    )
-  )
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#process_deposit
-func process_deposit(state: var BeaconState,
-                     pubkey: ValidatorPubKey,
-                     amount: Gwei,
-                     proof_of_possession: ValidatorSig,
-                     withdrawal_credentials: Eth2Digest) =
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#process_deposit
+func process_deposit(state: var BeaconState, deposit: Deposit) =
   ## Process a deposit from Ethereum 1.0.
+  ## Note that this function mutates ``state``.
 
-  if false:
-    # TODO return error; currently, just fails if ever called
-    # but hadn't been set up to run at all
-    doAssert validate_proof_of_possession(
-      state, pubkey, proof_of_possession, withdrawal_credentials)
+  let deposit_input = deposit.deposit_data.deposit_input
 
-  let validator_pubkeys = state.validator_registry.mapIt(it.pubkey)
+  ## if not validate_proof_of_possession(
+  ##     state, pubkey, proof_of_possession, withdrawal_credentials):
+  ##   return
+  ## TODO re-enable (but it wasn't running to begin with, and
+  ## PoP isn't really a phase 0 concern, so this isn't meaningful
+  ## regardless.
+
+  let
+    validator_pubkeys = state.validator_registry.mapIt(it.pubkey)
+    pubkey = deposit_input.pubkey
+    amount = deposit.deposit_data.amount
+    withdrawal_credentials = deposit_input.withdrawal_credentials
 
   if pubkey notin validator_pubkeys:
     # Add new validator
@@ -62,8 +44,8 @@ func process_deposit(state: var BeaconState,
       activation_epoch: FAR_FUTURE_EPOCH,
       exit_epoch: FAR_FUTURE_EPOCH,
       withdrawable_epoch: FAR_FUTURE_EPOCH,
-      slashed_epoch: FAR_FUTURE_EPOCH,
-      status_flags: 0,
+      initiated_exit: false,
+      slashed: false,
     )
 
     ## Note: In phase 2 registry indices that have been withdrawn for a long
@@ -74,7 +56,7 @@ func process_deposit(state: var BeaconState,
     # Increase balance by deposit amount
     let index = validator_pubkeys.find(pubkey)
     let validator = addr state.validator_registry[index]
-    assert state.validator_registry[index].withdrawal_credentials ==
+    doAssert state.validator_registry[index].withdrawal_credentials ==
       withdrawal_credentials
 
     state.validator_balances[index] += amount
@@ -99,13 +81,13 @@ func activate_validator(state: var BeaconState,
     else:
       get_entry_exit_effect_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#initiate_validator_exit
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(state: var BeaconState,
                               index: ValidatorIndex) =
   ## Initiate exit for the validator with the given ``index``.
   ## Note that this function mutates ``state``.
   var validator = addr state.validator_registry[index]
-  validator.status_flags = validator.status_flags or INITIATED_EXIT
+  validator.initiated_exit = true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#exit_validator
 func exit_validator*(state: var BeaconState,
@@ -125,6 +107,7 @@ func reduce_balance*(balance: var uint64, amount: uint64) =
   # Not in spec, but useful to avoid underflow.
   balance -= min(amount, balance)
 
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#slash_validator
 func slash_validator*(state: var BeaconState, index: ValidatorIndex) =
   ## Slash the validator with index ``index``.
   ## Note that this function mutates ``state``.
@@ -143,13 +126,14 @@ func slash_validator*(state: var BeaconState, index: ValidatorIndex) =
     whistleblower_reward = get_effective_balance(state, index) div
       WHISTLEBLOWER_REWARD_QUOTIENT
 
+  ## TODO here and elsewhere, if reduce_balance can't reduce balance by full
+  ## whistleblower_reward (to prevent underflow) should increase be full? It
+  ## seems wrong for the amounts to differ.
   state.validator_balances[whistleblower_index] += whistleblower_reward
   reduce_balance(state.validator_balances[index], whistleblower_reward)
-  validator.slashed_epoch = get_current_epoch(state)
-
-  # Spec bug in v0.3.0, fixed since: it has LATEST_PENALIZED_EXIT_LENGTH
-  validator.withdrawable_epoch = get_current_epoch(state) +
-    LATEST_SLASHED_EXIT_LENGTH
+  validator.slashed = true
+  validator.withdrawable_epoch =
+    get_current_epoch(state) + LATEST_SLASHED_EXIT_LENGTH
 
 func update_shuffling_cache*(state: var BeaconState) =
   let
@@ -171,9 +155,9 @@ func update_shuffling_cache*(state: var BeaconState) =
     state.shuffling_cache.shuffling_1 = shuffling_seq
   state.shuffling_cache.index = 1 - state.shuffling_cache.index
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#on-genesis
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#on-genesis
 func get_genesis_beacon_state*(
-    initial_validator_deposits: openArray[Deposit],
+    genesis_validator_deposits: openArray[Deposit],
     genesis_time: uint64,
     latest_eth1_data: Eth1Data,
     flags: UpdateFlags = {}): BeaconState =
@@ -191,7 +175,7 @@ func get_genesis_beacon_state*(
   # validators - there needs to be at least one member in each committee -
   # good to know for testing, though arguably the system is not that useful at
   # at that point :)
-  assert initial_validator_deposits.len >= SLOTS_PER_EPOCH
+  doAssert genesis_validator_deposits.len >= SLOTS_PER_EPOCH
 
   var state = BeaconState(
     # Misc
@@ -234,19 +218,13 @@ func get_genesis_beacon_state*(
 
   for i in 0 ..< SHARD_COUNT:
     state.latest_crosslinks[i] = Crosslink(
-      epoch: GENESIS_EPOCH, shard_block_root: ZERO_HASH)
+      epoch: GENESIS_EPOCH, crosslink_data_root: ZERO_HASH)
 
-  # Process initial deposits
-  for deposit in initial_validator_deposits:
-    process_deposit(
-      state,
-      deposit.deposit_data.deposit_input.pubkey,
-      deposit.deposit_data.amount,
-      deposit.deposit_data.deposit_input.proof_of_possession,
-      deposit.deposit_data.deposit_input.withdrawal_credentials,
-    )
+  # Process genesis deposits
+  for deposit in genesis_validator_deposits:
+    process_deposit(state, deposit)
 
-  # Process initial activations
+  # Process genesis activations
   for validator_index in 0 ..< state.validator_registry.len:
     let vi = validator_index.ValidatorIndex
     if get_effective_balance(state, vi) >= MAX_DEPOSIT_AMOUNT:
@@ -258,6 +236,7 @@ func get_genesis_beacon_state*(
     state.latest_active_index_roots[index] = genesis_active_index_root
   state.current_shuffling_seed = generate_seed(state, GENESIS_EPOCH)
 
+  # Not in spec.
   update_shuffling_cache(state)
 
   state
@@ -317,15 +296,13 @@ func get_attestation_participants*(state: BeaconState,
     if aggregation_bit == 1:
       result.add(validator_index)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#ejections
-func process_ejections*(state: var BeaconState, active_validator_indices: auto) =
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#ejections
+func process_ejections*(state: var BeaconState) =
   ## Iterate through the validator registry and eject active validators with
   ## balance below ``EJECTION_BALANCE``
-  ##
-  ## `active_validator_indices` was already computed in `processEpoch`. Reuse.
-  ## Spec recomputes. This is called before validator reshuffling, so use that
-  ## cached version from beginning of `processEpoch`.
-  for index in active_validator_indices:
+  for index in get_active_validator_indices(
+      # Spec bug in 0.4.0: is just current_epoch(state)
+      state.validator_registry, get_current_epoch(state)):
     if state.validator_balances[index] < EJECTION_BALANCE:
       exit_validator(state, index)
 
@@ -334,7 +311,7 @@ func get_total_balance*(state: BeaconState, validators: auto): Gwei =
   # Return the combined effective balance of an array of validators.
   foldl(validators, a + get_effective_balance(state, b), 0'u64)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
 func update_validator_registry*(state: var BeaconState) =
   ## Update validator registry.
   ## Note that this function mutates ``state``.
@@ -355,7 +332,7 @@ func update_validator_registry*(state: var BeaconState) =
   # Activate validators within the allowable balance churn
   var balance_churn = 0'u64
   for index, validator in state.validator_registry:
-    if validator.activation_epoch > get_entry_exit_effect_epoch(current_epoch) and
+    if validator.activation_epoch == FAR_FUTURE_EPOCH and
       state.validator_balances[index] >= MAX_DEPOSIT_AMOUNT:
       # Check the balance churn would be within the allowance
       balance_churn += get_effective_balance(state, index.ValidatorIndex)
@@ -368,8 +345,8 @@ func update_validator_registry*(state: var BeaconState) =
   # Exit validators within the allowable balance churn
   balance_churn = 0
   for index, validator in state.validator_registry:
-    if validator.exit_epoch > get_entry_exit_effect_epoch(current_epoch) and
-      ((validator.status_flags and INITIATED_EXIT) == INITIATED_EXIT):
+    if validator.activation_epoch == FAR_FUTURE_EPOCH and
+      validator.initiated_exit:
       # Check the balance churn would be within the allowance
       balance_churn += get_effective_balance(state, index.ValidatorIndex)
       if balance_churn > max_balance_churn:
@@ -380,25 +357,26 @@ func update_validator_registry*(state: var BeaconState) =
 
   state.validator_registry_update_epoch = current_epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#attestations-1
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#attestations-1
 proc checkAttestation*(
     state: BeaconState, attestation: Attestation, flags: UpdateFlags): bool =
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
   ## be followed!
 
-  # Can't underflow, because GENESIS_SLOT > MIN_ATTESTATION_INCLUSION_DELAY
-  doAssert GENESIS_SLOT > MIN_ATTESTATION_INCLUSION_DELAY
+  if not (attestation.data.slot >= GENESIS_SLOT):
+    warn("Attestation predates genesis slot",
+      attestation_slot = humaneSlotNum(attestation.data.slot),
+      state_slot = humaneSlotNum(state.slot))
+    return
 
-  if not (attestation.data.slot <= state.slot - MIN_ATTESTATION_INCLUSION_DELAY):
+  if not (attestation.data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= state.slot):
     warn("Attestation too new",
       attestation_slot = humaneSlotNum(attestation.data.slot),
       state_slot = humaneSlotNum(state.slot))
     return
 
-  # Can't underflow, because GENESIS_SLOT > MIN_ATTESTATION_INCLUSION_DELAY
-  if not (state.slot - MIN_ATTESTATION_INCLUSION_DELAY <
-      attestation.data.slot + SLOTS_PER_EPOCH):
+  if not (state.slot < attestation.data.slot + SLOTS_PER_EPOCH):
     warn("Attestation too old",
       attestation_slot = humaneSlotNum(attestation.data.slot),
       state_slot = humaneSlotNum(state.slot))
@@ -428,14 +406,14 @@ proc checkAttestation*(
   if not (state.latest_crosslinks[attestation.data.shard] in [
       attestation.data.latest_crosslink,
       Crosslink(
-        shard_block_root: attestation.data.shard_block_root,
+        crosslink_data_root: attestation.data.crosslink_data_root,
         epoch: slot_to_epoch(attestation.data.slot))]):
     warn("Unexpected crosslink shard",
       state_latest_crosslinks_attestation_data_shard =
         state.latest_crosslinks[attestation.data.shard],
       attestation_data_latest_crosslink = attestation.data.latest_crosslink,
       epoch = humaneEpochNum(slot_to_epoch(attestation.data.slot)),
-      shard_block_root = attestation.data.shard_block_root)
+      crosslink_data_root = attestation.data.crosslink_data_root)
     return
 
   assert allIt(attestation.custody_bitfield, it == 0) #TO BE REMOVED IN PHASE 1
@@ -478,9 +456,6 @@ proc checkAttestation*(
     custody_bit_1_participants: seq[ValidatorIndex] = @[]
     custody_bit_0_participants = participants
 
-    group_public_key = bls_aggregate_pubkeys(
-      participants.mapIt(state.validator_registry[it].pubkey))
-
   if skipValidation notin flags:
     # Verify that aggregate_signature verifies using the group pubkey.
     assert bls_verify_multiple(
@@ -502,8 +477,8 @@ proc checkAttestation*(
     )
 
   # To be removed in Phase1:
-  if attestation.data.shard_block_root != ZERO_HASH:
-    warn("Invalid shard block root")
+  if attestation.data.crosslink_data_root != ZERO_HASH:
+    warn("Invalid crosslink data root")
     return
 
   true
@@ -517,4 +492,4 @@ func prepare_validator_for_withdrawal*(state: var BeaconState, index: ValidatorI
 
   # Bug in 0.3.0 spec; constant got renamed. Use 0.3.0 name.
   validator.withdrawable_epoch = get_current_epoch(state) +
-    MIN_VALIDATOR_WITHDRAWAL_DELAY
+    MIN_VALIDATOR_WITHDRAWABILITY_DELAY
