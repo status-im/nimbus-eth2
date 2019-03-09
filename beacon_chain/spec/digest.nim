@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2019 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -7,15 +7,15 @@
 
 # Serenity hash function / digest
 #
-# From spec:
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#hash
 #
-#  We aim to have a STARK-friendly hash function `hash(x)` for the production
-# launch of the beacon chain. While the standardisation process for a
-# STARK-friendly hash function takes place—led by STARKware, who will produce a
-# detailed report with recommendations—we use `BLAKE2b-512` as a placeholder.
-# Specifically, we set `hash(x) := BLAKE2b-512(x)[0:32]` where the `BLAKE2b-512`
-# algorithm is defined in [RFC 7693](https://tools.ietf.org/html/rfc7693) and
-# the input `x` is of type `bytes`.
+# In Phase 0 the beacon chain is deployed with the same hash function as
+# Ethereum 1.0, i.e. Keccak-256 (also incorrectly known as SHA3).
+#
+# Note: We aim to migrate to a S[T/N]ARK-friendly hash function in a future
+# Ethereum 2.0 deployment phase.
+#
+# https://crypto.stackexchange.com/questions/15727/what-are-the-key-differences-between-the-draft-sha-3-standard-and-the-keccak-sub
 #
 # In our code base, to enable a smooth transition, we call this function
 # `eth2hash`, and it outputs a `Eth2Digest`. Easy to sed :)
