@@ -313,7 +313,7 @@ type
     signature*: ValidatorSig ##\
     ## Sender signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#beaconblock
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -333,10 +333,10 @@ type
 
     eth1_data*: Eth1Data
 
+    body*: BeaconBlockBody
+
     signature*: ValidatorSig ##\
     ## Proposer signature
-
-    body*: BeaconBlockBody
 
   BeaconBlockHeader* = object
     ## Same as BeaconBlock, except `body` is the `hash_tree_root` of the
@@ -350,7 +350,7 @@ type
     signature*: ValidatorSig
     body*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     proposer_slashings*: seq[ProposerSlashing]
     attester_slashings*: seq[AttesterSlashing]
@@ -372,13 +372,6 @@ type
 
     signature*: ValidatorSig ##\
     ## Signature
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#proposalsigneddata
-  ProposalSignedData* = object
-    slot*: uint64
-    shard*: uint64 ##\
-    ## Shard number (or `BEACON_CHAIN_SHARD_NUMBER` for beacon chain)
-    block_root*: Eth2Digest
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#beaconstate
   BeaconState* = object

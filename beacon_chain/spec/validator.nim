@@ -110,7 +110,7 @@ func get_previous_epoch_committee_count(state: BeaconState): uint64 =
   )
   get_epoch_committee_count(len(previous_active_validators))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_next_epoch_committee_count
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_next_epoch_committee_count
 func get_next_epoch_committee_count(state: BeaconState): uint64 =
   ## Return the number of committees in the next epoch of the given ``state``.
   let next_active_validators = get_active_validator_indices(

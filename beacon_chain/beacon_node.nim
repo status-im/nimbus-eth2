@@ -332,8 +332,9 @@ proc proposeBlock(node: BeaconNode,
     parent_root: node.state.blck.root,
     randao_reveal: validator.genRandaoReveal(state, slot),
     eth1_data: node.mainchainMonitor.getBeaconBlockRef(),
+    body: blockBody,
     signature: ValidatorSig(), # we need the rest of the block first!
-    body: blockBody)
+    )
 
   let ok =
     updateState(state, node.state.blck.root, newBlock, {skipValidation})
@@ -341,12 +342,13 @@ proc proposeBlock(node: BeaconNode,
 
   newBlock.state_root = Eth2Digest(data: hash_tree_root(state))
 
-  var signedData = ProposalSignedData(
+  let proposal = Proposal(
     slot: slot,
     shard: BEACON_CHAIN_SHARD_NUMBER,
-    blockRoot: hash_tree_root_final(newBlock))
-
-  newBlock.signature = await validator.signBlockProposal(state.fork, signedData)
+    block_root: Eth2Digest(data: signed_root(newBlock, "signature")),
+    signature: ValidatorSig(),
+  )
+  newBlock.signature = await validator.signBlockProposal(state.fork, proposal)
 
   # TODO what are we waiting for here? broadcast should never block, and never
   #      fail...
