@@ -37,7 +37,7 @@ if [ ! -f $LAST_VALIDATOR ]; then
 fi
 
 if [[ -z "$SKIP_BUILDS" ]]; then
-  nim c -o:"$BEACON_NODE_BIN" $DEFS --opt:speed beacon_chain/beacon_node
+  nim c -o:"$BEACON_NODE_BIN" $DEFS --opt:speed --debuginfo beacon_chain/beacon_node
 fi
 
 if [ ! -f $SNAPSHOT_FILE ]; then

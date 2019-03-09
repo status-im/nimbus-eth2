@@ -279,14 +279,15 @@ func get_attestation_participants*(state: BeaconState,
   ## ``bitfield``.
   let crosslink_committees = get_crosslink_committees_at_slot(
     state, attestation_data.slot)
-
-  assert anyIt(
+  doAssert anyIt(
     crosslink_committees,
     it[1] == attestation_data.shard)
   let crosslink_committee = mapIt(
     filterIt(crosslink_committees, it.shard == attestation_data.shard),
     it.committee)[0]
 
+  # TODO this and other attestation-based fields need validation so we don't
+  #      crash on a malicious attestation!
   doAssert verify_bitfield(bitfield, len(crosslink_committee))
 
   # Find the participating attesters in the committee
@@ -493,3 +494,31 @@ func prepare_validator_for_withdrawal*(state: var BeaconState, index: ValidatorI
   # Bug in 0.3.0 spec; constant got renamed. Use 0.3.0 name.
   validator.withdrawable_epoch = get_current_epoch(state) +
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/validator/0_beacon-chain-validator.md#attestations-1
+proc makeAttestationData*(
+    state: BeaconState, shard: uint64,
+    beacon_block_root: Eth2Digest): AttestationData =
+  ## Fine points:
+  ## Head must be the head state during the slot that validator is
+  ## part of committee - notably, it can't be a newer or older state (!)
+
+  # TODO update when https://github.com/ethereum/eth2.0-specs/issues/742
+  let
+    epoch_start_slot = get_epoch_start_slot(slot_to_epoch(state.slot))
+    epoch_boundary_root =
+      if epoch_start_slot == state.slot: beacon_block_root
+      else: get_block_root(state, epoch_start_slot)
+    justified_slot = get_epoch_start_slot(state.justified_epoch)
+    justified_block_root = get_block_root(state, justified_slot)
+
+  AttestationData(
+    slot: state.slot,
+    shard: shard,
+    beacon_block_root: beacon_block_root,
+    epoch_boundary_root: epoch_boundary_root,
+    crosslink_data_root: Eth2Digest(), # Stub in phase0
+    latest_crosslink: state.latest_crosslinks[shard],
+    justified_epoch: state.justified_epoch,
+    justified_block_root: justified_block_root,
+  )

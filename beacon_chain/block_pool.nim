@@ -247,6 +247,15 @@ proc add*(
     return true
 
   # This is an unresolved block - put it on the unresolved list for now...
+  # TODO if we receive spam blocks, one heurestic to implement might be to wait
+  #      for a couple of attestations to appear before fetching parents - this
+  #      would help prevent using up network resources for spam - this serves
+  #      two purposes: one is that attestations are likely to appear for the
+  #      block only if it's valid / not spam - the other is that malicious
+  #      validators that are not proposers can sign invalid blocks and send
+  #      them out without penalty - but signing invalid attestations carries
+  #      a risk of being slashed, making attestations a more valuable spam
+  #      filter.
   debug "Unresolved block",
     slot = humaneSlotNum(blck.slot),
     stateRoot = shortLog(blck.state_root),
@@ -322,7 +331,7 @@ proc maybePutState(pool: BlockPool, state: BeaconState) =
   if state.slot mod SLOTS_PER_EPOCH == 0:
     info "Storing state",
       stateSlot = humaneSlotNum(state.slot),
-      stateRoot = hash_tree_root_final(state) # TODO cache?
+      stateRoot = shortLog(hash_tree_root_final(state)) # TODO cache?
     pool.db.putState(state)
 
 proc updateState*(
