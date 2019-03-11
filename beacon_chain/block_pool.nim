@@ -47,6 +47,8 @@ type
     ## Tree of blocks pointing back to a finalized block on the chain we're
     ## interested in - we call that block the tail
 
+    blocksBySlot: Table[uint64, seq[BlockRef]]
+
     tail*: BlockData ##\
     ## The earliest finalized block we know about
 
@@ -115,6 +117,7 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
 
     for root, _ in db.getAncestors(headRoot):
       if root == tailRef.root:
+        assert(not curRef.isNil)
         link(tailRef, curRef)
         curRef = curRef.parent
         break
@@ -129,16 +132,28 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
     doAssert curRef == tailRef,
       "head block does not lead to tail, database corrupt?"
 
+  var blocksBySlot = initTable[uint64, seq[BlockRef]]()
+  for _, b in tables.pairs(blocks):
+    let slot = db.getBlock(b.root).get().slot
+    blocksBySlot.mgetOrPut(slot, @[]).add(b)
+
   BlockPool(
     pending: initTable[Eth2Digest, BeaconBlock](),
     unresolved: initTable[Eth2Digest, UnresolvedBlock](),
     blocks: blocks,
+    blocksBySlot: blocksBySlot,
     tail: BlockData(
       data: db.getBlock(tailRef.root).get(),
       refs: tailRef,
     ),
     db: db
   )
+
+proc addSlotMapping(pool: BlockPool, slot: uint64, br: BlockRef) =
+  proc addIfMissing(s: var seq[BlockRef], v: BlockRef) =
+    if v notin s:
+      s.add(v)
+  pool.blocksBySlot.mgetOrPut(slot, @[]).addIfMissing(br)
 
 proc updateState*(
   pool: BlockPool, state: var StateData, blck: BlockRef) {.gcsafe.}
@@ -211,6 +226,8 @@ proc add*(
     link(parent, blockRef)
 
     pool.blocks[blockRoot] = blockRef
+
+    pool.addSlotMapping(blck.slot, blockRef)
 
     # Resolved blocks should be stored in database
     pool.db.putBlock(blockRoot, blck)
@@ -292,6 +309,10 @@ proc getOrResolve*(pool: var BlockPool, root: Eth2Digest): BlockRef =
 
   if result.isNil:
     pool.unresolved[root] = UnresolvedBlock()
+
+iterator blockRootsForSlot*(pool: BlockPool, slot: uint64): Eth2Digest =
+  for br in pool.blocksBySlot.getOrDefault(slot, @[]):
+    yield br.root
 
 proc checkUnresolved*(pool: var BlockPool): seq[Eth2Digest] =
   ## Return a list of blocks that we should try to resolve from other client -
