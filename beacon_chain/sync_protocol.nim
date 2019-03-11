@@ -2,7 +2,11 @@ import
   options, tables,
   chronicles, chronos, ranges/bitranges,
   spec/[datatypes, crypto, digest],
-  beacon_node, eth2_network, beacon_chain_db, block_pool, time, ssz
+  beacon_node_types, eth2_network, beacon_chain_db, block_pool, time, ssz
+
+from beacon_node import onBeaconBlock
+  # Careful handling of beacon_node <-> sync_protocol
+  # to avoid recursive dependencies
 
 type
   ValidatorChangeLogEntry* = object

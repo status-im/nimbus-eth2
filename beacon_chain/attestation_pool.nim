@@ -2,66 +2,9 @@ import
   deques, options, sequtils, tables,
   chronicles,
   ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator], extras,
-  ./beacon_chain_db, ./ssz, ./block_pool
+  ./beacon_chain_db, ./ssz, ./block_pool,
+  beacon_node_types
 
-type
-  Validation* = object
-    aggregation_bitfield*: seq[byte]
-    custody_bitfield*: seq[byte] ##\
-    ## Phase 1 - the handling of this field is probably broken..
-    aggregate_signature*: ValidatorSig
-
-  # Per Danny as of 2018-12-21:
-  # Yeah, you can do any linear combination of signatures. but you have to
-  # remember the linear combination of pubkeys that constructed
-  # if you have two instances of a signature from pubkey p, then you need 2*p
-  # in the group pubkey because the attestation bitfield is only 1 bit per
-  # pubkey right now, attestations do not support this it could be extended to
-  # support N overlaps up to N times per pubkey if we had N bits per validator
-  # instead of 1
-  # We are shying away from this for the time being. If there end up being
-  # substantial difficulties in network layer aggregation, then adding bits to
-  # aid in supporting overlaps is one potential solution
-
-  AttestationEntry* = object
-    data*: AttestationData
-    blck: BlockRef
-    validations*: seq[Validation] ## \
-    ## Instead of aggregating the signatures eagerly, we simply dump them in
-    ## this seq and aggregate only when needed
-    ## TODO there are obvious caching opportunities here..
-
-  SlotData* = object
-    attestations*: seq[AttestationEntry] ## \
-    ## Depending on the world view of the various validators, they may have
-    ## voted on different states - here we collect all the different
-    ## combinations that validators have come up with so that later, we can
-    ## count how popular each world view is (fork choice)
-    ## TODO this could be a Table[AttestationData, seq[Validation] or something
-    ##      less naive
-
-  UnresolvedAttestation* = object
-    attestation: Attestation
-    tries: int
-
-  AttestationPool* = object
-    ## The attestation pool keeps all attestations that are known to the
-    ## client - each attestation counts as votes towards the fork choice
-    ## rule that determines which block we consider to be the head. The pool
-    ## contains both votes that have been included in the chain and those that
-    ## have not.
-
-    slots*: Deque[SlotData] ## \
-    ## We keep one item per slot such that indexing matches slot number
-    ## together with startingSlot
-
-    startingSlot*: Slot ## \
-    ## Generally, we keep attestations only until a slot has been finalized -
-    ## after that, they may no longer affect fork choice.
-
-    blockPool: BlockPool
-
-    unresolved: Table[Eth2Digest, UnresolvedAttestation]
 
 proc init*(T: type AttestationPool, blockPool: BlockPool): T =
   T(

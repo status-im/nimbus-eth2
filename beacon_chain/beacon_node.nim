@@ -5,28 +5,21 @@ import
   state_transition, fork_choice, ssz, beacon_chain_db, validator_pool, extras,
   attestation_pool, block_pool, eth2_network,
   mainchain_monitor, trusted_state_snapshots,
-  eth/trie/db, eth/trie/backends/rocksdb_backend
-
-type
-  BeaconNode* = ref object
-    network*: Eth2Node
-    db*: BeaconChainDB
-    config*: BeaconNodeConf
-    attachedValidators: ValidatorPool
-    blockPool*: BlockPool
-    state*: StateData
-    attestationPool: AttestationPool
-    mainchainMonitor: MainchainMonitor
-    potentialHeads: seq[Eth2Digest]
+  eth/trie/db, eth/trie/backends/rocksdb_backend,
+  beacon_node_types
 
 const
   topicBeaconBlocks = "ethereum/2.1/beacon_chain/blocks"
   topicAttestations = "ethereum/2.1/beacon_chain/attestations"
   topicfetchBlocks = "ethereum/2.1/beacon_chain/fetch"
 
+# #################################################
+# Careful handling of beacon_node <-> sync_protocol
+# to avoid recursive dependencies
 proc onBeaconBlock*(node: BeaconNode, blck: BeaconBlock) {.gcsafe.}
-
+  # Forward decl for sync_protocol
 import sync_protocol
+# #################################################
 
 func shortValidatorKey(node: BeaconNode, validatorIdx: int): string =
   ($node.state.data.validator_registry[validatorIdx].pubkey)[0..7]

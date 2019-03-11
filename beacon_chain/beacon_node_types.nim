@@ -1,0 +1,207 @@
+import # Beacon Node
+  eth/[p2p, keys],
+  spec/digest,
+  beacon_chain_db, conf, mainchain_monitor
+
+import # Attestation Pool
+  spec/[datatypes, crypto, digest],
+  deques, tables
+  # block_pool
+
+import # Block Pool
+  spec/[datatypes, digest],
+  beacon_chain_db,
+  tables
+
+import # Validator Pool
+  spec/crypto, tables
+
+type
+
+  # #############################################
+  #
+  #                 Beacon Node
+  #
+  # #############################################
+  BeaconNode* = ref object
+    network*: EthereumNode
+    db*: BeaconChainDB
+    config*: BeaconNodeConf
+    keys*: KeyPair
+    attachedValidators*: ValidatorPool
+    blockPool*: BlockPool
+    state*: StateData
+    attestationPool*: AttestationPool
+    mainchainMonitor*: MainchainMonitor
+    potentialHeads*: seq[Eth2Digest]
+
+  # #############################################
+  #
+  #             Attestation Pool
+  #
+  # #############################################
+  Validation* = object
+    aggregation_bitfield*: seq[byte]
+    custody_bitfield*: seq[byte] ##\
+    ## Phase 1 - the handling of this field is probably broken..
+    aggregate_signature*: ValidatorSig
+
+  # Per Danny as of 2018-12-21:
+  # Yeah, you can do any linear combination of signatures. but you have to
+  # remember the linear combination of pubkeys that constructed
+  # if you have two instances of a signature from pubkey p, then you need 2*p
+  # in the group pubkey because the attestation bitfield is only 1 bit per
+  # pubkey right now, attestations do not support this it could be extended to
+  # support N overlaps up to N times per pubkey if we had N bits per validator
+  # instead of 1
+  # We are shying away from this for the time being. If there end up being
+  # substantial difficulties in network layer aggregation, then adding bits to
+  # aid in supporting overlaps is one potential solution
+
+  AttestationEntry* = object
+    data*: AttestationData
+    blck*: BlockRef
+    validations*: seq[Validation] ## \
+    ## Instead of aggregating the signatures eagerly, we simply dump them in
+    ## this seq and aggregate only when needed
+    ## TODO there are obvious caching opportunities here..
+
+  SlotData* = object
+    attestations*: seq[AttestationEntry] ## \
+    ## Depending on the world view of the various validators, they may have
+    ## voted on different states - here we collect all the different
+    ## combinations that validators have come up with so that later, we can
+    ## count how popular each world view is (fork choice)
+    ## TODO this could be a Table[AttestationData, seq[Validation] or something
+    ##      less naive
+
+  UnresolvedAttestation* = object
+    attestation*: Attestation
+    tries*: int
+
+  AttestationPool* = object
+    ## The attestation pool keeps all attestations that are known to the
+    ## client - each attestation counts as votes towards the fork choice
+    ## rule that determines which block we consider to be the head. The pool
+    ## contains both votes that have been included in the chain and those that
+    ## have not.
+
+    slots*: Deque[SlotData] ## \
+    ## We keep one item per slot such that indexing matches slot number
+    ## together with startingSlot
+
+    startingSlot*: Slot ## \
+    ## Generally, we keep attestations only until a slot has been finalized -
+    ## after that, they may no longer affect fork choice.
+
+    blockPool*: BlockPool
+
+    unresolved*: Table[Eth2Digest, UnresolvedAttestation]
+
+  # #############################################
+  #
+  #                 Block Pool
+  #
+  # #############################################
+  BlockPool* = ref object
+    ## Pool of blocks responsible for keeping a graph of resolved blocks as well
+    ## as candidates that may yet become part of that graph.
+    ## Currently, this type works as a facade to the BeaconChainDB, making
+    ## assumptions about the block composition therein.
+    ##
+    ## The general idea here is that blocks known to us are divided into two
+    ## camps - unresolved and resolved. When we start the chain, we have a
+    ## genesis state that serves as the root of the graph we're interested in.
+    ## Every block that belongs to that chain will have a path to that block -
+    ## conversely, blocks that do not are not interesting to us.
+    ##
+    ## As the chain progresses, some states become finalized as part of the
+    ## consensus process. One way to think of that is that the blocks that
+    ## come before them are no longer relevant, and the finalized state
+    ## is the new genesis from which we build. Thus, instead of tracing a path
+    ## to genesis, we can trace a path to any finalized block that follows - we
+    ## call the oldest such block a tail block.
+    ##
+    ## It's important to note that blocks may arrive in any order due to
+    ## chainging network conditions - we counter this by buffering unresolved
+    ## blocks for some time while trying to establish a path.
+    ##
+    ## Once a path is established, the block becomes resolved. We store the
+    ## graph in memory, in the form of BlockRef objects. This is also when
+    ## we forward the block for storage in the database
+    ##
+    ## TODO evaluate the split of responsibilities between the two
+    ## TODO prune the graph as tail moves
+
+    pending*: Table[Eth2Digest, BeaconBlock] ##\
+    ## Blocks that have passed validation but that we lack a link back to tail
+    ## for - when we receive a "missing link", we can use this data to build
+    ## an entire branch
+
+    unresolved*: Table[Eth2Digest, UnresolvedBlock] ##\
+    ## Roots of blocks that we would like to have (either parent_root of
+    ## unresolved blocks or block roots of attestations)
+
+    blocks*: Table[Eth2Digest, BlockRef] ##\
+    ## Tree of blocks pointing back to a finalized block on the chain we're
+    ## interested in - we call that block the tail
+
+    blocksBySlot*: Table[uint64, seq[BlockRef]]
+
+    tail*: BlockData ##\
+    ## The earliest finalized block we know about
+
+    db*: BeaconChainDB
+
+  UnresolvedBlock* = object
+    tries*: int
+
+  BlockRef* = ref object {.acyclic.}
+    ## Node in object graph guaranteed to lead back to tail block, and to have
+    ## a corresponding entry in database.
+    ## Block graph should form a tree - in particular, there are no cycles.
+
+    root*: Eth2Digest ##\
+    ## Root that can be used to retrieve block data from database
+
+    parent*: BlockRef ##\
+    ## Not nil, except for the tail
+
+    children*: seq[BlockRef]
+
+  BlockData* = object
+    ## Body and graph in one
+
+    data*: BeaconBlock
+    refs*: BlockRef
+
+  StateData* = object
+    data*: BeaconState
+    root*: Eth2Digest ##\
+    ## Root of above data (cache)
+
+    blck*: BlockRef ##\
+    ## The block associated with the state found in data - in particular,
+    ## blck.state_root == root
+
+  # #############################################
+  #
+  #              Validator Pool
+  #
+  # #############################################
+  ValidatorKind* = enum
+    inProcess
+    remote
+
+  ValidatorConnection* = object
+
+  AttachedValidator* = ref object
+    idx*: int # index in the registry
+    case kind*: ValidatorKind
+    of inProcess:
+      privKey*: ValidatorPrivKey
+    else:
+      connection*: ValidatorConnection
+
+  ValidatorPool* = object
+    validators*: Table[ValidatorPubKey, AttachedValidator]
