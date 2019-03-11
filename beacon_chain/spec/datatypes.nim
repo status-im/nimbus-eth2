@@ -198,7 +198,7 @@ type
     slashable_attestation_2*: SlashableAttestation ## \
     ## Second slashable attestation
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#slashableattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#slashableattestation
   SlashableAttestation* = object
     validator_indices*: seq[uint64] ##\
     ## Validator indices
@@ -212,7 +212,7 @@ type
     aggregate_signature*: ValidatorSig ## \
     ## Aggregate signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#attestation
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#attestation
   Attestation* = object
     aggregation_bitfield*: seq[byte] ##\
     ## Attester aggregation bitfield
@@ -257,7 +257,7 @@ type
     data*: AttestationData
     custody_bit*: bool
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#deposit
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#deposit
   Deposit* = object
     branch*: seq[Eth2Digest] ##\
     ## Branch in the deposit tree
@@ -268,20 +268,20 @@ type
     deposit_data*: DepositData ##\
     ## Data
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#depositdata
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#depositdata
   DepositData* = object
-    amount*: uint64 ## Value in Gwei
+    amount*: uint64 ## Amount in Gwei
     timestamp*: uint64 # Timestamp from deposit contract
     deposit_input*: DepositInput
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#depositinput
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#depositinput
   DepositInput* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
     proof_of_possession*: ValidatorSig ##\
-    ## A BLS signature of this DepositInput
+    ## A BLS signature of this `DepositInput`
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#voluntaryexit
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
     # Minimum epoch for processing exit
     epoch*: uint64
@@ -290,7 +290,7 @@ type
     # Validator signature
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#transfer
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#transfer
   Transfer* = object
     from_field*: uint64 ##\
     ## Sender index
@@ -373,7 +373,7 @@ type
     signature*: ValidatorSig ##\
     ## Signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#beaconstate
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#beaconstate
   BeaconState* = object
     slot*: uint64
     genesis_time*: uint64
@@ -464,13 +464,13 @@ type
     custody_bitfield*: seq[byte]              # Custody bitfield
     inclusion_slot*: uint64                   # Inclusion slot
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#fork
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#fork
   Fork* = object
     previous_version*: uint64                     # Previous fork version
     current_version*: uint64                      # Current fork version
     epoch*: uint64                                # Fork epoch number
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#eth1data
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#eth1data
   Eth1Data* = object
     deposit_root*: Eth2Digest ##\
     ## Data being voted for
@@ -478,7 +478,7 @@ type
     block_hash*: Eth2Digest ##\
     ## Block hash
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#eth1datavote
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#eth1datavote
   Eth1DataVote* = object
     eth1_data*: Eth1Data ##\
     ## Data being voted for
@@ -504,7 +504,7 @@ type
   # TODO: not in spec
   CrosslinkCommittee* = tuple[committee: seq[ValidatorIndex], shard: uint64]
   ShufflingCache* = object
-    ## https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_shuffling
+    ## https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_shuffling
     ## Note: this definition and the next few definitions make heavy use of
     ## repetitive computing. Production implementations are expected to
     ## appropriately use caching/memoization to avoid redoing work.

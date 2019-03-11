@@ -90,7 +90,7 @@ proc processRandao(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#eth1-data
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#eth1-data
 func processDepositRoot(state: var BeaconState, blck: BeaconBlock) =
   # TODO verify that there's at most one match
   for x in state.eth1_data_votes.mitems():
@@ -157,7 +157,7 @@ proc processProposerSlashings(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#verify_slashable_attestation
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#verify_slashable_attestation
 func verify_slashable_attestation(state: BeaconState, slashable_attestation: SlashableAttestation): bool =
   # Verify validity of ``slashable_attestation`` fields.
 
@@ -250,7 +250,7 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#attestations-1
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#attestations-1
 proc processAttestations(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   ## Each block includes a number of attestations that the proposer chose. Each
@@ -283,7 +283,7 @@ func processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
   # TODO! Spec writing in progress as of v0.3.0
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#voluntary-exits-1
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#voluntary-exits-1
 proc processExits(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   if len(blck.body.voluntary_exits) > MAX_VOLUNTARY_EXITS:
@@ -293,7 +293,8 @@ proc processExits(
   for exit in blck.body.voluntary_exits:
     let validator = state.validator_registry[exit.validator_index.int]
 
-    if not (validator.exit_epoch > get_delayed_activation_exit_epoch(get_current_epoch(state))):
+    if not (validator.exit_epoch >
+        get_delayed_activation_exit_epoch(get_current_epoch(state))):
       notice "Exit: exit/entry too close"
       return false
 
@@ -302,13 +303,8 @@ proc processExits(
       return false
 
     if skipValidation notin flags:
-      let exit_message = hash_tree_root(
-        # In 0.3.0 spec, this is "Exit", but that's a renaming mismatch
-        VoluntaryExit(
-          epoch: exit.epoch, validator_index: exit.validator_index,
-          signature: EMPTY_SIGNATURE))
       if not bls_verify(
-          validator.pubkey, exit_message, exit.signature,
+          validator.pubkey, signed_root(exit, "signature"), exit.signature,
           get_domain(state.fork, exit.epoch, DOMAIN_EXIT)):
         notice "Exit: invalid signature"
         return false
@@ -317,7 +313,7 @@ proc processExits(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#transfers-1
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#transfers-1
 proc processTransfers(state: var BeaconState, blck: BeaconBlock,
                       flags: UpdateFlags): bool =
   ## Note: Transfers are a temporary functionality for phases 0 and 1, to be
@@ -369,6 +365,7 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
         notice "Transfer: incorrect signature"
         return false
 
+    # TODO https://github.com/ethereum/eth2.0-specs/issues/727
     reduce_balance(
       state.validator_balances[transfer.from_field.int],
       transfer.amount + transfer.fee)
@@ -378,7 +375,7 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#per-slot-processing
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#per-slot-processing
 func processSlot(state: var BeaconState, previous_block_root: Eth2Digest) =
   ## Time on the beacon chain moves in slots. Every time we make it to a new
   ## slot, a proposer creates a block to represent the state of the beacon
@@ -388,7 +385,7 @@ func processSlot(state: var BeaconState, previous_block_root: Eth2Digest) =
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#slot
   state.slot += 1
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#block-roots
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#block-roots
   state.latest_block_roots[(state.slot - 1) mod LATEST_BLOCK_ROOTS_LENGTH] =
     previous_block_root
   if state.slot mod LATEST_BLOCK_ROOTS_LENGTH == 0:
@@ -402,7 +399,7 @@ proc processBlock(
   # TODO when there's a failure, we should reset the state!
   # TODO probably better to do all verification first, then apply state changes
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#slot-1
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#slot-1
   if not (blck.slot == state.slot):
     notice "Unexpected block slot number",
       blockSlot = humaneSlotNum(blck.slot),
@@ -673,7 +670,7 @@ func processEpoch(state: var BeaconState) =
   ## Regarding inclusion_slot and inclusion_distance, as defined they result in
   ## O(n^2) behavior, so implement slightly differently.
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#eth1-data-1
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#eth1-data-1
   block:
     if next_epoch mod EPOCHS_PER_ETH1_VOTING_PERIOD == 0:
       for x in state.eth1_data_votes:
@@ -683,7 +680,7 @@ func processEpoch(state: var BeaconState) =
           break
       state.eth1_data_votes = @[]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#justification
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#justification
   block:
     # First, update the justification bitfield
     var new_justified_epoch = state.justified_epoch
@@ -709,7 +706,7 @@ func processEpoch(state: var BeaconState) =
     state.previous_justified_epoch = state.justified_epoch
     state.justified_epoch = new_justified_epoch
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#crosslinks
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#crosslinks
   block:
     for slot in get_epoch_start_slot(previous_epoch) ..< get_epoch_start_slot(next_epoch):
       let crosslink_committees_at_slot = get_crosslink_committees_at_slot(state, slot)
@@ -721,7 +718,7 @@ func processEpoch(state: var BeaconState) =
             epoch: slot_to_epoch(slot),
             crosslink_data_root: winning_root(crosslink_committee))
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#rewards-and-penalties
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#rewards-and-penalties
   ## First, we define some additional helpers
   ## Note: When applying penalties in the following balance recalculations
   ## implementers should make sure the uint64 does not underflow
@@ -733,6 +730,7 @@ func processEpoch(state: var BeaconState) =
 
   func inactivity_penalty(
       state: BeaconState, index: ValidatorIndex, epochs_since_finality: uint64): uint64 =
+    # TODO Left/right associativity sensitivity on * and div?
     base_reward(state, index) +
       get_effective_balance(state, index) * epochs_since_finality div
       INACTIVITY_PENALTY_QUOTIENT div 2
@@ -830,7 +828,7 @@ func processEpoch(state: var BeaconState) =
             base_reward(state, index) * MIN_ATTESTATION_INCLUSION_DELAY div
             inclusion_distance[index])
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#attestation-inclusion
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#attestation-inclusion
   block:
     ## Minimally transform spec algorithm into something non-quadratic, while
     ## retaining enough resemblance to both verify equivalence and update, if
@@ -857,12 +855,6 @@ func processEpoch(state: var BeaconState) =
       ## such that a useful stack trace is produced.
       let proposer_index =
         get_beacon_proposer_index(state, proposer_indexes[v])
-
-      # Ensure this keeps getting compiled to some extent to help compare.
-      when false:
-        let proposer_index_slow =
-          get_beacon_proposer_index(state, inclusion_slot(state, v))
-        doAssert proposer_index == proposer_index_slow
 
       state.validator_balances[proposer_index] +=
         base_reward(state, v) div ATTESTATION_INCLUSION_REWARD_QUOTIENT
@@ -896,7 +888,7 @@ func processEpoch(state: var BeaconState) =
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#ejections
   process_ejections(state)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
   block:
     state.previous_shuffling_epoch = state.current_shuffling_epoch
     state.previous_shuffling_start_shard = state.current_shuffling_start_shard
@@ -929,6 +921,7 @@ func processEpoch(state: var BeaconState) =
         state.current_shuffling_seed = generate_seed(state, state.current_shuffling_epoch)
         # /Note/ that state.current_shuffling_start_shard is left unchanged
 
+  # Not in spec.
   updateShufflingCache(state)
 
   ## Regardless of whether or not a validator set change happens run
@@ -936,13 +929,12 @@ func processEpoch(state: var BeaconState) =
   process_slashings(state)
   process_exit_queue(state)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#final-updates
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#final-updates
   block:
     state.latest_active_index_roots[
       (next_epoch + ACTIVATION_EXIT_DELAY) mod
       LATEST_ACTIVE_INDEX_ROOTS_LENGTH] =
       Eth2Digest(data: hash_tree_root(get_active_validator_indices(
-        # TODO 0.3.0 spec here has bug: get_active_validator_indices(state, ...)
         state.validator_registry, next_epoch + ACTIVATION_EXIT_DELAY)))
     state.latest_slashed_balances[(next_epoch mod
       LATEST_SLASHED_EXIT_LENGTH).int] =
@@ -954,7 +946,7 @@ func processEpoch(state: var BeaconState) =
       not (slot_to_epoch(it.data.slot) < current_epoch)
     )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#state-root-verification
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#state-root-verification
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   let state_root = hash_tree_root_final(state)
   if state_root != blck.state_root:
