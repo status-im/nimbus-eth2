@@ -2,7 +2,7 @@ import
   options, tables,
   chronicles, eth/[rlp, p2p], chronos, ranges/bitranges, eth/p2p/rlpx,
   spec/[datatypes, crypto, digest],
-  beacon_node, beacon_chain_db, time, ssz
+  beacon_node, beacon_chain_db, block_pool, time, ssz
 
 type
   ValidatorChangeLogEntry* = object
@@ -82,11 +82,11 @@ p2pProtocol BeaconSync(version = 1,
     let bestDiff = cmp((latestFinalizedEpoch, bestSlot), (m.latestFinalizedEpoch, m.bestSlot))
     if bestDiff == 0:
       # Nothing to do?
-      trace "Nothing to sync", peer = peer.node
+      trace "Nothing to sync", peer = peer.remote
     else:
       # TODO: Check for WEAK_SUBJECTIVITY_PERIOD difference and terminate the
       # connection if it's too big.
-      let db = peer.networkState.db
+      let blockPool = peer.networkState.node.blockPool
 
       if bestDiff > 0:
         # Send roots
@@ -95,7 +95,7 @@ p2pProtocol BeaconSync(version = 1,
         type Root = (Eth2Digest, uint64)
         var roots = newSeqOfCap[Root](128)
         for i in m.bestSlot .. bestSlot:
-          for r in db.getBlockRootsForSlot(i):
+          for r in blockPool.blockRootsForSlot(i):
             roots.add((r, i))
 
         await peer.beaconBlockRoots(roots)
@@ -120,9 +120,9 @@ p2pProtocol BeaconSync(version = 1,
       var s = slot
       var headers = newSeqOfCap[BeaconBlockHeader](maxHeaders)
       let db = peer.networkState.db
+      let blockPool = peer.networkState.node.blockPool
       while headers.len < maxHeaders:
-        let blkRoots = db.getBlockRootsForSlot(s)
-        for r in blkRoots:
+        for r in blockPool.blockRootsForSlot(s):
           headers.add(db.getBlock(r).get().toHeader)
           if headers.len == maxHeaders: break
         inc s

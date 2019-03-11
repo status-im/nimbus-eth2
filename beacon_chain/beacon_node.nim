@@ -14,7 +14,7 @@ type
     config*: BeaconNodeConf
     keys*: KeyPair
     attachedValidators: ValidatorPool
-    blockPool: BlockPool
+    blockPool*: BlockPool
     state*: StateData
     attestationPool: AttestationPool
     mainchainMonitor: MainchainMonitor

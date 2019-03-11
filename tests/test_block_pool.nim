@@ -27,6 +27,7 @@ suite "Block pool processing":
     check:
       state.data.slot == GENESIS_SLOT
       b0.isSome()
+      toSeq(pool.blockRootsForSlot(GENESIS_SLOT)) == @[state.blck.root]
 
   test "Simple block add&get":
     var
@@ -76,6 +77,8 @@ suite "Block pool processing":
 
       b1r.get().refs.children[0] == b2r.get().refs
       b2r.get().refs.parent == b1r.get().refs
+      toSeq(pool.blockRootsForSlot(b1.slot)) == @[b1Root]
+      toSeq(pool.blockRootsForSlot(b2.slot)) == @[b2Root]
 
     db.putHeadBlock(b2Root)
 
