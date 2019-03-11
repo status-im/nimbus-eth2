@@ -1,7 +1,7 @@
 import
-  tables, random,
+  tables,
   chronos,
-  spec/[datatypes, crypto, digest, helpers], ssz,
+  spec/[datatypes, crypto, helpers], ssz,
   beacon_node_types
 
 

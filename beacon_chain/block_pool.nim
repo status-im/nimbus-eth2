@@ -1,7 +1,7 @@
 import
-  bitops, chronicles, options, sequtils, sets, tables,
+  bitops, chronicles, options, tables,
   ssz, beacon_chain_db, state_transition, extras,
-  spec/[crypto, datatypes, digest, helpers],
+  spec/[crypto, datatypes, digest],
   beacon_node_types
 
 proc link(parent, child: BlockRef) =
