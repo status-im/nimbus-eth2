@@ -61,25 +61,25 @@ func process_deposit(state: var BeaconState, deposit: Deposit) =
 
     state.validator_balances[index] += amount
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_entry_exit_effect_epoch
-func get_entry_exit_effect_epoch*(epoch: Epoch): Epoch =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_delayed_activation_exit_epoch
+func get_delayed_activation_exit_epoch*(epoch: Epoch): Epoch =
   ## An entry or exit triggered in the ``epoch`` given by the input takes effect at
   ## the epoch given by the output.
   epoch + 1 + ACTIVATION_EXIT_DELAY
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#activate_validator
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#activate_validator
 func activate_validator(state: var BeaconState,
                         index: ValidatorIndex,
-                        genesis: bool) =
+                        is_genesis: bool) =
   ## Activate the validator with the given ``index``.
   ## Note that this function mutates ``state``.
   let validator = addr state.validator_registry[index]
 
   validator.activation_epoch =
-    if genesis:
+    if is_genesis:
       GENESIS_EPOCH
     else:
-      get_entry_exit_effect_epoch(get_current_epoch(state))
+      get_delayed_activation_exit_epoch(get_current_epoch(state))
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(state: var BeaconState,
@@ -89,7 +89,7 @@ func initiate_validator_exit*(state: var BeaconState,
   var validator = addr state.validator_registry[index]
   validator.initiated_exit = true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#exit_validator
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#exit_validator
 func exit_validator*(state: var BeaconState,
                      index: ValidatorIndex) =
   ## Exit the validator with the given ``index``.
@@ -98,10 +98,10 @@ func exit_validator*(state: var BeaconState,
   let validator = addr state.validator_registry[index]
 
   # The following updates only occur if not previous exited
-  if validator.exit_epoch <= get_entry_exit_effect_epoch(get_current_epoch(state)):
+  if validator.exit_epoch <= get_delayed_activation_exit_epoch(get_current_epoch(state)):
     return
 
-  validator.exit_epoch = get_entry_exit_effect_epoch(get_current_epoch(state))
+  validator.exit_epoch = get_delayed_activation_exit_epoch(get_current_epoch(state))
 
 func reduce_balance*(balance: var uint64, amount: uint64) =
   # Not in spec, but useful to avoid underflow.
@@ -484,14 +484,12 @@ proc checkAttestation*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#prepare_validator_for_withdrawal
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#prepare_validator_for_withdrawal
 func prepare_validator_for_withdrawal*(state: var BeaconState, index: ValidatorIndex) =
   ## Set the validator with the given ``index`` as withdrawable
   ## ``MIN_VALIDATOR_WITHDRAWABILITY_DELAY`` after the current epoch.
   ## Note that this function mutates ``state``.
   var validator = addr state.validator_registry[index]
-
-  # Bug in 0.3.0 spec; constant got renamed. Use 0.3.0 name.
   validator.withdrawable_epoch = get_current_epoch(state) +
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 

@@ -41,13 +41,12 @@ proc getValidator*(pool: ValidatorPool,
   pool.validators.getOrDefault(validatorKey)
 
 proc signBlockProposal*(v: AttachedValidator, fork: Fork,
-                        proposal: ProposalSignedData): Future[ValidatorSig] {.async.} =
+                        proposal: Proposal): Future[ValidatorSig] {.async.} =
   if v.kind == inProcess:
     await sleepAsync(1)
     let proposalRoot = hash_tree_root_final(proposal)
 
-    # TODO: Should we use proposalRoot as data, or digest in regards to signature?
-    result = bls_sign(v.privKey, proposalRoot.data,
+    result = bls_sign(v.privKey, signed_root(proposal, "signature"),
       get_domain(fork, slot_to_epoch(proposal.slot), DOMAIN_PROPOSAL))
   else:
     # TODO:

@@ -39,27 +39,24 @@ func flatten[T](v: openArray[seq[T]]): seq[T] =
   # TODO not in nim - doh.
   for x in v: result.add x
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#proposer-signature
-func verifyProposerSignature(state: BeaconState, blck: BeaconBlock): bool =
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#block-signature
+func verifyBlockSignature(state: BeaconState, blck: BeaconBlock): bool =
   ## When creating a block, the proposer will sign a version of the block that
   ## doesn't contain the data (chicken and egg), then add the signature to that
   ## block. Here, we check that the signature is correct by repeating the same
   ## process.
-  var blck_without_signature = blck
-  blck_without_signature.signature = ValidatorSig()
-
   let
-    signed_data = ProposalSignedData(
-      slot: state.slot,
+    proposer =
+      state.validator_registry[get_beacon_proposer_index(state, state.slot)]
+    proposal = Proposal(
+      slot: blck.slot,
       shard: BEACON_CHAIN_SHARD_NUMBER,
-      block_root: hash_tree_root_final(blck_without_signature)
-    )
-    proposal_root = hash_tree_root_final(signed_data)
-    proposer_index = get_beacon_proposer_index(state, state.slot)
-
+      block_root: Eth2Digest(data: signed_root(blck, "signature")),
+      signature: blck.signature)
   bls_verify(
-    state.validator_registry[proposer_index].pubkey,
-    proposal_root.data, blck.signature,
+    proposer.pubkey,
+    signed_root(proposal, "signature"),
+    proposal.signature,
     get_domain(state.fork, get_current_epoch(state), DOMAIN_PROPOSAL))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#randao
@@ -296,7 +293,7 @@ proc processExits(
   for exit in blck.body.voluntary_exits:
     let validator = state.validator_registry[exit.validator_index.int]
 
-    if not (validator.exit_epoch > get_entry_exit_effect_epoch(get_current_epoch(state))):
+    if not (validator.exit_epoch > get_delayed_activation_exit_epoch(get_current_epoch(state))):
       notice "Exit: exit/entry too close"
       return false
 
@@ -350,7 +347,10 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
       return false
 
     if not (get_current_epoch(state) >=
-        state.validator_registry[transfer.from_field.int].withdrawable_epoch):
+        state.validator_registry[
+          transfer.from_field.int].withdrawable_epoch or
+        state.validator_registry[transfer.from_field.int].activation_epoch ==
+          FAR_FUTURE_EPOCH):
       notice "Transfer: epoch mismatch"
       return false
 
@@ -362,11 +362,7 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
       return false
 
     if skipValidation notin flags:
-      let transfer_message = hash_tree_root(
-        Transfer(
-          from_field: transfer.from_field, to: transfer.to,
-          amount: transfer.amount, fee: transfer.fee, slot: transfer.slot,
-          signature: EMPTY_SIGNATURE))
+      let transfer_message = signed_root(transfer, "signature")
       if not bls_verify(
           pubkey=transfer.pubkey, transfer_message, transfer.signature,
           get_domain(state.fork, slot_to_epoch(transfer.slot), DOMAIN_TRANSFER)):
@@ -430,8 +426,8 @@ proc processBlock(
     #      of BeaconBlock - we would then have an intermediate `ProposedBlock`
     #      type that omits some fields - this way, the compiler would guarantee
     #      that we don't try to access fields that don't have a value yet
-    if not verifyProposerSignature(state, blck):
-      notice "Proposer signature not valid", slot = humaneSlotNum(state.slot)
+    if not verifyBlockSignature(state, blck):
+      notice "Block signature not valid", slot = humaneSlotNum(state.slot)
       return false
 
   if not processRandao(state, blck, flags):

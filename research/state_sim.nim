@@ -90,7 +90,7 @@ cli do(slots = 1945,
 
     if attesterRatio > 0.0:
       # attesterRatio is the fraction of attesters that actually do their
-      # work for every slot - we'll randimize it deterministically to give
+      # work for every slot - we'll randomize it deterministically to give
       # some variation
       let scass = withTimerRet(timers[tShuffle]):
         get_crosslink_committees_at_slot(state, state.slot)

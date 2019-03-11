@@ -119,19 +119,19 @@ proc addBlock*(
 
     # Once we've collected all the state data, we sign the block data along with
     # some book-keeping values
-    signed_data = ProposalSignedData(
+    signed_data = Proposal(
       slot: new_block.slot,
       shard: BEACON_CHAIN_SHARD_NUMBER,
-      block_root: Eth2Digest(data: hash_tree_root(new_block))
+      block_root: Eth2Digest(data: signed_root(new_block, "signature")),
+      signature: ValidatorSig(),
     )
-    proposal_hash = hash_tree_root(signed_data)
+    proposal_hash = signed_root(signed_data, "signature")
 
   assert proposerPrivkey.pubKey() == proposer.pubkey,
     "signature key should be derived from private key! - wrong privkey?"
 
   if skipValidation notin flags:
     # We have a signature - put it in the block and we should be done!
-    # TODO domain present do something!
     new_block.signature =
       bls_sign(proposerPrivkey, proposal_hash,
                get_domain(state.fork, slot_to_epoch(state.slot), DOMAIN_PROPOSAL))
