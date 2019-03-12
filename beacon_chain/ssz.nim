@@ -153,7 +153,7 @@ proc endRecord*(w: var SszWriter, memo: RecordWritingMemo) =
   let finalSize = uint32(w.stream.pos - memo.initialStreamPos - 4)
   memo.sizePrefixCursor.endWrite(finalSize.toBytesSSZ)
 
-func toSSZType(x: Slot|Epoch): auto = x.int64
+func toSSZType(x: Slot|Epoch): auto = x.uint64
 func toSSZType(x: auto): auto = x
 
 proc writeValue*(w: var SszWriter, obj: auto) =
