@@ -161,13 +161,13 @@ proc slotIndex(
       attestationSlot =  $humaneSlotNum(attestationSlot)
     pool.startingSlot = state.finalized_epoch.get_epoch_start_slot()
 
-  if pool.startingSlot + pool.slots.len.Slot <= attestationSlot:
+  if pool.startingSlot + pool.slots.len.uint64 <= attestationSlot:
     debug "Growing attestation pool",
       attestationSlot =  $humaneSlotNum(attestationSlot),
       startingSlot = $humaneSlotNum(pool.startingSlot)
 
     # Make sure there's a pool entry for every slot, even when there's a gap
-    while pool.startingSlot + pool.slots.len.Slot <= attestationSlot:
+    while pool.startingSlot + pool.slots.len.uint64 <= attestationSlot:
       pool.slots.addLast(SlotData())
 
   if pool.startingSlot < state.finalized_epoch.get_epoch_start_slot():
@@ -193,7 +193,7 @@ proc add*(pool: var AttestationPool,
 
   let
     attestationSlot = attestation.data.slot
-    idx = pool.slotIndex(state, attestationSlot)
+    idx = pool.slotIndex(state, attestationSlot.Slot)
     slotData = addr pool.slots[idx]
     validation = Validation(
       aggregation_bitfield: attestation.aggregation_bitfield,
@@ -279,11 +279,11 @@ proc getAttestationsForBlock*(pool: AttestationPool,
     attestationSlot = newBlockSlot - MIN_ATTESTATION_INCLUSION_DELAY
 
   if attestationSlot < pool.startingSlot or
-      attestationSlot >= pool.startingSlot + pool.slots.len.Slot:
+      attestationSlot >= pool.startingSlot + pool.slots.len.uint64:
     info "No attestations",
       attestationSlot = humaneSlotNum(attestationSlot),
       startingSlot = humaneSlotNum(pool.startingSlot),
-      endingSlot = humaneSlotNum(pool.startingSlot + pool.slots.len.Slot)
+      endingSlot = humaneSlotNum(pool.startingSlot + pool.slots.len.uint64)
 
     return
 

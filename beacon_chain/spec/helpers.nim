@@ -120,13 +120,13 @@ func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
   o[1]
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#slot_to_epoch
-func slot_to_epoch*(slot: Slot): Epoch =
-  slot div SLOTS_PER_EPOCH
+func slot_to_epoch*(slot: Slot|uint64): Epoch =
+  (slot div SLOTS_PER_EPOCH).Epoch
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_epoch_start_slot
 func get_epoch_start_slot*(epoch: Epoch): Slot =
   # Return the starting slot of the given ``epoch``.
-  epoch * SLOTS_PER_EPOCH
+  (epoch * SLOTS_PER_EPOCH).Slot
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#is_double_vote
 func is_double_vote*(attestation_data_1: AttestationData,
@@ -134,8 +134,9 @@ func is_double_vote*(attestation_data_1: AttestationData,
   ## Check if ``attestation_data_1`` and ``attestation_data_2`` have the same
   ## target.
   let
-    target_epoch_1 = slot_to_epoch(attestation_data_1.slot)
-    target_epoch_2 = slot_to_epoch(attestation_data_2.slot)
+    # RLP artifact
+    target_epoch_1 = slot_to_epoch(attestation_data_1.slot.Slot)
+    target_epoch_2 = slot_to_epoch(attestation_data_2.slot.Slot)
   target_epoch_1 == target_epoch_2
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#is_surround_vote
@@ -145,8 +146,9 @@ func is_surround_vote*(attestation_data_1: AttestationData,
   let
     source_epoch_1 = attestation_data_1.justified_epoch
     source_epoch_2 = attestation_data_2.justified_epoch
-    target_epoch_1 = slot_to_epoch(attestation_data_1.slot)
-    target_epoch_2 = slot_to_epoch(attestation_data_2.slot)
+    # RLP artifact
+    target_epoch_1 = slot_to_epoch(attestation_data_1.slot.Slot)
+    target_epoch_2 = slot_to_epoch(attestation_data_2.slot.Slot)
 
   source_epoch_1 < source_epoch_2 and target_epoch_2 < target_epoch_1
 

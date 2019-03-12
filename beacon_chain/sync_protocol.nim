@@ -24,7 +24,7 @@ type
 
 func toHeader(b: BeaconBlock): BeaconBlockHeader =
   BeaconBlockHeader(
-    slot: b.slot,
+    slot: b.slot.uint64,
     parent_root: b.parent_root,
     state_root: b.state_root,
     randao_reveal: b.randao_reveal,
@@ -35,7 +35,7 @@ func toHeader(b: BeaconBlock): BeaconBlockHeader =
 
 proc fromHeaderAndBody(b: var BeaconBlock, h: BeaconBlockHeader, body: BeaconBlockBody) =
   assert(hash_tree_root_final(body) == h.body)
-  b.slot = h.slot
+  b.slot = h.slot.Slot
   b.parent_root = h.parent_root
   b.state_root = h.state_root
   b.randao_reveal = h.randao_reveal
@@ -76,7 +76,7 @@ p2pProtocol BeaconSync(version = 1,
       latestFinalizedRoot: Eth2Digest # TODO
       latestFinalizedEpoch: uint64 = node.state.data.finalized_epoch
       bestRoot: Eth2Digest # TODO
-      bestSlot: uint64 = node.state.data.slot
+      bestSlot: uint64 = node.state.data.slot.uint64
 
     let m = await handshake(peer, timeout = 500,
                             status(networkId, latestFinalizedRoot,

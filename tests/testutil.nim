@@ -120,7 +120,7 @@ proc addBlock*(
     # Once we've collected all the state data, we sign the block data along with
     # some book-keeping values
     signed_data = Proposal(
-      slot: new_block.slot,
+      slot: new_block.slot.uint64,
       shard: BEACON_CHAIN_SHARD_NUMBER,
       block_root: Eth2Digest(data: signed_root(new_block, "signature")),
       signature: ValidatorSig(),

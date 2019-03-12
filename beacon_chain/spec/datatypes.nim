@@ -18,7 +18,7 @@
 # types / composition
 
 import
-  eth/common, math,
+  eth/common, hashes, math,
   ./crypto, ./digest
 
 # TODO Data types:
@@ -39,6 +39,11 @@ import
 
 # TODO Many of these constants should go into a config object that can be used
 #      to run.. well.. a chain with different constants!
+
+type
+  Slot* = distinct uint64
+  Epoch* = uint64
+
 const
   SPEC_VERSION* = "0.4.0" ## \
   ## Spec version we're aiming to be compatible with, right now
@@ -103,8 +108,9 @@ const
   # Initial values
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#initial-values
   GENESIS_FORK_VERSION* = 0'u64
-  GENESIS_SLOT* = 2'u64^32
-  GENESIS_EPOCH* = GENESIS_SLOT div SLOTS_PER_EPOCH # slot_to_epoch(GENESIS_SLOT)
+  GENESIS_SLOT* = (2'u64^32).Slot
+  GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
+  ## slot_to_epoch(GENESIS_SLOT)
   GENESIS_START_SHARD* = 0'u64
   FAR_FUTURE_EPOCH* = not 0'u64 # 2^64 - 1 in spec
   ZERO_HASH* = Eth2Digest()
@@ -172,12 +178,6 @@ const
 type
   ValidatorIndex* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
 
-  ## In principle, these would be better as distinct types. That's a good
-  ## TODO eventually, but Danny has confirmed that the SSZ types will use
-  ## primitive (uint64, etc) types and helper functions annotated ones so
-  ## it would just create pointless casts for now.
-  Slot* = uint64
-  Epoch* = uint64
   Gwei* = uint64
 
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#proposerslashing
@@ -246,7 +246,7 @@ type
     latest_crosslink*: Crosslink ##\
     ## Last crosslink
 
-    justified_epoch*: uint64 ##\
+    justified_epoch*: Epoch ##\
     ## Last justified epoch in the beacon state
 
     justified_block_root*: Eth2Digest ##\
@@ -284,7 +284,7 @@ type
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
     # Minimum epoch for processing exit
-    epoch*: uint64
+    epoch*: Epoch
     # Index of the exiting validator
     validator_index*: uint64
     # Validator signature
@@ -321,12 +321,12 @@ type
     ## Each block collects attestations, or votes, on past blocks, thus a chain
     ## is formed.
 
-    slot*: uint64
+    slot*: Slot
     parent_root*: Eth2Digest ##\
     ##\ Root hash of the previous block
 
     state_root*: Eth2Digest ##\
-    ##\ The state root, _after_ this block has been processed
+    ## The state root, _after_ this block has been processed
 
     randao_reveal*: ValidatorSig ##\
     ## Proposer RANDAO reveal
@@ -375,7 +375,7 @@ type
 
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#beaconstate
   BeaconState* = object
-    slot*: uint64
+    slot*: Slot
     genesis_time*: uint64
     fork*: Fork ##\
     ## For versioning hard forks
@@ -385,7 +385,7 @@ type
     validator_balances*: seq[uint64] ##\
     ## Validator balances in Gwei!
 
-    validator_registry_update_epoch*: uint64
+    validator_registry_update_epoch*: Epoch
 
     # TODO remove or conditionally compile; not in spec anymore
     validator_registry_delta_chain_tip*: Eth2Digest ##\
@@ -395,16 +395,16 @@ type
     latest_randao_mixes*: array[LATEST_BLOCK_ROOTS_LENGTH.int, Eth2Digest]
     previous_shuffling_start_shard*: uint64
     current_shuffling_start_shard*: uint64
-    previous_shuffling_epoch*: uint64
-    current_shuffling_epoch*: uint64
+    previous_shuffling_epoch*: Epoch
+    current_shuffling_epoch*: Epoch
     previous_shuffling_seed*: Eth2Digest
     current_shuffling_seed*: Eth2Digest
 
     # Finality
-    previous_justified_epoch*: uint64
-    justified_epoch*: uint64
+    previous_justified_epoch*: Epoch
+    justified_epoch*: Epoch
     justification_bitfield*: uint64
-    finalized_epoch*: uint64
+    finalized_epoch*: Epoch
 
     # Recent state
     latest_crosslinks*: array[SHARD_COUNT, Crosslink]
@@ -434,13 +434,13 @@ type
     withdrawal_credentials*: Eth2Digest ##\
     ## Withdrawal credentials
 
-    activation_epoch*: uint64 ##\
+    activation_epoch*: Epoch ##\
     ## Epoch when validator activated
 
-    exit_epoch*: uint64 ##\
+    exit_epoch*: Epoch ##\
     ## Epoch when validator exited
 
-    withdrawable_epoch*: uint64 ##\
+    withdrawable_epoch*: Epoch ##\
     ## Epoch when validator is eligible to withdraw
 
     initiated_exit*: bool ##\
@@ -451,7 +451,7 @@ type
 
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#crosslink
   Crosslink* = object
-    epoch*: uint64 ##\
+    epoch*: Epoch ##\
     ## Epoch number
 
     crosslink_data_root*: Eth2Digest ##\
@@ -462,13 +462,13 @@ type
     aggregation_bitfield*: seq[byte]          # Attester participation bitfield
     data*: AttestationData                    # Attestation data
     custody_bitfield*: seq[byte]              # Custody bitfield
-    inclusion_slot*: uint64                   # Inclusion slot
+    inclusion_slot*: Slot                     # Inclusion slot
 
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#fork
   Fork* = object
     previous_version*: uint64                     # Previous fork version
     current_version*: uint64                      # Current fork version
-    epoch*: uint64                                # Fork epoch number
+    epoch*: Epoch                                 # Fork epoch number
 
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#eth1data
   Eth1Data* = object
@@ -522,8 +522,39 @@ type
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
     ($state.validator_registry[validatorIdx].pubkey)[0..7]
 
-func humaneSlotNum*(s: Slot): Slot =
-  s - GENESIS_SLOT
+template ethTimeUnit(typ: type) =
+  proc `+`*(x: typ, y: uint64): typ {.borrow.}
+  proc `-`*(x: typ, y: uint64): typ {.borrow.}
+  proc `-`*(x: uint64, y: typ): typ {.borrow.}
+
+  proc `+=`*(x: var typ, y: uint64) {.borrow.}
+  proc `-=`*(x: var typ, y: uint64) {.borrow.}
+
+  # Not closed over type in question (Slot or Epoch)
+  proc `mod`*(x: typ, y: uint64): uint64 {.borrow.}
+  proc `div`*(x: typ, y: uint64): uint64 {.borrow.}
+  proc `div`*(x: uint64, y: typ): uint64 {.borrow.}
+  proc `-`*(x: typ, y: typ): uint64 {.borrow.}
+
+  # Comparison operators
+  proc `<`*(x: typ, y: typ): bool {.borrow.}
+  proc `<`*(x: typ, y: uint64): bool {.borrow.}
+  proc `<`*(x: uint64, y: typ): bool {.borrow.}
+  proc `<=`*(x: typ, y: typ): bool {.borrow.}
+  proc `<=`*(x: typ, y: uint64): bool {.borrow.}
+  proc `<=`*(x: uint64, y: typ): bool {.borrow.}
+  proc `==`*(x: typ, y: typ): bool {.borrow.}
+  proc `==`*(x: typ, y: uint64): bool {.borrow.}
+
+  # Nim integration
+  proc `$`*(x: typ): string {.borrow.}
+  proc hash*(x: typ): Hash {.borrow.}
+
+ethTimeUnit(Slot)
+#ethTimeUnit(Epoch)
+
+func humaneSlotNum*(s: auto): uint64 =
+  s.Slot - GENESIS_SLOT
 
 func humaneEpochNum*(e: Epoch): Epoch =
   e - GENESIS_EPOCH

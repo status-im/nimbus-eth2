@@ -57,11 +57,12 @@ suite "Beacon chain DB":
     check: x == y
 
     let
-      a0 = BeaconBlock(slot: 0)
+      # TODO Not GENESIS_SLOT?
+      a0 = BeaconBlock(slot: 0.Slot)
       a0r = hash_tree_root_final(a0)
-      a1 = BeaconBlock(slot: 1, parent_root: a0r)
+      a1 = BeaconBlock(slot: 1.Slot, parent_root: a0r)
       a1r = hash_tree_root_final(a1)
-      a2 = BeaconBlock(slot: 2, parent_root: a1r)
+      a2 = BeaconBlock(slot: 2.Slot, parent_root: a1r)
       a2r = hash_tree_root_final(a2)
 
     doAssert toSeq(db.getAncestors(a0r)) == []

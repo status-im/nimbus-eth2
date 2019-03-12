@@ -54,7 +54,7 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
   var blocksBySlot = initTable[uint64, seq[BlockRef]]()
   for _, b in tables.pairs(blocks):
     let slot = db.getBlock(b.root).get().slot
-    blocksBySlot.mgetOrPut(slot, @[]).add(b)
+    blocksBySlot.mgetOrPut(slot.uint64, @[]).add(b)
 
   BlockPool(
     pending: initTable[Eth2Digest, BeaconBlock](),
@@ -146,7 +146,7 @@ proc add*(
 
     pool.blocks[blockRoot] = blockRef
 
-    pool.addSlotMapping(blck.slot, blockRef)
+    pool.addSlotMapping(blck.slot.uint64, blockRef)
 
     # Resolved blocks should be stored in database
     pool.db.putBlock(blockRoot, blck)
@@ -229,8 +229,8 @@ proc getOrResolve*(pool: var BlockPool, root: Eth2Digest): BlockRef =
   if result.isNil:
     pool.unresolved[root] = UnresolvedBlock()
 
-iterator blockRootsForSlot*(pool: BlockPool, slot: uint64): Eth2Digest =
-  for br in pool.blocksBySlot.getOrDefault(slot, @[]):
+iterator blockRootsForSlot*(pool: BlockPool, slot: uint64|Slot): Eth2Digest =
+  for br in pool.blocksBySlot.getOrDefault(slot.uint64, @[]):
     yield br.root
 
 proc checkUnresolved*(pool: var BlockPool): seq[Eth2Digest] =
