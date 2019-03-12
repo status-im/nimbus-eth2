@@ -305,7 +305,7 @@ proc processExits(
     if skipValidation notin flags:
       if not bls_verify(
           validator.pubkey, signed_root(exit, "signature"), exit.signature,
-          get_domain(state.fork, exit.epoch, DOMAIN_EXIT)):
+          get_domain(state.fork, exit.epoch.Epoch, DOMAIN_EXIT)):
         notice "Exit: invalid signature"
         return false
 
@@ -718,7 +718,7 @@ func processEpoch(state: var BeaconState) =
         if 3'u64 * total_attesting_balance(crosslink_committee) >=
             2'u64 * get_total_balance(state, crosslink_committee.committee):
           state.latest_crosslinks[crosslink_committee.shard] = Crosslink(
-            epoch: slot_to_epoch(slot),
+            epoch: slot_to_epoch(slot).uint64,
             crosslink_data_root: winning_root(crosslink_committee))
 
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#rewards-and-penalties

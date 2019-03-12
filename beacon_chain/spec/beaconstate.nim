@@ -218,7 +218,7 @@ func get_genesis_beacon_state*(
 
   for i in 0 ..< SHARD_COUNT:
     state.latest_crosslinks[i] = Crosslink(
-      epoch: GENESIS_EPOCH, crosslink_data_root: ZERO_HASH)
+      epoch: GENESIS_EPOCH.uint64, crosslink_data_root: ZERO_HASH)
 
   # Process genesis deposits
   for deposit in genesis_validator_deposits:
@@ -401,7 +401,8 @@ proc checkAttestation*(
     return
 
   let expected_justified_block_root =
-    get_block_root(state, get_epoch_start_slot(attestation.data.justified_epoch))
+    get_block_root(
+      state, get_epoch_start_slot(attestation.data.justified_epoch.Epoch))
   if not (attestation.data.justified_block_root == expected_justified_block_root):
     warn("Unexpected justified block root",
       attestation_justified_block_root = attestation.data.justified_block_root,
@@ -412,7 +413,7 @@ proc checkAttestation*(
       attestation.data.latest_crosslink,
       Crosslink(
         crosslink_data_root: attestation.data.crosslink_data_root,
-        epoch: slot_to_epoch(attestation_data_slot))]):
+        epoch: slot_to_epoch(attestation_data_slot).uint64)]):
     warn("Unexpected crosslink shard",
       state_latest_crosslinks_attestation_data_shard =
         state.latest_crosslinks[attestation.data.shard],
@@ -521,6 +522,6 @@ proc makeAttestationData*(
     epoch_boundary_root: epoch_boundary_root,
     crosslink_data_root: Eth2Digest(), # Stub in phase0
     latest_crosslink: state.latest_crosslinks[shard],
-    justified_epoch: state.justified_epoch,
+    justified_epoch: state.justified_epoch.uint64,
     justified_block_root: justified_block_root,
   )
