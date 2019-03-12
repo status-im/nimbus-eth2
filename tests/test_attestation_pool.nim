@@ -16,16 +16,15 @@ suite "Attestation pool processing":
   ## mock data.
 
   # Genesis state with minimal number of deposits
-  var
+  let
     genState = get_genesis_beacon_state(
       makeInitialDeposits(flags = {skipValidation}), 0, Eth1Data(),
         {skipValidation})
     genBlock = get_initial_beacon_block(genState)
 
-    blockPool = BlockPool.init(makeTestDB(genState, genBlock))
-
   test "Can add and retrieve simple attestation":
     var
+      blockPool = BlockPool.init(makeTestDB(genState, genBlock))
       pool = AttestationPool.init(blockPool)
       state = blockPool.loadTailState()
     # Slot 0 is a finalized slot - won't be making attestations for it..
@@ -48,6 +47,7 @@ suite "Attestation pool processing":
 
   test "Attestations may arrive in any order":
     var
+      blockPool = BlockPool.init(makeTestDB(genState, genBlock))
       pool = AttestationPool.init(blockPool)
       state = blockPool.loadTailState()
     # Slot 0 is a finalized slot - won't be making attestations for it..
