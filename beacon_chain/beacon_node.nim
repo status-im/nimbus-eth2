@@ -3,10 +3,9 @@ import
   chronos, chronicles, confutils,
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator], conf, time,
   state_transition, fork_choice, ssz, beacon_chain_db, validator_pool, extras,
-  attestation_pool, block_pool, eth2_network,
+  attestation_pool, block_pool, eth2_network, beacon_node_types,
   mainchain_monitor, trusted_state_snapshots,
-  eth/trie/db, eth/trie/backends/rocksdb_backend,
-  beacon_node_types
+  eth/trie/db, eth/trie/backends/rocksdb_backend
 
 const
   topicBeaconBlocks = "ethereum/2.1/beacon_chain/blocks"
@@ -169,41 +168,13 @@ proc getAttachedValidator(node: BeaconNode, idx: int): AttachedValidator =
   return node.attachedValidators.getValidator(validatorKey)
 
 proc updateHead(node: BeaconNode) =
-  # TODO placeholder logic for running the fork choice
-  var
-    head = node.state.blck
-    headSlot = node.state.data.slot
+  let
+    justifiedHead = node.blockPool.latestJustifiedBlock()
 
-  # LRB fork choice - latest resolved block :)
-  for ph in node.potentialHeads:
-    let blck = node.blockPool.get(ph)
-    if blck.isNone():
-      continue
-    if blck.get().data.slot >= headSlot:
-      head = blck.get().refs
-      headSlot = blck.get().data.slot
-  node.potentialHeads.setLen(0)
+  node.blockPool.updateState(node.state, justifiedHead)
 
-  if head.root == node.state.blck.root:
-    debug "No new head found",
-      stateRoot = shortLog(node.state.root),
-      blockRoot = shortLog(node.state.blck.root),
-      stateSlot = humaneSlotNum(node.state.data.slot)
-    return
-
-  node.blockPool.updateState(node.state, head)
-
-  # TODO this should probably be in blockpool, but what if updateState is
-  #      called with a non-head block?
-  node.db.putHeadBlock(node.state.blck.root)
-
-  # TODO we should save the state every now and then, but which state do we
-  #      save? When we receive a block and process it, the state from a
-  #      particular epoch may become finalized - but we no longer have it!
-  #      One thing that would work would be to replay from some earlier
-  #      state (the tail?) to the new finalized state, then save that. Another
-  #      option would be to simply save every epoch start state, and eventually
-  #      point it out as it becomes finalized..
+  let newHead = lmdGhost(node.attestationPool, node.state.data, justifiedHead)
+  node.blockPool.updateHead(node.state, newHead)
 
   info "Updated head",
     stateRoot = shortLog(node.state.root),
@@ -524,9 +495,6 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
 
   node.attestationPool.add(node.state.data, attestation)
 
-  if attestation.data.beacon_block_root notin node.potentialHeads:
-    node.potentialHeads.add attestation.data.beacon_block_root
-
 proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
   # We received a block but don't know much about it yet - in particular, we
   # don't know if it's part of the chain we're currently building.
@@ -555,12 +523,6 @@ proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
     # TODO the fact that add returns a bool that causes the parent block to be
     #      pre-emptively fetched is quite ugly - fix.
     node.fetchBlocks(@[blck.parent_root])
-
-  # Delay updating the head until the latest moment possible - this makes it
-  # more likely that we've managed to resolve the block, in case of
-  # irregularities
-  if blockRoot notin node.potentialHeads:
-    node.potentialHeads.add blockRoot
 
   # The block we received contains attestations, and we might not yet know about
   # all of them. Let's add them to the attestation pool - in case they block

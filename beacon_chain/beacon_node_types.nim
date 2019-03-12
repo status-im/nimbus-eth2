@@ -98,6 +98,8 @@ type
 
     unresolved*: Table[Eth2Digest, UnresolvedAttestation]
 
+    latestAttestations*: Table[ValidatorPubKey, BlockRef]
+
   # #############################################
   #
   #                 Block Pool
@@ -151,6 +153,13 @@ type
     tail*: BlockData ##\
     ## The earliest finalized block we know about
 
+    head*: BlockData ##\
+    ## The latest block we know about, that's been chosen as a head by the fork
+    ## choice rule
+
+    finalizedHead*: BlockData ##\
+    ## The latest block that was finalized according to the block in head
+
     db*: BeaconChainDB
 
   UnresolvedBlock* = object
@@ -168,6 +177,11 @@ type
     ## Not nil, except for the tail
 
     children*: seq[BlockRef]
+
+    slot*: Slot # TODO could calculate this by walking to root, but..
+
+    justified*: bool
+    finalized*: bool
 
   BlockData* = object
     ## Body and graph in one

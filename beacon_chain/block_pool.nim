@@ -1,8 +1,8 @@
 import
-  bitops, chronicles, options, tables,
+  bitops, chronicles, options, sequtils, tables,
   ssz, beacon_chain_db, state_transition, extras,
-  spec/[crypto, datatypes, digest],
-  beacon_node_types
+  beacon_node_types,
+  spec/[crypto, datatypes, digest, helpers]
 
 proc link(parent, child: BlockRef) =
   doAssert (not (parent.root == Eth2Digest() or child.root == Eth2Digest())),
@@ -11,6 +11,15 @@ proc link(parent, child: BlockRef) =
 
   child.parent = parent
   parent.children.add(child)
+
+proc init*(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
+  BlockRef(
+    root: root,
+    slot: slot
+  )
+
+proc init*(T: type BlockRef, root: Eth2Digest, blck: BeaconBlock): BlockRef =
+  BlockRef.init(root, blck.slot)
 
 proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
   # TODO we require that the db contains both a head and a tail block -
@@ -27,24 +36,26 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
   let
     headRoot = head.get()
     tailRoot = tail.get()
-    tailRef = BlockRef(root: tailRoot)
+    tailBlock = db.getBlock(tailRoot)
+    tailRef = BlockRef.init(tailRoot, tailBlock.get())
 
   var blocks = {tailRef.root: tailRef}.toTable()
 
   if headRoot != tailRoot:
     var curRef: BlockRef
 
-    for root, _ in db.getAncestors(headRoot):
+    for root, blck in db.getAncestors(headRoot):
       if root == tailRef.root:
         assert(not curRef.isNil)
         link(tailRef, curRef)
         curRef = curRef.parent
         break
 
+      let newRef = BlockRef.init(root, blck)
       if curRef == nil:
-        curRef = BlockRef(root: root)
+        curRef = newRef
       else:
-        link(BlockRef(root: root), curRef)
+        link(newRef, curRef)
         curRef = curRef.parent
       blocks[curRef.root] = curRef
 
@@ -139,9 +150,9 @@ proc add*(
         voluntary_exits = blck.body.voluntary_exits.len,
         transfers = blck.body.transfers.len
 
-    let blockRef = BlockRef(
-      root: blockRoot
-    )
+      return
+
+    let blockRef = BlockRef.init(blockRoot, blck)
     link(parent, blockRef)
 
     pool.blocks[blockRoot] = blockRef
@@ -363,3 +374,53 @@ proc loadTailState*(pool: BlockPool): StateData =
     root: pool.tail.data.state_root,
     blck: pool.tail.refs
   )
+
+proc findAncestorBySlot(blck: BlockRef, slot: Slot): BlockRef =
+  result = blck
+
+  while result != nil and result.slot > slot:
+    result = result.parent
+
+proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
+  # Start off by making sure we have the right state
+  updateState(pool, state, blck)
+
+  let
+    # TODO there might not be a block at the epoch boundary - what then?
+    finalizedHead =
+      blck.findAncestorBySlot(state.data.finalized_epoch.get_epoch_start_slot())
+    justifiedHead =
+      blck.findAncestorBySlot(state.data.justified_epoch.get_epoch_start_slot())
+
+  doAssert (not finalizedHead.isNil),
+    "Block graph should always lead to a finalized block"
+  doAssert (not justifiedHead.isNil),
+    "Block graph should always lead to a finalized block"
+
+  # Hasn't changed necessarily, but we set it anyway just to be safe
+  justifiedHead.justified = true
+
+  var cur = finalizedHead
+  while cur != pool.finalizedHead.refs:
+    cur.parent.children.keepItIf(it == cur)
+    cur = cur.parent
+
+  pool.finalizedHead = BlockData(
+    data: pool.db.getBlock(finalizedHead.root).get(),
+    refs: finalizedHead
+  )
+
+proc findLatestJustifiedBlock(
+    blck: BlockRef, depth: int, deepest: var tuple[depth: int, blck: BlockRef]) =
+  if blck.justified and depth > deepest.depth:
+    deepest = (depth, blck)
+
+  for child in blck.children:
+    findLatestJustifiedBlock(child, depth + 1, deepest)
+
+proc latestJustifiedBlock*(pool: BlockPool): BlockRef =
+  var deepest = (0, pool.finalizedHead.refs)
+
+  findLatestJustifiedBlock(pool.finalizedHead.refs, 0, deepest)
+
+  deepest[1]
