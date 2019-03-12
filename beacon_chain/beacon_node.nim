@@ -308,7 +308,7 @@ proc proposeBlock(node: BeaconNode,
   newBlock.state_root = Eth2Digest(data: hash_tree_root(state))
 
   let proposal = Proposal(
-    slot: slot,
+    slot: slot.uint64,
     shard: BEACON_CHAIN_SHARD_NUMBER,
     block_root: Eth2Digest(data: signed_root(newBlock, "signature")),
     signature: ValidatorSig(),
@@ -441,7 +441,7 @@ proc scheduleEpochActions(node: BeaconNode, epoch: Epoch) =
   let start = if epoch == GENESIS_EPOCH: 1.uint64 else: 0.uint64
 
   for i in start ..< SLOTS_PER_EPOCH:
-    let slot = epoch * SLOTS_PER_EPOCH + i
+    let slot = (epoch * SLOTS_PER_EPOCH + i).Slot
     nextState.slot = slot # ugly trick, see get_beacon_proposer_index
 
     block: # Schedule block proposals

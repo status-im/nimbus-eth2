@@ -49,7 +49,7 @@ func verifyBlockSignature(state: BeaconState, blck: BeaconBlock): bool =
     proposer =
       state.validator_registry[get_beacon_proposer_index(state, state.slot)]
     proposal = Proposal(
-      slot: blck.slot,
+      slot: blck.slot.uint64,
       shard: BEACON_CHAIN_SHARD_NUMBER,
       block_root: Eth2Digest(data: signed_root(blck, "signature")),
       signature: blck.signature)
@@ -361,7 +361,8 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
       let transfer_message = signed_root(transfer, "signature")
       if not bls_verify(
           pubkey=transfer.pubkey, transfer_message, transfer.signature,
-          get_domain(state.fork, slot_to_epoch(transfer.slot), DOMAIN_TRANSFER)):
+          get_domain(
+            state.fork, slot_to_epoch(transfer.slot), DOMAIN_TRANSFER)):
         notice "Transfer: incorrect signature"
         return false
 
@@ -611,7 +612,7 @@ func processEpoch(state: var BeaconState) =
   let
     previous_epoch_head_attestations =
       previous_epoch_attestations.filterIt(
-        it.data.beacon_block_root == get_block_root(state, it.data.slot))
+        it.data.beacon_block_root == get_block_root(state, it.data.slot.Slot))
 
     previous_epoch_head_attester_indices =
       toSet(get_attester_indices(state, previous_epoch_head_attestations))
@@ -708,8 +709,10 @@ func processEpoch(state: var BeaconState) =
 
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#crosslinks
   block:
-    for slot in get_epoch_start_slot(previous_epoch) ..< get_epoch_start_slot(next_epoch):
-      let crosslink_committees_at_slot = get_crosslink_committees_at_slot(state, slot)
+    for slot in get_epoch_start_slot(previous_epoch).uint64 ..<
+        get_epoch_start_slot(next_epoch).uint64:
+      let crosslink_committees_at_slot =
+        get_crosslink_committees_at_slot(state, slot.Slot)
 
       for crosslink_committee in crosslink_committees_at_slot:
         if 3'u64 * total_attesting_balance(crosslink_committee) >=
@@ -737,7 +740,7 @@ func processEpoch(state: var BeaconState) =
 
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#justification-and-finalization
   func inclusion_distances(state: BeaconState): auto =
-    result = initTable[ValidatorIndex, uint64]()
+    result = initTable[ValidatorIndex, Slot]()
 
     for a in previous_epoch_attestations:
       for v in get_attestation_participants(
@@ -801,7 +804,7 @@ func processEpoch(state: var BeaconState) =
         else:
           ## Last case will not occur. If this assumption becomes false,
           ## indexing into distances will fail.
-          initTable[ValidatorIndex, uint64]()
+          initTable[ValidatorIndex, Slot]()
 
       for index in active_validator_indices:
         if index notin previous_epoch_attester_indices:
@@ -837,7 +840,7 @@ func processEpoch(state: var BeaconState) =
     ## (reverse) index based on one O(n) scan of previous_epoch_attestations,
     ## then perform O(n) O(1) lookups. Keep same iteration order and rules in
     ## which first match wins and terminates for each ValidatorIndex.
-    var proposer_indexes = initTable[ValidatorIndex, uint64]()
+    var proposer_indexes = initTable[ValidatorIndex, Slot]()
 
     # This is the loop from inclusion_slot(...)
     for a in previous_epoch_attestations:
@@ -861,8 +864,10 @@ func processEpoch(state: var BeaconState) =
 
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#crosslinks-1
   block:
-    for slot in get_epoch_start_slot(previous_epoch) ..< get_epoch_start_slot(current_epoch):
-      let crosslink_committees_at_slot = get_crosslink_committees_at_slot(state, slot)
+    for slot in get_epoch_start_slot(previous_epoch).uint64 ..<
+        get_epoch_start_slot(current_epoch).uint64:
+      let crosslink_committees_at_slot =
+        get_crosslink_committees_at_slot(state, slot.Slot)
       for crosslink_committee in crosslink_committees_at_slot:
         let
           committee_attesting_validators =

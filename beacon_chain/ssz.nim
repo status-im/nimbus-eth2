@@ -153,6 +153,12 @@ proc endRecord*(w: var SszWriter, memo: RecordWritingMemo) =
   let finalSize = uint32(w.stream.pos - memo.initialStreamPos - 4)
   memo.sizePrefixCursor.endWrite(finalSize.toBytesSSZ)
 
+func toSSZType(x: auto): auto =
+  when x is Slot:
+    x.uint64
+  else:
+    x
+
 proc writeValue*(w: var SszWriter, obj: auto) =
   # We are not using overloads here, because this leads to
   # slightly better error messages when the user provides
@@ -178,10 +184,10 @@ proc writeValue*(w: var SszWriter, obj: auto) =
         # for research/serialized_sizes, remove when appropriate
         when defined(debugFieldSizes) and obj is (BeaconState|BeaconBlock):
           let start = w.stream.pos
-          w.writeValue field
+          w.writeValue field.toSSZType
           debugEcho fieldName, ": ", w.stream.pos - start
         else:
-          w.writeValue field
+          w.writeValue field.toSSZType
     w.endRecord(memo)
 
 proc readValue*(r: var SszReader, result: var auto) =
@@ -235,7 +241,10 @@ proc readValue*(r: var SszReader, result: var auto) =
 
     else:
       result.deserializeFields(fieldName, field):
-        field = r.readValue(field.type)
+        when field is Slot:
+          field = r.readValue(uint64).Slot
+        else:
+          field = r.readValue(field.type)
 
     if r.stream[].pos != endPos:
       raise newException(CorruptedDataError, "SSZ includes unexpected bytes past the end of the deserialized object")
@@ -303,7 +312,7 @@ func hash_tree_root*[T: object|tuple](x: T): array[32, byte] =
   ## Containers have their fields recursively hashed, concatenated and hashed
   withHash:
     for field in x.fields:
-      h.update hash_tree_root(field)
+      h.update hash_tree_root(field.toSSZType)
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/simple-serialize.md#signed-roots
 func signed_root*[T: object](x: T, field_name: string): array[32, byte] =
@@ -316,7 +325,7 @@ func signed_root*[T: object](x: T, field_name: string): array[32, byte] =
       if name == field_name:
         found_field_name = true
         break
-      h.update hash_tree_root(field)
+      h.update hash_tree_root(field.toSSZType)
 
     doAssert found_field_name
 

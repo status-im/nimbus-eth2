@@ -280,7 +280,7 @@ func get_attestation_participants*(state: BeaconState,
   ## Return the participant indices at for the ``attestation_data`` and
   ## ``bitfield``.
   let crosslink_committees = get_crosslink_committees_at_slot(
-    state, attestation_data.slot)
+    state, attestation_data.slot.Slot)
   doAssert anyIt(
     crosslink_committees,
     it[1] == attestation_data.shard)
@@ -367,6 +367,8 @@ proc checkAttestation*(
   ## at the current slot. When acting as a proposer, the same rules need to
   ## be followed!
 
+  let attestation_data_slot = attestation.data.slot.Slot
+
   if not (attestation.data.slot >= GENESIS_SLOT):
     warn("Attestation predates genesis slot",
       attestation_slot = attestation.data.slot,
@@ -386,7 +388,7 @@ proc checkAttestation*(
     return
 
   let expected_justified_epoch =
-    if slot_to_epoch(attestation.data.slot + 1) >= get_current_epoch(state):
+    if slot_to_epoch(attestation.data.slot.Slot + 1) >= get_current_epoch(state):
       state.justified_epoch
     else:
       state.previous_justified_epoch
@@ -410,12 +412,12 @@ proc checkAttestation*(
       attestation.data.latest_crosslink,
       Crosslink(
         crosslink_data_root: attestation.data.crosslink_data_root,
-        epoch: slot_to_epoch(attestation.data.slot))]):
+        epoch: slot_to_epoch(attestation_data_slot))]):
     warn("Unexpected crosslink shard",
       state_latest_crosslinks_attestation_data_shard =
         state.latest_crosslinks[attestation.data.shard],
       attestation_data_latest_crosslink = attestation.data.latest_crosslink,
-      epoch = humaneEpochNum(slot_to_epoch(attestation.data.slot)),
+      epoch = humaneEpochNum(slot_to_epoch(attestation_data_slot)),
       crosslink_data_root = attestation.data.crosslink_data_root)
     return
 
@@ -423,7 +425,7 @@ proc checkAttestation*(
   assert anyIt(attestation.aggregation_bitfield, it != 0)
 
   let crosslink_committee = mapIt(
-    filterIt(get_crosslink_committees_at_slot(state, attestation.data.slot),
+    filterIt(get_crosslink_committees_at_slot(state, attestation_data_slot),
              it.shard == attestation.data.shard),
     it.committee)[0]
 
@@ -475,7 +477,7 @@ proc checkAttestation*(
           data: attestation.data, custody_bit: true)),
       ],
       attestation.aggregate_signature,
-      get_domain(state.fork, slot_to_epoch(attestation.data.slot),
+      get_domain(state.fork, slot_to_epoch(attestation.data.slot.Slot),
                  DOMAIN_ATTESTATION),
     )
 
@@ -513,7 +515,7 @@ proc makeAttestationData*(
     justified_block_root = get_block_root(state, justified_slot)
 
   AttestationData(
-    slot: state.slot,
+    slot: state.slot.uint64,
     shard: shard,
     beacon_block_root: beacon_block_root,
     epoch_boundary_root: epoch_boundary_root,

@@ -36,6 +36,8 @@ template withTimerRet(stats: var RunningStat, body: untyped): untyped =
 
   tmp
 
+proc `%`*(x: Slot): JsonNode {.borrow.}
+
 proc writeJson*(prefix, slot, v: auto) =
   var f: File
   defer: close(f)
@@ -80,7 +82,7 @@ cli do(slots = 1945,
     attestations[attestations_idx] = @[]
 
     let t =
-      if (state.slot + 2.Slot) mod SLOTS_PER_EPOCH == 0: tEpoch
+      if (state.slot + 2) mod SLOTS_PER_EPOCH == 0: tEpoch
       else: tBlock
 
     withTimer(timers[t]):

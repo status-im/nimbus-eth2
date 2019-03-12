@@ -74,8 +74,9 @@ suite "Simple serialization":
   SSZ.roundripTest [1, 2, 3]
   SSZ.roundripTest @[1, 2, 3]
   SSZ.roundripTest SigKey.random().getKey()
-  SSZ.roundripTest BeaconBlock(slot: 42, signature: sign(SigKey.random(), 0'u64, ""))
-  SSZ.roundripTest BeaconState(slot: 42)
+  SSZ.roundripTest BeaconBlock(
+    slot: 42.Slot, signature: sign(SigKey.random(), 0'u64, ""))
+  SSZ.roundripTest BeaconState(slot: 42.Slot)
 
 suite "Tree hashing":
   # TODO Nothing but smoke tests for now..

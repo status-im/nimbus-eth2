@@ -126,7 +126,7 @@ func get_previous_epoch*(state: BeaconState): Epoch =
   max(get_current_epoch(state) - 1, GENESIS_EPOCH)
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_crosslink_committees_at_slot
-func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot,
+func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64,
                                        registry_change: bool = false):
     seq[CrosslinkCommittee] =
   ## Returns the list of ``(committee, shard)`` tuples for the ``slot``.
