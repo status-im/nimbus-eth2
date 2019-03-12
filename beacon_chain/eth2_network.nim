@@ -20,15 +20,15 @@ when useDEVP2P:
 
   template libp2pProtocol*(name, version: string) {.pragma.}
 
-  proc createEth2Node*(tcpPort, udpPort: Port): Future[Eth2Node] {.async.} =
+  proc createEth2Node*(tcpPort, udpPort: Port): Future[EthereumNode] {.async.} =
     let
       keys = newKeyPair()
       address = Address(ip: parseIpAddress("127.0.0.1"),
                         tcpPort: tcpPort,
                         udpPort: udpPort)
 
-    newEthereumNode(keys, address, 0,
-                    nil, clientId, minPeers = 1)
+    return newEthereumNode(keys, address, 0,
+                           nil, clientId, minPeers = 1)
 
   proc saveConnectionAddressFile*(node: Eth2Node, filename: string) =
     writeFile(filename, $node.listeningAddress)
