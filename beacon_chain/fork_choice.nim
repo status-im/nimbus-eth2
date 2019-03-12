@@ -2,7 +2,7 @@ import
   deques, options, sequtils, tables,
   chronicles,
   ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator], extras,
-  ./attestation_pool, ./beacon_chain_db, ./ssz
+  ./beacon_node_types, ./beacon_chain_db, ./ssz
 
 # ##################################################################
 # Specs

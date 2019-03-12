@@ -9,7 +9,7 @@ import
   options, sequtils, unittest,
   ./testutil,
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
-  ../beacon_chain/[attestation_pool, block_pool, extras, state_transition, ssz]
+  ../beacon_chain/[beacon_node_types, attestation_pool, block_pool, extras, state_transition, ssz]
 
 suite "Attestation pool processing":
   ## For now just test that we can compile and execute block processing with

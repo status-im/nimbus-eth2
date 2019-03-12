@@ -9,7 +9,7 @@ import
   options, sequtils, unittest,
   ./testutil,
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
-  ../beacon_chain/[block_pool, beacon_chain_db, extras, state_transition, ssz]
+  ../beacon_chain/[beacon_node_types, block_pool, beacon_chain_db, extras, state_transition, ssz]
 
 suite "Block pool processing":
   let

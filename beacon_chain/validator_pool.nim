@@ -1,25 +1,9 @@
 import
-  tables, random,
+  tables,
   chronos,
-  spec/[datatypes, crypto, digest, helpers], ssz
+  spec/[datatypes, crypto, helpers], ssz,
+  beacon_node_types
 
-type
-  ValidatorKind = enum
-    inProcess
-    remote
-
-  ValidatorConnection = object
-
-  AttachedValidator* = ref object
-    idx*: int # index in the registry
-    case kind: ValidatorKind
-    of inProcess:
-      privKey: ValidatorPrivKey
-    else:
-      connection: ValidatorConnection
-
-  ValidatorPool* = object
-    validators: Table[ValidatorPubKey, AttachedValidator]
 
 proc init*(T: type ValidatorPool): T =
   result.validators = initTable[ValidatorPubKey, AttachedValidator]()
