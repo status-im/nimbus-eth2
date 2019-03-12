@@ -59,7 +59,7 @@ func verifyBlockSignature(state: BeaconState, blck: BeaconBlock): bool =
     proposal.signature,
     get_domain(state.fork, get_current_epoch(state), DOMAIN_PROPOSAL))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#randao
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#randao
 proc processRandao(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   let
@@ -69,7 +69,7 @@ proc processRandao(
   if skipValidation notin flags:
     if not bls_verify(
       proposer.pubkey,
-      int_to_bytes32(get_current_epoch(state)),
+      hash_tree_root(get_current_epoch(state).uint64),
       blck.randao_reveal,
       get_domain(state.fork, get_current_epoch(state), DOMAIN_RANDAO)):
 
@@ -280,7 +280,6 @@ proc processAttestations(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#deposits-1
 func processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
-  # TODO! Spec writing in progress as of v0.3.0
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#voluntary-exits-1
