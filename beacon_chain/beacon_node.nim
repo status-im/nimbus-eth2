@@ -175,14 +175,7 @@ proc updateHead(node: BeaconNode) =
     headSlot = node.state.data.slot
 
   # LRB fork choice - latest resolved block :)
-  for ph in node.potentialHeads:
-    let blck = node.blockPool.get(ph)
-    if blck.isNone():
-      continue
-    if blck.get().data.slot >= headSlot:
-      head = blck.get().refs
-      headSlot = blck.get().data.slot
-  node.potentialHeads.setLen(0)
+  fork_choice.lastResolvedBlock(node, head, headSlot)
 
   if head.root == node.state.blck.root:
     debug "No new head found",

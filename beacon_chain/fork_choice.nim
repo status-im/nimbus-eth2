@@ -2,7 +2,22 @@ import
   deques, options, sequtils, tables,
   chronicles,
   ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator], extras,
-  ./beacon_node_types, ./beacon_chain_db, ./ssz
+  ./beacon_node_types, ./beacon_chain_db, ./ssz,
+  ./attestation_pool, ./block_pool
+
+proc lastResolvedBlock*(
+        node: BeaconNode,
+        head: var BlockRef,
+        headSlot: var Slot) =
+  # Last resolved block fork choice
+  for ph in node.potentialHeads:
+    let blck = node.blockPool.get(ph)
+    if blck.isNone():
+      continue
+    if blck.get().data.slot >= headSlot:
+      head = blck.get().refs
+      headSlot = blck.get().data.slot
+  node.potentialHeads.setLen(0)
 
 # ##################################################################
 # Specs
