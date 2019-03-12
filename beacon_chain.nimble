@@ -1,5 +1,5 @@
 import
-  beacon_chain/version
+  beacon_chain/version as ver
 
 packageName   = "beacon_chain"
 version       = versionAsStr
