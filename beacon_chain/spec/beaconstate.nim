@@ -10,7 +10,7 @@ import
   ../extras, ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers, ./validator
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_effective_balance
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_effective_balance
 func get_effective_balance*(state: BeaconState, index: ValidatorIndex): uint64 =
   ## Return the effective balance (also known as "balance at stake") for a
   ## validator with the given ``index``.
@@ -61,10 +61,10 @@ func process_deposit(state: var BeaconState, deposit: Deposit) =
 
     state.validator_balances[index] += amount
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_delayed_activation_exit_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_delayed_activation_exit_epoch
 func get_delayed_activation_exit_epoch*(epoch: Epoch): Epoch =
-  ## An entry or exit triggered in the ``epoch`` given by the input takes effect at
-  ## the epoch given by the output.
+  ## Return the epoch at which an activation or exit triggered in ``epoch``
+  ## takes effect.
   epoch + 1 + ACTIVATION_EXIT_DELAY
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#activate_validator
@@ -242,11 +242,13 @@ func get_genesis_beacon_state*(
   state
 
 # TODO candidate for spec?
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#on-genesis
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#on-genesis
 func get_initial_beacon_block*(state: BeaconState): BeaconBlock =
   BeaconBlock(
     slot: GENESIS_SLOT,
     state_root: Eth2Digest(data: hash_tree_root(state))
+    # parent_root, randao_reveal, eth1_data, signature, and body automatically
+    # initialized to default values.
   )
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_block_root
@@ -258,7 +260,7 @@ func get_block_root*(state: BeaconState,
   doAssert slot < state.slot
   state.latest_block_roots[slot mod LATEST_BLOCK_ROOTS_LENGTH]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_attestation_participants
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_attestation_participants
 func get_attestation_participants*(state: BeaconState,
                                    attestation_data: AttestationData,
                                    bitfield: seq[byte]): seq[ValidatorIndex] =

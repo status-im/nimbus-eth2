@@ -14,14 +14,14 @@ import ./datatypes, ./digest, sequtils, math
 func bitSet*(bitfield: var openArray[byte], index: int) =
   bitfield[index div 8] = bitfield[index div 8] or 1'u8 shl (7 - (index mod 8))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_bitfield_bit
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_bitfield_bit
 func get_bitfield_bit*(bitfield: openarray[byte], i: int): byte =
   # Extract the bit in ``bitfield`` at position ``i``.
-  assert 0 <= i div 8, "i: " & $i & " i div 8: " & $(i div 8)
-  assert i div 8 < bitfield.len, "i: " & $i & " i div 8: " & $(i div 8)
+  doAssert 0 <= i div 8, "i: " & $i & " i div 8: " & $(i div 8)
+  doAssert i div 8 < bitfield.len, "i: " & $i & " i div 8: " & $(i div 8)
   (bitfield[i div 8] shr (7 - (i mod 8))) mod 2
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#verify_bitfield
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#verify_bitfield
 func verify_bitfield*(bitfield: openarray[byte], committee_size: int): bool =
   # Verify ``bitfield`` against the ``committee_size``.
   if len(bitfield) != (committee_size + 7) div 8:
@@ -34,7 +34,7 @@ func verify_bitfield*(bitfield: openarray[byte], committee_size: int): bool =
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#split
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#split
 func split*[T](lst: openArray[T], N: Positive): seq[seq[T]] =
   ## split lst in N pieces, with each piece having `len(lst) div N` or
   ## `len(lst) div N + 1` pieces
@@ -56,7 +56,7 @@ func get_new_recent_block_roots*(old_block_roots: seq[Eth2Digest],
 
 func ceil_div8*(v: int): int = (v + 7) div 8 # TODO use a proper bitarray!
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#integer_squareroot
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
   ## The largest integer ``x`` such that ``x**2`` is less than ``n``.
   var
@@ -67,7 +67,7 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
     y = (x + n div x) div 2
   x
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_fork_version
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_fork_version
 func get_fork_version*(fork: Fork, epoch: Epoch): uint64 =
   ## Return the fork version of the given ``epoch``.
   if epoch < fork.epoch:
@@ -84,7 +84,7 @@ func get_domain*(
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#is_power_of_two
 func is_power_of_2*(v: uint64): bool = (v and (v-1)) == 0
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#merkle_root
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#merkle_root
 func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
   ## Merkleize ``values`` (where ``len(values)`` is a power of two) and return
   ## the Merkle root.
@@ -128,7 +128,7 @@ func get_epoch_start_slot*(epoch: Epoch): Slot =
   # Return the starting slot of the given ``epoch``.
   epoch * SLOTS_PER_EPOCH
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#is_double_vote
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#is_double_vote
 func is_double_vote*(attestation_data_1: AttestationData,
                      attestation_data_2: AttestationData): bool =
   ## Check if ``attestation_data_1`` and ``attestation_data_2`` have the same
@@ -150,9 +150,9 @@ func is_surround_vote*(attestation_data_1: AttestationData,
 
   source_epoch_1 < source_epoch_2 and target_epoch_2 < target_epoch_1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#is_active_validator
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#is_active_validator
 func is_active_validator*(validator: Validator, epoch: Epoch): bool =
-  ### Checks if validator is active
+  ### Check if ``validator`` is active
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_active_validator_indices
@@ -194,15 +194,15 @@ func get_randao_mix*(state: BeaconState,
 
     state.latest_randao_mixes[epoch mod LATEST_RANDAO_MIXES_LENGTH]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_active_index_root
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_active_index_root
 func get_active_index_root(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Returns the index root at a recent ``epoch``.
 
   ## Cannot underflow, since GENESIS_EPOCH > LATEST_RANDAO_MIXES_LENGTH
   ## and ACTIVATION_EXIT_DELAY > 0.
-  assert get_current_epoch(state) - LATEST_ACTIVE_INDEX_ROOTS_LENGTH +
+  doAssert get_current_epoch(state) - LATEST_ACTIVE_INDEX_ROOTS_LENGTH +
     ACTIVATION_EXIT_DELAY < epoch
-  assert epoch <= get_current_epoch(state) + ACTIVATION_EXIT_DELAY
+  doAssert epoch <= get_current_epoch(state) + ACTIVATION_EXIT_DELAY
   state.latest_active_index_roots[epoch mod LATEST_ACTIVE_INDEX_ROOTS_LENGTH]
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#bytes_to_int
@@ -214,7 +214,7 @@ func bytes_to_int*(data: seq[byte]): uint64 =
   for i in countdown(7, 0):
     result = result * 256 + data[i]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#int_to_bytes1-int_to_bytes2-
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#int_to_bytes1-int_to_bytes2-
 # Have 1, 4, and 32-byte versions. 2+ more and maybe worth metaprogramming.
 func int_to_bytes32*(x: uint64) : array[32, byte] =
   # Little-endian data representation

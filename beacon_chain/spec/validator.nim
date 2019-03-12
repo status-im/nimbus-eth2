@@ -12,8 +12,8 @@ import
   ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_shuffling
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_permuted_index
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_shuffling
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_permuted_index
 func get_shuffled_seq*(seed: Eth2Digest,
                        list_size: uint64,
                        ): seq[ValidatorIndex] =
@@ -101,9 +101,10 @@ func get_shuffling*(seed: Eth2Digest,
   result = split(shuffled_seq, committees_per_epoch)
   assert result.len() == committees_per_epoch # what split should do..
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_previous_epoch_committee_count
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_previous_epoch_committee_count
 func get_previous_epoch_committee_count(state: BeaconState): uint64 =
-  # Return the number of committees in the previous epoch of the given ``state``.
+  ## Return the number of committees in the previous epoch of the given
+  ## ``state``.
   let previous_active_validators = get_active_validator_indices(
     state.validator_registry,
     state.previous_shuffling_epoch,
@@ -124,7 +125,7 @@ func get_previous_epoch*(state: BeaconState): Epoch =
   ## Return the previous epoch of the given ``state``.
   max(get_current_epoch(state) - 1, GENESIS_EPOCH)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_crosslink_committees_at_slot
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_crosslink_committees_at_slot
 func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot,
                                        registry_change: bool = false):
     seq[CrosslinkCommittee] =
@@ -137,6 +138,8 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot,
     # TODO: the + 1 here works around a bug, remove when upgrading to
     #       some more recent version:
     # https://github.com/ethereum/eth2.0-specs/pull/732
+    # It's not 100% clear to me regarding 0.4.0; waiting until 0.5.0 to remove
+    # TODO recheck
     epoch = slot_to_epoch(slot + 1)
     current_epoch = get_current_epoch(state)
     previous_epoch = get_previous_epoch(state)
@@ -151,26 +154,21 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot,
     "Previous epoch: " & $humaneEpochNum(previous_epoch) &
     ", epoch: " & $humaneEpochNum(epoch) &
     ", Next epoch: " & $humaneEpochNum(next_epoch)
-  # TODO - Hack: used to be "epoch < next_epoch" (exlusive interval)
-  # until https://github.com/status-im/nim-beacon-chain/issues/97
 
   template get_epoch_specific_params(): auto =
-    if epoch < current_epoch:
-      let
-        ## TODO this might be pointless copying; RVO exists, but not sure if
-        ## Nim optimizes out both copies per. Could directly construct tuple
-        ## but this hews closer to spec helper code.
-        committees_per_epoch = get_previous_epoch_committee_count(state)
-        seed = state.previous_shuffling_seed
-        shuffling_epoch = state.previous_shuffling_epoch
-        shuffling_start_shard = state.previous_shuffling_start_shard
-      (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard)
-    elif epoch == current_epoch:
+    if epoch == current_epoch:
       let
         committees_per_epoch = get_current_epoch_committee_count(state)
         seed = state.current_shuffling_seed
         shuffling_epoch = state.current_shuffling_epoch
         shuffling_start_shard = state.current_shuffling_start_shard
+      (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard)
+    elif epoch == previous_epoch:
+      let
+        committees_per_epoch = get_previous_epoch_committee_count(state)
+        seed = state.previous_shuffling_seed
+        shuffling_epoch = state.previous_shuffling_epoch
+        shuffling_start_shard = state.previous_shuffling_start_shard
       (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard)
     else:
       doAssert epoch == next_epoch
@@ -203,6 +201,8 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot,
       seed,
       state.validator_registry,
       shuffling_epoch,
+
+      # Not in spec
       state.shuffling_cache
     )
     offset = slot mod SLOTS_PER_EPOCH
@@ -215,7 +215,7 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot,
      (slot_start_shard + i.uint64) mod SHARD_COUNT
     )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#get_beacon_proposer_index
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: BeaconState, slot: Slot): ValidatorIndex =
   ## From Casper RPJ mini-spec:
   ## When slot i begins, validator Vidx is expected
