@@ -15,7 +15,7 @@ proc stateSize(deposits: int, maxContent = false) =
     #      attestations it may hold, so we'll just add so many of them
     state.latest_attestations.setLen(MAX_ATTESTATIONS * SLOTS_PER_EPOCH * 2)
     let
-      crosslink_committees = get_crosslink_committees_at_slot(state, 0)
+      crosslink_committees = get_crosslink_committees_at_slot(state, 0.Slot)
       validatorsPerCommittee =
         len(crosslink_committees[0].committee) # close enough..
     for a in state.latest_attestations.mitems():
