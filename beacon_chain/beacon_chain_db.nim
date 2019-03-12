@@ -6,12 +6,13 @@ import
 
 type
   BeaconChainDB* = ref object
+    ## DB of finalized blocks
     backend: TrieDatabaseRef
 
   DbKeyKind = enum
     kHashToState
     kHashToBlock
-    kHeadBlock # Pointer to the most recent block seen
+    kHeadBlock # Pointer to the most recent finalized block seen
     kTailBlock # Pointer to the earliest finalized block
 
 func subkey(kind: DbKeyKind): array[1, byte] =

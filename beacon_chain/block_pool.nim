@@ -28,13 +28,15 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
 
   let
     tail = db.getTailBlock()
-    head = db.getHeadBlock()
+    head = db.getHeadBlock() # Note: we assume only finalized blocks are in DB
 
   doAssert tail.isSome(), "Missing tail block, database corrupt?"
   doAssert head.isSome(), "Missing head block, database corrupt?"
 
   let
     headRoot = head.get()
+    headBlock = db.getBlock(headRoot)
+    headRef = BlockRef.init(headRoot, headBlock.get())
     tailRoot = tail.get()
     tailBlock = db.getBlock(tailRoot)
     tailRef = BlockRef.init(tailRoot, tailBlock.get())
@@ -75,6 +77,10 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
     tail: BlockData(
       data: db.getBlock(tailRef.root).get(),
       refs: tailRef,
+    ),
+    finalizedHead: BlockData(
+      data: db.getBlock(headRef.root).get(),
+      refs: headRef,
     ),
     db: db
   )
