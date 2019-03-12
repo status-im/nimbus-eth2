@@ -179,7 +179,7 @@ proc writeValue*(w: var SszWriter, obj: auto) =
         when defined(debugFieldSizes) and obj is (BeaconState|BeaconBlock):
           let start = w.stream.pos
           w.writeValue field
-          debugEcho k, ": ", w.stream.pos - start
+          debugEcho fieldName, ": ", w.stream.pos - start
         else:
           w.writeValue field
     w.endRecord(memo)

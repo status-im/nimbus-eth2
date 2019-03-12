@@ -20,6 +20,6 @@ proc stateSize(deposits: int, maxContent = false) =
         len(crosslink_committees[0].committee) # close enough..
     for a in state.latest_attestations.mitems():
       a.aggregation_bitfield.setLen(validatorsPerCommittee)
-  echo "Validators: ", deposits, ", total: ", state.serialize().len
+  echo "Validators: ", deposits, ", total: ", SSZ.encode(state).len
 
 dispatch(stateSize)
