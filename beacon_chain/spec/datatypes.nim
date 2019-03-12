@@ -176,7 +176,7 @@ type
   ## TODO eventually, but Danny has confirmed that the SSZ types will use
   ## primitive (uint64, etc) types and helper functions annotated ones so
   ## it would just create pointless casts for now.
-  Slot* = uint64
+  Slot* = distinct uint64
   Epoch* = uint64
   Gwei* = uint64
 
@@ -522,8 +522,33 @@ type
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
     ($state.validator_registry[validatorIdx].pubkey)[0..7]
 
-func humaneSlotNum*(s: Slot): Slot =
-  s - GENESIS_SLOT
+# Will switch this to template to implement distinct Epoch type
+proc `+`* (x: uint64, y: Slot): Slot {.borrow.}
+proc `+`* (x: Slot, y: uint64): Slot {.borrow.}
+proc `+`* (x: Slot, y: Slot): Slot {.borrow.}
+proc `+=`* (x: var Slot, y: uint64) {.borrow.}
+
+proc `-`* (x: Slot, y: uint64): Slot {.borrow.}
+
+proc `<`* (x: Slot, y: uint64): bool {.borrow.}
+proc `<`* (x: Slot, y: Slot): bool {.borrow.}
+proc `<`* (x: uint64, y: Slot): bool {.borrow.}
+proc `<=`* (x: uint64, y: Slot): bool {.borrow.}
+proc `<=`* (x: Slot, y: Slot): bool {.borrow.}
+
+proc `==`* (x: Slot, y: uint64): bool {.borrow.}
+proc `==`* (x: uint64, y: Slot): bool {.borrow.}
+
+proc `$`* (x: Slot): string {.borrow.}
+
+# These aren't really maintaining type.
+proc `mod`* (x: Slot, y: uint64): uint64 {.borrow.}
+proc `*`* (x: Slot, y: uint64): uint64 {.borrow.}
+proc `-`* (x: Slot, y: Slot): uint64 {.borrow.}
+
+# Arguably a type system hole, but a reasonable tradeoff.
+func humaneSlotNum*(s: auto): Slot =
+  s.Slot - GENESIS_SLOT
 
 func humaneEpochNum*(e: Epoch): Epoch =
   e - GENESIS_EPOCH

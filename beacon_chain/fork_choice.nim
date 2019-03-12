@@ -94,7 +94,7 @@ proc lmdGhost*(
   # LMD GHOST (Latest Message Driven - Greediest Heaviest Observed SubTree)
 
   # Raw vote count from all attestations
-  let rawVoteCount = pool.getAttestationVoteCount(state.slot)
+  let rawVoteCount = pool.getAttestationVoteCount(state.slot.Slot)
 
   # The real vote count for a block also takes into account votes for its children
 
@@ -120,6 +120,6 @@ proc lmdGhost*(
     childVotes.clear()
     for target, votes in rawVoteCount.pairs:
       if store.getBlock(target).get().slot >= next_slot:
-        childVotes.inc(store.get_ancestor(target, next_slot), votes)
+        childVotes.inc(store.get_ancestor(target, next_slot.Slot), votes)
 
     head = childVotes.largest().key

@@ -84,7 +84,8 @@ suite "Block processing":
 
     let
       # Create an attestation for slot 1 signed by the only attester we have!
-      crosslink_committees = get_crosslink_committees_at_slot(state, state.slot)
+      crosslink_committees =
+        get_crosslink_committees_at_slot(state, state.slot.Slot)
       attestation = makeAttestation(
         state, previous_block_root,
         crosslink_committees[0].committee[0])

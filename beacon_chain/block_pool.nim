@@ -122,7 +122,7 @@ proc add*(
     # The block is resolved, now it's time to validate it to ensure that the
     # blocks we add to the database are clean for the given state
     updateState(pool, state, parent)
-    skipSlots(state.data, parent.root, blck.slot - 1)
+    skipSlots(state.data, parent.root, blck.slot.Slot - 1)
 
     if not updateState(state.data, parent.root, blck, {}):
       # TODO find a better way to log all this block data
@@ -257,7 +257,7 @@ proc checkUnresolved*(pool: var BlockPool): seq[Eth2Digest] =
 proc skipAndUpdateState(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     afterUpdate: proc (state: BeaconState)): bool =
-  skipSlots(state, blck.parent_root, blck.slot - 1, afterUpdate)
+  skipSlots(state, blck.parent_root, blck.slot.Slot - 1, afterUpdate)
   let ok  = updateState(state, blck.parent_root, blck, flags)
 
   afterUpdate(state)
@@ -343,7 +343,7 @@ proc updateState*(
 
     skipSlots(
         state.data, last.data.parent_root,
-        last.data.slot - 1) do(state: BeaconState):
+        last.data.slot.Slot - 1) do(state: BeaconState):
       pool.maybePutState(state)
 
     let ok = updateState(

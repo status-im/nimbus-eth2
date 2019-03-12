@@ -48,7 +48,7 @@ proc validate(
 
   # TODO half of this stuff is from beaconstate.validateAttestation - merge?
 
-  let attestationSlot = attestation.data.slot
+  let attestationSlot = attestation.data.slot.Slot
 
   if attestationSlot < state.finalized_epoch.get_epoch_start_slot():
     debug "Old attestation",
@@ -79,7 +79,8 @@ proc validate(
     return false
 
   let crosslink_committee = mapIt(
-    filterIt(get_crosslink_committees_at_slot(state, attestation.data.slot),
+    filterIt(get_crosslink_committees_at_slot(
+               state, attestation.data.slot.Slot),
              it.shard == attestation.data.shard),
     it.committee)[0]
 
@@ -128,7 +129,7 @@ proc validate(
             data: attestation.data, custody_bit: true)),
         ],
         attestation.aggregate_signature,
-        get_domain(state.fork, slot_to_epoch(attestation.data.slot),
+        get_domain(state.fork, slot_to_epoch(attestation.data.slot.Slot),
                   DOMAIN_ATTESTATION),
       ):
       notice "Invalid signature", participants
@@ -192,7 +193,7 @@ proc add*(pool: var AttestationPool,
   # TODO inefficient data structures..
 
   let
-    attestationSlot = attestation.data.slot
+    attestationSlot = attestation.data.slot.Slot
     idx = pool.slotIndex(state, attestationSlot)
     slotData = addr pool.slots[idx]
     validation = Validation(

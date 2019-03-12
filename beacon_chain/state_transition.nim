@@ -46,8 +46,8 @@ func verifyBlockSignature(state: BeaconState, blck: BeaconBlock): bool =
   ## block. Here, we check that the signature is correct by repeating the same
   ## process.
   let
-    proposer =
-      state.validator_registry[get_beacon_proposer_index(state, state.slot)]
+    proposer = state.validator_registry[
+      get_beacon_proposer_index(state, state.slot.Slot)]
     proposal = Proposal(
       slot: blck.slot,
       shard: BEACON_CHAIN_SHARD_NUMBER,
@@ -63,7 +63,7 @@ func verifyBlockSignature(state: BeaconState, blck: BeaconBlock): bool =
 proc processRandao(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   let
-    proposer_index = get_beacon_proposer_index(state, state.slot)
+    proposer_index = get_beacon_proposer_index(state, state.slot.Slot)
     proposer = addr state.validator_registry[proposer_index]
 
   if skipValidation notin flags:
@@ -139,7 +139,7 @@ proc processProposerSlashings(
           signed_root(proposer_slashing.proposal_1, "signature"),
           proposer_slashing.proposal_1.signature,
           get_domain(
-            state.fork, slot_to_epoch(proposer_slashing.proposal_1.slot),
+            state.fork, slot_to_epoch(proposer_slashing.proposal_1.slot.Slot),
             DOMAIN_PROPOSAL)):
         notice "PropSlash: invalid signature 1"
         return false
@@ -148,7 +148,7 @@ proc processProposerSlashings(
           signed_root(proposer_slashing.proposal_2, "signature"),
           proposer_slashing.proposal_2.signature,
           get_domain(
-            state.fork, slot_to_epoch(proposer_slashing.proposal_2.slot),
+            state.fork, slot_to_epoch(proposer_slashing.proposal_2.slot.Slot),
             DOMAIN_PROPOSAL)):
         notice "PropSlash: invalid signature 2"
         return false
@@ -201,7 +201,7 @@ func verify_slashable_attestation(state: BeaconState, slashable_attestation: Sla
     slashable_attestation.aggregate_signature,
     get_domain(
       state.fork,
-      slot_to_epoch(slashable_attestation.data.slot),
+      slot_to_epoch(slashable_attestation.data.slot.Slot),
       DOMAIN_ATTESTATION,
     ),
   )
@@ -361,7 +361,8 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
       let transfer_message = signed_root(transfer, "signature")
       if not bls_verify(
           pubkey=transfer.pubkey, transfer_message, transfer.signature,
-          get_domain(state.fork, slot_to_epoch(transfer.slot), DOMAIN_TRANSFER)):
+          get_domain(
+            state.fork, slot_to_epoch(transfer.slot.Slot), DOMAIN_TRANSFER)):
         notice "Transfer: incorrect signature"
         return false
 
@@ -371,7 +372,7 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
       transfer.amount + transfer.fee)
     state.validator_balances[transfer.to.int] += transfer.amount
     state.validator_balances[
-      get_beacon_proposer_index(state, state.slot)] += transfer.fee
+      get_beacon_proposer_index(state, state.slot.Slot)] += transfer.fee
 
   true
 
@@ -560,7 +561,7 @@ func processEpoch(state: var BeaconState) =
     #      https://github.com/nim-lang/Nim/issues/9827
     current_epoch_attestations =
       state.latest_attestations.filterIt(
-        current_epoch == slot_to_epoch(it.data.slot))
+        current_epoch == slot_to_epoch(it.data.slot.Slot))
 
     current_epoch_boundary_attestations =
       boundary_attestations(
@@ -584,7 +585,7 @@ func processEpoch(state: var BeaconState) =
 
     previous_epoch_attestations =
       state.latest_attestations.filterIt(
-        previous_epoch == slot_to_epoch(it.data.slot))
+        previous_epoch == slot_to_epoch(it.data.slot.Slot))
 
     previous_epoch_attester_indices =
       toSet(get_attester_indices(state, previous_epoch_attestations))
@@ -611,7 +612,7 @@ func processEpoch(state: var BeaconState) =
   let
     previous_epoch_head_attestations =
       previous_epoch_attestations.filterIt(
-        it.data.beacon_block_root == get_block_root(state, it.data.slot))
+        it.data.beacon_block_root == get_block_root(state, it.data.slot.Slot))
 
     previous_epoch_head_attester_indices =
       toSet(get_attester_indices(state, previous_epoch_head_attestations))
@@ -708,14 +709,16 @@ func processEpoch(state: var BeaconState) =
 
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#crosslinks
   block:
-    for slot in get_epoch_start_slot(previous_epoch) ..< get_epoch_start_slot(next_epoch):
-      let crosslink_committees_at_slot = get_crosslink_committees_at_slot(state, slot)
+    for slot in get_epoch_start_slot(previous_epoch).int ..<
+        get_epoch_start_slot(next_epoch).int:
+      let crosslink_committees_at_slot =
+        get_crosslink_committees_at_slot(state, slot.Slot)
 
       for crosslink_committee in crosslink_committees_at_slot:
         if 3'u64 * total_attesting_balance(crosslink_committee) >=
             2'u64 * get_total_balance(state, crosslink_committee.committee):
           state.latest_crosslinks[crosslink_committee.shard] = Crosslink(
-            epoch: slot_to_epoch(slot),
+            epoch: slot_to_epoch(slot.Slot),
             crosslink_data_root: winning_root(crosslink_committee))
 
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#rewards-and-penalties
@@ -854,15 +857,17 @@ func processEpoch(state: var BeaconState) =
       ## equivalently, simply look up table element, intentionally fragilely
       ## such that a useful stack trace is produced.
       let proposer_index =
-        get_beacon_proposer_index(state, proposer_indexes[v])
+        get_beacon_proposer_index(state, proposer_indexes[v].Slot)
 
       state.validator_balances[proposer_index] +=
         base_reward(state, v) div ATTESTATION_INCLUSION_REWARD_QUOTIENT
 
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#crosslinks-1
   block:
-    for slot in get_epoch_start_slot(previous_epoch) ..< get_epoch_start_slot(current_epoch):
-      let crosslink_committees_at_slot = get_crosslink_committees_at_slot(state, slot)
+    for slot in get_epoch_start_slot(previous_epoch).uint64 ..<
+        get_epoch_start_slot(current_epoch).uint64:
+      let crosslink_committees_at_slot =
+        get_crosslink_committees_at_slot(state, slot.Slot)
       for crosslink_committee in crosslink_committees_at_slot:
         let
           committee_attesting_validators =
@@ -943,7 +948,7 @@ func processEpoch(state: var BeaconState) =
     state.latest_randao_mixes[next_epoch mod LATEST_RANDAO_MIXES_LENGTH] =
       get_randao_mix(state, current_epoch)
     state.latest_attestations.keepItIf(
-      not (slot_to_epoch(it.data.slot) < current_epoch)
+      not (slot_to_epoch(it.data.slot.Slot) < current_epoch)
     )
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#state-root-verification

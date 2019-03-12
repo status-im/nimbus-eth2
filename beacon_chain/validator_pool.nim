@@ -31,7 +31,7 @@ proc signBlockProposal*(v: AttachedValidator, fork: Fork,
     let proposalRoot = hash_tree_root_final(proposal)
 
     result = bls_sign(v.privKey, signed_root(proposal, "signature"),
-      get_domain(fork, slot_to_epoch(proposal.slot), DOMAIN_PROPOSAL))
+      get_domain(fork, slot_to_epoch(proposal.slot.Slot), DOMAIN_PROPOSAL))
   else:
     # TODO:
     # send RPC

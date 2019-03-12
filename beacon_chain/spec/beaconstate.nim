@@ -122,7 +122,7 @@ func slash_validator*(state: var BeaconState, index: ValidatorIndex) =
     ] += get_effective_balance(state, index)
 
   let
-    whistleblower_index = get_beacon_proposer_index(state, state.slot)
+    whistleblower_index = get_beacon_proposer_index(state, state.slot.Slot)
     whistleblower_reward = get_effective_balance(state, index) div
       WHISTLEBLOWER_REWARD_QUOTIENT
 
@@ -280,7 +280,7 @@ func get_attestation_participants*(state: BeaconState,
   ## Return the participant indices at for the ``attestation_data`` and
   ## ``bitfield``.
   let crosslink_committees = get_crosslink_committees_at_slot(
-    state, attestation_data.slot)
+    state, attestation_data.slot.Slot)
   doAssert anyIt(
     crosslink_committees,
     it[1] == attestation_data.shard)
@@ -386,7 +386,8 @@ proc checkAttestation*(
     return
 
   let expected_justified_epoch =
-    if slot_to_epoch(attestation.data.slot + 1) >= get_current_epoch(state):
+    if slot_to_epoch(attestation.data.slot.Slot + 1) >=
+        get_current_epoch(state):
       state.justified_epoch
     else:
       state.previous_justified_epoch
@@ -410,12 +411,12 @@ proc checkAttestation*(
       attestation.data.latest_crosslink,
       Crosslink(
         crosslink_data_root: attestation.data.crosslink_data_root,
-        epoch: slot_to_epoch(attestation.data.slot))]):
+        epoch: slot_to_epoch(attestation.data.slot.Slot))]):
     warn("Unexpected crosslink shard",
       state_latest_crosslinks_attestation_data_shard =
         state.latest_crosslinks[attestation.data.shard],
       attestation_data_latest_crosslink = attestation.data.latest_crosslink,
-      epoch = humaneEpochNum(slot_to_epoch(attestation.data.slot)),
+      epoch = humaneEpochNum(slot_to_epoch(attestation.data.slot.Slot)),
       crosslink_data_root = attestation.data.crosslink_data_root)
     return
 
@@ -423,7 +424,8 @@ proc checkAttestation*(
   assert anyIt(attestation.aggregation_bitfield, it != 0)
 
   let crosslink_committee = mapIt(
-    filterIt(get_crosslink_committees_at_slot(state, attestation.data.slot),
+    filterIt(get_crosslink_committees_at_slot(
+             state, attestation.data.slot.Slot),
              it.shard == attestation.data.shard),
     it.committee)[0]
 
@@ -475,7 +477,7 @@ proc checkAttestation*(
           data: attestation.data, custody_bit: true)),
       ],
       attestation.aggregate_signature,
-      get_domain(state.fork, slot_to_epoch(attestation.data.slot),
+      get_domain(state.fork, slot_to_epoch(attestation.data.slot.Slot),
                  DOMAIN_ATTESTATION),
     )
 
@@ -505,7 +507,7 @@ proc makeAttestationData*(
 
   # TODO update when https://github.com/ethereum/eth2.0-specs/issues/742
   let
-    epoch_start_slot = get_epoch_start_slot(slot_to_epoch(state.slot))
+    epoch_start_slot = get_epoch_start_slot(slot_to_epoch(state.slot.Slot))
     epoch_boundary_root =
       if epoch_start_slot == state.slot: beacon_block_root
       else: get_block_root(state, epoch_start_slot)

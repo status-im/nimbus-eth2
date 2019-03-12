@@ -68,7 +68,7 @@ func getNextBeaconProposerIndex*(state: BeaconState): ValidatorIndex =
   #       see get_shard_committees_index
   var next_state = state
   next_state.slot += 1
-  get_beacon_proposer_index(next_state, next_state.slot)
+  get_beacon_proposer_index(next_state, next_state.slot.Slot)
 
 proc addBlock*(
     state: var BeaconState, previous_block_root: Eth2Digest,
@@ -79,7 +79,7 @@ proc addBlock*(
   # but avoids some slow block copies
 
   state.slot += 1
-  let proposer_index = get_beacon_proposer_index(state, state.slot)
+  let proposer_index = get_beacon_proposer_index(state, state.slot.Slot)
   state.slot -= 1
 
   # Ferret out remaining GENESIS_EPOCH == 0 assumptions in test code
@@ -100,7 +100,7 @@ proc addBlock*(
       slot: state.slot + 1,
       parent_root: previous_block_root,
       state_root: Eth2Digest(), # we need the new state first
-      randao_reveal: privKey.genRandaoReveal(state, state.slot + 1),
+      randao_reveal: privKey.genRandaoReveal(state, state.slot.Slot + 1),
       eth1_data: Eth1Data(), # TODO
       signature: ValidatorSig(), # we need the rest of the block first!
       body: body
@@ -134,12 +134,14 @@ proc addBlock*(
     # We have a signature - put it in the block and we should be done!
     new_block.signature =
       bls_sign(proposerPrivkey, proposal_hash,
-               get_domain(state.fork, slot_to_epoch(state.slot), DOMAIN_PROPOSAL))
+               get_domain(
+                 state.fork, slot_to_epoch(state.slot.Slot), DOMAIN_PROPOSAL))
 
     assert bls_verify(
       proposer.pubkey,
       proposal_hash, new_block.signature,
-      get_domain(state.fork, slot_to_epoch(state.slot), DOMAIN_PROPOSAL)),
+      get_domain(
+        state.fork, slot_to_epoch(state.slot.Slot), DOMAIN_PROPOSAL)),
       "we just signed this message - it should pass verification!"
 
   new_block
@@ -165,7 +167,8 @@ proc makeAttestation*(
     validator_index: ValidatorIndex, flags: UpdateFlags = {}): Attestation =
   let
     sac = find_shard_committee(
-      get_crosslink_committees_at_slot(state, state.slot), validator_index)
+      get_crosslink_committees_at_slot(
+        state, state.slot.Slot), validator_index)
     validator = state.validator_registry[validator_index]
     sac_index = sac.committee.find(validator_index)
     data = makeAttestationData(state, sac.shard, beacon_block_root)
@@ -185,7 +188,7 @@ proc makeAttestation*(
           hackPrivKey(validator), @(msg.data),
           get_domain(
             state.fork,
-            slot_to_epoch(state.slot),
+            slot_to_epoch(state.slot.Slot),
             DOMAIN_ATTESTATION))
       else:
         ValidatorSig()

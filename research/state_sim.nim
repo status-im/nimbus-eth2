@@ -93,7 +93,7 @@ cli do(slots = 1945,
       # work for every slot - we'll randomize it deterministically to give
       # some variation
       let scass = withTimerRet(timers[tShuffle]):
-        get_crosslink_committees_at_slot(state, state.slot)
+        get_crosslink_committees_at_slot(state, state.slot.Slot)
 
       for scas in scass:
         var
@@ -124,7 +124,7 @@ cli do(slots = 1945,
 
     if (state.slot) mod SLOTS_PER_EPOCH == 0:
       echo &" slot: {humaneSlotNum(state.slot)} ",
-        &"epoch: {humaneEpochNum(state.slot.slot_to_epoch)}"
+        &"epoch: {humaneEpochNum(state.slot.Slot.slot_to_epoch)}"
 
   maybeWrite() # catch that last state as well..
 

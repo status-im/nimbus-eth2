@@ -293,7 +293,7 @@ proc proposeBlock(node: BeaconNode,
     attestations: node.attestationPool.getAttestationsForBlock(slot))
 
   var newBlock = BeaconBlock(
-    slot: slot,
+    slot: slot.uint64,
     parent_root: node.state.blck.root,
     randao_reveal: validator.genRandaoReveal(state, slot),
     eth1_data: node.mainchainMonitor.getBeaconBlockRef(),
@@ -308,7 +308,7 @@ proc proposeBlock(node: BeaconNode,
   newBlock.state_root = Eth2Digest(data: hash_tree_root(state))
 
   let proposal = Proposal(
-    slot: slot,
+    slot: slot.uint64,
     shard: BEACON_CHAIN_SHARD_NUMBER,
     block_root: Eth2Digest(data: signed_root(newBlock, "signature")),
     signature: ValidatorSig(),
@@ -393,13 +393,13 @@ proc scheduleEpochActions(node: BeaconNode, epoch: Epoch) =
 
   debug "Scheduling epoch actions",
     epoch = humaneEpochNum(epoch),
-    stateEpoch = humaneEpochNum(node.state.data.slot.slot_to_epoch())
+    stateEpoch = humaneEpochNum(node.state.data.slot.Slot.slot_to_epoch())
 
   # In case some late blocks dropped in
   node.updateHead()
 
   # Sanity check - verify that the current head block is not too far behind
-  if node.state.data.slot.slot_to_epoch() + 1 < epoch:
+  if node.state.data.slot.Slot.slot_to_epoch() + 1 < epoch:
     # We're hopelessly behind!
     #
     # There's a few ways this can happen:
@@ -445,23 +445,23 @@ proc scheduleEpochActions(node: BeaconNode, epoch: Epoch) =
     nextState.slot = slot # ugly trick, see get_beacon_proposer_index
 
     block: # Schedule block proposals
-      let proposerIdx = get_beacon_proposer_index(nextState, slot)
+      let proposerIdx = get_beacon_proposer_index(nextState, slot.Slot)
       let validator = node.getAttachedValidator(proposerIdx)
 
       if validator != nil:
         # TODO:
         # Warm-up the proposer earlier to try to obtain previous
         # missing blocks if necessary
-        scheduleBlockProposal(node, slot, validator)
+        scheduleBlockProposal(node, slot.Slot, validator)
 
     block: # Schedule attestations
       for crosslink_committee in get_crosslink_committees_at_slot(
-          nextState, slot):
+          nextState, slot.Slot):
         for i, validatorIdx in crosslink_committee.committee:
           let validator = node.getAttachedValidator(validatorIdx)
           if validator != nil:
             scheduleAttestation(
-              node, validator, slot, crosslink_committee.shard,
+              node, validator, slot.Slot, crosslink_committee.shard,
               crosslink_committee.committee.len, i)
 
   let

@@ -34,14 +34,14 @@ suite "Attestation pool processing":
     let
       # Create an attestation for slot 1 signed by the only attester we have!
       crosslink_committees =
-        get_crosslink_committees_at_slot(state.data, state.data.slot)
+        get_crosslink_committees_at_slot(state.data, state.data.slot.Slot)
       attestation = makeAttestation(
         state.data, state.blck.root, crosslink_committees[0].committee[0])
 
     pool.add(state.data, attestation)
 
     let attestations = pool.getAttestationsForBlock(
-      state.data.slot + MIN_ATTESTATION_INCLUSION_DELAY)
+      state.data.slot.Slot + MIN_ATTESTATION_INCLUSION_DELAY)
 
     check:
       attestations.len == 1
@@ -56,7 +56,7 @@ suite "Attestation pool processing":
     let
       # Create an attestation for slot 1 signed by the only attester we have!
       crosslink_committees1 =
-        get_crosslink_committees_at_slot(state.data, state.data.slot)
+        get_crosslink_committees_at_slot(state.data, state.data.slot.Slot)
       attestation1 = makeAttestation(
         state.data, state.blck.root, crosslink_committees1[0].committee[0])
 
@@ -64,7 +64,7 @@ suite "Attestation pool processing":
 
     let
       crosslink_committees2 =
-        get_crosslink_committees_at_slot(state.data, state.data.slot)
+        get_crosslink_committees_at_slot(state.data, state.data.slot.Slot)
       attestation2 = makeAttestation(
         state.data, state.blck.root, crosslink_committees2[0].committee[0])
 
@@ -73,7 +73,7 @@ suite "Attestation pool processing":
     pool.add(state.data, attestation1)
 
     let attestations = pool.getAttestationsForBlock(
-      state.data.slot + MIN_ATTESTATION_INCLUSION_DELAY)
+      state.data.slot.Slot + MIN_ATTESTATION_INCLUSION_DELAY)
 
     check:
       attestations.len == 1

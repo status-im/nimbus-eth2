@@ -17,8 +17,9 @@ proc timeSinceGenesis*(s: BeaconState): Timestamp =
             detectedClockDrift)
 
 proc getSlotFromTime*(s: BeaconState, t = now()): Slot =
-  GENESIS_SLOT + uint64((int64(t - s.genesis_time * 1000) - detectedClockDrift) div
-                         int64(SECONDS_PER_SLOT * 1000))
+  GENESIS_SLOT + uint64((int64(t - s.genesis_time * 1000) -
+                           detectedClockDrift) div
+                         int64(SECONDS_PER_SLOT * 1000)).Slot
 
 func slotStart*(s: BeaconState, slot: Slot): Timestamp =
   (s.genesis_time + ((slot - GENESIS_SLOT) * SECONDS_PER_SLOT)) * 1000
