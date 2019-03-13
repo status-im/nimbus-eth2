@@ -1,8 +1,8 @@
 import
-  bitops, chronicles, options, tables,
+  bitops, chronicles, options, sequtils, tables,
   ssz, beacon_chain_db, state_transition, extras,
-  spec/[crypto, datatypes, digest],
-  beacon_node_types
+  beacon_node_types,
+  spec/[crypto, datatypes, digest, helpers]
 
 proc link(parent, child: BlockRef) =
   doAssert (not (parent.root == Eth2Digest() or child.root == Eth2Digest())),
@@ -12,10 +12,24 @@ proc link(parent, child: BlockRef) =
   child.parent = parent
   parent.children.add(child)
 
+proc init*(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
+  BlockRef(
+    root: root,
+    slot: slot
+  )
+
+proc init*(T: type BlockRef, root: Eth2Digest, blck: BeaconBlock): BlockRef =
+  BlockRef.init(root, blck.slot)
+
+proc findAncestorBySlot(blck: BlockRef, slot: Slot): BlockRef =
+  result = blck
+
+  while result != nil and result.slot > slot:
+    result = result.parent
+
 proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
   # TODO we require that the db contains both a head and a tail block -
   #      asserting here doesn't seem like the right way to go about it however..
-  # TODO head is updated outside of block pool but read here - ugly.
 
   let
     tail = db.getTailBlock()
@@ -25,46 +39,85 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
   doAssert head.isSome(), "Missing head block, database corrupt?"
 
   let
-    headRoot = head.get()
     tailRoot = tail.get()
-    tailRef = BlockRef(root: tailRoot)
+    tailBlock = db.getBlock(tailRoot).get()
+    tailRef = BlockRef.init(tailRoot, tailBlock)
+    headRoot = head.get()
 
-  var blocks = {tailRef.root: tailRef}.toTable()
+  var
+    blocks = {tailRef.root: tailRef}.toTable()
+    latestStateRoot = Option[Eth2Digest]()
+    headStateBlock = tailRef
+    headRef: BlockRef
 
   if headRoot != tailRoot:
     var curRef: BlockRef
 
-    for root, _ in db.getAncestors(headRoot):
+    for root, blck in db.getAncestors(headRoot):
       if root == tailRef.root:
         doAssert(not curRef.isNil)
         link(tailRef, curRef)
         curRef = curRef.parent
         break
 
+      let newRef = BlockRef.init(root, blck)
       if curRef == nil:
-        curRef = BlockRef(root: root)
+        curRef = newRef
+        headRef = newRef
       else:
-        link(BlockRef(root: root), curRef)
+        link(newRef, curRef)
         curRef = curRef.parent
       blocks[curRef.root] = curRef
 
+      if latestStateRoot.isNone() and db.containsState(blck.state_root):
+        latestStateRoot = some(blck.state_root)
+
     doAssert curRef == tailRef,
       "head block does not lead to tail, database corrupt?"
+  else:
+    headRef = tailRef
 
   var blocksBySlot = initTable[uint64, seq[BlockRef]]()
   for _, b in tables.pairs(blocks):
     let slot = db.getBlock(b.root).get().slot
     blocksBySlot.mgetOrPut(slot.uint64, @[]).add(b)
 
+  let
+    # The head state is necessary to find out what we considered to be the
+    # finalized epoch last time we saved something.
+    headStateRoot =
+      if latestStateRoot.isSome():
+        latestStateRoot.get()
+      else:
+        db.getBlock(tailRef.root).get().state_root
+
+    # TODO right now, because we save a state at every epoch, this *should*
+    #      be the latest justified state or newer, meaning it's enough for
+    #      establishing what we consider to be the finalized head. This logic
+    #      will need revisiting however
+    headState = db.getState(headStateRoot).get()
+    finalizedHead =
+      headRef.findAncestorBySlot(headState.finalized_epoch.get_epoch_start_slot())
+    justifiedHead =
+      headRef.findAncestorBySlot(headState.justified_epoch.get_epoch_start_slot())
+
+  doAssert justifiedHead.slot >= finalizedHead.slot,
+    "justified head comes before finalized head - database corrupt?"
+
+  # TODO what about ancestors? only some special blocks are
+  #      finalized / justified but to find out exactly which ones, we would have
+  #      to replay state transitions from tail to head and note each one...
+  finalizedHead.finalized = true
+  justifiedHead.justified = true
+
   BlockPool(
     pending: initTable[Eth2Digest, BeaconBlock](),
     unresolved: initTable[Eth2Digest, UnresolvedBlock](),
     blocks: blocks,
     blocksBySlot: blocksBySlot,
-    tail: BlockData(
-      data: db.getBlock(tailRef.root).get(),
-      refs: tailRef,
-    ),
+    tail: tailRef,
+    head: headRef,
+    finalizedHead: finalizedHead,
     db: db
   )
 
@@ -98,13 +151,14 @@ proc add*(
 
     return true
 
-  # The tail block points to a cutoff time beyond which we don't store blocks -
-  # if we receive a block with an earlier slot, there's no hope of ever
-  # resolving it
-  if blck.slot <= pool.tail.data.slot:
+  # If the block we get is older than what we finalized already, we drop it.
+  # One way this can happen is that we start resolving a block and finalization
+  # happens in the meantime - the block we requested will then be stale
+  # by the time it gets here.
+  if blck.slot <= pool.finalizedHead.slot:
     debug "Old block, dropping",
       slot = humaneSlotNum(blck.slot),
-      tailSlot = humaneSlotNum(pool.tail.data.slot),
+      tailSlot = humaneSlotNum(pool.tail.slot),
       stateRoot = shortLog(blck.state_root),
       parentRoot = shortLog(blck.parent_root),
       blockRoot = shortLog(blockRoot)
@@ -139,9 +193,9 @@ proc add*(
         voluntary_exits = blck.body.voluntary_exits.len,
         transfers = blck.body.transfers.len
 
-    let blockRef = BlockRef(
-      root: blockRoot
-    )
+      return
+
+    let blockRef = BlockRef.init(blockRoot, blck)
     link(parent, blockRef)
 
     pool.blocks[blockRoot] = blockRef
@@ -150,6 +204,22 @@ proc add*(
 
     # Resolved blocks should be stored in database
     pool.db.putBlock(blockRoot, blck)
+
+    # This block *might* have caused a justification - make sure we stow away
+    # that information:
+    let
+      justifiedBlock =
+        blockRef.findAncestorBySlot(
+          state.data.justified_epoch.get_epoch_start_slot())
+
+    if not justifiedBlock.justified:
+      info "Justified block",
+        justifiedBlockRoot = shortLog(justifiedBlock.root),
+        justifiedBlockRoot = humaneSlotnum(justifiedBlock.slot),
+        headBlockRoot = shortLog(blockRoot),
+        headBlockSlot = humaneSlotnum(blck.slot)
+
+      justifiedBlock.justified = true
 
     info "Block resolved",
       blockRoot = shortLog(blockRoot),
@@ -322,7 +392,7 @@ proc updateState*(
       blockRoot = shortLog(blck.root)
     doAssert false, "Oh noes, we passed big bang!"
 
-  notice "Replaying state transitions",
+  debug "Replaying state transitions",
     stateSlot = humaneSlotNum(state.data.slot),
     stateRoot = shortLog(ancestor.data.state_root),
     prevStateSlot = humaneSlotNum(ancestorState.get().slot),
@@ -358,8 +428,86 @@ proc updateState*(
 
 proc loadTailState*(pool: BlockPool): StateData =
   ## Load the state associated with the current tail in the pool
+  let stateRoot = pool.db.getBlock(pool.tail.root).get().state_root
   StateData(
-    data: pool.db.getState(pool.tail.data.state_root).get(),
-    root: pool.tail.data.state_root,
-    blck: pool.tail.refs
+    data: pool.db.getState(stateRoot).get(),
+    root: stateRoot,
+    blck: pool.tail
   )
+
+proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
+  ## Update what we consider to be the current head, as given by the fork
+  ## choice.
+  ## The choice of head affects the choice of finalization point - the order
+  ## of operations naturally becomes important here - after updating the head,
+  ## blocks that were once considered potential candidates for a tree will
+  ## now fall from grace, or no longer be considered resolved.
+  if pool.head == blck:
+    debug "No head update this time",
+      headBlockRoot = shortLog(blck.root),
+      headBlockSlot = humaneSlotNum(blck.slot)
+    return
+
+  pool.head = blck
+
+  # Start off by making sure we have the right state
+  updateState(pool, state, blck)
+
+  info "Updated head",
+    stateRoot = shortLog(state.root),
+    headBlockRoot = shortLog(state.blck.root),
+    stateSlot = humaneSlotNum(state.data.slot)
+
+  let
+    # TODO there might not be a block at the epoch boundary - what then?
+    finalizedHead =
+      blck.findAncestorBySlot(state.data.finalized_epoch.get_epoch_start_slot())
+
+  doAssert (not finalizedHead.isNil),
+    "Block graph should always lead to a finalized block"
+
+  if finalizedHead != pool.finalizedHead:
+    info "Finalized block",
+      finalizedBlockRoot = shortLog(finalizedHead.root),
+      finalizedBlockSlot = humaneSlotNum(finalizedHead.slot),
+      headBlockRoot = shortLog(blck.root),
+      headBlockSlot = humaneSlotNum(blck.slot)
+
+  var cur = finalizedHead
+  while cur != pool.finalizedHead:
+    # Finalization means that we choose a single chain as the canonical one -
+    # it also means we're no longer interested in any branches from that chain
+    # up to the finalization point
+
+    # TODO technically, if we remove from children the gc should free the block
+    #      because it should become orphaned, via mark&sweep if nothing else,
+    #      though this needs verification
+    # TODO what about attestations? we need to drop those too, though they
+    #      *should* be pretty harmless
+    # TODO remove from database as well.. here, or using some GC-like setup
+    #      that periodically cleans it up?
+    for child in cur.parent.children:
+      if child != cur:
+        pool.blocks.del(child.root)
+    cur.parent.children = @[cur]
+    cur = cur.parent
+
+  pool.finalizedHead = finalizedHead
+
+proc findLatestJustifiedBlock(
+    blck: BlockRef, depth: int, deepest: var tuple[depth: int, blck: BlockRef]) =
+  if blck.justified and depth > deepest.depth:
+    deepest = (depth, blck)
+
+  for child in blck.children:
+    findLatestJustifiedBlock(child, depth + 1, deepest)
+
+proc latestJustifiedBlock*(pool: BlockPool): BlockRef =
+  ## Return the most recent block that is justified and at least as recent
+  ## as the latest finalized block
+
+  var deepest = (0, pool.finalizedHead)
+
+  findLatestJustifiedBlock(pool.finalizedHead, 0, deepest)
+
+  deepest[1]

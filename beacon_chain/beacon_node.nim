@@ -3,10 +3,9 @@ import
   chronos, chronicles, confutils,
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator], conf, time,
   state_transition, fork_choice, ssz, beacon_chain_db, validator_pool, extras,
-  attestation_pool, block_pool, eth2_network,
+  attestation_pool, block_pool, eth2_network, beacon_node_types,
   mainchain_monitor, trusted_state_snapshots,
-  eth/trie/db, eth/trie/backends/rocksdb_backend,
-  beacon_node_types
+  eth/trie/db, eth/trie/backends/rocksdb_backend
 
 const
   topicBeaconBlocks = "ethereum/2.1/beacon_chain/blocks"
@@ -168,47 +167,16 @@ proc getAttachedValidator(node: BeaconNode, idx: int): AttachedValidator =
   let validatorKey = node.state.data.validator_registry[idx].pubkey
   return node.attachedValidators.getValidator(validatorKey)
 
-proc updateHead(node: BeaconNode) =
-  # TODO placeholder logic for running the fork choice
-  var
-    head = node.state.blck
-    headSlot = node.state.data.slot
+proc updateHead(node: BeaconNode): BlockRef =
+  # TODO move all of this logic to BlockPool
+  let
+    justifiedHead = node.blockPool.latestJustifiedBlock()
 
-  # LRB fork choice - latest resolved block :)
-  for ph in node.potentialHeads:
-    let blck = node.blockPool.get(ph)
-    if blck.isNone():
-      continue
-    if blck.get().data.slot >= headSlot:
-      head = blck.get().refs
-      headSlot = blck.get().data.slot
-  node.potentialHeads.setLen(0)
+  node.blockPool.updateState(node.state, justifiedHead)
 
-  if head.root == node.state.blck.root:
-    debug "No new head found",
-      stateRoot = shortLog(node.state.root),
-      blockRoot = shortLog(node.state.blck.root),
-      stateSlot = humaneSlotNum(node.state.data.slot)
-    return
-
-  node.blockPool.updateState(node.state, head)
-
-  # TODO this should probably be in blockpool, but what if updateState is
-  #      called with a non-head block?
-  node.db.putHeadBlock(node.state.blck.root)
-
-  # TODO we should save the state every now and then, but which state do we
-  #      save? When we receive a block and process it, the state from a
-  #      particular epoch may become finalized - but we no longer have it!
-  #      One thing that would work would be to replay from some earlier
-  #      state (the tail?) to the new finalized state, then save that. Another
-  #      option would be to simply save every epoch start state, and eventually
-  #      point it out as it becomes finalized..
-
-  info "Updated head",
-    stateRoot = shortLog(node.state.root),
-    headBlockRoot = shortLog(node.state.blck.root),
-    stateSlot = humaneSlotNum(node.state.data.slot)
+  let newHead = lmdGhost(node.attestationPool, node.state.data, justifiedHead)
+  node.blockPool.updateHead(node.state, newHead)
+  newHead
 
 proc makeAttestation(node: BeaconNode,
                      validator: AttachedValidator,
@@ -224,26 +192,24 @@ proc makeAttestation(node: BeaconNode,
   # TODO this lazy update of the head is good because it delays head resolution
   #      until the very latest moment - on the other hand, if it takes long, the
   #      attestation might be late!
-  node.updateHead()
+  let head = node.updateHead()
+
+  node.blockPool.updateState(node.state, head)
 
   # Check pending attestations - maybe we found some blocks for them
   node.attestationPool.resolve(node.state.data)
 
   # It might be that the latest block we found is an old one - if this is the
   # case, we need to fast-forward the state
-  # TODO maybe this is not necessary? We just use the justified epoch from the
-  #      state - investigate if it can change (and maybe restructure the state
-  #      update code so it becomes obvious... this would require moving away
-  #      from the huge state object)
-  var state = node.state.data
-  skipSlots(state, node.state.blck.root, slot)
+  skipSlots(node.state.data, node.state.blck.root, slot)
 
   # If we call makeAttestation too late, we must advance head only to `slot`
-  doAssert state.slot == slot,
+  doAssert node.state.data.slot == slot,
     "Corner case: head advanced beyond sheduled attestation slot"
 
   let
-    attestationData = makeAttestationData(state, shard, node.state.blck.root)
+    attestationData =
+      makeAttestationData(node.state.data, shard, node.state.blck.root)
     validatorSignature = await validator.signAttestation(attestationData)
 
   var aggregationBitfield = repeat(0'u8, ceil_div8(committeeLen))
@@ -277,17 +243,13 @@ proc proposeBlock(node: BeaconNode,
 
   # To propose a block, we should know what the head is, because that's what
   # we'll be building the next block upon..
-  node.updateHead()
+  let head = node.updateHead()
+
+  node.blockPool.updateState(node.state, head)
 
   # To create a block, we'll first apply a partial block to the state, skipping
   # some validations.
-  # TODO technically, we could leave the state with the new block applied here,
-  #      though it works this way as well because eventually we'll receive the
-  #      block through broadcast.. to apply or not to apply permantently, that
-  #      is the question...
-  var state = node.state.data
-
-  skipSlots(state, node.state.blck.root, slot - 1)
+  skipSlots(node.state.data, node.state.blck.root, slot - 1)
 
   var blockBody = BeaconBlockBody(
     attestations: node.attestationPool.getAttestationsForBlock(slot))
@@ -295,17 +257,19 @@ proc proposeBlock(node: BeaconNode,
   var newBlock = BeaconBlock(
     slot: slot,
     parent_root: node.state.blck.root,
-    randao_reveal: validator.genRandaoReveal(state, slot),
+    randao_reveal: validator.genRandaoReveal(node.state.data, slot),
     eth1_data: node.mainchainMonitor.getBeaconBlockRef(),
     body: blockBody,
     signature: ValidatorSig(), # we need the rest of the block first!
     )
 
   let ok =
-    updateState(state, node.state.blck.root, newBlock, {skipValidation})
+    updateState(
+        node.state.data, node.state.blck.root, newBlock, {skipValidation})
   doAssert ok # TODO: err, could this fail somehow?
+  node.state.root = hash_tree_root_final(node.state.data)
 
-  newBlock.state_root = Eth2Digest(data: hash_tree_root(state))
+  newBlock.state_root = node.state.root
 
   let proposal = Proposal(
     slot: slot.uint64,
@@ -313,7 +277,8 @@ proc proposeBlock(node: BeaconNode,
     block_root: Eth2Digest(data: signed_root(newBlock, "signature")),
     signature: ValidatorSig(),
   )
-  newBlock.signature = await validator.signBlockProposal(state.fork, proposal)
+  newBlock.signature =
+    await validator.signBlockProposal(node.state.data.fork, proposal)
 
   # TODO what are we waiting for here? broadcast should never block, and never
   #      fail...
@@ -396,7 +361,8 @@ proc scheduleEpochActions(node: BeaconNode, epoch: Epoch) =
     stateEpoch = humaneEpochNum(node.state.data.slot.slot_to_epoch())
 
   # In case some late blocks dropped in
-  node.updateHead()
+  let head = node.updateHead()
+  node.blockPool.updateState(node.state, head)
 
   # Sanity check - verify that the current head block is not too far behind
   if node.state.data.slot.slot_to_epoch() + 1 < epoch:
@@ -524,9 +490,6 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
 
   node.attestationPool.add(node.state.data, attestation)
 
-  if attestation.data.beacon_block_root notin node.potentialHeads:
-    node.potentialHeads.add attestation.data.beacon_block_root
-
 proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
   # We received a block but don't know much about it yet - in particular, we
   # don't know if it's part of the chain we're currently building.
@@ -544,23 +507,10 @@ proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
     voluntary_exits = blck.body.voluntary_exits.len,
     transfers = blck.body.transfers.len
 
-  var
-    # TODO We could avoid this copy by having node.state as a general cache
-    #      that just holds a random recent state - that would however require
-    #      rethinking scheduling etc, which relies on there being a fairly
-    #      accurate representation of the state available. Notably, when there's
-    #      a reorg, the scheduling might change!
-    stateTmp = node.state
-  if not node.blockPool.add(stateTmp, blockRoot, blck):
+  if not node.blockPool.add(node.state, blockRoot, blck):
     # TODO the fact that add returns a bool that causes the parent block to be
     #      pre-emptively fetched is quite ugly - fix.
     node.fetchBlocks(@[blck.parent_root])
-
-  # Delay updating the head until the latest moment possible - this makes it
-  # more likely that we've managed to resolve the block, in case of
-  # irregularities
-  if blockRoot notin node.potentialHeads:
-    node.potentialHeads.add blockRoot
 
   # The block we received contains attestations, and we might not yet know about
   # all of them. Let's add them to the attestation pool - in case they block

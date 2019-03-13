@@ -30,7 +30,11 @@ type
     keys*: KeyPair
     attachedValidators*: ValidatorPool
     blockPool*: BlockPool
-    state*: StateData
+    state*: StateData ##\
+    ## State cache object that's used as a scratch pad
+    ## TODO this is pretty dangerous - for example if someone sets it
+    ##      to a particular state then does `await`, it might change - prone to
+    ##      async races
     attestationPool*: AttestationPool
     mainchainMonitor*: MainchainMonitor
     potentialHeads*: seq[Eth2Digest]
@@ -98,6 +102,10 @@ type
 
     unresolved*: Table[Eth2Digest, UnresolvedAttestation]
 
+    latestAttestations*: Table[ValidatorPubKey, BlockRef] ##\
+    ## Map that keeps track of the most recent vote of each attester - see
+    ## fork_choice
+
   # #############################################
   #
   #                 Block Pool
@@ -148,8 +156,15 @@ type
 
     blocksBySlot*: Table[uint64, seq[BlockRef]]
 
-    tail*: BlockData ##\
+    tail*: BlockRef ##\
     ## The earliest finalized block we know about
+
+    head*: BlockRef ##\
+    ## The latest block we know about, that's been chosen as a head by the fork
+    ## choice rule
+
+    finalizedHead*: BlockRef ##\
+    ## The latest block that was finalized according to the block in head
 
     db*: BeaconChainDB
 
@@ -168,6 +183,16 @@ type
     ## Not nil, except for the tail
 
     children*: seq[BlockRef]
+
+    slot*: Slot # TODO could calculate this by walking to root, but..
+
+    justified*: bool ##\
+    ## True iff there exists a descendant of this block that generates a state
+    ## that points back to this block in its `justified_epoch` field.
+    finalized*: bool ##\
+    ## True iff there exists a descendant of this block that generates a state
+    ## that points back to this block in its `finalized_epoch` field.
+    ## Ancestors of this block are guaranteed to have 1 child only.
 
   BlockData* = object
     ## Body and graph in one
