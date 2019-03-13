@@ -10,8 +10,8 @@ trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 
 # Set a default value for the env vars usually supplied by nimbus Makefile
 
-NUM_VALIDATORS=${1:-100}
-NUM_NODES=${2:-9}
+NUM_VALIDATORS=${VALIDATORS:-100}
+NUM_NODES=${NODES:-9}
 
 cd $SIM_ROOT
 mkdir -p "$SIMULATION_DIR"
