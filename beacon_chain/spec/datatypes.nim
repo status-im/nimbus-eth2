@@ -18,7 +18,8 @@
 # types / composition
 
 import
-  eth/common, hashes, math,
+  hashes, math,
+  eth/[common, rlp],
   ./crypto, ./digest
 
 # TODO Data types:
@@ -228,7 +229,7 @@ type
 
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#attestationdata
   AttestationData* = object
-    slot*: uint64 ##\
+    slot*: Slot ##\
     ## Slot number
 
     shard*: uint64 ##\
@@ -246,7 +247,7 @@ type
     latest_crosslink*: Crosslink ##\
     ## Last crosslink
 
-    justified_epoch*: uint64 ##\
+    justified_epoch*: Epoch ##\
     ## Last justified epoch in the beacon state
 
     justified_block_root*: Eth2Digest ##\
@@ -284,7 +285,7 @@ type
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
     # Minimum epoch for processing exit
-    epoch*: uint64
+    epoch*: Epoch
     # Index of the exiting validator
     validator_index*: uint64
     # Validator signature
@@ -451,7 +452,7 @@ type
 
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#crosslink
   Crosslink* = object
-    epoch*: uint64 ##\
+    epoch*: Epoch ##\
     ## Epoch number
 
     crosslink_data_root*: Eth2Digest ##\
@@ -522,7 +523,7 @@ type
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
     ($state.validator_registry[validatorIdx].pubkey)[0..7]
 
-template ethTimeUnit(typ: type) =
+template ethTimeUnit(typ: type) {.dirty.} =
   proc `+`*(x: typ, y: uint64): typ {.borrow.}
   proc `-`*(x: typ, y: uint64): typ {.borrow.}
   proc `-`*(x: uint64, y: typ): typ {.borrow.}
@@ -554,13 +555,26 @@ template ethTimeUnit(typ: type) =
   proc `$`*(x: typ): string {.borrow.}
   proc hash*(x: typ): Hash {.borrow.}
 
-ethTimeUnit(Slot)
-ethTimeUnit(Epoch)
+  # Serialization
+  proc read*(rlp: var Rlp, T: type typ): typ {.inline.} =
+    typ(rlp.read(uint64))
 
-func humaneSlotNum*(s: auto): uint64 =
+  proc append*(writer: var RlpWriter, value: typ) =
+    writer.append uint64(value)
+
+  proc writeValue*(writer: var JsonWriter, value: typ) =
+    writeValue(writer, uint64 value)
+
+  proc readValue*(reader: var JsonReader, value: var typ) =
+    value = typ reader.readValue(uint64)
+
+ethTimeUnit Slot
+ethTimeUnit Epoch
+
+func humaneSlotNum*(s: Slot): uint64 =
   s.Slot - GENESIS_SLOT
 
-func humaneEpochNum*(e: auto): uint64 =
+func humaneEpochNum*(e: Epoch): uint64 =
   e.Epoch - GENESIS_EPOCH
 
 import nimcrypto, json_serialization

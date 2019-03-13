@@ -218,11 +218,13 @@ func bytes_to_int*(data: seq[byte]): uint64 =
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#int_to_bytes1-int_to_bytes2-
 # Have 1, 4, and 32-byte versions. 2+ more and maybe worth metaprogramming.
-func int_to_bytes32*(x: uint64|Epoch) : array[32, byte] =
+func int_to_bytes32*(x: uint64): array[32, byte] =
   ## Little-endian data representation
   ## TODO remove uint64 when those callers fade away
   for i in 0 ..< 8:
-    result[24 + i] = byte((x.uint64 shr i*8) and 0xff)
+    result[24 + i] = byte((x shr i*8) and 0xff)
+
+func int_to_bytes32*(x: Epoch): array[32, byte] {.borrow.}
 
 func int_to_bytes1*(x: int): array[1, byte] =
   assert x >= 0

@@ -1,7 +1,7 @@
 import
   options, tables,
   chronicles, chronos, ranges/bitranges,
-  spec/[datatypes, crypto, digest],
+  spec/[datatypes, crypto, digest], eth/rlp,
   beacon_node_types, eth2_network, beacon_chain_db, block_pool, time, ssz
 
 from beacon_node import onBeaconBlock
@@ -43,7 +43,10 @@ proc fromHeaderAndBody(b: var BeaconBlock, h: BeaconBlockHeader, body: BeaconBlo
   b.signature = h.signature
   b.body = body
 
-proc importBlocks(node: BeaconNode, roots: openarray[(Eth2Digest, uint64)], headers: openarray[BeaconBlockHeader], bodies: openarray[BeaconBlockBody]) =
+proc importBlocks(node: BeaconNode,
+                  roots: openarray[(Eth2Digest, Slot)],
+                  headers: openarray[BeaconBlockHeader],
+                  bodies: openarray[BeaconBlockBody]) =
   var bodyMap = initTable[Eth2Digest, int]()
 
   for i, b in bodies:
@@ -74,9 +77,9 @@ p2pProtocol BeaconSync(version = 1,
 
     var
       latestFinalizedRoot: Eth2Digest # TODO
-      latestFinalizedEpoch: uint64 = node.state.data.finalized_epoch.uint64
+      latestFinalizedEpoch = node.state.data.finalized_epoch
       bestRoot: Eth2Digest # TODO
-      bestSlot: uint64 = node.state.data.slot.uint64
+      bestSlot = node.state.data.slot
 
     let m = await handshake(peer, timeout = 500,
                             status(networkId, latestFinalizedRoot,
@@ -94,11 +97,11 @@ p2pProtocol BeaconSync(version = 1,
         # Send roots
         # TODO: Currently we send all block roots in one "packet". Maybe
         # they should be split to multiple packets.
-        type Root = (Eth2Digest, uint64)
+        type Root = (Eth2Digest, Slot)
         var roots = newSeqOfCap[Root](128)
-        for i in m.bestSlot .. bestSlot:
-          for r in blockPool.blockRootsForSlot(i):
-            roots.add((r, i))
+        for i in int(m.bestSlot) .. int(bestSlot):
+          for r in blockPool.blockRootsForSlot(i.Slot):
+            roots.add((r, i.Slot))
 
         await peer.beaconBlockRoots(roots)
       else:
@@ -115,28 +118,28 @@ p2pProtocol BeaconSync(version = 1,
             peer: Peer,
             networkId: int,
             latestFinalizedRoot: Eth2Digest,
-            latestFinalizedEpoch: uint64,
+            latestFinalizedEpoch: Epoch,
             bestRoot: Eth2Digest,
-            bestSlot: uint64) {.libp2pProtocol("hello", "1.0.0").}
+            bestSlot: Slot) {.libp2pProtocol("hello", "1.0.0").}
 
   proc beaconBlockRoots(
             peer: Peer,
-            roots: openarray[(Eth2Digest, uint64)]) {.libp2pProtocol("rpc/beacon_block_roots", "1.0.0").}
+            roots: openarray[(Eth2Digest, Slot)]) {.libp2pProtocol("rpc/beacon_block_roots", "1.0.0").}
 
   requestResponse:
     proc getBeaconBlockHeaders(
             peer: Peer,
             blockRoot: Eth2Digest,
-            slot: uint64,
+            slot: Slot,
             maxHeaders: int,
             skipSlots: int) {.libp2pProtocol("rpc/beacon_block_headers", "1.0.0").} =
       # TODO: validate maxHeaders and implement slipSlots
-      var s = slot
+      var s = slot.int
       var headers = newSeqOfCap[BeaconBlockHeader](maxHeaders)
       let db = peer.networkState.db
       let blockPool = peer.networkState.node.blockPool
       while headers.len < maxHeaders:
-        for r in blockPool.blockRootsForSlot(s):
+        for r in blockPool.blockRootsForSlot(s.Slot):
           headers.add(db.getBlock(r).get().toHeader)
           if headers.len == maxHeaders: break
         inc s
