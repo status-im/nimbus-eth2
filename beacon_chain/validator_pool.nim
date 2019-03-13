@@ -60,7 +60,7 @@ func genRandaoReveal*(k: ValidatorPrivKey, state: BeaconState, slot: Slot):
 
   # Off-by-one? I often get slot == state.slot but the check was "assert slot > state.slot" (Mamy)
   assert slot >= state.slot, "input slot: " & $humaneSlotNum(slot) & " - beacon state slot: " & $humaneSlotNum(state.slot)
-  bls_sign(k, int_to_bytes32(slot_to_epoch(slot)),
+  bls_sign(k, hash_tree_root(slot_to_epoch(slot).uint64),
     get_domain(state.fork, slot_to_epoch(slot), DOMAIN_RANDAO))
 
 func genRandaoReveal*(v: AttachedValidator, state: BeaconState, slot: Slot):

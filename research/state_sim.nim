@@ -37,6 +37,7 @@ template withTimerRet(stats: var RunningStat, body: untyped): untyped =
   tmp
 
 proc `%`*(x: Slot): JsonNode {.borrow.}
+proc `%`*(x: Epoch): JsonNode {.borrow.}
 
 proc writeJson*(prefix, slot, v: auto) =
   var f: File

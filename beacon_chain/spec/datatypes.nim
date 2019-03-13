@@ -42,7 +42,7 @@ import
 
 type
   Slot* = distinct uint64
-  Epoch* = uint64
+  Epoch* = distinct uint64
 
 const
   SPEC_VERSION* = "0.4.0" ## \
@@ -112,7 +112,7 @@ const
   GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
   ## slot_to_epoch(GENESIS_SLOT)
   GENESIS_START_SHARD* = 0'u64
-  FAR_FUTURE_EPOCH* = not 0'u64 # 2^64 - 1 in spec
+  FAR_FUTURE_EPOCH* = (not 0'u64).Epoch # 2^64 - 1 in spec
   ZERO_HASH* = Eth2Digest()
   EMPTY_SIGNATURE* = ValidatorSig()
   BLS_WITHDRAWAL_PREFIX_BYTE* = 0'u8
@@ -246,7 +246,7 @@ type
     latest_crosslink*: Crosslink ##\
     ## Last crosslink
 
-    justified_epoch*: Epoch ##\
+    justified_epoch*: uint64 ##\
     ## Last justified epoch in the beacon state
 
     justified_block_root*: Eth2Digest ##\
@@ -284,7 +284,7 @@ type
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
     # Minimum epoch for processing exit
-    epoch*: Epoch
+    epoch*: uint64
     # Index of the exiting validator
     validator_index*: uint64
     # Validator signature
@@ -451,7 +451,7 @@ type
 
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#crosslink
   Crosslink* = object
-    epoch*: Epoch ##\
+    epoch*: uint64 ##\
     ## Epoch number
 
     crosslink_data_root*: Eth2Digest ##\
@@ -527,14 +527,16 @@ template ethTimeUnit(typ: type) =
   proc `-`*(x: typ, y: uint64): typ {.borrow.}
   proc `-`*(x: uint64, y: typ): typ {.borrow.}
 
-  proc `+=`*(x: var typ, y: uint64) {.borrow.}
-  proc `-=`*(x: var typ, y: uint64) {.borrow.}
-
   # Not closed over type in question (Slot or Epoch)
   proc `mod`*(x: typ, y: uint64): uint64 {.borrow.}
   proc `div`*(x: typ, y: uint64): uint64 {.borrow.}
   proc `div`*(x: uint64, y: typ): uint64 {.borrow.}
   proc `-`*(x: typ, y: typ): uint64 {.borrow.}
+
+  proc `*`*(x: typ, y: uint64): uint64 {.borrow.}
+
+  proc `+=`*(x: var typ, y: uint64) {.borrow.}
+  proc `-=`*(x: var typ, y: uint64) {.borrow.}
 
   # Comparison operators
   proc `<`*(x: typ, y: typ): bool {.borrow.}
@@ -543,21 +545,23 @@ template ethTimeUnit(typ: type) =
   proc `<=`*(x: typ, y: typ): bool {.borrow.}
   proc `<=`*(x: typ, y: uint64): bool {.borrow.}
   proc `<=`*(x: uint64, y: typ): bool {.borrow.}
+
   proc `==`*(x: typ, y: typ): bool {.borrow.}
   proc `==`*(x: typ, y: uint64): bool {.borrow.}
+  proc `==`*(x: uint64, y: typ): bool {.borrow.}
 
   # Nim integration
   proc `$`*(x: typ): string {.borrow.}
   proc hash*(x: typ): Hash {.borrow.}
 
 ethTimeUnit(Slot)
-#ethTimeUnit(Epoch)
+ethTimeUnit(Epoch)
 
 func humaneSlotNum*(s: auto): uint64 =
   s.Slot - GENESIS_SLOT
 
-func humaneEpochNum*(e: Epoch): Epoch =
-  e - GENESIS_EPOCH
+func humaneEpochNum*(e: auto): uint64 =
+  e.Epoch - GENESIS_EPOCH
 
 import nimcrypto, json_serialization
 export json_serialization

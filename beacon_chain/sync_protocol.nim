@@ -74,7 +74,7 @@ p2pProtocol BeaconSync(version = 1,
 
     var
       latestFinalizedRoot: Eth2Digest # TODO
-      latestFinalizedEpoch: uint64 = node.state.data.finalized_epoch
+      latestFinalizedEpoch: uint64 = node.state.data.finalized_epoch.uint64
       bestRoot: Eth2Digest # TODO
       bestSlot: uint64 = node.state.data.slot.uint64
 

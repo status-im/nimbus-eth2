@@ -153,11 +153,8 @@ proc endRecord*(w: var SszWriter, memo: RecordWritingMemo) =
   let finalSize = uint32(w.stream.pos - memo.initialStreamPos - 4)
   memo.sizePrefixCursor.endWrite(finalSize.toBytesSSZ)
 
-func toSSZType(x: auto): auto =
-  when x is Slot:
-    x.uint64
-  else:
-    x
+func toSSZType(x: Slot|Epoch): auto = x.uint64
+func toSSZType(x: auto): auto = x
 
 proc writeValue*(w: var SszWriter, obj: auto) =
   # We are not using overloads here, because this leads to
@@ -241,8 +238,11 @@ proc readValue*(r: var SszReader, result: var auto) =
 
     else:
       result.deserializeFields(fieldName, field):
+        # TODO This hardcoding's ugly; generalize & abstract.
         when field is Slot:
           field = r.readValue(uint64).Slot
+        elif field is Epoch:
+          field = r.readValue(uint64).Epoch
         else:
           field = r.readValue(field.type)
 
