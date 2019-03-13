@@ -5,12 +5,12 @@ import
   ./beacon_chain_db, ./ssz, ./block_pool,
   beacon_node_types
 
-
 proc init*(T: type AttestationPool, blockPool: BlockPool): T =
   T(
     slots: initDeque[SlotData](),
     blockPool: blockPool,
-    unresolved: initTable[Eth2Digest, UnresolvedAttestation]()
+    unresolved: initTable[Eth2Digest, UnresolvedAttestation](),
+    latestAttestations: initTable[ValidatorPubKey, BlockRef]()
   )
 
 proc overlaps(a, b: seq[byte]): bool =
@@ -183,6 +183,16 @@ proc slotIndex(
 
   int(attestationSlot - pool.startingSlot)
 
+proc updateLatestVotes(
+    pool: var AttestationPool, state: BeaconState, attestationSlot: Slot,
+    participants: seq[ValidatorIndex], blck: BlockRef) =
+  for validator in participants:
+    let
+      pubKey = state.validator_registry[validator].pubkey
+      current = pool.latestAttestations.getOrDefault(pubKey)
+    if current.isNil or current.slot < attestationSlot:
+      pool.latestAttestations[pubKey] = blck
+
 proc add*(pool: var AttestationPool,
           state: BeaconState,
           attestation: Attestation) =
@@ -192,13 +202,15 @@ proc add*(pool: var AttestationPool,
   # TODO inefficient data structures..
 
   let
-    attestationSlot = attestation.data.slot
-    idx = pool.slotIndex(state, attestationSlot.Slot)
+    attestationSlot = attestation.data.slot.Slot
+    idx = pool.slotIndex(state, attestationSlot)
     slotData = addr pool.slots[idx]
     validation = Validation(
       aggregation_bitfield: attestation.aggregation_bitfield,
       custody_bitfield: attestation.custody_bitfield,
       aggregate_signature: attestation.aggregate_signature)
+    participants = get_attestation_participants(
+      state, attestation.data, validation.aggregation_bitfield)
 
   var found = false
   for a in slotData.attestations.mitems():
@@ -215,13 +227,14 @@ proc add*(pool: var AttestationPool,
           debug "Ignoring overlapping attestation",
             existingParticipants = get_attestation_participants(
               state, a.data, v.aggregation_bitfield),
-            newParticipants = get_attestation_participants(
-              state, a.data, validation.aggregation_bitfield)
+            newParticipants = participants
           found = true
           break
 
       if not found:
         a.validations.add(validation)
+        pool.updateLatestVotes(state, attestationSlot, participants, a.blck)
+
         info "Attestation resolved",
           slot = humaneSlotNum(attestation.data.slot),
           shard = attestation.data.shard,
@@ -243,6 +256,8 @@ proc add*(pool: var AttestationPool,
         blck: blck,
         validations: @[validation]
       ))
+      pool.updateLatestVotes(state, attestationSlot, participants, blck)
+
       info "Attestation resolved",
         slot = humaneSlotNum(attestation.data.slot),
         shard = attestation.data.shard,
@@ -332,3 +347,7 @@ proc resolve*(pool: var AttestationPool, state: BeaconState) =
 
   for a in resolved:
     pool.add(state, a)
+
+proc latestAttestation*(
+    pool: AttestationPool, pubKey: ValidatorPubKey): BlockRef =
+  pool.latestAttestations.getOrDefault(pubKey)

@@ -6,13 +6,20 @@ import
 
 type
   BeaconChainDB* = ref object
+    ## Database storing resolved blocks and states - resolved blocks are such
+    ## blocks that form a chain back to the tail block.
     backend: TrieDatabaseRef
 
   DbKeyKind = enum
     kHashToState
     kHashToBlock
-    kHeadBlock # Pointer to the most recent block seen
-    kTailBlock # Pointer to the earliest finalized block
+    kHeadBlock # Pointer to the most recent block selected by the fork choice
+    kTailBlock ##\
+    ## Pointer to the earliest finalized block - this is the genesis block when
+    ## the chain starts, but might advance as the database gets pruned
+    ## TODO: determine how aggressively the database should be pruned. For a
+    ##       healthy network sync, we probably need to store blocks at least
+    ##       past the weak subjectivity period.
 
 func subkey(kind: DbKeyKind): array[1, byte] =
   result[0] = byte ord(kind)
@@ -43,18 +50,9 @@ proc putHead*(db: BeaconChainDB, key: Eth2Digest) =
   db.backend.put(subkey(kHeadBlock), key.data) # TODO head block?
 
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
-  # TODO: prune old states
-  # TODO: it might be necessary to introduce the concept of a "last finalized
-  #       state" to the storage, so that clients with limited storage have
-  #       a natural state to start recovering from. One idea is to keep a
-  #       special pointer to the state that has ben finalized, and prune all
-  #       other states.
-  #       One issue is that what will become a finalized is revealed only
-  #       long after that state has passed, meaning that we need to keep
-  #       a history of "finalized state candidates" or possibly replay from
-  #       the previous finalized state, if we have that stored. To consider
-  #       here is that the gap between finalized and present state might be
-  #       significant (days), meaning replay might be expensive.
+  # TODO prune old states - this is less easy than it seems as we never know
+  #      when or if a particular state will become finalized.
+
   db.backend.put(subkey(type value, key), SSZ.encode(value))
 
 proc putState*(db: BeaconChainDB, value: BeaconState) =
