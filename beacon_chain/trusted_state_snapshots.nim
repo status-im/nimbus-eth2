@@ -27,7 +27,7 @@ proc obtainTrustedStateSnapshot*(db: BeaconChainDB): Future[BeaconState] {.async
   #
   # 5. Check that the state snapshot hash is correct and save it in the DB.
 
-  assert(false, "Not implemented")
+  doAssert(false, "Not implemented")
 
 proc createStateSnapshot*(
     validatorDir: string, numValidators, firstValidator, genesisOffset: int,

@@ -29,7 +29,7 @@ proc combine*(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
   # Combine the signature and participation bitfield, with the assumption that
   # the same data is being signed!
 
-  assert tgt.data == src.data
+  doAssert tgt.data == src.data
 
   # TODO:
   # when BLS signatures are combined, we must ensure that

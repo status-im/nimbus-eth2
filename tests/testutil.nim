@@ -108,7 +108,7 @@ proc addBlock*(
 
   let block_ok = updateState(
     state, previous_block_root, new_block, {skipValidation})
-  assert block_ok
+  doAssert block_ok
 
   # Ok, we have the new state as it would look with the block applied - now we
   # can set the state root in order to be able to create a valid signature
@@ -127,7 +127,7 @@ proc addBlock*(
     )
     proposal_hash = signed_root(signed_data, "signature")
 
-  assert proposerPrivkey.pubKey() == proposer.pubkey,
+  doAssert proposerPrivkey.pubKey() == proposer.pubkey,
     "signature key should be derived from private key! - wrong privkey?"
 
   if skipValidation notin flags:
@@ -136,7 +136,7 @@ proc addBlock*(
       bls_sign(proposerPrivkey, proposal_hash,
                get_domain(state.fork, slot_to_epoch(state.slot), DOMAIN_PROPOSAL))
 
-    assert bls_verify(
+    doAssert bls_verify(
       proposer.pubkey,
       proposal_hash, new_block.signature,
       get_domain(state.fork, slot_to_epoch(state.slot), DOMAIN_PROPOSAL)),
@@ -170,7 +170,7 @@ proc makeAttestation*(
     sac_index = sac.committee.find(validator_index)
     data = makeAttestationData(state, sac.shard, beacon_block_root)
 
-  assert sac_index != -1, "find_shard_committe should guarantee this"
+  doAssert sac_index != -1, "find_shard_committe should guarantee this"
 
   var
     aggregation_bitfield = repeat(0'u8, ceil_div8(sac.committee.len))

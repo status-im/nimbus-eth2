@@ -101,7 +101,7 @@ func get_shuffling*(seed: Eth2Digest,
 
   # Split the shuffled list into committees_per_epoch pieces
   result = split(shuffled_seq, committees_per_epoch)
-  assert result.len() == committees_per_epoch # what split should do..
+  doAssert result.len() == committees_per_epoch # what split should do..
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_previous_epoch_committee_count
 func get_previous_epoch_committee_count(state: BeaconState): uint64 =

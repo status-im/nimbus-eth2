@@ -58,8 +58,8 @@ func genRandaoReveal*(k: ValidatorPrivKey, state: BeaconState, slot: Slot):
     ValidatorSig =
   # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#randao
 
-  # Off-by-one? I often get slot == state.slot but the check was "assert slot > state.slot" (Mamy)
-  assert slot >= state.slot, "input slot: " & $humaneSlotNum(slot) & " - beacon state slot: " & $humaneSlotNum(state.slot)
+  # Off-by-one? I often get slot == state.slot but the check was "doAssert slot > state.slot" (Mamy)
+  doAssert slot >= state.slot, "input slot: " & $humaneSlotNum(slot) & " - beacon state slot: " & $humaneSlotNum(state.slot)
   bls_sign(k, hash_tree_root(slot_to_epoch(slot).uint64),
     get_domain(state.fork, slot_to_epoch(slot), DOMAIN_RANDAO))
 

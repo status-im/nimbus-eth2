@@ -44,7 +44,7 @@ proc appendBigEndianInt(dst: var seq[byte], src: SomeNumber) =
     elif size == 8: # int64
       bigEndian64(dst, src)
     else:
-      static: assert false, "src must be a int16, int32 or int64 or unsigned int of the same size"
+      static: doAssert false, "src must be a int16, int32 or int64 or unsigned int of the same size"
 
   dst.setLen(dst.len + size)
   bigEndian(dst[dst.len - size].addr, src.unsafeAddr)
@@ -83,7 +83,7 @@ proc serializeETH[T](x: T): seq[byte] =
   for chr in schema:
     result.add byte(chr)
 
-  assert result.len == offset
+  doAssert result.len == offset
 
   # Write raw data - this is similar to SimpleSerialize
   for field in fields(x):
@@ -98,7 +98,7 @@ proc serializeETH[T](x: T): seq[byte] =
     else:
       raise newException(ValueError, "Not implemented")
 
-  assert result.len == offset + sizeof(T)
+  doAssert result.len == offset + sizeof(T)
 
   # Compute the hash
   result[metadataStart ..< metadataStart + sizeof(Hash256)] = blake2_256.digest(result[offset ..< result.len]).data

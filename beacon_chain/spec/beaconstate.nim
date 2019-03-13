@@ -421,8 +421,8 @@ proc checkAttestation*(
       crosslink_data_root = attestation.data.crosslink_data_root)
     return
 
-  assert allIt(attestation.custody_bitfield, it == 0) #TO BE REMOVED IN PHASE 1
-  assert anyIt(attestation.aggregation_bitfield, it != 0)
+  doAssert allIt(attestation.custody_bitfield, it == 0) #TO BE REMOVED IN PHASE 1
+  doAssert anyIt(attestation.aggregation_bitfield, it != 0)
 
   let crosslink_committee = mapIt(
     filterIt(get_crosslink_committees_at_slot(state, attestation_data_slot),
@@ -431,20 +431,20 @@ proc checkAttestation*(
 
   # Extra checks not in specs
   # https://github.com/status-im/nim-beacon-chain/pull/105#issuecomment-462432544
-  assert attestation.aggregation_bitfield.len == (
+  doAssert attestation.aggregation_bitfield.len == (
             crosslink_committee.len + 7) div 8, (
               "Error: got " & $attestation.aggregation_bitfield.len &
               " but expected " & $((crosslink_committee.len + 7) div 8)
             )
 
-  assert attestation.custody_bitfield.len == (
+  doAssert attestation.custody_bitfield.len == (
             crosslink_committee.len + 7) div 8, (
               "Error: got " & $attestation.custody_bitfield.len &
               " but expected " & $((crosslink_committee.len + 7) div 8)
             )
   # End extra checks
 
-  assert allIt(0 ..< len(crosslink_committee),
+  doAssert allIt(0 ..< len(crosslink_committee),
     if get_bitfield_bit(attestation.aggregation_bitfield, it) == 0b0:
       # Should always be true in phase 0, because of above assertion
       get_bitfield_bit(attestation.custody_bitfield, it) == 0b0
@@ -463,7 +463,7 @@ proc checkAttestation*(
 
   if skipValidation notin flags:
     # Verify that aggregate_signature verifies using the group pubkey.
-    assert bls_verify_multiple(
+    doAssert bls_verify_multiple(
       @[
         bls_aggregate_pubkeys(mapIt(custody_bit_0_participants,
                                     state.validator_registry[it].pubkey)),

@@ -34,7 +34,7 @@ func toHeader(b: BeaconBlock): BeaconBlockHeader =
   )
 
 proc fromHeaderAndBody(b: var BeaconBlock, h: BeaconBlockHeader, body: BeaconBlockBody) =
-  assert(hash_tree_root_final(body) == h.body)
+  doAssert(hash_tree_root_final(body) == h.body)
   b.slot = h.slot.Slot
   b.parent_root = h.parent_root
   b.state_root = h.state_root

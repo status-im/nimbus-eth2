@@ -36,7 +36,7 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
 
     for root, _ in db.getAncestors(headRoot):
       if root == tailRef.root:
-        assert(not curRef.isNil)
+        doAssert(not curRef.isNil)
         link(tailRef, curRef)
         curRef = curRef.parent
         break

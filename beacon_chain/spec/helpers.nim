@@ -102,7 +102,7 @@ func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
 
   # These ``o`` indices get filled from ``values``.
   let highest_internally_filled_index = (num_values div 2) - 1
-  assert (highest_internally_filled_index + 1) * 2 >= num_values
+  doAssert (highest_internally_filled_index + 1) * 2 >= num_values
 
   for i in countdown(num_values-1, highest_internally_filled_index + 1):
     hash_buffer[0..31] = values[i*2 - num_values].data
@@ -110,7 +110,7 @@ func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
     o[i] = eth2hash(hash_buffer)
 
   ## These ``o`` indices get filled from other ``o`` indices.
-  assert highest_internally_filled_index * 2 + 1 < num_values
+  doAssert highest_internally_filled_index * 2 + 1 < num_values
 
   for i in countdown(highest_internally_filled_index, 1):
     hash_buffer[0..31] = o[i*2].data
@@ -191,8 +191,8 @@ func get_randao_mix*(state: BeaconState,
     ## Returns the randao mix at a recent ``epoch``.
 
     # Cannot underflow, since GENESIS_EPOCH > LATEST_RANDAO_MIXES_LENGTH
-    assert get_current_epoch(state) - LATEST_RANDAO_MIXES_LENGTH < epoch
-    assert epoch <= get_current_epoch(state)
+    doAssert get_current_epoch(state) - LATEST_RANDAO_MIXES_LENGTH < epoch
+    doAssert epoch <= get_current_epoch(state)
 
     state.latest_randao_mixes[epoch mod LATEST_RANDAO_MIXES_LENGTH]
 
@@ -209,7 +209,7 @@ func get_active_index_root(state: BeaconState, epoch: Epoch): Eth2Digest =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#bytes_to_int
 func bytes_to_int*(data: seq[byte]): uint64 =
-  assert data.len == 8
+  doAssert data.len == 8
 
   # Little-endian data representation
   result = 0
@@ -227,14 +227,14 @@ func int_to_bytes32*(x: uint64): array[32, byte] =
 func int_to_bytes32*(x: Epoch): array[32, byte] {.borrow.}
 
 func int_to_bytes1*(x: int): array[1, byte] =
-  assert x >= 0
-  assert x < 256
+  doAssert x >= 0
+  doAssert x < 256
 
   result[0] = x.byte
 
 func int_to_bytes4*(x: uint64): array[4, byte] =
-  assert x >= 0'u64
-  assert x < 2'u64^32
+  doAssert x >= 0'u64
+  doAssert x < 2'u64^32
 
   # Little-endian data representation
   result[0] = ((x shr  0) and 0xff).byte

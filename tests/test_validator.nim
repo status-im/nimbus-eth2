@@ -13,7 +13,7 @@ func sumCommittees(v: openArray[seq[ValidatorIndex]], reqCommitteeLen: int): int
     ## This only holds when num_validators is divisible by
     ## SLOTS_PER_EPOCH * get_committee_count_per_slot(len(validators))
     ## as, in general, not all committees can be equally sized.
-    assert x.len == reqCommitteeLen
+    doAssert x.len == reqCommitteeLen
     inc result, x.len
 
 func checkPermutation(index: int, list_size: uint64,
