@@ -572,10 +572,27 @@ ethTimeUnit Slot
 ethTimeUnit Epoch
 
 func humaneSlotNum*(s: Slot): uint64 =
-  s.Slot - GENESIS_SLOT
+  s - GENESIS_SLOT
 
 func humaneEpochNum*(e: Epoch): uint64 =
-  e.Epoch - GENESIS_EPOCH
+  e - GENESIS_EPOCH
+
+func shortLog*(v: BeaconBlock): tuple[
+    slot: uint64, parent_root: string, state_root: string,
+    randao_reveal: string, #[ eth1_data ]#
+    proposer_slashings_len: int, attester_slashings_len: int,
+    attestations_len: int,
+    deposits_len: int,
+    voluntary_exits_len: int,
+    transfers_len: int,
+    signature: string
+  ] = (
+    humaneSlotNum(v.slot), shortLog(v.parent_root), shortLog(v.state_root),
+    shortLog(v.randao_reveal), v.body.proposer_slashings.len(),
+    v.body.attester_slashings.len(), v.body.attestations.len(),
+    v.body.deposits.len(), v.body.voluntary_exits.len(), v.body.transfers.len(),
+    shortLog(v.signature)
+  )
 
 import nimcrypto, json_serialization
 export json_serialization

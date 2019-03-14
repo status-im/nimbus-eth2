@@ -21,7 +21,8 @@ proc init*(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
 proc init*(T: type BlockRef, root: Eth2Digest, blck: BeaconBlock): BlockRef =
   BlockRef.init(root, blck.slot)
 
-proc findAncestorBySlot(blck: BlockRef, slot: Slot): BlockRef =
+proc findAncestorBySlot*(blck: BlockRef, slot: Slot): BlockRef =
+  ## Find the first ancestor that has a slot number less than or equal to `slot`
   result = blck
 
   while result != nil and result.slot > slot:
@@ -128,7 +129,7 @@ proc addSlotMapping(pool: BlockPool, slot: uint64, br: BlockRef) =
   pool.blocksBySlot.mgetOrPut(slot, @[]).addIfMissing(br)
 
 proc updateState*(
-  pool: BlockPool, state: var StateData, blck: BlockRef) {.gcsafe.}
+  pool: BlockPool, state: var StateData, blck: BlockRef, slot: Slot) {.gcsafe.}
 
 proc add*(
     pool: var BlockPool, state: var StateData, blockRoot: Eth2Digest,
@@ -144,9 +145,7 @@ proc add*(
   # Already seen this block??
   if blockRoot in pool.blocks:
     debug "Block already exists",
-      slot = humaneSlotNum(blck.slot),
-      stateRoot = shortLog(blck.state_root),
-      parentRoot = shortLog(blck.parent_root),
+      blck = shortLog(blck),
       blockRoot = shortLog(blockRoot)
 
     return true
@@ -157,10 +156,8 @@ proc add*(
   # by the time it gets here.
   if blck.slot <= pool.finalizedHead.slot:
     debug "Old block, dropping",
-      slot = humaneSlotNum(blck.slot),
+      blck = shortLog(blck),
       tailSlot = humaneSlotNum(pool.tail.slot),
-      stateRoot = shortLog(blck.state_root),
-      parentRoot = shortLog(blck.parent_root),
       blockRoot = shortLog(blockRoot)
 
     return true
@@ -175,23 +172,13 @@ proc add*(
 
     # The block is resolved, now it's time to validate it to ensure that the
     # blocks we add to the database are clean for the given state
-    updateState(pool, state, parent)
-    skipSlots(state.data, parent.root, blck.slot - 1)
+    updateState(pool, state, parent, blck.slot - 1)
 
     if not updateState(state.data, parent.root, blck, {}):
       # TODO find a better way to log all this block data
       notice "Invalid block",
-        blockRoot = shortLog(blockRoot),
-        slot = humaneSlotNum(blck.slot),
-        stateRoot = shortLog(blck.state_root),
-        parentRoot = shortLog(blck.parent_root),
-        signature = shortLog(blck.signature),
-        proposer_slashings = blck.body.proposer_slashings.len,
-        attester_slashings = blck.body.attester_slashings.len,
-        attestations = blck.body.attestations.len,
-        deposits = blck.body.deposits.len,
-        voluntary_exits = blck.body.voluntary_exits.len,
-        transfers = blck.body.transfers.len
+        blck = shortLog(blck),
+        blockRoot = shortLog(blockRoot)
 
       return
 
@@ -222,17 +209,8 @@ proc add*(
       justifiedBlock.justified = true
 
     info "Block resolved",
-      blockRoot = shortLog(blockRoot),
-      slot = humaneSlotNum(blck.slot),
-      stateRoot = shortLog(blck.state_root),
-      parentRoot = shortLog(blck.parent_root),
-      signature = shortLog(blck.signature),
-      proposer_slashings = blck.body.proposer_slashings.len,
-      attester_slashings = blck.body.attester_slashings.len,
-      attestations = blck.body.attestations.len,
-      deposits = blck.body.deposits.len,
-      voluntary_exits = blck.body.voluntary_exits.len,
-      transfers = blck.body.transfers.len
+      blck = shortLog(blck),
+      blockRoot = shortLog(blockRoot)
 
     # Now that we have the new block, we should see if any of the previously
     # unresolved blocks magically become resolved
@@ -263,9 +241,7 @@ proc add*(
   #      a risk of being slashed, making attestations a more valuable spam
   #      filter.
   debug "Unresolved block",
-    slot = humaneSlotNum(blck.slot),
-    stateRoot = shortLog(blck.state_root),
-    parentRoot = shortLog(blck.parent_root),
+    blck = shortLog(blck),
     blockRoot = shortLog(blockRoot)
 
   pool.unresolved[blck.parent_root] = UnresolvedBlock()
@@ -345,26 +321,33 @@ proc maybePutState(pool: BlockPool, state: BeaconState) =
     pool.db.putState(state)
 
 proc updateState*(
-    pool: BlockPool, state: var StateData, blck: BlockRef) =
-  # Rewind or advance state such that it matches the given block - this may
-  # include replaying from an earlier snapshot if blck is on a different branch
-  # or has advanced to a higher slot number than blck
-  var ancestors = @[pool.get(blck)]
+    pool: BlockPool, state: var StateData, blck: BlockRef, slot: Slot) =
+  ## Rewind or advance state such that it matches the given block and slot -
+  ## this may include replaying from an earlier snapshot if blck is on a
+  ## different branch or has advanced to a higher slot number than slot
+  ## If slot is higher than blck.slot, replay will fill in with empty/non-block
+  ## slots, else it is ignored
 
   # We need to check the slot because the state might have moved forwards
   # without blocks
-  if state.blck.root == blck.root and state.data.slot == ancestors[0].data.slot:
+  if state.blck.root == blck.root and state.data.slot == slot:
     return # State already at the right spot
 
-  # Common case: blck points to a block that is one step ahead of state
+  var ancestors = @[pool.get(blck)]
+
+  # Common case: the last thing that was applied to the state was the parent
+  # of blck
   if state.blck.root == ancestors[0].data.parent_root and
-      state.data.slot + 1 == ancestors[0].data.slot:
+      state.data.slot < blck.slot:
     let ok = skipAndUpdateState(
         state.data, ancestors[0].data, {skipValidation}) do (state: BeaconState):
       pool.maybePutState(state)
     doAssert ok, "Blocks in database should never fail to apply.."
     state.blck = blck
     state.root = ancestors[0].data.state_root
+
+    skipSlots(state.data, state.blck.root, slot) do (state: BeaconState):
+      pool.maybePutState(state)
 
     return
 
@@ -426,6 +409,9 @@ proc updateState*(
 
   pool.maybePutState(state.data)
 
+  skipSlots(state.data, state.blck.root, slot) do (state: BeaconState):
+    pool.maybePutState(state)
+
 proc loadTailState*(pool: BlockPool): StateData =
   ## Load the state associated with the current tail in the pool
   let stateRoot = pool.db.getBlock(pool.tail.root).get().state_root
@@ -451,12 +437,14 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
   pool.head = blck
 
   # Start off by making sure we have the right state
-  updateState(pool, state, blck)
+  updateState(pool, state, blck, blck.slot)
 
   info "Updated head",
     stateRoot = shortLog(state.root),
     headBlockRoot = shortLog(state.blck.root),
-    stateSlot = humaneSlotNum(state.data.slot)
+    stateSlot = humaneSlotNum(state.data.slot),
+    justifiedEpoch = humaneEpochNum(state.data.justified_epoch),
+    finalizedEpoch = humaneEpochNum(state.data.finalized_epoch)
 
   let
     # TODO there might not be a block at the epoch boundary - what then?

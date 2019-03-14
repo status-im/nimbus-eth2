@@ -280,7 +280,7 @@ func get_attestation_participants*(state: BeaconState,
   ## Return the participant indices at for the ``attestation_data`` and
   ## ``bitfield``.
   let crosslink_committees = get_crosslink_committees_at_slot(
-    state, attestation_data.slot.Slot)
+    state, attestation_data.slot)
   doAssert anyIt(
     crosslink_committees,
     it[1] == attestation_data.shard)
@@ -367,7 +367,7 @@ proc checkAttestation*(
   ## at the current slot. When acting as a proposer, the same rules need to
   ## be followed!
 
-  let attestation_data_slot = attestation.data.slot.Slot
+  let attestation_data_slot = attestation.data.slot
 
   if not (attestation.data.slot >= GENESIS_SLOT):
     warn("Attestation predates genesis slot",
@@ -388,7 +388,7 @@ proc checkAttestation*(
     return
 
   let expected_justified_epoch =
-    if slot_to_epoch(attestation.data.slot.Slot + 1) >= get_current_epoch(state):
+    if slot_to_epoch(attestation.data.slot + 1) >= get_current_epoch(state):
       state.justified_epoch
     else:
       state.previous_justified_epoch
@@ -477,7 +477,7 @@ proc checkAttestation*(
           data: attestation.data, custody_bit: true)),
       ],
       attestation.aggregate_signature,
-      get_domain(state.fork, slot_to_epoch(attestation.data.slot.Slot),
+      get_domain(state.fork, slot_to_epoch(attestation.data.slot),
                  DOMAIN_ATTESTATION),
     )
 

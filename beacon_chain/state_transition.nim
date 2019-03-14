@@ -547,7 +547,7 @@ func processEpoch(state: var BeaconState) =
   let
     current_epoch = get_current_epoch(state)
     previous_epoch = get_previous_epoch(state)
-    next_epoch = (current_epoch + 1).Epoch
+    next_epoch = (current_epoch + 1)
 
     # Spec grabs this later, but it's part of current_total_balance
     active_validator_indices =
@@ -611,7 +611,7 @@ func processEpoch(state: var BeaconState) =
   let
     previous_epoch_head_attestations =
       previous_epoch_attestations.filterIt(
-        it.data.beacon_block_root == get_block_root(state, it.data.slot.Slot))
+        it.data.beacon_block_root == get_block_root(state, it.data.slot))
 
     previous_epoch_head_attester_indices =
       toSet(get_attester_indices(state, previous_epoch_head_attestations))
@@ -1033,7 +1033,7 @@ proc advanceState*(
 proc skipSlots*(state: var BeaconState, parentRoot: Eth2Digest, slot: Slot,
     afterSlot: proc (state: BeaconState) = nil) =
   if state.slot < slot:
-    debug "Advancing state past slot gap",
+    debug "Advancing state with empty slots",
       targetSlot = humaneSlotNum(slot),
       stateSlot = humaneSlotNum(state.slot)
 
