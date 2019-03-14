@@ -30,22 +30,16 @@ Then:
 cd nimbus
 
 # Prep environment
-make
+make update
 ./env.sh bash
 
-# You're now in a shell environment that has the right Nim version available
+# You're now in a shell environment that has the right Nim version available.
+# Head over to the vendor repo where you should have a checkout of this project
+cd vendor/nim-beacon-chain
 
-cd..
-
-git clone https://github.com/status-im/nim-beacon-chain
-cd nim-beacon-chain
-
-# Build binaries and run test suite
-nimble build
-nimble test
+# You can now run the test suite:
+nim c -d:release -r tests/all_tests
 ```
-
-This should produce some passing tests.
 
 ## Beacon node simulation
 
