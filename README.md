@@ -26,7 +26,8 @@ The beacon chain components require that you have Nim installed - the easiest wa
 Then:
 
 ```bash
-# Or wherever you cloned nimbus
+# Clone main nimbus repository
+git clone https://github.com/status-im/nimbus.git
 cd nimbus
 
 # Prep environment
