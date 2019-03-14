@@ -135,8 +135,8 @@ func is_double_vote*(attestation_data_1: AttestationData,
   ## target.
   let
     # RLP artifact
-    target_epoch_1 = slot_to_epoch(attestation_data_1.slot.Slot)
-    target_epoch_2 = slot_to_epoch(attestation_data_2.slot.Slot)
+    target_epoch_1 = slot_to_epoch(attestation_data_1.slot)
+    target_epoch_2 = slot_to_epoch(attestation_data_2.slot)
   target_epoch_1 == target_epoch_2
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#is_surround_vote
@@ -147,8 +147,8 @@ func is_surround_vote*(attestation_data_1: AttestationData,
     source_epoch_1 = attestation_data_1.justified_epoch
     source_epoch_2 = attestation_data_2.justified_epoch
     # RLP artifact
-    target_epoch_1 = slot_to_epoch(attestation_data_1.slot.Slot)
-    target_epoch_2 = slot_to_epoch(attestation_data_2.slot.Slot)
+    target_epoch_1 = slot_to_epoch(attestation_data_1.slot)
+    target_epoch_2 = slot_to_epoch(attestation_data_2.slot)
 
   source_epoch_1 < source_epoch_2 and target_epoch_2 < target_epoch_1
 

@@ -71,7 +71,6 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   let head = result.blockPool.get(result.db.getHeadBlock().get())
 
   result.state = result.blockPool.loadTailState()
-  result.blockPool.updateState(result.state, head.get().refs)
 
   let addressFile = string(conf.dataDir) / "beacon_node.address"
   result.network.saveConnectionAddressFile(addressFile)
@@ -172,7 +171,10 @@ proc updateHead(node: BeaconNode): BlockRef =
   let
     justifiedHead = node.blockPool.latestJustifiedBlock()
 
-  node.blockPool.updateState(node.state, justifiedHead)
+  # TODO slot number is wrong here, it should be the start of the epoch that
+  #      got finalized:
+  #      https://github.com/ethereum/eth2.0-specs/issues/768
+  node.blockPool.updateState(node.state, justifiedHead, justifiedHead.slot)
 
   let newHead = lmdGhost(node.attestationPool, node.state.data, justifiedHead)
   node.blockPool.updateHead(node.state, newHead)
@@ -192,24 +194,42 @@ proc makeAttestation(node: BeaconNode,
   # TODO this lazy update of the head is good because it delays head resolution
   #      until the very latest moment - on the other hand, if it takes long, the
   #      attestation might be late!
-  let head = node.updateHead()
+  let
+    head = node.updateHead()
 
-  node.blockPool.updateState(node.state, head)
+  if slot + MIN_ATTESTATION_INCLUSION_DELAY < head.slot:
+    # What happened here is that we're being really slow or there's something
+    # really fishy going on with the slot - let's not send out any attestations
+    # just in case...
+    # TODO is this the right cutoff?
+    notice "Skipping attestation, head is too recent",
+      headSlot = humaneSlotNum(head.slot),
+      slot = humaneSlotNum(slot)
+    return
+
+  let attestationHead = head.findAncestorBySlot(slot)
+  if head != attestationHead:
+    # In rare cases, such as when we're busy syncing or just slow, we'll be
+    # attesting to a past state - we must then recreate the world as it looked
+    # like back then
+    notice "Attesting to a state in the past, falling behind?",
+      headSlot = humaneSlotNum(head.slot),
+      attestationHeadSlot = humaneSlotNum(attestationHead.slot),
+      attestationSlot = humaneSlotNum(slot)
+
+  # We need to run attestations exactly for the slot that we're attesting to.
+  # In case blocks went missing, this means advancing past the latest block
+  # using empty slots as fillers.
+  node.blockPool.updateState(node.state, attestationHead, slot)
 
   # Check pending attestations - maybe we found some blocks for them
   node.attestationPool.resolve(node.state.data)
 
-  # It might be that the latest block we found is an old one - if this is the
-  # case, we need to fast-forward the state
-  skipSlots(node.state.data, node.state.blck.root, slot)
-
-  # If we call makeAttestation too late, we must advance head only to `slot`
-  doAssert node.state.data.slot == slot,
-    "Corner case: head advanced beyond sheduled attestation slot"
-
   let
     attestationData =
       makeAttestationData(node.state.data, shard, node.state.blck.root)
+
+    # Careful - after await. node.state (etc) might have changed in async race
     validatorSignature = await validator.signAttestation(attestationData)
 
   var aggregationBitfield = repeat(0'u8, ceil_div8(committeeLen))
@@ -245,12 +265,30 @@ proc proposeBlock(node: BeaconNode,
   # we'll be building the next block upon..
   let head = node.updateHead()
 
-  node.blockPool.updateState(node.state, head)
+  if head.slot > slot:
+    notice "Skipping proposal, we've already selected a newer head",
+      headSlot = humaneSlotNum(head.slot),
+      headBlockRoot = shortLog(head.root),
+      slot = humaneSlotNum(slot)
+
+  if head.slot == slot:
+    # Weird, we should never see as head the same slot as we're proposing a
+    # block for - did someone else steal our slot? why didn't we discard it?
+    warn "Found head at same slot as we're supposed to propose for!",
+      headSlot = humaneSlotNum(head.slot),
+      headBlockRoot = shortLog(head.root)
+    # TODO investigate how and when this happens.. maybe it shouldn't be an
+    #      assert?
+    doAssert false, "head slot matches proposal slot (!)"
+    # return
+
+  # There might be gaps between our proposal and what we think is the head -
+  # make sure the state we get takes that into account: we want it to point
+  # to the slot just before our proposal.
+  node.blockPool.updateState(node.state, head, slot - 1)
 
   # To create a block, we'll first apply a partial block to the state, skipping
   # some validations.
-  skipSlots(node.state.data, node.state.blck.root, slot - 1)
-
   var blockBody = BeaconBlockBody(
     attestations: node.attestationPool.getAttestationsForBlock(slot))
 
@@ -356,16 +394,12 @@ proc scheduleEpochActions(node: BeaconNode, epoch: Epoch) =
   doAssert epoch >= GENESIS_EPOCH,
     "Epoch: " & $epoch & ", humane epoch: " & $humaneEpochNum(epoch)
 
-  debug "Scheduling epoch actions",
-    epoch = humaneEpochNum(epoch),
-    stateEpoch = humaneEpochNum(node.state.data.slot.slot_to_epoch())
-
-  # In case some late blocks dropped in
+  # In case some late blocks dropped in..
   let head = node.updateHead()
-  node.blockPool.updateState(node.state, head)
 
   # Sanity check - verify that the current head block is not too far behind
-  if node.state.data.slot.slot_to_epoch() + 1 < epoch:
+  # TODO what if the head block is too far ahead? that would be.. weird.
+  if head.slot.slot_to_epoch() + 1 < epoch:
     # We're hopelessly behind!
     #
     # There's a few ways this can happen:
@@ -387,7 +421,7 @@ proc scheduleEpochActions(node: BeaconNode, epoch: Epoch) =
       at = node.slotStart(nextSlot)
 
     notice "Delaying epoch scheduling, head too old - scheduling new attempt",
-      stateSlot = humaneSlotNum(node.state.data.slot),
+      headSlot = humaneSlotNum(head.slot),
       expectedEpoch = humaneEpochNum(epoch),
       expectedSlot = humaneSlotNum(expectedSlot),
       fromNow = (at - fastEpochTime()) div 1000
@@ -396,11 +430,12 @@ proc scheduleEpochActions(node: BeaconNode, epoch: Epoch) =
       node.scheduleEpochActions(nextSlot.slot_to_epoch())
     return
 
+
+  updateState(node.blockPool, node.state, head, epoch.get_epoch_start_slot())
+
   # TODO: is this necessary with the new shuffling?
   #       see get_beacon_proposer_index
   var nextState = node.state.data
-
-  skipSlots(nextState, node.state.blck.root, epoch.get_epoch_start_slot())
 
   # TODO we don't need to do anything at slot 0 - what about slots we missed
   #      if we got delayed above?
@@ -431,6 +466,10 @@ proc scheduleEpochActions(node: BeaconNode, epoch: Epoch) =
               crosslink_committee.committee.len, i)
 
   let
+    # TODO we need to readjust here for wall clock time, in case computer
+    #      goes to sleep for example, so that we don't walk epochs one by one
+    #      to catch up.. we should also check the current head most likely to
+    #      see if we're suspiciously off, in terms of wall clock vs head time.
     nextEpoch = epoch + 1
     at = node.slotStart(nextEpoch.get_epoch_start_slot())
 
