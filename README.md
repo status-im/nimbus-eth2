@@ -29,7 +29,7 @@ git clone https://github.com/status-im/nimbus.git
 cd nimbus
 
 # Prep environment
-make update
+make update deps
 
 # Start a shell that uses the Nimbus compile environment
 ./env.sh bash
