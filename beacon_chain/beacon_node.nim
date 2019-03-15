@@ -290,13 +290,13 @@ proc proposeBlock(node: BeaconNode,
   # To create a block, we'll first apply a partial block to the state, skipping
   # some validations.
   var blockBody = BeaconBlockBody(
+    randao_reveal: validator.genRandaoReveal(node.state.data, slot),
+    eth1_data: node.mainchainMonitor.getBeaconBlockRef(),
     attestations: node.attestationPool.getAttestationsForBlock(slot))
 
   var newBlock = BeaconBlock(
     slot: slot,
-    parent_root: node.state.blck.root,
-    randao_reveal: validator.genRandaoReveal(node.state.data, slot),
-    eth1_data: node.mainchainMonitor.getBeaconBlockRef(),
+    previous_block_root: node.state.blck.root,
     body: blockBody,
     signature: ValidatorSig(), # we need the rest of the block first!
     )
@@ -325,7 +325,7 @@ proc proposeBlock(node: BeaconNode,
   info "Block proposed",
     slot = humaneSlotNum(slot),
     stateRoot = shortLog(newBlock.state_root),
-    parentRoot = shortLog(newBlock.parent_root),
+    parentRoot = shortLog(newBlock.previous_block_root),
     validator = shortValidatorKey(node, validator.idx),
     idx = validator.idx
 
@@ -537,7 +537,7 @@ proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
     blockRoot = shortLog(blockRoot),
     slot = humaneSlotNum(blck.slot),
     stateRoot = shortLog(blck.state_root),
-    parentRoot = shortLog(blck.parent_root),
+    parentRoot = shortLog(blck.previous_block_root),
     signature = shortLog(blck.signature),
     proposer_slashings = blck.body.proposer_slashings.len,
     attester_slashings = blck.body.attester_slashings.len,
@@ -549,7 +549,7 @@ proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
   if not node.blockPool.add(node.state, blockRoot, blck):
     # TODO the fact that add returns a bool that causes the parent block to be
     #      pre-emptively fetched is quite ugly - fix.
-    node.fetchBlocks(@[blck.parent_root])
+    node.fetchBlocks(@[blck.previous_block_root])
 
   # The block we received contains attestations, and we might not yet know about
   # all of them. Let's add them to the attestation pool - in case they block

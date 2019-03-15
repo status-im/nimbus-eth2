@@ -14,7 +14,7 @@ import ./datatypes, ./digest, sequtils, math
 func bitSet*(bitfield: var openArray[byte], index: int) =
   bitfield[index div 8] = bitfield[index div 8] or 1'u8 shl (7 - (index mod 8))
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_bitfield_bit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_bitfield_bit
 func get_bitfield_bit*(bitfield: openarray[byte], i: int): byte =
   # Extract the bit in ``bitfield`` at position ``i``.
   doAssert 0 <= i div 8, "i: " & $i & " i div 8: " & $(i div 8)
@@ -152,7 +152,7 @@ func is_surround_vote*(attestation_data_1: AttestationData,
 
   source_epoch_1 < source_epoch_2 and target_epoch_2 < target_epoch_1
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#is_active_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#is_active_validator
 func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   ### Check if ``validator`` is active
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
@@ -170,7 +170,7 @@ func get_epoch_committee_count*(active_validator_count: int): uint64 =
     active_validator_count div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
     1, SHARD_COUNT div SLOTS_PER_EPOCH).uint64 * SLOTS_PER_EPOCH
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_current_epoch_committee_count
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_current_epoch_committee_count
 func get_current_epoch_committee_count*(state: BeaconState): uint64 =
   # Return the number of committees in the current epoch of the given ``state``.
   let current_active_validators = get_active_validator_indices(
@@ -185,7 +185,7 @@ func get_current_epoch*(state: BeaconState): Epoch =
   doAssert state.slot >= GENESIS_SLOT, $state.slot
   slot_to_epoch(state.slot)
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_randao_mix
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: BeaconState,
                      epoch: Epoch): Eth2Digest =
     ## Returns the randao mix at a recent ``epoch``.
@@ -196,7 +196,7 @@ func get_randao_mix*(state: BeaconState,
 
     state.latest_randao_mixes[epoch mod LATEST_RANDAO_MIXES_LENGTH]
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_active_index_root
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_active_index_root
 func get_active_index_root(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Returns the index root at a recent ``epoch``.
 

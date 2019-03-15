@@ -100,7 +100,7 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
     finalizedHead =
       headRef.findAncestorBySlot(headState.finalized_epoch.get_epoch_start_slot())
     justifiedHead =
-      headRef.findAncestorBySlot(headState.justified_epoch.get_epoch_start_slot())
+      headRef.findAncestorBySlot(headState.current_justified_epoch.get_epoch_start_slot())
 
   doAssert justifiedHead.slot >= finalizedHead.slot,
     "justified head comes before finalized head - database corrupt?"
@@ -162,7 +162,7 @@ proc add*(
 
     return true
 
-  let parent = pool.blocks.getOrDefault(blck.parent_root)
+  let parent = pool.blocks.getOrDefault(blck.previous_block_root)
 
   if parent != nil:
     # The block might have been in either of these - we don't want any more
@@ -197,7 +197,7 @@ proc add*(
     let
       justifiedBlock =
         blockRef.findAncestorBySlot(
-          state.data.justified_epoch.get_epoch_start_slot())
+          state.data.current_justified_epoch.get_epoch_start_slot())
 
     if not justifiedBlock.justified:
       info "Justified block",
@@ -227,7 +227,7 @@ proc add*(
   #      think are useful - but, it would also risk filling the database with
   #      junk that's not part of the block graph
 
-  if blck.parent_root in pool.unresolved:
+  if blck.previous_block_root in pool.unresolved:
     return true
 
   # This is an unresolved block - put it on the unresolved list for now...
@@ -244,7 +244,7 @@ proc add*(
     blck = shortLog(blck),
     blockRoot = shortLog(blockRoot)
 
-  pool.unresolved[blck.parent_root] = UnresolvedBlock()
+  pool.unresolved[blck.previous_block_root] = UnresolvedBlock()
   pool.pending[blockRoot] = blck
 
   false
@@ -303,8 +303,8 @@ proc checkUnresolved*(pool: var BlockPool): seq[Eth2Digest] =
 proc skipAndUpdateState(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     afterUpdate: proc (state: BeaconState)): bool =
-  skipSlots(state, blck.parent_root, blck.slot - 1, afterUpdate)
-  let ok  = updateState(state, blck.parent_root, blck, flags)
+  skipSlots(state, blck.previous_block_root, blck.slot - 1, afterUpdate)
+  let ok  = updateState(state, blck.previous_block_root, blck, flags)
 
   afterUpdate(state)
 
@@ -337,7 +337,7 @@ proc updateState*(
 
   # Common case: the last thing that was applied to the state was the parent
   # of blck
-  if state.blck.root == ancestors[0].data.parent_root and
+  if state.blck.root == ancestors[0].data.previous_block_root and
       state.data.slot < blck.slot:
     let ok = skipAndUpdateState(
         state.data, ancestors[0].data, {skipValidation}) do (state: BeaconState):
@@ -395,12 +395,12 @@ proc updateState*(
     let last = ancestors[i]
 
     skipSlots(
-        state.data, last.data.parent_root,
+        state.data, last.data.previous_block_root,
         last.data.slot - 1) do(state: BeaconState):
       pool.maybePutState(state)
 
     let ok = updateState(
-        state.data, last.data.parent_root, last.data, {skipValidation})
+        state.data, last.data.previous_block_root, last.data, {skipValidation})
     doAssert ok,
       "We only keep validated blocks in the database, should never fail"
 
@@ -443,7 +443,7 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
     stateRoot = shortLog(state.root),
     headBlockRoot = shortLog(state.blck.root),
     stateSlot = humaneSlotNum(state.data.slot),
-    justifiedEpoch = humaneEpochNum(state.data.justified_epoch),
+    justifiedEpoch = humaneEpochNum(state.data.current_justified_epoch),
     finalizedEpoch = humaneEpochNum(state.data.finalized_epoch)
 
   let

@@ -315,14 +315,15 @@ func hash_tree_root*[T: object|tuple](x: T): array[32, byte] =
       h.update hash_tree_root(field.toSSZType)
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/simple-serialize.md#signed-roots
-func signed_root*[T: object](x: T, field_name: string): array[32, byte] =
+func signed_root*[T: object](x: T, ignored: string = "sig"): array[32, byte] =
   # TODO write tests for this (check vs hash_tree_root)
 
   var found_field_name = false
 
+  ## TODO this isn't how 0.5 defines signed_root, but works well enough
   withHash:
     for name, field in x.fieldPairs:
-      if name == field_name:
+      if name == "signature":
         found_field_name = true
         break
       h.update hash_tree_root(field.toSSZType)

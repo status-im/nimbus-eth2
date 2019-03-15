@@ -108,4 +108,4 @@ iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
   while (let blck = db.getBlock(root); blck.isSome()):
     yield (root, blck.get())
 
-    root = blck.get().parent_root
+    root = blck.get().previous_block_root

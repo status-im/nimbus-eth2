@@ -92,18 +92,21 @@ proc addBlock*(
     proposer = state.validator_registry[proposer_index]
     privKey = hackPrivKey(proposer)
 
+  # TODO ugly hack; API needs rethinking
+  var new_body = body
+  new_body.randao_reveal = privKey.genRandaoReveal(state, state.slot + 1)
+  new_body.eth1_data = Eth1Data()
+
   var
     # In order to reuse the state transition function, we first create a dummy
     # block that has some fields set, and use that to generate the state as it
     # would look with the new block applied.
     new_block = BeaconBlock(
       slot: state.slot + 1,
-      parent_root: previous_block_root,
+      previous_block_root: previous_block_root,
       state_root: Eth2Digest(), # we need the new state first
-      randao_reveal: privKey.genRandaoReveal(state, state.slot + 1),
-      eth1_data: Eth1Data(), # TODO
       signature: ValidatorSig(), # we need the rest of the block first!
-      body: body
+      body: new_body
     )
 
   let block_ok = updateState(
@@ -134,12 +137,12 @@ proc addBlock*(
     # We have a signature - put it in the block and we should be done!
     new_block.signature =
       bls_sign(proposerPrivkey, proposal_hash,
-               get_domain(state.fork, slot_to_epoch(state.slot), DOMAIN_PROPOSAL))
+               get_domain(state.fork, slot_to_epoch(state.slot), DOMAIN_BEACON_BLOCK))
 
     doAssert bls_verify(
       proposer.pubkey,
       proposal_hash, new_block.signature,
-      get_domain(state.fork, slot_to_epoch(state.slot), DOMAIN_PROPOSAL)),
+      get_domain(state.fork, slot_to_epoch(state.slot), DOMAIN_BEACON_BLOCK)),
       "we just signed this message - it should pass verification!"
 
   new_block

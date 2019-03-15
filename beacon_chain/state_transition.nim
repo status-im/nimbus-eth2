@@ -57,9 +57,44 @@ func verifyBlockSignature(state: BeaconState, blck: BeaconBlock): bool =
     proposer.pubkey,
     signed_root(proposal, "signature"),
     proposal.signature,
-    get_domain(state.fork, get_current_epoch(state), DOMAIN_PROPOSAL))
+    get_domain(state.fork, get_current_epoch(state), DOMAIN_BEACON_BLOCK))
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#randao
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#block-header
+proc processBlockHeader(
+    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
+  # Verify that the slots match
+  if not (blck.slot == state.slot):
+    notice "Block header: slot mismatch",
+      block_slot = humaneSlotNum(blck.slot),
+      state_slot = humaneSlotNum(state.slot)
+    return false
+
+  if not (blck.previous_block_root ==
+      hash_tree_root_final(state.latest_block_header)):
+    notice "Block header: previous block root mismatch",
+      previous_block_root = blck.previous_block_root,
+      latest_block_header = state.latest_block_header,
+      latest_block_header_root = hash_tree_root_final(state.latest_block_header)
+    return false
+
+  state.latest_block_header = get_temporary_block_header(blck)
+
+  let proposer =
+    state.validator_registry[get_beacon_proposer_index(state, state.slot)]
+  if skipValidation notin flags and not bls_verify(
+      proposer.pubkey,
+      signed_root(blck),
+      blck.signature,
+      get_domain(state.fork, get_current_epoch(state), DOMAIN_BEACON_BLOCK)):
+    notice "Block header: invalid block header",
+      proposer_pubkey = proposer.pubkey,
+      signed_root_block = signed_root(blck),
+      block_signature = blck.signature
+    return false
+
+  true
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#randao
 proc processRandao(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   let
@@ -70,20 +105,21 @@ proc processRandao(
     if not bls_verify(
       proposer.pubkey,
       hash_tree_root(get_current_epoch(state).uint64),
-      blck.randao_reveal,
+      blck.body.randao_reveal,
       get_domain(state.fork, get_current_epoch(state), DOMAIN_RANDAO)):
 
       notice "Randao mismatch", proposer_pubkey = proposer.pubkey,
                                 message = get_current_epoch(state),
-                                signature = blck.randao_reveal,
+                                signature = blck.body.randao_reveal,
                                 slot = state.slot,
                                 blck_slot = blck.slot
       return false
 
-  # Update state and proposer now that we're alright
+  # Mix it in
   let
     mix = get_current_epoch(state) mod LATEST_RANDAO_MIXES_LENGTH
-    rr = hash_tree_root_final(blck.randao_reveal).data
+    # TODO hash_tree_root has some overloading for this
+    rr = eth2hash(blck.body.randao_reveal.getBytes()).data
 
   for i, b in state.latest_randao_mixes[mix].data:
     state.latest_randao_mixes[mix].data[i] = b xor rr[i]
@@ -94,16 +130,16 @@ proc processRandao(
 func processDepositRoot(state: var BeaconState, blck: BeaconBlock) =
   # TODO verify that there's at most one match
   for x in state.eth1_data_votes.mitems():
-    if blck.eth1_data == x.eth1_data:
+    if blck.body.eth1_data == x.eth1_data:
       x.vote_count += 1
       return
 
   state.eth1_data_votes.add Eth1DataVote(
-    eth1_data: blck.eth1_data,
+    eth1_data: blck.body.eth1_data,
     vote_count: 1
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#proposer-slashings-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#proposer-slashings
 proc processProposerSlashings(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   if len(blck.body.proposer_slashings) > MAX_PROPOSER_SLASHINGS:
@@ -114,19 +150,13 @@ proc processProposerSlashings(
   for proposer_slashing in blck.body.proposer_slashings:
     let proposer = state.validator_registry[proposer_slashing.proposer_index.int]
 
-    if not (proposer_slashing.proposal_1.slot ==
-        proposer_slashing.proposal_2.slot):
-      notice "PropSlash: slot mismatch"
+    if not (slot_to_epoch(proposer_slashing.header_1.slot) ==
+        slot_to_epoch(proposer_slashing.header_2.slot)):
+      notice "PropSlash: epoch mismatch"
       return false
 
-    if not (proposer_slashing.proposal_1.shard ==
-        proposer_slashing.proposal_2.shard):
-      notice "PropSlash: shard mismatch"
-      return false
-
-    if not (proposer_slashing.proposal_1.block_root !=
-        proposer_slashing.proposal_2.block_root):
-      notice "PropSlash: block root mismatch"
+    if not (proposer_slashing.header_1 != proposer_slashing.header_2):
+      notice "PropSlash: headers not different"
       return false
 
     if not (proposer.slashed == false):
@@ -134,24 +164,16 @@ proc processProposerSlashings(
       return false
 
     if skipValidation notin flags:
-      if not bls_verify(
-          proposer.pubkey,
-          signed_root(proposer_slashing.proposal_1, "signature"),
-          proposer_slashing.proposal_1.signature,
-          get_domain(
-            state.fork, slot_to_epoch(proposer_slashing.proposal_1.slot),
-            DOMAIN_PROPOSAL)):
-        notice "PropSlash: invalid signature 1"
-        return false
-      if not bls_verify(
-          proposer.pubkey,
-          signed_root(proposer_slashing.proposal_2, "signature"),
-          proposer_slashing.proposal_2.signature,
-          get_domain(
-            state.fork, slot_to_epoch(proposer_slashing.proposal_2.slot),
-            DOMAIN_PROPOSAL)):
-        notice "PropSlash: invalid signature 2"
-        return false
+      for i, header in @[proposer_slashing.header_1, proposer_slashing.header_2]:
+        if not bls_verify(
+            proposer.pubkey,
+            signed_root(header),
+            header.signature,
+            get_domain(
+              state.fork, slot_to_epoch(header.slot), DOMAIN_BEACON_BLOCK)):
+          notice "PropSlash: invalid signature",
+            signature_index = i
+          return false
 
     slashValidator(state, proposer_slashing.proposer_index.ValidatorIndex)
 
@@ -303,8 +325,8 @@ proc processExits(
 
     if skipValidation notin flags:
       if not bls_verify(
-          validator.pubkey, signed_root(exit, "signature"), exit.signature,
-          get_domain(state.fork, exit.epoch, DOMAIN_EXIT)):
+          validator.pubkey, signed_root(exit), exit.signature,
+          get_domain(state.fork, exit.epoch, DOMAIN_VOLUNTARY_EXIT)):
         notice "Exit: invalid signature"
         return false
 
@@ -357,7 +379,7 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
       return false
 
     if skipValidation notin flags:
-      let transfer_message = signed_root(transfer, "signature")
+      let transfer_message = signed_root(transfer)
       if not bls_verify(
           pubkey=transfer.pubkey, transfer_message, transfer.signature,
           get_domain(
@@ -375,15 +397,36 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#per-slot-processing
-func processSlot(state: var BeaconState, previous_block_root: Eth2Digest) =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#per-slot-processing
+func advanceSlot(state: var BeaconState) =
   ## Time on the beacon chain moves in slots. Every time we make it to a new
   ## slot, a proposer creates a block to represent the state of the beacon
   ## chain at that time. In case the proposer is missing, it may happen that
   ## the no block is produced during the slot.
-
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#slot
   state.slot += 1
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#state-caching
+func cacheState(state: var BeaconState) =
+  let previous_slot_state_root = hash_tree_root_final(state)
+
+  # store the previous slot's post state transition root
+  state.latest_state_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
+    previous_slot_state_root
+
+  # cache state root in stored latest_block_header if empty
+  if state.latest_block_header.state_root == ZERO_HASH:
+    state.latest_block_header.state_root = previous_slot_state_root
+
+  # store latest known block for previous slot
+  state.latest_block_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
+    hash_tree_root_final(state.latest_block_header)
+
+func processSlot(state: var BeaconState, previous_block_root: Eth2Digest) =
+  advanceSlot(state)
+
+  # TODO "at every slot > GENESIS_SLOT", after rest of epoch restructuring
+  if false and state.slot > GENESIS_SLOT:
+    cacheState(state)
 
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#block-roots
   state.latest_block_roots[(state.slot - 1) mod LATEST_BLOCK_ROOTS_LENGTH] =
@@ -408,21 +451,26 @@ proc processBlock(
 
   # Spec does not have this check explicitly, but requires that this condition
   # holds - so we give verify it as well - this would happen naturally if
-  # `blck.parent_root` was used in `processSlot` - but that doesn't cut it for
+  # `blck.previous_block_root` was used in `processSlot` - but that doesn't cut it for
   # blockless slot processing.
+  # TODO compare with check in processBlockHeader, might be redundant
   let stateParentRoot =
     state.latest_block_roots[(state.slot - 1) mod LATEST_BLOCK_ROOTS_LENGTH]
-  if not (blck.parent_root == stateParentRoot):
+  if not (blck.previous_block_root == stateParentRoot):
     notice "Unexpected parent root",
-      blockParentRoot = blck.parent_root,
+      blockParentRoot = blck.previous_block_root,
       stateParentRoot
     return false
 
+  # TODO Technically, we could make processBlock take a generic type instead
+  #      of BeaconBlock - we would then have an intermediate `ProposedBlock`
+  #      type that omits some fields - this way, the compiler would guarantee
+  #      that we don't try to access fields that don't have a value yet
+  #if not processBlockHeader(state, blck, flags):
+  #  notice "Block header not valid", slot = humaneSlotNum(state.slot)
+  #  return false
+  # TODO this starts requiring refactoring blockpool, etc
   if skipValidation notin flags:
-    # TODO Technically, we could make processBlock take a generic type instead
-    #      of BeaconBlock - we would then have an intermediate `ProposedBlock`
-    #      type that omits some fields - this way, the compiler would guarantee
-    #      that we don't try to access fields that don't have a value yet
     if not verifyBlockSignature(state, blck):
       notice "Block signature not valid", slot = humaneSlotNum(state.slot)
       return false
@@ -683,7 +731,7 @@ func processEpoch(state: var BeaconState) =
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#justification
   block:
     # First, update the justification bitfield
-    var new_justified_epoch = state.justified_epoch
+    var new_justified_epoch = state.current_justified_epoch
     state.justification_bitfield = state.justification_bitfield shl 1
     if 3'u64 * previous_epoch_boundary_attesting_balance >= 2'u64 * previous_total_balance:
       state.justification_bitfield = state.justification_bitfield or 2
@@ -697,14 +745,14 @@ func processEpoch(state: var BeaconState) =
       state.finalized_epoch = state.previous_justified_epoch
     if (state.justification_bitfield shr 1) mod 4 == 0b11 and state.previous_justified_epoch == previous_epoch - 1:
       state.finalized_epoch = state.previous_justified_epoch
-    if (state.justification_bitfield shr 0) mod 8 == 0b111 and state.justified_epoch == previous_epoch - 1:
-      state.finalized_epoch = state.justified_epoch
-    if (state.justification_bitfield shr 0) mod 4 == 0b11 and state.justified_epoch == previous_epoch:
-      state.finalized_epoch = state.justified_epoch
+    if (state.justification_bitfield shr 0) mod 8 == 0b111 and state.current_justified_epoch == previous_epoch - 1:
+      state.finalized_epoch = state.current_justified_epoch
+    if (state.justification_bitfield shr 0) mod 4 == 0b11 and state.current_justified_epoch == previous_epoch:
+      state.finalized_epoch = state.current_justified_epoch
 
     # Finally, update the following
-    state.previous_justified_epoch = state.justified_epoch
-    state.justified_epoch = new_justified_epoch
+    state.previous_justified_epoch = state.current_justified_epoch
+    state.current_justified_epoch = new_justified_epoch
 
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#crosslinks
   block:

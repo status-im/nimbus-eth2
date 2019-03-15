@@ -22,30 +22,30 @@ type
     node*: BeaconNode
     db*: BeaconChainDB
 
-func toHeader(b: BeaconBlock): BeaconBlockHeader =
-  BeaconBlockHeader(
+func toHeader(b: BeaconBlock): BeaconBlockHeaderRLP =
+  BeaconBlockHeaderRLP(
     slot: b.slot.uint64,
-    parent_root: b.parent_root,
+    parent_root: b.previous_block_root,
     state_root: b.state_root,
-    randao_reveal: b.randao_reveal,
-    eth1_data : b.eth1_data,
+    randao_reveal: b.body.randao_reveal,
+    eth1_data : b.body.eth1_data,
     signature: b.signature,
     body: hash_tree_root_final(b.body)
   )
 
-proc fromHeaderAndBody(b: var BeaconBlock, h: BeaconBlockHeader, body: BeaconBlockBody) =
+proc fromHeaderAndBody(b: var BeaconBlock, h: BeaconBlockHeaderRLP, body: BeaconBlockBody) =
   doAssert(hash_tree_root_final(body) == h.body)
   b.slot = h.slot.Slot
-  b.parent_root = h.parent_root
+  b.previous_block_root = h.parent_root
   b.state_root = h.state_root
-  b.randao_reveal = h.randao_reveal
-  b.eth1_data = h.eth1_data
+  b.body.randao_reveal = h.randao_reveal
+  b.body.eth1_data = h.eth1_data
   b.signature = h.signature
   b.body = body
 
 proc importBlocks(node: BeaconNode,
                   roots: openarray[(Eth2Digest, Slot)],
-                  headers: openarray[BeaconBlockHeader],
+                  headers: openarray[BeaconBlockHeaderRLP],
                   bodies: openarray[BeaconBlockBody]) =
   var bodyMap = initTable[Eth2Digest, int]()
 
@@ -135,7 +135,7 @@ p2pProtocol BeaconSync(version = 1,
             skipSlots: int) {.libp2pProtocol("rpc/beacon_block_headers", "1.0.0").} =
       # TODO: validate maxHeaders and implement slipSlots
       var s = slot.int
-      var headers = newSeqOfCap[BeaconBlockHeader](maxHeaders)
+      var headers = newSeqOfCap[BeaconBlockHeaderRLP](maxHeaders)
       let db = peer.networkState.db
       let blockPool = peer.networkState.node.blockPool
       while headers.len < maxHeaders:
@@ -147,7 +147,7 @@ p2pProtocol BeaconSync(version = 1,
 
     proc beaconBlockHeaders(
             peer: Peer,
-            blockHeaders: openarray[BeaconBlockHeader])
+            blockHeaders: openarray[BeaconBlockHeaderRLP])
 
   requestResponse:
     proc getBeaconBlockBodies(
