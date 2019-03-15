@@ -21,9 +21,7 @@ The Eth 2.0 test vectors and their generators are available in a [dedicated repo
 
 ## Building and Testing
 
-The beacon chain components require that you have Nim installed - the easiest way to get started is to head over to the main [Nimbus](https://github.com/status-im/nimbus/) repository and follow the build instructions there. Once you're able to build nimbus:
-
-Then:
+The beacon chain components require that you have Nim installed - the easiest way to get started is to head over to the main [Nimbus](https://github.com/status-im/nimbus/) repository and follow the build instructions there.
 
 ```bash
 # Clone main nimbus repository
@@ -32,6 +30,8 @@ cd nimbus
 
 # Prep environment
 make update
+
+# Start a shell that uses the Nimbus compile environment
 ./env.sh bash
 
 # You're now in a shell environment that has the right Nim version available.
