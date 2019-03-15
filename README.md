@@ -51,7 +51,7 @@ The beacon node simulation is will create a full peer-to-peer network of beacon 
 ./tests/simulation/start.sh
 
 # Clear data from last run and restart simulation with a new genesis block
-rf -rf tests/simulation/data ; ./tests/simulation/start.sh
+rm -rf tests/simulation/data ; ./tests/simulation/start.sh
 
 # Run an extra node - by default the network will launch with 9 nodes, each
 # hosting 10 validators. The last 10 validators are lazy bums that hid from the
