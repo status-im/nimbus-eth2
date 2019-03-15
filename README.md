@@ -30,6 +30,7 @@ cd nimbus
 
 # Prep environment
 make update
+make deps
 
 # Start a shell that uses the Nimbus compile environment
 ./env.sh bash
