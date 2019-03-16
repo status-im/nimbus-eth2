@@ -429,9 +429,9 @@ func processSlot(state: var BeaconState, previous_block_root: Eth2Digest) =
     cacheState(state)
 
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#block-roots
-  state.latest_block_roots[(state.slot - 1) mod LATEST_BLOCK_ROOTS_LENGTH] =
+  state.latest_block_roots[(state.slot - 1) mod SLOTS_PER_HISTORICAL_ROOT] =
     previous_block_root
-  if state.slot mod LATEST_BLOCK_ROOTS_LENGTH == 0:
+  if state.slot mod SLOTS_PER_HISTORICAL_ROOT == 0:
     state.batched_block_roots.add(merkle_root(state.latest_block_roots))
 
 proc processBlock(
@@ -455,7 +455,7 @@ proc processBlock(
   # blockless slot processing.
   # TODO compare with check in processBlockHeader, might be redundant
   let stateParentRoot =
-    state.latest_block_roots[(state.slot - 1) mod LATEST_BLOCK_ROOTS_LENGTH]
+    state.latest_block_roots[(state.slot - 1) mod SLOTS_PER_HISTORICAL_ROOT]
   if not (blck.previous_block_root == stateParentRoot):
     notice "Unexpected parent root",
       blockParentRoot = blck.previous_block_root,

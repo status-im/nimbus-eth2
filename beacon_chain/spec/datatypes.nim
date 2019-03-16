@@ -151,9 +151,7 @@ const
   MIN_VALIDATOR_WITHDRAWABILITY_DELAY* = 2'u64^8 ##\
   ## epochs (~27 hours)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#state-list-lengths
-  # TODO LATEST_BLOCK_ROOTS_LENGTH -> SLOTS_PER_HISTORICAL_ROOT?
-  LATEST_BLOCK_ROOTS_LENGTH* = 8192
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#state-list-lengths
   LATEST_RANDAO_MIXES_LENGTH* = 8192
   LATEST_ACTIVE_INDEX_ROOTS_LENGTH* = 8192 # 2'u64^13, epochs
   LATEST_SLASHED_EXIT_LENGTH* = 8192 # epochs
@@ -168,7 +166,7 @@ const
   INACTIVITY_PENALTY_QUOTIENT* = 2'u64^24
   MIN_PENALTY_QUOTIENT* = 32 # 2^5
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#max-transactions-per-block
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#max-transactions-per-block
   MAX_PROPOSER_SLASHINGS* = 2^4
   MAX_ATTESTER_SLASHINGS* = 2^0
   MAX_ATTESTATIONS* = 2^7
@@ -199,7 +197,7 @@ type
     slashable_attestation_2*: SlashableAttestation ## \
     ## Second slashable attestation
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#slashableattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#slashableattestation
   SlashableAttestation* = object
     validator_indices*: seq[uint64] ##\
     ## Validator indices
@@ -275,7 +273,7 @@ type
     timestamp*: uint64 # Timestamp from deposit contract
     deposit_input*: DepositInput
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#depositinput
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#depositinput
   DepositInput* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
@@ -447,7 +445,7 @@ type
     # Not in spec. TODO: don't serialize or deserialize this.
     shuffling_cache*: ShufflingCache
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#validator
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#validator
   Validator* = object
     pubkey*: ValidatorPubKey ##\
     ## BLS public key
@@ -478,7 +476,7 @@ type
     crosslink_data_root*: Eth2Digest ##\
     ## Shard data since the previous crosslink
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#pendingattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#pendingattestation
   PendingAttestation* = object
     aggregation_bitfield*: seq[byte]          # Attester participation bitfield
     data*: AttestationData                    # Attestation data
@@ -491,7 +489,7 @@ type
     current_version*: uint64                      # Current fork version
     epoch*: Epoch                                 # Fork epoch number
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#eth1data
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#eth1data
   Eth1Data* = object
     deposit_root*: Eth2Digest ##\
     ## Data being voted for

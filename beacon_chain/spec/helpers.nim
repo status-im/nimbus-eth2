@@ -21,7 +21,7 @@ func get_bitfield_bit*(bitfield: openarray[byte], i: int): byte =
   doAssert i div 8 < bitfield.len, "i: " & $i & " i div 8: " & $(i div 8)
   (bitfield[i div 8] shr (7 - (i mod 8))) mod 2
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#verify_bitfield
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#verify_bitfield
 func verify_bitfield*(bitfield: openarray[byte], committee_size: int): bool =
   # Verify ``bitfield`` against the ``committee_size``.
   if len(bitfield) != (committee_size + 7) div 8:
@@ -81,8 +81,8 @@ func get_domain*(
   # Get the domain number that represents the fork meta and signature domain.
   (get_fork_version(fork, epoch) shl 32) + domain_type.uint32
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#is_power_of_two
-func is_power_of_2*(v: uint64): bool = (v and (v-1)) == 0
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#is_power_of_two
+func is_power_of_2*(v: uint64): bool = (v > 0'u64) and (v and (v-1)) == 0
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#merkle_root
 func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
@@ -119,16 +119,16 @@ func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
 
   o[1]
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#slot_to_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#slot_to_epoch
 func slot_to_epoch*(slot: Slot|uint64): Epoch =
   (slot div SLOTS_PER_EPOCH).Epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_epoch_start_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_epoch_start_slot
 func get_epoch_start_slot*(epoch: Epoch): Slot =
   # Return the starting slot of the given ``epoch``.
   (epoch * SLOTS_PER_EPOCH).Slot
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#is_double_vote
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#is_double_vote
 func is_double_vote*(attestation_data_1: AttestationData,
                      attestation_data_2: AttestationData): bool =
   ## Check if ``attestation_data_1`` and ``attestation_data_2`` have the same
@@ -139,7 +139,7 @@ func is_double_vote*(attestation_data_1: AttestationData,
     target_epoch_2 = slot_to_epoch(attestation_data_2.slot)
   target_epoch_1 == target_epoch_2
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#is_surround_vote
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#is_surround_vote
 func is_surround_vote*(attestation_data_1: AttestationData,
                        attestation_data_2: AttestationData): bool =
   ## Check if ``attestation_data_1`` surrounds ``attestation_data_2``.
@@ -179,7 +179,7 @@ func get_current_epoch_committee_count*(state: BeaconState): uint64 =
   )
   get_epoch_committee_count(len(current_active_validators))
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_current_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: BeaconState): Epoch =
   # Return the current epoch of the given ``state``.
   doAssert state.slot >= GENESIS_SLOT, $state.slot
@@ -216,7 +216,7 @@ func bytes_to_int*(data: seq[byte]): uint64 =
   for i in countdown(7, 0):
     result = result * 256 + data[i]
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#int_to_bytes1-int_to_bytes2-
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#int_to_bytes1-int_to_bytes2-
 # Have 1, 4, and 32-byte versions. 2+ more and maybe worth metaprogramming.
 func int_to_bytes32*(x: uint64): array[32, byte] =
   ## Little-endian data representation

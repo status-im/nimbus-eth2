@@ -61,7 +61,7 @@ func process_deposit(state: var BeaconState, deposit: Deposit) =
 
     state.validator_balances[index] += amount
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_delayed_activation_exit_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_delayed_activation_exit_epoch
 func get_delayed_activation_exit_epoch*(epoch: Epoch): Epoch =
   ## Return the epoch at which an activation or exit triggered in ``epoch``
   ## takes effect.
@@ -81,7 +81,7 @@ func activate_validator(state: var BeaconState,
     else:
       get_delayed_activation_exit_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#initiate_validator_exit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(state: var BeaconState,
                               index: ValidatorIndex) =
   ## Initiate exit for the validator with the given ``index``.
@@ -267,14 +267,14 @@ func get_initial_beacon_block*(state: BeaconState): BeaconBlock =
     # initialized to default values.
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_block_root
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_block_root
 func get_block_root*(state: BeaconState,
                      slot: Slot): Eth2Digest =
   # Return the block root at a recent ``slot``.
 
-  doAssert state.slot <= slot + LATEST_BLOCK_ROOTS_LENGTH
+  doAssert state.slot <= slot + SLOTS_PER_HISTORICAL_ROOT
   doAssert slot < state.slot
-  state.latest_block_roots[slot mod LATEST_BLOCK_ROOTS_LENGTH]
+  state.latest_block_roots[slot mod SLOTS_PER_HISTORICAL_ROOT]
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_attestation_participants
 func get_attestation_participants*(state: BeaconState,
@@ -324,7 +324,7 @@ func process_ejections*(state: var BeaconState) =
     if state.validator_balances[index] < EJECTION_BALANCE:
       exit_validator(state, index)
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_total_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_total_balance
 func get_total_balance*(state: BeaconState, validators: auto): Gwei =
   # Return the combined effective balance of an array of validators.
   foldl(validators, a + get_effective_balance(state, b), 0'u64)
@@ -513,7 +513,7 @@ proc checkAttestation*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#prepare_validator_for_withdrawal
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#prepare_validator_for_withdrawal
 func prepare_validator_for_withdrawal*(state: var BeaconState, index: ValidatorIndex) =
   ## Set the validator with the given ``index`` as withdrawable
   ## ``MIN_VALIDATOR_WITHDRAWABILITY_DELAY`` after the current epoch.
