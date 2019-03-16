@@ -34,7 +34,7 @@ func verify_bitfield*(bitfield: openarray[byte], committee_size: int): bool =
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#split
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#split
 func split*[T](lst: openArray[T], N: Positive): seq[seq[T]] =
   ## split lst in N pieces, with each piece having `len(lst) div N` or
   ## `len(lst) div N + 1` pieces
@@ -56,9 +56,11 @@ func get_new_recent_block_roots*(old_block_roots: seq[Eth2Digest],
 
 func ceil_div8*(v: int): int = (v + 7) div 8 # TODO use a proper bitarray!
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#integer_squareroot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
   ## The largest integer ``x`` such that ``x**2`` is less than ``n``.
+  doAssert n >= 0'u64
+
   var
     x = n
     y = (x + 1) div 2
@@ -242,7 +244,7 @@ func int_to_bytes4*(x: uint64): array[4, byte] =
   result[2] = ((x shr 16) and 0xff).byte
   result[3] = ((x shr 24) and 0xff).byte
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#generate_seed
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#generate_seed
 func generate_seed*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Generate a seed for the given ``epoch``.
 

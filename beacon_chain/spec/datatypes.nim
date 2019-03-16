@@ -82,11 +82,11 @@ const
   SHUFFLE_ROUND_COUNT* = 90
 
   # Deposit contract
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#deposit-contract
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#deposit-contract
   DEPOSIT_CONTRACT_TREE_DEPTH* = 2^5
 
   # Gwei values
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#gwei-values
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#gwei-values
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9 ##\
   ## Minimum amounth of ETH that can be deposited in one call - deposits can
   ## be used either to top up an existing validator or commit to a new one
@@ -267,7 +267,7 @@ type
     deposit_data*: DepositData ##\
     ## Data
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#depositdata
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#depositdata
   DepositData* = object
     amount*: uint64 ## Amount in Gwei
     timestamp*: uint64 # Timestamp from deposit contract
@@ -280,7 +280,7 @@ type
     proof_of_possession*: ValidatorSig ##\
     ## A BLS signature of this `DepositInput`
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#voluntaryexit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
     # Minimum epoch for processing exit
     epoch*: Epoch
@@ -468,7 +468,7 @@ type
     slashed*: bool ##\
     ## Was the validator slashed
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#crosslink
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#crosslink
   Crosslink* = object
     epoch*: Epoch ##\
     ## Epoch number
@@ -483,7 +483,7 @@ type
     custody_bitfield*: seq[byte]              # Custody bitfield
     inclusion_slot*: Slot                     # Inclusion slot
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#fork
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#fork
   Fork* = object
     previous_version*: uint64                     # Previous fork version
     current_version*: uint64                      # Current fork version
