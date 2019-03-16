@@ -10,8 +10,8 @@ import
   ../extras, ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers, ./validator
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_effective_balance
-func get_effective_balance*(state: BeaconState, index: ValidatorIndex): uint64 =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_effective_balance
+func get_effective_balance*(state: BeaconState, index: ValidatorIndex): Gwei =
   ## Return the effective balance (also known as "balance at stake") for a
   ## validator with the given ``index``.
   min(state.validator_balances[index], MAX_DEPOSIT_AMOUNT)
@@ -61,13 +61,13 @@ func process_deposit(state: var BeaconState, deposit: Deposit) =
 
     state.validator_balances[index] += amount
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_delayed_activation_exit_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_delayed_activation_exit_epoch
 func get_delayed_activation_exit_epoch*(epoch: Epoch): Epoch =
   ## Return the epoch at which an activation or exit triggered in ``epoch``
   ## takes effect.
   epoch + 1 + ACTIVATION_EXIT_DELAY
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#activate_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#activate_validator
 func activate_validator(state: var BeaconState,
                         index: ValidatorIndex,
                         is_genesis: bool) =
@@ -81,7 +81,7 @@ func activate_validator(state: var BeaconState,
     else:
       get_delayed_activation_exit_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#initiate_validator_exit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(state: var BeaconState,
                               index: ValidatorIndex) =
   ## Initiate exit for the validator with the given ``index``.
@@ -107,7 +107,7 @@ func reduce_balance*(balance: var uint64, amount: uint64) =
   # Not in spec, but useful to avoid underflow.
   balance -= min(amount, balance)
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#slash_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#slash_validator
 func slash_validator*(state: var BeaconState, index: ValidatorIndex) =
   ## Slash the validator with index ``index``.
   ## Note that this function mutates ``state``.
@@ -155,7 +155,22 @@ func update_shuffling_cache*(state: var BeaconState) =
     state.shuffling_cache.shuffling_1 = shuffling_seq
   state.shuffling_cache.index = 1 - state.shuffling_cache.index
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_temporary_block_header
+func get_temporary_block_header*(blck: BeaconBlock): BeaconBlockHeader =
+  ## Return the block header corresponding to a block with ``state_root`` set
+  ## to ``ZERO_HASH``.
+  BeaconBlockHeader(
+    slot: blck.slot.uint64,
+    previous_block_root: blck.previous_block_root,
+    state_root: ZERO_HASH,
+    block_body_root: hash_tree_root_final(blck.body),
+    signature: blck.signature)
+
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#on-genesis
+func get_empty_block*(): BeaconBlock =
+  # Nim default values fill this in fine, mostly.
+  result.slot = GENESIS_SLOT
+
 func get_genesis_beacon_state*(
     genesis_validator_deposits: openArray[Deposit],
     genesis_time: uint64,
@@ -204,7 +219,7 @@ func get_genesis_beacon_state*(
 
     # Finality
     previous_justified_epoch: GENESIS_EPOCH,
-    justified_epoch: GENESIS_EPOCH,
+    current_justified_epoch: GENESIS_EPOCH,
     justification_bitfield: 0,
     finalized_epoch: GENESIS_EPOCH,
 
@@ -214,6 +229,7 @@ func get_genesis_beacon_state*(
     # Recent state
     # latest_block_roots, latest_active_index_roots, latest_slashed_balances,
     # latest_attestations, and batched_block_roots automatically initialized.
+    latest_block_header: get_temporary_block_header(get_empty_block()),
   )
 
   for i in 0 ..< SHARD_COUNT:
@@ -251,14 +267,14 @@ func get_initial_beacon_block*(state: BeaconState): BeaconBlock =
     # initialized to default values.
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_block_root
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_block_root
 func get_block_root*(state: BeaconState,
                      slot: Slot): Eth2Digest =
   # Return the block root at a recent ``slot``.
 
-  doAssert state.slot <= slot + LATEST_BLOCK_ROOTS_LENGTH
+  doAssert state.slot <= slot + SLOTS_PER_HISTORICAL_ROOT
   doAssert slot < state.slot
-  state.latest_block_roots[slot mod LATEST_BLOCK_ROOTS_LENGTH]
+  state.latest_block_roots[slot mod SLOTS_PER_HISTORICAL_ROOT]
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_attestation_participants
 func get_attestation_participants*(state: BeaconState,
@@ -304,17 +320,26 @@ func process_ejections*(state: var BeaconState) =
   ## Iterate through the validator registry and eject active validators with
   ## balance below ``EJECTION_BALANCE``
   for index in get_active_validator_indices(
-      # Spec bug in 0.4.0: is just current_epoch(state)
       state.validator_registry, get_current_epoch(state)):
     if state.validator_balances[index] < EJECTION_BALANCE:
       exit_validator(state, index)
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_total_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_total_balance
 func get_total_balance*(state: BeaconState, validators: auto): Gwei =
   # Return the combined effective balance of an array of validators.
   foldl(validators, a + get_effective_balance(state, b), 0'u64)
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
+func should_update_validator_registry*(state: BeaconState): bool =
+  # Must have finalized a new block
+  if state.finalized_epoch <= state.validator_registry_update_epoch:
+    return false
+  # Must have processed new crosslinks on all shards of the current epoch
+  allIt(0 ..< get_current_epoch_committee_count(state).int,
+        not (state.latest_crosslinks[
+          ((state.current_shuffling_start_shard + it.uint64) mod
+            SHARD_COUNT).int].epoch <= state.validator_registry_update_epoch))
+
 func update_validator_registry*(state: var BeaconState) =
   ## Update validator registry.
   ## Note that this function mutates ``state``.
@@ -389,7 +414,7 @@ proc checkAttestation*(
 
   let expected_justified_epoch =
     if slot_to_epoch(attestation.data.slot + 1) >= get_current_epoch(state):
-      state.justified_epoch
+      state.current_justified_epoch
     else:
       state.previous_justified_epoch
 
@@ -488,7 +513,7 @@ proc checkAttestation*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#prepare_validator_for_withdrawal
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#prepare_validator_for_withdrawal
 func prepare_validator_for_withdrawal*(state: var BeaconState, index: ValidatorIndex) =
   ## Set the validator with the given ``index`` as withdrawable
   ## ``MIN_VALIDATOR_WITHDRAWABILITY_DELAY`` after the current epoch.
@@ -511,7 +536,7 @@ proc makeAttestationData*(
     epoch_boundary_root =
       if epoch_start_slot == state.slot: beacon_block_root
       else: get_block_root(state, epoch_start_slot)
-    justified_slot = get_epoch_start_slot(state.justified_epoch)
+    justified_slot = get_epoch_start_slot(state.current_justified_epoch)
     justified_block_root = get_block_root(state, justified_slot)
 
   AttestationData(
@@ -521,6 +546,6 @@ proc makeAttestationData*(
     epoch_boundary_root: epoch_boundary_root,
     crosslink_data_root: Eth2Digest(), # Stub in phase0
     latest_crosslink: state.latest_crosslinks[shard],
-    justified_epoch: state.justified_epoch,
+    justified_epoch: state.current_justified_epoch,
     justified_block_root: justified_block_root,
   )

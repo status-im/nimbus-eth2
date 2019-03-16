@@ -82,11 +82,11 @@ const
   SHUFFLE_ROUND_COUNT* = 90
 
   # Deposit contract
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#deposit-contract
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#deposit-contract
   DEPOSIT_CONTRACT_TREE_DEPTH* = 2^5
 
   # Gwei values
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#gwei-values
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#gwei-values
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9 ##\
   ## Minimum amounth of ETH that can be deposited in one call - deposits can
   ## be used either to top up an existing validator or commit to a new one
@@ -106,8 +106,7 @@ const
   ## processing is done
   ## Compile with -d:SLOTS_PER_EPOCH=4 for shorter epochs
 
-  # Initial values
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#initial-values
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#initial-values
   GENESIS_FORK_VERSION* = 0'u64
   GENESIS_SLOT* = (2'u64^32).Slot
   GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
@@ -146,18 +145,18 @@ const
   EPOCHS_PER_ETH1_VOTING_PERIOD* = 2'u64^4 ##\
   ## epochs (~1.7 hours)
 
+  SLOTS_PER_HISTORICAL_ROOT* = 8192 ##\
+  ## slots (13 hours)
+
   MIN_VALIDATOR_WITHDRAWABILITY_DELAY* = 2'u64^8 ##\
   ## epochs (~27 hours)
 
-  # State list lengths
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#state-list-lengths
-  LATEST_BLOCK_ROOTS_LENGTH* = 2'u64^13
-  LATEST_RANDAO_MIXES_LENGTH* = 2'u64^13
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#state-list-lengths
+  LATEST_RANDAO_MIXES_LENGTH* = 8192
   LATEST_ACTIVE_INDEX_ROOTS_LENGTH* = 8192 # 2'u64^13, epochs
   LATEST_SLASHED_EXIT_LENGTH* = 8192 # epochs
 
-  # Reward and penalty quotients
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#reward-and-penalty-quotients
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#reward-and-penalty-quotients
   BASE_REWARD_QUOTIENT* = 2'u64^5 ##\
   ## The `BASE_REWARD_QUOTIENT` parameter dictates the per-epoch reward. It
   ## corresponds to ~2.54% annual interest assuming 10 million participating
@@ -167,8 +166,7 @@ const
   INACTIVITY_PENALTY_QUOTIENT* = 2'u64^24
   MIN_PENALTY_QUOTIENT* = 32 # 2^5
 
-  # Max transactions per block
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#max-transactions-per-block
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#max-transactions-per-block
   MAX_PROPOSER_SLASHINGS* = 2^4
   MAX_ATTESTER_SLASHINGS* = 2^0
   MAX_ATTESTATIONS* = 2^7
@@ -181,16 +179,16 @@ type
 
   Gwei* = uint64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#proposerslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     proposer_index*: uint64 ##\
     ## Proposer index
 
-    proposal_1*: Proposal ##\
-    # First proposal
+    header_1*: BeaconBlockHeader ##\
+    # First block header
 
-    proposal_2*: Proposal ##\
-    # Second proposal
+    header_2*: BeaconBlockHeader ##\
+    # Second block header
 
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#attesterslashing
   AttesterSlashing* = object
@@ -199,7 +197,7 @@ type
     slashable_attestation_2*: SlashableAttestation ## \
     ## Second slashable attestation
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#slashableattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#slashableattestation
   SlashableAttestation* = object
     validator_indices*: seq[uint64] ##\
     ## Validator indices
@@ -253,7 +251,7 @@ type
     justified_block_root*: Eth2Digest ##\
     ## Hash of the last justified beacon block
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#attestationdataandcustodybit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attestationdataandcustodybit
   AttestationDataAndCustodyBit* = object
     data*: AttestationData
     custody_bit*: bool
@@ -269,20 +267,20 @@ type
     deposit_data*: DepositData ##\
     ## Data
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#depositdata
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#depositdata
   DepositData* = object
     amount*: uint64 ## Amount in Gwei
     timestamp*: uint64 # Timestamp from deposit contract
     deposit_input*: DepositInput
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#depositinput
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#depositinput
   DepositInput* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
     proof_of_possession*: ValidatorSig ##\
     ## A BLS signature of this `DepositInput`
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#voluntaryexit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
     # Minimum epoch for processing exit
     epoch*: Epoch
@@ -314,7 +312,7 @@ type
     signature*: ValidatorSig ##\
     ## Sender signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#beaconblock
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -323,26 +321,33 @@ type
     ## is formed.
 
     slot*: Slot
-    parent_root*: Eth2Digest ##\
+
+    previous_block_root*: Eth2Digest ##\
     ##\ Root hash of the previous block
 
     state_root*: Eth2Digest ##\
     ## The state root, _after_ this block has been processed
-
-    randao_reveal*: ValidatorSig ##\
-    ## Proposer RANDAO reveal
-
-    eth1_data*: Eth1Data
 
     body*: BeaconBlockBody
 
     signature*: ValidatorSig ##\
     ## Proposer signature
 
+  #https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
+    slot*: uint64
+    previous_block_root*: Eth2Digest
+    state_root*: Eth2Digest
+    block_body_root*: Eth2Digest
+    signature*: ValidatorSig
+
+  BeaconBlockHeaderRLP* = object
     ## Same as BeaconBlock, except `body` is the `hash_tree_root` of the
     ## associated BeaconBlockBody.
     # TODO: Dry it up with BeaconBlock
+    # TODO: As a first step, don't change RLP output; only previous user,
+    # but as with others, randao_reveal and eth1_data move to body.
+    # This is from before spec had a version.
     slot*: uint64
     parent_root*: Eth2Digest
     state_root*: Eth2Digest
@@ -351,8 +356,10 @@ type
     signature*: ValidatorSig
     body*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
+    randao_reveal*: ValidatorSig
+    eth1_data*: Eth1Data
     proposer_slashings*: seq[ProposerSlashing]
     attester_slashings*: seq[AttesterSlashing]
     attestations*: seq[Attestation]
@@ -374,7 +381,7 @@ type
     signature*: ValidatorSig ##\
     ## Signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#beaconstate
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#beaconstate
   BeaconState* = object
     slot*: Slot
     genesis_time*: uint64
@@ -393,7 +400,7 @@ type
     ## For light clients to easily track delta
 
     # Randomness and committees
-    latest_randao_mixes*: array[LATEST_BLOCK_ROOTS_LENGTH.int, Eth2Digest]
+    latest_randao_mixes*: array[LATEST_RANDAO_MIXES_LENGTH, Eth2Digest]
     previous_shuffling_start_shard*: uint64
     current_shuffling_start_shard*: uint64
     previous_shuffling_epoch*: Epoch
@@ -402,20 +409,31 @@ type
     current_shuffling_seed*: Eth2Digest
 
     # Finality
+    previous_epoch_attestations*: seq[PendingAttestation]
+    current_epoch_attestations*: seq[PendingAttestation]
     previous_justified_epoch*: Epoch
-    justified_epoch*: Epoch
+    current_justified_epoch*: Epoch
+    previous_justified_root*: Eth2Digest
+    current_justified_root*: Eth2Digest
     justification_bitfield*: uint64
     finalized_epoch*: Epoch
+    finalized_root*: Eth2Digest
 
     # Recent state
     latest_crosslinks*: array[SHARD_COUNT, Crosslink]
-    latest_block_roots*: array[LATEST_BLOCK_ROOTS_LENGTH.int, Eth2Digest] ##\
+    latest_block_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
     ## Needed to process attestations, older to newer
-    latest_active_index_roots*: array[LATEST_ACTIVE_INDEX_ROOTS_LENGTH.int, Eth2Digest]
+    latest_state_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+    latest_active_index_roots*: array[LATEST_ACTIVE_INDEX_ROOTS_LENGTH, Eth2Digest]
 
     latest_slashed_balances*: array[LATEST_SLASHED_EXIT_LENGTH, uint64] ##\
     ## Balances penalized in the current withdrawal period
 
+    latest_block_header*: BeaconBlockHeader ##\
+    ## `latest_block_header.state_root == ZERO_HASH` temporarily
+    historical_roots*: seq[Eth2Digest]
+
+    # TOOD remove these, gone in 0.5
     latest_attestations*: seq[PendingAttestation]
     batched_block_roots*: seq[Eth2Digest]
 
@@ -427,7 +445,7 @@ type
     # Not in spec. TODO: don't serialize or deserialize this.
     shuffling_cache*: ShufflingCache
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#validator
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#validator
   Validator* = object
     pubkey*: ValidatorPubKey ##\
     ## BLS public key
@@ -450,7 +468,7 @@ type
     slashed*: bool ##\
     ## Was the validator slashed
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#crosslink
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#crosslink
   Crosslink* = object
     epoch*: Epoch ##\
     ## Epoch number
@@ -458,20 +476,20 @@ type
     crosslink_data_root*: Eth2Digest ##\
     ## Shard data since the previous crosslink
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#pendingattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#pendingattestation
   PendingAttestation* = object
     aggregation_bitfield*: seq[byte]          # Attester participation bitfield
     data*: AttestationData                    # Attestation data
     custody_bitfield*: seq[byte]              # Custody bitfield
     inclusion_slot*: Slot                     # Inclusion slot
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#fork
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#fork
   Fork* = object
     previous_version*: uint64                     # Previous fork version
     current_version*: uint64                      # Current fork version
     epoch*: Epoch                                 # Fork epoch number
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#eth1data
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#eth1data
   Eth1Data* = object
     deposit_root*: Eth2Digest ##\
     ## Data being voted for
@@ -479,7 +497,7 @@ type
     block_hash*: Eth2Digest ##\
     ## Block hash
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#eth1datavote
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#eth1datavote
   Eth1DataVote* = object
     eth1_data*: Eth1Data ##\
     ## Data being voted for
@@ -493,13 +511,13 @@ type
     Activation = 0
     Exit = 1
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#signature-domains
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#signature-domains
   SignatureDomain* {.pure.} = enum
-    DOMAIN_DEPOSIT = 0
-    DOMAIN_ATTESTATION = 1
-    DOMAIN_PROPOSAL = 2
-    DOMAIN_EXIT = 3
-    DOMAIN_RANDAO = 4
+    DOMAIN_BEACON_BLOCK = 0
+    DOMAIN_RANDAO = 1
+    DOMAIN_ATTESTATION = 2
+    DOMAIN_DEPOSIT = 3
+    DOMAIN_VOLUNTARY_EXIT = 4
     DOMAIN_TRANSFER = 5
 
   # TODO: not in spec
@@ -578,8 +596,8 @@ func humaneEpochNum*(e: Epoch): uint64 =
   e - GENESIS_EPOCH
 
 func shortLog*(v: BeaconBlock): tuple[
-    slot: uint64, parent_root: string, state_root: string,
-    randao_reveal: string, #[ eth1_data ]#
+    slot: uint64, previous_block_root: string, state_root: string,
+    #[ eth1_data ]#
     proposer_slashings_len: int, attester_slashings_len: int,
     attestations_len: int,
     deposits_len: int,
@@ -587,8 +605,8 @@ func shortLog*(v: BeaconBlock): tuple[
     transfers_len: int,
     signature: string
   ] = (
-    humaneSlotNum(v.slot), shortLog(v.parent_root), shortLog(v.state_root),
-    shortLog(v.randao_reveal), v.body.proposer_slashings.len(),
+    humaneSlotNum(v.slot), shortLog(v.previous_block_root),
+    shortLog(v.state_root), v.body.proposer_slashings.len(),
     v.body.attester_slashings.len(), v.body.attestations.len(),
     v.body.deposits.len(), v.body.voluntary_exits.len(), v.body.transfers.len(),
     shortLog(v.signature)

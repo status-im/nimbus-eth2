@@ -56,7 +56,7 @@ func hash(x: BlockHash): Hash =
   result = cast[array[num_hashes, Hash]](x)[0]
 
 func get_parent(store: Store, blck: BeaconBlock): BeaconBlock =
-  store.verified_blocks[blck.parent_root]
+  store.verified_blocks[blck.previous_block_root]
 
 func get_ancestor(store: Store, blck: BeaconBlock, slot: uint64): BeaconBlock =
   ## Find the ancestor with a specific slot number

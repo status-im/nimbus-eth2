@@ -103,7 +103,7 @@ func get_shuffling*(seed: Eth2Digest,
   result = split(shuffled_seq, committees_per_epoch)
   doAssert result.len() == committees_per_epoch # what split should do..
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_previous_epoch_committee_count
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_previous_epoch_committee_count
 func get_previous_epoch_committee_count(state: BeaconState): uint64 =
   ## Return the number of committees in the previous epoch of the given
   ## ``state``.
@@ -113,7 +113,7 @@ func get_previous_epoch_committee_count(state: BeaconState): uint64 =
   )
   get_epoch_committee_count(len(previous_active_validators))
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_next_epoch_committee_count
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_next_epoch_committee_count
 func get_next_epoch_committee_count(state: BeaconState): uint64 =
   ## Return the number of committees in the next epoch of the given ``state``.
   let next_active_validators = get_active_validator_indices(
@@ -140,8 +140,6 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64,
     # TODO: the + 1 here works around a bug, remove when upgrading to
     #       some more recent version:
     # https://github.com/ethereum/eth2.0-specs/pull/732
-    # It's not 100% clear to me regarding 0.4.0; waiting until 0.5.0 to remove
-    # TODO recheck
     epoch = slot_to_epoch(slot + 1)
     current_epoch = get_current_epoch(state)
     previous_epoch = get_previous_epoch(state)
@@ -217,7 +215,7 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64,
      (slot_start_shard + i.uint64) mod SHARD_COUNT
     )
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_beacon_proposer_index
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: BeaconState, slot: Slot): ValidatorIndex =
   ## From Casper RPJ mini-spec:
   ## When slot i begins, validator Vidx is expected
@@ -232,6 +230,15 @@ func get_beacon_proposer_index*(state: BeaconState, slot: Slot): ValidatorIndex 
   #      because presently, `state.slot += 1` happens before this function
   #      is called - see also testutil.getNextBeaconProposerIndex
   # TODO is the above still true? the shuffling has changed since it was written
+  let
+    epoch = slot_to_epoch(slot)
+    current_epoch = get_current_epoch(state)
+    previous_epoch = get_previous_epoch(state)
+    next_epoch = current_epoch + 1
+
+  doAssert previous_epoch <= epoch
+  doAssert epoch <= next_epoch
+
   let (first_committee, _) = get_crosslink_committees_at_slot(state, slot)[0]
   let idx = int(slot mod uint64(first_committee.len))
   first_committee[idx]
