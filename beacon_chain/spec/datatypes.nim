@@ -83,7 +83,7 @@ const
 
   # Deposit contract
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#deposit-contract
-  DEPOSIT_CONTRACT_TREE_DEPTH* = 32
+  DEPOSIT_CONTRACT_TREE_DEPTH* = 2^5
 
   # Gwei values
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#gwei-values
@@ -107,8 +107,7 @@ const
   ## Compile with -d:SLOTS_PER_EPOCH=4 for shorter epochs
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#initial-values
-  # TODO: in 0.5.0, GENESIS_FORK_VERSION defined as int, but used as [byte]
-  GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 0'u8]
+  GENESIS_FORK_VERSION* = 0'u64
   GENESIS_SLOT* = (2'u64^32).Slot
   GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
   ## slot_to_epoch(GENESIS_SLOT)
@@ -119,7 +118,7 @@ const
   BLS_WITHDRAWAL_PREFIX_BYTE* = 0'u8
 
   # Time parameters
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#time-parameters
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#time-parameters
   SECONDS_PER_SLOT*{.intdefine.} = 6'u64 # Compile with -d:SECONDS_PER_SLOT=1 for 6x faster slots
   ## TODO consistent time unit across projects, similar to C++ chrono?
 
@@ -151,9 +150,6 @@ const
 
   MIN_VALIDATOR_WITHDRAWABILITY_DELAY* = 2'u64^8 ##\
   ## epochs (~27 hours)
-
-  PERSISTENT_COMMITTEE_PERIOD* = 2'u64^11 ##\
-  ## epochs (9 days)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#state-list-lengths
   LATEST_RANDAO_MIXES_LENGTH* = 8192
@@ -194,7 +190,7 @@ type
     header_2*: BeaconBlockHeader ##\
     # Second block header
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attesterslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#attesterslashing
   AttesterSlashing* = object
     slashable_attestation_1*: SlashableAttestation ## \
     ## First slashable attestation
@@ -215,7 +211,7 @@ type
     aggregate_signature*: ValidatorSig ## \
     ## Aggregate signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attestation
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#attestation
   Attestation* = object
     aggregation_bitfield*: seq[byte] ##\
     ## Attester aggregation bitfield
@@ -231,31 +227,38 @@ type
 
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#attestationdata
   AttestationData* = object
-    # LMD GHOST vote
-    slot*: Slot
-    beacon_block_root*: Eth2Digest
+    slot*: Slot ##\
+    ## Slot number
 
-    # FFG vote
-    source_epoch*: Epoch
-    ## TODO epoch_boundary_root and justified_block_root are creatures of new
-    ## epoch processing and don't function quite as straightforwardly as just
-    ## renamings, so do that as part of epoch processing change.
-    epoch_boundary_root*: Eth2Digest
-    justified_block_root*: Eth2Digest
+    shard*: uint64 ##\
+    ## Shard number
 
-    # Crosslink vote
-    shard*: uint64
-    previous_crosslink*: Crosslink
-    crosslink_data_root*: Eth2Digest
+    beacon_block_root*: Eth2Digest ##\
+    ## Hash of root of the signed beacon block
+
+    epoch_boundary_root*: Eth2Digest ##\
+    ## Hash of root of the ancestor at the epoch boundary
+
+    crosslink_data_root*: Eth2Digest ##\
+    ## Data from the shard since the last attestation
+
+    latest_crosslink*: Crosslink ##\
+    ## Last crosslink
+
+    justified_epoch*: Epoch ##\
+    ## Last justified epoch in the beacon state
+
+    justified_block_root*: Eth2Digest ##\
+    ## Hash of the last justified beacon block
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attestationdataandcustodybit
   AttestationDataAndCustodyBit* = object
     data*: AttestationData
     custody_bit*: bool
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#deposit
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#deposit
   Deposit* = object
-    proof*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest] ##\
+    branch*: seq[Eth2Digest] ##\
     ## Branch in the deposit tree
 
     index*: uint64 ##\
@@ -286,12 +289,12 @@ type
     # Validator signature
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#transfer
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#transfer
   Transfer* = object
-    sender*: uint64 ##\
+    from_field*: uint64 ##\
     ## Sender index
 
-    recipient*: uint64 ##\
+    to*: uint64 ##\
     ## Recipient index
 
     amount*: uint64 ##\
@@ -430,8 +433,9 @@ type
     ## `latest_block_header.state_root == ZERO_HASH` temporarily
     historical_roots*: seq[Eth2Digest]
 
-    # TOOD remove, gone in 0.5
+    # TOOD remove these, gone in 0.5
     latest_attestations*: seq[PendingAttestation]
+    batched_block_roots*: seq[Eth2Digest]
 
     # Ethereum 1.0 chain data
     latest_eth1_data*: Eth1Data
@@ -481,14 +485,9 @@ type
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#fork
   Fork* = object
-    previous_version*: array[4, byte] ##\
-    ## Previous fork version
-
-    current_version*: array[4, byte] ##\
-    ## Current fork version
-
-    epoch*: Epoch ##\
-    ## Fork epoch number
+    previous_version*: uint64                     # Previous fork version
+    current_version*: uint64                      # Current fork version
+    epoch*: Epoch                                 # Fork epoch number
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#eth1data
   Eth1Data* = object

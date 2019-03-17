@@ -16,66 +16,12 @@ func get_effective_balance*(state: BeaconState, index: ValidatorIndex): Gwei =
   ## validator with the given ``index``.
   min(state.validator_balances[index], MAX_DEPOSIT_AMOUNT)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#verify_merkle_branch
-func verify_merkle_branch(leaf: Eth2Digest, proof: openarray[Eth2Digest], depth: uint64, index: uint64, root: Eth2Digest): bool =
-  ## Verify that the given ``leaf`` is on the merkle branch ``proof``
-  ## starting with the given ``root``.
-  var
-    value = leaf
-    buf: array[64, byte]
-
-  for i in 0 ..< depth.int:
-    if (index div (1'u64 shl i)) mod 2 != 0:
-      buf[0..31] = proof[i.int].data
-      buf[32..63] = value.data
-    else:
-      buf[0..31] = value.data
-      buf[32..63] = proof[i.int].data
-    value = eth2hash(buf)
-  value == root
-
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#process_deposit
 func process_deposit(state: var BeaconState, deposit: Deposit) =
   ## Process a deposit from Ethereum 1.0.
   ## Note that this function mutates ``state``.
 
   let deposit_input = deposit.deposit_data.deposit_input
-
-  ## Should equal 8 bytes for deposit_data.amount +
-  ##              8 bytes for deposit_data.timestamp +
-  ##              176 bytes for deposit_data.deposit_input
-  ## It should match the deposit_data in the eth1.0 deposit contract
-  ## TODO actual serialize func useful after all
-  var serialized_deposit_data: array[8 + 8 + 176, byte]
-  serialized_deposit_data[0..7] = deposit.deposit_data.amount.int_to_bytes8()
-  serialized_deposit_data[8..15] =
-    deposit.deposit_data.timestamp.int_to_bytes8()
-  serialized_deposit_data[16..63] = deposit_input.pubkey.getBytes()
-  serialized_deposit_data[64..95] = deposit_input.withdrawal_credentials.data
-  serialized_deposit_data[96..191] =
-    deposit_input.proof_of_possession.getBytes()
-
-  # Verify the Merkle branch
-  let merkle_branch_is_valid = verify_merkle_branch(
-    eth2hash(serialized_deposit_data),
-    deposit.proof,
-    DEPOSIT_CONTRACT_TREE_DEPTH,
-    deposit.index,
-    state.latest_eth1_data.deposit_root)
-  ## TODO enable this check, after using merkle_root (not in spec anymore, but
-  ## useful to construct proofs) to build proofs (i.e. the other child in each
-  ## pair of children at each level of the merkle tree), and injecting a proof
-  ## sequence corresponding to their hash values, into the `Deposits`, in that
-  ## tests/testutil.nim area of code. Currently it's checking against garbage,
-  ## either when creating genesis states or in the block processing of deposit
-  ## lists from Eth1Data.
-  # doAssert merkle_branch_is_valid
-
-  ## Increment the next deposit index we are expecting. Note that this
-  ## needs to be done here because while the deposit contract will never
-  ## create an invalid Merkle branch, it may admit an invalid deposit
-  ## object, and we need to be able to skip over it
-  state.deposit_index += 1
 
   ## if not validate_proof_of_possession(
   ##     state, pubkey, proof_of_possession, withdrawal_credentials):
@@ -143,22 +89,19 @@ func initiate_validator_exit*(state: var BeaconState,
   var validator = addr state.validator_registry[index]
   validator.initiated_exit = true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#exit_validator
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#exit_validator
 func exit_validator*(state: var BeaconState,
                      index: ValidatorIndex) =
   ## Exit the validator with the given ``index``.
   ## Note that this function mutates ``state``.
 
-  let
-    validator = addr state.validator_registry[index]
-    delayed_activation_exit_epoch =
-      get_delayed_activation_exit_epoch(get_current_epoch(state))
+  let validator = addr state.validator_registry[index]
 
   # The following updates only occur if not previous exited
-  if validator.exit_epoch <= delayed_activation_exit_epoch:
+  if validator.exit_epoch <= get_delayed_activation_exit_epoch(get_current_epoch(state)):
     return
 
-  validator.exit_epoch = delayed_activation_exit_epoch
+  validator.exit_epoch = get_delayed_activation_exit_epoch(get_current_epoch(state))
 
 func reduce_balance*(balance: var uint64, amount: uint64) =
   # Not in spec, but useful to avoid underflow.
@@ -285,7 +228,7 @@ func get_genesis_beacon_state*(
 
     # Recent state
     # latest_block_roots, latest_active_index_roots, latest_slashed_balances,
-    # and latest_attestations automatically initialized.
+    # latest_attestations, and batched_block_roots automatically initialized.
     latest_block_header: get_temporary_block_header(get_empty_block()),
   )
 
@@ -443,7 +386,6 @@ func update_validator_registry*(state: var BeaconState) =
   state.validator_registry_update_epoch = current_epoch
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#attestations-1
-# TODO this is https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attestations now
 proc checkAttestation*(
     state: BeaconState, attestation: Attestation, flags: UpdateFlags): bool =
   ## Check that an attestation follows the rules of being included in the state
@@ -476,15 +418,15 @@ proc checkAttestation*(
     else:
       state.previous_justified_epoch
 
-  if not (attestation.data.source_epoch == expected_justified_epoch):
+  if not (attestation.data.justified_epoch == expected_justified_epoch):
     warn("Unexpected justified epoch",
       attestation_justified_epoch =
-        humaneEpochNum(attestation.data.source_epoch),
+        humaneEpochNum(attestation.data.justified_epoch),
       expected_justified_epoch = humaneEpochNum(expected_justified_epoch))
     return
 
   let expected_justified_block_root =
-    get_block_root(state, get_epoch_start_slot(attestation.data.source_epoch))
+    get_block_root(state, get_epoch_start_slot(attestation.data.justified_epoch))
   if not (attestation.data.justified_block_root == expected_justified_block_root):
     warn("Unexpected justified block root",
       attestation_justified_block_root = attestation.data.justified_block_root,
@@ -492,14 +434,14 @@ proc checkAttestation*(
     return
 
   if not (state.latest_crosslinks[attestation.data.shard] in [
-      attestation.data.previous_crosslink,
+      attestation.data.latest_crosslink,
       Crosslink(
         crosslink_data_root: attestation.data.crosslink_data_root,
         epoch: slot_to_epoch(attestation_data_slot))]):
     warn("Unexpected crosslink shard",
       state_latest_crosslinks_attestation_data_shard =
         state.latest_crosslinks[attestation.data.shard],
-      attestation_data_previous_crosslink = attestation.data.previous_crosslink,
+      attestation_data_latest_crosslink = attestation.data.latest_crosslink,
       epoch = humaneEpochNum(slot_to_epoch(attestation_data_slot)),
       crosslink_data_root = attestation.data.crosslink_data_root)
     return
@@ -603,7 +545,7 @@ proc makeAttestationData*(
     beacon_block_root: beacon_block_root,
     epoch_boundary_root: epoch_boundary_root,
     crosslink_data_root: Eth2Digest(), # Stub in phase0
-    previous_crosslink: state.latest_crosslinks[shard],
-    source_epoch: state.current_justified_epoch,
+    latest_crosslink: state.latest_crosslinks[shard],
+    justified_epoch: state.current_justified_epoch,
     justified_block_root: justified_block_root,
   )

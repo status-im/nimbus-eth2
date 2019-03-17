@@ -51,11 +51,11 @@ func verifyBlockSignature(state: BeaconState, blck: BeaconBlock): bool =
     proposal = Proposal(
       slot: blck.slot.uint64,
       shard: BEACON_CHAIN_SHARD_NUMBER,
-      block_root: Eth2Digest(data: signed_root(blck)),
+      block_root: Eth2Digest(data: signed_root(blck, "signature")),
       signature: blck.signature)
   bls_verify(
     proposer.pubkey,
-    signed_root(proposal),
+    signed_root(proposal, "signature"),
     proposal.signature,
     get_domain(state.fork, get_current_epoch(state), DOMAIN_BEACON_BLOCK))
 
@@ -126,8 +126,8 @@ proc processRandao(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#eth1-data-1
-func processEth1Data(state: var BeaconState, blck: BeaconBlock) =
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#eth1-data
+func processDepositRoot(state: var BeaconState, blck: BeaconBlock) =
   # TODO verify that there's at most one match
   for x in state.eth1_data_votes.mitems():
     if blck.body.eth1_data == x.eth1_data:
@@ -344,7 +344,7 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
     return false
 
   for transfer in blck.body.transfers:
-    let from_balance = state.validator_balances[transfer.sender.int]
+    let from_balance = state.validator_balances[transfer.from_field.int]
 
     if not (from_balance >= transfer.amount):
       notice "Transfer: source balance too low for amount"
@@ -365,13 +365,13 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
 
     if not (get_current_epoch(state) >=
         state.validator_registry[
-          transfer.sender.int].withdrawable_epoch or
-        state.validator_registry[transfer.sender.int].activation_epoch ==
+          transfer.from_field.int].withdrawable_epoch or
+        state.validator_registry[transfer.from_field.int].activation_epoch ==
           FAR_FUTURE_EPOCH):
       notice "Transfer: epoch mismatch"
       return false
 
-    let wc = state.validator_registry[transfer.sender.int].
+    let wc = state.validator_registry[transfer.from_field.int].
       withdrawal_credentials
     if not (wc.data[0] == BLS_WITHDRAWAL_PREFIX_BYTE and
             wc.data[1..^1] == eth2hash(transfer.pubkey.getBytes).data[1..^1]):
@@ -389,9 +389,9 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
 
     # TODO https://github.com/ethereum/eth2.0-specs/issues/727
     reduce_balance(
-      state.validator_balances[transfer.sender.int],
+      state.validator_balances[transfer.from_field.int],
       transfer.amount + transfer.fee)
-    state.validator_balances[transfer.recipient.int] += transfer.amount
+    state.validator_balances[transfer.to.int] += transfer.amount
     state.validator_balances[
       get_beacon_proposer_index(state, state.slot)] += transfer.fee
 
@@ -431,6 +431,8 @@ func processSlot(state: var BeaconState, previous_block_root: Eth2Digest) =
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#block-roots
   state.latest_block_roots[(state.slot - 1) mod SLOTS_PER_HISTORICAL_ROOT] =
     previous_block_root
+  if state.slot mod SLOTS_PER_HISTORICAL_ROOT == 0:
+    state.batched_block_roots.add(merkle_root(state.latest_block_roots))
 
 proc processBlock(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
@@ -476,7 +478,7 @@ proc processBlock(
   if not processRandao(state, blck, flags):
     return false
 
-  processEth1Data(state, blck)
+  processDepositRoot(state, blck)
 
   if not processProposerSlashings(state, blck, flags):
     return false
@@ -532,6 +534,7 @@ func process_slashings(state: var BeaconState) =
     current_epoch = get_current_epoch(state)
     active_validator_indices = get_active_validator_indices(
       state.validator_registry, current_epoch)
+    # 0.4.0 spec doesn't use this helper function?
     total_balance = get_total_balance(state, active_validator_indices)
 
   for index, validator in state.validator_registry:
@@ -588,6 +591,7 @@ func processEpoch(state: var BeaconState) =
   if (state.slot + 1) mod SLOTS_PER_EPOCH != 0:
     return
 
+  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#helper-variables
   let
     current_epoch = get_current_epoch(state)
     previous_epoch = get_previous_epoch(state)
@@ -994,7 +998,7 @@ func processEpoch(state: var BeaconState) =
       not (slot_to_epoch(it.data.slot) < current_epoch)
     )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#state-root-verification
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#state-root-verification
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   let state_root = hash_tree_root_final(state)
   if state_root != blck.state_root:

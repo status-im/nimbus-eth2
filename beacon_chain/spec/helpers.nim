@@ -69,17 +69,24 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
     y = (x + n div x) div 2
   x
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_fork_version
-func get_fork_version*(fork: Fork, epoch: Epoch): array[4, byte] =
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_fork_version
+func get_fork_version*(fork: Fork, epoch: Epoch): uint64 =
   ## Return the fork version of the given ``epoch``.
   if epoch < fork.epoch:
     fork.previous_version
   else:
     fork.current_version
 
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_domain
+func get_domain*(
+    fork: Fork, epoch: Epoch, domain_type: SignatureDomain): uint64 =
+  # Get the domain number that represents the fork meta and signature domain.
+  (get_fork_version(fork, epoch) shl 32) + domain_type.uint32
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#is_power_of_two
 func is_power_of_2*(v: uint64): bool = (v > 0'u64) and (v and (v-1)) == 0
 
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#merkle_root
 func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
   ## Merkleize ``values`` (where ``len(values)`` is a power of two) and return
   ## the Merkle root.
@@ -139,8 +146,8 @@ func is_surround_vote*(attestation_data_1: AttestationData,
                        attestation_data_2: AttestationData): bool =
   ## Check if ``attestation_data_1`` surrounds ``attestation_data_2``.
   let
-    source_epoch_1 = attestation_data_1.source_epoch
-    source_epoch_2 = attestation_data_2.source_epoch
+    source_epoch_1 = attestation_data_1.justified_epoch
+    source_epoch_2 = attestation_data_2.justified_epoch
     # RLP artifact
     target_epoch_1 = slot_to_epoch(attestation_data_1.slot)
     target_epoch_2 = slot_to_epoch(attestation_data_2.slot)
@@ -152,7 +159,7 @@ func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   ### Check if ``validator`` is active
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_active_validator_indices
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_active_validator_indices
 func get_active_validator_indices*(validators: openArray[Validator], epoch: Epoch): seq[ValidatorIndex] =
   ## Gets indices of active validators from validators
   for idx, val in validators:
@@ -203,7 +210,7 @@ func get_active_index_root(state: BeaconState, epoch: Epoch): Eth2Digest =
   state.latest_active_index_roots[epoch mod LATEST_ACTIVE_INDEX_ROOTS_LENGTH]
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#bytes_to_int
-func bytes_to_int*(data: openarray[byte]): uint64 =
+func bytes_to_int*(data: seq[byte]): uint64 =
   doAssert data.len == 8
 
   # Little-endian data representation
@@ -212,7 +219,7 @@ func bytes_to_int*(data: openarray[byte]): uint64 =
     result = result * 256 + data[i]
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#int_to_bytes1-int_to_bytes2-
-# Have 1, 4, 8, and 32-byte versions. 1+ more and maybe worth metaprogramming.
+# Have 1, 4, and 32-byte versions. 2+ more and maybe worth metaprogramming.
 func int_to_bytes32*(x: uint64): array[32, byte] =
   ## Little-endian data representation
   ## TODO remove uint64 when those callers fade away
@@ -220,10 +227,6 @@ func int_to_bytes32*(x: uint64): array[32, byte] =
     result[24 + i] = byte((x shr i*8) and 0xff)
 
 func int_to_bytes32*(x: Epoch): array[32, byte] {.borrow.}
-
-func int_to_bytes8*(x: uint64): array[8, byte] =
-  for i in 0 ..< 8:
-    result[i] = byte((x shr i*8) and 0xff)
 
 func int_to_bytes1*(x: int): array[1, byte] =
   doAssert x >= 0
@@ -240,15 +243,6 @@ func int_to_bytes4*(x: uint64): array[4, byte] =
   result[1] = ((x shr  8) and 0xff).byte
   result[2] = ((x shr 16) and 0xff).byte
   result[3] = ((x shr 24) and 0xff).byte
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_domain
-func get_domain*(
-    fork: Fork, epoch: Epoch, domain_type: SignatureDomain): uint64 =
-  # Get the domain number that represents the fork meta and signature domain.
-  var buf: array[8, byte]
-  buf[0..3] = get_fork_version(fork, epoch)
-  buf[4..7] = int_to_bytes4(domain_type.uint64)
-  bytes_to_int(buf)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#generate_seed
 func generate_seed*(state: BeaconState, epoch: Epoch): Eth2Digest =

@@ -47,7 +47,6 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
       bls_sign(privkey, hash_tree_root_final(proof_of_possession_data).data, domain)
 
   Deposit(
-    index: i.uint64,
     deposit_data: DepositData(
       deposit_input: DepositInput(
         pubkey: pubkey,
@@ -86,7 +85,7 @@ proc addBlock*(
   # Ferret out remaining GENESIS_EPOCH == 0 assumptions in test code
   doAssert allIt(
     body.attestations,
-    it.data.previous_crosslink.epoch >= GENESIS_EPOCH)
+    it.data.latest_crosslink.epoch >= GENESIS_EPOCH)
 
   let
     # Index from the new state, but registry from the old state.. hmm...
@@ -126,10 +125,10 @@ proc addBlock*(
     signed_data = Proposal(
       slot: new_block.slot.uint64,
       shard: BEACON_CHAIN_SHARD_NUMBER,
-      block_root: Eth2Digest(data: signed_root(new_block)),
+      block_root: Eth2Digest(data: signed_root(new_block, "signature")),
       signature: ValidatorSig(),
     )
-    proposal_hash = signed_root(signed_data)
+    proposal_hash = signed_root(signed_data, "signature")
 
   doAssert proposerPrivkey.pubKey() == proposer.pubkey,
     "signature key should be derived from private key! - wrong privkey?"

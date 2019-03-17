@@ -12,8 +12,8 @@ import
   ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_shuffling
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_permuted_index
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_shuffling
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_permuted_index
 func get_shuffled_seq*(seed: Eth2Digest,
                        list_size: uint64,
                        ): seq[ValidatorIndex] =
