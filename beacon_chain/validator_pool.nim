@@ -30,7 +30,7 @@ proc signBlockProposal*(v: AttachedValidator, fork: Fork,
     await sleepAsync(1)
     let proposalRoot = hash_tree_root_final(proposal)
 
-    result = bls_sign(v.privKey, signed_root(proposal, "signature"),
+    result = bls_sign(v.privKey, signed_root(proposal),
       get_domain(fork, slot_to_epoch(proposal.slot), DOMAIN_BEACON_BLOCK))
   else:
     # TODO:
