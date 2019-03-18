@@ -387,7 +387,7 @@ proc proposeBlock(node: BeaconNode,
   let proposal = Proposal(
     slot: slot.uint64,
     shard: BEACON_CHAIN_SHARD_NUMBER,
-    block_root: Eth2Digest(data: signed_root(newBlock, "signature")),
+    block_root: Eth2Digest(data: signed_root(newBlock)),
     signature: ValidatorSig(),
   )
   newBlock.signature =
@@ -598,7 +598,7 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
     slot = humaneSlotNum(attestation.data.slot),
     shard = attestation.data.shard,
     beaconBlockRoot = shortLog(attestation.data.beacon_block_root),
-    justifiedEpoch = humaneEpochNum(attestation.data.justified_epoch),
+    sourceEpoch = humaneEpochNum(attestation.data.source_epoch),
     justifiedBlockRoot = shortLog(attestation.data.justified_block_root),
     signature = shortLog(attestation.aggregate_signature)
 
