@@ -1,14 +1,13 @@
-const
-  useDEVP2P = not defined(withLibP2P)
-
 import
-  options, chronos, version
+  options, chronos, json_serialization,
+  spec/digest, version, conf
 
 const
-  clientId = "Nimbus beacon node v" & versionAsStr
+  clientId = "Nimbus beacon node v" & fullVersionStr()
 
-when useDEVP2P:
+when useRLPx:
   import
+    os,
     eth/[rlp, p2p, keys], gossipsub_protocol
 
   export
@@ -20,12 +19,26 @@ when useDEVP2P:
 
   template libp2pProtocol*(name, version: string) {.pragma.}
 
-  proc createEth2Node*(tcpPort, udpPort: Port): Future[EthereumNode] {.async.} =
+  proc writeValue*(writer: var JsonWriter, value: BootstrapAddr) {.inline.} =
+    writer.writeValue $value
+
+  proc readValue*(reader: var JsonReader, value: var BootstrapAddr) {.inline.} =
+    value = initENode reader.readValue(string)
+
+  proc createEth2Node*(conf: BeaconNodeConf): Future[EthereumNode] {.async.} =
+    let privateKeyFile = conf.dataDir / "network.privkey"
+    var privKey: PrivateKey
+    if not fileExists(privateKeyFile):
+      privKey = newPrivateKey()
+      writeFile(privateKeyFile, $privKey)
+    else:
+      privKey = initPrivateKey(readFile(privateKeyFile).string)
+
     let
-      keys = newKeyPair()
+      keys = KeyPair(seckey: privKey, pubkey: privKey.getPublicKey())
       address = Address(ip: parseIpAddress("127.0.0.1"),
-                        tcpPort: tcpPort,
-                        udpPort: udpPort)
+                        tcpPort: Port conf.tcpPort,
+                        udpPort: Port conf.udpPort)
 
     return newEthereumNode(keys, address, 0,
                            nil, clientId, minPeers = 1)
@@ -38,7 +51,7 @@ when useDEVP2P:
 
 else:
   import
-    libp2p/daemon/daemonapi, json_serialization, chronicles,
+    libp2p/daemon/daemonapi, chronicles,
     libp2p_backend
 
   export
@@ -62,7 +75,7 @@ else:
   proc init*(T: type BootstrapAddr, str: string): T =
     Json.decode(str, PeerInfo)
 
-  proc createEth2Node*(tcpPort, udpPort: Port): Future[Eth2Node] {.async.} =
+  proc createEth2Node*(conf: BeaconNodeConf): Future[Eth2Node] {.async.} =
     var node = new Eth2Node
     await node.init()
     return node
@@ -72,7 +85,8 @@ else:
     for bootstrapNode in bootstrapNodes:
       try:
         await node.daemon.connect(bootstrapNode.peer, bootstrapNode.addresses)
-        await node.getPeer(bootstrapNode.peer).performProtocolHandshakes()
+        let peer = node.getPeer(bootstrapNode.peer)
+        await peer.performProtocolHandshakes()
       except PeerDisconnected:
         error "Failed to connect to bootstrap node", node = bootstrapNode
 
@@ -82,4 +96,16 @@ else:
 
   proc loadConnectionAddressFile*(filename: string): PeerInfo =
     Json.loadFile(filename, PeerInfo)
+
+type
+  TestnetMetadata* = object
+    networkId*: uint64
+    genesisRoot*: Eth2Digest
+    bootstrapNodes*: BootstrapAddr
+    totalValidators*: int
+    userValidatorsStart*: int
+    userValidatorsEnd*: int
+
+proc userValidatorsRange*(d: TestnetMetadata): HSlice[int, int] =
+  d.userValidatorsStart .. d.userValidatorsEnd
 
