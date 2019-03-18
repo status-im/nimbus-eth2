@@ -77,6 +77,7 @@ type
   Bytes = seq[byte]
 
   DisconnectionReason* = enum
+    UselessPeer
     BreachOfProtocol
 
   PeerDisconnected* = object of CatchableError

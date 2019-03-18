@@ -19,6 +19,7 @@ type
   ValidatorSet = seq[Validator]
 
   BeaconSyncState* = ref object
+    networkId*: uint64
     node*: BeaconNode
     db*: BeaconChainDB
 
@@ -70,10 +71,10 @@ p2pProtocol BeaconSync(version = 1,
                        networkState = BeaconSyncState):
 
   onPeerConnected do(peer: Peer):
-    const
+    let
       protocolVersion = 1 # TODO: Spec doesn't specify this yet
-      networkId = 1
-    let node = peer.networkState.node
+      node = peer.networkState.node
+      networkId = peer.networkState.networkId
 
     var
       latestFinalizedRoot: Eth2Digest # TODO
@@ -84,6 +85,11 @@ p2pProtocol BeaconSync(version = 1,
     let m = await handshake(peer, timeout = 500,
                             status(networkId, latestFinalizedRoot,
                                    latestFinalizedEpoch, bestRoot, bestSlot))
+
+    if m.networkId != networkId:
+      await peer.disconnect(UselessPeer)
+      return
+
     let bestDiff = cmp((latestFinalizedEpoch, bestSlot), (m.latestFinalizedEpoch, m.bestSlot))
     if bestDiff == 0:
       # Nothing to do?
@@ -116,7 +122,7 @@ p2pProtocol BeaconSync(version = 1,
 
   proc status(
             peer: Peer,
-            networkId: int,
+            networkId: uint64,
             latestFinalizedRoot: Eth2Digest,
             latestFinalizedEpoch: Epoch,
             bestRoot: Eth2Digest,

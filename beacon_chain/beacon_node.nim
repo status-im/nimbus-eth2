@@ -1,16 +1,21 @@
 import
-  std_shims/[os_shims, objects], net, sequtils, options, tables,
+  std_shims/[os_shims, objects], net, sequtils, options, tables, osproc, random,
   chronos, chronicles, confutils,
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator], conf, time,
   state_transition, fork_choice, ssz, beacon_chain_db, validator_pool, extras,
   attestation_pool, block_pool, eth2_network, beacon_node_types,
-  mainchain_monitor, trusted_state_snapshots,
+  mainchain_monitor, trusted_state_snapshots, version,
   eth/trie/db, eth/trie/backends/rocksdb_backend
 
 const
   topicBeaconBlocks = "ethereum/2.1/beacon_chain/blocks"
   topicAttestations = "ethereum/2.1/beacon_chain/attestations"
   topicfetchBlocks = "ethereum/2.1/beacon_chain/fetch"
+
+  dataDirValidators = "validators"
+  networkMetadataFile = "network.json"
+  genesisFile = "genesis.json"
+  testnetsBaseUrl = "http://node-01.do-ams3.nimbus.misc.statusim.net:8000/nimbus_testnets"
 
 # #################################################
 # Careful handling of beacon_node <-> sync_protocol
@@ -23,17 +28,66 @@ import sync_protocol
 func shortValidatorKey(node: BeaconNode, validatorIdx: int): string =
   ($node.state.data.validator_registry[validatorIdx].pubkey)[0..7]
 
+func localValidatorsDir(conf: BeaconNodeConf): string =
+  conf.dataDir / "validators"
+
+func databaseDir(conf: BeaconNodeConf): string =
+  conf.dataDir / "db"
+
 func slotStart(node: BeaconNode, slot: Slot): Timestamp =
   node.state.data.slotStart(slot)
+
+template `//`(url, fragment: string): string =
+  url & "/" & fragment
+
+proc downloadFile(url: string): Future[string] {.async.} =
+  let (fileContents, errorCode) = execCmdEx("curl --fail " & url)
+  if errorCode != 0:
+    raise newException(IOError, "Failed to download URL: " & url)
+  return fileContents
+
+proc doUpdateTestnet(conf: BeaconNodeConf) {.async.} =
+  let latestMetadata = await downloadFile(testnetsBaseUrl // $conf.network // networkMetadataFile)
+
+  let localMetadataFile = conf.dataDir / networkMetadataFile
+  if fileExists(localMetadataFile) and readFile(localMetadataFile).string == latestMetadata:
+    return
+
+  removeDir conf.databaseDir
+  writeFile localMetadataFile, latestMetadata
+
+  let newGenesis = await downloadFile(testnetsBaseUrl // $conf.network // genesisFile)
+  writeFile conf.dataDir / genesisFile, newGenesis
+
+  info "New testnet genesis data received. Starting with a fresh database."
+
+proc loadTestnetMetadata(conf: BeaconNodeConf): TestnetMetadata =
+  Json.loadFile(conf.dataDir / networkMetadataFile, TestnetMetadata)
+
+proc obtainTestnetKey(conf: BeaconNodeConf): Future[ValidatorPrivKey] {.async.} =
+  await doUpdateTestnet(conf)
+  let
+    metadata = loadTestnetMetadata(conf)
+    privKeyName = validatorFileBaseName(rand(metadata.userValidatorsRange)) & ".privkey"
+    privKeyContent = await downloadFile(testnetsBaseUrl // $conf.network // privKeyName)
+
+  return ValidatorPrivKey.init(privKeyContent)
+
+proc saveValidatorKey(key: ValidatorPrivKey, conf: BeaconNodeConf) =
+  let filename = conf.dataDir / dataDirValidators / $key.pubKey
+  writeFile(filename, $key)
 
 proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
   new result
   result.config = conf
 
+  if conf.network in {testnet0, testnet1}:
+    await doUpdateTestnet(conf)
+
   result.attachedValidators = ValidatorPool.init
   init result.mainchainMonitor, "", Port(0) # TODO: specify geth address and port
 
-  let trieDB = trieDB newChainDb(string conf.dataDir)
+  let trieDB = trieDB newChainDb(string conf.databaseDir)
   result.db = BeaconChainDB.init(trieDB)
 
   # TODO this is problably not the right place to ensure that db is sane..
@@ -43,8 +97,15 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
 
   let headBlock = result.db.getHeadBlock()
   if headBlock.isNone():
+    var snapshotFile = conf.dataDir / genesisFile
+    if conf.stateSnapshot.isSome:
+      snapshotFile = conf.stateSnapshot.get.string
+    elif not fileExists(snapshotFile):
+      error "Nimbus database not initialized. Please specify the initial state snapshot file."
+      quit 1
+
     let
-      tailState = result.config.stateSnapshot.get()
+      tailState = Json.loadFile(snapshotFile, BeaconState)
       tailBlock = get_initial_beacon_block(tailState)
       blockRoot = hash_tree_root_final(tailBlock)
 
@@ -62,11 +123,15 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   result.blockPool = BlockPool.init(result.db)
   result.attestationPool = AttestationPool.init(result.blockPool)
 
-  result.network = await createEth2Node(Port conf.tcpPort, Port conf.udpPort)
+  result.network = await createEth2Node(conf)
 
-  let state = result.network.protocolState(BeaconSync)
-  state.node = result
-  state.db = result.db
+  let sync = result.network.protocolState(BeaconSync)
+  sync.networkId = case conf.network
+                   of mainnet: 1.uint64
+                   of ephemeralNetwork: 1000.uint64
+                   of testnet0, testnet1: loadTestnetMetadata(conf).networkId
+  sync.node = result
+  sync.db = result.db
 
   let head = result.blockPool.get(result.db.getHeadBlock().get())
 
@@ -85,6 +150,10 @@ proc connectToNetwork(node: BeaconNode) {.async.} =
   if bootstrapFile.len > 0:
     for ln in lines(bootstrapFile):
       bootstrapNodes.add BootstrapAddr.init(string ln)
+
+  if node.config.network in {testnet0, testnet1}:
+    let metadata = loadTestnetMetadata(node.config)
+    bootstrapNodes.add metadata.bootstrapNodes
 
   if bootstrapNodes.len > 0:
     info "Connecting to bootstrap nodes", bootstrapNodes
@@ -147,18 +216,24 @@ template findIt(s: openarray, predicate: untyped): int =
       break
   res
 
-proc addLocalValidators*(node: BeaconNode) =
-  for privKey in node.config.validators:
-    let
-      pubKey = privKey.pubKey()
+proc addLocalValidator(node: BeaconNode, validatorKey: ValidatorPrivKey) =
+  let pubKey = validatorKey.pubKey()
 
-    let idx = node.state.data.validator_registry.findIt(it.pubKey == pubKey)
-    if idx == -1:
-      warn "Validator not in registry", pubKey
-    else:
-      debug "Attaching validator", validator = shortValidatorKey(node, idx),
-                                   idx, pubKey
-      node.attachedValidators.addLocalValidator(idx, pubKey, privKey)
+  let idx = node.state.data.validator_registry.findIt(it.pubKey == pubKey)
+  if idx == -1:
+    warn "Validator not in registry", pubKey
+  else:
+    debug "Attaching validator", validator = shortValidatorKey(node, idx),
+                                 idx, pubKey
+    node.attachedValidators.addLocalValidator(idx, pubKey, validatorKey)
+
+proc addLocalValidators(node: BeaconNode) =
+  for validatorKeyFile in node.config.validators:
+    node.addLocalValidator validatorKeyFile.load
+
+  for kind, file in walkDir(node.config.localValidatorsDir):
+    if kind in {pcFile, pcLinkToFile}:
+      node.addLocalValidator ValidatorPrivKey.init(readFile(file).string)
 
   info "Local validators attached ", count = node.attachedValidators.count
 
@@ -584,7 +659,8 @@ proc createPidFile(filename: string) =
   addQuitProc proc {.noconv.} = removeFile gPidFile
 
 when isMainModule:
-  let config = load BeaconNodeConf
+  let config = BeaconNodeConf.load(version = fullVersionStr())
+
   if config.logLevel != LogLevel.NONE:
     setLogLevel(config.logLevel)
 
@@ -594,6 +670,41 @@ when isMainModule:
       config.validatorsDir.string, config.numValidators, config.firstValidator,
       config.genesisOffset, config.outputStateFile.string)
     quit 0
+
+  of importValidator:
+    template reportFailureFor(keyExpr) =
+      error "Failed to import validator key", key = keyExpr
+      programResult = 1
+
+    var downloadKey = true
+
+    if config.key.isSome:
+      downloadKey = false
+      try:
+        ValidatorPrivKey.init(config.key.get).saveValidatorKey(config)
+      except:
+        reportFailureFor config.key.get
+
+    if config.keyFile.isSome:
+      downloadKey = false
+      try:
+        config.keyFile.get.load.saveValidatorKey(config)
+      except:
+        reportFailureFor config.keyFile.get.string
+
+    if downloadKey:
+      if config.network in {testnet0, testnet1}:
+        try:
+          (waitFor obtainTestnetKey(config)).saveValidatorKey(config)
+        except:
+          error "Failed to download key", err = getCurrentExceptionMsg()
+          quit 1
+      else:
+        echo "Validator keys can be downloaded only for testnets"
+        quit 1
+
+  of updateTestnet:
+    waitFor doUpdateTestnet(config)
 
   of noCommand:
     waitFor synchronizeClock()
