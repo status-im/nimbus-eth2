@@ -72,8 +72,9 @@ proc obtainTestnetKey(conf: BeaconNodeConf): Future[ValidatorPrivKey] {.async.} 
   return ValidatorPrivKey.init(privKeyContent)
 
 proc saveValidatorKey(key: ValidatorPrivKey, conf: BeaconNodeConf) =
-  let filename = conf.dataDir / dataDirValidators / $key.pubKey
-  writeFile(filename, $key)
+  let validatorsDir = conf.dataDir / dataDirValidators
+  createDir validatorsDir
+  writeFile(validatorsDir / $key.pubKey, $key)
 
 proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
   new result
