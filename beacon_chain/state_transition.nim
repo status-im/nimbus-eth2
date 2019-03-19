@@ -336,6 +336,39 @@ proc processExits(
 
   true
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
+func update_registry_and_shuffling_data(state: var BeaconState) =
+  # First set previous shuffling data to current shuffling data
+  state.previous_shuffling_epoch = state.current_shuffling_epoch
+  state.previous_shuffling_start_shard = state.current_shuffling_start_shard
+  state.previous_shuffling_seed = state.current_shuffling_seed
+
+  let
+    current_epoch = get_current_epoch(state)
+    next_epoch = current_epoch + 1
+
+  # Check if we should update, and if so, update
+  if should_update_validator_registry(state):
+    update_validator_registry(state)
+    # If we update the registry, update the shuffling data and shards as well
+    state.current_shuffling_epoch = next_epoch
+    state.current_shuffling_start_shard = (
+      state.current_shuffling_start_shard +
+      get_current_epoch_committee_count(state) mod SHARD_COUNT
+    )
+    state.current_shuffling_seed =
+      generate_seed(state, state.current_shuffling_epoch)
+  else:
+    ## If processing at least one crosslink keeps failing, then reshuffle every
+    ## power of two, but don't update the current_shuffling_start_shard
+    let epochs_since_last_registry_update =
+      current_epoch - state.validator_registry_update_epoch
+    if epochs_since_last_registry_update > 1'u64 and
+        is_power_of_2(epochs_since_last_registry_update):
+      state.current_shuffling_epoch = next_epoch
+      state.current_shuffling_seed =
+        generate_seed(state, state.current_shuffling_epoch)
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#transfers
 proc processTransfers(state: var BeaconState, blck: BeaconBlock,
                       flags: UpdateFlags): bool =
@@ -1084,38 +1117,8 @@ func processEpoch(state: var BeaconState) =
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#ejections
   process_ejections(state)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
-  block:
-    state.previous_shuffling_epoch = state.current_shuffling_epoch
-    state.previous_shuffling_start_shard = state.current_shuffling_start_shard
-    state.previous_shuffling_seed = state.current_shuffling_seed
-
-    if state.finalized_epoch > state.validator_registry_update_epoch and
-       allIt(
-         0 ..< get_current_epoch_committee_count(state).int,
-         state.latest_crosslinks[
-           (state.current_shuffling_start_shard + it.uint64) mod
-             SHARD_COUNT].epoch > state.validator_registry_update_epoch):
-
-      # update the validator registry and associated fields by running
-      update_validator_registry(state)
-
-      # and perform the following updates
-      state.current_shuffling_epoch = next_epoch
-      state.current_shuffling_start_shard =
-        (state.current_shuffling_start_shard +
-          get_current_epoch_committee_count(state)) mod SHARD_COUNT
-      state.current_shuffling_seed = generate_seed(
-        state, state.current_shuffling_epoch)
-    else:
-      # If a validator registry change does NOT happen
-      let epochs_since_last_registry_update =
-        current_epoch - state.validator_registry_update_epoch
-      if epochs_since_last_registry_update > 1'u64 and
-          is_power_of_2(epochs_since_last_registry_update):
-        state.current_shuffling_epoch = next_epoch
-        state.current_shuffling_seed = generate_seed(state, state.current_shuffling_epoch)
-        # /Note/ that state.current_shuffling_start_shard is left unchanged
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
+  update_registry_and_shuffling_data(state)
 
   # Not in spec.
   updateShufflingCache(state)
