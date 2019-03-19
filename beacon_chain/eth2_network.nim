@@ -13,6 +13,9 @@ when useRLPx:
   export
     p2p, rlp, gossipsub_protocol
 
+  const
+    netBackendName* = "rlpx"
+
   type
     Eth2Node* = EthereumNode
     BootstrapAddr* = ENode
@@ -81,6 +84,9 @@ else:
 
   type
     BootstrapAddr* = PeerInfo
+
+  const
+    netBackendName* = "libp2p"
 
   proc writeValue*(writer: var JsonWriter, value: PeerID) {.inline.} =
     writer.writeValue value.pretty

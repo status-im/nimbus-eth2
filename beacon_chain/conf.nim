@@ -12,7 +12,7 @@ type
   StartUpCommand* = enum
     noCommand
     createTestnet
-    importValidator
+    importValidators
     updateTestnet
 
   BeaconNodeConf* = object
@@ -107,12 +107,14 @@ type
       outputNetwork* {.
         desc: "Output file where to write the initial state snapshot".}: OutFile
 
-    of importValidator:
-      keyFile* {.
-        desc: "File with validator key to be imported (in hex form)".}: Option[ValidatorKeyPath]
+    of importValidators:
+      keyFiles* {.
+        longform: "keyfile"
+        desc: "File with validator key to be imported (in hex form)".}: seq[ValidatorKeyPath]
 
-      key* {.
-        desc: "Validator key to be imported (in hex form)".}: Option[string]
+      keys* {.
+        longform: "key"
+        desc: "Validator key to be imported (in hex form)".}: seq[string]
 
     of updateTestnet:
       discard

@@ -47,7 +47,8 @@ proc downloadFile(url: string): Future[string] {.async.} =
   return fileContents
 
 proc updateTestnetMetadata(conf: BeaconNodeConf): Future[NetworkMetadata] {.async.} =
-  let latestMetadata = await downloadFile(testnetsBaseUrl // $conf.network // networkMetadataFile)
+  let latestMetadata = await downloadFile(testnetsBaseUrl // $conf.network //
+                                          netBackendName & "-" & networkMetadataFile)
 
   let localMetadataFile = conf.dataDir / networkMetadataFile
   if fileExists(localMetadataFile) and readFile(localMetadataFile).string == latestMetadata:
@@ -716,28 +717,24 @@ when isMainModule:
   of updateTestnet:
     discard waitFor updateTestnetMetadata(config)
 
-  of importValidator:
+  of importValidators:
     template reportFailureFor(keyExpr) =
       error "Failed to import validator key", key = keyExpr
       programResult = 1
 
-    var downloadKey = true
-
-    if config.key.isSome:
-      downloadKey = false
+    for key in config.keys:
       try:
-        ValidatorPrivKey.init(config.key.get).saveValidatorKey(config)
+        ValidatorPrivKey.init(key).saveValidatorKey(config)
       except:
-        reportFailureFor config.key.get
+        reportFailureFor key
 
-    if config.keyFile.isSome:
-      downloadKey = false
+    for keyFile in config.keyFiles:
       try:
-        config.keyFile.get.load.saveValidatorKey(config)
+        keyFile.load.saveValidatorKey(config)
       except:
-        reportFailureFor config.keyFile.get.string
+        reportFailureFor keyFile.string
 
-    if downloadKey:
+    if (config.keys.len + config.keyFiles.len) == 0:
       if config.network in ["testnet0", "testnet1"]:
         try:
           let key = waitFor obtainTestnetKey(config)
