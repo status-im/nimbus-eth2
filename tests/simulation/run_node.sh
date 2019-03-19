@@ -12,7 +12,11 @@ DATA_DIR=$SIMULATION_DIR/node-${1}
 
 V_PREFIX="$VALIDATORS_DIR/v$(printf '%06d' ${1})"
 PORT=$(printf '5%04d' ${1})
-MYIP=$(curl -s ifconfig.me)
+
+NAT_FLAG=""
+if [ "${NAT:-}" == "1" ]; then
+  NAT_FLAG="--nat:extip:$(curl -s ifconfig.me)"
+fi
 
 $BEACON_NODE_BIN \
   --network:$NETWORK_METADATA_FILE \
@@ -29,6 +33,6 @@ $BEACON_NODE_BIN \
   --validator:${V_PREFIX}9.privkey \
   --tcpPort:$PORT \
   --udpPort:$PORT \
-  --nat:extip:$MYIP \
+  $NAT_FLAG \
   --stateSnapshot:$SNAPSHOT_FILE
 
