@@ -237,6 +237,8 @@ type
 
     # FFG vote
     source_epoch*: Epoch
+    target_root*: Eth2Digest
+
     ## TODO epoch_boundary_root and justified_block_root are creatures of new
     ## epoch processing and don't function quite as straightforwardly as just
     ## renamings, so do that as part of epoch processing change.
