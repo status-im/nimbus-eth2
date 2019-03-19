@@ -738,7 +738,7 @@ func get_justification_and_finalization_deltas(state: BeaconState):
   else:
     compute_inactivity_leak_deltas(state)
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#slashings-and-exit-queue
 func process_slashings(state: var BeaconState) =
   ## Process the slashings.
   ## Note that this function mutates ``state``.
@@ -748,15 +748,18 @@ func process_slashings(state: var BeaconState) =
       state.validator_registry, current_epoch)
     total_balance = get_total_balance(state, active_validator_indices)
 
+    # Compute `total_penalties`
+    total_at_start = state.latest_slashed_balances[
+      (current_epoch + 1) mod LATEST_SLASHED_EXIT_LENGTH]
+    total_at_end =
+      state.latest_slashed_balances[current_epoch mod
+        LATEST_SLASHED_EXIT_LENGTH]
+    total_penalties = total_at_end - total_at_start
+
   for index, validator in state.validator_registry:
     if validator.slashed and current_epoch == validator.withdrawable_epoch -
         LATEST_SLASHED_EXIT_LENGTH div 2:
       let
-        epoch_index = current_epoch mod LATEST_SLASHED_EXIT_LENGTH
-        total_at_start = state.latest_slashed_balances[
-          (epoch_index + 1) mod LATEST_SLASHED_EXIT_LENGTH]
-        total_at_end = state.latest_slashed_balances[epoch_index]
-        total_penalties = total_at_end - total_at_start
         penalty = max(
           get_effective_balance(state, index.ValidatorIndex) *
             min(total_penalties * 3, total_balance) div total_balance,
@@ -778,14 +781,13 @@ func process_exit_queue(state: var BeaconState) =
       return get_current_epoch(state) >= validator.exit_epoch +
         MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
-    # TODO try again with filterIt
     var eligible_indices: seq[ValidatorIndex]
     for vi in 0 ..< len(state.validator_registry):
       if eligible(vi.ValidatorIndex):
         eligible_indices.add vi.ValidatorIndex
     let
-      # Sort in order of exit epoch, and validators that exit within the same
-      # epoch exit in order of validator index
+      ## Sort in order of exit epoch, and validators that exit within the same
+      ## epoch exit in order of validator index
       sorted_indices = sorted(
         eligible_indices,
         func(x, y: ValidatorIndex): int =
