@@ -125,7 +125,6 @@ proc addBlock*(
     # some book-keeping values
     signed_data = Proposal(
       slot: new_block.slot.uint64,
-      shard: BEACON_CHAIN_SHARD_NUMBER,
       block_root: Eth2Digest(data: signed_root(new_block)),
       signature: ValidatorSig(),
     )

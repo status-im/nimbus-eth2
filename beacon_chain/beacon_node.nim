@@ -386,7 +386,6 @@ proc proposeBlock(node: BeaconNode,
 
   let proposal = Proposal(
     slot: slot.uint64,
-    shard: BEACON_CHAIN_SHARD_NUMBER,
     block_root: Eth2Digest(data: signed_root(newBlock)),
     signature: ValidatorSig(),
   )

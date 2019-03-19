@@ -51,7 +51,7 @@ const
   ## TODO: improve this scheme once we can negotiate versions in protocol
 
   # Misc
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#misc
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#misc
   SHARD_COUNT* {.intdefine.} = 1024 ##\
   ## Number of shards supported by the network - validators will jump around
   ## between these shards and provide attestations to their state.
@@ -71,8 +71,6 @@ const
   MAX_BALANCE_CHURN_QUOTIENT* = 2^5 ##\
   ## At most `1/MAX_BALANCE_CHURN_QUOTIENT` of the validators can change during
   ## each validator registry change.
-
-  BEACON_CHAIN_SHARD_NUMBER* = not 0'u64 # 2^64 - 1 in spec
 
   MAX_INDICES_PER_SLASHABLE_VOTE* = 2^12 ##\
   ## votes
@@ -370,9 +368,6 @@ type
   Proposal* = object
     slot*: uint64 ##\
     ## Slot number
-
-    shard*: uint64 ##\
-    ## Shard number (`BEACON_CHAIN_SHARD_NUMBER` for beacon chain)
 
     block_root*: Eth2Digest ##\
     ## Block root
