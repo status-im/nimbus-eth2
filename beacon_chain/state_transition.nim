@@ -227,8 +227,10 @@ func verify_slashable_attestation(state: BeaconState, slashable_attestation: Sla
     ),
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#attester-slashings-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attester-slashings
 proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
+  ## Process ``AttesterSlashing`` transaction.
+  ## Note that this function mutates ``state``.
   if len(blck.body.attester_slashings) > MAX_ATTESTER_SLASHINGS:
     notice "CaspSlash: too many!"
     return false
@@ -238,6 +240,7 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
       slashable_attestation_1 = attester_slashing.slashable_attestation_1
       slashable_attestation_2 = attester_slashing.slashable_attestation_2
 
+    # Check that the attestations are conflicting
     if not (slashable_attestation_1.data != slashable_attestation_2.data):
       notice "CaspSlash: invalid data"
       return false
@@ -259,15 +262,15 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
     let
       indices2 = toSet(slashable_attestation_2.validator_indices)
       slashable_indices =
-        slashable_attestation_1.validator_indices.filterIt(it in indices2)
+        slashable_attestation_1.validator_indices.filterIt(
+          it in indices2 and not state.validator_registry[it.int].slashed)
 
     if not (len(slashable_indices) >= 1):
       notice "CaspSlash: no intersection"
       return false
 
     for index in slashable_indices:
-      if state.validator_registry[index.int].slashed:
-        slash_validator(state, index.ValidatorIndex)
+      slash_validator(state, index.ValidatorIndex)
 
   true
 
