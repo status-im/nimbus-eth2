@@ -334,7 +334,7 @@ proc processExits(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#transfers-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#transfers
 proc processTransfers(state: var BeaconState, blck: BeaconBlock,
                       flags: UpdateFlags): bool =
   ## Note: Transfers are a temporary functionality for phases 0 and 1, to be
@@ -344,33 +344,37 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
     return false
 
   for transfer in blck.body.transfers:
-    let from_balance = state.validator_balances[transfer.sender.int]
+    let sender_balance = state.validator_balances[transfer.sender.int]
 
-    if not (from_balance >= transfer.amount):
-      notice "Transfer: source balance too low for amount"
+    ## Verify the amount and fee aren't individually too big (for anti-overflow
+    ## purposes)
+    if not (sender_balance >= max(transfer.amount, transfer.fee)):
+      notice "Transfer: sender balance too low for transfer amount or fee"
       return false
 
-    if not (from_balance >= transfer.fee):
-      notice "Transfer: source balance too low for fee"
+    ## Verify that we have enough ETH to send, and that after the transfer the
+    ## balance will be either exactly zero or at least MIN_DEPOSIT_AMOUNT
+    if not (
+        sender_balance == transfer.amount + transfer.fee or
+        sender_balance >= transfer.amount + transfer.fee + MIN_DEPOSIT_AMOUNT):
+      notice "Transfer: sender balance too low for amount + fee"
       return false
 
-    if not (from_balance == transfer.amount + transfer.fee or from_balance >=
-            transfer.amount + transfer.fee + MIN_DEPOSIT_AMOUNT):
-      notice "Transfer: source balance too low for amount + fee"
-      return false
-
+    # A transfer is valid in only one slot
     if not (state.slot == transfer.slot):
       notice "Transfer: slot mismatch"
       return false
 
+    # Only withdrawn or not-yet-deposited accounts can transfer
     if not (get_current_epoch(state) >=
         state.validator_registry[
           transfer.sender.int].withdrawable_epoch or
         state.validator_registry[transfer.sender.int].activation_epoch ==
           FAR_FUTURE_EPOCH):
-      notice "Transfer: epoch mismatch"
+      notice "Transfer: only withdrawn or not-deposited accounts can transfer"
       return false
 
+    # Verify that the pubkey is valid
     let wc = state.validator_registry[transfer.sender.int].
       withdrawal_credentials
     if not (wc.data[0] == BLS_WITHDRAWAL_PREFIX_BYTE and
@@ -378,10 +382,10 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
       notice "Transfer: incorrect withdrawal credentials"
       return false
 
+    # Verify that the signature is valid
     if skipValidation notin flags:
-      let transfer_message = signed_root(transfer)
       if not bls_verify(
-          pubkey=transfer.pubkey, transfer_message, transfer.signature,
+          pubkey=transfer.pubkey, signed_root(transfer), transfer.signature,
           get_domain(
             state.fork, slot_to_epoch(transfer.slot), DOMAIN_TRANSFER)):
         notice "Transfer: incorrect signature"
