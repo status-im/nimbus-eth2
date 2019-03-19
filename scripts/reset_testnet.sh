@@ -22,8 +22,9 @@ regenTestnetFiles() {
   NETWORK_FLAVOUR=$1
 
   if [ ! -f $NETWORK_DIR/genesis.json ]; then
-    rm $NETWORK_DIR/*
+    rm -f $NETWORK_DIR/*
     nim c -r $NIM_FLAGS beacon_chain/validator_keygen \
+      --generateFakeKeys=no \
       --validators=$VALIDATOR_COUNT \
       --outputDir="$NETWORK_DIR"
   fi
