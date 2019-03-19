@@ -372,7 +372,7 @@ func get_attestation_participants*(state: BeaconState,
     if aggregation_bit == 1:
       result.add(validator_index)
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#ejections
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#ejections
 func process_ejections*(state: var BeaconState) =
   ## Iterate through the validator registry and eject active validators with
   ## balance below ``EJECTION_BALANCE``
