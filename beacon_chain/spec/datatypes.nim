@@ -481,6 +481,14 @@ type
     custody_bitfield*: seq[byte]              # Custody bitfield
     inclusion_slot*: Slot                     # Inclusion slot
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#historicalbatch
+  HistoricalBatch* = object
+    block_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
+    ## Block roots
+
+    state_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
+    ## State roots
+
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#fork
   Fork* = object
     previous_version*: array[4, byte] ##\

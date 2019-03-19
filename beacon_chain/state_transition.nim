@@ -796,6 +796,41 @@ func process_exit_queue(state: var BeaconState) =
         break
       prepare_validator_for_withdrawal(state, index)
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#final-updates
+func finish_epoch_update(state: var BeaconState) =
+  let
+    current_epoch = get_current_epoch(state)
+    next_epoch = current_epoch + 1
+
+  # Set active index root
+  let index_root_position =
+    (next_epoch + ACTIVATION_EXIT_DELAY) mod LATEST_ACTIVE_INDEX_ROOTS_LENGTH
+  state.latest_active_index_roots[index_root_position] =
+    Eth2Digest(data: hash_tree_root(get_active_validator_indices(
+      state.validator_registry, next_epoch + ACTIVATION_EXIT_DELAY))
+  )
+
+  # Set total slashed balances
+  state.latest_slashed_balances[next_epoch mod LATEST_SLASHED_EXIT_LENGTH] = (
+    state.latest_slashed_balances[current_epoch mod LATEST_SLASHED_EXIT_LENGTH]
+  )
+
+  # Set randao mix
+  state.latest_randao_mixes[next_epoch mod LATEST_RANDAO_MIXES_LENGTH] =
+    get_randao_mix(state, current_epoch)
+
+  # Set historical root accumulator
+  if next_epoch mod (SLOTS_PER_HISTORICAL_ROOT div SLOTS_PER_EPOCH).uint64 == 0:
+    let historical_batch = HistoricalBatch(
+      block_roots: state.latest_block_roots,
+      state_roots: state.latest_state_roots,
+    )
+    state.historical_roots.add (hash_tree_root_final(historical_batch))
+
+  # Rotate current/previous epoch attestations
+  state.previous_epoch_attestations = state.current_epoch_attestations
+  state.current_epoch_attestations = @[]
+
 func processEpoch(state: var BeaconState) =
   if (state.slot + 1) mod SLOTS_PER_EPOCH != 0:
     return
@@ -1086,22 +1121,8 @@ func processEpoch(state: var BeaconState) =
   process_slashings(state)
   process_exit_queue(state)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#final-updates
-  block:
-    state.latest_active_index_roots[
-      (next_epoch + ACTIVATION_EXIT_DELAY) mod
-      LATEST_ACTIVE_INDEX_ROOTS_LENGTH] =
-      Eth2Digest(data: hash_tree_root(get_active_validator_indices(
-        state.validator_registry, next_epoch + ACTIVATION_EXIT_DELAY)))
-    state.latest_slashed_balances[(next_epoch mod
-      LATEST_SLASHED_EXIT_LENGTH).int] =
-      state.latest_slashed_balances[
-        (current_epoch mod LATEST_SLASHED_EXIT_LENGTH).int]
-    state.latest_randao_mixes[next_epoch mod LATEST_RANDAO_MIXES_LENGTH] =
-      get_randao_mix(state, current_epoch)
-    state.latest_attestations.keepItIf(
-      not (slot_to_epoch(it.data.slot) < current_epoch)
-    )
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#final-updates
+  finish_epoch_update(state)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#state-root-verification
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
