@@ -1,5 +1,5 @@
 import
-  options, chronos, json_serialization,
+  options, chronos, json_serialization, strutils,
   spec/digest, version, conf
 
 const
@@ -19,6 +19,14 @@ when useRLPx:
 
   template libp2pProtocol*(name, version: string) {.pragma.}
 
+  func parseNat(nat: string): IpAddress =
+    # TODO we should try to discover the actual external IP, in case we're
+    #      behind a nat / upnp / etc..
+    if nat.startsWith("extip:"):
+      parseIpAddress(nat[6..^1])
+    else:
+      parseIpAddress("127.0.0.1")
+
   proc writeValue*(writer: var JsonWriter, value: BootstrapAddr) {.inline.} =
     writer.writeValue $value
 
@@ -36,7 +44,7 @@ when useRLPx:
 
     let
       keys = KeyPair(seckey: privKey, pubkey: privKey.getPublicKey())
-      address = Address(ip: parseIpAddress("127.0.0.1"),
+      address = Address(ip: parseNat(conf.nat),
                         tcpPort: Port conf.tcpPort,
                         udpPort: Port conf.udpPort)
 
