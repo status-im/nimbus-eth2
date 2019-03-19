@@ -42,6 +42,8 @@ when useRLPx:
     else:
       privKey = initPrivateKey(readFile(privateKeyFile).string)
 
+    # TODO there are more networking options to add here: local bind ip, ipv6
+    #      etc.
     let
       keys = KeyPair(seckey: privKey, pubkey: privKey.getPublicKey())
       address = Address(ip: parseNat(conf.nat),
