@@ -4,8 +4,6 @@ set -eux
 
 . $(dirname $0)/vars.sh
 
-BOOTSTRAP_NODES_FLAG="--bootstrapNodesFile:$MASTER_NODE_ADDRESS_FILE"
-
 if [[ "$1" == "0" ]]; then
   BOOTSTRAP_NODES_FLAG=""
 fi
@@ -17,7 +15,7 @@ PORT=$(printf '5%04d' ${1})
 MYIP=$(curl -s ifconfig.me)
 
 $BEACON_NODE_BIN \
-  --network:ephemeralNetwork \
+  --network:$NETWORK_METADATA_FILE \
   --dataDir:$DATA_DIR \
   --validator:${V_PREFIX}0.privkey \
   --validator:${V_PREFIX}1.privkey \
@@ -32,5 +30,5 @@ $BEACON_NODE_BIN \
   --tcpPort:$PORT \
   --udpPort:$PORT \
   --nat:extip:$MYIP \
-  --stateSnapshot:$SNAPSHOT_FILE \
-  $BOOTSTRAP_NODES_FLAG
+  --stateSnapshot:$SNAPSHOT_FILE
+

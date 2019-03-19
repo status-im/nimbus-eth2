@@ -27,6 +27,26 @@ when useRLPx:
     else:
       parseIpAddress("127.0.0.1")
 
+  proc ensureNetworkKeys(conf: BeaconNodeConf): KeyPair =
+    let privateKeyFile = conf.dataDir / "network.privkey"
+    var privKey: PrivateKey
+    if not fileExists(privateKeyFile):
+      privKey = newPrivateKey()
+      createDir conf.dataDir.string
+      writeFile(privateKeyFile, $privKey)
+    else:
+      privKey = initPrivateKey(readFile(privateKeyFile).string)
+
+    KeyPair(seckey: privKey, pubkey: privKey.getPublicKey())
+
+  proc getPersistenBootstrapAddr*(conf: BeaconNodeConf,
+                                  ip: IpAddress, port: Port): BootstrapAddr =
+    let
+      keys = ensureNetworkKeys(conf)
+      address = Address(ip: ip, tcpPort: port, udpPort: port)
+
+    initENode(keys.pubKey, address)
+
   proc writeValue*(writer: var JsonWriter, value: BootstrapAddr) {.inline.} =
     writer.writeValue $value
 
@@ -34,22 +54,14 @@ when useRLPx:
     value = initENode reader.readValue(string)
 
   proc createEth2Node*(conf: BeaconNodeConf): Future[EthereumNode] {.async.} =
-    let privateKeyFile = conf.dataDir / "network.privkey"
-    var privKey: PrivateKey
-    if not fileExists(privateKeyFile):
-      privKey = newPrivateKey()
-      writeFile(privateKeyFile, $privKey)
-    else:
-      privKey = initPrivateKey(readFile(privateKeyFile).string)
-
-    # TODO there are more networking options to add here: local bind ip, ipv6
-    #      etc.
     let
-      keys = KeyPair(seckey: privKey, pubkey: privKey.getPublicKey())
+      keys = ensureNetworkKeys(conf)
       address = Address(ip: parseNat(conf.nat),
                         tcpPort: Port conf.tcpPort,
                         udpPort: Port conf.udpPort)
 
+    # TODO there are more networking options to add here: local bind ip, ipv6
+    #      etc.
     return newEthereumNode(keys, address, 0,
                            nil, clientId, minPeers = 1)
 
@@ -106,16 +118,4 @@ else:
 
   proc loadConnectionAddressFile*(filename: string): PeerInfo =
     Json.loadFile(filename, PeerInfo)
-
-type
-  TestnetMetadata* = object
-    networkId*: uint64
-    genesisRoot*: Eth2Digest
-    bootstrapNodes*: BootstrapAddr
-    totalValidators*: int
-    userValidatorsStart*: int
-    userValidatorsEnd*: int
-
-proc userValidatorsRange*(d: TestnetMetadata): HSlice[int, int] =
-  d.userValidatorsStart .. d.userValidatorsEnd
 

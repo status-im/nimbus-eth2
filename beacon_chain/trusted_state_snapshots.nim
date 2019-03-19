@@ -29,19 +29,3 @@ proc obtainTrustedStateSnapshot*(db: BeaconChainDB): Future[BeaconState] {.async
 
   doAssert(false, "Not implemented")
 
-proc createStateSnapshot*(
-    validatorDir: string, numValidators, firstValidator, genesisOffset: int,
-    outFile: string) =
-
-  var deposits: seq[Deposit]
-  for i in firstValidator..<numValidators:
-    deposits.add Json.loadFile(validatorDir / &"v{i:07}.deposit.json", Deposit)
-
-  let initialState = get_genesis_beacon_state(
-    deposits,
-    uint64(int(fastEpochTime() div 1000) + genesisOffset),
-    Eth1Data(), {})
-
-  var vr: Validator
-  Json.saveFile(outFile, initialState, pretty = true)
-  echo "Wrote ", outFile

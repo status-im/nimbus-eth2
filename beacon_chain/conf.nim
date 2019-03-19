@@ -11,15 +11,9 @@ type
 
   StartUpCommand* = enum
     noCommand
-    createChain
+    createTestnet
     importValidator
     updateTestnet
-
-  Network* = enum
-    ephemeralNetwork
-    testnet0
-    testnet1
-    mainnet
 
   BeaconNodeConf* = object
     logLevel* {.
@@ -27,21 +21,22 @@ type
       defaultValue: enabledLogLevel.}: LogLevel
 
     network* {.
-      desc: "The network Nimbus should connect to"
+      desc: "The network Nimbus should connect to. " &
+            "Possible values: testnet0, testnet1, mainnet, custom-network.json"
       longform: "network"
       shortform: "n"
-      defaultValue: testnet0.}: Network
+      defaultValue: "testnet0".}: string
+
+    dataDir* {.
+      desc: "The directory where nimbus will store all blockchain data."
+      shortform: "d"
+      defaultValue: config.defaultDataDir().}: OutDir
 
     case cmd* {.
       command
       defaultValue: noCommand.}: StartUpCommand
 
     of noCommand:
-      dataDir* {.
-        desc: "The directory where nimbus will store all blockchain data."
-        shortform: "d"
-        defaultValue: config.defaultDataDir().}: OutDir
-
       bootstrapNodes* {.
         desc: "Specifies one or more bootstrap nodes to use when connecting to the network."
         longform: "bootstrapNode"
@@ -74,27 +69,43 @@ type
         desc: "Json file specifying a recent state snapshot"
         shortform: "s".}: Option[TypedInputFile[BeaconState, Json, "json"]]
 
-    of createChain:
+    of createTestnet:
+      networkId* {.
+        desc: "An unique numeric identifier for the network".}: uint64
+
       validatorsDir* {.
         desc: "Directory containing validator descriptors named vXXXXXXX.deposit.json"
         shortform: "d".}: InputDir
 
       numValidators* {.
-        desc: "The number of validators in the newly created chain".}: int
+        desc: "The number of validators in the newly created chain".}: uint64
 
       firstValidator* {.
-        desc: "index of first validator to add to validator list"
-        defaultValue: 0.}: int
+        desc: "Index of first validator to add to validator list"
+        defaultValue: 0 .}: uint64
+
+      firstUserValidator* {.
+        desc: "The first validator index that will free for taking from a testnet participant"
+        defaultValue: 0 .}: uint64
+
+      bootstrapAddress* {.
+        desc: "The public IP address that will be advertised as a bootstrap node for the testnet"
+        defaultValue: "127.0.0.1".}: string
+
+      bootstrapPort* {.
+        desc: "The TCP/UDP port that will be used by the bootstrap node"
+        defaultValue: config.defaultPort().}: int
 
       genesisOffset* {.
         desc: "Seconds from now to add to genesis time"
         shortForm: "g"
         defaultValue: 5 .}: int
 
-      outputStateFile* {.
-        desc: "Output file where to write the initial state snapshot"
-        longform: "out"
-        shortform: "o".}: OutFile
+      outputGenesis* {.
+        desc: "Output file where to write the initial state snapshot".}: OutFile
+
+      outputNetwork* {.
+        desc: "Output file where to write the initial state snapshot".}: OutFile
 
     of importValidator:
       keyFile* {.
@@ -107,21 +118,24 @@ type
       discard
 
 proc defaultDataDir*(conf: BeaconNodeConf): string =
-  if conf.network == ephemeralNetwork:
-    getCurrentDir() / "beacon-node-cache"
-
+  let dataDir = when defined(windows):
+    "AppData" / "Roaming" / "Nimbus"
+  elif defined(macosx):
+    "Library" / "Application Support" / "Nimbus"
   else:
-    let dataDir = when defined(windows):
-      "AppData" / "Roaming" / "Nimbus"
-    elif defined(macosx):
-      "Library" / "Application Support" / "Nimbus"
-    else:
-      ".cache" / "nimbus"
+    ".cache" / "nimbus"
 
-    getHomeDir() / dataDir / "BeaconNode" / $conf.network
+  let networkId = if conf.network in ["testnet0", "testnet1", "mainnet"]:
+    conf.network
+  else:
+    # TODO: This seems silly. Perhaps we should error out here and ask
+    # the user to specify dataDir as well.
+    "tempnet"
+
+  getHomeDir() / dataDir / "BeaconNode" / networkId
 
 proc defaultPort*(conf: BeaconNodeConf): int =
-  (if conf.network == testnet0: 9630 else: 9632) + ord(useRLPx)
+  (if conf.network == "testnet0": 9630 else: 9632) + ord(useRLPx)
 
 proc validatorFileBaseName*(validatorIdx: int): string =
   # there can apparently be tops 4M validators so we use 7 digits..

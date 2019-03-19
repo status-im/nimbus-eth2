@@ -41,10 +41,14 @@ if [[ -z "$SKIP_BUILDS" ]]; then
 fi
 
 if [ ! -f $SNAPSHOT_FILE ]; then
-  $BEACON_NODE_BIN createChain \
-    --validatorsDir:$VALIDATORS_DIR \
-    --out:$SNAPSHOT_FILE \
+  $BEACON_NODE_BIN --dataDir=$SIMULATION_DIR/node-0 createTestnet \
+    --networkId=1000 \
+    --validatorsDir=$VALIDATORS_DIR \
     --numValidators=$NUM_VALIDATORS \
+    --outputGenesis=$SNAPSHOT_FILE \
+    --outputNetwork=$NETWORK_METADATA_FILE \
+    --bootstrapAddress=127.0.0.1 \
+    --bootstrapPort=50001 \
     --genesisOffset=5 # Delay in seconds
 fi
 

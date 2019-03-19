@@ -15,7 +15,7 @@ const
   dataDirValidators = "validators"
   networkMetadataFile = "network.json"
   genesisFile = "genesis.json"
-  testnetsBaseUrl = "http://node-01.do-ams3.nimbus.misc.statusim.net:8000/nimbus_testnets"
+  testnetsBaseUrl = "https://serenity-testnets.status.im"
 
 # #################################################
 # Careful handling of beacon_node <-> sync_protocol
@@ -46,28 +46,25 @@ proc downloadFile(url: string): Future[string] {.async.} =
     raise newException(IOError, "Failed to download URL: " & url)
   return fileContents
 
-proc doUpdateTestnet(conf: BeaconNodeConf) {.async.} =
+proc updateTestnetMetadata(conf: BeaconNodeConf): Future[NetworkMetadata] {.async.} =
   let latestMetadata = await downloadFile(testnetsBaseUrl // $conf.network // networkMetadataFile)
 
   let localMetadataFile = conf.dataDir / networkMetadataFile
   if fileExists(localMetadataFile) and readFile(localMetadataFile).string == latestMetadata:
     return
 
+  result = Json.decode(latestMetadata, NetworkMetadata)
+
+  info "New testnet genesis data received. Starting with a fresh database."
   removeDir conf.databaseDir
   writeFile localMetadataFile, latestMetadata
 
   let newGenesis = await downloadFile(testnetsBaseUrl // $conf.network // genesisFile)
   writeFile conf.dataDir / genesisFile, newGenesis
 
-  info "New testnet genesis data received. Starting with a fresh database."
-
-proc loadTestnetMetadata(conf: BeaconNodeConf): TestnetMetadata =
-  Json.loadFile(conf.dataDir / networkMetadataFile, TestnetMetadata)
-
 proc obtainTestnetKey(conf: BeaconNodeConf): Future[ValidatorPrivKey] {.async.} =
-  await doUpdateTestnet(conf)
   let
-    metadata = loadTestnetMetadata(conf)
+    metadata = await updateTestnetMetadata(conf)
     privKeyName = validatorFileBaseName(rand(metadata.userValidatorsRange)) & ".privkey"
     privKeyContent = await downloadFile(testnetsBaseUrl // $conf.network // privKeyName)
 
@@ -81,8 +78,34 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   new result
   result.config = conf
 
-  if conf.network in {testnet0, testnet1}:
-    await doUpdateTestnet(conf)
+  template fail(args: varargs[untyped]) =
+    stderr.write args, "\n"
+    quit 1
+
+  case conf.network
+  of "mainnet":
+    fail "The Serenity mainnet hasn't been launched yet"
+  of "testnet0", "testnet1":
+    result.networkMetadata = await updateTestnetMetadata(conf)
+  else:
+    try:
+      result.networkMetadata = Json.loadFile(conf.network, NetworkMetadata)
+    except:
+      fail "Failed to load network metadata: ", getCurrentExceptionMsg()
+
+  var metadataErrorMsg = ""
+
+  template checkCompatibility(metadataField, LOCAL_CONSTANT) =
+    let metadataValue = metadataField
+    if metadataValue != LOCAL_CONSTANT:
+      metadataErrorMsg.add " -d:" & astToStr(LOCAL_CONSTANT) & "=" & $metadataValue
+
+  checkCompatibility result.networkMetadata.numShards      , SHARD_COUNT
+  checkCompatibility result.networkMetadata.slotDuration   , SECONDS_PER_SLOT
+  checkCompatibility result.networkMetadata.slotsPerEpoch  , SLOTS_PER_EPOCH
+
+  if metadataErrorMsg.len > 0:
+    fail "To connect to the ", conf.network, " network, please compile with ", metadataErrorMsg
 
   result.attachedValidators = ValidatorPool.init
   init result.mainchainMonitor, "", Port(0) # TODO: specify geth address and port
@@ -126,10 +149,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   result.network = await createEth2Node(conf)
 
   let sync = result.network.protocolState(BeaconSync)
-  sync.networkId = case conf.network
-                   of mainnet: 1.uint64
-                   of ephemeralNetwork: 1000.uint64
-                   of testnet0, testnet1: loadTestnetMetadata(conf).networkId
+  sync.networkId = result.networkMetadata.networkId
   sync.node = result
   sync.db = result.db
 
@@ -141,19 +161,15 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   result.network.saveConnectionAddressFile(addressFile)
 
 proc connectToNetwork(node: BeaconNode) {.async.} =
-  var bootstrapNodes = newSeq[BootstrapAddr]()
+  var bootstrapNodes = node.networkMetadata.bootstrapNodes
 
-  for node in node.config.bootstrapNodes:
-    bootstrapNodes.add BootstrapAddr.init(node)
+  for bootNode in node.config.bootstrapNodes:
+    bootstrapNodes.add BootstrapAddr.init(bootNode)
 
   let bootstrapFile = string node.config.bootstrapNodesFile
   if bootstrapFile.len > 0:
     for ln in lines(bootstrapFile):
       bootstrapNodes.add BootstrapAddr.init(string ln)
-
-  if node.config.network in {testnet0, testnet1}:
-    let metadata = loadTestnetMetadata(node.config)
-    bootstrapNodes.add metadata.bootstrapNodes
 
   if bootstrapNodes.len > 0:
     info "Connecting to bootstrap nodes", bootstrapNodes
@@ -665,11 +681,40 @@ when isMainModule:
     setLogLevel(config.logLevel)
 
   case config.cmd
-  of createChain:
-    createStateSnapshot(
-      config.validatorsDir.string, config.numValidators, config.firstValidator,
-      config.genesisOffset, config.outputStateFile.string)
-    quit 0
+  of createTestnet:
+    var deposits: seq[Deposit]
+    for i in config.firstValidator.int ..< config.numValidators.int:
+      let depositFile = config.validatorsDir /
+                        validatorFileBaseName(i) & ".deposit.json"
+      deposits.add Json.loadFile(depositFile, Deposit)
+
+    let initialState = get_genesis_beacon_state(
+      deposits,
+      uint64(int(fastEpochTime() div 1000) + config.genesisOffset),
+      Eth1Data(), {})
+
+    Json.saveFile(config.outputGenesis.string, initialState, pretty = true)
+    echo "Wrote ", config.outputGenesis.string
+
+    var
+      bootstrapAddress = getPersistenBootstrapAddr(
+        config, parseIpAddress(config.bootstrapAddress), Port config.bootstrapPort)
+
+      testnetMetadata = NetworkMetadata(
+        networkId: config.networkId,
+        genesisRoot: hash_tree_root_final(initialState),
+        bootstrapNodes: @[bootstrapAddress],
+        numShards: SHARD_COUNT,
+        slotDuration: SECONDS_PER_SLOT,
+        slotsPerEpoch: SLOTS_PER_EPOCH,
+        totalValidators: config.numValidators,
+        firstUserValidator: config.firstUserValidator)
+
+    Json.saveFile(config.outputNetwork.string, testnetMetadata, pretty = true)
+    echo "Wrote ", config.outputNetwork.string
+
+  of updateTestnet:
+    discard waitFor updateTestnetMetadata(config)
 
   of importValidator:
     template reportFailureFor(keyExpr) =
@@ -693,18 +738,17 @@ when isMainModule:
         reportFailureFor config.keyFile.get.string
 
     if downloadKey:
-      if config.network in {testnet0, testnet1}:
+      if config.network in ["testnet0", "testnet1"]:
         try:
-          (waitFor obtainTestnetKey(config)).saveValidatorKey(config)
+          let key = waitFor obtainTestnetKey(config)
+          saveValidatorKey(key, config)
+          info "Imported validator", pubkey = key.pubKey
         except:
           error "Failed to download key", err = getCurrentExceptionMsg()
           quit 1
       else:
         echo "Validator keys can be downloaded only for testnets"
         quit 1
-
-  of updateTestnet:
-    waitFor doUpdateTestnet(config)
 
   of noCommand:
     waitFor synchronizeClock()

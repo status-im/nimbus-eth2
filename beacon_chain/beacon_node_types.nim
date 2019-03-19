@@ -1,7 +1,7 @@
 import # Beacon Node
   eth/[p2p, keys],
   spec/digest,
-  beacon_chain_db, conf, mainchain_monitor
+  beacon_chain_db, conf, mainchain_monitor, eth2_network
 
 import # Attestation Pool
   spec/[datatypes, crypto, digest],
@@ -25,6 +25,7 @@ type
   # #############################################
   BeaconNode* = ref object
     network*: EthereumNode
+    networkMetadata*: NetworkMetadata
     db*: BeaconChainDB
     config*: BeaconNodeConf
     keys*: KeyPair
@@ -230,3 +231,17 @@ type
 
   ValidatorPool* = object
     validators*: Table[ValidatorPubKey, AttachedValidator]
+
+  NetworkMetadata* = object
+    networkId*: uint64
+    genesisRoot*: Eth2Digest
+    bootstrapNodes*: seq[BootstrapAddr]
+    numShards*: uint64
+    slotDuration*: uint64
+    slotsPerEpoch*: uint64
+    totalValidators*: uint64
+    firstUserValidator*: uint64
+
+proc userValidatorsRange*(d: NetworkMetadata): HSlice[int, int] =
+  d.firstUserValidator.int ..< d.totalValidators.int
+
