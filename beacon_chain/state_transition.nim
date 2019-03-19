@@ -178,7 +178,7 @@ proc processProposerSlashings(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#verify_slashable_attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#verify_slashable_attestation
 func verify_slashable_attestation(state: BeaconState, slashable_attestation: SlashableAttestation): bool =
   # Verify validity of ``slashable_attestation`` fields.
 
