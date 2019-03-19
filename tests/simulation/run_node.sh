@@ -14,6 +14,7 @@ DATA_DIR=$SIMULATION_DIR/node-${1}
 
 V_PREFIX="$VALIDATORS_DIR/v$(printf '%06d' ${1})"
 PORT=$(printf '5%04d' ${1})
+MYIP=$(curl -s ifconfig.me)
 
 $BEACON_NODE_BIN \
   --network:ephemeralNetwork \
@@ -30,5 +31,6 @@ $BEACON_NODE_BIN \
   --validator:${V_PREFIX}9.privkey \
   --tcpPort:$PORT \
   --udpPort:$PORT \
+  --nat:extip:$MYIP \
   --stateSnapshot:$SNAPSHOT_FILE \
   $BOOTSTRAP_NODES_FLAG
