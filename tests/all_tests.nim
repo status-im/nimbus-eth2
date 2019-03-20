@@ -9,6 +9,7 @@ import
   ./test_attestation_pool,
   ./test_beacon_chain_db,
   ./test_beacon_node,
+  ./test_bitfield,
   ./test_beaconstate,
   ./test_block_pool,
   ./test_helpers,

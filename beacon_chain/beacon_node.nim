@@ -1,7 +1,8 @@
 import
   std_shims/[os_shims, objects], net, sequtils, options, tables, osproc, random,
   chronos, chronicles, confutils, serialization/errors,
-  spec/[datatypes, digest, crypto, beaconstate, helpers, validator], conf, time,
+  spec/[bitfield, datatypes, digest, crypto, beaconstate, helpers, validator],
+  conf, time,
   state_transition, fork_choice, ssz, beacon_chain_db, validator_pool, extras,
   attestation_pool, block_pool, eth2_network, beacon_node_types,
   mainchain_monitor, trusted_state_snapshots, version,
@@ -344,15 +345,15 @@ proc makeAttestation(node: BeaconNode,
     # Careful - after await. node.state (etc) might have changed in async race
     validatorSignature = await validator.signAttestation(attestationData)
 
-  var aggregationBitfield = repeat(0'u8, ceil_div8(committeeLen))
-  bitSet(aggregationBitfield, indexInCommittee)
+  var aggregationBitfield = BitField.init(committeeLen)
+  set_bitfield_bit(aggregationBitfield, indexInCommittee)
 
   var attestation = Attestation(
     data: attestationData,
     aggregate_signature: validatorSignature,
     aggregation_bitfield: aggregationBitfield,
     # Stub in phase0
-    custody_bitfield: newSeq[byte](aggregationBitfield.len)
+    custody_bitfield: BitField.init(committeeLen)
   )
 
   # TODO what are we waiting for here? broadcast should never block, and never
@@ -360,11 +361,9 @@ proc makeAttestation(node: BeaconNode,
   await node.network.broadcast(topicAttestations, attestation)
 
   info "Attestation sent",
-    slot = humaneSlotNum(attestationData.slot),
-    shard = attestationData.shard,
+    attestationData = shortLog(attestationData),
     validator = shortValidatorKey(node, validator.idx),
-    signature = shortLog(validatorSignature),
-    beaconBlockRoot = shortLog(attestationData.beacon_block_root)
+    signature = shortLog(validatorSignature)
 
 proc proposeBlock(node: BeaconNode,
                   validator: AttachedValidator,
@@ -434,9 +433,8 @@ proc proposeBlock(node: BeaconNode,
   await node.network.broadcast(topicBeaconBlocks, newBlock)
 
   info "Block proposed",
-    slot = humaneSlotNum(slot),
-    stateRoot = shortLog(newBlock.state_root),
-    parentRoot = shortLog(newBlock.previous_block_root),
+    blck = shortLog(newBlock),
+    blockRoot = shortLog(proposal.block_root),
     validator = shortValidatorKey(node, validator.idx),
     idx = validator.idx
 
@@ -631,11 +629,7 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
   # yet - in particular, we haven't verified that it belongs to particular chain
   # we're on, or that it follows the rules of the protocol
   debug "Attestation received",
-    slot = humaneSlotNum(attestation.data.slot),
-    shard = attestation.data.shard,
-    beaconBlockRoot = shortLog(attestation.data.beacon_block_root),
-    sourceEpoch = humaneEpochNum(attestation.data.source_epoch),
-    justifiedBlockRoot = shortLog(attestation.data.justified_block_root),
+    attestationData = shortLog(attestation.data),
     signature = shortLog(attestation.aggregate_signature)
 
   node.attestationPool.add(node.state.data, attestation)
@@ -645,17 +639,8 @@ proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
   # don't know if it's part of the chain we're currently building.
   let blockRoot = hash_tree_root_final(blck)
   debug "Block received",
-    blockRoot = shortLog(blockRoot),
-    slot = humaneSlotNum(blck.slot),
-    stateRoot = shortLog(blck.state_root),
-    parentRoot = shortLog(blck.previous_block_root),
-    signature = shortLog(blck.signature),
-    proposer_slashings = blck.body.proposer_slashings.len,
-    attester_slashings = blck.body.attester_slashings.len,
-    attestations = blck.body.attestations.len,
-    deposits = blck.body.deposits.len,
-    voluntary_exits = blck.body.voluntary_exits.len,
-    transfers = blck.body.transfers.len
+    blck = shortLog(blck),
+    blockRoot = shortLog(blockRoot)
 
   if not node.blockPool.add(node.state, blockRoot, blck):
     # TODO the fact that add returns a bool that causes the parent block to be

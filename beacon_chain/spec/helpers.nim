@@ -9,31 +9,6 @@
 
 import ./datatypes, ./digest, sequtils, math
 
-# TODO spec candidate? there's bits in nim-ranges but that one has some API
-#      issues regarding bit endianess that need resolving..
-func bitSet*(bitfield: var openArray[byte], index: int) =
-  bitfield[index div 8] = bitfield[index div 8] or 1'u8 shl (7 - (index mod 8))
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_bitfield_bit
-func get_bitfield_bit*(bitfield: openarray[byte], i: int): byte =
-  # Extract the bit in ``bitfield`` at position ``i``.
-  doAssert 0 <= i div 8, "i: " & $i & " i div 8: " & $(i div 8)
-  doAssert i div 8 < bitfield.len, "i: " & $i & " i div 8: " & $(i div 8)
-  (bitfield[i div 8] shr (7 - (i mod 8))) mod 2
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#verify_bitfield
-func verify_bitfield*(bitfield: openarray[byte], committee_size: int): bool =
-  # Verify ``bitfield`` against the ``committee_size``.
-  if len(bitfield) != (committee_size + 7) div 8:
-    return false
-
-  # Check `bitfield` is padded with zero bits only
-  for i in committee_size ..< (len(bitfield) * 8):
-    if get_bitfield_bit(bitfield, i) == 0b1:
-      return false
-
-  true
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#split
 func split*[T](lst: openArray[T], N: Positive): seq[seq[T]] =
   ## split lst in N pieces, with each piece having `len(lst) div N` or
@@ -53,8 +28,6 @@ func get_new_recent_block_roots*(old_block_roots: seq[Eth2Digest],
   result = old_block_roots[d .. ^1]
   for _ in 0 ..< min(d, old_block_roots.len):
     result.add parent_hash
-
-func ceil_div8*(v: int): int = (v + 7) div 8 # TODO use a proper bitarray!
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =

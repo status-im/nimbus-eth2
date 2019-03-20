@@ -33,7 +33,7 @@
 import
   algorithm, collections/sets, chronicles, math, options, sequtils, tables,
   ./extras, ./ssz,
-  ./spec/[beaconstate, crypto, datatypes, digest, helpers, validator]
+  ./spec/[beaconstate, bitfield, crypto, datatypes, digest, helpers, validator]
 
 func flatten[T](v: openArray[seq[T]]): seq[T] =
   # TODO not in nim - doh.
@@ -182,7 +182,7 @@ proc processProposerSlashings(
 func verify_slashable_attestation(state: BeaconState, slashable_attestation: SlashableAttestation): bool =
   # Verify validity of ``slashable_attestation`` fields.
 
-  if anyIt(slashable_attestation.custody_bitfield, it != 0):   # [TO BE REMOVED IN PHASE 1]
+  if anyIt(slashable_attestation.custody_bitfield.bits, it != 0):   # [TO BE REMOVED IN PHASE 1]
     return false
 
   if len(slashable_attestation.validator_indices) == 0:
@@ -192,7 +192,8 @@ func verify_slashable_attestation(state: BeaconState, slashable_attestation: Sla
     if slashable_attestation.validator_indices[i] >= slashable_attestation.validator_indices[i + 1]:
       return false
 
-  if not verify_bitfield(slashable_attestation.custody_bitfield, len(slashable_attestation.validator_indices)):
+  if not verify_bitfield(slashable_attestation.custody_bitfield,
+      len(slashable_attestation.validator_indices)):
     return false
 
   if len(slashable_attestation.validator_indices) > MAX_INDICES_PER_SLASHABLE_VOTE:
@@ -203,7 +204,7 @@ func verify_slashable_attestation(state: BeaconState, slashable_attestation: Sla
     custody_bit_1_indices: seq[uint64] = @[]
 
   for i, validator_index in slashable_attestation.validator_indices:
-    if get_bitfield_bit(slashable_attestation.custody_bitfield, i) == 0b0:
+    if not get_bitfield_bit(slashable_attestation.custody_bitfield, i):
       custody_bit_0_indices.add(validator_index)
     else:
       custody_bit_1_indices.add(validator_index)

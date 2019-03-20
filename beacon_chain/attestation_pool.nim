@@ -1,8 +1,8 @@
 import
   deques, options, sequtils, tables,
   chronicles,
-  ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator], extras,
-  ./beacon_chain_db, ./ssz, ./block_pool,
+  ./spec/[beaconstate, bitfield, datatypes, crypto, digest, helpers, validator],
+  ./extras, ./beacon_chain_db, ./ssz, ./block_pool,
   beacon_node_types
 
 proc init*(T: type AttestationPool, blockPool: BlockPool): T =
@@ -13,17 +13,6 @@ proc init*(T: type AttestationPool, blockPool: BlockPool): T =
     latestAttestations: initTable[ValidatorPubKey, BlockRef]()
   )
 
-proc overlaps(a, b: seq[byte]): bool =
-  for i in 0..<a.len:
-    if (a[i] and b[i]) > 0'u8:
-      return true
-
-proc combineBitfield(tgt: var seq[byte], src: seq[byte]) =
-  for i in 0 ..< tgt.len:
-    # TODO:
-    # when BLS signatures are combined, we must ensure that
-    # the same participant key is not included on both sides
-    tgt[i] = tgt[i] or src[i]
 
 proc combine*(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
   # Combine the signature and participation bitfield, with the assumption that
@@ -34,7 +23,7 @@ proc combine*(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
   # TODO:
   # when BLS signatures are combined, we must ensure that
   # the same participant key is not included on both sides
-  tgt.aggregation_bitfield.combineBitfield(src.aggregation_bitfield)
+  tgt.aggregation_bitfield.combine(src.aggregation_bitfield)
 
   if skipValidation notin flags:
     tgt.aggregate_signature.combine(src.aggregate_signature)
@@ -70,11 +59,11 @@ proc validate(
       finalizedEpoch = humaneEpochNum(state.finalized_epoch)
     return
 
-  if not allIt(attestation.custody_bitfield, it == 0):
+  if not allIt(attestation.custody_bitfield.bits, it == 0):
     notice "Invalid custody bitfield for phase 0"
     return false
 
-  if not anyIt(attestation.aggregation_bitfield, it != 0):
+  if not anyIt(attestation.aggregation_bitfield.bits, it != 0):
     notice "Empty aggregation bitfield"
     return false
 
@@ -82,21 +71,6 @@ proc validate(
     filterIt(get_crosslink_committees_at_slot(state, attestation.data.slot),
              it.shard == attestation.data.shard),
     it.committee)[0]
-
-  # Extra checks not in specs
-  # https://github.com/status-im/nim-beacon-chain/pull/105#issuecomment-462432544
-  if attestation.aggregation_bitfield.len != (crosslink_committee.len + 7) div 8:
-    notice "Invalid aggregation bitfield length",
-      attestationLen = attestation.aggregation_bitfield.len,
-      committeeLen = crosslink_committee.len
-    return false
-
-  if attestation.custody_bitfield.len != (crosslink_committee.len + 7) div 8:
-    notice "Invalid custody bitfield length",
-      attestationLen = attestation.aggregation_bitfield.len,
-      committeeLen = crosslink_committee.len
-    return false
-  # End extra checks
 
   ## the rest; turns into expensive NOP until then.
   if skipValidation notin flags:
@@ -236,12 +210,7 @@ proc add*(pool: var AttestationPool,
         pool.updateLatestVotes(state, attestationSlot, participants, a.blck)
 
         info "Attestation resolved",
-          slot = humaneSlotNum(attestation.data.slot),
-          shard = attestation.data.shard,
-          beaconBlockRoot = shortLog(attestation.data.beacon_block_root),
-          sourceEpoch = humaneEpochNum(attestation.data.source_epoch),
-          justifiedBlockRoot = shortLog(attestation.data.justified_block_root),
-          signature = shortLog(attestation.aggregate_signature),
+          attestationData = shortLog(attestation.data),
           validations = a.validations.len() # TODO popcount of union
 
         found = true
@@ -259,12 +228,7 @@ proc add*(pool: var AttestationPool,
       pool.updateLatestVotes(state, attestationSlot, participants, blck)
 
       info "Attestation resolved",
-        slot = humaneSlotNum(attestation.data.slot),
-        shard = attestation.data.shard,
-        beaconBlockRoot = shortLog(attestation.data.beacon_block_root),
-        sourceEpoch = humaneEpochNum(attestation.data.source_epoch),
-        justifiedBlockRoot = shortLog(attestation.data.justified_block_root),
-        signature = shortLog(attestation.aggregate_signature),
+        attestationData = shortLog(attestation.data),
         validations = 1
 
     else:
@@ -318,9 +282,9 @@ proc getAttestationsForBlock*(pool: AttestationPool,
     for v in a.validations[1..^1]:
       if not attestation.aggregation_bitfield.overlaps(
           v.aggregation_bitfield):
-        attestation.aggregation_bitfield.combineBitfield(
+        attestation.aggregation_bitfield.combine(
           v.aggregation_bitfield)
-        attestation.custody_bitfield.combineBitfield(v.custody_bitfield)
+        attestation.custody_bitfield.combine(v.custody_bitfield)
         attestation.aggregate_signature.combine(v.aggregate_signature)
 
     result.add(attestation)

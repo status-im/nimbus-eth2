@@ -4,10 +4,6 @@ set -eux
 
 . $(dirname $0)/vars.sh
 
-if [[ "$1" == "0" ]]; then
-  BOOTSTRAP_NODES_FLAG=""
-fi
-
 DATA_DIR=$SIMULATION_DIR/node-${1}
 
 V_PREFIX="$VALIDATORS_DIR/v$(printf '%06d' ${1})"
@@ -35,4 +31,3 @@ $BEACON_NODE_BIN \
   --udpPort:$PORT \
   $NAT_FLAG \
   --stateSnapshot:$SNAPSHOT_FILE
-

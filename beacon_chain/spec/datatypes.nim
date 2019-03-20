@@ -20,7 +20,7 @@
 import
   hashes, math,
   eth/[common, rlp],
-  ./crypto, ./digest
+  ./bitfield, ./crypto, ./digest
 
 # TODO Data types:
 # Presently, we're reusing the data types from the serialization (uint64) in the
@@ -207,7 +207,7 @@ type
     data*: AttestationData ## \
     ## Attestation data
 
-    custody_bitfield*: seq[byte] ##\
+    custody_bitfield*: BitField ##\
     ## Custody bitfield
 
     aggregate_signature*: ValidatorSig ## \
@@ -215,13 +215,13 @@ type
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attestation
   Attestation* = object
-    aggregation_bitfield*: seq[byte] ##\
+    aggregation_bitfield*: BitField ##\
     ## Attester aggregation bitfield
 
     data*: AttestationData ##\
     ## Attestation data
 
-    custody_bitfield*: seq[byte] ##\
+    custody_bitfield*: BitField ##\
     ## Custody bitfield
 
     aggregate_signature*: ValidatorSig ##\
@@ -471,10 +471,10 @@ type
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#pendingattestation
   PendingAttestation* = object
-    aggregation_bitfield*: seq[byte]          # Attester participation bitfield
-    data*: AttestationData                    # Attestation data
-    custody_bitfield*: seq[byte]              # Custody bitfield
-    inclusion_slot*: Slot                     # Inclusion slot
+    aggregation_bitfield*: BitField           ## Attester participation bitfield
+    data*: AttestationData                    ## Attestation data
+    custody_bitfield*: BitField               ## Custody bitfield
+    inclusion_slot*: Slot                     ## Inclusion slot
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#historicalbatch
   HistoricalBatch* = object
@@ -617,6 +617,21 @@ func shortLog*(v: BeaconBlock): tuple[
     v.body.deposits.len(), v.body.voluntary_exits.len(), v.body.transfers.len(),
     shortLog(v.signature)
   )
+
+func shortLog*(v: AttestationData): tuple[
+      slot: uint64, beacon_block_root: string, source_epoch: uint64,
+      target_root: string, epoch_boundary_root: string,
+      justified_block_root: string, shard: uint64,
+      previous_crosslink_epoch: uint64, previous_crosslink_data_root: string,
+      crosslink_data_root: string
+    ] = (
+      humaneSlotNum(v.slot), shortLog(v.beacon_block_root),
+      humaneEpochNum(v.source_epoch), shortLog(v.target_root),
+      shortLog(v.epoch_boundary_root), shortLog(v.justified_block_root),
+      v.shard, humaneEpochNum(v.previous_crosslink.epoch),
+      shortLog(v.previous_crosslink.crosslink_data_root),
+      shortLog(v.crosslink_data_root)
+    )
 
 import nimcrypto, json_serialization
 export json_serialization

@@ -9,7 +9,7 @@ import
   options, sequtils,
   eth/trie/[db],
   ../beacon_chain/[beacon_chain_db, extras, ssz, state_transition, validator_pool],
-  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator]
+  ../beacon_chain/spec/[beaconstate, bitfield, crypto, datatypes, digest, helpers, validator]
 
 func makeFakeValidatorPrivKey*(i: int): ValidatorPrivKey =
   var i = i + 1 # 0 does not work, as private key...
@@ -176,8 +176,8 @@ proc makeAttestation*(
   doAssert sac_index != -1, "find_shard_committe should guarantee this"
 
   var
-    aggregation_bitfield = repeat(0'u8, ceil_div8(sac.committee.len))
-  bitSet(aggregation_bitfield, sac_index)
+    aggregation_bitfield = BitField.init(sac.committee.len)
+  set_bitfield_bit(aggregation_bitfield, sac_index)
 
   let
     msg = hash_tree_root_final(
@@ -197,7 +197,7 @@ proc makeAttestation*(
     data: data,
     aggregation_bitfield: aggregation_bitfield,
     aggregate_signature: sig,
-    custody_bitfield: repeat(0'u8, aggregation_bitfield.len)
+    custody_bitfield: BitField.init(sac.committee.len)
   )
 
 proc makeTestDB*(tailState: BeaconState, tailBlock: BeaconBlock): BeaconChainDB =

@@ -11,7 +11,7 @@
 import
   endians, typetraits, options, algorithm,
   faststreams/input_stream, serialization, eth/common, nimcrypto/keccak,
-  ./spec/[crypto, datatypes, digest]
+  ./spec/[bitfield, crypto, datatypes, digest]
 
 # ################### Helper functions ###################################
 
@@ -92,6 +92,9 @@ func sszLen(v: seq | array): int =
   result = 4 # Length
   for i in v:
     result += sszLen(i)
+
+func sszLen(v: BitField): int =
+  sszLen(v.bits)
 
 # fromBytesSSZ copies the wire representation to a Nim variable,
 # assuming there's enough data in the buffer
@@ -176,6 +179,9 @@ proc writeValue*(w: var SszWriter, obj: auto) =
       # https://github.com/nim-lang/Nim/issues/9984
       for elem in obj:
         w.writeValue elem
+    elif obj is BitField:
+      for elem in obj.bits:
+        w.writeValue elem
     else:
       obj.serializeFields(fieldName, field):
         # for research/serialized_sizes, remove when appropriate
@@ -226,6 +232,11 @@ proc readValue*(r: var SszReader, result: var auto) =
       # cannot pre-allocate item list generically
       while r.stream[].pos < endPos:
         result.add r.readValue(ElemType)
+
+    elif T is BitField:
+      type ElemType = type(result.bits[0])
+      while r.stream[].pos < endPos:
+        result.bits.add r.readValue(ElemType)
 
     elif T is array:
       type ElemType = type(result[0])
@@ -307,6 +318,10 @@ func hash_tree_root*(x: openArray[byte]): array[32, byte] =
 func hash_tree_root*[T: seq|array](x: T): array[32, byte] =
   ## Sequences are tree-hashed
   merkleHash(x)
+
+func hash_tree_root*[T: BitField](x: T): array[32, byte] =
+  ## Sequences are tree-hashed
+  merkleHash(x.bits)
 
 func hash_tree_root*[T: object|tuple](x: T): array[32, byte] =
   ## Containers have their fields recursively hashed, concatenated and hashed

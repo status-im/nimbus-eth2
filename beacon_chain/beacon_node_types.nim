@@ -1,10 +1,10 @@
 import # Beacon Node
   eth/[p2p, keys],
-  spec/digest,
+  spec/[bitfield, digest],
   beacon_chain_db, conf, mainchain_monitor, eth2_network
 
 import # Attestation Pool
-  spec/[datatypes, crypto, digest],
+  spec/[bitfield, datatypes, crypto, digest],
   deques, tables
   # block_pool
 
@@ -47,8 +47,8 @@ type
   #
   # #############################################
   Validation* = object
-    aggregation_bitfield*: seq[byte]
-    custody_bitfield*: seq[byte] ##\
+    aggregation_bitfield*: BitField
+    custody_bitfield*: BitField ##\
     ## Phase 1 - the handling of this field is probably broken..
     aggregate_signature*: ValidatorSig
 
