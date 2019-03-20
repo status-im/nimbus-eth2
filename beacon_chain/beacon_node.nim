@@ -1,6 +1,6 @@
 import
   std_shims/[os_shims, objects], net, sequtils, options, tables, osproc, random,
-  chronos, chronicles, confutils,
+  chronos, chronicles, confutils, serialization/errors,
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator], conf, time,
   state_transition, fork_choice, ssz, beacon_chain_db, validator_pool, extras,
   attestation_pool, block_pool, eth2_network, beacon_node_types,
@@ -41,7 +41,7 @@ template `//`(url, fragment: string): string =
   url & "/" & fragment
 
 proc downloadFile(url: string): Future[string] {.async.} =
-  let (fileContents, errorCode) = execCmdEx("curl --fail " & url)
+  let (fileContents, errorCode) = execCmdEx("curl --fail " & url, options = {poUsePath})
   if errorCode != 0:
     raise newException(IOError, "Failed to download URL: " & url)
   return fileContents
@@ -50,11 +50,11 @@ proc updateTestnetMetadata(conf: BeaconNodeConf): Future[NetworkMetadata] {.asyn
   let latestMetadata = await downloadFile(testnetsBaseUrl // $conf.network //
                                           netBackendName & "-" & networkMetadataFile)
 
+  result = Json.decode(latestMetadata, NetworkMetadata)
+
   let localMetadataFile = conf.dataDir / networkMetadataFile
   if fileExists(localMetadataFile) and readFile(localMetadataFile).string == latestMetadata:
     return
-
-  result = Json.decode(latestMetadata, NetworkMetadata)
 
   info "New testnet genesis data received. Starting with a fresh database."
   removeDir conf.databaseDir
@@ -107,7 +107,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   checkCompatibility result.networkMetadata.slotsPerEpoch  , SLOTS_PER_EPOCH
 
   if metadataErrorMsg.len > 0:
-    fail "To connect to the ", conf.network, " network, please compile with ", metadataErrorMsg
+    fail "To connect to the ", conf.network, " network, please compile with", metadataErrorMsg
 
   result.attachedValidators = ValidatorPool.init
   init result.mainchainMonitor, "", Port(0) # TODO: specify geth address and port
@@ -129,21 +129,33 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
       error "Nimbus database not initialized. Please specify the initial state snapshot file."
       quit 1
 
-    let
-      tailState = Json.loadFile(snapshotFile, BeaconState)
-      tailBlock = get_initial_beacon_block(tailState)
-      blockRoot = hash_tree_root_final(tailBlock)
+    try:
+      info "Importing snapshot file", path = snapshotFile
 
-    notice "Creating new database from snapshot",
-      blockRoot = shortLog(blockRoot),
-      stateRoot = shortLog(tailBlock.state_root),
-      fork = tailState.fork,
-      validators = tailState.validator_registry.len()
+      let
+        tailState = Json.loadFile(snapshotFile, BeaconState)
+        tailBlock = get_initial_beacon_block(tailState)
+        blockRoot = hash_tree_root_final(tailBlock)
 
-    result.db.putState(tailState)
-    result.db.putBlock(tailBlock)
-    result.db.putTailBlock(blockRoot)
-    result.db.putHeadBlock(blockRoot)
+      notice "Creating new database from snapshot",
+        blockRoot = shortLog(blockRoot),
+        stateRoot = shortLog(tailBlock.state_root),
+        fork = tailState.fork,
+        validators = tailState.validator_registry.len()
+
+      result.db.putState(tailState)
+      result.db.putBlock(tailBlock)
+      result.db.putTailBlock(blockRoot)
+      result.db.putHeadBlock(blockRoot)
+
+    except SerializationError as err:
+      stderr.write "Failed to import ", snapshotFile, "\n"
+      stderr.write err.formatMsg(snapshotFile), "\n"
+      quit 1
+    except:
+      stderr.write "Failed to initialize database\n"
+      stderr.write getCurrentExceptionMsg(), "\n"
+      quit 1
 
   result.blockPool = BlockPool.init(result.db)
   result.attestationPool = AttestationPool.init(result.blockPool)
