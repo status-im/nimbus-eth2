@@ -66,8 +66,6 @@ COMMANDS=()
 LAST_NODE=$(( $NUM_NODES - 1 ))
 
 for i in $(seq 0 $LAST_NODE); do
-  BOOTSTRAP_NODES_FLAG="--bootstrapNodesFile:$MASTER_NODE_ADDRESS_FILE"
-
   if [[ "$i" == "0" ]]; then
     sleep 0
   elif [ "$USE_MULTITAIL" = "no" ]; then

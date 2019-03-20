@@ -8,7 +8,7 @@
 import
   chronicles, math, options, sequtils,
   ../extras, ../ssz,
-  ./crypto, ./datatypes, ./digest, ./helpers, ./validator
+  ./bitfield, ./crypto, ./datatypes, ./digest, ./helpers, ./validator
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_effective_balance
 func get_effective_balance*(state: BeaconState, index: ValidatorIndex): Gwei =
@@ -336,7 +336,7 @@ func get_block_root*(state: BeaconState,
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_attestation_participants
 func get_attestation_participants*(state: BeaconState,
                                    attestation_data: AttestationData,
-                                   bitfield: seq[byte]): seq[ValidatorIndex] =
+                                   bitfield: BitField): seq[ValidatorIndex] =
   ## Return the participant indices at for the ``attestation_data`` and
   ## ``bitfield``.
   ## Attestation participants in the attestation data are called out in a
@@ -347,7 +347,6 @@ func get_attestation_participants*(state: BeaconState,
   ## Return the participant indices at for the ``attestation_data`` and ``bitfield``.
   ##
   # TODO Linear search through shard list? borderline ok, it's a small list
-  # TODO bitfield type needed, once bit order settles down
   # TODO iterator candidate
 
   ## Return the participant indices at for the ``attestation_data`` and
@@ -369,7 +368,7 @@ func get_attestation_participants*(state: BeaconState,
   result = @[]
   for i, validator_index in crosslink_committee:
     let aggregation_bit = get_bitfield_bit(bitfield, i)
-    if aggregation_bit == 1:
+    if aggregation_bit:
       result.add(validator_index)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#ejections
@@ -504,33 +503,18 @@ proc checkAttestation*(
       crosslink_data_root = attestation.data.crosslink_data_root)
     return
 
-  doAssert allIt(attestation.custody_bitfield, it == 0) #TO BE REMOVED IN PHASE 1
-  doAssert anyIt(attestation.aggregation_bitfield, it != 0)
+  doAssert allIt(attestation.custody_bitfield.bits, it == 0) #TO BE REMOVED IN PHASE 1
+  doAssert anyIt(attestation.aggregation_bitfield.bits, it != 0)
 
   let crosslink_committee = mapIt(
     filterIt(get_crosslink_committees_at_slot(state, attestation_data_slot),
              it.shard == attestation.data.shard),
     it.committee)[0]
 
-  # Extra checks not in specs
-  # https://github.com/status-im/nim-beacon-chain/pull/105#issuecomment-462432544
-  doAssert attestation.aggregation_bitfield.len == (
-            crosslink_committee.len + 7) div 8, (
-              "Error: got " & $attestation.aggregation_bitfield.len &
-              " but expected " & $((crosslink_committee.len + 7) div 8)
-            )
-
-  doAssert attestation.custody_bitfield.len == (
-            crosslink_committee.len + 7) div 8, (
-              "Error: got " & $attestation.custody_bitfield.len &
-              " but expected " & $((crosslink_committee.len + 7) div 8)
-            )
-  # End extra checks
-
   doAssert allIt(0 ..< len(crosslink_committee),
-    if get_bitfield_bit(attestation.aggregation_bitfield, it) == 0b0:
+    if not get_bitfield_bit(attestation.aggregation_bitfield, it):
       # Should always be true in phase 0, because of above assertion
-      get_bitfield_bit(attestation.custody_bitfield, it) == 0b0
+      not get_bitfield_bit(attestation.custody_bitfield, it)
     else:
       true)
 

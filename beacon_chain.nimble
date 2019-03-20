@@ -31,11 +31,11 @@ requires "nim >= 0.19.0",
 
 ### Helper functions
 proc test(name: string, defaultLang = "c") =
-  # TODO, don't forget to change defaultLang to `cpp` if the project requires C++
   if not dirExists "build":
     mkDir "build"
   --run
   switch("out", ("./build/" & name))
+  switch("opt", "speed")
   setCommand defaultLang, "tests/" & name & ".nim"
 
 ### tasks
