@@ -29,7 +29,9 @@ regenTestnetFiles() {
       --outputDir="$NETWORK_DIR"
   fi
 
-  nim c -r $NIM_FLAGS beacon_chain/beacon_node --dataDir=$DATA_DIR/node-0 \
+  nim c -r $NIM_FLAGS beacon_chain/beacon_node \
+    --network=$NETWORK_NAME \
+    --dataDir=$DATA_DIR/node-0 \
     createTestnet \
     --networkId=$NETWORK_ID \
     --validatorsDir=$NETWORK_DIR \
