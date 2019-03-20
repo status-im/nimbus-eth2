@@ -48,7 +48,7 @@ if [ ! -f $SNAPSHOT_FILE ]; then
     --outputGenesis=$SNAPSHOT_FILE \
     --outputNetwork=$NETWORK_METADATA_FILE \
     --bootstrapAddress=127.0.0.1 \
-    --bootstrapPort=50001 \
+    --bootstrapPort=50000 \
     --genesisOffset=5 # Delay in seconds
 fi
 
