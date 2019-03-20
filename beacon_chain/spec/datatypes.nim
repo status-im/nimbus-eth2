@@ -51,7 +51,7 @@ const
   ## TODO: improve this scheme once we can negotiate versions in protocol
 
   # Misc
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#misc
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#misc
   SHARD_COUNT* {.intdefine.} = 1024 ##\
   ## Number of shards supported by the network - validators will jump around
   ## between these shards and provide attestations to their state.
@@ -71,8 +71,6 @@ const
   MAX_BALANCE_CHURN_QUOTIENT* = 2^5 ##\
   ## At most `1/MAX_BALANCE_CHURN_QUOTIENT` of the validators can change during
   ## each validator registry change.
-
-  BEACON_CHAIN_SHARD_NUMBER* = not 0'u64 # 2^64 - 1 in spec
 
   MAX_INDICES_PER_SLASHABLE_VOTE* = 2^12 ##\
   ## votes
@@ -237,6 +235,8 @@ type
 
     # FFG vote
     source_epoch*: Epoch
+    target_root*: Eth2Digest
+
     ## TODO epoch_boundary_root and justified_block_root are creatures of new
     ## epoch processing and don't function quite as straightforwardly as just
     ## renamings, so do that as part of epoch processing change.
@@ -369,9 +369,6 @@ type
     slot*: uint64 ##\
     ## Slot number
 
-    shard*: uint64 ##\
-    ## Shard number (`BEACON_CHAIN_SHARD_NUMBER` for beacon chain)
-
     block_root*: Eth2Digest ##\
     ## Block root
 
@@ -478,6 +475,14 @@ type
     data*: AttestationData                    # Attestation data
     custody_bitfield*: seq[byte]              # Custody bitfield
     inclusion_slot*: Slot                     # Inclusion slot
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#historicalbatch
+  HistoricalBatch* = object
+    block_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
+    ## Block roots
+
+    state_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
+    ## State roots
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#fork
   Fork* = object

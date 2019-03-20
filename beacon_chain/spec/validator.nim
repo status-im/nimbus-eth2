@@ -127,7 +127,7 @@ func get_previous_epoch*(state: BeaconState): Epoch =
   ## Return the previous epoch of the given ``state``.
   max(get_current_epoch(state) - 1, GENESIS_EPOCH)
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_crosslink_committees_at_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_crosslink_committees_at_slot
 func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64,
                                        registry_change: bool = false):
     seq[CrosslinkCommittee] =
@@ -140,6 +140,8 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64,
     # TODO: the + 1 here works around a bug, remove when upgrading to
     #       some more recent version:
     # https://github.com/ethereum/eth2.0-specs/pull/732
+    # TODO remove +1 along with rest of epoch reorganization, then
+    # remove this 0.4.0 tag.
     epoch = slot_to_epoch(slot + 1)
     current_epoch = get_current_epoch(state)
     previous_epoch = get_previous_epoch(state)
@@ -174,21 +176,29 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64,
       doAssert epoch == next_epoch
 
       let
-        current_committees_per_epoch = get_current_epoch_committee_count(state)
-        committees_per_epoch = get_next_epoch_committee_count(state)
         shuffling_epoch = next_epoch
 
-        epochs_since_last_registry_update = current_epoch - state.validator_registry_update_epoch
+        epochs_since_last_registry_update =
+          current_epoch - state.validator_registry_update_epoch
         condition = epochs_since_last_registry_update > 1'u64 and
                     is_power_of_2(epochs_since_last_registry_update)
-        seed = if registry_change or condition:
-                 generate_seed(state, next_epoch)
-               else:
-                 state.current_shuffling_seed
+        use_next = registry_change or condition
+        committees_per_epoch =
+          if use_next:
+            get_next_epoch_committee_count(state)
+          else:
+            get_current_epoch_committee_count(state)
+        seed =
+          if use_next:
+            generate_seed(state, next_epoch)
+          else:
+            state.current_shuffling_seed
+        shuffling_epoch =
+          if use_next: next_epoch else: state.current_shuffling_epoch
         shuffling_start_shard =
           if registry_change:
             (state.current_shuffling_start_shard +
-             current_committees_per_epoch) mod SHARD_COUNT
+             get_current_epoch_committee_count(state)) mod SHARD_COUNT
           else:
             state.current_shuffling_start_shard
       (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard)

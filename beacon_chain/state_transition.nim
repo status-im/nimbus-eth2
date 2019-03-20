@@ -50,7 +50,6 @@ func verifyBlockSignature(state: BeaconState, blck: BeaconBlock): bool =
       state.validator_registry[get_beacon_proposer_index(state, state.slot)]
     proposal = Proposal(
       slot: blck.slot.uint64,
-      shard: BEACON_CHAIN_SHARD_NUMBER,
       block_root: Eth2Digest(data: signed_root(blck)),
       signature: blck.signature)
   bls_verify(
@@ -179,7 +178,7 @@ proc processProposerSlashings(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#verify_slashable_attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#verify_slashable_attestation
 func verify_slashable_attestation(state: BeaconState, slashable_attestation: SlashableAttestation): bool =
   # Verify validity of ``slashable_attestation`` fields.
 
@@ -228,8 +227,10 @@ func verify_slashable_attestation(state: BeaconState, slashable_attestation: Sla
     ),
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#attester-slashings-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attester-slashings
 proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
+  ## Process ``AttesterSlashing`` transaction.
+  ## Note that this function mutates ``state``.
   if len(blck.body.attester_slashings) > MAX_ATTESTER_SLASHINGS:
     notice "CaspSlash: too many!"
     return false
@@ -239,6 +240,7 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
       slashable_attestation_1 = attester_slashing.slashable_attestation_1
       slashable_attestation_2 = attester_slashing.slashable_attestation_2
 
+    # Check that the attestations are conflicting
     if not (slashable_attestation_1.data != slashable_attestation_2.data):
       notice "CaspSlash: invalid data"
       return false
@@ -260,15 +262,15 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
     let
       indices2 = toSet(slashable_attestation_2.validator_indices)
       slashable_indices =
-        slashable_attestation_1.validator_indices.filterIt(it in indices2)
+        slashable_attestation_1.validator_indices.filterIt(
+          it in indices2 and not state.validator_registry[it.int].slashed)
 
     if not (len(slashable_indices) >= 1):
       notice "CaspSlash: no intersection"
       return false
 
     for index in slashable_indices:
-      if state.validator_registry[index.int].slashed:
-        slash_validator(state, index.ValidatorIndex)
+      slash_validator(state, index.ValidatorIndex)
 
   true
 
@@ -334,7 +336,40 @@ proc processExits(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#transfers-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
+func update_registry_and_shuffling_data(state: var BeaconState) =
+  # First set previous shuffling data to current shuffling data
+  state.previous_shuffling_epoch = state.current_shuffling_epoch
+  state.previous_shuffling_start_shard = state.current_shuffling_start_shard
+  state.previous_shuffling_seed = state.current_shuffling_seed
+
+  let
+    current_epoch = get_current_epoch(state)
+    next_epoch = current_epoch + 1
+
+  # Check if we should update, and if so, update
+  if should_update_validator_registry(state):
+    update_validator_registry(state)
+    # If we update the registry, update the shuffling data and shards as well
+    state.current_shuffling_epoch = next_epoch
+    state.current_shuffling_start_shard = (
+      state.current_shuffling_start_shard +
+      get_current_epoch_committee_count(state) mod SHARD_COUNT
+    )
+    state.current_shuffling_seed =
+      generate_seed(state, state.current_shuffling_epoch)
+  else:
+    ## If processing at least one crosslink keeps failing, then reshuffle every
+    ## power of two, but don't update the current_shuffling_start_shard
+    let epochs_since_last_registry_update =
+      current_epoch - state.validator_registry_update_epoch
+    if epochs_since_last_registry_update > 1'u64 and
+        is_power_of_2(epochs_since_last_registry_update):
+      state.current_shuffling_epoch = next_epoch
+      state.current_shuffling_seed =
+        generate_seed(state, state.current_shuffling_epoch)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#transfers
 proc processTransfers(state: var BeaconState, blck: BeaconBlock,
                       flags: UpdateFlags): bool =
   ## Note: Transfers are a temporary functionality for phases 0 and 1, to be
@@ -344,33 +379,37 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
     return false
 
   for transfer in blck.body.transfers:
-    let from_balance = state.validator_balances[transfer.sender.int]
+    let sender_balance = state.validator_balances[transfer.sender.int]
 
-    if not (from_balance >= transfer.amount):
-      notice "Transfer: source balance too low for amount"
+    ## Verify the amount and fee aren't individually too big (for anti-overflow
+    ## purposes)
+    if not (sender_balance >= max(transfer.amount, transfer.fee)):
+      notice "Transfer: sender balance too low for transfer amount or fee"
       return false
 
-    if not (from_balance >= transfer.fee):
-      notice "Transfer: source balance too low for fee"
+    ## Verify that we have enough ETH to send, and that after the transfer the
+    ## balance will be either exactly zero or at least MIN_DEPOSIT_AMOUNT
+    if not (
+        sender_balance == transfer.amount + transfer.fee or
+        sender_balance >= transfer.amount + transfer.fee + MIN_DEPOSIT_AMOUNT):
+      notice "Transfer: sender balance too low for amount + fee"
       return false
 
-    if not (from_balance == transfer.amount + transfer.fee or from_balance >=
-            transfer.amount + transfer.fee + MIN_DEPOSIT_AMOUNT):
-      notice "Transfer: source balance too low for amount + fee"
-      return false
-
+    # A transfer is valid in only one slot
     if not (state.slot == transfer.slot):
       notice "Transfer: slot mismatch"
       return false
 
+    # Only withdrawn or not-yet-deposited accounts can transfer
     if not (get_current_epoch(state) >=
         state.validator_registry[
           transfer.sender.int].withdrawable_epoch or
         state.validator_registry[transfer.sender.int].activation_epoch ==
           FAR_FUTURE_EPOCH):
-      notice "Transfer: epoch mismatch"
+      notice "Transfer: only withdrawn or not-deposited accounts can transfer"
       return false
 
+    # Verify that the pubkey is valid
     let wc = state.validator_registry[transfer.sender.int].
       withdrawal_credentials
     if not (wc.data[0] == BLS_WITHDRAWAL_PREFIX_BYTE and
@@ -378,10 +417,10 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
       notice "Transfer: incorrect withdrawal credentials"
       return false
 
+    # Verify that the signature is valid
     if skipValidation notin flags:
-      let transfer_message = signed_root(transfer)
       if not bls_verify(
-          pubkey=transfer.pubkey, transfer_message, transfer.signature,
+          pubkey=transfer.pubkey, signed_root(transfer), transfer.signature,
           get_domain(
             state.fork, slot_to_epoch(transfer.slot), DOMAIN_TRANSFER)):
         notice "Transfer: incorrect signature"
@@ -498,17 +537,6 @@ proc processBlock(
 
   true
 
-func get_attester_indices(
-    state: BeaconState,
-    attestations: openArray[PendingAttestation]): seq[ValidatorIndex] =
-  # Union of attesters that participated in some attestations
-  # TODO spec - add as helper?
-  attestations.
-    mapIt(
-      get_attestation_participants(state, it.data, it.aggregation_bitfield)).
-    flatten().
-    deduplicate()
-
 func boundary_attestations(
     state: BeaconState, boundary_hash: Eth2Digest,
     attestations: openArray[PendingAttestation]
@@ -524,7 +552,226 @@ func lowerThan(candidate, current: Eth2Digest): bool =
     if v > candidate.data[i]: return true
   false
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#helper-functions-1
+func get_previous_total_balance(state: BeaconState): Gwei =
+    get_total_balance(
+      state,
+      get_active_validator_indices(state.validator_registry,
+      get_previous_epoch(state)))
+
+func get_attesting_indices(
+    state: BeaconState,
+    attestations: openArray[PendingAttestation]): seq[ValidatorIndex] =
+  # Union of attesters that participated in some attestations
+  attestations.
+    mapIt(
+      get_attestation_participants(state, it.data, it.aggregation_bitfield)).
+    flatten().
+    deduplicate().
+    sorted(system.cmp)
+
+func get_attesting_balance(state: BeaconState,
+                           attestations: seq[PendingAttestation]): Gwei =
+  get_total_balance(state, get_attesting_indices(state, attestations))
+
+func get_previous_epoch_boundary_attestations(state: BeaconState):
+    seq[PendingAttestation] =
+  filterIt(
+    state.previous_epoch_attestations,
+    it.data.target_root ==
+      get_block_root(state, get_epoch_start_slot(get_previous_epoch(state))))
+
+func get_previous_epoch_matching_head_attestations(state: BeaconState):
+    seq[PendingAttestation] =
+  filterIt(
+    state.previous_epoch_attestations,
+    it.data.beacon_block_root == get_block_root(state, it.data.slot))
+
+# Combination of earliest_attestation and inclusion_slot avoiding O(n^2)
+# TODO merge/refactor these two functions, which differ only very slightly.
+func inclusion_slots(state: BeaconState): auto =
+  result = initTable[ValidatorIndex, Slot]()
+
+  let previous_epoch_attestations =
+    state.latest_attestations.filterIt(
+      get_previous_epoch(state) == slot_to_epoch(it.data.slot))
+
+  ## TODO switch previous_epoch_attestations to state.foo,
+  ## when implemented finish_epoch_update
+  for a in sorted(previous_epoch_attestations,
+      func (x, y: PendingAttestation): auto =
+        system.cmp(x.inclusion_slot, y.inclusion_slot)):
+    for v in get_attestation_participants(
+        state, a.data, a.aggregation_bitfield):
+      if v notin result:
+        result[v] = a.inclusion_slot
+
+# Combination of earliest_attestation and inclusion_distance avoiding O(n^2)
+func inclusion_distances(state: BeaconState): auto =
+  result = initTable[ValidatorIndex, Slot]()
+
+  let previous_epoch_attestations =
+    state.latest_attestations.filterIt(
+      get_previous_epoch(state) == slot_to_epoch(it.data.slot))
+
+  ## TODO switch previous_epoch_attestations to state.foo,
+  ## when implemented finish_epoch_update
+  for a in sorted(previous_epoch_attestations,
+      func (x, y: PendingAttestation): auto =
+        system.cmp(x.inclusion_slot, y.inclusion_slot)):
+    for v in get_attestation_participants(
+        state, a.data, a.aggregation_bitfield):
+      if v notin result:
+        result[v] = Slot(a.inclusion_slot - a.data.slot)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#rewards-and-penalties
+func get_base_reward(state: BeaconState, index: ValidatorIndex): uint64 =
+  if get_previous_total_balance(state) == 0:
+    return 0
+
+  let adjusted_quotient =
+    integer_squareroot(get_previous_total_balance(state)) div
+      BASE_REWARD_QUOTIENT
+  get_effective_balance(state, index) div adjusted_quotient.uint64 div 5
+
+func get_inactivity_penalty(
+    state: BeaconState, index: ValidatorIndex,
+    epochs_since_finality: uint64): uint64 =
+  # TODO Left/right associativity sensitivity on * and div?
+  get_base_reward(state, index) +
+    get_effective_balance(state, index) * epochs_since_finality div
+    INACTIVITY_PENALTY_QUOTIENT div 2
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#justification-and-finalization
+func compute_normal_justification_and_finalization_deltas(state: BeaconState):
+    tuple[a: seq[Gwei], b: seq[Gwei]] =
+  # deltas[0] for rewards
+  # deltas[1] for penalties
+  var deltas = (
+    repeat(0'u64, len(state.validator_registry)),
+    repeat(0'u64, len(state.validator_registry))
+  )
+  # Some helper variables
+  let
+    boundary_attestations = get_previous_epoch_boundary_attestations(state)
+    boundary_attesting_balance =
+      get_attesting_balance(state, boundary_attestations)
+    total_balance = get_previous_total_balance(state)
+    total_attesting_balance =
+      get_attesting_balance(state, state.previous_epoch_attestations)
+    matching_head_attestations =
+      get_previous_epoch_matching_head_attestations(state)
+    matching_head_balance =
+      get_attesting_balance(state, matching_head_attestations)
+
+  let
+    inclusion_distance = inclusion_distances(state)
+    inclusion_slot = inclusion_slots(state)
+  # Process rewards or penalties for all validators
+  for index in get_active_validator_indices(
+      state.validator_registry, get_previous_epoch(state)):
+    # Expected FFG source
+    ## TODO accidentally quadratic or worse, along with rest of
+    ## (not)in get_attesting_indices(...)
+    if index in get_attesting_indices(
+        state, state.previous_epoch_attestations):
+      deltas[0][index] +=
+        get_base_reward(state, index) * total_attesting_balance div
+        total_balance
+      # Inclusion speed bonus
+      deltas[0][index] += (
+        get_base_reward(state, index) * MIN_ATTESTATION_INCLUSION_DELAY div
+        inclusion_distance[index]
+      )
+    else:
+      deltas[1][index] += get_base_reward(state, index)
+    # Expected FFG target
+    if index in get_attesting_indices(state, boundary_attestations):
+      deltas[0][index] +=
+        get_base_reward(state, index) * boundary_attesting_balance div
+        total_balance
+    else:
+      deltas[1][index] += get_base_reward(state, index)
+    # Expected head
+    if index in get_attesting_indices(state, matching_head_attestations):
+      deltas[0][index] +=
+        get_base_reward(state, index) *
+          matching_head_balance div total_balance
+    else:
+      deltas[1][index] += get_base_reward(state, index)
+    # Proposer bonus
+    if index in get_attesting_indices(state, state.previous_epoch_attestations):
+      let proposer_index =
+        get_beacon_proposer_index(state, inclusion_slot[index])
+      deltas[0][proposer_index] +=
+        get_base_reward(state, index) div ATTESTATION_INCLUSION_REWARD_QUOTIENT
+  deltas
+
+func compute_inactivity_leak_deltas(state: BeaconState):
+    tuple[a: seq[Gwei], b: seq[Gwei]] =
+  # When blocks are not finalizing normally
+  # deltas[0] for rewards
+  # deltas[1] for penalties
+  var deltas = (
+    repeat(0'u64, len(state.validator_registry)),
+    repeat(0'u64, len(state.validator_registry))
+  )
+  let
+    boundary_attestations = get_previous_epoch_boundary_attestations(state)
+    matching_head_attestations =
+      get_previous_epoch_matching_head_attestations(state)
+    active_validator_indices = get_active_validator_indices(
+      state.validator_registry, get_previous_epoch(state))
+    epochs_since_finality =
+      get_current_epoch(state) + 1 - state.finalized_epoch
+  let
+    inclusion_distance = inclusion_distances(state)
+  for index in active_validator_indices:
+    # TODO more >= quadratics
+    if index notin get_attesting_indices(
+        state, state.previous_epoch_attestations):
+      deltas[1][index] +=
+        get_inactivity_penalty(state, index, epochs_since_finality)
+    else:
+      ## If a validator did attest, apply a small penalty for getting
+      ## attestations included late
+      deltas[0][index] += (
+        get_base_reward(state, index) * MIN_ATTESTATION_INCLUSION_DELAY div
+          inclusion_distance[index]
+      )
+      deltas[1][index] += get_base_reward(state, index)
+    if index notin get_attesting_indices(state, boundary_attestations):
+      deltas[1][index] +=
+        get_inactivity_penalty(state, index, epochs_since_finality)
+    if index notin get_attesting_indices(state, matching_head_attestations):
+      deltas[1][index] += get_base_reward(state, index)
+  ## Penalize slashed-but-inactive validators as though they were active but
+  ## offline
+  for index in 0 ..< len(state.validator_registry):
+    let eligible = (
+      index.ValidatorIndex notin active_validator_indices and
+      state.validator_registry[index].slashed and
+      get_current_epoch(state) <
+        state.validator_registry[index].withdrawable_epoch
+    )
+    if eligible:
+      deltas[1][index] += (
+        2'u64 * get_inactivity_penalty(
+          state, index.ValidatorIndex, epochs_since_finality) +
+        get_base_reward(state, index.ValidatorIndex)
+      )
+  deltas
+
+func get_justification_and_finalization_deltas(state: BeaconState):
+    tuple[a: seq[Gwei], b: seq[Gwei]] =
+  let epochs_since_finality =
+    get_current_epoch(state) + 1 - state.finalized_epoch
+  if epochs_since_finality <= 4:
+    compute_normal_justification_and_finalization_deltas(state)
+  else:
+    compute_inactivity_leak_deltas(state)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#slashings-and-exit-queue
 func process_slashings(state: var BeaconState) =
   ## Process the slashings.
   ## Note that this function mutates ``state``.
@@ -534,15 +781,18 @@ func process_slashings(state: var BeaconState) =
       state.validator_registry, current_epoch)
     total_balance = get_total_balance(state, active_validator_indices)
 
+    # Compute `total_penalties`
+    total_at_start = state.latest_slashed_balances[
+      (current_epoch + 1) mod LATEST_SLASHED_EXIT_LENGTH]
+    total_at_end =
+      state.latest_slashed_balances[current_epoch mod
+        LATEST_SLASHED_EXIT_LENGTH]
+    total_penalties = total_at_end - total_at_start
+
   for index, validator in state.validator_registry:
     if validator.slashed and current_epoch == validator.withdrawable_epoch -
         LATEST_SLASHED_EXIT_LENGTH div 2:
       let
-        epoch_index = current_epoch mod LATEST_SLASHED_EXIT_LENGTH
-        total_at_start = state.latest_slashed_balances[
-          (epoch_index + 1) mod LATEST_SLASHED_EXIT_LENGTH]
-        total_at_end = state.latest_slashed_balances[epoch_index]
-        total_penalties = total_at_end - total_at_start
         penalty = max(
           get_effective_balance(state, index.ValidatorIndex) *
             min(total_penalties * 3, total_balance) div total_balance,
@@ -564,14 +814,13 @@ func process_exit_queue(state: var BeaconState) =
       return get_current_epoch(state) >= validator.exit_epoch +
         MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
-    # TODO try again with filterIt
     var eligible_indices: seq[ValidatorIndex]
     for vi in 0 ..< len(state.validator_registry):
       if eligible(vi.ValidatorIndex):
         eligible_indices.add vi.ValidatorIndex
     let
-      # Sort in order of exit epoch, and validators that exit within the same
-      # epoch exit in order of validator index
+      ## Sort in order of exit epoch, and validators that exit within the same
+      ## epoch exit in order of validator index
       sorted_indices = sorted(
         eligible_indices,
         func(x, y: ValidatorIndex): int =
@@ -583,6 +832,41 @@ func process_exit_queue(state: var BeaconState) =
       if dequeues >= MAX_EXIT_DEQUEUES_PER_EPOCH:
         break
       prepare_validator_for_withdrawal(state, index)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#final-updates
+func finish_epoch_update(state: var BeaconState) =
+  let
+    current_epoch = get_current_epoch(state)
+    next_epoch = current_epoch + 1
+
+  # Set active index root
+  let index_root_position =
+    (next_epoch + ACTIVATION_EXIT_DELAY) mod LATEST_ACTIVE_INDEX_ROOTS_LENGTH
+  state.latest_active_index_roots[index_root_position] =
+    Eth2Digest(data: hash_tree_root(get_active_validator_indices(
+      state.validator_registry, next_epoch + ACTIVATION_EXIT_DELAY))
+  )
+
+  # Set total slashed balances
+  state.latest_slashed_balances[next_epoch mod LATEST_SLASHED_EXIT_LENGTH] = (
+    state.latest_slashed_balances[current_epoch mod LATEST_SLASHED_EXIT_LENGTH]
+  )
+
+  # Set randao mix
+  state.latest_randao_mixes[next_epoch mod LATEST_RANDAO_MIXES_LENGTH] =
+    get_randao_mix(state, current_epoch)
+
+  # Set historical root accumulator
+  if next_epoch mod (SLOTS_PER_HISTORICAL_ROOT div SLOTS_PER_EPOCH).uint64 == 0:
+    let historical_batch = HistoricalBatch(
+      block_roots: state.latest_block_roots,
+      state_roots: state.latest_state_roots,
+    )
+    state.historical_roots.add (hash_tree_root_final(historical_batch))
+
+  # Rotate current/previous epoch attestations
+  state.previous_epoch_attestations = state.current_epoch_attestations
+  state.current_epoch_attestations = @[]
 
 func processEpoch(state: var BeaconState) =
   if (state.slot + 1) mod SLOTS_PER_EPOCH != 0:
@@ -612,7 +896,7 @@ func processEpoch(state: var BeaconState) =
         current_epoch_attestations)
 
     current_epoch_boundary_attester_indices =
-      get_attester_indices(state, current_epoch_boundary_attestations)
+      get_attesting_indices(state, current_epoch_boundary_attestations)
 
     current_epoch_boundary_attesting_balance =
       get_total_balance(state, current_epoch_boundary_attester_indices)
@@ -631,7 +915,7 @@ func processEpoch(state: var BeaconState) =
         previous_epoch == slot_to_epoch(it.data.slot))
 
     previous_epoch_attester_indices =
-      toSet(get_attester_indices(state, previous_epoch_attestations))
+      toSet(get_attesting_indices(state, previous_epoch_attestations))
 
     previous_epoch_attesting_balance =
       get_total_balance(state, previous_epoch_attester_indices)
@@ -645,7 +929,7 @@ func processEpoch(state: var BeaconState) =
         previous_epoch_attestations)
 
     previous_epoch_boundary_attester_indices =
-      toSet(get_attester_indices(state, previous_epoch_boundary_attestations))
+      toSet(get_attesting_indices(state, previous_epoch_boundary_attestations))
 
     previous_epoch_boundary_attesting_balance =
       get_total_balance(state, previous_epoch_boundary_attester_indices)
@@ -658,7 +942,7 @@ func processEpoch(state: var BeaconState) =
         it.data.beacon_block_root == get_block_root(state, it.data.slot))
 
     previous_epoch_head_attester_indices =
-      toSet(get_attester_indices(state, previous_epoch_head_attestations))
+      toSet(get_attesting_indices(state, previous_epoch_head_attestations))
 
     previous_epoch_head_attesting_balance =
       get_total_balance(state, previous_epoch_head_attester_indices)
@@ -673,7 +957,7 @@ func processEpoch(state: var BeaconState) =
       concat(current_epoch_attestations, previous_epoch_attestations).
       filterIt(it.data.shard == crosslink_committee.shard and
         it.data.crosslink_data_root == crosslink_data_root)
-    get_attester_indices(statePtr[], shard_block_attestations)
+    get_attesting_indices(statePtr[], shard_block_attestations)
 
   func winning_root(crosslink_committee: CrosslinkCommittee): Eth2Digest =
     # * Let `winning_root(crosslink_committee)` be equal to the value of
@@ -710,9 +994,6 @@ func processEpoch(state: var BeaconState) =
   func total_attesting_balance(crosslink_committee: CrosslinkCommittee): uint64 =
     get_total_balance(
       statePtr[], attesting_validator_indices(crosslink_committee))
-
-  ## Regarding inclusion_slot and inclusion_distance, as defined they result in
-  ## O(n^2) behavior, so implement slightly differently.
 
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#eth1-data-1
   block:
@@ -764,115 +1045,15 @@ func processEpoch(state: var BeaconState) =
             epoch: slot_to_epoch(slot),
             crosslink_data_root: winning_root(crosslink_committee))
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#rewards-and-penalties
-  ## First, we define some additional helpers
-  ## Note: When applying penalties in the following balance recalculations
-  ## implementers should make sure the uint64 does not underflow
-  let base_reward_quotient =
-    integer_squareroot(previous_total_balance) div BASE_REWARD_QUOTIENT
-
-  func base_reward(state: BeaconState, index: ValidatorIndex): uint64 =
-    get_effective_balance(state, index) div base_reward_quotient.uint64 div 5
-
-  func inactivity_penalty(
-      state: BeaconState, index: ValidatorIndex, epochs_since_finality: uint64): uint64 =
-    # TODO Left/right associativity sensitivity on * and div?
-    base_reward(state, index) +
-      get_effective_balance(state, index) * epochs_since_finality div
-      INACTIVITY_PENALTY_QUOTIENT div 2
-
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#justification-and-finalization
-  func inclusion_distances(state: BeaconState): auto =
-    result = initTable[ValidatorIndex, Slot]()
-
-    for a in previous_epoch_attestations:
-      for v in get_attestation_participants(
-          state, a.data, a.aggregation_bitfield):
-        if v notin result:
-          result[v] = Slot(a.inclusion_slot - a.data.slot)
-
-  block: # Justification and finalization
-    let
-      epochs_since_finality = next_epoch - state.finalized_epoch
-
-      ## Note: Rewards and penalties are for participation in the previous
-      ## epoch, so the "active validator" set is drawn from
-      ## get_active_validator_indices(state.validator_registry, previous_epoch).
-      active_validator_indices =
-        get_active_validator_indices(state.validator_registry, previous_epoch)
-
-    proc update_balance(attesters: HashSet[ValidatorIndex], attesting_balance: uint64) =
-      # TODO Spec - add helper?
-      for v in attesters:
-        statePtr.validator_balances[v] +=
-          base_reward(statePtr[], v) *
-          attesting_balance div previous_total_balance
-
-      for v in active_validator_indices:
-        if v notin attesters:
-          reduce_balance(
-            statePtr.validator_balances[v], base_reward(statePtr[], v))
-
-    if epochs_since_finality <= 4'u64:
-      # Case 1: epochs_since_finality <= 4
-      # Expected FFG source
-      update_balance(
-        previous_epoch_attester_indices,
-        previous_epoch_attesting_balance)
-
-      # Expected FFG target:
-      update_balance(
-        previous_epoch_boundary_attester_indices,
-        previous_epoch_boundary_attesting_balance)
-
-      # Expected beacon chain head:
-      update_balance(
-        previous_epoch_head_attester_indices,
-        previous_epoch_head_attesting_balance)
-
-      # Inclusion distance
-      # Strange plural (non)convention, but match spec name.
-      let inclusion_distance = inclusion_distances(state)
-
-      for v in previous_epoch_attester_indices:
-        statePtr.validator_balances[v] +=
-          base_reward(state, v) *
-          MIN_ATTESTATION_INCLUSION_DELAY div inclusion_distance[v]
-
-    else:
-      # Case 2: epochs_since_finality > 4
-      let inclusion_distance =
-        if previous_epoch_attester_indices.len > 0:
-          inclusion_distances(state)
-        else:
-          ## Last case will not occur. If this assumption becomes false,
-          ## indexing into distances will fail.
-          initTable[ValidatorIndex, Slot]()
-
-      for index in active_validator_indices:
-        if index notin previous_epoch_attester_indices:
-          reduce_balance(
-            state.validator_balances[index],
-            inactivity_penalty(state, index, epochs_since_finality))
-        if index notin previous_epoch_boundary_attester_indices:
-          reduce_balance(
-            state.validator_balances[index],
-            inactivity_penalty(state, index, epochs_since_finality))
-        if index notin previous_epoch_head_attester_indices:
-          reduce_balance(
-            state.validator_balances[index], base_reward(state, index))
-        if state.validator_registry[index].slashed:
-          reduce_balance(
-            state.validator_balances[index],
-            2'u64 * inactivity_penalty(
-              state, index, epochs_since_finality) + base_reward(state, index))
-        if index in previous_epoch_attester_indices:
-          reduce_balance(
-            state.validator_balances[index],
-            # TODO spec issue? depends on left/right associativity of * and /
-            base_reward(state, index) -
-            base_reward(state, index) * MIN_ATTESTATION_INCLUSION_DELAY div
-            inclusion_distance[index])
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#apply-rewards
+  ## TODO this is incomplete, since get_crosslink_deltas isn't there, but worth
+  ## beginning to switch to something which does not affect structural aspects.
+  ## also, this is `apply_rewards` in spec. TOD
+  let deltas1 = get_justification_and_finalization_deltas(state)
+  for i in 0 ..< len(state.validator_registry):
+    state.validator_balances[i] = max(
+      0'u64, state.validator_balances[i] + deltas1[0][i] - deltas1[1][i])
 
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#attestation-inclusion
   block:
@@ -903,7 +1084,7 @@ func processEpoch(state: var BeaconState) =
         get_beacon_proposer_index(state, proposer_indexes[v])
 
       state.validator_balances[proposer_index] +=
-        base_reward(state, v) div ATTESTATION_INCLUSION_REWARD_QUOTIENT
+        get_base_reward(state, v) div ATTESTATION_INCLUSION_REWARD_QUOTIENT
 
   # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#crosslinks-1
   block:
@@ -927,47 +1108,17 @@ func processEpoch(state: var BeaconState) =
         for index in crosslink_committee.committee:
           if index in committee_attesting_validators:
             state.validator_balances[index.int] +=
-              base_reward(state, index) * committee_attesting_balance div
+              get_base_reward(state, index) * committee_attesting_balance div
                 committee_total_balance
           else:
             reduce_balance(
-              state.validator_balances[index], base_reward(state, index))
+              state.validator_balances[index], get_base_reward(state, index))
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#ejections
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#ejections
   process_ejections(state)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
-  block:
-    state.previous_shuffling_epoch = state.current_shuffling_epoch
-    state.previous_shuffling_start_shard = state.current_shuffling_start_shard
-    state.previous_shuffling_seed = state.current_shuffling_seed
-
-    if state.finalized_epoch > state.validator_registry_update_epoch and
-       allIt(
-         0 ..< get_current_epoch_committee_count(state).int,
-         state.latest_crosslinks[
-           (state.current_shuffling_start_shard + it.uint64) mod
-             SHARD_COUNT].epoch > state.validator_registry_update_epoch):
-
-      # update the validator registry and associated fields by running
-      update_validator_registry(state)
-
-      # and perform the following updates
-      state.current_shuffling_epoch = next_epoch
-      state.current_shuffling_start_shard =
-        (state.current_shuffling_start_shard +
-          get_current_epoch_committee_count(state)) mod SHARD_COUNT
-      state.current_shuffling_seed = generate_seed(
-        state, state.current_shuffling_epoch)
-    else:
-      # If a validator registry change does NOT happen
-      let epochs_since_last_registry_update =
-        current_epoch - state.validator_registry_update_epoch
-      if epochs_since_last_registry_update > 1'u64 and
-          is_power_of_2(epochs_since_last_registry_update):
-        state.current_shuffling_epoch = next_epoch
-        state.current_shuffling_seed = generate_seed(state, state.current_shuffling_epoch)
-        # /Note/ that state.current_shuffling_start_shard is left unchanged
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
+  update_registry_and_shuffling_data(state)
 
   # Not in spec.
   updateShufflingCache(state)
@@ -977,22 +1128,8 @@ func processEpoch(state: var BeaconState) =
   process_slashings(state)
   process_exit_queue(state)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#final-updates
-  block:
-    state.latest_active_index_roots[
-      (next_epoch + ACTIVATION_EXIT_DELAY) mod
-      LATEST_ACTIVE_INDEX_ROOTS_LENGTH] =
-      Eth2Digest(data: hash_tree_root(get_active_validator_indices(
-        state.validator_registry, next_epoch + ACTIVATION_EXIT_DELAY)))
-    state.latest_slashed_balances[(next_epoch mod
-      LATEST_SLASHED_EXIT_LENGTH).int] =
-      state.latest_slashed_balances[
-        (current_epoch mod LATEST_SLASHED_EXIT_LENGTH).int]
-    state.latest_randao_mixes[next_epoch mod LATEST_RANDAO_MIXES_LENGTH] =
-      get_randao_mix(state, current_epoch)
-    state.latest_attestations.keepItIf(
-      not (slot_to_epoch(it.data.slot) < current_epoch)
-    )
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#final-updates
+  finish_epoch_update(state)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#state-root-verification
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
@@ -1060,6 +1197,7 @@ proc updateState*(
   state = old_state
   false
 
+# 0.4.0 to flag that the slot/epoch processing order flips in 0.5
 proc advanceState*(
     state: var BeaconState, previous_block_root: Eth2Digest) =
   ## Sometimes we need to update the state even though we don't have a block at
