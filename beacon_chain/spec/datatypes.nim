@@ -46,7 +46,7 @@ type
   Epoch* = distinct uint64
 
 const
-  SPEC_VERSION* = "0.4.0" ## \
+  SPEC_VERSION* = "0.5.0" ## \
   ## Spec version we're aiming to be compatible with, right now
   ## TODO: improve this scheme once we can negotiate versions in protocol
 
@@ -179,6 +179,7 @@ const
 type
   ValidatorIndex* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
 
+  Shard* = uint64
   Gwei* = uint64
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#proposerslashing
@@ -227,7 +228,7 @@ type
     aggregate_signature*: ValidatorSig ##\
     ## BLS aggregate signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#attestationdata
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attestationdata
   AttestationData* = object
     # LMD GHOST vote
     slot*: Slot
@@ -235,13 +236,8 @@ type
 
     # FFG vote
     source_epoch*: Epoch
+    source_root*: Eth2Digest
     target_root*: Eth2Digest
-
-    ## TODO epoch_boundary_root and justified_block_root are creatures of new
-    ## epoch processing and don't function quite as straightforwardly as just
-    ## renamings, so do that as part of epoch processing change.
-    epoch_boundary_root*: Eth2Digest
-    justified_block_root*: Eth2Digest
 
     # Crosslink vote
     shard*: uint64
@@ -620,14 +616,13 @@ func shortLog*(v: BeaconBlock): tuple[
 
 func shortLog*(v: AttestationData): tuple[
       slot: uint64, beacon_block_root: string, source_epoch: uint64,
-      target_root: string, epoch_boundary_root: string,
-      justified_block_root: string, shard: uint64,
+      target_root: string, source_root: string, shard: uint64,
       previous_crosslink_epoch: uint64, previous_crosslink_data_root: string,
       crosslink_data_root: string
     ] = (
       humaneSlotNum(v.slot), shortLog(v.beacon_block_root),
       humaneEpochNum(v.source_epoch), shortLog(v.target_root),
-      shortLog(v.epoch_boundary_root), shortLog(v.justified_block_root),
+      shortLog(v.source_root),
       v.shard, humaneEpochNum(v.previous_crosslink.epoch),
       shortLog(v.previous_crosslink.crosslink_data_root),
       shortLog(v.crosslink_data_root)
