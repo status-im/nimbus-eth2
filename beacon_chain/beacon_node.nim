@@ -694,6 +694,27 @@ proc createPidFile(filename: string) =
   gPidFile = filename
   addQuitProc proc {.noconv.} = removeFile gPidFile
 
+proc start(node: BeaconNode) =
+  # TODO: while it's nice to cheat by waiting for connections here, we
+  #       actually need to make this part of normal application flow -
+  #       losing all connections might happen at any time and we should be
+  #       prepared to handle it.
+  waitFor node.connectToNetwork()
+
+  if not waitFor node.sync():
+    quit 1
+
+  info "Starting beacon node",
+    slotsSinceFinalization = node.state.data.slotDistanceFromNow(),
+    stateSlot = humaneSlotNum(node.state.data.slot),
+    SHARD_COUNT,
+    SLOTS_PER_EPOCH,
+    SECONDS_PER_SLOT,
+    SPEC_VERSION
+
+  node.addLocalValidators()
+  node.run()
+
 when isMainModule:
   let config = BeaconNodeConf.load(version = fullVersionStr())
 
@@ -772,23 +793,8 @@ when isMainModule:
 
     var node = waitFor BeaconNode.init(config)
 
-    dynamicLogScope(node = node.config.tcpPort - 50000):
-      # TODO: while it's nice to cheat by waiting for connections here, we
-      #       actually need to make this part of normal application flow -
-      #       losing all connections might happen at any time and we should be
-      #       prepared to handle it.
-      waitFor node.connectToNetwork()
+    if config.tcpPort != config.defaultPort:
+      dynamicLogScope(node = config.tcpPort): node.start()
+    else:
+      node.start()
 
-      if not waitFor node.sync():
-        quit 1
-
-      info "Starting beacon node",
-        slotsSinceFinalization = node.state.data.slotDistanceFromNow(),
-        stateSlot = humaneSlotNum(node.state.data.slot),
-        SHARD_COUNT,
-        SLOTS_PER_EPOCH,
-        SECONDS_PER_SLOT,
-        SPEC_VERSION
-
-      node.addLocalValidators()
-      node.run()

@@ -127,14 +127,14 @@ proc defaultDataDir*(conf: BeaconNodeConf): string =
   else:
     ".cache" / "nimbus"
 
-  let networkId = if conf.network in ["testnet0", "testnet1", "mainnet"]:
+  let networkDir = if conf.network in ["testnet0", "testnet1", "mainnet"]:
     conf.network
   else:
     # TODO: This seems silly. Perhaps we should error out here and ask
     # the user to specify dataDir as well.
     "tempnet"
 
-  getHomeDir() / dataDir / "BeaconNode" / networkId
+  getHomeDir() / dataDir / "BeaconNode" / networkDir
 
 proc defaultPort*(conf: BeaconNodeConf): int =
   (if conf.network == "testnet0": 9630 else: 9632) + ord(useRLPx)
