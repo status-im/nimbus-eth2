@@ -175,7 +175,14 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   result.network.saveConnectionAddressFile(addressFile)
 
 proc connectToNetwork(node: BeaconNode) {.async.} =
-  var bootstrapNodes = node.networkMetadata.bootstrapNodes
+  let localKeys = ensureNetworkKeys(node.config)
+  var bootstrapNodes = newSeq[BootstrapAddr]()
+
+  for bootNode in node.networkMetadata.bootstrapNodes:
+    if bootNode.pubkey == localKeys.pubKey:
+      node.isBootstrapNode = true
+    else:
+      bootstrapNodes.add bootNode
 
   for bootNode in node.config.bootstrapNodes:
     bootstrapNodes.add BootstrapAddr.init(bootNode)

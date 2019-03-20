@@ -26,6 +26,7 @@ type
   BeaconNode* = ref object
     network*: EthereumNode
     networkMetadata*: NetworkMetadata
+    isBootstrapNode*: bool
     db*: BeaconChainDB
     config*: BeaconNodeConf
     keys*: KeyPair

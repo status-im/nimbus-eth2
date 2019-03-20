@@ -30,7 +30,7 @@ when useRLPx:
     else:
       parseIpAddress("127.0.0.1")
 
-  proc ensureNetworkKeys(conf: BeaconNodeConf): KeyPair =
+  proc ensureNetworkKeys*(conf: BeaconNodeConf): KeyPair =
     let privateKeyFile = conf.dataDir / "network.privkey"
     var privKey: PrivateKey
     if not fileExists(privateKeyFile):
