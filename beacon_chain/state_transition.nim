@@ -68,8 +68,10 @@ proc processBlockHeader(
       state_slot = humaneSlotNum(state.slot)
     return false
 
-  if not (blck.previous_block_root ==
-      hash_tree_root_final(state.latest_block_header)):
+  ## https://github.com/ethereum/eth2.0-specs/pull/816/files remove when
+  ## switched to 0.5.1
+  if not (blck.previous_block_root.data ==
+      signed_root(state.latest_block_header)):
     notice "Block header: previous block root mismatch",
       previous_block_root = blck.previous_block_root,
       latest_block_header = state.latest_block_header,
@@ -466,7 +468,7 @@ func cacheState(state: var BeaconState) =
 
   # store latest known block for previous slot
   state.latest_block_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
-    hash_tree_root_final(state.latest_block_header)
+    Eth2Digest(data: signed_root(state.latest_block_header))
 
 func processSlot(state: var BeaconState, previous_block_root: Eth2Digest) =
   advanceSlot(state)
