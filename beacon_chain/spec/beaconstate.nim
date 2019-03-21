@@ -441,65 +441,73 @@ func update_validator_registry*(state: var BeaconState) =
 
   state.validator_registry_update_epoch = current_epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#attestations-1
-# TODO this is https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attestations now
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attestations
+# with last half or so still not fully converted from 0.4.0 (tag, remove when done)
 proc checkAttestation*(
-    state: BeaconState, attestation: Attestation, flags: UpdateFlags): bool =
+    state: var BeaconState, attestation: Attestation, flags: UpdateFlags): bool =
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
   ## be followed!
 
-  let attestation_data_slot = attestation.data.slot
-
+  # Can't submit attestations that are too far in history (or in prehistory)
   if not (attestation.data.slot >= GENESIS_SLOT):
     warn("Attestation predates genesis slot",
       attestation_slot = attestation.data.slot,
       state_slot = humaneSlotNum(state.slot))
     return
 
-  if not (attestation.data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= state.slot):
-    warn("Attestation too new",
-      attestation_slot = humaneSlotNum(attestation.data.slot),
-      state_slot = humaneSlotNum(state.slot))
-    return
-
-  if not (state.slot < attestation.data.slot + SLOTS_PER_EPOCH):
+  if not (state.slot <= attestation.data.slot + SLOTS_PER_EPOCH):
     warn("Attestation too old",
       attestation_slot = humaneSlotNum(attestation.data.slot),
       state_slot = humaneSlotNum(state.slot))
     return
 
-  let expected_justified_epoch =
-    if slot_to_epoch(attestation.data.slot + 1) >= get_current_epoch(state):
-      state.current_justified_epoch
-    else:
-      state.previous_justified_epoch
-
-  if not (attestation.data.source_epoch == expected_justified_epoch):
-    warn("Unexpected justified epoch",
-      attestation_justified_epoch =
-        humaneEpochNum(attestation.data.source_epoch),
-      expected_justified_epoch = humaneEpochNum(expected_justified_epoch))
+  # Can't submit attestations too quickly
+  if not (
+      attestation.data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= state.slot):
+    warn("Can't submit attestations too quickly",
+      attestation_slot = humaneSlotNum(attestation.data.slot),
+      state_slot = humaneSlotNum(state.slot))
     return
 
-  let expected_justified_block_root =
-    get_block_root(state, get_epoch_start_slot(attestation.data.source_epoch))
-  if not (attestation.data.justified_block_root == expected_justified_block_root):
-    warn("Unexpected justified block root",
-      attestation_justified_block_root = attestation.data.justified_block_root,
-      expected_justified_block_root)
-    return
+  # # Verify that the justified epoch and root is correct
+  if slot_to_epoch(attestation.data.slot) >= get_current_epoch(state):
+    # Case 1: current epoch attestations
+    if not (attestation.data.source_epoch == state.current_justified_epoch):
+      warn("Source epoch is not current justified epoch",
+        attestation_slot = humaneSlotNum(attestation.data.slot),
+        state_slot = humaneSlotNum(state.slot))
+      return
+
+    if not (attestation.data.source_root == state.current_justified_root):
+      warn("Source root is not current justified root",
+        attestation_slot = humaneSlotNum(attestation.data.slot),
+        state_slot = humaneSlotNum(state.slot))
+      return
+  else:
+    # Case 2: previous epoch attestations
+    if not (attestation.data.source_epoch == state.previous_justified_epoch):
+      warn("Source epoch is not previous justified epoch",
+        attestation_slot = humaneSlotNum(attestation.data.slot),
+        state_slot = humaneSlotNum(state.slot))
+      return
+
+    if not (attestation.data.source_root == state.previous_justified_root):
+      warn("Source root is not previous justified root",
+        attestation_slot = humaneSlotNum(attestation.data.slot),
+        state_slot = humaneSlotNum(state.slot))
+      return
 
   if not (state.latest_crosslinks[attestation.data.shard] in [
       attestation.data.previous_crosslink,
       Crosslink(
         crosslink_data_root: attestation.data.crosslink_data_root,
-        epoch: slot_to_epoch(attestation_data_slot))]):
+        epoch: slot_to_epoch(attestation.data.slot))]):
     warn("Unexpected crosslink shard",
       state_latest_crosslinks_attestation_data_shard =
         state.latest_crosslinks[attestation.data.shard],
       attestation_data_previous_crosslink = attestation.data.previous_crosslink,
-      epoch = humaneEpochNum(slot_to_epoch(attestation_data_slot)),
+      epoch = humaneEpochNum(slot_to_epoch(attestation.data.slot)),
       crosslink_data_root = attestation.data.crosslink_data_root)
     return
 
@@ -507,7 +515,7 @@ proc checkAttestation*(
   doAssert anyIt(attestation.aggregation_bitfield.bits, it != 0)
 
   let crosslink_committee = mapIt(
-    filterIt(get_crosslink_committees_at_slot(state, attestation_data_slot),
+    filterIt(get_crosslink_committees_at_slot(state, attestation.data.slot),
              it.shard == attestation.data.shard),
     it.committee)[0]
 
@@ -585,9 +593,7 @@ proc makeAttestationData*(
     slot: state.slot,
     shard: shard,
     beacon_block_root: beacon_block_root,
-    epoch_boundary_root: epoch_boundary_root,
     crosslink_data_root: Eth2Digest(), # Stub in phase0
     previous_crosslink: state.latest_crosslinks[shard],
     source_epoch: state.current_justified_epoch,
-    justified_block_root: justified_block_root,
   )

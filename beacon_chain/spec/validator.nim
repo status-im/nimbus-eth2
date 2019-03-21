@@ -122,10 +122,10 @@ func get_next_epoch_committee_count(state: BeaconState): uint64 =
   )
   get_epoch_committee_count(len(next_active_validators))
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_previous_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(state: BeaconState): Epoch =
   ## Return the previous epoch of the given ``state``.
-  max(get_current_epoch(state) - 1, GENESIS_EPOCH)
+  get_current_epoch(state) - 1
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_crosslink_committees_at_slot
 func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64,
@@ -137,12 +137,7 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64,
   ## ``slot`` in the next epoch -- with and without a `registry_change`
 
   let
-    # TODO: the + 1 here works around a bug, remove when upgrading to
-    #       some more recent version:
-    # https://github.com/ethereum/eth2.0-specs/pull/732
-    # TODO remove +1 along with rest of epoch reorganization, then
-    # remove this 0.4.0 tag.
-    epoch = slot_to_epoch(slot + 1)
+    epoch = slot_to_epoch(slot)
     current_epoch = get_current_epoch(state)
     previous_epoch = get_previous_epoch(state)
     next_epoch = current_epoch + 1
