@@ -221,7 +221,8 @@ func get_temporary_block_header*(blck: BeaconBlock): BeaconBlockHeader =
     previous_block_root: blck.previous_block_root,
     state_root: ZERO_HASH,
     block_body_root: hash_tree_root_final(blck.body),
-    signature: blck.signature)
+    signature: EMPTY_SIGNATURE,
+  )
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#on-genesis
 func get_empty_block*(): BeaconBlock =
