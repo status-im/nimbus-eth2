@@ -118,31 +118,21 @@ proc addBlock*(
   # can set the state root in order to be able to create a valid signature
   new_block.state_root = Eth2Digest(data: hash_tree_root(state))
 
-  let
-    proposerPrivkey = hackPrivKey(proposer)
-
-    # Once we've collected all the state data, we sign the block data along with
-    # some book-keeping values
-    signed_data = Proposal(
-      slot: new_block.slot.uint64,
-      block_root: Eth2Digest(data: signed_root(new_block)),
-      signature: ValidatorSig(),
-    )
-    proposal_hash = signed_root(signed_data)
-
+  let proposerPrivkey = hackPrivKey(proposer)
   doAssert proposerPrivkey.pubKey() == proposer.pubkey,
     "signature key should be derived from private key! - wrong privkey?"
 
   if skipValidation notin flags:
+    let block_root = signed_root(new_block)
     # We have a signature - put it in the block and we should be done!
     new_block.signature =
-      bls_sign(proposerPrivkey, proposal_hash,
-               get_domain(state.fork, slot_to_epoch(state.slot), DOMAIN_BEACON_BLOCK))
+      bls_sign(proposerPrivkey, block_root,
+               get_domain(state.fork, slot_to_epoch(new_block.slot), DOMAIN_BEACON_BLOCK))
 
     doAssert bls_verify(
       proposer.pubkey,
-      proposal_hash, new_block.signature,
-      get_domain(state.fork, slot_to_epoch(state.slot), DOMAIN_BEACON_BLOCK)),
+      block_root, new_block.signature,
+      get_domain(state.fork, slot_to_epoch(new_block.slot), DOMAIN_BEACON_BLOCK)),
       "we just signed this message - it should pass verification!"
 
   new_block

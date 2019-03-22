@@ -25,13 +25,11 @@ proc getValidator*(pool: ValidatorPool,
   pool.validators.getOrDefault(validatorKey)
 
 proc signBlockProposal*(v: AttachedValidator, fork: Fork,
-                        proposal: Proposal): Future[ValidatorSig] {.async.} =
+                        blck: BeaconBlock): Future[ValidatorSig] {.async.} =
   if v.kind == inProcess:
     await sleepAsync(1)
-    let proposalRoot = hash_tree_root_final(proposal)
-
-    result = bls_sign(v.privKey, signed_root(proposal),
-      get_domain(fork, slot_to_epoch(proposal.slot), DOMAIN_BEACON_BLOCK))
+    result = bls_sign(v.privKey, signed_root(blck),
+      get_domain(fork, slot_to_epoch(blck.slot), DOMAIN_BEACON_BLOCK))
   else:
     # TODO:
     # send RPC

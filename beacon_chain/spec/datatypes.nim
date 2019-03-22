@@ -46,7 +46,7 @@ type
   Epoch* = distinct uint64
 
 const
-  SPEC_VERSION* = "0.5.0" ## \
+  SPEC_VERSION* = "0.5.1" ## \
   ## Spec version we're aiming to be compatible with, right now
   ## TODO: improve this scheme once we can negotiate versions in protocol
 
@@ -360,18 +360,7 @@ type
     voluntary_exits*: seq[VoluntaryExit]
     transfers*: seq[Transfer]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#proposal
-  Proposal* = object
-    slot*: uint64 ##\
-    ## Slot number
-
-    block_root*: Eth2Digest ##\
-    ## Block root
-
-    signature*: ValidatorSig ##\
-    ## Signature
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#beaconstate
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#beaconstate
   BeaconState* = object
     slot*: Slot
     genesis_time*: uint64
@@ -422,9 +411,6 @@ type
     latest_block_header*: BeaconBlockHeader ##\
     ## `latest_block_header.state_root == ZERO_HASH` temporarily
     historical_roots*: seq[Eth2Digest]
-
-    # TOOD remove, gone in 0.5
-    latest_attestations*: seq[PendingAttestation]
 
     # Ethereum 1.0 chain data
     latest_eth1_data*: Eth1Data

@@ -132,7 +132,7 @@ func get_active_validator_indices*(validators: openArray[Validator], epoch: Epoc
     if is_active_validator(val, epoch):
       result.add idx.ValidatorIndex
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_epoch_committee_count
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_epoch_committee_count
 func get_epoch_committee_count*(active_validator_count: int): uint64 =
   clamp(
     active_validator_count div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,

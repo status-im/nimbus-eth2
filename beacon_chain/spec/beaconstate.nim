@@ -334,7 +334,7 @@ func get_block_root*(state: BeaconState,
   doAssert slot < state.slot
   state.latest_block_roots[slot mod SLOTS_PER_HISTORICAL_ROOT]
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_attestation_participants
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_attestation_participants
 func get_attestation_participants*(state: BeaconState,
                                    attestation_data: AttestationData,
                                    bitfield: BitField): seq[ValidatorIndex] =
@@ -350,10 +350,10 @@ func get_attestation_participants*(state: BeaconState,
   # TODO Linear search through shard list? borderline ok, it's a small list
   # TODO iterator candidate
 
-  ## Return the participant indices at for the ``attestation_data`` and
-  ## ``bitfield``.
+  # Find the committee in the list with the desired shard
   let crosslink_committees = get_crosslink_committees_at_slot(
     state, attestation_data.slot)
+
   doAssert anyIt(
     crosslink_committees,
     it[1] == attestation_data.shard)
@@ -442,8 +442,7 @@ func update_validator_registry*(state: var BeaconState) =
 
   state.validator_registry_update_epoch = current_epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attestations
-# with last half or so still not fully converted from 0.4.0 (tag, remove when done)
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#attestations
 proc checkAttestation*(
     state: var BeaconState, attestation: Attestation, flags: UpdateFlags): bool =
   ## Check that an attestation follows the rules of being included in the state
@@ -499,34 +498,50 @@ proc checkAttestation*(
         state_slot = humaneSlotNum(state.slot))
       return
 
-  if not (state.latest_crosslinks[attestation.data.shard] in [
-      attestation.data.previous_crosslink,
-      Crosslink(
-        crosslink_data_root: attestation.data.crosslink_data_root,
-        epoch: slot_to_epoch(attestation.data.slot))]):
+  # Check that the crosslink data is valid
+  let acceptable_crosslink_data = @[
+    # Case 1: Latest crosslink matches the one in the state
+    attestation.data.previous_crosslink,
+
+    # Case 2: State has already been updated, state's latest crosslink matches
+    # the crosslink the attestation is trying to create
+    Crosslink(
+      crosslink_data_root: attestation.data.crosslink_data_root,
+      epoch: slot_to_epoch(attestation.data.slot)
+    )
+  ]
+  if not (state.latest_crosslinks[attestation.data.shard] in
+      acceptable_crosslink_data):
     warn("Unexpected crosslink shard",
       state_latest_crosslinks_attestation_data_shard =
         state.latest_crosslinks[attestation.data.shard],
       attestation_data_previous_crosslink = attestation.data.previous_crosslink,
       epoch = humaneEpochNum(slot_to_epoch(attestation.data.slot)),
-      crosslink_data_root = attestation.data.crosslink_data_root)
+      actual_epoch = slot_to_epoch(attestation.data.slot),
+      crosslink_data_root = attestation.data.crosslink_data_root,
+      acceptable_crosslink_data = acceptable_crosslink_data)
     return
 
-  doAssert allIt(attestation.custody_bitfield.bits, it == 0) #TO BE REMOVED IN PHASE 1
+  # Attestation must be nonempty!
   doAssert anyIt(attestation.aggregation_bitfield.bits, it != 0)
 
+  # Custody must be empty (to be removed in phase 1)
+  doAssert allIt(attestation.custody_bitfield.bits, it == 0)
+
+  # Get the committee for the specific shard that this attestation is for
   let crosslink_committee = mapIt(
     filterIt(get_crosslink_committees_at_slot(state, attestation.data.slot),
              it.shard == attestation.data.shard),
     it.committee)[0]
 
+  # Custody bitfield must be a subset of the attestation bitfield
   doAssert allIt(0 ..< len(crosslink_committee),
     if not get_bitfield_bit(attestation.aggregation_bitfield, it):
-      # Should always be true in phase 0, because of above assertion
       not get_bitfield_bit(attestation.custody_bitfield, it)
     else:
       true)
 
+  # Verify aggregate signature
   let
     participants = get_attestation_participants(
       state, attestation.data, attestation.aggregation_bitfield)
@@ -557,7 +572,7 @@ proc checkAttestation*(
                  DOMAIN_ATTESTATION),
     )
 
-  # To be removed in Phase1:
+  # Crosslink data root is zero (to be removed in phase 1)
   if attestation.data.crosslink_data_root != ZERO_HASH:
     warn("Invalid crosslink data root")
     return
@@ -573,7 +588,6 @@ func prepare_validator_for_withdrawal*(state: var BeaconState, index: ValidatorI
   validator.withdrawable_epoch = get_current_epoch(state) +
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/validator/0_beacon-chain-validator.md#attestations-1
 proc makeAttestationData*(
     state: BeaconState, shard: uint64,
     beacon_block_root: Eth2Digest): AttestationData =
