@@ -23,10 +23,13 @@ proc init*(T: type BlockRef, root: Eth2Digest, blck: BeaconBlock): BlockRef =
 
 proc findAncestorBySlot*(blck: BlockRef, slot: Slot): BlockRef =
   ## Find the first ancestor that has a slot number less than or equal to `slot`
+  assert(not blck.isNil)
   result = blck
 
-  while result != nil and result.slot > slot:
+  while result.parent != nil and result.slot > slot:
     result = result.parent
+
+  assert(not result.isNil)
 
 proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
   # TODO we require that the db contains both a head and a tail block -
