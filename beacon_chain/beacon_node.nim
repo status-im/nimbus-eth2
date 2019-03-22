@@ -250,7 +250,10 @@ proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
 
   # TODO move all of this logic to BlockPool
   info "Preparing for fork choice",
-    connectedPeers = node.network.connectedPeers
+    currentHeadBlock = shortLog(node.state.root),
+    connectedPeers = node.network.connectedPeers,
+    stateSlot = humaneSlotNum(node.state.data.slot),
+    stateEpoch = humaneEpochNum(node.state.data.slot.slotToEpoch)
 
   let
     justifiedHead = node.blockPool.latestJustifiedBlock()
@@ -263,6 +266,11 @@ proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
 
   let newHead = lmdGhost(
     node.attestationPool, node.justifiedStateCache.data, justifiedHead)
+  info "Fork chosen",
+    newHeadSlot = humaneSlotNum(newHead.slot),
+    newHeadEpoch = humaneEpochNum(newHead.slot.slotToEpoch),
+    newHeadBlockRoot = shortLog(newHead.root)
+
   node.blockPool.updateHead(node.state, newHead)
   newHead
 
