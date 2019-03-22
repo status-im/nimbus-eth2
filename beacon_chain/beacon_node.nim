@@ -281,6 +281,9 @@ proc getAttachedValidator(node: BeaconNode, idx: int): AttachedValidator =
 
 proc updateHead(node: BeaconNode): BlockRef =
   # TODO move all of this logic to BlockPool
+  info "Preparing for fork choice",
+    connectedPeers = node.network.connectedPeers
+
   let
     justifiedHead = node.blockPool.latestJustifiedBlock()
 

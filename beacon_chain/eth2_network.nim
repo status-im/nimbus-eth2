@@ -8,7 +8,8 @@ const
 when useRLPx:
   import
     os,
-    eth/[rlp, p2p, keys], gossipsub_protocol
+    eth/[rlp, p2p, keys], gossipsub_protocol,
+    eth/p2p/peer_pool # for log on connected peers
 
   export
     p2p, rlp, gossipsub_protocol
@@ -73,6 +74,9 @@ when useRLPx:
 
   proc init*(T: type BootstrapAddr, str: string): T =
     initENode(str)
+
+  func connectedPeers*(enode: EthereumNode): int = 
+    enode.peerPool.len
 
 else:
   import

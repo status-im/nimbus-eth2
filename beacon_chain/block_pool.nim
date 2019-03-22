@@ -435,6 +435,7 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
     debug "No head update this time",
       headBlockRoot = shortLog(blck.root),
       headBlockSlot = humaneSlotNum(blck.slot)
+
     return
 
   pool.head = blck
