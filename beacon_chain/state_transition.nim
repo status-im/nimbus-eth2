@@ -39,25 +39,6 @@ func flatten[T](v: openArray[seq[T]]): seq[T] =
   # TODO not in nim - doh.
   for x in v: result.add x
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#block-signature
-func verifyBlockSignature(state: BeaconState, blck: BeaconBlock): bool =
-  ## When creating a block, the proposer will sign a version of the block that
-  ## doesn't contain the data (chicken and egg), then add the signature to that
-  ## block. Here, we check that the signature is correct by repeating the same
-  ## process.
-  let
-    proposer =
-      state.validator_registry[get_beacon_proposer_index(state, state.slot)]
-    proposal = Proposal(
-      slot: blck.slot.uint64,
-      block_root: Eth2Digest(data: signed_root(blck)),
-      signature: blck.signature)
-  bls_verify(
-    proposer.pubkey,
-    signed_root(proposal),
-    proposal.signature,
-    get_domain(state.fork, get_current_epoch(state), DOMAIN_BEACON_BLOCK))
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#block-header
 proc processBlockHeader(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
@@ -70,13 +51,16 @@ proc processBlockHeader(
 
   ## https://github.com/ethereum/eth2.0-specs/pull/816/files remove when
   ## switched to 0.5.1
-  if not (blck.previous_block_root.data ==
-      signed_root(state.latest_block_header)):
-    notice "Block header: previous block root mismatch",
-      previous_block_root = blck.previous_block_root,
-      latest_block_header = state.latest_block_header,
-      latest_block_header_root = hash_tree_root_final(state.latest_block_header)
-    return false
+  when false:
+    ## TODO Re-enable when it works; currently, some code in processBlock
+    ## also checks this invariant in a different way. tag as 0.4.0.
+    if not (blck.previous_block_root.data ==
+        signed_root(state.latest_block_header)):
+      notice "Block header: previous block root mismatch",
+        previous_block_root = blck.previous_block_root,
+        latest_block_header = state.latest_block_header,
+        latest_block_header_root = hash_tree_root_final(state.latest_block_header)
+      return false
 
   state.latest_block_header = get_temporary_block_header(blck)
 
@@ -484,18 +468,11 @@ proc processBlock(
   # TODO when there's a failure, we should reset the state!
   # TODO probably better to do all verification first, then apply state changes
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#slot-1
-  if not (blck.slot == state.slot):
-    notice "Unexpected block slot number",
-      blockSlot = humaneSlotNum(blck.slot),
-      stateSlot = humaneSlotNum(state.slot)
-    return false
-
   # Spec does not have this check explicitly, but requires that this condition
   # holds - so we give verify it as well - this would happen naturally if
   # `blck.previous_block_root` was used in `processSlot` - but that doesn't cut it for
   # blockless slot processing.
-  # TODO compare with check in processBlockHeader, might be redundant
+  # TODO compare with processBlockHeader check, might be redundant and to be removed
   let stateParentRoot =
     state.latest_block_roots[(state.slot - 1) mod SLOTS_PER_HISTORICAL_ROOT]
   if not (blck.previous_block_root == stateParentRoot):
@@ -504,18 +481,9 @@ proc processBlock(
       stateParentRoot
     return false
 
-  # TODO Technically, we could make processBlock take a generic type instead
-  #      of BeaconBlock - we would then have an intermediate `ProposedBlock`
-  #      type that omits some fields - this way, the compiler would guarantee
-  #      that we don't try to access fields that don't have a value yet
-  #if not processBlockHeader(state, blck, flags):
-  #  notice "Block header not valid", slot = humaneSlotNum(state.slot)
-  #  return false
-  # TODO this starts requiring refactoring blockpool, etc
-  if skipValidation notin flags:
-    if not verifyBlockSignature(state, blck):
-      notice "Block signature not valid", slot = humaneSlotNum(state.slot)
-      return false
+  if not processBlockHeader(state, blck, flags):
+    notice "Block header not valid", slot = humaneSlotNum(state.slot)
+    return false
 
   if not processRandao(state, blck, flags):
     return false
@@ -1117,14 +1085,20 @@ proc advanceState*(
   ## We now define the state transition function. At a high level the state
   ## transition is made up of four parts:
 
-  # 1. State caching, which happens at the start of every slot.
+  ## 1. State caching, which happens at the start of every slot.
+  ## The state caching, caches the state root of the previous slot
   cacheState(state)
 
-  ## (2) The per-epoch transitions, which happens at the start of the first
+  ## 2. The per-epoch transitions, which happens at the start of the first
   ## slot of every epoch.
+  ## The per-epoch transitions focus on the validator registry, including
+  ## adjusting balances and activating and exiting validators, as well as
+  ## processing crosslinks and managing block justification/finalization.
   processEpoch(state)
 
-  # (3) The per-slot transitions, which happens at every slot.
+  ## 3. The per-slot transitions, which happens at every slot.
+  ## The per-slot transitions focus on the slot counter and block roots
+  ## records updates.
   processSlot(state, previous_block_root)
 
 proc updateState*(

@@ -360,17 +360,6 @@ type
     voluntary_exits*: seq[VoluntaryExit]
     transfers*: seq[Transfer]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#proposal
-  Proposal* = object
-    slot*: uint64 ##\
-    ## Slot number
-
-    block_root*: Eth2Digest ##\
-    ## Block root
-
-    signature*: ValidatorSig ##\
-    ## Signature
-
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#beaconstate
   BeaconState* = object
     slot*: Slot

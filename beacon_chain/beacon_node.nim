@@ -420,13 +420,8 @@ proc proposeBlock(node: BeaconNode,
 
   newBlock.state_root = node.state.root
 
-  let proposal = Proposal(
-    slot: slot.uint64,
-    block_root: Eth2Digest(data: signed_root(newBlock)),
-    signature: ValidatorSig(),
-  )
   newBlock.signature =
-    await validator.signBlockProposal(node.state.data.fork, proposal)
+    await validator.signBlockProposal(node.state.data.fork, newBlock)
 
   # TODO what are we waiting for here? broadcast should never block, and never
   #      fail...
@@ -434,7 +429,7 @@ proc proposeBlock(node: BeaconNode,
 
   info "Block proposed",
     blck = shortLog(newBlock),
-    blockRoot = shortLog(proposal.block_root),
+    blockRoot = shortLog(Eth2Digest(data: signed_root(newBlock))),
     validator = shortValidatorKey(node, validator.idx),
     idx = validator.idx
 
