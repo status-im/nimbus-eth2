@@ -261,7 +261,7 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attestations
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#attestations
 proc processAttestations(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   ## Each block includes a number of attestations that the proposer chose. Each
@@ -278,18 +278,23 @@ proc processAttestations(
     return false
 
   # All checks passed - update state
-  state.latest_attestations.add blck.body.attestations.mapIt(
-    PendingAttestation(
-      data: it.data,
-      aggregation_bitfield: it.aggregation_bitfield,
-      custody_bitfield: it.custody_bitfield,
-      inclusion_slot: state.slot,
+  # Apply the attestations
+  for attestation in blck.body.attestations:
+    let pending_attestation = PendingAttestation(
+      data: attestation.data,
+      aggregation_bitfield: attestation.aggregation_bitfield,
+      custody_bitfield: attestation.custody_bitfield,
+      inclusion_slot: state.slot
     )
-  )
+
+    if slot_to_epoch(attestation.data.slot) == get_current_epoch(state):
+      state.current_epoch_attestations.add(pending_attestation)
+    else:
+      state.previous_epoch_attestations.add(pending_attestation)
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.3.0/specs/core/0_beacon-chain.md#deposits-1
+# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#deposits-1
 func processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
   true
 
@@ -510,7 +515,7 @@ proc processBlock(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#helper-functions-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#helper-functions-1
 func get_current_total_balance(state: BeaconState): Gwei =
   return get_total_balance(
     state,
@@ -583,7 +588,9 @@ func get_winning_root_and_participants(state: BeaconState, shard: Shard):
     return (ZERO_HASH, @[])
 
   func get_attestations_for(root: Eth2Digest): seq[PendingAttestation] =
-    filterIt(valid_attestations, it.data.crosslink_data_root == root)
+    filterIt(
+      valid_attestations,
+      it.data.crosslink_data_root == root)
 
   ## Winning crosslink root is the root with the most votes for it, ties broken
   ## in favor of lexicographically higher hash
@@ -609,7 +616,7 @@ func inclusion_slots(state: BeaconState): auto =
   result = initTable[ValidatorIndex, Slot]()
 
   let previous_epoch_attestations =
-    state.latest_attestations.filterIt(
+    state.previous_epoch_attestations.filterIt(
       get_previous_epoch(state) == slot_to_epoch(it.data.slot))
 
   ## TODO switch previous_epoch_attestations to state.foo,
@@ -627,7 +634,7 @@ func inclusion_distances(state: BeaconState): auto =
   result = initTable[ValidatorIndex, Slot]()
 
   let previous_epoch_attestations =
-    state.latest_attestations.filterIt(
+    state.previous_epoch_attestations.filterIt(
       get_previous_epoch(state) == slot_to_epoch(it.data.slot))
 
   ## TODO switch previous_epoch_attestations to state.foo,
@@ -709,13 +716,20 @@ func update_justification_and_finalization(state: var BeaconState) =
     state.finalized_root =
       get_block_root(state, get_epoch_start_slot(new_finalized_epoch))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#crosslinks
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#crosslinks
 func process_crosslinks(state: var BeaconState) =
   let
     current_epoch = get_current_epoch(state)
     previous_epoch = current_epoch - 1
     next_epoch = current_epoch + 1
-  for slot in get_epoch_start_slot(previous_epoch).uint64 ..<
+  ## TODO is it actually correct to be setting state.latest_crosslinks[shard]
+  ## to something pre-GENESIS_EPOCH, ever? I guess the intent is if there are
+  ## a quorum of participants for  get_epoch_start_slot(previous_epoch), when
+  ## state.slot == GENESIS_SLOT, then there will be participants for a quorum
+  ## in the current-epoch (i.e. genesis epoch) version of that shard?
+  #for slot in get_epoch_start_slot(previous_epoch).uint64 ..<
+  for slot in max(
+      GENESIS_SLOT.uint64, get_epoch_start_slot(previous_epoch).uint64) ..<
       get_epoch_start_slot(next_epoch).uint64:
     for cas in get_crosslink_committees_at_slot(state, slot):
       let
@@ -724,7 +738,11 @@ func process_crosslinks(state: var BeaconState) =
           get_winning_root_and_participants(state, shard)
         participating_balance = get_total_balance(state, participants)
         total_balance = get_total_balance(state, crosslink_committee)
+
       if 3'u64 * participating_balance >= 2'u64 * total_balance:
+        # Check not from spec; seems kludgy
+        doAssert slot >= GENESIS_SLOT
+
         state.latest_crosslinks[shard] = Crosslink(
           epoch: slot_to_epoch(slot),
           crosslink_data_root: winning_root

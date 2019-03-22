@@ -101,7 +101,7 @@ suite "Block processing":
     discard updateState(state, previous_block_root, new_block, {})
 
     check:
-      state.latest_attestations.len == 1
+      state.current_epoch_attestations.len == 1
 
     while state.slot < 191:
       advanceState(state, previous_block_root)
