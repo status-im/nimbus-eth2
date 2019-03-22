@@ -170,6 +170,7 @@ proc updateLatestVotes(
 proc add*(pool: var AttestationPool,
           state: BeaconState,
           attestation: Attestation) =
+  # TODO should validate against the state of the block being attested to?
   if not validate(state, attestation, {skipValidation}):
     return
 

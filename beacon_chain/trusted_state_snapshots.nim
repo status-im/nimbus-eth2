@@ -3,7 +3,8 @@ import
   spec/[datatypes, crypto, digest, beaconstate], beacon_chain_db, conf
 
 const
-  WEAK_SUBJECTVITY_PERIOD* = uint64(4 * 30 * 24 * 60 * 60) div SECONDS_PER_SLOT
+  WEAK_SUBJECTVITY_PERIOD* =
+    Slot(uint64(4 * 30 * 24 * 60 * 60) div SECONDS_PER_SLOT)
     # TODO: This needs revisiting.
     # Why was the validator WITHDRAWAL_PERIOD altered in the spec?
 
@@ -26,6 +27,8 @@ proc obtainTrustedStateSnapshot*(db: BeaconChainDB): Future[BeaconState] {.async
   # (or just obtain it from the network using the ETH protocols)
   #
   # 5. Check that the state snapshot hash is correct and save it in the DB.
+
+  # TODO or just pass a state root via command line?
 
   doAssert(false, "Not implemented")
 
