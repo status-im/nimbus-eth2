@@ -8,6 +8,12 @@ source "$NETWORK_NAME.env"
 
 cd ..
 
-NIM_FLAGS="-d:debug -d:SHARD_COUNT=$SHARD_COUNT -d:SLOTS_PER_EPOCH=$SLOTS_PER_EPOCH"
-nim c $NIM_FLAGS -r beacon_chain/beacon_node
+NIM_FLAGS="-d:release --stacktraces:on -d:SHARD_COUNT=$SHARD_COUNT -d:SLOTS_PER_EPOCH=$SLOTS_PER_EPOCH"
+nim c $NIM_FLAGS beacon_chain/beacon_node
+
+if [ ! -d ~/.cache/nimbus/BeaconNode/$NETWORK_NAME/validators ]; then
+  beacon_chain/beacon_node --network=$NETWORK_NAME importValidators
+fi
+
+beacon_chain/beacon_node
 

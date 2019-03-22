@@ -24,6 +24,7 @@ type
   #
   # #############################################
   BeaconNode* = ref object
+    nickname*: string
     network*: EthereumNode
     networkMetadata*: NetworkMetadata
     isBootstrapNode*: bool
