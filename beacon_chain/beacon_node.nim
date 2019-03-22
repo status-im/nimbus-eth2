@@ -76,9 +76,14 @@ proc saveValidatorKey(key: ValidatorPrivKey, conf: BeaconNodeConf) =
   createDir validatorsDir
   writeFile(validatorsDir / $key.pubKey, $key)
 
+proc persistentNodeId*(conf: BeaconNodeConf): string =
+  ($ensureNetworkKeys(conf).pubKey)[0..5]
+
 proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
   new result
   result.config = conf
+  result.nickname = if conf.nodename == "auto": persistentNodeId(conf)
+                    else: conf.nodename
 
   template fail(args: varargs[untyped]) =
     stderr.write args, "\n"
@@ -793,8 +798,8 @@ when isMainModule:
 
     var node = waitFor BeaconNode.init(config)
 
-    if config.tcpPort != config.defaultPort:
-      dynamicLogScope(node = config.tcpPort): node.start()
+    if node.nickname != "":
+      dynamicLogScope(node = node.nickname): node.start()
     else:
       node.start()
 

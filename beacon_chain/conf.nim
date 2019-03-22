@@ -69,6 +69,11 @@ type
         desc: "Json file specifying a recent state snapshot"
         shortform: "s".}: Option[TypedInputFile[BeaconState, Json, "json"]]
 
+      nodename* {.
+        desc: "A name for this node that will appear in the logs. " &
+              "If you set this to 'auto', a persistent automatically generated ID will be seleceted for each --dataDir folder"
+        defaultValue: ""}: string
+
     of createTestnet:
       networkId* {.
         desc: "An unique numeric identifier for the network".}: uint64

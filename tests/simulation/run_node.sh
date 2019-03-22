@@ -21,6 +21,7 @@ fi
 $BEACON_NODE_BIN \
   --network:$NETWORK_METADATA_FILE \
   --dataDir:$DATA_DIR \
+  --nodename:${1} \
   --validator:${V_PREFIX}0.privkey \
   --validator:${V_PREFIX}1.privkey \
   --validator:${V_PREFIX}2.privkey \

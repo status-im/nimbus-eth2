@@ -18,7 +18,7 @@
 # types / composition
 
 import
-  hashes, math,
+  hashes, math, json,
   eth/[common, rlp],
   ./crypto, ./digest
 
@@ -578,6 +578,7 @@ template ethTimeUnit(typ: type) {.dirty.} =
   # Nim integration
   proc `$`*(x: typ): string {.borrow.}
   proc hash*(x: typ): Hash {.borrow.}
+  proc `%`*(x: typ): JsonNode {.borrow.}
 
   # Serialization
   proc read*(rlp: var Rlp, T: type typ): typ {.inline.} =
@@ -591,6 +592,9 @@ template ethTimeUnit(typ: type) {.dirty.} =
 
   proc readValue*(reader: var JsonReader, value: var typ) =
     value = typ reader.readValue(uint64)
+
+proc `%`*(i: uint64): JsonNode =
+  % int(i)
 
 ethTimeUnit Slot
 ethTimeUnit Epoch
