@@ -1,51 +1,94 @@
 import
-  random,
   chronos,
-  spec/[datatypes, helpers]
+  spec/[datatypes]
+
+from times import Time, getTime, fromUnix, `<`, `-`
 
 type
-  Timestamp* = uint64 # Unix epoch timestamp in millisecond resolution
+  BeaconClock* = object
+    ## The beacon clock represents time as it passes on a beacon chain. Beacon
+    ## time is locked to unix time, starting at a particular offset set during
+    ## beacon chain instantiation.
+    ##
+    ## Time on the beacon chain determines what actions should be taken and
+    ## which blocks are valid - in particular, blocks are not valid if they
+    ## come from the future as seen from the local clock.
+    ##
+    ## https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#beacon-chain-processing
+    ##
+    # TODO replace time in chronos with a proper unit type, then this code can
+    #      follow:
+    #      https://github.com/status-im/nim-chronos/issues/15
+    # TODO consider NTP and network-adjusted timestamps as outlined here:
+    #      https://ethresear.ch/t/network-adjusted-timestamps/4187
+    genesis: Time
 
-var
-  detectedClockDrift: int64
+  BeaconTime* = distinct int64 ## Seconds from beacon genesis time
 
-template now*: auto = fastEpochTime()
+proc init*(T: type BeaconClock, state: BeaconState): T =
+  ## Initialize time from a beacon state. The genesis time of a beacon state is
+  ## constant throughout its lifetime, so the state from any slot will do,
+  ## including the genesis state.
 
-# TODO underflow when genesis has not yet happened!
-proc timeSinceGenesis*(s: BeaconState): Timestamp =
-  Timestamp(int64(fastEpochTime() - s.genesis_time * 1000) -
-            detectedClockDrift)
+  let
+    unixGenesis = fromUnix(state.genesis_time.int64)
+    # GENESIS_SLOT offsets slot time, but to simplify calculations, we apply that
+    # offset to genesis instead of applying it at every time conversion
+    unixGenesisOffset = times.seconds(int(GENESIS_SLOT * SECONDS_PER_SLOT))
 
-proc getSlotFromTime*(s: BeaconState, t = now()): Slot =
-  GENESIS_SLOT + uint64((int64(t - s.genesis_time * 1000) - detectedClockDrift) div
-                         int64(SECONDS_PER_SLOT * 1000))
+  T(genesis: unixGenesis - unixGenesisOffset)
 
-func slotStart*(s: BeaconState, slot: Slot): Timestamp =
-  (s.genesis_time + ((slot - GENESIS_SLOT) * SECONDS_PER_SLOT)) * 1000
+func toSlot*(t: BeaconTime): Slot =
+  Slot(uint64(t) div SECONDS_PER_SLOT)
 
-func slotMiddle*(s: BeaconState, slot: Slot): Timestamp =
-  s.slotStart(slot) + SECONDS_PER_SLOT * 500
+func toBeaconTime*(c: BeaconClock, t: Time): BeaconTime =
+  doAssert t > c.genesis,
+    "Cannot represent time before genesis, fix BeaconClock"
 
-func slotEnd*(s: BeaconState, slot: Slot): Timestamp =
-  # TODO this is actually past the end, by nim inclusive semantics (sigh)
-  s.slotStart(slot + 1)
+  BeaconTime(times.seconds(t - c.genesis).uint64)
 
-proc randomTimeInSlot*(s: BeaconState,
-                       slot: Slot,
-                       interval: HSlice[float, float]): Timestamp =
-  ## Returns a random moment within the slot.
-  ## The interval must be a sub-interval of [0..1].
-  ## Zero marks the begginning of the slot and One marks the end.
-  s.slotStart(slot) + Timestamp(rand(interval) * float(SECONDS_PER_SLOT * 1000))
+func toSlot*(c: BeaconClock, t: Time): Slot =
+  c.toBeaconTime(t).toSlot()
 
-proc slotDistanceFromNow*(s: BeaconState): int64 =
-  ## Returns how many slots have passed since a particular BeaconState was finalized
-  int64(s.getSlotFromTime() - s.finalized_epoch.get_epoch_start_slot)
+func toBeaconTime*(s: Slot, offset = chronos.seconds(0)): BeaconTime =
+  BeaconTime(int64(uint64(s) * SECONDS_PER_SLOT) + seconds(offset))
 
-proc synchronizeClock*() {.async.} =
-  ## This should determine the offset of the local clock against a global
-  ## trusted time (e.g. it can be obtained from multiple time servers).
+proc now*(c: BeaconClock): BeaconTime =
+  ## Current time, in slots - this may end up being less than GENESIS_SLOT(!)
+  toBeaconTime(c, getTime())
 
-  # TODO: implement this properly
-  detectedClockDrift = 0
+proc fromNow*(c: BeaconClock, t: BeaconTime): tuple[inFuture: bool, offset: Duration] =
+  let now = c.now()
 
+  if int64(t) > int64(now):
+    (true, seconds(int64(t) - int64(now)))
+  else:
+    (false, seconds(int64(now) - int64(t)))
+
+proc fromNow*(c: BeaconClock, slot: Slot): tuple[inFuture: bool, offset: Duration] =
+  c.fromNow(slot.toBeaconTime())
+
+proc saturate*(d: tuple[inFuture: bool, offset: Duration]): Duration =
+  if d.inFuture: d.offset else: seconds(0)
+
+proc addTimer*(fromNow: Duration, cb: CallbackFunc, udata: pointer = nil) =
+  addTimer(Moment.now() + fromNow, cb, udata)
+
+proc shortLog*(d: Duration): string =
+  let dd = int64(d.milliseconds())
+  if dd < 1000:
+    $dd & "ms"
+  elif dd < 60 * 1000:
+    $(dd div 1000) & "s"
+  elif dd < 60 * 60 * 1000:
+    let secs = dd div 1000
+    var tmp = $(secs div 60) & "m"
+    if (let frac = secs mod 60; frac > 0):
+      tmp &= $frac & "s"
+    tmp
+  else:
+    let mins = dd div 60 * 1000
+    var tmp = $(mins div 60) & "h"
+    if (let frac = mins mod 60; frac > 0):
+      tmp &= $frac & "m"
+    tmp

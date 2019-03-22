@@ -136,13 +136,11 @@ proc updateState*(
 
 proc add*(
     pool: var BlockPool, state: var StateData, blockRoot: Eth2Digest,
-    blck: BeaconBlock): bool {.gcsafe.} =
-  ## return false indicates that the block parent was missing and should be
-  ## fetched
+    blck: BeaconBlock): BlockRef {.gcsafe.} =
+  ## return the block, if resolved...
   ## the state parameter may be updated to include the given block, if
   ## everything checks out
   # TODO reevaluate passing the state in like this
-  # TODO reevaluate this API - it's pretty ugly with the bool return
   doAssert blockRoot == hash_tree_root(blck)
 
   # Already seen this block??
@@ -151,7 +149,7 @@ proc add*(
       blck = shortLog(blck),
       blockRoot = shortLog(blockRoot)
 
-    return true
+    return pool.blocks[blockRoot]
 
   # If the block we get is older than what we finalized already, we drop it.
   # One way this can happen is that we start resolving a block and finalization
@@ -163,7 +161,7 @@ proc add*(
       tailSlot = humaneSlotNum(pool.tail.slot),
       blockRoot = shortLog(blockRoot)
 
-    return true
+    return
 
   let parent = pool.blocks.getOrDefault(blck.previous_block_root)
 
@@ -175,6 +173,8 @@ proc add*(
 
     # The block is resolved, now it's time to validate it to ensure that the
     # blocks we add to the database are clean for the given state
+    # TODO if the block is from the future, we should not be resolving it (yet),
+    #      but maybe we should use it as a hint that our clock is wrong?
     updateState(pool, state, parent, blck.slot - 1)
 
     if not updateState(state.data, parent.root, blck, {}):
@@ -223,7 +223,7 @@ proc add*(
     for k, v in retries:
       discard pool.add(state, k, v)
 
-    return true
+    return blockRef
 
   # TODO possibly, it makes sense to check the database - that would allow sync
   #      to simply fill up the database with random blocks the other clients
@@ -231,7 +231,7 @@ proc add*(
   #      junk that's not part of the block graph
 
   if blck.previous_block_root in pool.unresolved:
-    return true
+    return
 
   # This is an unresolved block - put it on the unresolved list for now...
   # TODO if we receive spam blocks, one heurestic to implement might be to wait
@@ -249,8 +249,6 @@ proc add*(
 
   pool.unresolved[blck.previous_block_root] = UnresolvedBlock()
   pool.pending[blockRoot] = blck
-
-  false
 
 proc get*(pool: BlockPool, blck: BlockRef): BlockData =
   ## Retrieve the associated block body of a block reference
@@ -318,10 +316,13 @@ proc maybePutState(pool: BlockPool, state: BeaconState) =
   #      potentially save multiple states per slot if reorgs happen, meaning
   #      we could easily see a state explosion
   if state.slot mod SLOTS_PER_EPOCH == 0:
-    info "Storing state",
-      stateSlot = humaneSlotNum(state.slot),
-      stateRoot = shortLog(hash_tree_root(state)) # TODO cache?
-    pool.db.putState(state)
+    let root = hash_tree_root(state)
+
+    if not pool.db.containsState(root):
+      info "Storing state",
+        stateSlot = humaneSlotNum(state.slot),
+        stateRoot = shortLog(root)
+      pool.db.putState(root, state)
 
 proc updateState*(
     pool: BlockPool, state: var StateData, blck: BlockRef, slot: Slot) =
@@ -438,17 +439,29 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
 
     return
 
+  let
+    lastHead = pool.head
   pool.head = blck
 
   # Start off by making sure we have the right state
   updateState(pool, state, blck, blck.slot)
 
-  info "Updated head",
-    stateRoot = shortLog(state.root),
-    headBlockRoot = shortLog(state.blck.root),
-    stateSlot = humaneSlotNum(state.data.slot),
-    justifiedEpoch = humaneEpochNum(state.data.current_justified_epoch),
-    finalizedEpoch = humaneEpochNum(state.data.finalized_epoch)
+  if lastHead != blck.parent:
+    notice "Updated head with new parent",
+      lastHeadRoot = shortLog(lastHead.root),
+      parentRoot = shortLog(blck.parent.root),
+      stateRoot = shortLog(state.root),
+      headBlockRoot = shortLog(state.blck.root),
+      stateSlot = humaneSlotNum(state.data.slot),
+      justifiedEpoch = humaneEpochNum(state.data.current_justified_epoch),
+      finalizedEpoch = humaneEpochNum(state.data.finalized_epoch)
+  else:
+    info "Updated head",
+      stateRoot = shortLog(state.root),
+      headBlockRoot = shortLog(state.blck.root),
+      stateSlot = humaneSlotNum(state.data.slot),
+      justifiedEpoch = humaneEpochNum(state.data.current_justified_epoch),
+      finalizedEpoch = humaneEpochNum(state.data.finalized_epoch)
 
   let
     # TODO there might not be a block at the epoch boundary - what then?

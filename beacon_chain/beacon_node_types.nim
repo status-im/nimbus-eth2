@@ -1,7 +1,8 @@
 import # Beacon Node
   eth/[p2p, keys],
   spec/[bitfield, digest],
-  beacon_chain_db, conf, mainchain_monitor, eth2_network
+  beacon_chain_db, conf, mainchain_monitor, eth2_network,
+  ./time
 
 import # Attestation Pool
   spec/[bitfield, datatypes, crypto, digest],
@@ -33,14 +34,21 @@ type
     keys*: KeyPair
     attachedValidators*: ValidatorPool
     blockPool*: BlockPool
+    attestationPool*: AttestationPool
+    mainchainMonitor*: MainchainMonitor
+    beaconClock*: BeaconClock
+
     state*: StateData ##\
     ## State cache object that's used as a scratch pad
     ## TODO this is pretty dangerous - for example if someone sets it
     ##      to a particular state then does `await`, it might change - prone to
     ##      async races
-    attestationPool*: AttestationPool
-    mainchainMonitor*: MainchainMonitor
-    potentialHeads*: seq[Eth2Digest]
+
+    justifiedStateCache*: StateData ##\
+    ## A second state cache that's used during head selection, to avoid
+    ## state replaying.
+    # TODO Something smarter, so we don't need to keep two full copies, wasteful
+
 
   # #############################################
   #

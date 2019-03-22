@@ -46,7 +46,7 @@ cli do (validators: int = 125000,
       deposit = Deposit(
         deposit_data: DepositData(
           amount: MAX_DEPOSIT_AMOUNT,
-          timestamp: now(),
+          timestamp: 0, # TODO https://github.com/ethereum/eth2.0-specs/pull/834
           deposit_input: DepositInput(
             pubkey: pubKey,
             proof_of_possession: proofOfPossession,
