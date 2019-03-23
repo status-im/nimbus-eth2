@@ -354,7 +354,7 @@ proc processExits(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
 func update_registry_and_shuffling_data(state: var BeaconState) =
   # First set previous shuffling data to current shuffling data
   state.previous_shuffling_epoch = state.current_shuffling_epoch
@@ -373,7 +373,7 @@ func update_registry_and_shuffling_data(state: var BeaconState) =
     state.current_shuffling_start_shard = (
       state.current_shuffling_start_shard +
       get_current_epoch_committee_count(state) mod SHARD_COUNT
-    )
+    ) mod SHARD_COUNT
     state.current_shuffling_seed =
       generate_seed(state, state.current_shuffling_epoch)
   else:
