@@ -298,9 +298,11 @@ proc processAttestations(
 func processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#voluntary-exits-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#voluntary-exits
 proc processExits(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
+  ## Process ``VoluntaryExit`` transaction.
+  ## Note that this function mutates ``state``.
   if len(blck.body.voluntary_exits) > MAX_VOLUNTARY_EXITS:
     notice "Exit: too many!"
     return false
@@ -308,15 +310,29 @@ proc processExits(
   for exit in blck.body.voluntary_exits:
     let validator = state.validator_registry[exit.validator_index.int]
 
-    if not (validator.exit_epoch >
-        get_delayed_activation_exit_epoch(get_current_epoch(state))):
-      notice "Exit: exit/entry too close"
+    # Verify the validator has not yet exited
+    if not (validator.exit_epoch == FAR_FUTURE_EPOCH):
+      notice "Exit: validator has exited"
       return false
 
+    # Verify the validator has not initiated an exit
+    if not (not validator.initiated_exit):
+      notice "Exit: validator has initiated an exit"
+      return false
+
+    ## Exits must specify an epoch when they become valid; they are not valid
+    ## before then
     if not (get_current_epoch(state) >= exit.epoch):
-      notice "Exit: bad epoch"
+      notice "Exit: exit epoch not passed"
       return false
 
+    # Must have been in the validator set long enough
+    if not (get_current_epoch(state) - validator.activation_epoch >=
+        PERSISTENT_COMMITTEE_PERIOD):
+      notice "Exit: not in validator set long enough"
+      return false
+
+    # Verify signature
     if skipValidation notin flags:
       if not bls_verify(
           validator.pubkey, signed_root(exit), exit.signature,
@@ -324,6 +340,7 @@ proc processExits(
         notice "Exit: invalid signature"
         return false
 
+    # Run the exit
     initiate_validator_exit(state, exit.validator_index.ValidatorIndex)
 
   true
