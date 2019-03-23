@@ -104,7 +104,9 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   template checkCompatibility(metadataField, LOCAL_CONSTANT) =
     let metadataValue = metadataField
     if metadataValue != LOCAL_CONSTANT:
-      metadataErrorMsg.add " -d:" & astToStr(LOCAL_CONSTANT) & "=" & $metadataValue
+      if metadataErrorMsg.len > 0: metadataErrorMsg.add " and"
+      metadataErrorMsg.add " -d:" & astToStr(LOCAL_CONSTANT) & "=" & $metadataValue &
+                           " (instead of " & $LOCAL_CONSTANT & ")"
 
   checkCompatibility result.networkMetadata.numShards      , SHARD_COUNT
   checkCompatibility result.networkMetadata.slotDuration   , SECONDS_PER_SLOT
