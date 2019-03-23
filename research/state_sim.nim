@@ -83,7 +83,8 @@ cli do(slots = 1945,
     attestations[attestations_idx] = @[]
 
     let t =
-      if (state.slot + 2) mod SLOTS_PER_EPOCH == 0: tEpoch
+      if (state.slot > GENESIS_SLOT and
+        (state.slot + 1) mod SLOTS_PER_EPOCH == 0): tEpoch
       else: tBlock
 
     withTimer(timers[t]):
