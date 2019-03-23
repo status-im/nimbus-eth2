@@ -13,7 +13,7 @@ proc `%`(v: ValidatorSig|ValidatorPubKey): JsonNode = newJString($v)
 
 type Timers = enum
   tBlock = "Process non-epoch slot with block"
-  tEpoch = "Proces epoch slot with block"
+  tEpoch = "Process epoch slot with block"
   tHashBlock = "Tree-hash block"
   tShuffle = "Retrieve committe once using get_crosslink_committees_at_slot"
   tAttest = "Combine committee attestations"
