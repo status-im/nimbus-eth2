@@ -294,8 +294,17 @@ proc processAttestations(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#deposits-1
-func processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#deposits
+proc processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
+  if not (len(blck.body.deposits) <= MAX_DEPOSITS):
+    notice "processDeposits: too many deposits"
+    return false
+
+  for deposit in blck.body.deposits:
+    if not process_deposit(state, deposit):
+      notice "processDeposits: deposit invalid"
+      return false
+
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#voluntary-exits
