@@ -59,7 +59,7 @@ proc processBlockHeader(
       notice "Block header: previous block root mismatch",
         previous_block_root = blck.previous_block_root,
         latest_block_header = state.latest_block_header,
-        latest_block_header_root = hash_tree_root_final(state.latest_block_header)
+        latest_block_header_root = hash_tree_root(state.latest_block_header)
       return false
 
   state.latest_block_header = get_temporary_block_header(blck)
@@ -89,7 +89,7 @@ proc processRandao(
   if skipValidation notin flags:
     if not bls_verify(
       proposer.pubkey,
-      hash_tree_root(get_current_epoch(state).uint64),
+      hash_tree_root(get_current_epoch(state).uint64).data,
       blck.body.randao_reveal,
       get_domain(state.fork, get_current_epoch(state), DOMAIN_RANDAO)):
 
@@ -471,7 +471,7 @@ func cacheState(state: var BeaconState) =
   if not (state.slot > GENESIS_SLOT):
     return
 
-  let previous_slot_state_root = hash_tree_root_final(state)
+  let previous_slot_state_root = hash_tree_root(state)
 
   # store the previous slot's post state transition root
   state.latest_state_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
@@ -1049,8 +1049,8 @@ func finish_epoch_update(state: var BeaconState) =
   let index_root_position =
     (next_epoch + ACTIVATION_EXIT_DELAY) mod LATEST_ACTIVE_INDEX_ROOTS_LENGTH
   state.latest_active_index_roots[index_root_position] =
-    Eth2Digest(data: hash_tree_root(get_active_validator_indices(
-      state.validator_registry, next_epoch + ACTIVATION_EXIT_DELAY))
+    hash_tree_root(get_active_validator_indices(
+      state.validator_registry, next_epoch + ACTIVATION_EXIT_DELAY)
   )
 
   # Set total slashed balances
@@ -1068,7 +1068,7 @@ func finish_epoch_update(state: var BeaconState) =
       block_roots: state.latest_block_roots,
       state_roots: state.latest_state_roots,
     )
-    state.historical_roots.add (hash_tree_root_final(historical_batch))
+    state.historical_roots.add (hash_tree_root(historical_batch))
 
   # Rotate current/previous epoch attestations
   state.previous_epoch_attestations = state.current_epoch_attestations
@@ -1111,7 +1111,7 @@ func processEpoch(state: var BeaconState) =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#state-root-verification
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
-  let state_root = hash_tree_root_final(state)
+  let state_root = hash_tree_root(state)
   if state_root != blck.state_root:
     notice "Block: root verification failed",
       block_state_root = blck.state_root, state_root

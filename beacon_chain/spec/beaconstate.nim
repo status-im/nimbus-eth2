@@ -222,7 +222,7 @@ func get_temporary_block_header*(blck: BeaconBlock): BeaconBlockHeader =
     slot: blck.slot.uint64,
     previous_block_root: blck.previous_block_root,
     state_root: ZERO_HASH,
-    block_body_root: hash_tree_root_final(blck.body),
+    block_body_root: hash_tree_root(blck.body),
     # signed_root(block) is used for block id purposes so signature is a stub
     signature: EMPTY_SIGNATURE,
   )
@@ -311,8 +311,8 @@ func get_genesis_beacon_state*(
     if get_effective_balance(state, vi) >= MAX_DEPOSIT_AMOUNT:
       activate_validator(state, vi, true)
 
-  let genesis_active_index_root = Eth2Digest(data: hash_tree_root(
-    get_active_validator_indices(state.validator_registry, GENESIS_EPOCH)))
+  let genesis_active_index_root = hash_tree_root(
+    get_active_validator_indices(state.validator_registry, GENESIS_EPOCH))
   for index in 0 ..< LATEST_ACTIVE_INDEX_ROOTS_LENGTH:
     state.latest_active_index_roots[index] = genesis_active_index_root
   state.current_shuffling_seed = generate_seed(state, GENESIS_EPOCH)
@@ -327,7 +327,7 @@ func get_genesis_beacon_state*(
 func get_initial_beacon_block*(state: BeaconState): BeaconBlock =
   BeaconBlock(
     slot: GENESIS_SLOT,
-    state_root: Eth2Digest(data: hash_tree_root(state))
+    state_root: hash_tree_root(state)
     # parent_root, randao_reveal, eth1_data, signature, and body automatically
     # initialized to default values.
   )

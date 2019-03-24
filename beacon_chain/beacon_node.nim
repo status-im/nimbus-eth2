@@ -141,7 +141,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
       let
         tailState = Json.loadFile(snapshotFile, BeaconState)
         tailBlock = get_initial_beacon_block(tailState)
-        blockRoot = hash_tree_root_final(tailBlock)
+        blockRoot = hash_tree_root(tailBlock)
 
       notice "Creating new database from snapshot",
         blockRoot = shortLog(blockRoot),
@@ -424,7 +424,7 @@ proc proposeBlock(node: BeaconNode,
     updateState(
         node.state.data, node.state.blck.root, newBlock, {skipValidation})
   doAssert ok # TODO: err, could this fail somehow?
-  node.state.root = hash_tree_root_final(node.state.data)
+  node.state.root = hash_tree_root(node.state.data)
 
   newBlock.state_root = node.state.root
 
@@ -640,7 +640,7 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
 proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
   # We received a block but don't know much about it yet - in particular, we
   # don't know if it's part of the chain we're currently building.
-  let blockRoot = hash_tree_root_final(blck)
+  let blockRoot = hash_tree_root(blck)
   debug "Block received",
     blck = shortLog(blck),
     blockRoot = shortLog(blockRoot)
@@ -731,7 +731,7 @@ when isMainModule:
 
       testnetMetadata = NetworkMetadata(
         networkId: config.networkId,
-        genesisRoot: hash_tree_root_final(initialState),
+        genesisRoot: hash_tree_root(initialState),
         bootstrapNodes: @[bootstrapAddress],
         numShards: SHARD_COUNT,
         slotDuration: SECONDS_PER_SLOT,

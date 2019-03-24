@@ -143,7 +143,7 @@ proc add*(
   ## everything checks out
   # TODO reevaluate passing the state in like this
   # TODO reevaluate this API - it's pretty ugly with the bool return
-  doAssert blockRoot == hash_tree_root_final(blck)
+  doAssert blockRoot == hash_tree_root(blck)
 
   # Already seen this block??
   if blockRoot in pool.blocks:
@@ -320,7 +320,7 @@ proc maybePutState(pool: BlockPool, state: BeaconState) =
   if state.slot mod SLOTS_PER_EPOCH == 0:
     info "Storing state",
       stateSlot = humaneSlotNum(state.slot),
-      stateRoot = shortLog(hash_tree_root_final(state)) # TODO cache?
+      stateRoot = shortLog(hash_tree_root(state)) # TODO cache?
     pool.db.putState(state)
 
 proc updateState*(

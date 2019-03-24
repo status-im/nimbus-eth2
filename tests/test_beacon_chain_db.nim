@@ -25,7 +25,7 @@ suite "Beacon chain DB":
 
     let
       blck = BeaconBlock()
-      root = hash_tree_root_final(blck)
+      root = hash_tree_root(blck)
 
     db.putBlock(blck)
 
@@ -39,7 +39,7 @@ suite "Beacon chain DB":
 
     let
       state = BeaconState()
-      root = hash_tree_root_final(state)
+      root = hash_tree_root(state)
 
     db.putState(state)
 
@@ -58,11 +58,11 @@ suite "Beacon chain DB":
 
     let
       a0 = BeaconBlock(slot: GENESIS_SLOT + 0)
-      a0r = hash_tree_root_final(a0)
+      a0r = hash_tree_root(a0)
       a1 = BeaconBlock(slot: GENESIS_SLOT + 1, previous_block_root: a0r)
-      a1r = hash_tree_root_final(a1)
+      a1r = hash_tree_root(a1)
       a2 = BeaconBlock(slot: GENESIS_SLOT + 2, previous_block_root: a1r)
-      a2r = hash_tree_root_final(a2)
+      a2r = hash_tree_root(a2)
 
     doAssert toSeq(db.getAncestors(a0r)) == []
     doAssert toSeq(db.getAncestors(a2r)) == []

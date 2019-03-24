@@ -69,7 +69,7 @@ func toBytesSSZ(x: Eth2Digest): array[32, byte] = x.data
 func toBytesSSZ(x: ValidatorPubKey|ValidatorSig): auto = x.getBytes()
 
 type
-  TrivialType =
+  BasicType =
     # Types that serialize down to a fixed-length array - most importantly,
     # these values don't carry a length prefix in the final encoding. toBytesSSZ
     # provides the actual nim-type-to-bytes conversion.
@@ -80,7 +80,7 @@ type
     SomeInteger | EthAddress | Eth2Digest | ValidatorPubKey | ValidatorSig |
       bool
 
-func sszLen(v: TrivialType): int = toBytesSSZ(v).len
+func sszLen(v: BasicType): int = toBytesSSZ(v).len
 func sszLen(v: ValidatorIndex): int = toBytesSSZ(v).len
 
 func sszLen(v: object | tuple): int =
@@ -165,7 +165,7 @@ proc writeValue*(w: var SszWriter, obj: auto) =
   # additional overloads for `writeValue`.
   mixin writeValue
 
-  when obj is ValidatorIndex|TrivialType:
+  when obj is ValidatorIndex|BasicType:
     w.stream.append obj.toBytesSSZ
   elif obj is enum:
     w.stream.append uint64(obj).toBytesSSZ
@@ -204,7 +204,7 @@ proc readValue*(r: var SszReader, result: var auto) =
     if not r.stream[].ensureBytes(n):
       raise newException(UnexpectedEofError, "SSZ has insufficient number of bytes")
 
-  when result is ValidatorIndex|TrivialType:
+  when result is ValidatorIndex|BasicType:
     let bytesToRead = result.sszLen;
     checkEof bytesToRead
 
@@ -263,10 +263,12 @@ proc readValue*(r: var SszReader, result: var auto) =
 # ################### Hashing ###################################
 
 # Sample hash_tree_root implementation based on:
-# https://github.com/ethereum/eth2.0-specs/blob/a9328157a87451ee4f372df272ece158b386ec41/specs/simple-serialize.md
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/simple-serialize.md
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/utils/phase0/minimal_ssz.py
 # TODO Probably wrong - the spec is pretty bare-bones and no test vectors yet
 
-const CHUNK_SIZE = 128
+const
+  BYTES_PER_CHUNK = 32
 
 # ################### Hashing helpers ###################################
 
@@ -284,50 +286,79 @@ func hash(a, b: openArray[byte]): array[32, byte] =
     h.update(a)
     h.update(b)
 
+type
+  Chunk = array[BYTES_PER_CHUNK, byte]
+
 # TODO: er, how is this _actually_ done?
 # Mandatory bug: https://github.com/nim-lang/Nim/issues/9825
 func empty(T: type): T = discard
-const emptyChunk = empty(array[CHUNK_SIZE, byte])
+const emptyChunk = empty(Chunk)
 
-func merkleHash[T](lst: openArray[T]): array[32, byte]
+func mix_in_length(root: Chunk, length: int): Chunk =
+  var dataLen: array[32, byte]
+  var lstLen = uint64(length)
+  littleEndian64(dataLen[32-8].addr, lstLen.addr)
 
-# ################### Hashing interface ###################################
+  hash(root, dataLen)
 
-func hash_tree_root*(x: SomeInteger | bool): array[sizeof(x), byte] =
-  ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
-  ## All integers are serialized as **little endian**.
-  toBytesSSZ(x)
+func pack[T](values: openArray[T]): seq[Chunk] =
+  # TODO this could easily be an iterator and avoid all allocations
+  var tmp = newSeqOfCap[byte](values.len() * sizeof(toBytesSSZ(values[0])))
+  for v in values:
+    tmp.add toBytesSSZ(v)
 
-func hash_tree_root*(x: ValidatorIndex): array[3, byte] =
-  ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
-  ## All integers are serialized as **little endian**.
-  toBytesSSZ(x)
+  result = newSeqOfCap[Chunk]((tmp.len + sizeof(Chunk) - 1) div sizeof(Chunk))
+  for v in 0..<tmp.len div sizeof(Chunk):
+    var c: Chunk
+    copyMem(addr c, addr tmp[v * sizeof(Chunk)], sizeof(Chunk))
+    result.add c
 
-func hash_tree_root*(x: EthAddress): array[sizeof(x), byte] =
-  ## Addresses copied as-is
-  toBytesSSZ(x)
+  let remains = tmp.len mod sizeof(Chunk)
+  if remains != 0:
+    var c: Chunk
+    copyMem(addr c, addr tmp[tmp.len - remains], remains)
+    result.add c
 
-func hash_tree_root*(x: Eth2Digest): array[32, byte] =
-  ## Hash32 copied as-is
-  toBytesSSZ(x)
+func merkleize(chunkz: seq[Chunk]): Chunk =
+  # TODO this could be rewritten for O(log(N)) allocations..
+  var chunkz = chunkz
+  while chunkz.len() > 1:
+    if chunkz.len() mod 2 == 1:
+      chunkz.add emptyChunk
+    for i in 0..<(chunkz.len div 2):
+      # As tradition dictates - one feature, at least one nim bug:
+      # https://github.com/nim-lang/Nim/issues/9684
+      let tmp = hash(chunkz[i * 2], chunkz[i * 2 + 1])
+      chunkz[i] = tmp
 
-func hash_tree_root*(x: openArray[byte]): array[32, byte] =
-  ## Blobs are hashed
-  hash(x)
+    chunkz.setLen(chunkz.len div 2)
 
-func hash_tree_root*[T: seq|array](x: T): array[32, byte] =
-  ## Sequences are tree-hashed
-  merkleHash(x)
+  if chunkz.len == 0:
+    chunkz.add emptyChunk
+  hash(chunkz[0])
 
-func hash_tree_root*[T: BitField](x: T): array[32, byte] =
-  ## Sequences are tree-hashed
-  merkleHash(x.bits)
+template elementType[T, N](_: type array[N, T]): typedesc = T
+template elementType[T](_: type seq[T]): typedesc = T
 
-func hash_tree_root*[T: object|tuple](x: T): array[32, byte] =
-  ## Containers have their fields recursively hashed, concatenated and hashed
-  withHash:
-    for field in x.fields:
-      h.update hash_tree_root(field.toSSZType)
+func hash_tree_root*[T](value: T): Eth2Digest =
+  Eth2Digest(data:
+    when T is BasicType:
+      merkleize(pack([value]))
+    elif T is array|seq:
+      when T.elementType() is BasicType:
+        mix_in_length(merkleize(pack(value)), len(value))
+      else:
+        var roots = newSeqOfCap[Chunk](value.len())
+        for v in value:
+          roots.add hash_tree_root(v).data
+        mix_in_length(merkleize(roots), len(value))
+    elif T is object:
+      var roots: seq[Chunk]
+      for v in value.fields:
+        roots.add hash_tree_root(v).data
+
+      merkleize(roots)
+  )
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/simple-serialize.md#signed-roots
 func signed_root*[T: object](x: T): array[32, byte] =
@@ -342,86 +373,6 @@ func signed_root*[T: object](x: T): array[32, byte] =
       if name == "signature":
         found_field_name = true
         break
-      h.update hash_tree_root(field.toSSZType)
+      h.update hash_tree_root(field.toSSZType).data
 
     doAssert found_field_name
-
-# #################################
-# hash_tree_root not part of official spec
-func hash_tree_root*(x: enum): array[8, byte] =
-  ## TODO - Warning ⚠️: not part of the spec
-  ## as of https://github.com/ethereum/beacon_chain/pull/133/files
-  ## This is a "stub" needed for BeaconBlock hashing
-  static: doAssert x.sizeof == 1 # Check that the enum fits in 1 byte
-  # TODO We've put enums where the spec uses `uint64` - maybe we should not be
-  # using enums?
-  hash_tree_root(uint64(x))
-
-func hash_tree_root*(x: ValidatorPubKey): array[32, byte] =
-  ## TODO - Warning ⚠️: not part of the spec
-  ## as of https://github.com/ethereum/beacon_chain/pull/133/files
-  ## This is a "stub" needed for BeaconBlock hashing
-  x.getBytes().hash()
-
-func hash_tree_root*(x: ValidatorSig): array[32, byte] =
-  ## TODO - Warning ⚠️: not part of the spec
-  ## as of https://github.com/ethereum/beacon_chain/pull/133/files
-  ## This is a "stub" needed for BeaconBlock hashing
-  x.getBytes().hash()
-
-func hash_tree_root_final*(x: object|tuple): Eth2Digest =
-  # TODO suggested for spec:
-  # https://github.com/ethereum/eth2.0-specs/issues/276
-  # only for objects now, else the padding would have to be implemented - not
-  # needed yet..
-  Eth2Digest(data: hash_tree_root(x))
-
-# ################### Tree hash ###################################
-
-func merkleHash[T](lst: openArray[T]): array[32, byte] =
-  ## Merkle tree hash of a list of homogenous, non-empty items
-
-  # TODO: the heap allocations here can be avoided by computing the merkle tree
-  #      recursively, but for now keep things simple and aligned with upstream
-
-  # Store length of list (to compensate for non-bijectiveness of padding)
-  var dataLen: array[32, byte]
-  var lstLen = uint64(len(lst))
-  littleEndian64(dataLen[32-8].addr, lstLen.addr)
-
-  # Divide into chunks
-  var chunkz: seq[seq[byte]]
-
-  if len(lst) == 0:
-    chunkz.add @emptyChunk
-  elif sizeof(hash_tree_root(lst[0])) < CHUNK_SIZE:
-    # See how many items fit in a chunk
-    let itemsPerChunk = CHUNK_SIZE div sizeof(hash_tree_root(lst[0]))
-
-    chunkz.setLen((len(lst) + itemsPerChunk - 1) div itemsPerChunk)
-
-    # Build a list of chunks based on the number of items in the chunk
-    for i in 0..<chunkz.len:
-      for j in 0..<itemsPerChunk:
-        if i == chunkz.len - 1:
-          let idx = i * itemsPerChunk + j
-          if idx >= lst.len: break # Last chunk may be partial!
-        chunkz[i].add hash_tree_root(lst[i * itemsPerChunk + j])
-  else:
-    # Leave large items alone
-    chunkz.setLen(len(lst))
-    for i in 0..<len(lst):
-      chunkz[i].add hash_tree_root(lst[i])
-
-  while chunkz.len() > 1:
-    if chunkz.len() mod 2 == 1:
-      chunkz.add @emptyChunk
-    for i in 0..<(chunkz.len div 2):
-      # As tradition dictates - one feature, at least one nim bug:
-      # https://github.com/nim-lang/Nim/issues/9684
-      let tmp = @(hash(chunkz[i * 2], chunkz[i * 2 + 1]))
-      chunkz[i] = tmp
-
-    chunkz.setLen(chunkz.len div 2)
-
-  hash(chunkz[0], dataLen)
