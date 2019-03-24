@@ -294,13 +294,24 @@ proc processAttestations(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#deposits-1
-func processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#deposits
+proc processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
+  if not (len(blck.body.deposits) <= MAX_DEPOSITS):
+    notice "processDeposits: too many deposits"
+    return false
+
+  for deposit in blck.body.deposits:
+    if not process_deposit(state, deposit):
+      notice "processDeposits: deposit invalid"
+      return false
+
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#voluntary-exits-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#voluntary-exits
 proc processExits(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
+  ## Process ``VoluntaryExit`` transaction.
+  ## Note that this function mutates ``state``.
   if len(blck.body.voluntary_exits) > MAX_VOLUNTARY_EXITS:
     notice "Exit: too many!"
     return false
@@ -308,15 +319,29 @@ proc processExits(
   for exit in blck.body.voluntary_exits:
     let validator = state.validator_registry[exit.validator_index.int]
 
-    if not (validator.exit_epoch >
-        get_delayed_activation_exit_epoch(get_current_epoch(state))):
-      notice "Exit: exit/entry too close"
+    # Verify the validator has not yet exited
+    if not (validator.exit_epoch == FAR_FUTURE_EPOCH):
+      notice "Exit: validator has exited"
       return false
 
+    # Verify the validator has not initiated an exit
+    if not (not validator.initiated_exit):
+      notice "Exit: validator has initiated an exit"
+      return false
+
+    ## Exits must specify an epoch when they become valid; they are not valid
+    ## before then
     if not (get_current_epoch(state) >= exit.epoch):
-      notice "Exit: bad epoch"
+      notice "Exit: exit epoch not passed"
       return false
 
+    # Must have been in the validator set long enough
+    if not (get_current_epoch(state) - validator.activation_epoch >=
+        PERSISTENT_COMMITTEE_PERIOD):
+      notice "Exit: not in validator set long enough"
+      return false
+
+    # Verify signature
     if skipValidation notin flags:
       if not bls_verify(
           validator.pubkey, signed_root(exit), exit.signature,
@@ -324,11 +349,12 @@ proc processExits(
         notice "Exit: invalid signature"
         return false
 
+    # Run the exit
     initiate_validator_exit(state, exit.validator_index.ValidatorIndex)
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
 func update_registry_and_shuffling_data(state: var BeaconState) =
   # First set previous shuffling data to current shuffling data
   state.previous_shuffling_epoch = state.current_shuffling_epoch
@@ -347,7 +373,7 @@ func update_registry_and_shuffling_data(state: var BeaconState) =
     state.current_shuffling_start_shard = (
       state.current_shuffling_start_shard +
       get_current_epoch_committee_count(state) mod SHARD_COUNT
-    )
+    ) mod SHARD_COUNT
     state.current_shuffling_seed =
       generate_seed(state, state.current_shuffling_epoch)
   else:

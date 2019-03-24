@@ -34,8 +34,8 @@ func verify_merkle_branch(leaf: Eth2Digest, proof: openarray[Eth2Digest], depth:
     value = eth2hash(buf)
   value == root
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#process_deposit
-func process_deposit(state: var BeaconState, deposit: Deposit) =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#process_deposit
+func process_deposit*(state: var BeaconState, deposit: Deposit): bool =
   ## Process a deposit from Ethereum 1.0.
   ## Note that this function mutates ``state``.
 
@@ -114,6 +114,8 @@ func process_deposit(state: var BeaconState, deposit: Deposit) =
       withdrawal_credentials
 
     state.validator_balances[index] += amount
+
+  true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_delayed_activation_exit_epoch
 func get_delayed_activation_exit_epoch*(epoch: Epoch): Epoch =
@@ -212,7 +214,7 @@ func update_shuffling_cache*(state: var BeaconState) =
     state.shuffling_cache.shuffling_1 = shuffling_seq
   state.shuffling_cache.index = 1 - state.shuffling_cache.index
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_temporary_block_header
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_temporary_block_header
 func get_temporary_block_header*(blck: BeaconBlock): BeaconBlockHeader =
   ## Return the block header corresponding to a block with ``state_root`` set
   ## to ``ZERO_HASH``.
@@ -221,18 +223,19 @@ func get_temporary_block_header*(blck: BeaconBlock): BeaconBlockHeader =
     previous_block_root: blck.previous_block_root,
     state_root: ZERO_HASH,
     block_body_root: hash_tree_root_final(blck.body),
+    # signed_root(block) is used for block id purposes so signature is a stub
     signature: EMPTY_SIGNATURE,
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#on-genesis
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#on-genesis
 func get_empty_block*(): BeaconBlock =
-  # Nim default values fill this in fine, mostly.
+  # Nim default values fill this in mostly correctly.
   result.slot = GENESIS_SLOT
 
 func get_genesis_beacon_state*(
     genesis_validator_deposits: openArray[Deposit],
     genesis_time: uint64,
-    latest_eth1_data: Eth1Data,
+    genesis_eth1_data: Eth1Data,
     flags: UpdateFlags = {}): BeaconState =
   ## Get the genesis ``BeaconState``.
   ##
@@ -263,8 +266,6 @@ func get_genesis_beacon_state*(
     validator_registry_update_epoch: GENESIS_EPOCH,
 
     # validator_registry and validator_balances automatically initalized
-    # TODO remove or conditionally compile; not in spec anymore
-    validator_registry_delta_chain_tip: ZERO_HASH,
 
     # Randomness and committees
     # latest_randao_mixes automatically initialized
@@ -276,18 +277,24 @@ func get_genesis_beacon_state*(
     current_shuffling_seed: ZERO_HASH,
 
     # Finality
+    # previous_epoch_attestations and current_epoch_attestations automatically
+    # initialized
     previous_justified_epoch: GENESIS_EPOCH,
     current_justified_epoch: GENESIS_EPOCH,
     justification_bitfield: 0,
     finalized_epoch: GENESIS_EPOCH,
-
-    # Deposit root
-    latest_eth1_data: latest_eth1_data,
+    finalized_root: ZERO_HASH,
 
     # Recent state
-    # latest_block_roots, latest_active_index_roots, latest_slashed_balances,
-    # and latest_attestations automatically initialized.
+    # latest_block_roots, latest_state_roots, latest_active_index_roots,
+    # latest_slashed_balances, and latest_slashed_balances automatically
+    # initialized
     latest_block_header: get_temporary_block_header(get_empty_block()),
+
+    # Ethereum 1.0 chain data
+    # eth1_data_votes automatically initialized
+    latest_eth1_data: genesis_eth1_data,
+    deposit_index: 0,
   )
 
   for i in 0 ..< SHARD_COUNT:
@@ -296,7 +303,7 @@ func get_genesis_beacon_state*(
 
   # Process genesis deposits
   for deposit in genesis_validator_deposits:
-    process_deposit(state, deposit)
+    discard process_deposit(state, deposit)
 
   # Process genesis activations
   for validator_index in 0 ..< state.validator_registry.len:

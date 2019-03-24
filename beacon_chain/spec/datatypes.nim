@@ -511,7 +511,7 @@ type
   # TODO: not in spec
   CrosslinkCommittee* = tuple[committee: seq[ValidatorIndex], shard: uint64]
   ShufflingCache* = object
-    ## https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#get_shuffling
+    ## https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_shuffling
     ## Note: this definition and the next few definitions make heavy use of
     ## repetitive computing. Production implementations are expected to
     ## appropriately use caching/memoization to avoid redoing work.
