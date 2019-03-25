@@ -81,16 +81,10 @@ suite "Simple serialization":
 suite "Tree hashing":
   # TODO Nothing but smoke tests for now..
 
-  test "Hash Validator":
-    let vr = Validator()
-    check: hash_tree_root(vr).len > 0
-
   test "Hash BeaconBlock":
-    ## TODO: Test genesis hash when spec is updated
-    let bb = BeaconBlock()
-    check: hash_tree_root(bb).len > 0
+    let vr = BeaconBlock()
+    check: hash_tree_root(vr) != Eth2Digest()
 
-  test "Hash integer":
-    check: hash_tree_root(0x01'u32) == [1'u8, 0, 0, 0] # little endian!
-    check: hash_tree_root(ValidatorIndex(0x01)) == [1'u8, 0, 0] # little endian!
-
+  test "Hash BeaconState":
+    let vr = BeaconBlock()
+    check: hash_tree_root(vr) != Eth2Digest()

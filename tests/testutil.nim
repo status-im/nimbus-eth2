@@ -44,7 +44,7 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
         withdrawal_credentials: withdrawal_credentials,
       )
       let domain = 0'u64
-      bls_sign(privkey, hash_tree_root_final(proof_of_possession_data).data, domain)
+      bls_sign(privkey, hash_tree_root(proof_of_possession_data).data, domain)
 
   Deposit(
     index: i.uint64,
@@ -116,7 +116,7 @@ proc addBlock*(
 
   # Ok, we have the new state as it would look with the block applied - now we
   # can set the state root in order to be able to create a valid signature
-  new_block.state_root = Eth2Digest(data: hash_tree_root(state))
+  new_block.state_root = hash_tree_root(state)
 
   let proposerPrivkey = hackPrivKey(proposer)
   doAssert proposerPrivkey.pubKey() == proposer.pubkey,
@@ -170,7 +170,7 @@ proc makeAttestation*(
   set_bitfield_bit(aggregation_bitfield, sac_index)
 
   let
-    msg = hash_tree_root_final(
+    msg = hash_tree_root(
       AttestationDataAndCustodyBit(data: data, custody_bit: false))
     sig =
       if skipValidation notin flags:
@@ -192,7 +192,7 @@ proc makeAttestation*(
 
 proc makeTestDB*(tailState: BeaconState, tailBlock: BeaconBlock): BeaconChainDB =
   let
-    tailRoot = hash_tree_root_final(tailBlock)
+    tailRoot = hash_tree_root(tailBlock)
 
   result = init(BeaconChainDB, newMemoryDB())
   result.putState(tailState)

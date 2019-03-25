@@ -56,10 +56,10 @@ proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
   db.backend.put(subkey(type value, key), SSZ.encode(value))
 
 proc putState*(db: BeaconChainDB, value: BeaconState) =
-  db.putState(hash_tree_root_final(value), value)
+  db.putState(hash_tree_root(value), value)
 
 proc putBlock*(db: BeaconChainDB, value: BeaconBlock) =
-  db.putBlock(hash_tree_root_final(value), value)
+  db.putBlock(hash_tree_root(value), value)
 
 proc putHeadBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.backend.put(subkey(kHeadBlock), key.data) # TODO head block?

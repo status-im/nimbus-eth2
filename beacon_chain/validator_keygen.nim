@@ -38,7 +38,7 @@ cli do (validators: int = 125000,
         withdrawal_credentials: withdrawalCredentials)
 
       proofOfPossession = bls_sign(
-        privkey, hash_tree_root_final(proofOfPossessionData).data,
+        privkey, hash_tree_root(proofOfPossessionData).data,
         0 # TODO - domain
         )
 

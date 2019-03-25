@@ -25,7 +25,7 @@ suite "Block processing":
   test "Passes from genesis state, no block":
     var
       state = genesisState
-      previous_block_root = hash_tree_root_final(genesisBlock)
+      previous_block_root = hash_tree_root(genesisBlock)
 
     advanceState(state, previous_block_root)
     check:
@@ -34,7 +34,7 @@ suite "Block processing":
   test "Passes from genesis state, empty block":
     var
       state = genesisState
-      previous_block_root = hash_tree_root_final(genesisBlock)
+      previous_block_root = hash_tree_root(genesisBlock)
       new_block = makeBlock(state, previous_block_root, BeaconBlockBody())
 
     let block_ok = updateState(state, previous_block_root, new_block, {})
@@ -47,7 +47,7 @@ suite "Block processing":
   test "Passes through epoch update, no block":
     var
       state = genesisState
-      previous_block_root = hash_tree_root_final(genesisBlock)
+      previous_block_root = hash_tree_root(genesisBlock)
 
     for i in 1..SLOTS_PER_EPOCH.int:
       advanceState(state, previous_block_root)
@@ -58,7 +58,7 @@ suite "Block processing":
   test "Passes through epoch update, empty block":
     var
       state = genesisState
-      previous_block_root = hash_tree_root_final(genesisBlock)
+      previous_block_root = hash_tree_root(genesisBlock)
 
     for i in 1..SLOTS_PER_EPOCH.int:
       var new_block = makeBlock(state, previous_block_root, BeaconBlockBody())
@@ -69,7 +69,7 @@ suite "Block processing":
       check:
         block_ok
 
-      previous_block_root = hash_tree_root_final(new_block)
+      previous_block_root = hash_tree_root(new_block)
 
     check:
       state.slot == genesisState.slot + SLOTS_PER_EPOCH
@@ -77,7 +77,7 @@ suite "Block processing":
   test "Attestation gets processed at epoch":
     var
       state = genesisState
-      previous_block_root = hash_tree_root_final(genesisBlock)
+      previous_block_root = hash_tree_root(genesisBlock)
 
     # Slot 0 is a finalized slot - won't be making attestations for it..
     advanceState(state, previous_block_root)

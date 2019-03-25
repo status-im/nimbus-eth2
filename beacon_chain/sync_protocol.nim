@@ -31,11 +31,11 @@ func toHeader(b: BeaconBlock): BeaconBlockHeaderRLP =
     randao_reveal: b.body.randao_reveal,
     eth1_data : b.body.eth1_data,
     signature: b.signature,
-    body: hash_tree_root_final(b.body)
+    body: hash_tree_root(b.body)
   )
 
 proc fromHeaderAndBody(b: var BeaconBlock, h: BeaconBlockHeaderRLP, body: BeaconBlockBody) =
-  doAssert(hash_tree_root_final(body) == h.body)
+  doAssert(hash_tree_root(body) == h.body)
   b.slot = h.slot.Slot
   b.previous_block_root = h.parent_root
   b.state_root = h.state_root
@@ -51,7 +51,7 @@ proc importBlocks(node: BeaconNode,
   var bodyMap = initTable[Eth2Digest, int]()
 
   for i, b in bodies:
-    bodyMap[hash_tree_root_final(b)] = i
+    bodyMap[hash_tree_root(b)] = i
 
   var goodBlocks, badBlocks = 0
   for h in headers:

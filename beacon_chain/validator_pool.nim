@@ -41,7 +41,7 @@ proc signAttestation*(v: AttachedValidator,
   if v.kind == inProcess:
     await sleepAsync(1)
 
-    let attestationRoot = hash_tree_root_final(attestation)
+    let attestationRoot = hash_tree_root(attestation)
     # TODO: Avoid the allocations belows
     var dataToSign = @(attestationRoot.data) & @[0'u8]
     # TODO: Use `domain` here
@@ -58,7 +58,7 @@ func genRandaoReveal*(k: ValidatorPrivKey, state: BeaconState, slot: Slot):
 
   # Off-by-one? I often get slot == state.slot but the check was "doAssert slot > state.slot" (Mamy)
   doAssert slot >= state.slot, "input slot: " & $humaneSlotNum(slot) & " - beacon state slot: " & $humaneSlotNum(state.slot)
-  bls_sign(k, hash_tree_root(slot_to_epoch(slot).uint64),
+  bls_sign(k, hash_tree_root(slot_to_epoch(slot).uint64).data,
     get_domain(state.fork, slot_to_epoch(slot), DOMAIN_RANDAO))
 
 func genRandaoReveal*(v: AttachedValidator, state: BeaconState, slot: Slot):

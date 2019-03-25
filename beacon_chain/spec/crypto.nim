@@ -47,7 +47,8 @@
 import
   sequtils,
   hashes, eth/rlp,
-  blscurve, json_serialization
+  blscurve, json_serialization,
+  digest
 
 export
   json_serialization
@@ -87,7 +88,7 @@ func bls_verify*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/bls_signature.md#bls_verify_multiple
 func bls_verify_multiple*(
-    pubkeys: seq[ValidatorPubKey], message_hashes: seq[array[0..31, byte]],
+    pubkeys: seq[ValidatorPubKey], message_hashes: openArray[Eth2Digest],
     sig: ValidatorSig, domain: uint64): bool =
   let L = len(pubkeys)
   doAssert L == len(message_hashes)
@@ -98,7 +99,7 @@ func bls_verify_multiple*(
     # TODO spec doesn't say to handle this specially, but it's silly to
     # validate without any actual public keys.
     if pubkey != ValidatorPubKey() and
-       not sig.verify(message_hash, domain, pubkey):
+       not sig.verify(message_hash.data, domain, pubkey):
       return false
 
   true
