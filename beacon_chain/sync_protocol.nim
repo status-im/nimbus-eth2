@@ -82,7 +82,7 @@ p2pProtocol BeaconSync(version = 1,
       bestRoot: Eth2Digest # TODO
       bestSlot = node.state.data.slot
 
-    let m = await handshake(peer, timeout = 500,
+    let m = await handshake(peer, timeout = 500.milliseconds,
                             status(networkId, latestFinalizedRoot,
                                    latestFinalizedEpoch, bestRoot, bestSlot))
 
