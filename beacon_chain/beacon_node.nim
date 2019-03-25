@@ -249,7 +249,7 @@ proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
   node.attestationPool.resolve(node.state.data)
 
   # TODO move all of this logic to BlockPool
-  info "Preparing for fork choice",
+  debug "Preparing for fork choice",
     currentHeadBlock = shortLog(node.state.root),
     connectedPeers = node.network.connectedPeers,
     stateSlot = humaneSlotNum(node.state.data.slot),
