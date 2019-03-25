@@ -75,12 +75,14 @@ p2pProtocol BeaconSync(version = 1,
       protocolVersion = 1 # TODO: Spec doesn't specify this yet
       node = peer.networkState.node
       networkId = peer.networkState.networkId
+      blockPool = node.blockPool
+      latestState = blockPool.latestState()
 
     var
       latestFinalizedRoot: Eth2Digest # TODO
-      latestFinalizedEpoch = node.state.data.finalized_epoch
+      latestFinalizedEpoch = latestState.finalized_epoch
       bestRoot: Eth2Digest # TODO
-      bestSlot = node.state.data.slot
+      bestSlot = latestState.slot
 
     let m = await handshake(peer, timeout = 500.milliseconds,
                             status(networkId, latestFinalizedRoot,
@@ -97,7 +99,6 @@ p2pProtocol BeaconSync(version = 1,
     else:
       # TODO: Check for WEAK_SUBJECTIVITY_PERIOD difference and terminate the
       # connection if it's too big.
-      let blockPool = peer.networkState.node.blockPool
 
       if bestDiff > 0:
         # Send roots
@@ -105,7 +106,7 @@ p2pProtocol BeaconSync(version = 1,
         # they should be split to multiple packets.
         type Root = (Eth2Digest, Slot)
         var roots = newSeqOfCap[Root](128)
-        for i in int(m.bestSlot) .. int(bestSlot):
+        for i in int(m.bestSlot) + 1 .. int(bestSlot):
           for r in blockPool.blockRootsForSlot(i.Slot):
             roots.add((r, i.Slot))
 
