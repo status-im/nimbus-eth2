@@ -21,7 +21,9 @@ The Eth 2.0 test vectors and their generators are available in a [dedicated repo
 
 ## Building and Testing
 
-The beacon chain components require that you have Nim installed - the easiest way to get started is to head over to the main [Nimbus](https://github.com/status-im/nimbus/) repository and follow the build instructions there.
+The beacon chain components require that you have Nim installed - the easiest way to get started is to head over to the main [Nimbus](https://github.com/status-im/nimbus/) repository and follow the build instructions there or just execute the commands below in order.
+
+_Note: This is because this repository is actually pulled in as a dependency of Nimbus - the Ethereum 1.0 + 2.0 client - so it makes sense to start from there even if you are only interested in testing the Ethereum 2.0 side of things (contained almost entirely in this repository)._
 
 ```bash
 # Clone main nimbus repository
@@ -48,7 +50,7 @@ The beacon node simulation is will create a full peer-to-peer network of beacon 
 
 ```bash
 # Start beacon chain simulation, resuming from the previous state (if any)
-./tests/simulation/start.sh
+./tests/simulation/start.sh # if starting from Nimbus, make sure you're in vendor/nim-beacon-chain!
 
 # Clear data from last run and restart simulation with a new genesis block
 rm -rf tests/simulation/data ; ./tests/simulation/start.sh
@@ -60,10 +62,26 @@ rm -rf tests/simulation/data ; ./tests/simulation/start.sh
 ./tests/simulation/run_node.sh 9
 ```
 
+Alternatively, the Makefile flow is available from the Nimbus parent repo:
+
+```bash
+# In the Nimbus repo root
+
+# Start beacon chain simulation, resuming from the previous state (if any)
+make eth2_network_simulation
+
+# Clear data from last run and restart simulation with a new genesis block
+make clean_eth2_network_simulation_files eth2_network_simulation
+```
+
 You can also separate the output from each beacon node in its own panel, using [multitail](http://www.vanheusden.com/multitail/):
 
 ```bash
 USE_MULTITAIL="yes" ./tests/simulation/start.sh
+
+# OR
+
+USE_MULTITAIL="yes" make eth2_network_simulation
 ```
 
 You can find out more about it in the [development update](https://our.status.im/nimbus-development-update-2018-12-2/).
