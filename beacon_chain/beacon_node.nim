@@ -1,6 +1,6 @@
 import
-  std_shims/[os_shims, objects], net, sequtils, options, tables, osproc, random,
-  times,
+  net, sequtils, options, tables, osproc, random, strutils, times,
+  std_shims/[os_shims, objects],
   chronos, chronicles, confutils, serialization/errors,
   spec/[bitfield, datatypes, digest, crypto, beaconstate, helpers, validator],
   conf, time,
@@ -42,7 +42,7 @@ template `//`(url, fragment: string): string =
 proc downloadFile(url: string): Future[string] {.async.} =
   let (fileContents, errorCode) = execCmdEx("curl --fail " & url, options = {poUsePath})
   if errorCode != 0:
-    raise newException(IOError, "Failed to download URL: " & url)
+    raise newException(IOError, "Failed to download URL: " & url & "\n" & fileContents)
   return fileContents
 
 proc updateTestnetMetadata(conf: BeaconNodeConf): Future[NetworkMetadata] {.async.} =
@@ -62,18 +62,21 @@ proc updateTestnetMetadata(conf: BeaconNodeConf): Future[NetworkMetadata] {.asyn
   let newGenesis = await downloadFile(testnetsBaseUrl // $conf.network // genesisFile)
   writeFile conf.dataDir / genesisFile, newGenesis
 
-proc obtainTestnetKey(conf: BeaconNodeConf): Future[ValidatorPrivKey] {.async.} =
+proc obtainTestnetKey(conf: BeaconNodeConf): Future[(string, string)] {.async.} =
   let
     metadata = await updateTestnetMetadata(conf)
     privKeyName = validatorFileBaseName(rand(metadata.userValidatorsRange)) & ".privkey"
-    privKeyContent = await downloadFile(testnetsBaseUrl // $conf.network // privKeyName)
+    privKeyContent = strip await downloadFile(testnetsBaseUrl // $conf.network // privKeyName)
 
-  return ValidatorPrivKey.init(privKeyContent)
+  let key = ValidatorPrivKey.init(privKeyContent)
+  return (privKeyName, privKeyContent)
 
-proc saveValidatorKey(key: ValidatorPrivKey, conf: BeaconNodeConf) =
+proc saveValidatorKey(keyName, key: string, conf: BeaconNodeConf) =
   let validatorsDir = conf.dataDir / dataDirValidators
+  let outputFile = validatorsDir / keyName
   createDir validatorsDir
-  writeFile(validatorsDir / $key.pubKey, $key)
+  writeFile(outputFile, key)
+  info "Imported validator key", file = outputFile
 
 proc persistentNodeId*(conf: BeaconNodeConf): string =
   ($ensureNetworkKeys(conf).pubKey)[0..5]
@@ -693,6 +696,7 @@ proc start(node: BeaconNode) =
   node.run()
 
 when isMainModule:
+  randomize()
   let config = BeaconNodeConf.load(version = fullVersionStr())
 
   if config.logLevel != LogLevel.NONE:
@@ -734,31 +738,25 @@ when isMainModule:
   of updateTestnet:
     discard waitFor updateTestnetMetadata(config)
 
-  of importValidators:
+  of importValidator:
     template reportFailureFor(keyExpr) =
       error "Failed to import validator key", key = keyExpr
       programResult = 1
 
-    for key in config.keys:
-      try:
-        ValidatorPrivKey.init(key).saveValidatorKey(config)
-      except:
-        reportFailureFor key
-
     for keyFile in config.keyFiles:
       try:
-        keyFile.load.saveValidatorKey(config)
+        saveValidatorKey(keyFile.string.extractFilename,
+                         readFile(keyFile.string), config)
       except:
         reportFailureFor keyFile.string
 
-    if (config.keys.len + config.keyFiles.len) == 0:
+    if config.keyFiles.len == 0:
       if config.network in ["testnet0", "testnet1"]:
         try:
-          let key = waitFor obtainTestnetKey(config)
-          saveValidatorKey(key, config)
-          info "Imported validator", pubkey = key.pubKey
+          let (keyName, key) = waitFor obtainTestnetKey(config)
+          saveValidatorKey(keyName, key, config)
         except:
-          error "Failed to download key", err = getCurrentExceptionMsg()
+          stderr.write "Failed to download key\n", getCurrentExceptionMsg()
           quit 1
       else:
         echo "Validator keys can be downloaded only for testnets"
