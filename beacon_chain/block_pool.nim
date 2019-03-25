@@ -503,3 +503,15 @@ proc latestJustifiedBlock*(pool: BlockPool): BlockRef =
   findLatestJustifiedBlock(pool.finalizedHead, 0, deepest)
 
   deepest[1]
+
+proc latestState*(pool: BlockPool): BeaconState =
+  var b = pool.head
+  while true:
+    if b.isNil:
+      raise newException(Exception, "No state found")
+    if (let blk = pool.db.getBlock(b.root); blk.isSome()):
+      if (let state = pool.db.getState(blk.get().stateRoot); state.isSome()):
+        return state.get()
+    else:
+      error "Block from block pool not found in db", root = b.root
+    b = b.parent
