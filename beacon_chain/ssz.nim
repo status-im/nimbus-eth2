@@ -9,7 +9,7 @@
 # See https://github.com/ethereum/eth2.0-specs/blob/master/specs/simple-serialize.md
 
 import
-  endians, typetraits, options, algorithm,
+  endians, typetraits, options, algorithm, math,
   faststreams/input_stream, serialization, eth/common, nimcrypto/keccak,
   ./spec/[bitfield, crypto, datatypes, digest]
 
@@ -277,10 +277,6 @@ template withHash(body: untyped): array[32, byte] =
   let tmp = withEth2Hash: body
   toBytesSSZ tmp
 
-func hash(a: openArray[byte]): array[32, byte] =
-  withHash:
-    h.update(a)
-
 func hash(a, b: openArray[byte]): array[32, byte] =
   withHash:
     h.update(a)
@@ -301,46 +297,79 @@ func mix_in_length(root: Chunk, length: int): Chunk =
 
   hash(root, dataLen)
 
-func pack[T](values: openArray[T]): seq[Chunk] =
-  # TODO this could easily be an iterator and avoid all allocations
-  var tmp = newSeqOfCap[byte](values.len() * sizeof(toBytesSSZ(values[0])))
-  for v in values:
-    tmp.add toBytesSSZ(v)
+proc pack(values: seq|array): iterator(): Chunk =
+  result = iterator (): Chunk =
+    # TODO should be trivial to avoid this seq also..
+    # TODO I get a feeling a copy of the array is taken to the closure, which
+    #      also needs fixing
+    # TODO avoid closure iterators that involve GC
+    var tmp = newSeqOfCap[byte](values.len() * sizeof(toBytesSSZ(values[0])))
+    for v in values:
+      tmp.add toBytesSSZ(v)
 
-  result = newSeqOfCap[Chunk]((tmp.len + sizeof(Chunk) - 1) div sizeof(Chunk))
-  for v in 0..<tmp.len div sizeof(Chunk):
-    var c: Chunk
-    copyMem(addr c, addr tmp[v * sizeof(Chunk)], sizeof(Chunk))
-    result.add c
+    for v in 0..<tmp.len div sizeof(Chunk):
+      var c: Chunk
+      copyMem(addr c, addr tmp[v * sizeof(Chunk)], sizeof(Chunk))
+      yield c
 
-  let remains = tmp.len mod sizeof(Chunk)
-  if remains != 0:
-    var c: Chunk
-    copyMem(addr c, addr tmp[tmp.len - remains], remains)
-    result.add c
+    let remains = tmp.len mod sizeof(Chunk)
+    if remains != 0:
+      var c: Chunk
+      copyMem(addr c, addr tmp[tmp.len - remains], remains)
+      yield c
 
-func merkleize(chunkz: seq[Chunk]): Chunk =
-  # TODO this could be rewritten for O(log(N)) allocations..
-  var chunkz = chunkz
-  while chunkz.len() > 1:
-    if chunkz.len() mod 2 == 1:
-      chunkz.add emptyChunk
-    for i in 0..<(chunkz.len div 2):
+proc pad(iter: iterator(): Chunk): iterator(): Chunk =
+  # Pad a list of chunks to the next power-of-two length with empty chunks -
+  # this includes ensuring there's at least one chunk return
+  result = iterator(): Chunk =
+    var count = 0
+
+    while true:
+      let item = iter()
+      if finished(iter): break
+      count += 1
+      yield item
+
+    doAssert nextPowerOfTwo(0) == 1,
+      "Usefully, empty lists will be padded to one empty block"
+
+    for _ in count..<nextPowerOfTwo(count):
+      yield emptyChunk
+
+func merkleize(chunker: iterator(): Chunk): Chunk =
+  var
+    stack: seq[tuple[height: int, chunk: Chunk]]
+    paddedChunker = pad(chunker)
+
+  while true:
+    let chunk = paddedChunker()
+    if finished(paddedChunker): break
+
+    # Leaves start at height 0 - every time they move up, height is increased
+    # allowing us to detect two chunks at the same height ready for
+    # consolidation
+    # See also: http://szydlo.com/logspacetime03.pdf
+    stack.add (0, chunk)
+
+    # Consolidate items of the same height - this keeps stack size at log N
+    while stack.len > 1 and stack[^1].height == stack[^2].height:
       # As tradition dictates - one feature, at least one nim bug:
       # https://github.com/nim-lang/Nim/issues/9684
-      let tmp = hash(chunkz[i * 2], chunkz[i * 2 + 1])
-      chunkz[i] = tmp
+      let tmp = hash(stack[^2].chunk, stack[^1].chunk)
+      stack[^2].height += 1
+      stack[^2].chunk = tmp
+      discard stack.pop
 
-    chunkz.setLen(chunkz.len div 2)
+  doAssert stack.len == 1,
+    "With power-of-two leaves, we should end up with a single root"
 
-  if chunkz.len == 0:
-    chunkz.add emptyChunk
-  hash(chunkz[0])
+  stack[0].chunk
 
 template elementType[T, N](_: type array[N, T]): typedesc = T
 template elementType[T](_: type seq[T]): typedesc = T
 
 func hash_tree_root*[T](value: T): Eth2Digest =
+  # Merkle tree
   Eth2Digest(data:
     when T is BasicType:
       merkleize(pack([value]))
@@ -348,14 +377,14 @@ func hash_tree_root*[T](value: T): Eth2Digest =
       when T.elementType() is BasicType:
         mix_in_length(merkleize(pack(value)), len(value))
       else:
-        var roots = newSeqOfCap[Chunk](value.len())
-        for v in value:
-          roots.add hash_tree_root(v).data
+        var roots = iterator(): Chunk =
+          for v in value:
+            yield hash_tree_root(v).data
         mix_in_length(merkleize(roots), len(value))
     elif T is object:
-      var roots: seq[Chunk]
-      for v in value.fields:
-        roots.add hash_tree_root(v).data
+      var roots = iterator(): Chunk =
+        for v in value.fields:
+          yield hash_tree_root(v).data
 
       merkleize(roots)
   )
