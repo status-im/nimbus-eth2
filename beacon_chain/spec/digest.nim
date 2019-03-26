@@ -32,7 +32,8 @@ type
   Eth2Hash* = keccak256 ## Context for hash function
 
 func shortLog*(x: Eth2Digest): string =
-  ($x)[0..7]
+  # result = is needed to fix 
+  result = ($x)[0..7]
 
 func eth2hash*(v: openArray[byte]): Eth2Digest =
   var tmp = Eth2Hash.digest v
