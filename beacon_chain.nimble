@@ -1,3 +1,5 @@
+mode = ScriptMode.Verbose
+
 import
   beacon_chain/version as ver
 
@@ -30,14 +32,15 @@ requires "nim >= 0.19.0",
   "libp2p"
 
 ### Helper functions
-proc test(name: string, defaultLang = "c") =
+proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =
   if not dirExists "build":
     mkDir "build"
-  --run
-  switch("out", ("./build/" & name))
-  switch("opt", "speed")
-  setCommand defaultLang, "tests/" & name & ".nim"
+  # allow something like "nim test --verbosity:0 --hints:off beacon_chain.nims"
+  var extra_params = params
+  for i in 2..<paramCount():
+    extra_params &= " " & paramStr(i)
+  exec "nim " & lang & " --out:./build/" & name & " " & extra_params & " " & srcDir & name & ".nim"
 
 ### tasks
 task test, "Run all tests":
-  test "all_tests"
+  buildBinary "all_tests", "tests/", "-r -d:release -d:chronicles_log_level=ERROR"

@@ -1,12 +1,13 @@
 #!/bin/bash
 
-set -eux
+set -eu
 
 . $(dirname $0)/vars.sh
+cd "$GIT_ROOT"
 
-DATA_DIR=$SIMULATION_DIR/node-${1}
+DATA_DIR="${SIMULATION_DIR}/node-${1}"
 
-V_PREFIX="$VALIDATORS_DIR/v$(printf '%06d' ${1})"
+V_PREFIX="${VALIDATORS_DIR}/v$(printf '%06d' ${1})"
 PORT=$(printf '5%04d' ${1})
 
 NAT_FLAG=""

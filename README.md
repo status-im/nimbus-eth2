@@ -21,39 +21,39 @@ The Eth 2.0 test vectors and their generators are available in a [dedicated repo
 
 ## Building and Testing
 
-The beacon chain components require that you have Nim installed - the easiest way to get started is to head over to the main [Nimbus](https://github.com/status-im/nimbus/) repository and follow the build instructions there or just execute the commands below in order.
+The beacon chain components need to be built with the Nim compiler - the easiest way to get started is to head over to the main [Nimbus](https://github.com/status-im/nimbus/) repository and follow the build instructions there or just execute the commands below in order.
 
 _Note: This is because this repository is actually pulled in as a dependency of Nimbus - the Ethereum 1.0 + 2.0 client - so it makes sense to start from there even if you are only interested in testing the Ethereum 2.0 side of things (contained almost entirely in this repository)._
 
 ```bash
-# Clone main nimbus repository
+# Clone main nimbus repository:
 git clone https://github.com/status-im/nimbus.git
 cd nimbus
 
-# Prep environment
-make update deps
+# Prep environment (assuming you have 4 CPU cores and want to take advantage of them):
+make -j4 deps
 
-# Start a shell that uses the Nimbus compile environment
-./env.sh bash
-
-# You're now in a shell environment that has the right Nim version available.
-# Head over to the vendor repo where you should have a checkout of this project
+# Head over to the vendor repo where you should have a checkout of this project:
 cd vendor/nim-beacon-chain
 
 # You can now run the test suite:
-nim c -d:release -r tests/all_tests
+make test
 ```
 
 ## Beacon node simulation
 
 The beacon node simulation is will create a full peer-to-peer network of beacon nodes and validators, and run the beacon chain in real time. To change network parameters such as shard and validator counts, see [start.sh](tests/simulation/start.sh).
 
+
 ```bash
-# Start beacon chain simulation, resuming from the previous state (if any)
+# get a shell with the right environment vars set:
+../../env.sh bash
+
+# Start the beacon chain simulation, resuming from a previous state (if any):
 ./tests/simulation/start.sh # if starting from Nimbus, make sure you're in vendor/nim-beacon-chain!
 
-# Clear data from last run and restart simulation with a new genesis block
-rm -rf tests/simulation/data ; ./tests/simulation/start.sh
+# Clear data files from your last run and restart the simulation with a new genesis block:
+rm -rf tests/simulation/data; ./tests/simulation/start.sh
 
 # Run an extra node - by default the network will launch with 9 nodes, each
 # hosting 10 validators. The last 10 validators are lazy bums that hid from the
@@ -62,16 +62,12 @@ rm -rf tests/simulation/data ; ./tests/simulation/start.sh
 ./tests/simulation/run_node.sh 9
 ```
 
-Alternatively, the Makefile flow is available from the Nimbus parent repo:
+Alternatively, a Makefile-based flow is available:
 
 ```bash
-# In the Nimbus repo root
-
-# Start beacon chain simulation, resuming from the previous state (if any)
+# From "vendor/nim-beacon-chain/",
+# clear all data from the last run and restart the simulation with a new genesis block:
 make eth2_network_simulation
-
-# Clear data from last run and restart simulation with a new genesis block
-make clean_eth2_network_simulation_files eth2_network_simulation
 ```
 
 You can also separate the output from each beacon node in its own panel, using [multitail](http://www.vanheusden.com/multitail/):
@@ -81,22 +77,62 @@ USE_MULTITAIL="yes" ./tests/simulation/start.sh
 
 # OR
 
-USE_MULTITAIL="yes" make eth2_network_simulation
+make USE_MULTITAIL="yes" eth2_network_simulation
 ```
 
 You can find out more about it in the [development update](https://our.status.im/nimbus-development-update-2018-12-2/).
 
 _Alternatively, fire up our [experimental Vagrant instance with Nim pre-installed](https://our.status.im/setting-up-a-local-vagrant-environment-for-nim-development/) and give us yout feedback about the process!_
 
+### Makefile tips and tricks for developers
+
+- build all those tools known to the Makefile:
+
+```bash
+make
+```
+
+- build a specific tool:
+
+```bash
+make state_sim
+```
+
+- you can control the Makefile's verbosity with the V variable (defaults to 1):
+
+```bash
+make V=0 # quiet
+make V=2 test # more verbose than usual
+```
+
+- same for the [Chronicles log level](https://github.com/status-im/nim-chronicles#chronicles_log_level):
+
+```bash
+make LOG_LEVEL=DEBUG bench_bls_sig_agggregation # this is the default
+make LOG_LEVEL=TRACE beacon_node # log everything
+```
+
+- pass arbitrary parameters to the Nim compiler:
+
+```bash
+make NIMFLAGS="-d:release"
+```
+
+- you can freely combine those variables on the `make` command line:
+
+```bash
+make -j8 V=0 NIMFLAGS="-d:release" USE_MULTITAIL=yes eth2_network_simulation
+```
+
 ## State transition simulation
 
 The state transition simulator can quickly run the Beacon chain state transition function in isolation and output JSON snapshots of the state. The simulation runs without networking and blocks are processed without slot time delays.
 
 ```bash
-cd research
-# build and run state simulator, then display its help - -d:release speeds it
-# up substantially, allowing the simulation of longer runs in reasonable time
-nim c -d:release -r state_sim --help
+# build and run the state simulator, then display its help ("-d:release" speeds it
+# up substantially, allowing the simulation of longer runs in reasonable time)
+make V=0 NIMFLAGS="-d:release" state_sim
+./build/state_sim --help
 ```
 
 ## Convention
@@ -111,7 +147,7 @@ Nim NEP-1 recommends:
   - PascalCase for constants
   - PascalCase for types
 
-To facilitate collaboration and comparison, Nim-beacon-chain uses the Ethereum Foundation convention.
+To facilitate collaboration and comparison, nim-beacon-chain uses the Ethereum Foundation convention.
 
 ## License
 
@@ -123,4 +159,5 @@ or
 
 * Apache License, Version 2.0, ([LICENSE-APACHEv2](LICENSE-APACHEv2) or http://www.apache.org/licenses/LICENSE-2.0)
 
-at your option. This file may not be copied, modified, or distributed except according to those terms.
+at your option. These files may not be copied, modified, or distributed except according to those terms.
+
