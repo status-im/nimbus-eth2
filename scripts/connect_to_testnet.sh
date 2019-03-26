@@ -15,5 +15,5 @@ if [ ! -d ~/.cache/nimbus/BeaconNode/$NETWORK_NAME/validators ]; then
   beacon_chain/beacon_node --network=$NETWORK_NAME importValidator
 fi
 
-beacon_chain/beacon_node
+beacon_chain/beacon_node --network=$NETWORK_NAME
 
