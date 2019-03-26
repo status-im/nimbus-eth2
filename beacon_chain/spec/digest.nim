@@ -32,7 +32,7 @@ type
   Eth2Hash* = keccak256 ## Context for hash function
 
 func shortLog*(x: Eth2Digest): string =
-  # result = is needed to fix 
+  # result = is needed to fix https://github.com/status-im/nim-beacon-chain/issues/209
   result = ($x)[0..7]
 
 func eth2hash*(v: openArray[byte]): Eth2Digest =
