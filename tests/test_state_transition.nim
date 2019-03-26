@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  options, sequtils, unittest,
+  options, sequtils, unittest, chronicles,
   ./testutil,
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
   ../beacon_chain/[extras, state_transition, ssz]
@@ -21,23 +21,23 @@ suite "Block processing":
     genesisState = get_genesis_beacon_state(
       makeInitialDeposits(), 0, Eth1Data(), {})
     genesisBlock = get_initial_beacon_block(genesisState)
+    genesisRoot = signed_root(genesisBlock)
 
   test "Passes from genesis state, no block":
     var
       state = genesisState
-      previous_block_root = hash_tree_root(genesisBlock)
 
-    advanceState(state, previous_block_root)
+    advanceState(state)
     check:
       state.slot == genesisState.slot + 1
 
   test "Passes from genesis state, empty block":
     var
       state = genesisState
-      previous_block_root = hash_tree_root(genesisBlock)
+      previous_block_root = signed_root(genesisBlock)
       new_block = makeBlock(state, previous_block_root, BeaconBlockBody())
 
-    let block_ok = updateState(state, previous_block_root, new_block, {})
+    let block_ok = updateState(state, new_block, {})
 
     check:
       block_ok
@@ -47,10 +47,9 @@ suite "Block processing":
   test "Passes through epoch update, no block":
     var
       state = genesisState
-      previous_block_root = hash_tree_root(genesisBlock)
 
     for i in 1..SLOTS_PER_EPOCH.int:
-      advanceState(state, previous_block_root)
+      advanceState(state)
 
     check:
       state.slot == genesisState.slot + SLOTS_PER_EPOCH
@@ -58,18 +57,17 @@ suite "Block processing":
   test "Passes through epoch update, empty block":
     var
       state = genesisState
-      previous_block_root = hash_tree_root(genesisBlock)
+      previous_block_root = genesisRoot
 
     for i in 1..SLOTS_PER_EPOCH.int:
       var new_block = makeBlock(state, previous_block_root, BeaconBlockBody())
 
-      let block_ok = updateState(
-        state, previous_block_root, new_block, {})
+      let block_ok = updateState(state, new_block, {})
 
       check:
         block_ok
 
-      previous_block_root = hash_tree_root(new_block)
+      previous_block_root = signed_root(new_block)
 
     check:
       state.slot == genesisState.slot + SLOTS_PER_EPOCH
@@ -77,10 +75,10 @@ suite "Block processing":
   test "Attestation gets processed at epoch":
     var
       state = genesisState
-      previous_block_root = hash_tree_root(genesisBlock)
+      previous_block_root = genesisRoot
 
     # Slot 0 is a finalized slot - won't be making attestations for it..
-    advanceState(state, previous_block_root)
+    advanceState(state)
 
     let
       # Create an attestation for slot 1 signed by the only attester we have!
@@ -92,19 +90,19 @@ suite "Block processing":
     # Some time needs to pass before attestations are included - this is
     # to let the attestation propagate properly to interested participants
     while state.slot < GENESIS_SLOT + MIN_ATTESTATION_INCLUSION_DELAY + 1:
-      advanceState(state, previous_block_root)
+      advanceState(state)
 
     let
       new_block = makeBlock(state, previous_block_root, BeaconBlockBody(
         attestations: @[attestation]
       ))
-    discard updateState(state, previous_block_root, new_block, {})
+    discard updateState(state, new_block, {})
 
     check:
       state.current_epoch_attestations.len == 1
 
     while state.slot < 191:
-      advanceState(state, previous_block_root)
+      advanceState(state)
 
     # Would need to process more epochs for the attestation to be removed from
     # the state! (per above bug)

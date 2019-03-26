@@ -144,7 +144,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
       let
         tailState = Json.loadFile(snapshotFile, BeaconState)
         tailBlock = get_initial_beacon_block(tailState)
-        blockRoot = hash_tree_root(tailBlock)
+        blockRoot = signed_root(tailBlock)
 
       notice "Creating new database from snapshot",
         blockRoot = shortLog(blockRoot),
@@ -286,15 +286,14 @@ proc makeAttestation(node: BeaconNode,
                      shard: uint64,
                      committeeLen: int,
                      indexInCommittee: int) {.async.} =
-                     
+
   # TODO - move that to "updateState"
   # Epoch underflow - https://github.com/status-im/nim-beacon-chain/issues/207
   doAssert node.state.data.current_justified_epoch != GENESIS_EPOCH - 1,
     "Underflow in justified epoch field before making attestation"
 
   let
-    attestationData =
-      makeAttestationData(node.state.data, shard, node.state.blck.root)
+    attestationData = makeAttestationData(state, shard, head.root)
 
     # Careful - after await. node.state (etc) might have changed in async race
     validatorSignature = await validator.signAttestation(attestationData)
@@ -359,7 +358,7 @@ proc proposeBlock(node: BeaconNode,
     )
 
   let ok =
-    updateState(node.state.data, head.root, newBlock, {skipValidation})
+    updateState(node.state.data, newBlock, {skipValidation})
   doAssert ok # TODO: err, could this fail somehow?
   node.state.root = hash_tree_root(node.state.data)
 
@@ -368,7 +367,7 @@ proc proposeBlock(node: BeaconNode,
   newBlock.signature =
     await validator.signBlockProposal(node.state.data.fork, newBlock)
 
-  let blockRoot = hash_tree_root(newBlock)
+  let blockRoot = signed_root(newBlock)
 
   # TODO return new BlockRef from add?
   let newBlockRef = node.blockPool.add(node.state, blockRoot, newBlock)
@@ -415,7 +414,7 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
 proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
   # We received a block but don't know much about it yet - in particular, we
   # don't know if it's part of the chain we're currently building.
-  let blockRoot = hash_tree_root(blck)
+  let blockRoot = signed_root(blck)
   debug "Block received",
     blck = shortLog(blck),
     blockRoot = shortLog(blockRoot)

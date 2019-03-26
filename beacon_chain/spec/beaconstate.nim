@@ -219,7 +219,7 @@ func get_temporary_block_header*(blck: BeaconBlock): BeaconBlockHeader =
   ## Return the block header corresponding to a block with ``state_root`` set
   ## to ``ZERO_HASH``.
   BeaconBlockHeader(
-    slot: blck.slot.uint64,
+    slot: blck.slot,
     previous_block_root: blck.previous_block_root,
     state_root: ZERO_HASH,
     block_body_root: hash_tree_root(blck.body),
@@ -230,7 +230,7 @@ func get_temporary_block_header*(blck: BeaconBlock): BeaconBlockHeader =
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#on-genesis
 func get_empty_block*(): BeaconBlock =
   # Nim default values fill this in mostly correctly.
-  result.slot = GENESIS_SLOT
+  BeaconBlock(slot: GENESIS_SLOT)
 
 func get_genesis_beacon_state*(
     genesis_validator_deposits: openArray[Deposit],
@@ -323,7 +323,7 @@ func get_genesis_beacon_state*(
   state
 
 # TODO candidate for spec?
-# https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#on-genesis
+# https://github.com/ethereum/eth2.0-specs/blob/0.5.1/specs/core/0_beacon-chain.md#on-genesis
 func get_initial_beacon_block*(state: BeaconState): BeaconBlock =
   BeaconBlock(
     slot: GENESIS_SLOT,

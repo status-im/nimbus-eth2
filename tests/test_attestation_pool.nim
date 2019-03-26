@@ -28,7 +28,7 @@ suite "Attestation pool processing":
       pool = AttestationPool.init(blockPool)
       state = blockPool.loadTailState()
     # Slot 0 is a finalized slot - won't be making attestations for it..
-    advanceState(state.data, state.blck.root)
+    advanceState(state.data)
 
     let
       # Create an attestation for slot 1 signed by the only attester we have!
@@ -51,7 +51,7 @@ suite "Attestation pool processing":
       pool = AttestationPool.init(blockPool)
       state = blockPool.loadTailState()
     # Slot 0 is a finalized slot - won't be making attestations for it..
-    advanceState(state.data, state.blck.root)
+    advanceState(state.data)
 
     let
       # Create an attestation for slot 1 signed by the only attester we have!
@@ -60,7 +60,7 @@ suite "Attestation pool processing":
       attestation1 = makeAttestation(
         state.data, state.blck.root, crosslink_committees1[0].committee[0])
 
-    advanceState(state.data, state.blck.root)
+    advanceState(state.data)
 
     let
       crosslink_committees2 =

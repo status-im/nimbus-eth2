@@ -106,12 +106,11 @@ proc addBlock*(
       slot: state.slot + 1,
       previous_block_root: previous_block_root,
       state_root: Eth2Digest(), # we need the new state first
+      body: new_body,
       signature: ValidatorSig(), # we need the rest of the block first!
-      body: new_body
     )
 
-  let block_ok = updateState(
-    state, previous_block_root, new_block, {skipValidation})
+  let block_ok = updateState(state, new_block, {skipValidation})
   doAssert block_ok
 
   # Ok, we have the new state as it would look with the block applied - now we
@@ -126,12 +125,12 @@ proc addBlock*(
     let block_root = signed_root(new_block)
     # We have a signature - put it in the block and we should be done!
     new_block.signature =
-      bls_sign(proposerPrivkey, block_root,
+      bls_sign(proposerPrivkey, block_root.data,
                get_domain(state.fork, slot_to_epoch(new_block.slot), DOMAIN_BEACON_BLOCK))
 
     doAssert bls_verify(
       proposer.pubkey,
-      block_root, new_block.signature,
+      block_root.data, new_block.signature,
       get_domain(state.fork, slot_to_epoch(new_block.slot), DOMAIN_BEACON_BLOCK)),
       "we just signed this message - it should pass verification!"
 
@@ -192,7 +191,7 @@ proc makeAttestation*(
 
 proc makeTestDB*(tailState: BeaconState, tailBlock: BeaconBlock): BeaconChainDB =
   let
-    tailRoot = hash_tree_root(tailBlock)
+    tailRoot = signed_root(tailBlock)
 
   result = init(BeaconChainDB, newMemoryDB())
   result.putState(tailState)
