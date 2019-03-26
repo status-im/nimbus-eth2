@@ -137,7 +137,7 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64,
   ## ``slot`` in the next epoch -- with and without a `registry_change`
 
   let
-    epoch = slot_to_epoch(slot)
+    epoch = slot_to_epoch(slot) # TODO, enforce slot to be a Slot
     current_epoch = get_current_epoch(state)
     previous_epoch = get_previous_epoch(state)
     next_epoch = current_epoch + 1
@@ -145,11 +145,13 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64,
   doAssert previous_epoch <= epoch,
     "Previous epoch: " & $humaneEpochNum(previous_epoch) &
     ", epoch: " & $humaneEpochNum(epoch) &
+    " (slot: " & $humaneSlotNum(slot.Slot) & ")" &
     ", Next epoch: " & $humaneEpochNum(next_epoch)
 
   doAssert epoch <= next_epoch,
     "Previous epoch: " & $humaneEpochNum(previous_epoch) &
     ", epoch: " & $humaneEpochNum(epoch) &
+    " (slot: " & $humaneSlotNum(slot.Slot) & ")" &
     ", Next epoch: " & $humaneEpochNum(next_epoch)
 
   template get_epoch_specific_params(): auto =
