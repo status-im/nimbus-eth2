@@ -7,7 +7,7 @@ export
   defs
 
 const
-  defaultPort = 9000
+  defaultPort* = 9000
 
 type
   ValidatorKeyPath* = TypedInputFile[ValidatorPrivKey, Txt, "privkey"]
