@@ -281,6 +281,12 @@ proc makeAttestation(node: BeaconNode,
                      shard: uint64,
                      committeeLen: int,
                      indexInCommittee: int) {.async.} =
+                     
+  # TODO - move that to "updateState"
+  # Epoch underflow - https://github.com/status-im/nim-beacon-chain/issues/207
+  doAssert node.state.data.current_justified_epoch != GENESIS_EPOCH - 1,
+    "Underflow in justified epoch field before making attestation"
+
   let
     attestationData =
       makeAttestationData(node.state.data, shard, node.state.blck.root)
