@@ -2,7 +2,8 @@ import
   tables, sets, macros, base64,
   chronos, nimcrypto/sysrand, chronicles, json_serialization,
   eth/[p2p, rlp], eth/p2p/[rlpx, peer_pool],
-  spec/[datatypes, crypto]
+  spec/[datatypes, crypto],
+  tracing/stacktraces
 
 type
   TopicMsgHandler = proc (msg: string)
@@ -38,7 +39,9 @@ p2pProtocol GossipSub(version = 1,
 
   onPeerDisconnected do (peer: Peer, reason: DisconnectionReason):
     info "GossipSub Peer disconnected", peer, reason
-    writeStackTrace()
+    debug "Debugging stacktrace"
+    writeStyledStackTrace()
+    debug "Continuing ..."
 
   proc subscribeFor(peer: Peer, topic: string) =
     peer.state.subscribedFor.incl topic
