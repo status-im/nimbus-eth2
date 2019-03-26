@@ -40,6 +40,7 @@ regenTestnetFiles() {
     --outputGenesis=$NETWORK_DIR/genesis.json \
     --outputNetwork=$NETWORK_DIR/$NETWORK_FLAVOUR-network.json \
     --bootstrapAddress=$PUBLIC_IP \
+    --bootstrapPort=$BOOTSTRAP_PORT \
     --genesisOffset=600 # Delay in seconds
 }
 

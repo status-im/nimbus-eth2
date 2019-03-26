@@ -6,6 +6,9 @@ import
 export
   defs
 
+const
+  defaultPort = 9000
+
 type
   ValidatorKeyPath* = TypedInputFile[ValidatorPrivKey, Txt, "privkey"]
 
@@ -49,11 +52,11 @@ type
 
       tcpPort* {.
         desc: "TCP listening port"
-        defaultValue: config.defaultPort().}: int
+        defaultValue: defaultPort .}: int
 
       udpPort* {.
         desc: "UDP listening port",
-        defaultValue: config.defaultPort().}: int
+        defaultValue: defaultPort .}: int
 
       nat* {.
         desc: "Specify method to use for determining public address. Must be one of: any, extip:<IP>"
@@ -99,7 +102,7 @@ type
 
       bootstrapPort* {.
         desc: "The TCP/UDP port that will be used by the bootstrap node"
-        defaultValue: config.defaultPort().}: int
+        defaultValue: defaultPort .}: int
 
       genesisOffset* {.
         desc: "Seconds from now to add to genesis time"
@@ -136,9 +139,6 @@ proc defaultDataDir*(conf: BeaconNodeConf): string =
     "tempnet"
 
   getHomeDir() / dataDir / "BeaconNode" / networkDir
-
-proc defaultPort*(conf: BeaconNodeConf): int =
-  (if conf.network == "testnet0": 9630 else: 9632) + ord(useRLPx)
 
 proc validatorFileBaseName*(validatorIdx: int): string =
   # there can apparently be tops 4M validators so we use 7 digits..
