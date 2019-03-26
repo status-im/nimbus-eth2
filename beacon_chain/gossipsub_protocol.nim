@@ -39,6 +39,7 @@ p2pProtocol GossipSub(version = 1,
 
   onPeerDisconnected do (peer: Peer, reason: DisconnectionReason):
     info "GossipSub Peer disconnected", peer, reason
+    # TODO, add stacktraces support to nim-chronicles
     debug "Debugging stacktrace"
     writeStyledStackTrace()
     debug "Continuing ..."
