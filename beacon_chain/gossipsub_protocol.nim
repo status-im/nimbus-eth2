@@ -24,6 +24,10 @@ proc initProtocolState*(peer: GossipSubPeer, _: Peer) =
   peer.sentMessages = initSet[string]()
   peer.subscribedFor = initSet[string]()
 
+proc trySubscribing(peer: Peer, topic: string) {.gcsafe.}
+proc tryEmitting(peer: Peer, topic: string,
+                 msgId: string, msg: string): Future[void] {.gcsafe.}
+
 p2pProtocol GossipSub(version = 1,
                       shortName = "gss",
                       peerState = GossipSubPeer,
@@ -35,14 +39,10 @@ p2pProtocol GossipSub(version = 1,
     info "GossipSub Peer connected", peer
     let gossipNet = peer.networkState
     for topic, _ in gossipNet.topicSubscribers:
-      asyncCheck peer.subscribeFor(topic)
+      peer.trySubscribing(topic)
 
   onPeerDisconnected do (peer: Peer, reason: DisconnectionReason):
     info "GossipSub Peer disconnected", peer, reason
-    # TODO, add stacktraces support to nim-chronicles
-    debug "Debugging stacktrace"
-    writeStyledStackTrace()
-    debug "Continuing ..."
 
   proc subscribeFor(peer: Peer, topic: string) =
     peer.state.subscribedFor.incl topic
@@ -57,14 +57,14 @@ p2pProtocol GossipSub(version = 1,
     for p in peer.network.peers(GossipSub):
       if msgId notin p.state.sentMessages and topic in p.state.subscribedFor:
         p.state.sentMessages.incl msgId
-        asyncCheck p.emit(topic, msgId, msg)
+        asyncDiscard p.tryEmitting(topic, msgId, msg)
 
     {.gcsafe.}:
       let handler = peer.networkState.topicSubscribers.getOrDefault(topic)
       if handler != nil:
         handler(msg)
 
-proc broadcastImpl(node: EthereumNode, topic: string, msg: string): seq[Future[void]] {.gcsafe.} =
+proc broadcastIMPL(node: EthereumNode, topic: string, msg: string): seq[Future[void]] {.gcsafe.} =
   var randBytes: array[10, byte];
   if randomBytes(randBytes) != 10:
     warn "Failed to generate random message id"
@@ -74,7 +74,21 @@ proc broadcastImpl(node: EthereumNode, topic: string, msg: string): seq[Future[v
 
   for peer in node.peers(GossipSub):
     if topic in peer.state(GossipSub).subscribedFor:
-      result.add peer.emit(topic, msgId, msg)
+      result.add peer.tryEmitting(topic, msgId, msg)
+
+proc trySubscribing(peer: Peer, topic: string) =
+  var fut = peer.subscribeFor(topic)
+  fut.addCallback do (arg: pointer):
+    if fut.failed:
+      warn "Failed to subscribe to topic with GossipSub peer", topic, peer
+
+proc tryEmitting(peer: Peer, topic: string,
+                 msgId: string, msg: string): Future[void] =
+  var fut = peer.emit(topic, msgId, msg)
+  fut.addCallback do (arg: pointer):
+    if fut.failed:
+      warn "GossipSub message not delivered to Peer", peer
+  return fut
 
 proc subscribe*[MsgType](node: EthereumNode,
                          topic: string,
@@ -84,8 +98,11 @@ proc subscribe*[MsgType](node: EthereumNode,
     userHandler Json.decode(msg, MsgType)
 
   for peer in node.peers(GossipSub):
-    discard peer.subscribeFor(topic)
+    peer.trySubscribing(topic)
 
 proc broadcast*(node: EthereumNode, topic: string, msg: auto) {.async.} =
-  await all(node.broadcastImpl(topic, Json.encode(msg)))
+  # We are intentionally using `yield` here, so the broadcast call can
+  # never fail. Please note that errors are logged through a callback
+  # set in `tryEmitting`
+  yield all(node.broadcastIMPL(topic, Json.encode(msg)))
 

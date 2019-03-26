@@ -11,8 +11,8 @@ type
 
   StartUpCommand* = enum
     noCommand
-    createTestnet
     importValidator
+    createTestnet
     updateTestnet
 
   BeaconNodeConf* = object

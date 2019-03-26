@@ -84,7 +84,7 @@ p2pProtocol BeaconSync(version = 1,
       bestRoot: Eth2Digest # TODO
       bestSlot = latestState.slot
 
-    let m = await handshake(peer, timeout = 500.milliseconds,
+    let m = await handshake(peer, timeout = 10.seconds,
                             status(networkId, latestFinalizedRoot,
                                    latestFinalizedEpoch, bestRoot, bestSlot))
 
@@ -92,34 +92,41 @@ p2pProtocol BeaconSync(version = 1,
       await peer.disconnect(UselessPeer)
       return
 
-    let bestDiff = cmp((latestFinalizedEpoch, bestSlot), (m.latestFinalizedEpoch, m.bestSlot))
-    if bestDiff == 0:
-      # Nothing to do?
-      trace "Nothing to sync", peer = peer.remote
-    else:
-      # TODO: Check for WEAK_SUBJECTIVITY_PERIOD difference and terminate the
-      # connection if it's too big.
-
-      if bestDiff > 0:
-        # Send roots
-        # TODO: Currently we send all block roots in one "packet". Maybe
-        # they should be split to multiple packets.
-        type Root = (Eth2Digest, Slot)
-        var roots = newSeqOfCap[Root](128)
-        for i in int(m.bestSlot) + 1 .. int(bestSlot):
-          for r in blockPool.blockRootsForSlot(i.Slot):
-            roots.add((r, i.Slot))
-
-        await peer.beaconBlockRoots(roots)
+    # TODO: onPeerConnected runs unconditionally for every connected peer, but we
+    # don't need to sync with everybody. The beacon node should detect a situation
+    # where it needs to sync and it should execute the sync algorithm with a certain
+    # number of randomly selected peers. The algorithm itself must be extracted in a proc.
+    try:
+      let bestDiff = cmp((latestFinalizedEpoch, bestSlot), (m.latestFinalizedEpoch, m.bestSlot))
+      if bestDiff == 0:
+        # Nothing to do?
+        trace "Nothing to sync", peer = peer.remote
       else:
-        # Receive roots
-        let roots = await peer.nextMsg(BeaconSync.beaconBlockRoots)
-        let headers = await peer.getBeaconBlockHeaders(bestRoot, bestSlot, roots.roots.len, 0)
-        var bodiesRequest = newSeqOfCap[Eth2Digest](roots.roots.len)
-        for r in roots.roots:
-          bodiesRequest.add(r[0])
-        let bodies = await peer.getBeaconBlockBodies(bodiesRequest)
-        node.importBlocks(roots.roots, headers.get.blockHeaders, bodies.get.blockBodies)
+        # TODO: Check for WEAK_SUBJECTIVITY_PERIOD difference and terminate the
+        # connection if it's too big.
+
+        if bestDiff > 0:
+          # Send roots
+          # TODO: Currently we send all block roots in one "packet". Maybe
+          # they should be split to multiple packets.
+          type Root = (Eth2Digest, Slot)
+          var roots = newSeqOfCap[Root](128)
+          for i in int(m.bestSlot) + 1 .. int(bestSlot):
+            for r in blockPool.blockRootsForSlot(i.Slot):
+              roots.add((r, i.Slot))
+
+          await peer.beaconBlockRoots(roots)
+        else:
+          # Receive roots
+          let roots = await peer.nextMsg(BeaconSync.beaconBlockRoots)
+          let headers = await peer.getBeaconBlockHeaders(bestRoot, bestSlot, roots.roots.len, 0)
+          var bodiesRequest = newSeqOfCap[Eth2Digest](roots.roots.len)
+          for r in roots.roots:
+            bodiesRequest.add(r[0])
+          let bodies = await peer.getBeaconBlockBodies(bodiesRequest)
+          node.importBlocks(roots.roots, headers.get.blockHeaders, bodies.get.blockBodies)
+    except CatchableError:
+      warn "Failed to sync with peer", peer, err = getCurrentExceptionMsg()
 
   proc status(
             peer: Peer,
