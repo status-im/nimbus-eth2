@@ -7,7 +7,7 @@
 # Helpers and functions pertaining to managing the validator set
 
 import
-  options, nimcrypto, sequtils, math,
+  options, nimcrypto, sequtils, math, chronicles,
   eth/common,
   ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers
@@ -125,9 +125,10 @@ func get_next_epoch_committee_count(state: BeaconState): uint64 =
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(state: BeaconState): Epoch =
   ## Return the previous epoch of the given ``state``.
+  # Note: This is allowed to underflow internally (this is why GENESIS_EPOCH != 0)
+  #       however when interfacing with peers for example for attestations
+  #       this should not underflow.
   let epoch = get_current_epoch(state)
-  if epoch == GENESIS_EPOCH:
-    raise newException(OverflowError, "Underflow: trying to get the previous epoch of epoch 0 (genesis).")
   epoch - 1
 
 
