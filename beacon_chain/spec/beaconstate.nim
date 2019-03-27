@@ -8,7 +8,8 @@
 import
   chronicles, math, options, sequtils,
   ../extras, ../ssz,
-  ./bitfield, ./crypto, ./datatypes, ./digest, ./helpers, ./validator
+  ./bitfield, ./crypto, ./datatypes, ./digest, ./helpers, ./validator,
+  tables
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_effective_balance
 func get_effective_balance*(state: BeaconState, index: ValidatorIndex): Gwei =
@@ -360,6 +361,44 @@ func get_attestation_participants*(state: BeaconState,
   # Find the committee in the list with the desired shard
   let crosslink_committees = get_crosslink_committees_at_slot(
     state, attestation_data.slot)
+
+  doAssert anyIt(
+    crosslink_committees,
+    it[1] == attestation_data.shard)
+  let crosslink_committee = mapIt(
+    filterIt(crosslink_committees, it.shard == attestation_data.shard),
+    it.committee)[0]
+
+  # TODO this and other attestation-based fields need validation so we don't
+  #      crash on a malicious attestation!
+  doAssert verify_bitfield(bitfield, len(crosslink_committee))
+
+  # Find the participating attesters in the committee
+  result = @[]
+  for i, validator_index in crosslink_committee:
+    let aggregation_bit = get_bitfield_bit(bitfield, i)
+    if aggregation_bit:
+      result.add(validator_index)
+
+func get_attestation_participants_cached*(state: BeaconState,
+                                   attestation_data: AttestationData,
+                                   bitfield: BitField,
+                                   crosslink_committees_cached: var auto): seq[ValidatorIndex] =
+  ## Return the participant indices at for the ``attestation_data`` and
+  ## ``bitfield``.
+  ## Attestation participants in the attestation data are called out in a
+  ## bit field that corresponds to the committee of the shard at the time;
+  ## this function converts it to list of indices in to BeaconState.validators
+  ##
+  ## Returns empty list if the shard is not found
+  ## Return the participant indices at for the ``attestation_data`` and ``bitfield``.
+  ##
+  # TODO Linear search through shard list? borderline ok, it's a small list
+  # TODO iterator candidate
+
+  # Find the committee in the list with the desired shard
+  let crosslink_committees = get_crosslink_committees_at_slot_cached(
+    state, attestation_data.slot, false, crosslink_committees_cached)
 
   doAssert anyIt(
     crosslink_committees,
