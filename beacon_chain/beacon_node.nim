@@ -56,6 +56,8 @@ proc updateTestnetMetadata(conf: BeaconNodeConf): Future[NetworkMetadata] {.asyn
     return
 
   info "New testnet genesis data received. Starting with a fresh database."
+
+  createDir conf.dataDir.string
   removeDir conf.databaseDir
   writeFile localMetadataFile, latestMetadata
 
@@ -66,7 +68,8 @@ proc obtainTestnetKey(conf: BeaconNodeConf): Future[(string, string)] {.async.} 
   let
     metadata = await updateTestnetMetadata(conf)
     privKeyName = validatorFileBaseName(rand(metadata.userValidatorsRange)) & ".privkey"
-    privKeyContent = strip await downloadFile(testnetsBaseUrl // $conf.network // privKeyName)
+    privKeyUrl = testnetsBaseUrl // $conf.network // privKeyName
+    privKeyContent = strip await downloadFile(privKeyUrl)
 
   let key = ValidatorPrivKey.init(privKeyContent)
   return (privKeyName, privKeyContent)
