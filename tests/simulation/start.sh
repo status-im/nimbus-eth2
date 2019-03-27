@@ -23,7 +23,7 @@ mkdir -p $BUILD_OUTPUTS_DIR
 # Run with "SHARD_COUNT=4 ./start.sh" to change these
 DEFS="-d:SHARD_COUNT=${SHARD_COUNT:-4} "      # Spec default: 1024
 DEFS+="-d:SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH:-8} "   # Spec default: 64
-DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-6} " # Spec default: 6
+DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-12} " # Spec default: 6
 
 LAST_VALIDATOR_NUM=$(( $NUM_VALIDATORS - 1 ))
 LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.json"
@@ -44,8 +44,9 @@ if [[ -z "$SKIP_BUILDS" ]]; then
 fi
 
 if [ ! -f $SNAPSHOT_FILE ]; then
-  $BEACON_NODE_BIN createTestnet \
+  $BEACON_NODE_BIN \
     --dataDir=$SIMULATION_DIR/node-0 \
+    createTestnet \
     --networkId=1000 \
     --validatorsDir=$VALIDATORS_DIR \
     --totalValidators=$NUM_VALIDATORS \

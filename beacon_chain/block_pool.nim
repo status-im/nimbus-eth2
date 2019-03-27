@@ -249,11 +249,25 @@ proc add*(
   #      them out without penalty - but signing invalid attestations carries
   #      a risk of being slashed, making attestations a more valuable spam
   #      filter.
+  # TODO when we receive the block, we don't know how many others we're missing
+  #      from that branch, so right now, we'll just do a blind guess
   debug "Unresolved block",
     blck = shortLog(blck),
     blockRoot = shortLog(blockRoot)
 
-  pool.unresolved[blck.previous_block_root] = UnresolvedBlock()
+  let parentSlot = blck.slot - 1
+
+  pool.unresolved[blck.previous_block_root] = UnresolvedBlock(
+    slots:
+      # The block is at least two slots ahead - try to grab whole history
+      if parentSlot > pool.head.slot:
+        parentSlot - pool.head.slot
+      else:
+        # It's a sibling block from a branch that we're missing - fetch one
+        # epoch at a time
+        max(1.uint64, SLOTS_PER_EPOCH.uint64 -
+          (parentSlot.uint64 mod SLOTS_PER_EPOCH.uint64))
+  )
   pool.pending[blockRoot] = blck
 
 proc get*(pool: BlockPool, blck: BlockRef): BlockData =
@@ -280,13 +294,13 @@ proc getOrResolve*(pool: var BlockPool, root: Eth2Digest): BlockRef =
   result = pool.blocks.getOrDefault(root)
 
   if result.isNil:
-    pool.unresolved[root] = UnresolvedBlock()
+    pool.unresolved[root] = UnresolvedBlock(slots: 1)
 
 iterator blockRootsForSlot*(pool: BlockPool, slot: uint64|Slot): Eth2Digest =
   for br in pool.blocksBySlot.getOrDefault(slot.uint64, @[]):
     yield br.root
 
-proc checkUnresolved*(pool: var BlockPool): seq[Eth2Digest] =
+proc checkUnresolved*(pool: var BlockPool): seq[FetchRecord] =
   ## Return a list of blocks that we should try to resolve from other client -
   ## to be called periodically but not too often (once per slot?)
   var done: seq[Eth2Digest]
@@ -305,7 +319,7 @@ proc checkUnresolved*(pool: var BlockPool): seq[Eth2Digest] =
   # simple (simplistic?) exponential backoff for retries..
   for k, v in pool.unresolved.pairs():
     if v.tries.popcount() == 1:
-      result.add(k)
+      result.add(FetchRecord(root: k, historySlots: v.slots))
 
 proc skipAndUpdateState(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,

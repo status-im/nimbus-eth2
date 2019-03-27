@@ -11,8 +11,10 @@ import
 
 const
   topicBeaconBlocks = "ethereum/2.1/beacon_chain/blocks"
+  topicBeaconBlocks2 = "ethereum/2.1/beacon_chain/blocks2"
   topicAttestations = "ethereum/2.1/beacon_chain/attestations"
-  topicfetchBlocks = "ethereum/2.1/beacon_chain/fetch"
+  topicFetchBlocks = "ethereum/2.1/beacon_chain/fetch"
+  topicFetchBlocks2 = "ethereum/2.1/beacon_chain/fetch2"
 
   dataDirValidators = "validators"
   networkMetadataFile = "network.json"
@@ -364,8 +366,12 @@ proc proposeBlock(node: BeaconNode,
 
   let blockRoot = signed_root(newBlock)
 
-  # TODO return new BlockRef from add?
   let newBlockRef = node.blockPool.add(node.state, blockRoot, newBlock)
+  if newBlockRef == nil:
+    warn "Unable to add proposed block to block pool",
+      newBlock = shortLog(newBlock),
+      blockRoot = shortLog(blockRoot)
+    return head
 
   info "Block proposed",
     blck = shortLog(newBlock),
@@ -379,21 +385,36 @@ proc proposeBlock(node: BeaconNode,
 
   return newBlockRef
 
-proc fetchBlocks(node: BeaconNode, roots: seq[Eth2Digest]) =
+proc fetchBlocks(node: BeaconNode, roots: seq[FetchRecord]) =
   if roots.len == 0: return
+
+  debug "Fetching blocks", roots
 
   # TODO shouldn't send to all!
   # TODO should never fail - asyncCheck is wrong here..
-  asyncCheck node.network.broadcast(topicfetchBlocks, roots)
+  asyncCheck node.network.broadcast(topicfetchBlocks2, roots)
 
-proc onFetchBlocks(node: BeaconNode, roots: seq[Eth2Digest]) =
+proc onFetchBlocks(node: BeaconNode, roots: seq[FetchRecord]) =
   # TODO placeholder logic for block recovery
-  debug "fetchBlocks received", roots = roots.len
-  for root in roots:
-    if (let blck = node.db.getBlock(root); blck.isSome()):
-      # TODO should never fail - asyncCheck is wrong here..
-      # TODO should obviously not spam, but rather send it back to the requester
-      asyncCheck node.network.broadcast(topicBeaconBlocks, blck.get())
+  var resp: seq[BeaconBlock]
+  for rec in roots:
+    if (var blck = node.db.getBlock(rec.root); blck.isSome()):
+      # TODO validate historySlots
+      let firstSlot = blck.get().slot - rec.historySlots
+
+      for i in 0..<rec.historySlots.int:
+        resp.add(blck.get())
+
+        # TODO should obviously not spam, but rather send it back to the requester
+        if (blck = node.db.getBlock(blck.get().previous_block_root);
+            blck.isNone() or blck.get().slot < firstSlot):
+          break
+
+  debug "fetchBlocks received", roots = roots.len, resp = resp.len
+
+  # TODO should never fail - asyncCheck is wrong here..
+  if resp.len > 0:
+    asyncCheck node.network.broadcast(topicBeaconBlocks2, resp)
 
 proc onAttestation(node: BeaconNode, attestation: Attestation) =
   # We received an attestation from the network but don't know much about it
@@ -414,10 +435,6 @@ proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
     blockRoot = shortLog(blockRoot)
 
   if node.blockPool.add(node.state, blockRoot, blck).isNil:
-    # TODO this will cause us to fetch parent, even for invalid blocks.. fix
-    #debug "Missing block detected. Fetching from network",
-    #  `block` = blck.previous_block_root
-    node.fetchBlocks(@[blck.previous_block_root])
     return
 
   # The block we received contains attestations, and we might not yet know about
@@ -516,12 +533,6 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     lastSlot = humaneSlotNum(lastSlot),
     scheduledSlot = humaneSlotNum(scheduledSlot),
     slot = humaneSlotNum(slot)
-
-  # TODO in this setup, we retry fetching blocks at the beginning of every slot,
-  #      hoping that we'll get some before it's time to attest or propose - is
-  #      there a better time to do this?
-  let missingBlocks = node.blockPool.checkUnresolved()
-  node.fetchBlocks(missingBlocks)
 
   if slot < lastSlot:
     # This can happen if the system clock changes time for example, and it's
@@ -646,6 +657,14 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   addTimer(nextSlotStart) do (p: pointer):
     asyncCheck node.onSlotStart(slot, nextSlot)
 
+proc onSecond(node: BeaconNode, moment: Moment) {.async.} =
+  let missingBlocks = node.blockPool.checkUnresolved()
+  node.fetchBlocks(missingBlocks)
+
+  let nextSecond = max(Moment.now(), moment + chronos.seconds(1))
+  addTimer(nextSecond) do (p: pointer):
+    asyncCheck node.onSecond(nextSecond)
+
 proc run*(node: BeaconNode) =
   waitFor node.network.subscribe(topicBeaconBlocks) do (blck: BeaconBlock):
     node.onBeaconBlock(blck)
@@ -654,7 +673,18 @@ proc run*(node: BeaconNode) =
     node.onAttestation(attestation)
 
   waitFor node.network.subscribe(topicfetchBlocks) do (roots: seq[Eth2Digest]):
+    # Backwards compat, remove eventually
+    # TODO proof of concept block fetcher - need serious anti-spam rework
+    node.onFetchBlocks(roots.mapIt(FetchRecord(root: it, historySlots: 1)))
+
+  waitFor node.network.subscribe(topicfetchBlocks2) do (roots: seq[FetchRecord]):
+    # TODO proof of concept block fetcher - need serious anti-spam rework
     node.onFetchBlocks(roots)
+
+  waitFor node.network.subscribe(topicBeaconBlocks2) do (blcks: seq[BeaconBlock]):
+    # TODO proof of concept block transfer - need serious anti-spam rework
+    for blck in blcks:
+      node.onBeaconBlock(blck)
 
   let
     slot = node.beaconClock.now().toSlot()
@@ -669,6 +699,10 @@ proc run*(node: BeaconNode) =
 
   addTimer(fromNow) do (p: pointer):
     asyncCheck node.onSlotStart(startSlot - 1, startSlot)
+
+  let second = Moment.now() + chronos.seconds(1)
+  addTimer(second) do (p: pointer):
+    asyncCheck node.onSecond(second)
 
   runForever()
 
