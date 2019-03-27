@@ -236,7 +236,7 @@ func get_crosslink_committees_at_slot_cached*(
   let key = (slot.uint64, registry_change)
   if key in cache:
     return cache[key]
-  debugEcho "get_crosslink_committees_at_slot_cached: MISS"
+  #debugEcho "get_crosslink_committees_at_slot_cached: MISS"
   result = get_crosslink_committees_at_slot(state, slot, registry_change)
   cache[key] = result
 
