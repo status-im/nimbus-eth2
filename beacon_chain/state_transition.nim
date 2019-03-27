@@ -555,18 +555,9 @@ func get_attesting_balance(state: BeaconState,
 func get_attesting_balance_cached(
     state: BeaconState,
     attestations: seq[PendingAttestation],
-    cache: var auto,
     crosslink_committees_cache: var auto): Gwei =
-  return get_total_balance(state, get_attesting_indices_cached(state, attestations, crosslink_committees_cache))
-  #hash_tree_root's overhead's too big; could do custom hashing
-  #when false:
-  #  let key = hash_tree_root(attestations)
-  #  # caches only held within epoch processing stage, or shorter; ignore state
-  #  if key in cache:
-  #    return cache[key]
-  #
-  #  result = get_total_balance(state, get_attesting_indices_cached(state, attestations, crosslink_committees_cache))
-  #  cache[key] = result
+  get_total_balance(state, get_attesting_indices_cached(
+    state, attestations, crosslink_committees_cache))
 
 func get_current_epoch_boundary_attestations(state: BeaconState):
     seq[PendingAttestation] =
@@ -596,7 +587,8 @@ func lowerThan(candidate, current: Eth2Digest): bool =
     if v > candidate.data[i]: return true
   false
 
-func get_winning_root_and_participants(state: BeaconState, shard: Shard, cache: var auto, crosslink_committees_cache: var auto):
+func get_winning_root_and_participants(
+    state: BeaconState, shard: Shard, crosslink_committees_cache: var auto):
     tuple[a: Eth2Digest, b: seq[ValidatorIndex]] =
   let
     all_attestations =
@@ -629,8 +621,8 @@ func get_winning_root_and_participants(state: BeaconState, shard: Shard, cache: 
     winning_root_balance = 0'u64
 
   for r in all_roots:
-    let root_balance =
-      get_attesting_balance_cached(state, attestations_for.getOrDefault(r), cache, crosslink_committees_cache)
+    let root_balance = get_attesting_balance_cached(
+      state, attestations_for.getOrDefault(r), crosslink_committees_cache)
     if (root_balance > winning_root_balance or
         (root_balance == winning_root_balance and
          lowerThan(winning_root, r))):
@@ -742,8 +734,6 @@ func process_crosslinks(
     previous_epoch = current_epoch - 1
     next_epoch = current_epoch + 1
 
-  var
-    attester_balance_cache = initTable[Eth2Digest, uint64]()
   ## TODO is it actually correct to be setting state.latest_crosslinks[shard]
   ## to something pre-GENESIS_EPOCH, ever? I guess the intent is if there are
   ## a quorum of participants for  get_epoch_start_slot(previous_epoch), when
@@ -757,9 +747,8 @@ func process_crosslinks(
         state, slot, false, crosslink_committee_cache):
       let
         (crosslink_committee, shard) = cas
-        (winning_root, participants) =
-          get_winning_root_and_participants(
-            state, shard, attester_balance_cache, crosslink_committee_cache)
+        (winning_root, participants) = get_winning_root_and_participants(
+          state, shard, crosslink_committee_cache)
         participating_balance = get_total_balance(state, participants)
         total_balance = get_total_balance(state, crosslink_committee)
 
@@ -948,8 +937,6 @@ func get_crosslink_deltas(state: BeaconState, crosslink_committees_cache: var au
     repeat(0'u64, len(state.validator_registry)),
     repeat(0'u64, len(state.validator_registry))
   )
-  var
-    attester_balance_cache = initTable[Eth2Digest, uint64]()
   let
     previous_epoch_start_slot =
       get_epoch_start_slot(get_previous_epoch(state))
@@ -960,9 +947,8 @@ func get_crosslink_deltas(state: BeaconState, crosslink_committees_cache: var au
     for cas in get_crosslink_committees_at_slot_cached(state, slot, false, crosslink_committees_cache):
       let
         (crosslink_committee, shard) = cas
-        (winning_root, participants) =
-          get_winning_root_and_participants(
-            state, shard, attester_balance_cache, crosslink_committees_cache)
+        (winning_root, participants) = get_winning_root_and_participants(
+          state, shard, crosslink_committees_cache)
         participating_balance = get_total_balance(state, participants)
         total_balance = get_total_balance(state, crosslink_committee)
       # In principle quadratic, but should be small.
