@@ -249,14 +249,18 @@ proc add*(
     blck = shortLog(blck),
     blockRoot = shortLog(blockRoot)
 
+  let parentSlot = blck.slot - 1
+
   pool.unresolved[blck.previous_block_root] = UnresolvedBlock(
     slots:
-      if blck.slot > pool.head.slot:
-        blck.slot - pool.head.slot
+      # The block is at least two slots ahead - try to grab whole history
+      if parentSlot > pool.head.slot:
+        parentSlot - pool.head.slot
       else:
-        # Fill an epoch at a time, since we don't know better..
+        # It's a sibling block from a branch that we're missing - fetch one
+        # epoch at a time
         max(1.uint64, SLOTS_PER_EPOCH.uint64 -
-          (blck.slot.uint64 mod SLOTS_PER_EPOCH.uint64))
+          (parentSlot.uint64 mod SLOTS_PER_EPOCH.uint64))
   )
   pool.pending[blockRoot] = blck
 
