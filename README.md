@@ -15,10 +15,6 @@ Nimbus beacon chain is a research implementation of the beacon chain component o
 
 You can check where the beacon chain fits in the Ethereum research ecosystem in the [Status Athenaeum](https://github.com/status-im/athenaeum/blob/b465626cc551e361492e56d32517b2cdadd7493f/ethereum_research_records.json#L38).
 
-## Test vectors
-
-The Eth 2.0 test vectors and their generators are available in a [dedicated repository](https://github.com/status-im/eth2-testgen).
-
 ## Building and Testing
 
 The beacon chain components require that you have Nim installed - the easiest way to get started is to head over to the main [Nimbus](https://github.com/status-im/nimbus/) repository and follow the build instructions there or just execute the commands below in order.
