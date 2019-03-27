@@ -394,8 +394,7 @@ proc fetchBlocks(node: BeaconNode, roots: seq[Eth2Digest]) =
 
 proc onFetchBlocks(node: BeaconNode, roots: seq[Eth2Digest]) =
   # TODO placeholder logic for block recovery
-  debug "fetchBlocks received",
-    roots = roots.len
+  debug "fetchBlocks received", roots = roots.len
   for root in roots:
     if (let blck = node.db.getBlock(root); blck.isSome()):
       # TODO should never fail - asyncCheck is wrong here..
@@ -422,6 +421,8 @@ proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
 
   if node.blockPool.add(node.state, blockRoot, blck).isNil:
     # TODO this will cause us to fetch parent, even for invalid blocks.. fix
+    debug "Missing block detected. Fetching from network",
+      `block` = blck.previous_block_root
     node.fetchBlocks(@[blck.previous_block_root])
     return
 
