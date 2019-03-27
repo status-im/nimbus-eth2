@@ -180,6 +180,7 @@ type
     db*: BeaconChainDB
 
   UnresolvedBlock* = object
+    slots*: uint64 # number of slots that are suspected missing
     tries*: int
 
   BlockRef* = ref object {.acyclic.}
@@ -251,6 +252,10 @@ type
     slotsPerEpoch*: uint64
     totalValidators*: uint64
     lastUserValidator*: uint64
+
+  FetchRecord* = object
+    root*: Eth2Digest
+    historySlots*: uint64
 
 proc userValidatorsRange*(d: NetworkMetadata): HSlice[int, int] =
   0 .. d.lastUserValidator.int

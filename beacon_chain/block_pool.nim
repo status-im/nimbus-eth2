@@ -243,11 +243,21 @@ proc add*(
   #      them out without penalty - but signing invalid attestations carries
   #      a risk of being slashed, making attestations a more valuable spam
   #      filter.
+  # TODO when we receive the block, we don't know how many others we're missing
+  #      from that branch, so right now, we'll just do a blind guess
   debug "Unresolved block",
     blck = shortLog(blck),
     blockRoot = shortLog(blockRoot)
 
-  pool.unresolved[blck.previous_block_root] = UnresolvedBlock()
+  pool.unresolved[blck.previous_block_root] = UnresolvedBlock(
+    slots:
+      if blck.slot > pool.head.slot:
+        blck.slot - pool.head.slot
+      else:
+        # Fill an epoch at a time, since we don't know better..
+        max(1.uint64, SLOTS_PER_EPOCH.uint64 -
+          (blck.slot.uint64 mod SLOTS_PER_EPOCH.uint64))
+  )
   pool.pending[blockRoot] = blck
 
 proc get*(pool: BlockPool, blck: BlockRef): BlockData =
@@ -274,13 +284,13 @@ proc getOrResolve*(pool: var BlockPool, root: Eth2Digest): BlockRef =
   result = pool.blocks.getOrDefault(root)
 
   if result.isNil:
-    pool.unresolved[root] = UnresolvedBlock()
+    pool.unresolved[root] = UnresolvedBlock(slots: 1)
 
 iterator blockRootsForSlot*(pool: BlockPool, slot: uint64|Slot): Eth2Digest =
   for br in pool.blocksBySlot.getOrDefault(slot.uint64, @[]):
     yield br.root
 
-proc checkUnresolved*(pool: var BlockPool): seq[Eth2Digest] =
+proc checkUnresolved*(pool: var BlockPool): seq[FetchRecord] =
   ## Return a list of blocks that we should try to resolve from other client -
   ## to be called periodically but not too often (once per slot?)
   var done: seq[Eth2Digest]
@@ -299,7 +309,7 @@ proc checkUnresolved*(pool: var BlockPool): seq[Eth2Digest] =
   # simple (simplistic?) exponential backoff for retries..
   for k, v in pool.unresolved.pairs():
     if v.tries.popcount() == 1:
-      result.add(k)
+      result.add(FetchRecord(root: k, historySlots: v.slots))
 
 proc skipAndUpdateState(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
@@ -381,8 +391,10 @@ proc updateState*(
 
   debug "Replaying state transitions",
     stateSlot = humaneSlotNum(state.data.slot),
-    stateRoot = shortLog(ancestor.data.state_root),
-    prevStateSlot = humaneSlotNum(ancestorState.get().slot),
+    ancestorStateRoot = shortLog(ancestor.data.state_root),
+    ancestorStateSlot = humaneSlotNum(ancestorState.get().slot),
+    slot = humaneSlotNum(slot),
+    blockRoot = shortLog(blck.root),
     ancestors = ancestors.len
 
   state.data = ancestorState.get()
