@@ -36,7 +36,7 @@ suite "Block pool processing":
 
     let
       b1 = makeBlock(state.data, state.blck.root, BeaconBlockBody())
-      b1Root = hash_tree_root(b1)
+      b1Root = signed_root(b1)
 
     # TODO the return value is ugly here, need to fix and test..
     discard pool.add(state, b1Root, b1)
@@ -55,9 +55,9 @@ suite "Block pool processing":
 
     let
       b1 = addBlock(state.data, state.blck.root, BeaconBlockBody(), {})
-      b1Root = hash_tree_root(b1)
+      b1Root = signed_root(b1)
       b2 = addBlock(state.data, b1Root, BeaconBlockBody(), {})
-      b2Root = hash_tree_root(b2)
+      b2Root = signed_root(b2)
 
     discard pool.add(state, b2Root, b2)
 

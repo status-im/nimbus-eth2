@@ -328,7 +328,7 @@ type
 
   #https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
-    slot*: uint64
+    slot*: Slot
     previous_block_root*: Eth2Digest
     state_root*: Eth2Digest
     block_body_root*: Eth2Digest

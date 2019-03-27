@@ -28,7 +28,7 @@ proc signBlockProposal*(v: AttachedValidator, fork: Fork,
                         blck: BeaconBlock): Future[ValidatorSig] {.async.} =
   if v.kind == inProcess:
     await sleepAsync(1)
-    result = bls_sign(v.privKey, signed_root(blck),
+    result = bls_sign(v.privKey, signed_root(blck).data,
       get_domain(fork, slot_to_epoch(blck.slot), DOMAIN_BEACON_BLOCK))
   else:
     # TODO:

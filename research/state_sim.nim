@@ -60,7 +60,7 @@ cli do(slots = 1945,
   var
     attestations: array[MIN_ATTESTATION_INCLUSION_DELAY, seq[Attestation]]
     state = genesisState
-    latest_block_root = hash_tree_root(genesisBlock)
+    latest_block_root = signed_root(genesisBlock)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
     r: Rand
@@ -90,7 +90,7 @@ cli do(slots = 1945,
     withTimer(timers[t]):
       blck = addBlock(state, latest_block_root, body, flags)
     latest_block_root = withTimerRet(timers[tHashBlock]):
-      hash_tree_root(blck)
+      signed_root(blck)
 
     if attesterRatio > 0.0:
       # attesterRatio is the fraction of attesters that actually do their

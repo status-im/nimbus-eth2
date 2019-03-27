@@ -40,6 +40,9 @@ serializationFormat SSZ,
 proc init*(T: type SszReader, stream: ByteStreamVar): T =
   result.stream = stream
 
+func toSSZType(x: Slot|Epoch): auto = x.uint64
+func toSSZType(x: auto): auto = x
+
 # toBytesSSZ convert simple fixed-length types to their SSZ wire representation
 func toBytesSSZ(x: SomeInteger): array[sizeof(x), byte] =
   ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
@@ -78,9 +81,9 @@ type
     # TODO can't put ranges like ValidatorIndex in here:
     #      https://github.com/nim-lang/Nim/issues/10027
     SomeInteger | EthAddress | Eth2Digest | ValidatorPubKey | ValidatorSig |
-      bool
+      bool | Slot | Epoch
 
-func sszLen(v: BasicType): int = toBytesSSZ(v).len
+func sszLen(v: BasicType): int = toBytesSSZ(v.toSSZType()).len
 func sszLen(v: ValidatorIndex): int = toBytesSSZ(v).len
 
 func sszLen(v: object | tuple): int =
@@ -155,9 +158,6 @@ template writeField*(w: var SszWriter, name: string, value: auto) =
 proc endRecord*(w: var SszWriter, memo: RecordWritingMemo) =
   let finalSize = uint32(w.stream.pos - memo.initialStreamPos - 4)
   memo.sizePrefixCursor.endWrite(finalSize.toBytesSSZ)
-
-func toSSZType(x: Slot|Epoch): auto = x.uint64
-func toSSZType(x: auto): auto = x
 
 proc writeValue*(w: var SszWriter, obj: auto) =
   # We are not using overloads here, because this leads to
@@ -303,9 +303,10 @@ proc pack(values: seq|array): iterator(): Chunk =
     # TODO I get a feeling a copy of the array is taken to the closure, which
     #      also needs fixing
     # TODO avoid closure iterators that involve GC
-    var tmp = newSeqOfCap[byte](values.len() * sizeof(toBytesSSZ(values[0])))
+    var tmp =
+      newSeqOfCap[byte](values.len() * sizeof(toBytesSSZ(values[0].toSSZType())))
     for v in values:
-      tmp.add toBytesSSZ(v)
+      tmp.add toBytesSSZ(v.toSSZType)
 
     for v in 0..<tmp.len div sizeof(Chunk):
       var c: Chunk
@@ -385,23 +386,27 @@ func hash_tree_root*[T](value: T): Eth2Digest =
       var roots = iterator(): Chunk =
         for v in value.fields:
           yield hash_tree_root(v).data
-
       merkleize(roots)
+    else:
+      static: doAssert false, "Unexpected type: " & T.name
   )
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/simple-serialize.md#signed-roots
-func signed_root*[T: object](x: T): array[32, byte] =
+func signed_root*[T: object](x: T): Eth2Digest =
   # TODO write tests for this (check vs hash_tree_root)
 
   var found_field_name = false
-
-  ## TODO this isn't how 0.5 defines signed_root, but works well enough
-  ## for now.
-  withHash:
+  var roots = iterator(): Chunk =
     for name, field in x.fieldPairs:
+      # TODO we should truncate the last field, regardless of its name.. this
+      #      hack works for now - how to skip the last fieldPair though??
       if name == "signature":
         found_field_name = true
         break
-      h.update hash_tree_root(field.toSSZType).data
+      yield hash_tree_root(field).data
 
-    doAssert found_field_name
+  let root = merkleize(roots)
+
+  doAssert found_field_name
+
+  Eth2Digest(data: root)

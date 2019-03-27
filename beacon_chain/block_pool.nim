@@ -141,7 +141,7 @@ proc add*(
   ## the state parameter may be updated to include the given block, if
   ## everything checks out
   # TODO reevaluate passing the state in like this
-  doAssert blockRoot == hash_tree_root(blck)
+  doAssert blockRoot == signed_root(blck)
 
   # Already seen this block??
   if blockRoot in pool.blocks:
@@ -177,7 +177,7 @@ proc add*(
     #      but maybe we should use it as a hint that our clock is wrong?
     updateState(pool, state, parent, blck.slot - 1)
 
-    if not updateState(state.data, parent.root, blck, {}):
+    if not updateState(state.data, blck, {}):
       # TODO find a better way to log all this block data
       notice "Invalid block",
         blck = shortLog(blck),
@@ -304,8 +304,8 @@ proc checkUnresolved*(pool: var BlockPool): seq[Eth2Digest] =
 proc skipAndUpdateState(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     afterUpdate: proc (state: BeaconState)): bool =
-  skipSlots(state, blck.previous_block_root, blck.slot - 1, afterUpdate)
-  let ok  = updateState(state, blck.previous_block_root, blck, flags)
+  skipSlots(state, blck.slot - 1, afterUpdate)
+  let ok  = updateState(state, blck, flags)
 
   afterUpdate(state)
 
@@ -350,7 +350,7 @@ proc updateState*(
     state.blck = blck
     state.root = ancestors[0].data.state_root
 
-    skipSlots(state.data, state.blck.root, slot) do (state: BeaconState):
+    skipSlots(state.data, slot) do (state: BeaconState):
       pool.maybePutState(state)
 
     return
@@ -398,13 +398,10 @@ proc updateState*(
   for i in countdown(ancestors.len - 2, 0):
     let last = ancestors[i]
 
-    skipSlots(
-        state.data, last.data.previous_block_root,
-        last.data.slot - 1) do(state: BeaconState):
+    skipSlots(state.data, last.data.slot - 1) do(state: BeaconState):
       pool.maybePutState(state)
 
-    let ok = updateState(
-        state.data, last.data.previous_block_root, last.data, {skipValidation})
+    let ok = updateState(state.data, last.data, {skipValidation})
     doAssert ok,
       "We only keep validated blocks in the database, should never fail"
 
@@ -413,7 +410,7 @@ proc updateState*(
 
   pool.maybePutState(state.data)
 
-  skipSlots(state.data, state.blck.root, slot) do (state: BeaconState):
+  skipSlots(state.data, slot) do (state: BeaconState):
     pool.maybePutState(state)
 
 proc loadTailState*(pool: BlockPool): StateData =

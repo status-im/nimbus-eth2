@@ -39,7 +39,7 @@ func flatten[T](v: openArray[seq[T]]): seq[T] =
   # TODO not in nim - doh.
   for x in v: result.add x
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#block-header
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#block-header
 proc processBlockHeader(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   # Verify that the slots match
@@ -49,18 +49,14 @@ proc processBlockHeader(
       state_slot = humaneSlotNum(state.slot)
     return false
 
-  ## https://github.com/ethereum/eth2.0-specs/pull/816/files remove when
-  ## switched to 0.5.1
-  when false:
-    ## TODO Re-enable when it works; currently, some code in processBlock
-    ## also checks this invariant in a different way. tag as 0.4.0.
-    if not (blck.previous_block_root.data ==
-        signed_root(state.latest_block_header)):
-      notice "Block header: previous block root mismatch",
-        previous_block_root = blck.previous_block_root,
-        latest_block_header = state.latest_block_header,
-        latest_block_header_root = hash_tree_root(state.latest_block_header)
-      return false
+  # state_root not set yet, when skipping validation
+  if skipValidation notin flags and not (blck.previous_block_root ==
+      signed_root(state.latest_block_header)):
+    notice "Block header: previous block root mismatch",
+      latest_block_header = state.latest_block_header,
+      blck = shortLog(blck),
+      latest_block_header_root = shortLog(signed_root(state.latest_block_header))
+    return false
 
   state.latest_block_header = get_temporary_block_header(blck)
 
@@ -68,12 +64,12 @@ proc processBlockHeader(
     state.validator_registry[get_beacon_proposer_index(state, state.slot)]
   if skipValidation notin flags and not bls_verify(
       proposer.pubkey,
-      signed_root(blck),
+      signed_root(blck).data,
       blck.signature,
       get_domain(state.fork, get_current_epoch(state), DOMAIN_BEACON_BLOCK)):
     notice "Block header: invalid block header",
       proposer_pubkey = proposer.pubkey,
-      signed_root_block = signed_root(blck),
+      block_root = shortLog(signed_root(blck)),
       block_signature = blck.signature
     return false
 
@@ -152,7 +148,7 @@ proc processProposerSlashings(
       for i, header in @[proposer_slashing.header_1, proposer_slashing.header_2]:
         if not bls_verify(
             proposer.pubkey,
-            signed_root(header),
+            signed_root(header).data,
             header.signature,
             get_domain(
               state.fork, slot_to_epoch(header.slot), DOMAIN_BEACON_BLOCK)):
@@ -344,7 +340,7 @@ proc processExits(
     # Verify signature
     if skipValidation notin flags:
       if not bls_verify(
-          validator.pubkey, signed_root(exit), exit.signature,
+          validator.pubkey, signed_root(exit).data, exit.signature,
           get_domain(state.fork, exit.epoch, DOMAIN_VOLUNTARY_EXIT)):
         notice "Exit: invalid signature"
         return false
@@ -438,7 +434,7 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
     # Verify that the signature is valid
     if skipValidation notin flags:
       if not bls_verify(
-          pubkey=transfer.pubkey, signed_root(transfer), transfer.signature,
+          transfer.pubkey, signed_root(transfer).data, transfer.signature,
           get_domain(
             state.fork, slot_to_epoch(transfer.slot), DOMAIN_TRANSFER)):
         notice "Transfer: incorrect signature"
@@ -454,23 +450,17 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#per-slot-processing
-func advanceSlot(state: var BeaconState) =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#per-slot-processing
+func advance_slot(state: var BeaconState) =
   ## Time on the beacon chain moves in slots. Every time we make it to a new
   ## slot, a proposer creates a block to represent the state of the beacon
   ## chain at that time. In case the proposer is missing, it may happen that
   ## the no block is produced during the slot.
-  if false and not (state.slot > GENESIS_SLOT):
-    return
 
-  # TODO 0.4.0-ish still
   state.slot += 1
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#state-caching
 func cacheState(state: var BeaconState) =
-  if not (state.slot > GENESIS_SLOT):
-    return
-
   let previous_slot_state_root = hash_tree_root(state)
 
   # store the previous slot's post state transition root
@@ -483,13 +473,7 @@ func cacheState(state: var BeaconState) =
 
   # store latest known block for previous slot
   state.latest_block_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
-    Eth2Digest(data: signed_root(state.latest_block_header))
-
-func processSlot(state: var BeaconState, previous_block_root: Eth2Digest) =
-  advanceSlot(state)
-  # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/core/0_beacon-chain.md#block-roots
-  state.latest_block_roots[(state.slot - 1) mod SLOTS_PER_HISTORICAL_ROOT] =
-    previous_block_root
+    signed_root(state.latest_block_header)
 
 proc processBlock(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
@@ -498,19 +482,6 @@ proc processBlock(
 
   # TODO when there's a failure, we should reset the state!
   # TODO probably better to do all verification first, then apply state changes
-
-  # Spec does not have this check explicitly, but requires that this condition
-  # holds - so we give verify it as well - this would happen naturally if
-  # `blck.previous_block_root` was used in `processSlot` - but that doesn't cut it for
-  # blockless slot processing.
-  # TODO compare with processBlockHeader check, might be redundant and to be removed
-  let stateParentRoot =
-    state.latest_block_roots[(state.slot - 1) mod SLOTS_PER_HISTORICAL_ROOT]
-  if not (blck.previous_block_root == stateParentRoot):
-    notice "Unexpected parent root",
-      blockParentRoot = blck.previous_block_root,
-      stateParentRoot
-    return false
 
   if not processBlockHeader(state, blck, flags):
     notice "Block header not valid", slot = humaneSlotNum(state.slot)
@@ -1119,8 +1090,7 @@ proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   else:
     true
 
-proc advanceState*(
-    state: var BeaconState, previous_block_root: Eth2Digest) =
+proc advanceState*(state: var BeaconState) =
   ## Sometimes we need to update the state even though we don't have a block at
   ## hand - this happens for example when a block proposer fails to produce a
   ## a block.
@@ -1143,11 +1113,10 @@ proc advanceState*(
   ## 3. The per-slot transitions, which happens at every slot.
   ## The per-slot transitions focus on the slot counter and block roots
   ## records updates.
-  processSlot(state, previous_block_root)
+  advance_slot(state)
 
 proc updateState*(
-    state: var BeaconState, previous_block_root: Eth2Digest,
-    new_block: BeaconBlock, flags: UpdateFlags): bool =
+    state: var BeaconState, new_block: BeaconBlock, flags: UpdateFlags): bool =
   ## Time in the beacon chain moves by slots. Every time (haha.) that happens,
   ## we will update the beacon state. Normally, the state updates will be driven
   ## by the contents of a new block, but it may happen that the block goes
@@ -1181,7 +1150,7 @@ proc updateState*(
   var old_state = state
 
   # These should never fail.
-  advanceState(state, previous_block_root)
+  advanceState(state)
 
   # Block updates - these happen when there's a new block being suggested
   # by the block proposer. Every actor in the network will update its state
@@ -1201,7 +1170,7 @@ proc updateState*(
   state = old_state
   false
 
-proc skipSlots*(state: var BeaconState, parentRoot: Eth2Digest, slot: Slot,
+proc skipSlots*(state: var BeaconState, slot: Slot,
     afterSlot: proc (state: BeaconState) = nil) =
   if state.slot < slot:
     debug "Advancing state with empty slots",
@@ -1209,7 +1178,7 @@ proc skipSlots*(state: var BeaconState, parentRoot: Eth2Digest, slot: Slot,
       stateSlot = humaneSlotNum(state.slot)
 
     while state.slot < slot:
-      advanceState(state, parentRoot)
+      advanceState(state)
 
       if not afterSlot.isNil:
         afterSlot(state)
