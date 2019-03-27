@@ -423,8 +423,8 @@ proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
 
   if node.blockPool.add(node.state, blockRoot, blck).isNil:
     # TODO this will cause us to fetch parent, even for invalid blocks.. fix
-    debug "Missing block detected. Fetching from network",
-      `block` = blck.previous_block_root
+    #debug "Missing block detected. Fetching from network",
+    #  `block` = blck.previous_block_root
     node.fetchBlocks(@[blck.previous_block_root])
     return
 
