@@ -12,7 +12,7 @@ NIM_FLAGS="-d:release --lineTrace:on -d:chronicles_log_level=DEBUG -d:SECONDS_PE
 
 BEACON_NODE_BIN=${NETWORK_NAME}_node
 
-echo nim c $NIM_FLAGS -o:"./$BEACON_NODE_BIN" beacon_chain/beacon_node
+nim c $NIM_FLAGS -o:"./$BEACON_NODE_BIN" beacon_chain/beacon_node
 
 if [ ! -d ~/.cache/nimbus/BeaconNode/$NETWORK_NAME/validators ]; then
   ./$BEACON_NODE_BIN --network=$NETWORK_NAME importValidator
