@@ -704,7 +704,7 @@ when isMainModule:
   case config.cmd
   of createTestnet:
     var deposits: seq[Deposit]
-    for i in config.firstValidator.int ..< config.numValidators.int:
+    for i in config.firstValidator.int ..< config.totalValidators.int:
       let depositFile = config.validatorsDir /
                         validatorFileBaseName(i) & ".deposit.json"
       deposits.add Json.loadFile(depositFile, Deposit)
@@ -728,8 +728,8 @@ when isMainModule:
         numShards: SHARD_COUNT,
         slotDuration: SECONDS_PER_SLOT,
         slotsPerEpoch: SLOTS_PER_EPOCH,
-        totalValidators: config.numValidators,
-        firstUserValidator: config.firstUserValidator)
+        totalValidators: config.totalValidators,
+        lastUserValidator: config.lastUserValidator)
 
     Json.saveFile(config.outputNetwork.string, testnetMetadata, pretty = true)
     echo "Wrote ", config.outputNetwork.string

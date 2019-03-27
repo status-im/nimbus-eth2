@@ -250,8 +250,8 @@ type
     slotDuration*: uint64
     slotsPerEpoch*: uint64
     totalValidators*: uint64
-    firstUserValidator*: uint64
+    lastUserValidator*: uint64
 
 proc userValidatorsRange*(d: NetworkMetadata): HSlice[int, int] =
-  d.firstUserValidator.int ..< d.totalValidators.int
+  0 .. d.lastUserValidator.int
 

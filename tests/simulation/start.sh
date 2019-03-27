@@ -33,7 +33,10 @@ if [ ! -f $LAST_VALIDATOR ]; then
     nim c -o:"$VALIDATOR_KEYGEN_BIN" $DEFS -d:release beacon_chain/validator_keygen
   fi
 
-  $VALIDATOR_KEYGEN_BIN --validators=$NUM_VALIDATORS --outputDir="$VALIDATORS_DIR"
+  $VALIDATOR_KEYGEN_BIN \
+    --totalValidators=$NUM_VALIDATORS \
+    --outputDir="$VALIDATORS_DIR" \
+    --generateFakeKeys=yes
 fi
 
 if [[ -z "$SKIP_BUILDS" ]]; then
@@ -41,10 +44,11 @@ if [[ -z "$SKIP_BUILDS" ]]; then
 fi
 
 if [ ! -f $SNAPSHOT_FILE ]; then
-  $BEACON_NODE_BIN --dataDir=$SIMULATION_DIR/node-0 createTestnet \
+  $BEACON_NODE_BIN createTestnet \
+    --dataDir=$SIMULATION_DIR/node-0 \
     --networkId=1000 \
     --validatorsDir=$VALIDATORS_DIR \
-    --numValidators=$NUM_VALIDATORS \
+    --totalValidators=$NUM_VALIDATORS \
     --outputGenesis=$SNAPSHOT_FILE \
     --outputNetwork=$NETWORK_METADATA_FILE \
     --bootstrapAddress=127.0.0.1 \
