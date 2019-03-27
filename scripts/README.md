@@ -19,8 +19,8 @@ The `beacon_node` binary has a `createTestnet` command.
     createTestnet \
     --networkId=$NETWORK_ID \
     --validatorsDir=$NETWORK_DIR \
-    --numValidators=$VALIDATOR_COUNT \
-    --firstUserValidator=$FIRST_USER_VALIDATOR \
+    --totalValidators=$VALIDATOR_COUNT \
+    --lastUserValidator=$LAST_USER_VALIDATOR \
     --outputGenesis=$NETWORK_DIR/genesis.json \
     --outputNetwork=$NETWORK_DIR/$NETWORK_FLAVOUR-network.json \
     --bootstrapAddress=$PUBLIC_IP \

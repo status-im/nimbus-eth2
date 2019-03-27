@@ -12,11 +12,11 @@ proc writeFile(filename: string, value: auto) =
   Json.saveFile(filename, value, pretty = true)
   echo "Wrote ", filename
 
-cli do (validators: int = 125000,
+cli do (totalValidators: int = 125000,
         outputDir: string = "validators",
-        generateFakeKeys = true):
+        generateFakeKeys = false):
 
-  for i in 0 ..< validators:
+  for i in 0 ..< totalValidators:
     let
       v = validatorFileBaseName(i)
       depositFn = outputDir / v & ".deposit.json"

@@ -85,15 +85,15 @@ type
         desc: "Directory containing validator descriptors named vXXXXXXX.deposit.json"
         shortform: "d".}: InputDir
 
-      numValidators* {.
+      totalValidators* {.
         desc: "The number of validators in the newly created chain".}: uint64
 
       firstValidator* {.
         desc: "Index of first validator to add to validator list"
         defaultValue: 0 .}: uint64
 
-      firstUserValidator* {.
-        desc: "The first validator index that will free for taking from a testnet participant"
+      lastUserValidator* {.
+        desc: "The last validator index that will free for taking from a testnet participant"
         defaultValue: 0 .}: uint64
 
       bootstrapAddress* {.
