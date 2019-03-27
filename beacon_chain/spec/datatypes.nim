@@ -19,7 +19,7 @@
 
 import
   hashes, math, json,
-  eth/[common, rlp],
+  chronicles, eth/[common, rlp],
   ./bitfield, ./crypto, ./digest
 
 # TODO Data types:
@@ -617,6 +617,11 @@ func shortLog*(v: AttestationData): tuple[
       shortLog(v.previous_crosslink.crosslink_data_root),
       shortLog(v.crosslink_data_root)
     )
+
+chronicles.formatIt Slot: it.humaneSlotNum
+chronicles.formatIt Epoch: it.humaneEpochNum
+chronicles.formatIt BeaconBlock: it.shortLog
+chronicles.formatIt AttestationData: it.shortLog
 
 import nimcrypto, json_serialization
 export json_serialization

@@ -97,6 +97,8 @@ p2pProtocol BeaconSync(version = 1,
     # where it needs to sync and it should execute the sync algorithm with a certain
     # number of randomly selected peers. The algorithm itself must be extracted in a proc.
     try:
+      debug "Peer connected. Initiating sync", peer
+
       let bestDiff = cmp((latestFinalizedEpoch, bestSlot), (m.latestFinalizedEpoch, m.bestSlot))
       if bestDiff == 0:
         # Nothing to do?
@@ -115,16 +117,23 @@ p2pProtocol BeaconSync(version = 1,
             for r in blockPool.blockRootsForSlot(i.Slot):
               roots.add((r, i.Slot))
 
+          debug "Sending block roots", peer, coveredSlots = roots.len
           await peer.beaconBlockRoots(roots)
         else:
           # Receive roots
+          debug "Waiting for block roots", fromPeer = peer
           let roots = await peer.nextMsg(BeaconSync.beaconBlockRoots)
+
+          debug "Block roots received. Requesting block headers", bestRoot, bestSlot
           let headers = await peer.getBeaconBlockHeaders(bestRoot, bestSlot, roots.roots.len, 0)
           var bodiesRequest = newSeqOfCap[Eth2Digest](roots.roots.len)
           for r in roots.roots:
             bodiesRequest.add(r[0])
+
+          debug "Block headers received. Requesting block bodies", blocks = bodiesRequest
           let bodies = await peer.getBeaconBlockBodies(bodiesRequest)
           node.importBlocks(roots.roots, headers.get.blockHeaders, bodies.get.blockBodies)
+
     except CatchableError:
       warn "Failed to sync with peer", peer, err = getCurrentExceptionMsg()
 
