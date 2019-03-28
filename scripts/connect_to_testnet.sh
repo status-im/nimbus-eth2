@@ -18,5 +18,5 @@ if [ ! -d ~/.cache/nimbus/BeaconNode/$NETWORK_NAME/validators ]; then
   ./$BEACON_NODE_BIN --network=$NETWORK_NAME importValidator
 fi
 
-./$BEACON_NODE_BIN --network=$NETWORK_NAME
+./$BEACON_NODE_BIN --network=$NETWORK_NAME --tcpPort:$BOOTSTRAP_PORT --udpPort:$BOOTSTRAP_PORT
 
