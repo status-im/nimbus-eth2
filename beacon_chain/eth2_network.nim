@@ -67,7 +67,7 @@ when useRLPx:
     # TODO there are more networking options to add here: local bind ip, ipv6
     #      etc.
     return newEthereumNode(keys, address, 0,
-                           nil, clientId, minPeers = 1)
+                           nil, clientId)
 
   proc saveConnectionAddressFile*(node: Eth2Node, filename: string) =
     writeFile(filename, $node.listeningAddress)
