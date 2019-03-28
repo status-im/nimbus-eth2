@@ -43,6 +43,22 @@ clean_eth2_network_simulation_files:
 eth2_network_simulation: | beacon_node validator_keygen clean_eth2_network_simulation_files
 	SKIP_BUILDS=1 GIT_ROOT="$$PWD" BUILD_OUTPUTS_DIR="./build" tests/simulation/start.sh
 
+clean-testnet0:
+	rm -rf ~/.cache/nimbus/BeaconNode/testnet0
+
+testnet0-nocleaning: | build deps
+	../../env.sh scripts/connect_to_testnet.sh testnet0
+
+testnet0: | clean-testnet0 testnet0-nocleaning
+
+clean-testnet1:
+	rm -rf ~/.cache/nimbus/BeaconNode/testnet1
+
+testnet1-nocleaning: | build deps
+	../../env.sh scripts/connect_to_testnet.sh testnet1
+
+testnet1: | clean-testnet1 testnet1-nocleaning
+
 clean:
 	rm -rf build/{$(TOOLS_CSV),all_tests,*.exe} nimcache
 
