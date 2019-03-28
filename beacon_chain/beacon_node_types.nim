@@ -220,6 +220,13 @@ type
     ## The block associated with the state found in data - in particular,
     ## blck.state_root == root
 
+  BlockSlot* = object
+    ## Unique identifier for a particular fork in the block chain - normally,
+    ## there's a block for every slot, but in the case a block is not produced,
+    ## the chain progresses anyway, producing a new state for every slot.
+    blck*: BlockRef
+    slot*: Slot
+
   # #############################################
   #
   #              Validator Pool
@@ -254,4 +261,3 @@ type
 
 proc userValidatorsRange*(d: NetworkMetadata): HSlice[int, int] =
   0 .. d.lastUserValidator.int
-

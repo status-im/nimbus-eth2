@@ -4,6 +4,12 @@ import
   beacon_node_types,
   spec/[crypto, datatypes, digest, helpers]
 
+proc parent*(bs: BlockSlot): BlockSlot =
+  BlockSlot(
+    blck: if bs.slot > bs.blck.slot: bs.blck else: bs.blck.parent,
+    slot: bs.slot - 1
+  )
+
 proc link(parent, child: BlockRef) =
   doAssert (not (parent.root == Eth2Digest() or child.root == Eth2Digest())),
     "blocks missing root!"
@@ -132,7 +138,7 @@ proc addSlotMapping(pool: BlockPool, slot: uint64, br: BlockRef) =
   pool.blocksBySlot.mgetOrPut(slot, @[]).addIfMissing(br)
 
 proc updateState*(
-  pool: BlockPool, state: var StateData, blck: BlockRef, slot: Slot) {.gcsafe.}
+  pool: BlockPool, state: var StateData, bs: BlockSlot) {.gcsafe.}
 
 proc add*(
     pool: var BlockPool, state: var StateData, blockRoot: Eth2Digest,
@@ -175,7 +181,7 @@ proc add*(
     # blocks we add to the database are clean for the given state
     # TODO if the block is from the future, we should not be resolving it (yet),
     #      but maybe we should use it as a hint that our clock is wrong?
-    updateState(pool, state, parent, blck.slot - 1)
+    updateState(pool, state, BlockSlot(blck: parent, slot: blck.slot - 1))
 
     if not updateState(state.data, blck, {}):
       # TODO find a better way to log all this block data
@@ -311,7 +317,7 @@ proc skipAndUpdateState(
 
   ok
 
-proc maybePutState(pool: BlockPool, state: BeaconState) =
+proc maybePutState(pool: BlockPool, state: BeaconState, blck: BlockRef) =
   # TODO we save state at every epoch start but never remove them - we also
   #      potentially save multiple states per slot if reorgs happen, meaning
   #      we could easily see a state explosion
@@ -323,9 +329,76 @@ proc maybePutState(pool: BlockPool, state: BeaconState) =
         stateSlot = humaneSlotNum(state.slot),
         stateRoot = shortLog(root)
       pool.db.putState(root, state)
+      # TODO this should be atomic with the above write..
+      pool.db.putStateRoot(blck.root, state.slot, root)
 
-proc updateState*(
-    pool: BlockPool, state: var StateData, blck: BlockRef, slot: Slot) =
+proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
+    seq[BlockData] =
+  var ancestors = @[pool.get(bs.blck)]
+  # Common case: the last block applied is the parent of the block to apply:
+  if not bs.blck.parent.isNil and state.blck.root == bs.blck.parent.root and
+      state.data.slot < bs.slot:
+    return ancestors
+
+  # It appears that the parent root of the proposed new block is different from
+  # what we expected. We will have to rewind the state to a point along the
+  # chain of ancestors of the new block. We will do this by loading each
+  # successive parent block and checking if we can find the corresponding state
+  # in the database.
+
+  var
+    stateRoot = pool.db.getStateRoot(bs.blck.root, bs.slot)
+    curBs = bs
+  while stateRoot.isNone():
+    let parBs = curBs.parent()
+    if parBs.blck.isNil:
+      break # Bug probably!
+
+    if parBs.blck != curBs.blck:
+      ancestors.add(pool.get(parBs.blck))
+
+    if (let tmp = pool.db.getStateRoot(parBs.blck.root, parBs.slot); tmp.isSome()):
+      if pool.db.containsState(tmp.get):
+        stateRoot = tmp
+        break
+
+    curBs = parBs
+
+  if stateRoot.isNone():
+    # TODO this should only happen if the database is corrupt - we walked the
+    #      list of parent blocks and couldn't find a corresponding state in the
+    #      database, which should never happen (at least we should have the
+    #      tail state in there!)
+    error "Couldn't find ancestor state root!",
+      blockRoot = shortLog(bs.blck.root)
+    doAssert false, "Oh noes, we passed big bang!"
+
+  let
+    ancestor = ancestors[^1]
+    ancestorState = pool.db.getState(stateRoot.get())
+
+  if ancestorState.isNone():
+    # TODO this should only happen if the database is corrupt - we walked the
+    #      list of parent blocks and couldn't find a corresponding state in the
+    #      database, which should never happen (at least we should have the
+    #      tail state in there!)
+    error "Couldn't find ancestor state or block parent missing!",
+      blockRoot = shortLog(bs.blck.root)
+    doAssert false, "Oh noes, we passed big bang!"
+
+  debug "Replaying state transitions",
+    stateSlot = humaneSlotNum(state.data.slot),
+    ancestorStateRoot = shortLog(ancestor.data.state_root),
+    ancestorStateSlot = humaneSlotNum(ancestorState.get().slot),
+    slot = humaneSlotNum(bs.slot),
+    blockRoot = shortLog(bs.blck.root),
+    ancestors = ancestors.len
+
+  state.data = ancestorState.get()
+
+  ancestors
+
+proc updateState*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
   ## Rewind or advance state such that it matches the given block and slot -
   ## this may include replaying from an earlier snapshot if blck is on a
   ## different branch or has advanced to a higher slot number than slot
@@ -334,84 +407,38 @@ proc updateState*(
 
   # We need to check the slot because the state might have moved forwards
   # without blocks
-  if state.blck.root == blck.root and state.data.slot == slot:
+  if state.blck.root == bs.blck.root and state.data.slot <= bs.slot:
+    # Might be that we're moving to the same block but later slot
+    skipSlots(state.data, bs.slot) do (state: BeaconState):
+      pool.maybePutState(state, bs.blck)
+
     return # State already at the right spot
 
-  var ancestors = @[pool.get(blck)]
-
-  # Common case: the last thing that was applied to the state was the parent
-  # of blck
-  if state.blck.root == ancestors[0].data.previous_block_root and
-      state.data.slot < blck.slot:
-    let ok = skipAndUpdateState(
-        state.data, ancestors[0].data, {skipValidation}) do (state: BeaconState):
-      pool.maybePutState(state)
-    doAssert ok, "Blocks in database should never fail to apply.."
-    state.blck = blck
-    state.root = ancestors[0].data.state_root
-
-    skipSlots(state.data, slot) do (state: BeaconState):
-      pool.maybePutState(state)
-
-    return
-
-  # It appears that the parent root of the proposed new block is different from
-  # what we expected. We will have to rewind the state to a point along the
-  # chain of ancestors of the new block. We will do this by loading each
-  # successive parent block and checking if we can find the corresponding state
-  # in the database.
-  while not ancestors[^1].refs.parent.isNil:
-    let parent = pool.get(ancestors[^1].refs.parent)
-    ancestors.add parent
-
-    if pool.db.containsState(parent.data.state_root): break
-
-  let
-    ancestor = ancestors[^1]
-    ancestorState = pool.db.getState(ancestor.data.state_root)
-
-  if ancestorState.isNone():
-    # TODO this should only happen if the database is corrupt - we walked the
-    #      list of parent blocks and couldn't find a corresponding state in the
-    #      database, which should never happen (at least we should have the
-    #      tail state in there!)
-    error "Couldn't find ancestor state or block parent missing!",
-      blockRoot = shortLog(blck.root)
-    doAssert false, "Oh noes, we passed big bang!"
-
-  debug "Replaying state transitions",
-    stateSlot = humaneSlotNum(state.data.slot),
-    stateRoot = shortLog(ancestor.data.state_root),
-    prevStateSlot = humaneSlotNum(ancestorState.get().slot),
-    ancestors = ancestors.len
-
-  state.data = ancestorState.get()
+  let ancestors = rewindState(pool, state, bs)
 
   # If we come this far, we found the state root. The last block on the stack
   # is the one that produced this particular state, so we can pop it
   # TODO it might be possible to use the latest block hashes from the state to
   #      do this more efficiently.. whatever!
 
-  # Time to replay all the blocks between then and now. We skip the one because
+  # Time to replay all the blocks between then and now. We skip one because
   # it's the one that we found the state with, and it has already been
   # applied
   for i in countdown(ancestors.len - 2, 0):
-    let last = ancestors[i]
+    let ok =
+      skipAndUpdateState(state.data, ancestors[i].data, {skipValidation}) do(
+        state: BeaconState):
+      pool.maybePutState(state, ancestors[i].refs)
+    doAssert ok, "Blocks in database should never fail to apply.."
 
-    skipSlots(state.data, last.data.slot - 1) do(state: BeaconState):
-      pool.maybePutState(state)
+  skipSlots(state.data, bs.slot) do (state: BeaconState):
+    pool.maybePutState(state, bs.blck)
 
-    let ok = updateState(state.data, last.data, {skipValidation})
-    doAssert ok,
-      "We only keep validated blocks in the database, should never fail"
-
-  state.blck = blck
-  state.root = ancestors[0].data.state_root
-
-  pool.maybePutState(state.data)
-
-  skipSlots(state.data, slot) do (state: BeaconState):
-    pool.maybePutState(state)
+  # TODO could perhaps avoi a hash_tree_root if putState happens.. hmm..
+  state.blck = bs.blck
+  state.root =
+    if state.data.slot == ancestors[0].data.slot: ancestors[0].data.state_root
+    else: hash_tree_root(state.data)
 
 proc loadTailState*(pool: BlockPool): StateData =
   ## Load the state associated with the current tail in the pool
@@ -441,7 +468,7 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
   pool.head = blck
 
   # Start off by making sure we have the right state
-  updateState(pool, state, blck, blck.slot)
+  updateState(pool, state, BlockSlot(blck: blck, slot: blck.slot))
 
   if lastHead != blck.parent:
     notice "Updated head with new parent",
@@ -525,3 +552,27 @@ proc latestState*(pool: BlockPool): BeaconState =
     else:
       error "Block from block pool not found in db", root = b.root
     b = b.parent
+
+
+proc preInit*(
+    T: type BlockPool, db: BeaconChainDB, state: BeaconState, blck: BeaconBlock) =
+  # write a genesis state, the way the BlockPool expects it to be stored in
+  # database
+  # TODO probably should just init a blockpool with the freshly written
+  #      state - but there's more refactoring needed to make it nice - doing
+  #      a minimal patch for now..
+  let
+    blockRoot = signed_root(blck)
+
+  # TODO Error: undeclared identifier: 'log'
+  # notice "Creating new database from snapshot",
+  #   blockRoot = shortLog(blockRoot),
+  #   stateRoot = shortLog(blck.state_root),
+  #   fork = state.fork,
+  #   validators = state.validator_registry.len()
+
+  db.putState(state)
+  db.putBlock(blck)
+  db.putTailBlock(blockRoot)
+  db.putHeadBlock(blockRoot)
+  db.putStateRoot(blockRoot, blck.slot, blck.state_root)
