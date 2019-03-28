@@ -41,14 +41,18 @@ func subkey(kind: type BeaconBlock, key: Eth2Digest): auto =
   subkey(kHashToBlock, key.data)
 
 func subkey(root: Eth2Digest, slot: Slot): auto =
-  # var
-  #   # takes care of endians..
-  #   TODO: this gives 8 bytes back(!)
-  #   root = SSZ.encode(root)
-  #   slot = SSZ.encode(slot)
+  # TODO: Copy the SSZ data to `ret` properly.
+  # We don't need multiple calls to SSZ.encode
+  # Use memoryStream(ret) and SszWriter explicitly
+
+  var
+    # takes care of endians..
+    rootSSZ = SSZ.encode(root)
+    slotSSZ = SSZ.encode(slot)
+
   var ret: array[1 + 32 + 8, byte]
-  # doAssert sizeof(ret) == 1 + sizeof(root) + sizeof(slot),
-  #   "Can't sizeof this in VM"
+  doAssert sizeof(ret) == 1 + rootSSZ.len + slotSSZ.len,
+    "Can't sizeof this in VM"
 
   ret[0] = byte ord(kBlockSlotStateRoot)
 
