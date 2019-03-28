@@ -527,14 +527,14 @@ func get_previous_total_balance(state: BeaconState): Gwei =
 
 func get_attesting_indices(
     state: BeaconState,
-    attestations: openArray[PendingAttestation]): seq[ValidatorIndex] =
+    attestations: openArray[PendingAttestation]): HashSet[ValidatorIndex] =
   # Union of attesters that participated in some attestations
   attestations.
     mapIt(
       get_attestation_participants(state, it.data, it.aggregation_bitfield)).
     flatten().
-    deduplicate().
-    sorted(system.cmp)
+    toSet()
+    # sorted(system.cmp) unnecessary
 
 func get_attesting_indices_cached(
     state: BeaconState,
@@ -828,11 +828,11 @@ func compute_normal_justification_and_finalization_deltas(state: BeaconState):
     inclusion_distance = inclusion_distances(state)
     inclusion_slot = inclusion_slots(state)
     previous_epoch_attestation_indices =
-      toSet(get_attesting_indices(state, state.previous_epoch_attestations))
+      get_attesting_indices(state, state.previous_epoch_attestations)
     boundary_attestation_indices =
-      toSet(get_attesting_indices(state, boundary_attestations))
+      get_attesting_indices(state, boundary_attestations)
     matching_head_attestation_indices =
-      toSet(get_attesting_indices(state, matching_head_attestations))
+      get_attesting_indices(state, matching_head_attestations)
   # Process rewards or penalties for all validators
   for index in get_active_validator_indices(
       state.validator_registry, get_previous_epoch(state)):
@@ -891,11 +891,11 @@ func compute_inactivity_leak_deltas(state: BeaconState):
   let
     inclusion_distance = inclusion_distances(state)
     previous_epoch_attestation_indices =
-      toSet(get_attesting_indices(state, state.previous_epoch_attestations))
+      get_attesting_indices(state, state.previous_epoch_attestations)
     boundary_attestation_indices =
-      toSet(get_attesting_indices(state, boundary_attestations))
+      get_attesting_indices(state, boundary_attestations)
     matching_head_attestation_indices =
-      toSet(get_attesting_indices(state, matching_head_attestations))
+      get_attesting_indices(state, matching_head_attestations)
   for index in active_validator_indices:
     if index notin previous_epoch_attestation_indices:
       deltas[1][index] +=
