@@ -578,12 +578,11 @@ proc preInit*(
   let
     blockRoot = signed_root(blck)
 
-  # TODO Error: undeclared identifier: 'log'
-  # notice "Creating new database from snapshot",
-  #   blockRoot = shortLog(blockRoot),
-  #   stateRoot = shortLog(blck.state_root),
-  #   fork = state.fork,
-  #   validators = state.validator_registry.len()
+  notice "Creating new database from snapshot",
+    blockRoot = shortLog(blockRoot),
+    stateRoot = shortLog(blck.state_root),
+    fork = state.fork,
+    validators = state.validator_registry.len()
 
   db.putState(state)
   db.putBlock(blck)
