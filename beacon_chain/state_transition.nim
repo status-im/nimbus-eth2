@@ -35,10 +35,6 @@ import
   ./extras, ./ssz,
   ./spec/[beaconstate, bitfield, crypto, datatypes, digest, helpers, validator]
 
-func flatten[T](v: openArray[seq[T]]): seq[T] =
-  # TODO not in nim - doh.
-  for x in v: result.add x
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#block-header
 proc processBlockHeader(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
@@ -529,24 +525,23 @@ func get_attesting_indices(
     state: BeaconState,
     attestations: openArray[PendingAttestation]): HashSet[ValidatorIndex] =
   # Union of attesters that participated in some attestations
-  attestations.
-    mapIt(
-      get_attestation_participants(state, it.data, it.aggregation_bitfield)).
-    flatten().
-    toSet()
-    # sorted(system.cmp) unnecessary
+  result = initSet[ValidatorIndex]()
+  for attestation in attestations:
+    for validator_index in get_attestation_participants(
+        state, attestation.data, attestation.aggregation_bitfield):
+      result.incl validator_index
 
 func get_attesting_indices_cached(
     state: BeaconState,
     attestations: openArray[PendingAttestation],
-    crosslink_committee_cache: var auto): seq[ValidatorIndex] =
+    crosslink_committee_cache: var auto): HashSet[ValidatorIndex] =
   # Union of attesters that participated in some attestations
-  attestations.
-    mapIt(
-      get_attestation_participants_cached(state, it.data, it.aggregation_bitfield, crosslink_committee_cache)).
-    flatten().
-    deduplicate().
-    sorted(system.cmp)
+  result = initSet[ValidatorIndex]()
+  for attestation in attestations:
+    for validator_index in get_attestation_participants_cached(
+        state, attestation.data, attestation.aggregation_bitfield,
+        crosslink_committee_cache):
+      result.incl validator_index
 
 func get_attesting_balance(state: BeaconState,
                            attestations: seq[PendingAttestation]): Gwei =
@@ -589,7 +584,7 @@ func lowerThan(candidate, current: Eth2Digest): bool =
 
 func get_winning_root_and_participants(
     state: BeaconState, shard: Shard, crosslink_committees_cache: var auto):
-    tuple[a: Eth2Digest, b: seq[ValidatorIndex]] =
+    tuple[a: Eth2Digest, b: HashSet[ValidatorIndex]] =
   let
     all_attestations =
       concat(state.current_epoch_attestations,
@@ -602,7 +597,7 @@ func get_winning_root_and_participants(
 
   # handle when no attestations for shard available
   if len(all_roots) == 0:
-    return (ZERO_HASH, @[])
+    return (ZERO_HASH, initSet[ValidatorIndex]())
 
   # 0.5.1 spec has less-than-ideal get_attestations_for nested function.
   var attestations_for = initTable[Eth2Digest, seq[PendingAttestation]]()
@@ -967,11 +962,10 @@ func get_crosslink_deltas(
               state, shard, crosslink_committees_cache)
           else:
             (ZERO_HASH, winning_root_participants_cache[shard])
-        nonquadraticParticipants = toSet(participants)
         participating_balance = get_total_balance(state, participants)
         total_balance = get_total_balance(state, crosslink_committee)
       for index in crosslink_committee:
-        if index in nonquadraticParticipants:
+        if index in participants:
           deltas[0][index] +=
             get_base_reward(state, index) * participating_balance div
               total_balance
@@ -1105,7 +1099,7 @@ func processEpoch(state: var BeaconState) =
     crosslink_committee_cache =
       initTable[tuple[a: uint64, b: bool], seq[CrosslinkCommittee]]()
     winning_root_participants_cache =
-      initTable[Shard, seq[ValidatorIndex]]()
+      initTable[Shard, HashSet[ValidatorIndex]]()
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#crosslinks
   process_crosslinks(
     state, crosslink_committee_cache, winning_root_participants_cache)
