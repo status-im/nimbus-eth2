@@ -1,9 +1,6 @@
 #!/bin/bash
 
-set -eux
-
-# Kill children on ctrl-c
-trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
+set -eu
 
 # Read in variables
 . $(dirname $0)/vars.sh
@@ -13,11 +10,11 @@ trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 NUM_VALIDATORS=${VALIDATORS:-100}
 NUM_NODES=${NODES:-9}
 
-cd $SIM_ROOT
+cd "$SIM_ROOT"
 mkdir -p "$SIMULATION_DIR"
 mkdir -p "$VALIDATORS_DIR"
 
-cd $GIT_ROOT
+cd "$GIT_ROOT"
 mkdir -p $BUILD_OUTPUTS_DIR
 
 # Run with "SHARD_COUNT=4 ./start.sh" to change these
@@ -66,8 +63,16 @@ fi
 MULTITAIL="${MULTITAIL:-multitail}" # to allow overriding the program name
 USE_MULTITAIL="${USE_MULTITAIL:-no}" # make it an opt-in
 type "$MULTITAIL" &>/dev/null || USE_MULTITAIL="no"
-COMMANDS=()
 
+# Kill child processes on Ctrl-C by sending SIGTERM to the whole process group,
+# passing the negative PID of this shell instance to the "kill" command.
+# Trap and ignore SIGTERM, so we don't kill this process along with its children.
+if [ "$USE_MULTITAIL" = "no" ]; then
+  trap '' SIGTERM
+  trap "kill -- -$$" SIGINT EXIT
+fi
+
+COMMANDS=()
 LAST_NODE=$(( $NUM_NODES - 1 ))
 
 for i in $(seq 0 $LAST_NODE); do
@@ -80,7 +85,7 @@ for i in $(seq 0 $LAST_NODE); do
     done
   fi
 
-  CMD="$SIM_ROOT/run_node.sh $i"
+  CMD="${SIM_ROOT}/run_node.sh $i"
 
   if [ "$USE_MULTITAIL" != "no" ]; then
     if [ "$i" = "0" ]; then
