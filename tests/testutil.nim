@@ -7,7 +7,7 @@
 
 import
   options, sequtils,
-  eth/trie/[db],
+  chronicles, eth/trie/[db],
   ../beacon_chain/[beacon_chain_db, block_pool, extras, ssz, state_transition,
     validator_pool, beacon_node_types],
   ../beacon_chain/spec/[beaconstate, bitfield, crypto, datatypes, digest,
