@@ -37,7 +37,9 @@ func shortLog*(x: Eth2Digest): string =
 
 func eth2hash*(v: openArray[byte]): Eth2Digest =
   var ctx: Eth2Hash
-  ctx.init()
+  # We can avoid this step for Keccak/SHA3 digests because `ctx` is already
+  # empty, but if digest will be changed next line must be enabled.
+  # ctx.init()
   ctx.update(v)
   result = ctx.finish()
 
