@@ -490,58 +490,62 @@ func update_validator_registry*(state: var BeaconState) =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#attestations
 proc checkAttestation*(
-    state: var BeaconState, attestation: Attestation, flags: UpdateFlags): bool =
+    state: BeaconState, attestation: Attestation, flags: UpdateFlags): bool =
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
   ## be followed!
+
+  let stateSlot =
+    if nextSlot in flags: state.slot + 1
+    else: state.slot
 
   # Can't submit attestations that are too far in history (or in prehistory)
   if not (attestation.data.slot >= GENESIS_SLOT):
     warn("Attestation predates genesis slot",
       attestation_slot = attestation.data.slot,
-      state_slot = humaneSlotNum(state.slot))
+      state_slot = humaneSlotNum(stateSlot))
     return
 
-  if not (state.slot <= attestation.data.slot + SLOTS_PER_EPOCH):
+  if not (stateSlot <= attestation.data.slot + SLOTS_PER_EPOCH):
     warn("Attestation too old",
       attestation_slot = humaneSlotNum(attestation.data.slot),
-      state_slot = humaneSlotNum(state.slot))
+      state_slot = humaneSlotNum(stateSlot))
     return
 
   # Can't submit attestations too quickly
   if not (
-      attestation.data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= state.slot):
+      attestation.data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= stateSlot):
     warn("Can't submit attestations too quickly",
       attestation_slot = humaneSlotNum(attestation.data.slot),
-      state_slot = humaneSlotNum(state.slot))
+      state_slot = humaneSlotNum(stateSlot))
     return
 
   # # Verify that the justified epoch and root is correct
-  if slot_to_epoch(attestation.data.slot) >= get_current_epoch(state):
+  if slot_to_epoch(attestation.data.slot) >= stateSlot.slot_to_epoch():
     # Case 1: current epoch attestations
     if not (attestation.data.source_epoch == state.current_justified_epoch):
       warn("Source epoch is not current justified epoch",
         attestation_slot = humaneSlotNum(attestation.data.slot),
-        state_slot = humaneSlotNum(state.slot))
+        state_slot = humaneSlotNum(stateSlot))
       return
 
     if not (attestation.data.source_root == state.current_justified_root):
       warn("Source root is not current justified root",
         attestation_slot = humaneSlotNum(attestation.data.slot),
-        state_slot = humaneSlotNum(state.slot))
+        state_slot = humaneSlotNum(stateSlot))
       return
   else:
     # Case 2: previous epoch attestations
     if not (attestation.data.source_epoch == state.previous_justified_epoch):
       warn("Source epoch is not previous justified epoch",
         attestation_slot = humaneSlotNum(attestation.data.slot),
-        state_slot = humaneSlotNum(state.slot))
+        state_slot = humaneSlotNum(stateSlot))
       return
 
     if not (attestation.data.source_root == state.previous_justified_root):
       warn("Source root is not previous justified root",
         attestation_slot = humaneSlotNum(attestation.data.slot),
-        state_slot = humaneSlotNum(state.slot))
+        state_slot = humaneSlotNum(stateSlot))
       return
 
   # Check that the crosslink data is valid
@@ -641,20 +645,19 @@ proc makeAttestationData*(
   ## Head must be the head state during the slot that validator is
   ## part of committee - notably, it can't be a newer or older state (!)
 
-  # TODO update when https://github.com/ethereum/eth2.0-specs/issues/742
   let
     epoch_start_slot = get_epoch_start_slot(slot_to_epoch(state.slot))
-    epoch_boundary_root =
+    target_root =
       if epoch_start_slot == state.slot: beacon_block_root
       else: get_block_root(state, epoch_start_slot)
-    justified_slot = get_epoch_start_slot(state.current_justified_epoch)
-    justified_block_root = get_block_root(state, justified_slot)
 
   AttestationData(
     slot: state.slot,
     shard: shard,
     beacon_block_root: beacon_block_root,
+    target_root: target_root,
     crosslink_data_root: Eth2Digest(), # Stub in phase0
     previous_crosslink: state.latest_crosslinks[shard],
     source_epoch: state.current_justified_epoch,
+    source_root: state.current_justified_root
   )

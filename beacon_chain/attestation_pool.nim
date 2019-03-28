@@ -67,11 +67,6 @@ proc validate(
     notice "Empty aggregation bitfield"
     return false
 
-  let crosslink_committee = mapIt(
-    filterIt(get_crosslink_committees_at_slot(state, attestation.data.slot),
-             it.shard == attestation.data.shard),
-    it.committee)[0]
-
   ## the rest; turns into expensive NOP until then.
   if skipValidation notin flags:
     let
@@ -238,8 +233,9 @@ proc add*(pool: var AttestationPool,
           attestation: attestation,
         )
 
-proc getAttestationsForBlock*(pool: AttestationPool,
-                              newBlockSlot: Slot): seq[Attestation] =
+proc getAttestationsForBlock*(
+  pool: AttestationPool, state: BeaconState,
+    newBlockSlot: Slot): seq[Attestation] =
   if newBlockSlot - GENESIS_SLOT < MIN_ATTESTATION_INCLUSION_DELAY:
     debug "Too early for attestations",
       newBlockSlot = humaneSlotNum(newBlockSlot)
@@ -279,6 +275,15 @@ proc getAttestationsForBlock*(pool: AttestationPool,
         custody_bitfield: a.validations[0].custody_bitfield,
         aggregate_signature: a.validations[0].aggregate_signature
       )
+
+    # TODO what's going on here is that when producing a block, we need to
+    #      include only such attestations that will not cause block validation
+    #      to fail. How this interacts with voting and the acceptance of
+    #      attestations into the pool in general is an open question that needs
+    #      revisiting - for example, when attestations are added, against which
+    #      state should they be validated, if at all?
+    if not checkAttestation(state, attestation, {skipValidation, nextSlot}):
+      continue
 
     for v in a.validations[1..^1]:
       if not attestation.aggregation_bitfield.overlaps(
