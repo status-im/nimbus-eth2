@@ -36,8 +36,10 @@ func shortLog*(x: Eth2Digest): string =
   result = ($x)[0..7]
 
 func eth2hash*(v: openArray[byte]): Eth2Digest =
-  var tmp = Eth2Hash.digest v
-  copyMem(result.data.addr, tmp.addr, sizeof(result))
+  var ctx: Eth2Hash
+  ctx.init()
+  ctx.update(v)
+  result = ctx.finish()
 
 template withEth2Hash*(body: untyped): Eth2Digest =
   ## This little helper will init the hash function and return the sliced
@@ -46,9 +48,7 @@ template withEth2Hash*(body: untyped): Eth2Digest =
   var h  {.inject.}: Eth2Hash
   h.init()
   body
-  var res: Eth2Digest
-  var tmp = h.finish()
-  copyMem(res.data.addr, tmp.data.addr, sizeof(res))
+  var res = h.finish()
   res
 
 func hash*(x: Eth2Digest): Hash =
