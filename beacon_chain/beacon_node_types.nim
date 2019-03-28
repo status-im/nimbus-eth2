@@ -28,6 +28,7 @@ type
     nickname*: string
     network*: EthereumNode
     networkMetadata*: NetworkMetadata
+    requestManager*: RequestManager
     isBootstrapNode*: bool
     db*: BeaconChainDB
     config*: BeaconNodeConf
@@ -249,6 +250,9 @@ type
 
   ValidatorPool* = object
     validators*: Table[ValidatorPubKey, AttachedValidator]
+
+  RequestManager* = object
+    network*: EthereumNode
 
   NetworkMetadata* = object
     networkId*: uint64

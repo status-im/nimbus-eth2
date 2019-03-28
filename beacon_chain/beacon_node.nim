@@ -11,10 +11,7 @@ import
 
 const
   topicBeaconBlocks = "ethereum/2.1/beacon_chain/blocks"
-  topicBeaconBlocks2 = "ethereum/2.1/beacon_chain/blocks2"
   topicAttestations = "ethereum/2.1/beacon_chain/attestations"
-  topicFetchBlocks = "ethereum/2.1/beacon_chain/fetch"
-  topicFetchBlocks2 = "ethereum/2.1/beacon_chain/fetch2"
 
   dataDirValidators = "validators"
   networkMetadataFile = "network.json"
@@ -26,7 +23,7 @@ const
 # to avoid recursive dependencies
 proc onBeaconBlock*(node: BeaconNode, blck: BeaconBlock) {.gcsafe.}
   # Forward decl for sync_protocol
-import sync_protocol
+import sync_protocol, request_manager
 # #################################################
 
 func shortValidatorKey(node: BeaconNode, validatorIdx: int): string =
@@ -165,6 +162,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   result.attestationPool = AttestationPool.init(result.blockPool)
 
   result.network = await createEth2Node(conf)
+  result.requestManager.init result.network
 
   # TODO sync is called when a remote peer is connected - is that the right
   #      time to do so?
@@ -380,36 +378,6 @@ proc proposeBlock(node: BeaconNode,
   node.network.broadcast(topicBeaconBlocks, newBlock)
 
   return newBlockRef
-
-proc fetchBlocks(node: BeaconNode, roots: seq[FetchRecord]) =
-  if roots.len == 0: return
-
-  debug "Fetching blocks", roots
-
-  # TODO shouldn't send to all!
-  node.network.broadcast(topicfetchBlocks2, roots)
-
-proc onFetchBlocks(node: BeaconNode, roots: seq[FetchRecord]) =
-  # TODO placeholder logic for block recovery
-  var resp: seq[BeaconBlock]
-  for rec in roots:
-    if (var blck = node.db.getBlock(rec.root); blck.isSome()):
-      # TODO validate historySlots
-      let firstSlot = blck.get().slot - rec.historySlots
-
-      for i in 0..<rec.historySlots.int:
-        resp.add(blck.get())
-
-        # TODO should obviously not spam, but rather send it back to the requester
-        if (blck = node.db.getBlock(blck.get().previous_block_root);
-            blck.isNone() or blck.get().slot < firstSlot):
-          break
-
-  debug "fetchBlocks received", roots = roots.len, resp = resp.len
-
-  # TODO shouldn't send to all!
-  if resp.len > 0:
-    node.network.broadcast(topicBeaconBlocks2, resp)
 
 proc onAttestation(node: BeaconNode, attestation: Attestation) =
   # We received an attestation from the network but don't know much about it
@@ -655,7 +623,10 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
 
 proc onSecond(node: BeaconNode, moment: Moment) {.async.} =
   let missingBlocks = node.blockPool.checkUnresolved()
-  node.fetchBlocks(missingBlocks)
+  if missingBlocks.len > 0:
+    info "Requesting detected missing blocks", missingBlocks
+    node.requestManager.fetchAncestorBlocks(missingBlocks) do (b: BeaconBlock):
+      node.onBeaconBlock(b)
 
   let nextSecond = max(Moment.now(), moment + chronos.seconds(1))
   addTimer(nextSecond) do (p: pointer):
@@ -667,20 +638,6 @@ proc run*(node: BeaconNode) =
 
   waitFor node.network.subscribe(topicAttestations) do (attestation: Attestation):
     node.onAttestation(attestation)
-
-  waitFor node.network.subscribe(topicfetchBlocks) do (roots: seq[Eth2Digest]):
-    # Backwards compat, remove eventually
-    # TODO proof of concept block fetcher - need serious anti-spam rework
-    node.onFetchBlocks(roots.mapIt(FetchRecord(root: it, historySlots: 1)))
-
-  waitFor node.network.subscribe(topicfetchBlocks2) do (roots: seq[FetchRecord]):
-    # TODO proof of concept block fetcher - need serious anti-spam rework
-    node.onFetchBlocks(roots)
-
-  waitFor node.network.subscribe(topicBeaconBlocks2) do (blcks: seq[BeaconBlock]):
-    # TODO proof of concept block transfer - need serious anti-spam rework
-    for blck in blcks:
-      node.onBeaconBlock(blck)
 
   let
     slot = node.beaconClock.now().toSlot()

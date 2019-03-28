@@ -168,9 +168,29 @@ p2pProtocol BeaconSync(version = 1,
         inc s
       await response.send(headers)
 
-    proc beaconBlockHeaders(
+    proc beaconBlockHeaders(peer: Peer, blockHeaders: openarray[BeaconBlockHeaderRLP])
+
+  requestResponse:
+    proc getAncestorBlocks(
             peer: Peer,
-            blockHeaders: openarray[BeaconBlockHeaderRLP])
+            needed: openarray[FetchRecord]) =
+      var resp = newseq[BeaconBlock]()
+      let db = peer.networkState.db
+      for rec in needed:
+        if (var blck = db.getBlock(rec.root); blck.isSome()):
+          # TODO validate historySlots
+          let firstSlot = blck.get().slot - rec.historySlots
+
+          for i in 0..<rec.historySlots.int:
+            resp.add(blck.get())
+
+            if (blck = db.getBlock(blck.get().previous_block_root);
+                blck.isNone() or blck.get().slot < firstSlot):
+              break
+
+      await response.send(resp)
+
+    proc ancestorBlocks(peer: Peer, blocks: openarray[BeaconBlock])
 
   requestResponse:
     proc getBeaconBlockBodies(
