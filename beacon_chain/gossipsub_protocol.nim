@@ -1,7 +1,7 @@
 import
   tables, sets, macros, base64,
   chronos, nimcrypto/sysrand, chronicles, json_serialization,
-  eth/[p2p, rlp], eth/p2p/[rlpx, peer_pool],
+  eth/[p2p, rlp, async_utils], eth/p2p/[rlpx, peer_pool],
   spec/[datatypes, crypto],
   tracing/stacktraces
 
@@ -57,7 +57,7 @@ p2pProtocol GossipSub(version = 1,
     for p in peer.network.peers(GossipSub):
       if msgId notin p.state.sentMessages and topic in p.state.subscribedFor:
         p.state.sentMessages.incl msgId
-        asyncDiscard p.tryEmitting(topic, msgId, msg)
+        traceAsyncErrors p.tryEmitting(topic, msgId, msg)
 
     {.gcsafe.}:
       let handler = peer.networkState.topicSubscribers.getOrDefault(topic)
@@ -100,9 +100,9 @@ proc subscribe*[MsgType](node: EthereumNode,
   for peer in node.peers(GossipSub):
     peer.trySubscribing(topic)
 
-proc broadcast*(node: EthereumNode, topic: string, msg: auto) {.async.} =
+proc broadcast*(node: EthereumNode, topic: string, msg: auto) =
   # We are intentionally using `yield` here, so the broadcast call can
   # never fail. Please note that errors are logged through a callback
   # set in `tryEmitting`
-  yield all(node.broadcastIMPL(topic, Json.encode(msg)))
+  traceAsyncErrors all(node.broadcastIMPL(topic, Json.encode(msg)))
 
