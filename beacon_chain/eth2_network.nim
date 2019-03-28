@@ -1,6 +1,5 @@
 import
   options, chronos, json_serialization, strutils,
-  chronicles,
   spec/digest, version, conf
 
 const
