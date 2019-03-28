@@ -9,6 +9,7 @@ set -eu
 
 export NUM_VALIDATORS=${VALIDATORS:-100}
 export NUM_NODES=${NODES:-9}
+export NUM_MISSING_NODES=${MISSING_NODES:-1}
 
 cd "$SIM_ROOT"
 mkdir -p "$SIMULATION_DIR"

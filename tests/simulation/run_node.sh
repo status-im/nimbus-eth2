@@ -15,8 +15,8 @@ if [ "${NAT:-}" == "1" ]; then
   NAT_FLAG="--nat:extip:$(curl -s ifconfig.me)"
 fi
 
-FIRST_VALIDATOR_IDX=$(printf '%07d' $(( (NUM_VALIDATORS / ($NUM_NODES + 1)) * $1 )))
-LAST_VALIDATOR_IDX=$(printf '%07d' $(( (NUM_VALIDATORS / ($NUM_NODES + 1)) * ($1 + 1) - 1 )))
+FIRST_VALIDATOR_IDX=$(printf '%07d' $(( (NUM_VALIDATORS / ($NUM_NODES + $NUM_MISSING_NODES)) * $1 )))
+LAST_VALIDATOR_IDX=$(printf '%07d' $(( (NUM_VALIDATORS / ($NUM_NODES + $NUM_MISSING_NODES)) * ($1 + 1) - 1 )))
 
 mkdir -p $DATA_DIR/validators
 rm -f $DATA_DIR/validators/*
