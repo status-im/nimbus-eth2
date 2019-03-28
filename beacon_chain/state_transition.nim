@@ -961,8 +961,12 @@ func get_crosslink_deltas(
     for cas in get_crosslink_committees_at_slot_cached(state, slot, false, crosslink_committees_cache):
       let
         (crosslink_committee, shard) = cas
-        (winning_root, participants) = get_winning_root_and_participants(
-          state, shard, crosslink_committees_cache)
+        (winning_root, participants) =
+          if shard notin winning_root_participants_cache:
+            get_winning_root_and_participants(
+              state, shard, crosslink_committees_cache)
+          else:
+            (ZERO_HASH, winning_root_participants_cache[shard])
         nonquadraticParticipants = toSet(participants)
         participating_balance = get_total_balance(state, participants)
         total_balance = get_total_balance(state, crosslink_committee)
