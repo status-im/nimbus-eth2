@@ -340,7 +340,8 @@ proc proposeBlock(node: BeaconNode,
     blockBody = BeaconBlockBody(
       randao_reveal: validator.genRandaoReveal(node.state.data, slot),
       eth1_data: node.mainchainMonitor.getBeaconBlockRef(),
-      attestations: node.attestationPool.getAttestationsForBlock(slot))
+      attestations:
+        node.attestationPool.getAttestationsForBlock(node.state.data, slot))
 
   var
     newBlock = BeaconBlock(
@@ -387,6 +388,12 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
     attestationData = shortLog(attestation.data),
     signature = shortLog(attestation.aggregate_signature)
 
+  # TODO seems reasonable to use the latest head state here.. needs thinking
+  #      though - maybe we should use the state from the block pointed to by
+  #      the attestation for some of the check? Consider interop with block
+  #      production!
+  node.blockPool.updateState(node.state,
+    BlockSlot(blck: node.blockPool.head, slot: node.beaconClock.now().toSlot()))
   node.attestationPool.add(node.state.data, attestation)
 
 proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =

@@ -18,5 +18,12 @@ type
     ## primary use case for this flag is when a proposer must propose a new
     ## block - in order to do so, it needs to update the state as if the block
     ## was valid, before it can sign it.
+    nextSlot ##\
+    ## Perform the operation as if the next slot was being processed - this is
+    ## useful when using the state to verify data that will go in the next slot,
+    ## for example when proposing
+    ## TODO need to be careful here, easy to assume that slot number change is
+    ##      enough, vs advancing the state - however, making a full state copy
+    ##      is expensive also :/
 
   UpdateFlags* = set[UpdateFlag]
