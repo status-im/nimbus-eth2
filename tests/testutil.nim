@@ -8,8 +8,10 @@
 import
   options, sequtils,
   eth/trie/[db],
-  ../beacon_chain/[beacon_chain_db, extras, ssz, state_transition, validator_pool],
-  ../beacon_chain/spec/[beaconstate, bitfield, crypto, datatypes, digest, helpers, validator]
+  ../beacon_chain/[beacon_chain_db, block_pool, extras, ssz, state_transition,
+    validator_pool, beacon_node_types],
+  ../beacon_chain/spec/[beaconstate, bitfield, crypto, datatypes, digest,
+    helpers, validator]
 
 func makeFakeValidatorPrivKey*(i: int): ValidatorPrivKey =
   var i = i + 1 # 0 does not work, as private key...
@@ -194,7 +196,5 @@ proc makeTestDB*(tailState: BeaconState, tailBlock: BeaconBlock): BeaconChainDB 
     tailRoot = signed_root(tailBlock)
 
   result = init(BeaconChainDB, newMemoryDB())
-  result.putState(tailState)
-  result.putBlock(tailBlock)
-  result.putTailBlock(tailRoot)
-  result.putHeadBlock(tailRoot)
+  BlockPool.preInit(result, tailState, tailBlock)
+

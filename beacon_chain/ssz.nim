@@ -166,7 +166,7 @@ proc writeValue*(w: var SszWriter, obj: auto) =
   mixin writeValue
 
   when obj is ValidatorIndex|BasicType:
-    w.stream.append obj.toBytesSSZ
+    w.stream.append obj.toSSZType().toBytesSSZ
   elif obj is enum:
     w.stream.append uint64(obj).toBytesSSZ
   else:

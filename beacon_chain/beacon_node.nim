@@ -147,18 +147,8 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
       let
         tailState = Json.loadFile(snapshotFile, BeaconState)
         tailBlock = get_initial_beacon_block(tailState)
-        blockRoot = signed_root(tailBlock)
 
-      notice "Creating new database from snapshot",
-        blockRoot = shortLog(blockRoot),
-        stateRoot = shortLog(tailBlock.state_root),
-        fork = tailState.fork,
-        validators = tailState.validator_registry.len()
-
-      result.db.putState(tailState)
-      result.db.putBlock(tailBlock)
-      result.db.putTailBlock(blockRoot)
-      result.db.putHeadBlock(blockRoot)
+      BlockPool.preInit(result.db, tailState, tailBlock)
 
     except SerializationError as err:
       stderr.write "Failed to import ", snapshotFile, "\n"
@@ -251,14 +241,15 @@ proc getAttachedValidator(node: BeaconNode, idx: int): AttachedValidator =
 proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
   # Use head state for attestation resolution below
   # TODO do we need to resolve attestations using all available head states?
-  node.blockPool.updateState(node.state, node.blockPool.head, slot)
+  node.blockPool.updateState(
+    node.state, BlockSlot(blck: node.blockPool.head, slot: slot))
 
   # Check pending attestations - maybe we found some blocks for them
   node.attestationPool.resolve(node.state.data)
 
   # TODO move all of this logic to BlockPool
   debug "Preparing for fork choice",
-    currentHeadBlock = shortLog(node.state.root),
+    stateRoot = shortLog(node.state.root),
     connectedPeers = node.network.connectedPeers,
     stateSlot = humaneSlotNum(node.state.data.slot),
     stateEpoch = humaneEpochNum(node.state.data.slot.slotToEpoch)
@@ -270,7 +261,8 @@ proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
   #      got finalized:
   #      https://github.com/ethereum/eth2.0-specs/issues/768
   node.blockPool.updateState(
-    node.justifiedStateCache, justifiedHead, justifiedHead.slot)
+    node.justifiedStateCache,
+    BlockSlot(blck: justifiedHead, slot: justifiedHead.slot))
 
   let newHead = lmdGhost(
     node.attestationPool, node.justifiedStateCache.data, justifiedHead)
@@ -343,7 +335,7 @@ proc proposeBlock(node: BeaconNode,
     doAssert false, "head slot matches proposal slot (!)"
     # return
 
-  node.blockPool.updateState(node.state, head, slot - 1)
+  node.blockPool.updateState(node.state, BlockSlot(blck: head, slot: slot - 1))
   # To create a block, we'll first apply a partial block to the state, skipping
   # some validations.
   let
@@ -462,17 +454,22 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
       attestationHeadSlot = humaneSlotNum(attestationHead.slot),
       attestationSlot = humaneSlotNum(slot)
 
+  debug "Checking attestations",
+    attestationHeadRoot = shortLog(attestationHead.root),
+    attestationSlot = humaneSlotNum(slot)
+
   # We need to run attestations exactly for the slot that we're attesting to.
   # In case blocks went missing, this means advancing past the latest block
   # using empty slots as fillers.
-  node.blockPool.updateState(node.state, attestationHead, slot)
+  node.blockPool.updateState(
+    node.state, BlockSlot(blck: attestationHead, slot: slot))
 
   for crosslink_committee in get_crosslink_committees_at_slot(
       node.state.data, slot):
     for i, validatorIdx in crosslink_committee.committee:
       let validator = node.getAttachedValidator(validatorIdx)
       if validator != nil:
-        asyncDiscard makeAttestation(node, validator, node.state.data, head,
+        asyncCheck makeAttestation(node, validator, node.state.data, head,
           crosslink_committee.shard,
           crosslink_committee.committee.len, i)
 
@@ -485,7 +482,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
   #      proposing for it - basically, we're selecting proposer based on an
   #      empty slot.. wait for the committee selection to settle, then
   #      revisit this - we should be able to advance behind
-  node.blockPool.updateState(node.state, head, slot)
+  node.blockPool.updateState(node.state, BlockSlot(blck: head, slot: slot))
 
   let proposerIdx = get_beacon_proposer_index(node.state.data, slot)
   let validator = node.getAttachedValidator(proposerIdx)
@@ -621,11 +618,15 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     halfSlot = seconds(int64(SECONDS_PER_SLOT div 2))
 
   if attestationStart.inFuture or attestationStart.offset <= halfSlot:
+    let fromNow =
+      if attestationStart.inFuture: attestationStart.offset + halfSlot
+      else: halfSlot - attestationStart.offset
+
     debug "Waiting to send attestations",
       slot = humaneSlotNum(slot),
-      fromNow = shortLog(attestationStart.offset + halfSlot)
+      fromNow = shortLog(fromNow)
 
-    await sleepAsync(attestationStart.offset + halfSlot)
+    await sleepAsync(fromNow)
 
     # Time passed - we might need to select a new head in that case
     head = node.updateHead(slot)

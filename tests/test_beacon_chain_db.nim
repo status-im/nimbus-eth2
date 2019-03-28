@@ -33,6 +33,10 @@ suite "Beacon chain DB":
       db.containsBlock(root)
       db.getBlock(root).get() == blck
 
+    db.putStateRoot(root, blck.slot, root)
+    check:
+      db.getStateRoot(root, blck.slot).get() == root
+
   test "sanity check states":
     var
       db = init(BeaconChainDB, newMemoryDB())

@@ -20,6 +20,7 @@ type
     ## TODO: determine how aggressively the database should be pruned. For a
     ##       healthy network sync, we probably need to store blocks at least
     ##       past the weak subjectivity period.
+    kBlockSlotStateRoot ## BlockSlot -> state_root mapping
 
 func subkey(kind: DbKeyKind): array[1, byte] =
   result[0] = byte ord(kind)
@@ -39,6 +40,23 @@ func subkey(kind: type BeaconState, key: Eth2Digest): auto =
 func subkey(kind: type BeaconBlock, key: Eth2Digest): auto =
   subkey(kHashToBlock, key.data)
 
+func subkey(root: Eth2Digest, slot: Slot): auto =
+  # var
+  #   # takes care of endians..
+  #   TODO: this gives 8 bytes back(!)
+  #   root = SSZ.encode(root)
+  #   slot = SSZ.encode(slot)
+  var ret: array[1 + 32 + 8, byte]
+  # doAssert sizeof(ret) == 1 + sizeof(root) + sizeof(slot),
+  #   "Can't sizeof this in VM"
+
+  ret[0] = byte ord(kBlockSlotStateRoot)
+
+  copyMem(addr ret[1], unsafeaddr root, sizeof(root))
+  copyMem(addr ret[1 + sizeof(root)], unsafeaddr slot, sizeof(slot))
+
+  ret
+
 proc init*(T: type BeaconChainDB, backend: TrieDatabaseRef): BeaconChainDB =
   new result
   result.backend = backend
@@ -57,6 +75,10 @@ proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
 
 proc putState*(db: BeaconChainDB, value: BeaconState) =
   db.putState(hash_tree_root(value), value)
+
+proc putStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot,
+    value: Eth2Digest) =
+  db.backend.put(subkey(root, slot), value.data)
 
 proc putBlock*(db: BeaconChainDB, value: BeaconBlock) =
   db.putBlock(signed_root(value), value)
@@ -82,6 +104,10 @@ proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Option[BeaconBlock] =
 
 proc getState*(db: BeaconChainDB, key: Eth2Digest): Option[BeaconState] =
   db.get(subkey(BeaconState, key), BeaconState)
+
+proc getStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot):
+    Option[Eth2Digest] =
+  db.get(subkey(root, slot), Eth2Digest)
 
 proc getHeadBlock*(db: BeaconChainDB): Option[Eth2Digest] =
   db.get(subkey(kHeadBlock), Eth2Digest)
