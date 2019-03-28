@@ -630,7 +630,9 @@ func get_winning_root_and_participants(
       winning_root_balance = root_balance
 
   (winning_root,
-   get_attesting_indices(state, attestations_for.getOrDefault(winning_root)))
+   get_attesting_indices_cached(
+     state,
+     attestations_for.getOrDefault(winning_root), crosslink_committees_cache))
 
 # Combination of earliest_attestation and inclusion_slot avoiding O(n^2)
 # TODO merge/refactor these two functions, which differ only very slightly.
@@ -728,7 +730,8 @@ func update_justification_and_finalization(state: var BeaconState) =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#crosslinks
 func process_crosslinks(
-    state: var BeaconState, crosslink_committee_cache: var auto) =
+    state: var BeaconState, crosslink_committee_cache: var auto,
+    winning_root_participants_cache: var auto) =
   let
     current_epoch = get_current_epoch(state)
     previous_epoch = current_epoch - 1
@@ -747,10 +750,19 @@ func process_crosslinks(
         state, slot, false, crosslink_committee_cache):
       let
         (crosslink_committee, shard) = cas
-        (winning_root, participants) = get_winning_root_and_participants(
-          state, shard, crosslink_committee_cache)
+        # In general, it'll loop over the same shards twice, and
+        # get_winning_root_and_participants is defined to return
+        # the same results from the previous epoch as current.
+        (winning_root, participants) =
+          if shard notin winning_root_participants_cache:
+            get_winning_root_and_participants(
+              state, shard, crosslink_committee_cache)
+          else:
+            (ZERO_HASH, winning_root_participants_cache[shard])
         participating_balance = get_total_balance(state, participants)
         total_balance = get_total_balance(state, crosslink_committee)
+
+      winning_root_participants_cache[shard] = participants
 
       if 3'u64 * participating_balance >= 2'u64 * total_balance:
         # Check not from spec; seems kludgy
@@ -844,7 +856,7 @@ func compute_normal_justification_and_finalization_deltas(state: BeaconState):
     else:
       deltas[1][index] += get_base_reward(state, index)
     # Expected head
-    if index in get_attesting_indices(state, matching_head_attestations):
+    if index in matching_head_attestation_indices:
       deltas[0][index] +=
         get_base_reward(state, index) *
           matching_head_balance div total_balance
@@ -929,7 +941,9 @@ func get_justification_and_finalization_deltas(state: BeaconState):
     compute_inactivity_leak_deltas(state)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#crosslinks-1
-func get_crosslink_deltas(state: BeaconState, crosslink_committees_cache: var auto):
+func get_crosslink_deltas(
+    state: BeaconState, crosslink_committees_cache: var auto,
+    winning_root_participants_cache: var auto):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
   # deltas[0] for rewards
   # deltas[1] for penalties
@@ -949,11 +963,11 @@ func get_crosslink_deltas(state: BeaconState, crosslink_committees_cache: var au
         (crosslink_committee, shard) = cas
         (winning_root, participants) = get_winning_root_and_participants(
           state, shard, crosslink_committees_cache)
+        nonquadraticParticipants = toSet(participants)
         participating_balance = get_total_balance(state, participants)
         total_balance = get_total_balance(state, crosslink_committee)
-      # In principle quadratic, but should be small.
       for index in crosslink_committee:
-        if index in participants:
+        if index in nonquadraticParticipants:
           deltas[0][index] +=
             get_base_reward(state, index) * participating_balance div
               total_balance
@@ -964,10 +978,12 @@ func get_crosslink_deltas(state: BeaconState, crosslink_committees_cache: var au
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#apply-rewards
 func apply_rewards(
-    state: var BeaconState, crosslink_committees_cache: var auto) =
+    state: var BeaconState, crosslink_committees_cache: var auto,
+    winning_root_participants_cache: var auto) =
   let
     deltas1 = get_justification_and_finalization_deltas(state)
-    deltas2 = get_crosslink_deltas(state, crosslink_committees_cache)
+    deltas2 = get_crosslink_deltas(
+      state, crosslink_committees_cache, winning_root_participants_cache)
   for i in 0 ..< len(state.validator_registry):
     state.validator_balances[i] =
       max(
@@ -1081,16 +1097,21 @@ func processEpoch(state: var BeaconState) =
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#justification
   update_justification_and_finalization(state)
 
-  var crosslink_committee_cache =
-    initTable[tuple[a: uint64, b: bool], seq[CrosslinkCommittee]]()
+  var
+    crosslink_committee_cache =
+      initTable[tuple[a: uint64, b: bool], seq[CrosslinkCommittee]]()
+    winning_root_participants_cache =
+      initTable[Shard, seq[ValidatorIndex]]()
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#crosslinks
-  process_crosslinks(state, crosslink_committee_cache)
+  process_crosslinks(
+    state, crosslink_committee_cache, winning_root_participants_cache)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#eth1-data
   maybe_reset_eth1_period(state)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#apply-rewards
-  apply_rewards(state, crosslink_committee_cache)
+  apply_rewards(
+    state, crosslink_committee_cache, winning_root_participants_cache)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#ejections
   process_ejections(state)
