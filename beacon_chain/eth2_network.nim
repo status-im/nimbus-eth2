@@ -1,5 +1,6 @@
 import
   options, chronos, json_serialization, strutils,
+  chronicles,
   spec/digest, version, conf
 
 const
@@ -75,7 +76,7 @@ when useRLPx:
   proc init*(T: type BootstrapAddr, str: string): T =
     initENode(str)
 
-  func connectedPeers*(enode: EthereumNode): int = 
+  func connectedPeers*(enode: EthereumNode): int =
     enode.peerPool.len
 
 else:

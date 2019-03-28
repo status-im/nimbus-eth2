@@ -2,12 +2,12 @@ import
   net, sequtils, options, tables, osproc, random, strutils, times,
   std_shims/[os_shims, objects],
   chronos, chronicles, confutils, serialization/errors,
+  eth/trie/db, eth/trie/backends/rocksdb_backend, eth/async_utils,
   spec/[bitfield, datatypes, digest, crypto, beaconstate, helpers, validator],
   conf, time,
   state_transition, fork_choice, ssz, beacon_chain_db, validator_pool, extras,
   attestation_pool, block_pool, eth2_network, beacon_node_types,
-  mainchain_monitor, trusted_state_snapshots, version,
-  eth/trie/db, eth/trie/backends/rocksdb_backend
+  mainchain_monitor, trusted_state_snapshots, version
 
 const
   topicBeaconBlocks = "ethereum/2.1/beacon_chain/blocks"
@@ -306,9 +306,7 @@ proc makeAttestation(node: BeaconNode,
     custody_bitfield: BitField.init(committeeLen)
   )
 
-  # TODO what are we waiting for here? broadcast should never block, and never
-  #      fail...
-  await node.network.broadcast(topicAttestations, attestation)
+  node.network.broadcast(topicAttestations, attestation)
 
   info "Attestation sent",
     attestationData = shortLog(attestationData),
@@ -379,9 +377,7 @@ proc proposeBlock(node: BeaconNode,
     validator = shortValidatorKey(node, validator.idx),
     idx = validator.idx
 
-  # TODO what are we waiting for here? broadcast should never block, and never
-  #      fail...
-  await node.network.broadcast(topicBeaconBlocks, newBlock)
+  node.network.broadcast(topicBeaconBlocks, newBlock)
 
   return newBlockRef
 
@@ -391,8 +387,7 @@ proc fetchBlocks(node: BeaconNode, roots: seq[FetchRecord]) =
   debug "Fetching blocks", roots
 
   # TODO shouldn't send to all!
-  # TODO should never fail - asyncCheck is wrong here..
-  asyncCheck node.network.broadcast(topicfetchBlocks2, roots)
+  node.network.broadcast(topicfetchBlocks2, roots)
 
 proc onFetchBlocks(node: BeaconNode, roots: seq[FetchRecord]) =
   # TODO placeholder logic for block recovery
@@ -412,9 +407,9 @@ proc onFetchBlocks(node: BeaconNode, roots: seq[FetchRecord]) =
 
   debug "fetchBlocks received", roots = roots.len, resp = resp.len
 
-  # TODO should never fail - asyncCheck is wrong here..
+  # TODO shouldn't send to all!
   if resp.len > 0:
-    asyncCheck node.network.broadcast(topicBeaconBlocks2, resp)
+    node.network.broadcast(topicBeaconBlocks2, resp)
 
 proc onAttestation(node: BeaconNode, attestation: Attestation) =
   # We received an attestation from the network but don't know much about it
@@ -486,7 +481,8 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     for i, validatorIdx in crosslink_committee.committee:
       let validator = node.getAttachedValidator(validatorIdx)
       if validator != nil:
-        asyncCheck makeAttestation(node, validator, node.state.data, head,
+        traceAsyncErrors makeAttestation(
+          node, validator, node.state.data, head,
           crosslink_committee.shard,
           crosslink_committee.committee.len, i)
 
