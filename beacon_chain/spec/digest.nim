@@ -36,7 +36,7 @@ func shortLog*(x: Eth2Digest): string =
   result = ($x)[0..7]
 
 func eth2hash*(v: openArray[byte]): Eth2Digest =
-  var ctx: Eth2Hash
+  var ctx: keccak256 # use explicit type so we can rely on init being useless
   # We can avoid this step for Keccak/SHA3 digests because `ctx` is already
   # empty, but if digest will be changed next line must be enabled.
   # ctx.init()
@@ -47,8 +47,8 @@ template withEth2Hash*(body: untyped): Eth2Digest =
   ## This little helper will init the hash function and return the sliced
   ## hash:
   ## let hashOfData = withHash: h.update(data)
-  var h  {.inject.}: Eth2Hash
-  h.init()
+  var h  {.inject.}: keccak256
+  # TODO no need, as long as using keccak256: h.init()
   body
   var res = h.finish()
   res
