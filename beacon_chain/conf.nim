@@ -94,7 +94,7 @@ type
 
       lastUserValidator* {.
         desc: "The last validator index that will free for taking from a testnet participant"
-        defaultValue: 0 .}: uint64
+        defaultValue: config.totalValidators - 1 .}: uint64
 
       bootstrapAddress* {.
         desc: "The public IP address that will be advertised as a bootstrap node for the testnet"
