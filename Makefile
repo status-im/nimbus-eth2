@@ -44,18 +44,14 @@ eth2_network_simulation: | beacon_node validator_keygen clean_eth2_network_simul
 clean-testnet0:
 	rm -rf ~/.cache/nimbus/BeaconNode/testnet0
 
-testnet0-nocleaning: | build deps
+testnet0: | build deps
 	../../env.sh scripts/connect_to_testnet.sh testnet0
-
-testnet0: | clean-testnet0 testnet0-nocleaning
 
 clean-testnet1:
 	rm -rf ~/.cache/nimbus/BeaconNode/testnet1
 
-testnet1-nocleaning: | build deps
+testnet1: | build deps
 	../../env.sh scripts/connect_to_testnet.sh testnet1
-
-testnet1: | clean-testnet1 testnet1-nocleaning
 
 clean:
 	rm -rf build/* nimcache
