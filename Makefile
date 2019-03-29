@@ -45,13 +45,13 @@ clean-testnet0:
 	rm -rf ~/.cache/nimbus/BeaconNode/testnet0
 
 testnet0: | build deps
-	../../env.sh scripts/connect_to_testnet.sh testnet0
+	../../env.sh scripts/build_testnet_node.sh testnet0
 
 clean-testnet1:
 	rm -rf ~/.cache/nimbus/BeaconNode/testnet1
 
 testnet1: | build deps
-	../../env.sh scripts/connect_to_testnet.sh testnet1
+	../../env.sh scripts/build_testnet_node.sh testnet1
 
 clean:
 	rm -rf build/* nimcache

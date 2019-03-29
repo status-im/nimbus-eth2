@@ -12,7 +12,7 @@ source "$NETWORK_NAME.env"
 
 cd ..
 
-NIM_FLAGS="-d:release --lineTrace:on -d:chronicles_log_level=DEBUG -d:SECONDS_PER_SLOT=$SECONDS_PER_SLOT -d:SHARD_COUNT=$SHARD_COUNT -d:SLOTS_PER_EPOCH=$SLOTS_PER_EPOCH --hints:off --verbosity:0"
+NIM_FLAGS="-d:release --lineTrace:on -d:chronicles_log_level=DEBUG -d:SECONDS_PER_SLOT=$SECONDS_PER_SLOT -d:SHARD_COUNT=$SHARD_COUNT -d:SLOTS_PER_EPOCH=$SLOTS_PER_EPOCH -d:DEFAULT_NETWORK=$NETWORK_NAME --hints:off --verbosity:0"
 
 BEACON_NODE_BIN="build/${NETWORK_NAME}_node"
 
@@ -24,5 +24,8 @@ if [ ! -d ~/.cache/nimbus/BeaconNode/${NETWORK_NAME}/validators ]; then
   $BEACON_NODE_BIN --network=$NETWORK_NAME importValidator
 fi
 
-$BEACON_NODE_BIN --network=$NETWORK_NAME --tcpPort:$BOOTSTRAP_PORT --udpPort:$BOOTSTRAP_PORT
+echo
+echo "A binary for connecting to $NETWORK_NAME was placed in '$BEACON_NODE_BIN'"
+echo "To sync with the network, launch it with default parameters"
+echo
 
