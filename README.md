@@ -95,11 +95,11 @@ make
 make state_sim
 ```
 
-- you can control the Makefile's verbosity with the V variable (defaults to 1):
+- you can control the Makefile's verbosity with the V variable (defaults to 0):
 
 ```bash
-make V=0 # quiet
-make V=2 test # more verbose than usual
+make V=1 # verbose
+make V=2 test # even more verbose
 ```
 
 - same for the [Chronicles log level](https://github.com/status-im/nim-chronicles#chronicles_log_level):
@@ -118,7 +118,7 @@ make NIMFLAGS="-d:release"
 - you can freely combine those variables on the `make` command line:
 
 ```bash
-make -j8 V=0 NIMFLAGS="-d:release" USE_MULTITAIL=yes eth2_network_simulation
+make -j8 NIMFLAGS="-d:release" USE_MULTITAIL=yes eth2_network_simulation
 ```
 
 ## State transition simulation
@@ -128,7 +128,7 @@ The state transition simulator can quickly run the Beacon chain state transition
 ```bash
 # build and run the state simulator, then display its help ("-d:release" speeds it
 # up substantially, allowing the simulation of longer runs in reasonable time)
-make V=0 NIMFLAGS="-d:release" state_sim
+make NIMFLAGS="-d:release" state_sim
 ./build/state_sim --help
 ```
 
