@@ -22,7 +22,7 @@ sanity-checks:
 		{ echo "This Makefile can only be used from the corresponding Git submodule in the Nimbus repository."; exit 1; }
 
 deps: | sanity-checks
-	@+ $(MAKE) --silent -C ../../ deps
+	@+ $(MAKE) --silent -C ../../ V=0 deps
 
 build:
 	mkdir $@
