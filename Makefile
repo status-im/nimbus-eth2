@@ -12,10 +12,8 @@ ENV_SCRIPT := "../../env.sh"
 
 TOOLS := beacon_node validator_keygen bench_bls_sig_agggregation state_sim
 TOOLS_DIRS := beacon_chain benchmarks research
-# comma-separated values for the "clean" target
-TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 
-.PHONY: all sanity-checks deps test $(TOOLS) clean_eth2_network_simulation_files eth2_network_simulation
+.PHONY: all sanity-checks deps test $(TOOLS) clean_eth2_network_simulation_files eth2_network_simulation clean-testnet0 testnet0-nocleaning testnet0 clean-testnet1 testnet1-nocleaning testnet1 clean
 
 all: | $(TOOLS)
 
@@ -60,5 +58,5 @@ testnet1-nocleaning: | build deps
 testnet1: | clean-testnet1 testnet1-nocleaning
 
 clean:
-	rm -rf build/{$(TOOLS_CSV),all_tests,*.exe} nimcache
+	rm -rf build/* nimcache
 
