@@ -13,6 +13,6 @@ mkdir -p $VALIDATORS_DIR
 FIRST_IDX=$(printf '%07d' $FIRST_VALIDATOR)
 LAST_IDX=$(printf '%07d' $LAST_VALIDATOR)
 
-curl "https://serenity-testnets.status.im/testnet0/v[$FIRST_IDX-$LAST_IDX].privkey" \
+curl "https://serenity-testnets.status.im/${NETWORK_NAME}/v[$FIRST_IDX-$LAST_IDX].privkey" \
   -o "$VALIDATORS_DIR/v#1.privkey" -s -w '%{url_effective} > %{filename_effective}\n'
 
