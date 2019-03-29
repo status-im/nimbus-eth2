@@ -21,71 +21,75 @@ export nimcrypto.toHex
 type
   # TODO: use ref object to avoid allocating
   #       so much on the stack - pending https://github.com/status-im/nim-json-serialization/issues/3
-  StateTest = object
-    title: string
-    summary: string
-    test_suite: string
-    fork: string
-    test_cases: seq[TestCase]
+  StateTest* = object
+    title*: string
+    summary*: string
+    test_suite*: string
+    fork*: string
+    test_cases*: seq[TestCase]
   
-  TestConstants = object
-    SHARD_COUNT: int
-    TARGET_COMMITTEE_SIZE: int
-    MAX_BALANCE_CHURN_QUOTIENT: int
-    MAX_INDICES_PER_SLASHABLE_VOTE: int
-    MAX_EXIT_DEQUEUES_PER_EPOCH: int
-    SHUFFLE_ROUND_COUNT: int
-    DEPOSIT_CONTRACT_TREE_DEPTH: int
-    MIN_DEPOSIT_AMOUNT: uint64
-    MAX_DEPOSIT_AMOUNT: uint64
-    FORK_CHOICE_BALANCE_INCREMENT: uint64
-    EJECTION_BALANCE: uint64
-    GENESIS_FORK_VERSION: uint32
-    GENESIS_SLOT: Slot
-    GENESIS_EPOCH: Epoch
-    GENESIS_START_SHARD: uint64
-    BLS_WITHDRAWAL_PREFIX_BYTE: array[1, byte]
-    SECONDS_PER_SLOT: uint64
-    MIN_ATTESTATION_INCLUSION_DELAY: uint64
-    SLOTS_PER_EPOCH: int
-    MIN_SEED_LOOKAHEAD: int
-    ACTIVATION_EXIT_DELAY: int
-    EPOCHS_PER_ETH1_VOTING_PERIOD: uint64
-    SLOTS_PER_HISTORICAL_ROOT: int
-    MIN_VALIDATOR_WITHDRAWABILITY_DELAY: uint64
-    PERSISTENT_COMMITTEE_PERIOD: uint64
-    LATEST_RANDAO_MIXES_LENGTH: int
-    LATEST_ACTIVE_INDEX_ROOTS_LENGTH: int
-    LATEST_SLASHED_EXIT_LENGTH: int
-    BASE_REWARD_QUOTIENT: uint64
-    WHISTLEBLOWER_REWARD_QUOTIENT: uint64
-    ATTESTATION_INCLUSION_REWARD_QUOTIENT: uint64
-    INACTIVITY_PENALTY_QUOTIENT: uint64
-    MIN_PENALTY_QUOTIENT: int
-    MAX_PROPOSER_SLASHINGS: int
-    MAX_ATTESTER_SLASHINGS: int
-    MAX_ATTESTATIONS: int
-    MAX_DEPOSITS: int
-    MAX_VOLUNTARY_EXITS: int
-    MAX_TRANSFERS: int
-    DOMAIN_BEACON_BLOCK: SignatureDomain
-    DOMAIN_RANDAO: SignatureDomain
-    DOMAIN_ATTESTATION: SignatureDomain
-    DOMAIN_DEPOSIT: SignatureDomain
-    DOMAIN_VOLUNTARY_EXIT: SignatureDomain
-    DOMAIN_TRANSFER: SignatureDomain
+  TestConstants* = object
+    SHARD_COUNT*: int
+    TARGET_COMMITTEE_SIZE*: int
+    MAX_BALANCE_CHURN_QUOTIENT*: int
+    MAX_INDICES_PER_SLASHABLE_VOTE*: int
+    MAX_EXIT_DEQUEUES_PER_EPOCH*: int
+    SHUFFLE_ROUND_COUNT*: int
+    DEPOSIT_CONTRACT_TREE_DEPTH*: int
+    MIN_DEPOSIT_AMOUNT*: uint64
+    MAX_DEPOSIT_AMOUNT*: uint64
+    FORK_CHOICE_BALANCE_INCREMENT*: uint64
+    EJECTION_BALANCE*: uint64
+    GENESIS_FORK_VERSION*: uint32
+    GENESIS_SLOT*: Slot
+    GENESIS_EPOCH*: Epoch
+    GENESIS_START_SHARD*: uint64
+    BLS_WITHDRAWAL_PREFIX_BYTE*: array[1, byte]
+    SECONDS_PER_SLOT*: uint64
+    MIN_ATTESTATION_INCLUSION_DELAY*: uint64
+    SLOTS_PER_EPOCH*: int
+    MIN_SEED_LOOKAHEAD*: int
+    ACTIVATION_EXIT_DELAY*: int
+    EPOCHS_PER_ETH1_VOTING_PERIOD*: uint64
+    SLOTS_PER_HISTORICAL_ROOT*: int
+    MIN_VALIDATOR_WITHDRAWABILITY_DELAY*: uint64
+    PERSISTENT_COMMITTEE_PERIOD*: uint64
+    LATEST_RANDAO_MIXES_LENGTH*: int
+    LATEST_ACTIVE_INDEX_ROOTS_LENGTH*: int
+    LATEST_SLASHED_EXIT_LENGTH*: int
+    BASE_REWARD_QUOTIENT*: uint64
+    WHISTLEBLOWER_REWARD_QUOTIENT*: uint64
+    ATTESTATION_INCLUSION_REWARD_QUOTIENT*: uint64
+    INACTIVITY_PENALTY_QUOTIENT*: uint64
+    MIN_PENALTY_QUOTIENT*: int
+    MAX_PROPOSER_SLASHINGS*: int
+    MAX_ATTESTER_SLASHINGS*: int
+    MAX_ATTESTATIONS*: int
+    MAX_DEPOSITS*: int
+    MAX_VOLUNTARY_EXITS*: int
+    MAX_TRANSFERS*: int
+    DOMAIN_BEACON_BLOCK*: SignatureDomain
+    DOMAIN_RANDAO*: SignatureDomain
+    DOMAIN_ATTESTATION*: SignatureDomain
+    DOMAIN_DEPOSIT*: SignatureDomain
+    DOMAIN_VOLUNTARY_EXIT*: SignatureDomain
+    DOMAIN_TRANSFER*: SignatureDomain
 
-  TestCase = object
-    name: string
-    config: TestConstants
-    verify_signatures: bool
-    initial_state: BeaconState
-    blocks: seq[BeaconBlock]
-    expected_state: ExpectedState
+  TestCase* = object
+    name*: string
+    config*: TestConstants
+    verify_signatures*: bool
+    initial_state*: BeaconState
+    blocks*: seq[BeaconBlock]
+    expected_state*: ExpectedState
   
-  ExpectedState = object
-    ## TODO what is this
-    slot: Slot
+  ExpectedState* = object
+    ## TODO what is this?
+    slot*: Slot
+
+# #######################
+# Default init
+proc default*(T: typedesc): T = discard
 
 # #######################
 # JSON deserialization
@@ -118,24 +122,32 @@ proc yamlToJson*(file: string): seq[JsonNode] =
   except IOError:
     echo "Exception when reading file: " & file
     raise
+  except OverflowError:
+    echo "Overflow exception when parsing. Did you stringify 18446744073709551615 (-1)?"
+    raise
 
 when isMainModule:
-  # import os, typetraits
+  # Do not forget to stringify FAR_EPOCH_SLOT = 18446744073709551615 (-1) in the YAML file
+  # And unstringify it in the produced JSON file
 
-  # var fileName, outputPath: string
-  # if paramCount() == 0:
-  #   fileName = DefaultYML
-  #   outputPath = DefaultOutputPath
-  # elif paramCount() == 1:
-  #   fileName = paramStr(1)
-  #   outputPath = DefaultOutputPath
-  # elif paramCount() >= 2:
-  #   fileName = paramStr(1)
-  #   outputPath = paramStr(2)
+  import os, typetraits
 
-  # let jsonString = $DefaultYML.yamlToJson[0]
-  # DefaultOutputPath.writeFile jsonString
+  const
+    DefaultYML = "tests/official/sanity-check_default-config_100-vals-first_test.yaml"
+    DefaultOutputPath = "tests/official/sanity-check_default-config_100-vals-first_test.json"
 
-  const DefaultOutputPath = "tests/official/sanity-check_default-config_100-vals-first_test.json"
-  let foo = parseStateTests(DefaultOutputPath)
+  var fileName, outputPath: string
+  if paramCount() == 0:
+    fileName = DefaultYML
+    outputPath = DefaultOutputPath
+  elif paramCount() == 1:
+    fileName = paramStr(1)
+    outputPath = DefaultOutputPath
+  elif paramCount() >= 2:
+    fileName = paramStr(1)
+    outputPath = paramStr(2)
+
+  let jsonString = $DefaultYML.yamlToJson[0]
+  DefaultOutputPath.writeFile jsonString
+
 
