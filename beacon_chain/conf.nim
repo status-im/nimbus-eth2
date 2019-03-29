@@ -7,7 +7,7 @@ export
   defs
 
 const
-  defaultPort* = 9000
+  DEFAULT_NETWORK* {.strdefine.} = "testnet0"
 
 type
   ValidatorKeyPath* = TypedInputFile[ValidatorPrivKey, Txt, "privkey"]
@@ -28,7 +28,7 @@ type
             "Possible values: testnet0, testnet1, mainnet, custom-network.json"
       longform: "network"
       shortform: "n"
-      defaultValue: "testnet0".}: string
+      defaultValue: DEFAULT_NETWORK .}: string
 
     dataDir* {.
       desc: "The directory where nimbus will store all blockchain data."
@@ -52,11 +52,11 @@ type
 
       tcpPort* {.
         desc: "TCP listening port"
-        defaultValue: defaultPort .}: int
+        defaultValue: defaultPort(config) .}: int
 
       udpPort* {.
         desc: "UDP listening port",
-        defaultValue: defaultPort .}: int
+        defaultValue: defaultPort(config) .}: int
 
       nat* {.
         desc: "Specify method to use for determining public address. Must be one of: any, extip:<IP>"
@@ -102,7 +102,7 @@ type
 
       bootstrapPort* {.
         desc: "The TCP/UDP port that will be used by the bootstrap node"
-        defaultValue: defaultPort .}: int
+        defaultValue: defaultPort(config) .}: int
 
       genesisOffset* {.
         desc: "Seconds from now to add to genesis time"
@@ -122,6 +122,10 @@ type
 
     of updateTestnet:
       discard
+
+proc defaultPort*(config: BeaconNodeConf): int =
+  if config.network == "testnet1": 9100
+  else: 9000
 
 proc defaultDataDir*(conf: BeaconNodeConf): string =
   let dataDir = when defined(windows):
