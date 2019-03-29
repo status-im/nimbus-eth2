@@ -25,7 +25,11 @@ if [ ! -d ~/.cache/nimbus/BeaconNode/${NETWORK_NAME}/validators ]; then
 fi
 
 echo
-echo "A binary for connecting to $NETWORK_NAME was placed in '$BEACON_NODE_BIN'"
-echo "To sync with the network, launch it with default parameters"
+echo "Done! You're now ready to connect to $NETWORK_NAME by running:"
 echo
-
+echo "    $BEACON_NODE_BIN"
+echo
+echo "Database and configuration files in:"
+echo
+echo "    $(realpath  ~/.cache/nimbus/BeaconNode/${NETWORK_NAME})"
+echo
