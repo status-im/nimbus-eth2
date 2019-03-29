@@ -27,7 +27,7 @@ proc getValidator*(pool: ValidatorPool,
 proc signBlockProposal*(v: AttachedValidator, fork: Fork,
                         blck: BeaconBlock): Future[ValidatorSig] {.async.} =
   if v.kind == inProcess:
-    await sleepAsync(1)
+    await sleepAsync(chronos.milliseconds(1))
     result = bls_sign(v.privKey, signed_root(blck).data,
       get_domain(fork, slot_to_epoch(blck.slot), DOMAIN_BEACON_BLOCK))
   else:
@@ -39,7 +39,7 @@ proc signAttestation*(v: AttachedValidator,
                       attestation: AttestationData): Future[ValidatorSig] {.async.} =
   # TODO: implement this
   if v.kind == inProcess:
-    await sleepAsync(1)
+    await sleepAsync(chronos.milliseconds(1))
 
     let attestationRoot = hash_tree_root(attestation)
     # TODO: Avoid the allocations belows
