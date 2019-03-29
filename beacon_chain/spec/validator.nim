@@ -229,16 +229,17 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64,
      (slot_start_shard + i.uint64) mod SHARD_COUNT
     )
 
-func get_crosslink_committees_at_slot_cached*(
+iterator get_crosslink_committees_at_slot_cached*(
   state: BeaconState, slot: Slot|uint64,
   registry_change: bool = false, cache: var auto):
-    seq[CrosslinkCommittee] =
+    CrosslinkCommittee =
   let key = (slot.uint64, registry_change)
   if key in cache:
-    return cache[key]
+    for v in cache[key]: yield v
   #debugEcho "get_crosslink_committees_at_slot_cached: MISS"
-  result = get_crosslink_committees_at_slot(state, slot, registry_change)
+  let result = get_crosslink_committees_at_slot(state, slot, registry_change)
   cache[key] = result
+  for v in result: yield v
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: BeaconState, slot: Slot): ValidatorIndex =
