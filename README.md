@@ -27,6 +27,7 @@ git clone https://github.com/status-im/nimbus.git
 cd nimbus
 
 # Prep environment (assuming you have 4 CPU cores and want to take advantage of them):
+make update
 make -j4 deps
 
 # Head over to the vendor repo where you should have a checkout of this project:
