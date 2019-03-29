@@ -17,12 +17,14 @@ TOOLS_DIRS := beacon_chain benchmarks research
 
 all: | $(TOOLS)
 
+$(SILENT_TARGET_PREFIX).SILENT:
+
 sanity-checks:
 	@ [[ "$$PWD" =~ /vendor/nim-beacon-chain$ && -e ../../Makefile && -e ../../common.mk ]] || \
-		{ echo "This Makefile can only be used from the corresponding Git submodule in the Nimbus repository."; exit 1; }
+		{ echo -e "This Makefile can only be used from the corresponding Git submodule in the Nimbus repository.\nDetailed instructions available in README.md or online at https://github.com/status-im/nim-beacon-chain/#building-and-testing"; exit 1; }
 
 deps: | sanity-checks
-	@+ $(MAKE) --silent -C ../../ V=0 deps
+	@+ $(MAKE) --silent -C ../../ deps
 
 build:
 	mkdir $@
@@ -32,8 +34,8 @@ test: | build deps
 
 $(TOOLS): | build deps
 	for D in $(TOOLS_DIRS); do [ -e "$${D}/$@.nim" ] && TOOL_DIR="$${D}" && break; done && \
-		$(ENV_SCRIPT) nim c $(NIM_PARAMS) -o:build/$@ "$${TOOL_DIR}/$@.nim" && \
-		echo -e "\nThe binary is in './build/$@'.\n"
+		echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim c $(NIM_PARAMS) -o:build/$@ "$${TOOL_DIR}/$@.nim"
 
 clean_eth2_network_simulation_files:
 	rm -rf tests/simulation/data
