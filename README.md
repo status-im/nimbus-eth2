@@ -47,10 +47,10 @@ The beacon node simulation is will create a full peer-to-peer network of beacon 
 ../../env.sh bash
 
 # Start the beacon chain simulation, resuming from a previous state (if any):
-./tests/simulation/start.sh # if starting from Nimbus, make sure you're in vendor/nim-beacon-chain!
+make eth2_network_simulation
 
 # Clear data files from your last run and restart the simulation with a new genesis block:
-rm -rf tests/simulation/data; ./tests/simulation/start.sh
+make clean_eth2_network_simulation_files eth2_network_simulation
 
 # Run an extra node - by default the network will launch with 9 nodes, each
 # hosting 10 validators. The last 10 validators are lazy bums that hid from the
@@ -59,21 +59,9 @@ rm -rf tests/simulation/data; ./tests/simulation/start.sh
 ./tests/simulation/run_node.sh 9
 ```
 
-Alternatively, a Makefile-based flow is available:
-
-```bash
-# From "vendor/nim-beacon-chain/",
-# clear all data from the last run and restart the simulation with a new genesis block:
-make eth2_network_simulation
-```
-
 You can also separate the output from each beacon node in its own panel, using [multitail](http://www.vanheusden.com/multitail/):
 
 ```bash
-USE_MULTITAIL="yes" ./tests/simulation/start.sh
-
-# OR
-
 make USE_MULTITAIL="yes" eth2_network_simulation
 ```
 
