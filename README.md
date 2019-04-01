@@ -43,20 +43,18 @@ The beacon node simulation is will create a full peer-to-peer network of beacon 
 
 
 ```bash
-# get a shell with the right environment vars set:
-../../env.sh bash
-
-# Start the beacon chain simulation, resuming from a previous state (if any):
+# Clear data files from your last run and start the simulation with a new genesis block:
 make eth2_network_simulation
 
-# Clear data files from your last run and restart the simulation with a new genesis block:
-make clean_eth2_network_simulation_files eth2_network_simulation
+# In another terminal, get a shell with the right environment variables set:
+../../env.sh bash
 
 # Run an extra node - by default the network will launch with 9 nodes, each
 # hosting 10 validators. The last 10 validators are lazy bums that hid from the
-# startup script, but you can command them back to work in a separate terminal
-# with:
+# startup script, but you can command them back to work with:
 ./tests/simulation/run_node.sh 9
+
+# (yes, it's 0-based indexing)
 ```
 
 You can also separate the output from each beacon node in its own panel, using [multitail](http://www.vanheusden.com/multitail/):
