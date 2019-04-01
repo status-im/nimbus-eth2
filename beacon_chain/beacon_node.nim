@@ -39,9 +39,10 @@ template `//`(url, fragment: string): string =
   url & "/" & fragment
 
 proc downloadFile(url: string): Future[string] {.async.} =
-  let (fileContents, errorCode) = execCmdEx("curl --fail " & url, options = {poUsePath})
+  let cmd = "curl --fail " & url
+  let (fileContents, errorCode) = execCmdEx(cmd, options = {poUsePath})
   if errorCode != 0:
-    raise newException(IOError, "Failed to download URL: " & url & "\n" & fileContents)
+    raise newException(IOError, "Failed external command: '" & cmd & "', exit code: " & $errorCode & ", output: '" & fileContents & "'")
   return fileContents
 
 proc updateTestnetMetadata(conf: BeaconNodeConf): Future[NetworkMetadata] {.async.} =
