@@ -480,6 +480,7 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
   let
     lastHead = pool.head
   pool.head = blck
+  pool.db.putHeadBlock(blck.root)
 
   # Start off by making sure we have the right state
   updateState(pool, state, BlockSlot(blck: blck, slot: blck.slot))
