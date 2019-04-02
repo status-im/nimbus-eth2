@@ -16,4 +16,5 @@ import
   ./test_ssz,
   ./test_state_transition,
   ./test_sync_protocol,
-  ./test_validator
+  ./test_validator,
+  ./official/test_fixture_state
