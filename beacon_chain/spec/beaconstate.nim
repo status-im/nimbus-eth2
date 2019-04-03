@@ -380,10 +380,10 @@ func get_attestation_participants*(state: BeaconState,
     if aggregation_bit:
       result.add(validator_index)
 
-func get_attestation_participants_cached*(state: BeaconState,
+iterator get_attestation_participants_cached*(state: BeaconState,
                                    attestation_data: AttestationData,
                                    bitfield: BitField,
-                                   crosslink_committees_cached: var auto): seq[ValidatorIndex] =
+                                   crosslink_committees_cached: var auto): ValidatorIndex =
   ## Return the participant indices at for the ``attestation_data`` and
   ## ``bitfield``.
   ## Attestation participants in the attestation data are called out in a
@@ -397,26 +397,25 @@ func get_attestation_participants_cached*(state: BeaconState,
   # TODO iterator candidate
 
   # Find the committee in the list with the desired shard
-  let crosslink_committees = get_crosslink_committees_at_slot_cached(
-    state, attestation_data.slot, false, crosslink_committees_cached)
+  # let crosslink_committees = get_crosslink_committees_at_slot_cached(
+  #   state, attestation_data.slot, false, crosslink_committees_cached)
 
-  doAssert anyIt(
-    crosslink_committees,
-    it[1] == attestation_data.shard)
-  let crosslink_committee = mapIt(
-    filterIt(crosslink_committees, it.shard == attestation_data.shard),
-    it.committee)[0]
+  var found = false
+  for crosslink_committee in get_crosslink_committees_at_slot_cached(
+      state, attestation_data.slot, false, crosslink_committees_cached):
+    if crosslink_committee.shard == attestation_data.shard:
+      # TODO this and other attestation-based fields need validation so we don't
+      #      crash on a malicious attestation!
+      doAssert verify_bitfield(bitfield, len(crosslink_committee.committee))
 
-  # TODO this and other attestation-based fields need validation so we don't
-  #      crash on a malicious attestation!
-  doAssert verify_bitfield(bitfield, len(crosslink_committee))
-
-  # Find the participating attesters in the committee
-  result = @[]
-  for i, validator_index in crosslink_committee:
-    let aggregation_bit = get_bitfield_bit(bitfield, i)
-    if aggregation_bit:
-      result.add(validator_index)
+      # Find the participating attesters in the committee
+      for i, validator_index in crosslink_committee.committee:
+        let aggregation_bit = get_bitfield_bit(bitfield, i)
+        if aggregation_bit:
+          yield validator_index
+      found = true
+      break
+  doAssert found, "Couldn't find crosslink committee"
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#ejections
 func process_ejections*(state: var BeaconState) =

@@ -79,12 +79,17 @@ suite "Simple serialization":
   SSZ.roundripTest BeaconState(slot: 42.Slot)
 
 suite "Tree hashing":
-  # TODO Nothing but smoke tests for now..
+  # TODO The test values are taken from an earlier version of SSZ and have
+  #      nothing to do with upstream - needs verification and proper test suite
 
   test "Hash BeaconBlock":
     let vr = BeaconBlock()
-    check: hash_tree_root(vr) != Eth2Digest()
+    check:
+      $hash_tree_root(vr) ==
+        "1BD5D8577A7806CC524C367808C53AE2480F35A3C4BB11A90D6E1AC304E27201"
 
   test "Hash BeaconState":
-    let vr = BeaconBlock()
-    check: hash_tree_root(vr) != Eth2Digest()
+    let vr = BeaconState()
+    check:
+      $hash_tree_root(vr) ==
+        "DC751EF09987283D52483C75690234DDD75FFDAF1A844CD56FE1173465B5597A"
