@@ -15,7 +15,7 @@ type Timers = enum
   tBlock = "Process non-epoch slot with block"
   tEpoch = "Process epoch slot with block"
   tHashBlock = "Tree-hash block"
-  tShuffle = "Retrieve committe once using get_crosslink_committees_at_slot"
+  tShuffle = "Retrieve committee once using get_crosslink_committees_at_slot"
   tAttest = "Combine committee attestations"
 
 template withTimer(stats: var RunningStat, body: untyped) =
@@ -46,11 +46,11 @@ proc writeJson*(prefix, slot, v: auto) =
   write(f, pretty(%*(v)))
 
 cli do(slots = 1945,
-       validators = SLOTS_PER_EPOCH, # One per shard is minimum
+       validators = SLOTS_PER_EPOCH * 5, # One per shard is minimum
        json_interval = SLOTS_PER_EPOCH,
        prefix = 0,
        attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.9,
-       validate = false):
+       validate = true):
   let
     flags = if validate: {} else: {skipValidation}
     genesisState = get_genesis_beacon_state(
