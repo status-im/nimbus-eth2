@@ -39,7 +39,7 @@ type
     mainchainMonitor*: MainchainMonitor
     beaconClock*: BeaconClock
 
-    state*: StateData ##\
+    stateCache*: StateData ##\
     ## State cache object that's used as a scratch pad
     ## TODO this is pretty dangerous - for example if someone sets it
     ##      to a particular state then does `await`, it might change - prone to
@@ -241,7 +241,8 @@ type
   ValidatorConnection* = object
 
   AttachedValidator* = ref object
-    idx*: int # index in the registry
+    pubKey*: ValidatorPubKey
+
     case kind*: ValidatorKind
     of inProcess:
       privKey*: ValidatorPrivKey
@@ -270,3 +271,5 @@ type
 
 proc userValidatorsRange*(d: NetworkMetadata): HSlice[int, int] =
   0 .. d.lastUserValidator.int
+
+proc shortLog*(v: AttachedValidator): string = shortLog(v.pubKey)

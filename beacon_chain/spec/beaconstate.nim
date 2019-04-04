@@ -515,7 +515,7 @@ proc checkAttestation*(
   # Can't submit attestations too quickly
   if not (
       attestation.data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= stateSlot):
-    warn("Can't submit attestations too quickly",
+    warn("Attestation too new",
       attestation_slot = humaneSlotNum(attestation.data.slot),
       state_slot = humaneSlotNum(stateSlot))
     return
@@ -573,10 +573,14 @@ proc checkAttestation*(
     return
 
   # Attestation must be nonempty!
-  doAssert anyIt(attestation.aggregation_bitfield.bits, it != 0)
+  if not anyIt(attestation.aggregation_bitfield.bits, it != 0):
+    warn("No signature bits")
+    return
 
   # Custody must be empty (to be removed in phase 1)
-  doAssert allIt(attestation.custody_bitfield.bits, it == 0)
+  if not allIt(attestation.custody_bitfield.bits, it == 0):
+    warn("Custody bits set in phase0")
+    return
 
   # Get the committee for the specific shard that this attestation is for
   let crosslink_committee = mapIt(
@@ -585,11 +589,13 @@ proc checkAttestation*(
     it.committee)[0]
 
   # Custody bitfield must be a subset of the attestation bitfield
-  doAssert allIt(0 ..< len(crosslink_committee),
-    if not get_bitfield_bit(attestation.aggregation_bitfield, it):
-      not get_bitfield_bit(attestation.custody_bitfield, it)
-    else:
-      true)
+  if not allIt(0 ..< len(crosslink_committee),
+      if not get_bitfield_bit(attestation.aggregation_bitfield, it):
+        not get_bitfield_bit(attestation.custody_bitfield, it)
+      else:
+        true):
+    warn("Wrong custody bits set")
+    return
 
   # Verify aggregate signature
   let
@@ -604,7 +610,7 @@ proc checkAttestation*(
 
   if skipValidation notin flags:
     # Verify that aggregate_signature verifies using the group pubkey.
-    doAssert bls_verify_multiple(
+    if not bls_verify_multiple(
       @[
         bls_aggregate_pubkeys(mapIt(custody_bit_0_participants,
                                     state.validator_registry[it].pubkey)),
@@ -620,7 +626,9 @@ proc checkAttestation*(
       attestation.aggregate_signature,
       get_domain(state.fork, slot_to_epoch(attestation.data.slot),
                  DOMAIN_ATTESTATION),
-    )
+    ):
+      warn("Invalid attestation signature")
+      return
 
   # Crosslink data root is zero (to be removed in phase 1)
   if attestation.data.crosslink_data_root != ZERO_HASH:
