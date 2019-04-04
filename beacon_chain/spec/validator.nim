@@ -9,7 +9,7 @@
 import
   options, nimcrypto, sequtils, math, chronicles,
   eth/common,
-  ../ssz,
+  ../ssz, ../beacon_node_types,
   ./crypto, ./datatypes, ./digest, ./helpers
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_shuffling
@@ -218,14 +218,14 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64,
 
 iterator get_crosslink_committees_at_slot_cached*(
   state: BeaconState, slot: Slot|uint64,
-  registry_change: bool = false, cache: var auto):
+  registry_change: bool = false, cache: var StateData):
     CrosslinkCommittee =
   let key = (slot.uint64, registry_change)
-  if key in cache:
-    for v in cache[key]: yield v
+  if key in cache.crosslink_committee_cache:
+    for v in cache.crosslink_committee_cache[key]: yield v
   #debugEcho "get_crosslink_committees_at_slot_cached: MISS"
   let result = get_crosslink_committees_at_slot(state, slot, registry_change)
-  cache[key] = result
+  cache.crosslink_committee_cache[key] = result
   for v in result: yield v
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_beacon_proposer_index

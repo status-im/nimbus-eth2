@@ -222,6 +222,12 @@ type
     ## The block associated with the state found in data - in particular,
     ## blck.state_root == root
 
+    crosslink_committee_cache*:
+      Table[tuple[a: uint64, b: bool], seq[CrosslinkCommittee]]
+
+    winning_root_participants_cache*:
+      Table[Shard, HashSet[ValidatorIndex]]
+
   BlockSlot* = object
     ## Unique identifier for a particular fork in the block chain - normally,
     ## there's a block for every slot, but in the case a block is not produced,

@@ -7,7 +7,7 @@
 
 import
   chronicles, math, options, sequtils,
-  ../extras, ../ssz,
+  ../extras, ../ssz, ../beacon_node_types,
   ./bitfield, ./crypto, ./datatypes, ./digest, ./helpers, ./validator,
   tables
 
@@ -360,7 +360,7 @@ func get_attestation_participants*(state: BeaconState,
 iterator get_attestation_participants_cached*(state: BeaconState,
                                    attestation_data: AttestationData,
                                    bitfield: BitField,
-                                   crosslink_committees_cached: var auto): ValidatorIndex =
+                                   cache: var StateData): ValidatorIndex =
   ## Return the participant indices at for the ``attestation_data`` and
   ## ``bitfield``.
   ## Attestation participants in the attestation data are called out in a
@@ -379,7 +379,7 @@ iterator get_attestation_participants_cached*(state: BeaconState,
 
   var found = false
   for crosslink_committee in get_crosslink_committees_at_slot_cached(
-      state, attestation_data.slot, false, crosslink_committees_cached):
+      state, attestation_data.slot, false, cache):
     if crosslink_committee.shard == attestation_data.shard:
       # TODO this and other attestation-based fields need validation so we don't
       #      crash on a malicious attestation!
