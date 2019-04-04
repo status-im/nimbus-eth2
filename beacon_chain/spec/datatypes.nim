@@ -374,10 +374,6 @@ type
 
     validator_registry_update_epoch*: Epoch
 
-    # TODO remove or conditionally compile; not in spec anymore
-    validator_registry_delta_chain_tip*: Eth2Digest ##\
-    ## For light clients to easily track delta
-
     # Randomness and committees
     latest_randao_mixes*: array[LATEST_RANDAO_MIXES_LENGTH, Eth2Digest]
     previous_shuffling_start_shard*: uint64
@@ -416,9 +412,6 @@ type
     latest_eth1_data*: Eth1Data
     eth1_data_votes*: seq[Eth1DataVote]
     deposit_index*: uint64
-
-    # Not in spec. TODO: don't serialize or deserialize this.
-    shuffling_cache*: ShufflingCache
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#validator
   Validator* = object

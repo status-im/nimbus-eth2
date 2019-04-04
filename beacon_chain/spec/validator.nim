@@ -75,7 +75,6 @@ func get_shuffled_seq*(seed: Eth2Digest,
 func get_shuffling*(seed: Eth2Digest,
                     validators: openArray[Validator],
                     epoch: Epoch,
-                    shuffling_cache: ShufflingCache
                     ): seq[seq[ValidatorIndex]] =
   ## This function is factored to facilitate testing with
   ## https://github.com/ethereum/eth2.0-test-generators/tree/master/permutated_index
@@ -88,16 +87,7 @@ func get_shuffling*(seed: Eth2Digest,
     active_validator_indices = get_active_validator_indices(validators, epoch)
     committees_per_epoch = get_epoch_committee_count(
       len(active_validator_indices)).int
-    # Both mapIt-type-conversions are an SSZ artifact. TODO remove.
-    shuffled_seq =
-      if shuffling_cache.seeds[0] == seed and
-         shuffling_cache.list_sizes[0] == list_size:
-        mapIt(shuffling_cache.shuffling_0, it.ValidatorIndex)
-      elif shuffling_cache.seeds[1] == seed and
-           shuffling_cache.list_sizes[1] == list_size:
-        mapIt(shuffling_cache.shuffling_1, it.ValidatorIndex)
-      else:
-        get_shuffled_seq(seed, list_size)
+    shuffled_seq = get_shuffled_seq(seed, list_size)
 
   # Split the shuffled list into committees_per_epoch pieces
   result = split(shuffled_seq, committees_per_epoch)
@@ -214,10 +204,9 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64,
     shuffling = get_shuffling(
       seed,
       state.validator_registry,
-      shuffling_epoch,
+      shuffling_epoch
 
       # Not in spec
-      state.shuffling_cache
     )
     offset = slot mod SLOTS_PER_EPOCH
     committees_per_slot = committees_per_epoch div SLOTS_PER_EPOCH

@@ -33,7 +33,7 @@ suite "Validators":
         Validator(
           exit_epoch: FAR_FUTURE_EPOCH
         ), num_validators)
-      s = get_shuffling(Eth2Digest(), validators, GENESIS_EPOCH, ShufflingCache())
+      s = get_shuffling(Eth2Digest(), validators, GENESIS_EPOCH)
       committees = get_epoch_committee_count(len(validators)).int
     check:
       # def b(s): return "Eth2Digest(data: [0x" + "'u8, 0x".join((s[i:i+2] for i in range(0, 64, 2))) + "'u8])"

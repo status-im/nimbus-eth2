@@ -1117,9 +1117,6 @@ func processEpoch(state: var BeaconState) =
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
   update_registry_and_shuffling_data(state)
 
-  # Not from spec.
-  updateShufflingCache(state)
-
   ## Regardless of whether or not a validator set change happens run
   ## process_slashings(state) and process_exit_queue(state)
   process_slashings(state)
