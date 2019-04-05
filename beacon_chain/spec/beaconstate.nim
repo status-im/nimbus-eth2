@@ -7,7 +7,7 @@
 
 import
   chronicles, math, options, sequtils,
-  ../extras, ../ssz,
+  ../extras, ../ssz, ../beacon_node_types,
   ./bitfield, ./crypto, ./datatypes, ./digest, ./helpers, ./validator,
   tables
 
@@ -195,26 +195,6 @@ func slash_validator*(state: var BeaconState, index: ValidatorIndex) =
   validator.withdrawable_epoch =
     get_current_epoch(state) + LATEST_SLASHED_EXIT_LENGTH
 
-func update_shuffling_cache*(state: var BeaconState) =
-  let
-    list_size = state.validator_registry.len.uint64
-    shuffling_seq = mapIt(
-      get_shuffled_seq(state.current_shuffling_seed, list_size),
-      # No intrinsic reason for this conversion; SSZ requirement artifact.
-      it.int)
-
-  doAssert state.shuffling_cache.index in [0, 1]
-
-  # Do a dance to keep everything JSON-encodable.
-  state.shuffling_cache.seeds[state.shuffling_cache.index] =
-    state.current_shuffling_seed
-  state.shuffling_cache.list_sizes[state.shuffling_cache.index] = list_size
-  if state.shuffling_cache.index == 0:
-    state.shuffling_cache.shuffling_0 = shuffling_seq
-  else:
-    state.shuffling_cache.shuffling_1 = shuffling_seq
-  state.shuffling_cache.index = 1 - state.shuffling_cache.index
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_temporary_block_header
 func get_temporary_block_header*(blck: BeaconBlock): BeaconBlockHeader =
   ## Return the block header corresponding to a block with ``state_root`` set
@@ -318,9 +298,6 @@ func get_genesis_beacon_state*(
     state.latest_active_index_roots[index] = genesis_active_index_root
   state.current_shuffling_seed = generate_seed(state, GENESIS_EPOCH)
 
-  # Not in spec.
-  update_shuffling_cache(state)
-
   state
 
 # TODO candidate for spec?
@@ -383,7 +360,7 @@ func get_attestation_participants*(state: BeaconState,
 iterator get_attestation_participants_cached*(state: BeaconState,
                                    attestation_data: AttestationData,
                                    bitfield: BitField,
-                                   crosslink_committees_cached: var auto): ValidatorIndex =
+                                   cache: var StateCache): ValidatorIndex =
   ## Return the participant indices at for the ``attestation_data`` and
   ## ``bitfield``.
   ## Attestation participants in the attestation data are called out in a
@@ -402,7 +379,7 @@ iterator get_attestation_participants_cached*(state: BeaconState,
 
   var found = false
   for crosslink_committee in get_crosslink_committees_at_slot_cached(
-      state, attestation_data.slot, false, crosslink_committees_cached):
+      state, attestation_data.slot, false, cache):
     if crosslink_committee.shard == attestation_data.shard:
       # TODO this and other attestation-based fields need validation so we don't
       #      crash on a malicious attestation!

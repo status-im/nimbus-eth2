@@ -18,17 +18,6 @@ func split*[T](lst: openArray[T], N: Positive): seq[seq[T]] =
   for i in 0 ..< N:
     result[i] = lst[lst.len * i div N ..< lst.len * (i+1) div N] # TODO: avoid alloc via toOpenArray
 
-func get_new_recent_block_roots*(old_block_roots: seq[Eth2Digest],
-                                  parent_slot, current_slot: int64,
-                                  parent_hash: Eth2Digest
-                                  ): seq[Eth2Digest] =
-
-  # Should throw for `current_slot - CYCLE_LENGTH * 2 - 1` according to spec comment
-  let d = current_slot - parent_slot
-  result = old_block_roots[d .. ^1]
-  for _ in 0 ..< min(d, old_block_roots.len):
-    result.add parent_hash
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
   ## The largest integer ``x`` such that ``x**2`` is less than ``n``.
@@ -53,6 +42,7 @@ func get_fork_version*(fork: Fork, epoch: Epoch): array[4, byte] =
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#is_power_of_two
 func is_power_of_2*(v: uint64): bool = (v > 0'u64) and (v and (v-1)) == 0
 
+# TODO reuse as necessary/useful for merkle proof building
 func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
   ## Merkleize ``values`` (where ``len(values)`` is a power of two) and return
   ## the Merkle root.
@@ -170,6 +160,9 @@ func get_active_index_root(state: BeaconState, epoch: Epoch): Eth2Digest =
 
   ## Cannot underflow, since GENESIS_EPOCH > LATEST_RANDAO_MIXES_LENGTH
   ## and ACTIVATION_EXIT_DELAY > 0.
+  doAssert GENESIS_EPOCH > LATEST_RANDAO_MIXES_LENGTH
+  doAssert ACTIVATION_EXIT_DELAY > 0
+
   doAssert get_current_epoch(state) - LATEST_ACTIVE_INDEX_ROOTS_LENGTH +
     ACTIVATION_EXIT_DELAY < epoch
   doAssert epoch <= get_current_epoch(state) + ACTIVATION_EXIT_DELAY
@@ -228,7 +221,10 @@ func generate_seed*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Generate a seed for the given ``epoch``.
 
   var seed_input : array[32*3, byte]
+
   # Cannot underflow, since GENESIS_EPOCH > MIN_SEED_LOOKAHEAD
+  doAssert GENESIS_EPOCH > MIN_SEED_LOOKAHEAD
+
   seed_input[0..31] = get_randao_mix(state, epoch - MIN_SEED_LOOKAHEAD).data
   seed_input[32..63] = get_active_index_root(state, epoch).data
   seed_input[64..95] = int_to_bytes32(epoch)
