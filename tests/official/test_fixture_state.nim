@@ -12,7 +12,7 @@ import
   ../../beacon_chain/spec/[datatypes, crypto, digest, beaconstate],
   ../../beacon_chain/ssz,
   # Test utilities
-  ./fixtures/fixtures_utils
+  ./state_test_utils
 
 const TestFolder = currentSourcePath.rsplit(DirSep, 1)[0]
 const TestsPath = "/fixtures/json_tests/state/sanity-check_default-config_100-vals-first_test.json"
