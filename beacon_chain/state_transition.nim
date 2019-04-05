@@ -533,7 +533,7 @@ func get_attesting_indices(
 
 func get_attesting_indices_cached(
     state: BeaconState,
-    attestations: openArray[PendingAttestation], cache: var StateData):
+    attestations: openArray[PendingAttestation], cache: var StateCache):
       HashSet[ValidatorIndex] =
   # Union of attesters that participated in some attestations
   result = initSet[ValidatorIndex]()
@@ -549,7 +549,7 @@ func get_attesting_balance(state: BeaconState,
 
 func get_attesting_balance_cached(
     state: BeaconState, attestations: seq[PendingAttestation],
-    cache: var StateData): Gwei =
+    cache: var StateCache): Gwei =
   get_total_balance(state, get_attesting_indices_cached(
     state, attestations, cache))
 
@@ -582,7 +582,7 @@ func lowerThan(candidate, current: Eth2Digest): bool =
   false
 
 func get_winning_root_and_participants(
-    state: BeaconState, shard: Shard, cache: var StateData):
+    state: BeaconState, shard: Shard, cache: var StateCache):
     tuple[a: Eth2Digest, b: HashSet[ValidatorIndex]] =
   let
     all_attestations =
@@ -724,7 +724,7 @@ func update_justification_and_finalization(state: var BeaconState) =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#crosslinks
 func process_crosslinks(
-    state: var BeaconState, per_epoch_cache: var StateData) =
+    state: var BeaconState, per_epoch_cache: var StateCache) =
   let
     current_epoch = get_current_epoch(state)
     previous_epoch = current_epoch - 1
@@ -933,7 +933,7 @@ func get_justification_and_finalization_deltas(state: BeaconState):
     compute_inactivity_leak_deltas(state)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#crosslinks-1
-func get_crosslink_deltas(state: BeaconState, cache: var StateData):
+func get_crosslink_deltas(state: BeaconState, cache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
   # deltas[0] for rewards
   # deltas[1] for penalties
@@ -969,7 +969,7 @@ func get_crosslink_deltas(state: BeaconState, cache: var StateData):
   deltas
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#apply-rewards
-func apply_rewards(state: var BeaconState, cache: var StateData) =
+func apply_rewards(state: var BeaconState, cache: var StateCache) =
   let
     deltas1 = get_justification_and_finalization_deltas(state)
     deltas2 = get_crosslink_deltas(state, cache)
@@ -1078,7 +1078,7 @@ func finish_epoch_update(state: var BeaconState) =
   state.current_epoch_attestations = @[]
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#per-epoch-processing
-func get_empty_per_epoch_cache(): StateData =
+func get_empty_per_epoch_cache(): StateCache =
   result.crosslink_committee_cache =
     initTable[tuple[a: uint64, b: bool], seq[CrosslinkCommittee]]()
   result.winning_root_participants_cache =

@@ -360,7 +360,7 @@ func get_attestation_participants*(state: BeaconState,
 iterator get_attestation_participants_cached*(state: BeaconState,
                                    attestation_data: AttestationData,
                                    bitfield: BitField,
-                                   cache: var StateData): ValidatorIndex =
+                                   cache: var StateCache): ValidatorIndex =
   ## Return the participant indices at for the ``attestation_data`` and
   ## ``bitfield``.
   ## Attestation participants in the attestation data are called out in a

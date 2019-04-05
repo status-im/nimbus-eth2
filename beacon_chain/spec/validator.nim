@@ -218,7 +218,7 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64,
 
 iterator get_crosslink_committees_at_slot_cached*(
   state: BeaconState, slot: Slot|uint64,
-  registry_change: bool = false, cache: var StateData):
+  registry_change: bool = false, cache: var StateCache):
     CrosslinkCommittee =
   let key = (slot.uint64, registry_change)
   if key in cache.crosslink_committee_cache:

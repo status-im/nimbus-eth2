@@ -222,6 +222,7 @@ type
     ## The block associated with the state found in data - in particular,
     ## blck.state_root == root
 
+  StateCache* = object
     crosslink_committee_cache*:
       Table[tuple[a: uint64, b: bool], seq[CrosslinkCommittee]]
 
