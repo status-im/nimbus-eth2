@@ -1,7 +1,7 @@
 import
   tables,
-  chronos,
-  spec/[datatypes, crypto, helpers], ssz,
+  chronos, chronicles,
+  spec/[datatypes, crypto, digest, helpers], ssz,
   beacon_node_types
 
 
@@ -12,24 +12,25 @@ template count*(pool: ValidatorPool): int =
   pool.validators.len
 
 proc addLocalValidator*(pool: var ValidatorPool,
-                        idx: int,
                         pubKey: ValidatorPubKey,
                         privKey: ValidatorPrivKey) =
-  let v = AttachedValidator(idx: idx,
+  let v = AttachedValidator(pubKey: pubKey,
                             kind: inProcess,
                             privKey: privKey)
   pool.validators[pubKey] = v
+
+  info "Local validator attached", pubKey, validator = shortLog(v)
 
 proc getValidator*(pool: ValidatorPool,
                    validatorKey: ValidatorPubKey): AttachedValidator =
   pool.validators.getOrDefault(validatorKey)
 
-proc signBlockProposal*(v: AttachedValidator, fork: Fork,
-                        blck: BeaconBlock): Future[ValidatorSig] {.async.} =
+proc signBlockProposal*(v: AttachedValidator, fork: Fork, slot: Slot,
+                        blockRoot: Eth2Digest): Future[ValidatorSig] {.async.} =
   if v.kind == inProcess:
     await sleepAsync(chronos.milliseconds(1))
-    result = bls_sign(v.privKey, signed_root(blck).data,
-      get_domain(fork, slot_to_epoch(blck.slot), DOMAIN_BEACON_BLOCK))
+    result = bls_sign(v.privKey, blockRoot.data,
+      get_domain(fork, slot_to_epoch(slot), DOMAIN_BEACON_BLOCK))
   else:
     # TODO:
     # send RPC
