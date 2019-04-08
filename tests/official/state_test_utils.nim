@@ -4,7 +4,8 @@ import
   eth/common, serialization, json_serialization,
   # Beacon chain internals
   # submodule in nim-beacon-chain/tests/official/fixtures/
-  ../../beacon_chain/spec/[datatypes, crypto, digest]
+  ../../beacon_chain/spec/[datatypes, crypto, digest],
+  ../../beacon_chain/ssz
 
 export nimcrypto.toHex
 
@@ -96,3 +97,14 @@ proc parseStateTests*(jsonPath: string): StateTest =
     stderr.write "Json load issue for file \"", jsonPath, "\"\n"
     stderr.write err.formatMsg(jsonPath), "\n"
     quit 1
+
+# #######################
+# Mocking helpers
+# https://github.com/ethereum/eth2.0-specs/blob/75f0af45bb0613bb406fc72d10266cee4cfb402a/tests/phase0/helpers.py#L107
+
+proc build_empty_block_for_next_slot*(state: BeaconState): BeaconBlock =
+  result.slot = state.slot + 1
+  var previous_block_header = state.latest_block_header
+  if previous_block_header.state_root == ZERO_HASH:
+    previous_block_header.state_root = state.hash_tree_root()
+  result.previous_block_root = signed_root(previous_block_header)
