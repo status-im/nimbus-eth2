@@ -7,7 +7,7 @@
 
 import
   # Standard lib
-  ospaths, strutils, json, unittest,
+  ospaths, strutils, json, unittest, strformat,
   # Beacon chain internals
   ../../beacon_chain/spec/[datatypes, crypto, digest, beaconstate],
   ../../beacon_chain/ssz,
@@ -15,7 +15,7 @@ import
   ./state_test_utils
 
 const TestFolder = currentSourcePath.rsplit(DirSep, 1)[0]
-const TestsPath = "fixtures" / "json_tests" / "state" / "sanity-check_default-config_100-vals-first_test.json"
+const TestsPath = "fixtures" / "json_tests" / "state" / "sanity-check_default-config_100-vals.json"
 
 suite "Official - State tests": # Initializing a beacon state from the deposits
   var stateTests: StateTest
@@ -23,7 +23,7 @@ suite "Official - State tests": # Initializing a beacon state from the deposits
     stateTests = parseStateTests(TestFolder / TestsPath)
     doAssert $stateTests.test_cases[0].name == "test_empty_block_transition"
   var initialState: BeaconState
-  test "Initializing from scratch a new beacon chain with the same constants and deposit configuration as official state":
+  test "Initializing from scratch a new beacon chain with the same constants and deposit configuration as official state test 0":
     var deposits: seq[Deposit]
     var index = 0'u64
     for v in stateTests.test_cases[0].initial_state.validator_registry:
@@ -51,3 +51,6 @@ suite "Official - State tests": # Initializing a beacon state from the deposits
     # TODO - Make that a blocking test requirement
     echo "Deserialized state hash: 0x" & $stateTests.test_cases[0].initial_state.hash_tree_root()
     echo "From-scratch state hash: 0x" & $initialState.hash_tree_root()
+  test "[For information]  Print list of official tests to implement":
+    for i, test in stateTests.test_cases:
+      echo &"Test #{i:03}: {test.name}"

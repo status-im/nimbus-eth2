@@ -71,12 +71,8 @@ type
     verify_signatures*: bool
     initial_state*: BeaconState
     blocks*: seq[BeaconBlock]
-    expected_state*: ExpectedState
+    expected_state*: BeaconState
   
-  ExpectedState* = object
-    ## TODO what is this?
-    slot*: Slot
-
 # #######################
 # Default init
 proc default*(T: typedesc): T = discard
@@ -87,7 +83,7 @@ proc default*(T: typedesc): T = discard
 proc readValue*[N: static int](r: var JsonReader, a: var array[N, byte]) {.inline.} =
   # Needed for;
   #   - BLS_WITHDRAWAL_PREFIX_BYTE
-  #   - FOrk datatypes
+  #   - Fork datatypes
   # TODO: are all bytes and bytearray serialized as hex?
   #       if so export that to nim-eth
   hexToByteArray(r.readValue(string), a)
