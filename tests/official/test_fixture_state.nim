@@ -40,7 +40,10 @@ suite "Official - State tests": # Initializing a beacon state from the deposits
 
     deepCopy(state, tcase.initial_state)
 
-    let blck = build_empty_block_for_next_slot(state)
+    # Use the provided empty block
+    # Alternatively, generate one with `build_empty_block_for_next_slot`
+    let blck = tcase.blocks[0]
+    
     let ok = updateState(state, blck, flags = {})
     check:
       ok
