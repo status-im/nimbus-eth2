@@ -1,19 +1,9 @@
-# beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
-# Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
-# at your option. This file may not be copied, modified, or distributed except according to those terms.
-
 import
-  # Standard lib
-  json, streams, strutils,
-  # Dependencies
-  yaml.tojson,
   # Status libs
   blscurve, nimcrypto, byteutils,
   eth/common, serialization, json_serialization,
   # Beacon chain internals
+  # submodule in nim-beacon-chain/tests/official/fixtures/
   ../../beacon_chain/spec/[datatypes, crypto, digest]
 
 export nimcrypto.toHex
@@ -110,44 +100,3 @@ proc parseStateTests*(jsonPath: string): StateTest =
     stderr.write "Json load issue for file \"", jsonPath, "\"\n"
     stderr.write err.formatMsg(jsonPath), "\n"
     quit 1
-
-# #######################
-# Yaml to JSON conversion
-
-proc yamlToJson*(file: string): seq[JsonNode] =
-  try:
-    let fs = openFileStream(file)
-    defer: fs.close()
-    result = fs.loadToJson()
-  except IOError:
-    echo "Exception when reading file: " & file
-    raise
-  except OverflowError:
-    echo "Overflow exception when parsing. Did you stringify 18446744073709551615 (-1)?"
-    raise
-
-when isMainModule:
-  # Do not forget to stringify FAR_EPOCH_SLOT = 18446744073709551615 (-1) in the YAML file
-  # And unstringify it in the produced JSON file
-
-  import os, typetraits
-
-  const
-    DefaultYML = "tests/official/sanity-check_default-config_100-vals-first_test.yaml"
-    DefaultOutputPath = "tests/official/sanity-check_default-config_100-vals-first_test.json"
-
-  var fileName, outputPath: string
-  if paramCount() == 0:
-    fileName = DefaultYML
-    outputPath = DefaultOutputPath
-  elif paramCount() == 1:
-    fileName = paramStr(1)
-    outputPath = DefaultOutputPath
-  elif paramCount() >= 2:
-    fileName = paramStr(1)
-    outputPath = paramStr(2)
-
-  let jsonString = $DefaultYML.yamlToJson[0]
-  DefaultOutputPath.writeFile jsonString
-
-
