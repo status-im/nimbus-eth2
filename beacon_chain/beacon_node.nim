@@ -1,5 +1,5 @@
 import
-  net, sequtils, options, tables, osproc, random, strutils, times,
+  net, sequtils, options, tables, osproc, random, strutils, times, strformat,
   std_shims/[os_shims, objects],
   chronos, chronicles, confutils, serialization/errors,
   eth/trie/db, eth/trie/backends/rocksdb_backend, eth/async_utils,
@@ -43,10 +43,18 @@ proc downloadFile(url: string): Future[string] {.async.} =
   return fileContents
 
 proc updateTestnetMetadata(conf: BeaconNodeConf): Future[NetworkMetadata] {.async.} =
-  let latestMetadata = await downloadFile(testnetsBaseUrl // $conf.network //
-                                          netBackendName & "-" & networkMetadataFile)
+  let metadataUrl = testnetsBaseUrl // $conf.network //
+                    netBackendName & "-" & networkMetadataFile
+  let latestMetadata = await downloadFile(metadataUrl)
 
-  result = Json.decode(latestMetadata, NetworkMetadata)
+  try:
+    result = Json.decode(latestMetadata, NetworkMetadata)
+  except SerializationError as err:
+    stderr.write "Error while loading the testnet metadata. Your client my be out of date.\n"
+    stderr.write err.formatMsg(metadataUrl), "\n"
+    stderr.write "Please follow the instructions at https://github.com/status-im/nim-beacon-chain " &
+                 "in order to produce an up-to-date build.\n"
+    quit 1
 
   let localMetadataFile = conf.dataDir / networkMetadataFile
   if fileExists(localMetadataFile) and readFile(localMetadataFile).string == latestMetadata:
@@ -110,6 +118,15 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
       if metadataErrorMsg.len > 0: metadataErrorMsg.add " and"
       metadataErrorMsg.add " -d:" & astToStr(LOCAL_CONSTANT) & "=" & $metadataValue &
                            " (instead of " & $LOCAL_CONSTANT & ")"
+
+  if result.networkMetadata.networkGeneration != semanticVersion:
+    let newerVersionRequired = result.networkMetadata.networkGeneration.int > semanticVersion
+    let newerOrOlder = if newerVersionRequired: "a newer" else: "an older"
+    stderr.write &"Connecting to '{conf.network}' requires {newerOrOlder} version of Nimbus. "
+    if newerVersionRequired:
+      stderr.write "Please follow the instructions at https://github.com/status-im/nim-beacon-chain " &
+                   "in order to produce an up-to-date build.\n"
+    quit 1
 
   checkCompatibility result.networkMetadata.numShards      , SHARD_COUNT
   checkCompatibility result.networkMetadata.slotDuration   , SECONDS_PER_SLOT
@@ -728,6 +745,7 @@ when isMainModule:
 
       testnetMetadata = NetworkMetadata(
         networkId: config.networkId,
+        networkGeneration: semanticVersion,
         genesisRoot: hash_tree_root(initialState),
         bootstrapNodes: @[bootstrapAddress],
         numShards: SHARD_COUNT,

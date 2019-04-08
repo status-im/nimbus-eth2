@@ -264,6 +264,7 @@ type
 
   NetworkMetadata* = object
     networkId*: uint64
+    networkGeneration*: uint64
     genesisRoot*: Eth2Digest
     bootstrapNodes*: seq[BootstrapAddr]
     numShards*: uint64
