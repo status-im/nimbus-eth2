@@ -29,7 +29,7 @@ echo "Done! You're now ready to connect to $NETWORK_NAME by running:"
 echo
 echo "    $BEACON_NODE_BIN"
 echo
-echo "Database and configuration files in:"
+echo "Database and configuration files placed in:"
 echo
-echo "    $(realpath  ~/.cache/nimbus/BeaconNode/${NETWORK_NAME})"
+echo "    ${HOME}/.cache/nimbus/BeaconNode/${NETWORK_NAME}"
 echo
