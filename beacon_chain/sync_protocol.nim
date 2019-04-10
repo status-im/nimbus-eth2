@@ -122,6 +122,11 @@ p2pProtocol BeaconSync(version = 1,
           let roots = r.get.roots
           debug "Received block roots", len = roots.len, peer
           if roots.len != 0:
+            if roots.len > MaxRootsToRequest:
+              # Attack?
+              await peer.disconnect(BreachOfProtocol, true)
+              break
+
             let headers = await peer.getBeaconBlockHeaders(bestRoot, s, roots.len, 0)
             var bodiesRequest = newSeqOfCap[Eth2Digest](roots.len)
             for r in roots:
@@ -132,7 +137,7 @@ p2pProtocol BeaconSync(version = 1,
             node.importBlocks(roots, headers.get.blockHeaders, bodies.get.blockBodies)
 
             let lastSlot = roots[^1][1]
-            if roots.len >= MaxRootsToRequest:
+            if roots.len == MaxRootsToRequest:
               # Next batch of roots starts with the last slot of the current one
               # to make sure we did not miss any roots with this slot that did
               # not fit into the response.
@@ -159,7 +164,7 @@ p2pProtocol BeaconSync(version = 1,
 
   requestResponse:
     proc getBeaconBlockRoots(peer: Peer, fromSlot: Slot, maxRoots: int) =
-      doAssert(maxRoots <= MaxRootsToRequest) # TODO: Validate maxRoots properly
+      let maxRoots = min(MaxRootsToRequest, maxRoots)
       var s = fromSlot
       var roots = newSeqOfCap[(Eth2Digest, Slot)](maxRoots)
       let blockPool = peer.networkState.node.blockPool
@@ -180,7 +185,8 @@ p2pProtocol BeaconSync(version = 1,
             slot: Slot,
             maxHeaders: int,
             skipSlots: int) {.libp2pProtocol("rpc/beacon_block_headers", "1.0.0").} =
-      # TODO: validate maxHeaders and implement slipSlots
+      # TODO: validate implement slipSlots
+      let maxHeaders = min(MaxHeadersToRequest, maxHeaders)
       var s = slot
       var headers = newSeqOfCap[BeaconBlockHeaderRLP](maxHeaders)
       let db = peer.networkState.db
