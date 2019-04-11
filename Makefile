@@ -29,8 +29,10 @@ deps: | sanity-checks
 build:
 	mkdir $@
 
+# Windows 10 with WSL enabled, but no distro installed, fails if "../../nimble.sh" is executed directly
+# in a Makefile recipe but works when prefixing it with `bash`. No idea how the PATH is overridden.
 test: | build deps
-	../../nimble.sh test $(NIM_PARAMS)
+	bash ../../nimble.sh test $(NIM_PARAMS)
 
 $(TOOLS): | build deps
 	for D in $(TOOLS_DIRS); do [ -e "$${D}/$@.nim" ] && TOOL_DIR="$${D}" && break; done && \
