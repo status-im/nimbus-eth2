@@ -6,8 +6,10 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  # Standard lib
+  # Standard libs
   ospaths, strutils, json, unittest, strformat,
+  # Third parties
+  byteutils,
   # Beacon chain internals
   ../../beacon_chain/spec/[datatypes, crypto, digest, beaconstate],
   ../../beacon_chain/[ssz, state_transition],
@@ -25,30 +27,74 @@ suite "Official - State tests": # Initializing a beacon state from the deposits
     stateTests = parseStateTests(TestFolder / TestsPath)
     doAssert $stateTests.test_cases[0].name == "test_empty_block_transition"
   
+  test "[Extra] Block root signing":
+    # TODO: Currently we are unable to use the official EF tests:
+    #   - The provided zero signature "0x0000..." is an invalid compressed BLS signature
+    #   - Block headers are using that signature
+    #   - Block processing checks that block.previous_block_root == signed_root(state.latest_block_header)
+    #     -> Changing EF provided previous_block_root would render the block transition tests meaningless
+    #     -> Changing the signature to a valid "0xc000..." makes all hashes/signed_root wrong ...
+    #
+    # So we only test that block header signing in Nimbus matches block header signing from the EF
+    # And we can't deserialize from the raw YAML/JSON to avoid sanity checks on the signature
+    
+    # TODO: Move that in an actual SSZ test suite
+
+    block: # sanity-check_small-config_32-vals.yaml - test "test_empty_block_transition"
+      let header = BeaconBlockHeader(
+        slot: Slot(4294967296),
+        previous_block_root: ZERO_HASH,
+        state_root: ZERO_HASH,
+        block_body_root: Eth2Digest(data:
+          hexToByteArray[32]("0x13f2001ff0ee4a528b3c43f63d70a997aefca990ed8eada2223ee6ec3807f7cc")
+        ),
+        signature: ValidatorSig()
+      )
+      let previous_block_root = Eth2Digest(data:
+          hexToByteArray[32]("0x2b7d0b2ceb2425179521f984b4f218902b54c067b637cdcd40091a31d319632d")
+        )
+      check: previous_block_root == signed_root(header)
+
+    block: # sanity-check_default-config_100-vals.yaml - test "test_empty_block_transition"
+      let header = BeaconBlockHeader(
+        slot: Slot(4294967296),
+        previous_block_root: ZERO_HASH,
+        state_root: ZERO_HASH,
+        block_body_root: Eth2Digest(data:
+          hexToByteArray[32]("0x13f2001ff0ee4a528b3c43f63d70a997aefca990ed8eada2223ee6ec3807f7cc")
+        ),
+        signature: ValidatorSig()
+      )
+      let previous_block_root = Eth2Digest(data:
+          hexToByteArray[32]("0x1179346f489d8be1731377cb199af5cc61faa38353e2d67e096bed182677062a")
+        )
+      check: previous_block_root == signed_root(header)
+
   test "[For information] Print list of official tests to implement":
     for i, test in stateTests.test_cases:
       echo &"Test #{i:03}: {test.name}"
 
-  test "Empty block transition":
-    # TODO - assert that the constants match
-    var state: BeaconState
-    doAssert stateTests.test_cases[0].name == "test_empty_block_transition"
+  # test "Empty block transition":
+  #   # TODO - assert that the constants match
+  #   var state: BeaconState
+  #   doAssert stateTests.test_cases[0].name == "test_empty_block_transition"
     
-    template tcase(): untyped {.dirty.} =
-      # Alias
-      stateTests.test_cases[0]
+  #   template tcase(): untyped {.dirty.} =
+  #     # Alias
+  #     stateTests.test_cases[0]
 
-    deepCopy(state, tcase.initial_state)
+  #   deepCopy(state, tcase.initial_state)
 
-    # Use the provided empty block
-    # Alternatively, generate one with `build_empty_block_for_next_slot`
-    let blck = tcase.blocks[0]
+  #   # Use the provided empty block
+  #   # Alternatively, generate one with `build_empty_block_for_next_slot`
+  #   let blck = tcase.blocks[0]
+  #   debugEcho blck.previous_block_root
     
-    let ok = updateState(state, blck, flags = {})
-    check:
-      ok
-      tcase.expected_state.eth1_data_votes.len == state.eth1_data_votes.len + 1
-      get_block_root(tcase.expected_state, state.slot) == blck.previous_block_root
+  #   let ok = updateState(state, blck, flags = {})
+  #   check:
+  #     ok
+  #     tcase.expected_state.eth1_data_votes.len == state.eth1_data_votes.len + 1
+  #     get_block_root(tcase.expected_state, state.slot) == blck.previous_block_root
   
 suite "[For information] Extra state tests":
   var initialState: BeaconState
