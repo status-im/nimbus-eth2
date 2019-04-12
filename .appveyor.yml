@@ -17,6 +17,7 @@ platform:
   - x64
 
 install:
+  - git submodule update --init --recursive
   - setlocal EnableExtensions EnableDelayedExpansion
 
   - IF "%PLATFORM%" == "x86" (

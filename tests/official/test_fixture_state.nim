@@ -15,12 +15,12 @@ import
   ./state_test_utils
 
 const TestFolder = currentSourcePath.rsplit(DirSep, 1)[0]
-const TestsPath = "/fixtures/json_tests/state/sanity-check_default-config_100-vals-first_test.json"
+const TestsPath = "fixtures" / "json_tests" / "state" / "sanity-check_default-config_100-vals-first_test.json"
 
 suite "Official - State tests": # Initializing a beacon state from the deposits
   var stateTests: StateTest
   test "Parsing the official state tests into Nimbus beacon types":
-    stateTests = parseStateTests(TestFolder & TestsPath)
+    stateTests = parseStateTests(TestFolder / TestsPath)
     doAssert $stateTests.test_cases[0].name == "test_empty_block_transition"
   var initialState: BeaconState
   test "Initializing from scratch a new beacon chain with the same constants and deposit configuration as official state":
