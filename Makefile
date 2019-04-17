@@ -41,7 +41,7 @@ $(TOOLS): | build deps
 		$(ENV_SCRIPT) nim c $(NIM_PARAMS) -o:build/$@ "$${TOOL_DIR}/$@.nim"
 
 clean_eth2_network_simulation_files:
-	rm -rf tests/simulation/data
+	rm -rf tests/simulation/{data,validators}
 
 eth2_network_simulation: | beacon_node validator_keygen clean_eth2_network_simulation_files
 	SKIP_BUILDS=1 GIT_ROOT="$$PWD" BUILD_OUTPUTS_DIR="./build" tests/simulation/start.sh
