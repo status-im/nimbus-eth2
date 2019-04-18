@@ -59,7 +59,7 @@ type
         defaultValue: defaultPort(config) .}: int
 
       nat* {.
-        desc: "Specify method to use for determining public address. Must be one of: any, extip:<IP>"
+        desc: "Specify method to use for determining public address. Must be one of: any, none, upnp, pmp, extip:<IP>"
         defaultValue: "any" .}: string
 
       validators* {.
