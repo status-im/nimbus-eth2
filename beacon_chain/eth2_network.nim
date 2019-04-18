@@ -1,5 +1,6 @@
 import
   options, chronos, json_serialization, strutils,
+  chronicles,
   spec/digest, version, conf
 
 const
@@ -8,7 +9,7 @@ const
 when useRLPx:
   import
     os,
-    eth/[rlp, p2p, keys], gossipsub_protocol,
+    eth/[rlp, p2p, keys, net/nat], gossipsub_protocol,
     eth/p2p/peer_pool # for log on connected peers
 
   export
@@ -23,13 +24,40 @@ when useRLPx:
 
   template libp2pProtocol*(name, version: string) {.pragma.}
 
-  func parseNat(nat: string): IpAddress =
-    # TODO we should try to discover the actual external IP, in case we're
-    #      behind a nat / upnp / etc..
-    if nat.startsWith("extip:"):
-      parseIpAddress(nat[6..^1])
-    else:
-      parseIpAddress("127.0.0.1")
+  proc setupNat(conf: BeaconNodeConf): tuple[ip: IpAddress, tcpPort: Port, udpPort: Port] =
+    # defaults
+    result.ip = parseIpAddress("127.0.0.1")
+    result.tcpPort = Port(conf.tcpPort)
+    result.udpPort = Port(conf.udpPort)
+
+    var nat: NatStrategy
+    case conf.nat.toLowerAscii:
+      of "any":
+        nat = NatAny
+      of "none":
+        nat = NatNone
+      of "upnp":
+        nat = NatUpnp
+      of "pmp":
+        nat = NatPmp
+      else:
+        if conf.nat.startsWith("extip:") and isIpAddress(conf.nat[6..^1]):
+          # any required port redirection is assumed to be done by hand
+          result.ip = parseIpAddress(conf.nat[6..^1])
+          nat = NatNone
+        else:
+          error "not a valid NAT mechanism, nor a valid IP address", value = conf.nat
+          quit(QuitFailure)
+
+    if nat != NatNone:
+      let extIP = getExternalIP(nat)
+      if extIP.isSome:
+        result.ip = extIP.get()
+        let extPorts = redirectPorts(tcpPort = result.tcpPort,
+                                      udpPort = result.udpPort,
+                                      description = clientId)
+        if extPorts.isSome:
+          (result.tcpPort, result.udpPort) = extPorts.get()
 
   proc ensureNetworkKeys*(conf: BeaconNodeConf): KeyPair =
     let privateKeyFile = conf.dataDir / "network.privkey"
@@ -60,9 +88,10 @@ when useRLPx:
   proc createEth2Node*(conf: BeaconNodeConf): Future[EthereumNode] {.async.} =
     let
       keys = ensureNetworkKeys(conf)
-      address = Address(ip: parseNat(conf.nat),
-                        tcpPort: Port conf.tcpPort,
-                        udpPort: Port conf.udpPort)
+      (ip, tcpPort, udpPort) = setupNat(conf)
+      address = Address(ip: ip,
+                        tcpPort: tcpPort,
+                        udpPort: udpPort)
 
     # TODO there are more networking options to add here: local bind ip, ipv6
     #      etc.
@@ -80,7 +109,7 @@ when useRLPx:
 
 else:
   import
-    libp2p/daemon/daemonapi, chronicles,
+    libp2p/daemon/daemonapi,
     libp2p_backend
 
   export
