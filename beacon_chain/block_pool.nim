@@ -157,6 +157,8 @@ proc add*(
 
     return pool.blocks[blockRoot]
 
+  pool.unresolved.del(blockRoot)
+
   # If the block we get is older than what we finalized already, we drop it.
   # One way this can happen is that we start resolving a block and finalization
   # happens in the meantime - the block we requested will then be stale
@@ -169,16 +171,16 @@ proc add*(
 
     return
 
+  # The block is resolved, now it's time to validate it to ensure that the
+  # blocks we add to the database are clean for the given state
+
   let parent = pool.blocks.getOrDefault(blck.previous_block_root)
 
   if parent != nil:
     # The block might have been in either of these - we don't want any more
     # work done on its behalf
-    pool.unresolved.del(blockRoot)
     pool.pending.del(blockRoot)
 
-    # The block is resolved, now it's time to validate it to ensure that the
-    # blocks we add to the database are clean for the given state
     # TODO if the block is from the future, we should not be resolving it (yet),
     #      but maybe we should use it as a hint that our clock is wrong?
     updateState(pool, state, BlockSlot(blck: parent, slot: blck.slot - 1))
@@ -231,12 +233,15 @@ proc add*(
 
     return blockRef
 
+  pool.pending[blockRoot] = blck
+
   # TODO possibly, it makes sense to check the database - that would allow sync
   #      to simply fill up the database with random blocks the other clients
   #      think are useful - but, it would also risk filling the database with
   #      junk that's not part of the block graph
 
-  if blck.previous_block_root in pool.unresolved:
+  if blck.previous_block_root in pool.unresolved or
+      blck.previous_block_root in pool.pending:
     return
 
   # This is an unresolved block - put it on the unresolved list for now...
@@ -268,7 +273,6 @@ proc add*(
         max(1.uint64, SLOTS_PER_EPOCH.uint64 -
           (parentSlot.uint64 mod SLOTS_PER_EPOCH.uint64))
   )
-  pool.pending[blockRoot] = blck
 
 proc get*(pool: BlockPool, blck: BlockRef): BlockData =
   ## Retrieve the associated block body of a block reference
