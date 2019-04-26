@@ -26,6 +26,7 @@ type
 const
   MaxRootsToRequest = 512
   MaxHeadersToRequest = MaxRootsToRequest
+  MaxAncestorBlocksResponse = 256
 
 func toHeader(b: BeaconBlock): BeaconBlockHeaderRLP =
   BeaconBlockHeaderRLP(
@@ -205,8 +206,11 @@ p2pProtocol BeaconSync(version = 1,
     proc getAncestorBlocks(
             peer: Peer,
             needed: openarray[FetchRecord]) =
-      var resp = newseq[BeaconBlock]()
+      var resp = newSeqOfCap[BeaconBlock](needed.len)
       let db = peer.networkState.db
+      var neededRoots = initSet[Eth2Digest]()
+      for rec in needed: neededRoots.incl(rec.root)
+
       for rec in needed:
         if (var blck = db.getBlock(rec.root); blck.isSome()):
           # TODO validate historySlots
@@ -214,10 +218,20 @@ p2pProtocol BeaconSync(version = 1,
 
           for i in 0..<rec.historySlots.int:
             resp.add(blck.get())
+            if resp.len >= MaxAncestorBlocksResponse:
+              break
+
+            if blck.get().previous_block_root in neededRoots:
+              # Don't send duplicate blocks, if neededRoots has roots that are
+              # in the same chain
+              break
 
             if (blck = db.getBlock(blck.get().previous_block_root);
                 blck.isNone() or blck.get().slot < firstSlot):
               break
+
+          if resp.len >= MaxAncestorBlocksResponse:
+            break
 
       await response.send(resp)
 
