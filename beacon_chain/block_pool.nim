@@ -122,7 +122,7 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
 
   BlockPool(
     pending: initTable[Eth2Digest, BeaconBlock](),
-    unresolved: initTable[Eth2Digest, UnresolvedBlock](),
+    missing: initTable[Eth2Digest, MissingBlock](),
     blocks: blocks,
     blocksBySlot: blocksBySlot,
     tail: tailRef,
@@ -157,7 +157,7 @@ proc add*(
 
     return pool.blocks[blockRoot]
 
-  pool.unresolved.del(blockRoot)
+  pool.missing.del(blockRoot)
 
   # If the block we get is older than what we finalized already, we drop it.
   # One way this can happen is that we start resolving a block and finalization
@@ -171,8 +171,6 @@ proc add*(
 
     return
 
-  # The block is resolved, now it's time to validate it to ensure that the
-  # blocks we add to the database are clean for the given state
 
   let parent = pool.blocks.getOrDefault(blck.previous_block_root)
 
@@ -180,6 +178,9 @@ proc add*(
     # The block might have been in either of these - we don't want any more
     # work done on its behalf
     pool.pending.del(blockRoot)
+
+    # The block is resolved, now it's time to validate it to ensure that the
+    # blocks we add to the database are clean for the given state
 
     # TODO if the block is from the future, we should not be resolving it (yet),
     #      but maybe we should use it as a hint that our clock is wrong?
@@ -240,11 +241,11 @@ proc add*(
   #      think are useful - but, it would also risk filling the database with
   #      junk that's not part of the block graph
 
-  if blck.previous_block_root in pool.unresolved or
+  if blck.previous_block_root in pool.missing or
       blck.previous_block_root in pool.pending:
     return
 
-  # This is an unresolved block - put it on the unresolved list for now...
+  # This is an unresolved block - put its parent on the missing list for now...
   # TODO if we receive spam blocks, one heurestic to implement might be to wait
   #      for a couple of attestations to appear before fetching parents - this
   #      would help prevent using up network resources for spam - this serves
@@ -256,13 +257,13 @@ proc add*(
   #      filter.
   # TODO when we receive the block, we don't know how many others we're missing
   #      from that branch, so right now, we'll just do a blind guess
-  debug "Unresolved block",
+  debug "Unresolved block (parent missing)",
     blck = shortLog(blck),
     blockRoot = shortLog(blockRoot)
 
   let parentSlot = blck.slot - 1
 
-  pool.unresolved[blck.previous_block_root] = UnresolvedBlock(
+  pool.missing[blck.previous_block_root] = MissingBlock(
     slots:
       # The block is at least two slots ahead - try to grab whole history
       if parentSlot > pool.head.slot:
@@ -298,18 +299,18 @@ proc getOrResolve*(pool: var BlockPool, root: Eth2Digest): BlockRef =
   result = pool.blocks.getOrDefault(root)
 
   if result.isNil:
-    pool.unresolved[root] = UnresolvedBlock(slots: 1)
+    pool.missing[root] = MissingBlock(slots: 1)
 
 iterator blockRootsForSlot*(pool: BlockPool, slot: uint64|Slot): Eth2Digest =
   for br in pool.blocksBySlot.getOrDefault(slot.uint64, @[]):
     yield br.root
 
-proc checkUnresolved*(pool: var BlockPool): seq[FetchRecord] =
+proc checkMissing*(pool: var BlockPool): seq[FetchRecord] =
   ## Return a list of blocks that we should try to resolve from other client -
   ## to be called periodically but not too often (once per slot?)
   var done: seq[Eth2Digest]
 
-  for k, v in pool.unresolved.mpairs():
+  for k, v in pool.missing.mpairs():
     if v.tries > 8:
       done.add(k)
     else:
@@ -318,10 +319,10 @@ proc checkUnresolved*(pool: var BlockPool): seq[FetchRecord] =
   for k in done:
     # TODO Need to potentially remove from pool.pending - this is currently a
     #      memory leak here!
-    pool.unresolved.del(k)
+    pool.missing.del(k)
 
   # simple (simplistic?) exponential backoff for retries..
-  for k, v in pool.unresolved.pairs():
+  for k, v in pool.missing.pairs():
     if v.tries.popcount() == 1:
       result.add(FetchRecord(root: k, historySlots: v.slots))
 
