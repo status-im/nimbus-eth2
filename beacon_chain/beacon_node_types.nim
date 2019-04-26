@@ -158,7 +158,7 @@ type
     ## for - when we receive a "missing link", we can use this data to build
     ## an entire branch
 
-    unresolved*: Table[Eth2Digest, UnresolvedBlock] ##\
+    missing*: Table[Eth2Digest, MissingBlock] ##\
     ## Roots of blocks that we would like to have (either parent_root of
     ## unresolved blocks or block roots of attestations)
 
@@ -180,7 +180,7 @@ type
 
     db*: BeaconChainDB
 
-  UnresolvedBlock* = object
+  MissingBlock* = object
     slots*: uint64 # number of slots that are suspected missing
     tries*: int
 

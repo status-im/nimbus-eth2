@@ -652,7 +652,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     asyncCheck node.onSlotStart(slot, nextSlot)
 
 proc onSecond(node: BeaconNode, moment: Moment) {.async.} =
-  let missingBlocks = node.blockPool.checkUnresolved()
+  let missingBlocks = node.blockPool.checkMissing()
   if missingBlocks.len > 0:
     info "Requesting detected missing blocks", missingBlocks
     node.requestManager.fetchAncestorBlocks(missingBlocks) do (b: BeaconBlock):

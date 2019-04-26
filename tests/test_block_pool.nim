@@ -63,7 +63,7 @@ suite "Block pool processing":
 
     check:
       pool.get(b2Root).isNone() # Unresolved, shouldn't show up
-      FetchRecord(root: b1Root, historySlots: 1) in pool.checkUnresolved()
+      FetchRecord(root: b1Root, historySlots: 1) in pool.checkMissing()
 
     discard pool.add(state, b1Root, b1)
 
