@@ -30,7 +30,7 @@ requires "nim >= 0.19.0",
   "chronos",
   "yaml",
   "libp2p",
-  "byteutils" # test only
+  "byteutils" # test only (BitField and bytes datatypes deserialization)
 
 ### Helper functions
 proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =
