@@ -144,8 +144,8 @@ const
   ACTIVATION_EXIT_DELAY* = 4 ##\
   ## epochs (~25.6 minutes)
 
-  EPOCHS_PER_ETH1_VOTING_PERIOD* = 2'u64^4 ##\
-  ## epochs (~1.7 hours)
+  SLOTS_PER_ETH1_VOTING_PERIOD* = 1024 ##\
+  ## slots (~1.7 hours)
 
   SLOTS_PER_HISTORICAL_ROOT* = 8192 ##\
   ## slots (13 hours)
@@ -156,7 +156,7 @@ const
   PERSISTENT_COMMITTEE_PERIOD* = 2'u64^11 ##\
   ## epochs (9 days)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#state-list-lengths
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#state-list-lengths
   LATEST_RANDAO_MIXES_LENGTH* = 8192
   LATEST_ACTIVE_INDEX_ROOTS_LENGTH* = 8192 # 2'u64^13, epochs
   LATEST_SLASHED_EXIT_LENGTH* = 8192 # epochs
@@ -413,7 +413,7 @@ type
 
     # Ethereum 1.0 chain data
     latest_eth1_data*: Eth1Data
-    eth1_data_votes*: seq[Eth1DataVote]
+    eth1_data_votes*: seq[Eth1Data]
     deposit_index*: uint64
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#validator
@@ -473,21 +473,16 @@ type
     epoch*: Epoch ##\
     ## Fork epoch number
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#eth1data
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#eth1data
   Eth1Data* = object
     deposit_root*: Eth2Digest ##\
     ## Data being voted for
 
+    deposit_count*: uint64 ##\
+    ## Total number of deposits
+
     block_hash*: Eth2Digest ##\
     ## Block hash
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#eth1datavote
-  Eth1DataVote* = object
-    eth1_data*: Eth1Data ##\
-    ## Data being voted for
-
-    vote_count*: uint64 ##\
-    ## Vote count
 
   ## TODO remove or otherwise conditional-compile this, since it's for light
   ## client but not in spec

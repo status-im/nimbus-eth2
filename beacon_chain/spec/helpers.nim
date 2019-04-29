@@ -77,7 +77,7 @@ func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
 
   o[1]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#slot_to_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#slot_to_epoch
 func slot_to_epoch*(slot: Slot|uint64): Epoch =
   (slot div SLOTS_PER_EPOCH).Epoch
 
@@ -97,20 +97,19 @@ func is_double_vote*(attestation_data_1: AttestationData,
     target_epoch_2 = slot_to_epoch(attestation_data_2.slot)
   target_epoch_1 == target_epoch_2
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#is_surround_vote
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#is_surround_vote
 func is_surround_vote*(attestation_data_1: AttestationData,
                        attestation_data_2: AttestationData): bool =
   ## Check if ``attestation_data_1`` surrounds ``attestation_data_2``.
   let
     source_epoch_1 = attestation_data_1.source_epoch
     source_epoch_2 = attestation_data_2.source_epoch
-    # RLP artifact
     target_epoch_1 = slot_to_epoch(attestation_data_1.slot)
     target_epoch_2 = slot_to_epoch(attestation_data_2.slot)
 
   source_epoch_1 < source_epoch_2 and target_epoch_2 < target_epoch_1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#is_active_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#state-list-lengths
 func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   ### Check if ``validator`` is active
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
@@ -137,7 +136,7 @@ func get_current_epoch_committee_count*(state: BeaconState): uint64 =
   )
   get_epoch_committee_count(len(current_active_validators))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_current_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: BeaconState): Epoch =
   # Return the current epoch of the given ``state``.
   doAssert state.slot >= GENESIS_SLOT, $state.slot
@@ -177,7 +176,7 @@ func bytes_to_int*(data: openarray[byte]): uint64 =
   for i in countdown(7, 0):
     result = result * 256 + data[i]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#int_to_bytes1-int_to_bytes2-
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#int_to_bytes1-int_to_bytes2-
 # Have 1, 4, 8, and 32-byte versions. 1+ more and maybe worth metaprogramming.
 func int_to_bytes32*(x: uint64): array[32, byte] =
   ## Little-endian data representation

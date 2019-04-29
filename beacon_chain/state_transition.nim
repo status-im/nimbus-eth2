@@ -103,18 +103,12 @@ proc processRandao(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#eth1-data-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#eth1-data
 func processEth1Data(state: var BeaconState, blck: BeaconBlock) =
-  # TODO verify that there's at most one match
-  for x in state.eth1_data_votes.mitems():
-    if blck.body.eth1_data == x.eth1_data:
-      x.vote_count += 1
-      return
-
-  state.eth1_data_votes.add Eth1DataVote(
-    eth1_data: blck.body.eth1_data,
-    vote_count: 1
-  )
+  state.eth1_data_votes.add blck.body.eth1_data
+  if state.eth1_data_votes.count(blck.body.eth1_data) * 2 >
+      SLOTS_PER_ETH1_VOTING_PERIOD:
+    state.latest_eth1_data = blck.body.eth1_data
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#proposer-slashings
 proc processProposerSlashings(
@@ -770,17 +764,6 @@ func process_crosslinks(
           crosslink_data_root: winning_root
         )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#eth1-data
-func maybe_reset_eth1_period(state: var BeaconState) =
-  if (get_current_epoch(state) + 1) mod EPOCHS_PER_ETH1_VOTING_PERIOD == 0:
-    for eth1_data_vote in state.eth1_data_votes:
-      ## If a majority of all votes were for a particular eth1_data value,
-      ## then set that as the new canonical value
-      if eth1_data_vote.vote_count * 2 >
-          EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH:
-        state.latest_eth1_data = eth1_data_vote.eth1_data
-    state.eth1_data_votes = @[]
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#rewards-and-penalties
 func get_base_reward(state: BeaconState, index: ValidatorIndex): uint64 =
   if get_previous_total_balance(state) == 0:
@@ -1102,9 +1085,6 @@ func processEpoch(state: var BeaconState) =
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#crosslinks
   process_crosslinks(state, per_epoch_cache)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#eth1-data
-  maybe_reset_eth1_period(state)
-
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#apply-rewards
   apply_rewards(state, per_epoch_cache)
 
@@ -1122,7 +1102,7 @@ func processEpoch(state: var BeaconState) =
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#final-updates
   finish_epoch_update(state)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#state-root-verification
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#state-root-verification
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   let state_root = hash_tree_root(state)
   if state_root != blck.state_root:

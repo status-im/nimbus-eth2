@@ -86,7 +86,7 @@ func bls_verify*(
   # name from spec!
   sig.verify(msg, domain, pubkey)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/bls_signature.md#bls_verify_multiple
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/bls_signature.md#bls_verify_multiple
 func bls_verify_multiple*(
     pubkeys: seq[ValidatorPubKey], message_hashes: openArray[Eth2Digest],
     sig: ValidatorSig, domain: uint64): bool =

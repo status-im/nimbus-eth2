@@ -13,7 +13,7 @@ func ceil_div8(v: int): int = (v + 7) div 8
 func init*(T: type BitField, bits: int): BitField =
   BitField(bits: newSeq[byte](ceil_div8(bits)))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_bitfield_bit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#get_bitfield_bit
 func get_bitfield_bit*(bitfield: BitField, i: int): bool =
   # Extract the bit in ``bitfield`` at position ``i``.
   doAssert 0 <= i div 8, "i: " & $i & " i div 8: " & $(i div 8)
