@@ -68,19 +68,22 @@ const
   ## with a Verifiable Delay Function (VDF) will improve committee robustness
   ## and lower the safe minimum committee size.)
 
+  # TODO remove, not in post-0.5.1
   MAX_BALANCE_CHURN_QUOTIENT* = 2^5 ##\
-  ## At most `1/MAX_BALANCE_CHURN_QUOTIENT` of the validators can change during
-  ## each validator registry change.
 
-  MAX_INDICES_PER_SLASHABLE_VOTE* = 2^12 ##\
+  MAX_INDICES_PER_ATTESTATION* = 2^12 ##\
   ## votes
 
-  MAX_EXIT_DEQUEUES_PER_EPOCH* = 4
+  MIN_PER_EPOCH_CHURN_LIMIT* = 4
+
+  CHURN_LIMIT_QUOTIENT* = 2^16
+
+  BASE_REWARDS_PER_EPOCH* = 5
 
   SHUFFLE_ROUND_COUNT* = 90
 
   # Deposit contract
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#deposit-contract
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#deposit-contract
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
 
   # Gwei values
@@ -88,7 +91,7 @@ const
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9 ##\
   ## Minimum amounth of ETH that can be deposited in one call - deposits can
   ## be used either to top up an existing validator or commit to a new one
-  MAX_DEPOSIT_AMOUNT* = 2'u64^5 * 10'u64^9 ##\
+  MAX_EFFECTIVE_BALANCE* = 2'u64^5 * 10'u64^9 ##\
   ## Maximum amounth of ETH that can be deposited in one call
 
   FORK_CHOICE_BALANCE_INCREMENT* = 2'u64^0 * 10'u64^9
@@ -141,8 +144,8 @@ const
   ACTIVATION_EXIT_DELAY* = 4 ##\
   ## epochs (~25.6 minutes)
 
-  EPOCHS_PER_ETH1_VOTING_PERIOD* = 2'u64^4 ##\
-  ## epochs (~1.7 hours)
+  SLOTS_PER_ETH1_VOTING_PERIOD* = 1024 ##\
+  ## slots (~1.7 hours)
 
   SLOTS_PER_HISTORICAL_ROOT* = 8192 ##\
   ## slots (13 hours)
@@ -153,28 +156,25 @@ const
   PERSISTENT_COMMITTEE_PERIOD* = 2'u64^11 ##\
   ## epochs (9 days)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#state-list-lengths
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#state-list-lengths
   LATEST_RANDAO_MIXES_LENGTH* = 8192
   LATEST_ACTIVE_INDEX_ROOTS_LENGTH* = 8192 # 2'u64^13, epochs
   LATEST_SLASHED_EXIT_LENGTH* = 8192 # epochs
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#reward-and-penalty-quotients
-  BASE_REWARD_QUOTIENT* = 2'u64^5 ##\
-  ## The `BASE_REWARD_QUOTIENT` parameter dictates the per-epoch reward. It
-  ## corresponds to ~2.54% annual interest assuming 10 million participating
-  ## ETH in every epoch.
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#reward-and-penalty-quotients
+  BASE_REWARD_QUOTIENT* = 2'u64^5
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
-  ATTESTATION_INCLUSION_REWARD_QUOTIENT* = 2'u64^3
-  INACTIVITY_PENALTY_QUOTIENT* = 2'u64^24
+  PROPOSER_REWARD_QUOTIENT* = 2'u64^3
+  INACTIVITY_PENALTY_QUOTIENT* = 2'u64^25
   MIN_PENALTY_QUOTIENT* = 32 # 2^5
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#max-transactions-per-block
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#max-operations-per-block
   MAX_PROPOSER_SLASHINGS* = 2^4
   MAX_ATTESTER_SLASHINGS* = 2^0
   MAX_ATTESTATIONS* = 2^7
   MAX_DEPOSITS* = 2^4
   MAX_VOLUNTARY_EXITS* = 2^4
-  MAX_TRANSFERS* = 2^4
+  MAX_TRANSFERS* = 0
 
 type
   ValidatorIndex* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
@@ -182,7 +182,7 @@ type
   Shard* = uint64
   Gwei* = uint64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#proposerslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     proposer_index*: uint64 ##\
     ## Proposer index
@@ -193,15 +193,15 @@ type
     header_2*: BeaconBlockHeader ##\
     # Second block header
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attesterslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#attesterslashing
   AttesterSlashing* = object
-    slashable_attestation_1*: SlashableAttestation ## \
-    ## First slashable attestation
-    slashable_attestation_2*: SlashableAttestation ## \
-    ## Second slashable attestation
+    attestation_1*: IndexedAttestation ## \
+    ## First attestation
+    attestation_2*: IndexedAttestation ## \
+    ## Second attestation
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#slashableattestation
-  SlashableAttestation* = object
+  IndexedAttestation* = object
     validator_indices*: seq[uint64] ##\
     ## Validator indices
 
@@ -214,7 +214,7 @@ type
     aggregate_signature*: ValidatorSig ## \
     ## Aggregate signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#attestation
   Attestation* = object
     aggregation_bitfield*: BitField ##\
     ## Attester aggregation bitfield
@@ -244,7 +244,7 @@ type
     previous_crosslink*: Crosslink
     crosslink_data_root*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attestationdataandcustodybit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#attestationdataandcustodybit
   AttestationDataAndCustodyBit* = object
     data*: AttestationData
     custody_bit*: bool
@@ -273,7 +273,7 @@ type
     proof_of_possession*: ValidatorSig ##\
     ## A BLS signature of this `DepositInput`
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#voluntaryexit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
     # Minimum epoch for processing exit
     epoch*: Epoch
@@ -282,7 +282,7 @@ type
     # Validator signature
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#transfer
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#transfer
   Transfer* = object
     sender*: uint64 ##\
     ## Sender index
@@ -369,7 +369,7 @@ type
 
     # Validator registry
     validator_registry*: seq[Validator]
-    validator_balances*: seq[uint64] ##\
+    balances*: seq[uint64] ##\
     ## Validator balances in Gwei!
 
     validator_registry_update_epoch*: Epoch
@@ -410,7 +410,7 @@ type
 
     # Ethereum 1.0 chain data
     latest_eth1_data*: Eth1Data
-    eth1_data_votes*: seq[Eth1DataVote]
+    eth1_data_votes*: seq[Eth1Data]
     deposit_index*: uint64
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#validator
@@ -436,22 +436,25 @@ type
     slashed*: bool ##\
     ## Was the validator slashed
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#crosslink
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#crosslink
   Crosslink* = object
     epoch*: Epoch ##\
     ## Epoch number
 
+    previous_crosslink_root*: Eth2Digest ##\
+    ## Root of the previous crosslink
+
     crosslink_data_root*: Eth2Digest ##\
     ## Shard data since the previous crosslink
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#pendingattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#pendingattestation
   PendingAttestation* = object
     aggregation_bitfield*: BitField           ## Attester participation bitfield
     data*: AttestationData                    ## Attestation data
-    custody_bitfield*: BitField               ## Custody bitfield
     inclusion_slot*: Slot                     ## Inclusion slot
+    proposer_index*: ValidatorIndex           ## Proposer index
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#historicalbatch
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#historicalbatch
   HistoricalBatch* = object
     block_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
     ## Block roots
@@ -459,7 +462,7 @@ type
     state_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
     ## State roots
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#fork
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#fork
   Fork* = object
     previous_version*: array[4, byte] ##\
     ## Previous fork version
@@ -470,21 +473,16 @@ type
     epoch*: Epoch ##\
     ## Fork epoch number
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#eth1data
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#eth1data
   Eth1Data* = object
     deposit_root*: Eth2Digest ##\
     ## Data being voted for
 
+    deposit_count*: uint64 ##\
+    ## Total number of deposits
+
     block_hash*: Eth2Digest ##\
     ## Block hash
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#eth1datavote
-  Eth1DataVote* = object
-    eth1_data*: Eth1Data ##\
-    ## Data being voted for
-
-    vote_count*: uint64 ##\
-    ## Vote count
 
   ## TODO remove or otherwise conditional-compile this, since it's for light
   ## client but not in spec
@@ -492,9 +490,9 @@ type
     Activation = 0
     Exit = 1
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#signature-domains
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#signature-domains
   SignatureDomain* {.pure.} = enum
-    DOMAIN_BEACON_BLOCK = 0
+    DOMAIN_BEACON_PROPOSER = 0
     DOMAIN_RANDAO = 1
     DOMAIN_ATTESTATION = 2
     DOMAIN_DEPOSIT = 3

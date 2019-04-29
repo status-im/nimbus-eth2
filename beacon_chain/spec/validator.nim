@@ -229,6 +229,7 @@ iterator get_crosslink_committees_at_slot_cached*(
   for v in result: yield v
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_beacon_proposer_index
+# TODO remove/merge these back together once 0.5.1 callers removed
 func get_beacon_proposer_index*(state: BeaconState, slot: Slot): ValidatorIndex =
   ## From Casper RPJ mini-spec:
   ## When slot i begins, validator Vidx is expected
@@ -255,3 +256,8 @@ func get_beacon_proposer_index*(state: BeaconState, slot: Slot): ValidatorIndex 
   let (first_committee, _) = get_crosslink_committees_at_slot(state, slot)[0]
   let idx = int(slot mod uint64(first_committee.len))
   first_committee[idx]
+
+func get_beacon_proposer_index*(state: BeaconState): ValidatorIndex =
+  # Return the beacon proposer index at ``state.slot``.
+  # TODO there are some other changes here
+  get_beacon_proposer_index(state, state.slot)

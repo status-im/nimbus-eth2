@@ -62,7 +62,7 @@ proc processBlockHeader(
       proposer.pubkey,
       signed_root(blck).data,
       blck.signature,
-      get_domain(state.fork, get_current_epoch(state), DOMAIN_BEACON_BLOCK)):
+      get_domain(state, DOMAIN_BEACON_PROPOSER, get_current_epoch(state))):
     notice "Block header: invalid block header",
       proposer_pubkey = proposer.pubkey,
       block_root = shortLog(signed_root(blck)),
@@ -83,7 +83,7 @@ proc processRandao(
       proposer.pubkey,
       hash_tree_root(get_current_epoch(state).uint64).data,
       blck.body.randao_reveal,
-      get_domain(state.fork, get_current_epoch(state), DOMAIN_RANDAO)):
+      get_domain(state, DOMAIN_RANDAO, get_current_epoch(state))):
 
       notice "Randao mismatch", proposer_pubkey = proposer.pubkey,
                                 message = get_current_epoch(state),
@@ -103,18 +103,12 @@ proc processRandao(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#eth1-data-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#eth1-data
 func processEth1Data(state: var BeaconState, blck: BeaconBlock) =
-  # TODO verify that there's at most one match
-  for x in state.eth1_data_votes.mitems():
-    if blck.body.eth1_data == x.eth1_data:
-      x.vote_count += 1
-      return
-
-  state.eth1_data_votes.add Eth1DataVote(
-    eth1_data: blck.body.eth1_data,
-    vote_count: 1
-  )
+  state.eth1_data_votes.add blck.body.eth1_data
+  if state.eth1_data_votes.count(blck.body.eth1_data) * 2 >
+      SLOTS_PER_ETH1_VOTING_PERIOD:
+    state.latest_eth1_data = blck.body.eth1_data
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#proposer-slashings
 proc processProposerSlashings(
@@ -147,7 +141,7 @@ proc processProposerSlashings(
             signed_root(header).data,
             header.signature,
             get_domain(
-              state.fork, slot_to_epoch(header.slot), DOMAIN_BEACON_BLOCK)):
+              state, DOMAIN_BEACON_PROPOSER, slot_to_epoch(header.slot))):
           notice "PropSlash: invalid signature",
             signature_index = i
           return false
@@ -157,7 +151,7 @@ proc processProposerSlashings(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#verify_slashable_attestation
-func verify_slashable_attestation(state: BeaconState, slashable_attestation: SlashableAttestation): bool =
+func verify_slashable_attestation(state: BeaconState, slashable_attestation: IndexedAttestation): bool =
   # Verify validity of ``slashable_attestation`` fields.
 
   if anyIt(slashable_attestation.custody_bitfield.bits, it != 0):   # [TO BE REMOVED IN PHASE 1]
@@ -174,7 +168,7 @@ func verify_slashable_attestation(state: BeaconState, slashable_attestation: Sla
       len(slashable_attestation.validator_indices)):
     return false
 
-  if len(slashable_attestation.validator_indices) > MAX_INDICES_PER_SLASHABLE_VOTE:
+  if len(slashable_attestation.validator_indices) > MAX_INDICES_PER_ATTESTATION:
     return false
 
   var
@@ -200,9 +194,9 @@ func verify_slashable_attestation(state: BeaconState, slashable_attestation: Sla
     ],
     slashable_attestation.aggregate_signature,
     get_domain(
-      state.fork,
-      slot_to_epoch(slashable_attestation.data.slot),
+      state,
       DOMAIN_ATTESTATION,
+      slot_to_epoch(slashable_attestation.data.slot),
     ),
   )
 
@@ -216,8 +210,8 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
 
   for attester_slashing in blck.body.attester_slashings:
     let
-      slashable_attestation_1 = attester_slashing.slashable_attestation_1
-      slashable_attestation_2 = attester_slashing.slashable_attestation_2
+      slashable_attestation_1 = attester_slashing.attestation_1
+      slashable_attestation_2 = attester_slashing.attestation_2
 
     # Check that the attestations are conflicting
     if not (slashable_attestation_1.data != slashable_attestation_2.data):
@@ -253,7 +247,7 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#attestations
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#attestations
 proc processAttestations(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   ## Each block includes a number of attestations that the proposer chose. Each
@@ -275,8 +269,8 @@ proc processAttestations(
     let pending_attestation = PendingAttestation(
       data: attestation.data,
       aggregation_bitfield: attestation.aggregation_bitfield,
-      custody_bitfield: attestation.custody_bitfield,
-      inclusion_slot: state.slot
+      inclusion_slot: state.slot,
+      proposer_index: get_beacon_proposer_index(state),
     )
 
     if slot_to_epoch(attestation.data.slot) == get_current_epoch(state):
@@ -337,7 +331,7 @@ proc processExits(
     if skipValidation notin flags:
       if not bls_verify(
           validator.pubkey, signed_root(exit).data, exit.signature,
-          get_domain(state.fork, exit.epoch, DOMAIN_VOLUNTARY_EXIT)):
+          get_domain(state, DOMAIN_VOLUNTARY_EXIT, exit.epoch)):
         notice "Exit: invalid signature"
         return false
 
@@ -379,30 +373,20 @@ func update_registry_and_shuffling_data(state: var BeaconState) =
       state.current_shuffling_seed =
         generate_seed(state, state.current_shuffling_epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#transfers
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#transfers
 proc processTransfers(state: var BeaconState, blck: BeaconBlock,
                       flags: UpdateFlags): bool =
-  ## Note: Transfers are a temporary functionality for phases 0 and 1, to be
-  ## removed in phase 2.
   if not (len(blck.body.transfers) <= MAX_TRANSFERS):
     notice "Transfer: too many transfers"
     return false
 
   for transfer in blck.body.transfers:
-    let sender_balance = state.validator_balances[transfer.sender.int]
+    let sender_balance = state.balances[transfer.sender.int]
 
-    ## Verify the amount and fee aren't individually too big (for anti-overflow
+    ## Verify the amount and fee are not individually too big (for anti-overflow
     ## purposes)
     if not (sender_balance >= max(transfer.amount, transfer.fee)):
       notice "Transfer: sender balance too low for transfer amount or fee"
-      return false
-
-    ## Verify that we have enough ETH to send, and that after the transfer the
-    ## balance will be either exactly zero or at least MIN_DEPOSIT_AMOUNT
-    if not (
-        sender_balance == transfer.amount + transfer.fee or
-        sender_balance >= transfer.amount + transfer.fee + MIN_DEPOSIT_AMOUNT):
-      notice "Transfer: sender balance too low for amount + fee"
       return false
 
     # A transfer is valid in only one slot
@@ -410,13 +394,17 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
       notice "Transfer: slot mismatch"
       return false
 
-    # Only withdrawn or not-yet-deposited accounts can transfer
-    if not (get_current_epoch(state) >=
+    ## Sender must be not yet eligible for activation, withdrawn, or transfer
+    ## balance over MAX_EFFECTIVE_BALANCE
+    if not (
+      state.validator_registry[transfer.sender.int].activation_epoch ==
+        FAR_FUTURE_EPOCH or
+      get_current_epoch(state) >=
         state.validator_registry[
           transfer.sender.int].withdrawable_epoch or
-        state.validator_registry[transfer.sender.int].activation_epoch ==
-          FAR_FUTURE_EPOCH):
-      notice "Transfer: only withdrawn or not-deposited accounts can transfer"
+      transfer.amount + transfer.fee + MAX_EFFECTIVE_BALANCE <=
+        state.balances[transfer.sender.int]):
+      notice "Transfer: only withdrawn or not-activated accounts with sufficient balance can transfer"
       return false
 
     # Verify that the pubkey is valid
@@ -431,18 +419,29 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
     if skipValidation notin flags:
       if not bls_verify(
           transfer.pubkey, signed_root(transfer).data, transfer.signature,
-          get_domain(
-            state.fork, slot_to_epoch(transfer.slot), DOMAIN_TRANSFER)):
+          get_domain(state, DOMAIN_TRANSFER)):
         notice "Transfer: incorrect signature"
         return false
 
-    # TODO https://github.com/ethereum/eth2.0-specs/issues/727
-    reduce_balance(
-      state.validator_balances[transfer.sender.int],
-      transfer.amount + transfer.fee)
-    state.validator_balances[transfer.recipient.int] += transfer.amount
-    state.validator_balances[
-      get_beacon_proposer_index(state, state.slot)] += transfer.fee
+    # Process the transfer
+    decrease_balance(
+      state, transfer.sender.ValidatorIndex, transfer.amount + transfer.fee)
+    increase_balance(
+      state, transfer.recipient.ValidatorIndex, transfer.amount)
+    increase_balance(state, get_beacon_proposer_index(state), transfer.fee)
+
+    # Verify balances are not dust
+    if not (
+        0'u64 < state.balances[transfer.sender.int] and
+        state.balances[transfer.sender.int] < MIN_DEPOSIT_AMOUNT):
+      notice "Transfer: sender balance too low for transfer amount or fee"
+      return false
+
+    if not (
+        0'u64 < state.balances[transfer.recipient.int] and
+        state.balances[transfer.recipient.int] < MIN_DEPOSIT_AMOUNT):
+      notice "Transfer: sender balance too low for transfer amount or fee"
+      return false
 
   true
 
@@ -772,17 +771,6 @@ func process_crosslinks(
           crosslink_data_root: winning_root
         )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#eth1-data
-func maybe_reset_eth1_period(state: var BeaconState) =
-  if (get_current_epoch(state) + 1) mod EPOCHS_PER_ETH1_VOTING_PERIOD == 0:
-    for eth1_data_vote in state.eth1_data_votes:
-      ## If a majority of all votes were for a particular eth1_data value,
-      ## then set that as the new canonical value
-      if eth1_data_vote.vote_count * 2 >
-          EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH:
-        state.latest_eth1_data = eth1_data_vote.eth1_data
-    state.eth1_data_votes = @[]
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#rewards-and-penalties
 func get_base_reward(state: BeaconState, index: ValidatorIndex): uint64 =
   if get_previous_total_balance(state) == 0:
@@ -866,7 +854,7 @@ func compute_normal_justification_and_finalization_deltas(state: BeaconState):
       let proposer_index =
         get_beacon_proposer_index(state, inclusion_slot[index])
       deltas[0][proposer_index] +=
-        get_base_reward(state, index) div ATTESTATION_INCLUSION_REWARD_QUOTIENT
+        get_base_reward(state, index) div PROPOSER_REWARD_QUOTIENT
   deltas
 
 func compute_inactivity_leak_deltas(state: BeaconState):
@@ -981,10 +969,10 @@ func apply_rewards(state: var BeaconState, cache: var StateCache) =
     deltas1 = get_justification_and_finalization_deltas(state)
     deltas2 = get_crosslink_deltas(state, cache)
   for i in 0 ..< len(state.validator_registry):
-    state.validator_balances[i] =
+    state.balances[i] =
       max(
         0'u64,
-        state.validator_balances[i] + deltas1[0][i] + deltas2[0][i] -
+        state.balances[i] + deltas1[0][i] + deltas2[0][i] -
                                       deltas1[1][i] - deltas2[1][i])
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#slashings-and-exit-queue
@@ -1014,7 +1002,7 @@ func process_slashings(state: var BeaconState) =
             min(total_penalties * 3, total_balance) div total_balance,
           get_effective_balance(state, index.ValidatorIndex) div
             MIN_PENALTY_QUOTIENT)
-      reduce_balance(state.validator_balances[index], penalty)
+      reduce_balance(state.balances[index], penalty)
 
 func process_exit_queue(state: var BeaconState) =
   ## Process the exit queue.
@@ -1045,7 +1033,7 @@ func process_exit_queue(state: var BeaconState) =
             state.validator_registry[y].exit_epoch))
 
     for dequeues, index in sorted_indices:
-      if dequeues >= MAX_EXIT_DEQUEUES_PER_EPOCH:
+      if dequeues >= MIN_PER_EPOCH_CHURN_LIMIT:
         break
       prepare_validator_for_withdrawal(state, index)
 
@@ -1104,9 +1092,6 @@ func processEpoch(state: var BeaconState) =
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#crosslinks
   process_crosslinks(state, per_epoch_cache)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#eth1-data
-  maybe_reset_eth1_period(state)
-
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#apply-rewards
   apply_rewards(state, per_epoch_cache)
 
@@ -1124,7 +1109,7 @@ func processEpoch(state: var BeaconState) =
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#final-updates
   finish_epoch_update(state)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#state-root-verification
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#state-root-verification
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   let state_root = hash_tree_root(state)
   if state_root != blck.state_root:

@@ -15,9 +15,9 @@ import
 func get_effective_balance*(state: BeaconState, index: ValidatorIndex): Gwei =
   ## Return the effective balance (also known as "balance at stake") for a
   ## validator with the given ``index``.
-  min(state.validator_balances[index], MAX_DEPOSIT_AMOUNT)
+  min(state.balances[index], MAX_EFFECTIVE_BALANCE)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#verify_merkle_branch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#verify_merkle_branch
 func verify_merkle_branch(leaf: Eth2Digest, proof: openarray[Eth2Digest], depth: uint64, index: uint64, root: Eth2Digest): bool =
   ## Verify that the given ``leaf`` is on the merkle branch ``proof``
   ## starting with the given ``root``.
@@ -106,7 +106,7 @@ func process_deposit*(state: var BeaconState, deposit: Deposit): bool =
     ## Note: In phase 2 registry indices that have been withdrawn for a long
     ## time will be recycled.
     state.validator_registry.add(validator)
-    state.validator_balances.add(amount)
+    state.balances.add(amount)
   else:
     # Increase balance by deposit amount
     let index = validator_pubkeys.find(pubkey)
@@ -114,11 +114,11 @@ func process_deposit*(state: var BeaconState, deposit: Deposit): bool =
     doAssert state.validator_registry[index].withdrawal_credentials ==
       withdrawal_credentials
 
-    state.validator_balances[index] += amount
+    state.balances[index] += amount
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_delayed_activation_exit_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#get_delayed_activation_exit_epoch
 func get_delayed_activation_exit_epoch*(epoch: Epoch): Epoch =
   ## Return the epoch at which an activation or exit triggered in ``epoch``
   ## takes effect.
@@ -189,8 +189,8 @@ func slash_validator*(state: var BeaconState, index: ValidatorIndex) =
   ## TODO here and elsewhere, if reduce_balance can't reduce balance by full
   ## whistleblower_reward (to prevent underflow) should increase be full? It
   ## seems wrong for the amounts to differ.
-  state.validator_balances[whistleblower_index] += whistleblower_reward
-  reduce_balance(state.validator_balances[index], whistleblower_reward)
+  state.balances[whistleblower_index] += whistleblower_reward
+  reduce_balance(state.balances[index], whistleblower_reward)
   validator.slashed = true
   validator.withdrawable_epoch =
     get_current_epoch(state) + LATEST_SLASHED_EXIT_LENGTH
@@ -246,7 +246,7 @@ func get_genesis_beacon_state*(
 
     validator_registry_update_epoch: GENESIS_EPOCH,
 
-    # validator_registry and validator_balances automatically initalized
+    # validator_registry and balances automatically initalized
 
     # Randomness and committees
     # latest_randao_mixes automatically initialized
@@ -289,7 +289,7 @@ func get_genesis_beacon_state*(
   # Process genesis activations
   for validator_index in 0 ..< state.validator_registry.len:
     let vi = validator_index.ValidatorIndex
-    if get_effective_balance(state, vi) >= MAX_DEPOSIT_AMOUNT:
+    if get_effective_balance(state, vi) >= MAX_EFFECTIVE_BALANCE:
       activate_validator(state, vi, true)
 
   let genesis_active_index_root = hash_tree_root(
@@ -400,7 +400,7 @@ func process_ejections*(state: var BeaconState) =
   ## balance below ``EJECTION_BALANCE``
   for index in get_active_validator_indices(
       state.validator_registry, get_current_epoch(state)):
-    if state.validator_balances[index] < EJECTION_BALANCE:
+    if state.balances[index] < EJECTION_BALANCE:
       exit_validator(state, index)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_total_balance
@@ -432,7 +432,7 @@ func update_validator_registry*(state: var BeaconState) =
 
     # The maximum balance churn in Gwei (for deposits and exits separately)
     max_balance_churn = max(
-        MAX_DEPOSIT_AMOUNT,
+        MAX_EFFECTIVE_BALANCE,
         total_balance div (2 * MAX_BALANCE_CHURN_QUOTIENT)
     )
 
@@ -440,7 +440,7 @@ func update_validator_registry*(state: var BeaconState) =
   var balance_churn = 0'u64
   for index, validator in state.validator_registry:
     if validator.activation_epoch == FAR_FUTURE_EPOCH and
-      state.validator_balances[index] >= MAX_DEPOSIT_AMOUNT:
+      state.balances[index] >= MAX_EFFECTIVE_BALANCE:
       # Check the balance churn would be within the allowance
       balance_churn += get_effective_balance(state, index.ValidatorIndex)
       if balance_churn > max_balance_churn:
@@ -600,8 +600,8 @@ proc checkAttestation*(
           data: attestation.data, custody_bit: true)),
       ],
       attestation.aggregate_signature,
-      get_domain(state.fork, slot_to_epoch(attestation.data.slot),
-                 DOMAIN_ATTESTATION),
+      get_domain(state, DOMAIN_ATTESTATION,
+                 slot_to_epoch(attestation.data.slot))
     ):
       warn("Invalid attestation signature")
       return
@@ -621,6 +621,22 @@ func prepare_validator_for_withdrawal*(state: var BeaconState, index: ValidatorI
   var validator = addr state.validator_registry[index]
   validator.withdrawable_epoch = get_current_epoch(state) +
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#increase_balance
+func increase_balance*(
+    state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
+  # Increase validator balance by ``delta``.
+  state.balances[index] += delta
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#decrease_balance
+func decrease_balance*(
+    state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
+  # Decrease validator balance by ``delta`` with underflow protection.
+  state.balances[index] =
+    if delta > state.balances[index]:
+      0'u64
+    else:
+      state.balances[index] - delta
 
 proc makeAttestationData*(
     state: BeaconState, shard: uint64,

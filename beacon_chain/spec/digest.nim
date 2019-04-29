@@ -7,7 +7,7 @@
 
 # Serenity hash function / digest
 #
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#hash
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#hash
 #
 # In Phase 0 the beacon chain is deployed with the same hash function as
 # Ethereum 1.0, i.e. Keccak-256 (also incorrectly known as SHA3).
