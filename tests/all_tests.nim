@@ -16,5 +16,7 @@ import
   ./test_ssz,
   ./test_state_transition,
   ./test_sync_protocol,
-  ./test_validator,
-  ./official/test_fixture_state
+  ./test_validator
+
+  # TODO - re-enable once official test fixtures arrive
+  #./official/test_fixture_state

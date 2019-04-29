@@ -45,7 +45,7 @@ cli do (totalValidators: int = 125000,
     let
       deposit = Deposit(
         deposit_data: DepositData(
-          amount: MAX_DEPOSIT_AMOUNT,
+          amount: MAX_EFFECTIVE_BALANCE,
           timestamp: 0, # TODO https://github.com/ethereum/eth2.0-specs/pull/834
           deposit_input: DepositInput(
             pubkey: pubKey,

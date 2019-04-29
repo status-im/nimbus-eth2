@@ -97,8 +97,8 @@ proc validate(
             data: attestation.data, custody_bit: true)),
         ],
         attestation.aggregate_signature,
-        get_domain(state.fork, slot_to_epoch(attestation.data.slot),
-                  DOMAIN_ATTESTATION),
+        get_domain(state, DOMAIN_ATTESTATION,
+                   slot_to_epoch(attestation.data.slot)),
       ):
       notice "Invalid signature", participants
       return false

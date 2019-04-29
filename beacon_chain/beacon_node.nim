@@ -379,7 +379,7 @@ proc proposeBlock(node: BeaconNode,
 
     # Careful, state no longer valid after here..
     newBlock.signature =
-      await validator.signBlockProposal(state.fork, slot, blockRoot)
+      await validator.signBlockProposal(state, slot, blockRoot)
 
     (blockRoot, newBlock)
 

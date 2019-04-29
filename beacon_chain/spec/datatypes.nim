@@ -68,14 +68,17 @@ const
   ## with a Verifiable Delay Function (VDF) will improve committee robustness
   ## and lower the safe minimum committee size.)
 
+  # TODO remove, not in post-0.5.1
   MAX_BALANCE_CHURN_QUOTIENT* = 2^5 ##\
-  ## At most `1/MAX_BALANCE_CHURN_QUOTIENT` of the validators can change during
-  ## each validator registry change.
 
-  MAX_INDICES_PER_SLASHABLE_VOTE* = 2^12 ##\
+  MAX_INDICES_PER_ATTESTATION* = 2^12 ##\
   ## votes
 
-  MAX_EXIT_DEQUEUES_PER_EPOCH* = 4
+  MIN_PER_EPOCH_CHURN_LIMIT* = 4
+
+  CHURN_LIMIT_QUOTIENT* = 2^16
+
+  BASE_REWARDS_PER_EPOCH* = 5
 
   SHUFFLE_ROUND_COUNT* = 90
 
@@ -88,7 +91,7 @@ const
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9 ##\
   ## Minimum amounth of ETH that can be deposited in one call - deposits can
   ## be used either to top up an existing validator or commit to a new one
-  MAX_DEPOSIT_AMOUNT* = 2'u64^5 * 10'u64^9 ##\
+  MAX_EFFECTIVE_BALANCE* = 2'u64^5 * 10'u64^9 ##\
   ## Maximum amounth of ETH that can be deposited in one call
 
   FORK_CHOICE_BALANCE_INCREMENT* = 2'u64^0 * 10'u64^9
@@ -168,13 +171,13 @@ const
   INACTIVITY_PENALTY_QUOTIENT* = 2'u64^24
   MIN_PENALTY_QUOTIENT* = 32 # 2^5
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#max-transactions-per-block
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#max-operations-per-block
   MAX_PROPOSER_SLASHINGS* = 2^4
   MAX_ATTESTER_SLASHINGS* = 2^0
   MAX_ATTESTATIONS* = 2^7
   MAX_DEPOSITS* = 2^4
   MAX_VOLUNTARY_EXITS* = 2^4
-  MAX_TRANSFERS* = 2^4
+  MAX_TRANSFERS* = 0
 
 type
   ValidatorIndex* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
@@ -193,12 +196,12 @@ type
     header_2*: BeaconBlockHeader ##\
     # Second block header
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attesterslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#attesterslashing
   AttesterSlashing* = object
-    slashable_attestation_1*: SlashableAttestation ## \
-    ## First slashable attestation
-    slashable_attestation_2*: SlashableAttestation ## \
-    ## Second slashable attestation
+    attestation_1*: SlashableAttestation ## \
+    ## First attestation
+    attestation_2*: SlashableAttestation ## \
+    ## Second attestation
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#slashableattestation
   SlashableAttestation* = object
@@ -282,7 +285,7 @@ type
     # Validator signature
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#transfer
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#transfer
   Transfer* = object
     sender*: uint64 ##\
     ## Sender index
@@ -369,7 +372,7 @@ type
 
     # Validator registry
     validator_registry*: seq[Validator]
-    validator_balances*: seq[uint64] ##\
+    balances*: seq[uint64] ##\
     ## Validator balances in Gwei!
 
     validator_registry_update_epoch*: Epoch

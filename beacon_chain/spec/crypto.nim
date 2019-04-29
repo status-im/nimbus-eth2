@@ -69,7 +69,7 @@ template hash*(k: ValidatorPubKey|ValidatorPrivKey): Hash =
 
 func pubKey*(pk: ValidatorPrivKey): ValidatorPubKey = pk.getKey()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/bls_signature.md#bls_aggregate_pubkeys
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/bls_signature.md#bls_aggregate_pubkeys
 func bls_aggregate_pubkeys*(keys: openArray[ValidatorPubKey]): ValidatorPubKey =
   var empty = true
   for key in keys:

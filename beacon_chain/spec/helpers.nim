@@ -207,14 +207,24 @@ func int_to_bytes4*(x: uint64): array[4, byte] =
   result[2] = ((x shr 16) and 0xff).byte
   result[3] = ((x shr 24) and 0xff).byte
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_domain
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#get_domain
 func get_domain*(
-    fork: Fork, epoch: Epoch, domain_type: SignatureDomain): uint64 =
-  # Get the domain number that represents the fork meta and signature domain.
+    state: BeaconState, domain_type: SignatureDomain, message_epoch: Epoch): uint64 =
+  ## Return the signature domain (fork version concatenated with domain type)
+  ## of a message.
   var buf: array[8, byte]
-  buf[0..3] = get_fork_version(fork, epoch)
+  let
+    epoch = message_epoch
+    fork_version = if epoch < state.fork.epoch:
+        state.fork.previous_version
+      else:
+        state.fork.current_version
+  buf[0..3] = fork_version
   buf[4..7] = int_to_bytes4(domain_type.uint64)
   bytes_to_int(buf)
+
+func get_domain*(state: BeaconState, domain_type: SignatureDomain): uint64 =
+  get_domain(state, domain_type, get_current_epoch(state))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#generate_seed
 func generate_seed*(state: BeaconState, epoch: Epoch): Eth2Digest =
