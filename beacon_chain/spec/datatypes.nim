@@ -161,14 +161,11 @@ const
   LATEST_ACTIVE_INDEX_ROOTS_LENGTH* = 8192 # 2'u64^13, epochs
   LATEST_SLASHED_EXIT_LENGTH* = 8192 # epochs
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#reward-and-penalty-quotients
-  BASE_REWARD_QUOTIENT* = 2'u64^5 ##\
-  ## The `BASE_REWARD_QUOTIENT` parameter dictates the per-epoch reward. It
-  ## corresponds to ~2.54% annual interest assuming 10 million participating
-  ## ETH in every epoch.
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#reward-and-penalty-quotients
+  BASE_REWARD_QUOTIENT* = 2'u64^5
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
-  ATTESTATION_INCLUSION_REWARD_QUOTIENT* = 2'u64^3
-  INACTIVITY_PENALTY_QUOTIENT* = 2'u64^24
+  PROPOSER_REWARD_QUOTIENT* = 2'u64^3
+  INACTIVITY_PENALTY_QUOTIENT* = 2'u64^25
   MIN_PENALTY_QUOTIENT* = 32 # 2^5
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#max-operations-per-block
@@ -185,7 +182,7 @@ type
   Shard* = uint64
   Gwei* = uint64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#proposerslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     proposer_index*: uint64 ##\
     ## Proposer index
@@ -198,13 +195,13 @@ type
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#attesterslashing
   AttesterSlashing* = object
-    attestation_1*: SlashableAttestation ## \
+    attestation_1*: IndexedAttestation ## \
     ## First attestation
-    attestation_2*: SlashableAttestation ## \
+    attestation_2*: IndexedAttestation ## \
     ## Second attestation
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#slashableattestation
-  SlashableAttestation* = object
+  IndexedAttestation* = object
     validator_indices*: seq[uint64] ##\
     ## Validator indices
 
@@ -217,7 +214,7 @@ type
     aggregate_signature*: ValidatorSig ## \
     ## Aggregate signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#attestation
   Attestation* = object
     aggregation_bitfield*: BitField ##\
     ## Attester aggregation bitfield
@@ -247,7 +244,7 @@ type
     previous_crosslink*: Crosslink
     crosslink_data_root*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attestationdataandcustodybit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#attestationdataandcustodybit
   AttestationDataAndCustodyBit* = object
     data*: AttestationData
     custody_bit*: bool

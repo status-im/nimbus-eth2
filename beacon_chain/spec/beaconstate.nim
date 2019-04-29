@@ -17,7 +17,7 @@ func get_effective_balance*(state: BeaconState, index: ValidatorIndex): Gwei =
   ## validator with the given ``index``.
   min(state.balances[index], MAX_EFFECTIVE_BALANCE)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#verify_merkle_branch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#verify_merkle_branch
 func verify_merkle_branch(leaf: Eth2Digest, proof: openarray[Eth2Digest], depth: uint64, index: uint64, root: Eth2Digest): bool =
   ## Verify that the given ``leaf`` is on the merkle branch ``proof``
   ## starting with the given ``root``.
@@ -118,7 +118,7 @@ func process_deposit*(state: var BeaconState, deposit: Deposit): bool =
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_delayed_activation_exit_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#get_delayed_activation_exit_epoch
 func get_delayed_activation_exit_epoch*(epoch: Epoch): Epoch =
   ## Return the epoch at which an activation or exit triggered in ``epoch``
   ## takes effect.

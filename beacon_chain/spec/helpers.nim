@@ -18,7 +18,7 @@ func split*[T](lst: openArray[T], N: Positive): seq[seq[T]] =
   for i in 0 ..< N:
     result[i] = lst[lst.len * i div N ..< lst.len * (i+1) div N] # TODO: avoid alloc via toOpenArray
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#integer_squareroot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
   ## The largest integer ``x`` such that ``x**2`` is less than ``n``.
   doAssert n >= 0'u64
@@ -30,14 +30,6 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
     x = y
     y = (x + n div x) div 2
   x
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_fork_version
-func get_fork_version*(fork: Fork, epoch: Epoch): array[4, byte] =
-  ## Return the fork version of the given ``epoch``.
-  if epoch < fork.epoch:
-    fork.previous_version
-  else:
-    fork.current_version
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#is_power_of_two
 func is_power_of_2*(v: uint64): bool = (v > 0'u64) and (v and (v-1)) == 0
@@ -81,18 +73,17 @@ func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
 func slot_to_epoch*(slot: Slot|uint64): Epoch =
   (slot div SLOTS_PER_EPOCH).Epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_epoch_start_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#get_epoch_start_slot
 func get_epoch_start_slot*(epoch: Epoch): Slot =
   # Return the starting slot of the given ``epoch``.
   (epoch * SLOTS_PER_EPOCH).Slot
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#is_double_vote
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#is_double_vote
 func is_double_vote*(attestation_data_1: AttestationData,
                      attestation_data_2: AttestationData): bool =
   ## Check if ``attestation_data_1`` and ``attestation_data_2`` have the same
   ## target.
   let
-    # RLP artifact
     target_epoch_1 = slot_to_epoch(attestation_data_1.slot)
     target_epoch_2 = slot_to_epoch(attestation_data_2.slot)
   target_epoch_1 == target_epoch_2
@@ -142,7 +133,7 @@ func get_current_epoch*(state: BeaconState): Epoch =
   doAssert state.slot >= GENESIS_SLOT, $state.slot
   slot_to_epoch(state.slot)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_randao_mix
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: BeaconState,
                      epoch: Epoch): Eth2Digest =
     ## Returns the randao mix at a recent ``epoch``.
@@ -225,13 +216,12 @@ func get_domain*(
 func get_domain*(state: BeaconState, domain_type: SignatureDomain): uint64 =
   get_domain(state, domain_type, get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#generate_seed
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#generate_seed
 func generate_seed*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Generate a seed for the given ``epoch``.
 
   var seed_input : array[32*3, byte]
 
-  # Cannot underflow, since GENESIS_EPOCH > MIN_SEED_LOOKAHEAD
   doAssert GENESIS_EPOCH > MIN_SEED_LOOKAHEAD
 
   seed_input[0..31] = get_randao_mix(state, epoch - MIN_SEED_LOOKAHEAD).data

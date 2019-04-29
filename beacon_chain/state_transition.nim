@@ -151,7 +151,7 @@ proc processProposerSlashings(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#verify_slashable_attestation
-func verify_slashable_attestation(state: BeaconState, slashable_attestation: SlashableAttestation): bool =
+func verify_slashable_attestation(state: BeaconState, slashable_attestation: IndexedAttestation): bool =
   # Verify validity of ``slashable_attestation`` fields.
 
   if anyIt(slashable_attestation.custody_bitfield.bits, it != 0):   # [TO BE REMOVED IN PHASE 1]
@@ -847,7 +847,7 @@ func compute_normal_justification_and_finalization_deltas(state: BeaconState):
       let proposer_index =
         get_beacon_proposer_index(state, inclusion_slot[index])
       deltas[0][proposer_index] +=
-        get_base_reward(state, index) div ATTESTATION_INCLUSION_REWARD_QUOTIENT
+        get_base_reward(state, index) div PROPOSER_REWARD_QUOTIENT
   deltas
 
 func compute_inactivity_leak_deltas(state: BeaconState):
