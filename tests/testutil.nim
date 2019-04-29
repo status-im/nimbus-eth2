@@ -128,12 +128,12 @@ proc addBlock*(
     # We have a signature - put it in the block and we should be done!
     new_block.signature =
       bls_sign(proposerPrivkey, block_root.data,
-               get_domain(state, DOMAIN_BEACON_BLOCK, slot_to_epoch(new_block.slot)))
+               get_domain(state, DOMAIN_BEACON_PROPOSER, slot_to_epoch(new_block.slot)))
 
     doAssert bls_verify(
       proposer.pubkey,
       block_root.data, new_block.signature,
-      get_domain(state, DOMAIN_BEACON_BLOCK, slot_to_epoch(new_block.slot))),
+      get_domain(state, DOMAIN_BEACON_PROPOSER, slot_to_epoch(new_block.slot))),
       "we just signed this message - it should pass verification!"
 
   new_block

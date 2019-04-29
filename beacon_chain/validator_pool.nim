@@ -30,7 +30,7 @@ proc signBlockProposal*(v: AttachedValidator, state: BeaconState, slot: Slot,
   if v.kind == inProcess:
     await sleepAsync(chronos.milliseconds(1))
     result = bls_sign(v.privKey, blockRoot.data,
-      get_domain(state, DOMAIN_BEACON_BLOCK, slot_to_epoch(slot)))
+      get_domain(state, DOMAIN_BEACON_PROPOSER, slot_to_epoch(slot)))
   else:
     # TODO:
     # send RPC

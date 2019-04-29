@@ -20,7 +20,7 @@ func get_bitfield_bit*(bitfield: BitField, i: int): bool =
   doAssert i div 8 < bitfield.bits.len, "i: " & $i & " i div 8: " & $(i div 8)
   ((bitfield.bits[i div 8] shr (i mod 8)) mod 2) > 0'u8
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#verify_bitfield
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#verify_bitfield
 func verify_bitfield*(bitfield: BitField, committee_size: int): bool =
   # Verify ``bitfield`` against the ``committee_size``.
   if len(bitfield.bits) != (committee_size + 7) div 8:

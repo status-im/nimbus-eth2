@@ -58,7 +58,7 @@ type
     MAX_DEPOSITS*: int
     MAX_VOLUNTARY_EXITS*: int
     MAX_TRANSFERS*: int
-    DOMAIN_BEACON_BLOCK*: SignatureDomain
+    DOMAIN_BEACON_PROPOSER*: SignatureDomain
     DOMAIN_RANDAO*: SignatureDomain
     DOMAIN_ATTESTATION*: SignatureDomain
     DOMAIN_DEPOSIT*: SignatureDomain

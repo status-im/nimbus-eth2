@@ -62,7 +62,7 @@ proc processBlockHeader(
       proposer.pubkey,
       signed_root(blck).data,
       blck.signature,
-      get_domain(state, DOMAIN_BEACON_BLOCK, get_current_epoch(state))):
+      get_domain(state, DOMAIN_BEACON_PROPOSER, get_current_epoch(state))):
     notice "Block header: invalid block header",
       proposer_pubkey = proposer.pubkey,
       block_root = shortLog(signed_root(blck)),
@@ -141,7 +141,7 @@ proc processProposerSlashings(
             signed_root(header).data,
             header.signature,
             get_domain(
-              state, DOMAIN_BEACON_BLOCK, slot_to_epoch(header.slot))):
+              state, DOMAIN_BEACON_PROPOSER, slot_to_epoch(header.slot))):
           notice "PropSlash: invalid signature",
             signature_index = i
           return false
@@ -247,7 +247,7 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#attestations
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#attestations
 proc processAttestations(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   ## Each block includes a number of attestations that the proposer chose. Each
@@ -269,8 +269,8 @@ proc processAttestations(
     let pending_attestation = PendingAttestation(
       data: attestation.data,
       aggregation_bitfield: attestation.aggregation_bitfield,
-      custody_bitfield: attestation.custody_bitfield,
-      inclusion_slot: state.slot
+      inclusion_slot: state.slot,
+      proposer_index: get_beacon_proposer_index(state),
     )
 
     if slot_to_epoch(attestation.data.slot) == get_current_epoch(state):

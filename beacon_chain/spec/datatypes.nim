@@ -83,7 +83,7 @@ const
   SHUFFLE_ROUND_COUNT* = 90
 
   # Deposit contract
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#deposit-contract
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#deposit-contract
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
 
   # Gwei values
@@ -276,7 +276,7 @@ type
     proof_of_possession*: ValidatorSig ##\
     ## A BLS signature of this `DepositInput`
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#voluntaryexit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
     # Minimum epoch for processing exit
     epoch*: Epoch
@@ -447,14 +447,14 @@ type
     crosslink_data_root*: Eth2Digest ##\
     ## Shard data since the previous crosslink
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#pendingattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#pendingattestation
   PendingAttestation* = object
     aggregation_bitfield*: BitField           ## Attester participation bitfield
     data*: AttestationData                    ## Attestation data
-    custody_bitfield*: BitField               ## Custody bitfield
     inclusion_slot*: Slot                     ## Inclusion slot
+    proposer_index*: ValidatorIndex           ## Proposer index
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#historicalbatch
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#historicalbatch
   HistoricalBatch* = object
     block_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
     ## Block roots
@@ -462,7 +462,7 @@ type
     state_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
     ## State roots
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#fork
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#fork
   Fork* = object
     previous_version*: array[4, byte] ##\
     ## Previous fork version
@@ -490,9 +490,9 @@ type
     Activation = 0
     Exit = 1
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#signature-domains
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#signature-domains
   SignatureDomain* {.pure.} = enum
-    DOMAIN_BEACON_BLOCK = 0
+    DOMAIN_BEACON_PROPOSER = 0
     DOMAIN_RANDAO = 1
     DOMAIN_ATTESTATION = 2
     DOMAIN_DEPOSIT = 3
