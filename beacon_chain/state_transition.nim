@@ -483,26 +483,33 @@ proc processBlock(
     return false
 
   if not processRandao(state, blck, flags):
+    debug "[Block processing] Randao failure", slot = humaneSlotNum(state.slot)
     return false
 
   processEth1Data(state, blck)
 
   if not processProposerSlashings(state, blck, flags):
+    debug "[Block processing] Proposer slashing failure", slot = humaneSlotNum(state.slot)
     return false
 
   if not processAttesterSlashings(state, blck):
+    debug "[Block processing] Attester slashing failure", slot = humaneSlotNum(state.slot)
     return false
 
   if not processAttestations(state, blck, flags):
+    debug "[Block processing] Attestation processing failure", slot = humaneSlotNum(state.slot)
     return false
 
   if not processDeposits(state, blck):
+    debug "[Block processing] Deposit processing failure", slot = humaneSlotNum(state.slot)
     return false
 
   if not processExits(state, blck, flags):
+    debug "[Block processing] Exit processing failure", slot = humaneSlotNum(state.slot)
     return false
 
   if not processTransfers(state, blck, flags):
+    debug "[Block processing] Transfer processing failure", slot = humaneSlotNum(state.slot)
     return false
 
   true

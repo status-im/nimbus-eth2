@@ -1,17 +1,20 @@
+import byteutils, json_serialization
+
 type
   BitField* = object
     ## A simple bit field type that follows the semantics of the spec, with
     ## regards to bit endian operations
     # TODO nim-ranges contains utilities for with bitsets - could try to
     #      recycle that, but there are open questions about bit endianess there.
-    # TODO define a json serialization.. together with spec tests?
-    #      https://github.com/ethereum/eth2.0-tests/tree/master/state
     bits*: seq[byte]
 
 func ceil_div8(v: int): int = (v + 7) div 8
 
 func init*(T: type BitField, bits: int): BitField =
   BitField(bits: newSeq[byte](ceil_div8(bits)))
+
+proc readValue*(r: var JsonReader, a: var BitField) {.inline.} =
+  a.bits = r.readValue(string).hexToSeqByte()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#get_bitfield_bit
 func get_bitfield_bit*(bitfield: BitField, i: int): bool =

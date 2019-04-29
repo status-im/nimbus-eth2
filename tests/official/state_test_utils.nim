@@ -4,7 +4,8 @@ import
   eth/common, serialization, json_serialization,
   # Beacon chain internals
   # submodule in nim-beacon-chain/tests/official/fixtures/
-  ../../beacon_chain/spec/[datatypes, crypto, digest]
+  ../../beacon_chain/spec/[datatypes, crypto, digest],
+  ../../beacon_chain/ssz
 
 export nimcrypto.toHex
 
@@ -71,12 +72,8 @@ type
     verify_signatures*: bool
     initial_state*: BeaconState
     blocks*: seq[BeaconBlock]
-    expected_state*: ExpectedState
+    expected_state*: BeaconState
   
-  ExpectedState* = object
-    ## TODO what is this?
-    slot*: Slot
-
 # #######################
 # Default init
 proc default*(T: typedesc): T = discard
@@ -87,7 +84,7 @@ proc default*(T: typedesc): T = discard
 proc readValue*[N: static int](r: var JsonReader, a: var array[N, byte]) {.inline.} =
   # Needed for;
   #   - BLS_WITHDRAWAL_PREFIX_BYTE
-  #   - FOrk datatypes
+  #   - Fork datatypes
   # TODO: are all bytes and bytearray serialized as hex?
   #       if so export that to nim-eth
   hexToByteArray(r.readValue(string), a)
@@ -100,3 +97,30 @@ proc parseStateTests*(jsonPath: string): StateTest =
     stderr.write "Json load issue for file \"", jsonPath, "\"\n"
     stderr.write err.formatMsg(jsonPath), "\n"
     quit 1
+
+# #######################
+# Mocking helpers
+# https://github.com/ethereum/eth2.0-specs/blob/75f0af45bb0613bb406fc72d10266cee4cfb402a/tests/phase0/helpers.py#L107
+
+proc build_empty_block_for_next_slot*(state: BeaconState): BeaconBlock =
+  ## TODO: why can the official spec get away with a simple proc
+
+  # result.slot = state.slot + 1
+  # var previous_block_header = state.latest_block_header
+  # if previous_block_header.state_root == ZERO_HASH:
+  #   previous_block_header.state_root = state.hash_tree_root()
+  # result.previous_block_root = signed_root(previous_block_header)
+
+  ## TODO: `makeBlock` from testutil.nim
+  ##       doesn't work either due to use of fake private keys
+
+  # let prev_root = block:
+  #   if state.latest_block_header.state_root == ZERO_HASH:
+  #     state.hash_tree_root()
+  #   else: state.latest_block_header.state_root
+  # result = makeBlock(
+  #   state,
+  #   prev_root,
+  #   BeaconBlockBody()
+  # )
+  {.error: "Not implemented".}

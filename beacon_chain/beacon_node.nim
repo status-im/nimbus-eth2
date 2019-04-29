@@ -202,7 +202,7 @@ template withState(
   ## TODO async transformations will lead to a race where cache gets updated
   ##      while waiting for future to complete - catch this here somehow?
 
-  updateState(pool, cache, blockSlot)
+  updateStateData(pool, cache, blockSlot)
 
   template state(): BeaconState {.inject.} = cache.data
   template blck(): BlockRef {.inject.} = cache.blck
@@ -369,11 +369,12 @@ proc proposeBlock(node: BeaconNode,
         signature: ValidatorSig(), # we need the rest of the block first!
       )
 
-    let ok = updateState(state, newBlock, {skipValidation})
-    doAssert ok # TODO: err, could this fail somehow?
-    root = hash_tree_root(state)
+    var tmpState = state
 
-    newBlock.state_root = root
+    let ok = updateState(tmpState, newBlock, {skipValidation})
+    doAssert ok # TODO: err, could this fail somehow?
+
+    newBlock.state_root = hash_tree_root(state)
 
     let blockRoot = signed_root(newBlock)
 

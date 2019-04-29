@@ -137,7 +137,7 @@ proc addSlotMapping(pool: BlockPool, slot: uint64, br: BlockRef) =
       s.add(v)
   pool.blocksBySlot.mgetOrPut(slot, @[]).addIfMissing(br)
 
-proc updateState*(
+proc updateStateData*(
   pool: BlockPool, state: var StateData, bs: BlockSlot) {.gcsafe.}
 
 proc add*(
@@ -184,7 +184,7 @@ proc add*(
 
     # TODO if the block is from the future, we should not be resolving it (yet),
     #      but maybe we should use it as a hint that our clock is wrong?
-    updateState(pool, state, BlockSlot(blck: parent, slot: blck.slot - 1))
+    updateStateData(pool, state, BlockSlot(blck: parent, slot: blck.slot - 1))
 
     if not updateState(state.data, blck, {}):
       # TODO find a better way to log all this block data
@@ -203,6 +203,9 @@ proc add*(
 
     # Resolved blocks should be stored in database
     pool.db.putBlock(blockRoot, blck)
+
+    state.root = blck.state_root
+    state.blck = blockRef
 
     # This block *might* have caused a justification - make sure we stow away
     # that information:
@@ -417,7 +420,7 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
 
   ancestors
 
-proc updateState*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
+proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
   ## Rewind or advance state such that it matches the given block and slot -
   ## this may include replaying from an earlier snapshot if blck is on a
   ## different branch or has advanced to a higher slot number than slot
@@ -427,9 +430,12 @@ proc updateState*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
   # We need to check the slot because the state might have moved forwards
   # without blocks
   if state.blck.root == bs.blck.root and state.data.slot <= bs.slot:
-    # Might be that we're moving to the same block but later slot
-    skipSlots(state.data, bs.slot) do (state: BeaconState):
-      pool.maybePutState(state, bs.blck)
+    if state.data.slot != bs.slot:
+      # Might be that we're moving to the same block but later slot
+      skipSlots(state.data, bs.slot) do (state: BeaconState):
+        pool.maybePutState(state, bs.blck)
+
+      state.root = hash_tree_root(state.data)
 
     return # State already at the right spot
 
@@ -488,7 +494,7 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
   pool.db.putHeadBlock(blck.root)
 
   # Start off by making sure we have the right state
-  updateState(pool, state, BlockSlot(blck: blck, slot: blck.slot))
+  updateStateData(pool, state, BlockSlot(blck: blck, slot: blck.slot))
 
   if lastHead != blck.parent:
     notice "Updated head with new parent",
