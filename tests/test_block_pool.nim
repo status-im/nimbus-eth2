@@ -46,6 +46,7 @@ suite "Block pool processing":
     check:
       b1Ref.isSome()
       b1Ref.get().refs.root == b1Root
+      hash_tree_root(state.data) == state.root
 
   test "Reverse order block add & get":
     var
@@ -67,6 +68,8 @@ suite "Block pool processing":
 
     discard pool.add(state, b1Root, b1)
 
+    check: hash_tree_root(state.data) == state.root
+
     let
       b1r = pool.get(b1Root)
       b2r = pool.get(b2Root)
@@ -87,5 +90,6 @@ suite "Block pool processing":
       pool2 = BlockPool.init(db)
 
     check:
+      hash_tree_root(state.data) == state.root
       pool2.get(b1Root).isSome()
       pool2.get(b2Root).isSome()
