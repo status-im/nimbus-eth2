@@ -439,10 +439,13 @@ type
     slashed*: bool ##\
     ## Was the validator slashed
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#crosslink
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#crosslink
   Crosslink* = object
     epoch*: Epoch ##\
     ## Epoch number
+
+    previous_crosslink_root*: Eth2Digest ##\
+    ## Root of the previous crosslink
 
     crosslink_data_root*: Eth2Digest ##\
     ## Shard data since the previous crosslink
