@@ -13,8 +13,9 @@ func ceil_div8(v: int): int = (v + 7) div 8
 func init*(T: type BitField, bits: int): BitField =
   BitField(bits: newSeq[byte](ceil_div8(bits)))
 
-proc readValue*(r: var JsonReader, a: var BitField) {.inline.} =
-  a.bits = r.readValue(string).hexToSeqByte()
+# TODO fix this for state tests..
+#proc readValue*(r: var JsonReader, a: var BitField) {.inline.} =
+#  a.bits = r.readValue(string).hexToSeqByte()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#get_bitfield_bit
 func get_bitfield_bit*(bitfield: BitField, i: int): bool =

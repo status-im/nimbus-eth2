@@ -1,7 +1,7 @@
 import
   options, tables,
   chronicles, chronos, ranges/bitranges,
-  spec/[datatypes, crypto, digest], eth/rlp,
+  spec/[datatypes, crypto, digest, helpers], eth/rlp,
   beacon_node_types, eth2_network, beacon_chain_db, block_pool, time, ssz
 
 from beacon_node import onBeaconBlock
@@ -81,17 +81,14 @@ p2pProtocol BeaconSync(version = 1,
       node = peer.networkState.node
       networkId = peer.networkState.networkId
       blockPool = node.blockPool
-      latestState = blockPool.latestState()
-      headBlock = blockPool.head
-
-    var
-      latestFinalizedRoot: Eth2Digest # TODO
-      latestFinalizedEpoch = latestState.finalized_epoch
-      bestRoot: Eth2Digest # TODO
+      finalizedHead = blockPool.finalizedHead
+      headBlock = blockPool.head.blck
+      bestRoot = headBlock.root
       bestSlot = headBlock.slot
+      latestFinalizedEpoch = finalizedHead.slot.slot_to_epoch()
 
     let m = await handshake(peer, timeout = 10.seconds,
-                            status(networkId, latestFinalizedRoot,
+                            status(networkId, finalizedHead.blck.root,
                                    latestFinalizedEpoch, bestRoot, bestSlot))
 
     if m.networkId != networkId:
@@ -169,7 +166,7 @@ p2pProtocol BeaconSync(version = 1,
       var s = fromSlot
       var roots = newSeqOfCap[(Eth2Digest, Slot)](maxRoots)
       let blockPool = peer.networkState.node.blockPool
-      let maxSlot = blockPool.head.slot
+      let maxSlot = blockPool.head.blck.slot
       while s <= maxSlot:
         for r in blockPool.blockRootsForSlot(s):
           roots.add((r, s))
@@ -192,7 +189,7 @@ p2pProtocol BeaconSync(version = 1,
       var headers = newSeqOfCap[BeaconBlockHeaderRLP](maxHeaders)
       let db = peer.networkState.db
       let blockPool = peer.networkState.node.blockPool
-      let maxSlot = blockPool.head.slot
+      let maxSlot = blockPool.head.blck.slot
       while s <= maxSlot:
         for r in blockPool.blockRootsForSlot(s):
           headers.add(db.getBlock(r).get().toHeader)
