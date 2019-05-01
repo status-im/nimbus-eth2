@@ -272,7 +272,7 @@ proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
   # Use head state for attestation resolution below
   # TODO do we need to resolve attestations using all available head states?
   node.blockPool.withState(
-      node.stateCache, BlockSlot(blck: node.blockPool.head, slot: slot)):
+      node.stateCache, BlockSlot(blck: node.blockPool.head.blck, slot: slot)):
     # Check pending attestations - maybe we found some blocks for them
     node.attestationPool.resolve(state)
 
@@ -374,7 +374,7 @@ proc proposeBlock(node: BeaconNode,
     let ok = updateState(tmpState, newBlock, {skipValidation})
     doAssert ok # TODO: err, could this fail somehow?
 
-    newBlock.state_root = hash_tree_root(state)
+    newBlock.state_root = hash_tree_root(tmpState)
 
     let blockRoot = signed_root(newBlock)
 
@@ -413,7 +413,7 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
   #      the attestation for some of the check? Consider interop with block
   #      production!
   node.blockPool.withState(node.stateCache,
-      BlockSlot(blck: node.blockPool.head, slot: node.beaconClock.now().toSlot())):
+      BlockSlot(blck: node.blockPool.head.blck, slot: node.beaconClock.now().toSlot())):
     node.attestationPool.add(state, attestation)
 
 proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
@@ -452,7 +452,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     return
 
   let attestationHead = head.findAncestorBySlot(slot)
-  if head != attestationHead:
+  if head != attestationHead.blck:
     # In rare cases, such as when we're busy syncing or just slow, we'll be
     # attesting to a past state - we must then recreate the world as it looked
     # like back then
@@ -462,7 +462,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
       attestationSlot = humaneSlotNum(slot)
 
   debug "Checking attestations",
-    attestationHeadRoot = shortLog(attestationHead.root),
+    attestationHeadRoot = shortLog(attestationHead.blck.root),
     attestationSlot = humaneSlotNum(slot)
 
 
@@ -474,8 +474,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   # We need to run attestations exactly for the slot that we're attesting to.
   # In case blocks went missing, this means advancing past the latest block
   # using empty slots as fillers.
-  node.blockPool.withState(
-      node.stateCache, BlockSlot(blck: attestationHead, slot: slot)):
+  node.blockPool.withState(node.stateCache, attestationHead):
     for crosslink_committee in get_crosslink_committees_at_slot(state, slot):
       for i, validatorIdx in crosslink_committee.committee:
         let validator = node.getAttachedValidator(state, validatorIdx)

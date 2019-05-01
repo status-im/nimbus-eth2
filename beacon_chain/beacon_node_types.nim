@@ -171,14 +171,17 @@ type
     tail*: BlockRef ##\
     ## The earliest finalized block we know about
 
-    head*: BlockRef ##\
+    head*: Head ##\
     ## The latest block we know about, that's been chosen as a head by the fork
     ## choice rule
 
-    finalizedHead*: BlockRef ##\
+    finalizedHead*: BlockSlot ##\
     ## The latest block that was finalized according to the block in head
+    ## Ancestors of this block are guaranteed to have 1 child only.
 
     db*: BeaconChainDB
+
+    heads*: seq[Head]
 
   MissingBlock* = object
     slots*: uint64 # number of slots that are suspected missing
@@ -196,16 +199,9 @@ type
     ## Not nil, except for the tail
 
     children*: seq[BlockRef]
+    # TODO do we strictly need this?
 
     slot*: Slot # TODO could calculate this by walking to root, but..
-
-    justified*: bool ##\
-    ## True iff there exists a descendant of this block that generates a state
-    ## that points back to this block in its `justified_epoch` field.
-    finalized*: bool ##\
-    ## True iff there exists a descendant of this block that generates a state
-    ## that points back to this block in its `finalized_epoch` field.
-    ## Ancestors of this block are guaranteed to have 1 child only.
 
   BlockData* = object
     ## Body and graph in one
@@ -235,6 +231,10 @@ type
     ## the chain progresses anyway, producing a new state for every slot.
     blck*: BlockRef
     slot*: Slot
+
+  Head* = object
+    blck*: BlockRef
+    justified*: BlockSlot
 
   # #############################################
   #
