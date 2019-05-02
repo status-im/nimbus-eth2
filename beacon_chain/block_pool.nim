@@ -158,13 +158,12 @@ proc addResolvedBlock(
   #      set the rest here - need a blockRef to update it. Clean this up -
   #      hopefully it won't be necessary by the time hash caching and the rest
   #      is done..
-  doAssert state.data.slot == blockRef.slot
-  state.root = blck.state_root
+  doAssert state.data.data.slot == blockRef.slot
   state.blck = blockRef
 
   # This block *might* have caused a justification - make sure we stow away
   # that information:
-  let justifiedSlot = state.data.current_justified_epoch.get_epoch_start_slot()
+  let justifiedSlot = state.data.data.current_justified_epoch.get_epoch_start_slot()
 
   var foundHead: Option[Head]
   for head in pool.heads.mitems():
@@ -345,8 +344,8 @@ proc checkMissing*(pool: var BlockPool): seq[FetchRecord] =
       result.add(FetchRecord(root: k, historySlots: v.slots))
 
 proc skipAndUpdateState(
-    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
-    afterUpdate: proc (state: BeaconState)): bool =
+    state: var HashedBeaconState, blck: BeaconBlock, flags: UpdateFlags,
+    afterUpdate: proc (state: HashedBeaconState)): bool =
   skipSlots(state, blck.slot - 1, afterUpdate)
   let ok  = updateState(state, blck, flags)
 
@@ -354,27 +353,25 @@ proc skipAndUpdateState(
 
   ok
 
-proc maybePutState(pool: BlockPool, state: BeaconState, blck: BlockRef) =
+proc maybePutState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
   # TODO we save state at every epoch start but never remove them - we also
   #      potentially save multiple states per slot if reorgs happen, meaning
   #      we could easily see a state explosion
-  if state.slot mod SLOTS_PER_EPOCH == 0:
-    let root = hash_tree_root(state)
-
-    if not pool.db.containsState(root):
+  if state.data.slot mod SLOTS_PER_EPOCH == 0:
+    if not pool.db.containsState(state.root):
       info "Storing state",
-        stateSlot = humaneSlotNum(state.slot),
-        stateRoot = shortLog(root)
-      pool.db.putState(root, state)
+        stateSlot = humaneSlotNum(state.data.slot),
+        stateRoot = shortLog(state.root)
+      pool.db.putState(state.root, state.data)
       # TODO this should be atomic with the above write..
-      pool.db.putStateRoot(blck.root, state.slot, root)
+      pool.db.putStateRoot(blck.root, state.data.slot, state.root)
 
 proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
     seq[BlockData] =
   var ancestors = @[pool.get(bs.blck)]
   # Common case: the last block applied is the parent of the block to apply:
   if not bs.blck.parent.isNil and state.blck.root == bs.blck.parent.root and
-      state.data.slot < bs.slot:
+      state.data.data.slot < bs.slot:
     return ancestors
 
   # It appears that the parent root of the proposed new block is different from
@@ -424,14 +421,16 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
     doAssert false, "Oh noes, we passed big bang!"
 
   debug "Replaying state transitions",
-    stateSlot = humaneSlotNum(state.data.slot),
+    stateSlot = humaneSlotNum(state.data.data.slot),
     ancestorStateRoot = shortLog(ancestor.data.state_root),
     ancestorStateSlot = humaneSlotNum(ancestorState.get().slot),
     slot = humaneSlotNum(bs.slot),
     blockRoot = shortLog(bs.blck.root),
     ancestors = ancestors.len
 
-  state.data = ancestorState.get()
+  state.data.data = ancestorState.get()
+  state.data.root = stateRoot.get()
+  state.blck = ancestor.refs
 
   ancestors
 
@@ -444,13 +443,11 @@ proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
 
   # We need to check the slot because the state might have moved forwards
   # without blocks
-  if state.blck.root == bs.blck.root and state.data.slot <= bs.slot:
-    if state.data.slot != bs.slot:
+  if state.blck.root == bs.blck.root and state.data.data.slot <= bs.slot:
+    if state.data.data.slot != bs.slot:
       # Might be that we're moving to the same block but later slot
-      skipSlots(state.data, bs.slot) do (state: BeaconState):
+      skipSlots(state.data, bs.slot) do (state: HashedBeaconState):
         pool.maybePutState(state, bs.blck)
-
-      state.root = hash_tree_root(state.data)
 
     return # State already at the right spot
 
@@ -467,25 +464,22 @@ proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
   for i in countdown(ancestors.len - 2, 0):
     let ok =
       skipAndUpdateState(state.data, ancestors[i].data, {skipValidation}) do(
-        state: BeaconState):
+        state: HashedBeaconState):
       pool.maybePutState(state, ancestors[i].refs)
     doAssert ok, "Blocks in database should never fail to apply.."
 
-  skipSlots(state.data, bs.slot) do (state: BeaconState):
+  skipSlots(state.data, bs.slot) do (state: HashedBeaconState):
     pool.maybePutState(state, bs.blck)
 
-  # TODO could perhaps avoi a hash_tree_root if putState happens.. hmm..
   state.blck = bs.blck
-  state.root =
-    if state.data.slot == ancestors[0].data.slot: ancestors[0].data.state_root
-    else: hash_tree_root(state.data)
 
 proc loadTailState*(pool: BlockPool): StateData =
   ## Load the state associated with the current tail in the pool
   let stateRoot = pool.db.getBlock(pool.tail.root).get().state_root
   StateData(
-    data: pool.db.getState(stateRoot).get(),
-    root: stateRoot,
+    data: HashedBeaconState(
+      data: pool.db.getState(stateRoot).get(),
+      root: stateRoot),
     blck: pool.tail
   )
 
@@ -517,30 +511,30 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
 
   # Start off by making sure we have the right state
   updateStateData(pool, state, BlockSlot(blck: blck, slot: blck.slot))
-  let justifiedSlot = state.data.current_justified_epoch.get_epoch_start_slot()
+  let justifiedSlot = state.data.data.current_justified_epoch.get_epoch_start_slot()
   pool.head = Head(blck: blck, justified: blck.findAncestorBySlot(justifiedSlot))
 
   if lastHead.blck != blck.parent:
     notice "Updated head with new parent",
       lastHeadRoot = shortLog(lastHead.blck.root),
       parentRoot = shortLog(blck.parent.root),
-      stateRoot = shortLog(state.root),
+      stateRoot = shortLog(state.data.root),
       headBlockRoot = shortLog(state.blck.root),
-      stateSlot = humaneSlotNum(state.data.slot),
-      justifiedEpoch = humaneEpochNum(state.data.current_justified_epoch),
-      finalizedEpoch = humaneEpochNum(state.data.finalized_epoch)
+      stateSlot = humaneSlotNum(state.data.data.slot),
+      justifiedEpoch = humaneEpochNum(state.data.data.current_justified_epoch),
+      finalizedEpoch = humaneEpochNum(state.data.data.finalized_epoch)
   else:
     info "Updated head",
-      stateRoot = shortLog(state.root),
+      stateRoot = shortLog(state.data.root),
       headBlockRoot = shortLog(state.blck.root),
-      stateSlot = humaneSlotNum(state.data.slot),
-      justifiedEpoch = humaneEpochNum(state.data.current_justified_epoch),
-      finalizedEpoch = humaneEpochNum(state.data.finalized_epoch)
+      stateSlot = humaneSlotNum(state.data.data.slot),
+      justifiedEpoch = humaneEpochNum(state.data.data.current_justified_epoch),
+      finalizedEpoch = humaneEpochNum(state.data.data.finalized_epoch)
 
   let
     # TODO there might not be a block at the epoch boundary - what then?
     finalizedHead =
-      blck.findAncestorBySlot(state.data.finalized_epoch.get_epoch_start_slot())
+      blck.findAncestorBySlot(state.data.data.finalized_epoch.get_epoch_start_slot())
 
   doAssert (not finalizedHead.blck.isNil),
     "Block graph should always lead to a finalized block"

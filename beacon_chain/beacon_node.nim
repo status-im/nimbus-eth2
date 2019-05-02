@@ -186,14 +186,12 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   sync.node = result
   sync.db = result.db
 
-  let head = result.blockPool.get(result.db.getHeadBlock().get())
-
   result.stateCache = result.blockPool.loadTailState()
   result.justifiedStateCache = result.stateCache
 
   let addressFile = string(conf.dataDir) / "beacon_node.address"
   result.network.saveConnectionAddressFile(addressFile)
-  result.beaconClock = BeaconClock.init(result.stateCache.data)
+  result.beaconClock = BeaconClock.init(result.stateCache.data.data)
 
 template withState(
     pool: BlockPool, cache: var StateData, blockSlot: BlockSlot, body: untyped): untyped =
@@ -204,9 +202,10 @@ template withState(
 
   updateStateData(pool, cache, blockSlot)
 
-  template state(): BeaconState {.inject.} = cache.data
+  template hashedState(): HashedBeaconState {.inject.} = cache.data
+  template state(): BeaconState {.inject.} = cache.data.data
   template blck(): BlockRef {.inject.} = cache.blck
-  template root(): Eth2Digest {.inject.} = cache.root
+  template root(): Eth2Digest {.inject.} = cache.data.root
 
   body
 
@@ -369,12 +368,12 @@ proc proposeBlock(node: BeaconNode,
         signature: ValidatorSig(), # we need the rest of the block first!
       )
 
-    var tmpState = state
+    var tmpState = hashedState
 
     let ok = updateState(tmpState, newBlock, {skipValidation})
     doAssert ok # TODO: err, could this fail somehow?
 
-    newBlock.state_root = hash_tree_root(tmpState)
+    newBlock.state_root = tmpState.root
 
     let blockRoot = signed_root(newBlock)
 
@@ -791,6 +790,6 @@ when isMainModule:
 
     # TODO slightly ugly to rely on node.stateCache state here..
     if node.nickname != "":
-      dynamicLogScope(node = node.nickname): node.start(node.stateCache.data)
+      dynamicLogScope(node = node.nickname): node.start(node.stateCache.data.data)
     else:
-      node.start(node.stateCache.data)
+      node.start(node.stateCache.data.data)

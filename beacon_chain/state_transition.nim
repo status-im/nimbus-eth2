@@ -1212,6 +1212,64 @@ proc skipSlots*(state: var BeaconState, slot: Slot,
       if not afterSlot.isNil:
         afterSlot(state)
 
+# TODO hashed versions of above - not in spec
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#state-caching
+func cacheState(state: var HashedBeaconState) =
+  let previous_slot_state_root = state.root
+
+  # store the previous slot's post state transition root
+  state.data.latest_state_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
+    previous_slot_state_root
+
+  # cache state root in stored latest_block_header if empty
+  if state.data.latest_block_header.state_root == ZERO_HASH:
+    state.data.latest_block_header.state_root = previous_slot_state_root
+
+  # store latest known block for previous slot
+  state.data.latest_block_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
+    signed_root(state.data.latest_block_header)
+
+proc advanceState*(state: var HashedBeaconState) =
+  cacheState(state)
+  processEpoch(state.data)
+  advance_slot(state.data)
+
+proc updateState*(
+    state: var HashedBeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
+  var old_state = state
+  advanceState(state)
+
+  if processBlock(state.data, blck, flags):
+    if skipValidation in flags or verifyStateRoot(state.data, blck):
+      # State root is what it should be - we're done!
+
+      # TODO when creating a new block, state_root is not yet set.. comparing
+      #      with zero hash here is a bit fragile however, but this whole thing
+      #      should go away with proper hash caching
+      state.root =
+        if blck.state_root == Eth2Digest(): hash_tree_root(state.data)
+        else: blck.state_root
+
+      return true
+
+  # Block processing failed, roll back changes
+  state = old_state
+  false
+
+proc skipSlots*(state: var HashedBeaconState, slot: Slot,
+    afterSlot: proc (state: HashedBeaconState) = nil) =
+  if state.data.slot < slot:
+    debug "Advancing state with empty slots",
+      targetSlot = humaneSlotNum(slot),
+      stateSlot = humaneSlotNum(state.data.slot)
+
+    while state.data.slot < slot:
+      advanceState(state)
+
+      if not afterSlot.isNil:
+        afterSlot(state)
+
 # TODO document this:
 
 # Jacek Sieka
