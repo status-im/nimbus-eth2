@@ -210,13 +210,11 @@ type
     refs*: BlockRef
 
   StateData* = object
-    data*: BeaconState
-    root*: Eth2Digest ##\
-    ## Root of above data (cache)
+    data*: HashedBeaconState
 
     blck*: BlockRef ##\
     ## The block associated with the state found in data - in particular,
-    ## blck.state_root == root
+    ## blck.state_root == rdata.root
 
   StateCache* = object
     crosslink_committee_cache*:

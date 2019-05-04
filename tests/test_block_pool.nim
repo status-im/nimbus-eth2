@@ -25,7 +25,7 @@ suite "Block pool processing":
       b0 = pool.get(state.blck.root)
 
     check:
-      state.data.slot == GENESIS_SLOT
+      state.data.data.slot == GENESIS_SLOT
       b0.isSome()
       toSeq(pool.blockRootsForSlot(GENESIS_SLOT)) == @[state.blck.root]
 
@@ -35,7 +35,7 @@ suite "Block pool processing":
       state = pool.loadTailState()
 
     let
-      b1 = makeBlock(state.data, state.blck.root, BeaconBlockBody())
+      b1 = makeBlock(state.data.data, state.blck.root, BeaconBlockBody())
       b1Root = signed_root(b1)
 
     # TODO the return value is ugly here, need to fix and test..
@@ -46,7 +46,7 @@ suite "Block pool processing":
     check:
       b1Ref.isSome()
       b1Ref.get().refs.root == b1Root
-      hash_tree_root(state.data) == state.root
+      hash_tree_root(state.data.data) == state.data.root
 
   test "Reverse order block add & get":
     var
@@ -55,9 +55,9 @@ suite "Block pool processing":
       state = pool.loadTailState()
 
     let
-      b1 = addBlock(state.data, state.blck.root, BeaconBlockBody(), {})
+      b1 = addBlock(state.data.data, state.blck.root, BeaconBlockBody(), {})
       b1Root = signed_root(b1)
-      b2 = addBlock(state.data, b1Root, BeaconBlockBody(), {})
+      b2 = addBlock(state.data.data, b1Root, BeaconBlockBody(), {})
       b2Root = signed_root(b2)
 
     discard pool.add(state, b2Root, b2)
@@ -68,7 +68,7 @@ suite "Block pool processing":
 
     discard pool.add(state, b1Root, b1)
 
-    check: hash_tree_root(state.data) == state.root
+    check: hash_tree_root(state.data.data) == state.data.root
 
     let
       b1r = pool.get(b1Root)
@@ -90,6 +90,6 @@ suite "Block pool processing":
       pool2 = BlockPool.init(db)
 
     check:
-      hash_tree_root(state.data) == state.root
+      hash_tree_root(state.data.data) == state.data.root
       pool2.get(b1Root).isSome()
       pool2.get(b2Root).isSome()

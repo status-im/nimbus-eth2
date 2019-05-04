@@ -33,14 +33,14 @@ suite "Attestation pool processing":
     let
       # Create an attestation for slot 1 signed by the only attester we have!
       crosslink_committees =
-        get_crosslink_committees_at_slot(state.data, state.data.slot)
+        get_crosslink_committees_at_slot(state.data.data, state.data.data.slot)
       attestation = makeAttestation(
-        state.data, state.blck.root, crosslink_committees[0].committee[0])
+        state.data.data, state.blck.root, crosslink_committees[0].committee[0])
 
-    pool.add(state.data, attestation)
+    pool.add(state.data.data, attestation)
 
     let attestations = pool.getAttestationsForBlock(
-      state.data, state.data.slot + MIN_ATTESTATION_INCLUSION_DELAY)
+      state.data.data, state.data.data.slot + MIN_ATTESTATION_INCLUSION_DELAY)
 
     # TODO test needs fixing for new attestation validation
     # check:
@@ -57,24 +57,24 @@ suite "Attestation pool processing":
     let
       # Create an attestation for slot 1 signed by the only attester we have!
       crosslink_committees1 =
-        get_crosslink_committees_at_slot(state.data, state.data.slot)
+        get_crosslink_committees_at_slot(state.data.data, state.data.data.slot)
       attestation1 = makeAttestation(
-        state.data, state.blck.root, crosslink_committees1[0].committee[0])
+        state.data.data, state.blck.root, crosslink_committees1[0].committee[0])
 
     advanceState(state.data)
 
     let
       crosslink_committees2 =
-        get_crosslink_committees_at_slot(state.data, state.data.slot)
+        get_crosslink_committees_at_slot(state.data.data, state.data.data.slot)
       attestation2 = makeAttestation(
-        state.data, state.blck.root, crosslink_committees2[0].committee[0])
+        state.data.data, state.blck.root, crosslink_committees2[0].committee[0])
 
     # test reverse order
-    pool.add(state.data, attestation2)
-    pool.add(state.data, attestation1)
+    pool.add(state.data.data, attestation2)
+    pool.add(state.data.data, attestation1)
 
     let attestations = pool.getAttestationsForBlock(
-      state.data, state.data.slot + MIN_ATTESTATION_INCLUSION_DELAY)
+      state.data.data, state.data.data.slot + MIN_ATTESTATION_INCLUSION_DELAY)
 
     # TODO test needs fixing for new attestation validation
     # check:
