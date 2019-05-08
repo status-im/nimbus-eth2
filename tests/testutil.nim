@@ -36,34 +36,25 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
     privkey = makeFakeValidatorPrivKey(i)
     pubkey = privkey.pubKey()
     withdrawal_credentials = makeFakeHash(i)
+    domain = 3'u64
 
-  let pop =
-    if skipValidation in flags:
-      ValidatorSig()
-    else:
-      let proof_of_possession_data = DepositInput(
-        pubkey: pubkey,
-        withdrawal_credentials: withdrawal_credentials,
-      )
-      let domain = 0'u64
-      bls_sign(privkey, hash_tree_root(proof_of_possession_data).data, domain)
-
-  Deposit(
+  result = Deposit(
     index: i.uint64,
-    deposit_data: DepositData(
-      deposit_input: DepositInput(
-        pubkey: pubkey,
-        proof_of_possession: pop,
-        withdrawal_credentials: withdrawal_credentials,
-      ),
+    data: DepositData(
+      pubkey: pubkey,
+      withdrawal_credentials: withdrawal_credentials,
       amount: MAX_EFFECTIVE_BALANCE,
     )
   )
 
+  result.data.signature =
+    bls_sign(privkey, signing_root(result.data).data,
+             domain)
+
 func makeInitialDeposits*(
     n = SLOTS_PER_EPOCH, flags: UpdateFlags = {}): seq[Deposit] =
   for i in 0..<n.int:
-    result.add makeDeposit(i + 1, flags)
+    result.add makeDeposit(i, flags)
 
 func getNextBeaconProposerIndex*(state: BeaconState): ValidatorIndex =
   # TODO: This is a special version of get_beacon_proposer_index that takes into

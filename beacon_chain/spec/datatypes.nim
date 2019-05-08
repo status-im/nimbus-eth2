@@ -91,16 +91,21 @@ const
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9 ##\
   ## Minimum amounth of ETH that can be deposited in one call - deposits can
   ## be used either to top up an existing validator or commit to a new one
+
   MAX_EFFECTIVE_BALANCE* = 2'u64^5 * 10'u64^9 ##\
   ## Maximum amounth of ETH that can be deposited in one call
 
+  # TODO remove erstwhile blob/v0.5.0
   FORK_CHOICE_BALANCE_INCREMENT* = 2'u64^0 * 10'u64^9
 
   EJECTION_BALANCE* = 2'u64^4 * 10'u64^9 ##\
   ## Once the balance of a validator drops below this, it will be ejected from
   ## the validator pool
 
+  EFFECTIVE_BALANCE_INCREMENT* = 2'u64^0 * 10'u64^9
+
   # Time parameter, here so that GENESIS_EPOCH can access it
+  # TODO re-merge
   SLOTS_PER_EPOCH* {.intdefine.} = 64 ##\
   ## (~6.4 minutes)
   ## slots that make up an epoch, at the end of which more heavy
@@ -119,11 +124,11 @@ const
   EMPTY_SIGNATURE* = ValidatorSig()
   BLS_WITHDRAWAL_PREFIX_BYTE* = 0'u8
 
-  # Time parameters
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#time-parameters
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_fork-choice.md#time-parameters
   SECONDS_PER_SLOT*{.intdefine.} = 6'u64 # Compile with -d:SECONDS_PER_SLOT=1 for 6x faster slots
   ## TODO consistent time unit across projects, similar to C++ chrono?
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#time-parameters
   MIN_ATTESTATION_INCLUSION_DELAY* = 2'u64^2 ##\
   ## (24 seconds)
   ## Number of slots that attestations stay in the attestation
@@ -137,6 +142,7 @@ const
   ## attestation.
 
   # SLOTS_PER_EPOCH is defined above.
+  # TODO it doesn't need to be anymore
 
   MIN_SEED_LOOKAHEAD* = 1 ##\
   ## epochs (~6.4 minutes)
@@ -155,6 +161,12 @@ const
 
   PERSISTENT_COMMITTEE_PERIOD* = 2'u64^11 ##\
   ## epochs (9 days)
+
+  MAX_CROSSLINK_EPOCHS* = 2'u64^6 ##\
+  ## epochs (~7 hours)
+
+  MIN_EPOCHS_TO_INACTIVITY_PENALTY* = 2'u64^2 ##\
+  ## epochs (25.6 minutes)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#state-list-lengths
   LATEST_RANDAO_MIXES_LENGTH* = 8192
@@ -249,7 +261,7 @@ type
     data*: AttestationData
     custody_bit*: bool
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#deposit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#deposit
   Deposit* = object
     proof*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest] ##\
     ## Branch in the deposit tree
@@ -257,21 +269,24 @@ type
     index*: uint64 ##\
     ## Index in the deposit tree
 
-    deposit_data*: DepositData ##\
+    data*: DepositData ##\
     ## Data
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#depositdata
   DepositData* = object
-    amount*: uint64 ## Amount in Gwei
-    timestamp*: uint64 # Timestamp from deposit contract
-    deposit_input*: DepositInput
+    pubkey*: ValidatorPubKey ##\
+    ## BLS pubkey
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#depositinput
-  DepositInput* = object
-    pubkey*: ValidatorPubKey
-    withdrawal_credentials*: Eth2Digest
-    proof_of_possession*: ValidatorSig ##\
-    ## A BLS signature of this `DepositInput`
+    withdrawal_credentials*: Eth2Digest ##\
+    ## Withdrawal credentials
+
+    amount*: uint64 ##\
+    ## Amount in Gwei
+
+    dummy*: uint64
+
+    signature*: ValidatorSig ##\
+    ## Container self-signature
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
@@ -421,6 +436,9 @@ type
     withdrawal_credentials*: Eth2Digest ##\
     ## Withdrawal credentials
 
+    activation_eligibility_epoch*: Epoch ##\
+    ## Epoch when validator activated
+
     activation_epoch*: Epoch ##\
     ## Epoch when validator activated
 
@@ -435,6 +453,9 @@ type
 
     slashed*: bool ##\
     ## Was the validator slashed
+
+    effective_balance*: uint64 ##\
+    ## Effective balance
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#crosslink
   Crosslink* = object

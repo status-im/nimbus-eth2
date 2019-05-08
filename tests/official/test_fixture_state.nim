@@ -91,7 +91,7 @@ suite "[For information - non-blocking] Extra state tests":
       deposits.add Deposit(
         proof: default(array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]),
         index: index,
-        deposit_data: DepositData(
+        data: DepositData(
           amount: 32000000000'u64, # TODO: read that from validator_balances
           timestamp: 0'u64,        # TODO: not initialized in test
           deposit_input: DepositInput(

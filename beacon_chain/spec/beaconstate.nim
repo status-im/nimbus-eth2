@@ -35,86 +35,84 @@ func verify_merkle_branch(leaf: Eth2Digest, proof: openarray[Eth2Digest], depth:
     value = eth2hash(buf)
   value == root
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#process_deposit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#increase_balance
+func increase_balance*(
+    state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
+  # Increase validator balance by ``delta``.
+  state.balances[index] += delta
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#decrease_balance
+func decrease_balance*(
+    state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
+  # Decrease validator balance by ``delta`` with underflow protection.
+  state.balances[index] =
+    if delta > state.balances[index]:
+      0'u64
+    else:
+      state.balances[index] - delta
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#deposits
 func process_deposit*(state: var BeaconState, deposit: Deposit): bool =
-  ## Process a deposit from Ethereum 1.0.
-  ## Note that this function mutates ``state``.
-
-  let deposit_input = deposit.deposit_data.deposit_input
-
-  ## Should equal 8 bytes for deposit_data.amount +
-  ##              8 bytes for deposit_data.timestamp +
-  ##              176 bytes for deposit_data.deposit_input
-  ## It should match the deposit_data in the eth1.0 deposit contract
-  ## TODO actual serialize func useful after all
-  var serialized_deposit_data: array[8 + 8 + 176, byte]
-  serialized_deposit_data[0..7] = deposit.deposit_data.amount.int_to_bytes8()
-  serialized_deposit_data[8..15] =
-    deposit.deposit_data.timestamp.int_to_bytes8()
-  serialized_deposit_data[16..63] = deposit_input.pubkey.getBytes()
-  serialized_deposit_data[64..95] = deposit_input.withdrawal_credentials.data
-  serialized_deposit_data[96..191] =
-    deposit_input.proof_of_possession.getBytes()
+  # Process an Eth1 deposit, registering a validator or increasing its balance.
 
   # Verify the Merkle branch
-  let merkle_branch_is_valid = verify_merkle_branch(
-    eth2hash(serialized_deposit_data),
-    deposit.proof,
-    DEPOSIT_CONTRACT_TREE_DEPTH,
-    deposit.index,
-    state.latest_eth1_data.deposit_root)
-  ## TODO enable this check, after using merkle_root (not in spec anymore, but
-  ## useful to construct proofs) to build proofs (i.e. the other child in each
-  ## pair of children at each level of the merkle tree), and injecting a proof
-  ## sequence corresponding to their hash values, into the `Deposits`, in that
-  ## tests/testutil.nim area of code. Currently it's checking against garbage,
-  ## either when creating genesis states or in the block processing of deposit
-  ## lists from Eth1Data.
-  # doAssert merkle_branch_is_valid
+  # TODO enable this check, but don't use doAssert
+  if not verify_merkle_branch(
+    hash_tree_root(deposit.data),
+     deposit.proof,
+     DEPOSIT_CONTRACT_TREE_DEPTH,
+     deposit.index,
+    state.latest_eth1_data.deposit_root,
+  ):
+    ## TODO: a notice-like mechanism which works in a func
+    ## here and elsewhere, one minimal approach is a check-if-true
+    ## and return false iff so.
+    ## obviously, better/more principled ones exist, but
+    ## generally require broader rearchitecting, and this is what
+    ## mostly happens now, just haphazardly.
+    discard
 
-  ## Increment the next deposit index we are expecting. Note that this
-  ## needs to be done here because while the deposit contract will never
-  ## create an invalid Merkle branch, it may admit an invalid deposit
-  ## object, and we need to be able to skip over it
+  # Deposits must be processed in order
+  if not (deposit.index == state.deposit_index):
+    ## TODO see above, re errors
+    ## it becomes even more important, as one might might sometimes want
+    ## to flag such things as higher/lower priority. chronicles?
+    return false
+
   state.deposit_index += 1
 
-  ## if not validate_proof_of_possession(
-  ##     state, pubkey, proof_of_possession, withdrawal_credentials):
-  ##   return
-  ## TODO re-enable (but it wasn't running to begin with, and
-  ## PoP isn't really a phase 0 concern, so this isn't meaningful
-  ## regardless.
-
   let
-    validator_pubkeys = state.validator_registry.mapIt(it.pubkey)
-    pubkey = deposit_input.pubkey
-    amount = deposit.deposit_data.amount
-    withdrawal_credentials = deposit_input.withdrawal_credentials
+    pubkey = deposit.data.pubkey
+    amount = deposit.data.amount
+    validator_pubkeys = mapIt(state.validator_registry, it.pubkey)
 
+  ## validator_pubkeys gets O(n) searched at most twice so not worth
+  ## using accelerated lookup structure for big-O reasons unless the
+  ## function becomes profiling hotspot.
   if pubkey notin validator_pubkeys:
-    # Add new validator
-    let validator = Validator(
+    # Verify the deposit signature (proof of possession)
+    # TODO should be get_domain(state, DOMAIN_DEPOSIT)
+    if not bls_verify(
+        pubkey, signing_root(deposit.data).data, deposit.data.signature,
+        3'u64):
+      return false
+
+    # Add validator and balance entries
+    state.validator_registry.add(Validator(
       pubkey: pubkey,
-      withdrawal_credentials: withdrawal_credentials,
+      withdrawal_credentials: deposit.data.withdrawal_credentials,
+      activation_eligibility_epoch: FAR_FUTURE_EPOCH,
       activation_epoch: FAR_FUTURE_EPOCH,
       exit_epoch: FAR_FUTURE_EPOCH,
       withdrawable_epoch: FAR_FUTURE_EPOCH,
-      initiated_exit: false,
-      slashed: false,
-    )
-
-    ## Note: In phase 2 registry indices that have been withdrawn for a long
-    ## time will be recycled.
-    state.validator_registry.add(validator)
+      effective_balance: min(amount - amount mod EFFECTIVE_BALANCE_INCREMENT,
+        MAX_EFFECTIVE_BALANCE)
+    ))
     state.balances.add(amount)
   else:
-    # Increase balance by deposit amount
-    let index = validator_pubkeys.find(pubkey)
-    let validator = addr state.validator_registry[index]
-    doAssert state.validator_registry[index].withdrawal_credentials ==
-      withdrawal_credentials
-
-    state.balances[index] += amount
+     # Increase balance by deposit amount
+     let index = validator_pubkeys.find(pubkey)
+     increase_balance(state, index.ValidatorIndex, amount)
 
   true
 
@@ -621,22 +619,6 @@ func prepare_validator_for_withdrawal*(state: var BeaconState, index: ValidatorI
   var validator = addr state.validator_registry[index]
   validator.withdrawable_epoch = get_current_epoch(state) +
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#increase_balance
-func increase_balance*(
-    state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
-  # Increase validator balance by ``delta``.
-  state.balances[index] += delta
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#decrease_balance
-func decrease_balance*(
-    state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
-  # Decrease validator balance by ``delta`` with underflow protection.
-  state.balances[index] =
-    if delta > state.balances[index]:
-      0'u64
-    else:
-      state.balances[index] - delta
 
 proc makeAttestationData*(
     state: BeaconState, shard: uint64,
