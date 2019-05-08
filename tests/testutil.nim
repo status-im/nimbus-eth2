@@ -124,7 +124,7 @@ proc addBlock*(
     "signature key should be derived from private key! - wrong privkey?"
 
   if skipValidation notin flags:
-    let block_root = signed_root(new_block)
+    let block_root = signing_root(new_block)
     # We have a signature - put it in the block and we should be done!
     new_block.signature =
       bls_sign(proposerPrivkey, block_root.data,
@@ -193,7 +193,7 @@ proc makeAttestation*(
 
 proc makeTestDB*(tailState: BeaconState, tailBlock: BeaconBlock): BeaconChainDB =
   let
-    tailRoot = signed_root(tailBlock)
+    tailRoot = signing_root(tailBlock)
 
   result = init(BeaconChainDB, newMemoryDB())
   BlockPool.preInit(result, tailState, tailBlock)

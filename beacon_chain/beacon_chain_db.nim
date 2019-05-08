@@ -85,7 +85,7 @@ proc putStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot,
   db.backend.put(subkey(root, slot), value.data)
 
 proc putBlock*(db: BeaconChainDB, value: BeaconBlock) =
-  db.putBlock(signed_root(value), value)
+  db.putBlock(signing_root(value), value)
 
 proc putHeadBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.backend.put(subkey(kHeadBlock), key.data) # TODO head block?

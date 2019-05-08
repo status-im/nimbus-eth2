@@ -204,7 +204,7 @@ func get_temporary_block_header*(blck: BeaconBlock): BeaconBlockHeader =
     previous_block_root: blck.previous_block_root,
     state_root: ZERO_HASH,
     block_body_root: hash_tree_root(blck.body),
-    # signed_root(block) is used for block id purposes so signature is a stub
+    # signing_root(block) is used for block id purposes so signature is a stub
     signature: EMPTY_SIGNATURE,
   )
 

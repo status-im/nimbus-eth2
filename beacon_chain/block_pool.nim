@@ -203,7 +203,7 @@ proc add*(
   ## the state parameter may be updated to include the given block, if
   ## everything checks out
   # TODO reevaluate passing the state in like this
-  doAssert blockRoot == signed_root(blck)
+  doAssert blockRoot == signing_root(blck)
 
   # Already seen this block??
   if blockRoot in pool.blocks:
@@ -597,7 +597,7 @@ proc preInit*(
   #      state - but there's more refactoring needed to make it nice - doing
   #      a minimal patch for now..
   let
-    blockRoot = signed_root(blck)
+    blockRoot = signing_root(blck)
 
   notice "Creating new database from snapshot",
     blockRoot = shortLog(blockRoot),

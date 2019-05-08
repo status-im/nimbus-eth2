@@ -427,7 +427,7 @@ iterator hash_tree_most(v: object): Chunk =
   doAssert found_field_name
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/simple-serialize.md#signed-roots
-func signed_root*[T: object](x: T): Eth2Digest =
+func signing_root*[T: object](x: T): Eth2Digest =
   # TODO write tests for this (check vs hash_tree_root)
 
   let root = merkleize(hash_tree_most(x))

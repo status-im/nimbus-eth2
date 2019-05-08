@@ -109,7 +109,7 @@ proc build_empty_block_for_next_slot*(state: BeaconState): BeaconBlock =
   # var previous_block_header = state.latest_block_header
   # if previous_block_header.state_root == ZERO_HASH:
   #   previous_block_header.state_root = state.hash_tree_root()
-  # result.previous_block_root = signed_root(previous_block_header)
+  # result.previous_block_root = signing_root(previous_block_header)
 
   ## TODO: `makeBlock` from testutil.nim
   ##       doesn't work either due to use of fake private keys

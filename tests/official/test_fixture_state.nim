@@ -31,9 +31,9 @@ suite "Official - State tests": # Initializing a beacon state from the deposits
     # TODO: Currently we are unable to use the official EF tests:
     #   - The provided zero signature "0x0000..." is an invalid compressed BLS signature
     #   - Block headers are using that signature
-    #   - Block processing checks that block.previous_block_root == signed_root(state.latest_block_header)
+    #   - Block processing checks that block.previous_block_root == signing_root(state.latest_block_header)
     #     -> Changing EF provided previous_block_root would render the block transition tests meaningless
-    #     -> Changing the signature to a valid "0xc000..." makes all hashes/signed_root wrong ...
+    #     -> Changing the signature to a valid "0xc000..." makes all hashes/signing_root wrong ...
     #
     # So we only test that block header signing in Nimbus matches block header signing from the EF
     # And we can't deserialize from the raw YAML/JSON to avoid sanity checks on the signature
@@ -54,7 +54,7 @@ suite "Official - State tests": # Initializing a beacon state from the deposits
           hexToByteArray[32]("0x1179346f489d8be1731377cb199af5cc61faa38353e2d67e096bed182677062a")
         )
       echo "         Expected previous block root: 0x", previous_block_root
-      echo "         Computed header signed root: 0x", signed_root(header)
+      echo "         Computed header signed root: 0x", signing_root(header)
 
   test "[For information] Print list of official tests to implement":
     for i, test in stateTests.test_cases:

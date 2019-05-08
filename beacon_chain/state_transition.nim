@@ -47,11 +47,11 @@ proc processBlockHeader(
 
   # state_root not set yet, when skipping validation
   if skipValidation notin flags and not (blck.previous_block_root ==
-      signed_root(state.latest_block_header)):
+      signing_root(state.latest_block_header)):
     notice "Block header: previous block root mismatch",
       latest_block_header = state.latest_block_header,
       blck = shortLog(blck),
-      latest_block_header_root = shortLog(signed_root(state.latest_block_header))
+      latest_block_header_root = shortLog(signing_root(state.latest_block_header))
     return false
 
   state.latest_block_header = get_temporary_block_header(blck)
@@ -60,12 +60,12 @@ proc processBlockHeader(
     state.validator_registry[get_beacon_proposer_index(state, state.slot)]
   if skipValidation notin flags and not bls_verify(
       proposer.pubkey,
-      signed_root(blck).data,
+      signing_root(blck).data,
       blck.signature,
       get_domain(state, DOMAIN_BEACON_PROPOSER, get_current_epoch(state))):
     notice "Block header: invalid block header",
       proposer_pubkey = proposer.pubkey,
-      block_root = shortLog(signed_root(blck)),
+      block_root = shortLog(signing_root(blck)),
       block_signature = blck.signature
     return false
 
@@ -138,7 +138,7 @@ proc processProposerSlashings(
       for i, header in @[proposer_slashing.header_1, proposer_slashing.header_2]:
         if not bls_verify(
             proposer.pubkey,
-            signed_root(header).data,
+            signing_root(header).data,
             header.signature,
             get_domain(
               state, DOMAIN_BEACON_PROPOSER, slot_to_epoch(header.slot))):
@@ -330,7 +330,7 @@ proc processExits(
     # Verify signature
     if skipValidation notin flags:
       if not bls_verify(
-          validator.pubkey, signed_root(exit).data, exit.signature,
+          validator.pubkey, signing_root(exit).data, exit.signature,
           get_domain(state, DOMAIN_VOLUNTARY_EXIT, exit.epoch)):
         notice "Exit: invalid signature"
         return false
@@ -418,7 +418,7 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
     # Verify that the signature is valid
     if skipValidation notin flags:
       if not bls_verify(
-          transfer.pubkey, signed_root(transfer).data, transfer.signature,
+          transfer.pubkey, signing_root(transfer).data, transfer.signature,
           get_domain(state, DOMAIN_TRANSFER)):
         notice "Transfer: incorrect signature"
         return false
@@ -468,7 +468,7 @@ func cacheState(state: var BeaconState) =
 
   # store latest known block for previous slot
   state.latest_block_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
-    signed_root(state.latest_block_header)
+    signing_root(state.latest_block_header)
 
 proc processBlock(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
@@ -1228,7 +1228,7 @@ func cacheState(state: var HashedBeaconState) =
 
   # store latest known block for previous slot
   state.data.latest_block_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
-    signed_root(state.data.latest_block_header)
+    signing_root(state.data.latest_block_header)
 
 proc advanceState*(state: var HashedBeaconState) =
   cacheState(state)
