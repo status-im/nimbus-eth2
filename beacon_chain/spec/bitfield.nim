@@ -1,4 +1,4 @@
-import byteutils, json_serialization
+import byteutils, json_serialization, std_shims/support/bitops2
 
 type
   BitField* = object
@@ -45,7 +45,19 @@ func combine*(tgt: var BitField, src: BitField) =
   for i in 0 ..< tgt.bits.len:
     tgt.bits[i] = tgt.bits[i] or src.bits[i]
 
-proc overlaps*(a, b: BitField): bool =
+func overlaps*(a, b: BitField): bool =
   for i in 0..<a.bits.len:
     if (a.bits[i] and b.bits[i]) > 0'u8:
       return true
+
+func countOnes*(a: BitField): int {.inline.} =
+  for v in a.bits: result += countOnes(v)
+
+func len*(a: BitField): int {.inline.} =
+  countOnes(a)
+
+func isSubsetOf*(a, b: Bitfield): bool =
+  for i in 0 ..< (len(a.bits) * 8):
+    if get_bitfield_bit(a, i) and not get_bitfield_bit(b, i):
+      return false
+  true

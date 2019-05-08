@@ -13,20 +13,21 @@ proc init*(T: type AttestationPool, blockPool: BlockPool): T =
     latestAttestations: initTable[ValidatorPubKey, BlockRef]()
   )
 
-
 proc combine*(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
-  # Combine the signature and participation bitfield, with the assumption that
-  # the same data is being signed!
+  ## Combine the signature and participation bitfield, with the assumption that
+  ## the same data is being signed - if the signatures overlap, they are not
+  ## combined.
 
   doAssert tgt.data == src.data
 
-  # TODO:
-  # when BLS signatures are combined, we must ensure that
-  # the same participant key is not included on both sides
-  tgt.aggregation_bitfield.combine(src.aggregation_bitfield)
+  # In a BLS aggregate signature, one needs to count how many times a
+  # particular public key has been added - since we use a single bit per key, we
+  # can only it once, thus we can never combine signatures that overlap already!
+  if not tgt.aggregation_bitfield.overlaps(src.aggregation_bitfield):
+    tgt.aggregation_bitfield.combine(src.aggregation_bitfield)
 
-  if skipValidation notin flags:
-    tgt.aggregate_signature.combine(src.aggregate_signature)
+    if skipValidation notin flags:
+      tgt.aggregate_signature.combine(src.aggregate_signature)
 
 proc validate(
     state: BeaconState, attestation: Attestation, flags: UpdateFlags): bool =
@@ -113,6 +114,7 @@ proc slotIndex(
   # epoch to now, because these are the attestations that may affect the voting
   # outcome. Some of these attestations will already have been added to blocks,
   # while others are fresh off the network.
+  # TODO only the latest vote of each validator counts. Can we use that somehow?
 
   doAssert attestationSlot >= pool.startingSlot,
     """
@@ -186,15 +188,14 @@ proc add*(pool: var AttestationPool,
   for a in slotData.attestations.mitems():
     if a.data == attestation.data:
       for v in a.validations:
-        if v.aggregation_bitfield.overlaps(validation.aggregation_bitfield):
-          # TODO this check is here so that later, when we combine signatures,
-          #      there is no overlap (each validator must be represented once
-          #      only). this is wrong - we could technically receive
-          #      attestations that have already been combined (for example when
-          #      feeding in attestations from blocks, which we're not doing yet)
-          #      but then we'll also have to update the combine logic to deal
-          #      with this complication.
-          debug "Ignoring overlapping attestation",
+        if validation.aggregation_bitfield.isSubsetOf(v.aggregation_bitfield):
+          # The validations in the new attestation are a subset of one of the
+          # attestations that we already have on file - no need to add this
+          # attestation to the database
+          # TODO what if the new attestation is useful for creating bigger
+          #      sets by virtue of not overlapping with some other attestation
+          #      and therefore being useful after all?
+          debug "Ignoring subset attestation",
             existingParticipants = get_attestation_participants(
               state, a.data, v.aggregation_bitfield),
             newParticipants = participants
@@ -202,12 +203,25 @@ proc add*(pool: var AttestationPool,
           break
 
       if not found:
+        # Attestations in the pool that are a subset of the new attestation
+        # can now be removed per same logic as above
+        a.validations.keepItIf(
+          if it.aggregation_bitfield.isSubsetOf(
+              validation.aggregation_bitfield):
+            debug "Removing subset attestation",
+              existingParticipants = get_attestation_participants(
+                state, a.data, it.aggregation_bitfield),
+              newParticipants = participants
+            false
+          else:
+            true)
+
         a.validations.add(validation)
         pool.updateLatestVotes(state, attestationSlot, participants, a.blck)
 
         info "Attestation resolved",
           attestationData = shortLog(attestation.data),
-          validations = a.validations.len() # TODO popcount of union
+          validations = a.validations.len()
 
         found = true
 
@@ -286,6 +300,13 @@ proc getAttestationsForBlock*(
       continue
 
     for v in a.validations[1..^1]:
+      # TODO We need to select a set of attestations that maximise profit by
+      #      adding the largest combined attestation set that we can find - this
+      #      unfortunately looks an awful lot like
+      #      https://en.wikipedia.org/wiki/Set_packing - here we just iterate
+      #      and naively add as much as possible in one go, by we could also
+      #      add the same attestation data twice, as long as there's at least
+      #      one new attestation in there
       if not attestation.aggregation_bitfield.overlaps(
           v.aggregation_bitfield):
         attestation.aggregation_bitfield.combine(

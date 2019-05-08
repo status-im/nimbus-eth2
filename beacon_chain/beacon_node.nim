@@ -429,10 +429,9 @@ proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
   # The block we received contains attestations, and we might not yet know about
   # all of them. Let's add them to the attestation pool - in case they block
   # is not yet resolved, neither will the attestations be!
+  # TODO shouldn't add attestations if the block turns out to be invalid..
   for attestation in blck.body.attestations:
-    # TODO attestation pool needs to be taught to deal with overlapping
-    #      attestations!
-    discard # node.onAttestation(attestation)
+    node.onAttestation(attestation)
 
 proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   ## Perform all attestations that the validators attached to this node should
