@@ -25,7 +25,7 @@ proc lmdGhost*(
   let
     active_validator_indices =
       get_active_validator_indices(
-        start_state.validator_registry, slot_to_epoch(start_state.slot))
+        start_state, slot_to_epoch(start_state.slot))
 
   var attestation_targets: seq[tuple[validator: ValidatorIndex, blck: BlockRef]]
   for i in active_validator_indices:

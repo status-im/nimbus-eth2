@@ -52,7 +52,8 @@ func decrease_balance*(
       state.balances[index] - delta
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#deposits
-func process_deposit*(state: var BeaconState, deposit: Deposit): bool =
+func process_deposit*(
+    state: var BeaconState, deposit: Deposit, flags: UpdateFlags = {}): bool =
   # Process an Eth1 deposit, registering a validator or increasing its balance.
 
   # Verify the Merkle branch
@@ -85,14 +86,12 @@ func process_deposit*(state: var BeaconState, deposit: Deposit): bool =
     pubkey = deposit.data.pubkey
     amount = deposit.data.amount
     validator_pubkeys = mapIt(state.validator_registry, it.pubkey)
+    index = validator_pubkeys.find(pubkey)
 
-  ## validator_pubkeys gets O(n) searched at most twice so not worth
-  ## using accelerated lookup structure for big-O reasons unless the
-  ## function becomes profiling hotspot.
-  if pubkey notin validator_pubkeys:
+  if index == -1:
     # Verify the deposit signature (proof of possession)
     # TODO should be get_domain(state, DOMAIN_DEPOSIT)
-    if not bls_verify(
+    if skipValidation notin flags and not bls_verify(
         pubkey, signing_root(deposit.data).data, deposit.data.signature,
         3'u64):
       return false
@@ -111,7 +110,6 @@ func process_deposit*(state: var BeaconState, deposit: Deposit): bool =
     state.balances.add(amount)
   else:
      # Increase balance by deposit amount
-     let index = validator_pubkeys.find(pubkey)
      increase_balance(state, index.ValidatorIndex, amount)
 
   true
@@ -282,7 +280,7 @@ func get_genesis_beacon_state*(
 
   # Process genesis deposits
   for deposit in genesis_validator_deposits:
-    discard process_deposit(state, deposit)
+    discard process_deposit(state, deposit, flags)
 
   # Process genesis activations
   for validator_index in 0 ..< state.validator_registry.len:
@@ -291,7 +289,7 @@ func get_genesis_beacon_state*(
       activate_validator(state, vi, true)
 
   let genesis_active_index_root = hash_tree_root(
-    get_active_validator_indices(state.validator_registry, GENESIS_EPOCH))
+    get_active_validator_indices(state, GENESIS_EPOCH))
   for index in 0 ..< LATEST_ACTIVE_INDEX_ROOTS_LENGTH:
     state.latest_active_index_roots[index] = genesis_active_index_root
   state.current_shuffling_seed = generate_seed(state, GENESIS_EPOCH)
@@ -397,7 +395,7 @@ func process_ejections*(state: var BeaconState) =
   ## Iterate through the validator registry and eject active validators with
   ## balance below ``EJECTION_BALANCE``
   for index in get_active_validator_indices(
-      state.validator_registry, get_current_epoch(state)):
+      state, get_current_epoch(state)):
     if state.balances[index] < EJECTION_BALANCE:
       exit_validator(state, index)
 
@@ -412,7 +410,7 @@ func should_update_validator_registry*(state: BeaconState): bool =
   if state.finalized_epoch <= state.validator_registry_update_epoch:
     return false
   # Must have processed new crosslinks on all shards of the current epoch
-  allIt(0 ..< get_current_epoch_committee_count(state).int,
+  allIt(0 ..< get_epoch_committee_count(state, get_current_epoch(state)).int,
         not (state.latest_crosslinks[
           ((state.current_shuffling_start_shard + it.uint64) mod
             SHARD_COUNT).int].epoch <= state.validator_registry_update_epoch))
@@ -424,7 +422,7 @@ func update_validator_registry*(state: var BeaconState) =
     current_epoch = get_current_epoch(state)
     # The active validators
     active_validator_indices =
-      get_active_validator_indices(state.validator_registry, current_epoch)
+      get_active_validator_indices(state, current_epoch)
     # The total effective balance of active validators
     total_balance = get_total_balance(state, active_validator_indices)
 

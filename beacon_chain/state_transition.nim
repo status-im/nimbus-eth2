@@ -358,7 +358,7 @@ func update_registry_and_shuffling_data(state: var BeaconState) =
     state.current_shuffling_epoch = next_epoch
     state.current_shuffling_start_shard = (
       state.current_shuffling_start_shard +
-      get_current_epoch_committee_count(state) mod SHARD_COUNT
+      get_epoch_committee_count(state, current_epoch) mod SHARD_COUNT
     ) mod SHARD_COUNT
     state.current_shuffling_seed =
       generate_seed(state, state.current_shuffling_epoch)
@@ -518,14 +518,12 @@ proc processBlock(
 func get_current_total_balance(state: BeaconState): Gwei =
   return get_total_balance(
     state,
-    get_active_validator_indices(state.validator_registry,
-    get_current_epoch(state)))
+    get_active_validator_indices(state, get_current_epoch(state)))
 
 func get_previous_total_balance(state: BeaconState): Gwei =
   get_total_balance(
     state,
-    get_active_validator_indices(state.validator_registry,
-    get_previous_epoch(state)))
+    get_active_validator_indices(state, get_previous_epoch(state)))
 
 func get_attesting_indices(
     state: BeaconState,
@@ -821,8 +819,7 @@ func compute_normal_justification_and_finalization_deltas(state: BeaconState):
     matching_head_attestation_indices =
       get_attesting_indices(state, matching_head_attestations)
   # Process rewards or penalties for all validators
-  for index in get_active_validator_indices(
-      state.validator_registry, get_previous_epoch(state)):
+  for index in get_active_validator_indices(state, get_previous_epoch(state)):
     # Expected FFG source
     if index in previous_epoch_attestation_indices:
       deltas[0][index] +=
@@ -872,7 +869,7 @@ func compute_inactivity_leak_deltas(state: BeaconState):
     matching_head_attestations =
       get_previous_epoch_matching_head_attestations(state)
     active_validator_indices = toSet(get_active_validator_indices(
-      state.validator_registry, get_previous_epoch(state)))
+      state, get_previous_epoch(state)))
     epochs_since_finality =
       get_current_epoch(state) + 1 - state.finalized_epoch
   let
@@ -982,7 +979,7 @@ func process_slashings(state: var BeaconState) =
   let
     current_epoch = get_current_epoch(state)
     active_validator_indices = get_active_validator_indices(
-      state.validator_registry, current_epoch)
+      state, current_epoch)
     total_balance = get_total_balance(state, active_validator_indices)
 
     # Compute `total_penalties`
@@ -1048,7 +1045,7 @@ func finish_epoch_update(state: var BeaconState) =
     (next_epoch + ACTIVATION_EXIT_DELAY) mod LATEST_ACTIVE_INDEX_ROOTS_LENGTH
   state.latest_active_index_roots[index_root_position] =
     hash_tree_root(get_active_validator_indices(
-      state.validator_registry, next_epoch + ACTIVATION_EXIT_DELAY)
+      state, next_epoch + ACTIVATION_EXIT_DELAY)
   )
 
   # Set total slashed balances
@@ -1089,7 +1086,7 @@ func processEpoch(state: var BeaconState) =
 
   var per_epoch_cache = get_empty_per_epoch_cache()
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#crosslinks
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#crosslinks
   process_crosslinks(state, per_epoch_cache)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#apply-rewards

@@ -47,9 +47,10 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
     )
   )
 
-  result.data.signature =
-    bls_sign(privkey, signing_root(result.data).data,
-             domain)
+  if skipValidation notin flags:
+    result.data.signature =
+      bls_sign(privkey, signing_root(result.data).data,
+               domain)
 
 func makeInitialDeposits*(
     n = SLOTS_PER_EPOCH, flags: UpdateFlags = {}): seq[Deposit] =

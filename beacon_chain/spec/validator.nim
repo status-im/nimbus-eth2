@@ -73,7 +73,7 @@ func get_shuffled_seq*(seed: Eth2Digest,
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_shuffling
 func get_shuffling*(seed: Eth2Digest,
-                    validators: openArray[Validator],
+                    state: BeaconState,
                     epoch: Epoch,
                     ): seq[seq[ValidatorIndex]] =
   ## This function is factored to facilitate testing with
@@ -81,34 +81,17 @@ func get_shuffling*(seed: Eth2Digest,
   ## test vectors, which the split of get_shuffling obfuscates.
 
   let
-    active_validator_indices = get_active_validator_indices(validators, epoch)
+    ## TODO get_epoch_committee_count also calls g_a_v_i,
+    ## but get_shuffling goes away in rest of 0.6
+    active_validator_indices = get_active_validator_indices(state, epoch)
     list_size = active_validator_indices.len.uint64
     committees_per_epoch = get_epoch_committee_count(
-      len(active_validator_indices)).int
+      state, epoch).int
     shuffled_seq = get_shuffled_seq(seed, list_size)
 
   # Split the shuffled list into committees_per_epoch pieces
   result = split(shuffled_seq, committees_per_epoch)
   doAssert result.len() == committees_per_epoch # what split should do..
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_previous_epoch_committee_count
-func get_previous_epoch_committee_count(state: BeaconState): uint64 =
-  ## Return the number of committees in the previous epoch of the given
-  ## ``state``.
-  let previous_active_validators = get_active_validator_indices(
-    state.validator_registry,
-    state.previous_shuffling_epoch,
-  )
-  get_epoch_committee_count(len(previous_active_validators))
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_next_epoch_committee_count
-func get_next_epoch_committee_count(state: BeaconState): uint64 =
-  ## Return the number of committees in the next epoch of the given ``state``.
-  let next_active_validators = get_active_validator_indices(
-    state.validator_registry,
-    get_current_epoch(state) + 1,
-  )
-  get_epoch_committee_count(len(next_active_validators))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(state: BeaconState): Epoch =
@@ -152,14 +135,14 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64,
   template get_epoch_specific_params(): auto =
     if epoch == current_epoch:
       let
-        committees_per_epoch = get_current_epoch_committee_count(state)
+        committees_per_epoch = get_epoch_committee_count(state, current_epoch)
         seed = state.current_shuffling_seed
         shuffling_epoch = state.current_shuffling_epoch
         shuffling_start_shard = state.current_shuffling_start_shard
       (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard)
     elif epoch == previous_epoch:
       let
-        committees_per_epoch = get_previous_epoch_committee_count(state)
+        committees_per_epoch = get_epoch_committee_count(state, previous_epoch)
         seed = state.previous_shuffling_seed
         shuffling_epoch = state.previous_shuffling_epoch
         shuffling_start_shard = state.previous_shuffling_start_shard
@@ -177,9 +160,9 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64,
         use_next = registry_change or condition
         committees_per_epoch =
           if use_next:
-            get_next_epoch_committee_count(state)
+            get_epoch_committee_count(state, next_epoch)
           else:
-            get_current_epoch_committee_count(state)
+            get_epoch_committee_count(state, current_epoch)
         seed =
           if use_next:
             generate_seed(state, next_epoch)
@@ -190,7 +173,7 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64,
         shuffling_start_shard =
           if registry_change:
             (state.current_shuffling_start_shard +
-             get_current_epoch_committee_count(state)) mod SHARD_COUNT
+             get_epoch_committee_count(state, current_epoch)) mod SHARD_COUNT
           else:
             state.current_shuffling_start_shard
       (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard)
@@ -199,13 +182,7 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64,
     get_epoch_specific_params()
 
   let
-    shuffling = get_shuffling(
-      seed,
-      state.validator_registry,
-      shuffling_epoch
-
-      # Not in spec
-    )
+    shuffling = get_shuffling(seed, state, shuffling_epoch)
     offset = slot mod SLOTS_PER_EPOCH
     committees_per_slot = committees_per_epoch div SLOTS_PER_EPOCH
     slot_start_shard = (shuffling_start_shard + committees_per_slot * offset) mod SHARD_COUNT

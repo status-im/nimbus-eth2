@@ -5,8 +5,9 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  math,unittest, sequtils,
-  ../beacon_chain/spec/[helpers, datatypes, digest, validator]
+  math, unittest, sequtils, testutil,
+  ../beacon_chain/spec/[helpers, datatypes, digest, validator, beaconstate],
+  ../beacon_chain/extras
 
 func sumCommittees(v: openArray[seq[ValidatorIndex]], reqCommitteeLen: int): int =
   for x in v:
@@ -28,13 +29,12 @@ suite "Validators":
   ## https://github.com/sigp/lighthouse/blob/ba548e49a52687a655c61b443b6835d79c6d4236/beacon_chain/validator_shuffling/src/shuffle.rs
   test "Validator shuffling":
     let
-      num_validators = 32*1024
-      validators = repeat(
-        Validator(
-          exit_epoch: FAR_FUTURE_EPOCH
-        ), num_validators)
-      s = get_shuffling(Eth2Digest(), validators, GENESIS_EPOCH)
-      committees = get_epoch_committee_count(len(validators)).int
+      num_validators = 4096
+      genState = get_genesis_beacon_state(
+        makeInitialDeposits(num_validators, flags = {skipValidation}), 0,
+          Eth1Data(), {skipValidation})
+      s = get_shuffling(Eth2Digest(), genState, GENESIS_EPOCH)
+      committees = get_epoch_committee_count(genState, GENESIS_EPOCH).int
     check:
       # def b(s): return "Eth2Digest(data: [0x" + "'u8, 0x".join((s[i:i+2] for i in range(0, 64, 2))) + "'u8])"
       # TODO read YAML file directly from test case generator
@@ -79,6 +79,5 @@ suite "Validators":
       checkPermutation(1660, 3932, 3046, Eth2Digest(data: [0x86'u8, 0x87'u8, 0xc0'u8, 0x29'u8, 0xff'u8, 0xc4'u8, 0x43'u8, 0x87'u8, 0x95'u8, 0x27'u8, 0xa6'u8, 0x4c'u8, 0x31'u8, 0xb7'u8, 0xac'u8, 0xbb'u8, 0x38'u8, 0xab'u8, 0x6e'u8, 0x34'u8, 0x37'u8, 0x79'u8, 0xd0'u8, 0xb2'u8, 0xc6'u8, 0xe2'u8, 0x50'u8, 0x04'u8, 0x6f'u8, 0xdb'u8, 0x9d'u8, 0xe8'u8]))
       checkPermutation(379, 646, 32, Eth2Digest(data: [0x17'u8, 0xe8'u8, 0x54'u8, 0xf4'u8, 0xe8'u8, 0x04'u8, 0x01'u8, 0x34'u8, 0x5e'u8, 0x13'u8, 0xf7'u8, 0x2a'u8, 0xf4'u8, 0x5b'u8, 0x22'u8, 0x1c'u8, 0x9f'u8, 0x7a'u8, 0x84'u8, 0x0f'u8, 0x6a'u8, 0x8c'u8, 0x13'u8, 0x28'u8, 0xdd'u8, 0xf9'u8, 0xc9'u8, 0xca'u8, 0x9a'u8, 0x08'u8, 0x83'u8, 0x79'u8]))
       s.len == committees
-       # 32k validators: SLOTS_PER_EPOCH slots * committee_count_per_slot =
-       # get_epoch_committee_count committees.
-      sumCommittees(s, num_validators div committees) == validators.len() # all validators accounted for
+      sumCommittees(s, num_validators div committees) ==
+        get_active_validator_indices(genState, GENESIS_EPOCH).len()
