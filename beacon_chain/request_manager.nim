@@ -21,15 +21,17 @@ proc fetchAncestorBlocks*(requestManager: RequestManager,
   # * Keep track of the average latency of each peer
   #   (we can give priority to peers with better latency)
   #
-  # * Make more parallel requests, just in case
-  #
-  let peer = requestManager.network.randomPeerWith(BeaconSync)
-  if peer != nil:
-    var response = peer.getAncestorBlocks(roots)
-    response.addCallback do (arg: pointer):
-      if not response.failed and response.read.isSome:
-        for blk in response.read.get.blocks:
-          responseHandler(blk)
-      else:
-        debug "Failed to obtain ancestor blocks from peer", peer
 
+  const ParallelRequests = 2
+
+  var fetchComplete = false
+  for peer in requestManager.network.randomPeers(ParallelRequests, BeaconSync):
+    closureScope:
+      let response = peer.getAncestorBlocks(roots)
+      response.addCallback do(arg: pointer):
+        if not response.failed and response.read.isSome and not fetchComplete:
+          fetchComplete = true
+          for blk in response.read.get.blocks:
+            responseHandler(blk)
+        else:
+          debug "Failed to obtain ancestor blocks from peer", peer
