@@ -12,8 +12,9 @@ import
   ../ssz, ../beacon_node_types,
   ./crypto, ./datatypes, ./digest, ./helpers
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_shuffling
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_permuted_index
+# TODO: Proceed to renaming and signature changes
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_shuffled_index
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#compute_committee
 func get_shuffled_seq*(seed: Eth2Digest,
                        list_size: uint64,
                        ): seq[ValidatorIndex] =
@@ -27,6 +28,9 @@ func get_shuffled_seq*(seed: Eth2Digest,
   ## hash result re-use occurs within a round.
   var
     # Share these buffers.
+    # TODO: Redo to follow spec.
+    #       We can have an "Impl" private version that takes buffer as parameters
+    #       so that we avoid alloc on repeated calls from compute_committee
     pivot_buffer: array[(32+1), byte]
     source_buffer: array[(32+1+4), byte]
     shuffled_active_validator_indices = mapIt(
