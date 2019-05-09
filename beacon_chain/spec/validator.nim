@@ -25,6 +25,11 @@ func get_shuffled_seq*(seed: Eth2Digest,
   ##
   ## Invert the inner/outer loops from the spec, essentially. Most useful
   ## hash result re-use occurs within a round.
+
+  # Empty size -> empty list.
+  if list_size == 0:
+    return
+
   var
     # Share these buffers.
     pivot_buffer: array[(32+1), byte]
