@@ -48,7 +48,7 @@ func get_shuffled_seq*(seed: Eth2Digest,
     source_buffer[32] = round_bytes1
 
     # Only one pivot per round.
-    let pivot = bytes_to_int(eth2hash(pivot_buffer).data[0..7]) mod list_size
+    let pivot = bytes_to_int(eth2hash(pivot_buffer).data.toOpenArray(0, 7)) mod list_size
 
     ## Only need to run, per round, position div 256 hashes, so precalculate
     ## them. This consumes memory, but for low-memory devices, it's possible

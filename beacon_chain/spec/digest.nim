@@ -34,6 +34,9 @@ func shortLog*(x: Eth2Digest): string =
   # result = is needed to fix https://github.com/status-im/nim-beacon-chain/issues/209
   result = ($x)[0..7]
 
+# TODO: expose an in-place digest function
+#       when hashing in loop or into a buffer
+#       See: https://github.com/cheatfate/nimcrypto/blob/b90ba3abd/nimcrypto/sha2.nim#L570
 func eth2hash*(v: openArray[byte]): Eth2Digest {.inline.} =
   result = sha256.digest(v)
 
