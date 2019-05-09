@@ -12,14 +12,15 @@ export nimcrypto.toHex
 type
   # TODO: use ref object to avoid allocating
   #       so much on the stack - pending https://github.com/status-im/nim-json-serialization/issues/3
-  StateTest* = object
+  StateTests* = object
     title*: string
     summary*: string
     test_suite*: string
     fork*: string
-    test_cases*: seq[TestCase]
+    test_cases*: seq[StateTestCase]
   
   TestConstants* = object
+    # TODO - 0.5.1 constants
     SHARD_COUNT*: int
     TARGET_COMMITTEE_SIZE*: int
     MAX_BALANCE_CHURN_QUOTIENT*: int
@@ -66,13 +67,30 @@ type
     DOMAIN_VOLUNTARY_EXIT*: SignatureDomain
     DOMAIN_TRANSFER*: SignatureDomain
 
-  TestCase* = object
+  StateTestCase* = object
     name*: string
     config*: TestConstants
     verify_signatures*: bool
     initial_state*: BeaconState
     blocks*: seq[BeaconBlock]
     expected_state*: BeaconState
+
+  ShufflingTests* = object
+    title*: string
+    summary*: string
+    forks_timeline*: string
+    forks*: seq[string]
+    config*: string
+    runner*: string
+    handler*: string
+    test_cases*: seq[ShufflingTestCase]
+
+  ShufflingTestCase* = object
+    seed*: Eth2Digest
+    count*: uint64
+    shuffled*: seq[ValidatorIndex]
+
+  Tests* = StateTests or ShufflingTests
   
 # #######################
 # Default init
@@ -89,9 +107,27 @@ proc readValue*[N: static int](r: var JsonReader, a: var array[N, byte]) {.inlin
   #       if so export that to nim-eth
   hexToByteArray(r.readValue(string), a)
 
-proc parseStateTests*(jsonPath: string): StateTest =
+proc readValue*(r: var JsonReader, a: var ValidatorIndex) {.inline.} =
+  a = r.readValue(uint32)
+
+# TODO: cannot pass a typedesc
+# proc parseTests*(jsonPath: string, T: typedesc[Tests]): T =
+#   # TODO: due to generic early symbol resolution
+#   #       we cannot use a generic proc
+#   #       Otherwise we get:
+#   #       "Error: undeclared identifier: 'ReaderType'"
+#   #       Templates, even untyped don't work
+#   try:
+#     result = Json.loadFile(jsonPath, T)
+#   except SerializationError as err:
+#     writeStackTrace()
+#     stderr.write "Json load issue for file \"", jsonPath, "\"\n"
+#     stderr.write err.formatMsg(jsonPath), "\n"
+#     quit 1
+
+proc parseTests*(jsonPath: string): ShufflingTests =
   try:
-    result = Json.loadFile(jsonPath, StateTest)
+    result = Json.loadFile(jsonPath, ShufflingTests)
   except SerializationError as err:
     writeStackTrace()
     stderr.write "Json load issue for file \"", jsonPath, "\"\n"

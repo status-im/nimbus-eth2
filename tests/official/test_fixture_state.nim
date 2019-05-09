@@ -14,17 +14,17 @@ import
   ../../beacon_chain/spec/[datatypes, crypto, digest, beaconstate],
   ../../beacon_chain/[ssz, state_transition],
   # Test utilities
-  ./state_test_utils
+  ./fixtures_utils
 
 const TestFolder = currentSourcePath.rsplit(DirSep, 1)[0]
 const TestsPath = "fixtures" / "json_tests" / "state" / "sanity-check_default-config_100-vals.json"
 
 
-var stateTests: StateTest
+var stateTests: StateTests
 suite "Official - State tests": # Initializing a beacon state from the deposits
   # Source: https://github.com/ethereum/eth2.0-specs/blob/2baa242ac004b0475604c4c4ef4315e14f56c5c7/tests/phase0/test_sanity.py#L55-L460
   test "Parsing the official state tests into Nimbus beacon types":
-    stateTests = parseStateTests(TestFolder / TestsPath)
+    stateTests = parseTests(TestFolder / TestsPath, StateTests) # TODO pending typedesc fix in fixture_utils.nim
     doAssert $stateTests.test_cases[0].name == "test_empty_block_transition"
   
   test "[For information - Non-blocking] Block root signing":
