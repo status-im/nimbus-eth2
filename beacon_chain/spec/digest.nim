@@ -34,13 +34,8 @@ func shortLog*(x: Eth2Digest): string =
   # result = is needed to fix https://github.com/status-im/nim-beacon-chain/issues/209
   result = ($x)[0..7]
 
-func eth2hash*(v: openArray[byte]): Eth2Digest =
-  var ctx: sha256 # use explicit type so we can rely on init being useless
-  # We can avoid this step for SHA2/Keccak/SHA3 digests because `ctx` is already
-  # empty, but if digest will be changed next line must be enabled.
-  # ctx.init()
-  ctx.update(v)
-  result = ctx.finish()
+func eth2hash*(v: openArray[byte]): Eth2Digest {.inline.} =
+  result = sha256.digest(v)
 
 template withEth2Hash*(body: untyped): Eth2Digest =
   ## This little helper will init the hash function and return the sliced
