@@ -45,7 +45,7 @@ template withEth2Hash*(body: untyped): Eth2Digest =
   ## hash:
   ## let hashOfData = withHash: h.update(data)
   var h  {.inject.}: sha256
-  # TODO no need, as long as using sha256: h.init()
+  h.init()
   body
   var res = h.finish()
   res
