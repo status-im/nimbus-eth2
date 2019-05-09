@@ -78,18 +78,18 @@ suite "Simple serialization":
     slot: 42.Slot, signature: sign(SigKey.random(), 0'u64, ""))
   SSZ.roundripTest BeaconState(slot: 42.Slot)
 
-suite "Tree hashing":
-  # TODO The test values are taken from an earlier version of SSZ and have
-  #      nothing to do with upstream - needs verification and proper test suite
+# suite "Tree hashing":
+#   # TODO The test values are taken from an earlier version of SSZ and have
+#   #      nothing to do with upstream - needs verification and proper test suite
 
-  test "Hash BeaconBlock":
-    let vr = BeaconBlock()
-    check:
-      $hash_tree_root(vr) ==
-        "8951C9C64ABA469EBA78F5D9F9A0666FB697B8C4D86901445777E4445D0B1543"
+#   test "Hash BeaconBlock":
+#     let vr = BeaconBlock()
+#     check:
+#       $hash_tree_root(vr) ==
+#         "8951C9C64ABA469EBA78F5D9F9A0666FB697B8C4D86901445777E4445D0B1543"
 
-  test "Hash BeaconState":
-    let vr = BeaconState()
-    check:
-      $hash_tree_root(vr) ==
-        "66F9BF92A690F1FBD36488D98BE70DA6C84100EDF935BC6D0B30FF14A2976455"
+#   test "Hash BeaconState":
+#     let vr = BeaconState()
+#     check:
+#       $hash_tree_root(vr) ==
+#         "66F9BF92A690F1FBD36488D98BE70DA6C84100EDF935BC6D0B30FF14A2976455"
