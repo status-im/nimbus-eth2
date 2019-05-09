@@ -21,7 +21,7 @@ suite "Block processing":
     genesisState = get_genesis_beacon_state(
       makeInitialDeposits(), 0, Eth1Data(), {})
     genesisBlock = get_initial_beacon_block(genesisState)
-    genesisRoot = signed_root(genesisBlock)
+    genesisRoot = signing_root(genesisBlock)
 
   test "Passes from genesis state, no block":
     var
@@ -34,7 +34,7 @@ suite "Block processing":
   test "Passes from genesis state, empty block":
     var
       state = genesisState
-      previous_block_root = signed_root(genesisBlock)
+      previous_block_root = signing_root(genesisBlock)
       new_block = makeBlock(state, previous_block_root, BeaconBlockBody())
 
     let block_ok = updateState(state, new_block, {})
@@ -67,7 +67,7 @@ suite "Block processing":
       check:
         block_ok
 
-      previous_block_root = signed_root(new_block)
+      previous_block_root = signing_root(new_block)
 
     check:
       state.slot == genesisState.slot + SLOTS_PER_EPOCH

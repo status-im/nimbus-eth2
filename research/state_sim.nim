@@ -46,7 +46,7 @@ proc writeJson*(prefix, slot, v: auto) =
   write(f, pretty(%*(v)))
 
 cli do(slots = 1945,
-       validators = SLOTS_PER_EPOCH * 5, # One per shard is minimum
+       validators = SLOTS_PER_EPOCH * 8, # One per shard is minimum
        json_interval = SLOTS_PER_EPOCH,
        prefix = 0,
        attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.9,
@@ -60,7 +60,7 @@ cli do(slots = 1945,
   var
     attestations: array[MIN_ATTESTATION_INCLUSION_DELAY, seq[Attestation]]
     state = genesisState
-    latest_block_root = signed_root(genesisBlock)
+    latest_block_root = signing_root(genesisBlock)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
     r: Rand
@@ -90,7 +90,7 @@ cli do(slots = 1945,
     withTimer(timers[t]):
       blck = addBlock(state, latest_block_root, body, flags)
     latest_block_root = withTimerRet(timers[tHashBlock]):
-      signed_root(blck)
+      signing_root(blck)
 
     if attesterRatio > 0.0:
       # attesterRatio is the fraction of attesters that actually do their

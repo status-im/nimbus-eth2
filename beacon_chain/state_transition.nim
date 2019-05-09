@@ -47,11 +47,11 @@ proc processBlockHeader(
 
   # state_root not set yet, when skipping validation
   if skipValidation notin flags and not (blck.previous_block_root ==
-      signed_root(state.latest_block_header)):
+      signing_root(state.latest_block_header)):
     notice "Block header: previous block root mismatch",
       latest_block_header = state.latest_block_header,
       blck = shortLog(blck),
-      latest_block_header_root = shortLog(signed_root(state.latest_block_header))
+      latest_block_header_root = shortLog(signing_root(state.latest_block_header))
     return false
 
   state.latest_block_header = get_temporary_block_header(blck)
@@ -60,12 +60,12 @@ proc processBlockHeader(
     state.validator_registry[get_beacon_proposer_index(state, state.slot)]
   if skipValidation notin flags and not bls_verify(
       proposer.pubkey,
-      signed_root(blck).data,
+      signing_root(blck).data,
       blck.signature,
       get_domain(state, DOMAIN_BEACON_PROPOSER, get_current_epoch(state))):
     notice "Block header: invalid block header",
       proposer_pubkey = proposer.pubkey,
-      block_root = shortLog(signed_root(blck)),
+      block_root = shortLog(signing_root(blck)),
       block_signature = blck.signature
     return false
 
@@ -138,7 +138,7 @@ proc processProposerSlashings(
       for i, header in @[proposer_slashing.header_1, proposer_slashing.header_2]:
         if not bls_verify(
             proposer.pubkey,
-            signed_root(header).data,
+            signing_root(header).data,
             header.signature,
             get_domain(
               state, DOMAIN_BEACON_PROPOSER, slot_to_epoch(header.slot))):
@@ -330,7 +330,7 @@ proc processExits(
     # Verify signature
     if skipValidation notin flags:
       if not bls_verify(
-          validator.pubkey, signed_root(exit).data, exit.signature,
+          validator.pubkey, signing_root(exit).data, exit.signature,
           get_domain(state, DOMAIN_VOLUNTARY_EXIT, exit.epoch)):
         notice "Exit: invalid signature"
         return false
@@ -358,7 +358,7 @@ func update_registry_and_shuffling_data(state: var BeaconState) =
     state.current_shuffling_epoch = next_epoch
     state.current_shuffling_start_shard = (
       state.current_shuffling_start_shard +
-      get_current_epoch_committee_count(state) mod SHARD_COUNT
+      get_epoch_committee_count(state, current_epoch) mod SHARD_COUNT
     ) mod SHARD_COUNT
     state.current_shuffling_seed =
       generate_seed(state, state.current_shuffling_epoch)
@@ -418,7 +418,7 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
     # Verify that the signature is valid
     if skipValidation notin flags:
       if not bls_verify(
-          transfer.pubkey, signed_root(transfer).data, transfer.signature,
+          transfer.pubkey, signing_root(transfer).data, transfer.signature,
           get_domain(state, DOMAIN_TRANSFER)):
         notice "Transfer: incorrect signature"
         return false
@@ -468,7 +468,7 @@ func cacheState(state: var BeaconState) =
 
   # store latest known block for previous slot
   state.latest_block_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
-    signed_root(state.latest_block_header)
+    signing_root(state.latest_block_header)
 
 proc processBlock(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
@@ -518,14 +518,12 @@ proc processBlock(
 func get_current_total_balance(state: BeaconState): Gwei =
   return get_total_balance(
     state,
-    get_active_validator_indices(state.validator_registry,
-    get_current_epoch(state)))
+    get_active_validator_indices(state, get_current_epoch(state)))
 
 func get_previous_total_balance(state: BeaconState): Gwei =
   get_total_balance(
     state,
-    get_active_validator_indices(state.validator_registry,
-    get_previous_epoch(state)))
+    get_active_validator_indices(state, get_previous_epoch(state)))
 
 func get_attesting_indices(
     state: BeaconState,
@@ -821,8 +819,7 @@ func compute_normal_justification_and_finalization_deltas(state: BeaconState):
     matching_head_attestation_indices =
       get_attesting_indices(state, matching_head_attestations)
   # Process rewards or penalties for all validators
-  for index in get_active_validator_indices(
-      state.validator_registry, get_previous_epoch(state)):
+  for index in get_active_validator_indices(state, get_previous_epoch(state)):
     # Expected FFG source
     if index in previous_epoch_attestation_indices:
       deltas[0][index] +=
@@ -872,7 +869,7 @@ func compute_inactivity_leak_deltas(state: BeaconState):
     matching_head_attestations =
       get_previous_epoch_matching_head_attestations(state)
     active_validator_indices = toSet(get_active_validator_indices(
-      state.validator_registry, get_previous_epoch(state)))
+      state, get_previous_epoch(state)))
     epochs_since_finality =
       get_current_epoch(state) + 1 - state.finalized_epoch
   let
@@ -982,7 +979,7 @@ func process_slashings(state: var BeaconState) =
   let
     current_epoch = get_current_epoch(state)
     active_validator_indices = get_active_validator_indices(
-      state.validator_registry, current_epoch)
+      state, current_epoch)
     total_balance = get_total_balance(state, active_validator_indices)
 
     # Compute `total_penalties`
@@ -1048,7 +1045,7 @@ func finish_epoch_update(state: var BeaconState) =
     (next_epoch + ACTIVATION_EXIT_DELAY) mod LATEST_ACTIVE_INDEX_ROOTS_LENGTH
   state.latest_active_index_roots[index_root_position] =
     hash_tree_root(get_active_validator_indices(
-      state.validator_registry, next_epoch + ACTIVATION_EXIT_DELAY)
+      state, next_epoch + ACTIVATION_EXIT_DELAY)
   )
 
   # Set total slashed balances
@@ -1089,7 +1086,7 @@ func processEpoch(state: var BeaconState) =
 
   var per_epoch_cache = get_empty_per_epoch_cache()
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#crosslinks
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#crosslinks
   process_crosslinks(state, per_epoch_cache)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#apply-rewards
@@ -1228,7 +1225,7 @@ func cacheState(state: var HashedBeaconState) =
 
   # store latest known block for previous slot
   state.data.latest_block_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
-    signed_root(state.data.latest_block_header)
+    signing_root(state.data.latest_block_header)
 
 proc advanceState*(state: var HashedBeaconState) =
   cacheState(state)

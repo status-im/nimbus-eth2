@@ -32,25 +32,18 @@ cli do (totalValidators: int = 125000,
 
     let
       withdrawalCredentials = makeFakeHash(i)
+      domain = 3'u64
 
-      proofOfPossessionData = DepositInput(
-        pubkey: pubKey,
-        withdrawal_credentials: withdrawalCredentials)
-
-      proofOfPossession = bls_sign(
-        privkey, hash_tree_root(proofOfPossessionData).data,
-        0 # TODO - domain
-        )
-
-    let
+    var
       deposit = Deposit(
-        deposit_data: DepositData(
+        data: DepositData(
           amount: MAX_EFFECTIVE_BALANCE,
-          timestamp: 0, # TODO https://github.com/ethereum/eth2.0-specs/pull/834
-          deposit_input: DepositInput(
-            pubkey: pubKey,
-            proof_of_possession: proofOfPossession,
-            withdrawal_credentials: withdrawalCredentials)))
+          pubkey: pubKey,
+          withdrawal_credentials: withdrawalCredentials))
+
+    deposit.data.signature =
+      bls_sign(privkey, signing_root(deposit.data).data,
+               domain)
 
     writeTextFile(privKeyFn, $privKey)
     writeFile(depositFn, deposit)

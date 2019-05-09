@@ -375,7 +375,7 @@ proc proposeBlock(node: BeaconNode,
 
     newBlock.state_root = tmpState.root
 
-    let blockRoot = signed_root(newBlock)
+    let blockRoot = signing_root(newBlock)
 
     # Careful, state no longer valid after here..
     newBlock.signature =
@@ -418,7 +418,7 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
 proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
   # We received a block but don't know much about it yet - in particular, we
   # don't know if it's part of the chain we're currently building.
-  let blockRoot = signed_root(blck)
+  let blockRoot = signing_root(blck)
   debug "Block received",
     blck = shortLog(blck),
     blockRoot = shortLog(blockRoot)

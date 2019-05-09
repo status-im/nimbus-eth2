@@ -105,27 +105,40 @@ func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   ### Check if ``validator`` is active
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_active_validator_indices
-func get_active_validator_indices*(validators: openArray[Validator], epoch: Epoch): seq[ValidatorIndex] =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_active_validator_indices
+func get_active_validator_indices*(
+    validators: openarray[Validator], epoch: Epoch): seq[ValidatorIndex] =
   ## Gets indices of active validators from validators
+  ## TODO remove when shuffling's refactored persuant to 0.6.1
   for idx, val in validators:
     if is_active_validator(val, epoch):
       result.add idx.ValidatorIndex
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_active_validator_indices
+func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
+    seq[ValidatorIndex] =
+  ## Gets indices of active validators from validators
+  for idx, val in state.validator_registry:
+    if is_active_validator(val, epoch):
+      result.add idx.ValidatorIndex
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_epoch_committee_count
-func get_epoch_committee_count*(active_validator_count: int): uint64 =
+# Not quite the 0.5.1 version. TODO remove when shuffling refactoring complete
+func get_epoch_committee_count*(
+    validators: openarray[Validator], epoch: Epoch): uint64 =
+  # Return the number of committees at ``epoch``.
+  let active_validator_indices = get_active_validator_indices(validators, epoch)
   clamp(
-    active_validator_count div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
+    len(active_validator_indices) div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
     1, SHARD_COUNT div SLOTS_PER_EPOCH).uint64 * SLOTS_PER_EPOCH
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_current_epoch_committee_count
-func get_current_epoch_committee_count*(state: BeaconState): uint64 =
-  # Return the number of committees in the current epoch of the given ``state``.
-  let current_active_validators = get_active_validator_indices(
-    state.validator_registry,
-    state.current_shuffling_epoch,
-  )
-  get_epoch_committee_count(len(current_active_validators))
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_epoch_committee_count
+func get_epoch_committee_count*(state: BeaconState, epoch: Epoch): uint64 =
+  # Return the number of committees at ``epoch``.
+  let active_validator_indices = get_active_validator_indices(state, epoch)
+  clamp(
+    len(active_validator_indices) div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
+    1, SHARD_COUNT div SLOTS_PER_EPOCH).uint64 * SLOTS_PER_EPOCH
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: BeaconState): Epoch =
