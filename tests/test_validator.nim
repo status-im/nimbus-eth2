@@ -33,7 +33,8 @@ suite "Validators":
       genState = get_genesis_beacon_state(
         makeInitialDeposits(num_validators, flags = {skipValidation}), 0,
           Eth1Data(), {skipValidation})
-      s = get_shuffling(Eth2Digest(), genState, GENESIS_EPOCH)
+      s = get_shuffling(
+        Eth2Digest(), genState.validator_registry, GENESIS_EPOCH)
       committees = get_epoch_committee_count(genState, GENESIS_EPOCH).int
     check:
       # def b(s): return "Eth2Digest(data: [0x" + "'u8, 0x".join((s[i:i+2] for i in range(0, 64, 2))) + "'u8])"

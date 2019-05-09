@@ -73,7 +73,7 @@ func get_shuffled_seq*(seed: Eth2Digest,
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_shuffling
 func get_shuffling*(seed: Eth2Digest,
-                    state: BeaconState,
+                    validators: openArray[Validator],
                     epoch: Epoch,
                     ): seq[seq[ValidatorIndex]] =
   ## This function is factored to facilitate testing with
@@ -81,12 +81,10 @@ func get_shuffling*(seed: Eth2Digest,
   ## test vectors, which the split of get_shuffling obfuscates.
 
   let
-    ## TODO get_epoch_committee_count also calls g_a_v_i,
-    ## but get_shuffling goes away in rest of 0.6
-    active_validator_indices = get_active_validator_indices(state, epoch)
+    active_validator_indices = get_active_validator_indices(validators, epoch)
     list_size = active_validator_indices.len.uint64
     committees_per_epoch = get_epoch_committee_count(
-      state, epoch).int
+      validators, epoch).int
     shuffled_seq = get_shuffled_seq(seed, list_size)
 
   # Split the shuffled list into committees_per_epoch pieces
@@ -182,7 +180,7 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64,
     get_epoch_specific_params()
 
   let
-    shuffling = get_shuffling(seed, state, shuffling_epoch)
+    shuffling = get_shuffling(seed, state.validator_registry, shuffling_epoch)
     offset = slot mod SLOTS_PER_EPOCH
     committees_per_slot = committees_per_epoch div SLOTS_PER_EPOCH
     slot_start_shard = (shuffling_start_shard + committees_per_slot * offset) mod SHARD_COUNT
