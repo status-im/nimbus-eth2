@@ -10,7 +10,7 @@
 
 import
   endians, typetraits, options, algorithm, math,
-  faststreams/input_stream, serialization, eth/common, nimcrypto/keccak,
+  faststreams/input_stream, serialization, eth/common, nimcrypto/sha2,
   ./spec/[bitfield, crypto, datatypes, digest]
 
 # ################### Helper functions ###################################

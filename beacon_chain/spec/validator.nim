@@ -12,8 +12,9 @@ import
   ../ssz, ../beacon_node_types,
   ./crypto, ./datatypes, ./digest, ./helpers
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_shuffling
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_permuted_index
+# TODO: Proceed to renaming and signature changes
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_shuffled_index
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#compute_committee
 func get_shuffled_seq*(seed: Eth2Digest,
                        list_size: uint64,
                        ): seq[ValidatorIndex] =
@@ -25,8 +26,16 @@ func get_shuffled_seq*(seed: Eth2Digest,
   ##
   ## Invert the inner/outer loops from the spec, essentially. Most useful
   ## hash result re-use occurs within a round.
+
+  # Empty size -> empty list.
+  if list_size == 0:
+    return
+
   var
     # Share these buffers.
+    # TODO: Redo to follow spec.
+    #       We can have an "Impl" private version that takes buffer as parameters
+    #       so that we avoid alloc on repeated calls from compute_committee
     pivot_buffer: array[(32+1), byte]
     source_buffer: array[(32+1+4), byte]
     shuffled_active_validator_indices = mapIt(
@@ -44,7 +53,7 @@ func get_shuffled_seq*(seed: Eth2Digest,
     source_buffer[32] = round_bytes1
 
     # Only one pivot per round.
-    let pivot = bytes_to_int(eth2hash(pivot_buffer).data[0..7]) mod list_size
+    let pivot = bytes_to_int(eth2hash(pivot_buffer).data.toOpenArray(0, 7)) mod list_size
 
     ## Only need to run, per round, position div 256 hashes, so precalculate
     ## them. This consumes memory, but for low-memory devices, it's possible

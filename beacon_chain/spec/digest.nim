@@ -7,21 +7,20 @@
 
 # Serenity hash function / digest
 #
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#hash
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#hash
 #
-# In Phase 0 the beacon chain is deployed with the same hash function as
-# Ethereum 1.0, i.e. Keccak-256 (also incorrectly known as SHA3).
+# In Phase 0 the beacon chain is deployed with SHA256 (SHA2-256).
+# Note that is is different from Keccak256 (often mistakenly called SHA3-256)
+# and SHA3-256.
 #
-# Note: We aim to migrate to a S[T/N]ARK-friendly hash function in a future
-# Ethereum 2.0 deployment phase.
+# In Eth1.0, the default hash function is Keccak256 and SHA256 is available as a precompiled contract.
 #
-# https://crypto.stackexchange.com/questions/15727/what-are-the-key-differences-between-the-draft-sha-3-standard-and-the-keccak-sub
-#
-# In our code base, to enable a smooth transition, we call this function
-# `eth2hash`, and it outputs a `Eth2Digest`. Easy to sed :)
+# In our code base, to enable a smooth transition
+# (already did Blake2b --> Keccak256 --> SHA2-256),
+# we call this function `eth2hash`, and it outputs a `Eth2Digest`. Easy to sed :)
 
 import
-  nimcrypto/[keccak, hash], eth/common/eth_types_json_serialization,
+  nimcrypto/[sha2, hash], eth/common/eth_types_json_serialization,
   hashes
 
 export
@@ -29,17 +28,21 @@ export
 
 type
   Eth2Digest* = MDigest[32 * 8] ## `hash32` from spec
-  Eth2Hash* = keccak256 ## Context for hash function
+  Eth2Hash* = sha256            ## Context for hash function
 
 func shortLog*(x: Eth2Digest): string =
   # result = is needed to fix https://github.com/status-im/nim-beacon-chain/issues/209
   result = ($x)[0..7]
 
-func eth2hash*(v: openArray[byte]): Eth2Digest =
-  var ctx: keccak256 # use explicit type so we can rely on init being useless
-  # We can avoid this step for Keccak/SHA3 digests because `ctx` is already
-  # empty, but if digest will be changed next line must be enabled.
-  # ctx.init()
+# TODO: expose an in-place digest function
+#       when hashing in loop or into a buffer
+#       See: https://github.com/cheatfate/nimcrypto/blob/b90ba3abd/nimcrypto/sha2.nim#L570
+func eth2hash*(v: openArray[byte]): Eth2Digest {.inline.} =
+  # We use the init-update-finish interface to avoid
+  # the expensive burning/clearing memory (20~30% perf)
+  # TODO: security implication?
+  var ctx: sha256
+  ctx.init()
   ctx.update(v)
   result = ctx.finish()
 
@@ -47,14 +50,14 @@ template withEth2Hash*(body: untyped): Eth2Digest =
   ## This little helper will init the hash function and return the sliced
   ## hash:
   ## let hashOfData = withHash: h.update(data)
-  var h  {.inject.}: keccak256
-  # TODO no need, as long as using keccak256: h.init()
+  var h  {.inject.}: sha256
+  h.init()
   body
   var res = h.finish()
   res
 
 func hash*(x: Eth2Digest): Hash =
-  ## Hash for Keccak digests for Nim hash tables
+  ## Hash for digests for Nim hash tables
   # Stub for BeaconChainDB
 
   # We just slice the first 4 or 8 bytes of the block hash
