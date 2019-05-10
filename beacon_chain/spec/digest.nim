@@ -38,7 +38,13 @@ func shortLog*(x: Eth2Digest): string =
 #       when hashing in loop or into a buffer
 #       See: https://github.com/cheatfate/nimcrypto/blob/b90ba3abd/nimcrypto/sha2.nim#L570
 func eth2hash*(v: openArray[byte]): Eth2Digest {.inline.} =
-  result = sha256.digest(v)
+  # We use the init-update-finish interface to avoid
+  # the expensive burning/clearing memory (20~30% perf)
+  # TODO: security implication?
+  var ctx: sha256
+  ctx.init()
+  ctx.update(v)
+  result = ctx.finish()
 
 template withEth2Hash*(body: untyped): Eth2Digest =
   ## This little helper will init the hash function and return the sliced
