@@ -15,12 +15,15 @@ if [ "${NAT:-}" == "1" ]; then
   NAT_FLAG="--nat:any"
 fi
 
-FIRST_VALIDATOR_IDX=$(printf '%07d' $(( (NUM_VALIDATORS / ($NUM_NODES + $NUM_MISSING_NODES)) * $1 )))
-LAST_VALIDATOR_IDX=$(printf '%07d' $(( (NUM_VALIDATORS / ($NUM_NODES + $NUM_MISSING_NODES)) * ($1 + 1) - 1 )))
+FIRST_VALIDATOR_IDX=$(( (NUM_VALIDATORS / ($NUM_NODES + $NUM_MISSING_NODES)) * $1 ))
+LAST_VALIDATOR_IDX=$(( (NUM_VALIDATORS / ($NUM_NODES + $NUM_MISSING_NODES)) * ($1 + 1) - 1 ))
 
 mkdir -p $DATA_DIR/validators
 rm -f $DATA_DIR/validators/*
-eval cp ${VALIDATORS_DIR}/v{$FIRST_VALIDATOR_IDX..$LAST_VALIDATOR_IDX}.privkey $DATA_DIR/validators
+
+pushd $VALIDATORS_DIR
+  cp $(seq -s " " -f v%07g.privkey $FIRST_VALIDATOR_IDX $LAST_VALIDATOR_IDX) $DATA_DIR/validators
+popd
 
 $BEACON_NODE_BIN \
   --network:$NETWORK_METADATA_FILE \
