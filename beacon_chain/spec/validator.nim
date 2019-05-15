@@ -80,6 +80,44 @@ func get_shuffled_seq*(seed: Eth2Digest,
 
   result = shuffled_active_validator_indices
 
+func get_shuffled_index(index: ValidatorIndex, index_count: uint64, seed: Eth2Digest): uint64 =
+  ## Return the shuffled validator index corresponding to ``seed`` (and
+  ## ``index_count``).
+  ## https://github.com/status-im/nim-beacon-chain/blob/f77016af6818ad2c853f6c9e2751b17548e0222e/beacon_chain/spec/validator.nim#L15
+
+  doAssert index.uint64 < index_count
+  doAssert index_count <= 2'u64^40
+
+  result = index
+  var pivot_buffer: array[(32+1), byte]
+  var source_buffer: array[(32+1+4), byte]
+
+  # Swap or not (https://link.springer.com/content/pdf/10.1007%2F978-3-642-32009-5_1.pdf)
+  # See the 'generalized domain' algorithm on page 3
+  for round in 0 ..< SHUFFLE_ROUND_COUNT:
+    pivot_buffer[0..31] = seed.data
+    let round_bytes1 = int_to_bytes1(round)[0]
+    pivot_buffer[32] = round_bytes1
+
+    let
+      pivot = bytes_to_int(eth2hash(pivot_buffer).data[0..7]) mod index_count
+      flip = (pivot - index) mod index_count
+      position = max(index.uint64, flip)
+
+    ## Tradeoff between slicing (if reusing one larger buffer) and additional
+    ## copies here of seed and `int_to_bytes1(round)`.
+    source_buffer[0..31] = seed.data
+    source_buffer[32] = round_bytes1
+    source_buffer[33..36] = int_to_bytes4(position div 256)
+
+    let
+      source = eth2hash(source_buffer).data
+      byte_value = source[(position mod 256) div 8]
+      bit = (byte_value shr (position mod 8)) mod 2
+
+    if bit != 0:
+      result = flip
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_shuffling
 func get_shuffling*(seed: Eth2Digest,
                     validators: openArray[Validator],
@@ -212,36 +250,75 @@ iterator get_crosslink_committees_at_slot_cached*(
   cache.crosslink_committee_cache[key] = result
   for v in result: yield v
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_beacon_proposer_index
-# TODO remove/merge these back together once 0.5.1 callers removed
-func get_beacon_proposer_index*(state: BeaconState, slot: Slot): ValidatorIndex =
-  ## From Casper RPJ mini-spec:
-  ## When slot i begins, validator Vidx is expected
-  ## to create ("propose") a block, which contains a pointer to some parent block
-  ## that they perceive as the "head of the chain",
-  ## and includes all of the **attestations** that they know about
-  ## that have not yet been included into that chain.
-  ##
-  ## idx in Vidx == p(i mod N), pi being a random permutation of validators indices (i.e. a committee)
-  ## Returns the beacon proposer index for the ``slot``.
-  # TODO this index is invalid outside of the block state transition function
-  #      because presently, `state.slot += 1` happens before this function
-  #      is called - see also testutil.getNextBeaconProposerIndex
-  # TODO is the above still true? the shuffling has changed since it was written
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_shard_delta
+func get_shard_delta(state: BeaconState, epoch: Epoch): uint64 =
+  ## Return the number of shards to increment ``state.latest_start_shard``
+  ## during ``epoch``.
+  min(get_epoch_committee_count(state, epoch),
+    (SHARD_COUNT - SHARD_COUNT div SLOTS_PER_EPOCH).uint64)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_epoch_start_shard
+func get_epoch_start_shard(state: BeaconState, epoch: Epoch): Shard =
+  doAssert epoch <= get_current_epoch(state) + 1
+  var
+    check_epoch = get_current_epoch(state) + 1
+    shard =
+      (state.latest_start_shard +
+       get_shard_delta(state, get_current_epoch(state))) mod SHARD_COUNT
+  while check_epoch > epoch:
+    check_epoch -= 1
+    shard = (shard + SHARD_COUNT - get_shard_delta(state, check_epoch)) mod
+      SHARD_COUNT
+  return shard
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#compute_committee
+func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
+    index: uint64, count: uint64): seq[ValidatorIndex] =
   let
-    epoch = slot_to_epoch(slot)
-    current_epoch = get_current_epoch(state)
-    previous_epoch = get_previous_epoch(state)
-    next_epoch = current_epoch + 1
+    start = (len(indices).uint64 * index) div count
+    endIdx = (len(indices).uint64 * (index + 1)) div count
+  mapIt(
+    start .. (endIdx-1),
+    indices[
+      get_shuffled_index(it.ValidatorIndex, len(indices).uint64, seed).int])
 
-  doAssert previous_epoch <= epoch
-  doAssert epoch <= next_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_crosslink_committee
+func get_crosslink_committee(state: BeaconState, epoch: Epoch, shard: Shard):
+    seq[ValidatorIndex] =
+  compute_committee(
+    get_active_validator_indices(state, epoch),
+    generate_seed(state, epoch),
+    (shard + SHARD_COUNT - get_epoch_start_shard(state, epoch)) mod SHARD_COUNT,
+    get_epoch_committee_count(state, epoch),
+  )
 
-  let (first_committee, _) = get_crosslink_committees_at_slot(state, slot)[0]
-  let idx = int(slot mod uint64(first_committee.len))
-  first_committee[idx]
-
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: BeaconState): ValidatorIndex =
-  # Return the beacon proposer index at ``state.slot``.
-  # TODO there are some other changes here
-  get_beacon_proposer_index(state, state.slot)
+  # Return the current beacon proposer index.
+  const
+    MAX_RANDOM_BYTE = 255
+
+  let
+    epoch = get_current_epoch(state)
+    committees_per_slot =
+      get_epoch_committee_count(state, epoch) div SLOTS_PER_EPOCH
+    offset = committees_per_slot * (state.slot mod SLOTS_PER_EPOCH)
+    shard = (get_epoch_start_shard(state, epoch) + offset) mod SHARD_COUNT
+    first_committee = get_crosslink_committee(state, epoch, shard)
+    seed = generate_seed(state, epoch)
+
+  var
+    i = 0
+    buffer: array[(32+8), byte]
+  buffer[0..31] = seed.data
+  while true:
+    buffer[32..39] = int_to_bytes8(i.uint64 div 32)
+    let
+      candidate_index = first_committee[((epoch + i.uint64) mod
+        len(first_committee).uint64).int]
+      random_byte = (eth2hash(buffer).data)[i mod 32]
+      effective_balance =
+        state.validator_registry[candidate_index].effective_balance
+    if effective_balance * MAX_RANDOM_BYTE >= MAX_EFFECTIVE_BALANCE * random_byte:
+      return candidate_index
+    i += 1

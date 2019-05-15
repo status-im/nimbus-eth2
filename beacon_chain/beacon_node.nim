@@ -497,7 +497,8 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
   #      revisit this - we should be able to advance behind
   node.blockPool.withState(node.stateCache, BlockSlot(blck: head, slot: slot)):
     let
-      proposerIdx = get_beacon_proposer_index(state, slot)
+      # TODO this probably isn't correct, check re blob/v0.5.1
+      proposerIdx = get_beacon_proposer_index(state)
       validator = node.getAttachedValidator(state, proposerIdx)
 
     if validator != nil:

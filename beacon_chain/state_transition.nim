@@ -57,7 +57,7 @@ proc processBlockHeader(
   state.latest_block_header = get_temporary_block_header(blck)
 
   let proposer =
-    state.validator_registry[get_beacon_proposer_index(state, state.slot)]
+    state.validator_registry[get_beacon_proposer_index(state)]
   if skipValidation notin flags and not bls_verify(
       proposer.pubkey,
       signing_root(blck).data,
@@ -75,7 +75,7 @@ proc processBlockHeader(
 proc processRandao(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   let
-    proposer_index = get_beacon_proposer_index(state, state.slot)
+    proposer_index = get_beacon_proposer_index(state)
     proposer = addr state.validator_registry[proposer_index]
 
   if skipValidation notin flags:
@@ -849,7 +849,7 @@ func compute_normal_justification_and_finalization_deltas(state: BeaconState):
     # Proposer bonus
     if index in previous_epoch_attestation_indices:
       let proposer_index =
-        get_beacon_proposer_index(state, inclusion_slot[index])
+        get_beacon_proposer_index(state)
       deltas[0][proposer_index] +=
         get_base_reward(state, index) div PROPOSER_REWARD_QUOTIENT
   deltas
