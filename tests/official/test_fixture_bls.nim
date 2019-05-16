@@ -11,20 +11,20 @@ import
   # Third parties
 
   # Beacon chain internals
-  ../../beacon_chain/spec/validator,
+  ../../beacon_chain/spec/crypto,
   # Test utilities
   ./fixtures_utils
 
 const TestFolder = currentSourcePath.rsplit(DirSep, 1)[0]
-const TestsPath = "fixtures" / "json_tests" / "shuffling" / "core" / "shuffling_full.json"
+const TestsPath = "fixtures" / "json_tests" / "bls" / "priv_to_pub" / "priv_to_pub.json"
 
-var shufflingTests: Tests[Shuffling]
+var blsPrivToPubTests: Tests[BLSPrivToPub]
 
-suite "Official - Shuffling tests":
-  test "Parsing the official shuffling tests":
-    shufflingTests = parseTestsShuffling(TestFolder / TestsPath)
+suite "Official - BLS tests":
+  test "Parsing the official BLS priv_to_pub tests":
+    blsPrivToPubTests = parseTestsBLSPrivToPub(TestFolder / TestsPath)
 
-  test "Shuffling a sequence of N validators":
-    for t in shufflingTests.test_cases:
-      let implResult = get_shuffled_seq(t.seed, t.count)
-      check: implResult == t.shuffled
+  test "Private to public key conversion":
+    for t in blsPrivToPubTests.test_cases:
+      let implResult = t.input.pubkey()
+      check: implResult == t.output

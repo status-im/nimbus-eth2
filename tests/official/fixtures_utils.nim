@@ -75,7 +75,7 @@ type
     blocks*: seq[BeaconBlock]
     expected_state*: BeaconState
 
-  ShufflingTests* = object
+  Tests*[T] = object
     title*: string
     summary*: string
     forks_timeline*: string
@@ -83,14 +83,35 @@ type
     config*: string
     runner*: string
     handler*: string
-    test_cases*: seq[ShufflingTestCase]
+    test_cases*: seq[T]
 
-  ShufflingTestCase* = object
+  Shuffling* = object
     seed*: Eth2Digest
     count*: uint64
     shuffled*: seq[ValidatorIndex]
 
-  Tests* = StateTests or ShufflingTests
+  # # TODO - but already tested in nim-blscurve
+  # BLSUncompressedG2 = object
+  #   input*: tuple[
+  #     message: seq[byte],
+  #     domain: array[1, byte]
+  #     ]
+  #   output*: ECP2_BLS381
+
+    # # TODO - but already tested in nim-blscurve
+  # BLSCompressedG2 = object
+  #   input*: tuple[
+  #     message: seq[byte],
+  #     domain: array[1, byte]
+  #     ]
+  #   output*: ECP2_BLS381
+    
+  BLSPrivToPub* = object
+    input*: ValidatorPrivKey
+    output*: ValidatorPubKey
+  BLSSignMsg* = object
+    privkey*: ValidatorPrivKey
+    message*: seq[byte]
   
 # #######################
 # Default init
@@ -110,12 +131,30 @@ proc readValue*[N: static int](r: var JsonReader, a: var array[N, byte]) {.inlin
 proc readValue*(r: var JsonReader, a: var ValidatorIndex) {.inline.} =
   a = r.readValue(uint32)
 
-export
-  # TODO: workaround https://github.com/status-im/nim-serialization/issues/4
-  json_serialization 
-proc parseTests*(jsonPath: string, T: typedesc[Tests]): T =
+# TODO: workaround https://github.com/status-im/nim-serialization/issues/4
+#       and https://github.com/status-im/nim-serialization/issues/5
+
+proc parseTestsShuffling*(jsonPath: string): Tests[Shuffling] =
   try:
-    result = Json.loadFile(jsonPath, T)
+    result = Json.loadFile(jsonPath, Tests[Shuffling])
+  except SerializationError as err:
+    writeStackTrace()
+    stderr.write "Json load issue for file \"", jsonPath, "\"\n"
+    stderr.write err.formatMsg(jsonPath), "\n"
+    quit 1
+
+proc parseTestsBLSPrivToPub*(jsonPath: string): Tests[BLSPrivToPub] =
+  try:
+    result = Json.loadFile(jsonPath, Tests[BLSPrivToPub])
+  except SerializationError as err:
+    writeStackTrace()
+    stderr.write "Json load issue for file \"", jsonPath, "\"\n"
+    stderr.write err.formatMsg(jsonPath), "\n"
+    quit 1
+
+proc parseTestsBLSSignMsg*(jsonPath: string): Tests[BLSSignMsg] =
+  try:
+    result = Json.loadFile(jsonPath, Tests[BLSSignMsg])
   except SerializationError as err:
     writeStackTrace()
     stderr.write "Json load issue for file \"", jsonPath, "\"\n"
