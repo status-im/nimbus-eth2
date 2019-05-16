@@ -110,24 +110,12 @@ proc readValue*[N: static int](r: var JsonReader, a: var array[N, byte]) {.inlin
 proc readValue*(r: var JsonReader, a: var ValidatorIndex) {.inline.} =
   a = r.readValue(uint32)
 
-# TODO: cannot pass a typedesc
-# proc parseTests*(jsonPath: string, T: typedesc[Tests]): T =
-#   # TODO: due to generic early symbol resolution
-#   #       we cannot use a generic proc
-#   #       Otherwise we get:
-#   #       "Error: undeclared identifier: 'ReaderType'"
-#   #       Templates, even untyped don't work
-#   try:
-#     result = Json.loadFile(jsonPath, T)
-#   except SerializationError as err:
-#     writeStackTrace()
-#     stderr.write "Json load issue for file \"", jsonPath, "\"\n"
-#     stderr.write err.formatMsg(jsonPath), "\n"
-#     quit 1
-
-proc parseTests*(jsonPath: string): ShufflingTests =
+export
+  # TODO: workaround https://github.com/status-im/nim-serialization/issues/4
+  json_serialization 
+proc parseTests*(jsonPath: string, T: typedesc[Tests]): T =
   try:
-    result = Json.loadFile(jsonPath, ShufflingTests)
+    result = Json.loadFile(jsonPath, T)
   except SerializationError as err:
     writeStackTrace()
     stderr.write "Json load issue for file \"", jsonPath, "\"\n"

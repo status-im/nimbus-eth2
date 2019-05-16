@@ -22,7 +22,7 @@ var shufflingTests: ShufflingTests
 
 suite "Official - Shuffling tests":
   test "Parsing the official shuffling tests":
-    shufflingTests = parseTests(TestFolder / TestsPath)
+    shufflingTests = parseTests(TestFolder / TestsPath, ShufflingTests)
 
   test "Shuffling a sequence of N validators":
     for t in shufflingTests.test_cases:

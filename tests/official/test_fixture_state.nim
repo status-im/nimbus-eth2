@@ -24,7 +24,7 @@ var stateTests: StateTests
 suite "Official - State tests": # Initializing a beacon state from the deposits
   # Source: https://github.com/ethereum/eth2.0-specs/blob/2baa242ac004b0475604c4c4ef4315e14f56c5c7/tests/phase0/test_sanity.py#L55-L460
   test "Parsing the official state tests into Nimbus beacon types":
-    stateTests = parseTests(TestFolder / TestsPath, StateTests) # TODO pending typedesc fix in fixture_utils.nim
+    stateTests = parseTests(TestFolder / TestsPath, StateTests)
     doAssert $stateTests.test_cases[0].name == "test_empty_block_transition"
   
   test "[For information - Non-blocking] Block root signing":
