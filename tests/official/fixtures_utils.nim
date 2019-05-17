@@ -123,6 +123,14 @@ type
   BLSSignMsg* = object
     input*: BLSSignMsgInput
     output*: Signature
+
+  BLSAggSig* = object
+    input*: seq[Signature]
+    output*: Signature
+
+  BLSAggPubKey* = object
+    input*: seq[ValidatorPubKey]
+    output*: ValidatorPubKey
   
 # #######################
 # Default init
@@ -152,42 +160,36 @@ proc readValue*(r: var JsonReader, a: var Domain) {.inline.} =
   bigEndian64(a.addr, be_uint.unsafeAddr)
 
 proc readValue*(r: var JsonReader, a: var seq[byte]) {.inline.} =
-  ## Custom deserializer for Domain
-  ## They are uint64 stored in hex values
-  # Furthermore Nim parseHex doesn't support uint
-  # until https://github.com/nim-lang/Nim/pull/11067
-  # (0.20)
+  ## Custom deserializer for seq[byte]
   a = hexToSeqByte(r.readValue(string))
 
-# TODO: workaround https://github.com/status-im/nim-serialization/issues/4
-#       and https://github.com/status-im/nim-serialization/issues/5
+template parseTestsImpl(T: untyped) {.dirty.} =
+  # TODO: workaround typedesc/generics
+  #       being broken with nim-serialization
+  #       - https://github.com/status-im/nim-serialization/issues/4
+  #       - https://github.com/status-im/nim-serialization/issues/5
+  try:
+    result = Json.loadFile(jsonPath, T)
+  except SerializationError as err:
+    writeStackTrace()
+    stderr.write "Json load issue for file \"", jsonPath, "\"\n"
+    stderr.write err.formatMsg(jsonPath), "\n"
+    quit 1
 
 proc parseTestsShuffling*(jsonPath: string): Tests[Shuffling] =
-  try:
-    result = Json.loadFile(jsonPath, Tests[Shuffling])
-  except SerializationError as err:
-    writeStackTrace()
-    stderr.write "Json load issue for file \"", jsonPath, "\"\n"
-    stderr.write err.formatMsg(jsonPath), "\n"
-    quit 1
+  parseTestsImpl(Tests[Shuffling])
 
 proc parseTestsBLSPrivToPub*(jsonPath: string): Tests[BLSPrivToPub] =
-  try:
-    result = Json.loadFile(jsonPath, Tests[BLSPrivToPub])
-  except SerializationError as err:
-    writeStackTrace()
-    stderr.write "Json load issue for file \"", jsonPath, "\"\n"
-    stderr.write err.formatMsg(jsonPath), "\n"
-    quit 1
+  parseTestsImpl(Tests[BLSPrivToPub])
 
 proc parseTestsBLSSignMsg*(jsonPath: string): Tests[BLSSignMsg] =
-  try:
-    result = Json.loadFile(jsonPath, Tests[BLSSignMsg])
-  except SerializationError as err:
-    writeStackTrace()
-    stderr.write "Json load issue for file \"", jsonPath, "\"\n"
-    stderr.write err.formatMsg(jsonPath), "\n"
-    quit 1
+  parseTestsImpl(Tests[BLSSignMsg])
+
+proc parseTestsBLSAggSig*(jsonPath: string): Tests[BLSAggSig] =
+  parseTestsImpl(Tests[BLSAggSig])
+
+proc parseTestsBLSAggPubKey*(jsonPath: string): Tests[BLSAggPubKey] =
+  parseTestsImpl(Tests[BLSAggPubKey])
 
 # #######################
 # Mocking helpers

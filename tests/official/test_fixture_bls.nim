@@ -20,11 +20,15 @@ const TestsPath = "fixtures" / "json_tests" / "bls"
 var
   blsPrivToPubTests: Tests[BLSPrivToPub]
   blsSignMsgTests: Tests[BLSSignMsg]
+  blsAggSigTests: Tests[BLSAggSig]
+  blsAggPubKeyTests: Tests[BLSAggPubKey]
 
 suite "Official - BLS tests":
   test "Parsing the official BLS tests":
     blsPrivToPubTests = parseTestsBLSPrivToPub(TestFolder / TestsPath / "priv_to_pub" / "priv_to_pub.json")
     blsSignMsgTests = parseTestsBLSSignMsg(TestFolder / TestsPath / "sign_msg" / "sign_msg.json")
+    blsAggSigTests = parseTestsBLSAggSig(TestFolder / TestsPath / "aggregate_sigs" / "aggregate_sigs.json")
+    blsAggPubKeyTests = parseTestsBLSAggPubKey(TestFolder / TestsPath / "aggregate_pubkeys" / "aggregate_pubkeys.json")
 
   test "Private to public key conversion":
     for t in blsPrivToPubTests.test_cases:
@@ -37,4 +41,14 @@ suite "Official - BLS tests":
         t.input.message,
         uint64(t.input.domain)
         )
+      check: implResult == t.output
+
+  test "Aggregating signatures":
+    for t in blsAggSigTests.test_cases:
+      let implResult = t.input.combine()
+      check: implResult == t.output
+
+  test "Aggregating public keys":
+    for t in blsAggPubKeyTests.test_cases:
+      let implResult = t.input.combine()
       check: implResult == t.output
