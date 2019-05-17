@@ -21,4 +21,5 @@ import # Unit test
 import # Official fixtures
   # TODO - re-enable
   #./official/test_fixture_state
-  ./official/test_fixture_shuffling
+  ./official/test_fixture_shuffling,
+  ./official/test_fixture_bls
