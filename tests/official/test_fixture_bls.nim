@@ -16,15 +16,25 @@ import
   ./fixtures_utils
 
 const TestFolder = currentSourcePath.rsplit(DirSep, 1)[0]
-const TestsPath = "fixtures" / "json_tests" / "bls" / "priv_to_pub" / "priv_to_pub.json"
-
-var blsPrivToPubTests: Tests[BLSPrivToPub]
+const TestsPath = "fixtures" / "json_tests" / "bls"
+var
+  blsPrivToPubTests: Tests[BLSPrivToPub]
+  blsSignMsgTests: Tests[BLSSignMsg]
 
 suite "Official - BLS tests":
-  test "Parsing the official BLS priv_to_pub tests":
-    blsPrivToPubTests = parseTestsBLSPrivToPub(TestFolder / TestsPath)
+  test "Parsing the official BLS tests":
+    blsPrivToPubTests = parseTestsBLSPrivToPub(TestFolder / TestsPath / "priv_to_pub" / "priv_to_pub.json")
+    blsSignMsgTests = parseTestsBLSSignMsg(TestFolder / TestsPath / "sign_msg" / "sign_msg.json")
 
   test "Private to public key conversion":
     for t in blsPrivToPubTests.test_cases:
       let implResult = t.input.pubkey()
+      check: implResult == t.output
+
+  test "Message signing":
+    for t in blsSignMsgTests.test_cases:
+      let implResult = t.input.privkey.bls_sign(
+        t.input.message,
+        uint64(t.input.domain)
+        )
       check: implResult == t.output

@@ -5,7 +5,9 @@ import
   # Beacon chain internals
   # submodule in nim-beacon-chain/tests/official/fixtures/
   ../../beacon_chain/spec/[datatypes, crypto, digest],
-  ../../beacon_chain/ssz
+  ../../beacon_chain/ssz,
+  # Workarounds
+  endians # parseHex into uint64
 
 export nimcrypto.toHex
 
@@ -98,20 +100,29 @@ type
   #     ]
   #   output*: ECP2_BLS381
 
-    # # TODO - but already tested in nim-blscurve
+  # # TODO - but already tested in nim-blscurve
   # BLSCompressedG2 = object
   #   input*: tuple[
   #     message: seq[byte],
   #     domain: array[1, byte]
   #     ]
   #   output*: ECP2_BLS381
+
+  Domain = distinct uint64
+    ## Domains have custom hex serialization
     
   BLSPrivToPub* = object
     input*: ValidatorPrivKey
     output*: ValidatorPubKey
-  BLSSignMsg* = object
+
+  BLSSignMsgInput = object
     privkey*: ValidatorPrivKey
     message*: seq[byte]
+    domain*: Domain
+
+  BLSSignMsg* = object
+    input*: BLSSignMsgInput
+    output*: Signature
   
 # #######################
 # Default init
@@ -130,6 +141,23 @@ proc readValue*[N: static int](r: var JsonReader, a: var array[N, byte]) {.inlin
 
 proc readValue*(r: var JsonReader, a: var ValidatorIndex) {.inline.} =
   a = r.readValue(uint32)
+
+proc readValue*(r: var JsonReader, a: var Domain) {.inline.} =
+  ## Custom deserializer for Domain
+  ## They are uint64 stored in hex values
+  # Furthermore Nim parseHex doesn't support uint
+  # until https://github.com/nim-lang/Nim/pull/11067
+  # (0.20)
+  let be_uint = hexToPaddedByteArray[8](r.readValue(string))
+  bigEndian64(a.addr, be_uint.unsafeAddr)
+
+proc readValue*(r: var JsonReader, a: var seq[byte]) {.inline.} =
+  ## Custom deserializer for Domain
+  ## They are uint64 stored in hex values
+  # Furthermore Nim parseHex doesn't support uint
+  # until https://github.com/nim-lang/Nim/pull/11067
+  # (0.20)
+  a = hexToSeqByte(r.readValue(string))
 
 # TODO: workaround https://github.com/status-im/nim-serialization/issues/4
 #       and https://github.com/status-im/nim-serialization/issues/5
