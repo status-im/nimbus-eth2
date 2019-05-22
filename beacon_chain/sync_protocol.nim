@@ -1,5 +1,5 @@
 import
-  options, tables,
+  options, tables, sequtils, algorithm,
   chronicles, chronos, ranges/bitranges,
   spec/[datatypes, crypto, digest, helpers], eth/rlp,
   beacon_node_types, eth2_network, beacon_chain_db, block_pool, time, ssz
@@ -50,26 +50,28 @@ proc fromHeaderAndBody(b: var BeaconBlock, h: BeaconBlockHeaderRLP, body: Beacon
   b.body = body
 
 proc importBlocks(node: BeaconNode,
-                  roots: openarray[(Eth2Digest, Slot)],
-                  headers: openarray[BeaconBlockHeaderRLP],
-                  bodies: openarray[BeaconBlockBody]) =
-  var bodyMap = initTable[Eth2Digest, int]()
+                  blocks: openarray[BeaconBlock]) =
+  for blk in blocks:
+    node.onBeaconBlock(blk)
+  info "Forward sync imported blocks", len = blocks.len
 
-  for i, b in bodies:
-    bodyMap[hash_tree_root(b)] = i
+proc mergeBlockHeadersAndBodies(headers: openarray[BeaconBlockHeaderRLP], bodies: openarray[BeaconBlockBody]): Option[seq[BeaconBlock]] =
+  if bodies.len != headers.len:
+    info "Cannot merge bodies and headers. Length mismatch.", bodies = bodies.len, headers = headers.len
+    return
 
-  var goodBlocks, badBlocks = 0
-  for h in headers:
-    let iBody = bodyMap.getOrDefault(h.body, -1)
-    if iBody >= 0:
-      var blk: BeaconBlock
-      blk.fromHeaderAndBody(h, bodies[iBody])
-      node.onBeaconBlock(blk)
-      inc goodBlocks
-    else:
-      inc badBlocks
+  var res: seq[BeaconBlock]
+  for i in 0 ..< headers.len:
+    if hash_tree_root(bodies[i]) != headers[i].body:
+      info "Block body is wrong for header"
+      return
 
-  info "Forward sync imported blocks", goodBlocks, badBlocks, headers = headers.len, bodies = bodies.len, roots = roots.len
+    res.setLen(res.len + 1)
+    res[^1].fromHeaderAndBody(headers[i], bodies[i])
+  some(res)
+
+proc getBeaconBlocks*(peer: Peer, blockRoot: Eth2Digest, slot: Slot, maxBlocks, skipSlots: int, backward: uint8): Future[Option[seq[BeaconBlock]]] {.gcsafe, async.}
+
 
 p2pProtocol BeaconSync(version = 1,
                        shortName = "bcs",
@@ -112,40 +114,20 @@ p2pProtocol BeaconSync(version = 1,
 
         var s = bestSlot + 1
         while s <= m.bestSlot:
-          debug "Waiting for block roots", fromPeer = peer, remoteBestSlot = m.bestSlot, peer
-          let r = await peer.getBeaconBlockRoots(s, MaxRootsToRequest)
-          if not r.isSome:
-            debug "Block roots not received", peer
-            break
-          let roots = r.get.roots
-          debug "Received block roots", len = roots.len, peer
-          if roots.len != 0:
-            if roots.len > MaxRootsToRequest:
-              # Attack?
-              await peer.disconnect(BreachOfProtocol, true)
+          debug "Waiting for block headers", fromPeer = peer, remoteBestSlot = m.bestSlot, peer
+          let headersLeft = int(m.bestSlot - s)
+          let blocks = await peer.getBeaconBlocks(bestRoot, s, min(headersLeft, MaxHeadersToRequest), 0, 0)
+          if blocks.isSome:
+            if blocks.get.len == 0:
+              info "Got 0 blocks while syncing", peer
               break
-
-            let headers = await peer.getBeaconBlockHeaders(bestRoot, s, roots.len, 0)
-            var bodiesRequest = newSeqOfCap[Eth2Digest](roots.len)
-            for r in roots:
-              bodiesRequest.add(r[0])
-
-            debug "Block headers received. Requesting block bodies", peer
-            let bodies = await peer.getBeaconBlockBodies(bodiesRequest)
-            node.importBlocks(roots, headers.get.blockHeaders, bodies.get.blockBodies)
-
-            let lastSlot = roots[^1][1]
-            if roots.len == MaxRootsToRequest:
-              # Next batch of roots starts with the last slot of the current one
-              # to make sure we did not miss any roots with this slot that did
-              # not fit into the response.
-
-              if s == lastSlot:
-                info "Too many roots for a single slot while syncing"
-                break
-              s = lastSlot
-            else:
-              s = lastSlot + 1
+            node.importBlocks(blocks.get)
+            let lastSlot = blocks.get[^1].slot
+            if lastSlot <= s:
+              info "Slot did not advance during sync", peer
+              break
+  
+            s = lastSlot + 1
           else:
             break
 
@@ -182,19 +164,43 @@ p2pProtocol BeaconSync(version = 1,
             blockRoot: Eth2Digest,
             slot: Slot,
             maxHeaders: int,
-            skipSlots: int) {.libp2pProtocol("rpc/beacon_block_headers", "1.0.0").} =
-      # TODO: validate implement slipSlots
+            skipSlots: int,
+            backward: uint8) {.libp2pProtocol("rpc/beacon_block_headers", "1.0.0").} =
       let maxHeaders = min(MaxHeadersToRequest, maxHeaders)
-      var s = slot
       var headers = newSeqOfCap[BeaconBlockHeaderRLP](maxHeaders)
       let db = peer.networkState.db
-      let blockPool = peer.networkState.node.blockPool
-      let maxSlot = blockPool.head.blck.slot
-      while s <= maxSlot:
-        for r in blockPool.blockRootsForSlot(s):
-          headers.add(db.getBlock(r).get().toHeader)
-          if headers.len == maxHeaders: break
-        s += 1
+
+      if backward != 0:
+        # TODO: implement skipSlots
+
+        var blockRoot = blockRoot
+        if slot != GENESIS_SLOT:
+          # TODO: Get block from the best chain by slot
+          # blockRoot = ...
+          discard
+
+        while true:
+          if (let b = db.getBlock(blockRoot); b.isSome):
+            headers.add(b.get().toHeader)
+            blockRoot = headers[^1].parent_root
+            if headers.len == maxHeaders:
+              break
+          else:
+            break
+        headers.reverse()
+      else:
+        # TODO: This branch has to be revisited and possibly somehow merged with the
+        # branch above once we can traverse the best chain forward
+        # TODO: implement skipSlots
+        var s = slot
+        let blockPool = peer.networkState.node.blockPool
+        let maxSlot = blockPool.head.blck.slot
+        while s <= maxSlot:
+          for r in blockPool.blockRootsForSlot(s):
+            headers.add(db.getBlock(r).get().toHeader)
+            if headers.len == maxHeaders: break
+          s += 1
+
       await response.send(headers)
 
     proc beaconBlockHeaders(peer: Peer, blockHeaders: openarray[BeaconBlockHeaderRLP])
@@ -244,9 +250,33 @@ p2pProtocol BeaconSync(version = 1,
       for r in blockRoots:
         if (let blk = db.getBlock(r); blk.isSome):
           bodies.add(blk.get().body)
+        else:
+          bodies.setLen(bodies.len + 1) # According to wire spec. Pad with zero body.
       await response.send(bodies)
 
     proc beaconBlockBodies(
             peer: Peer,
             blockBodies: openarray[BeaconBlockBody])
 
+proc getBeaconBlocks*(peer: Peer, blockRoot: Eth2Digest, slot: Slot, maxBlocks, skipSlots: int, backward: uint8): Future[Option[seq[BeaconBlock]]] {.async.} =
+  ## Retrieve block headers and block bodies from the remote peer, merge them into blocks.
+  assert(maxBlocks <= MaxHeadersToRequest)
+  let headersResp = await peer.getBeaconBlockHeaders(blockRoot, slot, maxBlocks, skipSlots, backward)
+  if headersResp.isNone: return
+
+  let headers = headersResp.get.blockHeaders
+  if headers.len == 0:
+    info "Peer has no headers", peer
+    var res: seq[BeaconBlock]
+    return some(res)
+
+  let bodiesRequest = headers.mapIt(hash_tree_root(it))
+
+  debug "Block headers received. Requesting block bodies", peer
+  let bodiesResp = await peer.getBeaconBlockBodies(bodiesRequest)
+  if bodiesResp.isNone:
+    info "Did not receive bodies", peer
+    return
+
+  result = mergeBlockHeadersAndBodies(headers, bodiesResp.get.blockBodies)
+  # If result.isNone: disconnect with BreachOfProtocol?
