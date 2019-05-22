@@ -1,21 +1,8 @@
-import # Beacon Node
-  eth/[p2p, keys],
-  spec/[bitfield, digest],
-  beacon_chain_db, conf, mainchain_monitor, eth2_network,
-  ./time
-
-import # Attestation Pool
+import
+  sets, deques, tables,
+  eth/keys,
   spec/[bitfield, datatypes, crypto, digest],
-  deques, tables
-  # block_pool
-
-import # Block Pool
-  spec/[datatypes, digest],
-  beacon_chain_db,
-  tables
-
-import # Validator Pool
-  spec/crypto, tables
+  beacon_chain_db, conf, mainchain_monitor, eth2_network, time
 
 type
 
@@ -26,13 +13,13 @@ type
   # #############################################
   BeaconNode* = ref object
     nickname*: string
-    network*: EthereumNode
+    network*: Eth2Node
+    networkIdentity*: Eth2NodeIdentity
     networkMetadata*: NetworkMetadata
     requestManager*: RequestManager
     isBootstrapNode*: bool
     db*: BeaconChainDB
     config*: BeaconNodeConf
-    keys*: KeyPair
     attachedValidators*: ValidatorPool
     blockPool*: BlockPool
     attestationPool*: AttestationPool
@@ -258,10 +245,10 @@ type
     validators*: Table[ValidatorPubKey, AttachedValidator]
 
   RequestManager* = object
-    network*: EthereumNode
+    network*: Eth2Node
 
   NetworkMetadata* = object
-    networkId*: uint64
+    networkId*: uint8
     networkGeneration*: uint64
     genesisRoot*: Eth2Digest
     bootstrapNodes*: seq[BootstrapAddr]

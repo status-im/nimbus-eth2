@@ -5,7 +5,7 @@ import
   eth2_network, beacon_node_types, sync_protocol,
   eth/async_utils
 
-proc init*(T: type RequestManager, network: EthereumNode): T =
+proc init*(T: type RequestManager, network: Eth2Node): T =
   T(network: network)
 
 type

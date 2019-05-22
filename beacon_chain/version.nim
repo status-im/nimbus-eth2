@@ -1,5 +1,6 @@
 const
-  useRLPx* = not defined(withLibP2P)
+  network_type {.strdefine.} = "rlpx"
+  useRLPx* = network_type == "rlpx"
 
 const
   versionMajor* = 0

@@ -86,13 +86,11 @@ proc saveValidatorKey(keyName, key: string, conf: BeaconNodeConf) =
   writeFile(outputFile, key)
   info "Imported validator key", file = outputFile
 
-proc persistentNodeId*(conf: BeaconNodeConf): string =
-  ($ensureNetworkKeys(conf).pubKey)[0..5]
-
 proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
   new result
   result.config = conf
-  result.nickname = if conf.nodename == "auto": persistentNodeId(conf)
+  result.networkIdentity = getPersistentNetIdentity(conf)
+  result.nickname = if conf.nodename == "auto": shortForm(result.networkIdentity)
                     else: conf.nodename
 
   template fail(args: varargs[untyped]) =
@@ -182,6 +180,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   # TODO sync is called when a remote peer is connected - is that the right
   #      time to do so?
   let sync = result.network.protocolState(BeaconSync)
+  sync.chainId = 0 # TODO specify chainId
   sync.networkId = result.networkMetadata.networkId
   sync.node = result
   sync.db = result.db
@@ -210,11 +209,10 @@ template withState(
   body
 
 proc connectToNetwork(node: BeaconNode) {.async.} =
-  let localKeys = ensureNetworkKeys(node.config)
   var bootstrapNodes = newSeq[BootstrapAddr]()
 
   for bootNode in node.networkMetadata.bootstrapNodes:
-    if bootNode.pubkey == localKeys.pubKey:
+    if bootNode.isSameNode(node.networkIdentity):
       node.isBootstrapNode = true
     else:
       bootstrapNodes.add bootNode
@@ -278,7 +276,7 @@ proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
     # TODO move all of this logic to BlockPool
     debug "Preparing for fork choice",
       stateRoot = shortLog(root),
-      connectedPeers = node.network.connectedPeers,
+      connectedPeers = node.network.peersCount,
       stateSlot = humaneSlotNum(state.slot),
       stateEpoch = humaneEpochNum(state.slot.slotToEpoch)
 

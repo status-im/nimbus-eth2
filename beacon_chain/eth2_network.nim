@@ -1,5 +1,6 @@
 import
-  options, chronos, json_serialization, strutils,
+  options, tables,
+  chronos, json_serialization, strutils,
   chronicles,
   spec/digest, version, conf
 
@@ -20,6 +21,7 @@ when useRLPx:
 
   type
     Eth2Node* = EthereumNode
+    Eth2NodeIdentity* = KeyPair
     BootstrapAddr* = ENode
 
   template libp2pProtocol*(name, version: string) {.pragma.}
@@ -59,7 +61,7 @@ when useRLPx:
         if extPorts.isSome:
           (result.tcpPort, result.udpPort) = extPorts.get()
 
-  proc ensureNetworkKeys*(conf: BeaconNodeConf): KeyPair =
+  proc getPersistentNetIdentity*(conf: BeaconNodeConf): Eth2NodeIdentity =
     let privateKeyFile = conf.dataDir / "network.privkey"
     var privKey: PrivateKey
     if not fileExists(privateKeyFile):
@@ -74,10 +76,16 @@ when useRLPx:
   proc getPersistenBootstrapAddr*(conf: BeaconNodeConf,
                                   ip: IpAddress, port: Port): BootstrapAddr =
     let
-      keys = ensureNetworkKeys(conf)
+      identity = getPersistentNetIdentity(conf)
       address = Address(ip: ip, tcpPort: port, udpPort: port)
 
-    initENode(keys.pubKey, address)
+    initENode(identity.pubKey, address)
+
+  proc isSameNode*(bootstrapNode: BootstrapAddr, id: Eth2NodeIdentity): bool =
+    bootstrapNode.pubKey == id.pubKey
+
+  proc shortForm*(id: Eth2NodeIdentity): string =
+    ($id.pubKey)[0..5]
 
   proc writeValue*(writer: var JsonWriter, value: BootstrapAddr) {.inline.} =
     writer.writeValue $value
@@ -87,7 +95,7 @@ when useRLPx:
 
   proc createEth2Node*(conf: BeaconNodeConf): Future[EthereumNode] {.async.} =
     let
-      keys = ensureNetworkKeys(conf)
+      keys = getPersistentNetIdentity(conf)
       (ip, tcpPort, udpPort) = setupNat(conf)
       address = Address(ip: ip,
                         tcpPort: tcpPort,
@@ -104,8 +112,8 @@ when useRLPx:
   proc init*(T: type BootstrapAddr, str: string): T =
     initENode(str)
 
-  func connectedPeers*(enode: EthereumNode): int =
-    enode.peerPool.len
+  func peersCount*(node: Eth2Node): int =
+    node.peerPool.len
 
 else:
   import
@@ -117,6 +125,7 @@ else:
 
   type
     BootstrapAddr* = PeerInfo
+    Eth2NodeIdentity* = PeerInfo
 
   const
     netBackendName* = "libp2p"
@@ -141,6 +150,27 @@ else:
     await node.init()
     return node
 
+  proc getPersistentNetIdentity*(conf: BeaconNodeConf): Eth2NodeIdentity =
+    # Using waitFor here is reasonable, because this proc is needed only
+    # prior to connecting to the network. The RLPx alternative reads from
+    # file and it's much easier to use if it's not async.
+    # TODO: revisit in the future when we have our own Lib2P2 implementation.
+    let daemon = waitFor newDaemonApi()
+    result = waitFor daemon.identity()
+    waitFor daemon.close()
+
+  proc getPersistenBootstrapAddr*(conf: BeaconNodeConf,
+                                  ip: IpAddress, port: Port): BootstrapAddr =
+    # TODO what about the ports?
+    getPersistentNetIdentity(conf)
+
+  proc isSameNode*(bootstrapNode: BootstrapAddr, id: Eth2NodeIdentity): bool =
+    bootstrapNode == id
+
+  proc shortForm*(id: Eth2NodeIdentity): string =
+    # TODO: Make this shorter
+    $id
+
   proc connectToNetwork*(node: Eth2Node, bootstrapNodes: seq[PeerInfo]) {.async.} =
     # TODO: perhaps we should do these in parallel
     for bootstrapNode in bootstrapNodes:
@@ -157,4 +187,7 @@ else:
 
   proc loadConnectionAddressFile*(filename: string): PeerInfo =
     Json.loadFile(filename, PeerInfo)
+
+  func peersCount*(node: Eth2Node): int =
+    node.peers.len
 

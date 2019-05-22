@@ -1,5 +1,5 @@
 import
-  options, tables, sequtils, algorithm,
+  options, tables, sequtils, algorithm, sets, macros,
   chronicles, chronos, ranges/bitranges,
   spec/[datatypes, crypto, digest, helpers], eth/rlp,
   beacon_node_types, eth2_network, beacon_chain_db, block_pool, time, ssz
@@ -19,7 +19,8 @@ type
   ValidatorSet = seq[Validator]
 
   BeaconSyncState* = ref object
-    networkId*: uint64
+    networkId*: uint8
+    chainId*: uint64
     node*: BeaconNode
     db*: BeaconChainDB
 
@@ -78,6 +79,7 @@ p2pProtocol BeaconSync(version = 1,
       protocolVersion = 1 # TODO: Spec doesn't specify this yet
       node = peer.networkState.node
       networkId = peer.networkState.networkId
+      chainId = peer.networkState.networkId
       blockPool = node.blockPool
       finalizedHead = blockPool.finalizedHead
       headBlock = blockPool.head.blck
@@ -85,9 +87,9 @@ p2pProtocol BeaconSync(version = 1,
       bestSlot = headBlock.slot
       latestFinalizedEpoch = finalizedHead.slot.slot_to_epoch()
 
-    let m = await handshake(peer, timeout = 10.seconds,
-                            status(networkId, finalizedHead.blck.root,
-                                   latestFinalizedEpoch, bestRoot, bestSlot))
+    let m = await peer.hello(networkId, chainId, finalizedHead.blck.root,
+                             latestFinalizedEpoch, bestRoot, bestSlot,
+                             timeout = 10.seconds)
 
     if m.networkId != networkId:
       await peer.disconnect(UselessPeer)
@@ -130,16 +132,38 @@ p2pProtocol BeaconSync(version = 1,
     except CatchableError:
       warn "Failed to sync with peer", peer, err = getCurrentExceptionMsg()
 
-  proc status(
+  handshake:
+    proc hello(
             peer: Peer,
-            networkId: uint64,
+            networkId: uint8,
+            chainId: uint64,
             latestFinalizedRoot: Eth2Digest,
             latestFinalizedEpoch: Epoch,
             bestRoot: Eth2Digest,
             bestSlot: Slot) {.libp2pProtocol("hello", "1.0.0").}
 
+  proc sendGoodbye(peer: Peer, reason: DisconnectionReason)
+
   requestResponse:
-    proc getBeaconBlockRoots(peer: Peer, fromSlot: Slot, maxRoots: int) =
+    proc getStatus(
+            peer: Peer,
+            sha: Eth2Digest,
+            userAgent: string,
+            timestamp: uint64) =
+
+      # TODO: How should this be implemented?
+      # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/networking/rpc-interface.md#get-status
+      await response.send(sha, userAgent, timestamp)
+
+    proc status(peer: Peer, sha: Eth2Digest, userAgent: string, timestamp: uint64)
+
+  nextId 10
+
+  requestResponse:
+    proc getBeaconBlockRoots(
+            peer: Peer,
+            fromSlot: Slot,
+            maxRoots: int) {.libp2pProtocol("rpc/beacon_block_roots", "1.0.0").} =
       let maxRoots = min(MaxRootsToRequest, maxRoots)
       var s = fromSlot
       var roots = newSeqOfCap[(Eth2Digest, Slot)](maxRoots)
@@ -206,10 +230,12 @@ p2pProtocol BeaconSync(version = 1,
 
     proc beaconBlockHeaders(peer: Peer, blockHeaders: openarray[BeaconBlockHeader])
 
+  # TODO move this at the bottom, because it's not in the spec yet, but it will
+  # consume a `method_id`
   requestResponse:
     proc getAncestorBlocks(
             peer: Peer,
-            needed: openarray[FetchRecord]) =
+            needed: openarray[FetchRecord]) {.libp2pProtocol("rpc/ancestor_blocks", "1.0.0").} =
       var resp = newSeqOfCap[BeaconBlock](needed.len)
       let db = peer.networkState.db
       var neededRoots = initSet[Eth2Digest]()
