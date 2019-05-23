@@ -18,11 +18,11 @@ import
 const TestFolder = currentSourcePath.rsplit(DirSep, 1)[0]
 const TestsPath = "fixtures" / "json_tests" / "shuffling" / "core" / "shuffling_full.json"
 
-var shufflingTests: ShufflingTests
+var shufflingTests: Tests[Shuffling]
 
 suite "Official - Shuffling tests":
   test "Parsing the official shuffling tests":
-    shufflingTests = parseTests(TestFolder / TestsPath)
+    shufflingTests = parseTestsShuffling(TestFolder / TestsPath)
 
   test "Shuffling a sequence of N validators":
     for t in shufflingTests.test_cases:
