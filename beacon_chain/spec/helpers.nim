@@ -118,9 +118,12 @@ func get_active_validator_indices*(
 func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
     seq[ValidatorIndex] =
   ## Gets indices of active validators from validators
+  debugEcho "epoch: ", epoch
+  debugEcho "validators: ", state.validator_registry
   for idx, val in state.validator_registry:
     if is_active_validator(val, epoch):
       result.add idx.ValidatorIndex
+  debugEcho "validators2: ", result
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_epoch_committee_count
 # Not quite the 0.5.1 version. TODO remove when shuffling refactoring complete
@@ -146,29 +149,20 @@ func get_current_epoch*(state: BeaconState): Epoch =
   doAssert state.slot >= GENESIS_SLOT, $state.slot
   slot_to_epoch(state.slot)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#get_randao_mix
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: BeaconState,
                      epoch: Epoch): Eth2Digest =
     ## Returns the randao mix at a recent ``epoch``.
-
-    # Cannot underflow, since GENESIS_EPOCH > LATEST_RANDAO_MIXES_LENGTH
-    doAssert get_current_epoch(state) - LATEST_RANDAO_MIXES_LENGTH < epoch
-    doAssert epoch <= get_current_epoch(state)
-
+    ## ``epoch`` expected to be between
+    ## (current_epoch - LATEST_ACTIVE_INDEX_ROOTS_LENGTH + ACTIVATION_EXIT_DELAY,
+    ##  current_epoch + ACTIVATION_EXIT_DELAY].
     state.latest_randao_mixes[epoch mod LATEST_RANDAO_MIXES_LENGTH]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_active_index_root
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_active_index_root
 func get_active_index_root(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Returns the index root at a recent ``epoch``.
-
-  ## Cannot underflow, since GENESIS_EPOCH > LATEST_RANDAO_MIXES_LENGTH
-  ## and ACTIVATION_EXIT_DELAY > 0.
-  doAssert GENESIS_EPOCH > LATEST_RANDAO_MIXES_LENGTH
-  doAssert ACTIVATION_EXIT_DELAY > 0
-
-  doAssert get_current_epoch(state) - LATEST_ACTIVE_INDEX_ROOTS_LENGTH +
-    ACTIVATION_EXIT_DELAY < epoch
-  doAssert epoch <= get_current_epoch(state) + ACTIVATION_EXIT_DELAY
+  ## ``epoch`` expected to be between
+  ##  (current_epoch - LATEST_ACTIVE_INDEX_ROOTS_LENGTH + ACTIVATION_EXIT_DELAY, current_epoch + ACTIVATION_EXIT_DELAY].
   state.latest_active_index_roots[epoch mod LATEST_ACTIVE_INDEX_ROOTS_LENGTH]
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#bytes_to_int
@@ -235,9 +229,9 @@ func generate_seed*(state: BeaconState, epoch: Epoch): Eth2Digest =
 
   var seed_input : array[32*3, byte]
 
-  doAssert GENESIS_EPOCH > MIN_SEED_LOOKAHEAD
-
-  seed_input[0..31] = get_randao_mix(state, epoch - MIN_SEED_LOOKAHEAD).data
+  seed_input[0..31] =
+    get_randao_mix(state,
+      epoch + LATEST_RANDAO_MIXES_LENGTH - MIN_SEED_LOOKAHEAD).data
   seed_input[32..63] = get_active_index_root(state, epoch).data
   seed_input[64..95] = int_to_bytes32(epoch)
   eth2hash(seed_input)

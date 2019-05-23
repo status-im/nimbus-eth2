@@ -277,8 +277,10 @@ func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
   let
     start = (len(indices).uint64 * index) div count
     endIdx = (len(indices).uint64 * (index + 1)) div count
+  debugEcho "from ", start.int, " to ", (endIdx.int-1), " with count ", count, " and index ", index
+  doAssert endIdx.int - start.int > 0
   mapIt(
-    start .. (endIdx-1),
+    start.int .. (endIdx.int-1),
     indices[
       get_shuffled_index(it.ValidatorIndex, len(indices).uint64, seed).int])
 
