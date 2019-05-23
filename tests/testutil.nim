@@ -63,7 +63,7 @@ func getNextBeaconProposerIndex*(state: BeaconState): ValidatorIndex =
   #       see get_shard_committees_index
   var next_state = state
   next_state.slot += 1
-  get_beacon_proposer_index(next_state, next_state.slot)
+  get_beacon_proposer_index(next_state)
 
 proc addBlock*(
     state: var BeaconState, previous_block_root: Eth2Digest,
@@ -74,7 +74,7 @@ proc addBlock*(
   # but avoids some slow block copies
 
   state.slot += 1
-  let proposer_index = get_beacon_proposer_index(state, state.slot)
+  let proposer_index = get_beacon_proposer_index(state)
   state.slot -= 1
 
   # Ferret out remaining GENESIS_EPOCH == 0 assumptions in test code

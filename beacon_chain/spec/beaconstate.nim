@@ -178,7 +178,7 @@ func slash_validator*(state: var BeaconState, index: ValidatorIndex) =
     ] += get_effective_balance(state, index)
 
   let
-    whistleblower_index = get_beacon_proposer_index(state, state.slot)
+    whistleblower_index = get_beacon_proposer_index(state)
     whistleblower_reward = get_effective_balance(state, index) div
       WHISTLEBLOWER_REWARD_QUOTIENT
 

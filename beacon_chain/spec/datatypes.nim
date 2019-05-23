@@ -391,6 +391,7 @@ type
 
     # Randomness and committees
     latest_randao_mixes*: array[LATEST_RANDAO_MIXES_LENGTH, Eth2Digest]
+    latest_start_shard*: Shard
     previous_shuffling_start_shard*: uint64
     current_shuffling_start_shard*: uint64
     previous_shuffling_epoch*: Epoch
