@@ -277,7 +277,6 @@ func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
   let
     start = (len(indices).uint64 * index) div count
     endIdx = (len(indices).uint64 * (index + 1)) div count
-  debugEcho "from ", start.int, " to ", (endIdx.int-1), " with count ", count, " and index ", index
   doAssert endIdx.int - start.int > 0
   mapIt(
     start.int .. (endIdx.int-1),

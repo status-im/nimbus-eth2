@@ -118,12 +118,9 @@ func get_active_validator_indices*(
 func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
     seq[ValidatorIndex] =
   ## Gets indices of active validators from validators
-  debugEcho "epoch: ", epoch
-  debugEcho "validators: ", state.validator_registry
   for idx, val in state.validator_registry:
     if is_active_validator(val, epoch):
       result.add idx.ValidatorIndex
-  debugEcho "validators2: ", result
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_epoch_committee_count
 # Not quite the 0.5.1 version. TODO remove when shuffling refactoring complete
