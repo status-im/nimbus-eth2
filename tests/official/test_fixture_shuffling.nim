@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  # Standard libs
+  # Standard library
   ospaths, strutils, json, unittest,
   # Third parties
 
@@ -25,8 +25,8 @@ elif const_preset == "minimal":
 
 var shufflingTests: Tests[Shuffling]
 
-suite "Official - Shuffling tests [Preset: " & const_preset & ']':
-  test "Parsing the official shuffling tests [Preset: " & const_preset & ']':
+suite "Official - Shuffling tests [Preset: " & preset():
+  test "Parsing the official shuffling tests [Preset: " & preset():
     shufflingTests = parseTestsShuffling(TestFolder / TestsPath)
 
   test "Shuffling a sequence of N validators" & preset():
