@@ -41,11 +41,14 @@ import
 
 # Constant presets
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/configs/constant_presets/
-const const_preset{.strdefine.} = "mainnet"
+const const_preset*{.strdefine.} = "mainnet"
 
 when const_preset == "mainnet":
   import ./presets/mainnet
   export mainnet
+elif const_preset == "minimal":
+  import ./presets/minimal
+  export minimal
 else:
   {.fatal: "Preset \"" & const_preset ".nim\" is not supported.".}
 

@@ -11,20 +11,24 @@ import
   # Third parties
 
   # Beacon chain internals
-  ../../beacon_chain/spec/validator,
+  ../../beacon_chain/spec/[datatypes, validator],
   # Test utilities
   ./fixtures_utils
 
 const TestFolder = currentSourcePath.rsplit(DirSep, 1)[0]
-const TestsPath = "fixtures" / "json_tests" / "shuffling" / "core" / "shuffling_full.json"
+
+when const_preset == "mainnet":
+  const TestsPath = "fixtures" / "json_tests" / "shuffling" / "core" / "shuffling_full.json"
+elif const_preset == "minimal":
+  const TestsPath = "fixtures" / "json_tests" / "shuffling" / "core" / "shuffling_minimal.json"
 
 var shufflingTests: Tests[Shuffling]
 
-suite "Official - Shuffling tests":
-  test "Parsing the official shuffling tests":
+suite "Official - Shuffling tests [Preset: " & const_preset & ']':
+  test "Parsing the official shuffling tests [Preset: " & const_preset & ']':
     shufflingTests = parseTestsShuffling(TestFolder / TestsPath)
 
-  test "Shuffling a sequence of N validators":
+  test "Shuffling a sequence of N validators [Preset: " & const_preset & ']':
     for t in shufflingTests.test_cases:
       let implResult = get_shuffled_seq(t.seed, t.count)
       check: implResult == t.shuffled
