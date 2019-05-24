@@ -7,11 +7,13 @@
 
 import  options, unittest, sequtils, strutils, eth/trie/[db],
   ../beacon_chain/[beacon_chain_db, ssz],
-  ../beacon_chain/spec/[datatypes, digest, crypto]
+  ../beacon_chain/spec/[datatypes, digest, crypto],
+  # test utilies
+  ./testutil
 
-suite "Beacon chain DB":
+suite "Beacon chain DB" & preset():
 
-  test "empty database":
+  test "empty database" & preset():
     var
       db = init(BeaconChainDB, newMemoryDB())
 
@@ -19,7 +21,7 @@ suite "Beacon chain DB":
       db.getState(Eth2Digest()).isNone
       db.getBlock(Eth2Digest()).isNone
 
-  test "sanity check blocks":
+  test "sanity check blocks" & preset():
     var
       db = init(BeaconChainDB, newMemoryDB())
 
@@ -37,7 +39,7 @@ suite "Beacon chain DB":
     check:
       db.getStateRoot(root, blck.slot).get() == root
 
-  test "sanity check states":
+  test "sanity check states" & preset():
     var
       db = init(BeaconChainDB, newMemoryDB())
 
@@ -51,7 +53,7 @@ suite "Beacon chain DB":
       db.containsState(root)
       db.getState(root).get() == state
 
-  test "find ancestors":
+  test "find ancestors" & preset():
     var
       db = init(BeaconChainDB, newMemoryDB())
       x: ValidatorSig

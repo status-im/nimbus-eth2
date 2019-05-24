@@ -44,4 +44,7 @@ proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =
 
 ### tasks
 task test, "Run all tests":
+  # Mainnet config
   buildBinary "all_tests", "tests/", "-r -d:release -d:chronicles_log_level=ERROR"
+  # Minimal config
+  buildBinary "all_tests", "tests/", "-r -d:release -d:chronicles_log_level=ERROR -d:const_preset=minimal"
