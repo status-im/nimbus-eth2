@@ -11,7 +11,7 @@ import
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
   ../beacon_chain/[extras, state_transition, ssz]
 
-suite "Block processing":
+suite "Block processing" & preset():
   ## For now just test that we can compile and execute block processing with
   ## mock data.
 
@@ -23,7 +23,7 @@ suite "Block processing":
     genesisBlock = get_initial_beacon_block(genesisState)
     genesisRoot = signing_root(genesisBlock)
 
-  test "Passes from genesis state, no block":
+  test "Passes from genesis state, no block" & preset():
     var
       state = genesisState
 
@@ -31,7 +31,7 @@ suite "Block processing":
     check:
       state.slot == genesisState.slot + 1
 
-  test "Passes from genesis state, empty block":
+  test "Passes from genesis state, empty block" & preset():
     var
       state = genesisState
       previous_block_root = signing_root(genesisBlock)
@@ -44,7 +44,7 @@ suite "Block processing":
 
       state.slot == genesisState.slot + 1
 
-  test "Passes through epoch update, no block":
+  test "Passes through epoch update, no block" & preset():
     var
       state = genesisState
 
@@ -54,7 +54,7 @@ suite "Block processing":
     check:
       state.slot == genesisState.slot + SLOTS_PER_EPOCH
 
-  test "Passes through epoch update, empty block":
+  test "Passes through epoch update, empty block" & preset():
     var
       state = genesisState
       previous_block_root = genesisRoot
@@ -72,7 +72,7 @@ suite "Block processing":
     check:
       state.slot == genesisState.slot + SLOTS_PER_EPOCH
 
-  test "Attestation gets processed at epoch":
+  test "Attestation gets processed at epoch" & preset():
     var
       state = genesisState
       previous_block_root = genesisRoot

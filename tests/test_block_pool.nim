@@ -11,14 +11,14 @@ import
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
   ../beacon_chain/[beacon_node_types, block_pool, beacon_chain_db, extras, state_transition, ssz]
 
-suite "Block pool processing":
+suite "Block pool processing" & preset():
   let
     genState = get_genesis_beacon_state(
       makeInitialDeposits(flags = {skipValidation}), 0, Eth1Data(),
         {skipValidation})
     genBlock = get_initial_beacon_block(genState)
 
-  test "loadTailState gets genesis block on first load":
+  test "loadTailState gets genesis block on first load" & preset():
     var
       pool = BlockPool.init(makeTestDB(genState, genBlock))
       state = pool.loadTailState()
@@ -29,7 +29,7 @@ suite "Block pool processing":
       b0.isSome()
       toSeq(pool.blockRootsForSlot(GENESIS_SLOT)) == @[state.blck.root]
 
-  test "Simple block add&get":
+  test "Simple block add&get" & preset():
     var
       pool = BlockPool.init(makeTestDB(genState, genBlock))
       state = pool.loadTailState()
@@ -48,7 +48,7 @@ suite "Block pool processing":
       b1Ref.get().refs.root == b1Root
       hash_tree_root(state.data.data) == state.data.root
 
-  test "Reverse order block add & get":
+  test "Reverse order block add & get" & preset():
     var
       db = makeTestDB(genState, genBlock)
       pool = BlockPool.init(db)

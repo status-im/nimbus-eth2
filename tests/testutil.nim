@@ -13,6 +13,9 @@ import
   ../beacon_chain/spec/[beaconstate, bitfield, crypto, datatypes, digest,
     helpers, validator]
 
+func preset*(): string =
+  " [Preset: " & const_preset & ']'
+
 func makeFakeValidatorPrivKey*(i: int): ValidatorPrivKey =
   var i = i + 1 # 0 does not work, as private key...
   copyMem(result.x[0].addr, i.addr, min(sizeof(result.x), sizeof(i)))
@@ -189,4 +192,3 @@ proc makeTestDB*(tailState: BeaconState, tailBlock: BeaconBlock): BeaconChainDB 
 
   result = init(BeaconChainDB, newMemoryDB())
   BlockPool.preInit(result, tailState, tailBlock)
-

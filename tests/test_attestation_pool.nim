@@ -11,7 +11,7 @@ import
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
   ../beacon_chain/[beacon_node_types, attestation_pool, block_pool, extras, state_transition, ssz]
 
-suite "Attestation pool processing":
+suite "Attestation pool processing" & preset():
   ## For now just test that we can compile and execute block processing with
   ## mock data.
 
@@ -22,7 +22,7 @@ suite "Attestation pool processing":
         {skipValidation})
     genBlock = get_initial_beacon_block(genState)
 
-  test "Can add and retrieve simple attestation":
+  test "Can add and retrieve simple attestation" & preset():
     var
       blockPool = BlockPool.init(makeTestDB(genState, genBlock))
       pool = AttestationPool.init(blockPool)
@@ -46,7 +46,7 @@ suite "Attestation pool processing":
     # check:
     #   attestations.len == 1
 
-  test "Attestations may arrive in any order":
+  test "Attestations may arrive in any order" & preset():
     var
       blockPool = BlockPool.init(makeTestDB(genState, genBlock))
       pool = AttestationPool.init(blockPool)
