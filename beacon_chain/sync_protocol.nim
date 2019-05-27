@@ -28,26 +28,22 @@ const
   MaxHeadersToRequest = MaxRootsToRequest
   MaxAncestorBlocksResponse = 256
 
-func toHeader(b: BeaconBlock): BeaconBlockHeaderRLP =
-  BeaconBlockHeaderRLP(
-    slot: b.slot.uint64,
-    parent_root: b.previous_block_root,
+func toHeader(b: BeaconBlock): BeaconBlockHeader =
+  BeaconBlockHeader(
+    slot: b.slot,
+    previous_block_root: b.previous_block_root,
     state_root: b.state_root,
-    randao_reveal: b.body.randao_reveal,
-    eth1_data : b.body.eth1_data,
-    signature: b.signature,
-    body: hash_tree_root(b.body)
+    block_body_root: hash_tree_root(b.body),
+    signature: b.signature
   )
 
-proc fromHeaderAndBody(b: var BeaconBlock, h: BeaconBlockHeaderRLP, body: BeaconBlockBody) =
-  doAssert(hash_tree_root(body) == h.body)
-  b.slot = h.slot.Slot
-  b.previous_block_root = h.parent_root
+proc fromHeaderAndBody(b: var BeaconBlock, h: BeaconBlockHeader, body: BeaconBlockBody) =
+  doAssert(hash_tree_root(body) == h.block_body_root)
+  b.slot = h.slot
+  b.previous_block_root = h.previous_block_root
   b.state_root = h.state_root
-  b.body.randao_reveal = h.randao_reveal
-  b.body.eth1_data = h.eth1_data
-  b.signature = h.signature
   b.body = body
+  b.signature = h.signature
 
 proc importBlocks(node: BeaconNode,
                   blocks: openarray[BeaconBlock]) =
@@ -55,14 +51,14 @@ proc importBlocks(node: BeaconNode,
     node.onBeaconBlock(blk)
   info "Forward sync imported blocks", len = blocks.len
 
-proc mergeBlockHeadersAndBodies(headers: openarray[BeaconBlockHeaderRLP], bodies: openarray[BeaconBlockBody]): Option[seq[BeaconBlock]] =
+proc mergeBlockHeadersAndBodies(headers: openarray[BeaconBlockHeader], bodies: openarray[BeaconBlockBody]): Option[seq[BeaconBlock]] =
   if bodies.len != headers.len:
     info "Cannot merge bodies and headers. Length mismatch.", bodies = bodies.len, headers = headers.len
     return
 
   var res: seq[BeaconBlock]
   for i in 0 ..< headers.len:
-    if hash_tree_root(bodies[i]) != headers[i].body:
+    if hash_tree_root(bodies[i]) != headers[i].block_body_root:
       info "Block body is wrong for header"
       return
 
@@ -167,7 +163,7 @@ p2pProtocol BeaconSync(version = 1,
             skipSlots: int,
             backward: uint8) {.libp2pProtocol("rpc/beacon_block_headers", "1.0.0").} =
       let maxHeaders = min(MaxHeadersToRequest, maxHeaders)
-      var headers = newSeqOfCap[BeaconBlockHeaderRLP](maxHeaders)
+      var headers = newSeqOfCap[BeaconBlockHeader](maxHeaders)
       let db = peer.networkState.db
 
       if backward != 0:
@@ -182,7 +178,7 @@ p2pProtocol BeaconSync(version = 1,
         while true:
           if (let b = db.getBlock(blockRoot); b.isSome):
             headers.add(b.get().toHeader)
-            blockRoot = headers[^1].parent_root
+            blockRoot = headers[^1].previous_block_root
             if headers.len == maxHeaders:
               break
           else:
@@ -203,7 +199,7 @@ p2pProtocol BeaconSync(version = 1,
 
       await response.send(headers)
 
-    proc beaconBlockHeaders(peer: Peer, blockHeaders: openarray[BeaconBlockHeaderRLP])
+    proc beaconBlockHeaders(peer: Peer, blockHeaders: openarray[BeaconBlockHeader])
 
   requestResponse:
     proc getAncestorBlocks(
@@ -270,7 +266,7 @@ proc getBeaconBlocks*(peer: Peer, blockRoot: Eth2Digest, slot: Slot, maxBlocks, 
     var res: seq[BeaconBlock]
     return some(res)
 
-  let bodiesRequest = headers.mapIt(hash_tree_root(it))
+  let bodiesRequest = headers.mapIt(signing_root(it))
 
   debug "Block headers received. Requesting block bodies", peer
   let bodiesResp = await peer.getBeaconBlockBodies(bodiesRequest)
