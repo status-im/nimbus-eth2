@@ -999,7 +999,7 @@ func process_slashings(state: var BeaconState) =
             min(total_penalties * 3, total_balance) div total_balance,
           get_effective_balance(state, index.ValidatorIndex) div
             MIN_PENALTY_QUOTIENT)
-      reduce_balance(state.balances[index], penalty)
+      decrease_balance(state, index.ValidatorIndex, penalty)
 
 func process_exit_queue(state: var BeaconState) =
   ## Process the exit queue.

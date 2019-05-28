@@ -138,17 +138,15 @@ func get_shuffling*(seed: Eth2Digest,
   result = split(shuffled_seq, committees_per_epoch)
   doAssert result.len() == committees_per_epoch # what split should do..
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_previous_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(state: BeaconState): Epoch =
   ## Return the previous epoch of the given ``state``.
-  # Note: This is allowed to underflow internally (this is why GENESIS_EPOCH != 0)
-  #       however when interfacing with peers for example for attestations
-  #       this should not underflow.
-  # TODO or not - it causes issues: https://github.com/ethereum/eth2.0-specs/issues/849
-
-  let epoch = get_current_epoch(state)
-  max(GENESIS_EPOCH, epoch - 1) # TODO max here to work around the above issue
-
+  ## Return the current epoch if it's genesis epoch.
+  let current_epoch = get_current_epoch(state)
+  if current_epoch > GENESIS_EPOCH:
+    current_epoch - 1
+  else:
+    current_epoch
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_crosslink_committees_at_slot
 func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64,

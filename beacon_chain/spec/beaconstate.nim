@@ -134,13 +134,43 @@ func activate_validator(state: var BeaconState,
     else:
       get_delayed_activation_exit_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#initiate_validator_exit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_churn_limit
+func get_churn_limit(state: BeaconState): uint64 =
+  max(
+    MIN_PER_EPOCH_CHURN_LIMIT,
+    len(get_active_validator_indices(state, get_current_epoch(state))) div
+      CHURN_LIMIT_QUOTIENT
+  ).uint64
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(state: var BeaconState,
                               index: ValidatorIndex) =
-  ## Initiate exit for the validator with the given ``index``.
-  ## Note that this function mutates ``state``.
-  var validator = addr state.validator_registry[index]
-  validator.initiated_exit = true
+  # Initiate the validator of the given ``index``.
+
+  # Return if validator already initiated exit
+  let validator = addr state.validator_registry[index]
+  if validator.exit_epoch != FAR_FUTURE_EPOCH:
+    return
+
+  # Compute exit queue epoch
+  let exit_epochs = mapIt(
+    filterIt(state.validator_registry, it.exit_epoch != FAR_FUTURE_EPOCH),
+    it.exit_epoch)
+  var exit_queue_epoch =
+    max(max(exit_epochs),
+      get_delayed_activation_exit_epoch(get_current_epoch(state)))
+  let exit_queue_churn = foldl(
+    state.validator_registry,
+    a + (if b.exit_epoch == exit_queue_epoch: 1'u64 else: 0'u64),
+    0'u64)
+
+  if exit_queue_churn >= get_churn_limit(state):
+    exit_queue_epoch += 1
+
+  # Set validator exit epoch and withdrawable epoch
+  validator.exit_epoch = exit_queue_epoch
+  validator.withdrawable_epoch =
+    validator.exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#exit_validator
 func exit_validator*(state: var BeaconState,
@@ -158,10 +188,6 @@ func exit_validator*(state: var BeaconState,
     return
 
   validator.exit_epoch = delayed_activation_exit_epoch
-
-func reduce_balance*(balance: var uint64, amount: uint64) =
-  # Not in spec, but useful to avoid underflow.
-  balance -= min(amount, balance)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#slash_validator
 func slash_validator*(state: var BeaconState, index: ValidatorIndex) =
@@ -182,11 +208,11 @@ func slash_validator*(state: var BeaconState, index: ValidatorIndex) =
     whistleblower_reward = get_effective_balance(state, index) div
       WHISTLEBLOWER_REWARD_QUOTIENT
 
-  ## TODO here and elsewhere, if reduce_balance can't reduce balance by full
+  ## TODO here and elsewhere, if decrease_balance can't reduce balance by full
   ## whistleblower_reward (to prevent underflow) should increase be full? It
   ## seems wrong for the amounts to differ.
   state.balances[whistleblower_index] += whistleblower_reward
-  reduce_balance(state.balances[index], whistleblower_reward)
+  decrease_balance(state, index, whistleblower_reward)
   validator.slashed = true
   validator.withdrawable_epoch =
     get_current_epoch(state) + LATEST_SLASHED_EXIT_LENGTH
