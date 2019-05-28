@@ -414,17 +414,18 @@ func hash_tree_root*[T](value: T): Eth2Digest =
   )
 
 iterator hash_tree_most(v: object): Chunk =
-  var found_field_name = false
+  const numFields = (proc(): int =
+    var o: type(v)
+    var i = 0
+    for _, _ in o.fieldPairs: inc i
+    i)()
 
+  var i = 0
   for name, field in v.fieldPairs:
-    # TODO we should truncate the last field, regardless of its name.. this
-    #      hack works for now - how to skip the last fieldPair though??
-    if name == "signature":
-      found_field_name = true
+    if i == numFields - 1:
       break
+    inc i
     yield hash_tree_root(field).data
-
-  doAssert found_field_name
 
 # https://github.com/ethereum/eth2.0-specs/blob/0.4.0/specs/simple-serialize.md#signed-roots
 func signing_root*[T: object](x: T): Eth2Digest =
