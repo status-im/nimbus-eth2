@@ -25,10 +25,10 @@ var
 
 suite "Official - BLS tests":
   test "Parsing the official BLS tests":
-    blsPrivToPubTests = parseTestsBLSPrivToPub(TestFolder / TestsPath / "priv_to_pub" / "priv_to_pub.json")
-    blsSignMsgTests = parseTestsBLSSignMsg(TestFolder / TestsPath / "sign_msg" / "sign_msg.json")
-    blsAggSigTests = parseTestsBLSAggSig(TestFolder / TestsPath / "aggregate_sigs" / "aggregate_sigs.json")
-    blsAggPubKeyTests = parseTestsBLSAggPubKey(TestFolder / TestsPath / "aggregate_pubkeys" / "aggregate_pubkeys.json")
+    blsPrivToPubTests = parseTests(TestFolder / TestsPath / "priv_to_pub" / "priv_to_pub.json", BLSPrivToPub)
+    blsSignMsgTests = parseTests(TestFolder / TestsPath / "sign_msg" / "sign_msg.json", BLSSignMsg)
+    blsAggSigTests = parseTests(TestFolder / TestsPath / "aggregate_sigs" / "aggregate_sigs.json", BLSAggSig)
+    blsAggPubKeyTests = parseTests(TestFolder / TestsPath / "aggregate_pubkeys" / "aggregate_pubkeys.json", BLSAggPubKey)
 
   test "Private to public key conversion":
     for t in blsPrivToPubTests.test_cases:

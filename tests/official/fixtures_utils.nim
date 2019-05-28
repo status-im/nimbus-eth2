@@ -2,6 +2,7 @@ import
   # Status libs
   blscurve, nimcrypto, byteutils,
   eth/common, serialization, json_serialization,
+  stint,
   # Beacon chain internals
   # submodule in nim-beacon-chain/tests/official/fixtures/
   ../../beacon_chain/spec/[datatypes, crypto, digest],
@@ -9,7 +10,13 @@ import
   # Workarounds
   endians # parseHex into uint64
 
-export nimcrypto.toHex
+export
+  nimcrypto.toHex,
+  # Workaround:
+  #   - https://github.com/status-im/nim-serialization/issues/4
+  #   - https://github.com/status-im/nim-serialization/issues/5
+  #   - https://github.com/nim-lang/Nim/issues/11225
+  serialization.readValue
 
 type
   # TODO: use ref object to avoid allocating
@@ -20,7 +27,7 @@ type
     test_suite*: string
     fork*: string
     test_cases*: seq[StateTestCase]
-  
+
   TestConstants* = object
     # TODO - 0.5.1 constants
     SHARD_COUNT*: int
@@ -110,7 +117,7 @@ type
 
   Domain = distinct uint64
     ## Domains have custom hex serialization
-    
+
   BLSPrivToPub* = object
     input*: ValidatorPrivKey
     output*: ValidatorPubKey
@@ -131,7 +138,14 @@ type
   BLSAggPubKey* = object
     input*: seq[ValidatorPubKey]
     output*: ValidatorPubKey
-  
+
+  SSZUint* = object
+    `type`*: string
+    value*: string
+    valid*: bool
+    ssz*: seq[byte]
+    tags*: seq[string]
+
 # #######################
 # Default init
 proc default*(T: typedesc): T = discard
@@ -163,33 +177,14 @@ proc readValue*(r: var JsonReader, a: var seq[byte]) {.inline.} =
   ## Custom deserializer for seq[byte]
   a = hexToSeqByte(r.readValue(string))
 
-template parseTestsImpl(T: untyped) {.dirty.} =
-  # TODO: workaround typedesc/generics
-  #       being broken with nim-serialization
-  #       - https://github.com/status-im/nim-serialization/issues/4
-  #       - https://github.com/status-im/nim-serialization/issues/5
+proc parseTests*(jsonPath: string, T: typedesc): Tests[T] =
   try:
-    result = Json.loadFile(jsonPath, T)
+    result = Json.loadFile(jsonPath, Tests[T])
   except SerializationError as err:
     writeStackTrace()
     stderr.write "Json load issue for file \"", jsonPath, "\"\n"
     stderr.write err.formatMsg(jsonPath), "\n"
     quit 1
-
-proc parseTestsShuffling*(jsonPath: string): Tests[Shuffling] =
-  parseTestsImpl(Tests[Shuffling])
-
-proc parseTestsBLSPrivToPub*(jsonPath: string): Tests[BLSPrivToPub] =
-  parseTestsImpl(Tests[BLSPrivToPub])
-
-proc parseTestsBLSSignMsg*(jsonPath: string): Tests[BLSSignMsg] =
-  parseTestsImpl(Tests[BLSSignMsg])
-
-proc parseTestsBLSAggSig*(jsonPath: string): Tests[BLSAggSig] =
-  parseTestsImpl(Tests[BLSAggSig])
-
-proc parseTestsBLSAggPubKey*(jsonPath: string): Tests[BLSAggPubKey] =
-  parseTestsImpl(Tests[BLSAggPubKey])
 
 # #######################
 # Mocking helpers

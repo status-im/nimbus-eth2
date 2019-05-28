@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  ospaths, strutils, json, unittest,
+  ospaths, strutils, unittest,
   # Third parties
 
   # Beacon chain internals
@@ -27,7 +27,7 @@ var shufflingTests: Tests[Shuffling]
 
 suite "Official - Shuffling tests [Preset: " & preset():
   test "Parsing the official shuffling tests [Preset: " & preset():
-    shufflingTests = parseTestsShuffling(TestFolder / TestsPath)
+    shufflingTests = parseTests(TestFolder / TestsPath, Shuffling)
 
   test "Shuffling a sequence of N validators" & preset():
     for t in shufflingTests.test_cases:
