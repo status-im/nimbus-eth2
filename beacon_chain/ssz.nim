@@ -264,7 +264,7 @@ proc readValue*(r: var SszReader, result: var auto) =
 
 # Sample hash_tree_root implementation based on:
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/simple-serialize.md
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/utils/phase0/minimal_ssz.py
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/test_libs/pyspec/eth2spec/utils/minimal_ssz.py
 # TODO Probably wrong - the spec is pretty bare-bones and no test vectors yet
 
 const

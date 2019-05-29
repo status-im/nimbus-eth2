@@ -110,7 +110,14 @@ func processEth1Data(state: var BeaconState, blck: BeaconBlock) =
       SLOTS_PER_ETH1_VOTING_PERIOD:
     state.latest_eth1_data = blck.body.eth1_data
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#is_slashable_validator
+func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
+  # Check if ``validator`` is slashable.
+  (not validator.slashed) and
+    (validator.activation_epoch <= epoch) and
+    (epoch < validator.withdrawable_epoch)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#proposer-slashings
 proc processProposerSlashings(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   if len(blck.body.proposer_slashings) > MAX_PROPOSER_SLASHINGS:
@@ -121,19 +128,23 @@ proc processProposerSlashings(
   for proposer_slashing in blck.body.proposer_slashings:
     let proposer = state.validator_registry[proposer_slashing.proposer_index.int]
 
+    # Verify that the epoch is the same
     if not (slot_to_epoch(proposer_slashing.header_1.slot) ==
         slot_to_epoch(proposer_slashing.header_2.slot)):
       notice "PropSlash: epoch mismatch"
       return false
 
+    # But the headers are different
     if not (proposer_slashing.header_1 != proposer_slashing.header_2):
       notice "PropSlash: headers not different"
       return false
 
-    if not (proposer.slashed == false):
+    # Check proposer is slashable
+    if not is_slashable_validator(proposer, get_current_epoch(state)):
       notice "PropSlash: slashed proposer"
       return false
 
+    # Signatures are valid
     if skipValidation notin flags:
       for i, header in @[proposer_slashing.header_1, proposer_slashing.header_2]:
         if not bls_verify(
@@ -1052,7 +1063,7 @@ func processEpoch(state: var BeaconState) =
   # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#crosslinks
   process_crosslinks(state, per_epoch_cache)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#apply-rewards
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#rewards-and-penalties
   process_rewards_and_penalties(state, per_epoch_cache)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#ejections
@@ -1174,7 +1185,7 @@ proc skipSlots*(state: var BeaconState, slot: Slot,
 
 # TODO hashed versions of above - not in spec
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#state-caching
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#state-caching
 func cacheState(state: var HashedBeaconState) =
   let previous_slot_state_root = state.root
 
