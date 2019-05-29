@@ -41,7 +41,7 @@ type
     name*: string
 
     # Private fields:
-    thunk*: MessageHandler
+    thunk*: ThunkProc
     libp2pProtocol: string
     printer*: MessageContentPrinter
     nextMsgResolver*: NextMsgResolver
@@ -53,7 +53,7 @@ type
   NetworkStateInitializer* = proc(network: EthereumNode): RootRef {.gcsafe.}
   HandshakeStep* = proc(peer: Peer, handshakeStream: P2PStream): Future[void] {.gcsafe.}
   DisconnectionHandler* = proc(peer: Peer): Future[void] {.gcsafe.}
-  MessageHandler* = proc(daemon: DaemonAPI, stream: P2PStream): Future[void] {.gcsafe.}
+  ThunkProc* = proc(daemon: DaemonAPI, stream: P2PStream): Future[void] {.gcsafe.}
   MessageContentPrinter* = proc(msg: pointer): string {.gcsafe.}
   NextMsgResolver* = proc(msgData: SszReader, future: FutureBase) {.gcsafe.}
 
@@ -297,7 +297,7 @@ proc setEventHandlers(p: ProtocolInfo,
 
 proc registerMsg(protocol: ProtocolInfo,
                  name: string,
-                 thunk: MessageHandler,
+                 thunk: ThunkProc,
                  libp2pProtocol: string,
                  printer: MessageContentPrinter) =
   protocol.messages.add MessageInfo(name: name,
@@ -373,6 +373,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   result.NetworkType = Eth2Node
   result.registerProtocol = bindSym "registerProtocol"
   result.setEventHandlers = bindSym "setEventHandlers"
+  result.SerializationFormat = Format
 
   result.afterProtocolInit = proc (p: P2PProtocol) =
     p.onPeerConnected.params.add newIdentDefs(ident"handshakeStream", P2PStream)
