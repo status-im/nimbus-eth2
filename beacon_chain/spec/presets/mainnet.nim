@@ -86,7 +86,7 @@ const
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#initial-values
 
   GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 0'u8]
-  GENESIS_SLOT* = (2'u64^32).Slot
+  GENESIS_SLOT* = 64.Slot
   FAR_FUTURE_EPOCH* = (not 0'u64).Epoch # 2^64 - 1 in spec
   BLS_WITHDRAWAL_PREFIX_BYTE* = 0'u8
 

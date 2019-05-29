@@ -120,20 +120,6 @@ func get_delayed_activation_exit_epoch*(epoch: Epoch): Epoch =
   ## takes effect.
   epoch + 1 + ACTIVATION_EXIT_DELAY
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#activate_validator
-func activate_validator(state: var BeaconState,
-                        index: ValidatorIndex,
-                        is_genesis: bool) =
-  ## Activate the validator with the given ``index``.
-  ## Note that this function mutates ``state``.
-  let validator = addr state.validator_registry[index]
-
-  validator.activation_epoch =
-    if is_genesis:
-      GENESIS_EPOCH
-    else:
-      get_delayed_activation_exit_epoch(get_current_epoch(state))
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_churn_limit
 func get_churn_limit(state: BeaconState): uint64 =
   max(
@@ -208,9 +194,6 @@ func slash_validator*(state: var BeaconState, index: ValidatorIndex) =
     whistleblower_reward = get_effective_balance(state, index) div
       WHISTLEBLOWER_REWARD_QUOTIENT
 
-  ## TODO here and elsewhere, if decrease_balance can't reduce balance by full
-  ## whistleblower_reward (to prevent underflow) should increase be full? It
-  ## seems wrong for the amounts to differ.
   state.balances[whistleblower_index] += whistleblower_reward
   decrease_balance(state, index, whistleblower_reward)
   validator.slashed = true
@@ -310,9 +293,10 @@ func get_genesis_beacon_state*(
 
   # Process genesis activations
   for validator_index in 0 ..< state.validator_registry.len:
-    let vi = validator_index.ValidatorIndex
-    if get_effective_balance(state, vi) >= MAX_EFFECTIVE_BALANCE:
-      activate_validator(state, vi, true)
+    var validator = addr state.validator_registry[validator_index]
+    if validator.effective_balance >= MAX_EFFECTIVE_BALANCE:
+      validator.activation_eligibility_epoch = GENESIS_EPOCH
+      validator.activation_epoch = GENESIS_EPOCH
 
   let genesis_active_index_root = hash_tree_root(
     get_active_validator_indices(state, GENESIS_EPOCH))
@@ -491,7 +475,8 @@ func update_validator_registry*(state: var BeaconState) =
         break
 
       # Activate validator
-      activate_validator(state, index.ValidatorIndex, false)
+      state.validator_registry[index].activation_eligibility_epoch =
+        get_current_epoch(state)
 
   # Exit validators within the allowable balance churn
   balance_churn = 0

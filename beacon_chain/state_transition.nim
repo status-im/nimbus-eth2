@@ -71,13 +71,14 @@ proc processBlockHeader(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#randao
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#randao
 proc processRandao(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   let
     proposer_index = get_beacon_proposer_index(state)
     proposer = addr state.validator_registry[proposer_index]
 
+  # Verify that the provided randao value is valid
   if skipValidation notin flags:
     if not bls_verify(
       proposer.pubkey,
@@ -95,7 +96,6 @@ proc processRandao(
   # Mix it in
   let
     mix = get_current_epoch(state) mod LATEST_RANDAO_MIXES_LENGTH
-    # TODO hash_tree_root has some overloading for this
     rr = eth2hash(blck.body.randao_reveal.getBytes()).data
 
   for i, b in state.latest_randao_mixes[mix].data:
@@ -465,7 +465,7 @@ func advance_slot(state: var BeaconState) =
 
   state.slot += 1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#state-caching
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#state-caching
 func cacheState(state: var BeaconState) =
   let previous_slot_state_root = hash_tree_root(state)
 
