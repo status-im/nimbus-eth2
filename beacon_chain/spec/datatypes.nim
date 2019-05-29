@@ -234,7 +234,7 @@ type
     signature*: ValidatorSig ##\
     ## Proposer signature
 
-  #https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#beaconblockheader
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot
     previous_block_root*: Eth2Digest
@@ -257,10 +257,11 @@ type
     signature*: ValidatorSig
     body*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
+    graffiti*: Eth2Digest
     proposer_slashings*: seq[ProposerSlashing]
     attester_slashings*: seq[AttesterSlashing]
     attestations*: seq[Attestation]

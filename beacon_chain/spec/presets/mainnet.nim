@@ -150,7 +150,7 @@ const
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#reward-and-penalty-quotients
   BASE_REWARD_QUOTIENT* = 2'u64^5
-  WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
+  WHISTLEBLOWING_REWARD_QUOTIENT* = 2'u64^9
   PROPOSER_REWARD_QUOTIENT* = 2'u64^3
   INACTIVITY_PENALTY_QUOTIENT* = 2'u64^25
   MIN_PENALTY_QUOTIENT* = 32 # 2^5

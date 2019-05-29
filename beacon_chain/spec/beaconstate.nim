@@ -175,30 +175,28 @@ func exit_validator*(state: var BeaconState,
 
   validator.exit_epoch = delayed_activation_exit_epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#slash_validator
-func slash_validator*(state: var BeaconState, index: ValidatorIndex) =
-  ## Slash the validator with index ``index``.
-  ## Note that this function mutates ``state``.
-
-  let validator = addr state.validator_registry[index]
-  doAssert state.slot < get_epoch_start_slot(validator.withdrawable_epoch) ##\
-  ## [TO BE REMOVED IN PHASE 2]
-
-  exit_validator(state, index)
-  state.latest_slashed_balances[
-    (get_current_epoch(state) mod LATEST_SLASHED_EXIT_LENGTH).int
-    ] += get_effective_balance(state, index)
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#slash_validator
+func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex) =
+  # Slash the validator with index ``index``.
+  let current_epoch = get_current_epoch(state)
+  initiate_validator_exit(state, slashed_index)
+  state.validator_registry[slashed_index].slashed = true
+  state.validator_registry[slashed_index].withdrawable_epoch =
+    current_epoch + LATEST_SLASHED_EXIT_LENGTH
+  let slashed_balance =
+    state.validator_registry[slashed_index].effective_balance
+  state.latest_slashed_balances[current_epoch mod LATEST_SLASHED_EXIT_LENGTH] +=
+    slashed_balance
 
   let
-    whistleblower_index = get_beacon_proposer_index(state)
-    whistleblower_reward = get_effective_balance(state, index) div
-      WHISTLEBLOWER_REWARD_QUOTIENT
-
-  state.balances[whistleblower_index] += whistleblower_reward
-  decrease_balance(state, index, whistleblower_reward)
-  validator.slashed = true
-  validator.withdrawable_epoch =
-    get_current_epoch(state) + LATEST_SLASHED_EXIT_LENGTH
+    proposer_index = get_beacon_proposer_index(state)
+    whistleblower_index = proposer_index
+    whistleblowing_reward = slashed_balance div WHISTLEBLOWING_REWARD_QUOTIENT
+    proposer_reward = whistleblowing_reward div PROPOSER_REWARD_QUOTIENT
+  increase_balance(state, proposer_index, proposer_reward)
+  increase_balance(
+    state, whistleblower_index, whistleblowing_reward - proposer_reward)
+  decrease_balance(state, slashed_index, whistleblowing_reward)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_temporary_block_header
 func get_temporary_block_header*(blck: BeaconBlock): BeaconBlockHeader =
