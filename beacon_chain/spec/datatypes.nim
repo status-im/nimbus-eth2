@@ -322,7 +322,7 @@ type
     eth1_data_votes*: seq[Eth1Data]
     deposit_index*: uint64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#validator
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#validator
   Validator* = object
     pubkey*: ValidatorPubKey ##\
     ## BLS public key
@@ -341,9 +341,6 @@ type
 
     withdrawable_epoch*: Epoch ##\
     ## Epoch when validator is eligible to withdraw
-
-    initiated_exit*: bool ##\
-    ## Did the validator initiate an exit
 
     slashed*: bool ##\
     ## Was the validator slashed

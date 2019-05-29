@@ -305,11 +305,10 @@ proc processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#voluntary-exits
-proc processExits(
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#voluntary-exits
+proc processVoluntaryExits(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
-  ## Process ``VoluntaryExit`` transaction.
-  ## Note that this function mutates ``state``.
+  # Process ``VoluntaryExit`` transaction.
   if len(blck.body.voluntary_exits) > MAX_VOLUNTARY_EXITS:
     notice "Exit: too many!"
     return false
@@ -317,14 +316,14 @@ proc processExits(
   for exit in blck.body.voluntary_exits:
     let validator = state.validator_registry[exit.validator_index.int]
 
+    # Verify the validator is active
+    if not is_active_validator(validator, get_current_epoch(state)):
+      notice "Exit: validator not active"
+      return false
+
     # Verify the validator has not yet exited
     if not (validator.exit_epoch == FAR_FUTURE_EPOCH):
       notice "Exit: validator has exited"
-      return false
-
-    # Verify the validator has not initiated an exit
-    if not (not validator.initiated_exit):
-      notice "Exit: validator has initiated an exit"
       return false
 
     ## Exits must specify an epoch when they become valid; they are not valid
@@ -333,7 +332,7 @@ proc processExits(
       notice "Exit: exit epoch not passed"
       return false
 
-    # Must have been in the validator set long enough
+    # Verify the validator has been active long enough
     if not (get_current_epoch(state) - validator.activation_epoch >=
         PERSISTENT_COMMITTEE_PERIOD):
       notice "Exit: not in validator set long enough"
@@ -347,7 +346,7 @@ proc processExits(
         notice "Exit: invalid signature"
         return false
 
-    # Run the exit
+    # Initiate exit
     initiate_validator_exit(state, exit.validator_index.ValidatorIndex)
 
   true
@@ -516,7 +515,7 @@ proc processBlock(
     debug "[Block processing] Deposit processing failure", slot = humaneSlotNum(state.slot)
     return false
 
-  if not processExits(state, blck, flags):
+  if not processVoluntaryExits(state, blck, flags):
     debug "[Block processing] Exit processing failure", slot = humaneSlotNum(state.slot)
     return false
 
@@ -699,31 +698,6 @@ func get_winning_root_and_participants(
    get_attesting_indices_cached(
      state,
      attestations_for.getOrDefault(winning_root), cache))
-
-# Combination of earliest_attestation and inclusion_slot avoiding O(n^2)
-# TODO merge/refactor these two functions, which differ only very slightly.
-func inclusion_slots(state: BeaconState): auto =
-  result = initTable[ValidatorIndex, Slot]()
-
-  for a in sorted(state.previous_epoch_attestations,
-      func (x, y: PendingAttestation): auto =
-        system.cmp(x.inclusion_slot, y.inclusion_slot)):
-    for v in get_attestation_participants(
-        state, a.data, a.aggregation_bitfield):
-      if v notin result:
-        result[v] = a.inclusion_slot
-
-# Combination of earliest_attestation and inclusion_distance avoiding O(n^2)
-func inclusion_distances(state: BeaconState): auto =
-  result = initTable[ValidatorIndex, Slot]()
-
-  for a in sorted(state.previous_epoch_attestations,
-      func (x, y: PendingAttestation): auto =
-        system.cmp(x.inclusion_slot, y.inclusion_slot)):
-    for v in get_attestation_participants(
-        state, a.data, a.aggregation_bitfield):
-      if v notin result:
-        result[v] = Slot(a.inclusion_slot - a.data.slot)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#justification
 func update_justification_and_finalization(state: var BeaconState) =

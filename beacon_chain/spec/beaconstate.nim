@@ -496,8 +496,7 @@ func update_validator_registry*(state: var BeaconState) =
   # Exit validators within the allowable balance churn
   balance_churn = 0
   for index, validator in state.validator_registry:
-    if validator.activation_epoch == FAR_FUTURE_EPOCH and
-      validator.initiated_exit:
+    if validator.activation_epoch == FAR_FUTURE_EPOCH:
       # Check the balance churn would be within the allowance
       balance_churn += get_effective_balance(state, index.ValidatorIndex)
       if balance_churn > max_balance_churn:
