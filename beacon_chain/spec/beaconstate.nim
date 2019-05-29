@@ -291,7 +291,7 @@ func get_genesis_beacon_state*(
 
   # Process genesis activations
   for validator_index in 0 ..< state.validator_registry.len:
-    var validator = addr state.validator_registry[validator_index]
+    let validator = addr state.validator_registry[validator_index]
     if validator.effective_balance >= MAX_EFFECTIVE_BALANCE:
       validator.activation_eligibility_epoch = GENESIS_EPOCH
       validator.activation_epoch = GENESIS_EPOCH
