@@ -536,7 +536,7 @@ proc processBlock(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#helper-functions-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#helper-functions-1
 func get_total_active_balance(state: BeaconState): Gwei =
   return get_total_balance(
     state,
@@ -822,15 +822,14 @@ func process_crosslinks(
           crosslink_data_root: winning_root
         )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#rewards-and-penalties
-func get_base_reward(state: BeaconState, index: ValidatorIndex): uint64 =
-  if get_previous_total_balance(state) == 0:
-    return 0
-
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#rewards-and-penalties
+func get_base_reward(state: BeaconState, index: ValidatorIndex): Gwei =
   let adjusted_quotient =
-    integer_squareroot(get_previous_total_balance(state)) div
-      BASE_REWARD_QUOTIENT
-  get_effective_balance(state, index) div adjusted_quotient.uint64 div 5
+    integer_squareroot(get_total_active_balance(state)) div BASE_REWARD_QUOTIENT
+  if adjusted_quotient == 0:
+    return 0
+  state.validator_registry[index].effective_balance div adjusted_quotient div
+    BASE_REWARDS_PER_EPOCH
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#rewards-and-penalties
 func get_attestation_deltas(state: BeaconState):
@@ -946,10 +945,8 @@ func process_rewards_and_penalties(
     increase_balance(state, i.ValidatorIndex, rewards1[i] + rewards2[i])
     decrease_balance(state, i.ValidatorIndex, penalties1[i] + penalties2[i])
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#slashings-and-exit-queue
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#slashings
 func process_slashings(state: var BeaconState) =
-  ## Process the slashings.
-  ## Note that this function mutates ``state``.
   let
     current_epoch = get_current_epoch(state)
     active_validator_indices = get_active_validator_indices(
