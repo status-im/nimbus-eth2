@@ -275,12 +275,6 @@ template getRecipient(stream: P2PStream): P2PStream =
 template getRecipient(response: Response): Peer =
   UntypedResponse(response).peer
 
-proc messagePrinter[MsgType](msg: pointer): string {.gcsafe.} =
-  result = ""
-  # TODO: uncommenting the line below increases the compile-time
-  # tremendously (for reasons not yet known)
-  # result = $(cast[ptr MsgType](msg)[])
-
 proc initProtocol(name: string,
                   peerInit: PeerStateInitializer,
                   networkInit: NetworkStateInitializer): ProtocolInfoObj =
@@ -374,6 +368,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   result.registerProtocol = bindSym "registerProtocol"
   result.setEventHandlers = bindSym "setEventHandlers"
   result.SerializationFormat = Format
+  result.ResponseType = Response
 
   result.afterProtocolInit = proc (p: P2PProtocol) =
     p.onPeerConnected.params.add newIdentDefs(ident"handshakeStream", P2PStream)
@@ -501,13 +496,13 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
         rawSendProc = msgName & "RawSend"
         handshakeTypeName = $msgRecName
         handshakeExchanger = msg.createSendProc(nnkMacroDef)
-        paramsArray = newTree(nnkBracket).appendAllParams(handshakeExchanger)
+        paramsArray = newTree(nnkBracket).appendAllParams(handshakeExchanger.def)
         bindSym = ident "bindSym"
         getAst = ident "getAst"
         handshakeImpl = ident "handshakeImpl"
 
       # TODO: macros.body triggers an assertion error when the proc type is nnkMacroDef
-      handshakeExchanger[6] = quote do:
+      handshakeExchanger.def[6] = quote do:
         let
           stream = ident"handshakeStream"
           rawSendProc = `bindSymOp` `rawSendProc`
@@ -521,7 +516,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 
         return `getAst`(`handshakeImpl`(`msgRecName`, peer, stream, lazySendCall, timeout))
 
-      p.outSendProcs.add handshakeExchanger
+      p.outSendProcs.add handshakeExchanger.def
 
       msgSendProc.params[1][1] = P2PStream
       msgSendProc.name = ident rawSendProc
