@@ -26,7 +26,7 @@ type
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#misc
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#misc
 
   # Changed
   SHARD_COUNT* {.intdefine.} = 8
@@ -51,7 +51,7 @@ const
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#gwei-values
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#gwei-values
 
   # Unchanged
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9
@@ -65,7 +65,7 @@ const
 
   # Unchanged
   GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 0'u8]
-  GENESIS_SLOT* = (2'u64^32).Slot
+  GENESIS_SLOT* = 64.Slot
   FAR_FUTURE_EPOCH* = (not 0'u64).Epoch # 2^64 - 1 in spec
   BLS_WITHDRAWAL_PREFIX_BYTE* = 0'u8
 
@@ -109,7 +109,7 @@ const
 
   # Unchanged
   BASE_REWARD_QUOTIENT* = 2'u64^5
-  WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
+  WHISTLEBLOWING_REWARD_QUOTIENT* = 2'u64^9
   PROPOSER_REWARD_QUOTIENT* = 2'u64^3
   INACTIVITY_PENALTY_QUOTIENT* = 2'u64^25
   MIN_PENALTY_QUOTIENT* = 32 # 2^5

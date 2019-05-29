@@ -53,7 +53,7 @@ else:
   {.fatal: "Preset \"" & const_preset ".nim\" is not supported.".}
 
 const
-  SPEC_VERSION* = "0.5.1" ## \
+  SPEC_VERSION* = "0.6.1" ## \
   ## Spec version we're aiming to be compatible with, right now
   ## TODO: improve this scheme once we can negotiate versions in protocol
 
@@ -68,7 +68,7 @@ const
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#gwei-values
 
-  # TODO remove erstwhile blob/v0.5.0
+  # TODO remove erstwhile blob/v0.6.2
   FORK_CHOICE_BALANCE_INCREMENT* = 2'u64^0 * 10'u64^9
 
   # Initial values
@@ -141,6 +141,7 @@ type
     # FFG vote
     source_epoch*: Epoch
     source_root*: Eth2Digest
+    target_epoch*: Epoch
     target_root*: Eth2Digest
 
     # Crosslink vote
@@ -164,7 +165,7 @@ type
     data*: DepositData ##\
     ## Data
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#depositdata
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#depositdata
   DepositData* = object
     pubkey*: ValidatorPubKey ##\
     ## BLS pubkey
@@ -212,7 +213,7 @@ type
     signature*: ValidatorSig ##\
     ## Sender signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#beaconblock
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -233,7 +234,7 @@ type
     signature*: ValidatorSig ##\
     ## Proposer signature
 
-  #https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#beaconblockheader
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot
     previous_block_root*: Eth2Digest
@@ -256,10 +257,11 @@ type
     signature*: ValidatorSig
     body*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
+    graffiti*: Eth2Digest
     proposer_slashings*: seq[ProposerSlashing]
     attester_slashings*: seq[AttesterSlashing]
     attestations*: seq[Attestation]
@@ -321,7 +323,7 @@ type
     eth1_data_votes*: seq[Eth1Data]
     deposit_index*: uint64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#validator
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#validator
   Validator* = object
     pubkey*: ValidatorPubKey ##\
     ## BLS public key
@@ -340,9 +342,6 @@ type
 
     withdrawable_epoch*: Epoch ##\
     ## Epoch when validator is eligible to withdraw
-
-    initiated_exit*: bool ##\
-    ## Did the validator initiate an exit
 
     slashed*: bool ##\
     ## Was the validator slashed
@@ -365,7 +364,11 @@ type
   PendingAttestation* = object
     aggregation_bitfield*: BitField           ## Attester participation bitfield
     data*: AttestationData                    ## Attestation data
+
+    # TODO remove
     inclusion_slot*: Slot                     ## Inclusion slot
+
+    inclusion_delay*: uint64                  ## Inclusion delay
     proposer_index*: ValidatorIndex           ## Proposer index
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#historicalbatch

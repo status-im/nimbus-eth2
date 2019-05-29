@@ -120,27 +120,43 @@ func get_delayed_activation_exit_epoch*(epoch: Epoch): Epoch =
   ## takes effect.
   epoch + 1 + ACTIVATION_EXIT_DELAY
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#activate_validator
-func activate_validator(state: var BeaconState,
-                        index: ValidatorIndex,
-                        is_genesis: bool) =
-  ## Activate the validator with the given ``index``.
-  ## Note that this function mutates ``state``.
-  let validator = addr state.validator_registry[index]
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_churn_limit
+func get_churn_limit(state: BeaconState): uint64 =
+  max(
+    MIN_PER_EPOCH_CHURN_LIMIT,
+    len(get_active_validator_indices(state, get_current_epoch(state))) div
+      CHURN_LIMIT_QUOTIENT
+  ).uint64
 
-  validator.activation_epoch =
-    if is_genesis:
-      GENESIS_EPOCH
-    else:
-      get_delayed_activation_exit_epoch(get_current_epoch(state))
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#initiate_validator_exit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(state: var BeaconState,
                               index: ValidatorIndex) =
-  ## Initiate exit for the validator with the given ``index``.
-  ## Note that this function mutates ``state``.
-  var validator = addr state.validator_registry[index]
-  validator.initiated_exit = true
+  # Initiate the validator of the given ``index``.
+
+  # Return if validator already initiated exit
+  let validator = addr state.validator_registry[index]
+  if validator.exit_epoch != FAR_FUTURE_EPOCH:
+    return
+
+  # Compute exit queue epoch
+  let exit_epochs = mapIt(
+    filterIt(state.validator_registry, it.exit_epoch != FAR_FUTURE_EPOCH),
+    it.exit_epoch)
+  var exit_queue_epoch =
+    max(max(exit_epochs),
+      get_delayed_activation_exit_epoch(get_current_epoch(state)))
+  let exit_queue_churn = foldl(
+    state.validator_registry,
+    a + (if b.exit_epoch == exit_queue_epoch: 1'u64 else: 0'u64),
+    0'u64)
+
+  if exit_queue_churn >= get_churn_limit(state):
+    exit_queue_epoch += 1
+
+  # Set validator exit epoch and withdrawable epoch
+  validator.exit_epoch = exit_queue_epoch
+  validator.withdrawable_epoch =
+    validator.exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#exit_validator
 func exit_validator*(state: var BeaconState,
@@ -159,37 +175,28 @@ func exit_validator*(state: var BeaconState,
 
   validator.exit_epoch = delayed_activation_exit_epoch
 
-func reduce_balance*(balance: var uint64, amount: uint64) =
-  # Not in spec, but useful to avoid underflow.
-  balance -= min(amount, balance)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#slash_validator
-func slash_validator*(state: var BeaconState, index: ValidatorIndex) =
-  ## Slash the validator with index ``index``.
-  ## Note that this function mutates ``state``.
-
-  let validator = addr state.validator_registry[index]
-  doAssert state.slot < get_epoch_start_slot(validator.withdrawable_epoch) ##\
-  ## [TO BE REMOVED IN PHASE 2]
-
-  exit_validator(state, index)
-  state.latest_slashed_balances[
-    (get_current_epoch(state) mod LATEST_SLASHED_EXIT_LENGTH).int
-    ] += get_effective_balance(state, index)
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#slash_validator
+func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex) =
+  # Slash the validator with index ``index``.
+  let current_epoch = get_current_epoch(state)
+  initiate_validator_exit(state, slashed_index)
+  state.validator_registry[slashed_index].slashed = true
+  state.validator_registry[slashed_index].withdrawable_epoch =
+    current_epoch + LATEST_SLASHED_EXIT_LENGTH
+  let slashed_balance =
+    state.validator_registry[slashed_index].effective_balance
+  state.latest_slashed_balances[current_epoch mod LATEST_SLASHED_EXIT_LENGTH] +=
+    slashed_balance
 
   let
-    whistleblower_index = get_beacon_proposer_index(state)
-    whistleblower_reward = get_effective_balance(state, index) div
-      WHISTLEBLOWER_REWARD_QUOTIENT
-
-  ## TODO here and elsewhere, if reduce_balance can't reduce balance by full
-  ## whistleblower_reward (to prevent underflow) should increase be full? It
-  ## seems wrong for the amounts to differ.
-  state.balances[whistleblower_index] += whistleblower_reward
-  reduce_balance(state.balances[index], whistleblower_reward)
-  validator.slashed = true
-  validator.withdrawable_epoch =
-    get_current_epoch(state) + LATEST_SLASHED_EXIT_LENGTH
+    proposer_index = get_beacon_proposer_index(state)
+    whistleblower_index = proposer_index
+    whistleblowing_reward = slashed_balance div WHISTLEBLOWING_REWARD_QUOTIENT
+    proposer_reward = whistleblowing_reward div PROPOSER_REWARD_QUOTIENT
+  increase_balance(state, proposer_index, proposer_reward)
+  increase_balance(
+    state, whistleblower_index, whistleblowing_reward - proposer_reward)
+  decrease_balance(state, slashed_index, whistleblowing_reward)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_temporary_block_header
 func get_temporary_block_header*(blck: BeaconBlock): BeaconBlockHeader =
@@ -284,9 +291,10 @@ func get_genesis_beacon_state*(
 
   # Process genesis activations
   for validator_index in 0 ..< state.validator_registry.len:
-    let vi = validator_index.ValidatorIndex
-    if get_effective_balance(state, vi) >= MAX_EFFECTIVE_BALANCE:
-      activate_validator(state, vi, true)
+    let validator = addr state.validator_registry[validator_index]
+    if validator.effective_balance >= MAX_EFFECTIVE_BALANCE:
+      validator.activation_eligibility_epoch = GENESIS_EPOCH
+      validator.activation_epoch = GENESIS_EPOCH
 
   let genesis_active_index_root = hash_tree_root(
     get_active_validator_indices(state, GENESIS_EPOCH))
@@ -306,14 +314,36 @@ func get_initial_beacon_block*(state: BeaconState): BeaconBlock =
     # initialized to default values.
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_block_root
-func get_block_root*(state: BeaconState,
-                     slot: Slot): Eth2Digest =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_attestation_slot
+func get_attestation_slot*(state: BeaconState,
+    attestation: Attestation|PendingAttestation,
+    committee_count: uint64): Slot =
+  let
+    epoch = attestation.data.target_epoch
+    offset = (attestation.data.shard + SHARD_COUNT -
+      get_epoch_start_shard(state, epoch)) mod SHARD_COUNT
+  result = get_epoch_start_slot(epoch) + offset div (committee_count div SLOTS_PER_EPOCH)
+
+# This is the slower (O(n)), spec-compatible signature.
+func get_attestation_slot*(state: BeaconState,
+    attestation: Attestation|PendingAttestation): Slot =
+  let epoch = attestation.data.target_epoch
+  get_attestation_slot(
+    state, attestation, get_epoch_committee_count(state, epoch))
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_block_root_at_slot
+func get_block_root_at_slot*(state: BeaconState,
+                             slot: Slot): Eth2Digest =
   # Return the block root at a recent ``slot``.
 
   doAssert state.slot <= slot + SLOTS_PER_HISTORICAL_ROOT
   doAssert slot < state.slot
   state.latest_block_roots[slot mod SLOTS_PER_HISTORICAL_ROOT]
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_block_root
+func get_block_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
+  # Return the block root at a recent ``epoch``.
+  get_block_root_at_slot(state, get_epoch_start_slot(epoch))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_attestation_participants
 func get_attestation_participants*(state: BeaconState,
@@ -443,13 +473,13 @@ func update_validator_registry*(state: var BeaconState) =
         break
 
       # Activate validator
-      activate_validator(state, index.ValidatorIndex, false)
+      state.validator_registry[index].activation_eligibility_epoch =
+        get_current_epoch(state)
 
   # Exit validators within the allowable balance churn
   balance_churn = 0
   for index, validator in state.validator_registry:
-    if validator.activation_epoch == FAR_FUTURE_EPOCH and
-      validator.initiated_exit:
+    if validator.activation_epoch == FAR_FUTURE_EPOCH:
       # Check the balance churn would be within the allowance
       balance_churn += get_effective_balance(state, index.ValidatorIndex)
       if balance_churn > max_balance_churn:
@@ -609,15 +639,6 @@ proc checkAttestation*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#prepare_validator_for_withdrawal
-func prepare_validator_for_withdrawal*(state: var BeaconState, index: ValidatorIndex) =
-  ## Set the validator with the given ``index`` as withdrawable
-  ## ``MIN_VALIDATOR_WITHDRAWABILITY_DELAY`` after the current epoch.
-  ## Note that this function mutates ``state``.
-  var validator = addr state.validator_registry[index]
-  validator.withdrawable_epoch = get_current_epoch(state) +
-    MIN_VALIDATOR_WITHDRAWABILITY_DELAY
-
 proc makeAttestationData*(
     state: BeaconState, shard: uint64,
     beacon_block_root: Eth2Digest): AttestationData =
@@ -629,7 +650,7 @@ proc makeAttestationData*(
     epoch_start_slot = get_epoch_start_slot(slot_to_epoch(state.slot))
     target_root =
       if epoch_start_slot == state.slot: beacon_block_root
-      else: get_block_root(state, epoch_start_slot)
+      else: get_block_root_at_slot(state, epoch_start_slot)
 
   AttestationData(
     slot: state.slot,
@@ -639,5 +660,6 @@ proc makeAttestationData*(
     crosslink_data_root: Eth2Digest(), # Stub in phase0
     previous_crosslink: state.latest_crosslinks[shard],
     source_epoch: state.current_justified_epoch,
-    source_root: state.current_justified_root
+    source_root: state.current_justified_root,
+    target_epoch: slot_to_epoch(epoch_start_slot)
   )

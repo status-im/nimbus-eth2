@@ -80,7 +80,7 @@ suite "Official - State tests": # Initializing a beacon state from the deposits
   #   check:
   #     ok
   #     tcase.expected_state.eth1_data_votes.len == state.eth1_data_votes.len + 1
-  #     get_block_root(tcase.expected_state, state.slot) == blck.previous_block_root
+  #     get_block_root_at_slot(tcase.expected_state, state.slot) == blck.previous_block_root
   
 suite "[For information - non-blocking] Extra state tests":
   var initialState: BeaconState
