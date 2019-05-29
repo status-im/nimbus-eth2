@@ -35,7 +35,7 @@ import
   ./extras, ./ssz, ./beacon_node_types,
   ./spec/[beaconstate, bitfield, crypto, datatypes, digest, helpers, validator]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#block-header
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#block-header
 proc processBlockHeader(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   # Verify that the slots match
@@ -45,7 +45,7 @@ proc processBlockHeader(
       state_slot = humaneSlotNum(state.slot)
     return false
 
-  # state_root not set yet, when skipping validation
+  # Verify that the parent matches
   if skipValidation notin flags and not (blck.previous_block_root ==
       signing_root(state.latest_block_header)):
     notice "Block header: previous block root mismatch",
@@ -54,15 +54,25 @@ proc processBlockHeader(
       latest_block_header_root = shortLog(signing_root(state.latest_block_header))
     return false
 
-  state.latest_block_header = get_temporary_block_header(blck)
+  # Save current block as the new latest block
+  state.latest_block_header = BeaconBlockHeader(
+    slot: blck.slot,
+    previous_block_root: blck.previous_block_root,
+    block_body_root: hash_tree_root(blck.body),
+  )
 
-  let proposer =
-    state.validator_registry[get_beacon_proposer_index(state)]
+  # Verify proposer is not slashed
+  let proposer = state.validator_registry[get_beacon_proposer_index(state)]
+  if proposer.slashed:
+    notice "Block header: proposer slashed"
+    return false
+
+  # Verify proposer signature
   if skipValidation notin flags and not bls_verify(
       proposer.pubkey,
       signing_root(blck).data,
       blck.signature,
-      get_domain(state, DOMAIN_BEACON_PROPOSER, get_current_epoch(state))):
+      get_domain(state, DOMAIN_BEACON_PROPOSER)):
     notice "Block header: invalid block header",
       proposer_pubkey = proposer.pubkey,
       block_root = shortLog(signing_root(blck)),
@@ -467,7 +477,7 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#per-slot-processing
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#per-slot-processing
 func advance_slot(state: var BeaconState) =
   ## Time on the beacon chain moves in slots. Every time we make it to a new
   ## slot, a proposer creates a block to represent the state of the beacon
@@ -711,7 +721,7 @@ func get_winning_root_and_participants(
      attestations_for.getOrDefault(winning_root), cache))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#justification
-func update_justification_and_finalization(state: var BeaconState) =
+func process_justification_and_finalization(state: var BeaconState) =
   var
     new_justified_epoch = state.current_justified_epoch
     new_finalized_epoch = state.finalized_epoch
@@ -972,39 +982,6 @@ func process_slashings(state: var BeaconState) =
             MIN_PENALTY_QUOTIENT)
       decrease_balance(state, index.ValidatorIndex, penalty)
 
-func process_exit_queue(state: var BeaconState) =
-  ## Process the exit queue.
-  ## Note that this function mutates ``state``.
-
-  func eligible(index: ValidatorIndex): bool =
-    let validator = state.validator_registry[index]
-    # Filter out dequeued validators
-    if validator.withdrawable_epoch != FAR_FUTURE_EPOCH:
-      return false
-    # Dequeue if the minimum amount of time has passed
-    else:
-      return get_current_epoch(state) >= validator.exit_epoch +
-        MIN_VALIDATOR_WITHDRAWABILITY_DELAY
-
-    var eligible_indices: seq[ValidatorIndex]
-    for vi in 0 ..< len(state.validator_registry):
-      if eligible(vi.ValidatorIndex):
-        eligible_indices.add vi.ValidatorIndex
-    let
-      ## Sort in order of exit epoch, and validators that exit within the same
-      ## epoch exit in order of validator index
-      sorted_indices = sorted(
-        eligible_indices,
-        func(x, y: ValidatorIndex): int =
-          system.cmp(
-            state.validator_registry[x].exit_epoch,
-            state.validator_registry[y].exit_epoch))
-
-    for dequeues, index in sorted_indices:
-      if dequeues >= MIN_PER_EPOCH_CHURN_LIMIT:
-        break
-      prepare_validator_for_withdrawal(state, index)
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#final-updates
 func finish_epoch_update(state: var BeaconState) =
   let
@@ -1052,8 +1029,8 @@ func processEpoch(state: var BeaconState) =
          (state.slot + 1) mod SLOTS_PER_EPOCH == 0):
     return
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#justification
-  update_justification_and_finalization(state)
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#justification-and-finalization
+  process_justification_and_finalization(state)
 
   var per_epoch_cache = get_empty_per_epoch_cache()
 
@@ -1072,7 +1049,6 @@ func processEpoch(state: var BeaconState) =
   ## Regardless of whether or not a validator set change happens run
   ## process_slashings(state) and process_exit_queue(state)
   process_slashings(state)
-  process_exit_queue(state)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#final-updates
   finish_epoch_update(state)

@@ -68,7 +68,7 @@ const
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#gwei-values
 
-  # TODO remove erstwhile blob/v0.5.0
+  # TODO remove erstwhile blob/v0.6.2
   FORK_CHOICE_BALANCE_INCREMENT* = 2'u64^0 * 10'u64^9
 
   # Initial values
