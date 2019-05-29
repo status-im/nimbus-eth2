@@ -332,14 +332,36 @@ func get_initial_beacon_block*(state: BeaconState): BeaconBlock =
     # initialized to default values.
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_block_root
-func get_block_root*(state: BeaconState,
-                     slot: Slot): Eth2Digest =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_attestation_slot
+func get_attestation_slot*(state: BeaconState,
+    attestation: Attestation|PendingAttestation,
+    committee_count: uint64): Slot =
+  let
+    epoch = attestation.data.target_epoch
+    offset = (attestation.data.shard + SHARD_COUNT -
+      get_epoch_start_shard(state, epoch)) mod SHARD_COUNT
+  result = get_epoch_start_slot(epoch) + offset div (committee_count div SLOTS_PER_EPOCH)
+
+# This is the slower (O(n)), spec-compatible signature.
+func get_attestation_slot*(state: BeaconState,
+    attestation: Attestation|PendingAttestation): Slot =
+  let epoch = attestation.data.target_epoch
+  get_attestation_slot(
+    state, attestation, get_epoch_committee_count(state, epoch))
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_block_root_at_slot
+func get_block_root_at_slot*(state: BeaconState,
+                             slot: Slot): Eth2Digest =
   # Return the block root at a recent ``slot``.
 
   doAssert state.slot <= slot + SLOTS_PER_HISTORICAL_ROOT
   doAssert slot < state.slot
   state.latest_block_roots[slot mod SLOTS_PER_HISTORICAL_ROOT]
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_block_root
+func get_block_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
+  # Return the block root at a recent ``epoch``.
+  get_block_root_at_slot(state, get_epoch_start_slot(epoch))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_attestation_participants
 func get_attestation_participants*(state: BeaconState,
@@ -655,7 +677,7 @@ proc makeAttestationData*(
     epoch_start_slot = get_epoch_start_slot(slot_to_epoch(state.slot))
     target_root =
       if epoch_start_slot == state.slot: beacon_block_root
-      else: get_block_root(state, epoch_start_slot)
+      else: get_block_root_at_slot(state, epoch_start_slot)
 
   AttestationData(
     slot: state.slot,
@@ -665,5 +687,6 @@ proc makeAttestationData*(
     crosslink_data_root: Eth2Digest(), # Stub in phase0
     previous_crosslink: state.latest_crosslinks[shard],
     source_epoch: state.current_justified_epoch,
-    source_root: state.current_justified_root
+    source_root: state.current_justified_root,
+    target_epoch: slot_to_epoch(epoch_start_slot)
   )

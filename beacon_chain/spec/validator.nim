@@ -256,7 +256,7 @@ func get_shard_delta(state: BeaconState, epoch: Epoch): uint64 =
     (SHARD_COUNT - SHARD_COUNT div SLOTS_PER_EPOCH).uint64)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_epoch_start_shard
-func get_epoch_start_shard(state: BeaconState, epoch: Epoch): Shard =
+func get_epoch_start_shard*(state: BeaconState, epoch: Epoch): Shard =
   doAssert epoch <= get_current_epoch(state) + 1
   var
     check_epoch = get_current_epoch(state) + 1
@@ -282,7 +282,7 @@ func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
       get_shuffled_index(it.ValidatorIndex, len(indices).uint64, seed).int])
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_crosslink_committee
-func get_crosslink_committee(state: BeaconState, epoch: Epoch, shard: Shard):
+func get_crosslink_committee*(state: BeaconState, epoch: Epoch, shard: Shard):
     seq[ValidatorIndex] =
   compute_committee(
     get_active_validator_indices(state, epoch),

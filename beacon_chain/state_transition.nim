@@ -31,7 +31,7 @@
 # now.
 
 import
-  algorithm, collections/sets, chronicles, math, options, sequtils, tables,
+  algorithm, collections/sets, chronicles, math, options, sequtils, sets, tables,
   ./extras, ./ssz, ./beacon_node_types,
   ./spec/[beaconstate, bitfield, crypto, datatypes, digest, helpers, validator]
 
@@ -265,11 +265,23 @@ proc processAttestations(
 
   # All checks passed - update state
   # Apply the attestations
+  var committee_count_cache = initTable[Epoch, uint64]()
+
   for attestation in blck.body.attestations:
+    let
+      epoch = attestation.data.target_epoch
+      committee_count = if epoch in committee_count_cache:
+          committee_count_cache[epoch]
+        else:
+          get_epoch_committee_count(state, epoch)
+    committee_count_cache[epoch] = committee_count
+    let attestation_slot =
+      get_attestation_slot(state, attestation, committee_count)
     let pending_attestation = PendingAttestation(
       data: attestation.data,
       aggregation_bitfield: attestation.aggregation_bitfield,
       inclusion_slot: state.slot,
+      inclusion_delay: state.slot - attestation_slot,
       proposer_index: get_beacon_proposer_index(state),
     )
 
@@ -515,16 +527,53 @@ proc processBlock(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#helper-functions-1
-func get_current_total_balance(state: BeaconState): Gwei =
+func get_total_active_balance(state: BeaconState): Gwei =
   return get_total_balance(
     state,
     get_active_validator_indices(state, get_current_epoch(state)))
 
-func get_previous_total_balance(state: BeaconState): Gwei =
-  get_total_balance(
-    state,
-    get_active_validator_indices(state, get_previous_epoch(state)))
+func get_matching_source_attestations(state: BeaconState, epoch: Epoch):
+    seq[PendingAttestation] =
+  doAssert epoch in @[get_current_epoch(state), get_previous_epoch(state)]
+  if epoch == get_current_epoch(state):
+    state.current_epoch_attestations
+  else:
+    state.previous_epoch_attestations
 
+func get_matching_target_attestations(state: BeaconState, epoch: Epoch):
+    seq[PendingAttestation] =
+  filterIt(
+    get_matching_source_attestations(state, epoch),
+    it.data.target_root == get_block_root(state, epoch)
+  )
+
+func get_matching_head_attestations(state: BeaconState, epoch: Epoch):
+    seq[PendingAttestation] =
+  filterIt(
+     get_matching_source_attestations(state, epoch),
+     it.data.beacon_block_root ==
+       get_block_root_at_slot(state, get_attestation_slot(state, it))
+  )
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_attesting_indices
+func get_attesting_indices(state: BeaconState,
+                           attestation_data: AttestationData,
+                           bitfield: BitField): HashSet[ValidatorIndex] =
+  ## Return the sorted attesting indices corresponding to ``attestation_data``
+  ## and ``bitfield``.
+  ## The spec goes through a lot of hoops to sort things, and sometimes
+  ## constructs sets from the results here. The basic idea is to always
+  ## just do the right thing and keep it in a HashSet.
+  result = initSet[ValidatorIndex]()
+  let committee =
+    get_crosslink_committee(state, attestation_data.target_epoch,
+      attestation_data.shard)
+  doAssert verify_bitfield(bitfield, len(committee))
+  for i, index in committee:
+    if get_bitfield_bit(bitfield, i):
+      result.incl index
+
+# TODO remove this 0.5ish one when callers disappear
 func get_attesting_indices(
     state: BeaconState,
     attestations: openArray[PendingAttestation]): HashSet[ValidatorIndex] =
@@ -535,6 +584,7 @@ func get_attesting_indices(
         state, attestation.data, attestation.aggregation_bitfield):
       result.incl validator_index
 
+# TODO this cached version corresponds to the 0.5ish get_attesting_indices
 func get_attesting_indices_cached(
     state: BeaconState,
     attestations: openArray[PendingAttestation], cache: var StateCache):
@@ -546,6 +596,24 @@ func get_attesting_indices_cached(
         state, attestation.data, attestation.aggregation_bitfield,
         cache):
       result.incl validator_index
+
+func get_unslashed_attesting_indices(
+    state: BeaconState, attestations: seq[PendingAttestation]):
+    HashSet[ValidatorIndex] =
+  result = initSet[ValidatorIndex]()
+  for a in attestations:
+    result = result.union(get_attesting_indices(
+      state, a.data, a.aggregation_bitfield))
+
+  for index in result:
+    if state.validator_registry[index].slashed:
+      result.excl index
+
+# TODO check for blob/v0.5.0 removal
+func get_previous_total_balance(state: BeaconState): Gwei =
+  get_total_balance(
+    state,
+    get_active_validator_indices(state, get_previous_epoch(state)))
 
 func get_attesting_balance(state: BeaconState,
                            attestations: seq[PendingAttestation]): Gwei =
@@ -561,7 +629,7 @@ func get_current_epoch_boundary_attestations(state: BeaconState):
     seq[PendingAttestation] =
   filterIt(
     state.current_epoch_attestations,
-    it.data.target_root == get_block_root(
+    it.data.target_root == get_block_root_at_slot(
       state, get_epoch_start_slot(get_current_epoch(state))))
 
 func get_previous_epoch_boundary_attestations(state: BeaconState):
@@ -569,13 +637,13 @@ func get_previous_epoch_boundary_attestations(state: BeaconState):
   filterIt(
     state.previous_epoch_attestations,
     it.data.target_root ==
-      get_block_root(state, get_epoch_start_slot(get_previous_epoch(state))))
+      get_block_root_at_slot(state, get_epoch_start_slot(get_previous_epoch(state))))
 
 func get_previous_epoch_matching_head_attestations(state: BeaconState):
     seq[PendingAttestation] =
   filterIt(
     state.previous_epoch_attestations,
-    it.data.beacon_block_root == get_block_root(state, it.data.slot))
+    it.data.beacon_block_root == get_block_root_at_slot(state, it.data.slot))
 
 # Not exactly in spec, but for get_winning_root_and_participants
 func lowerThan(candidate, current: Eth2Digest): bool =
@@ -681,7 +749,7 @@ func update_justification_and_finalization(state: var BeaconState) =
     get_attesting_balance(
       state, get_current_epoch_boundary_attestations(state))
   if current_boundary_attesting_balance * 3'u64 >=
-      get_current_total_balance(state) * 2'u64:
+      get_total_active_balance(state) * 2'u64:
     new_justified_epoch = get_current_epoch(state)
     state.justification_bitfield = state.justification_bitfield or 1
 
@@ -720,11 +788,11 @@ func update_justification_and_finalization(state: var BeaconState) =
   if new_justified_epoch != state.current_justified_epoch:
     state.current_justified_epoch = new_justified_epoch
     state.current_justified_root =
-      get_block_root(state, get_epoch_start_slot(new_justified_epoch))
+      get_block_root_at_slot(state, get_epoch_start_slot(new_justified_epoch))
   if new_finalized_epoch != state.finalized_epoch:
     state.finalized_epoch = new_finalized_epoch
     state.finalized_root =
-      get_block_root(state, get_epoch_start_slot(new_finalized_epoch))
+      get_block_root_at_slot(state, get_epoch_start_slot(new_finalized_epoch))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#crosslinks
 func process_crosslinks(
@@ -779,160 +847,83 @@ func get_base_reward(state: BeaconState, index: ValidatorIndex): uint64 =
       BASE_REWARD_QUOTIENT
   get_effective_balance(state, index) div adjusted_quotient.uint64 div 5
 
-func get_inactivity_penalty(
-    state: BeaconState, index: ValidatorIndex,
-    epochs_since_finality: uint64): uint64 =
-  # TODO Left/right associativity sensitivity on * and div?
-  get_base_reward(state, index) +
-    get_effective_balance(state, index) * epochs_since_finality div
-    INACTIVITY_PENALTY_QUOTIENT div 2
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#justification-and-finalization
-func compute_normal_justification_and_finalization_deltas(state: BeaconState):
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#rewards-and-penalties
+func get_attestation_deltas(state: BeaconState):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
-  # deltas[0] for rewards
-  # deltas[1] for penalties
-  var deltas = (
-    repeat(0'u64, len(state.validator_registry)),
-    repeat(0'u64, len(state.validator_registry))
-  )
-  # Some helper variables
   let
-    boundary_attestations = get_previous_epoch_boundary_attestations(state)
-    boundary_attesting_balance =
-      get_attesting_balance(state, boundary_attestations)
-    total_balance = get_previous_total_balance(state)
-    total_attesting_balance =
-      get_attesting_balance(state, state.previous_epoch_attestations)
+    previous_epoch = get_previous_epoch(state)
+    total_balance = get_total_active_balance(state)
+  var
+    rewards = repeat(0'u64, len(state.validator_registry))
+    penalties = repeat(0'u64, len(state.validator_registry))
+    eligible_validator_indices : seq[ValidatorIndex] = @[]
+
+  for index, v in state.validator_registry:
+    if is_active_validator(v, previous_epoch) or
+        (v.slashed and previous_epoch + 1 < v.withdrawable_epoch):
+      eligible_validator_indices.add index.ValidatorIndex
+
+  # Micro-incentives for matching FFG source, FFG target, and head
+  let
+    matching_source_attestations =
+      get_matching_source_attestations(state, previous_epoch)
+    matching_target_attestations =
+      get_matching_target_attestations(state, previous_epoch)
     matching_head_attestations =
-      get_previous_epoch_matching_head_attestations(state)
-    matching_head_balance =
-      get_attesting_balance(state, matching_head_attestations)
+      get_matching_head_attestations(state, previous_epoch)
+  for attestations in
+      @[matching_source_attestations, matching_target_attestations,
+        matching_head_attestations]:
+    let
+      unslashed_attesting_indices =
+        get_unslashed_attesting_indices(state, attestations)
+      attesting_balance = get_attesting_balance(state, attestations)
+    for index in eligible_validator_indices:
+      if index in unslashed_attesting_indices:
+        rewards[index] +=
+          get_base_reward(state, index) * attesting_balance div total_balance
+      else:
+        penalties[index] += get_base_reward(state, index)
 
-  let
-    inclusion_distance = inclusion_distances(state)
-    inclusion_slot = inclusion_slots(state)
-    previous_epoch_attestation_indices =
-      get_attesting_indices(state, state.previous_epoch_attestations)
-    boundary_attestation_indices =
-      get_attesting_indices(state, boundary_attestations)
-    matching_head_attestation_indices =
-      get_attesting_indices(state, matching_head_attestations)
-  # Process rewards or penalties for all validators
-  for index in get_active_validator_indices(state, get_previous_epoch(state)):
-    # Expected FFG source
-    if index in previous_epoch_attestation_indices:
-      deltas[0][index] +=
-        get_base_reward(state, index) * total_attesting_balance div
-        total_balance
-      # Inclusion speed bonus
-      deltas[0][index] += (
-        get_base_reward(state, index) * MIN_ATTESTATION_INCLUSION_DELAY div
-        inclusion_distance[index]
-      )
-    else:
-      deltas[1][index] += get_base_reward(state, index)
-    # Expected FFG target
-    if index in boundary_attestation_indices:
-      deltas[0][index] +=
-        get_base_reward(state, index) * boundary_attesting_balance div
-        total_balance
-    else:
-      deltas[1][index] += get_base_reward(state, index)
-    # Expected head
-    if index in matching_head_attestation_indices:
-      deltas[0][index] +=
-        get_base_reward(state, index) *
-          matching_head_balance div total_balance
-    else:
-      deltas[1][index] += get_base_reward(state, index)
-    # Proposer bonus
-    if index in previous_epoch_attestation_indices:
-      let proposer_index =
-        get_beacon_proposer_index(state)
-      deltas[0][proposer_index] +=
-        get_base_reward(state, index) div PROPOSER_REWARD_QUOTIENT
-  deltas
+  if matching_source_attestations.len == 0:
+    return (rewards, penalties)
 
-func compute_inactivity_leak_deltas(state: BeaconState):
-    tuple[a: seq[Gwei], b: seq[Gwei]] =
-  # When blocks are not finalizing normally
-  # deltas[0] for rewards
-  # deltas[1] for penalties
-  var deltas = (
-    repeat(0'u64, len(state.validator_registry)),
-    repeat(0'u64, len(state.validator_registry))
-  )
+  # Proposer and inclusion delay micro-rewards
+  for index in get_unslashed_attesting_indices(state, matching_source_attestations):
+    doAssert matching_source_attestations.len > 0
+    var attestation = matching_source_attestations[0]
+    for a in matching_source_attestations:
+      if index notin get_attesting_indices(state, a.data, a.aggregation_bitfield):
+        continue
+      if a.inclusion_delay < attestation.inclusion_delay:
+        attestation = a
+    rewards[attestation.proposer_index] += get_base_reward(state, index) div
+      PROPOSER_REWARD_QUOTIENT
+    rewards[index] +=
+      get_base_reward(state, index) * MIN_ATTESTATION_INCLUSION_DELAY div
+        attestation.inclusion_delay
 
-  let
-    boundary_attestations = get_previous_epoch_boundary_attestations(state)
-    matching_head_attestations =
-      get_previous_epoch_matching_head_attestations(state)
-    active_validator_indices = toSet(get_active_validator_indices(
-      state, get_previous_epoch(state)))
-    epochs_since_finality =
-      get_current_epoch(state) + 1 - state.finalized_epoch
-  let
-    inclusion_distance = inclusion_distances(state)
-    previous_epoch_attestation_indices =
-      get_attesting_indices(state, state.previous_epoch_attestations)
-    boundary_attestation_indices =
-      get_attesting_indices(state, boundary_attestations)
-    matching_head_attestation_indices =
-      get_attesting_indices(state, matching_head_attestations)
-  for index in active_validator_indices:
-    if index notin previous_epoch_attestation_indices:
-      deltas[1][index] +=
-        get_inactivity_penalty(state, index, epochs_since_finality)
-    else:
-      ## If a validator did attest, apply a small penalty for getting
-      ## attestations included late
-      deltas[0][index] += (
-        get_base_reward(state, index) * MIN_ATTESTATION_INCLUSION_DELAY div
-          inclusion_distance[index]
-      )
-      deltas[1][index] += get_base_reward(state, index)
-    if index notin boundary_attestation_indices:
-      deltas[1][index] +=
-        get_inactivity_penalty(state, index, epochs_since_finality)
-    if index notin matching_head_attestation_indices:
-      deltas[1][index] += get_base_reward(state, index)
+  # Inactivity penalty
+  let finality_delay = previous_epoch - state.finalized_epoch
+  if finality_delay > MIN_EPOCHS_TO_INACTIVITY_PENALTY:
+    let matching_target_attesting_indices =
+      get_unslashed_attesting_indices(state, matching_target_attestations)
+    for index in eligible_validator_indices:
+      penalties[index] +=
+        BASE_REWARDS_PER_EPOCH.uint64 * get_base_reward(state, index)
+      if index notin matching_target_attesting_indices:
+        penalties[index] +=
+          state.validator_registry[index].effective_balance *
+            finality_delay div INACTIVITY_PENALTY_QUOTIENT
 
-  ## Penalize slashed-but-inactive validators as though they were active but
-  ## offline
-  for index in 0 ..< len(state.validator_registry):
-    let eligible = (
-      index.ValidatorIndex notin active_validator_indices and
-      state.validator_registry[index].slashed and
-      get_current_epoch(state) <
-        state.validator_registry[index].withdrawable_epoch
-    )
-    if eligible:
-      deltas[1][index] += (
-        2'u64 * get_inactivity_penalty(
-          state, index.ValidatorIndex, epochs_since_finality) +
-        get_base_reward(state, index.ValidatorIndex)
-      )
-  deltas
+  (rewards, penalties)
 
-func get_justification_and_finalization_deltas(state: BeaconState):
-    tuple[a: seq[Gwei], b: seq[Gwei]] =
-  let epochs_since_finality =
-    get_current_epoch(state) + 1 - state.finalized_epoch
-  if epochs_since_finality <= 4:
-    compute_normal_justification_and_finalization_deltas(state)
-  else:
-    compute_inactivity_leak_deltas(state)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#crosslinks-1
+# blob/0.5.1
 func get_crosslink_deltas(state: BeaconState, cache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
-  # deltas[0] for rewards
-  # deltas[1] for penalties
-  var deltas = (
-    repeat(0'u64, len(state.validator_registry)),
-    repeat(0'u64, len(state.validator_registry))
-  )
+  var
+    rewards = repeat(0'u64, len(state.validator_registry))
+    penalties = repeat(0'u64, len(state.validator_registry))
   let
     previous_epoch_start_slot =
       get_epoch_start_slot(get_previous_epoch(state))
@@ -952,25 +943,23 @@ func get_crosslink_deltas(state: BeaconState, cache: var StateCache):
         total_balance = get_total_balance(state, crosslink_committee)
       for index in crosslink_committee:
         if index in participants:
-          deltas[0][index] +=
+          rewards[index] +=
             get_base_reward(state, index) * participating_balance div
               total_balance
         else:
-          deltas[1][index] += get_base_reward(state, index)
+          penalties[index] += get_base_reward(state, index)
 
-  deltas
+  (rewards, penalties)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#apply-rewards
-func apply_rewards(state: var BeaconState, cache: var StateCache) =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#rewards-and-penalties
+func process_rewards_and_penalties(
+    state: var BeaconState, cache: var StateCache) =
   let
-    deltas1 = get_justification_and_finalization_deltas(state)
-    deltas2 = get_crosslink_deltas(state, cache)
+    (rewards1, penalties1) = get_attestation_deltas(state)
+    (rewards2, penalties2) = get_crosslink_deltas(state, cache)
   for i in 0 ..< len(state.validator_registry):
-    state.balances[i] =
-      max(
-        0'u64,
-        state.balances[i] + deltas1[0][i] + deltas2[0][i] -
-                                      deltas1[1][i] - deltas2[1][i])
+    increase_balance(state, i.ValidatorIndex, rewards1[i] + rewards2[i])
+    decrease_balance(state, i.ValidatorIndex, penalties1[i] + penalties2[i])
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#slashings-and-exit-queue
 func process_slashings(state: var BeaconState) =
@@ -1090,7 +1079,7 @@ func processEpoch(state: var BeaconState) =
   process_crosslinks(state, per_epoch_cache)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#apply-rewards
-  apply_rewards(state, per_epoch_cache)
+  process_rewards_and_penalties(state, per_epoch_cache)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#ejections
   process_ejections(state)
@@ -1367,7 +1356,7 @@ proc skipSlots*(state: var HashedBeaconState, slot: Slot,
 # Dec 21 13:31
 # how does that interact then with the following check:
 
-#     Verify that attestation.data.justified_block_root is equal to get_block_root(state, attestation.data.justified_slot).
+#     Verify that attestation.data.justified_block_root is equal to get_block_root_at_slot(state, attestation.data.justified_slot).
 
 # Danny Ryan
 # @djrtwo

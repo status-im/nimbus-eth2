@@ -53,7 +53,7 @@ else:
   {.fatal: "Preset \"" & const_preset ".nim\" is not supported.".}
 
 const
-  SPEC_VERSION* = "0.5.1" ## \
+  SPEC_VERSION* = "0.6.1" ## \
   ## Spec version we're aiming to be compatible with, right now
   ## TODO: improve this scheme once we can negotiate versions in protocol
 
@@ -141,6 +141,7 @@ type
     # FFG vote
     source_epoch*: Epoch
     source_root*: Eth2Digest
+    target_epoch*: Epoch
     target_root*: Eth2Digest
 
     # Crosslink vote
@@ -365,7 +366,11 @@ type
   PendingAttestation* = object
     aggregation_bitfield*: BitField           ## Attester participation bitfield
     data*: AttestationData                    ## Attestation data
+
+    # TODO remove
     inclusion_slot*: Slot                     ## Inclusion slot
+
+    inclusion_delay*: uint64                  ## Inclusion delay
     proposer_index*: ValidatorIndex           ## Proposer index
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#historicalbatch
