@@ -34,7 +34,7 @@ type
   CompressedMsgId = tuple
     protocolIndex, msgId: int
 
-  ResponseWithId*[MsgType] = object
+  ResponderWithId*[MsgType] = object
     peer*: Peer
     id*: int
 
@@ -411,15 +411,12 @@ proc prepareRequest(peer: Peer,
 proc implementSendProcBody(sendProc: SendProc) =
   let
     msg = sendProc.msg
-    resultIdent = ident "result"
     delayedWriteCursor = ident "delayedWriteCursor"
 
   proc preludeGenerator(stream: NimNode): NimNode =
     result = newStmtList()
     if msg.kind == msgRequest:
       let
-        reqId = ident "reqId"
-        appendPackedObject = bindSym "appendPackedObject"
         requestMethodId = newLit(msg.id)
         responseMethodId = newLit(msg.response.id)
         peer = sendProc.peerParam
@@ -428,7 +425,8 @@ proc implementSendProcBody(sendProc: SendProc) =
 
       result.add quote do:
         let `delayedWriteCursor` = `prepareRequest`(
-          `peer`, `protocol`, `requestMethodId`, `responseMethodId`, `stream`, `timeout`, `resultIdent`)
+          `peer`, `protocol`, `requestMethodId`, `responseMethodId`,
+          `stream`, `timeout`, `resultIdent`)
 
   proc sendCallGenerator(peer, bytes: NimNode): NimNode =
     let
@@ -452,17 +450,13 @@ proc implementSendProcBody(sendProc: SendProc) =
 
 proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   let
-    resultIdent = ident "result"
     Option = bindSym "Option"
-
-    # XXX: Binding the int type causes instantiation failure for some reason
-    # Int = bindSym "int"
-    Int = ident "int"
     Peer = bindSym "Peer"
     EthereumNode = bindSym "EthereumNode"
+
     Format = bindSym "SSZ"
     Response = bindSym "Response"
-    ResponseWithId = bindSym "ResponseWithId"
+    ResponderWithId = bindSym "ResponderWithId"
     perProtocolMsgId = ident"perProtocolMsgId"
 
     mount = bindSym "mount"
@@ -474,9 +468,8 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     nextMsg = bindSym "nextMsg"
     initProtocol = bindSym "initProtocol"
     registerMsg = bindSym "registerMsg"
+    handshakeImpl = bindSym "handshakeImpl"
 
-    peer = ident "peer"
-    reqId = ident "reqId"
     stream = ident "stream"
     protocol = ident "protocol"
     response = ident "response"
@@ -494,41 +487,17 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   result.PeerType = Peer
   result.NetworkType = EthereumNode
   result.SerializationFormat = Format
-  result.ResponseType = ResponseWithId
 
-  result.implementMsg = proc (protocol: P2PProtocol, msg: Message) =
+  p.useRequestIds = true
+  result.ResponderType = ResponderWithId
+
+  result.implementMsg = proc (msg: Message) =
     var
       msgIdLit = newLit(msg.id)
       msgRecName = msg.recIdent
-      msgKind = msg.kind
-      n = msg.procDef
-      responseMethodId = if msg.response != nil: msg.response.id else: -1
-      responseRecord = if msg.response != nil: msg.response.recIdent else: nil
-      msgIdent = n.name
+      msgIdent = msg.ident
       msgName = $msgIdent
-      hasReqIds = msgKind in {msgRequest, msgResponse}
-      userPragmas = n.pragma
-
-      # variables used in the sending procs
-      msgRecipient = ident"msgRecipient"
-      rlpWriter = ident"writer"
-      paramsToWrite = newSeq[NimNode](0)
-      perPeerMsgIdVar  = ident"perPeerMsgId"
-
-    ##
-    ## Augment user handler
-    ##
-    if msg.userHandler != nil:
-      if msgKind == msgRequest:
-        msg.userHandler.params.insert(2, newIdentDefs(reqId, Int))
-
-        let peerParam = msg.userHandler.params[1][0]
-        let extraDefs = quote do:
-          let `response` = `ResponseWithId`[`responseRecord`](peer: `peerParam`, id: `reqId`)
-
-        msg.userHandler.addPreludeDefs extraDefs
-
-      protocol.outRecvProcs.add(msg.userHandler)
+      protocol = msg.protocol
 
     ##
     ## Implemenmt Thunk
@@ -538,22 +507,25 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     else:
       newStmtList()
 
-    # variables used in the receiving procs
-    let callResolvedResponseFuture = if msgKind == msgResponse:
-      newCall(resolveResponseFuture, peer, msgIdLit, newCall("addr", receivedMsg), reqId)
+    let callResolvedResponseFuture = if msg.kind == msgResponse:
+      newCall(resolveResponseFuture, peer, msgIdLit, newCall("addr", receivedMsg), reqIdVar)
     else:
       newStmtList()
 
+    var userHandlerParams = @[peer]
+    if msg.kind == msgRequest:
+      userHandlerParams.add reqIdVar
+
     let
-      awaitUserHandler = msg.genAwaitUserHandler(receivedMsg, peer, reqId)
       thunkName = ident(msgName & "_thunk")
+      awaitUserHandler = msg.genAwaitUserHandler(receivedMsg, userHandlerParams)
 
     var thunkProc = quote do:
       proc `thunkName`(`peer`: `Peer`,
                        `stream`: `P2PStream`,
-                       `reqId`: uint64,
+                       `reqIdVar`: uint64,
                        `msgContents`: `ByteStreamVar`) {.async, gcsafe.} =
-        var `receivedMsg` = `mount`(`SSZ`, `msgContents`, `msgRecName`)
+        var `receivedMsg` = `mount`(`Format`, `msgContents`, `msgRecName`)
         `traceMsg`
         `awaitUserHandler`
         `callResolvedResponseFuture`
@@ -563,37 +535,13 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     ##
     ## Implement Senders and Handshake
     ##
-    var sendProc = createSendProc(msg, isRawSender = (msg.kind == msgHandshake))
+    var sendProc = msg.createSendProc(isRawSender = (msg.kind == msgHandshake))
+    implementSendProcBody sendProc
     protocol.outSendProcs.add sendProc.allDefs
 
     if msg.kind == msgHandshake:
-      var
-        rawSendProc = genSym(nskProc, msgName & "RawSend")
-        handshakeExchanger = createSendProc(msg, procType = nnkTemplateDef)
-
-      handshakeExchanger.def.params[0] = newTree(nnkBracketExpr, ident("Future"), msgRecName)
-
-      var
-        forwardCall = newCall(rawSendProc).appendAllParams(handshakeExchanger.def)
-        peerValue = forwardCall[1]
-        timeoutValue = msg.timeoutParam[0]
-        handshakeImpl = ident"handshakeImpl"
-
-      forwardCall[1] = peer
-      forwardCall.del(forwardCall.len - 1)
-
-      handshakeExchanger.def.body = quote do:
-        let `peer` = `peerValue`
-        let sendingFuture = `forwardCall`
-        `handshakeImpl`(`peer`,
-                        sendingFuture,
-                        `nextMsg`(`peer`, `msgRecName`),
-                        `timeoutValue`)
-
-      sendProc.def.name = rawSendProc
-      protocol.outSendProcs.add handshakeExchanger.def
-    else:
-      implementSendProcBody sendProc
+      protocol.outSendProcs.add msg.genHandshakeTemplate(sendProc.def.name,
+                                                         handshakeImpl, nextMsg)
 
     protocol.outProcRegistrations.add(
       newCall(registerMsg,

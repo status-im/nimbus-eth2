@@ -68,7 +68,7 @@ type
     peer*: Peer
     stream*: P2PStream
 
-  Response*[MsgType] = distinct UntypedResponse
+  Responder*[MsgType] = distinct UntypedResponse
 
   Bytes = seq[byte]
 
@@ -82,6 +82,7 @@ type
 const
   defaultIncomingReqTimeout = 5000
   defaultOutgoingReqTimeout = 10000
+  HandshakeTimeout = BreachOfProtocol
 
 var
   gProtocols: seq[ProtocolInfo]
@@ -272,7 +273,7 @@ template getRecipient(peer: Peer): Peer =
 template getRecipient(stream: P2PStream): P2PStream =
   stream
 
-template getRecipient(response: Response): Peer =
+template getRecipient(response: Responder): Peer =
   UntypedResponse(response).peer
 
 proc initProtocol(name: string,
@@ -329,7 +330,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     Format = ident"SSZ"
     Option = bindSym "Option"
     UntypedResponse = bindSym "UntypedResponse"
-    Response = bindSym "Response"
+    Responder = bindSym "Responder"
     DaemonAPI = bindSym "DaemonAPI"
     P2PStream = ident "P2PStream"
     # XXX: Binding the int type causes instantiation failure for some reason
@@ -368,20 +369,21 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   result.registerProtocol = bindSym "registerProtocol"
   result.setEventHandlers = bindSym "setEventHandlers"
   result.SerializationFormat = Format
-  result.ResponseType = Response
+  result.ResponderType = Responder
 
   result.afterProtocolInit = proc (p: P2PProtocol) =
     p.onPeerConnected.params.add newIdentDefs(ident"handshakeStream", P2PStream)
 
-  result.implementMsg = proc (p: P2PProtocol, msg: Message, resp: Message = nil) =
+  result.implementMsg = proc (msg: Message) =
     let
       n = msg.procDef
+      protocol = msg.protocol
       msgId = newLit(msg.id)
       msgIdent = n.name
       msgName = $msgIdent
       msgKind = msg.kind
       msgRecName = msg.recIdent
-      responseRecord = if resp != nil: resp.recIdent else: nil
+      ResponseRecord = if msg.response != nil: msg.response.recIdent else: nil
       userPragmas = n.pragma
 
     var
@@ -415,14 +417,14 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
         extraDefs = quote do:
           # Jump through some hoops to work aroung
           # https://github.com/nim-lang/Nim/issues/6248
-          let `response` = `Response`[`responseRecord`](
+          let `response` = `Responder`[`ResponseRecord`](
             `UntypedResponse`(peer: `peer`, stream: `stream`))
 
       # Resolve the Eth2Peer from the LibP2P data received in the thunk
       userHandlerCall.add peerIdent
 
       msg.userHandler.addPreludeDefs extraDefs
-      p.outRecvProcs.add msg.userHandler
+      protocol.outRecvProcs.add msg.userHandler
 
     elif msgName == "status":
       #awaitUserHandler = quote do:
@@ -455,14 +457,11 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
         `awaitUserHandler`
         `resolveNextMsgFutures`(`peerIdent`, get(`receivedMsg`))
 
-    for p in userPragmas:
-      thunkProc.addPragma p
-
-    p.outRecvProcs.add thunkProc
+    protocol.outRecvProcs.add thunkProc
 
     var msgSendProc = n
     let msgSendProcName = n.name
-    p.outSendProcs.add msgSendProc
+    protocol.outSendProcs.add msgSendProc
 
     # TODO: check that the first param has the correct type
     msgSendProc.params[1][0] = sendTo
@@ -478,9 +477,9 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
       # from a certain request. Here we change the Peer parameter at position
       # 1 to the correct strongly-typed ResponseType. The incoming procs still
       # gets the normal Peer paramter.
-      let ResponseType = newTree(nnkBracketExpr, Response, msgRecName)
+      let ResponseType = newTree(nnkBracketExpr, Responder, msgRecName)
       msgSendProc.params[1][1] = ResponseType
-      p.outSendProcs.add quote do:
+      protocol.outSendProcs.add quote do:
         template send*(r: `ResponseType`, args: varargs[untyped]): auto =
           `msgSendProcName`(r, args)
     else: discard
@@ -488,7 +487,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     # We change the return type of the sending proc to a Future.
     # If this is a request proc, the future will return the response record.
     let rt = if msgKind != msgRequest: Void
-             else: newTree(nnkBracketExpr, Option, responseRecord)
+             else: newTree(nnkBracketExpr, Option, ResponseRecord)
     msgSendProc.params[0] = newTree(nnkBracketExpr, ident("Future"), rt)
 
     if msgKind == msgHandshake:
@@ -516,7 +515,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 
         return `getAst`(`handshakeImpl`(`msgRecName`, peer, stream, lazySendCall, timeout))
 
-      p.outSendProcs.add handshakeExchanger.def
+      protocol.outSendProcs.add handshakeExchanger.def
 
       msgSendProc.params[1][1] = P2PStream
       msgSendProc.name = ident rawSendProc
@@ -553,7 +552,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
         if msgKind == msgRequest:
           let timeout = msg.timeoutParam[0]
           quote: `makeEth2Request`(`msgRecipient`, `msgProto`, `msgBytes`,
-                                   `responseRecord`, `timeout`)
+                                   `ResponseRecord`, `timeout`)
         elif msgId.intVal == 0:
           quote: `sendBytes`(`sendTo`, `msgBytes`)
         else:
@@ -568,9 +567,9 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
       `finalizeRequest`
       return `sendCall`
 
-    p.outProcRegistrations.add(
+    protocol.outProcRegistrations.add(
       newCall(registerMsg,
-              p.protocolInfoVar,
+              protocol.protocolInfoVar,
               newLit(msgName),
               thunkName,
               msgProto,
