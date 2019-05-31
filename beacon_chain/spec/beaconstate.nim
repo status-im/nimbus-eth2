@@ -6,16 +6,10 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  chronicles, math, options, sequtils,
+  algorithm, chronicles, math, options, sequtils,
   ../extras, ../ssz, ../beacon_node_types,
   ./bitfield, ./crypto, ./datatypes, ./digest, ./helpers, ./validator,
   tables
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_effective_balance
-func get_effective_balance*(state: BeaconState, index: ValidatorIndex): Gwei =
-  ## Return the effective balance (also known as "balance at stake") for a
-  ## validator with the given ``index``.
-  min(state.balances[index], MAX_EFFECTIVE_BALANCE)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#verify_merkle_branch
 func verify_merkle_branch(leaf: Eth2Digest, proof: openarray[Eth2Digest], depth: uint64, index: uint64, root: Eth2Digest): bool =
@@ -420,75 +414,48 @@ iterator get_attestation_participants_cached*(state: BeaconState,
       break
   doAssert found, "Couldn't find crosslink committee"
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#ejections
-func process_ejections*(state: var BeaconState) =
-  ## Iterate through the validator registry and eject active validators with
-  ## balance below ``EJECTION_BALANCE``
-  for index in get_active_validator_indices(
-      state, get_current_epoch(state)):
-    if state.balances[index] < EJECTION_BALANCE:
-      exit_validator(state, index)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_total_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_total_balance
 func get_total_balance*(state: BeaconState, validators: auto): Gwei =
-  # Return the combined effective balance of an array of validators.
-  foldl(validators, a + get_effective_balance(state, b), 0'u64)
+  # Return the combined effective balance of an array of ``validators``.
+  foldl(validators, a + state.validator_registry[b].effective_balance, 0'u64)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
-func should_update_validator_registry*(state: BeaconState): bool =
-  # Must have finalized a new block
-  if state.finalized_epoch <= state.validator_registry_update_epoch:
-    return false
-  # Must have processed new crosslinks on all shards of the current epoch
-  allIt(0 ..< get_epoch_committee_count(state, get_current_epoch(state)).int,
-        not (state.latest_crosslinks[
-          ((state.current_shuffling_start_shard + it.uint64) mod
-            SHARD_COUNT).int].epoch <= state.validator_registry_update_epoch))
-
-func update_validator_registry*(state: var BeaconState) =
-  ## Update validator registry.
-  ## Note that this function mutates ``state``.
-  let
-    current_epoch = get_current_epoch(state)
-    # The active validators
-    active_validator_indices =
-      get_active_validator_indices(state, current_epoch)
-    # The total effective balance of active validators
-    total_balance = get_total_balance(state, active_validator_indices)
-
-    # The maximum balance churn in Gwei (for deposits and exits separately)
-    max_balance_churn = max(
-        MAX_EFFECTIVE_BALANCE,
-        total_balance div (2 * MAX_BALANCE_CHURN_QUOTIENT)
-    )
-
-  # Activate validators within the allowable balance churn
-  var balance_churn = 0'u64
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#registry-updates
+func process_registry_updates*(state: var BeaconState) =
+  # Process activation eligibility and ejections
   for index, validator in state.validator_registry:
-    if validator.activation_epoch == FAR_FUTURE_EPOCH and
-      state.balances[index] >= MAX_EFFECTIVE_BALANCE:
-      # Check the balance churn would be within the allowance
-      balance_churn += get_effective_balance(state, index.ValidatorIndex)
-      if balance_churn > max_balance_churn:
-        break
-
-      # Activate validator
+    if validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and
+        validator.effective_balance >= MAX_EFFECTIVE_BALANCE:
       state.validator_registry[index].activation_eligibility_epoch =
         get_current_epoch(state)
 
-  # Exit validators within the allowable balance churn
-  balance_churn = 0
+    if is_active_validator(validator, get_current_epoch(state)) and
+        validator.effective_balance <= EJECTION_BALANCE:
+      initiate_validator_exit(state, index.ValidatorIndex)
+
+  ## Queue validators eligible for activation and not dequeued for activation
+  ## prior to finalized epoch
+  var activation_queue : seq[tuple[a: Epoch, b: int]] = @[]
   for index, validator in state.validator_registry:
+    if validator.activation_eligibility_epoch != FAR_FUTURE_EPOCH and
+        validator.activation_epoch >=
+          get_delayed_activation_exit_epoch(state.finalized_epoch):
+      activation_queue.add (
+        state.validator_registry[index].activation_eligibility_epoch, index)
+
+  activation_queue.sort(system.cmp)
+
+  ## Dequeued validators for activation up to churn limit (without resetting
+  ## activation epoch)
+  let churn_limit = get_churn_limit(state)
+  for i, epoch_and_index in activation_queue:
+    if i.uint64 >= churn_limit:
+      break
+    let
+      (epoch, index) = epoch_and_index
+      validator = addr state.validator_registry[index]
     if validator.activation_epoch == FAR_FUTURE_EPOCH:
-      # Check the balance churn would be within the allowance
-      balance_churn += get_effective_balance(state, index.ValidatorIndex)
-      if balance_churn > max_balance_churn:
-        break
-
-      # Exit validator
-      exit_validator(state, index.ValidatorIndex)
-
-  state.validator_registry_update_epoch = current_epoch
+      validator.activation_epoch =
+        get_delayed_activation_exit_epoch(get_current_epoch(state))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#attestations
 proc checkAttestation*(

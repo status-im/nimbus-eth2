@@ -53,16 +53,9 @@ else:
   {.fatal: "Preset \"" & const_preset ".nim\" is not supported.".}
 
 const
-  SPEC_VERSION* = "0.6.1" ## \
+  SPEC_VERSION* = "0.6.2" ## \
   ## Spec version we're aiming to be compatible with, right now
   ## TODO: improve this scheme once we can negotiate versions in protocol
-
-  # Misc
-  # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#misc
-
-  # TODO remove, not in post-0.5.1
-  MAX_BALANCE_CHURN_QUOTIENT* = 2^5 ##\
 
   # Gwei values
   # ---------------------------------------------------------------
