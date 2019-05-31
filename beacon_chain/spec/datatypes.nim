@@ -97,7 +97,7 @@ type
     header_2*: BeaconBlockHeader ##\
     # Second block header
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#attesterslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#attesterslashing
   AttesterSlashing* = object
     attestation_1*: IndexedAttestation ## \
     ## First attestation

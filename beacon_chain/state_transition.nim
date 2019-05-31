@@ -720,74 +720,70 @@ func get_winning_root_and_participants(
      state,
      attestations_for.getOrDefault(winning_root), cache))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#justification
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#justification-and-finalization
 func process_justification_and_finalization(state: var BeaconState) =
-  var
-    new_justified_epoch = state.current_justified_epoch
-    new_finalized_epoch = state.finalized_epoch
+  if get_current_epoch(state) <= GENESIS_EPOCH + 1:
+    return
 
-  ## Rotate the justification bitfield up one epoch to make room for the
-  ## current epoch
-  state.justification_bitfield = state.justification_bitfield shl 1
-
-  # If the previous epoch gets justified, fill the second last bit
-  let previous_boundary_attesting_balance =
-   get_attesting_balance(
-     state, get_previous_epoch_boundary_attestations(state))
-  if previous_boundary_attesting_balance * 3'u64 >=
-      get_previous_total_balance(state) * 2'u64:
-    new_justified_epoch = get_current_epoch(state) - 1
-    state.justification_bitfield = state.justification_bitfield or 2
-
-  # If the current epoch gets justified, fill the last bit
-  let current_boundary_attesting_balance =
-    get_attesting_balance(
-      state, get_current_epoch_boundary_attestations(state))
-  if current_boundary_attesting_balance * 3'u64 >=
-      get_total_active_balance(state) * 2'u64:
-    new_justified_epoch = get_current_epoch(state)
-    state.justification_bitfield = state.justification_bitfield or 1
-
-  # Process finalizations
   let
-    bitfield = state.justification_bitfield
+    previous_epoch = get_previous_epoch(state)
     current_epoch = get_current_epoch(state)
+    old_previous_justified_epoch = state.previous_justified_epoch
+    old_current_justified_epoch = state.current_justified_epoch
 
-  ## The 2nd/3rd/4th most recent epochs are all justified, the 2nd using the
-  ## 4th as source
-  if (bitfield shr 1) mod 8 == 0b111 and
-      state.previous_justified_epoch == current_epoch - 3:
-    new_finalized_epoch = state.previous_justified_epoch
-
-  ## The 2nd/3rd most recent epochs are both justified, the 2nd using the 3rd
-  ## as source
-  if (bitfield shr 1) mod 4 == 0b11 and
-     state.previous_justified_epoch == current_epoch - 2:
-   new_finalized_epoch = state.previous_justified_epoch
-
-  ## The 1st/2nd/3rd most recent epochs are all justified, the 1st using the
-  ## 3rd as source
-  if (bitfield shr 0) mod 8 == 0b111 and
-      state.current_justified_epoch == current_epoch - 2:
-    new_finalized_epoch = state.current_justified_epoch
-
-  ## The 1st/2nd most recent epochs are both justified, the 1st using the 2nd
-  ## as source
-  if (bitfield shr 0) mod 4 == 0b11 and
-      state.current_justified_epoch == current_epoch - 1:
-    new_finalized_epoch = state.current_justified_epoch
-
-  # Update state jusification/finality fields
+  # Process justifications
   state.previous_justified_epoch = state.current_justified_epoch
   state.previous_justified_root = state.current_justified_root
-  if new_justified_epoch != state.current_justified_epoch:
-    state.current_justified_epoch = new_justified_epoch
+  state.justification_bitfield = (state.justification_bitfield shl 1)
+  let previous_epoch_matching_target_balance =
+    get_attesting_balance(state,
+      get_matching_target_attestations(state, previous_epoch))
+  if previous_epoch_matching_target_balance * 3 >=
+      get_total_active_balance(state) * 2:
+    state.current_justified_epoch = previous_epoch
     state.current_justified_root =
-      get_block_root_at_slot(state, get_epoch_start_slot(new_justified_epoch))
-  if new_finalized_epoch != state.finalized_epoch:
-    state.finalized_epoch = new_finalized_epoch
-    state.finalized_root =
-      get_block_root_at_slot(state, get_epoch_start_slot(new_finalized_epoch))
+      get_block_root(state, state.current_justified_epoch)
+    state.justification_bitfield = state.justification_bitfield or (1 shl 1)
+  let current_epoch_matching_target_balance =
+    get_attesting_balance(state,
+      get_matching_target_attestations(state, current_epoch))
+  if current_epoch_matching_target_balance * 3 >=
+      get_total_active_balance(state) * 2:
+    state.current_justified_epoch = current_epoch
+    state.current_justified_root =
+      get_block_root(state, state.current_justified_epoch)
+    state.justification_bitfield = state.justification_bitfield or (1 shl 0)
+
+  # Process finalizations
+  let bitfield = state.justification_bitfield
+
+  ## The 2nd/3rd/4th most recent epochs are justified, the 2nd using the 4th
+  ## as source
+  if (bitfield shr 1) mod 8 == 0b111 and old_previous_justified_epoch ==
+      current_epoch - 3:
+    state.finalized_epoch = old_previous_justified_epoch
+    state.finalized_root = get_block_root(state, state.finalized_epoch)
+
+  ## The 2nd/3rd most recent epochs are justified, the 2nd using the 3rd as
+  ## source
+  if (bitfield shr 1) mod 4 == 0b11 and old_previous_justified_epoch ==
+      current_epoch - 2:
+    state.finalized_epoch = old_previous_justified_epoch
+    state.finalized_root = get_block_root(state, state.finalized_epoch)
+
+  ## The 1st/2nd/3rd most recent epochs are justified, the 1st using the 3rd as
+  ## source
+  if (bitfield shr 0) mod 8 == 0b111 and old_current_justified_epoch ==
+      current_epoch - 2:
+    state.finalized_epoch = old_current_justified_epoch
+    state.finalized_root = get_block_root(state, state.finalized_epoch)
+
+  ## The 1st/2nd most recent epochs are justified, the 1st using the 2nd as
+  ## source
+  if (bitfield shr 0) mod 4 == 0b11 and old_current_justified_epoch ==
+      current_epoch - 1:
+    state.finalized_epoch = old_current_justified_epoch
+    state.finalized_root = get_block_root(state, state.finalized_epoch)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#crosslinks
 func process_crosslinks(
