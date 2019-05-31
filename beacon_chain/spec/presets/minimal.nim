@@ -43,7 +43,7 @@ const
 
   # Deposit contract
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#deposit-contract
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#deposit-contract
 
   # Unchanged
   DEPOSIT_CONTRACT_ADDRESS = "0x1234567890123456789012345678901234567890"
@@ -96,7 +96,7 @@ const
 
   # State list lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#state-list-lengths
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#state-list-lengths
 
   # Changed
   LATEST_RANDAO_MIXES_LENGTH* = 64
@@ -116,7 +116,7 @@ const
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#max-operations-per-block
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#max-operations-per-block
 
   # Unchanged
   MAX_PROPOSER_SLASHINGS* = 2^4
