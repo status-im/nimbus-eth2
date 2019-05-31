@@ -152,23 +152,6 @@ func initiate_validator_exit*(state: var BeaconState,
   validator.withdrawable_epoch =
     validator.exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#exit_validator
-func exit_validator*(state: var BeaconState,
-                     index: ValidatorIndex) =
-  ## Exit the validator with the given ``index``.
-  ## Note that this function mutates ``state``.
-
-  let
-    validator = addr state.validator_registry[index]
-    delayed_activation_exit_epoch =
-      get_delayed_activation_exit_epoch(get_current_epoch(state))
-
-  # The following updates only occur if not previous exited
-  if validator.exit_epoch <= delayed_activation_exit_epoch:
-    return
-
-  validator.exit_epoch = delayed_activation_exit_epoch
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#slash_validator
 func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex) =
   # Slash the validator with index ``index``.

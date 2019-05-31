@@ -221,42 +221,49 @@ func verify_slashable_attestation(state: BeaconState, slashable_attestation: Ind
     ),
   )
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#is_slashable_attestation_data
+func is_slashable_attestation_data(
+    data_1: AttestationData, data_2: AttestationData): bool =
+  ## Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG
+  ## rules.
+
+  # Double vote
+  (data_1 != data_2 and data_1.target_epoch == data_2.target_epoch) or
+  # Surround vote
+    (data_1.source_epoch < data_2.source_epoch and
+     data_2.target_epoch < data_1.target_epoch)
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attester-slashings
 proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
-  ## Process ``AttesterSlashing`` transaction.
-  ## Note that this function mutates ``state``.
+  # Process ``AttesterSlashing`` operation.
   if len(blck.body.attester_slashings) > MAX_ATTESTER_SLASHINGS:
     notice "CaspSlash: too many!"
     return false
 
   for attester_slashing in blck.body.attester_slashings:
     let
-      slashable_attestation_1 = attester_slashing.attestation_1
-      slashable_attestation_2 = attester_slashing.attestation_2
+      attestation_1 = attester_slashing.attestation_1
+      attestation_2 = attester_slashing.attestation_2
 
-    # Check that the attestations are conflicting
-    if not (slashable_attestation_1.data != slashable_attestation_2.data):
-      notice "CaspSlash: invalid data"
-      return false
-
-    if not (
-      is_double_vote(slashable_attestation_1.data, slashable_attestation_2.data) or
-      is_surround_vote(slashable_attestation_1.data, slashable_attestation_2.data)):
+    if not is_slashable_attestation_data(
+        attestation_1.data, attestation_2.data):
       notice "CaspSlash: surround or double vote check failed"
       return false
 
-    if not verify_slashable_attestation(state, slashable_attestation_1):
+    if not verify_slashable_attestation(state, attestation_1):
       notice "CaspSlash: invalid votes 1"
       return false
 
-    if not verify_slashable_attestation(state, slashable_attestation_2):
+    if not verify_slashable_attestation(state, attestation_2):
       notice "CaspSlash: invalid votes 2"
       return false
 
+    var slashed_any = false
+
     let
-      indices2 = toSet(slashable_attestation_2.validator_indices)
+      indices2 = toSet(attestation_2.validator_indices)
       slashable_indices =
-        slashable_attestation_1.validator_indices.filterIt(
+        attestation_1.validator_indices.filterIt(
           it in indices2 and not state.validator_registry[it.int].slashed)
 
     if not (len(slashable_indices) >= 1):
