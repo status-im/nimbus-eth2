@@ -364,7 +364,7 @@ type
     inclusion_delay*: uint64                  ## Inclusion delay
     proposer_index*: ValidatorIndex           ## Proposer index
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#historicalbatch
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#historicalbatch
   HistoricalBatch* = object
     block_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
     ## Block roots
@@ -383,10 +383,10 @@ type
     epoch*: Epoch ##\
     ## Fork epoch number
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#eth1data
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#eth1data
   Eth1Data* = object
     deposit_root*: Eth2Digest ##\
-    ## Data being voted for
+    ## Root of the deposit tree
 
     deposit_count*: uint64 ##\
     ## Total number of deposits

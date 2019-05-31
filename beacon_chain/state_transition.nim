@@ -951,19 +951,37 @@ func process_slashings(state: var BeaconState) =
           validator.effective_balance div MIN_PENALTY_QUOTIENT)
       decrease_balance(state, index.ValidatorIndex, penalty)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#final-updates
-func finish_epoch_update(state: var BeaconState) =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_shard_delta
+func get_shard_delta(state: BeaconState, epoch: Epoch): uint64 =
+  # Return the number of shards to increment ``state.latest_start_shard`` during ``epoch``.
+  min(get_epoch_committee_count(state, epoch),
+    (SHARD_COUNT - SHARD_COUNT div SLOTS_PER_EPOCH).uint64)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#final-updates
+func process_final_updates(state: var BeaconState) =
   let
     current_epoch = get_current_epoch(state)
     next_epoch = current_epoch + 1
 
-  # Set active index root
-  let index_root_position =
-    (next_epoch + ACTIVATION_EXIT_DELAY) mod LATEST_ACTIVE_INDEX_ROOTS_LENGTH
-  state.latest_active_index_roots[index_root_position] =
-    hash_tree_root(get_active_validator_indices(
-      state, next_epoch + ACTIVATION_EXIT_DELAY)
-  )
+  # Reset eth1 data votes
+  if (state.slot + 1) mod SLOTS_PER_ETH1_VOTING_PERIOD == 0:
+    state.eth1_data_votes = @[]
+
+  # Update effective balances with hysteresis
+  for index, validator in state.validator_registry:
+    let balance = state.balances[index]
+    const HALF_INCREMENT = EFFECTIVE_BALANCE_INCREMENT div 2
+    if balance < validator.effective_balance or
+        validator.effective_balance + 3'u64 * HALF_INCREMENT < balance:
+      state.validator_registry[index].effective_balance =
+        min(
+          balance - balance mod EFFECTIVE_BALANCE_INCREMENT,
+          MAX_EFFECTIVE_BALANCE)
+
+  # Update start shard
+  state.latest_start_shard =
+    (state.latest_start_shard + get_shard_delta(state, current_epoch)) mod
+      SHARD_COUNT
 
   # Set total slashed balances
   state.latest_slashed_balances[next_epoch mod LATEST_SLASHED_EXIT_LENGTH] = (
@@ -986,7 +1004,7 @@ func finish_epoch_update(state: var BeaconState) =
   state.previous_epoch_attestations = state.current_epoch_attestations
   state.current_epoch_attestations = @[]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#per-epoch-processing
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#per-epoch-processing
 func get_empty_per_epoch_cache(): StateCache =
   result.crosslink_committee_cache =
     initTable[tuple[a: uint64, b: bool], seq[CrosslinkCommittee]]()
@@ -1015,8 +1033,8 @@ func processEpoch(state: var BeaconState) =
   # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#slashings
   process_slashings(state)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#final-updates
-  finish_epoch_update(state)
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#final-updates
+  process_final_updates(state)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#state-root-verification
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
