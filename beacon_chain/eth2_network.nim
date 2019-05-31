@@ -7,7 +7,7 @@ import
 const
   clientId = "Nimbus beacon node v" & fullVersionStr()
 
-when useRLPx:
+when networkBackend == rlpxBackend:
   import
     os,
     eth/[rlp, p2p, keys, net/nat], gossipsub_protocol,
@@ -116,12 +116,14 @@ when useRLPx:
     node.peerPool.len
 
 else:
-  import
-    libp2p/daemon/daemonapi,
-    libp2p_backend
+  import libp2p/daemon/daemonapi
 
-  export
-    libp2p_backend
+  when networkBackend == libp2pSpecBackend:
+    import libp2p_spec_backend
+    export libp2p_spec_backend
+  else:
+    import libp2p_backend
+    export libp2p_backend
 
   type
     BootstrapAddr* = PeerInfo

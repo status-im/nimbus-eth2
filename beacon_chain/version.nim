@@ -1,6 +1,16 @@
+type
+  NetworkBackendType* = enum
+    libp2pSpecBackend
+    libp2pNativeBackend
+    rlpxBackend
+
 const
-  network_type {.strdefine.} = "rlpx"
-  useRLPx* = network_type == "rlpx"
+  network_type {.strdefine.} = "libp2p_spec"
+
+  networkBackend* = when network_type == "rlpx": rlpxBackend
+                    elif network_type == "libp2p_spec": libp2pSpecBackend
+                    elif network_type == "libp2p_native": libp2pNativeBackend
+                    else: {.fatal: "The 'network_type' should be one of 'libp2p_spec', 'libp2p_native' or 'rlpx'" .}
 
 const
   versionMajor* = 0
@@ -16,4 +26,5 @@ template versionAsStr*: string =
   $versionMajor & "." & $versionMinor & "." & $versionBuild
 
 proc fullVersionStr*: string =
-  versionAsStr & (if useRLPx: " rlpx" else: " libp2p")
+  versionAsStr & "_" & network_type
+

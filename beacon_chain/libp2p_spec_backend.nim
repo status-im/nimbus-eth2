@@ -1,8 +1,11 @@
 import
-  tables, deques, options, algorithm, std_shims/macros_shim,
-  chronos, chronicles, serialization, faststreams/input_stream,
+  tables, deques, options, algorithm, std_shims/[macros_shim, tables_shims],
+  ranges/ptr_arith, chronos, chronicles, serialization, faststreams/input_stream,
   eth/p2p/p2p_protocol_dsl, libp2p/daemon/daemonapi,
   ssz
+
+export
+  daemonapi, p2pProtocol, ssz
 
 const
   # Compression nibble
@@ -10,6 +13,8 @@ const
 
   # Encoding nibble
   SszEncoding* = uint 1
+
+  beaconChainProtocol = "/eth/serenity/beacon/rpc/1"
 
 type
   Eth2Node* = ref object of RootObj
@@ -50,7 +55,7 @@ type
     ServerError = 40
 
   OutstandingRequest* = object
-    id*: int
+    id*: uint64
     future*: FutureBase
     timeoutAt*: Moment
 
@@ -61,7 +66,7 @@ type
   Peer* = ref object
     network*: Eth2Node
     id*: PeerID
-    lastSentMsgId*: int
+    lastSentMsgId*: uint64
     rpcStream*: P2PStream
     connectionState*: ConnectionState
     protocolStates*: seq[RootRef]
@@ -130,8 +135,9 @@ type
   PeerDisconnected* = object of P2PBackendError
     reason*: DisconnectionReason
 
-var
-  gProtocols: seq[ProtocolInfo]
+var gProtocols: seq[ProtocolInfo]
+
+template allProtocols: auto = {.gcsafe.}: gProtocols
 
 const
   HandshakeTimeout = FaultOrError
@@ -143,8 +149,9 @@ proc `$`*(peer: Peer): string = $peer.id
 proc readPackedObject(stream: P2PStream, T: type): Future[T] {.async.} =
   await stream.transp.readExactly(addr result, sizeof result)
 
-proc appendPackedObject*(stream: ByteStreamVar, value: auto) =
-  stream.append makeOpenArray(unsafeAddr value, sizeof value)
+proc appendPackedObject*(stream: OutputStreamVar, value: auto) =
+  let valueAsBytes = cast[ptr byte](unsafeAddr(value))
+  stream.append makeOpenArray(valueAsBytes, sizeof(value))
 
 type
   PeerLoopExitReason = enum
@@ -167,6 +174,52 @@ template raisePeerDisconnected(msg: string, r: DisconnectionReason) =
   var e = newException(PeerDisconnected, msg)
   e.reason = r
   raise e
+
+proc handleConnectingBeaconChainPeer(daemon: DaemonAPI, stream: P2PStream) {.async, gcsafe.}
+
+proc init*(node: Eth2Node) {.async.} =
+  node.daemon = await newDaemonApi({PSGossipSub})
+  node.daemon.userData = node
+  init node.peers
+
+  newSeq node.protocolStates, allProtocols.len
+  for proto in allProtocols:
+    if proto.networkStateInitializer != nil:
+      node.protocolStates[proto.index] = proto.networkStateInitializer(node)
+
+  await node.daemon.addHandler(@[beaconChainProtocol], handleConnectingBeaconChainPeer)
+
+proc init*(T: type Peer, network: Eth2Node, id: PeerID): Peer =
+  new result
+  result.id = id
+  result.network = network
+  result.awaitedMessages = initTable[CompressedMsgId, FutureBase]()
+  result.connectionState = Connected
+  newSeq result.protocolStates, allProtocols.len
+  for i in 0 ..< allProtocols.len:
+    let proto = allProtocols[i]
+    if proto.peerStateInitializer != nil:
+      result.protocolStates[i] = proto.peerStateInitializer(result)
+
+proc performProtocolHandshakes*(peer: Peer) {.async.} =
+  var subProtocolsHandshakes = newSeqOfCap[Future[void]](allProtocols.len)
+  for protocol in allProtocols:
+    if protocol.handshake != nil:
+      subProtocolsHandshakes.add((protocol.handshake)(peer, nil))
+
+  await all(subProtocolsHandshakes)
+
+proc getPeer*(node: Eth2Node, peerId: PeerID): Peer {.gcsafe.} =
+  result = node.peers.getOrDefault(peerId)
+  if result == nil:
+    result = Peer.init(node, peerId)
+    node.peers[peerId] = result
+
+proc peerFromStream(daemon: DaemonAPI, stream: P2PStream): Peer {.gcsafe.} =
+  Eth2Node(daemon.userData).getPeer(stream.peer)
+
+proc handleConnectingBeaconChainPeer(daemon: DaemonAPI, stream: P2PStream) {.async, gcsafe.} =
+  let peer = daemon.peerFromStream(stream)
 
 proc disconnectAndRaise(peer: Peer,
                         reason: DisconnectionReason,
@@ -244,6 +297,9 @@ proc sendMsg*(peer: Peer, data: Bytes) {.gcsafe, async.} =
     # sending should be retried a few times
     raise
 
+proc sendMsg*[T](responder: ResponderWithId[T], data: Bytes): Future[void] =
+  return sendMsg(responder.peer, data)
+
 proc nextMsg*(peer: Peer, MsgType: type): Future[MsgType] =
   ## This procs awaits a specific RLPx message.
   ## Any messages received while waiting will be dispatched to their
@@ -280,7 +336,7 @@ proc registerRequest(peer: Peer,
                      protocol: ProtocolInfo,
                      timeout: Duration,
                      responseFuture: FutureBase,
-                     responseMethodId: uint16): int =
+                     responseMethodId: uint16): uint64 =
   inc peer.lastSentMsgId
   result = peer.lastSentMsgId
 
@@ -295,19 +351,20 @@ proc registerRequest(peer: Peer,
 
   addTimer(timeoutAt, timeoutExpired, nil)
 
-proc resolveResponseFuture(peer: Peer, protocol: ProtocolInfo, msgId: int, msg: pointer, reqId: int) =
+proc resolveResponseFuture(peer: Peer, protocol: ProtocolInfo,
+                           methodId: int, msg: pointer, reqId: uint64) =
   when false:
     logScope:
-      msg = peer.dispatcher.messages[msgId].name
-      msgContents = peer.dispatcher.messages[msgId].printer(msg)
+      msg = peer.dispatcher.messages[methodId].name
+      msgContents = peer.dispatcher.messages[methodId].printer(msg)
       receivedReqId = reqId
       remotePeer = peer.remote
 
   template resolve(future) =
-    (protocol.dispatcher.messages[msgId].requestResolver)(msg, future)
+    (protocol.dispatcher.messages[methodId].requestResolver)(msg, future)
 
   template outstandingReqs: auto =
-    peer.outstandingRequests[msgId]
+    peer.outstandingRequests[methodId]
 
   # TODO: This is not completely sound because we are still using a global
   # `reqId` sequence (the problem is that we might get a response ID that
@@ -395,7 +452,7 @@ template applyDecorator(p: NimNode, decorator: NimNode) =
 proc prepareRequest(peer: Peer,
                     protocol: ProtocolInfo,
                     requestMethodId, responseMethodId: uint16,
-                    stream: ByteStreamVar,
+                    stream: OutputStreamVar,
                     timeout: Duration,
                     responseFuture: FutureBase): DelayedWriteCursor =
 
@@ -408,18 +465,23 @@ proc prepareRequest(peer: Peer,
     reqId: reqId,
     methodId: requestMethodId)
 
+proc prepareResponse(responder: ResponderWithId,
+                     stream: OutputStreamVar): DelayedWriteCursor =
+  result = stream.delayFixedSizeWrite sizeof(SpecOuterMsgHeader)
+
 proc implementSendProcBody(sendProc: SendProc) =
   let
     msg = sendProc.msg
     delayedWriteCursor = ident "delayedWriteCursor"
+    peer = sendProc.peerParam
 
   proc preludeGenerator(stream: NimNode): NimNode =
     result = newStmtList()
-    if msg.kind == msgRequest:
+    case msg.kind
+    of msgRequest:
       let
         requestMethodId = newLit(msg.id)
         responseMethodId = newLit(msg.response.id)
-        peer = sendProc.peerParam
         protocol = sendProc.msg.protocol.protocolInfoVar
         timeout = sendProc.timeoutParam
 
@@ -427,6 +489,11 @@ proc implementSendProcBody(sendProc: SendProc) =
         let `delayedWriteCursor` = `prepareRequest`(
           `peer`, `protocol`, `requestMethodId`, `responseMethodId`,
           `stream`, `timeout`, `resultIdent`)
+    of msgResponse:
+      result.add quote do:
+        let `delayedWriteCursor` = `prepareResponse`(`peer`, `stream`)
+    else:
+      discard
 
   proc sendCallGenerator(peer, bytes: NimNode): NimNode =
     let
@@ -454,7 +521,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     Peer = bindSym "Peer"
     EthereumNode = bindSym "EthereumNode"
 
-    Format = bindSym "SSZ"
+    Format = ident "SSZ"
     Response = bindSym "Response"
     ResponderWithId = bindSym "ResponderWithId"
     perProtocolMsgId = ident"perProtocolMsgId"
@@ -508,11 +575,11 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
       newStmtList()
 
     let callResolvedResponseFuture = if msg.kind == msgResponse:
-      newCall(resolveResponseFuture, peer, msgIdLit, newCall("addr", receivedMsg), reqIdVar)
+      newCall(resolveResponseFuture, peerVar, msgIdLit, newCall("addr", receivedMsg), reqIdVar)
     else:
       newStmtList()
 
-    var userHandlerParams = @[peer]
+    var userHandlerParams = @[peerVar]
     if msg.kind == msgRequest:
       userHandlerParams.add reqIdVar
 
@@ -521,7 +588,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
       awaitUserHandler = msg.genAwaitUserHandler(receivedMsg, userHandlerParams)
 
     var thunkProc = quote do:
-      proc `thunkName`(`peer`: `Peer`,
+      proc `thunkName`(`peerVar`: `Peer`,
                        `stream`: `P2PStream`,
                        `reqIdVar`: uint64,
                        `msgContents`: `ByteStreamVar`) {.async, gcsafe.} =

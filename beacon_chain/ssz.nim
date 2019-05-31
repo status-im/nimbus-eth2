@@ -171,11 +171,13 @@ proc writeValue*(w: var SszWriter, obj: auto) =
 
   when obj is ValidatorIndex|BasicType:
     w.stream.append obj.toSSZType().toBytesSSZ
+  elif obj is byte|char:
+    w.stream.append obj
   elif obj is enum:
     w.stream.append uint64(obj).toBytesSSZ
   else:
     let memo = w.beginRecord(obj.type)
-    when obj is seq|array|openarray:
+    when obj is seq|array|openarray|string:
       # If you get an error here that looks like:
       # type mismatch: got <type range 0..8191(uint64)>
       # you just used an unsigned int for an array index thinking you'd get

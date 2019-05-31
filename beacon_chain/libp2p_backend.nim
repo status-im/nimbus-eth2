@@ -21,7 +21,7 @@ type
     awaitedMessages: Table[CompressedMsgId, FutureBase]
     protocolStates*: seq[RootRef]
 
-  EthereumNode = Eth2Node # This alias is needed for state_helpers below
+  EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
 
   ProtocolInfoObj* = object
     name*: string
@@ -173,7 +173,7 @@ proc p2pStreamName(MsgType: type): string =
   mixin msgProtocol, protocolInfo, msgId
   MsgType.msgProtocol.protocolInfo.messages[MsgType.msgId].libp2pProtocol
 
-template handshakeImpl*(HandshakeTypeExpr: untyped,
+template handshakeImpl(HandshakeTypeExpr: untyped,
                          # TODO: we cannot use a type parameter above
                          # because of the following Nim issue:
                          #
@@ -323,11 +323,11 @@ template libp2pProtocol*(name, version: string) {.pragma.}
 
 proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   var
-    response = ident"response"
+    response = ident "response"
     name_openStream = newTree(nnkPostfix, ident("*"), ident"openStream")
-    outputStream = ident"outputStream"
-    currentProtocolSym = ident"CurrentProtocol"
-    Format = ident"SSZ"
+    outputStream = ident "outputStream"
+    currentProtocolSym = ident "CurrentProtocol"
+    Format = ident "SSZ"
     Option = bindSym "Option"
     UntypedResponse = bindSym "UntypedResponse"
     Responder = bindSym "Responder"
@@ -352,11 +352,11 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     registerMsg = bindSym "registerMsg"
     initProtocol = bindSym "initProtocol"
     bindSymOp = bindSym "bindSym"
-    msgRecipient = ident"msgRecipient"
-    sendTo = ident"sendTo"
-    writer = ident"writer"
+    msgRecipient = ident "msgRecipient"
+    sendTo = ident "sendTo"
+    writer = ident "writer"
     recordStartMemo = ident"recordStartMemo"
-    receivedMsg = ident"msg"
+    receivedMsg = ident "msg"
     daemon = ident "daemon"
     stream = ident "stream"
     await = ident "await"
