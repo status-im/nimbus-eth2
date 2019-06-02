@@ -224,18 +224,10 @@ func get_genesis_beacon_state*(
         epoch: GENESIS_EPOCH,
     ),
 
-    validator_registry_update_epoch: GENESIS_EPOCH,
-
     # validator_registry and balances automatically initalized
 
     # Randomness and committees
     # latest_randao_mixes automatically initialized
-    previous_shuffling_start_shard: GENESIS_START_SHARD,
-    current_shuffling_start_shard: GENESIS_START_SHARD,
-    previous_shuffling_epoch: GENESIS_EPOCH,
-    current_shuffling_epoch: GENESIS_EPOCH,
-    previous_shuffling_seed: ZERO_HASH,
-    current_shuffling_seed: ZERO_HASH,
 
     # Finality
     # previous_epoch_attestations and current_epoch_attestations automatically
@@ -259,7 +251,7 @@ func get_genesis_beacon_state*(
   )
 
   for i in 0 ..< SHARD_COUNT:
-    state.latest_crosslinks[i] = Crosslink(
+    state.current_crosslinks[i] = Crosslink(
       epoch: GENESIS_EPOCH, crosslink_data_root: ZERO_HASH)
 
   # Process genesis deposits
@@ -277,7 +269,6 @@ func get_genesis_beacon_state*(
     get_active_validator_indices(state, GENESIS_EPOCH))
   for index in 0 ..< LATEST_ACTIVE_INDEX_ROOTS_LENGTH:
     state.latest_active_index_roots[index] = genesis_active_index_root
-  state.current_shuffling_seed = generate_seed(state, GENESIS_EPOCH)
 
   state
 
@@ -382,7 +373,7 @@ iterator get_attestation_participants_cached*(state: BeaconState,
 
   var found = false
   for crosslink_committee in get_crosslink_committees_at_slot_cached(
-      state, attestation_data.slot, false, cache):
+      state, attestation_data.slot, cache):
     if crosslink_committee.shard == attestation_data.shard:
       # TODO this and other attestation-based fields need validation so we don't
       #      crash on a malicious attestation!
@@ -512,11 +503,11 @@ proc checkAttestation*(
       epoch: slot_to_epoch(attestation.data.slot)
     )
   ]
-  if not (state.latest_crosslinks[attestation.data.shard] in
+  if not (state.current_crosslinks[attestation.data.shard] in
       acceptable_crosslink_data):
     warn("Unexpected crosslink shard",
       state_latest_crosslinks_attestation_data_shard =
-        state.latest_crosslinks[attestation.data.shard],
+        state.current_crosslinks[attestation.data.shard],
       attestation_data_previous_crosslink = attestation.data.previous_crosslink,
       epoch = humaneEpochNum(slot_to_epoch(attestation.data.slot)),
       actual_epoch = slot_to_epoch(attestation.data.slot),
@@ -608,7 +599,7 @@ proc makeAttestationData*(
     beacon_block_root: beacon_block_root,
     target_root: target_root,
     crosslink_data_root: Eth2Digest(), # Stub in phase0
-    previous_crosslink: state.latest_crosslinks[shard],
+    previous_crosslink: state.current_crosslinks[shard],
     source_epoch: state.current_justified_epoch,
     source_root: state.current_justified_root,
     target_epoch: slot_to_epoch(epoch_start_slot)

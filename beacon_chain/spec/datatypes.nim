@@ -262,7 +262,7 @@ type
     voluntary_exits*: seq[VoluntaryExit]
     transfers*: seq[Transfer]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#beaconstate
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#beaconstate
   BeaconState* = object
     slot*: Slot
     genesis_time*: uint64
@@ -274,19 +274,9 @@ type
     balances*: seq[uint64] ##\
     ## Validator balances in Gwei!
 
-    validator_registry_update_epoch*: Epoch
-
     # Randomness and committees
     latest_randao_mixes*: array[LATEST_RANDAO_MIXES_LENGTH, Eth2Digest]
     latest_start_shard*: Shard
-
-    # TODO remove *_shuffling_*
-    previous_shuffling_start_shard*: uint64
-    current_shuffling_start_shard*: uint64
-    previous_shuffling_epoch*: Epoch
-    current_shuffling_epoch*: Epoch
-    previous_shuffling_seed*: Eth2Digest
-    current_shuffling_seed*: Eth2Digest
 
     # Finality
     previous_epoch_attestations*: seq[PendingAttestation]
@@ -300,7 +290,7 @@ type
     finalized_root*: Eth2Digest
 
     # Recent state
-    latest_crosslinks*: array[SHARD_COUNT, Crosslink]
+    current_crosslinks*: array[SHARD_COUNT, Crosslink]
     previous_crosslinks*: array[SHARD_COUNT, Crosslink]
     latest_block_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
     ## Needed to process attestations, older to newer

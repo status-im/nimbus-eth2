@@ -630,7 +630,7 @@ func get_winning_root_and_participants(
     valid_attestations =
       filterIt(
         all_attestations,
-        it.data.previous_crosslink == state.latest_crosslinks[shard])
+        it.data.previous_crosslink == state.current_crosslinks[shard])
     all_roots = mapIt(valid_attestations, it.data.crosslink_data_root)
 
   # handle when no attestations for shard available
@@ -740,7 +740,7 @@ func process_crosslinks(
     previous_epoch = current_epoch - 1
     next_epoch = current_epoch + 1
 
-  ## TODO is it actually correct to be setting state.latest_crosslinks[shard]
+  ## TODO is it actually correct to be setting state.current_crosslinks[shard]
   ## to something pre-GENESIS_EPOCH, ever? I guess the intent is if there are
   ## a quorum of participants for  get_epoch_start_slot(previous_epoch), when
   ## state.slot == GENESIS_SLOT, then there will be participants for a quorum
@@ -750,7 +750,7 @@ func process_crosslinks(
       GENESIS_SLOT.uint64, get_epoch_start_slot(previous_epoch).uint64) ..<
       get_epoch_start_slot(next_epoch).uint64:
     for cas in get_crosslink_committees_at_slot_cached(
-        state, slot, false, per_epoch_cache):
+        state, slot, per_epoch_cache):
       let
         (crosslink_committee, shard) = cas
         # In general, it'll loop over the same shards twice, and
@@ -770,7 +770,7 @@ func process_crosslinks(
         # Check not from spec; seems kludgy
         doAssert slot >= GENESIS_SLOT
 
-        state.latest_crosslinks[shard] = Crosslink(
+        state.current_crosslinks[shard] = Crosslink(
           epoch: slot_to_epoch(slot),
           crosslink_data_root: winning_root
         )
@@ -868,7 +868,7 @@ func get_crosslink_deltas(state: BeaconState, cache: var StateCache):
       get_epoch_start_slot(get_current_epoch(state))
   for slot in previous_epoch_start_slot.uint64 ..<
       current_epoch_start_slot.uint64:
-    for cas in get_crosslink_committees_at_slot_cached(state, slot, false, cache):
+    for cas in get_crosslink_committees_at_slot_cached(state, slot, cache):
       let
         (crosslink_committee, shard) = cas
         (winning_root, participants) =

@@ -148,106 +148,6 @@ func get_previous_epoch*(state: BeaconState): Epoch =
   else:
     current_epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_crosslink_committees_at_slot
-func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64,
-                                       registry_change: bool = false):
-    seq[CrosslinkCommittee] =
-  ## Returns the list of ``(committee, shard)`` tuples for the ``slot``.
-  ##
-  ## Note: There are two possible shufflings for crosslink committees for a
-  ## ``slot`` in the next epoch -- with and without a `registry_change`
-
-  let
-    epoch = slot_to_epoch(slot) # TODO, enforce slot to be a Slot
-    current_epoch = get_current_epoch(state)
-    previous_epoch = get_previous_epoch(state)
-    next_epoch = current_epoch + 1
-
-  doAssert previous_epoch <= epoch,
-    "Previous epoch: " & $humaneEpochNum(previous_epoch) &
-    ", epoch: " & $humaneEpochNum(epoch) &
-    " (slot: " & $humaneSlotNum(slot.Slot) & ")" &
-    ", Next epoch: " & $humaneEpochNum(next_epoch)
-
-  doAssert epoch <= next_epoch,
-    "Previous epoch: " & $humaneEpochNum(previous_epoch) &
-    ", epoch: " & $humaneEpochNum(epoch) &
-    " (slot: " & $humaneSlotNum(slot.Slot) & ")" &
-    ", Next epoch: " & $humaneEpochNum(next_epoch)
-
-  template get_epoch_specific_params(): auto =
-    if epoch == current_epoch:
-      let
-        committees_per_epoch = get_epoch_committee_count(state, current_epoch)
-        seed = state.current_shuffling_seed
-        shuffling_epoch = state.current_shuffling_epoch
-        shuffling_start_shard = state.current_shuffling_start_shard
-      (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard)
-    elif epoch == previous_epoch:
-      let
-        committees_per_epoch = get_epoch_committee_count(state, previous_epoch)
-        seed = state.previous_shuffling_seed
-        shuffling_epoch = state.previous_shuffling_epoch
-        shuffling_start_shard = state.previous_shuffling_start_shard
-      (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard)
-    else:
-      doAssert epoch == next_epoch
-
-      let
-        shuffling_epoch = next_epoch
-
-        epochs_since_last_registry_update =
-          current_epoch - state.validator_registry_update_epoch
-        condition = epochs_since_last_registry_update > 1'u64 and
-                    is_power_of_2(epochs_since_last_registry_update)
-        use_next = registry_change or condition
-        committees_per_epoch =
-          if use_next:
-            get_epoch_committee_count(state, next_epoch)
-          else:
-            get_epoch_committee_count(state, current_epoch)
-        seed =
-          if use_next:
-            generate_seed(state, next_epoch)
-          else:
-            state.current_shuffling_seed
-        shuffling_epoch =
-          if use_next: next_epoch else: state.current_shuffling_epoch
-        shuffling_start_shard =
-          if registry_change:
-            (state.current_shuffling_start_shard +
-             get_epoch_committee_count(state, current_epoch)) mod SHARD_COUNT
-          else:
-            state.current_shuffling_start_shard
-      (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard)
-
-  let (committees_per_epoch, seed, shuffling_epoch, shuffling_start_shard) =
-    get_epoch_specific_params()
-
-  let
-    shuffling = get_shuffling(seed, state.validator_registry, shuffling_epoch)
-    offset = slot mod SLOTS_PER_EPOCH
-    committees_per_slot = committees_per_epoch div SLOTS_PER_EPOCH
-    slot_start_shard = (shuffling_start_shard + committees_per_slot * offset) mod SHARD_COUNT
-
-  for i in 0 ..< committees_per_slot.int:
-    result.add (
-     shuffling[(committees_per_slot * offset + i.uint64).int],
-     (slot_start_shard + i.uint64) mod SHARD_COUNT
-    )
-
-iterator get_crosslink_committees_at_slot_cached*(
-  state: BeaconState, slot: Slot|uint64,
-  registry_change: bool = false, cache: var StateCache):
-    CrosslinkCommittee =
-  let key = (slot.uint64, registry_change)
-  if key in cache.crosslink_committee_cache:
-    for v in cache.crosslink_committee_cache[key]: yield v
-  #debugEcho "get_crosslink_committees_at_slot_cached: MISS"
-  let result = get_crosslink_committees_at_slot(state, slot, registry_change)
-  cache.crosslink_committee_cache[key] = result
-  for v in result: yield v
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_shard_delta
 func get_shard_delta(state: BeaconState, epoch: Epoch): uint64 =
   ## Return the number of shards to increment ``state.latest_start_shard``
@@ -290,6 +190,47 @@ func get_crosslink_committee*(state: BeaconState, epoch: Epoch, shard: Shard):
     (shard + SHARD_COUNT - get_epoch_start_shard(state, epoch)) mod SHARD_COUNT,
     get_epoch_committee_count(state, epoch),
   )
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_crosslink_committees_at_slot
+func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64):
+    seq[CrosslinkCommittee] =
+  ## Returns the list of ``(committee, shard)`` tuples for the ``slot``.
+
+  let
+    epoch = slot_to_epoch(slot) # TODO, enforce slot to be a Slot
+    current_epoch = get_current_epoch(state)
+    previous_epoch = get_previous_epoch(state)
+    next_epoch = current_epoch + 1
+
+  doAssert previous_epoch <= epoch,
+    "Previous epoch: " & $humaneEpochNum(previous_epoch) &
+    ", epoch: " & $humaneEpochNum(epoch) &
+    " (slot: " & $humaneSlotNum(slot.Slot) & ")" &
+    ", Next epoch: " & $humaneEpochNum(next_epoch)
+
+  doAssert epoch <= next_epoch,
+    "Previous epoch: " & $humaneEpochNum(previous_epoch) &
+    ", epoch: " & $humaneEpochNum(epoch) &
+    " (slot: " & $humaneSlotNum(slot.Slot) & ")" &
+    ", Next epoch: " & $humaneEpochNum(next_epoch)
+
+  for i in 0'u64 ..< get_epoch_committee_count(state, epoch):
+    let shard = i mod SHARD_COUNT
+    result.add (
+      get_crosslink_committee(state, epoch, shard),
+      shard
+    )
+
+iterator get_crosslink_committees_at_slot_cached*(
+  state: BeaconState, slot: Slot|uint64, cache: var StateCache):
+    CrosslinkCommittee =
+  let key = (slot_to_epoch(slot).uint64, false)
+  if key in cache.crosslink_committee_cache:
+    for v in cache.crosslink_committee_cache[key]: yield v
+  #debugEcho "get_crosslink_committees_at_slot_cached: MISS"
+  let result = get_crosslink_committees_at_slot(state, slot)
+  cache.crosslink_committee_cache[key] = result
+  for v in result: yield v
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: BeaconState): ValidatorIndex =
