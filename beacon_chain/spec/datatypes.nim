@@ -40,7 +40,7 @@ import
 
 
 # Constant presets
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/configs/constant_presets/
+# https://github.com/ethereum/eth2.0-specs/tree/v0.6.2/configs/constant_presets/
 const const_preset*{.strdefine.} = "mainnet"
 
 when const_preset == "mainnet":
@@ -147,7 +147,7 @@ type
     data*: AttestationData
     custody_bit*: bool
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#deposit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#deposit
   Deposit* = object
     proof*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest] ##\
     ## Branch in the deposit tree
@@ -227,7 +227,7 @@ type
     signature*: ValidatorSig ##\
     ## Proposer signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#beaconblockheader
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot
     previous_block_root*: Eth2Digest
@@ -250,7 +250,7 @@ type
     signature*: ValidatorSig
     body*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data

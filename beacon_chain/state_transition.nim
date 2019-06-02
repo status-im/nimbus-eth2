@@ -81,7 +81,7 @@ proc processBlockHeader(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#randao
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#randao
 proc processRandao(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   let
@@ -94,7 +94,7 @@ proc processRandao(
       proposer.pubkey,
       hash_tree_root(get_current_epoch(state).uint64).data,
       blck.body.randao_reveal,
-      get_domain(state, DOMAIN_RANDAO, get_current_epoch(state))):
+      get_domain(state, DOMAIN_RANDAO)):
 
       notice "Randao mismatch", proposer_pubkey = proposer.pubkey,
                                 message = get_current_epoch(state),
@@ -332,7 +332,7 @@ proc processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#voluntary-exits
 proc processVoluntaryExits(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   # Process ``VoluntaryExit`` transaction.
@@ -360,6 +360,7 @@ proc processVoluntaryExits(
       return false
 
     # Verify the validator has been active long enough
+    # TODO detect underflow
     if not (get_current_epoch(state) - validator.activation_epoch >=
         PERSISTENT_COMMITTEE_PERIOD):
       notice "Exit: not in validator set long enough"
@@ -459,7 +460,7 @@ func advance_slot(state: var BeaconState) =
 
   state.slot += 1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#state-caching
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#state-caching
 func cacheState(state: var BeaconState) =
   let previous_slot_state_root = hash_tree_root(state)
 
@@ -994,7 +995,7 @@ func processEpoch(state: var BeaconState) =
 
   var per_epoch_cache = get_empty_per_epoch_cache()
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#crosslinks
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#crosslinks
   process_crosslinks(state, per_epoch_cache)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#rewards-and-penalties
