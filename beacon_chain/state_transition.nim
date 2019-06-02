@@ -308,7 +308,6 @@ proc processAttestations(
     let pending_attestation = PendingAttestation(
       data: attestation.data,
       aggregation_bitfield: attestation.aggregation_bitfield,
-      inclusion_slot: state.slot,
       inclusion_delay: state.slot - attestation_slot,
       proposer_index: get_beacon_proposer_index(state),
     )
@@ -948,7 +947,7 @@ func process_slashings(state: var BeaconState) =
         penalty = max(
           validator.effective_balance *
             min(total_penalties * 3, total_balance) div total_balance,
-          validator.effective_balance div MIN_PENALTY_QUOTIENT)
+          validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT)
       decrease_balance(state, index.ValidatorIndex, penalty)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_shard_delta
