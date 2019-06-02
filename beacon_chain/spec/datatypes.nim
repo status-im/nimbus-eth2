@@ -279,6 +279,8 @@ type
     # Randomness and committees
     latest_randao_mixes*: array[LATEST_RANDAO_MIXES_LENGTH, Eth2Digest]
     latest_start_shard*: Shard
+
+    # TODO remove *_shuffling_*
     previous_shuffling_start_shard*: uint64
     current_shuffling_start_shard*: uint64
     previous_shuffling_epoch*: Epoch
@@ -299,6 +301,7 @@ type
 
     # Recent state
     latest_crosslinks*: array[SHARD_COUNT, Crosslink]
+    previous_crosslinks*: array[SHARD_COUNT, Crosslink]
     latest_block_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
     ## Needed to process attestations, older to newer
     latest_state_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]

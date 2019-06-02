@@ -602,12 +602,6 @@ func get_unslashed_attesting_indices(
     if state.validator_registry[index].slashed:
       result.excl index
 
-# TODO check for blob/v0.5.0 removal
-func get_previous_total_balance(state: BeaconState): Gwei =
-  get_total_balance(
-    state,
-    get_active_validator_indices(state, get_previous_epoch(state)))
-
 func get_attesting_balance(state: BeaconState,
                            attestations: seq[PendingAttestation]): Gwei =
   get_total_balance(state, get_attesting_indices(state, attestations))
@@ -617,26 +611,6 @@ func get_attesting_balance_cached(
     cache: var StateCache): Gwei =
   get_total_balance(state, get_attesting_indices_cached(
     state, attestations, cache))
-
-func get_current_epoch_boundary_attestations(state: BeaconState):
-    seq[PendingAttestation] =
-  filterIt(
-    state.current_epoch_attestations,
-    it.data.target_root == get_block_root_at_slot(
-      state, get_epoch_start_slot(get_current_epoch(state))))
-
-func get_previous_epoch_boundary_attestations(state: BeaconState):
-    seq[PendingAttestation] =
-  filterIt(
-    state.previous_epoch_attestations,
-    it.data.target_root ==
-      get_block_root_at_slot(state, get_epoch_start_slot(get_previous_epoch(state))))
-
-func get_previous_epoch_matching_head_attestations(state: BeaconState):
-    seq[PendingAttestation] =
-  filterIt(
-    state.previous_epoch_attestations,
-    it.data.beacon_block_root == get_block_root_at_slot(state, it.data.slot))
 
 # Not exactly in spec, but for get_winning_root_and_participants
 func lowerThan(candidate, current: Eth2Digest): bool =
