@@ -42,7 +42,8 @@ proc init*(T: type SszReader, stream: ByteStreamVar): T =
 
 proc mount*(F: type SSZ, stream: ByteStreamVar, T: type): T =
   mixin readValue
-  init(SszReader, stream).readValue(T)
+  var reader = init(SszReader, stream)
+  reader.readValue(T)
 
 func toSSZType(x: Slot|Epoch): auto = x.uint64
 func toSSZType(x: auto): auto = x

@@ -18,6 +18,7 @@ when networkBackend == rlpxBackend:
 
   const
     netBackendName* = "rlpx"
+    IrrelevantNetwork* = UselessPeer
 
   type
     Eth2Node* = EthereumNode
@@ -116,21 +117,29 @@ when networkBackend == rlpxBackend:
     node.peerPool.len
 
 else:
-  import libp2p/daemon/daemonapi
+  import
+    random,
+    libp2p/daemon/daemonapi, eth/async_utils,
+    ssz
 
   when networkBackend == libp2pSpecBackend:
     import libp2p_spec_backend
     export libp2p_spec_backend
+
+    const
+      BreachOfProtocol* = FaultOrError
+      netBackendName* = "libp2p_spec"
+
   else:
     import libp2p_backend
     export libp2p_backend
 
+    const
+      netBackendName* = "libp2p_native"
+
   type
     BootstrapAddr* = PeerInfo
     Eth2NodeIdentity* = PeerInfo
-
-  const
-    netBackendName* = "libp2p"
 
   proc writeValue*(writer: var JsonWriter, value: PeerID) {.inline.} =
     writer.writeValue value.pretty
@@ -192,4 +201,29 @@ else:
 
   func peersCount*(node: Eth2Node): int =
     node.peers.len
+
+  proc makeMessageHandler[MsgType](msgHandler: proc(msg: MsgType)): P2PPubSubCallback =
+    result = proc(api: DaemonAPI,
+                  ticket: PubsubTicket,
+                  msg: PubSubMessage): Future[bool] {.async.} =
+      msgHandler SSZ.decode(msg.data, MsgType)
+      return true
+
+  proc subscribe*[MsgType](node: Eth2Node,
+                           topic: string,
+                           msgHandler: proc(msg: MsgType)) {.async.} =
+    discard await node.daemon.pubsubSubscribe(topic, makeMessageHandler(msgHandler))
+
+  proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
+    traceAsyncErrors node.daemon.pubsubPublish(topic, SSZ.encode(msg))
+
+  # TODO:
+  # At the moment, this is just a compatiblity shim for the existing RLPx functionality.
+  # The filtering is not implemented properly yet.
+  iterator randomPeers*(node: Eth2Node, maxPeers: int, Protocol: type): Peer =
+    var peers = newSeq[Peer]()
+    for _, peer in pairs(node.peers): peers.add peer
+    shuffle peers
+    if peers.len > maxPeers: peers.setLen(maxPeers)
+    for p in peers: yield p
 

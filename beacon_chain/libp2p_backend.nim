@@ -1,8 +1,8 @@
 import
-  options, macros, algorithm, random, tables,
+  options, macros, algorithm, tables,
   std_shims/[macros_shim, tables_shims], chronos, chronicles,
   libp2p/daemon/daemonapi, faststreams/output_stream, serialization,
-  eth/async_utils, eth/p2p/p2p_protocol_dsl,
+  eth/p2p/p2p_protocol_dsl,
   ssz
 
 export
@@ -64,11 +64,11 @@ type
     Disconnecting,
     Disconnected
 
-  UntypedResponse = object
+  UntypedResponder = object
     peer*: Peer
     stream*: P2PStream
 
-  Responder*[MsgType] = distinct UntypedResponse
+  Responder*[MsgType] = distinct UntypedResponder
 
   Bytes = seq[byte]
 
@@ -274,7 +274,7 @@ template getRecipient(stream: P2PStream): P2PStream =
   stream
 
 template getRecipient(response: Responder): Peer =
-  UntypedResponse(response).peer
+  UntypedResponder(response).peer
 
 proc initProtocol(name: string,
                   peerInit: PeerStateInitializer,
@@ -308,28 +308,30 @@ proc registerProtocol(protocol: ProtocolInfo) =
     gProtocols[i].index = i
 
 proc getRequestProtoName(fn: NimNode): NimNode =
-  # `getCustomPragmaVal` doesn't work yet on regular nnkProcDef nodes
-  # (TODO: file as an issue)
+  when true:
+    return newLit("rpc/" & $fn.name)
+  else:
+    # `getCustomPragmaVal` doesn't work yet on regular nnkProcDef nodes
+    # (TODO: file as an issue)
+    let pragmas = fn.pragma
+    if pragmas.kind == nnkPragma and pragmas.len > 0:
+      for pragma in pragmas:
+        if pragma.len > 0 and $pragma[0] == "libp2pProtocol":
+          return pragma[1]
 
-  let pragmas = fn.pragma
-  if pragmas.kind == nnkPragma and pragmas.len > 0:
-    for pragma in pragmas:
-      if pragma.len > 0 and $pragma[0] == "libp2pProtocol":
-        return pragma[1]
+    error "All stream opening procs must have the 'libp2pProtocol' pragma specified.", fn
 
-  error "All stream opening procs must have the 'libp2pProtocol' pragma specified.", fn
-
-template libp2pProtocol*(name, version: string) {.pragma.}
+proc init*[MsgType](T: type Responder[MsgType],
+                    peer: Peer, stream: P2PStream): T =
+  T(UntypedResponder(peer: peer, stream: stream))
 
 proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   var
-    response = ident "response"
     name_openStream = newTree(nnkPostfix, ident("*"), ident"openStream")
     outputStream = ident "outputStream"
-    currentProtocolSym = ident "CurrentProtocol"
     Format = ident "SSZ"
     Option = bindSym "Option"
-    UntypedResponse = bindSym "UntypedResponse"
+    UntypedResponder = bindSym "UntypedResponder"
     Responder = bindSym "Responder"
     DaemonAPI = bindSym "DaemonAPI"
     P2PStream = ident "P2PStream"
@@ -345,6 +347,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     getRecipient = bindSym "getRecipient"
     peerFromStream = bindSym "peerFromStream"
     makeEth2Request = bindSym "makeEth2Request"
+    handshakeImpl = bindSym "handshakeImpl"
     sendMsg = bindSym "sendMsg"
     sendBytes = bindSym "sendBytes"
     resolveNextMsgFutures = bindSym "resolveNextMsgFutures"
@@ -358,9 +361,10 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     recordStartMemo = ident"recordStartMemo"
     receivedMsg = ident "msg"
     daemon = ident "daemon"
-    stream = ident "stream"
+    streamVar = ident "stream"
     await = ident "await"
-    peerIdent = ident "peer"
+
+  p.useRequestIds = false
 
   new result
 
@@ -386,78 +390,41 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
       ResponseRecord = if msg.response != nil: msg.response.recIdent else: nil
       userPragmas = n.pragma
 
+    if n.body.kind != nnkEmpty and msg.kind == msgRequest:
+      # Request procs need an extra param - the stream where the response
+      # should be written:
+      msg.userHandler.params.insert(1, newIdentDefs(streamVar, P2PStream))
+      msg.initResponderCall.add streamVar
+
+    let awaitUserHandler = msg.genAwaitUserHandler(receivedMsg, [streamVar, peerVar])
+
+    let tracing = when tracingEnabled:
+      quote do: logReceivedMsg(`streamVar`.peer, `receivedMsg`.get)
+    else:
+      newStmtList()
+
+    let requestDataTimeout = newCall(milliseconds, newLit(defaultIncomingReqTimeout))
+    let thunkName = ident(msgName & "_thunk")
+    var thunkProc = quote do:
+      proc `thunkName`(`daemon`: `DaemonAPI`, `streamVar`: `P2PStream`) {.async, gcsafe.} =
+        var `receivedMsg` = `await` readMsg(`streamVar`, `msgRecName`, `requestDataTimeout`)
+        if `receivedMsg`.isNone:
+          # TODO: This peer is misbehaving, perhaps we should penalize him somehow
+          return
+        let `peerVar` = `peerFromStream`(`daemon`, `streamVar`)
+        `tracing`
+        `awaitUserHandler`
+        `resolveNextMsgFutures`(`peerVar`, get(`receivedMsg`))
+
+    protocol.outRecvProcs.add thunkProc
+
     var
       # variables used in the sending procs
       appendParams = newNimNode(nnkStmtList)
       paramsToWrite = newSeq[NimNode](0)
 
-      # variables used in the receiving procs
-      tracing = newNimNode(nnkStmtList)
-
-      # nodes to store the user-supplied message handling proc if present
-      userHandlerProc: NimNode = nil
-      userHandlerCall: NimNode = nil
-      awaitUserHandler = newStmtList()
-
-    if n.body.kind != nnkEmpty:
-      # This is the call to the user supplied handler.
-      # Here we add only the initial params, the rest will be added later.
-      userHandlerCall = newCall(msg.userHandler.name)
-      # When there is a user handler, it must be awaited in the thunk proc.
-      # Above, by default `awaitUserHandler` is set to a no-op statement list.
-      awaitUserHandler = newCall(await, userHandlerCall)
-
-      var extraDefs: NimNode
-      if msgKind == msgRequest:
-        # Request procs need an extra param - the stream where the response
-        # should be written:
-        msg.userHandler.params.insert(1, newIdentDefs(stream, P2PStream))
-        userHandlerCall.add stream
-        let peer = msg.userHandler.params[2][0]
-        extraDefs = quote do:
-          # Jump through some hoops to work aroung
-          # https://github.com/nim-lang/Nim/issues/6248
-          let `response` = `Responder`[`ResponseRecord`](
-            `UntypedResponse`(peer: `peer`, stream: `stream`))
-
-      # Resolve the Eth2Peer from the LibP2P data received in the thunk
-      userHandlerCall.add peerIdent
-
-      msg.userHandler.addPreludeDefs extraDefs
-      protocol.outRecvProcs.add msg.userHandler
-
-    elif msgName == "status":
-      #awaitUserHandler = quote do:
-      #  `await` `handshake`(`peerIdent`, `stream`)
-      discard
-      # TODO: revisit this
-
     for param, paramType in n.typedParams(skip = 1):
       paramsToWrite.add param
-
-      # If there is user message handler, we'll place a call to it by
-      # unpacking the fields of the received message:
-      if userHandlerCall != nil:
-        userHandlerCall.add quote do: get(`receivedMsg`).`param` # newDotExpr(newCall("get", receivedMsg), param)
-
-    when tracingEnabled:
-      tracing = quote do:
-        logReceivedMsg(`stream`.peer, `receivedMsg`.get)
-
-    let requestDataTimeout = newCall(milliseconds, newLit(defaultIncomingReqTimeout))
-    let thunkName = ident(msgName & "_thunk")
-    var thunkProc = quote do:
-      proc `thunkName`(`daemon`: `DaemonAPI`, `stream`: `P2PStream`) {.async, gcsafe.} =
-        var `receivedMsg` = `await` readMsg(`stream`, `msgRecName`, `requestDataTimeout`)
-        if `receivedMsg`.isNone:
-          # TODO: This peer is misbehaving, perhaps we should penalize him somehow
-          return
-        let `peerIdent` = `peerFromStream`(`daemon`, `stream`)
-        `tracing`
-        `awaitUserHandler`
-        `resolveNextMsgFutures`(`peerIdent`, get(`receivedMsg`))
-
-    protocol.outRecvProcs.add thunkProc
 
     var msgSendProc = n
     let msgSendProcName = n.name
@@ -498,7 +465,6 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
         paramsArray = newTree(nnkBracket).appendAllParams(handshakeExchanger.def)
         bindSym = ident "bindSym"
         getAst = ident "getAst"
-        handshakeImpl = ident "handshakeImpl"
 
       # TODO: macros.body triggers an assertion error when the proc type is nnkMacroDef
       handshakeExchanger.def[6] = quote do:
@@ -558,7 +524,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
         else:
           quote: `sendMsg`(`msgRecipient`, `msgProto`, `msgBytes`)
       else:
-        quote: `sendBytes`(`UntypedResponse`(`sendTo`).stream, `msgBytes`)
+        quote: `sendBytes`(`UntypedResponder`(`sendTo`).stream, `msgBytes`)
 
     msgSendProc.body = quote do:
       let `msgRecipient` = `getRecipient`(`sendTo`)
@@ -577,27 +543,4 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 
   result.implementProtocolInit = proc (p: P2PProtocol): NimNode =
     return newCall(initProtocol, newLit(p.name), p.peerInit, p.netInit)
-
-proc makeMessageHandler[MsgType](msgHandler: proc(msg: MsgType)): P2PPubSubCallback =
-  result = proc(api: DaemonAPI, ticket: PubsubTicket, msg: PubSubMessage): Future[bool] {.async.} =
-    msgHandler SSZ.decode(msg.data, MsgType)
-    return true
-
-proc subscribe*[MsgType](node: EthereumNode,
-                         topic: string,
-                         msgHandler: proc(msg: MsgType)) {.async.} =
-  discard await node.daemon.pubsubSubscribe(topic, makeMessageHandler(msgHandler))
-
-proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
-  traceAsyncErrors node.daemon.pubsubPublish(topic, SSZ.encode(msg))
-
-# TODO:
-# At the moment, this is just a compatiblity shim for the existing RLPx functionality.
-# The filtering is not implemented properly yet.
-iterator randomPeers*(node: EthereumNode, maxPeers: int, Protocol: type): Peer =
-  var peers = newSeq[Peer]()
-  for _, peer in pairs(node.peers): peers.add peer
-  shuffle peers
-  if peers.len > maxPeers: peers.setLen(maxPeers)
-  for p in peers: yield p
 
