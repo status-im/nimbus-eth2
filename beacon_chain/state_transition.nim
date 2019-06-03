@@ -1025,7 +1025,7 @@ proc advanceState*(state: var BeaconState) =
   ## hand - this happens for example when a block proposer fails to produce a
   ## a block.
 
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
   ## We now define the state transition function. At a high level the state
   ## transition is made up of four parts:
 

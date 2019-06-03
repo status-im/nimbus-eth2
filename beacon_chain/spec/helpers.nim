@@ -113,7 +113,7 @@ func get_active_index_root(state: BeaconState, epoch: Epoch): Eth2Digest =
   ## intentional
   state.latest_active_index_roots[epoch mod LATEST_ACTIVE_INDEX_ROOTS_LENGTH]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#bytes_to_int
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#bytes_to_int
 func bytes_to_int*(data: openarray[byte]): uint64 =
   doAssert data.len == 8
 
