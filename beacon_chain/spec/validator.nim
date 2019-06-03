@@ -118,26 +118,6 @@ func get_shuffled_index(index: ValidatorIndex, index_count: uint64, seed: Eth2Di
     if bit != 0:
       result = flip
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_shuffling
-func get_shuffling*(seed: Eth2Digest,
-                    validators: openArray[Validator],
-                    epoch: Epoch,
-                    ): seq[seq[ValidatorIndex]] =
-  ## This function is factored to facilitate testing with
-  ## https://github.com/ethereum/eth2.0-test-generators/tree/master/permutated_index
-  ## test vectors, which the split of get_shuffling obfuscates.
-
-  let
-    active_validator_indices = get_active_validator_indices(validators, epoch)
-    list_size = active_validator_indices.len.uint64
-    committees_per_epoch = get_epoch_committee_count(
-      validators, epoch).int
-    shuffled_seq = get_shuffled_seq(seed, list_size)
-
-  # Split the shuffled list into committees_per_epoch pieces
-  result = split(shuffled_seq, committees_per_epoch)
-  doAssert result.len() == committees_per_epoch # what split should do..
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(state: BeaconState): Epoch =
   ## Return the previous epoch of the given ``state``.

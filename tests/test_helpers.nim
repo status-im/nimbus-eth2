@@ -10,10 +10,11 @@ import
   ../beacon_chain/spec/[helpers]
 
 suite "Spec helpers":
-  test "is_power_of_2 should do its job":
+  test "integer_squareroot":
     check:
-      is_power_of_2(1) == true
-      is_power_of_2(2) == true
-      is_power_of_2(3) == false
-      is_power_of_2(4) == true
-      is_power_of_2(not 0'u64) == false
+      integer_squareroot(0'u64) == 0'u64
+      integer_squareroot(1'u64) == 1'u64
+      integer_squareroot(2'u64) == 1'u64
+      integer_squareroot(3'u64) == 1'u64
+      integer_squareroot(4'u64) == 2'u64
+      integer_squareroot(5'u64) == 2'u64

@@ -9,18 +9,10 @@
 
 import ./datatypes, ./digest, sequtils, math
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#split
-func split*[T](lst: openArray[T], N: Positive): seq[seq[T]] =
-  ## split lst in N pieces, with each piece having `len(lst) div N` or
-  ## `len(lst) div N + 1` pieces
-  # TODO: implement as an iterator
-  result = newSeq[seq[T]](N)
-  for i in 0 ..< N:
-    result[i] = lst[lst.len * i div N ..< lst.len * (i+1) div N] # TODO: avoid alloc via toOpenArray
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
-  ## The largest integer ``x`` such that ``x**2`` is less than ``n``.
+  ## The largest integer ``x`` such that ``x**2`` is less than or equal to
+  ## ``n``.
   doAssert n >= 0'u64
 
   var
@@ -30,9 +22,6 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
     x = y
     y = (x + n div x) div 2
   x
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#is_power_of_two
-func is_power_of_2*(v: uint64): bool = (v > 0'u64) and (v and (v-1)) == 0
 
 # TODO reuse as necessary/useful for merkle proof building
 func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
@@ -84,15 +73,6 @@ func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   ### Check if ``validator`` is active
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_active_validator_indices
-func get_active_validator_indices*(
-    validators: openarray[Validator], epoch: Epoch): seq[ValidatorIndex] =
-  ## Gets indices of active validators from validators
-  ## TODO remove when shuffling's refactored persuant to 0.6.1
-  for idx, val in validators:
-    if is_active_validator(val, epoch):
-      result.add idx.ValidatorIndex
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_active_validator_indices
 func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
     seq[ValidatorIndex] =
@@ -100,16 +80,6 @@ func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
   for idx, val in state.validator_registry:
     if is_active_validator(val, epoch):
       result.add idx.ValidatorIndex
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_epoch_committee_count
-# Not quite the 0.5.1 version. TODO remove when shuffling refactoring complete
-func get_epoch_committee_count*(
-    validators: openarray[Validator], epoch: Epoch): uint64 =
-  # Return the number of committees at ``epoch``.
-  let active_validator_indices = get_active_validator_indices(validators, epoch)
-  clamp(
-    len(active_validator_indices) div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
-    1, SHARD_COUNT div SLOTS_PER_EPOCH).uint64 * SLOTS_PER_EPOCH
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_epoch_committee_count
 func get_epoch_committee_count*(state: BeaconState, epoch: Epoch): uint64 =
