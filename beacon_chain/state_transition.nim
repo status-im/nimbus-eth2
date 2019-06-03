@@ -567,18 +567,8 @@ func get_attesting_indices(state: BeaconState,
     if get_bitfield_bit(bitfield, i):
       result.incl index
 
-# TODO remove this 0.5ish one when callers disappear
-func get_attesting_indices(
-    state: BeaconState,
-    attestations: openArray[PendingAttestation]): HashSet[ValidatorIndex] =
-  # Union of attesters that participated in some attestations
-  result = initSet[ValidatorIndex]()
-  for attestation in attestations:
-    for validator_index in get_attestation_participants(
-        state, attestation.data, attestation.aggregation_bitfield):
-      result.incl validator_index
-
-# TODO this cached version corresponds to the 0.5ish get_attesting_indices
+# TODO this cached version corresponds to the blob/v0.5.1ish get_attesting_indices
+# rm/make consistent with 0.6 version above
 func get_attesting_indices_cached(
     state: BeaconState,
     attestations: openArray[PendingAttestation], cache: var StateCache):
@@ -605,7 +595,7 @@ func get_unslashed_attesting_indices(
 
 func get_attesting_balance(state: BeaconState,
                            attestations: seq[PendingAttestation]): Gwei =
-  get_total_balance(state, get_attesting_indices(state, attestations))
+  get_total_balance(state, get_unslashed_attesting_indices(state, attestations))
 
 func get_attesting_balance_cached(
     state: BeaconState, attestations: seq[PendingAttestation],
