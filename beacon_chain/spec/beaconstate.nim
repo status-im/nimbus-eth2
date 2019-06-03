@@ -283,7 +283,7 @@ func get_initial_beacon_block*(state: BeaconState): BeaconBlock =
     # initialized to default values.
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_attestation_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_attestation_slot
 func get_attestation_slot*(state: BeaconState,
     attestation: Attestation|PendingAttestation,
     committee_count: uint64): Slot =
