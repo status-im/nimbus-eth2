@@ -81,7 +81,7 @@ proc processBlockHeader(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#randao
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#randao
 proc processRandao(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   let
@@ -94,7 +94,7 @@ proc processRandao(
       proposer.pubkey,
       hash_tree_root(get_current_epoch(state).uint64).data,
       blck.body.randao_reveal,
-      get_domain(state, DOMAIN_RANDAO, get_current_epoch(state))):
+      get_domain(state, DOMAIN_RANDAO)):
 
       notice "Randao mismatch", proposer_pubkey = proposer.pubkey,
                                 message = get_current_epoch(state),
@@ -113,7 +113,7 @@ proc processRandao(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#eth1-data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#eth1-data
 func processEth1Data(state: var BeaconState, blck: BeaconBlock) =
   state.eth1_data_votes.add blck.body.eth1_data
   if state.eth1_data_votes.count(blck.body.eth1_data) * 2 >
@@ -221,42 +221,49 @@ func verify_slashable_attestation(state: BeaconState, slashable_attestation: Ind
     ),
   )
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#is_slashable_attestation_data
+func is_slashable_attestation_data(
+    data_1: AttestationData, data_2: AttestationData): bool =
+  ## Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG
+  ## rules.
+
+  # Double vote
+  (data_1 != data_2 and data_1.target_epoch == data_2.target_epoch) or
+  # Surround vote
+    (data_1.source_epoch < data_2.source_epoch and
+     data_2.target_epoch < data_1.target_epoch)
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attester-slashings
 proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
-  ## Process ``AttesterSlashing`` transaction.
-  ## Note that this function mutates ``state``.
+  # Process ``AttesterSlashing`` operation.
   if len(blck.body.attester_slashings) > MAX_ATTESTER_SLASHINGS:
     notice "CaspSlash: too many!"
     return false
 
   for attester_slashing in blck.body.attester_slashings:
     let
-      slashable_attestation_1 = attester_slashing.attestation_1
-      slashable_attestation_2 = attester_slashing.attestation_2
+      attestation_1 = attester_slashing.attestation_1
+      attestation_2 = attester_slashing.attestation_2
 
-    # Check that the attestations are conflicting
-    if not (slashable_attestation_1.data != slashable_attestation_2.data):
-      notice "CaspSlash: invalid data"
-      return false
-
-    if not (
-      is_double_vote(slashable_attestation_1.data, slashable_attestation_2.data) or
-      is_surround_vote(slashable_attestation_1.data, slashable_attestation_2.data)):
+    if not is_slashable_attestation_data(
+        attestation_1.data, attestation_2.data):
       notice "CaspSlash: surround or double vote check failed"
       return false
 
-    if not verify_slashable_attestation(state, slashable_attestation_1):
+    if not verify_slashable_attestation(state, attestation_1):
       notice "CaspSlash: invalid votes 1"
       return false
 
-    if not verify_slashable_attestation(state, slashable_attestation_2):
+    if not verify_slashable_attestation(state, attestation_2):
       notice "CaspSlash: invalid votes 2"
       return false
 
+    var slashed_any = false
+
     let
-      indices2 = toSet(slashable_attestation_2.validator_indices)
+      indices2 = toSet(attestation_2.validator_indices)
       slashable_indices =
-        slashable_attestation_1.validator_indices.filterIt(
+        attestation_1.validator_indices.filterIt(
           it in indices2 and not state.validator_registry[it.int].slashed)
 
     if not (len(slashable_indices) >= 1):
@@ -301,7 +308,6 @@ proc processAttestations(
     let pending_attestation = PendingAttestation(
       data: attestation.data,
       aggregation_bitfield: attestation.aggregation_bitfield,
-      inclusion_slot: state.slot,
       inclusion_delay: state.slot - attestation_slot,
       proposer_index: get_beacon_proposer_index(state),
     )
@@ -326,7 +332,7 @@ proc processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#voluntary-exits
 proc processVoluntaryExits(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   # Process ``VoluntaryExit`` transaction.
@@ -354,6 +360,7 @@ proc processVoluntaryExits(
       return false
 
     # Verify the validator has been active long enough
+    # TODO detect underflow
     if not (get_current_epoch(state) - validator.activation_epoch >=
         PERSISTENT_COMMITTEE_PERIOD):
       notice "Exit: not in validator set long enough"
@@ -372,40 +379,7 @@ proc processVoluntaryExits(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
-func update_registry_and_shuffling_data(state: var BeaconState) =
-  # First set previous shuffling data to current shuffling data
-  state.previous_shuffling_epoch = state.current_shuffling_epoch
-  state.previous_shuffling_start_shard = state.current_shuffling_start_shard
-  state.previous_shuffling_seed = state.current_shuffling_seed
-
-  let
-    current_epoch = get_current_epoch(state)
-    next_epoch = current_epoch + 1
-
-  # Check if we should update, and if so, update
-  if should_update_validator_registry(state):
-    update_validator_registry(state)
-    # If we update the registry, update the shuffling data and shards as well
-    state.current_shuffling_epoch = next_epoch
-    state.current_shuffling_start_shard = (
-      state.current_shuffling_start_shard +
-      get_epoch_committee_count(state, current_epoch) mod SHARD_COUNT
-    ) mod SHARD_COUNT
-    state.current_shuffling_seed =
-      generate_seed(state, state.current_shuffling_epoch)
-  else:
-    ## If processing at least one crosslink keeps failing, then reshuffle every
-    ## power of two, but don't update the current_shuffling_start_shard
-    let epochs_since_last_registry_update =
-      current_epoch - state.validator_registry_update_epoch
-    if epochs_since_last_registry_update > 1'u64 and
-        is_power_of_2(epochs_since_last_registry_update):
-      state.current_shuffling_epoch = next_epoch
-      state.current_shuffling_seed =
-        generate_seed(state, state.current_shuffling_epoch)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#transfers
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#transfers
 proc processTransfers(state: var BeaconState, blck: BeaconBlock,
                       flags: UpdateFlags): bool =
   if not (len(blck.body.transfers) <= MAX_TRANSFERS):
@@ -486,7 +460,7 @@ func advance_slot(state: var BeaconState) =
 
   state.slot += 1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#state-caching
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#state-caching
 func cacheState(state: var BeaconState) =
   let previous_slot_state_root = hash_tree_root(state)
 
@@ -593,18 +567,8 @@ func get_attesting_indices(state: BeaconState,
     if get_bitfield_bit(bitfield, i):
       result.incl index
 
-# TODO remove this 0.5ish one when callers disappear
-func get_attesting_indices(
-    state: BeaconState,
-    attestations: openArray[PendingAttestation]): HashSet[ValidatorIndex] =
-  # Union of attesters that participated in some attestations
-  result = initSet[ValidatorIndex]()
-  for attestation in attestations:
-    for validator_index in get_attestation_participants(
-        state, attestation.data, attestation.aggregation_bitfield):
-      result.incl validator_index
-
-# TODO this cached version corresponds to the 0.5ish get_attesting_indices
+# TODO this cached version corresponds to the blob/v0.5.1ish get_attesting_indices
+# rm/make consistent with 0.6 version above
 func get_attesting_indices_cached(
     state: BeaconState,
     attestations: openArray[PendingAttestation], cache: var StateCache):
@@ -629,41 +593,15 @@ func get_unslashed_attesting_indices(
     if state.validator_registry[index].slashed:
       result.excl index
 
-# TODO check for blob/v0.5.0 removal
-func get_previous_total_balance(state: BeaconState): Gwei =
-  get_total_balance(
-    state,
-    get_active_validator_indices(state, get_previous_epoch(state)))
-
 func get_attesting_balance(state: BeaconState,
                            attestations: seq[PendingAttestation]): Gwei =
-  get_total_balance(state, get_attesting_indices(state, attestations))
+  get_total_balance(state, get_unslashed_attesting_indices(state, attestations))
 
 func get_attesting_balance_cached(
     state: BeaconState, attestations: seq[PendingAttestation],
     cache: var StateCache): Gwei =
   get_total_balance(state, get_attesting_indices_cached(
     state, attestations, cache))
-
-func get_current_epoch_boundary_attestations(state: BeaconState):
-    seq[PendingAttestation] =
-  filterIt(
-    state.current_epoch_attestations,
-    it.data.target_root == get_block_root_at_slot(
-      state, get_epoch_start_slot(get_current_epoch(state))))
-
-func get_previous_epoch_boundary_attestations(state: BeaconState):
-    seq[PendingAttestation] =
-  filterIt(
-    state.previous_epoch_attestations,
-    it.data.target_root ==
-      get_block_root_at_slot(state, get_epoch_start_slot(get_previous_epoch(state))))
-
-func get_previous_epoch_matching_head_attestations(state: BeaconState):
-    seq[PendingAttestation] =
-  filterIt(
-    state.previous_epoch_attestations,
-    it.data.beacon_block_root == get_block_root_at_slot(state, it.data.slot))
 
 # Not exactly in spec, but for get_winning_root_and_participants
 func lowerThan(candidate, current: Eth2Digest): bool =
@@ -683,7 +621,7 @@ func get_winning_root_and_participants(
     valid_attestations =
       filterIt(
         all_attestations,
-        it.data.previous_crosslink == state.latest_crosslinks[shard])
+        it.data.previous_crosslink == state.current_crosslinks[shard])
     all_roots = mapIt(valid_attestations, it.data.crosslink_data_root)
 
   # handle when no attestations for shard available
@@ -720,74 +658,70 @@ func get_winning_root_and_participants(
      state,
      attestations_for.getOrDefault(winning_root), cache))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#justification
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#justification-and-finalization
 func process_justification_and_finalization(state: var BeaconState) =
-  var
-    new_justified_epoch = state.current_justified_epoch
-    new_finalized_epoch = state.finalized_epoch
+  if get_current_epoch(state) <= GENESIS_EPOCH + 1:
+    return
 
-  ## Rotate the justification bitfield up one epoch to make room for the
-  ## current epoch
-  state.justification_bitfield = state.justification_bitfield shl 1
-
-  # If the previous epoch gets justified, fill the second last bit
-  let previous_boundary_attesting_balance =
-   get_attesting_balance(
-     state, get_previous_epoch_boundary_attestations(state))
-  if previous_boundary_attesting_balance * 3'u64 >=
-      get_previous_total_balance(state) * 2'u64:
-    new_justified_epoch = get_current_epoch(state) - 1
-    state.justification_bitfield = state.justification_bitfield or 2
-
-  # If the current epoch gets justified, fill the last bit
-  let current_boundary_attesting_balance =
-    get_attesting_balance(
-      state, get_current_epoch_boundary_attestations(state))
-  if current_boundary_attesting_balance * 3'u64 >=
-      get_total_active_balance(state) * 2'u64:
-    new_justified_epoch = get_current_epoch(state)
-    state.justification_bitfield = state.justification_bitfield or 1
-
-  # Process finalizations
   let
-    bitfield = state.justification_bitfield
+    previous_epoch = get_previous_epoch(state)
     current_epoch = get_current_epoch(state)
+    old_previous_justified_epoch = state.previous_justified_epoch
+    old_current_justified_epoch = state.current_justified_epoch
 
-  ## The 2nd/3rd/4th most recent epochs are all justified, the 2nd using the
-  ## 4th as source
-  if (bitfield shr 1) mod 8 == 0b111 and
-      state.previous_justified_epoch == current_epoch - 3:
-    new_finalized_epoch = state.previous_justified_epoch
-
-  ## The 2nd/3rd most recent epochs are both justified, the 2nd using the 3rd
-  ## as source
-  if (bitfield shr 1) mod 4 == 0b11 and
-     state.previous_justified_epoch == current_epoch - 2:
-   new_finalized_epoch = state.previous_justified_epoch
-
-  ## The 1st/2nd/3rd most recent epochs are all justified, the 1st using the
-  ## 3rd as source
-  if (bitfield shr 0) mod 8 == 0b111 and
-      state.current_justified_epoch == current_epoch - 2:
-    new_finalized_epoch = state.current_justified_epoch
-
-  ## The 1st/2nd most recent epochs are both justified, the 1st using the 2nd
-  ## as source
-  if (bitfield shr 0) mod 4 == 0b11 and
-      state.current_justified_epoch == current_epoch - 1:
-    new_finalized_epoch = state.current_justified_epoch
-
-  # Update state jusification/finality fields
+  # Process justifications
   state.previous_justified_epoch = state.current_justified_epoch
   state.previous_justified_root = state.current_justified_root
-  if new_justified_epoch != state.current_justified_epoch:
-    state.current_justified_epoch = new_justified_epoch
+  state.justification_bitfield = (state.justification_bitfield shl 1)
+  let previous_epoch_matching_target_balance =
+    get_attesting_balance(state,
+      get_matching_target_attestations(state, previous_epoch))
+  if previous_epoch_matching_target_balance * 3 >=
+      get_total_active_balance(state) * 2:
+    state.current_justified_epoch = previous_epoch
     state.current_justified_root =
-      get_block_root_at_slot(state, get_epoch_start_slot(new_justified_epoch))
-  if new_finalized_epoch != state.finalized_epoch:
-    state.finalized_epoch = new_finalized_epoch
-    state.finalized_root =
-      get_block_root_at_slot(state, get_epoch_start_slot(new_finalized_epoch))
+      get_block_root(state, state.current_justified_epoch)
+    state.justification_bitfield = state.justification_bitfield or (1 shl 1)
+  let current_epoch_matching_target_balance =
+    get_attesting_balance(state,
+      get_matching_target_attestations(state, current_epoch))
+  if current_epoch_matching_target_balance * 3 >=
+      get_total_active_balance(state) * 2:
+    state.current_justified_epoch = current_epoch
+    state.current_justified_root =
+      get_block_root(state, state.current_justified_epoch)
+    state.justification_bitfield = state.justification_bitfield or (1 shl 0)
+
+  # Process finalizations
+  let bitfield = state.justification_bitfield
+
+  ## The 2nd/3rd/4th most recent epochs are justified, the 2nd using the 4th
+  ## as source
+  if (bitfield shr 1) mod 8 == 0b111 and old_previous_justified_epoch ==
+      current_epoch - 3:
+    state.finalized_epoch = old_previous_justified_epoch
+    state.finalized_root = get_block_root(state, state.finalized_epoch)
+
+  ## The 2nd/3rd most recent epochs are justified, the 2nd using the 3rd as
+  ## source
+  if (bitfield shr 1) mod 4 == 0b11 and old_previous_justified_epoch ==
+      current_epoch - 2:
+    state.finalized_epoch = old_previous_justified_epoch
+    state.finalized_root = get_block_root(state, state.finalized_epoch)
+
+  ## The 1st/2nd/3rd most recent epochs are justified, the 1st using the 3rd as
+  ## source
+  if (bitfield shr 0) mod 8 == 0b111 and old_current_justified_epoch ==
+      current_epoch - 2:
+    state.finalized_epoch = old_current_justified_epoch
+    state.finalized_root = get_block_root(state, state.finalized_epoch)
+
+  ## The 1st/2nd most recent epochs are justified, the 1st using the 2nd as
+  ## source
+  if (bitfield shr 0) mod 4 == 0b11 and old_current_justified_epoch ==
+      current_epoch - 1:
+    state.finalized_epoch = old_current_justified_epoch
+    state.finalized_root = get_block_root(state, state.finalized_epoch)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#crosslinks
 func process_crosslinks(
@@ -797,7 +731,7 @@ func process_crosslinks(
     previous_epoch = current_epoch - 1
     next_epoch = current_epoch + 1
 
-  ## TODO is it actually correct to be setting state.latest_crosslinks[shard]
+  ## TODO is it actually correct to be setting state.current_crosslinks[shard]
   ## to something pre-GENESIS_EPOCH, ever? I guess the intent is if there are
   ## a quorum of participants for  get_epoch_start_slot(previous_epoch), when
   ## state.slot == GENESIS_SLOT, then there will be participants for a quorum
@@ -807,7 +741,7 @@ func process_crosslinks(
       GENESIS_SLOT.uint64, get_epoch_start_slot(previous_epoch).uint64) ..<
       get_epoch_start_slot(next_epoch).uint64:
     for cas in get_crosslink_committees_at_slot_cached(
-        state, slot, false, per_epoch_cache):
+        state, slot, per_epoch_cache):
       let
         (crosslink_committee, shard) = cas
         # In general, it'll loop over the same shards twice, and
@@ -827,7 +761,7 @@ func process_crosslinks(
         # Check not from spec; seems kludgy
         doAssert slot >= GENESIS_SLOT
 
-        state.latest_crosslinks[shard] = Crosslink(
+        state.current_crosslinks[shard] = Crosslink(
           epoch: slot_to_epoch(slot),
           crosslink_data_root: winning_root
         )
@@ -925,7 +859,7 @@ func get_crosslink_deltas(state: BeaconState, cache: var StateCache):
       get_epoch_start_slot(get_current_epoch(state))
   for slot in previous_epoch_start_slot.uint64 ..<
       current_epoch_start_slot.uint64:
-    for cas in get_crosslink_committees_at_slot_cached(state, slot, false, cache):
+    for cas in get_crosslink_committees_at_slot_cached(state, slot, cache):
       let
         (crosslink_committee, shard) = cas
         (winning_root, participants) =
@@ -976,25 +910,42 @@ func process_slashings(state: var BeaconState) =
         LATEST_SLASHED_EXIT_LENGTH div 2:
       let
         penalty = max(
-          get_effective_balance(state, index.ValidatorIndex) *
+          validator.effective_balance *
             min(total_penalties * 3, total_balance) div total_balance,
-          get_effective_balance(state, index.ValidatorIndex) div
-            MIN_PENALTY_QUOTIENT)
+          validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT)
       decrease_balance(state, index.ValidatorIndex, penalty)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#final-updates
-func finish_epoch_update(state: var BeaconState) =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_shard_delta
+func get_shard_delta(state: BeaconState, epoch: Epoch): uint64 =
+  # Return the number of shards to increment ``state.latest_start_shard`` during ``epoch``.
+  min(get_epoch_committee_count(state, epoch),
+    (SHARD_COUNT - SHARD_COUNT div SLOTS_PER_EPOCH).uint64)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#final-updates
+func process_final_updates(state: var BeaconState) =
   let
     current_epoch = get_current_epoch(state)
     next_epoch = current_epoch + 1
 
-  # Set active index root
-  let index_root_position =
-    (next_epoch + ACTIVATION_EXIT_DELAY) mod LATEST_ACTIVE_INDEX_ROOTS_LENGTH
-  state.latest_active_index_roots[index_root_position] =
-    hash_tree_root(get_active_validator_indices(
-      state, next_epoch + ACTIVATION_EXIT_DELAY)
-  )
+  # Reset eth1 data votes
+  if (state.slot + 1) mod SLOTS_PER_ETH1_VOTING_PERIOD == 0:
+    state.eth1_data_votes = @[]
+
+  # Update effective balances with hysteresis
+  for index, validator in state.validator_registry:
+    let balance = state.balances[index]
+    const HALF_INCREMENT = EFFECTIVE_BALANCE_INCREMENT div 2
+    if balance < validator.effective_balance or
+        validator.effective_balance + 3'u64 * HALF_INCREMENT < balance:
+      state.validator_registry[index].effective_balance =
+        min(
+          balance - balance mod EFFECTIVE_BALANCE_INCREMENT,
+          MAX_EFFECTIVE_BALANCE)
+
+  # Update start shard
+  state.latest_start_shard =
+    (state.latest_start_shard + get_shard_delta(state, current_epoch)) mod
+      SHARD_COUNT
 
   # Set total slashed balances
   state.latest_slashed_balances[next_epoch mod LATEST_SLASHED_EXIT_LENGTH] = (
@@ -1017,7 +968,7 @@ func finish_epoch_update(state: var BeaconState) =
   state.previous_epoch_attestations = state.current_epoch_attestations
   state.current_epoch_attestations = @[]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#per-epoch-processing
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#per-epoch-processing
 func get_empty_per_epoch_cache(): StateCache =
   result.crosslink_committee_cache =
     initTable[tuple[a: uint64, b: bool], seq[CrosslinkCommittee]]()
@@ -1034,26 +985,22 @@ func processEpoch(state: var BeaconState) =
 
   var per_epoch_cache = get_empty_per_epoch_cache()
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#crosslinks
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#crosslinks
   process_crosslinks(state, per_epoch_cache)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#rewards-and-penalties
   process_rewards_and_penalties(state, per_epoch_cache)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#ejections
-  process_ejections(state)
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#registry-updates
+  process_registry_updates(state)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
-  update_registry_and_shuffling_data(state)
-
-  ## Regardless of whether or not a validator set change happens run
-  ## process_slashings(state) and process_exit_queue(state)
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#slashings
   process_slashings(state)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#final-updates
-  finish_epoch_update(state)
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#final-updates
+  process_final_updates(state)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#state-root-verification
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#state-root-verification
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   let state_root = hash_tree_root(state)
   if state_root != blck.state_root:
@@ -1068,7 +1015,7 @@ proc advanceState*(state: var BeaconState) =
   ## hand - this happens for example when a block proposer fails to produce a
   ## a block.
 
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
   ## We now define the state transition function. At a high level the state
   ## transition is made up of four parts:
 

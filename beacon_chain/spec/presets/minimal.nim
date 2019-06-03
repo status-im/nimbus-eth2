@@ -22,7 +22,7 @@ type
 
 {.experimental: "codeReordering".} # SLOTS_PER_EPOCH is use before being defined in spec
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/configs/constant_presets/minimal.yaml
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/configs/constant_presets/minimal.yaml
 const
   # Misc
   # ---------------------------------------------------------------
@@ -43,7 +43,7 @@ const
 
   # Deposit contract
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#deposit-contract
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#deposit-contract
 
   # Unchanged
   DEPOSIT_CONTRACT_ADDRESS = "0x1234567890123456789012345678901234567890"
@@ -51,7 +51,7 @@ const
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#gwei-values
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#gwei-values
 
   # Unchanged
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9
@@ -71,10 +71,13 @@ const
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_fork-choice.md#time-parameters
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_fork-choice.md#time-parameters
 
   # Unchanged
   SECONDS_PER_SLOT*{.intdefine.} = 6'u64
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#time-parameters
+  # Unchanged
   MIN_ATTESTATION_INCLUSION_DELAY* = 2'u64^2
 
   # Changed
@@ -96,7 +99,7 @@ const
 
   # State list lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#state-list-lengths
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#state-list-lengths
 
   # Changed
   LATEST_RANDAO_MIXES_LENGTH* = 64
@@ -105,18 +108,18 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#reward-and-penalty-quotients
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#reward-and-penalty-quotients
 
   # Unchanged
   BASE_REWARD_QUOTIENT* = 2'u64^5
   WHISTLEBLOWING_REWARD_QUOTIENT* = 2'u64^9
   PROPOSER_REWARD_QUOTIENT* = 2'u64^3
   INACTIVITY_PENALTY_QUOTIENT* = 2'u64^25
-  MIN_PENALTY_QUOTIENT* = 32 # 2^5
+  MIN_SLASHING_PENALTY_QUOTIENT* = 32 # 2^5
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#max-operations-per-block
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#max-operations-per-block
 
   # Unchanged
   MAX_PROPOSER_SLASHINGS* = 2^4
@@ -129,7 +132,7 @@ const
 type
   # Signature domains
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#signature-domains
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#signature-domains
   SignatureDomain* {.pure.} = enum
     DOMAIN_BEACON_PROPOSER = 0
     DOMAIN_RANDAO = 1

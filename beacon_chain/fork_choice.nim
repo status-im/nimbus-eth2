@@ -39,7 +39,8 @@ proc lmdGhost*(
       if get_ancestor(target, blck.slot) == blck:
         # The div on the balance is to chop off the insignification bits that
         # fluctuate a lot epoch to epoch to have a more stable fork choice
-        res += get_effective_balance(start_state, validator_index) div
+        res +=
+          start_state.validator_registry[validator_index].effective_balance div
             FORK_CHOICE_BALANCE_INCREMENT
     res
 

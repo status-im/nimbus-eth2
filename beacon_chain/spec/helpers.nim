@@ -9,18 +9,10 @@
 
 import ./datatypes, ./digest, sequtils, math
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#split
-func split*[T](lst: openArray[T], N: Positive): seq[seq[T]] =
-  ## split lst in N pieces, with each piece having `len(lst) div N` or
-  ## `len(lst) div N + 1` pieces
-  # TODO: implement as an iterator
-  result = newSeq[seq[T]](N)
-  for i in 0 ..< N:
-    result[i] = lst[lst.len * i div N ..< lst.len * (i+1) div N] # TODO: avoid alloc via toOpenArray
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#integer_squareroot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
-  ## The largest integer ``x`` such that ``x**2`` is less than ``n``.
+  ## The largest integer ``x`` such that ``x**2`` is less than or equal to
+  ## ``n``.
   doAssert n >= 0'u64
 
   var
@@ -30,9 +22,6 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
     x = y
     y = (x + n div x) div 2
   x
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#is_power_of_two
-func is_power_of_2*(v: uint64): bool = (v > 0'u64) and (v and (v-1)) == 0
 
 # TODO reuse as necessary/useful for merkle proof building
 func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
@@ -69,68 +58,28 @@ func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
 
   o[1]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#slot_to_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#slot_to_epoch
 func slot_to_epoch*(slot: Slot|uint64): Epoch =
+  # Return the epoch number of the given ``slot``.
   (slot div SLOTS_PER_EPOCH).Epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#get_epoch_start_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_epoch_start_slot
 func get_epoch_start_slot*(epoch: Epoch): Slot =
   # Return the starting slot of the given ``epoch``.
   (epoch * SLOTS_PER_EPOCH).Slot
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#is_double_vote
-func is_double_vote*(attestation_data_1: AttestationData,
-                     attestation_data_2: AttestationData): bool =
-  ## Check if ``attestation_data_1`` and ``attestation_data_2`` have the same
-  ## target.
-  let
-    target_epoch_1 = slot_to_epoch(attestation_data_1.slot)
-    target_epoch_2 = slot_to_epoch(attestation_data_2.slot)
-  target_epoch_1 == target_epoch_2
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#is_surround_vote
-func is_surround_vote*(attestation_data_1: AttestationData,
-                       attestation_data_2: AttestationData): bool =
-  ## Check if ``attestation_data_1`` surrounds ``attestation_data_2``.
-  let
-    source_epoch_1 = attestation_data_1.source_epoch
-    source_epoch_2 = attestation_data_2.source_epoch
-    target_epoch_1 = slot_to_epoch(attestation_data_1.slot)
-    target_epoch_2 = slot_to_epoch(attestation_data_2.slot)
-
-  source_epoch_1 < source_epoch_2 and target_epoch_2 < target_epoch_1
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#state-list-lengths
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#is_active_validator
 func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   ### Check if ``validator`` is active
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_active_validator_indices
-func get_active_validator_indices*(
-    validators: openarray[Validator], epoch: Epoch): seq[ValidatorIndex] =
-  ## Gets indices of active validators from validators
-  ## TODO remove when shuffling's refactored persuant to 0.6.1
-  for idx, val in validators:
-    if is_active_validator(val, epoch):
-      result.add idx.ValidatorIndex
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_active_validator_indices
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_active_validator_indices
 func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
     seq[ValidatorIndex] =
   ## Gets indices of active validators from validators
   for idx, val in state.validator_registry:
     if is_active_validator(val, epoch):
       result.add idx.ValidatorIndex
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_epoch_committee_count
-# Not quite the 0.5.1 version. TODO remove when shuffling refactoring complete
-func get_epoch_committee_count*(
-    validators: openarray[Validator], epoch: Epoch): uint64 =
-  # Return the number of committees at ``epoch``.
-  let active_validator_indices = get_active_validator_indices(validators, epoch)
-  clamp(
-    len(active_validator_indices) div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
-    1, SHARD_COUNT div SLOTS_PER_EPOCH).uint64 * SLOTS_PER_EPOCH
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_epoch_committee_count
 func get_epoch_committee_count*(state: BeaconState, epoch: Epoch): uint64 =
@@ -140,7 +89,7 @@ func get_epoch_committee_count*(state: BeaconState, epoch: Epoch): uint64 =
     len(active_validator_indices) div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
     1, SHARD_COUNT div SLOTS_PER_EPOCH).uint64 * SLOTS_PER_EPOCH
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#get_current_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: BeaconState): Epoch =
   # Return the current epoch of the given ``state``.
   doAssert state.slot >= GENESIS_SLOT, $state.slot
@@ -155,14 +104,16 @@ func get_randao_mix*(state: BeaconState,
     ##  current_epoch + ACTIVATION_EXIT_DELAY].
     state.latest_randao_mixes[epoch mod LATEST_RANDAO_MIXES_LENGTH]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_active_index_root
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_active_index_root
 func get_active_index_root(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Returns the index root at a recent ``epoch``.
   ## ``epoch`` expected to be between
   ##  (current_epoch - LATEST_ACTIVE_INDEX_ROOTS_LENGTH + ACTIVATION_EXIT_DELAY, current_epoch + ACTIVATION_EXIT_DELAY].
+  ## TODO maybe assert this, but omission of such seems conspicuously
+  ## intentional
   state.latest_active_index_roots[epoch mod LATEST_ACTIVE_INDEX_ROOTS_LENGTH]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.2.0/specs/core/0_beacon-chain.md#bytes_to_int
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#bytes_to_int
 func bytes_to_int*(data: openarray[byte]): uint64 =
   doAssert data.len == 8
 
@@ -171,7 +122,7 @@ func bytes_to_int*(data: openarray[byte]): uint64 =
   for i in countdown(7, 0):
     result = result * 256 + data[i]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#int_to_bytes1-int_to_bytes2-
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#int_to_bytes1-int_to_bytes2-
 # Have 1, 4, 8, and 32-byte versions. 1+ more and maybe worth metaprogramming.
 func int_to_bytes32*(x: uint64): array[32, byte] =
   ## Little-endian data representation
@@ -220,11 +171,14 @@ func get_domain*(
 func get_domain*(state: BeaconState, domain_type: SignatureDomain): uint64 =
   get_domain(state, domain_type, get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#generate_seed
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#generate_seed
 func generate_seed*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Generate a seed for the given ``epoch``.
 
   var seed_input : array[32*3, byte]
+
+  # Detect potential underflow
+  doAssert LATEST_RANDAO_MIXES_LENGTH >= MIN_SEED_LOOKAHEAD
 
   seed_input[0..31] =
     get_randao_mix(state,

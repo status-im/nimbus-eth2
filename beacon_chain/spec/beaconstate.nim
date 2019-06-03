@@ -6,16 +6,10 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  chronicles, math, options, sequtils,
+  algorithm, chronicles, math, options, sequtils,
   ../extras, ../ssz, ../beacon_node_types,
   ./bitfield, ./crypto, ./datatypes, ./digest, ./helpers, ./validator,
   tables
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_effective_balance
-func get_effective_balance*(state: BeaconState, index: ValidatorIndex): Gwei =
-  ## Return the effective balance (also known as "balance at stake") for a
-  ## validator with the given ``index``.
-  min(state.balances[index], MAX_EFFECTIVE_BALANCE)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#verify_merkle_branch
 func verify_merkle_branch(leaf: Eth2Digest, proof: openarray[Eth2Digest], depth: uint64, index: uint64, root: Eth2Digest): bool =
@@ -35,13 +29,13 @@ func verify_merkle_branch(leaf: Eth2Digest, proof: openarray[Eth2Digest], depth:
     value = eth2hash(buf)
   value == root
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#increase_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#increase_balance
 func increase_balance*(
     state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
   # Increase validator balance by ``delta``.
   state.balances[index] += delta
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#decrease_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#decrease_balance
 func decrease_balance*(
     state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
   # Decrease validator balance by ``delta`` with underflow protection.
@@ -51,7 +45,7 @@ func decrease_balance*(
     else:
       state.balances[index] - delta
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#deposits
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#deposits
 func process_deposit*(
     state: var BeaconState, deposit: Deposit, flags: UpdateFlags = {}): bool =
   # Process an Eth1 deposit, registering a validator or increasing its balance.
@@ -114,13 +108,13 @@ func process_deposit*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#get_delayed_activation_exit_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_delayed_activation_exit_epoch
 func get_delayed_activation_exit_epoch*(epoch: Epoch): Epoch =
   ## Return the epoch at which an activation or exit triggered in ``epoch``
   ## takes effect.
   epoch + 1 + ACTIVATION_EXIT_DELAY
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_churn_limit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_churn_limit
 func get_churn_limit(state: BeaconState): uint64 =
   max(
     MIN_PER_EPOCH_CHURN_LIMIT,
@@ -128,7 +122,7 @@ func get_churn_limit(state: BeaconState): uint64 =
       CHURN_LIMIT_QUOTIENT
   ).uint64
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#initiate_validator_exit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(state: var BeaconState,
                               index: ValidatorIndex) =
   # Initiate the validator of the given ``index``.
@@ -139,6 +133,7 @@ func initiate_validator_exit*(state: var BeaconState,
     return
 
   # Compute exit queue epoch
+  # TODO try zero-functional here
   let exit_epochs = mapIt(
     filterIt(state.validator_registry, it.exit_epoch != FAR_FUTURE_EPOCH),
     it.exit_epoch)
@@ -157,23 +152,6 @@ func initiate_validator_exit*(state: var BeaconState,
   validator.exit_epoch = exit_queue_epoch
   validator.withdrawable_epoch =
     validator.exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#exit_validator
-func exit_validator*(state: var BeaconState,
-                     index: ValidatorIndex) =
-  ## Exit the validator with the given ``index``.
-  ## Note that this function mutates ``state``.
-
-  let
-    validator = addr state.validator_registry[index]
-    delayed_activation_exit_epoch =
-      get_delayed_activation_exit_epoch(get_current_epoch(state))
-
-  # The following updates only occur if not previous exited
-  if validator.exit_epoch <= delayed_activation_exit_epoch:
-    return
-
-  validator.exit_epoch = delayed_activation_exit_epoch
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#slash_validator
 func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex) =
@@ -247,18 +225,10 @@ func get_genesis_beacon_state*(
         epoch: GENESIS_EPOCH,
     ),
 
-    validator_registry_update_epoch: GENESIS_EPOCH,
-
     # validator_registry and balances automatically initalized
 
     # Randomness and committees
     # latest_randao_mixes automatically initialized
-    previous_shuffling_start_shard: GENESIS_START_SHARD,
-    current_shuffling_start_shard: GENESIS_START_SHARD,
-    previous_shuffling_epoch: GENESIS_EPOCH,
-    current_shuffling_epoch: GENESIS_EPOCH,
-    previous_shuffling_seed: ZERO_HASH,
-    current_shuffling_seed: ZERO_HASH,
 
     # Finality
     # previous_epoch_attestations and current_epoch_attestations automatically
@@ -282,7 +252,7 @@ func get_genesis_beacon_state*(
   )
 
   for i in 0 ..< SHARD_COUNT:
-    state.latest_crosslinks[i] = Crosslink(
+    state.current_crosslinks[i] = Crosslink(
       epoch: GENESIS_EPOCH, crosslink_data_root: ZERO_HASH)
 
   # Process genesis deposits
@@ -300,7 +270,6 @@ func get_genesis_beacon_state*(
     get_active_validator_indices(state, GENESIS_EPOCH))
   for index in 0 ..< LATEST_ACTIVE_INDEX_ROOTS_LENGTH:
     state.latest_active_index_roots[index] = genesis_active_index_root
-  state.current_shuffling_seed = generate_seed(state, GENESIS_EPOCH)
 
   state
 
@@ -314,7 +283,7 @@ func get_initial_beacon_block*(state: BeaconState): BeaconBlock =
     # initialized to default values.
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_attestation_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_attestation_slot
 func get_attestation_slot*(state: BeaconState,
     attestation: Attestation|PendingAttestation,
     committee_count: uint64): Slot =
@@ -331,7 +300,7 @@ func get_attestation_slot*(state: BeaconState,
   get_attestation_slot(
     state, attestation, get_epoch_committee_count(state, epoch))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_block_root_at_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: BeaconState,
                              slot: Slot): Eth2Digest =
   # Return the block root at a recent ``slot``.
@@ -340,7 +309,7 @@ func get_block_root_at_slot*(state: BeaconState,
   doAssert slot < state.slot
   state.latest_block_roots[slot mod SLOTS_PER_HISTORICAL_ROOT]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_block_root
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_block_root
 func get_block_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Return the block root at a recent ``epoch``.
   get_block_root_at_slot(state, get_epoch_start_slot(epoch))
@@ -405,7 +374,7 @@ iterator get_attestation_participants_cached*(state: BeaconState,
 
   var found = false
   for crosslink_committee in get_crosslink_committees_at_slot_cached(
-      state, attestation_data.slot, false, cache):
+      state, attestation_data.slot, cache):
     if crosslink_committee.shard == attestation_data.shard:
       # TODO this and other attestation-based fields need validation so we don't
       #      crash on a malicious attestation!
@@ -420,75 +389,48 @@ iterator get_attestation_participants_cached*(state: BeaconState,
       break
   doAssert found, "Couldn't find crosslink committee"
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#ejections
-func process_ejections*(state: var BeaconState) =
-  ## Iterate through the validator registry and eject active validators with
-  ## balance below ``EJECTION_BALANCE``
-  for index in get_active_validator_indices(
-      state, get_current_epoch(state)):
-    if state.balances[index] < EJECTION_BALANCE:
-      exit_validator(state, index)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_total_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_total_balance
 func get_total_balance*(state: BeaconState, validators: auto): Gwei =
-  # Return the combined effective balance of an array of validators.
-  foldl(validators, a + get_effective_balance(state, b), 0'u64)
+  # Return the combined effective balance of an array of ``validators``.
+  foldl(validators, a + state.validator_registry[b].effective_balance, 0'u64)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#validator-registry-and-shuffling-seed-data
-func should_update_validator_registry*(state: BeaconState): bool =
-  # Must have finalized a new block
-  if state.finalized_epoch <= state.validator_registry_update_epoch:
-    return false
-  # Must have processed new crosslinks on all shards of the current epoch
-  allIt(0 ..< get_epoch_committee_count(state, get_current_epoch(state)).int,
-        not (state.latest_crosslinks[
-          ((state.current_shuffling_start_shard + it.uint64) mod
-            SHARD_COUNT).int].epoch <= state.validator_registry_update_epoch))
-
-func update_validator_registry*(state: var BeaconState) =
-  ## Update validator registry.
-  ## Note that this function mutates ``state``.
-  let
-    current_epoch = get_current_epoch(state)
-    # The active validators
-    active_validator_indices =
-      get_active_validator_indices(state, current_epoch)
-    # The total effective balance of active validators
-    total_balance = get_total_balance(state, active_validator_indices)
-
-    # The maximum balance churn in Gwei (for deposits and exits separately)
-    max_balance_churn = max(
-        MAX_EFFECTIVE_BALANCE,
-        total_balance div (2 * MAX_BALANCE_CHURN_QUOTIENT)
-    )
-
-  # Activate validators within the allowable balance churn
-  var balance_churn = 0'u64
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#registry-updates
+func process_registry_updates*(state: var BeaconState) =
+  # Process activation eligibility and ejections
   for index, validator in state.validator_registry:
-    if validator.activation_epoch == FAR_FUTURE_EPOCH and
-      state.balances[index] >= MAX_EFFECTIVE_BALANCE:
-      # Check the balance churn would be within the allowance
-      balance_churn += get_effective_balance(state, index.ValidatorIndex)
-      if balance_churn > max_balance_churn:
-        break
-
-      # Activate validator
+    if validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and
+        validator.effective_balance >= MAX_EFFECTIVE_BALANCE:
       state.validator_registry[index].activation_eligibility_epoch =
         get_current_epoch(state)
 
-  # Exit validators within the allowable balance churn
-  balance_churn = 0
+    if is_active_validator(validator, get_current_epoch(state)) and
+        validator.effective_balance <= EJECTION_BALANCE:
+      initiate_validator_exit(state, index.ValidatorIndex)
+
+  ## Queue validators eligible for activation and not dequeued for activation
+  ## prior to finalized epoch
+  var activation_queue : seq[tuple[a: Epoch, b: int]] = @[]
   for index, validator in state.validator_registry:
+    if validator.activation_eligibility_epoch != FAR_FUTURE_EPOCH and
+        validator.activation_epoch >=
+          get_delayed_activation_exit_epoch(state.finalized_epoch):
+      activation_queue.add (
+        state.validator_registry[index].activation_eligibility_epoch, index)
+
+  activation_queue.sort(system.cmp)
+
+  ## Dequeued validators for activation up to churn limit (without resetting
+  ## activation epoch)
+  let churn_limit = get_churn_limit(state)
+  for i, epoch_and_index in activation_queue:
+    if i.uint64 >= churn_limit:
+      break
+    let
+      (epoch, index) = epoch_and_index
+      validator = addr state.validator_registry[index]
     if validator.activation_epoch == FAR_FUTURE_EPOCH:
-      # Check the balance churn would be within the allowance
-      balance_churn += get_effective_balance(state, index.ValidatorIndex)
-      if balance_churn > max_balance_churn:
-        break
-
-      # Exit validator
-      exit_validator(state, index.ValidatorIndex)
-
-  state.validator_registry_update_epoch = current_epoch
+      validator.activation_epoch =
+        get_delayed_activation_exit_epoch(get_current_epoch(state))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#attestations
 proc checkAttestation*(
@@ -562,11 +504,11 @@ proc checkAttestation*(
       epoch: slot_to_epoch(attestation.data.slot)
     )
   ]
-  if not (state.latest_crosslinks[attestation.data.shard] in
+  if not (state.current_crosslinks[attestation.data.shard] in
       acceptable_crosslink_data):
     warn("Unexpected crosslink shard",
       state_latest_crosslinks_attestation_data_shard =
-        state.latest_crosslinks[attestation.data.shard],
+        state.current_crosslinks[attestation.data.shard],
       attestation_data_previous_crosslink = attestation.data.previous_crosslink,
       epoch = humaneEpochNum(slot_to_epoch(attestation.data.slot)),
       actual_epoch = slot_to_epoch(attestation.data.slot),
@@ -658,7 +600,7 @@ proc makeAttestationData*(
     beacon_block_root: beacon_block_root,
     target_root: target_root,
     crosslink_data_root: Eth2Digest(), # Stub in phase0
-    previous_crosslink: state.latest_crosslinks[shard],
+    previous_crosslink: state.current_crosslinks[shard],
     source_epoch: state.current_justified_epoch,
     source_root: state.current_justified_root,
     target_epoch: slot_to_epoch(epoch_start_slot)

@@ -17,14 +17,14 @@ func init*(T: type BitField, bits: int): BitField =
 #proc readValue*(r: var JsonReader, a: var BitField) {.inline.} =
 #  a.bits = r.readValue(string).hexToSeqByte()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#get_bitfield_bit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_bitfield_bit
 func get_bitfield_bit*(bitfield: BitField, i: int): bool =
   # Extract the bit in ``bitfield`` at position ``i``.
   doAssert 0 <= i div 8, "i: " & $i & " i div 8: " & $(i div 8)
   doAssert i div 8 < bitfield.bits.len, "i: " & $i & " i div 8: " & $(i div 8)
   ((bitfield.bits[i div 8] shr (i mod 8)) mod 2) > 0'u8
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#verify_bitfield
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#verify_bitfield
 func verify_bitfield*(bitfield: BitField, committee_size: int): bool =
   # Verify ``bitfield`` against the ``committee_size``.
   if len(bitfield.bits) != (committee_size + 7) div 8:
