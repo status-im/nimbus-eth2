@@ -114,7 +114,7 @@ func get_delayed_activation_exit_epoch*(epoch: Epoch): Epoch =
   ## takes effect.
   epoch + 1 + ACTIVATION_EXIT_DELAY
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_churn_limit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_churn_limit
 func get_churn_limit(state: BeaconState): uint64 =
   max(
     MIN_PER_EPOCH_CHURN_LIMIT,
@@ -122,7 +122,7 @@ func get_churn_limit(state: BeaconState): uint64 =
       CHURN_LIMIT_QUOTIENT
   ).uint64
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#initiate_validator_exit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(state: var BeaconState,
                               index: ValidatorIndex) =
   # Initiate the validator of the given ``index``.
@@ -133,6 +133,7 @@ func initiate_validator_exit*(state: var BeaconState,
     return
 
   # Compute exit queue epoch
+  # TODO try zero-functional here
   let exit_epochs = mapIt(
     filterIt(state.validator_registry, it.exit_epoch != FAR_FUTURE_EPOCH),
     it.exit_epoch)
