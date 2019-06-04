@@ -187,7 +187,7 @@ p2pProtocol BeaconSync(version = 1,
 
         headers = newSeqOfCap[BeaconBlockHeader](blockRefs.len)
         for i in blockRefs.high .. 0:
-          headers.add(db.getBlock(blockRefs[i].root).get.toHeader)
+          headers.add(blockPool.get(blockRefs[i]).data.toHeader)
       else:
         # TODO: This branch has to be revisited and possibly somehow merged with the
         # branch above once we can traverse the best chain forward
