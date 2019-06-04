@@ -163,7 +163,7 @@ p2pProtocol BeaconSync(version = 1,
             skipSlots: int,
             backward: uint8) {.libp2pProtocol("rpc/beacon_block_headers", "1.0.0").} =
       let maxHeaders = min(MaxHeadersToRequest, maxHeaders)
-      var headers = newSeqOfCap[BeaconBlockHeader](maxHeaders)
+      var headers: seq[BeaconBlockHeader]
       let db = peer.networkState.db
 
       if backward != 0:
@@ -175,19 +175,24 @@ p2pProtocol BeaconSync(version = 1,
           # blockRoot = ...
           discard
 
-        while true:
-          if (let b = db.getBlock(blockRoot); b.isSome):
-            headers.add(b.get().toHeader)
-            blockRoot = headers[^1].previous_block_root
-            if headers.len == maxHeaders:
-              break
-          else:
+        let blockPool = peer.networkState.node.blockPool
+        var br = blockPool.blocks.getOrDefault(blockRoot)
+        var blockRefs = newSeqOfCap[BlockRef](maxHeaders)
+
+        while not br.isNil:
+          blockRefs.add(br)
+          if blockRefs.len == maxHeaders:
             break
-        headers.reverse()
+          br = br.parent
+
+        headers = newSeqOfCap[BeaconBlockHeader](blockRefs.len)
+        for i in blockRefs.high .. 0:
+          headers.add(db.getBlock(blockRefs[i].root).get.toHeader)
       else:
         # TODO: This branch has to be revisited and possibly somehow merged with the
         # branch above once we can traverse the best chain forward
         # TODO: implement skipSlots
+        headers = newSeqOfCap[BeaconBlockHeader](maxHeaders)
         var s = slot
         let blockPool = peer.networkState.node.blockPool
         let maxSlot = blockPool.head.blck.slot
