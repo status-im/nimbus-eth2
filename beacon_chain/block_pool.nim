@@ -292,6 +292,10 @@ proc add*(
           (parentSlot.uint64 mod SLOTS_PER_EPOCH.uint64))
   )
 
+proc getRef*(pool: BlockPool, root: Eth2Digest): BlockRef =
+  ## Retrieve a resolved block reference, if available
+  result = pool.blocks.getOrDefault(root)
+
 proc get*(pool: BlockPool, blck: BlockRef): BlockData =
   ## Retrieve the associated block body of a block reference
   doAssert (not blck.isNil), "Trying to get nil BlockRef"
@@ -303,7 +307,7 @@ proc get*(pool: BlockPool, blck: BlockRef): BlockData =
 
 proc get*(pool: BlockPool, root: Eth2Digest): Option[BlockData] =
   ## Retrieve a resolved block reference and its associated body, if available
-  let refs = pool.blocks.getOrDefault(root)
+  let refs = pool.getRef(root)
 
   if not refs.isNil:
     some(pool.get(refs))
@@ -313,7 +317,7 @@ proc get*(pool: BlockPool, root: Eth2Digest): Option[BlockData] =
 proc getOrResolve*(pool: var BlockPool, root: Eth2Digest): BlockRef =
   ## Fetch a block ref, or nil if not found (will be added to list of
   ## blocks-to-resolve)
-  result = pool.blocks.getOrDefault(root)
+  result = pool.getRef(root)
 
   if result.isNil:
     pool.missing[root] = MissingBlock(slots: 1)

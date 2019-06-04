@@ -176,7 +176,7 @@ p2pProtocol BeaconSync(version = 1,
           discard
 
         let blockPool = peer.networkState.node.blockPool
-        var br = blockPool.blocks.getOrDefault(blockRoot)
+        var br = blockPool.getRef(blockRoot)
         var blockRefs = newSeqOfCap[BlockRef](maxHeaders)
 
         while not br.isNil:
