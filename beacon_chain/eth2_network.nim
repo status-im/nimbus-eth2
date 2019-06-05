@@ -125,17 +125,12 @@ else:
   when networkBackend == libp2pSpecBackend:
     import libp2p_spec_backend
     export libp2p_spec_backend
-
-    const
-      BreachOfProtocol* = FaultOrError
-      netBackendName* = "libp2p_spec"
+    const netBackendName* = "libp2p_spec"
 
   else:
     import libp2p_backend
     export libp2p_backend
-
-    const
-      netBackendName* = "libp2p_native"
+    const netBackendName* = "libp2p_native"
 
   type
     BootstrapAddr* = PeerInfo

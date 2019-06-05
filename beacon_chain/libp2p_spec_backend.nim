@@ -24,6 +24,17 @@ type
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
 
+  Peer* = ref object
+    network*: Eth2Node
+    id*: PeerID
+    lastSentMsgId*: uint64
+    rpcStream*: P2PStream
+    connectionState*: ConnectionState
+    awaitedMessages: Table[CompressedMsgId, FutureBase]
+    outstandingRequests*: seq[Deque[OutstandingRequest]]
+    protocolStates*: seq[RootRef]
+    maxInactivityAllowed: Duration
+
   ConnectionState* = enum
     None,
     Connecting,
@@ -63,24 +74,12 @@ type
     stream*: P2PStream
     protocolInfo*: ProtocolInfo
 
-  Peer* = ref object
-    network*: Eth2Node
-    id*: PeerID
-    lastSentMsgId*: uint64
-    rpcStream*: P2PStream
-    connectionState*: ConnectionState
-    protocolStates*: seq[RootRef]
-    maxInactivityAllowed: Duration
-    awaitedMessages: Table[CompressedMsgId, FutureBase]
-    outstandingRequests*: seq[Deque[OutstandingRequest]]
-
   MessageInfo* = object
     id*: int
     name*: string
 
     # Private fields:
     thunk*: ThunkProc
-    libp2pProtocol: string
     printer*: MessageContentPrinter
     nextMsgResolver*: NextMsgResolver
     requestResolver*: RequestResolver
@@ -135,25 +134,6 @@ type
   PeerDisconnected* = object of P2PBackendError
     reason*: DisconnectionReason
 
-var gProtocols: seq[ProtocolInfo]
-
-template allProtocols: auto = {.gcsafe.}: gProtocols
-
-const
-  HandshakeTimeout = FaultOrError
-    # TODO: this doesn't seem right.
-    # We should lobby for more disconnection reasons.
-
-proc `$`*(peer: Peer): string = $peer.id
-
-proc readPackedObject(stream: P2PStream, T: type): Future[T] {.async.} =
-  await stream.transp.readExactly(addr result, sizeof result)
-
-proc appendPackedObject(stream: OutputStreamVar, value: auto) =
-  let valueAsBytes = cast[ptr byte](unsafeAddr(value))
-  stream.append makeOpenArray(valueAsBytes, sizeof(value))
-
-type
   PeerLoopExitReason = enum
     Success
     UnsupportedCompression
@@ -162,18 +142,21 @@ type
     InactivePeer
     InternalError
 
-proc disconnect*(peer: Peer, reason: DisconnectionReason, notifyOtherPeer = false) {.async.} =
-  # TODO: How should we notify the other peer?
-  if peer.connectionState notin {Disconnecting, Disconnected}:
-    peer.connectionState = Disconnecting
-    await peer.network.daemon.disconnect(peer.id)
-    peer.connectionState = Disconnected
-    peer.network.peers.del(peer.id)
+const
+  HandshakeTimeout = FaultOrError
+  BreachOfProtocol* = FaultOrError
+    # TODO: We should lobby for more disconnection reasons.
 
-template raisePeerDisconnected(msg: string, r: DisconnectionReason) =
-  var e = newException(PeerDisconnected, msg)
-  e.reason = r
-  raise e
+proc readPackedObject(stream: P2PStream, T: type): Future[T] {.async.} =
+  await stream.transp.readExactly(addr result, sizeof result)
+
+proc appendPackedObject(stream: OutputStreamVar, value: auto) =
+  let valueAsBytes = cast[ptr byte](unsafeAddr(value))
+  stream.append makeOpenArray(valueAsBytes, sizeof(value))
+
+include libp2p_backends_common
+include eth/p2p/p2p_backends_helpers
+include eth/p2p/p2p_tracing
 
 proc handleConnectingBeaconChainPeer(daemon: DaemonAPI, stream: P2PStream) {.async, gcsafe.}
 
@@ -188,11 +171,6 @@ proc init*(node: Eth2Node) {.async.} =
       node.protocolStates[proto.index] = proto.networkStateInitializer(node)
 
   await node.daemon.addHandler(@[beaconChainProtocol], handleConnectingBeaconChainPeer)
-
-proc getCompressedMsgId*(MsgType: type): CompressedMsgId =
-  mixin msgId, msgProtocol, protocolInfo
-  (protocolIdx: MsgType.msgProtocol.protocolInfo.index,
-   methodId: MsgType.msgId)
 
 proc init*(T: type Peer, network: Eth2Node, id: PeerID): Peer =
   new result
@@ -229,16 +207,6 @@ proc peerFromStream(daemon: DaemonAPI, stream: P2PStream): Peer {.gcsafe.} =
 
 proc handleConnectingBeaconChainPeer(daemon: DaemonAPI, stream: P2PStream) {.async, gcsafe.} =
   let peer = daemon.peerFromStream(stream)
-
-proc disconnectAndRaise(peer: Peer,
-                        reason: DisconnectionReason,
-                        msg: string) {.async.} =
-  let r = reason
-  await peer.disconnect(r)
-  raisePeerDisconnected(msg, r)
-
-include eth/p2p/p2p_backends_helpers
-include eth/p2p/p2p_tracing
 
 proc accepts(d: Dispatcher, methodId: uint16): bool =
   methodId.int < d.messages.len
@@ -308,19 +276,6 @@ proc sendMsg*(peer: Peer, data: Bytes) {.gcsafe, async.} =
 
 proc sendMsg*[T](responder: ResponderWithId[T], data: Bytes): Future[void] =
   return sendMsg(responder.peer, data)
-
-proc nextMsg*(peer: Peer, MsgType: type): Future[MsgType] =
-  ## This procs awaits a specific P2P message.
-  ## Any messages received while waiting will be dispatched to their
-  ## respective handlers. The designated message handler will also run
-  ## to completion before the future returned by `nextMsg` is resolved.
-  let wantedId = MsgType.getCompressedMsgId
-  let f = peer.awaitedMessages[wantedId]
-  if not f.isNil:
-    return Future[MsgType](f)
-
-  initFuture result
-  peer.awaitedMessages[wantedId] = result
 
 proc dispatchMessages*(peer: Peer, protocol: ProtocolInfo, stream: P2PStream):
                        Future[PeerLoopExitReason] {.async.} =
@@ -428,18 +383,18 @@ proc initProtocol(name: string, version: int,
   result.peerStateInitializer = peerInit
   result.networkStateInitializer = networkInit
 
-proc setEventHandlers(p: ProtocolInfo,
-                      handshake: HandshakeStep,
-                      disconnectHandler: DisconnectionHandler) =
-  p.handshake = handshake
-  p.disconnectHandler = disconnectHandler
-
 proc registerProtocol(protocol: ProtocolInfo) =
   # TODO: This can be done at compile-time in the future
   let pos = lowerBound(gProtocols, protocol)
   gProtocols.insert(protocol, pos)
   for i in 0 ..< gProtocols.len:
     gProtocols[i].index = i
+
+proc setEventHandlers(p: ProtocolInfo,
+                      handshake: HandshakeStep,
+                      disconnectHandler: DisconnectionHandler) =
+  p.handshake = handshake
+  p.disconnectHandler = disconnectHandler
 
 proc registerMsg(protocol: ProtocolInfo,
                  id: int, name: string,
@@ -523,7 +478,7 @@ proc implementSendProcBody(sendProc: SendProc) =
       # `sendMsg` call.
       quote: return `sendCall`
 
-  sendProc.implementBody(preludeGenerator, sendCallGenerator)
+  sendProc.useStandardBody(preludeGenerator, sendCallGenerator)
 
 proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   let
@@ -566,6 +521,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   result.SerializationFormat = Format
 
   p.useRequestIds = true
+  result.ReqIdType = ident "uint64"
   result.ResponderType = ResponderWithId
 
   result.afterProtocolInit = proc (p: P2PProtocol) =
@@ -602,7 +558,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
       thunkName = ident(msgName & "_thunk")
       awaitUserHandler = msg.genAwaitUserHandler(receivedMsg, userHandlerParams)
 
-    var thunkProc = quote do:
+    msg.defineThunk quote do:
       proc `thunkName`(`peerVar`: `Peer`,
                        `stream`: `P2PStream`,
                        `reqIdVar`: uint64,
@@ -612,18 +568,14 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
         `awaitUserHandler`
         `callResolvePendingFutures`
 
-    protocol.outRecvProcs.add thunkProc
-
     ##
     ## Implement Senders and Handshake
     ##
     var sendProc = msg.createSendProc(isRawSender = (msg.kind == msgHandshake))
     implementSendProcBody sendProc
-    protocol.outSendProcs.add sendProc.allDefs
 
     if msg.kind == msgHandshake:
-      protocol.outSendProcs.add msg.genHandshakeTemplate(sendProc.def.name,
-                                                         handshakeImpl, nextMsg)
+      discard msg.createHandshakeTemplate(sendProc.def.name, handshakeImpl, nextMsg)
 
     protocol.outProcRegistrations.add(
       newCall(registerMsg,

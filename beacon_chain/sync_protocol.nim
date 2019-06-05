@@ -74,7 +74,7 @@ p2pProtocol BeaconSync(version = 1,
                        shortName = "bcs",
                        networkState = BeaconSyncState):
 
-  onPeerConnected do(peer: Peer):
+  onPeerConnected do (peer: Peer):
     let
       protocolVersion = 1 # TODO: Spec doesn't specify this yet
       node = peer.networkState.node
