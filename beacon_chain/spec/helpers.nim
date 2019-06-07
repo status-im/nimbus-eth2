@@ -9,7 +9,7 @@
 
 import ./datatypes, ./digest, sequtils, math
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#integer_squareroot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
   ## The largest integer ``x`` such that ``x**2`` is less than or equal to
   ## ``n``.
@@ -58,22 +58,22 @@ func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
 
   o[1]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#slot_to_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#slot_to_epoch
 func slot_to_epoch*(slot: Slot|uint64): Epoch =
   # Return the epoch number of the given ``slot``.
   (slot div SLOTS_PER_EPOCH).Epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_epoch_start_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_epoch_start_slot
 func get_epoch_start_slot*(epoch: Epoch): Slot =
   # Return the starting slot of the given ``epoch``.
   (epoch * SLOTS_PER_EPOCH).Slot
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#is_active_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#is_active_validator
 func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   ### Check if ``validator`` is active
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_active_validator_indices
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_active_validator_indices
 func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
     seq[ValidatorIndex] =
   ## Gets indices of active validators from validators
@@ -89,7 +89,7 @@ func get_epoch_committee_count*(state: BeaconState, epoch: Epoch): uint64 =
     len(active_validator_indices) div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
     1, SHARD_COUNT div SLOTS_PER_EPOCH).uint64 * SLOTS_PER_EPOCH
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_current_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: BeaconState): Epoch =
   # Return the current epoch of the given ``state``.
   doAssert state.slot >= GENESIS_SLOT, $state.slot
@@ -104,7 +104,7 @@ func get_randao_mix*(state: BeaconState,
     ##  current_epoch + ACTIVATION_EXIT_DELAY].
     state.latest_randao_mixes[epoch mod LATEST_RANDAO_MIXES_LENGTH]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_active_index_root
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_active_index_root
 func get_active_index_root(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Returns the index root at a recent ``epoch``.
   ## ``epoch`` expected to be between
@@ -113,7 +113,7 @@ func get_active_index_root(state: BeaconState, epoch: Epoch): Eth2Digest =
   ## intentional
   state.latest_active_index_roots[epoch mod LATEST_ACTIVE_INDEX_ROOTS_LENGTH]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#bytes_to_int
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#bytes_to_int
 func bytes_to_int*(data: openarray[byte]): uint64 =
   doAssert data.len == 8
 
@@ -122,7 +122,7 @@ func bytes_to_int*(data: openarray[byte]): uint64 =
   for i in countdown(7, 0):
     result = result * 256 + data[i]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#int_to_bytes1-int_to_bytes2-
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#int_to_bytes1-int_to_bytes2-
 # Have 1, 4, 8, and 32-byte versions. 1+ more and maybe worth metaprogramming.
 func int_to_bytes32*(x: uint64): array[32, byte] =
   ## Little-endian data representation
@@ -171,7 +171,7 @@ func get_domain*(
 func get_domain*(state: BeaconState, domain_type: SignatureDomain): uint64 =
   get_domain(state, domain_type, get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#generate_seed
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#generate_seed
 func generate_seed*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Generate a seed for the given ``epoch``.
 
