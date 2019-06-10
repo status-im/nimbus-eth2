@@ -1,14 +1,21 @@
 import
-  options,
+  options, random,
   chronos, chronicles,
   spec/datatypes,
-  eth2_network, beacon_node_types, sync_protocol
+  eth2_network, beacon_node_types, sync_protocol,
+  eth/async_utils
 
 proc init*(T: type RequestManager, network: EthereumNode): T =
   T(network: network)
 
 type
   FetchAncestorsResponseHandler = proc (b: BeaconBlock) {.gcsafe.}
+
+proc fetchAncestorBlocksFromPeer(peer: Peer, rec: FetchRecord, responseHandler: FetchAncestorsResponseHandler) {.async.} =
+  let blocks = await peer.getBeaconBlocks(rec.root, GENESIS_SLOT, rec.historySlots.int, 0, 1)
+  if blocks.isSome:
+    for b in blocks.get:
+      responseHandler(b)
 
 proc fetchAncestorBlocks*(requestManager: RequestManager,
                           roots: seq[FetchRecord],
@@ -26,12 +33,4 @@ proc fetchAncestorBlocks*(requestManager: RequestManager,
 
   var fetchComplete = false
   for peer in requestManager.network.randomPeers(ParallelRequests, BeaconSync):
-    closureScope:
-      let response = peer.getAncestorBlocks(roots)
-      response.addCallback do(arg: pointer):
-        if not response.failed and response.read.isSome and not fetchComplete:
-          fetchComplete = true
-          for blk in response.read.get.blocks:
-            responseHandler(blk)
-        else:
-          debug "Failed to obtain ancestor blocks from peer", peer
+    traceAsyncErrors peer.fetchAncestorBlocksFromPeer(roots.rand(), responseHandler)

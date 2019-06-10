@@ -235,21 +235,6 @@ type
     block_body_root*: Eth2Digest
     signature*: ValidatorSig
 
-  BeaconBlockHeaderRLP* = object
-    ## Same as BeaconBlock, except `body` is the `hash_tree_root` of the
-    ## associated BeaconBlockBody.
-    # TODO: Dry it up with BeaconBlock
-    # TODO: As a first step, don't change RLP output; only previous user,
-    # but as with others, randao_reveal and eth1_data move to body.
-    # This is from before spec had a version.
-    slot*: uint64
-    parent_root*: Eth2Digest
-    state_root*: Eth2Digest
-    randao_reveal*: ValidatorSig
-    eth1_data*: Eth1Data
-    signature*: ValidatorSig
-    body*: Eth2Digest
-
   # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
