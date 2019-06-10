@@ -240,22 +240,18 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
       attestation_1 = attester_slashing.attestation_1
       attestation_2 = attester_slashing.attestation_2
 
-    debugEcho "point 0"
     if not is_slashable_attestation_data(
         attestation_1.data, attestation_2.data):
       notice "CaspSlash: surround or double vote check failed"
       return false
-    debugEcho "got point 1"
 
     if not verify_indexed_attestation(state, attestation_1):
       notice "CaspSlash: invalid votes 1"
       return false
-    debugEcho "got point 2"
 
     if not verify_indexed_attestation(state, attestation_2):
       notice "CaspSlash: invalid votes 2"
       return false
-    debugEcho "got point 3"
 
     var slashed_any = false
 
