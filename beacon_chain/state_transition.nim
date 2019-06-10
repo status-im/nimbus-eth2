@@ -171,36 +171,30 @@ proc processProposerSlashings(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#verify_slashable_attestation
-func verify_slashable_attestation(state: BeaconState, slashable_attestation: IndexedAttestation): bool =
-  # Verify validity of ``slashable_attestation`` fields.
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#verify_indexed_attestation
+func verify_indexed_attestation(state: BeaconState, indexed_attestation: IndexedAttestation): bool =
+  # Verify validity of ``indexed_attestation`` fields.
 
-  if anyIt(slashable_attestation.custody_bitfield.bits, it != 0):   # [TO BE REMOVED IN PHASE 1]
-    return false
+  let
+    custody_bit_0_indices = indexed_attestation.custody_bit_0_indices
+    custody_bit_1_indices = indexed_attestation.custody_bit_1_indices
 
-  if len(slashable_attestation.validator_indices) == 0:
+  # Ensure no duplicate indices across custody bits
+  if len(intersection(toSet(custody_bit_0_indices), toSet(custody_bit_1_indices))) != 0:
      return false
 
-  for i in 0 ..< (len(slashable_attestation.validator_indices) - 1):
-    if slashable_attestation.validator_indices[i] >= slashable_attestation.validator_indices[i + 1]:
-      return false
-
-  if not verify_bitfield(slashable_attestation.custody_bitfield,
-      len(slashable_attestation.validator_indices)):
+  if len(custody_bit_1_indices) > 0:  # [TO BE REMOVED IN PHASE 1]
     return false
 
-  if len(slashable_attestation.validator_indices) > MAX_INDICES_PER_ATTESTATION:
+  let combined_len = len(custody_bit_0_indices) + len(custody_bit_1_indices)
+  if not (1 <= combined_len and combined_len <= MAX_INDICES_PER_ATTESTATION):
     return false
 
-  var
-    custody_bit_0_indices: seq[uint64] = @[]
-    custody_bit_1_indices: seq[uint64] = @[]
+  if custody_bit_0_indices != sorted(custody_bit_0_indices, system.cmp):
+    return false
 
-  for i, validator_index in slashable_attestation.validator_indices:
-    if not get_bitfield_bit(slashable_attestation.custody_bitfield, i):
-      custody_bit_0_indices.add(validator_index)
-    else:
-      custody_bit_1_indices.add(validator_index)
+  if custody_bit_1_indices != sorted(custody_bit_1_indices, system.cmp):
+    return false
 
   bls_verify_multiple(
     @[
@@ -209,15 +203,15 @@ func verify_slashable_attestation(state: BeaconState, slashable_attestation: Ind
     ],
     @[
       hash_tree_root(AttestationDataAndCustodyBit(
-        data: slashable_attestation.data, custody_bit: false)),
+        data: indexed_attestation.data, custody_bit: false)),
       hash_tree_root(AttestationDataAndCustodyBit(
-        data: slashable_attestation.data, custody_bit: true)),
+        data: indexed_attestation.data, custody_bit: true)),
     ],
-    slashable_attestation.aggregate_signature,
+    indexed_attestation.aggregate_signature,
     get_domain(
       state,
       DOMAIN_ATTESTATION,
-      slot_to_epoch(slashable_attestation.data.slot),
+      indexed_attestation.data.target_epoch
     ),
   )
 
@@ -233,47 +227,52 @@ func is_slashable_attestation_data(
     (data_1.source_epoch < data_2.source_epoch and
      data_2.target_epoch < data_1.target_epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attester-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#attester-slashings
 proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
   # Process ``AttesterSlashing`` operation.
   if len(blck.body.attester_slashings) > MAX_ATTESTER_SLASHINGS:
     notice "CaspSlash: too many!"
     return false
 
+  result = true
   for attester_slashing in blck.body.attester_slashings:
     let
       attestation_1 = attester_slashing.attestation_1
       attestation_2 = attester_slashing.attestation_2
 
+    debugEcho "point 0"
     if not is_slashable_attestation_data(
         attestation_1.data, attestation_2.data):
       notice "CaspSlash: surround or double vote check failed"
       return false
+    debugEcho "got point 1"
 
-    if not verify_slashable_attestation(state, attestation_1):
+    if not verify_indexed_attestation(state, attestation_1):
       notice "CaspSlash: invalid votes 1"
       return false
+    debugEcho "got point 2"
 
-    if not verify_slashable_attestation(state, attestation_2):
+    if not verify_indexed_attestation(state, attestation_2):
       notice "CaspSlash: invalid votes 2"
       return false
+    debugEcho "got point 3"
 
     var slashed_any = false
 
-    let
-      indices2 = toSet(attestation_2.validator_indices)
-      slashable_indices =
-        attestation_1.validator_indices.filterIt(
-          it in indices2 and not state.validator_registry[it.int].slashed)
-
-    if not (len(slashable_indices) >= 1):
-      notice "CaspSlash: no intersection"
-      return false
-
-    for index in slashable_indices:
-      slash_validator(state, index.ValidatorIndex)
-
-  true
+    ## TODO there's a lot of sorting/set construction here and
+    ## verify_indexed_attestation, but go by spec unless there
+    ## is compelling perf evidence otherwise.
+    let attesting_indices_1 =
+      attestation_1.custody_bit_0_indices & attestation_1.custody_bit_1_indices
+    let attesting_indices_2 =
+      attestation_2.custody_bit_0_indices & attestation_2.custody_bit_1_indices
+    for index in sorted(toSeq(intersection(toSet(attesting_indices_1),
+        toSet(attesting_indices_2)).items), system.cmp):
+      if is_slashable_validator(state.validator_registry[index.int],
+          get_current_epoch(state)):
+        slash_validator(state, index.ValidatorIndex)
+        slashed_any = true
+    result = result and slashed_any
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#attestations
 proc processAttestations(

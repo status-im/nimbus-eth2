@@ -57,10 +57,6 @@ const
   ## Spec version we're aiming to be compatible with, right now
   ## TODO: improve this scheme once we can negotiate versions in protocol
 
-  # Gwei values
-  # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#gwei-values
-
   # TODO remove erstwhile blob/v0.6.3
   FORK_CHOICE_BALANCE_INCREMENT* = 2'u64^0 * 10'u64^9
 
@@ -97,16 +93,13 @@ type
     attestation_2*: IndexedAttestation ## \
     ## Second attestation
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#slashableattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#indexedattestation
   IndexedAttestation* = object
-    validator_indices*: seq[uint64] ##\
-    ## Validator indices
+    custody_bit_0_indices*: seq[uint64]
+    custody_bit_1_indices*: seq[uint64]
 
     data*: AttestationData ## \
     ## Attestation data
-
-    custody_bitfield*: BitField ##\
-    ## Custody bitfield
 
     aggregate_signature*: ValidatorSig ## \
     ## Aggregate signature
