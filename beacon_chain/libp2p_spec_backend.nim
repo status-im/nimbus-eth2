@@ -192,21 +192,23 @@ proc performProtocolHandshakes*(peer: Peer) {.async.} =
   var subProtocolsHandshakes = newSeqOfCap[Future[void]](allProtocols.len)
   for protocol in allProtocols:
     if protocol.handshake != nil:
-      subProtocolsHandshakes.add((protocol.handshake)(peer, nil))
+      subProtocolsHandshakes.add((protocol.handshake)(peer, peer.rpcStream))
 
   await all(subProtocolsHandshakes)
+  debug "All protocols initialized", peer
 
-proc getPeer*(node: Eth2Node, peerId: PeerID): Peer {.gcsafe.} =
-  result = node.peers.getOrDefault(peerId)
-  if result == nil:
-    result = Peer.init(node, peerId)
-    node.peers[peerId] = result
-
-proc peerFromStream(daemon: DaemonAPI, stream: P2PStream): Peer {.gcsafe.} =
-  Eth2Node(daemon.userData).getPeer(stream.peer)
+proc initializeConnection*(peer: Peer) {.async.} =
+  let daemon = peer.network.daemon
+  try:
+    peer.rpcStream = await daemon.openStream(peer.id, @[beaconChainProtocol])
+    await performProtocolHandshakes(peer)
+  except CatchableError:
+    await reraiseAsPeerDisconnected(peer, "Failed to perform handshake")
 
 proc handleConnectingBeaconChainPeer(daemon: DaemonAPI, stream: P2PStream) {.async, gcsafe.} =
   let peer = daemon.peerFromStream(stream)
+  peer.rpcStream = stream
+  await performProtocolHandshakes(peer)
 
 proc accepts(d: Dispatcher, methodId: uint16): bool =
   methodId.int < d.messages.len

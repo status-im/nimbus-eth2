@@ -183,7 +183,7 @@ else:
       try:
         await node.daemon.connect(bootstrapNode.peer, bootstrapNode.addresses)
         let peer = node.getPeer(bootstrapNode.peer)
-        await peer.performProtocolHandshakes()
+        await initializeConnection(peer)
       except PeerDisconnected:
         error "Failed to connect to bootstrap node", node = bootstrapNode
 

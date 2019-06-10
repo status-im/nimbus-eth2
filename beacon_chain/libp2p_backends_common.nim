@@ -2,6 +2,17 @@
 
 proc `$`*(peer: Peer): string = $peer.id
 
+proc init*(T: type Peer, network: Eth2Node, id: PeerID): Peer {.gcsafe.}
+
+proc getPeer*(node: Eth2Node, peerId: PeerID): Peer {.gcsafe.} =
+  result = node.peers.getOrDefault(peerId)
+  if result == nil:
+    result = Peer.init(node, peerId)
+    node.peers[peerId] = result
+
+proc peerFromStream(daemon: DaemonAPI, stream: P2PStream): Peer {.gcsafe.} =
+  Eth2Node(daemon.userData).getPeer(stream.peer)
+
 proc disconnect*(peer: Peer, reason: DisconnectionReason, notifyOtherPeer = false) {.async.} =
   # TODO: How should we notify the other peer?
   if peer.connectionState notin {Disconnecting, Disconnected}:
@@ -21,6 +32,12 @@ proc disconnectAndRaise(peer: Peer,
   let r = reason
   await peer.disconnect(r)
   raisePeerDisconnected(msg, r)
+
+template reraiseAsPeerDisconnected(peer: Peer, errMsgExpr: static string,
+                                   reason = FaultOrError): auto =
+  const errMsg = errMsgExpr
+  debug errMsg, err = getCurrentExceptionMsg()
+  disconnectAndRaise(peer, reason, errMsg)
 
 proc getCompressedMsgId*(MsgType: type): CompressedMsgId =
   mixin msgId, msgProtocol, protocolInfo

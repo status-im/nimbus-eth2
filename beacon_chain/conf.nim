@@ -4,7 +4,7 @@ import
   spec/[crypto, datatypes], time, version
 
 export
-  defs
+  defs, enabledLogLevel
 
 const
   DEFAULT_NETWORK* {.strdefine.} = "testnet0"
