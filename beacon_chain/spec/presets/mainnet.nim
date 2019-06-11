@@ -22,7 +22,7 @@ type
 
 {.experimental: "codeReordering".} # SLOTS_PER_EPOCH is use before being defined in spec
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/configs/constant_presets/mainnet.yaml
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/configs/constant_presets/mainnet.yaml
 const
   # Misc
   # ---------------------------------------------------------------
@@ -92,7 +92,7 @@ const
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_fork-choice.md#time-parameters
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_fork-choice.md#time-parameters
 
   SECONDS_PER_SLOT*{.intdefine.} = 6'u64 # Compile with -d:SECONDS_PER_SLOT=1 for 6x faster slots
   ## TODO consistent time unit across projects, similar to C++ chrono?

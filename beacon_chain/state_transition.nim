@@ -717,7 +717,7 @@ func get_base_reward(state: BeaconState, index: ValidatorIndex): Gwei =
   state.validator_registry[index].effective_balance div adjusted_quotient div
     BASE_REWARDS_PER_EPOCH
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#rewards-and-penalties
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#rewards-and-penalties
 func get_attestation_deltas(state: BeaconState):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
   let
@@ -815,7 +815,7 @@ func get_crosslink_deltas(state: BeaconState, cache: var StateCache):
 
   (rewards, penalties)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#rewards-and-penalties
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#rewards-and-penalties
 func process_rewards_and_penalties(
     state: var BeaconState, cache: var StateCache) =
   let

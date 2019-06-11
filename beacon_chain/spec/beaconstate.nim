@@ -153,7 +153,7 @@ func initiate_validator_exit*(state: var BeaconState,
   validator.withdrawable_epoch =
     validator.exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#slash_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#slash_validator
 func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex) =
   # Slash the validator with index ``index``.
   let current_epoch = get_current_epoch(state)
@@ -168,6 +168,7 @@ func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex) =
 
   let
     proposer_index = get_beacon_proposer_index(state)
+    # Spec has whistleblower_index as optional param, but it's never used.
     whistleblower_index = proposer_index
     whistleblowing_reward = slashed_balance div WHISTLEBLOWING_REWARD_QUOTIENT
     proposer_reward = whistleblowing_reward div PROPOSER_REWARD_QUOTIENT
@@ -176,8 +177,8 @@ func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex) =
     state, whistleblower_index, whistleblowing_reward - proposer_reward)
   decrease_balance(state, slashed_index, whistleblowing_reward)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_temporary_block_header
-func get_temporary_block_header*(blck: BeaconBlock): BeaconBlockHeader =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#on-genesis
+func get_temporary_block_header(blck: BeaconBlock): BeaconBlockHeader =
   ## Return the block header corresponding to a block with ``state_root`` set
   ## to ``ZERO_HASH``.
   BeaconBlockHeader(
@@ -189,7 +190,6 @@ func get_temporary_block_header*(blck: BeaconBlock): BeaconBlockHeader =
     signature: EMPTY_SIGNATURE,
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#on-genesis
 func get_empty_block*(): BeaconBlock =
   # Nim default values fill this in mostly correctly.
   BeaconBlock(slot: GENESIS_SLOT)
@@ -446,7 +446,7 @@ func verify_indexed_attestation*(
     ),
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_attesting_indices
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(state: BeaconState,
                            attestation_data: AttestationData,
                            bitfield: BitField): HashSet[ValidatorIndex] =
@@ -454,7 +454,8 @@ func get_attesting_indices*(state: BeaconState,
   ## and ``bitfield``.
   ## The spec goes through a lot of hoops to sort things, and sometimes
   ## constructs sets from the results here. The basic idea is to always
-  ## just do the right thing and keep it in a HashSet.
+  ## just keep it in a HashSet, which seems to suffice. If needed, it's
+  ## possible to follow the spec more literally.
   result = initSet[ValidatorIndex]()
   let committee =
     get_crosslink_committee(state, attestation_data.target_epoch,

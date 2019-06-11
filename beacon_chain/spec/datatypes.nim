@@ -119,9 +119,9 @@ type
     signature*: ValidatorSig ##\
     ## BLS aggregate signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#attestationdata
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#attestationdata
   AttestationData* = object
-    slot*: Slot
+    slot*: Slot # TODO remove this, once figure out attestation pool issues
     # LMD GHOST vote
     beacon_block_root*: Eth2Digest
 
