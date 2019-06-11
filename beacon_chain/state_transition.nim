@@ -171,50 +171,6 @@ proc processProposerSlashings(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#verify_indexed_attestation
-func verify_indexed_attestation(state: BeaconState, indexed_attestation: IndexedAttestation): bool =
-  # Verify validity of ``indexed_attestation`` fields.
-
-  let
-    custody_bit_0_indices = indexed_attestation.custody_bit_0_indices
-    custody_bit_1_indices = indexed_attestation.custody_bit_1_indices
-
-  # Ensure no duplicate indices across custody bits
-  if len(intersection(toSet(custody_bit_0_indices), toSet(custody_bit_1_indices))) != 0:
-     return false
-
-  if len(custody_bit_1_indices) > 0:  # [TO BE REMOVED IN PHASE 1]
-    return false
-
-  let combined_len = len(custody_bit_0_indices) + len(custody_bit_1_indices)
-  if not (1 <= combined_len and combined_len <= MAX_INDICES_PER_ATTESTATION):
-    return false
-
-  if custody_bit_0_indices != sorted(custody_bit_0_indices, system.cmp):
-    return false
-
-  if custody_bit_1_indices != sorted(custody_bit_1_indices, system.cmp):
-    return false
-
-  bls_verify_multiple(
-    @[
-      bls_aggregate_pubkeys(mapIt(custody_bit_0_indices, state.validator_registry[it.int].pubkey)),
-      bls_aggregate_pubkeys(mapIt(custody_bit_1_indices, state.validator_registry[it.int].pubkey)),
-    ],
-    @[
-      hash_tree_root(AttestationDataAndCustodyBit(
-        data: indexed_attestation.data, custody_bit: false)),
-      hash_tree_root(AttestationDataAndCustodyBit(
-        data: indexed_attestation.data, custody_bit: true)),
-    ],
-    indexed_attestation.aggregate_signature,
-    get_domain(
-      state,
-      DOMAIN_ATTESTATION,
-      indexed_attestation.data.target_epoch
-    ),
-  )
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
     data_1: AttestationData, data_2: AttestationData): bool =
@@ -270,7 +226,7 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
         slashed_any = true
     result = result and slashed_any
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#attestations
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#attestations
 proc processAttestations(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   ## Each block includes a number of attestations that the proposer chose. Each
@@ -291,6 +247,7 @@ proc processAttestations(
   var committee_count_cache = initTable[Epoch, uint64]()
 
   for attestation in blck.body.attestations:
+    # Caching
     let
       epoch = attestation.data.target_epoch
       committee_count = if epoch in committee_count_cache:
@@ -298,6 +255,8 @@ proc processAttestations(
         else:
           get_epoch_committee_count(state, epoch)
     committee_count_cache[epoch] = committee_count
+
+    # Spec content
     let attestation_slot =
       get_attestation_slot(state, attestation, committee_count)
     let pending_attestation = PendingAttestation(
@@ -307,7 +266,7 @@ proc processAttestations(
       proposer_index: get_beacon_proposer_index(state),
     )
 
-    if slot_to_epoch(attestation.data.slot) == get_current_epoch(state):
+    if attestation.data.target_epoch == get_current_epoch(state):
       state.current_epoch_attestations.add(pending_attestation)
     else:
       state.previous_epoch_attestations.add(pending_attestation)
@@ -515,6 +474,20 @@ proc processBlock(
 
   true
 
+# TODO this cached version corresponds to the blob/v0.5.1ish get_attesting_indices
+# rm/make consistent with 0.6 version above
+func get_attesting_indices_cached(
+    state: BeaconState,
+    attestations: openArray[PendingAttestation], cache: var StateCache):
+      HashSet[ValidatorIndex] =
+  # Union of attesters that participated in some attestations
+  result = initSet[ValidatorIndex]()
+  for attestation in attestations:
+    for validator_index in get_attestation_participants_cached(
+        state, attestation.data, attestation.aggregation_bitfield,
+        cache):
+      result.incl validator_index
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#helper-functions-1
 func get_total_active_balance(state: BeaconState): Gwei =
   return get_total_balance(
@@ -544,38 +517,6 @@ func get_matching_head_attestations(state: BeaconState, epoch: Epoch):
        get_block_root_at_slot(state, get_attestation_slot(state, it))
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_attesting_indices
-func get_attesting_indices(state: BeaconState,
-                           attestation_data: AttestationData,
-                           bitfield: BitField): HashSet[ValidatorIndex] =
-  ## Return the sorted attesting indices corresponding to ``attestation_data``
-  ## and ``bitfield``.
-  ## The spec goes through a lot of hoops to sort things, and sometimes
-  ## constructs sets from the results here. The basic idea is to always
-  ## just do the right thing and keep it in a HashSet.
-  result = initSet[ValidatorIndex]()
-  let committee =
-    get_crosslink_committee(state, attestation_data.target_epoch,
-      attestation_data.shard)
-  doAssert verify_bitfield(bitfield, len(committee))
-  for i, index in committee:
-    if get_bitfield_bit(bitfield, i):
-      result.incl index
-
-# TODO this cached version corresponds to the blob/v0.5.1ish get_attesting_indices
-# rm/make consistent with 0.6 version above
-func get_attesting_indices_cached(
-    state: BeaconState,
-    attestations: openArray[PendingAttestation], cache: var StateCache):
-      HashSet[ValidatorIndex] =
-  # Union of attesters that participated in some attestations
-  result = initSet[ValidatorIndex]()
-  for attestation in attestations:
-    for validator_index in get_attestation_participants_cached(
-        state, attestation.data, attestation.aggregation_bitfield,
-        cache):
-      result.incl validator_index
-
 func get_unslashed_attesting_indices(
     state: BeaconState, attestations: seq[PendingAttestation]):
     HashSet[ValidatorIndex] =
@@ -588,8 +529,8 @@ func get_unslashed_attesting_indices(
     if state.validator_registry[index].slashed:
       result.excl index
 
-func get_attesting_balance(state: BeaconState,
-                           attestations: seq[PendingAttestation]): Gwei =
+func get_attesting_balance(
+    state: BeaconState, attestations: seq[PendingAttestation]): Gwei =
   get_total_balance(state, get_unslashed_attesting_indices(state, attestations))
 
 func get_attesting_balance_cached(
@@ -597,6 +538,15 @@ func get_attesting_balance_cached(
     cache: var StateCache): Gwei =
   get_total_balance(state, get_attesting_indices_cached(
     state, attestations, cache))
+
+func get_crosslink_from_attestation_data(
+    state: BeaconState, data: AttestationData): Crosslink =
+  Crosslink(
+    epoch: min(data.target_epoch,
+      state.current_crosslinks[data.shard].epoch + MAX_CROSSLINK_EPOCHS),
+    previous_crosslink_root: data.previous_crosslink_root,
+    crosslink_data_root: data.crosslink_data_root,
+  )
 
 # Not exactly in spec, but for get_winning_root_and_participants
 func lowerThan(candidate, current: Eth2Digest): bool =
@@ -616,7 +566,8 @@ func get_winning_root_and_participants(
     valid_attestations =
       filterIt(
         all_attestations,
-        it.data.previous_crosslink == state.current_crosslinks[shard])
+        it.data.previous_crosslink_root ==
+          state.current_crosslinks[shard].crosslink_data_root)
     all_roots = mapIt(valid_attestations, it.data.crosslink_data_root)
 
   # handle when no attestations for shard available

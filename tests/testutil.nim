@@ -80,11 +80,6 @@ proc addBlock*(
   let proposer_index = get_beacon_proposer_index(state)
   state.slot -= 1
 
-  # Ferret out remaining GENESIS_EPOCH == 0 assumptions in test code
-  doAssert allIt(
-    body.attestations,
-    it.data.previous_crosslink.epoch >= GENESIS_EPOCH)
-
   let
     # Index from the new state, but registry from the old state.. hmm...
     proposer = state.validator_registry[proposer_index]
@@ -182,7 +177,7 @@ proc makeAttestation*(
   Attestation(
     data: data,
     aggregation_bitfield: aggregation_bitfield,
-    aggregate_signature: sig,
+    signature: sig,
     custody_bitfield: BitField.init(sac.committee.len)
   )
 

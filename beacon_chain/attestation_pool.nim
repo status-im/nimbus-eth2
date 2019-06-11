@@ -27,7 +27,7 @@ proc combine*(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
     tgt.aggregation_bitfield.combine(src.aggregation_bitfield)
 
     if skipValidation notin flags:
-      tgt.aggregate_signature.combine(src.aggregate_signature)
+      tgt.signature.combine(src.signature)
 
 proc validate(
     state: BeaconState, attestation: Attestation, flags: UpdateFlags): bool =
@@ -38,7 +38,7 @@ proc validate(
 
   # TODO half of this stuff is from beaconstate.validateAttestation - merge?
 
-  let attestationSlot = attestation.data.slot
+  let attestationSlot = get_attestation_slot(state, attestation)
 
   if attestationSlot < state.finalized_epoch.get_epoch_start_slot():
     debug "Old attestation",
@@ -97,9 +97,9 @@ proc validate(
           hash_tree_root(AttestationDataAndCustodyBit(
             data: attestation.data, custody_bit: true)),
         ],
-        attestation.aggregate_signature,
+        attestation.signature,
         get_domain(state, DOMAIN_ATTESTATION,
-                   slot_to_epoch(attestation.data.slot)),
+                   slot_to_epoch(get_attestation_slot(state, attestation))),
       ):
       notice "Invalid signature", participants
       return false
@@ -174,13 +174,13 @@ proc add*(pool: var AttestationPool,
   # TODO inefficient data structures..
 
   let
-    attestationSlot = attestation.data.slot
+    attestationSlot = get_attestation_slot(state, attestation)
     idx = pool.slotIndex(state, attestationSlot)
     slotData = addr pool.slots[idx]
     validation = Validation(
       aggregation_bitfield: attestation.aggregation_bitfield,
       custody_bitfield: attestation.custody_bitfield,
-      aggregate_signature: attestation.aggregate_signature)
+      aggregate_signature: attestation.signature)
     participants = get_attestation_participants(
       state, attestation.data, validation.aggregation_bitfield)
 
@@ -287,7 +287,7 @@ proc getAttestationsForBlock*(
         aggregation_bitfield: a.validations[0].aggregation_bitfield,
         data: a.data,
         custody_bitfield: a.validations[0].custody_bitfield,
-        aggregate_signature: a.validations[0].aggregate_signature
+        signature: a.validations[0].aggregate_signature
       )
 
     # TODO what's going on here is that when producing a block, we need to
@@ -312,7 +312,7 @@ proc getAttestationsForBlock*(
         attestation.aggregation_bitfield.combine(
           v.aggregation_bitfield)
         attestation.custody_bitfield.combine(v.custody_bitfield)
-        attestation.aggregate_signature.combine(v.aggregate_signature)
+        attestation.signature.combine(v.aggregate_signature)
 
     result.add(attestation)
 
@@ -324,7 +324,8 @@ proc resolve*(pool: var AttestationPool, state: BeaconState) =
   var resolved: seq[Attestation]
 
   for k, v in pool.unresolved.mpairs():
-    if v.tries > 8 or v.attestation.data.slot < pool.startingSlot:
+    if v.tries > 8 or
+        get_attestation_slot(state, v.attestation) < pool.startingSlot:
       done.add(k)
     else:
       if pool.blockPool.get(k).isSome():

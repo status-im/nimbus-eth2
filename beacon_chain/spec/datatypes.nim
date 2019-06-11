@@ -95,13 +95,14 @@ type
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#indexedattestation
   IndexedAttestation* = object
+    # These probably should be seq[ValidatorIndex], but that throws RLP errors
     custody_bit_0_indices*: seq[uint64]
     custody_bit_1_indices*: seq[uint64]
 
     data*: AttestationData ## \
     ## Attestation data
 
-    aggregate_signature*: ValidatorSig ## \
+    signature*: ValidatorSig ## \
     ## Aggregate signature
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#attestation
@@ -115,13 +116,13 @@ type
     custody_bitfield*: BitField ##\
     ## Custody bitfield
 
-    aggregate_signature*: ValidatorSig ##\
+    signature*: ValidatorSig ##\
     ## BLS aggregate signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attestationdata
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#attestationdata
   AttestationData* = object
-    # LMD GHOST vote
     slot*: Slot
+    # LMD GHOST vote
     beacon_block_root*: Eth2Digest
 
     # FFG vote
@@ -132,7 +133,7 @@ type
 
     # Crosslink vote
     shard*: uint64
-    previous_crosslink*: Crosslink
+    previous_crosslink_root*: Eth2Digest
     crosslink_data_root*: Eth2Digest
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#attestationdataandcustodybit
@@ -453,17 +454,12 @@ func shortLog*(v: BeaconBlock): tuple[
     shortLog(v.signature)
   )
 
-func shortLog*(v: AttestationData): tuple[
-      slot: uint64, beacon_block_root: string, source_epoch: uint64,
-      target_root: string, source_root: string, shard: uint64,
-      previous_crosslink_epoch: uint64, previous_crosslink_data_root: string,
-      crosslink_data_root: string
-    ] = (
-      humaneSlotNum(v.slot), shortLog(v.beacon_block_root),
+func shortLog*(v: AttestationData): auto =
+   (
+      shortLog(v.beacon_block_root),
       humaneEpochNum(v.source_epoch), shortLog(v.target_root),
       shortLog(v.source_root),
-      v.shard, humaneEpochNum(v.previous_crosslink.epoch),
-      shortLog(v.previous_crosslink.crosslink_data_root),
+      v.shard, v.previous_crosslink_root,
       shortLog(v.crosslink_data_root)
     )
 

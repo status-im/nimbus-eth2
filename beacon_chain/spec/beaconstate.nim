@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  algorithm, chronicles, math, options, sequtils,
+  algorithm, chronicles, collections/sets, math, options, sequtils,
   ../extras, ../ssz, ../beacon_node_types,
   ./bitfield, ./crypto, ./datatypes, ./digest, ./helpers, ./validator,
   tables
@@ -283,7 +283,7 @@ func get_initial_beacon_block*(state: BeaconState): BeaconBlock =
     # initialized to default values.
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_attestation_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_attestation_slot
 func get_attestation_slot*(state: BeaconState,
     attestation: Attestation|PendingAttestation,
     committee_count: uint64): Slot =
@@ -291,7 +291,10 @@ func get_attestation_slot*(state: BeaconState,
     epoch = attestation.data.target_epoch
     offset = (attestation.data.shard + SHARD_COUNT -
       get_epoch_start_shard(state, epoch)) mod SHARD_COUNT
-  result = get_epoch_start_slot(epoch) + offset div (committee_count div SLOTS_PER_EPOCH)
+
+  # TODO re-instate once double-check correct conditions in attestation pool
+  #get_epoch_start_slot(epoch) + offset div (committee_count div SLOTS_PER_EPOCH)
+  attestation.data.slot
 
 # This is the slower (O(n)), spec-compatible signature.
 func get_attestation_slot*(state: BeaconState,
@@ -315,6 +318,8 @@ func get_block_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
   get_block_root_at_slot(state, get_epoch_start_slot(epoch))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_attestation_participants
+## TODO this is now a wrapper and not natively in 0.6.3; upstream callers
+## should find other approaches
 func get_attestation_participants*(state: BeaconState,
                                    attestation_data: AttestationData,
                                    bitfield: BitField): seq[ValidatorIndex] =
@@ -326,20 +331,10 @@ func get_attestation_participants*(state: BeaconState,
   ##
   ## Returns empty list if the shard is not found
   ## Return the participant indices at for the ``attestation_data`` and ``bitfield``.
-  ##
-  # TODO Linear search through shard list? borderline ok, it's a small list
-  # TODO iterator candidate
 
   # Find the committee in the list with the desired shard
-  let crosslink_committees = get_crosslink_committees_at_slot(
-    state, attestation_data.slot)
-
-  doAssert anyIt(
-    crosslink_committees,
-    it[1] == attestation_data.shard)
-  let crosslink_committee = mapIt(
-    filterIt(crosslink_committees, it.shard == attestation_data.shard),
-    it.committee)[0]
+  let crosslink_committee = get_crosslink_committee(
+    state, attestation_data.target_epoch, attestation_data.shard)
 
   # TODO this and other attestation-based fields need validation so we don't
   #      crash on a malicious attestation!
@@ -352,42 +347,14 @@ func get_attestation_participants*(state: BeaconState,
     if aggregation_bit:
       result.add(validator_index)
 
+# TODO legacy function; either gradually remove callers or incorporate as own
 iterator get_attestation_participants_cached*(state: BeaconState,
                                    attestation_data: AttestationData,
                                    bitfield: BitField,
                                    cache: var StateCache): ValidatorIndex =
-  ## Return the participant indices at for the ``attestation_data`` and
-  ## ``bitfield``.
-  ## Attestation participants in the attestation data are called out in a
-  ## bit field that corresponds to the committee of the shard at the time;
-  ## this function converts it to list of indices in to BeaconState.validators
-  ##
-  ## Returns empty list if the shard is not found
-  ## Return the participant indices at for the ``attestation_data`` and ``bitfield``.
-  ##
-  # TODO Linear search through shard list? borderline ok, it's a small list
-  # TODO iterator candidate
-
-  # Find the committee in the list with the desired shard
-  # let crosslink_committees = get_crosslink_committees_at_slot_cached(
-  #   state, attestation_data.slot, false, crosslink_committees_cached)
-
-  var found = false
-  for crosslink_committee in get_crosslink_committees_at_slot_cached(
-      state, attestation_data.slot, cache):
-    if crosslink_committee.shard == attestation_data.shard:
-      # TODO this and other attestation-based fields need validation so we don't
-      #      crash on a malicious attestation!
-      doAssert verify_bitfield(bitfield, len(crosslink_committee.committee))
-
-      # Find the participating attesters in the committee
-      for i, validator_index in crosslink_committee.committee:
-        let aggregation_bit = get_bitfield_bit(bitfield, i)
-        if aggregation_bit:
-          yield validator_index
-      found = true
-      break
-  doAssert found, "Couldn't find crosslink committee"
+  for participant in get_attestation_participants(
+      state, attestation_data, bitfield):
+    yield participant
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_total_balance
 func get_total_balance*(state: BeaconState, validators: auto): Gwei =
@@ -432,9 +399,110 @@ func process_registry_updates*(state: var BeaconState) =
       validator.activation_epoch =
         get_delayed_activation_exit_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#attestations
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#verify_indexed_attestation
+func verify_indexed_attestation*(
+    state: BeaconState, indexed_attestation: IndexedAttestation): bool =
+  # Verify validity of ``indexed_attestation`` fields.
+
+  let
+    custody_bit_0_indices = indexed_attestation.custody_bit_0_indices
+    custody_bit_1_indices = indexed_attestation.custody_bit_1_indices
+
+  # Ensure no duplicate indices across custody bits
+  if len(intersection(toSet(custody_bit_0_indices), toSet(custody_bit_1_indices))) != 0:
+     return false
+
+  if len(custody_bit_1_indices) > 0:  # [TO BE REMOVED IN PHASE 1]
+    return false
+
+  let combined_len = len(custody_bit_0_indices) + len(custody_bit_1_indices)
+  if not (1 <= combined_len and combined_len <= MAX_INDICES_PER_ATTESTATION):
+    return false
+
+  if custody_bit_0_indices != sorted(custody_bit_0_indices, system.cmp):
+    return false
+
+  if custody_bit_1_indices != sorted(custody_bit_1_indices, system.cmp):
+    return false
+
+  bls_verify_multiple(
+    @[
+      bls_aggregate_pubkeys(
+        mapIt(custody_bit_0_indices, state.validator_registry[it.int].pubkey)),
+      bls_aggregate_pubkeys(
+        mapIt(custody_bit_1_indices, state.validator_registry[it.int].pubkey)),
+    ],
+    @[
+      hash_tree_root(AttestationDataAndCustodyBit(
+        data: indexed_attestation.data, custody_bit: false)),
+      hash_tree_root(AttestationDataAndCustodyBit(
+        data: indexed_attestation.data, custody_bit: true)),
+    ],
+    indexed_attestation.signature,
+    get_domain(
+      state,
+      DOMAIN_ATTESTATION,
+      indexed_attestation.data.target_epoch
+    ),
+  )
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_attesting_indices
+func get_attesting_indices*(state: BeaconState,
+                           attestation_data: AttestationData,
+                           bitfield: BitField): HashSet[ValidatorIndex] =
+  ## Return the sorted attesting indices corresponding to ``attestation_data``
+  ## and ``bitfield``.
+  ## The spec goes through a lot of hoops to sort things, and sometimes
+  ## constructs sets from the results here. The basic idea is to always
+  ## just do the right thing and keep it in a HashSet.
+  result = initSet[ValidatorIndex]()
+  let committee =
+    get_crosslink_committee(state, attestation_data.target_epoch,
+      attestation_data.shard)
+  doAssert verify_bitfield(bitfield, len(committee))
+  for i, index in committee:
+    if get_bitfield_bit(bitfield, i):
+      result.incl index
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#convert_to_indexed
+func convert_to_indexed(state: BeaconState, attestation: Attestation): IndexedAttestation =
+  # Convert ``attestation`` to (almost) indexed-verifiable form.
+  let
+    attesting_indices =
+      get_attesting_indices(
+        state, attestation.data, attestation.aggregation_bitfield)
+    custody_bit_1_indices =
+      get_attesting_indices(
+        state, attestation.data, attestation.custody_bitfield)
+
+    ## TODO quadratic, .items, but first-class iterators, etc
+    ## filterIt can't work on HashSets directly because it is
+    ## assuming int-indexable thing to extract type, because,
+    ## like lots of other things in sequtils, it's a template
+    ## which doesn't otherwise care about the type system. It
+    ## is a mess. Just write the for-loop, etc, I guess, is a
+    ## reasonable reaction because of the special for binding
+    ## with (non-closure, etc) iterators no other part of Nim
+    ## can access. As such, this function's doing many copies
+    ## and allocations it has no fundamental reason to do.
+    custody_bit_0_indices =
+      filterIt(toSeq(items(attesting_indices)), it notin custody_bit_1_indices)
+
+  # TODO No fundamental reason to do so many type conversions
+  IndexedAttestation(
+    custody_bit_0_indices: mapIt(custody_bit_0_indices, it.uint64),
+    # toSeq pointlessly constructs int-indexable copy so mapIt can infer type;
+    # see above
+    custody_bit_1_indices:
+      mapIt(toSeq(items(custody_bit_1_indices)), it.uint64),
+    data: attestation.data,
+    signature: attestation.signature,
+  )
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#attestations
 proc checkAttestation*(
     state: BeaconState, attestation: Attestation, flags: UpdateFlags): bool =
+  ## Process ``Attestation`` operation.
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
   ## be followed!
@@ -443,140 +511,43 @@ proc checkAttestation*(
     if nextSlot in flags: state.slot + 1
     else: state.slot
 
-  # Can't submit attestations that are too far in history (or in prehistory)
-  if not (attestation.data.slot >= GENESIS_SLOT):
-    warn("Attestation predates genesis slot",
-      attestation_slot = attestation.data.slot,
-      state_slot = humaneSlotNum(stateSlot))
-    return
-
-  if not (stateSlot <= attestation.data.slot + SLOTS_PER_EPOCH):
-    warn("Attestation too old",
-      attestation_slot = humaneSlotNum(attestation.data.slot),
-      state_slot = humaneSlotNum(stateSlot))
-    return
-
-  # Can't submit attestations too quickly
-  if not (
-      attestation.data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= stateSlot):
+  let attestation_slot = get_attestation_slot(state, attestation)
+  if not (attestation_slot + MIN_ATTESTATION_INCLUSION_DELAY <= stateSlot):
     warn("Attestation too new",
-      attestation_slot = humaneSlotNum(attestation.data.slot),
+      attestation_slot = humaneSlotNum(attestation_slot),
       state_slot = humaneSlotNum(stateSlot))
     return
 
-  # # Verify that the justified epoch and root is correct
-  if slot_to_epoch(attestation.data.slot) >= stateSlot.slot_to_epoch():
-    # Case 1: current epoch attestations
-    if not (attestation.data.source_epoch == state.current_justified_epoch):
-      warn("Source epoch is not current justified epoch",
-        attestation_slot = humaneSlotNum(attestation.data.slot),
-        state_slot = humaneSlotNum(stateSlot))
-      return
-
-    if not (attestation.data.source_root == state.current_justified_root):
-      warn("Source root is not current justified root",
-        attestation_slot = humaneSlotNum(attestation.data.slot),
-        state_slot = humaneSlotNum(stateSlot))
-      return
-  else:
-    # Case 2: previous epoch attestations
-    if not (attestation.data.source_epoch == state.previous_justified_epoch):
-      warn("Source epoch is not previous justified epoch",
-        attestation_slot = humaneSlotNum(attestation.data.slot),
-        state_slot = humaneSlotNum(stateSlot))
-      return
-
-    if not (attestation.data.source_root == state.previous_justified_root):
-      warn("Source root is not previous justified root",
-        attestation_slot = humaneSlotNum(attestation.data.slot),
-        state_slot = humaneSlotNum(stateSlot))
-      return
-
-  # Check that the crosslink data is valid
-  let acceptable_crosslink_data = @[
-    # Case 1: Latest crosslink matches the one in the state
-    attestation.data.previous_crosslink,
-
-    # Case 2: State has already been updated, state's latest crosslink matches
-    # the crosslink the attestation is trying to create
-    Crosslink(
-      crosslink_data_root: attestation.data.crosslink_data_root,
-      epoch: slot_to_epoch(attestation.data.slot)
-    )
-  ]
-  if not (state.current_crosslinks[attestation.data.shard] in
-      acceptable_crosslink_data):
-    warn("Unexpected crosslink shard",
-      state_latest_crosslinks_attestation_data_shard =
-        state.current_crosslinks[attestation.data.shard],
-      attestation_data_previous_crosslink = attestation.data.previous_crosslink,
-      epoch = humaneEpochNum(slot_to_epoch(attestation.data.slot)),
-      actual_epoch = slot_to_epoch(attestation.data.slot),
-      crosslink_data_root = attestation.data.crosslink_data_root,
-      acceptable_crosslink_data = acceptable_crosslink_data)
+  if not (stateSlot <= attestation_slot + SLOTS_PER_EPOCH):
+    warn("Attestation too old",
+      attestation_slot = humaneSlotNum(attestation_slot),
+      state_slot = humaneSlotNum(stateSlot))
     return
 
-  # Attestation must be nonempty!
-  if not anyIt(attestation.aggregation_bitfield.bits, it != 0):
-    warn("No signature bits")
+  # Check target epoch, source epoch, source root, and source crosslink
+  let data = attestation.data
+  if not (
+    (data.target_epoch, data.source_epoch, data.source_root, data.previous_crosslink_root) ==
+      (get_current_epoch(state), state.current_justified_epoch,
+       state.current_justified_root,
+       hash_tree_root(state.current_crosslinks[data.shard])) or
+    (data.target_epoch, data.source_epoch, data.source_root, data.previous_crosslink_root) ==
+      (get_previous_epoch(state), state.previous_justified_epoch,
+       state.previous_justified_root,
+       hash_tree_root(state.previous_crosslinks[data.shard]))):
+    warn("checkAttestation: target epoch, source epoch, source root, or source crosslink invalid")
     return
 
-  # Custody must be empty (to be removed in phase 1)
-  if not allIt(attestation.custody_bitfield.bits, it == 0):
-    warn("Custody bits set in phase0")
-    return
-
-  # Get the committee for the specific shard that this attestation is for
-  let crosslink_committee = mapIt(
-    filterIt(get_crosslink_committees_at_slot(state, attestation.data.slot),
-             it.shard == attestation.data.shard),
-    it.committee)[0]
-
-  # Custody bitfield must be a subset of the attestation bitfield
-  if not allIt(0 ..< len(crosslink_committee),
-      if not get_bitfield_bit(attestation.aggregation_bitfield, it):
-        not get_bitfield_bit(attestation.custody_bitfield, it)
-      else:
-        true):
-    warn("Wrong custody bits set")
-    return
-
-  # Verify aggregate signature
-  let
-    participants = get_attestation_participants(
-      state, attestation.data, attestation.aggregation_bitfield)
-
-    ## TODO when the custody_bitfield assertion-to-emptiness disappears do this
-    ## and fix the custody_bit_0_participants check to depend on it.
-    # custody_bit_1_participants = {nothing, always, because assertion above}
-    custody_bit_1_participants: seq[ValidatorIndex] = @[]
-    custody_bit_0_participants = participants
-
-  if skipValidation notin flags:
-    # Verify that aggregate_signature verifies using the group pubkey.
-    if not bls_verify_multiple(
-      @[
-        bls_aggregate_pubkeys(mapIt(custody_bit_0_participants,
-                                    state.validator_registry[it].pubkey)),
-        bls_aggregate_pubkeys(mapIt(custody_bit_1_participants,
-                                    state.validator_registry[it].pubkey)),
-      ],
-      @[
-        hash_tree_root(AttestationDataAndCustodyBit(
-          data: attestation.data, custody_bit: false)),
-        hash_tree_root(AttestationDataAndCustodyBit(
-          data: attestation.data, custody_bit: true)),
-      ],
-      attestation.aggregate_signature,
-      get_domain(state, DOMAIN_ATTESTATION,
-                 slot_to_epoch(attestation.data.slot))
-    ):
-      warn("Invalid attestation signature")
-      return
-
-  # Crosslink data root is zero (to be removed in phase 1)
+  ## Check crosslink data root
+  ## [to be removed in phase 1]
   if attestation.data.crosslink_data_root != ZERO_HASH:
     warn("Invalid crosslink data root")
+    return
+
+  # Check signature and bitfields
+  if not verify_indexed_attestation(
+      state, convert_to_indexed(state, attestation)):
+    warn("checkAttestation: signature or bitfields incorrect")
     return
 
   true
@@ -600,8 +571,8 @@ proc makeAttestationData*(
     beacon_block_root: beacon_block_root,
     target_root: target_root,
     crosslink_data_root: Eth2Digest(), # Stub in phase0
-    previous_crosslink: state.current_crosslinks[shard],
+    previous_crosslink_root: hash_tree_root(state.current_crosslinks[shard]),
     source_epoch: state.current_justified_epoch,
     source_root: state.current_justified_root,
-    target_epoch: slot_to_epoch(epoch_start_slot)
+    target_epoch: slot_to_epoch(state.slot)
   )
