@@ -187,7 +187,7 @@ func get_temporary_block_header(blck: BeaconBlock): BeaconBlockHeader =
     state_root: ZERO_HASH,
     block_body_root: hash_tree_root(blck.body),
     # signing_root(block) is used for block id purposes so signature is a stub
-    signature: EMPTY_SIGNATURE,
+    signature: ValidatorSig(),
   )
 
 func get_empty_block*(): BeaconBlock =

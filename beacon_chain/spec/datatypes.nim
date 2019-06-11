@@ -62,12 +62,10 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#initial-values
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#initial-values
   GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
   ## slot_to_epoch(GENESIS_SLOT)
-  GENESIS_START_SHARD* = 0'u64
   ZERO_HASH* = Eth2Digest()
-  EMPTY_SIGNATURE* = ValidatorSig()
 
 type
   ValidatorIndex* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
