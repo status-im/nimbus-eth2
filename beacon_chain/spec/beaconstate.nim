@@ -462,13 +462,23 @@ func convert_to_indexed(state: BeaconState, attestation: Attestation): IndexedAt
     custody_bit_0_indices =
       filterIt(toSeq(items(attesting_indices)), it notin custody_bit_1_indices)
 
-  # TODO No fundamental reason to do so many type conversions
+  ## TODO No fundamental reason to do so many type conversions
+  ## verify_indexed_attestation checks for sortedness but it's
+  ## entirely a local artifact, seemingly; networking uses the
+  ## Attestation data structure, which can't be unsorted. That
+  ## the conversion here otherwise needs sorting is due to the
+  ## usage of HashSet -- order only matters in one place (that
+  ## 0.6.3 highlights and explicates) except in that the spec,
+  ## for no obvious reason, verifies it. So, here goes, sort a
+  ## list just so a called function can verify it's sorted.
   IndexedAttestation(
-    custody_bit_0_indices: mapIt(custody_bit_0_indices, it.uint64),
+    custody_bit_0_indices: sorted(
+      mapIt(custody_bit_0_indices, it.uint64), system.cmp),
     # toSeq pointlessly constructs int-indexable copy so mapIt can infer type;
     # see above
     custody_bit_1_indices:
-      mapIt(toSeq(items(custody_bit_1_indices)), it.uint64),
+      sorted(mapIt(toSeq(items(custody_bit_1_indices)), it.uint64),
+        system.cmp),
     data: attestation.data,
     signature: attestation.signature,
   )
