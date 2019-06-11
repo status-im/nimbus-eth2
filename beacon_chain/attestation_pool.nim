@@ -324,8 +324,8 @@ proc resolve*(pool: var AttestationPool, state: BeaconState) =
   var resolved: seq[Attestation]
 
   for k, v in pool.unresolved.mpairs():
-    if v.tries > 8 or
-        get_attestation_slot(state, v.attestation) < pool.startingSlot:
+    let attestation_slot = get_attestation_slot(state, v.attestation)
+    if v.tries > 8 or attestation_slot < pool.startingSlot:
       done.add(k)
     else:
       if pool.blockPool.get(k).isSome():
