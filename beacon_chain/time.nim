@@ -42,7 +42,7 @@ func toSlot*(t: BeaconTime): Slot =
   Slot(uint64(t) div SECONDS_PER_SLOT)
 
 func toBeaconTime*(c: BeaconClock, t: Time): BeaconTime =
-  doAssert t > c.genesis,
+  doAssert (not (t < c.genesis)),
     "Cannot represent time before genesis, fix BeaconClock"
 
   BeaconTime(times.seconds(t - c.genesis).uint64)
