@@ -152,7 +152,7 @@ func int_to_bytes4*(x: uint64): array[4, byte] =
   result[2] = ((x shr 16) and 0xff).byte
   result[3] = ((x shr 24) and 0xff).byte
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#get_domain
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_domain
 func get_domain*(
     state: BeaconState, domain_type: SignatureDomain, message_epoch: Epoch): uint64 =
   ## Return the signature domain (fork version concatenated with domain type)

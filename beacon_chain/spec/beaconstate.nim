@@ -11,7 +11,7 @@ import
   ./bitfield, ./crypto, ./datatypes, ./digest, ./helpers, ./validator,
   tables
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#verify_merkle_branch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#verify_merkle_branch
 func verify_merkle_branch(leaf: Eth2Digest, proof: openarray[Eth2Digest], depth: uint64, index: uint64, root: Eth2Digest): bool =
   ## Verify that the given ``leaf`` is on the merkle branch ``proof``
   ## starting with the given ``root``.
