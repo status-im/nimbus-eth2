@@ -71,7 +71,7 @@ proc validate(
   ## the rest; turns into expensive NOP until then.
   if skipValidation notin flags:
     let
-      participants = get_attestation_participants(
+      participants = get_attesting_indices_seq(
         state, attestation.data, attestation.aggregation_bitfield)
 
       ## TODO when the custody_bitfield assertion-to-emptiness disappears do this
@@ -181,7 +181,7 @@ proc add*(pool: var AttestationPool,
       aggregation_bitfield: attestation.aggregation_bitfield,
       custody_bitfield: attestation.custody_bitfield,
       aggregate_signature: attestation.signature)
-    participants = get_attestation_participants(
+    participants = get_attesting_indices_seq(
       state, attestation.data, validation.aggregation_bitfield)
 
   var found = false
@@ -196,7 +196,7 @@ proc add*(pool: var AttestationPool,
           #      sets by virtue of not overlapping with some other attestation
           #      and therefore being useful after all?
           debug "Ignoring subset attestation",
-            existingParticipants = get_attestation_participants(
+            existingParticipants = get_attesting_indices_seq(
               state, a.data, v.aggregation_bitfield),
             newParticipants = participants
           found = true
@@ -209,7 +209,7 @@ proc add*(pool: var AttestationPool,
           if it.aggregation_bitfield.isSubsetOf(
               validation.aggregation_bitfield):
             debug "Removing subset attestation",
-              existingParticipants = get_attestation_participants(
+              existingParticipants = get_attesting_indices_seq(
                 state, a.data, it.aggregation_bitfield),
               newParticipants = participants
             false

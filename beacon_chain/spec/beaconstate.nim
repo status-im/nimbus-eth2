@@ -317,45 +317,6 @@ func get_block_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Return the block root at a recent ``epoch``.
   get_block_root_at_slot(state, get_epoch_start_slot(epoch))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#get_attestation_participants
-## TODO this is now a wrapper and not natively in 0.6.3; upstream callers
-## should find other approaches
-func get_attestation_participants*(state: BeaconState,
-                                   attestation_data: AttestationData,
-                                   bitfield: BitField): seq[ValidatorIndex] =
-  ## Return the participant indices at for the ``attestation_data`` and
-  ## ``bitfield``.
-  ## Attestation participants in the attestation data are called out in a
-  ## bit field that corresponds to the committee of the shard at the time;
-  ## this function converts it to list of indices in to BeaconState.validators
-  ##
-  ## Returns empty list if the shard is not found
-  ## Return the participant indices at for the ``attestation_data`` and ``bitfield``.
-
-  # Find the committee in the list with the desired shard
-  let crosslink_committee = get_crosslink_committee(
-    state, attestation_data.target_epoch, attestation_data.shard)
-
-  # TODO this and other attestation-based fields need validation so we don't
-  #      crash on a malicious attestation!
-  doAssert verify_bitfield(bitfield, len(crosslink_committee))
-
-  # Find the participating attesters in the committee
-  result = @[]
-  for i, validator_index in crosslink_committee:
-    let aggregation_bit = get_bitfield_bit(bitfield, i)
-    if aggregation_bit:
-      result.add(validator_index)
-
-# TODO legacy function; either gradually remove callers or incorporate as own
-iterator get_attestation_participants_cached*(state: BeaconState,
-                                   attestation_data: AttestationData,
-                                   bitfield: BitField,
-                                   cache: var StateCache): ValidatorIndex =
-  for participant in get_attestation_participants(
-      state, attestation_data, bitfield):
-    yield participant
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_total_balance
 func get_total_balance*(state: BeaconState, validators: auto): Gwei =
   # Return the combined effective balance of an array of ``validators``.
@@ -448,8 +409,8 @@ func verify_indexed_attestation*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(state: BeaconState,
-                           attestation_data: AttestationData,
-                           bitfield: BitField): HashSet[ValidatorIndex] =
+                            attestation_data: AttestationData,
+                            bitfield: BitField): HashSet[ValidatorIndex] =
   ## Return the sorted attesting indices corresponding to ``attestation_data``
   ## and ``bitfield``.
   ## The spec goes through a lot of hoops to sort things, and sometimes
@@ -464,6 +425,18 @@ func get_attesting_indices*(state: BeaconState,
   for i, index in committee:
     if get_bitfield_bit(bitfield, i):
       result.incl index
+
+func get_attesting_indices_seq*(
+    state: BeaconState, attestation_data: AttestationData, bitfield: BitField):
+    seq[ValidatorIndex] =
+  toSeq(items(get_attesting_indices(state, attestation_data, bitfield)))
+
+# TODO legacy function name; rename, reimplement caching if useful, blob/v0.6.2
+iterator get_attestation_participants_cached*(
+    state: BeaconState, attestation_data: AttestationData, bitfield: BitField,
+    cache: var StateCache): ValidatorIndex =
+  for participant in get_attesting_indices(state, attestation_data, bitfield):
+    yield participant
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#convert_to_indexed
 func convert_to_indexed(state: BeaconState, attestation: Attestation): IndexedAttestation =
