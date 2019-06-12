@@ -91,19 +91,20 @@ include libp2p_backends_common
 include eth/p2p/p2p_backends_helpers
 include eth/p2p/p2p_tracing
 
-proc init*(node: Eth2Node) {.async.} =
-  node.daemon = await newDaemonApi({PSGossipSub})
-  node.daemon.userData = node
-  init node.peers
+proc init*(T: type Eth2Node, daemon: DaemonAPI): Future[T] {.async.} =
+  new result
+  result.daemon = daemon
+  result.daemon.userData = result
+  init result.peers
 
-  newSeq node.protocolStates, allProtocols.len
+  newSeq result.protocolStates, allProtocols.len
   for proto in allProtocols:
     if proto.networkStateInitializer != nil:
-      node.protocolStates[proto.index] = proto.networkStateInitializer(node)
+      result.protocolStates[proto.index] = proto.networkStateInitializer(result)
 
     for msg in proto.messages:
       if msg.libp2pProtocol.len > 0:
-        await node.daemon.addHandler(@[msg.libp2pProtocol], msg.thunk)
+        await daemon.addHandler(@[msg.libp2pProtocol], msg.thunk)
 
 proc readMsg(stream: P2PStream, MsgType: type,
              deadline: Future[void]): Future[Option[MsgType]] {.async.} =

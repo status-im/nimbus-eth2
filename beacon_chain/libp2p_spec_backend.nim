@@ -160,17 +160,18 @@ include eth/p2p/p2p_tracing
 
 proc handleConnectingBeaconChainPeer(daemon: DaemonAPI, stream: P2PStream) {.async, gcsafe.}
 
-proc init*(node: Eth2Node) {.async.} =
-  node.daemon = await newDaemonApi({PSGossipSub})
-  node.daemon.userData = node
-  init node.peers
+proc init*(T: type Eth2Node, daemon: DaemonAPI): Future[Eth2Node] {.async.} =
+  new result
+  result.daemon = daemon
+  result.daemon.userData = result
+  result.peers = initTable[PeerID, Peer]()
 
-  newSeq node.protocolStates, allProtocols.len
+  newSeq result.protocolStates, allProtocols.len
   for proto in allProtocols:
     if proto.networkStateInitializer != nil:
-      node.protocolStates[proto.index] = proto.networkStateInitializer(node)
+      result.protocolStates[proto.index] = proto.networkStateInitializer(result)
 
-  await node.daemon.addHandler(@[beaconChainProtocol], handleConnectingBeaconChainPeer)
+  await daemon.addHandler(@[beaconChainProtocol], handleConnectingBeaconChainPeer)
 
 proc init*(T: type Peer, network: Eth2Node, id: PeerID): Peer =
   new result

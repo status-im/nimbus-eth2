@@ -118,8 +118,8 @@ when networkBackend == rlpxBackend:
 
 else:
   import
-    random,
-    libp2p/daemon/daemonapi, eth/async_utils,
+    os, random, std_shims/io,
+    libp2p/crypto/crypto, libp2p/daemon/daemonapi, eth/async_utils,
     ssz
 
   when networkBackend == libp2pSpecBackend:
@@ -136,6 +136,9 @@ else:
     BootstrapAddr* = PeerInfo
     Eth2NodeIdentity* = PeerInfo
 
+  const
+    networkKeyFilename = "privkey.protobuf"
+
   proc writeValue*(writer: var JsonWriter, value: PeerID) {.inline.} =
     writer.writeValue value.pretty
 
@@ -151,19 +154,25 @@ else:
   proc init*(T: type BootstrapAddr, str: string): T =
     Json.decode(str, PeerInfo)
 
-  proc createEth2Node*(conf: BeaconNodeConf): Future[Eth2Node] {.async.} =
-    var node = new Eth2Node
-    await node.init()
-    return node
+  proc ensureNetworkIdFile(conf: BeaconNodeConf): string =
+    result = conf.dataDir / networkKeyFilename
+    if not fileExists(result):
+      createDir conf.dataDir.string
+      let pk = PrivateKey.random(Ed25519)
+      writeFile(result, pk.getBytes)
 
   proc getPersistentNetIdentity*(conf: BeaconNodeConf): Eth2NodeIdentity =
     # Using waitFor here is reasonable, because this proc is needed only
     # prior to connecting to the network. The RLPx alternative reads from
     # file and it's much easier to use if it's not async.
     # TODO: revisit in the future when we have our own Lib2P2 implementation.
-    let daemon = waitFor newDaemonApi()
+    let daemon = waitFor newDaemonApi(id = conf.ensureNetworkIdFile)
     result = waitFor daemon.identity()
     waitFor daemon.close()
+
+  proc createEth2Node*(conf: BeaconNodeConf): Future[Eth2Node] {.async.} =
+    var daemon = await newDaemonApi({PSGossipSub}, id = conf.ensureNetworkIdFile)
+    return await Eth2Node.init(daemon)
 
   proc getPersistenBootstrapAddr*(conf: BeaconNodeConf,
                                   ip: IpAddress, port: Port): BootstrapAddr =
