@@ -81,7 +81,7 @@ func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
     if is_active_validator(val, epoch):
       result.add idx.ValidatorIndex
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_epoch_committee_count
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_epoch_committee_count
 func get_epoch_committee_count*(state: BeaconState, epoch: Epoch): uint64 =
   # Return the number of committees at ``epoch``.
   let active_validator_indices = get_active_validator_indices(state, epoch)
@@ -95,13 +95,12 @@ func get_current_epoch*(state: BeaconState): Epoch =
   doAssert state.slot >= GENESIS_SLOT, $state.slot
   slot_to_epoch(state.slot)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#get_randao_mix
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: BeaconState,
                      epoch: Epoch): Eth2Digest =
     ## Returns the randao mix at a recent ``epoch``.
-    ## ``epoch`` expected to be between
-    ## (current_epoch - LATEST_ACTIVE_INDEX_ROOTS_LENGTH + ACTIVATION_EXIT_DELAY,
-    ##  current_epoch + ACTIVATION_EXIT_DELAY].
+    ## ``epoch`` expected to be between (current_epoch -
+    ## LATEST_RANDAO_MIXES_LENGTH, current_epoch].
     state.latest_randao_mixes[epoch mod LATEST_RANDAO_MIXES_LENGTH]
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_active_index_root
@@ -152,7 +151,7 @@ func int_to_bytes4*(x: uint64): array[4, byte] =
   result[2] = ((x shr 16) and 0xff).byte
   result[3] = ((x shr 24) and 0xff).byte
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.0/specs/core/0_beacon-chain.md#get_domain
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_domain
 func get_domain*(
     state: BeaconState, domain_type: SignatureDomain, message_epoch: Epoch): uint64 =
   ## Return the signature domain (fork version concatenated with domain type)

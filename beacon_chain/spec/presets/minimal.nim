@@ -26,7 +26,7 @@ type
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.1/specs/core/0_beacon-chain.md#misc
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#misc
 
   # Changed
   SHARD_COUNT* {.intdefine.} = 8
@@ -61,11 +61,11 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#initial-values
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/configs/constant_presets/minimal.yaml#L43
 
   # Unchanged
   GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 0'u8]
-  GENESIS_SLOT* = 64.Slot
+  GENESIS_SLOT* = 0.Slot
   FAR_FUTURE_EPOCH* = (not 0'u64).Epoch # 2^64 - 1 in spec
   BLS_WITHDRAWAL_PREFIX_BYTE* = 0'u8
 
@@ -89,7 +89,7 @@ const
 
   # Changed
   SLOTS_PER_ETH1_VOTING_PERIOD* = 16
-  SLOTS_PER_HISTORICAL_ROOT* = 64
+  SLOTS_PER_HISTORICAL_ROOT* = 128 # 64 doesn't work with GENESIS_SLOT == 0?
 
   # Unchanged
   MIN_VALIDATOR_WITHDRAWABILITY_DELAY* = 2'u64^8

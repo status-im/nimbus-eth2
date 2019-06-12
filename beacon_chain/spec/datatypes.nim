@@ -57,21 +57,15 @@ const
   ## Spec version we're aiming to be compatible with, right now
   ## TODO: improve this scheme once we can negotiate versions in protocol
 
-  # Gwei values
-  # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#gwei-values
-
   # TODO remove erstwhile blob/v0.6.3
   FORK_CHOICE_BALANCE_INCREMENT* = 2'u64^0 * 10'u64^9
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#initial-values
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#initial-values
   GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
   ## slot_to_epoch(GENESIS_SLOT)
-  GENESIS_START_SHARD* = 0'u64
   ZERO_HASH* = Eth2Digest()
-  EMPTY_SIGNATURE* = ValidatorSig()
 
 type
   ValidatorIndex* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
@@ -97,18 +91,16 @@ type
     attestation_2*: IndexedAttestation ## \
     ## Second attestation
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#slashableattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#indexedattestation
   IndexedAttestation* = object
-    validator_indices*: seq[uint64] ##\
-    ## Validator indices
+    # These probably should be seq[ValidatorIndex], but that throws RLP errors
+    custody_bit_0_indices*: seq[uint64]
+    custody_bit_1_indices*: seq[uint64]
 
     data*: AttestationData ## \
     ## Attestation data
 
-    custody_bitfield*: BitField ##\
-    ## Custody bitfield
-
-    aggregate_signature*: ValidatorSig ## \
+    signature*: ValidatorSig ## \
     ## Aggregate signature
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#attestation
@@ -122,13 +114,13 @@ type
     custody_bitfield*: BitField ##\
     ## Custody bitfield
 
-    aggregate_signature*: ValidatorSig ##\
+    signature*: ValidatorSig ##\
     ## BLS aggregate signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#attestationdata
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#attestationdata
   AttestationData* = object
+    slot*: Slot # TODO remove this, once figure out attestation pool issues
     # LMD GHOST vote
-    slot*: Slot
     beacon_block_root*: Eth2Digest
 
     # FFG vote
@@ -139,7 +131,7 @@ type
 
     # Crosslink vote
     shard*: uint64
-    previous_crosslink*: Crosslink
+    previous_crosslink_root*: Eth2Digest
     crosslink_data_root*: Eth2Digest
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#attestationdataandcustodybit
@@ -460,17 +452,12 @@ func shortLog*(v: BeaconBlock): tuple[
     shortLog(v.signature)
   )
 
-func shortLog*(v: AttestationData): tuple[
-      slot: uint64, beacon_block_root: string, source_epoch: uint64,
-      target_root: string, source_root: string, shard: uint64,
-      previous_crosslink_epoch: uint64, previous_crosslink_data_root: string,
-      crosslink_data_root: string
-    ] = (
-      humaneSlotNum(v.slot), shortLog(v.beacon_block_root),
+func shortLog*(v: AttestationData): auto =
+   (
+      shortLog(v.beacon_block_root),
       humaneEpochNum(v.source_epoch), shortLog(v.target_root),
       shortLog(v.source_root),
-      v.shard, humaneEpochNum(v.previous_crosslink.epoch),
-      shortLog(v.previous_crosslink.crosslink_data_root),
+      v.shard, v.previous_crosslink_root,
       shortLog(v.crosslink_data_root)
     )
 

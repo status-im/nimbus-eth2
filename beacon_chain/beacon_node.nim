@@ -314,7 +314,7 @@ proc sendAttestation(node: BeaconNode,
 
   var attestation = Attestation(
     data: attestationData,
-    aggregate_signature: validatorSignature,
+    signature: validatorSignature,
     aggregation_bitfield: aggregationBitfield,
     # Stub in phase0
     custody_bitfield: BitField.init(committeeLen)
@@ -371,7 +371,9 @@ proc proposeBlock(node: BeaconNode,
     var tmpState = hashedState
 
     let ok = updateState(tmpState, newBlock, {skipValidation})
-    doAssert ok # TODO: err, could this fail somehow?
+    # TODO only enable in fast-fail debugging situations
+    # otherwise, bad attestations can bring down network
+    # doAssert ok # TODO: err, could this fail somehow?
 
     newBlock.state_root = tmpState.root
 
@@ -405,7 +407,7 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
   # we're on, or that it follows the rules of the protocol
   debug "Attestation received",
     attestationData = shortLog(attestation.data),
-    signature = shortLog(attestation.aggregate_signature)
+    signature = shortLog(attestation.signature)
 
   # TODO seems reasonable to use the latest head state here.. needs thinking
   #      though - maybe we should use the state from the block pointed to by
