@@ -120,7 +120,7 @@ func processEth1Data(state: var BeaconState, blck: BeaconBlock) =
       SLOTS_PER_ETH1_VOTING_PERIOD:
     state.latest_eth1_data = blck.body.eth1_data
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#is_slashable_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#is_slashable_validator
 func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
   # Check if ``validator`` is slashable.
   (not validator.slashed) and
@@ -681,7 +681,7 @@ func process_justification_and_finalization(state: var BeaconState) =
     state.finalized_epoch = old_current_justified_epoch
     state.finalized_root = get_block_root(state, state.finalized_epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#crosslinks
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#crosslinks
 func process_crosslinks(state: var BeaconState, per_epoch_cache: var StateCache) =
   ## TODO is there a semantic reason for this, or is this just a way to force
   ## copying? If so, why not just `list(foo)` or similar? This is strange. In
@@ -850,12 +850,6 @@ func process_slashings(state: var BeaconState) =
             min(total_penalties * 3, total_balance) div total_balance,
           validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT)
       decrease_balance(state, index.ValidatorIndex, penalty)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_shard_delta
-func get_shard_delta(state: BeaconState, epoch: Epoch): uint64 =
-  # Return the number of shards to increment ``state.latest_start_shard`` during ``epoch``.
-  min(get_epoch_committee_count(state, epoch),
-    (SHARD_COUNT - SHARD_COUNT div SLOTS_PER_EPOCH).uint64)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#final-updates
 func process_final_updates(state: var BeaconState) =

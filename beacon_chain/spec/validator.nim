@@ -128,14 +128,14 @@ func get_previous_epoch*(state: BeaconState): Epoch =
   else:
     current_epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_shard_delta
-func get_shard_delta(state: BeaconState, epoch: Epoch): uint64 =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#get_shard_delta
+func get_shard_delta*(state: BeaconState, epoch: Epoch): uint64 =
   ## Return the number of shards to increment ``state.latest_start_shard``
   ## during ``epoch``.
   min(get_epoch_committee_count(state, epoch),
     (SHARD_COUNT - SHARD_COUNT div SLOTS_PER_EPOCH).uint64)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_epoch_start_shard
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#get_epoch_start_shard
 func get_epoch_start_shard*(state: BeaconState, epoch: Epoch): Shard =
   doAssert epoch <= get_current_epoch(state) + 1
   var
@@ -212,7 +212,7 @@ iterator get_crosslink_committees_at_slot_cached*(
   cache.crosslink_committee_cache[key] = result
   for v in result: yield v
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_beacon_proposer_index
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: BeaconState): ValidatorIndex =
   # Return the current beacon proposer index.
   const
@@ -239,6 +239,7 @@ func get_beacon_proposer_index*(state: BeaconState): ValidatorIndex =
       random_byte = (eth2hash(buffer).data)[i mod 32]
       effective_balance =
         state.validator_registry[candidate_index].effective_balance
-    if effective_balance * MAX_RANDOM_BYTE >= MAX_EFFECTIVE_BALANCE * random_byte:
+    if effective_balance * MAX_RANDOM_BYTE >=
+        MAX_EFFECTIVE_BALANCE * random_byte:
       return candidate_index
     i += 1

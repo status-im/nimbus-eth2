@@ -29,13 +29,13 @@ func verify_merkle_branch(leaf: Eth2Digest, proof: openarray[Eth2Digest], depth:
     value = eth2hash(buf)
   value == root
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#increase_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#increase_balance
 func increase_balance*(
     state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
   # Increase validator balance by ``delta``.
   state.balances[index] += delta
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#decrease_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#decrease_balance
 func decrease_balance*(
     state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
   # Decrease validator balance by ``delta`` with underflow protection.
@@ -108,13 +108,13 @@ func process_deposit*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_delayed_activation_exit_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#get_delayed_activation_exit_epoch
 func get_delayed_activation_exit_epoch*(epoch: Epoch): Epoch =
   ## Return the epoch at which an activation or exit triggered in ``epoch``
   ## takes effect.
   epoch + 1 + ACTIVATION_EXIT_DELAY
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_churn_limit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#get_churn_limit
 func get_churn_limit(state: BeaconState): uint64 =
   max(
     MIN_PER_EPOCH_CHURN_LIMIT,
@@ -122,7 +122,7 @@ func get_churn_limit(state: BeaconState): uint64 =
       CHURN_LIMIT_QUOTIENT
   ).uint64
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#initiate_validator_exit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(state: var BeaconState,
                               index: ValidatorIndex) =
   # Initiate the validator of the given ``index``.
@@ -153,7 +153,7 @@ func initiate_validator_exit*(state: var BeaconState,
   validator.withdrawable_epoch =
     validator.exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#slash_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#slash_validator
 func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex) =
   # Slash the validator with index ``index``.
   let current_epoch = get_current_epoch(state)
@@ -303,7 +303,7 @@ func get_attestation_slot*(state: BeaconState,
   get_attestation_slot(
     state, attestation, get_epoch_committee_count(state, epoch))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_block_root_at_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: BeaconState,
                              slot: Slot): Eth2Digest =
   # Return the block root at a recent ``slot``.
@@ -312,7 +312,7 @@ func get_block_root_at_slot*(state: BeaconState,
   doAssert slot < state.slot
   state.latest_block_roots[slot mod SLOTS_PER_HISTORICAL_ROOT]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_block_root
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#get_block_root
 func get_block_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Return the block root at a recent ``epoch``.
   get_block_root_at_slot(state, get_epoch_start_slot(epoch))
@@ -438,7 +438,7 @@ iterator get_attestation_participants_cached*(
   for participant in get_attesting_indices(state, attestation_data, bitfield):
     yield participant
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#convert_to_indexed
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#convert_to_indexed
 func convert_to_indexed(state: BeaconState, attestation: Attestation): IndexedAttestation =
   # Convert ``attestation`` to (almost) indexed-verifiable form.
   let

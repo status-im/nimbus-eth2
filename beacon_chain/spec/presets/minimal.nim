@@ -26,7 +26,7 @@ type
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#misc
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#misc
 
   # Changed
   SHARD_COUNT* {.intdefine.} = 8
@@ -43,15 +43,14 @@ const
 
   # Deposit contract
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#deposit-contract
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#deposit-contract
 
   # Unchanged
-  DEPOSIT_CONTRACT_ADDRESS = "0x1234567890123456789012345678901234567890"
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#gwei-values
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#gwei-values
 
   # Unchanged
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9
@@ -61,7 +60,7 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/configs/constant_presets/minimal.yaml#L43
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/configs/constant_presets/minimal.yaml#L43
 
   # Unchanged
   GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 0'u8]
@@ -71,12 +70,12 @@ const
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_fork-choice.md#time-parameters
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_fork-choice.md#time-parameters
 
   # Unchanged
   SECONDS_PER_SLOT*{.intdefine.} = 6'u64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#time-parameters
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#time-parameters
   # Unchanged
   MIN_ATTESTATION_INCLUSION_DELAY* = 2'u64^2
 
@@ -119,7 +118,7 @@ const
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#max-operations-per-block
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#max-operations-per-block
 
   # Unchanged
   MAX_PROPOSER_SLASHINGS* = 2^4
@@ -132,7 +131,7 @@ const
 type
   # Signature domains
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#signature-domains
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#signature-domains
   SignatureDomain* {.pure.} = enum
     DOMAIN_BEACON_PROPOSER = 0
     DOMAIN_RANDAO = 1
