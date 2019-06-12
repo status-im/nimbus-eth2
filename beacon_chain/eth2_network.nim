@@ -1,16 +1,58 @@
 import
   options, tables,
-  chronos, json_serialization, strutils,
-  chronicles,
+  chronos, json_serialization, strutils, chronicles, eth/net/nat,
   spec/digest, version, conf
 
 const
   clientId = "Nimbus beacon node v" & fullVersionStr()
 
+export
+  version
+
+let
+  globalListeningAddr = parseIpAddress("0.0.0.0")
+
+proc setupNat(conf: BeaconNodeConf): tuple[ip: IpAddress,
+                                           tcpPort: Port,
+                                           udpPort: Port] =
+  # defaults
+  result.ip = globalListeningAddr
+  result.tcpPort = Port(conf.tcpPort)
+  result.udpPort = Port(conf.udpPort)
+
+  var nat: NatStrategy
+  case conf.nat.toLowerAscii:
+    of "any":
+      nat = NatAny
+    of "none":
+      nat = NatNone
+    of "upnp":
+      nat = NatUpnp
+    of "pmp":
+      nat = NatPmp
+    else:
+      if conf.nat.startsWith("extip:") and isIpAddress(conf.nat[6..^1]):
+        # any required port redirection is assumed to be done by hand
+        result.ip = parseIpAddress(conf.nat[6..^1])
+        nat = NatNone
+      else:
+        error "not a valid NAT mechanism, nor a valid IP address", value = conf.nat
+        quit(QuitFailure)
+
+  if nat != NatNone:
+    let extIP = getExternalIP(nat)
+    if extIP.isSome:
+      result.ip = extIP.get()
+      let extPorts = redirectPorts(tcpPort = result.tcpPort,
+                                   udpPort = result.udpPort,
+                                   description = clientId)
+      if extPorts.isSome:
+        (result.tcpPort, result.udpPort) = extPorts.get()
+
 when networkBackend == rlpxBackend:
   import
     os,
-    eth/[rlp, p2p, keys, net/nat], gossipsub_protocol,
+    eth/[rlp, p2p, keys], gossipsub_protocol,
     eth/p2p/peer_pool # for log on connected peers
 
   export
@@ -24,43 +66,6 @@ when networkBackend == rlpxBackend:
     Eth2Node* = EthereumNode
     Eth2NodeIdentity* = KeyPair
     BootstrapAddr* = ENode
-
-  template libp2pProtocol*(name, version: string) {.pragma.}
-
-  proc setupNat(conf: BeaconNodeConf): tuple[ip: IpAddress, tcpPort: Port, udpPort: Port] =
-    # defaults
-    result.ip = parseIpAddress("127.0.0.1")
-    result.tcpPort = Port(conf.tcpPort)
-    result.udpPort = Port(conf.udpPort)
-
-    var nat: NatStrategy
-    case conf.nat.toLowerAscii:
-      of "any":
-        nat = NatAny
-      of "none":
-        nat = NatNone
-      of "upnp":
-        nat = NatUpnp
-      of "pmp":
-        nat = NatPmp
-      else:
-        if conf.nat.startsWith("extip:") and isIpAddress(conf.nat[6..^1]):
-          # any required port redirection is assumed to be done by hand
-          result.ip = parseIpAddress(conf.nat[6..^1])
-          nat = NatNone
-        else:
-          error "not a valid NAT mechanism, nor a valid IP address", value = conf.nat
-          quit(QuitFailure)
-
-    if nat != NatNone:
-      let extIP = getExternalIP(nat)
-      if extIP.isSome:
-        result.ip = extIP.get()
-        let extPorts = redirectPorts(tcpPort = result.tcpPort,
-                                      udpPort = result.udpPort,
-                                      description = clientId)
-        if extPorts.isSome:
-          (result.tcpPort, result.udpPort) = extPorts.get()
 
   proc getPersistentNetIdentity*(conf: BeaconNodeConf): Eth2NodeIdentity =
     let privateKeyFile = conf.dataDir / "network.privkey"
@@ -171,13 +176,23 @@ else:
     waitFor daemon.close()
 
   proc createEth2Node*(conf: BeaconNodeConf): Future[Eth2Node] {.async.} =
-    var daemon = await newDaemonApi({PSGossipSub}, id = conf.ensureNetworkIdFile)
+    var
+      (extIp, extTcpPort, extUdpPort) = setupNat(conf)
+      hostAddress = tcpEndPoint(globalListeningAddr, Port conf.tcpPort)
+      announcedAddresses = if extIp != globalListeningAddr: @[]
+                           else: @[tcpEndPoint(extIp, extTcpPort)]
+
+      daemon = await newDaemonApi({PSGossipSub},
+                                  id = conf.ensureNetworkIdFile,
+                                  hostAddresses = @[hostAddress],
+                                  announcedAddresses = announcedAddresses)
+
     return await Eth2Node.init(daemon)
 
   proc getPersistenBootstrapAddr*(conf: BeaconNodeConf,
                                   ip: IpAddress, port: Port): BootstrapAddr =
-    # TODO what about the ports?
-    getPersistentNetIdentity(conf)
+    result = getPersistentNetIdentity(conf)
+    result.addresses = @[tcpEndPoint(ip, port)]
 
   proc isSameNode*(bootstrapNode: BootstrapAddr, id: Eth2NodeIdentity): bool =
     bootstrapNode == id
