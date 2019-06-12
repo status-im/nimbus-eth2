@@ -1,15 +1,16 @@
-language: c # or other C/C++ variants
-
-sudo: false
+language: c
 
 # https://docs.travis-ci.com/user/caching/
-#
-# Caching the whole nim folder is better than relying on ccache - this way, we
-# skip the expensive bootstrap process and linking
 cache:
   directories:
-    - nim
+    - NimBinaries
     - rocksdb
+
+git:
+  # when multiple CI builds are queued, the tested commit needs to be in the last X commits cloned with "--depth X"
+  depth: 10
+  # disable LFS file downloading during regular cloning
+  lfs_skip_smudge: true
 
 matrix:
   include:
@@ -27,21 +28,9 @@ install:
   # build nim from our own branch - this to avoid the day-to-day churn and
   # regressions of the fast-paced Nim development while maintaining the
   # flexibility to apply patches
-  #
-  # check version of remote branch
-  - "export NIMVER=$(git ls-remote https://github.com/status-im/nim.git HEAD | cut -f 1)"
-
-  # after building nim, wipe csources to save on cache space
-  - "{ [ -f nim/$NIMVER/bin/nim ] && [ -f nim/$NIMVER/bin/nimble ] ; } ||
-      { rm -rf nim ;
-        mkdir -p nim ;
-        git clone --depth=1 https://github.com/status-im/nim.git nim/$NIMVER ;
-        cd nim/$NIMVER ;
-        sh build_all.sh ;
-        rm -rf csources ;
-        cd ../.. ;
-      }"
-  - "export PATH=$PWD/nim/$NIMVER/bin:$PATH"
+  - curl -O -L -s -S https://raw.githubusercontent.com/status-im/nimbus/devel/build_nim.sh
+  - env MAKE="make -j$NPROC" bash build_nim.sh Nim csources dist/nimble NimBinaries
+  - export PATH=$PWD/Nim/bin:$PATH
 
   # build our own rocksdb to test with a fixed version that we think works
   - "export ROCKSDBVER=5.14.2"
