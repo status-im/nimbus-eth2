@@ -73,7 +73,7 @@ type
   Shard* = uint64
   Gwei* = uint64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#proposerslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     proposer_index*: uint64 ##\
     ## Proposer index
@@ -227,7 +227,7 @@ type
     block_body_root*: Eth2Digest
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data

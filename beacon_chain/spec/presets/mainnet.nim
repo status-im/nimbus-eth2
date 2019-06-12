@@ -57,7 +57,7 @@ const
 
   # Deposit contract
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#deposit-contract
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/configs/constant_presets/mainnet.yaml#L24
 
   DEPOSIT_CONTRACT_ADDRESS = "0x1234567890123456789012345678901234567890"
     # TODO
@@ -148,8 +148,8 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#reward-and-penalty-quotients
-  BASE_REWARD_QUOTIENT* = 2'u64^5
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#rewards-and-penalties
+  BASE_REWARD_FACTOR* = 2'u64^5
   WHISTLEBLOWING_REWARD_QUOTIENT* = 2'u64^9
   PROPOSER_REWARD_QUOTIENT* = 2'u64^3
   INACTIVITY_PENALTY_QUOTIENT* = 2'u64^25

@@ -103,7 +103,7 @@ func get_randao_mix*(state: BeaconState,
     ## LATEST_RANDAO_MIXES_LENGTH, current_epoch].
     state.latest_randao_mixes[epoch mod LATEST_RANDAO_MIXES_LENGTH]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_active_index_root
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#get_active_index_root
 func get_active_index_root(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Returns the index root at a recent ``epoch``.
   ## ``epoch`` expected to be between

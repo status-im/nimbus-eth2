@@ -171,7 +171,7 @@ proc processProposerSlashings(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#is_slashable_attestation_data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
     data_1: AttestationData, data_2: AttestationData): bool =
   ## Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG
@@ -183,7 +183,7 @@ func is_slashable_attestation_data(
     (data_1.source_epoch < data_2.source_epoch and
      data_2.target_epoch < data_1.target_epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#attester-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#attester-slashings
 proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
   # Process ``AttesterSlashing`` operation.
   if len(blck.body.attester_slashings) > MAX_ATTESTER_SLASHINGS:
@@ -333,7 +333,7 @@ proc processVoluntaryExits(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#transfers
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#transfers
 proc processTransfers(state: var BeaconState, blck: BeaconBlock,
                       flags: UpdateFlags): bool =
   if not (len(blck.body.transfers) <= MAX_TRANSFERS):
@@ -711,7 +711,7 @@ func process_crosslinks(state: var BeaconState, per_epoch_cache: var StateCache)
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#rewards-and-penalties
 func get_base_reward(state: BeaconState, index: ValidatorIndex): Gwei =
   let adjusted_quotient =
-    integer_squareroot(get_total_active_balance(state)) div BASE_REWARD_QUOTIENT
+    integer_squareroot(get_total_active_balance(state)) div BASE_REWARD_FACTOR
   if adjusted_quotient == 0:
     return 0
   state.validator_registry[index].effective_balance div adjusted_quotient div

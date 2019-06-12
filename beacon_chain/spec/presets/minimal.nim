@@ -98,7 +98,7 @@ const
 
   # State list lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#state-list-lengths
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#state-list-lengths
 
   # Changed
   LATEST_RANDAO_MIXES_LENGTH* = 64
@@ -107,10 +107,10 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#reward-and-penalty-quotients
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#rewards-and-penalties
 
   # Unchanged
-  BASE_REWARD_QUOTIENT* = 2'u64^5
+  BASE_REWARD_FACTOR* = 2'u64^5
   WHISTLEBLOWING_REWARD_QUOTIENT* = 2'u64^9
   PROPOSER_REWARD_QUOTIENT* = 2'u64^3
   INACTIVITY_PENALTY_QUOTIENT* = 2'u64^25

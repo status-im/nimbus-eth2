@@ -13,8 +13,8 @@ import
   ./crypto, ./datatypes, ./digest, ./helpers
 
 # TODO: Proceed to renaming and signature changes
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_shuffled_index
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#compute_committee
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#get_shuffled_index
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#compute_committee
 func get_shuffled_seq*(seed: Eth2Digest,
                        list_size: uint64,
                        ): seq[ValidatorIndex] =
@@ -149,7 +149,7 @@ func get_epoch_start_shard*(state: BeaconState, epoch: Epoch): Shard =
       SHARD_COUNT
   return shard
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#compute_committee
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#compute_committee
 func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
     index: uint64, count: uint64): seq[ValidatorIndex] =
   let
@@ -161,7 +161,7 @@ func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
     indices[
       get_shuffled_index(it.ValidatorIndex, len(indices).uint64, seed).int])
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_crosslink_committee
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#get_crosslink_committee
 func get_crosslink_committee*(state: BeaconState, epoch: Epoch, shard: Shard):
     seq[ValidatorIndex] =
   compute_committee(

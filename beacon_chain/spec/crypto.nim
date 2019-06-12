@@ -79,7 +79,7 @@ func bls_aggregate_pubkeys*(keys: openArray[ValidatorPubKey]): ValidatorPubKey =
     else:
       result.combine(key)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/bls_signature.md#bls_verify
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/bls_signature.md#bls_verify
 func bls_verify*(
     pubkey: ValidatorPubKey, msg: openArray[byte], sig: ValidatorSig,
     domain: uint64): bool =
