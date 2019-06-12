@@ -2,11 +2,15 @@ version: '{build}'
 
 image: Visual Studio 2015
 
+environment:
+  # disable LFS file downloading during regular cloning
+  GIT_LFS_SKIP_SMUDGE: 1
+
 cache:
 - sqlite-dll-win32-x86-3240000.zip -> .appveyor.yml
 - sqlite-dll-win64-x64-3240000.zip -> .appveyor.yml
 - nimbus-deps.zip -> .appveyor.yml
-- Nim -> .appveyor.yml
+- NimBinaries
 
 matrix:
   # We always want 32 and 64-bit compilation
@@ -53,43 +57,8 @@ install:
   # build nim from our own branch - this to avoid the day-to-day churn and
   # regressions of the fast-paced Nim development while maintaining the
   # flexibility to apply patches
-  - SET "NEED_REBUILD="
-
-  - IF NOT EXIST "Nim\\.git\\" (
-      git clone https://github.com/status-im/Nim.git
-    ) ELSE (
-      ( cd Nim ) &
-      ( git pull ) &
-      ( cd .. )
-    )
-
-  # Rebuild Nim if HEAD has moved or if we don't yet have a cached version
-  - IF NOT EXIST "Nim\\ver.txt" (
-      SET NEED_REBUILD=1
-    ) ELSE (
-      ( CD Nim ) &
-      ( git rev-parse HEAD > ..\\cur_ver.txt ) &
-      ( fc ver.txt ..\\cur_ver.txt || SET NEED_REBUILD=1 ) &
-      ( cd .. )
-    )
-
-  - IF NOT EXIST "Nim\\bin\\nim.exe" SET NEED_REBUILD=1
-  - IF NOT EXIST "Nim\\bin\\nimble.exe" SET NEED_REBUILD=1
-
-  # after building nim, wipe csources to save on cache space
-  - IF DEFINED NEED_REBUILD (
-      cd Nim &
-      ( IF EXIST "csources" rmdir /s /q csources ) &
-      git clone --depth 1 https://github.com/nim-lang/csources &
-      cd csources &
-      ( IF "%PLATFORM%" == "x64" ( build64.bat ) else ( build.bat ) ) &
-      cd .. &
-      bin\nim c koch &
-      koch boot -d:release &
-      koch nimble &
-      git rev-parse HEAD > ver.txt &
-      rmdir /s /q csources
-    )
+  - curl -O -L -s -S https://raw.githubusercontent.com/status-im/nimbus/devel/build_nim.sh
+  - env MAKE="mingw32-make -j2" ARCH_OVERRIDE=%PLATFORM% bash build_nim.sh Nim csources dist/nimble NimBinaries
 
 build_script:
   - cd C:\projects\%APPVEYOR_PROJECT_SLUG%
