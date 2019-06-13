@@ -95,7 +95,7 @@ func get_current_epoch*(state: BeaconState): Epoch =
   doAssert state.slot >= GENESIS_SLOT, $state.slot
   slot_to_epoch(state.slot)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_randao_mix
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: BeaconState,
                      epoch: Epoch): Eth2Digest =
     ## Returns the randao mix at a recent ``epoch``.
@@ -112,7 +112,7 @@ func get_active_index_root(state: BeaconState, epoch: Epoch): Eth2Digest =
   ## intentional
   state.latest_active_index_roots[epoch mod LATEST_ACTIVE_INDEX_ROOTS_LENGTH]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#bytes_to_int
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#bytes_to_int
 func bytes_to_int*(data: openarray[byte]): uint64 =
   doAssert data.len == 8
 
