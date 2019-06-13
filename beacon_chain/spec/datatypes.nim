@@ -175,7 +175,7 @@ type
     # Validator signature
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#transfer
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#transfer
   Transfer* = object
     sender*: uint64 ##\
     ## Sender index
@@ -239,7 +239,7 @@ type
     voluntary_exits*: seq[VoluntaryExit]
     transfers*: seq[Transfer]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#beaconstate
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#beaconstate
   BeaconState* = object
     slot*: Slot
     genesis_time*: uint64
