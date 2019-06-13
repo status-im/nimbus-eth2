@@ -201,11 +201,11 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
       notice "CaspSlash: surround or double vote check failed"
       return false
 
-    if not verify_indexed_attestation(state, attestation_1):
+    if not validate_indexed_attestation(state, attestation_1):
       notice "CaspSlash: invalid votes 1"
       return false
 
-    if not verify_indexed_attestation(state, attestation_2):
+    if not validate_indexed_attestation(state, attestation_2):
       notice "CaspSlash: invalid votes 2"
       return false
 
