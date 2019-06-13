@@ -81,9 +81,9 @@ proc processBlockHeader(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#randao
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#randao
 proc processRandao(
-    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
+    state: var BeaconState, body: BeaconBlockBody, flags: UpdateFlags): bool =
   let
     proposer_index = get_beacon_proposer_index(state)
     proposer = addr state.validator_registry[proposer_index]
@@ -93,32 +93,31 @@ proc processRandao(
     if not bls_verify(
       proposer.pubkey,
       hash_tree_root(get_current_epoch(state).uint64).data,
-      blck.body.randao_reveal,
+      body.randao_reveal,
       get_domain(state, DOMAIN_RANDAO)):
 
       notice "Randao mismatch", proposer_pubkey = proposer.pubkey,
                                 message = get_current_epoch(state),
-                                signature = blck.body.randao_reveal,
-                                slot = state.slot,
-                                blck_slot = blck.slot
+                                signature = body.randao_reveal,
+                                slot = state.slot
       return false
 
   # Mix it in
   let
     mix = get_current_epoch(state) mod LATEST_RANDAO_MIXES_LENGTH
-    rr = eth2hash(blck.body.randao_reveal.getBytes()).data
+    rr = eth2hash(body.randao_reveal.getBytes()).data
 
   for i, b in state.latest_randao_mixes[mix].data:
     state.latest_randao_mixes[mix].data[i] = b xor rr[i]
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#eth1-data
-func processEth1Data(state: var BeaconState, blck: BeaconBlock) =
-  state.eth1_data_votes.add blck.body.eth1_data
-  if state.eth1_data_votes.count(blck.body.eth1_data) * 2 >
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#eth1-data
+func processEth1Data(state: var BeaconState, body: BeaconBlockBody) =
+  state.eth1_data_votes.add body.eth1_data
+  if state.eth1_data_votes.count(body.eth1_data) * 2 >
       SLOTS_PER_ETH1_VOTING_PERIOD:
-    state.latest_eth1_data = blck.body.eth1_data
+    state.latest_eth1_data = body.eth1_data
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#is_slashable_validator
 func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
@@ -414,19 +413,18 @@ func advance_slot(state: var BeaconState) =
 
   state.slot += 1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#state-caching
-func cacheState(state: var BeaconState) =
-  let previous_slot_state_root = hash_tree_root(state)
-
-  # store the previous slot's post state transition root
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
+func process_slot(state: var BeaconState) =
+  # Cache state root
+  let previous_state_root = hash_tree_root(state)
   state.latest_state_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
-    previous_slot_state_root
+    previous_state_root
 
-  # cache state root in stored latest_block_header if empty
+  # Cache latest block header state root
   if state.latest_block_header.state_root == ZERO_HASH:
-    state.latest_block_header.state_root = previous_slot_state_root
+    state.latest_block_header.state_root = previous_state_root
 
-  # store latest known block for previous slot
+  # Cache block root
   state.latest_block_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
     signing_root(state.latest_block_header)
 
@@ -442,11 +440,11 @@ proc processBlock(
     notice "Block header not valid", slot = humaneSlotNum(state.slot)
     return false
 
-  if not processRandao(state, blck, flags):
+  if not processRandao(state, blck.body, flags):
     debug "[Block processing] Randao failure", slot = humaneSlotNum(state.slot)
     return false
 
-  processEth1Data(state, blck)
+  processEth1Data(state, blck.body)
 
   if not processProposerSlashings(state, blck, flags):
     debug "[Block processing] Proposer slashing failure", slot = humaneSlotNum(state.slot)
@@ -825,13 +823,11 @@ func process_rewards_and_penalties(
     increase_balance(state, i.ValidatorIndex, rewards1[i] + rewards2[i])
     decrease_balance(state, i.ValidatorIndex, penalties1[i] + penalties2[i])
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#slashings
 func process_slashings(state: var BeaconState) =
   let
     current_epoch = get_current_epoch(state)
-    active_validator_indices = get_active_validator_indices(
-      state, current_epoch)
-    total_balance = get_total_balance(state, active_validator_indices)
+    total_balance = get_total_active_balance(state)
 
     # Compute `total_penalties`
     total_at_start = state.latest_slashed_balances[
@@ -910,24 +906,24 @@ func processEpoch(state: var BeaconState) =
          (state.slot + 1) mod SLOTS_PER_EPOCH == 0):
     return
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#justification-and-finalization
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#justification-and-finalization
   process_justification_and_finalization(state)
 
   var per_epoch_cache = get_empty_per_epoch_cache()
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#crosslinks
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#crosslinks
   process_crosslinks(state, per_epoch_cache)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#rewards-and-penalties
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#rewards-and-penalties-1
   process_rewards_and_penalties(state, per_epoch_cache)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#registry-updates
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#registry-updates
   process_registry_updates(state)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#slashings
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#slashings
   process_slashings(state)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#final-updates
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#final-updates
   process_final_updates(state)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#state-root-verification
@@ -951,7 +947,7 @@ proc advanceState*(state: var BeaconState) =
 
   ## 1. State caching, which happens at the start of every slot.
   ## The state caching, caches the state root of the previous slot
-  cacheState(state)
+  process_slot(state)
 
   ## 2. The per-epoch transitions, which happens at the start of the first
   ## slot of every epoch.
@@ -1035,24 +1031,24 @@ proc skipSlots*(state: var BeaconState, slot: Slot,
 
 # TODO hashed versions of above - not in spec
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#state-caching
-func cacheState(state: var HashedBeaconState) =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
+func process_slot(state: var HashedBeaconState) =
+  # Cache state root
   let previous_slot_state_root = state.root
-
-  # store the previous slot's post state transition root
   state.data.latest_state_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
     previous_slot_state_root
 
-  # cache state root in stored latest_block_header if empty
+  # Cache latest block header state root
   if state.data.latest_block_header.state_root == ZERO_HASH:
     state.data.latest_block_header.state_root = previous_slot_state_root
 
-  # store latest known block for previous slot
+  # Cache block root
   state.data.latest_block_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
     signing_root(state.data.latest_block_header)
 
+# Not covered by above 0.7 marking
 proc advanceState*(state: var HashedBeaconState) =
-  cacheState(state)
+  process_slot(state)
   processEpoch(state.data)
   advance_slot(state.data)
 
