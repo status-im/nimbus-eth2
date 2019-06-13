@@ -120,7 +120,7 @@ func processEth1Data(state: var BeaconState, blck: BeaconBlock) =
       SLOTS_PER_ETH1_VOTING_PERIOD:
     state.latest_eth1_data = blck.body.eth1_data
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#is_slashable_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#is_slashable_validator
 func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
   # Check if ``validator`` is slashable.
   (not validator.slashed) and
@@ -171,7 +171,7 @@ proc processProposerSlashings(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#is_slashable_attestation_data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
     data_1: AttestationData, data_2: AttestationData): bool =
   ## Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG
@@ -183,7 +183,7 @@ func is_slashable_attestation_data(
     (data_1.source_epoch < data_2.source_epoch and
      data_2.target_epoch < data_1.target_epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#attester-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#attester-slashings
 proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
   # Process ``AttesterSlashing`` operation.
   if len(blck.body.attester_slashings) > MAX_ATTESTER_SLASHINGS:
@@ -333,7 +333,7 @@ proc processVoluntaryExits(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#transfers
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#transfers
 proc processTransfers(state: var BeaconState, blck: BeaconBlock,
                       flags: UpdateFlags): bool =
   if not (len(blck.body.transfers) <= MAX_TRANSFERS):
@@ -681,7 +681,7 @@ func process_justification_and_finalization(state: var BeaconState) =
     state.finalized_epoch = old_current_justified_epoch
     state.finalized_root = get_block_root(state, state.finalized_epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#crosslinks
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#crosslinks
 func process_crosslinks(state: var BeaconState, per_epoch_cache: var StateCache) =
   ## TODO is there a semantic reason for this, or is this just a way to force
   ## copying? If so, why not just `list(foo)` or similar? This is strange. In
@@ -711,7 +711,7 @@ func process_crosslinks(state: var BeaconState, per_epoch_cache: var StateCache)
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#rewards-and-penalties
 func get_base_reward(state: BeaconState, index: ValidatorIndex): Gwei =
   let adjusted_quotient =
-    integer_squareroot(get_total_active_balance(state)) div BASE_REWARD_QUOTIENT
+    integer_squareroot(get_total_active_balance(state)) div BASE_REWARD_FACTOR
   if adjusted_quotient == 0:
     return 0
   state.validator_registry[index].effective_balance div adjusted_quotient div
@@ -850,12 +850,6 @@ func process_slashings(state: var BeaconState) =
             min(total_penalties * 3, total_balance) div total_balance,
           validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT)
       decrease_balance(state, index.ValidatorIndex, penalty)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_shard_delta
-func get_shard_delta(state: BeaconState, epoch: Epoch): uint64 =
-  # Return the number of shards to increment ``state.latest_start_shard`` during ``epoch``.
-  min(get_epoch_committee_count(state, epoch),
-    (SHARD_COUNT - SHARD_COUNT div SLOTS_PER_EPOCH).uint64)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#final-updates
 func process_final_updates(state: var BeaconState) =
