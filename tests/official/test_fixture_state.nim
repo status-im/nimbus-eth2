@@ -8,7 +8,7 @@
 import
   # Standard libs
   ospaths, strutils, json, unittest, strformat,
-  # Third parties
+  # Status libs
   byteutils,
   # Beacon chain internals
   ../../beacon_chain/spec/[datatypes, crypto, digest, beaconstate],
@@ -16,17 +16,26 @@ import
   # Test utilities
   ./fixtures_utils
 
+type
+  # TODO: recativate those tests
+  State* = object
+    name*: string
+    config*: TestConstants
+    verify_signatures*: bool
+    initial_state*: BeaconState
+    blocks*: seq[BeaconBlock]
+    expected_state*: BeaconState
+
 const TestFolder = currentSourcePath.rsplit(DirSep, 1)[0]
 const TestsPath = "fixtures" / "json_tests" / "state" / "sanity-check_default-config_100-vals.json"
 
-
-var stateTests: StateTests
+var stateTests: Tests[State]
 suite "Official - State tests": # Initializing a beacon state from the deposits
   # Source: https://github.com/ethereum/eth2.0-specs/blob/2baa242ac004b0475604c4c4ef4315e14f56c5c7/tests/phase0/test_sanity.py#L55-L460
   test "Parsing the official state tests into Nimbus beacon types":
-    stateTests = parseTests(TestFolder / TestsPath, StateTests)
+    stateTests = parseTests(TestFolder / TestsPath, State)
     doAssert $stateTests.test_cases[0].name == "test_empty_block_transition"
-  
+
   test "[For information - Non-blocking] Block root signing":
     # TODO: Currently we are unable to use the official EF tests:
     #   - The provided zero signature "0x0000..." is an invalid compressed BLS signature
@@ -37,7 +46,7 @@ suite "Official - State tests": # Initializing a beacon state from the deposits
     #
     # So we only test that block header signing in Nimbus matches block header signing from the EF
     # And we can't deserialize from the raw YAML/JSON to avoid sanity checks on the signature
-    
+
     # TODO: Move that in an actual SSZ test suite
 
     block: # sanity-check_default-config_100-vals.yaml - test "test_empty_block_transition"
@@ -64,7 +73,7 @@ suite "Official - State tests": # Initializing a beacon state from the deposits
   #   # TODO - assert that the constants match
   #   var state: BeaconState
   #   doAssert stateTests.test_cases[0].name == "test_empty_block_transition"
-    
+
   #   template tcase(): untyped {.dirty.} =
   #     # Alias
   #     stateTests.test_cases[0]
@@ -75,13 +84,13 @@ suite "Official - State tests": # Initializing a beacon state from the deposits
   #   # Alternatively, generate one with `build_empty_block_for_next_slot`
   #   let blck = tcase.blocks[0]
   #   debugEcho blck.previous_block_root
-    
+
   #   let ok = updateState(state, blck, flags = {})
   #   check:
   #     ok
   #     tcase.expected_state.eth1_data_votes.len == state.eth1_data_votes.len + 1
-  #     get_block_root_at_slot(tcase.expected_state, state.slot) == blck.previous_block_root
-  
+  #     get_block_root(tcase.expected_state, state.slot) == blck.previous_block_root
+
 suite "[For information - non-blocking] Extra state tests":
   var initialState: BeaconState
   test "Initializing from scratch a new beacon chain with the same constants and deposit configuration as official state test 0":

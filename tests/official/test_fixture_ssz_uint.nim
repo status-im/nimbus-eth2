@@ -8,7 +8,7 @@
 import
   # Standard library
   ospaths, strutils, unittest, sequtils,
-  # Third parties
+  # Status libs
   stint, serialization,
   # Beacon chain internals
   ../../beacon_chain/ssz,
@@ -16,6 +16,14 @@ import
   # Test utilities
   ../testutil,
   ./fixtures_utils
+
+type
+  SSZUint* = object
+    `type`*: string
+    value*: string
+    valid*: bool
+    ssz*: seq[byte]
+    tags*: seq[string]
 
 const TestFolder = currentSourcePath.rsplit(DirSep, 1)[0]
 const TestsPath = "fixtures" / "json_tests" / "ssz_generic" / "uint"

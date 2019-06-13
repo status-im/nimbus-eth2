@@ -1,18 +1,11 @@
 import
   # Status libs
-  blscurve, nimcrypto, byteutils,
+  byteutils,
   eth/common, serialization, json_serialization,
-  stint,
   # Beacon chain internals
-  # submodule in nim-beacon-chain/tests/official/fixtures/
-  ../../beacon_chain/spec/[datatypes, crypto, digest],
-  ../../beacon_chain/ssz,
-  # Workarounds
-  endians # parseHex into uint64
+  ../../beacon_chain/spec/datatypes
 
-export
-  nimcrypto.toHex,
-  # Workaround:
+export  # Workaround:
   #   - https://github.com/status-im/nim-serialization/issues/4
   #   - https://github.com/status-im/nim-serialization/issues/5
   #   - https://github.com/nim-lang/Nim/issues/11225
@@ -21,12 +14,6 @@ export
 type
   # TODO: use ref object to avoid allocating
   #       so much on the stack - pending https://github.com/status-im/nim-json-serialization/issues/3
-  StateTests* = object
-    title*: string
-    summary*: string
-    test_suite*: string
-    fork*: string
-    test_cases*: seq[StateTestCase]
 
   TestConstants* = object
     # TODO - 0.5.1 constants
@@ -76,14 +63,6 @@ type
     DOMAIN_VOLUNTARY_EXIT*: SignatureDomain
     DOMAIN_TRANSFER*: SignatureDomain
 
-  StateTestCase* = object
-    name*: string
-    config*: TestConstants
-    verify_signatures*: bool
-    initial_state*: BeaconState
-    blocks*: seq[BeaconBlock]
-    expected_state*: BeaconState
-
   Tests*[T] = object
     title*: string
     summary*: string
@@ -93,58 +72,6 @@ type
     runner*: string
     handler*: string
     test_cases*: seq[T]
-
-  Shuffling* = object
-    seed*: Eth2Digest
-    count*: uint64
-    shuffled*: seq[ValidatorIndex]
-
-  # # TODO - but already tested in nim-blscurve
-  # BLSUncompressedG2 = object
-  #   input*: tuple[
-  #     message: seq[byte],
-  #     domain: array[1, byte]
-  #     ]
-  #   output*: ECP2_BLS381
-
-  # # TODO - but already tested in nim-blscurve
-  # BLSCompressedG2 = object
-  #   input*: tuple[
-  #     message: seq[byte],
-  #     domain: array[1, byte]
-  #     ]
-  #   output*: ECP2_BLS381
-
-  Domain = distinct uint64
-    ## Domains have custom hex serialization
-
-  BLSPrivToPub* = object
-    input*: ValidatorPrivKey
-    output*: ValidatorPubKey
-
-  BLSSignMsgInput = object
-    privkey*: ValidatorPrivKey
-    message*: seq[byte]
-    domain*: Domain
-
-  BLSSignMsg* = object
-    input*: BLSSignMsgInput
-    output*: Signature
-
-  BLSAggSig* = object
-    input*: seq[Signature]
-    output*: Signature
-
-  BLSAggPubKey* = object
-    input*: seq[ValidatorPubKey]
-    output*: ValidatorPubKey
-
-  SSZUint* = object
-    `type`*: string
-    value*: string
-    valid*: bool
-    ssz*: seq[byte]
-    tags*: seq[string]
 
 # #######################
 # Default init
@@ -163,15 +90,6 @@ proc readValue*[N: static int](r: var JsonReader, a: var array[N, byte]) {.inlin
 
 proc readValue*(r: var JsonReader, a: var ValidatorIndex) {.inline.} =
   a = r.readValue(uint32)
-
-proc readValue*(r: var JsonReader, a: var Domain) {.inline.} =
-  ## Custom deserializer for Domain
-  ## They are uint64 stored in hex values
-  # Furthermore Nim parseHex doesn't support uint
-  # until https://github.com/nim-lang/Nim/pull/11067
-  # (0.20)
-  let be_uint = hexToPaddedByteArray[8](r.readValue(string))
-  bigEndian64(a.addr, be_uint.unsafeAddr)
 
 proc readValue*(r: var JsonReader, a: var seq[byte]) {.inline.} =
   ## Custom deserializer for seq[byte]

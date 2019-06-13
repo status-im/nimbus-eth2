@@ -8,13 +8,17 @@
 import
   # Standard library
   ospaths, strutils, unittest,
-  # Third parties
-
   # Beacon chain internals
-  ../../beacon_chain/spec/[datatypes, validator],
+  ../../beacon_chain/spec/[datatypes, validator, digest],
   # Test utilities
   ../testutil,
   ./fixtures_utils
+
+type
+  Shuffling* = object
+    seed*: Eth2Digest
+    count*: uint64
+    shuffled*: seq[ValidatorIndex]
 
 const TestFolder = currentSourcePath.rsplit(DirSep, 1)[0]
 
