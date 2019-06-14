@@ -313,7 +313,8 @@ func get_block_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#get_total_balance
 func get_total_balance*(state: BeaconState, validators: auto): Gwei =
-  # Return the combined effective balance of an array of ``validators``.
+  ## Return the combined effective balance of the ``indices``. (1 Gwei minimum
+  ## to avoid divisions by zero.)
   max(1'u64,
     foldl(validators, a + state.validator_registry[b].effective_balance, 0'u64)
   )
