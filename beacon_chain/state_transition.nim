@@ -369,7 +369,7 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
     # Verify that the pubkey is valid
     let wc = state.validator_registry[transfer.sender.int].
       withdrawal_credentials
-    if not (wc.data[0] == BLS_WITHDRAWAL_PREFIX_BYTE and
+    if not (wc.data[0] == BLS_WITHDRAWAL_PREFIX and
             wc.data[1..^1] == eth2hash(transfer.pubkey.getBytes).data[1..^1]):
       notice "Transfer: incorrect withdrawal credentials"
       return false

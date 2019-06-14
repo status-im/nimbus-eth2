@@ -57,7 +57,7 @@ const
   ## Spec version we're aiming to be compatible with, right now
   ## TODO: improve this scheme once we can negotiate versions in protocol
 
-  # TODO remove erstwhile blob/v0.6.3
+  # TODO remove erstwhile blob/v0.7.0
   FORK_CHOICE_BALANCE_INCREMENT* = 2'u64^0 * 10'u64^9
 
   # Initial values

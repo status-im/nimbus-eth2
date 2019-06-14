@@ -66,7 +66,7 @@ const
   GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 0'u8]
   GENESIS_SLOT* = 0.Slot
   FAR_FUTURE_EPOCH* = (not 0'u64).Epoch # 2^64 - 1 in spec
-  BLS_WITHDRAWAL_PREFIX_BYTE* = 0'u8
+  BLS_WITHDRAWAL_PREFIX* = 0'u8
 
   # Time parameters
   # ---------------------------------------------------------------
