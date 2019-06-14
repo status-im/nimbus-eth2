@@ -35,7 +35,7 @@ import
   ./extras, ./ssz, ./beacon_node_types,
   ./spec/[beaconstate, bitfield, crypto, datatypes, digest, helpers, validator]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#block-header
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#block-header
 proc processBlockHeader(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   # Verify that the slots match
@@ -614,7 +614,7 @@ func get_winning_crosslink_and_attesting_indices(
    get_unslashed_attesting_indices(state,
      get_attestations_for(winning_crosslink)))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#justification-and-finalization
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#justification-and-finalization
 func process_justification_and_finalization(state: var BeaconState) =
   if get_current_epoch(state) <= GENESIS_EPOCH + 1:
     return
@@ -653,29 +653,29 @@ func process_justification_and_finalization(state: var BeaconState) =
 
   ## The 2nd/3rd/4th most recent epochs are justified, the 2nd using the 4th
   ## as source
-  if (bitfield shr 1) mod 8 == 0b111 and old_previous_justified_epoch ==
-      current_epoch - 3:
+  if (bitfield shr 1) mod 8 == 0b111 and old_previous_justified_epoch + 3 ==
+      current_epoch:
     state.finalized_epoch = old_previous_justified_epoch
     state.finalized_root = get_block_root(state, state.finalized_epoch)
 
   ## The 2nd/3rd most recent epochs are justified, the 2nd using the 3rd as
   ## source
-  if (bitfield shr 1) mod 4 == 0b11 and old_previous_justified_epoch ==
-      current_epoch - 2:
+  if (bitfield shr 1) mod 4 == 0b11 and old_previous_justified_epoch + 2 ==
+      current_epoch:
     state.finalized_epoch = old_previous_justified_epoch
     state.finalized_root = get_block_root(state, state.finalized_epoch)
 
   ## The 1st/2nd/3rd most recent epochs are justified, the 1st using the 3rd as
   ## source
-  if (bitfield shr 0) mod 8 == 0b111 and old_current_justified_epoch ==
-      current_epoch - 2:
+  if (bitfield shr 0) mod 8 == 0b111 and old_current_justified_epoch + 2 ==
+      current_epoch:
     state.finalized_epoch = old_current_justified_epoch
     state.finalized_root = get_block_root(state, state.finalized_epoch)
 
   ## The 1st/2nd most recent epochs are justified, the 1st using the 2nd as
   ## source
-  if (bitfield shr 0) mod 4 == 0b11 and old_current_justified_epoch ==
-      current_epoch - 1:
+  if (bitfield shr 0) mod 4 == 0b11 and old_current_justified_epoch + 1 ==
+      current_epoch:
     state.finalized_epoch = old_current_justified_epoch
     state.finalized_root = get_block_root(state, state.finalized_epoch)
 
