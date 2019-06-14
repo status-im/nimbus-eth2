@@ -46,7 +46,9 @@ template checkSerialization(test: SSZUint, T: typedesc) =
     if test.tags.anyIt(it == "uint_underflow"):
       # TODO: Stint throws RangeError for negative number parsing
       #       https://github.com/status-im/nim-stint/blob/ccf87daac1eef15238ff3d6d2edb138e22180d19/stint/io.nim#L130-L132
-      expect RangeError, OverflowError:
+      # TODO: Stint checks with an assert that integer is positive or zero
+      #       https://github.com/status-im/nim-stint/blob/ccf87daac1eef15238ff3d6d2edb138e22180d19/stint/io.nim#L35
+      expect RangeError, OverflowError, AssertionError:
         let value: T = test.value.to(T)
     else:
       # TODO tag "uint_overflow" does not throw an exception at the moment
