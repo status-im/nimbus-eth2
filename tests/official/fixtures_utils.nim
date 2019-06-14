@@ -97,6 +97,7 @@ proc readValue*(r: var JsonReader, a: var seq[byte]) {.inline.} =
 
 proc parseTests*(jsonPath: string, T: typedesc): Tests[T] =
   try:
+    debugEcho "[Debug] Loading file: \"", jsonPath, '\"'
     result = Json.loadFile(jsonPath, Tests[T])
   except SerializationError as err:
     writeStackTrace()
