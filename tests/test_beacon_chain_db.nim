@@ -65,9 +65,9 @@ suite "Beacon chain DB" & preset():
     let
       a0 = BeaconBlock(slot: GENESIS_SLOT + 0)
       a0r = signing_root(a0)
-      a1 = BeaconBlock(slot: GENESIS_SLOT + 1, previous_block_root: a0r)
+      a1 = BeaconBlock(slot: GENESIS_SLOT + 1, parent_root: a0r)
       a1r = signing_root(a1)
-      a2 = BeaconBlock(slot: GENESIS_SLOT + 2, previous_block_root: a1r)
+      a2 = BeaconBlock(slot: GENESIS_SLOT + 2, parent_root: a1r)
       a2r = signing_root(a2)
 
     doAssert toSeq(db.getAncestors(a0r)) == []

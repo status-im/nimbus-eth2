@@ -31,7 +31,7 @@ const
 func toHeader(b: BeaconBlock): BeaconBlockHeader =
   BeaconBlockHeader(
     slot: b.slot,
-    previous_block_root: b.previous_block_root,
+    previous_block_root: b.parent_root,
     state_root: b.state_root,
     block_body_root: hash_tree_root(b.body),
     signature: b.signature
@@ -40,7 +40,7 @@ func toHeader(b: BeaconBlock): BeaconBlockHeader =
 proc fromHeaderAndBody(b: var BeaconBlock, h: BeaconBlockHeader, body: BeaconBlockBody) =
   doAssert(hash_tree_root(body) == h.block_body_root)
   b.slot = h.slot
-  b.previous_block_root = h.previous_block_root
+  b.parent_root = h.previous_block_root
   b.state_root = h.state_root
   b.body = body
   b.signature = h.signature
@@ -225,12 +225,12 @@ p2pProtocol BeaconSync(version = 1,
             if resp.len >= MaxAncestorBlocksResponse:
               break
 
-            if blck.get().previous_block_root in neededRoots:
+            if blck.get().parent_root in neededRoots:
               # Don't send duplicate blocks, if neededRoots has roots that are
               # in the same chain
               break
 
-            if (blck = db.getBlock(blck.get().previous_block_root);
+            if (blck = db.getBlock(blck.get().parent_root);
                 blck.isNone() or blck.get().slot < firstSlot):
               break
 

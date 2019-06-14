@@ -198,7 +198,7 @@ type
     signature*: ValidatorSig ##\
     ## Sender signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#beaconblock
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -208,8 +208,8 @@ type
 
     slot*: Slot
 
-    previous_block_root*: Eth2Digest ##\
-    ##\ Root hash of the previous block
+    parent_root*: Eth2Digest ##\
+    ## Root hash of the previous block
 
     state_root*: Eth2Digest ##\
     ## The state root, _after_ this block has been processed
@@ -436,7 +436,7 @@ func humaneEpochNum*(e: Epoch): uint64 =
   e - GENESIS_EPOCH
 
 func shortLog*(v: BeaconBlock): tuple[
-    slot: uint64, previous_block_root: string, state_root: string,
+    slot: uint64, parent_root: string, state_root: string,
     #[ eth1_data ]#
     proposer_slashings_len: int, attester_slashings_len: int,
     attestations_len: int,
@@ -445,7 +445,7 @@ func shortLog*(v: BeaconBlock): tuple[
     transfers_len: int,
     signature: string
   ] = (
-    humaneSlotNum(v.slot), shortLog(v.previous_block_root),
+    humaneSlotNum(v.slot), shortLog(v.parent_root),
     shortLog(v.state_root), v.body.proposer_slashings.len(),
     v.body.attester_slashings.len(), v.body.attestations.len(),
     v.body.deposits.len(), v.body.voluntary_exits.len(), v.body.transfers.len(),

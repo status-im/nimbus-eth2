@@ -46,7 +46,7 @@ proc processBlockHeader(
     return false
 
   # Verify that the parent matches
-  if skipValidation notin flags and not (blck.previous_block_root ==
+  if skipValidation notin flags and not (blck.parent_root ==
       signing_root(state.latest_block_header)):
     notice "Block header: previous block root mismatch",
       latest_block_header = state.latest_block_header,
@@ -57,7 +57,7 @@ proc processBlockHeader(
   # Save current block as the new latest block
   state.latest_block_header = BeaconBlockHeader(
     slot: blck.slot,
-    previous_block_root: blck.previous_block_root,
+    previous_block_root: blck.parent_root,
     block_body_root: hash_tree_root(blck.body),
   )
 
