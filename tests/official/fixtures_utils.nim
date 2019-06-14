@@ -38,7 +38,7 @@ type
     GENESIS_SLOT*: Slot
     GENESIS_EPOCH*: Epoch
     GENESIS_START_SHARD*: uint64
-    BLS_WITHDRAWAL_PREFIX_BYTE*: array[1, byte]
+    BLS_WITHDRAWAL_PREFIX*: array[1, byte]
     SECONDS_PER_SLOT*: uint64
     MIN_ATTESTATION_INCLUSION_DELAY*: uint64
     SLOTS_PER_EPOCH*: int
@@ -141,7 +141,7 @@ proc default*(T: typedesc): T = discard
 
 proc readValue*[N: static int](r: var JsonReader, a: var array[N, byte]) {.inline.} =
   # Needed for;
-  #   - BLS_WITHDRAWAL_PREFIX_BYTE
+  #   - BLS_WITHDRAWAL_PREFIX
   #   - Fork datatypes
   # TODO: are all bytes and bytearray serialized as hex?
   #       if so export that to nim-eth

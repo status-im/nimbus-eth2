@@ -35,7 +35,7 @@ import
   ./extras, ./ssz, ./beacon_node_types,
   ./spec/[beaconstate, bitfield, crypto, datatypes, digest, helpers, validator]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#block-header
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#block-header
 proc processBlockHeader(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   # Verify that the slots match
@@ -57,8 +57,8 @@ proc processBlockHeader(
   # Save current block as the new latest block
   state.latest_block_header = BeaconBlockHeader(
     slot: blck.slot,
-    previous_block_root: blck.parent_root,
-    block_body_root: hash_tree_root(blck.body),
+    parent_root: blck.parent_root,
+    body_root: hash_tree_root(blck.body),
   )
 
   # Verify proposer is not slashed
@@ -369,7 +369,7 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
     # Verify that the pubkey is valid
     let wc = state.validator_registry[transfer.sender.int].
       withdrawal_credentials
-    if not (wc.data[0] == BLS_WITHDRAWAL_PREFIX_BYTE and
+    if not (wc.data[0] == BLS_WITHDRAWAL_PREFIX and
             wc.data[1..^1] == eth2hash(transfer.pubkey.getBytes).data[1..^1]):
       notice "Transfer: incorrect withdrawal credentials"
       return false
@@ -614,7 +614,7 @@ func get_winning_crosslink_and_attesting_indices(
    get_unslashed_attesting_indices(state,
      get_attestations_for(winning_crosslink)))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#justification-and-finalization
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#justification-and-finalization
 func process_justification_and_finalization(state: var BeaconState) =
   if get_current_epoch(state) <= GENESIS_EPOCH + 1:
     return
@@ -653,29 +653,29 @@ func process_justification_and_finalization(state: var BeaconState) =
 
   ## The 2nd/3rd/4th most recent epochs are justified, the 2nd using the 4th
   ## as source
-  if (bitfield shr 1) mod 8 == 0b111 and old_previous_justified_epoch ==
-      current_epoch - 3:
+  if (bitfield shr 1) mod 8 == 0b111 and old_previous_justified_epoch + 3 ==
+      current_epoch:
     state.finalized_epoch = old_previous_justified_epoch
     state.finalized_root = get_block_root(state, state.finalized_epoch)
 
   ## The 2nd/3rd most recent epochs are justified, the 2nd using the 3rd as
   ## source
-  if (bitfield shr 1) mod 4 == 0b11 and old_previous_justified_epoch ==
-      current_epoch - 2:
+  if (bitfield shr 1) mod 4 == 0b11 and old_previous_justified_epoch + 2 ==
+      current_epoch:
     state.finalized_epoch = old_previous_justified_epoch
     state.finalized_root = get_block_root(state, state.finalized_epoch)
 
   ## The 1st/2nd/3rd most recent epochs are justified, the 1st using the 3rd as
   ## source
-  if (bitfield shr 0) mod 8 == 0b111 and old_current_justified_epoch ==
-      current_epoch - 2:
+  if (bitfield shr 0) mod 8 == 0b111 and old_current_justified_epoch + 2 ==
+      current_epoch:
     state.finalized_epoch = old_current_justified_epoch
     state.finalized_root = get_block_root(state, state.finalized_epoch)
 
   ## The 1st/2nd most recent epochs are justified, the 1st using the 2nd as
   ## source
-  if (bitfield shr 0) mod 4 == 0b11 and old_current_justified_epoch ==
-      current_epoch - 1:
+  if (bitfield shr 0) mod 4 == 0b11 and old_current_justified_epoch + 1 ==
+      current_epoch:
     state.finalized_epoch = old_current_justified_epoch
     state.finalized_root = get_block_root(state, state.finalized_epoch)
 
@@ -706,14 +706,13 @@ func process_crosslinks(state: var BeaconState, per_epoch_cache: var StateCache)
           2'u64 * get_total_balance(state, crosslink_committee):
         state.current_crosslinks[shard] = winning_crosslink
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#rewards-and-penalties
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#rewards-and-penalties-1
 func get_base_reward(state: BeaconState, index: ValidatorIndex): Gwei =
-  let adjusted_quotient =
-    integer_squareroot(get_total_active_balance(state)) div BASE_REWARD_FACTOR
-  if adjusted_quotient == 0:
-    return 0
-  state.validator_registry[index].effective_balance div adjusted_quotient div
-    BASE_REWARDS_PER_EPOCH
+  let
+    total_balance = get_total_active_balance(state)
+    effective_balance = state.validator_registry[index].effective_balance
+  effective_balance * BASE_REWARD_FACTOR div
+    integer_squareroot(total_balance) div BASE_REWARDS_PER_EPOCH
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#rewards-and-penalties
 func get_attestation_deltas(state: BeaconState):
@@ -813,9 +812,12 @@ func get_crosslink_deltas(state: BeaconState, cache: var StateCache):
 
   (rewards, penalties)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#rewards-and-penalties
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#rewards-and-penalties-1
 func process_rewards_and_penalties(
     state: var BeaconState, cache: var StateCache) =
+  if get_current_epoch(state) == GENESIS_EPOCH:
+    return
+
   let
     (rewards1, penalties1) = get_attestation_deltas(state)
     (rewards2, penalties2) = get_crosslink_deltas(state, cache)

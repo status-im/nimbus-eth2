@@ -56,7 +56,7 @@ func process_deposit*(
     hash_tree_root(deposit.data),
      deposit.proof,
      DEPOSIT_CONTRACT_TREE_DEPTH,
-     deposit.index,
+     state.deposit_index,
     state.latest_eth1_data.deposit_root,
   ):
     ## TODO: a notice-like mechanism which works in a func
@@ -68,12 +68,6 @@ func process_deposit*(
     discard
 
   # Deposits must be processed in order
-  if not (deposit.index == state.deposit_index):
-    ## TODO see above, re errors
-    ## it becomes even more important, as one might might sometimes want
-    ## to flag such things as higher/lower priority. chronicles?
-    return false
-
   state.deposit_index += 1
 
   let
@@ -183,9 +177,9 @@ func get_temporary_block_header(blck: BeaconBlock): BeaconBlockHeader =
   ## to ``ZERO_HASH``.
   BeaconBlockHeader(
     slot: blck.slot,
-    previous_block_root: blck.parent_root,
+    parent_root: blck.parent_root,
     state_root: ZERO_HASH,
-    block_body_root: hash_tree_root(blck.body),
+    body_root: hash_tree_root(blck.body),
     # signing_root(block) is used for block id purposes so signature is a stub
     signature: ValidatorSig(),
   )
@@ -317,10 +311,13 @@ func get_block_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Return the block root at a recent ``epoch``.
   get_block_root_at_slot(state, get_epoch_start_slot(epoch))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_total_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#get_total_balance
 func get_total_balance*(state: BeaconState, validators: auto): Gwei =
-  # Return the combined effective balance of an array of ``validators``.
-  foldl(validators, a + state.validator_registry[b].effective_balance, 0'u64)
+  ## Return the combined effective balance of the ``indices``. (1 Gwei minimum
+  ## to avoid divisions by zero.)
+  max(1'u64,
+    foldl(validators, a + state.validator_registry[b].effective_balance, 0'u64)
+  )
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#registry-updates
 func process_registry_updates*(state: var BeaconState) =

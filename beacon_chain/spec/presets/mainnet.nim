@@ -22,7 +22,7 @@ type
 
 {.experimental: "codeReordering".} # SLOTS_PER_EPOCH is use before being defined in spec
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/configs/constant_presets/mainnet.yaml
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/configs/constant_presets/mainnet.yaml
 const
   # Misc
   # ---------------------------------------------------------------
@@ -83,12 +83,12 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/configs/constant_presets/mainnet.yaml#L44
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/configs/constant_presets/mainnet.yaml#L44
 
   GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 0'u8]
   GENESIS_SLOT* = 0.Slot
   FAR_FUTURE_EPOCH* = (not 0'u64).Epoch # 2^64 - 1 in spec
-  BLS_WITHDRAWAL_PREFIX_BYTE* = 0'u8
+  BLS_WITHDRAWAL_PREFIX* = 0'u8
 
   # Time parameters
   # ---------------------------------------------------------------

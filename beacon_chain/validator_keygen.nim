@@ -39,8 +39,7 @@ cli do (totalValidators: int = 125000,
         data: DepositData(
           amount: MAX_EFFECTIVE_BALANCE,
           pubkey: pubKey,
-          withdrawal_credentials: withdrawalCredentials),
-        index: i.uint64)
+          withdrawal_credentials: withdrawalCredentials))
 
     deposit.data.signature =
       bls_sign(privkey, signing_root(deposit.data).data,
