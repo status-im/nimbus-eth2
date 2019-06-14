@@ -812,9 +812,12 @@ func get_crosslink_deltas(state: BeaconState, cache: var StateCache):
 
   (rewards, penalties)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#rewards-and-penalties
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#rewards-and-penalties-1
 func process_rewards_and_penalties(
     state: var BeaconState, cache: var StateCache) =
+  if get_current_epoch(state) == GENESIS_EPOCH:
+    return
+
   let
     (rewards1, penalties1) = get_attestation_deltas(state)
     (rewards2, penalties2) = get_crosslink_deltas(state, cache)
