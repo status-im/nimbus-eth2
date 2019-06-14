@@ -31,16 +31,16 @@ const
 func toHeader(b: BeaconBlock): BeaconBlockHeader =
   BeaconBlockHeader(
     slot: b.slot,
-    previous_block_root: b.parent_root,
+    parent_root: b.parent_root,
     state_root: b.state_root,
-    block_body_root: hash_tree_root(b.body),
+    body_root: hash_tree_root(b.body),
     signature: b.signature
   )
 
 proc fromHeaderAndBody(b: var BeaconBlock, h: BeaconBlockHeader, body: BeaconBlockBody) =
-  doAssert(hash_tree_root(body) == h.block_body_root)
+  doAssert(hash_tree_root(body) == h.body_root)
   b.slot = h.slot
-  b.parent_root = h.previous_block_root
+  b.parent_root = h.parent_root
   b.state_root = h.state_root
   b.body = body
   b.signature = h.signature
@@ -58,7 +58,7 @@ proc mergeBlockHeadersAndBodies(headers: openarray[BeaconBlockHeader], bodies: o
 
   var res: seq[BeaconBlock]
   for i in 0 ..< headers.len:
-    if hash_tree_root(bodies[i]) != headers[i].block_body_root:
+    if hash_tree_root(bodies[i]) != headers[i].body_root:
       info "Block body is wrong for header"
       return
 

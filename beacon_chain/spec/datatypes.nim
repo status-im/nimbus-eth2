@@ -139,13 +139,10 @@ type
     data*: AttestationData
     custody_bit*: bool
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#deposit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#deposit
   Deposit* = object
     proof*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest] ##\
     ## Branch in the deposit tree
-
-    index*: uint64 ##\
-    ## Index in the deposit tree
 
     data*: DepositData ##\
     ## Data
@@ -219,12 +216,12 @@ type
     signature*: ValidatorSig ##\
     ## Proposer signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#beaconblockheader
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot
-    previous_block_root*: Eth2Digest
+    parent_root*: Eth2Digest
     state_root*: Eth2Digest
-    block_body_root*: Eth2Digest
+    body_root*: Eth2Digest
     signature*: ValidatorSig
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#beaconblockbody

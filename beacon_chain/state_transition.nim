@@ -57,8 +57,8 @@ proc processBlockHeader(
   # Save current block as the new latest block
   state.latest_block_header = BeaconBlockHeader(
     slot: blck.slot,
-    previous_block_root: blck.parent_root,
-    block_body_root: hash_tree_root(blck.body),
+    parent_root: blck.parent_root,
+    body_root: hash_tree_root(blck.body),
   )
 
   # Verify proposer is not slashed

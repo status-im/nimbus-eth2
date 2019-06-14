@@ -42,7 +42,6 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
     domain = 3'u64
 
   result = Deposit(
-    index: i.uint64,
     data: DepositData(
       pubkey: pubkey,
       withdrawal_credentials: withdrawal_credentials,

@@ -56,7 +56,7 @@ func process_deposit*(
     hash_tree_root(deposit.data),
      deposit.proof,
      DEPOSIT_CONTRACT_TREE_DEPTH,
-     deposit.index,
+     state.deposit_index,
     state.latest_eth1_data.deposit_root,
   ):
     ## TODO: a notice-like mechanism which works in a func
@@ -68,12 +68,6 @@ func process_deposit*(
     discard
 
   # Deposits must be processed in order
-  if not (deposit.index == state.deposit_index):
-    ## TODO see above, re errors
-    ## it becomes even more important, as one might might sometimes want
-    ## to flag such things as higher/lower priority. chronicles?
-    return false
-
   state.deposit_index += 1
 
   let
@@ -183,9 +177,9 @@ func get_temporary_block_header(blck: BeaconBlock): BeaconBlockHeader =
   ## to ``ZERO_HASH``.
   BeaconBlockHeader(
     slot: blck.slot,
-    previous_block_root: blck.parent_root,
+    parent_root: blck.parent_root,
     state_root: ZERO_HASH,
-    block_body_root: hash_tree_root(blck.body),
+    body_root: hash_tree_root(blck.body),
     # signing_root(block) is used for block id purposes so signature is a stub
     signature: ValidatorSig(),
   )
