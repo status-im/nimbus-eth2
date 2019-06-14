@@ -118,15 +118,15 @@ func get_shuffled_index(index: ValidatorIndex, index_count: uint64, seed: Eth2Di
     if bit != 0:
       result = flip
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_previous_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(state: BeaconState): Epoch =
   ## Return the previous epoch of the given ``state``.
   ## Return the current epoch if it's genesis epoch.
   let current_epoch = get_current_epoch(state)
-  if current_epoch > GENESIS_EPOCH:
-    current_epoch - 1
-  else:
+  if current_epoch == GENESIS_EPOCH:
     current_epoch
+  else:
+    current_epoch - 1
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#get_shard_delta
 func get_shard_delta*(state: BeaconState, epoch: Epoch): uint64 =
