@@ -167,7 +167,7 @@ proc addResolvedBlock(
 
   var foundHead: Option[Head]
   for head in pool.heads.mitems():
-    if head.blck.root == blck.previous_block_root:
+    if head.blck.root == blck.parent_root:
       if head.justified.slot != justifiedSlot:
         head.justified = blockRef.findAncestorBySlot(justifiedSlot)
 
@@ -227,7 +227,7 @@ proc add*(
 
     return
 
-  let parent = pool.blocks.getOrDefault(blck.previous_block_root)
+  let parent = pool.blocks.getOrDefault(blck.parent_root)
 
   if parent != nil:
     # The block might have been in either of these - we don't want any more
@@ -258,8 +258,8 @@ proc add*(
   #      think are useful - but, it would also risk filling the database with
   #      junk that's not part of the block graph
 
-  if blck.previous_block_root in pool.missing or
-      blck.previous_block_root in pool.pending:
+  if blck.parent_root in pool.missing or
+      blck.parent_root in pool.pending:
     return
 
   # This is an unresolved block - put its parent on the missing list for now...
@@ -280,7 +280,7 @@ proc add*(
 
   let parentSlot = blck.slot - 1
 
-  pool.missing[blck.previous_block_root] = MissingBlock(
+  pool.missing[blck.parent_root] = MissingBlock(
     slots:
       # The block is at least two slots ahead - try to grab whole history
       if parentSlot > pool.head.blck.slot:

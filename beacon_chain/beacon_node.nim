@@ -363,7 +363,7 @@ proc proposeBlock(node: BeaconNode,
     var
       newBlock = BeaconBlock(
         slot: slot,
-        previous_block_root: head.root,
+        parent_root: head.root,
         body: blockBody,
         signature: ValidatorSig(), # we need the rest of the block first!
       )

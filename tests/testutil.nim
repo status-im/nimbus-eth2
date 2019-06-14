@@ -96,7 +96,7 @@ proc addBlock*(
     # would look with the new block applied.
     new_block = BeaconBlock(
       slot: state.slot + 1,
-      previous_block_root: previous_block_root,
+      parent_root: previous_block_root,
       state_root: Eth2Digest(), # we need the new state first
       body: new_body,
       signature: ValidatorSig(), # we need the rest of the block first!
