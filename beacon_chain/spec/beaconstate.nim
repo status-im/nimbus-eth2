@@ -11,7 +11,7 @@ import
   ./bitfield, ./crypto, ./datatypes, ./digest, ./helpers, ./validator,
   tables
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#verify_merkle_branch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#verify_merkle_branch
 func verify_merkle_branch(leaf: Eth2Digest, proof: openarray[Eth2Digest], depth: uint64, index: uint64, root: Eth2Digest): bool =
   ## Verify that the given ``leaf`` is on the merkle branch ``proof``
   ## starting with the given ``root``.
@@ -45,7 +45,7 @@ func decrease_balance*(
     else:
       state.balances[index] - delta
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#deposits
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#deposits
 func process_deposit*(
     state: var BeaconState, deposit: Deposit, flags: UpdateFlags = {}): bool =
   # Process an Eth1 deposit, registering a validator or increasing its balance.
@@ -322,7 +322,7 @@ func get_total_balance*(state: BeaconState, validators: auto): Gwei =
   # Return the combined effective balance of an array of ``validators``.
   foldl(validators, a + state.validator_registry[b].effective_balance, 0'u64)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#registry-updates
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#registry-updates
 func process_registry_updates*(state: var BeaconState) =
   # Process activation eligibility and ejections
   for index, validator in state.validator_registry:
@@ -360,38 +360,42 @@ func process_registry_updates*(state: var BeaconState) =
       validator.activation_epoch =
         get_delayed_activation_exit_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#verify_indexed_attestation
-func verify_indexed_attestation*(
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#validate_indexed_attestation
+func validate_indexed_attestation*(
     state: BeaconState, indexed_attestation: IndexedAttestation): bool =
   # Verify validity of ``indexed_attestation`` fields.
 
   let
-    custody_bit_0_indices = indexed_attestation.custody_bit_0_indices
-    custody_bit_1_indices = indexed_attestation.custody_bit_1_indices
+    bit_0_indices = indexed_attestation.custody_bit_0_indices
+    bit_1_indices = indexed_attestation.custody_bit_1_indices
 
-  # Ensure no duplicate indices across custody bits
-  if len(intersection(toSet(custody_bit_0_indices), toSet(custody_bit_1_indices))) != 0:
-     return false
-
-  if len(custody_bit_1_indices) > 0:  # [TO BE REMOVED IN PHASE 1]
+  # Verify no index has custody bit equal to 1 [to be removed in phase 1]
+  if len(bit_1_indices) != 0:
     return false
 
-  let combined_len = len(custody_bit_0_indices) + len(custody_bit_1_indices)
+  # Verify max number of indices
+  let combined_len = len(bit_0_indices) + len(bit_1_indices)
   if not (1 <= combined_len and combined_len <= MAX_INDICES_PER_ATTESTATION):
     return false
 
-  if custody_bit_0_indices != sorted(custody_bit_0_indices, system.cmp):
+  # Verify index sets are disjoint
+  if len(intersection(toSet(bit_0_indices), toSet(bit_1_indices))) != 0:
     return false
 
-  if custody_bit_1_indices != sorted(custody_bit_1_indices, system.cmp):
+  # Verify indices are sorted
+  if bit_0_indices != sorted(bit_0_indices, system.cmp):
     return false
 
+  if bit_1_indices != sorted(bit_1_indices, system.cmp):
+    return false
+
+  # Verify aggregate signature
   bls_verify_multiple(
     @[
       bls_aggregate_pubkeys(
-        mapIt(custody_bit_0_indices, state.validator_registry[it.int].pubkey)),
+        mapIt(bit_0_indices, state.validator_registry[it.int].pubkey)),
       bls_aggregate_pubkeys(
-        mapIt(custody_bit_1_indices, state.validator_registry[it.int].pubkey)),
+        mapIt(bit_1_indices, state.validator_registry[it.int].pubkey)),
     ],
     @[
       hash_tree_root(AttestationDataAndCustodyBit(
@@ -529,7 +533,7 @@ proc checkAttestation*(
     return
 
   # Check signature and bitfields
-  if not verify_indexed_attestation(
+  if not validate_indexed_attestation(
       state, convert_to_indexed(state, attestation)):
     warn("checkAttestation: signature or bitfields incorrect")
     return
