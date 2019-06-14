@@ -541,7 +541,7 @@ func get_crosslink_from_attestation_data(
     state: BeaconState, data: AttestationData): Crosslink =
   Crosslink(
     epoch: min(data.target_epoch,
-      state.current_crosslinks[data.shard].epoch + MAX_CROSSLINK_EPOCHS),
+      state.current_crosslinks[data.shard].epoch + MAX_EPOCHS_PER_CROSSLINK),
     previous_crosslink_root: data.previous_crosslink_root,
     crosslink_data_root: data.crosslink_data_root,
   )

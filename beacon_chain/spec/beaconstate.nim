@@ -225,35 +225,13 @@ func get_genesis_beacon_state*(
         epoch: GENESIS_EPOCH,
     ),
 
-    # validator_registry and balances automatically initalized
-
-    # Randomness and committees
-    # latest_randao_mixes automatically initialized
-
-    # Finality
-    # previous_epoch_attestations and current_epoch_attestations automatically
-    # initialized
-    previous_justified_epoch: GENESIS_EPOCH,
-    current_justified_epoch: GENESIS_EPOCH,
-    justification_bitfield: 0,
-    finalized_epoch: GENESIS_EPOCH,
-    finalized_root: ZERO_HASH,
-
     # Recent state
-    # latest_block_roots, latest_state_roots, latest_active_index_roots,
-    # latest_slashed_balances, and latest_slashed_balances automatically
-    # initialized
     latest_block_header: get_temporary_block_header(get_empty_block()),
 
     # Ethereum 1.0 chain data
-    # eth1_data_votes automatically initialized
     latest_eth1_data: genesis_eth1_data,
     deposit_index: 0,
   )
-
-  for i in 0 ..< SHARD_COUNT:
-    state.current_crosslinks[i] = Crosslink(
-      epoch: GENESIS_EPOCH, crosslink_data_root: ZERO_HASH)
 
   # Process genesis deposits
   for deposit in genesis_validator_deposits:
