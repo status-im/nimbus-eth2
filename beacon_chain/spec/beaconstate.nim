@@ -311,10 +311,12 @@ func get_block_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Return the block root at a recent ``epoch``.
   get_block_root_at_slot(state, get_epoch_start_slot(epoch))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_total_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#get_total_balance
 func get_total_balance*(state: BeaconState, validators: auto): Gwei =
   # Return the combined effective balance of an array of ``validators``.
-  foldl(validators, a + state.validator_registry[b].effective_balance, 0'u64)
+  max(1'u64,
+    foldl(validators, a + state.validator_registry[b].effective_balance, 0'u64)
+  )
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#registry-updates
 func process_registry_updates*(state: var BeaconState) =
