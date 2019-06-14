@@ -144,9 +144,6 @@ type
     proof*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest] ##\
     ## Branch in the deposit tree
 
-    index*: uint64 ##\
-    ## Index in the deposit tree
-
     data*: DepositData ##\
     ## Data
 
