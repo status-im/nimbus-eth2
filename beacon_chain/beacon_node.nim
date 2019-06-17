@@ -4,10 +4,10 @@ import
   chronos, chronicles, confutils, serialization/errors,
   eth/trie/db, eth/trie/backends/rocksdb_backend, eth/async_utils,
   spec/[bitfield, datatypes, digest, crypto, beaconstate, helpers, validator],
-  conf, time,
-  state_transition, fork_choice, ssz, beacon_chain_db, validator_pool, extras,
-  attestation_pool, block_pool, eth2_network, beacon_node_types,
-  mainchain_monitor, trusted_state_snapshots, version
+  conf, time, state_transition, fork_choice, ssz, beacon_chain_db,
+  validator_pool, extras, attestation_pool, block_pool, eth2_network,
+  beacon_node_types, mainchain_monitor, trusted_state_snapshots, version,
+  sync_protocol, request_manager
 
 const
   topicBeaconBlocks = "ethereum/2.1/beacon_chain/blocks"
@@ -18,13 +18,7 @@ const
   genesisFile = "genesis.json"
   testnetsBaseUrl = "https://serenity-testnets.status.im"
 
-# #################################################
-# Careful handling of beacon_node <-> sync_protocol
-# to avoid recursive dependencies
 proc onBeaconBlock*(node: BeaconNode, blck: BeaconBlock) {.gcsafe.}
-  # Forward decl for sync_protocol
-import sync_protocol, request_manager
-# #################################################
 
 func localValidatorsDir(conf: BeaconNodeConf): string =
   conf.dataDir / "validators"
@@ -88,6 +82,7 @@ proc saveValidatorKey(keyName, key: string, conf: BeaconNodeConf) =
 
 proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
   new result
+  result.onBeaconBlock = onBeaconBlock
   result.config = conf
   result.networkIdentity = getPersistentNetIdentity(conf)
   result.nickname = if conf.nodename == "auto": shortForm(result.networkIdentity)
@@ -654,7 +649,7 @@ proc onSecond(node: BeaconNode, moment: Moment) {.async.} =
   if missingBlocks.len > 0:
     info "Requesting detected missing blocks", missingBlocks
     node.requestManager.fetchAncestorBlocks(missingBlocks) do (b: BeaconBlock):
-      node.onBeaconBlock(b)
+      onBeaconBlock(node ,b)
 
   let nextSecond = max(Moment.now(), moment + chronos.seconds(1))
   addTimer(nextSecond) do (p: pointer):
@@ -662,7 +657,7 @@ proc onSecond(node: BeaconNode, moment: Moment) {.async.} =
 
 proc run*(node: BeaconNode) =
   waitFor node.network.subscribe(topicBeaconBlocks) do (blck: BeaconBlock):
-    node.onBeaconBlock(blck)
+    onBeaconBlock(node, blck)
 
   waitFor node.network.subscribe(topicAttestations) do (attestation: Attestation):
     node.onAttestation(attestation)

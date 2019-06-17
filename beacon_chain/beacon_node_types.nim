@@ -25,6 +25,7 @@ type
     attestationPool*: AttestationPool
     mainchainMonitor*: MainchainMonitor
     beaconClock*: BeaconClock
+    onBeaconBlock*: proc (node: BeaconNode, blck: BeaconBlock) {.gcsafe.}
 
     stateCache*: StateData ##\
     ## State cache object that's used as a scratch pad

@@ -22,6 +22,7 @@ type
     connectionState*: ConnectionState
     awaitedMessages: Table[CompressedMsgId, FutureBase]
     protocolStates*: seq[RootRef]
+    maxInactivityAllowed*: Duration
 
   ConnectionState* = enum
     None,
@@ -95,6 +96,7 @@ proc init*(T: type Eth2Node, daemon: DaemonAPI): Future[T] {.async.} =
   new result
   result.daemon = daemon
   result.daemon.userData = result
+  result.maxInactivityAllowed = 15.minutes # TODO: Read this from the config
   init result.peers
 
   newSeq result.protocolStates, allProtocols.len
@@ -319,7 +321,7 @@ proc implementSendProcBody(sendProc: SendProc) =
     else:
       quote: `sendBytes`(`UntypedResponder`(`peer`).stream, `bytes`)
 
-  sendProc.useStandardBody(nil, sendCallGenerator)
+  sendProc.useStandardBody(nil, nil, sendCallGenerator)
 
 proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   var

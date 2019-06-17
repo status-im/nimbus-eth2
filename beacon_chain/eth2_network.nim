@@ -175,17 +175,22 @@ else:
     result = waitFor daemon.identity()
     waitFor daemon.close()
 
+  template tcpEndPoint(address, port): auto =
+    MultiAddress.init(address, IPPROTO_TCP, port)
+
   proc createEth2Node*(conf: BeaconNodeConf): Future[Eth2Node] {.async.} =
     var
       (extIp, extTcpPort, extUdpPort) = setupNat(conf)
       hostAddress = tcpEndPoint(globalListeningAddr, Port conf.tcpPort)
       announcedAddresses = if extIp != globalListeningAddr: @[]
                            else: @[tcpEndPoint(extIp, extTcpPort)]
+      keyFile = conf.ensureNetworkIdFile
 
-      daemon = await newDaemonApi({PSGossipSub},
-                                  id = conf.ensureNetworkIdFile,
-                                  hostAddresses = @[hostAddress],
-                                  announcedAddresses = announcedAddresses)
+    info "Starting LibP2P deamon", hostAddress, announcedAddresses, keyFile
+    let daemon = await newDaemonApi({PSGossipSub},
+                                    id = keyFile,
+                                    hostAddresses = @[hostAddress],
+                                    announcedAddresses = announcedAddresses)
 
     return await Eth2Node.init(daemon)
 
@@ -195,7 +200,7 @@ else:
     result.addresses = @[tcpEndPoint(ip, port)]
 
   proc isSameNode*(bootstrapNode: BootstrapAddr, id: Eth2NodeIdentity): bool =
-    bootstrapNode == id
+    bootstrapNode.peer == id.peer
 
   proc shortForm*(id: Eth2NodeIdentity): string =
     # TODO: Make this shorter

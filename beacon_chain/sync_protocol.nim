@@ -4,10 +4,6 @@ import
   spec/[datatypes, crypto, digest, helpers], eth/rlp,
   beacon_node_types, eth2_network, beacon_chain_db, block_pool, time, ssz
 
-from beacon_node import onBeaconBlock
-  # Careful handling of beacon_node <-> sync_protocol
-  # to avoid recursive dependencies
-
 type
   ValidatorChangeLogEntry* = object
     case kind*: ValidatorSetDeltaFlags
@@ -49,7 +45,7 @@ proc fromHeaderAndBody(b: var BeaconBlock, h: BeaconBlockHeader, body: BeaconBlo
 proc importBlocks(node: BeaconNode,
                   blocks: openarray[BeaconBlock]) =
   for blk in blocks:
-    node.onBeaconBlock(blk)
+    node.onBeaconBlock(node, blk)
   info "Forward sync imported blocks", len = blocks.len
 
 proc mergeBlockHeadersAndBodies(headers: openarray[BeaconBlockHeader], bodies: openarray[BeaconBlockBody]): Option[seq[BeaconBlock]] =
@@ -105,7 +101,7 @@ p2pProtocol BeaconSync(version = 1,
       let bestDiff = cmp((latestFinalizedEpoch, bestSlot), (m.latestFinalizedEpoch, m.bestSlot))
       if bestDiff >= 0:
         # Nothing to do?
-        trace "Nothing to sync", peer = peer.remote
+        debug "Nothing to sync", peer
       else:
         # TODO: Check for WEAK_SUBJECTIVITY_PERIOD difference and terminate the
         # connection if it's too big.
@@ -124,7 +120,7 @@ p2pProtocol BeaconSync(version = 1,
             if lastSlot <= s:
               info "Slot did not advance during sync", peer
               break
-  
+
             s = lastSlot + 1
           else:
             break
