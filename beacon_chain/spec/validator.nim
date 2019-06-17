@@ -13,8 +13,8 @@ import
   ./crypto, ./datatypes, ./digest, ./helpers
 
 # TODO: Proceed to renaming and signature changes
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#get_shuffled_index
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#compute_committee
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_shuffled_index
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#compute_committee
 func get_shuffled_seq*(seed: Eth2Digest,
                        list_size: uint64,
                        ): seq[ValidatorIndex] =
@@ -118,7 +118,7 @@ func get_shuffled_index(index: ValidatorIndex, index_count: uint64, seed: Eth2Di
     if bit != 0:
       result = flip
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#get_previous_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(state: BeaconState): Epoch =
   ## Return the previous epoch of the given ``state``.
   ## Return the current epoch if it's genesis epoch.
@@ -128,14 +128,14 @@ func get_previous_epoch*(state: BeaconState): Epoch =
   else:
     current_epoch - 1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#get_shard_delta
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_shard_delta
 func get_shard_delta*(state: BeaconState, epoch: Epoch): uint64 =
   ## Return the number of shards to increment ``state.latest_start_shard``
   ## during ``epoch``.
   min(get_epoch_committee_count(state, epoch),
     (SHARD_COUNT - SHARD_COUNT div SLOTS_PER_EPOCH).uint64)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#get_epoch_start_shard
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_epoch_start_shard
 func get_epoch_start_shard*(state: BeaconState, epoch: Epoch): Shard =
   doAssert epoch <= get_current_epoch(state) + 1
   var
@@ -149,7 +149,7 @@ func get_epoch_start_shard*(state: BeaconState, epoch: Epoch): Shard =
       SHARD_COUNT
   return shard
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#compute_committee
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#compute_committee
 func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
     index: uint64, count: uint64): seq[ValidatorIndex] =
   let
@@ -161,7 +161,7 @@ func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
     indices[
       get_shuffled_index(it.ValidatorIndex, len(indices).uint64, seed).int])
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#get_crosslink_committee
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_crosslink_committee
 func get_crosslink_committee*(state: BeaconState, epoch: Epoch, shard: Shard):
     seq[ValidatorIndex] =
   compute_committee(
@@ -212,7 +212,7 @@ iterator get_crosslink_committees_at_slot_cached*(
   cache.crosslink_committee_cache[key] = result
   for v in result: yield v
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#get_beacon_proposer_index
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: BeaconState): ValidatorIndex =
   # Return the current beacon proposer index.
   const
