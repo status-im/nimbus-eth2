@@ -1,26 +1,20 @@
 import
   # Status libs
-  blscurve, nimcrypto, byteutils,
+  byteutils,
   eth/common, serialization, json_serialization,
   # Beacon chain internals
-  # submodule in nim-beacon-chain/tests/official/fixtures/
-  ../../beacon_chain/spec/[datatypes, crypto, digest],
-  ../../beacon_chain/ssz,
-  # Workarounds
-  endians # parseHex into uint64
+  ../../beacon_chain/spec/datatypes
 
-export nimcrypto.toHex
+export  # Workaround:
+  #   - https://github.com/status-im/nim-serialization/issues/4
+  #   - https://github.com/status-im/nim-serialization/issues/5
+  #   - https://github.com/nim-lang/Nim/issues/11225
+  serialization.readValue
 
 type
   # TODO: use ref object to avoid allocating
   #       so much on the stack - pending https://github.com/status-im/nim-json-serialization/issues/3
-  StateTests* = object
-    title*: string
-    summary*: string
-    test_suite*: string
-    fork*: string
-    test_cases*: seq[StateTestCase]
-  
+
   TestConstants* = object
     # TODO - 0.5.1 constants
     SHARD_COUNT*: int
@@ -69,14 +63,6 @@ type
     DOMAIN_VOLUNTARY_EXIT*: SignatureDomain
     DOMAIN_TRANSFER*: SignatureDomain
 
-  StateTestCase* = object
-    name*: string
-    config*: TestConstants
-    verify_signatures*: bool
-    initial_state*: BeaconState
-    blocks*: seq[BeaconBlock]
-    expected_state*: BeaconState
-
   Tests*[T] = object
     title*: string
     summary*: string
@@ -87,51 +73,6 @@ type
     handler*: string
     test_cases*: seq[T]
 
-  Shuffling* = object
-    seed*: Eth2Digest
-    count*: uint64
-    shuffled*: seq[ValidatorIndex]
-
-  # # TODO - but already tested in nim-blscurve
-  # BLSUncompressedG2 = object
-  #   input*: tuple[
-  #     message: seq[byte],
-  #     domain: array[1, byte]
-  #     ]
-  #   output*: ECP2_BLS381
-
-  # # TODO - but already tested in nim-blscurve
-  # BLSCompressedG2 = object
-  #   input*: tuple[
-  #     message: seq[byte],
-  #     domain: array[1, byte]
-  #     ]
-  #   output*: ECP2_BLS381
-
-  Domain = distinct uint64
-    ## Domains have custom hex serialization
-    
-  BLSPrivToPub* = object
-    input*: ValidatorPrivKey
-    output*: ValidatorPubKey
-
-  BLSSignMsgInput = object
-    privkey*: ValidatorPrivKey
-    message*: seq[byte]
-    domain*: Domain
-
-  BLSSignMsg* = object
-    input*: BLSSignMsgInput
-    output*: Signature
-
-  BLSAggSig* = object
-    input*: seq[Signature]
-    output*: Signature
-
-  BLSAggPubKey* = object
-    input*: seq[ValidatorPubKey]
-    output*: ValidatorPubKey
-  
 # #######################
 # Default init
 proc default*(T: typedesc): T = discard
@@ -150,46 +91,19 @@ proc readValue*[N: static int](r: var JsonReader, a: var array[N, byte]) {.inlin
 proc readValue*(r: var JsonReader, a: var ValidatorIndex) {.inline.} =
   a = r.readValue(uint32)
 
-proc readValue*(r: var JsonReader, a: var Domain) {.inline.} =
-  ## Custom deserializer for Domain
-  ## They are uint64 stored in hex values
-  # Furthermore Nim parseHex doesn't support uint
-  # until https://github.com/nim-lang/Nim/pull/11067
-  # (0.20)
-  let be_uint = hexToPaddedByteArray[8](r.readValue(string))
-  bigEndian64(a.addr, be_uint.unsafeAddr)
-
 proc readValue*(r: var JsonReader, a: var seq[byte]) {.inline.} =
   ## Custom deserializer for seq[byte]
   a = hexToSeqByte(r.readValue(string))
 
-template parseTestsImpl(T: untyped) {.dirty.} =
-  # TODO: workaround typedesc/generics
-  #       being broken with nim-serialization
-  #       - https://github.com/status-im/nim-serialization/issues/4
-  #       - https://github.com/status-im/nim-serialization/issues/5
+proc parseTests*(jsonPath: string, T: typedesc): Tests[T] =
   try:
-    result = Json.loadFile(jsonPath, T)
+    debugEcho "          [Debug] Loading file: \"", jsonPath, '\"'
+    result = Json.loadFile(jsonPath, Tests[T])
   except SerializationError as err:
     writeStackTrace()
     stderr.write "Json load issue for file \"", jsonPath, "\"\n"
     stderr.write err.formatMsg(jsonPath), "\n"
     quit 1
-
-proc parseTestsShuffling*(jsonPath: string): Tests[Shuffling] =
-  parseTestsImpl(Tests[Shuffling])
-
-proc parseTestsBLSPrivToPub*(jsonPath: string): Tests[BLSPrivToPub] =
-  parseTestsImpl(Tests[BLSPrivToPub])
-
-proc parseTestsBLSSignMsg*(jsonPath: string): Tests[BLSSignMsg] =
-  parseTestsImpl(Tests[BLSSignMsg])
-
-proc parseTestsBLSAggSig*(jsonPath: string): Tests[BLSAggSig] =
-  parseTestsImpl(Tests[BLSAggSig])
-
-proc parseTestsBLSAggPubKey*(jsonPath: string): Tests[BLSAggPubKey] =
-  parseTestsImpl(Tests[BLSAggPubKey])
 
 # #######################
 # Mocking helpers

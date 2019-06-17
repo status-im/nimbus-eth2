@@ -7,14 +7,18 @@
 
 import
   # Standard library
-  ospaths, strutils, json, unittest,
-  # Third parties
-
+  ospaths, strutils, unittest,
   # Beacon chain internals
-  ../../beacon_chain/spec/[datatypes, validator],
+  ../../beacon_chain/spec/[datatypes, validator, digest],
   # Test utilities
   ../testutil,
   ./fixtures_utils
+
+type
+  Shuffling* = object
+    seed*: Eth2Digest
+    count*: uint64
+    shuffled*: seq[ValidatorIndex]
 
 const TestFolder = currentSourcePath.rsplit(DirSep, 1)[0]
 
@@ -27,7 +31,7 @@ var shufflingTests: Tests[Shuffling]
 
 suite "Official - Shuffling tests [Preset: " & preset():
   test "Parsing the official shuffling tests [Preset: " & preset():
-    shufflingTests = parseTestsShuffling(TestFolder / TestsPath)
+    shufflingTests = parseTests(TestFolder / TestsPath, Shuffling)
 
   test "Shuffling a sequence of N validators" & preset():
     for t in shufflingTests.test_cases:
