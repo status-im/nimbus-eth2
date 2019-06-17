@@ -4,7 +4,7 @@ language: c
 cache:
   directories:
     - NimBinaries
-    - rocksdb
+    - rocksdbCache
 
 git:
   # when multiple CI builds are queued, the tested commit needs to be in the last X commits cloned with "--depth X"
@@ -17,29 +17,22 @@ matrix:
     - os: linux
       sudo: required
       before_install:
-        - export INSTALL_PATH=/usr
-        - export NPROC=$(nproc)
+        - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib"
     - os: osx
       before_install:
-        - export INSTALL_PATH=$HOME # included in DYLD_FALLBACK_LIBRARY_PATH
-        - export NPROC=$(sysctl -n hw.ncpu)
+        - launchctl setenv LIBRARY_PATH /usr/local/lib # for RocksDB
 
 install:
   # build nim from our own branch - this to avoid the day-to-day churn and
   # regressions of the fast-paced Nim development while maintaining the
   # flexibility to apply patches
   - curl -O -L -s -S https://raw.githubusercontent.com/status-im/nimbus/devel/build_nim.sh
-  - env MAKE="make -j$NPROC" bash build_nim.sh Nim csources dist/nimble NimBinaries
+  - env MAKE="make -j2" bash build_nim.sh Nim csources dist/nimble NimBinaries
   - export PATH=$PWD/Nim/bin:$PATH
 
   # build our own rocksdb to test with a fixed version that we think works
-  - "export ROCKSDBVER=5.14.2"
-  - "[ -f rocksdb/rocksdb-$ROCKSDBVER/Makefile ] || { rm -rf rocksdb ; mkdir -p rocksdb; cd rocksdb; wget https://github.com/facebook/rocksdb/archive/v$ROCKSDBVER.tar.gz && tar xvf v$ROCKSDBVER.tar.gz; cd ..; }"
-  - cd rocksdb/rocksdb-$ROCKSDBVER
-  - "[ -f util/build_version.cc ] || { make util/build_version.cc ; }" # use cached version if possible
-  - export NO_UPDATE_BUILD_VERSION=1
-  - make shared_lib -j$NPROC && sudo make install-shared
-  - cd ../..
+  - curl -O -L -s -S https://raw.githubusercontent.com/status-im/nimbus/devel/build_rocksdb.sh
+  - bash build_rocksdb.sh rocksdbCache
 
 script:
   - nimble install -y
