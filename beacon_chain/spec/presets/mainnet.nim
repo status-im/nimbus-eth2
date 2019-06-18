@@ -22,11 +22,11 @@ type
 
 {.experimental: "codeReordering".} # SLOTS_PER_EPOCH is use before being defined in spec
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/configs/constant_presets/mainnet.yaml
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/configs/constant_presets/mainnet.yaml
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#misc
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#misc
 
   SHARD_COUNT* {.intdefine.} = 1024 ##\
   ## Number of shards supported by the network - validators will jump around
@@ -57,7 +57,7 @@ const
 
   # Deposit contract
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/configs/constant_presets/mainnet.yaml#L24
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/configs/constant_presets/mainnet.yaml#L24
 
   DEPOSIT_CONTRACT_ADDRESS = "0x1234567890123456789012345678901234567890"
     # TODO
@@ -66,7 +66,7 @@ const
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#gwei-values
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#gwei-values
 
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9 ##\
   ## Minimum amounth of ETH that can be deposited in one call - deposits can
@@ -83,7 +83,7 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/configs/constant_presets/mainnet.yaml#L44
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/configs/constant_presets/mainnet.yaml#L44
 
   GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 0'u8]
   GENESIS_SLOT* = 0.Slot
@@ -92,7 +92,7 @@ const
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_fork-choice.md#time-parameters
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_fork-choice.md#time-parameters
 
   SECONDS_PER_SLOT*{.intdefine.} = 6'u64 # Compile with -d:SECONDS_PER_SLOT=1 for 6x faster slots
   ## TODO consistent time unit across projects, similar to C++ chrono?
@@ -141,14 +141,14 @@ const
 
   # State list lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#state-list-lengths
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#state-list-lengths
   LATEST_RANDAO_MIXES_LENGTH* = 8192
   LATEST_ACTIVE_INDEX_ROOTS_LENGTH* = 8192 # 2'u64^13, epochs
   LATEST_SLASHED_EXIT_LENGTH* = 8192 # epochs
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#rewards-and-penalties
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#rewards-and-penalties
   BASE_REWARD_FACTOR* = 2'u64^5
   WHISTLEBLOWING_REWARD_QUOTIENT* = 2'u64^9
   PROPOSER_REWARD_QUOTIENT* = 2'u64^3
@@ -157,7 +157,7 @@ const
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#max-operations-per-block
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#max-operations-per-block
   MAX_PROPOSER_SLASHINGS* = 2^4
   MAX_ATTESTER_SLASHINGS* = 2^0
   MAX_ATTESTATIONS* = 2^7
@@ -168,7 +168,7 @@ const
 type
   # Signature domains
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#signature-domains
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#signature-domains
   SignatureDomain* {.pure.} = enum
     DOMAIN_BEACON_PROPOSER = 0
     DOMAIN_RANDAO = 1

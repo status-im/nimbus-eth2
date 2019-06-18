@@ -53,7 +53,7 @@ else:
   {.fatal: "Preset \"" & const_preset ".nim\" is not supported.".}
 
 const
-  SPEC_VERSION* = "0.7.0" ## \
+  SPEC_VERSION* = "0.7.1" ## \
   ## Spec version we're aiming to be compatible with, right now
   ## TODO: improve this scheme once we can negotiate versions in protocol
 
@@ -62,7 +62,7 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#initial-values
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#initial-values
   GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
   ## slot_to_epoch(GENESIS_SLOT)
   ZERO_HASH* = Eth2Digest()
@@ -73,7 +73,7 @@ type
   Shard* = uint64
   Gwei* = uint64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#proposerslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     proposer_index*: uint64 ##\
     ## Proposer index
@@ -84,14 +84,14 @@ type
     header_2*: BeaconBlockHeader ##\
     # Second block header
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#attesterslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#attesterslashing
   AttesterSlashing* = object
     attestation_1*: IndexedAttestation ## \
     ## First attestation
     attestation_2*: IndexedAttestation ## \
     ## Second attestation
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#indexedattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#indexedattestation
   IndexedAttestation* = object
     # These probably should be seq[ValidatorIndex], but that throws RLP errors
     custody_bit_0_indices*: seq[uint64]
@@ -103,7 +103,7 @@ type
     signature*: ValidatorSig ## \
     ## Aggregate signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#attestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#attestation
   Attestation* = object
     aggregation_bitfield*: BitField ##\
     ## Attester aggregation bitfield
@@ -134,12 +134,12 @@ type
     previous_crosslink_root*: Eth2Digest
     crosslink_data_root*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#attestationdataandcustodybit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#attestationdataandcustodybit
   AttestationDataAndCustodyBit* = object
     data*: AttestationData
     custody_bit*: bool
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#deposit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#deposit
   Deposit* = object
     proof*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest] ##\
     ## Branch in the deposit tree
@@ -147,7 +147,7 @@ type
     data*: DepositData ##\
     ## Data
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#depositdata
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#depositdata
   DepositData* = object
     pubkey*: ValidatorPubKey ##\
     ## BLS pubkey
@@ -163,7 +163,7 @@ type
     signature*: ValidatorSig ##\
     ## Container self-signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#voluntaryexit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
     # Minimum epoch for processing exit
     epoch*: Epoch
@@ -172,7 +172,7 @@ type
     # Validator signature
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#transfer
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#transfer
   Transfer* = object
     sender*: uint64 ##\
     ## Sender index
@@ -195,7 +195,7 @@ type
     signature*: ValidatorSig ##\
     ## Sender signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#beaconblock
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -216,7 +216,7 @@ type
     signature*: ValidatorSig ##\
     ## Proposer signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#beaconblockheader
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot
     parent_root*: Eth2Digest
@@ -224,7 +224,7 @@ type
     body_root*: Eth2Digest
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -236,7 +236,7 @@ type
     voluntary_exits*: seq[VoluntaryExit]
     transfers*: seq[Transfer]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#beaconstate
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#beaconstate
   BeaconState* = object
     slot*: Slot
     genesis_time*: uint64
@@ -283,7 +283,7 @@ type
     eth1_data_votes*: seq[Eth1Data]
     deposit_index*: uint64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#validator
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#validator
   Validator* = object
     pubkey*: ValidatorPubKey ##\
     ## BLS public key
@@ -320,14 +320,14 @@ type
     crosslink_data_root*: Eth2Digest ##\
     ## Shard data since the previous crosslink
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#pendingattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#pendingattestation
   PendingAttestation* = object
     aggregation_bitfield*: BitField           ## Attester participation bitfield
     data*: AttestationData                    ## Attestation data
     inclusion_delay*: uint64                  ## Inclusion delay
     proposer_index*: ValidatorIndex           ## Proposer index
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#historicalbatch
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#historicalbatch
   HistoricalBatch* = object
     block_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
     ## Block roots
@@ -335,7 +335,7 @@ type
     state_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
     ## State roots
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#fork
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#fork
   Fork* = object
     previous_version*: array[4, byte] ##\
     ## Previous fork version
@@ -346,7 +346,7 @@ type
     epoch*: Epoch ##\
     ## Fork epoch number
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/core/0_beacon-chain.md#eth1data
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#eth1data
   Eth1Data* = object
     deposit_root*: Eth2Digest ##\
     ## Root of the deposit tree

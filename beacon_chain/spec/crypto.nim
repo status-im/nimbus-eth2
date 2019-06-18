@@ -69,7 +69,7 @@ template hash*(k: ValidatorPubKey|ValidatorPrivKey): Hash =
 
 func pubKey*(pk: ValidatorPrivKey): ValidatorPubKey = pk.getKey()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/bls_signature.md#bls_aggregate_pubkeys
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/bls_signature.md#bls_aggregate_pubkeys
 func bls_aggregate_pubkeys*(keys: openArray[ValidatorPubKey]): ValidatorPubKey =
   var empty = true
   for key in keys:
@@ -79,14 +79,14 @@ func bls_aggregate_pubkeys*(keys: openArray[ValidatorPubKey]): ValidatorPubKey =
     else:
       result.combine(key)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/bls_signature.md#bls_verify
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/bls_signature.md#bls_verify
 func bls_verify*(
     pubkey: ValidatorPubKey, msg: openArray[byte], sig: ValidatorSig,
     domain: uint64): bool =
   # name from spec!
   sig.verify(msg, domain, pubkey)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.0/specs/bls_signature.md#bls_verify_multiple
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/bls_signature.md#bls_verify_multiple
 func bls_verify_multiple*(
     pubkeys: seq[ValidatorPubKey], message_hashes: openArray[Eth2Digest],
     sig: ValidatorSig, domain: uint64): bool =
