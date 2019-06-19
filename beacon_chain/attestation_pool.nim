@@ -18,6 +18,11 @@ proc combine*(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
   ## the same data is being signed - if the signatures overlap, they are not
   ## combined.
 
+  debugEcho "BEGIN"
+  debugEcho "tgt.data = ", tgt.data
+  debugEcho "src.data = ", src.data
+  debugEcho "END"
+  debugEcho ""
   doAssert tgt.data == src.data
 
   # In a BLS aggregate signature, one needs to count how many times a
