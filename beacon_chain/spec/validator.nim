@@ -207,7 +207,6 @@ iterator get_crosslink_committees_at_slot_cached*(
   let key = (slot_to_epoch(slot).uint64, false)
   if key in cache.crosslink_committee_cache:
     for v in cache.crosslink_committee_cache[key]: yield v
-  #debugEcho "get_crosslink_committees_at_slot_cached: MISS"
   let result = get_crosslink_committees_at_slot(state, slot)
   cache.crosslink_committee_cache[key] = result
   for v in result: yield v

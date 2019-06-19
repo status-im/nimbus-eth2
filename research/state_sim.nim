@@ -15,7 +15,7 @@ type Timers = enum
   tBlock = "Process non-epoch slot with block"
   tEpoch = "Process epoch slot with block"
   tHashBlock = "Tree-hash block"
-  tShuffle = "Retrieve committee once using get_crosslink_committees_at_slot"
+  tShuffle = "Retrieve committee once using get_crosslink_committee"
   tAttest = "Combine committee attestations"
 
 template withTimer(stats: var RunningStat, body: untyped) =
