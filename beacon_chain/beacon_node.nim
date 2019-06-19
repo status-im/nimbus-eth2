@@ -722,7 +722,13 @@ when isMainModule:
     for i in config.firstValidator.int ..< config.totalValidators.int:
       let depositFile = config.validatorsDir /
                         validatorFileBaseName(i) & ".deposit.json"
-      deposits.add Json.loadFile(depositFile, Deposit)
+      try:
+        deposits.add Json.loadFile(depositFile, Deposit)
+      except SerializationError as err:
+        stderr.write "Error while loading a deposit file:\n"
+        stderr.write err.formatMsg(depositFile), "\n"
+        stderr.write "Please regenerate the deposit files by running validator_keygen again\n"
+        quit 1
 
     let initialState = get_genesis_beacon_state(
       deposits,
