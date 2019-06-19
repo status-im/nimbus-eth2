@@ -201,16 +201,6 @@ func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64):
       shard
     )
 
-iterator get_crosslink_committees_at_slot_cached*(
-  state: BeaconState, slot: Slot|uint64, cache: var StateCache):
-    CrosslinkCommittee =
-  let key = (slot_to_epoch(slot).uint64, false)
-  if key in cache.crosslink_committee_cache:
-    for v in cache.crosslink_committee_cache[key]: yield v
-  let result = get_crosslink_committees_at_slot(state, slot)
-  cache.crosslink_committee_cache[key] = result
-  for v in result: yield v
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: BeaconState): ValidatorIndex =
   # Return the current beacon proposer index.
