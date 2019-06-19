@@ -28,7 +28,7 @@ regenTestnetFiles() {
       --outputDir="$NETWORK_DIR"
   fi
 
-  nim c -r $NIM_FLAGS beacon_chain/beacon_node \
+  nim c -d:"network_type=$NETWORK_FLAVOUR" -r $NIM_FLAGS beacon_chain/beacon_node \
     --network=$NETWORK_NAME \
     --dataDir=$DATA_DIR/node-0 \
     createTestnet \
@@ -44,5 +44,6 @@ regenTestnetFiles() {
 }
 
 regenTestnetFiles rlpx
-# regenTestnetFiles libp2p -d:withLibP2P
+regenTestnetFiles libp2p_spec
+regenTestnetFiles libp2p_native
 
