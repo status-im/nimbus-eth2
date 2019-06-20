@@ -1,6 +1,8 @@
 # included from libp2p_backend
 
-proc `$`*(peer: Peer): string = $peer.id
+template `$`*(peer: Peer): string = $peer.id
+
+chronicles.formatIt(Peer): $it
 
 proc init*(T: type Peer, network: Eth2Node, id: PeerID): Peer {.gcsafe.}
 
