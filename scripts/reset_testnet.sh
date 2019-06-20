@@ -19,7 +19,7 @@ NETWORK_DIR=$WWW_DIR/$NETWORK_NAME
 
 regenTestnetFiles() {
   NIM_FLAGS="-d:release -d:SECONDS_PER_SLOT=$SECONDS_PER_SLOT -d:SHARD_COUNT=$SHARD_COUNT -d:SLOTS_PER_EPOCH=$SLOTS_PER_EPOCH ${2:-}"
-  NETWORK_FLAVOUR=$1
+  NETWORK_TYPE=$1
 
   if [ ! -f $NETWORK_DIR/genesis.json ]; then
     rm -f $NETWORK_DIR/*
@@ -28,7 +28,7 @@ regenTestnetFiles() {
       --outputDir="$NETWORK_DIR"
   fi
 
-  nim c -d:"network_type=$NETWORK_FLAVOUR" -r $NIM_FLAGS beacon_chain/beacon_node \
+  nim c -d:"network_type=$NETWORK_TYPE" -r $NIM_FLAGS beacon_chain/beacon_node \
     --network=$NETWORK_NAME \
     --dataDir=$DATA_DIR/node-0 \
     createTestnet \
@@ -37,7 +37,7 @@ regenTestnetFiles() {
     --totalValidators=$VALIDATOR_COUNT \
     --lastUserValidator=$LAST_USER_VALIDATOR \
     --outputGenesis=$NETWORK_DIR/genesis.json \
-    --outputNetwork=$NETWORK_DIR/$NETWORK_FLAVOUR-network.json \
+    --outputNetwork=$NETWORK_DIR/$NETWORK_TYPE-network.json \
     --bootstrapAddress=$PUBLIC_IP \
     --bootstrapPort=$BOOTSTRAP_PORT \
     --genesisOffset=600 # Delay in seconds

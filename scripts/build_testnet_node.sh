@@ -12,7 +12,7 @@ source "$NETWORK_NAME.env"
 
 cd ..
 
-NIM_FLAGS="-d:release --lineTrace:on -d:chronicles_log_level=DEBUG -d:SECONDS_PER_SLOT=$SECONDS_PER_SLOT -d:SHARD_COUNT=$SHARD_COUNT -d:SLOTS_PER_EPOCH=$SLOTS_PER_EPOCH -d:DEFAULT_NETWORK=$NETWORK_NAME --hints:off --verbosity:0"
+NIM_FLAGS="-d:release --lineTrace:on -d:chronicles_log_level=DEBUG -d:network_type=$NETWORK_TYPE -d:SECONDS_PER_SLOT=$SECONDS_PER_SLOT -d:SHARD_COUNT=$SHARD_COUNT -d:SLOTS_PER_EPOCH=$SLOTS_PER_EPOCH -d:DEFAULT_NETWORK=$NETWORK_NAME --hints:off --verbosity:0"
 
 BEACON_NODE_BIN="build/${NETWORK_NAME}_node"
 
@@ -29,7 +29,7 @@ echo "Done! You're now ready to connect to $NETWORK_NAME by running:"
 echo
 echo "    $BEACON_NODE_BIN"
 echo
-echo "Database and configuration files placed in:"
+echo "Database and configuration files will be placed in:"
 echo
 echo "    ${HOME}/.cache/nimbus/BeaconNode/${NETWORK_NAME}"
 echo
