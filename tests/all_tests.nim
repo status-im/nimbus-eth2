@@ -19,8 +19,6 @@ import # Unit test
   # ./test_validator # Empty!
 
 import # Official fixtures
-  # TODO - re-enable
-  #./official/test_fixture_state
   ./official/test_fixture_shuffling,
   ./official/test_fixture_bls,
   ./official/test_fixture_ssz_uint
