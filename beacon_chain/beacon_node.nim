@@ -475,13 +475,20 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   # In case blocks went missing, this means advancing past the latest block
   # using empty slots as fillers.
   node.blockPool.withState(node.stateCache, attestationHead):
-    for crosslink_committee in get_crosslink_committees_at_slot(state, slot):
-      for i, validatorIdx in crosslink_committee.committee:
+    var cache = get_empty_per_epoch_cache()
+    let epoch = slot_to_epoch(slot)
+    for committee_index in 0'u64 ..< get_epoch_committee_count(state, epoch):
+      ## TODO verify that this is the correct mapping; it's consistent with
+      ## other code
+      let
+        shard = committee_index mod SHARD_COUNT
+        committee = get_crosslink_committee(state, epoch, shard, cache)
+      for i, validatorIdx in committee:
         let validator = node.getAttachedValidator(state, validatorIdx)
         if validator != nil:
           attestations.add (
-            makeAttestationData(state, crosslink_committee.shard, blck.root),
-            crosslink_committee.committee.len, i, validator)
+            makeAttestationData(state, shard, blck.root),
+            committee.len, i, validator)
 
   for a in attestations:
     traceAsyncErrors sendAttestation(

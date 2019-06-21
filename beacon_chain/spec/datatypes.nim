@@ -363,9 +363,6 @@ type
     Activation = 0
     Exit = 1
 
-  # TODO: not in spec
-  CrosslinkCommittee* = tuple[committee: seq[ValidatorIndex], shard: uint64]
-
   # TODO to be replaced with some magic hash caching
   HashedBeaconState* = object
     data*: BeaconState

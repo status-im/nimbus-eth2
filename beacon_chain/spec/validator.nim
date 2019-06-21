@@ -133,6 +133,9 @@ func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
 func get_crosslink_committee*(state: BeaconState, epoch: Epoch, shard: Shard,
     stateCache: var StateCache): seq[ValidatorIndex] =
 
+  doAssert shard >= 0'u64
+  doAssert shard < SHARD_COUNT
+
   ## This is a somewhat more fragile, but high-ROI, caching setup --
   ## get_active_validator_indices() is slow to run in a loop and only
   ## changes once per epoch.
@@ -154,37 +157,6 @@ func get_empty_per_epoch_cache*(): StateCache =
     initTable[tuple[a: int, b: Eth2Digest], seq[ValidatorIndex]]()
   result.active_validator_indices_cache =
     initTable[Epoch, seq[ValidatorIndex]]()
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_crosslink_committees_at_slot
-func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64):
-    seq[CrosslinkCommittee] =
-  ## Returns the list of ``(committee, shard)`` tuples for the ``slot``.
-
-  let
-    epoch = slot_to_epoch(slot) # TODO, enforce slot to be a Slot
-    current_epoch = get_current_epoch(state)
-    previous_epoch = get_previous_epoch(state)
-    next_epoch = current_epoch + 1
-
-  doAssert previous_epoch <= epoch,
-    "Previous epoch: " & $humaneEpochNum(previous_epoch) &
-    ", epoch: " & $humaneEpochNum(epoch) &
-    " (slot: " & $humaneSlotNum(slot.Slot) & ")" &
-    ", Next epoch: " & $humaneEpochNum(next_epoch)
-
-  doAssert epoch <= next_epoch,
-    "Previous epoch: " & $humaneEpochNum(previous_epoch) &
-    ", epoch: " & $humaneEpochNum(epoch) &
-    " (slot: " & $humaneSlotNum(slot.Slot) & ")" &
-    ", Next epoch: " & $humaneEpochNum(next_epoch)
-
-  var cache = get_empty_per_epoch_cache()
-  for i in 0'u64 ..< get_epoch_committee_count(state, epoch):
-    let shard = i mod SHARD_COUNT
-    result.add (
-      get_crosslink_committee(state, epoch, shard, cache),
-      shard
-    )
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: BeaconState, stateCache: var StateCache):

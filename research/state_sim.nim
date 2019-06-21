@@ -65,6 +65,7 @@ cli do(slots = 1945,
     attesters: RunningStat
     r: Rand
     blck: BeaconBlock
+    cache = get_empty_per_epoch_cache()
 
   proc maybeWrite() =
     if state.slot mod json_interval.uint64 == 0:
@@ -97,17 +98,20 @@ cli do(slots = 1945,
       # work for every slot - we'll randomize it deterministically to give
       # some variation
       let scass = withTimerRet(timers[tShuffle]):
-        get_crosslink_committees_at_slot(state, state.slot)
+        mapIt(
+          0'u64 ..< get_epoch_committee_count(state, epoch),
+          get_crosslink_committee(
+            state, slot_to_epoch(state.slot), it mod SHARD_COUNT, cache))
 
       for scas in scass:
         var
           attestation: Attestation
           first = true
 
-        attesters.push scas.committee.len()
+        attesters.push scas.len()
 
         withTimer(timers[tAttest]):
-          for v in scas.committee:
+          for v in scas:
             if (rand(r, high(int)).float * attesterRatio).int <= high(int):
               if first:
                 attestation = makeAttestation(state, latest_block_root, v, flags)

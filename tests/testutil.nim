@@ -142,7 +142,7 @@ proc makeBlock*(
   addBlock(next_state, previous_block_root, body)
 
 proc find_shard_committee(
-    state: BeaconState, validator_index: ValidatorIndex): CrosslinkCommittee =
+    state: BeaconState, validator_index: ValidatorIndex): auto =
   let
     epoch = slot_to_epoch(state.slot)
   var cache = get_empty_per_epoch_cache()
@@ -156,15 +156,15 @@ proc makeAttestation*(
     state: BeaconState, beacon_block_root: Eth2Digest,
     validator_index: ValidatorIndex, flags: UpdateFlags = {}): Attestation =
   let
-    sac = find_shard_committee(state, validator_index)
+    (committee, shard) = find_shard_committee(state, validator_index)
     validator = state.validator_registry[validator_index]
-    sac_index = sac.committee.find(validator_index)
-    data = makeAttestationData(state, sac.shard, beacon_block_root)
+    sac_index = committee.find(validator_index)
+    data = makeAttestationData(state, shard, beacon_block_root)
 
   doAssert sac_index != -1, "find_shard_committee should guarantee this"
 
   var
-    aggregation_bitfield = BitField.init(sac.committee.len)
+    aggregation_bitfield = BitField.init(committee.len)
   set_bitfield_bit(aggregation_bitfield, sac_index)
 
   let
@@ -185,7 +185,7 @@ proc makeAttestation*(
     data: data,
     aggregation_bitfield: aggregation_bitfield,
     signature: sig,
-    custody_bitfield: BitField.init(sac.committee.len)
+    custody_bitfield: BitField.init(committee.len)
   )
 
 proc makeTestDB*(tailState: BeaconState, tailBlock: BeaconBlock): BeaconChainDB =
