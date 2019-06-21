@@ -97,11 +97,12 @@ cli do(slots = 1945,
       # attesterRatio is the fraction of attesters that actually do their
       # work for every slot - we'll randomize it deterministically to give
       # some variation
-      let scass = withTimerRet(timers[tShuffle]):
-        mapIt(
-          0'u64 ..< get_epoch_committee_count(state, epoch),
-          get_crosslink_committee(
-            state, slot_to_epoch(state.slot), it mod SHARD_COUNT, cache))
+      let
+        epoch = slot_to_epoch(state.slot)
+        scass = withTimerRet(timers[tShuffle]):
+          mapIt(
+            0'u64 .. (get_epoch_committee_count(state, epoch) - 1),
+            get_crosslink_committee(state, epoch, it mod SHARD_COUNT, cache))
 
       for scas in scass:
         var
