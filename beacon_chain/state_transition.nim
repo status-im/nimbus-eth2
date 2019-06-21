@@ -481,20 +481,6 @@ proc processBlock(
 
   true
 
-# TODO this cached version corresponds to the blob/v0.5.1ish get_attesting_indices
-# rm/make consistent with 0.6 version above
-func get_attesting_indices_cached(
-    state: BeaconState,
-    attestations: openArray[PendingAttestation], cache: var StateCache):
-      HashSet[ValidatorIndex] =
-  # Union of attesters that participated in some attestations
-  result = initSet[ValidatorIndex]()
-  for attestation in attestations:
-    for validator_index in get_attestation_participants_cached(
-        state, attestation.data, attestation.aggregation_bitfield,
-        cache):
-      result.incl validator_index
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#helper-functions-1
 func get_total_active_balance(state: BeaconState): Gwei =
   return get_total_balance(
