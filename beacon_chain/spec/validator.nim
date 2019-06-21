@@ -132,8 +132,16 @@ func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_crosslink_committee
 func get_crosslink_committee*(state: BeaconState, epoch: Epoch, shard: Shard,
     stateCache: var StateCache): seq[ValidatorIndex] =
+
+  ## This is a somewhat more fragile, but high-ROI, caching setup --
+  ## get_active_validator_indices() is slow to run in a loop and only
+  ## changes once per epoch.
+  if epoch notin stateCache.active_validator_indices_cache:
+    stateCache.active_validator_indices_cache[epoch] =
+      get_active_validator_indices(state, epoch)
+
   compute_committee(
-    get_active_validator_indices(state, epoch),
+    stateCache.active_validator_indices_cache[epoch],
     generate_seed(state, epoch),
     (shard + SHARD_COUNT - get_epoch_start_shard(state, epoch)) mod SHARD_COUNT,
     get_epoch_committee_count(state, epoch),
@@ -144,6 +152,8 @@ func get_crosslink_committee*(state: BeaconState, epoch: Epoch, shard: Shard,
 func get_empty_per_epoch_cache*(): StateCache =
   result.crosslink_committee_cache =
     initTable[tuple[a: int, b: Eth2Digest], seq[ValidatorIndex]]()
+  result.active_validator_indices_cache =
+    initTable[Epoch, seq[ValidatorIndex]]()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_crosslink_committees_at_slot
 func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64):

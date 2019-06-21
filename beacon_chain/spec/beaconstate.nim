@@ -322,7 +322,9 @@ func get_total_balance*(state: BeaconState, validators: auto): Gwei =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#registry-updates
 func process_registry_updates*(state: var BeaconState) =
-  # Process activation eligibility and ejections
+  ## Process activation eligibility and ejections
+  ## Try to avoid caching here, since this could easily become undefined
+
   for index, validator in state.validator_registry:
     if validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and
         validator.effective_balance >= MAX_EFFECTIVE_BALANCE:

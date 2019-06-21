@@ -929,7 +929,12 @@ func processEpoch(state: var BeaconState) =
   process_rewards_and_penalties(state, per_epoch_cache)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#registry-updates
+  # Don't rely on caching here.
   process_registry_updates(state)
+
+  ## Caching here for get_crosslink_committee(...) can break otherwise, since
+  ## get_active_validator_indices(...) usually changes.
+  clear(per_epoch_cache.crosslink_committee_cache)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#slashings
   process_slashings(state)
