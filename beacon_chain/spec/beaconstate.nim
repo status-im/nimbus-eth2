@@ -148,7 +148,8 @@ func initiate_validator_exit*(state: var BeaconState,
     validator.exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#slash_validator
-func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex) =
+func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
+    stateCache: var StateCache) =
   # Slash the validator with index ``index``.
   let current_epoch = get_current_epoch(state)
   initiate_validator_exit(state, slashed_index)
@@ -161,7 +162,7 @@ func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex) =
     slashed_balance
 
   let
-    proposer_index = get_beacon_proposer_index(state)
+    proposer_index = get_beacon_proposer_index(state, stateCache)
     # Spec has whistleblower_index as optional param, but it's never used.
     whistleblower_index = proposer_index
     whistleblowing_reward = slashed_balance div WHISTLEBLOWING_REWARD_QUOTIENT
@@ -411,7 +412,9 @@ func validate_indexed_attestation*(
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(state: BeaconState,
                             attestation_data: AttestationData,
-                            bitfield: BitField): HashSet[ValidatorIndex] =
+                            bitfield: BitField,
+                            stateCache: var StateCache):
+                            HashSet[ValidatorIndex] =
   ## Return the sorted attesting indices corresponding to ``attestation_data``
   ## and ``bitfield``.
   ## The spec goes through a lot of hoops to sort things, and sometimes
@@ -421,7 +424,7 @@ func get_attesting_indices*(state: BeaconState,
   result = initSet[ValidatorIndex]()
   let committee =
     get_crosslink_committee(state, attestation_data.target_epoch,
-      attestation_data.shard)
+      attestation_data.shard, stateCache)
   doAssert verify_bitfield(bitfield, len(committee))
   for i, index in committee:
     if get_bitfield_bit(bitfield, i):
@@ -430,25 +433,29 @@ func get_attesting_indices*(state: BeaconState,
 func get_attesting_indices_seq*(
     state: BeaconState, attestation_data: AttestationData, bitfield: BitField):
     seq[ValidatorIndex] =
-  toSeq(items(get_attesting_indices(state, attestation_data, bitfield)))
+  var cache = get_empty_per_epoch_cache()
+  toSeq(items(get_attesting_indices(
+    state, attestation_data, bitfield, cache)))
 
 # TODO legacy function name; rename, reimplement caching if useful, blob/v0.6.2
 iterator get_attestation_participants_cached*(
     state: BeaconState, attestation_data: AttestationData, bitfield: BitField,
     cache: var StateCache): ValidatorIndex =
-  for participant in get_attesting_indices(state, attestation_data, bitfield):
+  for participant in get_attesting_indices(
+      state, attestation_data, bitfield, cache):
     yield participant
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#convert_to_indexed
-func convert_to_indexed(state: BeaconState, attestation: Attestation): IndexedAttestation =
+func convert_to_indexed(state: BeaconState, attestation: Attestation,
+    stateCache: var StateCache): IndexedAttestation =
   # Convert ``attestation`` to (almost) indexed-verifiable form.
   let
     attesting_indices =
       get_attesting_indices(
-        state, attestation.data, attestation.aggregation_bitfield)
+        state, attestation.data, attestation.aggregation_bitfield, stateCache)
     custody_bit_1_indices =
       get_attesting_indices(
-        state, attestation.data, attestation.custody_bitfield)
+        state, attestation.data, attestation.custody_bitfield, stateCache)
 
     ## TODO quadratic, .items, but first-class iterators, etc
     ## filterIt can't work on HashSets directly because it is
@@ -486,7 +493,8 @@ func convert_to_indexed(state: BeaconState, attestation: Attestation): IndexedAt
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#attestations
 proc checkAttestation*(
-    state: BeaconState, attestation: Attestation, flags: UpdateFlags): bool =
+    state: BeaconState, attestation: Attestation, flags: UpdateFlags,
+    stateCache: var StateCache): bool =
   ## Process ``Attestation`` operation.
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
@@ -531,7 +539,7 @@ proc checkAttestation*(
 
   # Check signature and bitfields
   if not validate_indexed_attestation(
-      state, convert_to_indexed(state, attestation)):
+      state, convert_to_indexed(state, attestation, stateCache)):
     warn("checkAttestation: signature or bitfields incorrect")
     return
 

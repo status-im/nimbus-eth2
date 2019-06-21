@@ -18,11 +18,6 @@ proc combine*(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
   ## the same data is being signed - if the signatures overlap, they are not
   ## combined.
 
-  debugEcho "BEGIN"
-  debugEcho "tgt.data = ", tgt.data
-  debugEcho "src.data = ", src.data
-  debugEcho "END"
-  debugEcho ""
   doAssert tgt.data == src.data
 
   # In a BLS aggregate signature, one needs to count how many times a
@@ -265,6 +260,7 @@ proc getAttestationsForBlock*(
       newBlockSlot = humaneSlotNum(newBlockSlot)
     return
 
+  var cache = get_empty_per_epoch_cache()
   let
     # TODO in theory we could include attestations from other slots also, but
     # we're currently not tracking which attestations have already been included
@@ -301,7 +297,8 @@ proc getAttestationsForBlock*(
     #      attestations into the pool in general is an open question that needs
     #      revisiting - for example, when attestations are added, against which
     #      state should they be validated, if at all?
-    if not checkAttestation(state, attestation, {skipValidation, nextSlot}):
+    if not checkAttestation(
+        state, attestation, {skipValidation, nextSlot}, cache):
       continue
 
     for v in a.validations[1..^1]:

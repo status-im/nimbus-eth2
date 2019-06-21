@@ -76,6 +76,7 @@ suite "Block processing" & preset():
     var
       state = genesisState
       previous_block_root = genesisRoot
+      cache = get_empty_per_epoch_cache()
 
     # Slot 0 is a finalized slot - won't be making attestations for it..
     advanceState(state)
@@ -83,7 +84,7 @@ suite "Block processing" & preset():
     let
       # Create an attestation for slot 1 signed by the only attester we have!
       crosslink_committee =
-        get_crosslink_committee(state, slot_to_epoch(state.slot), 0)
+        get_crosslink_committee(state, slot_to_epoch(state.slot), 0, cache)
       attestation = makeAttestation(
         state, previous_block_root, crosslink_committee[0])
 

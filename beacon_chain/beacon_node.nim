@@ -496,9 +496,10 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
   #      proposing for it - basically, we're selecting proposer based on an
   #      empty slot.. wait for the committee selection to settle, then
   #      revisit this - we should be able to advance behind
+  var cache = get_empty_per_epoch_cache()
   node.blockPool.withState(node.stateCache, BlockSlot(blck: head, slot: slot)):
     let
-      proposerIdx = get_beacon_proposer_index(state)
+      proposerIdx = get_beacon_proposer_index(state, cache)
       validator = node.getAttachedValidator(state, proposerIdx)
 
     if validator != nil:
