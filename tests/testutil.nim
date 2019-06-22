@@ -143,11 +143,11 @@ proc makeBlock*(
 
 proc find_shard_committee(
     state: BeaconState, validator_index: ValidatorIndex): auto =
-  let
-    epoch = slot_to_epoch(state.slot)
+  let epoch = slot_to_epoch(state.slot)
   var cache = get_empty_per_epoch_cache()
   for shard in 0'u64 ..< get_epoch_committee_count(state, epoch):
-    let committee = get_crosslink_committee(state, epoch, shard, cache)
+    let committee = get_crosslink_committee(state, epoch,
+      (shard + get_epoch_start_shard(state, epoch)) mod SHARD_COUNT, cache)
     if validator_index in committee:
       return (committee, shard)
   doAssert false

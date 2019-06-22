@@ -506,7 +506,10 @@ proc checkAttestation*(
     if nextSlot in flags: state.slot + 1
     else: state.slot
 
-  let attestation_slot = get_attestation_slot(state, attestation)
+  let
+    data = attestation.data
+    attestation_slot = get_attestation_slot(state, attestation)
+
   if not (attestation_slot + MIN_ATTESTATION_INCLUSION_DELAY <= stateSlot):
     warn("Attestation too new",
       attestation_slot = humaneSlotNum(attestation_slot),
@@ -519,25 +522,62 @@ proc checkAttestation*(
       state_slot = humaneSlotNum(stateSlot))
     return
 
+  let pending_attestation = PendingAttestation(
+    data: data,
+    aggregation_bitfield: attestation.aggregation_bitfield,
+    inclusion_delay: state.slot - attestation_slot,
+    proposer_index: get_beacon_proposer_index(state, stateCache),
+  )
+
   # Check target epoch, source epoch, source root, and source crosslink
-  let data = attestation.data
-  if not (
-    (data.target_epoch, data.source_epoch, data.source_root, data.previous_crosslink_root) ==
-      (get_current_epoch(state), state.current_justified_epoch,
-       state.current_justified_root,
-       hash_tree_root(state.current_crosslinks[data.shard])) or
-    (data.target_epoch, data.source_epoch, data.source_root, data.previous_crosslink_root) ==
-      (get_previous_epoch(state), state.previous_justified_epoch,
-       state.previous_justified_root,
-       hash_tree_root(state.previous_crosslinks[data.shard]))):
-    warn("checkAttestation: target epoch, source epoch, source root, or source crosslink invalid")
+  if not (data.target_epoch == get_previous_epoch(state) or
+      data.target_epoch == get_current_epoch(state)):
+    warn("Target epoch not current or previous epoch")
     return
 
-  ## Check crosslink data root
-  ## [to be removed in phase 1]
-  if attestation.data.crosslink_data_root != ZERO_HASH:
-    warn("Invalid crosslink data root")
-    return
+  # Check FFG data, crosslink data, and signature
+  let ffg_check_data = (data.source_epoch, data.source_root, data.target_epoch)
+
+  if data.target_epoch == get_current_epoch(state):
+    if not (ffg_check_data == (state.current_justified_epoch,
+        state.current_justified_root, get_current_epoch(state))):
+      warn("FFG data not matching current justified epoch")
+      return
+
+    #if not (data.crosslink.parent_root ==
+    #    hash_tree_root(state.current_crosslinks[data.crosslink.shard])):
+    #  warn("Crosslink shard's current crosslinks not matching crosslink parent root")
+    #  return
+
+    #state.current_epoch_attestations.add(pending_attestation)
+  else:
+    if not (ffg_check_data == (state.previous_justified_epoch,
+        state.previous_justified_root, get_previous_epoch(state))):
+      warn("FFG data not matching current justified epoch")
+      return
+
+    #if not (data.crosslink.parent_root ==
+    #    hash_tree_root(state.previous_crosslinks[data.crosslink.shard])):
+    #  warn("Crosslink shard's previous crosslinks not matching crosslink parent root")
+    #  return
+
+    #state.previous_epoch_attestations.add(pending_attestation)
+
+  # TODO un-comment when changed Crosslink to 0.7 structure
+  #if not (data.crosslink.start_epoch == parent_crosslink.end_epoch):
+  #  warn("Crosslink start and end epochs not the same")
+  #  return
+
+  #if not (data.crosslink.end_epoch == min(data.target_epoch, parent_crosslink.end_epoch + MAX_EPOCHS_PER_CROSSLINK)):
+  #  warn("Crosslink end epoch incorrect")
+  #  return
+
+  # Simlarly, these depend on 0.7 data structures
+  #assert data.crosslink.parent_root == hash_tree_root(parent_crosslink)
+
+  #if not (data.crosslink.data_root == ZERO_HASH):  # [to be removed in phase 1]
+  #  warn("Crosslink data root not zero")
+  #  return
 
   # Check signature and bitfields
   if not validate_indexed_attestation(
@@ -562,7 +602,8 @@ proc makeAttestationData*(
 
   AttestationData(
     slot: state.slot,
-    shard: shard,
+    # Alternative is to put this offset into all callers
+    shard: shard + get_epoch_start_shard(state, slot_to_epoch(state.slot)),
     beacon_block_root: beacon_block_root,
     target_root: target_root,
     crosslink_data_root: Eth2Digest(), # Stub in phase0

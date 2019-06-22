@@ -102,7 +102,9 @@ cli do(slots = 1945,
         scass = withTimerRet(timers[tShuffle]):
           mapIt(
             0'u64 .. (get_epoch_committee_count(state, epoch) - 1),
-            get_crosslink_committee(state, epoch, it mod SHARD_COUNT, cache))
+            get_crosslink_committee(state, epoch,
+              (it + get_epoch_start_shard(state, epoch)) mod SHARD_COUNT,
+              cache))
 
       for scas in scass:
         var

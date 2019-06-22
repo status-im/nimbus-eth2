@@ -113,6 +113,7 @@ func get_epoch_start_shard*(state: BeaconState, epoch: Epoch): Shard =
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#compute_committee
 func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
     index: uint64, count: uint64, stateCache: var StateCache): seq[ValidatorIndex] =
+
   let
     start = (len(indices).uint64 * index) div count
     endIdx = (len(indices).uint64 * (index + 1)) div count
@@ -123,17 +124,24 @@ func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
     stateCache.crosslink_committee_cache[key] =
       get_shuffled_seq(seed, len(indices).uint64)
 
+  # These assertions from get_shuffled_index(...)
+  let index_count = indices.len().uint64
+  doAssert endIdx <= index_count
+  doAssert index_count <= 2'u64^40
+
   # In spec, this calls get_shuffled_index() every time, but that's wasteful
   mapIt(
     start.int .. (endIdx.int-1),
     indices[
-      stateCache.crosslink_committee_cache[(indices.len, seed)][it]])
+      stateCache.crosslink_committee_cache[key][it]])
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_crosslink_committee
 func get_crosslink_committee*(state: BeaconState, epoch: Epoch, shard: Shard,
     stateCache: var StateCache): seq[ValidatorIndex] =
 
   doAssert shard >= 0'u64
+  # This seems to be required, basically, to be true? But I'm not entirely sure
+  #doAssert shard >= get_epoch_start_shard(state, epoch)
   doAssert shard < SHARD_COUNT
 
   ## This is a somewhat more fragile, but high-ROI, caching setup --
