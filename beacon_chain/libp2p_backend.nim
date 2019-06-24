@@ -1,12 +1,12 @@
 import
-  options, macros, algorithm, tables,
+  macros, algorithm, tables,
   std_shims/[macros_shim, tables_shims], chronos, chronicles,
   libp2p/daemon/daemonapi, faststreams/output_stream, serialization,
-  eth/p2p/p2p_protocol_dsl,
-  ssz
+  json_serialization/std/options, eth/p2p/p2p_protocol_dsl,
+  libp2p_json_serialization, ssz
 
 export
-  daemonapi, p2pProtocol
+  daemonapi, p2pProtocol, libp2p_json_serialization
 
 type
   Eth2Node* = ref object of RootObj
@@ -506,7 +506,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
           try:
             debug "INCOMING CONNECTION", `peerVar`
             `await` `handshakeProcName`(`peerVar`, `streamVar`)
-            debug "HANSHAKE COMPLETED", `peerVar`
+            debug "HANDSHAKE COMPLETED", `peerVar`
           except SerializationError as err:
             debug "Failed to decode message",
                   err = err.formatMsg("<msg>"),
