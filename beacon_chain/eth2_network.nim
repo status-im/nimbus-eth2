@@ -196,13 +196,19 @@ else:
 
   proc connectToNetwork*(node: Eth2Node, bootstrapNodes: seq[PeerInfo]) {.async.} =
     # TODO: perhaps we should do these in parallel
+    var connected = false
     for bootstrapNode in bootstrapNodes:
       try:
         await node.daemon.connect(bootstrapNode.peer, bootstrapNode.addresses)
         let peer = node.getPeer(bootstrapNode.peer)
         await initializeConnection(peer)
+        connected = true
       except PeerDisconnected:
         error "Failed to connect to bootstrap node", node = bootstrapNode
+
+    if connected == false:
+      fatal "Failed to connect to any bootstrap node. Quitting."
+      quit 1
 
   proc saveConnectionAddressFile*(node: Eth2Node, filename: string) =
     let id = waitFor node.daemon.identity()
