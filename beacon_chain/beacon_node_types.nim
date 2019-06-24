@@ -206,10 +206,9 @@ type
 
   StateCache* = object
     crosslink_committee_cache*:
-      Table[tuple[a: uint64, b: bool], seq[CrosslinkCommittee]]
-
-    winning_root_participants_cache*:
-      Table[Shard, HashSet[ValidatorIndex]]
+      Table[tuple[a: int, b: Eth2Digest], seq[ValidatorIndex]]
+    active_validator_indices_cache*:
+      Table[Epoch, seq[ValidatorIndex]]
 
   BlockSlot* = object
     ## Unique identifier for a particular fork in the block chain - normally,

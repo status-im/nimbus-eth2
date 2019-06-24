@@ -63,9 +63,12 @@ func getNextBeaconProposerIndex*(state: BeaconState): ValidatorIndex =
   # TODO: This is a special version of get_beacon_proposer_index that takes into
   #       account the partial update done at the start of slot processing -
   #       see get_shard_committees_index
-  var next_state = state
+  var
+    next_state = state
+    cache = get_empty_per_epoch_cache()
+
   next_state.slot += 1
-  get_beacon_proposer_index(next_state)
+  get_beacon_proposer_index(next_state, cache)
 
 proc addBlock*(
     state: var BeaconState, previous_block_root: Eth2Digest,
@@ -76,7 +79,8 @@ proc addBlock*(
   # but avoids some slow block copies
 
   state.slot += 1
-  let proposer_index = get_beacon_proposer_index(state)
+  var cache = get_empty_per_epoch_cache()
+  let proposer_index = get_beacon_proposer_index(state, cache)
   state.slot -= 1
 
   let
@@ -138,25 +142,29 @@ proc makeBlock*(
   addBlock(next_state, previous_block_root, body)
 
 proc find_shard_committee(
-    sacs: openArray[CrosslinkCommittee], validator_index: ValidatorIndex): CrosslinkCommittee =
-  for sac in sacs:
-    if validator_index in sac.committee: return sac
+    state: BeaconState, validator_index: ValidatorIndex): auto =
+  let epoch = slot_to_epoch(state.slot)
+  var cache = get_empty_per_epoch_cache()
+  for shard in 0'u64 ..< get_epoch_committee_count(state, epoch):
+    let committee = get_crosslink_committee(state, epoch,
+      (shard + get_epoch_start_shard(state, epoch)) mod SHARD_COUNT, cache)
+    if validator_index in committee:
+      return (committee, shard)
   doAssert false
 
 proc makeAttestation*(
     state: BeaconState, beacon_block_root: Eth2Digest,
     validator_index: ValidatorIndex, flags: UpdateFlags = {}): Attestation =
   let
-    sac = find_shard_committee(
-      get_crosslink_committees_at_slot(state, state.slot), validator_index)
+    (committee, shard) = find_shard_committee(state, validator_index)
     validator = state.validator_registry[validator_index]
-    sac_index = sac.committee.find(validator_index)
-    data = makeAttestationData(state, sac.shard, beacon_block_root)
+    sac_index = committee.find(validator_index)
+    data = makeAttestationData(state, shard, beacon_block_root)
 
-  doAssert sac_index != -1, "find_shard_committe should guarantee this"
+  doAssert sac_index != -1, "find_shard_committee should guarantee this"
 
   var
-    aggregation_bitfield = BitField.init(sac.committee.len)
+    aggregation_bitfield = BitField.init(committee.len)
   set_bitfield_bit(aggregation_bitfield, sac_index)
 
   let
@@ -177,7 +185,7 @@ proc makeAttestation*(
     data: data,
     aggregation_bitfield: aggregation_bitfield,
     signature: sig,
-    custody_bitfield: BitField.init(sac.committee.len)
+    custody_bitfield: BitField.init(committee.len)
   )
 
 proc makeTestDB*(tailState: BeaconState, tailBlock: BeaconBlock): BeaconChainDB =

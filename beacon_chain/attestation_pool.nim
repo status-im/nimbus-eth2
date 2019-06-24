@@ -260,6 +260,7 @@ proc getAttestationsForBlock*(
       newBlockSlot = humaneSlotNum(newBlockSlot)
     return
 
+  var cache = get_empty_per_epoch_cache()
   let
     # TODO in theory we could include attestations from other slots also, but
     # we're currently not tracking which attestations have already been included
@@ -296,7 +297,8 @@ proc getAttestationsForBlock*(
     #      attestations into the pool in general is an open question that needs
     #      revisiting - for example, when attestations are added, against which
     #      state should they be validated, if at all?
-    if not checkAttestation(state, attestation, {skipValidation, nextSlot}):
+    if not checkAttestation(
+        state, attestation, {skipValidation, nextSlot}, cache):
       continue
 
     for v in a.validations[1..^1]:

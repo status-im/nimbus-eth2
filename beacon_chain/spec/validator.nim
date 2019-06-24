@@ -7,8 +7,7 @@
 # Helpers and functions pertaining to managing the validator set
 
 import
-  options, nimcrypto, sequtils, math, chronicles,
-  eth/common,
+  options, nimcrypto, sequtils, math, tables, chronicles,
   ../ssz, ../beacon_node_types,
   ./crypto, ./datatypes, ./digest, ./helpers
 
@@ -80,44 +79,6 @@ func get_shuffled_seq*(seed: Eth2Digest,
 
   result = shuffled_active_validator_indices
 
-func get_shuffled_index(index: ValidatorIndex, index_count: uint64, seed: Eth2Digest): uint64 =
-  ## Return the shuffled validator index corresponding to ``seed`` (and
-  ## ``index_count``).
-  ## https://github.com/status-im/nim-beacon-chain/blob/f77016af6818ad2c853f6c9e2751b17548e0222e/beacon_chain/spec/validator.nim#L15
-
-  doAssert index.uint64 < index_count
-  doAssert index_count <= 2'u64^40
-
-  result = index
-  var pivot_buffer: array[(32+1), byte]
-  var source_buffer: array[(32+1+4), byte]
-
-  # Swap or not (https://link.springer.com/content/pdf/10.1007%2F978-3-642-32009-5_1.pdf)
-  # See the 'generalized domain' algorithm on page 3
-  for round in 0 ..< SHUFFLE_ROUND_COUNT:
-    pivot_buffer[0..31] = seed.data
-    let round_bytes1 = int_to_bytes1(round)[0]
-    pivot_buffer[32] = round_bytes1
-
-    let
-      pivot = bytes_to_int(eth2hash(pivot_buffer).data[0..7]) mod index_count
-      flip = (pivot - index) mod index_count
-      position = max(index.uint64, flip)
-
-    ## Tradeoff between slicing (if reusing one larger buffer) and additional
-    ## copies here of seed and `int_to_bytes1(round)`.
-    source_buffer[0..31] = seed.data
-    source_buffer[32] = round_bytes1
-    source_buffer[33..36] = int_to_bytes4(position div 256)
-
-    let
-      source = eth2hash(source_buffer).data
-      byte_value = source[(position mod 256) div 8]
-      bit = (byte_value shr (position mod 8)) mod 2
-
-    if bit != 0:
-      result = flip
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(state: BeaconState): Epoch =
   ## Return the previous epoch of the given ``state``.
@@ -151,69 +112,63 @@ func get_epoch_start_shard*(state: BeaconState, epoch: Epoch): Shard =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#compute_committee
 func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
-    index: uint64, count: uint64): seq[ValidatorIndex] =
+    index: uint64, count: uint64, stateCache: var StateCache): seq[ValidatorIndex] =
+
   let
     start = (len(indices).uint64 * index) div count
     endIdx = (len(indices).uint64 * (index + 1)) div count
+    key = (indices.len, seed)
   doAssert endIdx.int - start.int > 0
+
+  if key notin stateCache.crosslink_committee_cache:
+    stateCache.crosslink_committee_cache[key] =
+      get_shuffled_seq(seed, len(indices).uint64)
+
+  # These assertions from get_shuffled_index(...)
+  let index_count = indices.len().uint64
+  doAssert endIdx <= index_count
+  doAssert index_count <= 2'u64^40
+
+  # In spec, this calls get_shuffled_index() every time, but that's wasteful
   mapIt(
     start.int .. (endIdx.int-1),
     indices[
-      get_shuffled_index(it.ValidatorIndex, len(indices).uint64, seed).int])
+      stateCache.crosslink_committee_cache[key][it]])
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_crosslink_committee
-func get_crosslink_committee*(state: BeaconState, epoch: Epoch, shard: Shard):
-    seq[ValidatorIndex] =
+func get_crosslink_committee*(state: BeaconState, epoch: Epoch, shard: Shard,
+    stateCache: var StateCache): seq[ValidatorIndex] =
+
+  doAssert shard >= 0'u64
+  # This seems to be required, basically, to be true? But I'm not entirely sure
+  #doAssert shard >= get_epoch_start_shard(state, epoch)
+  doAssert shard < SHARD_COUNT
+
+  ## This is a somewhat more fragile, but high-ROI, caching setup --
+  ## get_active_validator_indices() is slow to run in a loop and only
+  ## changes once per epoch.
+  if epoch notin stateCache.active_validator_indices_cache:
+    stateCache.active_validator_indices_cache[epoch] =
+      get_active_validator_indices(state, epoch)
+
   compute_committee(
-    get_active_validator_indices(state, epoch),
+    stateCache.active_validator_indices_cache[epoch],
     generate_seed(state, epoch),
     (shard + SHARD_COUNT - get_epoch_start_shard(state, epoch)) mod SHARD_COUNT,
     get_epoch_committee_count(state, epoch),
+    stateCache
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.0/specs/core/0_beacon-chain.md#get_crosslink_committees_at_slot
-func get_crosslink_committees_at_slot*(state: BeaconState, slot: Slot|uint64):
-    seq[CrosslinkCommittee] =
-  ## Returns the list of ``(committee, shard)`` tuples for the ``slot``.
-
-  let
-    epoch = slot_to_epoch(slot) # TODO, enforce slot to be a Slot
-    current_epoch = get_current_epoch(state)
-    previous_epoch = get_previous_epoch(state)
-    next_epoch = current_epoch + 1
-
-  doAssert previous_epoch <= epoch,
-    "Previous epoch: " & $humaneEpochNum(previous_epoch) &
-    ", epoch: " & $humaneEpochNum(epoch) &
-    " (slot: " & $humaneSlotNum(slot.Slot) & ")" &
-    ", Next epoch: " & $humaneEpochNum(next_epoch)
-
-  doAssert epoch <= next_epoch,
-    "Previous epoch: " & $humaneEpochNum(previous_epoch) &
-    ", epoch: " & $humaneEpochNum(epoch) &
-    " (slot: " & $humaneSlotNum(slot.Slot) & ")" &
-    ", Next epoch: " & $humaneEpochNum(next_epoch)
-
-  for i in 0'u64 ..< get_epoch_committee_count(state, epoch):
-    let shard = i mod SHARD_COUNT
-    result.add (
-      get_crosslink_committee(state, epoch, shard),
-      shard
-    )
-
-iterator get_crosslink_committees_at_slot_cached*(
-  state: BeaconState, slot: Slot|uint64, cache: var StateCache):
-    CrosslinkCommittee =
-  let key = (slot_to_epoch(slot).uint64, false)
-  if key in cache.crosslink_committee_cache:
-    for v in cache.crosslink_committee_cache[key]: yield v
-  #debugEcho "get_crosslink_committees_at_slot_cached: MISS"
-  let result = get_crosslink_committees_at_slot(state, slot)
-  cache.crosslink_committee_cache[key] = result
-  for v in result: yield v
+# Not from spec
+func get_empty_per_epoch_cache*(): StateCache =
+  result.crosslink_committee_cache =
+    initTable[tuple[a: int, b: Eth2Digest], seq[ValidatorIndex]]()
+  result.active_validator_indices_cache =
+    initTable[Epoch, seq[ValidatorIndex]]()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_beacon_proposer_index
-func get_beacon_proposer_index*(state: BeaconState): ValidatorIndex =
+func get_beacon_proposer_index*(state: BeaconState, stateCache: var StateCache):
+    ValidatorIndex =
   # Return the current beacon proposer index.
   const
     MAX_RANDOM_BYTE = 255
@@ -224,7 +179,7 @@ func get_beacon_proposer_index*(state: BeaconState): ValidatorIndex =
       get_epoch_committee_count(state, epoch) div SLOTS_PER_EPOCH
     offset = committees_per_slot * (state.slot mod SLOTS_PER_EPOCH)
     shard = (get_epoch_start_shard(state, epoch) + offset) mod SHARD_COUNT
-    first_committee = get_crosslink_committee(state, epoch, shard)
+    first_committee = get_crosslink_committee(state, epoch, shard, stateCache)
     seed = generate_seed(state, epoch)
 
   var

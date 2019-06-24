@@ -35,13 +35,14 @@ suite "Attestation pool processing" & preset():
     genBlock = get_initial_beacon_block(genState)
 
   test "Can add and retrieve simple attestation" & preset():
+    var cache = get_empty_per_epoch_cache()
     withPool:
       let
         # Create an attestation for slot 1!
-        crosslink_committees =
-          get_crosslink_committees_at_slot(state.data.data, state.data.data.slot)
+        crosslink_committee = get_crosslink_committee(state.data.data,
+          slot_to_epoch(state.data.data.slot), 0, cache)
         attestation = makeAttestation(
-          state.data.data, state.blck.root, crosslink_committees[0].committee[0])
+          state.data.data, state.blck.root, crosslink_committee[0])
 
       pool.add(state.data.data, attestation)
 
@@ -55,21 +56,22 @@ suite "Attestation pool processing" & preset():
         attestations.len == 1
 
   test "Attestations may arrive in any order" & preset():
+    var cache = get_empty_per_epoch_cache()
     withPool:
       let
         # Create an attestation for slot 1!
-        cc0 =
-          get_crosslink_committees_at_slot(state.data.data, state.data.data.slot)
+        cc0 = get_crosslink_committee(state.data.data,
+          slot_to_epoch(state.data.data.slot), 0, cache)
         attestation0 = makeAttestation(
-          state.data.data, state.blck.root, cc0[0].committee[0])
+          state.data.data, state.blck.root, cc0[0])
 
       advanceState(state.data)
 
       let
-        cc1 =
-          get_crosslink_committees_at_slot(state.data.data, state.data.data.slot)
+        cc1 = get_crosslink_committee(state.data.data,
+          slot_to_epoch(state.data.data.slot), 0, cache)
         attestation1 = makeAttestation(
-          state.data.data, state.blck.root, cc1[0].committee[0])
+          state.data.data, state.blck.root, cc1[0])
 
       # test reverse order
       pool.add(state.data.data, attestation1)
@@ -84,15 +86,16 @@ suite "Attestation pool processing" & preset():
         attestations.len == 1
 
   test "Attestations should be combined" & preset():
+    var cache = get_empty_per_epoch_cache()
     withPool:
       let
         # Create an attestation for slot 1!
-        cc0 =
-          get_crosslink_committees_at_slot(state.data.data, state.data.data.slot)
+        cc0 = get_crosslink_committee(state.data.data,
+          slot_to_epoch(state.data.data.slot), 0, cache)
         attestation0 = makeAttestation(
-          state.data.data, state.blck.root, cc0[0].committee[0])
+          state.data.data, state.blck.root, cc0[0])
         attestation1 = makeAttestation(
-          state.data.data, state.blck.root, cc0[0].committee[1])
+          state.data.data, state.blck.root, cc0[1])
 
       pool.add(state.data.data, attestation0)
       pool.add(state.data.data, attestation1)
@@ -106,16 +109,17 @@ suite "Attestation pool processing" & preset():
         attestations.len == 1
 
   test "Attestations may overlap, bigger first" & preset():
+    var cache = get_empty_per_epoch_cache()
     withPool:
 
       var
         # Create an attestation for slot 1!
-        cc0 =
-          get_crosslink_committees_at_slot(state.data.data, state.data.data.slot)
+        cc0 = get_crosslink_committee(state.data.data,
+          slot_to_epoch(state.data.data.slot), 0, cache)
         attestation0 = makeAttestation(
-          state.data.data, state.blck.root, cc0[0].committee[0])
+          state.data.data, state.blck.root, cc0[0])
         attestation1 = makeAttestation(
-          state.data.data, state.blck.root, cc0[0].committee[1])
+          state.data.data, state.blck.root, cc0[1])
 
       attestation0.combine(attestation1, {skipValidation})
 
@@ -131,15 +135,16 @@ suite "Attestation pool processing" & preset():
         attestations.len == 1
 
   test "Attestations may overlap, smaller first" & preset():
+    var cache = get_empty_per_epoch_cache()
     withPool:
       var
         # Create an attestation for slot 1!
-        cc0 =
-          get_crosslink_committees_at_slot(state.data.data, state.data.data.slot)
+        cc0 = get_crosslink_committee(state.data.data,
+          slot_to_epoch(state.data.data.slot), 0, cache)
         attestation0 = makeAttestation(
-          state.data.data, state.blck.root, cc0[0].committee[0])
+          state.data.data, state.blck.root, cc0[0])
         attestation1 = makeAttestation(
-          state.data.data, state.blck.root, cc0[0].committee[1])
+          state.data.data, state.blck.root, cc0[1])
 
       attestation0.combine(attestation1, {skipValidation})
 

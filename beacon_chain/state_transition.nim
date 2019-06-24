@@ -37,7 +37,8 @@ import
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#block-header
 proc processBlockHeader(
-    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
+    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
+    stateCache: var StateCache): bool =
   # Verify that the slots match
   if not (blck.slot == state.slot):
     notice "Block header: slot mismatch",
@@ -62,7 +63,8 @@ proc processBlockHeader(
   )
 
   # Verify proposer is not slashed
-  let proposer = state.validator_registry[get_beacon_proposer_index(state)]
+  let proposer =
+    state.validator_registry[get_beacon_proposer_index(state, stateCache)]
   if proposer.slashed:
     notice "Block header: proposer slashed"
     return false
@@ -83,9 +85,10 @@ proc processBlockHeader(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#randao
 proc processRandao(
-    state: var BeaconState, body: BeaconBlockBody, flags: UpdateFlags): bool =
+    state: var BeaconState, body: BeaconBlockBody, flags: UpdateFlags,
+    stateCache: var StateCache): bool =
   let
-    proposer_index = get_beacon_proposer_index(state)
+    proposer_index = get_beacon_proposer_index(state, stateCache)
     proposer = addr state.validator_registry[proposer_index]
 
   # Verify that the provided randao value is valid
@@ -128,7 +131,8 @@ func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#proposer-slashings
 proc processProposerSlashings(
-    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
+    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
+    stateCache: var StateCache): bool =
   if len(blck.body.proposer_slashings) > MAX_PROPOSER_SLASHINGS:
     notice "PropSlash: too many!",
       proposer_slashings = len(blck.body.proposer_slashings)
@@ -166,7 +170,8 @@ proc processProposerSlashings(
             signature_index = i
           return false
 
-    slashValidator(state, proposer_slashing.proposer_index.ValidatorIndex)
+    slashValidator(
+      state, proposer_slashing.proposer_index.ValidatorIndex, stateCache)
 
   true
 
@@ -183,7 +188,8 @@ func is_slashable_attestation_data(
      data_2.target_epoch < data_1.target_epoch)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#attester-slashings
-proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
+proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock,
+    stateCache: var StateCache): bool =
   # Process ``AttesterSlashing`` operation.
   if len(blck.body.attester_slashings) > MAX_ATTESTER_SLASHINGS:
     notice "CaspSlash: too many!"
@@ -221,13 +227,14 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock): bool =
         toSet(attesting_indices_2)).items), system.cmp):
       if is_slashable_validator(state.validator_registry[index.int],
           get_current_epoch(state)):
-        slash_validator(state, index.ValidatorIndex)
+        slash_validator(state, index.ValidatorIndex, stateCache)
         slashed_any = true
     result = result and slashed_any
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#attestations
 proc processAttestations(
-    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
+    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
+    stateCache: var StateCache): bool =
   ## Each block includes a number of attestations that the proposer chose. Each
   ## attestation represents an update to a specific shard and is signed by a
   ## committee of validators.
@@ -238,7 +245,7 @@ proc processAttestations(
     notice "Attestation: too many!", attestations = blck.body.attestations.len
     return false
 
-  if not blck.body.attestations.allIt(checkAttestation(state, it, flags)):
+  if not blck.body.attestations.allIt(checkAttestation(state, it, flags, stateCache)):
     return false
 
   # All checks passed - update state
@@ -262,7 +269,7 @@ proc processAttestations(
       data: attestation.data,
       aggregation_bitfield: attestation.aggregation_bitfield,
       inclusion_delay: state.slot - attestation_slot,
-      proposer_index: get_beacon_proposer_index(state),
+      proposer_index: get_beacon_proposer_index(state, stateCache),
     )
 
     if attestation.data.target_epoch == get_current_epoch(state):
@@ -334,7 +341,7 @@ proc processVoluntaryExits(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#transfers
 proc processTransfers(state: var BeaconState, blck: BeaconBlock,
-                      flags: UpdateFlags): bool =
+                      flags: UpdateFlags, stateCache: var StateCache): bool =
   if not (len(blck.body.transfers) <= MAX_TRANSFERS):
     notice "Transfer: too many transfers"
     return false
@@ -387,7 +394,8 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
       state, transfer.sender.ValidatorIndex, transfer.amount + transfer.fee)
     increase_balance(
       state, transfer.recipient.ValidatorIndex, transfer.amount)
-    increase_balance(state, get_beacon_proposer_index(state), transfer.fee)
+    increase_balance(
+      state, get_beacon_proposer_index(state, stateCache), transfer.fee)
 
     # Verify balances are not dust
     if not (
@@ -429,32 +437,33 @@ func process_slot(state: var BeaconState) =
     signing_root(state.latest_block_header)
 
 proc processBlock(
-    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
+    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
+    stateCache: var StateCache): bool =
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly
 
   # TODO when there's a failure, we should reset the state!
   # TODO probably better to do all verification first, then apply state changes
 
-  if not processBlockHeader(state, blck, flags):
+  if not processBlockHeader(state, blck, flags, stateCache):
     notice "Block header not valid", slot = humaneSlotNum(state.slot)
     return false
 
-  if not processRandao(state, blck.body, flags):
+  if not processRandao(state, blck.body, flags, stateCache):
     debug "[Block processing] Randao failure", slot = humaneSlotNum(state.slot)
     return false
 
   processEth1Data(state, blck.body)
 
-  if not processProposerSlashings(state, blck, flags):
+  if not processProposerSlashings(state, blck, flags, stateCache):
     debug "[Block processing] Proposer slashing failure", slot = humaneSlotNum(state.slot)
     return false
 
-  if not processAttesterSlashings(state, blck):
+  if not processAttesterSlashings(state, blck, stateCache):
     debug "[Block processing] Attester slashing failure", slot = humaneSlotNum(state.slot)
     return false
 
-  if not processAttestations(state, blck, flags):
+  if not processAttestations(state, blck, flags, stateCache):
     debug "[Block processing] Attestation processing failure", slot = humaneSlotNum(state.slot)
     return false
 
@@ -466,25 +475,11 @@ proc processBlock(
     debug "[Block processing] Exit processing failure", slot = humaneSlotNum(state.slot)
     return false
 
-  if not processTransfers(state, blck, flags):
+  if not processTransfers(state, blck, flags, stateCache):
     debug "[Block processing] Transfer processing failure", slot = humaneSlotNum(state.slot)
     return false
 
   true
-
-# TODO this cached version corresponds to the blob/v0.5.1ish get_attesting_indices
-# rm/make consistent with 0.6 version above
-func get_attesting_indices_cached(
-    state: BeaconState,
-    attestations: openArray[PendingAttestation], cache: var StateCache):
-      HashSet[ValidatorIndex] =
-  # Union of attesters that participated in some attestations
-  result = initSet[ValidatorIndex]()
-  for attestation in attestations:
-    for validator_index in get_attestation_participants_cached(
-        state, attestation.data, attestation.aggregation_bitfield,
-        cache):
-      result.incl validator_index
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#helper-functions-1
 func get_total_active_balance(state: BeaconState): Gwei =
@@ -516,26 +511,22 @@ func get_matching_head_attestations(state: BeaconState, epoch: Epoch):
   )
 
 func get_unslashed_attesting_indices(
-    state: BeaconState, attestations: seq[PendingAttestation]):
-    HashSet[ValidatorIndex] =
+    state: BeaconState, attestations: seq[PendingAttestation],
+    stateCache: var StateCache): HashSet[ValidatorIndex] =
   result = initSet[ValidatorIndex]()
   for a in attestations:
     result = result.union(get_attesting_indices(
-      state, a.data, a.aggregation_bitfield))
+      state, a.data, a.aggregation_bitfield, stateCache))
 
   for index in result:
     if state.validator_registry[index].slashed:
       result.excl index
 
 func get_attesting_balance(
-    state: BeaconState, attestations: seq[PendingAttestation]): Gwei =
-  get_total_balance(state, get_unslashed_attesting_indices(state, attestations))
-
-func get_attesting_balance_cached(
     state: BeaconState, attestations: seq[PendingAttestation],
-    cache: var StateCache): Gwei =
-  get_total_balance(state, get_attesting_indices_cached(
-    state, attestations, cache))
+    stateCache: var StateCache): Gwei =
+  get_total_balance(state, get_unslashed_attesting_indices(
+    state, attestations, stateCache))
 
 func get_crosslink_from_attestation_data(
     state: BeaconState, data: AttestationData): Crosslink =
@@ -554,9 +545,9 @@ func lowerThan(candidate, current: Eth2Digest): bool =
     if v > candidate.data[i]: return true
   false
 
-# TODO check/profile if should add cache: var StateCache param
 func get_winning_crosslink_and_attesting_indices(
-    state: BeaconState, epoch: Epoch, shard: Shard): tuple[a: Crosslink, b: HashSet[ValidatorIndex]] =
+    state: BeaconState, epoch: Epoch, shard: Shard,
+    stateCache: var StateCache): tuple[a: Crosslink, b: HashSet[ValidatorIndex]] =
   let
     ## TODO Z-F could help here
     ## TODO get_winning_crosslink_and_attesting_indices was profiling hotspot
@@ -602,7 +593,8 @@ func get_winning_crosslink_and_attesting_indices(
     ## let root_balance = get_attesting_balance_cached(
     ##   state, attestations_for.getOrDefault(r), cache)
     let crosslink_balance =
-      get_attesting_balance(state, get_attestations_for(candidate_crosslink))
+      get_attesting_balance(
+        state, get_attestations_for(candidate_crosslink), stateCache)
     if (crosslink_balance > winning_crosslink_balance or
         (winning_crosslink_balance == crosslink_balance and
          lowerThan(winning_crosslink.crosslink_data_root,
@@ -612,10 +604,11 @@ func get_winning_crosslink_and_attesting_indices(
 
   (winning_crosslink,
    get_unslashed_attesting_indices(state,
-     get_attestations_for(winning_crosslink)))
+     get_attestations_for(winning_crosslink), stateCache))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#justification-and-finalization
-func process_justification_and_finalization(state: var BeaconState) =
+func process_justification_and_finalization(
+    state: var BeaconState, stateCache: var StateCache) =
   if get_current_epoch(state) <= GENESIS_EPOCH + 1:
     return
 
@@ -631,7 +624,7 @@ func process_justification_and_finalization(state: var BeaconState) =
   state.justification_bitfield = (state.justification_bitfield shl 1)
   let previous_epoch_matching_target_balance =
     get_attesting_balance(state,
-      get_matching_target_attestations(state, previous_epoch))
+      get_matching_target_attestations(state, previous_epoch), stateCache)
   if previous_epoch_matching_target_balance * 3 >=
       get_total_active_balance(state) * 2:
     state.current_justified_epoch = previous_epoch
@@ -640,7 +633,8 @@ func process_justification_and_finalization(state: var BeaconState) =
     state.justification_bitfield = state.justification_bitfield or (1 shl 1)
   let current_epoch_matching_target_balance =
     get_attesting_balance(state,
-      get_matching_target_attestations(state, current_epoch))
+      get_matching_target_attestations(state, current_epoch),
+      stateCache)
   if current_epoch_matching_target_balance * 3 >=
       get_total_active_balance(state) * 2:
     state.current_justified_epoch = current_epoch
@@ -680,7 +674,7 @@ func process_justification_and_finalization(state: var BeaconState) =
     state.finalized_root = get_block_root(state, state.finalized_epoch)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#crosslinks
-func process_crosslinks(state: var BeaconState, per_epoch_cache: var StateCache) =
+func process_crosslinks(state: var BeaconState, stateCache: var StateCache) =
   ## TODO is there a semantic reason for this, or is this just a way to force
   ## copying? If so, why not just `list(foo)` or similar? This is strange. In
   ## this case, for type reasons, don't do weird
@@ -695,13 +689,15 @@ func process_crosslinks(state: var BeaconState, per_epoch_cache: var StateCache)
     for offset in 0'u64 ..< get_epoch_committee_count(state, epoch):
       let
         shard = (get_epoch_start_shard(state, epoch) + offset) mod SHARD_COUNT
-        crosslink_committee = get_crosslink_committee(state, epoch, shard)
+        crosslink_committee =
+          get_crosslink_committee(state, epoch, shard, stateCache)
         # In general, it'll loop over the same shards twice, and
         # get_winning_root_and_participants is defined to return
         # the same results from the previous epoch as current.
         # TODO cache like before, in 0.5 version of this function
         (winning_crosslink, attesting_indices) =
-          get_winning_crosslink_and_attesting_indices(state, epoch, shard)
+          get_winning_crosslink_and_attesting_indices(
+            state, epoch, shard, stateCache)
       if 3'u64 * get_total_balance(state, attesting_indices) >=
           2'u64 * get_total_balance(state, crosslink_committee):
         state.current_crosslinks[shard] = winning_crosslink
@@ -715,7 +711,7 @@ func get_base_reward(state: BeaconState, index: ValidatorIndex): Gwei =
     integer_squareroot(total_balance) div BASE_REWARDS_PER_EPOCH
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#rewards-and-penalties
-func get_attestation_deltas(state: BeaconState):
+func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
   let
     previous_epoch = get_previous_epoch(state)
@@ -743,8 +739,8 @@ func get_attestation_deltas(state: BeaconState):
         matching_head_attestations]:
     let
       unslashed_attesting_indices =
-        get_unslashed_attesting_indices(state, attestations)
-      attesting_balance = get_attesting_balance(state, attestations)
+        get_unslashed_attesting_indices(state, attestations, stateCache)
+      attesting_balance = get_attesting_balance(state, attestations, stateCache)
     for index in eligible_validator_indices:
       if index in unslashed_attesting_indices:
         rewards[index] +=
@@ -756,11 +752,13 @@ func get_attestation_deltas(state: BeaconState):
     return (rewards, penalties)
 
   # Proposer and inclusion delay micro-rewards
-  for index in get_unslashed_attesting_indices(state, matching_source_attestations):
+  for index in get_unslashed_attesting_indices(
+      state, matching_source_attestations, stateCache):
     doAssert matching_source_attestations.len > 0
     var attestation = matching_source_attestations[0]
     for a in matching_source_attestations:
-      if index notin get_attesting_indices(state, a.data, a.aggregation_bitfield):
+      if index notin get_attesting_indices(
+          state, a.data, a.aggregation_bitfield, stateCache):
         continue
       if a.inclusion_delay < attestation.inclusion_delay:
         attestation = a
@@ -774,7 +772,8 @@ func get_attestation_deltas(state: BeaconState):
   let finality_delay = previous_epoch - state.finalized_epoch
   if finality_delay > MIN_EPOCHS_TO_INACTIVITY_PENALTY:
     let matching_target_attesting_indices =
-      get_unslashed_attesting_indices(state, matching_target_attestations)
+      get_unslashed_attesting_indices(
+        state, matching_target_attestations, stateCache)
     for index in eligible_validator_indices:
       penalties[index] +=
         BASE_REWARDS_PER_EPOCH.uint64 * get_base_reward(state, index)
@@ -796,9 +795,11 @@ func get_crosslink_deltas(state: BeaconState, cache: var StateCache):
   for offset in 0'u64 ..< get_epoch_committee_count(state, epoch):
     let
       shard = (get_epoch_start_shard(state, epoch) + offset) mod SHARD_COUNT
-      crosslink_committee = get_crosslink_committee(state, epoch, shard)
+      crosslink_committee =
+        get_crosslink_committee(state, epoch, shard, cache)
       (winning_crosslink, attesting_indices) =
-        get_winning_crosslink_and_attesting_indices(state, epoch, shard)
+        get_winning_crosslink_and_attesting_indices(
+          state, epoch, shard, cache)
       attesting_balance = get_total_balance(state, attesting_indices)
       committee_balance = get_total_balance(state, crosslink_committee)
     for index in crosslink_committee:
@@ -819,7 +820,7 @@ func process_rewards_and_penalties(
     return
 
   let
-    (rewards1, penalties1) = get_attestation_deltas(state)
+    (rewards1, penalties1) = get_attestation_deltas(state, cache)
     (rewards2, penalties2) = get_crosslink_deltas(state, cache)
   for i in 0 ..< len(state.validator_registry):
     increase_balance(state, i.ValidatorIndex, rewards1[i] + rewards2[i])
@@ -897,21 +898,15 @@ func process_final_updates(state: var BeaconState) =
   state.current_epoch_attestations = @[]
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#per-epoch-processing
-func get_empty_per_epoch_cache(): StateCache =
-  result.crosslink_committee_cache =
-    initTable[tuple[a: uint64, b: bool], seq[CrosslinkCommittee]]()
-  result.winning_root_participants_cache =
-    initTable[Shard, HashSet[ValidatorIndex]]()
-
 func processEpoch(state: var BeaconState) =
   if not (state.slot > GENESIS_SLOT and
          (state.slot + 1) mod SLOTS_PER_EPOCH == 0):
     return
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#justification-and-finalization
-  process_justification_and_finalization(state)
-
   var per_epoch_cache = get_empty_per_epoch_cache()
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#justification-and-finalization
+  process_justification_and_finalization(state, per_epoch_cache)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#crosslinks
   process_crosslinks(state, per_epoch_cache)
@@ -920,7 +915,12 @@ func processEpoch(state: var BeaconState) =
   process_rewards_and_penalties(state, per_epoch_cache)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#registry-updates
+  # Don't rely on caching here.
   process_registry_updates(state)
+
+  ## Caching here for get_crosslink_committee(...) can break otherwise, since
+  ## get_active_validator_indices(...) usually changes.
+  clear(per_epoch_cache.crosslink_committee_cache)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#slashings
   process_slashings(state)
@@ -1006,7 +1006,9 @@ proc updateState*(
   # that the block is sane.
   # TODO what should happen if block processing fails?
   #      https://github.com/ethereum/eth2.0-specs/issues/293
-  if processBlock(state, new_block, flags):
+  var per_epoch_cache = get_empty_per_epoch_cache()
+
+  if processBlock(state, new_block, flags, per_epoch_cache):
     # This is a bit awkward - at the end of processing we verify that the
     # state we arrive at is what the block producer thought it would be -
     # meaning that potentially, it could fail verification
@@ -1059,7 +1061,8 @@ proc updateState*(
   var old_state = state
   advanceState(state)
 
-  if processBlock(state.data, blck, flags):
+  var per_epoch_cache = get_empty_per_epoch_cache()
+  if processBlock(state.data, blck, flags, per_epoch_cache):
     if skipValidation in flags or verifyStateRoot(state.data, blck):
       # State root is what it should be - we're done!
 
