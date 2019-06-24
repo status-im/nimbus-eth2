@@ -138,7 +138,7 @@ p2pProtocol BeaconSync(version = 1,
             bestRoot: Eth2Digest,
             bestSlot: Slot)
 
-  proc sendGoodbye(peer: Peer, reason: DisconnectionReason)
+  proc goodbye(peer: Peer, reason: DisconnectionReason)
 
   requestResponse:
     proc getStatus(

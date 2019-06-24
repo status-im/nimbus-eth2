@@ -168,9 +168,9 @@ proc getThunk(protocol: ProtocolInfo, methodId: uint16): ThunkProc =
   if methodId.int >= protocol.messages.len: return nil
   protocol.messages[methodId.int].thunk
 
-include libp2p_backends_common
 include eth/p2p/p2p_backends_helpers
 include eth/p2p/p2p_tracing
+include libp2p_backends_common
 
 proc handleConnectingBeaconChainPeer(daemon: DaemonAPI, stream: P2PStream) {.async, gcsafe.}
 
@@ -389,19 +389,6 @@ proc initProtocol(name: string, version: int,
   result.messages = @[]
   result.peerStateInitializer = peerInit
   result.networkStateInitializer = networkInit
-
-proc registerProtocol(protocol: ProtocolInfo) =
-  # TODO: This can be done at compile-time in the future
-  let pos = lowerBound(gProtocols, protocol)
-  gProtocols.insert(protocol, pos)
-  for i in 0 ..< gProtocols.len:
-    gProtocols[i].index = i
-
-proc setEventHandlers(p: ProtocolInfo,
-                      handshake: HandshakeStep,
-                      disconnectHandler: DisconnectionHandler) =
-  p.handshake = handshake
-  p.disconnectHandler = disconnectHandler
 
 proc registerMsg(protocol: ProtocolInfo,
                  id: int, name: string,

@@ -5,7 +5,7 @@ type
     rlpxBackend
 
 const
-  network_type {.strdefine.} = "libp2p_spec"
+  network_type {.strdefine.} = "libp2p_native"
 
   networkBackend* = when network_type == "rlpx": rlpxBackend
                     elif network_type == "libp2p_spec": libp2pSpecBackend

@@ -59,3 +59,16 @@ proc nextMsg*(peer: Peer, MsgType: type): Future[MsgType] =
   initFuture result
   peer.awaitedMessages[awaitedMsgId] = result
 
+proc registerProtocol(protocol: ProtocolInfo) =
+  # TODO: This can be done at compile-time in the future
+  let pos = lowerBound(gProtocols, protocol)
+  gProtocols.insert(protocol, pos)
+  for i in 0 ..< gProtocols.len:
+    gProtocols[i].index = i
+
+proc setEventHandlers(p: ProtocolInfo,
+                      handshake: HandshakeStep,
+                      disconnectHandler: DisconnectionHandler) =
+  p.handshake = handshake
+  p.disconnectHandler = disconnectHandler
+
