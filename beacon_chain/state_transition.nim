@@ -264,7 +264,7 @@ proc processAttestations(
 
     # Spec content
     let attestation_slot =
-      get_attestation_slot(state, attestation, committee_count)
+      get_attestation_data_slot(state, attestation.data, committee_count)
     let pending_attestation = PendingAttestation(
       data: attestation.data,
       aggregation_bitfield: attestation.aggregation_bitfield,
@@ -507,7 +507,7 @@ func get_matching_head_attestations(state: BeaconState, epoch: Epoch):
   filterIt(
      get_matching_source_attestations(state, epoch),
      it.data.beacon_block_root ==
-       get_block_root_at_slot(state, get_attestation_slot(state, it))
+       get_block_root_at_slot(state, get_attestation_data_slot(state, it.data))
   )
 
 func get_unslashed_attesting_indices(
@@ -528,15 +528,6 @@ func get_attesting_balance(
   get_total_balance(state, get_unslashed_attesting_indices(
     state, attestations, stateCache))
 
-func get_crosslink_from_attestation_data(
-    state: BeaconState, data: AttestationData): Crosslink =
-  Crosslink(
-    epoch: min(data.target_epoch,
-      state.current_crosslinks[data.shard].epoch + MAX_CROSSLINK_EPOCHS),
-    previous_crosslink_root: data.previous_crosslink_root,
-    crosslink_data_root: data.crosslink_data_root,
-  )
-
 # Not exactly in spec, but for get_winning_crosslink_and_attesting_indices
 func lowerThan(candidate, current: Eth2Digest): bool =
   # return true iff candidate is "lower" than current, per spec rule:
@@ -549,38 +540,21 @@ func get_winning_crosslink_and_attesting_indices(
     state: BeaconState, epoch: Epoch, shard: Shard,
     stateCache: var StateCache): tuple[a: Crosslink, b: HashSet[ValidatorIndex]] =
   let
-    ## TODO Z-F could help here
-    ## TODO get_winning_crosslink_and_attesting_indices was profiling hotspot
-    shard_attestations =
+    attestations =
       filterIt(
-        get_matching_source_attestations(state, epoch), it.data.shard == shard)
-    shard_crosslinks =
-      mapIt(shard_attestations,
-        get_crosslink_from_attestation_data(state, it.data))
-    # TODO this seems like a lot of hash_tree_root'ing on same data
-    candidate_crosslinks =
-      filterIt(shard_crosslinks,
+        get_matching_source_attestations(state, epoch),
+        it.data.crosslink.shard == shard)
+    # TODO don't keep h_t_r'ing state.current_crosslinks[shard]
+    crosslinks =
+      filterIt(
+        mapIt(attestations, it.data.crosslink),
         hash_tree_root(state.current_crosslinks[shard]) in
           # TODO pointless memory allocation, etc.
-          @[it.previous_crosslink_root, hash_tree_root(it)])
+          @[it.parent_root, hash_tree_root(it)])
 
-  if len(candidate_crosslinks) == 0:
+  # default=Crosslink()
+  if len(crosslinks) == 0:
     return (Crosslink(), initSet[ValidatorIndex]())
-
-  ## TODO check if should cache this again, as with 0.5
-  ## var attestations_for = initTable[Eth2Digest, seq[PendingAttestation]]()
-  ## for valid_attestation in valid_attestations:
-  ##   if valid_attestation.data.crosslink_data_root in attestations_for:
-  ##     attestations_for[valid_attestation.data.crosslink_data_root].add(
-  ##       valid_attestation)
-  ##   else:
-  ##     attestations_for[valid_attestation.data.crosslink_data_root] =
-  ##       @[valid_attestation]
-  ## TODO either way, this nested function not great; {.fastcall.} pragma
-  ## not directly applicable either, since it does need some closure
-  func get_attestations_for(crosslink: Crosslink): seq[PendingAttestation] =
-    filterIt(shard_attestations,
-      get_crosslink_from_attestation_data(state, it.data) == crosslink)
 
   ## Winning crosslink has the crosslink data root with the most balance voting
   ## for it (ties broken lexicographically)
@@ -588,23 +562,26 @@ func get_winning_crosslink_and_attesting_indices(
     winning_crosslink: Crosslink
     winning_crosslink_balance = 0.Gwei
 
-  for candidate_crosslink in candidate_crosslinks:
+  for candidate_crosslink in crosslinks:
     ## TODO check if should cache this again
     ## let root_balance = get_attesting_balance_cached(
     ##   state, attestations_for.getOrDefault(r), cache)
     let crosslink_balance =
       get_attesting_balance(
-        state, get_attestations_for(candidate_crosslink), stateCache)
+        state,
+        filterIt(attestations, it.data.crosslink == candidate_crosslink),
+        stateCache)
     if (crosslink_balance > winning_crosslink_balance or
         (winning_crosslink_balance == crosslink_balance and
-         lowerThan(winning_crosslink.crosslink_data_root,
-                   candidate_crosslink.crosslink_data_root))):
+         lowerThan(winning_crosslink.data_root,
+                   candidate_crosslink.data_root))):
       winning_crosslink = candidate_crosslink
       winning_crosslink_balance = crosslink_balance
 
+  let winning_attestations =
+    filterIt(attestations, it.data.crosslink == winning_crosslink)
   (winning_crosslink,
-   get_unslashed_attesting_indices(state,
-     get_attestations_for(winning_crosslink), stateCache))
+   get_unslashed_attesting_indices(state, winning_attestations, stateCache))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#justification-and-finalization
 func process_justification_and_finalization(

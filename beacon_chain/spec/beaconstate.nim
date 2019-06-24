@@ -246,10 +246,6 @@ func get_genesis_beacon_state*(
     deposit_index: 0,
   )
 
-  for i in 0 ..< SHARD_COUNT:
-    state.current_crosslinks[i] = Crosslink(
-      epoch: GENESIS_EPOCH, crosslink_data_root: ZERO_HASH)
-
   # Process genesis deposits
   for deposit in genesis_validator_deposits:
     discard process_deposit(state, deposit, flags)
@@ -278,25 +274,22 @@ func get_initial_beacon_block*(state: BeaconState): BeaconBlock =
     # initialized to default values.
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.2/specs/core/0_beacon-chain.md#get_attestation_slot
-func get_attestation_slot*(state: BeaconState,
-    attestation: Attestation|PendingAttestation,
-    committee_count: uint64): Slot =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_attestation_data_slot
+func get_attestation_data_slot*(state: BeaconState,
+    data: AttestationData, committee_count: uint64): Slot =
   let
-    epoch = attestation.data.target_epoch
-    offset = (attestation.data.shard + SHARD_COUNT -
-      get_epoch_start_shard(state, epoch)) mod SHARD_COUNT
+    offset = (data.crosslink.shard + SHARD_COUNT -
+      get_epoch_start_shard(state, data.target_epoch)) mod SHARD_COUNT
 
   # TODO re-instate once double-check correct conditions in attestation pool
-  #get_epoch_start_slot(epoch) + offset div (committee_count div SLOTS_PER_EPOCH)
-  attestation.data.slot
+  #get_epoch_start_slot(data.target_epoch) + offset div (committee_count div SLOTS_PER_EPOCH)
+  data.slot
 
 # This is the slower (O(n)), spec-compatible signature.
-func get_attestation_slot*(state: BeaconState,
-    attestation: Attestation|PendingAttestation): Slot =
-  let epoch = attestation.data.target_epoch
-  get_attestation_slot(
-    state, attestation, get_epoch_committee_count(state, epoch))
+func get_attestation_data_slot*(state: BeaconState,
+    data: AttestationData): Slot =
+  get_attestation_data_slot(
+    state, data, get_epoch_committee_count(state, data.target_epoch))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: BeaconState,
@@ -425,8 +418,9 @@ func get_attesting_indices*(state: BeaconState,
   ## possible to follow the spec more literally.
   result = initSet[ValidatorIndex]()
   let committee =
-    get_crosslink_committee(state, attestation_data.target_epoch,
-      attestation_data.shard, stateCache)
+    get_crosslink_committee(
+      state, attestation_data.target_epoch, attestation_data.crosslink.shard,
+      stateCache)
   doAssert verify_bitfield(bitfield, len(committee))
   for i, index in committee:
     if get_bitfield_bit(bitfield, i):
@@ -508,7 +502,7 @@ proc checkAttestation*(
 
   let
     data = attestation.data
-    attestation_slot = get_attestation_slot(state, attestation)
+    attestation_slot = get_attestation_data_slot(state, attestation.data)
 
   if not (attestation_slot + MIN_ATTESTATION_INCLUSION_DELAY <= stateSlot):
     warn("Attestation too new",
@@ -602,13 +596,15 @@ proc makeAttestationData*(
 
   AttestationData(
     slot: state.slot,
-    # Alternative is to put this offset into all callers
-    shard: shard + get_epoch_start_shard(state, slot_to_epoch(state.slot)),
     beacon_block_root: beacon_block_root,
     target_root: target_root,
-    crosslink_data_root: Eth2Digest(), # Stub in phase0
-    previous_crosslink_root: hash_tree_root(state.current_crosslinks[shard]),
     source_epoch: state.current_justified_epoch,
     source_root: state.current_justified_root,
-    target_epoch: slot_to_epoch(state.slot)
+    target_epoch: slot_to_epoch(state.slot),
+    crosslink: Crosslink(
+      # Alternative is to put this offset into all callers
+      shard: shard + get_epoch_start_shard(state, slot_to_epoch(state.slot)),
+      parent_root: hash_tree_root(state.current_crosslinks[shard]),
+      data_root: Eth2Digest(), # Stub in phase0
+    )
   )
