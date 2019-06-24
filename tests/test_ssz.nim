@@ -71,12 +71,12 @@ suite "Simple serialization":
       ser.len() == 3
       SSZ.decode(ser, v.type) == v
 
-  SSZ.roundripTest [1, 2, 3]
-  SSZ.roundripTest @[1, 2, 3]
-  SSZ.roundripTest SigKey.random().getKey()
-  SSZ.roundripTest BeaconBlock(
+  SSZ.roundtripTest [1, 2, 3]
+  SSZ.roundtripTest @[1, 2, 3]
+  SSZ.roundtripTest SigKey.random().getKey()
+  SSZ.roundtripTest BeaconBlock(
     slot: 42.Slot, signature: sign(SigKey.random(), 0'u64, ""))
-  SSZ.roundripTest BeaconState(slot: 42.Slot)
+  SSZ.roundtripTest BeaconState(slot: 42.Slot)
 
 # suite "Tree hashing":
 #   # TODO The test values are taken from an earlier version of SSZ and have

@@ -99,8 +99,8 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   else:
     try:
       result.networkMetadata = Json.loadFile(conf.network, NetworkMetadata)
-    except:
-      fail "Failed to load network metadata: ", getCurrentExceptionMsg()
+    except SerializationError as err:
+      fail "Failed to load network metadata: \n", err.formatMsg(conf.network)
 
   var metadataErrorMsg = ""
 

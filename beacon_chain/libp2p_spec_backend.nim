@@ -2,10 +2,10 @@ import
   tables, deques, options, algorithm, std_shims/[macros_shim, tables_shims],
   ranges/ptr_arith, chronos, chronicles, serialization, faststreams/input_stream,
   eth/async_utils, eth/p2p/p2p_protocol_dsl, libp2p/daemon/daemonapi,
-  ssz
+  libp2p_json_serialization, ssz
 
 export
-  daemonapi, p2pProtocol, serialization, ssz
+  daemonapi, p2pProtocol, serialization, ssz, libp2p_json_serialization
 
 const
   # Compression nibble
