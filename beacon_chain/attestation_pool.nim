@@ -38,7 +38,7 @@ proc validate(
 
   # TODO half of this stuff is from beaconstate.validateAttestation - merge?
 
-  let attestationSlot = get_attestation_slot(state, attestation)
+  let attestationSlot = get_attestation_data_slot(state, attestation.data)
 
   if attestationSlot < state.finalized_epoch.get_epoch_start_slot():
     debug "Old attestation",
@@ -99,7 +99,7 @@ proc validate(
         ],
         attestation.signature,
         get_domain(state, DOMAIN_ATTESTATION,
-                   slot_to_epoch(get_attestation_slot(state, attestation))),
+          slot_to_epoch(get_attestation_data_slot(state, attestation.data))),
       ):
       notice "Invalid signature", participants
       return false
@@ -174,7 +174,7 @@ proc add*(pool: var AttestationPool,
   # TODO inefficient data structures..
 
   let
-    attestationSlot = get_attestation_slot(state, attestation)
+    attestationSlot = get_attestation_data_slot(state, attestation.data)
     idx = pool.slotIndex(state, attestationSlot)
     slotData = addr pool.slots[idx]
     validation = Validation(
@@ -326,7 +326,7 @@ proc resolve*(pool: var AttestationPool, state: BeaconState) =
   var resolved: seq[Attestation]
 
   for k, v in pool.unresolved.mpairs():
-    let attestation_slot = get_attestation_slot(state, v.attestation)
+    let attestation_slot = get_attestation_data_slot(state, v.attestation.data)
     if v.tries > 8 or attestation_slot < pool.startingSlot:
       done.add(k)
     else:
