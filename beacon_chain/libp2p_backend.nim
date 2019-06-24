@@ -504,7 +504,9 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
                          `streamVar`: `P2PStream`) {.async, gcsafe.} =
           let `peerVar` = peerFromStream(`daemonVar`, `streamVar`)
           try:
+            debug "INCOMING CONNECTION", `peerVar`
             `await` `handshakeProcName`(`peerVar`, `streamVar`)
+            debug "HANSHAKE COMPLETED", `peerVar`
           except SerializationError as err:
             debug "Failed to decode message",
                   err = err.formatMsg("<msg>"),
