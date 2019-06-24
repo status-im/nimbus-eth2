@@ -22,7 +22,7 @@ The `beacon_node` binary has a `createTestnet` command.
     --totalValidators=$VALIDATOR_COUNT \
     --lastUserValidator=$LAST_USER_VALIDATOR \
     --outputGenesis=$NETWORK_DIR/genesis.json \
-    --outputNetwork=$NETWORK_DIR/$NETWORK_FLAVOUR-network.json \
+    --outputNetwork=$NETWORK_DIR/network.json \
     --bootstrapAddress=$PUBLIC_IP \
     --genesisOffset=600 # Delay in seconds
 ```

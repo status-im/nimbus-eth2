@@ -37,8 +37,7 @@ proc downloadFile(url: string): Future[string] {.async.} =
   return fileContents
 
 proc updateTestnetMetadata(conf: BeaconNodeConf): Future[NetworkMetadata] {.async.} =
-  let metadataUrl = testnetsBaseUrl // $conf.network //
-                    netBackendName & "-" & networkMetadataFile
+  let metadataUrl = testnetsBaseUrl // $conf.network // networkMetadataFile
   let latestMetadata = await downloadFile(metadataUrl)
 
   try:
