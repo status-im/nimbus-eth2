@@ -130,9 +130,7 @@ type
     target_root*: Eth2Digest
 
     # Crosslink vote
-    shard*: uint64
-    previous_crosslink_root*: Eth2Digest
-    crosslink_data_root*: Eth2Digest
+    crosslink*: Crosslink
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#attestationdataandcustodybit
   AttestationDataAndCustodyBit* = object
@@ -309,16 +307,20 @@ type
     effective_balance*: uint64 ##\
     ## Effective balance
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#crosslink
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#crosslink
   Crosslink* = object
-    epoch*: Epoch ##\
-    ## Epoch number
+    shard*: Shard ##\
+    ## Shard number
 
-    previous_crosslink_root*: Eth2Digest ##\
+    start_epoch*: Epoch
+    end_epoch*: Epoch ##\
+    ## Crosslinking data from epochs [start....end-1]
+
+    parent_root*: Eth2Digest ##\
     ## Root of the previous crosslink
 
-    crosslink_data_root*: Eth2Digest ##\
-    ## Shard data since the previous crosslink
+    data_root*: Eth2Digest ##\
+    ## Root of the crosslinked shard data since the previous crosslink
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#pendingattestation
   PendingAttestation* = object
@@ -451,8 +453,7 @@ func shortLog*(v: AttestationData): auto =
       shortLog(v.beacon_block_root),
       humaneEpochNum(v.source_epoch), shortLog(v.target_root),
       shortLog(v.source_root),
-      v.shard, v.previous_crosslink_root,
-      shortLog(v.crosslink_data_root)
+      v.crosslink
     )
 
 chronicles.formatIt Slot: it.humaneSlotNum
