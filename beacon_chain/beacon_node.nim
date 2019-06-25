@@ -692,7 +692,7 @@ proc run*(node: BeaconNode) =
 var gPidFile: string
 proc createPidFile(filename: string) =
   createDir splitFile(filename).dir
-  writeFile filename, $getCurrentProcessId()
+  writeFile filename, $os_shims.getCurrentProcessId()
   gPidFile = filename
   addQuitProc proc {.noconv.} = removeFile gPidFile
 
