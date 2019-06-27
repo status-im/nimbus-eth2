@@ -164,7 +164,7 @@ else:
     waitFor daemon.close()
 
   template tcpEndPoint(address, port): auto =
-    MultiAddress.init(address, IPPROTO_TCP, port)
+    MultiAddress.init(address, Protocol.IPPROTO_TCP, port)
 
   proc createEth2Node*(conf: BeaconNodeConf): Future[Eth2Node] {.async.} =
     var
