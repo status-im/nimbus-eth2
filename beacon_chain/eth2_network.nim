@@ -206,7 +206,7 @@ else:
       except PeerDisconnected:
         error "Failed to connect to bootstrap node", node = bootstrapNode
 
-    if connected == false:
+    if bootstrapNodes.len > 0 and connected == false:
       fatal "Failed to connect to any bootstrap node. Quitting."
       quit 1
 
