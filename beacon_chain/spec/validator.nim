@@ -118,7 +118,6 @@ func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
     start = (len(indices).uint64 * index) div count
     endIdx = (len(indices).uint64 * (index + 1)) div count
     key = (indices.len, seed)
-  doAssert endIdx.int - start.int > 0
 
   if key notin stateCache.crosslink_committee_cache:
     stateCache.crosslink_committee_cache[key] =

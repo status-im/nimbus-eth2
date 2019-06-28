@@ -1,7 +1,7 @@
 import
   confutils, stats, times,
   json, strformat,
-  options, sequtils, random,
+  options, sequtils, random, tables,
   ../tests/[testutil],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
   ../beacon_chain/[attestation_pool, extras, ssz, state_transition, fork_choice]
@@ -45,8 +45,8 @@ proc writeJson*(prefix, slot, v: auto) =
   discard open(f, fmt"{prefix:04}-{humaneSlotNum(slot):08}.json", fmWrite)
   write(f, pretty(%*(v)))
 
-cli do(slots = 1945,
-       validators = SLOTS_PER_EPOCH * 8, # One per shard is minimum
+cli do(slots = 448,
+       validators = SLOTS_PER_EPOCH * 9, # One per shard is minimum
        json_interval = SLOTS_PER_EPOCH,
        prefix = 0,
        attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.9,
@@ -58,7 +58,7 @@ cli do(slots = 1945,
     genesisBlock = get_initial_beacon_block(genesisState)
 
   var
-    attestations: array[MIN_ATTESTATION_INCLUSION_DELAY, seq[Attestation]]
+    attestations = initTable[Slot, seq[Attestation]]()
     state = genesisState
     latest_block_root = signing_root(genesisBlock)
     timers: array[Timers, RunningStat]
@@ -78,10 +78,13 @@ cli do(slots = 1945,
     maybeWrite()
 
     let
-      attestations_idx = state.slot mod MIN_ATTESTATION_INCLUSION_DELAY
-      body = BeaconBlockBody(attestations: attestations[attestations_idx])
+      attestations_idx = state.slot
+      body = BeaconBlockBody(
+        attestations: attestations.getOrDefault(attestations_idx))
 
-    attestations[attestations_idx] = @[]
+    attestations.del attestations_idx
+    doAssert len(attestations) <=
+      (SLOTS_PER_EPOCH.int + MIN_ATTESTATION_INCLUSION_DELAY.int)
 
     let t =
       if (state.slot > GENESIS_SLOT and
@@ -127,9 +130,19 @@ cli do(slots = 1945,
           # add the attestation if any of the validators attested, as given
           # by the randomness. We have to delay when the attestation is
           # actually added to the block per the attestation delay rule!
-          attestations[
-            (state.slot + MIN_ATTESTATION_INCLUSION_DELAY - 1) mod
-              MIN_ATTESTATION_INCLUSION_DELAY].add attestation
+          let target_slot =
+            get_attestation_data_slot(state, attestation.data) +
+            MIN_ATTESTATION_INCLUSION_DELAY - 1
+
+          ## In principle, should enumerate possible shard/slot combinations by
+          ## inverting get_attestation_data_slot(...), but this works. Could be
+          ## filtering earlier if we know that this attestation's being created
+          ## too late to be useful, as well.
+          if target_slot > attestations_idx:
+            var target_slot_attestations =
+              getOrDefault(attestations, target_slot)
+            target_slot_attestations.add attestation
+            attestations[target_slot] = target_slot_attestations
 
     flushFile(stdout)
 
