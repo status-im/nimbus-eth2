@@ -40,7 +40,7 @@ suite "Attestation pool processing" & preset():
       let
         # Create an attestation for slot 1!
         crosslink_committee = get_crosslink_committee(state.data.data,
-          slot_to_epoch(state.data.data.slot), 0, cache)
+          slot_to_epoch(state.data.data.slot), 1, cache)
         attestation = makeAttestation(
           state.data.data, state.blck.root, crosslink_committee[0])
 
@@ -61,7 +61,7 @@ suite "Attestation pool processing" & preset():
       let
         # Create an attestation for slot 1!
         cc0 = get_crosslink_committee(state.data.data,
-          slot_to_epoch(state.data.data.slot), 0, cache)
+          slot_to_epoch(state.data.data.slot), 1, cache)
         attestation0 = makeAttestation(
           state.data.data, state.blck.root, cc0[0])
 
@@ -69,7 +69,7 @@ suite "Attestation pool processing" & preset():
 
       let
         cc1 = get_crosslink_committee(state.data.data,
-          slot_to_epoch(state.data.data.slot), 0, cache)
+          slot_to_epoch(state.data.data.slot), 2, cache)
         attestation1 = makeAttestation(
           state.data.data, state.blck.root, cc1[0])
 
@@ -77,7 +77,8 @@ suite "Attestation pool processing" & preset():
       pool.add(state.data.data, attestation1)
       pool.add(state.data.data, attestation0)
 
-      for i in 0..<MIN_ATTESTATION_INCLUSION_DELAY.int - 1: advanceState(state.data)
+      for i in 0..<MIN_ATTESTATION_INCLUSION_DELAY.int - 1:
+        advanceState(state.data)
 
       let attestations = pool.getAttestationsForBlock(
         state.data.data, state.data.data.slot + 1)
@@ -91,7 +92,7 @@ suite "Attestation pool processing" & preset():
       let
         # Create an attestation for slot 1!
         cc0 = get_crosslink_committee(state.data.data,
-          slot_to_epoch(state.data.data.slot), 0, cache)
+          slot_to_epoch(state.data.data.slot), 1, cache)
         attestation0 = makeAttestation(
           state.data.data, state.blck.root, cc0[0])
         attestation1 = makeAttestation(
@@ -115,7 +116,7 @@ suite "Attestation pool processing" & preset():
       var
         # Create an attestation for slot 1!
         cc0 = get_crosslink_committee(state.data.data,
-          slot_to_epoch(state.data.data.slot), 0, cache)
+          slot_to_epoch(state.data.data.slot), 1, cache)
         attestation0 = makeAttestation(
           state.data.data, state.blck.root, cc0[0])
         attestation1 = makeAttestation(
@@ -140,7 +141,7 @@ suite "Attestation pool processing" & preset():
       var
         # Create an attestation for slot 1!
         cc0 = get_crosslink_committee(state.data.data,
-          slot_to_epoch(state.data.data.slot), 0, cache)
+          slot_to_epoch(state.data.data.slot), 1, cache)
         attestation0 = makeAttestation(
           state.data.data, state.blck.root, cc0[0])
         attestation1 = makeAttestation(

@@ -264,8 +264,6 @@ func get_genesis_beacon_state*(
 
   state
 
-# TODO candidate for spec?
-# https://github.com/ethereum/eth2.0-specs/blob/0.5.1/specs/core/0_beacon-chain.md#on-genesis
 func get_initial_beacon_block*(state: BeaconState): BeaconBlock =
   BeaconBlock(
     slot: GENESIS_SLOT,
@@ -281,9 +279,8 @@ func get_attestation_data_slot*(state: BeaconState,
     offset = (data.crosslink.shard + SHARD_COUNT -
       get_epoch_start_shard(state, data.target_epoch)) mod SHARD_COUNT
 
-  # TODO re-instate once double-check correct conditions in attestation pool
-  #get_epoch_start_slot(data.target_epoch) + offset div (committee_count div SLOTS_PER_EPOCH)
-  data.slot
+  get_epoch_start_slot(data.target_epoch) + offset div
+    (committee_count div SLOTS_PER_EPOCH)
 
 # This is the slower (O(n)), spec-compatible signature.
 func get_attestation_data_slot*(state: BeaconState,
@@ -433,14 +430,6 @@ func get_attesting_indices_seq*(
   toSeq(items(get_attesting_indices(
     state, attestation_data, bitfield, cache)))
 
-# TODO legacy function name; rename, reimplement caching if useful, blob/v0.6.2
-iterator get_attestation_participants_cached*(
-    state: BeaconState, attestation_data: AttestationData, bitfield: BitField,
-    cache: var StateCache): ValidatorIndex =
-  for participant in get_attesting_indices(
-      state, attestation_data, bitfield, cache):
-    yield participant
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#convert_to_indexed
 func convert_to_indexed(state: BeaconState, attestation: Attestation,
     stateCache: var StateCache): IndexedAttestation =
@@ -473,8 +462,7 @@ func convert_to_indexed(state: BeaconState, attestation: Attestation,
   ## the conversion here otherwise needs sorting is due to the
   ## usage of HashSet -- order only matters in one place (that
   ## 0.6.3 highlights and explicates) except in that the spec,
-  ## for no obvious reason, verifies it. So, here goes, sort a
-  ## list just so a called function can verify it's sorted.
+  ## for no obvious reason, verifies it.
   IndexedAttestation(
     custody_bit_0_indices: sorted(
       mapIt(custody_bit_0_indices, it.uint64), system.cmp),
@@ -595,7 +583,6 @@ proc makeAttestationData*(
       else: get_block_root_at_slot(state, epoch_start_slot)
 
   AttestationData(
-    slot: state.slot,
     beacon_block_root: beacon_block_root,
     target_root: target_root,
     source_epoch: state.current_justified_epoch,
