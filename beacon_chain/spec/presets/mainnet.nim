@@ -44,7 +44,7 @@ const
   ## with a Verifiable Delay Function (VDF) will improve committee robustness
   ## and lower the safe minimum committee size.)
 
-  MAX_INDICES_PER_ATTESTATION* = 2^12 ##\
+  MAX_VALIDATORS_PER_COMMITTEE* = 2^12 ##\
   ## votes
 
   MIN_PER_EPOCH_CHURN_LIMIT* = 4
@@ -66,7 +66,7 @@ const
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#gwei-values
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#gwei-values
 
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9 ##\
   ## Minimum amounth of ETH that can be deposited in one call - deposits can
@@ -169,7 +169,7 @@ type
   # Signature domains
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#signature-domains
-  SignatureDomain* {.pure.} = enum
+  DomainType* {.pure.} = enum
     DOMAIN_BEACON_PROPOSER = 0
     DOMAIN_RANDAO = 1
     DOMAIN_ATTESTATION = 2

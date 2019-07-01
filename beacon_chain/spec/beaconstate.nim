@@ -365,7 +365,7 @@ func validate_indexed_attestation*(
 
   # Verify max number of indices
   let combined_len = len(bit_0_indices) + len(bit_1_indices)
-  if not (1 <= combined_len and combined_len <= MAX_INDICES_PER_ATTESTATION):
+  if not (1 <= combined_len and combined_len <= MAX_VALIDATORS_PER_COMMITTEE):
     return false
 
   # Verify index sets are disjoint

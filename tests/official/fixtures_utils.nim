@@ -20,7 +20,7 @@ type
     SHARD_COUNT*: int
     TARGET_COMMITTEE_SIZE*: int
     MAX_BALANCE_CHURN_QUOTIENT*: int
-    MAX_INDICES_PER_ATTESTATION*: int
+    MAX_VALIDATORS_PER_COMMITTEE*: int
     MIN_PER_EPOCH_CHURN_LIMIT*: int
     SHUFFLE_ROUND_COUNT*: int
     DEPOSIT_CONTRACT_TREE_DEPTH*: int
@@ -56,12 +56,12 @@ type
     MAX_DEPOSITS*: int
     MAX_VOLUNTARY_EXITS*: int
     MAX_TRANSFERS*: int
-    DOMAIN_BEACON_PROPOSER*: SignatureDomain
-    DOMAIN_RANDAO*: SignatureDomain
-    DOMAIN_ATTESTATION*: SignatureDomain
-    DOMAIN_DEPOSIT*: SignatureDomain
-    DOMAIN_VOLUNTARY_EXIT*: SignatureDomain
-    DOMAIN_TRANSFER*: SignatureDomain
+    DOMAIN_BEACON_PROPOSER*: DomainType
+    DOMAIN_RANDAO*: DomainType
+    DOMAIN_ATTESTATION*: DomainType
+    DOMAIN_DEPOSIT*: DomainType
+    DOMAIN_VOLUNTARY_EXIT*: DomainType
+    DOMAIN_TRANSFER*: DomainType
 
   Tests*[T] = object
     title*: string

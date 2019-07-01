@@ -151,16 +151,16 @@ func int_to_bytes4*(x: uint64): array[4, byte] =
   result[3] = ((x shr 24) and 0xff).byte
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#bls_domain
-func bls_domain(domain_type: SignatureDomain, fork_version: array[4, byte]):
+func compute_domain(domain_type: DomainType, fork_version: array[4, byte]):
     uint64 =
   var buf: array[8, byte]
   buf[0..3] = fork_version
   buf[4..7] = int_to_bytes4(domain_type.uint64)
   bytes_to_int(buf)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_domain
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_domain
 func get_domain*(
-    state: BeaconState, domain_type: SignatureDomain, message_epoch: Epoch): uint64 =
+    state: BeaconState, domain_type: DomainType, message_epoch: Epoch): Domain =
   ## Return the signature domain (fork version concatenated with domain type)
   ## of a message.
   let
@@ -169,9 +169,9 @@ func get_domain*(
         state.fork.previous_version
       else:
         state.fork.current_version
-  bls_domain(domain_type, fork_version)
+  compute_domain(domain_type, fork_version)
 
-func get_domain*(state: BeaconState, domain_type: SignatureDomain): uint64 =
+func get_domain*(state: BeaconState, domain_type: DomainType): Domain =
   get_domain(state, domain_type, get_current_epoch(state))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#generate_seed
