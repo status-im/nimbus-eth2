@@ -35,10 +35,11 @@ func increase_balance*(
   # Increase the validator balance at index ``index`` by ``delta``.
   state.balances[index] += delta
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#decrease_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#decrease_balance
 func decrease_balance*(
     state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
-  # Decrease validator balance by ``delta`` with underflow protection.
+  ## Decrease the validator balance at index ``index`` by ``delta``, with
+  ## underflow protection.
   state.balances[index] =
     if delta > state.balances[index]:
       0'u64
