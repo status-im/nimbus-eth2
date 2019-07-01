@@ -277,7 +277,7 @@ func get_attestation_data_slot*(state: BeaconState,
     data: AttestationData, committee_count: uint64): Slot =
   let
     offset = (data.crosslink.shard + SHARD_COUNT -
-      get_epoch_start_shard(state, data.target_epoch)) mod SHARD_COUNT
+      get_start_shard(state, data.target_epoch)) mod SHARD_COUNT
 
   compute_start_slot_of_epoch(data.target_epoch) + offset div
     (committee_count div SLOTS_PER_EPOCH)
@@ -595,7 +595,7 @@ proc makeAttestationData*(
     target_epoch: compute_epoch_of_slot(state.slot),
     crosslink: Crosslink(
       # Alternative is to put this offset into all callers
-      shard: shard + get_epoch_start_shard(state, compute_epoch_of_slot(state.slot)),
+      shard: shard + get_start_shard(state, compute_epoch_of_slot(state.slot)),
       parent_root: hash_tree_root(state.current_crosslinks[shard]),
       data_root: Eth2Digest(), # Stub in phase0
     )

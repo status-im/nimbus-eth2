@@ -96,8 +96,10 @@ func get_shard_delta*(state: BeaconState, epoch: Epoch): uint64 =
   min(get_epoch_committee_count(state, epoch),
     (SHARD_COUNT - SHARD_COUNT div SLOTS_PER_EPOCH).uint64)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_epoch_start_shard
-func get_epoch_start_shard*(state: BeaconState, epoch: Epoch): Shard =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_start_shard
+func get_start_shard*(state: BeaconState, epoch: Epoch): Shard =
+  # Return the start shard of the 0th committee at ``epoch``.
+
   doAssert epoch <= get_current_epoch(state) + 1
   var
     check_epoch = get_current_epoch(state) + 1
@@ -105,7 +107,7 @@ func get_epoch_start_shard*(state: BeaconState, epoch: Epoch): Shard =
       (state.latest_start_shard +
        get_shard_delta(state, get_current_epoch(state))) mod SHARD_COUNT
   while check_epoch > epoch:
-    check_epoch -= 1
+    check_epoch -= 1.Epoch
     shard = (shard + SHARD_COUNT - get_shard_delta(state, check_epoch)) mod
       SHARD_COUNT
   return shard
@@ -140,7 +142,7 @@ func get_crosslink_committee*(state: BeaconState, epoch: Epoch, shard: Shard,
 
   doAssert shard >= 0'u64
   # This seems to be required, basically, to be true? But I'm not entirely sure
-  #doAssert shard >= get_epoch_start_shard(state, epoch)
+  #doAssert shard >= get_start_shard(state, epoch)
   doAssert shard < SHARD_COUNT
 
   ## This is a somewhat more fragile, but high-ROI, caching setup --
@@ -153,7 +155,7 @@ func get_crosslink_committee*(state: BeaconState, epoch: Epoch, shard: Shard,
   compute_committee(
     stateCache.active_validator_indices_cache[epoch],
     generate_seed(state, epoch),
-    (shard + SHARD_COUNT - get_epoch_start_shard(state, epoch)) mod SHARD_COUNT,
+    (shard + SHARD_COUNT - get_start_shard(state, epoch)) mod SHARD_COUNT,
     get_epoch_committee_count(state, epoch),
     stateCache
   )
@@ -177,7 +179,7 @@ func get_beacon_proposer_index*(state: BeaconState, stateCache: var StateCache):
     committees_per_slot =
       get_epoch_committee_count(state, epoch) div SLOTS_PER_EPOCH
     offset = committees_per_slot * (state.slot mod SLOTS_PER_EPOCH)
-    shard = (get_epoch_start_shard(state, epoch) + offset) mod SHARD_COUNT
+    shard = (get_start_shard(state, epoch) + offset) mod SHARD_COUNT
     first_committee = get_crosslink_committee(state, epoch, shard, stateCache)
     seed = generate_seed(state, epoch)
 
