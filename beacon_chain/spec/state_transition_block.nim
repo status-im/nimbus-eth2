@@ -117,7 +117,7 @@ proc processRandao(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#eth1-data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#eth1-data
 func processEth1Data(state: var BeaconState, body: BeaconBlockBody) =
   state.eth1_data_votes.add body.eth1_data
   if state.eth1_data_votes.count(body.eth1_data) * 2 >
@@ -144,8 +144,8 @@ proc processProposerSlashings(
     let proposer = state.validator_registry[proposer_slashing.proposer_index.int]
 
     # Verify that the epoch is the same
-    if not (slot_to_epoch(proposer_slashing.header_1.slot) ==
-        slot_to_epoch(proposer_slashing.header_2.slot)):
+    if not (compute_epoch_of_slot(proposer_slashing.header_1.slot) ==
+        compute_epoch_of_slot(proposer_slashing.header_2.slot)):
       notice "PropSlash: epoch mismatch"
       return false
 
@@ -167,7 +167,7 @@ proc processProposerSlashings(
             signing_root(header).data,
             header.signature,
             get_domain(
-              state, DOMAIN_BEACON_PROPOSER, slot_to_epoch(header.slot))):
+              state, DOMAIN_BEACON_PROPOSER, compute_epoch_of_slot(header.slot))):
           notice "PropSlash: invalid signature",
             signature_index = i
           return false
@@ -269,7 +269,7 @@ proc processAttestations(
       get_attestation_data_slot(state, attestation.data, committee_count)
     let pending_attestation = PendingAttestation(
       data: attestation.data,
-      aggregation_bitfield: attestation.aggregation_bitfield,
+      aggregation_bits: attestation.aggregation_bits,
       inclusion_delay: state.slot - attestation_slot,
       proposer_index: get_beacon_proposer_index(state, stateCache),
     )

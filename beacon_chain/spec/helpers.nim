@@ -9,10 +9,9 @@
 
 import ./datatypes, ./digest, sequtils, math
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#integer_squareroot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
-  ## The largest integer ``x`` such that ``x**2`` is less than or equal to
-  ## ``n``.
+  # Return the largest integer ``x`` such that ``x**2 <= n``.
   doAssert n >= 0'u64
 
   var
@@ -58,13 +57,13 @@ func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
 
   o[1]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#slot_to_epoch
-func slot_to_epoch*(slot: Slot|uint64): Epoch =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#compute_epoch_of_slot
+func compute_epoch_of_slot*(slot: Slot|uint64): Epoch =
   # Return the epoch number of the given ``slot``.
   (slot div SLOTS_PER_EPOCH).Epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_epoch_start_slot
-func get_epoch_start_slot*(epoch: Epoch): Slot =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#compute_start_slot_of_epoch
+func compute_start_slot_of_epoch*(epoch: Epoch): Slot =
   # Return the starting slot of the given ``epoch``.
   (epoch * SLOTS_PER_EPOCH).Slot
 
@@ -89,11 +88,11 @@ func get_epoch_committee_count*(state: BeaconState, epoch: Epoch): uint64 =
     len(active_validator_indices) div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
     1, SHARD_COUNT div SLOTS_PER_EPOCH).uint64 * SLOTS_PER_EPOCH
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_current_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: BeaconState): Epoch =
-  # Return the current epoch of the given ``state``.
+  # Return the current epoch.
   doAssert state.slot >= GENESIS_SLOT, $state.slot
-  slot_to_epoch(state.slot)
+  compute_epoch_of_slot(state.slot)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: BeaconState,
@@ -152,16 +151,16 @@ func int_to_bytes4*(x: uint64): array[4, byte] =
   result[3] = ((x shr 24) and 0xff).byte
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#bls_domain
-func bls_domain(domain_type: SignatureDomain, fork_version: array[4, byte]):
+func compute_domain(domain_type: DomainType, fork_version: array[4, byte]):
     uint64 =
   var buf: array[8, byte]
   buf[0..3] = fork_version
   buf[4..7] = int_to_bytes4(domain_type.uint64)
   bytes_to_int(buf)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_domain
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_domain
 func get_domain*(
-    state: BeaconState, domain_type: SignatureDomain, message_epoch: Epoch): uint64 =
+    state: BeaconState, domain_type: DomainType, message_epoch: Epoch): Domain =
   ## Return the signature domain (fork version concatenated with domain type)
   ## of a message.
   let
@@ -170,9 +169,9 @@ func get_domain*(
         state.fork.previous_version
       else:
         state.fork.current_version
-  bls_domain(domain_type, fork_version)
+  compute_domain(domain_type, fork_version)
 
-func get_domain*(state: BeaconState, domain_type: SignatureDomain): uint64 =
+func get_domain*(state: BeaconState, domain_type: DomainType): Domain =
   get_domain(state, domain_type, get_current_epoch(state))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#generate_seed

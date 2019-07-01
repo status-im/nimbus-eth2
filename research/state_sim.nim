@@ -101,7 +101,7 @@ cli do(slots = 448,
       # work for every slot - we'll randomize it deterministically to give
       # some variation
       let
-        epoch = slot_to_epoch(state.slot)
+        epoch = compute_epoch_of_slot(state.slot)
         scass = withTimerRet(timers[tShuffle]):
           mapIt(
             0'u64 .. (get_epoch_committee_count(state, epoch) - 1),
@@ -148,7 +148,7 @@ cli do(slots = 448,
 
     if (state.slot) mod SLOTS_PER_EPOCH == 0:
       echo &" slot: {humaneSlotNum(state.slot)} ",
-        &"epoch: {humaneEpochNum(state.slot.slot_to_epoch)}"
+        &"epoch: {humaneEpochNum(state.slot.compute_epoch_of_slot)}"
 
   maybeWrite() # catch that last state as well..
 

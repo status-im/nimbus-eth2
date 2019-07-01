@@ -33,7 +33,7 @@ const
   TARGET_COMMITTEE_SIZE* = 4
 
   # Unchanged
-  MAX_INDICES_PER_ATTESTATION* = 4096
+  MAX_VALIDATORS_PER_COMMITTEE* = 4096
   MIN_PER_EPOCH_CHURN_LIMIT* = 4
   CHURN_LIMIT_QUOTIENT* = 2^16
   BASE_REWARDS_PER_EPOCH* = 5
@@ -75,9 +75,9 @@ const
   # Unchanged
   SECONDS_PER_SLOT*{.intdefine.} = 6'u64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#time-parameters
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#time-parameters
   # Unchanged
-  MIN_ATTESTATION_INCLUSION_DELAY* = 2'u64^2
+  MIN_ATTESTATION_INCLUSION_DELAY* = 2'u64^0
 
   # Changed
   SLOTS_PER_EPOCH* {.intdefine.} = 64
@@ -132,7 +132,7 @@ type
   # Signature domains
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#signature-domains
-  SignatureDomain* {.pure.} = enum
+  DomainType* {.pure.} = enum
     DOMAIN_BEACON_PROPOSER = 0
     DOMAIN_RANDAO = 1
     DOMAIN_ATTESTATION = 2

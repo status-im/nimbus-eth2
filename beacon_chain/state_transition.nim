@@ -57,7 +57,7 @@ func process_slot(state: var BeaconState) =
     state.latest_block_header.state_root = previous_state_root
 
   # Cache block root
-  state.latest_block_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
+  state.block_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
     signing_root(state.latest_block_header)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#state-root-verification
@@ -179,7 +179,7 @@ func process_slot(state: var HashedBeaconState) =
     state.data.latest_block_header.state_root = previous_slot_state_root
 
   # Cache block root
-  state.data.latest_block_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
+  state.data.block_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
     signing_root(state.data.latest_block_header)
 
 # Not covered by above 0.7 marking

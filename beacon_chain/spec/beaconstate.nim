@@ -29,10 +29,10 @@ func verify_merkle_branch(leaf: Eth2Digest, proof: openarray[Eth2Digest], depth:
     value = eth2hash(buf)
   value == root
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#increase_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#increase_balance
 func increase_balance*(
     state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
-  # Increase validator balance by ``delta``.
+  # Increase the validator balance at index ``index`` by ``delta``.
   state.balances[index] += delta
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#decrease_balance
@@ -116,10 +116,10 @@ func get_churn_limit(state: BeaconState): uint64 =
       CHURN_LIMIT_QUOTIENT
   ).uint64
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#initiate_validator_exit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(state: var BeaconState,
                               index: ValidatorIndex) =
-  # Initiate the validator of the given ``index``.
+  # Initiate the exit of the validator with index ``index``.
 
   # Return if validator already initiated exit
   let validator = addr state.validator_registry[index]
@@ -145,7 +145,7 @@ func initiate_validator_exit*(state: var BeaconState,
   # Set validator exit epoch and withdrawable epoch
   validator.exit_epoch = exit_queue_epoch
   validator.withdrawable_epoch =
-    validator.exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+    (validator.exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY).Epoch
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#slash_validator
 func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
@@ -279,7 +279,7 @@ func get_attestation_data_slot*(state: BeaconState,
     offset = (data.crosslink.shard + SHARD_COUNT -
       get_epoch_start_shard(state, data.target_epoch)) mod SHARD_COUNT
 
-  get_epoch_start_slot(data.target_epoch) + offset div
+  compute_start_slot_of_epoch(data.target_epoch) + offset div
     (committee_count div SLOTS_PER_EPOCH)
 
 # This is the slower (O(n)), spec-compatible signature.
@@ -288,21 +288,21 @@ func get_attestation_data_slot*(state: BeaconState,
   get_attestation_data_slot(
     state, data, get_epoch_committee_count(state, data.target_epoch))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_block_root_at_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: BeaconState,
                              slot: Slot): Eth2Digest =
   # Return the block root at a recent ``slot``.
 
   doAssert state.slot <= slot + SLOTS_PER_HISTORICAL_ROOT
   doAssert slot < state.slot
-  state.latest_block_roots[slot mod SLOTS_PER_HISTORICAL_ROOT]
+  state.block_roots[slot mod SLOTS_PER_HISTORICAL_ROOT]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_block_root
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_block_root
 func get_block_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
-  # Return the block root at a recent ``epoch``.
-  get_block_root_at_slot(state, get_epoch_start_slot(epoch))
+  # Return the block root at the start of a recent ``epoch``.
+  get_block_root_at_slot(state, compute_start_slot_of_epoch(epoch))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_total_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_total_balance
 func get_total_balance*(state: BeaconState, validators: auto): Gwei =
   ## Return the combined effective balance of the ``indices``. (1 Gwei minimum
   ## to avoid divisions by zero.)
@@ -365,7 +365,7 @@ func validate_indexed_attestation*(
 
   # Verify max number of indices
   let combined_len = len(bit_0_indices) + len(bit_1_indices)
-  if not (1 <= combined_len and combined_len <= MAX_INDICES_PER_ATTESTATION):
+  if not (1 <= combined_len and combined_len <= MAX_VALIDATORS_PER_COMMITTEE):
     return false
 
   # Verify index sets are disjoint
@@ -430,18 +430,21 @@ func get_attesting_indices_seq*(
   toSeq(items(get_attesting_indices(
     state, attestation_data, bitfield, cache)))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#convert_to_indexed
-func convert_to_indexed(state: BeaconState, attestation: Attestation,
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_indexed_attestation
+func get_indexed_attestation(state: BeaconState, attestation: Attestation,
     stateCache: var StateCache): IndexedAttestation =
-  # Convert ``attestation`` to (almost) indexed-verifiable form.
+  # Return the indexed attestation corresponding to ``attestation``.
   let
     attesting_indices =
       get_attesting_indices(
-        state, attestation.data, attestation.aggregation_bitfield, stateCache)
+        state, attestation.data, attestation.aggregation_bits, stateCache)
     custody_bit_1_indices =
       get_attesting_indices(
-        state, attestation.data, attestation.custody_bitfield, stateCache)
+        state, attestation.data, attestation.custody_bits, stateCache)
 
+  doAssert custody_bit_1_indices <= attesting_indices
+
+  let
     ## TODO quadratic, .items, but first-class iterators, etc
     ## filterIt can't work on HashSets directly because it is
     ## assuming int-indexable thing to extract type, because,
@@ -452,6 +455,8 @@ func convert_to_indexed(state: BeaconState, attestation: Attestation,
     ## with (non-closure, etc) iterators no other part of Nim
     ## can access. As such, this function's doing many copies
     ## and allocations it has no fundamental reason to do.
+    ## TODO phrased in 0.8 as
+    ## custody_bit_0_indices = attesting_indices.difference(custody_bit_1_indices)
     custody_bit_0_indices =
       filterIt(toSeq(items(attesting_indices)), it notin custody_bit_1_indices)
 
@@ -506,7 +511,7 @@ proc checkAttestation*(
 
   let pending_attestation = PendingAttestation(
     data: data,
-    aggregation_bitfield: attestation.aggregation_bitfield,
+    aggregation_bits: attestation.aggregation_bits,
     inclusion_delay: state.slot - attestation_slot,
     proposer_index: get_beacon_proposer_index(state, stateCache),
   )
@@ -563,7 +568,7 @@ proc checkAttestation*(
 
   # Check signature and bitfields
   if not validate_indexed_attestation(
-      state, convert_to_indexed(state, attestation, stateCache)):
+      state, get_indexed_attestation(state, attestation, stateCache)):
     warn("checkAttestation: signature or bitfields incorrect")
     return
 
@@ -577,7 +582,7 @@ proc makeAttestationData*(
   ## part of committee - notably, it can't be a newer or older state (!)
 
   let
-    epoch_start_slot = get_epoch_start_slot(slot_to_epoch(state.slot))
+    epoch_start_slot = compute_start_slot_of_epoch(compute_epoch_of_slot(state.slot))
     target_root =
       if epoch_start_slot == state.slot: beacon_block_root
       else: get_block_root_at_slot(state, epoch_start_slot)
@@ -587,10 +592,10 @@ proc makeAttestationData*(
     target_root: target_root,
     source_epoch: state.current_justified_epoch,
     source_root: state.current_justified_root,
-    target_epoch: slot_to_epoch(state.slot),
+    target_epoch: compute_epoch_of_slot(state.slot),
     crosslink: Crosslink(
       # Alternative is to put this offset into all callers
-      shard: shard + get_epoch_start_shard(state, slot_to_epoch(state.slot)),
+      shard: shard + get_epoch_start_shard(state, compute_epoch_of_slot(state.slot)),
       parent_root: hash_tree_root(state.current_crosslinks[shard]),
       data_root: Eth2Digest(), # Stub in phase0
     )

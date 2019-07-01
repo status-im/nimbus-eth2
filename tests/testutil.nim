@@ -121,12 +121,12 @@ proc addBlock*(
     # We have a signature - put it in the block and we should be done!
     new_block.signature =
       bls_sign(proposerPrivkey, block_root.data,
-               get_domain(state, DOMAIN_BEACON_PROPOSER, slot_to_epoch(new_block.slot)))
+               get_domain(state, DOMAIN_BEACON_PROPOSER, compute_epoch_of_slot(new_block.slot)))
 
     doAssert bls_verify(
       proposer.pubkey,
       block_root.data, new_block.signature,
-      get_domain(state, DOMAIN_BEACON_PROPOSER, slot_to_epoch(new_block.slot))),
+      get_domain(state, DOMAIN_BEACON_PROPOSER, compute_epoch_of_slot(new_block.slot))),
       "we just signed this message - it should pass verification!"
 
   new_block
@@ -143,7 +143,7 @@ proc makeBlock*(
 
 proc find_shard_committee(
     state: BeaconState, validator_index: ValidatorIndex): auto =
-  let epoch = slot_to_epoch(state.slot)
+  let epoch = compute_epoch_of_slot(state.slot)
   var cache = get_empty_per_epoch_cache()
   for shard in 0'u64 ..< get_epoch_committee_count(state, epoch):
     let committee = get_crosslink_committee(state, epoch,
@@ -164,8 +164,8 @@ proc makeAttestation*(
   doAssert sac_index != -1, "find_shard_committee should guarantee this"
 
   var
-    aggregation_bitfield = BitField.init(committee.len)
-  set_bitfield_bit(aggregation_bitfield, sac_index)
+    aggregation_bits = BitField.init(committee.len)
+  set_bitfield_bit(aggregation_bits, sac_index)
 
   let
     msg = hash_tree_root(
@@ -177,15 +177,15 @@ proc makeAttestation*(
           get_domain(
             state,
             DOMAIN_ATTESTATION,
-            slot_to_epoch(state.slot)))
+            compute_epoch_of_slot(state.slot)))
       else:
         ValidatorSig()
 
   Attestation(
     data: data,
-    aggregation_bitfield: aggregation_bitfield,
+    aggregation_bits: aggregation_bits,
     signature: sig,
-    custody_bitfield: BitField.init(committee.len)
+    custody_bits: BitField.init(committee.len)
   )
 
 proc makeTestDB*(tailState: BeaconState, tailBlock: BeaconBlock): BeaconChainDB =

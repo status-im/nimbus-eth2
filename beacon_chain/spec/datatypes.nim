@@ -64,7 +64,7 @@ const
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#initial-values
   GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
-  ## slot_to_epoch(GENESIS_SLOT)
+  ## compute_epoch_of_slot(GENESIS_SLOT)
   ZERO_HASH* = Eth2Digest()
 
 type
@@ -72,6 +72,7 @@ type
 
   Shard* = uint64
   Gwei* = uint64
+  Domain* = uint64
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#proposerslashing
   ProposerSlashing* = object
@@ -105,13 +106,13 @@ type
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#attestation
   Attestation* = object
-    aggregation_bitfield*: BitField ##\
+    aggregation_bits*: BitField ##\
     ## Attester aggregation bitfield
 
     data*: AttestationData ##\
     ## Attestation data
 
-    custody_bitfield*: BitField ##\
+    custody_bits*: BitField ##\
     ## Custody bitfield
 
     signature*: ValidatorSig ##\
@@ -136,13 +137,12 @@ type
     data*: AttestationData
     custody_bit*: bool
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#deposit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#deposit
   Deposit* = object
     proof*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest] ##\
-    ## Branch in the deposit tree
+    ## Merkle path to deposit data list root
 
-    data*: DepositData ##\
-    ## Data
+    data*: DepositData
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#depositdata
   DepositData* = object
@@ -160,16 +160,15 @@ type
     signature*: ValidatorSig ##\
     ## Container self-signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#voluntaryexit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
-    # Minimum epoch for processing exit
-    epoch*: Epoch
-    # Index of the exiting validator
+    epoch*: Epoch ##\
+    ## Earliest epoch when voluntary exit can be processed
+
     validator_index*: uint64
-    # Validator signature
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#transfer
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#transfer
   Transfer* = object
     sender*: uint64 ##\
     ## Sender index
@@ -177,20 +176,21 @@ type
     recipient*: uint64 ##\
     ## Recipient index
 
+    # TODO amount and fee are Gwei-typed
     amount*: uint64 ##\
     ## Amount in Gwei
 
     fee*: uint64 ##\
     ## Fee in Gwei for block proposer
 
-    slot*: uint64 ##\
-    ## Inclusion slot
+    slot*: Slot ##\
+    ## Slot at which transfer must be processed
 
     pubkey*: ValidatorPubKey ##\
-    ## Sender withdrawal pubkey
+    ## Withdrawal pubkey
 
     signature*: ValidatorSig ##\
-    ## Sender signature
+    ## Signature checked against withdrawal pubkey
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#beaconblock
   BeaconBlock* = object
@@ -213,7 +213,7 @@ type
     signature*: ValidatorSig ##\
     ## Proposer signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#beaconblockheader
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot
     parent_root*: Eth2Digest
@@ -263,7 +263,7 @@ type
     # Recent state
     current_crosslinks*: array[SHARD_COUNT, Crosslink]
     previous_crosslinks*: array[SHARD_COUNT, Crosslink]
-    latest_block_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
+    block_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
     ## Needed to process attestations, older to newer
     latest_state_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     latest_active_index_roots*: array[LATEST_ACTIVE_INDEX_ROOTS_LENGTH, Eth2Digest]
@@ -306,35 +306,28 @@ type
     effective_balance*: uint64 ##\
     ## Effective balance
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#crosslink
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#crosslink
   Crosslink* = object
-    shard*: Shard ##\
-    ## Shard number
+    shard*: Shard
+    parent_root*: Eth2Digest
 
     start_epoch*: Epoch
     end_epoch*: Epoch ##\
-    ## Crosslinking data from epochs [start....end-1]
+    ## Crosslinking data
 
-    parent_root*: Eth2Digest ##\
-    ## Root of the previous crosslink
-
-    data_root*: Eth2Digest ##\
-    ## Root of the crosslinked shard data since the previous crosslink
+    data_root*: Eth2Digest
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#pendingattestation
   PendingAttestation* = object
-    aggregation_bitfield*: BitField           ## Attester participation bitfield
+    aggregation_bits*: BitField               ## Attester participation bitfield
     data*: AttestationData                    ## Attestation data
     inclusion_delay*: uint64                  ## Inclusion delay
     proposer_index*: ValidatorIndex           ## Proposer index
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#historicalbatch
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#historicalbatch
   HistoricalBatch* = object
-    block_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
-    ## Block roots
-
-    state_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
-    ## State roots
+    block_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+    state_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#fork
   Fork* = object

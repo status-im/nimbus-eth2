@@ -72,7 +72,7 @@ func get_unslashed_attesting_indices(
   result = initSet[ValidatorIndex]()
   for a in attestations:
     result = result.union(get_attesting_indices(
-      state, a.data, a.aggregation_bitfield, stateCache))
+      state, a.data, a.aggregation_bits, stateCache))
 
   for index in result:
     if state.validator_registry[index].slashed:
@@ -291,7 +291,7 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
     var attestation = matching_source_attestations[0]
     for a in matching_source_attestations:
       if index notin get_attesting_indices(
-          state, a.data, a.aggregation_bitfield, stateCache):
+          state, a.data, a.aggregation_bits, stateCache):
         continue
       if a.inclusion_delay < attestation.inclusion_delay:
         attestation = a
@@ -421,7 +421,7 @@ func process_final_updates(state: var BeaconState) =
   # Set historical root accumulator
   if next_epoch mod (SLOTS_PER_HISTORICAL_ROOT div SLOTS_PER_EPOCH).uint64 == 0:
     let historical_batch = HistoricalBatch(
-      block_roots: state.latest_block_roots,
+      block_roots: state.block_roots,
       state_roots: state.latest_state_roots,
     )
     state.historical_roots.add (hash_tree_root(historical_batch))

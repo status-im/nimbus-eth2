@@ -272,7 +272,7 @@ proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
       stateRoot = shortLog(root),
       connectedPeers = node.network.peersCount,
       stateSlot = humaneSlotNum(state.slot),
-      stateEpoch = humaneEpochNum(state.slot.slotToEpoch)
+      stateEpoch = humaneEpochNum(state.slot.computeEpochOfSlot)
 
   let
     justifiedHead = node.blockPool.latestJustifiedBlock()
@@ -287,7 +287,7 @@ proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
     lmdGhost(node.attestationPool, state, justifiedHead)
   info "Fork chosen",
     newHeadSlot = humaneSlotNum(newHead.slot),
-    newHeadEpoch = humaneEpochNum(newHead.slot.slotToEpoch),
+    newHeadEpoch = humaneEpochNum(newHead.slot.computeEpochOfSlot),
     newHeadBlockRoot = shortLog(newHead.root)
 
   node.blockPool.updateHead(node.stateCache, newHead)
@@ -307,9 +307,9 @@ proc sendAttestation(node: BeaconNode,
   var attestation = Attestation(
     data: attestationData,
     signature: validatorSignature,
-    aggregation_bitfield: aggregationBitfield,
+    aggregation_bits: aggregationBitfield,
     # Stub in phase0
-    custody_bitfield: BitField.init(committeeLen)
+    custody_bits: BitField.init(committeeLen)
   )
 
   node.network.broadcast(topicAttestations, attestation)
@@ -468,7 +468,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   # using empty slots as fillers.
   node.blockPool.withState(node.stateCache, attestationHead):
     var cache = get_empty_per_epoch_cache()
-    let epoch = slot_to_epoch(slot)
+    let epoch = compute_epoch_of_slot(slot)
     for committee_index in 0'u64 ..< get_epoch_committee_count(state, epoch):
       ## TODO verify that this is the correct mapping; it's consistent with
       ## other code

@@ -30,7 +30,7 @@ proc signBlockProposal*(v: AttachedValidator, state: BeaconState, slot: Slot,
   if v.kind == inProcess:
     await sleepAsync(chronos.milliseconds(1))
     result = bls_sign(v.privKey, blockRoot.data,
-      get_domain(state, DOMAIN_BEACON_PROPOSER, slot_to_epoch(slot)))
+      get_domain(state, DOMAIN_BEACON_PROPOSER, compute_epoch_of_slot(slot)))
   else:
     # TODO:
     # send RPC
@@ -59,8 +59,8 @@ func genRandaoReveal*(k: ValidatorPrivKey, state: BeaconState, slot: Slot):
 
   # Off-by-one? I often get slot == state.slot but the check was "doAssert slot > state.slot" (Mamy)
   doAssert slot >= state.slot, "input slot: " & $humaneSlotNum(slot) & " - beacon state slot: " & $humaneSlotNum(state.slot)
-  bls_sign(k, hash_tree_root(slot_to_epoch(slot).uint64).data,
-    get_domain(state, DOMAIN_RANDAO, slot_to_epoch(slot)))
+  bls_sign(k, hash_tree_root(compute_epoch_of_slot(slot).uint64).data,
+    get_domain(state, DOMAIN_RANDAO, compute_epoch_of_slot(slot)))
 
 func genRandaoReveal*(v: AttachedValidator, state: BeaconState, slot: Slot):
     ValidatorSig =
