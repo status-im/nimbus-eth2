@@ -74,7 +74,7 @@ type
   Gwei* = uint64
   Domain* = uint64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#proposerslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     proposer_index*: uint64 ##\
     ## Proposer index
@@ -85,7 +85,7 @@ type
     header_2*: BeaconBlockHeader ##\
     # Second block header
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#attesterslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#attesterslashing
   AttesterSlashing* = object
     attestation_1*: IndexedAttestation ## \
     ## First attestation
@@ -118,6 +118,11 @@ type
     signature*: ValidatorSig ##\
     ## BLS aggregate signature
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#checkpoint
+  Checkpoint* = object
+    epoch*: Epoch
+    root*: Eth2Digest
+
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#attestationdata
   AttestationData* = object
     # LMD GHOST vote
@@ -132,10 +137,12 @@ type
     # Crosslink vote
     crosslink*: Crosslink
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#attestationdataandcustodybit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#attestationdataandcustodybit
   AttestationDataAndCustodyBit* = object
     data*: AttestationData
-    custody_bit*: bool
+
+    custody_bit*: bool ##\
+    ## Challengeable bit (SSZ-bool, 1 byte) for the custody of crosslink data
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#deposit
   Deposit* = object
@@ -144,7 +151,7 @@ type
 
     data*: DepositData
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#depositdata
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#depositdata
   DepositData* = object
     pubkey*: ValidatorPubKey ##\
     ## BLS pubkey
@@ -155,6 +162,7 @@ type
     amount*: uint64 ##\
     ## Amount in Gwei
 
+    # TODO remove, not in spec
     dummy*: uint64
 
     signature*: ValidatorSig ##\
@@ -192,7 +200,7 @@ type
     signature*: ValidatorSig ##\
     ## Signature checked against withdrawal pubkey
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#beaconblock
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -343,7 +351,7 @@ type
     epoch*: Epoch ##\
     ## Fork epoch number
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#eth1data
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#eth1data
   Eth1Data* = object
     deposit_root*: Eth2Digest ##\
     ## Root of the deposit tree
