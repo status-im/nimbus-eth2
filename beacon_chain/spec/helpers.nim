@@ -9,10 +9,9 @@
 
 import ./datatypes, ./digest, sequtils, math
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#integer_squareroot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
-  ## The largest integer ``x`` such that ``x**2`` is less than or equal to
-  ## ``n``.
+  # Return the largest integer ``x`` such that ``x**2 <= n``.
   doAssert n >= 0'u64
 
   var
@@ -63,8 +62,8 @@ func compute_epoch_of_slot*(slot: Slot|uint64): Epoch =
   # Return the epoch number of the given ``slot``.
   (slot div SLOTS_PER_EPOCH).Epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_epoch_start_slot
-func get_epoch_start_slot*(epoch: Epoch): Slot =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#compute_start_slot_of_epoch
+func compute_start_slot_of_epoch*(epoch: Epoch): Slot =
   # Return the starting slot of the given ``epoch``.
   (epoch * SLOTS_PER_EPOCH).Slot
 

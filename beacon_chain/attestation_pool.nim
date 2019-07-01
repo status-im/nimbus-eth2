@@ -40,7 +40,7 @@ proc validate(
 
   let attestationSlot = get_attestation_data_slot(state, attestation.data)
 
-  if attestationSlot < state.finalized_epoch.get_epoch_start_slot():
+  if attestationSlot < state.finalized_epoch.compute_start_slot_of_epoch():
     debug "Old attestation",
       attestationSlot = humaneSlotNum(attestationSlot),
       attestationEpoch = humaneEpochNum(attestationSlot.compute_epoch_of_slot),
@@ -130,7 +130,7 @@ proc slotIndex(
     # earlier than that is thrown out by the above check
     info "First attestation!",
       attestationSlot =  $humaneSlotNum(attestationSlot)
-    pool.startingSlot = state.finalized_epoch.get_epoch_start_slot()
+    pool.startingSlot = state.finalized_epoch.compute_start_slot_of_epoch()
 
   if pool.startingSlot + pool.slots.len.uint64 <= attestationSlot:
     debug "Growing attestation pool",
@@ -141,14 +141,14 @@ proc slotIndex(
     while pool.startingSlot + pool.slots.len.uint64 <= attestationSlot:
       pool.slots.addLast(SlotData())
 
-  if pool.startingSlot < state.finalized_epoch.get_epoch_start_slot():
+  if pool.startingSlot < state.finalized_epoch.compute_start_slot_of_epoch():
     debug "Pruning attestation pool",
       startingSlot = $humaneSlotNum(pool.startingSlot),
       finalizedSlot =
-        $humaneSlotNum(state.finalized_epoch.get_epoch_start_slot())
+        $humaneSlotNum(state.finalized_epoch.compute_start_slot_of_epoch())
 
     # TODO there should be a better way to remove a whole epoch of stuff..
-    while pool.startingSlot < state.finalized_epoch.get_epoch_start_slot():
+    while pool.startingSlot < state.finalized_epoch.compute_start_slot_of_epoch():
       pool.slots.popFirst()
       pool.startingSlot += 1
 

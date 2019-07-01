@@ -136,13 +136,12 @@ type
     data*: AttestationData
     custody_bit*: bool
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#deposit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#deposit
   Deposit* = object
     proof*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest] ##\
-    ## Branch in the deposit tree
+    ## Merkle path to deposit data list root
 
-    data*: DepositData ##\
-    ## Data
+    data*: DepositData
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#depositdata
   DepositData* = object
@@ -160,16 +159,15 @@ type
     signature*: ValidatorSig ##\
     ## Container self-signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#voluntaryexit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
-    # Minimum epoch for processing exit
-    epoch*: Epoch
-    # Index of the exiting validator
+    epoch*: Epoch ##\
+    ## Earliest epoch when voluntary exit can be processed
+
     validator_index*: uint64
-    # Validator signature
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#transfer
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#transfer
   Transfer* = object
     sender*: uint64 ##\
     ## Sender index
@@ -177,20 +175,21 @@ type
     recipient*: uint64 ##\
     ## Recipient index
 
+    # TODO amount and fee are Gwei-typed
     amount*: uint64 ##\
     ## Amount in Gwei
 
     fee*: uint64 ##\
     ## Fee in Gwei for block proposer
 
-    slot*: uint64 ##\
-    ## Inclusion slot
+    slot*: Slot ##\
+    ## Slot at which transfer must be processed
 
     pubkey*: ValidatorPubKey ##\
-    ## Sender withdrawal pubkey
+    ## Withdrawal pubkey
 
     signature*: ValidatorSig ##\
-    ## Sender signature
+    ## Signature checked against withdrawal pubkey
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#beaconblock
   BeaconBlock* = object

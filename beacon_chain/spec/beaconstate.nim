@@ -29,10 +29,10 @@ func verify_merkle_branch(leaf: Eth2Digest, proof: openarray[Eth2Digest], depth:
     value = eth2hash(buf)
   value == root
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#increase_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#increase_balance
 func increase_balance*(
     state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
-  # Increase validator balance by ``delta``.
+  # Increase the validator balance at index ``index`` by ``delta``.
   state.balances[index] += delta
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#decrease_balance
@@ -279,7 +279,7 @@ func get_attestation_data_slot*(state: BeaconState,
     offset = (data.crosslink.shard + SHARD_COUNT -
       get_epoch_start_shard(state, data.target_epoch)) mod SHARD_COUNT
 
-  get_epoch_start_slot(data.target_epoch) + offset div
+  compute_start_slot_of_epoch(data.target_epoch) + offset div
     (committee_count div SLOTS_PER_EPOCH)
 
 # This is the slower (O(n)), spec-compatible signature.
@@ -297,10 +297,10 @@ func get_block_root_at_slot*(state: BeaconState,
   doAssert slot < state.slot
   state.latest_block_roots[slot mod SLOTS_PER_HISTORICAL_ROOT]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_block_root
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_block_root
 func get_block_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
-  # Return the block root at a recent ``epoch``.
-  get_block_root_at_slot(state, get_epoch_start_slot(epoch))
+  # Return the block root at the start of a recent ``epoch``.
+  get_block_root_at_slot(state, compute_start_slot_of_epoch(epoch))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_total_balance
 func get_total_balance*(state: BeaconState, validators: auto): Gwei =
@@ -582,7 +582,7 @@ proc makeAttestationData*(
   ## part of committee - notably, it can't be a newer or older state (!)
 
   let
-    epoch_start_slot = get_epoch_start_slot(compute_epoch_of_slot(state.slot))
+    epoch_start_slot = compute_start_slot_of_epoch(compute_epoch_of_slot(state.slot))
     target_root =
       if epoch_start_slot == state.slot: beacon_block_root
       else: get_block_root_at_slot(state, epoch_start_slot)
