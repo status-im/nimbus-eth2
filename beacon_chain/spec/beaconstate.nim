@@ -116,10 +116,10 @@ func get_churn_limit(state: BeaconState): uint64 =
       CHURN_LIMIT_QUOTIENT
   ).uint64
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#initiate_validator_exit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(state: var BeaconState,
                               index: ValidatorIndex) =
-  # Initiate the validator of the given ``index``.
+  # Initiate the exit of the validator with index ``index``.
 
   # Return if validator already initiated exit
   let validator = addr state.validator_registry[index]
@@ -145,7 +145,7 @@ func initiate_validator_exit*(state: var BeaconState,
   # Set validator exit epoch and withdrawable epoch
   validator.exit_epoch = exit_queue_epoch
   validator.withdrawable_epoch =
-    validator.exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+    (validator.exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY).Epoch
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#slash_validator
 func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
@@ -288,14 +288,14 @@ func get_attestation_data_slot*(state: BeaconState,
   get_attestation_data_slot(
     state, data, get_epoch_committee_count(state, data.target_epoch))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_block_root_at_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: BeaconState,
                              slot: Slot): Eth2Digest =
   # Return the block root at a recent ``slot``.
 
   doAssert state.slot <= slot + SLOTS_PER_HISTORICAL_ROOT
   doAssert slot < state.slot
-  state.latest_block_roots[slot mod SLOTS_PER_HISTORICAL_ROOT]
+  state.block_roots[slot mod SLOTS_PER_HISTORICAL_ROOT]
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_block_root
 func get_block_root*(state: BeaconState, epoch: Epoch): Eth2Digest =

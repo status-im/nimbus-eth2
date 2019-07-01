@@ -263,7 +263,7 @@ type
     # Recent state
     current_crosslinks*: array[SHARD_COUNT, Crosslink]
     previous_crosslinks*: array[SHARD_COUNT, Crosslink]
-    latest_block_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
+    block_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
     ## Needed to process attestations, older to newer
     latest_state_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     latest_active_index_roots*: array[LATEST_ACTIVE_INDEX_ROOTS_LENGTH, Eth2Digest]
@@ -306,20 +306,16 @@ type
     effective_balance*: uint64 ##\
     ## Effective balance
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#crosslink
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#crosslink
   Crosslink* = object
-    shard*: Shard ##\
-    ## Shard number
+    shard*: Shard
+    parent_root*: Eth2Digest
 
     start_epoch*: Epoch
     end_epoch*: Epoch ##\
-    ## Crosslinking data from epochs [start....end-1]
+    ## Crosslinking data
 
-    parent_root*: Eth2Digest ##\
-    ## Root of the previous crosslink
-
-    data_root*: Eth2Digest ##\
-    ## Root of the crosslinked shard data since the previous crosslink
+    data_root*: Eth2Digest
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#pendingattestation
   PendingAttestation* = object
@@ -328,13 +324,10 @@ type
     inclusion_delay*: uint64                  ## Inclusion delay
     proposer_index*: ValidatorIndex           ## Proposer index
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#historicalbatch
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#historicalbatch
   HistoricalBatch* = object
-    block_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
-    ## Block roots
-
-    state_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
-    ## State roots
+    block_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+    state_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#fork
   Fork* = object

@@ -421,7 +421,7 @@ func process_final_updates(state: var BeaconState) =
   # Set historical root accumulator
   if next_epoch mod (SLOTS_PER_HISTORICAL_ROOT div SLOTS_PER_EPOCH).uint64 == 0:
     let historical_batch = HistoricalBatch(
-      block_roots: state.latest_block_roots,
+      block_roots: state.block_roots,
       state_roots: state.latest_state_roots,
     )
     state.historical_roots.add (hash_tree_root(historical_batch))
