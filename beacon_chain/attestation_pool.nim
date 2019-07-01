@@ -81,15 +81,15 @@ proc validate(
       custody_bit_0_participants = participants
 
       group_public_key = bls_aggregate_pubkeys(
-        participants.mapIt(state.validator_registry[it].pubkey))
+        participants.mapIt(state.validators[it].pubkey))
 
     # Verify that aggregate_signature verifies using the group pubkey.
     if not bls_verify_multiple(
         @[
           bls_aggregate_pubkeys(mapIt(custody_bit_0_participants,
-                                      state.validator_registry[it].pubkey)),
+                                      state.validators[it].pubkey)),
           bls_aggregate_pubkeys(mapIt(custody_bit_1_participants,
-                                      state.validator_registry[it].pubkey)),
+                                      state.validators[it].pubkey)),
         ],
         @[
           hash_tree_root(AttestationDataAndCustodyBit(
@@ -159,7 +159,7 @@ proc updateLatestVotes(
     participants: seq[ValidatorIndex], blck: BlockRef) =
   for validator in participants:
     let
-      pubKey = state.validator_registry[validator].pubkey
+      pubKey = state.validators[validator].pubkey
       current = pool.latestAttestations.getOrDefault(pubKey)
     if current.isNil or current.slot < attestationSlot:
       pool.latestAttestations[pubKey] = blck

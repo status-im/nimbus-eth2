@@ -194,7 +194,7 @@ func get_beacon_proposer_index*(state: BeaconState, stateCache: var StateCache):
         len(first_committee).uint64).int]
       random_byte = (eth2hash(buffer).data)[i mod 32]
       effective_balance =
-        state.validator_registry[candidate_index].effective_balance
+        state.validators[candidate_index].effective_balance
     if effective_balance * MAX_RANDOM_BYTE >=
         MAX_EFFECTIVE_BALANCE * random_byte:
       return candidate_index

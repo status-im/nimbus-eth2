@@ -75,7 +75,7 @@ func get_unslashed_attesting_indices(
       state, a.data, a.aggregation_bits, stateCache))
 
   for index in result:
-    if state.validator_registry[index].slashed:
+    if state.validators[index].slashed:
       result.excl index
 
 func get_attesting_balance(
@@ -239,7 +239,7 @@ func process_crosslinks(state: var BeaconState, stateCache: var StateCache) =
 func get_base_reward(state: BeaconState, index: ValidatorIndex): Gwei =
   let
     total_balance = get_total_active_balance(state)
-    effective_balance = state.validator_registry[index].effective_balance
+    effective_balance = state.validators[index].effective_balance
   effective_balance * BASE_REWARD_FACTOR div
     integer_squareroot(total_balance) div BASE_REWARDS_PER_EPOCH
 
@@ -250,11 +250,11 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
     previous_epoch = get_previous_epoch(state)
     total_balance = get_total_active_balance(state)
   var
-    rewards = repeat(0'u64, len(state.validator_registry))
-    penalties = repeat(0'u64, len(state.validator_registry))
+    rewards = repeat(0'u64, len(state.validators))
+    penalties = repeat(0'u64, len(state.validators))
     eligible_validator_indices : seq[ValidatorIndex] = @[]
 
-  for index, v in state.validator_registry:
+  for index, v in state.validators:
     if is_active_validator(v, previous_epoch) or
         (v.slashed and previous_epoch + 1 < v.withdrawable_epoch):
       eligible_validator_indices.add index.ValidatorIndex
@@ -312,7 +312,7 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
         BASE_REWARDS_PER_EPOCH.uint64 * get_base_reward(state, index)
       if index notin matching_target_attesting_indices:
         penalties[index] +=
-          state.validator_registry[index].effective_balance *
+          state.validators[index].effective_balance *
             finality_delay div INACTIVITY_PENALTY_QUOTIENT
 
   (rewards, penalties)
@@ -322,8 +322,8 @@ func get_crosslink_deltas(state: BeaconState, cache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
 
   var
-    rewards = repeat(0'u64, len(state.validator_registry))
-    penalties = repeat(0'u64, len(state.validator_registry))
+    rewards = repeat(0'u64, len(state.validators))
+    penalties = repeat(0'u64, len(state.validators))
   let epoch = get_previous_epoch(state)
   for offset in 0'u64 ..< get_epoch_committee_count(state, epoch):
     let
@@ -355,7 +355,7 @@ func process_rewards_and_penalties(
   let
     (rewards1, penalties1) = get_attestation_deltas(state, cache)
     (rewards2, penalties2) = get_crosslink_deltas(state, cache)
-  for i in 0 ..< len(state.validator_registry):
+  for i in 0 ..< len(state.validators):
     increase_balance(state, i.ValidatorIndex, rewards1[i] + rewards2[i])
     decrease_balance(state, i.ValidatorIndex, penalties1[i] + penalties2[i])
 
@@ -373,7 +373,7 @@ func process_slashings(state: var BeaconState) =
         LATEST_SLASHED_EXIT_LENGTH]
     total_penalties = total_at_end - total_at_start
 
-  for index, validator in state.validator_registry:
+  for index, validator in state.validators:
     if validator.slashed and current_epoch == validator.withdrawable_epoch -
         LATEST_SLASHED_EXIT_LENGTH div 2:
       let
@@ -394,12 +394,12 @@ func process_final_updates(state: var BeaconState) =
     state.eth1_data_votes = @[]
 
   # Update effective balances with hysteresis
-  for index, validator in state.validator_registry:
+  for index, validator in state.validators:
     let balance = state.balances[index]
     const HALF_INCREMENT = EFFECTIVE_BALANCE_INCREMENT div 2
     if balance < validator.effective_balance or
         validator.effective_balance + 3'u64 * HALF_INCREMENT < balance:
-      state.validator_registry[index].effective_balance =
+      state.validators[index].effective_balance =
         min(
           balance - balance mod EFFECTIVE_BALANCE_INCREMENT,
           MAX_EFFECTIVE_BALANCE)

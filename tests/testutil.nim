@@ -85,7 +85,7 @@ proc addBlock*(
 
   let
     # Index from the new state, but registry from the old state.. hmm...
-    proposer = state.validator_registry[proposer_index]
+    proposer = state.validators[proposer_index]
     privKey = hackPrivKey(proposer)
 
   # TODO ugly hack; API needs rethinking
@@ -157,7 +157,7 @@ proc makeAttestation*(
     validator_index: ValidatorIndex, flags: UpdateFlags = {}): Attestation =
   let
     (committee, shard) = find_shard_committee(state, validator_index)
-    validator = state.validator_registry[validator_index]
+    validator = state.validators[validator_index]
     sac_index = committee.find(validator_index)
     data = makeAttestationData(state, shard, beacon_block_root)
 

@@ -238,7 +238,7 @@ proc addLocalValidator(
     node: BeaconNode, state: BeaconState, privKey: ValidatorPrivKey) =
   let pubKey = privKey.pubKey()
 
-  let idx = state.validator_registry.findIt(it.pubKey == pubKey)
+  let idx = state.validators.findIt(it.pubKey == pubKey)
   if idx == -1:
     warn "Validator not in registry", pubKey
   else:
@@ -256,7 +256,7 @@ proc addLocalValidators(node: BeaconNode, state: BeaconState) =
 
 proc getAttachedValidator(
     node: BeaconNode, state: BeaconState, idx: int): AttachedValidator =
-  let validatorKey = state.validator_registry[idx].pubkey
+  let validatorKey = state.validators[idx].pubkey
   node.attachedValidators.getValidator(validatorKey)
 
 proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
@@ -507,7 +507,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     debug "Expecting proposal",
       headRoot = shortLog(head.root),
       slot = humaneSlotNum(slot),
-      proposer = shortLog(state.validator_registry[proposerIdx].pubKey)
+      proposer = shortLog(state.validators[proposerIdx].pubKey)
 
   return head
 

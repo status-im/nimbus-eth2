@@ -74,7 +74,7 @@ func process_deposit*(
   let
     pubkey = deposit.data.pubkey
     amount = deposit.data.amount
-    validator_pubkeys = mapIt(state.validator_registry, it.pubkey)
+    validator_pubkeys = mapIt(state.validators, it.pubkey)
     index = validator_pubkeys.find(pubkey)
 
   if index == -1:
@@ -86,7 +86,7 @@ func process_deposit*(
       return false
 
     # Add validator and balance entries
-    state.validator_registry.add(Validator(
+    state.validators.add(Validator(
       pubkey: pubkey,
       withdrawal_credentials: deposit.data.withdrawal_credentials,
       activation_eligibility_epoch: FAR_FUTURE_EPOCH,
@@ -123,20 +123,20 @@ func initiate_validator_exit*(state: var BeaconState,
   # Initiate the exit of the validator with index ``index``.
 
   # Return if validator already initiated exit
-  let validator = addr state.validator_registry[index]
+  let validator = addr state.validators[index]
   if validator.exit_epoch != FAR_FUTURE_EPOCH:
     return
 
   # Compute exit queue epoch
   # TODO try zero-functional here
   let exit_epochs = mapIt(
-    filterIt(state.validator_registry, it.exit_epoch != FAR_FUTURE_EPOCH),
+    filterIt(state.validators, it.exit_epoch != FAR_FUTURE_EPOCH),
     it.exit_epoch)
   var exit_queue_epoch =
     max(max(exit_epochs),
       get_delayed_activation_exit_epoch(get_current_epoch(state)))
   let exit_queue_churn = foldl(
-    state.validator_registry,
+    state.validators,
     a + (if b.exit_epoch == exit_queue_epoch: 1'u64 else: 0'u64),
     0'u64)
 
@@ -154,11 +154,11 @@ func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
   # Slash the validator with index ``index``.
   let current_epoch = get_current_epoch(state)
   initiate_validator_exit(state, slashed_index)
-  state.validator_registry[slashed_index].slashed = true
-  state.validator_registry[slashed_index].withdrawable_epoch =
+  state.validators[slashed_index].slashed = true
+  state.validators[slashed_index].withdrawable_epoch =
     current_epoch + LATEST_SLASHED_EXIT_LENGTH
   let slashed_balance =
-    state.validator_registry[slashed_index].effective_balance
+    state.validators[slashed_index].effective_balance
   state.latest_slashed_balances[current_epoch mod LATEST_SLASHED_EXIT_LENGTH] +=
     slashed_balance
 
@@ -252,8 +252,8 @@ func get_genesis_beacon_state*(
     discard process_deposit(state, deposit, flags)
 
   # Process genesis activations
-  for validator_index in 0 ..< state.validator_registry.len:
-    let validator = addr state.validator_registry[validator_index]
+  for validator_index in 0 ..< state.validators.len:
+    let validator = addr state.validators[validator_index]
     if validator.effective_balance >= MAX_EFFECTIVE_BALANCE:
       validator.activation_eligibility_epoch = GENESIS_EPOCH
       validator.activation_epoch = GENESIS_EPOCH
@@ -308,7 +308,7 @@ func get_total_balance*(state: BeaconState, validators: auto): Gwei =
   ## Return the combined effective balance of the ``indices``. (1 Gwei minimum
   ## to avoid divisions by zero.)
   max(1'u64,
-    foldl(validators, a + state.validator_registry[b].effective_balance, 0'u64)
+    foldl(validators, a + state.validators[b].effective_balance, 0'u64)
   )
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#registry-updates
@@ -316,10 +316,10 @@ func process_registry_updates*(state: var BeaconState) =
   ## Process activation eligibility and ejections
   ## Try to avoid caching here, since this could easily become undefined
 
-  for index, validator in state.validator_registry:
+  for index, validator in state.validators:
     if validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and
         validator.effective_balance >= MAX_EFFECTIVE_BALANCE:
-      state.validator_registry[index].activation_eligibility_epoch =
+      state.validators[index].activation_eligibility_epoch =
         get_current_epoch(state)
 
     if is_active_validator(validator, get_current_epoch(state)) and
@@ -329,12 +329,12 @@ func process_registry_updates*(state: var BeaconState) =
   ## Queue validators eligible for activation and not dequeued for activation
   ## prior to finalized epoch
   var activation_queue : seq[tuple[a: Epoch, b: int]] = @[]
-  for index, validator in state.validator_registry:
+  for index, validator in state.validators:
     if validator.activation_eligibility_epoch != FAR_FUTURE_EPOCH and
         validator.activation_epoch >=
           get_delayed_activation_exit_epoch(state.finalized_epoch):
       activation_queue.add (
-        state.validator_registry[index].activation_eligibility_epoch, index)
+        state.validators[index].activation_eligibility_epoch, index)
 
   activation_queue.sort(system.cmp)
 
@@ -346,7 +346,7 @@ func process_registry_updates*(state: var BeaconState) =
       break
     let
       (epoch, index) = epoch_and_index
-      validator = addr state.validator_registry[index]
+      validator = addr state.validators[index]
     if validator.activation_epoch == FAR_FUTURE_EPOCH:
       validator.activation_epoch =
         get_delayed_activation_exit_epoch(get_current_epoch(state))
@@ -384,9 +384,9 @@ func validate_indexed_attestation*(
   bls_verify_multiple(
     @[
       bls_aggregate_pubkeys(
-        mapIt(bit_0_indices, state.validator_registry[it.int].pubkey)),
+        mapIt(bit_0_indices, state.validators[it.int].pubkey)),
       bls_aggregate_pubkeys(
-        mapIt(bit_1_indices, state.validator_registry[it.int].pubkey)),
+        mapIt(bit_1_indices, state.validators[it.int].pubkey)),
     ],
     @[
       hash_tree_root(AttestationDataAndCustodyBit(
