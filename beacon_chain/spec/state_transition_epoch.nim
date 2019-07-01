@@ -154,7 +154,7 @@ func process_justification_and_finalization(
   # Process justifications
   state.previous_justified_epoch = state.current_justified_epoch
   state.previous_justified_root = state.current_justified_root
-  state.justification_bitfield = (state.justification_bitfield shl 1)
+  state.justification_bits = (state.justification_bits shl 1)
   let previous_epoch_matching_target_balance =
     get_attesting_balance(state,
       get_matching_target_attestations(state, previous_epoch), stateCache)
@@ -163,7 +163,7 @@ func process_justification_and_finalization(
     state.current_justified_epoch = previous_epoch
     state.current_justified_root =
       get_block_root(state, state.current_justified_epoch)
-    state.justification_bitfield = state.justification_bitfield or (1 shl 1)
+    state.justification_bits = state.justification_bits or (1 shl 1)
   let current_epoch_matching_target_balance =
     get_attesting_balance(state,
       get_matching_target_attestations(state, current_epoch),
@@ -173,10 +173,10 @@ func process_justification_and_finalization(
     state.current_justified_epoch = current_epoch
     state.current_justified_root =
       get_block_root(state, state.current_justified_epoch)
-    state.justification_bitfield = state.justification_bitfield or (1 shl 0)
+    state.justification_bits = state.justification_bits or (1 shl 0)
 
   # Process finalizations
-  let bitfield = state.justification_bitfield
+  let bitfield = state.justification_bits
 
   ## The 2nd/3rd/4th most recent epochs are justified, the 2nd using the 4th
   ## as source
@@ -366,10 +366,10 @@ func process_slashings(state: var BeaconState) =
     total_balance = get_total_active_balance(state)
 
     # Compute `total_penalties`
-    total_at_start = state.latest_slashed_balances[
+    total_at_start = state.slashings[
       (current_epoch + 1) mod LATEST_SLASHED_EXIT_LENGTH]
     total_at_end =
-      state.latest_slashed_balances[current_epoch mod
+      state.slashings[current_epoch mod
         LATEST_SLASHED_EXIT_LENGTH]
     total_penalties = total_at_end - total_at_start
 
@@ -405,24 +405,24 @@ func process_final_updates(state: var BeaconState) =
           MAX_EFFECTIVE_BALANCE)
 
   # Update start shard
-  state.latest_start_shard =
-    (state.latest_start_shard + get_shard_delta(state, current_epoch)) mod
+  state.start_shard =
+    (state.start_shard + get_shard_delta(state, current_epoch)) mod
       SHARD_COUNT
 
   # Set total slashed balances
-  state.latest_slashed_balances[next_epoch mod LATEST_SLASHED_EXIT_LENGTH] = (
-    state.latest_slashed_balances[current_epoch mod LATEST_SLASHED_EXIT_LENGTH]
+  state.slashings[next_epoch mod LATEST_SLASHED_EXIT_LENGTH] = (
+    state.slashings[current_epoch mod LATEST_SLASHED_EXIT_LENGTH]
   )
 
   # Set randao mix
-  state.latest_randao_mixes[next_epoch mod LATEST_RANDAO_MIXES_LENGTH] =
+  state.randao_mixes[next_epoch mod LATEST_RANDAO_MIXES_LENGTH] =
     get_randao_mix(state, current_epoch)
 
   # Set historical root accumulator
   if next_epoch mod (SLOTS_PER_HISTORICAL_ROOT div SLOTS_PER_EPOCH).uint64 == 0:
     let historical_batch = HistoricalBatch(
       block_roots: state.block_roots,
-      state_roots: state.latest_state_roots,
+      state_roots: state.state_roots,
     )
     state.historical_roots.add (hash_tree_root(historical_batch))
 

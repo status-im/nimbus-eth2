@@ -100,7 +100,7 @@ func get_randao_mix*(state: BeaconState,
     ## Returns the randao mix at a recent ``epoch``.
     ## ``epoch`` expected to be between (current_epoch -
     ## LATEST_RANDAO_MIXES_LENGTH, current_epoch].
-    state.latest_randao_mixes[epoch mod LATEST_RANDAO_MIXES_LENGTH]
+    state.randao_mixes[epoch mod LATEST_RANDAO_MIXES_LENGTH]
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_active_index_root
 func get_active_index_root(state: BeaconState, epoch: Epoch): Eth2Digest =
@@ -109,7 +109,7 @@ func get_active_index_root(state: BeaconState, epoch: Epoch): Eth2Digest =
   ##  (current_epoch - LATEST_ACTIVE_INDEX_ROOTS_LENGTH + ACTIVATION_EXIT_DELAY, current_epoch + ACTIVATION_EXIT_DELAY].
   ## TODO maybe assert this, but omission of such seems conspicuously
   ## intentional
-  state.latest_active_index_roots[epoch mod LATEST_ACTIVE_INDEX_ROOTS_LENGTH]
+  state.active_index_roots[epoch mod LATEST_ACTIVE_INDEX_ROOTS_LENGTH]
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#bytes_to_int
 func bytes_to_int*(data: openarray[byte]): uint64 =

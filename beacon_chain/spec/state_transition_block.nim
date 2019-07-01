@@ -112,8 +112,8 @@ proc processRandao(
     mix = get_current_epoch(state) mod LATEST_RANDAO_MIXES_LENGTH
     rr = eth2hash(body.randao_reveal.getBytes()).data
 
-  for i, b in state.latest_randao_mixes[mix].data:
-    state.latest_randao_mixes[mix].data[i] = b xor rr[i]
+  for i, b in state.randao_mixes[mix].data:
+    state.randao_mixes[mix].data[i] = b xor rr[i]
 
   true
 
@@ -122,7 +122,7 @@ func processEth1Data(state: var BeaconState, body: BeaconBlockBody) =
   state.eth1_data_votes.add body.eth1_data
   if state.eth1_data_votes.count(body.eth1_data) * 2 >
       SLOTS_PER_ETH1_VOTING_PERIOD:
-    state.latest_eth1_data = body.eth1_data
+    state.eth1_data = body.eth1_data
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#is_slashable_validator
 func is_slashable_validator(validator: Validator, epoch: Epoch): bool =

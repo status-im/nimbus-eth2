@@ -49,7 +49,7 @@ func advance_slot(state: var BeaconState) =
 func process_slot(state: var BeaconState) =
   # Cache state root
   let previous_state_root = hash_tree_root(state)
-  state.latest_state_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
+  state.state_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
     previous_state_root
 
   # Cache latest block header state root
@@ -171,7 +171,7 @@ proc skipSlots*(state: var BeaconState, slot: Slot,
 func process_slot(state: var HashedBeaconState) =
   # Cache state root
   let previous_slot_state_root = state.root
-  state.data.latest_state_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
+  state.data.state_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
     previous_slot_state_root
 
   # Cache latest block header state root

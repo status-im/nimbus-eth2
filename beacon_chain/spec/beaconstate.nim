@@ -57,8 +57,8 @@ func process_deposit*(
     hash_tree_root(deposit.data),
      deposit.proof,
      DEPOSIT_CONTRACT_TREE_DEPTH,
-     state.deposit_index,
-    state.latest_eth1_data.deposit_root,
+     state.eth1_deposit_index,
+    state.eth1_data.deposit_root,
   ):
     ## TODO: a notice-like mechanism which works in a func
     ## here and elsewhere, one minimal approach is a check-if-true
@@ -69,7 +69,7 @@ func process_deposit*(
     discard
 
   # Deposits must be processed in order
-  state.deposit_index += 1
+  state.eth1_deposit_index += 1
 
   let
     pubkey = deposit.data.pubkey
@@ -159,7 +159,7 @@ func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
     current_epoch + LATEST_SLASHED_EXIT_LENGTH
   let slashed_balance =
     state.validators[slashed_index].effective_balance
-  state.latest_slashed_balances[current_epoch mod LATEST_SLASHED_EXIT_LENGTH] +=
+  state.slashings[current_epoch mod LATEST_SLASHED_EXIT_LENGTH] +=
     slashed_balance
 
   let
@@ -213,7 +213,6 @@ func get_genesis_beacon_state*(
 
   var state = BeaconState(
     # Misc
-    slot: GENESIS_SLOT,
     genesis_time: genesis_time,
     fork: Fork(
         previous_version: GENESIS_FORK_VERSION,
@@ -221,30 +220,11 @@ func get_genesis_beacon_state*(
         epoch: GENESIS_EPOCH,
     ),
 
-    # validator_registry and balances automatically initalized
-
-    # Randomness and committees
-    # latest_randao_mixes automatically initialized
-
-    # Finality
-    # previous_epoch_attestations and current_epoch_attestations automatically
-    # initialized
-    previous_justified_epoch: GENESIS_EPOCH,
-    current_justified_epoch: GENESIS_EPOCH,
-    justification_bitfield: 0,
-    finalized_epoch: GENESIS_EPOCH,
-    finalized_root: ZERO_HASH,
-
-    # Recent state
-    # latest_block_roots, latest_state_roots, latest_active_index_roots,
-    # latest_slashed_balances, and latest_slashed_balances automatically
-    # initialized
     latest_block_header: get_temporary_block_header(get_empty_block()),
 
     # Ethereum 1.0 chain data
     # eth1_data_votes automatically initialized
-    latest_eth1_data: genesis_eth1_data,
-    deposit_index: 0,
+    eth1_data: genesis_eth1_data,
   )
 
   # Process genesis deposits
@@ -261,7 +241,7 @@ func get_genesis_beacon_state*(
   let genesis_active_index_root = hash_tree_root(
     get_active_validator_indices(state, GENESIS_EPOCH))
   for index in 0 ..< LATEST_ACTIVE_INDEX_ROOTS_LENGTH:
-    state.latest_active_index_roots[index] = genesis_active_index_root
+    state.active_index_roots[index] = genesis_active_index_root
 
   state
 

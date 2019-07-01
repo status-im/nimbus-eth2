@@ -235,50 +235,56 @@ type
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#beaconstate
   BeaconState* = object
-    slot*: Slot
+    # Versioning
     genesis_time*: uint64
-    fork*: Fork ##\
-    ## For versioning hard forks
+    slot*: Slot
+    fork*: Fork
 
-    # Validator registry
+    # History
+    latest_block_header*: BeaconBlockHeader ##\
+    ## `latest_block_header.state_root == ZERO_HASH` temporarily
+
+    block_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
+    ## Needed to process attestations, older to newer
+
+    state_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+    historical_roots*: seq[Eth2Digest]
+
+    # Eth1
+    eth1_data*: Eth1Data
+    eth1_data_votes*: seq[Eth1Data]
+    eth1_deposit_index*: uint64
+
+    # Registry
     validators*: seq[Validator]
     balances*: seq[uint64] ##\
     ## Validator balances in Gwei!
 
-    # Randomness and committees
-    latest_randao_mixes*: array[LATEST_RANDAO_MIXES_LENGTH, Eth2Digest]
-    latest_start_shard*: Shard
+    # Shuffling
+    start_shard*: Shard
+    randao_mixes*: array[LATEST_RANDAO_MIXES_LENGTH, Eth2Digest]
+    active_index_roots*: array[LATEST_ACTIVE_INDEX_ROOTS_LENGTH, Eth2Digest]
 
-    # Finality
+    # Slashings
+    slashings*: array[LATEST_SLASHED_EXIT_LENGTH, uint64] ##\
+    ## Per-epoch sums of slashed effective balances
+
+    # Attestations
     previous_epoch_attestations*: seq[PendingAttestation]
     current_epoch_attestations*: seq[PendingAttestation]
+
+    # Crosslinks
+    previous_crosslinks*: array[SHARD_COUNT, Crosslink]
+    current_crosslinks*: array[SHARD_COUNT, Crosslink]
+
+    # Finality
+    justification_bits*: uint64
     previous_justified_epoch*: Epoch
     current_justified_epoch*: Epoch
     previous_justified_root*: Eth2Digest
     current_justified_root*: Eth2Digest
-    justification_bitfield*: uint64
     finalized_epoch*: Epoch
     finalized_root*: Eth2Digest
-
-    # Recent state
-    current_crosslinks*: array[SHARD_COUNT, Crosslink]
-    previous_crosslinks*: array[SHARD_COUNT, Crosslink]
-    block_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
-    ## Needed to process attestations, older to newer
-    latest_state_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
-    latest_active_index_roots*: array[LATEST_ACTIVE_INDEX_ROOTS_LENGTH, Eth2Digest]
-
-    latest_slashed_balances*: array[LATEST_SLASHED_EXIT_LENGTH, uint64] ##\
-    ## Balances penalized in the current withdrawal period
-
-    latest_block_header*: BeaconBlockHeader ##\
-    ## `latest_block_header.state_root == ZERO_HASH` temporarily
-    historical_roots*: seq[Eth2Digest]
-
-    # Ethereum 1.0 chain data
-    latest_eth1_data*: Eth1Data
-    eth1_data_votes*: seq[Eth1Data]
-    deposit_index*: uint64
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#validator
   Validator* = object
