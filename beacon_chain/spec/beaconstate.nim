@@ -253,15 +253,16 @@ func get_initial_beacon_block*(state: BeaconState): BeaconBlock =
     # initialized to default values.
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_attestation_data_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_attestation_data_slot
 func get_attestation_data_slot*(state: BeaconState,
     data: AttestationData, committee_count: uint64): Slot =
+  # Return the slot corresponding to the attestation ``data``.
   let
     offset = (data.crosslink.shard + SHARD_COUNT -
       get_start_shard(state, data.target_epoch)) mod SHARD_COUNT
 
-  compute_start_slot_of_epoch(data.target_epoch) + offset div
-    (committee_count div SLOTS_PER_EPOCH)
+  (compute_start_slot_of_epoch(data.target_epoch) + offset div
+    (committee_count div SLOTS_PER_EPOCH)).Slot
 
 # This is the slower (O(n)), spec-compatible signature.
 func get_attestation_data_slot*(state: BeaconState,
