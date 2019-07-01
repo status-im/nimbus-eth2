@@ -280,31 +280,28 @@ type
     eth1_data_votes*: seq[Eth1Data]
     deposit_index*: uint64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#validator
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#validator
   Validator* = object
-    pubkey*: ValidatorPubKey ##\
-    ## BLS public key
+    pubkey*: ValidatorPubKey
 
     withdrawal_credentials*: Eth2Digest ##\
-    ## Withdrawal credentials
+    ## Commitment to pubkey for withdrawals and transfers
 
-    activation_eligibility_epoch*: Epoch ##\
-    ## Epoch when validator activated
-
-    activation_epoch*: Epoch ##\
-    ## Epoch when validator activated
-
-    exit_epoch*: Epoch ##\
-    ## Epoch when validator exited
-
-    withdrawable_epoch*: Epoch ##\
-    ## Epoch when validator is eligible to withdraw
+    effective_balance*: uint64 ##\
+    ## Balance at stake
 
     slashed*: bool ##\
     ## Was the validator slashed
 
-    effective_balance*: uint64 ##\
-    ## Effective balance
+    # Status epochs
+    activation_eligibility_epoch*: Epoch ##\
+    ## When criteria for activation were met
+
+    activation_epoch*: Epoch
+    exit_epoch*: Epoch
+
+    withdrawable_epoch*: Epoch ##\
+    ## When validator can withdraw or transfer funds
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#crosslink
   Crosslink* = object

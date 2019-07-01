@@ -26,7 +26,7 @@ type
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#misc
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#misc
 
   SHARD_COUNT* {.intdefine.} = 1024 ##\
   ## Number of shards supported by the network - validators will jump around
@@ -51,16 +51,11 @@ const
 
   CHURN_LIMIT_QUOTIENT* = 2^16
 
-  BASE_REWARDS_PER_EPOCH* = 5
-
   SHUFFLE_ROUND_COUNT* = 90
 
-  # Deposit contract
-  # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/configs/constant_presets/mainnet.yaml#L24
-
-  DEPOSIT_CONTRACT_ADDRESS = "0x1234567890123456789012345678901234567890"
-    # TODO
+  # Constants (TODO: not actually configurable)
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#constants
+  BASE_REWARDS_PER_EPOCH* = 5
 
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
 

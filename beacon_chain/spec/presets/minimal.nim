@@ -41,10 +41,10 @@ const
   # Changed
   SHUFFLE_ROUND_COUNT* = 10
 
-  # Deposit contract
+  # Constants
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#deposit-contract
-
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#constants
+  # TODO "The following values are (non-configurable) constants" ...
   # Unchanged
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
 
