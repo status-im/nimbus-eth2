@@ -81,7 +81,7 @@ p2pProtocol BeaconSync(version = 1,
       headBlock = blockPool.head.blck
       bestRoot = headBlock.root
       bestSlot = headBlock.slot
-      latestFinalizedEpoch = finalizedHead.slot.slot_to_epoch()
+      latestFinalizedEpoch = finalizedHead.slot.compute_epoch_of_slot()
 
     let m = await peer.hello(networkId, chainId, finalizedHead.blck.root,
                              latestFinalizedEpoch, bestRoot, bestSlot,

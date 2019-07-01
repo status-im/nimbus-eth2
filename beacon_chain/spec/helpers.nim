@@ -58,8 +58,8 @@ func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
 
   o[1]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#slot_to_epoch
-func slot_to_epoch*(slot: Slot|uint64): Epoch =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#compute_epoch_of_slot
+func compute_epoch_of_slot*(slot: Slot|uint64): Epoch =
   # Return the epoch number of the given ``slot``.
   (slot div SLOTS_PER_EPOCH).Epoch
 
@@ -89,11 +89,11 @@ func get_epoch_committee_count*(state: BeaconState, epoch: Epoch): uint64 =
     len(active_validator_indices) div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
     1, SHARD_COUNT div SLOTS_PER_EPOCH).uint64 * SLOTS_PER_EPOCH
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_current_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: BeaconState): Epoch =
-  # Return the current epoch of the given ``state``.
+  # Return the current epoch.
   doAssert state.slot >= GENESIS_SLOT, $state.slot
-  slot_to_epoch(state.slot)
+  compute_epoch_of_slot(state.slot)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: BeaconState,

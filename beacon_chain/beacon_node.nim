@@ -468,7 +468,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   # using empty slots as fillers.
   node.blockPool.withState(node.stateCache, attestationHead):
     var cache = get_empty_per_epoch_cache()
-    let epoch = slot_to_epoch(slot)
+    let epoch = compute_epoch_of_slot(slot)
     for committee_index in 0'u64 ..< get_epoch_committee_count(state, epoch):
       ## TODO verify that this is the correct mapping; it's consistent with
       ## other code

@@ -43,7 +43,7 @@ proc validate(
   if attestationSlot < state.finalized_epoch.get_epoch_start_slot():
     debug "Old attestation",
       attestationSlot = humaneSlotNum(attestationSlot),
-      attestationEpoch = humaneEpochNum(attestationSlot.slot_to_epoch),
+      attestationEpoch = humaneEpochNum(attestationSlot.compute_epoch_of_slot),
       stateSlot = humaneSlotNum(state.slot),
       finalizedEpoch = humaneEpochNum(state.finalized_epoch)
 
@@ -55,7 +55,7 @@ proc validate(
   if attestationSlot > state.slot + 64:
     debug "Future attestation",
       attestationSlot = humaneSlotNum(attestationSlot),
-      attestationEpoch = humaneEpochNum(attestationSlot.slot_to_epoch),
+      attestationEpoch = humaneEpochNum(attestationSlot.compute_epoch_of_slot),
       stateSlot = humaneSlotNum(state.slot),
       finalizedEpoch = humaneEpochNum(state.finalized_epoch)
     return
@@ -99,7 +99,7 @@ proc validate(
         ],
         attestation.signature,
         get_domain(state, DOMAIN_ATTESTATION,
-          slot_to_epoch(get_attestation_data_slot(state, attestation.data))),
+          compute_epoch_of_slot(get_attestation_data_slot(state, attestation.data))),
       ):
       notice "Invalid signature", participants
       return false

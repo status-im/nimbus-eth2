@@ -577,7 +577,7 @@ proc makeAttestationData*(
   ## part of committee - notably, it can't be a newer or older state (!)
 
   let
-    epoch_start_slot = get_epoch_start_slot(slot_to_epoch(state.slot))
+    epoch_start_slot = get_epoch_start_slot(compute_epoch_of_slot(state.slot))
     target_root =
       if epoch_start_slot == state.slot: beacon_block_root
       else: get_block_root_at_slot(state, epoch_start_slot)
@@ -587,10 +587,10 @@ proc makeAttestationData*(
     target_root: target_root,
     source_epoch: state.current_justified_epoch,
     source_root: state.current_justified_root,
-    target_epoch: slot_to_epoch(state.slot),
+    target_epoch: compute_epoch_of_slot(state.slot),
     crosslink: Crosslink(
       # Alternative is to put this offset into all callers
-      shard: shard + get_epoch_start_shard(state, slot_to_epoch(state.slot)),
+      shard: shard + get_epoch_start_shard(state, compute_epoch_of_slot(state.slot)),
       parent_root: hash_tree_root(state.current_crosslinks[shard]),
       data_root: Eth2Digest(), # Stub in phase0
     )

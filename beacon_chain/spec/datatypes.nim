@@ -64,7 +64,7 @@ const
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#initial-values
   GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
-  ## slot_to_epoch(GENESIS_SLOT)
+  ## compute_epoch_of_slot(GENESIS_SLOT)
   ZERO_HASH* = Eth2Digest()
 
 type
