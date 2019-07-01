@@ -67,7 +67,7 @@ func compute_start_slot_of_epoch*(epoch: Epoch): Slot =
   # Return the starting slot of the given ``epoch``.
   (epoch * SLOTS_PER_EPOCH).Slot
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#is_active_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#is_active_validator
 func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   ### Check if ``validator`` is active
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
