@@ -7,10 +7,6 @@ set -eu
 
 # Set a default value for the env vars usually supplied by nimbus Makefile
 
-export NUM_VALIDATORS=${VALIDATORS:-100}
-export NUM_NODES=${NODES:-9}
-export NUM_MISSING_NODES=${MISSING_NODES:-1}
-
 cd "$SIM_ROOT"
 mkdir -p "$SIMULATION_DIR"
 mkdir -p "$VALIDATORS_DIR"
