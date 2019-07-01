@@ -740,7 +740,9 @@ when isMainModule:
     let initialState = get_genesis_beacon_state(
       deposits,
       uint64(times.toUnix(times.getTime()) + config.genesisOffset),
-      Eth1Data(), {})
+      Eth1Data(), {skipValidation})
+
+    doAssert initialState.validators.len > 0
 
     Json.saveFile(config.outputGenesis.string, initialState, pretty = true)
     echo "Wrote ", config.outputGenesis.string
