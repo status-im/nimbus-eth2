@@ -378,7 +378,9 @@ template ethTimeUnit(typ: type) {.dirty.} =
 
   proc `*`*(x: typ, y: uint64): uint64 {.borrow.}
 
+  proc `+=`*(x: var typ, y: typ) {.borrow.}
   proc `+=`*(x: var typ, y: uint64) {.borrow.}
+  proc `-=`*(x: var typ, y: typ) {.borrow.}
   proc `-=`*(x: var typ, y: uint64) {.borrow.}
 
   # Comparison operators

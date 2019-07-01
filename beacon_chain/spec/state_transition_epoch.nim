@@ -221,7 +221,7 @@ func process_crosslinks(state: var BeaconState, stateCache: var StateCache) =
     let epoch = epoch_int.Epoch
     for offset in 0'u64 ..< get_epoch_committee_count(state, epoch):
       let
-        shard = (get_epoch_start_shard(state, epoch) + offset) mod SHARD_COUNT
+        shard = (get_start_shard(state, epoch) + offset) mod SHARD_COUNT
         crosslink_committee =
           get_crosslink_committee(state, epoch, shard, stateCache)
         # In general, it'll loop over the same shards twice, and
@@ -327,7 +327,7 @@ func get_crosslink_deltas(state: BeaconState, cache: var StateCache):
   let epoch = get_previous_epoch(state)
   for offset in 0'u64 ..< get_epoch_committee_count(state, epoch):
     let
-      shard = (get_epoch_start_shard(state, epoch) + offset) mod SHARD_COUNT
+      shard = (get_start_shard(state, epoch) + offset) mod SHARD_COUNT
       crosslink_committee =
         get_crosslink_committee(state, epoch, shard, cache)
       (winning_crosslink, attesting_indices) =
