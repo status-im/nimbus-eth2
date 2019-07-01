@@ -302,7 +302,7 @@ func get_block_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Return the block root at a recent ``epoch``.
   get_block_root_at_slot(state, get_epoch_start_slot(epoch))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_total_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_total_balance
 func get_total_balance*(state: BeaconState, validators: auto): Gwei =
   ## Return the combined effective balance of the ``indices``. (1 Gwei minimum
   ## to avoid divisions by zero.)
@@ -430,18 +430,21 @@ func get_attesting_indices_seq*(
   toSeq(items(get_attesting_indices(
     state, attestation_data, bitfield, cache)))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#convert_to_indexed
-func convert_to_indexed(state: BeaconState, attestation: Attestation,
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_indexed_attestation
+func get_indexed_attestation(state: BeaconState, attestation: Attestation,
     stateCache: var StateCache): IndexedAttestation =
-  # Convert ``attestation`` to (almost) indexed-verifiable form.
+  # Return the indexed attestation corresponding to ``attestation``.
   let
     attesting_indices =
       get_attesting_indices(
-        state, attestation.data, attestation.aggregation_bitfield, stateCache)
+        state, attestation.data, attestation.aggregation_bits, stateCache)
     custody_bit_1_indices =
       get_attesting_indices(
-        state, attestation.data, attestation.custody_bitfield, stateCache)
+        state, attestation.data, attestation.custody_bits, stateCache)
 
+  doAssert custody_bit_1_indices <= attesting_indices
+
+  let
     ## TODO quadratic, .items, but first-class iterators, etc
     ## filterIt can't work on HashSets directly because it is
     ## assuming int-indexable thing to extract type, because,
@@ -452,6 +455,8 @@ func convert_to_indexed(state: BeaconState, attestation: Attestation,
     ## with (non-closure, etc) iterators no other part of Nim
     ## can access. As such, this function's doing many copies
     ## and allocations it has no fundamental reason to do.
+    ## TODO phrased in 0.8 as
+    ## custody_bit_0_indices = attesting_indices.difference(custody_bit_1_indices)
     custody_bit_0_indices =
       filterIt(toSeq(items(attesting_indices)), it notin custody_bit_1_indices)
 
@@ -506,7 +511,7 @@ proc checkAttestation*(
 
   let pending_attestation = PendingAttestation(
     data: data,
-    aggregation_bitfield: attestation.aggregation_bitfield,
+    aggregation_bits: attestation.aggregation_bits,
     inclusion_delay: state.slot - attestation_slot,
     proposer_index: get_beacon_proposer_index(state, stateCache),
   )
@@ -563,7 +568,7 @@ proc checkAttestation*(
 
   # Check signature and bitfields
   if not validate_indexed_attestation(
-      state, convert_to_indexed(state, attestation, stateCache)):
+      state, get_indexed_attestation(state, attestation, stateCache)):
     warn("checkAttestation: signature or bitfields incorrect")
     return
 

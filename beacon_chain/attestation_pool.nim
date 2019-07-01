@@ -23,8 +23,8 @@ proc combine*(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
   # In a BLS aggregate signature, one needs to count how many times a
   # particular public key has been added - since we use a single bit per key, we
   # can only it once, thus we can never combine signatures that overlap already!
-  if not tgt.aggregation_bitfield.overlaps(src.aggregation_bitfield):
-    tgt.aggregation_bitfield.combine(src.aggregation_bitfield)
+  if not tgt.aggregation_bits.overlaps(src.aggregation_bits):
+    tgt.aggregation_bits.combine(src.aggregation_bits)
 
     if skipValidation notin flags:
       tgt.signature.combine(src.signature)
@@ -60,11 +60,11 @@ proc validate(
       finalizedEpoch = humaneEpochNum(state.finalized_epoch)
     return
 
-  if not allIt(attestation.custody_bitfield.bits, it == 0):
+  if not allIt(attestation.custody_bits.bits, it == 0):
     notice "Invalid custody bitfield for phase 0"
     return false
 
-  if not anyIt(attestation.aggregation_bitfield.bits, it != 0):
+  if not anyIt(attestation.aggregation_bits.bits, it != 0):
     notice "Empty aggregation bitfield"
     return false
 
@@ -72,9 +72,9 @@ proc validate(
   if skipValidation notin flags:
     let
       participants = get_attesting_indices_seq(
-        state, attestation.data, attestation.aggregation_bitfield)
+        state, attestation.data, attestation.aggregation_bits)
 
-      ## TODO when the custody_bitfield assertion-to-emptiness disappears do this
+      ## TODO when the custody_bits assertion-to-emptiness disappears do this
       ## and fix the custody_bit_0_participants check to depend on it.
       # custody_bit_1_participants = {nothing, always, because assertion above}
       custody_bit_1_participants: seq[ValidatorIndex] = @[]
@@ -178,17 +178,17 @@ proc add*(pool: var AttestationPool,
     idx = pool.slotIndex(state, attestationSlot)
     slotData = addr pool.slots[idx]
     validation = Validation(
-      aggregation_bitfield: attestation.aggregation_bitfield,
-      custody_bitfield: attestation.custody_bitfield,
+      aggregation_bits: attestation.aggregation_bits,
+      custody_bits: attestation.custody_bits,
       aggregate_signature: attestation.signature)
     participants = get_attesting_indices_seq(
-      state, attestation.data, validation.aggregation_bitfield)
+      state, attestation.data, validation.aggregation_bits)
 
   var found = false
   for a in slotData.attestations.mitems():
     if a.data == attestation.data:
       for v in a.validations:
-        if validation.aggregation_bitfield.isSubsetOf(v.aggregation_bitfield):
+        if validation.aggregation_bits.isSubsetOf(v.aggregation_bits):
           # The validations in the new attestation are a subset of one of the
           # attestations that we already have on file - no need to add this
           # attestation to the database
@@ -197,7 +197,7 @@ proc add*(pool: var AttestationPool,
           #      and therefore being useful after all?
           debug "Ignoring subset attestation",
             existingParticipants = get_attesting_indices_seq(
-              state, a.data, v.aggregation_bitfield),
+              state, a.data, v.aggregation_bits),
             newParticipants = participants
           found = true
           break
@@ -206,11 +206,11 @@ proc add*(pool: var AttestationPool,
         # Attestations in the pool that are a subset of the new attestation
         # can now be removed per same logic as above
         a.validations.keepItIf(
-          if it.aggregation_bitfield.isSubsetOf(
-              validation.aggregation_bitfield):
+          if it.aggregation_bits.isSubsetOf(
+              validation.aggregation_bits):
             debug "Removing subset attestation",
               existingParticipants = get_attesting_indices_seq(
-                state, a.data, it.aggregation_bitfield),
+                state, a.data, it.aggregation_bits),
               newParticipants = participants
             false
           else:
@@ -285,9 +285,9 @@ proc getAttestationsForBlock*(
   for a in slotData.attestations:
     var
       attestation = Attestation(
-        aggregation_bitfield: a.validations[0].aggregation_bitfield,
+        aggregation_bits: a.validations[0].aggregation_bits,
         data: a.data,
-        custody_bitfield: a.validations[0].custody_bitfield,
+        custody_bits: a.validations[0].custody_bits,
         signature: a.validations[0].aggregate_signature
       )
 
@@ -309,11 +309,11 @@ proc getAttestationsForBlock*(
       #      and naively add as much as possible in one go, by we could also
       #      add the same attestation data twice, as long as there's at least
       #      one new attestation in there
-      if not attestation.aggregation_bitfield.overlaps(
-          v.aggregation_bitfield):
-        attestation.aggregation_bitfield.combine(
-          v.aggregation_bitfield)
-        attestation.custody_bitfield.combine(v.custody_bitfield)
+      if not attestation.aggregation_bits.overlaps(
+          v.aggregation_bits):
+        attestation.aggregation_bits.combine(
+          v.aggregation_bits)
+        attestation.custody_bits.combine(v.custody_bits)
         attestation.signature.combine(v.aggregate_signature)
 
     result.add(attestation)

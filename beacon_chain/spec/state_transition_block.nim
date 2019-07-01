@@ -117,7 +117,7 @@ proc processRandao(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#eth1-data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#eth1-data
 func processEth1Data(state: var BeaconState, body: BeaconBlockBody) =
   state.eth1_data_votes.add body.eth1_data
   if state.eth1_data_votes.count(body.eth1_data) * 2 >
@@ -269,7 +269,7 @@ proc processAttestations(
       get_attestation_data_slot(state, attestation.data, committee_count)
     let pending_attestation = PendingAttestation(
       data: attestation.data,
-      aggregation_bitfield: attestation.aggregation_bitfield,
+      aggregation_bits: attestation.aggregation_bits,
       inclusion_delay: state.slot - attestation_slot,
       proposer_index: get_beacon_proposer_index(state, stateCache),
     )

@@ -45,8 +45,8 @@ type
   #
   # #############################################
   Validation* = object
-    aggregation_bitfield*: BitField
-    custody_bitfield*: BitField ##\
+    aggregation_bits*: BitField
+    custody_bits*: BitField ##\
     ## Phase 1 - the handling of this field is probably broken..
     aggregate_signature*: ValidatorSig
 

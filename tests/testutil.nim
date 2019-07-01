@@ -164,8 +164,8 @@ proc makeAttestation*(
   doAssert sac_index != -1, "find_shard_committee should guarantee this"
 
   var
-    aggregation_bitfield = BitField.init(committee.len)
-  set_bitfield_bit(aggregation_bitfield, sac_index)
+    aggregation_bits = BitField.init(committee.len)
+  set_bitfield_bit(aggregation_bits, sac_index)
 
   let
     msg = hash_tree_root(
@@ -183,9 +183,9 @@ proc makeAttestation*(
 
   Attestation(
     data: data,
-    aggregation_bitfield: aggregation_bitfield,
+    aggregation_bits: aggregation_bits,
     signature: sig,
-    custody_bitfield: BitField.init(committee.len)
+    custody_bits: BitField.init(committee.len)
   )
 
 proc makeTestDB*(tailState: BeaconState, tailBlock: BeaconBlock): BeaconChainDB =

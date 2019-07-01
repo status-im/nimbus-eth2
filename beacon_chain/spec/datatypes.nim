@@ -105,13 +105,13 @@ type
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#attestation
   Attestation* = object
-    aggregation_bitfield*: BitField ##\
+    aggregation_bits*: BitField ##\
     ## Attester aggregation bitfield
 
     data*: AttestationData ##\
     ## Attestation data
 
-    custody_bitfield*: BitField ##\
+    custody_bits*: BitField ##\
     ## Custody bitfield
 
     signature*: ValidatorSig ##\
@@ -213,7 +213,7 @@ type
     signature*: ValidatorSig ##\
     ## Proposer signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#beaconblockheader
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot
     parent_root*: Eth2Digest
@@ -323,7 +323,7 @@ type
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#pendingattestation
   PendingAttestation* = object
-    aggregation_bitfield*: BitField           ## Attester participation bitfield
+    aggregation_bits*: BitField               ## Attester participation bitfield
     data*: AttestationData                    ## Attestation data
     inclusion_delay*: uint64                  ## Inclusion delay
     proposer_index*: ValidatorIndex           ## Proposer index
