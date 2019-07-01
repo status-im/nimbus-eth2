@@ -241,7 +241,7 @@ type
     ## For versioning hard forks
 
     # Validator registry
-    validator_registry*: seq[Validator]
+    validators*: seq[Validator]
     balances*: seq[uint64] ##\
     ## Validator balances in Gwei!
 
@@ -360,7 +360,7 @@ type
     root*: Eth2Digest # hash_tree_root (not signing_root!)
 
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
-    ($state.validator_registry[validatorIdx].pubkey)[0..7]
+    ($state.validators[validatorIdx].pubkey)[0..7]
 
 template ethTimeUnit(typ: type) {.dirty.} =
   proc `+`*(x: typ, y: uint64): typ {.borrow.}

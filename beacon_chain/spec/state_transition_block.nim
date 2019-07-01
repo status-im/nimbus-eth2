@@ -66,7 +66,7 @@ proc processBlockHeader(
 
   # Verify proposer is not slashed
   let proposer =
-    state.validator_registry[get_beacon_proposer_index(state, stateCache)]
+    state.validators[get_beacon_proposer_index(state, stateCache)]
   if proposer.slashed:
     notice "Block header: proposer slashed"
     return false
@@ -91,7 +91,7 @@ proc processRandao(
     stateCache: var StateCache): bool =
   let
     proposer_index = get_beacon_proposer_index(state, stateCache)
-    proposer = addr state.validator_registry[proposer_index]
+    proposer = addr state.validators[proposer_index]
 
   # Verify that the provided randao value is valid
   if skipValidation notin flags:
@@ -141,7 +141,7 @@ proc processProposerSlashings(
     return false
 
   for proposer_slashing in blck.body.proposer_slashings:
-    let proposer = state.validator_registry[proposer_slashing.proposer_index.int]
+    let proposer = state.validators[proposer_slashing.proposer_index.int]
 
     # Verify that the epoch is the same
     if not (compute_epoch_of_slot(proposer_slashing.header_1.slot) ==
@@ -227,7 +227,7 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock,
       attestation_2.custody_bit_0_indices & attestation_2.custody_bit_1_indices
     for index in sorted(toSeq(intersection(toSet(attesting_indices_1),
         toSet(attesting_indices_2)).items), system.cmp):
-      if is_slashable_validator(state.validator_registry[index.int],
+      if is_slashable_validator(state.validators[index.int],
           get_current_epoch(state)):
         slash_validator(state, index.ValidatorIndex, stateCache)
         slashed_any = true
@@ -303,7 +303,7 @@ proc processVoluntaryExits(
     return false
 
   for exit in blck.body.voluntary_exits:
-    let validator = state.validator_registry[exit.validator_index.int]
+    let validator = state.validators[exit.validator_index.int]
 
     # Verify the validator is active
     if not is_active_validator(validator, get_current_epoch(state)):
@@ -365,10 +365,10 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
     ## Sender must be not yet eligible for activation, withdrawn, or transfer
     ## balance over MAX_EFFECTIVE_BALANCE
     if not (
-      state.validator_registry[transfer.sender.int].activation_epoch ==
+      state.validators[transfer.sender.int].activation_epoch ==
         FAR_FUTURE_EPOCH or
       get_current_epoch(state) >=
-        state.validator_registry[
+        state.validators[
           transfer.sender.int].withdrawable_epoch or
       transfer.amount + transfer.fee + MAX_EFFECTIVE_BALANCE <=
         state.balances[transfer.sender.int]):
@@ -376,7 +376,7 @@ proc processTransfers(state: var BeaconState, blck: BeaconBlock,
       return false
 
     # Verify that the pubkey is valid
-    let wc = state.validator_registry[transfer.sender.int].
+    let wc = state.validators[transfer.sender.int].
       withdrawal_credentials
     if not (wc.data[0] == BLS_WITHDRAWAL_PREFIX and
             wc.data[1..^1] == eth2hash(transfer.pubkey.getBytes).data[1..^1]):

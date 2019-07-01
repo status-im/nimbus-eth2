@@ -607,7 +607,7 @@ proc preInit*(
     blockRoot = shortLog(blockRoot),
     stateRoot = shortLog(blck.state_root),
     fork = state.fork,
-    validators = state.validator_registry.len()
+    validators = state.validators.len()
 
   db.putState(state)
   db.putBlock(blck)

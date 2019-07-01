@@ -76,7 +76,7 @@ func is_active_validator*(validator: Validator, epoch: Epoch): bool =
 func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
     seq[ValidatorIndex] =
   # Get active validator indices at ``epoch``.
-  for idx, val in state.validator_registry:
+  for idx, val in state.validators:
     if is_active_validator(val, epoch):
       result.add idx.ValidatorIndex
 

@@ -29,7 +29,7 @@ proc lmdGhost*(
 
   var attestation_targets: seq[tuple[validator: ValidatorIndex, blck: BlockRef]]
   for i in active_validator_indices:
-    let pubKey = start_state.validator_registry[i].pubkey
+    let pubKey = start_state.validators[i].pubkey
     if (let vote = pool.latestAttestation(pubKey); not vote.isNil):
       attestation_targets.add((i, vote))
 
@@ -40,7 +40,7 @@ proc lmdGhost*(
         # The div on the balance is to chop off the insignification bits that
         # fluctuate a lot epoch to epoch to have a more stable fork choice
         res +=
-          start_state.validator_registry[validator_index].effective_balance div
+          start_state.validators[validator_index].effective_balance div
             FORK_CHOICE_BALANCE_INCREMENT
     res
 
