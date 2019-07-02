@@ -261,7 +261,7 @@ proc processAttestations(
       committee_count = if epoch in committee_count_cache:
           committee_count_cache[epoch]
         else:
-          get_epoch_committee_count(state, epoch)
+          get_committee_count(state, epoch)
     committee_count_cache[epoch] = committee_count
 
     # Spec content
