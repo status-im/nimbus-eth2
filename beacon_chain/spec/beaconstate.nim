@@ -146,7 +146,7 @@ func initiate_validator_exit*(state: var BeaconState,
   # Set validator exit epoch and withdrawable epoch
   validator.exit_epoch = exit_queue_epoch
   validator.withdrawable_epoch =
-    (validator.exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY).Epoch
+    validator.exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#slash_validator
 func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
@@ -259,16 +259,16 @@ func get_attestation_data_slot*(state: BeaconState,
   # Return the slot corresponding to the attestation ``data``.
   let
     offset = (data.crosslink.shard + SHARD_COUNT -
-      get_start_shard(state, data.target_epoch)) mod SHARD_COUNT
+      get_start_shard(state, data.target.epoch)) mod SHARD_COUNT
 
-  (compute_start_slot_of_epoch(data.target_epoch) + offset div
-    (committee_count div SLOTS_PER_EPOCH)).Slot
+  compute_start_slot_of_epoch(data.target.epoch) + offset div
+    (committee_count div SLOTS_PER_EPOCH)
 
 # This is the slower (O(n)), spec-compatible signature.
 func get_attestation_data_slot*(state: BeaconState,
     data: AttestationData): Slot =
   get_attestation_data_slot(
-    state, data, get_committee_count(state, data.target_epoch))
+    state, data, get_committee_count(state, data.target.epoch))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: BeaconState,
@@ -332,8 +332,8 @@ func process_registry_updates*(state: var BeaconState) =
       validator.activation_epoch =
         get_delayed_activation_exit_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#validate_indexed_attestation
-func validate_indexed_attestation*(
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#is_valid_indexed_attestation
+func is_valid_indexed_attestation*(
     state: BeaconState, indexed_attestation: IndexedAttestation): bool =
   # Verify validity of ``indexed_attestation`` fields.
 
@@ -379,7 +379,7 @@ func validate_indexed_attestation*(
     get_domain(
       state,
       DOMAIN_ATTESTATION,
-      indexed_attestation.data.target_epoch
+      indexed_attestation.data.target.epoch
     ),
   )
 
@@ -398,9 +398,8 @@ func get_attesting_indices*(state: BeaconState,
   result = initSet[ValidatorIndex]()
   let committee =
     get_crosslink_committee(
-      state, attestation_data.target_epoch, attestation_data.crosslink.shard,
+      state, attestation_data.target.epoch, attestation_data.crosslink.shard,
       stateCache)
-  doAssert verify_bitfield(bitfield, len(committee))
   for i, index in committee:
     if get_bitfield_bit(bitfield, i):
       result.incl index
@@ -462,11 +461,10 @@ func get_indexed_attestation(state: BeaconState, attestation: Attestation,
     signature: attestation.signature,
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#attestations
-proc checkAttestation*(
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#attestations
+proc process_attestation*(
     state: BeaconState, attestation: Attestation, flags: UpdateFlags,
     stateCache: var StateCache): bool =
-  ## Process ``Attestation`` operation.
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
   ## be followed!
@@ -475,9 +473,19 @@ proc checkAttestation*(
     if nextSlot in flags: state.slot + 1
     else: state.slot
 
-  let
-    data = attestation.data
-    attestation_slot = get_attestation_data_slot(state, attestation.data)
+  let data = attestation.data
+
+  if not (data.crosslink.shard < SHARD_COUNT):
+    warn("Attestation shard too high",
+      attestation_shard = data.crosslink.shard)
+    return
+
+  if not (data.target.epoch == get_previous_epoch(state) or
+      data.target.epoch == get_current_epoch(state)):
+    warn("Target epoch not current or previous epoch")
+    return
+
+  let attestation_slot = get_attestation_data_slot(state, attestation.data)
 
   if not (attestation_slot + MIN_ATTESTATION_INCLUSION_DELAY <= stateSlot):
     warn("Attestation too new",
@@ -498,25 +506,19 @@ proc checkAttestation*(
     proposer_index: get_beacon_proposer_index(state, stateCache),
   )
 
-  # Check target epoch, source epoch, source root, and source crosslink
-  if not (data.target_epoch == get_previous_epoch(state) or
-      data.target_epoch == get_current_epoch(state)):
-    warn("Target epoch not current or previous epoch")
-    return
-
   # Check FFG data, crosslink data, and signature
-  let ffg_check_data = (data.source_epoch, data.source_root, data.target_epoch)
+  let ffg_check_data = (data.source.epoch, data.source.root, data.target.epoch)
 
-  if data.target_epoch == get_current_epoch(state):
+  if data.target.epoch == get_current_epoch(state):
     if not (ffg_check_data == (state.current_justified_epoch,
         state.current_justified_root, get_current_epoch(state))):
       warn("FFG data not matching current justified epoch")
       return
 
-    #if not (data.crosslink.parent_root ==
-    #    hash_tree_root(state.current_crosslinks[data.crosslink.shard])):
-    #  warn("Crosslink shard's current crosslinks not matching crosslink parent root")
-    #  return
+    if not (data.crosslink.parent_root ==
+        hash_tree_root(state.current_crosslinks[data.crosslink.shard])):
+      warn("Crosslink shard's current crosslinks not matching crosslink parent root")
+      return
 
     #state.current_epoch_attestations.add(pending_attestation)
   else:
@@ -525,39 +527,49 @@ proc checkAttestation*(
       warn("FFG data not matching current justified epoch")
       return
 
-    #if not (data.crosslink.parent_root ==
-    #    hash_tree_root(state.previous_crosslinks[data.crosslink.shard])):
-    #  warn("Crosslink shard's previous crosslinks not matching crosslink parent root")
-    #  return
+    if not (data.crosslink.parent_root ==
+        hash_tree_root(state.previous_crosslinks[data.crosslink.shard])):
+      warn("Crosslink shard's previous crosslinks not matching crosslink parent root")
+      return
 
     #state.previous_epoch_attestations.add(pending_attestation)
 
-  # TODO un-comment when changed Crosslink to 0.7 structure
-  #if not (data.crosslink.start_epoch == parent_crosslink.end_epoch):
-  #  warn("Crosslink start and end epochs not the same")
-  #  return
+  let parent_crosslink = if data.target.epoch == get_current_epoch(state):
+    state.current_crosslinks[data.crosslink.shard]
+  else:
+    state.previous_crosslinks[data.crosslink.shard]
 
-  #if not (data.crosslink.end_epoch == min(data.target_epoch, parent_crosslink.end_epoch + MAX_EPOCHS_PER_CROSSLINK)):
-  #  warn("Crosslink end epoch incorrect")
-  #  return
+  if not (data.crosslink.parent_root == hash_tree_root(parent_crosslink)):
+    warn("Crosslink parent root doesn't match parent crosslink's root")
+    return
 
-  # Simlarly, these depend on 0.7 data structures
-  #assert data.crosslink.parent_root == hash_tree_root(parent_crosslink)
+  if not (data.crosslink.start_epoch == parent_crosslink.end_epoch):
+    warn("Crosslink start and end epochs not the same")
+    return
 
-  #if not (data.crosslink.data_root == ZERO_HASH):  # [to be removed in phase 1]
-  #  warn("Crosslink data root not zero")
-  #  return
+  if not (data.crosslink.end_epoch == min(
+      data.target.epoch,
+      parent_crosslink.end_epoch + MAX_EPOCHS_PER_CROSSLINK)):
+    warn("Crosslink end epoch incorrect",
+      crosslink_end_epoch = data.crosslink.end_epoch,
+      parent_crosslink_end_epoch = parent_crosslink.end_epoch,
+      target_epoch = data.target.epoch)
+    return
+
+  if not (data.crosslink.data_root == ZERO_HASH):  # [to be removed in phase 1]
+    warn("Crosslink data root not zero")
+    return
 
   # Check signature and bitfields
-  if not validate_indexed_attestation(
+  if not is_valid_indexed_attestation(
       state, get_indexed_attestation(state, attestation, stateCache)):
-    warn("checkAttestation: signature or bitfields incorrect")
+    warn("process_attestation: signature or bitfields incorrect")
     return
 
   true
 
 proc makeAttestationData*(
-    state: BeaconState, shard: uint64,
+    state: BeaconState, shard_offset: uint64,
     beacon_block_root: Eth2Digest): AttestationData =
   ## Fine points:
   ## Head must be the head state during the slot that validator is
@@ -568,17 +580,23 @@ proc makeAttestationData*(
     target_root =
       if epoch_start_slot == state.slot: beacon_block_root
       else: get_block_root_at_slot(state, epoch_start_slot)
+    shard = (shard_offset + get_start_shard(state,
+      compute_epoch_of_slot(state.slot))) mod SHARD_COUNT
+    target_epoch = compute_epoch_of_slot(state.slot)
 
   AttestationData(
     beacon_block_root: beacon_block_root,
-    target_root: target_root,
-    source_epoch: state.current_justified_epoch,
-    source_root: state.current_justified_root,
-    target_epoch: compute_epoch_of_slot(state.slot),
+    source: Checkpoint(
+      epoch: state.current_justified_epoch,
+      root: state.current_justified_root
+    ),
+    target: Checkpoint(
+      root: target_root,
+      epoch: target_epoch
+    ),
     crosslink: Crosslink(
-      # Alternative is to put this offset into all callers
-      shard: shard + get_start_shard(state, compute_epoch_of_slot(state.slot)),
+      shard: shard,
       parent_root: hash_tree_root(state.current_crosslinks[shard]),
-      data_root: Eth2Digest(), # Stub in phase0
+      end_epoch: target_epoch,
     )
   )

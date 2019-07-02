@@ -128,7 +128,7 @@ const
   PERSISTENT_COMMITTEE_PERIOD* = 2'u64^11 ##\
   ## epochs (9 days)
 
-  MAX_CROSSLINK_EPOCHS* = 2'u64^6 ##\
+  MAX_EPOCHS_PER_CROSSLINK* = 2'u64^6 ##\
   ## epochs (~7 hours)
 
   MIN_EPOCHS_TO_INACTIVITY_PENALTY* = 2'u64^2 ##\

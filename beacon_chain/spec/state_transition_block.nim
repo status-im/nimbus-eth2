@@ -184,10 +184,10 @@ func is_slashable_attestation_data(
   ## rules.
 
   # Double vote
-  (data_1 != data_2 and data_1.target_epoch == data_2.target_epoch) or
+  (data_1 != data_2 and data_1.target.epoch == data_2.target.epoch) or
   # Surround vote
-    (data_1.source_epoch < data_2.source_epoch and
-     data_2.target_epoch < data_1.target_epoch)
+    (data_1.source.epoch < data_2.source.epoch and
+     data_2.target.epoch < data_1.target.epoch)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#attester-slashings
 proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock,
@@ -208,11 +208,11 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock,
       notice "CaspSlash: surround or double vote check failed"
       return false
 
-    if not validate_indexed_attestation(state, attestation_1):
+    if not is_valid_indexed_attestation(state, attestation_1):
       notice "CaspSlash: invalid votes 1"
       return false
 
-    if not validate_indexed_attestation(state, attestation_2):
+    if not is_valid_indexed_attestation(state, attestation_2):
       notice "CaspSlash: invalid votes 2"
       return false
 
@@ -247,7 +247,7 @@ proc processAttestations(
     notice "Attestation: too many!", attestations = blck.body.attestations.len
     return false
 
-  if not blck.body.attestations.allIt(checkAttestation(state, it, flags, stateCache)):
+  if not blck.body.attestations.allIt(process_attestation(state, it, flags, stateCache)):
     return false
 
   # All checks passed - update state
@@ -257,7 +257,7 @@ proc processAttestations(
   for attestation in blck.body.attestations:
     # Caching
     let
-      epoch = attestation.data.target_epoch
+      epoch = attestation.data.target.epoch
       committee_count = if epoch in committee_count_cache:
           committee_count_cache[epoch]
         else:
@@ -274,7 +274,7 @@ proc processAttestations(
       proposer_index: get_beacon_proposer_index(state, stateCache),
     )
 
-    if attestation.data.target_epoch == get_current_epoch(state):
+    if attestation.data.target.epoch == get_current_epoch(state):
       state.current_epoch_attestations.add(pending_attestation)
     else:
       state.previous_epoch_attestations.add(pending_attestation)

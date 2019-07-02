@@ -123,16 +123,14 @@ type
     epoch*: Epoch
     root*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#attestationdata
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#AttestationData
   AttestationData* = object
     # LMD GHOST vote
     beacon_block_root*: Eth2Digest
 
     # FFG vote
-    source_epoch*: Epoch
-    source_root*: Eth2Digest
-    target_epoch*: Epoch
-    target_root*: Eth2Digest
+    source*: Checkpoint
+    target*: Checkpoint
 
     # Crosslink vote
     crosslink*: Crosslink
@@ -456,8 +454,8 @@ func shortLog*(v: BeaconBlock): tuple[
 func shortLog*(v: AttestationData): auto =
    (
       shortLog(v.beacon_block_root),
-      humaneEpochNum(v.source_epoch), shortLog(v.target_root),
-      shortLog(v.source_root),
+      humaneEpochNum(v.source.epoch), shortLog(v.target.root),
+      shortLog(v.source.root),
       v.crosslink
     )
 

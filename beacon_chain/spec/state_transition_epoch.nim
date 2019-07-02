@@ -55,7 +55,7 @@ func get_matching_target_attestations(state: BeaconState, epoch: Epoch):
     seq[PendingAttestation] =
   filterIt(
     get_matching_source_attestations(state, epoch),
-    it.data.target_root == get_block_root(state, epoch)
+    it.data.target.root == get_block_root(state, epoch)
   )
 
 func get_matching_head_attestations(state: BeaconState, epoch: Epoch):
