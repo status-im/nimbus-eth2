@@ -24,19 +24,6 @@ func get_bitfield_bit*(bitfield: BitField, i: int): bool =
   doAssert i div 8 < bitfield.bits.len, "i: " & $i & " i div 8: " & $(i div 8)
   ((bitfield.bits[i div 8] shr (i mod 8)) mod 2) > 0'u8
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#verify_bitfield
-func verify_bitfield*(bitfield: BitField, committee_size: int): bool =
-  # Verify ``bitfield`` against the ``committee_size``.
-  if len(bitfield.bits) != (committee_size + 7) div 8:
-    return false
-
-  # Check `bitfield` is padded with zero bits only
-  for i in committee_size ..< (len(bitfield.bits) * 8):
-    if get_bitfield_bit(bitfield, i):
-      return false
-
-  true
-
 # TODO spec candidatidates below, though they're used only indirectly there..
 func set_bitfield_bit*(bitfield: var BitField, i: int) =
   bitfield.bits[i div 8] = bitfield.bits[i div 8] or 1'u8 shl (i mod 8)

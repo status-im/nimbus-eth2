@@ -297,7 +297,7 @@ proc getAttestationsForBlock*(
     #      attestations into the pool in general is an open question that needs
     #      revisiting - for example, when attestations are added, against which
     #      state should they be validated, if at all?
-    if not checkAttestation(
+    if not process_attestation(
         state, attestation, {skipValidation, nextSlot}, cache):
       continue
 
