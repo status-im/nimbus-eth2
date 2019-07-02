@@ -80,8 +80,8 @@ func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
     if is_active_validator(val, epoch):
       result.add idx.ValidatorIndex
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_epoch_committee_count
-func get_epoch_committee_count*(state: BeaconState, epoch: Epoch): uint64 =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_committee_count
+func get_committee_count*(state: BeaconState, epoch: Epoch): uint64 =
   # Return the number of committees at ``epoch``.
   let active_validator_indices = get_active_validator_indices(state, epoch)
   clamp(
@@ -174,8 +174,8 @@ func get_domain*(
 func get_domain*(state: BeaconState, domain_type: DomainType): Domain =
   get_domain(state, domain_type, get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#generate_seed
-func generate_seed*(state: BeaconState, epoch: Epoch): Eth2Digest =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_seed
+func get_seed*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Generate a seed for the given ``epoch``.
 
   var seed_input : array[32*3, byte]

@@ -219,7 +219,7 @@ func process_crosslinks(state: var BeaconState, stateCache: var StateCache) =
     # This issue comes up regularly -- iterating means an int type,
     # which then needs re-conversion back to specialized type.
     let epoch = epoch_int.Epoch
-    for offset in 0'u64 ..< get_epoch_committee_count(state, epoch):
+    for offset in 0'u64 ..< get_committee_count(state, epoch):
       let
         shard = (get_start_shard(state, epoch) + offset) mod SHARD_COUNT
         crosslink_committee =
@@ -325,7 +325,7 @@ func get_crosslink_deltas(state: BeaconState, cache: var StateCache):
     rewards = repeat(0'u64, len(state.validators))
     penalties = repeat(0'u64, len(state.validators))
   let epoch = get_previous_epoch(state)
-  for offset in 0'u64 ..< get_epoch_committee_count(state, epoch):
+  for offset in 0'u64 ..< get_committee_count(state, epoch):
     let
       shard = (get_start_shard(state, epoch) + offset) mod SHARD_COUNT
       crosslink_committee =
