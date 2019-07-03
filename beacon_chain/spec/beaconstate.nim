@@ -597,6 +597,7 @@ proc makeAttestationData*(
     crosslink: Crosslink(
       shard: shard,
       parent_root: hash_tree_root(state.current_crosslinks[shard]),
+      start_epoch: state.current_crosslinks[shard].end_epoch,
       end_epoch: target_epoch,
     )
   )
