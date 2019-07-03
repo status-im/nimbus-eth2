@@ -12,7 +12,7 @@ type
   FetchAncestorsResponseHandler = proc (b: BeaconBlock) {.gcsafe.}
 
 proc fetchAncestorBlocksFromPeer(peer: Peer, rec: FetchRecord, responseHandler: FetchAncestorsResponseHandler) {.async.} =
-  let blocks = await peer.getBeaconBlocks(rec.root, GENESIS_SLOT, rec.historySlots.int, 0, 1)
+  let blocks = await peer.getBeaconBlocks(rec.root, GENESIS_SLOT, rec.historySlots, 0, true)
   if blocks.isSome:
     for b in blocks.get:
       responseHandler(b)

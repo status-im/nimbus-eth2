@@ -9,7 +9,6 @@ import # Unit test
   ./test_attestation_pool,
   ./test_beacon_chain_db,
   ./test_beacon_node,
-  ./test_bitfield,
   ./test_beaconstate,
   ./test_block_pool,
   ./test_helpers,
@@ -21,4 +20,5 @@ import # Unit test
 import # Official fixtures
   ./official/test_fixture_shuffling,
   ./official/test_fixture_bls,
-  ./official/test_fixture_ssz_uint
+  ./official/test_fixture_ssz_uint,
+  ./official/test_fixture_ssz_static

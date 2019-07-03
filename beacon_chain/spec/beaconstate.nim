@@ -6,10 +6,10 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  algorithm, chronicles, collections/sets, math, options, sequtils,
+  tables, algorithm, sets, math, options, sequtils,
+  chronicles, stew/bitseqs,
   ../extras, ../ssz, ../beacon_node_types,
-  ./bitfield, ./crypto, ./datatypes, ./digest, ./helpers, ./validator,
-  tables
+  ./crypto, ./datatypes, ./digest, ./helpers, ./validator
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#verify_merkle_branch
 func verify_merkle_branch(leaf: Eth2Digest, proof: openarray[Eth2Digest], depth: uint64, index: uint64, root: Eth2Digest): bool =
@@ -357,8 +357,8 @@ func is_valid_indexed_attestation*(
   # Check if ``indexed_attestation`` has valid indices and signature.
 
   let
-    bit_0_indices = indexed_attestation.custody_bit_0_indices
-    bit_1_indices = indexed_attestation.custody_bit_1_indices
+    bit_0_indices = indexed_attestation.custody_bit_0_indices.asSeq
+    bit_1_indices = indexed_attestation.custody_bit_1_indices.asSeq
 
   # Verify no index has custody bit equal to 1 [to be removed in phase 1]
   if len(bit_1_indices) != 0:
@@ -370,7 +370,7 @@ func is_valid_indexed_attestation*(
     return false
 
   # Verify index sets are disjoint
-  if len(intersection(toSet(bit_0_indices), toSet(bit_1_indices))) != 0:
+  if len(intersection(bit_0_indices.toSet, bit_1_indices.toSet)) != 0:
     return false
 
   # Verify indices are sorted
@@ -405,11 +405,11 @@ func is_valid_indexed_attestation*(
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(state: BeaconState,
                             attestation_data: AttestationData,
-                            bitfield: BitField,
+                            bits: CommitteeValidatorsBits,
                             stateCache: var StateCache):
                             HashSet[ValidatorIndex] =
   ## Return the sorted attesting indices corresponding to ``attestation_data``
-  ## and ``bitfield``.
+  ## and ``bits``.
   ## The spec goes through a lot of hoops to sort things, and sometimes
   ## constructs sets from the results here. The basic idea is to always
   ## just keep it in a HashSet, which seems to suffice. If needed, it's
@@ -420,15 +420,15 @@ func get_attesting_indices*(state: BeaconState,
       state, attestation_data.target.epoch, attestation_data.crosslink.shard,
       stateCache)
   for i, index in committee:
-    if get_bitfield_bit(bitfield, i):
+    if bits[i]:
       result.incl index
 
-func get_attesting_indices_seq*(
-    state: BeaconState, attestation_data: AttestationData, bitfield: BitField):
-    seq[ValidatorIndex] =
+func get_attesting_indices_seq*(state: BeaconState,
+                                attestation_data: AttestationData,
+                                bits: CommitteeValidatorsBits): seq[ValidatorIndex] =
   var cache = get_empty_per_epoch_cache()
   toSeq(items(get_attesting_indices(
-    state, attestation_data, bitfield, cache)))
+    state, attestation_data, bits, cache)))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#get_indexed_attestation
 func get_indexed_attestation(state: BeaconState, attestation: Attestation,
@@ -469,13 +469,13 @@ func get_indexed_attestation(state: BeaconState, attestation: Attestation,
   ## 0.6.3 highlights and explicates) except in that the spec,
   ## for no obvious reason, verifies it.
   IndexedAttestation(
-    custody_bit_0_indices: sorted(
+    custody_bit_0_indices: CustodyBitIndices sorted(
       mapIt(custody_bit_0_indices, it.uint64), system.cmp),
     # toSeq pointlessly constructs int-indexable copy so mapIt can infer type;
     # see above
-    custody_bit_1_indices:
-      sorted(mapIt(toSeq(items(custody_bit_1_indices)), it.uint64),
-        system.cmp),
+    custody_bit_1_indices: CustodyBitIndices sorted(
+      mapIt(toSeq(items(custody_bit_1_indices)), it.uint64),
+      system.cmp),
     data: attestation.data,
     signature: attestation.signature,
   )

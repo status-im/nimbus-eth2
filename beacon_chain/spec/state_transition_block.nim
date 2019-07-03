@@ -35,7 +35,7 @@
 import # TODO - cleanup imports
   algorithm, collections/sets, chronicles, math, options, sequtils, sets, tables,
   ../extras, ../ssz, ../beacon_node_types,
-  beaconstate, bitfield, crypto, datatypes, digest, helpers, validator
+  beaconstate, crypto, datatypes, digest, helpers, validator
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#block-header
 proc processBlockHeader(

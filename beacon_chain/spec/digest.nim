@@ -44,17 +44,16 @@ func eth2hash*(v: openArray[byte]): Eth2Digest {.inline.} =
   var ctx: sha256
   ctx.init()
   ctx.update(v)
-  result = ctx.finish()
+  ctx.finish()
 
 template withEth2Hash*(body: untyped): Eth2Digest =
   ## This little helper will init the hash function and return the sliced
   ## hash:
   ## let hashOfData = withHash: h.update(data)
-  var h  {.inject.}: sha256
+  var h {.inject.}: sha256
   h.init()
   body
-  var res = h.finish()
-  res
+  h.finish()
 
 func hash*(x: Eth2Digest): Hash =
   ## Hash for digests for Nim hash tables
@@ -63,3 +62,4 @@ func hash*(x: Eth2Digest): Hash =
   # We just slice the first 4 or 8 bytes of the block hash
   # depending of if we are on a 32 or 64-bit platform
   result = cast[ptr Hash](unsafeAddr x)[]
+

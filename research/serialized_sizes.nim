@@ -1,7 +1,7 @@
 import
   confutils,
   ../beacon_chain/[extras, ssz],
-  ../beacon_chain/spec/[beaconstate, bitfield, datatypes, digest, validator],
+  ../beacon_chain/spec/[beaconstate, datatypes, digest, validator],
   ../tests/testutil
 
 proc stateSize(deposits: int, maxContent = false) =
@@ -23,7 +23,7 @@ proc stateSize(deposits: int, maxContent = false) =
     #   validatorsPerCommittee =
     #     len(crosslink_committees[0].committee) # close enough..
     # for a in state.latest_attestations.mitems():
-    #   a.aggregation_bits = BitField.init(validatorsPerCommittee)
+    #   a.aggregation_bits = BitSeq.init(validatorsPerCommittee)
   echo "Validators: ", deposits, ", total: ", SSZ.encode(state).len
 
 dispatch(stateSize)

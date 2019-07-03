@@ -25,8 +25,8 @@ type
     ssz*: seq[byte]
     tags*: seq[string]
 
-const TestFolder = currentSourcePath.rsplit(DirSep, 1)[0]
-const TestsPath = "fixtures" / "json_tests" / "ssz_generic" / "uint"
+const
+  TestsDir = JsonTestsDir / "ssz_generic" / "uint"
 
 func to(val: string, T: typedesc): T =
   when T is StUint:
@@ -97,18 +97,18 @@ proc runSSZUintTest(inputTests: Tests[SSZUint]) =
 
 suite "Official - SSZ unsigned integer tests" & preset():
   block: # "Integers right at or beyond the bounds of the allowed value range"
-    let uintBounds = parseTests(TestFolder / TestsPath / "uint_bounds.json", SSZUint)
+    let uintBounds = parseTests(TestsDir / "uint_bounds.json", SSZUint)
     test uintBounds.summary & preset():
       runSSZUintTest(uintBounds)
 
   block: # "Random integers chosen uniformly over the allowed value range"
-    let uintRandom = parseTests(TestFolder / TestsPath / "uint_random.json", SSZUint)
+    let uintRandom = parseTests(TestsDir / "uint_random.json", SSZUint)
     test uintRandom.summary & preset():
       runSSZUintTest(uintRandom)
 
   # TODO: pending fix for https://github.com/status-im/nim-beacon-chain/issues/280
   block: # "Serialized integers that are too short or too long"
-    let uintWrongLength = parseTests(TestFolder / TestsPath / "uint_wrong_length.json", SSZUint)
+    let uintWrongLength = parseTests(TestsDir / "uint_wrong_length.json", SSZUint)
     test "[Skipped] " & uintWrongLength.summary & preset():
       # TODO: pending fix for https://github.com/status-im/nim-beacon-chain/issues/280
       echo "         [Skipped] Pending https://github.com/status-im/nim-beacon-chain/issues/280"

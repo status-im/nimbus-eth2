@@ -1,15 +1,10 @@
 import
   confutils, stats, times,
-  json, strformat,
+  strformat,
   options, sequtils, random, tables,
   ../tests/[testutil],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
   ../beacon_chain/[attestation_pool, extras, ssz, state_transition, fork_choice]
-
-proc `%`(v: uint64): JsonNode =
-  if v > uint64(high(BiggestInt)): newJString($v) else: newJInt(BiggestInt(v))
-proc `%`(v: Eth2Digest): JsonNode = newJString($v)
-proc `%`(v: ValidatorSig|ValidatorPubKey): JsonNode = newJString($v)
 
 type Timers = enum
   tBlock = "Process non-epoch slot with block"
@@ -36,14 +31,11 @@ template withTimerRet(stats: var RunningStat, body: untyped): untyped =
 
   tmp
 
-proc `%`*(x: Slot): JsonNode {.borrow.}
-proc `%`*(x: Epoch): JsonNode {.borrow.}
-
 proc writeJson*(prefix, slot, v: auto) =
   var f: File
   defer: close(f)
-  discard open(f, fmt"{prefix:04}-{humaneSlotNum(slot):08}.json", fmWrite)
-  write(f, pretty(%*(v)))
+  let fileName = fmt"{prefix:04}-{humaneSlotNum(slot):08}.json"
+  Json.saveFile(fileName, v, pretty = true)
 
 cli do(slots = 448,
        validators = SLOTS_PER_EPOCH * 9, # One per shard is minimum

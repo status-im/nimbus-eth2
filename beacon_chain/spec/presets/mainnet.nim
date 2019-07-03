@@ -82,7 +82,6 @@ const
 
   GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 0'u8]
   GENESIS_SLOT* = 0.Slot
-  FAR_FUTURE_EPOCH* = (not 0'u64).Epoch # 2^64 - 1 in spec
   BLS_WITHDRAWAL_PREFIX* = 0'u8
 
   # Time parameters
@@ -139,8 +138,10 @@ const
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#state-list-lengths
   LATEST_RANDAO_MIXES_LENGTH* = 8192
-  EPOCHS_PER_HISTORICAL_VECTOR* = 8192 # 2'u64^13, epochs
-  EPOCHS_PER_SLASHINGS_VECTOR* = 8192 # epochs
+  EPOCHS_PER_HISTORICAL_VECTOR* = 65536
+  EPOCHS_PER_SLASHINGS_VECTOR* = 8192
+  HISTORICAL_ROOTS_LIMIT* = 16777216
+  VALIDATOR_REGISTRY_LIMIT* = 1099511627776
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------

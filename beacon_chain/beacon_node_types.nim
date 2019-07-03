@@ -1,7 +1,7 @@
 import
   sets, deques, tables,
-  eth/keys,
-  spec/[bitfield, datatypes, crypto, digest],
+  eth/keys, stew/bitseqs,
+  spec/[datatypes, crypto, digest],
   beacon_chain_db, conf, mainchain_monitor, eth2_network, time
 
 type
@@ -45,8 +45,8 @@ type
   #
   # #############################################
   Validation* = object
-    aggregation_bits*: BitField
-    custody_bits*: BitField ##\
+    aggregation_bits*: CommitteeValidatorsBits
+    custody_bits*: CommitteeValidatorsBits ##\
     ## Phase 1 - the handling of this field is probably broken..
     aggregate_signature*: ValidatorSig
 
@@ -54,7 +54,7 @@ type
   # Yeah, you can do any linear combination of signatures. but you have to
   # remember the linear combination of pubkeys that constructed
   # if you have two instances of a signature from pubkey p, then you need 2*p
-  # in the group pubkey because the attestation bitfield is only 1 bit per
+  # in the group pubkey because the attestation bitlist is only 1 bit per
   # pubkey right now, attestations do not support this it could be extended to
   # support N overlaps up to N times per pubkey if we had N bits per validator
   # instead of 1

@@ -65,7 +65,6 @@ const
   # Unchanged
   GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 0'u8]
   GENESIS_SLOT* = 0.Slot
-  FAR_FUTURE_EPOCH* = (not 0'u64).Epoch # 2^64 - 1 in spec
   BLS_WITHDRAWAL_PREFIX* = 0'u8
 
   # Time parameters
@@ -88,7 +87,7 @@ const
 
   # Changed
   SLOTS_PER_ETH1_VOTING_PERIOD* = 16
-  SLOTS_PER_HISTORICAL_ROOT* = 128 # 64 doesn't work with GENESIS_SLOT == 0?
+  SLOTS_PER_HISTORICAL_ROOT* = 64 # doesn't work with GENESIS_SLOT == 0?
 
   # Unchanged
   MIN_VALIDATOR_WITHDRAWABILITY_DELAY* = 2'u64^8
@@ -104,6 +103,8 @@ const
   LATEST_RANDAO_MIXES_LENGTH* = 64
   EPOCHS_PER_HISTORICAL_VECTOR* = 64
   EPOCHS_PER_SLASHINGS_VECTOR* = 64
+  HISTORICAL_ROOTS_LIMIT* = 16777216
+  VALIDATOR_REGISTRY_LIMIT* = 1099511627776
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------

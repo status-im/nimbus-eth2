@@ -7,89 +7,77 @@
 
 import
   unittest, sequtils, options,
-  nimcrypto, eth/common, blscurve, serialization/testing/generic_suite,
-  ../beacon_chain/ssz, ../beacon_chain/spec/[datatypes, digest]
+  stint, nimcrypto, eth/common, blscurve, serialization/testing/generic_suite,
+  ../beacon_chain/spec/[datatypes, digest],
+  ../beacon_chain/ssz, ../beacon_chain/ssz/navigator
 
-func filled[N: static[int], T](typ: type array[N, T], value: T): array[N, T] =
-  for val in result.mitems:
-    val = value
+type
+  SomeEnum = enum
+    A, B, C
 
-func filled(T: type MDigest, value: byte): T =
-  for val in result.data.mitems:
-    val = value
+  Simple = object
+    flag: bool
+    # count: StUint[256]
+    # ignored {.dontSerialize.}: string
+    # data: array[256, bool]
 
-suite "Simple serialization":
-  # pending spec updates in
-  #   - https://github.com/ethereum/eth2.0-specs
-  type
-    Foo = object
-      f0: uint8
-      f1: uint32
-      f2: EthAddress
-      f3: MDigest[256]
-      f4: seq[byte]
-      f5: ValidatorIndex
+template reject(stmt) =
+  assert(not compiles(stmt))
 
-  let expected_deser = Foo(
-      f0: 5,
-      f1: 0'u32 - 3,
-      f2: EthAddress.filled(byte 35),
-      f3: MDigest[256].filled(byte 35),
-      f4: @[byte 'c'.ord, 'o'.ord, 'w'.ord],
-      f5: ValidatorIndex(79))
+static:
+  assert isFixedSize(bool) == true
 
-  var expected_ser = @[
-      byte 67, 0, 0, 0, # length
-      5,
-      0xFD, 0xFF, 0xFF, 0xFF,
-    ]
-  expected_ser &= EthAddress.filled(byte 35)
-  expected_ser &= MDigest[256].filled(byte 35).data
-  expected_ser &= [byte 3, 0, 0, 0, 'c'.ord, 'o'.ord, 'w'.ord]
-  expected_ser &= [byte 79, 0, 0]
+  assert fixedPortionSize(array[10, bool]) == 10
+  assert fixedPortionSize(array[SomeEnum, uint64]) == 24
+  assert fixedPortionSize(array[3..5, string]) == 12
 
-  test "Object deserialization":
-    let deser = SSZ.decode(expected_ser, Foo)
-    check: expected_deser == deser
+  assert fixedPortionSize(string) == 4
+  assert fixedPortionSize(seq[bool]) == 4
+  assert fixedPortionSize(seq[string]) == 4
 
-  test "Object serialization":
-    let ser = SSZ.encode(expected_deser)
-    check: expected_ser == ser
+  assert isFixedSize(array[20, bool]) == true
+  assert isFixedSize(Simple) == true
+  assert isFixedSize(string) == false
+  assert isFixedSize(seq[bool]) == false
+  assert isFixedSize(seq[string]) == false
 
-  test "Not enough data":
-    expect SerializationError:
-      let x = SSZ.decode(expected_ser[0..^2], Foo)
+  reject fixedPortionSize(int)
 
-    expect SerializationError:
-      let x = SSZ.decode(expected_ser[1..^1], Foo)
+type
+  ObjWithFields = object
+    f0: uint8
+    f1: uint32
+    f2: EthAddress
+    f3: MDigest[256]
+    f4: seq[byte]
+    f5: ValidatorIndex
 
-  test "ValidatorIndex roundtrip":
-    # https://github.com/nim-lang/Nim/issues/10027
-    let v = 79.ValidatorIndex
-    let ser = SSZ.encode(v)
-    check:
-      ser.len() == 3
-      SSZ.decode(ser, v.type) == v
+static:
+  assert fixedPortionSize(ObjWithFields) == 1 + 4 + sizeof(EthAddress) + (256 div 8) + 4 + 8
 
-  SSZ.roundtripTest [1, 2, 3]
-  SSZ.roundtripTest @[1, 2, 3]
-  SSZ.roundtripTest SigKey.random().getKey()
-  SSZ.roundtripTest BeaconBlock(
-    slot: 42.Slot, signature: sign(SigKey.random(), 0'u64, ""))
-  SSZ.roundtripTest BeaconState(slot: 42.Slot)
+executeRoundTripTests SSZ
 
-# suite "Tree hashing":
-#   # TODO The test values are taken from an earlier version of SSZ and have
-#   #      nothing to do with upstream - needs verification and proper test suite
+type
+  Foo = object
+    bar: Bar
 
-#   test "Hash BeaconBlock":
-#     let vr = BeaconBlock()
-#     check:
-#       $hash_tree_root(vr) ==
-#         "8951C9C64ABA469EBA78F5D9F9A0666FB697B8C4D86901445777E4445D0B1543"
+  Bar = object
+    b: string
+    baz: Baz
 
-#   test "Hash BeaconState":
-#     let vr = BeaconState()
-#     check:
-#       $hash_tree_root(vr) ==
-#         "66F9BF92A690F1FBD36488D98BE70DA6C84100EDF935BC6D0B30FF14A2976455"
+  Baz = object
+    i: uint64
+
+suite "SSZ Navigation":
+  test "simple object fields":
+    var foo = Foo(bar: Bar(b: "bar", baz: Baz(i: 10'u64)))
+    let encoded = SSZ.encode(foo)
+
+    check SSZ.decode(encoded, Foo) == foo
+
+    let mountedFoo = sszMount(encoded, Foo)
+    check mountedFoo.bar.b == "bar"
+
+    let mountedBar = mountedFoo.bar
+    check mountedBar.baz.i == 10'u64
+

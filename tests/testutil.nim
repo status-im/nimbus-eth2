@@ -10,18 +10,27 @@ import
   chronicles, eth/trie/[db],
   ../beacon_chain/[beacon_chain_db, block_pool, extras, ssz, state_transition,
     validator_pool, beacon_node_types],
-  ../beacon_chain/spec/[beaconstate, bitfield, crypto, datatypes, digest,
+  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest,
     helpers, validator]
 
 func preset*(): string =
   " [Preset: " & const_preset & ']'
 
-func makeFakeValidatorPrivKey*(i: int): ValidatorPrivKey =
-  # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
-  # lighthouse.
-  # TODO: switch to https://github.com/ethereum/eth2.0-pm/issues/60
-  var bytes = uint64(i + 1000).toBytesLE()
-  copyMem(addr result.x[0], addr bytes[0], sizeof(bytes))
+when ValidatorPrivKey is BlsValue:
+  func makeFakeValidatorPrivKey*(i: int): ValidatorPrivKey =
+    # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
+    # lighthouse.
+    # TODO: switch to https://github.com/ethereum/eth2.0-pm/issues/60
+    result.kind = BlsValueType.Real
+    var bytes = uint64(i + 1000).toBytesLE()
+    copyMem(addr result.blsValue.x[0], addr bytes[0], sizeof(bytes))
+else:
+  func makeFakeValidatorPrivKey*(i: int): ValidatorPrivKey =
+    # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
+    # lighthouse.
+    # TODO: switch to https://github.com/ethereum/eth2.0-pm/issues/60
+    var bytes = uint64(i + 1000).toBytesLE()
+    copyMem(addr result.x[0], addr bytes[0], sizeof(bytes))
 
 func makeFakeHash*(i: int): Eth2Digest =
   var bytes = uint64(i).toBytesLE()
@@ -170,9 +179,8 @@ proc makeAttestation*(
 
   doAssert sac_index != -1, "find_shard_committee should guarantee this"
 
-  var
-    aggregation_bits = BitField.init(committee.len)
-  set_bitfield_bit(aggregation_bits, sac_index)
+  var aggregation_bits = CommitteeValidatorsBits.init(committee.len)
+  aggregation_bits.raiseBit sac_index
 
   let
     msg = hash_tree_root(
@@ -192,7 +200,7 @@ proc makeAttestation*(
     data: data,
     aggregation_bits: aggregation_bits,
     signature: sig,
-    custody_bits: BitField.init(committee.len)
+    custody_bits: CommitteeValidatorsBits.init(committee.len)
   )
 
 proc makeTestDB*(tailState: BeaconState, tailBlock: BeaconBlock): BeaconChainDB =

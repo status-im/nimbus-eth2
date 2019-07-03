@@ -46,7 +46,7 @@
 
 import
   sequtils,
-  hashes, eth/rlp,
+  stew/objects, hashes, eth/rlp, nimcrypto/utils,
   blscurve, json_serialization,
   digest
 
@@ -56,20 +56,102 @@ export
 export blscurve.init, blscurve.getBytes, blscurve.combine, blscurve.`$`, blscurve.`==`
 
 type
-  ValidatorPubKey* = blscurve.VerKey
+  BlsValueType* = enum
+    Real
+    OpaqueBlob
+
+  BlsValue*[T] = object
+    # TODO This is a temporary type needed until we sort out the
+    # issues with invalid BLS values appearing in the SSZ test suites.
+    case kind*: BlsValueType
+    of Real:
+      blsValue*: T
+    of OpaqueBlob:
+      when T is blscurve.Signature:
+        blob*: array[96, byte]
+      else:
+        blob*: array[48, byte]
+
+  ValidatorPubKey* = BlsValue[blscurve.VerKey]
+  # ValidatorPubKey* = blscurve.VerKey
+
+  # ValidatorPubKey* = array[48, byte]
+  # The use of byte arrays proved to be a dead end pretty quickly.
+  # Plenty of code needs to be modified for a successful build and
+  # the changes will negatively affect the performance.
+
+  # ValidatorPrivKey* = BlsValue[blscurve.SigKey]
   ValidatorPrivKey* = blscurve.SigKey
-  ValidatorSig* = blscurve.Signature
+
+  ValidatorSig* = BlsValue[blscurve.Signature]
+
+  BlsCurveType* = VerKey|SigKey|Signature
   ValidatorPKI* = ValidatorPrivKey|ValidatorPubKey|ValidatorSig
 
-func shortLog*(x: ValidatorPKI): string =
+proc init*[T](BLS: type BlsValue[T], val: auto): BLS =
+  result.kind = BlsValueType.Real
+  result.blsValue = init(T, val)
+
+func `$`*(x: BlsValue): string =
+  if x.kind == Real:
+    $x.blsValue
+  else:
+    "r:" & toHex(x.blob)
+
+func `==`*(a, b: BlsValue): bool =
+  if a.kind != b.kind: return false
+  if a.kind == Real:
+    return a.blsValue == b.blsValue
+  else:
+    return a.blob == b.blob
+
+func getBytes*(x: BlsValue): auto =
+  if x.kind == Real:
+    getBytes x.blsValue
+  else:
+    x.blob
+
+func shortLog*(x: BlsValue): string =
   ($x)[0..7]
 
-template hash*(k: ValidatorPubKey|ValidatorPrivKey): Hash =
-  hash(k.getBytes())
+func shortLog*(x: BlsCurveType): string =
+  ($x)[0..7]
 
-func pubKey*(pk: ValidatorPrivKey): ValidatorPubKey = pk.getKey()
+proc hash*(x: BlsValue): Hash {.inline.} =
+  if x.kind == Real:
+    hash x.blsValue.getBytes()
+  else:
+    hash x.blob
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/bls_signature.md#bls_aggregate_pubkeys
+template hash*(x: BlsCurveType): Hash =
+  hash(getBytes(x))
+
+template `==`*[T](a: BlsValue[T], b: T): bool =
+  a.blsValue == b
+
+template `==`*[T](a: T, b: BlsValue[T]): bool =
+  a == b.blsValue
+
+func pubKey*(pk: ValidatorPrivKey): ValidatorPubKey =
+  when ValidatorPubKey is BlsValue:
+    ValidatorPubKey(kind: Real, blsValue: pk.getKey())
+  elif ValidatorPubKey is array:
+    pk.getKey.getBytes
+  else:
+    pk.getKey
+
+proc combine*[T](a: openarray[BlsValue[T]]): T =
+  doAssert a.len > 0 and a[0].kind == Real
+  result = a[0].blsValue
+  for i in 1 ..< a.len:
+    doAssert a[i].kind == Real
+    result.combine a[i].blsValue
+
+proc combine*[T](x: var BlsValue[T], other: BlsValue[T]) =
+  doAssert x.kind == Real and other.kind == Real
+  x.blsValue.combine(other.blsValue)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/bls_signature.md#bls_aggregate_pubkeys
 func bls_aggregate_pubkeys*(keys: openArray[ValidatorPubKey]): ValidatorPubKey =
   var empty = true
   for key in keys:
@@ -79,14 +161,18 @@ func bls_aggregate_pubkeys*(keys: openArray[ValidatorPubKey]): ValidatorPubKey =
     else:
       result.combine(key)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/bls_signature.md#bls_verify
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/bls_signature.md#bls_verify
 func bls_verify*(
     pubkey: ValidatorPubKey, msg: openArray[byte], sig: ValidatorSig,
     domain: uint64): bool =
   # name from spec!
-  sig.verify(msg, domain, pubkey)
+  when ValidatorPubKey is BlsValue:
+    doAssert sig.kind == Real and pubkey.kind == Real
+    sig.blsValue.verify(msg, domain, pubkey.blsValue)
+  else:
+    sig.verify(msg, domain, pubkey)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/bls_signature.md#bls_verify_multiple
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/bls_signature.md#bls_verify_multiple
 func bls_verify_multiple*(
     pubkeys: seq[ValidatorPubKey], message_hashes: openArray[Eth2Digest],
     sig: ValidatorSig, domain: uint64): bool =
@@ -98,49 +184,94 @@ func bls_verify_multiple*(
     let (pubkey, message_hash) = pubkey_message_hash
     # TODO spec doesn't say to handle this specially, but it's silly to
     # validate without any actual public keys.
-    if pubkey != ValidatorPubKey() and
-       not sig.verify(message_hash.data, domain, pubkey):
+    if not pubkey.bls_verify(message_hash.data, sig, domain):
       return false
 
   true
 
-func bls_sign*(key: ValidatorPrivKey, msg: openarray[byte],
-               domain: uint64): ValidatorSig =
-  # name from spec!
-  key.sign(domain, msg)
+when ValidatorPrivKey is BlsValue:
+  func bls_sign*(key: ValidatorPrivKey, msg: openarray[byte],
+                 domain: uint64): ValidatorSig =
+    # name from spec!
+    if key.kind == Real:
+      ValidatorSig(kind: Real, blsValue: key.blsValue.sign(domain, msg))
+    else:
+      ValidatorSig(kind: OpaqueBlob)
+else:
+  func bls_sign*(key: ValidatorPrivKey, msg: openarray[byte],
+                 domain: uint64): ValidatorSig =
+    # name from spec!
+    ValidatorSig(kind: Real, blsValue: key.sign(domain, msg))
+
+proc fromBytes*[T](R: type BlsValue[T], bytes: openarray[byte]): R =
+  when defined(ssz_testing):
+    result = R(kind: OpaqueBlob, blob: toArray(result.blob.len, bytes))
+  else:
+    result = R(kind: Real, blsValue: init(T, bytes))
+
+proc initFromBytes*[T](val: var BlsValue[T], bytes: openarray[byte]) =
+  val = fromBytes(BlsValue[T], bytes)
+
+proc initFromBytes*(val: var BlsCurveType, bytes: openarray[byte]) =
+  val = init(type(val), bytes)
 
 proc writeValue*(writer: var JsonWriter, value: ValidatorPubKey) {.inline.} =
-  writer.writeValue($value)
+  when value is BlsValue:
+    doAssert value.kind == Real
+    writer.writeValue($value.blsValue)
+  else:
+    writer.writeValue($value)
 
 proc readValue*(reader: var JsonReader, value: var ValidatorPubKey) {.inline.} =
-  value = VerKey.init(reader.readValue(string))
+  value.initFromBytes(fromHex reader.readValue(string))
 
 proc writeValue*(writer: var JsonWriter, value: ValidatorSig) {.inline.} =
-  writer.writeValue($value)
+  when value is BlsValue:
+    doAssert value.kind == Real
+    writer.writeValue($value.blsValue)
+  else:
+    writer.writeValue($value)
 
 proc readValue*(reader: var JsonReader, value: var ValidatorSig) {.inline.} =
-  value = Signature.init(reader.readValue(string))
+  value.initFromBytes(fromHex reader.readValue(string))
 
 proc writeValue*(writer: var JsonWriter, value: ValidatorPrivKey) {.inline.} =
-  writer.writeValue($value)
+  when value is BlsValue:
+    doAssert value.kind == Real
+    writer.writeValue($value.blsValue)
+  else:
+    writer.writeValue($value)
 
 proc readValue*(reader: var JsonReader, value: var ValidatorPrivKey) {.inline.} =
-  value = SigKey.init(reader.readValue(string))
+  value.initFromBytes(fromHex reader.readValue(string))
 
-proc newPrivKey*(): ValidatorPrivKey = SigKey.random()
+when ValidatorPrivKey is BlsValue:
+  proc newPrivKey*(): ValidatorPrivKey =
+    ValidatorPrivKey(kind: Real, blsValue: SigKey.random())
+else:
+  proc newPrivKey*(): ValidatorPrivKey =
+    SigKey.random()
 
 # RLP serialization (TODO: remove if no longer necessary)
-proc append*(writer: var RlpWriter, value: ValidatorPubKey) =
-  writer.append value.getBytes()
+when ValidatorPubKey is BlsValue:
+  proc append*(writer: var RlpWriter, value: ValidatorPubKey) =
+    writer.append if value.kind == Real: value.blsValue.getBytes()
+                  else: value.blob
+else:
+  proc append*(writer: var RlpWriter, value: ValidatorPubKey) =
+    writer.append value.getBytes()
 
 proc read*(rlp: var Rlp, T: type ValidatorPubKey): T {.inline.} =
-  result = ValidatorPubKey.init(rlp.toBytes.toOpenArray)
-  rlp.skipElem()
+  result fromBytes(T, rlp.toBytes)
 
-proc append*(writer: var RlpWriter, value: ValidatorSig) =
-  writer.append value.getBytes()
+when ValidatorSig is BlsValue:
+  proc append*(writer: var RlpWriter, value: ValidatorSig) =
+    writer.append if value.kind == Real: value.blsValue.getBytes()
+                  else: value.blob
+else:
+  proc append*(writer: var RlpWriter, value: ValidatorSig) =
+    writer.append value.getBytes()
 
 proc read*(rlp: var Rlp, T: type ValidatorSig): T {.inline.} =
-  result = ValidatorSig.init(rlp.toBytes.toOpenArray)
-  rlp.skipElem()
+  let bytes = fromBytes(T, rlp.toBytes)
 

@@ -23,8 +23,9 @@ mkdir -p "$VALIDATORS_DIR"
 cd "$GIT_ROOT"
 mkdir -p $BUILD_OUTPUTS_DIR
 
-# Run with "SHARD_COUNT=8 ./start.sh" to change these
-DEFS="-d:SHARD_COUNT=${SHARD_COUNT:-8} "      # Spec default: 1024
+# Run with "SHARD_COUNT=4 ./start.sh" to change these
+DEFS="-d:chronicles_log_level=DEBUG "
+DEFS+="-d:SHARD_COUNT=${SHARD_COUNT:-8} "      # Spec default: 1024
 DEFS+="-d:SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH:-8} "   # Spec default: 64
 DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-12} " # Spec default: 6
 

@@ -33,7 +33,7 @@
 import
   algorithm, collections/sets, chronicles, math, options, sequtils, sets, tables,
   ./extras, ./ssz, ./beacon_node_types,
-  ./spec/[beaconstate, bitfield, crypto, datatypes, digest, helpers, validator],
+  ./spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
   ./spec/[state_transition_block, state_transition_epoch]
 
 # Canonical state transition functions

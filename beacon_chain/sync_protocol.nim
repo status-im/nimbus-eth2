@@ -24,8 +24,12 @@ type
     node*: BeaconNode
     db*: BeaconChainDB
 
+  BlockRootSlot* = object
+    blockRoot: Eth2Digest
+    slot: Slot
+
 const
-  MaxRootsToRequest = 512
+  MaxRootsToRequest = 512'u64
   MaxHeadersToRequest = MaxRootsToRequest
   MaxAncestorBlocksResponse = 256
 
@@ -67,8 +71,11 @@ proc mergeBlockHeadersAndBodies(headers: openarray[BeaconBlockHeader], bodies: o
     res[^1].fromHeaderAndBody(headers[i], bodies[i])
   some(res)
 
-proc getBeaconBlocks*(peer: Peer, blockRoot: Eth2Digest, slot: Slot, maxBlocks, skipSlots: int, backward: uint8): Future[Option[seq[BeaconBlock]]] {.gcsafe, async.}
-
+proc getBeaconBlocks*(peer: Peer,
+                      blockRoot: Eth2Digest,
+                      slot: Slot,
+                      maxBlocks, skipSlots: uint64,
+                      backward: bool): Future[Option[seq[BeaconBlock]]] {.gcsafe, async.}
 
 p2pProtocol BeaconSync(version = 1,
                        shortName = "bcs",
@@ -113,8 +120,8 @@ p2pProtocol BeaconSync(version = 1,
         var s = bestSlot + 1
         while s <= m.bestSlot:
           debug "Waiting for block headers", fromPeer = peer, remoteBestSlot = m.bestSlot, peer
-          let headersLeft = int(m.bestSlot - s)
-          let blocks = await peer.getBeaconBlocks(bestRoot, s, min(headersLeft, MaxHeadersToRequest), 0, 0)
+          let headersLeft = uint64(m.bestSlot - s)
+          let blocks = await peer.getBeaconBlocks(bestRoot, s, min(headersLeft, MaxHeadersToRequest), 0, false)
           if blocks.isSome:
             if blocks.get.len == 0:
               info "Got 0 blocks while syncing", peer
@@ -144,53 +151,40 @@ p2pProtocol BeaconSync(version = 1,
 
   proc goodbye(peer: Peer, reason: DisconnectionReason)
 
-  requestResponse:
-    proc getStatus(
-            peer: Peer,
-            sha: Eth2Digest,
-            userAgent: string,
-            timestamp: uint64) =
-
-      # TODO: How should this be implemented?
-      # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/networking/rpc-interface.md#get-status
-      await response.send(sha, userAgent, timestamp)
-
-    proc status(peer: Peer, sha: Eth2Digest, userAgent: string, timestamp: uint64)
-
   nextId 10
 
   requestResponse:
     proc getBeaconBlockRoots(
             peer: Peer,
             fromSlot: Slot,
-            maxRoots: int) =
+            maxRoots: uint64) =
       let maxRoots = min(MaxRootsToRequest, maxRoots)
       var s = fromSlot
-      var roots = newSeqOfCap[(Eth2Digest, Slot)](maxRoots)
+      var roots = newSeqOfCap[BlockRootSlot](maxRoots)
       let blockPool = peer.networkState.node.blockPool
       let maxSlot = blockPool.head.blck.slot
       while s <= maxSlot:
         for r in blockPool.blockRootsForSlot(s):
-          roots.add((r, s))
-          if roots.len == maxRoots: break
+          roots.add BlockRootSlot(blockRoot: r, slot: s)
+          if roots.len == maxRoots.int: break
         s += 1
       await response.send(roots)
 
-    proc beaconBlockRoots(peer: Peer, roots: openarray[(Eth2Digest, Slot)])
+    proc beaconBlockRoots(peer: Peer, roots: openarray[BlockRootSlot])
 
   requestResponse:
     proc getBeaconBlockHeaders(
             peer: Peer,
             blockRoot: Eth2Digest,
             slot: Slot,
-            maxHeaders: int,
-            skipSlots: int,
-            backward: uint8) =
+            maxHeaders: uint64,
+            skipSlots: uint64,
+            backward: bool) =
       let maxHeaders = min(MaxHeadersToRequest, maxHeaders)
       var headers: seq[BeaconBlockHeader]
       let db = peer.networkState.db
 
-      if backward != 0:
+      if backward:
         # TODO: implement skipSlots
 
         var blockRoot = blockRoot
@@ -205,7 +199,7 @@ p2pProtocol BeaconSync(version = 1,
 
         while not br.isNil:
           blockRefs.add(br)
-          if blockRefs.len == maxHeaders:
+          if blockRefs.len == maxHeaders.int:
             break
           br = br.parent
 
@@ -223,49 +217,12 @@ p2pProtocol BeaconSync(version = 1,
         while s <= maxSlot:
           for r in blockPool.blockRootsForSlot(s):
             headers.add(db.getBlock(r).get().toHeader)
-            if headers.len == maxHeaders: break
+            if headers.len == maxHeaders.int: break
           s += 1
 
       await response.send(headers)
 
     proc beaconBlockHeaders(peer: Peer, blockHeaders: openarray[BeaconBlockHeader])
-
-  # TODO move this at the bottom, because it's not in the spec yet, but it will
-  # consume a `method_id`
-  requestResponse:
-    proc getAncestorBlocks(
-            peer: Peer,
-            needed: openarray[FetchRecord]) =
-      var resp = newSeqOfCap[BeaconBlock](needed.len)
-      let db = peer.networkState.db
-      var neededRoots = initSet[Eth2Digest]()
-      for rec in needed: neededRoots.incl(rec.root)
-
-      for rec in needed:
-        if (var blck = db.getBlock(rec.root); blck.isSome()):
-          # TODO validate historySlots
-          let firstSlot = blck.get().slot - rec.historySlots
-
-          for i in 0..<rec.historySlots.int:
-            resp.add(blck.get())
-            if resp.len >= MaxAncestorBlocksResponse:
-              break
-
-            if blck.get().parent_root in neededRoots:
-              # Don't send duplicate blocks, if neededRoots has roots that are
-              # in the same chain
-              break
-
-            if (blck = db.getBlock(blck.get().parent_root);
-                blck.isNone() or blck.get().slot < firstSlot):
-              break
-
-          if resp.len >= MaxAncestorBlocksResponse:
-            break
-
-      await response.send(resp)
-
-    proc ancestorBlocks(peer: Peer, blocks: openarray[BeaconBlock])
 
   requestResponse:
     proc getBeaconBlockBodies(
@@ -285,7 +242,11 @@ p2pProtocol BeaconSync(version = 1,
             peer: Peer,
             blockBodies: openarray[BeaconBlockBody])
 
-proc getBeaconBlocks*(peer: Peer, blockRoot: Eth2Digest, slot: Slot, maxBlocks, skipSlots: int, backward: uint8): Future[Option[seq[BeaconBlock]]] {.async.} =
+proc getBeaconBlocks*(peer: Peer,
+                      blockRoot: Eth2Digest,
+                      slot: Slot,
+                      maxBlocks, skipSlots: uint64,
+                      backward: bool): Future[Option[seq[BeaconBlock]]] {.async.} =
   ## Retrieve block headers and block bodies from the remote peer, merge them into blocks.
   assert(maxBlocks <= MaxHeadersToRequest)
   let headersResp = await peer.getBeaconBlockHeaders(blockRoot, slot, maxBlocks, skipSlots, backward)

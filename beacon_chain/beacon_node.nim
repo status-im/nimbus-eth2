@@ -1,9 +1,9 @@
 import
   net, sequtils, options, tables, osproc, random, strutils, times, strformat,
-  stew/shims/os, stew/objects,
+  stew/shims/os, stew/[objects, bitseqs],
   chronos, chronicles, confutils, serialization/errors,
   eth/trie/db, eth/trie/backends/rocksdb_backend, eth/async_utils,
-  spec/[bitfield, datatypes, digest, crypto, beaconstate, helpers, validator],
+  spec/[datatypes, digest, crypto, beaconstate, helpers, validator],
   conf, time, state_transition, fork_choice, ssz, beacon_chain_db,
   validator_pool, extras, attestation_pool, block_pool, eth2_network,
   beacon_node_types, mainchain_monitor, trusted_state_snapshots, version,
@@ -309,15 +309,15 @@ proc sendAttestation(node: BeaconNode,
   let
     validatorSignature = await validator.signAttestation(attestationData)
 
-  var aggregationBitfield = BitField.init(committeeLen)
-  set_bitfield_bit(aggregationBitfield, indexInCommittee)
+  var aggregationBits = CommitteeValidatorsBits.init(committeeLen)
+  aggregationBits.raiseBit indexInCommittee
 
   var attestation = Attestation(
     data: attestationData,
     signature: validatorSignature,
-    aggregation_bits: aggregationBitfield,
+    aggregation_bits: aggregationBits,
     # Stub in phase0
-    custody_bits: BitField.init(committeeLen)
+    custody_bits: CommitteeValidatorsBits.init(committeeLen)
   )
 
   node.network.broadcast(topicAttestations, attestation)

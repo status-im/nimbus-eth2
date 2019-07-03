@@ -34,9 +34,9 @@
 
 import # TODO - cleanup imports
   algorithm, math, options, sequtils, tables,
-  chronicles, json_serialization/std/sets,
+  stew/[bitseqs, bitops2], chronicles, json_serialization/std/sets,
   ../extras, ../ssz, ../beacon_node_types,
-  beaconstate, bitfield, crypto, datatypes, digest, helpers, validator
+  beaconstate, crypto, datatypes, digest, helpers, validator
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#get_total_active_balance
 func get_total_active_balance(state: BeaconState): Gwei =
@@ -198,13 +198,6 @@ proc process_justification_and_finalization(
     old_previous_justified_checkpoint = state.previous_justified_checkpoint
     old_current_justified_checkpoint = state.current_justified_checkpoint
 
-  ## Bitvector[4] <-> uint8 mapping:
-  ## state.justification_bits[0] is (state.justification_bits shr 0) and 1
-  ## state.justification_bits[1] is (state.justification_bits shr 1) and 1
-  ## state.justification_bits[2] is (state.justification_bits shr 2) and 1
-  ## state.justification_bits[3] is (state.justification_bits shr 3) and 1
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/simple-serialize.md#bitvectorn
-
   # Process justifications
   state.previous_justified_checkpoint = state.current_justified_checkpoint
 
@@ -247,8 +240,7 @@ proc process_justification_and_finalization(
       Checkpoint(epoch: previous_epoch,
                  root: get_block_root(state, previous_epoch))
 
-    # Spec: state.justification_bits[1] = 0b1
-    state.justification_bits = state.justification_bits or (1 shl 1)
+    state.justification_bits.raiseBit 1
 
   let matching_target_attestations_current =
     get_matching_target_attestations(state, current_epoch)  # Current epoch
@@ -258,34 +250,33 @@ proc process_justification_and_finalization(
       Checkpoint(epoch: current_epoch,
                  root: get_block_root(state, current_epoch))
 
-    # Spec: state.justification_bits[0] = 0b1
-    state.justification_bits = state.justification_bits or (1 shl 0)
+    state.justification_bits.raiseBit 0
 
   # Process finalizations
   let bitfield = state.justification_bits
 
   ## The 2nd/3rd/4th most recent epochs are justified, the 2nd using the 4th
   ## as source
-  if (bitfield shr 1) mod 8 == 0b111 and
-      old_previous_justified_checkpoint.epoch + 3 == current_epoch:
+  if (bitfield and 0b1110) == 0b1110 and
+     old_previous_justified_checkpoint.epoch + 3 == current_epoch:
     state.finalized_checkpoint = old_previous_justified_checkpoint
 
   ## The 2nd/3rd most recent epochs are justified, the 2nd using the 3rd as
   ## source
-  if (bitfield shr 1) mod 4 == 0b11 and
-      old_previous_justified_checkpoint.epoch + 2 == current_epoch:
+  if (bitfield and 0b110) == 0b110 and
+     old_previous_justified_checkpoint.epoch + 2 == current_epoch:
     state.finalized_checkpoint = old_previous_justified_checkpoint
 
   ## The 1st/2nd/3rd most recent epochs are justified, the 1st using the 3rd as
   ## source
-  if (bitfield shr 0) mod 8 == 0b111 and
-      old_current_justified_checkpoint.epoch + 2 == current_epoch:
+  if (bitfield and 0b111) == 0b111 and
+     old_current_justified_checkpoint.epoch + 2 == current_epoch:
     state.finalized_checkpoint = old_current_justified_checkpoint
 
   ## The 1st/2nd most recent epochs are justified, the 1st using the 2nd as
   ## source
-  if (bitfield shr 0) mod 4 == 0b11 and
-      old_current_justified_checkpoint.epoch + 1 == current_epoch:
+  if (bitfield and 0b11) == 0b11 and
+     old_current_justified_checkpoint.epoch + 1 == current_epoch:
     state.finalized_checkpoint = old_current_justified_checkpoint
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#crosslinks
@@ -384,7 +375,7 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
 
     let proposer_reward =
       (get_base_reward(state, index) div PROPOSER_REWARD_QUOTIENT).Gwei
-    rewards[attestation.proposer_index] += proposer_reward
+    rewards[attestation.proposer_index.int] += proposer_reward
     let max_attester_reward = get_base_reward(state, index) - proposer_reward
     rewards[index] +=
       (max_attester_reward *

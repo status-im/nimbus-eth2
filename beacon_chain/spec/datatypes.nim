@@ -18,9 +18,9 @@
 # types / composition
 
 import
-  hashes, math, json,
-  chronicles, eth/[common, rlp],
-  ./bitfield, ./crypto, ./digest
+  macros, hashes, math, json, strutils,
+  stew/[byteutils, bitseqs], chronicles, eth/[common, rlp],
+  ../ssz/types, ./crypto, ./digest
 
 # TODO Data types:
 # Presently, we're reusing the data types from the serialization (uint64) in the
@@ -41,7 +41,7 @@ import
 
 # Constant presets
 # https://github.com/ethereum/eth2.0-specs/tree/v0.6.3/configs/constant_presets/
-const const_preset*{.strdefine.} = "mainnet"
+const const_preset* {.strdefine.} = "minimal"
 
 when const_preset == "mainnet":
   import ./presets/mainnet
@@ -63,15 +63,20 @@ const
   GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
   ## compute_epoch_of_slot(GENESIS_SLOT)
 
+  FAR_FUTURE_EPOCH* = (not 0'u64).Epoch # 2^64 - 1 in spec
+
   # Not part of spec. Still useful, pending removing usage if appropriate.
   ZERO_HASH* = Eth2Digest()
 
+template maxSize*(n: int) {.pragma.}
+
 type
   ValidatorIndex* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
-
   Shard* = uint64
   Gwei* = uint64
   Domain* = uint64
+
+  BitList*[maxLen: static int] = distinct BitSeq
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#proposerslashing
   ProposerSlashing* = object
@@ -91,11 +96,13 @@ type
     attestation_2*: IndexedAttestation ## \
     ## Second attestation
 
+  CustodyBitIndices* = List[uint64, MAX_VALIDATORS_PER_COMMITTEE]
+
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#indexedattestation
   IndexedAttestation* = object
     # These probably should be seq[ValidatorIndex], but that throws RLP errors
-    custody_bit_0_indices*: seq[uint64]
-    custody_bit_1_indices*: seq[uint64]
+    custody_bit_0_indices*: CustodyBitIndices
+    custody_bit_1_indices*: CustodyBitIndices
 
     data*: AttestationData ## \
     ## Attestation data
@@ -103,15 +110,17 @@ type
     signature*: ValidatorSig ## \
     ## Aggregate signature
 
+  CommitteeValidatorsBits* = BitList[MAX_VALIDATORS_PER_COMMITTEE]
+
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#attestation
   Attestation* = object
-    aggregation_bits*: BitField ##\
+    aggregation_bits*: CommitteeValidatorsBits ##\
     ## Attester aggregation bitfield
 
     data*: AttestationData ##\
     ## Attestation data
 
-    custody_bits*: BitField ##\
+    custody_bits*: CommitteeValidatorsBits ##\
     ## Custody bitfield
 
     signature*: ValidatorSig ##\
@@ -143,7 +152,7 @@ type
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#deposit
   Deposit* = object
-    proof*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest] ##\
+    proof*: array[DEPOSIT_CONTRACT_TREE_DEPTH + 1, Eth2Digest] ##\
     ## Merkle path to deposit data list root
 
     data*: DepositData
@@ -158,9 +167,6 @@ type
 
     amount*: uint64 ##\
     ## Amount in Gwei
-
-    # TODO remove, not in spec
-    dummy*: uint64
 
     signature*: ValidatorSig ##\
     ## Container self-signature
@@ -280,7 +286,7 @@ type
 
     # Shuffling
     start_shard*: Shard
-    randao_mixes*: array[LATEST_RANDAO_MIXES_LENGTH, Eth2Digest]
+    randao_mixes*: array[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
 
     active_index_roots*: array[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest] ##\
     ## Active index digests for light clients
@@ -348,10 +354,10 @@ type
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#pendingattestation
   PendingAttestation* = object
-    aggregation_bits*: BitField               ## Attester participation bitfield
-    data*: AttestationData                    ## Attestation data
-    inclusion_delay*: uint64                  ## Inclusion delay
-    proposer_index*: ValidatorIndex           ## Proposer index
+    aggregation_bits*: CommitteeValidatorsBits ## Attester participation bitfield
+    data*: AttestationData                     ## Attestation data
+    inclusion_delay*: uint64                   ## Inclusion delay
+    proposer_index*: uint64                    ## Proposer index
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#historicalbatch
   HistoricalBatch* = object
@@ -381,6 +387,65 @@ type
   HashedBeaconState* = object
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root (not signing_root!)
+
+template foreachSpecType*(op: untyped) =
+  ## These are all spec types that will appear in network messages
+  ## and persistent consensus data. This helper template is useful
+  ## for populating RTTI tables that concern them.
+  op Attestation
+  op AttestationData
+  op AttestationDataAndCustodyBit
+  op AttesterSlashing
+  op BeaconBlock
+  op BeaconBlockBody
+  op BeaconBlockHeader
+  op BeaconState
+  op Crosslink
+  op Deposit
+  op DepositData
+  op Eth1Data
+  op Fork
+  op HistoricalBatch
+  op IndexedAttestation
+  op PendingAttestation
+  op ProposerSlashing
+  op Transfer
+  op Validator
+  op VoluntaryExit
+
+macro fieldMaxLen*(x: typed): untyped =
+  # TODO This macro is a temporary solution for the lack of a
+  # more proper way to specify the max length of the List[T; N]
+  # objects in the spec.
+  # May be replaced with `getCustomPragma` once we upgrade to
+  # Nim 0.20.2 or with a distinct List type, which would require
+  # more substantial refactorings in the spec code.
+  if x.kind != nnkDotExpr:
+    return newLit(0)
+
+  let size = case $x[1]
+             of "pubkeys",
+                "compact_validators",
+                "custody_bit_0_indices",
+                "custody_bit_1_indices",
+                "aggregation_bits",
+                "custody_bits": int64(MAX_VALIDATORS_PER_COMMITTEE)
+             of "proposer_slashings": MAX_PROPOSER_SLASHINGS
+             of "attester_slashings": MAX_ATTESTER_SLASHINGS
+             of "attestations": MAX_ATTESTATIONS
+             of "deposits": MAX_DEPOSITS
+             of "voluntary_exits": MAX_VOLUNTARY_EXITS
+             of "transfers": MAX_TRANSFERS
+             of "historical_roots": HISTORICAL_ROOTS_LIMIT
+             of "eth1_data_votes": SLOTS_PER_ETH1_VOTING_PERIOD
+             of "validators": VALIDATOR_REGISTRY_LIMIT
+             of "balances": VALIDATOR_REGISTRY_LIMIT
+             of "previous_epoch_attestations",
+                "current_epoch_attestations": MAX_ATTESTATIONS *
+                                              SLOTS_PER_EPOCH
+             else: 0
+
+  newLit size
 
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
     ($state.validators[validatorIdx].pubkey)[0..7]
@@ -438,6 +503,51 @@ proc `%`*(i: uint64): JsonNode =
 
 ethTimeUnit Slot
 ethTimeUnit Epoch
+
+Json.useCustomSerialization(BeaconState.justification_bits):
+  read:
+    let s = reader.readValue(string)
+    if s.len != 4: raise newException(ValueError, "unexpected number of bytes")
+    s.parseHexInt.uint8
+
+  write:
+    writer.writeValue "0x" & value.toHex
+
+Json.useCustomSerialization(BitSeq):
+  read:
+    BitSeq reader.readValue(string).hexToSeqByte
+
+  write:
+    writer.writeValue "0x" & value.bytes.toHex
+
+template readValue*(reader: var JsonReader, value: var BitList) =
+  type T = type(value)
+  value = T readValue(reader, BitSeq)
+
+template writeValue*(writer: var JsonWriter, value: BitList) =
+  writeValue(writer, BitSeq value)
+
+template init*(T: type BitList, len: int): auto = T init(BitSeq, len)
+template len*(x: BitList): auto = len(BitSeq(x))
+template bytes*(x: BitList): auto = bytes(BitSeq(x))
+template `[]`*(x: BitList, idx: auto): auto = BitSeq(x)[idx]
+template `[]=`*(x: BitList, idx: auto, val: bool) = BitSeq(x)[idx] = val
+template `==`*(a, b: BitList): bool = BitSeq(a) == BitSeq(b)
+template raiseBit*(x: BitList, idx: int) = raiseBit(BitSeq(x), idx)
+template lowerBit*(x: BitList, idx: int) = lowerBit(BitSeq(x), idx)
+template overlaps*(a, b: BitList): bool = overlaps(BitSeq(a), BitSeq(b))
+template combine*(a, b: BitList) = combine(BitSeq(a), BitSeq(b))
+template isSubsetOf*(a, b: BitList): bool = isSubsetOf(BitSeq(a), BitSeq(b))
+
+when useListType:
+  template len*[T; N](x: List[T, N]): auto = len(seq[T](x))
+  template `[]`*[T; N](x: List[T, N], idx: auto): auto = seq[T](x)[idx]
+  template `[]=`*[T; N](x: List[T, N], idx: auto, val: bool) = seq[T](x)[idx] = val
+  template `==`*[T; N](a, b: List[T, N]): bool = seq[T](a) == seq[T](b)
+  template asSeq*[T; N](x: List[T, N]): auto = seq[T](x)
+  template `&`*[T; N](a, b: List[T, N]): List[T, N] = seq[T](a) & seq[T](b)
+else:
+  template asSeq*[T; N](x: List[T, N]): auto = x
 
 func humaneSlotNum*(s: Slot): uint64 =
   s - GENESIS_SLOT

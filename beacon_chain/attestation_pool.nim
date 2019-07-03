@@ -1,7 +1,7 @@
 import
   deques, options, sequtils, tables,
-  chronicles,
-  ./spec/[beaconstate, bitfield, datatypes, crypto, digest, helpers, validator],
+  chronicles, stew/bitseqs,
+  ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator],
   ./extras, ./beacon_chain_db, ./ssz, ./block_pool,
   beacon_node_types
 
@@ -61,11 +61,11 @@ proc validate(
       finalizedEpoch = humaneEpochNum(state.finalized_checkpoint.epoch)
     return
 
-  if not allIt(attestation.custody_bits.bits, it == 0):
+  if not allIt(attestation.custody_bits.bytes, it == 0):
     notice "Invalid custody bitfield for phase 0"
     return false
 
-  if not anyIt(attestation.aggregation_bits.bits, it != 0):
+  if not anyIt(attestation.aggregation_bits.bytes, it != 0):
     notice "Empty aggregation bitfield"
     return false
 
@@ -211,8 +211,7 @@ proc add*(pool: var AttestationPool,
         # Attestations in the pool that are a subset of the new attestation
         # can now be removed per same logic as above
         a.validations.keepItIf(
-          if it.aggregation_bits.isSubsetOf(
-              validation.aggregation_bits):
+          if it.aggregation_bits.isSubsetOf(validation.aggregation_bits):
             debug "Removing subset attestation",
               existingParticipants = get_attesting_indices_seq(
                 state, a.data, it.aggregation_bits),
@@ -314,10 +313,8 @@ proc getAttestationsForBlock*(
       #      and naively add as much as possible in one go, by we could also
       #      add the same attestation data twice, as long as there's at least
       #      one new attestation in there
-      if not attestation.aggregation_bits.overlaps(
-          v.aggregation_bits):
-        attestation.aggregation_bits.combine(
-          v.aggregation_bits)
+      if not attestation.aggregation_bits.overlaps(v.aggregation_bits):
+        attestation.aggregation_bits.combine(v.aggregation_bits)
         attestation.custody_bits.combine(v.custody_bits)
         attestation.signature.combine(v.aggregate_signature)
 

@@ -1,4 +1,6 @@
 import
+  # Standard library
+  os, strutils,
   # Status libs
   stew/byteutils,
   eth/common, serialization, json_serialization,
@@ -72,6 +74,10 @@ type
     handler*: string
     test_cases*: seq[T]
 
+const
+  FixturesDir* = currentSourcePath.rsplit(DirSep, 1)[0] / "fixtures"
+  JsonTestsDir* = FixturesDir / "json_tests"
+
 # #######################
 # Default init
 proc default*(T: typedesc): T = discard
@@ -86,9 +92,6 @@ proc readValue*[N: static int](r: var JsonReader, a: var array[N, byte]) {.inlin
   # TODO: are all bytes and bytearray serialized as hex?
   #       if so export that to nim-eth
   hexToByteArray(r.readValue(string), a)
-
-proc readValue*(r: var JsonReader, a: var ValidatorIndex) {.inline.} =
-  a = r.readValue(uint32)
 
 proc readValue*(r: var JsonReader, a: var seq[byte]) {.inline.} =
   ## Custom deserializer for seq[byte]
