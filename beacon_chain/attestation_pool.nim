@@ -46,7 +46,7 @@ proc validate(
       attestationSlot = humaneSlotNum(attestationSlot),
       attestationEpoch = humaneEpochNum(attestationSlot.compute_epoch_of_slot),
       stateSlot = humaneSlotNum(state.slot),
-      finalizedEpoch = humaneEpochNum(state.finalized_epoch)
+      finalizedEpoch = humaneEpochNum(state.finalized_checkpoint.epoch)
 
     return
 
@@ -58,7 +58,7 @@ proc validate(
       attestationSlot = humaneSlotNum(attestationSlot),
       attestationEpoch = humaneEpochNum(attestationSlot.compute_epoch_of_slot),
       stateSlot = humaneSlotNum(state.slot),
-      finalizedEpoch = humaneEpochNum(state.finalized_epoch)
+      finalizedEpoch = humaneEpochNum(state.finalized_checkpoint.epoch)
     return
 
   if not allIt(attestation.custody_bits.bits, it == 0):
@@ -148,7 +148,8 @@ proc slotIndex(
     debug "Pruning attestation pool",
       startingSlot = $humaneSlotNum(pool.startingSlot),
       finalizedSlot =
-        $humaneSlotNum(state.finalized_epoch.compute_start_slot_of_epoch())
+        $humaneSlotNum(
+          state.finalized_checkpoint.epoch.compute_start_slot_of_epoch())
 
     # TODO there should be a better way to remove a whole epoch of stuff..
     while pool.startingSlot <
