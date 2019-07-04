@@ -271,7 +271,7 @@ type
     # Shuffling
     start_shard*: Shard
     randao_mixes*: array[LATEST_RANDAO_MIXES_LENGTH, Eth2Digest]
-    active_index_roots*: array[LATEST_ACTIVE_INDEX_ROOTS_LENGTH, Eth2Digest]
+    active_index_roots*: array[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
 
     # Slashings
     slashings*: array[EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\

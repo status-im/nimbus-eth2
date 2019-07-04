@@ -103,15 +103,6 @@ func get_randao_mix*(state: BeaconState,
     ## LATEST_RANDAO_MIXES_LENGTH, current_epoch].
     state.randao_mixes[epoch mod LATEST_RANDAO_MIXES_LENGTH]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_active_index_root
-func get_active_index_root(state: BeaconState, epoch: Epoch): Eth2Digest =
-  # Returns the index root at a recent ``epoch``.
-  ## ``epoch`` expected to be between
-  ##  (current_epoch - LATEST_ACTIVE_INDEX_ROOTS_LENGTH + ACTIVATION_EXIT_DELAY, current_epoch + ACTIVATION_EXIT_DELAY].
-  ## TODO maybe assert this, but omission of such seems conspicuously
-  ## intentional
-  state.active_index_roots[epoch mod LATEST_ACTIVE_INDEX_ROOTS_LENGTH]
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#bytes_to_int
 func bytes_to_int*(data: openarray[byte]): uint64 =
   doAssert data.len == 8
@@ -187,6 +178,7 @@ func get_seed*(state: BeaconState, epoch: Epoch): Eth2Digest =
   seed_input[0..31] =
     get_randao_mix(state,
       epoch + LATEST_RANDAO_MIXES_LENGTH - MIN_SEED_LOOKAHEAD).data
-  seed_input[32..63] = get_active_index_root(state, epoch).data
+  seed_input[32..63] =
+    state.active_index_roots[epoch mod EPOCHS_PER_HISTORICAL_VECTOR].data
   seed_input[64..95] = int_to_bytes32(epoch)
   eth2hash(seed_input)

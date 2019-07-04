@@ -168,7 +168,7 @@ func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
     # Spec has whistleblower_index as optional param, but it's never used.
     whistleblower_index = proposer_index
     whistleblowing_reward =
-      (validator.effective_balance div WHISTLEBLOWING_REWARD_QUOTIENT).Gwei
+      (validator.effective_balance div WHISTLEBLOWER_REWARD_QUOTIENT).Gwei
     proposer_reward = whistleblowing_reward div PROPOSER_REWARD_QUOTIENT
   increase_balance(state, proposer_index, proposer_reward)
   increase_balance(
@@ -240,7 +240,7 @@ func get_genesis_beacon_state*(
 
   let genesis_active_index_root = hash_tree_root(
     get_active_validator_indices(state, GENESIS_EPOCH))
-  for index in 0 ..< LATEST_ACTIVE_INDEX_ROOTS_LENGTH:
+  for index in 0 ..< EPOCHS_PER_HISTORICAL_VECTOR:
     state.active_index_roots[index] = genesis_active_index_root
 
   state
