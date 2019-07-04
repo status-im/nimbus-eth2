@@ -62,9 +62,9 @@ func compute_epoch_of_slot*(slot: Slot|uint64): Epoch =
   # Return the epoch number of the given ``slot``.
   (slot div SLOTS_PER_EPOCH).Epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#compute_start_slot_of_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#compute_start_slot_of_epoch
 func compute_start_slot_of_epoch*(epoch: Epoch): Slot =
-  # Return the starting slot of the given ``epoch``.
+  # Return the start slot of ``epoch``.
   (epoch * SLOTS_PER_EPOCH).Slot
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#is_active_validator
@@ -80,13 +80,14 @@ func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
     if is_active_validator(val, epoch):
       result.add idx.ValidatorIndex
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_committee_count
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_committee_count
 func get_committee_count*(state: BeaconState, epoch: Epoch): uint64 =
   # Return the number of committees at ``epoch``.
   let active_validator_indices = get_active_validator_indices(state, epoch)
-  clamp(
+  let committees_per_slot = clamp(
     len(active_validator_indices) div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
-    1, SHARD_COUNT div SLOTS_PER_EPOCH).uint64 * SLOTS_PER_EPOCH
+    1, SHARD_COUNT div SLOTS_PER_EPOCH).uint64
+  committees_per_slot * SLOTS_PER_EPOCH
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: BeaconState): Epoch =

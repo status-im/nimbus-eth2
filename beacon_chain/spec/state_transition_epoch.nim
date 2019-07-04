@@ -210,24 +210,16 @@ func process_justification_and_finalization(
     state.finalized_checkpoint.root =
       get_block_root(state, state.finalized_checkpoint.epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#crosslinks
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#crosslinks
 func process_crosslinks(state: var BeaconState, stateCache: var StateCache) =
-  ## TODO is there a semantic reason for this, or is this just a way to force
-  ## copying? If so, why not just `list(foo)` or similar? This is strange. In
-  ## this case, for type reasons, don't do weird
-  ## [c for c in state.current_crosslinks] from spec.
   state.previous_crosslinks = state.current_crosslinks
 
-  for epoch_int in get_previous_epoch(state).uint64 ..
-      get_current_epoch(state).uint64:
-    # This issue comes up regularly -- iterating means an int type,
-    # which then needs re-conversion back to specialized type.
-    let epoch = epoch_int.Epoch
+  for epoch in @[get_previous_epoch(state), get_current_epoch(state)]:
     for offset in 0'u64 ..< get_committee_count(state, epoch):
       let
         shard = (get_start_shard(state, epoch) + offset) mod SHARD_COUNT
         crosslink_committee =
-          get_crosslink_committee(state, epoch, shard, stateCache)
+          toSet(get_crosslink_committee(state, epoch, shard, stateCache))
         # In general, it'll loop over the same shards twice, and
         # get_winning_root_and_participants is defined to return
         # the same results from the previous epoch as current.
