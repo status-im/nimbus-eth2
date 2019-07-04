@@ -337,16 +337,13 @@ type
     block_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     state_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#fork
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#fork
   Fork* = object
-    previous_version*: array[4, byte] ##\
-    ## Previous fork version
-
-    current_version*: array[4, byte] ##\
-    ## Current fork version
+    previous_version*: array[4, byte]
+    current_version*: array[4, byte]
 
     epoch*: Epoch ##\
-    ## Fork epoch number
+    ## Epoch of latest fork
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#eth1data
   Eth1Data* = object
