@@ -37,7 +37,7 @@ import # TODO - cleanup imports
   ../extras, ../ssz, ../beacon_node_types,
   beaconstate, bitfield, crypto, datatypes, digest, helpers, validator
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#block-header
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#block-header
 proc processBlockHeader(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool =
@@ -61,6 +61,7 @@ proc processBlockHeader(
   state.latest_block_header = BeaconBlockHeader(
     slot: blck.slot,
     parent_root: blck.parent_root,
+    state_root: Eth2Digest(),  # Overwritten in the next `process_slot` call
     body_root: hash_tree_root(blck.body),
   )
 

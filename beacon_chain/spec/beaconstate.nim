@@ -148,32 +148,32 @@ func initiate_validator_exit*(state: var BeaconState,
   validator.withdrawable_epoch =
     validator.exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#slash_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#slash_validator
 func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
     stateCache: var StateCache) =
   # Slash the validator with index ``index``.
-  let current_epoch = get_current_epoch(state)
+  let epoch = get_current_epoch(state)
   initiate_validator_exit(state, slashed_index)
-  state.validators[slashed_index].slashed = true
-  state.validators[slashed_index].withdrawable_epoch =
-    current_epoch + EPOCHS_PER_SLASHINGS_VECTOR
-  let slashed_balance =
-    state.validators[slashed_index].effective_balance
-  state.slashings[current_epoch mod EPOCHS_PER_SLASHINGS_VECTOR] +=
-    slashed_balance
+  let validator = addr state.validators[slashed_index]
+  validator.slashed = true
+  validator.withdrawable_epoch =
+    max(validator.withdrawable_epoch, epoch + EPOCHS_PER_SLASHINGS_VECTOR)
+  state.slashings[epoch mod EPOCHS_PER_SLASHINGS_VECTOR] +=
+    validator.effective_balance
+  decrease_balance(state, slashed_index,
+    validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT)
 
   let
     proposer_index = get_beacon_proposer_index(state, stateCache)
     # Spec has whistleblower_index as optional param, but it's never used.
     whistleblower_index = proposer_index
-    whistleblowing_reward = slashed_balance div WHISTLEBLOWING_REWARD_QUOTIENT
+    whistleblowing_reward =
+      (validator.effective_balance div WHISTLEBLOWING_REWARD_QUOTIENT).Gwei
     proposer_reward = whistleblowing_reward div PROPOSER_REWARD_QUOTIENT
   increase_balance(state, proposer_index, proposer_reward)
   increase_balance(
     state, whistleblower_index, whistleblowing_reward - proposer_reward)
-  decrease_balance(state, slashed_index, whistleblowing_reward)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#on-genesis
 func get_temporary_block_header(blck: BeaconBlock): BeaconBlockHeader =
   ## Return the block header corresponding to a block with ``state_root`` set
   ## to ``ZERO_HASH``.
