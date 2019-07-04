@@ -103,7 +103,7 @@ const
   # Changed
   LATEST_RANDAO_MIXES_LENGTH* = 64
   LATEST_ACTIVE_INDEX_ROOTS_LENGTH* = 64
-  LATEST_SLASHED_EXIT_LENGTH* = 64
+  EPOCHS_PER_SLASHINGS_VECTOR* = 64
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------

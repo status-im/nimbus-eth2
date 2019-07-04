@@ -53,7 +53,7 @@ else:
   {.fatal: "Preset \"" & const_preset ".nim\" is not supported.".}
 
 const
-  SPEC_VERSION* = "0.7.1" ## \
+  SPEC_VERSION* = "0.8.0" ## \
   ## Spec version we're aiming to be compatible with, right now
   ## TODO: improve this scheme once we can negotiate versions in protocol
 
@@ -65,6 +65,8 @@ const
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#initial-values
   GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
   ## compute_epoch_of_slot(GENESIS_SLOT)
+
+  # Not part of spec. Still useful, pending removing usage if appropriate.
   ZERO_HASH* = Eth2Digest()
 
 type
@@ -272,7 +274,7 @@ type
     active_index_roots*: array[LATEST_ACTIVE_INDEX_ROOTS_LENGTH, Eth2Digest]
 
     # Slashings
-    slashings*: array[LATEST_SLASHED_EXIT_LENGTH, uint64] ##\
+    slashings*: array[EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
     ## Per-epoch sums of slashed effective balances
 
     # Attestations

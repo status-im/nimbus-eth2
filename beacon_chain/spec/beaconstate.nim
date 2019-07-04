@@ -156,10 +156,10 @@ func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
   initiate_validator_exit(state, slashed_index)
   state.validators[slashed_index].slashed = true
   state.validators[slashed_index].withdrawable_epoch =
-    current_epoch + LATEST_SLASHED_EXIT_LENGTH
+    current_epoch + EPOCHS_PER_SLASHINGS_VECTOR
   let slashed_balance =
     state.validators[slashed_index].effective_balance
-  state.slashings[current_epoch mod LATEST_SLASHED_EXIT_LENGTH] +=
+  state.slashings[current_epoch mod EPOCHS_PER_SLASHINGS_VECTOR] +=
     slashed_balance
 
   let

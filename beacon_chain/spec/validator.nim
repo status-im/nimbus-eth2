@@ -86,7 +86,7 @@ func get_previous_epoch*(state: BeaconState): Epoch =
   if current_epoch == GENESIS_EPOCH:
     current_epoch
   else:
-    (current_epoch - 1).Epoch
+    current_epoch - 1
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_shard_delta
 func get_shard_delta*(state: BeaconState, epoch: Epoch): uint64 =

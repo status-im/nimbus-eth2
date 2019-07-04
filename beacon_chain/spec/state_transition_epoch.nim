@@ -355,28 +355,18 @@ func process_rewards_and_penalties(
     increase_balance(state, i.ValidatorIndex, rewards1[i] + rewards2[i])
     decrease_balance(state, i.ValidatorIndex, penalties1[i] + penalties2[i])
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#slashings
 func process_slashings(state: var BeaconState) =
   let
-    current_epoch = get_current_epoch(state)
+    epoch = get_current_epoch(state)
     total_balance = get_total_active_balance(state)
 
-    # Compute `total_penalties`
-    total_at_start = state.slashings[
-      (current_epoch + 1) mod LATEST_SLASHED_EXIT_LENGTH]
-    total_at_end =
-      state.slashings[current_epoch mod
-        LATEST_SLASHED_EXIT_LENGTH]
-    total_penalties = total_at_end - total_at_start
-
   for index, validator in state.validators:
-    if validator.slashed and current_epoch == validator.withdrawable_epoch -
-        LATEST_SLASHED_EXIT_LENGTH div 2:
-      let
-        penalty = max(
-          validator.effective_balance *
-            min(total_penalties * 3, total_balance) div total_balance,
-          validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT)
+    if validator.slashed and epoch + EPOCHS_PER_SLASHINGS_VECTOR div 2 ==
+        validator.withdrawable_epoch:
+      let penalty =
+        validator.effective_balance *
+          min(sum(state.slashings) * 3, total_balance) div total_balance
       decrease_balance(state, index.ValidatorIndex, penalty)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#final-updates
@@ -406,8 +396,8 @@ func process_final_updates(state: var BeaconState) =
       SHARD_COUNT
 
   # Set total slashed balances
-  state.slashings[next_epoch mod LATEST_SLASHED_EXIT_LENGTH] = (
-    state.slashings[current_epoch mod LATEST_SLASHED_EXIT_LENGTH]
+  state.slashings[next_epoch mod EPOCHS_PER_SLASHINGS_VECTOR] = (
+    state.slashings[current_epoch mod EPOCHS_PER_SLASHINGS_VECTOR]
   )
 
   # Set randao mix
