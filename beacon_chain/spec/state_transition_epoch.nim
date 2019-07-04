@@ -182,29 +182,33 @@ func process_justification_and_finalization(
   ## as source
   if (bitfield shr 1) mod 8 == 0b111 and old_previous_justified_epoch + 3 ==
       current_epoch:
-    state.finalized_epoch = old_previous_justified_epoch
-    state.finalized_root = get_block_root(state, state.finalized_epoch)
+    state.finalized_checkpoint.epoch = old_previous_justified_epoch
+    state.finalized_checkpoint.root =
+      get_block_root(state, state.finalized_checkpoint.epoch)
 
   ## The 2nd/3rd most recent epochs are justified, the 2nd using the 3rd as
   ## source
   if (bitfield shr 1) mod 4 == 0b11 and old_previous_justified_epoch + 2 ==
       current_epoch:
-    state.finalized_epoch = old_previous_justified_epoch
-    state.finalized_root = get_block_root(state, state.finalized_epoch)
+    state.finalized_checkpoint.epoch = old_previous_justified_epoch
+    state.finalized_checkpoint.root =
+      get_block_root(state, state.finalized_checkpoint.epoch)
 
   ## The 1st/2nd/3rd most recent epochs are justified, the 1st using the 3rd as
   ## source
   if (bitfield shr 0) mod 8 == 0b111 and old_current_justified_epoch + 2 ==
       current_epoch:
-    state.finalized_epoch = old_current_justified_epoch
-    state.finalized_root = get_block_root(state, state.finalized_epoch)
+    state.finalized_checkpoint.epoch = old_current_justified_epoch
+    state.finalized_checkpoint.root =
+      get_block_root(state, state.finalized_checkpoint.epoch)
 
   ## The 1st/2nd most recent epochs are justified, the 1st using the 2nd as
   ## source
   if (bitfield shr 0) mod 4 == 0b11 and old_current_justified_epoch + 1 ==
       current_epoch:
-    state.finalized_epoch = old_current_justified_epoch
-    state.finalized_root = get_block_root(state, state.finalized_epoch)
+    state.finalized_checkpoint.epoch = old_current_justified_epoch
+    state.finalized_checkpoint.root =
+      get_block_root(state, state.finalized_checkpoint.epoch)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#crosslinks
 func process_crosslinks(state: var BeaconState, stateCache: var StateCache) =
@@ -302,7 +306,7 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
         attestation.inclusion_delay
 
   # Inactivity penalty
-  let finality_delay = previous_epoch - state.finalized_epoch
+  let finality_delay = previous_epoch - state.finalized_checkpoint.epoch
   if finality_delay > MIN_EPOCHS_TO_INACTIVITY_PENALTY:
     let matching_target_attesting_indices =
       get_unslashed_attesting_indices(

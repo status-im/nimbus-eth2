@@ -107,7 +107,8 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
     #      will need revisiting however
     headState = db.getState(headStateRoot).get()
     finalizedHead =
-      headRef.findAncestorBySlot(headState.finalized_epoch.compute_start_slot_of_epoch())
+      headRef.findAncestorBySlot(
+        headState.finalized_checkpoint.epoch.compute_start_slot_of_epoch())
     justifiedSlot = headState.current_justified_epoch.compute_start_slot_of_epoch()
     justifiedHead = headRef.findAncestorBySlot(justifiedSlot)
     head = Head(blck: headRef, justified: justifiedHead)
@@ -526,19 +527,22 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
       headBlockRoot = shortLog(state.blck.root),
       stateSlot = humaneSlotNum(state.data.data.slot),
       justifiedEpoch = humaneEpochNum(state.data.data.current_justified_epoch),
-      finalizedEpoch = humaneEpochNum(state.data.data.finalized_epoch)
+      finalizedEpoch =
+        humaneEpochNum(state.data.data.finalized_checkpoint.epoch)
   else:
     info "Updated head",
       stateRoot = shortLog(state.data.root),
       headBlockRoot = shortLog(state.blck.root),
       stateSlot = humaneSlotNum(state.data.data.slot),
       justifiedEpoch = humaneEpochNum(state.data.data.current_justified_epoch),
-      finalizedEpoch = humaneEpochNum(state.data.data.finalized_epoch)
+      finalizedEpoch =
+        humaneEpochNum(state.data.data.finalized_checkpoint.epoch)
 
   let
     # TODO there might not be a block at the epoch boundary - what then?
     finalizedHead =
-      blck.findAncestorBySlot(state.data.data.finalized_epoch.compute_start_slot_of_epoch())
+      blck.findAncestorBySlot(
+        state.data.data.finalized_checkpoint.epoch.compute_start_slot_of_epoch())
 
   doAssert (not finalizedHead.blck.isNil),
     "Block graph should always lead to a finalized block"

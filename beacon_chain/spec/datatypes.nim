@@ -289,8 +289,7 @@ type
     current_justified_epoch*: Epoch
     previous_justified_root*: Eth2Digest
     current_justified_root*: Eth2Digest
-    finalized_epoch*: Epoch
-    finalized_root*: Eth2Digest
+    finalized_checkpoint*: Checkpoint
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#validator
   Validator* = object
