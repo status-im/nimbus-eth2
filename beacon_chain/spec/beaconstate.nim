@@ -103,19 +103,19 @@ func process_deposit*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_delayed_activation_exit_epoch
-func get_delayed_activation_exit_epoch*(epoch: Epoch): Epoch =
-  ## Return the epoch at which an activation or exit triggered in ``epoch``
-  ## takes effect.
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#compute_activation_exit_epoch
+func compute_activation_exit_epoch*(epoch: Epoch): Epoch =
+  ## Return the epoch during which validator activations and exits initiated in
+  ## ``epoch`` take effect.
   epoch + 1 + ACTIVATION_EXIT_DELAY
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_churn_limit
-func get_churn_limit(state: BeaconState): uint64 =
-  max(
-    MIN_PER_EPOCH_CHURN_LIMIT,
-    len(get_active_validator_indices(state, get_current_epoch(state))) div
-      CHURN_LIMIT_QUOTIENT
-  ).uint64
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_validator_churn_limit
+func get_validator_churn_limit(state: BeaconState): uint64 =
+  # Return the validator churn limit for the current epoch.
+  let active_validator_indices =
+    get_active_validator_indices(state, get_current_epoch(state))
+  max(MIN_PER_EPOCH_CHURN_LIMIT,
+    len(active_validator_indices) div CHURN_LIMIT_QUOTIENT).uint64
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(state: var BeaconState,
@@ -134,13 +134,13 @@ func initiate_validator_exit*(state: var BeaconState,
     it.exit_epoch)
   var exit_queue_epoch =
     max(max(exit_epochs),
-      get_delayed_activation_exit_epoch(get_current_epoch(state)))
+      compute_activation_exit_epoch(get_current_epoch(state)))
   let exit_queue_churn = foldl(
     state.validators,
     a + (if b.exit_epoch == exit_queue_epoch: 1'u64 else: 0'u64),
     0'u64)
 
-  if exit_queue_churn >= get_churn_limit(state):
+  if exit_queue_churn >= get_validator_churn_limit(state):
     exit_queue_epoch += 1
 
   # Set validator exit epoch and withdrawable epoch
@@ -148,32 +148,32 @@ func initiate_validator_exit*(state: var BeaconState,
   validator.withdrawable_epoch =
     validator.exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#slash_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#slash_validator
 func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
     stateCache: var StateCache) =
   # Slash the validator with index ``index``.
-  let current_epoch = get_current_epoch(state)
+  let epoch = get_current_epoch(state)
   initiate_validator_exit(state, slashed_index)
-  state.validators[slashed_index].slashed = true
-  state.validators[slashed_index].withdrawable_epoch =
-    current_epoch + LATEST_SLASHED_EXIT_LENGTH
-  let slashed_balance =
-    state.validators[slashed_index].effective_balance
-  state.slashings[current_epoch mod LATEST_SLASHED_EXIT_LENGTH] +=
-    slashed_balance
+  let validator = addr state.validators[slashed_index]
+  validator.slashed = true
+  validator.withdrawable_epoch =
+    max(validator.withdrawable_epoch, epoch + EPOCHS_PER_SLASHINGS_VECTOR)
+  state.slashings[epoch mod EPOCHS_PER_SLASHINGS_VECTOR] +=
+    validator.effective_balance
+  decrease_balance(state, slashed_index,
+    validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT)
 
   let
     proposer_index = get_beacon_proposer_index(state, stateCache)
     # Spec has whistleblower_index as optional param, but it's never used.
     whistleblower_index = proposer_index
-    whistleblowing_reward = slashed_balance div WHISTLEBLOWING_REWARD_QUOTIENT
+    whistleblowing_reward =
+      (validator.effective_balance div WHISTLEBLOWER_REWARD_QUOTIENT).Gwei
     proposer_reward = whistleblowing_reward div PROPOSER_REWARD_QUOTIENT
   increase_balance(state, proposer_index, proposer_reward)
   increase_balance(
     state, whistleblower_index, whistleblowing_reward - proposer_reward)
-  decrease_balance(state, slashed_index, whistleblowing_reward)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#on-genesis
 func get_temporary_block_header(blck: BeaconBlock): BeaconBlockHeader =
   ## Return the block header corresponding to a block with ``state_root`` set
   ## to ``ZERO_HASH``.
@@ -240,7 +240,7 @@ func get_genesis_beacon_state*(
 
   let genesis_active_index_root = hash_tree_root(
     get_active_validator_indices(state, GENESIS_EPOCH))
-  for index in 0 ..< LATEST_ACTIVE_INDEX_ROOTS_LENGTH:
+  for index in 0 ..< EPOCHS_PER_HISTORICAL_VECTOR:
     state.active_index_roots[index] = genesis_active_index_root
 
   state
@@ -292,14 +292,14 @@ func get_total_balance*(state: BeaconState, validators: auto): Gwei =
     foldl(validators, a + state.validators[b].effective_balance, 0'u64)
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#registry-updates
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#registry-updates
 func process_registry_updates*(state: var BeaconState) =
   ## Process activation eligibility and ejections
   ## Try to avoid caching here, since this could easily become undefined
 
   for index, validator in state.validators:
     if validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and
-        validator.effective_balance >= MAX_EFFECTIVE_BALANCE:
+        validator.effective_balance == MAX_EFFECTIVE_BALANCE:
       state.validators[index].activation_eligibility_epoch =
         get_current_epoch(state)
 
@@ -313,7 +313,7 @@ func process_registry_updates*(state: var BeaconState) =
   for index, validator in state.validators:
     if validator.activation_eligibility_epoch != FAR_FUTURE_EPOCH and
         validator.activation_epoch >=
-          get_delayed_activation_exit_epoch(state.finalized_epoch):
+          compute_activation_exit_epoch(state.finalized_checkpoint.epoch):
       activation_queue.add (
         state.validators[index].activation_eligibility_epoch, index)
 
@@ -321,7 +321,7 @@ func process_registry_updates*(state: var BeaconState) =
 
   ## Dequeued validators for activation up to churn limit (without resetting
   ## activation epoch)
-  let churn_limit = get_churn_limit(state)
+  let churn_limit = get_validator_churn_limit(state)
   for i, epoch_and_index in activation_queue:
     if i.uint64 >= churn_limit:
       break
@@ -330,9 +330,9 @@ func process_registry_updates*(state: var BeaconState) =
       validator = addr state.validators[index]
     if validator.activation_epoch == FAR_FUTURE_EPOCH:
       validator.activation_epoch =
-        get_delayed_activation_exit_epoch(get_current_epoch(state))
+        compute_activation_exit_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#is_valid_indexed_attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#is_valid_indexed_attestation
 func is_valid_indexed_attestation*(
     state: BeaconState, indexed_attestation: IndexedAttestation): bool =
   # Verify validity of ``indexed_attestation`` fields.
@@ -347,7 +347,7 @@ func is_valid_indexed_attestation*(
 
   # Verify max number of indices
   let combined_len = len(bit_0_indices) + len(bit_1_indices)
-  if not (1 <= combined_len and combined_len <= MAX_VALIDATORS_PER_COMMITTEE):
+  if not (combined_len <= MAX_VALIDATORS_PER_COMMITTEE):
     return false
 
   # Verify index sets are disjoint
@@ -510,8 +510,8 @@ proc process_attestation*(
   let ffg_check_data = (data.source.epoch, data.source.root, data.target.epoch)
 
   if data.target.epoch == get_current_epoch(state):
-    if not (ffg_check_data == (state.current_justified_epoch,
-        state.current_justified_root, get_current_epoch(state))):
+    if not (ffg_check_data == (state.current_justified_checkpoint.epoch,
+        state.current_justified_checkpoint.root, get_current_epoch(state))):
       warn("FFG data not matching current justified epoch")
       return
 
@@ -522,8 +522,8 @@ proc process_attestation*(
 
     #state.current_epoch_attestations.add(pending_attestation)
   else:
-    if not (ffg_check_data == (state.previous_justified_epoch,
-        state.previous_justified_root, get_previous_epoch(state))):
+    if not (ffg_check_data == (state.previous_justified_checkpoint.epoch,
+        state.previous_justified_checkpoint.root, get_previous_epoch(state))):
       warn("FFG data not matching current justified epoch")
       return
 
@@ -586,10 +586,7 @@ proc makeAttestationData*(
 
   AttestationData(
     beacon_block_root: beacon_block_root,
-    source: Checkpoint(
-      epoch: state.current_justified_epoch,
-      root: state.current_justified_root
-    ),
+    source: state.current_justified_checkpoint,
     target: Checkpoint(
       root: target_root,
       epoch: target_epoch

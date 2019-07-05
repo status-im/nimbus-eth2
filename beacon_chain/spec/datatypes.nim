@@ -53,7 +53,7 @@ else:
   {.fatal: "Preset \"" & const_preset ".nim\" is not supported.".}
 
 const
-  SPEC_VERSION* = "0.7.1" ## \
+  SPEC_VERSION* = "0.8.0" ## \
   ## Spec version we're aiming to be compatible with, right now
   ## TODO: improve this scheme once we can negotiate versions in protocol
 
@@ -62,9 +62,11 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#initial-values
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#initial-values
   GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
   ## compute_epoch_of_slot(GENESIS_SLOT)
+
+  # Not part of spec. Still useful, pending removing usage if appropriate.
   ZERO_HASH* = Eth2Digest()
 
 type
@@ -254,25 +256,38 @@ type
     ## Needed to process attestations, older to newer
 
     state_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
-    historical_roots*: seq[Eth2Digest]
+
+    historical_roots*: seq[Eth2Digest]  ##\
+    ## model List with HISTORICAL_ROOTS_LIMIT limit as seq
+    ## TODO bound explicitly somewhere
 
     # Eth1
     eth1_data*: Eth1Data
-    eth1_data_votes*: seq[Eth1Data]
+
+    eth1_data_votes*: seq[Eth1Data] ##\
+    ## As with `hitorical_roots`, this is a `List`. TODO bound explicitly.
+
     eth1_deposit_index*: uint64
 
     # Registry
     validators*: seq[Validator]
     balances*: seq[uint64] ##\
     ## Validator balances in Gwei!
+    ## Also more `List`s which need to be bounded explicitly at
+    ## VALIDATOR_REGISTRY_LIMIT
 
     # Shuffling
     start_shard*: Shard
     randao_mixes*: array[LATEST_RANDAO_MIXES_LENGTH, Eth2Digest]
-    active_index_roots*: array[LATEST_ACTIVE_INDEX_ROOTS_LENGTH, Eth2Digest]
+
+    active_index_roots*: array[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest] ##\
+    ## Active index digests for light clients
+
+    compact_committees_roots*: array[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest] ##\
+    ## Committee digests for light clients
 
     # Slashings
-    slashings*: array[LATEST_SLASHED_EXIT_LENGTH, uint64] ##\
+    slashings*: array[EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
     ## Per-epoch sums of slashed effective balances
 
     # Attestations
@@ -284,13 +299,14 @@ type
     current_crosslinks*: array[SHARD_COUNT, Crosslink]
 
     # Finality
-    justification_bits*: uint64
-    previous_justified_epoch*: Epoch
-    current_justified_epoch*: Epoch
-    previous_justified_root*: Eth2Digest
-    current_justified_root*: Eth2Digest
-    finalized_epoch*: Epoch
-    finalized_root*: Eth2Digest
+    justification_bits*: uint64 ##\
+    ## Bit set for every recent justified epoch
+
+    previous_justified_checkpoint*: Checkpoint ##\
+    ## Previous epoch snapshot
+
+    current_justified_checkpoint*: Checkpoint
+    finalized_checkpoint*: Checkpoint
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#validator
   Validator* = object
@@ -338,16 +354,13 @@ type
     block_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     state_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#fork
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#fork
   Fork* = object
-    previous_version*: array[4, byte] ##\
-    ## Previous fork version
-
-    current_version*: array[4, byte] ##\
-    ## Current fork version
+    previous_version*: array[4, byte]
+    current_version*: array[4, byte]
 
     epoch*: Epoch ##\
-    ## Fork epoch number
+    ## Epoch of latest fork
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#eth1data
   Eth1Data* = object

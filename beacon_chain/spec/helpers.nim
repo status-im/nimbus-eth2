@@ -62,9 +62,9 @@ func compute_epoch_of_slot*(slot: Slot|uint64): Epoch =
   # Return the epoch number of the given ``slot``.
   (slot div SLOTS_PER_EPOCH).Epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#compute_start_slot_of_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#compute_start_slot_of_epoch
 func compute_start_slot_of_epoch*(epoch: Epoch): Slot =
-  # Return the starting slot of the given ``epoch``.
+  # Return the start slot of ``epoch``.
   (epoch * SLOTS_PER_EPOCH).Slot
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#is_active_validator
@@ -80,13 +80,14 @@ func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
     if is_active_validator(val, epoch):
       result.add idx.ValidatorIndex
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_committee_count
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_committee_count
 func get_committee_count*(state: BeaconState, epoch: Epoch): uint64 =
   # Return the number of committees at ``epoch``.
   let active_validator_indices = get_active_validator_indices(state, epoch)
-  clamp(
+  let committees_per_slot = clamp(
     len(active_validator_indices) div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
-    1, SHARD_COUNT div SLOTS_PER_EPOCH).uint64 * SLOTS_PER_EPOCH
+    1, SHARD_COUNT div SLOTS_PER_EPOCH).uint64
+  committees_per_slot * SLOTS_PER_EPOCH
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: BeaconState): Epoch =
@@ -101,15 +102,6 @@ func get_randao_mix*(state: BeaconState,
     ## ``epoch`` expected to be between (current_epoch -
     ## LATEST_RANDAO_MIXES_LENGTH, current_epoch].
     state.randao_mixes[epoch mod LATEST_RANDAO_MIXES_LENGTH]
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_active_index_root
-func get_active_index_root(state: BeaconState, epoch: Epoch): Eth2Digest =
-  # Returns the index root at a recent ``epoch``.
-  ## ``epoch`` expected to be between
-  ##  (current_epoch - LATEST_ACTIVE_INDEX_ROOTS_LENGTH + ACTIVATION_EXIT_DELAY, current_epoch + ACTIVATION_EXIT_DELAY].
-  ## TODO maybe assert this, but omission of such seems conspicuously
-  ## intentional
-  state.active_index_roots[epoch mod LATEST_ACTIVE_INDEX_ROOTS_LENGTH]
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#bytes_to_int
 func bytes_to_int*(data: openarray[byte]): uint64 =
@@ -186,6 +178,7 @@ func get_seed*(state: BeaconState, epoch: Epoch): Eth2Digest =
   seed_input[0..31] =
     get_randao_mix(state,
       epoch + LATEST_RANDAO_MIXES_LENGTH - MIN_SEED_LOOKAHEAD).data
-  seed_input[32..63] = get_active_index_root(state, epoch).data
+  seed_input[32..63] =
+    state.active_index_roots[epoch mod EPOCHS_PER_HISTORICAL_VECTOR].data
   seed_input[64..95] = int_to_bytes32(epoch)
   eth2hash(seed_input)

@@ -107,8 +107,10 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
     #      will need revisiting however
     headState = db.getState(headStateRoot).get()
     finalizedHead =
-      headRef.findAncestorBySlot(headState.finalized_epoch.compute_start_slot_of_epoch())
-    justifiedSlot = headState.current_justified_epoch.compute_start_slot_of_epoch()
+      headRef.findAncestorBySlot(
+        headState.finalized_checkpoint.epoch.compute_start_slot_of_epoch())
+    justifiedSlot =
+      headState.current_justified_checkpoint.epoch.compute_start_slot_of_epoch()
     justifiedHead = headRef.findAncestorBySlot(justifiedSlot)
     head = Head(blck: headRef, justified: justifiedHead)
 
@@ -163,7 +165,8 @@ proc addResolvedBlock(
 
   # This block *might* have caused a justification - make sure we stow away
   # that information:
-  let justifiedSlot = state.data.data.current_justified_epoch.compute_start_slot_of_epoch()
+  let justifiedSlot =
+    state.data.data.current_justified_checkpoint.epoch.compute_start_slot_of_epoch()
 
   var foundHead: Option[Head]
   for head in pool.heads.mitems():
@@ -515,7 +518,8 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
 
   # Start off by making sure we have the right state
   updateStateData(pool, state, BlockSlot(blck: blck, slot: blck.slot))
-  let justifiedSlot = state.data.data.current_justified_epoch.compute_start_slot_of_epoch()
+  let justifiedSlot =
+    state.data.data.current_justified_checkpoint.epoch.compute_start_slot_of_epoch()
   pool.head = Head(blck: blck, justified: blck.findAncestorBySlot(justifiedSlot))
 
   if lastHead.blck != blck.parent:
@@ -525,20 +529,25 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
       stateRoot = shortLog(state.data.root),
       headBlockRoot = shortLog(state.blck.root),
       stateSlot = humaneSlotNum(state.data.data.slot),
-      justifiedEpoch = humaneEpochNum(state.data.data.current_justified_epoch),
-      finalizedEpoch = humaneEpochNum(state.data.data.finalized_epoch)
+      justifiedEpoch =
+        humaneEpochNum(state.data.data.current_justified_checkpoint.epoch),
+      finalizedEpoch =
+        humaneEpochNum(state.data.data.finalized_checkpoint.epoch)
   else:
     info "Updated head",
       stateRoot = shortLog(state.data.root),
       headBlockRoot = shortLog(state.blck.root),
       stateSlot = humaneSlotNum(state.data.data.slot),
-      justifiedEpoch = humaneEpochNum(state.data.data.current_justified_epoch),
-      finalizedEpoch = humaneEpochNum(state.data.data.finalized_epoch)
+      justifiedEpoch =
+        humaneEpochNum(state.data.data.current_justified_checkpoint.epoch),
+      finalizedEpoch =
+        humaneEpochNum(state.data.data.finalized_checkpoint.epoch)
 
   let
     # TODO there might not be a block at the epoch boundary - what then?
     finalizedHead =
-      blck.findAncestorBySlot(state.data.data.finalized_epoch.compute_start_slot_of_epoch())
+      blck.findAncestorBySlot(
+        state.data.data.finalized_checkpoint.epoch.compute_start_slot_of_epoch())
 
   doAssert (not finalizedHead.blck.isNil),
     "Block graph should always lead to a finalized block"

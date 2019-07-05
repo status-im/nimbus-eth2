@@ -148,21 +148,23 @@ func process_justification_and_finalization(
   let
     previous_epoch = get_previous_epoch(state)
     current_epoch = get_current_epoch(state)
-    old_previous_justified_epoch = state.previous_justified_epoch
-    old_current_justified_epoch = state.current_justified_epoch
+    old_previous_justified_epoch = state.previous_justified_checkpoint.epoch
+    old_current_justified_epoch = state.current_justified_checkpoint.epoch
 
   # Process justifications
-  state.previous_justified_epoch = state.current_justified_epoch
-  state.previous_justified_root = state.current_justified_root
+  state.previous_justified_checkpoint.epoch =
+    state.current_justified_checkpoint.epoch
+  state.previous_justified_checkpoint.root =
+    state.current_justified_checkpoint.root
   state.justification_bits = (state.justification_bits shl 1)
   let previous_epoch_matching_target_balance =
     get_attesting_balance(state,
       get_matching_target_attestations(state, previous_epoch), stateCache)
   if previous_epoch_matching_target_balance * 3 >=
       get_total_active_balance(state) * 2:
-    state.current_justified_epoch = previous_epoch
-    state.current_justified_root =
-      get_block_root(state, state.current_justified_epoch)
+    state.current_justified_checkpoint.epoch = previous_epoch
+    state.current_justified_checkpoint.root =
+      get_block_root(state, state.current_justified_checkpoint.epoch)
     state.justification_bits = state.justification_bits or (1 shl 1)
   let current_epoch_matching_target_balance =
     get_attesting_balance(state,
@@ -170,9 +172,9 @@ func process_justification_and_finalization(
       stateCache)
   if current_epoch_matching_target_balance * 3 >=
       get_total_active_balance(state) * 2:
-    state.current_justified_epoch = current_epoch
-    state.current_justified_root =
-      get_block_root(state, state.current_justified_epoch)
+    state.current_justified_checkpoint.epoch = current_epoch
+    state.current_justified_checkpoint.root =
+      get_block_root(state, state.current_justified_checkpoint.epoch)
     state.justification_bits = state.justification_bits or (1 shl 0)
 
   # Process finalizations
@@ -182,48 +184,44 @@ func process_justification_and_finalization(
   ## as source
   if (bitfield shr 1) mod 8 == 0b111 and old_previous_justified_epoch + 3 ==
       current_epoch:
-    state.finalized_epoch = old_previous_justified_epoch
-    state.finalized_root = get_block_root(state, state.finalized_epoch)
+    state.finalized_checkpoint.epoch = old_previous_justified_epoch
+    state.finalized_checkpoint.root =
+      get_block_root(state, state.finalized_checkpoint.epoch)
 
   ## The 2nd/3rd most recent epochs are justified, the 2nd using the 3rd as
   ## source
   if (bitfield shr 1) mod 4 == 0b11 and old_previous_justified_epoch + 2 ==
       current_epoch:
-    state.finalized_epoch = old_previous_justified_epoch
-    state.finalized_root = get_block_root(state, state.finalized_epoch)
+    state.finalized_checkpoint.epoch = old_previous_justified_epoch
+    state.finalized_checkpoint.root =
+      get_block_root(state, state.finalized_checkpoint.epoch)
 
   ## The 1st/2nd/3rd most recent epochs are justified, the 1st using the 3rd as
   ## source
   if (bitfield shr 0) mod 8 == 0b111 and old_current_justified_epoch + 2 ==
       current_epoch:
-    state.finalized_epoch = old_current_justified_epoch
-    state.finalized_root = get_block_root(state, state.finalized_epoch)
+    state.finalized_checkpoint.epoch = old_current_justified_epoch
+    state.finalized_checkpoint.root =
+      get_block_root(state, state.finalized_checkpoint.epoch)
 
   ## The 1st/2nd most recent epochs are justified, the 1st using the 2nd as
   ## source
   if (bitfield shr 0) mod 4 == 0b11 and old_current_justified_epoch + 1 ==
       current_epoch:
-    state.finalized_epoch = old_current_justified_epoch
-    state.finalized_root = get_block_root(state, state.finalized_epoch)
+    state.finalized_checkpoint.epoch = old_current_justified_epoch
+    state.finalized_checkpoint.root =
+      get_block_root(state, state.finalized_checkpoint.epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#crosslinks
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#crosslinks
 func process_crosslinks(state: var BeaconState, stateCache: var StateCache) =
-  ## TODO is there a semantic reason for this, or is this just a way to force
-  ## copying? If so, why not just `list(foo)` or similar? This is strange. In
-  ## this case, for type reasons, don't do weird
-  ## [c for c in state.current_crosslinks] from spec.
   state.previous_crosslinks = state.current_crosslinks
 
-  for epoch_int in get_previous_epoch(state).uint64 ..
-      get_current_epoch(state).uint64:
-    # This issue comes up regularly -- iterating means an int type,
-    # which then needs re-conversion back to specialized type.
-    let epoch = epoch_int.Epoch
+  for epoch in @[get_previous_epoch(state), get_current_epoch(state)]:
     for offset in 0'u64 ..< get_committee_count(state, epoch):
       let
         shard = (get_start_shard(state, epoch) + offset) mod SHARD_COUNT
         crosslink_committee =
-          get_crosslink_committee(state, epoch, shard, stateCache)
+          toSet(get_crosslink_committee(state, epoch, shard, stateCache))
         # In general, it'll loop over the same shards twice, and
         # get_winning_root_and_participants is defined to return
         # the same results from the previous epoch as current.
@@ -302,7 +300,7 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
         attestation.inclusion_delay
 
   # Inactivity penalty
-  let finality_delay = previous_epoch - state.finalized_epoch
+  let finality_delay = previous_epoch - state.finalized_checkpoint.epoch
   if finality_delay > MIN_EPOCHS_TO_INACTIVITY_PENALTY:
     let matching_target_attesting_indices =
       get_unslashed_attesting_indices(
@@ -359,28 +357,18 @@ func process_rewards_and_penalties(
     increase_balance(state, i.ValidatorIndex, rewards1[i] + rewards2[i])
     decrease_balance(state, i.ValidatorIndex, penalties1[i] + penalties2[i])
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#slashings
 func process_slashings(state: var BeaconState) =
   let
-    current_epoch = get_current_epoch(state)
+    epoch = get_current_epoch(state)
     total_balance = get_total_active_balance(state)
 
-    # Compute `total_penalties`
-    total_at_start = state.slashings[
-      (current_epoch + 1) mod LATEST_SLASHED_EXIT_LENGTH]
-    total_at_end =
-      state.slashings[current_epoch mod
-        LATEST_SLASHED_EXIT_LENGTH]
-    total_penalties = total_at_end - total_at_start
-
   for index, validator in state.validators:
-    if validator.slashed and current_epoch == validator.withdrawable_epoch -
-        LATEST_SLASHED_EXIT_LENGTH div 2:
-      let
-        penalty = max(
-          validator.effective_balance *
-            min(total_penalties * 3, total_balance) div total_balance,
-          validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT)
+    if validator.slashed and epoch + EPOCHS_PER_SLASHINGS_VECTOR div 2 ==
+        validator.withdrawable_epoch:
+      let penalty =
+        validator.effective_balance *
+          min(sum(state.slashings) * 3, total_balance) div total_balance
       decrease_balance(state, index.ValidatorIndex, penalty)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#final-updates
@@ -410,8 +398,8 @@ func process_final_updates(state: var BeaconState) =
       SHARD_COUNT
 
   # Set total slashed balances
-  state.slashings[next_epoch mod LATEST_SLASHED_EXIT_LENGTH] = (
-    state.slashings[current_epoch mod LATEST_SLASHED_EXIT_LENGTH]
+  state.slashings[next_epoch mod EPOCHS_PER_SLASHINGS_VECTOR] = (
+    state.slashings[current_epoch mod EPOCHS_PER_SLASHINGS_VECTOR]
   )
 
   # Set randao mix
@@ -438,13 +426,13 @@ func processEpoch*(state: var BeaconState) =
 
   var per_epoch_cache = get_empty_per_epoch_cache()
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#justification-and-finalization
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#justification-and-finalization
   process_justification_and_finalization(state, per_epoch_cache)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#crosslinks
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#crosslinks
   process_crosslinks(state, per_epoch_cache)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#rewards-and-penalties-1
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#rewards-and-penalties-1
   process_rewards_and_penalties(state, per_epoch_cache)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#registry-updates
@@ -455,8 +443,8 @@ func processEpoch*(state: var BeaconState) =
   ## get_active_validator_indices(...) usually changes.
   clear(per_epoch_cache.crosslink_committee_cache)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#slashings
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#slashings
   process_slashings(state)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#final-updates
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#final-updates
   process_final_updates(state)

@@ -86,7 +86,7 @@ func get_previous_epoch*(state: BeaconState): Epoch =
   if current_epoch == GENESIS_EPOCH:
     current_epoch
   else:
-    (current_epoch - 1).Epoch
+    current_epoch - 1
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_shard_delta
 func get_shard_delta*(state: BeaconState, epoch: Epoch): uint64 =
@@ -166,10 +166,10 @@ func get_empty_per_epoch_cache*(): StateCache =
   result.active_validator_indices_cache =
     initTable[Epoch, seq[ValidatorIndex]]()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_beacon_proposer_index
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: BeaconState, stateCache: var StateCache):
     ValidatorIndex =
-  # Return the current beacon proposer index.
+  # Return the beacon proposer index at the current slot.
   const
     MAX_RANDOM_BYTE = 255
 
@@ -187,6 +187,7 @@ func get_beacon_proposer_index*(state: BeaconState, stateCache: var StateCache):
     buffer: array[(32+8), byte]
   buffer[0..31] = seed.data
   while true:
+    # TODO update to new int_to_bytes interface
     buffer[32..39] = int_to_bytes8(i.uint64 div 32)
     let
       candidate_index = first_committee[((epoch + i.uint64) mod
