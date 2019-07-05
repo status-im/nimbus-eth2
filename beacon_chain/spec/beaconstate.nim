@@ -332,7 +332,7 @@ func process_registry_updates*(state: var BeaconState) =
       validator.activation_epoch =
         compute_activation_exit_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#is_valid_indexed_attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#is_valid_indexed_attestation
 func is_valid_indexed_attestation*(
     state: BeaconState, indexed_attestation: IndexedAttestation): bool =
   # Verify validity of ``indexed_attestation`` fields.
@@ -347,7 +347,7 @@ func is_valid_indexed_attestation*(
 
   # Verify max number of indices
   let combined_len = len(bit_0_indices) + len(bit_1_indices)
-  if not (1 <= combined_len and combined_len <= MAX_VALIDATORS_PER_COMMITTEE):
+  if not (combined_len <= MAX_VALIDATORS_PER_COMMITTEE):
     return false
 
   # Verify index sets are disjoint
