@@ -100,17 +100,43 @@ func get_winning_crosslink_and_attesting_indices(
       filterIt(
         get_matching_source_attestations(state, epoch),
         it.data.crosslink.shard == shard)
-    # TODO don't keep h_t_r'ing state.current_crosslinks[shard]
+    root_current_shard_crosslink =
+      hash_tree_root(state.current_crosslinks[shard])
     crosslinks =
       filterIt(
         mapIt(attestations, it.data.crosslink),
-        hash_tree_root(state.current_crosslinks[shard]) in
-          # TODO pointless memory allocation, etc.
-          @[it.parent_root, hash_tree_root(it)])
+        root_current_shard_crosslink == it.parent_root or
+          root_current_shard_crosslink == hash_tree_root(it))
 
   # default=Crosslink()
   if len(crosslinks) == 0:
     return (Crosslink(), initSet[ValidatorIndex]())
+
+  ## Not from spec. Don't repeatedly search/filter attestations in an O(n^2)
+  ## way, but create lookup table in O(n) time with O(1) lookup by crosslink
+  ## to cut out expensive inner loop.
+  ##
+  ## Could also sort attestations by .data.crosslink first, and rely on that
+  ## ordering, among other approaches which don't change this function sig.
+  var attesting_indices = initTable[Eth2Digest, HashSet[ValidatorIndex]]()
+  for attestation in attestations:
+    let
+      crosslink = attestation.data.crosslink
+      crosslink_key = crosslink.data_root
+    var crosslink_attestation_indices =
+      if crosslink_key in attesting_indices:
+        attesting_indices[crosslink_key]
+      else:
+        initSet[ValidatorIndex]()
+
+    ## See also how get_attesting_balance(...) works. This inverts the loop
+    ## nesting order. Also, this ensures no duplicate indices, though it is
+    ## not supposed to happen, regardless, if validators are only attesting
+    ## on their assigned shards. Still, the right response there is slashed
+    ## balances, not crashing clients.
+    crosslink_attestation_indices.incl(
+      get_unslashed_attesting_indices(state, @[attestation], stateCache))
+    attesting_indices[crosslink_key] = crosslink_attestation_indices
 
   ## Winning crosslink has the crosslink data root with the most balance voting
   ## for it (ties broken lexicographically)
@@ -119,14 +145,25 @@ func get_winning_crosslink_and_attesting_indices(
     winning_crosslink_balance = 0.Gwei
 
   for candidate_crosslink in crosslinks:
-    ## TODO check if should cache this again
-    ## let root_balance = get_attesting_balance_cached(
-    ##   state, attestations_for.getOrDefault(r), cache)
-    let crosslink_balance =
-      get_attesting_balance(
-        state,
-        filterIt(attestations, it.data.crosslink == candidate_crosslink),
-        stateCache)
+    # let crosslink_balance_uncached =
+    #  get_attesting_balance(
+    #    state,
+    #    filterIt(attestations, it.data.crosslink == candidate_crosslink),
+    #    stateCache)
+    # TODO verify if one can assume this cached balance always exists here, by
+    # doAsserting candidate_crosslink_key in attesting_indices
+    let
+      candidate_crosslink_key = candidate_crosslink.data_root
+      crosslink_balance =
+        if candidate_crosslink_key in attesting_indices:
+          get_total_balance(state, attesting_indices[candidate_crosslink_key])
+        else:
+          ## See `get_total_balance(...)`
+          ## But see above, this branch might never happen.
+          1.Gwei
+    ## TODO factor out precalculation mechanism; consider adding compilation
+    ## flag to enable long calculation & consistency/assumption checking.
+    # doAssert crosslink_balance == crosslink_balance_uncached
     if (crosslink_balance > winning_crosslink_balance or
         (winning_crosslink_balance == crosslink_balance and
          lowerThan(winning_crosslink.data_root,
@@ -315,7 +352,6 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
 
   (rewards, penalties)
 
-# TODO re-cache this one, as under 0.5 version, if profiling suggests it
 func get_crosslink_deltas(state: BeaconState, cache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
 
