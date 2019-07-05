@@ -67,7 +67,7 @@ func get_matching_head_attestations(state: BeaconState, epoch: Epoch):
   )
 
 func get_unslashed_attesting_indices(
-    state: BeaconState, attestations: seq[PendingAttestation],
+    state: BeaconState, attestations: openarray[PendingAttestation],
     stateCache: var StateCache): HashSet[ValidatorIndex] =
   result = initSet[ValidatorIndex]()
   for a in attestations:
@@ -135,7 +135,7 @@ func get_winning_crosslink_and_attesting_indices(
     ## on their assigned shards. Still, the right response there is slashed
     ## balances, not crashing clients.
     crosslink_attestation_indices.incl(
-      get_unslashed_attesting_indices(state, @[attestation], stateCache))
+      get_unslashed_attesting_indices(state, [attestation], stateCache))
     attesting_indices[crosslink_key] = crosslink_attestation_indices
 
   ## Winning crosslink has the crosslink data root with the most balance voting
@@ -145,11 +145,12 @@ func get_winning_crosslink_and_attesting_indices(
     winning_crosslink_balance = 0.Gwei
 
   for candidate_crosslink in crosslinks:
-    # let crosslink_balance_uncached =
-    #  get_attesting_balance(
-    #    state,
-    #    filterIt(attestations, it.data.crosslink == candidate_crosslink),
-    #    stateCache)
+    when false:
+      let crosslink_balance_uncached =
+        get_attesting_balance(
+          state,
+          filterIt(attestations, it.data.crosslink == candidate_crosslink),
+          stateCache)
     # TODO verify if one can assume this cached balance always exists here, by
     # doAsserting candidate_crosslink_key in attesting_indices
     let
@@ -163,7 +164,8 @@ func get_winning_crosslink_and_attesting_indices(
           1.Gwei
     ## TODO factor out precalculation mechanism; consider adding compilation
     ## flag to enable long calculation & consistency/assumption checking.
-    # doAssert crosslink_balance == crosslink_balance_uncached
+    when false:
+      doAssert crosslink_balance == crosslink_balance_uncached
     if (crosslink_balance > winning_crosslink_balance or
         (winning_crosslink_balance == crosslink_balance and
          lowerThan(winning_crosslink.data_root,
