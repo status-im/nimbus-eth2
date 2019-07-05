@@ -148,21 +148,23 @@ func process_justification_and_finalization(
   let
     previous_epoch = get_previous_epoch(state)
     current_epoch = get_current_epoch(state)
-    old_previous_justified_epoch = state.previous_justified_epoch
-    old_current_justified_epoch = state.current_justified_epoch
+    old_previous_justified_epoch = state.previous_justified_checkpoint.epoch
+    old_current_justified_epoch = state.current_justified_checkpoint.epoch
 
   # Process justifications
-  state.previous_justified_epoch = state.current_justified_epoch
-  state.previous_justified_root = state.current_justified_root
+  state.previous_justified_checkpoint.epoch =
+    state.current_justified_checkpoint.epoch
+  state.previous_justified_checkpoint.root =
+    state.current_justified_checkpoint.root
   state.justification_bits = (state.justification_bits shl 1)
   let previous_epoch_matching_target_balance =
     get_attesting_balance(state,
       get_matching_target_attestations(state, previous_epoch), stateCache)
   if previous_epoch_matching_target_balance * 3 >=
       get_total_active_balance(state) * 2:
-    state.current_justified_epoch = previous_epoch
-    state.current_justified_root =
-      get_block_root(state, state.current_justified_epoch)
+    state.current_justified_checkpoint.epoch = previous_epoch
+    state.current_justified_checkpoint.root =
+      get_block_root(state, state.current_justified_checkpoint.epoch)
     state.justification_bits = state.justification_bits or (1 shl 1)
   let current_epoch_matching_target_balance =
     get_attesting_balance(state,
@@ -170,9 +172,9 @@ func process_justification_and_finalization(
       stateCache)
   if current_epoch_matching_target_balance * 3 >=
       get_total_active_balance(state) * 2:
-    state.current_justified_epoch = current_epoch
-    state.current_justified_root =
-      get_block_root(state, state.current_justified_epoch)
+    state.current_justified_checkpoint.epoch = current_epoch
+    state.current_justified_checkpoint.root =
+      get_block_root(state, state.current_justified_checkpoint.epoch)
     state.justification_bits = state.justification_bits or (1 shl 0)
 
   # Process finalizations

@@ -510,8 +510,8 @@ proc process_attestation*(
   let ffg_check_data = (data.source.epoch, data.source.root, data.target.epoch)
 
   if data.target.epoch == get_current_epoch(state):
-    if not (ffg_check_data == (state.current_justified_epoch,
-        state.current_justified_root, get_current_epoch(state))):
+    if not (ffg_check_data == (state.current_justified_checkpoint.epoch,
+        state.current_justified_checkpoint.root, get_current_epoch(state))):
       warn("FFG data not matching current justified epoch")
       return
 
@@ -522,8 +522,8 @@ proc process_attestation*(
 
     #state.current_epoch_attestations.add(pending_attestation)
   else:
-    if not (ffg_check_data == (state.previous_justified_epoch,
-        state.previous_justified_root, get_previous_epoch(state))):
+    if not (ffg_check_data == (state.previous_justified_checkpoint.epoch,
+        state.previous_justified_checkpoint.root, get_previous_epoch(state))):
       warn("FFG data not matching current justified epoch")
       return
 
@@ -586,10 +586,7 @@ proc makeAttestationData*(
 
   AttestationData(
     beacon_block_root: beacon_block_root,
-    source: Checkpoint(
-      epoch: state.current_justified_epoch,
-      root: state.current_justified_root
-    ),
+    source: state.current_justified_checkpoint,
     target: Checkpoint(
       root: target_root,
       epoch: target_epoch

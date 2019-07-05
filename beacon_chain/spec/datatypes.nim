@@ -256,22 +256,35 @@ type
     ## Needed to process attestations, older to newer
 
     state_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
-    historical_roots*: seq[Eth2Digest]
+
+    historical_roots*: seq[Eth2Digest]  ##\
+    ## model List with HISTORICAL_ROOTS_LIMIT limit as seq
+    ## TODO bound explicitly somewhere
 
     # Eth1
     eth1_data*: Eth1Data
-    eth1_data_votes*: seq[Eth1Data]
+
+    eth1_data_votes*: seq[Eth1Data] ##\
+    ## As with `hitorical_roots`, this is a `List`. TODO bound explicitly.
+
     eth1_deposit_index*: uint64
 
     # Registry
     validators*: seq[Validator]
     balances*: seq[uint64] ##\
     ## Validator balances in Gwei!
+    ## Also more `List`s which need to be bounded explicitly at
+    ## VALIDATOR_REGISTRY_LIMIT
 
     # Shuffling
     start_shard*: Shard
     randao_mixes*: array[LATEST_RANDAO_MIXES_LENGTH, Eth2Digest]
-    active_index_roots*: array[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
+
+    active_index_roots*: array[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest] ##\
+    ## Active index digests for light clients
+
+    compact_committees_roots*: array[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest] ##\
+    ## Committee digests for light clients
 
     # Slashings
     slashings*: array[EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
@@ -286,11 +299,13 @@ type
     current_crosslinks*: array[SHARD_COUNT, Crosslink]
 
     # Finality
-    justification_bits*: uint64
-    previous_justified_epoch*: Epoch
-    current_justified_epoch*: Epoch
-    previous_justified_root*: Eth2Digest
-    current_justified_root*: Eth2Digest
+    justification_bits*: uint64 ##\
+    ## Bit set for every recent justified epoch
+
+    previous_justified_checkpoint*: Checkpoint ##\
+    ## Previous epoch snapshot
+
+    current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#validator
