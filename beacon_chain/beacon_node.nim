@@ -1,6 +1,6 @@
 import
   net, sequtils, options, tables, osproc, random, strutils, times, strformat,
-  std_shims/[os_shims, objects],
+  stew/shims/os, stew/objects,
   chronos, chronicles, confutils, serialization/errors,
   eth/trie/db, eth/trie/backends/rocksdb_backend, eth/async_utils,
   spec/[bitfield, datatypes, digest, crypto, beaconstate, helpers, validator],
@@ -692,7 +692,7 @@ proc run*(node: BeaconNode) =
 var gPidFile: string
 proc createPidFile(filename: string) =
   createDir splitFile(filename).dir
-  writeFile filename, $os_shims.getCurrentProcessId()
+  writeFile filename, $os.getCurrentProcessId()
   gPidFile = filename
   addQuitProc proc {.noconv.} = removeFile gPidFile
 

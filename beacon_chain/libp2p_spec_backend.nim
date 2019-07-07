@@ -1,6 +1,6 @@
 import
-  tables, deques, options, algorithm, std_shims/[macros_shim, tables_shims],
-  ranges/ptr_arith, chronos, chronicles, serialization, faststreams/input_stream,
+  tables, deques, options, algorithm, stew/shims/[macros, tables],
+  stew/ranges/ptr_arith, chronos, chronicles, serialization, faststreams/input_stream,
   eth/async_utils, eth/p2p/p2p_protocol_dsl, libp2p/daemon/daemonapi,
   libp2p_json_serialization, ssz
 

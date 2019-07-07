@@ -1,10 +1,10 @@
-import byteutils, json_serialization, std_shims/support/bitops2
+import stew/byteutils, json_serialization, stew/bitops2
 
 type
   BitField* = object
     ## A simple bit field type that follows the semantics of the spec, with
     ## regards to bit endian operations
-    # TODO nim-ranges contains utilities for with bitsets - could try to
+    # TODO stew contains utilities for with bitsets - could try to
     #      recycle that, but there are open questions about bit endianess there.
     bits*: seq[byte]
 

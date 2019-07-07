@@ -21,7 +21,7 @@ requires "nim >= 0.19.0",
   "eth",
   "nimcrypto",
   "blscurve",
-  "ranges",
+  "stew",
   "chronicles",
   "confutils",
   "serialization",
@@ -29,8 +29,7 @@ requires "nim >= 0.19.0",
   "json_rpc",
   "chronos",
   "yaml",
-  "libp2p",
-  "byteutils" # test only (BitField and bytes datatypes deserialization)
+  "libp2p"
 
 ### Helper functions
 proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =

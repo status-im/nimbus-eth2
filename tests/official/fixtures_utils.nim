@@ -1,6 +1,6 @@
 import
   # Status libs
-  byteutils,
+  stew/byteutils,
   eth/common, serialization, json_serialization,
   # Beacon chain internals
   ../../beacon_chain/spec/datatypes
