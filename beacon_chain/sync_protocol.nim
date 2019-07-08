@@ -5,6 +5,10 @@ import
   beacon_node_types, eth2_network, beacon_chain_db, block_pool, time, ssz
 
 type
+  ValidatorSetDeltaFlags {.pure.} = enum
+    Activation = 0
+    Exit = 1
+
   ValidatorChangeLogEntry* = object
     case kind*: ValidatorSetDeltaFlags
     of Activation:

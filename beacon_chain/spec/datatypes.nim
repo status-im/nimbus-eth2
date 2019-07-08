@@ -373,12 +373,6 @@ type
     block_hash*: Eth2Digest ##\
     ## Block hash
 
-  ## TODO remove or otherwise conditional-compile this, since it's for light
-  ## client but not in spec
-  ValidatorSetDeltaFlags* {.pure.} = enum
-    Activation = 0
-    Exit = 1
-
   # TODO to be replaced with some magic hash caching
   HashedBeaconState* = object
     data*: BeaconState

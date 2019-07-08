@@ -67,7 +67,7 @@ func get_matching_head_attestations(state: BeaconState, epoch: Epoch):
   )
 
 func get_unslashed_attesting_indices(
-    state: BeaconState, attestations: seq[PendingAttestation],
+    state: BeaconState, attestations: openarray[PendingAttestation],
     stateCache: var StateCache): HashSet[ValidatorIndex] =
   result = initSet[ValidatorIndex]()
   for a in attestations:
@@ -100,17 +100,43 @@ func get_winning_crosslink_and_attesting_indices(
       filterIt(
         get_matching_source_attestations(state, epoch),
         it.data.crosslink.shard == shard)
-    # TODO don't keep h_t_r'ing state.current_crosslinks[shard]
+    root_current_shard_crosslink =
+      hash_tree_root(state.current_crosslinks[shard])
     crosslinks =
       filterIt(
         mapIt(attestations, it.data.crosslink),
-        hash_tree_root(state.current_crosslinks[shard]) in
-          # TODO pointless memory allocation, etc.
-          @[it.parent_root, hash_tree_root(it)])
+        root_current_shard_crosslink == it.parent_root or
+          root_current_shard_crosslink == hash_tree_root(it))
 
   # default=Crosslink()
   if len(crosslinks) == 0:
     return (Crosslink(), initSet[ValidatorIndex]())
+
+  ## Not from spec. Don't repeatedly search/filter attestations in an O(n^2)
+  ## way, but create lookup table in O(n) time with O(1) lookup by crosslink
+  ## to cut out expensive inner loop.
+  ##
+  ## Could also sort attestations by .data.crosslink first, and rely on that
+  ## ordering, among other approaches which don't change this function sig.
+  var attesting_indices = initTable[Eth2Digest, HashSet[ValidatorIndex]]()
+  for attestation in attestations:
+    let
+      crosslink = attestation.data.crosslink
+      crosslink_key = crosslink.data_root
+    var crosslink_attestation_indices =
+      if crosslink_key in attesting_indices:
+        attesting_indices[crosslink_key]
+      else:
+        initSet[ValidatorIndex]()
+
+    ## See also how get_attesting_balance(...) works. This inverts the loop
+    ## nesting order. Also, this ensures no duplicate indices, though it is
+    ## not supposed to happen, regardless, if validators are only attesting
+    ## on their assigned shards. Still, the right response there is slashed
+    ## balances, not crashing clients.
+    crosslink_attestation_indices.incl(
+      get_unslashed_attesting_indices(state, [attestation], stateCache))
+    attesting_indices[crosslink_key] = crosslink_attestation_indices
 
   ## Winning crosslink has the crosslink data root with the most balance voting
   ## for it (ties broken lexicographically)
@@ -119,14 +145,29 @@ func get_winning_crosslink_and_attesting_indices(
     winning_crosslink_balance = 0.Gwei
 
   for candidate_crosslink in crosslinks:
-    ## TODO check if should cache this again
-    ## let root_balance = get_attesting_balance_cached(
-    ##   state, attestations_for.getOrDefault(r), cache)
-    let crosslink_balance =
-      get_attesting_balance(
-        state,
-        filterIt(attestations, it.data.crosslink == candidate_crosslink),
-        stateCache)
+    ## TODO when confidence that this exactly reproduces the spec version,
+    ## remove the when false'd scaffolding.
+    when false:
+      let crosslink_balance_uncached =
+        get_attesting_balance(
+          state,
+          filterIt(attestations, it.data.crosslink == candidate_crosslink),
+          stateCache)
+    # TODO verify if one can assume this cached balance always exists here, by
+    # doAsserting candidate_crosslink_key in attesting_indices
+    let
+      candidate_crosslink_key = candidate_crosslink.data_root
+      crosslink_balance =
+        if candidate_crosslink_key in attesting_indices:
+          get_total_balance(state, attesting_indices[candidate_crosslink_key])
+        else:
+          ## See `get_total_balance(...)`
+          ## But see above, this branch might never happen.
+          1.Gwei
+    ## TODO factor out precalculation mechanism; consider adding compilation
+    ## flag to enable long calculation & consistency/assumption checking.
+    when false:
+      doAssert crosslink_balance == crosslink_balance_uncached
     if (crosslink_balance > winning_crosslink_balance or
         (winning_crosslink_balance == crosslink_balance and
          lowerThan(winning_crosslink.data_root,
@@ -241,7 +282,7 @@ func get_base_reward(state: BeaconState, index: ValidatorIndex): Gwei =
   effective_balance * BASE_REWARD_FACTOR div
     integer_squareroot(total_balance) div BASE_REWARDS_PER_EPOCH
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#rewards-and-penalties
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#rewards-and-penalties-1
 func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
   let
@@ -266,12 +307,12 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
     matching_head_attestations =
       get_matching_head_attestations(state, previous_epoch)
   for attestations in
-      @[matching_source_attestations, matching_target_attestations,
-        matching_head_attestations]:
+      [matching_source_attestations, matching_target_attestations,
+       matching_head_attestations]:
     let
       unslashed_attesting_indices =
         get_unslashed_attesting_indices(state, attestations, stateCache)
-      attesting_balance = get_attesting_balance(state, attestations, stateCache)
+      attesting_balance = get_total_balance(state, unslashed_attesting_indices)
     for index in eligible_validator_indices:
       if index in unslashed_attesting_indices:
         rewards[index] +=
@@ -279,25 +320,41 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
       else:
         penalties[index] += get_base_reward(state, index)
 
+  # Early-out not explicitly in spec
   if matching_source_attestations.len == 0:
     return (rewards, penalties)
 
   # Proposer and inclusion delay micro-rewards
+  ## This depends on matching_source_attestations being an indexable seq, not a
+  ## set, hash table, etc.
+  let source_attestation_attesting_indices =
+    mapIt(
+      matching_source_attestations,
+      get_attesting_indices(state, it.data, it.aggregation_bits, stateCache))
+
+  ## TODO if this is still a profiling issue, do higher-level semantic
+  ## translation
   for index in get_unslashed_attesting_indices(
       state, matching_source_attestations, stateCache):
+    # Translation of attestation = min([...])
     doAssert matching_source_attestations.len > 0
     var attestation = matching_source_attestations[0]
-    for a in matching_source_attestations:
-      if index notin get_attesting_indices(
-          state, a.data, a.aggregation_bits, stateCache):
+    for source_attestation_index, a in matching_source_attestations:
+      if index notin
+          source_attestation_attesting_indices[source_attestation_index]:
         continue
+
       if a.inclusion_delay < attestation.inclusion_delay:
         attestation = a
-    rewards[attestation.proposer_index] += get_base_reward(state, index) div
-      PROPOSER_REWARD_QUOTIENT
+
+    let proposer_reward =
+      (get_base_reward(state, index) div PROPOSER_REWARD_QUOTIENT).Gwei
+    rewards[attestation.proposer_index] += proposer_reward
+    let max_attester_reward = get_base_reward(state, index) - proposer_reward
     rewards[index] +=
-      get_base_reward(state, index) * MIN_ATTESTATION_INCLUSION_DELAY div
-        attestation.inclusion_delay
+      (max_attester_reward *
+       ((SLOTS_PER_EPOCH + MIN_ATTESTATION_INCLUSION_DELAY).uint64 -
+       attestation.inclusion_delay) div SLOTS_PER_EPOCH).Gwei
 
   # Inactivity penalty
   let finality_delay = previous_epoch - state.finalized_checkpoint.epoch
@@ -315,7 +372,7 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
 
   (rewards, penalties)
 
-# TODO re-cache this one, as under 0.5 version, if profiling suggests it
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#rewards-and-penalties-1
 func get_crosslink_deltas(state: BeaconState, cache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
 
@@ -327,7 +384,7 @@ func get_crosslink_deltas(state: BeaconState, cache: var StateCache):
     let
       shard = (get_start_shard(state, epoch) + offset) mod SHARD_COUNT
       crosslink_committee =
-        get_crosslink_committee(state, epoch, shard, cache)
+        toSet(get_crosslink_committee(state, epoch, shard, cache))
       (winning_crosslink, attesting_indices) =
         get_winning_crosslink_and_attesting_indices(
           state, epoch, shard, cache)
@@ -337,10 +394,9 @@ func get_crosslink_deltas(state: BeaconState, cache: var StateCache):
       let base_reward = get_base_reward(state, index)
       if index in attesting_indices:
         rewards[index] +=
-          get_base_reward(state, index) * attesting_balance div
-            committee_balance
+          base_reward * attesting_balance div committee_balance
       else:
-        penalties[index] += get_base_reward(state, index)
+        penalties[index] += base_reward
 
   (rewards, penalties)
 

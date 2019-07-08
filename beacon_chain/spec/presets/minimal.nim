@@ -77,7 +77,7 @@ const
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#time-parameters
   # Unchanged
-  MIN_ATTESTATION_INCLUSION_DELAY* = 2'u64^0
+  MIN_ATTESTATION_INCLUSION_DELAY* = 1
 
   # Changed
   SLOTS_PER_EPOCH* {.intdefine.} = 64
