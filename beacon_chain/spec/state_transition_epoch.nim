@@ -354,6 +354,7 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
 
   (rewards, penalties)
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#rewards-and-penalties-1
 func get_crosslink_deltas(state: BeaconState, cache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
 
@@ -365,7 +366,7 @@ func get_crosslink_deltas(state: BeaconState, cache: var StateCache):
     let
       shard = (get_start_shard(state, epoch) + offset) mod SHARD_COUNT
       crosslink_committee =
-        get_crosslink_committee(state, epoch, shard, cache)
+        toSet(get_crosslink_committee(state, epoch, shard, cache))
       (winning_crosslink, attesting_indices) =
         get_winning_crosslink_and_attesting_indices(
           state, epoch, shard, cache)
@@ -375,10 +376,9 @@ func get_crosslink_deltas(state: BeaconState, cache: var StateCache):
       let base_reward = get_base_reward(state, index)
       if index in attesting_indices:
         rewards[index] +=
-          get_base_reward(state, index) * attesting_balance div
-            committee_balance
+          base_reward * attesting_balance div committee_balance
       else:
-        penalties[index] += get_base_reward(state, index)
+        penalties[index] += base_reward
 
   (rewards, penalties)
 
