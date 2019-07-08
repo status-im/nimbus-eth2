@@ -145,6 +145,8 @@ func get_winning_crosslink_and_attesting_indices(
     winning_crosslink_balance = 0.Gwei
 
   for candidate_crosslink in crosslinks:
+    ## TODO when confidence that this exactly reproduces the spec version,
+    ## remove the when false'd scaffolding.
     when false:
       let crosslink_balance_uncached =
         get_attesting_balance(
