@@ -123,7 +123,7 @@ when networkBackend == rlpxBackend:
 
 else:
   import
-    os, random, stew/io,
+    os, random, std_shims/io,
     libp2p/crypto/crypto, libp2p/daemon/daemonapi, eth/async_utils,
     ssz
 

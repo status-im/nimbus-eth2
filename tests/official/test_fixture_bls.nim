@@ -9,7 +9,7 @@ import
   # Standard libs
   ospaths, strutils, unittest, endians,
   # Status libs
-  blscurve, stew/byteutils,
+  blscurve, byteutils,
   # Beacon chain internals
   ../../beacon_chain/spec/crypto,
   # Test utilities
