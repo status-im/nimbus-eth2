@@ -1,6 +1,6 @@
 import
   options, tables, sequtils, algorithm, sets, macros,
-  chronicles, chronos, ranges/bitranges,
+  chronicles, chronos, stew/ranges/bitranges,
   spec/[datatypes, crypto, digest, helpers], eth/rlp,
   beacon_node_types, eth2_network, beacon_chain_db, block_pool, time, ssz
 

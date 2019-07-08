@@ -1,6 +1,7 @@
 import
   macros, algorithm, tables,
-  std_shims/[macros_shim, tables_shims], chronos, chronicles,
+  stew/shims/macros as macros_shims, stew/shims/tables as tables_shims,
+  chronos, chronicles,
   libp2p/daemon/daemonapi, faststreams/output_stream, serialization,
   json_serialization/std/options, eth/p2p/p2p_protocol_dsl,
   libp2p_json_serialization, ssz

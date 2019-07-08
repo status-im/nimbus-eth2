@@ -1,6 +1,6 @@
 import
   net, sequtils, options, tables, osproc, random, strutils, times, strformat,
-  std_shims/[os_shims, objects],
+  stew/objects, stew/shims/os as os_shims,
   chronos, chronicles, confutils, serialization/errors,
   eth/trie/db, eth/trie/backends/rocksdb_backend, eth/async_utils,
   spec/[bitfield, datatypes, digest, crypto, beaconstate, helpers, validator],

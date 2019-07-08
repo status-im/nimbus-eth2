@@ -1,4 +1,4 @@
-import byteutils, json_serialization, std_shims/support/bitops2
+import json_serialization, stew/bitops2, stew/byteutils
 
 type
   BitField* = object
