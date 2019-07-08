@@ -280,7 +280,7 @@ func get_base_reward(state: BeaconState, index: ValidatorIndex): Gwei =
   effective_balance * BASE_REWARD_FACTOR div
     integer_squareroot(total_balance) div BASE_REWARDS_PER_EPOCH
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#rewards-and-penalties
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#rewards-and-penalties-1
 func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
   let
@@ -305,12 +305,12 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
     matching_head_attestations =
       get_matching_head_attestations(state, previous_epoch)
   for attestations in
-      @[matching_source_attestations, matching_target_attestations,
-        matching_head_attestations]:
+      [matching_source_attestations, matching_target_attestations,
+       matching_head_attestations]:
     let
       unslashed_attesting_indices =
         get_unslashed_attesting_indices(state, attestations, stateCache)
-      attesting_balance = get_attesting_balance(state, attestations, stateCache)
+      attesting_balance = get_total_balance(state, unslashed_attesting_indices)
     for index in eligible_validator_indices:
       if index in unslashed_attesting_indices:
         rewards[index] +=
@@ -318,25 +318,41 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
       else:
         penalties[index] += get_base_reward(state, index)
 
+  # Early-out not explicitly in spec
   if matching_source_attestations.len == 0:
     return (rewards, penalties)
 
   # Proposer and inclusion delay micro-rewards
+  ## This depends on matching_source_attestations being an indexable seq, not a
+  ## set, hash table, etc.
+  let source_attestation_attesting_indices =
+    mapIt(
+      matching_source_attestations,
+      get_attesting_indices(state, it.data, it.aggregation_bits, stateCache))
+
+  ## TODO if this is still a profiling issue, do higher-level semantic
+  ## translation
   for index in get_unslashed_attesting_indices(
       state, matching_source_attestations, stateCache):
+    # Translation of attestation = min([...])
     doAssert matching_source_attestations.len > 0
     var attestation = matching_source_attestations[0]
-    for a in matching_source_attestations:
-      if index notin get_attesting_indices(
-          state, a.data, a.aggregation_bits, stateCache):
+    for source_attestation_index, a in matching_source_attestations:
+      if index notin
+          source_attestation_attesting_indices[source_attestation_index]:
         continue
+
       if a.inclusion_delay < attestation.inclusion_delay:
         attestation = a
-    rewards[attestation.proposer_index] += get_base_reward(state, index) div
-      PROPOSER_REWARD_QUOTIENT
+
+    let proposer_reward =
+      (get_base_reward(state, index) div PROPOSER_REWARD_QUOTIENT).Gwei
+    rewards[attestation.proposer_index] += proposer_reward
+    let max_attester_reward = get_base_reward(state, index) - proposer_reward
     rewards[index] +=
-      get_base_reward(state, index) * MIN_ATTESTATION_INCLUSION_DELAY div
-        attestation.inclusion_delay
+      (max_attester_reward *
+       ((SLOTS_PER_EPOCH + MIN_ATTESTATION_INCLUSION_DELAY).uint64 -
+       attestation.inclusion_delay) div SLOTS_PER_EPOCH).Gwei
 
   # Inactivity penalty
   let finality_delay = previous_epoch - state.finalized_checkpoint.epoch

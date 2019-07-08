@@ -93,7 +93,7 @@ const
   ## TODO consistent time unit across projects, similar to C++ chrono?
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#time-parameters
-  MIN_ATTESTATION_INCLUSION_DELAY* = 2'u64^2 ##\
+  MIN_ATTESTATION_INCLUSION_DELAY* = 1 ##\
   ## (24 seconds)
   ## Number of slots that attestations stay in the attestation
   ## pool before being added to a block.
