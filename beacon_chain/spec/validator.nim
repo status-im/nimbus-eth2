@@ -88,7 +88,7 @@ func get_previous_epoch*(state: BeaconState): Epoch =
   else:
     current_epoch - 1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_shard_delta
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_shard_delta
 func get_shard_delta*(state: BeaconState, epoch: Epoch): uint64 =
   ## Return the number of shards to increment ``state.start_shard``
   ## during ``epoch``.
