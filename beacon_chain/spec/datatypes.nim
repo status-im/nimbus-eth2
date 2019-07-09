@@ -221,6 +221,11 @@ type
     signature*: ValidatorSig ##\
     ## Proposer signature
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#compactcommittee
+  CompactCommittee* = object
+    pubkeys*: seq[ValidatorPubKey]
+    compact_validators*: seq[uint64]
+
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot

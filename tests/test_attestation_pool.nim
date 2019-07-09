@@ -29,7 +29,7 @@ suite "Attestation pool processing" & preset():
 
   # Genesis state that results in 2 members per committee
   let
-    genState = get_genesis_beacon_state(
+    genState = initialize_beacon_state_from_eth1(
       makeInitialDeposits(SLOTS_PER_EPOCH * 2, {skipValidation}), 0, Eth1Data(),
         {skipValidation})
     genBlock = get_initial_beacon_block(genState)

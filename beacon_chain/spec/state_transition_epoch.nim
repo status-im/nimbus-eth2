@@ -145,7 +145,7 @@ func get_winning_crosslink_and_attesting_indices(
     winning_crosslink_balance = 0.Gwei
 
   for candidate_crosslink in crosslinks:
-    ## TODO when confidence that this exactly reproduces the spec version,
+    ## TODO when confident this exactly reproduces the spec version,
     ## remove the when false'd scaffolding.
     when false:
       let crosslink_balance_uncached =
@@ -427,7 +427,7 @@ func process_slashings(state: var BeaconState) =
           min(sum(state.slashings) * 3, total_balance) div total_balance
       decrease_balance(state, index.ValidatorIndex, penalty)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#final-updates
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#final-updates
 func process_final_updates(state: var BeaconState) =
   let
     current_epoch = get_current_epoch(state)
@@ -453,10 +453,20 @@ func process_final_updates(state: var BeaconState) =
     (state.start_shard + get_shard_delta(state, current_epoch)) mod
       SHARD_COUNT
 
-  # Set total slashed balances
-  state.slashings[next_epoch mod EPOCHS_PER_SLASHINGS_VECTOR] = (
-    state.slashings[current_epoch mod EPOCHS_PER_SLASHINGS_VECTOR]
-  )
+  # Set active index root
+  let
+    index_epoch = next_epoch + ACTIVATION_EXIT_DELAY
+    index_root_position = index_epoch mod EPOCHS_PER_HISTORICAL_VECTOR
+    indices_list = get_active_validator_indices(state, index_epoch)
+  state.active_index_roots[index_root_position] = hash_tree_root(indices_list)
+
+  # Set committees root
+  let committee_root_position = next_epoch mod EPOCHS_PER_HISTORICAL_VECTOR
+  state.compact_committees_roots[committee_root_position] =
+    get_compact_committees_root(state, next_epoch)
+
+  # Reset slashings
+  state.slashings[next_epoch mod EPOCHS_PER_SLASHINGS_VECTOR] = 0.Gwei
 
   # Set randao mix
   state.randao_mixes[next_epoch mod LATEST_RANDAO_MIXES_LENGTH] =
