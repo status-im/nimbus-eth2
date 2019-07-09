@@ -37,15 +37,16 @@ import # TODO - cleanup imports
   ../extras, ../ssz, ../beacon_node_types,
   beaconstate, bitfield, crypto, datatypes, digest, helpers, validator
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#helper-functions-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_total_active_balance
 func get_total_active_balance(state: BeaconState): Gwei =
   return get_total_balance(
     state,
     get_active_validator_indices(state, get_current_epoch(state)))
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#helper-functions-1
 func get_matching_source_attestations(state: BeaconState, epoch: Epoch):
     seq[PendingAttestation] =
-  doAssert epoch in @[get_current_epoch(state), get_previous_epoch(state)]
+  doAssert epoch in [get_current_epoch(state), get_previous_epoch(state)]
   if epoch == get_current_epoch(state):
     state.current_epoch_attestations
   else:
