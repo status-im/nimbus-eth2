@@ -1,5 +1,5 @@
 import
-  deques, options, sequtils, tables,
+  deques, math, options, sequtils, tables,
   chronicles,
   ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator], extras,
   ./attestation_pool, ./beacon_node_types, ./beacon_chain_db, ./ssz
@@ -21,6 +21,8 @@ proc lmdGhost*(
   #       https://en.wikipedia.org/wiki/Fenwick_tree
   #       Nim implementation for cumulative frequencies at
   #       https://github.com/numforge/laser/blob/990e59fffe50779cdef33aa0b8f22da19e1eb328/benchmarks/random_sampling/fenwicktree.nim
+
+  const FORK_CHOICE_BALANCE_INCREMENT = 2'u64^0 * 10'u64^9
 
   let
     active_validator_indices =

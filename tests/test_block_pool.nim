@@ -13,7 +13,7 @@ import
 
 suite "Block pool processing" & preset():
   let
-    genState = get_genesis_beacon_state(
+    genState = initialize_beacon_state_from_eth1(
       makeInitialDeposits(flags = {skipValidation}), 0, Eth1Data(),
         {skipValidation})
     genBlock = get_initial_beacon_block(genState)

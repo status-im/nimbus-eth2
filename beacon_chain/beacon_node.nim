@@ -737,7 +737,7 @@ when isMainModule:
         stderr.write "Please regenerate the deposit files by running validator_keygen again\n"
         quit 1
 
-    let initialState = get_genesis_beacon_state(
+    let initialState = initialize_beacon_state_from_eth1(
       deposits,
       uint64(times.toUnix(times.getTime()) + config.genesisOffset),
       Eth1Data(), {skipValidation})

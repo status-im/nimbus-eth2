@@ -5,7 +5,7 @@ import
   ../tests/testutil
 
 proc stateSize(deposits: int, maxContent = false) =
-  var state = get_genesis_beacon_state(
+  var state = initialize_beacon_state_from_eth1(
     makeInitialDeposits(
       deposits, {skipValidation}), 0, Eth1Data(), {skipValidation})
 

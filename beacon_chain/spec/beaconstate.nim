@@ -174,23 +174,35 @@ func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
   increase_balance(
     state, whistleblower_index, whistleblowing_reward - proposer_reward)
 
-func get_temporary_block_header(blck: BeaconBlock): BeaconBlockHeader =
-  ## Return the block header corresponding to a block with ``state_root`` set
-  ## to ``ZERO_HASH``.
-  BeaconBlockHeader(
-    slot: blck.slot,
-    parent_root: blck.parent_root,
-    state_root: ZERO_HASH,
-    body_root: hash_tree_root(blck.body),
-    # signing_root(block) is used for block id purposes so signature is a stub
-    signature: ValidatorSig(),
-  )
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_compact_committees_root
+func get_compact_committees_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
+  # Return the compact committee root at ``epoch``.
 
-func get_empty_block*(): BeaconBlock =
-  # Nim default values fill this in mostly correctly.
-  BeaconBlock(slot: GENESIS_SLOT)
+  # TODO if profiling shows this as expensive, plumb through properly
+  var cache = get_empty_per_epoch_cache()
 
-func get_genesis_beacon_state*(
+  var committees : array[SHARD_COUNT, CompactCommittee]
+  let start_shard = get_start_shard(state, epoch)
+  for committee_number in 0'u64 ..< get_committee_count(state, epoch):
+    let shard = (start_shard + committee_number) mod SHARD_COUNT
+    for index in get_crosslink_committee(state, epoch, shard, cache):
+      let validator = state.validators[index]
+      committees[shard.int].pubkeys.add(validator.pubkey)
+      let
+        compact_balance =
+          validator.effective_balance div EFFECTIVE_BALANCE_INCREMENT
+
+        # `index` (top 6 bytes) + `slashed` (16th bit) + `compact_balance`
+        # (bottom 15 bits)
+        compact_validator =
+          uint64((index.uint64 shl 16) + (validator.slashed.uint64 shl 15) +
+            compact_balance)
+      committees[shard.int].compact_validators.add(compact_validator)
+
+  hash_tree_root(committees)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#genesis
+func initialize_beacon_state_from_eth1*(
     genesis_validator_deposits: openArray[Deposit],
     genesis_time: uint64,
     genesis_eth1_data: Eth1Data,
@@ -212,26 +224,17 @@ func get_genesis_beacon_state*(
   doAssert genesis_validator_deposits.len >= SLOTS_PER_EPOCH
 
   var state = BeaconState(
-    # Misc
     genesis_time: genesis_time,
-    fork: Fork(
-        previous_version: GENESIS_FORK_VERSION,
-        current_version: GENESIS_FORK_VERSION,
-        epoch: GENESIS_EPOCH,
-    ),
-
-    latest_block_header: get_temporary_block_header(get_empty_block()),
-
-    # Ethereum 1.0 chain data
-    # eth1_data_votes automatically initialized
+    latest_block_header:
+      BeaconBlockHeader(body_root: hash_tree_root(BeaconBlockBody())),
     eth1_data: genesis_eth1_data,
   )
 
-  # Process genesis deposits
+  # Process deposits
   for deposit in genesis_validator_deposits:
     discard process_deposit(state, deposit, flags)
 
-  # Process genesis activations
+  # Process activations
   for validator_index in 0 ..< state.validators.len:
     let validator = addr state.validators[validator_index]
     if validator.effective_balance >= MAX_EFFECTIVE_BALANCE:
