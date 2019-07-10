@@ -209,6 +209,8 @@ type
       Table[tuple[a: int, b: Eth2Digest], seq[ValidatorIndex]]
     active_validator_indices_cache*:
       Table[Epoch, seq[ValidatorIndex]]
+    start_shard_cache*: Table[Epoch, Shard]
+    committee_count_cache*: Table[Epoch, uint64]
 
   BlockSlot* = object
     ## Unique identifier for a particular fork in the block chain - normally,
