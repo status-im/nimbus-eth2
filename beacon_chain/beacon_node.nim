@@ -723,6 +723,15 @@ when isMainModule:
   if config.logLevel != LogLevel.NONE:
     setLogLevel(config.logLevel)
 
+  ## Ctrl+C handling
+  proc controlCHandler() {.noconv.} =
+    when defined(windows):
+      # workaround for https://github.com/nim-lang/Nim/issues/4057
+      setupForeignThreadGc()
+    debug "Shutting down after having received SIGINT"
+    quit(1)
+  setControlCHook(controlCHandler)
+
   case config.cmd
   of createTestnet:
     var deposits: seq[Deposit]

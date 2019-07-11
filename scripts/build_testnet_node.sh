@@ -27,7 +27,7 @@ fi
 echo
 echo "Done! You're now ready to connect to $NETWORK_NAME by running:"
 echo
-echo "    $BEACON_NODE_BIN"
+echo "    ../../env.sh $BEACON_NODE_BIN"
 echo
 echo "Database and configuration files will be placed in:"
 echo

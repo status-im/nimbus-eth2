@@ -34,6 +34,9 @@ build:
 nat-libs: | deps
 	+ $(MAKE) --silent -C ../../ nat-libs
 
+p2pd: | deps
+	+ $(MAKE) --silent -C ../../ vendor/go/bin/p2pd
+
 # Windows 10 with WSL enabled, but no distro installed, fails if "../../nimble.sh" is executed directly
 # in a Makefile recipe but works when prefixing it with `bash`. No idea how the PATH is overridden.
 test: | build deps nat-libs
@@ -50,7 +53,7 @@ clean_eth2_network_simulation_files:
 eth2_network_simulation: | beacon_node validator_keygen clean_eth2_network_simulation_files
 	SKIP_BUILDS=1 GIT_ROOT="$$PWD" BUILD_OUTPUTS_DIR="./build" tests/simulation/start.sh
 
-testnet0 testnet1: | build deps nat-libs
+testnet0 testnet1: | build deps nat-libs p2pd
 	../../env.sh scripts/build_testnet_node.sh $@
 
 clean-testnet0:
