@@ -14,7 +14,7 @@ TOOLS := beacon_node validator_keygen bench_bls_sig_agggregation state_sim
 TOOLS_DIRS := beacon_chain benchmarks research
 TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 
-.PHONY: all sanity-checks deps nat-libs test $(TOOLS) clean_eth2_network_simulation_files eth2_network_simulation clean-testnet0 testnet0-nocleaning testnet0 clean-testnet1 testnet1-nocleaning testnet1 clean
+.PHONY: all sanity-checks deps nat-libs p2pd test $(TOOLS) clean_eth2_network_simulation_files eth2_network_simulation clean-testnet0 testnet0-nocleaning testnet0 clean-testnet1 testnet1-nocleaning testnet1 clean
 
 all: | $(TOOLS)
 
