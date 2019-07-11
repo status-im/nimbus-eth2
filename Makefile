@@ -54,7 +54,7 @@ eth2_network_simulation: | beacon_node validator_keygen clean_eth2_network_simul
 	SKIP_BUILDS=1 GIT_ROOT="$$PWD" BUILD_OUTPUTS_DIR="./build" tests/simulation/start.sh
 
 testnet0 testnet1: | build deps nat-libs p2pd
-	../../env.sh scripts/build_testnet_node.sh $@
+	NIM_PARAMS="$(NIM_PARAMS)" ../../env.sh scripts/build_testnet_node.sh $@
 
 clean-testnet0:
 	rm -rf ~/.cache/nimbus/BeaconNode/testnet0
