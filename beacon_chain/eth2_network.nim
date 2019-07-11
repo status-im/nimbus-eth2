@@ -166,6 +166,8 @@ else:
   template tcpEndPoint(address, port): auto =
     MultiAddress.init(address, Protocol.IPPROTO_TCP, port)
 
+  var mainDaemon: DaemonAPI
+
   proc createEth2Node*(conf: BeaconNodeConf): Future[Eth2Node] {.async.} =
     var
       (extIp, extTcpPort, extUdpPort) = setupNat(conf)
@@ -174,13 +176,18 @@ else:
                            else: @[tcpEndPoint(extIp, extTcpPort)]
       keyFile = conf.ensureNetworkIdFile
 
-    info "Starting LibP2P deamon", hostAddress, announcedAddresses, keyFile
-    let daemon = await newDaemonApi({PSGossipSub},
-                                    id = keyFile,
-                                    hostAddresses = @[hostAddress],
-                                    announcedAddresses = announcedAddresses)
+    info "Starting the LibP2P daemon", hostAddress, announcedAddresses, keyFile
+    mainDaemon = await newDaemonApi({PSGossipSub},
+                                        id = keyFile,
+                                        hostAddresses = @[hostAddress],
+                                        announcedAddresses = announcedAddresses)
 
-    return await Eth2Node.init(daemon)
+    proc closeDaemon() {.noconv.} =
+      info "Shutting down the LibP2P daemon"
+      waitFor mainDaemon.close()
+    addQuitProc(closeDaemon)
+
+    return await Eth2Node.init(mainDaemon)
 
   proc getPersistenBootstrapAddr*(conf: BeaconNodeConf,
                                   ip: IpAddress, port: Port): BootstrapAddr =

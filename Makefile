@@ -14,7 +14,7 @@ TOOLS := beacon_node validator_keygen bench_bls_sig_agggregation state_sim
 TOOLS_DIRS := beacon_chain benchmarks research
 TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 
-.PHONY: all sanity-checks deps nat-libs test $(TOOLS) clean_eth2_network_simulation_files eth2_network_simulation clean-testnet0 testnet0-nocleaning testnet0 clean-testnet1 testnet1-nocleaning testnet1 clean
+.PHONY: all sanity-checks deps nat-libs p2pd test $(TOOLS) clean_eth2_network_simulation_files eth2_network_simulation clean-testnet0 testnet0-nocleaning testnet0 clean-testnet1 testnet1-nocleaning testnet1 clean
 
 all: | $(TOOLS)
 
@@ -34,6 +34,9 @@ build:
 nat-libs: | deps
 	+ $(MAKE) --silent -C ../../ nat-libs
 
+p2pd: | deps
+	+ $(MAKE) --silent -C ../../ vendor/go/bin/p2pd
+
 # Windows 10 with WSL enabled, but no distro installed, fails if "../../nimble.sh" is executed directly
 # in a Makefile recipe but works when prefixing it with `bash`. No idea how the PATH is overridden.
 test: | build deps nat-libs
@@ -50,8 +53,8 @@ clean_eth2_network_simulation_files:
 eth2_network_simulation: | beacon_node validator_keygen clean_eth2_network_simulation_files
 	SKIP_BUILDS=1 GIT_ROOT="$$PWD" BUILD_OUTPUTS_DIR="./build" tests/simulation/start.sh
 
-testnet0 testnet1: | build deps nat-libs
-	../../env.sh scripts/build_testnet_node.sh $@
+testnet0 testnet1: | build deps nat-libs p2pd
+	NIM_PARAMS="$(NIM_PARAMS)" ../../env.sh scripts/build_testnet_node.sh $@
 
 clean-testnet0:
 	rm -rf ~/.cache/nimbus/BeaconNode/testnet0
