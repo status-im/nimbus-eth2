@@ -32,4 +32,6 @@ $BEACON_NODE_BIN \
   --tcpPort:$PORT \
   --udpPort:$PORT \
   $NAT_FLAG \
-  --stateSnapshot:$SNAPSHOT_FILE
+  --stateSnapshot:$SNAPSHOT_FILE \
+  --depositWeb3Url=$DEPOSIT_WEB3_URL \
+  --depositContractAddress=$DEPOSIT_CONTRACT_ADDRESS
