@@ -124,10 +124,10 @@ The beacon chain now has a public testnet available. Connect to it with:
 
 ```bash
 make testnet0
-./build/testnet0_node # this launches the testnet0-specific node you just built
+./scripts/testnet0.sh # this launches the testnet0-specific node you just built
 ```
 
-For more information about the testnet and to find out how to launch your own, see [this announcement](https://our.status.im/the-nimbus-mvp-testnet-is-here/).
+For more information about the testnet and to find out how to launch your own, see [this announcement](https://our.status.im/the-nimbus-mvp-testnet-is-here/) and the [official docs on launching the testnets](https://nimbus.status.im/docs/t0.html).
 
 ## Convention
 
