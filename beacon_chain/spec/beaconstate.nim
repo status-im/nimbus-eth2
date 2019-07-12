@@ -248,6 +248,22 @@ func initialize_beacon_state_from_eth1*(
 
   state
 
+proc initialize_beacon_state_from_eth1*(eth1_block_hash: Eth2Digest,
+    eth1_timestamp: uint64,
+    deposits: openarray[Deposit],
+    flags: UpdateFlags = {}): BeaconState =
+  # TODO: Revisit
+  initialize_beacon_state_from_eth1(deposits, eth1_timestamp, Eth1Data(deposit_count: deposits.len.uint64, deposit_root: eth1_block_hash), flags)
+
+proc is_valid_genesis_state*(state: BeaconState): bool =
+  if state.genesis_time < MIN_GENESIS_TIME:
+    return false
+  if len(get_active_validator_indices(state, GENESIS_EPOCH)) < MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
+    return false
+  return true
+
+# TODO candidate for spec?
+# https://github.com/ethereum/eth2.0-specs/blob/0.5.1/specs/core/0_beacon-chain.md#on-genesis
 func get_initial_beacon_block*(state: BeaconState): BeaconBlock =
   BeaconBlock(
     slot: GENESIS_SLOT,

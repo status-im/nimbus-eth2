@@ -128,6 +128,11 @@ const
   MAX_VOLUNTARY_EXITS* = 2^4
   MAX_TRANSFERS* = 0
 
+
+  MIN_GENESIS_TIME* {.intdefine.} = 0
+  MIN_GENESIS_ACTIVE_VALIDATOR_COUNT* {.intdefine.} = 99
+
+
 type
   # Signature domains
   # ---------------------------------------------------------------

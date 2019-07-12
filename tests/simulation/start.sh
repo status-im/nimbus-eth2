@@ -7,6 +7,14 @@ set -eu
 
 # Set a default value for the env vars usually supplied by nimbus Makefile
 
+export NUM_VALIDATORS=${VALIDATORS:-100}
+export NUM_NODES=${NODES:-9}
+export NUM_MISSING_NODES=${MISSING_NODES:-1}
+
+export DEPOSIT_WEB3_URL=ws://localhost:8545
+export DEPOSIT_CONTRACT_ADDRESS=
+
+
 cd "$SIM_ROOT"
 mkdir -p "$SIMULATION_DIR"
 mkdir -p "$VALIDATORS_DIR"
@@ -25,12 +33,18 @@ LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.js
 if [ ! -f $LAST_VALIDATOR ]; then
   if [[ -z "$SKIP_BUILDS" ]]; then
     nim c -o:"$VALIDATOR_KEYGEN_BIN" $DEFS -d:release beacon_chain/validator_keygen
+    nim c -o:"$DEPLOY_DEPOSIT_CONTRACT_BIN" $DEFS -d:release beacon_chain/deploy_deposit_contract
+
   fi
+
+  export DEPOSIT_CONTRACT_ADDRESS=$($DEPLOY_DEPOSIT_CONTRACT_BIN --depositWeb3Url=$DEPOSIT_WEB3_URL)
 
   $VALIDATOR_KEYGEN_BIN \
     --totalValidators=$NUM_VALIDATORS \
     --outputDir="$VALIDATORS_DIR" \
-    --generateFakeKeys=yes
+    --generateFakeKeys=yes \
+    --depositWeb3Url=$DEPOSIT_WEB3_URL \
+    --depositContractAddress=$DEPOSIT_CONTRACT_ADDRESS
 fi
 
 if [[ -z "$SKIP_BUILDS" ]]; then

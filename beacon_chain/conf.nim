@@ -77,6 +77,14 @@ type
               "If you set this to 'auto', a persistent automatically generated ID will be seleceted for each --dataDir folder"
         defaultValue: ""}: string
 
+      depositWeb3Url* {.
+        desc: "URL of the Web3 server to observe Eth1",
+        defaultValue: ""}: string
+
+      depositContractAddress* {.
+        desc: "Address of the deposit contract",
+        defaultValue: ""}: string
+
     of createTestnet:
       networkId* {.
         desc: "An unique numeric identifier for the network".}: uint8

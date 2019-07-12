@@ -7,7 +7,7 @@ import
   conf, time, state_transition, fork_choice, ssz, beacon_chain_db,
   validator_pool, extras, attestation_pool, block_pool, eth2_network,
   beacon_node_types, mainchain_monitor, trusted_state_snapshots, version,
-  sync_protocol, request_manager
+  sync_protocol, request_manager, genesis
 
 const
   topicBeaconBlocks = "ethereum/2.1/beacon_chain/blocks"
@@ -149,11 +149,14 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
 
     try:
       info "Importing snapshot file", path = snapshotFile
+      info "Waiting for genesis state from eth1"
 
       let
-        tailState = Json.loadFile(snapshotFile, BeaconState)
+        tailState = await getGenesisFromEth1(conf)
+        # tailState = Json.loadFile(snapshotFile, BeaconState)
         tailBlock = get_initial_beacon_block(tailState)
 
+      info "Got genesis state", hash = hash_tree_root(tailState)
       BlockPool.preInit(result.db, tailState, tailBlock)
 
     except SerializationError as err:
