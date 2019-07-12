@@ -32,14 +32,14 @@ requires "nim >= 0.19.0",
   "libp2p"
 
 ### Helper functions
-proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =
+proc buildBinary(name: string, srcDir = "./", params = "", cmdParams = "", lang = "c") =
   if not dirExists "build":
     mkDir "build"
   # allow something like "nim test --verbosity:0 --hints:off beacon_chain.nims"
   var extra_params = params
   for i in 2..<paramCount():
     extra_params &= " " & paramStr(i)
-  exec "nim " & lang & " --out:./build/" & name & " " & extra_params & " " & srcDir & name & ".nim"
+  exec "nim " & lang & " --out:./build/" & name & " " & extra_params & " " & srcDir & name & ".nim" & " " & cmdParams
 
 ### tasks
 task test, "Run all tests":
@@ -47,3 +47,5 @@ task test, "Run all tests":
   buildBinary "all_tests", "tests/", "-r -d:release -d:chronicles_log_level=ERROR"
   # Minimal config
   buildBinary "all_tests", "tests/", "-r -d:release -d:chronicles_log_level=ERROR -d:const_preset=minimal"
+  # State sim; getting into 3rd epoch useful
+  buildBinary "state_sim", "research/", "-r -d:release", "--validators=128 --slots=140"
