@@ -473,6 +473,11 @@ chronicles.formatIt Epoch: it.humaneEpochNum
 chronicles.formatIt BeaconBlock: it.shortLog
 chronicles.formatIt AttestationData: it.shortLog
 
+static:
+  # Ensure that get_crosslink_committee(...) can access all committees, which
+  # requires that SHARD_COUNT >= get_committee_count(...)
+  doAssert SHARD_COUNT >= SLOTS_PER_EPOCH
+
 import nimcrypto, json_serialization
 export json_serialization
 export writeValue, readValue, append, read

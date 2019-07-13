@@ -80,7 +80,7 @@ const
   MIN_ATTESTATION_INCLUSION_DELAY* = 1
 
   # Changed
-  SLOTS_PER_EPOCH* {.intdefine.} = 64
+  SLOTS_PER_EPOCH* {.intdefine.} = 8
 
   # Unchanged
   MIN_SEED_LOOKAHEAD* = 1

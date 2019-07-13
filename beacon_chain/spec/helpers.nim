@@ -87,7 +87,10 @@ func get_committee_count*(state: BeaconState, epoch: Epoch): uint64 =
   let committees_per_slot = clamp(
     len(active_validator_indices) div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
     1, SHARD_COUNT div SLOTS_PER_EPOCH).uint64
-  committees_per_slot * SLOTS_PER_EPOCH
+  result = committees_per_slot * SLOTS_PER_EPOCH
+
+  # Otherwise, get_crosslink_committee(...) cannot access some committees.
+  doAssert SHARD_COUNT >= result
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: BeaconState): Epoch =
