@@ -485,11 +485,9 @@ func process_final_updates(state: var BeaconState) =
   state.previous_epoch_attestations = state.current_epoch_attestations
   state.current_epoch_attestations = @[]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#per-epoch-processing
-func processEpoch*(state: var BeaconState) =
-  if not (state.slot > GENESIS_SLOT and
-         (state.slot + 1) mod SLOTS_PER_EPOCH == 0):
-    return
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#per-epoch-processing
+func process_epoch*(state: var BeaconState) =
+  # @proc are placeholders
 
   var per_epoch_cache = get_empty_per_epoch_cache()
 
@@ -510,8 +508,13 @@ func processEpoch*(state: var BeaconState) =
   ## get_active_validator_indices(...) usually changes.
   clear(per_epoch_cache.crosslink_committee_cache)
 
+  # @process_reveal_deadlines
+  # @process_challenge_deadlines
+
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#slashings
   process_slashings(state)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#final-updates
   process_final_updates(state)
+
+  # @after_process_final_updates

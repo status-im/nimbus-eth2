@@ -19,7 +19,7 @@ template withPool(body: untyped) =
     pool {.inject.} = AttestationPool.init(blockPool)
     state {.inject.} = loadTailState(blockPool)
   # Slot 0 is a finalized slot - won't be making attestations for it..
-  advanceState(state.data)
+  process_slots(state.data, state.data.data.slot + 1)
 
   body
 
@@ -46,8 +46,7 @@ suite "Attestation pool processing" & preset():
 
       pool.add(state.data.data, attestation)
 
-      for i in 0..<MIN_ATTESTATION_INCLUSION_DELAY.int - 1:
-        advanceState(state.data)
+      process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot) # minus 1?
 
       let attestations = pool.getAttestationsForBlock(
         state.data.data, state.data.data.slot + 1)
@@ -65,7 +64,7 @@ suite "Attestation pool processing" & preset():
         attestation0 = makeAttestation(
           state.data.data, state.blck.root, cc0[0])
 
-      advanceState(state.data)
+      process_slots(state.data, state.data.data.slot + 1)
 
       let
         cc1 = get_crosslink_committee(state.data.data,
@@ -77,8 +76,7 @@ suite "Attestation pool processing" & preset():
       pool.add(state.data.data, attestation1)
       pool.add(state.data.data, attestation0)
 
-      for i in 0..<MIN_ATTESTATION_INCLUSION_DELAY.int - 1:
-        advanceState(state.data)
+      process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot) # minus 1?
 
       let attestations = pool.getAttestationsForBlock(
         state.data.data, state.data.data.slot + 1)
@@ -101,7 +99,7 @@ suite "Attestation pool processing" & preset():
       pool.add(state.data.data, attestation0)
       pool.add(state.data.data, attestation1)
 
-      for i in 0..<MIN_ATTESTATION_INCLUSION_DELAY.int - 1: advanceState(state.data)
+      process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot) # minus 1?
 
       let attestations = pool.getAttestationsForBlock(
         state.data.data, state.data.data.slot + 1)
@@ -127,7 +125,7 @@ suite "Attestation pool processing" & preset():
       pool.add(state.data.data, attestation0)
       pool.add(state.data.data, attestation1)
 
-      for i in 0..<MIN_ATTESTATION_INCLUSION_DELAY.int - 1: advanceState(state.data)
+      process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot) # minus 1?
 
       let attestations = pool.getAttestationsForBlock(
         state.data.data, state.data.data.slot + 1)
@@ -152,7 +150,7 @@ suite "Attestation pool processing" & preset():
       pool.add(state.data.data, attestation1)
       pool.add(state.data.data, attestation0)
 
-      for i in 0..<MIN_ATTESTATION_INCLUSION_DELAY.int - 1: advanceState(state.data)
+      process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot) # minus 1?
 
       let attestations = pool.getAttestationsForBlock(
         state.data.data, state.data.data.slot + 1)

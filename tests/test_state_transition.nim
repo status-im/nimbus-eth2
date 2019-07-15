@@ -27,7 +27,7 @@ suite "Block processing" & preset():
     var
       state = genesisState
 
-    advanceState(state)
+    process_slots(state, state.slot + 1)
     check:
       state.slot == genesisState.slot + 1
 
@@ -37,7 +37,7 @@ suite "Block processing" & preset():
       previous_block_root = signing_root(genesisBlock)
       new_block = makeBlock(state, previous_block_root, BeaconBlockBody())
 
-    let block_ok = updateState(state, new_block, {})
+    let block_ok = state_transition(state, new_block, {})
 
     check:
       block_ok
@@ -48,8 +48,7 @@ suite "Block processing" & preset():
     var
       state = genesisState
 
-    for i in 1..SLOTS_PER_EPOCH.int:
-      advanceState(state)
+    process_slots(state, Slot(SLOTS_PER_EPOCH))
 
     check:
       state.slot == genesisState.slot + SLOTS_PER_EPOCH
@@ -62,7 +61,7 @@ suite "Block processing" & preset():
     for i in 1..SLOTS_PER_EPOCH.int:
       var new_block = makeBlock(state, previous_block_root, BeaconBlockBody())
 
-      let block_ok = updateState(state, new_block, {})
+      let block_ok = state_transition(state, new_block, {})
 
       check:
         block_ok
@@ -79,7 +78,7 @@ suite "Block processing" & preset():
       cache = get_empty_per_epoch_cache()
 
     # Slot 0 is a finalized slot - won't be making attestations for it..
-    advanceState(state)
+    process_slots(state, state.slot + 1)
 
     let
       # Create an attestation for slot 1 signed by the only attester we have!
@@ -90,20 +89,18 @@ suite "Block processing" & preset():
 
     # Some time needs to pass before attestations are included - this is
     # to let the attestation propagate properly to interested participants
-    while state.slot < GENESIS_SLOT + MIN_ATTESTATION_INCLUSION_DELAY + 1:
-      advanceState(state)
+    process_slots(state, GENESIS_SLOT + MIN_ATTESTATION_INCLUSION_DELAY + 1)
 
     let
       new_block = makeBlock(state, previous_block_root, BeaconBlockBody(
         attestations: @[attestation]
       ))
-    discard updateState(state, new_block, {})
+    discard state_transition(state, new_block, {})
 
     check:
       state.current_epoch_attestations.len == 1
 
-    while state.slot < 191:
-      advanceState(state)
+    process_slots(state, Slot(191))
 
     # Would need to process more epochs for the attestation to be removed from
     # the state! (per above bug)
