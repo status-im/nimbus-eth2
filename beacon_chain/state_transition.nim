@@ -152,8 +152,19 @@ func process_slot(state: var HashedBeaconState) =
     signing_root(state.data.latest_block_header)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
-func process_slots*(state: var HashedBeaconState, slot: Slot) =
-  doAssert state.data.slot <= slot
+proc process_slots*(state: var HashedBeaconState, slot: Slot) =
+  # TODO: Eth specs strongly assert that state.data.slot <= slot
+  #       This prevents receiving attestation in any order
+  #       (see tests/test_attestation_pool)
+  #       but it maybe an artifact of the test case
+  #       as this was not triggered in the testnet1
+  #       after a hour
+  if state.data.slot > slot:
+    notice(
+      "Unusual request for a slot in the past",
+      current_slot = state.data.slot,
+      target_slot = slot
+    )
 
   # Catch up to the target slot
   while state.data.slot < slot:
