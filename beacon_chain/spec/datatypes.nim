@@ -301,8 +301,10 @@ type
     current_crosslinks*: array[SHARD_COUNT, Crosslink]
 
     # Finality
-    justification_bits*: uint64 ##\
+    justification_bits*: uint8 ##\
     ## Bit set for every recent justified epoch
+    ## Model a Bitvector[4] as a one-byte uint, which should remain consistent
+    ## with ssz/hashing.
 
     previous_justified_checkpoint*: Checkpoint ##\
     ## Previous epoch snapshot
