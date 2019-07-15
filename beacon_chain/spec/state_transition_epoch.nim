@@ -67,7 +67,7 @@ func get_matching_head_attestations(state: BeaconState, epoch: Epoch):
        get_block_root_at_slot(state, get_attestation_data_slot(state, it.data))
   )
 
-func get_unslashed_attesting_indices(
+func get_attesting_indices(
     state: BeaconState, attestations: openarray[PendingAttestation],
     stateCache: var StateCache): HashSet[ValidatorIndex] =
   result = initSet[ValidatorIndex]()
@@ -75,6 +75,10 @@ func get_unslashed_attesting_indices(
     result = result.union(get_attesting_indices(
       state, a.data, a.aggregation_bits, stateCache))
 
+func get_unslashed_attesting_indices(
+    state: BeaconState, attestations: openarray[PendingAttestation],
+    stateCache: var StateCache): HashSet[ValidatorIndex] =
+  result = get_attesting_indices(state, attestations, stateCache)
   for index in result:
     if state.validators[index].slashed:
       result.excl index
@@ -182,7 +186,7 @@ func get_winning_crosslink_and_attesting_indices(
    get_unslashed_attesting_indices(state, winning_attestations, stateCache))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#justification-and-finalization
-func process_justification_and_finalization(
+proc process_justification_and_finalization(
     state: var BeaconState, stateCache: var StateCache) =
   if get_current_epoch(state) <= GENESIS_EPOCH + 1:
     return
@@ -208,8 +212,23 @@ func process_justification_and_finalization(
   ## state.justification_bits[0] = 0b0
   state.justification_bits = state.justification_bits shl 1
 
+  # This is a somewhat expensive approach
+  let active_validator_indices =
+    toSet(mapIt(
+      get_active_validator_indices(state, get_current_epoch(state)), it.int))
+
   let matching_target_attestations_previous =
     get_matching_target_attestations(state, previous_epoch)  # Previous epoch
+  debug "Non-attesting indices in previous epoch: ",
+    missing_all_validators=
+      difference(active_validator_indices,
+        toSet(mapIt(get_attesting_indices(state,
+          matching_target_attestations_previous, stateCache), it.int))),
+    missing_unslashed_validators=
+      difference(active_validator_indices,
+        toSet(mapIt(get_unslashed_attesting_indices(state,
+          matching_target_attestations_previous, stateCache), it.int))),
+    num_active_validators=len(active_validator_indices)
   if get_attesting_balance(state, matching_target_attestations_previous,
       stateCache) * 3 >= get_total_active_balance(state) * 2:
     state.current_justified_checkpoint =
@@ -489,7 +508,7 @@ func process_final_updates(state: var BeaconState) =
   state.current_epoch_attestations = @[]
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#per-epoch-processing
-func process_epoch*(state: var BeaconState) =
+proc process_epoch*(state: var BeaconState) =
   # @proc are placeholders
 
   var per_epoch_cache = get_empty_per_epoch_cache()
