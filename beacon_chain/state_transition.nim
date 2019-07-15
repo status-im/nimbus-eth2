@@ -36,14 +36,8 @@ import
   ./spec/[beaconstate, bitfield, crypto, datatypes, digest, helpers, validator],
   ./spec/[state_transition_block, state_transition_epoch]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#per-slot-processing
-func advance_slot(state: var BeaconState) =
-  ## Time on the beacon chain moves in slots. Every time we make it to a new
-  ## slot, a proposer creates a block to represent the state of the beacon
-  ## chain at that time. In case the proposer is missing, it may happen that
-  ## the no block is produced during the slot.
-
-  state.slot += 1
+# Canonical state transition functions
+# ---------------------------------------------------------------
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 func process_slot(state: var BeaconState) =
@@ -60,6 +54,18 @@ func process_slot(state: var BeaconState) =
   state.block_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
     signing_root(state.latest_block_header)
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
+func process_slots*(state: var BeaconState, slot: Slot) =
+  doAssert state.slot <= slot
+
+  # Catch up to the target slot
+  while state.slot < slot:
+    process_slot(state)
+    if (state.slot + 1) mod SLOTS_PER_EPOCH == 0:
+      # Note: Genesis epoch = 0, no need to test if before Genesis
+      process_epoch(state)
+    state.slot += 1
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#state-root-verification
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   let state_root = hash_tree_root(state)
@@ -70,33 +76,8 @@ proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   else:
     true
 
-proc advanceState*(state: var BeaconState) =
-  ## Sometimes we need to update the state even though we don't have a block at
-  ## hand - this happens for example when a block proposer fails to produce a
-  ## a block.
-
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
-  ## We now define the state transition function. At a high level the state
-  ## transition is made up of four parts:
-
-  ## 1. State caching, which happens at the start of every slot.
-  ## The state caching, caches the state root of the previous slot
-  process_slot(state)
-
-  ## 2. The per-epoch transitions, which happens at the start of the first
-  ## slot of every epoch.
-  ## The per-epoch transitions focus on the validator registry, including
-  ## adjusting balances and activating and exiting validators, as well as
-  ## processing crosslinks and managing block justification/finalization.
-  processEpoch(state)
-
-  ## 3. The per-slot transitions, which happens at every slot.
-  ## The per-slot transitions focus on the slot counter and block roots
-  ## records updates.
-  advance_slot(state)
-
-proc updateState*(
-    state: var BeaconState, new_block: BeaconBlock, flags: UpdateFlags): bool =
+proc state_transition*(
+    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
   ## Time in the beacon chain moves by slots. Every time (haha.) that happens,
   ## we will update the beacon state. Normally, the state updates will be driven
   ## by the contents of a new block, but it may happen that the block goes
@@ -114,7 +95,7 @@ proc updateState*(
   #      update the state as time passes? Something to ponder...
   #      One reason to keep it this way is that you need to look ahead if you're
   #      the block proposer, though in reality we only need a partial update for
-  #      that
+  #      that ===> Implemented as process_slots
   # TODO There's a discussion about what this function should do, and when:
   #      https://github.com/ethereum/eth2.0-specs/issues/284
 
@@ -130,7 +111,7 @@ proc updateState*(
   var old_state = state
 
   # These should never fail.
-  advanceState(state)
+  process_slots(state, blck.slot)
 
   # Block updates - these happen when there's a new block being suggested
   # by the block proposer. Every actor in the network will update its state
@@ -140,11 +121,11 @@ proc updateState*(
   #      https://github.com/ethereum/eth2.0-specs/issues/293
   var per_epoch_cache = get_empty_per_epoch_cache()
 
-  if processBlock(state, new_block, flags, per_epoch_cache):
+  if processBlock(state, blck, flags, per_epoch_cache):
     # This is a bit awkward - at the end of processing we verify that the
     # state we arrive at is what the block producer thought it would be -
     # meaning that potentially, it could fail verification
-    if skipValidation in flags or verifyStateRoot(state, new_block):
+    if skipValidation in flags or verifyStateRoot(state, blck):
       # State root is what it should be - we're done!
       return true
 
@@ -152,20 +133,8 @@ proc updateState*(
   state = old_state
   false
 
-proc skipSlots*(state: var BeaconState, slot: Slot,
-    afterSlot: proc (state: BeaconState) = nil) =
-  if state.slot < slot:
-    debug "Advancing state with empty slots",
-      targetSlot = humaneSlotNum(slot),
-      stateSlot = humaneSlotNum(state.slot)
-
-    while state.slot < slot:
-      advanceState(state)
-
-      if not afterSlot.isNil:
-        afterSlot(state)
-
-# TODO hashed versions of above - not in spec
+# Hashed-state transition functions
+# ---------------------------------------------------------------
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 func process_slot(state: var HashedBeaconState) =
@@ -182,18 +151,26 @@ func process_slot(state: var HashedBeaconState) =
   state.data.block_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
     signing_root(state.data.latest_block_header)
 
-# Not covered by above 0.7 marking
-proc advanceState*(state: var HashedBeaconState) =
-  process_slot(state)
-  processEpoch(state.data)
-  advance_slot(state.data)
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
+func process_slots*(state: var HashedBeaconState, slot: Slot) =
+  doAssert state.data.slot <= slot
 
-proc updateState*(
+  # Catch up to the target slot
+  while state.data.slot < slot:
+    process_slot(state)
+    if (state.data.slot + 1) mod SLOTS_PER_EPOCH == 0:
+      # Note: Genesis epoch = 0, no need to test if before Genesis
+      process_epoch(state.data)
+    state.data.slot += 1
+
+proc state_transition*(
     state: var HashedBeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
+  # Save for rollback
   var old_state = state
-  advanceState(state)
 
+  process_slots(state, blck.slot)
   var per_epoch_cache = get_empty_per_epoch_cache()
+
   if processBlock(state.data, blck, flags, per_epoch_cache):
     if skipValidation in flags or verifyStateRoot(state.data, blck):
       # State root is what it should be - we're done!
@@ -210,19 +187,6 @@ proc updateState*(
   # Block processing failed, roll back changes
   state = old_state
   false
-
-proc skipSlots*(state: var HashedBeaconState, slot: Slot,
-    afterSlot: proc (state: HashedBeaconState) = nil) =
-  if state.data.slot < slot:
-    debug "Advancing state with empty slots",
-      targetSlot = humaneSlotNum(slot),
-      stateSlot = humaneSlotNum(state.data.slot)
-
-    while state.data.slot < slot:
-      advanceState(state)
-
-      if not afterSlot.isNil:
-        afterSlot(state)
 
 # TODO document this:
 

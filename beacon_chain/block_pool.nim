@@ -244,7 +244,7 @@ proc add*(
     #      but maybe we should use it as a hint that our clock is wrong?
     updateStateData(pool, state, BlockSlot(blck: parent, slot: blck.slot - 1))
 
-    if not updateState(state.data, blck, {}):
+    if not state_transition(state.data, blck, {}):
       # TODO find a better way to log all this block data
       notice "Invalid block",
         blck = shortLog(blck),
@@ -353,8 +353,11 @@ proc checkMissing*(pool: var BlockPool): seq[FetchRecord] =
 proc skipAndUpdateState(
     state: var HashedBeaconState, blck: BeaconBlock, flags: UpdateFlags,
     afterUpdate: proc (state: HashedBeaconState)): bool =
-  skipSlots(state, blck.slot - 1, afterUpdate)
-  let ok  = updateState(state, blck, flags)
+
+  process_slots(state, blck.slot - 1)
+  afterUpdate(state)
+
+  let ok  = state_transition(state, blck, flags)
 
   afterUpdate(state)
 
@@ -453,8 +456,8 @@ proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
   if state.blck.root == bs.blck.root and state.data.data.slot <= bs.slot:
     if state.data.data.slot != bs.slot:
       # Might be that we're moving to the same block but later slot
-      skipSlots(state.data, bs.slot) do (state: HashedBeaconState):
-        pool.maybePutState(state, bs.blck)
+      process_slots(state.data, bs.slot)
+      pool.maybePutState(state.data, bs.blck)
 
     return # State already at the right spot
 
@@ -475,8 +478,8 @@ proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
       pool.maybePutState(state, ancestors[i].refs)
     doAssert ok, "Blocks in database should never fail to apply.."
 
-  skipSlots(state.data, bs.slot) do (state: HashedBeaconState):
-    pool.maybePutState(state, bs.blck)
+  process_slots(state.data, bs.slot)
+  pool.maybePutState(state.data, bs.blck)
 
   state.blck = bs.blck
 

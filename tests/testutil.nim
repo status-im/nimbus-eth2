@@ -105,7 +105,7 @@ proc addBlock*(
       signature: ValidatorSig(), # we need the rest of the block first!
     )
 
-  let block_ok = updateState(state, new_block, {skipValidation})
+  let block_ok = state_transition(state, new_block, {skipValidation})
   doAssert block_ok
 
   # Ok, we have the new state as it would look with the block applied - now we
