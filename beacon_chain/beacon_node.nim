@@ -362,7 +362,7 @@ proc proposeBlock(node: BeaconNode,
 
     var tmpState = hashedState
 
-    let ok = updateState(tmpState, newBlock, {skipValidation})
+    let ok = state_transition(tmpState, newBlock, {skipValidation})
     # TODO only enable in fast-fail debugging situations
     # otherwise, bad attestations can bring down network
     # doAssert ok # TODO: err, could this fail somehow?
