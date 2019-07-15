@@ -39,7 +39,7 @@ import
 # Canonical state transition functions
 # ---------------------------------------------------------------
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 func process_slot(state: var BeaconState) =
   # Cache state root
   let previous_state_root = hash_tree_root(state)
