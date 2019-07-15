@@ -43,14 +43,14 @@ const
 
   # Constants
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#constants
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#constants
   # TODO "The following values are (non-configurable) constants" ...
   # Unchanged
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#gwei-values
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#gwei-values
 
   # Unchanged
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9
@@ -70,12 +70,12 @@ const
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_fork-choice.md#time-parameters
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_fork-choice.md#time-parameters
 
   # Unchanged
   SECONDS_PER_SLOT*{.intdefine.} = 6'u64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#time-parameters
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#time-parameters
   # Unchanged
   MIN_ATTESTATION_INCLUSION_DELAY* = 1
 
@@ -107,7 +107,7 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#rewards-and-penalties
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#rewards-and-penalties
 
   # Unchanged
   BASE_REWARD_FACTOR* = 2'u64^6
@@ -118,7 +118,7 @@ const
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#max-operations-per-block
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#max-operations-per-block
 
   # Unchanged
   MAX_PROPOSER_SLASHINGS* = 2^4
@@ -131,7 +131,7 @@ const
 type
   # Signature domains
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.0/specs/core/0_beacon-chain.md#signature-domain-types
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#signature-domain-types
   DomainType* {.pure.} = enum
     DOMAIN_BEACON_PROPOSER = 0
     DOMAIN_RANDAO = 1
