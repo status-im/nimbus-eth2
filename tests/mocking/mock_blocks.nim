@@ -13,7 +13,7 @@ import
   # Mock helpers
   ./mock_validator_keys
 
-# Routines for mocking block
+# Routines for mocking blocks
 # ---------------------------------------------------------------
 
 proc signMockBlockImpl(
