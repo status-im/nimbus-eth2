@@ -219,6 +219,17 @@ proc process_justification_and_finalization(
 
   let matching_target_attestations_previous =
     get_matching_target_attestations(state, previous_epoch)  # Previous epoch
+
+  ## This epoch processing is the last time these previous attestations can
+  ## matter -- in the next epoch, they'll be 2 epochs old, when BeaconState
+  ## tracks current_epoch_attestations and previous_epoch_attestations only
+  ## per
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#attestations
+  ## and `get_matching_source_attestations(...)` via
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#helper-functions-1
+  ## and
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#final-updates
+  ## after which the state.previous_epoch_attestations is replaced.
   debug "Non-attesting indices in previous epoch: ",
     missing_all_validators=
       difference(active_validator_indices,
