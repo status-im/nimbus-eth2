@@ -33,7 +33,8 @@
 # now.
 
 import # TODO - cleanup imports
-  algorithm, collections/sets, chronicles, math, options, sequtils, sets, tables,
+  algorithm, math, options, sequtils, tables,
+  chronicles, json_serialization/std/sets,
   ../extras, ../ssz, ../beacon_node_types,
   beaconstate, bitfield, crypto, datatypes, digest, helpers, validator
 
