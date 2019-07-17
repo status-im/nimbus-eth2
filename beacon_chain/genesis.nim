@@ -3,7 +3,7 @@ import conf, chronos, web3, json_rpc/rpcclient, json,
 
 contract(DepositContract):
   proc deposit(pubkey: Bytes48, withdrawalCredentials: Bytes32, signature: Bytes96)
-  proc Deposit(pubkey: Bytes48, withdrawalCredentials: Bytes32, amount: Bytes8, signature: Bytes96, merkleTreeIndex: Bytes8) {.event.}
+  proc DepositEvent(pubkey: Bytes48, withdrawalCredentials: Bytes32, amount: Bytes8, signature: Bytes96, index: Bytes8) {.event.}
 
 const MIN_GENESIS_TIME = 0
 
@@ -43,7 +43,7 @@ proc getGenesisFromEth1*(conf: BeaconNodeConf): Future[BeaconState] {.async.} =
   var deposits = DepositCollector()
   deposits.queue = newAsyncQueue[QueueElement]()
 
-  let s = await ns.subscribe(Deposit, %*{"fromBlock": "0x0"}) do(pubkey: Bytes48, withdrawalCredentials: Bytes32, amount: Bytes8, signature: Bytes96, merkleTreeIndex: Bytes8, j: JsonNode):
+  let s = await ns.subscribe(DepositEvent, %*{"fromBlock": "0x0"}) do(pubkey: Bytes48, withdrawalCredentials: Bytes32, amount: Bytes8, signature: Bytes96, merkleTreeIndex: Bytes8, j: JsonNode):
 
     let blkHash = BlockHash.fromHex(j["blockHash"].getStr())
     let amount = bytes_to_int(array[8, byte](amount))
