@@ -79,6 +79,38 @@ proc saveValidatorKey(keyName, key: string, conf: BeaconNodeConf) =
   writeFile(outputFile, key)
   info "Imported validator key", file = outputFile
 
+proc initGenesis(node: BeaconNode) {.async.} =
+  template conf: untyped = node.config
+  var tailState: BeaconState
+  if conf.depositWeb3Url.len != 0:
+    info "Waiting for genesis state from eth1"
+    tailState = await getGenesisFromEth1(conf)
+  else:
+    var snapshotFile = conf.dataDir / genesisFile
+    if conf.stateSnapshot.isSome:
+      snapshotFile = conf.stateSnapshot.get.string
+    info "Importing snapshot file", path = snapshotFile
+    if not fileExists(snapshotFile):
+      error "Nimbus database not initialized. Please specify the initial state snapshot file."
+      quit 1
+    try:
+      tailState = Json.loadFile(snapshotFile, BeaconState)
+    except SerializationError as err:
+      stderr.write "Failed to import ", snapshotFile, "\n"
+      stderr.write err.formatMsg(snapshotFile), "\n"
+      quit 1
+
+  info "Got genesis state", hash = hash_tree_root(tailState)
+
+  try:
+    let tailBlock = get_initial_beacon_block(tailState)
+    BlockPool.preInit(node.db, tailState, tailBlock)
+
+  except:
+    stderr.write "Failed to initialize database\n"
+    stderr.write getCurrentExceptionMsg(), "\n"
+    quit 1
+
 proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
   new result
   result.onBeaconBlock = onBeaconBlock
@@ -138,35 +170,8 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   #      specified on command line? potentially, this should be the other way
   #      around...
 
-  let headBlock = result.db.getHeadBlock()
-  if headBlock.isNone():
-    var snapshotFile = conf.dataDir / genesisFile
-    if conf.stateSnapshot.isSome:
-      snapshotFile = conf.stateSnapshot.get.string
-    elif not fileExists(snapshotFile):
-      error "Nimbus database not initialized. Please specify the initial state snapshot file."
-      quit 1
-
-    try:
-      info "Importing snapshot file", path = snapshotFile
-      info "Waiting for genesis state from eth1"
-
-      let
-        tailState = await getGenesisFromEth1(conf)
-        # tailState = Json.loadFile(snapshotFile, BeaconState)
-        tailBlock = get_initial_beacon_block(tailState)
-
-      info "Got genesis state", hash = hash_tree_root(tailState)
-      BlockPool.preInit(result.db, tailState, tailBlock)
-
-    except SerializationError as err:
-      stderr.write "Failed to import ", snapshotFile, "\n"
-      stderr.write err.formatMsg(snapshotFile), "\n"
-      quit 1
-    except:
-      stderr.write "Failed to initialize database\n"
-      stderr.write getCurrentExceptionMsg(), "\n"
-      quit 1
+  if result.db.getHeadBlock().isNone():
+    await result.initGenesis()
 
   result.blockPool = BlockPool.init(result.db)
   result.attestationPool = AttestationPool.init(result.blockPool)
