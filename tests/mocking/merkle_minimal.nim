@@ -33,7 +33,7 @@ let ZeroHashes = block:
     zh.add nodehash
   zh
 
-type SparseMerkleTree[Depth: static int] = object
+type SparseMerkleTree*[Depth: static int] = object
   ## Sparse Merkle tree
   # There is an extra "depth" layer to store leaf nodes
   # This stores leaves at depth = 0
@@ -68,7 +68,7 @@ proc merkleTreeFromLeaves*(
         h.update ZeroHashes[depth-1]
       result.nnznodes[depth].add nodeHash
 
-proc get_merkle_proof*[Depth: static int](
+proc getMerkleProof*[Depth: static int](
         tree: SparseMerkleTree[Depth],
         index: int,
       ): array[Depth, Eth2Digest] =
@@ -100,16 +100,17 @@ when isMainModule:
     echo "Tree: ", tree
 
     let index = 2
-    let proof = get_merkle_proof(tree, index)
+    let proof = getMerkleProof(tree, index)
     echo "Proof: ", proof
 
     # TODO - need compliant implementation of SSZ hash_tree_root
     let root = hash_tree_root([a, b, c])
     echo root
 
-    # echo verify_merkle_branch(
-    #   a, get_merkle_proof(tree, index = 2),
-    #   depth = 3,
-    #   index = 2,
-    #   root = root
-    # )
+    when false:
+      echo verify_merkle_branch(
+        a, get_merkle_proof(tree, index = 2),
+        depth = 3,
+        index = 2,
+        root = root
+      )
