@@ -11,8 +11,9 @@ export NUM_VALIDATORS=${VALIDATORS:-100}
 export NUM_NODES=${NODES:-9}
 export NUM_MISSING_NODES=${MISSING_NODES:-1}
 
-export DEPOSIT_WEB3_URL=ws://localhost:8545
-export DEPOSIT_CONTRACT_ADDRESS=
+# Set DEPOSIT_WEB3_URL_ARG to empty to get genesis state from file, not using web3
+export DEPOSIT_WEB3_URL_ARG=--depositWeb3Url=ws://localhost:8545
+export DEPOSIT_CONTRACT_ADDRESS=0x
 
 
 cd "$SIM_ROOT"
@@ -37,13 +38,15 @@ if [ ! -f $LAST_VALIDATOR ]; then
 
   fi
 
-  export DEPOSIT_CONTRACT_ADDRESS=$($DEPLOY_DEPOSIT_CONTRACT_BIN --depositWeb3Url=$DEPOSIT_WEB3_URL)
+  if [ "$DEPOSIT_WEB3_URL_ARG" != "" ]; then
+    export DEPOSIT_CONTRACT_ADDRESS=$($DEPLOY_DEPOSIT_CONTRACT_BIN $DEPOSIT_WEB3_URL_ARG)
+  fi
 
   $VALIDATOR_KEYGEN_BIN \
     --totalValidators=$NUM_VALIDATORS \
     --outputDir="$VALIDATORS_DIR" \
     --generateFakeKeys=yes \
-    --depositWeb3Url=$DEPOSIT_WEB3_URL \
+    $DEPOSIT_WEB3_URL_ARG \
     --depositContractAddress=$DEPOSIT_CONTRACT_ADDRESS
 fi
 
