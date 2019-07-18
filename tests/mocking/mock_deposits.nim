@@ -9,6 +9,8 @@
 # ---------------------------------------------------------------
 
 import
+  # Standard library
+  math, random,
   # 0.19.6 shims
   stew/objects, # import default
   # Specs
@@ -17,7 +19,6 @@ import
   ../../beacon_chain/[ssz, extras],
   # Mocking procs
   ./merkle_minimal,./mock_validator_keys
-
 
 func signMockDepositData(
         deposit_data: var DepositData,
@@ -88,18 +89,22 @@ func mockDepositData(
   if skipValidation notin flags:
     signMockDepositData(deposit_data, privkey, state)
 
-proc mockGenesisDeposits*(
-        validatorCount: int,
-        amount: uint64,
-        flags: UpdateFlags = {}
-      ): seq[Deposit] =
-
+template mockGenesisDepositsImpl(
+        result: seq[Deposit],
+        validatorCount: uint64,
+        amount: untyped,
+        flags: UpdateFlags = {},
+        updateAmount: untyped,
+      ) =
+  # Genesis deposits with varying amounts
 
   if skipValidation in flags:
     # 1st loop - build deposit data
-    for valIdx in 0 ..< validatorCount:
+    for valIdx in 0 ..< validatorCount.int:
       # Directly build the Deposit in-place for speed
       result.setLen(valIdx + 1)
+
+      updateAmount
 
       # DepositData
       mockDepositData(
@@ -112,9 +117,11 @@ proc mockGenesisDeposits*(
     var depositsData: seq[DepositData]
 
     # 1st loop - build deposit data
-    for valIdx in 0 ..< validatorCount:
+    for valIdx in 0 ..< validatorCount.int:
       # Directly build the Deposit in-place for speed
       result.setLen(valIdx + 1)
+
+      updateAmount
 
       # DepositData
       mockDepositData(
@@ -133,7 +140,7 @@ proc mockGenesisDeposits*(
     let tree = merkleTreeFromLeaves(depositsDataHash)
 
     # 4th loop - append proof
-    for valIdx in 0 ..< validatorCount:
+    for valIdx in 0 ..< validatorCount.int:
       result[valIdx].proof = tree.getMerkleProof(valIdx)
       when false: # requires compliant SSZ hash_tree_root
         doAssert:
@@ -144,3 +151,40 @@ proc mockGenesisDeposits*(
             valIdx,
             root
           )
+
+proc mockGenesisBalancedDeposits*(
+        validatorCount: uint64,
+        amountInEth: Positive,
+        flags: UpdateFlags = {}
+      ): seq[Deposit] =
+  ## The amount should be strictly positive
+  ## - 1 is the minimum deposit amount (MIN_DEPOSIT_AMOUNT)
+  ## - 16 is the ejection balance (EJECTION_BALANCE)
+  ## - 32 is the max effective balance (MAX_EFFECTIVE_BALANCE)
+  ##   ETH beyond do not contribute more for staking.
+  ##
+  ## Only validators with 32 ETH will be active at genesis
+
+  let amount = amountInEth.uint64 * 10'u64^9
+  mockGenesisDepositsImpl(result,validatorCount,amount,flags):
+    discard
+
+proc mockGenesisUnBalancedDeposits*(
+        validatorCount: uint64,
+        amountRangeInEth: Slice[int], # TODO: use "Positive", Nim range bug
+        flags: UpdateFlags = {}
+      ): seq[Deposit] =
+
+  ## The range of deposit amount should be strictly positive
+  ## - 1 is the minimum deposit amount (MIN_DEPOSIT_AMOUNT)
+  ## - 16 is the ejection balance (EJECTION_BALANCE)
+  ## - 32 is the max effective balance (MAX_EFFECTIVE_BALANCE)
+  ##   ETH beyond do not contribute more for staking.
+  ##
+  ## Only validators with 32 ETH will be active at genesis
+
+  var rng {.global.} = initRand(0x42) # Fixed seed for reproducibility
+  var amount: uint64
+
+  mockGenesisDepositsImpl(result, validatorCount, amount, flags):
+    amount = rng.rand(amountRangeInEth).uint64 * 10'u64^9
