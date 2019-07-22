@@ -18,7 +18,7 @@ import
   # Internals
   ../../beacon_chain/[ssz, extras],
   # Mocking procs
-  ./merkle_minimal,./mock_validator_keys
+  ./merkle_minimal, ./mock_validator_keys
 
 func signMockDepositData(
         deposit_data: var DepositData,
@@ -141,6 +141,7 @@ template mockGenesisDepositsImpl(
 
     # 4th loop - append proof
     for valIdx in 0 ..< validatorCount.int:
+      # TODO spec appends (index+1) in little-endian to the merkle proof
       result[valIdx].proof = tree.getMerkleProof(valIdx)
       when false: # requires compliant SSZ hash_tree_root
         doAssert:
@@ -188,3 +189,32 @@ proc mockGenesisUnBalancedDeposits*(
 
   mockGenesisDepositsImpl(result, validatorCount, amount, flags):
     amount = rng.rand(amountRangeInEth).uint64 * 10'u64^9
+
+proc mockUpdateStateForNewDeposit*(
+       state: var BeaconState,
+       validator_index: uint64,
+       amount: uint64,
+       # withdrawal_credentials: Eth2Digest
+       flags: UpdateFlags
+    ): Deposit =
+
+  # TODO withdrawal credentials
+
+  mockDepositData(
+    result.data,
+    MockPubKeys[validator_index],
+    MockPrivKeys[validator_index],
+    amount,
+    # withdrawal_credentials: Eth2Digest
+    flags
+  )
+
+  let tree = merkleTreeFromLeaves([hash_tree_root(result.data)])
+  # TODO spec appends (index+1) in little-endian to the merkle proof
+  result.proof = getMerkleProof(tree, index = 0)
+
+  # TODO: this logic from the eth2.0-specs test suite seems strange
+  #       but confirmed by running it
+  state.eth1_deposit_index = 0
+  state.eth1_data.deposit_root = hash_tree_root(result.data)
+  state.eth1_data.deposit_count = 1

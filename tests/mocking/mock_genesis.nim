@@ -34,9 +34,9 @@ proc createGenesisState*(num_validators: uint64): BeaconState =
   )
 
   result = initialize_beacon_state_from_eth1(
-    genesis_validator_deposits = mockGenesisUnBalancedDeposits(
+    genesis_validator_deposits = mockGenesisBalancedDeposits(
       validatorCount = num_validators,
-      amountRangeInEth = 1..128, # We create inactive validators
+      amountInEth = 32, # We create canonical validators with 32 Eth
       flags = {skipValidation}
     ),
     genesis_time = 0,
