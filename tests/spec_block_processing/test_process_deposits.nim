@@ -25,42 +25,46 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
   let
     genesisState = createGenesisState(uint64 5 * SLOTS_PER_EPOCH)
 
-  test "Deposit under MAX_EFFECTIVE_BALANCE balance (" &
-         $(MAX_EFFECTIVE_BALANCE div 10'u64^9) & " ETH)":
-    var state: BeaconState
-    deepCopy(state, genesisState)
+  template valid_deposit(deposit_amount: uint64, name: string): untyped =
+    test "Deposit " & name & " MAX_EFFECTIVE_BALANCE balance (" &
+          $(MAX_EFFECTIVE_BALANCE div 10'u64^9) & " ETH)":
+      var state: BeaconState
+      deepCopy(state, genesisState)
 
-    # Test configuration
-    # ----------------------------------------
-    let validator_index = state.validators.len
-    let amount = MAX_EFFECTIVE_BALANCE - 1
-    let deposit = mockUpdateStateForNewDeposit(
-                    state,
-                    uint64 validator_index,
-                    amount,
-                    flags = {skipValidation}
-                  )
+      # Test configuration
+      # ----------------------------------------
+      let validator_index = state.validators.len
+      let deposit = mockUpdateStateForNewDeposit(
+                      state,
+                      uint64 validator_index,
+                      deposit_amount,
+                      flags = {skipValidation}
+                    )
 
-    # Params for sanity checks
-    # ----------------------------------------
-    let pre_val_count = state.validators.len
-    let pre_balance = if validator_index < pre_val_count:
-                        state.balances[validator_index]
-                      else:
-                        0
+      # Params for sanity checks
+      # ----------------------------------------
+      let pre_val_count = state.validators.len
+      let pre_balance = if validator_index < pre_val_count:
+                          state.balances[validator_index]
+                        else:
+                          0
 
-    # State transition
-    # ----------------------------------------
-    check: state.process_deposit(deposit, {skipValidation})
+      # State transition
+      # ----------------------------------------
+      check: state.process_deposit(deposit, {skipValidation})
 
-    # Check invariants
-    # ----------------------------------------
-    check:
-      state.validators.len == pre_val_count + 1
-      state.balances.len == pre_val_count + 1
-      state.balances[validator_index] == pre_balance + deposit.data.amount
-      state.validators[validator_index].effective_balance ==
-        round_multiple_down(
-          min(MAX_EFFECTIVE_BALANCE, state.balances[validator_index]),
-          EFFECTIVE_BALANCE_INCREMENT
-        )
+      # Check invariants
+      # ----------------------------------------
+      check:
+        state.validators.len == pre_val_count + 1
+        state.balances.len == pre_val_count + 1
+        state.balances[validator_index] == pre_balance + deposit.data.amount
+        state.validators[validator_index].effective_balance ==
+          round_multiple_down(
+            min(MAX_EFFECTIVE_BALANCE, state.balances[validator_index]),
+            EFFECTIVE_BALANCE_INCREMENT
+          )
+
+  valid_deposit(MAX_EFFECTIVE_BALANCE - 1, "under")
+  valid_deposit(MAX_EFFECTIVE_BALANCE, "at")
+  valid_deposit(MAX_EFFECTIVE_BALANCE + 1, "over")
