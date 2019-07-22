@@ -111,3 +111,9 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
           min(MAX_EFFECTIVE_BALANCE, state.balances[validator_index]),
           EFFECTIVE_BALANCE_INCREMENT
         )
+
+  # TODO, tests with:
+  # - invalid BLS signature
+  # - invalid withdrawal credential
+  # - invalid deposit root
+  # - invalid merkle proof
