@@ -37,6 +37,7 @@ cd vendor/nim-beacon-chain
 make test
 ```
 
+
 ## Beacon node simulation
 
 The beacon node simulation will create a full peer-to-peer network of beacon nodes and validators, and run the beacon chain in real time. To change network parameters such as shard and validator counts, see [start.sh](tests/simulation/start.sh).
