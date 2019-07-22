@@ -22,10 +22,13 @@ import
   ../testutil, ../helpers/math_helpers
 
 suite "[Unit - Spec - Block processing] Deposits " & preset():
-  let
-    genesisState = createGenesisState(uint64 5 * SLOTS_PER_EPOCH)
+
+  const NumValidators = uint64 5 * SLOTS_PER_EPOCH
+  let genesisState = createGenesisState(NumValidators)
+  doAssert genesisState.validators.len == int NumValidators
 
   template valid_deposit(deposit_amount: uint64, name: string): untyped =
+    # TODO: BLS signature
     test "Deposit " & name & " MAX_EFFECTIVE_BALANCE balance (" &
           $(MAX_EFFECTIVE_BALANCE div 10'u64^9) & " ETH)":
       var state: BeaconState
@@ -68,3 +71,43 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
   valid_deposit(MAX_EFFECTIVE_BALANCE - 1, "under")
   valid_deposit(MAX_EFFECTIVE_BALANCE, "at")
   valid_deposit(MAX_EFFECTIVE_BALANCE + 1, "over")
+
+  test "Validator top-up":
+
+    var state: BeaconState
+    deepCopy(state, genesisState)
+
+    # Test configuration
+    # ----------------------------------------
+    let validator_index = 0
+    let deposit_amount = MAX_EFFECTIVE_BALANCE div 4
+    let deposit = mockUpdateStateForNewDeposit(
+                    state,
+                    uint64 validator_index,
+                    deposit_amount,
+                    flags = {skipValidation}
+                  )
+
+    # Params for sanity checks
+    # ----------------------------------------
+    let pre_val_count = state.validators.len
+    let pre_balance = if validator_index < pre_val_count:
+                        state.balances[validator_index]
+                      else:
+                        0
+
+    # State transition
+    # ----------------------------------------
+    check: state.process_deposit(deposit, {skipValidation})
+
+    # Check invariants
+    # ----------------------------------------
+    check:
+      state.validators.len == pre_val_count
+      state.balances.len == pre_val_count
+      state.balances[validator_index] == pre_balance + deposit.data.amount
+      state.validators[validator_index].effective_balance ==
+        round_multiple_down(
+          min(MAX_EFFECTIVE_BALANCE, state.balances[validator_index]),
+          EFFECTIVE_BALANCE_INCREMENT
+        )

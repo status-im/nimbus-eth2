@@ -167,7 +167,7 @@ proc mockGenesisBalancedDeposits*(
   ## Only validators with 32 ETH will be active at genesis
 
   let amount = amountInEth.uint64 * 10'u64^9
-  mockGenesisDepositsImpl(result,validatorCount,amount,flags):
+  mockGenesisDepositsImpl(result, validatorCount,amount,flags):
     discard
 
 proc mockGenesisUnBalancedDeposits*(

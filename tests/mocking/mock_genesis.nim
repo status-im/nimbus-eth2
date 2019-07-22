@@ -33,16 +33,20 @@ proc createGenesisState*(num_validators: uint64): BeaconState =
     block_hash: ZERO_HASH
   )
 
-  result = initialize_beacon_state_from_eth1(
-    genesis_validator_deposits = mockGenesisBalancedDeposits(
+  let deposits = mockGenesisBalancedDeposits(
       validatorCount = num_validators,
       amountInEth = 32, # We create canonical validators with 32 Eth
       flags = {skipValidation}
-    ),
+    )
+
+  result = initialize_beacon_state_from_eth1(
+    genesis_validator_deposits = deposits,
     genesis_time = 0,
     genesis_eth1_data = eth1_data,
+    flags = {skipValidation}
   )
 
 when isMainModule:
   # Smoke test
-  discard createGenesisState(SLOTS_PER_EPOCH)
+  let state = createGenesisState(num_validators = SLOTS_PER_EPOCH)
+  doAssert state.validators.len == SLOTS_PER_EPOCH
