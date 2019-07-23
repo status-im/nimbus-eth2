@@ -42,7 +42,7 @@ p2pd: | deps
 test: | build deps nat-libs
 	bash ../../nimble.sh test $(NIM_PARAMS)
 
-$(TOOLS): | build deps nat-libs
+$(TOOLS): | build deps nat-libs p2pd
 	for D in $(TOOLS_DIRS); do [ -e "$${D}/$@.nim" ] && TOOL_DIR="$${D}" && break; done && \
 		echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim c $(NIM_PARAMS) -o:build/$@ "$${TOOL_DIR}/$@.nim"
