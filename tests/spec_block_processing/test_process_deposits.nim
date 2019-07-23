@@ -6,8 +6,8 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 
-# processDeposits (state_transition_block.nim)
-# https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#deposits
+# process_deposit (beaconstate.nim)
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#deposits
 # ---------------------------------------------------------------
 
 import
@@ -24,7 +24,7 @@ import
 suite "[Unit - Spec - Block processing] Deposits " & preset():
 
   const NumValidators = uint64 5 * SLOTS_PER_EPOCH
-  let genesisState = createGenesisState(NumValidators)
+  let genesisState = initGenesisState(NumValidators)
   doAssert genesisState.validators.len == int NumValidators
 
   template valid_deposit(deposit_amount: uint64, name: string): untyped =

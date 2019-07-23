@@ -17,7 +17,7 @@ import
   ./mock_deposits
 
 
-proc createGenesisState*(num_validators: uint64): BeaconState =
+proc initGenesisState*(num_validators: uint64, genesis_time: uint64 = 0): BeaconState =
 
   # EF magic number (similar to https://en.wikipedia.org/wiki/Magic_number_(programming))
   const deposit_root = Eth2Digest(
@@ -48,5 +48,5 @@ proc createGenesisState*(num_validators: uint64): BeaconState =
 
 when isMainModule:
   # Smoke test
-  let state = createGenesisState(num_validators = SLOTS_PER_EPOCH)
+  let state = initGenesisState(num_validators = SLOTS_PER_EPOCH)
   doAssert state.validators.len == SLOTS_PER_EPOCH
