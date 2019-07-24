@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  options, sequtils,
+  options, sequtils, stew/endians2,
   chronicles, eth/trie/[db],
   ../beacon_chain/[beacon_chain_db, block_pool, extras, ssz, state_transition,
     validator_pool, beacon_node_types],
@@ -17,18 +17,25 @@ func preset*(): string =
   " [Preset: " & const_preset & ']'
 
 func makeFakeValidatorPrivKey*(i: int): ValidatorPrivKey =
-  var i = i + 1 # 0 does not work, as private key...
-  copyMem(result.x[0].addr, i.addr, min(sizeof(result.x), sizeof(i)))
+  # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
+  # lighthouse.
+  # TODO: switch to https://github.com/ethereum/eth2.0-pm/issues/60
+  var bytes = uint64(i + 1000).toBytesLE()
+  copyMem(addr result.x[0], addr bytes[0], sizeof(bytes))
 
 func makeFakeHash*(i: int): Eth2Digest =
-  copyMem(result.data[0].addr, i.unsafeAddr, min(sizeof(result.data), sizeof(i)))
+  var bytes = uint64(i).toBytesLE()
+  static: doAssert sizeof(bytes) <= sizeof(result.data)
+  copyMem(addr result.data[0], addr bytes[0], sizeof(bytes))
 
 func hackPrivKey(v: Validator): ValidatorPrivKey =
   ## Extract private key, per above hack
-  var i: int
+  var bytes: array[8, byte]
+  static: doAssert sizeof(bytes) <= sizeof(v.withdrawal_credentials.data)
+
   copyMem(
-    i.addr, v.withdrawal_credentials.data[0].unsafeAddr,
-    min(sizeof(v.withdrawal_credentials.data), sizeof(i)))
+    addr bytes, unsafeAddr v.withdrawal_credentials.data[0], sizeof(bytes))
+  let i = int(uint64.fromBytesLE(bytes))
   makeFakeValidatorPrivKey(i)
 
 func makeDeposit(i: int, flags: UpdateFlags): Deposit =
