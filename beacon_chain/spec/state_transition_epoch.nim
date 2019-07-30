@@ -76,7 +76,7 @@ func get_attesting_indices(
     result = result.union(get_attesting_indices(
       state, a.data, a.aggregation_bits, stateCache))
 
-func get_unslashed_attesting_indices(
+func get_unslashed_attesting_indices*(
     state: BeaconState, attestations: openarray[PendingAttestation],
     stateCache: var StateCache): HashSet[ValidatorIndex] =
   result = get_attesting_indices(state, attestations, stateCache)
@@ -233,7 +233,15 @@ proc process_justification_and_finalization(
       difference(active_validator_indices,
         toSet(mapIt(get_unslashed_attesting_indices(state,
           matching_target_attestations_previous, stateCache), it.int))),
-    num_active_validators=len(active_validator_indices)
+    prev_attestating_indices=
+      mapIt(get_attesting_indices(state, state.previous_epoch_attestations, stateCache), it.int),
+    prev_attestations_len=len(state.previous_epoch_attestations),
+    cur_attestating_indices=
+      mapIt(get_attesting_indices(state, state.current_epoch_attestations, stateCache), it.int),
+    cur_attestations_len=len(state.current_epoch_attestations),
+    num_active_validators=len(active_validator_indices),
+    required_balance = get_total_active_balance(state) * 2,
+    attesting_balance_prev = get_attesting_balance(state, matching_target_attestations_previous, stateCache)
   if get_attesting_balance(state, matching_target_attestations_previous,
       stateCache) * 3 >= get_total_active_balance(state) * 2:
     state.current_justified_checkpoint =

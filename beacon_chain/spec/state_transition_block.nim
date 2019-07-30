@@ -235,8 +235,25 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock,
         slashed_any = true
     result = result and slashed_any
 
+# REMOVE ME PRE-MERGE
+func get_attesting_indices(
+    state: BeaconState, attestations: openarray[PendingAttestation],
+    stateCache: var StateCache): HashSet[ValidatorIndex] =
+  result = initSet[ValidatorIndex]()
+  for a in attestations:
+    result = result.union(get_attesting_indices(
+      state, a.data, a.aggregation_bits, stateCache))
+
+func get_unslashed_attesting_indices(
+    state: BeaconState, attestations: openarray[PendingAttestation],
+    stateCache: var StateCache): HashSet[ValidatorIndex] =
+  result = get_attesting_indices(state, attestations, stateCache)
+  for index in result:
+    if state.validators[index].slashed:
+      result.excl index
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#attestations
-proc processAttestations(
+proc processAttestations*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool =
   ## Each block includes a number of attestations that the proposer chose. Each
@@ -249,12 +266,20 @@ proc processAttestations(
     notice "Attestation: too many!", attestations = blck.body.attestations.len
     return false
 
+  debug "in processAttestations, not processed attestations",
+    attestations_len = blck.body.attestations.len()
+
   if not blck.body.attestations.allIt(process_attestation(state, it, flags, stateCache)):
     return false
 
   # All checks passed - update state
   # Apply the attestations
   var committee_count_cache = initTable[Epoch, uint64]()
+
+  debug "in processAttestations, has processed attestations",
+    attestations_len = blck.body.attestations.len()
+
+  var cache = get_empty_per_epoch_cache()
 
   for attestation in blck.body.attestations:
     # Caching
@@ -280,6 +305,17 @@ proc processAttestations(
       state.current_epoch_attestations.add(pending_attestation)
     else:
       state.previous_epoch_attestations.add(pending_attestation)
+
+    debug "processAttestations",
+      target_epoch=attestation.data.target.epoch,
+      current_epoch= get_current_epoch(state),
+      current_epoch_attestations_len=len(get_attesting_indices(state, state.current_epoch_attestations, cache)),
+      previous_epoch_attestations_len=len(get_attesting_indices(state, state.previous_epoch_attestations, cache)),
+      prev_unslashed_attesting_indices=get_unslashed_attesting_indices(state, state.previous_epoch_attestations, cache),
+      cur_unslashed_attesting_indices=get_unslashed_attesting_indices(state, state.current_epoch_attestations, cache),
+      prev_attesting_indices=get_attesting_indices(state, state.previous_epoch_attestations, cache),
+      cur_attesting_indices=get_attesting_indices(state, state.current_epoch_attestations, cache),
+      new_attestation_indices=get_attesting_indices(state, attestation.data, attestation.aggregation_bits, cache)
 
   true
 
