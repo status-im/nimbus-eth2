@@ -27,7 +27,7 @@ mkdir -p $BUILD_OUTPUTS_DIR
 DEFS="-d:chronicles_log_level=DEBUG "
 DEFS+="-d:SHARD_COUNT=${SHARD_COUNT:-16} "      # Spec default: 1024
 DEFS+="-d:SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH:-16} "   # Spec default: 64
-DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-8} " # Spec default: 6
+DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-16} " # Spec default: 6
 
 LAST_VALIDATOR_NUM=$(( $NUM_VALIDATORS - 1 ))
 LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.json"
