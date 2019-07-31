@@ -1,10 +1,8 @@
 import
-  os, ospaths, strutils, strformat,
+  os, ospaths, strutils, strformat, json,
   chronos, blscurve, nimcrypto, json_serialization, confutils, web3, stint,
   spec/[datatypes, digest, crypto], conf, time, ssz,
   ../tests/testutil
-
-import json_rpc/rpcclient
 
 contract(DepositContract):
   proc deposit(pubkey: Bytes48, withdrawalCredentials: Bytes32, signature: Bytes96)
@@ -21,17 +19,13 @@ proc writeFile(filename: string, value: auto) =
 proc ethToWei(eth: UInt256): UInt256 =
   eth * 1000000000000000000.u256
 
-import web3/stintjson, json
-
 proc main(totalValidators: int, outputDir: string, generateFakeKeys: bool, depositWeb3Url, depositContractAddress: string) {.async.} =
   var web3: Web3
   var contractAddress: Address
   var eth1Addresses: seq[Address]
 
   if depositWeb3Url.len > 0:
-    let provider = newRpcWebSocketClient()
-    await provider.connect(depositWeb3Url)
-    web3 = newWeb3(provider)
+    web3 = await newWeb3(depositWeb3Url)
     contractAddress = Address.fromHex(depositContractAddress)
     eth1Addresses = await web3.provider.eth_accounts()
 

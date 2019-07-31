@@ -1,4 +1,4 @@
-import conf, chronos, web3, json_rpc/rpcclient, json,
+import conf, chronos, web3, json,
   spec/[bitfield, datatypes, digest, crypto, beaconstate, helpers, validator], extras
 
 contract(DepositContract):
@@ -32,9 +32,7 @@ proc processDeposit(d: DepositCollector, web3: Web3): Future[BeaconState] {.asyn
         return s
 
 proc getGenesisFromEth1*(conf: BeaconNodeConf): Future[BeaconState] {.async.} =
-  let provider = newRpcWebSocketClient()
-  await provider.connect(conf.depositWeb3Url)
-  let web3 = newWeb3(provider)
+  let web3 = await newWeb3(conf.depositWeb3Url)
 
   var contractAddress = Address.fromHex(conf.depositContractAddress)
   var defaultAccount: Address
