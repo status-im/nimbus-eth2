@@ -29,7 +29,8 @@ requires "nim >= 0.19.0",
   "json_rpc",
   "chronos",
   "yaml",
-  "libp2p"
+  "libp2p",
+  "web3"
 
 ### Helper functions
 proc buildBinary(name: string, srcDir = "./", params = "", cmdParams = "", lang = "c") =
