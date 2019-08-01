@@ -367,6 +367,7 @@ proc maybePutState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
   # TODO we save state at every epoch start but never remove them - we also
   #      potentially save multiple states per slot if reorgs happen, meaning
   #      we could easily see a state explosion
+  # TODO this is out of sync with epoch def now, I think -- (slot + 1) mod foo.
   if state.data.slot mod SLOTS_PER_EPOCH == 0:
     if not pool.db.containsState(state.root):
       info "Storing state",
@@ -478,6 +479,7 @@ proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
       pool.maybePutState(state, ancestors[i].refs)
     doAssert ok, "Blocks in database should never fail to apply.."
 
+  # TODO check if this triggers rest of state transition, or should
   process_slots(state.data, bs.slot)
   pool.maybePutState(state.data, bs.blck)
 

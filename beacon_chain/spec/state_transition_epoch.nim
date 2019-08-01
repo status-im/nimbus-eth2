@@ -190,6 +190,8 @@ func get_winning_crosslink_and_attesting_indices(
 proc process_justification_and_finalization(
     state: var BeaconState, stateCache: var StateCache) =
   if get_current_epoch(state) <= GENESIS_EPOCH + 1:
+    debug "process_justification_and_finalization early exit",
+      current_epoch = get_current_epoch(state)
     return
 
   let
@@ -462,7 +464,7 @@ func process_slashings(state: var BeaconState) =
       decrease_balance(state, index.ValidatorIndex, penalty)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#final-updates
-func process_final_updates(state: var BeaconState) =
+proc process_final_updates(state: var BeaconState) =
   let
     current_epoch = get_current_epoch(state)
     next_epoch = current_epoch + 1
@@ -515,18 +517,31 @@ func process_final_updates(state: var BeaconState) =
       SHARD_COUNT
 
   # Rotate current/previous epoch attestations
+  debug "Rotating epoch attestations",
+    current_epoch = get_current_epoch(state)
+    
   state.previous_epoch_attestations = state.current_epoch_attestations
   state.current_epoch_attestations = @[]
+
+  debug "Rotated epoch attestations",
+    current_epoch = get_current_epoch(state)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#per-epoch-processing
 proc process_epoch*(state: var BeaconState) =
   # @proc are placeholders
+
+  debug "process_epoch",
+    current_epoch = get_current_epoch(state)
 
   var per_epoch_cache = get_empty_per_epoch_cache()
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#justification-and-finalization
   process_justification_and_finalization(state, per_epoch_cache)
 
+  debug "ran process_justification_and_finalization",
+    current_epoch = get_current_epoch(state)
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#crosslinks
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#crosslinks
   process_crosslinks(state, per_epoch_cache)
 

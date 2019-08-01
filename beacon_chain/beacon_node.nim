@@ -531,14 +531,23 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
   #      revisit this - we should be able to advance behind
   var cache = get_empty_per_epoch_cache()
   node.blockPool.withState(node.stateCache, BlockSlot(blck: head, slot: slot)):
+    # justification won't happen in odd case anyway
+    let prev_epoch = get_previous_epoch(state)
+    let prev_epoch_attestations = node.attestationPool.getAttestationsForTargetEpoch(state, prev_epoch)
+
+    debug "handleProposal: getAttestationsForTargetEpoch attesting indices for prev_epoch",
+      attesting_indices = mapIt(prev_epoch_attestations, get_attesting_indices(state, it.data, it.aggregation_bits, cache))
+
     let
       proposerIdx = get_beacon_proposer_index(state, cache)
       validator = node.getAttachedValidator(state, proposerIdx)
 
-      # Ugly hack
+      # Ugly hack.
+      # TODO handle MAX_ATTESTATIONS & merging pointless dupes for this purpose?
       blockBody2 = BeaconBlockBody(
         attestations:
-          node.attestationPool.getAttestationsForBlock(state, slot - min(MIN_ATTESTATION_INCLUSION_DELAY.uint64, slot.uint64)))
+          #node.attestationPool.getAttestationsForBlock(state, slot - min(MIN_ATTESTATION_INCLUSION_DELAY.uint64, slot.uint64)))
+          prev_epoch_attestations)
 
       newBlock2 = BeaconBlock(
         slot: slot,

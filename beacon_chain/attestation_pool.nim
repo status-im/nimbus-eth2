@@ -324,10 +324,10 @@ proc getAttestationsForBlock*(
       continue
 
     for v in a.validations[1..^1]:
-      # TODO We need to select a set of attestations that maximise profit by
+      # todo we need to select a set of attestations that maximise profit by
       #      adding the largest combined attestation set that we can find - this
       #      unfortunately looks an awful lot like
-      #      https://en.wikipedia.org/wiki/Set_packing - here we just iterate
+      #      https://en.wikipedia.org/wiki/set_packing - here we just iterate
       #      and naively add as much as possible in one go, by we could also
       #      add the same attestation data twice, as long as there's at least
       #      one new attestation in there
@@ -340,6 +340,16 @@ proc getAttestationsForBlock*(
 
     if result.len >= MAX_ATTESTATIONS:
       return
+
+proc getAttestationsForTargetEpoch*(
+  pool: AttestationPool, state: var BeaconState,
+    epoch: Epoch): seq[Attestation] =
+  # TODO quick testing kludge
+  let begin_slot = compute_start_slot_of_epoch(epoch).uint64
+  let end_slot_plus1 = (compute_start_slot_of_epoch(epoch+1) - 1).uint64
+  for s in begin_slot .. end_slot_plus1:
+    result.add getAttestationsForBlock(pool, state, s.Slot)
+
 
 proc resolve*(pool: var AttestationPool, state: BeaconState) =
   var done: seq[Eth2Digest]
