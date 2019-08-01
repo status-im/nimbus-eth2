@@ -62,7 +62,7 @@ install:
 
 build_script:
   - cd C:\projects\%APPVEYOR_PROJECT_SLUG%
-  - bash -c "nimble install -y"
+  - bash -c "nimble install -y --depsOnly"
 
 test_script:
   - nimble test
