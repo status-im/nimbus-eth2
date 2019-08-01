@@ -35,5 +35,6 @@ install:
   - bash build_rocksdb.sh rocksdbCache
 
 script:
-  - nimble install -y
+  - nimble install -y --depsOnly
   - nimble test
+
