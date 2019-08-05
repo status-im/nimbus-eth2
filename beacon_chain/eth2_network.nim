@@ -99,7 +99,8 @@ when networkBackend == rlpxBackend:
   proc readValue*(reader: var JsonReader, value: var BootstrapAddr) {.inline.} =
     value = initENode reader.readValue(string)
 
-  proc createEth2Node*(conf: BeaconNodeConf): Future[EthereumNode] {.async.} =
+  proc createEth2Node*(conf: BeaconNodeConf,
+                       bootstrapNodes: seq[BootstrapAddr]): Future[EthereumNode] {.async.} =
     let
       keys = getPersistentNetIdentity(conf)
       (ip, tcpPort, udpPort) = setupNat(conf)
@@ -125,24 +126,18 @@ else:
   import
     os, random, stew/io,
     libp2p/crypto/crypto, libp2p/daemon/daemonapi, eth/async_utils,
-    ssz
+    ssz, libp2p_backend
 
-  when networkBackend == libp2pSpecBackend:
-    import libp2p_spec_backend
-    export libp2p_spec_backend
-    const netBackendName* = "libp2p_spec"
+  export
+    libp2p_backend
 
-  else:
-    import libp2p_backend
-    export libp2p_backend
-    const netBackendName* = "libp2p_native"
+  const
+    netBackendName* = "libp2p"
+    networkKeyFilename = "privkey.protobuf"
 
   type
     BootstrapAddr* = PeerInfo
     Eth2NodeIdentity* = PeerInfo
-
-  const
-    networkKeyFilename = "privkey.protobuf"
 
   proc init*(T: type BootstrapAddr, str: string): T =
     Json.decode(str, PeerInfo)
@@ -168,7 +163,13 @@ else:
 
   var mainDaemon: DaemonAPI
 
-  proc createEth2Node*(conf: BeaconNodeConf): Future[Eth2Node] {.async.} =
+  proc allMultiAddresses(nodes: seq[BootstrapAddr]): seq[string] =
+    for node in nodes:
+      for a in node.addresses:
+        result.add $a & "/ipfs/" & node.peer.pretty()
+
+  proc createEth2Node*(conf: BeaconNodeConf,
+                       bootstrapNodes: seq[BootstrapAddr]): Future[Eth2Node] {.async.} =
     var
       (extIp, extTcpPort, extUdpPort) = setupNat(conf)
       hostAddress = tcpEndPoint(globalListeningAddr, Port conf.tcpPort)
@@ -176,11 +177,25 @@ else:
                            else: @[tcpEndPoint(extIp, extTcpPort)]
       keyFile = conf.ensureNetworkIdFile
 
-    info "Starting the LibP2P daemon", hostAddress, announcedAddresses, keyFile
-    mainDaemon = await newDaemonApi({PSGossipSub},
-                                        id = keyFile,
-                                        hostAddresses = @[hostAddress],
-                                        announcedAddresses = announcedAddresses)
+    info "Starting the LibP2P daemon", hostAddress, announcedAddresses,
+                                       keyFile, bootstrapNodes
+
+    var daemonFut = if bootstrapNodes.len == 0:
+      newDaemonApi({DHTFull, PSGossipSub},
+                   id = keyFile,
+                   hostAddresses = @[hostAddress],
+                   announcedAddresses = announcedAddresses)
+    else:
+      newDaemonApi({DHTFull, PSGossipSub, WaitBootstrap},
+                   id = keyFile,
+                   hostAddresses = @[hostAddress],
+                   announcedAddresses = announcedAddresses,
+                   bootstrapNodes = allMultiAddresses(bootstrapNodes),
+                   peersRequired = 1)
+
+    info "Deamon started"
+
+    mainDaemon = await daemonFut
 
     proc closeDaemon() {.noconv.} =
       info "Shutting down the LibP2P daemon"

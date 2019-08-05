@@ -1,5 +1,5 @@
 import
-  tables,
+  tables, options,
   stew/shims/macros, stew/[objects, bitseqs],
   serialization/[object_serialization, errors]
 
@@ -85,7 +85,7 @@ template ElemType*(T: type[seq|string|List]): untyped =
 func isFixedSize*(T0: type): bool {.compileTime.} =
   mixin toSszType, enumAllSerializedFields
 
-  when T0 is openarray:
+  when T0 is openarray|Option|ref|ptr:
     return false
   else:
     type T = type toSszType(default T0)
@@ -110,7 +110,7 @@ func fixedPortionSize*(T0: type): int {.compileTime.} =
     type E = ElemType(T)
     when isFixedSize(E): elementCount * fixedPortionSize(E)
     else: elementCount * offsetSize
-  elif T is seq|string|openarray: offsetSize
+  elif T is seq|string|openarray|ref|ptr|Option: offsetSize
   elif T is object|tuple:
     var res = 0
     enumAllSerializedFields(T):

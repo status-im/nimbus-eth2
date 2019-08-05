@@ -1,5 +1,7 @@
-import conf, chronos, web3, json,
-  spec/[bitfield, datatypes, digest, crypto, beaconstate, helpers, validator], extras
+import
+  chronos, web3, json,
+  spec/[datatypes, digest, crypto, beaconstate, helpers, validator],
+  conf, extras
 
 contract(DepositContract):
   proc deposit(pubkey: Bytes48, withdrawalCredentials: Bytes32, signature: Bytes96)

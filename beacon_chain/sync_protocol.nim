@@ -19,8 +19,6 @@ type
   ValidatorSet = seq[Validator]
 
   BeaconSyncState* = ref object
-    networkId*: uint8
-    chainId*: uint64
     node*: BeaconNode
     db*: BeaconChainDB
 
@@ -78,15 +76,13 @@ proc getBeaconBlocks*(peer: Peer,
                       backward: bool): Future[Option[seq[BeaconBlock]]] {.gcsafe, async.}
 
 p2pProtocol BeaconSync(version = 1,
-                       shortName = "bcs",
+                       rlpxName = "bcs",
                        networkState = BeaconSyncState):
 
   onPeerConnected do (peer: Peer):
     let
       protocolVersion = 1 # TODO: Spec doesn't specify this yet
       node = peer.networkState.node
-      networkId = peer.networkState.networkId
-      chainId = peer.networkState.networkId
       blockPool = node.blockPool
       finalizedHead = blockPool.finalizedHead
       headBlock = blockPool.head.blck
@@ -94,11 +90,11 @@ p2pProtocol BeaconSync(version = 1,
       bestSlot = headBlock.slot
       latestFinalizedEpoch = finalizedHead.slot.compute_epoch_of_slot()
 
-    let m = await peer.hello(networkId, chainId, finalizedHead.blck.root,
-                             latestFinalizedEpoch, bestRoot, bestSlot,
-                             timeout = 10.seconds)
+    let m = await peer.hello(node.forkVersion,
+                             finalizedHead.blck.root, latestFinalizedEpoch,
+                             bestRoot, bestSlot, timeout = 10.seconds)
 
-    if m.networkId != networkId:
+    if m.forkVersion != node.forkVersion:
       await peer.disconnect(IrrelevantNetwork)
       return
 
@@ -142,22 +138,59 @@ p2pProtocol BeaconSync(version = 1,
   handshake:
     proc hello(
             peer: Peer,
-            networkId: uint8,
-            chainId: uint64,
+            fork_version: array[4, byte],
             latestFinalizedRoot: Eth2Digest,
             latestFinalizedEpoch: Epoch,
             bestRoot: Eth2Digest,
-            bestSlot: Slot)
+            bestSlot: Slot) {.
+            libp2pProtocol("/eth2/beacon_chain/req/hello", 1).}
 
-  proc goodbye(peer: Peer, reason: DisconnectionReason)
+  proc goodbye(
+            peer: Peer,
+            reason: DisconnectionReason) {.
+            libp2pProtocol("/eth2/beacon_chain/req/goodbye", 1).}
 
-  nextId 10
+  requestResponse:
+    proc getBeaconBlocks(
+            peer: Peer,
+            headBlockRoot: Eth2Digest,
+            count: uint64,
+            step: uint64) {.
+            libp2pProtocol("/eth2/beacon_chain/req/beacon_blocks", 1).} =
+
+      var blocks = newSeq[Option[BeaconBlock]](int count)
+      let db = peer.networkState.db
+
+      blocks[0] = db.getBlock(headBlockRoot)
+      if isSome(blocks[0]):
+        for i in uint64(1) ..< count:
+          blocks[i.int] = db.getBlock(Slot(blocks[0].get.slot.uint64 + i * step))
+
+      await response.send(blocks)
+
+    proc getRecentBeaconBlocks(
+            peer: Peer,
+            blockRoots: openarray[Eth2Digest]) {.
+            libp2pProtocol("/eth2/beacon_chain/req/recent_beacon_blocks", 1).} =
+
+      var blocks = newSeqOfCap[Option[BeaconBlock]](blockRoots.len)
+      let db = peer.networkState.db
+
+      for root in blockRoots:
+        blocks.add db.getBlock(root)
+
+      await response.send(blocks)
+
+    proc beaconBlocks(
+            peer: Peer,
+            blocks: openarray[Option[BeaconBlock]])
 
   requestResponse:
     proc getBeaconBlockRoots(
             peer: Peer,
             fromSlot: Slot,
-            maxRoots: uint64) =
+            maxRoots: uint64) {.
+            libp2pProtocol("/eth2/beacon_chain/req/beacon_block_roots", 1).} =
       let maxRoots = min(MaxRootsToRequest, maxRoots)
       var s = fromSlot
       var roots = newSeqOfCap[BlockRootSlot](maxRoots)
@@ -170,7 +203,9 @@ p2pProtocol BeaconSync(version = 1,
         s += 1
       await response.send(roots)
 
-    proc beaconBlockRoots(peer: Peer, roots: openarray[BlockRootSlot])
+    proc beaconBlockRoots(
+            peer: Peer,
+            roots: openarray[BlockRootSlot])
 
   requestResponse:
     proc getBeaconBlockHeaders(
@@ -179,7 +214,8 @@ p2pProtocol BeaconSync(version = 1,
             slot: Slot,
             maxHeaders: uint64,
             skipSlots: uint64,
-            backward: bool) =
+            backward: bool) {.
+            libp2pProtocol("/eth2/beacon_chain/req/beacon_block_headers", 1).} =
       let maxHeaders = min(MaxHeadersToRequest, maxHeaders)
       var headers: seq[BeaconBlockHeader]
       let db = peer.networkState.db
@@ -222,12 +258,55 @@ p2pProtocol BeaconSync(version = 1,
 
       await response.send(headers)
 
-    proc beaconBlockHeaders(peer: Peer, blockHeaders: openarray[BeaconBlockHeader])
+    proc beaconBlockHeaders(
+            peer: Peer,
+            blockHeaders: openarray[BeaconBlockHeader])
+
+  # TODO move this at the bottom, because it's not in the spec yet, but it will
+  # consume a `method_id`
+  requestResponse:
+    proc getAncestorBlocks(
+            peer: Peer,
+            needed: openarray[FetchRecord]) {.
+            libp2pProtocol("/eth2/beacon_chain/req/ancestor_blocks", 1).} =
+      var resp = newSeqOfCap[BeaconBlock](needed.len)
+      let db = peer.networkState.db
+      var neededRoots = initSet[Eth2Digest]()
+      for rec in needed: neededRoots.incl(rec.root)
+
+      for rec in needed:
+        if (var blck = db.getBlock(rec.root); blck.isSome()):
+          # TODO validate historySlots
+          let firstSlot = blck.get().slot - rec.historySlots
+
+          for i in 0..<rec.historySlots.int:
+            resp.add(blck.get())
+            if resp.len >= MaxAncestorBlocksResponse:
+              break
+
+            if blck.get().parent_root in neededRoots:
+              # Don't send duplicate blocks, if neededRoots has roots that are
+              # in the same chain
+              break
+
+            if (blck = db.getBlock(blck.get().parent_root);
+                blck.isNone() or blck.get().slot < firstSlot):
+              break
+
+          if resp.len >= MaxAncestorBlocksResponse:
+            break
+
+      await response.send(resp)
+
+    proc ancestorBlocks(
+            peer: Peer,
+            blocks: openarray[BeaconBlock])
 
   requestResponse:
     proc getBeaconBlockBodies(
             peer: Peer,
-            blockRoots: openarray[Eth2Digest]) =
+            blockRoots: openarray[Eth2Digest]) {.
+            libp2pProtocol("/eth2/beacon_chain/req/beacon_block_bodies", 1).} =
       # TODO: Validate blockRoots.len
       var bodies = newSeqOfCap[BeaconBlockBody](blockRoots.len)
       let db = peer.networkState.db

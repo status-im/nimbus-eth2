@@ -9,7 +9,7 @@
 # See https://github.com/ethereum/eth2.0-specs/blob/master/specs/simple-serialize.md
 
 import
-  endians, stew/shims/macros, options, algorithm, math,
+  endians, stew/shims/macros, options, algorithm, math, options,
   stew/[bitops2, bitseqs, objects, varints], stew/ranges/ptr_arith, stint,
   faststreams/input_stream, serialization, serialization/testing/tracing,
   nimcrypto/sha2, blscurve, eth/common,
@@ -59,6 +59,8 @@ type
 
   FixedSizedWriterCtx = object
 
+  Bytes = seq[byte]
+
 serializationFormat SSZ,
                     Reader = SszReader,
                     Writer = SszWriter,
@@ -95,7 +97,9 @@ template toSszType*(x: auto): auto =
   when x is Slot|Epoch|ValidatorIndex|enum: uint64(x)
   elif x is Eth2Digest: x.data
   elif x is BlsValue|BlsCurveType: getBytes(x)
-  elif x is BitSeq|BitList: bytes(x)
+  elif x is BitSeq|BitList: Bytes(x)
+  elif x is ref|ptr: toSszType x[]
+  elif x is Option: toSszType x.get
   elif x is TypeWithMaxLen: toSszType valueOf(x)
   elif useListType and x is List: seq[x.T](x)
   else: x
@@ -173,7 +177,7 @@ template writeField*(w: var SszWriter,
                      field: auto) =
   mixin toSszType
   when ctx is FixedSizedWriterCtx:
-    writeFixedSized(w, toSszType(field))
+    writeFixedSized(w.stream, toSszType(field))
   else:
     type FieldType = type toSszType(field)
 
@@ -185,7 +189,7 @@ template writeField*(w: var SszWriter,
       let initPos = w.stream.pos
       trs "WRITING VAR SIZE VALUE OF TYPE ", name(FieldType)
       when FieldType is BitSeq:
-        trs "BIT SEQ ", field.bytes
+        trs "BIT SEQ ", Bytes(field)
       writeVarSizeType(w, toSszType(field))
       ctx.offset += w.stream.pos - initPos
 
@@ -200,7 +204,9 @@ func writeVarSizeType(w: var SszWriter, value: auto) =
 
   when T is seq|string|openarray:
     type E = ElemType(T)
-    when isFixedSize(E):
+    const isFixed = when E is Option: false
+                    else: isFixedSize(E)
+    when isFixed:
       trs "WRITING LIST WITH FIXED SIZE ELEMENTS"
       for elem in value:
         w.stream.writeFixedSized toSszType(elem)
@@ -211,6 +217,10 @@ func writeVarSizeType(w: var SszWriter, value: auto) =
       var cursor = w.stream.delayFixedSizeWrite offset
       for elem in value:
         cursor.writeFixedSized uint32(offset)
+        when elem is Option:
+          if not isSome(elem): continue
+        elif elem is ptr|ref:
+          if isNil(elem): continue
         let initPos = w.stream.pos
         w.writeVarSizeType toSszType(elem)
         offset += w.stream.pos - initPos
@@ -448,8 +458,8 @@ func bitlistHashTreeRoot(merkelizer: SszChunksMerkelizer, x: BitSeq): Eth2Digest
   trs "CHUNKIFYING BIT SEQ WITH LIMIT ", merkelizer.limit
 
   var
-    totalBytes = x.bytes.len
-    lastCorrectedByte = x.bytes[^1]
+    totalBytes = Bytes(x).len
+    lastCorrectedByte = Bytes(x)[^1]
 
   if lastCorrectedByte == byte(1):
     if totalBytes == 1:
@@ -461,7 +471,7 @@ func bitlistHashTreeRoot(merkelizer: SszChunksMerkelizer, x: BitSeq): Eth2Digest
                            getZeroHashWithoutSideEffect(0)) # this is the mixed length
 
     totalBytes -= 1
-    lastCorrectedByte = x.bytes[^2]
+    lastCorrectedByte = Bytes(x)[^2]
   else:
     let markerPos = log2trunc(lastCorrectedByte)
     lastCorrectedByte.lowerBit(markerPos)
@@ -480,14 +490,14 @@ func bitlistHashTreeRoot(merkelizer: SszChunksMerkelizer, x: BitSeq): Eth2Digest
       chunkStartPos = i * bytesPerChunk
       chunkEndPos = chunkStartPos + bytesPerChunk - 1
 
-    merkelizer.addChunk x.bytes.toOpenArray(chunkEndPos, chunkEndPos)
+    merkelizer.addChunk Bytes(x).toOpenArray(chunkEndPos, chunkEndPos)
 
   var
     lastChunk: array[bytesPerChunk, byte]
     chunkStartPos = fullChunks * bytesPerChunk
 
   for i in 0 .. bytesInLastChunk - 2:
-    lastChunk[i] = x.bytes[chunkStartPos + i]
+    lastChunk[i] = Bytes(x)[chunkStartPos + i]
 
   lastChunk[bytesInLastChunk - 1] = lastCorrectedByte
 

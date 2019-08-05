@@ -1,6 +1,6 @@
 import
   algorithm,
-  stew/shims/[macros, tables], chronos, chronicles,
+  stew/varints, stew/shims/[macros, tables], chronos, chronicles,
   libp2p/daemon/daemonapi, faststreams/output_stream, serialization,
   json_serialization/std/options, eth/p2p/p2p_protocol_dsl,
   libp2p_json_serialization, ssz
@@ -32,8 +32,8 @@ type
     Disconnected
 
   DisconnectionReason* = enum
-    UselessPeer
-    BreachOfProtocol
+    ClientShutDown
+    IrrelevantNetwork
     FaultOrError
 
   UntypedResponder = object
@@ -70,7 +70,6 @@ type
 
   ResponseCode* = enum
     Success
-    EncodingError
     InvalidRequest
     ServerError
 
@@ -92,13 +91,84 @@ type
 const
   defaultIncomingReqTimeout = 5000
   defaultOutgoingReqTimeout = 10000
-  HandshakeTimeout = BreachOfProtocol
+  HandshakeTimeout = FaultOrError
+  RQRP_MAX_SIZE = 2 * 1024 * 1024
 
-  IrrelevantNetwork* = UselessPeer
+template `$`*(peer: Peer): string = $peer.id
+chronicles.formatIt(Peer): $it
+
+template libp2pProtocol*(name: string, version: int) {.pragma.}
 
 include eth/p2p/p2p_backends_helpers
 include eth/p2p/p2p_tracing
-include libp2p_backends_common
+
+proc init*(T: type Peer, network: Eth2Node, id: PeerID): Peer {.gcsafe.}
+
+proc getPeer*(node: Eth2Node, peerId: PeerID): Peer {.gcsafe.} =
+  result = node.peers.getOrDefault(peerId)
+  if result == nil:
+    result = Peer.init(node, peerId)
+    node.peers[peerId] = result
+
+proc peerFromStream(daemon: DaemonAPI, stream: P2PStream): Peer {.gcsafe.} =
+  Eth2Node(daemon.userData).getPeer(stream.peer)
+
+proc disconnect*(peer: Peer, reason: DisconnectionReason, notifyOtherPeer = false) {.async.} =
+  # TODO: How should we notify the other peer?
+  if peer.connectionState notin {Disconnecting, Disconnected}:
+    peer.connectionState = Disconnecting
+    await peer.network.daemon.disconnect(peer.id)
+    peer.connectionState = Disconnected
+    peer.network.peers.del(peer.id)
+
+template raisePeerDisconnected(msg: string, r: DisconnectionReason) =
+  var e = newException(PeerDisconnected, msg)
+  e.reason = r
+  raise e
+
+proc disconnectAndRaise(peer: Peer,
+                        reason: DisconnectionReason,
+                        msg: string) {.async.} =
+  let r = reason
+  await peer.disconnect(r)
+  raisePeerDisconnected(msg, r)
+
+template reraiseAsPeerDisconnected(peer: Peer, errMsgExpr: static string,
+                                   reason = FaultOrError): auto =
+  const errMsg = errMsgExpr
+  debug errMsg, err = getCurrentExceptionMsg()
+  disconnectAndRaise(peer, reason, errMsg)
+
+proc getCompressedMsgId*(MsgType: type): CompressedMsgId =
+  mixin msgId, msgProtocol, protocolInfo
+  (protocolIdx: MsgType.msgProtocol.protocolInfo.index,
+   methodId: MsgType.msgId)
+
+proc nextMsg*(peer: Peer, MsgType: type): Future[MsgType] =
+  ## This procs awaits a specific P2P message.
+  ## Any messages received while waiting will be dispatched to their
+  ## respective handlers. The designated message handler will also run
+  ## to completion before the future returned by `nextMsg` is resolved.
+  let awaitedMsgId = getCompressedMsgId(MsgType)
+  let f = getOrDefault(peer.awaitedMessages, awaitedMsgId)
+  if not f.isNil:
+    return Future[MsgType](f)
+
+  initFuture result
+  peer.awaitedMessages[awaitedMsgId] = result
+
+proc registerProtocol(protocol: ProtocolInfo) =
+  # TODO: This can be done at compile-time in the future
+  let pos = lowerBound(gProtocols, protocol)
+  gProtocols.insert(protocol, pos)
+  for i in 0 ..< gProtocols.len:
+    gProtocols[i].index = i
+
+proc setEventHandlers(p: ProtocolInfo,
+                      handshake: HandshakeStep,
+                      disconnectHandler: DisconnectionHandler) =
+  p.handshake = handshake
+  p.disconnectHandler = disconnectHandler
 
 proc init*(T: type Eth2Node, daemon: DaemonAPI): Future[T] {.async.} =
   new result
@@ -120,6 +190,27 @@ proc readMsg(stream: P2PStream,
              withResponseCode: bool,
              deadline: Future[void]): Future[Option[MsgType]] {.gcsafe.}
 
+proc readSizePrefix(transp: StreamTransport,
+                    deadline: Future[void]): Future[int] {.async.} =
+  var parser: VarintParser[uint64, ProtoBuf]
+  while true:
+    var nextByte: byte
+    var readNextByte = transp.readExactly(addr nextByte, 1)
+    await readNextByte or deadline
+    if not readNextByte.finished:
+      return -1
+    case parser.feedByte(nextByte)
+    of Done:
+      let res = parser.getResult
+      if res > uint64(RQRP_MAX_SIZE):
+        return -1
+      else:
+        return int(res)
+    of Overflow:
+      return -1
+    of Incomplete:
+      continue
+
 proc readMsgBytes(stream: P2PStream,
                   withResponseCode: bool,
                   deadline: Future[void]): Future[Bytes] {.async.} =
@@ -127,15 +218,13 @@ proc readMsgBytes(stream: P2PStream,
     var responseCode: byte
     var readResponseCode = stream.transp.readExactly(addr responseCode, 1)
     await readResponseCode or deadline
-    if not readResponseCode.finished: return
+    if not readResponseCode.finished:
+      return
     if responseCode > ResponseCode.high.byte: return
 
     logScope: responseCode = ResponseCode(responseCode)
     case ResponseCode(responseCode)
-    of InvalidRequest:
-      debug "P2P request was classified as invalid"
-      return
-    of EncodingError, ServerError:
+    of InvalidRequest, ServerError:
       let responseErrMsg = await readMsg(stream, string, false, deadline)
       debug "P2P request resulted in error", responseErrMsg
       return
@@ -143,18 +232,17 @@ proc readMsgBytes(stream: P2PStream,
       # The response is OK, the execution continues below
       discard
 
-  var sizePrefix: uint32
-  var readSizePrefix = stream.transp.readExactly(addr sizePrefix, sizeof(sizePrefix))
-  await readSizePrefix or deadline
-  if not readSizePrefix.finished: return
+  var sizePrefix = await readSizePrefix(stream.transp, deadline)
+  if sizePrefix < -1:
+    debug "Failed to read an incoming message size prefix", peer = stream.peer
+    return
 
   if sizePrefix == 0:
     debug "Received SSZ with zero size", peer = stream.peer
     return
 
-  var msgBytes = newSeq[byte](sizePrefix.int + sizeof(sizePrefix))
-  copyMem(addr msgBytes[0], addr sizePrefix, sizeof(sizePrefix))
-  var readBody = stream.transp.readExactly(addr msgBytes[sizeof(sizePrefix)], sizePrefix.int)
+  var msgBytes = newSeq[byte](sizePrefix)
+  var readBody = stream.transp.readExactly(addr msgBytes[0], sizePrefix)
   await readBody or deadline
   if not readBody.finished: return
 
@@ -178,6 +266,13 @@ proc readMsg(stream: P2PStream,
           msgBytes, errMsg = err.formatMsg("<msg>")
     return
 
+proc encodeErrorMsg(responseCode: ResponseCode, errMsg: string): Bytes =
+  var s = init OutputStream
+  s.append byte(responseCode)
+  s.appendVarint errMsg.len
+  s.appendValue SSZ, errMsg
+  s.getOutput
+
 proc sendErrorResponse(peer: Peer,
                        stream: P2PStream,
                        err: ref SerializationError,
@@ -186,33 +281,44 @@ proc sendErrorResponse(peer: Peer,
   debug "Received an invalid request",
         peer, msgName, msgBytes, errMsg = err.formatMsg("<msg>")
 
-  var responseCode = byte(EncodingError)
-  discard await stream.transp.write(addr responseCode, 1)
+  let responseBytes = encodeErrorMsg(InvalidRequest, err.formatMsg("msg"))
+  discard await stream.transp.write(responseBytes)
   await stream.close()
 
 proc sendErrorResponse(peer: Peer,
                        stream: P2PStream,
                        responseCode: ResponseCode,
                        errMsg: string) {.async.} =
-  debug "Error processing request",
-        peer, responseCode, errMsg
+  debug "Error processing request", peer, responseCode, errMsg
 
-  var outputStream = init OutputStream
-  outputStream.append byte(responseCode)
-  outputStream.appendValue SSZ, errMsg
-
-  discard await stream.transp.write(outputStream.getOutput)
+  let responseBytes = encodeErrorMsg(ServerError, errMsg)
+  discard await stream.transp.write(responseBytes)
   await stream.close()
+
+proc writeSizePrefix(transp: StreamTransport, size: uint64) {.async.} =
+  var
+    varintBuf: array[10, byte]
+    varintSize = vsizeof(size)
+    cursor = createWriteCursor(varintBuf)
+  cursor.appendVarint size
+  var sent = await transp.write(varintBuf[0 ..< varintSize])
+  if sent != varintSize:
+    raise newException(TransmissionError, "Failed to deliver size prefix")
 
 proc sendMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.async} =
   var stream = await peer.network.daemon.openStream(peer.id, @[protocolId])
   # TODO how does openStream fail? Set a timeout here and handle it
+  await writeSizePrefix(stream.transp, uint64(requestBytes.len))
   let sent = await stream.transp.write(requestBytes)
   if sent != requestBytes.len:
-    raise newException(TransmissionError, "Failed to deliver all bytes")
+    raise newException(TransmissionError, "Failed to deliver msg bytes")
 
-proc sendBytes(stream: P2PStream, bytes: Bytes) {.async.} =
-  let sent = await stream.transp.write(bytes)
+proc sendResponseBytes(stream: P2PStream, bytes: Bytes) {.async.} =
+  var sent = await stream.transp.write(@[byte Success])
+  if sent != 1:
+    raise newException(TransmissionError, "Failed to deliver response code")
+  await writeSizePrefix(stream.transp, uint64(bytes.len))
+  sent = await stream.transp.write(bytes)
   if sent != bytes.len:
     raise newException(TransmissionError, "Failed to deliver all bytes")
 
@@ -228,6 +334,8 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
 
   # Send the request
   let stream = streamFut.read
+
+  await writeSizePrefix(stream.transp, requestBytes.len.uint64)
   let sent = await stream.transp.write(requestBytes)
   if sent != requestBytes.len:
     await disconnectAndRaise(peer, FaultOrError, "Incomplete send")
@@ -241,7 +349,7 @@ proc exchangeHandshake(peer: Peer, protocolId: string, requestBytes: Bytes,
   var response = await makeEth2Request(peer, protocolId, requestBytes,
                                        ResponseMsg, timeout)
   if not response.isSome:
-    await peer.disconnectAndRaise(BreachOfProtocol, "Failed to complete a handshake")
+    await peer.disconnectAndRaise(FaultOrError, "Failed to complete a handshake")
 
   return response.get
 
@@ -269,12 +377,11 @@ template handshakeImpl(outputStreamVar, handshakeSerializationCall: untyped,
       var responseFut = nextMsg(peer, HandshakeType)
       await lowLevelThunk(peer.network.daemon, stream) or deadline
       if not responseFut.finished:
-        await disconnectAndRaise(peer, BreachOfProtocol, "Failed to complete a handshake")
+        await disconnectAndRaise(peer, FaultOrError, "Failed to complete a handshake")
 
       var outputStreamVar = init OutputStream
-      append(outputStreamVar, byte(Success))
       handshakeSerializationCall
-      await sendBytes(stream, getOutput(outputStreamVar))
+      await sendResponseBytes(stream, getOutput(outputStreamVar))
 
       return responseFut.read
 
@@ -330,7 +437,16 @@ proc registerMsg(protocol: ProtocolInfo,
                                     printer: printer)
 
 proc getRequestProtoName(fn: NimNode): NimNode =
-  return newLit("/ETH/BeaconChain/" & $fn.name & "/1/SSZ")
+  # `getCustomPragmaVal` doesn't work yet on regular nnkProcDef nodes
+  # (TODO: file as an issue)
+
+  let pragmas = fn.pragma
+  if pragmas.kind == nnkPragma and pragmas.len > 0:
+    for pragma in pragmas:
+      if pragma.len > 0 and $pragma[0] == "libp2pProtocol":
+        return pragma[1]
+
+  return newLit("")
 
 proc init*[MsgType](T: type Responder[MsgType],
                     peer: Peer, stream: P2PStream): T =
@@ -363,17 +479,9 @@ proc implementSendProcBody(sendProc: SendProc) =
       else:
         quote: sendMsg(`peer`, `msgProto`, `bytes`)
     else:
-      quote: sendBytes(`UntypedResponder`(`peer`).stream, `bytes`)
+      quote: sendResponseBytes(`UntypedResponder`(`peer`).stream, `bytes`)
 
-  proc prependResponseCode(stream: NimNode): NimNode =
-    quote: append(`stream`, byte(Success))
-
-  let preSerializationStep = if msg.kind == msgResponse:
-    prependResponseCode
-  else:
-    nil
-
-  sendProc.useStandardBody(preSerializationStep, nil, sendCallGenerator)
+  sendProc.useStandardBody(nil, nil, sendCallGenerator)
 
 proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   var

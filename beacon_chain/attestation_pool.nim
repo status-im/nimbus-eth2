@@ -28,6 +28,8 @@ proc combine*(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
 
     if skipValidation notin flags:
       tgt.signature.combine(src.signature)
+  else:
+    debug "Ignoring overlapping attestations"
 
 proc validate(
     state: BeaconState, attestation: Attestation, flags: UpdateFlags): bool =
@@ -61,11 +63,11 @@ proc validate(
       finalizedEpoch = humaneEpochNum(state.finalized_checkpoint.epoch)
     return
 
-  if not allIt(attestation.custody_bits.bytes, it == 0):
+  if not attestation.custody_bits.BitSeq.isZeros:
     notice "Invalid custody bitfield for phase 0"
     return false
 
-  if not anyIt(attestation.aggregation_bits.bytes, it != 0):
+  if attestation.aggregation_bits.BitSeq.isZeros:
     notice "Empty aggregation bitfield"
     return false
 

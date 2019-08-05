@@ -106,6 +106,10 @@ proc get(db: BeaconChainDB, key: auto, T: typedesc): Option[T] =
 proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Option[BeaconBlock] =
   db.get(subkey(BeaconBlock, key), BeaconBlock)
 
+proc getBlock*(db: BeaconChainDB, slot: Slot): Option[BeaconBlock] =
+  # TODO implement this
+  discard
+
 proc getState*(db: BeaconChainDB, key: Eth2Digest): Option[BeaconState] =
   db.get(subkey(BeaconState, key), BeaconState)
 

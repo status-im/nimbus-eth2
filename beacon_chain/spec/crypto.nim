@@ -96,6 +96,8 @@ func `$`*(x: BlsValue): string =
   if x.kind == Real:
     $x.blsValue
   else:
+    # r: is short for random. The prefix must be short
+    # due to the mechanics of the `shortLog` function.
     "r:" & toHex(x.blob)
 
 func `==`*(a, b: BlsValue): bool =
@@ -178,13 +180,16 @@ func bls_verify_multiple*(
     sig: ValidatorSig, domain: uint64): bool =
   let L = len(pubkeys)
   doAssert L == len(message_hashes)
+  doAssert sig.kind == Real
 
   # TODO optimize using multiPairing
   for pubkey_message_hash in zip(pubkeys, message_hashes):
     let (pubkey, message_hash) = pubkey_message_hash
+    doAssert pubkey.kind == Real
     # TODO spec doesn't say to handle this specially, but it's silly to
     # validate without any actual public keys.
-    if not pubkey.bls_verify(message_hash.data, sig, domain):
+    if pubkey.blsValue != VerKey() and
+       not sig.blsValue.verify(message_hash.data, domain, pubkey.blsValue):
       return false
 
   true

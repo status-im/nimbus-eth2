@@ -14,10 +14,12 @@ type
   BeaconNode* = ref object
     nickname*: string
     network*: Eth2Node
+    forkVersion*: array[4, byte]
     networkIdentity*: Eth2NodeIdentity
     networkMetadata*: NetworkMetadata
     requestManager*: RequestManager
     isBootstrapNode*: bool
+    bootstrapNodes*: seq[BootstrapAddr]
     db*: BeaconChainDB
     config*: BeaconNodeConf
     attachedValidators*: ValidatorPool

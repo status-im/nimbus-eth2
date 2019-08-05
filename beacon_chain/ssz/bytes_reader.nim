@@ -1,11 +1,19 @@
 import
-  endians, typetraits,
+  endians, typetraits, options,
   stew/[objects, bitseqs], serialization/testing/tracing,
   ../spec/[digest, datatypes], ./types
 
 template setLen[R, T](a: var array[R, T], length: int) =
   if length != a.len:
     raise newException(MalformedSszError, "SSZ input of insufficient size")
+
+template assignNullValue(loc: untyped, T: type): auto =
+  when T is ref|ptr:
+    loc = nil
+  elif T is Option:
+    loc = T()
+  else:
+    raise newException(MalformedSszError, "SSZ list element of zero size")
 
 # fromSszBytes copies the wire representation to a Nim variable,
 # assuming there's enough data in the buffer
@@ -61,6 +69,13 @@ proc readSszValue*(input: openarray[byte], T: type): T =
   when useListType and result is List:
     type ElemType = type result[0]
     result = T readSszValue(input, seq[ElemType])
+  elif result is ptr|ref:
+    if input.len > 0:
+      new result
+      result[] = readSszValue(input, type(result[]))
+  elif result is Option:
+    if input.len > 0:
+      result = some readSszValue(input, result.T)
   elif result is string|seq|openarray|array:
     type ElemType = type result[0]
     when ElemType is byte|char:
@@ -96,7 +111,10 @@ proc readSszValue*(input: openarray[byte], T: type): T =
       result.setLen resultLen
       for i in 1 ..< resultLen:
         let nextOffset = readOffset(i * offsetSize)
-        result[i - 1] = readSszValue(input[offset ..< nextOffset], ElemType)
+        if nextOffset == offset:
+          assignNullValue result[i - 1], ElemType
+        else:
+          result[i - 1] = readSszValue(input[offset ..< nextOffset], ElemType)
         offset = nextOffset
 
       result[resultLen - 1] = readSszValue(input[offset ..< input.len], ElemType)

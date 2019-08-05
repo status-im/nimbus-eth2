@@ -1,23 +1,21 @@
 type
   NetworkBackendType* = enum
-    libp2pSpecBackend
-    libp2pNativeBackend
+    libp2pBackend
     rlpxBackend
 
 const
-  network_type {.strdefine.} = "libp2p_native"
+  network_type {.strdefine.} = "libp2p"
 
   networkBackend* = when network_type == "rlpx": rlpxBackend
-                    elif network_type == "libp2p_spec": libp2pSpecBackend
-                    elif network_type == "libp2p_native": libp2pNativeBackend
-                    else: {.fatal: "The 'network_type' should be one of 'libp2p_spec', 'libp2p_native' or 'rlpx'" .}
+                    elif network_type == "libp2p": libp2pBackend
+                    else: {.fatal: "The 'network_type' should be either 'libp2p' or 'rlpx'" .}
 
 const
   versionMajor* = 0
-  versionMinor* = 2
+  versionMinor* = 3
   versionBuild* = 0
 
-  semanticVersion* = 1
+  semanticVersion* = 2
     # Bump this up every time a breaking change is introduced
     # Clients having different semantic versions won't be able
     # to join the same testnets.

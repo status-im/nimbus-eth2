@@ -10,8 +10,11 @@ import
   sync_protocol, request_manager, genesis
 
 const
-  topicBeaconBlocks = "ethereum/2.1/beacon_chain/blocks"
-  topicAttestations = "ethereum/2.1/beacon_chain/attestations"
+  topicBeaconBlocks = "/eth2/beacon_block/ssz"
+  topicAttestations = "/eth2/beacon_attestation/ssz"
+  topicVoluntaryExits = "/eth2/voluntary_exit/ssz"
+  topicProposerSlashings = "/eth2/proposer_slashing/ssz"
+  topicAttesterSlashings = "/eth2/attester_slashing/ssz"
 
   dataDirValidators = "validators"
   networkMetadataFile = "network.json"
@@ -101,6 +104,7 @@ proc initGenesis(node: BeaconNode) {.async.} =
       quit 1
 
   info "Got genesis state", hash = hash_tree_root(tailState)
+  node.forkVersion = tailState.fork.current_version
 
   try:
     let tailBlock = get_initial_beacon_block(tailState)
@@ -159,6 +163,20 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   if metadataErrorMsg.len > 0:
     fail "To connect to the ", conf.network, " network, please compile with", metadataErrorMsg
 
+  for bootNode in result.networkMetadata.bootstrapNodes:
+    if bootNode.isSameNode(result.networkIdentity):
+      result.isBootstrapNode = true
+    else:
+      result.bootstrapNodes.add bootNode
+
+  for bootNode in conf.bootstrapNodes:
+    result.bootstrapNodes.add BootstrapAddr.init(bootNode)
+
+  let bootstrapFile = string conf.bootstrapNodesFile
+  if bootstrapFile.len > 0:
+    for ln in lines(bootstrapFile):
+      result.bootstrapNodes.add BootstrapAddr.init(string ln)
+
   result.attachedValidators = ValidatorPool.init
   init result.mainchainMonitor, "", Port(0) # TODO: specify geth address and port
 
@@ -176,14 +194,12 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   result.blockPool = BlockPool.init(result.db)
   result.attestationPool = AttestationPool.init(result.blockPool)
 
-  result.network = await createEth2Node(conf)
+  result.network = await createEth2Node(conf, result.bootstrapNodes)
   result.requestManager.init result.network
 
   # TODO sync is called when a remote peer is connected - is that the right
   #      time to do so?
   let sync = result.network.protocolState(BeaconSync)
-  sync.chainId = 0 # TODO specify chainId
-  sync.networkId = result.networkMetadata.networkId
   sync.node = result
   sync.db = result.db
 
@@ -211,28 +227,12 @@ template withState(
   body
 
 proc connectToNetwork(node: BeaconNode) {.async.} =
-  var bootstrapNodes = newSeq[BootstrapAddr]()
-
-  for bootNode in node.networkMetadata.bootstrapNodes:
-    if bootNode.isSameNode(node.networkIdentity):
-      node.isBootstrapNode = true
-    else:
-      bootstrapNodes.add bootNode
-
-  for bootNode in node.config.bootstrapNodes:
-    bootstrapNodes.add BootstrapAddr.init(bootNode)
-
-  let bootstrapFile = string node.config.bootstrapNodesFile
-  if bootstrapFile.len > 0:
-    for ln in lines(bootstrapFile):
-      bootstrapNodes.add BootstrapAddr.init(string ln)
-
-  if bootstrapNodes.len > 0:
-    info "Connecting to bootstrap nodes", bootstrapNodes
+  if node.bootstrapNodes.len > 0:
+    info "Connecting to bootstrap nodes", bootstrapNodes = node.bootstrapNodes
   else:
     info "Waiting for connections"
 
-  await node.network.connectToNetwork(bootstrapNodes)
+  await node.network.connectToNetwork(node.bootstrapNodes)
 
 template findIt(s: openarray, predicate: untyped): int =
   var res = -1
