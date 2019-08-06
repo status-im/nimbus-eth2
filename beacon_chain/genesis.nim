@@ -34,9 +34,8 @@ proc processDeposit(d: DepositCollector, web3: Web3): Future[BeaconState] {.asyn
 proc getGenesisFromEth1*(conf: BeaconNodeConf): Future[BeaconState] {.async.} =
   let web3 = await newWeb3(conf.depositWeb3Url)
 
-  var contractAddress = Address.fromHex(conf.depositContractAddress)
-  var defaultAccount: Address
-  var ns = web3.contractSender(DepositContract, contractAddress, defaultAccount)
+  let contractAddress = Address.fromHex(conf.depositContractAddress)
+  let ns = web3.contractSender(DepositContract, contractAddress)
 
   var deposits = DepositCollector()
   deposits.queue = newAsyncQueue[QueueElement]()
