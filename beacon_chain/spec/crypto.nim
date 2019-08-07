@@ -280,3 +280,15 @@ else:
 proc read*(rlp: var Rlp, T: type ValidatorSig): T {.inline.} =
   let bytes = fromBytes(T, rlp.toBytes)
 
+proc writeValue*(writer: var JsonWriter, value: VerKey) {.inline.} =
+  writer.writeValue($value)
+
+proc readValue*(reader: var JsonReader, value: var VerKey) {.inline.} =
+  value = VerKey.init(reader.readValue(string))
+
+proc writeValue*(writer: var JsonWriter, value: Signature) {.inline.} =
+  writer.writeValue($value)
+
+proc readValue*(reader: var JsonReader, value: var Signature) {.inline.} =
+  value = Signature.init(reader.readValue(string))
+

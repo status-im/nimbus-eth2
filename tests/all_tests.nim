@@ -20,5 +20,4 @@ import # Unit test
 import # Official fixtures
   ./official/test_fixture_shuffling,
   ./official/test_fixture_bls,
-  ./official/test_fixture_ssz_uint,
-  ./official/test_fixture_ssz_static
+  ./official/test_fixture_ssz_uint
