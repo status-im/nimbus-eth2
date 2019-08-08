@@ -153,7 +153,7 @@ proc combine*[T](x: var BlsValue[T], other: BlsValue[T]) =
   doAssert x.kind == Real and other.kind == Real
   x.blsValue.combine(other.blsValue)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/bls_signature.md#bls_aggregate_pubkeys
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/bls_signature.md#bls_aggregate_pubkeys
 func bls_aggregate_pubkeys*(keys: openArray[ValidatorPubKey]): ValidatorPubKey =
   var empty = true
   for key in keys:
@@ -163,7 +163,7 @@ func bls_aggregate_pubkeys*(keys: openArray[ValidatorPubKey]): ValidatorPubKey =
     else:
       result.combine(key)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/bls_signature.md#bls_verify
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/bls_signature.md#bls_verify
 func bls_verify*(
     pubkey: ValidatorPubKey, msg: openArray[byte], sig: ValidatorSig,
     domain: uint64): bool =
@@ -174,7 +174,7 @@ func bls_verify*(
   else:
     sig.verify(msg, domain, pubkey)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/bls_signature.md#bls_verify_multiple
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/bls_signature.md#bls_verify_multiple
 func bls_verify_multiple*(
     pubkeys: seq[ValidatorPubKey], message_hashes: openArray[Eth2Digest],
     sig: ValidatorSig, domain: uint64): bool =
