@@ -120,7 +120,7 @@ make NIMFLAGS="-d:release" state_sim
 
 ## Testnet
 
-The beacon chain now has a public testnet available. Connect to it with:
+T     he beacon chain now has a public testnet available. Connect to it with:
 
 ```bash
 make testnet0
