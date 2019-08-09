@@ -38,13 +38,13 @@ import # TODO - cleanup imports
   ../extras, ../ssz, ../beacon_node_types,
   beaconstate, crypto, datatypes, digest, helpers, validator
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#get_total_active_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#get_total_active_balance
 func get_total_active_balance(state: BeaconState): Gwei =
   return get_total_balance(
     state,
     get_active_validator_indices(state, get_current_epoch(state)))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#helper-functions-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#helper-functions-1
 func get_matching_source_attestations(state: BeaconState, epoch: Epoch):
     seq[PendingAttestation] =
   doAssert epoch in [get_current_epoch(state), get_previous_epoch(state)]
@@ -186,7 +186,7 @@ func get_winning_crosslink_and_attesting_indices(
   (winning_crosslink,
    get_unslashed_attesting_indices(state, winning_attestations, stateCache))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#justification-and-finalization
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#justification-and-finalization
 proc process_justification_and_finalization(
     state: var BeaconState, stateCache: var StateCache) =
   if get_current_epoch(state) <= GENESIS_EPOCH + 1:
@@ -218,11 +218,11 @@ proc process_justification_and_finalization(
   ## matter -- in the next epoch, they'll be 2 epochs old, when BeaconState
   ## tracks current_epoch_attestations and previous_epoch_attestations only
   ## per
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#attestations
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#attestations
   ## and `get_matching_source_attestations(...)` via
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#helper-functions-1
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#helper-functions-1
   ## and
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#final-updates
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#final-updates
   ## after which the state.previous_epoch_attestations is replaced.
   debug "Non-attesting indices in previous epoch: ",
     missing_all_validators=
@@ -279,7 +279,7 @@ proc process_justification_and_finalization(
      old_current_justified_checkpoint.epoch + 1 == current_epoch:
     state.finalized_checkpoint = old_current_justified_checkpoint
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#crosslinks
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#crosslinks
 func process_crosslinks(state: var BeaconState, stateCache: var StateCache) =
   state.previous_crosslinks = state.current_crosslinks
 
@@ -308,7 +308,7 @@ func get_base_reward(state: BeaconState, index: ValidatorIndex): Gwei =
   effective_balance * BASE_REWARD_FACTOR div
     integer_squareroot(total_balance) div BASE_REWARDS_PER_EPOCH
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#rewards-and-penalties-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#rewards-and-penalties-1
 func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
   let
@@ -398,7 +398,7 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
 
   (rewards, penalties)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#rewards-and-penalties-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#rewards-and-penalties-1
 func get_crosslink_deltas(state: BeaconState, cache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
 
@@ -426,7 +426,7 @@ func get_crosslink_deltas(state: BeaconState, cache: var StateCache):
 
   (rewards, penalties)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#rewards-and-penalties-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#rewards-and-penalties-1
 func process_rewards_and_penalties(
     state: var BeaconState, cache: var StateCache) =
   if get_current_epoch(state) == GENESIS_EPOCH:
@@ -439,7 +439,7 @@ func process_rewards_and_penalties(
     increase_balance(state, i.ValidatorIndex, rewards1[i] + rewards2[i])
     decrease_balance(state, i.ValidatorIndex, penalties1[i] + penalties2[i])
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#slashings
 func process_slashings(state: var BeaconState) =
   let
     epoch = get_current_epoch(state)
@@ -453,7 +453,7 @@ func process_slashings(state: var BeaconState) =
           min(sum(state.slashings) * 3, total_balance) div total_balance
       decrease_balance(state, index.ValidatorIndex, penalty)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#final-updates
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#final-updates
 func process_final_updates(state: var BeaconState) =
   let
     current_epoch = get_current_epoch(state)
@@ -473,11 +473,6 @@ func process_final_updates(state: var BeaconState) =
         min(
           balance - balance mod EFFECTIVE_BALANCE_INCREMENT,
           MAX_EFFECTIVE_BALANCE)
-
-  # Update start shard
-  state.start_shard =
-    (state.start_shard + get_shard_delta(state, current_epoch)) mod
-      SHARD_COUNT
 
   # Set active index root
   let
@@ -506,26 +501,31 @@ func process_final_updates(state: var BeaconState) =
     )
     state.historical_roots.add (hash_tree_root(historical_batch))
 
+  # Update start shard
+  state.start_shard =
+    (state.start_shard + get_shard_delta(state, current_epoch)) mod
+      SHARD_COUNT
+
   # Rotate current/previous epoch attestations
   state.previous_epoch_attestations = state.current_epoch_attestations
   state.current_epoch_attestations = @[]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#per-epoch-processing
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#per-epoch-processing
 proc process_epoch*(state: var BeaconState) =
   # @proc are placeholders
 
   var per_epoch_cache = get_empty_per_epoch_cache()
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#justification-and-finalization
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#justification-and-finalization
   process_justification_and_finalization(state, per_epoch_cache)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#crosslinks
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#crosslinks
   process_crosslinks(state, per_epoch_cache)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#rewards-and-penalties-1
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#rewards-and-penalties-1
   process_rewards_and_penalties(state, per_epoch_cache)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#registry-updates
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#registry-updates
   # Don't rely on caching here.
   process_registry_updates(state)
 
@@ -536,10 +536,10 @@ proc process_epoch*(state: var BeaconState) =
   # @process_reveal_deadlines
   # @process_challenge_deadlines
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#slashings
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#slashings
   process_slashings(state)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#final-updates
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#final-updates
   process_final_updates(state)
 
   # @after_process_final_updates

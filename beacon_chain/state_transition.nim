@@ -39,7 +39,7 @@ import
 # Canonical state transition functions
 # ---------------------------------------------------------------
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 func process_slot(state: var BeaconState) =
   # Cache state root
   let previous_state_root = hash_tree_root(state)
@@ -54,7 +54,7 @@ func process_slot(state: var BeaconState) =
   state.block_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
     signing_root(state.latest_block_header)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 proc process_slots*(state: var BeaconState, slot: Slot) =
   doAssert state.slot <= slot
 
@@ -151,7 +151,7 @@ func process_slot(state: var HashedBeaconState) =
   state.data.block_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
     signing_root(state.data.latest_block_header)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 proc process_slots*(state: var HashedBeaconState, slot: Slot) =
   # TODO: Eth specs strongly assert that state.data.slot <= slot
   #       This prevents receiving attestation in any order

@@ -37,7 +37,7 @@ import # TODO - cleanup imports
   ../extras, ../ssz, ../beacon_node_types,
   beaconstate, crypto, datatypes, digest, helpers, validator
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#block-header
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#block-header
 proc processBlockHeader(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool =
@@ -119,14 +119,14 @@ proc processRandao(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#eth1-data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#eth1-data
 func processEth1Data(state: var BeaconState, body: BeaconBlockBody) =
   state.eth1_data_votes.add body.eth1_data
   if state.eth1_data_votes.count(body.eth1_data) * 2 >
       SLOTS_PER_ETH1_VOTING_PERIOD:
     state.eth1_data = body.eth1_data
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#is_slashable_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#is_slashable_validator
 func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
   # Check if ``validator`` is slashable.
   (not validator.slashed) and
@@ -179,7 +179,7 @@ proc processProposerSlashings(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#is_slashable_attestation_data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
     data_1: AttestationData, data_2: AttestationData): bool =
   ## Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG
