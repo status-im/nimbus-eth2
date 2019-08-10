@@ -5,6 +5,7 @@ cache:
   directories:
     - NimBinaries
     - rocksdbCache
+    - jsonTestsCache
 
 git:
   # when multiple CI builds are queued, the tested commit needs to be in the last X commits cloned with "--depth X"
@@ -33,6 +34,9 @@ install:
   # build our own rocksdb to test with a fixed version that we think works
   - curl -O -L -s -S https://raw.githubusercontent.com/status-im/nimbus/devel/build_rocksdb.sh
   - bash build_rocksdb.sh rocksdbCache
+
+  # LFS test fixtures
+  - scripts/process_lfs.sh jsonTestsCache
 
 script:
   - nimble install -y --depsOnly

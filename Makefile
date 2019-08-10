@@ -40,7 +40,8 @@ p2pd: | deps
 # Windows 10 with WSL enabled, but no distro installed, fails if "../../nimble.sh" is executed directly
 # in a Makefile recipe but works when prefixing it with `bash`. No idea how the PATH is overridden.
 test: | build deps nat-libs
-	bash ../../nimble.sh test $(NIM_PARAMS)
+	bash scripts/process_lfs.sh $(HANDLE_OUTPUT)
+	bash ../../nimble.sh test $(NIM_PARAMS) && rm -f 0000-*.json
 
 $(TOOLS): | build deps nat-libs p2pd
 	for D in $(TOOLS_DIRS); do [ -e "$${D}/$@.nim" ] && TOOL_DIR="$${D}" && break; done && \
