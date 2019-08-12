@@ -541,7 +541,6 @@ proc process_epoch*(state: var BeaconState) =
   debug "ran process_justification_and_finalization",
     current_epoch = get_current_epoch(state)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#crosslinks
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#crosslinks
   process_crosslinks(state, per_epoch_cache)
 
