@@ -235,7 +235,6 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock,
         slashed_any = true
     result = result and slashed_any
 
-# REMOVE ME PRE-MERGE
 func get_attesting_indices(
     state: BeaconState, attestations: openarray[PendingAttestation],
     stateCache: var StateCache): HashSet[ValidatorIndex] =
