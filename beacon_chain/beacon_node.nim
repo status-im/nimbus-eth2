@@ -3,7 +3,7 @@ import
   stew/shims/os, stew/[objects, bitseqs],
   chronos, chronicles, confutils, serialization/errors,
   eth/trie/db, eth/trie/backends/rocksdb_backend, eth/async_utils,
-  spec/[bitfield, datatypes, digest, crypto, beaconstate, helpers, validator,
+  spec/[datatypes, digest, crypto, beaconstate, helpers, validator,
   state_transition_block],
   conf, time, state_transition, fork_choice, ssz, beacon_chain_db,
   validator_pool, extras, attestation_pool, block_pool, eth2_network,
