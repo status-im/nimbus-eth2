@@ -12,6 +12,7 @@ export NUM_NODES=${NODES:-1}
 export NUM_MISSING_NODES=${MISSING_NODES:-0}
 
 # Set DEPOSIT_WEB3_URL_ARG to empty to get genesis state from file, not using web3
+# export DEPOSIT_WEB3_URL_ARG=--depositWeb3Url=ws://localhost:8545
 export DEPOSIT_WEB3_URL_ARG=
 export DEPOSIT_CONTRACT_ADDRESS=0x
 
