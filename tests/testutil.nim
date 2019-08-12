@@ -175,7 +175,9 @@ proc makeAttestation*(
     (committee, shard) = find_shard_committee(state, validator_index)
     validator = state.validators[validator_index]
     sac_index = committee.find(validator_index)
-    data = makeAttestationData(state, shard, beacon_block_root)
+    data = makeAttestationData(state,
+      (shard + get_start_shard(state, compute_epoch_of_slot(state.slot))) mod
+      SHARD_COUNT, beacon_block_root)
 
   doAssert sac_index != -1, "find_shard_committee should guarantee this"
 
