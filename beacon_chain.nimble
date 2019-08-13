@@ -49,7 +49,7 @@ task test, "Run all tests":
   # Minimal config
   buildBinary "all_tests", "tests/", "-r -d:release -d:chronicles_log_level=ERROR -d:const_preset=minimal"
 
-  buildBinary "test_fixture_ssz_static", "tests/official/", "-r -d:chronicles_log_level=DEBUG -d:const_preset=minimal"
+  buildBinary "test_fixture_ssz_static", "tests/official/", "-r -d:debug -d:chronicles_log_level=DEBUG -d:const_preset=minimal"
   buildBinary "test_fixture_ssz_static", "tests/official/", "-r -d:release -d:chronicles_log_level=DEBUG -d:const_preset=mainnet"
 
   # State sim; getting into 3rd epoch useful
