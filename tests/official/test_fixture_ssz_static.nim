@@ -74,55 +74,56 @@ proc readSszValueRef*(input: openarray[byte], T: type): ref T =
   new result
   result[] = readSszValue(input, T)
 
-proc testerImpl[T](path: string, test: SszStaticTest) {.cdecl, gcsafe.} =
-  doAssert test.obj != nil
-  var obj = SpecObject[T](test.obj)
+proc testerImpl[T](path: string, sszTest: SszStaticTest) {.cdecl, gcsafe.} =
+  doAssert sszTest.obj != nil
+  var obj = SpecObject[T](sszTest.obj)
 
-  template execTest(testOpName, testOp, expectedRes) =
-    let ourRes = testOp
-    let success = valuesAreEqual(ourRes, expectedRes)
-    if not success and traceOnFailure:
-      {.gcsafe.}:
-        echo "====== ", testOpName, " failed ", path, ":", test.line
-        echo " our result:"
-        echo "  ", ourRes
-        echo " expected result:"
-        echo "  ", expectedRes
-        when defined(serialization_tracing):
-          tracingEnabled = true
-          discard testOp
-          tracingEnabled = false
-        echo "======================================================"
-        if failFast: quit 1
+  test &"test case on line {sszTest.line}":
+    template execTest(testOpName, testOp, expectedRes) =
+      let ourRes = testOp
+      let success = valuesAreEqual(ourRes, expectedRes)
+      if not success and traceOnFailure:
+        {.gcsafe.}:
+          echo "====== ", testOpName, " failed ", path, ":", sszTest.line
+          echo " our result:"
+          echo "  ", ourRes
+          echo " expected result:"
+          echo "  ", expectedRes
+          when defined(serialization_tracing):
+            tracingEnabled = true
+            discard testOp
+            tracingEnabled = false
+          echo "======================================================"
+          if failFast: quit 1
 
-    # TODO BEWARE: Passing the boolean expression to `check` directly
-    # will trigger a Nim compilation bomb. This is most likely caused
-    # by a mis-behaving generics instantiations cache when a function
-    # is explicitly instantiated to get its address.
-    # There is a recursive instantiation loop of system's `$` operator.
-    check success
+      # TODO BEWARE: Passing the boolean expression to `check` directly
+      # will trigger a Nim compilation bomb. This is most likely caused
+      # by a mis-behaving generics instantiations cache when a function
+      # is explicitly instantiated to get its address.
+      # There is a recursive instantiation loop of system's `$` operator.
+      check success
 
-  # let ob = SSZ.encode(obj.obj)
+    # let ob = SSZ.encode(obj.obj)
 
-  when false:
-    execTest "serialization",
-              (let ourBytes = SSZ.encode(obj.obj); ourBytes),
-              test.expectedBytes
+    when false:
+      execTest "serialization",
+                (let ourBytes = SSZ.encode(obj.obj); ourBytes),
+                sszTest.expectedBytes
 
-    execTest "root hash check",
-              hashTreeRoot(obj.obj),
-              test.expectedRootHash
+      execTest "root hash check",
+                hashTreeRoot(obj.obj),
+                sszTest.expectedRootHash
 
-    when hasSigningRoot(T):
-      doAssert test.hasSigHash
-      execTest "sig hash check",
-               signingRoot(obj.obj),
-               test.expectedSigHash
+      when hasSigningRoot(T):
+        doAssert sszTest.hasSigHash
+        execTest "sig hash check",
+                 signingRoot(obj.obj),
+                 sszTest.expectedSigHash
 
-  when true:
-    execTest "roundtrip",
-           readSszValueRef(test.expectedBytes, T),
-           obj.obj
+    when true:
+      execTest "roundtrip",
+             readSszValueRef(sszTest.expectedBytes, T),
+             obj.obj
 
 template addSpecTypeRTTI(T: type) =
   var reader = readerImpl[T]
@@ -207,8 +208,7 @@ proc executeSuite(path: string) =
   let sszSuite = path.parseTests SszStaticTest
   suite &"{path}: {sszSuite.title}":
     for sszTest in sszSuite.test_cases:
-      test &"test case on line {sszTest.line}":
-        runTest path, sszTest
+      runTest path, sszTest
 
 if fileExists(minDevTestFile):
   executeSuite minDevTestFile
