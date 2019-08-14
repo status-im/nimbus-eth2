@@ -23,7 +23,7 @@ $(SILENT_TARGET_PREFIX).SILENT:
 sanity-checks:
 	@ [[ "$$PWD" =~ /vendor/nim-beacon-chain$ && -e ../../Makefile && -e ../../common.mk ]] || \
 		{ echo -e "This Makefile can only be used from the corresponding Git submodule in the Nimbus repository.\nDetailed instructions available in README.md or online at https://github.com/status-im/nim-beacon-chain/#building-and-testing"; exit 1; }
-	@+ bash -c "$(MAKE) --silent -C ../../ sanity-checks"
+	@+ $(MAKE) --silent -C ../../ sanity-checks
 
 deps: | sanity-checks
 	@+ $(MAKE) --silent -C ../../ deps
