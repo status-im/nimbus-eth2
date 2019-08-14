@@ -1,7 +1,8 @@
 import
   net, sequtils, options, tables, osproc, random, strutils, times, strformat,
   stew/shims/os, stew/[objects, bitseqs],
-  chronos, chronicles, confutils, serialization/errors,
+  chronos, chronicles, confutils,
+  json_serialization/std/sets, serialization/errors,
   eth/trie/db, eth/trie/backends/rocksdb_backend, eth/async_utils,
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator,
   state_transition_block],
