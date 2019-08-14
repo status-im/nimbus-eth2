@@ -1,4 +1,4 @@
-language: c
+language: go
 
 # https://docs.travis-ci.com/user/caching/
 cache:
@@ -12,6 +12,9 @@ git:
   depth: 10
   # disable LFS file downloading during regular cloning
   lfs_skip_smudge: true
+
+go:
+  - "1.12.x"
 
 matrix:
   include:
