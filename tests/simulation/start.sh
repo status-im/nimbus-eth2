@@ -7,12 +7,13 @@ set -eu
 
 # Set a default value for the env vars usually supplied by nimbus Makefile
 
-export NUM_VALIDATORS=${VALIDATORS:-100}
-export NUM_NODES=${NODES:-9}
-export NUM_MISSING_NODES=${MISSING_NODES:-1}
+export NUM_VALIDATORS=${VALIDATORS:-721}
+export NUM_NODES=${NODES:-1}
+export NUM_MISSING_NODES=${MISSING_NODES:-0}
 
 # Set DEPOSIT_WEB3_URL_ARG to empty to get genesis state from file, not using web3
-export DEPOSIT_WEB3_URL_ARG=--depositWeb3Url=ws://localhost:8545
+# export DEPOSIT_WEB3_URL_ARG=--depositWeb3Url=ws://localhost:8545
+export DEPOSIT_WEB3_URL_ARG=
 export DEPOSIT_CONTRACT_ADDRESS=0x
 
 
@@ -25,9 +26,9 @@ mkdir -p $BUILD_OUTPUTS_DIR
 
 # Run with "SHARD_COUNT=4 ./start.sh" to change these
 DEFS="-d:chronicles_log_level=DEBUG "
-DEFS+="-d:SHARD_COUNT=${SHARD_COUNT:-8} "      # Spec default: 1024
-DEFS+="-d:SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH:-8} "   # Spec default: 64
-DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-12} " # Spec default: 6
+DEFS+="-d:SHARD_COUNT=${SHARD_COUNT:-16} "      # Spec default: 1024
+DEFS+="-d:SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH:-16} "   # Spec default: 64
+DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-18} " # Spec default: 6
 
 LAST_VALIDATOR_NUM=$(( $NUM_VALIDATORS - 1 ))
 LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.json"

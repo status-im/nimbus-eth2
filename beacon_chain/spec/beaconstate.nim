@@ -409,11 +409,7 @@ func get_attesting_indices*(state: BeaconState,
                             stateCache: var StateCache):
                             HashSet[ValidatorIndex] =
   ## Return the sorted attesting indices corresponding to ``attestation_data``
-  ## and ``bits``.
-  ## The spec goes through a lot of hoops to sort things, and sometimes
-  ## constructs sets from the results here. The basic idea is to always
-  ## just keep it in a HashSet, which seems to suffice. If needed, it's
-  ## possible to follow the spec more literally.
+  ## and ``bitfield``.
   result = initSet[ValidatorIndex]()
   let committee =
     get_crosslink_committee(
@@ -423,6 +419,7 @@ func get_attesting_indices*(state: BeaconState,
     if bits[i]:
       result.incl index
 
+# TODO remove after removing attestation pool legacy usage
 func get_attesting_indices_seq*(state: BeaconState,
                                 attestation_data: AttestationData,
                                 bits: CommitteeValidatorsBits): seq[ValidatorIndex] =
@@ -431,7 +428,7 @@ func get_attesting_indices_seq*(state: BeaconState,
     state, attestation_data, bits, cache)))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#get_indexed_attestation
-func get_indexed_attestation(state: BeaconState, attestation: Attestation,
+func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
     stateCache: var StateCache): IndexedAttestation =
   # Return the indexed attestation corresponding to ``attestation``.
   let
@@ -445,18 +442,7 @@ func get_indexed_attestation(state: BeaconState, attestation: Attestation,
   doAssert custody_bit_1_indices <= attesting_indices
 
   let
-    ## TODO quadratic, .items, but first-class iterators, etc
-    ## filterIt can't work on HashSets directly because it is
-    ## assuming int-indexable thing to extract type, because,
-    ## like lots of other things in sequtils, it's a template
-    ## which doesn't otherwise care about the type system. It
-    ## is a mess. Just write the for-loop, etc, I guess, is a
-    ## reasonable reaction because of the special for binding
-    ## with (non-closure, etc) iterators no other part of Nim
-    ## can access. As such, this function's doing many copies
-    ## and allocations it has no fundamental reason to do.
-    ## TODO phrased in 0.8 as
-    ## custody_bit_0_indices = attesting_indices.difference(custody_bit_1_indices)
+    # custody_bit_0_indices = attesting_indices.difference(custody_bit_1_indices)
     custody_bit_0_indices =
       filterIt(toSeq(items(attesting_indices)), it notin custody_bit_1_indices)
 
@@ -482,7 +468,7 @@ func get_indexed_attestation(state: BeaconState, attestation: Attestation,
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#attestations
 proc process_attestation*(
-    state: BeaconState, attestation: Attestation, flags: UpdateFlags,
+    state: var BeaconState, attestation: Attestation, flags: UpdateFlags,
     stateCache: var StateCache): bool =
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
@@ -493,6 +479,9 @@ proc process_attestation*(
     else: state.slot
 
   let data = attestation.data
+
+  debug "process_attestation: beginning",
+    attestation=attestation
 
   if not (data.crosslink.shard < SHARD_COUNT):
     warn("Attestation shard too high",
@@ -528,6 +517,7 @@ proc process_attestation*(
   # Check FFG data, crosslink data, and signature
   let ffg_check_data = (data.source.epoch, data.source.root, data.target.epoch)
 
+  var cache = get_empty_per_epoch_cache()
   if data.target.epoch == get_current_epoch(state):
     if not (ffg_check_data == (state.current_justified_checkpoint.epoch,
         state.current_justified_checkpoint.root, get_current_epoch(state))):
@@ -539,7 +529,10 @@ proc process_attestation*(
       warn("Crosslink shard's current crosslinks not matching crosslink parent root")
       return
 
-    #state.current_epoch_attestations.add(pending_attestation)
+    debug "process_attestation: current_epoch_attestations.add",
+      pending_attestation = pending_attestation,
+      validator_index = get_attesting_indices(state, attestation.data, attestation.aggregation_bits, cache)
+    state.current_epoch_attestations.add(pending_attestation)
   else:
     if not (ffg_check_data == (state.previous_justified_checkpoint.epoch,
         state.previous_justified_checkpoint.root, get_previous_epoch(state))):
@@ -551,7 +544,10 @@ proc process_attestation*(
       warn("Crosslink shard's previous crosslinks not matching crosslink parent root")
       return
 
-    #state.previous_epoch_attestations.add(pending_attestation)
+    debug "process_attestation: previous_epoch_attestations.add",
+      pending_attestation = pending_attestation,
+      validator_index = get_attesting_indices(state, attestation.data, attestation.aggregation_bits, cache)
+    state.previous_epoch_attestations.add(pending_attestation)
 
   let parent_crosslink = if data.target.epoch == get_current_epoch(state):
     state.current_crosslinks[data.crosslink.shard]
@@ -596,12 +592,22 @@ proc makeAttestationData*(
 
   let
     epoch_start_slot = compute_start_slot_of_epoch(compute_epoch_of_slot(state.slot))
+    #shard = (shard_offset + get_start_shard(state,
+    #  compute_epoch_of_slot(state.slot))) mod SHARD_COUNT
+    shard = shard_offset
+    # TODO incorrect epoch for wraparound cases
+    target_epoch = compute_epoch_of_slot(state.slot)
+    # TODO wrong target_root when epoch_start_slot == state.slot
     target_root =
       if epoch_start_slot == state.slot: beacon_block_root
       else: get_block_root_at_slot(state, epoch_start_slot)
-    shard = (shard_offset + get_start_shard(state,
-      compute_epoch_of_slot(state.slot))) mod SHARD_COUNT
-    target_epoch = compute_epoch_of_slot(state.slot)
+
+  debug "makeAttestationData",
+    target_epoch=target_epoch,
+    target_root=target_root,
+    state_slot = state.slot,
+    epoch_start_slot = epoch_start_slot,
+    beacon_block_root = beacon_block_root
 
   AttestationData(
     beacon_block_root: beacon_block_root,

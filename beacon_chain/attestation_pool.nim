@@ -174,8 +174,16 @@ proc updateLatestVotes(
 proc add*(pool: var AttestationPool,
           state: BeaconState,
           attestation: Attestation) =
+  var cache = get_empty_per_epoch_cache()
+
   # TODO should validate against the state of the block being attested to?
   if not validate(state, attestation, {skipValidation}):
+    debug "attestationPool:add:notValidate",
+      attestationData = shortLog(attestation.data),
+      validatorIndex = get_attesting_indices(state, attestation.data, attestation.aggregation_bits, cache),
+      current_epoch = get_current_epoch(state),
+      target_epoch = attestation.data.target.epoch,
+      stateSlot = state.slot
     return
 
   # TODO inefficient data structures..
@@ -227,7 +235,11 @@ proc add*(pool: var AttestationPool,
 
         info "Attestation resolved",
           attestationData = shortLog(attestation.data),
-          validations = a.validations.len()
+          validations = a.validations.len(),
+          validatorIndex = get_attesting_indices(state, attestation.data, attestation.aggregation_bits, cache),
+          current_epoch = get_current_epoch(state),
+          target_epoch = attestation.data.target.epoch,
+          stateSlot = state.slot
 
         found = true
 
@@ -245,6 +257,10 @@ proc add*(pool: var AttestationPool,
 
       info "Attestation resolved",
         attestationData = shortLog(attestation.data),
+        validatorIndex = get_attesting_indices(state, attestation.data, attestation.aggregation_bits, cache),
+        current_epoch = get_current_epoch(state),
+        target_epoch = attestation.data.target.epoch,
+        stateSlot = state.slot,
         validations = 1
 
     else:
@@ -254,7 +270,7 @@ proc add*(pool: var AttestationPool,
         )
 
 proc getAttestationsForBlock*(
-  pool: AttestationPool, state: BeaconState,
+  pool: AttestationPool, state: var BeaconState,
     newBlockSlot: Slot): seq[Attestation] =
   if newBlockSlot - GENESIS_SLOT < MIN_ATTESTATION_INCLUSION_DELAY:
     debug "Too early for attestations",
@@ -324,6 +340,15 @@ proc getAttestationsForBlock*(
 
     if result.len >= MAX_ATTESTATIONS:
       return
+
+proc getAttestationsForTargetEpoch*(
+  pool: AttestationPool, state: var BeaconState,
+    epoch: Epoch): seq[Attestation] =
+  # TODO quick testing kludge
+  let begin_slot = compute_start_slot_of_epoch(epoch).uint64
+  let end_slot_minus1 = (compute_start_slot_of_epoch(epoch+1) - 1).uint64
+  for s in begin_slot .. end_slot_minus1:
+    result.add getAttestationsForBlock(pool, state, s.Slot)
 
 proc resolve*(pool: var AttestationPool, state: BeaconState) =
   var done: seq[Eth2Digest]
