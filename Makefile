@@ -14,6 +14,8 @@ TOOLS := beacon_node validator_keygen bench_bls_sig_agggregation state_sim
 TOOLS_DIRS := beacon_chain benchmarks research
 TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 
+DISABLE_LFS_SCRIPT := 0
+
 .PHONY: all sanity-checks deps nat-libs p2pd test $(TOOLS) clean_eth2_network_simulation_files eth2_network_simulation clean-testnet0 testnet0-nocleaning testnet0 clean-testnet1 testnet1-nocleaning testnet1 clean
 
 all: | $(TOOLS)
@@ -40,7 +42,9 @@ p2pd: | deps
 # Windows 10 with WSL enabled, but no distro installed, fails if "../../nimble.sh" is executed directly
 # in a Makefile recipe but works when prefixing it with `bash`. No idea how the PATH is overridden.
 test: | build deps nat-libs
+ifeq ($(DISABLE_LFS_SCRIPT), 0)
 	bash scripts/process_lfs.sh $(HANDLE_OUTPUT)
+endif
 	bash ../../nimble.sh test $(NIM_PARAMS) && rm -f 0000-*.json
 
 $(TOOLS): | build deps nat-libs p2pd
