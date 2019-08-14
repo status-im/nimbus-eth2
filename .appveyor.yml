@@ -7,10 +7,11 @@ environment:
   GIT_LFS_SKIP_SMUDGE: 1
 
 cache:
-- sqlite-dll-win32-x86-3240000.zip -> .appveyor.yml
-- sqlite-dll-win64-x64-3240000.zip -> .appveyor.yml
-- nimbus-deps.zip -> .appveyor.yml
-- NimBinaries
+  - sqlite-dll-win32-x86-3240000.zip -> .appveyor.yml
+  - sqlite-dll-win64-x64-3240000.zip -> .appveyor.yml
+  - nimbus-deps.zip -> .appveyor.yml
+  - NimBinaries
+  - jsonTestsCache
 
 matrix:
   # We always want 32 and 64-bit compilation
@@ -60,8 +61,11 @@ install:
   - curl -O -L -s -S https://raw.githubusercontent.com/status-im/nimbus/devel/build_nim.sh
   - env MAKE="mingw32-make -j2" ARCH_OVERRIDE=%PLATFORM% bash build_nim.sh Nim csources dist/nimble NimBinaries
 
+  # LFS test fixtures
+  - bash scripts\process_lfs.sh jsonTestsCache
+
 build_script:
-  - cd C:\projects\%APPVEYOR_PROJECT_SLUG%
+  #- cd C:\projects\%APPVEYOR_PROJECT_SLUG%
   - bash -c "nimble install -y --depsOnly"
 
 test_script:
