@@ -45,10 +45,10 @@ proc validate(
   if attestationSlot <
       state.finalized_checkpoint.epoch.compute_start_slot_of_epoch():
     debug "Old attestation",
-      attestationSlot = humaneSlotNum(attestationSlot),
-      attestationEpoch = humaneEpochNum(attestationSlot.compute_epoch_of_slot),
-      stateSlot = humaneSlotNum(state.slot),
-      finalizedEpoch = humaneEpochNum(state.finalized_checkpoint.epoch)
+      attestationSlot = shortLog(attestationSlot),
+      attestationEpoch = shortLog(attestationSlot.compute_epoch_of_slot),
+      stateSlot = shortLog(state.slot),
+      finalizedEpoch = shortLog(state.finalized_checkpoint.epoch)
 
     return
 
@@ -57,10 +57,10 @@ proc validate(
   # desperatly behind or someone is sending bogus attestations...
   if attestationSlot > state.slot + 64:
     debug "Future attestation",
-      attestationSlot = humaneSlotNum(attestationSlot),
-      attestationEpoch = humaneEpochNum(attestationSlot.compute_epoch_of_slot),
-      stateSlot = humaneSlotNum(state.slot),
-      finalizedEpoch = humaneEpochNum(state.finalized_checkpoint.epoch)
+      attestationSlot = shortLog(attestationSlot),
+      attestationEpoch = shortLog(attestationSlot.compute_epoch_of_slot),
+      stateSlot = shortLog(state.slot),
+      finalizedEpoch = shortLog(state.finalized_checkpoint.epoch)
     return
 
   if not attestation.custody_bits.BitSeq.isZeros:
@@ -124,22 +124,22 @@ proc slotIndex(
     We should have checked in validate that attestation is newer than
     finalized_slot and we never prune things before that, per below condition!
     """ &
-    ", attestationSlot: " & $humaneSlotNum(attestationSlot) &
-    ", startingSlot: " & $humaneSlotNum(pool.startingSlot)
+    ", attestationSlot: " & $shortLog(attestationSlot) &
+    ", startingSlot: " & $shortLog(pool.startingSlot)
 
   if pool.slots.len == 0:
     # Because the first attestations may arrive in any order, we'll make sure
     # to start counting at the last finalized epoch start slot - anything
     # earlier than that is thrown out by the above check
     info "First attestation!",
-      attestationSlot =  $humaneSlotNum(attestationSlot)
+      attestationSlot =  $shortLog(attestationSlot)
     pool.startingSlot =
       state.finalized_checkpoint.epoch.compute_start_slot_of_epoch()
 
   if pool.startingSlot + pool.slots.len.uint64 <= attestationSlot:
     debug "Growing attestation pool",
-      attestationSlot =  $humaneSlotNum(attestationSlot),
-      startingSlot = $humaneSlotNum(pool.startingSlot)
+      attestationSlot =  $shortLog(attestationSlot),
+      startingSlot = $shortLog(pool.startingSlot)
 
     # Make sure there's a pool entry for every slot, even when there's a gap
     while pool.startingSlot + pool.slots.len.uint64 <= attestationSlot:
@@ -148,9 +148,9 @@ proc slotIndex(
   if pool.startingSlot <
       state.finalized_checkpoint.epoch.compute_start_slot_of_epoch():
     debug "Pruning attestation pool",
-      startingSlot = $humaneSlotNum(pool.startingSlot),
+      startingSlot = $shortLog(pool.startingSlot),
       finalizedSlot =
-        $humaneSlotNum(
+        $shortLog(
           state.finalized_checkpoint.epoch.compute_start_slot_of_epoch())
 
     # TODO there should be a better way to remove a whole epoch of stuff..
@@ -274,12 +274,12 @@ proc getAttestationsForBlock*(
     newBlockSlot: Slot): seq[Attestation] =
   if newBlockSlot - GENESIS_SLOT < MIN_ATTESTATION_INCLUSION_DELAY:
     debug "Too early for attestations",
-      newBlockSlot = humaneSlotNum(newBlockSlot)
+      newBlockSlot = shortLog(newBlockSlot)
     return
 
   if pool.slots.len == 0: # startingSlot not set yet!
     info "No attestations found (pool empty)",
-      newBlockSlot = humaneSlotNum(newBlockSlot)
+      newBlockSlot = shortLog(newBlockSlot)
     return
 
   var cache = get_empty_per_epoch_cache()
@@ -294,9 +294,9 @@ proc getAttestationsForBlock*(
   if attestationSlot < pool.startingSlot or
       attestationSlot >= pool.startingSlot + pool.slots.len.uint64:
     info "No attestations",
-      attestationSlot = humaneSlotNum(attestationSlot),
-      startingSlot = humaneSlotNum(pool.startingSlot),
-      endingSlot = humaneSlotNum(pool.startingSlot + pool.slots.len.uint64)
+      attestationSlot = shortLog(attestationSlot),
+      startingSlot = shortLog(pool.startingSlot),
+      endingSlot = shortLog(pool.startingSlot + pool.slots.len.uint64)
 
     return
 

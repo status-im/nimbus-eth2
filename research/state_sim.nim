@@ -34,7 +34,7 @@ template withTimerRet(stats: var RunningStat, body: untyped): untyped =
 proc writeJson*(prefix, slot, v: auto) =
   var f: File
   defer: close(f)
-  let fileName = fmt"{prefix:04}-{humaneSlotNum(slot):08}.json"
+  let fileName = fmt"{prefix:04}-{shortLog(slot):08}.json"
   Json.saveFile(fileName, v, pretty = true)
 
 cli do(slots = 448,
@@ -139,8 +139,8 @@ cli do(slots = 448,
     flushFile(stdout)
 
     if (state.slot) mod SLOTS_PER_EPOCH == 0:
-      echo &" slot: {humaneSlotNum(state.slot)} ",
-        &"epoch: {humaneEpochNum(state.slot.compute_epoch_of_slot)}"
+      echo &" slot: {shortLog(state.slot)} ",
+        &"epoch: {shortLog(state.slot.compute_epoch_of_slot)}"
 
   maybeWrite() # catch that last state as well..
 

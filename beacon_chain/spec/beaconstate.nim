@@ -497,14 +497,14 @@ proc process_attestation*(
 
   if not (attestation_slot + MIN_ATTESTATION_INCLUSION_DELAY <= stateSlot):
     warn("Attestation too new",
-      attestation_slot = humaneSlotNum(attestation_slot),
-      state_slot = humaneSlotNum(stateSlot))
+      attestation_slot = shortLog(attestation_slot),
+      state_slot = shortLog(stateSlot))
     return
 
   if not (stateSlot <= attestation_slot + SLOTS_PER_EPOCH):
     warn("Attestation too old",
-      attestation_slot = humaneSlotNum(attestation_slot),
-      state_slot = humaneSlotNum(stateSlot))
+      attestation_slot = shortLog(attestation_slot),
+      state_slot = shortLog(stateSlot))
     return
 
   let pending_attestation = PendingAttestation(

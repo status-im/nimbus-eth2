@@ -44,8 +44,8 @@ proc processBlockHeader(
   # Verify that the slots match
   if not (blck.slot == state.slot):
     notice "Block header: slot mismatch",
-      block_slot = humaneSlotNum(blck.slot),
-      state_slot = humaneSlotNum(state.slot)
+      block_slot = shortLog(blck.slot),
+      state_slot = shortLog(state.slot)
     return false
 
   # Verify that the parent matches
@@ -462,37 +462,37 @@ proc processBlock*(
   # TODO probably better to do all verification first, then apply state changes
 
   if not processBlockHeader(state, blck, flags, stateCache):
-    notice "Block header not valid", slot = humaneSlotNum(state.slot)
+    notice "Block header not valid", slot = shortLog(state.slot)
     return false
 
   if not processRandao(state, blck.body, flags, stateCache):
-    debug "[Block processing] Randao failure", slot = humaneSlotNum(state.slot)
+    debug "[Block processing] Randao failure", slot = shortLog(state.slot)
     return false
 
   processEth1Data(state, blck.body)
 
   if not processProposerSlashings(state, blck, flags, stateCache):
-    debug "[Block processing] Proposer slashing failure", slot = humaneSlotNum(state.slot)
+    debug "[Block processing] Proposer slashing failure", slot = shortLog(state.slot)
     return false
 
   if not processAttesterSlashings(state, blck, stateCache):
-    debug "[Block processing] Attester slashing failure", slot = humaneSlotNum(state.slot)
+    debug "[Block processing] Attester slashing failure", slot = shortLog(state.slot)
     return false
 
   if not processAttestations(state, blck, flags, stateCache):
-    debug "[Block processing] Attestation processing failure", slot = humaneSlotNum(state.slot)
+    debug "[Block processing] Attestation processing failure", slot = shortLog(state.slot)
     return false
 
   if not processDeposits(state, blck):
-    debug "[Block processing] Deposit processing failure", slot = humaneSlotNum(state.slot)
+    debug "[Block processing] Deposit processing failure", slot = shortLog(state.slot)
     return false
 
   if not processVoluntaryExits(state, blck, flags):
-    debug "[Block processing] Exit processing failure", slot = humaneSlotNum(state.slot)
+    debug "[Block processing] Exit processing failure", slot = shortLog(state.slot)
     return false
 
   if not processTransfers(state, blck, flags, stateCache):
-    debug "[Block processing] Transfer processing failure", slot = humaneSlotNum(state.slot)
+    debug "[Block processing] Transfer processing failure", slot = shortLog(state.slot)
     return false
 
   true

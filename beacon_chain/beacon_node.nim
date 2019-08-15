@@ -281,8 +281,8 @@ proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
     debug "Preparing for fork choice",
       stateRoot = shortLog(root),
       connectedPeers = node.network.peersCount,
-      stateSlot = humaneSlotNum(state.slot),
-      stateEpoch = humaneEpochNum(state.slot.computeEpochOfSlot)
+      stateSlot = shortLog(state.slot),
+      stateEpoch = shortLog(state.slot.computeEpochOfSlot)
 
   let
     justifiedHead = node.blockPool.latestJustifiedBlock()
@@ -296,8 +296,8 @@ proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
 
     lmdGhost(node.attestationPool, state, justifiedHead)
   info "Fork chosen",
-    newHeadSlot = humaneSlotNum(newHead.slot),
-    newHeadEpoch = humaneEpochNum(newHead.slot.computeEpochOfSlot),
+    newHeadSlot = shortLog(newHead.slot),
+    newHeadEpoch = shortLog(newHead.slot.computeEpochOfSlot),
     newHeadBlockRoot = shortLog(newHead.root)
 
   node.blockPool.updateHead(node.stateCache, newHead)
@@ -336,16 +336,16 @@ proc proposeBlock(node: BeaconNode,
                   slot: Slot): Future[BlockRef] {.async.} =
   if head.slot > slot:
     notice "Skipping proposal, we've already selected a newer head",
-      headSlot = humaneSlotNum(head.slot),
+      headSlot = shortLog(head.slot),
       headBlockRoot = shortLog(head.root),
-      slot = humaneSlotNum(slot)
+      slot = shortLog(slot)
     return head
 
   if head.slot == slot:
     # Weird, we should never see as head the same slot as we're proposing a
     # block for - did someone else steal our slot? why didn't we discard it?
     warn "Found head at same slot as we're supposed to propose for!",
-      headSlot = humaneSlotNum(head.slot),
+      headSlot = shortLog(head.slot),
       headBlockRoot = shortLog(head.root)
     # TODO investigate how and when this happens.. maybe it shouldn't be an
     #      assert?
@@ -465,8 +465,8 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     #      finalized epoch.. also, it seems that posting very old attestations
     #      is risky from a slashing perspective. More work is needed here.
     notice "Skipping attestation, head is too recent",
-      headSlot = humaneSlotNum(head.slot),
-      slot = humaneSlotNum(slot)
+      headSlot = shortLog(head.slot),
+      slot = shortLog(slot)
     return
 
   let attestationHead = head.findAncestorBySlot(slot)
@@ -475,13 +475,13 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     # attesting to a past state - we must then recreate the world as it looked
     # like back then
     notice "Attesting to a state in the past, falling behind?",
-      headSlot = humaneSlotNum(head.slot),
-      attestationHeadSlot = humaneSlotNum(attestationHead.slot),
-      attestationSlot = humaneSlotNum(slot)
+      headSlot = shortLog(head.slot),
+      attestationHeadSlot = shortLog(attestationHead.slot),
+      attestationSlot = shortLog(slot)
 
   debug "Checking attestations",
     attestationHeadRoot = shortLog(attestationHead.blck.root),
-    attestationSlot = humaneSlotNum(slot)
+    attestationSlot = shortLog(slot)
 
 
   # Collect data to send before node.stateCache grows stale
@@ -566,7 +566,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
 
     debug "Expecting proposal",
       headRoot = shortLog(head.root),
-      slot = humaneSlotNum(slot),
+      slot = shortLog(slot),
       proposer = shortLog(state.validators[proposerIdx].pubKey)
 
   return head
@@ -584,17 +584,17 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     nextSlot = slot + 1
 
   debug "Slot start",
-    lastSlot = humaneSlotNum(lastSlot),
-    scheduledSlot = humaneSlotNum(scheduledSlot),
-    slot = humaneSlotNum(slot)
+    lastSlot = shortLog(lastSlot),
+    scheduledSlot = shortLog(scheduledSlot),
+    slot = shortLog(slot)
 
   if slot < lastSlot:
     # This can happen if the system clock changes time for example, and it's
     # pretty bad
     # TODO shut down? time either was or is bad, and PoS relies on accuracy..
     warn "Beacon clock time moved back, rescheduling slot actions",
-      slot = humaneSlotNum(slot),
-      scheduledSlot = humaneSlotNum(scheduledSlot)
+      slot = shortLog(slot),
+      scheduledSlot = shortLog(scheduledSlot)
 
     addTimer(saturate(node.beaconClock.fromNow(nextSlot))) do (p: pointer):
       asyncCheck node.onSlotStart(slot, nextSlot)
@@ -608,9 +608,9 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     #      how long attestations remain interesting
     # TODO should we shut down instead? clearly we're unable to keep up
     warn "Unable to keep up, skipping ahead without doing work",
-      lastSlot = humaneSlotNum(lastSlot),
-      slot = humaneSlotNum(slot),
-      scheduledSlot = humaneSlotNum(scheduledSlot)
+      lastSlot = shortLog(lastSlot),
+      slot = shortLog(slot),
+      scheduledSlot = shortLog(scheduledSlot)
 
     addTimer(saturate(node.beaconClock.fromNow(nextSlot))) do (p: pointer):
       # We pass the current slot here to indicate that work should be skipped!
@@ -650,9 +650,9 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     #      state rewinds while waiting for async operations like validator
     #      signature..
     notice "Catching up",
-      curSlot = humaneSlotNum(curSlot),
-      lastSlot = humaneSlotNum(lastSlot),
-      slot = humaneSlotNum(slot)
+      curSlot = shortLog(curSlot),
+      lastSlot = shortLog(lastSlot),
+      slot = shortLog(slot)
 
     # For every slot we're catching up, we'll propose then send
     # attestations - head should normally be advancing along the same branch
@@ -688,7 +688,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
       else: halfSlot - attestationStart.offset
 
     debug "Waiting to send attestations",
-      slot = humaneSlotNum(slot),
+      slot = shortLog(slot),
       fromNow = shortLog(fromNow)
 
     await sleepAsync(fromNow)
@@ -703,9 +703,9 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     nextSlotStart = saturate(node.beaconClock.fromNow(nextSlot))
 
   info "Scheduling slot actions",
-    lastSlot = humaneSlotNum(slot),
-    slot = humaneSlotNum(slot),
-    nextSlot = humaneSlotNum(nextSlot),
+    lastSlot = shortLog(slot),
+    slot = shortLog(slot),
+    nextSlot = shortLog(nextSlot),
     fromNow = shortLog(nextSlotStart)
 
   addTimer(nextSlotStart) do (p: pointer):
@@ -737,7 +737,7 @@ proc run*(node: BeaconNode) =
     fromNow = saturate(node.beaconClock.fromNow(startSlot))
 
   info "Scheduling first slot action",
-    nextSlot = humaneSlotNum(startSlot),
+    nextSlot = shortLog(startSlot),
     fromNow = shortLog(fromNow)
 
   addTimer(fromNow) do (p: pointer):
@@ -767,7 +767,7 @@ proc start(node: BeaconNode, headState: BeaconState) =
     slotsSinceFinalization =
       int64(node.blockPool.finalizedHead.slot) -
       int64(node.beaconClock.now()),
-    stateSlot = humaneSlotNum(headState.slot),
+    stateSlot = shortLog(headState.slot),
     SHARD_COUNT,
     SLOTS_PER_EPOCH,
     SECONDS_PER_SLOT,

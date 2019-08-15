@@ -187,7 +187,7 @@ proc addResolvedBlock(
     blck = shortLog(blck),
     blockRoot = shortLog(blockRoot),
     justifiedRoot = shortLog(foundHead.get().justified.blck.root),
-    justifiedSlot = humaneSlotNum(foundHead.get().justified.slot)
+    justifiedSlot = shortLog(foundHead.get().justified.slot)
 
   # Now that we have the new block, we should see if any of the previously
   # unresolved blocks magically become resolved
@@ -225,7 +225,7 @@ proc add*(
   if blck.slot <= pool.finalizedHead.slot:
     debug "Old block, dropping",
       blck = shortLog(blck),
-      tailSlot = humaneSlotNum(pool.tail.slot),
+      tailSlot = shortLog(pool.tail.slot),
       blockRoot = shortLog(blockRoot)
 
     return
@@ -371,7 +371,7 @@ proc maybePutState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
   if state.data.slot mod SLOTS_PER_EPOCH == 0:
     if not pool.db.containsState(state.root):
       info "Storing state",
-        stateSlot = humaneSlotNum(state.data.slot),
+        stateSlot = shortLog(state.data.slot),
         stateRoot = shortLog(state.root)
       pool.db.putState(state.root, state.data)
       # TODO this should be atomic with the above write..
@@ -432,10 +432,10 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
     doAssert false, "Oh noes, we passed big bang!"
 
   debug "Replaying state transitions",
-    stateSlot = humaneSlotNum(state.data.data.slot),
+    stateSlot = shortLog(state.data.data.slot),
     ancestorStateRoot = shortLog(ancestor.data.state_root),
-    ancestorStateSlot = humaneSlotNum(ancestorState.get().slot),
-    slot = humaneSlotNum(bs.slot),
+    ancestorStateSlot = shortLog(ancestorState.get().slot),
+    slot = shortLog(bs.slot),
     blockRoot = shortLog(bs.blck.root),
     ancestors = ancestors.len
 
@@ -513,7 +513,7 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
   if pool.head.blck == blck:
     debug "No head update this time",
       headBlockRoot = shortLog(blck.root),
-      headBlockSlot = humaneSlotNum(blck.slot)
+      headBlockSlot = shortLog(blck.slot)
 
     return
 
@@ -533,20 +533,20 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
       parentRoot = shortLog(blck.parent.root),
       stateRoot = shortLog(state.data.root),
       headBlockRoot = shortLog(state.blck.root),
-      stateSlot = humaneSlotNum(state.data.data.slot),
+      stateSlot = shortLog(state.data.data.slot),
       justifiedEpoch =
-        humaneEpochNum(state.data.data.current_justified_checkpoint.epoch),
+        shortLog(state.data.data.current_justified_checkpoint.epoch),
       finalizedEpoch =
-        humaneEpochNum(state.data.data.finalized_checkpoint.epoch)
+        shortLog(state.data.data.finalized_checkpoint.epoch)
   else:
     info "Updated head",
       stateRoot = shortLog(state.data.root),
       headBlockRoot = shortLog(state.blck.root),
-      stateSlot = humaneSlotNum(state.data.data.slot),
+      stateSlot = shortLog(state.data.data.slot),
       justifiedEpoch =
-        humaneEpochNum(state.data.data.current_justified_checkpoint.epoch),
+        shortLog(state.data.data.current_justified_checkpoint.epoch),
       finalizedEpoch =
-        humaneEpochNum(state.data.data.finalized_checkpoint.epoch)
+        shortLog(state.data.data.finalized_checkpoint.epoch)
 
   let
     # TODO there might not be a block at the epoch boundary - what then?
@@ -560,9 +560,9 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
   if finalizedHead != pool.finalizedHead:
     info "Finalized block",
       finalizedBlockRoot = shortLog(finalizedHead.blck.root),
-      finalizedBlockSlot = humaneSlotNum(finalizedHead.slot),
+      finalizedBlockSlot = shortLog(finalizedHead.slot),
       headBlockRoot = shortLog(blck.root),
-      headBlockSlot = humaneSlotNum(blck.slot)
+      headBlockSlot = shortLog(blck.slot)
 
     var cur = finalizedHead.blck
     while cur != pool.finalizedHead.blck:

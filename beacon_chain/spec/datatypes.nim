@@ -550,10 +550,10 @@ when useListType:
 else:
   template asSeq*[T; N](x: List[T, N]): auto = x
 
-func humaneSlotNum*(s: Slot): uint64 =
+func shortLog*(s: Slot): uint64 =
   s - GENESIS_SLOT
 
-func humaneEpochNum*(e: Epoch): uint64 =
+func shortLog*(e: Epoch): uint64 =
   e - GENESIS_EPOCH
 
 func shortLog*(v: BeaconBlock): tuple[
@@ -566,7 +566,7 @@ func shortLog*(v: BeaconBlock): tuple[
     transfers_len: int,
     signature: string
   ] = (
-    humaneSlotNum(v.slot), shortLog(v.parent_root),
+    shortLog(v.slot), shortLog(v.parent_root),
     shortLog(v.state_root), v.body.proposer_slashings.len(),
     v.body.attester_slashings.len(), v.body.attestations.len(),
     v.body.deposits.len(), v.body.voluntary_exits.len(), v.body.transfers.len(),
@@ -576,13 +576,13 @@ func shortLog*(v: BeaconBlock): tuple[
 func shortLog*(v: AttestationData): auto =
    (
       shortLog(v.beacon_block_root),
-      humaneEpochNum(v.source.epoch), shortLog(v.target.root),
+      shortLog(v.source.epoch), shortLog(v.target.root),
       shortLog(v.source.root),
       v.crosslink
     )
 
-chronicles.formatIt Slot: it.humaneSlotNum
-chronicles.formatIt Epoch: it.humaneEpochNum
+chronicles.formatIt Slot: it.shortLog
+chronicles.formatIt Epoch: it.shortLog
 chronicles.formatIt BeaconBlock: it.shortLog
 chronicles.formatIt AttestationData: it.shortLog
 
