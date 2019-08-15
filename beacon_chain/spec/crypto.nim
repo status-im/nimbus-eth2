@@ -46,9 +46,9 @@
 
 import
   sequtils,
-  stew/objects, hashes, eth/rlp, nimcrypto/utils,
+  stew/objects, hashes, nimcrypto/utils,
   blscurve, json_serialization,
-  digest
+  ../version, digest
 
 export
   json_serialization
@@ -257,28 +257,30 @@ else:
   proc newPrivKey*(): ValidatorPrivKey =
     SigKey.random()
 
-# RLP serialization (TODO: remove if no longer necessary)
-when ValidatorPubKey is BlsValue:
-  proc append*(writer: var RlpWriter, value: ValidatorPubKey) =
-    writer.append if value.kind == Real: value.blsValue.getBytes()
-                  else: value.blob
-else:
-  proc append*(writer: var RlpWriter, value: ValidatorPubKey) =
-    writer.append value.getBytes()
+when networkBackend == rlpxBackend:
+  import eth/rlp
 
-proc read*(rlp: var Rlp, T: type ValidatorPubKey): T {.inline.} =
-  result fromBytes(T, rlp.toBytes)
+  when ValidatorPubKey is BlsValue:
+    proc append*(writer: var RlpWriter, value: ValidatorPubKey) =
+      writer.append if value.kind == Real: value.blsValue.getBytes()
+                    else: value.blob
+  else:
+    proc append*(writer: var RlpWriter, value: ValidatorPubKey) =
+      writer.append value.getBytes()
 
-when ValidatorSig is BlsValue:
-  proc append*(writer: var RlpWriter, value: ValidatorSig) =
-    writer.append if value.kind == Real: value.blsValue.getBytes()
-                  else: value.blob
-else:
-  proc append*(writer: var RlpWriter, value: ValidatorSig) =
-    writer.append value.getBytes()
+  proc read*(rlp: var Rlp, T: type ValidatorPubKey): T {.inline.} =
+    result.initFromBytes rlp.toBytes.toOpenArray
 
-proc read*(rlp: var Rlp, T: type ValidatorSig): T {.inline.} =
-  let bytes = fromBytes(T, rlp.toBytes)
+  when ValidatorSig is BlsValue:
+    proc append*(writer: var RlpWriter, value: ValidatorSig) =
+      writer.append if value.kind == Real: value.blsValue.getBytes()
+                    else: value.blob
+  else:
+    proc append*(writer: var RlpWriter, value: ValidatorSig) =
+      writer.append value.getBytes()
+
+  proc read*(rlp: var Rlp, T: type ValidatorSig): T {.inline.} =
+    result.initFromBytes rlp.toBytes.toOpenArray
 
 proc writeValue*(writer: var JsonWriter, value: VerKey) {.inline.} =
   writer.writeValue($value)

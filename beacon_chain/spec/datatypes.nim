@@ -19,8 +19,8 @@
 
 import
   macros, hashes, math, json, strutils,
-  stew/[byteutils, bitseqs], chronicles, eth/[common, rlp],
-  ../ssz/types, ./crypto, ./digest
+  stew/[byteutils, bitseqs], chronicles, eth/common,
+  ../version, ../ssz/types, ./crypto, ./digest
 
 # TODO Data types:
 # Presently, we're reusing the data types from the serialization (uint64) in the
@@ -71,6 +71,8 @@ const
 template maxSize*(n: int) {.pragma.}
 
 type
+  Bytes = seq[byte]
+
   ValidatorIndex* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
   Shard* = uint64
   Gwei* = uint64
@@ -388,6 +390,16 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root (not signing_root!)
 
+when networkBackend == rlpxBackend:
+  import eth/rlp/bitseqs as rlpBitseqs
+  export read, append
+
+  proc read*(rlp: var Rlp, T: type BitList): T {.inline.} =
+    T rlp.read(BitSeq)
+
+  proc append*(writer: var RlpWriter, value: BitList) =
+    writer.append BitSeq(value)
+
 template foreachSpecType*(op: untyped) =
   ## These are all spec types that will appear in network messages
   ## and persistent consensus data. This helper template is useful
@@ -486,11 +498,12 @@ template ethTimeUnit(typ: type) {.dirty.} =
   proc `%`*(x: typ): JsonNode {.borrow.}
 
   # Serialization
-  proc read*(rlp: var Rlp, T: type typ): typ {.inline.} =
-    typ(rlp.read(uint64))
+  when networkBackend == rlpxBackend:
+    proc read*(rlp: var Rlp, T: type typ): typ {.inline.} =
+      typ(rlp.read(uint64))
 
-  proc append*(writer: var RlpWriter, value: typ) =
-    writer.append uint64(value)
+    proc append*(writer: var RlpWriter, value: typ) =
+      writer.append uint64(value)
 
   proc writeValue*(writer: var JsonWriter, value: typ) =
     writeValue(writer, uint64 value)
@@ -593,4 +606,4 @@ static:
 
 import nimcrypto, json_serialization
 export json_serialization
-export writeValue, readValue, append, read
+export writeValue, readValue

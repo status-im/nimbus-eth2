@@ -29,7 +29,7 @@ proc tryEmitting(peer: Peer, topic: string,
                  msgId: string, msg: string): Future[void] {.gcsafe.}
 
 p2pProtocol GossipSub(version = 1,
-                      shortName = "gss",
+                      rlpxName = "gss",
                       peerState = GossipSubPeer,
                       networkState = GossipSubNetwork):
   # This is a very barebones emulation of the GossipSub protocol

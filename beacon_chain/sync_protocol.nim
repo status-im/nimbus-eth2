@@ -4,6 +4,10 @@ import
   spec/[datatypes, crypto, digest, helpers], eth/rlp,
   beacon_node_types, eth2_network, beacon_chain_db, block_pool, time, ssz
 
+when networkBackend == rlpxBackend:
+  import eth/rlp/options as rlpOptions
+  template libp2pProtocol*(name: string, version: int) {.pragma.}
+
 type
   ValidatorSetDeltaFlags {.pure.} = enum
     Activation = 0
