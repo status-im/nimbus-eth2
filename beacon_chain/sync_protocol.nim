@@ -94,9 +94,10 @@ p2pProtocol BeaconSync(version = 1,
       bestSlot = headBlock.slot
       latestFinalizedEpoch = finalizedHead.slot.compute_epoch_of_slot()
 
-    let m = await peer.hello(node.forkVersion,
-                             finalizedHead.blck.root, latestFinalizedEpoch,
-                             bestRoot, bestSlot, timeout = 10.seconds)
+    let handshakeFut = peer.hello(node.forkVersion,
+                                  finalizedHead.blck.root, latestFinalizedEpoch,
+                                  bestRoot, bestSlot, timeout = 10.seconds)
+    let m = await handshakeFut
 
     if m.forkVersion != node.forkVersion:
       await peer.disconnect(IrrelevantNetwork)
