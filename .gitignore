@@ -12,9 +12,5 @@ build/
 
 /scripts/testnet*.sh
 
-# LFS cache
-jsonTestsCache/
-tmpcache/
-
 # State sim # TODO - move in another folder
 0000-*.json
