@@ -720,10 +720,9 @@ proc run*(node: BeaconNode) =
     node.onAttestation(attestation)
 
   let
-    wallSlot = node.beaconClock.now().toSlot()
-    startSlot =
-      if wallSlot.afterGenesis: wallSlot.slot + 1
-      else: GENESIS_SLOT + 1
+    t = node.beaconClock.now()
+    startSlot = if t > BeaconTime(0): t.toSlot + 1
+                else: GENESIS_SLOT + 1
     fromNow = saturate(node.beaconClock.fromNow(startSlot))
 
   info "Scheduling first slot action",

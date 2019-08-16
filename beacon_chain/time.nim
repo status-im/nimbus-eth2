@@ -38,6 +38,12 @@ proc init*(T: type BeaconClock, state: BeaconState): T =
 
   T(genesis: unixGenesis - unixGenesisOffset)
 
+template `<`*(a, b: BeaconTime): bool =
+  int64(a) < int64(b)
+
+template `<=`*(a, b: BeaconTime): bool =
+  int64(a) <= int64(b)
+
 func toSlot*(t: BeaconTime): tuple[afterGenesis: bool, slot: Slot] =
   let ti = t.int64
   if ti >= 0:
