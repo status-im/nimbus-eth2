@@ -54,3 +54,7 @@ task test, "Run all tests":
 
   # State sim; getting into 3rd epoch useful
   buildBinary "state_sim", "research/", "-r -d:release", "--validators=128 --slots=140"
+
+task sync_lfs_tests, "Sync LFS json tests":
+  # Syncs the json test files (but not the EF yaml tests)
+  exec "scripts/process_lfs.sh jsonTestsCache"
