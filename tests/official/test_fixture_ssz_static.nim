@@ -103,27 +103,23 @@ proc testerImpl[T](path: string, sszTest: SszStaticTest) {.cdecl, gcsafe.} =
       # There is a recursive instantiation loop of system's `$` operator.
       check success
 
-    # let ob = SSZ.encode(obj.obj)
+    execTest "serialization",
+              (let ourBytes = SSZ.encode(obj.obj[]); ourBytes),
+              sszTest.expectedBytes
 
-    when false:
-      execTest "serialization",
-                (let ourBytes = SSZ.encode(obj.obj); ourBytes),
-                sszTest.expectedBytes
+    execTest "root hash check",
+              hashTreeRoot(obj.obj[]),
+              sszTest.expectedRootHash
 
-      execTest "root hash check",
-                hashTreeRoot(obj.obj),
-                sszTest.expectedRootHash
+    when hasSigningRoot(T):
+      doAssert sszTest.hasSigHash
+      execTest "sig hash check",
+               signingRoot(obj.obj[]),
+               sszTest.expectedSigHash
 
-      when hasSigningRoot(T):
-        doAssert sszTest.hasSigHash
-        execTest "sig hash check",
-                 signingRoot(obj.obj),
-                 sszTest.expectedSigHash
-
-    when true:
-      execTest "roundtrip",
-             readSszValueRef(sszTest.expectedBytes, T),
-             obj.obj
+    execTest "roundtrip",
+           readSszValueRef(sszTest.expectedBytes, T),
+           obj.obj
 
 template addSpecTypeRTTI(T: type) =
   var reader = readerImpl[T]
