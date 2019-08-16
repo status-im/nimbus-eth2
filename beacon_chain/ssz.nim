@@ -48,7 +48,7 @@ type
 
   Chunk = array[bytesPerChunk, byte]
 
-  TypeWithMaxLen[T; maxLen: static int64] = distinct T
+  TypeWithMaxLen*[T; maxLen: static int64] = distinct T
 
   SizePrefixed*[T] = distinct T
   SszMaxSizeExceeded* = object of SerializationError
@@ -84,12 +84,15 @@ when false:
   # TODO: Nim can't handle yet this simpler definition. File an issue.
   template valueOf[T; N](x: TypeWithMaxLen[T, N]): auto = T(x)
 else:
-  proc unwrapImpl[T; N](x: ptr TypeWithMaxLen[T, N]): ptr T =
+  proc unwrapImpl[T; N: static int64](x: ptr TypeWithMaxLen[T, N]): ptr T =
     cast[ptr T](x)
 
   template valueOf(x: TypeWithMaxLen): auto =
     let xaddr = unsafeAddr x
     unwrapImpl(xaddr)[]
+
+template sszList*(x: seq|array, maxLen: static int64): auto =
+  TypeWithMaxLen[type(x), maxLen](x)
 
 template toSszType*(x: auto): auto =
   mixin toSszType

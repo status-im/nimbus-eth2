@@ -68,6 +68,9 @@ type
   Baz = object
     i: uint64
 
+proc toDigest[N: static int](x: array[N, byte]): Eth2Digest =
+  result.data[0 .. N-1] = x
+
 suite "SSZ Navigation":
   test "simple object fields":
     var foo = Foo(bar: Bar(b: "bar", baz: Baz(i: 10'u64)))
@@ -80,4 +83,17 @@ suite "SSZ Navigation":
 
     let mountedBar = mountedFoo.bar
     check mountedBar.baz.i == 10'u64
+
+  test "lists with max size":
+    let a = [byte 0x01, 0x02, 0x03].toDigest
+    let b = [byte 0x04, 0x05, 0x06].toDigest
+    let c = [byte 0x07, 0x08, 0x09].toDigest
+
+    let leaves = sszList(@[a, b, c], int64(1 shl 3))
+    let root = hashTreeRoot(leaves)
+    check $root == "5248085B588FAB1DD1E03F3CD62201602B12E6560665935964F46E805977E8C5"
+
+    let leaves2 = sszList(@[a, b, c], int64(1 shl 10))
+    let root2 = hashTreeRoot(leaves2)
+    check $root2 == "9FB7D518368DC14E8CC588FB3FD2749BEEF9F493FEF70AE34AF5721543C67173"
 
