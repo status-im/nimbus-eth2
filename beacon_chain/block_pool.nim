@@ -297,7 +297,7 @@ proc add*(
 
 proc getRef*(pool: BlockPool, root: Eth2Digest): BlockRef =
   ## Retrieve a resolved block reference, if available
-  result = pool.blocks.getOrDefault(root)
+  pool.blocks.getOrDefault(root)
 
 proc get*(pool: BlockPool, blck: BlockRef): BlockData =
   ## Retrieve the associated block body of a block reference

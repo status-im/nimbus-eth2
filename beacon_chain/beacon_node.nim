@@ -414,12 +414,23 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
     attestationData = shortLog(attestation.data),
     signature = shortLog(attestation.signature)
 
+  let
+    wallSlot = node.beaconClock.now().toSlot()
+    head = node.blockPool.head
+
+  if not wallSlot.afterGenesis or wallSlot.slot < head.blck.slot:
+    warn "Received attestation before genesis or head - clock is wrong?",
+      afterGenesis = wallSlot.afterGenesis,
+      wallSlot = shortLog(wallSlot.slot),
+      headSlot = shortLog(head.blck.slot)
+    return
+
   # TODO seems reasonable to use the latest head state here.. needs thinking
   #      though - maybe we should use the state from the block pointed to by
   #      the attestation for some of the check? Consider interop with block
   #      production!
   node.blockPool.withState(node.stateCache,
-      BlockSlot(blck: node.blockPool.head.blck, slot: node.beaconClock.now().toSlot())):
+      BlockSlot(blck: head.blck, slot: wallSlot.slot)):
     var stateCache = get_empty_per_epoch_cache()
     node.attestationPool.add(state, attestation)
 
@@ -580,26 +591,38 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
 
   let
     # The slot we should be at, according to the clock
-    slot = node.beaconClock.now().toSlot()
-    nextSlot = slot + 1
+    beaconTime = node.beaconClock.now()
+    wallSlot = beaconTime.toSlot()
 
   debug "Slot start",
     lastSlot = shortLog(lastSlot),
     scheduledSlot = shortLog(scheduledSlot),
-    slot = shortLog(slot)
+    beaconTime = shortLog(beaconTime)
 
-  if slot < lastSlot:
+  if not wallSlot.afterGenesis or (wallSlot.slot < lastSlot):
     # This can happen if the system clock changes time for example, and it's
     # pretty bad
     # TODO shut down? time either was or is bad, and PoS relies on accuracy..
     warn "Beacon clock time moved back, rescheduling slot actions",
-      slot = shortLog(slot),
+      beaconTime = shortLog(beaconTime),
+      lastSlot = shortLog(lastSlot),
       scheduledSlot = shortLog(scheduledSlot)
+
+    let
+      slot = Slot(
+        if wallSlot.afterGenesis:
+          max(1'u64, wallSlot.slot.uint64)
+        else: GENESIS_SLOT.uint64 + 1)
+      nextSlot = slot + 1
 
     addTimer(saturate(node.beaconClock.fromNow(nextSlot))) do (p: pointer):
       asyncCheck node.onSlotStart(slot, nextSlot)
 
     return
+
+  let
+    slot = wallSlot.slot # afterGenesis == true!
+    nextSlot = slot + 1
 
   if slot > lastSlot + SLOTS_PER_EPOCH:
     # We've fallen behind more than an epoch - there's nothing clever we can
@@ -730,13 +753,14 @@ proc run*(node: BeaconNode) =
     node.onAttestation(attestation)
 
   let
-    slot = node.beaconClock.now().toSlot()
+    wallSlot = node.beaconClock.now().toSlot()
     startSlot =
-      if slot >= GENESIS_SLOT: slot + 1
+      if wallSlot.afterGenesis: wallSlot.slot + 1
       else: GENESIS_SLOT + 1
     fromNow = saturate(node.beaconClock.fromNow(startSlot))
 
   info "Scheduling first slot action",
+    beaconTime = shortLog(node.beaconClock.now()),
     nextSlot = shortLog(startSlot),
     fromNow = shortLog(fromNow)
 
@@ -764,8 +788,8 @@ proc start(node: BeaconNode, headState: BeaconState) =
   waitFor node.connectToNetwork()
 
   info "Starting beacon node",
-    slotsSinceFinalization =
-      int64(node.blockPool.finalizedHead.slot) -
+    timeSinceFinalization =
+      int64(node.blockPool.finalizedHead.slot.toBeaconTime()) -
       int64(node.beaconClock.now()),
     stateSlot = shortLog(headState.slot),
     SHARD_COUNT,
