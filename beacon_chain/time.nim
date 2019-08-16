@@ -38,13 +38,17 @@ proc init*(T: type BeaconClock, state: BeaconState): T =
 
   T(genesis: unixGenesis - unixGenesisOffset)
 
-func toSlot*(t: BeaconTime): Slot =
-  Slot(uint64(t) div SECONDS_PER_SLOT)
+func toSlot*(t: BeaconTime): tuple[afterGenesis: bool, slot: Slot] =
+  let ti = t.int64
+  if ti >= 0:
+    (true, Slot(uint64(ti) div SECONDS_PER_SLOT))
+  else:
+    (false, Slot(uint64(-ti) div SECONDS_PER_SLOT))
 
 func toBeaconTime*(c: BeaconClock, t: Time): BeaconTime =
-  BeaconTime(times.seconds(t - c.genesis).int64)
+  BeaconTime(times.seconds(t - c.genesis))
 
-func toSlot*(c: BeaconClock, t: Time): Slot =
+func toSlot*(c: BeaconClock, t: Time): tuple[afterGenesis: bool, slot: Slot] =
   c.toBeaconTime(t).toSlot()
 
 func toBeaconTime*(s: Slot, offset = chronos.seconds(0)): BeaconTime =
@@ -71,7 +75,7 @@ proc saturate*(d: tuple[inFuture: bool, offset: Duration]): Duration =
 proc addTimer*(fromNow: Duration, cb: CallbackFunc, udata: pointer = nil) =
   addTimer(Moment.now() + fromNow, cb, udata)
 
-proc shortLog*(d: Duration): string =
+func shortLog*(d: Duration): string =
   let dd = int64(d.milliseconds())
   if dd < 1000:
     $dd & "ms"
@@ -89,3 +93,5 @@ proc shortLog*(d: Duration): string =
     if (let frac = mins mod 60; frac > 0):
       tmp &= $frac & "m"
     tmp
+
+func shortLog*(v: BeaconTime): int64 = v.int64

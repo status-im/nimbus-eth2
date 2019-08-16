@@ -569,35 +569,44 @@ func shortLog*(s: Slot): uint64 =
 func shortLog*(e: Epoch): uint64 =
   e - GENESIS_EPOCH
 
-func shortLog*(v: BeaconBlock): tuple[
-    slot: uint64, parent_root: string, state_root: string,
-    #[ eth1_data ]#
-    proposer_slashings_len: int, attester_slashings_len: int,
-    attestations_len: int,
-    deposits_len: int,
-    voluntary_exits_len: int,
-    transfers_len: int,
-    signature: string
-  ] = (
-    shortLog(v.slot), shortLog(v.parent_root),
-    shortLog(v.state_root), v.body.proposer_slashings.len(),
-    v.body.attester_slashings.len(), v.body.attestations.len(),
-    v.body.deposits.len(), v.body.voluntary_exits.len(), v.body.transfers.len(),
-    shortLog(v.signature)
+func shortLog*(v: BeaconBlock): auto =
+  (
+    slot: shortLog(v.slot),
+    parent_root: shortLog(v.parent_root),
+    state_root: shortLog(v.state_root),
+    proposer_slashings_len: v.body.proposer_slashings.len(),
+    attester_slashings_len: v.body.attester_slashings.len(),
+    attestations_len: v.body.attestations.len(),
+    deposits_len: v.body.deposits.len(),
+    voluntary_exits_len: v.body.voluntary_exits.len(),
+    transfers_len: v.body.transfers.len(),
+    signature: shortLog(v.signature)
+  )
+
+func shortLog*(v: Crosslink): auto =
+  (
+    shard: v.shard,
+    parent_root: shortLog(v.parent_root),
+    start_epoch: shortLog(v.start_epoch),
+    end_epoch: shortLog(v.end_epoch),
+    data_root: shortLog(v.data_root)
   )
 
 func shortLog*(v: AttestationData): auto =
-   (
-      shortLog(v.beacon_block_root),
-      shortLog(v.source.epoch), shortLog(v.target.root),
-      shortLog(v.source.root),
-      v.crosslink
-    )
+  (
+    beacon_block_root: shortLog(v.beacon_block_root),
+    source_epoch: shortLog(v.source.epoch),
+    source_root: shortLog(v.source.root),
+    target_epoch: shortLog(v.target.epoch),
+    target_root: shortLog(v.target.root),
+    crosslink: shortLog(v.crosslink)
+  )
 
 chronicles.formatIt Slot: it.shortLog
 chronicles.formatIt Epoch: it.shortLog
 chronicles.formatIt BeaconBlock: it.shortLog
 chronicles.formatIt AttestationData: it.shortLog
+chronicles.formatIt CrossLink: it.shortLog
 
 static:
   # Ensure that get_crosslink_committee(...) can access all committees, which
