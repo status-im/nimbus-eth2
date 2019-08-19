@@ -6,6 +6,9 @@ import
   beacon_node_types
 
 proc init*(T: type AttestationPool, blockPool: BlockPool): T =
+  # TODO blockPool is only used when resolving orphaned attestations - it should
+  #      probably be removed as a dependency of AttestationPool (or some other
+  #      smart refactoring)
   T(
     slots: initDeque[SlotData](),
     blockPool: blockPool,
@@ -32,80 +35,38 @@ proc combine*(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
     debug "Ignoring overlapping attestations"
 
 proc validate(
-    state: BeaconState, attestation: Attestation, flags: UpdateFlags): bool =
-  # TODO these validations should probably be done elsewhere, and really bad
-  # attestations should probably cause some sort of feedback to the network
-  # layer so they don't spread further.. is there a sliding scale here of
-  # badness?
-
-  # TODO half of this stuff is from beaconstate.validateAttestation - merge?
-
-  let attestationSlot = get_attestation_data_slot(state, attestation.data)
-
-  if attestationSlot <
-      state.finalized_checkpoint.epoch.compute_start_slot_of_epoch():
-    debug "Old attestation",
-      attestationSlot = shortLog(attestationSlot),
-      attestationEpoch = shortLog(attestationSlot.compute_epoch_of_slot),
-      stateSlot = shortLog(state.slot),
-      finalizedEpoch = shortLog(state.finalized_checkpoint.epoch)
-
+    state: BeaconState, attestation: Attestation): bool =
+  # TODO what constitutes a valid attestation when it's about to be added to
+  #      the pool? we're interested in attestations that will become viable
+  #      for inclusion in blocks in the future and on any fork, so we need to
+  #      consider that validations might happen using the state of a different
+  #      fork.
+  #      Some things are always invalid (like out-of-bounds issues etc), but
+  #      others are more subtle - how do we validate the signature for example?
+  #      It might be valid on one fork but not another. One thing that helps
+  #      is that committees are stable per epoch and that it should be OK to
+  #      include an attestation in a block even if the corresponding validator
+  #      was slashed in the same epoch - there's no penalty for doing this and
+  #      the vote counting logic will take care of any ill effects (TODO verify)
+  let data = attestation.data
+  if not (data.crosslink.shard < SHARD_COUNT):
+    notice "Attestation shard too high",
+      attestation_shard = data.crosslink.shard
     return
 
-  # TODO what makes sense here? If an attestation is from the future with
-  # regards to the state, something is wrong - it's a bad attestation, we're
-  # desperatly behind or someone is sending bogus attestations...
-  if attestationSlot > state.slot + 64:
-    debug "Future attestation",
-      attestationSlot = shortLog(attestationSlot),
-      attestationEpoch = shortLog(attestationSlot.compute_epoch_of_slot),
-      stateSlot = shortLog(state.slot),
-      finalizedEpoch = shortLog(state.finalized_checkpoint.epoch)
+  # Without this check, we can't get a slot number for the attestation as
+  # certain helpers will assert
+  # TODO this could probably be avoided by being smart about the specific state
+  #      used to validate the attestation: most likely if we pick the state of
+  #      the beacon block being voted for and a slot in the target epoch
+  #      of the attestation, we'll be safe!
+  # TODO the above state selection logic should probably live here in the
+  #      attestation pool
+  if not (data.target.epoch == get_previous_epoch(state) or
+      data.target.epoch == get_current_epoch(state)):
+    notice "Target epoch not current or previous epoch"
+
     return
-
-  if not attestation.custody_bits.BitSeq.isZeros:
-    notice "Invalid custody bitfield for phase 0"
-    return false
-
-  if attestation.aggregation_bits.BitSeq.isZeros:
-    notice "Empty aggregation bitfield"
-    return false
-
-  ## the rest; turns into expensive NOP until then.
-  if skipValidation notin flags:
-    let
-      participants = get_attesting_indices_seq(
-        state, attestation.data, attestation.aggregation_bits)
-
-      ## TODO when the custody_bits assertion-to-emptiness disappears do this
-      ## and fix the custody_bit_0_participants check to depend on it.
-      # custody_bit_1_participants = {nothing, always, because assertion above}
-      custody_bit_1_participants: seq[ValidatorIndex] = @[]
-      custody_bit_0_participants = participants
-
-      group_public_key = bls_aggregate_pubkeys(
-        participants.mapIt(state.validators[it].pubkey))
-
-    # Verify that aggregate_signature verifies using the group pubkey.
-    if not bls_verify_multiple(
-        @[
-          bls_aggregate_pubkeys(mapIt(custody_bit_0_participants,
-                                      state.validators[it].pubkey)),
-          bls_aggregate_pubkeys(mapIt(custody_bit_1_participants,
-                                      state.validators[it].pubkey)),
-        ],
-        @[
-          hash_tree_root(AttestationDataAndCustodyBit(
-            data: attestation.data, custody_bit: false)),
-          hash_tree_root(AttestationDataAndCustodyBit(
-            data: attestation.data, custody_bit: true)),
-        ],
-        attestation.signature,
-        get_domain(state, DOMAIN_ATTESTATION,
-          compute_epoch_of_slot(get_attestation_data_slot(state, attestation.data))),
-      ):
-      notice "Invalid signature", participants
-      return false
 
   true
 
@@ -173,14 +134,19 @@ proc updateLatestVotes(
 
 proc add*(pool: var AttestationPool,
           state: BeaconState,
+          blck: BlockRef,
           attestation: Attestation) =
+  # TODO there are constraints on the state and block being passed in here
+  #      but what these are is unclear.. needs analyzing from a high-level
+  #      perspective / spec intent
+  # TODO should update the state correctly in here instead of forcing the caller
+  #      to do it...
+  doAssert blck.root == attestation.data.beacon_block_root
   var cache = get_empty_per_epoch_cache()
 
-  # TODO should validate against the state of the block being attested to?
-  if not validate(state, attestation, {skipValidation}):
-    debug "attestationPool:add:notValidate",
+  if not validate(state, attestation):
+    notice "Invalid attestation",
       attestationData = shortLog(attestation.data),
-      validatorIndex = get_attesting_indices(state, attestation.data, attestation.aggregation_bits, cache),
       current_epoch = get_current_epoch(state),
       target_epoch = attestation.data.target.epoch,
       stateSlot = state.slot
@@ -220,15 +186,16 @@ proc add*(pool: var AttestationPool,
       if not found:
         # Attestations in the pool that are a subset of the new attestation
         # can now be removed per same logic as above
+
+        debug "Removing subset attestations",
+          existingParticipants = a.validations.filterIt(
+            it.aggregation_bits.isSubsetOf(validation.aggregation_bits)
+          ).mapIt(get_attesting_indices_seq(
+            state, a.data, it.aggregation_bits)),
+          newParticipants = participants
+
         a.validations.keepItIf(
-          if it.aggregation_bits.isSubsetOf(validation.aggregation_bits):
-            debug "Removing subset attestation",
-              existingParticipants = get_attesting_indices_seq(
-                state, a.data, it.aggregation_bits),
-              newParticipants = participants
-            false
-          else:
-            true)
+          not it.aggregation_bits.isSubsetOf(validation.aggregation_bits))
 
         a.validations.add(validation)
         pool.updateLatestVotes(state, attestationSlot, participants, a.blck)
@@ -236,7 +203,8 @@ proc add*(pool: var AttestationPool,
         info "Attestation resolved",
           attestationData = shortLog(attestation.data),
           validations = a.validations.len(),
-          validatorIndex = get_attesting_indices(state, attestation.data, attestation.aggregation_bits, cache),
+          validatorIndex = get_attesting_indices(
+            state, attestation.data, attestation.aggregation_bits, cache),
           current_epoch = get_current_epoch(state),
           target_epoch = attestation.data.target.epoch,
           stateSlot = state.slot
@@ -246,33 +214,32 @@ proc add*(pool: var AttestationPool,
       break
 
   if not found:
-    if (let blck = pool.blockPool.getOrResolve(
-          attestation.data.beacon_block_root); blck != nil):
-      slotData.attestations.add(AttestationEntry(
-        data: attestation.data,
-        blck: blck,
-        validations: @[validation]
-      ))
-      pool.updateLatestVotes(state, attestationSlot, participants, blck)
+    slotData.attestations.add(AttestationEntry(
+      data: attestation.data,
+      blck: blck,
+      validations: @[validation]
+    ))
+    pool.updateLatestVotes(state, attestationSlot, participants, blck)
 
-      info "Attestation resolved",
-        attestationData = shortLog(attestation.data),
-        validatorIndex = get_attesting_indices(state, attestation.data, attestation.aggregation_bits, cache),
-        current_epoch = get_current_epoch(state),
-        target_epoch = attestation.data.target.epoch,
-        stateSlot = state.slot,
-        validations = 1
+    info "Attestation resolved",
+      attestationData = shortLog(attestation.data),
+      validatorIndex = get_attesting_indices(
+        state, attestation.data, attestation.aggregation_bits, cache),
+      current_epoch = get_current_epoch(state),
+      target_epoch = attestation.data.target.epoch,
+      stateSlot = state.slot,
+      validations = 1
 
-    else:
-      pool.unresolved[attestation.data.beacon_block_root] =
-        UnresolvedAttestation(
-          attestation: attestation,
-        )
+proc addUnresolved*(pool: var AttestationPool, attestation: Attestation) =
+  pool.unresolved[attestation.data.beacon_block_root] =
+    UnresolvedAttestation(
+      attestation: attestation,
+    )
 
 proc getAttestationsForBlock*(
-  pool: AttestationPool, state: var BeaconState,
+    pool: AttestationPool, state: BeaconState,
     newBlockSlot: Slot): seq[Attestation] =
-  if newBlockSlot - GENESIS_SLOT < MIN_ATTESTATION_INCLUSION_DELAY:
+  if newBlockSlot < (GENESIS_SLOT + MIN_ATTESTATION_INCLUSION_DELAY):
     debug "Too early for attestations",
       newBlockSlot = shortLog(newBlockSlot)
     return
@@ -313,14 +280,21 @@ proc getAttestationsForBlock*(
         signature: a.validations[0].aggregate_signature
       )
 
+    if not validate(state, attestation):
+      warn "Attestation no longer validates..."
+      continue
+
     # TODO what's going on here is that when producing a block, we need to
     #      include only such attestations that will not cause block validation
     #      to fail. How this interacts with voting and the acceptance of
     #      attestations into the pool in general is an open question that needs
     #      revisiting - for example, when attestations are added, against which
     #      state should they be validated, if at all?
-    if not process_attestation(
-        state, attestation, {skipValidation, nextSlot}, cache):
+    # TODO we're checking signatures here every time which is very slow - this
+    #      is needed because validate does nothing for now and we don't want
+    #      to include a broken attestation
+    if not check_attestation(
+        state, attestation, {nextSlot}, cache):
       continue
 
     for v in a.validations[1..^1]:
@@ -350,26 +324,28 @@ proc getAttestationsForTargetEpoch*(
   for s in begin_slot .. end_slot_minus1:
     result.add getAttestationsForBlock(pool, state, s.Slot)
 
-proc resolve*(pool: var AttestationPool, state: BeaconState) =
-  var done: seq[Eth2Digest]
-  var resolved: seq[Attestation]
+proc resolve*(pool: var AttestationPool, cache: var StateData) =
+  var
+    done: seq[Eth2Digest]
+    resolved: seq[tuple[blck: BlockRef, attestation: Attestation]]
 
   for k, v in pool.unresolved.mpairs():
-    let attestation_slot = get_attestation_data_slot(state, v.attestation.data)
-    if v.tries > 8 or attestation_slot < pool.startingSlot:
+    if (let blck = pool.blockPool.getRef(k); not blck.isNil()):
+      resolved.add((blck, v.attestation))
+      done.add(k)
+    elif v.tries > 8:
       done.add(k)
     else:
-      if pool.blockPool.get(k).isSome():
-        resolved.add(v.attestation)
-        done.add(k)
-      else:
-        inc v.tries
+      inc v.tries
 
   for k in done:
     pool.unresolved.del(k)
 
   for a in resolved:
-    pool.add(state, a)
+    pool.blockPool.updateStateData(
+      cache, BlockSlot(blck: a.blck, slot: a.blck.slot))
+
+    pool.add(cache.data.data, a.blck, a.attestation)
 
 proc latestAttestation*(
     pool: AttestationPool, pubKey: ValidatorPubKey): BlockRef =

@@ -271,21 +271,20 @@ proc getAttachedValidator(
 
 proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
   # Use head state for attestation resolution below
-  # TODO do we need to resolve attestations using all available head states?
-  node.blockPool.withState(
-      node.stateCache, BlockSlot(blck: node.blockPool.head.blck, slot: slot)):
-    # Check pending attestations - maybe we found some blocks for them
-    node.attestationPool.resolve(state)
 
-    # TODO move all of this logic to BlockPool
-    debug "Preparing for fork choice",
-      stateRoot = shortLog(root),
-      connectedPeers = node.network.peersCount,
-      stateSlot = shortLog(state.slot),
-      stateEpoch = shortLog(state.slot.computeEpochOfSlot)
+  # Check pending attestations - maybe we found some blocks for them
+  node.attestationPool.resolve(node.stateCache)
+
+  # TODO move all of this logic to BlockPool
 
   let
     justifiedHead = node.blockPool.latestJustifiedBlock()
+
+  debug "Preparing for fork choice",
+    justifiedHeadRoot = shortLog(justifiedHead.root),
+    justifiedHeadSlot = shortLog(justifiedHead.slot),
+    justifiedHeadEpoch = shortLog(justifiedHead.slot.compute_epoch_of_slot),
+    connectedPeers = node.network.peersCount
 
   # TODO slot number is wrong here, it should be the start of the epoch that
   #      got finalized:
@@ -295,6 +294,7 @@ proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
       BlockSlot(blck: justifiedHead, slot: justifiedHead.slot)):
 
     lmdGhost(node.attestationPool, state, justifiedHead)
+
   info "Fork chosen",
     newHeadSlot = shortLog(newHead.slot),
     newHeadEpoch = shortLog(newHead.slot.computeEpochOfSlot),
@@ -414,37 +414,30 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
     attestationData = shortLog(attestation.data),
     signature = shortLog(attestation.signature)
 
-  let
-    wallSlot = node.beaconClock.now().toSlot()
-    head = node.blockPool.head
+  if (let attestedBlock = node.blockPool.getOrResolve(
+        attestation.data.beacon_block_root); attestedBlock != nil):
+    let
+      wallSlot = node.beaconClock.now().toSlot()
+      head = node.blockPool.head
 
-  if not wallSlot.afterGenesis or wallSlot.slot < head.blck.slot:
-    warn "Received attestation before genesis or head - clock is wrong?",
-      afterGenesis = wallSlot.afterGenesis,
-      wallSlot = shortLog(wallSlot.slot),
-      headSlot = shortLog(head.blck.slot)
-    return
+    if not wallSlot.afterGenesis or wallSlot.slot < head.blck.slot:
+      warn "Received attestation before genesis or head - clock is wrong?",
+        afterGenesis = wallSlot.afterGenesis,
+        wallSlot = shortLog(wallSlot.slot),
+        headSlot = shortLog(head.blck.slot)
+      return
 
-  # TODO seems reasonable to use the latest head state here.. needs thinking
-  #      though - maybe we should use the state from the block pointed to by
-  #      the attestation for some of the check? Consider interop with block
-  #      production!
-  node.blockPool.withState(node.stateCache,
-      BlockSlot(blck: head.blck, slot: wallSlot.slot)):
-    var stateCache = get_empty_per_epoch_cache()
-    node.attestationPool.add(state, attestation)
+    # TODO seems reasonable to use the latest head state here.. needs thinking
+    #      though - maybe we should use the state from the block pointed to by
+    #      the attestation for some of the check? Consider interop with block
+    #      production!
+    let
+      bs = BlockSlot(blck: head.blck, slot: wallSlot.slot)
 
-    debug "Attestation received 2",
-     start_attestation_data_slot =
-       get_attestation_data_slot(state, attestation.data),
-     indexed_attesters =
-       get_indexed_attestation(state, attestation, stateCache),
-     target_epoch =
-        attestation.data.target.epoch,
-     cur_epoch = get_current_epoch(state),
-     cur_slot = state.slot
-
-    #doAssert get_current_epoch(state) < attestation.data.target.epoch or state.slot <= get_attestation_data_slot(state, attestation.data)
+    node.blockPool.withState(node.stateCache, bs):
+      node.attestationPool.add(state, attestedBlock, attestation)
+  else:
+    node.attestationPool.addUnresolved(attestation)
 
 proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
   # We received a block but don't know much about it yet - in particular, we
@@ -494,7 +487,6 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     attestationHeadRoot = shortLog(attestationHead.blck.root),
     attestationSlot = shortLog(slot)
 
-
   # Collect data to send before node.stateCache grows stale
   var attestations: seq[tuple[
     data: AttestationData, committeeLen, indexInCommittee: int,
@@ -503,30 +495,30 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   # We need to run attestations exactly for the slot that we're attesting to.
   # In case blocks went missing, this means advancing past the latest block
   # using empty slots as fillers.
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/validator/0_beacon-chain-validator.md#validator-assignments
+  # TODO we could cache the validator assignment since it's valid for the entire
+  #      epoch since it doesn't change, but that has to be weighed against
+  #      the complexity of handling forks correctly - instead, we use an adapted
+  #      version here that calculates the committee for a single slot only
   node.blockPool.withState(node.stateCache, attestationHead):
     var cache = get_empty_per_epoch_cache()
-    let epoch = compute_epoch_of_slot(slot)
-    for committee_index in 0'u64 ..< get_committee_count(state, epoch):
-      ## TODO verify that this is the correct mapping; it's consistent with
-      ## other code
+    let
+      epoch = compute_epoch_of_slot(slot)
+      committees_per_slot = get_committee_count(state, epoch) div SLOTS_PER_EPOCH
+      start_slot = compute_start_slot_of_epoch(epoch)
+      offset = committees_per_slot * (slot mod SLOTS_PER_EPOCH)
+      slot_start_shard = (get_start_shard(state, epoch) + offset) mod SHARD_COUNT
+
+    for i in 0'u64..<committees_per_slot:
       let
-        shard = committee_index mod SHARD_COUNT
-        shard2 = (committee_index + get_start_shard(state, epoch)) mod SHARD_COUNT
-        committee = get_crosslink_committee(state, epoch, shard2, cache)
+        shard = Shard((slot_start_shard + i) mod SHARD_COUNT)
+        committee = get_crosslink_committee(state, epoch, shard, cache)
+
       for i, validatorIdx in committee:
         let validator = node.getAttachedValidator(state, validatorIdx)
         if validator != nil:
-          let ad = makeAttestationData(state, shard2, blck.root)
-          attestations.add (
-            ad,
-            committee.len, i, validator)
-          debug "handleAttestations: adding attestation to list for broadcast",
-            data=ad,
-            epoch=epoch,
-            committeeIdx = i,
-            validatorIdx = validatorIdx.int,
-            shard=shard2,
-            committee = committee
+          let ad = makeAttestationData(state, shard, blck.root)
+          attestations.add((ad, committee.len, i, validator))
 
   for a in attestations:
     traceAsyncErrors sendAttestation(
@@ -543,34 +535,9 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
   #      revisit this - we should be able to advance behind
   var cache = get_empty_per_epoch_cache()
   node.blockPool.withState(node.stateCache, BlockSlot(blck: head, slot: slot)):
-    # justification won't happen in odd case anyway
-    let prev_epoch = get_previous_epoch(state)
-    let prev_epoch_attestations = node.attestationPool.getAttestationsForTargetEpoch(state, prev_epoch)
-
-    debug "handleProposal: getAttestationsForTargetEpoch attesting indices for prev_epoch",
-      attesting_indices = mapIt(prev_epoch_attestations, get_attesting_indices(state, it.data, it.aggregation_bits, cache))
-
     let
       proposerIdx = get_beacon_proposer_index(state, cache)
       validator = node.getAttachedValidator(state, proposerIdx)
-
-      # Ugly hack.
-      # TODO handle MAX_ATTESTATIONS & merging pointless dupes for this purpose?
-      blockBody2 = BeaconBlockBody(
-        attestations:
-          #node.attestationPool.getAttestationsForBlock(state, slot - min(MIN_ATTESTATION_INCLUSION_DELAY.uint64, slot.uint64)))
-          prev_epoch_attestations)
-
-      newBlock2 = BeaconBlock(
-        slot: slot,
-        parent_root: head.root,
-        body: blockBody2
-      )
-
-    if newBlock2.slot > 0 and not processAttestations(state, newBlock2, {skipValidation}, cache):
-      debug "when calling processAttestations from handleAttestations, failed"
-    else:
-      debug "when calling processAttestations from handleAttestations, succeeded"
 
     if validator != nil:
       return await proposeBlock(node, validator, head, slot)

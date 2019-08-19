@@ -44,7 +44,7 @@ suite "Attestation pool processing" & preset():
         attestation = makeAttestation(
           state.data.data, state.blck.root, crosslink_committee[0])
 
-      pool.add(state.data.data, attestation)
+      pool.add(state.data.data, state.blck, attestation)
 
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot) # minus 1?
 
@@ -73,8 +73,8 @@ suite "Attestation pool processing" & preset():
           state.data.data, state.blck.root, cc1[0])
 
       # test reverse order
-      pool.add(state.data.data, attestation1)
-      pool.add(state.data.data, attestation0)
+      pool.add(state.data.data, state.blck, attestation1)
+      pool.add(state.data.data, state.blck, attestation0)
 
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot) # minus 1?
 
@@ -96,8 +96,8 @@ suite "Attestation pool processing" & preset():
         attestation1 = makeAttestation(
           state.data.data, state.blck.root, cc0[1])
 
-      pool.add(state.data.data, attestation0)
-      pool.add(state.data.data, attestation1)
+      pool.add(state.data.data, state.blck, attestation0)
+      pool.add(state.data.data, state.blck, attestation1)
 
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot) # minus 1?
 
@@ -122,8 +122,8 @@ suite "Attestation pool processing" & preset():
 
       attestation0.combine(attestation1, {skipValidation})
 
-      pool.add(state.data.data, attestation0)
-      pool.add(state.data.data, attestation1)
+      pool.add(state.data.data, state.blck, attestation0)
+      pool.add(state.data.data, state.blck, attestation1)
 
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot) # minus 1?
 
@@ -147,8 +147,8 @@ suite "Attestation pool processing" & preset():
 
       attestation0.combine(attestation1, {skipValidation})
 
-      pool.add(state.data.data, attestation1)
-      pool.add(state.data.data, attestation0)
+      pool.add(state.data.data, state.blck, attestation1)
+      pool.add(state.data.data, state.blck, attestation0)
 
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot) # minus 1?
 
