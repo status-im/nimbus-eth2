@@ -64,12 +64,12 @@ proc process_slots*(state: var BeaconState, slot: Slot) =
     if (state.slot + 1) mod SLOTS_PER_EPOCH == 0:
       # Note: Genesis epoch = 0, no need to test if before Genesis
       process_epoch(state)
-    debug "process_slots: Incrementing slot",
+    trace "process_slots: Incrementing slot",
       state_slot_now = state.slot,
       state_slot_next = state.slot + 1,
       cur_epoch = get_current_epoch(state)
     state.slot += 1
-    debug "process_slots: Incremented slot",
+    trace "process_slots: Incremented slot",
       cur_epoch = get_current_epoch(state)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#state-root-verification
@@ -178,7 +178,7 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot) =
     if (state.data.slot + 1) mod SLOTS_PER_EPOCH == 0:
       # Note: Genesis epoch = 0, no need to test if before Genesis
       process_epoch(state.data)
-    debug "process_slots_HashedBeaconState_: Incrementing slot",
+    trace "process_slots_HashedBeaconState_: Incrementing slot",
       state_slot_now = state.data.slot,
       state_slot_next = state.data.slot + 1,
       cur_epoch = get_current_epoch(state.data)

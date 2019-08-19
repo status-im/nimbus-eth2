@@ -265,7 +265,7 @@ proc processAttestations*(
     notice "Attestation: too many!", attestations = blck.body.attestations.len
     return false
 
-  debug "in processAttestations, not processed attestations",
+  trace "in processAttestations, not processed attestations",
     attestations_len = blck.body.attestations.len()
 
   if not blck.body.attestations.allIt(process_attestation(state, it, flags, stateCache)):
@@ -275,7 +275,7 @@ proc processAttestations*(
   # Apply the attestations
   var committee_count_cache = initTable[Epoch, uint64]()
 
-  debug "in processAttestations, has processed attestations",
+  trace "in processAttestations, has processed attestations",
     attestations_len = blck.body.attestations.len()
 
   var cache = get_empty_per_epoch_cache()
@@ -305,7 +305,7 @@ proc processAttestations*(
     else:
       state.previous_epoch_attestations.add(pending_attestation)
 
-    debug "processAttestations",
+    trace "processAttestations",
       target_epoch=attestation.data.target.epoch,
       current_epoch= get_current_epoch(state),
       current_epoch_attestations_len=len(get_attesting_indices(state, state.current_epoch_attestations, cache)),

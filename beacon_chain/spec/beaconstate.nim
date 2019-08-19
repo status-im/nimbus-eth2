@@ -467,8 +467,9 @@ func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
   )
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#attestations
-proc process_attestation*(
-    state: var BeaconState, attestation: Attestation, flags: UpdateFlags,
+
+proc check_attestation*(
+    state: BeaconState, attestation: Attestation, flags: UpdateFlags,
     stateCache: var StateCache): bool =
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
@@ -480,7 +481,7 @@ proc process_attestation*(
 
   let data = attestation.data
 
-  debug "process_attestation: beginning",
+  trace "process_attestation: beginning",
     attestation=attestation
 
   if not (data.crosslink.shard < SHARD_COUNT):
@@ -507,13 +508,6 @@ proc process_attestation*(
       state_slot = shortLog(stateSlot))
     return
 
-  let pending_attestation = PendingAttestation(
-    data: data,
-    aggregation_bits: attestation.aggregation_bits,
-    inclusion_delay: state.slot - attestation_slot,
-    proposer_index: get_beacon_proposer_index(state, stateCache),
-  )
-
   # Check FFG data, crosslink data, and signature
   let ffg_check_data = (data.source.epoch, data.source.root, data.target.epoch)
 
@@ -528,11 +522,6 @@ proc process_attestation*(
         hash_tree_root(state.current_crosslinks[data.crosslink.shard])):
       warn("Crosslink shard's current crosslinks not matching crosslink parent root")
       return
-
-    debug "process_attestation: current_epoch_attestations.add",
-      pending_attestation = pending_attestation,
-      validator_index = get_attesting_indices(state, attestation.data, attestation.aggregation_bits, cache)
-    state.current_epoch_attestations.add(pending_attestation)
   else:
     if not (ffg_check_data == (state.previous_justified_checkpoint.epoch,
         state.previous_justified_checkpoint.root, get_previous_epoch(state))):
@@ -543,11 +532,6 @@ proc process_attestation*(
         hash_tree_root(state.previous_crosslinks[data.crosslink.shard])):
       warn("Crosslink shard's previous crosslinks not matching crosslink parent root")
       return
-
-    debug "process_attestation: previous_epoch_attestations.add",
-      pending_attestation = pending_attestation,
-      validator_index = get_attesting_indices(state, attestation.data, attestation.aggregation_bits, cache)
-    state.previous_epoch_attestations.add(pending_attestation)
 
   let parent_crosslink = if data.target.epoch == get_current_epoch(state):
     state.current_crosslinks[data.crosslink.shard]
@@ -583,43 +567,71 @@ proc process_attestation*(
 
   true
 
+proc process_attestation*(
+    state: var BeaconState, attestation: Attestation, flags: UpdateFlags,
+    stateCache: var StateCache): bool =
+  # In the spec, attestation validation is mixed with state mutation, so here
+  # we've split it into two functions so that the validation logic can be
+  # reused when looking for suitable blocks to include in attestations.
+  # TODO don't log warnings when looking for attestations (return
+  #      Result[void, cstring] instead of logging in check_attestation?)
+  if check_attestation(state, attestation, flags, stateCache):
+    let
+      attestation_slot = get_attestation_data_slot(state, attestation.data)
+      pending_attestation = PendingAttestation(
+        data: attestation.data,
+        aggregation_bits: attestation.aggregation_bits,
+        inclusion_delay: state.slot - attestation_slot,
+        proposer_index: get_beacon_proposer_index(state, stateCache),
+      )
+
+    if attestation.data.target.epoch == get_current_epoch(state):
+      trace "process_attestation: current_epoch_attestations.add",
+        pending_attestation = pending_attestation,
+        indices = get_attesting_indices(
+          state, attestation.data, attestation.aggregation_bits, stateCache).len
+      state.current_epoch_attestations.add(pending_attestation)
+    else:
+      trace "process_attestation: previous_epoch_attestations.add",
+        pending_attestation = pending_attestation,
+        indices = get_attesting_indices(
+          state, attestation.data, attestation.aggregation_bits, stateCache).len
+      state.previous_epoch_attestations.add(pending_attestation)
+
+    true
+  else:
+    false
+
 proc makeAttestationData*(
-    state: BeaconState, shard_offset: uint64,
+    state: BeaconState, shard: uint64,
     beacon_block_root: Eth2Digest): AttestationData =
-  ## Fine points:
-  ## Head must be the head state during the slot that validator is
-  ## part of committee - notably, it can't be a newer or older state (!)
+  ## Create an attestation / vote for the block `beacon_block_root` using the
+  ## data in `state` to fill in the rest of the fields.
+  ## `state` is the state corresponding to the `beacon_block_root` advanced to
+  ## the slot we're attesting to.
+
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/validator/0_beacon-chain-validator.md#construct-attestation
 
   let
-    epoch_start_slot = compute_start_slot_of_epoch(compute_epoch_of_slot(state.slot))
-    #shard = (shard_offset + get_start_shard(state,
-    #  compute_epoch_of_slot(state.slot))) mod SHARD_COUNT
-    shard = shard_offset
-    # TODO incorrect epoch for wraparound cases
-    target_epoch = compute_epoch_of_slot(state.slot)
-    # TODO wrong target_root when epoch_start_slot == state.slot
-    target_root =
-      if epoch_start_slot == state.slot: beacon_block_root
-      else: get_block_root_at_slot(state, epoch_start_slot)
-
-  debug "makeAttestationData",
-    target_epoch=target_epoch,
-    target_root=target_root,
-    state_slot = state.slot,
-    epoch_start_slot = epoch_start_slot,
-    beacon_block_root = beacon_block_root
+    current_epoch = get_current_epoch(state)
+    start_slot = compute_start_slot_of_epoch(current_epoch)
+    epoch_boundary_block_root =
+      if start_slot == state.slot: beacon_block_root
+      else: get_block_root_at_slot(state, start_slot)
+    parent_crosslink_end_epoch = state.current_crosslinks[shard].end_epoch
 
   AttestationData(
     beacon_block_root: beacon_block_root,
     source: state.current_justified_checkpoint,
     target: Checkpoint(
-      root: target_root,
-      epoch: target_epoch
+      epoch: current_epoch,
+      root: epoch_boundary_block_root
     ),
     crosslink: Crosslink(
       shard: shard,
       parent_root: hash_tree_root(state.current_crosslinks[shard]),
-      start_epoch: state.current_crosslinks[shard].end_epoch,
-      end_epoch: target_epoch,
+      start_epoch: parent_crosslink_end_epoch,
+      end_epoch: min(
+        current_epoch, parent_crosslink_end_epoch + MAX_EPOCHS_PER_CROSSLINK),
     )
   )
