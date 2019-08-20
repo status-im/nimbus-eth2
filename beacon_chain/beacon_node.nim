@@ -721,7 +721,7 @@ proc run*(node: BeaconNode) =
 
   let
     t = node.beaconClock.now()
-    startSlot = if t > BeaconTime(0): t.toSlot + 1
+    startSlot = if t > BeaconTime(0): t.toSlot.slot + 1
                 else: GENESIS_SLOT + 1
     fromNow = saturate(node.beaconClock.fromNow(startSlot))
 
