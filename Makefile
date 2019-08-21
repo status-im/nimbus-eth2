@@ -5,47 +5,67 @@
 # at your option. This file may not be copied, modified, or distributed except
 # according to those terms.
 
-# we don't want an error here, so we can explain things later, in the sanity-checks target
--include ../../common.mk
+# used inside the included makefiles
+BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 
-ENV_SCRIPT := "../../env.sh"
+# we don't want an error here, so we can handle things later, in the build-system-checks target
+-include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
 
 TOOLS := beacon_node validator_keygen bench_bls_sig_agggregation state_sim
 TOOLS_DIRS := beacon_chain benchmarks research
 TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 
-DISABLE_LFS_SCRIPT := 0
+.PHONY: all build-system-checks deps update go-checks p2pd test $(TOOLS) clean_eth2_network_simulation_files eth2_network_simulation clean-testnet0 testnet0 clean-testnet1 testnet1 clean
 
-.PHONY: all sanity-checks deps nat-libs p2pd test $(TOOLS) clean_eth2_network_simulation_files eth2_network_simulation clean-testnet0 testnet0-nocleaning testnet0 clean-testnet1 testnet1-nocleaning testnet1 clean
+all: | build-system-checks $(TOOLS)
 
-all: | $(TOOLS)
+# must be included after the default target
+-include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
 
-$(SILENT_TARGET_PREFIX).SILENT:
+GIT_SUBMODULE_UPDATE := export GIT_LFS_SKIP_SMUDGE=1; git submodule update --init --recursive
+build-system-checks:
+	@[[ -e "$(BUILD_SYSTEM_DIR)/makefiles" ]] || { \
+		echo -e "'$(BUILD_SYSTEM_DIR)/makefiles' not found. Running '$(GIT_SUBMODULE_UPDATE)'.\n"; \
+		$(GIT_SUBMODULE_UPDATE); \
+		echo -e "\nYou can now run '$(MAKE)' again."; \
+		exit 1; \
+		}
 
-sanity-checks:
-	@ [[ "$$PWD" =~ /vendor/nim-beacon-chain$ && -e ../../Makefile && -e ../../common.mk ]] || \
-		{ echo -e "This Makefile can only be used from the corresponding Git submodule in the Nimbus repository.\nDetailed instructions available in README.md or online at https://github.com/status-im/nim-beacon-chain/#building-and-testing"; exit 1; }
-	@+ $(MAKE) --silent -C ../../ sanity-checks
+deps: | deps-common beacon_chain.nims
 
-deps: | sanity-checks
-	@+ $(MAKE) --silent -C ../../ deps
+#- deletes and recreates "beacon_chain.nims" which on Windows is a copy instead of a proper symlink
+update: | update-common
+	rm -rf beacon_chain.nims && \
+		$(MAKE) beacon_chain.nims
 
-build:
-	mkdir $@
+# symlink
+beacon_chain.nims:
+	ln -s beacon_chain.nimble $@
 
-nat-libs: | deps
-	+ $(MAKE) --silent -C ../../ nat-libs
+MIN_GO_VER := 1.12
+DISABLE_GO_CHECKS := 0
+go-checks:
+ifeq ($(DISABLE_GO_CHECKS), 0)
+	which go &>/dev/null || { echo "Go compiler not installed. Aborting."; exit 1; }
+	GO_VER="$$(go version | sed -E 's/^.*go([0-9.]+).*$$/\1/')"; \
+	       [[ $$(echo -e "$${GO_VER}\n$(MIN_GO_VER)" | sort -t '.' -k 1,1 -k 2,2 -g | head -n 1) == "$(MIN_GO_VER)" ]] || \
+	       { echo "Minimum Go compiler version required: $(MIN_GO_VER). Version available: $$GO_VER. Aborting."; exit 1; }
+endif
 
-p2pd: | deps
-	+ $(MAKE) --silent -C ../../ vendor/go/bin/p2pd
+P2PD_CACHE :=
+p2pd: | go-checks
+	BUILD_MSG="$(BUILD_MSG) $@" \
+		V=$(V) \
+		$(ENV_SCRIPT) scripts/build_p2pd.sh "$(P2PD_CACHE)"
 
 # Windows 10 with WSL enabled, but no distro installed, fails if "../../nimble.sh" is executed directly
 # in a Makefile recipe but works when prefixing it with `bash`. No idea how the PATH is overridden.
-test: | build deps nat-libs
+DISABLE_LFS_SCRIPT := 0
+test: | build deps nat-libs p2pd
 ifeq ($(DISABLE_LFS_SCRIPT), 0)
-	bash scripts/process_lfs.sh $(HANDLE_OUTPUT)
+	scripts/process_lfs.sh $(HANDLE_OUTPUT)
 endif
-	bash ../../nimble.sh test $(NIM_PARAMS) && rm -f 0000-*.json
+	$(ENV_SCRIPT) nim test $(NIM_PARAMS) beacon_chain.nims && rm -f 0000-*.json
 
 $(TOOLS): | build deps nat-libs p2pd
 	for D in $(TOOLS_DIRS); do [ -e "$${D}/$@.nim" ] && TOOL_DIR="$${D}" && break; done && \
@@ -56,10 +76,10 @@ clean_eth2_network_simulation_files:
 	rm -rf tests/simulation/{data,validators}
 
 eth2_network_simulation: | beacon_node validator_keygen clean_eth2_network_simulation_files
-	SKIP_BUILDS=1 GIT_ROOT="$$PWD" BUILD_OUTPUTS_DIR="./build" tests/simulation/start.sh
+	SKIP_BUILDS=1 GIT_ROOT="$$PWD" BUILD_OUTPUTS_DIR="./build" $(ENV_SCRIPT) tests/simulation/start.sh
 
 testnet0 testnet1: | build deps nat-libs p2pd
-	NIM_PARAMS="$(NIM_PARAMS)" ../../env.sh scripts/build_testnet_node.sh $@
+	NIM_PARAMS="$(NIM_PARAMS)" $(ENV_SCRIPT) scripts/build_testnet_node.sh $@
 
 clean-testnet0:
 	rm -rf ~/.cache/nimbus/BeaconNode/testnet0
@@ -67,6 +87,6 @@ clean-testnet0:
 clean-testnet1:
 	rm -rf ~/.cache/nimbus/BeaconNode/testnet1
 
-clean:
-	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*.exe} nimcache
+clean: | clean-common
+	rm -rf build/{$(TOOLS_CSV),all_tests,*_node}
 

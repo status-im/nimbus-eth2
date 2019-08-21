@@ -3,7 +3,8 @@ language: go
 # https://docs.travis-ci.com/user/caching/
 cache:
   directories:
-    - NimBinaries
+    - vendor/Nim/bin
+    - vendor/go/bin
     - rocksdbCache
     - jsonTestsCache
 
@@ -27,21 +28,14 @@ matrix:
         - launchctl setenv LIBRARY_PATH /usr/local/lib # for RocksDB
 
 install:
-  # build nim from our own branch - this to avoid the day-to-day churn and
-  # regressions of the fast-paced Nim development while maintaining the
-  # flexibility to apply patches
-  - curl -O -L -s -S https://raw.githubusercontent.com/status-im/nimbus/devel/build_nim.sh
-  - env MAKE="make -j2" bash build_nim.sh Nim csources dist/nimble NimBinaries
-  - export PATH=$PWD/Nim/bin:$PATH
-
   # build our own rocksdb to test with a fixed version that we think works
-  - curl -O -L -s -S https://raw.githubusercontent.com/status-im/nimbus/devel/build_rocksdb.sh
-  - bash build_rocksdb.sh rocksdbCache
+  - vendor/nimbus-build-system/scripts/build_rocksdb.sh rocksdbCache
 
   # LFS test fixtures
   - scripts/process_lfs.sh jsonTestsCache
 
 script:
-  - nimble install -y --depsOnly
-  - nimble test
+  - set -e # fail fast
+  - make -j2
+  - make -j2 DISABLE_LFS_SCRIPT=1 test
 

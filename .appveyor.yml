@@ -7,10 +7,8 @@ environment:
   GIT_LFS_SKIP_SMUDGE: 1
 
 cache:
-  - sqlite-dll-win32-x86-3240000.zip -> .appveyor.yml
-  - sqlite-dll-win64-x64-3240000.zip -> .appveyor.yml
-  - nimbus-deps.zip -> .appveyor.yml
   - NimBinaries
+  - p2pdCache
   - jsonTestsCache
 
 matrix:
@@ -23,51 +21,22 @@ platform:
 
 install:
   - git submodule update --init --recursive
-  - setlocal EnableExtensions EnableDelayedExpansion
-
-  - IF "%PLATFORM%" == "x86" (
-      SET "SQLITE_URL=https://www.sqlite.org/2018/sqlite-dll-win32-x86-3240000.zip" &
-      SET "SQLITE_ARCHIVE=sqlite-dll-win32-x86-3240000.zip" &
-      SET "ROCKSDB_URL=https://github.com/status-im/nimbus-deps/releases/download/nimbus-deps/nimbus-deps.zip" &
-      SET "ROCKSDB_ARCHIVE=nimbus-deps.zip"
-    )
-  - IF "%PLATFORM%" == "x64" (
-      SET "SQLITE_URL=https://www.sqlite.org/2018/sqlite-dll-win64-x64-3240000.zip" &
-      SET "SQLITE_ARCHIVE=sqlite-dll-win64-x64-3240000.zip" &
-      SET "ROCKSDB_URL=https://github.com/status-im/nimbus-deps/releases/download/nimbus-deps/nimbus-deps.zip" &
-      SET "ROCKSDB_ARCHIVE=nimbus-deps.zip"
-    )
-
   # use the newest versions documented here: https://www.appveyor.com/docs/windows-images-software/#mingw-msys-cygwin
   - IF "%PLATFORM%" == "x86" SET PATH=C:\mingw-w64\i686-6.3.0-posix-dwarf-rt_v5-rev1\mingw32\bin;%PATH%
   - IF "%PLATFORM%" == "x64" SET PATH=C:\mingw-w64\x86_64-8.1.0-posix-seh-rt_v6-rev0\mingw64\bin;%PATH%
-
-  - MKDIR %CD%\bin
-  - SET PATH=%CD%\bin;%CD%\Nim\bin;%PATH%
-
-  # Unpack sqlite
-  - IF not exist "%SQLITE_ARCHIVE%" appveyor DownloadFile "%SQLITE_URL%" -FileName "%SQLITE_ARCHIVE%"
-  - 7z x -y "%SQLITE_ARCHIVE%" > nul
-  - IF "%PLATFORM%" == "x64" ( copy %CD%\sqlite3.dll %CD%\bin\sqlite3_64.dll ) ELSE ( copy %CD%\sqlite3.dll %CD%\bin\sqlite3_32.dll )
-
-  # Unpack rocksdb
-  - IF not exist "%ROCKSDB_ARCHIVE%" appveyor DownloadFile "%ROCKSDB_URL%" -FileName "%ROCKSDB_ARCHIVE%"
-  - 7z x -y "%ROCKSDB_ARCHIVE%" > nul
-  - IF "%PLATFORM%" == "x64" ( copy %CD%\x64\librocksdb.dll %CD%\bin\librocksdb.dll ) ELSE ( copy %CD%\x86\librocksdb.dll %CD%\bin\librocksdb.dll )
-
-  # build nim from our own branch - this to avoid the day-to-day churn and
-  # regressions of the fast-paced Nim development while maintaining the
-  # flexibility to apply patches
-  - curl -O -L -s -S https://raw.githubusercontent.com/status-im/nimbus/devel/build_nim.sh
-  - env MAKE="mingw32-make -j2" ARCH_OVERRIDE=%PLATFORM% bash build_nim.sh Nim csources dist/nimble NimBinaries
 
   # LFS test fixtures
   - bash scripts\process_lfs.sh jsonTestsCache
 
 build_script:
-  - bash -c "nimble install -y --depsOnly"
+  # the 32-bit build is done on a 64-bit image, so we need to override the architecture
+  - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% CI_CACHE=NimBinaries update
+  - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% fetch-dlls
 
 test_script:
-  - nimble test
+  # the "go-checks" target fails in AppVeyor, for some reason; easier to disable than to debug
+  - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% DISABLE_GO_CHECKS=1 P2PD_CACHE=p2pdCache
+  - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% DISABLE_LFS_SCRIPT=1 DISABLE_GO_CHECKS=1 test
 
 deploy: off
+

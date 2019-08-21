@@ -1,3 +1,143 @@
 [submodule "tests/official/fixtures"]
 	path = tests/official/fixtures
 	url = https://github.com/status-im/nim-eth2-official-tests
+[submodule "vendor/go/src/github.com/libp2p/go-libp2p-daemon"]
+	path = vendor/go/src/github.com/libp2p/go-libp2p-daemon
+	url = https://github.com/libp2p/go-libp2p-daemon.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-blscurve"]
+	path = vendor/nim-blscurve
+	url = https://github.com/status-im/nim-blscurve.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-confutils"]
+	path = vendor/nim-confutils
+	url = https://github.com/status-im/nim-confutils.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-libp2p"]
+	path = vendor/nim-libp2p
+	url = https://github.com/status-im/nim-libp2p.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nimbus-build-system"]
+	path = vendor/nimbus-build-system
+	url = https://github.com/status-im/nimbus-build-system.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/NimYAML"]
+	path = vendor/NimYAML
+	url = https://github.com/flyx/NimYAML.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-web3"]
+	path = vendor/nim-web3
+	url = https://github.com/status-im/nim-web3.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/Nim"]
+	path = vendor/Nim
+	url = https://github.com/status-im/Nim.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/Nim-csources"]
+	ignore = dirty
+	branch = master
+	path = vendor/Nim-csources
+	url = https://github.com/nim-lang/csources.git
+[submodule "vendor/nimble"]
+	path = vendor/nimble
+	url = https://github.com/nim-lang/nimble.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-nat-traversal"]
+	path = vendor/nim-nat-traversal
+	url = https://github.com/status-im/nim-nat-traversal.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nimcrypto"]
+	path = vendor/nimcrypto
+	url = https://github.com/cheatfate/nimcrypto.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-stew"]
+	path = vendor/nim-stew
+	url = https://github.com/status-im/nim-stew.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-chronos"]
+	path = vendor/nim-chronos
+	url = https://github.com/status-im/nim-chronos.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-chronicles"]
+	path = vendor/nim-chronicles
+	url = https://github.com/status-im/nim-chronicles.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-faststreams"]
+	path = vendor/nim-faststreams
+	url = https://github.com/status-im/nim-faststreams.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-serialization"]
+	path = vendor/nim-serialization
+	url = https://github.com/status-im/nim-serialization.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-json-serialization"]
+	path = vendor/nim-json-serialization
+	url = https://github.com/status-im/nim-json-serialization.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-eth"]
+	path = vendor/nim-eth
+	url = https://github.com/status-im/nim-eth.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-stint"]
+	path = vendor/nim-stint
+	url = https://github.com/status-im/nim-stint.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-metrics"]
+	path = vendor/nim-metrics
+	url = https://github.com/status-im/nim-metrics.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-rocksdb"]
+	path = vendor/nim-rocksdb
+	url = https://github.com/status-im/nim-rocksdb.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-secp256k1"]
+	path = vendor/nim-secp256k1
+	url = https://github.com/status-im/nim-secp256k1.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-http-utils"]
+	path = vendor/nim-http-utils
+	url = https://github.com/status-im/nim-http-utils.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-json-rpc"]
+	path = vendor/nim-json-rpc
+	url = https://github.com/status-im/nim-json-rpc.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/news"]
+	path = vendor/news
+	url = https://github.com/tormund/news.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-result"]
+	path = vendor/nim-result
+	url = https://github.com/arnetheduck/nim-result.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-byteutils"]
+	path = vendor/nim-byteutils
+	url = https://github.com/status-im/nim-byteutils.git
+	ignore = dirty
+	branch = master

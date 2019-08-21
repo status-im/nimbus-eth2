@@ -1,14 +1,28 @@
 nimcache/
 
 # Executables shall be put in an ignored build/ directory
-# Ignore dynamic, static libs and libtool archive files
 build/
+
+# Nimble packages
+/vendor/.nimble
+
+# Go packages
+/vendor/go
+!/vendor/go/src/github.com/libp2p/go-libp2p-daemon
+
+# ntags/ctags output
+/tags
+
+# Ignore dynamic, static libs and libtool archive files
 *.so
 *.dylib
 *.a
 *.la
 *.exe
 *.dll
+
+# a symlink that can't be added to the repo because of Windows
+/*.nims
 
 /scripts/testnet*.sh
 
