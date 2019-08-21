@@ -11,27 +11,15 @@ Nimbus beacon chain is a research implementation of the beacon chain component o
 
 * [status-im/nimbus](https://github.com/status-im/nimbus/): main Nimbus repository - start here to learn more about the Nimbus eco-system
 * [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md): Serenity specification that this project implements
-* [ethereum/beacon_chain](https://github.com/ethereum/beacon_chain): reference implementation from the Ethereum foundation
+* [ethereum/beacon\_chain](https://github.com/ethereum/beacon_chain): reference implementation from the Ethereum foundation
 
 You can check where the beacon chain fits in the Ethereum research ecosystem in the [Status Athenaeum](https://github.com/status-im/athenaeum/blob/b465626cc551e361492e56d32517b2cdadd7493f/ethereum_research_records.json#L38).
 
 ## Building and Testing
 
-The beacon chain components need to be built with the Nim compiler - the easiest way to get started is to head over to the main [Nimbus](https://github.com/status-im/nimbus/) repository and follow the build instructions there or just execute the commands below in order.
-
-_Note: This is because this repository is actually pulled in as a dependency of Nimbus - the Ethereum 1.0 + 2.0 client - so it makes sense to start from there even if you are only interested in testing the Ethereum 2.0 side of things (contained almost entirely in this repository)._
-
 ```bash
-# Clone main nimbus repository:
-git clone https://github.com/status-im/nimbus.git
-cd nimbus
-
-# Prep environment (assuming you have 4 CPU cores and want to take advantage of them):
-make update
-make -j4 deps
-
-# Head over to the vendor repo where you should have a checkout of this project:
-cd vendor/nim-beacon-chain
+# this first "make" invocation will update the Git submodules
+make
 
 # You can now run the test suite:
 make test
@@ -47,7 +35,7 @@ The beacon node simulation will create a full peer-to-peer network of beacon nod
 make eth2_network_simulation
 
 # In another terminal, get a shell with the right environment variables set:
-../../env.sh bash
+./env.sh bash
 
 # Run an extra node - by default the network will launch with 9 nodes, each
 # hosting 10 validators. The last 10 validators are lazy bums that hid from the
@@ -72,7 +60,8 @@ _Alternatively, fire up our [experimental Vagrant instance with Nim pre-installe
 - build all those tools known to the Makefile:
 
 ```bash
-make
+# (assuming you have 4 CPU cores and want to take advantage of them):
+make -j4
 ```
 
 - build a specific tool:
@@ -115,7 +104,7 @@ The state transition simulator can quickly run the Beacon chain state transition
 # build and run the state simulator, then display its help ("-d:release" speeds it
 # up substantially, allowing the simulation of longer runs in reasonable time)
 make NIMFLAGS="-d:release" state_sim
-./build/state_sim --help
+build/state_sim --help
 ```
 
 ## Testnet
@@ -124,7 +113,7 @@ The beacon chain now has a public testnet available. Connect to it with:
 
 ```bash
 make testnet0
-./scripts/testnet0.sh # this launches the testnet0-specific node you just built
+scripts/testnet0.sh # this launches the testnet0-specific node you just built
 ```
 
 For more information about the testnet and to find out how to launch your own, see [this announcement](https://our.status.im/the-nimbus-mvp-testnet-is-here/) and the [official docs on launching the testnets](https://nimbus.status.im/docs/t0.html).

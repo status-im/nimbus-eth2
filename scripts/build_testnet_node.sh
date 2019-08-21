@@ -32,7 +32,7 @@ cat > "$BEACON_NODE_SCRIPT" <<EOF
 #!/bin/bash
 
 cd \$(dirname "\$0")/..
-../../env.sh $BEACON_NODE_BIN "\$@"
+vendor/nimbus-build-system/scripts/env.sh $BEACON_NODE_BIN "\$@"
 EOF
 chmod 755 "$BEACON_NODE_SCRIPT"
 
