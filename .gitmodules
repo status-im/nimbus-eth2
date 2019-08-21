@@ -40,7 +40,7 @@
 	path = vendor/Nim
 	url = https://github.com/status-im/Nim.git
 	ignore = dirty
-	branch = master
+	branch = nimbus
 [submodule "vendor/Nim-csources"]
 	ignore = dirty
 	branch = master
