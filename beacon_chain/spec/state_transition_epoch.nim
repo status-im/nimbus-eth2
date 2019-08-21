@@ -226,7 +226,7 @@ proc process_justification_and_finalization(
   ## and
   ## https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#final-updates
   ## after which the state.previous_epoch_attestations is replaced.
-  debug "Non-attesting indices in previous epoch: ",
+  trace "Non-attesting indices in previous epoch",
     missing_all_validators=
       difference(active_validator_indices,
         toSet(mapIt(get_attesting_indices(state,
