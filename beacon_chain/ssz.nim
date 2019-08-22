@@ -43,7 +43,7 @@ type
 
   SszChunksMerkelizer = ref object of RootObj
     combinedChunks: array[maxChunkTreeDepth, Eth2Digest]
-    totalChunks: uint
+    totalChunks: uint64
     limit: uint64
 
   Chunk = array[bytesPerChunk, byte]
