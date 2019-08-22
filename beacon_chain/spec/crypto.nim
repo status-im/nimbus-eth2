@@ -91,6 +91,10 @@ type
   BlsCurveType* = VerKey|SigKey|Signature
   ValidatorPKI* = ValidatorPrivKey|ValidatorPubKey|ValidatorSig
 
+  ValidatorKeyPair* = object
+    pubKey*: ValidatorPubKey
+    privKey*: ValidatorPrivKey
+
 proc init*[T](BLS: type BlsValue[T], val: auto): BLS =
   result.kind = BlsValueType.Real
   result.blsValue = init(T, val)

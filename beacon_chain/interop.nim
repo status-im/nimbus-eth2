@@ -42,9 +42,8 @@ const eth1BlockHash* = block:
 
 func makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_deposit-contract.md#withdrawal-credentials
-  var bytes = eth2hash(k.getBytes())
-  bytes.data[0] = BLS_WITHDRAWAL_PREFIX.uint8
-  bytes
+  result = eth2hash(k.getBytes())
+  result.data[0] = BLS_WITHDRAWAL_PREFIX.uint8
 
 func makeDeposit*(
     pubkey: ValidatorPubKey, privkey: ValidatorPrivKey, epoch = 0.Epoch,
@@ -63,3 +62,13 @@ func makeDeposit*(
         privkey, signing_root(ret.data).data, compute_domain(DOMAIN_DEPOSIT))
 
   ret
+
+func interopPrivKeys*(totalValidators: uint64): seq[ValidatorKeyPair] =
+  for i in 0 ..< totalValidators.int:
+    let privKey = makeInteropPrivKey(i)
+    result.add ValidatorKeyPair(privKey: privKey, pubKey: privKey.pubKey)
+
+func interopDeposits*(validatorKeys: openarray[ValidatorKeyPair]): seq[Deposit] =
+  for keyPair in validatorKeys:
+    result.add makeDeposit(keyPair.pubKey, keyPair.privKey)
+

@@ -106,17 +106,50 @@ proc saveValidatorKey(keyName, key: string, conf: BeaconNodeConf) =
   writeFile(outputFile, key)
   info "Imported validator key", file = outputFile
 
+template findIt(s: openarray, predicate: untyped): int =
+  var res = -1
+  for i, it {.inject.} in s:
+    if predicate:
+      res = i
+      break
+  res
+
+proc addLocalValidator(node: BeaconNode,
+                       state: BeaconState,
+                       pubKey: ValidatorPubKey,
+                       privKey: ValidatorPrivKey) =
+  let idx = state.validators.findIt(it.pubKey == pubKey)
+  if idx == -1:
+    warn "Validator not in registry", pubKey
+  else:
+    node.attachedValidators.addLocalValidator(pubKey, privKey)
+
+proc addLocalValidator(node: BeaconNode,
+                       state: BeaconState,
+                       privKey: ValidatorPrivKey) =
+  addLocalValidator(node, state, privKey.pubKey, privKey)
+
+proc addLocalValidators(node: BeaconNode, state: BeaconState) =
+  for validatorKeyFile in node.config.validators:
+    node.addLocalValidator state, validatorKeyFile.load
+
+  for kind, file in walkDir(node.config.localValidatorsDir):
+    if kind in {pcFile, pcLinkToFile}:
+      node.addLocalValidator state, ValidatorPrivKey.init(readFile(file).string)
+
+  info "Local validators attached ", count = node.attachedValidators.count
+
 proc initGenesis(node: BeaconNode) {.async.} =
   template conf: untyped = node.config
   var tailState: BeaconState
-  if conf.depositWeb3Url.len != 0:
+  case conf.genesisType
+  of GenesisType.eth1:
     info "Waiting for genesis state from eth1"
     tailState = await node.mainchainMonitor.getGenesis()
-  else:
+  of GenesisType.snapshot:
     var snapshotFile = conf.dataDir / genesisFile
     try:
-      if conf.stateSnapshot.isSome:
-        snapshotFile = conf.stateSnapshot.get.string
+      snapshotFile = conf.stateSnapshot.string
 
       if not fileExists(snapshotFile):
         error "Nimbus database not initialized. Please specify the initial state snapshot file."
@@ -139,6 +172,22 @@ proc initGenesis(node: BeaconNode) {.async.} =
       stderr.write "Failed to import ", snapshotFile, "\n"
       stderr.write err.formatMsg(snapshotFile), "\n"
       quit 1
+  of GenesisType.quickStart:
+    # The quick start start-up method is specified here:
+    # https://github.com/ethereum/eth2.0-pm/tree/master/interop/mocked_start
+    var validatorKeys = interopPrivKeys conf.quickStartTotalValidators
+
+    tailState = initialize_beacon_state_from_eth1(
+      eth1BlockHash,
+      uint64(1) shl 40, # eth1_timestamp as specified in the spec above
+      interopDeposits(validatorKeys), {skipValidation})
+
+    tailState.genesisTime = conf.genesisTime
+
+    for v in validatorKeys:
+      node.addLocalValidator tailState, v.pubKey, v.privKey
+
+  doAssert tailState.validators.len > 0
 
   info "Got genesis state", hash = hash_tree_root(tailState)
   node.forkVersion = tailState.fork.current_version
@@ -164,41 +213,42 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     stderr.write args, "\n"
     quit 1
 
-  case conf.network
-  of "mainnet":
-    fail "The Serenity mainnet hasn't been launched yet"
-  of "testnet0", "testnet1":
-    result.networkMetadata = await updateTestnetMetadata(conf)
-  else:
-    try:
-      result.networkMetadata = Json.loadFile(conf.network, NetworkMetadata)
-    except SerializationError as err:
-      fail "Failed to load network metadata: \n", err.formatMsg(conf.network)
+  if conf.genesisType != GenesisType.quickStart:
+    case conf.network
+    of "mainnet":
+      fail "The Serenity mainnet hasn't been launched yet"
+    of "testnet0", "testnet1":
+      result.networkMetadata = await updateTestnetMetadata(conf)
+    else:
+      try:
+        result.networkMetadata = Json.loadFile(conf.network, NetworkMetadata)
+      except SerializationError as err:
+        fail "Failed to load network metadata: \n", err.formatMsg(conf.network)
 
-  var metadataErrorMsg = ""
+    var metadataErrorMsg = ""
 
-  template checkCompatibility(metadataField, LOCAL_CONSTANT) =
-    let metadataValue = metadataField
-    if metadataValue != LOCAL_CONSTANT:
-      if metadataErrorMsg.len > 0: metadataErrorMsg.add " and"
-      metadataErrorMsg.add " -d:" & astToStr(LOCAL_CONSTANT) & "=" & $metadataValue &
-                           " (instead of " & $LOCAL_CONSTANT & ")"
+    template checkCompatibility(metadataField, LOCAL_CONSTANT) =
+      let metadataValue = metadataField
+      if metadataValue != LOCAL_CONSTANT:
+        if metadataErrorMsg.len > 0: metadataErrorMsg.add " and"
+        metadataErrorMsg.add " -d:" & astToStr(LOCAL_CONSTANT) & "=" & $metadataValue &
+                             " (instead of " & $LOCAL_CONSTANT & ")"
 
-  if result.networkMetadata.networkGeneration != semanticVersion:
-    let newerVersionRequired = result.networkMetadata.networkGeneration.int > semanticVersion
-    let newerOrOlder = if newerVersionRequired: "a newer" else: "an older"
-    stderr.write &"Connecting to '{conf.network}' requires {newerOrOlder} version of Nimbus. "
-    if newerVersionRequired:
-      stderr.write "Please follow the instructions at https://github.com/status-im/nim-beacon-chain " &
-                   "in order to produce an up-to-date build.\n"
-    quit 1
+    if result.networkMetadata.networkGeneration != semanticVersion:
+      let newerVersionRequired = result.networkMetadata.networkGeneration.int > semanticVersion
+      let newerOrOlder = if newerVersionRequired: "a newer" else: "an older"
+      stderr.write &"Connecting to '{conf.network}' requires {newerOrOlder} version of Nimbus. "
+      if newerVersionRequired:
+        stderr.write "Please follow the instructions at https://github.com/status-im/nim-beacon-chain " &
+                     "in order to produce an up-to-date build.\n"
+      quit 1
 
-  checkCompatibility result.networkMetadata.numShards      , SHARD_COUNT
-  checkCompatibility result.networkMetadata.slotDuration   , SECONDS_PER_SLOT
-  checkCompatibility result.networkMetadata.slotsPerEpoch  , SLOTS_PER_EPOCH
+    checkCompatibility result.networkMetadata.numShards      , SHARD_COUNT
+    checkCompatibility result.networkMetadata.slotDuration   , SECONDS_PER_SLOT
+    checkCompatibility result.networkMetadata.slotsPerEpoch  , SLOTS_PER_EPOCH
 
-  if metadataErrorMsg.len > 0:
-    fail "To connect to the ", conf.network, " network, please compile with", metadataErrorMsg
+    if metadataErrorMsg.len > 0:
+      fail "To connect to the ", conf.network, " network, please compile with", metadataErrorMsg
 
   for bootNode in result.networkMetadata.bootstrapNodes:
     if bootNode.isSameNode(result.networkIdentity):
@@ -215,7 +265,8 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
       result.bootstrapNodes.add BootstrapAddr.init(string ln)
 
   result.attachedValidators = ValidatorPool.init
-  if conf.depositWeb3Url.len != 0:
+
+  if conf.genesisType == eth1 and conf.depositWeb3Url.len != 0:
     result.mainchainMonitor = MainchainMonitor.init(conf.depositWeb3Url, conf.depositContractAddress)
     result.mainchainMonitor.start()
 
@@ -226,7 +277,6 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   # TODO does it really make sense to load from DB if a state snapshot has been
   #      specified on command line? potentially, this should be the other way
   #      around...
-
   if result.db.getHeadBlock().isNone():
     await result.initGenesis()
 
@@ -278,34 +328,6 @@ proc connectToNetwork(node: BeaconNode) {.async.} =
     info "Waiting for connections"
 
   await node.network.connectToNetwork(node.bootstrapNodes)
-
-template findIt(s: openarray, predicate: untyped): int =
-  var res = -1
-  for i, it {.inject.} in s:
-    if predicate:
-      res = i
-      break
-  res
-
-proc addLocalValidator(
-    node: BeaconNode, state: BeaconState, privKey: ValidatorPrivKey) =
-  let pubKey = privKey.pubKey()
-
-  let idx = state.validators.findIt(it.pubKey == pubKey)
-  if idx == -1:
-    warn "Validator not in registry", pubKey
-  else:
-    node.attachedValidators.addLocalValidator(pubKey, privKey)
-
-proc addLocalValidators(node: BeaconNode, state: BeaconState) =
-  for validatorKeyFile in node.config.validators:
-    node.addLocalValidator state, validatorKeyFile.load
-
-  for kind, file in walkDir(node.config.localValidatorsDir):
-    if kind in {pcFile, pcLinkToFile}:
-      node.addLocalValidator state, ValidatorPrivKey.init(readFile(file).string)
-
-  info "Local validators attached ", count = node.attachedValidators.count
 
 proc getAttachedValidator(
     node: BeaconNode, state: BeaconState, idx: int): AttachedValidator =
@@ -401,14 +423,15 @@ proc proposeBlock(node: BeaconNode,
     # TODO monitor main chain here: node.mainchainMonitor.getBeaconBlockRef()
     let (eth1data, deposits) =
       if node.mainchainMonitor.isNil:
-        (get_eth1data_stub(
-            state.eth1_deposit_index, slot.compute_epoch_of_slot()),
+        (
+          get_eth1data_stub(state.eth1_deposit_index,
+                           slot.compute_epoch_of_slot()),
           newSeq[Deposit]()
         )
       else:
         let e1d = await node.mainchainMonitor.getBeaconBlockRef()
-
-        (e1d,
+        (
+          e1d,
           node.mainchainMonitor.getPendingDeposits()
         )
 
