@@ -458,7 +458,7 @@ func process_slashings(state: var BeaconState) =
       decrease_balance(state, index.ValidatorIndex, penalty)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#final-updates
-proc process_final_updates(state: var BeaconState) =
+func process_final_updates(state: var BeaconState) =
   let
     current_epoch = get_current_epoch(state)
     next_epoch = current_epoch + 1
