@@ -23,7 +23,7 @@ matrix:
       before_install:
         - export GOPATH=$HOME/go
         - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib"
-     -os: osx
+    - os: osx
       before_install:
         - export GOPATH=$HOME/go
         - launchctl setenv LIBRARY_PATH /usr/local/lib # for RocksDB
