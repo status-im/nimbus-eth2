@@ -203,8 +203,6 @@ proc add*(pool: var AttestationPool,
         info "Attestation resolved",
           attestationData = shortLog(attestation.data),
           validations = a.validations.len(),
-          validatorIndex = get_attesting_indices(
-            state, attestation.data, attestation.aggregation_bits, cache),
           current_epoch = get_current_epoch(state),
           target_epoch = attestation.data.target.epoch,
           stateSlot = state.slot
@@ -223,8 +221,6 @@ proc add*(pool: var AttestationPool,
 
     info "Attestation resolved",
       attestationData = shortLog(attestation.data),
-      validatorIndex = get_attesting_indices(
-        state, attestation.data, attestation.aggregation_bits, cache),
       current_epoch = get_current_epoch(state),
       target_epoch = attestation.data.target.epoch,
       stateSlot = state.slot,
