@@ -1,4 +1,4 @@
 #!/bin/bash
 
-exec vendor/nimbus-build-system/scripts/env.sh "$@"
+source vendor/nimbus-build-system/scripts/env.sh
 
