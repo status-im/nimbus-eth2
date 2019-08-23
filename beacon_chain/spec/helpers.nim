@@ -73,9 +73,10 @@ func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_active_validator_indices
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#get_active_validator_indices
 func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
     seq[ValidatorIndex] =
-  # Get active validator indices at ``epoch``.
+  # Return the sequence of active validator indices at ``epoch``.
   for idx, val in state.validators:
     if is_active_validator(val, epoch):
       result.add idx.ValidatorIndex
@@ -106,7 +107,6 @@ func get_randao_mix*(state: BeaconState,
     ## LATEST_RANDAO_MIXES_LENGTH, current_epoch].
     state.randao_mixes[epoch mod LATEST_RANDAO_MIXES_LENGTH]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#bytes_to_int
 func bytes_to_int*(data: openarray[byte]): uint64 =
   doAssert data.len == 8
 
@@ -115,7 +115,6 @@ func bytes_to_int*(data: openarray[byte]): uint64 =
   for i in countdown(7, 0):
     result = result * 256 + data[i]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#int_to_bytes1-int_to_bytes2-
 # Have 1, 4, 8, and 32-byte versions. 1+ more and maybe worth metaprogramming.
 func int_to_bytes32*(x: uint64): array[32, byte] =
   ## Little-endian data representation
@@ -145,12 +144,12 @@ func int_to_bytes4*(x: uint64): array[4, byte] =
   result[2] = ((x shr 16) and 0xff).byte
   result[3] = ((x shr 24) and 0xff).byte
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#bls_domain
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#compute_domain
 func compute_domain(domain_type: DomainType, fork_version: array[4, byte]):
     uint64 =
   var buf: array[8, byte]
-  buf[0..3] = fork_version
-  buf[4..7] = int_to_bytes4(domain_type.uint64)
+  buf[0..3] = int_to_bytes4(domain_type.uint64)
+  buf[4..7] = fork_version
   bytes_to_int(buf)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#get_domain
@@ -169,7 +168,7 @@ func get_domain*(
 func get_domain*(state: BeaconState, domain_type: DomainType): Domain =
   get_domain(state, domain_type, get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#get_seed
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#get_seed
 func get_seed*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Generate a seed for the given ``epoch``.
 

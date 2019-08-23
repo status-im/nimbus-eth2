@@ -11,21 +11,21 @@ import
   ../extras, ../ssz, ../beacon_node_types,
   ./crypto, ./datatypes, ./digest, ./helpers, ./validator
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#verify_merkle_branch
-func verify_merkle_branch(leaf: Eth2Digest, proof: openarray[Eth2Digest], depth: uint64, index: uint64, root: Eth2Digest): bool =
-  ## Verify that the given ``leaf`` is on the merkle branch ``proof``
-  ## starting with the given ``root``.
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#is_valid_merkle_branch
+func is_valid_merkle_branch(leaf: Eth2Digest, branch: openarray[Eth2Digest], depth: uint64, index: uint64, root: Eth2Digest): bool =
+  ## Check if ``leaf`` at ``index`` verifies against the Merkle ``root`` and
+  ## ``branch``.
   var
     value = leaf
     buf: array[64, byte]
 
   for i in 0 ..< depth.int:
     if (index div (1'u64 shl i)) mod 2 != 0:
-      buf[0..31] = proof[i.int].data
+      buf[0..31] = branch[i.int].data
       buf[32..63] = value.data
     else:
       buf[0..31] = value.data
-      buf[32..63] = proof[i.int].data
+      buf[32..63] = branch[i.int].data
     value = eth2hash(buf)
   value == root
 
@@ -53,7 +53,7 @@ func process_deposit*(
 
   # Verify the Merkle branch
   # TODO enable this check, but don't use doAssert
-  if not verify_merkle_branch(
+  if not is_valid_merkle_branch(
     hash_tree_root(deposit.data),
      deposit.proof,
      DEPOSIT_CONTRACT_TREE_DEPTH,
@@ -466,8 +466,7 @@ func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
     signature: attestation.signature,
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#attestations
-
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#attestations
 proc check_attestation*(
     state: BeaconState, attestation: Attestation, flags: UpdateFlags,
     stateCache: var StateCache): bool =
