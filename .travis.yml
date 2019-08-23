@@ -47,7 +47,6 @@ install:
   - cd go-libp2p-daemon
   # - git checkout v0.0.1
   - go install ./...
-  - cd $HOME/build/status-im/nim-libp2p
 
 script:
   - nimble install -y --depsOnly
