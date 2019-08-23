@@ -190,8 +190,6 @@ func get_winning_crosslink_and_attesting_indices(
 proc process_justification_and_finalization(
     state: var BeaconState, stateCache: var StateCache) =
   if get_current_epoch(state) <= GENESIS_EPOCH + 1:
-    debug "process_justification_and_finalization early exit",
-      current_epoch = get_current_epoch(state)
     return
 
   let
@@ -235,11 +233,7 @@ proc process_justification_and_finalization(
       difference(active_validator_indices,
         toSet(mapIt(get_unslashed_attesting_indices(state,
           matching_target_attestations_previous, stateCache), it.int))),
-    prev_attestating_indices=
-      mapIt(get_attesting_indices(state, state.previous_epoch_attestations, stateCache), it.int),
     prev_attestations_len=len(state.previous_epoch_attestations),
-    cur_attestating_indices=
-      mapIt(get_attesting_indices(state, state.current_epoch_attestations, stateCache), it.int),
     cur_attestations_len=len(state.current_epoch_attestations),
     num_active_validators=len(active_validator_indices),
     required_balance = get_total_active_balance(state) * 2,
@@ -517,14 +511,8 @@ proc process_final_updates(state: var BeaconState) =
       SHARD_COUNT
 
   # Rotate current/previous epoch attestations
-  trace "Rotating epoch attestations",
-    current_epoch = get_current_epoch(state)
-
   state.previous_epoch_attestations = state.current_epoch_attestations
   state.current_epoch_attestations = @[]
-
-  trace "Rotated epoch attestations",
-    current_epoch = get_current_epoch(state)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#per-epoch-processing
 proc process_epoch*(state: var BeaconState) =
