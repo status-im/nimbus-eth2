@@ -136,8 +136,3 @@
 	url = https://github.com/arnetheduck/nim-result.git
 	ignore = dirty
 	branch = master
-[submodule "vendor/nim-byteutils"]
-	path = vendor/nim-byteutils
-	url = https://github.com/status-im/nim-byteutils.git
-	ignore = dirty
-	branch = master
