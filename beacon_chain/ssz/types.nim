@@ -176,8 +176,8 @@ proc fieldInfos*(RecordType: type): seq[tuple[name: string,
       isFixed = isFixedSize(FieldType)
       fixedSize = when isFixed: fixedPortionSize(FieldType)
                   else: 0
-      branchKey = when  fieldCaseDisciminator.len == 0: ""
-                  else: fieldCaseDisciminator & ":" & $fieldCaseBranches
+      branchKey = when  fieldCaseDiscriminator.len == 0: ""
+                  else: fieldCaseDiscriminator & ":" & $fieldCaseBranches
       fieldSize = when isFixed: fixedSize
                   else: offsetSize
 
@@ -188,7 +188,7 @@ proc fieldInfos*(RecordType: type): seq[tuple[name: string,
       fieldOffset = val[]
       val[] += fieldSize
     do:
-      let parentBranch = nestedUnder.getOrDefault(fieldCaseDisciminator, "")
+      let parentBranch = nestedUnder.getOrDefault(fieldCaseDiscriminator, "")
       fieldOffset = offsetInBranch[parentBranch]
       offsetInBranch[branchKey] = fieldOffset + fieldSize
 
