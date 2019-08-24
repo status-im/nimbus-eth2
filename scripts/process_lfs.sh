@@ -13,6 +13,9 @@ ARCHIVE_NAME="json_tests.tar.xz"
 TMP_CACHE_DIR="tmpcache"
 SUBREPO_DIR="tests/official/fixtures"
 LFS_DIR="json_tests"
+# verbosity level
+[[ -z "$V" ]] && V=0
+[[ -z "$BUILD_MSG" ]] && BUILD_MSG="Downloading LFS files"
 CACHE_DIR="$1" # optional parameter pointing to a CI cache dir. Without it, we just download the LFS files for a local `make test`.
 
 [[ -d "${SUBREPO_DIR}" ]] || { echo "This script should be run from the \"nim-beacon-chain\" repo top dir."; exit 1; }
@@ -33,7 +36,9 @@ which 7z &>/dev/null && { DECOMPRESS_XZ="7z e -txz -bd -so"; COMPRESS_XZ="7z a -
 which xz &>/dev/null && { DECOMPRESS_XZ="xz -d -c -T 0"; COMPRESS_XZ="xz -c -T 0"; }
 
 download_lfs_files() {
-	echo "Downloading LFS files."
+	echo -e "$BUILD_MSG"
+	[[ "$V" == "0" ]] && exec &>/dev/null
+
 	pushd "${SUBREPO_DIR}"
 	git lfs install # redundant after running it once per repo, but fast enough not to worry about detecting whether it ran before
 	git lfs pull -I "${LFS_DIR}" # we just care about test fixtures converted from YAML to JSON

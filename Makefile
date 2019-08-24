@@ -63,7 +63,7 @@ p2pd: | go-checks
 DISABLE_LFS_SCRIPT := 0
 test: | build deps nat-libs p2pd
 ifeq ($(DISABLE_LFS_SCRIPT), 0)
-	scripts/process_lfs.sh $(HANDLE_OUTPUT)
+	V=$(V) scripts/process_lfs.sh
 endif
 	$(ENV_SCRIPT) nim test $(NIM_PARAMS) beacon_chain.nims && rm -f 0000-*.json
 
