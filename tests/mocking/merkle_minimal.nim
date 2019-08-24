@@ -85,32 +85,89 @@ proc getMerkleProof*[Depth: static int](
     else:
       result[depth] = ZeroHashes[depth]
 
-when isMainModule:
-  # Check that round-tripping works with verify_merkle_branch (in beaconstate.nim)
+when isMainModule: # Checks
+  import strutils, macros, bitops
 
   proc toDigest[N: static int](x: array[N, byte]): Eth2Digest =
     result.data[0 .. N-1] = x
 
-  block: # 2-depth round-trip
-    let a = [byte 0x01, 0x02, 0x03].toDigest
-    let b = [byte 0x04, 0x05, 0x06].toDigest
-    let c = [byte 0x07, 0x08, 0x09].toDigest
+  let a = [byte 0x01, 0x02, 0x03].toDigest
+  let b = [byte 0x04, 0x05, 0x06].toDigest
+  let c = [byte 0x07, 0x08, 0x09].toDigest
 
-    let tree = merkleTreeFromLeaves([a, b, c], Depth = 3)
-    echo "Tree: ", tree
+  block: # SSZ Sanity checks vs Python impl
+    block: # 3 leaves
+      let leaves = sszList(@[a, b, c], 3'i64)
+      let root = hashTreeRoot(leaves)
+      doAssert $root == "9ff412e827b7c9d40fc7df2725021fd579ab762581d1ff5c270316682868456e".toUpperAscii
 
-    let index = 2
-    let proof = getMerkleProof(tree, index)
-    echo "Proof: ", proof
+    block: # 2^3 leaves
+      let leaves = sszList(@[a, b, c], int64(1 shl 3))
+      let root = hashTreeRoot(leaves)
+      doAssert $root == "5248085b588fab1dd1e03f3cd62201602b12e6560665935964f46e805977e8c5".toUpperAscii
 
-    # TODO - need compliant implementation of SSZ hash_tree_root
-    let root = hash_tree_root([a, b, c])
-    echo root
+    block: # 2^10 leaves
+      let leaves = sszList(@[a, b, c], int64(1 shl 10))
+      let root = hashTreeRoot(leaves)
+      doAssert $root == "9fb7d518368dc14e8cc588fb3fd2749beef9f493fef70ae34af5721543c67173".toUpperAscii
 
-    when false:
-      echo verify_merkle_branch(
-        a, get_merkle_proof(tree, index = 2),
-        depth = 3,
-        index = 2,
-        root = root
-      )
+  block: # Round-trips
+    macro roundTrips(): untyped =
+      result = newStmtList()
+
+      # Unsure why sszList ident is undeclared in "quote do"
+      let list = bindSym"sszList"
+
+      # compile-time unrolled test
+      for nleaves in [3, 4, 5, 7, 8, 1 shl 10, 1 shl 32]:
+        let depth = fastLog2(nleaves-1) + 1
+
+        result.add quote do:
+          block:
+            let tree = merkleTreeFromLeaves([a, b, c], Depth = `depth`)
+            # echo "Tree: ", tree
+
+            let leaves = `list`(@[a, b, c], `nleaves`)
+            let root = hash_tree_root([a, b, c])
+            # echo root
+
+            block: # proof for a
+              let index = 0
+              let proof = getMerkleProof(tree, index)
+              # echo "Proof: ", proof
+
+              doAssert verify_merkle_branch(
+                a, get_merkle_proof(tree, index = index),
+                depth = `depth`,
+                index = index.uint64,
+                root = root
+              ), "Failed (depth: " & $`depth` &
+                ", nleaves: " & $`nleaves` & ')'
+
+            block: # proof for b
+              let index = 1
+              let proof = getMerkleProof(tree, index)
+              # echo "Proof: ", proof
+
+              doAssert verify_merkle_branch(
+                b, get_merkle_proof(tree, index = index),
+                depth = `depth`,
+                index = index.uint64,
+                root = root
+              ), "Failed (depth: " & $`depth` &
+                ", nleaves: " & $`nleaves` & ')'
+
+            block: # proof for c
+              let index = 2
+              let proof = getMerkleProof(tree, index)
+              # echo "Proof: ", proof
+
+              doAssert verify_merkle_branch(
+                c, get_merkle_proof(tree, index = index),
+                depth = `depth`,
+                index = index.uint64,
+                root = root
+              ), "Failed (depth: " & $`depth` &
+                ", nleaves: " & $`nleaves` & ')'
+
+    roundTrips()
