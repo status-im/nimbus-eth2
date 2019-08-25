@@ -56,7 +56,7 @@ P2PD_CACHE :=
 p2pd: | go-checks
 	BUILD_MSG="$(BUILD_MSG) $@" \
 		V=$(V) \
-		$(ENV_SCRIPT) scripts/build_p2pd.sh "$(P2PD_CACHE)"
+		$(ENV_SCRIPT) $(BUILD_SYSTEM_DIR)/scripts/build_p2pd.sh "$(P2PD_CACHE)"
 
 # Windows 10 with WSL enabled, but no distro installed, fails if "../../nimble.sh" is executed directly
 # in a Makefile recipe but works when prefixing it with `bash`. No idea how the PATH is overridden.
