@@ -495,7 +495,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   # We need to run attestations exactly for the slot that we're attesting to.
   # In case blocks went missing, this means advancing past the latest block
   # using empty slots as fillers.
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/validator/0_beacon-chain-validator.md#validator-assignments
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/validator/0_beacon-chain-validator.md#validator-assignments
   # TODO we could cache the validator assignment since it's valid for the entire
   #      epoch since it doesn't change, but that has to be weighed against
   #      the complexity of handling forks correctly - instead, we use an adapted

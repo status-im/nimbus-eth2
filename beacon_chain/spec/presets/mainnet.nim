@@ -26,7 +26,7 @@ type
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#misc
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#misc
 
   SHARD_COUNT* {.intdefine.} = 1024 ##\
   ## Number of shards supported by the network - validators will jump around
@@ -54,14 +54,14 @@ const
   SHUFFLE_ROUND_COUNT* = 90
 
   # Constants (TODO: not actually configurable)
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#constants
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#constants
   BASE_REWARDS_PER_EPOCH* = 5
 
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#gwei-values
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#gwei-values
 
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9 ##\
   ## Minimum amounth of ETH that can be deposited in one call - deposits can
@@ -86,12 +86,12 @@ const
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_fork-choice.md#time-parameters
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_fork-choice.md#time-parameters
 
   SECONDS_PER_SLOT*{.intdefine.} = 6'u64 # Compile with -d:SECONDS_PER_SLOT=1 for 6x faster slots
   ## TODO consistent time unit across projects, similar to C++ chrono?
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#time-parameters
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#time-parameters
   MIN_ATTESTATION_INCLUSION_DELAY* = 1 ##\
   ## (24 seconds)
   ## Number of slots that attestations stay in the attestation
@@ -145,7 +145,7 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#rewards-and-penalties
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#rewards-and-penalties
   BASE_REWARD_FACTOR* = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
   PROPOSER_REWARD_QUOTIENT* = 2'u64^3
@@ -168,7 +168,7 @@ const
 type
   # Signature domains
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#signature-domain-types
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#signature-domain-types
   DomainType* {.pure.} = enum
     DOMAIN_BEACON_PROPOSER = 0
     DOMAIN_RANDAO = 1
