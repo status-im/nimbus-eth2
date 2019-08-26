@@ -141,9 +141,9 @@ template mockGenesisDepositsImpl(
 
     # 4th loop - append proof
     for valIdx in 0 ..< validatorCount.int:
-      # TODO spec appends (index+1) in little-endian to the merkle proof
-      result[valIdx].proof = tree.getMerkleProof(valIdx)
-      when false: # requires compliant SSZ hash_tree_root
+      when false: # TODO
+        result[valIdx].proof[0..31] = tree.getMerkleProof(valIdx)
+        result[valIdx].proof[32] = int_to_bytes32(index + 1)
         doAssert:
           verify_merkle_branch(
             depositsDataHash[valIdx],
@@ -210,8 +210,10 @@ proc mockUpdateStateForNewDeposit*(
   )
 
   let tree = merkleTreeFromLeaves([hash_tree_root(result.data)])
-  # TODO spec appends (index+1) in little-endian to the merkle proof
-  result.proof = getMerkleProof(tree, index = 0)
+  when false: # TODO
+    result[valIdx].proof[0..31] = tree.getMerkleProof(0)
+    result[valIdx].proof[32] = int_to_bytes32(0 + 1)
+    # doAssert: verify_merkle_branch(...)
 
   # TODO: this logic from the eth2.0-specs test suite seems strange
   #       but confirmed by running it
