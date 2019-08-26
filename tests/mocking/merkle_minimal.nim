@@ -98,17 +98,17 @@ when isMainModule: # Checks
   block: # SSZ Sanity checks vs Python impl
     block: # 3 leaves
       let leaves = sszList(@[a, b, c], 3'i64)
-      let root = hashTreeRoot(leaves)
+      let root = hash_tree_root(leaves)
       doAssert $root == "9ff412e827b7c9d40fc7df2725021fd579ab762581d1ff5c270316682868456e".toUpperAscii
 
     block: # 2^3 leaves
       let leaves = sszList(@[a, b, c], int64(1 shl 3))
-      let root = hashTreeRoot(leaves)
+      let root = hash_tree_root(leaves)
       doAssert $root == "5248085b588fab1dd1e03f3cd62201602b12e6560665935964f46e805977e8c5".toUpperAscii
 
     block: # 2^10 leaves
       let leaves = sszList(@[a, b, c], int64(1 shl 10))
-      let root = hashTreeRoot(leaves)
+      let root = hash_tree_root(leaves)
       doAssert $root == "9fb7d518368dc14e8cc588fb3fd2749beef9f493fef70ae34af5721543c67173".toUpperAscii
 
   block: # Round-trips
