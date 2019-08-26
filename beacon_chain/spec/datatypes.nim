@@ -53,7 +53,7 @@ else:
   {.fatal: "Preset \"" & const_preset ".nim\" is not supported.".}
 
 const
-  SPEC_VERSION* = "0.8.1" ## \
+  SPEC_VERSION* = "0.8.2" ## \
   ## Spec version we're aiming to be compatible with, right now
   ## TODO: improve this scheme once we can negotiate versions in protocol
 
@@ -239,11 +239,13 @@ type
     body_root*: Eth2Digest
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.2/specs/core/0_beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
     graffiti*: Eth2Digest
+
+    # Each of these is a length-bounded list, but enforcing that's elsewhere
     proposer_slashings*: seq[ProposerSlashing]
     attester_slashings*: seq[AttesterSlashing]
     attestations*: seq[Attestation]
