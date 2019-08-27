@@ -145,7 +145,7 @@ func int_to_bytes4*(x: uint64): array[4, byte] =
   result[3] = ((x shr 24) and 0xff).byte
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#compute_domain
-func compute_domain(domain_type: DomainType, fork_version: array[4, byte]):
+func compute_domain*(domain_type: DomainType, fork_version: array[4, byte]):
     uint64 =
   var buf: array[8, byte]
   buf[0..3] = int_to_bytes4(domain_type.uint64)
