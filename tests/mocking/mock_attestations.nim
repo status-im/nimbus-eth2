@@ -15,7 +15,7 @@ import
   # Specs
   ../../beacon_chain/spec/[datatypes, beaconstate, helpers, validator, crypto],
   # Internals
-  ../../beacon_chain/[ssz, extras],
+  ../../beacon_chain/[ssz, extras, state_transition],
   # Mocking procs
   ./mock_blocks,
   ./mock_validator_keys
@@ -131,7 +131,7 @@ proc mockAttestationImpl(
   result.aggregation_bits = init(CommitteeValidatorsBits, committee_size)
   result.custody_bits = init(CommitteeValidatorsBits, committee_size)
 
-  # fill_aggregate_attestation
+  # fillAggregateAttestation
   for i in 0 ..< crosslink_committee.len:
     result.aggregation_bits[i] = true
 
@@ -149,7 +149,7 @@ proc mockAttestation*(
        flags: UpdateFlags = {}): Attestation {.inline.}=
   mockAttestationImpl(state, slot, flags)
 
-proc fill_aggregate_attestation*(state: BeaconState, attestation: var Attestation) =
+proc fillAggregateAttestation*(state: BeaconState, attestation: var Attestation) =
   var cache = get_empty_per_epoch_cache()
   let crosslink_committee = get_crosslink_committee(
     state,
@@ -159,3 +159,13 @@ proc fill_aggregate_attestation*(state: BeaconState, attestation: var Attestatio
   )
   for i in 0 ..< crosslink_committee.len:
     attestation.aggregation_bits[i] = true
+
+proc add*(state: var BeaconState, attestation: Attestation, slot: Slot) =
+  var blck = mockBlockForNextSlot(state)
+  blck.slot = slot
+  blck.body.attestations.add attestation
+  process_slots(state, slot)
+  signMockBlock(state, blck)
+
+  # TODO: we can skip just VerifyStateRoot
+  doAssert state_transition(state, blck, flags = {skipValidation})

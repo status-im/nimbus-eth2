@@ -40,7 +40,7 @@ import
 # ---------------------------------------------------------------
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
-func process_slot(state: var BeaconState) =
+func process_slot*(state: var BeaconState) =
   # Cache state root
   let previous_state_root = hash_tree_root(state)
   state.state_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
