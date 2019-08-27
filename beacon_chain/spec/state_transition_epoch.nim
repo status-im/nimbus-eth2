@@ -403,7 +403,7 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
   (rewards, penalties)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#rewards-and-penalties-1
-func get_crosslink_deltas(state: BeaconState, cache: var StateCache):
+func get_crosslink_deltas*(state: BeaconState, cache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
 
   var

@@ -13,11 +13,11 @@ import
   # Standard library
   unittest,
   # Specs
-  ../../beacon_chain/spec/[beaconstate, datatypes, validator],
+  ../../beacon_chain/spec/[beaconstate, datatypes, validator, helpers, state_transition_epoch],
   # Internals
 
   # Mock helpers
-  ../mocking/[mock_genesis, mock_attestations, mock_state],
+  ../mocking/[mock_genesis, mock_attestations, mock_state, mock_blocks],
   ./epoch_utils,
   ../testutil
 
@@ -48,8 +48,9 @@ suite "[Unit - Spec - Epoch processing] Crosslinks " & preset():
 
     state.add(attestation, state.slot + MIN_ATTESTATION_INCLUSION_DELAY)
 
-    # TODO: pending fix of https://github.com/status-im/nim-beacon-chain/issues/361
-    # check: state.current_epoch_attestations.len == 1
+    # TODO: all attestations are duplicated at the moment
+    # pending fix of https://github.com/status-im/nim-beacon-chain/issues/361
+    check: state.current_epoch_attestations.len == 2
 
     # For sanity checks
     let shard = attestation.data.crosslink.shard
@@ -60,3 +61,60 @@ suite "[Unit - Spec - Epoch processing] Crosslinks " & preset():
     check:
       state.previous_crosslinks[shard] != state.current_crosslinks[shard]
       pre_crosslink != state.current_crosslinks[shard]
+
+  test "Double late crosslink":
+    resetState()
+
+    if get_committee_count(state, get_current_epoch(state)) < SHARD_COUNT:
+      echo "        [Warning] Skipping Double-late crosslink test: Committee.len < SHARD_COUNT for preset " & const_preset
+    else:
+      nextEpoch(state)
+      state.slot += 4
+
+      var attestation_1 = mockAttestation(state)
+      fillAggregateAttestation(state, attestation_1)
+
+      # Add attestation_1 to next epoch
+      nextEpoch(state)
+      state.add(attestation_1, state.slot + 1)
+
+      var attestation_2: Attestation
+      for _ in 0 ..< SLOTS_PER_EPOCH:
+        attestation_2 = mockAttestation(state)
+        if attestation_2.data.crosslink.shard == attestation_1.data.crosslink.shard:
+          signMockAttestation(state, attestation_2)
+          break
+        nextSlot(state)
+      applyEmptyBlock(state)
+
+      fillAggregateAttestation(state, attestation_2)
+
+      # Add attestation_2 in the next epoch after attestation_1 has already
+      # updated the relevant crosslink
+      nextEpoch(state)
+      state.add(attestation_2, state.slot + 1)
+
+      # TODO: all attestations are duplicated at the moment
+      # pending fix of https://github.com/status-im/nim-beacon-chain/issues/361
+      check: state.previous_epoch_attestations.len == 2
+      check: state.current_epoch_attestations.len == 0
+
+      var cache = get_empty_per_epoch_cache()
+      let crosslink_deltas = get_crosslink_deltas(state, cache)
+
+      transitionEpochUntilCrosslinks(state)
+
+      let shard = attestation_2.data.crosslink.shard
+
+      # ensure that the current crosslinks were not updated by the second attestation
+      check: state.previous_crosslinks[shard] == state.current_crosslinks[shard]
+      # ensure no reward, only penalties for the failed crosslink
+      for index in get_crosslink_committee(
+                     state,
+                     attestation_2.data.target.epoch,
+                     attestation_2.data.crosslink.shard,
+                     cache
+                   ):
+        check:
+          crosslink_deltas[0][index] == 0.Gwei
+          crosslink_deltas[1][index]  > 0.Gwei
