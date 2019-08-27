@@ -12,12 +12,14 @@
 import
   # Standard library
   unittest, math,
+  # shims 0.19.6
+  stew/objects, # import default
   # Specs
   ../../beacon_chain/spec/[beaconstate, datatypes, helpers, validator],
   # Internals
   ../../beacon_chain/[state_transition],
   # Mock helpers
-  ../mocking/[mock_genesis, mock_attestations],
+  ../mocking/[mock_genesis, mock_attestations, mock_state, mock_blocks],
   ../testutil
 
 suite "[Unit - Spec - Block processing] Attestations " & preset():
@@ -62,3 +64,54 @@ suite "[Unit - Spec - Block processing] Attestations " & preset():
   valid_attestation("Valid attestation"):
     let attestation = mockAttestation(state)
     state.slot += MIN_ATTESTATION_INCLUSION_DELAY
+
+  valid_attestation("Valid attestation from previous epoch"):
+    let attestation = mockAttestation(state)
+    state.slot = Slot(SLOTS_PER_EPOCH - 1)
+    nextEpoch(state)
+    applyEmptyBlock(state)
+
+
+  when MAX_EPOCHS_PER_CROSSLINK > 4'u64:
+    test "Valid attestation since max epochs per crosslinks [Skipped for preset: " & const_preset & ']':
+      discard
+  else:
+    valid_attestation("Valid attestation since max epochs per crosslinks"):
+      for _ in 0 ..< MAX_EPOCHS_PER_CROSSLINK + 2:
+        nextEpoch(state)
+      applyEmptyBlock(state)
+
+      let attestation = mockAttestation(state)
+      check: attestation.data.crosslink.end_epoch - attestation.data.crosslink.start_epoch == MAX_EPOCHS_PER_CROSSLINK
+
+      for _ in 0 ..< MIN_ATTESTATION_INCLUSION_DELAY:
+        nextSlot(state)
+
+  valid_attestation("Empty aggregation bit"):
+    var attestation = mockAttestation(state)
+    state.slot += MIN_ATTESTATION_INCLUSION_DELAY
+
+    # Overwrite committee
+    attestation.aggregation_bits = init(CommitteeValidatorsBits, attestation.aggregation_bits.len)
+    signMockAttestation(state, attestation)
+
+# TODO - invalid attestations
+# - Wrong end epoch
+# - Invalid signature
+# - Before inclusion delay
+# - past last inclusion slot
+# - before oldest known source epoch
+# - wrong shard
+# - invalid shard
+# - target epoch too old
+# - target epoch too far in the future
+# - source epoch in the future
+# - invalid current source root
+# - bad source root
+# - non-zero crosslink data root
+# - bad parent crosslink
+# - bad crosslink start epoch
+# - bad crosslink end epoch
+# - inconsistent custody bits length
+# - non-empty custody bits in phase 0
+

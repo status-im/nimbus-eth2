@@ -126,6 +126,8 @@ proc state_transition*(
     # state we arrive at is what the block producer thought it would be -
     # meaning that potentially, it could fail verification
     if skipValidation in flags or verifyStateRoot(state, blck):
+      # TODO: allow skipping just verifyStateRoot for mocking
+      #       instead of both processBlock and verifyStateRoot
       # State root is what it should be - we're done!
       return true
 

@@ -83,7 +83,7 @@ proc get_attestation_signature(
     )
   )
 
-proc signMockAttestation(state: BeaconState, attestation: var Attestation) =
+proc signMockAttestation*(state: BeaconState, attestation: var Attestation) =
   var cache = get_empty_per_epoch_cache()
   let participants = get_attesting_indices(
     state,

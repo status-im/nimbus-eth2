@@ -85,13 +85,21 @@ proc mockBlock*(
   result.slot = slot
   result.body.eth1_data.deposit_count = state.eth1_deposit_index
 
-  if state.latest_block_header.state_root == ZERO_HASH:
-    result.parent_root = signing_root(state.latest_block_header)
-  else:
-    result.parent_root = state.hash_tree_root().signing_root()
+  var previous_block_header = state.latest_block_header
+  if previous_block_header.state_root == ZERO_HASH:
+    previous_block_header.state_root = state.hash_tree_root()
+  result.parent_root = previous_block_header.signing_root()
 
   if skipValidation notin flags:
     signMockBlock(state, result)
 
 proc mockBlockForNextSlot*(state: BeaconState, flags: UpdateFlags = {}): BeaconBlock =
   mockBlock(state, state.slot + 1, flags)
+
+proc applyEmptyBlock*(state: var BeaconState) =
+  ## Do a state transition with an empty signed block
+  ## on the current slot
+  let blck = mockBlock(state, state.slot, flags = {})
+  # TODO: we only need to skip verifyStateRoot validation
+  #       processBlock validation should work
+  doAssert state_transition(state, blck, {skipValidation})
