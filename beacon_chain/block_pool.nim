@@ -592,7 +592,7 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
           not pool.heads[n].blck.isAncestorOf(pool.finalizedHead.blck):
         pool.heads.del(n)
 
-proc latestJustifiedBlock*(pool: BlockPool): BlockRef =
+proc latestJustifiedBlock*(pool: BlockPool): BlockSlot =
   ## Return the most recent block that is justified and at least as recent
   ## as the latest finalized block
 
@@ -602,10 +602,10 @@ proc latestJustifiedBlock*(pool: BlockPool): BlockRef =
     "Genesis block will be head, if nothing else"
 
   # Prefer stability: use justified block from current head to break ties!
-  result = pool.head.justified.blck
+  result = pool.head.justified
   for head in pool.heads[1 ..< ^0]:
-    if head.justified.blck.slot > result.slot:
-      result = head.justified.blck
+    if head.justified.slot > result.slot:
+      result = head.justified
 
 proc preInit*(
     T: type BlockPool, db: BeaconChainDB, state: BeaconState, blck: BeaconBlock) =

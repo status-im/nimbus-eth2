@@ -281,19 +281,14 @@ proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
     justifiedHead = node.blockPool.latestJustifiedBlock()
 
   debug "Preparing for fork choice",
-    justifiedHeadRoot = shortLog(justifiedHead.root),
+    justifiedHeadRoot = shortLog(justifiedHead.blck.root),
     justifiedHeadSlot = shortLog(justifiedHead.slot),
     justifiedHeadEpoch = shortLog(justifiedHead.slot.compute_epoch_of_slot),
     connectedPeers = node.network.peersCount
 
-  # TODO slot number is wrong here, it should be the start of the epoch that
-  #      got finalized:
-  #      https://github.com/ethereum/eth2.0-specs/issues/768
   let newHead = node.blockPool.withState(
-      node.justifiedStateCache,
-      BlockSlot(blck: justifiedHead, slot: justifiedHead.slot)):
-
-    lmdGhost(node.attestationPool, state, justifiedHead)
+      node.justifiedStateCache, justifiedHead):
+    lmdGhost(node.attestationPool, state, justifiedHead.blck)
 
   info "Fork chosen",
     newHeadSlot = shortLog(newHead.slot),
