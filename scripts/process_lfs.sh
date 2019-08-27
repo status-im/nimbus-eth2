@@ -37,6 +37,7 @@ which xz &>/dev/null && { DECOMPRESS_XZ="xz -d -c -T 0"; COMPRESS_XZ="xz -c -T 0
 
 download_lfs_files() {
 	echo -e "$BUILD_MSG"
+	which git-lfs &>/dev/null || { echo "Error: 'git-lfs' not found. Please install the corresponding package."; exit 1; }
 	[[ "$V" == "0" ]] && exec &>/dev/null
 
 	pushd "${SUBREPO_DIR}"
