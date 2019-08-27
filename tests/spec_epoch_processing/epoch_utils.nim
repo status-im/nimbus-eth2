@@ -7,7 +7,7 @@
 
 import
   # Specs
-  ../../beacon_chain/spec/[datatypes, state_transition_epoch, validator],
+  ../../beacon_chain/spec/[datatypes, state_transition_epoch, validator, helpers],
   # Internals
   ../../beacon_chain/[state_transition]
 
@@ -22,6 +22,15 @@ proc processSlotsUntilEndCurrentEpoch(state: var BeaconState) =
   # only process_slot without process_epoch
   # (see process_slots())
   process_slot(state)
+
+proc transitionEpochUntilJustificationFinalization*(state: var BeaconState) =
+  # Process slots and do the epoch transition until crosslinks
+  processSlotsUntilEndCurrentEpoch(state)
+
+  # From process_epoch()
+  var per_epoch_cache = get_empty_per_epoch_cache()
+
+  process_justification_and_finalization(state, per_epoch_cache)
 
 proc transitionEpochUntilCrosslinks*(state: var BeaconState) =
   # Process slots and do the epoch transition until crosslinks

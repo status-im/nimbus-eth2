@@ -39,7 +39,7 @@ import # TODO - cleanup imports
   beaconstate, crypto, datatypes, digest, helpers, validator
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#get_total_active_balance
-func get_total_active_balance(state: BeaconState): Gwei =
+func get_total_active_balance*(state: BeaconState): Gwei =
   return get_total_balance(
     state,
     get_active_validator_indices(state, get_current_epoch(state)))

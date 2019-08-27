@@ -554,6 +554,9 @@ template overlaps*(a, b: BitList): bool = overlaps(BitSeq(a), BitSeq(b))
 template combine*(a: var BitList, b: BitList) = combine(BitSeq(a), BitSeq(b))
 template isSubsetOf*(a, b: BitList): bool = isSubsetOf(BitSeq(a), BitSeq(b))
 template `$`*(a: BitList): string = $(BitSeq(a))
+iterator items*(x: BitList): bool =
+  for i in 0 ..< x.len:
+    yield x[i]
 
 when useListType:
   template len*[T; N](x: List[T, N]): auto = len(seq[T](x))
