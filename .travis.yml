@@ -3,7 +3,7 @@ language: go
 # https://docs.travis-ci.com/user/caching/
 cache:
   directories:
-    - vendor/Nim/bin
+    - vendor/nimbus-build-system/vendor/Nim/bin
     - vendor/go/bin
     - rocksdbCache
     - jsonTestsCache
