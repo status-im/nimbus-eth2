@@ -91,11 +91,11 @@ proc addMockAttestations*(
       )
 
 proc getCheckpoints*(epoch: Epoch): tuple[c1, c2, c3, c4, c5: Checkpoint] =
-  if epoch < 1: result.c1 = Checkpoint(epoch: epoch - 1, root: [byte 0xAA] * 32)
-  if epoch < 2: result.c2 = Checkpoint(epoch: epoch - 2, root: [byte 0xBB] * 32)
-  if epoch < 3: result.c3 = Checkpoint(epoch: epoch - 3, root: [byte 0xCC] * 32)
-  if epoch < 4: result.c4 = Checkpoint(epoch: epoch - 4, root: [byte 0xDD] * 32)
-  if epoch < 5: result.c5 = Checkpoint(epoch: epoch - 5, root: [byte 0xEE] * 32)
+  if epoch >= 1: result.c1 = Checkpoint(epoch: epoch - 1, root: [byte 0xAA] * 32)
+  if epoch >= 2: result.c2 = Checkpoint(epoch: epoch - 2, root: [byte 0xBB] * 32)
+  if epoch >= 3: result.c3 = Checkpoint(epoch: epoch - 3, root: [byte 0xCC] * 32)
+  if epoch >= 4: result.c4 = Checkpoint(epoch: epoch - 4, root: [byte 0xDD] * 32)
+  if epoch >= 5: result.c5 = Checkpoint(epoch: epoch - 5, root: [byte 0xEE] * 32)
 
 proc putCheckpointsInBlockRoots*(
        state: var BeaconState,

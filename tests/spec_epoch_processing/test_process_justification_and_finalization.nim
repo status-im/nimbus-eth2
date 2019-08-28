@@ -26,7 +26,7 @@ import
 
 proc finalize_on_234(state: var BeaconState, epoch: Epoch, sufficient_support: bool) =
   ## Check finalization on rule 1 "234"
-  assert epoch > 4
+  doAssert epoch > 4
   state.slot = Slot((epoch * SLOTS_PER_EPOCH) - 1) # Skip ahead to just before epoch
 
   # 43210 -- epochs ago
@@ -61,17 +61,15 @@ proc finalize_on_234(state: var BeaconState, epoch: Epoch, sufficient_support: b
   transitionEpochUntilJustificationFinalization(state)
 
   # Checks
-  check(state.previous_justified_checkpoint == c3) # changed to old current
+  doAssert state.previous_justified_checkpoint == c3     # changed to old current
   if sufficient_support:
-    check:
-      state.current_justified_checkpoint == c2 # changed to second latest
-      state.finalized_checkpoint == c4 # finalized old previous justified epoch
+    doAssert state.current_justified_checkpoint == c2    # changed to second latest
+    doAssert state.finalized_checkpoint == c4            # finalized old previous justified epoch
   else:
-    check:
-      state.current_justified_checkpoint == c2    # still old current
-      state.finalized_checkpoint == old_finalized # no new finalized checkpoint
+    doAssert state.current_justified_checkpoint == c3    # still old current
+    doAssert state.finalized_checkpoint == old_finalized # no new finalized checkpoint
 
-suite "[Unit - Spec - Epoch processing] Crosslinks " & preset():
+suite "[Unit - Spec - Epoch processing] Justification and Finalization " & preset():
   echo "   Finalization rules are detailed at https://github.com/protolambda/eth2-docs#justification-and-finalization"
 
   const NumValidators = uint64(8) * SLOTS_PER_EPOCH
