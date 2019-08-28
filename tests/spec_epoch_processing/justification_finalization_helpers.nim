@@ -28,7 +28,7 @@ iterator getShardsForSlot(state: BeaconState, slot: Slot): Shard =
   for i in 0 ..< committees_per_slot.int:
     yield shard + Shard(i)
 
-proc add_mock_attestation(
+proc addMockAttestations*(
        state: BeaconState, epoch: Epoch,
        source, target: Checkpoint,
        sufficient_support = false
@@ -74,7 +74,10 @@ proc add_mock_attestation(
 
       # Remove just one attester to make the marginal support insufficient
       if not sufficient_support:
-        aggregation_bits[aggregation_bits.find(true)] = false
+        # Find the first attester if any
+        let idx = aggregation_bits.find(true)
+        if idx != -1:
+          aggregation_bits[idx] = false
 
       attestations.add PendingAttestation(
         aggregation_bits: aggregation_bits,
@@ -86,3 +89,17 @@ proc add_mock_attestation(
         ),
         inclusion_delay: 1
       )
+
+proc getCheckpoints*(epoch: Epoch): tuple[c1, c2, c3, c4, c5: Checkpoint] =
+  if epoch < 1: result.c1 = Checkpoint(epoch: epoch - 1, root: [byte 0xAA] * 32)
+  if epoch < 2: result.c2 = Checkpoint(epoch: epoch - 2, root: [byte 0xBB] * 32)
+  if epoch < 3: result.c3 = Checkpoint(epoch: epoch - 3, root: [byte 0xCC] * 32)
+  if epoch < 4: result.c4 = Checkpoint(epoch: epoch - 4, root: [byte 0xDD] * 32)
+  if epoch < 5: result.c5 = Checkpoint(epoch: epoch - 5, root: [byte 0xEE] * 32)
+
+proc putCheckpointsInBlockRoots*(
+       state: var BeaconState,
+       checkpoints: openarray[Checkpoint]) =
+  for c in checkpoints:
+    let idx = c.epoch.compute_start_slot_of_epoch() mod SLOTS_PER_HISTORICAL_ROOT
+    state.block_roots[idx] = c.root

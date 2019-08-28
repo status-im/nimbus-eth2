@@ -8,7 +8,7 @@
 import
   ../../beacon_chain/spec/digest
 
-proc `*`*(a: static array[1, byte], n: static int): Eth2Digest {.compileTime.} =
+proc `*`*(a: static array[1, byte], n: static int): static Eth2Digest =
   assert n == 32
   for mbyte in result.data.mitems:
     mbyte = a[0]
