@@ -106,30 +106,3 @@ proc parseTests*(jsonPath: string, T: typedesc): Tests[T] =
     stderr.write "Json load issue for file \"", jsonPath, "\"\n"
     stderr.write err.formatMsg(jsonPath), "\n"
     quit 1
-
-# #######################
-# Mocking helpers
-# https://github.com/ethereum/eth2.0-specs/blob/75f0af45bb0613bb406fc72d10266cee4cfb402a/tests/phase0/helpers.py#L107
-
-proc build_empty_block_for_next_slot*(state: BeaconState): BeaconBlock =
-  ## TODO: why can the official spec get away with a simple proc
-
-  # result.slot = state.slot + 1
-  # var previous_block_header = state.latest_block_header
-  # if previous_block_header.state_root == ZERO_HASH:
-  #   previous_block_header.state_root = state.hash_tree_root()
-  # result.previous_block_root = signing_root(previous_block_header)
-
-  ## TODO: `makeBlock` from testutil.nim
-  ##       doesn't work either due to use of fake private keys
-
-  # let prev_root = block:
-  #   if state.latest_block_header.state_root == ZERO_HASH:
-  #     state.hash_tree_root()
-  #   else: state.latest_block_header.state_root
-  # result = makeBlock(
-  #   state,
-  #   prev_root,
-  #   BeaconBlockBody()
-  # )
-  {.error: "Not implemented".}
