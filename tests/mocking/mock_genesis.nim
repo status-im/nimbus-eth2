@@ -14,18 +14,15 @@ import
   # Internals
   ../../beacon_chain/extras,
   # Mocking procs
-  ./mock_deposits
+  ./mock_deposits,
+  # Helpers
+  ../helpers/digest_helpers
 
 
 proc initGenesisState*(num_validators: uint64, genesis_time: uint64 = 0): BeaconState =
 
   # EF magic number (similar to https://en.wikipedia.org/wiki/Magic_number_(programming))
-  const deposit_root = Eth2Digest(
-    data: [byte 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42,
-                0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42,
-                0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42,
-                0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42]
-  )
+  const deposit_root = [byte 0x42] * 32
 
   let eth1_data = Eth1Data(
     deposit_root: deposit_root,
