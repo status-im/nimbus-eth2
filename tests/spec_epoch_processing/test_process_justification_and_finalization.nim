@@ -115,7 +115,7 @@ proc finalizeOn23(state: var BeaconState, epoch: Epoch, sufficient_support: bool
     doAssert state.finalized_checkpoint == old_finalized # no new finalized checkpoint
 
 proc finalizeOn123(state: var BeaconState, epoch: Epoch, sufficient_support: bool) =
-  ## Check finalization on rule 2 "23"
+  ## Check finalization on rule 3 "123"
   doAssert epoch > 5
   state.slot = Slot((epoch * SLOTS_PER_EPOCH) - 1) # Skip ahead to just before epoch
 
@@ -168,7 +168,7 @@ proc finalizeOn123(state: var BeaconState, epoch: Epoch, sufficient_support: boo
     doAssert state.finalized_checkpoint == old_finalized # no new finalized checkpoint
 
 proc finalizeOn12(state: var BeaconState, epoch: Epoch, sufficient_support: bool) =
-  ## Check finalization on rule 2 "23"
+  ## Check finalization on rule 4 "12"
   doAssert epoch > 2
   state.slot = Slot((epoch * SLOTS_PER_EPOCH) - 1) # Skip ahead to just before epoch
 
