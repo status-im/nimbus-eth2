@@ -243,9 +243,7 @@ type
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
-    graffiti*: Eth2Digest
-
-    # Each of these is a length-bounded list, but enforcing that's elsewhere
+    graffiti*: Eth2Digest # TODO make that raw bytes
     proposer_slashings*: seq[ProposerSlashing]
     attester_slashings*: seq[AttesterSlashing]
     attestations*: seq[Attestation]
@@ -370,6 +368,8 @@ type
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#fork
   Fork* = object
+    # TODO: Spec introduced an alias for Version = array[4, byte]
+    #       and a default parameter to compute_domain
     previous_version*: array[4, byte]
     current_version*: array[4, byte]
 
@@ -554,6 +554,9 @@ template overlaps*(a, b: BitList): bool = overlaps(BitSeq(a), BitSeq(b))
 template combine*(a: var BitList, b: BitList) = combine(BitSeq(a), BitSeq(b))
 template isSubsetOf*(a, b: BitList): bool = isSubsetOf(BitSeq(a), BitSeq(b))
 template `$`*(a: BitList): string = $(BitSeq(a))
+iterator items*(x: BitList): bool =
+  for i in 0 ..< x.len:
+    yield x[i]
 
 when useListType:
   template len*[T; N](x: List[T, N]): auto = len(seq[T](x))

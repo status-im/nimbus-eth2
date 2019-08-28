@@ -39,7 +39,7 @@ import # TODO - cleanup imports
   beaconstate, crypto, datatypes, digest, helpers, validator
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#get_total_active_balance
-func get_total_active_balance(state: BeaconState): Gwei =
+func get_total_active_balance*(state: BeaconState): Gwei =
   return get_total_balance(
     state,
     get_active_validator_indices(state, get_current_epoch(state)))
@@ -187,7 +187,7 @@ func get_winning_crosslink_and_attesting_indices(
    get_unslashed_attesting_indices(state, winning_attestations, stateCache))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#justification-and-finalization
-proc process_justification_and_finalization(
+proc process_justification_and_finalization*(
     state: var BeaconState, stateCache: var StateCache) =
   if get_current_epoch(state) <= GENESIS_EPOCH + 1:
     return
@@ -284,7 +284,7 @@ proc process_justification_and_finalization(
     state.finalized_checkpoint = old_current_justified_checkpoint
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#crosslinks
-func process_crosslinks(state: var BeaconState, stateCache: var StateCache) =
+func process_crosslinks*(state: var BeaconState, stateCache: var StateCache) =
   state.previous_crosslinks = state.current_crosslinks
 
   for epoch in @[get_previous_epoch(state), get_current_epoch(state)]:
@@ -403,7 +403,7 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
   (rewards, penalties)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#rewards-and-penalties-1
-func get_crosslink_deltas(state: BeaconState, cache: var StateCache):
+func get_crosslink_deltas*(state: BeaconState, cache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
 
   var

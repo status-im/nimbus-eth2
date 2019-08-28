@@ -434,13 +434,13 @@ func merkelizeSerializedChunks(merkelizer: SszChunksMerkelizer,
 func merkelizeSerializedChunks(obj: auto): Eth2Digest =
   merkelizeSerializedChunks(SszChunksMerkelizer(), obj)
 
-func hashTreeRoot*(x: auto): Eth2Digest {.gcsafe.}
+func hash_tree_root*(x: auto): Eth2Digest {.gcsafe.}
 
 template merkelizeFields(body: untyped): Eth2Digest {.dirty.} =
   var merkelizer {.inject.} = SszChunksMerkelizer()
 
   template addField(field) =
-    let hash = hashTreeRoot(field)
+    let hash = hash_tree_root(field)
     trs "MERKLEIZING FIELD ", astToStr(field), " = ", hash
     addChunk(merkelizer, hash.data)
     trs "CHUNK ADDED"
@@ -546,7 +546,7 @@ func maxChunksCount(T: type, maxLen: static int64): int64 {.compileTime.} =
   else:
     unsupported T # This should never happen
 
-func hashTreeRoot*(x: auto): Eth2Digest =
+func hash_tree_root*(x: auto): Eth2Digest =
   trs "STARTING HASH TREE ROOT FOR TYPE ", name(type(x))
   mixin toSszType
   when x is TypeWithMaxLen:
@@ -563,7 +563,7 @@ func hashTreeRoot*(x: auto): Eth2Digest =
         merkelizeSerializedChunks(merkelizer, valueOf(x))
       else:
         for elem in valueOf(x):
-          let elemHash = hashTreeRoot(elem)
+          let elemHash = hash_tree_root(elem)
           merkelizer.addChunk(elemHash.data)
         merkelizer.getFinalHash()
       result = mixInLength(contentsHash, valueOf(x).len)
@@ -587,4 +587,3 @@ func signingRoot*(obj: object): Eth2Digest =
     obj.enumInstanceSerializedFields(fieldName, field):
       when fieldName != lastField:
         addField2 field
-

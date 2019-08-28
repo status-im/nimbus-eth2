@@ -90,10 +90,9 @@ suite "SSZ Navigation":
     let c = [byte 0x07, 0x08, 0x09].toDigest
 
     let leaves = sszList(@[a, b, c], int64(1 shl 3))
-    let root = hashTreeRoot(leaves)
+    let root = hash_tree_root(leaves)
     check $root == "5248085B588FAB1DD1E03F3CD62201602B12E6560665935964F46E805977E8C5"
 
     let leaves2 = sszList(@[a, b, c], int64(1 shl 10))
-    let root2 = hashTreeRoot(leaves2)
+    let root2 = hash_tree_root(leaves2)
     check $root2 == "9FB7D518368DC14E8CC588FB3FD2749BEEF9F493FEF70AE34AF5721543C67173"
-

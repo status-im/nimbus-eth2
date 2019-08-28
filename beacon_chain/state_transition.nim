@@ -40,7 +40,7 @@ import
 # ---------------------------------------------------------------
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
-func process_slot(state: var BeaconState) =
+func process_slot*(state: var BeaconState) =
   # Cache state root
   let previous_state_root = hash_tree_root(state)
   state.state_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
@@ -126,6 +126,8 @@ proc state_transition*(
     # state we arrive at is what the block producer thought it would be -
     # meaning that potentially, it could fail verification
     if skipValidation in flags or verifyStateRoot(state, blck):
+      # TODO: allow skipping just verifyStateRoot for mocking
+      #       instead of both processBlock and verifyStateRoot
       # State root is what it should be - we're done!
       return true
 

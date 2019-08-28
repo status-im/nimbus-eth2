@@ -17,6 +17,12 @@ import # Unit test
   ./test_sync_protocol
   # ./test_validator # Empty!
 
+import # Refactor state transition unit tests
+  ./spec_block_processing/test_genesis,
+  ./spec_block_processing/test_process_deposits,
+  ./spec_block_processing/test_process_attestation,
+  ./spec_epoch_processing/test_process_crosslinks
+
 import # Official fixtures
   ./official/test_fixture_shuffling,
   ./official/test_fixture_bls,

@@ -241,11 +241,13 @@ func initialize_beacon_state_from_eth1*(
       validator.activation_eligibility_epoch = GENESIS_EPOCH
       validator.activation_epoch = GENESIS_EPOCH
 
-  let genesis_active_index_root = hash_tree_root(
+  # Populate active_index_roots and compact_committees_roots
+  let active_index_root = hash_tree_root(
     get_active_validator_indices(state, GENESIS_EPOCH))
+  let committee_root = get_compact_committees_root(state, GENESIS_EPOCH)
   for index in 0 ..< EPOCHS_PER_HISTORICAL_VECTOR:
-    state.active_index_roots[index] = genesis_active_index_root
-
+    state.active_index_roots[index] = active_index_root
+    state.compact_committees_roots[index] = committee_root
   state
 
 proc initialize_beacon_state_from_eth1*(eth1_block_hash: Eth2Digest,

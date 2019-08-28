@@ -108,7 +108,7 @@ proc testerImpl[T](path: string, sszTest: SszStaticTest) {.cdecl, gcsafe.} =
               sszTest.expectedBytes
 
     execTest "root hash check",
-              hashTreeRoot(obj.obj[]),
+              hash_tree_root(obj.obj[]),
               sszTest.expectedRootHash
 
     when hasSigningRoot(T):
@@ -213,4 +213,3 @@ for kind, path in walkDir(testsDir):
   if kind notin {pcFile, pcLinkToFile}: continue
   if const_preset in path:
     executeSuite path
-

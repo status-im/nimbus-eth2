@@ -46,14 +46,18 @@ func eth2hash*(v: openArray[byte]): Eth2Digest {.inline.} =
   ctx.update(v)
   ctx.finish()
 
+proc update*(ctx: var Sha2Context; digest: Eth2Digest) =
+  ctx.update digest.data
+
 template withEth2Hash*(body: untyped): Eth2Digest =
   ## This little helper will init the hash function and return the sliced
   ## hash:
   ## let hashOfData = withHash: h.update(data)
-  var h {.inject.}: sha256
-  h.init()
+  var h  {.inject.}: sha256
+  init(h)
   body
-  h.finish()
+  var res = finish(h)
+  res
 
 func hash*(x: Eth2Digest): Hash =
   ## Hash for digests for Nim hash tables
