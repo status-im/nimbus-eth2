@@ -53,7 +53,7 @@ task test, "Run all tests":
   buildBinary "test_fixture_ssz_static", "tests/official/", "-r -d:release -d:chronicles_log_level=DEBUG -d:const_preset=mainnet"
 
   # State sim; getting into 3rd epoch useful
-  buildBinary "state_sim", "research/", "-r -d:release", "--validators=128 --slots=140"
+  buildBinary "state_sim", "research/", "-r -d:release", "--validators=128 --slots=24"
 
 task sync_lfs_tests, "Sync LFS json tests":
   # Syncs the json test files (but not the EF yaml tests)
