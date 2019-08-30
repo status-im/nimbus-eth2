@@ -7,31 +7,15 @@
 
 import
   # Standard libs
-  ospaths, unittest, endians,
+  os, unittest, endians,
   # Status libs
   blscurve, stew/byteutils,
   # Beacon chain internals
   ../../beacon_chain/spec/crypto,
   # Test utilities
-  ./fixtures_utils_v0_8_1
+  ./fixtures_utils
 
 type
-  # # TODO - but already tested in nim-blscurve
-  # BLSUncompressedG2 = object
-  #   input*: tuple[
-  #     message: seq[byte],
-  #     domain: array[1, byte]
-  #     ]
-  #   output*: ECP2_BLS381
-
-  # # TODO - but already tested in nim-blscurve
-  # BLSCompressedG2 = object
-  #   input*: tuple[
-  #     message: seq[byte],
-  #     domain: array[1, byte]
-  #     ]
-  #   output*: ECP2_BLS381
-
   Domain = distinct uint64
     ## Domains have custom hex serialization
 
@@ -65,40 +49,32 @@ proc readValue*(r: var JsonReader, a: var Domain) {.inline.} =
   let be_uint = hexToPaddedByteArray[8](r.readValue(string))
   bigEndian64(a.addr, be_uint.unsafeAddr)
 
-const TestsPath = JsonTestsDir / "bls"
-
-var
-  blsPrivToPubTests: Tests[BLSPrivToPub]
-  blsSignMsgTests: Tests[BLSSignMsg]
-  blsAggSigTests: Tests[BLSAggSig]
-  blsAggPubKeyTests: Tests[BLSAggPubKey]
+const BLSDir = JsonTestsDir/"general"/"phase0"/"bls"
 
 suite "Official - BLS tests":
-  test "Parsing the official BLS tests":
-    blsPrivToPubTests = parseTests(TestsPath / "priv_to_pub" / "priv_to_pub.json", BLSPrivToPub)
-    blsSignMsgTests = parseTests(TestsPath / "sign_msg" / "sign_msg.json", BLSSignMsg)
-    blsAggSigTests = parseTests(TestsPath / "aggregate_sigs" / "aggregate_sigs.json", BLSAggSig)
-    blsAggPubKeyTests = parseTests(TestsPath / "aggregate_pubkeys" / "aggregate_pubkeys.json", BLSAggPubKey)
-
   test "Private to public key conversion":
-    for t in blsPrivToPubTests.test_cases:
+    for file in walkDirRec(BLSDir/"priv_to_pub"):
+      let t = parseTest(file, BLSPrivToPub)
       let implResult = t.input.pubkey()
       check: implResult == t.output
 
   test "Message signing":
-    for t in blsSignMsgTests.test_cases:
+    for file in walkDirRec(BLSDir/"sign_msg"):
+      let t = parseTest(file, BLSSignMsg)
       let implResult = t.input.privkey.bls_sign(
         t.input.message,
         uint64(t.input.domain)
-        )
+      )
       check: implResult == t.output
 
   test "Aggregating signatures":
-    for t in blsAggSigTests.test_cases:
+    for file in walkDirRec(BLSDir/"aggregate_sigs"):
+      let t = parseTest(file, BLSAggSig)
       let implResult = t.input.combine()
       check: implResult == t.output
 
   test "Aggregating public keys":
-    for t in blsAggPubKeyTests.test_cases:
+    for file in walkDirRec(BLSDir/"aggregate_pubkeys"):
+      let t = parseTest(file, BLSAggPubKey)
       let implResult = t.input.combine()
       check: implResult == t.output
