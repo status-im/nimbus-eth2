@@ -36,21 +36,6 @@
 	url = https://github.com/status-im/nim-web3.git
 	ignore = dirty
 	branch = master
-[submodule "vendor/Nim"]
-	path = vendor/Nim
-	url = https://github.com/status-im/Nim.git
-	ignore = dirty
-	branch = nimbus
-[submodule "vendor/Nim-csources"]
-	ignore = dirty
-	branch = master
-	path = vendor/Nim-csources
-	url = https://github.com/nim-lang/csources.git
-[submodule "vendor/nimble"]
-	path = vendor/nimble
-	url = https://github.com/nim-lang/nimble.git
-	ignore = dirty
-	branch = master
 [submodule "vendor/nim-nat-traversal"]
 	path = vendor/nim-nat-traversal
 	url = https://github.com/status-im/nim-nat-traversal.git

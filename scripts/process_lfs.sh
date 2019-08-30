@@ -9,12 +9,6 @@
 
 set -e
 
-ARCHIVE_NAME_v0_8_1="json_tests_v0.8.1.tar.xz"
-ARCHIVE_NAME_v0_8_3="json_tests_v0.8.3.tar.xz"
-
-LFS_DIR_v0_8_1="json_tests_v0.8.1"
-LFS_DIR_v0_8_3="json_tests_v0.8.3"
-
 TMP_CACHE_DIR="tmpcache"
 SUBREPO_DIR="tests/official/fixtures"
 # verbosity level
@@ -40,60 +34,33 @@ which 7z &>/dev/null && { DECOMPRESS_XZ="7z e -txz -bd -so"; COMPRESS_XZ="7z a -
 which xz &>/dev/null && { DECOMPRESS_XZ="xz -d -c -T 0"; COMPRESS_XZ="xz -c -T 0"; }
 
 download_lfs_files() {
+	[[ -z "$1" ]] && { echo "usage: download_lfs_files() subdir_name"; exit 1; }
+	LFS_DIR="$1"
+
 	echo -e "$BUILD_MSG"
 	which git-lfs &>/dev/null || { echo "Error: 'git-lfs' not found. Please install the corresponding package."; exit 1; }
 	[[ "$V" == "0" ]] && exec &>/dev/null
 
 	pushd "${SUBREPO_DIR}"
 	git lfs install # redundant after running it once per repo, but fast enough not to worry about detecting whether it ran before
-	git lfs pull -I "${LFS_DIR_v0_8_1},${LFS_DIR_v0_8_3}" # we just care about test fixtures converted from YAML to JSON
+	git lfs pull -I "${LFS_DIR}" # we just care about test fixtures converted from YAML to JSON
 	popd
 }
 
-# TODO: Use a function
-if [[ -n "${CACHE_DIR}" ]]; then
-  UPDATE_CACHE=0 # v0.8.1 tests
-	if [[ -e "${CACHE_DIR}/${ARCHIVE_NAME_v0_8_1}" ]]; then
-		# compare the archive's mtime to the date of the last commit
-		if [[ $(stat ${STAT_FORMAT} "${CACHE_DIR}/${ARCHIVE_NAME_v0_8_1}") -gt $(cd "${SUBREPO_DIR}"; git log --pretty=format:%cd -n 1 --date=unix "${LFS_DIR_v0_8_1}") ]]; then
-			# the cache is valid
-			echo "Copying cached files into ${SUBREPO_DIR}/${LFS_DIR_v0_8_1}/"
-			mkdir -p "${TMP_CACHE_DIR}"
-			${DECOMPRESS_XZ} "${CACHE_DIR}/${ARCHIVE_NAME_v0_8_1}" | tar -x -C "${TMP_CACHE_DIR}" -f -
-			cp -a "${TMP_CACHE_DIR}/${LFS_DIR_v0_8_1}"/* "${SUBREPO_DIR}/${LFS_DIR_v0_8_1}/"
-			rm -rf "${TMP_CACHE_DIR}"
-		else
-			# old cache
-			echo "Invalidating cache."
-			UPDATE_CACHE=1
-		fi
-	else
-		# creating the archive for the first time
-		mkdir -p "${CACHE_DIR}"
-		UPDATE_CACHE=1
-	fi
-	if [[ "${UPDATE_CACHE}" == "1" ]]; then
-		if [[ "${ON_MACOS}" == "1" ]]; then
-			brew install git-lfs # this takes almost 5 minutes on Travis, so only run it if needed
-		fi
-		download_lfs_files
-		echo "Updating the cache."
-		pushd "${SUBREPO_DIR}"
-		# the archive will contain ${LFS_DIR_v0_8_1} as its top dir
-		git archive --format=tar HEAD "${LFS_DIR_v0_8_1}" | ${COMPRESS_XZ} > "${ARCHIVE_NAME_v0_8_1}"
-		popd
-		mv "${SUBREPO_DIR}/${ARCHIVE_NAME_v0_8_1}" "${CACHE_DIR}/"
-	fi
+process_subdir() {
+	[[ -z "$1" ]] && { echo "usage: process_subdir subdir_name"; exit 1; }
+	LFS_DIR="$1"
+	ARCHIVE_NAME="${LFS_DIR}.tar.xz"
 
-  UPDATE_CACHE=0 # v0.8.3 tests
-	if [[ -e "${CACHE_DIR}/${ARCHIVE_NAME_v0_8_3}" ]]; then
+	UPDATE_CACHE=0
+	if [[ -e "${CACHE_DIR}/${ARCHIVE_NAME}" ]]; then
 		# compare the archive's mtime to the date of the last commit
-		if [[ $(stat ${STAT_FORMAT} "${CACHE_DIR}/${ARCHIVE_NAME_v0_8_3}") -gt $(cd "${SUBREPO_DIR}"; git log --pretty=format:%cd -n 1 --date=unix "${LFS_DIR_v0_8_3}") ]]; then
+		if [[ $(stat ${STAT_FORMAT} "${CACHE_DIR}/${ARCHIVE_NAME}") -gt $(cd "${SUBREPO_DIR}"; git log --pretty=format:%cd -n 1 --date=unix "${LFS_DIR}") ]]; then
 			# the cache is valid
-			echo "Copying cached files into ${SUBREPO_DIR}/${LFS_DIR_v0_8_3}/"
+			echo "Copying cached files into ${SUBREPO_DIR}/${LFS_DIR}/"
 			mkdir -p "${TMP_CACHE_DIR}"
-			${DECOMPRESS_XZ} "${CACHE_DIR}/${ARCHIVE_NAME_v0_8_3}" | tar -x -C "${TMP_CACHE_DIR}" -f -
-			cp -a "${TMP_CACHE_DIR}/${LFS_DIR_v0_8_3}"/* "${SUBREPO_DIR}/${LFS_DIR_v0_8_3}/"
+			${DECOMPRESS_XZ} "${CACHE_DIR}/${ARCHIVE_NAME}" | tar -x -C "${TMP_CACHE_DIR}" -f -
+			cp -a "${TMP_CACHE_DIR}/${LFS_DIR}"/* "${SUBREPO_DIR}/${LFS_DIR}/"
 			rm -rf "${TMP_CACHE_DIR}"
 		else
 			# old cache
@@ -109,16 +76,23 @@ if [[ -n "${CACHE_DIR}" ]]; then
 		if [[ "${ON_MACOS}" == "1" ]]; then
 			brew install git-lfs # this takes almost 5 minutes on Travis, so only run it if needed
 		fi
-		download_lfs_files
+		download_lfs_files "$LFS_DIR"
 		echo "Updating the cache."
 		pushd "${SUBREPO_DIR}"
-		# the archive will contain ${LFS_DIR_v0_8_3} as its top dir
-		git archive --format=tar HEAD "${LFS_DIR_v0_8_3}" | ${COMPRESS_XZ} > "${ARCHIVE_NAME_v0_8_3}"
+		# the archive will contain ${LFS_DIR} as its top dir
+		git archive --format=tar HEAD "${LFS_DIR}" | ${COMPRESS_XZ} > "${ARCHIVE_NAME}"
 		popd
-		mv "${SUBREPO_DIR}/${ARCHIVE_NAME_v0_8_3}" "${CACHE_DIR}/"
+		mv "${SUBREPO_DIR}/${ARCHIVE_NAME}" "${CACHE_DIR}/"
 	fi
+}
+
+if [[ -n "${CACHE_DIR}" ]]; then
+	process_subdir "json_tests_v0.8.1"
+	process_subdir "json_tests_v0.8.3"
 
 else
 	# no caching
-	download_lfs_files
+	download_lfs_files "json_tests_v0.8.1"
+	download_lfs_files "json_tests_v0.8.3"
 fi
+
