@@ -41,7 +41,7 @@ const
 
 proc parseTest*(path: string, Format: typedesc[Json or SSZ], T: typedesc): T =
   try:
-    debugEcho "          [Debug] Loading file: \"", path, '\"'
+    # debugEcho "          [Debug] Loading file: \"", path, '\"'
     result = Format.loadFile(path, T)
   except SerializationError as err:
     writeStackTrace()
