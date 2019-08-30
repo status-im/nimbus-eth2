@@ -7,7 +7,9 @@
 
 import
   # Standard library
-  os, strutils,
+  os, strutils, typetraits,
+  # Internals
+  ../../beacon_chain/ssz,
   # Status libs
   stew/byteutils,
   serialization, json_serialization
@@ -16,7 +18,8 @@ export  # Workaround:
   #   - https://github.com/status-im/nim-serialization/issues/4
   #   - https://github.com/status-im/nim-serialization/issues/5
   #   - https://github.com/nim-lang/Nim/issues/11225
-  serialization.readValue
+  serialization.readValue,
+  Json, SSZ
 
 # Process current EF test format (up to 0.8.2+)
 # ---------------------------------------------
@@ -35,12 +38,12 @@ const
   FixturesDir* = currentSourcePath.rsplit(DirSep, 1)[0] / "fixtures"
   JsonTestsDir* = FixturesDir / "json_tests_v0.8.3"
 
-proc parseTest*(jsonPath: string, T: typedesc): T =
+proc parseTest*(path: string, Format: typedesc[Json or SSZ], T: typedesc): T =
   try:
-    # debugEcho "          [Debug] Loading file: \"", jsonPath, '\"'
-    result = Json.loadFile(jsonPath, T)
+    # debugEcho "          [Debug] Loading file: \"", path, '\"'
+    result = Format.loadFile(path, T)
   except SerializationError as err:
     writeStackTrace()
-    stderr.write "Json load issue for file \"", jsonPath, "\"\n"
-    stderr.write err.formatMsg(jsonPath), "\n"
+    stderr.write $Format & " load issue for file \"", path, "\"\n"
+    stderr.write err.formatMsg(path), "\n"
     quit 1

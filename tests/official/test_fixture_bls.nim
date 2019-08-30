@@ -54,13 +54,13 @@ const BLSDir = JsonTestsDir/"general"/"phase0"/"bls"
 suite "Official - BLS tests":
   test "Private to public key conversion":
     for file in walkDirRec(BLSDir/"priv_to_pub"):
-      let t = parseTest(file, BLSPrivToPub)
+      let t = parseTest(file, Json, BLSPrivToPub)
       let implResult = t.input.pubkey()
       check: implResult == t.output
 
   test "Message signing":
     for file in walkDirRec(BLSDir/"sign_msg"):
-      let t = parseTest(file, BLSSignMsg)
+      let t = parseTest(file, Json, BLSSignMsg)
       let implResult = t.input.privkey.bls_sign(
         t.input.message,
         uint64(t.input.domain)
@@ -69,12 +69,14 @@ suite "Official - BLS tests":
 
   test "Aggregating signatures":
     for file in walkDirRec(BLSDir/"aggregate_sigs"):
-      let t = parseTest(file, BLSAggSig)
+      let t = parseTest(file, Json, BLSAggSig)
       let implResult = t.input.combine()
       check: implResult == t.output
 
   test "Aggregating public keys":
     for file in walkDirRec(BLSDir/"aggregate_pubkeys"):
-      let t = parseTest(file, BLSAggPubKey)
+      let t = parseTest(file, Json, BLSAggPubKey)
       let implResult = t.input.combine()
       check: implResult == t.output
+
+  # TODO: msg_hash_compressed and uncompressed

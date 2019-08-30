@@ -25,6 +25,6 @@ const ShufflingDir = JsonTestsDir/const_preset/"phase0"/"shuffling"/"core"/"shuf
 suite "Official - Shuffling tests [Preset: " & preset():
   test "Shuffling a sequence of N validators" & preset():
     for file in walkDirRec(ShufflingDir):
-      let t = parseTest(file, Shuffling)
+      let t = parseTest(file, Json, Shuffling)
       let implResult = get_shuffled_seq(t.seed, t.count)
       check: implResult == t.mapping
