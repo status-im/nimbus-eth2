@@ -19,7 +19,7 @@ export  # Workaround:
   #   - https://github.com/status-im/nim-serialization/issues/5
   #   - https://github.com/nim-lang/Nim/issues/11225
   serialization.readValue,
-  Json, SSZ
+  Json, ssz
 
 # Process current EF test format (up to 0.8.2+)
 # ---------------------------------------------
@@ -36,11 +36,12 @@ proc readValue*(r: var JsonReader, a: var seq[byte]) {.inline.} =
 
 const
   FixturesDir* = currentSourcePath.rsplit(DirSep, 1)[0] / "fixtures"
-  JsonTestsDir* = FixturesDir / "json_tests_v0.8.3"
+  JsonTestsDir* = FixturesDir/"json_tests_v0.8.3"
+  SszTestsDir* = FixturesDir/"eth2.0-spec-tests"/"tests"
 
 proc parseTest*(path: string, Format: typedesc[Json or SSZ], T: typedesc): T =
   try:
-    # debugEcho "          [Debug] Loading file: \"", path, '\"'
+    debugEcho "          [Debug] Loading file: \"", path, '\"'
     result = Format.loadFile(path, T)
   except SerializationError as err:
     writeStackTrace()
