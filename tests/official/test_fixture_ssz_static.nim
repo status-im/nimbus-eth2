@@ -17,7 +17,7 @@ import
   ../../beacon_chain/spec/[datatypes, validator, digest, crypto],
   # Test utilities
   ../testutil,
-  ./fixtures_utils
+  ./fixtures_utils_v0_8_1
 
 const
   failFast = defined(debug) and false

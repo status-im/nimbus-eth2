@@ -13,12 +13,14 @@ export  # Workaround:
   #   - https://github.com/nim-lang/Nim/issues/11225
   serialization.readValue
 
+# Process legacy EF test format (up to 0.8.1)
+# -------------------------------------------
+
 type
   # TODO: use ref object to avoid allocating
   #       so much on the stack - pending https://github.com/status-im/nim-json-serialization/issues/3
 
   TestConstants* = object
-    # TODO - 0.5.1 constants
     SHARD_COUNT*: int
     TARGET_COMMITTEE_SIZE*: int
     MAX_BALANCE_CHURN_QUOTIENT*: int
@@ -76,7 +78,7 @@ type
 
 const
   FixturesDir* = currentSourcePath.rsplit(DirSep, 1)[0] / "fixtures"
-  JsonTestsDir* = FixturesDir / "json_tests"
+  JsonTestsDir* = FixturesDir / "json_tests_v0.8.1"
 
 # #######################
 # Default init

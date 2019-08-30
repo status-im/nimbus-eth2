@@ -7,12 +7,12 @@
 
 import
   # Standard library
-  ospaths, strutils, unittest,
+  ospaths, unittest,
   # Beacon chain internals
   ../../beacon_chain/spec/[datatypes, validator, digest],
   # Test utilities
   ../testutil,
-  ./fixtures_utils
+  ./fixtures_utils_v0_8_1
 
 type
   Shuffling* = object
@@ -20,18 +20,16 @@ type
     count*: uint64
     shuffled*: seq[ValidatorIndex]
 
-const TestFolder = currentSourcePath.rsplit(DirSep, 1)[0]
-
 when const_preset == "mainnet":
-  const TestsPath = "fixtures" / "json_tests" / "shuffling" / "core" / "shuffling_full.json"
+  const TestsPath = JsonTestsDir / "shuffling" / "core" / "shuffling_full.json"
 elif const_preset == "minimal":
-  const TestsPath = "fixtures" / "json_tests" / "shuffling" / "core" / "shuffling_minimal.json"
+  const TestsPath = JsonTestsDir / "shuffling" / "core" / "shuffling_minimal.json"
 
 var shufflingTests: Tests[Shuffling]
 
 suite "Official - Shuffling tests [Preset: " & preset():
   test "Parsing the official shuffling tests [Preset: " & preset():
-    shufflingTests = parseTests(TestFolder / TestsPath, Shuffling)
+    shufflingTests = parseTests(TestsPath, Shuffling)
 
   test "Shuffling a sequence of N validators" & preset():
     for t in shufflingTests.test_cases:

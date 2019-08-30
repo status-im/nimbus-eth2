@@ -15,7 +15,7 @@ import
   ../../beacon_chain/spec/[datatypes, validator],
   # Test utilities
   ../testutil,
-  ./fixtures_utils
+  ./fixtures_utils_v0_8_1
 
 type
   SSZUint* = object

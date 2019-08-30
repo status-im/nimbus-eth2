@@ -6,6 +6,11 @@ environment:
   # disable LFS file downloading during regular cloning
   GIT_LFS_SKIP_SMUDGE: 1
 
+init: # Scripts called at the very beginning
+  # Enable paths > 260 characters
+  - ps: Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name 'LongPathsEnabled' -Value 1
+  - git config --global core.longpaths true
+
 cache:
   - NimBinaries
   - p2pdCache
@@ -39,4 +44,3 @@ test_script:
   - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% DISABLE_LFS_SCRIPT=1 DISABLE_GO_CHECKS=1 test
 
 deploy: off
-

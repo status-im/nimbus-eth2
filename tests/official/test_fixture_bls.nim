@@ -7,13 +7,13 @@
 
 import
   # Standard libs
-  ospaths, strutils, unittest, endians,
+  ospaths, unittest, endians,
   # Status libs
   blscurve, stew/byteutils,
   # Beacon chain internals
   ../../beacon_chain/spec/crypto,
   # Test utilities
-  ./fixtures_utils
+  ./fixtures_utils_v0_8_1
 
 type
   # # TODO - but already tested in nim-blscurve
@@ -65,8 +65,7 @@ proc readValue*(r: var JsonReader, a: var Domain) {.inline.} =
   let be_uint = hexToPaddedByteArray[8](r.readValue(string))
   bigEndian64(a.addr, be_uint.unsafeAddr)
 
-const TestFolder = currentSourcePath.rsplit(DirSep, 1)[0]
-const TestsPath = "fixtures" / "json_tests" / "bls"
+const TestsPath = JsonTestsDir / "bls"
 
 var
   blsPrivToPubTests: Tests[BLSPrivToPub]
@@ -76,10 +75,10 @@ var
 
 suite "Official - BLS tests":
   test "Parsing the official BLS tests":
-    blsPrivToPubTests = parseTests(TestFolder / TestsPath / "priv_to_pub" / "priv_to_pub.json", BLSPrivToPub)
-    blsSignMsgTests = parseTests(TestFolder / TestsPath / "sign_msg" / "sign_msg.json", BLSSignMsg)
-    blsAggSigTests = parseTests(TestFolder / TestsPath / "aggregate_sigs" / "aggregate_sigs.json", BLSAggSig)
-    blsAggPubKeyTests = parseTests(TestFolder / TestsPath / "aggregate_pubkeys" / "aggregate_pubkeys.json", BLSAggPubKey)
+    blsPrivToPubTests = parseTests(TestsPath / "priv_to_pub" / "priv_to_pub.json", BLSPrivToPub)
+    blsSignMsgTests = parseTests(TestsPath / "sign_msg" / "sign_msg.json", BLSSignMsg)
+    blsAggSigTests = parseTests(TestsPath / "aggregate_sigs" / "aggregate_sigs.json", BLSAggSig)
+    blsAggPubKeyTests = parseTests(TestsPath / "aggregate_pubkeys" / "aggregate_pubkeys.json", BLSAggPubKey)
 
   test "Private to public key conversion":
     for t in blsPrivToPubTests.test_cases:

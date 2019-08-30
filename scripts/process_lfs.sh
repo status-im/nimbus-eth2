@@ -9,10 +9,8 @@
 
 set -e
 
-ARCHIVE_NAME="json_tests.tar.xz"
 TMP_CACHE_DIR="tmpcache"
 SUBREPO_DIR="tests/official/fixtures"
-LFS_DIR="json_tests"
 # verbosity level
 [[ -z "$V" ]] && V=0
 [[ -z "$BUILD_MSG" ]] && BUILD_MSG="Downloading LFS files"
@@ -36,6 +34,9 @@ which 7z &>/dev/null && { DECOMPRESS_XZ="7z e -txz -bd -so"; COMPRESS_XZ="7z a -
 which xz &>/dev/null && { DECOMPRESS_XZ="xz -d -c -T 0"; COMPRESS_XZ="xz -c -T 0"; }
 
 download_lfs_files() {
+	[[ -z "$1" ]] && { echo "usage: download_lfs_files() subdir_name"; exit 1; }
+	LFS_DIR="$1"
+
 	echo -e "$BUILD_MSG"
 	which git-lfs &>/dev/null || { echo "Error: 'git-lfs' not found. Please install the corresponding package."; exit 1; }
 	[[ "$V" == "0" ]] && exec &>/dev/null
@@ -46,8 +47,12 @@ download_lfs_files() {
 	popd
 }
 
-UPDATE_CACHE=0
-if [[ -n "${CACHE_DIR}" ]]; then
+process_subdir() {
+	[[ -z "$1" ]] && { echo "usage: process_subdir subdir_name"; exit 1; }
+	LFS_DIR="$1"
+	ARCHIVE_NAME="${LFS_DIR}.tar.xz"
+
+	UPDATE_CACHE=0
 	if [[ -e "${CACHE_DIR}/${ARCHIVE_NAME}" ]]; then
 		# compare the archive's mtime to the date of the last commit
 		if [[ $(stat ${STAT_FORMAT} "${CACHE_DIR}/${ARCHIVE_NAME}") -gt $(cd "${SUBREPO_DIR}"; git log --pretty=format:%cd -n 1 --date=unix "${LFS_DIR}") ]]; then
@@ -71,7 +76,7 @@ if [[ -n "${CACHE_DIR}" ]]; then
 		if [[ "${ON_MACOS}" == "1" ]]; then
 			brew install git-lfs # this takes almost 5 minutes on Travis, so only run it if needed
 		fi
-		download_lfs_files
+		download_lfs_files "$LFS_DIR"
 		echo "Updating the cache."
 		pushd "${SUBREPO_DIR}"
 		# the archive will contain ${LFS_DIR} as its top dir
@@ -79,8 +84,15 @@ if [[ -n "${CACHE_DIR}" ]]; then
 		popd
 		mv "${SUBREPO_DIR}/${ARCHIVE_NAME}" "${CACHE_DIR}/"
 	fi
+}
+
+if [[ -n "${CACHE_DIR}" ]]; then
+	process_subdir "json_tests_v0.8.1"
+	process_subdir "json_tests_v0.8.3"
+
 else
 	# no caching
-	download_lfs_files
+	download_lfs_files "json_tests_v0.8.1"
+	download_lfs_files "json_tests_v0.8.3"
 fi
 
