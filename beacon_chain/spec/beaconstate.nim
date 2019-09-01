@@ -79,10 +79,9 @@ func process_deposit*(
 
   if index == -1:
     # Verify the deposit signature (proof of possession)
-    # TODO should be get_domain(state, DOMAIN_DEPOSIT)
     if skipValidation notin flags and not bls_verify(
         pubkey, signing_root(deposit.data).data, deposit.data.signature,
-        3'u64):
+        compute_domain(DOMAIN_DEPOSIT)):
       return false
 
     # Add validator and balance entries

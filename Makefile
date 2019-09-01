@@ -11,7 +11,7 @@ BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 # we don't want an error here, so we can handle things later, in the build-system-checks target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
 
-TOOLS := beacon_node validator_keygen bench_bls_sig_agggregation state_sim
+TOOLS := beacon_node bench_bls_sig_agggregation state_sim
 TOOLS_DIRS := beacon_chain benchmarks research
 TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 
@@ -75,8 +75,8 @@ $(TOOLS): | build deps nat-libs p2pd
 clean_eth2_network_simulation_files:
 	rm -rf tests/simulation/{data,validators}
 
-eth2_network_simulation: | beacon_node validator_keygen clean_eth2_network_simulation_files
-	SKIP_BUILDS=1 GIT_ROOT="$$PWD" BUILD_OUTPUTS_DIR="./build" $(ENV_SCRIPT) tests/simulation/start.sh
+eth2_network_simulation: | build deps nat-libs p2pd clean_eth2_network_simulation_files
+	GIT_ROOT="$$PWD" BUILD_OUTPUTS_DIR="./build" $(ENV_SCRIPT) tests/simulation/start.sh
 
 testnet0 testnet1: | build deps nat-libs p2pd
 	NIM_PARAMS="$(NIM_PARAMS)" $(ENV_SCRIPT) scripts/build_testnet_node.sh $@

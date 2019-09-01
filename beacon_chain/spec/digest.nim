@@ -20,7 +20,8 @@
 # we call this function `eth2hash`, and it outputs a `Eth2Digest`. Easy to sed :)
 
 import
-  nimcrypto/[sha2, hash], eth/common/eth_types_json_serialization,
+  chronicles,
+  nimcrypto/[sha2, hash, utils], eth/common/eth_types_json_serialization,
   hashes
 
 export
@@ -30,9 +31,12 @@ type
   Eth2Digest* = MDigest[32 * 8] ## `hash32` from spec
   Eth2Hash* = sha256            ## Context for hash function
 
+chronicles.formatIt Eth2Digest:
+  mixin toHex
+  it.data.toHex(true)
+
 func shortLog*(x: Eth2Digest): string =
-  # result = is needed to fix https://github.com/status-im/nim-beacon-chain/issues/209
-  result = ($x)[0..7]
+  x.data.toHex(true)[0..7]
 
 # TODO: expose an in-place digest function
 #       when hashing in loop or into a buffer

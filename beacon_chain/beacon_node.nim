@@ -9,7 +9,7 @@ import
   conf, time, state_transition, fork_choice, ssz, beacon_chain_db,
   validator_pool, extras, attestation_pool, block_pool, eth2_network,
   beacon_node_types, mainchain_monitor, trusted_state_snapshots, version,
-  sync_protocol, request_manager, genesis
+  sync_protocol, request_manager, genesis, validator_keygen, interop
 
 const
   topicBeaconBlocks = "/eth2/beacon_block/ssz"
@@ -281,19 +281,14 @@ proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
     justifiedHead = node.blockPool.latestJustifiedBlock()
 
   debug "Preparing for fork choice",
-    justifiedHeadRoot = shortLog(justifiedHead.root),
+    justifiedHeadRoot = shortLog(justifiedHead.blck.root),
     justifiedHeadSlot = shortLog(justifiedHead.slot),
     justifiedHeadEpoch = shortLog(justifiedHead.slot.compute_epoch_of_slot),
     connectedPeers = node.network.peersCount
 
-  # TODO slot number is wrong here, it should be the start of the epoch that
-  #      got finalized:
-  #      https://github.com/ethereum/eth2.0-specs/issues/768
   let newHead = node.blockPool.withState(
-      node.justifiedStateCache,
-      BlockSlot(blck: justifiedHead, slot: justifiedHead.slot)):
-
-    lmdGhost(node.attestationPool, state, justifiedHead)
+      node.justifiedStateCache, justifiedHead):
+    lmdGhost(node.attestationPool, state, justifiedHead.blck)
 
   info "Fork chosen",
     newHeadSlot = shortLog(newHead.slot),
@@ -356,10 +351,13 @@ proc proposeBlock(node: BeaconNode,
       node.stateCache, BlockSlot(blck: head, slot: slot - 1)):
     # To create a block, we'll first apply a partial block to the state, skipping
     # some validations.
+    # TODO monitor main chain here: node.mainchainMonitor.getBeaconBlockRef()
+
     let
       blockBody = BeaconBlockBody(
         randao_reveal: validator.genRandaoReveal(state, slot),
-        eth1_data: node.mainchainMonitor.getBeaconBlockRef(),
+        eth1_data: get_eth1data_stub(
+          state.eth1_deposit_index, slot.compute_epoch_of_slot()),
         attestations:
           node.attestationPool.getAttestationsForBlock(state, slot))
 
@@ -793,13 +791,13 @@ when isMainModule:
       except SerializationError as err:
         stderr.write "Error while loading a deposit file:\n"
         stderr.write err.formatMsg(depositFile), "\n"
-        stderr.write "Please regenerate the deposit files by running validator_keygen again\n"
+        stderr.write "Please regenerate the deposit files by running makeDeposits again\n"
         quit 1
 
     let initialState = initialize_beacon_state_from_eth1(
       deposits,
       uint64(times.toUnix(times.getTime()) + config.genesisOffset),
-      Eth1Data(), {skipValidation})
+      get_eth1data_stub(deposits.len().uint64, 0.Epoch), {skipValidation})
 
     doAssert initialState.validators.len > 0
 
@@ -861,3 +859,11 @@ when isMainModule:
       dynamicLogScope(node = node.nickname): node.start(node.stateCache.data.data)
     else:
       node.start(node.stateCache.data.data)
+
+  of makeDeposits:
+    let deposits = generateDeposits(
+      config.totalDeposits, config.depositDir, config.randomKeys)
+
+    if config.depositWeb3Url.len() > 0 and config.depositContractAddress.len() > 0:
+      waitFor sendDeposits(
+        deposits, config.depositWeb3Url, config.depositContractAddress)

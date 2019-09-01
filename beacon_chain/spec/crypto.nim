@@ -98,7 +98,7 @@ func `$`*(x: BlsValue): string =
   else:
     # r: is short for random. The prefix must be short
     # due to the mechanics of the `shortLog` function.
-    "r:" & toHex(x.blob)
+    "r:" & toHex(x.blob, true)
 
 func `==`*(a, b: BlsValue): bool =
   if a.kind != b.kind: return false

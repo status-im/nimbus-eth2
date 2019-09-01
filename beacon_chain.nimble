@@ -11,7 +11,6 @@ license       = "MIT or Apache License 2.0"
 installDirs   = @["beacon_chain", "research"]
 bin           = @[
   "beacon_chain/beacon_node",
-  "beacon_chain/validator_keygen",
   "research/serialized_sizes",
   "research/state_sim",
   ]

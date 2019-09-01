@@ -5,47 +5,32 @@ set -euo pipefail
 # Read in variables
 . "$(dirname "$0")/vars.sh"
 
-# Set DEPOSIT_WEB3_URL_ARG to empty to get genesis state from file, not using web3
-# export DEPOSIT_WEB3_URL_ARG=--depositWeb3Url=ws://localhost:8545
-export DEPOSIT_WEB3_URL_ARG=
-export DEPOSIT_CONTRACT_ADDRESS=0x
-
 cd "$SIM_ROOT"
 mkdir -p "$SIMULATION_DIR"
 mkdir -p "$VALIDATORS_DIR"
 
 cd "$GIT_ROOT"
 
+make update deps
+
 NIMFLAGS="-d:chronicles_log_level=DEBUG --hints:off --opt:speed --debuginfo"
 
-# Run with "SHARD_COUNT=4 ./start.sh" to change these
-DEFS=""
-
-DEFS+="-d:SHARD_COUNT=${SHARD_COUNT:-16} "      # Spec default: 1024
-DEFS+="-d:SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH:-16} "   # Spec default: 64
-DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-6} "  # Spec default: 6
+# For interop, we run the minimal config
+DEFS="-d:const_preset=minimal"
 
 LAST_VALIDATOR_NUM=$(( NUM_VALIDATORS - 1 ))
 LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.json"
 
-echo "Building $BEACON_NODE_BIN ($DEFS)"
-"$SIM_ROOT/../../env.sh" nim c -o:"$BEACON_NODE_BIN" $NIMFLAGS $DEFS beacon_chain/beacon_node
+[[ -x "$BEACON_NODE_BIN" ]] || {
+  echo "Building $BEACON_NODE_BIN ($DEFS)"
+  "$SIM_ROOT/../env.sh" nim c -o:"$BEACON_NODE_BIN" $NIMFLAGS $DEFS beacon_chain/beacon_node
+}
 
 if [ ! -f "${LAST_VALIDATOR}" ]; then
-  echo Building $DEPLOY_DEPOSIT_CONTRACT_BIN
-  "$SIM_ROOT/../../env.sh" nim c -o:"$DEPLOY_DEPOSIT_CONTRACT_BIN" $NIMFLAGS $DEFS --hints:off -d:release beacon_chain/deploy_deposit_contract
-
-  if [ "$DEPOSIT_WEB3_URL_ARG" != "" ]; then
-    DEPOSIT_CONTRACT_ADDRESS=$($DEPLOY_DEPOSIT_CONTRACT_BIN $DEPOSIT_WEB3_URL_ARG)
-    export DEPOSIT_CONTRACT_ADDRESS
-  fi
-
   $BEACON_NODE_BIN makeDeposits \
     --totalDeposits="${NUM_VALIDATORS}" \
     --depositDir="$VALIDATORS_DIR" \
-    --randomKeys=false \
-    $DEPOSIT_WEB3_URL_ARG \
-    --depositContractAddress="${DEPOSIT_CONTRACT_ADDRESS}"
+    --randomKeys=false
 fi
 
 if [ ! -f "${SNAPSHOT_FILE}" ]; then
