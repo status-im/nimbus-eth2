@@ -12,7 +12,10 @@ proc get_ancestor(blck: BlockRef, slot: Slot): BlockRef =
   else:
     get_ancestor(blck.parent, slot)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.4.0/specs/core/0_beacon-chain.md#beacon-chain-fork-choice-rule
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_fork-choice.md
+# The structure of this code differs from the spec since we use a different
+# strategy for storing states and justification points - it should nonetheless
+# be close in terms of functionality.
 proc lmdGhost*(
     pool: AttestationPool, start_state: BeaconState,
     start_block: BlockRef): BlockRef =
@@ -22,28 +25,22 @@ proc lmdGhost*(
   #       Nim implementation for cumulative frequencies at
   #       https://github.com/numforge/laser/blob/990e59fffe50779cdef33aa0b8f22da19e1eb328/benchmarks/random_sampling/fenwicktree.nim
 
-  const FORK_CHOICE_BALANCE_INCREMENT = 2'u64^0 * 10'u64^9
-
   let
     active_validator_indices =
       get_active_validator_indices(
         start_state, compute_epoch_of_slot(start_state.slot))
 
-  var attestation_targets: seq[tuple[validator: ValidatorIndex, blck: BlockRef]]
+  var latest_messages: seq[tuple[validator: ValidatorIndex, blck: BlockRef]]
   for i in active_validator_indices:
     let pubKey = start_state.validators[i].pubkey
     if (let vote = pool.latestAttestation(pubKey); not vote.isNil):
-      attestation_targets.add((i, vote))
+      latest_messages.add((i, vote))
 
-  template get_vote_count(blck: BlockRef): uint64 =
+  template get_latest_attesting_balance(blck: BlockRef): uint64 =
     var res: uint64
-    for validator_index, target in attestation_targets.items():
+    for validator_index, target in latest_messages.items():
       if get_ancestor(target, blck.slot) == blck:
-        # The div on the balance is to chop off the insignification bits that
-        # fluctuate a lot epoch to epoch to have a more stable fork choice
-        res +=
-          start_state.validators[validator_index].effective_balance div
-            FORK_CHOICE_BALANCE_INCREMENT
+        res += start_state.validators[validator_index].effective_balance
     res
 
   var head = start_block
@@ -53,9 +50,9 @@ proc lmdGhost*(
 
     head = head.children[0]
     var
-      headCount = get_vote_count(head)
+      headCount = get_latest_attesting_balance(head)
 
     for i in 1..<head.children.len:
-      if (let hc  = get_vote_count(head.children[i]); hc > headCount):
+      if (let hc  = get_latest_attesting_balance(head.children[i]); hc > headCount):
         head = head.children[i]
         headCount = hc

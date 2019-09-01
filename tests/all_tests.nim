@@ -12,6 +12,7 @@ import # Unit test
   ./test_beaconstate,
   ./test_block_pool,
   ./test_helpers,
+  ./test_interop,
   ./test_ssz,
   ./test_state_transition,
   ./test_sync_protocol

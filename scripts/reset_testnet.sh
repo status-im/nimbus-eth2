@@ -19,14 +19,17 @@ NETWORK_DIR=$WWW_DIR/$NETWORK_NAME
 
 NIM_FLAGS="-d:release -d:SECONDS_PER_SLOT=$SECONDS_PER_SLOT -d:SHARD_COUNT=$SHARD_COUNT -d:SLOTS_PER_EPOCH=$SLOTS_PER_EPOCH ${2:-}"
 
+nim c -d:"network_type=$NETWORK_TYPE" $NIM_FLAGS beacon_chain/beacon_node
+
 if [ ! -f $NETWORK_DIR/genesis.json ]; then
   rm -f $NETWORK_DIR/*
-  nim c -r $NIM_FLAGS beacon_chain/validator_keygen \
-    --totalValidators=$VALIDATOR_COUNT \
-    --outputDir="$NETWORK_DIR"
+  beacon_chain/beacon_node makeDeposits \
+    --totalDeposits=$VALIDATOR_COUNT \
+    --depositDir="$NETWORK_DIR" \
+    --randomKeys=true
 fi
 
-nim c -d:"network_type=$NETWORK_TYPE" -r $NIM_FLAGS beacon_chain/beacon_node \
+beacon_chain/beacon_node \
   --network=$NETWORK_NAME \
   --dataDir=$DATA_DIR/node-0 \
   createTestnet \
@@ -39,4 +42,3 @@ nim c -d:"network_type=$NETWORK_TYPE" -r $NIM_FLAGS beacon_chain/beacon_node \
   --bootstrapAddress=$PUBLIC_IP \
   --bootstrapPort=$BOOTSTRAP_PORT \
   --genesisOffset=600 # Delay in seconds
-
