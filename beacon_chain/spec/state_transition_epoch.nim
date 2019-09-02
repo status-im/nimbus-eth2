@@ -452,9 +452,12 @@ func process_slashings*(state: var BeaconState) =
   for index, validator in state.validators:
     if validator.slashed and epoch + EPOCHS_PER_SLASHINGS_VECTOR div 2 ==
         validator.withdrawable_epoch:
-      let penalty =
-        validator.effective_balance *
-          min(sum(state.slashings) * 3, total_balance) div total_balance
+      let increment = EFFECTIVE_BALANCE_INCREMENT # Factored out from penalty
+                                                  # numerator to avoid uint64 overflow
+      let penalty_numerator =
+        validator.effective_balance div increment *
+          min(sum(state.slashings) * 3, total_balance)
+      let penalty = penalty_numerator div total_balance * increment
       decrease_balance(state, index.ValidatorIndex, penalty)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#final-updates

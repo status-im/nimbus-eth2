@@ -74,13 +74,13 @@ runSuite(CrosslinksDir, "Crosslinks",  process_crosslinks, useCache = true)
 const RegistryUpdatesDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"/"registry_updates"/"pyspec_tests"
 runSuite(RegistryUpdatesDir, "Registry updates",  process_registry_updates, useCache = false)
 
+# Slashings
+# ---------------------------------------------------------------
+
+const SlashingsDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"/"slashings"/"pyspec_tests"
+runSuite(SlashingsDir, "Slashings",  process_slashings, useCache = false)
+
 when false: # TODO: Failing
-  # Slashings
-  # ---------------------------------------------------------------
-
-  const SlashingsDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"/"slashings"/"pyspec_tests"
-  runSuite(SlashingsDir, "Slashings",  process_slashings, useCache = false)
-
   # Final updates
   # ---------------------------------------------------------------
 
