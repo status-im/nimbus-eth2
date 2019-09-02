@@ -65,7 +65,7 @@ macro myCompareImpl(a,b: typed): untyped =
   # uncomment to debug
   # echo result.repr
 
-proc `==`[T](a,b: BlsValue[T]): bool =
+proc `==`*[T](a,b: BlsValue[T]): bool =
   myCompareImpl(a,b)
 # ---------------------------------------------------------------------
 
@@ -121,7 +121,7 @@ proc inspectType(tImpl, xSubField, ySubField: NimNode, stmts: var NimNode) =
       " for field \"" & $xSubField.toStrLit &
       "\" of type \"" & tImpl.repr
 
-macro reportDiff(x, y: typed{`var`|`let`|`const`}): untyped =
+macro reportDiff*(x, y: typed{`var`|`let`|`const`}): untyped =
   assert sameType(x, y)
   result = newStmtList()
 
