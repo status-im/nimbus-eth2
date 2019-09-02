@@ -485,7 +485,7 @@ proc process_final_updates*(state: var BeaconState) =
   let
     index_epoch = next_epoch + ACTIVATION_EXIT_DELAY
     index_root_position = index_epoch mod EPOCHS_PER_HISTORICAL_VECTOR
-    indices_list = get_active_validator_indices(state, index_epoch)
+    indices_list = sszList(get_active_validator_indices(state, index_epoch), VALIDATOR_REGISTRY_LIMIT)
   state.active_index_roots[index_root_position] = hash_tree_root(indices_list)
 
   # Set committees root
