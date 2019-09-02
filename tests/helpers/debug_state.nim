@@ -7,7 +7,8 @@
 
 import
   macros,
-  ../../beacon_chain/spec/[datatypes, crypto]
+  ../../beacon_chain/spec/[datatypes, crypto, digest]
+  # digest is necessary for them to be printed as hex
 
 # Define comparison of object variants for BLSValue
 # https://github.com/nim-lang/Nim/issues/6676
@@ -47,10 +48,9 @@ proc processNode(arg, a,b, result: NimNode) =
 macro myCompareImpl(a,b: typed): untyped =
   a.expectKind nnkSym
   b.expectKind nnkSym
+  assert sameType(a, b)
 
   let typeImpl = a.getTypeImpl
-  # assert typeImpl == b.getTypeImpl # buggy
-
   var checks = newSeq[NimNode]()
 
   # uncomment to debug
@@ -87,9 +87,27 @@ proc compareStmt(xSubField, ySubField: NimNode, stmts: var NimNode) =
   stmts.add quote do:
     doAssert(
       `xSubField` == `ySubField`,
-      "Diff: " & `xStr` & " = " & $`xSubField` & "\n" &
+      "\nDiff: " & `xStr` & " = " & $`xSubField` & "\n" &
       "and   " & `yStr` & " = " & $`ySubField` & "\n"
     )
+
+proc compareContainerStmt(xSubField, ySubField: NimNode, stmts: var NimNode) =
+  let xStr = $xSubField.toStrLit
+  let yStr = $ySubField.toStrLit
+
+
+  stmts.add quote do:
+    doAssert(
+      `xSubField`.len == `ySubField`.len,
+        "\nDiff: " & `xStr` & ".len = " & $`xSubField`.len & "\n" &
+        "and   " & `yStr` & ".len = " & $`ySubField`.len & "\n"
+    )
+    for idx in `xSubField`.low .. `xSubField`.high:
+      doAssert(
+        `xSubField`[idx] == `ySubField`[idx],
+        "\nDiff: " & `xStr` & "[" & $idx & "] = " & $`xSubField`[idx] & "\n" &
+        "and   " & `yStr` & "[" & $idx & "] = " & $`ySubField`[idx] & "\n"
+      )
 
 proc inspectType(tImpl, xSubField, ySubField: NimNode, stmts: var NimNode) =
   # echo "kind: " & $tImpl.kind
@@ -98,7 +116,7 @@ proc inspectType(tImpl, xSubField, ySubField: NimNode, stmts: var NimNode) =
   of nnkObjectTy:
     # pass the records
     let records = tImpl[2]
-    assert records.kind == nnkRecList
+    records.expectKind(nnkRecList)
     for decl in records:
       inspectType(
         decl[1], # field type
@@ -109,7 +127,10 @@ proc inspectType(tImpl, xSubField, ySubField: NimNode, stmts: var NimNode) =
   of {nnkRefTy, nnkDistinctTy}:
     inspectType(tImpl[0], xSubField, ySubField, stmts)
   of {nnkSym, nnkBracketExpr}:
-    if tImpl.kind == nnkBracketExpr or $tImpl in builtinTypes:
+    if tImpl.kind == nnkBracketExpr:
+      assert tImpl[0].eqIdent"seq" or tImpl[0].eqIdent"array", "Error: unsupported generic type: " & $tImpl[0]
+      compareContainerStmt(xSubField, ySubField, stmts)
+    elif $tImpl in builtinTypes:
       compareStmt(xSubField, ySubField, stmts)
     elif $tImpl in ["ValidatorSig", "ValidatorPubKey"]:
       # Workaround BlsValue being a case object
