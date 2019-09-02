@@ -11,7 +11,7 @@ git clone https://github.com/status-im/nim-beacon-chain.git
 cd nim-beacon-chain
 
 make # prepare build system (cloning the correct submodules)
-make update # build dependencies
+make update deps # build dependencies
 ```
 
 ## Running
