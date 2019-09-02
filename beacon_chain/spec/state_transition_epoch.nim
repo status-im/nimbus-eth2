@@ -444,7 +444,7 @@ func process_rewards_and_penalties(
     decrease_balance(state, i.ValidatorIndex, penalties1[i] + penalties2[i])
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#slashings
-func process_slashings(state: var BeaconState) =
+func process_slashings*(state: var BeaconState) =
   let
     epoch = get_current_epoch(state)
     total_balance = get_total_active_balance(state)
@@ -458,7 +458,7 @@ func process_slashings(state: var BeaconState) =
       decrease_balance(state, index.ValidatorIndex, penalty)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#final-updates
-proc process_final_updates(state: var BeaconState) =
+proc process_final_updates*(state: var BeaconState) =
   let
     current_epoch = get_current_epoch(state)
     next_epoch = current_epoch + 1
