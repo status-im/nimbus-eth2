@@ -29,4 +29,4 @@ cd target/debug
 # fresh start!
 rm -rf ~/.lighthouse
 
-./beacon_node --libp2p-addresses="/ip4/127.0.0.1/tcp/50000" --api --rpc testnet --spec minimal quick 16 $genesis_time
+./beacon_node --libp2p-addresses="/ip4/127.0.0.1/tcp/50000" testnet --spec minimal quick 16 $genesis_time

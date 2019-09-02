@@ -14,8 +14,8 @@ import
 suite "Block pool processing" & preset():
   let
     genState = initialize_beacon_state_from_eth1(
-      makeInitialDeposits(flags = {skipValidation}), 0, Eth1Data(),
-        {skipValidation})
+      Eth2Digest(), 0,
+      makeInitialDeposits(flags = {skipValidation}), {skipValidation})
     genBlock = get_initial_beacon_block(genState)
 
   test "loadTailState gets genesis block on first load" & preset():

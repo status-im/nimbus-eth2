@@ -70,4 +70,3 @@ func hash*(x: Eth2Digest): Hash =
   # We just slice the first 4 or 8 bytes of the block hash
   # depending of if we are on a 32 or 64-bit platform
   result = cast[ptr Hash](unsafeAddr x)[]
-

@@ -35,6 +35,11 @@ else:
 
     ValidatorPrivKey.init(key)
 
+const eth1BlockHash* = block:
+  var x: Eth2Digest
+  for v in x.data.mitems: v = 0x42
+  x
+
 func makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_deposit-contract.md#withdrawal-credentials
   var bytes = eth2hash(k.getBytes())

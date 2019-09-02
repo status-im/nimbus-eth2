@@ -794,10 +794,14 @@ when isMainModule:
         stderr.write "Please regenerate the deposit files by running makeDeposits again\n"
         quit 1
 
-    let initialState = initialize_beacon_state_from_eth1(
-      deposits,
-      uint64(times.toUnix(times.getTime()) + config.genesisOffset),
-      get_eth1data_stub(deposits.len().uint64, 0.Epoch), {skipValidation})
+
+    var
+      startTime = uint64(times.toUnix(times.getTime()) + config.genesisOffset)
+      initialState = initialize_beacon_state_from_eth1(
+        eth1BlockHash, startTime, deposits, {skipValidation})
+
+    # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
+    initialState.genesis_time = startTime
 
     doAssert initialState.validators.len > 0
 

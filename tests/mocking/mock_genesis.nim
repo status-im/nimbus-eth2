@@ -12,7 +12,7 @@ import
   # Specs
   ../../beacon_chain/spec/[datatypes, beaconstate, digest],
   # Internals
-  ../../beacon_chain/extras,
+  ../../beacon_chain/[extras, interop],
   # Mocking procs
   ./mock_deposits,
   # Helpers
@@ -20,28 +20,14 @@ import
 
 
 proc initGenesisState*(num_validators: uint64, genesis_time: uint64 = 0): BeaconState =
-
-  # EF magic number (similar to https://en.wikipedia.org/wiki/Magic_number_(programming))
-  const deposit_root = [byte 0x42] * 32
-
-  let eth1_data = Eth1Data(
-    deposit_root: deposit_root,
-    deposit_count: num_validators,
-    block_hash: ZERO_HASH
-  )
-
   let deposits = mockGenesisBalancedDeposits(
       validatorCount = num_validators,
       amountInEth = 32, # We create canonical validators with 32 Eth
       flags = {skipValidation}
     )
 
-  result = initialize_beacon_state_from_eth1(
-    genesis_validator_deposits = deposits,
-    genesis_time = 0,
-    genesis_eth1_data = eth1_data,
-    flags = {skipValidation}
-  )
+  initialize_beacon_state_from_eth1(
+    eth1BlockHash, 0, deposits, {skipValidation})
 
 when isMainModule:
   # Smoke test
