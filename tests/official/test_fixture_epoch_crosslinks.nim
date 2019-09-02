@@ -16,25 +16,25 @@ import
 
 const CrosslinksDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"/"crosslinks"/"pyspec_tests"
 
-# TODO: parsing pre and post
-#       in the same scope crashes Nim with preset: mainnet
+# TODO: parsing SSZ
+#       can overwrite the calling function stack
 #       https://github.com/status-im/nim-beacon-chain/issues/369
-proc parsePre(testDir: string): BeaconState =
-  parseTest(testDir/"pre.ssz", SSZ, BeaconState)
+#
+# We store the state on the heap to avoid that
 
-proc parsePost(testDir: string): BeaconState =
-  parseTest(testDir/"post.ssz", SSZ, BeaconState)
-
-proc crosslinkTest(path: string) =
-  let name = path.rsplit(DirSep, 1)[1]
+proc crosslinkTest(testDir: string) =
+  let name = testDir.rsplit(DirSep, 1)[1]
   test "Crosslinks - " & name & preset():
-    var state = parsePre(path)
-    let post = parsePost(path)
+    var stateRef, postRef: ref BeaconState
+    new stateRef
+    new postRef
+    stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
+    postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
 
     var cache = get_empty_per_epoch_cache()
-    process_crosslinks(state, cache)
+    process_crosslinks(stateRef[], cache)
 
-    check: state.hash_tree_root() == post.hash_tree_root()
+    check: stateRef.hash_tree_root() == postRef.hash_tree_root()
 
 suite "Official - Epoch Processing - Crosslinks [Preset: " & preset():
   for dir in walkDirRec(CrosslinksDir, yieldFilter = {pcDir}):
