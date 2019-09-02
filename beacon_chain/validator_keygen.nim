@@ -1,6 +1,7 @@
 import
   os, ospaths, strutils, strformat,
-  chronicles, chronos, blscurve, nimcrypto, json_serialization, web3, stint,
+  chronicles, chronos, blscurve, nimcrypto, json_serialization, serialization,
+  web3, stint,
   spec/[datatypes, digest, crypto], conf, time, ssz, interop
 
 contract(DepositContract):
@@ -30,7 +31,8 @@ proc generateDeposits*(
       try:
         result.add Json.loadFile(depositFn, Deposit)
         continue
-      except: # CatchableError?
+      except SerializationError as err:
+        debug "Rewriting unreadable deposit", err = err.formatMsg(depositFn)
         discard
 
     let
