@@ -266,4 +266,3 @@ else:
     shuffle peers
     if peers.len > maxPeers: peers.setLen(maxPeers)
     for p in peers: yield p
-

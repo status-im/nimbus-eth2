@@ -200,11 +200,11 @@ func get_compact_committees_root*(state: BeaconState, epoch: Epoch): Eth2Digest 
 
   hash_tree_root(committees)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#genesis
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#genesis
 func initialize_beacon_state_from_eth1*(
-    genesis_validator_deposits: openArray[Deposit],
-    genesis_time: uint64,
-    genesis_eth1_data: Eth1Data,
+    eth1_block_hash: Eth2Digest,
+    eth1_timestamp: uint64,
+    deposits: openArray[Deposit],
     flags: UpdateFlags = {}): BeaconState =
   ## Get the genesis ``BeaconState``.
   ##
@@ -220,41 +220,52 @@ func initialize_beacon_state_from_eth1*(
   # validators - there needs to be at least one member in each committee -
   # good to know for testing, though arguably the system is not that useful at
   # at that point :)
-  doAssert genesis_validator_deposits.len >= SLOTS_PER_EPOCH
+  doAssert deposits.len >= SLOTS_PER_EPOCH
 
+  const SECONDS_PER_DAY = uint64(60*60*24)
   var state = BeaconState(
-    genesis_time: genesis_time,
+    genesis_time:
+      eth1_timestamp + 2'u64 * SECONDS_PER_DAY -
+        (eth1_timestamp mod SECONDS_PER_DAY),
+    eth1_data:
+      Eth1Data(block_hash: eth1_block_hash, deposit_count: uint64(len(deposits))),
     latest_block_header:
       BeaconBlockHeader(body_root: hash_tree_root(BeaconBlockBody())),
-    eth1_data: genesis_eth1_data,
   )
 
   # Process deposits
-  for deposit in genesis_validator_deposits:
+  let leaves = deposits.mapIt(it.data)
+  for i, deposit in deposits:
+    let deposit_data_list = leaves[0..i]
+    state.eth1_data.deposit_root = hash_tree_root(
+      sszList(deposit_data_list, int64(2^DEPOSIT_CONTRACT_TREE_DEPTH)))
+
     discard process_deposit(state, deposit, flags)
 
   # Process activations
   for validator_index in 0 ..< state.validators.len:
-    let validator = addr state.validators[validator_index]
-    if validator.effective_balance >= MAX_EFFECTIVE_BALANCE:
+    let
+      balance = state.balances[validator_index]
+      validator = addr state.validators[validator_index]
+
+    validator.effective_balance = min(
+      balance - balance mod EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE)
+
+    if validator.effective_balance == MAX_EFFECTIVE_BALANCE:
       validator.activation_eligibility_epoch = GENESIS_EPOCH
       validator.activation_epoch = GENESIS_EPOCH
 
   # Populate active_index_roots and compact_committees_roots
   let active_index_root = hash_tree_root(
-    get_active_validator_indices(state, GENESIS_EPOCH))
+    sszList(
+      get_active_validator_indices(state, GENESIS_EPOCH),
+      VALIDATOR_REGISTRY_LIMIT))
+
   let committee_root = get_compact_committees_root(state, GENESIS_EPOCH)
   for index in 0 ..< EPOCHS_PER_HISTORICAL_VECTOR:
     state.active_index_roots[index] = active_index_root
     state.compact_committees_roots[index] = committee_root
   state
-
-proc initialize_beacon_state_from_eth1*(eth1_block_hash: Eth2Digest,
-    eth1_timestamp: uint64,
-    deposits: openarray[Deposit],
-    flags: UpdateFlags = {}): BeaconState =
-  # TODO: Revisit
-  initialize_beacon_state_from_eth1(deposits, eth1_timestamp, Eth1Data(deposit_count: deposits.len.uint64, deposit_root: eth1_block_hash), flags)
 
 proc is_valid_genesis_state*(state: BeaconState): bool =
   if state.genesis_time < MIN_GENESIS_TIME:

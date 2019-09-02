@@ -19,7 +19,8 @@ suite "Block processing" & preset():
     # Genesis state with minimal number of deposits
     # TODO bls verification is a bit of a bottleneck here
     genesisState = initialize_beacon_state_from_eth1(
-      makeInitialDeposits(), 0, Eth1Data(), {})
+      Eth2Digest(), 0,
+      makeInitialDeposits(), {})
     genesisBlock = get_initial_beacon_block(genesisState)
     genesisRoot = signing_root(genesisBlock)
 
