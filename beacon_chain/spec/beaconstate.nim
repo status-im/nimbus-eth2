@@ -128,12 +128,11 @@ func initiate_validator_exit*(state: var BeaconState,
 
   # Compute exit queue epoch
   # TODO try zero-functional here
-  let exit_epochs = mapIt(
+  var exit_epochs = mapIt(
     filterIt(state.validators, it.exit_epoch != FAR_FUTURE_EPOCH),
     it.exit_epoch)
-  var exit_queue_epoch =
-    max(max(exit_epochs),
-      compute_activation_exit_epoch(get_current_epoch(state)))
+  exit_epochs.add compute_activation_exit_epoch(get_current_epoch(state))
+  var exit_queue_epoch = max(exit_epochs)
   let exit_queue_churn = foldl(
     state.validators,
     a + (if b.exit_epoch == exit_queue_epoch: 1'u64 else: 0'u64),

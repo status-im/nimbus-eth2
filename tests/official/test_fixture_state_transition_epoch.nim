@@ -12,7 +12,8 @@ import
   ../../beacon_chain/spec/[datatypes, validator, state_transition_epoch],
   # Test utilities
   ../testutil,
-  ./fixtures_utils
+  ./fixtures_utils,
+  ../helpers/debug_state
 
 from ../../beacon_chain/spec/beaconstate import process_registry_updates
   # XXX: move to state_transition_epoch?
@@ -30,7 +31,7 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, us
   # https://github.com/nim-lang/Nim/issues/12084#issue-486866402
 
   proc `suiteImpl _ transitionProc`() =
-    suite "Official - Epoch Processing - " & testName & " [Preset: " & preset():
+    suite "Official - Epoch Processing - " & testName & preset():
       for testDir in walkDirRec(suiteDir, yieldFilter = {pcDir}):
 
         let unitTestName = testDir.rsplit(DirSep, 1)[1]
@@ -47,7 +48,7 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, us
           else:
             transitionProc(stateRef[])
 
-          check: stateRef.hash_tree_root() == postRef.hash_tree_root()
+          reportDiff(stateRef, postRef)
 
   `suiteImpl _ transitionProc`()
 

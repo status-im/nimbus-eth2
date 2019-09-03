@@ -24,7 +24,8 @@ import # Refactor state transition unit tests
   ./spec_block_processing/test_process_attestation,
   ./spec_epoch_processing/test_process_crosslinks
 
-import # Official fixtures
+import # Official fixtures that don't require SSZ parsing of invalid BLS signatures
+       # https://github.com/status-im/nim-beacon-chain/issues/374
   ./official/test_fixture_shuffling,
   ./official/test_fixture_bls,
   ./official/test_fixture_ssz_uint

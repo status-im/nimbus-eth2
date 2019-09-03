@@ -53,7 +53,10 @@ import
 export
   json_serialization
 
-export blscurve.init, blscurve.getBytes, blscurve.combine, blscurve.`$`, blscurve.`==`
+export
+  blscurve.init, blscurve.getBytes, blscurve.combine,
+  blscurve.`$`, blscurve.`==`,
+  blscurve.Signature
 
 type
   BlsValueType* = enum
@@ -232,8 +235,13 @@ proc readValue*(reader: var JsonReader, value: var ValidatorPubKey) {.inline.} =
 
 proc writeValue*(writer: var JsonWriter, value: ValidatorSig) {.inline.} =
   when value is BlsValue:
-    doAssert value.kind == Real
-    writer.writeValue($value.blsValue)
+    if value.kind == Real:
+      writer.writeValue($value.blsValue)
+    else:
+      # Workaround: https://github.com/status-im/nim-beacon-chain/issues/374
+      let asHex = toHex(value.blob, true)
+      # echo "[Warning] writing raw opaque signature: ", asHex
+      writer.writeValue(asHex)
   else:
     writer.writeValue($value)
 
@@ -293,4 +301,3 @@ proc writeValue*(writer: var JsonWriter, value: Signature) {.inline.} =
 
 proc readValue*(reader: var JsonReader, value: var Signature) {.inline.} =
   value = Signature.init(reader.readValue(string))
-
