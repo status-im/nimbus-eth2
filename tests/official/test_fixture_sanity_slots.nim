@@ -9,7 +9,7 @@ import
   # Standard library
   os, unittest, strutils,
   # Beacon chain internals
-  ../../beacon_chain/spec/[datatypes, validator],
+  ../../beacon_chain/spec/datatypes,
   ../../beacon_chain/state_transition,
   # Test utilities
   ../testutil,

@@ -64,7 +64,10 @@ proc processBlockHeader(
     # state_root: zeroed, overwritten in the next `process_slot` call
     body_root: hash_tree_root(blck.body),
     # signature is always zeroed
+    # TODO - Pure BLSSig cannot be zero: https://github.com/status-im/nim-beacon-chain/issues/374
+    signature: BlsValue[Signature](kind: OpaqueBlob)
   )
+
 
   # Verify proposer is not slashed
   let proposer =
