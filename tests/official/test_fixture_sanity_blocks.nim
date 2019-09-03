@@ -83,8 +83,7 @@ suite "Official - Sanity - Blocks " & preset():
   when false: # TODO: failing due to state_roots[8]
     runValidTest("Empty epoch transition", empty_epoch_transition, 1)
     runValidTest("Empty epoch transition not finalizing", empty_epoch_transition_not_finalizing, 1)
-  when false: # TODO: Index out of bounds: beaconstate.nim(135) initiate_validator_exit
-    runValidTest("Proposer slashing", proposer_slashing, 1)
+  runValidTest("Proposer slashing", proposer_slashing, 1)
   when false: # TODO: Assert spec/crypto.nim(156, 12) `x.kind == Real and other.kind == Real`
     runValidTest("Attester slashing", attester_slashing, 1)
 
@@ -96,10 +95,8 @@ suite "Official - Sanity - Blocks " & preset():
 
   when false: # TODO: Assert spec/crypto.nim(156, 12) `x.kind == Real and other.kind == Real`
     runValidTest("Attestation", attestation, 2)
-  when false: # TODO: Index out of bounds: beaconstate.nim(135) initiate_validator_exit
+  when false: # TODO: failing due to state_roots[8]
     runValidTest("Voluntary exit", voluntary_exit, 2)
-
-  when false: # TODO: Index out of bounds: beaconstate.nim(135) initiate_validator_exit
     runValidTest("Balance-driven status transitions", balance_driven_status_transitions, 1)
 
   when false: # TODO: `stateRef3946003.balances[idx3953625] == postRef3946005.balances[idx3953625]`
