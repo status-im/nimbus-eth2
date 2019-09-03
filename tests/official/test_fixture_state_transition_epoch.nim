@@ -12,7 +12,8 @@ import
   ../../beacon_chain/spec/[datatypes, validator, state_transition_epoch],
   # Test utilities
   ../testutil,
-  ./fixtures_utils
+  ./fixtures_utils,
+  ../helpers/debug_state
 
 from ../../beacon_chain/spec/beaconstate import process_registry_updates
   # XXX: move to state_transition_epoch?
@@ -47,7 +48,7 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, us
           else:
             transitionProc(stateRef[])
 
-          check: stateRef.hash_tree_root() == postRef.hash_tree_root()
+          reportDiff(stateRef, postRef)
 
   `suiteImpl _ transitionProc`()
 
