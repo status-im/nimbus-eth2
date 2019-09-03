@@ -444,7 +444,7 @@ func process_rewards_and_penalties(
     decrease_balance(state, i.ValidatorIndex, penalties1[i] + penalties2[i])
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#slashings
-func process_slashings(state: var BeaconState) =
+func process_slashings*(state: var BeaconState) =
   let
     epoch = get_current_epoch(state)
     total_balance = get_total_active_balance(state)
@@ -452,13 +452,16 @@ func process_slashings(state: var BeaconState) =
   for index, validator in state.validators:
     if validator.slashed and epoch + EPOCHS_PER_SLASHINGS_VECTOR div 2 ==
         validator.withdrawable_epoch:
-      let penalty =
-        validator.effective_balance *
-          min(sum(state.slashings) * 3, total_balance) div total_balance
+      let increment = EFFECTIVE_BALANCE_INCREMENT # Factored out from penalty
+                                                  # numerator to avoid uint64 overflow
+      let penalty_numerator =
+        validator.effective_balance div increment *
+          min(sum(state.slashings) * 3, total_balance)
+      let penalty = penalty_numerator div total_balance * increment
       decrease_balance(state, index.ValidatorIndex, penalty)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#final-updates
-proc process_final_updates(state: var BeaconState) =
+proc process_final_updates*(state: var BeaconState) =
   let
     current_epoch = get_current_epoch(state)
     next_epoch = current_epoch + 1
@@ -482,7 +485,7 @@ proc process_final_updates(state: var BeaconState) =
   let
     index_epoch = next_epoch + ACTIVATION_EXIT_DELAY
     index_root_position = index_epoch mod EPOCHS_PER_HISTORICAL_VECTOR
-    indices_list = get_active_validator_indices(state, index_epoch)
+    indices_list = sszList(get_active_validator_indices(state, index_epoch), VALIDATOR_REGISTRY_LIMIT)
   state.active_index_roots[index_root_position] = hash_tree_root(indices_list)
 
   # Set committees root
