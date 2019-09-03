@@ -13,58 +13,8 @@ import
 
 # Define comparison of object variants for BLSValue
 # https://github.com/nim-lang/Nim/issues/6676
+# (fully generic available - see also https://github.com/status-im/nim-beacon-chain/commit/993789bad684721bd7c74ea14b35c2d24dbb6e51)
 # ----------------------------------------------------------------
-
-# proc processNode(arg, a,b, result: NimNode) =
-#   case arg.kind
-#   of nnkIdentDefs:
-#     let field = arg[0]
-#     result.add quote do:
-#       if `a`.`field` != `b`.`field`:
-#         return false
-#   of nnkRecCase:
-#     let kindField = arg[0][0]
-#     processNode(arg[0], a,b, result)
-#     let caseStmt = nnkCaseStmt.newTree(newDotExpr(a, kindField))
-#     for i in 1 ..< arg.len:
-#       let inputBranch = arg[i]
-#       let outputBranch = newTree(inputBranch.kind)
-#       let body = newStmtList()
-#       if inputBranch.kind == nnkOfBranch:
-#         outputBranch.add inputBranch[0]
-#         processNode(inputBranch[1], a,b, body)
-#       else:
-#         inputBranch.expectKind nnkElse
-#         processNode(inputBranch[0], a,b, body)
-#       outputBranch.add body
-#       caseStmt.add outputBranch
-#     result.add caseStmt
-#   of nnkRecList:
-#     for child in arg:
-#       child.expectKind {nnkIdentDefs, nnkRecCase}
-#       processNode(child, a,b, result)
-#   else:
-#     arg.expectKind {nnkIdentDefs, nnkRecCase, nnkRecList}
-
-# macro myCompareImpl(a,b: typed): untyped =
-#   a.expectKind nnkSym
-#   b.expectKind nnkSym
-#   assert sameType(a, b)
-#
-#   let typeImpl = a.getTypeImpl
-#   var checks = newSeq[NimNode]()
-#
-#   # uncomment to debug
-#   # echo typeImpl.treeRepr
-#
-#   result = newStmtList()
-#   processNode(typeImpl[2], a, b, result)
-#
-#   result.add quote do:
-#     return true
-#
-#   # uncomment to debug
-#   # echo result.repr
 
 proc `==`*[T](a, b: BlsValue[T]): bool =
   ## We sometimes need to compare real BlsValue
