@@ -19,7 +19,7 @@ import
 
 const SanityBlocksDir = SszTestsDir/const_preset/"phase0"/"sanity"/"blocks"/"pyspec_tests"
 
-template runTestOneBlock(testName: string, identifier: untyped): untyped =
+template runValidTest(testName: string, identifier: untyped, num_blocks: int): untyped =
   # We wrap the tests in a proc to avoid running out of globals
   # in the future: Nim supports up to 3500 globals
   # but unittest with the macro/templates put everything as globals
@@ -34,15 +34,17 @@ template runTestOneBlock(testName: string, identifier: untyped): untyped =
       new postRef
       stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
       postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
-      let blck = parseTest(testDir/"blocks_0.ssz", SSZ, BeaconBlock)
 
-      # TODO: The EF is using invalid BLS keys so we can't verify them
-      let done = state_transition(stateRef[], blck, flags = {skipValidation})
+      var success = true
+      for i in 0 ..< num_blocks:
+        let blck = parseTest(testDir/"blocks_" & $i & ".ssz", SSZ, BeaconBlock)
+
+        # TODO: The EF is using invalid BLS keys so we can't verify them
+        let success = state_transition(stateRef[], blck, flags = {skipValidation})
+        doAssert success, "Failure when applying block " & $i
 
       # Checks:
-      check:
-        done
-        stateRef.hash_tree_root() == postRef.hash_tree_root()
+      check: stateRef.hash_tree_root() == postRef.hash_tree_root()
       reportDiff(stateRef, postRef)
 
   `testImpl _ blck _ identifier`()
@@ -62,8 +64,8 @@ suite "Official - Sanity - Blocks " & preset():
       #                          for blocks from block_pool/network
       let done = state_transition(stateRef[], blck, flags = {skipValidation})
 
-  runTestOneBlock("Same slot block transition", same_slot_block_transition)
-  runTestOneBlock("Empty block transition", empty_block_transition)
+  runValidTest("Same slot block transition", same_slot_block_transition, 1)
+  runValidTest("Empty block transition", empty_block_transition, 1)
 
   when false: # TODO: we need more granular skipValidation
     test "[Invalid] Invalid state root":
@@ -77,28 +79,36 @@ suite "Official - Sanity - Blocks " & preset():
       expect(AssertionError):
         let done = state_transition(stateRef[], blck, flags = {skipValidation})
 
-  runTestOneBlock("Skipped Slots", skipped_slots)
+  runValidTest("Skipped Slots", skipped_slots, 1)
   when false: # TODO: failing due to state_roots[8]
-    runTestOneBlock("Empty epoch transition", empty_epoch_transition)
-    runTestOneBlock("Empty epoch transition not finalizing", empty_epoch_transition_not_finalizing)
+    runValidTest("Empty epoch transition", empty_epoch_transition, 1)
+    runValidTest("Empty epoch transition not finalizing", empty_epoch_transition_not_finalizing, 1)
   when false: # TODO: Index out of bounds: beaconstate.nim(135) initiate_validator_exit
-    runTestOneBlock("Proposer slashing", proposer_slashing)
-  when false: # TODO: Assert ./beacon_chain/spec/crypto.nim(156, 12) `x.kind == Real and other.kind == Real`
-    runTestOneBlock("Attester slashing", attester_slashing)
+    runValidTest("Proposer slashing", proposer_slashing, 1)
+  when false: # TODO: Assert spec/crypto.nim(156, 12) `x.kind == Real and other.kind == Real`
+    runValidTest("Attester slashing", attester_slashing, 1)
 
   # TODO: Expected deposit in block
 
-  when false: # TODO: Assert ./beacon_chain/spec/crypto.nim(175, 14) `sig.kind == Real and pubkey.kind == Real`
-    runTestOneBlock("Deposit in block", deposit_in_block)
-  runTestOneBlock("Deposit top up", deposit_top_up)
+  when false: # TODO: Assert .spec/crypto.nim(175, 14) `sig.kind == Real and pubkey.kind == Real`
+    runValidTest("Deposit in block", deposit_in_block, 1)
+  runValidTest("Deposit top up", deposit_top_up, 1)
 
-  # TODO: attestation
-  # TODO: voluntary exit
+  when false: # TODO: Assert spec/crypto.nim(156, 12) `x.kind == Real and other.kind == Real`
+    runValidTest("Attestation", attestation, 2)
+  when false: # TODO: Index out of bounds: beaconstate.nim(135) initiate_validator_exit
+    runValidTest("Voluntary exit", voluntary_exit, 2)
 
   when false: # TODO: Index out of bounds: beaconstate.nim(135) initiate_validator_exit
-    runTestOneBlock("Balance-driven status transitions", balance_driven_status_transitions)
+    runValidTest("Balance-driven status transitions", balance_driven_status_transitions, 1)
 
   when false: # TODO: `stateRef3946003.balances[idx3953625] == postRef3946005.balances[idx3953625]`
               #       stateRef3946003.balances[0] = 31998855136
               #       postRef3946005.balances[0] = 31997418334
-    runTestOneBlock("Historical batch", historical_batch)
+    runValidTest("Historical batch", historical_batch, 1)
+
+  when false: # TODO: `stateRef3870603.block_roots[idx3874628] == postRef3870605.block_roots[idx3874628]`
+              #       stateRef3856003.block_roots[16] = 06013007F8A1D4E310344192C5DF6157B1F9F0F5B3A8404103ED822DF47CD85D
+              #       postRef3856005.block_roots[16] = 73F47FF01C106CC82BF839C953C4171E019A22590D762076306F4CEE1CB77583
+    runValidTest("ETH1 data votes consensus", eth1_data_votes_consensus, 17)
+    runValidTest("ETH1 data votes no consensus", eth1_data_votes_no_consensus, 16)
