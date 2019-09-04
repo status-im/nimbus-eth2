@@ -52,11 +52,8 @@ brew install pcre
 # Fedora
 dnf install pcre
 
-# Ubuntu
-sudo apt-get install libpcre-dev
-
-# Debian
-apt-get install libpcre3-dev
+# Debian and Ubuntu
+sudo apt-get install libpcre3-dev
 
 # Arch (AUR)
 pakku -S pcre-static
