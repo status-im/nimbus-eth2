@@ -7,6 +7,14 @@
 
 Nimbus beacon chain is a research implementation of the beacon chain component of the upcoming Ethereum Serenity upgrade, aka eth2. See the main [Nimbus](https://github.com/status-im/nimbus/) project for the bigger picture.
 
+## Interop (for other Eth2 clients)
+
+A folder with interop specific instruction is available here at [interop](interop).
+
+To save bandwith `export GIT_LFS_SKIP_SMUDGE=1` before cloning the repo.
+This prevent LFS during regular clones.
+
+
 ## Related
 
 * [status-im/nimbus](https://github.com/status-im/nimbus/): main Nimbus repository - start here to learn more about the Nimbus eco-system
