@@ -17,12 +17,109 @@ You can check where the beacon chain fits in the Ethereum research ecosystem in 
 
 ## Building and Testing
 
-```bash
-# this first "make" invocation will update the Git submodules
-make
+### Prerequisites
 
-# You can now run the test suite:
-make test
+(On Windows, a precompiled DLL collection download is available through the `fetch-dlls` Makefile target: ([Windows instructions](#windows)).)
+
+#### Rocksdb
+
+A recent version of Facebook's [RocksDB](https://github.com/facebook/rocksdb/) is needed - it can usually be installed using your system's package manager:
+
+```bash
+# MacOS with Homebrew
+brew install rocksdb
+
+# Fedora
+dnf install rocksdb-devel
+
+# Debian and Ubuntu
+sudo apt-get install librocksdb-dev
+
+# Arch (AUR)
+pakku -S rocksdb
+```
+
+You can also build and install it by following [their instructions](https://github.com/facebook/rocksdb/blob/master/INSTALL.md).
+
+#### PCRE
+
+If you don't already have it, you will also need PCRE to build Nimbus.
+
+```bash
+# MacOS with Homebrew
+brew install pcre
+
+# Fedora
+dnf install pcre
+
+# Ubuntu
+sudo apt-get install libpcre-dev
+
+# Debian
+apt-get install libpcre3-dev
+
+# Arch (AUR)
+pakku -S pcre-static
+```
+
+#### Developer tools
+
+GNU Make, Bash and the usual POSIX utilities
+
+### Build & Develop
+
+#### POSIX-compatible OS
+
+```bash
+make # The first `make` invocation will update all Git submodules and prompt you to run `make` again.
+     # It's only required once per Git clone. You'll run `make update` after each `git pull`, in the future,
+     # to keep those submodules up to date.
+
+make test # run the test suite
+```
+
+To pull the latest changes in all the Git repositories involved:
+```bash
+git pull
+make update
+```
+
+To run a command that might use binaries from the Status Nim fork:
+```bash
+./env.sh bash # start a new interactive shell with the right env vars set
+which nim
+nim --version
+
+# or without starting a new interactive shell:
+./env.sh which nim
+./env.sh nim --version
+```
+
+#### Windows
+
+_(Experimental support!)_
+
+Install Mingw-w64 for your architecture using the "[MinGW-W64 Online
+Installer](https://sourceforge.net/projects/mingw-w64/files/)" (first link
+under the directory listing). Run it and select your architecture in the setup
+menu ("i686" on 32-bit, "x86\_64" on 64-bit), set the threads to "win32" and
+the exceptions to "dwarf" on 32-bit and "seh" on 64-bit. Change the
+installation directory to "C:\mingw-w64" and add it to your system PATH in "My
+Computer"/"This PC" -> Properties -> Advanced system settings -> Environment
+Variables -> Path -> Edit -> New -> C:\mingw-w64\mingw64\bin (it's "C:\mingw-w64\mingw32\bin" on 32-bit)
+
+Install [Git for Windows](https://gitforwindows.org/) and use a "Git Bash" shell to clone and build nim-beacon-chain.
+
+If you don't want to compile RocksDB and SQLite separately, you can fetch pre-compiled DLLs with:
+```bash
+mingw32-make # this first invocation will update the Git submodules
+mingw32-make fetch-dlls # this will place the right DLLs for your architecture in the "build/" directory
+```
+
+You can now follow those instructions in the previous section by replacing `make` with `mingw32-make` (regardless of your 32-bit or 64-bit architecture):
+
+```bash
+mingw32-make test # run the test suite
 ```
 
 ## Beacon node simulation
