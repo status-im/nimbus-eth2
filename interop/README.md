@@ -6,6 +6,8 @@ In general, follow the build instructions of `nim-beacon-chain` as documented in
 
 ```bash
 # Clone repo
+
+export GIT_LFS_SKIP_SMUDGE=1 # skip LFS
 git clone https://github.com/status-im/nim-beacon-chain.git
 
 cd nim-beacon-chain
