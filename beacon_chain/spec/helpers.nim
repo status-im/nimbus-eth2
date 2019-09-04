@@ -7,7 +7,7 @@
 
 # Uncategorized helper functions from the spec
 
-import ./datatypes, ./digest, sequtils, math
+import ./datatypes, ./digest, sequtils, math, endians
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
@@ -102,9 +102,7 @@ func get_current_epoch*(state: BeaconState): Epoch =
 func get_randao_mix*(state: BeaconState,
                      epoch: Epoch): Eth2Digest =
     ## Returns the randao mix at a recent ``epoch``.
-    ## ``epoch`` expected to be between (current_epoch -
-    ## LATEST_RANDAO_MIXES_LENGTH, current_epoch].
-    state.randao_mixes[epoch mod LATEST_RANDAO_MIXES_LENGTH]
+    state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR]
 
 func bytes_to_int*(data: openarray[byte]): uint64 =
   doAssert data.len == 8
@@ -118,14 +116,12 @@ func bytes_to_int*(data: openarray[byte]): uint64 =
 func int_to_bytes32*(x: uint64): array[32, byte] =
   ## Little-endian data representation
   ## TODO remove uint64 when those callers fade away
-  for i in 0 ..< 8:
-    result[24 + i] = byte((x shr i*8) and 0xff)
+  littleEndian64(result[0].addr, x.unsafeAddr)
 
 func int_to_bytes32*(x: Epoch): array[32, byte] {.borrow.}
 
 func int_to_bytes8*(x: uint64): array[8, byte] =
-  for i in 0 ..< 8:
-    result[i] = byte((x shr i*8) and 0xff)
+  littleEndian64(result[0].addr, x.unsafeAddr)
 
 func int_to_bytes1*(x: int): array[1, byte] =
   doAssert x >= 0
@@ -175,11 +171,11 @@ func get_seed*(state: BeaconState, epoch: Epoch): Eth2Digest =
   var seed_input : array[32*3, byte]
 
   # Detect potential underflow
-  doAssert LATEST_RANDAO_MIXES_LENGTH >= MIN_SEED_LOOKAHEAD
+  doAssert EPOCHS_PER_HISTORICAL_VECTOR >= MIN_SEED_LOOKAHEAD
 
   seed_input[0..31] =
     get_randao_mix(state,
-      epoch + LATEST_RANDAO_MIXES_LENGTH - MIN_SEED_LOOKAHEAD - 1).data
+      epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1).data
   seed_input[32..63] =
     state.active_index_roots[epoch mod EPOCHS_PER_HISTORICAL_VECTOR].data
   seed_input[64..95] = int_to_bytes32(epoch)

@@ -99,7 +99,6 @@ const
   # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#state-list-lengths
 
   # Changed
-  LATEST_RANDAO_MIXES_LENGTH* = 64
   EPOCHS_PER_HISTORICAL_VECTOR* = 64
   EPOCHS_PER_SLASHINGS_VECTOR* = 64
   HISTORICAL_ROOTS_LIMIT* = 16777216
