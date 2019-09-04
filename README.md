@@ -43,7 +43,7 @@ You can also build and install it by following [their instructions](https://gith
 
 #### PCRE
 
-If you don't already have it, you will also need PCRE to build Nimbus.
+If you don't already have it, you will also need PCRE to build nim-beacon-chain.
 
 ```bash
 # MacOS with Homebrew
