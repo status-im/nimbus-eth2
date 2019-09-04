@@ -90,11 +90,12 @@ proc processBlockHeader(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#randao
-proc processRandao(
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#randao
+proc process_randao(
     state: var BeaconState, body: BeaconBlockBody, flags: UpdateFlags,
     stateCache: var StateCache): bool =
   let
+    epoch = state.get_current_epoch()
     proposer_index = get_beacon_proposer_index(state, stateCache)
     proposer = addr state.validators[proposer_index]
 
@@ -102,23 +103,23 @@ proc processRandao(
   if skipValidation notin flags:
     if not bls_verify(
       proposer.pubkey,
-      hash_tree_root(get_current_epoch(state).uint64).data,
+      hash_tree_root(epoch.uint64).data,
       body.randao_reveal,
       get_domain(state, DOMAIN_RANDAO)):
 
       notice "Randao mismatch", proposer_pubkey = proposer.pubkey,
-                                message = get_current_epoch(state),
+                                message = epoch,
                                 signature = body.randao_reveal,
                                 slot = state.slot
       return false
 
   # Mix it in
   let
-    mix = get_current_epoch(state) mod LATEST_RANDAO_MIXES_LENGTH
+    mix = get_randao_mix(state, epoch)
     rr = eth2hash(body.randao_reveal.getBytes()).data
 
-  for i, b in state.randao_mixes[mix].data:
-    state.randao_mixes[mix].data[i] = b xor rr[i]
+  for i in 0 ..< mix.data.len:
+    state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR].data[i] = mix.data[i] xor rr[i]
 
   true
 

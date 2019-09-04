@@ -497,7 +497,7 @@ proc process_final_updates*(state: var BeaconState) =
   state.slashings[next_epoch mod EPOCHS_PER_SLASHINGS_VECTOR] = 0.Gwei
 
   # Set randao mix
-  state.randao_mixes[next_epoch mod LATEST_RANDAO_MIXES_LENGTH] =
+  state.randao_mixes[next_epoch mod EPOCHS_PER_HISTORICAL_VECTOR] =
     get_randao_mix(state, current_epoch)
 
   # Set historical root accumulator
