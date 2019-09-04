@@ -61,13 +61,13 @@ p2pd: | go-checks
 # Windows 10 with WSL enabled, but no distro installed, fails if "../../nimble.sh" is executed directly
 # in a Makefile recipe but works when prefixing it with `bash`. No idea how the PATH is overridden.
 DISABLE_LFS_SCRIPT := 0
-test: | build deps nat-libs p2pd
+test: | build deps p2pd
 ifeq ($(DISABLE_LFS_SCRIPT), 0)
 	V=$(V) scripts/process_lfs.sh
 endif
 	$(ENV_SCRIPT) nim test $(NIM_PARAMS) beacon_chain.nims && rm -f 0000-*.json
 
-$(TOOLS): | build deps nat-libs p2pd
+$(TOOLS): | build deps p2pd
 	for D in $(TOOLS_DIRS); do [ -e "$${D}/$@.nim" ] && TOOL_DIR="$${D}" && break; done && \
 		echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim c $(NIM_PARAMS) -o:build/$@ "$${TOOL_DIR}/$@.nim"
@@ -75,10 +75,10 @@ $(TOOLS): | build deps nat-libs p2pd
 clean_eth2_network_simulation_files:
 	rm -rf tests/simulation/{data,validators}
 
-eth2_network_simulation: | build deps nat-libs p2pd clean_eth2_network_simulation_files
+eth2_network_simulation: | build deps p2pd clean_eth2_network_simulation_files
 	GIT_ROOT="$$PWD" BUILD_OUTPUTS_DIR="./build" $(ENV_SCRIPT) tests/simulation/start.sh
 
-testnet0 testnet1: | build deps nat-libs p2pd
+testnet0 testnet1: | build deps p2pd
 	NIM_PARAMS="$(NIM_PARAMS)" $(ENV_SCRIPT) scripts/build_testnet_node.sh $@
 
 clean-testnet0:
