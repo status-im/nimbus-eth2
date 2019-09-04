@@ -22,7 +22,6 @@ type
 
 {.experimental: "codeReordering".} # SLOTS_PER_EPOCH is use before being defined in spec
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/configs/constant_presets/mainnet.yaml
 const
   # Misc
   # ---------------------------------------------------------------
