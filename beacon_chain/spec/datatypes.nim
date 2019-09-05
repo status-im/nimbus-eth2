@@ -251,7 +251,7 @@ type
     voluntary_exits*: seq[VoluntaryExit]
     transfers*: seq[Transfer]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#beaconstate
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -305,7 +305,9 @@ type
     current_epoch_attestations*: seq[PendingAttestation]
 
     # Crosslinks
-    previous_crosslinks*: array[SHARD_COUNT, Crosslink]
+    previous_crosslinks*: array[SHARD_COUNT, Crosslink] ##\
+    ## Previous epoch snapshot
+
     current_crosslinks*: array[SHARD_COUNT, Crosslink]
 
     # Finality

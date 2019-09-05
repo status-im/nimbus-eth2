@@ -25,7 +25,7 @@ type
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#misc
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/configs/minimal.yaml#L4
 
   # Changed
   SHARD_COUNT* {.intdefine.} = 8
@@ -39,6 +39,8 @@ const
 
   # Changed
   SHUFFLE_ROUND_COUNT* = 10
+  MIN_GENESIS_ACTIVE_VALIDATOR_COUNT* {.intdefine.} = 99
+  MIN_GENESIS_TIME* {.intdefine.} = 0
 
   # Constants
   # ---------------------------------------------------------------
@@ -59,10 +61,9 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/configs/constant_presets/minimal.yaml#L43
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/configs/minimal.yaml#L44
 
   # Unchanged
-  GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 0'u8]
   GENESIS_SLOT* = 0.Slot
   BLS_WITHDRAWAL_PREFIX* = 0'u8
 
@@ -94,9 +95,9 @@ const
   MAX_EPOCHS_PER_CROSSLINK* = 4
   MIN_EPOCHS_TO_INACTIVITY_PENALTY* = 2'u64^2
 
-  # State list lengths
+  # State vector lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#state-list-lengths
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/configs/minimal.yaml#L79
 
   # Changed
   EPOCHS_PER_HISTORICAL_VECTOR* = 64
@@ -126,10 +127,6 @@ const
   MAX_DEPOSITS* = 2^4
   MAX_VOLUNTARY_EXITS* = 2^4
   MAX_TRANSFERS* = 0
-
-
-  MIN_GENESIS_TIME* {.intdefine.} = 0
-  MIN_GENESIS_ACTIVE_VALIDATOR_COUNT* {.intdefine.} = 99
 
 
 type

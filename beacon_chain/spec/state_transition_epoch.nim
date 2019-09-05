@@ -304,7 +304,7 @@ func process_crosslinks*(state: var BeaconState, stateCache: var StateCache) =
           2'u64 * get_total_balance(state, crosslink_committee):
         state.current_crosslinks[shard] = winning_crosslink
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#rewards-and-penalties-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#rewards-and-penalties-1
 func get_base_reward(state: BeaconState, index: ValidatorIndex): Gwei =
   let
     total_balance = get_total_active_balance(state)

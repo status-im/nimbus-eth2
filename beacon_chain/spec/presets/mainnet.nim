@@ -77,9 +77,8 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/configs/constant_presets/mainnet.yaml#L44
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/configs/mainnet.yaml#L45
 
-  GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 0'u8]
   GENESIS_SLOT* = 0.Slot
   BLS_WITHDRAWAL_PREFIX* = 0'u8
 
@@ -133,9 +132,9 @@ const
   MIN_EPOCHS_TO_INACTIVITY_PENALTY* = 2'u64^2 ##\
   ## epochs (25.6 minutes)
 
-  # State list lengths
+  # State vector lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#state-list-lengths
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/configs/mainnet.yaml#L81
   EPOCHS_PER_HISTORICAL_VECTOR* = 65536
   EPOCHS_PER_SLASHINGS_VECTOR* = 8192
   HISTORICAL_ROOTS_LIMIT* = 16777216
@@ -152,7 +151,7 @@ const
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#max-operations-per-block
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#max-operations-per-block
   MAX_PROPOSER_SLASHINGS* = 2^4
   MAX_ATTESTER_SLASHINGS* = 2^0
   MAX_ATTESTATIONS* = 2^7
