@@ -21,8 +21,10 @@ make update deps # build dependencies
 Look in the scripts for options - the default config is a small setup using the `minimal` state spec.
 
 ```
+cd interop
+
 # Clear data from previous run, then start a new simulation
-rm -rf data ; ./start.sh
+rm -rf data; ./start.sh
 
 # In a separate terminal, can run another beacon node, such as lighthouse:
 ./run_lighthouse.sh
