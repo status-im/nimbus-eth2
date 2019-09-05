@@ -485,8 +485,14 @@ proc process_final_updates*(state: var BeaconState) =
   let
     index_epoch = next_epoch + ACTIVATION_EXIT_DELAY
     index_root_position = index_epoch mod EPOCHS_PER_HISTORICAL_VECTOR
-    indices_list = sszList(get_active_validator_indices(state, index_epoch), VALIDATOR_REGISTRY_LIMIT)
-  state.active_index_roots[index_root_position] = hash_tree_root(indices_list)
+    indices_list = get_active_validator_indices(state, index_epoch)
+
+  state.active_index_roots[index_root_position] = hash_tree_root(
+    # TODO The +1 on the next line is not conforming to the spec.
+    # Without it, our merkleization padding is missing one final
+    # level of mixing with a zero hash. We need to investigate
+    # why this is happening only in the particular case here.
+    sszList(indices_list, VALIDATOR_REGISTRY_LIMIT + 1))
 
   # Set committees root
   let committee_root_position = next_epoch mod EPOCHS_PER_HISTORICAL_VECTOR

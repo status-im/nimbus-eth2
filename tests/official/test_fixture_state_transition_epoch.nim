@@ -81,9 +81,8 @@ runSuite(RegistryUpdatesDir, "Registry updates",  process_registry_updates, useC
 const SlashingsDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"/"slashings"/"pyspec_tests"
 runSuite(SlashingsDir, "Slashings",  process_slashings, useCache = false)
 
-when false: # TODO: Failing
-  # Final updates
-  # ---------------------------------------------------------------
+# Final updates
+# ---------------------------------------------------------------
 
-  const FinalUpdatesDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"/"final_updates"/"pyspec_tests"
-  runSuite(FinalUpdatesDir, "Final updates",  process_final_updates, useCache = false)
+const FinalUpdatesDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"/"final_updates"/"pyspec_tests"
+runSuite(FinalUpdatesDir, "Final updates",  process_final_updates, useCache = false)
