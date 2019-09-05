@@ -31,7 +31,7 @@ build-system-checks:
 		exit 1; \
 		}
 
-deps: | deps-common beacon_chain.nims
+deps: | deps-common beacon_chain.nims p2pd
 
 #- deletes and recreates "beacon_chain.nims" which on Windows is a copy instead of a proper symlink
 update: | update-common
@@ -51,13 +51,13 @@ p2pd: | go-checks
 # Windows 10 with WSL enabled, but no distro installed, fails if "../../nimble.sh" is executed directly
 # in a Makefile recipe but works when prefixing it with `bash`. No idea how the PATH is overridden.
 DISABLE_LFS_SCRIPT := 0
-test: | build deps p2pd
+test: | build deps
 ifeq ($(DISABLE_LFS_SCRIPT), 0)
 	V=$(V) scripts/process_lfs.sh
 endif
 	$(ENV_SCRIPT) nim test $(NIM_PARAMS) beacon_chain.nims && rm -f 0000-*.json
 
-$(TOOLS): | build deps p2pd
+$(TOOLS): | build deps
 	for D in $(TOOLS_DIRS); do [ -e "$${D}/$@.nim" ] && TOOL_DIR="$${D}" && break; done && \
 		echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim c $(NIM_PARAMS) -o:build/$@ "$${TOOL_DIR}/$@.nim"
@@ -68,7 +68,7 @@ clean_eth2_network_simulation_files:
 eth2_network_simulation: | build deps p2pd clean_eth2_network_simulation_files
 	GIT_ROOT="$$PWD" tests/simulation/start.sh
 
-testnet0 testnet1: | build deps p2pd
+testnet0 testnet1: | build deps
 	NIM_PARAMS="$(NIM_PARAMS)" $(ENV_SCRIPT) scripts/build_testnet_node.sh $@
 
 clean-testnet0:
