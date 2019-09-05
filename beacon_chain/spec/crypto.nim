@@ -216,12 +216,11 @@ proc fromBytes*[T](R: type BlsValue[T], bytes: openarray[byte]): R =
   # default-initialized BlsValue without raising an exception
   # TODO don't use exceptions for parsing, ever. Handle deserialization issues
   #      sanely, always.
-  const allZeroes = T()
-  if bytes == allZeroes.getBytes():
-    R(kind: Real)
+  when defined(ssz_testing):
+    R(kind: OpaqueBlob, blob: toArray(result.blob.len, bytes))
   else:
-    when defined(ssz_testing):
-      R(kind: OpaqueBlob, blob: toArray(result.blob.len, bytes))
+    if bytes.allIt(it == 0):
+      R(kind: Real)
     else:
       R(kind: Real, blsValue: init(T, bytes))
 
