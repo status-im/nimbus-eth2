@@ -1,9 +1,12 @@
 #!/bin/bash
 
-set -euo pipefail
+set -eo pipefail
 
 # Read in variables
-. "$(dirname "$0")/vars.sh"
+source "$(dirname "$0")/vars.sh"
+
+# set up the environment
+source "${SIM_ROOT}/../env.sh"
 
 cd "$SIM_ROOT"
 mkdir -p "$SIMULATION_DIR"
@@ -13,7 +16,7 @@ cd "$GIT_ROOT"
 
 make update deps
 
-NIMFLAGS="-d:chronicles_log_level=DEBUG --hints:off --opt:speed --debuginfo"
+NIMFLAGS="-d:chronicles_log_level=DEBUG --hints:off --warnings:off --opt:speed --debuginfo"
 
 # For interop, we run the minimal config
 DEFS="-d:const_preset=minimal"
@@ -23,7 +26,7 @@ LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.js
 
 [[ -x "$BEACON_NODE_BIN" ]] || {
   echo "Building $BEACON_NODE_BIN ($DEFS)"
-  "$SIM_ROOT/../env.sh" nim c -o:"$BEACON_NODE_BIN" $NIMFLAGS $DEFS beacon_chain/beacon_node
+  nim c -o:"$BEACON_NODE_BIN" $NIMFLAGS $DEFS beacon_chain/beacon_node
 }
 
 if [ ! -f "${LAST_VALIDATOR}" ]; then
