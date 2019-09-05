@@ -6,8 +6,8 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import  options, unittest, sequtils, strutils, eth/trie/[db],
-  ../beacon_chain/[beacon_chain_db, ssz],
-  ../beacon_chain/spec/[datatypes, digest, crypto],
+  ../beacon_chain/[beacon_chain_db, extras, interop, ssz],
+  ../beacon_chain/spec/[beaconstate, datatypes, digest, crypto],
   # test utilies
   ./testutil
 
@@ -87,3 +87,22 @@ suite "Beacon chain DB" & preset():
 
     doAssert toSeq(db.getAncestors(a0r)) == [(a0r, a0)]
     doAssert toSeq(db.getAncestors(a2r)) == [(a2r, a2), (a1r, a1), (a0r, a0)]
+
+  test "sanity check genesis roundtrip" & preset():
+    # This is a really dumb way of checking that we can roundtrip a genesis
+    # state. We've been bit by this because we've had a bug in the BLS
+    # serialization where an all-zero default-initialized bls signature could
+    # not be deserialized because the deserialization was too strict.
+    var
+      db = init(BeaconChainDB, newMemoryDB())
+
+    let
+      state = initialize_beacon_state_from_eth1(
+        eth1BlockHash, 0, makeInitialDeposits(SLOTS_PER_EPOCH), {skipValidation})
+      root = hash_tree_root(state)
+
+    db.putState(state)
+
+    check:
+      db.containsState(root)
+      db.getState(root).get() == state
