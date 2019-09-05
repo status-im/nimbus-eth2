@@ -212,10 +212,18 @@ else:
     ValidatorSig(kind: Real, blsValue: key.sign(domain, msg))
 
 proc fromBytes*[T](R: type BlsValue[T], bytes: openarray[byte]): R =
-  when defined(ssz_testing):
-    result = R(kind: OpaqueBlob, blob: toArray(result.blob.len, bytes))
+  # This is a workaround, so that we can deserialize the serialization of a
+  # default-initialized BlsValue without raising an exception
+  # TODO don't use exceptions for parsing, ever. Handle deserialization issues
+  #      sanely, always.
+  const allZeroes = T()
+  if bytes == allZeroes.getBytes():
+    R(kind: Real)
   else:
-    result = R(kind: Real, blsValue: init(T, bytes))
+    when defined(ssz_testing):
+      R(kind: OpaqueBlob, blob: toArray(result.blob.len, bytes))
+    else:
+      R(kind: Real, blsValue: init(T, bytes))
 
 proc initFromBytes*[T](val: var BlsValue[T], bytes: openarray[byte]) =
   val = fromBytes(BlsValue[T], bytes)
