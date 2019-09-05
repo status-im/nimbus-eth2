@@ -15,7 +15,7 @@ TOOLS := beacon_node bench_bls_sig_agggregation state_sim
 TOOLS_DIRS := beacon_chain benchmarks research
 TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 
-.PHONY: all build-system-checks deps update go-checks p2pd test $(TOOLS) clean_eth2_network_simulation_files eth2_network_simulation clean-testnet0 testnet0 clean-testnet1 testnet1 clean
+.PHONY: all build-system-checks deps update p2pd test $(TOOLS) clean_eth2_network_simulation_files eth2_network_simulation clean-testnet0 testnet0 clean-testnet1 testnet1 clean
 
 all: | build-system-checks $(TOOLS)
 
@@ -41,16 +41,6 @@ update: | update-common
 # symlink
 beacon_chain.nims:
 	ln -s beacon_chain.nimble $@
-
-MIN_GO_VER := 1.12
-DISABLE_GO_CHECKS := 0
-go-checks:
-ifeq ($(DISABLE_GO_CHECKS), 0)
-	which go &>/dev/null || { echo "Go compiler not installed. Aborting."; exit 1; }
-	GO_VER="$$(go version | sed -E 's/^.*go([0-9.]+).*$$/\1/')"; \
-	       [[ $$(echo -e "$${GO_VER}\n$(MIN_GO_VER)" | sort -t '.' -k 1,1 -k 2,2 -g | head -n 1) == "$(MIN_GO_VER)" ]] || \
-	       { echo "Minimum Go compiler version required: $(MIN_GO_VER). Version available: $$GO_VER. Aborting."; exit 1; }
-endif
 
 P2PD_CACHE :=
 p2pd: | go-checks
