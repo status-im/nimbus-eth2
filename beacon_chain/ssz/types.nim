@@ -106,19 +106,16 @@ func fixedPortionSize*(T0: type): int {.compileTime.} =
 
   when T is BasicType: sizeof(T)
   elif T is array:
-    const elementCount = high(T).ord - low(T).ord + 1
     type E = ElemType(T)
-    when isFixedSize(E): elementCount * fixedPortionSize(E)
-    else: elementCount * offsetSize
+    when isFixedSize(E): len(T) * fixedPortionSize(E)
+    else: len(T) * offsetSize
   elif T is seq|string|openarray|ref|ptr|Option: offsetSize
   elif T is object|tuple:
-    var res = 0
     enumAllSerializedFields(T):
       when isFixedSize(FieldType):
-        res += fixedPortionSize(FieldType)
+        result += fixedPortionSize(FieldType)
       else:
-        res += offsetSize
-    res
+        result += offsetSize
   else:
     unsupported T0
 
