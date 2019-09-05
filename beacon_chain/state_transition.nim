@@ -66,8 +66,9 @@ proc process_slots*(state: var BeaconState, slot: Slot) =
       process_epoch(state)
     state.slot += 1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#state-root-verification
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
+  # This is inlined in state_transition(...) in spec.
   let state_root = hash_tree_root(state)
   if state_root != blck.state_root:
     notice "Block: root verification failed",
@@ -138,7 +139,7 @@ proc state_transition*(
 # Hashed-state transition functions
 # ---------------------------------------------------------------
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 func process_slot(state: var HashedBeaconState) =
   # Cache state root
   let previous_slot_state_root = state.root
