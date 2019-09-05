@@ -76,7 +76,7 @@ clean_eth2_network_simulation_files:
 	rm -rf tests/simulation/{data,validators}
 
 eth2_network_simulation: | build deps p2pd clean_eth2_network_simulation_files
-	GIT_ROOT="$$PWD" BUILD_OUTPUTS_DIR="./build" tests/simulation/start.sh
+	GIT_ROOT="$$PWD" tests/simulation/start.sh
 
 testnet0 testnet1: | build deps p2pd
 	NIM_PARAMS="$(NIM_PARAMS)" $(ENV_SCRIPT) scripts/build_testnet_node.sh $@
