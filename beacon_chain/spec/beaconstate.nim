@@ -414,19 +414,17 @@ func is_valid_indexed_attestation*(
     ),
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_attesting_indices
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(state: BeaconState,
-                            attestation_data: AttestationData,
+                            data: AttestationData,
                             bits: CommitteeValidatorsBits,
                             stateCache: var StateCache):
                             HashSet[ValidatorIndex] =
-  ## Return the sorted attesting indices corresponding to ``attestation_data``
-  ## and ``bitfield``.
+  # Return the set of attesting indices corresponding to ``data`` and ``bits``.
   result = initSet[ValidatorIndex]()
   let committee =
     get_crosslink_committee(
-      state, attestation_data.target.epoch, attestation_data.crosslink.shard,
-      stateCache)
+      state, data.target.epoch, data.crosslink.shard, stateCache)
   for i, index in committee:
     if bits[i]:
       result.incl index

@@ -100,33 +100,25 @@ type
 
   CustodyBitIndices* = List[uint64, MAX_VALIDATORS_PER_COMMITTEE]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#indexedattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#indexedattestation
   IndexedAttestation* = object
-    # These probably should be seq[ValidatorIndex], but that throws RLP errors
-    custody_bit_0_indices*: CustodyBitIndices
-    custody_bit_1_indices*: CustodyBitIndices
+    custody_bit_0_indices*: CustodyBitIndices ##\
+    ## Indices with custody bit equal to 0
 
-    data*: AttestationData ## \
-    ## Attestation data
+    custody_bit_1_indices*: CustodyBitIndices ##\
+    ## Indices with custody bit equal to 1
 
-    signature*: ValidatorSig ## \
-    ## Aggregate signature
+    data*: AttestationData
+    signature*: ValidatorSig
 
   CommitteeValidatorsBits* = BitList[MAX_VALIDATORS_PER_COMMITTEE]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#attestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#attestation
   Attestation* = object
-    aggregation_bits*: CommitteeValidatorsBits ##\
-    ## Attester aggregation bitfield
-
-    data*: AttestationData ##\
-    ## Attestation data
-
-    custody_bits*: CommitteeValidatorsBits ##\
-    ## Custody bitfield
-
-    signature*: ValidatorSig ##\
-    ## BLS aggregate signature
+    aggregation_bits*: CommitteeValidatorsBits
+    data*: AttestationData
+    custody_bits*: CommitteeValidatorsBits
+    signature*: ValidatorSig
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#checkpoint
   Checkpoint* = object
@@ -356,12 +348,12 @@ type
 
     data_root*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#pendingattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#pendingattestation
   PendingAttestation* = object
-    aggregation_bits*: CommitteeValidatorsBits ## Attester participation bitfield
-    data*: AttestationData                     ## Attestation data
-    inclusion_delay*: uint64                   ## Inclusion delay
-    proposer_index*: uint64                    ## Proposer index
+    aggregation_bits*: CommitteeValidatorsBits
+    data*: AttestationData
+    inclusion_delay*: uint64
+    proposer_index*: uint64
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#historicalbatch
   HistoricalBatch* = object
