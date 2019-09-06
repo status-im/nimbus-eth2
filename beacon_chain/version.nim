@@ -20,6 +20,11 @@ const
     # Clients having different semantic versions won't be able
     # to join the same testnets.
 
+  useInsecureFeatures* = true # defined(insecure)
+    # TODO This is temporarily set to true, so it's easier for other teams to
+    # launch the beacon_node with metrics enabled during the interop lock-in.
+    # We'll disable it once the lock-in is over.
+
 template versionAsStr*: string =
   $versionMajor & "." & $versionMinor & "." & $versionBuild
 

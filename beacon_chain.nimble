@@ -17,19 +17,20 @@ bin           = @[
 
 ### Dependencies
 requires "nim >= 0.19.0",
-  "eth",
-  "nimcrypto",
   "blscurve",
-  "stew",
   "chronicles",
-  "confutils",
-  "serialization",
-  "json_serialization",
-  "json_rpc",
   "chronos",
-  "yaml",
+  "confutils",
+  "eth",
+  "json_rpc",
+  "json_serialization",
   "libp2p",
-  "web3"
+  "metrics",
+  "nimcrypto",
+  "serialization",
+  "stew",
+  "web3",
+  "yaml"
 
 ### Helper functions
 proc buildBinary(name: string, srcDir = "./", params = "", cmdParams = "", lang = "c") =
