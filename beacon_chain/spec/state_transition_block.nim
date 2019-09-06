@@ -247,14 +247,6 @@ func get_attesting_indices(
     result = result.union(get_attesting_indices(
       state, a.data, a.aggregation_bits, stateCache))
 
-func get_unslashed_attesting_indices(
-    state: BeaconState, attestations: openarray[PendingAttestation],
-    stateCache: var StateCache): HashSet[ValidatorIndex] =
-  result = get_attesting_indices(state, attestations, stateCache)
-  for index in result:
-    if state.validators[index].slashed:
-      result.excl index
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#attestations
 proc processAttestations*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
