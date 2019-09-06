@@ -14,9 +14,9 @@ type
 proc fetchAncestorBlocksFromPeer(peer: Peer, rec: FetchRecord, responseHandler: FetchAncestorsResponseHandler) {.async.} =
   # TODO: (zah) Why are we specifying `GENESIS_SLOT` here?
   #             I'm not sure what this meant for the old code.
-  let blocksResp = await peer.getBeaconBlocks(rec.root, GENESIS_SLOT, rec.historySlots, 0'u64)
-  if blocksResp.isSome:
-    for b in blocksResp.get.blocks:
+  let blocks = await peer.getBeaconBlocksSpec(rec.root, GENESIS_SLOT, rec.historySlots, 0'u64, true)
+  if blocks.isSome:
+    for b in blocks.get:
       responseHandler(b)
 
 proc fetchAncestorBlocks*(requestManager: RequestManager,
