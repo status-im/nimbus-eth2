@@ -18,7 +18,7 @@
 # types / composition
 
 import
-  macros, hashes, math, json, strutils, tables,
+  macros, hashes, math, json, strutils,
   stew/[byteutils, bitseqs], chronicles, eth/common,
   ../version, ../ssz/types, ./crypto, ./digest
 
@@ -393,14 +393,6 @@ type
   HashedBeaconState* = object
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root (not signing_root!)
-
-  StateCache* = object
-    crosslink_committee_cache*:
-      Table[tuple[a: int, b: Eth2Digest], seq[ValidatorIndex]]
-    active_validator_indices_cache*:
-      Table[Epoch, seq[ValidatorIndex]]
-    start_shard_cache*: Table[Epoch, Shard]
-    committee_count_cache*: Table[Epoch, uint64]
 
 when networkBackend == rlpxBackend:
   import eth/rlp/bitseqs as rlpBitseqs
