@@ -206,6 +206,14 @@ type
     ## The block associated with the state found in data - in particular,
     ## blck.state_root == rdata.root
 
+  StateCache* = object
+    crosslink_committee_cache*:
+      Table[tuple[a: int, b: Eth2Digest], seq[ValidatorIndex]]
+    active_validator_indices_cache*:
+      Table[Epoch, seq[ValidatorIndex]]
+    start_shard_cache*: Table[Epoch, Shard]
+    committee_count_cache*: Table[Epoch, uint64]
+
   BlockSlot* = object
     ## Unique identifier for a particular fork in the block chain - normally,
     ## there's a block for every slot, but in the case a block is not produced,
