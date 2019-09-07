@@ -17,6 +17,7 @@ fi
 if command -v jq; then
   genesis_time=$(jq '.genesis_time' data/state_snapshot.json)
 else
+  # grep -P adds json parsing, requires the jq package
   genesis_time=$(grep -oP '(?<=genesis_time": )\w+(?=,)' data/state_snapshot.json)
 fi
 
