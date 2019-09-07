@@ -16,7 +16,7 @@ cd "$GIT_ROOT"
 
 make update deps
 
-NIMFLAGS="-d:chronicles_log_level=DEBUG --hints:off --warnings:off --opt:speed --debuginfo"
+NIMFLAGS="-d:chronicles_log_level=DEBUG --hints:off --warnings:off --opt:speed --debuginfo -d:serialization_tracing"
 
 # For interop, we run the minimal config
 DEFS="-d:const_preset=minimal"

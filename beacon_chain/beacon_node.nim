@@ -797,6 +797,8 @@ proc start(node: BeaconNode, headState: BeaconState) =
   node.addLocalValidators(headState)
   node.run()
 
+import serialization/testing/tracing
+
 when isMainModule:
   randomize()
   let config = BeaconNodeConf.load(version = fullVersionStr())
@@ -833,13 +835,21 @@ when isMainModule:
       initialState = initialize_beacon_state_from_eth1(
         eth1BlockHash, startTime, deposits, {skipValidation})
 
+    # startTime = 1567816020
+
     # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
     initialState.genesis_time = startTime
 
     doAssert initialState.validators.len > 0
 
-    Json.saveFile(config.outputGenesis.string, initialState, pretty = true)
+    Json.saveFile(config.outputGenesis.string , initialState, pretty = true)
     echo "Wrote ", config.outputGenesis.string
+
+    let sszGenesis = config.outputGenesis.string.changeFileExt "ssz"
+    SSZ.saveFile(sszGenesis, initialState)
+    echo "Wrote ", sszGenesis
+
+    echo "Genesis state eth1_deposit index: ", initialState.eth1_deposit_index
 
     var
       bootstrapAddress = getPersistenBootstrapAddr(
@@ -858,6 +868,10 @@ when isMainModule:
 
     Json.saveFile(config.outputNetwork.string, testnetMetadata, pretty = true)
     echo "Wrote ", config.outputNetwork.string
+
+    when defined(serialization_tracing):
+      tracingEnabled = true
+      echo hash_tree_root(BeaconBlockBody())
 
   of updateTestnet:
     discard waitFor updateTestnetMetadata(config)
