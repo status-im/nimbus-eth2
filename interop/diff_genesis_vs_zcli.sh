@@ -15,9 +15,10 @@ fi
 
 # Fetch genesis time, as set up by start.sh
 if command -v jq; then
+  # requires the jq package for json parsing
   genesis_time=$(jq '.genesis_time' data/state_snapshot.json)
 else
-  # grep -P adds json parsing, requires the jq package
+  # grep -P for perl parsing, not available on Mac
   genesis_time=$(grep -oP '(?<=genesis_time": )\w+(?=,)' data/state_snapshot.json)
 fi
 
