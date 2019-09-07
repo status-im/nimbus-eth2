@@ -86,6 +86,18 @@ type
               "If you set this to 'auto', a persistent automatically generated ID will be seleceted for each --dataDir folder"
         defaultValue: ""}: string
 
+      metricsServer* {.
+        desc: "Enable the metrics server"
+        defaultValue: false.}: bool
+
+      metricsServerAddress* {.
+        desc: "Listening address of the metrics server"
+        defaultValue: "0.0.0.0".}: string # TODO: use a validated type here
+
+      metricsServerPort* {.
+        desc: "Listening HTTP port of the metrics server"
+        defaultValue: 8008 .}: uint16
+
     of createTestnet:
       networkId* {.
         desc: "An unique numeric identifier for the network".}: uint8
