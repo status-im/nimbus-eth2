@@ -15,8 +15,9 @@ import # Unit test
   ./test_interop,
   ./test_ssz,
   ./test_state_transition,
-  ./test_sync_protocol
+  ./test_sync_protocol,
   # ./test_validator # Empty!
+  ./test_zero_signature
 
 import # Refactor state transition unit tests
   ./spec_block_processing/test_genesis,
