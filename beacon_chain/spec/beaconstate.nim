@@ -230,18 +230,18 @@ func initialize_beacon_state_from_eth1*(
       Eth1Data(block_hash: eth1_block_hash, deposit_count: uint64(len(deposits))),
     latest_block_header:
       BeaconBlockHeader(
-        body_root: hash_tree_root(BeaconBlockBody()),
-        # TODO - Pure BLSSig cannot be zero: https://github.com/status-im/nim-beacon-chain/issues/374
-        signature: BlsValue[Signature](kind: OpaqueBlob)
-      )
-  )
+        body_root: hash_tree_root(BeaconBlockBody(
+          # TODO: This shouldn't be necessary if OpaqueBlob is the default
+          randao_reveal: ValidatorSig(kind: OpaqueBlob))),
+        # TODO: This shouldn't be necessary if OpaqueBlob is the default
+        signature: BlsValue[Signature](kind: OpaqueBlob)))
 
   # Process deposits
   let leaves = deposits.mapIt(it.data)
   for i, deposit in deposits:
     let deposit_data_list = leaves[0..i]
     state.eth1_data.deposit_root = hash_tree_root(
-      sszList(deposit_data_list, 2'i64^DEPOSIT_CONTRACT_TREE_DEPTH))
+      sszList(deposit_data_list, (2'i64^DEPOSIT_CONTRACT_TREE_DEPTH) + 1))
 
     discard process_deposit(state, deposit, flags)
 
@@ -262,7 +262,7 @@ func initialize_beacon_state_from_eth1*(
   let active_index_root = hash_tree_root(
     sszList(
       get_active_validator_indices(state, GENESIS_EPOCH),
-      VALIDATOR_REGISTRY_LIMIT))
+      VALIDATOR_REGISTRY_LIMIT + 1))
 
   let committee_root = get_compact_committees_root(state, GENESIS_EPOCH)
   for index in 0 ..< EPOCHS_PER_HISTORICAL_VECTOR:
