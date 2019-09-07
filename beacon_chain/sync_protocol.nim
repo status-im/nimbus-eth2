@@ -1,12 +1,14 @@
 import
   options, tables, sequtils, algorithm, sets, macros,
-  chronicles, chronos, stew/ranges/bitranges,
+  chronicles, chronos, metrics, stew/ranges/bitranges,
   spec/[datatypes, crypto, digest, helpers], eth/rlp,
   beacon_node_types, eth2_network, beacon_chain_db, block_pool, time, ssz
 
 when networkBackend == rlpxBackend:
   import eth/rlp/options as rlpOptions
   template libp2pProtocol*(name: string, version: int) {.pragma.}
+
+declareGauge libp2p_peers, "Number of libp2p peers"
 
 type
   ValidatorSetDeltaFlags {.pure.} = enum
@@ -108,6 +110,7 @@ p2pProtocol BeaconSync(version = 1,
     # where it needs to sync and it should execute the sync algorithm with a certain
     # number of randomly selected peers. The algorithm itself must be extracted in a proc.
     try:
+      libp2p_peers.set peer.network.peers.len.int64
       debug "Peer connected. Initiating sync", peer, bestSlot, remoteBestSlot = m.bestSlot
 
       let bestDiff = cmp((latestFinalizedEpoch, bestSlot), (m.latestFinalizedEpoch, m.bestSlot))
@@ -139,6 +142,9 @@ p2pProtocol BeaconSync(version = 1,
 
     except CatchableError:
       warn "Failed to sync with peer", peer, err = getCurrentExceptionMsg()
+
+  onPeerDisconnected do (peer: Peer):
+    libp2p_peers.set peer.network.peers.len.int64
 
   handshake:
     proc hello(

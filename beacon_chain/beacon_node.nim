@@ -1,7 +1,7 @@
 import
   net, sequtils, options, tables, osproc, random, strutils, times, strformat,
   stew/shims/os, stew/[objects, bitseqs],
-  chronos, chronicles, confutils,
+  chronos, chronicles, confutils, metrics,
   json_serialization/std/sets, serialization/errors,
   eth/trie/db, eth/trie/backends/rocksdb_backend, eth/async_utils,
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator,
@@ -22,6 +22,28 @@ const
   networkMetadataFile = "network.json"
   genesisFile = "genesis.json"
   testnetsBaseUrl = "https://serenity-testnets.status.im"
+
+declareGauge beacon_slot, "Latest slot of the beacon chain state"
+declareGauge beacon_head_slot, "Slot of the head block of the beacon chain"
+declareGauge beacon_head_root, "Root of the head block of the beacon chain"
+
+# TODO Implement these additional metrics (some of the them should be moved to different modules):
+declareGauge beacon_finalized_epoch, "Current finalized epoch" # On epoch transition
+declareGauge beacon_finalized_root, "Current finalized root" # On epoch transition
+declareGauge beacon_current_justified_epoch, "Current justified epoch" # On epoch transition
+declareGauge beacon_current_justified_root, "Current justified root" # On epoch transition
+declareGauge beacon_previous_justified_epoch, "Current previously justified epoch" # On epoch transition
+declareGauge beacon_previous_justified_root, "Current previously justified root" # On epoch transition
+
+declareGauge beacon_current_validators, """Number of status="pending|active|exited|withdrawable" validators in current epoch""" # On epoch transition
+declareGauge beacon_previous_validators, """Number of status="pending|active|exited|withdrawable" validators in previous epoch""" # On epoch transition
+declareGauge beacon_current_live_validators, "Number of active validators that successfully included attestation on chain for current epoch" # On block
+declareGauge beacon_previous_live_validators, "Number of active validators that successfully included attestation on chain for previous epoch" # On block
+declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
+declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
+declareGauge beacon_pending_exits, "Number of pending voluntary exits in local operation pool" # On slot
+declareGauge beacon_previous_epoch_orphaned_blocks, "Number of blocks orphaned in the previous epoch" # On epoch transition
+declareCounter beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # On fork choice
 
 proc onBeaconBlock*(node: BeaconNode, blck: BeaconBlock) {.gcsafe.}
 
@@ -212,6 +234,12 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   result.network.saveConnectionAddressFile(addressFile)
   result.beaconClock = BeaconClock.init(result.stateCache.data.data)
 
+  when useInsecureFeatures:
+    if conf.metricsServer:
+      let metricsAddress = conf.metricsServerAddress
+      info "Starting metrics HTTP server", address = metricsAddress, port = conf.metricsServerPort
+      metrics.startHttpServer(metricsAddress, Port(conf.metricsServerPort))
+
 template withState(
     pool: BlockPool, cache: var StateData, blockSlot: BlockSlot, body: untyped): untyped =
   ## Helper template that updates state to a particular BlockSlot - usage of
@@ -296,6 +324,9 @@ proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
     newHeadBlockRoot = shortLog(newHead.root)
 
   node.blockPool.updateHead(node.stateCache, newHead)
+  beacon_head_slot.set slot.int64
+  beacon_head_root.set newHead.root.toGaugeValue
+
   newHead
 
 proc sendAttestation(node: BeaconNode,
@@ -588,6 +619,8 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   let
     slot = wallSlot.slot # afterGenesis == true!
     nextSlot = slot + 1
+
+  beacon_slot.set slot.int64
 
   if slot > lastSlot + SLOTS_PER_EPOCH:
     # We've fallen behind more than an epoch - there's nothing clever we can
