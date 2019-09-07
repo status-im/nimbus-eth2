@@ -280,6 +280,18 @@ proc readValue*[T](r: var SszReader, val: var SizePrefixed[T]) =
                        "Maximum SSZ object size exceeded: " & $length)
   val = readSszValue(r.stream.readBytes(length), T)
 
+# TODO: make readValue in crypto.nim generic
+#       https://github.com/status-im/nim-beacon-chain/pull/395
+proc readValue*(reader: var SszReader, value: var ValidatorSig) {.inline.} =
+  debugEcho "read"
+  readValueImpl(reader, value)
+
+# TODO: make writeValue in crypto.nim generic
+#       https://github.com/status-im/nim-beacon-chain/pull/395
+proc writeValue*(writer: var SszWriter, value: ValidatorSig) {.inline.} =
+  debugEcho "write"
+  writeValueImpl(writer, value)
+
 const
   zeroChunk = default array[32, byte]
 

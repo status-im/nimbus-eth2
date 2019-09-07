@@ -103,6 +103,9 @@ suite "Beacon chain DB" & preset():
 
     db.putState(state)
 
+    echo "root: ", root
+    echo "db: ", db.getState(root).get().hash_tree_root()
+
     check:
       db.containsState(root)
       db.getState(root).get() == state

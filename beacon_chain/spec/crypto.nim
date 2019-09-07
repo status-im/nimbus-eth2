@@ -240,7 +240,10 @@ proc writeValue*(writer: var JsonWriter, value: ValidatorPubKey) {.inline.} =
 proc readValue*(reader: var JsonReader, value: var ValidatorPubKey) {.inline.} =
   value.initFromBytes(fromHex reader.readValue(string))
 
-proc writeValue*(writer: var JsonWriter, value: ValidatorSig) {.inline.} =
+template writeValueImpl*(writer: var typed, value: ValidatorSig) =
+  # TODO: ueric writer is tricky because with generic instantiation
+  # crypto.nim must be visible in instantiation site and in other places
+
   when value is BlsValue:
     if value.kind == Real:
       writer.writeValue($value.blsValue)
@@ -252,8 +255,14 @@ proc writeValue*(writer: var JsonWriter, value: ValidatorSig) {.inline.} =
   else:
     writer.writeValue($value)
 
-proc readValue*(reader: var JsonReader, value: var ValidatorSig) {.inline.} =
+proc writeValue*(writer: var JsonWriter, value: ValidatorSig) {.inline.} =
+  writeValueImpl(writer, value)
+
+template readValueImpl*(reader: typed, value: var ValidatorSig) =
   value.initFromBytes(fromHex reader.readValue(string))
+
+proc readValue*(reader: var JsonReader, value: var ValidatorSig) {.inline.} =
+  readValueImpl(reader, value)
 
 proc writeValue*(writer: var JsonWriter, value: ValidatorPrivKey) {.inline.} =
   when value is BlsValue:
