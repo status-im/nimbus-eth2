@@ -60,6 +60,9 @@ export
 
 type
   BlsValueType* = enum
+    # TODO `OpaqueBlob` should probably be the default, because a default
+    # constructed value is not a valid signature and it must be serialized
+    # as zeros according to the SSZ spec.
     Real
     OpaqueBlob
 
@@ -67,13 +70,13 @@ type
     # TODO This is a temporary type needed until we sort out the
     # issues with invalid BLS values appearing in the SSZ test suites.
     case kind*: BlsValueType
-    of Real:
-      blsValue*: T
     of OpaqueBlob:
       when T is blscurve.Signature:
         blob*: array[96, byte]
       else:
         blob*: array[48, byte]
+    of Real:
+      blsValue*: T
 
   ValidatorPubKey* = BlsValue[blscurve.VerKey]
   # ValidatorPubKey* = blscurve.VerKey
