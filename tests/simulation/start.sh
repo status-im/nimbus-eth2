@@ -21,7 +21,7 @@ cd "$GIT_ROOT"
 
 make update deps
 
-NIMFLAGS="-d:chronicles_log_level=DEBUG --opt:speed --debuginfo"
+NIMFLAGS="-d:chronicles_log_level=DEBUG --warnings:off --hints:off --opt:speed"
 
 # Run with "SHARD_COUNT=4 ./start.sh" to change these
 DEFS=""
@@ -34,7 +34,6 @@ LAST_VALIDATOR_NUM=$(( NUM_VALIDATORS - 1 ))
 LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.json"
 
 [[ -x "$BEACON_NODE_BIN" ]] || {
-  echo "Working directory: $(pwd)"
   echo "Building $BEACON_NODE_BIN ($DEFS)"
   nim c -o:"$BEACON_NODE_BIN" $NIMFLAGS $DEFS beacon_chain/beacon_node
 }
