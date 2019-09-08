@@ -199,8 +199,10 @@ func get_compact_committees_root*(state: BeaconState, epoch: Epoch): Eth2Digest 
 
   hash_tree_root(committees)
 
+import serialization/testing/tracing
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#genesis
-func initialize_beacon_state_from_eth1*(
+proc initialize_beacon_state_from_eth1*(
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
     deposits: openArray[Deposit],
@@ -240,8 +242,12 @@ func initialize_beacon_state_from_eth1*(
   let leaves = deposits.mapIt(it.data)
   for i, deposit in deposits:
     let deposit_data_list = leaves[0..i]
+
+    # tracingEnabled = true
     state.eth1_data.deposit_root = hash_tree_root(
       sszList(deposit_data_list, (2'i64^DEPOSIT_CONTRACT_TREE_DEPTH) + 1))
+    debugEcho("DEPOSIT ROOT ", state.eth1_data.deposit_root)
+    tracingEnabled = false
 
     discard process_deposit(state, deposit, flags)
 

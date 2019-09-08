@@ -797,8 +797,6 @@ proc start(node: BeaconNode, headState: BeaconState) =
   node.addLocalValidators(headState)
   node.run()
 
-import serialization/testing/tracing
-
 when isMainModule:
   randomize()
   let config = BeaconNodeConf.load(version = fullVersionStr())
@@ -828,7 +826,6 @@ when isMainModule:
         stderr.write err.formatMsg(depositFile), "\n"
         stderr.write "Please regenerate the deposit files by running makeDeposits again\n"
         quit 1
-
 
     var
       startTime = uint64(times.toUnix(times.getTime()) + config.genesisOffset)
@@ -869,10 +866,6 @@ when isMainModule:
 
     Json.saveFile(config.outputNetwork.string, testnetMetadata, pretty = true)
     echo "Wrote ", config.outputNetwork.string
-
-    when defined(serialization_tracing):
-      tracingEnabled = true
-      echo hash_tree_root(BeaconBlockBody())
 
   of updateTestnet:
     discard waitFor updateTestnetMetadata(config)

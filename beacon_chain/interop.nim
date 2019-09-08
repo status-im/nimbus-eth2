@@ -62,4 +62,10 @@ func makeDeposit*(
       bls_sign(
         privkey, signing_root(ret.data).data, compute_domain(DOMAIN_DEPOSIT))
 
+  when defined(serialization_tracing):
+    debugEcho "privkey ", privkey
+    debugEcho "signing root ", signing_root(ret.data)
+    debugEcho "domain ", compute_domain(DOMAIN_DEPOSIT)
+    debugEcho "deposit signature ", ret.data.signature
+
   ret
