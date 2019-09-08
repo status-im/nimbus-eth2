@@ -45,8 +45,7 @@ proc signAttestation*(v: AttachedValidator,
     let attestationRoot = hash_tree_root(attestation)
     # TODO: Avoid the allocations belows
     var dataToSign = @(attestationRoot.data) & @[0'u8]
-    # TODO: Use `domain` here
-    let domain = 0'u64
+    let domain = compute_domain(DOMAIN_ATTESTATION)
     result = bls_sign(v.privKey, dataToSign, domain)
   else:
     # TODO:
