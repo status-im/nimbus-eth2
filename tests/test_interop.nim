@@ -1,7 +1,7 @@
 import
   unittest, stint, blscurve, stew/byteutils,
-  ../beacon_chain/interop,
-  ../beacon_chain/spec/[digest, crypto, helpers, datatypes]
+  ../beacon_chain/[extras, interop, ssz],
+  ../beacon_chain/spec/[beaconstate, digest, crypto, helpers, datatypes]
 
 # Interop test yaml, found here:
 # https://github.com/ethereum/eth2.0-pm/blob/a0b9d22fad424574b1307828f867b30237758468/interop/mocked_start/keygen_10_validators.yaml
@@ -134,3 +134,31 @@ suite "Interop":
 
       check:
         dep.sig == computed_sig
+
+  test "Interop genesis":
+    # Check against https://github.com/protolambda/zcli:
+    # zcli keys generate --to 64 | zcli genesis mock --genesis-time 1570500000 > /tmp/state.ssz
+    # zcli hash-tree-root /tmp.state.ssz
+    var deposits: seq[Deposit]
+
+    for i in 0..<64:
+      let
+        privKey = makeInteropPrivKey(i)
+      deposits.add(makeDeposit(privKey.pubKey(), privKey))
+
+    var
+      initialState = initialize_beacon_state_from_eth1(
+        eth1BlockHash, 1570500000, deposits, {skipValidation})
+
+    # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
+    initialState.genesis_time = 1570500000
+
+    let expected =
+      when const_preset == "minimal":
+        "029836dbceb95c20b101f8f44470604c0912e96949aaf1dd9ad41effd92abcbf"
+      elif const_preset == "mainnet":
+        "9cd22b0ea2ec836fef591d259f0d4273669cba4c82df32cf0aa55c388ff7e432"
+      else:
+        "unimplemented"
+    check:
+      hash_tree_root(initialState).data.toHex() == expected
