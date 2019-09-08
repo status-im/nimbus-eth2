@@ -11,6 +11,11 @@ import
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
   ../beacon_chain/[extras, state_transition, ssz]
 
+# TODO: Outdated (?) - crashes
+#   - https://github.com/status-im/nim-beacon-chain/pull/406
+#   - https://github.com/status-im/nim-beacon-chain/pull/403
+#     - PR 403, 399, 395
+
 suite "Block processing" & preset():
   ## For now just test that we can compile and execute block processing with
   ## mock data.
