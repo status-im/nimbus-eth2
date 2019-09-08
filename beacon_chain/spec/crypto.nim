@@ -220,7 +220,7 @@ proc fromBytes*[T](R: type BlsValue[T], bytes: openarray[byte]): R =
     R(kind: OpaqueBlob, blob: toArray(result.blob.len, bytes))
   else:
     if bytes.allIt(it == 0):
-      R(kind: Real)
+      R(kind: OpaqueBlob)
     else:
       R(kind: Real, blsValue: init(T, bytes))
 
