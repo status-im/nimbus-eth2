@@ -11,6 +11,8 @@ import
   ../beacon_chain/extras,
   ../beacon_chain/spec/[beaconstate, datatypes, digest]
 
+# TODO: outdated (?) - crashes in https://github.com/status-im/nim-beacon-chain/pull/406
+
 suite "Beacon state" & preset():
   test "Smoke test initialize_beacon_state_from_eth1" & preset():
     let state = initialize_beacon_state_from_eth1(
