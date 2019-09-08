@@ -12,7 +12,9 @@ type
   FetchAncestorsResponseHandler = proc (b: BeaconBlock) {.gcsafe.}
 
 proc fetchAncestorBlocksFromPeer(peer: Peer, rec: FetchRecord, responseHandler: FetchAncestorsResponseHandler) {.async.} =
-  let blocks = await peer.getBeaconBlocks(rec.root, GENESIS_SLOT, rec.historySlots, 0, true)
+  # TODO: (zah) Why are we specifying `GENESIS_SLOT` here?
+  #             I'm not sure what this meant for the old code.
+  let blocks = await peer.getBeaconBlocksSpec(rec.root, GENESIS_SLOT, rec.historySlots, 0'u64, true)
   if blocks.isSome:
     for b in blocks.get:
       responseHandler(b)

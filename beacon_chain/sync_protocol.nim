@@ -81,6 +81,10 @@ proc getBeaconBlocks*(peer: Peer,
                       maxBlocks, skipSlots: uint64,
                       backward: bool): Future[Option[seq[BeaconBlock]]] {.gcsafe, async.}
 
+proc getBeaconBlocksSpec*(peer: Peer, blockRoot: Eth2Digest,
+                          slot: Slot, maxBlocks, skipSlots: uint64,
+             backward: bool): Future[Option[seq[BeaconBlock]]] {.gcsafe, async.}
+
 p2pProtocol BeaconSync(version = 1,
                        rlpxName = "bcs",
                        networkState = BeaconSyncState):
@@ -125,7 +129,7 @@ p2pProtocol BeaconSync(version = 1,
         while s <= m.bestSlot:
           debug "Waiting for block headers", fromPeer = peer, remoteBestSlot = m.bestSlot, peer
           let headersLeft = uint64(m.bestSlot - s)
-          let blocks = await peer.getBeaconBlocks(bestRoot, s, min(headersLeft, MaxHeadersToRequest), 0, false)
+          let blocks = await peer.getBeaconBlocksSpec(bestRoot, s, min(headersLeft, MaxHeadersToRequest), 0, false)
           if blocks.isSome:
             if blocks.get.len == 0:
               info "Got 0 blocks while syncing", peer
@@ -162,20 +166,39 @@ p2pProtocol BeaconSync(version = 1,
             libp2pProtocol("/eth2/beacon_chain/req/goodbye", 1).}
 
   requestResponse:
-    proc getBeaconBlocks(
+    proc getBeaconBlocksReq(
             peer: Peer,
             headBlockRoot: Eth2Digest,
+            start_slot: uint64,
             count: uint64,
             step: uint64) {.
             libp2pProtocol("/eth2/beacon_chain/req/beacon_blocks", 1).} =
-
-      var blocks = newSeq[Option[BeaconBlock]](int count)
-      let db = peer.networkState.db
-
-      blocks[0] = db.getBlock(headBlockRoot)
-      if isSome(blocks[0]):
-        for i in uint64(1) ..< count:
-          blocks[i.int] = db.getBlock(Slot(blocks[0].get.slot.uint64 + i * step))
+      ## TODO: procedure was renamed from `getBeaconBlocks()` to
+      ## `getBeaconBlocksReq()`, because `getBeaconBlocks()` already exists.
+      var blocks: seq[BeaconBlock]
+      # `step == 0` has no sense, so we will return empty array of blocks.
+      # `count == 0` means that empty array of blocks requested.
+      #
+      # Current version of network specification do not cover case when
+      # `start_slot` is empty, in such case we will return next available slot
+      # which is follows `start_slot + step` sequence. For example for, if
+      # `start_slot` is 2 and `step` is 2 and slots 2, 4, 6 are not available,
+      # then [8, 10, ...] will be returned.
+      if step > 0'u64 and count > 0'u64:
+        let pool = peer.networkState.node.blockPool
+        var blck = pool.getRef(headBlockRoot)
+        var slot = start_slot
+        while not(isNil(blck)):
+          if blck.slot == slot:
+            blocks.add(pool.get(blck).data)
+            slot = slot + step
+          elif blck.slot > slot:
+            if (blck.slot - slot) mod step == 0:
+              blocks.add(pool.get(blck).data)
+            slot = slot + ((blck.slot - slot) div step + 1) * step
+          if uint64(len(blocks)) == count:
+            break
+          blck = blck.parent
 
       await response.send(blocks)
 
@@ -183,18 +206,21 @@ p2pProtocol BeaconSync(version = 1,
             peer: Peer,
             blockRoots: openarray[Eth2Digest]) {.
             libp2pProtocol("/eth2/beacon_chain/req/recent_beacon_blocks", 1).} =
+      let pool = peer.networkState.node.blockPool
+      var blocks = newSeq[BeaconBlock](len(blockRoots))
 
-      var blocks = newSeqOfCap[Option[BeaconBlock]](blockRoots.len)
-      let db = peer.networkState.db
-
+      var index = 0
       for root in blockRoots:
-        blocks.add db.getBlock(root)
+        let blockRef = pool.getRef(root)
+        if not(isNil(blockRef)):
+          blocks[index] = pool.get(blockRef).data
+        inc(index)
 
       await response.send(blocks)
 
     proc beaconBlocks(
             peer: Peer,
-            blocks: openarray[Option[BeaconBlock]])
+            blocks: openarray[BeaconBlock])
 
   requestResponse:
     proc getBeaconBlockRoots(
@@ -337,7 +363,8 @@ proc getBeaconBlocks*(peer: Peer,
                       slot: Slot,
                       maxBlocks, skipSlots: uint64,
                       backward: bool): Future[Option[seq[BeaconBlock]]] {.async.} =
-  ## Retrieve block headers and block bodies from the remote peer, merge them into blocks.
+  ## Retrieve block headers and block bodies from the remote peer,
+  ## merge them into blocks.
   assert(maxBlocks <= MaxHeadersToRequest)
   let headersResp = await peer.getBeaconBlockHeaders(blockRoot, slot, maxBlocks, skipSlots, backward)
   if headersResp.isNone: return
@@ -358,3 +385,16 @@ proc getBeaconBlocks*(peer: Peer,
 
   result = mergeBlockHeadersAndBodies(headers, bodiesResp.get.blockBodies)
   # If result.isNone: disconnect with BreachOfProtocol?
+
+proc getBeaconBlocksSpec*(peer: Peer, blockRoot: Eth2Digest, slot: Slot,
+                          maxBlocks, skipSlots: uint64,
+                   backward: bool): Future[Option[seq[BeaconBlock]]] {.async.} =
+  ## Retrieve blocks from the remote peer, according to new network
+  ## specification.
+  doAssert(maxBlocks <= MaxHeadersToRequest)
+  var startSlot = uint64(slot) + skipSlots
+  var blocksResp = await peer.getBeaconBlocksReq(blockRoot, startSlot,
+                                                 maxBlocks, 1'u64)
+  let blocks = blocksResp.get.blocks
+  info "Peer returned blocks", peer, count = len(blocks)
+  result = some(blocks)
