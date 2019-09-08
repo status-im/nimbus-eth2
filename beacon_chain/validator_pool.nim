@@ -28,41 +28,39 @@ proc getValidator*(pool: ValidatorPool,
 proc signBlockProposal*(v: AttachedValidator, state: BeaconState, slot: Slot,
                         blockRoot: Eth2Digest): Future[ValidatorSig] {.async.} =
   if v.kind == inProcess:
-    await sleepAsync(chronos.milliseconds(1))
-    result = bls_sign(v.privKey, blockRoot.data,
-      get_domain(state, DOMAIN_BEACON_PROPOSER, compute_epoch_of_slot(slot)))
+    await sleepAsync(chronos.milliseconds(0))
+
+    let domain =
+      get_domain(state, DOMAIN_BEACON_PROPOSER, compute_epoch_of_slot(slot))
+    result = bls_sign(v.privKey, blockRoot.data, domain)
   else:
-    # TODO:
-    # send RPC
-    discard
+    error "Unimplemented"
+    quit 1
 
 proc signAttestation*(v: AttachedValidator,
                       attestation: AttestationData,
                       state: BeaconState): Future[ValidatorSig] {.async.} =
   # TODO: implement this
   if v.kind == inProcess:
-    await sleepAsync(chronos.milliseconds(1))
+    await sleepAsync(chronos.milliseconds(0))
 
-    let attestationRoot = hash_tree_root(attestation)
-    # TODO: Avoid the allocations belows
-    var dataToSign = @(attestationRoot.data) & @[0'u8]
-    let domain = get_domain(
-      state,
-      DOMAIN_ATTESTATION,
-      attestation.target.epoch
-    )
-    result = bls_sign(v.privKey, dataToSign, domain)
+    let
+      attestationRoot = hash_tree_root(attestation)
+      domain = get_domain(state, DOMAIN_ATTESTATION, attestation.target.epoch)
+    result = bls_sign(v.privKey, attestationRoot.data, domain)
   else:
-    # TODO:
-    # send RPC
-    discard
+    error "Unimplemented"
+    quit 1
 
 func genRandaoReveal*(k: ValidatorPrivKey, state: BeaconState, slot: Slot):
     ValidatorSig =
   # Off-by-one? I often get slot == state.slot but the check was "doAssert slot > state.slot" (Mamy)
   doAssert slot >= state.slot, "input slot: " & $shortLog(slot) & " - beacon state slot: " & $shortLog(state.slot)
-  bls_sign(k, hash_tree_root(compute_epoch_of_slot(slot).uint64).data,
-    get_domain(state, DOMAIN_RANDAO, compute_epoch_of_slot(slot)))
+
+  let
+    randaoRoot = hash_tree_root(compute_epoch_of_slot(slot).uint64)
+    domain = get_domain(state, DOMAIN_RANDAO, compute_epoch_of_slot(slot))
+  bls_sign(k, randaoRoot.data, domain)
 
 func genRandaoReveal*(v: AttachedValidator, state: BeaconState, slot: Slot):
     ValidatorSig =
