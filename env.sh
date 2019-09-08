@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# We use ${BASH_SOURCE[0]} instead of $0 to allow sourcing this file
-# and we fall back to a Zsh-specific special var to also support Zsh.
-REL_PATH="$(dirname ${BASH_SOURCE[0]:-${(%):-%x}})"
-ABS_PATH="$(cd ${REL_PATH}; pwd)"
+# https://unix.stackexchange.com/a/76518
+export REL_PATH=`dirname "$0"`
+export ABS_PATH=`exec 2>/dev/null;(cd -- "$REL_PATH") && cd -- "$REL_PATH"|| cd "$REL_PATH"; unset PWD; /usr/bin/pwd || /bin/pwd || pwd`
+
 source ${ABS_PATH}/vendor/nimbus-build-system/scripts/env.sh
 
