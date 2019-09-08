@@ -245,7 +245,7 @@ proc initialize_beacon_state_from_eth1*(
 
     # tracingEnabled = true
     state.eth1_data.deposit_root = hash_tree_root(
-      sszList(deposit_data_list, (2'i64^DEPOSIT_CONTRACT_TREE_DEPTH) + 1))
+      sszList(deposit_data_list, (2'i64^DEPOSIT_CONTRACT_TREE_DEPTH)))
     debugEcho("DEPOSIT ROOT ", state.eth1_data.deposit_root)
     tracingEnabled = false
 
