@@ -38,9 +38,8 @@ proc signBlockProposal*(v: AttachedValidator, state: BeaconState, slot: Slot,
         get_domain(state, DOMAIN_BEACON_PROPOSER, compute_epoch_of_slot(slot))
     result = bls_sign(v.privKey, blockRoot.data, domain)
   else:
-    # TODO:
-    # send RPC
-    discard
+    error "Unimplemented"
+    quit 1
 
 proc signAttestation*(v: AttachedValidator,
                       attestation: AttestationData,
@@ -58,9 +57,8 @@ proc signAttestation*(v: AttachedValidator,
 
     result = bls_sign(v.privKey, attestationRoot.data, domain)
   else:
-    # TODO:
-    # send RPC
-    discard
+    error "Unimplemented"
+    quit 1
 
 func genRandaoReveal*(k: ValidatorPrivKey, state: BeaconState, slot: Slot):
     ValidatorSig =
