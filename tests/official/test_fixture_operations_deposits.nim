@@ -27,7 +27,7 @@ template runTest(testName: string, identifier: untyped) =
 
   const testDir = OperationsDepositsDir / astToStr(identifier)
 
-  proc `testImpl _ blck _ identifier`() =
+  proc `testImpl _ operations_deposits _ identifier`() =
 
     var flags: UpdateFlags
     var prefix: string
@@ -58,7 +58,7 @@ template runTest(testName: string, identifier: untyped) =
         let done = process_deposit(stateRef[], depositRef[], flags)
         reportDiff(stateRef, postRef)
 
-  `testImpl _ blck _ identifier`()
+  `testImpl _ operations_deposits _ identifier`()
 
 suite "Official - Operations - Deposits " & preset():
   runTest("new deposit under max", new_deposit_under_max)
