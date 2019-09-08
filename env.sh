@@ -11,8 +11,5 @@ fi
 export REL_PATH=`dirname "$script"`
 export ABS_PATH=`exec 2>/dev/null;(cd -- "$REL_PATH") && cd -- "$REL_PATH"|| cd "$REL_PATH"; unset PWD; /usr/bin/pwd || /bin/pwd || pwd`
 
-echo $ABS_PATH
-echo $REL_PATH
-
 source ${ABS_PATH}/vendor/nimbus-build-system/scripts/env.sh
 
