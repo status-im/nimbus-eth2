@@ -5,21 +5,58 @@
 
 # https://github.com/sigp/lighthouse/blob/master/docs/interop.md
 
+set -eu
+
+echo Locating protoc...
+if ! command -v protoc; then
+  MSG="protoc (the Google Protobuf compiler) is missing. Please install it manually"
+  if [[ "$OSTYPE" == "linux-gnu" ]]; then
+    MSG+=" with sudo apt install protobuf-compiler"
+  elif [[ "$OSTYPE" == "darwin"* ]]; then
+    MSG+=" with 'brew install protobuf'"
+  elif [[ "$OSTYPE" == "cygwin" ]]; then
+    # POSIX compatibility layer and Linux environment emulation for Windows
+    MSG+=""
+  elif [[ "$OSTYPE" == "msys" ]]; then
+    # Lightweight shell and GNU utilities compiled for Windows (part of MinGW)
+    MSG+=""
+  elif [[ "$OSTYPE" == "win32" ]]; then
+    # I'm not sure this can happen.
+    MSG+=""
+  elif [[ "$OSTYPE" == "freebsd"* ]]; then
+    # ...
+    MSG+=""
+  else
+    # Unknown.
+    MSG+=""
+  fi
+  echo $MSG
+  exit 1
+fi
+
 cargo_path=$(which cargo)
 [[ -x "$cargo_path" ]] || { echo "install rust first (https://rust-lang.org)"; exit 1; }
 
-[[ -d "lighthouse" ]] || {
-  git clone https://github.com/sigp/lighthouse.git
-  cd lighthouse
+LIGHTHOUSE=${LIGHTHOSE_PATH:-"lighthouse"}
+
+[[ -d "$LIGHTHOUSE" ]] || {
+  git clone https://github.com/sigp/lighthouse.git "$LIGHTHOUSE"
+  pushd "$LIGHTHOUSE"
   git checkout interop # temporary interop branch - will get merged soon I expect!
   cargo update
-  cd ..
+  popd
 }
 
 # Fetch genesis time, as set up by start.sh
-genesis_time=$(grep -oP '(?<=genesis_time": )\w+(?=,)' data/state_snapshot.json)
+if command -v jq; then
+  genesis_time=$(jq '.genesis_time' data/state_snapshot.json)
+else
+  genesis_time=$(grep -oP '(?<=genesis_time": )\w+(?=,)' data/state_snapshot.json)
+fi
 
-cd lighthouse
+echo Genesis time was $genesis_time
+
+cd "$LIGHTHOUSE"
 cargo build
 
 cd target/debug
