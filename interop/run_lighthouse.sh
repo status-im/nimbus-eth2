@@ -57,9 +57,9 @@ fi
 echo Genesis time was $genesis_time
 
 cd "$LIGHTHOUSE"
-cargo build
+cargo build --release
 
-cd target/debug
+cd target/release
 
 #$export RUST_LOG=libp2p=trace,multistream=trace,gossipsub=trace
 

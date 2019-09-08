@@ -148,12 +148,17 @@ func pubKey*(pk: ValidatorPrivKey): ValidatorPubKey =
   else:
     pk.getKey
 
-proc combine*[T](a: openarray[BlsValue[T]]): T =
-  doAssert a.len > 0 and a[0].kind == Real
-  result = a[0].blsValue
-  for i in 1 ..< a.len:
-    doAssert a[i].kind == Real
-    result.combine a[i].blsValue
+proc init(T: type VerKey): VerKey =
+  result.point.inf()
+
+proc init(T: type SigKey): SigKey =
+  result.point.inf()
+
+proc combine*[T](values: openarray[BlsValue[T]]): BlsValue[T] =
+  result = BlsValue[T](kind: Real, blsValue: T.init())
+
+  for value in values:
+    result.blsValue.combine(value.blsValue)
 
 proc combine*[T](x: var BlsValue[T], other: BlsValue[T]) =
   doAssert x.kind == Real and other.kind == Real
@@ -161,13 +166,7 @@ proc combine*[T](x: var BlsValue[T], other: BlsValue[T]) =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/bls_signature.md#bls_aggregate_pubkeys
 func bls_aggregate_pubkeys*(keys: openArray[ValidatorPubKey]): ValidatorPubKey =
-  var empty = true
-  for key in keys:
-    if empty:
-      result = key
-      empty = false
-    else:
-      result.combine(key)
+  keys.combine()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/bls_signature.md#bls_verify
 func bls_verify*(
