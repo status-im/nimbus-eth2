@@ -232,7 +232,9 @@ func initialize_beacon_state_from_eth1*(
       Eth1Data(block_hash: eth1_block_hash, deposit_count: uint64(len(deposits))),
     latest_block_header:
       BeaconBlockHeader(
-        body_root: hash_tree_root(BeaconBlockBody()),
+        body_root: hash_tree_root(BeaconBlockBody(
+          randao_reveal: BlsValue[Signature](kind: OpaqueBlob)
+        )),
         # TODO - Pure BLSSig cannot be zero: https://github.com/status-im/nim-beacon-chain/issues/374
         signature: BlsValue[Signature](kind: OpaqueBlob)
       )
@@ -284,10 +286,15 @@ proc is_valid_genesis_state*(state: BeaconState): bool =
 func get_initial_beacon_block*(state: BeaconState): BeaconBlock =
   BeaconBlock(
     slot: GENESIS_SLOT,
-    state_root: hash_tree_root(state)
+    state_root: hash_tree_root(state),
+    body: BeaconBlockBody(
+        # TODO: This shouldn't be necessary if OpaqueBlob is the default
+        randao_reveal: BlsValue[Signature](kind: OpaqueBlob)),
+    # TODO: This shouldn't be necessary if OpaqueBlob is the default
+    signature: BlsValue[Signature](kind: OpaqueBlob))
     # parent_root, randao_reveal, eth1_data, signature, and body automatically
     # initialized to default values.
-  )
+
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#get_attestation_data_slot
 func get_attestation_data_slot*(state: BeaconState,
