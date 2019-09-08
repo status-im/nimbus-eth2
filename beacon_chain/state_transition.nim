@@ -129,6 +129,7 @@ proc state_transition*(
     if skipValidation in flags or verifyStateRoot(state, blck):
       # TODO: allow skipping just verifyStateRoot for mocking
       #       instead of both processBlock and verifyStateRoot
+      #       https://github.com/status-im/nim-beacon-chain/issues/407
       # State root is what it should be - we're done!
       return true
 

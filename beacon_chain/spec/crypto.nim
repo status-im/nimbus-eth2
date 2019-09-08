@@ -171,6 +171,9 @@ func bls_verify*(
     pubkey: ValidatorPubKey, msg: openArray[byte], sig: ValidatorSig,
     domain: uint64): bool =
   # name from spec!
+  if sig.kind != Real:
+    # Invalid signatures are possible in deposits (discussed with Danny)
+    return false
   when ValidatorPubKey is BlsValue:
     doAssert sig.kind == Real and pubkey.kind == Real
     sig.blsValue.verify(msg, domain, pubkey.blsValue)
