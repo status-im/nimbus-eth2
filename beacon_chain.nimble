@@ -45,18 +45,18 @@ proc buildBinary(name: string, srcDir = "./", params = "", cmdParams = "", lang 
 ### tasks
 task test, "Run all tests":
   # Mainnet config
-  buildBinary "all_tests", "tests/", "-r -d:release -d:chronicles_log_level=ERROR"
+  buildBinary "all_tests", "tests/", "-r --opt:speed -d:chronicles_log_level=ERROR"
   # Minimal config
-  buildBinary "all_tests", "tests/", "-r -d:release -d:chronicles_log_level=ERROR -d:const_preset=minimal"
+  buildBinary "all_tests", "tests/", "-r --opt:speed -d:chronicles_log_level=ERROR -d:const_preset=minimal"
 
-  buildBinary "test_fixture_ssz_static", "tests/official/", "-r -d:release -d:chronicles_log_level=DEBUG -d:const_preset=minimal"
-  buildBinary "test_fixture_ssz_static", "tests/official/", "-r -d:release -d:chronicles_log_level=DEBUG -d:const_preset=mainnet"
+  buildBinary "test_fixture_ssz_static", "tests/official/", "-r --opt:speed -d:chronicles_log_level=DEBUG -d:const_preset=minimal"
+  buildBinary "test_fixture_ssz_static", "tests/official/", "-r --opt:speed -d:chronicles_log_level=DEBUG -d:const_preset=mainnet"
 
-  buildBinary "all_fixtures_require_ssz", "tests/official/", "-r -d:release -d:chronicles_log_level=DEBUG -d:const_preset=minimal"
-  buildBinary "all_fixtures_require_ssz", "tests/official/", "-r -d:release -d:chronicles_log_level=DEBUG -d:const_preset=mainnet"
+  buildBinary "all_fixtures_require_ssz", "tests/official/", "-r --opt:speed -d:chronicles_log_level=DEBUG -d:const_preset=minimal"
+  buildBinary "all_fixtures_require_ssz", "tests/official/", "-r --opt:speed -d:chronicles_log_level=DEBUG -d:const_preset=mainnet"
 
   # State sim; getting into 3rd epoch useful
-  buildBinary "state_sim", "research/", "-r -d:release", "--validators=128 --slots=24"
+  buildBinary "state_sim", "research/", "-r --opt:speed", "--validators=128 --slots=24"
 
 task sync_lfs_tests, "Sync LFS json tests":
   # Syncs the json test files (but not the EF yaml tests)
