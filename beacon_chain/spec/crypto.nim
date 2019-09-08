@@ -195,10 +195,8 @@ func bls_verify_multiple*(
   for pubkey_message_hash in zip(pubkeys, message_hashes):
     let (pubkey, message_hash) = pubkey_message_hash
     doAssert pubkey.kind == Real
-    # TODO spec doesn't say to handle this specially, but it's silly to
-    # validate without any actual public keys.
-    if pubkey.blsValue != VerKey() and
-       not sig.blsValue.verify(message_hash.data, domain, pubkey.blsValue):
+    if pubKey.blsValue != VerKey.init() and
+        not bls_verify(pubkey, message_hash.data, sig, domain):
       return false
 
   true
