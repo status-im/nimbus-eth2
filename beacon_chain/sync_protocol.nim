@@ -158,23 +158,21 @@ p2pProtocol BeaconSync(version = 1,
             latestFinalizedEpoch: Epoch,
             bestRoot: Eth2Digest,
             bestSlot: Slot) {.
-            libp2pProtocol("/eth2/beacon_chain/req/hello", 1).}
+            libp2pProtocol("/eth2/beacon_chain/req/hello/1/ssz", 1).}
 
   proc goodbye(
             peer: Peer,
             reason: DisconnectionReason) {.
-            libp2pProtocol("/eth2/beacon_chain/req/goodbye", 1).}
+            libp2pProtocol("/eth2/beacon_chain/req/goodbye/1/ssz", 1).}
 
   requestResponse:
-    proc getBeaconBlocksReq(
+    proc beaconBlocksByRange(
             peer: Peer,
             headBlockRoot: Eth2Digest,
             start_slot: uint64,
             count: uint64,
             step: uint64) {.
-            libp2pProtocol("/eth2/beacon_chain/req/beacon_blocks", 1).} =
-      ## TODO: procedure was renamed from `getBeaconBlocks()` to
-      ## `getBeaconBlocksReq()`, because `getBeaconBlocks()` already exists.
+            libp2pProtocol("/eth2/beacon_chain/req/beacon_blocks_by_range/1/ssz", 1).} =
       var blocks: seq[BeaconBlock]
       # `step == 0` has no sense, so we will return empty array of blocks.
       # `count == 0` means that empty array of blocks requested.
@@ -202,10 +200,10 @@ p2pProtocol BeaconSync(version = 1,
 
       await response.send(blocks)
 
-    proc getRecentBeaconBlocks(
+    proc beaconBlocksByRoot(
             peer: Peer,
             blockRoots: openarray[Eth2Digest]) {.
-            libp2pProtocol("/eth2/beacon_chain/req/recent_beacon_blocks", 1).} =
+            libp2pProtocol("/eth2/beacon_chain/req/beacon_blocks_by_root/1/ssz", 1).} =
       let pool = peer.networkState.node.blockPool
       var blocks = newSeq[BeaconBlock](len(blockRoots))
 
@@ -227,7 +225,7 @@ p2pProtocol BeaconSync(version = 1,
             peer: Peer,
             fromSlot: Slot,
             maxRoots: uint64) {.
-            libp2pProtocol("/eth2/beacon_chain/req/beacon_block_roots", 1).} =
+            libp2pProtocol("/eth2/beacon_chain/req/beacon_block_roots/1/ssz", 1).} =
       let maxRoots = min(MaxRootsToRequest, maxRoots)
       var s = fromSlot
       var roots = newSeqOfCap[BlockRootSlot](maxRoots)
@@ -252,7 +250,7 @@ p2pProtocol BeaconSync(version = 1,
             maxHeaders: uint64,
             skipSlots: uint64,
             backward: bool) {.
-            libp2pProtocol("/eth2/beacon_chain/req/beacon_block_headers", 1).} =
+            libp2pProtocol("/eth2/beacon_chain/req/beacon_block_headers/1/ssz", 1).} =
       let maxHeaders = min(MaxHeadersToRequest, maxHeaders)
       var headers: seq[BeaconBlockHeader]
       let db = peer.networkState.db
@@ -305,7 +303,7 @@ p2pProtocol BeaconSync(version = 1,
     proc getAncestorBlocks(
             peer: Peer,
             needed: openarray[FetchRecord]) {.
-            libp2pProtocol("/eth2/beacon_chain/req/ancestor_blocks", 1).} =
+            libp2pProtocol("/eth2/beacon_chain/req/ancestor_blocks/1/ssz", 1).} =
       var resp = newSeqOfCap[BeaconBlock](needed.len)
       let db = peer.networkState.db
       var neededRoots = initSet[Eth2Digest]()
@@ -343,7 +341,7 @@ p2pProtocol BeaconSync(version = 1,
     proc getBeaconBlockBodies(
             peer: Peer,
             blockRoots: openarray[Eth2Digest]) {.
-            libp2pProtocol("/eth2/beacon_chain/req/beacon_block_bodies", 1).} =
+            libp2pProtocol("/eth2/beacon_chain/req/beacon_block_bodies/1/ssz", 1).} =
       # TODO: Validate blockRoots.len
       var bodies = newSeqOfCap[BeaconBlockBody](blockRoots.len)
       let db = peer.networkState.db
@@ -393,7 +391,7 @@ proc getBeaconBlocksSpec*(peer: Peer, blockRoot: Eth2Digest, slot: Slot,
   ## specification.
   doAssert(maxBlocks <= MaxHeadersToRequest)
   var startSlot = uint64(slot) + skipSlots
-  var blocksResp = await peer.getBeaconBlocksReq(blockRoot, startSlot,
+  var blocksResp = await peer.beaconBlocksByRange(blockRoot, startSlot,
                                                  maxBlocks, 1'u64)
   let blocks = blocksResp.get.blocks
   info "Peer returned blocks", peer, count = len(blocks)
