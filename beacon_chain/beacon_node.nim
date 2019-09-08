@@ -869,6 +869,10 @@ when isMainModule:
     Json.saveFile(config.outputGenesis.string, initialState, pretty = true)
     echo "Wrote ", config.outputGenesis.string
 
+    let sszGenesis = config.outputGenesis.string.changeFileExt "ssz"
+    SSZ.saveFile(sszGenesis, initialState)
+    echo "Wrote ", sszGenesis
+
     var
       bootstrapAddress = getPersistenBootstrapAddr(
         config, parseIpAddress(config.bootstrapAddress), Port config.bootstrapPort)
