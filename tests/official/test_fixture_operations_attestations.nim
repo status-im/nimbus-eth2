@@ -54,10 +54,11 @@ template runTest(testName: string, identifier: untyped) =
         postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
 
       if postRef.isNil:
-        expect(AssertionError):
-          let done = process_attestation(stateRef[], attestationRef[], flags, cache)
+        let done = process_attestation(stateRef[], attestationRef[], flags, cache)
+        doAssert done == false, "We didn't expect this invalid attestation to be processed."
       else:
         let done = process_attestation(stateRef[], attestationRef[], flags, cache)
+        doAssert done, "Valid attestation not processed"
         reportDiff(stateRef, postRef)
 
   `testImpl _ operations_attestations _ identifier`()
