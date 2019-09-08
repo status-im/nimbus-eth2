@@ -427,8 +427,9 @@ proc proposeBlock(node: BeaconNode,
         slot: slot,
         parent_root: head.root,
         body: blockBody,
-        signature: ValidatorSig(), # we need the rest of the block first!
-      )
+        # TODO: This shouldn't be necessary if OpaqueBlob is the default
+        signature: ValidatorSig(kind: OpaqueBlob))
+
 
     var
       tmpState = hashedState
