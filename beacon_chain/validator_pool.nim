@@ -37,7 +37,8 @@ proc signBlockProposal*(v: AttachedValidator, state: BeaconState, slot: Slot,
     discard
 
 proc signAttestation*(v: AttachedValidator,
-                      attestation: AttestationData): Future[ValidatorSig] {.async.} =
+                      attestation: AttestationData,
+                      state: BeaconState): Future[ValidatorSig] {.async.} =
   # TODO: implement this
   if v.kind == inProcess:
     await sleepAsync(chronos.milliseconds(1))
@@ -45,8 +46,11 @@ proc signAttestation*(v: AttachedValidator,
     let attestationRoot = hash_tree_root(attestation)
     # TODO: Avoid the allocations belows
     var dataToSign = @(attestationRoot.data) & @[0'u8]
-    # TODO: Use `domain` here
-    let domain = 0'u64
+    let domain = get_domain(
+      state,
+      DOMAIN_ATTESTATION,
+      attestation.target.epoch
+    )
     result = bls_sign(v.privKey, dataToSign, domain)
   else:
     # TODO:

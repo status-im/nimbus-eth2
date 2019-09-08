@@ -345,12 +345,13 @@ proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
   newHead
 
 proc sendAttestation(node: BeaconNode,
+                     state: BeaconState,
                      validator: AttachedValidator,
                      attestationData: AttestationData,
                      committeeLen: int,
                      indexInCommittee: int) {.async.} =
   let
-    validatorSignature = await validator.signAttestation(attestationData)
+    validatorSignature = await validator.signAttestation(attestationData, state)
 
   var aggregationBits = CommitteeValidatorsBits.init(committeeLen)
   aggregationBits.raiseBit indexInCommittee
@@ -577,9 +578,9 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
           let ad = makeAttestationData(state, shard, blck.root)
           attestations.add((ad, committee.len, i, validator))
 
-  for a in attestations:
-    traceAsyncErrors sendAttestation(
-      node, a.validator, a.data, a.committeeLen, a.indexInCommittee)
+    for a in attestations:
+      traceAsyncErrors sendAttestation(
+        node, state, a.validator, a.data, a.committeeLen, a.indexInCommittee)
 
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     Future[BlockRef] {.async.} =
