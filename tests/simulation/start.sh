@@ -19,7 +19,9 @@ mkdir -p "$VALIDATORS_DIR"
 
 cd "$GIT_ROOT"
 
-NIMFLAGS="-d:chronicles_log_level=DEBUG --hints:off --warnings:off --opt:speed --debuginfo"
+make update deps
+
+NIMFLAGS="-d:chronicles_log_level=DEBUG --opt:speed --debuginfo"
 
 # Run with "SHARD_COUNT=4 ./start.sh" to change these
 DEFS=""
@@ -31,8 +33,11 @@ DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-6} "  # Spec default: 6
 LAST_VALIDATOR_NUM=$(( NUM_VALIDATORS - 1 ))
 LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.json"
 
-echo "Building $BEACON_NODE_BIN ($DEFS)"
-nim c -o:"$BEACON_NODE_BIN" $NIMFLAGS $DEFS beacon_chain/beacon_node
+[[ -x "$BEACON_NODE_BIN" ]] || {
+  echo "Working directory: $(pwd)"
+  echo "Building $BEACON_NODE_BIN ($DEFS)"
+  nim c -o:"$BEACON_NODE_BIN" $NIMFLAGS $DEFS beacon_chain/beacon_node
+}
 
 if [ ! -f "${LAST_VALIDATOR}" ]; then
   echo Building $DEPLOY_DEPOSIT_CONTRACT_BIN
