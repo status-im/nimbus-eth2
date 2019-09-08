@@ -45,8 +45,10 @@ proc signAttestation*(v: AttachedValidator,
     await sleepAsync(chronos.milliseconds(0))
 
     let
-      attestationRoot = hash_tree_root(attestation)
+      attestationRoot = hash_tree_root(AttestationDataAndCustodyBit(
+        data: attestation, custody_bit: false))
       domain = get_domain(state, DOMAIN_ATTESTATION, attestation.target.epoch)
+
     result = bls_sign(v.privKey, attestationRoot.data, domain)
   else:
     error "Unimplemented"
