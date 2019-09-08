@@ -243,7 +243,7 @@ func initialize_beacon_state_from_eth1*(
   for i, deposit in deposits:
     let deposit_data_list = leaves[0..i]
     state.eth1_data.deposit_root = hash_tree_root(
-      sszList(deposit_data_list, (2'i64^DEPOSIT_CONTRACT_TREE_DEPTH) + 1))
+      sszList(deposit_data_list, 2'i64^DEPOSIT_CONTRACT_TREE_DEPTH))
 
     discard process_deposit(state, deposit, flags)
 
