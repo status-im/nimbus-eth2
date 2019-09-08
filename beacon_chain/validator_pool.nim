@@ -28,9 +28,15 @@ proc getValidator*(pool: ValidatorPool,
 proc signBlockProposal*(v: AttachedValidator, state: BeaconState, slot: Slot,
                         blockRoot: Eth2Digest): Future[ValidatorSig] {.async.} =
   if v.kind == inProcess:
+    # TODO this is an ugly hack to fake a delay and subsequent async reordering
+    #      for the purpose of testing the external validator delay - to be
+    #      replaced by something more sensible
     await sleepAsync(chronos.milliseconds(1))
-    result = bls_sign(v.privKey, blockRoot.data,
-      get_domain(state, DOMAIN_BEACON_PROPOSER, compute_epoch_of_slot(slot)))
+
+    let
+      domain =
+        get_domain(state, DOMAIN_BEACON_PROPOSER, compute_epoch_of_slot(slot))
+    result = bls_sign(v.privKey, blockRoot.data, domain)
   else:
     # TODO:
     # send RPC
@@ -39,19 +45,18 @@ proc signBlockProposal*(v: AttachedValidator, state: BeaconState, slot: Slot,
 proc signAttestation*(v: AttachedValidator,
                       attestation: AttestationData,
                       state: BeaconState): Future[ValidatorSig] {.async.} =
-  # TODO: implement this
   if v.kind == inProcess:
+    # TODO this is an ugly hack to fake a delay and subsequent async reordering
+    #      for the purpose of testing the external validator delay - to be
+    #      replaced by something more sensible
     await sleepAsync(chronos.milliseconds(1))
 
-    let attestationRoot = hash_tree_root(attestation)
-    # TODO: Avoid the allocations belows
-    var dataToSign = @(attestationRoot.data) & @[0'u8]
-    let domain = get_domain(
-      state,
-      DOMAIN_ATTESTATION,
-      attestation.target.epoch
-    )
-    result = bls_sign(v.privKey, dataToSign, domain)
+    let
+      attestationRoot = hash_tree_root(
+        AttestationDataAndCustodyBit(data: attestation, custody_bit: false))
+      domain = get_domain(state, DOMAIN_ATTESTATION, attestation.target.epoch)
+
+    result = bls_sign(v.privKey, attestationRoot.data, domain)
   else:
     # TODO:
     # send RPC
@@ -59,10 +64,11 @@ proc signAttestation*(v: AttachedValidator,
 
 func genRandaoReveal*(k: ValidatorPrivKey, state: BeaconState, slot: Slot):
     ValidatorSig =
-  # Off-by-one? I often get slot == state.slot but the check was "doAssert slot > state.slot" (Mamy)
-  doAssert slot >= state.slot, "input slot: " & $shortLog(slot) & " - beacon state slot: " & $shortLog(state.slot)
-  bls_sign(k, hash_tree_root(compute_epoch_of_slot(slot).uint64).data,
-    get_domain(state, DOMAIN_RANDAO, compute_epoch_of_slot(slot)))
+  let
+    domain = get_domain(state, DOMAIN_RANDAO, compute_epoch_of_slot(slot))
+    root = hash_tree_root(compute_epoch_of_slot(slot).uint64).data
+
+  bls_sign(k, root, domain)
 
 func genRandaoReveal*(v: AttachedValidator, state: BeaconState, slot: Slot):
     ValidatorSig =
