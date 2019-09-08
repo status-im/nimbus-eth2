@@ -13,7 +13,7 @@ import # Unit test
   ./test_helpers,
   ./test_interop,
   ./test_ssz,
-  ./test_sync_protocol
+  ./test_sync_protocol,
   # ./test_validator # Empty!
   ./test_zero_signature
 
