@@ -46,7 +46,7 @@
 
 import
   sequtils,
-  stew/objects, hashes, nimcrypto/utils,
+  stew/[objects, byteutils], hashes, nimcrypto/utils,
   blscurve, json_serialization,
   ../version, digest
 
@@ -223,6 +223,9 @@ proc fromBytes*[T](R: type BlsValue[T], bytes: openarray[byte]): R =
       R(kind: OpaqueBlob)
     else:
       R(kind: Real, blsValue: init(T, bytes))
+
+proc fromHex*[T](R: type BlsValue[T], hexStr: string): R =
+  fromBytes(R, hexToSeqByte(hexStr))
 
 proc initFromBytes*[T](val: var BlsValue[T], bytes: openarray[byte]) =
   val = fromBytes(BlsValue[T], bytes)
