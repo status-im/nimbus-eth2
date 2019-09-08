@@ -19,8 +19,8 @@ type
   Peer* = ref object
     network*: Eth2Node
     id*: PeerID
+    wasDialed*: bool
     connectionState*: ConnectionState
-    awaitedMessages: Table[CompressedMsgId, FutureBase]
     protocolStates*: seq[RootRef]
     maxInactivityAllowed*: Duration
 
@@ -138,24 +138,6 @@ template reraiseAsPeerDisconnected(peer: Peer, errMsgExpr: static string,
   const errMsg = errMsgExpr
   debug errMsg, err = getCurrentExceptionMsg()
   disconnectAndRaise(peer, reason, errMsg)
-
-proc getCompressedMsgId*(MsgType: type): CompressedMsgId =
-  mixin msgId, msgProtocol, protocolInfo
-  (protocolIdx: MsgType.msgProtocol.protocolInfo.index,
-   methodId: MsgType.msgId)
-
-proc nextMsg*(peer: Peer, MsgType: type): Future[MsgType] =
-  ## This procs awaits a specific P2P message.
-  ## Any messages received while waiting will be dispatched to their
-  ## respective handlers. The designated message handler will also run
-  ## to completion before the future returned by `nextMsg` is resolved.
-  let awaitedMsgId = getCompressedMsgId(MsgType)
-  let f = getOrDefault(peer.awaitedMessages, awaitedMsgId)
-  if not f.isNil:
-    return Future[MsgType](f)
-
-  initFuture result
-  peer.awaitedMessages[awaitedMsgId] = result
 
 proc registerProtocol(protocol: ProtocolInfo) =
   # TODO: This can be done at compile-time in the future
@@ -343,62 +325,14 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
   # Read the response
   return await stream.readMsg(ResponseMsg, true, deadline)
 
-proc exchangeHandshake(peer: Peer, protocolId: string, requestBytes: Bytes,
-                       ResponseMsg: type,
-                       timeout: Duration): Future[ResponseMsg] {.gcsafe, async.} =
-  var response = await makeEth2Request(peer, protocolId, requestBytes,
-                                       ResponseMsg, timeout)
-  if not response.isSome:
-    await peer.disconnectAndRaise(FaultOrError, "Failed to complete a handshake")
-
-  return response.get
-
 proc p2pStreamName(MsgType: type): string =
   mixin msgProtocol, protocolInfo, msgId
   MsgType.msgProtocol.protocolInfo.messages[MsgType.msgId].libp2pProtocol
-
-template handshakeImpl(outputStreamVar, handshakeSerializationCall: untyped,
-                       lowLevelThunk: untyped,
-                       HandshakeType: untyped,
-                         # TODO: we cannot use a type parameter above
-                         # because of the following Nim issue:
-                         #
-                       peer: Peer,
-                       stream: P2PStream,
-                       timeout: Duration): auto =
-  if stream == nil:
-    var outputStreamVar = init OutputStream
-    handshakeSerializationCall
-    exchangeHandshake(peer, p2pStreamName(HandshakeType),
-                      getOutput(outputStreamVar), HandshakeType, timeout)
-  else:
-    proc asyncStep: Future[HandshakeType] {.async.} =
-      let deadline = sleepAsync timeout
-      var responseFut = nextMsg(peer, HandshakeType)
-      await lowLevelThunk(peer.network.daemon, stream) or deadline
-      if not responseFut.finished:
-        await disconnectAndRaise(peer, FaultOrError, "Failed to complete a handshake")
-
-      var outputStreamVar = init OutputStream
-      handshakeSerializationCall
-      await sendResponseBytes(stream, getOutput(outputStreamVar))
-
-      return responseFut.read
-
-    asyncStep()
-
-proc resolveNextMsgFutures(peer: Peer, msg: auto) =
-  type MsgType = type(msg)
-  let msgId = getCompressedMsgId(MsgType)
-  let future = peer.awaitedMessages.getOrDefault(msgId)
-  if future != nil:
-    Future[MsgType](future).complete msg
 
 proc init*(T: type Peer, network: Eth2Node, id: PeerID): Peer =
   new result
   result.id = id
   result.network = network
-  result.awaitedMessages = initTable[CompressedMsgId, FutureBase]()
   result.connectionState = Connected
   result.maxInactivityAllowed = 15.minutes # TODO: Read this from the config
   newSeq result.protocolStates, allProtocols.len
@@ -444,7 +378,9 @@ proc getRequestProtoName(fn: NimNode): NimNode =
   if pragmas.kind == nnkPragma and pragmas.len > 0:
     for pragma in pragmas:
       if pragma.len > 0 and $pragma[0] == "libp2pProtocol":
-        return pragma[1]
+        let protoName = $(pragma[1])
+        let protoVer = $(pragma[2].intVal)
+        return newLit("/eth2/beacon_chain/req/" & protoName & "/" & protoVer & "/ssz")
 
   return newLit("")
 
@@ -465,17 +401,10 @@ proc implementSendProcBody(sendProc: SendProc) =
       of msgRequest:
         let
           timeout = msg.timeoutParam[0]
-          ResponseRecord = msg.response.recIdent
+          ResponseRecord = msg.response.recName
         quote:
           makeEth2Request(`peer`, `msgProto`, `bytes`,
                           `ResponseRecord`, `timeout`)
-      of msgHandshake:
-        let
-          timeout = msg.timeoutParam[0]
-          HandshakeRecord = msg.recIdent
-        quote:
-          exchangeHandshake(`peer`, `msgProto`, `bytes`,
-                            `HandshakeRecord`, `timeout`)
       else:
         quote: sendMsg(`peer`, `msgProto`, `bytes`)
     else:
@@ -522,7 +451,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
       protocol = msg.protocol
       msgName = $msg.ident
       msgNameLit = newLit msgName
-      msgRecName = msg.recIdent
+      msgRecName = msg.recName
 
     if msg.procDef.body.kind != nnkEmpty and msg.kind == msgRequest:
       # Request procs need an extra param - the stream where the response
@@ -567,7 +496,6 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
         try:
           `tracing`
           `awaitUserHandler`
-          resolveNextMsgFutures(`peerVar`, `msgVar`)
         except CatchableError as `errVar`:
           `await` sendErrorResponse(`peerVar`, `streamVar`, ServerError, `errVar`.msg)
 
@@ -575,84 +503,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     ## Implement Senders and Handshake
     ##
     if msg.kind == msgHandshake:
-      # In LibP2P protocols, the handshake thunk is special. Instead of directly
-      # deserializing the incoming message and calling the user-supplied handler,
-      # we execute the `onPeerConnected` handler instead.
-      #
-      # The `onPeerConnected` handler is executed symmetrically for both peers
-      # and it's expected that one of its very first steps would be to send the
-      # handshake and then await the same from the other side. We call this step
-      # "handshakeExchanger".
-      #
-      # For the initiating peer, the handshakeExchanger opens a stream and sends
-      # a regular request through it, but on the receiving side, it just setups
-      # a future and call the lower-level thunk that will complete it.
-      #
-      let
-        handshake = msg.protocol.onPeerConnected
-        lowLevelThunkName = $thunkName
-
-      if handshake.isNil:
-        macros.error "A LibP2P protocol with a handshake must also include an " &
-                     "`onPeerConnected` handler.", msg.procDef
-
-      # We must generate a forward declaration for the `onPeerConnected` handler,
-      # so we can call it from the thunk proc:
-      let handshakeProcName = handshake.name
-      msg.protocol.outRecvProcs.add quote do:
-        proc `handshakeProcName`(`peerVar`: `Peer`,
-                                 `streamVar`: `P2PStream`) {.async, gcsafe.}
-
-      # Here we replace the 'thunkProc' that will be registered as a handler
-      # for incoming messages:
-      thunkName = ident(msgName & "_handleConnection")
-
-      msg.protocol.outRecvProcs.add quote do:
-        proc `thunkName`(`daemonVar`: `DaemonAPI`,
-                         `streamVar`: `P2PStream`) {.async, gcsafe.} =
-          let `peerVar` = peerFromStream(`daemonVar`, `streamVar`)
-          try:
-            `await` `handshakeProcName`(`peerVar`, `streamVar`)
-          except SerializationError as err:
-            debug "Failed to decode message",
-                  err = err.formatMsg("<msg>"),
-                  msg = `msgNameLit`,
-                  peer = $(`streamVar`.peer)
-            `await` disconnect(`peerVar`, FaultOrError)
-          except CatchableError as err:
-            debug "Failed to complete handshake", err = err.msg
-            `await` disconnect(`peerVar`, FaultOrError)
-
-      var
-        handshakeSerializer = msg.createSerializer()
-        handshakeSerializerName = newLit($handshakeSerializer.name)
-        handshakeExchanger = msg.createSendProc(nnkMacroDef)
-        paramsArray = newTree(nnkBracket).appendAllParams(handshakeExchanger.def)
-        handshakeTypeName = newLit($msg.recIdent)
-        getAst = ident "getAst"
-        res = ident "result"
-
-      handshakeExchanger.setBody quote do:
-        let
-          stream = ident "stream"
-          outputStreamVar = ident "outputStream"
-          lowLevelThunk = ident `lowLevelThunkName`
-          HandshakeType = ident `handshakeTypeName`
-          params = `paramsArray`
-          peer = params[0]
-          timeout = params[^1]
-          handshakeSerializationCall = newCall(`bindSymOp` `handshakeSerializerName`, params)
-
-        handshakeSerializationCall[1] = outputStreamVar
-        handshakeSerializationCall.del(handshakeSerializationCall.len - 1)
-
-        `res` = `getAst`(handshakeImpl(outputStreamVar, handshakeSerializationCall,
-                                       lowLevelThunk, HandshakeType,
-                                       peer, stream, timeout))
-
-        when defined(debugMacros) or defined(debugHandshake):
-          echo "---- Handshake implementation ----"
-          echo repr(`res`)
+      macros.error "Handshake messages are not supported in LibP2P protocols"
     else:
       var sendProc = msg.createSendProc()
       implementSendProcBody sendProc

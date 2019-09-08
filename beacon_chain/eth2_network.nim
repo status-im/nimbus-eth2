@@ -222,7 +222,8 @@ else:
     for bootstrapNode in bootstrapNodes:
       try:
         await node.daemon.connect(bootstrapNode.peer, bootstrapNode.addresses)
-        let peer = node.getPeer(bootstrapNode.peer)
+        var peer = node.getPeer(bootstrapNode.peer)
+        peer.wasDialed = true
         await initializeConnection(peer)
         connected = true
       except PeerDisconnected:

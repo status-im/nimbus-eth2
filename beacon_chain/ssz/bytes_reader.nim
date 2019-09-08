@@ -150,7 +150,7 @@ proc readSszValue*(input: openarray[byte], T: type): T =
         trs "READING FOREIGN ", fieldName, ": ", name(SszType)
         field = fromSszBytes(FieldType, input[startOffset ..< endOffset])
 
-  elif result is SomeInteger|bool:
+  elif result is SomeInteger|bool|enum:
     trs "READING BASIC TYPE ", type(result).name, "  input=", input.len
     result = fromSszBytes(type(result), input)
     trs "RESULT WAS ", repr(result)
