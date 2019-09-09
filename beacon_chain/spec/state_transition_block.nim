@@ -335,6 +335,13 @@ proc process_voluntary_exit*(
     exit: VoluntaryExit,
     flags: UpdateFlags): bool =
 
+  # Not in spec. Check that validator_index is in range
+  if exit.validator_index.int >= state.validators.len:
+    notice "Exit: invalid validator index",
+      index = exit.validator_index,
+      num_validators = state.validators.len
+    return false
+
   let validator = state.validators[exit.validator_index.int]
 
   # Verify the validator is active
