@@ -25,6 +25,9 @@ pushd $VALIDATORS_DIR >/dev/null
   cp $(seq -s " " -f v%07g.privkey $FIRST_VALIDATOR_IDX $LAST_VALIDATOR_IDX) $DATA_DIR/validators
 popd >/dev/null
 
+rm -rf "$DATA_DIR/dump"
+mkdir -p "$DATA_DIR/dump"
+
 $BEACON_NODE_BIN \
   --network:$NETWORK_METADATA_FILE \
   --dataDir:$DATA_DIR \

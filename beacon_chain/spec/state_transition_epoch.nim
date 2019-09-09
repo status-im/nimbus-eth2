@@ -101,6 +101,7 @@ func lowerThan(candidate, current: Eth2Digest): bool =
 func get_winning_crosslink_and_attesting_indices(
     state: BeaconState, epoch: Epoch, shard: Shard,
     stateCache: var StateCache): tuple[a: Crosslink, b: HashSet[ValidatorIndex]] =
+  # debugecho shard, "  ", hash_tree_root(state.current_crosslinks[shard])
   let
     attestations =
       filterIt(
@@ -114,8 +115,12 @@ func get_winning_crosslink_and_attesting_indices(
         root_current_shard_crosslink == it.parent_root or
           root_current_shard_crosslink == hash_tree_root(it))
 
+  #debugecho "curr ", state.current_crosslinks[shard]
+  #debugecho mapIt(attestations, hash_tree_root(it.data.crosslink))
+  # debugecho epoch, " ",  shard, crosslinks
   # default=Crosslink()
   if len(crosslinks) == 0:
+    #debugecho "exiting ", shard, " ", epoch, " ", attestations, " ", root_current_shard_crosslink
     return (Crosslink(), initSet[ValidatorIndex]())
 
   ## Not from spec. Don't repeatedly search/filter attestations in an O(n^2)
@@ -183,6 +188,7 @@ func get_winning_crosslink_and_attesting_indices(
 
   let winning_attestations =
     filterIt(attestations, it.data.crosslink == winning_crosslink)
+  # debugecho epoch, " ", shard, " winning att ", winning_attestations
   (winning_crosslink,
    get_unslashed_attesting_indices(state, winning_attestations, stateCache))
 
@@ -336,6 +342,9 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
       get_matching_target_attestations(state, previous_epoch)
     matching_head_attestations =
       get_matching_head_attestations(state, previous_epoch)
+
+  #debugecho [matching_source_attestations, matching_target_attestations,
+  #  matching_head_attestations]
   for attestations in
       [matching_source_attestations, matching_target_attestations,
        matching_head_attestations]:
@@ -345,6 +354,7 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
       attesting_balance = get_total_balance(state, unslashed_attesting_indices)
     for index in eligible_validator_indices:
       if index in unslashed_attesting_indices:
+        # debugEcho "ffg ", index.int, " ", get_base_reward(state, index) * attesting_balance div total_balance
         rewards[index] +=
           get_base_reward(state, index) * attesting_balance div total_balance
       else:
@@ -364,23 +374,36 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
       state, matching_source_attestations, stateCache):
     # Translation of attestation = min([...])
     doAssert matching_source_attestations.len > 0
-    var attestation = matching_source_attestations[0]
+
+    var filtered_matching_source_attestations: seq[PendingAttestation]
+
     for source_attestation_index, a in matching_source_attestations:
       if index notin
           source_attestation_attesting_indices[source_attestation_index]:
         continue
+      filtered_matching_source_attestations.add a
 
+    # The first filtered (!) attestation serves as min until we find something
+    # better
+    var attestation = filtered_matching_source_attestations[0]
+    for source_attestation_index, a in filtered_matching_source_attestations:
       if a.inclusion_delay < attestation.inclusion_delay:
         attestation = a
 
     let proposer_reward =
       (get_base_reward(state, index) div PROPOSER_REWARD_QUOTIENT).Gwei
+
+    #debugEcho "ap ", index.int, " ", proposer_reward
+
     rewards[attestation.proposer_index.int] += proposer_reward
     let max_attester_reward = get_base_reward(state, index) - proposer_reward
+
+    #debugEcho "max ", index.int, " ", max_attester_reward, " ", attestation.inclusion_delay
+
     rewards[index] +=
-      (max_attester_reward *
+      ((max_attester_reward *
        ((SLOTS_PER_EPOCH + MIN_ATTESTATION_INCLUSION_DELAY).uint64 -
-       attestation.inclusion_delay) div SLOTS_PER_EPOCH).Gwei
+       attestation.inclusion_delay)) div SLOTS_PER_EPOCH).Gwei
 
   # Inactivity penalty
   let finality_delay = previous_epoch - state.finalized_checkpoint.epoch
@@ -416,6 +439,8 @@ func get_crosslink_deltas*(state: BeaconState, cache: var StateCache):
           state, epoch, shard, cache)
       attesting_balance = get_total_balance(state, attesting_indices)
       committee_balance = get_total_balance(state, crosslink_committee)
+    #debugecho "x ", shard, " ", crosslink_committee
+    #debugecho "a ", winning_crosslink, " ", attesting_indices
     for index in crosslink_committee:
       let base_reward = get_base_reward(state, index)
       if index in attesting_indices:
@@ -435,6 +460,10 @@ func process_rewards_and_penalties(
   let
     (rewards1, penalties1) = get_attestation_deltas(state, cache)
     (rewards2, penalties2) = get_crosslink_deltas(state, cache)
+
+  #debugEcho "rewards ", rewards1, " ", rewards2
+  #debugEcho "penalties ", penalties1, " ", penalties2
+
   for i in 0 ..< len(state.validators):
     increase_balance(state, i.ValidatorIndex, rewards1[i] + rewards2[i])
     decrease_balance(state, i.ValidatorIndex, penalties1[i] + penalties2[i])
