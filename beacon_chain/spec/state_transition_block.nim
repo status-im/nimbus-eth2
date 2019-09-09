@@ -51,6 +51,8 @@ proc process_block_header*(
   # Verify that the parent matches
   if skipValidation notin flags and not (blck.parent_root ==
       signing_root(state.latest_block_header)):
+    # TODO: skip validation is too strong
+    #       can't do "invalid_parent_root" test
     notice "Block header: previous block root mismatch",
       latest_block_header = state.latest_block_header,
       blck = shortLog(blck),

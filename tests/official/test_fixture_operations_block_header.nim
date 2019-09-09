@@ -68,5 +68,6 @@ suite "Official - Operations - Block header " & preset():
   runTest(success_block_header)
   runTest(invalid_sig_block_header)
   runTest(invalid_slot_block_header)
-  runTest(invalid_parent_root)
+  when false: # skipValidation needs to be split https://github.com/status-im/nim-beacon-chain/issues/407
+    runTest(invalid_parent_root)
   runTest(proposer_slashed)
