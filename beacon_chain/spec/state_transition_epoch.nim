@@ -210,7 +210,11 @@ proc process_justification_and_finalization*(
   ## Spec:
   ## state.justification_bits[1:] = state.justification_bits[:-1]
   ## state.justification_bits[0] = 0b0
-  state.justification_bits = state.justification_bits shl 1
+  # TODO JUSTIFICATION_BITS_LENGTH is a constant in spec, move there or fix
+  # BitVector serialization in SSZ layer
+  const JUSTIFICATION_BITS_LENGTH = 4
+  state.justification_bits = (state.justification_bits shl 1) and
+    cast[uint8]((2^JUSTIFICATION_BITS_LENGTH) - 1)
 
   # This is a somewhat expensive approach
   let active_validator_indices =
