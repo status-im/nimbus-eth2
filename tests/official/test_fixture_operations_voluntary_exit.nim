@@ -54,10 +54,10 @@ template runTest(identifier: untyped) =
         postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
 
       if postRef.isNil:
-        let done = process_voluntary_exit(stateRef[], blck[], flags, cache)
+        let done = process_voluntary_exit(stateRef[], voluntaryExit[], flags)
         doAssert done == false, "We didn't expect this invalid voluntary exit to be processed."
       else:
-        let done = process_voluntary_exit(stateRef[], blck[], flags, cache)
+        let done = process_voluntary_exit(stateRef[], voluntaryExit[], flags)
         doAssert done, "Valid voluntary exit not processed"
         check: stateRef.hash_tree_root() == postRef.hash_tree_root()
         reportDiff(stateRef, postRef)
