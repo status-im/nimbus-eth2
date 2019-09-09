@@ -216,15 +216,17 @@ else:
 proc fromBytes*[T](R: type BlsValue[T], bytes: openarray[byte]): R =
   # This is a workaround, so that we can deserialize the serialization of a
   # default-initialized BlsValue without raising an exception
-  # TODO don't use exceptions for parsing, ever. Handle deserialization issues
-  #      sanely, always.
   when defined(ssz_testing):
+    # Only for SSZ parsing tests, everything is an opaque blob
     R(kind: OpaqueBlob, blob: toArray(result.blob.len, bytes))
   else:
-    if bytes.allIt(it == 0):
-      R(kind: OpaqueBlob)
-    else:
-      R(kind: Real, blsValue: init(T, bytes))
+    # Try if valid BLS value
+    let success = init(result.blsValue, bytes)
+    if not success:
+      # TODO: chronicles trace
+      result = R(kind: OpaqueBlob)
+      assert result.blob.len == bytes.len
+      result.blob[result.blob.low .. result.blob.high] = bytes
 
 proc initFromBytes*[T](val: var BlsValue[T], bytes: openarray[byte]) =
   val = fromBytes(BlsValue[T], bytes)

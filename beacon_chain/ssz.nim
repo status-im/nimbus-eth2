@@ -259,14 +259,8 @@ template checkEof(n: int) =
   if not r.stream[].ensureBytes(n):
     raise newException(UnexpectedEofError, "SSZ has insufficient number of bytes")
 
-proc fromSszBytes*(T: type BlsValue, bytes: openarray[byte]): T =
-  # Try if valid BLS value
-  let success = init(result.blsValue, bytes)
-  if not success:
-    # TODO: chronicles trace
-    result = T(kind: OpaqueBlob)
-    assert result.blob.len == bytes.len
-    result.blob[result.blob.low .. result.blob.high] = bytes
+template fromSszBytes*(T: type BlsValue, bytes: openarray[byte]): auto =
+  fromBytes(T, bytes)
 
 template fromSszBytes*[T; N](_: type TypeWithMaxLen[T, N],
                              bytes: openarray[byte]): auto =

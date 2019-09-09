@@ -67,8 +67,9 @@ template runTest(testName: string, identifier: untyped) =
 suite "Official - Operations - Attestations " & preset():
   runTest("success", success)
   runTest("success previous epoch", success_previous_epoch)
-  runTest("success since max epochs per crosslink", success_since_max_epochs_per_crosslink)
-  runTest("wrong end epoch with max epochs per crosslink", wrong_end_epoch_with_max_epochs_per_crosslink)
+  when const_preset == "minimal":
+    runTest("success since max epochs per crosslink", success_since_max_epochs_per_crosslink)
+    runTest("wrong end epoch with max epochs per crosslink", wrong_end_epoch_with_max_epochs_per_crosslink)
   runTest("invalid attestation signature", invalid_attestation_signature)
   runTest("before inclusion delay", before_inclusion_delay)
   runTest("after_epoch_slots", after_epoch_slots)
