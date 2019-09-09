@@ -15,4 +15,4 @@ import
   ./test_fixture_state_transition_epoch,
   ./test_fixture_operations_attestations,
   ./test_fixture_operations_block_header,
-  ./test_fiture_operations_transfer
+  ./test_fixture_operations_transfer

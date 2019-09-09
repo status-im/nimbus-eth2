@@ -395,33 +395,30 @@ proc process_transfer*(
 
   let sender_balance = state.balances[transfer.sender.int]
 
-  ## Verify the amount and fee are not individually too big (for anti-overflow
-  ## purposes)
-  if not (sender_balance >= max(transfer.amount, transfer.fee)):
+  ## Verify the balance the covers amount and fee (with overflow protection)
+  if sender_balance < max(transfer.amount + transfer.fee, max(transfer.amount, transfer.fee)):
     notice "Transfer: sender balance too low for transfer amount or fee"
     return false
 
   # A transfer is valid in only one slot
-  if not (state.slot == transfer.slot):
+  if state.slot != transfer.slot:
     notice "Transfer: slot mismatch"
     return false
 
-  ## Sender must be not yet eligible for activation, withdrawn, or transfer
-  ## balance over MAX_EFFECTIVE_BALANCE
+  ## Sender must statisfy at least one of the following:
   if not (
-    state.validators[transfer.sender.int].activation_epoch ==
-      FAR_FUTURE_EPOCH or
-    get_current_epoch(state) >=
-      state.validators[
-        transfer.sender.int].withdrawable_epoch or
-    transfer.amount + transfer.fee + MAX_EFFECTIVE_BALANCE <=
-      state.balances[transfer.sender.int]):
-    notice "Transfer: only withdrawn or not-activated accounts with sufficient balance can transfer"
+      # 1) Never have been eligible for activation
+      state.validators[transfer.sender.int].activation_eligibility_epoch == FAR_FUTURE_EPOCH or
+      # 2) Be withdrawable
+      get_current_epoch(state) >= state.validators[transfer.sender.int].withdrawable_epoch or
+      # 3) Have a balance of at least MAX_EFFECTIVE_BALANCE after the transfer
+      state.balances[transfer.sender.int] >= transfer.amount + transfer.fee + MAX_EFFECTIVE_BALANCE
+    ):
+    notice "Transfer: only senders who either 1) have never been eligible for activation or 2) are withdrawable or 3) have a balance of MAX_EFFECTIVE_BALANCE after the transfer are valid."
     return false
 
   # Verify that the pubkey is valid
-  let wc = state.validators[transfer.sender.int].
-    withdrawal_credentials
+  let wc = state.validators[transfer.sender.int].withdrawal_credentials
   if not (wc.data[0] == BLS_WITHDRAWAL_PREFIX and
           wc.data[1..^1] == eth2hash(transfer.pubkey.getBytes).data[1..^1]):
     notice "Transfer: incorrect withdrawal credentials"
@@ -444,16 +441,17 @@ proc process_transfer*(
     state, get_beacon_proposer_index(state, stateCache), transfer.fee)
 
   # Verify balances are not dust
-  if not (
+  # TODO: is the spec assuming here that balances are signed integers
+  if (
       0'u64 < state.balances[transfer.sender.int] and
       state.balances[transfer.sender.int] < MIN_DEPOSIT_AMOUNT):
     notice "Transfer: sender balance too low for transfer amount or fee"
     return false
 
-  if not (
+  if (
       0'u64 < state.balances[transfer.recipient.int] and
       state.balances[transfer.recipient.int] < MIN_DEPOSIT_AMOUNT):
-    notice "Transfer: sender balance too low for transfer amount or fee"
+    notice "Transfer: recipient balance too low for transfer amount or fee"
     return false
 
   true
