@@ -114,14 +114,27 @@ proc initGenesis(node: BeaconNode) {.async.} =
     tailState = await node.mainchainMonitor.getGenesis()
   else:
     var snapshotFile = conf.dataDir / genesisFile
-    if conf.stateSnapshot.isSome:
-      snapshotFile = conf.stateSnapshot.get.string
-    info "Importing snapshot file", path = snapshotFile
-    if not fileExists(snapshotFile):
-      error "Nimbus database not initialized. Please specify the initial state snapshot file."
-      quit 1
     try:
-      tailState = Json.loadFile(snapshotFile, BeaconState)
+      if conf.stateSnapshot.isSome:
+        snapshotFile = conf.stateSnapshot.get.string
+
+      if not fileExists(snapshotFile):
+        error "Nimbus database not initialized. Please specify the initial state snapshot file."
+        quit 1
+
+      template loadSnapshot(Format) =
+        info "Importing snapshot file", path = snapshotFile
+        tailState = loadFile(Format, snapshotFile, BeaconState)
+
+      let ext = splitFile(snapshotFile).ext
+      if cmpIgnoreCase(ext, ".ssz") == 0:
+        loadSnapshot SSZ
+      elif cmpIgnoreCase(ext, ".json") == 0:
+        loadSnapshot Json
+      else:
+        error "The --stateSnapshot option expects a json or a ssz file."
+        quit 1
+
     except SerializationError as err:
       stderr.write "Failed to import ", snapshotFile, "\n"
       stderr.write err.formatMsg(snapshotFile), "\n"

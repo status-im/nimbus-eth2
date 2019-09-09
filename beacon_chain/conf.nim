@@ -79,7 +79,7 @@ type
 
       stateSnapshot* {.
         desc: "Json file specifying a recent state snapshot"
-        shortform: "s".}: Option[TypedInputFile[BeaconState, Json, "json"]]
+        shortform: "s".}: Option[InputFile]
 
       nodename* {.
         desc: "A name for this node that will appear in the logs. " &
