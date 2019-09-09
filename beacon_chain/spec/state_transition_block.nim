@@ -377,78 +377,88 @@ proc processVoluntaryExits(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#transfers
+proc process_transfer*(
+       state: var BeaconState,
+       transfer: Transfer,
+       stateCache: var StateCache,
+       flags: UpdateFlags): bool =
+  let sender_balance = state.balances[transfer.sender.int]
+
+  ## Verify the amount and fee are not individually too big (for anti-overflow
+  ## purposes)
+  if not (sender_balance >= max(transfer.amount, transfer.fee)):
+    notice "Transfer: sender balance too low for transfer amount or fee"
+    return false
+
+  # A transfer is valid in only one slot
+  if not (state.slot == transfer.slot):
+    notice "Transfer: slot mismatch"
+    return false
+
+  ## Sender must be not yet eligible for activation, withdrawn, or transfer
+  ## balance over MAX_EFFECTIVE_BALANCE
+  if not (
+    state.validators[transfer.sender.int].activation_epoch ==
+      FAR_FUTURE_EPOCH or
+    get_current_epoch(state) >=
+      state.validators[
+        transfer.sender.int].withdrawable_epoch or
+    transfer.amount + transfer.fee + MAX_EFFECTIVE_BALANCE <=
+      state.balances[transfer.sender.int]):
+    notice "Transfer: only withdrawn or not-activated accounts with sufficient balance can transfer"
+    return false
+
+  # Verify that the pubkey is valid
+  let wc = state.validators[transfer.sender.int].
+    withdrawal_credentials
+  if not (wc.data[0] == BLS_WITHDRAWAL_PREFIX and
+          wc.data[1..^1] == eth2hash(transfer.pubkey.getBytes).data[1..^1]):
+    notice "Transfer: incorrect withdrawal credentials"
+    return false
+
+  # Verify that the signature is valid
+  if skipValidation notin flags:
+    if not bls_verify(
+        transfer.pubkey, signing_root(transfer).data, transfer.signature,
+        get_domain(state, DOMAIN_TRANSFER)):
+      notice "Transfer: incorrect signature"
+      return false
+
+  # Process the transfer
+  decrease_balance(
+    state, transfer.sender.ValidatorIndex, transfer.amount + transfer.fee)
+  increase_balance(
+    state, transfer.recipient.ValidatorIndex, transfer.amount)
+  increase_balance(
+    state, get_beacon_proposer_index(state, stateCache), transfer.fee)
+
+  # Verify balances are not dust
+  if not (
+      0'u64 < state.balances[transfer.sender.int] and
+      state.balances[transfer.sender.int] < MIN_DEPOSIT_AMOUNT):
+    notice "Transfer: sender balance too low for transfer amount or fee"
+    return false
+
+  if not (
+      0'u64 < state.balances[transfer.recipient.int] and
+      state.balances[transfer.recipient.int] < MIN_DEPOSIT_AMOUNT):
+    notice "Transfer: sender balance too low for transfer amount or fee"
+    return false
+
+  true
+
 proc processTransfers(state: var BeaconState, blck: BeaconBlock,
-                      flags: UpdateFlags, stateCache: var StateCache): bool =
+                      stateCache: var StateCache,
+                      flags: UpdateFlags): bool =
   if not (len(blck.body.transfers) <= MAX_TRANSFERS):
     notice "Transfer: too many transfers"
     return false
 
   for transfer in blck.body.transfers:
-    let sender_balance = state.balances[transfer.sender.int]
-
-    ## Verify the amount and fee are not individually too big (for anti-overflow
-    ## purposes)
-    if not (sender_balance >= max(transfer.amount, transfer.fee)):
-      notice "Transfer: sender balance too low for transfer amount or fee"
+    if not process_transfer(state, transfer, stateCache, flags):
       return false
 
-    # A transfer is valid in only one slot
-    if not (state.slot == transfer.slot):
-      notice "Transfer: slot mismatch"
-      return false
-
-    ## Sender must be not yet eligible for activation, withdrawn, or transfer
-    ## balance over MAX_EFFECTIVE_BALANCE
-    if not (
-      state.validators[transfer.sender.int].activation_epoch ==
-        FAR_FUTURE_EPOCH or
-      get_current_epoch(state) >=
-        state.validators[
-          transfer.sender.int].withdrawable_epoch or
-      transfer.amount + transfer.fee + MAX_EFFECTIVE_BALANCE <=
-        state.balances[transfer.sender.int]):
-      notice "Transfer: only withdrawn or not-activated accounts with sufficient balance can transfer"
-      return false
-
-    # Verify that the pubkey is valid
-    let wc = state.validators[transfer.sender.int].
-      withdrawal_credentials
-    if not (wc.data[0] == BLS_WITHDRAWAL_PREFIX and
-            wc.data[1..^1] == eth2hash(transfer.pubkey.getBytes).data[1..^1]):
-      notice "Transfer: incorrect withdrawal credentials"
-      return false
-
-    # Verify that the signature is valid
-    if skipValidation notin flags:
-      if not bls_verify(
-          transfer.pubkey, signing_root(transfer).data, transfer.signature,
-          get_domain(state, DOMAIN_TRANSFER)):
-        notice "Transfer: incorrect signature"
-        return false
-
-    # Process the transfer
-    decrease_balance(
-      state, transfer.sender.ValidatorIndex, transfer.amount + transfer.fee)
-    increase_balance(
-      state, transfer.recipient.ValidatorIndex, transfer.amount)
-    increase_balance(
-      state, get_beacon_proposer_index(state, stateCache), transfer.fee)
-
-    # Verify balances are not dust
-    if not (
-        0'u64 < state.balances[transfer.sender.int] and
-        state.balances[transfer.sender.int] < MIN_DEPOSIT_AMOUNT):
-      notice "Transfer: sender balance too low for transfer amount or fee"
-      return false
-
-    if not (
-        0'u64 < state.balances[transfer.recipient.int] and
-        state.balances[transfer.recipient.int] < MIN_DEPOSIT_AMOUNT):
-      notice "Transfer: sender balance too low for transfer amount or fee"
-      return false
-
-  true
-
+  return true
 
 proc processBlock*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
@@ -489,7 +499,7 @@ proc processBlock*(
     debug "[Block processing] Exit processing failure", slot = shortLog(state.slot)
     return false
 
-  if not processTransfers(state, blck, flags, stateCache):
+  if not processTransfers(state, blck, stateCache, flags):
     debug "[Block processing] Transfer processing failure", slot = shortLog(state.slot)
     return false
 

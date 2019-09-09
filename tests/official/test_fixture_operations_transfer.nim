@@ -9,7 +9,7 @@ import
   # Standard library
   os, unittest, strutils,
   # Beacon chain internals
-  ../../beacon_chain/spec/[datatypes, state_transition_block],
+  ../../beacon_chain/spec/[datatypes, state_transition_block, validator],
   ../../beacon_chain/[ssz, extras],
   # Test utilities
   ../testutil,
@@ -50,11 +50,13 @@ template runTest(identifier: untyped) =
         new postRef
         postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
 
+      var cache = get_empty_per_epoch_cache()
+
       if postRef.isNil:
-        let done = process_transfer(stateRef[], voluntaryExit[], flags)
+        let done = process_transfer(stateRef[], transfer[], cache, flags)
         doAssert done == false, "We didn't expect this invalid transfer to be processed."
       else:
-        let done = process_transfer(stateRef[], voluntaryExit[], flags)
+        let done = process_transfer(stateRef[], transfer[], cache, flags)
         doAssert done, "Valid transfer not processed"
         check: stateRef.hash_tree_root() == postRef.hash_tree_root()
         reportDiff(stateRef, postRef)
