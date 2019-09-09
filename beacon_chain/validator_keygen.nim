@@ -5,7 +5,7 @@ import
   spec/[datatypes, digest, crypto], conf, time, ssz, interop
 
 contract(DepositContract):
-  proc deposit(pubkey: Bytes48, withdrawalCredentials: Bytes32, signature: Bytes96)
+  proc deposit(pubkey: Bytes48, withdrawalCredentials: Bytes32, signature: Bytes96, deposit_data_root: FixedBytes[32])
 
 proc writeTextFile(filename: string, contents: string) =
   writeFile(filename, contents)
@@ -61,7 +61,8 @@ proc sendDeposits*(
     let tx = await depositContract.deposit(
       Bytes48(dp.data.pubKey.getBytes()),
       Bytes32(dp.data.withdrawal_credentials.data),
-      Bytes96(dp.data.signature.getBytes())).send(value = 32.u256.ethToWei)
+      Bytes96(dp.data.signature.getBytes()),
+      FixedBytes[32](hash_tree_root(dp.data).data)).send(value = 32.u256.ethToWei)
 
 when isMainModule:
   import confutils
@@ -74,4 +75,6 @@ when isMainModule:
     let deposits = generateDeposits(totalValidators, outputDir, randomKeys)
 
     if depositWeb3Url.len() > 0 and depositContractAddress.len() > 0:
+      echo "Sending deposits to eth1..."
       waitFor sendDeposits(deposits, depositWeb3Url, depositContractAddress)
+      echo "Done"

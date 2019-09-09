@@ -8,7 +8,7 @@
 import
   tables, algorithm, math, options, sequtils,
   json_serialization/std/sets, chronicles, stew/bitseqs,
-  ../extras, ../ssz, ../beacon_node_types,
+  ../extras, ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers, ./validator
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#is_valid_merkle_branch
