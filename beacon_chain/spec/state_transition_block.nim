@@ -382,6 +382,15 @@ proc process_voluntary_exit*(
 
   true
 
+proc processVoluntaryExits(state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
+  if len(blck.body.voluntary_exits) > MAX_VOLUNTARY_EXITS:
+    notice "[Block processing - Voluntary Exit]: too many exits!"
+    return false
+  for exit in blck.body.voluntary_exits:
+    if not process_voluntary_exit(state, exit, flags):
+      return false
+  return true
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#transfers
 proc processTransfers(state: var BeaconState, blck: BeaconBlock,
                       flags: UpdateFlags, stateCache: var StateCache): bool =
@@ -494,13 +503,9 @@ proc processBlock*(
     debug "[Block processing] Deposit processing failure", slot = shortLog(state.slot)
     return false
 
-  if len(blck.body.voluntary_exits) > MAX_VOLUNTARY_EXITS:
-    notice "[Block processing - Voluntary Exit]: too many exits!"
+  if not processVoluntaryExits(state, blck, flags):
+    debug "[Block processing - Voluntary Exit] Exit processing failure", slot = shortLog(state.slot)
     return false
-  for exit in blck.body.voluntary_exits:
-    if not process_voluntary_exit(state, exit, flags):
-      debug "[Block processing - Voluntary Exit] Exit processing failure", slot = shortLog(state.slot)
-      return false
 
   if not processTransfers(state, blck, flags, stateCache):
     debug "[Block processing] Transfer processing failure", slot = shortLog(state.slot)
