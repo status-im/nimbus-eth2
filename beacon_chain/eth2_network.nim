@@ -181,12 +181,12 @@ else:
                                        keyFile, bootstrapNodes
 
     var daemonFut = if bootstrapNodes.len == 0:
-      newDaemonApi({DHTFull, PSGossipSub},
+      newDaemonApi({PSNoSign, DHTFull, PSGossipSub},
                    id = keyFile,
                    hostAddresses = @[hostAddress],
                    announcedAddresses = announcedAddresses)
     else:
-      newDaemonApi({DHTFull, PSGossipSub, WaitBootstrap},
+      newDaemonApi({PSNoSign, DHTFull, PSGossipSub, WaitBootstrap},
                    id = keyFile,
                    hostAddresses = @[hostAddress],
                    announcedAddresses = announcedAddresses,
