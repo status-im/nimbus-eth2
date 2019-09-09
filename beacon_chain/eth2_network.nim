@@ -242,7 +242,7 @@ else:
   func peersCount*(node: Eth2Node): int =
     node.peers.len
 
-  proc makeMessageHandler[MsgType](msgHandler: proc(msg: MsgType)): P2PPubSubCallback =
+  proc makeMessageHandler[MsgType](msgHandler: proc(msg: MsgType) {.gcsafe.}): P2PPubSubCallback =
     result = proc(api: DaemonAPI,
                   ticket: PubsubTicket,
                   msg: PubSubMessage): Future[bool] {.async.} =
@@ -251,7 +251,7 @@ else:
 
   proc subscribe*[MsgType](node: Eth2Node,
                            topic: string,
-                           msgHandler: proc(msg: MsgType)) {.async.} =
+                           msgHandler: proc(msg: MsgType) {.gcsafe.}) {.async.} =
     discard await node.daemon.pubsubSubscribe(topic, makeMessageHandler(msgHandler))
 
   proc broadcast*(node: Eth2Node, topic: string, msg: auto) =

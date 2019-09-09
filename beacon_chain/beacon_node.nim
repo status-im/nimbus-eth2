@@ -11,6 +11,8 @@ import
   beacon_node_types, mainchain_monitor, trusted_state_snapshots, version,
   sync_protocol, request_manager, genesis, validator_keygen, interop
 
+import macros
+
 const
   topicBeaconBlocks = "/eth2/beacon_block/ssz"
   topicAttestations = "/eth2/beacon_attestation/ssz"
@@ -513,7 +515,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
         committee = get_crosslink_committee(state, epoch, shard, cache)
 
       for i, validatorIdx in committee:
-        let validator = node.getAttachedValidator(state, validatorIdx)
+        let validator = node.getAttachedValidator(state, validatorIdx.int)
         if validator != nil:
           let ad = makeAttestationData(state, shard, blck.root)
           attestations.add((ad, committee.len, i, validator))
@@ -535,7 +537,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
   node.blockPool.withState(node.stateCache, BlockSlot(blck: head, slot: slot)):
     let
       proposerIdx = get_beacon_proposer_index(state, cache)
-      validator = node.getAttachedValidator(state, proposerIdx)
+      validator = node.getAttachedValidator(state, proposerIdx.int)
 
     if validator != nil:
       return await proposeBlock(node, validator, head, slot)

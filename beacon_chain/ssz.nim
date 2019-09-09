@@ -9,7 +9,7 @@
 # See https://github.com/ethereum/eth2.0-specs/blob/master/specs/simple-serialize.md
 
 import
-  endians, stew/shims/macros, options, algorithm, math, options,
+  endians, stew/shims/shims_macros, options, algorithm, math, options,
   stew/[bitops2, bitseqs, objects, varints], stew/ranges/ptr_arith, stint,
   faststreams/input_stream, serialization, serialization/testing/tracing,
   nimcrypto/sha2, blscurve, eth/common,

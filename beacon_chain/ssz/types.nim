@@ -1,6 +1,6 @@
 import
   tables, options,
-  stew/shims/macros, stew/[objects, bitseqs],
+  stew/shims/shims_macros, stew/[objects, bitseqs],
   serialization/[object_serialization, errors]
 
 const

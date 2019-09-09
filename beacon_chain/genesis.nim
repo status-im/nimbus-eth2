@@ -29,7 +29,7 @@ proc processDeposit(d: DepositCollector, web3: Web3): Future[BeaconState] {.asyn
       var h: Eth2Digest
       h.data = array[32, byte](blkHash)
       let s = initialize_beacon_state_from_eth1(h, blk.timestamp.uint64, d.deposits, {skipValidation})
-  
+
       if is_valid_genesis_state(s):
         return s
 
@@ -42,16 +42,17 @@ proc getGenesisFromEth1*(conf: BeaconNodeConf): Future[BeaconState] {.async.} =
   var deposits = DepositCollector()
   deposits.queue = newAsyncQueue[QueueElement]()
 
-  let s = await ns.subscribe(DepositEvent, %*{"fromBlock": "0x0"}) do(pubkey: Bytes48, withdrawalCredentials: Bytes32, amount: Bytes8, signature: Bytes96, merkleTreeIndex: Bytes8, j: JsonNode):
+  let s = await ns.subscribe(DepositEvent, %*{"fromBlock": "0x0"},
+      proc (pubkey: Bytes48, withdrawalCredentials: Bytes32, amount: Bytes8,
+            signature: Bytes96, merkleTreeIndex: Bytes8, j: JsonNode) {.gcsafe.} =
+        let blkHash = BlockHash.fromHex(j["blockHash"].getStr())
+        let amount = bytes_to_int(array[8, byte](amount))
 
-    let blkHash = BlockHash.fromHex(j["blockHash"].getStr())
-    let amount = bytes_to_int(array[8, byte](amount))
-
-    deposits.queue.addLastNoWait((blkHash,
-      DepositData(pubkey: ValidatorPubKey.init(array[48, byte](pubkey)),
-        withdrawal_credentials: Eth2Digest(data: array[32, byte](withdrawalCredentials)),
-        amount: amount,
-        signature: ValidatorSig.init(array[96, byte](signature)))))
+        deposits.queue.addLastNoWait((blkHash,
+          DepositData(pubkey: ValidatorPubKey.init(array[48, byte](pubkey)),
+            withdrawal_credentials: Eth2Digest(data: array[32, byte](withdrawalCredentials)),
+            amount: amount,
+            signature: ValidatorSig.init(array[96, byte](signature))))))
 
   let genesisState = await processDeposit(deposits, web3)
   await s.unsubscribe()

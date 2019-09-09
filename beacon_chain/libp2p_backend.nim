@@ -1,6 +1,6 @@
 import
   algorithm,
-  stew/varints, stew/shims/[macros, tables], chronos, chronicles,
+  stew/varints, stew/shims/[shims_macros, tables], chronos, chronicles,
   libp2p/daemon/daemonapi, faststreams/output_stream, serialization,
   json_serialization/std/options, eth/p2p/p2p_protocol_dsl,
   libp2p_json_serialization, ssz
@@ -593,7 +593,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
         lowLevelThunkName = $thunkName
 
       if handshake.isNil:
-        macros.error "A LibP2P protocol with a handshake must also include an " &
+        shims_macros.error "A LibP2P protocol with a handshake must also include an " &
                      "`onPeerConnected` handler.", msg.procDef
 
       # We must generate a forward declaration for the `onPeerConnected` handler,
