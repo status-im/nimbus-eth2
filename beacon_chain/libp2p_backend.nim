@@ -90,9 +90,16 @@ type
 
 const
   defaultIncomingReqTimeout = 5000
-  defaultOutgoingReqTimeout = 10000
   HandshakeTimeout = FaultOrError
-  RQRP_MAX_SIZE = 2 * 1024 * 1024
+
+  # Spec constants
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/networking/p2p-interface.md#eth-20-network-interaction-domains
+  REQ_RESP_MAX_SIZE* = 1 * 1024 * 1024 # bytes
+  GOSSIP_MAX_SIZE* = 1 * 1024 * 1024 # bytes
+  TTFB_TIMEOUT* = 5.seconds
+  RESP_TIMEOUT* = 10.seconds
+
+  readTimeoutErrorMsg = "Exceeded read timeout for a request"
 
 template `$`*(peer: Peer): string = $peer.id
 chronicles.formatIt(Peer): $it
@@ -184,7 +191,7 @@ proc readSizePrefix(transp: StreamTransport,
     case parser.feedByte(nextByte)
     of Done:
       let res = parser.getResult
-      if res > uint64(RQRP_MAX_SIZE):
+      if res > uint64(REQ_RESP_MAX_SIZE):
         return -1
       else:
         return int(res)
@@ -230,17 +237,11 @@ proc readMsgBytes(stream: P2PStream,
 
   return msgBytes
 
-proc readMsgBytesOrClose(stream: P2PStream,
-                         withResponseCode: bool,
-                         deadline: Future[void]): Future[Bytes] {.async.} =
-  result = await stream.readMsgBytes(withResponseCode, deadline)
-  if result.len == 0: await stream.close()
-
 proc readChunk(stream: P2PStream,
                MsgType: type,
                withResponseCode: bool,
                deadline: Future[void]): Future[Option[MsgType]] {.gcsafe, async.} =
-  var msgBytes = await stream.readMsgBytesOrClose(withResponseCode, deadline)
+  var msgBytes = await stream.readMsgBytes(withResponseCode, deadline)
   try:
     if msgBytes.len > 0:
       return some SSZ.decode(msgBytes, MsgType)
@@ -258,10 +259,6 @@ proc readResponse(
     type E = ElemType(MsgType)
     var results: MsgType
     while true:
-      # This loop will keep reading messages until the deadline is over
-      # or the other side closes the stream or provides an invalid respose.
-      # The underlying use of `readMsgBytesOrClose` will ensure that the
-      # stream is closed on our side as well.
       let nextRes = await readChunk(stream, E, true, deadline)
       if nextRes.isNone: break
       results.add nextRes.get
@@ -309,18 +306,32 @@ proc writeSizePrefix(transp: StreamTransport, size: uint64) {.async.} =
   if sent != varintSize:
     raise newException(TransmissionError, "Failed to deliver size prefix")
 
-proc sendMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.async} =
-  var stream = await peer.network.daemon.openStream(peer.id, @[protocolId])
-  # TODO how does openStream fail? Set a timeout here and handle it
-  await writeSizePrefix(stream.transp, uint64(requestBytes.len))
-  let sent = await stream.transp.write(requestBytes)
-  if sent != requestBytes.len:
+proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.async} =
+  var deadline = sleepAsync RESP_TIMEOUT
+  var streamFut = peer.network.daemon.openStream(peer.id, @[protocolId])
+  await streamFut or deadline
+  if not streamFut.finished:
+    # TODO: we are returning here because the deadline passed, but
+    # the stream can still be opened eventually a bit later. Who is
+    # going to close it then?
+    raise newException(TransmissionError, "Failed to open LibP2P stream")
+
+  let stream = streamFut.read
+  defer:
+    await close(stream)
+
+  var s = init OutputStream
+  s.appendVarint requestBytes.len.uint64
+  s.append requestBytes
+  let bytes = s.getOutput
+  let sent = await stream.transp.write(bytes)
+  if sent != bytes.len:
     raise newException(TransmissionError, "Failed to deliver msg bytes")
 
 proc sendResponseChunkBytes(stream: P2PStream, payload: Bytes) {.async.} =
   var s = init OutputStream
   s.append byte(Success)
-  s.appendVarint payload.len
+  s.appendVarint payload.len.uint64
   s.append payload
   let bytes = s.getOutput
   let sent = await stream.transp.write(bytes)
@@ -350,18 +361,27 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
                      ResponseMsg: type,
                      timeout: Duration): Future[Option[ResponseMsg]] {.gcsafe, async.} =
   var deadline = sleepAsync timeout
+
   # Open a new LibP2P stream
   var streamFut = peer.network.daemon.openStream(peer.id, @[protocolId])
   await streamFut or deadline
   if not streamFut.finished:
+    # TODO: we are returning here because the deadline passed, but
+    # the stream can still be opened eventually a bit later. Who is
+    # going to close it then?
     return none(ResponseMsg)
 
-  # Send the request
   let stream = streamFut.read
+  defer:
+    await close(stream)
 
-  await writeSizePrefix(stream.transp, requestBytes.len.uint64)
-  let sent = await stream.transp.write(requestBytes)
-  if sent != requestBytes.len:
+  # Send the request
+  var s = init OutputStream
+  s.appendVarint requestBytes.len.uint64
+  s.append requestBytes
+  let bytes = s.getOutput
+  let sent = await stream.transp.write(bytes)
+  if sent != bytes.len:
     await disconnectAndRaise(peer, FaultOrError, "Incomplete send")
 
   # Read the response
@@ -467,7 +487,7 @@ proc implementSendProcBody(sendProc: SendProc) =
           makeEth2Request(`peer`, `msgProto`, `bytes`,
                           `ResponseRecord`, `timeout`)
       else:
-        quote: sendMsg(`peer`, `msgProto`, `bytes`)
+        quote: sendNotificationMsg(`peer`, `msgProto`, `bytes`)
     else:
       quote: sendResponseChunkBytes(`UntypedResponder`(`peer`).stream, `bytes`)
 
@@ -524,9 +544,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     ## Implemenmt Thunk
     ##
     var thunkName = ident(msgName & "_thunk")
-    let
-      requestDataTimeout = newCall(milliseconds, newLit(defaultIncomingReqTimeout))
-      awaitUserHandler = msg.genAwaitUserHandler(msgVar, [peerVar, streamVar])
+    let awaitUserHandler = msg.genAwaitUserHandler(msgVar, [peerVar, streamVar])
 
     let tracing = when tracingEnabled:
       quote: logReceivedMsg(`streamVar`.peer, `msgVar`.get)
@@ -536,14 +554,17 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     msg.defineThunk quote do:
       proc `thunkName`(`daemonVar`: `DaemonAPI`,
                        `streamVar`: `P2PStream`) {.async, gcsafe.} =
+        defer:
+          `await` close(`streamVar`)
+
         let
-          `deadlineVar` = sleepAsync `requestDataTimeout`
+          `deadlineVar` = sleepAsync RESP_TIMEOUT
           `msgBytesVar` = `await` readMsgBytes(`streamVar`, false, `deadlineVar`)
           `peerVar` = peerFromStream(`daemonVar`, `streamVar`)
 
         if `msgBytesVar`.len == 0:
-          `await` sendErrorResponse(`peerVar`, `streamVar`, ServerError,
-                                    "Exceeded read timeout for a request")
+          `await` sendErrorResponse(`peerVar`, `streamVar`,
+                                    ServerError, readTimeoutErrorMsg)
           return
 
         var `msgVar`: `msgRecName`

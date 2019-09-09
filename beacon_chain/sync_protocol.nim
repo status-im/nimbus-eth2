@@ -62,87 +62,34 @@ proc importBlocks(node: BeaconNode,
     node.onBeaconBlock(node, blk)
   info "Forward sync imported blocks", len = blocks.len
 
-proc mergeBlockHeadersAndBodies(headers: openarray[BeaconBlockHeader], bodies: openarray[BeaconBlockBody]): Option[seq[BeaconBlock]] =
-  if bodies.len != headers.len:
-    info "Cannot merge bodies and headers. Length mismatch.", bodies = bodies.len, headers = headers.len
-    return
-
-  var res: seq[BeaconBlock]
-  for i in 0 ..< headers.len:
-    if hash_tree_root(bodies[i]) != headers[i].body_root:
-      info "Block body is wrong for header"
-      return
-
-    res.setLen(res.len + 1)
-    res[^1].fromHeaderAndBody(headers[i], bodies[i])
-  some(res)
-
-proc beaconBlocksByRange*(
-            peer: Peer,
-            headBlockRoot: Eth2Digest,
-            start_slot: Slot,
-            count: uint64,
-            step: uint64,
-            timeout: Duration = milliseconds(10000'i64)):
-            Future[Option[seq[BeaconBlock]]] {.gcsafe.}
-
 type
   HelloMsg = object
     forkVersion*: array[4, byte]
-    latestFinalizedRoot*: Eth2Digest
-    latestFinalizedEpoch*: Epoch
-    bestRoot*: Eth2Digest
-    bestSlot*: Slot
+    finalizedRoot*: Eth2Digest
+    finalizedEpoch*: Epoch
+    headRoot*: Eth2Digest
+    headSlot*: Slot
+
+proc getCurrentHello(node: BeaconNode): HelloMsg =
+  let
+    blockPool = node.blockPool
+    finalizedHead = blockPool.finalizedHead
+    headBlock = blockPool.head.blck
+    headRoot = headBlock.root
+    headSlot = headBlock.slot
+    finalizedEpoch = finalizedHead.slot.compute_epoch_of_slot()
+
+  HelloMsg(
+    fork_version: node.forkVersion,
+    finalizedRoot: finalizedHead.blck.root,
+    finalizedEpoch: finalizedEpoch,
+    headRoot: headRoot,
+    headSlot: headSlot)
 
 proc handleInitialHello(peer: Peer,
                         node: BeaconNode,
-                        latestFinalizedEpoch: Epoch,
-                        bestSlot: Slot,
-                        bestRoot: Eth2Digest,
-                        h: HelloMsg) {.async.} =
-  if h.forkVersion != node.forkVersion:
-    await peer.disconnect(IrrelevantNetwork)
-    return
-
-  # TODO: onPeerConnected runs unconditionally for every connected peer, but we
-  # don't need to sync with everybody. The beacon node should detect a situation
-  # where it needs to sync and it should execute the sync algorithm with a certain
-  # number of randomly selected peers. The algorithm itself must be extracted in a proc.
-  try:
-    libp2p_peers.set peer.network.peers.len.int64
-    debug "Peer connected. Initiating sync", peer, bestSlot, remoteBestSlot = h.bestSlot
-
-    let bestDiff = cmp((latestFinalizedEpoch, bestSlot), (h.latestFinalizedEpoch, h.bestSlot))
-    if bestDiff >= 0:
-      # Nothing to do?
-      debug "Nothing to sync", peer
-    else:
-      # TODO: Check for WEAK_SUBJECTIVITY_PERIOD difference and terminate the
-      # connection if it's too big.
-
-      var s = bestSlot + 1
-      while s <= h.bestSlot:
-        debug "Waiting for block headers", peer, remoteBestSlot = h.bestSlot
-
-        let numBlocksToRequest = min(uint64(h.bestSlot - s), maxBlocksToRequest)
-        let blocks = await peer.beaconBlocksByRange(bestRoot, s,
-                                                    numBlocksToRequest, 1'u64)
-        if blocks.isSome:
-          if blocks.get.len == 0:
-            info "Got 0 blocks while syncing", peer
-            break
-          node.importBlocks blocks.get
-          let lastSlot = blocks.get[^1].slot
-          if lastSlot <= s:
-            info "Slot did not advance during sync", peer
-            break
-
-          s = lastSlot + 1
-        else:
-          break
-
-  except CatchableError:
-    warn "Failed to sync with peer", peer, err = getCurrentExceptionMsg()
+                        ourHello: HelloMsg,
+                        theirHello: HelloMsg) {.async, gcsafe.}
 
 p2pProtocol BeaconSync(version = 1,
                        rlpxName = "bcs",
@@ -152,24 +99,12 @@ p2pProtocol BeaconSync(version = 1,
   onPeerConnected do (peer: Peer):
     if peer.wasDialed:
       let
-        protocolVersion = 1 # TODO: Spec doesn't specify this yet
         node = peer.networkState.node
-        blockPool = node.blockPool
-        finalizedHead = blockPool.finalizedHead
-        headBlock = blockPool.head.blck
-        bestRoot = headBlock.root
-        bestSlot = headBlock.slot
-        latestFinalizedEpoch = finalizedHead.slot.compute_epoch_of_slot()
+        ourHello = node.getCurrentHello
+        theirHello = await peer.hello(ourHello)
 
-      let h = await peer.hello(HelloMsg(
-        fork_version: node.forkVersion,
-        latestFinalizedRoot: finalizedHead.blck.root,
-        latestFinalizedEpoch: latestFinalizedEpoch,
-        bestRoot: bestRoot,
-        bestSlot: bestSlot), timeout = 10.seconds)
-
-      if h.isSome:
-        await peer.handleInitialHello(node, latestFinalizedEpoch, bestSlot, bestRoot, h.get)
+      if theirHello.isSome:
+        await peer.handleInitialHello(node, ourHello, theirHello.get)
       else:
         warn "Hello response not received in time"
 
@@ -177,27 +112,16 @@ p2pProtocol BeaconSync(version = 1,
     libp2p_peers.set peer.network.peers.len.int64
 
   requestResponse:
-    proc hello(peer: Peer, hhh: HelloMsg) {.libp2pProtocol("hello", 1).} =
+    proc hello(peer: Peer, theirHello: HelloMsg) {.libp2pProtocol("hello", 1).} =
       let
-        protocolVersion = 1 # TODO: Spec doesn't specify this yet
         node = peer.networkState.node
-        blockPool = node.blockPool
-        finalizedHead = blockPool.finalizedHead
-        headBlock = blockPool.head.blck
-        bestRoot = headBlock.root
-        bestSlot = headBlock.slot
-        latestFinalizedEpoch = finalizedHead.slot.compute_epoch_of_slot()
+        ourHello = node.getCurrentHello
 
-      await response.send(HelloMsg(
-        fork_version: node.forkVersion,
-        latestFinalizedRoot: finalizedHead.blck.root,
-        latestFinalizedEpoch: latestFinalizedEpoch,
-        bestRoot: bestRoot,
-        bestSlot: bestSlot))
+      await response.send(ourHello)
 
       if not peer.state.initialHelloReceived:
         peer.state.initialHelloReceived = true
-        await peer.handleInitialHello(node, latestFinalizedEpoch, bestSlot, bestRoot, hhh)
+        await peer.handleInitialHello(node, ourHello, theirHello)
 
     proc helloResp(peer: Peer, msg: HelloMsg) {.libp2pProtocol("hello", 1).}
 
@@ -257,4 +181,71 @@ p2pProtocol BeaconSync(version = 1,
     proc beaconBlocks(
             peer: Peer,
             blocks: openarray[BeaconBlock])
+
+proc handleInitialHello(peer: Peer,
+                        node: BeaconNode,
+                        ourHello: HelloMsg,
+                        theirHello: HelloMsg) {.async, gcsafe.} =
+
+  if theirHello.forkVersion != node.forkVersion:
+    await peer.disconnect(IrrelevantNetwork)
+    return
+
+  # TODO: onPeerConnected runs unconditionally for every connected peer, but we
+  # don't need to sync with everybody. The beacon node should detect a situation
+  # where it needs to sync and it should execute the sync algorithm with a certain
+  # number of randomly selected peers. The algorithm itself must be extracted in a proc.
+  try:
+    libp2p_peers.set peer.network.peers.len.int64
+
+    debug "Peer connected. Initiating sync", peer,
+          headSlot = ourHello.headSlot,
+          remoteHeadSlot = theirHello.headSlot
+
+    let bestDiff = cmp((ourHello.finalizedEpoch, ourHello.headSlot),
+                       (theirHello.finalizedEpoch, theirHello.headSlot))
+    if bestDiff >= 0:
+      # Nothing to do?
+      debug "Nothing to sync", peer
+    else:
+      # TODO: Check for WEAK_SUBJECTIVITY_PERIOD difference and terminate the
+      # connection if it's too big.
+
+      var s = ourHello.headSlot + 1
+      var theirHello = theirHello
+      while s <= theirHello.headSlot:
+        debug "Waiting for block headers", peer,
+              remoteHeadSlot = theirHello.headSlot
+
+        let numBlocksToRequest = min(uint64(theirHello.headSlot - s),
+                                     maxBlocksToRequest)
+        let blocks = await peer.beaconBlocksByRange(ourHello.headRoot, s,
+                                                    numBlocksToRequest, 1'u64)
+        if blocks.isSome:
+          if blocks.get.len == 0:
+            info "Got 0 blocks while syncing", peer
+            break
+          node.importBlocks blocks.get
+          let lastSlot = blocks.get[^1].slot
+          if lastSlot <= s:
+            info "Slot did not advance during sync", peer
+            break
+
+          s = lastSlot + 1
+
+          # TODO: Maybe this shouldn't happen so often.
+          # The alternative could be watching up a timer here.
+          let helloResp = await peer.hello(node.getCurrentHello)
+          if helloResp.isSome:
+            theirHello = helloResp.get
+          else:
+            # We'll ignore this error and we'll try to request
+            # another range optimistically. If that fails, the
+            # syncing will be interrupted.
+            discard
+        else:
+          break
+
+  except CatchableError:
+    warn "Failed to sync with peer", peer, err = getCurrentExceptionMsg()
 
