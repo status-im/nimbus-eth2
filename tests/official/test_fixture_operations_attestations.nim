@@ -59,6 +59,7 @@ template runTest(testName: string, identifier: untyped) =
       else:
         let done = process_attestation(stateRef[], attestationRef[], flags, cache)
         doAssert done, "Valid attestation not processed"
+        check: stateRef.hash_tree_root() == postRef.hash_tree_root()
         reportDiff(stateRef, postRef)
 
   `testImpl _ operations_attestations _ identifier`()
