@@ -350,10 +350,6 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
       else:
         penalties[index] += get_base_reward(state, index)
 
-  # Early-out not explicitly in spec
-  if matching_source_attestations.len == 0:
-    return (rewards, penalties)
-
   # Proposer and inclusion delay micro-rewards
   ## This depends on matching_source_attestations being an indexable seq, not a
   ## set, hash table, etc.
