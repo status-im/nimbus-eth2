@@ -31,6 +31,10 @@ type
       shortform: "n"
       defaultValue: DEFAULT_NETWORK .}: string
 
+    quickStart* {.
+      desc: "Run in quickstart mode",
+      defaultValue: false.}: bool
+
     dataDir* {.
       desc: "The directory where nimbus will store all blockchain data."
       shortform: "d"
