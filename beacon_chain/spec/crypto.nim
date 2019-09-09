@@ -183,7 +183,9 @@ func bls_verify_multiple*(
     sig: ValidatorSig, domain: uint64): bool =
   let L = len(pubkeys)
   doAssert L == len(message_hashes)
-  doAssert sig.kind == Real
+  if sig.kind != Real:
+    # TODO: chronicles warning
+    return false
 
   # TODO optimize using multiPairing
   for pubkey_message_hash in zip(pubkeys, message_hashes):
