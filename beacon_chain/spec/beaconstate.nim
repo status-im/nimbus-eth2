@@ -521,6 +521,20 @@ proc check_attestation*(
       state_slot = shortLog(stateSlot))
     return
 
+  let committee = get_crosslink_committee(state, data.target.epoch, data.crosslink.shard, stateCache)
+  if attestation.aggregation_bits.len != attestation.custody_bits.len:
+    warn("Inconsistent aggregation and custody bits",
+      aggregation_bits_len = attestation.aggregation_bits.len,
+      custody_bits_len = attestation.custody_bits.len
+    )
+    return
+  if attestation.aggregation_bits.len != committee.len:
+    warn("Inconsistent aggregation and committee length",
+      aggregation_bits_len = attestation.aggregation_bits.len,
+      committee_len = committee.len
+    )
+    return
+
   # Check FFG data, crosslink data, and signature
   let ffg_check_data = (data.source.epoch, data.source.root, data.target.epoch)
 
