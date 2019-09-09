@@ -380,23 +380,32 @@ proc proposeBlock(node: BeaconNode,
     doAssert false, "head slot matches proposal slot (!)"
     # return
 
-  if not node.mainchainMonitor.isNil:
-    let eth1Data = await node.mainchainMonitor.getBeaconBlockRef()
 
   var (nroot, nblck) = node.blockPool.withState(
       node.stateCache, BlockSlot(blck: head, slot: slot - 1)):
     # To create a block, we'll first apply a partial block to the state, skipping
     # some validations.
     # TODO monitor main chain here: node.mainchainMonitor.getBeaconBlockRef()
+    let (eth1data, deposits) =
+      if node.mainchainMonitor.isNil:
+        (get_eth1data_stub(
+            state.eth1_deposit_index, slot.compute_epoch_of_slot()),
+          newSeq[Deposit]()
+        )
+      else:
+        let e1d = await node.mainchainMonitor.getBeaconBlockRef()
+
+        (e1d,
+          node.mainchainMonitor.getPendingDeposits()
+        )
 
     let
       blockBody = BeaconBlockBody(
         randao_reveal: validator.genRandaoReveal(state, slot),
-        eth1_data: get_eth1data_stub(
-          state.eth1_deposit_index, slot.compute_epoch_of_slot()),
+        eth1_data: eth1data,
         attestations:
           node.attestationPool.getAttestationsForBlock(state, slot),
-        deposits: node.mainchainMonitor.getPendingDeposits())
+        deposits: deposits)
 
     var
       newBlock = BeaconBlock(
