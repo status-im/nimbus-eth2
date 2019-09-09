@@ -9,13 +9,12 @@ import
   # Standard library
   os, unittest, strutils,
   # Beacon chain internals
-  ../../beacon_chain/spec/[datatypes, state_transition_block, validator],
+  ../../beacon_chain/spec/[datatypes, state_transition_block],
   ../../beacon_chain/[ssz, extras],
   # Test utilities
   ../testutil,
   ./fixtures_utils,
-  ../helpers/debug_state,
-  ../mocking/mock_blocks
+  ../helpers/debug_state
 
 const OpVoluntaryExitDir = SszTestsDir/const_preset/"phase0"/"operations"/"voluntary_exit"/"pyspec_tests"
 
@@ -43,8 +42,6 @@ template runTest(identifier: untyped) =
       var voluntaryExit: ref VoluntaryExit
       new voluntaryExit
       new stateRef
-
-      var cache = get_empty_per_epoch_cache()
 
       voluntaryExit[] = parseTest(testDir/"voluntary_exit.ssz", SSZ, VoluntaryExit)
       stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
