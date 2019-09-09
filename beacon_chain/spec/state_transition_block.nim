@@ -291,51 +291,6 @@ proc processAttestations*(
   if not blck.body.attestations.allIt(process_attestation(state, it, flags, stateCache)):
     return false
 
-  # All checks passed - update state
-  # Apply the attestations
-  var committee_count_cache = initTable[Epoch, uint64]()
-
-  trace "in processAttestations, has processed attestations",
-    attestations_len = blck.body.attestations.len()
-
-  var cache = get_empty_per_epoch_cache()
-
-  for attestation in blck.body.attestations:
-    # Caching
-    let
-      epoch = attestation.data.target.epoch
-      committee_count = if epoch in committee_count_cache:
-          committee_count_cache[epoch]
-        else:
-          get_committee_count(state, epoch)
-    committee_count_cache[epoch] = committee_count
-
-    # Spec content
-    let attestation_slot =
-      get_attestation_data_slot(state, attestation.data, committee_count)
-    let pending_attestation = PendingAttestation(
-      data: attestation.data,
-      aggregation_bits: attestation.aggregation_bits,
-      inclusion_delay: state.slot - attestation_slot,
-      proposer_index: get_beacon_proposer_index(state, stateCache),
-    )
-
-    if attestation.data.target.epoch == get_current_epoch(state):
-      state.current_epoch_attestations.add(pending_attestation)
-    else:
-      state.previous_epoch_attestations.add(pending_attestation)
-
-    trace "processAttestations",
-      target_epoch=attestation.data.target.epoch,
-      current_epoch= get_current_epoch(state),
-      current_epoch_attestations_len=len(get_attesting_indices(state, state.current_epoch_attestations, cache)),
-      previous_epoch_attestations_len=len(get_attesting_indices(state, state.previous_epoch_attestations, cache)),
-      prev_unslashed_attesting_indices=get_unslashed_attesting_indices(state, state.previous_epoch_attestations, cache),
-      cur_unslashed_attesting_indices=get_unslashed_attesting_indices(state, state.current_epoch_attestations, cache),
-      prev_attesting_indices=get_attesting_indices(state, state.previous_epoch_attestations, cache),
-      cur_attesting_indices=get_attesting_indices(state, state.current_epoch_attestations, cache),
-      new_attestation_indices=get_attesting_indices(state, attestation.data, attestation.aggregation_bits, cache)
-
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.5.1/specs/core/0_beacon-chain.md#deposits
