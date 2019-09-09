@@ -172,7 +172,9 @@ func bls_verify*(
     domain: uint64): bool =
   # name from spec!
   when ValidatorPubKey is BlsValue:
-    doAssert sig.kind == Real and pubkey.kind == Real
+    if sig.kind != Real or pubkey.kind != Real:
+      # TODO: chronicles warning
+      return false
     sig.blsValue.verify(msg, domain, pubkey.blsValue)
   else:
     sig.verify(msg, domain, pubkey)
