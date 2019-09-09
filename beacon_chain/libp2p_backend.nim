@@ -6,7 +6,7 @@ import
   libp2p_json_serialization, ssz
 
 export
-  daemonapi, p2pProtocol, libp2p_json_serialization
+  daemonapi, p2pProtocol, libp2p_json_serialization, ssz
 
 type
   Eth2Node* = ref object of RootObj
@@ -317,12 +317,32 @@ proc sendMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.async} =
   if sent != requestBytes.len:
     raise newException(TransmissionError, "Failed to deliver msg bytes")
 
-proc sendResponseBytes(stream: P2PStream, bytes: Bytes) {.async.} =
-  var sent = await stream.transp.write(@[byte Success])
-  if sent != 1:
-    raise newException(TransmissionError, "Failed to deliver response code")
-  await writeSizePrefix(stream.transp, uint64(bytes.len))
-  sent = await stream.transp.write(bytes)
+proc sendResponseChunkBytes(stream: P2PStream, payload: Bytes) {.async.} =
+  var s = init OutputStream
+  s.append byte(Success)
+  s.appendVarint payload.len
+  s.append payload
+  let bytes = s.getOutput
+  let sent = await stream.transp.write(bytes)
+  if sent != bytes.len:
+    raise newException(TransmissionError, "Failed to deliver all bytes")
+
+proc sendResponseChunkObj(stream: P2PStream, val: auto) {.async.} =
+  var s = init OutputStream
+  s.append byte(Success)
+  s.appendValue SSZ, sizePrefixed(val)
+  let bytes = s.getOutput
+  let sent = await stream.transp.write(bytes)
+  if sent != bytes.len:
+    raise newException(TransmissionError, "Failed to deliver all bytes")
+
+proc sendResponseChunks[T](stream: P2PStream, chunks: seq[T]) {.async.} =
+  var s = init OutputStream
+  for chunk in chunks:
+    s.append byte(Success)
+    s.appendValue SSZ, sizePrefixed(chunk)
+  let bytes = s.getOutput
+  let sent = await stream.transp.write(bytes)
   if sent != bytes.len:
     raise newException(TransmissionError, "Failed to deliver all bytes")
 
@@ -410,6 +430,25 @@ proc init*[MsgType](T: type Responder[MsgType],
                     peer: Peer, stream: P2PStream): T =
   T(UntypedResponder(peer: peer, stream: stream))
 
+import
+  typetraits
+
+template write*[M](r: var Responder[M], val: auto): auto =
+  mixin send
+  type Msg = M
+  type MsgRec = RecType(Msg)
+  when MsgRec is seq|openarray:
+    type E = ElemType(MsgRec)
+    when val is E:
+      sendResponseChunkObj(UntypedResponder(r).stream, val)
+    elif val is MsgRec:
+      sendResponseChunks(UntypedResponder(r).stream, val)
+    else:
+      static: echo "BAD TYPE ", name(E), " vs ", name(type(val))
+      {.fatal: "bad".}
+  else:
+    send(r, val)
+
 proc implementSendProcBody(sendProc: SendProc) =
   let
     msg = sendProc.msg
@@ -430,7 +469,7 @@ proc implementSendProcBody(sendProc: SendProc) =
       else:
         quote: sendMsg(`peer`, `msgProto`, `bytes`)
     else:
-      quote: sendResponseBytes(`UntypedResponder`(`peer`).stream, `bytes`)
+      quote: sendResponseChunkBytes(`UntypedResponder`(`peer`).stream, `bytes`)
 
   sendProc.useStandardBody(nil, nil, sendCallGenerator)
 

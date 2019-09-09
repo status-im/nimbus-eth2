@@ -214,7 +214,6 @@ p2pProtocol BeaconSync(version = 1,
             count: uint64,
             step: uint64) {.
             libp2pProtocol("beacon_blocks_by_range", 1).} =
-      var blocks: seq[BeaconBlock]
       # `step == 0` has no sense, so we will return empty array of blocks.
       # `count == 0` means that empty array of blocks requested.
       #
@@ -223,38 +222,37 @@ p2pProtocol BeaconSync(version = 1,
       # which is follows `start_slot + step` sequence. For example for, if
       # `start_slot` is 2 and `step` is 2 and slots 2, 4, 6 are not available,
       # then [8, 10, ...] will be returned.
+      var sentBlocksCount = 0
       if step > 0'u64 and count > 0'u64:
         let pool = peer.networkState.node.blockPool
         var blck = pool.getRef(headBlockRoot)
         var slot = start_slot
         while not(isNil(blck)):
           if blck.slot == slot:
-            blocks.add(pool.get(blck).data)
+            await response.write(pool.get(blck).data)
+            inc sentBlocksCount
             slot = slot + step
           elif blck.slot > slot:
             if (blck.slot - slot) mod step == 0:
-              blocks.add(pool.get(blck).data)
+              await response.write(pool.get(blck).data)
+              inc sentBlocksCount
             slot = slot + ((blck.slot - slot) div step + 1) * step
-          if uint64(len(blocks)) == count:
+          if uint64(sentBlocksCount) == count:
             break
           blck = blck.parent
-
-      await response.send(blocks)
 
     proc beaconBlocksByRoot(
             peer: Peer,
             blockRoots: openarray[Eth2Digest]) {.
             libp2pProtocol("beacon_blocks_by_root", 1).} =
-      let pool = peer.networkState.node.blockPool
-      let db = peer.networkState.db
-      var blocks = newSeqOfCap[BeaconBlock](blockRoots.len)
+      let
+        pool = peer.networkState.node.blockPool
+        db = peer.networkState.db
 
       for root in blockRoots:
         let blockRef = pool.getRef(root)
-        if not(isNil(blockRef)):
-          blocks.add pool.get(blockRef).data
-
-      await response.send(blocks)
+        if not isNil(blockRef):
+          await response.write(pool.get(blockRef).data)
 
     proc beaconBlocks(
             peer: Peer,
@@ -276,7 +274,7 @@ p2pProtocol BeaconSync(version = 1,
           roots.add BlockRootSlot(blockRoot: r, slot: s)
           if roots.len == maxRoots.int: break
         s += 1
-      await response.send(roots)
+      await response.write(roots)
 
     proc beaconBlockRoots(
             peer: Peer,
@@ -344,10 +342,10 @@ p2pProtocol BeaconSync(version = 1,
             peer: Peer,
             needed: openarray[FetchRecord]) {.
             libp2pProtocol("ancestor_blocks", 1).} =
-      var resp = newSeqOfCap[BeaconBlock](needed.len)
       let db = peer.networkState.db
       var neededRoots = initSet[Eth2Digest]()
       for rec in needed: neededRoots.incl(rec.root)
+      var resultsCounter = 0
 
       for rec in needed:
         if (var blck = db.getBlock(rec.root); blck.isSome()):
@@ -355,8 +353,9 @@ p2pProtocol BeaconSync(version = 1,
           let firstSlot = blck.get().slot - rec.historySlots
 
           for i in 0..<rec.historySlots.int:
-            resp.add(blck.get())
-            if resp.len >= MaxAncestorBlocksResponse:
+            await response.write(blck.get())
+            inc resultsCounter
+            if resultsCounter >= MaxAncestorBlocksResponse:
               break
 
             if blck.get().parent_root in neededRoots:
@@ -368,10 +367,8 @@ p2pProtocol BeaconSync(version = 1,
                 blck.isNone() or blck.get().slot < firstSlot):
               break
 
-          if resp.len >= MaxAncestorBlocksResponse:
+          if resultsCounter >= MaxAncestorBlocksResponse:
             break
-
-      await response.send(resp)
 
     proc ancestorBlocks(
             peer: Peer,
@@ -387,10 +384,7 @@ p2pProtocol BeaconSync(version = 1,
       let db = peer.networkState.db
       for r in blockRoots:
         if (let blk = db.getBlock(r); blk.isSome):
-          bodies.add(blk.get().body)
-        else:
-          bodies.setLen(bodies.len + 1) # According to wire spec. Pad with zero body.
-      await response.send(bodies)
+          await response.write(blk.get().body)
 
     proc beaconBlockBodies(
             peer: Peer,
