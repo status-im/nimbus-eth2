@@ -11,10 +11,16 @@ proc init*(T: type RequestManager, network: Eth2Node): T =
 type
   FetchAncestorsResponseHandler = proc (b: BeaconBlock) {.gcsafe.}
 
-proc fetchAncestorBlocksFromPeer(peer: Peer, rec: FetchRecord, responseHandler: FetchAncestorsResponseHandler) {.async.} =
-  # TODO: (zah) Why are we specifying `GENESIS_SLOT` here?
-  #             I'm not sure what this meant for the old code.
-  let blocks = await peer.getBeaconBlocksSpec(rec.root, GENESIS_SLOT, rec.historySlots, 0'u64, true)
+proc fetchAncestorBlocksFromPeer(
+     peer: Peer,
+     rec: FetchRecord,
+     responseHandler: FetchAncestorsResponseHandler) {.async.} =
+  # TODO: It's not clear if this function follows the intention of the
+  # FetchRecord data type. Perhaps it is supposed to get a range of blocks
+  # instead. In order to do this, we'll need the slot number of the known
+  # block to be stored in the FetchRecord, so we can ask for a range of
+  # blocks starting N positions before this slot number.
+  let blocks = await peer.beaconBlocksByRoot([rec.root])
   if blocks.isSome:
     for b in blocks.get:
       responseHandler(b)
