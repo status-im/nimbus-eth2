@@ -169,6 +169,8 @@ func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
       (validator.effective_balance div WHISTLEBLOWER_REWARD_QUOTIENT).Gwei
     proposer_reward = whistleblowing_reward div PROPOSER_REWARD_QUOTIENT
   increase_balance(state, proposer_index, proposer_reward)
+  # TODO: evaluate if spec bug / underflow can be triggered
+  doAssert(whistleblowing_reward >= proposer_reward, "Spec bug: underflow in slash_validator")
   increase_balance(
     state, whistleblower_index, whistleblowing_reward - proposer_reward)
 

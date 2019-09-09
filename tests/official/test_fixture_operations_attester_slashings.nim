@@ -9,13 +9,12 @@ import
   # Standard library
   os, unittest, strutils,
   # Beacon chain internals
-  ../../beacon_chain/spec/[datatypes, beaconstate, validator],
+  ../../beacon_chain/spec/[datatypes, state_transition_block, validator],
   ../../beacon_chain/[ssz, extras],
   # Test utilities
   ../testutil,
   ./fixtures_utils,
-  ../helpers/debug_state,
-  ../mocking/mock_blocks
+  ../helpers/debug_state
 
 const OpAttSlashingDir = SszTestsDir/const_preset/"phase0"/"operations"/"attester_slashing"/"pyspec_tests"
 
@@ -27,7 +26,7 @@ template runTest(identifier: untyped) =
 
   const testDir = OpAttSlashingDir / astToStr(identifier)
 
-  proc `testImpl _ operations_attestater_slashing _ identifier`() =
+  proc `testImpl _ operations_attester_slashing _ identifier`() =
 
     var flags: UpdateFlags
     var prefix: string
@@ -46,7 +45,7 @@ template runTest(identifier: untyped) =
 
       var cache = get_empty_per_epoch_cache()
 
-      attesterSlashingRef[] = parseTest(testDir/"attester_slashing.ssz", SSZ, AttestaterSlashing)
+      attesterSlashingRef[] = parseTest(testDir/"attester_slashing.ssz", SSZ, AttesterSlashing)
       stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
 
       if existsFile(testDir/"post.ssz"):
@@ -54,15 +53,15 @@ template runTest(identifier: untyped) =
         postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
 
       if postRef.isNil:
-        let done = process_attester_slashing(stateRef[], attesterSlashingRef[], flags, cache)
+        let done = process_attester_slashing(stateRef[], attesterSlashingRef[], cache)
         doAssert done == false, "We didn't expect this invalid attester slashing to be processed."
       else:
-        let done = process_attester_slashing(stateRef[], attesterSlashingRef[], flags, cache)
+        let done = process_attester_slashing(stateRef[], attesterSlashingRef[], cache)
         doAssert done, "Valid attestater slashing not processed"
         check: stateRef.hash_tree_root() == postRef.hash_tree_root()
         reportDiff(stateRef, postRef)
 
-  `testImpl _ operations_attestater_slashing _ identifier`()
+  `testImpl _ operations_attester_slashing _ identifier`()
 
 suite "Official - Operations - Attester slashing " & preset():
   runTest(success_double)
@@ -81,5 +80,5 @@ suite "Official - Operations - Attester slashing " & preset():
   runTest(att2_bad_extra_index)
   runTest(att2_bad_replaced_index)
   runTest(unsorted_att_1_bit0)
-  runTest(unsorted_att_2_bit_0)
+  runTest(unsorted_att_2_bit0)
 
