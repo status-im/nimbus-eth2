@@ -177,6 +177,7 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot) =
       # Note: Genesis epoch = 0, no need to test if before Genesis
       process_epoch(state.data)
     state.data.slot += 1
+    state.root = hash_tree_root(state.data)
 
 proc state_transition*(
     state: var HashedBeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
