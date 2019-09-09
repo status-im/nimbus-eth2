@@ -164,47 +164,48 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     stderr.write args, "\n"
     quit 1
 
-  case conf.network
-  of "mainnet":
-    fail "The Serenity mainnet hasn't been launched yet"
-  of "testnet0", "testnet1":
-    result.networkMetadata = await updateTestnetMetadata(conf)
-  else:
-    try:
-      result.networkMetadata = Json.loadFile(conf.network, NetworkMetadata)
-    except SerializationError as err:
-      fail "Failed to load network metadata: \n", err.formatMsg(conf.network)
-
-  var metadataErrorMsg = ""
-
-  template checkCompatibility(metadataField, LOCAL_CONSTANT) =
-    let metadataValue = metadataField
-    if metadataValue != LOCAL_CONSTANT:
-      if metadataErrorMsg.len > 0: metadataErrorMsg.add " and"
-      metadataErrorMsg.add " -d:" & astToStr(LOCAL_CONSTANT) & "=" & $metadataValue &
-                           " (instead of " & $LOCAL_CONSTANT & ")"
-
-  if result.networkMetadata.networkGeneration != semanticVersion:
-    let newerVersionRequired = result.networkMetadata.networkGeneration.int > semanticVersion
-    let newerOrOlder = if newerVersionRequired: "a newer" else: "an older"
-    stderr.write &"Connecting to '{conf.network}' requires {newerOrOlder} version of Nimbus. "
-    if newerVersionRequired:
-      stderr.write "Please follow the instructions at https://github.com/status-im/nim-beacon-chain " &
-                   "in order to produce an up-to-date build.\n"
-    quit 1
-
-  checkCompatibility result.networkMetadata.numShards      , SHARD_COUNT
-  checkCompatibility result.networkMetadata.slotDuration   , SECONDS_PER_SLOT
-  checkCompatibility result.networkMetadata.slotsPerEpoch  , SLOTS_PER_EPOCH
-
-  if metadataErrorMsg.len > 0:
-    fail "To connect to the ", conf.network, " network, please compile with", metadataErrorMsg
-
-  for bootNode in result.networkMetadata.bootstrapNodes:
-    if bootNode.isSameNode(result.networkIdentity):
-      result.isBootstrapNode = true
+  if not conf.quickStart:
+    case conf.network
+    of "mainnet":
+      fail "The Serenity mainnet hasn't been launched yet"
+    of "testnet0", "testnet1":
+      result.networkMetadata = await updateTestnetMetadata(conf)
     else:
-      result.bootstrapNodes.add bootNode
+      try:
+        result.networkMetadata = Json.loadFile(conf.network, NetworkMetadata)
+      except SerializationError as err:
+        fail "Failed to load network metadata: \n", err.formatMsg(conf.network)
+
+    var metadataErrorMsg = ""
+
+    template checkCompatibility(metadataField, LOCAL_CONSTANT) =
+      let metadataValue = metadataField
+      if metadataValue != LOCAL_CONSTANT:
+        if metadataErrorMsg.len > 0: metadataErrorMsg.add " and"
+        metadataErrorMsg.add " -d:" & astToStr(LOCAL_CONSTANT) & "=" & $metadataValue &
+                            " (instead of " & $LOCAL_CONSTANT & ")"
+
+    if result.networkMetadata.networkGeneration != semanticVersion:
+      let newerVersionRequired = result.networkMetadata.networkGeneration.int > semanticVersion
+      let newerOrOlder = if newerVersionRequired: "a newer" else: "an older"
+      stderr.write &"Connecting to '{conf.network}' requires {newerOrOlder} version of Nimbus. "
+      if newerVersionRequired:
+        stderr.write "Please follow the instructions at https://github.com/status-im/nim-beacon-chain " &
+                    "in order to produce an up-to-date build.\n"
+      quit 1
+
+    checkCompatibility result.networkMetadata.numShards      , SHARD_COUNT
+    checkCompatibility result.networkMetadata.slotDuration   , SECONDS_PER_SLOT
+    checkCompatibility result.networkMetadata.slotsPerEpoch  , SLOTS_PER_EPOCH
+
+    if metadataErrorMsg.len > 0:
+      fail "To connect to the ", conf.network, " network, please compile with", metadataErrorMsg
+
+    for bootNode in result.networkMetadata.bootstrapNodes:
+      if bootNode.isSameNode(result.networkIdentity):
+        result.isBootstrapNode = true
+      else:
+        result.bootstrapNodes.add bootNode
 
   for bootNode in conf.bootstrapNodes:
     result.bootstrapNodes.add BootstrapAddr.init(bootNode)
