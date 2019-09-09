@@ -38,7 +38,7 @@ import # TODO - cleanup imports
   beaconstate, crypto, datatypes, digest, helpers, validator
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#block-header
-proc processBlockHeader(
+proc process_block_header*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool =
   # Verify that the slots match
@@ -457,7 +457,7 @@ proc processBlock*(
   # TODO when there's a failure, we should reset the state!
   # TODO probably better to do all verification first, then apply state changes
 
-  if not processBlockHeader(state, blck, flags, stateCache):
+  if not process_block_header(state, blck, flags, stateCache):
     notice "Block header not valid", slot = shortLog(state.slot)
     return false
 
