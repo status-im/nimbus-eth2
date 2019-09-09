@@ -382,6 +382,17 @@ proc process_transfer*(
        transfer: Transfer,
        stateCache: var StateCache,
        flags: UpdateFlags): bool =
+
+  # Not in spec
+  if transfer.sender.int >= state.balances.len:
+    notice "Transfer: invalid sender ID"
+    return false
+
+  # Not in spec
+  if transfer.recipient.int >= state.balances.len:
+    notice "Transfer: invalid recipient ID"
+    return false
+
   let sender_balance = state.balances[transfer.sender.int]
 
   ## Verify the amount and fee are not individually too big (for anti-overflow
