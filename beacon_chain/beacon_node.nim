@@ -903,8 +903,8 @@ when isMainModule:
         totalValidators: config.totalValidators,
         lastUserValidator: config.lastUserValidator)
 
-    Json.saveFile(config.outputNetwork.string, testnetMetadata, pretty = true)
-    echo "Wrote ", config.outputNetwork.string
+    Json.saveFile(config.outputNetworkMetadata.string, testnetMetadata, pretty = true)
+    echo "Wrote ", config.outputNetworkMetadata.string
 
   of updateTestnet:
     discard waitFor updateTestnetMetadata(config)
@@ -946,7 +946,7 @@ when isMainModule:
 
   of makeDeposits:
     let deposits = generateDeposits(
-      config.totalDeposits, config.depositDir, config.randomKeys)
+      config.totalDeposits, config.depositsDir, config.randomKeys)
 
     if config.depositWeb3Url.len() > 0 and config.depositContractAddress.len() > 0:
       waitFor sendDeposits(
