@@ -47,6 +47,11 @@ LIGHTHOUSE=${LIGHTHOSE_PATH:-"lighthouse"}
   popd
 }
 
+
+pushd "$LIGHTHOUSE"
+cargo build --release
+popd
+
 # Fetch genesis time, as set up by start.sh
 if command -v jq; then
   genesis_time=$(jq '.genesis_time' data/state_snapshot.json)
@@ -56,10 +61,7 @@ fi
 
 echo Genesis time was $genesis_time
 
-cd "$LIGHTHOUSE"
-cargo build
-
-cd target/debug
+cd "$LIGHTHOUSE/target/release"
 
 #$export RUST_LOG=libp2p=trace,multistream=trace,gossipsub=trace
 

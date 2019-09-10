@@ -1,8 +1,8 @@
 import
-  net, sequtils, options, tables, osproc, random, strutils, times, strformat,
+  net, sequtils, tables, osproc, random, strutils, times, strformat,
   stew/shims/os, stew/[objects, bitseqs],
   chronos, chronicles, confutils, metrics,
-  json_serialization/std/sets, serialization/errors,
+  json_serialization/std/[options, sets], serialization/errors,
   eth/trie/db, eth/trie/backends/rocksdb_backend, eth/async_utils,
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator,
   state_transition_block],
@@ -881,7 +881,10 @@ when isMainModule:
 
       testnetMetadata = NetworkMetadata(
         networkGeneration: semanticVersion,
-        genesisRoot: hash_tree_root(initialState),
+        genesisRoot:
+          if config.withGenesisRoot:
+            some(hash_tree_root(initialState))
+          else: none(Eth2Digest),
         bootstrapNodes: @[bootstrapAddress],
         numShards: SHARD_COUNT,
         slotDuration: SECONDS_PER_SLOT,

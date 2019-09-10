@@ -1,5 +1,5 @@
 import
-  sets, deques, tables,
+  sets, deques, tables, options,
   eth/keys, stew/[bitseqs, endians2],
   spec/[datatypes, crypto, digest],
   beacon_chain_db, conf, mainchain_monitor, eth2_network, time
@@ -245,7 +245,7 @@ type
 
   NetworkMetadata* = object
     networkGeneration*: uint64
-    genesisRoot*: Eth2Digest
+    genesisRoot*: Option[Eth2Digest]
     bootstrapNodes*: seq[BootstrapAddr]
     numShards*: uint64
     slotDuration*: uint64

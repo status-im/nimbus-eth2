@@ -137,6 +137,9 @@ type
       outputNetwork* {.
         desc: "Output file where to write the initial state snapshot".}: OutFile
 
+      withGenesisRoot* {.
+        desc: "Include a genesis root in network.json", defaultValue: false.}: bool
+
     of importValidator:
       keyFiles* {.
         longform: "keyfile"

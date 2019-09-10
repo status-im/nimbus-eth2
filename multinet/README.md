@@ -4,6 +4,10 @@ This folder contains scripts for launching the nimbus beacon chain node in a con
 
 In general, follow the build instructions of `nim-beacon-chain` as documented in the main repo - make sure to set up your build environment with all necessary system libraries as documented there:
 
+### Prerequisites
+
+:warning: To build nimbus, you need to have `rocksdb` and `pcre` installed - see [../](main repo) for instructions.
+
 ```bash
 # Clone repo
 
@@ -21,13 +25,19 @@ make update deps # build dependencies
 Look in the scripts for options - the default config is a small setup using the `minimal` state spec.
 
 ```
-cd interop
+cd multinet
 
-# Clear data from previous run, then start a new simulation
-rm -rf data; ./start.sh
+# Create a new genesis 10s in the future
+./make_genesis.sh
 
-# In a separate terminal, can run another beacon node, such as lighthouse:
+# You can now start the clients
+./run_nimbus.sh
+./run_trinity.sh
 ./run_lighthouse.sh
+
+# Or do all in one step, with multitail
+USE_MULTITAIL=1 ./run_all.sh
+
 ```
 
 ## Diagnostics
