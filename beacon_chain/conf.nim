@@ -137,8 +137,11 @@ type
       outputGenesis* {.
         desc: "Output file where to write the initial state snapshot".}: OutFile
 
-      outputNetwork* {.
+      outputNetworkMetadata* {.
         desc: "Output file where to write the initial state snapshot".}: OutFile
+
+      outputBootstrapNodes* {.
+        desc: "Output file with list of bootstrap nodes for the network".}: OutFile
 
     of importValidator:
       keyFiles* {.

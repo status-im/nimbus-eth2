@@ -32,7 +32,7 @@ LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.js
 if [ ! -f "${LAST_VALIDATOR}" ]; then
   $BEACON_NODE_BIN makeDeposits \
     --totalDeposits="${NUM_VALIDATORS}" \
-    --depositDir="$VALIDATORS_DIR" \
+    --depositsDir="$VALIDATORS_DIR" \
     --randomKeys=false
 fi
 
