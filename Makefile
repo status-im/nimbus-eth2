@@ -5,6 +5,8 @@
 # at your option. This file may not be copied, modified, or distributed except
 # according to those terms.
 
+SHELL := bash # the shell used internally by "make"
+
 # used inside the included makefiles
 BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 
