@@ -40,7 +40,6 @@ if [ ! -f "${SNAPSHOT_FILE}" ]; then
   $BEACON_NODE_BIN \
     --dataDir="${SIMULATION_DIR}/node-0" \
     createTestnet \
-    --networkId=1000 \
     --validatorsDir="${VALIDATORS_DIR}" \
     --totalValidators="${NUM_VALIDATORS}" \
     --outputGenesis="${SNAPSHOT_FILE}" \

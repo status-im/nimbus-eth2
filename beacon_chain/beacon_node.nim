@@ -880,7 +880,6 @@ when isMainModule:
         config, parseIpAddress(config.bootstrapAddress), Port config.bootstrapPort)
 
       testnetMetadata = NetworkMetadata(
-        networkId: config.networkId,
         networkGeneration: semanticVersion,
         genesisRoot: hash_tree_root(initialState),
         bootstrapNodes: @[bootstrapAddress],

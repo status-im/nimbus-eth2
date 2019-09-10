@@ -244,7 +244,6 @@ type
     network*: Eth2Node
 
   NetworkMetadata* = object
-    networkId*: uint8
     networkGeneration*: uint64
     genesisRoot*: Eth2Digest
     bootstrapNodes*: seq[BootstrapAddr]

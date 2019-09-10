@@ -103,9 +103,6 @@ type
         defaultValue: 8008 .}: uint16
 
     of createTestnet:
-      networkId* {.
-        desc: "An unique numeric identifier for the network".}: uint8
-
       validatorsDir* {.
         desc: "Directory containing validator descriptors named vXXXXXXX.deposit.json"
         shortform: "d".}: InputDir
