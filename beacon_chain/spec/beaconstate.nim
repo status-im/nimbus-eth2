@@ -406,25 +406,26 @@ proc is_valid_indexed_attestation*(
     return false
 
   # Verify aggregate signature
+  let
+    pubkeys = @[ # TODO, bls_verify_multiple should accept openarray
+      bls_aggregate_pubkeys(mapIt(bit_0_indices, state.validators[it.int].pubkey)),
+      bls_aggregate_pubkeys(mapIt(bit_1_indices, state.validators[it.int].pubkey)),
+    ]
+    msg1 = AttestationDataAndCustodyBit(
+        data: indexed_attestation.data, custody_bit: false)
+    msg2 = AttestationDataAndCustodyBit(
+        data: indexed_attestation.data, custody_bit: true)
+    message_hashes = [
+      hash_tree_root(msg1),
+      hash_tree_root(msg2),
+    ]
+    domain = get_domain(state, DOMAIN_ATTESTATION, indexed_attestation.data.target.epoch)
+
   result = bls_verify_multiple(
-    @[
-      bls_aggregate_pubkeys(
-        mapIt(bit_0_indices, state.validators[it.int].pubkey)),
-      bls_aggregate_pubkeys(
-        mapIt(bit_1_indices, state.validators[it.int].pubkey)),
-    ],
-    @[
-      hash_tree_root(AttestationDataAndCustodyBit(
-        data: indexed_attestation.data, custody_bit: false)),
-      hash_tree_root(AttestationDataAndCustodyBit(
-        data: indexed_attestation.data, custody_bit: true)),
-    ],
+    pubkeys,
+    message_hashes,
     indexed_attestation.signature,
-    get_domain(
-      state,
-      DOMAIN_ATTESTATION,
-      indexed_attestation.data.target.epoch
-    ),
+    domain,
   )
   if not result:
     notice "indexed attestation: signature verification failure"

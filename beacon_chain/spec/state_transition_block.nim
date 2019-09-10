@@ -222,11 +222,11 @@ proc process_attester_slashing*(
       return false
 
     if not is_valid_indexed_attestation(state, attestation_1):
-      notice "Attester slashing: invalid votes 1"
+      notice "Attester slashing: invalid attestation 1"
       return false
 
     if not is_valid_indexed_attestation(state, attestation_2):
-      notice "Attester slashing: invalid votes 2"
+      notice "Attester slashing: invalid attestation 2"
       return false
 
     var slashed_any = false # Detect if trying to slash twice
@@ -234,10 +234,9 @@ proc process_attester_slashing*(
     ## TODO there's a lot of sorting/set construction here and
     ## verify_indexed_attestation, but go by spec unless there
     ## is compelling perf evidence otherwise.
-    let attesting_indices_1 =
-      attestation_1.custody_bit_0_indices & attestation_1.custody_bit_1_indices
-    let attesting_indices_2 =
-      attestation_2.custody_bit_0_indices & attestation_2.custody_bit_1_indices
+    let
+      attesting_indices_1 = attestation_1.custody_bit_0_indices & attestation_1.custody_bit_1_indices
+      attesting_indices_2 = attestation_2.custody_bit_0_indices & attestation_2.custody_bit_1_indices
     for index in sorted(toSeq(intersection(toSet(attesting_indices_1),
         toSet(attesting_indices_2)).items), system.cmp):
       if is_slashable_validator(state.validators[index.int], get_current_epoch(state)):
@@ -255,10 +254,10 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock,
     notice "Attester slashing: too many!"
     return false
 
-  result = true
   for attester_slashing in blck.body.attester_slashings:
     if not process_attester_slashing(state, attester_slashing, stateCache):
       return false
+  return true
 
 func get_attesting_indices(
     state: BeaconState, attestations: openarray[PendingAttestation],
