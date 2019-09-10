@@ -59,6 +59,10 @@ cat data/network.json
 # Run with a specific state
 data/beacon_node --dataDir=data/node-0 --network=data/network.json --nodename=0 --tcpPort=50000 --udpPort=50000 --stateSnapshot=file.ssz
 
+# Validators are loaded into a node based on private keys in folder - remove to start without
+rm data/node-0/validators/*
+
+data/beacon_node --dataDir=data/node-0 --network=data/network.json --nodename=0 --tcpPort=50000 --udpPort=50000 --stateSnapshot=file.ssz
 ```
 
 ## Diagnostics
