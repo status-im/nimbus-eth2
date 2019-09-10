@@ -36,7 +36,7 @@ type
     slot: Slot
 
 const
-  maxBlocksToRequest = 16'u64
+  maxBlocksToRequest = 64'u64
   MaxAncestorBlocksResponse = 256
 
 func toHeader(b: BeaconBlock): BeaconBlockHeader =
@@ -125,45 +125,27 @@ p2pProtocol BeaconSync(version = 1,
 
     proc helloResp(peer: Peer, msg: HelloMsg) {.libp2pProtocol("hello", 1).}
 
-  proc goodbye(
-            peer: Peer,
-            reason: DisconnectionReason) {.
-            libp2pProtocol("goodbye", 1).}
+  proc goodbye(peer: Peer, reason: DisconnectionReason) {.libp2pProtocol("goodbye", 1).}
 
   requestResponse:
     proc beaconBlocksByRange(
             peer: Peer,
             headBlockRoot: Eth2Digest,
-            start_slot: Slot,
+            startSlot: Slot,
             count: uint64,
             step: uint64) {.
             libp2pProtocol("beacon_blocks_by_range", 1).} =
-      # `step == 0` has no sense, so we will return empty array of blocks.
-      # `count == 0` means that empty array of blocks requested.
-      #
-      # Current version of network specification do not cover case when
-      # `start_slot` is empty, in such case we will return next available slot
-      # which is follows `start_slot + step` sequence. For example for, if
-      # `start_slot` is 2 and `step` is 2 and slots 2, 4, 6 are not available,
-      # then [8, 10, ...] will be returned.
-      var sentBlocksCount = 0
-      if step > 0'u64 and count > 0'u64:
+
+      if count > 0'u64:
+        let count = if step != 0: min(count, maxBlocksToRequest.uint64) else: 1
         let pool = peer.networkState.node.blockPool
-        var blck = pool.getRef(headBlockRoot)
-        var slot = start_slot
-        while not(isNil(blck)):
-          if blck.slot == slot:
-            await response.write(pool.get(blck).data)
-            inc sentBlocksCount
-            slot = slot + step
-          elif blck.slot > slot:
-            if (blck.slot - slot) mod step == 0:
-              await response.write(pool.get(blck).data)
-              inc sentBlocksCount
-            slot = slot + ((blck.slot - slot) div step + 1) * step
-          if uint64(sentBlocksCount) == count:
-            break
-          blck = blck.parent
+        var results: array[maxBlocksToRequest, BlockRef]
+        let
+          lastPos = min(count.int, results.len) - 1
+          firstPos = pool.getBlockRange(headBlockRoot, startSlot, step,
+                                        results.toOpenArray(0, lastPos))
+        for i in firstPos.int .. lastPos.int:
+          await response.write(pool.get(results[i]).data)
 
     proc beaconBlocksByRoot(
             peer: Peer,
@@ -210,21 +192,24 @@ proc handleInitialHello(peer: Peer,
     else:
       # TODO: Check for WEAK_SUBJECTIVITY_PERIOD difference and terminate the
       # connection if it's too big.
-
       var s = ourHello.headSlot + 1
       var theirHello = theirHello
       while s <= theirHello.headSlot:
-        debug "Waiting for block headers", peer,
-              remoteHeadSlot = theirHello.headSlot
-
         let numBlocksToRequest = min(uint64(theirHello.headSlot - s),
                                      maxBlocksToRequest)
-        let blocks = await peer.beaconBlocksByRange(ourHello.headRoot, s,
+
+        debug "Requesting blocks", peer, remoteHeadSlot = theirHello.headSlot,
+                                         ourHeadSlot = s,
+                                         numBlocksToRequest
+
+        let blocks = await peer.beaconBlocksByRange(theirHello.headRoot, s,
                                                     numBlocksToRequest, 1'u64)
         if blocks.isSome:
+          info "got blocks", total = blocks.get.len
           if blocks.get.len == 0:
             info "Got 0 blocks while syncing", peer
             break
+
           node.importBlocks blocks.get
           let lastSlot = blocks.get[^1].slot
           if lastSlot <= s:
@@ -244,6 +229,7 @@ proc handleInitialHello(peer: Peer,
             # syncing will be interrupted.
             discard
         else:
+          error "didn't got objectes in time"
           break
 
   except CatchableError:

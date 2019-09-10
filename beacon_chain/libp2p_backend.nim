@@ -209,42 +209,42 @@ proc readSizePrefix(transp: StreamTransport,
 proc readMsgBytes(stream: P2PStream,
                   withResponseCode: bool,
                   deadline: Future[void]): Future[Bytes] {.async.} =
-  trace "reading msg bytes", withResponseCode
-  if withResponseCode:
-    var responseCode: byte
-    var readResponseCode = stream.transp.readExactly(addr responseCode, 1)
-    await readResponseCode or deadline
-    if not readResponseCode.finished:
+  try:
+    if withResponseCode:
+      var responseCode: byte
+      var readResponseCode = stream.transp.readExactly(addr responseCode, 1)
+      await readResponseCode or deadline
+      if not readResponseCode.finished:
+        return
+      if responseCode > ResponseCode.high.byte: return
+
+      logScope: responseCode = ResponseCode(responseCode)
+      case ResponseCode(responseCode)
+      of InvalidRequest, ServerError:
+        let responseErrMsg = await readChunk(stream, string, false, deadline)
+        debug "P2P request resulted in error", responseErrMsg
+        return
+      of Success:
+        # The response is OK, the execution continues below
+        discard
+
+    var sizePrefix = await readSizePrefix(stream.transp, deadline)
+    if sizePrefix < -1:
+      debug "Failed to read an incoming message size prefix", peer = stream.peer
       return
-    if responseCode > ResponseCode.high.byte: return
 
-    logScope: responseCode = ResponseCode(responseCode)
-    case ResponseCode(responseCode)
-    of InvalidRequest, ServerError:
-      let responseErrMsg = await readChunk(stream, string, false, deadline)
-      debug "P2P request resulted in error", responseErrMsg
+    if sizePrefix == 0:
+      debug "Received SSZ with zero size", peer = stream.peer
       return
-    of Success:
-      # The response is OK, the execution continues below
-      discard
 
-  var sizePrefix = await readSizePrefix(stream.transp, deadline)
-  if sizePrefix < -1:
-    debug "Failed to read an incoming message size prefix", peer = stream.peer
-    return
+    var msgBytes = newSeq[byte](sizePrefix)
+    var readBody = stream.transp.readExactly(addr msgBytes[0], sizePrefix)
+    await readBody or deadline
+    if not readBody.finished: return
 
-  trace "got size prefix", sizePrefix
-  if sizePrefix == 0:
-    debug "Received SSZ with zero size", peer = stream.peer
-    return
-
-  var msgBytes = newSeq[byte](sizePrefix)
-  var readBody = stream.transp.readExactly(addr msgBytes[0], sizePrefix)
-  await readBody or deadline
-  if not readBody.finished: return
-
-  trace "got msg bytes", msgBytes
-  return msgBytes
+    return msgBytes
+  except TransportIncompleteError:
+    return @[]
 
 proc readChunk(stream: P2PStream,
                MsgType: type,
@@ -269,7 +269,6 @@ proc readResponse(
     var results: MsgType
     while true:
       let nextRes = await readChunk(stream, E, true, deadline)
-      trace "got response chunk", nextRes
       if nextRes.isNone: break
       results.add nextRes.get
     if results.len > 0:
