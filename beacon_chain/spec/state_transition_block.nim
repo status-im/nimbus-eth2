@@ -329,52 +329,67 @@ proc processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#voluntary-exits
-proc processVoluntaryExits(
-    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
-  # Process ``VoluntaryExit`` transaction.
-  if len(blck.body.voluntary_exits) > MAX_VOLUNTARY_EXITS:
-    notice "Exit: too many!"
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#voluntary-exits
+proc process_voluntary_exit*(
+    state: var BeaconState,
+    exit: VoluntaryExit,
+    flags: UpdateFlags): bool =
+
+  # Not in spec. Check that validator_index is in range
+  if exit.validator_index.int >= state.validators.len:
+    notice "Exit: invalid validator index",
+      index = exit.validator_index,
+      num_validators = state.validators.len
     return false
 
-  for exit in blck.body.voluntary_exits:
-    let validator = state.validators[exit.validator_index.int]
+  let validator = state.validators[exit.validator_index.int]
 
-    # Verify the validator is active
-    if not is_active_validator(validator, get_current_epoch(state)):
-      notice "Exit: validator not active"
+  # Verify the validator is active
+  if not is_active_validator(validator, get_current_epoch(state)):
+    notice "Exit: validator not active"
+    return false
+
+  # Verify the validator has not yet exited
+  if validator.exit_epoch != FAR_FUTURE_EPOCH:
+    notice "Exit: validator has exited"
+    return false
+
+  ## Exits must specify an epoch when they become valid; they are not valid
+  ## before then
+  if not (get_current_epoch(state) >= exit.epoch):
+    notice "Exit: exit epoch not passed"
+    return false
+
+  # Verify the validator has been active long enough
+  if not (get_current_epoch(state) >= validator.activation_epoch +
+      PERSISTENT_COMMITTEE_PERIOD):
+    notice "Exit: not in validator set long enough"
+    return false
+
+  # Verify signature
+  if skipValidation notin flags:
+    let domain = get_domain(state, DOMAIN_VOLUNTARY_EXIT, exit.epoch)
+    if not bls_verify(
+        validator.pubkey,
+        signing_root(exit).data,
+        exit.signature,
+        domain):
+      notice "Exit: invalid signature"
       return false
 
-    # Verify the validator has not yet exited
-    if not (validator.exit_epoch == FAR_FUTURE_EPOCH):
-      notice "Exit: validator has exited"
-      return false
-
-    ## Exits must specify an epoch when they become valid; they are not valid
-    ## before then
-    if not (get_current_epoch(state) >= exit.epoch):
-      notice "Exit: exit epoch not passed"
-      return false
-
-    # Verify the validator has been active long enough
-    # TODO detect underflow
-    if not (get_current_epoch(state) - validator.activation_epoch >=
-        PERSISTENT_COMMITTEE_PERIOD):
-      notice "Exit: not in validator set long enough"
-      return false
-
-    # Verify signature
-    if skipValidation notin flags:
-      if not bls_verify(
-          validator.pubkey, signing_root(exit).data, exit.signature,
-          get_domain(state, DOMAIN_VOLUNTARY_EXIT, exit.epoch)):
-        notice "Exit: invalid signature"
-        return false
-
-    # Initiate exit
-    initiate_validator_exit(state, exit.validator_index.ValidatorIndex)
+  # Initiate exit
+  initiate_validator_exit(state, exit.validator_index.ValidatorIndex)
 
   true
+
+proc processVoluntaryExits(state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
+  if len(blck.body.voluntary_exits) > MAX_VOLUNTARY_EXITS:
+    notice "[Block processing - Voluntary Exit]: too many exits!"
+    return false
+  for exit in blck.body.voluntary_exits:
+    if not process_voluntary_exit(state, exit, flags):
+      return false
+  return true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#transfers
 proc processTransfers(state: var BeaconState, blck: BeaconBlock,
@@ -469,6 +484,9 @@ proc processBlock*(
 
   processEth1Data(state, blck.body)
 
+  # TODO, everything below is now in process_operations
+  # and implementation is per element instead of the whole seq
+
   if not processProposerSlashings(state, blck, flags, stateCache):
     debug "[Block processing] Proposer slashing failure", slot = shortLog(state.slot)
     return false
@@ -486,7 +504,7 @@ proc processBlock*(
     return false
 
   if not processVoluntaryExits(state, blck, flags):
-    debug "[Block processing] Exit processing failure", slot = shortLog(state.slot)
+    debug "[Block processing - Voluntary Exit] Exit processing failure", slot = shortLog(state.slot)
     return false
 
   if not processTransfers(state, blck, flags, stateCache):
