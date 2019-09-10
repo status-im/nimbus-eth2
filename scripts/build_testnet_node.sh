@@ -14,7 +14,7 @@ cd ..
 
 # the NIM_PARAMS env var will be set in the Makefile, based on NIMFLAGS passed on the `make` command line
 # (i.e.: make NIMFLAGS="--stackTrace:on" testnet1).
-OUR_NIM_FLAGS="-d:release --lineTrace:on -d:chronicles_log_level=DEBUG -d:network_type=$NETWORK_TYPE -d:SECONDS_PER_SLOT=$SECONDS_PER_SLOT -d:SHARD_COUNT=$SHARD_COUNT -d:SLOTS_PER_EPOCH=$SLOTS_PER_EPOCH -d:DEFAULT_NETWORK=$NETWORK_NAME $NIM_PARAMS"
+OUR_NIM_FLAGS="-d:release --lineTrace:on -d:chronicles_log_level=DEBUG -d:const_preset=$CONST_PRESET -d:network_type=$NETWORK_TYPE -d:SECONDS_PER_SLOT=$SECONDS_PER_SLOT -d:SHARD_COUNT=$SHARD_COUNT -d:SLOTS_PER_EPOCH=$SLOTS_PER_EPOCH -d:DEFAULT_NETWORK=$NETWORK_NAME $NIM_PARAMS"
 
 BEACON_NODE_BIN="build/${NETWORK_NAME}_node"
 
