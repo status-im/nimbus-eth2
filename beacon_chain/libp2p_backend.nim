@@ -608,6 +608,14 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
           `await` sendErrorResponse(`peerVar`, `streamVar`, `errVar`,
                                     `msgNameLit`, `msgBytesVar`)
           return
+        except Exception as err:
+          # TODO. This is temporary code that should be removed after interop.
+          # It can be enabled only in certain diagnostic builds where it should
+          # re-raise the exception.
+          debug "Crash during serialization", inputBytes = toHex(`msgBytesVar`),
+                                              msgName = `msgNameLit`,
+                                              deserializedType = astToStr(`msgRecName`)
+          `await` sendErrorResponse(`peerVar`, `streamVar`, ServerError, err.msg)
 
         try:
           `tracing`
