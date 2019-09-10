@@ -943,7 +943,7 @@ when isMainModule:
 
   of makeDeposits:
     let deposits = generateDeposits(
-      config.totalDeposits, config.depositDir, config.randomKeys)
+      config.totalDeposits, config.depositsDir, config.randomKeys)
 
     if config.depositWeb3Url.len() > 0 and config.depositContractAddress.len() > 0:
       waitFor sendDeposits(
