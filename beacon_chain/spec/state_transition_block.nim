@@ -210,49 +210,58 @@ func is_slashable_attestation_data(
     (data_1.source.epoch < data_2.source.epoch and
      data_2.target.epoch < data_1.target.epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#attester-slashings
-proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock,
-    stateCache: var StateCache): bool =
-  # Process ``AttesterSlashing`` operation.
-  if len(blck.body.attester_slashings) > MAX_ATTESTER_SLASHINGS:
-    notice "CaspSlash: too many!"
-    return false
-
-  result = true
-  for attester_slashing in blck.body.attester_slashings:
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#attester-slashings
+proc process_attester_slashing*(
+       state: var BeaconState,
+       attester_slashing: AttesterSlashing,
+       stateCache: var StateCache
+     ): bool =
     let
       attestation_1 = attester_slashing.attestation_1
       attestation_2 = attester_slashing.attestation_2
 
     if not is_slashable_attestation_data(
         attestation_1.data, attestation_2.data):
-      notice "CaspSlash: surround or double vote check failed"
+      notice "Attester slashing: surround or double vote check failed"
       return false
 
     if not is_valid_indexed_attestation(state, attestation_1):
-      notice "CaspSlash: invalid votes 1"
+      notice "Attester slashing: invalid attestation 1"
       return false
 
     if not is_valid_indexed_attestation(state, attestation_2):
-      notice "CaspSlash: invalid votes 2"
+      notice "Attester slashing: invalid attestation 2"
       return false
 
-    var slashed_any = false
+    var slashed_any = false # Detect if trying to slash twice
 
     ## TODO there's a lot of sorting/set construction here and
     ## verify_indexed_attestation, but go by spec unless there
     ## is compelling perf evidence otherwise.
-    let attesting_indices_1 =
-      attestation_1.custody_bit_0_indices & attestation_1.custody_bit_1_indices
-    let attesting_indices_2 =
-      attestation_2.custody_bit_0_indices & attestation_2.custody_bit_1_indices
+    let
+      attesting_indices_1 = attestation_1.custody_bit_0_indices & attestation_1.custody_bit_1_indices
+      attesting_indices_2 = attestation_2.custody_bit_0_indices & attestation_2.custody_bit_1_indices
     for index in sorted(toSeq(intersection(toSet(attesting_indices_1),
         toSet(attesting_indices_2)).items), system.cmp):
-      if is_slashable_validator(state.validators[index.int],
-          get_current_epoch(state)):
+      if is_slashable_validator(state.validators[index.int], get_current_epoch(state)):
         slash_validator(state, index.ValidatorIndex, stateCache)
         slashed_any = true
-    result = result and slashed_any
+    if not slashed_any:
+      notice "Attester slashing: Trying to slash participant(s) twice"
+      return false
+    return true
+
+proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock,
+    stateCache: var StateCache): bool =
+  # Process ``AttesterSlashing`` operation.
+  if len(blck.body.attester_slashings) > MAX_ATTESTER_SLASHINGS:
+    notice "Attester slashing: too many!"
+    return false
+
+  for attester_slashing in blck.body.attester_slashings:
+    if not process_attester_slashing(state, attester_slashing, stateCache):
+      return false
+  return true
 
 func get_attesting_indices(
     state: BeaconState, attestations: openarray[PendingAttestation],
