@@ -152,7 +152,7 @@ type
       totalDeposits* {.
         desc: "Total number of deposits and keys to generate".}: int
 
-      depositDir* {.
+      depositsDir* {.
         desc: "Folder to write deposits to", defaultValue: "validators".}: string
 
       randomKeys* {.

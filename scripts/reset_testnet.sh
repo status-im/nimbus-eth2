@@ -10,34 +10,80 @@ source "$NETWORK_NAME.env"
 cd ..
 
 if [ -f .env ]; then
-  # allow server overrides for WWW_DIR and DATA_DIR
+  # allow server overrides for ETH2_TESTNET_DATA_DIR and DATA_DIR
   source .env
 fi
 
-PUBLIC_IP=$(curl -s ifconfig.me)
-NETWORK_DIR=$WWW_DIR/$NETWORK_NAME
+${BOOTSTRAP_HOST:=master-01.do-ams3.nimbus.test.statusim.net}
 
-NIM_FLAGS="-d:release -d:const_preset=$CONST_PRESET -d:SECONDS_PER_SLOT=$SECONDS_PER_SLOT -d:SHARD_COUNT=$SHARD_COUNT -d:SLOTS_PER_EPOCH=$SLOTS_PER_EPOCH ${2:-}"
+echo Execution plan:
 
-nim c -d:"network_type=$NETWORK_TYPE" $NIM_FLAGS beacon_chain/beacon_node
+echo Testnet name          : $NETWORK_NAME
+echo Testnet files repo    : ${ETH2_TESTNET_DATA_DIR:="nim-eth2-testnet-data"}
+echo Beacon node data dir  : ${DATA_DIR:="testnet-reset-data"}
+echo Bootstrap node ip     : ${BOOTSTRAP_IP:=$(dig +short $BOOTSTRAP_HOST)}
+echo Reset testnet at end  : ${PUBLISH_TESTNET_RESETS:=1}
 
-if [ ! -f $NETWORK_DIR/genesis.json ]; then
-  rm -f $NETWORK_DIR/*
-  beacon_chain/beacon_node makeDeposits \
+echo "Continue?"
+
+while true; do
+    read -p "Continue?" yn
+    case $yn in
+        [Yy]* ) break;;
+        [Nn]* ) exit 1;;
+        * ) echo "Please answer yes or no.";;
+    esac
+done
+
+ETH2_TESTNET_DATA_DIR_ABS=$(cd "$ETH2_TESTNET_DATA_DIR"; pwd)
+DATA_DIR_ABS=$(cd "$DATA_DIR"; pwd)
+NETWORK_DIR_ABS="$ETH2_TESTNET_DATA_DIR_ABS/www/$NETWORK_NAME"
+
+DOCKER_BEACON_NODE=docker run -v "$NETWORK_DIR_ABS:/network_dir" -v "$DATA_DIR_ABS:/data_dir" statusteam/nimbus_beacon_node:$NETWORK_NAME --
+
+if [[ ! -d "$ETH2_TESTNET_DATA_DIR_ABS" ]]; then
+  git clone git@github.com:status-im/nim-eth2-testnet-data "$ETH2_TESTNET_DATA_DIR_ABS"
+fi
+
+cd docker
+
+make build
+
+if [ ! -f $NETWORK_DIR_ABS/genesis.ssz ]; then
+  rm -f $NETWORK_DIR_ABS/*
+  $DOCKER_BEACON_NODE makeDeposits \
     --totalDeposits=$VALIDATOR_COUNT \
-    --depositDir="$NETWORK_DIR" \
+    --depositsDir=/network_dir \
     --randomKeys=true
 fi
 
-beacon_chain/beacon_node \
+$DOCKER_BEACON_NODE \
   --network=$NETWORK_NAME \
-  --dataDir=$DATA_DIR/node-0 \
+  --dataDir=/data_dir \
   createTestnet \
-  --validatorsDir=$NETWORK_DIR \
+  --validatorsDir=/network_dir \
   --totalValidators=$VALIDATOR_COUNT \
   --lastUserValidator=$LAST_USER_VALIDATOR \
-  --outputGenesis=$NETWORK_DIR/genesis.json \
-  --outputNetwork=$NETWORK_DIR/network.json \
-  --bootstrapAddress=$PUBLIC_IP \
+  --outputGenesis=/network_dir/genesis.ssz \
+  --outputBootstrapNodes=/network_dir/bootstrap_nodes.txt \
+  --outputNetworkMetadata=/network_dir/network.json \
+  --bootstrapAddress=$BOOTSTRAP_IP \
   --bootstrapPort=$BOOTSTRAP_PORT \
-  --genesisOffset=600 # Delay in seconds
+  --genesisOffset=60 # Delay in seconds
+
+if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
+  cd "$ETH2_TESTNET_DATA_DIR_ABS"
+  git add -a
+  git commit -m "Testnet reset"
+  git push
+
+  ssh $BOOTSTRAP_HOST <<- SSH
+    cd /opt/nim-eth2-testnet-data
+    git reset --hard HEAD
+    git checkout master
+    git pull
+  SSH
+
+  make push
+fi
+
