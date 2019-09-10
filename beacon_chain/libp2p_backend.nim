@@ -36,9 +36,10 @@ type
     IrrelevantNetwork
     FaultOrError
 
-  UntypedResponder = object
+  UntypedResponder = ref object
     peer*: Peer
     stream*: P2PStream
+    totalBytesSent*: int
 
   Responder*[MsgType] = distinct UntypedResponder
 
@@ -88,6 +89,8 @@ type
 
   TransmissionError* = object of CatchableError
 
+  ResponseSizeLimitReached* = object of CatchableError
+
 const
   defaultIncomingReqTimeout = 5000
   HandshakeTimeout = FaultOrError
@@ -100,6 +103,9 @@ const
   RESP_TIMEOUT* = 10.seconds
 
   readTimeoutErrorMsg = "Exceeded read timeout for a request"
+
+logScope:
+  topic = "libp2p"
 
 template `$`*(peer: Peer): string = $peer.id
 chronicles.formatIt(Peer): $it
@@ -203,6 +209,7 @@ proc readSizePrefix(transp: StreamTransport,
 proc readMsgBytes(stream: P2PStream,
                   withResponseCode: bool,
                   deadline: Future[void]): Future[Bytes] {.async.} =
+  trace "reading msg bytes", withResponseCode
   if withResponseCode:
     var responseCode: byte
     var readResponseCode = stream.transp.readExactly(addr responseCode, 1)
@@ -226,6 +233,7 @@ proc readMsgBytes(stream: P2PStream,
     debug "Failed to read an incoming message size prefix", peer = stream.peer
     return
 
+  trace "got size prefix", sizePrefix
   if sizePrefix == 0:
     debug "Received SSZ with zero size", peer = stream.peer
     return
@@ -235,6 +243,7 @@ proc readMsgBytes(stream: P2PStream,
   await readBody or deadline
   if not readBody.finished: return
 
+  trace "got msg bytes", msgBytes
   return msgBytes
 
 proc readChunk(stream: P2PStream,
@@ -260,6 +269,7 @@ proc readResponse(
     var results: MsgType
     while true:
       let nextRes = await readChunk(stream, E, true, deadline)
+      trace "got response chunk", nextRes
       if nextRes.isNone: break
       results.add nextRes.get
     if results.len > 0:
@@ -328,34 +338,59 @@ proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.
   if sent != bytes.len:
     raise newException(TransmissionError, "Failed to deliver msg bytes")
 
-proc sendResponseChunkBytes(stream: P2PStream, payload: Bytes) {.async.} =
+template raiseMaxRespSizeError =
+  raise newException(ResponseSizeLimitReached, "Response size limit reached")
+
+# TODO There is too much duplication in the responder functions, but
+# I hope to reduce this when I increse the reliance on output streams.
+proc sendResponseChunkBytes(responder: UntypedResponder, payload: Bytes) {.async.} =
   var s = init OutputStream
   s.append byte(Success)
   s.appendVarint payload.len.uint64
   s.append payload
   let bytes = s.getOutput
-  let sent = await stream.transp.write(bytes)
+
+  let sent = await responder.stream.transp.write(bytes)
   if sent != bytes.len:
     raise newException(TransmissionError, "Failed to deliver all bytes")
 
-proc sendResponseChunkObj(stream: P2PStream, val: auto) {.async.} =
+  responder.totalBytesSent += bytes.len
+
+proc sendResponseChunkObj(responder: UntypedResponder, val: auto) {.async.} =
   var s = init OutputStream
   s.append byte(Success)
   s.appendValue SSZ, sizePrefixed(val)
   let bytes = s.getOutput
-  let sent = await stream.transp.write(bytes)
+  if responder.totalBytesSent + bytes.len > REQ_RESP_MAX_SIZE:
+    raiseMaxRespSizeError()
+
+  let sent = await responder.stream.transp.write(bytes)
   if sent != bytes.len:
     raise newException(TransmissionError, "Failed to deliver all bytes")
 
-proc sendResponseChunks[T](stream: P2PStream, chunks: seq[T]) {.async.} =
+  responder.totalBytesSent += bytes.len
+
+proc sendResponseChunks[T](responder: UntypedResponder, chunks: seq[T]) {.async.} =
   var s = init OutputStream
+  var limitReached = false
   for chunk in chunks:
     s.append byte(Success)
     s.appendValue SSZ, sizePrefixed(chunk)
+    # TODO: This is not quite right, but it will serve as an approximation
+    # for now. We need a sszSize function to implement it properly.
+    if s.pos > REQ_RESP_MAX_SIZE:
+      limitReached = true
+      break
+
   let bytes = s.getOutput
-  let sent = await stream.transp.write(bytes)
+  let sent = await responder.stream.transp.write(bytes)
   if sent != bytes.len:
     raise newException(TransmissionError, "Failed to deliver all bytes")
+
+  if limitReached:
+    raiseMaxRespSizeError()
+  else:
+    responder.totalBytesSent += bytes.len
 
 proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
                      ResponseMsg: type,
@@ -460,9 +495,9 @@ template write*[M](r: var Responder[M], val: auto): auto =
   when MsgRec is seq|openarray:
     type E = ElemType(MsgRec)
     when val is E:
-      sendResponseChunkObj(UntypedResponder(r).stream, val)
+      sendResponseChunkObj(UntypedResponder(r), val)
     elif val is MsgRec:
-      sendResponseChunks(UntypedResponder(r).stream, val)
+      sendResponseChunks(UntypedResponder(r), val)
     else:
       static: echo "BAD TYPE ", name(E), " vs ", name(type(val))
       {.fatal: "bad".}
@@ -489,7 +524,7 @@ proc implementSendProcBody(sendProc: SendProc) =
       else:
         quote: sendNotificationMsg(`peer`, `msgProto`, `bytes`)
     else:
-      quote: sendResponseChunkBytes(`UntypedResponder`(`peer`).stream, `bytes`)
+      quote: sendResponseChunkBytes(`UntypedResponder`(`peer`), `bytes`)
 
   sendProc.useStandardBody(nil, nil, sendCallGenerator)
 
@@ -578,6 +613,12 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
         try:
           `tracing`
           `awaitUserHandler`
+        except ResponseSizeLimitReached:
+          # The response size limit is currently handled with an exception in
+          # order to make it easier to switch to an alternative policy when it
+          # will be signalled with an error response code (and to avoid making
+          # the `response` API in the high-level protocols more complicated for now).
+          chronicles.debug "response size limit reached", peer, reqName = `msgNameLit`
         except CatchableError as `errVar`:
           `await` sendErrorResponse(`peerVar`, `streamVar`, ServerError, `errVar`.msg)
 

@@ -36,7 +36,7 @@ type
     slot: Slot
 
 const
-  maxBlocksToRequest = 512'u64
+  maxBlocksToRequest = 16'u64
   MaxAncestorBlocksResponse = 256
 
 func toHeader(b: BeaconBlock): BeaconBlockHeader =
