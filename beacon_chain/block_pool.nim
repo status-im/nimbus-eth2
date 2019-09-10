@@ -117,7 +117,6 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
   doAssert justifiedHead.slot >= finalizedHead.slot,
     "justified head comes before finalized head - database corrupt?"
 
-
   BlockPool(
     pending: initTable[Eth2Digest, BeaconBlock](),
     missing: initTable[Eth2Digest, MissingBlock](),
@@ -298,6 +297,63 @@ proc add*(
 proc getRef*(pool: BlockPool, root: Eth2Digest): BlockRef =
   ## Retrieve a resolved block reference, if available
   pool.blocks.getOrDefault(root)
+
+proc getBlockRange*(pool: BlockPool, headBlock: Eth2Digest,
+                    startSlot: Slot, skipStep: Natural,
+                    output: var openarray[BlockRef]): Natural =
+  ## This function populates an `output` buffer of blocks
+  ## with a range starting from `startSlot` and skipping
+  ## every `skipTest` number of blocks.
+  ##
+  ## Please note that the function may not necessarily
+  ## populate the entire buffer. The values will be written
+  ## in a way such that the last block is placed at the end
+  ## of the buffer while the first indices of the buffer
+  ## may remain unwritten.
+  ##
+  ## The result value of the function will be the index of
+  ## the first block in the resulting buffer. If no values
+  ## were written to the buffer, the result will be equal to
+  ## `buffer.len`. In other words, you can use the function
+  ## like this:
+  ##
+  ## var buffer: array[N, BlockRef]
+  ## let startPos = pool.getBlockRange(headBlock, startSlot, skipStep, buffer)
+  ## for i in startPos ..< buffer.len:
+  ##   echo buffer[i].slot
+  ##
+  result = output.len
+
+  var b = pool.getRef(headBlock)
+  if b == nil or b.slot < startSlot:
+    return
+
+  template skip(n: int) =
+    for i in 0 ..< n:
+      b = b.parent
+      if b == nil: return
+
+  # We must compute the last block that is eligible for inclusion
+  # in the results. This will be a block with a slot number that's
+  # aligned to the stride of the requested block range, so we first
+  # compute the steps needed to get to an aligned position:
+  var blocksToSkip = b.slot.int mod skipStep
+  let alignedHeadSlot = b.slot.int - blocksToSkip
+
+  # Then we see if this aligned position is within our wanted
+  # range. If it's outside it, we must skip more blocks:
+  let lastWantedSlot = startSlot.int + output.len * skipStep
+  if alignedHeadSlot > lastWantedSlot:
+    blocksToSkip += (alignedHeadSlot - lastWantedSlot)
+
+  # Finally, we skip the computed number of blocks
+  skip blocksToSkip
+
+  # From here, we can just write out the requested block range:
+  while b != nil and result > 0:
+    dec result
+    output[result] = b
+    skip skipStep
 
 proc get*(pool: BlockPool, blck: BlockRef): BlockData =
   ## Retrieve the associated block body of a block reference
