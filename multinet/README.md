@@ -40,6 +40,27 @@ USE_MULTITAIL=1 ./run_all.sh
 
 ```
 
+## Tips
+
+The `start.sh` script will help you build a node and set up a state. After building it, you can also run it manually:
+
+```bash
+# Build node (and run it, to prime data folder)
+./start.sh
+
+# ctrl-c to stop it
+
+# show help
+data/beacon_node --help
+
+# Check out network parameters including bootstrap node address (if you want to run your own)
+cat data/network.json
+
+# Run with a specific state
+data/beacon_node --dataDir=data/node-0 --network=data/network.json --nodename=0 --tcpPort=50000 --udpPort=50000 --stateSnapshot=file.ssz
+
+```
+
 ## Diagnostics
 
 ```bash
