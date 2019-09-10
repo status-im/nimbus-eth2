@@ -45,7 +45,7 @@ if [ ! -f "${LAST_VALIDATOR}" ]; then
 
   $BEACON_NODE_BIN makeDeposits \
     --totalDeposits="${NUM_VALIDATORS}" \
-    --depositDir="$VALIDATORS_DIR" \
+    --depositsDir="$VALIDATORS_DIR" \
     --randomKeys=false \
     $DEPOSIT_WEB3_URL_ARG \
     --depositContractAddress="${DEPOSIT_CONTRACT_ADDRESS}"

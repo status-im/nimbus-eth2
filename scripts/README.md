@@ -29,3 +29,8 @@ The `beacon_node` binary has a `createTestnet` command.
 Replace ENV vars with values that make sense to you.
 
 Full tutorial coming soon.
+
+## Maintaining the Status testnets
+
+For detailed instructions, please see https://github.com/status-im/nimbus-private/blob/master/testnets-maintenance.md
+
