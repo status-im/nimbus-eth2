@@ -140,6 +140,45 @@ func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
     (epoch < validator.withdrawable_epoch)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#proposer-slashings
+proc process_proposer_slashing(
+    state: var BeaconState, proposer_slashing: ProposerSlashing,
+    flags: UpdateFlags, stateCache: var StateCache): bool =
+  let proposer = state.validators[proposer_slashing.proposer_index.int]
+
+  # Verify that the epoch is the same
+  if not (compute_epoch_of_slot(proposer_slashing.header_1.slot) ==
+      compute_epoch_of_slot(proposer_slashing.header_2.slot)):
+    notice "PropSlash: epoch mismatch"
+    return false
+
+  # But the headers are different
+  if not (proposer_slashing.header_1 != proposer_slashing.header_2):
+    notice "PropSlash: headers not different"
+    return false
+
+  # Check proposer is slashable
+  if not is_slashable_validator(proposer, get_current_epoch(state)):
+    notice "PropSlash: slashed proposer"
+    return false
+
+  # Signatures are valid
+  if skipValidation notin flags:
+    for i, header in @[proposer_slashing.header_1, proposer_slashing.header_2]:
+      if not bls_verify(
+          proposer.pubkey,
+          signing_root(header).data,
+          header.signature,
+          get_domain(
+            state, DOMAIN_BEACON_PROPOSER, compute_epoch_of_slot(header.slot))):
+        notice "PropSlash: invalid signature",
+          signature_index = i
+        return false
+
+  slashValidator(
+    state, proposer_slashing.proposer_index.ValidatorIndex, stateCache)
+
+  true
+
 proc processProposerSlashings(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool =
@@ -149,39 +188,9 @@ proc processProposerSlashings(
     return false
 
   for proposer_slashing in blck.body.proposer_slashings:
-    let proposer = state.validators[proposer_slashing.proposer_index.int]
-
-    # Verify that the epoch is the same
-    if not (compute_epoch_of_slot(proposer_slashing.header_1.slot) ==
-        compute_epoch_of_slot(proposer_slashing.header_2.slot)):
-      notice "PropSlash: epoch mismatch"
+    if not process_proposer_slashing(
+        state, proposer_slashing, flags, stateCache):
       return false
-
-    # But the headers are different
-    if not (proposer_slashing.header_1 != proposer_slashing.header_2):
-      notice "PropSlash: headers not different"
-      return false
-
-    # Check proposer is slashable
-    if not is_slashable_validator(proposer, get_current_epoch(state)):
-      notice "PropSlash: slashed proposer"
-      return false
-
-    # Signatures are valid
-    if skipValidation notin flags:
-      for i, header in @[proposer_slashing.header_1, proposer_slashing.header_2]:
-        if not bls_verify(
-            proposer.pubkey,
-            signing_root(header).data,
-            header.signature,
-            get_domain(
-              state, DOMAIN_BEACON_PROPOSER, compute_epoch_of_slot(header.slot))):
-          notice "PropSlash: invalid signature",
-            signature_index = i
-          return false
-
-    slashValidator(
-      state, proposer_slashing.proposer_index.ValidatorIndex, stateCache)
 
   true
 
