@@ -903,8 +903,8 @@ when isMainModule:
         totalValidators: config.totalValidators,
         lastUserValidator: config.lastUserValidator)
 
-    Json.saveFile(config.outputNetwork.string, testnetMetadata, pretty = true)
-    echo "Wrote ", config.outputNetwork.string
+    Json.saveFile(config.outputNetworkMetadata.string, testnetMetadata, pretty = true)
+    echo "Wrote ", config.outputNetworkMetadata.string
 
   of updateTestnet:
     discard waitFor updateTestnetMetadata(config)
