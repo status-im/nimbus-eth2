@@ -35,6 +35,7 @@ RUN cd nimbus \
       --debugger:native \
       --debugInfo \
       -d:"network_type=${NETWORK_TYPE}" \
+      -d:const_preset=${CONST_PRESET} \
       -d:SHARD_COUNT=${SHARD_COUNT} \
       -d:SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH} \
       -d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT} \
