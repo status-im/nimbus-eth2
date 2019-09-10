@@ -229,7 +229,7 @@ proc process_attester_slashing*(
       notice "Attester slashing: invalid votes 2"
       return false
 
-    var slashed_any = false
+    var slashed_any = false # Detect if trying to slash twice
 
     ## TODO there's a lot of sorting/set construction here and
     ## verify_indexed_attestation, but go by spec unless there
@@ -244,7 +244,7 @@ proc process_attester_slashing*(
         slash_validator(state, index.ValidatorIndex, stateCache)
         slashed_any = true
     if not slashed_any:
-      notice "Slashable validators not slashed"
+      notice "Attester slashing: Trying to slash participant(s) twice"
       return false
     return true
 

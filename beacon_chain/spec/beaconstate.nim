@@ -370,9 +370,11 @@ func process_registry_updates*(state: var BeaconState) =
         compute_activation_exit_epoch(get_current_epoch(state))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#is_valid_indexed_attestation
-func is_valid_indexed_attestation*(
+proc is_valid_indexed_attestation*(
     state: BeaconState, indexed_attestation: IndexedAttestation): bool =
-  # Check if ``indexed_attestation`` has valid indices and signature.
+  ## Check if ``indexed_attestation`` has valid indices and signature.
+  # TODO: this is noSideEffect besides logging
+  #       https://github.com/status-im/nim-chronicles/issues/62
 
   let
     bit_0_indices = indexed_attestation.custody_bit_0_indices.asSeq
@@ -380,26 +382,31 @@ func is_valid_indexed_attestation*(
 
   # Verify no index has custody bit equal to 1 [to be removed in phase 1]
   if len(bit_1_indices) != 0:
+    notice "indexed attestation: custody_bit equal to 1"
     return false
 
   # Verify max number of indices
   let combined_len = len(bit_0_indices) + len(bit_1_indices)
   if not (combined_len <= MAX_VALIDATORS_PER_COMMITTEE):
+    notice "indexed attestation: validator index beyond max validators per committee"
     return false
 
   # Verify index sets are disjoint
   if len(intersection(bit_0_indices.toSet, bit_1_indices.toSet)) != 0:
+    notice "indexed attestation: indices set not disjoint"
     return false
 
   # Verify indices are sorted
   if bit_0_indices != sorted(bit_0_indices, system.cmp):
+    notice "indexed attestation: indices 0 not sorted"
     return false
 
   if bit_1_indices != sorted(bit_1_indices, system.cmp):
+    notice "indexed attestation: indices 0 not sorted"
     return false
 
   # Verify aggregate signature
-  bls_verify_multiple(
+  result = bls_verify_multiple(
     @[
       bls_aggregate_pubkeys(
         mapIt(bit_0_indices, state.validators[it.int].pubkey)),
@@ -419,6 +426,8 @@ func is_valid_indexed_attestation*(
       indexed_attestation.data.target.epoch
     ),
   )
+  if not result:
+    notice "indexed attestation: signature verification failure"
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(state: BeaconState,
