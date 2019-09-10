@@ -56,6 +56,9 @@ data/beacon_node --help
 # Check out network parameters including bootstrap node address (if you want to run your own)
 cat data/network.json
 
+# Load environment if you want to run solo:
+source ../env..sh
+
 # Run with a specific state
 data/beacon_node --dataDir=data/node-0 --network=data/network.json --nodename=0 --tcpPort=50000 --udpPort=50000 --stateSnapshot=file.ssz
 
