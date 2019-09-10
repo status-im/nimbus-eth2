@@ -146,7 +146,7 @@ else:
     result = conf.dataDir / networkKeyFilename
     if not fileExists(result):
       createDir conf.dataDir.string
-      let pk = PrivateKey.random(Ed25519)
+      let pk = PrivateKey.random(Secp256k1)
       writeFile(result, pk.getBytes)
 
   proc getPersistentNetIdentity*(conf: BeaconNodeConf): Eth2NodeIdentity =
