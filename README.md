@@ -29,6 +29,11 @@ You can check where the beacon chain fits in the Ethereum research ecosystem in 
 
 (On Windows, a precompiled DLL collection download is available through the `fetch-dlls` Makefile target: ([Windows instructions](#windows)).)
 
+#### Go
+
+The go compiler, at least version 1.12 should be installed and in your path.
+This is a dependency until we can replace the go-libp2p-daemon with a native Nim implementation of [LibP2P](https://github.com/libp2p/libp2p).
+
 #### Rocksdb
 
 A recent version of Facebook's [RocksDB](https://github.com/facebook/rocksdb/) is needed - it can usually be installed using your system's package manager:
