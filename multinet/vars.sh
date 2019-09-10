@@ -14,8 +14,8 @@ cd $(git rev-parse --show-toplevel)
 cd - &>/dev/null
 
 NUM_VALIDATORS=${VALIDATORS:-16}
-NUM_NODES=${NODES:-3}
-NUM_MISSING_NODES=${MISSING_NODES:-1}
+NUM_NODES=${NODES:-1}
+NUM_MISSING_NODES=${MISSING_NODES:-2}
 
 SIMULATION_DIR="${SIM_ROOT}/data"
 VALIDATORS_DIR="${SIM_ROOT}/validators"

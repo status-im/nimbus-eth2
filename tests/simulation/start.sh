@@ -65,7 +65,7 @@ if [ ! -f "${SNAPSHOT_FILE}" ]; then
     --outputNetwork="${NETWORK_METADATA_FILE}" \
     --bootstrapAddress=127.0.0.1 \
     --bootstrapPort=50000 \
-    --genesisOffset=5 # Delay in seconds
+    --genesisOffset=10 # Delay in seconds
 fi
 
 # Delete any leftover address files from a previous session

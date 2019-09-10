@@ -47,7 +47,6 @@ LIGHTHOUSE=${LIGHTHOSE_PATH:-"lighthouse"}
   popd
 }
 
-
 pushd "$LIGHTHOUSE"
 cargo build --release
 popd
