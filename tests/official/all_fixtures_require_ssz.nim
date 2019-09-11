@@ -12,6 +12,7 @@
 import
   ./test_fixture_sanity_slots,
   ./test_fixture_sanity_blocks,
+  ./test_fixture_operations_deposits,
   ./test_fixture_state_transition_epoch,
   ./test_fixture_operations_attestations,
   ./test_fixture_operations_attester_slashings,
@@ -19,4 +20,3 @@ import
   ./test_fixture_operations_proposer_slashings,
   ./test_fixture_operations_transfer,
   ./test_fixture_operations_voluntary_exit
-  
