@@ -80,7 +80,8 @@ proc readSszValue*(input: openarray[byte], T: type): T =
     type ElemType = type result[0]
     when ElemType is byte|char:
       result.setLen input.len
-      copyMem(addr result[0], unsafeAddr input[0], input.len)
+      if input.len > 0:
+        copyMem(addr result[0], unsafeAddr input[0], input.len)
 
     elif isFixedSize(ElemType):
       const elemSize = fixedPortionSize(ElemType)
