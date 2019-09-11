@@ -56,7 +56,7 @@ RUN cd nim-beacon-chain \
 FROM debian:9-slim
 
 RUN apt update \
- && apt install -y librocksdb-dev curl \
+ && apt install -y librocksdb-dev curl psmisc \
  && apt clean \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
@@ -69,4 +69,7 @@ LABEL description="Nimbus installation that can act as an ETH2 network bootstrap
 
 RUN echo Built from Git revision: ${GIT_REVISION}
 
-ENTRYPOINT ["/usr/bin/beacon_node"]
+# TODO: This custom entry script is necessary only because we must clean up
+#       temporary files left by previous executions of the Go daeamon.
+#       We should be able to remove it once we have a native LibP2P impl.
+ENTRYPOINT ["/usr/bin/run_beacon_node.sh"]

@@ -63,7 +63,7 @@ $DOCKER_BEACON_NODE \
   --validatorsDir=/network_dir \
   --totalValidators=$VALIDATOR_COUNT \
   --lastUserValidator=$LAST_USER_VALIDATOR \
-  --outputGenesis=/network_dir/genesis.ssz \
+  --outputGenesis=/network_dir/genesis.json \
   --outputBootstrapNodes=/network_dir/bootstrap_nodes.txt \
   --outputNetworkMetadata=/network_dir/network.json \
   --bootstrapAddress=$BOOTSTRAP_IP \
@@ -94,8 +94,8 @@ SSH
 
   echo Uploading bootstrap node network key
   BOOTSTRAP_NODE_DOCKER_PATH=/docker/beacon-node-$NETWORK_NAME-1/data/BeaconNode/$NETWORK_NAME/
-  scp "$DATA_DIR_ABS/privkey.protobuf" $BOOTSTRAP_NODE_DOCKER_PATH
-  ssh $BOOTSTRAP_HOST "chown sudo chown dockremap:docker $BOOTSTRAP_NODE_DOCKER_PATH/privkey.protobuf"
+  scp "$DATA_DIR_ABS/privkey.protobuf" $BOOTSTRAP_HOST:/tmp/
+  ssh $BOOTSTRAP_HOST "sudo install -o dockremap -g docker /tmp/privkey.protobuf $BOOTSTRAP_NODE_DOCKER_PATH"
 
   echo Publishing docker image...
   make push

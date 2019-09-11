@@ -20,7 +20,7 @@ const
 
   dataDirValidators = "validators"
   networkMetadataFile = "network.json"
-  genesisFile = "genesis.json"
+  genesisFile = "genesis.ssz"
   testnetsBaseUrl = "https://serenity-testnets.status.im"
 
 declareGauge beacon_slot, "Latest slot of the beacon chain state"
@@ -57,11 +57,13 @@ template `//`(url, fragment: string): string =
   url & "/" & fragment
 
 proc downloadFile(url: string): Future[string] {.async.} =
-  let cmd = "curl --fail " & url
+  # TODO We need a proper HTTP client able to perform HTTPS downloads
+  let tempFile = getTempDir() / "nimbus.download"
+  let cmd = "curl --fail -o " & quoteShell(tempFile) & " " & url
   let (fileContents, errorCode) = execCmdEx(cmd, options = {poUsePath})
   if errorCode != 0:
     raise newException(IOError, "Failed external command: '" & cmd & "', exit code: " & $errorCode & ", output: '" & fileContents & "'")
-  return fileContents
+  return readFile(tempFile)
 
 proc updateTestnetMetadata(conf: BeaconNodeConf): Future[NetworkMetadata] {.async.} =
   let metadataUrl = testnetsBaseUrl // $conf.network // networkMetadataFile
