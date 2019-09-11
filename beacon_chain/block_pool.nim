@@ -707,7 +707,7 @@ proc preInit*(
   let
     blockRoot = signing_root(blck)
 
-  notice "[Block Pool] Creating new database from snapshot",
+  notice "[Block Pool] New database from snapshot",
     blockRoot = shortLog(blockRoot),
     stateRoot = shortLog(blck.state_root),
     fork = state.fork,

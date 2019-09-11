@@ -620,19 +620,25 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     beaconTime = node.beaconClock.now()
     wallSlot = beaconTime.toSlot()
 
-  debug "Slot start",
+  debug "[Beacon node] Slot start",
     lastSlot = shortLog(lastSlot),
     scheduledSlot = shortLog(scheduledSlot),
-    beaconTime = shortLog(beaconTime)
+    beaconTime = shortLog(beaconTime),
+    service = "beacon_node",
+    category = "scheduling",
+    process = "slot_start"
 
   if not wallSlot.afterGenesis or (wallSlot.slot < lastSlot):
     # This can happen if the system clock changes time for example, and it's
     # pretty bad
     # TODO shut down? time either was or is bad, and PoS relies on accuracy..
-    warn "Beacon clock time moved back, rescheduling slot actions",
+    warn "[Beacon Node] Beacon clock time moved back, rescheduling slot actions",
       beaconTime = shortLog(beaconTime),
       lastSlot = shortLog(lastSlot),
-      scheduledSlot = shortLog(scheduledSlot)
+      scheduledSlot = shortLog(scheduledSlot),
+      service = "beacon_node",
+      category = "scheduling",
+      process = "clock_drift"
 
     let
       slot = Slot(
@@ -658,10 +664,13 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     # TODO how long should the period be? Using an epoch because that's roughly
     #      how long attestations remain interesting
     # TODO should we shut down instead? clearly we're unable to keep up
-    warn "Unable to keep up, skipping ahead without doing work",
+    warn "[Beacon node] Unable to keep up, skipping ahead without doing work",
       lastSlot = shortLog(lastSlot),
       slot = shortLog(slot),
-      scheduledSlot = shortLog(scheduledSlot)
+      scheduledSlot = shortLog(scheduledSlot),
+      service = "beacon_node",
+      category = "scheduling",
+      process = "overwhelmed"
 
     addTimer(saturate(node.beaconClock.fromNow(nextSlot))) do (p: pointer):
       # We pass the current slot here to indicate that work should be skipped!
@@ -700,10 +709,13 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     # TODO maybe even collect all work synchronously to avoid unnecessary
     #      state rewinds while waiting for async operations like validator
     #      signature..
-    notice "Catching up",
+    notice "[Beacon node] Catching up",
       curSlot = shortLog(curSlot),
       lastSlot = shortLog(lastSlot),
-      slot = shortLog(slot)
+      slot = shortLog(slot),
+      service = "beacon_node",
+      category = "scheduling",
+      process = "catching_up"
 
     # For every slot we're catching up, we'll propose then send
     # attestations - head should normally be advancing along the same branch
@@ -738,9 +750,12 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
       if attestationStart.inFuture: attestationStart.offset + halfSlot
       else: halfSlot - attestationStart.offset
 
-    debug "Waiting to send attestations",
+    trace "Waiting to send attestations",
       slot = shortLog(slot),
-      fromNow = shortLog(fromNow)
+      fromNow = shortLog(fromNow),
+      service = "beacon_node",
+      category = "scheduling",
+      process = "attestation_in_future"
 
     await sleepAsync(fromNow)
 
@@ -752,12 +767,6 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   # TODO ... and beacon clock might jump here also. sigh.
   let
     nextSlotStart = saturate(node.beaconClock.fromNow(nextSlot))
-
-  info "Scheduling slot actions",
-    lastSlot = shortLog(slot),
-    slot = shortLog(slot),
-    nextSlot = shortLog(nextSlot),
-    fromNow = shortLog(nextSlotStart)
 
   addTimer(nextSlotStart) do (p: pointer):
     asyncCheck node.onSlotStart(slot, nextSlot)
@@ -786,10 +795,13 @@ proc run*(node: BeaconNode) =
                 else: GENESIS_SLOT + 1
     fromNow = saturate(node.beaconClock.fromNow(startSlot))
 
-  info "Scheduling first slot action",
+  info "[Beacon node] Scheduling first slot action",
     beaconTime = shortLog(node.beaconClock.now()),
     nextSlot = shortLog(startSlot),
-    fromNow = shortLog(fromNow)
+    fromNow = shortLog(fromNow),
+    service = "beacon_node",
+    category = "scheduling",
+    process = "first_slot"
 
   addTimer(fromNow) do (p: pointer):
     asyncCheck node.onSlotStart(startSlot - 1, startSlot)
@@ -822,7 +834,10 @@ proc start(node: BeaconNode, headState: BeaconState) =
     SHARD_COUNT,
     SLOTS_PER_EPOCH,
     SECONDS_PER_SLOT,
-    SPEC_VERSION
+    SPEC_VERSION,
+    service = "beacon_node",
+    category = "init",
+    process = "init_beacon_node"
 
   node.addLocalValidators(headState)
   node.run()
