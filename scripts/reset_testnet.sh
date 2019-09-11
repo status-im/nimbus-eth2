@@ -87,7 +87,10 @@ if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
 SSH
 
   echo Redistributing validator keys to server nodes...
-  nim --verbosity:0 manage_testnet_hosts.nims $NETWORK_NAME redist-validators | bash
+  # TODO If we try to use direct piping here, bash doesn't execute all of the commands.
+  #      The reasons for this are unclear at the moment.
+  nim --verbosity:0 manage_testnet_hosts.nims $NETWORK_NAME redist-validators > /tmp/reset-network.sh
+  bash /tmp/reset-network.sh
 
   echo Publishing docker image...
   make push
