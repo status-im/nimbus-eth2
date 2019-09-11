@@ -53,7 +53,7 @@ if [ ! -f $NETWORK_DIR_ABS/genesis.ssz ]; then
   $DOCKER_BEACON_NODE makeDeposits \
     --totalDeposits=$VALIDATOR_COUNT \
     --depositsDir=/network_dir \
-    --randomKeys=true
+    --randomKeys=false
 fi
 
 $DOCKER_BEACON_NODE \
