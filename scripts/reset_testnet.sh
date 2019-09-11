@@ -92,6 +92,11 @@ SSH
   nim --verbosity:0 manage_testnet_hosts.nims $NETWORK_NAME redist-validators > /tmp/reset-network.sh
   bash /tmp/reset-network.sh
 
+  echo Uploading bootstrap node network key
+  BOOTSTRAP_NODE_DOCKER_PATH=/docker/beacon-node-$NETWORK_NAME-1/data/BeaconNode/$NETWORK_NAME/
+  scp "$DATA_DIR_ABS/privkey.protobuf" $BOOTSTRAP_NODE_DOCKER_PATH
+  ssh $BOOTSTRAP_HOST "chown sudo chown dockremap:docker $BOOTSTRAP_NODE_DOCKER_PATH/privkey.protobuf"
+
   echo Publishing docker image...
   make push
 fi
