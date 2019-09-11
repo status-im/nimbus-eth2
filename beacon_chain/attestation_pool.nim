@@ -93,14 +93,20 @@ proc slotIndex(
     # to start counting at the last finalized epoch start slot - anything
     # earlier than that is thrown out by the above check
     info "First attestation!",
-      attestationSlot =  $shortLog(attestationSlot)
+      attestationSlot =  $shortLog(attestationSlot),
+      service = "attestation_pool",
+      category = "init",
+      process = "first_attestation"
     pool.startingSlot =
       state.finalized_checkpoint.epoch.compute_start_slot_of_epoch()
 
   if pool.startingSlot + pool.slots.len.uint64 <= attestationSlot:
-    debug "Growing attestation pool",
+    trace "[Attestation Pool] Growing attestation pool",
       attestationSlot =  $shortLog(attestationSlot),
-      startingSlot = $shortLog(pool.startingSlot)
+      startingSlot = $shortLog(pool.startingSlot),
+      service = "attestation_pool",
+      category = "caching",
+      process = "resize_attestation_pool"
 
     # Make sure there's a pool entry for every slot, even when there's a gap
     while pool.startingSlot + pool.slots.len.uint64 <= attestationSlot:
@@ -110,9 +116,12 @@ proc slotIndex(
       state.finalized_checkpoint.epoch.compute_start_slot_of_epoch():
     debug "Pruning attestation pool",
       startingSlot = $shortLog(pool.startingSlot),
-      finalizedSlot =
-        $shortLog(
-          state.finalized_checkpoint.epoch.compute_start_slot_of_epoch())
+      finalizedSlot = $shortLog(
+        state.finalized_checkpoint
+             .epoch.compute_start_slot_of_epoch()),
+      service = "attestation_pool",
+      category = "pruning",
+      process = "pruning_attestation_pool"
 
     # TODO there should be a better way to remove a whole epoch of stuff..
     while pool.startingSlot <
@@ -145,11 +154,14 @@ proc add*(pool: var AttestationPool,
   var cache = get_empty_per_epoch_cache()
 
   if not validate(state, attestation):
-    notice "Invalid attestation",
+    notice "[Attestation Pool] Invalid attestation",
       attestationData = shortLog(attestation.data),
       current_epoch = get_current_epoch(state),
       target_epoch = attestation.data.target.epoch,
-      stateSlot = state.slot
+      stateSlot = state.slot,
+      service = "attestation_pool",
+      category = "filtering",
+      process = "invalid_attestation"
     return
 
   # TODO inefficient data structures..
@@ -176,10 +188,13 @@ proc add*(pool: var AttestationPool,
           # TODO what if the new attestation is useful for creating bigger
           #      sets by virtue of not overlapping with some other attestation
           #      and therefore being useful after all?
-          debug "Ignoring subset attestation",
+          trace "[Attestation Pool] Ignoring subset attestation",
             existingParticipants = get_attesting_indices_seq(
               state, a.data, v.aggregation_bits),
-            newParticipants = participants
+            newParticipants = participants,
+            service = "attestation_pool",
+            category = "filtering",
+            process = "subset_attestation_ignore"
           found = true
           break
 
@@ -187,12 +202,15 @@ proc add*(pool: var AttestationPool,
         # Attestations in the pool that are a subset of the new attestation
         # can now be removed per same logic as above
 
-        debug "Removing subset attestations",
+        trace "[Attestation Pool] Removing subset attestations",
           existingParticipants = a.validations.filterIt(
             it.aggregation_bits.isSubsetOf(validation.aggregation_bits)
           ).mapIt(get_attesting_indices_seq(
             state, a.data, it.aggregation_bits)),
-          newParticipants = participants
+          newParticipants = participants,
+          service = "attestation_pool",
+          category = "filtering",
+          process = "subset_attestation_prune"
 
         a.validations.keepItIf(
           not it.aggregation_bits.isSubsetOf(validation.aggregation_bits))
@@ -200,12 +218,15 @@ proc add*(pool: var AttestationPool,
         a.validations.add(validation)
         pool.updateLatestVotes(state, attestationSlot, participants, a.blck)
 
-        info "Attestation resolved",
+        info "[Attestation Pool] Attestation resolved",
           attestationData = shortLog(attestation.data),
           validations = a.validations.len(),
           current_epoch = get_current_epoch(state),
           target_epoch = attestation.data.target.epoch,
-          stateSlot = state.slot
+          stateSlot = state.slot,
+          service = "attestation_pool",
+          category = "filtering",
+          process = "attestation_resolved"
 
         found = true
 
@@ -219,12 +240,15 @@ proc add*(pool: var AttestationPool,
     ))
     pool.updateLatestVotes(state, attestationSlot, participants, blck)
 
-    info "Attestation resolved",
+    info "[Attestation pool] Attestation resolved",
       attestationData = shortLog(attestation.data),
       current_epoch = get_current_epoch(state),
       target_epoch = attestation.data.target.epoch,
       stateSlot = state.slot,
-      validations = 1
+      validations = 1,
+      service = "attestation_pool",
+      category = "filtering",
+      process = "attestation_resolved"
 
 proc addUnresolved*(pool: var AttestationPool, attestation: Attestation) =
   pool.unresolved[attestation.data.beacon_block_root] =
@@ -236,13 +260,19 @@ proc getAttestationsForBlock*(
     pool: AttestationPool, state: BeaconState,
     newBlockSlot: Slot): seq[Attestation] =
   if newBlockSlot < (GENESIS_SLOT + MIN_ATTESTATION_INCLUSION_DELAY):
-    debug "Too early for attestations",
-      newBlockSlot = shortLog(newBlockSlot)
+    debug "[Attestion Pool] Too early for attestations",
+      newBlockSlot = shortLog(newBlockSlot),
+      service = "attestation_pool",
+      category = "query",
+      process = "retrieve_attestation"
     return
 
   if pool.slots.len == 0: # startingSlot not set yet!
-    info "No attestations found (pool empty)",
-      newBlockSlot = shortLog(newBlockSlot)
+    info "[Attestation Pool] No attestations found (pool empty)",
+      newBlockSlot = shortLog(newBlockSlot),
+      service = "attestation_pool",
+      category = "query",
+      process = "empty_pool"
     return
 
   var cache = get_empty_per_epoch_cache()
@@ -256,10 +286,13 @@ proc getAttestationsForBlock*(
 
   if attestationSlot < pool.startingSlot or
       attestationSlot >= pool.startingSlot + pool.slots.len.uint64:
-    info "No attestations",
+    info "[Attestation Pool] No attestations matching the slot range",
       attestationSlot = shortLog(attestationSlot),
       startingSlot = shortLog(pool.startingSlot),
-      endingSlot = shortLog(pool.startingSlot + pool.slots.len.uint64)
+      endingSlot = shortLog(pool.startingSlot + pool.slots.len.uint64),
+      service = "attestation_pool",
+      category = "query",
+      process = "retrieve_attestation"
 
     return
 
@@ -277,7 +310,10 @@ proc getAttestationsForBlock*(
       )
 
     if not validate(state, attestation):
-      warn "Attestation no longer validates..."
+      warn "[Attestation Pool] Attestation no longer validates...",
+        service = "attestation_pool",
+        category = "query",
+        process = "retrieve_attestation"
       continue
 
     # TODO what's going on here is that when producing a block, we need to

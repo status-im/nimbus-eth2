@@ -182,7 +182,7 @@ proc addResolvedBlock(
       justified: blockRef.findAncestorBySlot(justifiedSlot)))
     pool.heads.add(foundHead.get())
 
-  info "Block resolved",
+  info "[Block pool] Block resolved",
     blck = shortLog(blck),
     blockRoot = shortLog(blockRoot),
     justifiedRoot = shortLog(foundHead.get().justified.blck.root),
