@@ -6,7 +6,7 @@ import
   libp2p_json_serialization, ssz
 
 export
-  daemonapi, p2pProtocol, libp2p_json_serialization
+  daemonapi, p2pProtocol, libp2p_json_serialization, ssz
 
 type
   Eth2Node* = ref object of RootObj
@@ -19,8 +19,8 @@ type
   Peer* = ref object
     network*: Eth2Node
     id*: PeerID
+    wasDialed*: bool
     connectionState*: ConnectionState
-    awaitedMessages: Table[CompressedMsgId, FutureBase]
     protocolStates*: seq[RootRef]
     maxInactivityAllowed*: Duration
 
@@ -36,9 +36,10 @@ type
     IrrelevantNetwork
     FaultOrError
 
-  UntypedResponder = object
+  UntypedResponder = ref object
     peer*: Peer
     stream*: P2PStream
+    totalBytesSent*: int
 
   Responder*[MsgType] = distinct UntypedResponder
 
@@ -88,11 +89,23 @@ type
 
   TransmissionError* = object of CatchableError
 
+  ResponseSizeLimitReached* = object of CatchableError
+
 const
   defaultIncomingReqTimeout = 5000
-  defaultOutgoingReqTimeout = 10000
   HandshakeTimeout = FaultOrError
-  RQRP_MAX_SIZE = 2 * 1024 * 1024
+
+  # Spec constants
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/networking/p2p-interface.md#eth-20-network-interaction-domains
+  REQ_RESP_MAX_SIZE* = 1 * 1024 * 1024 # bytes
+  GOSSIP_MAX_SIZE* = 1 * 1024 * 1024 # bytes
+  TTFB_TIMEOUT* = 5.seconds
+  RESP_TIMEOUT* = 10.seconds
+
+  readTimeoutErrorMsg = "Exceeded read timeout for a request"
+
+logScope:
+  topic = "libp2p"
 
 template `$`*(peer: Peer): string = $peer.id
 chronicles.formatIt(Peer): $it
@@ -139,24 +152,6 @@ template reraiseAsPeerDisconnected(peer: Peer, errMsgExpr: static string,
   debug errMsg, err = getCurrentExceptionMsg()
   disconnectAndRaise(peer, reason, errMsg)
 
-proc getCompressedMsgId*(MsgType: type): CompressedMsgId =
-  mixin msgId, msgProtocol, protocolInfo
-  (protocolIdx: MsgType.msgProtocol.protocolInfo.index,
-   methodId: MsgType.msgId)
-
-proc nextMsg*(peer: Peer, MsgType: type): Future[MsgType] =
-  ## This procs awaits a specific P2P message.
-  ## Any messages received while waiting will be dispatched to their
-  ## respective handlers. The designated message handler will also run
-  ## to completion before the future returned by `nextMsg` is resolved.
-  let awaitedMsgId = getCompressedMsgId(MsgType)
-  let f = getOrDefault(peer.awaitedMessages, awaitedMsgId)
-  if not f.isNil:
-    return Future[MsgType](f)
-
-  initFuture result
-  peer.awaitedMessages[awaitedMsgId] = result
-
 proc registerProtocol(protocol: ProtocolInfo) =
   # TODO: This can be done at compile-time in the future
   let pos = lowerBound(gProtocols, protocol)
@@ -185,10 +180,10 @@ proc init*(T: type Eth2Node, daemon: DaemonAPI): Future[T] {.async.} =
       if msg.libp2pProtocol.len > 0:
         await daemon.addHandler(@[msg.libp2pProtocol], msg.thunk)
 
-proc readMsg(stream: P2PStream,
-             MsgType: type,
-             withResponseCode: bool,
-             deadline: Future[void]): Future[Option[MsgType]] {.gcsafe.}
+proc readChunk(stream: P2PStream,
+               MsgType: type,
+               withResponseCode: bool,
+               deadline: Future[void]): Future[Option[MsgType]] {.gcsafe.}
 
 proc readSizePrefix(transp: StreamTransport,
                     deadline: Future[void]): Future[int] {.async.} =
@@ -202,7 +197,7 @@ proc readSizePrefix(transp: StreamTransport,
     case parser.feedByte(nextByte)
     of Done:
       let res = parser.getResult
-      if res > uint64(RQRP_MAX_SIZE):
+      if res > uint64(REQ_RESP_MAX_SIZE):
         return -1
       else:
         return int(res)
@@ -214,57 +209,72 @@ proc readSizePrefix(transp: StreamTransport,
 proc readMsgBytes(stream: P2PStream,
                   withResponseCode: bool,
                   deadline: Future[void]): Future[Bytes] {.async.} =
-  if withResponseCode:
-    var responseCode: byte
-    var readResponseCode = stream.transp.readExactly(addr responseCode, 1)
-    await readResponseCode or deadline
-    if not readResponseCode.finished:
-      return
-    if responseCode > ResponseCode.high.byte: return
-
-    logScope: responseCode = ResponseCode(responseCode)
-    case ResponseCode(responseCode)
-    of InvalidRequest, ServerError:
-      let responseErrMsg = await readMsg(stream, string, false, deadline)
-      debug "P2P request resulted in error", responseErrMsg
-      return
-    of Success:
-      # The response is OK, the execution continues below
-      discard
-
-  var sizePrefix = await readSizePrefix(stream.transp, deadline)
-  if sizePrefix < -1:
-    debug "Failed to read an incoming message size prefix", peer = stream.peer
-    return
-
-  if sizePrefix == 0:
-    debug "Received SSZ with zero size", peer = stream.peer
-    return
-
-  var msgBytes = newSeq[byte](sizePrefix)
-  var readBody = stream.transp.readExactly(addr msgBytes[0], sizePrefix)
-  await readBody or deadline
-  if not readBody.finished: return
-
-  return msgBytes
-
-proc readMsgBytesOrClose(stream: P2PStream,
-                         withResponseCode: bool,
-                         deadline: Future[void]): Future[Bytes] {.async.} =
-  result = await stream.readMsgBytes(withResponseCode, deadline)
-  if result.len == 0: await stream.close()
-
-proc readMsg(stream: P2PStream,
-             MsgType: type,
-             withResponseCode: bool,
-             deadline: Future[void]): Future[Option[MsgType]] {.gcsafe, async.} =
-  var msgBytes = await stream.readMsgBytesOrClose(withResponseCode, deadline)
   try:
-    if msgBytes.len > 0: return some SSZ.decode(msgBytes, MsgType)
+    if withResponseCode:
+      var responseCode: byte
+      var readResponseCode = stream.transp.readExactly(addr responseCode, 1)
+      await readResponseCode or deadline
+      if not readResponseCode.finished:
+        return
+      if responseCode > ResponseCode.high.byte: return
+
+      logScope: responseCode = ResponseCode(responseCode)
+      case ResponseCode(responseCode)
+      of InvalidRequest, ServerError:
+        let responseErrMsg = await readChunk(stream, string, false, deadline)
+        debug "P2P request resulted in error", responseErrMsg
+        return
+      of Success:
+        # The response is OK, the execution continues below
+        discard
+
+    var sizePrefix = await readSizePrefix(stream.transp, deadline)
+    if sizePrefix < -1:
+      debug "Failed to read an incoming message size prefix", peer = stream.peer
+      return
+
+    if sizePrefix == 0:
+      debug "Received SSZ with zero size", peer = stream.peer
+      return
+
+    var msgBytes = newSeq[byte](sizePrefix)
+    var readBody = stream.transp.readExactly(addr msgBytes[0], sizePrefix)
+    await readBody or deadline
+    if not readBody.finished: return
+
+    return msgBytes
+  except TransportIncompleteError:
+    return @[]
+
+proc readChunk(stream: P2PStream,
+               MsgType: type,
+               withResponseCode: bool,
+               deadline: Future[void]): Future[Option[MsgType]] {.gcsafe, async.} =
+  var msgBytes = await stream.readMsgBytes(withResponseCode, deadline)
+  try:
+    if msgBytes.len > 0:
+      return some SSZ.decode(msgBytes, MsgType)
   except SerializationError as err:
     debug "Failed to decode a network message",
           msgBytes, errMsg = err.formatMsg("<msg>")
     return
+
+proc readResponse(
+       stream: P2PStream,
+       MsgType: type,
+       deadline: Future[void]): Future[Option[MsgType]] {.gcsafe, async.} =
+
+  when MsgType is seq:
+    type E = ElemType(MsgType)
+    var results: MsgType
+    while true:
+      let nextRes = await readChunk(stream, E, true, deadline)
+      if nextRes.isNone: break
+      results.add nextRes.get
+    if results.len > 0:
+      return some(results)
+  else:
+    return await readChunk(stream, MsgType, true, deadline)
 
 proc encodeErrorMsg(responseCode: ResponseCode, errMsg: string): Bytes =
   var s = init OutputStream
@@ -305,100 +315,120 @@ proc writeSizePrefix(transp: StreamTransport, size: uint64) {.async.} =
   if sent != varintSize:
     raise newException(TransmissionError, "Failed to deliver size prefix")
 
-proc sendMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.async} =
-  var stream = await peer.network.daemon.openStream(peer.id, @[protocolId])
-  # TODO how does openStream fail? Set a timeout here and handle it
-  await writeSizePrefix(stream.transp, uint64(requestBytes.len))
-  let sent = await stream.transp.write(requestBytes)
-  if sent != requestBytes.len:
+proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.async} =
+  var deadline = sleepAsync RESP_TIMEOUT
+  var streamFut = peer.network.daemon.openStream(peer.id, @[protocolId])
+  await streamFut or deadline
+  if not streamFut.finished:
+    # TODO: we are returning here because the deadline passed, but
+    # the stream can still be opened eventually a bit later. Who is
+    # going to close it then?
+    raise newException(TransmissionError, "Failed to open LibP2P stream")
+
+  let stream = streamFut.read
+  defer:
+    await close(stream)
+
+  var s = init OutputStream
+  s.appendVarint requestBytes.len.uint64
+  s.append requestBytes
+  let bytes = s.getOutput
+  let sent = await stream.transp.write(bytes)
+  if sent != bytes.len:
     raise newException(TransmissionError, "Failed to deliver msg bytes")
 
-proc sendResponseBytes(stream: P2PStream, bytes: Bytes) {.async.} =
-  var sent = await stream.transp.write(@[byte Success])
-  if sent != 1:
-    raise newException(TransmissionError, "Failed to deliver response code")
-  await writeSizePrefix(stream.transp, uint64(bytes.len))
-  sent = await stream.transp.write(bytes)
+template raiseMaxRespSizeError =
+  raise newException(ResponseSizeLimitReached, "Response size limit reached")
+
+# TODO There is too much duplication in the responder functions, but
+# I hope to reduce this when I increse the reliance on output streams.
+proc sendResponseChunkBytes(responder: UntypedResponder, payload: Bytes) {.async.} =
+  var s = init OutputStream
+  s.append byte(Success)
+  s.appendVarint payload.len.uint64
+  s.append payload
+  let bytes = s.getOutput
+
+  let sent = await responder.stream.transp.write(bytes)
   if sent != bytes.len:
     raise newException(TransmissionError, "Failed to deliver all bytes")
+
+  responder.totalBytesSent += bytes.len
+
+proc sendResponseChunkObj(responder: UntypedResponder, val: auto) {.async.} =
+  var s = init OutputStream
+  s.append byte(Success)
+  s.appendValue SSZ, sizePrefixed(val)
+  let bytes = s.getOutput
+  if responder.totalBytesSent + bytes.len > REQ_RESP_MAX_SIZE:
+    raiseMaxRespSizeError()
+
+  let sent = await responder.stream.transp.write(bytes)
+  if sent != bytes.len:
+    raise newException(TransmissionError, "Failed to deliver all bytes")
+
+  responder.totalBytesSent += bytes.len
+
+proc sendResponseChunks[T](responder: UntypedResponder, chunks: seq[T]) {.async.} =
+  var s = init OutputStream
+  var limitReached = false
+  for chunk in chunks:
+    s.append byte(Success)
+    s.appendValue SSZ, sizePrefixed(chunk)
+    # TODO: This is not quite right, but it will serve as an approximation
+    # for now. We need a sszSize function to implement it properly.
+    if s.pos > REQ_RESP_MAX_SIZE:
+      limitReached = true
+      break
+
+  let bytes = s.getOutput
+  let sent = await responder.stream.transp.write(bytes)
+  if sent != bytes.len:
+    raise newException(TransmissionError, "Failed to deliver all bytes")
+
+  if limitReached:
+    raiseMaxRespSizeError()
+  else:
+    responder.totalBytesSent += bytes.len
 
 proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
                      ResponseMsg: type,
                      timeout: Duration): Future[Option[ResponseMsg]] {.gcsafe, async.} =
   var deadline = sleepAsync timeout
+
   # Open a new LibP2P stream
   var streamFut = peer.network.daemon.openStream(peer.id, @[protocolId])
   await streamFut or deadline
   if not streamFut.finished:
+    # TODO: we are returning here because the deadline passed, but
+    # the stream can still be opened eventually a bit later. Who is
+    # going to close it then?
     return none(ResponseMsg)
 
-  # Send the request
   let stream = streamFut.read
+  defer:
+    await close(stream)
 
-  await writeSizePrefix(stream.transp, requestBytes.len.uint64)
-  let sent = await stream.transp.write(requestBytes)
-  if sent != requestBytes.len:
+  # Send the request
+  var s = init OutputStream
+  s.appendVarint requestBytes.len.uint64
+  s.append requestBytes
+  let bytes = s.getOutput
+  let sent = await stream.transp.write(bytes)
+  if sent != bytes.len:
     await disconnectAndRaise(peer, FaultOrError, "Incomplete send")
 
   # Read the response
-  return await stream.readMsg(ResponseMsg, true, deadline)
-
-proc exchangeHandshake(peer: Peer, protocolId: string, requestBytes: Bytes,
-                       ResponseMsg: type,
-                       timeout: Duration): Future[ResponseMsg] {.gcsafe, async.} =
-  var response = await makeEth2Request(peer, protocolId, requestBytes,
-                                       ResponseMsg, timeout)
-  if not response.isSome:
-    await peer.disconnectAndRaise(FaultOrError, "Failed to complete a handshake")
-
-  return response.get
+  return await stream.readResponse(ResponseMsg, deadline)
 
 proc p2pStreamName(MsgType: type): string =
   mixin msgProtocol, protocolInfo, msgId
   MsgType.msgProtocol.protocolInfo.messages[MsgType.msgId].libp2pProtocol
 
-template handshakeImpl(outputStreamVar, handshakeSerializationCall: untyped,
-                       lowLevelThunk: untyped,
-                       HandshakeType: untyped,
-                         # TODO: we cannot use a type parameter above
-                         # because of the following Nim issue:
-                         #
-                       peer: Peer,
-                       stream: P2PStream,
-                       timeout: Duration): auto =
-  if stream == nil:
-    var outputStreamVar = init OutputStream
-    handshakeSerializationCall
-    exchangeHandshake(peer, p2pStreamName(HandshakeType),
-                      getOutput(outputStreamVar), HandshakeType, timeout)
-  else:
-    proc asyncStep: Future[HandshakeType] {.async.} =
-      let deadline = sleepAsync timeout
-      var responseFut = nextMsg(peer, HandshakeType)
-      await lowLevelThunk(peer.network.daemon, stream) or deadline
-      if not responseFut.finished:
-        await disconnectAndRaise(peer, FaultOrError, "Failed to complete a handshake")
-
-      var outputStreamVar = init OutputStream
-      handshakeSerializationCall
-      await sendResponseBytes(stream, getOutput(outputStreamVar))
-
-      return responseFut.read
-
-    asyncStep()
-
-proc resolveNextMsgFutures(peer: Peer, msg: auto) =
-  type MsgType = type(msg)
-  let msgId = getCompressedMsgId(MsgType)
-  let future = peer.awaitedMessages.getOrDefault(msgId)
-  if future != nil:
-    Future[MsgType](future).complete msg
-
 proc init*(T: type Peer, network: Eth2Node, id: PeerID): Peer =
   new result
   result.id = id
   result.network = network
-  result.awaitedMessages = initTable[CompressedMsgId, FutureBase]()
   result.connectionState = Connected
   result.maxInactivityAllowed = 15.minutes # TODO: Read this from the config
   newSeq result.protocolStates, allProtocols.len
@@ -444,13 +474,34 @@ proc getRequestProtoName(fn: NimNode): NimNode =
   if pragmas.kind == nnkPragma and pragmas.len > 0:
     for pragma in pragmas:
       if pragma.len > 0 and $pragma[0] == "libp2pProtocol":
-        return pragma[1]
+        let protoName = $(pragma[1])
+        let protoVer = $(pragma[2].intVal)
+        return newLit("/eth2/beacon_chain/req/" & protoName & "/" & protoVer & "/ssz")
 
   return newLit("")
 
 proc init*[MsgType](T: type Responder[MsgType],
                     peer: Peer, stream: P2PStream): T =
   T(UntypedResponder(peer: peer, stream: stream))
+
+import
+  typetraits
+
+template write*[M](r: var Responder[M], val: auto): auto =
+  mixin send
+  type Msg = M
+  type MsgRec = RecType(Msg)
+  when MsgRec is seq|openarray:
+    type E = ElemType(MsgRec)
+    when val is E:
+      sendResponseChunkObj(UntypedResponder(r), val)
+    elif val is MsgRec:
+      sendResponseChunks(UntypedResponder(r), val)
+    else:
+      static: echo "BAD TYPE ", name(E), " vs ", name(type(val))
+      {.fatal: "bad".}
+  else:
+    send(r, val)
 
 proc implementSendProcBody(sendProc: SendProc) =
   let
@@ -465,21 +516,14 @@ proc implementSendProcBody(sendProc: SendProc) =
       of msgRequest:
         let
           timeout = msg.timeoutParam[0]
-          ResponseRecord = msg.response.recIdent
+          ResponseRecord = msg.response.recName
         quote:
           makeEth2Request(`peer`, `msgProto`, `bytes`,
                           `ResponseRecord`, `timeout`)
-      of msgHandshake:
-        let
-          timeout = msg.timeoutParam[0]
-          HandshakeRecord = msg.recIdent
-        quote:
-          exchangeHandshake(`peer`, `msgProto`, `bytes`,
-                            `HandshakeRecord`, `timeout`)
       else:
-        quote: sendMsg(`peer`, `msgProto`, `bytes`)
+        quote: sendNotificationMsg(`peer`, `msgProto`, `bytes`)
     else:
-      quote: sendResponseBytes(`UntypedResponder`(`peer`).stream, `bytes`)
+      quote: sendResponseChunkBytes(`UntypedResponder`(`peer`), `bytes`)
 
   sendProc.useStandardBody(nil, nil, sendCallGenerator)
 
@@ -522,7 +566,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
       protocol = msg.protocol
       msgName = $msg.ident
       msgNameLit = newLit msgName
-      msgRecName = msg.recIdent
+      msgRecName = msg.recName
 
     if msg.procDef.body.kind != nnkEmpty and msg.kind == msgRequest:
       # Request procs need an extra param - the stream where the response
@@ -534,9 +578,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     ## Implemenmt Thunk
     ##
     var thunkName = ident(msgName & "_thunk")
-    let
-      requestDataTimeout = newCall(milliseconds, newLit(defaultIncomingReqTimeout))
-      awaitUserHandler = msg.genAwaitUserHandler(msgVar, [peerVar, streamVar])
+    let awaitUserHandler = msg.genAwaitUserHandler(msgVar, [peerVar, streamVar])
 
     let tracing = when tracingEnabled:
       quote: logReceivedMsg(`streamVar`.peer, `msgVar`.get)
@@ -546,14 +588,17 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     msg.defineThunk quote do:
       proc `thunkName`(`daemonVar`: `DaemonAPI`,
                        `streamVar`: `P2PStream`) {.async, gcsafe.} =
+        defer:
+          `await` close(`streamVar`)
+
         let
-          `deadlineVar` = sleepAsync `requestDataTimeout`
+          `deadlineVar` = sleepAsync RESP_TIMEOUT
           `msgBytesVar` = `await` readMsgBytes(`streamVar`, false, `deadlineVar`)
           `peerVar` = peerFromStream(`daemonVar`, `streamVar`)
 
         if `msgBytesVar`.len == 0:
-          `await` sendErrorResponse(`peerVar`, `streamVar`, ServerError,
-                                    "Exceeded read timeout for a request")
+          `await` sendErrorResponse(`peerVar`, `streamVar`,
+                                    ServerError, readTimeoutErrorMsg)
           return
 
         var `msgVar`: `msgRecName`
@@ -567,7 +612,12 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
         try:
           `tracing`
           `awaitUserHandler`
-          resolveNextMsgFutures(`peerVar`, `msgVar`)
+        except ResponseSizeLimitReached:
+          # The response size limit is currently handled with an exception in
+          # order to make it easier to switch to an alternative policy when it
+          # will be signalled with an error response code (and to avoid making
+          # the `response` API in the high-level protocols more complicated for now).
+          chronicles.debug "response size limit reached", peer, reqName = `msgNameLit`
         except CatchableError as `errVar`:
           `await` sendErrorResponse(`peerVar`, `streamVar`, ServerError, `errVar`.msg)
 
@@ -575,84 +625,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     ## Implement Senders and Handshake
     ##
     if msg.kind == msgHandshake:
-      # In LibP2P protocols, the handshake thunk is special. Instead of directly
-      # deserializing the incoming message and calling the user-supplied handler,
-      # we execute the `onPeerConnected` handler instead.
-      #
-      # The `onPeerConnected` handler is executed symmetrically for both peers
-      # and it's expected that one of its very first steps would be to send the
-      # handshake and then await the same from the other side. We call this step
-      # "handshakeExchanger".
-      #
-      # For the initiating peer, the handshakeExchanger opens a stream and sends
-      # a regular request through it, but on the receiving side, it just setups
-      # a future and call the lower-level thunk that will complete it.
-      #
-      let
-        handshake = msg.protocol.onPeerConnected
-        lowLevelThunkName = $thunkName
-
-      if handshake.isNil:
-        macros.error "A LibP2P protocol with a handshake must also include an " &
-                     "`onPeerConnected` handler.", msg.procDef
-
-      # We must generate a forward declaration for the `onPeerConnected` handler,
-      # so we can call it from the thunk proc:
-      let handshakeProcName = handshake.name
-      msg.protocol.outRecvProcs.add quote do:
-        proc `handshakeProcName`(`peerVar`: `Peer`,
-                                 `streamVar`: `P2PStream`) {.async, gcsafe.}
-
-      # Here we replace the 'thunkProc' that will be registered as a handler
-      # for incoming messages:
-      thunkName = ident(msgName & "_handleConnection")
-
-      msg.protocol.outRecvProcs.add quote do:
-        proc `thunkName`(`daemonVar`: `DaemonAPI`,
-                         `streamVar`: `P2PStream`) {.async, gcsafe.} =
-          let `peerVar` = peerFromStream(`daemonVar`, `streamVar`)
-          try:
-            `await` `handshakeProcName`(`peerVar`, `streamVar`)
-          except SerializationError as err:
-            debug "Failed to decode message",
-                  err = err.formatMsg("<msg>"),
-                  msg = `msgNameLit`,
-                  peer = $(`streamVar`.peer)
-            `await` disconnect(`peerVar`, FaultOrError)
-          except CatchableError as err:
-            debug "Failed to complete handshake", err = err.msg
-            `await` disconnect(`peerVar`, FaultOrError)
-
-      var
-        handshakeSerializer = msg.createSerializer()
-        handshakeSerializerName = newLit($handshakeSerializer.name)
-        handshakeExchanger = msg.createSendProc(nnkMacroDef)
-        paramsArray = newTree(nnkBracket).appendAllParams(handshakeExchanger.def)
-        handshakeTypeName = newLit($msg.recIdent)
-        getAst = ident "getAst"
-        res = ident "result"
-
-      handshakeExchanger.setBody quote do:
-        let
-          stream = ident "stream"
-          outputStreamVar = ident "outputStream"
-          lowLevelThunk = ident `lowLevelThunkName`
-          HandshakeType = ident `handshakeTypeName`
-          params = `paramsArray`
-          peer = params[0]
-          timeout = params[^1]
-          handshakeSerializationCall = newCall(`bindSymOp` `handshakeSerializerName`, params)
-
-        handshakeSerializationCall[1] = outputStreamVar
-        handshakeSerializationCall.del(handshakeSerializationCall.len - 1)
-
-        `res` = `getAst`(handshakeImpl(outputStreamVar, handshakeSerializationCall,
-                                       lowLevelThunk, HandshakeType,
-                                       peer, stream, timeout))
-
-        when defined(debugMacros) or defined(debugHandshake):
-          echo "---- Handshake implementation ----"
-          echo repr(`res`)
+      macros.error "Handshake messages are not supported in LibP2P protocols"
     else:
       var sendProc = msg.createSendProc()
       implementSendProcBody sendProc
