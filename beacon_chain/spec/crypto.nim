@@ -48,7 +48,8 @@ import
   sequtils,
   stew/objects, hashes, nimcrypto/utils,
   blscurve, json_serialization,
-  ../version, digest
+  ../version, digest,
+  chronicles
 
 export
   json_serialization
@@ -145,12 +146,17 @@ func pubKey*(pk: ValidatorPrivKey): ValidatorPubKey =
   else:
     pk.getKey
 
-proc combine*[T](a: openarray[BlsValue[T]]): T =
-  doAssert a.len > 0 and a[0].kind == Real
-  result = a[0].blsValue
-  for i in 1 ..< a.len:
-    doAssert a[i].kind == Real
-    result.combine a[i].blsValue
+proc init(T: type VerKey): VerKey =
+  result.point.inf()
+
+proc init(T: type SigKey): SigKey =
+  result.point.inf()
+
+proc combine*[T](values: openarray[BlsValue[T]]): BlsValue[T] =
+  result = BlsValue[T](kind: Real, blsValue: T.init())
+
+  for value in values:
+    result.blsValue.combine(value.blsValue)
 
 proc combine*[T](x: var BlsValue[T], other: BlsValue[T]) =
   doAssert x.kind == Real and other.kind == Real
@@ -158,13 +164,7 @@ proc combine*[T](x: var BlsValue[T], other: BlsValue[T]) =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/bls_signature.md#bls_aggregate_pubkeys
 func bls_aggregate_pubkeys*(keys: openArray[ValidatorPubKey]): ValidatorPubKey =
-  var empty = true
-  for key in keys:
-    if empty:
-      result = key
-      empty = false
-    else:
-      result.combine(key)
+  keys.combine()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/bls_signature.md#bls_verify
 func bls_verify*(
@@ -175,18 +175,23 @@ func bls_verify*(
     # Invalid signatures are possible in deposits (discussed with Danny)
     return false
   when ValidatorPubKey is BlsValue:
-    doAssert sig.kind == Real and pubkey.kind == Real
+    if sig.kind != Real or pubkey.kind != Real:
+      # TODO: chronicles warning
+      return false
     sig.blsValue.verify(msg, domain, pubkey.blsValue)
   else:
     sig.verify(msg, domain, pubkey)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/bls_signature.md#bls_verify_multiple
-func bls_verify_multiple*(
+proc bls_verify_multiple*(
     pubkeys: seq[ValidatorPubKey], message_hashes: openArray[Eth2Digest],
     sig: ValidatorSig, domain: uint64): bool =
+  # {.noSideEffect.} - https://github.com/status-im/nim-chronicles/issues/62
   let L = len(pubkeys)
   doAssert L == len(message_hashes)
-  doAssert sig.kind == Real
+  if sig.kind != Real:
+    warn "Raw bytes do not match with a BLS signature."
+    return false
 
   # TODO optimize using multiPairing
   for pubkey_message_hash in zip(pubkeys, message_hashes):
@@ -194,8 +199,10 @@ func bls_verify_multiple*(
     doAssert pubkey.kind == Real
     # TODO spec doesn't say to handle this specially, but it's silly to
     # validate without any actual public keys.
-    if pubkey.blsValue != VerKey() and
-       not sig.blsValue.verify(message_hash.data, domain, pubkey.blsValue):
+    if pubkey.blsValue == VerKey():
+      trace "Received empty public key, skipping verification."
+      continue
+    if not sig.blsValue.verify(message_hash.data, domain, pubkey.blsValue):
       return false
 
   true
@@ -217,15 +224,17 @@ else:
 proc fromBytes*[T](R: type BlsValue[T], bytes: openarray[byte]): R =
   # This is a workaround, so that we can deserialize the serialization of a
   # default-initialized BlsValue without raising an exception
-  # TODO don't use exceptions for parsing, ever. Handle deserialization issues
-  #      sanely, always.
   when defined(ssz_testing):
+    # Only for SSZ parsing tests, everything is an opaque blob
     R(kind: OpaqueBlob, blob: toArray(result.blob.len, bytes))
   else:
-    if bytes.allIt(it == 0):
-      R(kind: OpaqueBlob)
-    else:
-      R(kind: Real, blsValue: init(T, bytes))
+    # Try if valid BLS value
+    let success = init(result.blsValue, bytes)
+    if not success:
+      # TODO: chronicles trace
+      result = R(kind: OpaqueBlob)
+      assert result.blob.len == bytes.len
+      result.blob[result.blob.low .. result.blob.high] = bytes
 
 proc initFromBytes*[T](val: var BlsValue[T], bytes: openarray[byte]) =
   val = fromBytes(BlsValue[T], bytes)

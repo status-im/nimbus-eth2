@@ -66,6 +66,10 @@ serializationFormat SSZ,
                     Writer = SszWriter,
                     PreferedOutput = seq[byte]
 
+template sizePrefixed*[TT](x: TT): untyped =
+  type T = TT
+  SizePrefixed[T](x)
+
 proc init*(T: type SszReader,
            stream: ByteStreamVar,
            maxObjectSize = defaultMaxObjectSize): T =
@@ -252,8 +256,15 @@ func writeValue*[T](w: var SszWriter, x: SizePrefixed[T]) =
   var cursor = w.stream.delayVarSizeWrite(10)
   let initPos = w.stream.pos
   w.writeValue T(x)
-  cursor.appendVarint uint64(w.stream.pos - initPos)
-  finalize cursor
+  let length = uint64(w.stream.pos - initPos)
+  when false:
+    discard
+    # TODO varintBytes is sub-optimal at the moment
+    # cursor.writeAndFinalize length.varintBytes
+  else:
+    var buf: VarintBuffer
+    buf.appendVarint length
+    cursor.writeAndFinalize buf.writtenBytes
 
 template checkEof(n: int) =
   if not r.stream[].ensureBytes(n):

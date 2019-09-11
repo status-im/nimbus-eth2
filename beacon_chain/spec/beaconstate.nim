@@ -8,7 +8,7 @@
 import
   tables, algorithm, math, options, sequtils,
   json_serialization/std/sets, chronicles, stew/bitseqs,
-  ../extras, ../ssz, ../beacon_node_types,
+  ../extras, ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers, ./validator
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#is_valid_merkle_branch
@@ -169,6 +169,8 @@ func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
       (validator.effective_balance div WHISTLEBLOWER_REWARD_QUOTIENT).Gwei
     proposer_reward = whistleblowing_reward div PROPOSER_REWARD_QUOTIENT
   increase_balance(state, proposer_index, proposer_reward)
+  # TODO: evaluate if spec bug / underflow can be triggered
+  doAssert(whistleblowing_reward >= proposer_reward, "Spec bug: underflow in slash_validator")
   increase_balance(
     state, whistleblower_index, whistleblowing_reward - proposer_reward)
 
@@ -368,9 +370,11 @@ func process_registry_updates*(state: var BeaconState) =
         compute_activation_exit_epoch(get_current_epoch(state))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#is_valid_indexed_attestation
-func is_valid_indexed_attestation*(
+proc is_valid_indexed_attestation*(
     state: BeaconState, indexed_attestation: IndexedAttestation): bool =
-  # Check if ``indexed_attestation`` has valid indices and signature.
+  ## Check if ``indexed_attestation`` has valid indices and signature.
+  # TODO: this is noSideEffect besides logging
+  #       https://github.com/status-im/nim-chronicles/issues/62
 
   let
     bit_0_indices = indexed_attestation.custody_bit_0_indices.asSeq
@@ -378,45 +382,53 @@ func is_valid_indexed_attestation*(
 
   # Verify no index has custody bit equal to 1 [to be removed in phase 1]
   if len(bit_1_indices) != 0:
+    notice "indexed attestation: custody_bit equal to 1"
     return false
 
   # Verify max number of indices
   let combined_len = len(bit_0_indices) + len(bit_1_indices)
   if not (combined_len <= MAX_VALIDATORS_PER_COMMITTEE):
+    notice "indexed attestation: validator index beyond max validators per committee"
     return false
 
   # Verify index sets are disjoint
   if len(intersection(bit_0_indices.toSet, bit_1_indices.toSet)) != 0:
+    notice "indexed attestation: indices set not disjoint"
     return false
 
   # Verify indices are sorted
   if bit_0_indices != sorted(bit_0_indices, system.cmp):
+    notice "indexed attestation: indices 0 not sorted"
     return false
 
   if bit_1_indices != sorted(bit_1_indices, system.cmp):
+    notice "indexed attestation: indices 0 not sorted"
     return false
 
   # Verify aggregate signature
-  bls_verify_multiple(
-    @[
-      bls_aggregate_pubkeys(
-        mapIt(bit_0_indices, state.validators[it.int].pubkey)),
-      bls_aggregate_pubkeys(
-        mapIt(bit_1_indices, state.validators[it.int].pubkey)),
-    ],
-    @[
-      hash_tree_root(AttestationDataAndCustodyBit(
-        data: indexed_attestation.data, custody_bit: false)),
-      hash_tree_root(AttestationDataAndCustodyBit(
-        data: indexed_attestation.data, custody_bit: true)),
-    ],
+  let
+    pubkeys = @[ # TODO, bls_verify_multiple should accept openarray
+      bls_aggregate_pubkeys(mapIt(bit_0_indices, state.validators[it.int].pubkey)),
+      bls_aggregate_pubkeys(mapIt(bit_1_indices, state.validators[it.int].pubkey)),
+    ]
+    msg1 = AttestationDataAndCustodyBit(
+        data: indexed_attestation.data, custody_bit: false)
+    msg2 = AttestationDataAndCustodyBit(
+        data: indexed_attestation.data, custody_bit: true)
+    message_hashes = [
+      hash_tree_root(msg1),
+      hash_tree_root(msg2),
+    ]
+    domain = get_domain(state, DOMAIN_ATTESTATION, indexed_attestation.data.target.epoch)
+
+  result = bls_verify_multiple(
+    pubkeys,
+    message_hashes,
     indexed_attestation.signature,
-    get_domain(
-      state,
-      DOMAIN_ATTESTATION,
-      indexed_attestation.data.target.epoch
-    ),
+    domain,
   )
+  if not result:
+    notice "indexed attestation: signature verification failure"
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(state: BeaconState,
@@ -519,6 +531,20 @@ proc check_attestation*(
     warn("Attestation too old",
       attestation_slot = shortLog(attestation_slot),
       state_slot = shortLog(stateSlot))
+    return
+
+  let committee = get_crosslink_committee(state, data.target.epoch, data.crosslink.shard, stateCache)
+  if attestation.aggregation_bits.len != attestation.custody_bits.len:
+    warn("Inconsistent aggregation and custody bits",
+      aggregation_bits_len = attestation.aggregation_bits.len,
+      custody_bits_len = attestation.custody_bits.len
+    )
+    return
+  if attestation.aggregation_bits.len != committee.len:
+    warn("Inconsistent aggregation and committee length",
+      aggregation_bits_len = attestation.aggregation_bits.len,
+      committee_len = committee.len
+    )
     return
 
   # Check FFG data, crosslink data, and signature

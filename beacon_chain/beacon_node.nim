@@ -9,7 +9,7 @@ import
   conf, time, state_transition, fork_choice, ssz, beacon_chain_db,
   validator_pool, extras, attestation_pool, block_pool, eth2_network,
   beacon_node_types, mainchain_monitor, trusted_state_snapshots, version,
-  sync_protocol, request_manager, genesis, validator_keygen, interop
+  sync_protocol, request_manager, validator_keygen, interop
 
 const
   topicBeaconBlocks = "/eth2/beacon_block/ssz"
@@ -111,17 +111,30 @@ proc initGenesis(node: BeaconNode) {.async.} =
   var tailState: BeaconState
   if conf.depositWeb3Url.len != 0:
     info "Waiting for genesis state from eth1"
-    tailState = await getGenesisFromEth1(conf)
+    tailState = await node.mainchainMonitor.getGenesis()
   else:
     var snapshotFile = conf.dataDir / genesisFile
-    if conf.stateSnapshot.isSome:
-      snapshotFile = conf.stateSnapshot.get.string
-    info "Importing snapshot file", path = snapshotFile
-    if not fileExists(snapshotFile):
-      error "Nimbus database not initialized. Please specify the initial state snapshot file."
-      quit 1
     try:
-      tailState = Json.loadFile(snapshotFile, BeaconState)
+      if conf.stateSnapshot.isSome:
+        snapshotFile = conf.stateSnapshot.get.string
+
+      if not fileExists(snapshotFile):
+        error "Nimbus database not initialized. Please specify the initial state snapshot file."
+        quit 1
+
+      template loadSnapshot(Format) =
+        info "Importing snapshot file", path = snapshotFile
+        tailState = loadFile(Format, snapshotFile, BeaconState)
+
+      let ext = splitFile(snapshotFile).ext
+      if cmpIgnoreCase(ext, ".ssz") == 0:
+        loadSnapshot SSZ
+      elif cmpIgnoreCase(ext, ".json") == 0:
+        loadSnapshot Json
+      else:
+        error "The --stateSnapshot option expects a json or a ssz file."
+        quit 1
+
     except SerializationError as err:
       stderr.write "Failed to import ", snapshotFile, "\n"
       stderr.write err.formatMsg(snapshotFile), "\n"
@@ -202,7 +215,9 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
       result.bootstrapNodes.add BootstrapAddr.init(string ln)
 
   result.attachedValidators = ValidatorPool.init
-  init result.mainchainMonitor, "", Port(0) # TODO: specify geth address and port
+  if conf.depositWeb3Url.len != 0:
+    result.mainchainMonitor = MainchainMonitor.init(conf.depositWeb3Url, conf.depositContractAddress)
+    result.mainchainMonitor.start()
 
   let trieDB = trieDB newChainDb(string conf.databaseDir)
   result.db = BeaconChainDB.init(trieDB)
@@ -378,19 +393,32 @@ proc proposeBlock(node: BeaconNode,
     doAssert false, "head slot matches proposal slot (!)"
     # return
 
+
   var (nroot, nblck) = node.blockPool.withState(
       node.stateCache, BlockSlot(blck: head, slot: slot - 1)):
     # To create a block, we'll first apply a partial block to the state, skipping
     # some validations.
     # TODO monitor main chain here: node.mainchainMonitor.getBeaconBlockRef()
+    let (eth1data, deposits) =
+      if node.mainchainMonitor.isNil:
+        (get_eth1data_stub(
+            state.eth1_deposit_index, slot.compute_epoch_of_slot()),
+          newSeq[Deposit]()
+        )
+      else:
+        let e1d = await node.mainchainMonitor.getBeaconBlockRef()
+
+        (e1d,
+          node.mainchainMonitor.getPendingDeposits()
+        )
 
     let
       blockBody = BeaconBlockBody(
         randao_reveal: validator.genRandaoReveal(state, slot),
-        eth1_data: get_eth1data_stub(
-          state.eth1_deposit_index, slot.compute_epoch_of_slot()),
+        eth1_data: eth1data,
         attestations:
-          node.attestationPool.getAttestationsForBlock(state, slot))
+          node.attestationPool.getAttestationsForBlock(state, slot),
+        deposits: deposits)
 
     var
       newBlock = BeaconBlock(

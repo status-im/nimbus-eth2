@@ -99,10 +99,7 @@ suite "Official - Sanity - Blocks " & preset():
     runValidTest("Voluntary exit", voluntary_exit, 2)
     runValidTest("Balance-driven status transitions", balance_driven_status_transitions, 1)
 
-  when false: # TODO: `stateRef3946003.balances[idx3953625] == postRef3946005.balances[idx3953625]`
-              #       stateRef3946003.balances[0] = 31998855136
-              #       postRef3946005.balances[0] = 31997418334
-    runValidTest("Historical batch", historical_batch, 1)
+  runValidTest("Historical batch", historical_batch, 1)
 
   when false: # TODO: `stateRef3870603.block_roots[idx3874628] == postRef3870605.block_roots[idx3874628]`
               #       stateRef3856003.block_roots[16] = 06013007F8A1D4E310344192C5DF6157B1F9F0F5B3A8404103ED822DF47CD85D

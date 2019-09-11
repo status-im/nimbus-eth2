@@ -9,11 +9,12 @@ Nimbus beacon chain is a research implementation of the beacon chain component o
 
 ## Interop (for other Eth2 clients)
 
-A folder with interop specific instruction is available here at [interop](interop).
+A branch with interop specific instructions, ncli and scripts to run multiple clients is available in the [interop branch](https://github.com/status-im/nim-beacon-chain/tree/interop) in the [multinet folder](https://github.com/status-im/nim-beacon-chain/tree/interop/multinet).
 
-To save bandwith `export GIT_LFS_SKIP_SMUDGE=1` before cloning the repo.
+> ⚠️: The `interop` folder in master is outdated
+
+⚠️ Important: To save bandwith `export GIT_LFS_SKIP_SMUDGE=1` before cloning the repo.
 This prevent LFS during regular clones.
-
 
 ## Related
 
@@ -28,6 +29,11 @@ You can check where the beacon chain fits in the Ethereum research ecosystem in 
 ### Prerequisites
 
 (On Windows, a precompiled DLL collection download is available through the `fetch-dlls` Makefile target: ([Windows instructions](#windows)).)
+
+#### Go
+
+The go compiler, at least version 1.12 should be installed and in your path.
+This is a dependency until we can replace the go-libp2p-daemon with a native Nim implementation of [LibP2P](https://github.com/libp2p/libp2p).
 
 #### Rocksdb
 

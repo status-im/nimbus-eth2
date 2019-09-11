@@ -8,7 +8,7 @@
 
 import
   options, nimcrypto, sequtils, math, tables, chronicles,
-  ../ssz, ../beacon_node_types,
+  ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers
 
 # TODO: Proceed to renaming and signature changes

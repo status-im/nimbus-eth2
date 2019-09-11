@@ -146,7 +146,7 @@ else:
     result = conf.dataDir / networkKeyFilename
     if not fileExists(result):
       createDir conf.dataDir.string
-      let pk = PrivateKey.random(Ed25519)
+      let pk = PrivateKey.random(Secp256k1)
       writeFile(result, pk.getBytes)
 
   proc getPersistentNetIdentity*(conf: BeaconNodeConf): Eth2NodeIdentity =
@@ -181,12 +181,12 @@ else:
                                        keyFile, bootstrapNodes
 
     var daemonFut = if bootstrapNodes.len == 0:
-      newDaemonApi({DHTFull, PSGossipSub},
+      newDaemonApi({PSNoSign, DHTFull, PSGossipSub},
                    id = keyFile,
                    hostAddresses = @[hostAddress],
                    announcedAddresses = announcedAddresses)
     else:
-      newDaemonApi({DHTFull, PSGossipSub, WaitBootstrap},
+      newDaemonApi({PSNoSign, DHTFull, PSGossipSub, WaitBootstrap},
                    id = keyFile,
                    hostAddresses = @[hostAddress],
                    announcedAddresses = announcedAddresses,
@@ -222,7 +222,8 @@ else:
     for bootstrapNode in bootstrapNodes:
       try:
         await node.daemon.connect(bootstrapNode.peer, bootstrapNode.addresses)
-        let peer = node.getPeer(bootstrapNode.peer)
+        var peer = node.getPeer(bootstrapNode.peer)
+        peer.wasDialed = true
         await initializeConnection(peer)
         connected = true
       except PeerDisconnected:
