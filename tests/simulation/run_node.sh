@@ -5,10 +5,10 @@ set -eu
 source "$(dirname "$0")/vars.sh"
 cd "$GIT_ROOT"
 
-DATA_DIR="${SIMULATION_DIR}/node-${1}"
+DATA_DIR="${SIMULATION_DIR}/node-0"
 
-V_PREFIX="${VALIDATORS_DIR}/v$(printf '%06d' ${1})"
-PORT=$(printf '5%04d' ${1})
+V_PREFIX="${VALIDATORS_DIR}/v$(printf '%06d' 0)"
+PORT=$(printf '5%04d' 0)
 
 NAT_FLAG="--nat:none"
 if [ "${NAT:-}" == "1" ]; then
@@ -34,7 +34,7 @@ mkdir -p "$DATA_DIR/dump"
 $BEACON_NODE_BIN \
   --network:$NETWORK_METADATA_FILE \
   --dataDir:$DATA_DIR \
-  --nodename:${1} \
+  --nodename:0 \
   --tcpPort:$PORT \
   --udpPort:$PORT \
   $NAT_FLAG \

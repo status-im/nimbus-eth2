@@ -6,7 +6,7 @@ In general, follow the build instructions of `nim-beacon-chain` as documented in
 
 ### Prerequisites
 
-:warning: To build nimbus, you need to have `rocksdb` and `pcre` installed - see [../](main repo) for instructions.
+:warning: To build nimbus, you need to have the `go` compiler (for go-libp2p-daemon), `rocksdb` and `pcre` installed - see [../](main repo) for instructions.
 
 ```bash
 # Clone repo
@@ -38,34 +38,6 @@ cd multinet
 # Or do all in one step, with multitail
 USE_MULTITAIL=1 ./run_all.sh
 
-```
-
-## Tips
-
-The `start.sh` script will help you build a node and set up a state. After building it, you can also run it manually:
-
-```bash
-# Build node (and run it, to prime data folder)
-./start.sh
-
-# ctrl-c to stop it
-
-# show help
-data/beacon_node --help
-
-# Check out network parameters including bootstrap node address (if you want to run your own)
-cat data/network.json
-
-# Load environment if you want to run solo:
-source ../env..sh
-
-# Run with a specific state
-data/beacon_node --dataDir=data/node-0 --network=data/network.json --nodename=0 --tcpPort=50000 --udpPort=50000 --stateSnapshot=file.ssz
-
-# Validators are loaded into a node based on private keys in folder - remove to start without
-rm data/node-0/validators/*
-
-data/beacon_node --dataDir=data/node-0 --network=data/network.json --nodename=0 --tcpPort=50000 --udpPort=50000 --stateSnapshot=file.ssz
 ```
 
 ## Diagnostics
