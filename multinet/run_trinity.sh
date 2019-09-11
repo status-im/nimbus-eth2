@@ -2,15 +2,6 @@
 
 set -eu
 
-# Fetch genesis time, as set up by start.sh
-if command -v jq; then
-  genesis_time=$(jq '.genesis_time' data/state_snapshot.json)
-else
-  genesis_time=$(grep -oP '(?<=genesis_time": )\w+(?=,)' data/state_snapshot.json)
-fi
-
-echo Genesis time was $genesis_time
-
 trinity_validators=$(seq 12 15 | paste -d ',' -s)
 
 TRINITY=${TRINITY_PATH:-"trinity"}
@@ -35,7 +26,7 @@ cd $TRINITY
 rm -rf /tmp/bb
 
 PYTHONWARNINGS=ignore::DeprecationWarning trinity-beacon -l DEBUG \
-  --trinity-root-dir /tmp/bb \
-  --preferred_nodes="$(cat ../data/bootstrap_nodes.txt)" interop \
+  --trinity-root-dir /tmp/aa --beacon-nodekey='aaaaaaaa' \
+  --preferred_nodes="$(cat ../data/bootstrap_nodes.txt)" interop --wipedb \
   --validators $trinity_validators \
-  --start-time $genesis_time --wipedb
+  --genesis-state-ssz-path ../data/state_snapshot.ssz
