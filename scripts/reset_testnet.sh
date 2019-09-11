@@ -71,18 +71,24 @@ $DOCKER_BEACON_NODE \
   --genesisOffset=60 # Delay in seconds
 
 if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
+  echo Persisting testnet data to git...
   pushd "$ETH2_TESTNET_DATA_DIR_ABS"
-  git add --all
-  git commit -m "Testnet reset"
-  git push
+    git add --all
+    git commit -m "Testnet reset"
+    git push
+  popd
 
+  echo Updating https://serenity-testnets.status.im/${NETWORK_NAME}...
   ssh $BOOTSTRAP_HOST <<-SSH
     cd /opt/nim-eth2-testnet-data
     git reset --hard HEAD
     git checkout master
     git pull
 SSH
-  popd
 
+  echo Redistributing validator keys to server nodes...
+  nim --verbosity:0 manage_testnet_hosts.nims $NETWORK_NAME redist-validators | bash
+
+  echo Publishing docker image...
   make push
 fi
