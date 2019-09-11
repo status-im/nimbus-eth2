@@ -126,6 +126,10 @@ proc getPeer*(node: Eth2Node, peerId: PeerID): Peer {.gcsafe.} =
 proc peerFromStream(daemon: DaemonAPI, stream: P2PStream): Peer {.gcsafe.} =
   Eth2Node(daemon.userData).getPeer(stream.peer)
 
+proc safeClose(stream: P2PStream) {.async.} =
+  if P2PStreamFlags.Closed notin stream.flags:
+    await close(stream)
+
 proc disconnect*(peer: Peer, reason: DisconnectionReason, notifyOtherPeer = false) {.async.} =
   # TODO: How should we notify the other peer?
   if peer.connectionState notin {Disconnecting, Disconnected}:
@@ -327,7 +331,7 @@ proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.
 
   let stream = streamFut.read
   defer:
-    await close(stream)
+    await safeClose(stream)
 
   var s = init OutputStream
   s.appendVarint requestBytes.len.uint64
@@ -407,7 +411,7 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
 
   let stream = streamFut.read
   defer:
-    await close(stream)
+    await safeClose(stream)
 
   # Send the request
   var s = init OutputStream
@@ -589,7 +593,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
       proc `thunkName`(`daemonVar`: `DaemonAPI`,
                        `streamVar`: `P2PStream`) {.async, gcsafe.} =
         defer:
-          `await` close(`streamVar`)
+          `await` safeClose(`streamVar`)
 
         let
           `deadlineVar` = sleepAsync RESP_TIMEOUT
