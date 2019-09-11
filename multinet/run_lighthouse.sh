@@ -64,7 +64,12 @@ cd "$LIGHTHOUSE/target/release"
 
 #$export RUST_LOG=libp2p=trace,multistream=trace,gossipsub=trace
 
+trap '' SIGTERM
+trap 'kill -9 -- -$$' SIGINT EXIT
+
 # fresh start!
 rm -rf ~/.lighthouse
 
-./beacon_node --libp2p-addresses="/ip4/127.0.0.1/tcp/50000" testnet --spec minimal quick 16 $genesis_time
+./beacon_node --libp2p-addresses="/ip4/127.0.0.1/tcp/50000" testnet --spec minimal quick 16 $genesis_time &
+
+./validator_client testnet -b insecure 6 5

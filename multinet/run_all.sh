@@ -17,8 +17,7 @@ type "$MULTITAIL" &>/dev/null || USE_MULTITAIL="no"
 # passing the negative PID of this shell instance to the "kill" command.
 # Trap and ignore SIGTERM, so we don't kill this process along with its children.
 if [ "$USE_MULTITAIL" = "no" ]; then
-  trap '' SIGTERM
-  trap 'kill -- -$$' SIGINT EXIT
+  trap 'kill -9 -- -$$' SIGINT EXIT SIGTERM
 fi
 
 if [ "$USE_MULTITAIL" != "no" ]; then
