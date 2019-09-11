@@ -209,9 +209,12 @@ proc add*(
 
   # Already seen this block??
   if blockRoot in pool.blocks:
-    debug "Block already exists",
+    debug "[Block Pool] Block already exists",
       blck = shortLog(blck),
-      blockRoot = shortLog(blockRoot)
+      blockRoot = shortLog(blockRoot),
+      service = "block_pool",
+      category = "filtering",
+      process = "block_addition"
 
     return pool.blocks[blockRoot]
 
@@ -222,10 +225,13 @@ proc add*(
   # happens in the meantime - the block we requested will then be stale
   # by the time it gets here.
   if blck.slot <= pool.finalizedHead.slot:
-    debug "Old block, dropping",
+    debug "[Block pool] Old block, dropping",
       blck = shortLog(blck),
       tailSlot = shortLog(pool.tail.slot),
-      blockRoot = shortLog(blockRoot)
+      blockRoot = shortLog(blockRoot),
+      service = "block_pool",
+      category = "filtering",
+      process = "block_addition"
 
     return
 
@@ -245,9 +251,12 @@ proc add*(
 
     if not state_transition(state.data, blck, {}):
       # TODO find a better way to log all this block data
-      notice "Invalid block",
+      notice "[Block Pool] Invalid block",
         blck = shortLog(blck),
-        blockRoot = shortLog(blockRoot)
+        blockRoot = shortLog(blockRoot),
+        service = "block_pool",
+        category = "filtering",
+        process = "block_addition"
 
       return
 
@@ -276,9 +285,12 @@ proc add*(
   #      filter.
   # TODO when we receive the block, we don't know how many others we're missing
   #      from that branch, so right now, we'll just do a blind guess
-  debug "Unresolved block (parent missing)",
+  debug "[Block Pool] Unresolved block (parent missing)",
     blck = shortLog(blck),
-    blockRoot = shortLog(blockRoot)
+    blockRoot = shortLog(blockRoot),
+    service = "block_pool",
+    category = "filtering",
+    process = "block_addition"
 
   let parentSlot = blck.slot - 1
 
@@ -426,9 +438,12 @@ proc maybePutState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
   # TODO this is out of sync with epoch def now, I think -- (slot + 1) mod foo.
   if state.data.slot mod SLOTS_PER_EPOCH == 0:
     if not pool.db.containsState(state.root):
-      info "Storing state",
+      info "[Block Pool] Storing state",
         stateSlot = shortLog(state.data.slot),
-        stateRoot = shortLog(state.root)
+        stateRoot = shortLog(state.root),
+        service = "block_pool",
+        category = "caching",
+        process = "save_state_at_epoch_start"
       pool.db.putState(state.root, state.data)
       # TODO this should be atomic with the above write..
       pool.db.putStateRoot(blck.root, state.data.slot, state.root)
@@ -470,8 +485,11 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
     #      list of parent blocks and couldn't find a corresponding state in the
     #      database, which should never happen (at least we should have the
     #      tail state in there!)
-    error "Couldn't find ancestor state root!",
-      blockRoot = shortLog(bs.blck.root)
+    error "[Block Pool] Couldn't find ancestor state root!",
+      blockRoot = shortLog(bs.blck.root),
+      service = "block_pool",
+      category = "replay_state",
+      process = "find_ancestor_state_root"
     doAssert false, "Oh noes, we passed big bang!"
 
   let
@@ -484,16 +502,22 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
     #      database, which should never happen (at least we should have the
     #      tail state in there!)
     error "Couldn't find ancestor state or block parent missing!",
-      blockRoot = shortLog(bs.blck.root)
+      blockRoot = shortLog(bs.blck.root),
+      service = "block_pool",
+      category = "replay_state",
+      process = "find_ancestor_state"
     doAssert false, "Oh noes, we passed big bang!"
 
-  debug "Replaying state transitions",
+  trace "[Block Pool] Replaying state transitions",
     stateSlot = shortLog(state.data.data.slot),
     ancestorStateRoot = shortLog(ancestor.data.state_root),
     ancestorStateSlot = shortLog(ancestorState.get().slot),
     slot = shortLog(bs.slot),
     blockRoot = shortLog(bs.blck.root),
-    ancestors = ancestors.len
+    ancestors = ancestors.len,
+    service = "block_pool",
+    category = "replay_state",
+    process = "replay_state"
 
   state.data.data = ancestorState.get()
   state.data.root = stateRoot.get()
@@ -567,9 +591,12 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
   ## blocks that were once considered potential candidates for a tree will
   ## now fall from grace, or no longer be considered resolved.
   if pool.head.blck == blck:
-    debug "No head update this time",
+    info "[Block Pool] Fork choice - No head update",
       headBlockRoot = shortLog(blck.root),
-      headBlockSlot = shortLog(blck.slot)
+      headBlockSlot = shortLog(blck.slot),
+      service = "block_pool",
+      category = "fork_choice",
+      process = "fork_choice"
 
     return
 
@@ -579,30 +606,34 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
 
   # Start off by making sure we have the right state
   updateStateData(pool, state, BlockSlot(blck: blck, slot: blck.slot))
-  let justifiedSlot =
-    state.data.data.current_justified_checkpoint.epoch.compute_start_slot_of_epoch()
+  let justifiedSlot = state.data.data
+                           .current_justified_checkpoint
+                           .epoch
+                           .compute_start_slot_of_epoch()
   pool.head = Head(blck: blck, justified: blck.findAncestorBySlot(justifiedSlot))
 
   if lastHead.blck != blck.parent:
-    notice "Updated head with new parent",
+    info "[Block Pool] Fork choice - Updated head (new parent)",
       lastHeadRoot = shortLog(lastHead.blck.root),
       parentRoot = shortLog(blck.parent.root),
       stateRoot = shortLog(state.data.root),
       headBlockRoot = shortLog(state.blck.root),
       stateSlot = shortLog(state.data.data.slot),
-      justifiedEpoch =
-        shortLog(state.data.data.current_justified_checkpoint.epoch),
-      finalizedEpoch =
-        shortLog(state.data.data.finalized_checkpoint.epoch)
+      justifiedEpoch = shortLog(state.data.data.current_justified_checkpoint.epoch),
+      finalizedEpoch = shortLog(state.data.data.finalized_checkpoint.epoch),
+      service = "block_pool",
+      category = "fork_choice",
+      process = "fork_choice"
   else:
-    info "Updated head",
+    info "[Block Pool] Fork choice - Updated head",
       stateRoot = shortLog(state.data.root),
       headBlockRoot = shortLog(state.blck.root),
       stateSlot = shortLog(state.data.data.slot),
-      justifiedEpoch =
-        shortLog(state.data.data.current_justified_checkpoint.epoch),
-      finalizedEpoch =
-        shortLog(state.data.data.finalized_checkpoint.epoch)
+      justifiedEpoch = shortLog(state.data.data.current_justified_checkpoint.epoch),
+      finalizedEpoch = shortLog(state.data.data.finalized_checkpoint.epoch),
+      service = "block_pool",
+      category = "fork_choice",
+      process = "fork_choice"
 
   let
     # TODO there might not be a block at the epoch boundary - what then?
@@ -614,11 +645,14 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
     "Block graph should always lead to a finalized block"
 
   if finalizedHead != pool.finalizedHead:
-    info "Finalized block",
+    info "[Block Pool] Fork choice - Finalized block",
       finalizedBlockRoot = shortLog(finalizedHead.blck.root),
       finalizedBlockSlot = shortLog(finalizedHead.slot),
       headBlockRoot = shortLog(blck.root),
-      headBlockSlot = shortLog(blck.slot)
+      headBlockSlot = shortLog(blck.slot),
+      service = "block_pool",
+      category = "fork_choice",
+      process = "fork_choice"
 
     var cur = finalizedHead.blck
     while cur != pool.finalizedHead.blck:
@@ -673,11 +707,14 @@ proc preInit*(
   let
     blockRoot = signing_root(blck)
 
-  notice "Creating new database from snapshot",
+  notice "[Block Pool] Creating new database from snapshot",
     blockRoot = shortLog(blockRoot),
     stateRoot = shortLog(blck.state_root),
     fork = state.fork,
-    validators = state.validators.len()
+    validators = state.validators.len(),
+    service = "block_pool",
+    category = "initialization",
+    process = "initialization"
 
   db.putState(state)
   db.putBlock(blck)

@@ -324,20 +324,9 @@ proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
   let
     justifiedHead = node.blockPool.latestJustifiedBlock()
 
-  debug "Preparing for fork choice",
-    justifiedHeadRoot = shortLog(justifiedHead.blck.root),
-    justifiedHeadSlot = shortLog(justifiedHead.slot),
-    justifiedHeadEpoch = shortLog(justifiedHead.slot.compute_epoch_of_slot),
-    connectedPeers = node.network.peersCount
-
   let newHead = node.blockPool.withState(
       node.justifiedStateCache, justifiedHead):
     lmdGhost(node.attestationPool, state, justifiedHead.blck)
-
-  info "Fork chosen",
-    newHeadSlot = shortLog(newHead.slot),
-    newHeadEpoch = shortLog(newHead.slot.computeEpochOfSlot),
-    newHeadBlockRoot = shortLog(newHead.root)
 
   node.blockPool.updateHead(node.stateCache, newHead)
   beacon_head_slot.set slot.int64
@@ -553,7 +542,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
       attestationHeadSlot = shortLog(attestationHead.slot),
       attestationSlot = shortLog(slot)
 
-  debug "Checking attestations",
+  trace "Checking attestations",
     attestationHeadRoot = shortLog(attestationHead.blck.root),
     attestationSlot = shortLog(slot)
 
