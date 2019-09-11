@@ -26,11 +26,13 @@ if [ "$USE_MULTITAIL" != "no" ]; then
   COMMANDS+=( " -cT ansi -t 'nimbus' -l './run_nimbus.sh 0; echo [node execution completed]; while true; do sleep 100; done'" )
   COMMANDS+=( " -cT ansi -t 'trinity' -l 'sleep 3; ./run_trinity.sh; echo [node execution completed]; while true; do sleep 100; done'" )
   COMMANDS+=( " -cT ansi -t 'lighthouse' -l 'sleep 3; ./run_lighthouse.sh; echo [node execution completed]; while true; do sleep 100; done'" )
+  COMMANDS+=( " -cT ansi -t 'prysm' -l 'sleep 3; ./run_prysm.sh; echo [node execution completed]; while true; do sleep 100; done'" )
   eval $MULTITAIL -s 3 -M 0 -x \"Multichain\" "${COMMANDS[@]}"
 else
   ./run_nimbus.sh 0 &
   sleep 2
   ./run_trinity.sh &
   ./run_lighthouse.sh &
+  ./run_prysm.sh &
   wait
 fi

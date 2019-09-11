@@ -49,7 +49,7 @@ if [ ! -f "${SNAPSHOT_FILE}" ]; then
     --outputBootstrapNodes="${SIMULATION_DIR}/bootstrap_nodes.txt" \
     --bootstrapAddress=127.0.0.1 \
     --bootstrapPort=50000 \
-    --genesisOffset=10 # Delay in seconds
+    --genesisOffset=30 # Delay in seconds
 fi
 
 # Delete any leftover address files from a previous session
