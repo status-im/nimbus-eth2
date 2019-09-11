@@ -29,14 +29,14 @@ type
     db*: BeaconChainDB
 
   BeaconSyncPeerState* = ref object
-    initialHelloReceived: bool
+    initialStatusReceived: bool
 
   BlockRootSlot* = object
     blockRoot: Eth2Digest
     slot: Slot
 
 const
-  maxBlocksToRequest = 64'u64
+  MAX_REQUESTED_BLOCKS = 20'u64
   MaxAncestorBlocksResponse = 256
 
 func toHeader(b: BeaconBlock): BeaconBlockHeader =
@@ -63,14 +63,14 @@ proc importBlocks(node: BeaconNode,
   info "Forward sync imported blocks", len = blocks.len
 
 type
-  HelloMsg = object
+  StatusMsg = object
     forkVersion*: array[4, byte]
     finalizedRoot*: Eth2Digest
     finalizedEpoch*: Epoch
     headRoot*: Eth2Digest
     headSlot*: Slot
 
-proc getCurrentHello(node: BeaconNode): HelloMsg =
+proc getCurrentStatus(node: BeaconNode): StatusMsg =
   let
     blockPool = node.blockPool
     finalizedHead = blockPool.finalizedHead
@@ -79,17 +79,17 @@ proc getCurrentHello(node: BeaconNode): HelloMsg =
     headSlot = headBlock.slot
     finalizedEpoch = finalizedHead.slot.compute_epoch_of_slot()
 
-  HelloMsg(
+  StatusMsg(
     fork_version: node.forkVersion,
     finalizedRoot: finalizedHead.blck.root,
     finalizedEpoch: finalizedEpoch,
     headRoot: headRoot,
     headSlot: headSlot)
 
-proc handleInitialHello(peer: Peer,
-                        node: BeaconNode,
-                        ourHello: HelloMsg,
-                        theirHello: HelloMsg) {.async, gcsafe.}
+proc handleInitialStatus(peer: Peer,
+                         node: BeaconNode,
+                         ourStatus: StatusMsg,
+                         theirStatus: StatusMsg) {.async, gcsafe.}
 
 p2pProtocol BeaconSync(version = 1,
                        rlpxName = "bcs",
@@ -100,30 +100,30 @@ p2pProtocol BeaconSync(version = 1,
     if peer.wasDialed:
       let
         node = peer.networkState.node
-        ourHello = node.getCurrentHello
-        theirHello = await peer.hello(ourHello)
+        ourStatus = node.getCurrentStatus
+        theirStatus = await peer.status(ourStatus)
 
-      if theirHello.isSome:
-        await peer.handleInitialHello(node, ourHello, theirHello.get)
+      if theirStatus.isSome:
+        await peer.handleInitialStatus(node, ourStatus, theirStatus.get)
       else:
-        warn "Hello response not received in time"
+        warn "Status response not received in time"
 
   onPeerDisconnected do (peer: Peer):
     libp2p_peers.set peer.network.peers.len.int64
 
   requestResponse:
-    proc hello(peer: Peer, theirHello: HelloMsg) {.libp2pProtocol("hello", 1).} =
+    proc status(peer: Peer, theirStatus: StatusMsg) {.libp2pProtocol("status", 1).} =
       let
         node = peer.networkState.node
-        ourHello = node.getCurrentHello
+        ourStatus = node.getCurrentStatus
 
-      await response.send(ourHello)
+      await response.send(ourStatus)
 
-      if not peer.state.initialHelloReceived:
-        peer.state.initialHelloReceived = true
-        await peer.handleInitialHello(node, ourHello, theirHello)
+      if not peer.state.initialStatusReceived:
+        peer.state.initialStatusReceived = true
+        await peer.handleInitialStatus(node, ourStatus, theirStatus)
 
-    proc helloResp(peer: Peer, msg: HelloMsg) {.libp2pProtocol("hello", 1).}
+    proc statusResp(peer: Peer, msg: StatusMsg)
 
   proc goodbye(peer: Peer, reason: DisconnectionReason) {.libp2pProtocol("goodbye", 1).}
 
@@ -137,9 +137,9 @@ p2pProtocol BeaconSync(version = 1,
             libp2pProtocol("beacon_blocks_by_range", 1).} =
 
       if count > 0'u64:
-        let count = if step != 0: min(count, maxBlocksToRequest.uint64) else: 1
+        let count = if step != 0: min(count, MAX_REQUESTED_BLOCKS.uint64) else: 1
         let pool = peer.networkState.node.blockPool
-        var results: array[maxBlocksToRequest, BlockRef]
+        var results: array[MAX_REQUESTED_BLOCKS, BlockRef]
         let
           lastPos = min(count.int, results.len) - 1
           firstPos = pool.getBlockRange(headBlockRoot, startSlot, step,
@@ -164,12 +164,12 @@ p2pProtocol BeaconSync(version = 1,
             peer: Peer,
             blocks: openarray[BeaconBlock])
 
-proc handleInitialHello(peer: Peer,
-                        node: BeaconNode,
-                        ourHello: HelloMsg,
-                        theirHello: HelloMsg) {.async, gcsafe.} =
+proc handleInitialStatus(peer: Peer,
+                         node: BeaconNode,
+                         ourStatus: StatusMsg,
+                         theirStatus: StatusMsg) {.async, gcsafe.} =
 
-  if theirHello.forkVersion != node.forkVersion:
+  if theirStatus.forkVersion != node.forkVersion:
     await peer.disconnect(IrrelevantNetwork)
     return
 
@@ -181,28 +181,28 @@ proc handleInitialHello(peer: Peer,
     libp2p_peers.set peer.network.peers.len.int64
 
     debug "Peer connected. Initiating sync", peer,
-          headSlot = ourHello.headSlot,
-          remoteHeadSlot = theirHello.headSlot
+          headSlot = ourStatus.headSlot,
+          remoteHeadSlot = theirStatus.headSlot
 
-    let bestDiff = cmp((ourHello.finalizedEpoch, ourHello.headSlot),
-                       (theirHello.finalizedEpoch, theirHello.headSlot))
+    let bestDiff = cmp((ourStatus.finalizedEpoch, ourStatus.headSlot),
+                       (theirStatus.finalizedEpoch, theirStatus.headSlot))
     if bestDiff >= 0:
       # Nothing to do?
       debug "Nothing to sync", peer
     else:
       # TODO: Check for WEAK_SUBJECTIVITY_PERIOD difference and terminate the
       # connection if it's too big.
-      var s = ourHello.headSlot + 1
-      var theirHello = theirHello
-      while s <= theirHello.headSlot:
-        let numBlocksToRequest = min(uint64(theirHello.headSlot - s),
-                                     maxBlocksToRequest)
+      var s = ourStatus.headSlot + 1
+      var theirStatus = theirStatus
+      while s <= theirStatus.headSlot:
+        let numBlocksToRequest = min(uint64(theirStatus.headSlot - s),
+                                     MAX_REQUESTED_BLOCKS)
 
-        debug "Requesting blocks", peer, remoteHeadSlot = theirHello.headSlot,
+        debug "Requesting blocks", peer, remoteHeadSlot = theirStatus.headSlot,
                                          ourHeadSlot = s,
                                          numBlocksToRequest
 
-        let blocks = await peer.beaconBlocksByRange(theirHello.headRoot, s,
+        let blocks = await peer.beaconBlocksByRange(theirStatus.headRoot, s,
                                                     numBlocksToRequest, 1'u64)
         if blocks.isSome:
           info "got blocks", total = blocks.get.len
@@ -220,9 +220,9 @@ proc handleInitialHello(peer: Peer,
 
           # TODO: Maybe this shouldn't happen so often.
           # The alternative could be watching up a timer here.
-          let helloResp = await peer.hello(node.getCurrentHello)
-          if helloResp.isSome:
-            theirHello = helloResp.get
+          let statusResp = await peer.status(node.getCurrentStatus)
+          if statusResp.isSome:
+            theirStatus = statusResp.get
           else:
             # We'll ignore this error and we'll try to request
             # another range optimistically. If that fails, the

@@ -36,10 +36,9 @@ type
     IrrelevantNetwork
     FaultOrError
 
-  UntypedResponder = ref object
+  UntypedResponder = object
     peer*: Peer
     stream*: P2PStream
-    totalBytesSent*: int
 
   Responder*[MsgType] = distinct UntypedResponder
 
@@ -233,7 +232,7 @@ proc readMsgBytes(stream: P2PStream,
         discard
 
     var sizePrefix = await readSizePrefix(stream.transp, deadline)
-    if sizePrefix < -1:
+    if sizePrefix == -1:
       debug "Failed to read an incoming message size prefix", peer = stream.peer
       return
 
@@ -357,43 +356,26 @@ proc sendResponseChunkBytes(responder: UntypedResponder, payload: Bytes) {.async
   if sent != bytes.len:
     raise newException(TransmissionError, "Failed to deliver all bytes")
 
-  responder.totalBytesSent += bytes.len
-
 proc sendResponseChunkObj(responder: UntypedResponder, val: auto) {.async.} =
   var s = init OutputStream
   s.append byte(Success)
   s.appendValue SSZ, sizePrefixed(val)
   let bytes = s.getOutput
-  if responder.totalBytesSent + bytes.len > REQ_RESP_MAX_SIZE:
-    raiseMaxRespSizeError()
 
   let sent = await responder.stream.transp.write(bytes)
   if sent != bytes.len:
     raise newException(TransmissionError, "Failed to deliver all bytes")
 
-  responder.totalBytesSent += bytes.len
-
 proc sendResponseChunks[T](responder: UntypedResponder, chunks: seq[T]) {.async.} =
   var s = init OutputStream
-  var limitReached = false
   for chunk in chunks:
     s.append byte(Success)
     s.appendValue SSZ, sizePrefixed(chunk)
-    # TODO: This is not quite right, but it will serve as an approximation
-    # for now. We need a sszSize function to implement it properly.
-    if s.pos > REQ_RESP_MAX_SIZE:
-      limitReached = true
-      break
 
   let bytes = s.getOutput
   let sent = await responder.stream.transp.write(bytes)
   if sent != bytes.len:
     raise newException(TransmissionError, "Failed to deliver all bytes")
-
-  if limitReached:
-    raiseMaxRespSizeError()
-  else:
-    responder.totalBytesSent += bytes.len
 
 proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
                      ResponseMsg: type,
