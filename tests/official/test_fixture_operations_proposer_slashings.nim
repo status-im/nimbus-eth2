@@ -77,3 +77,5 @@ suite "Official - Operations - Proposer slashing " & preset():
     runTest(proposer_is_not_activated)
     runTest(proposer_is_slashed)
     runTest(proposer_is_withdrawn)
+  else:
+    echo "Skipped for Windows 64-bit CI"
