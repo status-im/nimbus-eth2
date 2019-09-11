@@ -14,7 +14,17 @@ import # Unit test
   ./test_interop,
   ./test_ssz,
   ./test_sync_protocol,
+  # ./test_validator # Empty!
   ./test_zero_signature
+
+  # Outdated (?) - crashes https://github.com/status-im/nim-beacon-chain/pull/406
+  # ./test_beaconstate,
+  # Outdated (?) - crashes
+  #   - https://github.com/status-im/nim-beacon-chain/pull/406
+  #   - https://github.com/status-im/nim-beacon-chain/pull/403
+  #     - PR 403, 399, 395
+  # ./test_state_transition,
+
 
 import # Refactor state transition unit tests
   ./spec_block_processing/test_genesis,
