@@ -53,7 +53,7 @@ if [ ! -f $NETWORK_DIR_ABS/genesis.ssz ]; then
   $DOCKER_BEACON_NODE makeDeposits \
     --totalDeposits=$VALIDATOR_COUNT \
     --depositsDir=/network_dir \
-    --randomKeys=true
+    --randomKeys=false
 fi
 
 $DOCKER_BEACON_NODE \
@@ -71,18 +71,32 @@ $DOCKER_BEACON_NODE \
   --genesisOffset=60 # Delay in seconds
 
 if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
+  echo Persisting testnet data to git...
   pushd "$ETH2_TESTNET_DATA_DIR_ABS"
-  git add --all
-  git commit -m "Testnet reset"
-  git push
+    git add --all
+    git commit -m "Testnet reset"
+    git push
+  popd
 
+  echo Updating https://serenity-testnets.status.im/${NETWORK_NAME}...
   ssh $BOOTSTRAP_HOST <<-SSH
     cd /opt/nim-eth2-testnet-data
     git reset --hard HEAD
     git checkout master
     git pull
 SSH
-  popd
 
+  echo Redistributing validator keys to server nodes...
+  # TODO If we try to use direct piping here, bash doesn't execute all of the commands.
+  #      The reasons for this are unclear at the moment.
+  nim --verbosity:0 manage_testnet_hosts.nims $NETWORK_NAME redist-validators > /tmp/reset-network.sh
+  bash /tmp/reset-network.sh
+
+  echo Uploading bootstrap node network key
+  BOOTSTRAP_NODE_DOCKER_PATH=/docker/beacon-node-$NETWORK_NAME-1/data/BeaconNode/$NETWORK_NAME/
+  scp "$DATA_DIR_ABS/privkey.protobuf" $BOOTSTRAP_NODE_DOCKER_PATH
+  ssh $BOOTSTRAP_HOST "chown sudo chown dockremap:docker $BOOTSTRAP_NODE_DOCKER_PATH/privkey.protobuf"
+
+  echo Publishing docker image...
   make push
 fi
