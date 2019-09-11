@@ -360,21 +360,27 @@ proc sendAttestation(node: BeaconNode,
     node.config.dataDir / "dump" / "att-" & validator.pubKey.shortLog &
       "-" & $attestationData.target.epoch.uint64 & ".ssz", attestation)
 
-  info "Attestation sent",
+  info "[Block pool] Attestation sent",
     attestationData = shortLog(attestationData),
     validator = shortLog(validator),
     signature = shortLog(validatorSignature),
-    indexInCommittee = indexInCommittee
+    indexInCommittee = indexInCommittee,
+    service = "beacon_node",
+    category = "attestation",
+    process = "send_attestation"
 
 proc proposeBlock(node: BeaconNode,
                   validator: AttachedValidator,
                   head: BlockRef,
                   slot: Slot): Future[BlockRef] {.async.} =
   if head.slot > slot:
-    notice "Skipping proposal, we've already selected a newer head",
+    notice "[Block Pool] Skipping proposal, we've already selected a newer head",
       headSlot = shortLog(head.slot),
       headBlockRoot = shortLog(head.root),
-      slot = shortLog(slot)
+      slot = shortLog(slot),
+      service = "beacon_node",
+      category = "block_proposal",
+      process = "skip_proposal"
     return head
 
   if head.slot == slot:
@@ -382,7 +388,10 @@ proc proposeBlock(node: BeaconNode,
     # block for - did someone else steal our slot? why didn't we discard it?
     warn "Found head at same slot as we're supposed to propose for!",
       headSlot = shortLog(head.slot),
-      headBlockRoot = shortLog(head.root)
+      headBlockRoot = shortLog(head.root),
+      service = "beacon_node",
+      category = "block_proposal",
+      process = "proposal_conflict"
     # TODO investigate how and when this happens.. maybe it shouldn't be an
     #      assert?
     doAssert false, "head slot matches proposal slot (!)"
@@ -447,13 +456,19 @@ proc proposeBlock(node: BeaconNode,
   if newBlockRef == nil:
     warn "Unable to add proposed block to block pool",
       newBlock = shortLog(newBlock),
-      blockRoot = shortLog(blockRoot)
+      blockRoot = shortLog(blockRoot),
+      service = "beacon_node",
+      category = "block_proposal",
+      process = "propose_block"
     return head
 
-  info "Block proposed",
+  info "[Beacon node] Block proposed",
     blck = shortLog(newBlock),
     blockRoot = shortLog(newBlockRef.root),
-    validator = shortLog(validator)
+    validator = shortLog(validator),
+    service = "beacon_node",
+    category = "block_proposal",
+    process = "propose_block"
 
   SSZ.saveFile(
     node.config.dataDir / "dump" / "block-" & $newBlock.slot & ".ssz", newBlock)
@@ -469,9 +484,12 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
   # We received an attestation from the network but don't know much about it
   # yet - in particular, we haven't verified that it belongs to particular chain
   # we're on, or that it follows the rules of the protocol
-  debug "Attestation received",
+  debug "[Beacon node] Attestation received",
     attestationData = shortLog(attestation.data),
-    signature = shortLog(attestation.signature)
+    signature = shortLog(attestation.signature),
+    service = "beacon_node",
+    category = "attestation",
+    process = "attestation_received"
 
   if (let attestedBlock = node.blockPool.getOrResolve(
         attestation.data.beacon_block_root); attestedBlock != nil):
@@ -480,10 +498,13 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
       head = node.blockPool.head
 
     if not wallSlot.afterGenesis or wallSlot.slot < head.blck.slot:
-      warn "Received attestation before genesis or head - clock is wrong?",
+      warn "[Beacon node] Received attestation before genesis or head - clock is wrong?",
         afterGenesis = wallSlot.afterGenesis,
         wallSlot = shortLog(wallSlot.slot),
-        headSlot = shortLog(head.blck.slot)
+        headSlot = shortLog(head.blck.slot),
+        service = "beacon_node",
+        category = "attestation",
+        process = "clock_drift"
       return
 
     # TODO seems reasonable to use the latest head state here.. needs thinking
@@ -502,9 +523,12 @@ proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
   # We received a block but don't know much about it yet - in particular, we
   # don't know if it's part of the chain we're currently building.
   let blockRoot = signing_root(blck)
-  debug "Block received",
+  debug "[Beacon node] Block received",
     blck = shortLog(blck),
-    blockRoot = shortLog(blockRoot)
+    blockRoot = shortLog(blockRoot),
+    service = "beacon_node",
+    category = "block_listener",
+    process = "receive_block"
 
   if node.blockPool.add(node.stateCache, blockRoot, blck).isNil:
     return
@@ -542,9 +566,12 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
       attestationHeadSlot = shortLog(attestationHead.slot),
       attestationSlot = shortLog(slot)
 
-  trace "Checking attestations",
+  trace "[Beacon Node] Checking attestations",
     attestationHeadRoot = shortLog(attestationHead.blck.root),
-    attestationSlot = shortLog(slot)
+    attestationSlot = shortLog(slot),
+    service = "beacon_node",
+    category = "attestation",
+    process = "checking_attestation"
 
   # Collect data to send before node.stateCache grows stale
   var attestations: seq[tuple[
@@ -601,10 +628,13 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     if validator != nil:
       return await proposeBlock(node, validator, head, slot)
 
-    debug "Expecting proposal",
+    trace "[Beacon Node] Expecting block proposal",
       headRoot = shortLog(head.root),
       slot = shortLog(slot),
-      proposer = shortLog(state.validators[proposerIdx].pubKey)
+      proposer = shortLog(state.validators[proposerIdx].pubKey),
+      service = "beacon_node",
+      category = "block_proposal",
+      process = "wait_for_proposal"
 
   return head
 
