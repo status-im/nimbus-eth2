@@ -226,8 +226,9 @@ else:
         peer.wasDialed = true
         await initializeConnection(peer)
         connected = true
-      except PeerDisconnected:
-        error "Failed to connect to bootstrap node", node = bootstrapNode
+      except CatchableError as err:
+        error "Failed to connect to bootstrap node",
+               node = bootstrapNode, err = err.msg
 
     if bootstrapNodes.len > 0 and connected == false:
       fatal "Failed to connect to any bootstrap node. Quitting."
