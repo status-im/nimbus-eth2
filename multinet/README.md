@@ -6,7 +6,7 @@ In general, follow the build instructions of `nim-beacon-chain` as documented in
 
 ### Prerequisites
 
-:warning: To build nimbus, you need to have `rocksdb` and `pcre` installed - see [../](main repo) for instructions.
+:warning: To build nimbus, you need to have the `go` compiler (for go-libp2p-daemon), `rocksdb` and `pcre` installed - see [../](main repo) for instructions.
 
 ```bash
 # Clone repo
