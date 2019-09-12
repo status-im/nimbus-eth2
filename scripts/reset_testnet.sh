@@ -94,8 +94,8 @@ SSH
 
   echo Uploading bootstrap node network key
   BOOTSTRAP_NODE_DOCKER_PATH=/docker/beacon-node-$NETWORK_NAME-1/data/BeaconNode/$NETWORK_NAME/
-  scp "$DATA_DIR_ABS/privkey.protobuf" $BOOTSTRAP_NODE_DOCKER_PATH
-  ssh $BOOTSTRAP_HOST "chown sudo chown dockremap:docker $BOOTSTRAP_NODE_DOCKER_PATH/privkey.protobuf"
+  scp "$DATA_DIR_ABS/privkey.protobuf" $BOOTSTRAP_HOST:/tmp/
+  ssh $BOOTSTRAP_HOST "sudo install -o dockremap -g docker /tmp/privkey.protobuf $BOOTSTRAP_NODE_DOCKER_PATH"
 
   echo Publishing docker image...
   make push
