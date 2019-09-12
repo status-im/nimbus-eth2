@@ -23,8 +23,10 @@ cd $TRINITY
 
 . _ve/bin/activate
 
+rm -rf /tmp/bb
+
 PYTHONWARNINGS=ignore::DeprecationWarning trinity-beacon -l DEBUG \
-  --trinity-root-dir /tmp/aa --beacon-nodekey='aaaaaaaa' \
-  --preferred_nodes="$(cat ../data/bootstrap_nodes.txt)" interop --wipedb \
+  --trinity-root-dir /tmp/bb --beacon-nodekey='aaaaaaaa' \
+  --preferred_nodes="$(cat ../data/bootstrap_nodes.txt)" interop \
   --validators $trinity_validators \
   --genesis-state-ssz-path ../data/state_snapshot.ssz

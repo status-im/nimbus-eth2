@@ -37,7 +37,7 @@ fi
 cargo_path=$(which cargo)
 [[ -x "$cargo_path" ]] || { echo "install rust first (https://rust-lang.org)"; exit 1; }
 
-LIGHTHOUSE=${LIGHTHOSE_PATH:-"lighthouse"}
+LIGHTHOUSE=${LIGHTHOUSE_PATH:-"lighthouse"}
 
 [[ -d "$LIGHTHOUSE" ]] || {
   git clone https://github.com/sigp/lighthouse.git "$LIGHTHOUSE"
@@ -70,6 +70,6 @@ trap 'kill -9 -- -$$' SIGINT EXIT
 # fresh start!
 rm -rf ~/.lighthouse
 
-./beacon_node --libp2p-addresses="/ip4/127.0.0.1/tcp/50000" testnet --spec minimal quick 16 $genesis_time &
+./beacon_node --libp2p-addresses="$(cat ../data/bootstrap_nodes.txt)" testnet --spec minimal quick 16 $genesis_time &
 
-./validator_client testnet -b insecure 6 5
+./validator_client testnet -b insecure 0 4
