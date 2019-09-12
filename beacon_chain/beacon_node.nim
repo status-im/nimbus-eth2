@@ -45,6 +45,8 @@ declareGauge beacon_pending_exits, "Number of pending voluntary exits in local o
 declareGauge beacon_previous_epoch_orphaned_blocks, "Number of blocks orphaned in the previous epoch" # On epoch transition
 declareCounter beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # On fork choice
 
+logScope: topics = "beacnde"
+
 proc onBeaconBlock*(node: BeaconNode, blck: BeaconBlock) {.gcsafe.}
 
 func localValidatorsDir(conf: BeaconNodeConf): string =
@@ -324,20 +326,9 @@ proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
   let
     justifiedHead = node.blockPool.latestJustifiedBlock()
 
-  debug "Preparing for fork choice",
-    justifiedHeadRoot = shortLog(justifiedHead.blck.root),
-    justifiedHeadSlot = shortLog(justifiedHead.slot),
-    justifiedHeadEpoch = shortLog(justifiedHead.slot.compute_epoch_of_slot),
-    connectedPeers = node.network.peersCount
-
   let newHead = node.blockPool.withState(
       node.justifiedStateCache, justifiedHead):
     lmdGhost(node.attestationPool, state, justifiedHead.blck)
-
-  info "Fork chosen",
-    newHeadSlot = shortLog(newHead.slot),
-    newHeadEpoch = shortLog(newHead.slot.computeEpochOfSlot),
-    newHeadBlockRoot = shortLog(newHead.root)
 
   node.blockPool.updateHead(node.stateCache, newHead)
   beacon_head_slot.set slot.int64
@@ -351,6 +342,8 @@ proc sendAttestation(node: BeaconNode,
                      attestationData: AttestationData,
                      committeeLen: int,
                      indexInCommittee: int) {.async.} =
+  logScope: pcs = "send_attestation"
+
   let
     validatorSignature = await validator.signAttestation(attestationData, state)
 
@@ -371,17 +364,21 @@ proc sendAttestation(node: BeaconNode,
     attestationData = shortLog(attestationData),
     validator = shortLog(validator),
     signature = shortLog(validatorSignature),
-    indexInCommittee = indexInCommittee
+    indexInCommittee = indexInCommittee,
+    cat = "consensus"
 
 proc proposeBlock(node: BeaconNode,
                   validator: AttachedValidator,
                   head: BlockRef,
                   slot: Slot): Future[BlockRef] {.async.} =
+  logScope: pcs = "block_proposal"
+
   if head.slot > slot:
     notice "Skipping proposal, we've already selected a newer head",
       headSlot = shortLog(head.slot),
       headBlockRoot = shortLog(head.root),
-      slot = shortLog(slot)
+      slot = shortLog(slot),
+      cat = "fastforward"
     return head
 
   if head.slot == slot:
@@ -389,7 +386,8 @@ proc proposeBlock(node: BeaconNode,
     # block for - did someone else steal our slot? why didn't we discard it?
     warn "Found head at same slot as we're supposed to propose for!",
       headSlot = shortLog(head.slot),
-      headBlockRoot = shortLog(head.root)
+      headBlockRoot = shortLog(head.root),
+      cat = "consensus_conflict"
     # TODO investigate how and when this happens.. maybe it shouldn't be an
     #      assert?
     doAssert false, "head slot matches proposal slot (!)"
@@ -453,13 +451,15 @@ proc proposeBlock(node: BeaconNode,
   if newBlockRef == nil:
     warn "Unable to add proposed block to block pool",
       newBlock = shortLog(newBlock),
-      blockRoot = shortLog(blockRoot)
+      blockRoot = shortLog(blockRoot),
+      cat = "bug"
     return head
 
   info "Block proposed",
     blck = shortLog(newBlock),
     blockRoot = shortLog(newBlockRef.root),
-    validator = shortLog(validator)
+    validator = shortLog(validator),
+    cat = "consensus"
 
   node.network.broadcast(topicBeaconBlocks, newBlock)
 
@@ -469,9 +469,12 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
   # We received an attestation from the network but don't know much about it
   # yet - in particular, we haven't verified that it belongs to particular chain
   # we're on, or that it follows the rules of the protocol
+  logScope: pcs = "on_attestation"
+
   debug "Attestation received",
     attestationData = shortLog(attestation.data),
-    signature = shortLog(attestation.signature)
+    signature = shortLog(attestation.signature),
+    cat = "consensus" # Tag "consensus|attestation"?
 
   if (let attestedBlock = node.blockPool.getOrResolve(
         attestation.data.beacon_block_root); attestedBlock != nil):
@@ -483,7 +486,8 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
       warn "Received attestation before genesis or head - clock is wrong?",
         afterGenesis = wallSlot.afterGenesis,
         wallSlot = shortLog(wallSlot.slot),
-        headSlot = shortLog(head.blck.slot)
+        headSlot = shortLog(head.blck.slot),
+        cat = "clock_drift" # Tag "attestation|clock_drift"?
       return
 
     # TODO seems reasonable to use the latest head state here.. needs thinking
@@ -504,7 +508,9 @@ proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
   let blockRoot = signing_root(blck)
   debug "Block received",
     blck = shortLog(blck),
-    blockRoot = shortLog(blockRoot)
+    blockRoot = shortLog(blockRoot),
+    cat = "block_listener",
+    pcs = "receive_block"
 
   if node.blockPool.add(node.stateCache, blockRoot, blck).isNil:
     return
@@ -519,6 +525,7 @@ proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
 proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   ## Perform all attestations that the validators attached to this node should
   ## perform during the given slot
+  logScope: pcs = "on_attestation"
 
   if slot + SLOTS_PER_EPOCH < head.slot:
     # The latest block we know about is a lot newer than the slot we're being
@@ -542,9 +549,10 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
       attestationHeadSlot = shortLog(attestationHead.slot),
       attestationSlot = shortLog(slot)
 
-  debug "Checking attestations",
+  trace "Checking attestations",
     attestationHeadRoot = shortLog(attestationHead.blck.root),
-    attestationSlot = shortLog(slot)
+    attestationSlot = shortLog(slot),
+    cat = "attestation"
 
   # Collect data to send before node.stateCache grows stale
   var attestations: seq[tuple[
@@ -601,10 +609,12 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     if validator != nil:
       return await proposeBlock(node, validator, head, slot)
 
-    debug "Expecting proposal",
+    trace "Expecting block proposal",
       headRoot = shortLog(head.root),
       slot = shortLog(slot),
-      proposer = shortLog(state.validators[proposerIdx].pubKey)
+      proposer = shortLog(state.validators[proposerIdx].pubKey),
+      cat = "consensus",
+      pcs = "wait_for_proposal"
 
   return head
 
@@ -615,6 +625,8 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   ##           start work from
   ## scheduledSlot: the slot that we were aiming for, in terms of timing
 
+  logScope: pcs = "slot_start"
+
   let
     # The slot we should be at, according to the clock
     beaconTime = node.beaconClock.now()
@@ -623,7 +635,9 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   debug "Slot start",
     lastSlot = shortLog(lastSlot),
     scheduledSlot = shortLog(scheduledSlot),
-    beaconTime = shortLog(beaconTime)
+    beaconTime = shortLog(beaconTime),
+    peers = node.network.peersCount,
+    cat = "scheduling"
 
   if not wallSlot.afterGenesis or (wallSlot.slot < lastSlot):
     # This can happen if the system clock changes time for example, and it's
@@ -632,7 +646,8 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     warn "Beacon clock time moved back, rescheduling slot actions",
       beaconTime = shortLog(beaconTime),
       lastSlot = shortLog(lastSlot),
-      scheduledSlot = shortLog(scheduledSlot)
+      scheduledSlot = shortLog(scheduledSlot),
+      cat = "clock_drift" # tag "scheduling|clock_drift"?
 
     let
       slot = Slot(
@@ -661,7 +676,8 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     warn "Unable to keep up, skipping ahead without doing work",
       lastSlot = shortLog(lastSlot),
       slot = shortLog(slot),
-      scheduledSlot = shortLog(scheduledSlot)
+      scheduledSlot = shortLog(scheduledSlot),
+      cat = "overload"
 
     addTimer(saturate(node.beaconClock.fromNow(nextSlot))) do (p: pointer):
       # We pass the current slot here to indicate that work should be skipped!
@@ -703,7 +719,8 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     notice "Catching up",
       curSlot = shortLog(curSlot),
       lastSlot = shortLog(lastSlot),
-      slot = shortLog(slot)
+      slot = shortLog(slot),
+      cat = "overload"
 
     # For every slot we're catching up, we'll propose then send
     # attestations - head should normally be advancing along the same branch
@@ -738,9 +755,10 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
       if attestationStart.inFuture: attestationStart.offset + halfSlot
       else: halfSlot - attestationStart.offset
 
-    debug "Waiting to send attestations",
+    trace "Waiting to send attestations",
       slot = shortLog(slot),
-      fromNow = shortLog(fromNow)
+      fromNow = shortLog(fromNow),
+      cat = "scheduling"
 
     await sleepAsync(fromNow)
 
@@ -752,12 +770,6 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   # TODO ... and beacon clock might jump here also. sigh.
   let
     nextSlotStart = saturate(node.beaconClock.fromNow(nextSlot))
-
-  info "Scheduling slot actions",
-    lastSlot = shortLog(slot),
-    slot = shortLog(slot),
-    nextSlot = shortLog(nextSlot),
-    fromNow = shortLog(nextSlotStart)
 
   addTimer(nextSlotStart) do (p: pointer):
     asyncCheck node.onSlotStart(slot, nextSlot)
@@ -789,7 +801,8 @@ proc run*(node: BeaconNode) =
   info "Scheduling first slot action",
     beaconTime = shortLog(node.beaconClock.now()),
     nextSlot = shortLog(startSlot),
-    fromNow = shortLog(fromNow)
+    fromNow = shortLog(fromNow),
+    cat = "scheduling"
 
   addTimer(fromNow) do (p: pointer):
     asyncCheck node.onSlotStart(startSlot - 1, startSlot)
@@ -822,7 +835,9 @@ proc start(node: BeaconNode, headState: BeaconState) =
     SHARD_COUNT,
     SLOTS_PER_EPOCH,
     SECONDS_PER_SLOT,
-    SPEC_VERSION
+    SPEC_VERSION,
+    cat = "init",
+    pcs = "start_beacon_node"
 
   node.addLocalValidators(headState)
   node.run()
