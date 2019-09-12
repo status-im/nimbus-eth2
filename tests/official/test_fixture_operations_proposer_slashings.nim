@@ -66,8 +66,8 @@ template runTest(identifier: untyped) =
 suite "Official - Operations - Proposer slashing " & preset():
   # TODO https://github.com/status-im/nim-beacon-chain/issues/435
   # CI Win64 - "The parameter is incorrect"
-  runTest(success)
   skipWin64:
+    runTest(success)
     runTest(invalid_sig_1)
     runTest(invalid_sig_2)
     runTest(invalid_sig_1_and_2)

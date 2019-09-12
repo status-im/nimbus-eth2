@@ -21,8 +21,8 @@ matrix:
   fast_finish: false
 
 platform:
-  - x86
   - x64
+  - x86
 
 install:
   - git submodule update --init --recursive

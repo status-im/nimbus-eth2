@@ -52,9 +52,6 @@ proc parseTest*(path: string, Format: typedesc[Json or SSZ], T: typedesc): T =
 template skipWin64*(body: untyped): untyped =
   # Skip Win64 CI for https://github.com/status-im/nim-beacon-chain/issues/435
   when defined(windows) and sizeof(int) == 8:
-    try:
-      body
-    except OSError:
-      echo "          [OSError] See #435. Ignoring in Windows 64-bit CI"
+    echo "          [OSError] See #435. Ignoring in Windows 64-bit CI"
   else:
     body
