@@ -20,7 +20,7 @@ const
 
   dataDirValidators = "validators"
   networkMetadataFile = "network.json"
-  genesisFile = "genesis.json"
+  genesisFile = "genesis.ssz"
   testnetsBaseUrl = "https://serenity-testnets.status.im"
 
 declareGauge beacon_slot, "Latest slot of the beacon chain state"
