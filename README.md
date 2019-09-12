@@ -14,7 +14,7 @@ A branch with interop specific instructions, ncli and scripts to run multiple cl
 > ⚠️: The `interop` folder in master is outdated
 
 ⚠️ Important: To save bandwith `export GIT_LFS_SKIP_SMUDGE=1` before cloning the repo.
-This prevent LFS during regular clones.
+This prevent LFS during unusual clones (i.e. when you add `--recurse-submodules` without being instructed to do so).
 
 ## Related
 
@@ -75,7 +75,7 @@ pakku -S pcre-static
 
 #### Developer tools
 
-GNU Make, Bash and the usual POSIX utilities
+GNU Make, Bash and the usual POSIX utilities. Git 2.9.4 or newer.
 
 ### Build & Develop
 
