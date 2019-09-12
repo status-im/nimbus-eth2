@@ -67,12 +67,12 @@ suite "Official - Operations - Transfers " & preset():
   # TODO https://github.com/status-im/nim-beacon-chain/issues/435
   # CI Win64 - "The parameter is incorrect"
   when const_preset == "minimal":
-    runTest(success_non_activated)
-    runTest(success_withdrawable)
-    runTest(success_active_above_max_effective)
-    runTest(success_active_above_max_effective_fee)
-    runTest(invalid_signature)
     skipWin64:
+      runTest(success_non_activated)
+      runTest(success_withdrawable)
+      runTest(success_active_above_max_effective)
+      runTest(success_active_above_max_effective_fee)
+      runTest(invalid_signature)
       runTest(active_but_transfer_past_effective_balance)
       runTest(incorrect_slot)
       runTest(transfer_clean)
