@@ -63,7 +63,7 @@ $DOCKER_BEACON_NODE \
   --validatorsDir=/network_dir \
   --totalValidators=$VALIDATOR_COUNT \
   --lastUserValidator=$LAST_USER_VALIDATOR \
-  --outputGenesis=/network_dir/genesis.ssz \
+  --outputGenesis=/network_dir/genesis.json \
   --outputBootstrapNodes=/network_dir/bootstrap_nodes.txt \
   --outputNetworkMetadata=/network_dir/network.json \
   --bootstrapAddress=$BOOTSTRAP_IP \
