@@ -54,9 +54,10 @@ const BLSDir = JsonTestsDir/"general"/"phase0"/"bls"
 suite "Official - BLS tests":
   test "Private to public key conversion":
     for file in walkDirRec(BLSDir/"priv_to_pub"):
-      let t = parseTest(file, Json, BLSPrivToPub)
-      let implResult = t.input.pubkey()
-      check: implResult == t.output
+      skipWin64:
+        let t = parseTest(file, Json, BLSPrivToPub)
+        let implResult = t.input.pubkey()
+        check: implResult == t.output
 
   test "Message signing":
     for file in walkDirRec(BLSDir/"sign_msg"):
