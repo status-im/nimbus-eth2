@@ -33,7 +33,6 @@ beacon_chain/beacon_node \
   --network=$NETWORK_NAME \
   --dataDir=$DATA_DIR/node-0 \
   createTestnet \
-  --networkId=$NETWORK_ID \
   --validatorsDir=$NETWORK_DIR \
   --totalValidators=$VALIDATOR_COUNT \
   --lastUserValidator=$LAST_USER_VALIDATOR \

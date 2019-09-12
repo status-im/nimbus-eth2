@@ -1,8 +1,8 @@
 import
-  net, sequtils, options, tables, osproc, random, strutils, times, strformat,
+  net, sequtils, tables, osproc, random, strutils, times, strformat,
   stew/shims/os, stew/[objects, bitseqs],
   chronos, chronicles, confutils, metrics,
-  json_serialization/std/sets, serialization/errors,
+  json_serialization/std/[options, sets], serialization/errors,
   eth/trie/db, eth/trie/backends/rocksdb_backend, eth/async_utils,
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator,
   state_transition_block],
@@ -164,47 +164,48 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     stderr.write args, "\n"
     quit 1
 
-  case conf.network
-  of "mainnet":
-    fail "The Serenity mainnet hasn't been launched yet"
-  of "testnet0", "testnet1":
-    result.networkMetadata = await updateTestnetMetadata(conf)
-  else:
-    try:
-      result.networkMetadata = Json.loadFile(conf.network, NetworkMetadata)
-    except SerializationError as err:
-      fail "Failed to load network metadata: \n", err.formatMsg(conf.network)
-
-  var metadataErrorMsg = ""
-
-  template checkCompatibility(metadataField, LOCAL_CONSTANT) =
-    let metadataValue = metadataField
-    if metadataValue != LOCAL_CONSTANT:
-      if metadataErrorMsg.len > 0: metadataErrorMsg.add " and"
-      metadataErrorMsg.add " -d:" & astToStr(LOCAL_CONSTANT) & "=" & $metadataValue &
-                           " (instead of " & $LOCAL_CONSTANT & ")"
-
-  if result.networkMetadata.networkGeneration != semanticVersion:
-    let newerVersionRequired = result.networkMetadata.networkGeneration.int > semanticVersion
-    let newerOrOlder = if newerVersionRequired: "a newer" else: "an older"
-    stderr.write &"Connecting to '{conf.network}' requires {newerOrOlder} version of Nimbus. "
-    if newerVersionRequired:
-      stderr.write "Please follow the instructions at https://github.com/status-im/nim-beacon-chain " &
-                   "in order to produce an up-to-date build.\n"
-    quit 1
-
-  checkCompatibility result.networkMetadata.numShards      , SHARD_COUNT
-  checkCompatibility result.networkMetadata.slotDuration   , SECONDS_PER_SLOT
-  checkCompatibility result.networkMetadata.slotsPerEpoch  , SLOTS_PER_EPOCH
-
-  if metadataErrorMsg.len > 0:
-    fail "To connect to the ", conf.network, " network, please compile with", metadataErrorMsg
-
-  for bootNode in result.networkMetadata.bootstrapNodes:
-    if bootNode.isSameNode(result.networkIdentity):
-      result.isBootstrapNode = true
+  if not conf.quickStart:
+    case conf.network
+    of "mainnet":
+      fail "The Serenity mainnet hasn't been launched yet"
+    of "testnet0", "testnet1":
+      result.networkMetadata = await updateTestnetMetadata(conf)
     else:
-      result.bootstrapNodes.add bootNode
+      try:
+        result.networkMetadata = Json.loadFile(conf.network, NetworkMetadata)
+      except SerializationError as err:
+        fail "Failed to load network metadata: \n", err.formatMsg(conf.network)
+
+    var metadataErrorMsg = ""
+
+    template checkCompatibility(metadataField, LOCAL_CONSTANT) =
+      let metadataValue = metadataField
+      if metadataValue != LOCAL_CONSTANT:
+        if metadataErrorMsg.len > 0: metadataErrorMsg.add " and"
+        metadataErrorMsg.add " -d:" & astToStr(LOCAL_CONSTANT) & "=" & $metadataValue &
+                            " (instead of " & $LOCAL_CONSTANT & ")"
+
+    if result.networkMetadata.networkGeneration != semanticVersion:
+      let newerVersionRequired = result.networkMetadata.networkGeneration.int > semanticVersion
+      let newerOrOlder = if newerVersionRequired: "a newer" else: "an older"
+      stderr.write &"Connecting to '{conf.network}' requires {newerOrOlder} version of Nimbus. "
+      if newerVersionRequired:
+        stderr.write "Please follow the instructions at https://github.com/status-im/nim-beacon-chain " &
+                    "in order to produce an up-to-date build.\n"
+      quit 1
+
+    checkCompatibility result.networkMetadata.numShards      , SHARD_COUNT
+    checkCompatibility result.networkMetadata.slotDuration   , SECONDS_PER_SLOT
+    checkCompatibility result.networkMetadata.slotsPerEpoch  , SLOTS_PER_EPOCH
+
+    if metadataErrorMsg.len > 0:
+      fail "To connect to the ", conf.network, " network, please compile with", metadataErrorMsg
+
+    for bootNode in result.networkMetadata.bootstrapNodes:
+      if bootNode.isSameNode(result.networkIdentity):
+        result.isBootstrapNode = true
+      else:
+        result.bootstrapNodes.add bootNode
 
   for bootNode in conf.bootstrapNodes:
     result.bootstrapNodes.add BootstrapAddr.init(bootNode)
@@ -345,12 +346,13 @@ proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
   newHead
 
 proc sendAttestation(node: BeaconNode,
+                     state: BeaconState,
                      validator: AttachedValidator,
                      attestationData: AttestationData,
                      committeeLen: int,
                      indexInCommittee: int) {.async.} =
   let
-    validatorSignature = await validator.signAttestation(attestationData)
+    validatorSignature = await validator.signAttestation(attestationData, state)
 
   var aggregationBits = CommitteeValidatorsBits.init(committeeLen)
   aggregationBits.raiseBit indexInCommittee
@@ -577,9 +579,9 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
           let ad = makeAttestationData(state, shard, blck.root)
           attestations.add((ad, committee.len, i, validator))
 
-  for a in attestations:
-    traceAsyncErrors sendAttestation(
-      node, a.validator, a.data, a.committeeLen, a.indexInCommittee)
+    for a in attestations:
+      traceAsyncErrors sendAttestation(
+        node, state, a.validator, a.data, a.committeeLen, a.indexInCommittee)
 
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     Future[BlockRef] {.async.} =
@@ -869,14 +871,20 @@ when isMainModule:
     Json.saveFile(config.outputGenesis.string, initialState, pretty = true)
     echo "Wrote ", config.outputGenesis.string
 
+    let sszGenesis = config.outputGenesis.string.changeFileExt "ssz"
+    SSZ.saveFile(sszGenesis, initialState)
+    echo "Wrote ", sszGenesis
+
     var
       bootstrapAddress = getPersistenBootstrapAddr(
         config, parseIpAddress(config.bootstrapAddress), Port config.bootstrapPort)
 
       testnetMetadata = NetworkMetadata(
-        networkId: config.networkId,
         networkGeneration: semanticVersion,
-        genesisRoot: hash_tree_root(initialState),
+        genesisRoot:
+          if config.withGenesisRoot:
+            some(hash_tree_root(initialState))
+          else: none(Eth2Digest),
         bootstrapNodes: @[bootstrapAddress],
         numShards: SHARD_COUNT,
         slotDuration: SECONDS_PER_SLOT,

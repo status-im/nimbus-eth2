@@ -31,6 +31,10 @@ type
       shortform: "n"
       defaultValue: DEFAULT_NETWORK .}: string
 
+    quickStart* {.
+      desc: "Run in quickstart mode",
+      defaultValue: false.}: bool
+
     dataDir* {.
       desc: "The directory where nimbus will store all blockchain data."
       shortform: "d"
@@ -99,9 +103,6 @@ type
         defaultValue: 8008 .}: uint16
 
     of createTestnet:
-      networkId* {.
-        desc: "An unique numeric identifier for the network".}: uint8
-
       validatorsDir* {.
         desc: "Directory containing validator descriptors named vXXXXXXX.deposit.json"
         shortform: "d".}: InputDir
@@ -135,6 +136,9 @@ type
 
       outputNetwork* {.
         desc: "Output file where to write the initial state snapshot".}: OutFile
+
+      withGenesisRoot* {.
+        desc: "Include a genesis root in network.json", defaultValue: false.}: bool
 
     of importValidator:
       keyFiles* {.
