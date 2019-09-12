@@ -66,8 +66,8 @@ template runTest(identifier: untyped) =
 suite "Official - Operations - Transfers " & preset():
   # TODO https://github.com/status-im/nim-beacon-chain/issues/435
   # CI Win64 - "The parameter is incorrect"
-  when not (defined(windows) and sizeof(int) == 8):
-    when const_preset == "minimal":
+  when const_preset == "minimal":
+    skipWin64:
       runTest(success_non_activated)
       runTest(success_withdrawable)
       runTest(success_active_above_max_effective)
@@ -91,7 +91,5 @@ suite "Official - Operations - Transfers " & preset():
       runTest(non_existent_sender)
       runTest(non_existent_recipient)
       runTest(invalid_pubkey)
-    else:
-      echo "          No transfer tests in mainnet preset"
   else:
-    echo "          Skipped for Windows 64-bit CI"
+    echo "          No transfer tests in mainnet preset"

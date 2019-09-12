@@ -66,7 +66,7 @@ template runTest(identifier: untyped) =
 suite "Official - Operations - Proposer slashing " & preset():
   # TODO https://github.com/status-im/nim-beacon-chain/issues/435
   # CI Win64 - "The parameter is incorrect"
-  when not (defined(windows) and sizeof(int) == 8):
+  skipWin64:
     runTest(success)
     runTest(invalid_sig_1)
     runTest(invalid_sig_2)
@@ -77,5 +77,3 @@ suite "Official - Operations - Proposer slashing " & preset():
     runTest(proposer_is_not_activated)
     runTest(proposer_is_slashed)
     runTest(proposer_is_withdrawn)
-  else:
-    echo "          Skipped for Windows 64-bit CI"

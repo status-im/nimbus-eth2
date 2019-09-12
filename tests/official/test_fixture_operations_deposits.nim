@@ -63,7 +63,7 @@ template runTest(testName: string, identifier: untyped) =
 suite "Official - Operations - Deposits " & preset():
   # TODO https://github.com/status-im/nim-beacon-chain/issues/435
   # CI Win64 - "The parameter is incorrect"
-  when not (defined(windows) and sizeof(int) == 8):
+  skipWin64:
     runTest("new deposit under max", new_deposit_under_max)
     runTest("new deposit max", new_deposit_max)
     runTest("new deposit over max", new_deposit_over_max)
@@ -78,5 +78,3 @@ suite "Official - Operations - Deposits " & preset():
       #        https://github.com/status-im/nim-beacon-chain/issues/407
       runTest("wrong deposit for deposit count", wrong_deposit_for_deposit_count)
       runTest("bad merkle proof", bad_merkle_proof)
-  else:
-    echo "          Skipped for Windows 64-bit CI"

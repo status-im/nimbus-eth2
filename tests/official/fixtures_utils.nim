@@ -48,3 +48,10 @@ proc parseTest*(path: string, Format: typedesc[Json or SSZ], T: typedesc): T =
     stderr.write $Format & " load issue for file \"", path, "\"\n"
     stderr.write err.formatMsg(path), "\n"
     quit 1
+
+template skipWin64*(body: untyped): untyped =
+  # Skip Win64 CI for https://github.com/status-im/nim-beacon-chain/issues/435
+  when defined(windows) and sizeof(int) == 8:
+    echo "          [OSError] See #435. Ignoring in Windows 64-bit CI"
+  else:
+    body
