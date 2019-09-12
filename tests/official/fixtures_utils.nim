@@ -55,6 +55,6 @@ template skipWin64*(body: untyped): untyped =
     try:
       body
     except OSError:
-      "          [OSError] See #435. Ignoring in Windows 64-bit CI"
+      echo "          [OSError] See #435. Ignoring in Windows 64-bit CI"
   else:
     body
