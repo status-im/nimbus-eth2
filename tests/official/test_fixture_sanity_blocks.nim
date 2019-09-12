@@ -98,6 +98,7 @@ suite "Official - Sanity - Blocks " & preset():
   runValidTest("Voluntary exit", voluntary_exit, 2)
   runValidTest("Balance-driven status transitions", balance_driven_status_transitions, 1)
   runValidTest("Historical batch", historical_batch, 1)
-  skipWin64:
-    runValidTest("ETH1 data votes consensus", eth1_data_votes_consensus, 17)
-    runValidTest("ETH1 data votes no consensus", eth1_data_votes_no_consensus, 16)
+  when const_preset=="minimal":
+    skipWin64:
+      runValidTest("ETH1 data votes consensus", eth1_data_votes_consensus, 17)
+      runValidTest("ETH1 data votes no consensus", eth1_data_votes_no_consensus, 16)
