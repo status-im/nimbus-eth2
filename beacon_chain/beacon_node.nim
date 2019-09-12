@@ -45,7 +45,7 @@ declareGauge beacon_pending_exits, "Number of pending voluntary exits in local o
 declareGauge beacon_previous_epoch_orphaned_blocks, "Number of blocks orphaned in the previous epoch" # On epoch transition
 declareCounter beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # On fork choice
 
-logScope: topics = "beacnode"
+logScope: topics = "beacnde"
 
 proc onBeaconBlock*(node: BeaconNode, blck: BeaconBlock) {.gcsafe.}
 
