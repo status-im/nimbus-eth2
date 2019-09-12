@@ -46,13 +46,10 @@ template runTest(testName: string, identifier: untyped, num_slots: uint64): unty
 suite "Official - Sanity - Slots " & preset():
   runTest("Advance 1 slot", slots_1, 1)
   runTest("Advance 2 slots", slots_2, 2)
+  runTest("Advance an empty epoch", empty_epoch, SLOTS_PER_EPOCH)
 
-  when false: # TODO: issue in active_index_roots - https://github.com/status-im/nim-beacon-chain/issues/373
-    runTest("Advance an empty epoch", empty_epoch, SLOTS_PER_EPOCH)
+  const DoubleEpoch = SLOTS_PER_EPOCH.uint64*2 # workaround undeclared identifier "double_empty_epoch"
+  runTest("Advance 2 empty epochs", double_empty_epoch, DoubleEpoch)
 
-  when false: # TODO: issue in state_roots
-    const DoubleEpoch = SLOTS_PER_EPOCH.uint64*2 # workaround undeclared identifier "double_empty_epoch"
-    runTest("Advance 2 empty epochs", double_empty_epoch, DoubleEpoch)
-
-    # This starts in the middle of an epoch
-    runTest("Advance over an epoch boundary", over_epoch_boundary, SLOTS_PER_EPOCH)
+  # This starts in the middle of an epoch
+  runTest("Advance over an epoch boundary", over_epoch_boundary, SLOTS_PER_EPOCH)

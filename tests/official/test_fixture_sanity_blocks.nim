@@ -80,12 +80,12 @@ suite "Official - Sanity - Blocks " & preset():
         let done = state_transition(stateRef[], blck, flags = {skipValidation})
 
   runValidTest("Skipped Slots", skipped_slots, 1)
-  when false: # TODO: failing due to state_roots[8]
-    runValidTest("Empty epoch transition", empty_epoch_transition, 1)
-    runValidTest("Empty epoch transition not finalizing", empty_epoch_transition_not_finalizing, 1)
+  runValidTest("Empty epoch transition", empty_epoch_transition, 1)
+  when const_preset=="minimal":
+    skipWin64:
+      runValidTest("Empty epoch transition not finalizing", empty_epoch_transition_not_finalizing, 1)
   runValidTest("Proposer slashing", proposer_slashing, 1)
-  when false: # TODO: Assert spec/crypto.nim(156, 12) `x.kind == Real and other.kind == Real`
-    runValidTest("Attester slashing", attester_slashing, 1)
+  runValidTest("Attester slashing", attester_slashing, 1)
 
   # TODO: Expected deposit in block
 
@@ -95,14 +95,10 @@ suite "Official - Sanity - Blocks " & preset():
 
   when false: # TODO: Assert spec/crypto.nim(156, 12) `x.kind == Real and other.kind == Real`
     runValidTest("Attestation", attestation, 2)
-  when false: # TODO: failing due to state_roots[8]
-    runValidTest("Voluntary exit", voluntary_exit, 2)
-    runValidTest("Balance-driven status transitions", balance_driven_status_transitions, 1)
-
+  runValidTest("Voluntary exit", voluntary_exit, 2)
+  runValidTest("Balance-driven status transitions", balance_driven_status_transitions, 1)
   runValidTest("Historical batch", historical_batch, 1)
-
-  when false: # TODO: `stateRef3870603.block_roots[idx3874628] == postRef3870605.block_roots[idx3874628]`
-              #       stateRef3856003.block_roots[16] = 06013007F8A1D4E310344192C5DF6157B1F9F0F5B3A8404103ED822DF47CD85D
-              #       postRef3856005.block_roots[16] = 73F47FF01C106CC82BF839C953C4171E019A22590D762076306F4CEE1CB77583
-    runValidTest("ETH1 data votes consensus", eth1_data_votes_consensus, 17)
-    runValidTest("ETH1 data votes no consensus", eth1_data_votes_no_consensus, 16)
+  when const_preset=="minimal":
+    skipWin64:
+      runValidTest("ETH1 data votes consensus", eth1_data_votes_consensus, 17)
+      runValidTest("ETH1 data votes no consensus", eth1_data_votes_no_consensus, 16)
