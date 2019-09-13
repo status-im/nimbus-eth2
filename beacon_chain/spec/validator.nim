@@ -166,15 +166,6 @@ func get_crosslink_committee*(state: BeaconState, epoch: Epoch, shard: Shard,
     stateCache
   )
 
-# Not from spec
-func get_empty_per_epoch_cache*(): StateCache =
-  result.crosslink_committee_cache =
-    initTable[tuple[a: int, b: Eth2Digest], seq[ValidatorIndex]]()
-  result.active_validator_indices_cache =
-    initTable[Epoch, seq[ValidatorIndex]]()
-  result.start_shard_cache = initTable[Epoch, Shard]()
-  result.committee_count_cache = initTable[Epoch, uint64]()
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: BeaconState, stateCache: var StateCache):
     ValidatorIndex =
