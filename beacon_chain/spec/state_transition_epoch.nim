@@ -322,7 +322,7 @@ proc process_justification_and_finalization*(
      old_current_justified_checkpoint.epoch + 1 == current_epoch:
     state.finalized_checkpoint = old_current_justified_checkpoint
 
-    debug "Finalized with rule 123",
+    debug "Finalized with rule 12",
       current_epoch = current_epoch,
       checkpoint = shortLog(state.finalized_checkpoint),
       cat = "finalization"
