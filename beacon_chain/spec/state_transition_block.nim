@@ -35,7 +35,8 @@
 import # TODO - cleanup imports
   algorithm, collections/sets, chronicles, math, options, sequtils, sets, tables,
   ../extras, ../ssz, ../beacon_node_types,
-  beaconstate, crypto, datatypes, digest, helpers, validator
+  beaconstate, crypto, datatypes, digest, helpers, validator,
+  state_transition_helpers
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#block-header
 proc process_block_header*(
@@ -262,14 +263,6 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock,
     if not process_attester_slashing(state, attester_slashing, stateCache):
       return false
   return true
-
-func get_attesting_indices(
-    state: BeaconState, attestations: openarray[PendingAttestation],
-    stateCache: var StateCache): HashSet[ValidatorIndex] =
-  result = initSet[ValidatorIndex]()
-  for a in attestations:
-    result = result.union(get_attesting_indices(
-      state, a.data, a.aggregation_bits, stateCache))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.6.3/specs/core/0_beacon-chain.md#attestations
 proc processAttestations*(
