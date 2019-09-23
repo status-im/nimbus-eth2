@@ -1,0 +1,70 @@
+jobs:
+  - job: Windows
+
+    pool:
+      vmImage: windows-latest
+
+    strategy:
+      matrix:
+        32-bit:
+          PLATFORM: x86
+        64-bit:
+          PLATFORM: x64
+    steps:
+      - task: CacheBeta@0
+        displayName: 'cache Nim binaries'
+        inputs:
+          key: NimBinaries | $(Agent.OS) | $(PLATFORM)
+          path: NimBinaries
+
+      - task: CacheBeta@0
+        displayName: 'cache p2pd binaries'
+        inputs:
+          key: p2pdCache | $(Agent.OS) | $(PLATFORM)
+          path: p2pdCache
+
+      - task: CacheBeta@0
+        displayName: 'cache LFS JSON fixtures'
+        inputs:
+          key: jsonTestsCache
+          path: jsonTestsCache
+
+      - task: CacheBeta@0
+        displayName: 'cache MinGW-w64'
+        inputs:
+          key: mingwCache
+          path: mingwCache
+        condition: eq(variables['PLATFORM'], 'x86')
+
+      - powershell: |
+          Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name 'LongPathsEnabled' -Value 1
+        displayName: 'long path support'
+
+      - bash: |
+          set -e
+          if [[ $PLATFORM == "x86" ]]; then
+            echo "Installing 32-bit MinGW-w64"
+            mkdir -p mingwCache
+            cd mingwCache
+            MINGW_FILE="i686-8.1.0-release-posix-dwarf-rt_v6-rev0.7z"
+            if [[ ! -e "$MINGW_FILE" ]]; then
+              rm -f *.7z
+              curl -OLsS "https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/8.1.0/threads-posix/dwarf/${MINGW_FILE}"
+            fi
+            7z x -y -bd "$MINGW_FILE" >/dev/null
+            mv mingw32 /C/
+            cd ..
+            export PATH="/C/mingw32/bin:$PATH"
+          fi
+          echo "Fetching submodules"
+          git config --global core.longpaths true
+          export GIT_LFS_SKIP_SMUDGE=1
+          git submodule --quiet update --init --recursive
+          scripts/process_lfs.sh jsonTestsCache
+          mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} CI_CACHE=NimBinaries update
+          mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} fetch-dlls
+          mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} P2PD_CACHE=p2pdCache
+          file build/beacon_node
+          mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} DISABLE_LFS_SCRIPT=1 test
+        displayName: 'build and test'
+
