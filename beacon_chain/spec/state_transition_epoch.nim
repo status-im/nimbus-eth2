@@ -38,6 +38,19 @@ import # TODO - cleanup imports
   ../extras, ../ssz, ../beacon_node_types,
   beaconstate, crypto, datatypes, digest, helpers, validator
 
+# Logging utilities
+# --------------------------------------------------------
+
+logScope: topics = "consens"
+
+# TODO: gather all logging utilities
+#       from crypto, digest, etc in a single file
+func shortLog(x: Checkpoint): string =
+  "(epoch: " & $x.epoch & ", root: \"" & shortLog(x.root) & "\")"
+
+# Spec
+# --------------------------------------------------------
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#get_total_active_balance
 func get_total_active_balance*(state: BeaconState): Gwei =
   return get_total_balance(
@@ -189,6 +202,9 @@ func get_winning_crosslink_and_attesting_indices(
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#justification-and-finalization
 proc process_justification_and_finalization*(
     state: var BeaconState, stateCache: var StateCache) =
+
+  logScope: pcs = "process_justification_and_finalization"
+
   if get_current_epoch(state) <= GENESIS_EPOCH + 1:
     return
 
@@ -243,8 +259,12 @@ proc process_justification_and_finalization*(
     state.current_justified_checkpoint =
       Checkpoint(epoch: previous_epoch,
                  root: get_block_root(state, previous_epoch))
-
     state.justification_bits.raiseBit 1
+
+    debug "Justified with previous epoch",
+      current_epoch = current_epoch,
+      checkpoint = shortLog(state.current_justified_checkpoint),
+      cat = "justification"
 
   let matching_target_attestations_current =
     get_matching_target_attestations(state, current_epoch)  # Current epoch
@@ -253,8 +273,12 @@ proc process_justification_and_finalization*(
     state.current_justified_checkpoint =
       Checkpoint(epoch: current_epoch,
                  root: get_block_root(state, current_epoch))
-
     state.justification_bits.raiseBit 0
+
+    debug "Justified with current epoch",
+      current_epoch = current_epoch,
+      checkpoint = shortLog(state.current_justified_checkpoint),
+      cat = "justification"
 
   # Process finalizations
   let bitfield = state.justification_bits
@@ -265,11 +289,21 @@ proc process_justification_and_finalization*(
      old_previous_justified_checkpoint.epoch + 3 == current_epoch:
     state.finalized_checkpoint = old_previous_justified_checkpoint
 
+    debug "Finalized with rule 234",
+      current_epoch = current_epoch,
+      checkpoint = shortLog(state.finalized_checkpoint),
+      cat = "finalization"
+
   ## The 2nd/3rd most recent epochs are justified, the 2nd using the 3rd as
   ## source
   if (bitfield and 0b110) == 0b110 and
      old_previous_justified_checkpoint.epoch + 2 == current_epoch:
     state.finalized_checkpoint = old_previous_justified_checkpoint
+
+    debug "Finalized with rule 23",
+      current_epoch = current_epoch,
+      checkpoint = shortLog(state.finalized_checkpoint),
+      cat = "finalization"
 
   ## The 1st/2nd/3rd most recent epochs are justified, the 1st using the 3rd as
   ## source
@@ -277,11 +311,21 @@ proc process_justification_and_finalization*(
      old_current_justified_checkpoint.epoch + 2 == current_epoch:
     state.finalized_checkpoint = old_current_justified_checkpoint
 
+    debug "Finalized with rule 123",
+      current_epoch = current_epoch,
+      checkpoint = shortLog(state.finalized_checkpoint),
+      cat = "finalization"
+
   ## The 1st/2nd most recent epochs are justified, the 1st using the 2nd as
   ## source
   if (bitfield and 0b11) == 0b11 and
      old_current_justified_checkpoint.epoch + 1 == current_epoch:
     state.finalized_checkpoint = old_current_justified_checkpoint
+
+    debug "Finalized with rule 123",
+      current_epoch = current_epoch,
+      checkpoint = shortLog(state.finalized_checkpoint),
+      cat = "finalization"
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#crosslinks
 func process_crosslinks*(state: var BeaconState, stateCache: var StateCache) =
