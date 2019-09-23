@@ -36,17 +36,13 @@ import # TODO - cleanup imports
   algorithm, math, options, sequtils, tables,
   stew/[bitseqs, bitops2], chronicles, json_serialization/std/sets,
   ../extras, ../ssz, ../beacon_node_types,
-  beaconstate, crypto, datatypes, digest, helpers, validator
+  beaconstate, crypto, datatypes, digest, helpers, validator,
+  state_transition_helpers
 
 # Logging utilities
 # --------------------------------------------------------
 
 logScope: topics = "consens"
-
-# TODO: gather all logging utilities
-#       from crypto, digest, etc in a single file
-func shortLog(x: Checkpoint): string =
-  "(epoch: " & $x.epoch & ", root: \"" & shortLog(x.root) & "\")"
 
 # Spec
 # --------------------------------------------------------
@@ -80,22 +76,6 @@ func get_matching_head_attestations(state: BeaconState, epoch: Epoch):
      it.data.beacon_block_root ==
        get_block_root_at_slot(state, get_attestation_data_slot(state, it.data))
   )
-
-func get_attesting_indices(
-    state: BeaconState, attestations: openarray[PendingAttestation],
-    stateCache: var StateCache): HashSet[ValidatorIndex] =
-  result = initSet[ValidatorIndex]()
-  for a in attestations:
-    result = result.union(get_attesting_indices(
-      state, a.data, a.aggregation_bits, stateCache))
-
-func get_unslashed_attesting_indices*(
-    state: BeaconState, attestations: openarray[PendingAttestation],
-    stateCache: var StateCache): HashSet[ValidatorIndex] =
-  result = get_attesting_indices(state, attestations, stateCache)
-  for index in result:
-    if state.validators[index].slashed:
-      result.excl index
 
 func get_attesting_balance(
     state: BeaconState, attestations: seq[PendingAttestation],
