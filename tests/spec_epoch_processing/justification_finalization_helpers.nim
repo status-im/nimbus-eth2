@@ -29,18 +29,19 @@ iterator getShardsForSlot(state: BeaconState, slot: Slot): Shard =
     yield shard + Shard(i)
 
 proc addMockAttestations*(
-       state: BeaconState, epoch: Epoch,
+       state: var BeaconState, epoch: Epoch,
        source, target: Checkpoint,
        sufficient_support = false
   ) =
   # We must be at the end of the epoch
   doAssert (state.slot + 1) mod SLOTS_PER_EPOCH == 0
 
-  var attestations: seq[PendingAttestation]
+  # Alias the attestations container
+  var attestations: ptr seq[PendingAttestation]
   if state.get_current_epoch() == epoch:
-    attestations = state.current_epoch_attestations
+    attestations = state.current_epoch_attestations.addr
   elif state.get_previous_epoch() == epoch:
-    attestations = state.previous_epoch_attestations
+    attestations = state.previous_epoch_attestations.addr
   else:
     raise newException(ValueError, &"Cannot include attestations from epoch {state.get_current_epoch()} in epoch {epoch}")
 
@@ -79,7 +80,7 @@ proc addMockAttestations*(
         if idx != -1:
           aggregation_bits[idx] = false
 
-      attestations.add PendingAttestation(
+      attestations[].add PendingAttestation(
         aggregation_bits: aggregation_bits,
         data: AttestationData(
           beacon_block_root: [byte 0xFF] * 32, # Irrelevant for testing

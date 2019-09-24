@@ -51,7 +51,7 @@ proc finalizeOn234(state: var BeaconState, epoch: Epoch, sufficient_support: boo
   # mock the 2nd latest epoch as justifiable, with 4th as the source
   addMockAttestations(
     state,
-    epoch = epoch - 1,
+    epoch = epoch - 2,
     source = c4,
     target = c2,
     sufficient_support = sufficient_support
