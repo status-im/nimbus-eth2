@@ -16,8 +16,8 @@ import
 # (fully generic available - see also https://github.com/status-im/nim-beacon-chain/commit/993789bad684721bd7c74ea14b35c2d24dbb6e51)
 # ----------------------------------------------------------------
 
-proc `==`*[T](a, b: BlsValue[T]): bool =
-  ## We sometimes need to compare real BlsValue
+proc `==`*[T](a, b: LazyBls[T]): bool =
+  ## We sometimes need to compare real LazyBls
   ## from parsed opaque blobs that are not really on the BLS curve
   ## and full of zeros
   if a.kind == Real:
@@ -97,7 +97,7 @@ proc inspectType(tImpl, xSubField, ySubField: NimNode, stmts: var NimNode) =
     elif $tImpl in builtinTypes:
       compareStmt(xSubField, ySubField, stmts)
     elif $tImpl in ["ValidatorSig", "ValidatorPubKey"]:
-      # Workaround BlsValue being a case object
+      # Workaround LazyBls being a case object
       compareStmt(xSubField, ySubField, stmts)
     else:
       inspectType(tImpl.getTypeImpl(), xSubField, ySubField, stmts)

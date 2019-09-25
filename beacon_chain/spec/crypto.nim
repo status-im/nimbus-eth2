@@ -60,14 +60,21 @@ export
   blscurve.Signature
 
 type
-  BlsValueType* = enum
+  LazyBlsType* = enum
     Real
     OpaqueBlob
 
-  BlsValue*[T] = object
-    # TODO This is a temporary type needed until we sort out the
-    # issues with invalid BLS values appearing in the SSZ test suites.
-    case kind*: BlsValueType
+  LazyBls*[T] = object
+    # This is a wrapper to handle potentially invalid
+    # public/private keys and signatures that we can receive or parse.
+    #
+    # In general in tests, in Deposits and in some state transitions
+    # we get invalid data or a "zero".
+    #
+    # Values are lazily checked and transformed into concrete BLS value
+    # on usage, to avoid a huge startup cost (if we have parse a state with
+    # thousands of signatures for example)
+    case kind*: LazyBlsType
     of Real:
       blsValue*: T
     of OpaqueBlob:
@@ -76,7 +83,7 @@ type
       else:
         blob*: array[48, byte]
 
-  ValidatorPubKey* = BlsValue[blscurve.VerKey]
+  ValidatorPubKey* = LazyBls[blscurve.VerKey]
   # ValidatorPubKey* = blscurve.VerKey
 
   # ValidatorPubKey* = array[48, byte]
@@ -84,19 +91,19 @@ type
   # Plenty of code needs to be modified for a successful build and
   # the changes will negatively affect the performance.
 
-  # ValidatorPrivKey* = BlsValue[blscurve.SigKey]
+  # ValidatorPrivKey* = LazyBls[blscurve.SigKey]
   ValidatorPrivKey* = blscurve.SigKey
 
-  ValidatorSig* = BlsValue[blscurve.Signature]
+  ValidatorSig* = LazyBls[blscurve.Signature]
 
   BlsCurveType* = VerKey|SigKey|Signature
   ValidatorPKI* = ValidatorPrivKey|ValidatorPubKey|ValidatorSig
 
-proc init*[T](BLS: type BlsValue[T], val: auto): BLS =
-  result.kind = BlsValueType.Real
+proc init*[T](BLS: type LazyBls[T], val: auto): BLS =
+  result.kind = LazyBlsType.Real
   result.blsValue = init(T, val)
 
-func `$`*(x: BlsValue): string =
+func `$`*(x: LazyBls): string =
   if x.kind == Real:
     $x.blsValue
   else:
@@ -104,26 +111,26 @@ func `$`*(x: BlsValue): string =
     # due to the mechanics of the `shortLog` function.
     "r:" & toHex(x.blob, true)
 
-func `==`*(a, b: BlsValue): bool =
+func `==`*(a, b: LazyBls): bool =
   if a.kind != b.kind: return false
   if a.kind == Real:
     return a.blsValue == b.blsValue
   else:
     return a.blob == b.blob
 
-func getBytes*(x: BlsValue): auto =
+func getBytes*(x: LazyBls): auto =
   if x.kind == Real:
     getBytes x.blsValue
   else:
     x.blob
 
-func shortLog*(x: BlsValue): string =
+func shortLog*(x: LazyBls): string =
   ($x)[0..7]
 
 func shortLog*(x: BlsCurveType): string =
   ($x)[0..7]
 
-proc hash*(x: BlsValue): Hash {.inline.} =
+proc hash*(x: LazyBls): Hash {.inline.} =
   if x.kind == Real:
     hash x.blsValue.getBytes()
   else:
@@ -132,14 +139,14 @@ proc hash*(x: BlsValue): Hash {.inline.} =
 template hash*(x: BlsCurveType): Hash =
   hash(getBytes(x))
 
-template `==`*[T](a: BlsValue[T], b: T): bool =
+template `==`*[T](a: LazyBls[T], b: T): bool =
   a.blsValue == b
 
-template `==`*[T](a: T, b: BlsValue[T]): bool =
+template `==`*[T](a: T, b: LazyBls[T]): bool =
   a == b.blsValue
 
 func pubKey*(pk: ValidatorPrivKey): ValidatorPubKey =
-  when ValidatorPubKey is BlsValue:
+  when ValidatorPubKey is LazyBls:
     ValidatorPubKey(kind: Real, blsValue: pk.getKey())
   elif ValidatorPubKey is array:
     pk.getKey.getBytes
@@ -152,13 +159,13 @@ proc init(T: type VerKey): VerKey =
 proc init(T: type SigKey): SigKey =
   result.point.inf()
 
-proc combine*[T](values: openarray[BlsValue[T]]): BlsValue[T] =
-  result = BlsValue[T](kind: Real, blsValue: T.init())
+proc combine*[T](values: openarray[LazyBls[T]]): LazyBls[T] =
+  result = LazyBls[T](kind: Real, blsValue: T.init())
 
   for value in values:
     result.blsValue.combine(value.blsValue)
 
-proc combine*[T](x: var BlsValue[T], other: BlsValue[T]) =
+proc combine*[T](x: var LazyBls[T], other: LazyBls[T]) =
   doAssert x.kind == Real and other.kind == Real
   x.blsValue.combine(other.blsValue)
 
@@ -174,7 +181,7 @@ func bls_verify*(
   if sig.kind != Real:
     # Invalid signatures are possible in deposits (discussed with Danny)
     return false
-  when ValidatorPubKey is BlsValue:
+  when ValidatorPubKey is LazyBls:
     if sig.kind != Real or pubkey.kind != Real:
       # TODO: chronicles warning
       return false
@@ -207,7 +214,7 @@ proc bls_verify_multiple*(
 
   true
 
-when ValidatorPrivKey is BlsValue:
+when ValidatorPrivKey is LazyBls:
   func bls_sign*(key: ValidatorPrivKey, msg: openarray[byte],
                  domain: Domain): ValidatorSig =
     # name from spec!
@@ -221,9 +228,9 @@ else:
     # name from spec!
     ValidatorSig(kind: Real, blsValue: key.sign(domain, msg))
 
-proc fromBytes*[T](R: type BlsValue[T], bytes: openarray[byte]): R =
+proc fromBytes*[T](R: type LazyBls[T], bytes: openarray[byte]): R =
   # This is a workaround, so that we can deserialize the serialization of a
-  # default-initialized BlsValue without raising an exception
+  # default-initialized LazyBls without raising an exception
   when defined(ssz_testing):
     # Only for SSZ parsing tests, everything is an opaque blob
     R(kind: OpaqueBlob, blob: toArray(result.blob.len, bytes))
@@ -236,14 +243,14 @@ proc fromBytes*[T](R: type BlsValue[T], bytes: openarray[byte]): R =
       assert result.blob.len == bytes.len
       result.blob[result.blob.low .. result.blob.high] = bytes
 
-proc initFromBytes*[T](val: var BlsValue[T], bytes: openarray[byte]) =
-  val = fromBytes(BlsValue[T], bytes)
+proc initFromBytes*[T](val: var LazyBls[T], bytes: openarray[byte]) =
+  val = fromBytes(LazyBls[T], bytes)
 
 proc initFromBytes*(val: var BlsCurveType, bytes: openarray[byte]) =
   val = init(type(val), bytes)
 
 proc writeValue*(writer: var JsonWriter, value: ValidatorPubKey) {.inline.} =
-  when value is BlsValue:
+  when value is LazyBls:
     doAssert value.kind == Real
     writer.writeValue($value.blsValue)
   else:
@@ -253,7 +260,7 @@ proc readValue*(reader: var JsonReader, value: var ValidatorPubKey) {.inline.} =
   value.initFromBytes(fromHex reader.readValue(string))
 
 proc writeValue*(writer: var JsonWriter, value: ValidatorSig) {.inline.} =
-  when value is BlsValue:
+  when value is LazyBls:
     if value.kind == Real:
       writer.writeValue($value.blsValue)
     else:
@@ -268,7 +275,7 @@ proc readValue*(reader: var JsonReader, value: var ValidatorSig) {.inline.} =
   value.initFromBytes(fromHex reader.readValue(string))
 
 proc writeValue*(writer: var JsonWriter, value: ValidatorPrivKey) {.inline.} =
-  when value is BlsValue:
+  when value is LazyBls:
     doAssert value.kind == Real
     writer.writeValue($value.blsValue)
   else:
@@ -277,7 +284,7 @@ proc writeValue*(writer: var JsonWriter, value: ValidatorPrivKey) {.inline.} =
 proc readValue*(reader: var JsonReader, value: var ValidatorPrivKey) {.inline.} =
   value.initFromBytes(fromHex reader.readValue(string))
 
-when ValidatorPrivKey is BlsValue:
+when ValidatorPrivKey is LazyBls:
   proc newPrivKey*(): ValidatorPrivKey =
     ValidatorPrivKey(kind: Real, blsValue: SigKey.random())
 else:
@@ -287,7 +294,7 @@ else:
 when networkBackend == rlpxBackend:
   import eth/rlp
 
-  when ValidatorPubKey is BlsValue:
+  when ValidatorPubKey is LazyBls:
     proc append*(writer: var RlpWriter, value: ValidatorPubKey) =
       writer.append if value.kind == Real: value.blsValue.getBytes()
                     else: value.blob
@@ -298,7 +305,7 @@ when networkBackend == rlpxBackend:
   proc read*(rlp: var Rlp, T: type ValidatorPubKey): T {.inline.} =
     result.initFromBytes rlp.toBytes.toOpenArray
 
-  when ValidatorSig is BlsValue:
+  when ValidatorSig is LazyBls:
     proc append*(writer: var RlpWriter, value: ValidatorSig) =
       writer.append if value.kind == Real: value.blsValue.getBytes()
                     else: value.blob

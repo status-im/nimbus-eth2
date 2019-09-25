@@ -16,7 +16,7 @@ func get_eth1data_stub*(deposit_count: uint64, current_epoch: Epoch): Eth1Data =
     block_hash: hash_tree_root(hash_tree_root(voting_period).data),
   )
 
-when ValidatorPrivKey is BlsValue:
+when ValidatorPrivKey is LazyBls:
   func makeInteropPrivKey*(i: int): ValidatorPrivKey =
     discard
     {.fatal: "todo/unused?".}

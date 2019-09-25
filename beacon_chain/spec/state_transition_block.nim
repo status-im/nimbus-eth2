@@ -68,7 +68,7 @@ proc process_block_header*(
     body_root: hash_tree_root(blck.body),
     # signature is always zeroed
     # TODO - Pure BLSSig cannot be zero: https://github.com/status-im/nim-beacon-chain/issues/374
-    signature: BlsValue[Signature](kind: OpaqueBlob)
+    signature: LazyBls[Signature](kind: OpaqueBlob)
   )
 
 

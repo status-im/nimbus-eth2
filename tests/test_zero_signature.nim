@@ -21,7 +21,7 @@ suite "Zero signature sanity checks":
 
   # test "SSZ serialization round-trip doesn't un-zero the signature":
 
-  #   let zeroSig = BlsValue[Signature](kind: OpaqueBlob)
+  #   let zeroSig = LazyBls[Signature](kind: OpaqueBlob)
   #   check:
   #     block:
   #       var allZeros = true
@@ -37,7 +37,7 @@ suite "Zero signature sanity checks":
   test "SSZ serialization roundtrip of BeaconBlockHeader":
 
     let defaultBlockHeader = BeaconBlockHeader(
-      signature: BlsValue[Signature](kind: OpaqueBlob)
+      signature: LazyBls[Signature](kind: OpaqueBlob)
     )
 
     check:

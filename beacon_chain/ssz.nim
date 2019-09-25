@@ -103,7 +103,7 @@ template toSszType*(x: auto): auto =
 
   when x is Slot|Epoch|ValidatorIndex|enum: uint64(x)
   elif x is Eth2Digest: x.data
-  elif x is BlsValue|BlsCurveType: getBytes(x)
+  elif x is LazyBls|BlsCurveType: getBytes(x)
   elif x is BitSeq|BitList: Bytes(x)
   elif x is ref|ptr: toSszType x[]
   elif x is Option: toSszType x.get
@@ -270,7 +270,7 @@ template checkEof(n: int) =
   if not r.stream[].ensureBytes(n):
     raise newException(UnexpectedEofError, "SSZ has insufficient number of bytes")
 
-template fromSszBytes*(T: type BlsValue, bytes: openarray[byte]): auto =
+template fromSszBytes*(T: type LazyBls, bytes: openarray[byte]): auto =
   fromBytes(T, bytes)
 
 template fromSszBytes*[T; N](_: type TypeWithMaxLen[T, N],

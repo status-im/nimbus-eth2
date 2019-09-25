@@ -16,12 +16,12 @@ import
 func preset*(): string =
   " [Preset: " & const_preset & ']'
 
-when ValidatorPrivKey is BlsValue:
+when ValidatorPrivKey is LazyBls:
   func makeFakeValidatorPrivKey*(i: int): ValidatorPrivKey =
     # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
     # lighthouse.
     # TODO: switch to https://github.com/ethereum/eth2.0-pm/issues/60
-    result.kind = BlsValueType.Real
+    result.kind = LazyBlsType.Real
     var bytes = uint64(i + 1000).toBytesLE()
     copyMem(addr result.blsValue.x[0], addr bytes[0], sizeof(bytes))
 else:
