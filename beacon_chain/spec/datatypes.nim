@@ -76,7 +76,6 @@ type
   ValidatorIndex* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
   Shard* = uint64
   Gwei* = uint64
-  Domain* = uint64
 
   BitList*[maxLen: static int] = distinct BitSeq
 

@@ -55,7 +55,7 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
     privkey = makeFakeValidatorPrivKey(i)
     pubkey = privkey.pubKey()
     withdrawal_credentials = makeFakeHash(i)
-    domain = 3'u64
+    domain = compute_domain(DOMAIN_DEPOSIT)
 
   result = Deposit(
     data: DepositData(

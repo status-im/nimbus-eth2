@@ -16,9 +16,6 @@ import
   ./fixtures_utils
 
 type
-  Domain = distinct uint64
-    ## Domains have custom hex serialization
-
   BLSPrivToPub* = object
     input*: ValidatorPrivKey
     output*: ValidatorPubKey
@@ -42,12 +39,10 @@ type
 
 proc readValue*(r: var JsonReader, a: var Domain) {.inline.} =
   ## Custom deserializer for Domain
-  ## They are uint64 stored in hex values
   # Furthermore Nim parseHex doesn't support uint
   # until https://github.com/nim-lang/Nim/pull/11067
   # (0.20)
-  let be_uint = hexToPaddedByteArray[8](r.readValue(string))
-  bigEndian64(a.addr, be_uint.unsafeAddr)
+  a = hexToPaddedByteArray[8](r.readValue(string))
 
 const BLSDir = JsonTestsDir/"general"/"phase0"/"bls"
 
@@ -64,7 +59,7 @@ suite "Official - BLS tests":
       let t = parseTest(file, Json, BLSSignMsg)
       let implResult = t.input.privkey.bls_sign(
         t.input.message,
-        uint64(t.input.domain)
+        t.input.domain
       )
       check: implResult == t.output
 
