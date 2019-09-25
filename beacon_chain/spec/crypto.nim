@@ -169,7 +169,7 @@ func bls_aggregate_pubkeys*(keys: openArray[ValidatorPubKey]): ValidatorPubKey =
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/bls_signature.md#bls_verify
 func bls_verify*(
     pubkey: ValidatorPubKey, msg: openArray[byte], sig: ValidatorSig,
-    domain: uint64): bool =
+    domain: Domain): bool =
   # name from spec!
   if sig.kind != Real:
     # Invalid signatures are possible in deposits (discussed with Danny)
@@ -185,7 +185,7 @@ func bls_verify*(
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/bls_signature.md#bls_verify_multiple
 proc bls_verify_multiple*(
     pubkeys: seq[ValidatorPubKey], message_hashes: openArray[Eth2Digest],
-    sig: ValidatorSig, domain: uint64): bool =
+    sig: ValidatorSig, domain: Domain): bool =
   # {.noSideEffect.} - https://github.com/status-im/nim-chronicles/issues/62
   let L = len(pubkeys)
   doAssert L == len(message_hashes)
@@ -209,7 +209,7 @@ proc bls_verify_multiple*(
 
 when ValidatorPrivKey is BlsValue:
   func bls_sign*(key: ValidatorPrivKey, msg: openarray[byte],
-                 domain: uint64): ValidatorSig =
+                 domain: Domain): ValidatorSig =
     # name from spec!
     if key.kind == Real:
       ValidatorSig(kind: Real, blsValue: key.blsValue.sign(domain, msg))
@@ -217,7 +217,7 @@ when ValidatorPrivKey is BlsValue:
       ValidatorSig(kind: OpaqueBlob)
 else:
   func bls_sign*(key: ValidatorPrivKey, msg: openarray[byte],
-                 domain: uint64): ValidatorSig =
+                 domain: Domain): ValidatorSig =
     # name from spec!
     ValidatorSig(kind: Real, blsValue: key.sign(domain, msg))
 

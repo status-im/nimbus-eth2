@@ -7,7 +7,13 @@
 
 # Uncategorized helper functions from the spec
 
-import ./datatypes, ./digest, sequtils, math, endians
+import
+  # Standard lib
+  sequtils, math, endians,
+  # Third-party
+  blscurve, # defines Domain
+  # Internal
+  ./datatypes, ./digest
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
@@ -142,11 +148,9 @@ func int_to_bytes4*(x: uint64): array[4, byte] =
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#compute_domain
 func compute_domain*(
     domain_type: DomainType,
-    fork_version: array[4, byte] = [0'u8, 0, 0, 0]): uint64 =
-  var buf: array[8, byte]
-  buf[0..3] = int_to_bytes4(domain_type.uint64)
-  buf[4..7] = fork_version
-  bytes_to_int(buf)
+    fork_version: array[4, byte] = [0'u8, 0, 0, 0]): Domain =
+  result[0..3] = int_to_bytes4(domain_type.uint64)
+  result[4..7] = fork_version
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#get_domain
 func get_domain*(
