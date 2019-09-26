@@ -8,14 +8,7 @@ import strutils, times, os
 import confutils, chronicles, chronos, libp2p/daemon/daemonapi,
        libp2p/multiaddress
 import stew/byteutils as bu
-import spec/datatypes
-
-const
-  topicBeaconBlocks = "/eth2/beacon_block/ssz"
-  topicAttestations = "/eth2/beacon_attestation/ssz"
-  topicVoluntaryExits = "/eth2/voluntary_exit/ssz"
-  topicProposerSlashings = "/eth2/proposer_slashing/ssz"
-  topicAttesterSlashings = "/eth2/attester_slashing/ssz"
+import spec/[datatypes, network]
 
 const
   InspectorName* = "Beacon-Chain Network Inspector"
