@@ -46,12 +46,19 @@ type
     fullPeerId* {.desc: "Sets the inspector full PeerID output",
                   longform: "fullpeerid", shortform: "pid",
                   defaultValue: false.}: bool
-    topics* {.desc: "Sets inspector monitoring topics, where `*` - all, [a]ttestations, [b]locks, [e]xits, [ps]roposer slashings, [as]ttester slashings"
+    topics* {.desc: "Sets inspector monitoring topics, where `*` - all, " &
+                    "[a]ttestations, [b]locks, [e]xits, " &
+                    "[ps]roposer slashings, [as]ttester slashings",
               longform: "topics", shortform: "t".}: seq[string]
+    bootstrapFile* {.
+      desc: "Specifies file which holds bootstrap nodes multiaddresses " &
+            "delimeted by CRLF",
+      longform: "bootfile", shortform: "bf", defaultValue: "".}: string
     bootstrapNodes* {.
       desc: "Specifies one or more bootstrap nodes" &
             " to use when connecting to the network",
       longform: "bootnodes", shortform: "b".}: seq[string]
+
 
 proc getTopic(filter: TopicFilter): string {.inline.} =
   case filter
@@ -71,6 +78,12 @@ proc getPeerId(peer: PeerID, conf: InspectorConf): string {.inline.} =
     result = peer.pretty()
   else:
     result = $peer
+
+proc loadBootFile(name: string): seq[string] =
+  try:
+    result = readFile(name).splitLines()
+  except:
+    discard
 
 proc run(conf: InspectorConf) {.async.} =
   var
@@ -121,6 +134,19 @@ proc run(conf: InspectorConf) {.async.} =
                  TopicFilter.Exits, TopicFilter.ProposerSlashing,
                  TopicFilter.AttesterSlashings})
 
+  if len(conf.bootstrapFile) > 0:
+    info "Loading bootstrap nodes from file", filename = conf.bootstrapFile
+    var nodes = loadBootFile(conf.bootstrapFile)
+    for nodeString in nodes:
+      try:
+        var ma = MultiAddress.init(nodeString)
+        if not(IPFS.match(ma)):
+          warn "Incorrect bootnode address", address = nodeString
+        else:
+          bootnodes.add($ma)
+      except:
+        warn "Bootnode address is not valid MultiAddress", address = nodeString
+
   for nodeString in conf.bootstrapNodes:
     try:
       var ma = MultiAddress.init(nodeString)
@@ -135,7 +161,7 @@ proc run(conf: InspectorConf) {.async.} =
     error "Not enough bootnodes to establish connection"
     quit(1)
 
-  info InspectorIdent & " starting", bootnodes = conf.bootstrapNodes,
+  info InspectorIdent & " starting", bootnodes = bootnodes,
                                      topic_filters = topics
   try:
     api = await newDaemonApi({DHTClient, PSGossipSub, WaitBootstrap},
