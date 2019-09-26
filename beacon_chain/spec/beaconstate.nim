@@ -47,9 +47,9 @@ func decrease_balance*(
       state.balances[index] - delta
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#deposits
-func process_deposit*(
+proc process_deposit*(
     state: var BeaconState, deposit: Deposit, flags: UpdateFlags = {}): bool =
-  # Process an Eth1 deposit, registering a validator or increasing its balance.
+  ## Process an Eth1 deposit, registering a validator or increasing its balance.
 
   # Verify the Merkle branch
   # TODO enable this check, but don't use doAssert
@@ -202,7 +202,7 @@ func get_compact_committees_root*(state: BeaconState, epoch: Epoch): Eth2Digest 
   hash_tree_root(committees)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#genesis
-func initialize_beacon_state_from_eth1*(
+proc initialize_beacon_state_from_eth1*(
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
     deposits: openArray[Deposit],
