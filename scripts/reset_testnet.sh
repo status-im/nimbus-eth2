@@ -100,4 +100,3 @@ SSH
   echo Publishing docker image...
   make push
 fi
-

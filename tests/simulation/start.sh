@@ -58,7 +58,8 @@ if [ ! -f "${SNAPSHOT_FILE}" ]; then
     --validatorsDir="${VALIDATORS_DIR}" \
     --totalValidators="${NUM_VALIDATORS}" \
     --outputGenesis="${SNAPSHOT_FILE}" \
-    --outputNetwork="${NETWORK_METADATA_FILE}" \
+    --outputNetworkMetadata="${NETWORK_METADATA_FILE}" \
+    --outputBootstrapNodes="${SIMULATION_DIR}/bootstrap_nodes.txt" \
     --bootstrapAddress=127.0.0.1 \
     --bootstrapPort=50000 \
     --genesisOffset=5 # Delay in seconds
