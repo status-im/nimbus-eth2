@@ -16,31 +16,39 @@ ARG GIT_REVISION
 
 RUN export GOROOT=/usr/local/go \
  && export PATH=$GOROOT/bin:$PATH \
- && git clone https://github.com/status-im/nimbus.git \
- && cd nimbus \
+ && git clone https://github.com/status-im/nim-beacon-chain.git \
+ && cd nim-beacon-chain \
  && git reset --hard ${GIT_REVISION} \
- && make update deps vendor/go/bin/p2pd nat-libs \
+ && git submodule update --init --recursive
+
+RUN cd nim-beacon-chain \
+ && make build-system-checks
+
+# TODO: The command above exits with 1, so we cannot chain it cleanly
+RUN cd nim-beacon-chain \
+ && export PATH=/usr/local/go/bin:$PATH \
+ && make update deps \
  && cp vendor/go/bin/p2pd /usr/bin/p2pd \
- && cp docker/beacon_node/run_in_docker.sh /usr/bin/run_beacon_node.sh
+ && cp docker/run_in_docker.sh /usr/bin/run_beacon_node.sh
 
 ARG NETWORK
 ARG NETWORK_TYPE
 
-RUN cd nimbus \
+RUN cd nim-beacon-chain \
  && set -a \
- && . vendor/nim-beacon-chain/scripts/${NETWORK}.env \
+ && . scripts/${NETWORK}.env \
  && ./env.sh nim \
       -o:/usr/bin/beacon_node \
       -d:release \
       --debugger:native \
       --debugInfo \
       -d:"network_type=${NETWORK_TYPE}" \
-      -d:SHARD_COUNT=${SHARD_COUNT} \
-      -d:SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH} \
-      -d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT} \
-      -d:chronicles_log_level=DEBUG \
-      -d:chronicles_sinks=json \
-      c vendor/nim-beacon-chain/beacon_chain/beacon_node.nim
+      -d:"SHARD_COUNT=${SHARD_COUNT}" \
+      -d:"SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH}" \
+      -d:"SECONDS_PER_SLOT=${SECONDS_PER_SLOT}" \
+      -d:"chronicles_log_level=DEBUG" \
+      -d:"chronicles_sinks=json" \
+      c beacon_chain/beacon_node.nim
 
 # --------------------------------- #
 # Starting new image to reduce size #
@@ -48,7 +56,7 @@ RUN cd nimbus \
 FROM debian:9-slim
 
 RUN apt update \
- && apt install -y librocksdb-dev curl \
+ && apt install -y librocksdb-dev curl psmisc \
  && apt clean \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
@@ -59,4 +67,9 @@ COPY --from=build /usr/bin/p2pd /usr/bin/p2pd
 MAINTAINER Zahary Karadjov <zahary@status.im>
 LABEL description="Nimbus installation that can act as an ETH2 network bootstrap node."
 
+RUN echo Built from Git revision: ${GIT_REVISION}
+
+# TODO: This custom entry script is necessary only because we must clean up
+#       temporary files left by previous executions of the Go daeamon.
+#       We should be able to remove it once we have a native LibP2P impl.
 ENTRYPOINT ["/usr/bin/run_beacon_node.sh"]

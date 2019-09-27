@@ -34,7 +34,7 @@ LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.js
 if [ ! -f "${LAST_VALIDATOR}" ]; then
   $BEACON_NODE_BIN makeDeposits \
     --totalDeposits="${NUM_VALIDATORS}" \
-    --depositDir="$VALIDATORS_DIR" \
+    --depositsDir="$VALIDATORS_DIR" \
     --randomKeys=false
 fi
 
@@ -45,7 +45,8 @@ if [ ! -f "${SNAPSHOT_FILE}" ]; then
     --validatorsDir="${VALIDATORS_DIR}" \
     --totalValidators="${NUM_VALIDATORS}" \
     --outputGenesis="${SNAPSHOT_FILE}" \
-    --outputNetwork="${NETWORK_METADATA_FILE}" \
+    --outputNetworkMetadata="${NETWORK_METADATA_FILE}" \
+    --outputBootstrapNodes="${SIMULATION_DIR}/bootstrap_nodes.txt" \
     --bootstrapAddress=127.0.0.1 \
     --bootstrapPort=50000 \
     --genesisOffset=10 # Delay in seconds

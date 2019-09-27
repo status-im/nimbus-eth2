@@ -21,7 +21,8 @@ The `beacon_node` binary has a `createTestnet` command.
     --totalValidators=$VALIDATOR_COUNT \
     --lastUserValidator=$LAST_USER_VALIDATOR \
     --outputGenesis=$NETWORK_DIR/genesis.json \
-    --outputNetwork=$NETWORK_DIR/network.json \
+    --outputNetworkMetadata=$NETWORK_DIR/network.json \
+    --outputBootstrapNodes=$NETWORK_DIR/bootstrap_nodes.txt \
     --bootstrapAddress=$PUBLIC_IP \
     --genesisOffset=600 # Delay in seconds
 ```
@@ -29,3 +30,8 @@ The `beacon_node` binary has a `createTestnet` command.
 Replace ENV vars with values that make sense to you.
 
 Full tutorial coming soon.
+
+## Maintaining the Status testnets
+
+For detailed instructions, please see https://github.com/status-im/nimbus-private/blob/master/testnets-maintenance.md
+
