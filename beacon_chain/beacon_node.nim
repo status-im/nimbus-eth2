@@ -912,6 +912,15 @@ when isMainModule:
     Json.saveFile(config.outputNetworkMetadata.string, testnetMetadata, pretty = true)
     echo "Wrote ", config.outputNetworkMetadata.string
 
+    let bootstrapFile = config.outputBootstrapNodes.string
+    if bootstrapFile.len > 0:
+      let bootstrapAddrLine = when networkBackend == libp2pBackend:
+        $bootstrapAddress.addresses[0] & "/p2p/" & bootstrapAddress.peer.pretty
+      else:
+        $bootstrapAddress
+      writeFile(bootstrapFile, bootstrapAddrLine)
+      echo "Wrote ", bootstrapFile
+
   of updateTestnet:
     discard waitFor updateTestnetMetadata(config)
 
