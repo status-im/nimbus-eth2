@@ -36,10 +36,11 @@ set -x
 
 cd "$SRCDIR"
 
+rm -rf /tmp/beacon-prysm
+
 "$(bazel info bazel-bin)/beacon-chain/${OS}_stripped/beacon-chain" \
-  --datadir /tmp/beacon \
+  --datadir /tmp/beacon-prysm \
   --pprof --verbosity=debug \
-  --clear-db \
   --bootstrap-node= \
   --peer=$(cat ../data/bootstrap_nodes.txt) \
   --interop-eth1data-votes \

@@ -70,6 +70,6 @@ cd "$SRCDIR/target/release"
 # fresh start!
 rm -rf ~/.lighthouse
 
-./beacon_node --libp2p-addresses="$(cat ../data/bootstrap_nodes.txt)" testnet --spec minimal quick $VALIDATORS_TOTAL $GENESIS_TIME &
+./beacon_node --libp2p-addresses="/ip4/127.0.0.1/tcp/50000" testnet --spec minimal quick $VALIDATORS_TOTAL $GENESIS_TIME &
 
 ./validator_client testnet -b insecure $VALIDATORS_START $VALIDATORS_NUM
