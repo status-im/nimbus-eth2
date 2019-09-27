@@ -2,7 +2,12 @@
 
 set -eu
 
-. $(dirname $0)/vars.sh
+VALIDATORS_START=${1:-20}
+VALIDATORS_NUM=${2:-5}
+VALIDATORS_TOTAL=${3:-25}
+
+source "$(dirname "$0")/vars.sh"
+
 cd "$GIT_ROOT"
 
 DATA_DIR="${SIMULATION_DIR}/node-0"
@@ -15,17 +20,20 @@ if [ "${NAT:-}" == "1" ]; then
   NAT_FLAG="--nat:any"
 fi
 
-FIRST_VALIDATOR_IDX=$(( (NUM_VALIDATORS / ($NUM_NODES + $NUM_MISSING_NODES)) * $1 ))
-LAST_VALIDATOR_IDX=$(( (NUM_VALIDATORS / ($NUM_NODES + $NUM_MISSING_NODES)) * ($1 + 1) - 1 ))
-
 mkdir -p $DATA_DIR/validators
 rm -f $DATA_DIR/validators/*
 
 pushd $VALIDATORS_DIR >/dev/null
-  cp $(seq -s " " -f v%07g.privkey $FIRST_VALIDATOR_IDX $LAST_VALIDATOR_IDX) $DATA_DIR/validators
+  cp $(seq -s " " -f v%07g.privkey $VALIDATORS_START $(($VALIDATORS_START+$VALIDATORS_NUM-1))) $DATA_DIR/validators
 popd >/dev/null
 
-$BEACON_NODE_BIN \
+rm -rf "$DATA_DIR/dump"
+mkdir -p "$DATA_DIR/dump"
+
+set -x
+trap 'kill -9 -- -$$' SIGINT EXIT SIGTERM
+
+./env.sh $BEACON_NODE_BIN \
   --network:$NETWORK_METADATA_FILE \
   --dataDir:$DATA_DIR \
   --nodename:0 \

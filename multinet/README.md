@@ -6,7 +6,7 @@ In general, follow the build instructions of `nim-beacon-chain` as documented in
 
 ### Prerequisites
 
-:warning: To build nimbus, you need to have `rocksdb` and `pcre` installed - see [../](main repo) for instructions.
+:warning: To build nimbus, you need to have the `go` compiler (for go-libp2p-daemon), `rocksdb` and `pcre` installed - see [../](main repo) for instructions.
 
 ```bash
 # Clone repo
@@ -38,6 +38,9 @@ cd multinet
 # Or do all in one step, with multitail
 USE_MULTITAIL=1 ./run_all.sh
 
+# The client scripts take optional arguments:
+# ./script.sh <start_validator_num> <number_of_validators> <total_validators>
+./run_nimbus.sh 0 20 40 # run nimbus with 20 validators, starting from 0, on a 40-validator network
 ```
 
 ## Diagnostics
