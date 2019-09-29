@@ -39,10 +39,12 @@ type
     fullPeerId* {.desc: "Sets the inspector full PeerID output",
                   longform: "fullpeerid", shortform: "pid",
                   defaultValue: false.}: bool
-    topics* {.desc: "Sets inspector monitoring topics, where `*` - all, " &
+    topics* {.desc: "Sets monitored topics, where `*` - all, " &
                     "[a]ttestations, [b]locks, [e]xits, " &
                     "[ps]roposer slashings, [as]ttester slashings",
               longform: "topics", shortform: "t".}: seq[string]
+    customTopics* {.desc: "Sets custom monitored topics",
+                    longform: "custom", shortform: "c".}: seq[string]
     bootstrapFile* {.
       desc: "Specifies file which holds bootstrap nodes multiaddresses " &
             "delimeted by CRLF",
@@ -151,14 +153,15 @@ proc run(conf: InspectorConf) {.async.} =
       warn "Bootnode address is not valid MultiAddress", address = nodeString
 
   if len(bootnodes) == 0:
-    error "Not enough bootnodes to establish connection"
+    error "Not enough bootnodes to establish connection with network"
     quit(1)
 
   info InspectorIdent & " starting", bootnodes = bootnodes,
                                      topic_filters = topics
+
+  var flags = {DHTClient, PSGossipSub, WaitBootstrap}
   try:
-    api = await newDaemonApi({DHTClient, PSGossipSub, WaitBootstrap},
-                             bootstrapNodes = bootnodes,
+    api = await newDaemonApi(flags, bootstrapNodes = bootnodes,
                              peersRequired = 1)
     var identity = await api.identity()
     info InspectorIdent & " started", peerID = getPeerId(identity.peer, conf),
@@ -173,6 +176,10 @@ proc run(conf: InspectorConf) {.async.} =
       let topic = getTopic(filter)
       let t = await api.pubsubSubscribe(topic, pubsubLogger)
       info "Subscribed to topic", topic = topic
+      subs.add((ticket: t, future: t.transp.join()))
+    for filter in conf.customTopics:
+      let t = await api.pubsubSubscribe(filter, pubsubLogger)
+      info "Subscribed to custom topic", topic = filter
       subs.add((ticket: t, future: t.transp.join()))
   except:
     error "Could not subscribe to topics", exception = getCurrentExceptionMsg()
