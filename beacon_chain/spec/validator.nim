@@ -67,7 +67,7 @@ func get_shuffled_seq*(seed: Eth2Digest,
       let
         cur_idx_permuted = shuffled_active_validator_indices[index]
         flip = ((list_size + pivot) - cur_idx_permuted.uint64) mod list_size
-        position = max(cur_idx_permuted, flip.int)
+        position = max(cur_idx_permuted.int, flip.int)
 
       let
         source = sources[position div 256].data
