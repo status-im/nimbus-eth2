@@ -36,6 +36,7 @@ install:
 
 script:
   - set -e # fail fast
+  - make -j2 update # to allow a newer Nim version to be detected
   - make -j2
   - make -j2 DISABLE_LFS_SCRIPT=1 test
 

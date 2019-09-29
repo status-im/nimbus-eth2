@@ -37,7 +37,7 @@ proc writeJson*(prefix, slot, v: auto) =
   let fileName = fmt"{prefix:04}-{shortLog(slot):08}.json"
   Json.saveFile(fileName, v, pretty = true)
 
-cli do(slots = 448,
+cli do(slots = 448'u,
        validators = SLOTS_PER_EPOCH * 9, # One per shard is minimum
        json_interval = SLOTS_PER_EPOCH,
        prefix = 0,
