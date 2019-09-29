@@ -12,7 +12,7 @@ Nimbus beacon chain is a research implementation of the beacon chain component o
 A branch with interop specific instructions, ncli and scripts to run multiple clients is available in the [interop branch](https://github.com/status-im/nim-beacon-chain/tree/interop) in the [multinet folder](https://github.com/status-im/nim-beacon-chain/tree/interop/multinet).
 
 ⚠️ Important: To save bandwith `export GIT_LFS_SKIP_SMUDGE=1` before cloning the repo.
-This prevent LFS during unusual clones (i.e. when you add `--recurse-submodules` without being instructed to do so).
+This prevents LFS during unusual clones (i.e. when you add `--recurse-submodules` without being instructed to do so).
 
 ## Related
 
