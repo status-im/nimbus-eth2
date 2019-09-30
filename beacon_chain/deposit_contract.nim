@@ -16,8 +16,8 @@ type
     depositWeb3Url* {.
       desc: "URL of the Web3 server to observe Eth1"}: string
     privateKey* {.
-      desc: "Private key of the ",
-      defaultValue: ""}: string
+      desc: "Private key of the controlling account",
+        defaultValue: ""}: string
 
     case cmd* {.command.}: StartUpCommand
     of deploy:
@@ -25,7 +25,7 @@ type
 
     of drain:
       contractAddress* {.
-        desc: "URL of the Web3 server to observe Eth1",
+        desc: "Address of the contract to drain",
         defaultValue: ""}: string
 
     of sendEth:
@@ -40,23 +40,23 @@ proc deployContract*(web3: Web3, code: string): Future[Address] {.async.} =
   var code = code
   if code[1] notin {'x', 'X'}:
     code = "0x" & code
-  var tr: EthSend
-  tr.source = web3.defaultAccount
-  tr.data = code
-  tr.gas = Quantity(3000000).some
-  tr.gasPrice = 1.some
+  let tr = EthSend(
+    source: web3.defaultAccount,
+    data: code,
+    gas: Quantity(3000000).some,
+    gasPrice: 1.some)
 
   let r = await web3.send(tr)
   let receipt = await provider.eth_getTransactionReceipt(r)
   result = receipt.contractAddress.get
 
 proc sendEth(web3: Web3, to: string, valueEth: int): Future[TxHash] =
-  var tr: EthSend
-  tr.source = web3.defaultAccount
-  tr.gas = Quantity(3000000).some
-  tr.gasPrice = 1.some
-  tr.value = some(valueEth.u256 * 1000000000000000000.u256)
-  tr.to = Address.fromHex(to).some
+  let tr = EthSend(
+    source: web3.defaultAccount,
+    gas: Quantity(3000000).some,
+    gasPrice: 1.some,
+    value: some(valueEth.u256 * 1000000000000000000.u256),
+    to: Address.fromHex(to).some)
   web3.send(tr)
 
 proc main() {.async.} =
