@@ -22,9 +22,9 @@ make
 
 ```
 # Build with minimal config
-../env.sh nim c ncli_transition -d:const_preset=minimal
+../env.sh nim c -d:const_preset=minimal ncli_transition
 # Build with mainnet config
-../env.sh nim c ncli_transition -d:const_preset=mainnet
+../env.sh nim c -d:const_preset=mainnet ncli_transition
 
 # Run..
 ./ncli_transition --help
