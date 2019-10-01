@@ -176,6 +176,7 @@ func get_winning_crosslink_and_attesting_indices(
 
   let winning_attestations =
     filterIt(attestations, it.data.crosslink == winning_crosslink)
+
   (winning_crosslink,
    get_unslashed_attesting_indices(state, winning_attestations, stateCache))
 
@@ -364,6 +365,7 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
       get_matching_target_attestations(state, previous_epoch)
     matching_head_attestations =
       get_matching_head_attestations(state, previous_epoch)
+
   for attestations in
       [matching_source_attestations, matching_target_attestations,
        matching_head_attestations]:
@@ -392,23 +394,33 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
       state, matching_source_attestations, stateCache):
     # Translation of attestation = min([...])
     doAssert matching_source_attestations.len > 0
-    var attestation = matching_source_attestations[0]
+
+    # Start by filtering the right attestations
+    var filtered_matching_source_attestations: seq[PendingAttestation]
+
     for source_attestation_index, a in matching_source_attestations:
       if index notin
           source_attestation_attesting_indices[source_attestation_index]:
         continue
+      filtered_matching_source_attestations.add a
 
+    # The first filtered attestation serves as min until we find something
+    # better
+    var attestation = filtered_matching_source_attestations[0]
+    for source_attestation_index, a in filtered_matching_source_attestations:
       if a.inclusion_delay < attestation.inclusion_delay:
         attestation = a
 
     let proposer_reward =
       (get_base_reward(state, index) div PROPOSER_REWARD_QUOTIENT).Gwei
+
     rewards[attestation.proposer_index.int] += proposer_reward
     let max_attester_reward = get_base_reward(state, index) - proposer_reward
+
     rewards[index] +=
-      (max_attester_reward *
+      ((max_attester_reward *
        ((SLOTS_PER_EPOCH + MIN_ATTESTATION_INCLUSION_DELAY).uint64 -
-       attestation.inclusion_delay) div SLOTS_PER_EPOCH).Gwei
+       attestation.inclusion_delay)) div SLOTS_PER_EPOCH).Gwei
 
   # Inactivity penalty
   let finality_delay = previous_epoch - state.finalized_checkpoint.epoch
@@ -444,6 +456,7 @@ func get_crosslink_deltas*(state: BeaconState, cache: var StateCache):
           state, epoch, shard, cache)
       attesting_balance = get_total_balance(state, attesting_indices)
       committee_balance = get_total_balance(state, crosslink_committee)
+
     for index in crosslink_committee:
       let base_reward = get_base_reward(state, index)
       if index in attesting_indices:
@@ -463,6 +476,7 @@ func process_rewards_and_penalties(
   let
     (rewards1, penalties1) = get_attestation_deltas(state, cache)
     (rewards2, penalties2) = get_crosslink_deltas(state, cache)
+
   for i in 0 ..< len(state.validators):
     increase_balance(state, i.ValidatorIndex, rewards1[i] + rewards2[i])
     decrease_balance(state, i.ValidatorIndex, penalties1[i] + penalties2[i])
