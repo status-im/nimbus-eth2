@@ -39,5 +39,6 @@ cd "$SRCDIR/packages/lodestar"
 # -v is optional
 ./bin/lodestar interop -p minimal --db l1 \
   -q ../../../data/state_snapshot.ssz \
-  --multiaddrs "$(cat ../../../data/bootstrap_nodes.txt)" \
+  --multiaddrs /ip4/127.0.0.1/tcp/19004 \
+  --bootnodes "$(cat ../../../data/bootstrap_nodes.txt)" \
   -r -v $VALIDATORS_START,$(($VALIDATORS_START+$VALIDATORS_NUM))
