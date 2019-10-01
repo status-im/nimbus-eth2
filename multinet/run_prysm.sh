@@ -26,7 +26,7 @@ else
 fi
 
 [[ -d "$SRCDIR" ]] || {
-  git clone git@github.com:prysmaticlabs/prysm.git "$SRCDIR"
+  git clone https://github.com/prysmaticlabs/prysm.git "$SRCDIR"
   pushd "$SRCDIR"
   bazel build --define ssz=minimal //beacon-chain //validator
   popd
