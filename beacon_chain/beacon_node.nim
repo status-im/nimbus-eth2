@@ -5,19 +5,13 @@ import
   json_serialization/std/[options, sets], serialization/errors,
   eth/trie/db, eth/trie/backends/rocksdb_backend, eth/async_utils,
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator,
-  state_transition_block],
+  state_transition_block, network],
   conf, time, state_transition, fork_choice, ssz, beacon_chain_db,
   validator_pool, extras, attestation_pool, block_pool, eth2_network,
   beacon_node_types, mainchain_monitor, trusted_state_snapshots, version,
   sync_protocol, request_manager, validator_keygen, interop
 
 const
-  topicBeaconBlocks = "/eth2/beacon_block/ssz"
-  topicAttestations = "/eth2/beacon_attestation/ssz"
-  topicVoluntaryExits = "/eth2/voluntary_exit/ssz"
-  topicProposerSlashings = "/eth2/proposer_slashing/ssz"
-  topicAttesterSlashings = "/eth2/attester_slashing/ssz"
-
   dataDirValidators = "validators"
   networkMetadataFile = "network.json"
   genesisFile = "genesis.json"
