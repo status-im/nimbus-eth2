@@ -48,9 +48,7 @@ suite "[Unit - Spec - Epoch processing] Crosslinks " & preset():
 
     state.add(attestation, state.slot + MIN_ATTESTATION_INCLUSION_DELAY)
 
-    # TODO: all attestations are duplicated at the moment
-    # pending fix of https://github.com/status-im/nim-beacon-chain/issues/361
-    check: state.current_epoch_attestations.len == 2
+    check: state.current_epoch_attestations.len == 1
 
     # For sanity checks
     let shard = attestation.data.crosslink.shard
@@ -94,9 +92,7 @@ suite "[Unit - Spec - Epoch processing] Crosslinks " & preset():
       nextEpoch(state)
       state.add(attestation_2, state.slot + 1)
 
-      # TODO: all attestations are duplicated at the moment
-      # pending fix of https://github.com/status-im/nim-beacon-chain/issues/361
-      check: state.previous_epoch_attestations.len == 2
+      check: state.previous_epoch_attestations.len == 1
       check: state.current_epoch_attestations.len == 0
 
       var cache = get_empty_per_epoch_cache()
