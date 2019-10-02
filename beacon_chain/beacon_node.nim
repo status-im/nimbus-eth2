@@ -1,9 +1,14 @@
 import
+  # Standard library
   net, sequtils, tables, osproc, random, strutils, times, strformat,
+
+  # Nimble packages
   stew/shims/os, stew/[objects, bitseqs],
   chronos, chronicles, confutils, metrics,
   json_serialization/std/[options, sets], serialization/errors,
   eth/trie/db, eth/trie/backends/rocksdb_backend, eth/async_utils,
+
+  # Local modules
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator,
   state_transition_block, network],
   conf, time, state_transition, fork_choice, ssz, beacon_chain_db,
@@ -16,6 +21,7 @@ const
   networkMetadataFile = "network.json"
   genesisFile = "genesis.json"
   testnetsBaseUrl = "https://serenity-testnets.status.im"
+  hasPrompt = not defined(withoutPrompt)
 
 declareGauge beacon_slot, "Latest slot of the beacon chain state"
 declareGauge beacon_head_slot, "Slot of the head block of the beacon chain"
@@ -825,6 +831,32 @@ proc start(node: BeaconNode, headState: BeaconState) =
   node.addLocalValidators(headState)
   node.run()
 
+when hasPrompt:
+  from unicode import Rune
+  import terminal, prompt
+
+  proc providePromptCompletions*(line: seq[Rune], cursorPos: int): seq[string] =
+    # TODO
+    # The completions should be generated with the general-purpose command-line
+    # parsing API of Confutils
+    result = @[]
+
+  proc initPrompt(node: BeaconNode) =
+    doAssert defaultChroniclesStream.outputs.len > 0
+    doAssert defaultChroniclesStream.output is DynamicOutput
+
+    if isatty(stdout):
+      var p = Prompt.init("nimbus > ", providePromptCompletions)
+      p.useHistoryFile()
+
+      defaultChroniclesStream.output.writer =
+        proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe.} =
+          p.writeLine(msg)
+    else:
+      defaultChroniclesStream.output.writer =
+        proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe.} =
+          stdout.writeLine(msg)
+
 when isMainModule:
   randomize()
   let config = BeaconNodeConf.load(version = fullVersionStr())
@@ -854,7 +886,6 @@ when isMainModule:
         stderr.write err.formatMsg(depositFile), "\n"
         stderr.write "Please regenerate the deposit files by running makeDeposits again\n"
         quit 1
-
 
     var
       startTime = uint64(times.toUnix(times.getTime()) + config.genesisOffset)
@@ -933,6 +964,7 @@ when isMainModule:
     createPidFile(config.dataDir.string / "beacon_node.pid")
 
     var node = waitFor BeaconNode.init(config)
+    when hasPrompt: initPrompt(node)
 
     # TODO slightly ugly to rely on node.stateCache state here..
     if node.nickname != "":

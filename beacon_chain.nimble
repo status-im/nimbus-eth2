@@ -29,6 +29,7 @@ requires "nim >= 0.19.0",
   "nimcrypto",
   "serialization",
   "stew",
+  "prompt",
   "web3",
   "yaml"
 
