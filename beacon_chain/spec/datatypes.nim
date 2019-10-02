@@ -73,7 +73,14 @@ template maxSize*(n: int) {.pragma.}
 type
   Bytes = seq[byte]
 
-  ValidatorIndex* = range[0'u32 .. 0xFFFFFF'u32] # TODO: wrap-around
+  # https://github.com/nim-lang/Nim/issues/574 and be consistent across
+  # 32-bit and 64-bit word platforms.
+  # TODO VALIDATOR_REGISTRY_LIMIT is 1 shl 40 in 0.8.3, and
+  # proc newSeq(typ: PNimType, len: int): pointer {.compilerRtl.}
+  # in Nim/lib/system/gc.nim quite tightly ties seq addressibility
+  # to the system wordsize. This lifts smaller, and now incorrect,
+  # range-limit.
+  ValidatorIndex* = distinct uint32
   Shard* = uint64
   Gwei* = uint64
 
@@ -516,6 +523,24 @@ template ethTimeUnit(typ: type) {.dirty.} =
 
 proc `%`*(i: uint64): JsonNode =
   % int(i)
+
+# `ValidatorIndex` seq handling.
+proc max*(a: ValidatorIndex, b: int) : auto =
+  max(a.int, b)
+
+proc `[]`*[T](a: var seq[T], b: ValidatorIndex): var T =
+  a[b.int]
+
+proc `[]`*[T](a: seq[T], b: ValidatorIndex): auto =
+  a[b.int]
+
+proc `[]=`*[T](a: var seq[T], b: ValidatorIndex, c: T) =
+  a[b.int] = c
+
+# `ValidatorIndex` Nim integration
+proc `==`*(x, y: ValidatorIndex) : bool {.borrow.}
+proc hash*(x: ValidatorIndex): Hash {.borrow.}
+proc `$`*(x: ValidatorIndex): auto = $(x.int64)
 
 ethTimeUnit Slot
 ethTimeUnit Epoch

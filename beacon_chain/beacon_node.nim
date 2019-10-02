@@ -307,7 +307,7 @@ proc addLocalValidators(node: BeaconNode, state: BeaconState) =
   info "Local validators attached ", count = node.attachedValidators.count
 
 proc getAttachedValidator(
-    node: BeaconNode, state: BeaconState, idx: int): AttachedValidator =
+    node: BeaconNode, state: BeaconState, idx: ValidatorIndex): AttachedValidator =
   let validatorKey = state.validators[idx].pubkey
   node.attachedValidators.getValidator(validatorKey)
 

@@ -39,7 +39,7 @@ type
   SszWriter* = object
     stream: OutputStreamVar
 
-  BasicType = char|bool|SomeUnsignedInt|StUint
+  BasicType = char|bool|SomeUnsignedInt|StUint|ValidatorIndex
 
   SszChunksMerkelizer = ref object of RootObj
     combinedChunks: array[maxChunkTreeDepth, Eth2Digest]
