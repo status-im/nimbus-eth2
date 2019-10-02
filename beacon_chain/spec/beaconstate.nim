@@ -621,7 +621,7 @@ proc process_attestation*(
         data: attestation.data,
         aggregation_bits: attestation.aggregation_bits,
         inclusion_delay: state.slot - attestation_slot,
-        proposer_index: get_beacon_proposer_index(state, stateCache),
+        proposer_index: get_beacon_proposer_index(state, stateCache).uint64,
       )
 
     if attestation.data.target.epoch == get_current_epoch(state):

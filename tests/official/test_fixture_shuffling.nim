@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  os, unittest,
+  os, unittest, sequtils,
   # Beacon chain internals
   ../../beacon_chain/spec/[datatypes, validator, digest],
   # Test utilities
@@ -18,7 +18,7 @@ type
   Shuffling* = object
     seed*: Eth2Digest
     count*: uint64
-    mapping*: seq[ValidatorIndex]
+    mapping*: seq[uint64]
 
 const ShufflingDir = JsonTestsDir/const_preset/"phase0"/"shuffling"/"core"/"shuffle"
 
@@ -27,4 +27,4 @@ suite "Official - Shuffling tests [Preset: " & preset():
     for file in walkDirRec(ShufflingDir):
       let t = parseTest(file, Json, Shuffling)
       let implResult = get_shuffled_seq(t.seed, t.count)
-      check: implResult == t.mapping
+      check: implResult == mapIt(t.mapping, it.ValidatorIndex)
