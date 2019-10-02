@@ -121,3 +121,13 @@
 	url = https://github.com/arnetheduck/nim-result.git
 	ignore = dirty
 	branch = master
+[submodule "vendor/nim-prompt"]
+	path = vendor/nim-prompt
+	url = https://github.com/status-im/nim-prompt.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-unicodedb"]
+	path = vendor/nim-unicodedb
+	url = https://github.com/nitely/nim-unicodedb.git
+	ignore = dirty
+	branch = master
