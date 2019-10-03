@@ -22,54 +22,63 @@ type
   BeaconNodeConf* = object
     logLevel* {.
       desc: "Sets the log level",
-      defaultValue: enabledLogLevel.}: LogLevel
+      defaultValue: enabledLogLevel }: LogLevel
 
     network* {.
       desc: "The network Nimbus should connect to. " &
             "Possible values: testnet0, testnet1, mainnet, custom-network.json"
       longform: "network"
       shortform: "n"
-      defaultValue: DEFAULT_NETWORK .}: string
+      defaultValue: DEFAULT_NETWORK }: string
 
     quickStart* {.
       desc: "Run in quickstart mode",
-      defaultValue: false.}: bool
+      defaultValue: false }: bool
 
     dataDir* {.
       desc: "The directory where nimbus will store all blockchain data."
       shortform: "d"
-      defaultValue: config.defaultDataDir().}: OutDir
+      defaultValue: config.defaultDataDir() }: OutDir
 
     depositWeb3Url* {.
       desc: "URL of the Web3 server to observe Eth1",
-      defaultValue: ""}: string
+      defaultValue: "" }: string
 
     depositContractAddress* {.
       desc: "Address of the deposit contract",
-      defaultValue: ""}: string
+      defaultValue: "" }: string
+
+    statusbar* {.
+      desc: "Display a status bar at the bottom of the terminal screen"
+      defaultValue: true }: bool
+
+    statusbarContents* {.
+      desc: ""
+      defaultValue: "peers: $connected_peers; finalized epoch: $last_finalized_epoch |" &
+                    "ETH: $attached_validators_balance" }: string
 
     case cmd* {.
       command
-      defaultValue: noCommand.}: StartUpCommand
+      defaultValue: noCommand }: StartUpCommand
 
     of noCommand:
       bootstrapNodes* {.
         desc: "Specifies one or more bootstrap nodes to use when connecting to the network."
         longform: "bootstrapNode"
-        shortform: "b".}: seq[string]
+        shortform: "b" }: seq[string]
 
       bootstrapNodesFile* {.
         desc: "Specifies a line-delimited file of bootsrap Ethereum network addresses"
         shortform: "f"
-        defaultValue: "".}: InputFile
+        defaultValue: "" }: InputFile
 
       tcpPort* {.
         desc: "TCP listening port"
-        defaultValue: defaultPort(config) .}: int
+        defaultValue: defaultPort(config) }: int
 
       udpPort* {.
         desc: "UDP listening port",
-        defaultValue: defaultPort(config) .}: int
+        defaultValue: defaultPort(config) }: int
 
       nat* {.
         desc: "Specify method to use for determining public address. Must be one of: any, none, upnp, pmp, extip:<IP>"

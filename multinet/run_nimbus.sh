@@ -34,6 +34,7 @@ set -x
 trap 'kill -9 -- -$$' SIGINT EXIT SIGTERM
 
 ./env.sh $BEACON_NODE_BIN \
+  --statusbar:off \
   --network:$NETWORK_METADATA_FILE \
   --dataDir:$DATA_DIR \
   --nodename:0 \
