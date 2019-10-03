@@ -35,7 +35,7 @@
 import # TODO - cleanup imports
   algorithm, math, options, sequtils, tables,
   stew/[bitseqs, bitops2], chronicles, json_serialization/std/sets,
-  ../extras, ../ssz, ../beacon_node_types,
+  metrics, ../extras, ../ssz, ../beacon_node_types,
   beaconstate, crypto, datatypes, digest, helpers, validator,
   state_transition_helpers
 
@@ -43,6 +43,15 @@ import # TODO - cleanup imports
 # --------------------------------------------------------
 
 logScope: topics = "consens"
+
+# TODO Implement the _root metrics
+# https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md
+declareGauge beacon_finalized_epoch, "Current finalized epoch" # On epoch transition
+declareGauge beacon_finalized_root, "Current finalized root" # On epoch transition
+declareGauge beacon_current_justified_epoch, "Current justified epoch" # On epoch transition
+declareGauge beacon_current_justified_root, "Current justified root" # On epoch transition
+declareGauge beacon_previous_justified_epoch, "Current previously justified epoch" # On epoch transition
+declareGauge beacon_previous_justified_root, "Current previously justified root" # On epoch transition
 
 # Spec
 # --------------------------------------------------------
@@ -600,3 +609,10 @@ proc process_epoch*(state: var BeaconState) =
   process_final_updates(state)
 
   # @after_process_final_updates
+
+  # Once per epoch metrics
+  beacon_finalized_epoch.set(state.finalized_checkpoint.epoch.int64)
+  beacon_current_justified_epoch.set(
+    state.current_justified_checkpoint.epoch.int64)
+  beacon_previous_justified_epoch.set(
+    state.previous_justified_checkpoint.epoch.int64)

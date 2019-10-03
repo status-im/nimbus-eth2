@@ -21,14 +21,6 @@ declareGauge beacon_slot, "Latest slot of the beacon chain state"
 declareGauge beacon_head_slot, "Slot of the head block of the beacon chain"
 declareGauge beacon_head_root, "Root of the head block of the beacon chain"
 
-# TODO Implement these additional metrics (some of the them should be moved to different modules):
-declareGauge beacon_finalized_epoch, "Current finalized epoch" # On epoch transition
-declareGauge beacon_finalized_root, "Current finalized root" # On epoch transition
-declareGauge beacon_current_justified_epoch, "Current justified epoch" # On epoch transition
-declareGauge beacon_current_justified_root, "Current justified root" # On epoch transition
-declareGauge beacon_previous_justified_epoch, "Current previously justified epoch" # On epoch transition
-declareGauge beacon_previous_justified_root, "Current previously justified root" # On epoch transition
-
 declareGauge beacon_current_validators, """Number of status="pending|active|exited|withdrawable" validators in current epoch""" # On epoch transition
 declareGauge beacon_previous_validators, """Number of status="pending|active|exited|withdrawable" validators in previous epoch""" # On epoch transition
 declareGauge beacon_current_live_validators, "Number of active validators that successfully included attestation on chain for current epoch" # On block
