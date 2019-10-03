@@ -8,7 +8,7 @@ when networkBackend == rlpxBackend:
   import eth/rlp/options as rlpOptions
   template libp2pProtocol*(name: string, version: int) {.pragma.}
 
-declareGauge libp2p_peers, "Number of libp2p peers"
+declarePublicGauge libp2p_peers, "Number of libp2p peers"
 
 type
   ValidatorSetDeltaFlags {.pure.} = enum

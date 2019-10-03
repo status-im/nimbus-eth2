@@ -14,7 +14,7 @@ import
   conf, time, state_transition, fork_choice, ssz, beacon_chain_db,
   validator_pool, extras, attestation_pool, block_pool, eth2_network,
   beacon_node_types, mainchain_monitor, trusted_state_snapshots, version,
-  sync_protocol, request_manager, validator_keygen, interop
+  sync_protocol, request_manager, validator_keygen, interop, statusbar
 
 const
   dataDirValidators = "validators"
@@ -287,7 +287,7 @@ proc addLocalValidator(
   if idx == -1:
     warn "Validator not in registry", pubKey
   else:
-    node.attachedValidators.addLocalValidator(pubKey, privKey)
+    node.attachedValidators.addLocalValidator(ValidatorIndex(idx), pubKey, privKey)
 
 proc addLocalValidators(node: BeaconNode, state: BeaconState) =
   for validatorKeyFile in node.config.validators:
@@ -831,6 +831,21 @@ proc start(node: BeaconNode, headState: BeaconState) =
   node.addLocalValidators(headState)
   node.run()
 
+func formatGwei(amount: uint64): string =
+  # TODO This is implemented in a quite a silly way.
+  # Better routines for formatting decimal numbers
+  # should exists somewhere else.
+  let
+    eth = amount div 1000000000
+    remainder = amount mod 1000000000
+
+  result = $eth
+  if remainder != 0:
+    result.add '.'
+    result.add $remainder
+    while result[^1] == '0':
+      result.setLen(result.len - 1)
+
 when hasPrompt:
   from unicode import Rune
   import terminal, prompt
@@ -841,25 +856,89 @@ when hasPrompt:
     # parsing API of Confutils
     result = @[]
 
+  proc processPromptCommands(p: ptr Prompt) {.thread.} =
+    while true:
+      var cmd = p[].readLine()
+      case cmd
+      of "quit":
+        quit 0
+      else:
+        p[].writeLine("Unknown command: " & cmd)
+
   proc initPrompt(node: BeaconNode) =
-    doAssert defaultChroniclesStream.outputs.len > 0
-    doAssert defaultChroniclesStream.output is DynamicOutput
+    if isatty(stdout) and node.config.statusbar:
+      enableTrueColors()
 
-    if isatty(stdout):
-      var p = Prompt.init("nimbus > ", providePromptCompletions)
-      p.useHistoryFile()
+      # TODO: nim-prompt seems to have threading issues at the moment
+      #       which result in sporadic crashes. We should introduce a
+      #       lock that guards the access to the internal prompt line
+      #       variable.
+      #
+      # var p = Prompt.init("nimbus > ", providePromptCompletions)
+      # p.useHistoryFile()
+
+      proc dataResolver(expr: string): string =
+        # TODO:
+        # We should introduce a general API for resolving dot expressions
+        # such as `db.latest_block.slot` or `metrics.connected_peers`.
+        # Such an API can be shared between the RPC back-end, CLI tools
+        # such as ncli, a potential GraphQL back-end and so on.
+        # The status bar feature would allow the user to specify an
+        # arbitrary expression that is resolvable through this API.
+        case expr.toLowerAscii
+        of "connected_peers":
+          $(sync_protocol.libp2p_peers.value.int)
+
+        of "last_finalized_epoch":
+          var head = node.blockPool.finalizedHead
+          # TODO: Should we display a state root instead?
+          $(head.slot) & "(" & shortLog(head.blck.root) & ")"
+
+        of "attached_validators_balance":
+          var balance = uint64(0)
+          for _, validator in node.attachedValidators.validators:
+            balance += node.stateCache.data.data.balances[validator.idx]
+          formatGwei(balance)
+
+        else:
+          # We ignore typos for now and just render the expression
+          # as it was written. TODO: come up with a good way to show
+          # an error message to the user.
+          "$" & expr
+
+      var statusBar = StatusBarView.init(
+        node.config.statusbarContents,
+        dataResolver)
 
       defaultChroniclesStream.output.writer =
         proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe.} =
-          p.writeLine(msg)
-    else:
-      defaultChroniclesStream.output.writer =
-        proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe.} =
-          stdout.writeLine(msg)
+          # p.hidePrompt
+          erase statusBar
+          # p.writeLine msg
+          stdout.write msg
+          render statusBar
+          # p.showPrompt
+
+      proc statusBarUpdatesPollingLoop() {.async.} =
+        while true:
+          update statusBar
+          await sleepAsync(1000)
+
+      traceAsyncErrors statusBarUpdatesPollingLoop()
+
+      # var t: Thread[ptr Prompt]
+      # createThread(t, processPromptCommands, addr p)
 
 when isMainModule:
   randomize()
   let config = BeaconNodeConf.load(version = fullVersionStr())
+
+  doAssert defaultChroniclesStream.outputs.len > 0
+  doAssert defaultChroniclesStream.output is DynamicOutput
+
+  defaultChroniclesStream.output.writer =
+    proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe.} =
+      stdout.write(msg)
 
   if config.logLevel != LogLevel.NONE:
     setLogLevel(config.logLevel)

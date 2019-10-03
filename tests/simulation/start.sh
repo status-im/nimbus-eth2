@@ -96,7 +96,7 @@ for i in $(seq 0 $LAST_NODE); do
     done
   fi
 
-  CMD="${SIM_ROOT}/run_node.sh $i"
+  CMD="${SIM_ROOT}/run_node.sh $i --statusbar:off"
 
   if [ "$USE_MULTITAIL" != "no" ]; then
     if [ "$i" = "0" ]; then
