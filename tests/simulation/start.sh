@@ -36,10 +36,10 @@ nim c -o:"$BEACON_NODE_BIN" $NIMFLAGS $DEFS beacon_chain/beacon_node
 
 if [ ! -f "${LAST_VALIDATOR}" ]; then
   echo Building $DEPLOY_DEPOSIT_CONTRACT_BIN
-  nim c -o:"$DEPLOY_DEPOSIT_CONTRACT_BIN" $NIMFLAGS $DEFS -d:release beacon_chain/deploy_deposit_contract
+  nim c -o:"$DEPLOY_DEPOSIT_CONTRACT_BIN" $NIMFLAGS $DEFS -d:release beacon_chain/deposit_contract
 
   if [ "$DEPOSIT_WEB3_URL_ARG" != "" ]; then
-    DEPOSIT_CONTRACT_ADDRESS=$($DEPLOY_DEPOSIT_CONTRACT_BIN $DEPOSIT_WEB3_URL_ARG)
+    DEPOSIT_CONTRACT_ADDRESS=$($DEPLOY_DEPOSIT_CONTRACT_BIN deploy $DEPOSIT_WEB3_URL_ARG)
     export DEPOSIT_CONTRACT_ADDRESS
   fi
 
