@@ -44,7 +44,6 @@ import # TODO - cleanup imports
 
 logScope: topics = "consens"
 
-# TODO Implement the _root metrics
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md
 declareGauge beacon_finalized_epoch, "Current finalized epoch" # On epoch transition
 declareGauge beacon_finalized_root, "Current finalized root" # On epoch transition
@@ -610,9 +609,21 @@ proc process_epoch*(state: var BeaconState) =
 
   # @after_process_final_updates
 
+  func checkpoint_to_int64(checkpoint: Checkpoint): int64 =
+    # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md
+    # All *_root values are converted to signed 64-bit integers utilizing the
+    # last 8 bytes interpreted as little-endian (int.from_bytes(root[24:32],
+    # byteorder='little', signed=True)).
+    cast[int64](checkpoint.root.data[24..31].bytes_to_int)
+
   # Once per epoch metrics
   beacon_finalized_epoch.set(state.finalized_checkpoint.epoch.int64)
+  beacon_finalized_root.set(state.finalized_checkpoint.checkpoint_to_int64)
   beacon_current_justified_epoch.set(
     state.current_justified_checkpoint.epoch.int64)
+  beacon_current_justified_root.set(
+    state.current_justified_checkpoint.checkpoint_to_int64)
   beacon_previous_justified_epoch.set(
     state.previous_justified_checkpoint.epoch.int64)
+  beacon_previous_justified_root.set(
+    state.previous_justified_checkpoint.checkpoint_to_int64)
