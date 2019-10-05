@@ -32,9 +32,14 @@
 
 import
   algorithm, collections/sets, chronicles, math, options, sequtils, sets, tables,
-  ./extras, ./ssz, ./beacon_node_types,
+  ./extras, ./ssz, ./beacon_node_types, metrics,
   ./spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
   ./spec/[state_transition_block, state_transition_epoch]
+
+# https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
+declareGauge beacon_current_validators, """Number of status="pending|active|exited|withdrawable" validators in current epoch""" # On epoch transition
+declareGauge beacon_previous_validators, """Number of status="pending|active|exited|withdrawable" validators in previous epoch""" # On epoch transition
+declareGauge beacon_previous_epoch_orphaned_blocks, "Number of blocks orphaned in the previous epoch" # On epoch transition
 
 # Canonical state transition functions
 # ---------------------------------------------------------------
@@ -54,6 +59,28 @@ func process_slot*(state: var BeaconState) =
   state.block_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
     signing_root(state.latest_block_header)
 
+func get_epoch_validator_count(state: BeaconState): int64 =
+  # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
+  #
+  # This O(n) loop doesn't add to the algorithmic complexity of the epoch
+  # transition -- registry update already does this. It is not great, but
+  # isn't new, either. If profiling shows issues some of this can be loop
+  # fusion'ed.
+  for index, validator in state.validators:
+    # These work primarily for the `beacon_current_validators` metric defined
+    # as 'Number of status="pending|active|exited|withdrawable" validators in
+    # current epoch'. This is, in principle, equivalent to checking whether a
+    # validator's either at less than MAX_EFFECTIVE_BALANCE, or has withdrawn
+    # already because withdrawable_epoch has passed, which more precisely has
+    # intuitive meaning of all-the-current-relevant-validators. So, check for
+    # not-(either (not-even-pending) or withdrawn). That is validators change
+    # from not-even-pending to pending to active to exited to withdrawable to
+    # withdrawn, and this avoids bugs on potential edge cases and off-by-1's.
+    if (validator.activation_epoch != FAR_FUTURE_EPOCH or
+          validator.effective_balance > MAX_EFFECTIVE_BALANCE) and
+       validator.withdrawable_epoch > get_current_epoch(state):
+      result += 1
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 proc process_slots*(state: var BeaconState, slot: Slot) =
   doAssert state.slot <= slot
@@ -61,10 +88,14 @@ proc process_slots*(state: var BeaconState, slot: Slot) =
   # Catch up to the target slot
   while state.slot < slot:
     process_slot(state)
-    if (state.slot + 1) mod SLOTS_PER_EPOCH == 0:
+    let is_epoch_transition = (state.slot + 1) mod SLOTS_PER_EPOCH == 0
+    if is_epoch_transition:
       # Note: Genesis epoch = 0, no need to test if before Genesis
+      beacon_previous_validators.set(get_epoch_validator_count(state))
       process_epoch(state)
     state.slot += 1
+    if is_epoch_transition:
+      beacon_current_validators.set(get_epoch_validator_count(state))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
@@ -173,10 +204,14 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot) =
   # Catch up to the target slot
   while state.data.slot < slot:
     process_slot(state)
-    if (state.data.slot + 1) mod SLOTS_PER_EPOCH == 0:
+    let is_epoch_transition = (state.data.slot + 1) mod SLOTS_PER_EPOCH == 0
+    if is_epoch_transition:
       # Note: Genesis epoch = 0, no need to test if before Genesis
+      beacon_previous_validators.set(get_epoch_validator_count(state.data))
       process_epoch(state.data)
     state.data.slot += 1
+    if is_epoch_transition:
+      beacon_current_validators.set(get_epoch_validator_count(state.data))
     state.root = hash_tree_root(state.data)
 
 proc state_transition*(
