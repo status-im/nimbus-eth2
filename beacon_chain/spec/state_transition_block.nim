@@ -34,9 +34,11 @@
 
 import # TODO - cleanup imports
   algorithm, collections/sets, chronicles, math, options, sequtils, sets, tables,
-  ../extras, ../ssz, ../beacon_node_types,
+  ../extras, ../ssz, ../beacon_node_types, metrics,
   beaconstate, crypto, datatypes, digest, helpers, validator,
   state_transition_helpers
+
+declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#block-header
 proc process_block_header*(
@@ -462,6 +464,11 @@ proc processBlock*(
 
   # TODO when there's a failure, we should reset the state!
   # TODO probably better to do all verification first, then apply state changes
+
+  # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
+  # doesn't seem to specify at what point in block processing this metric is to be read.
+  beacon_pending_deposits.set(
+    state.eth1_data.deposit_count.int64 - state.eth1_deposit_index.int64)
 
   if not process_block_header(state, blck, flags, stateCache):
     notice "Block header not valid", slot = shortLog(state.slot)
