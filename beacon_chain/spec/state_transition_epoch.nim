@@ -44,7 +44,7 @@ import # TODO - cleanup imports
 
 logScope: topics = "consens"
 
-# https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md
+# https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_finalized_epoch, "Current finalized epoch" # On epoch transition
 declareGauge beacon_finalized_root, "Current finalized root" # On epoch transition
 declareGauge beacon_current_justified_epoch, "Current justified epoch" # On epoch transition

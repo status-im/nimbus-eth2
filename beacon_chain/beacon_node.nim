@@ -21,14 +21,9 @@ declareGauge beacon_slot, "Latest slot of the beacon chain state"
 declareGauge beacon_head_slot, "Slot of the head block of the beacon chain"
 declareGauge beacon_head_root, "Root of the head block of the beacon chain"
 
-declareGauge beacon_current_validators, """Number of status="pending|active|exited|withdrawable" validators in current epoch""" # On epoch transition
-declareGauge beacon_previous_validators, """Number of status="pending|active|exited|withdrawable" validators in previous epoch""" # On epoch transition
 declareGauge beacon_current_live_validators, "Number of active validators that successfully included attestation on chain for current epoch" # On block
 declareGauge beacon_previous_live_validators, "Number of active validators that successfully included attestation on chain for previous epoch" # On block
-declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
-declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
 declareGauge beacon_pending_exits, "Number of pending voluntary exits in local operation pool" # On slot
-declareGauge beacon_previous_epoch_orphaned_blocks, "Number of blocks orphaned in the previous epoch" # On epoch transition
 declareCounter beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # On fork choice
 
 logScope: topics = "beacnde"
