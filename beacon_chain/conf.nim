@@ -54,7 +54,9 @@ type
 
     statusbarContents* {.
       desc: ""
-      defaultValue: "peers: $connected_peers; finalized epoch: $last_finalized_epoch |" &
+      defaultValue: "peers: $connected_peers; " &
+                    "epoch: $epoch, slot: $epoch_slot/$slots_per_epoch (..$slot_trailing_digits); " &
+                    "finalized epoch: $last_finalized_epoch |" &
                     "ETH: $attached_validators_balance" }: string
 
     case cmd* {.

@@ -68,6 +68,9 @@ func compute_epoch_of_slot*(slot: Slot|uint64): Epoch =
   # Return the epoch number of the given ``slot``.
   (slot div SLOTS_PER_EPOCH).Epoch
 
+template epoch*(slot: Slot): Epoch =
+  compute_epoch_of_slot(slot)
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#compute_start_slot_of_epoch
 func compute_start_slot_of_epoch*(epoch: Epoch): Slot =
   # Return the start slot of ``epoch``.
