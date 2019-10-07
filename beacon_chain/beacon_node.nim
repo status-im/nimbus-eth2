@@ -865,6 +865,11 @@ when hasPrompt:
       else:
         p[].writeLine("Unknown command: " & cmd)
 
+  proc slotOrZero(time: BeaconTime): Slot =
+    let exSlot = time.toSlot
+    if exSlot.afterGenesis: exSlot.slot
+    else: Slot(0)
+
   proc initPrompt(node: BeaconNode) =
     if isatty(stdout) and node.config.statusbar:
       enableTrueColors()
@@ -892,7 +897,21 @@ when hasPrompt:
         of "last_finalized_epoch":
           var head = node.blockPool.finalizedHead
           # TODO: Should we display a state root instead?
-          $(head.slot) & "(" & shortLog(head.blck.root) & ")"
+          $(head.slot.epoch) & " (" & shortLog(head.blck.root) & ")"
+
+        of "epoch":
+          $node.beaconClock.now.slotOrZero.epoch
+
+        of "epoch_slot":
+          $(node.beaconClock.now.slotOrZero mod SLOTS_PER_EPOCH)
+
+        of "slots_per_epoch":
+          $SLOTS_PER_EPOCH
+
+        of "slot_trailing_digits":
+          var slotStr = $node.beaconClock.now.slotOrZero
+          if slotStr.len > 3: slotStr = slotStr[^3..^1]
+          slotStr
 
         of "attached_validators_balance":
           var balance = uint64(0)
