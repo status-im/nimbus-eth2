@@ -376,25 +376,26 @@ proc proposeBlock(node: BeaconNode,
     doAssert false, "head slot matches proposal slot (!)"
     # return
 
+  # Get eth1data which may be async
+  # TODO it's a bad idea to get eth1data async because that might delay block
+  #      production
+  let (eth1data, deposits) = node.blockPool.withState(
+      node.stateCache, BlockSlot(blck: head, slot: slot - 1)):
+    if node.mainchainMonitor.isNil:
+      let e1d =
+        get_eth1data_stub(
+          state.eth1_deposit_index, slot.compute_epoch_of_slot())
 
-  var (nroot, nblck) = node.blockPool.withState(
+      (e1d, newSeq[Deposit]())
+    else:
+      let e1d = await node.mainchainMonitor.getBeaconBlockRef()
+
+      (e1d, node.mainchainMonitor.getPendingDeposits())
+
+  let (nroot, nblck) = node.blockPool.withState(
       node.stateCache, BlockSlot(blck: head, slot: slot - 1)):
     # To create a block, we'll first apply a partial block to the state, skipping
     # some validations.
-    # TODO monitor main chain here: node.mainchainMonitor.getBeaconBlockRef()
-    let (eth1data, deposits) =
-      if node.mainchainMonitor.isNil:
-        (get_eth1data_stub(
-            state.eth1_deposit_index, slot.compute_epoch_of_slot()),
-          newSeq[Deposit]()
-        )
-      else:
-        let e1d = await node.mainchainMonitor.getBeaconBlockRef()
-
-        (e1d,
-          node.mainchainMonitor.getPendingDeposits()
-        )
-
     let
       blockBody = BeaconBlockBody(
         randao_reveal: validator.genRandaoReveal(state, slot),
@@ -410,7 +411,6 @@ proc proposeBlock(node: BeaconNode,
         body: blockBody,
         # TODO: This shouldn't be necessary if OpaqueBlob is the default
         signature: ValidatorSig(kind: OpaqueBlob))
-
 
     var
       tmpState = hashedState

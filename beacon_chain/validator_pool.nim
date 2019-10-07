@@ -27,15 +27,18 @@ proc getValidator*(pool: ValidatorPool,
 
 proc signBlockProposal*(v: AttachedValidator, state: BeaconState, slot: Slot,
                         blockRoot: Eth2Digest): Future[ValidatorSig] {.async.} =
+
   if v.kind == inProcess:
+    # TODO state might become invalid after any async calls - it's fragile to
+    #      care about this in here
+    let
+      domain =
+        get_domain(state, DOMAIN_BEACON_PROPOSER, compute_epoch_of_slot(slot))
     # TODO this is an ugly hack to fake a delay and subsequent async reordering
     #      for the purpose of testing the external validator delay - to be
     #      replaced by something more sensible
     await sleepAsync(chronos.milliseconds(1))
 
-    let
-      domain =
-        get_domain(state, DOMAIN_BEACON_PROPOSER, compute_epoch_of_slot(slot))
     result = bls_sign(v.privKey, blockRoot.data, domain)
   else:
     error "Unimplemented"
@@ -45,15 +48,15 @@ proc signAttestation*(v: AttachedValidator,
                       attestation: AttestationData,
                       state: BeaconState): Future[ValidatorSig] {.async.} =
   if v.kind == inProcess:
-    # TODO this is an ugly hack to fake a delay and subsequent async reordering
-    #      for the purpose of testing the external validator delay - to be
-    #      replaced by something more sensible
-    await sleepAsync(chronos.milliseconds(1))
-
     let
       attestationRoot = hash_tree_root(
         AttestationDataAndCustodyBit(data: attestation, custody_bit: false))
       domain = get_domain(state, DOMAIN_ATTESTATION, attestation.target.epoch)
+
+    # TODO this is an ugly hack to fake a delay and subsequent async reordering
+    #      for the purpose of testing the external validator delay - to be
+    #      replaced by something more sensible
+    await sleepAsync(chronos.milliseconds(1))
 
     result = bls_sign(v.privKey, attestationRoot.data, domain)
   else:
