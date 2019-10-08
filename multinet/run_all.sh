@@ -15,6 +15,7 @@ if [ "$USE_MULTITAIL" != "no" ]; then
   COMMANDS+=( " -cT ansi -t 'lighthouse' -l 'sleep 3; ./run_lighthouse.sh 5 5; echo [node execution completed]; while true; do sleep 100; done'" )
   COMMANDS+=( " -cT ansi -t 'prysm' -l 'sleep 3; ./run_prysm.sh 15 5; echo [node execution completed]; while true; do sleep 100; done'" )
   COMMANDS+=( " -cT ansi -t 'lodestar' -l 'sleep 3; ./run_lodestar.sh 20 5; echo [node execution completed]; while true; do sleep 100; done'" )
+  COMMANDS+=( " -cT ansi -t 'artemis' -l 'sleep 3; ./run_artemis.sh 25 5; echo [node execution completed]; while true; do sleep 100; done'" )
   eval $MULTITAIL -s 3 -M 0 -x \"Multichain\" "${COMMANDS[@]}"
 else
   trap 'kill -9 -- -$$' SIGINT EXIT SIGTERM
@@ -24,6 +25,7 @@ else
   ./run_trinity.sh &
   ./run_lighthouse.sh &
   ./run_prysm.sh &
-  ./run_lodestar.sh &
+  ./run_lodestar &
+  ./run_artemis.sh &
   wait
 fi
