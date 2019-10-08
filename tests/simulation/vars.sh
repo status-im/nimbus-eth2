@@ -13,8 +13,8 @@ cd $(git rev-parse --show-toplevel)
 : ${GIT_ROOT:="$($PWD_CMD)"}
 cd - &>/dev/null
 
-NUM_VALIDATORS=${VALIDATORS:-1000}
-NUM_NODES=${NODES:-4}
+NUM_VALIDATORS=${VALIDATORS:-192}
+NUM_NODES=${NODES:-2}
 NUM_MISSING_NODES=${MISSING_NODES:-1}
 
 SIMULATION_DIR="${SIM_ROOT}/data"
