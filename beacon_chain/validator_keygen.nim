@@ -9,11 +9,11 @@ contract(DepositContract):
 
 proc writeTextFile(filename: string, contents: string) =
   writeFile(filename, contents)
-  echo "Wrote ", filename
+  # echo "Wrote ", filename
 
 proc writeFile(filename: string, value: auto) =
   Json.saveFile(filename, value, pretty = true)
-  echo "Wrote ", filename
+  # echo "Wrote ", filename
 
 proc ethToWei(eth: UInt256): UInt256 =
   eth * 1000000000000000000.u256

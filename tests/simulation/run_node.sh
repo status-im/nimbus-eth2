@@ -38,5 +38,8 @@ $BEACON_NODE_BIN \
   --stateSnapshot:$SNAPSHOT_FILE \
   $DEPOSIT_WEB3_URL_ARG \
   --depositContractAddress=$DEPOSIT_CONTRACT_ADDRESS \
-  $*
+  --metricsServer=true \
+  --metricsServerAddress="127.0.0.1" \
+  --metricsServerPort="$(( $BASE_METRICS_PORT + $NODE_ID ))"
+  "$@"
 
