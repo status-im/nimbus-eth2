@@ -39,6 +39,8 @@ import # TODO - cleanup imports
   state_transition_helpers
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
+declareGauge beacon_current_live_validators, "Number of active validators that successfully included attestation on chain for current epoch" # On block
+declareGauge beacon_previous_live_validators, "Number of active validators that successfully included attestation on chain for previous epoch" # On block
 declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
 declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
 
@@ -473,6 +475,13 @@ proc processBlock*(
   beacon_pending_deposits.set(
     state.eth1_data.deposit_count.int64 - state.eth1_deposit_index.int64)
   beacon_processed_deposits_total.set(state.eth1_deposit_index.int64)
+
+  # Adds nontrivial additional computation, but only does so when metrics
+  # enabled.
+  beacon_current_live_validators.set(toSet(
+    mapIt(state.current_epoch_attestations, it.proposerIndex)).len.int64)
+  beacon_previous_live_validators.set(toSet(
+    mapIt(state.previous_epoch_attestations, it.proposerIndex)).len.int64)
 
   if not process_block_header(state, blck, flags, stateCache):
     notice "Block header not valid", slot = shortLog(state.slot)
