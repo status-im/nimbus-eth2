@@ -27,8 +27,6 @@ declareGauge beacon_slot, "Latest slot of the beacon chain state"
 declareGauge beacon_head_slot, "Slot of the head block of the beacon chain"
 declareGauge beacon_head_root, "Root of the head block of the beacon chain"
 
-declareGauge beacon_current_live_validators, "Number of active validators that successfully included attestation on chain for current epoch" # On block
-declareGauge beacon_previous_live_validators, "Number of active validators that successfully included attestation on chain for previous epoch" # On block
 declareGauge beacon_pending_exits, "Number of pending voluntary exits in local operation pool" # On slot
 declareCounter beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # On fork choice
 
