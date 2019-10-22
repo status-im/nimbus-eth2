@@ -28,7 +28,6 @@ declareGauge beacon_head_slot, "Slot of the head block of the beacon chain"
 declareGauge beacon_head_root, "Root of the head block of the beacon chain"
 
 declareGauge beacon_pending_exits, "Number of pending voluntary exits in local operation pool" # On slot
-declareCounter beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # On fork choice
 
 logScope: topics = "beacnde"
 

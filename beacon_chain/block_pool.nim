@@ -1,8 +1,10 @@
 import
   bitops, chronicles, options, sequtils, tables,
   ssz, beacon_chain_db, state_transition, extras,
-  beacon_node_types,
+  beacon_node_types, metrics,
   spec/[crypto, datatypes, digest, helpers]
+
+declareCounter beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # On fork choice
 
 logScope: topics = "blkpool"
 
@@ -618,6 +620,11 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
       justifiedEpoch = shortLog(state.data.data.current_justified_checkpoint.epoch),
       finalizedEpoch = shortLog(state.data.data.finalized_checkpoint.epoch),
       cat = "fork_choice"
+
+    # A reasonable criterion for "reorganizations of the chain"
+    # TODO if multiple heads have gotten skipped, could fire at
+    # spurious times
+    beacon_reorgs_total.inc()
   else:
     info "Updated No head block",
       stateRoot = shortLog(state.data.root),
