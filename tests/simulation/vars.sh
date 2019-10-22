@@ -14,7 +14,7 @@ cd $(git rev-parse --show-toplevel)
 cd - &>/dev/null
 
 NUM_VALIDATORS=${VALIDATORS:-192}
-NUM_NODES=${NODES:-2}
+NUM_NODES=${NODES:-6}
 NUM_MISSING_NODES=${MISSING_NODES:-1}
 
 SIMULATION_DIR="${SIM_ROOT}/data"
