@@ -28,52 +28,26 @@ You can check where the beacon chain fits in the Ethereum research ecosystem in 
 
 (On Windows, a precompiled DLL collection download is available through the `fetch-dlls` Makefile target: ([Windows instructions](#windows)).)
 
-#### Go
-
-The go compiler, at least version 1.12 should be installed and in your path.
-This is a dependency until we can replace the go-libp2p-daemon with a native Nim implementation of [LibP2P](https://github.com/libp2p/libp2p).
-
-#### Rocksdb
-
-A recent version of Facebook's [RocksDB](https://github.com/facebook/rocksdb/) is needed - it can usually be installed using your system's package manager:
+* [RocksDB](https://github.com/facebook/rocksdb/)
+* PCRE
+* Go 1.12 (for compiling libp2p daemon - being phased out)
+* GNU Make, Bash and the usual POSIX utilities. Git 2.9.4 or newer.
 
 ```bash
 # MacOS with Homebrew
-brew install rocksdb
+brew install rocksdb pcre
 
 # Fedora
-dnf install rocksdb-devel
+dnf install rocksdb-devel pcre
 
 # Debian and Ubuntu
-sudo apt-get install librocksdb-dev
+sudo apt-get install librocksdb-dev libpcre3-dev
 
 # Arch (AUR)
-pakku -S rocksdb
+pakku -S rocksdb pcre-static
 ```
 
-You can also build and install it by following [their instructions](https://github.com/facebook/rocksdb/blob/master/INSTALL.md).
-
-#### PCRE
-
-If you don't already have it, you will also need PCRE to build nim-beacon-chain.
-
-```bash
-# MacOS with Homebrew
-brew install pcre
-
-# Fedora
-dnf install pcre
-
-# Debian and Ubuntu
-sudo apt-get install libpcre3-dev
-
-# Arch (AUR)
-pakku -S pcre-static
-```
-
-#### Developer tools
-
-GNU Make, Bash and the usual POSIX utilities. Git 2.9.4 or newer.
+`rocksdb` can also be installed folloing [their instructions](https://github.com/facebook/rocksdb/blob/master/INSTALL.md).
 
 ### Build & Develop
 
