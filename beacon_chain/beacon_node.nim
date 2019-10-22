@@ -823,6 +823,7 @@ proc start(node: BeaconNode, headState: BeaconState) =
     SLOTS_PER_EPOCH,
     SECONDS_PER_SLOT,
     SPEC_VERSION,
+    dataDir = node.config.dataDir,
     cat = "init",
     pcs = "start_beacon_node"
 
