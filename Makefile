@@ -13,8 +13,8 @@ BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 # we don't want an error here, so we can handle things later, in the build-system-checks target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
 
-TOOLS := beacon_node bench_bls_sig_agggregation state_sim ncli_hash_tree_root ncli_pretty ncli_signing_root ncli_transition
-TOOLS_DIRS := beacon_chain benchmarks research ncli
+TOOLS := beacon_node bench_bls_sig_agggregation state_sim ncli_hash_tree_root ncli_pretty ncli_signing_root ncli_transition process_dashboard
+TOOLS_DIRS := beacon_chain benchmarks research ncli tests/simulation
 TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 
 .PHONY: all build-system-checks deps update p2pd test $(TOOLS) clean_eth2_network_simulation_files eth2_network_simulation clean-testnet0 testnet0 clean-testnet1 testnet1 clean
@@ -67,7 +67,7 @@ $(TOOLS): | build deps
 clean_eth2_network_simulation_files:
 	rm -rf tests/simulation/{data,validators}
 
-eth2_network_simulation: | build deps p2pd clean_eth2_network_simulation_files
+eth2_network_simulation: | build deps p2pd clean_eth2_network_simulation_files process_dashboard
 	GIT_ROOT="$$PWD" tests/simulation/start.sh
 
 testnet0 testnet1: | build deps

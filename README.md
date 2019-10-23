@@ -136,6 +136,26 @@ You can find out more about it in the [development update](https://our.status.im
 
 _Alternatively, fire up our [experimental Vagrant instance with Nim pre-installed](https://our.status.im/setting-up-a-local-vagrant-environment-for-nim-development/) and give us yout feedback about the process!_
 
+### Visualising simulation metrics
+
+Those [generic instructions from the Nimbus repo](https://github.com/status-im/nimbus/#metric-visualisation) apply here as well.
+
+Specific steps:
+
+```bash
+# This will generate the Prometheus config and the Grafana dashboard on the fly,
+# based on the number of nodes (which you can control by passing something like NODES=6 to `make`).
+make eth2_network_simulation
+
+# In another terminal tab, after the sim started:
+cd tests/simulation/prometheus
+prometheus
+```
+
+The dashboard you need to import in Grafana is "tests/simulation/beacon-chain-sim-all-nodes-Grafana-dashboard.json".
+
+[Obligatory screenshot.](https://i.imgur.com/pLvLhID.png)
+
 ### Makefile tips and tricks for developers
 
 - build all those tools known to the Makefile:

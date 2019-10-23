@@ -19,7 +19,7 @@ mkdir -p "$VALIDATORS_DIR"
 
 cd "$GIT_ROOT"
 
-NIMFLAGS="-d:chronicles_log_level=DEBUG --hints:off --warnings:off --opt:speed --debuginfo"
+NIMFLAGS="-d:chronicles_log_level=DEBUG --hints:off --warnings:off --verbosity:0 --opt:speed --debuginfo"
 
 # Run with "SHARD_COUNT=4 ./start.sh" to change these
 DEFS=""
@@ -75,6 +75,23 @@ MULTITAIL="${MULTITAIL:-multitail}" # to allow overriding the program name
 USE_MULTITAIL="${USE_MULTITAIL:-no}" # make it an opt-in
 type "$MULTITAIL" &>/dev/null || USE_MULTITAIL="no"
 
+# Prometheus config (continued inside the loop)
+mkdir -p "${METRICS_DIR}"
+cat > "${METRICS_DIR}/prometheus.yml" <<EOF
+global:
+  scrape_interval: 1s
+
+scrape_configs:
+  - job_name: "nimbus"
+    static_configs:
+EOF
+
+# use the exported Grafana dashboard for a single node to create one for all nodes
+"${SIM_ROOT}/../../build/process_dashboard" \
+  --nodes=${NUM_NODES} \
+  --in="${SIM_ROOT}/beacon-chain-sim-node0-Grafana-dashboard.json" \
+  --out="${SIM_ROOT}/beacon-chain-sim-all-nodes-Grafana-dashboard.json"
+
 # Kill child processes on Ctrl-C by sending SIGTERM to the whole process group,
 # passing the negative PID of this shell instance to the "kill" command.
 # Trap and ignore SIGTERM, so we don't kill this process along with its children.
@@ -87,9 +104,7 @@ COMMANDS=()
 LAST_NODE=$(( NUM_NODES - 1 ))
 
 for i in $(seq 0 $LAST_NODE); do
-  if [[ "$i" == "0" ]]; then
-    sleep 0
-  elif [ "$USE_MULTITAIL" = "no" ]; then
+  if [[ "$i" != "0" && "$USE_MULTITAIL" == "no" ]]; then
     # Wait for the master node to write out its address file
     while [ ! -f "${MASTER_NODE_ADDRESS_FILE}" ]; do
       sleep 0.1
@@ -98,8 +113,8 @@ for i in $(seq 0 $LAST_NODE); do
 
   CMD="${SIM_ROOT}/run_node.sh $i --statusbar:off"
 
-  if [ "$USE_MULTITAIL" != "no" ]; then
-    if [ "$i" = "0" ]; then
+  if [[ "$USE_MULTITAIL" != "no" ]]; then
+    if [[ "$i" == "0" ]]; then
       SLEEP="0"
     else
       SLEEP="2"
@@ -109,9 +124,16 @@ for i in $(seq 0 $LAST_NODE); do
   else
     eval "${CMD}" &
   fi
+
+  # Prometheus config
+  cat >> "${METRICS_DIR}/prometheus.yml" <<EOF
+      - targets: ['127.0.0.1:$(( $BASE_METRICS_PORT + $i ))']
+        labels:
+          node: '$i'
+EOF
 done
 
-if [ "$USE_MULTITAIL" != "no" ]; then
+if [[ "$USE_MULTITAIL" != "no" ]]; then
   eval $MULTITAIL -s 3 -M 0 -x \"Nimbus beacon chain\" "${COMMANDS[@]}"
 else
   wait # Stop when all nodes have gone down
