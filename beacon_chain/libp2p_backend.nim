@@ -534,6 +534,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     await = ident "await"
 
   p.useRequestIds = false
+  p.useSingleRecordInlining = true
 
   new result
 
