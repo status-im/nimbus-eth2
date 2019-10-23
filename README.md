@@ -112,17 +112,18 @@ The beacon node simulation will create a full peer-to-peer network of beacon nod
 
 ```bash
 # Clear data files from your last run and start the simulation with a new genesis block:
-make eth2_network_simulation
+make VALIDATORS=192 NODES=6 MISSING_NODES=1 eth2_network_simulation
 
 # In another terminal, get a shell with the right environment variables set:
 ./env.sh bash
 
-# Run an extra node - by default the network will launch with 9 nodes, each
-# hosting 10 validators. The last 10 validators are lazy bums that hid from the
-# startup script, but you can command them back to work with:
-./tests/simulation/run_node.sh 9
+# In the above example, the network is prepared for 7 beacon nodes but one of
+# them is not started by default (`MISSING_NODES`) - you can start it separately
+# by running:
+./tests/simulation/run_node.sh 6 # (or the 0-based node number of the missing node)
 
-# (yes, it's 0-based indexing)
+# Running a separate node allows you to test sync as well as see what the action
+# looks like from a single nodes' perspective.
 ```
 
 You can also separate the output from each beacon node in its own panel, using [multitail](http://www.vanheusden.com/multitail/):
