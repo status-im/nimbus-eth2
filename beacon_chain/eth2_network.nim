@@ -132,11 +132,21 @@ when networkBackend == rlpxBackend:
 else:
   import
     os, random, stew/io,
-    libp2p/crypto/crypto, libp2p/daemon/daemonapi, eth/async_utils,
-    ssz, libp2p_backend
+    eth/async_utils, ssz, libp2p/crypto/crypto
 
-  export
-    libp2p_backend
+  when networkBackend == libp2pBackend:
+    import
+      libp2p_backend
+
+    export
+      libp2p_backend
+
+  else:
+    import
+      libp2p/daemon/daemonapi, libp2p_daemon_backend
+
+    export
+      libp2p_daemon_backend
 
   const
     netBackendName* = "libp2p"
