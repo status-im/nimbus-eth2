@@ -57,7 +57,7 @@ export
 export
   blscurve.init, blscurve.getBytes, blscurve.combine,
   blscurve.`$`, blscurve.`==`,
-  blscurve.Signature
+  blscurve.Signature, blscurve.RawSignatureSize
 
 type
   BlsValueType* = enum

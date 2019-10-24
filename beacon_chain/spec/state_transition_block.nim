@@ -67,16 +67,12 @@ proc process_block_header*(
     return false
 
   # Save current block as the new latest block
-  state.latest_block_header = BeaconBlockHeader(
+  state.latest_block_header = UnsignedBeaconBlockHeader(
     slot: blck.slot,
     parent_root: blck.parent_root,
     # state_root: zeroed, overwritten in the next `process_slot` call
-    body_root: hash_tree_root(blck.body),
-    # signature is always zeroed
-    # TODO - Pure BLSSig cannot be zero: https://github.com/status-im/nim-beacon-chain/issues/374
-    signature: BlsValue[Signature](kind: OpaqueBlob)
+    body_root: hash_tree_root(blck.body)
   )
-
 
   # Verify proposer is not slashed
   let proposer =

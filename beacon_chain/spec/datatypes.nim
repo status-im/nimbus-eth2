@@ -237,6 +237,17 @@ type
     body_root*: Eth2Digest
     signature*: ValidatorSig
 
+  # This is a variation on BeaconBlockHeader used when the signature is not yet
+  # available, such as in the BeaconState - this simplifies loading and saving
+  # states since the expectation is that this signatures is serialized to
+  # all-zeroes and never a valid signature serialization (all-zeroes is not valid)
+  UnsignedBeaconBlockHeader* = object
+    slot*: Slot
+    parent_root*: Eth2Digest
+    state_root*: Eth2Digest
+    body_root*: Eth2Digest
+    signature*: array[RawSignatureSize, byte] # always 0
+
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
@@ -257,7 +268,7 @@ type
     fork*: Fork
 
     # History
-    latest_block_header*: BeaconBlockHeader ##\
+    latest_block_header*: UnsignedBeaconBlockHeader ##\
     ## `latest_block_header.state_root == ZERO_HASH` temporarily
 
     block_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
@@ -421,6 +432,7 @@ template foreachSpecType*(op: untyped) =
   op BeaconBlock
   op BeaconBlockBody
   op BeaconBlockHeader
+  op UnsignedBeaconBlockHeader
   op BeaconState
   op Crosslink
   op Deposit

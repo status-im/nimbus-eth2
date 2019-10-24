@@ -231,12 +231,10 @@ func initialize_beacon_state_from_eth1*(
     eth1_data:
       Eth1Data(block_hash: eth1_block_hash, deposit_count: uint64(len(deposits))),
     latest_block_header:
-      BeaconBlockHeader(
+      UnsignedBeaconBlockHeader(
         body_root: hash_tree_root(BeaconBlockBody(
           randao_reveal: BlsValue[Signature](kind: OpaqueBlob)
-        )),
-        # TODO - Pure BLSSig cannot be zero: https://github.com/status-im/nim-beacon-chain/issues/374
-        signature: BlsValue[Signature](kind: OpaqueBlob)
+        ))
       )
   )
 
