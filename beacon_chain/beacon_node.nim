@@ -23,11 +23,19 @@ const
   testnetsBaseUrl = "https://serenity-testnets.status.im"
   hasPrompt = not defined(withoutPrompt)
 
+# https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_slot, "Latest slot of the beacon chain state"
 declareGauge beacon_head_slot, "Slot of the head block of the beacon chain"
 declareGauge beacon_head_root, "Root of the head block of the beacon chain"
 
+# https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
 declareGauge beacon_pending_exits, "Number of pending voluntary exits in local operation pool" # On slot
+
+# Metrics for tracking attestation and beacon block loss
+declareCounter beacon_attestations_sent, "Number of beacon chain attestations sent by this peer"
+declareCounter beacon_attestations_received, "Number of beacon chain attestations received by this peer"
+declareCounter beacon_blocks_proposed, "Number of beacon chain blocks sent by this peer"
+declareCounter beacon_blocks_received, "Number of becon chain blocks received by this peer"
 
 logScope: topics = "beacnde"
 
@@ -353,6 +361,8 @@ proc sendAttestation(node: BeaconNode,
     indexInCommittee = indexInCommittee,
     cat = "consensus"
 
+  beacon_attestations_sent.inc()
+
 proc proposeBlock(node: BeaconNode,
                   validator: AttachedValidator,
                   head: BlockRef,
@@ -450,6 +460,8 @@ proc proposeBlock(node: BeaconNode,
 
   node.network.broadcast(topicBeaconBlocks, newBlock)
 
+  beacon_blocks_proposed.inc()
+
   return newBlockRef
 
 proc onAttestation(node: BeaconNode, attestation: Attestation) =
@@ -462,6 +474,10 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
     attestationData = shortLog(attestation.data),
     signature = shortLog(attestation.signature),
     cat = "consensus" # Tag "consensus|attestation"?
+
+  # This is the shared codepath for both topic attestation and beacon block
+  # attestations.
+  beacon_attestations_received.inc()
 
   if (let attestedBlock = node.blockPool.getOrResolve(
         attestation.data.beacon_block_root); attestedBlock != nil):
@@ -498,6 +514,8 @@ proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
     blockRoot = shortLog(blockRoot),
     cat = "block_listener",
     pcs = "receive_block"
+
+  beacon_blocks_received.inc()
 
   if node.blockPool.add(node.stateCache, blockRoot, blck).isNil:
     return
