@@ -12,7 +12,7 @@ proc get_ancestor(blck: BlockRef, slot: Slot): BlockRef =
   else:
     get_ancestor(blck.parent, slot)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_fork-choice.md
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_fork-choice.md
 # The structure of this code differs from the spec since we use a different
 # strategy for storing states and justification points - it should nonetheless
 # be close in terms of functionality.

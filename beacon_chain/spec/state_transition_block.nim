@@ -44,7 +44,7 @@ declareGauge beacon_previous_live_validators, "Number of active validators that 
 declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
 declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#block-header
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#block-header
 proc process_block_header*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool =
@@ -99,7 +99,7 @@ proc process_block_header*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#randao
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#randao
 proc process_randao(
     state: var BeaconState, body: BeaconBlockBody, flags: UpdateFlags,
     stateCache: var StateCache): bool =
@@ -132,21 +132,21 @@ proc process_randao(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#eth1-data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#eth1-data
 func processEth1Data(state: var BeaconState, body: BeaconBlockBody) =
   state.eth1_data_votes.add body.eth1_data
   if state.eth1_data_votes.count(body.eth1_data) * 2 >
       SLOTS_PER_ETH1_VOTING_PERIOD:
     state.eth1_data = body.eth1_data
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#is_slashable_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#is_slashable_validator
 func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
   # Check if ``validator`` is slashable.
   (not validator.slashed) and
     (validator.activation_epoch <= epoch) and
     (epoch < validator.withdrawable_epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#proposer-slashings
 proc process_proposer_slashing*(
     state: var BeaconState, proposer_slashing: ProposerSlashing,
     flags: UpdateFlags, stateCache: var StateCache): bool =
@@ -205,7 +205,7 @@ proc processProposerSlashings(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#is_slashable_attestation_data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
     data_1: AttestationData, data_2: AttestationData): bool =
   ## Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG
@@ -217,7 +217,7 @@ func is_slashable_attestation_data(
     (data_1.source.epoch < data_2.source.epoch and
      data_2.target.epoch < data_1.target.epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#attester-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
        state: var BeaconState,
        attester_slashing: AttesterSlashing,
@@ -305,7 +305,7 @@ proc processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#voluntary-exits
 proc process_voluntary_exit*(
     state: var BeaconState,
     exit: VoluntaryExit,
