@@ -22,7 +22,7 @@ func shortLog*(x: Checkpoint): string =
 # Helpers used in epoch transition and trace-level block transition
 # --------------------------------------------------------
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/specs/core/0_beacon-chain.md#helper-functions-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#helper-functions-1
 func get_attesting_indices*(
     state: BeaconState, attestations: openarray[PendingAttestation],
     stateCache: var StateCache): HashSet[ValidatorIndex] =
