@@ -10,7 +10,7 @@
 
 import
   endians, stew/shims/macros, options, algorithm, math, options,
-  stew/[bitops2, bitseqs, objects, varints], stew/ranges/ptr_arith, stint,
+  stew/[bitops2, bitseqs, objects, varints, ptrops], stint,
   faststreams/input_stream, serialization, serialization/testing/tracing,
   nimcrypto/sha2, blscurve, eth/common,
   ./spec/[crypto, datatypes, digest],
@@ -343,7 +343,7 @@ func addChunk*(merkelizer: SszChunksMerkelizer, data: openarray[byte]) =
   if not getBitLE(merkelizer.totalChunks, 0):
     let chunkStartAddr = addr merkelizer.combinedChunks[0].data[0]
     copyMem(chunkStartAddr, unsafeAddr data[0], data.len)
-    zeroMem(chunkStartAddr.shift(data.len), bytesPerChunk - data.len)
+    zeroMem(chunkStartAddr.offset(data.len), bytesPerChunk - data.len)
     trs "WROTE BASE CHUNK ", merkelizer.combinedChunks[0]
   else:
     var hash = mergeBranches(merkelizer.combinedChunks[0], data)
