@@ -35,7 +35,7 @@ declareGauge beacon_pending_exits, "Number of pending voluntary exits in local o
 declareCounter beacon_attestations_sent, "Number of beacon chain attestations sent by this peer"
 declareCounter beacon_attestations_received, "Number of beacon chain attestations received by this peer"
 declareCounter beacon_blocks_proposed, "Number of beacon chain blocks sent by this peer"
-declareCounter beacon_blocks_received, "Number of becon chain blocks received by this peer"
+declareCounter beacon_blocks_received, "Number of beacon chain blocks received by this peer"
 
 logScope: topics = "beacnde"
 
@@ -475,10 +475,6 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
     signature = shortLog(attestation.signature),
     cat = "consensus" # Tag "consensus|attestation"?
 
-  # This is the shared codepath for both topic attestation and beacon block
-  # attestations.
-  beacon_attestations_received.inc()
-
   if (let attestedBlock = node.blockPool.getOrResolve(
         attestation.data.beacon_block_root); attestedBlock != nil):
     let
@@ -795,6 +791,10 @@ proc run*(node: BeaconNode) =
     onBeaconBlock(node, blck)
 
   waitFor node.network.subscribe(topicAttestations) do (attestation: Attestation):
+    # Avoid double-counting attestation-topic attestations on shared codepath
+    # when they're reflected through beacon blocks
+    beacon_attestations_received.inc()
+
     node.onAttestation(attestation)
 
   let
