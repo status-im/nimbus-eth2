@@ -10,7 +10,7 @@ source "$NETWORK_NAME.env"
 cd ..
 
 if [ -f .env ]; then
-  # allow server overrides for ETH2_TESTNET_DATA_DIR and DATA_DIR
+  # allow server overrides for ETH2_TESTNET_DATA_DIR, DATA_DIR and ETH1_PRIVATE_KEY
   source .env
 fi
 
@@ -41,7 +41,18 @@ ETH2_TESTNET_DATA_DIR_ABS=$(cd "$ETH2_TESTNET_DATA_DIR"; pwd)
 DATA_DIR_ABS=$(mkdir -p "$DATA_DIR"; cd "$DATA_DIR"; pwd)
 NETWORK_DIR_ABS="$ETH2_TESTNET_DATA_DIR_ABS/www/$NETWORK_NAME"
 
+if [ "$WEB3_URL" != "" ]; then
+  WEB3_URL_ARG="--depositWeb3Url=$WEB3_URL"
+fi
+
 DOCKER_BEACON_NODE="docker run -v $NETWORK_DIR_ABS:/network_dir -v $DATA_DIR_ABS:/data_dir statusteam/nimbus_beacon_node:$NETWORK_NAME"
+
+make deposit_contract
+
+if [ "$ETH1_PRIVATE_KEY" != "" ]; then
+  DEPOSIT_CONTRACT_ADDRESS=$(./build/deposit_contract deploy $WEB3_URL_ARG --privateKey=$ETH1_PRIVATE_KEY)
+  DEPOSIT_CONTRACT_ADDRESS_ARG="--depositContractAddress=$DEPOSIT_CONTRACT_ADDRESS"
+fi
 
 cd docker
 
@@ -68,6 +79,7 @@ $DOCKER_BEACON_NODE \
   --outputNetworkMetadata=/network_dir/network.json \
   --bootstrapAddress=$BOOTSTRAP_IP \
   --bootstrapPort=$BOOTSTRAP_PORT \
+  $WEB3_URL_ARG $DEPOSIT_CONTRACT_ADDRESS_ARG \
   --genesisOffset=60 # Delay in seconds
 
 if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
@@ -77,14 +89,6 @@ if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
     git commit -m "Testnet reset"
     git push
   popd
-
-  echo Updating https://serenity-testnets.status.im/${NETWORK_NAME}...
-  ssh $BOOTSTRAP_HOST <<-SSH
-    cd /opt/nim-eth2-testnet-data
-    git reset --hard HEAD
-    git checkout master
-    git pull
-SSH
 
   echo Redistributing validator keys to server nodes...
   # TODO If we try to use direct piping here, bash doesn't execute all of the commands.

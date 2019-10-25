@@ -131,3 +131,6 @@
 	url = https://github.com/nitely/nim-unicodedb.git
 	ignore = dirty
 	branch = master
+[submodule "vendor/nim-bearssl"]
+	path = vendor/nim-bearssl
+	url = https://github.com/status-im/nim-bearssl

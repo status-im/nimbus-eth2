@@ -13,7 +13,7 @@ BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 # we don't want an error here, so we can handle things later, in the build-system-checks target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
 
-TOOLS := beacon_node bench_bls_sig_agggregation state_sim ncli_hash_tree_root ncli_pretty ncli_signing_root ncli_transition process_dashboard
+TOOLS := beacon_node bench_bls_sig_agggregation state_sim ncli_hash_tree_root ncli_pretty ncli_signing_root ncli_transition process_dashboard deposit_contract
 TOOLS_DIRS := beacon_chain benchmarks research ncli tests/simulation
 TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 

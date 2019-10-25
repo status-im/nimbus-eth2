@@ -247,6 +247,7 @@ type
   NetworkMetadata* = object
     networkGeneration*: uint64
     genesisRoot*: Option[Eth2Digest]
+    depositContractAddress*: Option[array[20, byte]]
     bootstrapNodes*: seq[BootstrapAddr]
     numShards*: uint64
     slotDuration*: uint64
