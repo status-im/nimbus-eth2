@@ -4,7 +4,7 @@ import
   options, sequtils, random, tables,
   ../tests/[testutil],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
-  ../beacon_chain/[attestation_pool, extras, ssz, state_transition, fork_choice]
+  ../beacon_chain/[attestation_pool, extras, ssz]
 
 type Timers = enum
   tBlock = "Process non-epoch slot with block"

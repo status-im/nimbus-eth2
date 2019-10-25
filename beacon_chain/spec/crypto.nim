@@ -46,7 +46,7 @@
 
 import
   sequtils,
-  stew/[objects, byteutils], hashes, nimcrypto/utils,
+  stew/[endians2, objects, byteutils], hashes, nimcrypto/utils,
   blscurve, json_serialization,
   ../version, digest,
   chronicles
@@ -323,3 +323,9 @@ proc writeValue*(writer: var JsonWriter, value: Signature) {.inline.} =
 
 proc readValue*(reader: var JsonReader, value: var Signature) {.inline.} =
   value = Signature.init(reader.readValue(string))
+
+proc toGaugeValue*(hash: Eth2Digest): int64 =
+  # Only the last 8 bytes are taken into consideration in accordance
+  # to the ETH2 metrics spec:
+  # https://github.com/ethereum/eth2.0-metrics/blob/6a79914cb31f7d54858c7dd57eee75b6162ec737/metrics.md#interop-metrics
+  cast[int64](uint64.fromBytesLE(hash.data[24..31]))

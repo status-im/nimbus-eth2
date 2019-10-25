@@ -1,7 +1,7 @@
 import
   os, ospaths,
   stew/endians2, stint,
-  ./conf, ./extras, ./ssz,
+  ./extras, ./ssz,
   spec/[crypto, datatypes, digest, helpers]
 
 func get_eth1data_stub*(deposit_count: uint64, current_epoch: Epoch): Eth1Data =

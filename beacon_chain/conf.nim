@@ -1,7 +1,7 @@
 import
   os, options, strformat,
   confutils/defs, chronicles/options as chroniclesOptions,
-  spec/[crypto, datatypes], time, version
+  spec/[crypto]
 
 export
   defs, enabledLogLevel

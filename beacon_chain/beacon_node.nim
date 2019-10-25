@@ -9,11 +9,10 @@ import
   eth/trie/db, eth/trie/backends/rocksdb_backend, eth/async_utils,
 
   # Local modules
-  spec/[datatypes, digest, crypto, beaconstate, helpers, validator,
-  state_transition_block, network],
+  spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network],
   conf, time, state_transition, fork_choice, ssz, beacon_chain_db,
   validator_pool, extras, attestation_pool, block_pool, eth2_network,
-  beacon_node_types, mainchain_monitor, trusted_state_snapshots, version,
+  beacon_node_types, mainchain_monitor, version,
   sync_protocol, request_manager, validator_keygen, interop, statusbar
 
 const

@@ -61,7 +61,6 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
   var
     blocks = {tailRef.root: tailRef}.toTable()
     latestStateRoot = Option[Eth2Digest]()
-    headStateBlock = tailRef
     headRef: BlockRef
 
   if headRoot != tailRoot:

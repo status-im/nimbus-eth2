@@ -1,6 +1,6 @@
 import
   sets, deques, tables, options,
-  eth/keys, stew/[bitseqs, endians2],
+  stew/[endians2],
   spec/[datatypes, crypto, digest],
   beacon_chain_db, conf, mainchain_monitor, eth2_network, time
 
@@ -262,10 +262,4 @@ proc userValidatorsRange*(d: NetworkMetadata): HSlice[int, int] =
   0 .. d.lastUserValidator.int
 
 proc shortLog*(v: AttachedValidator): string = shortLog(v.pubKey)
-
-proc toGaugeValue*(hash: Eth2Digest): int64 =
-  # Only the last 8 bytes are taken into consideration in accordance
-  # to the ETH2 metrics spec:
-  # https://github.com/ethereum/eth2.0-metrics/blob/6a79914cb31f7d54858c7dd57eee75b6162ec737/metrics.md#interop-metrics
-  cast[int64](uint64.fromBytes(hash.data[24..31], littleEndian))
 
