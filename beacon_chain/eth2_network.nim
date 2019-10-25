@@ -1,6 +1,6 @@
 import
   options, tables,
-  chronos, json_serialization, strutils, chronicles, eth/net/nat,
+  chronos, json_serialization, strutils, chronicles, metrics, eth/net/nat,
   spec/digest, version, conf
 
 const
@@ -11,6 +11,13 @@ export
 
 let
   globalListeningAddr = parseIpAddress("0.0.0.0")
+
+# Metrics for tracking attestation and beacon block loss
+declareCounter gossip_messages_sent,
+  "Number of gossip messages sent by this peer"
+
+declareCounter gossip_messages_received,
+  "Number of gossip messages received by this peer"
 
 proc setupNat(conf: BeaconNodeConf): tuple[ip: IpAddress,
                                            tcpPort: Port,
@@ -248,6 +255,7 @@ else:
     result = proc(api: DaemonAPI,
                   ticket: PubsubTicket,
                   msg: PubSubMessage): Future[bool] {.async.} =
+      inc gossip_messages_received
       trace "Incoming gossip bytes",
         peer = msg.peer, len = msg.data.len, tops = msg.topics
       msgHandler SSZ.decode(msg.data, MsgType)
@@ -259,6 +267,7 @@ else:
     discard await node.daemon.pubsubSubscribe(topic, makeMessageHandler(msgHandler))
 
   proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
+    inc gossip_messages_sent
     traceAsyncErrors node.daemon.pubsubPublish(topic, SSZ.encode(msg))
 
   # TODO:

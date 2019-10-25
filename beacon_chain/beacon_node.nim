@@ -23,18 +23,26 @@ const
   hasPrompt = not defined(withoutPrompt)
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
-declareGauge beacon_slot, "Latest slot of the beacon chain state"
-declareGauge beacon_head_slot, "Slot of the head block of the beacon chain"
-declareGauge beacon_head_root, "Root of the head block of the beacon chain"
+declareGauge beacon_slot,
+  "Latest slot of the beacon chain state"
+declareGauge beacon_head_slot,
+  "Slot of the head block of the beacon chain"
+declareGauge beacon_head_root,
+  "Root of the head block of the beacon chain"
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
-declareGauge beacon_pending_exits, "Number of pending voluntary exits in local operation pool" # On slot
+declareGauge beacon_pending_exits,
+  "Number of pending voluntary exits in local operation pool" # On slot
 
 # Metrics for tracking attestation and beacon block loss
-declareCounter beacon_attestations_sent, "Number of beacon chain attestations sent by this peer"
-declareCounter beacon_attestations_received, "Number of beacon chain attestations received by this peer"
-declareCounter beacon_blocks_proposed, "Number of beacon chain blocks sent by this peer"
-declareCounter beacon_blocks_received, "Number of beacon chain blocks received by this peer"
+declareCounter beacon_attestations_sent,
+  "Number of beacon chain attestations sent by this peer"
+declareCounter beacon_attestations_received,
+  "Number of beacon chain attestations received by this peer"
+declareCounter beacon_blocks_proposed,
+  "Number of beacon chain blocks sent by this peer"
+declareCounter beacon_blocks_received,
+  "Number of beacon chain blocks received by this peer"
 
 logScope: topics = "beacnde"
 
