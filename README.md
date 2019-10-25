@@ -5,11 +5,19 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 ![Stability: experimental](https://img.shields.io/badge/stability-experimental-orange.svg)
 
+[![Discord: Nimbus](https://img.shields.io/badge/discord-nimbus-orange.svg)](https://discord.gg/XRxWahP)
+[![Gitter: #status-im/nimbus](https://img.shields.io/badge/gitter-status--im%2Fnimbus-orange.svg)](https://gitter.im/status-im/nimbus)
+[![Status: #nimbus-general](https://img.shields.io/badge/status-nimbus--general-orange.svg)](https://get.status.im/chat/public/nimbus-general)
+
 Nimbus beacon chain is a research implementation of the beacon chain component of the upcoming Ethereum Serenity upgrade, aka eth2. See the main [Nimbus](https://github.com/status-im/nimbus/) project for the bigger picture.
+
 
 ## Interop (for other Eth2 clients)
 
-A branch with interop specific instructions, ncli and scripts to run multiple clients is available in the [interop branch](https://github.com/status-im/nim-beacon-chain/tree/interop) in the [multinet folder](https://github.com/status-im/nim-beacon-chain/tree/interop/multinet).
+Nimbus is currently going through interoperability testing with several other beacon chain implementations - several tools are available to make this testing easier:
+
+* [multinet](https://github.com/status-im/nim-beacon-chain/tree/master/multinet) - a set of scripts to build and run several Eth2 clients locally
+* [ncli](https://github.com/status-im/nim-beacon-chain/tree/master/multinet) - command line tools for working with SSZ files and state transitions
 
 ⚠️ Important: To save bandwith `export GIT_LFS_SKIP_SMUDGE=1` before cloning the repo.
 This prevents LFS during unusual clones (i.e. when you add `--recurse-submodules` without being instructed to do so).
@@ -26,12 +34,12 @@ You can check where the beacon chain fits in the Ethereum research ecosystem in 
 
 ### Prerequisites
 
-(On Windows, a precompiled DLL collection download is available through the `fetch-dlls` Makefile target: ([Windows instructions](#windows)).)
-
 * [RocksDB](https://github.com/facebook/rocksdb/)
 * PCRE
 * Go 1.12 (for compiling libp2p daemon - being phased out)
 * GNU Make, Bash and the usual POSIX utilities. Git 2.9.4 or newer.
+
+On Windows, a precompiled DLL collection download is available through the `fetch-dlls` Makefile target: ([Windows instructions](#windows)).
 
 ```bash
 # MacOS with Homebrew
@@ -47,7 +55,7 @@ sudo apt-get install librocksdb-dev libpcre3-dev
 pakku -S rocksdb pcre-static
 ```
 
-`rocksdb` can also be installed folloing [their instructions](https://github.com/facebook/rocksdb/blob/master/INSTALL.md).
+`rocksdb` can also be installed by following [their instructions](https://github.com/facebook/rocksdb/blob/master/INSTALL.md).
 
 ### Build & Develop
 
@@ -58,11 +66,10 @@ make # The first `make` invocation will update all Git submodules and prompt you
      # It's only required once per Git clone. You'll run `make update` after each `git pull`, in the future,
      # to keep those submodules up to date.
 
-make test # run the test suite
-```
+# Run tests
+make test
 
-To pull the latest changes in all the Git repositories involved:
-```bash
+# Update to latest version
 git pull
 make update
 ```
@@ -105,10 +112,14 @@ You can now follow those instructions in the previous section by replacing `make
 mingw32-make test # run the test suite
 ```
 
+
+#### Raspberry PI
+
+Raspberry PI support is experimental - see [Nimbus](https://github.com/status-im/nimbus/#raspberry-pi) instructions for how to prepare the Raspberry for building `nim-beacon-chain`.
+
 ## Beacon node simulation
 
 The beacon node simulation will create a full peer-to-peer network of beacon nodes and validators, and run the beacon chain in real time. To change network parameters such as shard and validator counts, see [start.sh](tests/simulation/start.sh).
-
 
 ```bash
 # Clear data files from your last run and start the simulation with a new genesis block:
@@ -145,7 +156,7 @@ Specific steps:
 ```bash
 # This will generate the Prometheus config and the Grafana dashboard on the fly,
 # based on the number of nodes (which you can control by passing something like NODES=6 to `make`).
-make eth2_network_simulation
+make VALIDATORS=192 NODES=6 MISSING_NODES=0 eth2_network_simulation
 
 # In another terminal tab, after the sim started:
 cd tests/simulation/prometheus
