@@ -35,8 +35,10 @@ type
 contract(Deposit):
   proc drain()
 
+proc getTransactionReceipt(web3: Web3, tx: TxHash): Future[ReceiptObject] {.async.} =
+  result = await web3.provider.eth_getTransactionReceipt(tx)
+
 proc deployContract*(web3: Web3, code: string): Future[Address] {.async.} =
-  let provider = web3.provider
   var code = code
   if code[1] notin {'x', 'X'}:
     code = "0x" & code
@@ -47,7 +49,7 @@ proc deployContract*(web3: Web3, code: string): Future[Address] {.async.} =
     gasPrice: 1.some)
 
   let r = await web3.send(tr)
-  let receipt = await provider.eth_getTransactionReceipt(r)
+  let receipt = await web3.getTransactionReceipt(r)
   result = receipt.contractAddress.get
 
 proc sendEth(web3: Web3, to: string, valueEth: int): Future[TxHash] =

@@ -3,7 +3,7 @@ import
   os, net, sequtils, tables, osproc, random, strutils, times, strformat,
 
   # Nimble packages
-  stew/[objects, bitseqs],
+  stew/[objects, bitseqs, byteutils],
   chronos, chronicles, confutils, metrics,
   json_serialization/std/[options, sets], serialization/errors,
   eth/trie/db, eth/trie/backends/rocksdb_backend, eth/async_utils,
@@ -19,7 +19,7 @@ const
   dataDirValidators = "validators"
   networkMetadataFile = "network.json"
   genesisFile = "genesis.json"
-  testnetsBaseUrl = "https://serenity-testnets.status.im"
+  testnetsBaseUrl = "https://raw.githubusercontent.com/status-im/nim-eth2-testnet-data/master/www"
   hasPrompt = not defined(withoutPrompt)
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
@@ -109,27 +109,23 @@ proc saveValidatorKey(keyName, key: string, conf: BeaconNodeConf) =
   writeFile(outputFile, key)
   info "Imported validator key", file = outputFile
 
-proc initGenesis(node: BeaconNode) {.async.} =
-  template conf: untyped = node.config
-  var tailState: BeaconState
-  if conf.depositWeb3Url.len != 0:
-    info "Waiting for genesis state from eth1"
-    tailState = await node.mainchainMonitor.getGenesis()
+func stateSnapshotPath*(conf: BeaconNodeConf): string =
+  if conf.stateSnapshot.isSome:
+    conf.stateSnapshot.get.string
   else:
-    var snapshotFile = conf.dataDir / genesisFile
+    conf.dataDir / genesisFile
+
+proc getStateFromSnapshot(node: BeaconNode, state: var BeaconState): bool =
+  template conf: untyped = node.config
+  let snapshotFile = conf.stateSnapshotPath
+
+  if fileExists(snapshotFile):
+    template loadSnapshot(Format) =
+      info "Importing snapshot file", path = snapshotFile
+      state = loadFile(Format, snapshotFile, BeaconState)
+
+    let ext = splitFile(snapshotFile).ext
     try:
-      if conf.stateSnapshot.isSome:
-        snapshotFile = conf.stateSnapshot.get.string
-
-      if not fileExists(snapshotFile):
-        error "Nimbus database not initialized. Please specify the initial state snapshot file."
-        quit 1
-
-      template loadSnapshot(Format) =
-        info "Importing snapshot file", path = snapshotFile
-        tailState = loadFile(Format, snapshotFile, BeaconState)
-
-      let ext = splitFile(snapshotFile).ext
       if cmpIgnoreCase(ext, ".ssz") == 0:
         loadSnapshot SSZ
       elif cmpIgnoreCase(ext, ".json") == 0:
@@ -137,15 +133,16 @@ proc initGenesis(node: BeaconNode) {.async.} =
       else:
         error "The --stateSnapshot option expects a json or a ssz file."
         quit 1
-
     except SerializationError as err:
       stderr.write "Failed to import ", snapshotFile, "\n"
       stderr.write err.formatMsg(snapshotFile), "\n"
       quit 1
 
+    result = true
+
+proc commitGenesisState(node: BeaconNode, tailState: BeaconState) =
   info "Got genesis state", hash = hash_tree_root(tailState)
   node.forkVersion = tailState.fork.current_version
-
   try:
     let tailBlock = get_initial_beacon_block(tailState)
     BlockPool.preInit(node.db, tailState, tailBlock)
@@ -219,9 +216,6 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
       result.bootstrapNodes.add BootstrapAddr.init(string ln)
 
   result.attachedValidators = ValidatorPool.init
-  if conf.depositWeb3Url.len != 0:
-    result.mainchainMonitor = MainchainMonitor.init(conf.depositWeb3Url, conf.depositContractAddress)
-    result.mainchainMonitor.start()
 
   let trieDB = trieDB newChainDb(string conf.databaseDir)
   result.db = BeaconChainDB.init(trieDB)
@@ -231,8 +225,25 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   #      specified on command line? potentially, this should be the other way
   #      around...
 
+  var eth1MonitorStartBlock: Eth2Digest
   if result.db.getHeadBlock().isNone():
-    await result.initGenesis()
+    var state: BeaconState
+    if not result.getStateFromSnapshot(state):
+      if conf.depositWeb3Url.len != 0:
+        result.mainchainMonitor = MainchainMonitor.init(conf.depositWeb3Url, conf.depositContractAddress, eth1MonitorStartBlock)
+        result.mainchainMonitor.start()
+      else:
+        stderr.write "No state snapshot (or web3 URL) provided\n"
+        quit 1
+
+      state = await result.mainchainMonitor.getGenesis()
+    else:
+      eth1MonitorStartBlock = state.eth1Data.block_hash
+    result.commitGenesisState(state)
+
+  if result.mainchainMonitor.isNil and conf.depositWeb3Url.len != 0:
+    result.mainchainMonitor = MainchainMonitor.init(conf.depositWeb3Url, conf.depositContractAddress, eth1MonitorStartBlock)
+    result.mainchainMonitor.start()
 
   result.blockPool = BlockPool.init(result.db)
   result.attestationPool = AttestationPool.init(result.blockPool)
@@ -1010,10 +1021,15 @@ when isMainModule:
         stderr.write "Please regenerate the deposit files by running makeDeposits again\n"
         quit 1
 
+    let eth1Hash = if config.depositWeb3Url.len == 0:
+        eth1BlockHash
+      else:
+        waitFor getLatestEth1BlockHash(config.depositWeb3Url)
+
     var
       startTime = uint64(times.toUnix(times.getTime()) + config.genesisOffset)
       initialState = initialize_beacon_state_from_eth1(
-        eth1BlockHash, startTime, deposits, {skipValidation})
+        eth1Hash, startTime, deposits, {skipValidation})
 
     # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
     initialState.genesis_time = startTime
@@ -1043,6 +1059,9 @@ when isMainModule:
         slotsPerEpoch: SLOTS_PER_EPOCH,
         totalValidators: config.totalValidators,
         lastUserValidator: config.lastUserValidator)
+
+    if config.depositContractAddress.len != 0:
+      testnetMetadata.depositContractAddress = hexToByteArray[20](config.depositContractAddress).some
 
     Json.saveFile(config.outputNetworkMetadata.string, testnetMetadata, pretty = true)
     echo "Wrote ", config.outputNetworkMetadata.string
