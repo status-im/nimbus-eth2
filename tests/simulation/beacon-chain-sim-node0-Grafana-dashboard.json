@@ -481,7 +481,7 @@
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "att'ns sent",
+      "title": "att'ns sent (all)",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
