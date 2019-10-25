@@ -1,8 +1,8 @@
 import
-  deques, math, options, sequtils, tables,
+  deques, options, sequtils, tables,
   chronicles,
-  ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator], extras,
-  ./attestation_pool, ./beacon_node_types, ./beacon_chain_db, ./ssz
+  ./spec/[datatypes, crypto, digest, helpers],
+  ./attestation_pool, ./beacon_node_types, ./ssz
 
 proc get_ancestor(blck: BlockRef, slot: Slot): BlockRef =
   if blck.slot == slot:

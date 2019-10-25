@@ -1,6 +1,6 @@
 import
-  ospaths, chronos, json_serialization, strformat,
-  spec/[datatypes, crypto, digest, beaconstate], beacon_chain_db, conf
+  ospaths, chronos, json_serialization,
+  spec/[datatypes], beacon_chain_db
 
 const
   WEAK_SUBJECTVITY_PERIOD* =

@@ -31,9 +31,9 @@
 # now.
 
 import
-  algorithm, collections/sets, chronicles, math, options, sequtils, sets, tables,
-  ./extras, ./ssz, ./beacon_node_types, metrics,
-  ./spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
+  collections/sets, chronicles, math, options, sets, tables,
+  ./extras, ./ssz, metrics,
+  ./spec/[datatypes, digest, helpers, validator],
   ./spec/[state_transition_block, state_transition_epoch]
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics

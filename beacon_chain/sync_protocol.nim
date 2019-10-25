@@ -1,8 +1,8 @@
 import
-  options, tables, sequtils, algorithm, sets, macros,
+  options, tables, sets, macros,
   chronicles, chronos, metrics, stew/ranges/bitranges,
   spec/[datatypes, crypto, digest, helpers], eth/rlp,
-  beacon_node_types, eth2_network, beacon_chain_db, block_pool, time, ssz
+  beacon_node_types, eth2_network, beacon_chain_db, block_pool, ssz
 
 when networkBackend == rlpxBackend:
   import eth/rlp/options as rlpOptions

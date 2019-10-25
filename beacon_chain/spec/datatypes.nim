@@ -18,7 +18,7 @@
 # types / composition
 
 import
-  macros, hashes, math, json, strutils, tables,
+  macros, hashes, json, strutils, tables,
   stew/[byteutils, bitseqs], chronicles, eth/common,
   ../version, ../ssz/types, ./crypto, ./digest
 
@@ -644,6 +644,6 @@ static:
   # requires that SHARD_COUNT >= get_committee_count(...)
   doAssert SHARD_COUNT >= SLOTS_PER_EPOCH, "Shard count should match or exceed number of slots per epoch"
 
-import nimcrypto, json_serialization
+import json_serialization
 export json_serialization
 export writeValue, readValue

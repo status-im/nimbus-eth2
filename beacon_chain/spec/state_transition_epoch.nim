@@ -35,7 +35,7 @@
 import # TODO - cleanup imports
   algorithm, math, options, sequtils, tables,
   stew/[bitseqs, bitops2], chronicles, json_serialization/std/sets,
-  metrics, ../extras, ../ssz, ../beacon_node_types,
+  metrics, ../ssz,
   beaconstate, crypto, datatypes, digest, helpers, validator,
   state_transition_helpers
 
@@ -459,7 +459,7 @@ func get_crosslink_deltas*(state: BeaconState, cache: var StateCache):
       shard = (get_start_shard(state, epoch) + offset) mod SHARD_COUNT
       crosslink_committee =
         toSet(get_crosslink_committee(state, epoch, shard, cache))
-      (winning_crosslink, attesting_indices) =
+      (_, attesting_indices) =
         get_winning_crosslink_and_attesting_indices(
           state, epoch, shard, cache)
       attesting_balance = get_total_balance(state, attesting_indices)

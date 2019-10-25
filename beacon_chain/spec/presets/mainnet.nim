@@ -9,12 +9,7 @@
 # serialization and spec updates.
 
 import
-  # Standard library
-  math,
-  # Third-party
-  eth/common,
-  # Internals
-  ../crypto, ../digest
+  math
 
 type
   Slot* = distinct uint64

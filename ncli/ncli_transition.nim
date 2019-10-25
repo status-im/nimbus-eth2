@@ -1,6 +1,6 @@
 import
   confutils, chronicles,
-  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
+  ../beacon_chain/spec/[crypto, datatypes],
   ../beacon_chain/[extras, state_transition, ssz]
 
 cli do(pre: string, blck: string, post: string, verifyStateRoot = false):

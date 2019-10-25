@@ -1,7 +1,7 @@
 import
   confutils, ospaths, strutils, chronicles, json_serialization,
-  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
-  ../beacon_chain/[extras, state_transition, ssz]
+  ../beacon_chain/spec/[crypto, datatypes, digest],
+  ../beacon_chain/[ssz]
 
 # TODO turn into arguments
 cli do(kind: string, file: string):
