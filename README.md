@@ -115,7 +115,59 @@ mingw32-make test # run the test suite
 
 #### Raspberry PI
 
-Raspberry PI support is experimental - see [Nimbus](https://github.com/status-im/nimbus/#raspberry-pi) instructions for how to prepare the Raspberry for building `nim-beacon-chain`.
+Raspberry Pi support is experimental.
+
+We recommend you remove any cover or use a fan as the Raspberry Pi will get hot (85°C) and throttle.
+
+* Raspberry PI 3b+ or Raspberry Pi 4b.
+* 64gb SD Card (less might work too, but the default recommended 4-8GB will probably be too small)
+* [Rasbian Buster Lite](https://www.raspberrypi.org/downloads/raspbian/) - Lite version is enough to get going and will save some disk space!
+
+Assuming you're working with a freshly written image:
+
+```bash
+
+# Start by increasing swap size to 2gb:
+sudo vi /etc/dphys-swapfile
+# Set CONF_SWAPSIZE=2048
+# :wq
+sudo reboot
+
+# Install prerequisites
+sudo apt-get install git libgflags-dev libsnappy-dev libpcre3-dev
+
+mkdir status
+cd status
+
+# Install rocksdb
+git clone https://github.com/facebook/rocksdb.git
+cd rocksdb
+make shared_lib
+sudo make install
+cd ..
+
+# Raspberry pi doesn't include /usr/local/lib in library search path
+# Add it to your profile
+echo '# Local compiles (nimbus - rocksdb)' >> ~/.profile
+echo 'export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH' >> ~/.profile
+echo '' >> ~/.profile
+
+# Install Go at least 1.12 (Buster only includes up to 1.11)
+# Raspbian is 32-bit, so the package is go1.XX.X.linux-armv6l.tar.gz (and not arm64)
+curl -O https://storage.googleapis.com/golang/go1.13.3.linux-armv6l.tar.gz
+sudo tar -C /usr/local -xzf go1.13.3.linux-armv6l.tar.gz
+
+echo '# Go install' >> ~/.profile
+echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.profile
+
+# Reload the environment variable changes
+source ~/.profile
+
+git clone https://github.com/status-im/nim-beacon-chain.git
+
+cd nim-beacon-chain
+# Follow instructions above!
+```
 
 ## Beacon node simulation
 
@@ -255,4 +307,3 @@ or
 * Apache License, Version 2.0, ([LICENSE-APACHEv2](LICENSE-APACHEv2) or http://www.apache.org/licenses/LICENSE-2.0)
 
 at your option. These files may not be copied, modified, or distributed except according to those terms.
-
