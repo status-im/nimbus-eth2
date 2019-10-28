@@ -17,7 +17,6 @@ import
 
 const
   dataDirValidators = "validators"
-  networkMetadataFile = "network.json"
   genesisFile = "genesis.json"
   testnetsBaseUrl = "https://raw.githubusercontent.com/status-im/nim-eth2-testnet-data/master/www"
   hasPrompt = not defined(withoutPrompt)
@@ -57,51 +56,6 @@ func databaseDir(conf: BeaconNodeConf): string =
 template `//`(url, fragment: string): string =
   url & "/" & fragment
 
-proc downloadFile(url: string): Future[string] {.async.} =
-  # TODO We need a proper HTTP client able to perform HTTPS downloads
-  let tempFile = getTempDir() / "nimbus.download"
-  let cmd = "curl --fail -o " & quoteShell(tempFile) & " " & url
-  let (fileContents, errorCode) = execCmdEx(cmd, options = {poUsePath})
-  if errorCode != 0:
-    raise newException(IOError, "Failed external command: '" & cmd & "', exit code: " & $errorCode & ", output: '" & fileContents & "'")
-  return readFile(tempFile)
-
-proc updateTestnetMetadata(conf: BeaconNodeConf): Future[NetworkMetadata] {.async.} =
-  let metadataUrl = testnetsBaseUrl // $conf.network // networkMetadataFile
-  let latestMetadata = await downloadFile(metadataUrl)
-
-  try:
-    result = Json.decode(latestMetadata, NetworkMetadata)
-  except SerializationError as err:
-    stderr.write "Error while loading the testnet metadata. Your client my be out of date.\n"
-    stderr.write err.formatMsg(metadataUrl), "\n"
-    stderr.write "Please follow the instructions at https://github.com/status-im/nim-beacon-chain " &
-                 "in order to produce an up-to-date build.\n"
-    quit 1
-
-  let localMetadataFile = conf.dataDir / networkMetadataFile
-  if fileExists(localMetadataFile) and readFile(localMetadataFile).string == latestMetadata:
-    return
-
-  info "New testnet genesis data received. Starting with a fresh database."
-
-  createDir conf.dataDir.string
-  removeDir conf.databaseDir
-  writeFile localMetadataFile, latestMetadata
-
-  let newGenesis = await downloadFile(testnetsBaseUrl // $conf.network // genesisFile)
-  writeFile conf.dataDir / genesisFile, newGenesis
-
-proc obtainTestnetKey(conf: BeaconNodeConf): Future[(string, string)] {.async.} =
-  let
-    metadata = await updateTestnetMetadata(conf)
-    privKeyName = validatorFileBaseName(rand(metadata.userValidatorsRange)) & ".privkey"
-    privKeyUrl = testnetsBaseUrl // $conf.network // privKeyName
-    privKeyContent = strip await downloadFile(privKeyUrl)
-
-  let key = ValidatorPrivKey.init(privKeyContent)
-  return (privKeyName, privKeyContent)
-
 proc saveValidatorKey(keyName, key: string, conf: BeaconNodeConf) =
   let validatorsDir = conf.dataDir / dataDirValidators
   let outputFile = validatorsDir / keyName
@@ -131,7 +85,7 @@ proc getStateFromSnapshot(node: BeaconNode, state: var BeaconState): bool =
       elif cmpIgnoreCase(ext, ".json") == 0:
         loadSnapshot Json
       else:
-        error "The --stateSnapshot option expects a json or a ssz file."
+        error "The --state-snapshot option expects a json or a ssz file."
         quit 1
     except SerializationError as err:
       stderr.write "Failed to import ", snapshotFile, "\n"
@@ -152,68 +106,31 @@ proc commitGenesisState(node: BeaconNode, tailState: BeaconState) =
     stderr.write getCurrentExceptionMsg(), "\n"
     quit 1
 
+proc addBootstrapNode(node: BeaconNode, bootstrapNode: BootstrapAddr) =
+  if bootstrapNode.isSameNode(node.networkIdentity):
+    node.isBootstrapNode = true
+  else:
+    node.bootstrapNodes.add bootstrapNode
+
 proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
   new result
   result.onBeaconBlock = onBeaconBlock
   result.config = conf
   result.networkIdentity = getPersistentNetIdentity(conf)
-  result.nickname = if conf.nodename == "auto": shortForm(result.networkIdentity)
-                    else: conf.nodename
+  result.nickname = if conf.nodeName == "auto": shortForm(result.networkIdentity)
+                    else: conf.nodeName
 
   template fail(args: varargs[untyped]) =
     stderr.write args, "\n"
     quit 1
 
-  if not conf.quickStart:
-    case conf.network
-    of "mainnet":
-      fail "The Serenity mainnet hasn't been launched yet"
-    of "testnet0", "testnet1":
-      result.networkMetadata = await updateTestnetMetadata(conf)
-    else:
-      try:
-        result.networkMetadata = Json.loadFile(conf.network, NetworkMetadata)
-      except SerializationError as err:
-        fail "Failed to load network metadata: \n", err.formatMsg(conf.network)
-
-    var metadataErrorMsg = ""
-
-    template checkCompatibility(metadataField, LOCAL_CONSTANT) =
-      let metadataValue = metadataField
-      if metadataValue != LOCAL_CONSTANT:
-        if metadataErrorMsg.len > 0: metadataErrorMsg.add " and"
-        metadataErrorMsg.add " -d:" & astToStr(LOCAL_CONSTANT) & "=" & $metadataValue &
-                            " (instead of " & $LOCAL_CONSTANT & ")"
-
-    if result.networkMetadata.networkGeneration != semanticVersion:
-      let newerVersionRequired = result.networkMetadata.networkGeneration.int > semanticVersion
-      let newerOrOlder = if newerVersionRequired: "a newer" else: "an older"
-      stderr.write &"Connecting to '{conf.network}' requires {newerOrOlder} version of Nimbus. "
-      if newerVersionRequired:
-        stderr.write "Please follow the instructions at https://github.com/status-im/nim-beacon-chain " &
-                    "in order to produce an up-to-date build.\n"
-      quit 1
-
-    checkCompatibility result.networkMetadata.numShards      , SHARD_COUNT
-    checkCompatibility result.networkMetadata.slotDuration   , SECONDS_PER_SLOT
-    checkCompatibility result.networkMetadata.slotsPerEpoch  , SLOTS_PER_EPOCH
-
-    if metadataErrorMsg.len > 0:
-      fail "To connect to the ", conf.network, " network, please compile with", metadataErrorMsg
-
-    for bootNode in result.networkMetadata.bootstrapNodes:
-      if bootNode.isSameNode(result.networkIdentity):
-        result.isBootstrapNode = true
-      else:
-        result.bootstrapNodes.add bootNode
-
   for bootNode in conf.bootstrapNodes:
-    result.bootstrapNodes.add BootstrapAddr.init(bootNode)
+    result.addBootstrapNode BootstrapAddr.init(bootNode)
 
   let bootstrapFile = string conf.bootstrapNodesFile
   if bootstrapFile.len > 0:
     for ln in lines(bootstrapFile):
-      result.bootstrapNodes.add BootstrapAddr.init(string ln)
+      result.addBootstrapNode BootstrapAddr.init(string ln)
 
   result.attachedValidators = ValidatorPool.init
 
@@ -907,7 +824,7 @@ when hasPrompt:
     else: Slot(0)
 
   proc initPrompt(node: BeaconNode) =
-    if isatty(stdout) and node.config.statusbar:
+    if isatty(stdout) and node.config.statusBarEnabled:
       enableTrueColors()
 
       # TODO: nim-prompt seems to have threading issues at the moment
@@ -962,7 +879,7 @@ when hasPrompt:
           "$" & expr
 
       var statusBar = StatusBarView.init(
-        node.config.statusbarContents,
+        node.config.statusBarContents,
         dataResolver)
 
       defaultChroniclesStream.output.writer =
@@ -1047,41 +964,23 @@ when isMainModule:
       bootstrapAddress = getPersistenBootstrapAddr(
         config, parseIpAddress(config.bootstrapAddress), Port config.bootstrapPort)
 
-      testnetMetadata = NetworkMetadata(
-        networkGeneration: semanticVersion,
-        genesisRoot:
-          if config.withGenesisRoot:
-            some(hash_tree_root(initialState))
-          else: none(Eth2Digest),
-        bootstrapNodes: @[bootstrapAddress],
-        numShards: SHARD_COUNT,
-        slotDuration: SECONDS_PER_SLOT,
-        slotsPerEpoch: SLOTS_PER_EPOCH,
-        totalValidators: config.totalValidators,
-        lastUserValidator: config.lastUserValidator)
-
-    if config.depositContractAddress.len != 0:
-      testnetMetadata.depositContractAddress = hexToByteArray[20](config.depositContractAddress).some
-
-    Json.saveFile(config.outputNetworkMetadata.string, testnetMetadata, pretty = true)
-    echo "Wrote ", config.outputNetworkMetadata.string
-
-    let bootstrapFile = config.outputBootstrapNodes.string
+    let bootstrapFile = config.outputBootstrapFile.string
     if bootstrapFile.len > 0:
-      let bootstrapAddrLine = when networkBackend == libp2pBackend:
+      let bootstrapAddrLine = when networkBackend != rlpxBackend:
         $bootstrapAddress.addresses[0] & "/p2p/" & bootstrapAddress.peer.pretty
       else:
         $bootstrapAddress
       writeFile(bootstrapFile, bootstrapAddrLine)
       echo "Wrote ", bootstrapFile
 
-  of updateTestnet:
-    discard waitFor updateTestnetMetadata(config)
-
   of importValidator:
     template reportFailureFor(keyExpr) =
       error "Failed to import validator key", key = keyExpr
       programResult = 1
+
+    if config.keyFiles.len == 0:
+      stderr.write "Please specify at least one keyfile to import."
+      quit 1
 
     for keyFile in config.keyFiles:
       try:
@@ -1089,18 +988,6 @@ when isMainModule:
                          readFile(keyFile.string), config)
       except:
         reportFailureFor keyFile.string
-
-    if config.keyFiles.len == 0:
-      if config.network in ["testnet0", "testnet1"]:
-        try:
-          let (keyName, key) = waitFor obtainTestnetKey(config)
-          saveValidatorKey(keyName, key, config)
-        except:
-          stderr.write "Failed to download key\n", getCurrentExceptionMsg()
-          quit 1
-      else:
-        echo "Validator keys can be downloaded only for testnets"
-        quit 1
 
   of noCommand:
     createPidFile(config.dataDir.string / "beacon_node.pid")

@@ -131,8 +131,9 @@ when networkBackend == rlpxBackend:
 
 else:
   import
-    os, random, stew/io,
-    eth/async_utils, ssz, libp2p/crypto/crypto
+    os, random,
+    stew/io, eth/async_utils, libp2p/crypto/crypto,
+    ssz
 
   when networkBackend == libp2pBackend:
     import
@@ -157,7 +158,15 @@ else:
     Eth2NodeIdentity* = PeerInfo
 
   proc init*(T: type BootstrapAddr, str: string): T =
-    Json.decode(str, PeerInfo)
+    # TODO: The code below is quite awkward.
+    # How do we parse a PeerInfo object out of a bootstrap MultiAddress string such as:
+    # /ip4/10.20.30.40/tcp/9100/p2p/16Uiu2HAmEAmp4FdpPzypKwTMmsbCdnUafDvXZCpFrUDbYJZNk7hX
+    var parts = str.split("/p2p/")
+    if parts.len == 2:
+      result.peer = PeerID.init(parts[1])
+      result.addresses.add MultiAddress.init(parts[0])
+    else:
+      raise newException(ValueError, "Invalid bootstrap multi-address")
 
   proc ensureNetworkIdFile(conf: BeaconNodeConf): string =
     result = conf.dataDir / networkKeyFilename

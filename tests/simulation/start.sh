@@ -9,7 +9,7 @@ source "$(dirname "$0")/vars.sh"
 source "${SIM_ROOT}/../../env.sh"
 
 # Set DEPOSIT_WEB3_URL_ARG to empty to get genesis state from file, not using web3
-# export DEPOSIT_WEB3_URL_ARG=--depositWeb3Url=ws://localhost:8545
+# export DEPOSIT_WEB3_URL_ARG=--web3-url=ws://localhost:8545
 export DEPOSIT_WEB3_URL_ARG=
 export DEPOSIT_CONTRACT_ADDRESS=0x
 
@@ -44,25 +44,24 @@ if [ ! -f "${LAST_VALIDATOR}" ]; then
   fi
 
   $BEACON_NODE_BIN makeDeposits \
-    --totalDeposits="${NUM_VALIDATORS}" \
-    --depositsDir="$VALIDATORS_DIR" \
-    --randomKeys=false \
+    --total-deposits="${NUM_VALIDATORS}" \
+    --deposits-dir="$VALIDATORS_DIR" \
+    --random-keys=no \
     $DEPOSIT_WEB3_URL_ARG \
-    --depositContractAddress="${DEPOSIT_CONTRACT_ADDRESS}"
+    --deposit-contract="${DEPOSIT_CONTRACT_ADDRESS}"
 fi
 
 if [ ! -f "${SNAPSHOT_FILE}" ]; then
   $BEACON_NODE_BIN \
-    --dataDir="${SIMULATION_DIR}/node-0" \
+    --data-dir="${SIMULATION_DIR}/node-0" \
     createTestnet \
-    --validatorsDir="${VALIDATORS_DIR}" \
-    --totalValidators="${NUM_VALIDATORS}" \
-    --outputGenesis="${SNAPSHOT_FILE}" \
-    --outputNetworkMetadata="${NETWORK_METADATA_FILE}" \
-    --outputBootstrapNodes="${SIMULATION_DIR}/bootstrap_nodes.txt" \
-    --bootstrapAddress=127.0.0.1 \
-    --bootstrapPort=50000 \
-    --genesisOffset=5 # Delay in seconds
+    --validators-dir="${VALIDATORS_DIR}" \
+    --total-validators="${NUM_VALIDATORS}" \
+    --output-genesis="${SNAPSHOT_FILE}" \
+    --output-bootstrap-file="${NETWORK_BOOTSTRAP_FILE}" \
+    --bootstrap-address=127.0.0.1 \
+    --bootstrap-port=50000 \
+    --genesis-offset=5 # Delay in seconds
 fi
 
 # Delete any leftover address files from a previous session
@@ -117,7 +116,7 @@ for i in $(seq 0 $LAST_NODE); do
     done
   fi
 
-  CMD="${SIM_ROOT}/run_node.sh $i --statusbar:off"
+  CMD="${SIM_ROOT}/run_node.sh $i --status-bar:off"
 
   if [[ "$USE_MULTITAIL" != "no" ]]; then
     if [[ "$i" == "0" ]]; then

@@ -42,7 +42,7 @@ DATA_DIR_ABS=$(mkdir -p "$DATA_DIR"; cd "$DATA_DIR"; pwd)
 NETWORK_DIR_ABS="$ETH2_TESTNET_DATA_DIR_ABS/www/$NETWORK_NAME"
 
 if [ "$WEB3_URL" != "" ]; then
-  WEB3_URL_ARG="--depositWeb3Url=$WEB3_URL"
+  WEB3_URL_ARG="--web3-url=$WEB3_URL"
 fi
 
 DOCKER_BEACON_NODE="docker run -v $NETWORK_DIR_ABS:/network_dir -v $DATA_DIR_ABS:/data_dir statusteam/nimbus_beacon_node:$NETWORK_NAME"
@@ -51,7 +51,7 @@ make deposit_contract
 
 if [ "$ETH1_PRIVATE_KEY" != "" ]; then
   DEPOSIT_CONTRACT_ADDRESS=$(./build/deposit_contract deploy $WEB3_URL_ARG --privateKey=$ETH1_PRIVATE_KEY)
-  DEPOSIT_CONTRACT_ADDRESS_ARG="--depositContractAddress=$DEPOSIT_CONTRACT_ADDRESS"
+  DEPOSIT_CONTRACT_ADDRESS_ARG="--deposit_contract=$DEPOSIT_CONTRACT_ADDRESS"
 fi
 
 cd docker
@@ -62,25 +62,24 @@ make build
 if [ ! -f $NETWORK_DIR_ABS/genesis.ssz ]; then
   rm -f $NETWORK_DIR_ABS/*
   $DOCKER_BEACON_NODE makeDeposits \
-    --totalDeposits=$VALIDATOR_COUNT \
-    --depositsDir=/network_dir \
-    --randomKeys=false
+    --total-deposits=$VALIDATOR_COUNT \
+    --deposits-dir=/network_dir \
+    --random-keys=no
 fi
 
 $DOCKER_BEACON_NODE \
   --network=$NETWORK_NAME \
-  --dataDir=/data_dir \
+  --data-dir=/data_dir \
   createTestnet \
-  --validatorsDir=/network_dir \
-  --totalValidators=$VALIDATOR_COUNT \
-  --lastUserValidator=$LAST_USER_VALIDATOR \
-  --outputGenesis=/network_dir/genesis.json \
-  --outputBootstrapNodes=/network_dir/bootstrap_nodes.txt \
-  --outputNetworkMetadata=/network_dir/network.json \
-  --bootstrapAddress=$BOOTSTRAP_IP \
-  --bootstrapPort=$BOOTSTRAP_PORT \
+  --validators-dir=/network_dir \
+  --total-validators=$VALIDATOR_COUNT \
+  --last-user-validator=$LAST_USER_VALIDATOR \
+  --output-genesis=/network_dir/genesis.json \
+  --output-bootstrap-file=/network_dir/bootstrap_nodes.txt \
+  --bootstrap-address=$BOOTSTRAP_IP \
+  --bootstrap-port=$BOOTSTRAP_PORT \
   $WEB3_URL_ARG $DEPOSIT_CONTRACT_ADDRESS_ARG \
-  --genesisOffset=60 # Delay in seconds
+  --genesis-offset=60 # Delay in seconds
 
 if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
   echo Persisting testnet data to git...

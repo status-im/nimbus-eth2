@@ -56,7 +56,7 @@ RUN cd nim-beacon-chain \
 FROM debian:9-slim
 
 RUN apt update \
- && apt install -y librocksdb-dev curl psmisc \
+ && apt install -y librocksdb-dev psmisc \
  && apt clean \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
