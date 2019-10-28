@@ -9,7 +9,7 @@
 [![Gitter: #status-im/nimbus](https://img.shields.io/badge/gitter-status--im%2Fnimbus-orange.svg)](https://gitter.im/status-im/nimbus)
 [![Status: #nimbus-general](https://img.shields.io/badge/status-nimbus--general-orange.svg)](https://get.status.im/chat/public/nimbus-general)
 
-Nimbus beacon chain is a research implementation of the beacon chain component of the upcoming Ethereum Serenity upgrade, aka eth2. See the main [Nimbus](https://github.com/status-im/nimbus/) project for the bigger picture.
+Nimbus beacon chain is a research implementation of the beacon chain component of the upcoming Ethereum Serenity upgrade, aka Eth2. See the main [Nimbus](https://github.com/status-im/nimbus/) project for the bigger picture.
 
 
 ## Interop (for other Eth2 clients)
@@ -167,6 +167,17 @@ git clone https://github.com/status-im/nim-beacon-chain.git
 
 cd nim-beacon-chain
 # Follow instructions above!
+```
+
+## Connecting to testnets
+
+Nimbus should be able to connect to any of the testnets published in the [eth2-testnets repo](https://github.com/zah/eth2-testnets).
+For example, connecting to our testnet0 is done with the following commands:
+
+```bash
+cd nim-beacon-chain
+source env.sh
+nim scripts/connect_to_testnet.nims nimbus/testnet0
 ```
 
 ## Beacon node simulation
