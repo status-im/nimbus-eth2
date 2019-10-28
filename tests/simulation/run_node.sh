@@ -40,6 +40,6 @@ $BEACON_NODE_BIN \
   --depositContractAddress=$DEPOSIT_CONTRACT_ADDRESS \
   --metricsServer=true \
   --metricsServerAddress="127.0.0.1" \
-  --metricsServerPort="$(( $BASE_METRICS_PORT + $NODE_ID ))"
+  --metricsServerPort="$(( $BASE_METRICS_PORT + $NODE_ID ))" \
   "$@"
 

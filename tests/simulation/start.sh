@@ -86,6 +86,12 @@ scrape_configs:
     static_configs:
 EOF
 
+PROCESS_DASHBOARD_BIN="${SIM_ROOT}/../../build/process_dashboard"
+
+if [ ! -f "$PROCESS_DASHBOARD_BIN" ]; then
+  nim c -d:release --outdir:build tests/simulation/process_dashboard.nim
+fi
+
 # use the exported Grafana dashboard for a single node to create one for all nodes
 "${SIM_ROOT}/../../build/process_dashboard" \
   --nodes=${NUM_NODES} \
