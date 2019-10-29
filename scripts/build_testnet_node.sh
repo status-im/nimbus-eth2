@@ -22,10 +22,6 @@ CMD="nim c $OUR_NIM_FLAGS -o:$BEACON_NODE_BIN beacon_chain/beacon_node"
 echo "$CMD"
 $CMD
 
-if [ ! -d ~/.cache/nimbus/BeaconNode/${NETWORK_NAME}/validators ]; then
-  $BEACON_NODE_BIN --network=$NETWORK_NAME importValidator
-fi
-
 # simple wrapper script
 BEACON_NODE_SCRIPT="scripts/${NETWORK_NAME}.sh"
 cat > "$BEACON_NODE_SCRIPT" <<EOF

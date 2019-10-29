@@ -74,7 +74,6 @@ fi
 TOTAL_VALIDATORS="$(( $QUICKSTART_VALIDATORS + $RANDOM_VALIDATORS ))"
 
 $DOCKER_BEACON_NODE \
-  --network=$NETWORK_NAME \
   --data-dir=/data_dir \
   createTestnet \
   --validators-dir=/deposits_dir \

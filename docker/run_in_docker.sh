@@ -3,8 +3,9 @@
 # Deal with previous execution of the deamon leaving behind
 # socket files that prevent the deamon from launching again
 # inside the container.
-killall p2pd
-rm -rf /tmp/*
+
+# killall p2pd
+# rm -rf /tmp/*
 
 if [[ "$2" == "" ]]; then
   # TODO This is a normal execution of a long-running testnet node.

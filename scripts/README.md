@@ -14,7 +14,6 @@ The `beacon_node` binary has a `createTestnet` command.
 
 ```bash
   nim c -r beacon_chain/beacon_node \
-    --network=$NETWORK_NAME \
     --data-dir=$DATA_DIR/node-0 \
     createTestnet \
     --validators-dir=$NETWORK_DIR \
