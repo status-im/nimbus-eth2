@@ -17,7 +17,7 @@ import
 
 const
   dataDirValidators = "validators"
-  genesisFile = "genesis.json"
+  genesisFile = "genesis.ssz"
   hasPrompt = not defined(withoutPrompt)
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
@@ -943,13 +943,12 @@ when isMainModule:
         stderr.write "Please regenerate the deposit files by running makeDeposits again\n"
         quit 1
 
-    let eth1Hash = if config.depositWeb3Url.len == 0:
-        eth1BlockHash
-      else:
-        waitFor getLatestEth1BlockHash(config.depositWeb3Url)
-
-    var
+    let
       startTime = uint64(times.toUnix(times.getTime()) + config.genesisOffset)
+      outGenesis = config.outputGenesis.string
+      eth1Hash = if config.depositWeb3Url.len == 0: eth1BlockHash
+                 else: waitFor getLatestEth1BlockHash(config.depositWeb3Url)
+    var
       initialState = initialize_beacon_state_from_eth1(
         eth1Hash, startTime, deposits, {skipValidation})
 
@@ -958,12 +957,14 @@ when isMainModule:
 
     doAssert initialState.validators.len > 0
 
-    Json.saveFile(config.outputGenesis.string, initialState, pretty = true)
-    echo "Wrote ", config.outputGenesis.string
+    let outGenesisExt = splitFile(outGenesis).ext
+    if cmpIgnoreCase(outGenesisExt, ".json") == 0:
+      Json.saveFile(outGenesis, initialState, pretty = true)
+      echo "Wrote ", outGenesis
 
-    let sszGenesis = config.outputGenesis.string.changeFileExt "ssz"
-    SSZ.saveFile(sszGenesis, initialState)
-    echo "Wrote ", sszGenesis
+    let outSszGenesis = outGenesis.changeFileExt "ssz"
+    SSZ.saveFile(outSszGenesis, initialState)
+    echo "Wrote ", outSszGenesis
 
     var
       bootstrapAddress = getPersistenBootstrapAddr(
