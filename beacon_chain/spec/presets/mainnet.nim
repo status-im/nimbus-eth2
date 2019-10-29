@@ -79,14 +79,13 @@ const
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_fork-choice.md#time-parameters
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/configs/mainnet.yaml#L52
 
-  SECONDS_PER_SLOT*{.intdefine.} = 6'u64 # Compile with -d:SECONDS_PER_SLOT=1 for 6x faster slots
+  SECONDS_PER_SLOT*{.intdefine.} = 12'u64 # Compile with -d:SECONDS_PER_SLOT=1 for 6x faster slots
   ## TODO consistent time unit across projects, similar to C++ chrono?
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#time-parameters
   MIN_ATTESTATION_INCLUSION_DELAY* = 1 ##\
-  ## (24 seconds)
+  ## (12 seconds)
   ## Number of slots that attestations stay in the attestation
   ## pool before being added to a block.
   ## The attestation delay exists so that there is time for attestations to
@@ -126,6 +125,8 @@ const
 
   MIN_EPOCHS_TO_INACTIVITY_PENALTY* = 2'u64^2 ##\
   ## epochs (25.6 minutes)
+
+  EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS* = 16384
 
   # State vector lengths
   # ---------------------------------------------------------------
