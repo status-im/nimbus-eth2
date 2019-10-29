@@ -557,7 +557,6 @@ proc check_attestation*(
   # Check FFG data, crosslink data, and signature
   let ffg_check_data = (data.source.epoch, data.source.root, data.target.epoch)
 
-  var cache = get_empty_per_epoch_cache()
   if data.target.epoch == get_current_epoch(state):
     if not (ffg_check_data == (state.current_justified_checkpoint.epoch,
         state.current_justified_checkpoint.root, get_current_epoch(state))):

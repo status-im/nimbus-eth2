@@ -13,7 +13,7 @@ import
   conf, time, state_transition, fork_choice, ssz, beacon_chain_db,
   validator_pool, extras, attestation_pool, block_pool, eth2_network,
   beacon_node_types, mainchain_monitor, version,
-  sync_protocol, request_manager, interop, statusbar
+  sync_protocol, request_manager, validator_keygen, interop, statusbar
 
 const
   dataDirValidators = "validators"
@@ -435,7 +435,6 @@ proc proposeBlock(node: BeaconNode,
 
     var
       tmpState = hashedState
-      cache = get_empty_per_epoch_cache()
 
     let ok = state_transition(tmpState, newBlock, {skipValidation})
     # TODO only enable in fast-fail debugging situations
@@ -581,7 +580,6 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     let
       epoch = compute_epoch_at_slot(slot)
       committees_per_slot = get_committee_count(state, epoch) div SLOTS_PER_EPOCH
-      start_slot = compute_start_slot_of_epoch(epoch)
       offset = committees_per_slot * (slot mod SLOTS_PER_EPOCH)
       slot_start_shard = (get_start_shard(state, epoch) + offset) mod SHARD_COUNT
 

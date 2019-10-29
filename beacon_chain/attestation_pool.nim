@@ -150,7 +150,6 @@ proc add*(pool: var AttestationPool,
   logScope: pcs = "atp_add_attestation"
 
   doAssert blck.root == attestation.data.beacon_block_root
-  var cache = get_empty_per_epoch_cache()
 
   if not validate(state, attestation):
     notice "Invalid attestation",
