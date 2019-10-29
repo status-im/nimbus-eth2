@@ -304,7 +304,7 @@ func get_attestation_data_slot*(state: BeaconState,
     offset = (data.crosslink.shard + SHARD_COUNT -
       get_start_shard(state, data.target.epoch)) mod SHARD_COUNT
 
-  compute_start_slot_of_epoch(data.target.epoch) + offset div
+  compute_start_slot_at_epoch(data.target.epoch) + offset div
     (committee_count div SLOTS_PER_EPOCH)
 
 # This is the slower (O(n)), spec-compatible signature.
@@ -325,7 +325,7 @@ func get_block_root_at_slot*(state: BeaconState,
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_block_root
 func get_block_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Return the block root at the start of a recent ``epoch``.
-  get_block_root_at_slot(state, compute_start_slot_of_epoch(epoch))
+  get_block_root_at_slot(state, compute_start_slot_at_epoch(epoch))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_total_balance
 func get_total_balance*(state: BeaconState, validators: auto): Gwei =
@@ -659,7 +659,7 @@ proc makeAttestationData*(
 
   let
     current_epoch = get_current_epoch(state)
-    start_slot = compute_start_slot_of_epoch(current_epoch)
+    start_slot = compute_start_slot_at_epoch(current_epoch)
     epoch_boundary_block_root =
       if start_slot == state.slot: beacon_block_root
       else: get_block_root_at_slot(state, start_slot)

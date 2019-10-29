@@ -71,8 +71,8 @@ func compute_epoch_at_slot*(slot: Slot|uint64): Epoch =
 template epoch*(slot: Slot): Epoch =
   compute_epoch_at_slot(slot)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#compute_start_slot_of_epoch
-func compute_start_slot_of_epoch*(epoch: Epoch): Slot =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#compute_start_slot_at_epoch
+func compute_start_slot_at_epoch*(epoch: Epoch): Slot =
   # Return the start slot of ``epoch``.
   (epoch * SLOTS_PER_EPOCH).Slot
 

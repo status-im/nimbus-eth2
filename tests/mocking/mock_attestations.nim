@@ -31,7 +31,7 @@ proc mockAttestationData(
   else:
     result.beacon_block_root = get_block_root_at_slot(state, slot)
 
-  let current_epoch_start_slot = state.get_current_epoch().compute_start_slot_of_epoch()
+  let current_epoch_start_slot = state.get_current_epoch().compute_start_slot_at_epoch()
   let epoch_boundary_root = block:
     if slot < current_epoch_start_slot:
       get_block_root(state, get_previous_epoch(state))
