@@ -1,59 +1,6 @@
-This folder contains scripts for launching the nimbus beacon chain node in a configuration appropriate for [interop](https://github.com/ethereum/eth2.0-pm/tree/master/interop).
+# Multinet (Eth 2 interop)
 
-## Building
+This folder used to contain scripts for launching the nimbus beacon chain node in a configuration appropriate for [interop](https://github.com/ethereum/eth2.0-pm/tree/master/interop).
 
-In general, follow the build instructions of `nim-beacon-chain` as documented in the main repo - make sure to set up your build environment with all necessary system libraries as documented there:
-
-### Prerequisites
-
-:warning: To build nimbus, you need to have the `go` compiler (for go-libp2p-daemon), `rocksdb` and `pcre` installed - see [../](main repo) for instructions.
-
-```bash
-# Clone repo
-
-export GIT_LFS_SKIP_SMUDGE=1 # skip LFS
-git clone https://github.com/status-im/nim-beacon-chain.git
-
-cd nim-beacon-chain
-
-make # prepare build system (cloning the correct submodules)
-make update deps # build dependencies
-```
-
-## Running
-
-Look in the scripts for options - the default config is a small setup using the `minimal` state spec.
-
-```
-cd multinet
-
-# Create a new genesis 10s in the future
-./make_genesis.sh
-
-# You can now start the clients
-./run_nimbus.sh
-./run_trinity.sh
-./run_lighthouse.sh
-
-# Or do all in one step, with multitail
-USE_MULTITAIL=1 ./run_all.sh
-
-# The client scripts take optional arguments:
-# ./script.sh <start_validator_num> <number_of_validators> <total_validators>
-./run_nimbus.sh 0 20 40 # run nimbus with 20 validators, starting from 0, on a 40-validator network
-```
-
-## Diagnostics
-
-```bash
-# Nimbus genesis state
-less data/state_snapshot.json
-
-# Lighthouse genesis state
-curl localhost:5052/beacon/state?slot=0 | python -m json.tool | sed 's/"0x/"/' > /tmp/lighthouse_state.json
-
-# Format nimbus the same
-cat data/state_snapshot.json | python -m json.tool | sed 's/"0x/"/' > /tmp/nimbus_state.json
-
-diff -uw /tmp/nimbus_state.json /tmp/lighthouse_state.json
-```
+The scripts now live in a separate common organization for all Eth 2 clients:
+https://github.com/eth2-clients/multinet
