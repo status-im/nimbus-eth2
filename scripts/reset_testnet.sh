@@ -38,16 +38,21 @@ if [[ ! -d "$ETH2_TESTNETS"  ]]; then
 fi
 
 ETH2_TESTNETS_ABS=$(cd "$ETH2_TESTNETS"; pwd)
-DATA_DIR_ABS=$(mkdir -p "$DATA_DIR"; cd "$DATA_DIR"; pwd)
 NETWORK_DIR_ABS="$ETH2_TESTNETS_ABS/nimbus/$NETWORK_NAME"
+DATA_DIR_ABS=$(mkdir -p "$DATA_DIR"; cd "$DATA_DIR"; pwd)
+DEPOSITS_DIR_ABS="$DATA_DIR_ABS/deposits"
 
 if [ "$WEB3_URL" != "" ]; then
   WEB3_URL_ARG="--web3-url=$WEB3_URL"
 fi
 
-DOCKER_BEACON_NODE="docker run -v $NETWORK_DIR_ABS:/network_dir -v $DATA_DIR_ABS:/data_dir statusteam/nimbus_beacon_node:$NETWORK_NAME"
+mkdir -p "$DEPOSITS_DIR_ABS"
+
+DOCKER_BEACON_NODE="docker run -v $DEPOSITS_DIR_ABS:/deposits_dir -v $NETWORK_DIR_ABS:/network_dir -v $DATA_DIR_ABS:/data_dir statusteam/nimbus_beacon_node:$NETWORK_NAME"
 
 make deposit_contract
+
+DEPOSIT_CONTRACT_ADDRESS_ARG=""
 
 if [ "$ETH1_PRIVATE_KEY" != "" ]; then
   DEPOSIT_CONTRACT_ADDRESS=$(./build/deposit_contract deploy $WEB3_URL_ARG --private-key=$ETH1_PRIVATE_KEY)
@@ -56,26 +61,25 @@ fi
 
 cd docker
 
-export GIT_REVISION=$(git rev-parse HEAD)
-make build
+make build NETWORK=$NETWORK_NAME GIT_REVISION=$(git rev-parse HEAD)
 
 if [ ! -f $NETWORK_DIR_ABS/genesis.ssz ]; then
   rm -f $NETWORK_DIR_ABS/*
   $DOCKER_BEACON_NODE makeDeposits \
     --quickstart-deposits=$QUICKSTART_VALIDATORS \
     --random-deposits=$RANDOM_VALIDATORS \
-    --deposits-dir=/network_dir
+    --deposits-dir=/deposits_dir
 fi
 
-TOTAL_VALIDATORS="$(( $QUICKSTART_VALIDATORS + $RANDOM_VALIDATORS_COUNT ))"
+TOTAL_VALIDATORS="$(( $QUICKSTART_VALIDATORS + $RANDOM_VALIDATORS ))"
 
 $DOCKER_BEACON_NODE \
   --network=$NETWORK_NAME \
   --data-dir=/data_dir \
   createTestnet \
-  --validators-dir=/network_dir \
+  --validators-dir=/deposits_dir \
   --total-validators=$TOTAL_VALIDATORS \
-  --last-user-validator=$LAST_USER_VALIDATOR \
+  --last-user-validator=$QUICKSTART_VALIDATORS \
   --output-genesis=/network_dir/genesis.ssz \
   --output-bootstrap-file=/network_dir/bootstrap_nodes.txt \
   --bootstrap-address=$BOOTSTRAP_IP \
@@ -90,7 +94,7 @@ fi
 if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
   echo Persisting testnet data to git...
   pushd "$ETH2_TESTNETS_ABS"
-    git add --all
+    git add genesis.ssz bootstrap_nodes.txt deposit_contract.txt
     git commit -m "Reset of Nimbus $NETWORK_NAME"
     git push
   popd
@@ -98,7 +102,7 @@ if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
   echo Redistributing validator keys to server nodes...
   # TODO If we try to use direct piping here, bash doesn't execute all of the commands.
   #      The reasons for this are unclear at the moment.
-  nim --verbosity:0 manage_testnet_hosts.nims $NETWORK_NAME redist-validators > /tmp/reset-network.sh
+  nim --verbosity:0 manage_testnet_hosts.nims $NETWORK_NAME redist-validators $DEPOSITS_DIR_ABS > /tmp/reset-network.sh
   bash /tmp/reset-network.sh
 
   echo Uploading bootstrap node network key

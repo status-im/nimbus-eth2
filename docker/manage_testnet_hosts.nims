@@ -1,5 +1,5 @@
 import
-  strformat
+  strformat, ospaths
 
 var
   serverCount = 10
@@ -36,11 +36,20 @@ case cmd
 of "restart-nodes":
   for n in nodes():
     echo &"ssh {n.server} docker restart {n.container}"
+
 of "redist-validators":
+  let depositsDir = paramStr(5)
   for n in nodes():
+    var keysList = ""
+    for i in n.firstValidator..n.lastValidator:
+      let validatorKey = fmt"v{i:07}.privkey"
+      keysList.add " "
+      keysList.add depositsDir / validatorKey
+
     let dockerPath = &"/docker/{n.container}/data/BeaconNode/{network}"
+    echo &"rsync {keysList} {n.server}:/tmp/nimbus-keys"
     echo &"ssh {n.server} 'sudo mkdir -p {dockerPath}/validators && sudo rm -f {dockerPath}/validators/* && " &
-                         &"sudo ~/nimbus/vendor/nim-beacon-chain/scripts/download_validator_keys.sh {network} {n.firstValidator} {n.lastValidator} {dockerPath} && " &
+                         &"sudo mv /tmp/nimbus-keys/* {dockerPath}/validators/ && " &
                          &"sudo chown dockremap:docker -R {dockerPath}'"
 else:
   echo "Unrecognized command: ", cmd

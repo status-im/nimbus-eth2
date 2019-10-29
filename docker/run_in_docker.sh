@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 # Deal with previous execution of the deamon leaving behind
