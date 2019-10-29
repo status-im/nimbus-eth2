@@ -33,9 +33,8 @@ LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.js
 
 if [ ! -f "${LAST_VALIDATOR}" ]; then
   $BEACON_NODE_BIN makeDeposits \
-    --total-deposits="${NUM_VALIDATORS}" \
-    --deposits-dir="$VALIDATORS_DIR" \
-    --random-keys=no
+    --quickstart-deposits="${NUM_VALIDATORS}" \
+    --deposits-dir="$VALIDATORS_DIR"
 fi
 
 if [ ! -f "${SNAPSHOT_FILE}" ]; then

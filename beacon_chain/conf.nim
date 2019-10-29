@@ -186,19 +186,20 @@ type
         longform: "keyfile" }: seq[ValidatorKeyPath]
 
     of makeDeposits:
-      totalDeposits* {.
-        desc: "Total number of deposits and keys to generate."
-        longform: "total-deposits" }: int
+      totalQuickstartDeposits* {.
+        desc: "Number of quick-start deposits to generate."
+        defaultValue: 0
+        longform: "quickstart-deposits" }: int
+
+      totalRandomDeposits* {.
+        desc: "Number of secure random deposits to generate."
+        defaultValue: 0
+        longform: "random-deposits" }: int
 
       depositsDir* {.
         desc: "Folder to write deposits to."
         defaultValue: "validators"
         longform: "deposits-dir" }: string
-
-      randomKeys* {.
-        desc: "Use random keys (instead of interop keys)."
-        defaultValue: false
-        longform: "random-keys" }: bool
 
 proc defaultPort*(config: BeaconNodeConf): int =
   9000

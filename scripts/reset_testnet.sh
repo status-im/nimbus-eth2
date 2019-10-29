@@ -10,7 +10,7 @@ source "$NETWORK_NAME.env"
 cd ..
 
 if [ -f .env ]; then
-  # allow server overrides for ETH2_TESTNET_DATA_DIR, DATA_DIR and ETH1_PRIVATE_KEY
+  # allow server overrides for ETH2_TESTNETS, DATA_DIR and ETH1_PRIVATE_KEY
   source .env
 fi
 
@@ -19,8 +19,8 @@ echo ${BOOTSTRAP_HOST:="master-01.do-ams3.nimbus.test.statusim.net"} > /dev/null
 echo Execution plan:
 
 echo "Testnet name          : $NETWORK_NAME"
-echo "Testnet files repo    : ${ETH2_TESTNET_DATA_DIR:="nim-eth2-testnet-data"}"
-echo "Beacon node data dir  : ${DATA_DIR:="testnet-reset-data"}"
+echo "Testnet files repo    : ${ETH2_TESTNETS:="build/eth2-testnets"}"
+echo "Beacon node data dir  : ${DATA_DIR:="build/testnet-reset-data"}"
 echo "Bootstrap node ip     : ${BOOTSTRAP_IP:="$(dig +short $BOOTSTRAP_HOST)"}"
 echo "Reset testnet at end  : ${PUBLISH_TESTNET_RESETS:="1"}"
 
@@ -33,13 +33,13 @@ while true; do
     esac
 done
 
-if [[ ! -d "$ETH2_TESTNET_DATA_DIR"  ]]; then
-  git clone git@github.com:status-im/nim-eth2-testnet-data "$ETH2_TESTNET_DATA_DIR"
+if [[ ! -d "$ETH2_TESTNETS"  ]]; then
+  git clone git@github.com:zah/eth2-testnets "$ETH2_TESTNETS"
 fi
 
-ETH2_TESTNET_DATA_DIR_ABS=$(cd "$ETH2_TESTNET_DATA_DIR"; pwd)
+ETH2_TESTNETS_ABS=$(cd "$ETH2_TESTNETS"; pwd)
 DATA_DIR_ABS=$(mkdir -p "$DATA_DIR"; cd "$DATA_DIR"; pwd)
-NETWORK_DIR_ABS="$ETH2_TESTNET_DATA_DIR_ABS/www/$NETWORK_NAME"
+NETWORK_DIR_ABS="$ETH2_TESTNETS_ABS/nimbus/$NETWORK_NAME"
 
 if [ "$WEB3_URL" != "" ]; then
   WEB3_URL_ARG="--web3-url=$WEB3_URL"
@@ -62,30 +62,36 @@ make build
 if [ ! -f $NETWORK_DIR_ABS/genesis.ssz ]; then
   rm -f $NETWORK_DIR_ABS/*
   $DOCKER_BEACON_NODE makeDeposits \
-    --total-deposits=$VALIDATOR_COUNT \
-    --deposits-dir=/network_dir \
-    --random-keys=no
+    --quickstart-deposits=$QUICKSTART_VALIDATORS \
+    --random-deposits=$RANDOM_VALIDATORS \
+    --deposits-dir=/network_dir
 fi
+
+TOTAL_VALIDATORS="$(( $QUICKSTART_VALIDATORS + $RANDOM_VALIDATORS_COUNT ))"
 
 $DOCKER_BEACON_NODE \
   --network=$NETWORK_NAME \
   --data-dir=/data_dir \
   createTestnet \
   --validators-dir=/network_dir \
-  --total-validators=$VALIDATOR_COUNT \
+  --total-validators=$TOTAL_VALIDATORS \
   --last-user-validator=$LAST_USER_VALIDATOR \
-  --output-genesis=/network_dir/genesis.json \
+  --output-genesis=/network_dir/genesis.ssz \
   --output-bootstrap-file=/network_dir/bootstrap_nodes.txt \
   --bootstrap-address=$BOOTSTRAP_IP \
   --bootstrap-port=$BOOTSTRAP_PORT \
   $WEB3_URL_ARG $DEPOSIT_CONTRACT_ADDRESS_ARG \
   --genesis-offset=60 # Delay in seconds
 
+if [[ ! -z "$DEPOSIT_CONTRACT_ADDRESS" ]]; then
+  echo $DEPOSIT_CONTRACT_ADDRESS > "$ETH2_TESTNETS_ABS/deposit_contract.txt"
+fi
+
 if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
   echo Persisting testnet data to git...
-  pushd "$ETH2_TESTNET_DATA_DIR_ABS"
+  pushd "$ETH2_TESTNETS_ABS"
     git add --all
-    git commit -m "Testnet reset"
+    git commit -m "Reset of Nimbus $NETWORK_NAME"
     git push
   popd
 

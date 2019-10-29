@@ -29,7 +29,3 @@ build/
 # State sim # TODO - move in another folder
 0000-*.json
 
-# Testnet resetting working directories
-testnet-reset-data/
-nim-eth2-testnet-data/
-

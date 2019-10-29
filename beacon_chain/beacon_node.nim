@@ -1002,9 +1002,17 @@ when isMainModule:
       node.start(node.stateCache.data.data)
 
   of makeDeposits:
-    let deposits = generateDeposits(
-      config.totalDeposits, config.depositsDir, config.randomKeys)
+    let
+      quickstartDeposits = generateDeposits(
+        config.totalQuickstartDeposits, config.depositsDir, false)
 
-    if config.depositWeb3Url.len() > 0 and config.depositContractAddress.len() > 0:
+      randomDeposits = generateDeposits(
+        config.totalRandomDeposits, config.depositsDir, true,
+        firstIdx = config.totalQuickstartDeposits)
+
+    if config.depositWeb3Url.len > 0 and config.depositContractAddress.len > 0:
       waitFor sendDeposits(
-        deposits, config.depositWeb3Url, config.depositContractAddress)
+        quickstartDeposits & randomDeposits,
+        config.depositWeb3Url,
+        config.depositContractAddress)
+

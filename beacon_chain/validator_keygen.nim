@@ -18,12 +18,14 @@ proc writeFile(filename: string, value: auto) =
 proc ethToWei(eth: UInt256): UInt256 =
   eth * 1000000000000000000.u256
 
-proc generateDeposits*(
-    totalValidators: int, outputDir: string, randomKeys: bool): seq[Deposit] =
+proc generateDeposits*(totalValidators: int,
+                       outputDir: string,
+                       randomKeys: bool,
+                       firstIdx = 0): seq[Deposit] =
   info "Generating deposits", totalValidators, outputDir, randomKeys
   for i in 0 ..< totalValidators:
     let
-      v = validatorFileBaseName(i)
+      v = validatorFileBaseName(firstIdx + i)
       depositFn = outputDir / v & ".deposit.json"
       privKeyFn = outputDir / v & ".privkey"
 
