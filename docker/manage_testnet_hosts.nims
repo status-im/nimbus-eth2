@@ -61,7 +61,7 @@ of redist_validators:
       keysList.add " "
       keysList.add conf.depositsDir / validatorKey
 
-    let dockerPath = &"/docker/{n.container}/data/BeaconNode/{conf.network}"
+    let dockerPath = &"/docker/{n.container}/data/BeaconNode"
     echo &"echo Distributing keys {n.firstValidator}..{n.lastValidator} to container {n.container}@{n.server} ... && \\"
     echo &"  ssh {n.server} 'sudo rm -rf /tmp/nimbus && mkdir -p /tmp/nimbus' && \\"
     echo &"  rsync {networkDataFiles} {n.server}:/tmp/nimbus/net-data/ && \\"
