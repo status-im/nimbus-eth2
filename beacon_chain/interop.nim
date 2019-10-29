@@ -1,5 +1,5 @@
 import
-  os, ospaths,
+  ospaths,
   stew/endians2, stint,
   ./extras, ./ssz,
   spec/[crypto, datatypes, digest, helpers]

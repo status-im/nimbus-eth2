@@ -1,7 +1,7 @@
 import
   deques, options, sequtils, tables,
   chronicles,
-  ./spec/[datatypes, crypto, digest, helpers],
+  ./spec/[datatypes, crypto, helpers],
   ./attestation_pool, ./beacon_node_types, ./ssz
 
 proc get_ancestor(blck: BlockRef, slot: Slot): BlockRef =

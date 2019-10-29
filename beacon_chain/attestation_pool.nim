@@ -2,7 +2,7 @@ import
   deques, options, sequtils, tables,
   chronicles, stew/bitseqs, json_serialization/std/sets,
   ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator],
-  ./extras, ./beacon_chain_db, ./ssz, ./block_pool,
+  ./extras, ./ssz, ./block_pool,
   beacon_node_types
 
 logScope: topics = "attpool"

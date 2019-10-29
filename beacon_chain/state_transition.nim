@@ -31,7 +31,7 @@
 # now.
 
 import
-  collections/sets, chronicles, math, options, sets, tables,
+  collections/sets, chronicles, sets,
   ./extras, ./ssz, metrics,
   ./spec/[datatypes, digest, helpers, validator],
   ./spec/[state_transition_block, state_transition_epoch]

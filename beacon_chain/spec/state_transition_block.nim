@@ -33,10 +33,9 @@
 # now.
 
 import # TODO - cleanup imports
-  algorithm, collections/sets, chronicles, options, sequtils, sets, tables,
+  algorithm, collections/sets, chronicles, sequtils, sets, tables,
   ../extras, ../ssz, metrics,
-  beaconstate, crypto, datatypes, digest, helpers, validator,
-  state_transition_helpers
+  beaconstate, crypto, datatypes, digest, helpers, validator
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
 declareGauge beacon_current_live_validators, "Number of active validators that successfully included attestation on chain for current epoch" # On block

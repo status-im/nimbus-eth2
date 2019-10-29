@@ -1,6 +1,6 @@
 import
   # Standard library
-  os, net, sequtils, tables, osproc, random, strutils, times, strformat,
+  os, net, tables, osproc, random, strutils, times, strformat,
 
   # Nimble packages
   stew/[objects, bitseqs],
@@ -13,7 +13,7 @@ import
   conf, time, state_transition, fork_choice, ssz, beacon_chain_db,
   validator_pool, extras, attestation_pool, block_pool, eth2_network,
   beacon_node_types, mainchain_monitor, version,
-  sync_protocol, request_manager, validator_keygen, interop, statusbar
+  sync_protocol, request_manager, interop, statusbar
 
 const
   dataDirValidators = "validators"

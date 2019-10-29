@@ -33,7 +33,7 @@
 # now.
 
 import # TODO - cleanup imports
-  algorithm, math, options, sequtils, tables,
+  math, options, sequtils, tables,
   stew/[bitseqs, bitops2], chronicles, json_serialization/std/sets,
   metrics, ../ssz,
   beaconstate, crypto, datatypes, digest, helpers, validator,
