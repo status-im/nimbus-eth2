@@ -74,7 +74,7 @@ process_subdir() {
 	fi
 	if [[ "${UPDATE_CACHE}" == "1" ]]; then
 		if [[ "${ON_MACOS}" == "1" ]]; then
-			brew install git-lfs # this takes almost 5 minutes on Travis, so only run it if needed
+			HOMEBREW_NO_AUTO_UPDATE=1 brew install git-lfs # this takes almost 5 minutes on Travis, so only run it if needed
 		fi
 		download_lfs_files "$LFS_DIR"
 		echo "Updating the cache."

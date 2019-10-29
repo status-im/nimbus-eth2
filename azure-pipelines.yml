@@ -11,30 +11,29 @@ jobs:
         64-bit:
           PLATFORM: x64
     steps:
-      - task: CacheBeta@0
+      - task: CacheBeta@1
         displayName: 'cache Nim binaries'
         inputs:
-          key: NimBinaries | $(Agent.OS) | $(PLATFORM)
+          key: NimBinaries | $(Agent.OS) | $(PLATFORM) | $(Build.SourceBranchName)
           path: NimBinaries
 
-      - task: CacheBeta@0
+      - task: CacheBeta@1
         displayName: 'cache p2pd binaries'
         inputs:
-          key: p2pdCache | $(Agent.OS) | $(PLATFORM)
+          key: p2pdCache | $(Agent.OS) | $(PLATFORM) | $(Build.SourceBranchName)
           path: p2pdCache
 
-      - task: CacheBeta@0
+      - task: CacheBeta@1
         displayName: 'cache LFS JSON fixtures'
         inputs:
           key: jsonTestsCache
           path: jsonTestsCache
 
-      - task: CacheBeta@0
+      - task: CacheBeta@1
         displayName: 'cache MinGW-w64'
         inputs:
-          key: mingwCache
+          key: mingwCache | 8_1_0 | $(PLATFORM)
           path: mingwCache
-        condition: eq(variables['PLATFORM'], 'x86')
 
       - powershell: |
           Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name 'LongPathsEnabled' -Value 1
@@ -42,20 +41,27 @@ jobs:
 
       - bash: |
           set -e
+          echo "Installing MinGW-w64"
           if [[ $PLATFORM == "x86" ]]; then
-            echo "Installing 32-bit MinGW-w64"
-            mkdir -p mingwCache
-            cd mingwCache
             MINGW_FILE="i686-8.1.0-release-posix-dwarf-rt_v6-rev0.7z"
-            if [[ ! -e "$MINGW_FILE" ]]; then
-              rm -f *.7z
-              curl -OLsS "https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/8.1.0/threads-posix/dwarf/${MINGW_FILE}"
-            fi
-            7z x -y -bd "$MINGW_FILE" >/dev/null
-            mv mingw32 /C/
-            cd ..
-            export PATH="/C/mingw32/bin:$PATH"
+            MINGW_URL="https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/8.1.0/threads-posix/dwarf/${MINGW_FILE}"
+            MINGW_DIR="mingw32"
+          else
+            MINGW_FILE="x86_64-8.1.0-release-posix-seh-rt_v6-rev0.7z"
+            MINGW_URL="https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Personal%20Builds/mingw-builds/8.1.0/threads-posix/seh/${MINGW_FILE}"
+            MINGW_DIR="mingw64"
           fi
+          mkdir -p mingwCache
+          cd mingwCache
+          if [[ ! -e "$MINGW_FILE" ]]; then
+            rm -f *.7z
+            curl -OLsS "$MINGW_URL"
+          fi
+          7z x -y -bd "$MINGW_FILE" >/dev/null
+          mkdir -p /c/custom
+          mv "$MINGW_DIR" /c/custom/
+          cd ..
+          export PATH="/c/custom/${MINGW_DIR}/bin:$PATH"
           echo "Fetching submodules"
           git config --global core.longpaths true
           export GIT_LFS_SKIP_SMUDGE=1
