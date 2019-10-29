@@ -457,7 +457,6 @@ macro fieldMaxLen*(x: typed): untyped =
              of "attestations": MAX_ATTESTATIONS
              of "deposits": MAX_DEPOSITS
              of "voluntary_exits": MAX_VOLUNTARY_EXITS
-             of "transfers": MAX_TRANSFERS
              of "historical_roots": HISTORICAL_ROOTS_LIMIT
              of "eth1_data_votes": SLOTS_PER_ETH1_VOTING_PERIOD
              of "validators": VALIDATOR_REGISTRY_LIMIT
