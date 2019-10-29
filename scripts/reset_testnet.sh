@@ -10,7 +10,7 @@ source "$NETWORK_NAME.env"
 cd ..
 
 if [ -f .env ]; then
-  # allow server overrides for ETH2_TESTNET_DATA_DIR and DATA_DIR
+  # allow server overrides for ETH2_TESTNET_DATA_DIR, DATA_DIR and ETH1_PRIVATE_KEY
   source .env
 fi
 
@@ -41,7 +41,18 @@ ETH2_TESTNET_DATA_DIR_ABS=$(cd "$ETH2_TESTNET_DATA_DIR"; pwd)
 DATA_DIR_ABS=$(mkdir -p "$DATA_DIR"; cd "$DATA_DIR"; pwd)
 NETWORK_DIR_ABS="$ETH2_TESTNET_DATA_DIR_ABS/www/$NETWORK_NAME"
 
+if [ "$WEB3_URL" != "" ]; then
+  WEB3_URL_ARG="--web3-url=$WEB3_URL"
+fi
+
 DOCKER_BEACON_NODE="docker run -v $NETWORK_DIR_ABS:/network_dir -v $DATA_DIR_ABS:/data_dir statusteam/nimbus_beacon_node:$NETWORK_NAME"
+
+make deposit_contract
+
+if [ "$ETH1_PRIVATE_KEY" != "" ]; then
+  DEPOSIT_CONTRACT_ADDRESS=$(./build/deposit_contract deploy $WEB3_URL_ARG --private-key=$ETH1_PRIVATE_KEY)
+  DEPOSIT_CONTRACT_ADDRESS_ARG="--deposit-contract=$DEPOSIT_CONTRACT_ADDRESS"
+fi
 
 cd docker
 
@@ -51,24 +62,24 @@ make build
 if [ ! -f $NETWORK_DIR_ABS/genesis.ssz ]; then
   rm -f $NETWORK_DIR_ABS/*
   $DOCKER_BEACON_NODE makeDeposits \
-    --totalDeposits=$VALIDATOR_COUNT \
-    --depositsDir=/network_dir \
-    --randomKeys=false
+    --total-deposits=$VALIDATOR_COUNT \
+    --deposits-dir=/network_dir \
+    --random-keys=no
 fi
 
 $DOCKER_BEACON_NODE \
   --network=$NETWORK_NAME \
-  --dataDir=/data_dir \
+  --data-dir=/data_dir \
   createTestnet \
-  --validatorsDir=/network_dir \
-  --totalValidators=$VALIDATOR_COUNT \
-  --lastUserValidator=$LAST_USER_VALIDATOR \
-  --outputGenesis=/network_dir/genesis.json \
-  --outputBootstrapNodes=/network_dir/bootstrap_nodes.txt \
-  --outputNetworkMetadata=/network_dir/network.json \
-  --bootstrapAddress=$BOOTSTRAP_IP \
-  --bootstrapPort=$BOOTSTRAP_PORT \
-  --genesisOffset=60 # Delay in seconds
+  --validators-dir=/network_dir \
+  --total-validators=$VALIDATOR_COUNT \
+  --last-user-validator=$LAST_USER_VALIDATOR \
+  --output-genesis=/network_dir/genesis.json \
+  --output-bootstrap-file=/network_dir/bootstrap_nodes.txt \
+  --bootstrap-address=$BOOTSTRAP_IP \
+  --bootstrap-port=$BOOTSTRAP_PORT \
+  $WEB3_URL_ARG $DEPOSIT_CONTRACT_ADDRESS_ARG \
+  --genesis-offset=60 # Delay in seconds
 
 if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
   echo Persisting testnet data to git...
@@ -77,14 +88,6 @@ if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
     git commit -m "Testnet reset"
     git push
   popd
-
-  echo Updating https://serenity-testnets.status.im/${NETWORK_NAME}...
-  ssh $BOOTSTRAP_HOST <<-SSH
-    cd /opt/nim-eth2-testnet-data
-    git reset --hard HEAD
-    git checkout master
-    git pull
-SSH
 
   echo Redistributing validator keys to server nodes...
   # TODO If we try to use direct piping here, bash doesn't execute all of the commands.

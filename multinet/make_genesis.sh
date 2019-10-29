@@ -33,23 +33,22 @@ LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.js
 
 if [ ! -f "${LAST_VALIDATOR}" ]; then
   $BEACON_NODE_BIN makeDeposits \
-    --totalDeposits="${NUM_VALIDATORS}" \
-    --depositsDir="$VALIDATORS_DIR" \
-    --randomKeys=false
+    --total-deposits="${NUM_VALIDATORS}" \
+    --deposits-dir="$VALIDATORS_DIR" \
+    --random-keys=no
 fi
 
 if [ ! -f "${SNAPSHOT_FILE}" ]; then
   $BEACON_NODE_BIN \
-    --dataDir="${SIMULATION_DIR}/node-0" \
+    --data-dir="${SIMULATION_DIR}/node-0" \
     createTestnet \
-    --validatorsDir="${VALIDATORS_DIR}" \
-    --totalValidators="${NUM_VALIDATORS}" \
-    --outputGenesis="${SNAPSHOT_FILE}" \
-    --outputNetworkMetadata="${NETWORK_METADATA_FILE}" \
-    --outputBootstrapNodes="${SIMULATION_DIR}/bootstrap_nodes.txt" \
-    --bootstrapAddress=127.0.0.1 \
-    --bootstrapPort=50000 \
-    --genesisOffset=30 # Delay in seconds
+    --validators-dir="${VALIDATORS_DIR}" \
+    --total-validators="${NUM_VALIDATORS}" \
+    --output-genesis="${SNAPSHOT_FILE}" \
+    --output-bootstrap-file="${SIMULATION_DIR}/bootstrap_nodes.txt" \
+    --bootstrap-address=127.0.0.1 \
+    --bootstrap-port=50000 \
+    --genesis-offset=30 # Delay in seconds
 fi
 
 # Delete any leftover address files from a previous session

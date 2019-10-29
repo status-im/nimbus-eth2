@@ -18,7 +18,7 @@ NETWORK_DIR=$WWW_DIR/$NETWORK_NAME
 
 for i in $(seq $FIRST_VALIDATOR $LAST_VALIDATOR); do
   VALIDATOR=v$(printf '%07d' $i)
-  beacon_chain/beacon_node --dataDir="$DATA_DIR/node-$NODE_ID" importValidator \
+  beacon_chain/beacon_node --data-dir="$DATA_DIR/node-$NODE_ID" importValidator \
     --keyfile="$NETWORK_DIR/$VALIDATOR.privkey"
 done
 

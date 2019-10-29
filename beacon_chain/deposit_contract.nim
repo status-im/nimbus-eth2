@@ -14,10 +14,13 @@ type
 
   CliConfig = object
     depositWeb3Url* {.
-      desc: "URL of the Web3 server to observe Eth1"}: string
+      desc: "URL of the Web3 server to observe Eth1"
+      longform: "web3-url" }: string
+
     privateKey* {.
       desc: "Private key of the controlling account",
-        defaultValue: ""}: string
+      defaultValue: ""
+      longform: "private-key" }: string
 
     case cmd* {.command.}: StartUpCommand
     of deploy:
@@ -26,17 +29,20 @@ type
     of drain:
       contractAddress* {.
         desc: "Address of the contract to drain",
-        defaultValue: ""}: string
+        defaultValue: ""
+        longform: "deposit-contract" }: string
 
     of sendEth:
-      toAddress: string
-      valueEth: string
+      toAddress {.longform: "to".}: string
+      valueEth {.longform: "eth".}: string
 
 contract(Deposit):
   proc drain()
 
+proc getTransactionReceipt(web3: Web3, tx: TxHash): Future[ReceiptObject] {.async.} =
+  result = await web3.provider.eth_getTransactionReceipt(tx)
+
 proc deployContract*(web3: Web3, code: string): Future[Address] {.async.} =
-  let provider = web3.provider
   var code = code
   if code[1] notin {'x', 'X'}:
     code = "0x" & code
@@ -47,7 +53,7 @@ proc deployContract*(web3: Web3, code: string): Future[Address] {.async.} =
     gasPrice: 1.some)
 
   let r = await web3.send(tr)
-  let receipt = await provider.eth_getTransactionReceipt(r)
+  let receipt = await web3.getTransactionReceipt(r)
   result = receipt.contractAddress.get
 
 proc sendEth(web3: Web3, to: string, valueEth: int): Future[TxHash] =

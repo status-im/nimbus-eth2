@@ -23,11 +23,12 @@ type
   QueueElement = (BlockHash, DepositData)
 
 
-proc init*(T: type MainchainMonitor, web3Url, depositContractAddress: string): T =
+proc init*(T: type MainchainMonitor, web3Url, depositContractAddress: string, startBlock: Eth2Digest): T =
   result.new()
   result.web3Url = web3Url
   result.depositContractAddress = Address.fromHex(depositContractAddress)
   result.depositQueue = newAsyncQueue[QueueElement]()
+  result.eth1Block = BlockHash(startBlock.data)
 
 contract(DepositContract):
   proc deposit(pubkey: Bytes48, withdrawalCredentials: Bytes32, signature: Bytes96, deposit_data_root: FixedBytes[32])
@@ -83,7 +84,7 @@ proc run(m: MainchainMonitor) {.async.} =
   m.web3 = await newWeb3(m.web3Url)
   let ns = m.web3.contractSender(DepositContract, m.depositContractAddress)
 
-  let s = await ns.subscribe(DepositEvent, %*{"fromBlock": "0x0"}) do(pubkey: Bytes48, withdrawalCredentials: Bytes32, amount: Bytes8, signature: Bytes96, merkleTreeIndex: Bytes8, j: JsonNode):
+  let s = await ns.subscribe(DepositEvent, %*{"fromBlock": m.eth1Block}) do(pubkey: Bytes48, withdrawalCredentials: Bytes32, amount: Bytes8, signature: Bytes96, merkleTreeIndex: Bytes8, j: JsonNode):
 
     let blkHash = BlockHash.fromHex(j["blockHash"].getStr())
     let amount = bytes_to_int(array[8, byte](amount))
@@ -125,3 +126,9 @@ proc getPendingDeposits*(m: MainchainMonitor): seq[Deposit] =
 #   # rather a more readable description of the change that can be packed
 #   # in a SpecialRecord by the client of the API.
 #   discard
+
+proc getLatestEth1BlockHash*(url: string): Future[Eth2Digest] {.async.} =
+  let web3 = await newWeb3(url)
+  let blk = await web3.provider.eth_getBlockByNumber("latest", false)
+  result.data = array[32, byte](blk.hash)
+  await web3.close()

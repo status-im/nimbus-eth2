@@ -29,17 +29,17 @@ pushd $VALIDATORS_DIR >/dev/null
 popd >/dev/null
 
 $BEACON_NODE_BIN \
-  --network:$NETWORK_METADATA_FILE \
-  --dataDir:$DATA_DIR \
-  --nodename:$NODE_ID \
-  --tcpPort:$PORT \
-  --udpPort:$PORT \
+  --bootstrap-file=$NETWORK_BOOTSTRAP_FILE \
+  --data-dir=$DATA_DIR \
+  --node-name=$NODE_ID \
+  --tcp-port=$PORT \
+  --udp-port=$PORT \
   $NAT_FLAG \
-  --stateSnapshot:$SNAPSHOT_FILE \
+  --state-snapshot=$SNAPSHOT_FILE \
   $DEPOSIT_WEB3_URL_ARG \
-  --depositContractAddress=$DEPOSIT_CONTRACT_ADDRESS \
-  --metricsServer=true \
-  --metricsServerAddress="127.0.0.1" \
-  --metricsServerPort="$(( $BASE_METRICS_PORT + $NODE_ID ))" \
+  --deposit-contract=$DEPOSIT_CONTRACT_ADDRESS \
+  --metrics-server=on \
+  --metrics-server-address="127.0.0.1" \
+  --metrics-server-port="$(( $BASE_METRICS_PORT + $NODE_ID ))" \
   "$@"
 

@@ -15,16 +15,15 @@ The `beacon_node` binary has a `createTestnet` command.
 ```bash
   nim c -r beacon_chain/beacon_node \
     --network=$NETWORK_NAME \
-    --dataDir=$DATA_DIR/node-0 \
+    --data-dir=$DATA_DIR/node-0 \
     createTestnet \
-    --validatorsDir=$NETWORK_DIR \
-    --totalValidators=$VALIDATOR_COUNT \
-    --lastUserValidator=$LAST_USER_VALIDATOR \
-    --outputGenesis=$NETWORK_DIR/genesis.json \
-    --outputNetworkMetadata=$NETWORK_DIR/network.json \
-    --outputBootstrapNodes=$NETWORK_DIR/bootstrap_nodes.txt \
-    --bootstrapAddress=$PUBLIC_IP \
-    --genesisOffset=600 # Delay in seconds
+    --validators-dir=$NETWORK_DIR \
+    --total-validators=$VALIDATOR_COUNT \
+    --last-user-validator=$LAST_USER_VALIDATOR \
+    --output-genesis=$NETWORK_DIR/genesis.json \
+    --output-bootstrap-file=$NETWORK_DIR/bootstrap_nodes.txt \
+    --bootstrap-address=$PUBLIC_IP \
+    --genesis-offset=600 # Delay in seconds
 ```
 
 Replace ENV vars with values that make sense to you.

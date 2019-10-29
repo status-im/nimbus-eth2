@@ -16,7 +16,6 @@ type
     network*: Eth2Node
     forkVersion*: array[4, byte]
     networkIdentity*: Eth2NodeIdentity
-    networkMetadata*: NetworkMetadata
     requestManager*: RequestManager
     isBootstrapNode*: bool
     bootstrapNodes*: seq[BootstrapAddr]
@@ -244,22 +243,9 @@ type
   RequestManager* = object
     network*: Eth2Node
 
-  NetworkMetadata* = object
-    networkGeneration*: uint64
-    genesisRoot*: Option[Eth2Digest]
-    bootstrapNodes*: seq[BootstrapAddr]
-    numShards*: uint64
-    slotDuration*: uint64
-    slotsPerEpoch*: uint64
-    totalValidators*: uint64
-    lastUserValidator*: uint64
-
   FetchRecord* = object
     root*: Eth2Digest
     historySlots*: uint64
-
-proc userValidatorsRange*(d: NetworkMetadata): HSlice[int, int] =
-  0 .. d.lastUserValidator.int
 
 proc shortLog*(v: AttachedValidator): string = shortLog(v.pubKey)
 

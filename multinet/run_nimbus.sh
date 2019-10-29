@@ -34,11 +34,10 @@ set -x
 trap 'kill -9 -- -$$' SIGINT EXIT SIGTERM
 
 ./env.sh $BEACON_NODE_BIN \
-  --statusbar:off \
-  --network:$NETWORK_METADATA_FILE \
-  --dataDir:$DATA_DIR \
-  --nodename:0 \
-  --tcpPort:$PORT \
-  --udpPort:$PORT \
+  --status-bar:off \
+  --data-dir:$DATA_DIR \
+  --node-name:0 \
+  --tcp-port:$PORT \
+  --udp-port:$PORT \
   $NAT_FLAG \
-  --stateSnapshot:$SNAPSHOT_FILE
+  --state-snapshot:$SNAPSHOT_FILE
