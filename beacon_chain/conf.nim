@@ -64,7 +64,7 @@ type
     statusBarContents* {.
       desc: ""
       defaultValue: "peers: $connected_peers; " &
-                    "epoch: $epoch, slot: $epoch_slot/$slots_per_epoch (..$slot_trailing_digits); " &
+                    "epoch: $epoch, slot: $epoch_slot/$slots_per_epoch ($slot); " &
                     "finalized epoch: $last_finalized_epoch |" &
                     "ETH: $attached_validators_balance"
       longform: "status-bar-contents" }: string

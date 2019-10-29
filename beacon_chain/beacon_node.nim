@@ -867,6 +867,9 @@ when hasPrompt:
         of "slots_per_epoch":
           $SLOTS_PER_EPOCH
 
+        of "slot":
+          $node.beaconClock.now.slotOrZero
+
         of "slot_trailing_digits":
           var slotStr = $node.beaconClock.now.slotOrZero
           if slotStr.len > 3: slotStr = slotStr[^3..^1]
