@@ -48,24 +48,26 @@ cli do (testnetName {.argument.}: string):
       quit 1
 
   checkRequiredFile bootstrapFile
-  checkRequiredFile depositContractFile
   checkRequiredFile genesisFile
 
   var preset = testnetDir / configFile
   if not fileExists(preset): preset = "minimal"
 
   let
-    depositContract = readFile(testnetDir / depositContractFile).strip
     dataDirName = testnetName.replace("/", "_")
     dataDir = buildDir / "data" / dataDirName
     beaconNodeBinary = buildDir / "beacon_node_" & dataDirName
     nimFlags = "-d:release --lineTrace:on -d:chronicles_log_level=DEBUG"
+
+  var depositContractOpt = ""
+  let depositContractFile = testnetDir / depositContractFile
+  if fileExists(depositContractFile):
+    depositContractOpt = "--deposit-contract=" & readFile(depositContractFile).strip
 
   cd rootDir
   exec &"""nim c {nimFlags} -d:"const_preset={preset}" -o:"{beaconNodeBinary}" beacon_chain/beacon_node.nim"""
   exec replace(&"""{beaconNodeBinary}
     --data-dir="{dataDir}"
     --bootstrap-file="{testnetDir/bootstrapFile}"
-    --state-snapshot="{testnetDir/genesisFile}"
-    --deposit-contract={depositContract}""", "\n", " ")
+    --state-snapshot="{testnetDir/genesisFile}" """ & depositContractOpt, "\n", " ")
 
