@@ -881,14 +881,15 @@ when hasPrompt:
         node.config.statusBarContents,
         dataResolver)
 
-      defaultChroniclesStream.output.writer =
-        proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe.} =
-          # p.hidePrompt
-          erase statusBar
-          # p.writeLine msg
-          stdout.write msg
-          render statusBar
-          # p.showPrompt
+      when compiles(defaultChroniclesStream.output.writer):
+        defaultChroniclesStream.output.writer =
+          proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe.} =
+            # p.hidePrompt
+            erase statusBar
+            # p.writeLine msg
+            stdout.write msg
+            render statusBar
+            # p.showPrompt
 
       proc statusBarUpdatesPollingLoop() {.async.} =
         while true:
