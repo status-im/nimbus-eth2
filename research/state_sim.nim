@@ -94,7 +94,7 @@ cli do(slots = 448'u,
       # work for every slot - we'll randomize it deterministically to give
       # some variation
       let
-        epoch = compute_epoch_of_slot(state.slot)
+        epoch = compute_epoch_at_slot(state.slot)
         scass = withTimerRet(timers[tShuffle]):
           mapIt(
             0'u64 .. (get_committee_count(state, epoch) - 1),
@@ -141,7 +141,7 @@ cli do(slots = 448'u,
 
     if (state.slot) mod SLOTS_PER_EPOCH == 0:
       echo &" slot: {shortLog(state.slot)} ",
-        &"epoch: {shortLog(state.slot.compute_epoch_of_slot)}"
+        &"epoch: {shortLog(state.slot.compute_epoch_at_slot)}"
 
   maybeWrite() # catch that last state as well..
 

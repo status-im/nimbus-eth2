@@ -320,27 +320,6 @@ proc process_justification_and_finalization*(
       checkpoint = shortLog(state.finalized_checkpoint),
       cat = "finalization"
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#crosslinks
-func process_crosslinks*(state: var BeaconState, stateCache: var StateCache) =
-  state.previous_crosslinks = state.current_crosslinks
-
-  for epoch in @[get_previous_epoch(state), get_current_epoch(state)]:
-    for offset in 0'u64 ..< get_committee_count(state, epoch):
-      let
-        shard = (get_start_shard(state, epoch) + offset) mod SHARD_COUNT
-        crosslink_committee =
-          toSet(get_crosslink_committee(state, epoch, shard, stateCache))
-        # In general, it'll loop over the same shards twice, and
-        # get_winning_root_and_participants is defined to return
-        # the same results from the previous epoch as current.
-        # TODO cache like before, in 0.5 version of this function
-        (winning_crosslink, attesting_indices) =
-          get_winning_crosslink_and_attesting_indices(
-            state, epoch, shard, stateCache)
-      if 3'u64 * get_total_balance(state, attesting_indices) >=
-          2'u64 * get_total_balance(state, crosslink_committee):
-        state.current_crosslinks[shard] = winning_crosslink
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#rewards-and-penalties-1
 func get_base_reward(state: BeaconState, index: ValidatorIndex): Gwei =
   let
@@ -569,7 +548,7 @@ proc process_final_updates*(state: var BeaconState) =
   state.previous_epoch_attestations = state.current_epoch_attestations
   state.current_epoch_attestations = @[]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#per-epoch-processing
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#epoch-processing
 proc process_epoch*(state: var BeaconState) =
   # @proc are placeholders
 
@@ -583,9 +562,6 @@ proc process_epoch*(state: var BeaconState) =
 
   trace "ran process_justification_and_finalization",
     current_epoch = get_current_epoch(state)
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#crosslinks
-  process_crosslinks(state, per_epoch_cache)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#rewards-and-penalties-1
   process_rewards_and_penalties(state, per_epoch_cache)

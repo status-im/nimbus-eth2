@@ -45,7 +45,7 @@ proc mockAttestationData(
   else:
     result.source = state.current_justified_checkpoint
 
-  let target_epoch = compute_epoch_of_slot(slot)
+  let target_epoch = compute_epoch_at_slot(slot)
   let parent_crosslink = block:
     if target_epoch == get_current_epoch(state):
       state.current_crosslinks[shard]
@@ -111,7 +111,7 @@ proc mockAttestationImpl(
   var cache = get_empty_per_epoch_cache()
 
   let
-    epoch = compute_epoch_of_slot(slot)
+    epoch = compute_epoch_at_slot(slot)
     epoch_start_shard = get_start_shard(state, epoch)
     committees_per_slot = get_committee_count(state, epoch) div SLOTS_PER_EPOCH
     shard = (

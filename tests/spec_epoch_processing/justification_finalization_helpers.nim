@@ -20,7 +20,7 @@ import
 
 iterator getShardsForSlot(state: BeaconState, slot: Slot): Shard =
   let
-    epoch = compute_epoch_of_slot(slot)
+    epoch = compute_epoch_at_slot(slot)
     epoch_start_shard = get_start_shard(state, epoch)
     committees_per_slot = get_committee_count(state, epoch) div SLOTS_PER_EPOCH
     shard = epoch_start_shard + committees_per_slot * (slot mod SLOTS_PER_EPOCH)
@@ -58,7 +58,7 @@ proc addMockAttestations*(
       var cache = get_empty_per_epoch_cache()
 
       let committee = get_crosslink_committee(
-                        state, slot.Slot.compute_epoch_of_slot(),
+                        state, slot.Slot.compute_epoch_at_slot(),
                         shard, cache
                       )
 

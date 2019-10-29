@@ -1,5 +1,5 @@
 import
-  bitops, chronicles, options, sequtils, tables,
+  bitops, chronicles, options, tables,
   ssz, beacon_chain_db, state_transition, extras,
   beacon_node_types, metrics,
   spec/[crypto, datatypes, digest, helpers]
