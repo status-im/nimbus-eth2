@@ -14,10 +14,13 @@ type
 
   CliConfig = object
     depositWeb3Url* {.
-      desc: "URL of the Web3 server to observe Eth1"}: string
+      desc: "URL of the Web3 server to observe Eth1"
+      longform: "web3-url" }: string
+
     privateKey* {.
       desc: "Private key of the controlling account",
-        defaultValue: ""}: string
+      defaultValue: ""
+      longform: "private-key" }: string
 
     case cmd* {.command.}: StartUpCommand
     of deploy:
@@ -26,11 +29,12 @@ type
     of drain:
       contractAddress* {.
         desc: "Address of the contract to drain",
-        defaultValue: ""}: string
+        defaultValue: ""
+        longform: "deposit-contract" }: string
 
     of sendEth:
-      toAddress: string
-      valueEth: string
+      toAddress {.longform: "to".}: string
+      valueEth {.longform: "eth".}: string
 
 contract(Deposit):
   proc drain()

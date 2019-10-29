@@ -18,7 +18,6 @@ import
 const
   dataDirValidators = "validators"
   genesisFile = "genesis.json"
-  testnetsBaseUrl = "https://raw.githubusercontent.com/status-im/nim-eth2-testnet-data/master/www"
   hasPrompt = not defined(withoutPrompt)
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
