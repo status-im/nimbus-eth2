@@ -41,6 +41,8 @@ ETH2_TESTNETS_ABS=$(cd "$ETH2_TESTNETS"; pwd)
 NETWORK_DIR_ABS="$ETH2_TESTNETS_ABS/nimbus/$NETWORK_NAME"
 DATA_DIR_ABS=$(mkdir -p "$DATA_DIR"; cd "$DATA_DIR"; pwd)
 DEPOSITS_DIR_ABS="$DATA_DIR_ABS/deposits"
+DEPOSIT_CONTRACT_ADDRESS=""
+DEPOSIT_CONTRACT_ADDRESS_ARG=""
 
 if [ "$WEB3_URL" != "" ]; then
   WEB3_URL_ARG="--web3-url=$WEB3_URL"
@@ -52,24 +54,21 @@ DOCKER_BEACON_NODE="docker run -v $DEPOSITS_DIR_ABS:/deposits_dir -v $NETWORK_DI
 
 make deposit_contract
 
-DEPOSIT_CONTRACT_ADDRESS_ARG=""
-
 if [ "$ETH1_PRIVATE_KEY" != "" ]; then
   DEPOSIT_CONTRACT_ADDRESS=$(./build/deposit_contract deploy $WEB3_URL_ARG --private-key=$ETH1_PRIVATE_KEY)
   DEPOSIT_CONTRACT_ADDRESS_ARG="--deposit-contract=$DEPOSIT_CONTRACT_ADDRESS"
 fi
 
 cd docker
+export NETWORK=$NETWORK_NAME
+export GIT_REVISION=$(git rev-parse HEAD)
 
-make build NETWORK=$NETWORK_NAME GIT_REVISION=$(git rev-parse HEAD)
+make build
 
-if [ ! -f $NETWORK_DIR_ABS/genesis.ssz ]; then
-  rm -f $NETWORK_DIR_ABS/*
-  $DOCKER_BEACON_NODE makeDeposits \
-    --quickstart-deposits=$QUICKSTART_VALIDATORS \
-    --random-deposits=$RANDOM_VALIDATORS \
-    --deposits-dir=/deposits_dir
-fi
+$DOCKER_BEACON_NODE makeDeposits \
+  --quickstart-deposits=$QUICKSTART_VALIDATORS \
+  --random-deposits=$RANDOM_VALIDATORS \
+  --deposits-dir=/deposits_dir
 
 TOTAL_VALIDATORS="$(( $QUICKSTART_VALIDATORS + $RANDOM_VALIDATORS ))"
 
@@ -92,7 +91,7 @@ fi
 
 if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
   echo Persisting testnet data to git...
-  pushd "$ETH2_TESTNETS_ABS"
+  pushd "$NETWORK_DIR_ABS"
     git add genesis.ssz bootstrap_nodes.txt deposit_contract.txt
     git commit -m "Reset of Nimbus $NETWORK_NAME"
     git push
@@ -101,7 +100,14 @@ if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
   echo Redistributing validator keys to server nodes...
   # TODO If we try to use direct piping here, bash doesn't execute all of the commands.
   #      The reasons for this are unclear at the moment.
-  nim --verbosity:0 manage_testnet_hosts.nims $NETWORK_NAME redist-validators $DEPOSITS_DIR_ABS > /tmp/reset-network.sh
+  nim --verbosity:0 manage_testnet_hosts.nims redist_validators \
+    --network=$NETWORK_NAME \
+    --deposits-dir="$DEPOSITS_DIR_ABS" \
+    --network-data-dir="$NETWORK_DIR_ABS" \
+    --user-validators=$QUICKSTART_VALIDATORS \
+    --total-validators=$TOTAL_VALIDATORS \
+    > /tmp/reset-network.sh
+
   bash /tmp/reset-network.sh
 
   echo Uploading bootstrap node network key

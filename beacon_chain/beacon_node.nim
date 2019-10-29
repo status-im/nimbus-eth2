@@ -111,6 +111,10 @@ proc addBootstrapNode(node: BeaconNode, bootstrapNode: BootstrapAddr) =
   else:
     node.bootstrapNodes.add bootstrapNode
 
+proc useBootstrapFile(node: BeaconNode, bootstrapFile: string) =
+  for ln in lines(bootstrapFile):
+    node.addBootstrapNode BootstrapAddr.init(string ln)
+
 proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
   new result
   result.onBeaconBlock = onBeaconBlock
@@ -128,8 +132,11 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
 
   let bootstrapFile = string conf.bootstrapNodesFile
   if bootstrapFile.len > 0:
-    for ln in lines(bootstrapFile):
-      result.addBootstrapNode BootstrapAddr.init(string ln)
+    result.useBootstrapFile(bootstrapFile)
+
+  let siteLocalBootstrapFile = conf.dataDir / "bootstrap_nodes.txt"
+  if fileExists(siteLocalBootstrapFile):
+    result.useBootstrapFile(siteLocalBootstrapFile)
 
   result.attachedValidators = ValidatorPool.init
 

@@ -9,7 +9,7 @@ const
   configFile = "config.yaml"
   clientsOrg = "zah" # "eth2-clients"
   testnetsRepo = "eth2-testnets"
-  testnetsRepoGitUrl = "git://github.com/" & clientsOrg & "/" & testnetsRepo
+  testnetsRepoGitUrl = "https://github.com/" & clientsOrg & "/" & testnetsRepo
 
 proc validateTestnetName(parts: openarray[string]): auto =
   if parts.len != 2:
