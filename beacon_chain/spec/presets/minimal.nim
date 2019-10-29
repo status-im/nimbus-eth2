@@ -78,7 +78,7 @@ const
 
   # Unchanged
   MIN_SEED_LOOKAHEAD* = 1
-  ACTIVATION_EXIT_DELAY* = 4
+  MAX_SEED_LOOKAHEAD* = 4
 
   # Changed
   SLOTS_PER_ETH1_VOTING_PERIOD* = 16

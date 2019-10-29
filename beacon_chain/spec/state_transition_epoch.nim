@@ -508,7 +508,7 @@ proc process_final_updates*(state: var BeaconState) =
 
   # Set active index root
   let
-    index_epoch = next_epoch + ACTIVATION_EXIT_DELAY
+    index_epoch = next_epoch + MAX_SEED_LOOKAHEAD
     index_root_position = index_epoch mod EPOCHS_PER_HISTORICAL_VECTOR
     indices_list = get_active_validator_indices(state, index_epoch)
 

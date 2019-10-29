@@ -106,7 +106,7 @@ const
   MIN_SEED_LOOKAHEAD* = 1 ##\
   ## epochs (~6.4 minutes)
 
-  ACTIVATION_EXIT_DELAY* = 4 ##\
+  MAX_SEED_LOOKAHEAD* = 4 ##\
   ## epochs (~25.6 minutes)
 
   SLOTS_PER_ETH1_VOTING_PERIOD* = 1024 ##\
