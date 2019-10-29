@@ -63,13 +63,13 @@ func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
 
   o[1]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#compute_epoch_of_slot
-func compute_epoch_of_slot*(slot: Slot|uint64): Epoch =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#compute_epoch_at_slot
+func compute_epoch_at_slot*(slot: Slot|uint64): Epoch =
   # Return the epoch number of the given ``slot``.
   (slot div SLOTS_PER_EPOCH).Epoch
 
 template epoch*(slot: Slot): Epoch =
-  compute_epoch_of_slot(slot)
+  compute_epoch_at_slot(slot)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#compute_start_slot_of_epoch
 func compute_start_slot_of_epoch*(epoch: Epoch): Slot =
@@ -105,7 +105,7 @@ func get_committee_count*(state: BeaconState, epoch: Epoch): uint64 =
 func get_current_epoch*(state: BeaconState): Epoch =
   # Return the current epoch.
   doAssert state.slot >= GENESIS_SLOT, $state.slot
-  compute_epoch_of_slot(state.slot)
+  compute_epoch_at_slot(state.slot)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: BeaconState,

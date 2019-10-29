@@ -405,7 +405,7 @@ proc proposeBlock(node: BeaconNode,
     if node.mainchainMonitor.isNil:
       let e1d =
         get_eth1data_stub(
-          state.eth1_deposit_index, slot.compute_epoch_of_slot())
+          state.eth1_deposit_index, slot.compute_epoch_at_slot())
 
       (e1d, newSeq[Deposit]())
     else:
@@ -579,7 +579,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   node.blockPool.withState(node.stateCache, attestationHead):
     var cache = get_empty_per_epoch_cache()
     let
-      epoch = compute_epoch_of_slot(slot)
+      epoch = compute_epoch_at_slot(slot)
       committees_per_slot = get_committee_count(state, epoch) div SLOTS_PER_EPOCH
       start_slot = compute_start_slot_of_epoch(epoch)
       offset = committees_per_slot * (slot mod SLOTS_PER_EPOCH)

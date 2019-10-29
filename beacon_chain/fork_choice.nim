@@ -28,7 +28,7 @@ proc lmdGhost*(
   let
     active_validator_indices =
       get_active_validator_indices(
-        start_state, compute_epoch_of_slot(start_state.slot))
+        start_state, compute_epoch_at_slot(start_state.slot))
 
   var latest_messages: seq[tuple[validator: ValidatorIndex, blck: BlockRef]]
   for i in active_validator_indices:

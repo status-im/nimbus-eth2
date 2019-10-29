@@ -61,7 +61,7 @@ const
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#initial-values
   GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
-  ## compute_epoch_of_slot(GENESIS_SLOT)
+  ## compute_epoch_at_slot(GENESIS_SLOT)
 
   FAR_FUTURE_EPOCH* = (not 0'u64).Epoch # 2^64 - 1 in spec
 
