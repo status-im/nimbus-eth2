@@ -905,12 +905,10 @@ when isMainModule:
   randomize()
   let config = BeaconNodeConf.load(version = fullVersionStr())
 
-  doAssert defaultChroniclesStream.outputs.len > 0
-  doAssert defaultChroniclesStream.output is DynamicOutput
-
-  defaultChroniclesStream.output.writer =
-    proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe.} =
-      stdout.write(msg)
+  when compiles(defaultChroniclesStream.output.writer):
+    defaultChroniclesStream.output.writer =
+      proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe.} =
+        stdout.write(msg)
 
   if config.logLevel != LogLevel.NONE:
     setLogLevel(config.logLevel)
