@@ -426,7 +426,7 @@ proc is_valid_indexed_attestation*(
       hash_tree_root(msg1),
       hash_tree_root(msg2),
     ]
-    domain = get_domain(state, DOMAIN_ATTESTATION, indexed_attestation.data.target.epoch)
+    domain = get_domain(state, DOMAIN_BEACON_ATTESTER, indexed_attestation.data.target.epoch)
 
   result = bls_verify_multiple(
     pubkeys,

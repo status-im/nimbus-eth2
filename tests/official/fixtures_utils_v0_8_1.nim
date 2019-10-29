@@ -68,7 +68,7 @@ type
     MAX_TRANSFERS*: int
     DOMAIN_BEACON_PROPOSER*: DomainType
     DOMAIN_RANDAO*: DomainType
-    DOMAIN_ATTESTATION*: DomainType
+    DOMAIN_BEACON_ATTESTER*: DomainType
     DOMAIN_DEPOSIT*: DomainType
     DOMAIN_VOLUNTARY_EXIT*: DomainType
     DOMAIN_TRANSFER*: DomainType

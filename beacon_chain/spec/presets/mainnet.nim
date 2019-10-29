@@ -157,13 +157,12 @@ const
   MIN_GENESIS_ACTIVE_VALIDATOR_COUNT* {.intdefine.} = 99
 
 type
-  # Signature domains
+  # Domains
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#signature-domain-types
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#domain-types
   DomainType* {.pure.} = enum
     DOMAIN_BEACON_PROPOSER = 0
-    DOMAIN_RANDAO = 1
-    DOMAIN_ATTESTATION = 2
+    DOMAIN_BEACON_ATTESTER = 1
+    DOMAIN_RANDAO = 2
     DOMAIN_DEPOSIT = 3
     DOMAIN_VOLUNTARY_EXIT = 4
-    DOMAIN_TRANSFER = 5

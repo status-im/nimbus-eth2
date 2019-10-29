@@ -52,7 +52,7 @@ proc signAttestation*(v: AttachedValidator,
     let
       attestationRoot = hash_tree_root(
         AttestationDataAndCustodyBit(data: attestation, custody_bit: false))
-      domain = get_domain(state, DOMAIN_ATTESTATION, attestation.target.epoch)
+      domain = get_domain(state, DOMAIN_BEACON_ATTESTER, attestation.target.epoch)
 
     # TODO this is an ugly hack to fake a delay and subsequent async reordering
     #      for the purpose of testing the external validator delay - to be

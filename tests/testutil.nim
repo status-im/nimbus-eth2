@@ -193,7 +193,7 @@ proc makeAttestation*(
           hackPrivKey(validator), @(msg.data),
           get_domain(
             state,
-            DOMAIN_ATTESTATION,
+            DOMAIN_BEACON_ATTESTER,
             compute_epoch_at_slot(state.slot)))
       else:
         ValidatorSig()

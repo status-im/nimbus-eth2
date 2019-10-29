@@ -78,7 +78,7 @@ proc get_attestation_signature(
     msg = msg.data,
     domain = get_domain(
       state = state,
-      domain_type = DOMAIN_ATTESTATION,
+      domain_type = DOMAIN_BEACON_ATTESTER,
       message_epoch = attestation_data.target.epoch
     )
   )
