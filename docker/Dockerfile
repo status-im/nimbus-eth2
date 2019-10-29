@@ -40,6 +40,7 @@ RUN cd nim-beacon-chain \
  && ./env.sh nim \
       -o:/usr/bin/beacon_node \
       -d:release \
+      -d:insecure \
       --debugger:native \
       --debugInfo \
       -d:"network_type=${NETWORK_TYPE}" \
