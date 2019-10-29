@@ -7,7 +7,7 @@ const
   depositContractFile = "deposit_contract.txt"
   genesisFile = "genesis.ssz"
   configFile = "config.yaml"
-  clientsOrg = "zah" # "eth2-clients"
+  clientsOrg = "eth2-clients"
   testnetsRepo = "eth2-testnets"
   testnetsRepoGitUrl = "https://github.com/" & clientsOrg & "/" & testnetsRepo
 

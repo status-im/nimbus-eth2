@@ -34,7 +34,7 @@ while true; do
 done
 
 if [[ ! -d "$ETH2_TESTNETS"  ]]; then
-  git clone git@github.com:zah/eth2-testnets "$ETH2_TESTNETS"
+  git clone git@github.com:eth2-clients/eth2-testnets "$ETH2_TESTNETS"
 fi
 
 ETH2_TESTNETS_ABS=$(cd "$ETH2_TESTNETS"; pwd)
@@ -85,18 +85,14 @@ $DOCKER_BEACON_NODE \
   $WEB3_URL_ARG $DEPOSIT_CONTRACT_ADDRESS_ARG \
   --genesis-offset=60 # Delay in seconds
 
+COMMITTED_FILES="genesis.ssz bootstrap_nodes.txt"
+
 if [[ ! -z "$DEPOSIT_CONTRACT_ADDRESS" ]]; then
   echo $DEPOSIT_CONTRACT_ADDRESS > "$ETH2_TESTNETS_ABS/deposit_contract.txt"
+  COMMITTED_FILES+="deposit_contract.txt"
 fi
 
 if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
-  echo Persisting testnet data to git...
-  pushd "$NETWORK_DIR_ABS"
-    git add genesis.ssz bootstrap_nodes.txt deposit_contract.txt
-    git commit -m "Reset of Nimbus $NETWORK_NAME"
-    git push
-  popd
-
   echo Redistributing validator keys to server nodes...
   # TODO If we try to use direct piping here, bash doesn't execute all of the commands.
   #      The reasons for this are unclear at the moment.
@@ -117,4 +113,11 @@ if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
 
   echo Publishing docker image...
   make push
+
+  echo Persisting testnet data to git...
+  pushd "$NETWORK_DIR_ABS"
+    git add $COMMITTED_FILES
+    git commit -m "Reset of Nimbus $NETWORK_NAME"
+    git push
+  popd
 fi
