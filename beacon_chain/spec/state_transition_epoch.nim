@@ -55,8 +55,9 @@ declareGauge beacon_previous_justified_root, "Current previously justified root"
 # Spec
 # --------------------------------------------------------
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_total_active_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#get_total_active_balance
 func get_total_active_balance*(state: BeaconState): Gwei =
+  # Return the combined effective balance of the active validators.
   return get_total_balance(
     state,
     get_active_validator_indices(state, get_current_epoch(state)))
