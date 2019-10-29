@@ -97,16 +97,14 @@ type
     header_2*: BeaconBlockHeader ##\
     # Second block header
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#attesterslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#attesterslashing
   AttesterSlashing* = object
-    attestation_1*: IndexedAttestation ## \
-    ## First attestation
-    attestation_2*: IndexedAttestation ## \
-    ## Second attestation
+    attestation_1*: IndexedAttestation
+    attestation_2*: IndexedAttestation
 
   CustodyBitIndices* = List[uint64, MAX_VALIDATORS_PER_COMMITTEE]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#indexedattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#indexedattestation
   IndexedAttestation* = object
     custody_bit_0_indices*: CustodyBitIndices ##\
     ## Indices with custody bit equal to 0
@@ -143,12 +141,12 @@ type
     # Crosslink vote
     crosslink*: Crosslink
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#attestationdataandcustodybit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#attestationdataandcustodybit
   AttestationDataAndCustodyBit* = object
     data*: AttestationData
 
     custody_bit*: bool ##\
-    ## Challengeable bit (SSZ-bool, 1 byte) for the custody of crosslink data
+    ## Challengeable bit (SSZ-bool, 1 byte) for the custody of shard data
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#deposit
   Deposit* = object
@@ -157,19 +155,12 @@ type
 
     data*: DepositData
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#depositdata
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#depositdata
   DepositData* = object
-    pubkey*: ValidatorPubKey ##\
-    ## BLS pubkey
-
-    withdrawal_credentials*: Eth2Digest ##\
-    ## Withdrawal credentials
-
-    amount*: uint64 ##\
-    ## Amount in Gwei
-
-    signature*: ValidatorSig ##\
-    ## Container self-signature
+    pubkey*: ValidatorPubKey
+    withdrawal_credentials*: Eth2Digest
+    amount*: uint64
+    signature*: ValidatorSig
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
@@ -229,7 +220,7 @@ type
     pubkeys*: seq[ValidatorPubKey]
     compact_validators*: seq[uint64]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#beaconblockheader
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot
     parent_root*: Eth2Digest
@@ -366,7 +357,7 @@ type
     block_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     state_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#fork
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#fork
   Fork* = object
     # TODO: Spec introduced an alias for Version = array[4, byte]
     #       and a default parameter to compute_domain
