@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  options, stew/endians2,
+  options, sequtils, stew/endians2,
   chronicles, eth/trie/[db],
   ../beacon_chain/[beacon_chain_db, block_pool, extras, ssz, state_transition,
     validator_pool, beacon_node_types],
@@ -137,12 +137,12 @@ proc addBlock*(
     # We have a signature - put it in the block and we should be done!
     new_block.signature =
       bls_sign(proposerPrivkey, block_root.data,
-               get_domain(state, DOMAIN_BEACON_PROPOSER, compute_epoch_at_slot(new_block.slot)))
+               get_domain(state, DOMAIN_BEACON_PROPOSER, compute_epoch_of_slot(new_block.slot)))
 
     doAssert bls_verify(
       proposer.pubkey,
       block_root.data, new_block.signature,
-      get_domain(state, DOMAIN_BEACON_PROPOSER, compute_epoch_at_slot(new_block.slot))),
+      get_domain(state, DOMAIN_BEACON_PROPOSER, compute_epoch_of_slot(new_block.slot))),
       "we just signed this message - it should pass verification!"
 
   new_block
@@ -159,7 +159,7 @@ proc makeBlock*(
 
 proc find_shard_committee(
     state: BeaconState, validator_index: ValidatorIndex): auto =
-  let epoch = compute_epoch_at_slot(state.slot)
+  let epoch = compute_epoch_of_slot(state.slot)
   var cache = get_empty_per_epoch_cache()
   for shard in 0'u64 ..< get_committee_count(state, epoch):
     let committee = get_crosslink_committee(state, epoch,
@@ -176,7 +176,7 @@ proc makeAttestation*(
     validator = state.validators[validator_index]
     sac_index = committee.find(validator_index)
     data = makeAttestationData(state,
-      (shard + get_start_shard(state, compute_epoch_at_slot(state.slot))) mod
+      (shard + get_start_shard(state, compute_epoch_of_slot(state.slot))) mod
       SHARD_COUNT, beacon_block_root)
 
   doAssert sac_index != -1, "find_shard_committee should guarantee this"
@@ -193,8 +193,8 @@ proc makeAttestation*(
           hackPrivKey(validator), @(msg.data),
           get_domain(
             state,
-            DOMAIN_BEACON_ATTESTER,
-            compute_epoch_at_slot(state.slot)))
+            DOMAIN_ATTESTATION,
+            compute_epoch_of_slot(state.slot)))
       else:
         ValidatorSig()
 

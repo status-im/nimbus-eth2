@@ -31,7 +31,7 @@ proc mockAttestationData(
   else:
     result.beacon_block_root = get_block_root_at_slot(state, slot)
 
-  let current_epoch_start_slot = state.get_current_epoch().compute_start_slot_at_epoch()
+  let current_epoch_start_slot = state.get_current_epoch().compute_start_slot_of_epoch()
   let epoch_boundary_root = block:
     if slot < current_epoch_start_slot:
       get_block_root(state, get_previous_epoch(state))
@@ -45,7 +45,7 @@ proc mockAttestationData(
   else:
     result.source = state.current_justified_checkpoint
 
-  let target_epoch = compute_epoch_at_slot(slot)
+  let target_epoch = compute_epoch_of_slot(slot)
   let parent_crosslink = block:
     if target_epoch == get_current_epoch(state):
       state.current_crosslinks[shard]
@@ -78,7 +78,7 @@ proc get_attestation_signature(
     msg = msg.data,
     domain = get_domain(
       state = state,
-      domain_type = DOMAIN_BEACON_ATTESTER,
+      domain_type = DOMAIN_ATTESTATION,
       message_epoch = attestation_data.target.epoch
     )
   )
@@ -111,7 +111,7 @@ proc mockAttestationImpl(
   var cache = get_empty_per_epoch_cache()
 
   let
-    epoch = compute_epoch_at_slot(slot)
+    epoch = compute_epoch_of_slot(slot)
     epoch_start_shard = get_start_shard(state, epoch)
     committees_per_slot = get_committee_count(state, epoch) div SLOTS_PER_EPOCH
     shard = (

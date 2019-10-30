@@ -58,6 +58,12 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, us
 const JustificationFinalizationDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"/"justification_and_finalization"/"pyspec_tests"
 runSuite(JustificationFinalizationDir, "Justification & Finalization",  process_justification_and_finalization, useCache = true)
 
+# Crosslinks
+# ---------------------------------------------------------------
+
+const CrosslinksDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"/"crosslinks"/"pyspec_tests"
+runSuite(CrosslinksDir, "Crosslinks",  process_crosslinks, useCache = true)
+
 # Rewards & Penalties
 # ---------------------------------------------------------------
 

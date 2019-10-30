@@ -14,7 +14,7 @@ type
     ## which blocks are valid - in particular, blocks are not valid if they
     ## come from the future as seen from the local clock.
     ##
-    ## https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_fork-choice.md#fork-choice
+    ## https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_fork-choice.md#fork-choice
     ##
     # TODO replace time in chronos with a proper unit type, then this code can
     #      follow:

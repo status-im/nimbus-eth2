@@ -33,9 +33,10 @@
 # now.
 
 import # TODO - cleanup imports
-  algorithm, collections/sets, chronicles, sequtils, sets, tables,
+  algorithm, collections/sets, chronicles, options, sequtils, sets, tables,
   ../extras, ../ssz, metrics,
-  beaconstate, crypto, datatypes, digest, helpers, validator
+  beaconstate, crypto, datatypes, digest, helpers, validator,
+  state_transition_helpers
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
 declareGauge beacon_current_live_validators, "Number of active validators that successfully included attestation on chain for current epoch" # On block
@@ -43,7 +44,7 @@ declareGauge beacon_previous_live_validators, "Number of active validators that 
 declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
 declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#block-header
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#block-header
 proc process_block_header*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool =
@@ -98,7 +99,7 @@ proc process_block_header*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#randao
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#randao
 proc process_randao(
     state: var BeaconState, body: BeaconBlockBody, flags: UpdateFlags,
     stateCache: var StateCache): bool =
@@ -131,14 +132,14 @@ proc process_randao(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#eth1-data
-func process_eth1_data(state: var BeaconState, body: BeaconBlockBody) =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#eth1-data
+func processEth1Data(state: var BeaconState, body: BeaconBlockBody) =
   state.eth1_data_votes.add body.eth1_data
   if state.eth1_data_votes.count(body.eth1_data) * 2 >
       SLOTS_PER_ETH1_VOTING_PERIOD:
     state.eth1_data = body.eth1_data
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#is_slashable_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#is_slashable_validator
 func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
   # Check if ``validator`` is slashable.
   (not validator.slashed) and
@@ -156,8 +157,8 @@ proc process_proposer_slashing*(
   let proposer = state.validators[proposer_slashing.proposer_index.int]
 
   # Verify that the epoch is the same
-  if not (compute_epoch_at_slot(proposer_slashing.header_1.slot) ==
-      compute_epoch_at_slot(proposer_slashing.header_2.slot)):
+  if not (compute_epoch_of_slot(proposer_slashing.header_1.slot) ==
+      compute_epoch_of_slot(proposer_slashing.header_2.slot)):
     notice "Proposer slashing: epoch mismatch"
     return false
 
@@ -179,7 +180,7 @@ proc process_proposer_slashing*(
           signing_root(header).data,
           header.signature,
           get_domain(
-            state, DOMAIN_BEACON_PROPOSER, compute_epoch_at_slot(header.slot))):
+            state, DOMAIN_BEACON_PROPOSER, compute_epoch_of_slot(header.slot))):
         notice "Proposer slashing: invalid signature",
           signature_index = i
         return false
@@ -204,7 +205,7 @@ proc processProposerSlashings(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#is_slashable_attestation_data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
     data_1: AttestationData, data_2: AttestationData): bool =
   ## Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG
@@ -216,7 +217,7 @@ func is_slashable_attestation_data(
     (data_1.source.epoch < data_2.source.epoch and
      data_2.target.epoch < data_1.target.epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#attester-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
        state: var BeaconState,
        attester_slashing: AttesterSlashing,
@@ -257,7 +258,6 @@ proc process_attester_slashing*(
       return false
     return true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#attester-slashings
 proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock,
     stateCache: var StateCache): bool =
   # Process ``AttesterSlashing`` operation.
@@ -305,7 +305,7 @@ proc processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#voluntary-exits
 proc process_voluntary_exit*(
     state: var BeaconState,
     exit: VoluntaryExit,
@@ -367,6 +367,99 @@ proc processVoluntaryExits(state: var BeaconState, blck: BeaconBlock, flags: Upd
       return false
   return true
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#transfers
+proc process_transfer*(
+       state: var BeaconState,
+       transfer: Transfer,
+       stateCache: var StateCache,
+       flags: UpdateFlags): bool =
+
+  # Not in spec
+  if transfer.sender.int >= state.balances.len:
+    notice "Transfer: invalid sender ID"
+    return false
+
+  # Not in spec
+  if transfer.recipient.int >= state.balances.len:
+    notice "Transfer: invalid recipient ID"
+    return false
+
+  let sender_balance = state.balances[transfer.sender.int]
+
+  ## Verify the balance the covers amount and fee (with overflow protection)
+  if sender_balance < max(transfer.amount + transfer.fee, max(transfer.amount, transfer.fee)):
+    notice "Transfer: sender balance too low for transfer amount or fee"
+    return false
+
+  # A transfer is valid in only one slot
+  if state.slot != transfer.slot:
+    notice "Transfer: slot mismatch"
+    return false
+
+  ## Sender must statisfy at least one of the following:
+  if not (
+      # 1) Never have been eligible for activation
+      state.validators[transfer.sender.int].activation_eligibility_epoch == FAR_FUTURE_EPOCH or
+      # 2) Be withdrawable
+      get_current_epoch(state) >= state.validators[transfer.sender.int].withdrawable_epoch or
+      # 3) Have a balance of at least MAX_EFFECTIVE_BALANCE after the transfer
+      state.balances[transfer.sender.int] >= transfer.amount + transfer.fee + MAX_EFFECTIVE_BALANCE
+    ):
+    notice "Transfer: only senders who either 1) have never been eligible for activation or 2) are withdrawable or 3) have a balance of MAX_EFFECTIVE_BALANCE after the transfer are valid."
+    return false
+
+  # Verify that the pubkey is valid
+  let wc = state.validators[transfer.sender.int].withdrawal_credentials
+  if not (wc.data[0] == BLS_WITHDRAWAL_PREFIX and
+          wc.data[1..^1] == eth2hash(transfer.pubkey.getBytes).data[1..^1]):
+    notice "Transfer: incorrect withdrawal credentials"
+    return false
+
+  # Verify that the signature is valid
+  if skipValidation notin flags:
+    if not bls_verify(
+        transfer.pubkey, signing_root(transfer).data, transfer.signature,
+        get_domain(state, DOMAIN_TRANSFER)):
+      notice "Transfer: incorrect signature"
+      return false
+
+  # Process the transfer
+  decrease_balance(
+    state, transfer.sender.ValidatorIndex, transfer.amount + transfer.fee)
+  increase_balance(
+    state, transfer.recipient.ValidatorIndex, transfer.amount)
+  increase_balance(
+    state, get_beacon_proposer_index(state, stateCache), transfer.fee)
+
+  # Verify balances are not dust
+  # TODO: is the spec assuming here that balances are signed integers
+  if (
+      0'u64 < state.balances[transfer.sender.int] and
+      state.balances[transfer.sender.int] < MIN_DEPOSIT_AMOUNT):
+    notice "Transfer: sender balance too low for transfer amount or fee"
+    return false
+
+  if (
+      0'u64 < state.balances[transfer.recipient.int] and
+      state.balances[transfer.recipient.int] < MIN_DEPOSIT_AMOUNT):
+    notice "Transfer: recipient balance too low for transfer amount or fee"
+    return false
+
+  true
+
+proc processTransfers(state: var BeaconState, blck: BeaconBlock,
+                      stateCache: var StateCache,
+                      flags: UpdateFlags): bool =
+  if not (len(blck.body.transfers) <= MAX_TRANSFERS):
+    notice "Transfer: too many transfers"
+    return false
+
+  for transfer in blck.body.transfers:
+    if not process_transfer(state, transfer, stateCache, flags):
+      return false
+
+  return true
+
 proc processBlock*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool =
@@ -398,7 +491,7 @@ proc processBlock*(
     debug "[Block processing] Randao failure", slot = shortLog(state.slot)
     return false
 
-  process_eth1_data(state, blck.body)
+  processEth1Data(state, blck.body)
 
   # TODO, everything below is now in process_operations
   # and implementation is per element instead of the whole seq
@@ -421,6 +514,10 @@ proc processBlock*(
 
   if not processVoluntaryExits(state, blck, flags):
     debug "[Block processing - Voluntary Exit] Exit processing failure", slot = shortLog(state.slot)
+    return false
+
+  if not processTransfers(state, blck, stateCache, flags):
+    debug "[Block processing] Transfer processing failure", slot = shortLog(state.slot)
     return false
 
   true

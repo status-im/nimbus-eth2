@@ -31,3 +31,13 @@ proc transitionEpochUntilJustificationFinalization*(state: var BeaconState) =
   var per_epoch_cache = get_empty_per_epoch_cache()
 
   process_justification_and_finalization(state, per_epoch_cache)
+
+proc transitionEpochUntilCrosslinks*(state: var BeaconState) =
+  # Process slots and do the epoch transition until crosslinks
+  processSlotsUntilEndCurrentEpoch(state)
+
+  # From process_epoch()
+  var per_epoch_cache = get_empty_per_epoch_cache()
+
+  process_justification_and_finalization(state, per_epoch_cache)
+  process_crosslinks(state, per_epoch_cache)

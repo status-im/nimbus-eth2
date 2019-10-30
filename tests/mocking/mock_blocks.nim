@@ -28,13 +28,13 @@ proc signMockBlockImpl(
   blck.body.randao_reveal = bls_sign(
     key = privkey,
     msg = blck.slot
-              .compute_epoch_at_slot()
+              .compute_epoch_of_slot()
               .hash_tree_root()
               .data,
     domain = get_domain(
       state,
       DOMAIN_RANDAO,
-      message_epoch = blck.slot.compute_epoch_at_slot(),
+      message_epoch = blck.slot.compute_epoch_of_slot(),
     )
   )
 
@@ -44,7 +44,7 @@ proc signMockBlockImpl(
     domain = get_domain(
       state,
       DOMAIN_BEACON_PROPOSER,
-      message_epoch = blck.slot.compute_epoch_at_slot(),
+      message_epoch = blck.slot.compute_epoch_of_slot(),
     )
   )
 

@@ -1,8 +1,8 @@
 import
-  os, ospaths, strutils,
+  os, ospaths, strutils, strformat,
   chronicles, chronos, blscurve, nimcrypto, json_serialization, serialization,
   web3, stint,
-  spec/[datatypes, digest, crypto], conf, ssz, interop
+  spec/[datatypes, digest, crypto], conf, time, ssz, interop
 
 contract(DepositContract):
   proc deposit(pubkey: Bytes48, withdrawalCredentials: Bytes32, signature: Bytes96, deposit_data_root: FixedBytes[32])

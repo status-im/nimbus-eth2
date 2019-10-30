@@ -1,5 +1,5 @@
 import
-  bitops, chronicles, options, tables,
+  bitops, chronicles, options, sequtils, tables,
   ssz, beacon_chain_db, state_transition, extras,
   beacon_node_types, metrics,
   spec/[crypto, datatypes, digest, helpers]
@@ -111,9 +111,9 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
     headState = db.getState(headStateRoot).get()
     finalizedHead =
       headRef.findAncestorBySlot(
-        headState.finalized_checkpoint.epoch.compute_start_slot_at_epoch())
+        headState.finalized_checkpoint.epoch.compute_start_slot_of_epoch())
     justifiedSlot =
-      headState.current_justified_checkpoint.epoch.compute_start_slot_at_epoch()
+      headState.current_justified_checkpoint.epoch.compute_start_slot_of_epoch()
     justifiedHead = headRef.findAncestorBySlot(justifiedSlot)
     head = Head(blck: headRef, justified: justifiedHead)
 
@@ -170,7 +170,7 @@ proc addResolvedBlock(
   # This block *might* have caused a justification - make sure we stow away
   # that information:
   let justifiedSlot =
-    state.data.data.current_justified_checkpoint.epoch.compute_start_slot_at_epoch()
+    state.data.data.current_justified_checkpoint.epoch.compute_start_slot_of_epoch()
 
   var foundHead: Option[Head]
   for head in pool.heads.mitems():
@@ -606,7 +606,7 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
   let justifiedSlot = state.data.data
                            .current_justified_checkpoint
                            .epoch
-                           .compute_start_slot_at_epoch()
+                           .compute_start_slot_of_epoch()
   pool.head = Head(blck: blck, justified: blck.findAncestorBySlot(justifiedSlot))
 
   if lastHead.blck != blck.parent:
@@ -637,7 +637,7 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
     # TODO there might not be a block at the epoch boundary - what then?
     finalizedHead =
       blck.findAncestorBySlot(
-        state.data.data.finalized_checkpoint.epoch.compute_start_slot_at_epoch())
+        state.data.data.finalized_checkpoint.epoch.compute_start_slot_of_epoch())
 
   doAssert (not finalizedHead.blck.isNil),
     "Block graph should always lead to a finalized block"

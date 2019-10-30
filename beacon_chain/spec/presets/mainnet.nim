@@ -55,7 +55,7 @@ const
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/configs/mainnet.yaml#L33
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#gwei-values
 
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9 ##\
   ## Minimum amounth of ETH that can be deposited in one call - deposits can
@@ -79,13 +79,14 @@ const
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/configs/mainnet.yaml#L52
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_fork-choice.md#time-parameters
 
-  SECONDS_PER_SLOT*{.intdefine.} = 12'u64 # Compile with -d:SECONDS_PER_SLOT=1 for 6x faster slots
+  SECONDS_PER_SLOT*{.intdefine.} = 6'u64 # Compile with -d:SECONDS_PER_SLOT=1 for 6x faster slots
   ## TODO consistent time unit across projects, similar to C++ chrono?
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#time-parameters
   MIN_ATTESTATION_INCLUSION_DELAY* = 1 ##\
-  ## (12 seconds)
+  ## (24 seconds)
   ## Number of slots that attestations stay in the attestation
   ## pool before being added to a block.
   ## The attestation delay exists so that there is time for attestations to
@@ -105,7 +106,7 @@ const
   MIN_SEED_LOOKAHEAD* = 1 ##\
   ## epochs (~6.4 minutes)
 
-  MAX_SEED_LOOKAHEAD* = 4 ##\
+  ACTIVATION_EXIT_DELAY* = 4 ##\
   ## epochs (~25.6 minutes)
 
   SLOTS_PER_ETH1_VOTING_PERIOD* = 1024 ##\
@@ -126,8 +127,6 @@ const
   MIN_EPOCHS_TO_INACTIVITY_PENALTY* = 2'u64^2 ##\
   ## epochs (25.6 minutes)
 
-  EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS* = 16384
-
   # State vector lengths
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/configs/mainnet.yaml#L81
@@ -147,23 +146,25 @@ const
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/configs/mainnet.yaml#L107
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#max-operations-per-block
   MAX_PROPOSER_SLASHINGS* = 2^4
   MAX_ATTESTER_SLASHINGS* = 2^0
   MAX_ATTESTATIONS* = 2^7
   MAX_DEPOSITS* = 2^4
   MAX_VOLUNTARY_EXITS* = 2^4
+  MAX_TRANSFERS* = 0
 
   MIN_GENESIS_TIME* {.intdefine.} = 0
   MIN_GENESIS_ACTIVE_VALIDATOR_COUNT* {.intdefine.} = 99
 
 type
-  # Domains
+  # Signature domains
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#domain-types
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#signature-domain-types
   DomainType* {.pure.} = enum
     DOMAIN_BEACON_PROPOSER = 0
-    DOMAIN_BEACON_ATTESTER = 1
-    DOMAIN_RANDAO = 2
+    DOMAIN_RANDAO = 1
+    DOMAIN_ATTESTATION = 2
     DOMAIN_DEPOSIT = 3
     DOMAIN_VOLUNTARY_EXIT = 4
+    DOMAIN_TRANSFER = 5

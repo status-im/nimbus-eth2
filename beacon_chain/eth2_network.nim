@@ -1,7 +1,7 @@
 import
   options, tables,
   chronos, json_serialization, strutils, chronicles, metrics, eth/net/nat,
-  version, conf
+  spec/digest, version, conf
 
 const
   clientId = "Nimbus beacon node v" & fullVersionStr()

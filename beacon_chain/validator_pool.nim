@@ -34,7 +34,7 @@ proc signBlockProposal*(v: AttachedValidator, state: BeaconState, slot: Slot,
     #      care about this in here
     let
       domain =
-        get_domain(state, DOMAIN_BEACON_PROPOSER, compute_epoch_at_slot(slot))
+        get_domain(state, DOMAIN_BEACON_PROPOSER, compute_epoch_of_slot(slot))
     # TODO this is an ugly hack to fake a delay and subsequent async reordering
     #      for the purpose of testing the external validator delay - to be
     #      replaced by something more sensible
@@ -52,7 +52,7 @@ proc signAttestation*(v: AttachedValidator,
     let
       attestationRoot = hash_tree_root(
         AttestationDataAndCustodyBit(data: attestation, custody_bit: false))
-      domain = get_domain(state, DOMAIN_BEACON_ATTESTER, attestation.target.epoch)
+      domain = get_domain(state, DOMAIN_ATTESTATION, attestation.target.epoch)
 
     # TODO this is an ugly hack to fake a delay and subsequent async reordering
     #      for the purpose of testing the external validator delay - to be
@@ -67,8 +67,8 @@ proc signAttestation*(v: AttachedValidator,
 func genRandaoReveal*(k: ValidatorPrivKey, state: BeaconState, slot: Slot):
     ValidatorSig =
   let
-    domain = get_domain(state, DOMAIN_RANDAO, compute_epoch_at_slot(slot))
-    root = hash_tree_root(compute_epoch_at_slot(slot).uint64).data
+    domain = get_domain(state, DOMAIN_RANDAO, compute_epoch_of_slot(slot))
+    root = hash_tree_root(compute_epoch_of_slot(slot).uint64).data
 
   bls_sign(k, root, domain)
 

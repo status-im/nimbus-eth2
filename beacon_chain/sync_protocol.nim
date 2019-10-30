@@ -77,7 +77,7 @@ proc getCurrentStatus(node: BeaconNode): StatusMsg =
     headBlock = blockPool.head.blck
     headRoot = headBlock.root
     headSlot = headBlock.slot
-    finalizedEpoch = finalizedHead.slot.compute_epoch_at_slot()
+    finalizedEpoch = finalizedHead.slot.compute_epoch_of_slot()
 
   StatusMsg(
     fork_version: node.forkVersion,
