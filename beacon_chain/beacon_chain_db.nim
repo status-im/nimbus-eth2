@@ -1,5 +1,5 @@
 import
-  os, json, tables, options,
+  json, tables, options,
   chronicles, serialization, json_serialization, eth/common/eth_types_json_serialization,
   spec/[datatypes, digest, crypto],
   eth/trie/db, ssz

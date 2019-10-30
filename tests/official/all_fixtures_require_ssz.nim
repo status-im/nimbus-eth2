@@ -18,5 +18,4 @@ import
   ./test_fixture_operations_attester_slashings,
   ./test_fixture_operations_block_header,
   ./test_fixture_operations_proposer_slashings,
-  ./test_fixture_operations_transfer,
   ./test_fixture_operations_voluntary_exit

@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  os, unittest, strutils,
+  os, unittest,
   # Beacon chain internals
   ../../beacon_chain/spec/[datatypes, state_transition_block],
   ../../beacon_chain/[ssz, extras],

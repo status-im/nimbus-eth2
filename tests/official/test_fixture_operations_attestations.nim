@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  os, unittest, strutils,
+  os, unittest,
   # Beacon chain internals
   ../../beacon_chain/spec/[datatypes, beaconstate, validator],
   ../../beacon_chain/[ssz, extras],
@@ -67,9 +67,6 @@ template runTest(testName: string, identifier: untyped) =
 suite "Official - Operations - Attestations " & preset():
   runTest("success", success)
   runTest("success previous epoch", success_previous_epoch)
-  when const_preset == "minimal":
-    runTest("success since max epochs per crosslink", success_since_max_epochs_per_crosslink)
-    runTest("wrong end epoch with max epochs per crosslink", wrong_end_epoch_with_max_epochs_per_crosslink)
   runTest("invalid attestation signature", invalid_attestation_signature)
   runTest("before inclusion delay", before_inclusion_delay)
   runTest("after_epoch_slots", after_epoch_slots)
@@ -82,10 +79,6 @@ suite "Official - Operations - Attestations " & preset():
   runTest("source root is target root", source_root_is_target_root)
   runTest("invalid current source root", invalid_current_source_root)
   runTest("bad source root", bad_source_root)
-  runTest("non-zero crosslink data root", non_zero_crosslink_data_root)
-  runTest("bad parent crosslink", bad_parent_crosslink)
-  runTest("bad crosslink start epoch", bad_crosslink_start_epoch)
-  runTest("bad crosslink end epoch", bad_crosslink_end_epoch)
   runTest("inconsistent bits", inconsistent_bits)
   runTest("non-empty custody bits", non_empty_custody_bits)
   runTest("empty aggregation bits", empty_aggregation_bits)

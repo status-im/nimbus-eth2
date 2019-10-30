@@ -2,7 +2,7 @@ import
   deques, options, sequtils, tables,
   chronicles, stew/bitseqs, json_serialization/std/sets,
   ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator],
-  ./extras, ./beacon_chain_db, ./ssz, ./block_pool,
+  ./extras, ./ssz, ./block_pool,
   beacon_node_types
 
 logScope: topics = "attpool"
@@ -99,7 +99,7 @@ proc slotIndex(
       attestationSlot =  $shortLog(attestationSlot),
       cat = "init"
     pool.startingSlot =
-      state.finalized_checkpoint.epoch.compute_start_slot_of_epoch()
+      state.finalized_checkpoint.epoch.compute_start_slot_at_epoch()
 
   if pool.startingSlot + pool.slots.len.uint64 <= attestationSlot:
     trace "Growing attestation pool",
@@ -112,17 +112,17 @@ proc slotIndex(
       pool.slots.addLast(SlotData())
 
   if pool.startingSlot <
-      state.finalized_checkpoint.epoch.compute_start_slot_of_epoch():
+      state.finalized_checkpoint.epoch.compute_start_slot_at_epoch():
     debug "Pruning attestation pool",
       startingSlot = $shortLog(pool.startingSlot),
       finalizedSlot = $shortLog(
         state.finalized_checkpoint
-             .epoch.compute_start_slot_of_epoch()),
+             .epoch.compute_start_slot_at_epoch()),
       cat = "pruning"
 
     # TODO there should be a better way to remove a whole epoch of stuff..
     while pool.startingSlot <
-        state.finalized_checkpoint.epoch.compute_start_slot_of_epoch():
+        state.finalized_checkpoint.epoch.compute_start_slot_at_epoch():
       pool.slots.popFirst()
       pool.startingSlot += 1
 
@@ -150,7 +150,6 @@ proc add*(pool: var AttestationPool,
   logScope: pcs = "atp_add_attestation"
 
   doAssert blck.root == attestation.data.beacon_block_root
-  var cache = get_empty_per_epoch_cache()
 
   if not validate(state, attestation):
     notice "Invalid attestation",
@@ -333,8 +332,8 @@ proc getAttestationsForTargetEpoch*(
   pool: AttestationPool, state: var BeaconState,
     epoch: Epoch): seq[Attestation] =
   # TODO quick testing kludge
-  let begin_slot = compute_start_slot_of_epoch(epoch).uint64
-  let end_slot_minus1 = (compute_start_slot_of_epoch(epoch+1) - 1).uint64
+  let begin_slot = compute_start_slot_at_epoch(epoch).uint64
+  let end_slot_minus1 = (compute_start_slot_at_epoch(epoch+1) - 1).uint64
   for s in begin_slot .. end_slot_minus1:
     result.add getAttestationsForBlock(pool, state, s.Slot)
 

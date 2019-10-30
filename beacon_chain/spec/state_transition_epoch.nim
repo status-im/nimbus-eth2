@@ -33,7 +33,7 @@
 # now.
 
 import # TODO - cleanup imports
-  algorithm, math, options, sequtils, tables,
+  math, options, sequtils, tables,
   stew/[bitseqs, bitops2], chronicles, json_serialization/std/sets,
   metrics, ../ssz,
   beaconstate, crypto, datatypes, digest, helpers, validator,
@@ -55,8 +55,9 @@ declareGauge beacon_previous_justified_root, "Current previously justified root"
 # Spec
 # --------------------------------------------------------
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_total_active_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#get_total_active_balance
 func get_total_active_balance*(state: BeaconState): Gwei =
+  # Return the combined effective balance of the active validators.
   return get_total_balance(
     state,
     get_active_validator_indices(state, get_current_epoch(state)))
@@ -227,11 +228,11 @@ proc process_justification_and_finalization*(
   ## matter -- in the next epoch, they'll be 2 epochs old, when BeaconState
   ## tracks current_epoch_attestations and previous_epoch_attestations only
   ## per
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#attestations
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#attestations
   ## and `get_matching_source_attestations(...)` via
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#helper-functions-1
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#helper-functions-1
   ## and
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#final-updates
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#final-updates
   ## after which the state.previous_epoch_attestations is replaced.
   trace "Non-attesting indices in previous epoch",
     missing_all_validators=
@@ -320,28 +321,7 @@ proc process_justification_and_finalization*(
       checkpoint = shortLog(state.finalized_checkpoint),
       cat = "finalization"
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#crosslinks
-func process_crosslinks*(state: var BeaconState, stateCache: var StateCache) =
-  state.previous_crosslinks = state.current_crosslinks
-
-  for epoch in @[get_previous_epoch(state), get_current_epoch(state)]:
-    for offset in 0'u64 ..< get_committee_count(state, epoch):
-      let
-        shard = (get_start_shard(state, epoch) + offset) mod SHARD_COUNT
-        crosslink_committee =
-          toSet(get_crosslink_committee(state, epoch, shard, stateCache))
-        # In general, it'll loop over the same shards twice, and
-        # get_winning_root_and_participants is defined to return
-        # the same results from the previous epoch as current.
-        # TODO cache like before, in 0.5 version of this function
-        (winning_crosslink, attesting_indices) =
-          get_winning_crosslink_and_attesting_indices(
-            state, epoch, shard, stateCache)
-      if 3'u64 * get_total_balance(state, attesting_indices) >=
-          2'u64 * get_total_balance(state, crosslink_committee):
-        state.current_crosslinks[shard] = winning_crosslink
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#rewards-and-penalties-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#rewards-and-penalties-1
 func get_base_reward(state: BeaconState, index: ValidatorIndex): Gwei =
   let
     total_balance = get_total_active_balance(state)
@@ -489,7 +469,7 @@ func process_rewards_and_penalties(
     increase_balance(state, i.ValidatorIndex, rewards1[i] + rewards2[i])
     decrease_balance(state, i.ValidatorIndex, penalties1[i] + penalties2[i])
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#slashings
 func process_slashings*(state: var BeaconState) =
   let
     epoch = get_current_epoch(state)
@@ -529,7 +509,7 @@ proc process_final_updates*(state: var BeaconState) =
 
   # Set active index root
   let
-    index_epoch = next_epoch + ACTIVATION_EXIT_DELAY
+    index_epoch = next_epoch + MAX_SEED_LOOKAHEAD
     index_root_position = index_epoch mod EPOCHS_PER_HISTORICAL_VECTOR
     indices_list = get_active_validator_indices(state, index_epoch)
 
@@ -569,7 +549,7 @@ proc process_final_updates*(state: var BeaconState) =
   state.previous_epoch_attestations = state.current_epoch_attestations
   state.current_epoch_attestations = @[]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#per-epoch-processing
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#epoch-processing
 proc process_epoch*(state: var BeaconState) =
   # @proc are placeholders
 
@@ -578,33 +558,34 @@ proc process_epoch*(state: var BeaconState) =
 
   var per_epoch_cache = get_empty_per_epoch_cache()
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#justification-and-finalization
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#justification-and-finalization
   process_justification_and_finalization(state, per_epoch_cache)
 
   trace "ran process_justification_and_finalization",
     current_epoch = get_current_epoch(state)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#crosslinks
-  process_crosslinks(state, per_epoch_cache)
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#rewards-and-penalties-1
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#rewards-and-penalties-1
   process_rewards_and_penalties(state, per_epoch_cache)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#registry-updates
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#registry-updates
   # Don't rely on caching here.
   process_registry_updates(state)
 
   ## Caching here for get_crosslink_committee(...) can break otherwise, since
   ## get_active_validator_indices(...) usually changes.
+  # TODO is this cache still necessary/useful? presumably not, but can't remove
+  # quite yet
   clear(per_epoch_cache.crosslink_committee_cache)
 
   # @process_reveal_deadlines
   # @process_challenge_deadlines
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#slashings
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#slashings
   process_slashings(state)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#final-updates
+  # @update_period_committee
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#final-updates
   process_final_updates(state)
 
   # @after_process_final_updates

@@ -39,14 +39,14 @@ const
 
   # Constants
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#constants
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#constants
   # TODO "The following values are (non-configurable) constants" ...
   # Unchanged
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#gwei-values
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/configs/minimal.yaml#L32
 
   # Unchanged
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9
@@ -64,12 +64,10 @@ const
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_fork-choice.md#time-parameters
-
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/configs/minimal.yaml#L51
   # Unchanged
   SECONDS_PER_SLOT*{.intdefine.} = 6'u64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#time-parameters
   # Unchanged
   MIN_ATTESTATION_INCLUSION_DELAY* = 1
 
@@ -78,11 +76,11 @@ const
 
   # Unchanged
   MIN_SEED_LOOKAHEAD* = 1
-  ACTIVATION_EXIT_DELAY* = 4
+  MAX_SEED_LOOKAHEAD* = 4
 
   # Changed
   SLOTS_PER_ETH1_VOTING_PERIOD* = 16
-  SLOTS_PER_HISTORICAL_ROOT* = 64 # doesn't work with GENESIS_SLOT == 0?
+  SLOTS_PER_HISTORICAL_ROOT* = 64
 
   # Unchanged
   MIN_VALIDATOR_WITHDRAWABILITY_DELAY* = 2'u64^8
@@ -113,25 +111,22 @@ const
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#max-operations-per-block
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/configs/minimal.yaml#L109
 
-  # Unchanged
   MAX_PROPOSER_SLASHINGS* = 2^4
   MAX_ATTESTER_SLASHINGS* = 2^0
   MAX_ATTESTATIONS* = 2^7
   MAX_DEPOSITS* = 2^4
   MAX_VOLUNTARY_EXITS* = 2^4
-  MAX_TRANSFERS* = 0
 
 
 type
-  # Signature domains
+  # Domains
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#signature-domain-types
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#domain-types
   DomainType* {.pure.} = enum
     DOMAIN_BEACON_PROPOSER = 0
-    DOMAIN_RANDAO = 1
-    DOMAIN_ATTESTATION = 2
+    DOMAIN_BEACON_ATTESTER = 1
+    DOMAIN_RANDAO = 2
     DOMAIN_DEPOSIT = 3
     DOMAIN_VOLUNTARY_EXIT = 4
-    DOMAIN_TRANSFER = 5

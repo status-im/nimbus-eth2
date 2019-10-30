@@ -23,7 +23,6 @@ import # Refactor state transition unit tests
   ./spec_block_processing/test_genesis,
   ./spec_block_processing/test_process_deposits,
   ./spec_block_processing/test_process_attestation,
-  ./spec_epoch_processing/test_process_crosslinks,
   ./spec_epoch_processing/test_process_justification_and_finalization
 
 import # Official fixtures that don't require SSZ parsing of invalid BLS signatures

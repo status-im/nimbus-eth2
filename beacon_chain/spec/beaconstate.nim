@@ -29,13 +29,13 @@ func is_valid_merkle_branch(leaf: Eth2Digest, branch: openarray[Eth2Digest], dep
     value = eth2hash(buf)
   value == root
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#increase_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#increase_balance
 func increase_balance*(
     state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
   # Increase the validator balance at index ``index`` by ``delta``.
   state.balances[index] += delta
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#decrease_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#decrease_balance
 func decrease_balance*(
     state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
   ## Decrease the validator balance at index ``index`` by ``delta``, with
@@ -102,13 +102,13 @@ func process_deposit*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#compute_activation_exit_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#compute_activation_exit_epoch
 func compute_activation_exit_epoch*(epoch: Epoch): Epoch =
   ## Return the epoch during which validator activations and exits initiated in
   ## ``epoch`` take effect.
-  epoch + 1 + ACTIVATION_EXIT_DELAY
+  epoch + 1 + MAX_SEED_LOOKAHEAD
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_validator_churn_limit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#get_validator_churn_limit
 func get_validator_churn_limit(state: BeaconState): uint64 =
   # Return the validator churn limit for the current epoch.
   let active_validator_indices =
@@ -116,7 +116,7 @@ func get_validator_churn_limit(state: BeaconState): uint64 =
   max(MIN_PER_EPOCH_CHURN_LIMIT,
     len(active_validator_indices) div CHURN_LIMIT_QUOTIENT).uint64
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#initiate_validator_exit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(state: var BeaconState,
                               index: ValidatorIndex) =
   # Initiate the exit of the validator with index ``index``.
@@ -304,7 +304,7 @@ func get_attestation_data_slot*(state: BeaconState,
     offset = (data.crosslink.shard + SHARD_COUNT -
       get_start_shard(state, data.target.epoch)) mod SHARD_COUNT
 
-  compute_start_slot_of_epoch(data.target.epoch) + offset div
+  compute_start_slot_at_epoch(data.target.epoch) + offset div
     (committee_count div SLOTS_PER_EPOCH)
 
 # This is the slower (O(n)), spec-compatible signature.
@@ -313,7 +313,7 @@ func get_attestation_data_slot*(state: BeaconState,
   get_attestation_data_slot(
     state, data, get_committee_count(state, data.target.epoch))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_block_root_at_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: BeaconState,
                              slot: Slot): Eth2Digest =
   # Return the block root at a recent ``slot``.
@@ -322,12 +322,12 @@ func get_block_root_at_slot*(state: BeaconState,
   doAssert slot < state.slot
   state.block_roots[slot mod SLOTS_PER_HISTORICAL_ROOT]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_block_root
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#get_block_root
 func get_block_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Return the block root at the start of a recent ``epoch``.
-  get_block_root_at_slot(state, compute_start_slot_of_epoch(epoch))
+  get_block_root_at_slot(state, compute_start_slot_at_epoch(epoch))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_total_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#get_total_balance
 func get_total_balance*(state: BeaconState, validators: auto): Gwei =
   ## Return the combined effective balance of the ``indices``. (1 Gwei minimum
   ## to avoid divisions by zero.)
@@ -336,7 +336,7 @@ func get_total_balance*(state: BeaconState, validators: auto): Gwei =
   )
 
 # XXX: Move to state_transition_epoch.nim?
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#registry-updates
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#registry-updates
 func process_registry_updates*(state: var BeaconState) =
   ## Process activation eligibility and ejections
   ## Try to avoid caching here, since this could easily become undefined
@@ -376,7 +376,7 @@ func process_registry_updates*(state: var BeaconState) =
       validator.activation_epoch =
         compute_activation_exit_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#is_valid_indexed_attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     state: BeaconState, indexed_attestation: IndexedAttestation): bool =
   ## Check if ``indexed_attestation`` has valid indices and signature.
@@ -388,9 +388,9 @@ proc is_valid_indexed_attestation*(
     bit_1_indices = indexed_attestation.custody_bit_1_indices.asSeq
 
   # Verify no index has custody bit equal to 1 [to be removed in phase 1]
-  if len(bit_1_indices) != 0:
+  if len(bit_1_indices) != 0:  # [to be removed in phase 1]
     notice "indexed attestation: custody_bit equal to 1"
-    return false
+    return false               # [to be removed in phase 1]
 
   # Verify max number of indices
   let combined_len = len(bit_0_indices) + len(bit_1_indices)
@@ -426,7 +426,7 @@ proc is_valid_indexed_attestation*(
       hash_tree_root(msg1),
       hash_tree_root(msg2),
     ]
-    domain = get_domain(state, DOMAIN_ATTESTATION, indexed_attestation.data.target.epoch)
+    domain = get_domain(state, DOMAIN_BEACON_ATTESTER, indexed_attestation.data.target.epoch)
 
   result = bls_verify_multiple(
     pubkeys,
@@ -460,7 +460,7 @@ func get_attesting_indices_seq*(state: BeaconState,
   toSeq(items(get_attesting_indices(
     state, attestation_data, bits, cache)))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_indexed_attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#get_indexed_attestation
 func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
     stateCache: var StateCache): IndexedAttestation =
   # Return the indexed attestation corresponding to ``attestation``.
@@ -557,16 +557,10 @@ proc check_attestation*(
   # Check FFG data, crosslink data, and signature
   let ffg_check_data = (data.source.epoch, data.source.root, data.target.epoch)
 
-  var cache = get_empty_per_epoch_cache()
   if data.target.epoch == get_current_epoch(state):
     if not (ffg_check_data == (state.current_justified_checkpoint.epoch,
         state.current_justified_checkpoint.root, get_current_epoch(state))):
       warn("FFG data not matching current justified epoch")
-      return
-
-    if not (data.crosslink.parent_root ==
-        hash_tree_root(state.current_crosslinks[data.crosslink.shard])):
-      warn("Crosslink shard's current crosslinks not matching crosslink parent root")
       return
   else:
     if not (ffg_check_data == (state.previous_justified_checkpoint.epoch,
@@ -574,38 +568,7 @@ proc check_attestation*(
       warn("FFG data not matching current justified epoch")
       return
 
-    if not (data.crosslink.parent_root ==
-        hash_tree_root(state.previous_crosslinks[data.crosslink.shard])):
-      warn("Crosslink shard's previous crosslinks not matching crosslink parent root")
-      return
-
-  let parent_crosslink = if data.target.epoch == get_current_epoch(state):
-    state.current_crosslinks[data.crosslink.shard]
-  else:
-    state.previous_crosslinks[data.crosslink.shard]
-
-  if not (data.crosslink.parent_root == hash_tree_root(parent_crosslink)):
-    warn("Crosslink parent root doesn't match parent crosslink's root")
-    return
-
-  if not (data.crosslink.start_epoch == parent_crosslink.end_epoch):
-    warn("Crosslink start and end epochs not the same")
-    return
-
-  if not (data.crosslink.end_epoch == min(
-      data.target.epoch,
-      parent_crosslink.end_epoch + MAX_EPOCHS_PER_CROSSLINK)):
-    warn("Crosslink end epoch incorrect",
-      crosslink_end_epoch = data.crosslink.end_epoch,
-      parent_crosslink_end_epoch = parent_crosslink.end_epoch,
-      target_epoch = data.target.epoch)
-    return
-
-  if not (data.crosslink.data_root == ZERO_HASH):  # [to be removed in phase 1]
-    warn("Crosslink data root not zero")
-    return
-
-  # Check signature and bitfields
+  # Check signature
   if not is_valid_indexed_attestation(
       state, get_indexed_attestation(state, attestation, stateCache)):
     warn("process_attestation: signature or bitfields incorrect")
@@ -660,7 +623,7 @@ proc makeAttestationData*(
 
   let
     current_epoch = get_current_epoch(state)
-    start_slot = compute_start_slot_of_epoch(current_epoch)
+    start_slot = compute_start_slot_at_epoch(current_epoch)
     epoch_boundary_block_root =
       if start_slot == state.slot: beacon_block_root
       else: get_block_root_at_slot(state, start_slot)
