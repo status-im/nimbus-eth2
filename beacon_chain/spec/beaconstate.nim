@@ -116,7 +116,7 @@ func get_validator_churn_limit(state: BeaconState): uint64 =
   max(MIN_PER_EPOCH_CHURN_LIMIT,
     len(active_validator_indices) div CHURN_LIMIT_QUOTIENT).uint64
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#initiate_validator_exit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(state: var BeaconState,
                               index: ValidatorIndex) =
   # Initiate the exit of the validator with index ``index``.
@@ -336,7 +336,7 @@ func get_total_balance*(state: BeaconState, validators: auto): Gwei =
   )
 
 # XXX: Move to state_transition_epoch.nim?
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#registry-updates
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#registry-updates
 func process_registry_updates*(state: var BeaconState) =
   ## Process activation eligibility and ejections
   ## Try to avoid caching here, since this could easily become undefined

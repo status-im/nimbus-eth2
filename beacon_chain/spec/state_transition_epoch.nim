@@ -321,7 +321,7 @@ proc process_justification_and_finalization*(
       checkpoint = shortLog(state.finalized_checkpoint),
       cat = "finalization"
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#rewards-and-penalties-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#rewards-and-penalties-1
 func get_base_reward(state: BeaconState, index: ValidatorIndex): Gwei =
   let
     total_balance = get_total_active_balance(state)
@@ -469,7 +469,7 @@ func process_rewards_and_penalties(
     increase_balance(state, i.ValidatorIndex, rewards1[i] + rewards2[i])
     decrease_balance(state, i.ValidatorIndex, penalties1[i] + penalties2[i])
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#slashings
 func process_slashings*(state: var BeaconState) =
   let
     epoch = get_current_epoch(state)
@@ -585,7 +585,7 @@ proc process_epoch*(state: var BeaconState) =
 
   # @update_period_committee
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#final-updates
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#final-updates
   process_final_updates(state)
 
   # @after_process_final_updates

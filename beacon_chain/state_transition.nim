@@ -44,7 +44,7 @@ declareGauge beacon_previous_epoch_orphaned_blocks, "Number of blocks orphaned i
 # Canonical state transition functions
 # ---------------------------------------------------------------
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 func process_slot*(state: var BeaconState) =
   # Cache state root
   let previous_state_root = hash_tree_root(state)
@@ -97,7 +97,7 @@ proc process_slots*(state: var BeaconState, slot: Slot) =
     if is_epoch_transition:
       beacon_current_validators.set(get_epoch_validator_count(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
   let state_root = hash_tree_root(state)

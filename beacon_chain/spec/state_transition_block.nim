@@ -98,7 +98,7 @@ proc process_block_header*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#randao
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#randao
 proc process_randao(
     state: var BeaconState, body: BeaconBlockBody, flags: UpdateFlags,
     stateCache: var StateCache): bool =
@@ -216,7 +216,7 @@ func is_slashable_attestation_data(
     (data_1.source.epoch < data_2.source.epoch and
      data_2.target.epoch < data_1.target.epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#attester-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
        state: var BeaconState,
        attester_slashing: AttesterSlashing,
@@ -257,6 +257,7 @@ proc process_attester_slashing*(
       return false
     return true
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#attester-slashings
 proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock,
     stateCache: var StateCache): bool =
   # Process ``AttesterSlashing`` operation.

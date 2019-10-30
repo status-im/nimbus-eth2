@@ -189,7 +189,7 @@ type
     signature*: ValidatorSig ##\
     ## Signature checked against withdrawal pubkey
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#beaconblock
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -228,6 +228,8 @@ type
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
     graffiti*: Eth2Digest # TODO make that raw bytes
+
+    # Operations
     proposer_slashings*: seq[ProposerSlashing]
     attester_slashings*: seq[AttesterSlashing]
     attestations*: seq[Attestation]
@@ -362,16 +364,11 @@ type
     epoch*: Epoch ##\
     ## Epoch of latest fork
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#eth1data
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#eth1data
   Eth1Data* = object
-    deposit_root*: Eth2Digest ##\
-    ## Root of the deposit tree
-
-    deposit_count*: uint64 ##\
-    ## Total number of deposits
-
-    block_hash*: Eth2Digest ##\
-    ## Block hash
+    deposit_root*: Eth2Digest
+    deposit_count*: uint64
+    block_hash*: Eth2Digest
 
   # TODO to be replaced with some magic hash caching
   HashedBeaconState* = object

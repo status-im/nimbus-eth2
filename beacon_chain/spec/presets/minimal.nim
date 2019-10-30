@@ -39,7 +39,7 @@ const
 
   # Constants
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#constants
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#constants
   # TODO "The following values are (non-configurable) constants" ...
   # Unchanged
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
