@@ -55,8 +55,10 @@ DOCKER_BEACON_NODE="docker run -v $DEPOSITS_DIR_ABS:/deposits_dir -v $NETWORK_DI
 make deposit_contract
 
 if [ "$ETH1_PRIVATE_KEY" != "" ]; then
+  echo "Deploying deposit contract..."
   DEPOSIT_CONTRACT_ADDRESS=$(./build/deposit_contract deploy $WEB3_URL_ARG --private-key=$ETH1_PRIVATE_KEY)
   DEPOSIT_CONTRACT_ADDRESS_ARG="--deposit-contract=$DEPOSIT_CONTRACT_ADDRESS"
+  echo "Done: $DEPOSIT_CONTRACT_ADDRESS"
 fi
 
 cd docker
