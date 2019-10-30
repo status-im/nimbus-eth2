@@ -228,11 +228,11 @@ proc process_justification_and_finalization*(
   ## matter -- in the next epoch, they'll be 2 epochs old, when BeaconState
   ## tracks current_epoch_attestations and previous_epoch_attestations only
   ## per
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#attestations
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#attestations
   ## and `get_matching_source_attestations(...)` via
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#helper-functions-1
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#helper-functions-1
   ## and
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#final-updates
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#final-updates
   ## after which the state.previous_epoch_attestations is replaced.
   trace "Non-attesting indices in previous epoch",
     missing_all_validators=
@@ -558,13 +558,13 @@ proc process_epoch*(state: var BeaconState) =
 
   var per_epoch_cache = get_empty_per_epoch_cache()
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#justification-and-finalization
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#justification-and-finalization
   process_justification_and_finalization(state, per_epoch_cache)
 
   trace "ran process_justification_and_finalization",
     current_epoch = get_current_epoch(state)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#rewards-and-penalties-1
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#rewards-and-penalties-1
   process_rewards_and_penalties(state, per_epoch_cache)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#registry-updates
@@ -573,13 +573,17 @@ proc process_epoch*(state: var BeaconState) =
 
   ## Caching here for get_crosslink_committee(...) can break otherwise, since
   ## get_active_validator_indices(...) usually changes.
+  # TODO is this cache still necessary/useful? presumably not, but can't remove
+  # quite yet
   clear(per_epoch_cache.crosslink_committee_cache)
 
   # @process_reveal_deadlines
   # @process_challenge_deadlines
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#slashings
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#slashings
   process_slashings(state)
+
+  # @update_period_committee
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#final-updates
   process_final_updates(state)

@@ -46,7 +46,7 @@ const
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#gwei-values
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/configs/minimal.yaml#L32
 
   # Unchanged
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9
@@ -64,12 +64,10 @@ const
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_fork-choice.md#time-parameters
-
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/configs/minimal.yaml#L51
   # Unchanged
   SECONDS_PER_SLOT*{.intdefine.} = 6'u64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#time-parameters
   # Unchanged
   MIN_ATTESTATION_INCLUSION_DELAY* = 1
 
@@ -82,7 +80,7 @@ const
 
   # Changed
   SLOTS_PER_ETH1_VOTING_PERIOD* = 16
-  SLOTS_PER_HISTORICAL_ROOT* = 64 # doesn't work with GENESIS_SLOT == 0?
+  SLOTS_PER_HISTORICAL_ROOT* = 64
 
   # Unchanged
   MIN_VALIDATOR_WITHDRAWABILITY_DELAY* = 2'u64^8

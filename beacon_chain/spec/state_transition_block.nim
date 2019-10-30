@@ -131,8 +131,8 @@ proc process_randao(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#eth1-data
-func processEth1Data(state: var BeaconState, body: BeaconBlockBody) =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#eth1-data
+func process_eth1_data(state: var BeaconState, body: BeaconBlockBody) =
   state.eth1_data_votes.add body.eth1_data
   if state.eth1_data_votes.count(body.eth1_data) * 2 >
       SLOTS_PER_ETH1_VOTING_PERIOD:
@@ -397,7 +397,7 @@ proc processBlock*(
     debug "[Block processing] Randao failure", slot = shortLog(state.slot)
     return false
 
-  processEth1Data(state, blck.body)
+  process_eth1_data(state, blck.body)
 
   # TODO, everything below is now in process_operations
   # and implementation is per element instead of the whole seq

@@ -108,7 +108,7 @@ func compute_activation_exit_epoch*(epoch: Epoch): Epoch =
   ## ``epoch`` take effect.
   epoch + 1 + MAX_SEED_LOOKAHEAD
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_validator_churn_limit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#get_validator_churn_limit
 func get_validator_churn_limit(state: BeaconState): uint64 =
   # Return the validator churn limit for the current epoch.
   let active_validator_indices =
@@ -327,7 +327,7 @@ func get_block_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Return the block root at the start of a recent ``epoch``.
   get_block_root_at_slot(state, compute_start_slot_at_epoch(epoch))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_total_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#get_total_balance
 func get_total_balance*(state: BeaconState, validators: auto): Gwei =
   ## Return the combined effective balance of the ``indices``. (1 Gwei minimum
   ## to avoid divisions by zero.)
@@ -376,7 +376,7 @@ func process_registry_updates*(state: var BeaconState) =
       validator.activation_epoch =
         compute_activation_exit_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#is_valid_indexed_attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     state: BeaconState, indexed_attestation: IndexedAttestation): bool =
   ## Check if ``indexed_attestation`` has valid indices and signature.
@@ -388,9 +388,9 @@ proc is_valid_indexed_attestation*(
     bit_1_indices = indexed_attestation.custody_bit_1_indices.asSeq
 
   # Verify no index has custody bit equal to 1 [to be removed in phase 1]
-  if len(bit_1_indices) != 0:
+  if len(bit_1_indices) != 0:  # [to be removed in phase 1]
     notice "indexed attestation: custody_bit equal to 1"
-    return false
+    return false               # [to be removed in phase 1]
 
   # Verify max number of indices
   let combined_len = len(bit_0_indices) + len(bit_1_indices)
@@ -460,7 +460,7 @@ func get_attesting_indices_seq*(state: BeaconState,
   toSeq(items(get_attesting_indices(
     state, attestation_data, bits, cache)))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_indexed_attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#get_indexed_attestation
 func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
     stateCache: var StateCache): IndexedAttestation =
   # Return the indexed attestation corresponding to ``attestation``.
@@ -562,49 +562,13 @@ proc check_attestation*(
         state.current_justified_checkpoint.root, get_current_epoch(state))):
       warn("FFG data not matching current justified epoch")
       return
-
-    if not (data.crosslink.parent_root ==
-        hash_tree_root(state.current_crosslinks[data.crosslink.shard])):
-      warn("Crosslink shard's current crosslinks not matching crosslink parent root")
-      return
   else:
     if not (ffg_check_data == (state.previous_justified_checkpoint.epoch,
         state.previous_justified_checkpoint.root, get_previous_epoch(state))):
       warn("FFG data not matching current justified epoch")
       return
 
-    if not (data.crosslink.parent_root ==
-        hash_tree_root(state.previous_crosslinks[data.crosslink.shard])):
-      warn("Crosslink shard's previous crosslinks not matching crosslink parent root")
-      return
-
-  let parent_crosslink = if data.target.epoch == get_current_epoch(state):
-    state.current_crosslinks[data.crosslink.shard]
-  else:
-    state.previous_crosslinks[data.crosslink.shard]
-
-  if not (data.crosslink.parent_root == hash_tree_root(parent_crosslink)):
-    warn("Crosslink parent root doesn't match parent crosslink's root")
-    return
-
-  if not (data.crosslink.start_epoch == parent_crosslink.end_epoch):
-    warn("Crosslink start and end epochs not the same")
-    return
-
-  if not (data.crosslink.end_epoch == min(
-      data.target.epoch,
-      parent_crosslink.end_epoch + MAX_EPOCHS_PER_CROSSLINK)):
-    warn("Crosslink end epoch incorrect",
-      crosslink_end_epoch = data.crosslink.end_epoch,
-      parent_crosslink_end_epoch = parent_crosslink.end_epoch,
-      target_epoch = data.target.epoch)
-    return
-
-  if not (data.crosslink.data_root == ZERO_HASH):  # [to be removed in phase 1]
-    warn("Crosslink data root not zero")
-    return
-
-  # Check signature and bitfields
+  # Check signature
   if not is_valid_indexed_attestation(
       state, get_indexed_attestation(state, attestation, stateCache)):
     warn("process_attestation: signature or bitfields incorrect")
