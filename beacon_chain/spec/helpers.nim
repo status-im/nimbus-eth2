@@ -155,7 +155,7 @@ func compute_domain*(
   result[0..3] = int_to_bytes4(domain_type.uint64)
   result[4..7] = fork_version
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_domain
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#get_domain
 func get_domain*(
     state: BeaconState, domain_type: DomainType, message_epoch: Epoch): Domain =
   ## Return the signature domain (fork version concatenated with domain type)

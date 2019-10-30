@@ -86,16 +86,11 @@ type
 
   BitList*[maxLen: static int] = distinct BitSeq
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#proposerslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#proposerslashing
   ProposerSlashing* = object
-    proposer_index*: uint64 ##\
-    ## Proposer index
-
-    header_1*: BeaconBlockHeader ##\
-    # First block header
-
-    header_2*: BeaconBlockHeader ##\
-    # Second block header
+    proposer_index*: uint64
+    header_1*: BeaconBlockHeader
+    header_2*: BeaconBlockHeader
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#attesterslashing
   AttesterSlashing* = object
@@ -162,7 +157,7 @@ type
     amount*: uint64
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#voluntaryexit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
     epoch*: Epoch ##\
     ## Earliest epoch when voluntary exit can be processed
