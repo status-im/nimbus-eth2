@@ -82,8 +82,7 @@ suite "Official - Sanity - Blocks " & preset():
   runValidTest("Skipped Slots", skipped_slots, 1)
   runValidTest("Empty epoch transition", empty_epoch_transition, 1)
   when const_preset=="minimal":
-    skipWin64:
-      runValidTest("Empty epoch transition not finalizing", empty_epoch_transition_not_finalizing, 1)
+    runValidTest("Empty epoch transition not finalizing", empty_epoch_transition_not_finalizing, 1)
   runValidTest("Proposer slashing", proposer_slashing, 1)
   runValidTest("Attester slashing", attester_slashing, 1)
 
@@ -99,6 +98,5 @@ suite "Official - Sanity - Blocks " & preset():
   runValidTest("Balance-driven status transitions", balance_driven_status_transitions, 1)
   runValidTest("Historical batch", historical_batch, 1)
   when const_preset=="minimal":
-    skipWin64:
-      runValidTest("ETH1 data votes consensus", eth1_data_votes_consensus, 17)
-      runValidTest("ETH1 data votes no consensus", eth1_data_votes_no_consensus, 16)
+    runValidTest("ETH1 data votes consensus", eth1_data_votes_consensus, 17)
+    runValidTest("ETH1 data votes no consensus", eth1_data_votes_no_consensus, 16)
