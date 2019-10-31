@@ -106,7 +106,7 @@ cached_test_vectors() {
   }
 
   # Symlink tarballs if it doesn't already exist
-  ln -s "${SUBREPO_DIR}" "${CACHE_DIR}/tarballs"
+  ln -s "$(pwd -P)/${CACHE_DIR}/tarballs" "${SUBREPO_DIR}"
 
   # Now uncompress
   pushd "${SUBREPO_DIR}"
