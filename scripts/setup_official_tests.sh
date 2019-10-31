@@ -33,6 +33,12 @@ COMPRESS_XZ="false"
 which 7z &>/dev/null && { DECOMPRESS_XZ="7z e -txz -bd -so"; COMPRESS_XZ="7z a -txz -an -bd -si -so"; }
 which xz &>/dev/null && { DECOMPRESS_XZ="xz -d -c -T 0"; COMPRESS_XZ="xz -c -T 0"; }
 
+# download/unpack Ethereum Foundation tests functions
+source "$SUBREPO_DIR/scripts/download_functions.sh"
+
+#############################################
+# JSON test files (SSZ v0.8.1) - TODO migrate
+
 download_lfs_json_files() {
 	[[ -z "$1" ]] && { echo "usage: download_lfs_json_files() subdir_name"; exit 1; }
 	LFS_DIR="$1"
@@ -86,12 +92,38 @@ process_json_subdir() {
 	fi
 }
 
+#############################################
+# Ethereum Foundation test vectors
+
+cached_test_vectors() {
+	[[ -z "$1" ]] && { echo "usage: retrieve_tarballs vX.Y.Z"; exit 1; }
+
+  # Does the cache directory for that version exist?
+  [[ -d "${CACHE_DIR}/tarballs/$1" ]] || {
+    pushd "${CACHE_DIR}"
+    dl_version "$1"
+    popd
+  }
+
+  # Symlink tarballs if it doesn't already exist
+  ln -s "${CACHE_DIR}/tarballs" "${SUBREPO_DIR}"
+
+  # Now uncompress
+  pushd "${SUBREPO_DIR}"
+  unpack_version "$1"
+  popd
+}
+
 if [[ -n "${CACHE_DIR}" ]]; then
 	process_json_subdir "json_tests_v0.8.1"
 	process_json_subdir "json_tests_v0.8.3"
-
+  cached_test_vectors v0.8.3
+  cached_test_vectors v0.9.0
 else
-	# no caching
+	# no caching - use the scripts in submodule
 	download_lfs_json_files "json_tests_v0.8.1"
 	download_lfs_json_files "json_tests_v0.8.3"
+  pushd "${SUBREPO_DIR}"
+  sh download_test_vectors.sh
+  popd
 fi
