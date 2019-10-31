@@ -33,8 +33,9 @@ COMPRESS_XZ="false"
 which 7z &>/dev/null && { DECOMPRESS_XZ="7z e -txz -bd -so"; COMPRESS_XZ="7z a -txz -an -bd -si -so"; }
 which xz &>/dev/null && { DECOMPRESS_XZ="xz -d -c -T 0"; COMPRESS_XZ="xz -c -T 0"; }
 
-# download/unpack Ethereum Foundation tests functions
-source "$SUBREPO_DIR/scripts/download_functions.sh"
+# script output
+echo -e "$BUILD_MSG"
+[[ "$V" == "0" ]] && exec 3>&1 4>&2 &>/dev/null # save stdout and stderr before sending them into oblivion
 
 #############################################
 # JSON test files (SSZ v0.8.1) - TODO migrate
@@ -43,9 +44,8 @@ download_lfs_json_files() {
 	[[ -z "$1" ]] && { echo "usage: download_lfs_json_files() subdir_name"; exit 1; }
 	LFS_DIR="$1"
 
-	echo -e "$BUILD_MSG"
-	which git-lfs &>/dev/null || { echo "Error: 'git-lfs' not found. Please install the corresponding package."; exit 1; }
-	[[ "$V" == "0" ]] && exec &>/dev/null
+	# restore stdout and stderr to make sure this error message is shown
+	which git-lfs &>/dev/null || { [[ "$V" == "0" ]] && exec 1>&3 2>&4; echo "Error: 'git-lfs' not found. Please install the corresponding package."; exit 1; }
 
 	pushd "${SUBREPO_DIR}"
 	git lfs install # redundant after running it once per repo, but fast enough not to worry about detecting whether it ran before
@@ -92,40 +92,21 @@ process_json_subdir() {
 	fi
 }
 
-#############################################
-# Ethereum Foundation test vectors
-
-cached_test_vectors() {
-	[[ -z "$1" ]] && { echo "usage: retrieve_tarballs vX.Y.Z"; exit 1; }
-
-  # Does the cache directory for that version exist?
-  [[ -d "${CACHE_DIR}/tarballs/$1" ]] || {
-    pushd "${CACHE_DIR}"
-    dl_version "$1"
-    popd
-  }
-
-  # Symlink tarballs if it doesn't already exist
-  [[ -d "${SUBREPO_DIR}/tarballs" ]] || {
-    ln -s "$(pwd -P)/${CACHE_DIR}/tarballs" "${SUBREPO_DIR}"
-  }
-
-  # Now uncompress
-  pushd "${SUBREPO_DIR}"
-  unpack_version "$1"
-  popd
-}
-
 if [[ -n "${CACHE_DIR}" ]]; then
 	process_json_subdir "json_tests_v0.8.1"
 	process_json_subdir "json_tests_v0.8.3"
-  cached_test_vectors v0.8.3
-  cached_test_vectors v0.9.0
+
+	# Ethereum Foundation test vectors
+	mkdir -p "${CACHE_DIR}/tarballs"
+	rm -rf "${SUBREPO_DIR}/tarballs"
+	ln -s "$(pwd -P)/${CACHE_DIR}/tarballs" "${SUBREPO_DIR}"
 else
-	# no caching - use the scripts in submodule
+	# no caching
 	download_lfs_json_files "json_tests_v0.8.1"
 	download_lfs_json_files "json_tests_v0.8.3"
-  pushd "${SUBREPO_DIR}"
-  sh download_test_vectors.sh
-  popd
 fi
+
+pushd "${SUBREPO_DIR}"
+./download_test_vectors.sh
+popd
+
