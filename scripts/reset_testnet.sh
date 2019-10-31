@@ -37,6 +37,14 @@ if [[ ! -d "$ETH2_TESTNETS"  ]]; then
   git clone git@github.com:eth2-clients/eth2-testnets "$ETH2_TESTNETS"
 fi
 
+pushd "$ETH2_TESTNETS"
+  # Make sure we've checked out the very latest master
+  git reset --hard HEAD
+  git checkout --detach
+  git fetch -f origin master:master
+  git checkout master
+popd
+
 ETH2_TESTNETS_ABS=$(cd "$ETH2_TESTNETS"; pwd)
 NETWORK_DIR_ABS="$ETH2_TESTNETS_ABS/nimbus/$NETWORK_NAME"
 DATA_DIR_ABS=$(mkdir -p "$DATA_DIR"; cd "$DATA_DIR"; pwd)
@@ -55,7 +63,7 @@ DOCKER_BEACON_NODE="docker run -v $DEPOSITS_DIR_ABS:/deposits_dir -v $NETWORK_DI
 make deposit_contract
 
 if [ "$ETH1_PRIVATE_KEY" != "" ]; then
-  echo "Deploying deposit contract..."
+  echo "Deploying deposit contract through $WEB3_URL_ARG..."
   DEPOSIT_CONTRACT_ADDRESS=$(./build/deposit_contract deploy $WEB3_URL_ARG --private-key=$ETH1_PRIVATE_KEY)
   DEPOSIT_CONTRACT_ADDRESS_ARG="--deposit-contract=$DEPOSIT_CONTRACT_ADDRESS"
   echo "Done: $DEPOSIT_CONTRACT_ADDRESS"
@@ -87,11 +95,11 @@ $DOCKER_BEACON_NODE \
   $WEB3_URL_ARG $DEPOSIT_CONTRACT_ADDRESS_ARG \
   --genesis-offset=60 # Delay in seconds
 
-COMMITTED_FILES="genesis.ssz bootstrap_nodes.txt"
+COMMITTED_FILES=" genesis.ssz bootstrap_nodes.txt "
 
 if [[ ! -z "$DEPOSIT_CONTRACT_ADDRESS" ]]; then
   echo $DEPOSIT_CONTRACT_ADDRESS > "$ETH2_TESTNETS_ABS/deposit_contract.txt"
-  COMMITTED_FILES+="deposit_contract.txt"
+  COMMITTED_FILES+=" deposit_contract.txt "
 fi
 
 if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then

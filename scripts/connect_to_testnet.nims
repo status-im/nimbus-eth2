@@ -32,9 +32,13 @@ cli do (testnetName {.argument.}: string):
     exec &"git clone {testnetsRepoGitUrl}"
 
   cd allTestnetsDir
-  exec &"git remote set-url origin {testnetsRepoGitUrl}"
-  exec "git reset --hard master"
-  exec "git pull"
+  # Drop all local modifications to make sure the next
+  # commands won't fail:
+  exec  "git reset --hard HEAD"
+  # Go in detached state, so we don't try to
+  exec  "git checkout --detach"
+  exec &"git fetch -f {testnetsRepoGitUrl} master:master"
+  exec  "git checkout master"
 
   let testnetDir = allTestnetsDir / team / testnet
   if not dirExists(testnetDir):
