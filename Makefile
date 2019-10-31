@@ -55,7 +55,7 @@ p2pd: | go-checks
 DISABLE_LFS_SCRIPT := 0
 test: | build deps
 ifeq ($(DISABLE_LFS_SCRIPT), 0)
-	V=$(V) scripts/process_lfs.sh
+	V=$(V) scripts/setup_official_tests.sh
 endif
 	$(ENV_SCRIPT) nim test $(NIM_PARAMS) beacon_chain.nims && rm -f 0000-*.json
 
@@ -81,4 +81,3 @@ clean-testnet1:
 
 clean: | clean-common
 	rm -rf build/{$(TOOLS_CSV),all_tests,*_node}
-

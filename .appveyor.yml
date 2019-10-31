@@ -31,7 +31,7 @@ install:
   - IF "%PLATFORM%" == "x64" SET PATH=C:\mingw-w64\x86_64-8.1.0-posix-seh-rt_v6-rev0\mingw64\bin;%PATH%
 
   # LFS test fixtures
-  - bash scripts\process_lfs.sh jsonTestsCache
+  - bash scripts\setup_official_tests.sh jsonTestsCache
 
 build_script:
   # the 32-bit build is done on a 64-bit image, so we need to override the architecture
