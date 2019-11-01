@@ -61,4 +61,4 @@ task test, "Run all tests":
 
 task sync_lfs_tests, "Sync LFS json tests":
   # Syncs the json test files (but not the EF yaml tests)
-  exec "scripts/process_lfs.sh"
+  exec "scripts/setup_official_tests.sh"
