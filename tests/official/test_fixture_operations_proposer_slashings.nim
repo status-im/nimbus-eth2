@@ -64,16 +64,13 @@ template runTest(identifier: untyped) =
   `testImpl_proposer_slashing _ identifier`()
 
 suite "Official - Operations - Proposer slashing " & preset():
-  # TODO https://github.com/status-im/nim-beacon-chain/issues/435
-  # CI Win64 - "The parameter is incorrect"
-  skipWin64:
-    runTest(success)
-    runTest(invalid_sig_1)
-    runTest(invalid_sig_2)
-    runTest(invalid_sig_1_and_2)
-    runTest(invalid_proposer_index)
-    runTest(epochs_are_different)
-    runTest(headers_are_same)
-    runTest(proposer_is_not_activated)
-    runTest(proposer_is_slashed)
-    runTest(proposer_is_withdrawn)
+  runTest(success)
+  runTest(invalid_sig_1)
+  runTest(invalid_sig_2)
+  runTest(invalid_sig_1_and_2)
+  runTest(invalid_proposer_index)
+  runTest(epochs_are_different)
+  runTest(headers_are_same)
+  runTest(proposer_is_not_activated)
+  runTest(proposer_is_slashed)
+  runTest(proposer_is_withdrawn)

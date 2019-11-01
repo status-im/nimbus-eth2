@@ -62,8 +62,7 @@ template runTest(identifier: untyped) =
   `testImpl _ voluntary_exit _ identifier`()
 
 suite "Official - Operations - Voluntary exit " & preset():
-  skipWin64:
-    runTest(success)
+  runTest(success)
   runTest(invalid_signature)
   runTest(success_exit_queue)
   runTest(validator_exit_in_future)
