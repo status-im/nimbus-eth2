@@ -12,11 +12,16 @@ const
 type
   ValidatorKeyPath* = TypedInputFile[ValidatorPrivKey, Txt, "privkey"]
 
-  StartUpCommand* = enum
+  StartUpCmd* = enum
     noCommand
     importValidator
     createTestnet
     makeDeposits
+    query
+
+  QueryCmd* = enum
+    nimQuery
+    get
 
   Eth1Network* = enum
     custom
@@ -75,7 +80,7 @@ type
 
     case cmd* {.
       command
-      defaultValue: noCommand }: StartUpCommand
+      defaultValue: noCommand }: StartUpCmd
 
     of noCommand:
       bootstrapNodes* {.
@@ -209,6 +214,22 @@ type
         desc: "Private key of the controlling (sending) account",
         defaultValue: ""
         longform: "deposit-private-key" }: string
+
+    of query:
+      case queryCmd* {.
+        command
+        defaultValue: nimQuery
+        desc: "Query the beacon node database and print the result" }: QueryCmd
+
+      of nimQuery:
+        nimQueryExpression* {.
+          argument
+          desc: "Nim expression to evaluate (using limited syntax)" }: string
+
+      of get:
+        getQueryPath* {.
+          argument
+          desc: "REST API path to evaluate" }: string
 
 proc defaultPort*(config: BeaconNodeConf): int =
   9000
