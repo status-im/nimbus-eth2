@@ -28,4 +28,8 @@ BEACON_NODE_BIN="${SIMULATION_DIR}/beacon_node"
 DEPLOY_DEPOSIT_CONTRACT_BIN="${SIMULATION_DIR}/deploy_deposit_contract"
 MASTER_NODE_ADDRESS_FILE="${SIMULATION_DIR}/node-0/beacon_node.address"
 BASE_METRICS_PORT=8008
+# Set DEPOSIT_WEB3_URL_ARG to empty to get genesis state from file, not using web3
+# DEPOSIT_WEB3_URL_ARG=--web3-url=ws://localhost:8545
+DEPOSIT_WEB3_URL_ARG=""
+DEPOSIT_CONTRACT_ADDRESS="0x"
 

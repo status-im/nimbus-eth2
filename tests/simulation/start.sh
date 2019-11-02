@@ -8,11 +8,6 @@ source "$(dirname "$0")/vars.sh"
 # set up the environment
 source "${SIM_ROOT}/../../env.sh"
 
-# Set DEPOSIT_WEB3_URL_ARG to empty to get genesis state from file, not using web3
-# export DEPOSIT_WEB3_URL_ARG=--web3-url=ws://localhost:8545
-export DEPOSIT_WEB3_URL_ARG=
-export DEPOSIT_CONTRACT_ADDRESS=0x
-
 cd "$SIM_ROOT"
 mkdir -p "$SIMULATION_DIR"
 mkdir -p "$VALIDATORS_DIR"

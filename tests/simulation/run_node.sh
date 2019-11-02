@@ -1,11 +1,16 @@
 #!/bin/bash
 
-set -eu
+set -e
 
 NODE_ID=${1}
 shift
 
+# Read in variables
 source "$(dirname "$0")/vars.sh"
+
+# set up the environment
+source "${SIM_ROOT}/../../env.sh"
+
 cd "$GIT_ROOT"
 
 DATA_DIR="${SIMULATION_DIR}/node-$NODE_ID"
