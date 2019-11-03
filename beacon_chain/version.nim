@@ -1,15 +1,15 @@
 type
   NetworkBackendType* = enum
-    libp2pBackend
-    libp2pDaemonBackend
-    rlpxBackend
+    libp2p
+    libp2pDaemon
+    rlpx
 
 const
-  NETWORK_TYPE {.strdefine.} = "libp2p_daemon"
+  NETWORK_TYPE {.strdefine.} = "libp2p"
 
-  networkBackend* = when NETWORK_TYPE == "rlpx": rlpxBackend
-                    elif NETWORK_TYPE == "libp2p": libp2pBackend
-                    elif NETWORK_TYPE == "libp2p_daemon": libp2pDaemonBackend
+  networkBackend* = when NETWORK_TYPE == "rlpx": rlpx
+                    elif NETWORK_TYPE == "libp2p": libp2p
+                    elif NETWORK_TYPE == "libp2p_daemon": libp2pDaemon
                     else: {.fatal: "The 'NETWORK_TYPE' should be either 'libp2p', 'libp2p_daemon' or 'rlpx'" .}
 
 const

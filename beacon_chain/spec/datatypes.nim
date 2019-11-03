@@ -332,7 +332,7 @@ type
       Table[Epoch, seq[ValidatorIndex]]
     committee_count_cache*: Table[Epoch, uint64]
 
-when networkBackend == rlpxBackend:
+when networkBackend == rlpx:
   import eth/rlp/bitseqs as rlpBitseqs
   export read, append
 
@@ -439,7 +439,7 @@ template ethTimeUnit(typ: type) {.dirty.} =
   proc `%`*(x: typ): JsonNode {.borrow.}
 
   # Serialization
-  when networkBackend == rlpxBackend:
+  when networkBackend == rlpx:
     proc read*(rlp: var Rlp, T: type typ): typ {.inline.} =
       typ(rlp.read(uint64))
 
