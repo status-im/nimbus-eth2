@@ -65,11 +65,6 @@ type
 
   ProtocolInfo* = ptr ProtocolInfoObj
 
-  ResponseCode* = enum
-    Success
-    InvalidRequest
-    ServerError
-
   PeerStateInitializer* = proc(peer: Peer): RootRef {.gcsafe.}
   NetworkStateInitializer* = proc(network: EthereumNode): RootRef {.gcsafe.}
   HandshakeStep* = proc(peer: Peer, stream: P2PStream): Future[void] {.gcsafe.}
@@ -85,29 +80,15 @@ type
 
   TransmissionError* = object of CatchableError
 
-const
-  defaultIncomingReqTimeout = 5000
-  HandshakeTimeout = FaultOrError
-
-  # Spec constants
-  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/networking/p2p-interface.md#eth-20-network-interaction-domains
-  REQ_RESP_MAX_SIZE* = 1 * 1024 * 1024 # bytes
-  GOSSIP_MAX_SIZE* = 1 * 1024 * 1024 # bytes
-  TTFB_TIMEOUT* = 5.seconds
-  RESP_TIMEOUT* = 10.seconds
-
-  readTimeoutErrorMsg = "Exceeded read timeout for a request"
-
 logScope:
   topic = "libp2p"
 
 template `$`*(peer: Peer): string = $peer.id
 chronicles.formatIt(Peer): $it
 
-template libp2pProtocol*(name: string, version: int) {.pragma.}
-
 include eth/p2p/p2p_backends_helpers
 include eth/p2p/p2p_tracing
+include libp2p_backends_common
 
 proc init*(T: type Peer, network: Eth2Node, id: PeerID): Peer {.gcsafe.}
 
@@ -116,6 +97,9 @@ proc getPeer*(node: Eth2Node, peerId: PeerID): Peer {.gcsafe.} =
   if result == nil:
     result = Peer.init(node, peerId)
     node.peers[peerId] = result
+
+proc getPeer*(node: Eth2Node, peerInfo: PeerInfo): Peer =
+  getPeer(node, peerInfo.peer)
 
 proc peerFromStream(daemon: DaemonAPI, stream: P2PStream): Peer {.gcsafe.} =
   Eth2Node(daemon.userData).getPeer(stream.peer)
@@ -446,20 +430,6 @@ proc registerMsg(protocol: ProtocolInfo,
                                     thunk: thunk,
                                     libp2pProtocol: libp2pProtocol,
                                     printer: printer)
-
-proc getRequestProtoName(fn: NimNode): NimNode =
-  # `getCustomPragmaVal` doesn't work yet on regular nnkProcDef nodes
-  # (TODO: file as an issue)
-
-  let pragmas = fn.pragma
-  if pragmas.kind == nnkPragma and pragmas.len > 0:
-    for pragma in pragmas:
-      if pragma.len > 0 and $pragma[0] == "libp2pProtocol":
-        let protoName = $(pragma[1])
-        let protoVer = $(pragma[2].intVal)
-        return newLit("/eth2/beacon_chain/req/" & protoName & "/" & protoVer & "/ssz")
-
-  return newLit("")
 
 proc init*[MsgType](T: type Responder[MsgType],
                     peer: Peer, stream: P2PStream): T =

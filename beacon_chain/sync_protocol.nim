@@ -4,7 +4,7 @@ import
   spec/[datatypes, crypto, digest, helpers], eth/rlp,
   beacon_node_types, eth2_network, block_pool, ssz
 
-when networkBackend == rlpxBackend:
+when networkBackend == rlpx:
   import eth/rlp/options as rlpOptions
   template libp2pProtocol*(name: string, version: int) {.pragma.}
 

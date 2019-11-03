@@ -269,7 +269,7 @@ else:
   proc newPrivKey*(): ValidatorPrivKey =
     SigKey.random()
 
-when networkBackend == rlpxBackend:
+when networkBackend == rlpx:
   import eth/rlp
 
   when ValidatorPubKey is BlsValue:
