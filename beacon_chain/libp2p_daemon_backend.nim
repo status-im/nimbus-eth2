@@ -470,6 +470,40 @@ proc init*[MsgType](T: type Responder[MsgType],
                     peer: Peer, stream: P2PStream): T =
   T(UntypedResponder(peer: peer, stream: stream))
 
+proc backendLoop*(node: Eth2Node) {.async.} =
+  var peerFuts = newSeq[Future[void]]()
+  var peerStore = newSeq[tuple[peer: Peer, future: Future[void]]]()
+  while true:
+    var list = await node.daemon.listPeers()
+    debug "Daemon's peer list", count = len(list)
+
+    peerFuts.setLen(0)
+    peerStore.setLen(0)
+
+    for item in list:
+      var peerCheck = node.peers.getOrDefault(item.peer)
+      if isNil(peerCheck):
+        var peer = node.getPeer(item.peer)
+        info "Handshaking with new peer", peer
+        let fut = initializeConnection(peer)
+        peerStore.add((peer, fut))
+        peerFuts.add(fut)
+
+    await allFutures(peerFuts)
+
+    for item in peerFuts:
+      var peer: Peer
+      for storeItem in peerStore:
+        if item == storeItem.future:
+          peer = storeItem.peer
+          break
+      if item.finished():
+        info "Handshake with peer succeeded", peer
+      elif item.failed():
+        info "Handshake with peer failed", peer, error = item.error.msg
+
+    await sleepAsync(1.seconds)
+
 import
   typetraits
 

@@ -470,6 +470,9 @@ proc init*[MsgType](T: type Responder[MsgType],
                     peer: Peer, stream: P2PStream): T =
   T(UntypedResponder(peer: peer, stream: stream))
 
+proc backendLoop*(node: Eth2Node) {.async.} =
+  discard
+
 import
   typetraits
 
