@@ -10,7 +10,7 @@ import
   os, strutils,
   # Status libs
   stew/byteutils,
-  eth/common, serialization, json_serialization,
+  serialization, json_serialization,
   # Beacon chain internals
   ../../beacon_chain/spec/datatypes
 
