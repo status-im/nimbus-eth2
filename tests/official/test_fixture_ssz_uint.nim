@@ -7,12 +7,12 @@
 
 import
   # Standard library
-  ospaths, strutils, unittest, sequtils,
+  ospaths, unittest, sequtils,
   # Status libs
   stint, serialization,
   # Beacon chain internals
   ../../beacon_chain/ssz,
-  ../../beacon_chain/spec/[datatypes, validator],
+  ../../beacon_chain/spec/datatypes,
   # Test utilities
   ../testutil,
   ./fixtures_utils_v0_8_1
