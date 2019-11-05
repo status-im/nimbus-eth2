@@ -1,7 +1,7 @@
 import
   os, ospaths, strutils,
   chronicles, chronos, blscurve, nimcrypto, json_serialization, serialization,
-  web3, stint,
+  web3, stint, eth/keys,
   spec/[datatypes, digest, crypto], conf, ssz, interop
 
 contract(DepositContract):
@@ -51,11 +51,14 @@ proc generateDeposits*(totalValidators: int,
 
 proc sendDeposits*(
     deposits: seq[Deposit],
-    depositWeb3Url, depositContractAddress: string) {.async.} =
+    depositWeb3Url, depositContractAddress, privateKey: string) {.async.} =
   let
     web3 = await newWeb3(depositWeb3Url)
     contractAddress = Address.fromHex(depositContractAddress)
     eth1Addresses = await web3.provider.eth_accounts()
+
+  if privateKey.len != 0:
+    web3.privateKey = initPrivateKey(privateKey)
 
   for i, dp in deposits:
     web3.defaultAccount = eth1Addresses[i]
@@ -64,7 +67,7 @@ proc sendDeposits*(
       Bytes48(dp.data.pubKey.getBytes()),
       Bytes32(dp.data.withdrawal_credentials.data),
       Bytes96(dp.data.signature.getBytes()),
-      FixedBytes[32](hash_tree_root(dp.data).data)).send(value = 32.u256.ethToWei)
+      FixedBytes[32](hash_tree_root(dp.data).data)).send(value = 32.u256.ethToWei, gasPrice = 1)
 
 when isMainModule:
   import confutils
@@ -78,5 +81,5 @@ when isMainModule:
 
     if depositWeb3Url.len() > 0 and depositContractAddress.len() > 0:
       echo "Sending deposits to eth1..."
-      waitFor sendDeposits(deposits, depositWeb3Url, depositContractAddress)
+      waitFor sendDeposits(deposits, depositWeb3Url, depositContractAddress, "")
       echo "Done"

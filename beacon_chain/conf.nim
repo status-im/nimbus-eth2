@@ -201,6 +201,11 @@ type
         defaultValue: "validators"
         longform: "deposits-dir" }: string
 
+      depositPrivateKey* {.
+        desc: "Private key of the controlling (sending) account",
+        defaultValue: ""
+        longform: "deposit-private-key" }: string
+
 proc defaultPort*(config: BeaconNodeConf): int =
   9000
 
