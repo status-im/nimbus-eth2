@@ -12,6 +12,8 @@
 Nimbus beacon chain is a research implementation of the beacon chain component of the upcoming Ethereum Serenity upgrade, aka Eth2. See the main [Nimbus](https://github.com/status-im/nimbus/) project for the bigger picture.
 
 
+No change, just push CI rebuild, should be much faster iff cached
+
 ## Interop (for other Eth2 clients)
 
 Nimbus is currently going through interoperability testing with several other beacon chain implementations - several tools are available to make this testing easier:
