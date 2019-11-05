@@ -229,7 +229,7 @@ proc handleInitialStatus(peer: Peer,
             # syncing will be interrupted.
             discard
         else:
-          error "didn't got objectes in time"
+          error "Did not get any blocks from peer. Aborting sync."
           break
 
   except CatchableError:
