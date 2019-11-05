@@ -1009,6 +1009,8 @@ when isMainModule:
       node.start(node.stateCache.data.data)
 
   of makeDeposits:
+    createDir(config.depositsDir)
+
     let
       quickstartDeposits = generateDeposits(
         config.totalQuickstartDeposits, config.depositsDir, false)
@@ -1021,5 +1023,5 @@ when isMainModule:
       waitFor sendDeposits(
         quickstartDeposits & randomDeposits,
         config.depositWeb3Url,
-        config.depositContractAddress)
-
+        config.depositContractAddress,
+        config.depositPrivateKey)
