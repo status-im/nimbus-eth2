@@ -343,7 +343,7 @@ proc proposeBlock(node: BeaconNode,
 
       (e1d, newSeq[Deposit]())
     else:
-      let e1d = await node.mainchainMonitor.getBeaconBlockRef()
+      let e1d = node.mainchainMonitor.eth1Data
 
       (e1d, node.mainchainMonitor.getPendingDeposits())
 

@@ -41,8 +41,16 @@ iterator nodes: tuple[server, container: string, firstValidator, lastValidator: 
       server = &"{nodeName}.do-ams3.nimbus.test.statusim.net"
 
     for j in 0 ..< instancesCount:
-      let firstIdx = baseIdx + j * validatorsPerNode
-      let lastIdx = firstIdx + validatorsPerNode - 1
+      var firstIdx, lastIdx: int
+      if conf.network == "testnet0" and i == 0 and j == 0:
+        firstIdx = conf.totalUserValidators
+        lastIdx = conf.totalValidators
+      elif true:
+        firstIdx = 0
+        lastIdx = 0
+      else:
+        firstIdx = baseIdx + j * validatorsPerNode
+        lastIdx = firstIdx + validatorsPerNode
       yield (server, &"beacon-node-{conf.network}-{j+1}", firstIdx, lastIdx)
 
 case conf.cmd
@@ -56,18 +64,18 @@ of redist_validators:
       keysList = ""
       networkDataFiles = conf.networkDataDir & "/{genesis.ssz,bootstrap_nodes.txt}"
 
-    for i in n.firstValidator..n.lastValidator:
+    for i in n.firstValidator ..< n.lastValidator:
       let validatorKey = fmt"v{i:07}.privkey"
       keysList.add " "
       keysList.add conf.depositsDir / validatorKey
 
     let dockerPath = &"/docker/{n.container}/data/BeaconNode"
-    echo &"echo Distributing keys {n.firstValidator}..{n.lastValidator} to container {n.container}@{n.server} ... && \\"
-    echo &"  ssh {n.server} 'sudo rm -rf /tmp/nimbus && mkdir -p /tmp/nimbus' && \\"
+    echo &"echo Syncing {n.lastValidator - n.firstValidator} keys starting from {n.firstValidator} to container {n.container}@{n.server} ... && \\"
+    echo &"  ssh {n.server} 'sudo rm -rf /tmp/nimbus && mkdir -p /tmp/nimbus/' && \\"
     echo &"  rsync {networkDataFiles} {n.server}:/tmp/nimbus/net-data/ && \\"
-    echo &"  rsync {keysList} {n.server}:/tmp/nimbus/keys/ && \\"
+    if keysList.len > 0: echo &"  rsync {keysList} {n.server}:/tmp/nimbus/keys/ && \\"
     echo &"  ssh {n.server} 'sudo mkdir -p {dockerPath}/validators && sudo rm -f {dockerPath}/validators/* && " &
-                         &"sudo mv /tmp/nimbus/keys/* {dockerPath}/validators/ && " &
+                         (if keysList.len > 0: &"sudo mv /tmp/nimbus/keys/* {dockerPath}/validators/ && " else: "") &
                          &"sudo mv /tmp/nimbus/net-data/* {dockerPath}/ && " &
                          &"sudo chown dockremap:docker -R {dockerPath}'"
 

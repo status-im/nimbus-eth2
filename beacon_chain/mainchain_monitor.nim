@@ -19,6 +19,7 @@ type
     depositQueue: AsyncQueue[QueueElement]
 
     eth1Block: BlockHash
+    eth1Data*: Eth1Data
 
   QueueElement = (BlockHash, DepositData)
 
@@ -37,6 +38,16 @@ contract(DepositContract):
   proc DepositEvent(pubkey: Bytes48, withdrawalCredentials: Bytes32, amount: Bytes8, signature: Bytes96, index: Bytes8) {.event.}
 
 const MIN_GENESIS_TIME = 0
+
+proc updateEth1Data*(m: MainchainMonitor) {.async.} =
+  let ns = m.web3.contractSender(DepositContract, m.depositContractAddress)
+
+  # TODO: use m.eth1Block for web3 calls
+  let cnt = await ns.get_deposit_count().call()
+  let htr = await ns.get_deposit_root().call()
+  m.eth1Data.deposit_count = bytes_to_int(array[8, byte](cnt))
+  m.eth1Data.deposit_root.data = array[32, byte](htr)
+  m.eth1Data.block_hash.data = array[32, byte](m.eth1Block)
 
 proc processDeposits(m: MainchainMonitor) {.async.} =
   while true:
@@ -66,6 +77,10 @@ proc processDeposits(m: MainchainMonitor) {.async.} =
           m.genesisStateFut.complete()
           m.genesisStateFut = nil
         # TODO: Set curBlock to blk number
+    
+    # TODO: This should be progressing in more independent way.
+    #       The Eth1 cross-link can advance even when there are no new deposits.
+    await m.updateEth1Data
 
 proc isRunning*(m: MainchainMonitor): bool =
   not m.web3.isNil
@@ -104,16 +119,6 @@ proc run(m: MainchainMonitor) {.async.} =
 
 proc start*(m: MainchainMonitor) =
   asyncCheck m.run()
-
-proc getBeaconBlockRef*(m: MainchainMonitor): Future[Eth1Data] {.async.} =
-  let ns = m.web3.contractSender(DepositContract, m.depositContractAddress)
-
-  # TODO: use m.eth1Block for web3 calls
-  let cnt = await ns.get_deposit_count().call()
-  let htr = await ns.get_deposit_root().call()
-  result.deposit_count = bytes_to_int(array[8, byte](cnt))
-  result.deposit_root.data = array[32, byte](htr)
-  result.block_hash.data = array[32, byte](m.eth1Block)
 
 proc getPendingDeposits*(m: MainchainMonitor): seq[Deposit] =
   # This should be a simple accessor for the reference kept above

@@ -207,12 +207,12 @@ else:
                                        keyFile, bootstrapNodes
 
     var daemonFut = if bootstrapNodes.len == 0:
-      newDaemonApi({PSNoSign, DHTFull, PSGossipSub},
+      newDaemonApi({PSNoSign, DHTFull, PSFloodSub},
                    id = keyFile,
                    hostAddresses = @[hostAddress],
                    announcedAddresses = announcedAddresses)
     else:
-      newDaemonApi({PSNoSign, DHTFull, PSGossipSub, WaitBootstrap},
+      newDaemonApi({PSNoSign, DHTFull, PSFloodSub, WaitBootstrap},
                    id = keyFile,
                    hostAddresses = @[hostAddress],
                    announcedAddresses = announcedAddresses,
