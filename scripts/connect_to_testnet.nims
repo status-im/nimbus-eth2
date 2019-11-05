@@ -7,9 +7,11 @@ const
   depositContractFile = "deposit_contract.txt"
   genesisFile = "genesis.ssz"
   configFile = "config.yaml"
-  clientsOrg = "eth2-clients"
   testnetsRepo = "eth2-testnets"
-  testnetsRepoGitUrl = "https://github.com/" & clientsOrg & "/" & testnetsRepo
+
+let
+  testnetsOrg = getEnv("ETH2_TESTNETS_ORG", "eth2-testnets")
+  testnetsGitUrl = getEnv("ETH2_TESTNETS_GIT_URL", "https://github.com/" & testnetsOrg & "/" & testnetsRepo)
 
 proc validateTestnetName(parts: openarray[string]): auto =
   if parts.len != 2:
@@ -29,7 +31,7 @@ cli do (testnetName {.argument.}: string):
 
   rmDir(allTestnetsDir)
   cd buildDir
-  exec &"git clone --quiet {testnetsRepoGitUrl}"
+  exec &"git clone --quiet --depth=1 {testnetsGitUrl}"
 
   let testnetDir = allTestnetsDir / team / testnet
   if not dirExists(testnetDir):
