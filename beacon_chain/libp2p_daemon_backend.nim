@@ -8,6 +8,8 @@ import
 export
   daemonapi, p2pProtocol, libp2p_json_serialization, ssz
 
+logScope: topics = "lp2pdab"
+
 type
   Eth2Node* = ref object of RootObj
     daemon*: DaemonAPI
@@ -475,7 +477,6 @@ proc backendLoop*(node: Eth2Node) {.async.} =
   var peerStore = newSeq[tuple[peer: Peer, future: Future[void]]]()
   while true:
     var list = await node.daemon.listPeers()
-    debug "Daemon's peer list", count = len(list)
 
     peerFuts.setLen(0)
     peerStore.setLen(0)
@@ -484,7 +485,8 @@ proc backendLoop*(node: Eth2Node) {.async.} =
       var peerCheck = node.peers.getOrDefault(item.peer)
       if isNil(peerCheck):
         var peer = node.getPeer(item.peer)
-        info "Handshaking with new peer", peer
+        info "Handshaking with new peer", peer = item.peer.pretty(),
+                                          addresses = item.addresses
         let fut = initializeConnection(peer)
         peerStore.add((peer, fut))
         peerFuts.add(fut)
@@ -498,10 +500,12 @@ proc backendLoop*(node: Eth2Node) {.async.} =
           peer = storeItem.peer
           break
       if item.finished():
-        info "Handshake with peer succeeded", peer
+        info "Handshake with peer succeeded", peer = peer.id.pretty(),
+                                              peers = len(node.peers)
       elif item.failed():
-        info "Handshake with peer failed", peer, error = item.error.msg
-
+        info "Handshake with peer failed", peer = peer.id.pretty(),
+                                           peers = len(node.peers),
+                                           error = item.error.msg
     await sleepAsync(1.seconds)
 
 import
