@@ -17,7 +17,7 @@ import
   ../helpers/debug_state,
   ../mocking/mock_blocks
 
-const OperationsDepositsDir = SszTestsDir/const_preset/"phase0"/"operations"/"deposit"/"pyspec_tests"
+const OperationsDepositsDir = FixturesDir/"tests-v0.9.0"/const_preset/"phase0"/"operations"/"deposit"/"pyspec_tests"
 
 template runTest(testName: string, identifier: untyped) =
   # We wrap the tests in a proc to avoid running out of globals
@@ -39,24 +39,27 @@ template runTest(testName: string, identifier: untyped) =
       prefix = "[Invalid] "
 
     test prefix & testName & " (" & astToStr(identifier) & ")":
-      var stateRef, postRef: ref BeaconState
+      var stateRef, postRef: ref BeaconStateNew
+      var sr_post: BeaconState
       var depositRef: ref Deposit
       new depositRef
       new stateRef
 
       depositRef[] = parseTest(testDir/"deposit.ssz", SSZ, Deposit)
-      stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
+      stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconStateNew)
+      var sr_pre = GetOldBeaconState(stateRef[])
 
       if existsFile(testDir/"post.ssz"):
         new postRef
-        postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
+        postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconStateNew)
+        sr_post = GetOldBeaconState(postRef[])
 
       if postRef.isNil:
         expect(AssertionError):
-          let done = process_deposit(stateRef[], depositRef[], flags)
+          let done = process_deposit(sr_pre, depositRef[], flags)
       else:
-        let done = process_deposit(stateRef[], depositRef[], flags)
-        reportDiff(stateRef, postRef)
+        let done = process_deposit(sr_pre, depositRef[], flags)
+        reportDiff(sr_pre, sr_post)
 
   `testImpl _ operations_deposits _ identifier`()
 
