@@ -199,7 +199,7 @@ else:
     var
       (extIp, extTcpPort, extUdpPort) = setupNat(conf)
       hostAddress = tcpEndPoint(globalListeningAddr, Port conf.tcpPort)
-      announcedAddresses = if extIp != globalListeningAddr: @[]
+      announcedAddresses = if extIp == globalListeningAddr: @[]
                            else: @[tcpEndPoint(extIp, extTcpPort)]
       keyFile = conf.ensureNetworkIdFile
 
