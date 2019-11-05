@@ -38,8 +38,8 @@ var
 
 let customValidatorAssignments = {
   "testnet0": proc (nodeIdx: int): int =
-    if nodeidx < 2:
-      systemValidators div 2
+    if nodeidx < 4:
+      systemValidators div 4
     else:
       0
 }
@@ -99,8 +99,8 @@ of reset_network:
 
     echo &"  ssh {n.server} 'sudo docker container stop {n.container} && " &
                          &"sudo mkdir -p {dockerPath}/validators && " &
-                         &"sudo rm -f {dockerPath}/validators/* && " &
-                         &"sudo rm -f {dockerPath}/db" &
+                         &"sudo rm -rf {dockerPath}/validators/* && " &
+                         &"sudo rm -rf {dockerPath}/db && " &
                          (if keysList.len > 0: &"sudo mv /tmp/nimbus/keys/* {dockerPath}/validators/ && " else: "") &
                          &"sudo mv /tmp/nimbus/net-data/* {dockerPath}/ && " &
                          &"sudo chown dockremap:docker -R {dockerPath}'"
