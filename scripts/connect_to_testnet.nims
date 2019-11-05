@@ -61,7 +61,7 @@ cli do (testnetName {.argument.}: string):
     dataDirName = testnetName.replace("/", "_")
     dataDir = buildDir / "data" / dataDirName
     beaconNodeBinary = buildDir / "beacon_node_" & dataDirName
-    nimFlags = "-d:release --lineTrace:on -d:chronicles_log_level=DEBUG"
+    nimFlags = "-d:release --lineTrace:on -d:chronicles_log_level=DEBUG " & getEnv("NIM_PARAMS")
 
   var depositContractOpt = ""
   let depositContractFile = testnetDir / depositContractFile
