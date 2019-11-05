@@ -14,8 +14,7 @@ import
   # Test utilities
   ../testutil,
   ./fixtures_utils,
-  ../helpers/debug_state,
-  ../mocking/mock_blocks
+  ../helpers/debug_state
 
 const OperationsDepositsDir = FixturesDir/"tests-v0.9.0"/const_preset/"phase0"/"operations"/"deposit"/"pyspec_tests"
 
@@ -40,25 +39,27 @@ template runTest(testName: string, identifier: untyped) =
 
     test prefix & testName & " (" & astToStr(identifier) & ")":
       var stateRef, postRef: ref BeaconStateNew
-      var sr_post: BeaconState
+      var sr_pre, sr_post: ref BeaconState
       var depositRef: ref Deposit
       new depositRef
       new stateRef
+      new sr_pre
+      new sr_post
 
       depositRef[] = parseTest(testDir/"deposit.ssz", SSZ, Deposit)
       stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconStateNew)
-      var sr_pre = GetOldBeaconState(stateRef[])
+      sr_pre[] = GetOldBeaconState(stateRef[])
 
       if existsFile(testDir/"post.ssz"):
         new postRef
         postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconStateNew)
-        sr_post = GetOldBeaconState(postRef[])
+        sr_post[] = GetOldBeaconState(postRef[])
 
       if postRef.isNil:
         expect(AssertionError):
-          let done = process_deposit(sr_pre, depositRef[], flags)
+          let done = process_deposit(sr_pre[], depositRef[], flags)
       else:
-        let done = process_deposit(sr_pre, depositRef[], flags)
+        let done = process_deposit(sr_pre[], depositRef[], flags)
         reportDiff(sr_pre, sr_post)
 
   `testImpl _ operations_deposits _ identifier`()
