@@ -8,6 +8,7 @@
 import
   # Standard library
   os, unittest, strutils, streams, strformat, strscans,
+  macros,
   # Status libraries
   stint,
   # Third-party
@@ -18,17 +19,14 @@ import
   # Test utilities
   ../testutil
 
+# Parsing definitions
+# ------------------------------------------------------------------------
+
 const
   FixturesDir = currentSourcePath.rsplit(DirSep, 1)[0] / "fixtures"
   SSZDir = FixturesDir/"tests-v0.9.0"/"general"/"phase0"/"ssz_generic"
 
-
-
 type
-  SszKind = enum
-    Basic
-    Complex
-
   SSZHashTreeRoot = object
     # The test files have the values at the "root"
     # so we **must** use "root" as a field name
@@ -39,10 +37,77 @@ type
 # Make signing root optional
 setDefaultValue(SSZHashTreeRoot, signing_root, "")
 
-template checkT(T:typedesc) {.dirty.}=
+# Type specific checks
+# ------------------------------------------------------------------------
+
+proc checkBasic(T:typedesc, dir: string, expectedHash: SSZHashTreeRoot) =
   let deserialized = SSZ.loadFile(dir/"serialized.ssz", T)
   check:
     expectedHash.root == "0x" & toLowerASCII($deserialized.hashTreeRoot())
+  # TODO check the value
+
+macro testVector(typeIdent: string, size: int): untyped =
+  # find the compile-time type to test
+  # against the runtime combination (cartesian product) of
+  #
+  # types: bool, uint8, uint16, uint32, uint64, uint128, uint256
+  # sizes: 1, 2, 3, 4, 5, 8, 16, 31, 512, 513
+  #
+  # We allocate in a ref array to not run out of stack space
+  let types = ["bool", "uint8", "uint16", "uint32", "uint64"] # "uint128", "uint256"]
+  let sizes = [1, 2, 3, 4, 5, 8, 16, 31, 512, 513]
+
+  var dispatcher = nnkIfStmt.newTree()
+  for t in types:
+    # if typeIdent == t // elif typeIdent == t
+    var sizeDispatch = nnkIfStmt.newTree()
+    for s in sizes:
+      # if size == s // elif size == s
+      let T = nnkBracketExpr.newTree(
+        ident"array", newLit(s), ident(t)
+      )
+      var testStmt = quote do:
+        # Need heap alloc
+        var deserialized: ref `T`
+        new deserialized
+        deserialized[] = SSZ.loadFile(dir/"serialized.ssz", `T`)
+        check:
+          expectedHash.root == "0x" & toLowerASCII($deserialized.hashTreeRoot())
+          # TODO check the value
+      sizeDispatch.add nnkElifBranch.newTree(
+        newCall(ident"==", size, newLit(s)),
+        testStmt
+      )
+    sizeDispatch.add nnkElse.newTree quote do:
+      raise newException(ValueError,
+        "Unsupported **size** in type/size combination: array[" &
+        $size & "," & typeIdent & ']')
+    dispatcher.add nnkElifBranch.newTree(
+      newCall(ident"==", typeIdent, newLit(t)),
+      sizeDispatch
+    )
+  dispatcher.add nnkElse.newTree quote do:
+    # TODO: support uint128 and uint256
+    if `typeIdent` != "uint128" and `typeIdent` != "uint256":
+      raise newException(ValueError,
+        "Unsupported **type** in type/size combination: array[" &
+        $`size` & ", " & `typeIdent` & ']')
+
+  result = dispatcher
+  # echo result.toStrLit() # view the generated code
+
+proc checkVector(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
+  var typeIdent: string
+  var size: int
+  let wasMatched = scanf(sszSubType, "vec_$+_$i", typeIdent, size)
+  if typeIdent == "uint128" or typeIdent == "uint256":
+    echo &"       (SSZ) Vector[{typeIdent:7}, {size:3}] - skipped"
+  else:
+    echo &"       (SSZ) Vector[{typeIdent:7}, {size:3}]"
+  testVector(typeIdent, size)
+
+# Test dispatch for valid inputs
+# ------------------------------------------------------------------------
 
 proc sszCheck(sszType, sszSubType: string) =
   let dir = SSZDir/sszType/"valid"/sszSubType
@@ -55,22 +120,31 @@ proc sszCheck(sszType, sszSubType: string) =
 
   # Deserialization and checks
   case sszType
-  of "boolean": checkT(bool)
+  of "boolean": checkBasic(bool, dir, expectedHash)
   of "uints":
     var bitsize: int
     let wasMatched = scanf(sszSubType, "uint_$i", bitsize)
     assert wasMatched
     case bitsize
-    of 8:  checkT(uint8)
-    of 16: checkT(uint16)
-    of 32: checkT(uint32)
-    of 64: checkT(uint64)
-    of 128: discard # checkT(Stuint[128]) # TODO
-    of 256: discard # checkT(Stuint[256])
+    of 8:  checkBasic(uint8, dir, expectedHash)
+    of 16: checkBasic(uint16, dir, expectedHash)
+    of 32: checkBasic(uint32, dir, expectedHash)
+    of 64: checkBasic(uint64, dir, expectedHash)
+    of 128: discard # checkBasic(Stuint[128], dir, expectedHash) # TODO
+    of 256: discard # checkBasic(Stuint[256], dir, expectedHash)
     else:
       raise newException(ValueError, "unknown uint in test: " & sszSubType)
+  of "basic_vector": checkVector(sszSubType, dir, expectedHash)
   else:
     discard # TODO
+
+# Test dispatch for invalid inputs
+# ------------------------------------------------------------------------
+
+# TODO
+
+# Test runner
+# ------------------------------------------------------------------------
 
 proc runSSZtests() =
   for pathKind, sszType in walkDir(SSZDir, relative = true):
