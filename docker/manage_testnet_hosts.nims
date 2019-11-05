@@ -4,7 +4,7 @@ import
 type
   Command = enum
     restart_nodes
-    redist_validators
+    reset_network
 
   CliConfig = object
     network: string
@@ -13,14 +13,20 @@ type
     of restart_nodes:
       discard
 
-    of redist_validators:
+    of reset_network:
       depositsDir {.
+        defaultValue: "deposits"
         longform: "deposits-dir" }: string
+
       networkDataDir {.
+        defaultValue: "data"
         longform: "network-data-dir"}: string
+
       totalValidators {.
         longform: "total-validators" }: int
+
       totalUserValidators {.
+        defaultValue: 0
         longform: "user-validators" }: int
 
 var conf = load CliConfig
@@ -28,37 +34,53 @@ var conf = load CliConfig
 var
   serverCount = 10
   instancesCount = 2
-
   systemValidators = conf.totalValidators - conf.totalUserValidators
-  validatorsPerServer = systemValidators div serverCount
-  validatorsPerNode = validatorsPerServer div instancesCount
+
+let customValidatorAssignments = {
+  "testnet0": proc (nodeIdx: int): int =
+    if nodeidx < 2:
+      systemValidators div 2
+    else:
+      0
+}
+
+proc findOrDefault[K, V](tupleList: openarray[(K, V)], key: K, default: V): V =
+  for t in tupleList:
+    if t[0] == key:
+      return t[1]
+
+  return default
+
+let defaultValidatorAssignment = proc (nodeIdx: int): int =
+  (systemValidators div serverCount) div instancesCount
 
 iterator nodes: tuple[server, container: string, firstValidator, lastValidator: int] =
+  var nextValidatorIdx = conf.totalUserValidators
   for i in 0 ..< serverCount:
     let
-      baseIdx = conf.totalUserValidators + i * validatorsPerServer
       nodeName = if i == 0: "master-01" else: &"node-0{i}"
       server = &"{nodeName}.do-ams3.nimbus.test.statusim.net"
 
     for j in 0 ..< instancesCount:
-      var firstIdx, lastIdx: int
-      if conf.network == "testnet0" and i == 0 and j == 0:
-        firstIdx = conf.totalUserValidators
-        lastIdx = conf.totalValidators
-      elif true:
-        firstIdx = 0
-        lastIdx = 0
-      else:
-        firstIdx = baseIdx + j * validatorsPerNode
-        lastIdx = firstIdx + validatorsPerNode
-      yield (server, &"beacon-node-{conf.network}-{j+1}", firstIdx, lastIdx)
+      let
+        globalNodeIdx = i*instancesCount + j
+        validatorAssignmentFn = customValidatorAssignments.findOrDefault(
+          conf.network, defaultValidatorAssignment)
+        nodeValidatorCount = validatorAssignmentFn(globalNodeIdx)
+
+      yield (server,
+             &"beacon-node-{conf.network}-{j+1}",
+             nextValidatorIdx,
+             nextValidatorIdx + nodeValidatorCount)
+
+      inc nextValidatorIdx, nodeValidatorCount
 
 case conf.cmd
 of restart_nodes:
   for n in nodes():
     echo &"ssh {n.server} docker restart {n.container}"
 
-of redist_validators:
+of reset_network:
   for n in nodes():
     var
       keysList = ""
@@ -74,7 +96,11 @@ of redist_validators:
     echo &"  ssh {n.server} 'sudo rm -rf /tmp/nimbus && mkdir -p /tmp/nimbus/' && \\"
     echo &"  rsync {networkDataFiles} {n.server}:/tmp/nimbus/net-data/ && \\"
     if keysList.len > 0: echo &"  rsync {keysList} {n.server}:/tmp/nimbus/keys/ && \\"
-    echo &"  ssh {n.server} 'sudo mkdir -p {dockerPath}/validators && sudo rm -f {dockerPath}/validators/* && " &
+
+    echo &"  ssh {n.server} 'sudo docker container stop {n.container} && " &
+                         &"sudo mkdir -p {dockerPath}/validators && " &
+                         &"sudo rm -f {dockerPath}/validators/* && " &
+                         &"sudo rm -f {dockerPath}/db" &
                          (if keysList.len > 0: &"sudo mv /tmp/nimbus/keys/* {dockerPath}/validators/ && " else: "") &
                          &"sudo mv /tmp/nimbus/net-data/* {dockerPath}/ && " &
                          &"sudo chown dockremap:docker -R {dockerPath}'"
