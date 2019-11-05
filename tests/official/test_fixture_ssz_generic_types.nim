@@ -10,7 +10,7 @@ import
   os, unittest, strutils, streams, strformat, strscans,
   macros,
   # Status libraries
-  stint,
+  stint, stew/bitseqs,
   # Third-party
   yaml,
   # Beacon chain internals
@@ -106,6 +106,29 @@ proc checkVector(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
     echo &"       (SSZ) Vector[{typeIdent:7}, {size:3}]"
   testVector(typeIdent, size)
 
+proc testBitVector(size:static int, dir: string, expectedHash: SSZHashTreeRoot) =
+  let deserialized = SSZ.loadFile(dir/"serialized.ssz", BitArray[size])
+  check:
+    expectedHash.root == "0x" & toLowerASCII($deserialized.hashTreeRoot())
+  # TODO check the value
+
+proc checkBitVector(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
+  var size: int
+  let wasMatched = scanf(sszSubType, "bitvec_$i", size)
+  case size
+  of 1: testBitVector(1, dir, expectedHash)
+  of 2: testBitVector(2, dir, expectedHash)
+  of 3: testBitVector(3, dir, expectedHash)
+  of 4: testBitVector(4, dir, expectedHash)
+  of 5: testBitVector(5, dir, expectedHash)
+  of 8: testBitVector(8, dir, expectedHash)
+  of 16: testBitVector(16, dir, expectedHash)
+  of 31: testBitVector(31, dir, expectedHash)
+  of 512: testBitVector(512, dir, expectedHash)
+  of 513: testBitVector(513, dir, expectedHash)
+  else:
+    raise newException(ValueError, "Unsupported BitVector test size: " & $size)
+
 # Test dispatch for valid inputs
 # ------------------------------------------------------------------------
 
@@ -135,6 +158,7 @@ proc sszCheck(sszType, sszSubType: string) =
     else:
       raise newException(ValueError, "unknown uint in test: " & sszSubType)
   of "basic_vector": checkVector(sszSubType, dir, expectedHash)
+  of "bit_vector": checkBitVector(sszSubType, dir, expectedHash)
   else:
     discard # TODO
 
