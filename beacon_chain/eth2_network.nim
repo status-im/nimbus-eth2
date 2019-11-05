@@ -219,7 +219,7 @@ else:
                    bootstrapNodes = allMultiAddresses(bootstrapNodes),
                    peersRequired = 1)
 
-    info "Deamon started"
+    info "Daemon started"
 
     mainDaemon = await daemonFut
 
