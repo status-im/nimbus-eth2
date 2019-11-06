@@ -190,6 +190,9 @@ func get_beacon_proposer_index*(state: BeaconState, stateCache: var StateCache):
     first_committee = get_crosslink_committee(state, epoch, shard, stateCache)
     seed = get_seed(state, epoch)
 
+  # This mainly fails when there are no active validators for some reason
+  doAssert first_committee.len > 0
+
   var
     i = 0
     buffer: array[(32+8), byte]
