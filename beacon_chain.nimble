@@ -50,6 +50,10 @@ task test, "Run all tests":
   # Minimal config
   buildBinary "all_tests", "tests/", "-r -d:release -d:chronicles_log_level=ERROR -d:const_preset=minimal"
 
+  # Generic SSZ test, doesn't use consensus objects minimal/mainnet presets
+  buildBinary "test_fixture_ssz_generic_types", "tests/official/", "-r -d:release -d:chronicles_log_level=DEBUG"
+
+  # Consensus object SSZ tests
   buildBinary "test_fixture_ssz_static", "tests/official/", "-r -d:release -d:chronicles_log_level=DEBUG -d:const_preset=minimal"
   buildBinary "test_fixture_ssz_static", "tests/official/", "-r -d:release -d:chronicles_log_level=DEBUG -d:const_preset=mainnet"
 

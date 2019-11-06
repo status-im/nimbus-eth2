@@ -277,5 +277,5 @@ proc runSSZtests() =
   # test "Testing " & name & " inputs (" & $T & ") - invalid":
   #   const path = SSZDir/name/"invalid"
 
-suite "Official - 0.9.0 SSZ generic types":
+suite "Official - 0.9.0 - SSZ generic types":
   runSSZtests()
