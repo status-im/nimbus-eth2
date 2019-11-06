@@ -15,9 +15,8 @@ import
   yaml,
   # Beacon chain internals
   ../../beacon_chain/spec/[datatypes, digest],
-  ../../beacon_chain/ssz,
+  ../../beacon_chain/ssz
   # Test utilities
-  ../testutil
 
 # Parsing definitions
 # ------------------------------------------------------------------------
@@ -134,6 +133,7 @@ proc checkVector(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
   var typeIdent: string
   var size: int
   let wasMatched = scanf(sszSubType, "vec_$+_$i", typeIdent, size)
+  assert wasMatched
   testVector(typeIdent, size)
 
 type BitContainer[N: static int] = BitList[N] or BitArray[N]
@@ -147,6 +147,7 @@ proc testBitContainer(T: typedesc[BitContainer], dir: string, expectedHash: SSZH
 proc checkBitVector(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
   var size: int
   let wasMatched = scanf(sszSubType, "bitvec_$i", size)
+  assert wasMatched
   case size
   of 1: testBitContainer(BitArray[1], dir, expectedHash)
   of 2: testBitContainer(BitArray[2], dir, expectedHash)
