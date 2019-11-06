@@ -95,7 +95,7 @@ proc runSSZUintTest(inputTests: Tests[SSZUint]) =
     else:
       echo "         [Skipped] uint size: ", test.`type`
 
-suite "Official - SSZ unsigned integer tests" & preset():
+suite "Official - 0.8.1 - SSZ unsigned integer tests" & preset():
   block: # "Integers right at or beyond the bounds of the allowed value range"
     let uintBounds = parseTests(TestsDir / "uint_bounds.json", SSZUint)
     test uintBounds.summary & preset():
