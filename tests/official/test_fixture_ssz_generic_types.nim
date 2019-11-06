@@ -106,8 +106,10 @@ proc checkVector(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
     echo &"       (SSZ) Vector[{typeIdent:7}, {size:3}]"
   testVector(typeIdent, size)
 
-proc testBitVector(size:static int, dir: string, expectedHash: SSZHashTreeRoot) =
-  let deserialized = SSZ.loadFile(dir/"serialized.ssz", BitArray[size])
+type BitContainer[N: static int] = BitList[N] or BitArray[N]
+
+proc testBitContainer(T: typedesc[BitContainer], dir: string, expectedHash: SSZHashTreeRoot) =
+  let deserialized = SSZ.loadFile(dir/"serialized.ssz", T)
   check:
     expectedHash.root == "0x" & toLowerASCII($deserialized.hashTreeRoot())
   # TODO check the value
@@ -116,18 +118,37 @@ proc checkBitVector(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
   var size: int
   let wasMatched = scanf(sszSubType, "bitvec_$i", size)
   case size
-  of 1: testBitVector(1, dir, expectedHash)
-  of 2: testBitVector(2, dir, expectedHash)
-  of 3: testBitVector(3, dir, expectedHash)
-  of 4: testBitVector(4, dir, expectedHash)
-  of 5: testBitVector(5, dir, expectedHash)
-  of 8: testBitVector(8, dir, expectedHash)
-  of 16: testBitVector(16, dir, expectedHash)
-  of 31: testBitVector(31, dir, expectedHash)
-  of 512: testBitVector(512, dir, expectedHash)
-  of 513: testBitVector(513, dir, expectedHash)
+  of 1: testBitContainer(BitArray[1], dir, expectedHash)
+  of 2: testBitContainer(BitArray[2], dir, expectedHash)
+  of 3: testBitContainer(BitArray[3], dir, expectedHash)
+  of 4: testBitContainer(BitArray[4], dir, expectedHash)
+  of 5: testBitContainer(BitArray[5], dir, expectedHash)
+  of 8: testBitContainer(BitArray[8], dir, expectedHash)
+  of 16: testBitContainer(BitArray[16], dir, expectedHash)
+  of 31: testBitContainer(BitArray[31], dir, expectedHash)
+  of 512: testBitContainer(BitArray[512], dir, expectedHash)
+  of 513: testBitContainer(BitArray[513], dir, expectedHash)
   else:
-    raise newException(ValueError, "Unsupported BitVector test size: " & $size)
+    raise newException(ValueError, "Unsupported BitVector of size " & $size)
+
+# TODO: serialization of "type BitList[maxLen] = distinct BitSeq is not supported"
+#       https://github.com/status-im/nim-beacon-chain/issues/518
+# proc checkBitList(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
+#   var maxLen: int
+#   let wasMatched = scanf(sszSubType, "bitlist_$i", maxLen)
+#   case maxLen
+#   of 1: testBitContainer(BitList[1], dir, expectedHash)
+#   of 2: testBitContainer(BitList[2], dir, expectedHash)
+#   of 3: testBitContainer(BitList[3], dir, expectedHash)
+#   of 4: testBitContainer(BitList[4], dir, expectedHash)
+#   of 5: testBitContainer(BitList[5], dir, expectedHash)
+#   of 8: testBitContainer(BitList[8], dir, expectedHash)
+#   of 16: testBitContainer(BitList[16], dir, expectedHash)
+#   of 31: testBitContainer(BitList[31], dir, expectedHash)
+#   of 512: testBitContainer(BitList[512], dir, expectedHash)
+#   of 513: testBitContainer(BitList[513], dir, expectedHash)
+#   else:
+#     raise newException(ValueError, "Unsupported Bitlist of max length " & $maxLen)
 
 # Test dispatch for valid inputs
 # ------------------------------------------------------------------------
@@ -159,6 +180,7 @@ proc sszCheck(sszType, sszSubType: string) =
       raise newException(ValueError, "unknown uint in test: " & sszSubType)
   of "basic_vector": checkVector(sszSubType, dir, expectedHash)
   of "bit_vector": checkBitVector(sszSubType, dir, expectedHash)
+  # of "bitlist": checkBitList(sszSubType, dir, expectedHash)
   else:
     discard # TODO
 
