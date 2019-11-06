@@ -144,7 +144,7 @@ else:
 
   else:
     import
-      libp2p/daemon/daemonapi, libp2p/multiaddress, libp2p_daemon_backend
+      libp2p/daemon/daemonapi, libp2p_daemon_backend
 
     export
       libp2p_daemon_backend
@@ -154,16 +154,19 @@ else:
     networkKeyFilename = "privkey.protobuf"
 
   type
-    BootstrapAddr* = MultiAddress
-    Eth2NodeIdentity* = KeyPair
+    BootstrapAddr* = PeerInfo
+    Eth2NodeIdentity* = PeerInfo
 
-  proc initAddress*(T: type BootstrapAddr, str: string): T =
-    let address = MultiAddress.init(str)
-    if IPFS.match(address) and matchPartial(multiaddress.TCP, address):
-      result = address
+  proc init*(T: type BootstrapAddr, str: string): T =
+    # TODO: The code below is quite awkward.
+    # How do we parse a PeerInfo object out of a bootstrap MultiAddress string such as:
+    # /ip4/10.20.30.40/tcp/9100/p2p/16Uiu2HAmEAmp4FdpPzypKwTMmsbCdnUafDvXZCpFrUDbYJZNk7hX
+    var parts = str.split("/p2p/")
+    if parts.len == 2:
+      result.peer = PeerID.init(parts[1])
+      result.addresses.add MultiAddress.init(parts[0])
     else:
-      raise newException(MultiAddressError,
-                         "Invalid bootstrap node multi-address")
+      raise newException(ValueError, "Invalid bootstrap multi-address")
 
   proc ensureNetworkIdFile(conf: BeaconNodeConf): string =
     result = conf.dataDir / networkKeyFilename
@@ -173,17 +176,13 @@ else:
       writeFile(result, pk.getBytes)
 
   proc getPersistentNetIdentity*(conf: BeaconNodeConf): Eth2NodeIdentity =
-    let privateKeyFile = conf.dataDir / networkKeyFilename
-    var privKey: PrivateKey
-    if not fileExists(privateKeyFile):
-      createDir conf.dataDir.string
-      privKey = PrivateKey.random(Secp256k1)
-      writeFile(privateKeyFile, privKey.getBytes())
-    else:
-      let strdata = readFile(privateKeyFile)
-      privKey = PrivateKey.init(cast[seq[byte]](strdata))
-
-    result = KeyPair(seckey: privKey, pubkey: privKey.getKey())
+    # Using waitFor here is reasonable, because this proc is needed only
+    # prior to connecting to the network. The RLPx alternative reads from
+    # file and it's much easier to use if it's not async.
+    # TODO: revisit in the future when we have our own Lib2P2 implementation.
+    let daemon = waitFor newDaemonApi(id = conf.ensureNetworkIdFile)
+    result = waitFor daemon.identity()
+    waitFor daemon.close()
 
   template tcpEndPoint(address, port): auto =
     MultiAddress.init(address, Protocol.IPPROTO_TCP, port)
@@ -192,7 +191,8 @@ else:
 
   proc allMultiAddresses(nodes: seq[BootstrapAddr]): seq[string] =
     for node in nodes:
-      result.add $node
+      for a in node.addresses:
+        result.add $a & "/ipfs/" & node.peer.pretty()
 
   proc createEth2Node*(conf: BeaconNodeConf,
                        bootstrapNodes: seq[BootstrapAddr]): Future[Eth2Node] {.async.} =
@@ -219,10 +219,9 @@ else:
                    bootstrapNodes = allMultiAddresses(bootstrapNodes),
                    peersRequired = 1)
 
+    info "Daemon started"
 
     mainDaemon = await daemonFut
-
-    info "LibP2P daemon started"
 
     proc closeDaemon() {.noconv.} =
       info "Shutting down the LibP2P daemon"
@@ -233,24 +232,33 @@ else:
 
   proc getPersistenBootstrapAddr*(conf: BeaconNodeConf,
                                   ip: IpAddress, port: Port): BootstrapAddr =
-    let pair = getPersistentNetIdentity(conf)
-    let pidma = MultiAddress.init(multiCodec("p2p"), PeerID.init(pair.pubkey))
-    result = tcpEndPoint(ip, port) & pidma
+    result = getPersistentNetIdentity(conf)
+    result.addresses = @[tcpEndPoint(ip, port)]
 
   proc isSameNode*(bootstrapNode: BootstrapAddr, id: Eth2NodeIdentity): bool =
-    if IPFS.match(bootstrapNode):
-      let pid1 = PeerID.init(bootstrapNode[2].protoAddress())
-      let pid2 = PeerID.init(id.pubkey)
-      result = (pid1 == pid2)
+    bootstrapNode.peer == id.peer
 
   proc shortForm*(id: Eth2NodeIdentity): string =
-    $PeerID.init(id.pubkey)
+    # TODO: Make this shorter
+    $id
 
-  proc connectToNetwork*(node: Eth2Node,
-                         bootstrapNodes: seq[MultiAddress]) {.async.} =
-    ## go-libp2p-daemon will perform connection to the network automatically,
-    ## we just need to follow it.
-    discard
+  proc connectToNetwork*(node: Eth2Node, bootstrapNodes: seq[PeerInfo]) {.async.} =
+    # TODO: perhaps we should do these in parallel
+    var connected = false
+    for bootstrapNode in bootstrapNodes:
+      try:
+        await node.daemon.connect(bootstrapNode.peer, bootstrapNode.addresses)
+        var peer = node.getPeer(bootstrapNode.peer)
+        peer.wasDialed = true
+        await initializeConnection(peer)
+        connected = true
+      except CatchableError as err:
+        error "Failed to connect to bootstrap node",
+               node = bootstrapNode, err = err.msg
+
+    if bootstrapNodes.len > 0 and connected == false:
+      fatal "Failed to connect to any bootstrap node. Quitting."
+      quit 1
 
   proc saveConnectionAddressFile*(node: Eth2Node, filename: string) =
     let id = waitFor node.daemon.identity()
