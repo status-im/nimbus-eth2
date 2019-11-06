@@ -14,8 +14,7 @@ import
   # Test utilities
   ../testutil,
   ./fixtures_utils,
-  ../helpers/debug_state,
-  ../mocking/mock_blocks
+  ../helpers/debug_state
 
 const OpBlockHeaderDir = SszTestsDir/const_preset/"phase0"/"operations"/"block_header"/"pyspec_tests"
 

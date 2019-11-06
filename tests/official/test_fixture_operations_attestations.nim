@@ -14,8 +14,7 @@ import
   # Test utilities
   ../testutil,
   ./fixtures_utils,
-  ../helpers/debug_state,
-  ../mocking/mock_blocks
+  ../helpers/debug_state
 
 const OperationsAttestationsDir = SszTestsDir/const_preset/"phase0"/"operations"/"attestation"/"pyspec_tests"
 
