@@ -46,8 +46,6 @@ type
     totalChunks: uint64
     limit: uint64
 
-  Chunk = array[bytesPerChunk, byte]
-
   TypeWithMaxLen*[T; maxLen: static int64] = distinct T
 
   SizePrefixed*[T] = distinct T
@@ -130,7 +128,7 @@ func writeFixedSized(c: var WriteCursor, x: auto) =
       else: unsupported x.type
       c.append bytes
     else:
-      let valueAddr = unsafeAddr x
+      let valueAddr {.used.} = unsafeAddr x
       trs "APPENDING INT ", x, " = ", makeOpenArray(cast[ptr byte](valueAddr), sizeof(x))
       c.appendMemCopy x
   elif x is StUint:
@@ -265,10 +263,6 @@ func writeValue*[T](w: var SszWriter, x: SizePrefixed[T]) =
     var buf: VarintBuffer
     buf.appendVarint length
     cursor.writeAndFinalize buf.writtenBytes
-
-template checkEof(n: int) =
-  if not r.stream[].ensureBytes(n):
-    raise newException(UnexpectedEofError, "SSZ has insufficient number of bytes")
 
 template fromSszBytes*(T: type BlsValue, bytes: openarray[byte]): auto =
   fromBytes(T, bytes)
@@ -456,7 +450,7 @@ template merkelizeFields(body: untyped): Eth2Digest {.dirty.} =
     addChunk(merkelizer, hash.data)
     trs "CHUNK ADDED"
 
-  template addField2(field) =
+  template addField2(field) {.used.}=
     const maxLen = fieldMaxLen(field)
     when maxLen > 0:
       type FieldType = type field
@@ -492,7 +486,6 @@ func bitlistHashTreeRoot(merkelizer: SszChunksMerkelizer, x: BitSeq): Eth2Digest
 
   var
     bytesInLastChunk = totalBytes mod bytesPerChunk
-    paddingBytes = bytesPerChunk - bytesInLastChunk
     fullChunks = totalBytes div bytesPerChunk
 
   if bytesInLastChunk == 0:

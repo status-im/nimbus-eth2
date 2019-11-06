@@ -61,9 +61,9 @@ proc fromSszBytes*[N](T: type BitList[N], bytes: openarray[byte]): auto =
 proc readSszValue*(input: openarray[byte], T: type): T =
   mixin fromSszBytes, toSszType
 
-  type T = type(result)
+  type T {.used.}= type(result)
 
-  template readOffset(n: int): int =
+  template readOffset(n: int): int {.used.}=
     int fromSszBytes(uint32, input[n ..< n + offsetSize])
 
   when useListType and result is List:
@@ -158,4 +158,3 @@ proc readSszValue*(input: openarray[byte], T: type): T =
 
   else:
     unsupported T
-
