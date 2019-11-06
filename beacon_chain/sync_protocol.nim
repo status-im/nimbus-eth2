@@ -106,7 +106,7 @@ p2pProtocol BeaconSync(version = 1,
       if theirStatus.isSome:
         await peer.handleInitialStatus(node, ourStatus, theirStatus.get)
       else:
-        warn "Status response not received in time", peer = peer.id.pretty()
+        warn "Status response not received in time"
 
   onPeerDisconnected do (peer: Peer):
     libp2p_peers.set peer.network.peers.len.int64
@@ -234,3 +234,4 @@ proc handleInitialStatus(peer: Peer,
 
   except CatchableError:
     warn "Failed to sync with peer", peer, err = getCurrentExceptionMsg()
+

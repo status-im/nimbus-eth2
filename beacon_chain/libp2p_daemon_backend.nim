@@ -8,8 +8,6 @@ import
 export
   daemonapi, p2pProtocol, libp2p_json_serialization, ssz
 
-logScope: topics = "lp2pdab"
-
 type
   Eth2Node* = ref object of RootObj
     daemon*: DaemonAPI
@@ -471,43 +469,6 @@ proc getRequestProtoName(fn: NimNode): NimNode =
 proc init*[MsgType](T: type Responder[MsgType],
                     peer: Peer, stream: P2PStream): T =
   T(UntypedResponder(peer: peer, stream: stream))
-
-proc backendLoop*(node: Eth2Node) {.async.} =
-  var peerFuts = newSeq[Future[void]]()
-  var peerStore = newSeq[tuple[peer: Peer, future: Future[void]]]()
-  while true:
-    var list = await node.daemon.listPeers()
-
-    peerFuts.setLen(0)
-    peerStore.setLen(0)
-
-    for item in list:
-      var peerCheck = node.peers.getOrDefault(item.peer)
-      if isNil(peerCheck):
-        var peer = node.getPeer(item.peer)
-        peer.wasDialed = true
-        info "Handshaking with new peer", peer = item.peer.pretty(),
-                                          addresses = item.addresses
-        let fut = initializeConnection(peer)
-        peerStore.add((peer, fut))
-        peerFuts.add(fut)
-
-    await allFutures(peerFuts)
-
-    for item in peerFuts:
-      var peer: Peer
-      for storeItem in peerStore:
-        if item == storeItem.future:
-          peer = storeItem.peer
-          break
-      if item.finished():
-        info "Handshake with peer succeeded", peer = peer.id.pretty(),
-                                              peers = len(node.peers)
-      elif item.failed():
-        info "Handshake with peer failed", peer = peer.id.pretty(),
-                                           peers = len(node.peers),
-                                           error = item.error.msg
-    await sleepAsync(1.seconds)
 
 import
   typetraits

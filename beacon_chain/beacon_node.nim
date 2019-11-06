@@ -113,7 +113,7 @@ proc addBootstrapNode(node: BeaconNode, bootstrapNode: BootstrapAddr) =
 
 proc useBootstrapFile(node: BeaconNode, bootstrapFile: string) =
   for ln in lines(bootstrapFile):
-    node.addBootstrapNode BootstrapAddr.initAddress(string ln)
+    node.addBootstrapNode BootstrapAddr.init(string ln)
 
 proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
   new result
@@ -756,8 +756,6 @@ proc run*(node: BeaconNode) =
   addTimer(second) do (p: pointer):
     asyncCheck node.onSecond(second)
 
-  asyncCheck node.network.backendLoop()
-
   runForever()
 
 var gPidFile: string
@@ -975,7 +973,10 @@ when isMainModule:
 
     let bootstrapFile = config.outputBootstrapFile.string
     if bootstrapFile.len > 0:
-      let bootstrapAddrLine = $bootstrapAddress
+      let bootstrapAddrLine = when networkBackend != rlpxBackend:
+        $bootstrapAddress.addresses[0] & "/p2p/" & bootstrapAddress.peer.pretty
+      else:
+        $bootstrapAddress
       writeFile(bootstrapFile, bootstrapAddrLine)
       echo "Wrote ", bootstrapFile
 
