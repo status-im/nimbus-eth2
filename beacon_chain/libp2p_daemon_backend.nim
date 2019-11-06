@@ -485,6 +485,7 @@ proc backendLoop*(node: Eth2Node) {.async.} =
       var peerCheck = node.peers.getOrDefault(item.peer)
       if isNil(peerCheck):
         var peer = node.getPeer(item.peer)
+        peer.wasDialed = true
         info "Handshaking with new peer", peer = item.peer.pretty(),
                                           addresses = item.addresses
         let fut = initializeConnection(peer)
