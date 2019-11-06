@@ -37,10 +37,44 @@ type
 # Make signing root optional
 setDefaultValue(SSZHashTreeRoot, signing_root, "")
 
+type
+  # Heterogeneous containers
+  SingleFieldTestStruct = object
+    A: byte
+
+  SmallTestStruct = object
+    A, B: uint16
+
+  FixedTestStruct = object
+    A: uint8
+    B: uint64
+    C: uint32
+
+  VarTestStruct = object
+    A: uint16
+    B: List[uint16, 1024]
+    C: uint8
+
+  ComplexTestStruct = object
+    A: uint16
+    B: List[uint16, 128]
+    C: uint8
+    D: array[256, byte]
+    E: VarTestStruct
+    F: array[4, FixedTestStruct]
+    G: array[2, VarTestStruct]
+
+  BitsStruct = object
+    A: BitList[5]
+    B: BitArray[2]
+    C: BitArray[1]
+    D: BitList[6]
+    E: BitArray[8]
+
 # Type specific checks
 # ------------------------------------------------------------------------
 
-proc checkBasic(T:typedesc, dir: string, expectedHash: SSZHashTreeRoot) =
+proc checkBasic(T: typedesc, dir: string, expectedHash: SSZHashTreeRoot) =
   let deserialized = SSZ.loadFile(dir/"serialized.ssz", T)
   check:
     expectedHash.root == "0x" & toLowerASCII($deserialized.hashTreeRoot())
@@ -100,10 +134,6 @@ proc checkVector(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
   var typeIdent: string
   var size: int
   let wasMatched = scanf(sszSubType, "vec_$+_$i", typeIdent, size)
-  if typeIdent == "uint128" or typeIdent == "uint256":
-    echo &"       (SSZ) Vector[{typeIdent:7}, {size:3}] - skipped"
-  else:
-    echo &"       (SSZ) Vector[{typeIdent:7}, {size:3}]"
   testVector(typeIdent, size)
 
 type BitContainer[N: static int] = BitList[N] or BitArray[N]
@@ -174,15 +204,38 @@ proc sszCheck(sszType, sszSubType: string) =
     of 16: checkBasic(uint16, dir, expectedHash)
     of 32: checkBasic(uint32, dir, expectedHash)
     of 64: checkBasic(uint64, dir, expectedHash)
-    of 128: discard # checkBasic(Stuint[128], dir, expectedHash) # TODO
-    of 256: discard # checkBasic(Stuint[256], dir, expectedHash)
+    of 128:
+      # Compile-time issues
+      discard # checkBasic(Stuint[128], dir, expectedHash)
+    of 256:
+      # Compile-time issues
+      discard # checkBasic(Stuint[256], dir, expectedHash)
     else:
       raise newException(ValueError, "unknown uint in test: " & sszSubType)
   of "basic_vector": checkVector(sszSubType, dir, expectedHash)
-  of "bit_vector": checkBitVector(sszSubType, dir, expectedHash)
+  of "bitvector": checkBitVector(sszSubType, dir, expectedHash)
   # of "bitlist": checkBitList(sszSubType, dir, expectedHash)
+  of "containers":
+    var name: string
+    let wasMatched = scanf(sszSubtype, "$+_", name)
+    assert wasMatched
+    case name
+    of "SingleFieldTestStruct": checkBasic(SingleFieldTestStruct, dir, expectedHash)
+    of "SmallTestStruct": checkBasic(SmallTestStruct, dir, expectedHash)
+    of "FixedTestStruct": checkBasic(FixedTestStruct, dir, expectedHash)
+    of "VarTestStruct":
+      # Runtime issues
+      discard # checkBasic(VarTestStruct, dir, expectedHash)
+    of "ComplexTestStruct":
+      # Compile-time issues
+      discard # checkBasic(ComplexTestStruct, dir, expectedHash)
+    of "BitsStruct":
+      # Compile-time issues
+      discard # checkBasic(BitsStruct, dir, expectedHash)
+    else:
+      raise newException(ValueError, "unknown container in test: " & sszSubType)
   else:
-    discard # TODO
+    raise newException(ValueError, "unknown ssz type in test: " & sszType)
 
 # Test dispatch for invalid inputs
 # ------------------------------------------------------------------------
@@ -195,7 +248,23 @@ proc sszCheck(sszType, sszSubType: string) =
 proc runSSZtests() =
   for pathKind, sszType in walkDir(SSZDir, relative = true):
     assert pathKind == pcDir
-    test &"Testing {sszType:12} inputs - valid":
+    if sszType == "bitlist":
+      test &"**Skipping** {sszType} inputs - valid - skipped altogether":
+        # TODO: serialization of "type BitList[maxLen] = distinct BitSeq is not supported"
+        #       https://github.com/status-im/nim-beacon-chain/issues/518
+        discard
+      continue
+
+    var skipped: string
+    case sszType
+    of "uints":
+      skipped = " - skipping uint128 and uint256"
+    of "basic_vector":
+      skipped = " - skipping Vector[uint128, N] and Vector[uint256, N]"
+    of "containers":
+      skipped = " - skipping VarTestStruct, ComplexTestStruct, BitsStruct"
+
+    test &"Testing {sszType:12} inputs - valid" & skipped:
       let path = SSZDir/sszType/"valid"
       for pathKind, sszSubType in walkDir(path, relative = true):
         assert pathKind == pcDir
