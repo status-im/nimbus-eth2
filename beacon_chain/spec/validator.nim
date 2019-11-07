@@ -158,14 +158,18 @@ func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
     indices[stateCache.crosslink_committee_cache[key][it]])
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_beacon_committee
-func get_beacon_committee*(state: BeaconState, slot: Slot, index: uint64, cache: var StateCache, gcc_index: uint64 = 100): seq[ValidatorIndex] =
+func get_beacon_committee*(state: BeaconState, slot: Slot, index: uint64, cache: var StateCache): seq[ValidatorIndex] =
   # Return the beacon committee at ``slot`` for ``index``.
   let
     epoch = compute_epoch_at_slot(slot)
     committees_per_slot = get_committee_count_at_slot(state, slot)
 
-  let gbc_index = (slot mod SLOTS_PER_EPOCH) * committees_per_slot + index
-  doAssert gcc_index == 100 or gbc_index == gcc_index
+  ## This is a somewhat more fragile, but high-ROI, caching setup --
+  ## get_active_validator_indices() is slow to run in a loop and only
+  ## changes once per epoch.
+  if epoch notin cache.active_validator_indices_cache:
+    cache.active_validator_indices_cache[epoch] =
+      get_active_validator_indices(state, epoch)
 
   if epoch notin cache.committee_count_cache:
     cache.committee_count_cache[epoch] = get_committee_count(state, epoch)
@@ -192,40 +196,12 @@ func get_crosslink_committee*(state: BeaconState, epoch: Epoch, shard: Shard,
     stateCache: var StateCache): seq[ValidatorIndex] =
 
   doAssert shard >= 0'u64
-  # This seems to be required, basically, to be true? But I'm not entirely sure
-  #doAssert shard >= get_start_shard(state, epoch)
-
-  ## This is a somewhat more fragile, but high-ROI, caching setup --
-  ## get_active_validator_indices() is slow to run in a loop and only
-  ## changes once per epoch.
-  if epoch notin stateCache.active_validator_indices_cache:
-    stateCache.active_validator_indices_cache[epoch] =
-      get_active_validator_indices(state, epoch)
 
   if epoch notin stateCache.start_shard_cache:
     stateCache.start_shard_cache[epoch] = get_start_shard(state, epoch)
 
-  if epoch notin stateCache.committee_count_cache:
-    stateCache.committee_count_cache[epoch] = get_committee_count(state, epoch)
-
-  let gcc_index = (shard + SHARD_COUNT - stateCache.start_shard_cache[epoch]) mod SHARD_COUNT
-
-  let old = compute_committee(
-    stateCache.active_validator_indices_cache[epoch],
-    get_seed(state, epoch),
-    (shard + SHARD_COUNT - stateCache.start_shard_cache[epoch]) mod
-      SHARD_COUNT,
-    stateCache.committee_count_cache[epoch],
-    stateCache
-  )
-
-  let
-    (gbc_slot, gbc_index) = get_slot_and_index(state, epoch, shard)
-    new = get_beacon_committee(
-      state, gbc_slot, gbc_index, stateCache, gcc_index)
-
-  doAssert old == new
-  result = new
+  let (gbc_slot, gbc_index) = get_slot_and_index(state, epoch, shard)
+  get_beacon_committee(state, gbc_slot, gbc_index, stateCache)
 
 # Not from spec
 func get_empty_per_epoch_cache*(): StateCache =
