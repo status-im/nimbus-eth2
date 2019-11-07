@@ -295,6 +295,34 @@ func get_initial_beacon_block*(state: BeaconState): BeaconBlock =
     # parent_root, randao_reveal, eth1_data, signature, and body automatically
     # initialized to default values.
 
+# TODO remove when shim layer isn't needed
+func get_epoch_and_shard(
+    state: BeaconState, slot: Slot, committee_index: uint64): auto =
+  # linearize, get compute_committee(...) index, then back-calculate
+  # what shard to use for the given epoch:
+  # (shard + SHARD_COUNT - get_start_shard(state, epoch)) mod SHARD_COUNT
+  let
+    committees_per_slot = get_committee_count_at_slot(state, slot)
+    gbc_index =
+      (slot mod SLOTS_PER_EPOCH) * committees_per_slot + committee_index
+    epoch = slot.compute_epoch_at_slot
+
+  # `index` is constructed as
+  # mod get_committee_count_at_slot(state, compute_start_slot_at_epoch(epoch))
+  # which is <= MAX_COMMITTEES_PER_SLOT (4 in minimal, 64 in mainnet).
+  # get_committee_count_at_slot(...) is constant across an epoch, so:
+  let
+    shard_offset_constant =
+      SHARD_COUNT.uint64 - get_start_shard(state, epoch).uint64
+    shard =
+      (gbc_index + SHARD_COUNT - shard_offset_constant) mod SHARD_COUNT
+
+  let (roundtrip_slot, roundtrip_index) = get_slot_and_index(
+    state, epoch, shard)
+  doAssert roundtrip_slot == slot
+  doAssert committee_index == roundtrip_index
+
+  (epoch, shard)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_attestation_data_slot
 func get_attestation_data_slot*(state: BeaconState,
@@ -303,6 +331,10 @@ func get_attestation_data_slot*(state: BeaconState,
   let
     offset = (data.crosslink.shard + SHARD_COUNT -
       get_start_shard(state, data.target.epoch)) mod SHARD_COUNT
+    (epoch, shard) = get_epoch_and_shard(state, data.slot, data.index)
+
+  doAssert data.crosslink.shard == shard
+  doAssert data.target.epoch == epoch
 
   compute_start_slot_at_epoch(data.target.epoch) + offset div
     (committee_count div SLOTS_PER_EPOCH)
