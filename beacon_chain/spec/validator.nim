@@ -114,13 +114,15 @@ func get_start_shard*(state: BeaconState, epoch: Epoch): Shard =
 func get_slot_and_index*(state: BeaconState, epoch: Epoch, shard: Shard): auto =
   # This is simply the index get_crosslink_committee(...) computes for
   # compute_committee(...)
-  let gcc_index = (shard + SHARD_COUNT - get_start_shard(state, epoch)) mod SHARD_COUNT
+  let gcc_index =
+    (shard + SHARD_COUNT - get_start_shard(state, epoch)) mod SHARD_COUNT
 
   # Want (slot % SLOTS_PER_EPOCH) * committees_per_slot + index to result in
   # same index, where
   # committees_per_slot = get_committee_count_at_slot(state, slot)
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#get_beacon_committee
-  let committees_per_slot = get_committee_count_at_slot(state, compute_start_slot_at_epoch(epoch))
+  let committees_per_slot =
+    get_committee_count_at_slot(state, compute_start_slot_at_epoch(epoch))
 
   # get_beacon_committee(...) uses a straightforward linear mapping, row-centric
   # minimize the `index` offset (s.t. >= 0) and maximize `slot`.
