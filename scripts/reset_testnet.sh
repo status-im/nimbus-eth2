@@ -122,7 +122,7 @@ if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
   ssh $BOOTSTRAP_HOST "sudo install -o dockremap -g docker /tmp/privkey.protobuf $BOOTSTRAP_NODE_DOCKER_PATH"
 
   echo Publishing docker image...
-  make push
+  make push-last
 
   echo Persisting testnet data to git...
   pushd "$NETWORK_DIR_ABS"

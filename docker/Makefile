@@ -18,3 +18,6 @@ build:
 push: build
 	docker push $(IMAGE_NAME)
 
+push-last:
+	docker push $(IMAGE_NAME)
+
