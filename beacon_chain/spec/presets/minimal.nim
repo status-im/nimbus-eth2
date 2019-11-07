@@ -20,10 +20,11 @@ type
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/configs/minimal.yaml#L4
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/configs/minimal.yaml#L4
 
   # Changed
   SHARD_COUNT* {.intdefine.} = 8
+  MAX_COMMITTEES_PER_SLOT* = 4
   TARGET_COMMITTEE_SIZE* = 4
 
   # Unchanged
@@ -56,7 +57,7 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/configs/minimal.yaml#L44
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/configs/minimal.yaml#L44
 
   # Unchanged
   GENESIS_SLOT* = 0.Slot

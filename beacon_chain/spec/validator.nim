@@ -110,6 +110,28 @@ func get_start_shard*(state: BeaconState, epoch: Epoch): Shard =
       SHARD_COUNT
   return shard
 
+# TODO remove when shim layer isn't needed
+func get_slot_and_index*(state: BeaconState, epoch: Epoch, shard: Shard): auto =
+  # This is simply the index get_crosslink_committee(...) computes for
+  # compute_committee(...)
+  let gcc_index = (shard + SHARD_COUNT - get_start_shard(state, epoch)) mod SHARD_COUNT
+
+  # Want (slot % SLOTS_PER_EPOCH) * committees_per_slot + index to result in
+  # same index, where
+  # committees_per_slot = get_committee_count_at_slot(state, slot)
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#get_beacon_committee
+  let committees_per_slot = get_committee_count_at_slot(state, compute_start_slot_at_epoch(epoch))
+
+  # get_beacon_committee(...) uses a straightforward linear mapping, row-centric
+  # minimize the `index` offset (s.t. >= 0) and maximize `slot`.
+  let
+    slot = gcc_index div committees_per_slot
+    index = gcc_index mod committees_per_slot
+
+  # TODO it might be bad if slot >= SLOTS_PER_EPOCH in this construction,
+  # but not necessarily
+  (compute_start_slot_at_epoch(epoch) + slot, index)
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#compute_committee
 func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
     index: uint64, count: uint64, stateCache: var StateCache): seq[ValidatorIndex] =
@@ -135,6 +157,36 @@ func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
     start.int .. (endIdx.int-1),
     indices[stateCache.crosslink_committee_cache[key][it]])
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_beacon_committee
+func get_beacon_committee*(state: BeaconState, slot: Slot, index: uint64, cache: var StateCache, gcc_index: uint64 = 100): seq[ValidatorIndex] =
+  # Return the beacon committee at ``slot`` for ``index``.
+  let
+    epoch = compute_epoch_at_slot(slot)
+    committees_per_slot = get_committee_count_at_slot(state, slot)
+
+  let gbc_index = (slot mod SLOTS_PER_EPOCH) * committees_per_slot + index
+  doAssert gcc_index == 100 or gbc_index == gcc_index
+
+  if epoch notin cache.committee_count_cache:
+    cache.committee_count_cache[epoch] = get_committee_count(state, epoch)
+
+  # TODO profiling & make sure caches populated
+  compute_committee(
+    cache.active_validator_indices_cache[epoch],
+
+    # TODO switch to 0.9 seed calculation
+    #get_seed(state, epoch, DOMAIN_BEACON_ATTESTER),
+    get_seed(state, epoch),
+
+    (slot mod SLOTS_PER_EPOCH) * committees_per_slot + index,
+
+    # TODO switch to 0.9's
+    # committees_per_slot * SLOTS_PER_EPOCH,
+    cache.committee_count_cache[epoch],
+
+    cache
+  )
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_crosslink_committee
 func get_crosslink_committee*(state: BeaconState, epoch: Epoch, shard: Shard,
     stateCache: var StateCache): seq[ValidatorIndex] =
@@ -156,7 +208,9 @@ func get_crosslink_committee*(state: BeaconState, epoch: Epoch, shard: Shard,
   if epoch notin stateCache.committee_count_cache:
     stateCache.committee_count_cache[epoch] = get_committee_count(state, epoch)
 
-  compute_committee(
+  let gcc_index = (shard + SHARD_COUNT - stateCache.start_shard_cache[epoch]) mod SHARD_COUNT
+
+  let old = compute_committee(
     stateCache.active_validator_indices_cache[epoch],
     get_seed(state, epoch),
     (shard + SHARD_COUNT - stateCache.start_shard_cache[epoch]) mod
@@ -164,6 +218,14 @@ func get_crosslink_committee*(state: BeaconState, epoch: Epoch, shard: Shard,
     stateCache.committee_count_cache[epoch],
     stateCache
   )
+
+  let
+    (gbc_slot, gbc_index) = get_slot_and_index(state, epoch, shard)
+    new = get_beacon_committee(
+      state, gbc_slot, gbc_index, stateCache, gcc_index)
+
+  doAssert old == new
+  result = new
 
 # Not from spec
 func get_empty_per_epoch_cache*(): StateCache =

@@ -628,8 +628,11 @@ proc makeAttestationData*(
       if start_slot == state.slot: beacon_block_root
       else: get_block_root_at_slot(state, start_slot)
     parent_crosslink_end_epoch = state.current_crosslinks[shard].end_epoch
+    (a_slot, a_index) = get_slot_and_index(state, current_epoch, shard)
 
   AttestationData(
+    slot: a_slot,
+    index: a_index,
     beacon_block_root: beacon_block_root,
     source: state.current_justified_checkpoint,
     target: Checkpoint(

@@ -52,6 +52,12 @@ proc mockAttestationData(
     else:
       state.previous_crosslinks[shard]
 
+  # Constructed to be provide exact equivalent index... to compute_committee(...)
+  # as using epoch/shard.
+  let (r_slot, r_index) = get_slot_and_index(state, target_epoch, shard)
+  result.slot = r_slot
+  result.index = r_index
+
   result.target = Checkpoint(
     epoch: target_epoch, root: epoch_boundary_root
   )

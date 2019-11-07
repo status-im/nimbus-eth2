@@ -126,6 +126,9 @@ type
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#AttestationData
   AttestationData* = object
+    slot*: Slot
+    index*: uint64
+
     # LMD GHOST vote
     beacon_block_root*: Eth2Digest
 
