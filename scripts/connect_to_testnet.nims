@@ -27,18 +27,9 @@ cli do (testnetName {.argument.}: string):
     buildDir = rootDir / "build"
     allTestnetsDir = buildDir / testnetsRepo
 
-  if not dirExists(allTestnetsDir):
-    cd buildDir
-    exec &"git clone {testnetsRepoGitUrl}"
-
-  cd allTestnetsDir
-  # Drop all local modifications to make sure the next
-  # commands won't fail:
-  exec  "git reset --hard HEAD"
-  # Go in detached state, so we don't try to
-  exec  "git checkout --detach"
-  exec &"git fetch -f {testnetsRepoGitUrl} master:master"
-  exec  "git checkout master"
+  rmDir(allTestnetsDir)
+  cd buildDir
+  exec &"git clone --quiet {testnetsRepoGitUrl}"
 
   let testnetDir = allTestnetsDir / team / testnet
   if not dirExists(testnetDir):
