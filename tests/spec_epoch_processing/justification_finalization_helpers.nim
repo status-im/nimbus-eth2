@@ -80,13 +80,15 @@ proc addMockAttestations*(
         if idx != -1:
           aggregation_bits[idx] = false
 
+      let (ad_slot, ad_index) = get_slot_and_index(state, epoch, shard)
       attestations[].add PendingAttestation(
         aggregation_bits: aggregation_bits,
         data: AttestationData(
+          slot: ad_slot,
+          index: ad_index,
           beacon_block_root: [byte 0xFF] * 32, # Irrelevant for testing
           source: source,
           target: target,
-          crosslink: Crosslink(shard: shard)
         ),
         inclusion_delay: 1
       )

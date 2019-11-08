@@ -51,10 +51,11 @@ proc validate(
   #      was slashed in the same epoch - there's no penalty for doing this and
   #      the vote counting logic will take care of any ill effects (TODO verify)
   let data = attestation.data
-  if not (data.crosslink.shard < SHARD_COUNT):
-    notice "Attestation shard too high",
-      attestation_shard = data.crosslink.shard
-    return
+  # TODO re-enable check
+  #if not (data.crosslink.shard < SHARD_COUNT):
+  #  notice "Attestation shard too high",
+  #    attestation_shard = data.crosslink.shard
+  #  return
 
   # Without this check, we can't get a slot number for the attestation as
   # certain helpers will assert

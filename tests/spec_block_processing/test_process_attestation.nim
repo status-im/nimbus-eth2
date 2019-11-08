@@ -71,21 +71,22 @@ suite "[Unit - Spec - Block processing] Attestations " & preset():
     nextEpoch(state)
     applyEmptyBlock(state)
 
+  # TODO check if this should be replaced
+  when false:
+    when MAX_EPOCHS_PER_CROSSLINK > 4'u64:
+      test "Valid attestation since max epochs per crosslinks [Skipped for preset: " & const_preset & ']':
+        discard
+    else:
+      valid_attestation("Valid attestation since max epochs per crosslinks"):
+        for _ in 0 ..< MAX_EPOCHS_PER_CROSSLINK + 2:
+          nextEpoch(state)
+        applyEmptyBlock(state)
 
-  when MAX_EPOCHS_PER_CROSSLINK > 4'u64:
-    test "Valid attestation since max epochs per crosslinks [Skipped for preset: " & const_preset & ']':
-      discard
-  else:
-    valid_attestation("Valid attestation since max epochs per crosslinks"):
-      for _ in 0 ..< MAX_EPOCHS_PER_CROSSLINK + 2:
-        nextEpoch(state)
-      applyEmptyBlock(state)
+        let attestation = mockAttestation(state)
+        check: attestation.data.crosslink.end_epoch - attestation.data.crosslink.start_epoch == MAX_EPOCHS_PER_CROSSLINK
 
-      let attestation = mockAttestation(state)
-      check: attestation.data.crosslink.end_epoch - attestation.data.crosslink.start_epoch == MAX_EPOCHS_PER_CROSSLINK
-
-      for _ in 0 ..< MIN_ATTESTATION_INCLUSION_DELAY:
-        nextSlot(state)
+        for _ in 0 ..< MIN_ATTESTATION_INCLUSION_DELAY:
+          nextSlot(state)
 
   valid_attestation("Empty aggregation bit"):
     var attestation = mockAttestation(state)
