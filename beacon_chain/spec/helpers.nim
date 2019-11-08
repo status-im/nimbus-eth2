@@ -28,41 +28,6 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
     y = (x + n div x) div 2
   x
 
-# TODO reuse as necessary/useful for merkle proof building
-func merkle_root*(values: openArray[Eth2Digest]): Eth2Digest =
-  ## Merkleize ``values`` (where ``len(values)`` is a power of two) and return
-  ## the Merkle root.
-  ## https://crypto.stackexchange.com/questions/43430/what-is-the-reason-to-separate-domains-in-the-internal-hash-algorithm-of-a-merkl
-  let num_values = len(values)
-
-  # Simplifies boundary conditions
-  doAssert is_power_of_two(num_values)
-  doAssert num_values >= 2
-  doAssert num_values mod 2 == 0
-
-  # TODO reverse ``o`` order and use newSeqWith to avoid pointless zero-filling.
-  var o = repeat(ZERO_HASH, len(values))
-  var hash_buffer: array[2*32, byte]
-
-  # These ``o`` indices get filled from ``values``.
-  let highest_internally_filled_index = (num_values div 2) - 1
-  doAssert (highest_internally_filled_index + 1) * 2 >= num_values
-
-  for i in countdown(num_values-1, highest_internally_filled_index + 1):
-    hash_buffer[0..31] = values[i*2 - num_values].data
-    hash_buffer[32..63] = values[i*2+1 - num_values].data
-    o[i] = eth2hash(hash_buffer)
-
-  ## These ``o`` indices get filled from other ``o`` indices.
-  doAssert highest_internally_filled_index * 2 + 1 < num_values
-
-  for i in countdown(highest_internally_filled_index, 1):
-    hash_buffer[0..31] = o[i*2].data
-    hash_buffer[32..63] = o[i*2+1].data
-    o[i] = eth2hash(hash_buffer)
-
-  o[1]
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#compute_epoch_at_slot
 func compute_epoch_at_slot*(slot: Slot|uint64): Epoch =
   # Return the epoch number of the given ``slot``.
@@ -197,7 +162,5 @@ func get_seed*(state: BeaconState, epoch: Epoch): Eth2Digest =
   seed_input[0..31] =
     get_randao_mix(state,
       epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1).data
-  seed_input[32..63] =
-    state.active_index_roots[epoch mod EPOCHS_PER_HISTORICAL_VECTOR].data
   seed_input[64..95] = int_to_bytes32(epoch)
   eth2hash(seed_input)

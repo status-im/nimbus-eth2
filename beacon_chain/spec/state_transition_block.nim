@@ -145,7 +145,7 @@ func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
     (validator.activation_epoch <= epoch) and
     (epoch < validator.withdrawable_epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#proposer-slashings
 proc process_proposer_slashing*(
     state: var BeaconState, proposer_slashing: ProposerSlashing,
     flags: UpdateFlags, stateCache: var StateCache): bool =
@@ -155,10 +155,10 @@ proc process_proposer_slashing*(
 
   let proposer = state.validators[proposer_slashing.proposer_index.int]
 
-  # Verify that the epoch is the same
-  if not (compute_epoch_at_slot(proposer_slashing.header_1.slot) ==
-      compute_epoch_at_slot(proposer_slashing.header_2.slot)):
-    notice "Proposer slashing: epoch mismatch"
+  # Verify slots match
+  if not (proposer_slashing.header_1.slot ==
+      proposer_slashing.header_2.slot):
+    notice "Proposer slashing: slot mismatch"
     return false
 
   # But the headers are different
@@ -257,7 +257,7 @@ proc process_attester_slashing*(
       return false
     return true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#attester-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#attester-slashings
 proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock,
     stateCache: var StateCache): bool =
   # Process ``AttesterSlashing`` operation.

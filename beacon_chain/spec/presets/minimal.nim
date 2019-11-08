@@ -31,7 +31,6 @@ const
   MAX_VALIDATORS_PER_COMMITTEE* = 4096
   MIN_PER_EPOCH_CHURN_LIMIT* = 4
   CHURN_LIMIT_QUOTIENT* = 2^16
-  BASE_REWARDS_PER_EPOCH* = 5
 
   # Changed
   SHUFFLE_ROUND_COUNT* = 10
@@ -43,6 +42,8 @@ const
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#constants
   # TODO "The following values are (non-configurable) constants" ...
   # Unchanged
+  BASE_REWARDS_PER_EPOCH* = 4
+
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
 
   # Gwei values
@@ -57,7 +58,7 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/configs/minimal.yaml#L44
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/configs/minimal.yaml#L44
 
   # Unchanged
   GENESIS_SLOT* = 0.Slot
@@ -91,7 +92,7 @@ const
 
   # State vector lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/configs/minimal.yaml#L79
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/configs/minimal.yaml#L83
 
   # Changed
   EPOCHS_PER_HISTORICAL_VECTOR* = 64
@@ -101,9 +102,8 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#rewards-and-penalties
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/configs/minimal.yaml#L95
 
-  # Unchanged
   BASE_REWARD_FACTOR* = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
   PROPOSER_REWARD_QUOTIENT* = 2'u64^3
