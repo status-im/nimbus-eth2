@@ -61,12 +61,6 @@ proc mockAttestationData(
   result.target = Checkpoint(
     epoch: target_epoch, root: epoch_boundary_root
   )
-  result.crosslink = Crosslink(
-    shard: shard,
-    start_epoch: parent_crosslink.end_epoch,
-    end_epoch: min(target_epoch, parent_crosslink.end_epoch + MAX_EPOCHS_PER_CROSSLINK),
-    parent_root: hash_tree_root(parent_crosslink)
-  )
 
 proc get_attestation_signature(
        state: BeaconState,
@@ -125,10 +119,10 @@ proc mockAttestationImpl(
       committees_per_slot * (slot mod SLOTS_PER_EPOCH)
     ) mod SHARD_COUNT
 
-    crosslink_committee = get_crosslink_committee(
+    crosslink_committee = get_beacon_committee(
       state,
-      result.data.target.epoch,
-      result.data.crosslink.shard,
+      result.data.slot,
+      result.data.index,
       cache
     )
     committee_size = crosslink_committee.len
@@ -157,10 +151,10 @@ proc mockAttestation*(
 
 proc fillAggregateAttestation*(state: BeaconState, attestation: var Attestation) =
   var cache = get_empty_per_epoch_cache()
-  let crosslink_committee = get_crosslink_committee(
+  let crosslink_committee = get_beacon_committee(
     state,
-    attestation.data.target.epoch,
-    attestation.data.crosslink.shard,
+    attestation.data.slot,
+    attestation.data.index,
     cache
   )
   for i in 0 ..< crosslink_committee.len:

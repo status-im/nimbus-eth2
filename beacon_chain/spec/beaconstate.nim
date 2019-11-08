@@ -329,14 +329,11 @@ func get_attestation_data_slot*(state: BeaconState,
     data: AttestationData, committee_count: uint64): Slot =
   # Return the slot corresponding to the attestation ``data``.
   let
-    offset = (data.crosslink.shard + SHARD_COUNT -
-      get_start_shard(state, data.target.epoch)) mod SHARD_COUNT
     (epoch, shard) = get_epoch_and_shard(state, data.slot, data.index)
+    offset = (shard + SHARD_COUNT -
+      get_start_shard(state, epoch)) mod SHARD_COUNT
 
-  doAssert data.crosslink.shard == shard
-  doAssert data.target.epoch == epoch
-
-  compute_start_slot_at_epoch(data.target.epoch) + offset div
+  compute_start_slot_at_epoch(epoch) + offset div
     (committee_count div SLOTS_PER_EPOCH)
 
 # This is the slower (O(n)), spec-compatible signature.
@@ -469,7 +466,7 @@ proc is_valid_indexed_attestation*(
   if not result:
     notice "indexed attestation: signature verification failure"
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_attesting_indices
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(state: BeaconState,
                             data: AttestationData,
                             bits: CommitteeValidatorsBits,
@@ -477,9 +474,7 @@ func get_attesting_indices*(state: BeaconState,
                             HashSet[ValidatorIndex] =
   # Return the set of attesting indices corresponding to ``data`` and ``bits``.
   result = initSet[ValidatorIndex]()
-  let committee =
-    get_crosslink_committee(
-      state, data.target.epoch, data.crosslink.shard, stateCache)
+  let committee = get_beacon_committee(state, data.slot, data.index, stateCache)
   for i, index in committee:
     if bits[i]:
       result.incl index
@@ -548,11 +543,6 @@ proc check_attestation*(
   trace "process_attestation: beginning",
     attestation=attestation
 
-  if not (data.crosslink.shard < SHARD_COUNT):
-    warn("Attestation shard too high",
-      attestation_shard = data.crosslink.shard)
-    return
-
   if not (data.target.epoch == get_previous_epoch(state) or
       data.target.epoch == get_current_epoch(state)):
     warn("Target epoch not current or previous epoch")
@@ -572,19 +562,19 @@ proc check_attestation*(
       state_slot = shortLog(stateSlot))
     return
 
-  let committee = get_crosslink_committee(state, data.target.epoch, data.crosslink.shard, stateCache)
-  if attestation.aggregation_bits.len != attestation.custody_bits.len:
-    warn("Inconsistent aggregation and custody bits",
-      aggregation_bits_len = attestation.aggregation_bits.len,
-      custody_bits_len = attestation.custody_bits.len
-    )
-    return
-  if attestation.aggregation_bits.len != committee.len:
-    warn("Inconsistent aggregation and committee length",
-      aggregation_bits_len = attestation.aggregation_bits.len,
-      committee_len = committee.len
-    )
-    return
+  #let committee = get_crosslink_committee(state, data.target.epoch, data.crosslink.shard, stateCache)
+  #if attestation.aggregation_bits.len != attestation.custody_bits.len:
+  #  warn("Inconsistent aggregation and custody bits",
+  #    aggregation_bits_len = attestation.aggregation_bits.len,
+  #    custody_bits_len = attestation.custody_bits.len
+  #  )
+  #  return
+  #if attestation.aggregation_bits.len != committee.len:
+  #  warn("Inconsistent aggregation and committee length",
+  #    aggregation_bits_len = attestation.aggregation_bits.len,
+  #    committee_len = committee.len
+  #  )
+  #  return
 
   # Check FFG data, crosslink data, and signature
   let ffg_check_data = (data.source.epoch, data.source.root, data.target.epoch)
@@ -670,12 +660,5 @@ proc makeAttestationData*(
     target: Checkpoint(
       epoch: current_epoch,
       root: epoch_boundary_block_root
-    ),
-    crosslink: Crosslink(
-      shard: shard,
-      parent_root: hash_tree_root(state.current_crosslinks[shard]),
-      start_epoch: parent_crosslink_end_epoch,
-      end_epoch: min(
-        current_epoch, parent_crosslink_end_epoch + MAX_EPOCHS_PER_CROSSLINK),
     )
   )

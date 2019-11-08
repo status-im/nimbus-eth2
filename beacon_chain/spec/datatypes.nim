@@ -124,7 +124,7 @@ type
     epoch*: Epoch
     root*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#AttestationData
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#AttestationData
   AttestationData* = object
     slot*: Slot
     index*: uint64
@@ -135,9 +135,6 @@ type
     # FFG vote
     source*: Checkpoint
     target*: Checkpoint
-
-    # Crosslink vote
-    crosslink*: Crosslink
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#attestationdataandcustodybit
   AttestationDataAndCustodyBit* = object
@@ -720,8 +717,7 @@ func shortLog*(v: AttestationData): auto =
     source_epoch: shortLog(v.source.epoch),
     source_root: shortLog(v.source.root),
     target_epoch: shortLog(v.target.epoch),
-    target_root: shortLog(v.target.root),
-    crosslink: shortLog(v.crosslink)
+    target_root: shortLog(v.target.root)
   )
 
 chronicles.formatIt Slot: it.shortLog
