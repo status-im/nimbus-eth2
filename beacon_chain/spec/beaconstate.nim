@@ -174,33 +174,6 @@ func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
   increase_balance(
     state, whistleblower_index, whistleblowing_reward - proposer_reward)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_compact_committees_root
-func get_compact_committees_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
-  # Return the compact committee root at ``epoch``.
-
-  # TODO if profiling shows this as expensive, plumb through properly
-  var cache = get_empty_per_epoch_cache()
-
-  var committees : array[SHARD_COUNT, CompactCommittee]
-  let start_shard = get_start_shard(state, epoch)
-  for committee_number in 0'u64 ..< get_committee_count(state, epoch):
-    let shard = (start_shard + committee_number) mod SHARD_COUNT
-    for index in get_crosslink_committee(state, epoch, shard, cache):
-      let validator = state.validators[index]
-      committees[shard.int].pubkeys.add(validator.pubkey)
-      let
-        compact_balance =
-          validator.effective_balance div EFFECTIVE_BALANCE_INCREMENT
-
-        # `index` (top 6 bytes) + `slashed` (16th bit) + `compact_balance`
-        # (bottom 15 bits)
-        compact_validator =
-          uint64((index.uint64 shl 16) + (validator.slashed.uint64 shl 15) +
-            compact_balance)
-      committees[shard.int].compact_validators.add(compact_validator)
-
-  hash_tree_root(committees)
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#genesis
 func initialize_beacon_state_from_eth1*(
     eth1_block_hash: Eth2Digest,
@@ -262,16 +235,6 @@ func initialize_beacon_state_from_eth1*(
       validator.activation_eligibility_epoch = GENESIS_EPOCH
       validator.activation_epoch = GENESIS_EPOCH
 
-  # Populate active_index_roots and compact_committees_roots
-  let active_index_root = hash_tree_root(
-    sszList(
-      get_active_validator_indices(state, GENESIS_EPOCH),
-      VALIDATOR_REGISTRY_LIMIT + 1))
-
-  let committee_root = get_compact_committees_root(state, GENESIS_EPOCH)
-  for index in 0 ..< EPOCHS_PER_HISTORICAL_VECTOR:
-    state.active_index_roots[index] = active_index_root
-    state.compact_committees_roots[index] = committee_root
   state
 
 proc is_valid_genesis_state*(state: BeaconState): bool =
