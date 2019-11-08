@@ -915,6 +915,9 @@ when isMainModule:
   randomize()
   let config = BeaconNodeConf.load(version = fullVersionStr())
 
+  if config.showVersion:
+    quit(QuitSuccess)
+
   when compiles(defaultChroniclesStream.output.writer):
     defaultChroniclesStream.output.writer =
       proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe.} =
@@ -929,7 +932,7 @@ when isMainModule:
       # workaround for https://github.com/nim-lang/Nim/issues/4057
       setupForeignThreadGc()
     debug "Shutting down after having received SIGINT"
-    quit(1)
+    quit(QuitFailure)
   setControlCHook(controlCHandler)
 
   case config.cmd

@@ -69,6 +69,10 @@ type
                     "ETH: $attached_validators_balance"
       longform: "status-bar-contents" }: string
 
+    showVersion* {.
+      desc: "Show version and exit."
+      longform: "version" }: bool
+
     case cmd* {.
       command
       defaultValue: noCommand }: StartUpCommand
