@@ -22,19 +22,21 @@ const
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/configs/minimal.yaml#L4
 
-  # Changed
+  # TODO remove
   SHARD_COUNT* {.intdefine.} = 8
+
+  # Changed
   MAX_COMMITTEES_PER_SLOT* = 4
   TARGET_COMMITTEE_SIZE* = 4
 
   # Unchanged
-  MAX_VALIDATORS_PER_COMMITTEE* = 4096
+  MAX_VALIDATORS_PER_COMMITTEE* = 2048
   MIN_PER_EPOCH_CHURN_LIMIT* = 4
   CHURN_LIMIT_QUOTIENT* = 2^16
 
   # Changed
   SHUFFLE_ROUND_COUNT* = 10
-  MIN_GENESIS_ACTIVE_VALIDATOR_COUNT* {.intdefine.} = 99
+  MIN_GENESIS_ACTIVE_VALIDATOR_COUNT* {.intdefine.} = 64
   MIN_GENESIS_TIME* {.intdefine.} = 0
 
   # Constants
