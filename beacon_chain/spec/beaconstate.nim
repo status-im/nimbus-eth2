@@ -11,7 +11,7 @@ import
   ../extras, ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers, ./validator
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#is_valid_merkle_branch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#is_valid_merkle_branch
 func is_valid_merkle_branch(leaf: Eth2Digest, branch: openarray[Eth2Digest], depth: uint64, index: uint64, root: Eth2Digest): bool =
   ## Check if ``leaf`` at ``index`` verifies against the Merkle ``root`` and
   ## ``branch``.
@@ -489,7 +489,7 @@ func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
     signature: attestation.signature,
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#attestations
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#attestations
 proc check_attestation*(
     state: BeaconState, attestation: Attestation, flags: UpdateFlags,
     stateCache: var StateCache): bool =
@@ -511,35 +511,32 @@ proc check_attestation*(
     warn("Target epoch not current or previous epoch")
     return
 
-  let attestation_slot = get_attestation_data_slot(state, attestation.data)
-
-  if not (attestation_slot + MIN_ATTESTATION_INCLUSION_DELAY <= stateSlot):
+  if not (data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= stateSlot):
     warn("Attestation too new",
-      attestation_slot = shortLog(attestation_slot),
+      attestation_slot = shortLog(data.slot),
       state_slot = shortLog(stateSlot))
     return
 
-  if not (stateSlot <= attestation_slot + SLOTS_PER_EPOCH):
+  if not (stateSlot <= data.slot + SLOTS_PER_EPOCH):
     warn("Attestation too old",
-      attestation_slot = shortLog(attestation_slot),
+      attestation_slot = shortLog(data.slot),
       state_slot = shortLog(stateSlot))
     return
 
-  #let committee = get_crosslink_committee(state, data.target.epoch, data.crosslink.shard, stateCache)
-  #if attestation.aggregation_bits.len != attestation.custody_bits.len:
-  #  warn("Inconsistent aggregation and custody bits",
-  #    aggregation_bits_len = attestation.aggregation_bits.len,
-  #    custody_bits_len = attestation.custody_bits.len
-  #  )
-  #  return
-  #if attestation.aggregation_bits.len != committee.len:
-  #  warn("Inconsistent aggregation and committee length",
-  #    aggregation_bits_len = attestation.aggregation_bits.len,
-  #    committee_len = committee.len
-  #  )
-  #  return
+  let committee = get_beacon_committee(state, data.slot, data.index, stateCache)
+  if attestation.aggregation_bits.len != attestation.custody_bits.len:
+    warn("Inconsistent aggregation and custody bits",
+      aggregation_bits_len = attestation.aggregation_bits.len,
+      custody_bits_len = attestation.custody_bits.len
+    )
+    return
+  if attestation.aggregation_bits.len != committee.len:
+    warn("Inconsistent aggregation and committee length",
+      aggregation_bits_len = attestation.aggregation_bits.len,
+      committee_len = committee.len
+    )
+    return
 
-  # Check FFG data, crosslink data, and signature
   let ffg_check_data = (data.source.epoch, data.source.root, data.target.epoch)
 
   if data.target.epoch == get_current_epoch(state):
@@ -553,7 +550,6 @@ proc check_attestation*(
       warn("FFG data not matching current justified epoch")
       return
 
-  # Check signature
   if not is_valid_indexed_attestation(
       state, get_indexed_attestation(state, attestation, stateCache)):
     warn("process_attestation: signature or bitfields incorrect")

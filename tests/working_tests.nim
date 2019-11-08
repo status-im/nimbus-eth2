@@ -1,0 +1,11 @@
+import
+  official/test_fixture_bls,
+  official/test_fixture_shuffling,
+  official/test_fixture_ssz_generic_types,
+  official/test_fixture_sanity_slots,
+  official/test_fixture_operations_voluntary_exit,
+  official/test_fixture_ssz_uint,
+  official/test_fixture_operations_deposits,
+  spec_block_processing/test_process_attestation.nim,
+  spec_block_processing/test_process_deposits.nim,
+  spec_epoch_processing/test_process_justification_and_finalization
