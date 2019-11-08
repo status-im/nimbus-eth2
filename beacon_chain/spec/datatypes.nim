@@ -165,30 +165,6 @@ type
     validator_index*: uint64
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#transfer
-  Transfer* = object
-    sender*: uint64 ##\
-    ## Sender index
-
-    recipient*: uint64 ##\
-    ## Recipient index
-
-    # TODO amount and fee are Gwei-typed
-    amount*: uint64 ##\
-    ## Amount in Gwei
-
-    fee*: uint64 ##\
-    ## Fee in Gwei for block proposer
-
-    slot*: Slot ##\
-    ## Slot at which transfer must be processed
-
-    pubkey*: ValidatorPubKey ##\
-    ## Withdrawal pubkey
-
-    signature*: ValidatorSig ##\
-    ## Signature checked against withdrawal pubkey
-
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
@@ -223,7 +199,7 @@ type
     body_root*: Eth2Digest
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -235,7 +211,6 @@ type
     attestations*: seq[Attestation]
     deposits*: seq[Deposit]
     voluntary_exits*: seq[VoluntaryExit]
-    transfers*: seq[Transfer]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#beaconstate
   BeaconStateNew* = object
@@ -472,7 +447,6 @@ template foreachSpecType*(op: untyped) =
   op IndexedAttestation
   op PendingAttestation
   op ProposerSlashing
-  op Transfer
   op Validator
   op VoluntaryExit
 
@@ -698,7 +672,6 @@ func shortLog*(v: BeaconBlock): auto =
     attestations_len: v.body.attestations.len(),
     deposits_len: v.body.deposits.len(),
     voluntary_exits_len: v.body.voluntary_exits.len(),
-    transfers_len: v.body.transfers.len(),
     signature: shortLog(v.signature)
   )
 
