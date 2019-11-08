@@ -31,5 +31,4 @@ cli do(kind: string, file: string):
   of "eth1_data": printit(Eth1Data)
   of "state": printit(BeaconState)
   of "proposer_slashing": printit(ProposerSlashing)
-  of "transfer": printit(Transfer)
   of "voluntary_exit": printit(VoluntaryExit)
