@@ -186,11 +186,6 @@ type
     signature*: ValidatorSig ##\
     ## Proposer signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#compactcommittee
-  CompactCommittee* = object
-    pubkeys*: seq[ValidatorPubKey]
-    compact_validators*: seq[uint64]
-
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot
@@ -323,12 +318,6 @@ type
     previous_epoch_attestations*: seq[PendingAttestation]
     current_epoch_attestations*: seq[PendingAttestation]
 
-    # Crosslinks
-    previous_crosslinks*: array[SHARD_COUNT, Crosslink] ##\
-    ## Previous epoch snapshot
-
-    current_crosslinks*: array[SHARD_COUNT, Crosslink]
-
     # Finality
     justification_bits*: uint8 ##\
     ## Bit set for every recent justified epoch
@@ -363,17 +352,6 @@ type
 
     withdrawable_epoch*: Epoch ##\
     ## When validator can withdraw or transfer funds
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#crosslink
-  Crosslink* = object
-    shard*: Shard
-    parent_root*: Eth2Digest
-
-    start_epoch*: Epoch
-    end_epoch*: Epoch ##\
-    ## Crosslinking data
-
-    data_root*: Eth2Digest
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#pendingattestation
   PendingAttestation* = object
@@ -675,15 +653,6 @@ func shortLog*(v: BeaconBlock): auto =
     signature: shortLog(v.signature)
   )
 
-func shortLog*(v: Crosslink): auto =
-  (
-    shard: v.shard,
-    parent_root: shortLog(v.parent_root),
-    start_epoch: shortLog(v.start_epoch),
-    end_epoch: shortLog(v.end_epoch),
-    data_root: shortLog(v.data_root)
-  )
-
 func shortLog*(v: AttestationData): auto =
   (
     beacon_block_root: shortLog(v.beacon_block_root),
@@ -697,7 +666,6 @@ chronicles.formatIt Slot: it.shortLog
 chronicles.formatIt Epoch: it.shortLog
 chronicles.formatIt BeaconBlock: it.shortLog
 chronicles.formatIt AttestationData: it.shortLog
-chronicles.formatIt CrossLink: it.shortLog
 
 static:
   # Ensure that get_crosslink_committee(...) can access all committees, which
