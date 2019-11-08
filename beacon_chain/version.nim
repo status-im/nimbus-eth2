@@ -27,6 +27,8 @@ const
     # launch the beacon_node with metrics enabled during the interop lock-in.
     # We'll disable it once the lock-in is over.
 
+  gitRevision* = staticExec("git rev-parse --short HEAD")
+
 template versionAsStr*: string =
   $versionMajor & "." & $versionMinor & "." & $versionBuild
 
