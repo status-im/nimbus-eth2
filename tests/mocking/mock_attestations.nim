@@ -46,11 +46,6 @@ proc mockAttestationData(
     result.source = state.current_justified_checkpoint
 
   let target_epoch = compute_epoch_at_slot(slot)
-  let parent_crosslink = block:
-    if target_epoch == get_current_epoch(state):
-      state.current_crosslinks[shard]
-    else:
-      state.previous_crosslinks[shard]
 
   # Constructed to be provide exact equivalent index... to compute_committee(...)
   # as using epoch/shard.
