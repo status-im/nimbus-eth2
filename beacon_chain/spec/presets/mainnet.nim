@@ -50,8 +50,8 @@ const
   SHUFFLE_ROUND_COUNT* = 90
 
   # Constants (TODO: not actually configurable)
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#constants
-  BASE_REWARDS_PER_EPOCH* = 5
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#constants
+  BASE_REWARDS_PER_EPOCH* = 4
 
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
 
@@ -98,7 +98,7 @@ const
   ## wait towards the end of the slot and still have time to publish the
   ## attestation.
 
-  SLOTS_PER_EPOCH* {.intdefine.} = 64 ##\
+  SLOTS_PER_EPOCH* {.intdefine.} = 32 ##\
   ## (~6.4 minutes)
   ## slots that make up an epoch, at the end of which more heavy
   ## processing is done
@@ -132,7 +132,7 @@ const
 
   # State vector lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/configs/mainnet.yaml#L81
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/configs/mainnet.yaml#L81
   EPOCHS_PER_HISTORICAL_VECTOR* = 65536
   EPOCHS_PER_SLASHINGS_VECTOR* = 8192
   HISTORICAL_ROOTS_LIMIT* = 16777216
@@ -140,7 +140,7 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#rewards-and-penalties
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/configs/mainnet.yaml#L93
   BASE_REWARD_FACTOR* = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
   PROPOSER_REWARD_QUOTIENT* = 2'u64^3

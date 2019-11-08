@@ -53,7 +53,7 @@ else:
   {.fatal: "Preset \"" & const_preset ".nim\" is not supported.".}
 
 const
-  SPEC_VERSION* = "0.8.4" ## \
+  SPEC_VERSION* = "0.9.0" ## \
   ## Spec version we're aiming to be compatible with, right now
   ## TODO: improve this scheme once we can negotiate versions in protocol
 
@@ -265,7 +265,7 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#beaconstate
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -301,14 +301,8 @@ type
     ## VALIDATOR_REGISTRY_LIMIT
 
     # Shuffling
-    start_shard*: Shard
+    start_shard* {.dontSerialize.}: Shard
     randao_mixes*: array[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
-
-    active_index_roots*: array[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest] ##\
-    ## Active index digests for light clients
-
-    compact_committees_roots*: array[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest] ##\
-    ## Committee digests for light clients
 
     # Slashings
     slashings*: array[EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
@@ -357,7 +351,10 @@ type
   PendingAttestation* = object
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
+
+    # TODO this is a Slot
     inclusion_delay*: uint64
+
     proposer_index*: uint64
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#historicalbatch
@@ -392,6 +389,8 @@ type
     active_validator_indices_cache*:
       Table[Epoch, seq[ValidatorIndex]]
     start_shard_cache*: Table[Epoch, Shard]
+
+    # TODO still used?
     committee_count_cache*: Table[Epoch, uint64]
 
 when networkBackend == rlpxBackend:

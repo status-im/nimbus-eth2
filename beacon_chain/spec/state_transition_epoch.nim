@@ -62,7 +62,7 @@ func get_total_active_balance*(state: BeaconState): Gwei =
     state,
     get_active_validator_indices(state, get_current_epoch(state)))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#helper-functions-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#helper-functions-1
 func get_matching_source_attestations(state: BeaconState, epoch: Epoch):
     seq[PendingAttestation] =
   doAssert epoch in [get_current_epoch(state), get_previous_epoch(state)]
@@ -83,7 +83,7 @@ func get_matching_head_attestations(state: BeaconState, epoch: Epoch):
   filterIt(
      get_matching_source_attestations(state, epoch),
      it.data.beacon_block_root ==
-       get_block_root_at_slot(state, get_attestation_data_slot(state, it.data))
+       get_block_root_at_slot(state, it.data.slot)
   )
 
 func get_attesting_balance(
@@ -232,7 +232,7 @@ func get_base_reward(state: BeaconState, index: ValidatorIndex): Gwei =
   effective_balance * BASE_REWARD_FACTOR div
     integer_squareroot(total_balance) div BASE_REWARDS_PER_EPOCH
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#rewards-and-penalties-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#rewards-and-penalties-1
 func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
   let
@@ -308,10 +308,7 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
     rewards[attestation.proposer_index.int] += proposer_reward
     let max_attester_reward = get_base_reward(state, index) - proposer_reward
 
-    rewards[index] +=
-      ((max_attester_reward *
-       ((SLOTS_PER_EPOCH + MIN_ATTESTATION_INCLUSION_DELAY).uint64 -
-       attestation.inclusion_delay)) div SLOTS_PER_EPOCH).Gwei
+    rewards[index] += max_attester_reward div attestation.inclusion_delay
 
   # Inactivity penalty
   let finality_delay = previous_epoch - state.finalized_checkpoint.epoch
@@ -358,7 +355,7 @@ func process_slashings*(state: var BeaconState) =
       let penalty = penalty_numerator div total_balance * increment
       decrease_balance(state, index.ValidatorIndex, penalty)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#final-updates
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#final-updates
 proc process_final_updates*(state: var BeaconState) =
   let
     current_epoch = get_current_epoch(state)
@@ -394,6 +391,8 @@ proc process_final_updates*(state: var BeaconState) =
     )
     state.historical_roots.add (hash_tree_root(historical_batch))
 
+  # TODO remove this when start_shard finally goes away, but doesn't
+  # interfere with 0.9.0. Gone after 0.8.4.
   # Update start shard
   state.start_shard =
     (state.start_shard + get_shard_delta(state, current_epoch)) mod
