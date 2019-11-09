@@ -264,15 +264,12 @@ func writeValue*[T](w: var SszWriter, x: SizePrefixed[T]) =
     buf.appendVarint length
     cursor.writeAndFinalize buf.writtenBytes
 
-template fromSszBytes*(T: type BlsValue, bytes: openarray[byte]): auto =
-  fromBytes(T, bytes)
-
 template fromSszBytes*[T; N](_: type TypeWithMaxLen[T, N],
                              bytes: openarray[byte]): auto =
   mixin fromSszBytes
   fromSszBytes(T, bytes)
 
-proc fromSszBytes*(T: type BlsCurveType, bytes: openarray[byte]): auto =
+func fromSszBytes*(T: type BlsCurveType, bytes: openarray[byte]): auto =
   init(T, bytes)
 
 proc readValue*(r: var SszReader, val: var auto) =

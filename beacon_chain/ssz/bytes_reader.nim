@@ -55,10 +55,10 @@ template fromSszBytes*(T: type enum, bytes: openarray[byte]): auto =
 template fromSszBytes*(T: type BitSeq, bytes: openarray[byte]): auto =
   BitSeq @bytes
 
-proc fromSszBytes*[N](T: type BitList[N], bytes: openarray[byte]): auto =
+func fromSszBytes*[N](T: type BitList[N], bytes: openarray[byte]): auto =
   BitList[N] @bytes
 
-proc readSszValue*(input: openarray[byte], T: type): T =
+func readSszValue*(input: openarray[byte], T: type): T =
   mixin fromSszBytes, toSszType
 
   type T {.used.}= type(result)

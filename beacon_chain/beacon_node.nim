@@ -1,18 +1,18 @@
 import
   # Standard library
-  os, net, tables, osproc, random, strutils, times, strformat,
+  os, net, tables, random, strutils, times, strformat, memfiles,
 
   # Nimble packages
-  stew/[objects, bitseqs, byteutils],
+  stew/[objects, bitseqs, byteutils], stew/ranges/ptr_arith,
   chronos, chronicles, confutils, metrics,
   json_serialization/std/[options, sets], serialization/errors,
   eth/trie/db, eth/trie/backends/rocksdb_backend, eth/async_utils,
 
   # Local modules
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network],
-  conf, time, state_transition, fork_choice, ssz, beacon_chain_db,
+  conf, time, state_transition, fork_choice, beacon_chain_db,
   validator_pool, extras, attestation_pool, block_pool, eth2_network,
-  beacon_node_types, mainchain_monitor, version,
+  beacon_node_types, mainchain_monitor, version, ssz, ssz/dynamic_navigator,
   sync_protocol, request_manager, validator_keygen, interop, statusbar
 
 const
@@ -62,36 +62,57 @@ proc saveValidatorKey(keyName, key: string, conf: BeaconNodeConf) =
   writeFile(outputFile, key)
   info "Imported validator key", file = outputFile
 
-func stateSnapshotPath*(conf: BeaconNodeConf): string =
-  if conf.stateSnapshot.isSome:
-    conf.stateSnapshot.get.string
-  else:
-    conf.dataDir / genesisFile
-
 proc getStateFromSnapshot(node: BeaconNode, state: var BeaconState): bool =
   template conf: untyped = node.config
-  let snapshotFile = conf.stateSnapshotPath
 
-  if fileExists(snapshotFile):
-    template loadSnapshot(Format) =
-      info "Importing snapshot file", path = snapshotFile
-      state = loadFile(Format, snapshotFile, BeaconState)
+  var
+    genesisPath = conf.dataDir/genesisFile
+    snapshotContents: TaintedString
+    writeGenesisFile = false
 
-    let ext = splitFile(snapshotFile).ext
-    try:
-      if cmpIgnoreCase(ext, ".ssz") == 0:
-        loadSnapshot SSZ
-      elif cmpIgnoreCase(ext, ".json") == 0:
-        loadSnapshot Json
-      else:
-        error "The --state-snapshot option expects a json or a ssz file."
-        quit 1
-    except SerializationError as err:
-      stderr.write "Failed to import ", snapshotFile, "\n"
-      stderr.write err.formatMsg(snapshotFile), "\n"
+  if conf.stateSnapshot.isSome:
+    let
+      snapshotPath = conf.stateSnapshot.get.string
+      snapshotExt = splitFile(snapshotPath).ext
+
+    if cmpIgnoreCase(snapshotExt, ".ssz") != 0:
+      error "The supplied state snapshot must be a SSZ file",
+            suppliedPath = snapshotPath
       quit 1
 
-    result = true
+    snapshotContents = readFile(snapshotPath)
+    if fileExists(genesisPath):
+      let genesisContents = readFile(genesisPath)
+      if snapshotContents != genesisContents:
+        error "Data directory not empty. Existing genesis state differs from supplied snapshot",
+              dataDir = conf.dataDir.string, snapshot = snapshotPath
+        quit 1
+    else:
+      error "missing genesis file"
+      writeGenesisFile = true
+      genesisPath = snapshotPath
+  else:
+    try:
+      snapshotContents = readFile(genesisPath)
+    except CatchableError as err:
+      error "Failed to read genesis file", err = err.msg
+      quit 1
+
+  try:
+    state = SSZ.decode(snapshotContents, BeaconState)
+  except SerializationError as err:
+    error "Failed to import genesis file", path = genesisPath
+    quit 1
+
+  if writeGenesisFile:
+    try:
+      error "writing genesis file", path = conf.dataDir/genesisFile
+      writeFile(conf.dataDir/genesisFile, snapshotContents.string)
+    except CatchableError as err:
+      error "Failed to persist genesis file to data dir", err = err.msg
+      quit 1
+
+  result = true
 
 proc commitGenesisState(node: BeaconNode, tailState: BeaconState) =
   info "Got genesis state", hash = hash_tree_root(tailState)
@@ -910,6 +931,10 @@ when hasPrompt:
       # var t: Thread[ptr Prompt]
       # createThread(t, processPromptCommands, addr p)
 
+template bytes(memFile: MemFile): untyped =
+  let f = memFile
+  makeOpenArray(f.mem, byte, f.size)
+
 when isMainModule:
   echo "$# ($#)\p" % [clientId, gitRevision]
 
@@ -1031,3 +1056,29 @@ when isMainModule:
         config.depositWeb3Url,
         config.depositContractAddress,
         config.depositPrivateKey)
+
+  of query:
+    var
+      trieDB = trieDB newChainDb(string config.databaseDir)
+      db = BeaconChainDB.init(trieDB)
+
+    case config.queryCmd
+    of QueryCmd.nimQuery:
+      # TODO: This will handle a simple subset of Nim using
+      #       dot syntax and `[]` indexing.
+      echo "nim query: ", config.nimQueryExpression
+
+    of QueryCmd.get:
+      let pathFragments = config.getQueryPath.split('/', maxsplit = 1)
+      var navigator: DynamicSszNavigator
+
+      case pathFragments[0]
+      of "genesis_state":
+        var genesisMapFile = memfiles.open(config.dataDir/genesisFile)
+        navigator = DynamicSszNavigator.init(genesisMapFile.bytes, BeaconState)
+      else:
+        stderr.write config.getQueryPath & " is not a valid path"
+        quit 1
+
+      echo navigator.navigatePath(pathFragments[1 .. ^1]).toJson
+
