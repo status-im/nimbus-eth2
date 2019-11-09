@@ -102,7 +102,7 @@ suite "SSZ dynamic navigator":
     var fooOrig = Foo(bar: Bar(b: "bar", baz: Baz(i: 10'u64)))
     let fooEncoded = SSZ.encode(fooOrig)
 
-    var navFoo = DynamicSszNavigator.init(fooEncoded, typeInfo(Foo))
+    var navFoo = DynamicSszNavigator.init(fooEncoded, Foo)
 
     var navBar = navFoo.navigate("bar")
     check navBar.toJson(pretty = false) == """{"b":"bar","baz":{"i":10}}"""

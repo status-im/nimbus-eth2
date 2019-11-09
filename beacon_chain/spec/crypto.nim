@@ -221,7 +221,7 @@ else:
     # name from spec!
     ValidatorSig(kind: Real, blsValue: key.sign(domain, msg))
 
-proc fromBytes*[T](R: type BlsValue[T], bytes: openarray[byte]): R =
+func fromBytes*[T](R: type BlsValue[T], bytes: openarray[byte]): R =
   # This is a workaround, so that we can deserialize the serialization of a
   # default-initialized BlsValue without raising an exception
   when defined(ssz_testing):
@@ -229,20 +229,22 @@ proc fromBytes*[T](R: type BlsValue[T], bytes: openarray[byte]): R =
     R(kind: OpaqueBlob, blob: toArray(result.blob.len, bytes))
   else:
     # Try if valid BLS value
-    let success = init(result.blsValue, bytes)
+    # TODO: address the side-effects in nim-blscurve
+    {.noSideEffect.}:
+      let success = init(result.blsValue, bytes)
     if not success:
       # TODO: chronicles trace
       result = R(kind: OpaqueBlob)
       assert result.blob.len == bytes.len
       result.blob[result.blob.low .. result.blob.high] = bytes
 
-proc fromHex*[T](R: type BlsValue[T], hexStr: string): R =
+func fromHex*[T](R: type BlsValue[T], hexStr: string): R =
   fromBytes(R, hexToSeqByte(hexStr))
 
-proc initFromBytes*[T](val: var BlsValue[T], bytes: openarray[byte]) =
+func initFromBytes*[T](val: var BlsValue[T], bytes: openarray[byte]) =
   val = fromBytes(BlsValue[T], bytes)
 
-proc initFromBytes*(val: var BlsCurveType, bytes: openarray[byte]) =
+func initFromBytes*(val: var BlsCurveType, bytes: openarray[byte]) =
   val = init(type(val), bytes)
 
 proc writeValue*(writer: var JsonWriter, value: ValidatorPubKey) {.inline.} =
@@ -329,3 +331,7 @@ proc toGaugeValue*(hash: Eth2Digest): int64 =
   # to the ETH2 metrics spec:
   # https://github.com/ethereum/eth2.0-metrics/blob/6a79914cb31f7d54858c7dd57eee75b6162ec737/metrics.md#interop-metrics
   cast[int64](uint64.fromBytesLE(hash.data[24..31]))
+
+template fromSszBytes*(T: type BlsValue, bytes: openarray[byte]): auto =
+  fromBytes(T, bytes)
+

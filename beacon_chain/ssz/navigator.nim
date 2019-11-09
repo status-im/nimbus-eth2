@@ -95,10 +95,10 @@ func indexVarSizeList(m: MemRange, idx: int): MemRange =
 
   MemRange(startAddr: m.startAddr.shift(elemPos), length: endPos - elemPos)
 
-template `[]`*[T](n: SszNavigator[seq[T]], idx: int): SszNavigator[T] =
+template indexList(n, idx, T: untyped): untyped =
   type R = T
   mixin toSszType
-  type ElemType = type toSszType(default T)
+  type ElemType = type toSszType(default R)
   when isFixedSize(ElemType):
     const elemSize = fixedPortionSize(ElemType)
     let elemPos = idx * elemSize
@@ -108,8 +108,19 @@ template `[]`*[T](n: SszNavigator[seq[T]], idx: int): SszNavigator[T] =
   else:
     SszNavigator[R](m: indexVarSizeList(n.m, idx))
 
+template `[]`*[T](n: SszNavigator[seq[T]], idx: int): SszNavigator[T] =
+  indexList n, idx, T
+
+template `[]`*[R, T](n: SszNavigator[array[R, T]], idx: int): SszNavigator[T] =
+  indexList(n, idx, T)
+
 func `[]`*[T](n: SszNavigator[T]): T =
-  readSszValue(toOpenArray(n.m), T)
+  mixin toSszType, fromSszBytes
+  type SszRepr = type(toSszType default(T))
+  when type(SszRepr) is type(T):
+    readSszValue(toOpenArray(n.m), T)
+  else:
+    fromSszBytes(T, toOpenArray(n.m))
 
 converter derefNavigator*[T](n: SszNavigator[T]): T =
   n[]

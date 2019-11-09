@@ -1,7 +1,11 @@
 import
-  parseutils,
+  strutils, parseutils,
   faststreams/output_stream, json_serialization/writer,
+  ../spec/datatypes,
   types, bytes_reader, navigator
+
+export
+  navigator
 
 type
   ObjKind = enum
@@ -73,9 +77,11 @@ proc typeInfo*(T: type): TypeInfo =
   {.gcsafe, noSideEffect.}: res
 
 func genTypeInfo(T: type): TypeInfo =
-  mixin enumAllSerializedFields
-
-  result = when T is object:
+  mixin toSszType, enumAllSerializedFields
+  type SszType = type(toSszType default(T))
+  result = when type(SszType) isnot T:
+    TypeInfo(kind: LeafValue)
+  elif T is object:
     var fields: seq[FieldInfo]
     enumAllSerializedFields(T):
       fields.add FieldInfo(name: fieldName,
@@ -108,13 +114,32 @@ func navigate*(n: DynamicSszNavigator, path: string): DynamicSszNavigator {.
     var idx: int
     let consumed = parseInt(path, idx)
     if consumed == 0 or idx < 0:
-      raise newException(ValueError, "Indexing should be done with natural numbers")
+      raise newException(KeyError, "Indexing should be done with natural numbers")
     return n[idx]
   else:
     doAssert false, "Navigation should be terminated once you reach a leaf value"
 
-func init*(T: type DynamicSszNavigator, bytes: openarray[byte], typ: TypeInfo): T =
-  T(m: MemRange(startAddr: unsafeAddr bytes[0], length: bytes.len), typ: typ)
+template navigatePathImpl(nav, iterabalePathFragments: untyped) =
+  result = nav
+  for pathFragment in iterabalePathFragments:
+    if pathFragment.len == 0:
+      continue
+    result = result.navigate(pathFragment)
+    if result.typ.kind == LeafValue:
+      return
+
+func navigatePath*(n: DynamicSszNavigator, path: string): DynamicSszNavigator {.
+                   raises: [Defect, ValueError, MalformedSszError] .} =
+  navigatePathImpl n, split(path, '/')
+
+func navigatePath*(n: DynamicSszNavigator, path: openarray[string]): DynamicSszNavigator {.
+                   raises: [Defect, ValueError, MalformedSszError] .} =
+  navigatePathImpl n, path
+
+func init*(T: type DynamicSszNavigator,
+           bytes: openarray[byte], Navigated: type): T =
+  T(m: MemRange(startAddr: unsafeAddr bytes[0], length: bytes.len),
+    typ: typeInfo(Navigated))
 
 func writeJson*(n: DynamicSszNavigator, outStream: OutputStreamVar, pretty = true) =
   n.typ.jsonPrinter(n.m, outStream, pretty)
