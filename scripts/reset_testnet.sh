@@ -33,17 +33,9 @@ while true; do
     esac
 done
 
-if [[ ! -d "$ETH2_TESTNETS"  ]]; then
-  git clone git@github.com:eth2-clients/eth2-testnets "$ETH2_TESTNETS"
-fi
-
-pushd "$ETH2_TESTNETS"
-  # Make sure we've checked out the very latest master
-  git reset --hard HEAD
-  git checkout --detach
-  git fetch -f origin master:master
-  git checkout master
-popd
+rm -rf "$ETH2_TESTNETS"
+# "--depth 1" does not make it faster, for such a small repo
+git clone --quiet git@github.com:eth2-clients/eth2-testnets "$ETH2_TESTNETS"
 
 ETH2_TESTNETS_ABS=$(cd "$ETH2_TESTNETS"; pwd)
 NETWORK_DIR_ABS="$ETH2_TESTNETS_ABS/nimbus/$NETWORK_NAME"

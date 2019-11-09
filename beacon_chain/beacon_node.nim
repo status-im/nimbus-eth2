@@ -910,6 +910,8 @@ when hasPrompt:
       # createThread(t, processPromptCommands, addr p)
 
 when isMainModule:
+  echo "$# ($#)\p" % [clientId, gitRevision]
+
   randomize()
   let config = BeaconNodeConf.load(version = fullVersionStr())
 
