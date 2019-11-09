@@ -179,11 +179,7 @@ func get_beacon_committee*(state: BeaconState, slot: Slot, index: uint64, cache:
   # TODO profiling & make sure caches populated
   compute_committee(
     cache.active_validator_indices_cache[epoch],
-
-    # TODO switch to 0.9 seed calculation
-    #get_seed(state, epoch, DOMAIN_BEACON_ATTESTER),
-    get_seed(state, epoch),
-
+    get_seed(state, epoch, DOMAIN_BEACON_ATTESTER),
     (slot mod SLOTS_PER_EPOCH) * committees_per_slot + index,
 
     # TODO switch to 0.9's
@@ -214,35 +210,30 @@ func get_empty_per_epoch_cache*(): StateCache =
   result.start_shard_cache = initTable[Epoch, Shard]()
   result.committee_count_cache = initTable[Epoch, uint64]()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_beacon_proposer_index
-func get_beacon_proposer_index*(state: BeaconState, stateCache: var StateCache):
-    ValidatorIndex =
-  # Return the beacon proposer index at the current slot.
-  const
-    MAX_RANDOM_BYTE = 255
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#compute_proposer_index
+func compute_proposer_index*(state: BeaconState, indices: seq[ValidatorIndex],
+    seed: Eth2Digest, stateCache: var StateCache): ValidatorIndex =
+  # Return from ``indices`` a random index sampled by effective balance.
+  const MAX_RANDOM_BYTE = 255
 
+  doAssert len(indices) > 0
+
+  # TODO fixme; should only be run once per slot and cached
+  # There's exactly one beacon proposer per slot.
   let
-    epoch = get_current_epoch(state)
-    committees_per_slot =
-      get_committee_count(state, epoch) div SLOTS_PER_EPOCH
-    offset = committees_per_slot * (state.slot mod SLOTS_PER_EPOCH)
-    shard = (get_start_shard(state, epoch) + offset) mod SHARD_COUNT
-    first_committee = get_crosslink_committee(state, epoch, shard, stateCache)
-    seed = get_seed(state, epoch)
+    seq_len = indices.len.uint64
+    shuffled_seq = get_shuffled_seq(seed, seq_len)
 
-  # This mainly fails when there are no active validators for some reason
-  doAssert first_committee.len > 0
+  doAssert seq_len == shuffled_seq.len.uint64
 
   var
     i = 0
-    buffer: array[(32+8), byte]
+    buffer: array[32+8, byte]
   buffer[0..31] = seed.data
   while true:
-    # TODO update to new int_to_bytes interface
     buffer[32..39] = int_to_bytes8(i.uint64 div 32)
     let
-      candidate_index = first_committee[((epoch + i.uint64) mod
-        len(first_committee).uint64).int]
+      candidate_index = shuffled_seq[(i.uint64 mod seq_len).int]
       random_byte = (eth2hash(buffer).data)[i mod 32]
       effective_balance =
         state.validators[candidate_index].effective_balance
@@ -250,3 +241,19 @@ func get_beacon_proposer_index*(state: BeaconState, stateCache: var StateCache):
         MAX_EFFECTIVE_BALANCE * random_byte:
       return candidate_index
     i += 1
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#get_beacon_proposer_index
+func get_beacon_proposer_index*(state: BeaconState, stateCache: var StateCache):
+    ValidatorIndex =
+  # Return the beacon proposer index at the current slot.
+  let epoch = get_current_epoch(state)
+
+  var buffer: array[32 + 8, byte]
+  buffer[0..31] = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER).data
+  buffer[32..39] = int_to_bytes8(state.slot.uint64)
+
+  let
+    seed = eth2hash(buffer)
+    indices = get_active_validator_indices(state, epoch)
+
+  compute_proposer_index(state, indices, seed, stateCache)
