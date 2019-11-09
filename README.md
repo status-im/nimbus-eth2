@@ -117,7 +117,7 @@ mingw32-make test # run the test suite
 
 Raspberry Pi support is experimental.
 
-We recommend you remove any cover or use a fan as the Raspberry Pi will get hot (85°C) and throttle.
+We recommend you remove any cover or use a fan; the Raspberry Pi will get hot (85°C) and throttle.
 
 * Raspberry PI 3b+ or Raspberry Pi 4b.
 * 64gb SD Card (less might work too, but the default recommended 4-8GB will probably be too small)
