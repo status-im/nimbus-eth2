@@ -415,7 +415,6 @@ template foreachSpecType*(op: untyped) =
   op BeaconBlockBody
   op BeaconBlockHeader
   op BeaconState
-  op Crosslink
   op Deposit
   op DepositData
   op Eth1Data
