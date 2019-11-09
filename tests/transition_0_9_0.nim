@@ -4,6 +4,7 @@ import
   official/test_fixture_operations_proposer_slashings,
   official/test_fixture_shuffling,
   official/test_fixture_operations_block_header,
+  official/test_fixture_sanity_blocks,
   official/test_fixture_ssz_generic_types,
   official/test_fixture_sanity_slots,
   official/test_fixture_operations_voluntary_exit,

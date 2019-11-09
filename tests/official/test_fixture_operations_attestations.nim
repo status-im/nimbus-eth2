@@ -70,8 +70,6 @@ suite "Official - Operations - Attestations " & preset():
   runTest("before inclusion delay", before_inclusion_delay)
   runTest("after_epoch_slots", after_epoch_slots)
   runTest("old source epoch", old_source_epoch)
-  runTest("wrong shard", wrong_shard)
-  runTest("invalid shard", invalid_shard)
   runTest("old target epoch", old_target_epoch)
   runTest("future target epoch", future_target_epoch)
   runTest("new source epoch", new_source_epoch)
