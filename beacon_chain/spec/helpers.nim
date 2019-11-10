@@ -150,17 +150,19 @@ func get_domain*(
 func get_domain*(state: BeaconState, domain_type: DomainType): Domain =
   get_domain(state, domain_type, get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_seed
-func get_seed*(state: BeaconState, epoch: Epoch): Eth2Digest =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#get_seed
+func get_seed*(state: BeaconState, epoch: Epoch, domain_type: DomainType): Eth2Digest =
   # Generate a seed for the given ``epoch``.
 
-  var seed_input : array[32*3, byte]
+  var seed_input : array[4+8+32, byte]
 
   # Detect potential underflow
-  doAssert EPOCHS_PER_HISTORICAL_VECTOR >= MIN_SEED_LOOKAHEAD
+  static:
+    doAssert EPOCHS_PER_HISTORICAL_VECTOR > MIN_SEED_LOOKAHEAD
 
-  seed_input[0..31] =
+  seed_input[0..3] = int_to_bytes4(domain_type.uint64)
+  seed_input[4..11] = int_to_bytes8(epoch.uint64)
+  seed_input[12..43] =
     get_randao_mix(state,
       epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1).data
-  seed_input[64..95] = int_to_bytes32(epoch)
   eth2hash(seed_input)
