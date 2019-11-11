@@ -936,13 +936,11 @@ template bytes(memFile: MemFile): untyped =
   makeOpenArray(f.mem, byte, f.size)
 
 when isMainModule:
-  echo "$# ($#)\p" % [clientId, gitRevision]
-
   randomize()
-  let config = BeaconNodeConf.load(version = fullVersionStr())
 
-  if config.showVersion:
-    quit(QuitSuccess)
+  let config = BeaconNodeConf.load(
+    version = clientId,
+    copyrightBanner = clientId & "\p" & copyrights)
 
   when compiles(defaultChroniclesStream.output.writer):
     defaultChroniclesStream.output.writer =

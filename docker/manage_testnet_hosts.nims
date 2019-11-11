@@ -16,18 +16,18 @@ type
     of reset_network:
       depositsDir {.
         defaultValue: "deposits"
-        longform: "deposits-dir" }: string
+        name: "deposits-dir" }: string
 
       networkDataDir {.
         defaultValue: "data"
-        longform: "network-data-dir"}: string
+        name: "network-data-dir" }: string
 
       totalValidators {.
-        longform: "total-validators" }: int
+        name: "total-validators" }: int
 
       totalUserValidators {.
         defaultValue: 0
-        longform: "user-validators" }: int
+        name: "user-validators" }: int
 
 var conf = load CliConfig
 

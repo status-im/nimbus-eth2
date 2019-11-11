@@ -33,36 +33,60 @@ type
     noCommand
 
   InspectorConf* = object
-    logLevel* {.desc: "Sets the inspector's verbosity log level",
-                longform: "verbosity", shortform: "v",
-                defaultValue: LogLevel.TRACE.}: LogLevel
-    fullPeerId* {.desc: "Sets the inspector full PeerID output",
-                  longform: "fullpeerid", shortform: "p",
-                  defaultValue: false.}: bool
-    floodSub* {.desc: "Sets inspector engine to FloodSub",
-                longform: "floodsub", shortform: "f",
-                defaultValue: true.}: bool
-    gossipSub* {.desc: "Sets inspector engine to GossipSub",
-                 longform: "gossipsub", shortform: "g",
-                 defaultValue: false.}: bool
-    signFlag* {.desc: "Sets the inspector's to send/verify signatures in " &
-                      "pubsub messages",
-                longform: "sign", shortform: "s", defaultValue: false.}: bool
-    topics* {.desc: "Sets monitored topics, where `*` - all, " &
-                    "[a]ttestations, [b]locks, [e]xits, " &
-                    "[ps]roposer slashings, [as]ttester slashings",
-              longform: "topics", shortform: "t".}: seq[string]
-    customTopics* {.desc: "Sets custom monitored topics",
-                    longform: "custom", shortform: "c".}: seq[string]
+    logLevel* {.
+      defaultValue: LogLevel.TRACE
+      desc: "Sets the inspector's verbosity log level"
+      abbr: "v"
+      name: "verbosity" }: LogLevel
+
+    fullPeerId* {.
+      defaultValue: false
+      desc: "Sets the inspector full PeerID output"
+      abbr: "p"
+      name: "fullpeerid" }: bool
+
+    floodSub* {.
+      defaultValue: true
+      desc: "Sets inspector engine to FloodSub"
+      abbr: "f"
+      name: "floodsub" }: bool
+
+    gossipSub* {.
+      defaultValue: false
+      desc: "Sets inspector engine to GossipSub"
+      abbr: "g"
+      name: "gossipsub" }: bool
+
+    signFlag* {.
+      defaultValue: false
+      desc: "Sets the inspector's to send/verify signatures in pubsub messages"
+      abbr: "s"
+      name: "sign" }: bool
+
+    topics* {.
+      desc: "Sets monitored topics, where `*` - all, " &
+            "[a]ttestations, [b]locks, [e]xits, " &
+            "[ps]roposer slashings, [as]ttester slashings"
+      abbr: "t"
+      name: "topics" }: seq[string]
+
+    customTopics* {.
+      desc: "Sets custom monitored topics"
+      abbr: "c"
+      name: "custom" }: seq[string]
+
     bootstrapFile* {.
+      defaultValue: ""
       desc: "Specifies file which holds bootstrap nodes multiaddresses " &
-            "delimeted by CRLF",
-      longform: "bootfile", shortform: "l", defaultValue: "".}: string
+            "delimeted by CRLF"
+      abbr: "l"
+      name: "bootfile" }: string
+
     bootstrapNodes* {.
       desc: "Specifies one or more bootstrap nodes" &
-            " to use when connecting to the network",
-      longform: "bootnodes", shortform: "b".}: seq[string]
-
+            " to use when connecting to the network"
+      abbr: "b"
+      name: "bootnodes" }: seq[string]
 
 proc getTopic(filter: TopicFilter): string {.inline.} =
   case filter
