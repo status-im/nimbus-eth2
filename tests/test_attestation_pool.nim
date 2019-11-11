@@ -40,10 +40,10 @@ suite "Attestation pool processing" & preset():
     withPool:
       let
         # Create an attestation for slot 1!
-        crosslink_committee = get_crosslink_committee(state.data.data,
-          compute_epoch_at_slot(state.data.data.slot), 1, cache)
+        beacon_committee = get_beacon_committee(state.data.data,
+          state.data.data.slot, 0, cache)
         attestation = makeAttestation(
-          state.data.data, state.blck.root, crosslink_committee[0])
+          state.data.data, state.blck.root, beacon_committee[0])
 
       pool.add(state.data.data, state.blck, attestation)
 
@@ -60,10 +60,10 @@ suite "Attestation pool processing" & preset():
     withPool:
       let
         # Create an attestation for slot 1!
-        cc0 = get_crosslink_committee(state.data.data,
-          compute_epoch_at_slot(state.data.data.slot), 1, cache)
+        bc0 = get_beacon_committee(state.data.data,
+          state.data.data.slot, 0, cache)
         attestation0 = makeAttestation(
-          state.data.data, state.blck.root, cc0[0])
+          state.data.data, state.blck.root, bc0[0])
 
       process_slots(state.data, state.data.data.slot + 1)
 
@@ -90,12 +90,12 @@ suite "Attestation pool processing" & preset():
     withPool:
       let
         # Create an attestation for slot 1!
-        cc0 = get_crosslink_committee(state.data.data,
-          compute_epoch_at_slot(state.data.data.slot), 1, cache)
+        bc0 = get_beacon_committee(state.data.data,
+          state.data.data.slot, 0, cache)
         attestation0 = makeAttestation(
-          state.data.data, state.blck.root, cc0[0])
+          state.data.data, state.blck.root, bc0[0])
         attestation1 = makeAttestation(
-          state.data.data, state.blck.root, cc0[1])
+          state.data.data, state.blck.root, bc0[1])
 
       pool.add(state.data.data, state.blck, attestation0)
       pool.add(state.data.data, state.blck, attestation1)
@@ -114,12 +114,12 @@ suite "Attestation pool processing" & preset():
 
       var
         # Create an attestation for slot 1!
-        cc0 = get_crosslink_committee(state.data.data,
-          compute_epoch_at_slot(state.data.data.slot), 1, cache)
+        bc0 = get_beacon_committee(state.data.data,
+          state.data.data.slot, 0, cache)
         attestation0 = makeAttestation(
-          state.data.data, state.blck.root, cc0[0])
+          state.data.data, state.blck.root, bc0[0])
         attestation1 = makeAttestation(
-          state.data.data, state.blck.root, cc0[1])
+          state.data.data, state.blck.root, bc0[1])
 
       attestation0.combine(attestation1, {skipValidation})
 
@@ -139,12 +139,12 @@ suite "Attestation pool processing" & preset():
     withPool:
       var
         # Create an attestation for slot 1!
-        cc0 = get_crosslink_committee(state.data.data,
-          compute_epoch_at_slot(state.data.data.slot), 1, cache)
+        bc0 = get_beacon_committee(state.data.data,
+          state.data.data.slot, 0, cache)
         attestation0 = makeAttestation(
-          state.data.data, state.blck.root, cc0[0])
+          state.data.data, state.blck.root, bc0[0])
         attestation1 = makeAttestation(
-          state.data.data, state.blck.root, cc0[1])
+          state.data.data, state.blck.root, bc0[1])
 
       attestation0.combine(attestation1, {skipValidation})
 

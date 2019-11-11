@@ -64,8 +64,7 @@ func get_committee_count_at_slot*(state: BeaconState, slot: Slot): uint64 =
     1, MAX_COMMITTEES_PER_SLOT).uint64
   result = committees_per_slot
 
-  # Otherwise, get_crosslink_committee_at_slot(...) cannot access some
-  # committees.
+  # Otherwise, get_beacon_committee(...) cannot access some committees.
   doAssert (SLOTS_PER_EPOCH * MAX_COMMITTEES_PER_SLOT).uint64 >= result
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#get_current_epoch

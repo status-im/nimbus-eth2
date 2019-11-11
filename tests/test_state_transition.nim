@@ -84,7 +84,7 @@ suite "Block processing" & preset():
     let
       # Create an attestation for slot 1 signed by the only attester we have!
       crosslink_committee =
-        get_crosslink_committee(state, compute_epoch_at_slot(state.slot), 0, cache)
+        get_beacon_committee(state, state.slot, 0, cache)
       attestation = makeAttestation(
         state, previous_block_root, crosslink_committee[0])
 
