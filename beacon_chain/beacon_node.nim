@@ -513,7 +513,8 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     var cache = get_empty_per_epoch_cache()
     let
       epoch = compute_epoch_at_slot(slot)
-      committees_per_slot = get_committee_count(state, epoch) div SLOTS_PER_EPOCH
+      committees_per_slot =
+        get_committee_count_at_slot(state, epoch.compute_start_slot_at_epoch)
       offset = committees_per_slot * (slot mod SLOTS_PER_EPOCH)
       slot_start_shard = (get_start_shard(state, epoch) + offset) mod SHARD_COUNT
 

@@ -22,12 +22,13 @@ const
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/configs/minimal.yaml#L4
 
-  # TODO remove
-  SHARD_COUNT* {.intdefine.} = 8
-
   # Changed
   MAX_COMMITTEES_PER_SLOT* = 4
   TARGET_COMMITTEE_SIZE* = 4
+
+  # TODO remove
+  SHARD_COUNT* = 32 ##\
+  ## SLOTS_PER_EPOCH * MAX_COMMITTEES_PER_SLOT
 
   # Unchanged
   MAX_VALIDATORS_PER_COMMITTEE* = 2048

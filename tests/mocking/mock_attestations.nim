@@ -108,7 +108,8 @@ proc mockAttestationImpl(
   let
     epoch = compute_epoch_at_slot(slot)
     epoch_start_shard = get_start_shard(state, epoch)
-    committees_per_slot = get_committee_count(state, epoch) div SLOTS_PER_EPOCH
+    committees_per_slot = get_committee_count_at_slot(
+      state, epoch.compute_start_slot_at_epoch)
     shard = (
       epoch_start_shard +
       committees_per_slot * (slot mod SLOTS_PER_EPOCH)

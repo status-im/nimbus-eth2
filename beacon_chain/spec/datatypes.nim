@@ -665,11 +665,6 @@ chronicles.formatIt Epoch: it.shortLog
 chronicles.formatIt BeaconBlock: it.shortLog
 chronicles.formatIt AttestationData: it.shortLog
 
-static:
-  # Ensure that get_crosslink_committee(...) can access all committees, which
-  # requires that SHARD_COUNT >= get_committee_count(...)
-  doAssert SHARD_COUNT >= SLOTS_PER_EPOCH, "Shard count should match or exceed number of slots per epoch"
-
 import json_serialization
 export json_serialization
 export writeValue, readValue
