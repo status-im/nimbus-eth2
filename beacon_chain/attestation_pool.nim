@@ -164,7 +164,7 @@ proc add*(pool: var AttestationPool,
   # TODO inefficient data structures..
 
   let
-    attestationSlot = get_attestation_data_slot(state, attestation.data)
+    attestationSlot = attestation.data.slot
     idx = pool.slotIndex(state, attestationSlot)
     slotData = addr pool.slots[idx]
     validation = Validation(
