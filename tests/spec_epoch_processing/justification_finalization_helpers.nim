@@ -18,16 +18,6 @@ import
 # Justification and finalization utils
 # ---------------------------------------------------------------
 
-iterator getShardsForSlot(state: BeaconState, slot: Slot): Shard =
-  let
-    epoch = compute_epoch_at_slot(slot)
-    epoch_start_shard = get_start_shard(state, epoch)
-    committees_per_slot = get_committee_count_at_slot(state, slot)
-    shard = epoch_start_shard + committees_per_slot * (slot mod SLOTS_PER_EPOCH)
-
-  for i in 0 ..< committees_per_slot.int:
-    yield shard + Shard(i)
-
 proc addMockAttestations*(
        state: var BeaconState, epoch: Epoch,
        source, target: Checkpoint,
@@ -52,15 +42,12 @@ proc addMockAttestations*(
 
   # for-loop of distinct type is broken: https://github.com/nim-lang/Nim/issues/12074
   for slot in start_slot.uint64 ..< start_slot.uint64 + SLOTS_PER_EPOCH:
-    for shard in getShardsForSlot(state, slot.Slot):
-
+    for index in 0 ..< get_committee_count_at_slot(state, slot.Slot):
       # TODO: can we move cache out of the loops
       var cache = get_empty_per_epoch_cache()
 
-      let committee = get_crosslink_committee(
-                        state, slot.Slot.compute_epoch_at_slot(),
-                        shard, cache
-                      )
+      let committee = get_beacon_committee(
+                        state, slot.Slot, index, cache)
 
       # Create a bitfield filled with the given count per attestation,
       # exactly on the right-most part of the committee field.
@@ -80,12 +67,11 @@ proc addMockAttestations*(
         if idx != -1:
           aggregation_bits[idx] = false
 
-      let (ad_slot, ad_index) = get_slot_and_index(state, epoch, shard)
       attestations[].add PendingAttestation(
         aggregation_bits: aggregation_bits,
         data: AttestationData(
-          slot: ad_slot,
-          index: ad_index,
+          slot: slot.Slot,
+          index: index,
           beacon_block_root: [byte 0xFF] * 32, # Irrelevant for testing
           source: source,
           target: target,
