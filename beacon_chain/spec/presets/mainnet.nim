@@ -49,14 +49,14 @@ const
   SHUFFLE_ROUND_COUNT* = 90
 
   # Constants (TODO: not actually configurable)
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#constants
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#constants
   BASE_REWARDS_PER_EPOCH* = 4
 
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/configs/mainnet.yaml#L33
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/configs/mainnet.yaml#L33
 
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9 ##\
   ## Minimum amounth of ETH that can be deposited in one call - deposits can
@@ -73,14 +73,14 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/configs/mainnet.yaml#L45
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/configs/mainnet.yaml#L45
 
   GENESIS_SLOT* = 0.Slot
   BLS_WITHDRAWAL_PREFIX* = 0'u8
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.3/configs/mainnet.yaml#L52
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/configs/mainnet.yaml#L52
 
   SECONDS_PER_SLOT*{.intdefine.} = 12'u64 # Compile with -d:SECONDS_PER_SLOT=1 for 6x faster slots
   ## TODO consistent time unit across projects, similar to C++ chrono?
@@ -131,7 +131,7 @@ const
 
   # State vector lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/configs/mainnet.yaml#L81
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/configs/mainnet.yaml#L81
   EPOCHS_PER_HISTORICAL_VECTOR* = 65536
   EPOCHS_PER_SLASHINGS_VECTOR* = 8192
   HISTORICAL_ROOTS_LIMIT* = 16777216
@@ -139,7 +139,7 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/configs/mainnet.yaml#L93
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/configs/mainnet.yaml#L93
   BASE_REWARD_FACTOR* = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
   PROPOSER_REWARD_QUOTIENT* = 2'u64^3
@@ -148,7 +148,7 @@ const
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/configs/mainnet.yaml#L107
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/configs/mainnet.yaml#L107
   MAX_PROPOSER_SLASHINGS* = 2^4
   MAX_ATTESTER_SLASHINGS* = 2^0
   MAX_ATTESTATIONS* = 2^7
@@ -161,7 +161,7 @@ const
 type
   # Domains
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#domain-types
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#domain-types
   DomainType* {.pure.} = enum
     DOMAIN_BEACON_PROPOSER = 0
     DOMAIN_BEACON_ATTESTER = 1

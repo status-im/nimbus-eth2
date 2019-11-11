@@ -42,7 +42,7 @@ const
 
   # Constants
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#constants
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#constants
   # TODO "The following values are (non-configurable) constants" ...
   # Unchanged
   BASE_REWARDS_PER_EPOCH* = 4
@@ -51,7 +51,7 @@ const
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/configs/minimal.yaml#L32
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/configs/minimal.yaml#L32
 
   # Unchanged
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9
@@ -61,7 +61,7 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/configs/minimal.yaml#L44
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/configs/minimal.yaml#L44
 
   # Unchanged
   GENESIS_SLOT* = 0.Slot
@@ -95,7 +95,7 @@ const
 
   # State vector lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/configs/minimal.yaml#L83
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/configs/minimal.yaml#L83
 
   # Changed
   EPOCHS_PER_HISTORICAL_VECTOR* = 64
@@ -105,7 +105,7 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/configs/minimal.yaml#L95
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/configs/minimal.yaml#L95
 
   BASE_REWARD_FACTOR* = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
@@ -115,7 +115,7 @@ const
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/configs/minimal.yaml#L109
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/configs/minimal.yaml#L109
 
   MAX_PROPOSER_SLASHINGS* = 2^4
   MAX_ATTESTER_SLASHINGS* = 2^0
@@ -127,7 +127,7 @@ const
 type
   # Domains
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#domain-types
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#domain-types
   DomainType* {.pure.} = enum
     DOMAIN_BEACON_PROPOSER = 0
     DOMAIN_BEACON_ATTESTER = 1
