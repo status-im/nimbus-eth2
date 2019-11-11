@@ -424,7 +424,7 @@ proc process_epoch*(state: var BeaconState) =
   # Don't rely on caching here.
   process_registry_updates(state)
 
-  ## Caching here for get_crosslink_committee(...) can break otherwise, since
+  ## Caching here for get_beacon_committee(...) can break otherwise, since
   ## get_active_validator_indices(...) usually changes.
   # TODO is this cache still necessary/useful? presumably not, but can't remove
   # quite yet

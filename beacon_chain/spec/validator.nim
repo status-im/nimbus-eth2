@@ -113,8 +113,6 @@ func get_start_shard*(state: BeaconState, epoch: Epoch): Shard =
 
 # TODO remove when shim layer isn't needed
 func get_slot_and_index*(state: BeaconState, epoch: Epoch, shard: Shard): auto =
-  # This is simply the index get_crosslink_committee(...) computes for
-  # compute_committee(...)
   let gcc_index =
     (shard + SHARD_COUNT - get_start_shard(state, epoch)) mod SHARD_COUNT
 
