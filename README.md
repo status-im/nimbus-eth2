@@ -186,15 +186,15 @@ The beacon node simulation will create a full peer-to-peer network of beacon nod
 
 ```bash
 # Clear data files from your last run and start the simulation with a new genesis block:
-make VALIDATORS=192 NODES=6 MISSING_NODES=1 eth2_network_simulation
+make VALIDATORS=192 NODES=6 USER_NODES=1 eth2_network_simulation
 
 # In another terminal, get a shell with the right environment variables set:
 ./env.sh bash
 
 # In the above example, the network is prepared for 7 beacon nodes but one of
-# them is not started by default (`MISSING_NODES`) - you can start it separately
+# them is not started by default (`USER_NODES`) - you can start it separately
 # by running:
-./tests/simulation/run_node.sh 6 # (or the 0-based node number of the missing node)
+./tests/simulation/run_node.sh 0 # (or the 0-based node number of the missing node)
 
 # Running a separate node allows you to test sync as well as see what the action
 # looks like from a single nodes' perspective.
@@ -219,7 +219,7 @@ Specific steps:
 ```bash
 # This will generate the Prometheus config and the Grafana dashboard on the fly,
 # based on the number of nodes (which you can control by passing something like NODES=6 to `make`).
-make VALIDATORS=192 NODES=6 MISSING_NODES=0 eth2_network_simulation
+make VALIDATORS=192 NODES=6 USER_NODES=0 eth2_network_simulation
 
 # In another terminal tab, after the sim started:
 cd tests/simulation/prometheus

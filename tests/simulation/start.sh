@@ -19,9 +19,9 @@ NIMFLAGS="-d:chronicles_log_level=DEBUG --hints:off --warnings:off --verbosity:0
 # Run with "SHARD_COUNT=4 ./start.sh" to change these
 DEFS=""
 
-DEFS+="-d:SHARD_COUNT=${SHARD_COUNT:-16} "      # Spec default: 1024
-DEFS+="-d:SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH:-16} "   # Spec default: 64
-DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-6} "  # Spec default: 6
+DEFS+="-d:SHARD_COUNT=${SHARD_COUNT:-8} "      # Spec default: 1024
+DEFS+="-d:SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH:-8} "   # Spec default: 64
+DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-4} "  # Spec default: 6
 
 LAST_VALIDATOR_NUM=$(( NUM_VALIDATORS - 1 ))
 LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.json"
@@ -47,14 +47,14 @@ fi
 
 if [ ! -f "${SNAPSHOT_FILE}" ]; then
   $BEACON_NODE_BIN \
-    --data-dir="${SIMULATION_DIR}/node-0" \
+    --data-dir="${SIMULATION_DIR}/node-$MASTER_NODE" \
     createTestnet \
     --validators-dir="${VALIDATORS_DIR}" \
     --total-validators="${NUM_VALIDATORS}" \
     --output-genesis="${SNAPSHOT_FILE}" \
     --output-bootstrap-file="${NETWORK_BOOTSTRAP_FILE}" \
     --bootstrap-address=127.0.0.1 \
-    --bootstrap-port=50000 \
+    --bootstrap-port=$(( BASE_P2P_PORT + MASTER_NODE )) \
     --genesis-offset=5 # Delay in seconds
 fi
 
@@ -87,7 +87,7 @@ fi
 
 # use the exported Grafana dashboard for a single node to create one for all nodes
 "${SIM_ROOT}/../../build/process_dashboard" \
-  --nodes=${NUM_NODES} \
+  --nodes=${TOTAL_NODES} \
   --in="${SIM_ROOT}/beacon-chain-sim-node0-Grafana-dashboard.json" \
   --out="${SIM_ROOT}/beacon-chain-sim-all-nodes-Grafana-dashboard.json"
 
@@ -100,10 +100,9 @@ if [ "$USE_MULTITAIL" = "no" ]; then
 fi
 
 COMMANDS=()
-LAST_NODE=$(( NUM_NODES - 1 ))
 
-for i in $(seq 0 $LAST_NODE); do
-  if [[ "$i" != "0" && "$USE_MULTITAIL" == "no" ]]; then
+for i in $(seq $MASTER_NODE $TOTAL_USER_NODES); do
+  if [[ "$i" != "$MASTER_NODE" && "$USE_MULTITAIL" == "no" ]]; then
     # Wait for the master node to write out its address file
     while [ ! -f "${MASTER_NODE_ADDRESS_FILE}" ]; do
       sleep 0.1

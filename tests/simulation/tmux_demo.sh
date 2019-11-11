@@ -14,7 +14,7 @@ tmux set-option -g history-limit 999999
 tmux set -g mouse on
 
 tmux send-keys -t 0 './start.sh' Enter
-tmux new-window -n "demo_node" "./wait_master_node.sh && ./run_node.sh $NUM_NODES"
+tmux new-window -n "demo_node" "./wait_master_node.sh && ./run_node.sh 0"
 
 tmux attach-session -d
 
