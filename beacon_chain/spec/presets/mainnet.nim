@@ -24,10 +24,9 @@ const
 
   MAX_COMMITTEES_PER_SLOT* = 64
 
-  SHARD_COUNT* {.intdefine.} = 1024 ##\
-  ## Number of shards supported by the network - validators will jump around
-  ## between these shards and provide attestations to their state.
-  ## Compile with -d:SHARD_COUNT=4 for fewer shard (= better with low validator counts)
+  # TODO remove
+  SHARD_COUNT* = 2048 ##\
+  ## SLOTS_PER_EPOCH * MAX_COMMITTEES_PER_SLOT
 
   TARGET_COMMITTEE_SIZE* = 2^7 ##\
   ## Number of validators in the committee attesting to one shard

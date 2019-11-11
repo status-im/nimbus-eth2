@@ -161,7 +161,8 @@ proc find_shard_committee(
     state: BeaconState, validator_index: ValidatorIndex): auto =
   let epoch = compute_epoch_at_slot(state.slot)
   var cache = get_empty_per_epoch_cache()
-  for shard in 0'u64 ..< get_committee_count(state, epoch):
+  for shard in 0'u64 ..< get_committee_count_at_slot(
+      state, epoch.compute_start_slot_at_epoch) * SLOTS_PER_EPOCH:
     let committee = get_crosslink_committee(state, epoch,
       (shard + get_start_shard(state, epoch)) mod SHARD_COUNT, cache)
     if validator_index in committee:

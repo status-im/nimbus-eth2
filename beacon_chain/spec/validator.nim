@@ -91,7 +91,8 @@ func get_previous_epoch*(state: BeaconState): Epoch =
 func get_shard_delta*(state: BeaconState, epoch: Epoch): uint64 =
   ## Return the number of shards to increment ``state.start_shard``
   ## during ``epoch``.
-  min(get_committee_count(state, epoch),
+  min(get_committee_count_at_slot(state, epoch.compute_start_slot_at_epoch) *
+      SLOTS_PER_EPOCH,
     (SHARD_COUNT - SHARD_COUNT div SLOTS_PER_EPOCH).uint64)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_start_shard
@@ -159,11 +160,12 @@ func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
     start.int .. (endIdx.int-1),
     indices[stateCache.crosslink_committee_cache[key][it]])
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#get_beacon_committee
 func get_beacon_committee*(state: BeaconState, slot: Slot, index: uint64, cache: var StateCache): seq[ValidatorIndex] =
   # Return the beacon committee at ``slot`` for ``index``.
   let
     epoch = compute_epoch_at_slot(slot)
+    # TODO use state caching for this or not?
     committees_per_slot = get_committee_count_at_slot(state, slot)
 
   ## This is a somewhat more fragile, but high-ROI, caching setup --
@@ -173,19 +175,16 @@ func get_beacon_committee*(state: BeaconState, slot: Slot, index: uint64, cache:
     cache.active_validator_indices_cache[epoch] =
       get_active_validator_indices(state, epoch)
 
-  if epoch notin cache.committee_count_cache:
-    cache.committee_count_cache[epoch] = get_committee_count(state, epoch)
+  # TODO remove or replace this...
+  #if epoch notin cache.committee_count_cache:
+  #  cache.committee_count_cache[epoch] = get_committee_count(state, epoch)
 
   # TODO profiling & make sure caches populated
   compute_committee(
     cache.active_validator_indices_cache[epoch],
     get_seed(state, epoch, DOMAIN_BEACON_ATTESTER),
     (slot mod SLOTS_PER_EPOCH) * committees_per_slot + index,
-
-    # TODO switch to 0.9's
-    # committees_per_slot * SLOTS_PER_EPOCH,
-    cache.committee_count_cache[epoch],
-
+    committees_per_slot * SLOTS_PER_EPOCH,
     cache
   )
 

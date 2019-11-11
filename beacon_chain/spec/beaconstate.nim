@@ -303,7 +303,8 @@ func get_attestation_data_slot*(state: BeaconState,
 func get_attestation_data_slot*(state: BeaconState,
     data: AttestationData): Slot =
   get_attestation_data_slot(
-    state, data, get_committee_count(state, data.target.epoch))
+    state, data, get_committee_count_at_slot(
+      state, data.target.epoch.compute_start_slot_at_epoch) * SLOTS_PER_EPOCH)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: BeaconState,

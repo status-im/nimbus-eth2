@@ -24,7 +24,7 @@ func shortLog*(x: Checkpoint): string =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#get_attesting_indices
 # TODO there's another one of these, check for redundancy
-func get_attesting_indices*(
+func get_attesting_indices(
     state: BeaconState, attestations: openarray[PendingAttestation],
     stateCache: var StateCache): HashSet[ValidatorIndex] =
   result = initSet[ValidatorIndex]()
