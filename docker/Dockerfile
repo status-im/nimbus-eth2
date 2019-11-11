@@ -43,7 +43,7 @@ RUN cd nim-beacon-chain \
       -d:"SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH}" \
       -d:"SECONDS_PER_SLOT=${SECONDS_PER_SLOT}" \
       -d:"chronicles_log_level=DEBUG" \
-      -d:"testnet_docker_node" \
+      -d:"testnet_servers_image" \
       c beacon_chain/beacon_node.nim
 
 # --------------------------------- #
