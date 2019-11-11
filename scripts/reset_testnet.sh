@@ -89,7 +89,7 @@ $DOCKER_BEACON_NODE \
 COMMITTED_FILES=" genesis.ssz bootstrap_nodes.txt "
 
 if [[ ! -z "$DEPOSIT_CONTRACT_ADDRESS" ]]; then
-  echo $DEPOSIT_CONTRACT_ADDRESS > "$ETH2_TESTNETS_ABS/deposit_contract.txt"
+  echo $DEPOSIT_CONTRACT_ADDRESS > "$ETH2_TESTNETS_ABS/nimbus/$NETWORK_NAME/deposit_contract.txt"
   COMMITTED_FILES+=" deposit_contract.txt "
 fi
 
@@ -98,7 +98,7 @@ if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
   # TODO If we try to use direct piping here, bash doesn't execute all of the commands.
   #      The reasons for this are unclear at the moment.
 
-  nim --verbosity:0 manage_testnet_hosts.nims reset_network \
+  ../env.sh nim --verbosity:0 manage_testnet_hosts.nims reset_network \
     --network=$NETWORK_NAME \
     --deposits-dir="$DEPOSITS_DIR_ABS" \
     --network-data-dir="$NETWORK_DIR_ABS" \
