@@ -19,9 +19,9 @@ NIMFLAGS="-d:chronicles_log_level=DEBUG --hints:off --warnings:off --verbosity:0
 # Run with "SHARD_COUNT=4 ./start.sh" to change these
 DEFS=""
 
-DEFS+="-d:SHARD_COUNT=${SHARD_COUNT:-16} "      # Spec default: 1024
-DEFS+="-d:SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH:-16} "   # Spec default: 64
-DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-6} "  # Spec default: 6
+DEFS+="-d:MAX_COMMITTEES_PER_SLOT=${MAX_COMMITTEES_PER_SLOT:-1} "      # Spec default: 64
+DEFS+="-d:SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH:-16} "   # Spec default: 32
+DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-6} "  # Spec default: 12
 
 LAST_VALIDATOR_NUM=$(( NUM_VALIDATORS - 1 ))
 LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.json"

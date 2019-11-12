@@ -20,13 +20,9 @@ type
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#misc
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/configs/mainnet.yaml#L6
 
-  MAX_COMMITTEES_PER_SLOT* = 64
-
-  # TODO remove
-  SHARD_COUNT* = 2048 ##\
-  ## SLOTS_PER_EPOCH * MAX_COMMITTEES_PER_SLOT
+  MAX_COMMITTEES_PER_SLOT* {.intdefine.} = 64
 
   TARGET_COMMITTEE_SIZE* = 2^7 ##\
   ## Number of validators in the committee attesting to one shard
