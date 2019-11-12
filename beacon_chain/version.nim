@@ -31,9 +31,9 @@ const
 
   gitRevision* = staticExec("git rev-parse --short HEAD")
 
-template versionAsStr*: string =
-  $versionMajor & "." & $versionMinor & "." & $versionBuild
+  versionAsStr* =
+    $versionMajor & "." & $versionMinor & "." & $versionBuild
 
-proc fullVersionStr*: string =
-  versionAsStr & " (" & gitRevision & ", " & network_type & ")"
+  fullVersionStr* =
+    versionAsStr & " (" & gitRevision & ", " & network_type & ")"
 

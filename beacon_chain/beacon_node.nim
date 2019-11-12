@@ -795,6 +795,7 @@ proc start(node: BeaconNode, headState: BeaconState) =
   waitFor node.connectToNetwork()
 
   info "Starting beacon node",
+    version = fullVersionStr,
     timeSinceFinalization =
       int64(node.blockPool.finalizedHead.slot.toBeaconTime()) -
       int64(node.beaconClock.now()),
