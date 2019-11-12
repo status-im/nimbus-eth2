@@ -74,10 +74,10 @@ testnet0 testnet1: | build deps
 	NIM_PARAMS="$(NIM_PARAMS)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $@
 
 clean-testnet0:
-	rm -rf build/data/nimbus_testnet0
+	rm -rf build/data/testnet0
 
 clean-testnet1:
-	rm -rf build/data/nimbus_testnet1
+	rm -rf build/data/testnet1
 
 clean: | clean-common
 	rm -rf build/{$(TOOLS_CSV),all_tests,*_node}
