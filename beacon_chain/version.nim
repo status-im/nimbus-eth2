@@ -5,12 +5,12 @@ type
     rlpxBackend
 
 const
-  network_type {.strdefine.} = "libp2p_daemon"
+  NETWORK_TYPE {.strdefine.} = "libp2p_daemon"
 
-  networkBackend* = when network_type == "rlpx": rlpxBackend
-                    elif network_type == "libp2p": libp2pBackend
-                    elif network_type == "libp2p_daemon": libp2pDaemonBackend
-                    else: {.fatal: "The 'network_type' should be either 'libp2p', 'libp2p_daemon' or 'rlpx'" .}
+  networkBackend* = when NETWORK_TYPE == "rlpx": rlpxBackend
+                    elif NETWORK_TYPE == "libp2p": libp2pBackend
+                    elif NETWORK_TYPE == "libp2p_daemon": libp2pDaemonBackend
+                    else: {.fatal: "The 'NETWORK_TYPE' should be either 'libp2p', 'libp2p_daemon' or 'rlpx'" .}
 
 const
   copyrights* = "Copyright (c) 2019 Status Research & Development GmbH"
@@ -35,5 +35,5 @@ const
     $versionMajor & "." & $versionMinor & "." & $versionBuild
 
   fullVersionStr* =
-    versionAsStr & " (" & gitRevision & ", " & network_type & ")"
+    versionAsStr & " (" & gitRevision & ", " & NETWORK_TYPE & ")"
 

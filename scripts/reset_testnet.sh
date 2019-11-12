@@ -5,7 +5,7 @@ set -eu
 cd $(dirname "$0")
 
 NETWORK_NAME=$1
-source "$NETWORK_NAME.env"
+source load-testnet-nim-flags.sh $NETWORK_NAME.env
 
 cd ..
 
