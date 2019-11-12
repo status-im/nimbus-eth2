@@ -46,5 +46,5 @@ $BEACON_NODE_BIN \
   --metrics-server=on \
   --metrics-server-address="127.0.0.1" \
   --metrics-server-port="$(( $BASE_METRICS_PORT + $NODE_ID ))" \
-  "$@" | tee "$DATA_DIR/node.log"
+  "$@"
 

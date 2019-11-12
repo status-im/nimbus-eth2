@@ -112,10 +112,10 @@ for i in $(seq $MASTER_NODE $TOTAL_USER_NODES); do
   CMD="${SIM_ROOT}/run_node.sh $i"
 
   if [[ "$USE_MULTITAIL" != "no" ]]; then
-    if [[ "$i" == "0" ]]; then
+    if [[ "$i" == "$MASTER_NODE" ]]; then
       SLEEP="0"
     else
-      SLEEP="2"
+      SLEEP="3"
     fi
     # "multitail" closes the corresponding panel when a command exits, so let's make sure it doesn't exit
     COMMANDS+=( " -cT ansi -t 'node #$i' -l 'sleep $SLEEP; $CMD; echo [node execution completed]; while true; do sleep 100; done'" )
