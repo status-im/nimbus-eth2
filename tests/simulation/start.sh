@@ -101,7 +101,7 @@ fi
 
 COMMANDS=()
 
-for i in $(seq $MASTER_NODE $TOTAL_USER_NODES); do
+for i in $(seq $MASTER_NODE -1 $TOTAL_USER_NODES); do
   if [[ "$i" != "$MASTER_NODE" && "$USE_MULTITAIL" == "no" ]]; then
     # Wait for the master node to write out its address file
     while [ ! -f "${MASTER_NODE_ADDRESS_FILE}" ]; do
