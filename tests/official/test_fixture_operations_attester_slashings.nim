@@ -16,7 +16,7 @@ import
   ./fixtures_utils,
   ../helpers/debug_state
 
-const OpAttSlashingDir = SszTestsDir/const_preset/"phase0"/"operations"/"attester_slashing"/"pyspec_tests"
+const OpAttSlashingDir = FixturesDir/"tests-v0.9.0"/const_preset/"phase0"/"operations"/"attester_slashing"/"pyspec_tests"
 
 template runTest(identifier: untyped) =
   # We wrap the tests in a proc to avoid running out of globals
