@@ -13,6 +13,8 @@ const
                     else: {.fatal: "The 'network_type' should be either 'libp2p', 'libp2p_daemon' or 'rlpx'" .}
 
 const
+  copyrights* = "Copyright (c) 2019 Status Research & Development GmbH"
+
   versionMajor* = 0
   versionMinor* = 3
   versionBuild* = 0
@@ -29,9 +31,9 @@ const
 
   gitRevision* = staticExec("git rev-parse --short HEAD")
 
-template versionAsStr*: string =
-  $versionMajor & "." & $versionMinor & "." & $versionBuild
+  versionAsStr* =
+    $versionMajor & "." & $versionMinor & "." & $versionBuild
 
-proc fullVersionStr*: string =
-  versionAsStr & "_" & network_type
+  fullVersionStr* =
+    versionAsStr & " (" & gitRevision & ", " & network_type & ")"
 

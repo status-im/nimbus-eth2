@@ -9,7 +9,7 @@ import
   unittest, sequtils, options,
   stint, nimcrypto, eth/common, blscurve, serialization/testing/generic_suite,
   ../beacon_chain/spec/[datatypes, digest],
-  ../beacon_chain/ssz, ../beacon_chain/ssz/navigator
+  ../beacon_chain/ssz, ../beacon_chain/ssz/[navigator, dynamic_navigator]
 
 type
   SomeEnum = enum
@@ -71,7 +71,7 @@ type
 proc toDigest[N: static int](x: array[N, byte]): Eth2Digest =
   result.data[0 .. N-1] = x
 
-suite "SSZ Navigation":
+suite "SSZ navigator":
   test "simple object fields":
     var foo = Foo(bar: Bar(b: "bar", baz: Baz(i: 10'u64)))
     let encoded = SSZ.encode(foo)
@@ -96,3 +96,24 @@ suite "SSZ Navigation":
     let leaves2 = sszList(@[a, b, c], int64(1 shl 10))
     let root2 = hash_tree_root(leaves2)
     check $root2 == "9FB7D518368DC14E8CC588FB3FD2749BEEF9F493FEF70AE34AF5721543C67173"
+
+suite "SSZ dynamic navigator":
+  test "navigating fields":
+    var fooOrig = Foo(bar: Bar(b: "bar", baz: Baz(i: 10'u64)))
+    let fooEncoded = SSZ.encode(fooOrig)
+
+    var navFoo = DynamicSszNavigator.init(fooEncoded, Foo)
+
+    var navBar = navFoo.navigate("bar")
+    check navBar.toJson(pretty = false) == """{"b":"bar","baz":{"i":10}}"""
+
+    var navB = navBar.navigate("b")
+    check navB.toJson == "\"bar\""
+
+    var navBaz = navBar.navigate("baz")
+    var navI = navBaz.navigate("i")
+    check navI.toJson == "10"
+
+    expect KeyError:
+      discard navBar.navigate("biz")
+

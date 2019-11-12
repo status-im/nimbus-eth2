@@ -4,7 +4,7 @@ import
   version, conf
 
 const
-  clientId* = "Nimbus beacon node v" & fullVersionStr()
+  clientId* = "Nimbus beacon node v" & fullVersionStr
 
 export
   version

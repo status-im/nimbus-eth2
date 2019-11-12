@@ -7,9 +7,13 @@ const
   depositContractFile = "deposit_contract.txt"
   genesisFile = "genesis.ssz"
   configFile = "config.yaml"
-  clientsOrg = "eth2-clients"
   testnetsRepo = "eth2-testnets"
-  testnetsRepoGitUrl = "https://github.com/" & clientsOrg & "/" & testnetsRepo
+
+let
+  testnetsOrg = getEnv("ETH2_TESTNETS_ORG", "eth2-clients")
+  testnetsGitUrl = getEnv("ETH2_TESTNETS_GIT_URL", "https://github.com/" & testnetsOrg & "/" & testnetsRepo)
+
+mode = Verbose
 
 proc validateTestnetName(parts: openarray[string]): auto =
   if parts.len != 2:
@@ -29,7 +33,7 @@ cli do (testnetName {.argument.}: string):
 
   rmDir(allTestnetsDir)
   cd buildDir
-  exec &"git clone --quiet {testnetsRepoGitUrl}"
+  exec &"git clone --quiet --depth=1 {testnetsGitUrl}"
 
   let testnetDir = allTestnetsDir / team / testnet
   if not dirExists(testnetDir):
@@ -58,6 +62,14 @@ cli do (testnetName {.argument.}: string):
   let depositContractFile = testnetDir / depositContractFile
   if fileExists(depositContractFile):
     depositContractOpt = "--deposit-contract=" & readFile(depositContractFile).strip
+
+  if dirExists(dataDir):
+    if fileExists(dataDir/genesisFile):
+      let localGenesisContent = readFile(dataDir/genesisFile)
+      let testnetGenesisContent = readFile(testnetDir/genesisFile)
+      if localGenesisContent != testnetGenesisContent:
+        echo "Detected testnet restart. Deleting previous database..."
+        rmDir dataDir
 
   cd rootDir
   exec &"""nim c {nimFlags} -d:"const_preset={preset}" -o:"{beaconNodeBinary}" beacon_chain/beacon_node.nim"""

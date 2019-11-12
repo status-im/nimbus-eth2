@@ -14,15 +14,15 @@ if [ -f .env ]; then
   source .env
 fi
 
-echo ${BOOTSTRAP_HOST:="master-01.do-ams3.nimbus.test.statusim.net"} > /dev/null
-
 echo Execution plan:
 
-echo "Testnet name          : $NETWORK_NAME"
-echo "Testnet files repo    : ${ETH2_TESTNETS:="build/eth2-testnets"}"
-echo "Beacon node data dir  : ${DATA_DIR:="build/testnet-reset-data"}"
-echo "Bootstrap node ip     : ${BOOTSTRAP_IP:="$(dig +short $BOOTSTRAP_HOST)"}"
-echo "Reset testnet at end  : ${PUBLISH_TESTNET_RESETS:="1"}"
+echo "Testnet name            : $NETWORK_NAME"
+echo "Bootstrap node hostname : ${BOOTSTRAP_HOST:="master-01.do-ams3.nimbus.test.statusim.net"}"
+echo "Bootstrap node ip       : ${BOOTSTRAP_IP:="$(dig +short $BOOTSTRAP_HOST)"}"
+echo "Reset testnet at end    : ${PUBLISH_TESTNET_RESETS:="1"}"
+echo "Testnet metadata repo   : ${ETH2_TESTNETS_GIT_URL:="git@github.com:${ETH2_TESTNETS_ORG:=eth2-clients}/eth2-testnets"}"
+echo "Testnet metadata dir    : ${ETH2_TESTNETS:="build/eth2-testnets"}"
+echo "Beacon node data dir    : ${DATA_DIR:="build/testnet-reset-data"}"
 
 while true; do
     read -p "Continue?" yn
@@ -34,8 +34,7 @@ while true; do
 done
 
 rm -rf "$ETH2_TESTNETS"
-# "--depth 1" does not make it faster, for such a small repo
-git clone --quiet git@github.com:eth2-clients/eth2-testnets "$ETH2_TESTNETS"
+git clone --quiet --depth=1 $ETH2_TESTNETS_GIT_URL "$ETH2_TESTNETS"
 
 ETH2_TESTNETS_ABS=$(cd "$ETH2_TESTNETS"; pwd)
 NETWORK_DIR_ABS="$ETH2_TESTNETS_ABS/nimbus/$NETWORK_NAME"
@@ -90,7 +89,7 @@ $DOCKER_BEACON_NODE \
 COMMITTED_FILES=" genesis.ssz bootstrap_nodes.txt "
 
 if [[ ! -z "$DEPOSIT_CONTRACT_ADDRESS" ]]; then
-  echo $DEPOSIT_CONTRACT_ADDRESS > "$ETH2_TESTNETS_ABS/deposit_contract.txt"
+  echo $DEPOSIT_CONTRACT_ADDRESS > "$ETH2_TESTNETS_ABS/nimbus/$NETWORK_NAME/deposit_contract.txt"
   COMMITTED_FILES+=" deposit_contract.txt "
 fi
 
@@ -98,7 +97,8 @@ if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
   echo Redistributing validator keys to server nodes...
   # TODO If we try to use direct piping here, bash doesn't execute all of the commands.
   #      The reasons for this are unclear at the moment.
-  nim --verbosity:0 manage_testnet_hosts.nims redist_validators \
+
+  ../env.sh nim --verbosity:0 manage_testnet_hosts.nims reset_network \
     --network=$NETWORK_NAME \
     --deposits-dir="$DEPOSITS_DIR_ABS" \
     --network-data-dir="$NETWORK_DIR_ABS" \

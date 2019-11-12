@@ -10,6 +10,9 @@ when networkBackend == rlpxBackend:
 
 declarePublicGauge libp2p_peers, "Number of libp2p peers"
 
+logScope:
+  topics = "sync"
+
 type
   ValidatorSetDeltaFlags {.pure.} = enum
     Activation = 0
@@ -135,6 +138,7 @@ p2pProtocol BeaconSync(version = 1,
             count: uint64,
             step: uint64) {.
             libp2pProtocol("beacon_blocks_by_range", 1).} =
+      trace "got range request", peer, count, startSlot, headBlockRoot, step
 
       if count > 0'u64:
         let count = if step != 0: min(count, MAX_REQUESTED_BLOCKS.uint64) else: 1
@@ -145,6 +149,7 @@ p2pProtocol BeaconSync(version = 1,
           firstPos = pool.getBlockRange(headBlockRoot, startSlot, step,
                                         results.toOpenArray(0, lastPos))
         for i in firstPos.int .. lastPos.int:
+          trace "wrote response block", slot = results[i].slot
           await response.write(pool.get(results[i]).data)
 
     proc beaconBlocksByRoot(

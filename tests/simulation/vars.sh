@@ -16,8 +16,10 @@ cd - &>/dev/null
 # When changing these, also update the readme section on running simulation
 # so that the run_node example is correct!
 NUM_VALIDATORS=${VALIDATORS:-192}
-NUM_NODES=${NODES:-6}
-NUM_MISSING_NODES=${MISSING_NODES:-1}
+TOTAL_NODES=${NODES:-4}
+TOTAL_USER_NODES=${USER_NODES:-0}
+TOTAL_SYSTEM_NODES=$(( TOTAL_NODES - TOTAL_USER_NODES ))
+MASTER_NODE=$(( TOTAL_NODES - 1 ))
 
 SIMULATION_DIR="${SIM_ROOT}/data"
 METRICS_DIR="${SIM_ROOT}/prometheus"
@@ -26,7 +28,9 @@ SNAPSHOT_FILE="${SIMULATION_DIR}/state_snapshot.ssz"
 NETWORK_BOOTSTRAP_FILE="${SIMULATION_DIR}/bootstrap_nodes.txt"
 BEACON_NODE_BIN="${SIMULATION_DIR}/beacon_node"
 DEPLOY_DEPOSIT_CONTRACT_BIN="${SIMULATION_DIR}/deploy_deposit_contract"
-MASTER_NODE_ADDRESS_FILE="${SIMULATION_DIR}/node-0/beacon_node.address"
+MASTER_NODE_ADDRESS_FILE="${SIMULATION_DIR}/node-${MASTER_NODE}/beacon_node.address"
+
+BASE_P2P_PORT=30000
 BASE_METRICS_PORT=8008
 # Set DEPOSIT_WEB3_URL_ARG to empty to get genesis state from file, not using web3
 # DEPOSIT_WEB3_URL_ARG=--web3-url=ws://localhost:8545
