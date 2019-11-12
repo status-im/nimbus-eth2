@@ -1,5 +1,5 @@
 import
-  confutils, strutils, strformat, ospaths
+  confutils, strutils, strformat, os
 
 const
   rootDir = thisDir() / ".."
@@ -36,13 +36,13 @@ cli do (testnetName {.argument.}: string):
   exec &"git clone --quiet --depth=1 {testnetsGitUrl}"
 
   let testnetDir = allTestnetsDir / team / testnet
-  if not dirExists(testnetDir):
+  if not system.dirExists(testnetDir):
     echo &"No metadata files exists for the '{testnetName}' testnet"
     quit 1
 
   proc checkRequiredFile(fileName: string) =
     let filePath = testnetDir / fileName
-    if not fileExists(filePath):
+    if not system.fileExists(filePath):
       echo &"The required file {fileName} is not present in '{testnetDir}'."
       quit 1
 
@@ -50,7 +50,7 @@ cli do (testnetName {.argument.}: string):
   checkRequiredFile genesisFile
 
   var preset = testnetDir / configFile
-  if not fileExists(preset): preset = "minimal"
+  if not system.fileExists(preset): preset = "minimal"
 
   let
     dataDirName = testnetName.replace("/", "_")
@@ -60,11 +60,11 @@ cli do (testnetName {.argument.}: string):
 
   var depositContractOpt = ""
   let depositContractFile = testnetDir / depositContractFile
-  if fileExists(depositContractFile):
+  if system.fileExists(depositContractFile):
     depositContractOpt = "--deposit-contract=" & readFile(depositContractFile).strip
 
-  if dirExists(dataDir):
-    if fileExists(dataDir/genesisFile):
+  if system.dirExists(dataDir):
+    if system.fileExists(dataDir/genesisFile):
       let localGenesisContent = readFile(dataDir/genesisFile)
       let testnetGenesisContent = readFile(testnetDir/genesisFile)
       if localGenesisContent != testnetGenesisContent:
