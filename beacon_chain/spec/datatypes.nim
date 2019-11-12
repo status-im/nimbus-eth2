@@ -665,6 +665,12 @@ chronicles.formatIt Epoch: it.shortLog
 chronicles.formatIt BeaconBlock: it.shortLog
 chronicles.formatIt AttestationData: it.shortLog
 
+# TODO remove
+const SHARD_COUNT* = (MAX_COMMITTEES_PER_SLOT * SLOTS_PER_EPOCH).uint64
+
+static:
+  doAssert SHARD_COUNT.int == MAX_COMMITTEES_PER_SLOT * SLOTS_PER_EPOCH
+
 import json_serialization
 export json_serialization
 export writeValue, readValue

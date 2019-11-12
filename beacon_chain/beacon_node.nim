@@ -340,6 +340,16 @@ proc proposeBlock(node: BeaconNode,
       cat = "fastforward"
     return head
 
+  if head.slot == 0 and slot == 0:
+    # TODO there's been a startup assertion, which sometimes (but not always
+    # evidently) crashes exactly one node on simulation startup, the one the
+    # beacon chain proposer index points to first for slot 0. it tries using
+    # slot 0 as required, notices head block's slot is also 0 (which, that's
+    # how it's created; it's never less), and promptly fails, with assertion
+    # occuring downstream via async code. This is most easily reproduced via
+    # make clean_eth2_network_simulation_files && make eth2_network_simulation
+    return head
+
   if head.slot == slot:
     # Weird, we should never see as head the same slot as we're proposing a
     # block for - did someone else steal our slot? why didn't we discard it?

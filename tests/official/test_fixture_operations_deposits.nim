@@ -16,7 +16,7 @@ import
   ./fixtures_utils,
   ../helpers/debug_state
 
-const OperationsDepositsDir = FixturesDir/"tests-v0.9.0"/const_preset/"phase0"/"operations"/"deposit"/"pyspec_tests"
+const OperationsDepositsDir = SszTestsDir/const_preset/"phase0"/"operations"/"deposit"/"pyspec_tests"
 
 template runTest(testName: string, identifier: untyped) =
   # We wrap the tests in a proc to avoid running out of globals

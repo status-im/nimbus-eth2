@@ -125,8 +125,7 @@ cli do(slots = 448'u,
           # by the randomness. We have to delay when the attestation is
           # actually added to the block per the attestation delay rule!
           let target_slot =
-            get_attestation_data_slot(state, attestation.data) +
-            MIN_ATTESTATION_INCLUSION_DELAY - 1
+            attestation.data.slot + MIN_ATTESTATION_INCLUSION_DELAY - 1
 
           ## In principle, should enumerate possible shard/slot combinations by
           ## inverting get_attestation_data_slot(...), but this works. Could be

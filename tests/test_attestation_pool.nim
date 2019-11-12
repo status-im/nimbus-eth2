@@ -68,10 +68,10 @@ suite "Attestation pool processing" & preset():
       process_slots(state.data, state.data.data.slot + 1)
 
       let
-        cc1 = get_crosslink_committee(state.data.data,
-          compute_epoch_at_slot(state.data.data.slot), 2, cache)
+        bc1 = get_beacon_committee(state.data.data,
+          state.data.data.slot, 0, cache)
         attestation1 = makeAttestation(
-          state.data.data, state.blck.root, cc1[0])
+          state.data.data, state.blck.root, bc1[0])
 
       # test reverse order
       pool.add(state.data.data, state.blck, attestation1)

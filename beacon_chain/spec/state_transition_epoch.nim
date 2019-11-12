@@ -32,7 +32,7 @@
 # improvements to be made - other than that, keep things similar to spec for
 # now.
 
-import # TODO - cleanup imports
+import
   math, options, sequtils, tables,
   stew/[bitseqs, bitops2], chronicles, json_serialization/std/sets,
   metrics, ../ssz,
@@ -51,6 +51,13 @@ declareGauge beacon_current_justified_epoch, "Current justified epoch" # On epoc
 declareGauge beacon_current_justified_root, "Current justified root" # On epoch transition
 declareGauge beacon_previous_justified_epoch, "Current previously justified epoch" # On epoch transition
 declareGauge beacon_previous_justified_root, "Current previously justified root" # On epoch transition
+
+# Non-spec
+declareGauge epoch_transition_justification_and_finalization, "Epoch transition justification and finalization time"
+declareGauge epoch_transition_times_rewards_and_penalties, "Epoch transition reward and penalty time"
+declareGauge epoch_transition_registry_updates, "Epoch transition registry updates time"
+declareGauge epoch_transition_slashings, "Epoch transition slashings time"
+declareGauge epoch_transition_final_updates, "Epoch transition final updates time"
 
 # Spec
 # --------------------------------------------------------
