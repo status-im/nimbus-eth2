@@ -354,7 +354,7 @@ proc getBlockRange*(pool: BlockPool, headBlock: Eth2Digest,
 
   # Then we see if this aligned position is within our wanted
   # range. If it's outside it, we must skip more blocks:
-  let lastWantedSlot = startSlot.int + output.len * skipStep
+  let lastWantedSlot = startSlot.int + (output.len - 1) * skipStep
   if alignedHeadSlot > lastWantedSlot:
     blocksToSkip += (alignedHeadSlot - lastWantedSlot)
 

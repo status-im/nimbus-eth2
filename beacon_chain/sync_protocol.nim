@@ -104,7 +104,9 @@ p2pProtocol BeaconSync(version = 1,
       let
         node = peer.networkState.node
         ourStatus = node.getCurrentStatus
-        theirStatus = await peer.status(ourStatus)
+        # TODO: The timeout here is so high only because we fail to
+        # respond in time due to high CPU load in our single thread.
+        theirStatus = await peer.status(ourStatus, timeout = 60.seconds)
 
       if theirStatus.isSome:
         await peer.handleInitialStatus(node, ourStatus, theirStatus.get)
@@ -186,8 +188,9 @@ proc handleInitialStatus(peer: Peer,
     libp2p_peers.set peer.network.peers.len.int64
 
     debug "Peer connected. Initiating sync", peer,
-          headSlot = ourStatus.headSlot,
-          remoteHeadSlot = theirStatus.headSlot
+          localHeadSlot = ourStatus.headSlot,
+          remoteHeadSlot = theirStatus.headSlot,
+          remoteHeadRoot = theirStatus.headRoot
 
     let bestDiff = cmp((ourStatus.finalizedEpoch, ourStatus.headSlot),
                        (theirStatus.finalizedEpoch, theirStatus.headSlot))
@@ -207,8 +210,11 @@ proc handleInitialStatus(peer: Peer,
                                          ourHeadSlot = s,
                                          numBlocksToRequest
 
+        # TODO: The timeout here is so high only because we fail to
+        # respond in time due to high CPU load in our single thread.
         let blocks = await peer.beaconBlocksByRange(theirStatus.headRoot, s,
-                                                    numBlocksToRequest, 1'u64)
+                                                    numBlocksToRequest, 1'u64,
+                                                    timeout = 60.seconds)
         if blocks.isSome:
           info "got blocks", total = blocks.get.len
           if blocks.get.len == 0:
