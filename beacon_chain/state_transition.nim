@@ -39,7 +39,6 @@ import
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
 declareGauge beacon_current_validators, """Number of status="pending|active|exited|withdrawable" validators in current epoch""" # On epoch transition
 declareGauge beacon_previous_validators, """Number of status="pending|active|exited|withdrawable" validators in previous epoch""" # On epoch transition
-declareGauge beacon_previous_epoch_orphaned_blocks, "Number of blocks orphaned in the previous epoch" # On epoch transition
 
 # Canonical state transition functions
 # ---------------------------------------------------------------

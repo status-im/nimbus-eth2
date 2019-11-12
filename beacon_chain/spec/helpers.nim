@@ -9,7 +9,7 @@
 
 import
   # Standard lib
-  sequtils, math, endians,
+  math, endians,
   # Third-party
   blscurve, # defines Domain
   # Internal
