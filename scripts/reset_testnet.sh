@@ -122,4 +122,10 @@ if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
     git commit -m "Reset of Nimbus $NETWORK_NAME"
     git push
   popd
+
+  ../env.sh nim --verbosity:0 manage_testnet_hosts.nims restart_nodes \
+    --network=$NETWORK_NAME \
+    > /tmp/restart-nodes.sh
+
+  bash /tmp/restart-nodes.sh
 fi
