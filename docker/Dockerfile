@@ -28,7 +28,7 @@ ARG NETWORK_TYPE
 
 RUN cd nim-beacon-chain \
  && set -a \
- && . scripts/${NETWORK}.env \
+ && . scripts/load-testnet-nim-flags.sh scripts/${NETWORK}.env \
  && ./env.sh nim \
       -o:/usr/bin/beacon_node \
       -d:release \
@@ -38,10 +38,7 @@ RUN cd nim-beacon-chain \
       --verbosity:0 \
       --hints:off \
       --warnings:off \
-      -d:"network_type=${NETWORK_TYPE}" \
-      -d:"SHARD_COUNT=${SHARD_COUNT}" \
-      -d:"SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH}" \
-      -d:"SECONDS_PER_SLOT=${SECONDS_PER_SLOT}" \
+      ${TESTNET_NIM_FLAGS} \
       -d:"chronicles_log_level=DEBUG" \
       -d:"testnet_servers_image" \
       c beacon_chain/beacon_node.nim

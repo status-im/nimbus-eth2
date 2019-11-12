@@ -814,7 +814,6 @@ proc start(node: BeaconNode, headState: BeaconState) =
       int64(node.blockPool.finalizedHead.slot.toBeaconTime()) -
       int64(node.beaconClock.now()),
     stateSlot = shortLog(headState.slot),
-    SHARD_COUNT,
     SLOTS_PER_EPOCH,
     SECONDS_PER_SLOT,
     SPEC_VERSION,
