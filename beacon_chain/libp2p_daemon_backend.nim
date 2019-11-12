@@ -614,7 +614,10 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
           # the `response` API in the high-level protocols more complicated for now).
           chronicles.debug "response size limit reached", peer, reqName = `msgNameLit`
         except CatchableError as `errVar`:
-          `await` sendErrorResponse(`peerVar`, `streamVar`, ServerError, `errVar`.msg)
+          try:
+            `await` sendErrorResponse(`peerVar`, `streamVar`, ServerError, `errVar`.msg)
+          except CatchableError as err:
+            debug "Failed to deliver error response", peer = `peerVar`
 
     ##
     ## Implement Senders and Handshake
