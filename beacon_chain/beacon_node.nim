@@ -134,7 +134,7 @@ proc addBootstrapNode(node: BeaconNode, bootstrapNode: BootstrapAddr) =
 
 proc useBootstrapFile(node: BeaconNode, bootstrapFile: string) =
   for ln in lines(bootstrapFile):
-    node.addBootstrapNode BootstrapAddr.init(string ln)
+    node.addBootstrapNode BootstrapAddr.initAddress(string ln)
 
 proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
   new result
@@ -1013,10 +1013,7 @@ when isMainModule:
 
     let bootstrapFile = config.outputBootstrapFile.string
     if bootstrapFile.len > 0:
-      let bootstrapAddrLine = when networkBackend != rlpxBackend:
-        $bootstrapAddress.addresses[0] & "/p2p/" & bootstrapAddress.peer.pretty
-      else:
-        $bootstrapAddress
+      let bootstrapAddrLine = $bootstrapAddress
       writeFile(bootstrapFile, bootstrapAddrLine)
       echo "Wrote ", bootstrapFile
 
