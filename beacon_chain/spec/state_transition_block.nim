@@ -245,8 +245,8 @@ proc process_attester_slashing*(
     ## verify_indexed_attestation, but go by spec unless there
     ## is compelling perf evidence otherwise.
     for index in sorted(toSeq(intersection(
-        toSet(attestation_1.attesting_indices),
-        toSet(attestation_2.attesting_indices)).items), system.cmp):
+        toHashSet(attestation_1.attesting_indices),
+        toHashSet(attestation_2.attesting_indices)).items), system.cmp):
       if is_slashable_validator(
           state.validators[index.int], get_current_epoch(state)):
         slash_validator(state, index.ValidatorIndex, stateCache)
@@ -384,9 +384,9 @@ proc processBlock*(
 
   # Adds nontrivial additional computation, but only does so when metrics
   # enabled.
-  beacon_current_live_validators.set(toSet(
+  beacon_current_live_validators.set(toHashSet(
     mapIt(state.current_epoch_attestations, it.proposerIndex)).len.int64)
-  beacon_previous_live_validators.set(toSet(
+  beacon_previous_live_validators.set(toHashSet(
     mapIt(state.previous_epoch_attestations, it.proposerIndex)).len.int64)
 
   if not process_block_header(state, blck, flags, stateCache):
