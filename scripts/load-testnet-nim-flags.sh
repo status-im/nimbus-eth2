@@ -1,21 +1,25 @@
+#!/bin/bash
+
+set -e
+cd $(dirname "$0")
+
 set -a
-source $1
+source $1.env
 set +a
 
-TESTNET_NIM_FLAGS=""
+NIM_FLAGS=""
 
-testnet_env () {
-  eval "TESTNET_FLAG_VALUE=\$$1"
-  if [[ ! -z "$TESTNET_FLAG_VALUE" ]]; then
-    TESTNET_NIM_FLAGS+=" -d:$1=$TESTNET_FLAG_VALUE"
+add_var () {
+  if [[ ! -z "${!1}" ]]; then
+    NIM_FLAGS+="-d:$1=${!1} "
   fi
 }
 
-testnet_env CONST_PRESET
-testnet_env NETWORK_TYPE
-testnet_env SLOTS_PER_EPOCH
-testnet_env SLOTS_PER_EPOCH
-testnet_env MAX_COMMITTEES_PER_SLOT
+add_var CONST_PRESET
+add_var NETWORK_TYPE
+add_var SLOTS_PER_EPOCH
+add_var SLOTS_PER_EPOCH
+add_var MAX_COMMITTEES_PER_SLOT
 
-export TESTNET_NIM_FLAGS
+echo $NIM_FLAGS
 

@@ -24,11 +24,9 @@ RUN export GOROOT=/usr/local/go \
  && cp docker/run_in_docker.sh /usr/bin/run_beacon_node.sh
 
 ARG NETWORK
-ARG NETWORK_TYPE
+ARG NETWORK_NIM_FLAGS
 
 RUN cd nim-beacon-chain \
- && set -a \
- && . scripts/load-testnet-nim-flags.sh scripts/${NETWORK}.env \
  && ./env.sh nim \
       -o:/usr/bin/beacon_node \
       -d:release \
@@ -38,7 +36,7 @@ RUN cd nim-beacon-chain \
       --verbosity:0 \
       --hints:off \
       --warnings:off \
-      ${TESTNET_NIM_FLAGS} \
+      ${NETWORK_NIM_FLAGS} \
       -d:"chronicles_log_level=DEBUG" \
       -d:"testnet_servers_image" \
       c beacon_chain/beacon_node.nim
