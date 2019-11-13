@@ -16,7 +16,7 @@ import
   ./fixtures_utils,
   ../helpers/debug_state
 
-const OpAttSlashingDir = FixturesDir/"tests-v0.9.0"/const_preset/"phase0"/"operations"/"attester_slashing"/"pyspec_tests"
+const OpAttSlashingDir = SszTestsDir/const_preset/"phase0"/"operations"/"attester_slashing"/"pyspec_tests"
 
 template runTest(identifier: untyped) =
   # We wrap the tests in a proc to avoid running out of globals
@@ -75,12 +75,8 @@ suite "Official - Operations - Attester slashing " & preset():
   runTest(same_data)
   runTest(no_double_or_surround)
   runTest(participants_already_slashed)
-  runTest(custody_bit_0_and_1_intersect)
   when false: # TODO - https://github.com/status-im/nim-beacon-chain/issues/429
     runTest(att1_bad_extra_index)
     runTest(att1_bad_replaced_index)
     runTest(att2_bad_extra_index)
     runTest(att2_bad_replaced_index)
-  runTest(unsorted_att_1_bit0)
-  runTest(unsorted_att_2_bit0)
-

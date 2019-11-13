@@ -178,34 +178,15 @@ func bls_verify*(
     if sig.kind != Real or pubkey.kind != Real:
       # TODO: chronicles warning
       return false
+    # TODO bls_verify_multiple(...) used to have this workaround, and now it
+    # lives here. No matter the signature, there's also no meaningful way to
+    # verify it -- it's a kind of vacuous truth. No pubkey/sig pairs.
+    if pubkey == ValidatorPubKey():
+      return true
+
     sig.blsValue.verify(msg, domain, pubkey.blsValue)
   else:
     sig.verify(msg, domain, pubkey)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/bls_signature.md#bls_verify_multiple
-proc bls_verify_multiple*(
-    pubkeys: seq[ValidatorPubKey], message_hashes: openArray[Eth2Digest],
-    sig: ValidatorSig, domain: Domain): bool =
-  # {.noSideEffect.} - https://github.com/status-im/nim-chronicles/issues/62
-  let L = len(pubkeys)
-  doAssert L == len(message_hashes)
-  if sig.kind != Real:
-    warn "Raw bytes do not match with a BLS signature."
-    return false
-
-  # TODO optimize using multiPairing
-  for pubkey_message_hash in zip(pubkeys, message_hashes):
-    let (pubkey, message_hash) = pubkey_message_hash
-    doAssert pubkey.kind == Real
-    # TODO spec doesn't say to handle this specially, but it's silly to
-    # validate without any actual public keys.
-    if pubkey.blsValue == VerKey():
-      trace "Received empty public key, skipping verification."
-      continue
-    if not sig.blsValue.verify(message_hash.data, domain, pubkey.blsValue):
-      return false
-
-  true
 
 when ValidatorPrivKey is BlsValue:
   func bls_sign*(key: ValidatorPrivKey, msg: openarray[byte],

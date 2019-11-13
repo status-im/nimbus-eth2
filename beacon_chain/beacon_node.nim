@@ -310,9 +310,7 @@ proc sendAttestation(node: BeaconNode,
   var attestation = Attestation(
     data: attestationData,
     signature: validatorSignature,
-    aggregation_bits: aggregationBits,
-    # Stub in phase0
-    custody_bits: CommitteeValidatorsBits.init(committeeLen)
+    aggregation_bits: aggregationBits
   )
 
   node.network.broadcast(topicAttestations, attestation)

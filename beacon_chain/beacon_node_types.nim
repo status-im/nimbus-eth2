@@ -47,8 +47,6 @@ type
   # #############################################
   Validation* = object
     aggregation_bits*: CommitteeValidatorsBits
-    custody_bits*: CommitteeValidatorsBits ##\
-    ## Phase 1 - the handling of this field is probably broken..
     aggregate_signature*: ValidatorSig
 
   # Per Danny as of 2018-12-21:

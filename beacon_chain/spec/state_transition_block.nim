@@ -216,7 +216,7 @@ func is_slashable_attestation_data(
     (data_1.source.epoch < data_2.source.epoch and
      data_2.target.epoch < data_1.target.epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#attester-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
        state: var BeaconState,
        attester_slashing: AttesterSlashing,
@@ -244,12 +244,11 @@ proc process_attester_slashing*(
     ## TODO there's a lot of sorting/set construction here and
     ## verify_indexed_attestation, but go by spec unless there
     ## is compelling perf evidence otherwise.
-    let
-      attesting_indices_1 = attestation_1.custody_bit_0_indices & attestation_1.custody_bit_1_indices
-      attesting_indices_2 = attestation_2.custody_bit_0_indices & attestation_2.custody_bit_1_indices
-    for index in sorted(toSeq(intersection(toSet(attesting_indices_1),
-        toSet(attesting_indices_2)).items), system.cmp):
-      if is_slashable_validator(state.validators[index.int], get_current_epoch(state)):
+    for index in sorted(toSeq(intersection(
+        toSet(attestation_1.attesting_indices),
+        toSet(attestation_2.attesting_indices)).items), system.cmp):
+      if is_slashable_validator(
+          state.validators[index.int], get_current_epoch(state)):
         slash_validator(state, index.ValidatorIndex, stateCache)
         slashed_any = true
     if not slashed_any:

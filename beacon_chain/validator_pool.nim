@@ -50,8 +50,7 @@ proc signAttestation*(v: AttachedValidator,
                       state: BeaconState): Future[ValidatorSig] {.async.} =
   if v.kind == inProcess:
     let
-      attestationRoot = hash_tree_root(
-        AttestationDataAndCustodyBit(data: attestation, custody_bit: false))
+      attestationRoot = hash_tree_root(attestation)
       domain = get_domain(state, DOMAIN_BEACON_ATTESTER, attestation.target.epoch)
 
     # TODO this is an ugly hack to fake a delay and subsequent async reordering

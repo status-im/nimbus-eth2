@@ -63,10 +63,7 @@ proc get_attestation_signature(
        privkey: ValidatorPrivKey
       ): ValidatorSig =
 
-  let msg = AttestationDataAndCustodyBit(
-    data: attestation_data,
-    custody_bit: false
-  ).hash_tree_root()
+  let msg = attestation_data.hash_tree_root()
 
   return bls_sign(
     key = privkey,
@@ -115,20 +112,19 @@ proc mockAttestationImpl(
       committees_per_slot * (slot mod SLOTS_PER_EPOCH)
     ) mod SHARD_COUNT
 
-    crosslink_committee = get_beacon_committee(
+    beacon_committee = get_beacon_committee(
       state,
       result.data.slot,
       result.data.index,
       cache
     )
-    committee_size = crosslink_committee.len
+    committee_size = beacon_committee.len
 
   result.data = mockAttestationData(state, slot, shard)
   result.aggregation_bits = init(CommitteeValidatorsBits, committee_size)
-  result.custody_bits = init(CommitteeValidatorsBits, committee_size)
 
   # fillAggregateAttestation
-  for i in 0 ..< crosslink_committee.len:
+  for i in 0 ..< beacon_committee.len:
     result.aggregation_bits[i] = true
 
   if skipValidation notin flags:

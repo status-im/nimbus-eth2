@@ -139,6 +139,13 @@ proc updateLatestVotes(
     if current.isNil or current.slot < attestationSlot:
       pool.latestAttestations[pubKey] = blck
 
+func get_attesting_indices_seq(state: BeaconState,
+                                attestation_data: AttestationData,
+                                bits: CommitteeValidatorsBits): seq[ValidatorIndex] =
+  var cache = get_empty_per_epoch_cache()
+  toSeq(items(get_attesting_indices(
+    state, attestation_data, bits, cache)))
+
 proc add*(pool: var AttestationPool,
           state: BeaconState,
           blck: BlockRef,
@@ -169,7 +176,6 @@ proc add*(pool: var AttestationPool,
     slotData = addr pool.slots[idx]
     validation = Validation(
       aggregation_bits: attestation.aggregation_bits,
-      custody_bits: attestation.custody_bits,
       aggregate_signature: attestation.signature)
     participants = get_attesting_indices_seq(
       state, attestation.data, validation.aggregation_bits)
@@ -289,7 +295,6 @@ proc getAttestationsForBlock*(
       attestation = Attestation(
         aggregation_bits: a.validations[0].aggregation_bits,
         data: a.data,
-        custody_bits: a.validations[0].custody_bits,
         signature: a.validations[0].aggregate_signature
       )
 
@@ -321,7 +326,6 @@ proc getAttestationsForBlock*(
       #      one new attestation in there
       if not attestation.aggregation_bits.overlaps(v.aggregation_bits):
         attestation.aggregation_bits.combine(v.aggregation_bits)
-        attestation.custody_bits.combine(v.custody_bits)
         attestation.signature.combine(v.aggregate_signature)
 
     result.add(attestation)
