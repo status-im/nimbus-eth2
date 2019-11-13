@@ -186,8 +186,7 @@ proc makeAttestation*(
   aggregation_bits.raiseBit sac_index
 
   let
-    msg = hash_tree_root(
-      AttestationDataAndCustodyBit(data: data, custody_bit: false))
+    msg = hash_tree_root(data)
     sig =
       if skipValidation notin flags:
         bls_sign(
@@ -195,20 +194,16 @@ proc makeAttestation*(
           get_domain(
             state,
             DOMAIN_BEACON_ATTESTER,
-            compute_epoch_at_slot(state.slot)))
+            data.target.epoch))
       else:
         ValidatorSig()
 
   Attestation(
     data: data,
     aggregation_bits: aggregation_bits,
-    signature: sig,
-    custody_bits: CommitteeValidatorsBits.init(committee.len)
+    signature: sig
   )
 
 proc makeTestDB*(tailState: BeaconState, tailBlock: BeaconBlock): BeaconChainDB =
-  let
-    tailRoot = signing_root(tailBlock)
-
   result = init(BeaconChainDB, newMemoryDB())
   BlockPool.preInit(result, tailState, tailBlock)

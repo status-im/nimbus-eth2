@@ -321,63 +321,33 @@ func process_registry_updates*(state: var BeaconState) =
       validator.activation_epoch =
         compute_activation_exit_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#is_valid_indexed_attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     state: BeaconState, indexed_attestation: IndexedAttestation): bool =
   ## Check if ``indexed_attestation`` has valid indices and signature.
   # TODO: this is noSideEffect besides logging
   #       https://github.com/status-im/nim-chronicles/issues/62
 
-  let
-    bit_0_indices = indexed_attestation.custody_bit_0_indices.asSeq
-    bit_1_indices = indexed_attestation.custody_bit_1_indices.asSeq
-
-  # Verify no index has custody bit equal to 1 [to be removed in phase 1]
-  if len(bit_1_indices) != 0:  # [to be removed in phase 1]
-    notice "indexed attestation: custody_bit equal to 1"
-    return false               # [to be removed in phase 1]
+  let indices = indexed_attestation.attesting_indices
 
   # Verify max number of indices
-  let combined_len = len(bit_0_indices) + len(bit_1_indices)
-  if not (combined_len <= MAX_VALIDATORS_PER_COMMITTEE):
+  if not (len(indices) <= MAX_VALIDATORS_PER_COMMITTEE):
     notice "indexed attestation: validator index beyond max validators per committee"
     return false
 
-  # Verify index sets are disjoint
-  if len(intersection(bit_0_indices.toSet, bit_1_indices.toSet)) != 0:
-    notice "indexed attestation: indices set not disjoint"
-    return false
-
   # Verify indices are sorted
-  if bit_0_indices != sorted(bit_0_indices, system.cmp):
-    notice "indexed attestation: indices 0 not sorted"
-    return false
-
-  if bit_1_indices != sorted(bit_1_indices, system.cmp):
-    notice "indexed attestation: indices 0 not sorted"
+  # TODO but why? this is a local artifact
+  if indices != sorted(indices, system.cmp):
+    notice "indexed attestation: indices not sorted"
     return false
 
   # Verify aggregate signature
-  let
-    pubkeys = @[ # TODO, bls_verify_multiple should accept openarray
-      bls_aggregate_pubkeys(mapIt(bit_0_indices, state.validators[it.int].pubkey)),
-      bls_aggregate_pubkeys(mapIt(bit_1_indices, state.validators[it.int].pubkey)),
-    ]
-    msg1 = AttestationDataAndCustodyBit(
-        data: indexed_attestation.data, custody_bit: false)
-    msg2 = AttestationDataAndCustodyBit(
-        data: indexed_attestation.data, custody_bit: true)
-    message_hashes = [
-      hash_tree_root(msg1),
-      hash_tree_root(msg2),
-    ]
-    domain = get_domain(state, DOMAIN_BEACON_ATTESTER, indexed_attestation.data.target.epoch)
-
-  result = bls_verify_multiple(
-    pubkeys,
-    message_hashes,
+  result = bls_verify(
+    bls_aggregate_pubkeys(mapIt(indices, state.validators[it.int].pubkey)),
+    hash_tree_root(indexed_attestation.data).data,
     indexed_attestation.signature,
-    domain,
+    get_domain(
+      state, DOMAIN_BEACON_ATTESTER, indexed_attestation.data.target.epoch)
   )
   if not result:
     notice "indexed attestation: signature verification failure"
@@ -395,14 +365,6 @@ func get_attesting_indices*(state: BeaconState,
     if bits[i]:
       result.incl index
 
-# TODO remove after removing attestation pool legacy usage
-func get_attesting_indices_seq*(state: BeaconState,
-                                attestation_data: AttestationData,
-                                bits: CommitteeValidatorsBits): seq[ValidatorIndex] =
-  var cache = get_empty_per_epoch_cache()
-  toSeq(items(get_attesting_indices(
-    state, attestation_data, bits, cache)))
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#get_indexed_attestation
 func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
     stateCache: var StateCache): IndexedAttestation =
@@ -411,16 +373,6 @@ func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
     attesting_indices =
       get_attesting_indices(
         state, attestation.data, attestation.aggregation_bits, stateCache)
-    custody_bit_1_indices =
-      get_attesting_indices(
-        state, attestation.data, attestation.custody_bits, stateCache)
-
-  doAssert custody_bit_1_indices <= attesting_indices
-
-  let
-    # custody_bit_0_indices = attesting_indices.difference(custody_bit_1_indices)
-    custody_bit_0_indices =
-      filterIt(toSeq(items(attesting_indices)), it notin custody_bit_1_indices)
 
   ## TODO No fundamental reason to do so many type conversions
   ## verify_indexed_attestation checks for sortedness but it's
@@ -431,18 +383,13 @@ func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
   ## 0.6.3 highlights and explicates) except in that the spec,
   ## for no obvious reason, verifies it.
   IndexedAttestation(
-    custody_bit_0_indices: CustodyBitIndices sorted(
-      mapIt(custody_bit_0_indices, it.uint64), system.cmp),
-    # toSeq pointlessly constructs int-indexable copy so mapIt can infer type;
-    # see above
-    custody_bit_1_indices: CustodyBitIndices sorted(
-      mapIt(toSeq(items(custody_bit_1_indices)), it.uint64),
-      system.cmp),
+    attesting_indices:
+      sorted(mapIt(attesting_indices.toSeq, it.uint64), system.cmp),
     data: attestation.data,
-    signature: attestation.signature,
+    signature: attestation.signature
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#attestations
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#attestations
 proc check_attestation*(
     state: BeaconState, attestation: Attestation, flags: UpdateFlags,
     stateCache: var StateCache): bool =
@@ -477,12 +424,6 @@ proc check_attestation*(
     return
 
   let committee = get_beacon_committee(state, data.slot, data.index, stateCache)
-  if attestation.aggregation_bits.len != attestation.custody_bits.len:
-    warn("Inconsistent aggregation and custody bits",
-      aggregation_bits_len = attestation.aggregation_bits.len,
-      custody_bits_len = attestation.custody_bits.len
-    )
-    return
   if attestation.aggregation_bits.len != committee.len:
     warn("Inconsistent aggregation and committee length",
       aggregation_bits_len = attestation.aggregation_bits.len,

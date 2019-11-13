@@ -40,7 +40,6 @@ import
 
 
 # Constant presets
-# https://github.com/ethereum/eth2.0-specs/tree/v0.6.3/configs/constant_presets/
 const const_preset* {.strdefine.} = "minimal"
 
 when const_preset == "mainnet":
@@ -53,7 +52,7 @@ else:
   {.fatal: "Preset \"" & const_preset ".nim\" is not supported.".}
 
 const
-  SPEC_VERSION* = "0.9.0" ## \
+  SPEC_VERSION* = "0.9.1" ## \
   ## Spec version we're aiming to be compatible with, right now
   ## TODO: improve this scheme once we can negotiate versions in protocol
 
@@ -81,8 +80,10 @@ type
   # to the system wordsize. This lifts smaller, and now incorrect,
   # range-limit.
   ValidatorIndex* = distinct uint32
-  Shard* = uint64
   Gwei* = uint64
+
+  # TODO remove
+  Shard* = uint64
 
   BitList*[maxLen: static int] = distinct BitSeq
 
@@ -97,26 +98,18 @@ type
     attestation_1*: IndexedAttestation
     attestation_2*: IndexedAttestation
 
-  CustodyBitIndices* = List[uint64, MAX_VALIDATORS_PER_COMMITTEE]
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#indexedattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#indexedattestation
   IndexedAttestation* = object
-    custody_bit_0_indices*: CustodyBitIndices ##\
-    ## Indices with custody bit equal to 0
-
-    custody_bit_1_indices*: CustodyBitIndices ##\
-    ## Indices with custody bit equal to 1
-
+    attesting_indices*: List[uint64, MAX_VALIDATORS_PER_COMMITTEE]
     data*: AttestationData
     signature*: ValidatorSig
 
   CommitteeValidatorsBits* = BitList[MAX_VALIDATORS_PER_COMMITTEE]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#attestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#attestation
   Attestation* = object
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
-    custody_bits*: CommitteeValidatorsBits
     signature*: ValidatorSig
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#checkpoint
@@ -135,13 +128,6 @@ type
     # FFG vote
     source*: Checkpoint
     target*: Checkpoint
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.0/specs/core/0_beacon-chain.md#attestationdataandcustodybit
-  AttestationDataAndCustodyBit* = object
-    data*: AttestationData
-
-    custody_bit*: bool ##\
-    ## Challengeable bit (SSZ-bool, 1 byte) for the custody of shard data
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#deposit
   Deposit* = object
@@ -201,11 +187,11 @@ type
     graffiti*: Eth2Digest # TODO make that raw bytes
 
     # Operations
-    proposer_slashings*: seq[ProposerSlashing]
-    attester_slashings*: seq[AttesterSlashing]
-    attestations*: seq[Attestation]
-    deposits*: seq[Deposit]
-    voluntary_exits*: seq[VoluntaryExit]
+    proposer_slashings*: List[ProposerSlashing, MAX_PROPOSER_SLASHINGS]
+    attester_slashings*: List[AttesterSlashing, MAX_ATTESTER_SLASHINGS]
+    attestations*: List[Attestation, MAX_ATTESTATIONS]
+    deposits*: List[Deposit, MAX_DEPOSITS]
+    voluntary_exits*: List[VoluntaryExit, MAX_VOLUNTARY_EXITS]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#beaconstate
   BeaconStateNew* = object
@@ -409,7 +395,6 @@ template foreachSpecType*(op: untyped) =
   ## for populating RTTI tables that concern them.
   op Attestation
   op AttestationData
-  op AttestationDataAndCustodyBit
   op AttesterSlashing
   op BeaconBlock
   op BeaconBlockBody
@@ -439,8 +424,6 @@ macro fieldMaxLen*(x: typed): untyped =
   let size = case $x[1]
              of "pubkeys",
                 "compact_validators",
-                "custody_bit_0_indices",
-                "custody_bit_1_indices",
                 "aggregation_bits",
                 "custody_bits": int64(MAX_VALIDATORS_PER_COMMITTEE)
              of "proposer_slashings": MAX_PROPOSER_SLASHINGS

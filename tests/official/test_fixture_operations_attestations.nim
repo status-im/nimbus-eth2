@@ -16,7 +16,7 @@ import
   ./fixtures_utils,
   ../helpers/debug_state
 
-const OperationsAttestationsDir = FixturesDir/"tests-v0.9.0"/const_preset/"phase0"/"operations"/"attestation"/"pyspec_tests"
+const OperationsAttestationsDir = SszTestsDir/const_preset/"phase0"/"operations"/"attestation"/"pyspec_tests"
 
 template runTest(testName: string, identifier: untyped) =
   # We wrap the tests in a proc to avoid running out of globals
@@ -76,10 +76,6 @@ suite "Official - Operations - Attestations " & preset():
   runTest("source root is target root", source_root_is_target_root)
   runTest("invalid current source root", invalid_current_source_root)
   runTest("bad source root", bad_source_root)
-  runTest("inconsistent bits", inconsistent_bits)
-  runTest("non-empty custody bits", non_empty_custody_bits)
   runTest("empty aggregation bits", empty_aggregation_bits)
   runTest("too many aggregation bits", too_many_aggregation_bits)
   runTest("too few aggregation bits", too_few_aggregation_bits)
-  runTest("too many custody bits", too_many_custody_bits)
-  runTest("too few custody bits", too_few_custody_bits)
