@@ -181,7 +181,7 @@ func bls_verify*(
     # TODO bls_verify_multiple(...) used to have this workaround, and now it
     # lives here. No matter the signature, there's also no meaningful way to
     # verify it -- it's a kind of vacuous truth. No pubkey/sig pairs.
-    if pubkey == ValidatorPubKey():
+    if pubkey == default(ValidatorPubKey):
       return true
 
     sig.blsValue.verify(msg, domain, pubkey.blsValue)

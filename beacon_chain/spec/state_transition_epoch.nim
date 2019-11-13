@@ -128,7 +128,7 @@ proc process_justification_and_finalization*(
 
   # This is a somewhat expensive approach
   let active_validator_indices =
-    toSet(mapIt(
+    toHashSet(mapIt(
       get_active_validator_indices(state, get_current_epoch(state)), it.int))
 
   let matching_target_attestations_previous =
@@ -147,11 +147,11 @@ proc process_justification_and_finalization*(
   trace "Non-attesting indices in previous epoch",
     missing_all_validators=
       difference(active_validator_indices,
-        toSet(mapIt(get_attesting_indices(state,
+        toHashSet(mapIt(get_attesting_indices(state,
           matching_target_attestations_previous, stateCache), it.int))),
     missing_unslashed_validators=
       difference(active_validator_indices,
-        toSet(mapIt(get_unslashed_attesting_indices(state,
+        toHashSet(mapIt(get_unslashed_attesting_indices(state,
           matching_target_attestations_previous, stateCache), it.int))),
     prev_attestations_len=len(state.previous_epoch_attestations),
     cur_attestations_len=len(state.current_epoch_attestations),
