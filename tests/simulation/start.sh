@@ -3,9 +3,11 @@
 set -eo pipefail
 
 # Read in variables
+# shellcheck source=/dev/null
 source "$(dirname "$0")/vars.sh"
 
 # set up the environment
+# shellcheck source=/dev/null
 source "${SIM_ROOT}/../../env.sh"
 
 cd "$SIM_ROOT"

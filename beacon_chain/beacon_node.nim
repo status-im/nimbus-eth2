@@ -547,20 +547,28 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     let
       epoch = compute_epoch_at_slot(slot)
       committees_per_slot =
+        # get_committee_count_at_slot(state, slot)
         get_committee_count_at_slot(state, epoch.compute_start_slot_at_epoch)
       offset = committees_per_slot * (slot mod SLOTS_PER_EPOCH)
       slot_start_shard = (get_start_shard(state, epoch) + offset) mod SHARD_COUNT
 
-    for i in 0'u64..<committees_per_slot:
+    for committee_index in 0'u64..<committees_per_slot:
       let
-        shard = Shard((slot_start_shard + i) mod SHARD_COUNT)
-        committee = get_crosslink_committee(state, epoch, shard, cache)
+        shard = Shard((slot_start_shard + committee_index) mod SHARD_COUNT)
+        shard_committee = get_crosslink_committee(state, epoch, shard, cache)
+        committee = get_beacon_committee(state, slot, committee_index, cache)
 
-      for i, validatorIdx in committee:
+      for index_in_committee, validatorIdx in committee:
         let validator = node.getAttachedValidator(state, validatorIdx)
         if validator != nil:
-          let ad = makeAttestationData(state, shard, blck.root)
-          attestations.add((ad, committee.len, i, validator))
+          let ad = makeAttestationData(state, slot, committee_index, blck.root)
+          let
+            (hm_slot, hm_index) = get_slot_and_index(state, epoch, shard)
+            shard_ad = makeAttestationData(state, hm_slot, hm_index, blck.root)
+          doAssert slot == hm_slot
+          doAssert hm_index == committee_index
+          attestations.add((ad, committee.len, index_in_committee, validator))
+          #attestations.add((shard_ad, committee.len, index_in_committee, validator))
 
     for a in attestations:
       traceAsyncErrors sendAttestation(
