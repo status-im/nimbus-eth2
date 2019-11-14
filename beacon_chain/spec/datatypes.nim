@@ -82,9 +82,6 @@ type
   ValidatorIndex* = distinct uint32
   Gwei* = uint64
 
-  # TODO remove
-  Shard* = uint64
-
   BitList*[maxLen: static int] = distinct BitSeq
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#proposerslashing
@@ -287,7 +284,6 @@ type
     ## VALIDATOR_REGISTRY_LIMIT
 
     # Shuffling
-    start_shard* {.dontSerialize.}: Shard
     randao_mixes*: array[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
 
     # Slashings
@@ -374,9 +370,6 @@ type
       Table[tuple[a: int, b: Eth2Digest], seq[ValidatorIndex]]
     active_validator_indices_cache*:
       Table[Epoch, seq[ValidatorIndex]]
-    start_shard_cache*: Table[Epoch, Shard]
-
-    # TODO still used?
     committee_count_cache*: Table[Epoch, uint64]
 
 when networkBackend == rlpxBackend:
@@ -647,12 +640,6 @@ chronicles.formatIt Slot: it.shortLog
 chronicles.formatIt Epoch: it.shortLog
 chronicles.formatIt BeaconBlock: it.shortLog
 chronicles.formatIt AttestationData: it.shortLog
-
-# TODO remove
-const SHARD_COUNT* = (MAX_COMMITTEES_PER_SLOT * SLOTS_PER_EPOCH).uint64
-
-static:
-  doAssert SHARD_COUNT.int == MAX_COMMITTEES_PER_SLOT * SLOTS_PER_EPOCH
 
 import json_serialization
 export json_serialization

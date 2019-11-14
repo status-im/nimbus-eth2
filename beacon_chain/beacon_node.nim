@@ -544,31 +544,17 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   #      version here that calculates the committee for a single slot only
   node.blockPool.withState(node.stateCache, attestationHead):
     var cache = get_empty_per_epoch_cache()
-    let
-      epoch = compute_epoch_at_slot(slot)
-      committees_per_slot =
-        # get_committee_count_at_slot(state, slot)
-        get_committee_count_at_slot(state, epoch.compute_start_slot_at_epoch)
-      offset = committees_per_slot * (slot mod SLOTS_PER_EPOCH)
-      slot_start_shard = (get_start_shard(state, epoch) + offset) mod SHARD_COUNT
+    let committees_per_slot = get_committee_count_at_slot(state, slot)
 
     for committee_index in 0'u64..<committees_per_slot:
       let
-        shard = Shard((slot_start_shard + committee_index) mod SHARD_COUNT)
-        shard_committee = get_crosslink_committee(state, epoch, shard, cache)
         committee = get_beacon_committee(state, slot, committee_index, cache)
 
       for index_in_committee, validatorIdx in committee:
         let validator = node.getAttachedValidator(state, validatorIdx)
         if validator != nil:
           let ad = makeAttestationData(state, slot, committee_index, blck.root)
-          let
-            (hm_slot, hm_index) = get_slot_and_index(state, epoch, shard)
-            shard_ad = makeAttestationData(state, hm_slot, hm_index, blck.root)
-          doAssert slot == hm_slot
-          doAssert hm_index == committee_index
           attestations.add((ad, committee.len, index_in_committee, validator))
-          #attestations.add((shard_ad, committee.len, index_in_committee, validator))
 
     for a in attestations:
       traceAsyncErrors sendAttestation(

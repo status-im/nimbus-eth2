@@ -398,13 +398,6 @@ proc process_final_updates*(state: var BeaconState) =
     )
     state.historical_roots.add (hash_tree_root(historical_batch))
 
-  # TODO remove this when start_shard finally goes away, but doesn't
-  # interfere with 0.9.0. Gone after 0.8.4.
-  # Update start shard
-  state.start_shard =
-    (state.start_shard + get_shard_delta(state, current_epoch)) mod
-      SHARD_COUNT
-
   # Rotate current/previous epoch attestations
   state.previous_epoch_attestations = state.current_epoch_attestations
   state.current_epoch_attestations = @[]
