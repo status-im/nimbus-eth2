@@ -1,6 +1,6 @@
 import
   # Standard library
-  os, net, tables, strutils, times, strformat, memfiles,
+  os, net, tables, random, strutils, times, strformat, memfiles,
 
   # Nimble packages
   stew/[objects, bitseqs, byteutils], stew/ranges/ptr_arith,
