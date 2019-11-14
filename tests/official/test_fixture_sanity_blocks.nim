@@ -36,7 +36,6 @@ template runValidTest(testName: string, identifier: untyped, num_blocks: int): u
       stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
       postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
 
-      var success = true
       for i in 0 ..< num_blocks:
         let blck = parseTest(testDir/"blocks_" & $i & ".ssz", SSZ, BeaconBlock)
 

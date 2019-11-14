@@ -28,10 +28,6 @@ declareGauge beacon_head_slot,
 declareGauge beacon_head_root,
   "Root of the head block of the beacon chain"
 
-# https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
-declareGauge beacon_pending_exits,
-  "Number of pending voluntary exits in local operation pool" # On slot
-
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_attestations_sent,
   "Number of beacon chain attestations sent by this peer"
@@ -399,7 +395,7 @@ proc proposeBlock(node: BeaconNode,
     var
       tmpState = hashedState
 
-    let ok = state_transition(tmpState, newBlock, {skipValidation})
+    discard state_transition(tmpState, newBlock, {skipValidation})
     # TODO only enable in fast-fail debugging situations
     # otherwise, bad attestations can bring down network
     # doAssert ok # TODO: err, could this fail somehow?
