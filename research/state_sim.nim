@@ -41,7 +41,7 @@ cli do(slots = 448'u,
        validators = SLOTS_PER_EPOCH * 9, # One per shard is minimum
        json_interval = SLOTS_PER_EPOCH,
        prefix = 0,
-       attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.9,
+       attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.75,
        validate = true):
   let
     flags = if validate: {} else: {skipValidation}
@@ -99,9 +99,8 @@ cli do(slots = 448'u,
           mapIt(
             0'u64 .. (get_committee_count_at_slot(state, state.slot) *
               SLOTS_PER_EPOCH - 1),
-            get_crosslink_committee(state, epoch,
-              (it + get_start_shard(state, epoch)) mod SHARD_COUNT,
-              cache))
+            get_beacon_committee(state, epoch.compute_start_slot_at_epoch + (it mod SLOTS_PER_EPOCH),
+              it div SLOTS_PER_EPOCH, cache))
 
       for scas in scass:
         var
