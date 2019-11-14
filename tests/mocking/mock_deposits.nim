@@ -14,7 +14,7 @@ import
   # 0.19.6 shims
   stew/objects, # import default
   # Specs
-  ../../beacon_chain/spec/[datatypes, crypto, helpers, digest, beaconstate],
+  ../../beacon_chain/spec/[datatypes, crypto, helpers, digest],
   # Internals
   ../../beacon_chain/[ssz, extras],
   # Mocking procs

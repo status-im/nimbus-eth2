@@ -10,15 +10,17 @@
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#genesis
 # ---------------------------------------------------------------
 
+{.used.}
+
 import
   # Standard library
   unittest,
   # Specs
-  ../../beacon_chain/spec/[beaconstate, datatypes, helpers, validator, digest],
+  ../../beacon_chain/spec/datatypes,
   # Internals
-  ../../beacon_chain/[ssz, extras, state_transition],
+  ../../beacon_chain/ssz,
   # Mock helpers
-  ../mocking/[mock_deposits, mock_genesis],
+  ../mocking/mock_genesis,
   ../testutil
 
 

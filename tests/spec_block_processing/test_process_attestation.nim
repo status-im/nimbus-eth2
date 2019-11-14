@@ -9,15 +9,15 @@
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#attestations
 # ---------------------------------------------------------------
 
+{.used.}
+
 import
   # Standard library
-  unittest, math,
+  unittest,
   # shims 0.19.6
   stew/objects, # import default
   # Specs
   ../../beacon_chain/spec/[beaconstate, datatypes, helpers, validator],
-  # Internals
-  ../../beacon_chain/[state_transition],
   # Mock helpers
   ../mocking/[mock_genesis, mock_attestations, mock_state, mock_blocks],
   ../testutil

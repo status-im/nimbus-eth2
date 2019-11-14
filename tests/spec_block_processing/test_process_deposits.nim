@@ -10,13 +10,15 @@
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#deposits
 # ---------------------------------------------------------------
 
+{.used.}
+
 import
   # Standard library
   unittest, math,
   # Specs
-  ../../beacon_chain/spec/[beaconstate, datatypes, crypto, helpers, validator],
+  ../../beacon_chain/spec/[beaconstate, datatypes, crypto],
   # Internals
-  ../../beacon_chain/[ssz, extras, state_transition],
+  ../../beacon_chain/[ssz, extras],
   # Mock helpers
   ../mocking/[mock_deposits, mock_genesis],
   ../testutil, ../helpers/math_helpers

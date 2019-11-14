@@ -10,7 +10,7 @@
 
 import
   # Specs
-  ../../beacon_chain/spec/[datatypes, digest, beaconstate, helpers],
+  ../../beacon_chain/spec/[datatypes, digest],
   ../../beacon_chain/ssz,
   # shims
   stew/objects

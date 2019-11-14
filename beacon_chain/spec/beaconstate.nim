@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  tables, algorithm, math, options, sequtils,
+  tables, algorithm, math, sequtils,
   json_serialization/std/sets, chronicles, stew/bitseqs,
   ../extras, ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers, ./validator

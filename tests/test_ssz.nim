@@ -5,9 +5,11 @@
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.used.}
+
 import
-  unittest, sequtils, options,
-  stint, nimcrypto, eth/common, blscurve, serialization/testing/generic_suite,
+  unittest, options,
+  stint, nimcrypto, eth/common, serialization/testing/generic_suite,
   ../beacon_chain/spec/[datatypes, digest],
   ../beacon_chain/ssz, ../beacon_chain/ssz/[navigator, dynamic_navigator]
 

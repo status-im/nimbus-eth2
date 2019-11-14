@@ -10,8 +10,6 @@ import
   strformat,
   # Specs
   ../../beacon_chain/spec/[datatypes, state_transition_epoch, validator, helpers],
-  # Internals
-  ../../beacon_chain/[state_transition],
   # Test helpers
   ../helpers/digest_helpers
 
