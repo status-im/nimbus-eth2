@@ -31,7 +31,7 @@ type
 
   BeaconNodeConf* = object
     logLevel* {.
-      defaultValue: enabledLogLevel
+      defaultValue: LogLevel.DEBUG
       desc: "Sets the log level."
       name: "log-level" }: LogLevel
 
