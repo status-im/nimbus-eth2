@@ -590,7 +590,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     msg.defineThunk quote do:
       proc `thunkName`(`daemonVar`: `DaemonAPI`,
                        `streamVar`: `P2PStream`) {.async, gcsafe.} =
-        when `msgNameLit` == "beaconBlocksByRange":
+        when `msgNameLit` == "beaconBlocksByRange" and chronicles.runtimeFilteringEnabled:
           setLogLevel(LogLevel.TRACE)
           defer: setLogLevel(LogLevel.DEBUG)
           trace "incoming beaconBlocksByRange stream"
