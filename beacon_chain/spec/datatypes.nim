@@ -452,6 +452,12 @@ template ethTimeUnit(typ: type) {.dirty.} =
   proc readValue*(reader: var JsonReader, value: var typ) =
     value = typ reader.readValue(uint64)
 
+proc writeValue*(writer: var JsonWriter, value: ValidatorIndex) =
+  writeValue(writer, uint32 value)
+
+proc readValue*(reader: var JsonReader, value: var ValidatorIndex) =
+  value = ValidatorIndex reader.readValue(uint32)
+
 proc `%`*(i: uint64): JsonNode =
   % int(i)
 
