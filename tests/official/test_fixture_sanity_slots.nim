@@ -39,12 +39,7 @@ template runTest(testName: string, identifier: untyped, num_slots: uint64): unty
       process_slots(stateRef[], stateRef.slot + num_slots)
       # check: stateRef.hash_tree_root() == postRef.hash_tree_root()
 
-      var sr_pre, sr_post: ref BeaconStateNew
-      new sr_pre
-      new sr_post
-      sr_pre[] = GetNewBeaconState(stateRef[])
-      sr_post[] = GetNewBeaconState(postRef[])
-      reportDiff(sr_pre, sr_post)
+      reportDiff(stateRef, postRef)
 
   `testImpl _ slots _ identifier`()
 

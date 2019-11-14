@@ -40,29 +40,24 @@ template runTest(testName: string, identifier: untyped) =
       prefix = "[Invalid] "
 
     test prefix & testName & " (" & astToStr(identifier) & ")":
-      var stateRef, postRef: ref BeaconStateNew
-      var sr_pre, sr_post: ref BeaconState
+      var stateRef, postRef: ref BeaconState
       var depositRef: ref Deposit
       new depositRef
       new stateRef
-      new sr_pre
-      new sr_post
 
       depositRef[] = parseTest(testDir/"deposit.ssz", SSZ, Deposit)
-      stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconStateNew)
-      sr_pre[] = GetOldBeaconState(stateRef[])
+      stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
 
       if existsFile(testDir/"post.ssz"):
         new postRef
-        postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconStateNew)
-        sr_post[] = GetOldBeaconState(postRef[])
+        postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
 
       if postRef.isNil:
         expect(AssertionError):
-          let done = process_deposit(sr_pre[], depositRef[], flags)
+          discard process_deposit(stateRef[], depositRef[], flags)
       else:
-        let done = process_deposit(sr_pre[], depositRef[], flags)
-        reportDiff(sr_pre, sr_post)
+        discard process_deposit(stateRef[], depositRef[], flags)
+        reportDiff(stateRef, postRef)
 
   `testImpl _ operations_deposits _ identifier`()
 

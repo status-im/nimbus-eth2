@@ -191,64 +191,6 @@ type
     voluntary_exits*: List[VoluntaryExit, MAX_VOLUNTARY_EXITS]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#beaconstate
-  BeaconStateNew* = object
-    # Versioning
-    genesis_time*: uint64
-    slot*: Slot
-    fork*: Fork
-
-    # History
-    latest_block_header*: BeaconBlockHeader ##\
-    ## `latest_block_header.state_root == ZERO_HASH` temporarily
-
-    block_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
-    ## Needed to process attestations, older to newer
-
-    state_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
-
-    historical_roots*: seq[Eth2Digest]  ##\
-    ## model List with HISTORICAL_ROOTS_LIMIT limit as seq
-    ## TODO bound explicitly somewhere
-
-    # Eth1
-    eth1_data*: Eth1Data
-
-    eth1_data_votes*: seq[Eth1Data] ##\
-    ## As with `hitorical_roots`, this is a `List`. TODO bound explicitly.
-
-    eth1_deposit_index*: uint64
-
-    # Registry
-    validators*: seq[Validator]
-    balances*: seq[uint64] ##\
-    ## Validator balances in Gwei!
-    ## Also more `List`s which need to be bounded explicitly at
-    ## VALIDATOR_REGISTRY_LIMIT
-
-    # Randomness
-    randao_mixes*: array[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
-
-    # Slashings
-    slashings*: array[EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
-    ## Per-epoch sums of slashed effective balances
-
-    # Attestations
-    previous_epoch_attestations*: seq[PendingAttestation]
-    current_epoch_attestations*: seq[PendingAttestation]
-
-    # Finality
-    justification_bits*: uint8 ##\
-    ## Bit set for every recent justified epoch
-    ## Model a Bitvector[4] as a one-byte uint, which should remain consistent
-    ## with ssz/hashing.
-
-    previous_justified_checkpoint*: Checkpoint ##\
-    ## Previous epoch snapshot
-
-    current_justified_checkpoint*: Checkpoint
-    finalized_checkpoint*: Checkpoint
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -510,54 +452,6 @@ proc `$`*(x: ValidatorIndex): auto = $(x.int64)
 
 ethTimeUnit Slot
 ethTimeUnit Epoch
-
-func GetOldBeaconState*(newState: BeaconStateNew): BeaconState =
-  BeaconState(
-    genesis_time: newState.genesis_time,
-    slot: newState.slot,
-    fork: newState.fork,
-    latest_block_header: newState.latest_block_header,
-    block_roots: newState.block_roots,
-    state_roots: newState.state_roots,
-    historical_roots: newState.historical_roots,
-    eth1_data: newState.eth1_data,
-    eth1_data_votes: newState.eth1_data_votes,
-    eth1_deposit_index: newState.eth1_deposit_index,
-    validators: newState.validators,
-    balances: newState.balances,
-    randao_mixes: newState.randao_mixes,
-    slashings: newState.slashings,
-    previous_epoch_attestations: newState.previous_epoch_attestations,
-    current_epoch_attestations: newState.current_epoch_attestations,
-    justification_bits: newState.justification_bits,
-    previous_justified_checkpoint: newState.previous_justified_checkpoint,
-    current_justified_checkpoint: newState.current_justified_checkpoint,
-    finalized_checkpoint: newState.finalized_checkpoint
-  )
-
-func GetNewBeaconState*(oldState: BeaconState): BeaconStateNew =
-  BeaconStateNew(
-    genesis_time: oldState.genesis_time,
-    slot: oldState.slot,
-    fork: oldState.fork,
-    latest_block_header: oldState.latest_block_header,
-    block_roots: oldState.block_roots,
-    state_roots: oldState.state_roots,
-    historical_roots: oldState.historical_roots,
-    eth1_data: oldState.eth1_data,
-    eth1_data_votes: oldState.eth1_data_votes,
-    eth1_deposit_index: oldState.eth1_deposit_index,
-    validators: oldState.validators,
-    balances: oldState.balances,
-    randao_mixes: oldState.randao_mixes,
-    slashings: oldState.slashings,
-    previous_epoch_attestations: oldState.previous_epoch_attestations,
-    current_epoch_attestations: oldState.current_epoch_attestations,
-    justification_bits: oldState.justification_bits,
-    previous_justified_checkpoint: oldState.previous_justified_checkpoint,
-    current_justified_checkpoint: oldState.current_justified_checkpoint,
-    finalized_checkpoint: oldState.finalized_checkpoint
-  )
 
 Json.useCustomSerialization(BeaconState.justification_bits):
   read:
