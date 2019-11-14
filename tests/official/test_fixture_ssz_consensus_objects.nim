@@ -94,6 +94,7 @@ proc loadExpectedHashTreeRoot(dir: string): SSZHashTreeRoot =
 # ----------------------------------------------------------------
 
 proc runSSZtests() =
+  doAssert existsDir(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the official test vectors."
   for pathKind, sszType in walkDir(SSZDir, relative = true):
     assert pathKind == pcDir
     if sszType in Unsupported:
