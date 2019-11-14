@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  os, unittest, strutils, streams, strformat, strscans,
+  os, unittest, strutils, streams, strformat,
   macros, sets,
   # Status libraries
   stint, stew/bitseqs,

@@ -59,9 +59,9 @@ template runTest(testName: string, identifier: untyped) =
 
       if postRef.isNil:
         expect(AssertionError):
-          let done = process_deposit(sr_pre[], depositRef[], flags)
+          discard process_deposit(sr_pre[], depositRef[], flags)
       else:
-        let done = process_deposit(sr_pre[], depositRef[], flags)
+        discard process_deposit(sr_pre[], depositRef[], flags)
         reportDiff(sr_pre, sr_post)
 
   `testImpl _ operations_deposits _ identifier`()
