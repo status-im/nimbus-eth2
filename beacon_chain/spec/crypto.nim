@@ -45,7 +45,6 @@
 
 
 import
-  sequtils,
   stew/[endians2, objects, byteutils], hashes, nimcrypto/utils,
   blscurve, json_serialization,
   ../version, digest,

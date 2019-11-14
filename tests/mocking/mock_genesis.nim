@@ -10,13 +10,11 @@
 
 import
   # Specs
-  ../../beacon_chain/spec/[datatypes, beaconstate, digest],
+  ../../beacon_chain/spec/[datatypes, beaconstate],
   # Internals
   ../../beacon_chain/[extras, interop],
   # Mocking procs
-  ./mock_deposits,
-  # Helpers
-  ../helpers/digest_helpers
+  ./mock_deposits
 
 
 proc initGenesisState*(num_validators: uint64, genesis_time: uint64 = 0): BeaconState =

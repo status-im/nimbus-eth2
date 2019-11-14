@@ -5,7 +5,9 @@
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import  options, unittest, sequtils, strutils, eth/trie/[db],
+{.used.}
+
+import  options, unittest, sequtils, eth/trie/[db],
   ../beacon_chain/[beacon_chain_db, extras, interop, ssz],
   ../beacon_chain/spec/[beaconstate, datatypes, digest, crypto],
   # test utilies

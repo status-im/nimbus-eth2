@@ -5,8 +5,10 @@
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.used.}
+
 import
-  options, sequtils, unittest,
+  options, unittest,
   ./testutil,
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
   ../beacon_chain/[beacon_node_types, attestation_pool, block_pool, extras, state_transition, ssz]

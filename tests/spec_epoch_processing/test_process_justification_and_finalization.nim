@@ -5,15 +5,15 @@
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.used.}
+
 import
   # Standard library
-  strformat, unittest,
+  unittest,
   # Vendored packages
   stew/bitops2,
   # Specs
-  ../../beacon_chain/spec/[datatypes, state_transition_epoch, validator, helpers],
-  # Internals
-  ../../beacon_chain/[state_transition],
+  ../../beacon_chain/spec/datatypes,
   # Test helpers
   ../mocking/[mock_genesis],
   ./epoch_utils,

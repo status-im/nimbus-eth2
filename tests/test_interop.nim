@@ -1,7 +1,9 @@
+{.used.}
+
 import
   unittest, stint, blscurve, stew/byteutils,
   ../beacon_chain/[extras, interop, ssz],
-  ../beacon_chain/spec/[beaconstate, digest, crypto, helpers, datatypes]
+  ../beacon_chain/spec/[beaconstate, crypto, helpers, datatypes]
 
 # Interop test yaml, found here:
 # https://github.com/ethereum/eth2.0-pm/blob/a0b9d22fad424574b1307828f867b30237758468/interop/mocked_start/keygen_10_validators.yaml

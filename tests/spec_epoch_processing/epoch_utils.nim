@@ -7,7 +7,7 @@
 
 import
   # Specs
-  ../../beacon_chain/spec/[datatypes, state_transition_epoch, validator, helpers],
+  ../../beacon_chain/spec/[datatypes, state_transition_epoch, validator],
   # Internals
   ../../beacon_chain/[state_transition]
 

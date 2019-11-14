@@ -5,11 +5,13 @@
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.used.}
+
 import
   options, sequtils, unittest,
   ./testutil,
-  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
-  ../beacon_chain/[beacon_node_types, block_pool, beacon_chain_db, extras, state_transition, ssz]
+  ../beacon_chain/spec/[beaconstate, datatypes, digest],
+  ../beacon_chain/[beacon_node_types, block_pool, beacon_chain_db, extras, ssz]
 
 suite "Block pool processing" & preset():
   let
