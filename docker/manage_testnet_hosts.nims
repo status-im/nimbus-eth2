@@ -76,8 +76,10 @@ iterator validatorAssignments: tuple[node: Node; firstValidator, lastValidator: 
           0
       ,
       "testnet1": proc (nodeIdx: int): int =
-        if nodeIdx == 0: systemValidators
-        else: 0
+        if nodeidx < 4:
+          systemValidators div 4
+        else:
+          0
     }
 
   var nextValidatorIdx = conf.totalUserValidators
