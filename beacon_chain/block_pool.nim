@@ -347,13 +347,20 @@ func getBlockRange*(pool: BlockPool, headBlock: Eth2Digest,
   result = output.len
 
   var b = pool.getRef(headBlock)
-  if b == nil or b.slot < startSlot:
+  if b == nil:
+    trace "head block not found"
+    return
+
+  if b.slot < startSlot:
+    trace "head block is older than startSlot", headBlockSlot = b.slot, startSlot
     return
 
   template skip(n: int) =
     for i in 0 ..< n:
+      if b.parent == nil:
+        trace "stopping at parentless block", slot = b.slot
+        return
       b = b.parent
-      if b == nil: return
 
   # We must compute the last block that is eligible for inclusion
   # in the results. This will be a block with a slot number that's
@@ -375,6 +382,7 @@ func getBlockRange*(pool: BlockPool, headBlock: Eth2Digest,
   while b != nil and result > 0:
     dec result
     output[result] = b
+    trace "getBlockRange result", position = result, blockSlot = b.slot
     skip skipStep
 
 proc get*(pool: BlockPool, blck: BlockRef): BlockData =
