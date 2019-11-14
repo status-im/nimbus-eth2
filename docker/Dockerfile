@@ -14,6 +14,11 @@ RUN cd /root \
  && make -j$(nproc) update \
  && make deps
 
+# Please note that the commands above have the goal of caching the compilation
+# of Nim and p2pd, but don't depend on the current git revision. This means
+# that the cache can become outdated over time and you'll start seeing Nim
+# being compiled on every run. If this happens, just prune your docker cache
+# to get a fresh up-to-date version of Nim and p2pd.
 ARG GIT_REVISION
 ARG NETWORK_NIM_FLAGS
 

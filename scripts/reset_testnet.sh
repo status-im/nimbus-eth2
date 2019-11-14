@@ -8,6 +8,10 @@ export NETWORK=$1
 export NETWORK_NIM_FLAGS=$(./load-testnet-nim-flags.sh $NETWORK)
 export GIT_REVISION=$(git rev-parse HEAD)
 
+set -a
+source $NETWORK.env
+set +a
+
 cd ..
 
 if [ -f .env ]; then
@@ -20,10 +24,11 @@ echo Execution plan:
 echo "Testnet name            : $NETWORK"
 echo "Bootstrap node hostname : ${BOOTSTRAP_HOST:="master-01.do-ams3.nimbus.test.statusim.net"}"
 echo "Bootstrap node ip       : ${BOOTSTRAP_IP:="$(dig +short $BOOTSTRAP_HOST)"}"
+echo "Bootstrap node port     : ${BOOTSTRAP_PORT:=9000}"
 echo "Reset testnet at end    : ${PUBLISH_TESTNET_RESETS:="1"}"
 echo "Testnet metadata repo   : ${ETH2_TESTNETS_GIT_URL:="git@github.com:${ETH2_TESTNETS_ORG:=eth2-clients}/eth2-testnets"}"
 echo "Testnet metadata dir    : ${ETH2_TESTNETS:="build/eth2-testnets"}"
-echo "Beacon node data dir    : ${DATA_DIR:="build/testnet-reset-data"}"
+echo "Beacon node data dir    : ${DATA_DIR:="build/testnet-reset-data/$NETWORK"}"
 echo "Nim build flags         : $NETWORK_NIM_FLAGS"
 
 while true; do
