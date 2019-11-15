@@ -33,7 +33,7 @@ type
 
 chronicles.formatIt Eth2Digest:
   mixin toHex
-  it.data.toHex(true)
+  it.data.toHex(true)[0..7]
 
 func shortLog*(x: Eth2Digest): string =
   x.data.toHex(true)[0..7]

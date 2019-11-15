@@ -120,6 +120,10 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
   doAssert justifiedHead.slot >= finalizedHead.slot,
     "justified head comes before finalized head - database corrupt?"
 
+  debug "Block pool initialized",
+    head = head.blck, finalizedHead, tail = tailRef,
+    totalBlocks = blocks.len, totalKnownSlots = blocksBySlot.len
+
   BlockPool(
     pending: initTable[Eth2Digest, BeaconBlock](),
     missing: initTable[Eth2Digest, MissingBlock](),
@@ -348,7 +352,7 @@ func getBlockRange*(pool: BlockPool, headBlock: Eth2Digest,
 
   var b = pool.getRef(headBlock)
   if b == nil:
-    trace "head block not found"
+    trace "head block not found", headBlock
     return
 
   if b.slot < startSlot:
@@ -643,6 +647,7 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
   ## of operations naturally becomes important here - after updating the head,
   ## blocks that were once considered potential candidates for a tree will
   ## now fall from grace, or no longer be considered resolved.
+  doAssert blck.parent != nil
   logScope: pcs = "fork_choice"
 
   if pool.head.blck == blck:
@@ -705,6 +710,8 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
       headBlockSlot = shortLog(blck.slot),
       cat = "fork_choice"
 
+    pool.finalizedHead = finalizedHead
+
     var cur = finalizedHead.blck
     while cur != pool.finalizedHead.blck:
       # Finalization means that we choose a single chain as the canonical one -
@@ -727,8 +734,6 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
           pool.delFinalizedStateIfNeeded(child)
       cur.parent.children = @[cur]
       cur = cur.parent
-
-    pool.finalizedHead = finalizedHead
 
     let hlen = pool.heads.len
     for i in 0..<hlen:

@@ -593,7 +593,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
         when chronicles.runtimeFilteringEnabled:
           setLogLevel(LogLevel.TRACE)
           defer: setLogLevel(LogLevel.DEBUG)
-          trace "incoming beaconBlocksByRange stream"
+          trace "incoming " & `msgNameLit` & " stream"
 
         defer:
           `await` safeClose(`streamVar`)
