@@ -1,5 +1,5 @@
 import
-  stew/objects, stew/ranges/ptr_arith,
+  stew/[ptrops, objects], stew/ranges/ptr_arith,
   ./types, ./bytes_reader
 
 type
@@ -44,11 +44,11 @@ func navigateToField*[T](n: SszNavigator[T],
 
   when isFixedSize(SszFieldType):
     SszNavigator[FieldType](m: MemRange(
-      startAddr: shift(n.m.startAddr, boundingOffsets[0]),
+      startAddr: offset(n.m.startAddr, boundingOffsets[0]),
       length: boundingOffsets[1] - boundingOffsets[0]))
   else:
-    template readOffset(offset): int =
-      int fromSszBytes(uint32, makeOpenArray(shift(n.m.startAddr, offset),
+    template readOffset(off): int =
+      int fromSszBytes(uint32, makeOpenArray(offset(n.m.startAddr, off),
                                              sizeof(uint32)))
     let
       startOffset = readOffset boundingOffsets[0]
@@ -59,7 +59,7 @@ func navigateToField*[T](n: SszNavigator[T],
        raise newException(MalformedSszError, "Incorrect offset values")
 
     SszNavigator[FieldType](m: MemRange(
-      startAddr: shift(n.m.startAddr, startOffset),
+      startAddr: offset(n.m.startAddr, startOffset),
       length: endOffset - startOffset))
 
 template `.`*[T](n: SszNavigator[T], field: untyped): auto =
@@ -69,7 +69,7 @@ template `.`*[T](n: SszNavigator[T], field: untyped): auto =
 
 func indexVarSizeList(m: MemRange, idx: int): MemRange =
   template readOffset(pos): int =
-    int fromSszBytes(uint32, makeOpenArray(shift(m.startAddr, pos), offsetSize))
+    int fromSszBytes(uint32, makeOpenArray(offset(m.startAddr, pos), offsetSize))
 
   let offsetPos = offsetSize * idx
   checkBounds(m, offsetPos + offsetSize)
@@ -93,7 +93,7 @@ func indexVarSizeList(m: MemRange, idx: int): MemRange =
   else:
     m.length
 
-  MemRange(startAddr: m.startAddr.shift(elemPos), length: endPos - elemPos)
+  MemRange(startAddr: m.startAddr.offset(elemPos), length: endPos - elemPos)
 
 template indexList(n, idx, T: untyped): untyped =
   type R = T
@@ -103,7 +103,7 @@ template indexList(n, idx, T: untyped): untyped =
     const elemSize = fixedPortionSize(ElemType)
     let elemPos = idx * elemSize
     checkBounds(n.m, elemPos + elemSize)
-    SszNavigator[R](m: MemRange(startAddr: shift(n.m.startAddr, elemPos),
+    SszNavigator[R](m: MemRange(startAddr: offset(n.m.startAddr, elemPos),
                                 length: elemSize))
   else:
     SszNavigator[R](m: indexVarSizeList(n.m, idx))

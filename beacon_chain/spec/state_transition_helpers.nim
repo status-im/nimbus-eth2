@@ -27,7 +27,7 @@ func shortLog*(x: Checkpoint): string =
 func get_attesting_indices*(
     state: BeaconState, attestations: openarray[PendingAttestation],
     stateCache: var StateCache): HashSet[ValidatorIndex] =
-  result = initSet[ValidatorIndex]()
+  result = initHashSet[ValidatorIndex]()
   for a in attestations:
     result = result.union(get_attesting_indices(
       state, a.data, a.aggregation_bits, stateCache))

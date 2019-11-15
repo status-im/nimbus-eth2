@@ -65,9 +65,6 @@ type
 
   ProtocolInfo* = ptr ProtocolInfoObj
 
-  CompressedMsgId = tuple
-    protocolIdx, methodId: int
-
   ResponseCode* = enum
     Success
     InvalidRequest

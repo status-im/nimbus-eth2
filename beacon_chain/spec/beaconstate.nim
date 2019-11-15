@@ -315,7 +315,7 @@ func process_registry_updates*(state: var BeaconState) =
     if i.uint64 >= churn_limit:
       break
     let
-      (epoch, index) = epoch_and_index
+      (_, index) = epoch_and_index
       validator = addr state.validators[index]
     if validator.activation_epoch == FAR_FUTURE_EPOCH:
       validator.activation_epoch =
@@ -359,7 +359,7 @@ func get_attesting_indices*(state: BeaconState,
                             stateCache: var StateCache):
                             HashSet[ValidatorIndex] =
   # Return the set of attesting indices corresponding to ``data`` and ``bits``.
-  result = initSet[ValidatorIndex]()
+  result = initHashSet[ValidatorIndex]()
   let committee = get_beacon_committee(state, data.slot, data.index, stateCache)
   for i, index in committee:
     if bits[i]:
