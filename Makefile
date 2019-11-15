@@ -70,14 +70,23 @@ clean_eth2_network_simulation_files:
 eth2_network_simulation: | build deps p2pd clean_eth2_network_simulation_files process_dashboard
 	GIT_ROOT="$$PWD" tests/simulation/start.sh
 
-testnet0 testnet1: | build deps
-	NIM_PARAMS="$(NIM_PARAMS)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $@
+testnet0: | build deps clean-testnet0
+	+ $(MAKE) testnet0-no-clean
+
+testnet1: | build deps clean-testnet1
+	+ $(MAKE) testnet1-no-clean
 
 clean-testnet0:
 	rm -rf build/data/testnet0
 
 clean-testnet1:
 	rm -rf build/data/testnet1
+
+testnet0-no-clean: | build deps
+	NIM_PARAMS="$(NIM_PARAMS)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims testnet0
+
+testnet1-no-clean: | build deps
+	NIM_PARAMS="$(NIM_PARAMS)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims testnet1
 
 clean: | clean-common
 	rm -rf build/{$(TOOLS_CSV),all_tests,*_node}
