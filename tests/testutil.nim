@@ -158,9 +158,9 @@ proc makeBlock*(
   addBlock(next_state, previous_block_root, body)
 
 proc find_beacon_committee(
-    state: BeaconState, validator_index: ValidatorIndex): auto =
+    state: BeaconState, validator_index: ValidatorIndex,
+    cache: var StateCache): auto =
   let epoch = compute_epoch_at_slot(state.slot)
-  var cache = get_empty_per_epoch_cache()
   for epoch_committee_index in 0'u64 ..< get_committee_count_at_slot(
       state, epoch.compute_start_slot_at_epoch) * SLOTS_PER_EPOCH:
     let
@@ -174,14 +174,16 @@ proc find_beacon_committee(
 
 proc makeAttestation*(
     state: BeaconState, beacon_block_root: Eth2Digest,
-    validator_index: ValidatorIndex, flags: UpdateFlags = {}): Attestation =
+    validator_index: ValidatorIndex, cache: var StateCache,
+    flags: UpdateFlags = {}): Attestation =
   let
-    (committee, slot, index) = find_beacon_committee(state, validator_index)
+    (committee, slot, index) =
+      find_beacon_committee(state, validator_index, cache)
     validator = state.validators[validator_index]
     sac_index = committee.find(validator_index)
     data = makeAttestationData(state, slot, index, beacon_block_root)
 
-  doAssert sac_index != -1, "find_shard_committee should guarantee this"
+  doAssert sac_index != -1, "find_beacon_committee should guarantee this"
 
   var aggregation_bits = CommitteeValidatorsBits.init(committee.len)
   aggregation_bits.raiseBit sac_index

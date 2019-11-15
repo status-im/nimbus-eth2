@@ -197,7 +197,7 @@ else:
   proc createEth2Node*(conf: BeaconNodeConf,
                        bootstrapNodes: seq[BootstrapAddr]): Future[Eth2Node] {.async.} =
     var
-      (extIp, extTcpPort, extUdpPort) = setupNat(conf)
+      (extIp, extTcpPort, _) = setupNat(conf)
       hostAddress = tcpEndPoint(globalListeningAddr, Port conf.tcpPort)
       announcedAddresses = if extIp == globalListeningAddr: @[]
                            else: @[tcpEndPoint(extIp, extTcpPort)]
