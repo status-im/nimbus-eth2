@@ -48,9 +48,6 @@ func localValidatorsDir(conf: BeaconNodeConf): string =
 func databaseDir(conf: BeaconNodeConf): string =
   conf.dataDir / "db"
 
-template `//`(url, fragment: string): string =
-  url & "/" & fragment
-
 proc saveValidatorKey(keyName, key: string, conf: BeaconNodeConf) =
   let validatorsDir = conf.dataDir / dataDirValidators
   let outputFile = validatorsDir / keyName
@@ -157,7 +154,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
 
   result.attachedValidators = ValidatorPool.init
 
-  let trieDB = trieDB newChainDb(string conf.databaseDir)
+  let trieDB = trieDB newChainDb(conf.databaseDir)
   result.db = BeaconChainDB.init(trieDB)
 
   # TODO this is problably not the right place to ensure that db is sane..
@@ -219,10 +216,10 @@ template withState(
 
   updateStateData(pool, cache, blockSlot)
 
-  template hashedState(): HashedBeaconState {.inject.} = cache.data
-  template state(): BeaconState {.inject.} = cache.data.data
-  template blck(): BlockRef {.inject.} = cache.blck
-  template root(): Eth2Digest {.inject.} = cache.data.root
+  template hashedState(): HashedBeaconState {.inject, used.} = cache.data
+  template state(): BeaconState {.inject, used.} = cache.data.data
+  template blck(): BlockRef {.inject, used.} = cache.blck
+  template root(): Eth2Digest {.inject, used.} = cache.data.root
 
   body
 
@@ -1056,8 +1053,7 @@ when isMainModule:
 
   of query:
     var
-      trieDB = trieDB newChainDb(string config.databaseDir)
-      db = BeaconChainDB.init(trieDB)
+      trieDB = trieDB newChainDb(config.databaseDir)
 
     case config.queryCmd
     of QueryCmd.nimQuery:

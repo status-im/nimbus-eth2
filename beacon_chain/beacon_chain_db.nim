@@ -62,8 +62,7 @@ func subkey(root: Eth2Digest, slot: Slot): auto =
   ret
 
 proc init*(T: type BeaconChainDB, backend: TrieDatabaseRef): BeaconChainDB =
-  new result
-  result.backend = backend
+  T(backend: backend)
 
 proc putBlock*(db: BeaconChainDB, key: Eth2Digest, value: BeaconBlock) =
   db.backend.put(subkey(type value, key), SSZ.encode(value))
