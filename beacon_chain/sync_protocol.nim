@@ -109,6 +109,7 @@ p2pProtocol BeaconSync(version = 1,
       let
         ourStatus = peer.networkState.getCurrentStatus()
 
+      trace "Sending status msg", ourStatus
       await response.send(ourStatus)
 
       if not peer.state.initialStatusReceived:

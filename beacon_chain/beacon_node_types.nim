@@ -1,6 +1,6 @@
 import
   deques, tables, options,
-  stew/[endians2],
+  stew/[endians2], chronicles,
   spec/[datatypes, crypto, digest],
   beacon_chain_db
 
@@ -172,6 +172,10 @@ type
     ## Unique identifier for a particular fork in the block chain - normally,
     ## there's a block for every slot, but in the case a block is not produced,
     ## the chain progresses anyway, producing a new state for every slot.
+    #
+    # TODO: Isn't this type unnecessary?
+    #  The `BlockRef` stored here already includes the `slot` number as well.
+    #  We should either remove it or write a comment clarifying why it exists.
     blck*: BlockRef
     slot*: Slot
 
@@ -207,4 +211,10 @@ type
     historySlots*: uint64
 
 proc shortLog*(v: AttachedValidator): string = shortLog(v.pubKey)
+
+chronicles.formatIt BlockSlot:
+  ($it.blck.root)[0..7] & ":" & $it.slot
+
+chronicles.formatIt BlockRef:
+  ($it.root)[0..7] & ":" & $it.slot
 
