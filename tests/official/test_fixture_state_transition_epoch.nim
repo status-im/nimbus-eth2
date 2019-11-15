@@ -50,12 +50,7 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, us
           else:
             transitionProc(stateRef[])
 
-          var sr_pre, sr_post: ref BeaconStateNew
-          new sr_pre
-          new sr_post
-          sr_pre[] = GetNewBeaconState(stateRef[])
-          sr_post[] = GetNewBeaconState(postRef[])
-          reportDiff(sr_pre, sr_post)
+          reportDiff(stateRef, postRef)
 
   `suiteImpl _ transitionProc`()
 

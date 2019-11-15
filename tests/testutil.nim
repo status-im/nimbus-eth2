@@ -157,28 +157,29 @@ proc makeBlock*(
   var next_state = state
   addBlock(next_state, previous_block_root, body)
 
-proc find_shard_committee(
+proc find_beacon_committee(
     state: BeaconState, validator_index: ValidatorIndex): auto =
   let epoch = compute_epoch_at_slot(state.slot)
   var cache = get_empty_per_epoch_cache()
-  for shard in 0'u64 ..< get_committee_count_at_slot(
+  for epoch_committee_index in 0'u64 ..< get_committee_count_at_slot(
       state, epoch.compute_start_slot_at_epoch) * SLOTS_PER_EPOCH:
-    let committee = get_crosslink_committee(state, epoch,
-      (shard + get_start_shard(state, epoch)) mod SHARD_COUNT, cache)
+    let
+      slot = ((epoch_committee_index mod SLOTS_PER_EPOCH) +
+        epoch.compute_start_slot_at_epoch.uint64).Slot
+      index = epoch_committee_index div SLOTS_PER_EPOCH
+      committee = get_beacon_committee(state, slot, index, cache)
     if validator_index in committee:
-      return (committee, shard)
+      return (committee, slot, index)
   doAssert false
 
 proc makeAttestation*(
     state: BeaconState, beacon_block_root: Eth2Digest,
     validator_index: ValidatorIndex, flags: UpdateFlags = {}): Attestation =
   let
-    (committee, shard) = find_shard_committee(state, validator_index)
+    (committee, slot, index) = find_beacon_committee(state, validator_index)
     validator = state.validators[validator_index]
     sac_index = committee.find(validator_index)
-    data = makeAttestationData(state,
-      (shard + get_start_shard(state, compute_epoch_at_slot(state.slot))) mod
-      SHARD_COUNT, beacon_block_root)
+    data = makeAttestationData(state, slot, index, beacon_block_root)
 
   doAssert sac_index != -1, "find_shard_committee should guarantee this"
 

@@ -23,7 +23,7 @@ import
 proc mockAttestationData(
        state: BeaconState,
        slot: Slot,
-       shard: Shard): AttestationData =
+       index: uint64): AttestationData =
   doAssert state.slot >= slot
 
   if slot == state.slot:
@@ -47,11 +47,8 @@ proc mockAttestationData(
 
   let target_epoch = compute_epoch_at_slot(slot)
 
-  # Constructed to be provide exact equivalent index... to compute_committee(...)
-  # as using epoch/shard.
-  let (r_slot, r_index) = get_slot_and_index(state, target_epoch, shard)
-  result.slot = r_slot
-  result.index = r_index
+  result.slot = slot
+  result.index = index
 
   result.target = Checkpoint(
     epoch: target_epoch, root: epoch_boundary_root
@@ -103,14 +100,8 @@ proc mockAttestationImpl(
   var cache = get_empty_per_epoch_cache()
 
   let
-    epoch = compute_epoch_at_slot(slot)
-    epoch_start_shard = get_start_shard(state, epoch)
     committees_per_slot = get_committee_count_at_slot(
-      state, epoch.compute_start_slot_at_epoch)
-    shard = (
-      epoch_start_shard +
-      committees_per_slot * (slot mod SLOTS_PER_EPOCH)
-    ) mod SHARD_COUNT
+      state, slot)
 
     beacon_committee = get_beacon_committee(
       state,
@@ -120,7 +111,7 @@ proc mockAttestationImpl(
     )
     committee_size = beacon_committee.len
 
-  result.data = mockAttestationData(state, slot, shard)
+  result.data = mockAttestationData(state, slot, 0)
   result.aggregation_bits = init(CommitteeValidatorsBits, committee_size)
 
   # fillAggregateAttestation

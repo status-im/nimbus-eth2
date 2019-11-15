@@ -45,12 +45,7 @@ template runValidTest(testName: string, identifier: untyped, num_blocks: int): u
 
       # Checks:
       # check: stateRef.hash_tree_root() == postRef.hash_tree_root()
-      var sr_pre, sr_post: ref BeaconStateNew
-      new sr_pre
-      new sr_post
-      sr_pre[] = GetNewBeaconState(stateRef[])
-      sr_post[] = GetNewBeaconState(postRef[])
-      reportDiff(sr_pre, sr_post)
+      reportDiff(stateRef, postRef)
 
   `testImpl _ blck _ identifier`()
 

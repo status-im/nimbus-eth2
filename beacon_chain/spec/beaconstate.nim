@@ -487,7 +487,7 @@ proc process_attestation*(
     false
 
 proc makeAttestationData*(
-    state: BeaconState, shard: uint64,
+    state: BeaconState, slot: Slot, committee_index: uint64,
     beacon_block_root: Eth2Digest): AttestationData =
   ## Create an attestation / vote for the block `beacon_block_root` using the
   ## data in `state` to fill in the rest of the fields.
@@ -502,11 +502,12 @@ proc makeAttestationData*(
     epoch_boundary_block_root =
       if start_slot == state.slot: beacon_block_root
       else: get_block_root_at_slot(state, start_slot)
-    (a_slot, a_index) = get_slot_and_index(state, current_epoch, shard)
+
+  doAssert slot.compute_epoch_at_slot == current_epoch
 
   AttestationData(
-    slot: a_slot,
-    index: a_index,
+    slot: slot,
+    index: committee_index,
     beacon_block_root: beacon_block_root,
     source: state.current_justified_checkpoint,
     target: Checkpoint(

@@ -31,21 +31,21 @@ import
 
 suite "[Unit - Spec - Genesis] Genesis block checks " & preset():
   test "is_valid_genesis_state for a valid state":
-    let state = initGenesisState(
+    discard initGenesisState(
       num_validators = MIN_GENESIS_ACTIVE_VALIDATOR_COUNT,
       genesis_time = MIN_GENESIS_TIME
     )
     discard "TODO"
 
   test "Invalid genesis time":
-    let state = initGenesisState(
+    discard initGenesisState(
       num_validators = MIN_GENESIS_ACTIVE_VALIDATOR_COUNT,
       genesis_time = MIN_GENESIS_TIME.uint64 - 1
     )
     discard "TODO"
 
   test "Not enough validators":
-    let state = initGenesisState(
+    discard initGenesisState(
       num_validators = MIN_GENESIS_ACTIVE_VALIDATOR_COUNT.uint64 - 1,
       genesis_time = MIN_GENESIS_TIME.uint64 - 1
     )
