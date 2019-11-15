@@ -308,7 +308,7 @@ type
     root*: Eth2Digest # hash_tree_root (not signing_root!)
 
   StateCache* = object
-    crosslink_committee_cache*:
+    beacon_committee_cache*:
       Table[tuple[a: int, b: Eth2Digest], seq[ValidatorIndex]]
     active_validator_indices_cache*:
       Table[Epoch, seq[ValidatorIndex]]

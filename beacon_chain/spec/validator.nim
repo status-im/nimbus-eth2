@@ -98,8 +98,8 @@ func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
     endIdx = (len(indices).uint64 * (index + 1)) div count
     key = (indices.len, seed)
 
-  if key notin stateCache.crosslink_committee_cache:
-    stateCache.crosslink_committee_cache[key] =
+  if key notin stateCache.beacon_committee_cache:
+    stateCache.beacon_committee_cache[key] =
       get_shuffled_seq(seed, len(indices).uint64)
 
   # These assertions from compute_shuffled_index(...)
@@ -110,15 +110,13 @@ func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
   # In spec, this calls get_shuffled_index() every time, but that's wasteful
   mapIt(
     start.int .. (endIdx.int-1),
-    indices[stateCache.crosslink_committee_cache[key][it]])
+    indices[stateCache.beacon_committee_cache[key][it]])
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#get_beacon_committee
 func get_beacon_committee*(state: BeaconState, slot: Slot, index: uint64, cache: var StateCache): seq[ValidatorIndex] =
   # Return the beacon committee at ``slot`` for ``index``.
   let
     epoch = compute_epoch_at_slot(slot)
-    # TODO use state caching for this or not?
-    committees_per_slot = get_committee_count_at_slot(state, slot)
 
   ## This is a somewhat more fragile, but high-ROI, caching setup --
   ## get_active_validator_indices() is slow to run in a loop and only
@@ -127,22 +125,22 @@ func get_beacon_committee*(state: BeaconState, slot: Slot, index: uint64, cache:
     cache.active_validator_indices_cache[epoch] =
       get_active_validator_indices(state, epoch)
 
-  # TODO remove or replace this...
-  #if epoch notin cache.committee_count_cache:
-  #  cache.committee_count_cache[epoch] = get_committee_count(state, epoch)
+  # Constant throughout an epoch
+  if epoch notin cache.committee_count_cache:
+    cache.committee_count_cache[epoch] =
+      get_committee_count_at_slot(state, slot)
 
-  # TODO profiling & make sure caches populated
   compute_committee(
     cache.active_validator_indices_cache[epoch],
     get_seed(state, epoch, DOMAIN_BEACON_ATTESTER),
-    (slot mod SLOTS_PER_EPOCH) * committees_per_slot + index,
-    committees_per_slot * SLOTS_PER_EPOCH,
+    (slot mod SLOTS_PER_EPOCH) * cache.committee_count_cache[epoch] + index,
+    cache.committee_count_cache[epoch] * SLOTS_PER_EPOCH,
     cache
   )
 
 # Not from spec
 func get_empty_per_epoch_cache*(): StateCache =
-  result.crosslink_committee_cache =
+  result.beacon_committee_cache =
     initTable[tuple[a: int, b: Eth2Digest], seq[ValidatorIndex]]()
   result.active_validator_indices_cache =
     initTable[Epoch, seq[ValidatorIndex]]()
