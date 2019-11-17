@@ -18,7 +18,6 @@ add_var () {
 add_var CONST_PRESET
 add_var NETWORK_TYPE
 add_var SLOTS_PER_EPOCH
-add_var SLOTS_PER_EPOCH
 add_var MAX_COMMITTEES_PER_SLOT
 
 echo $NIM_FLAGS
