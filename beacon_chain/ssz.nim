@@ -324,9 +324,8 @@ func getZeroHashWithoutSideEffect(idx: int): Eth2Digest =
   # TODO this is a work-around for the somewhat broken side
   # effects analysis of Nim - reading from global let variables
   # is considered a side-effect.
-  # Nim 0.19 doesnt have the `{.noSideEffect.}:` override, so
-  # we should revisit this in Nim 0.20.2.
-  {.emit: "`result` = `zeroHashes`[`idx`];".}
+  {.noSideEffect.}:
+    zeroHashes[idx]
 
 func addChunk*(merkelizer: SszChunksMerkelizer, data: openarray[byte]) =
   doAssert data.len > 0 and data.len <= bytesPerChunk
