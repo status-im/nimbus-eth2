@@ -66,6 +66,11 @@ const Unsupported = toHashSet([
 const UnsupportedMainnet = toHashSet([
     "PendingAttestation",   # HashTreeRoot KO
     "BeaconState",
+    "AttesterSlashing",
+    "BeaconBlockBody",
+    "IndexedAttestation",
+    "Attestation",
+    "BeaconBlock"
   ])
 
 type Skip = enum
