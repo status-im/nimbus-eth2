@@ -352,15 +352,18 @@ macro fieldMaxLen*(x: typed): untyped =
     return newLit(0)
 
   let size = case $x[1]
+             # Obsolete
              of "pubkeys",
                 "compact_validators",
                 "aggregation_bits",
                 "custody_bits": int64(MAX_VALIDATORS_PER_COMMITTEE)
+             # BeaconBlockBody
              of "proposer_slashings": MAX_PROPOSER_SLASHINGS
              of "attester_slashings": MAX_ATTESTER_SLASHINGS
              of "attestations": MAX_ATTESTATIONS
              of "deposits": MAX_DEPOSITS
              of "voluntary_exits": MAX_VOLUNTARY_EXITS
+             # BeaconState
              of "historical_roots": HISTORICAL_ROOTS_LIMIT
              of "eth1_data_votes": SLOTS_PER_ETH1_VOTING_PERIOD
              of "validators": VALIDATOR_REGISTRY_LIMIT
