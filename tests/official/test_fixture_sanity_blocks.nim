@@ -62,7 +62,7 @@ suite "Official - Sanity - Blocks " & preset():
     expect(AssertionError):
       # assert in process_slots. This should not be triggered
       #                          for blocks from block_pool/network
-      let done = state_transition(stateRef[], blck, flags = {skipValidation})
+      discard state_transition(stateRef[], blck, flags = {skipValidation})
 
   runValidTest("Same slot block transition", same_slot_block_transition, 1)
   runValidTest("Empty block transition", empty_block_transition, 1)
@@ -77,7 +77,7 @@ suite "Official - Sanity - Blocks " & preset():
       let blck = parseTest(testDir/"blocks_0.ssz", SSZ, BeaconBlock)
 
       expect(AssertionError):
-        let done = state_transition(stateRef[], blck, flags = {skipValidation})
+        discard state_transition(stateRef[], blck, flags = {skipValidation})
 
   runValidTest("Skipped Slots", skipped_slots, 1)
   runValidTest("Empty epoch transition", empty_epoch_transition, 1)
