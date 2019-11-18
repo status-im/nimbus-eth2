@@ -136,8 +136,9 @@ template mockGenesisDepositsImpl(
       depositsDataHash.add hash_tree_root(result[valIdx].data)
 
     # 2nd & 3rd loops - build hashes and proofs
-    let root = hash_tree_root(depositsData)
-    let tree = merkleTreeFromLeaves(depositsDataHash)
+    when false:
+      let root = hash_tree_root(depositsData)
+      let tree = merkleTreeFromLeaves(depositsDataHash)
 
     # 4th loop - append proof
     for valIdx in 0 ..< validatorCount.int:
@@ -209,8 +210,8 @@ proc mockUpdateStateForNewDeposit*(
     flags
   )
 
-  let tree = merkleTreeFromLeaves([hash_tree_root(result.data)])
   when false: # TODO
+    let tree = merkleTreeFromLeaves([hash_tree_root(result.data)])
     result[valIdx].proof[0..31] = tree.getMerkleProof(0)
     result[valIdx].proof[32] = int_to_bytes32(0 + 1)
     # doAssert: verify_merkle_branch(...)

@@ -100,9 +100,6 @@ proc mockAttestationImpl(
   var cache = get_empty_per_epoch_cache()
 
   let
-    committees_per_slot = get_committee_count_at_slot(
-      state, slot)
-
     beacon_committee = get_beacon_committee(
       state,
       result.data.slot,

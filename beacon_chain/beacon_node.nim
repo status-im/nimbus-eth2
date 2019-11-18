@@ -1,9 +1,9 @@
 import
   # Standard library
-  os, net, tables, random, strutils, times, strformat, memfiles,
+  os, net, tables, random, strutils, times, memfiles,
 
   # Nimble packages
-  stew/[objects, bitseqs, byteutils], stew/ranges/ptr_arith,
+  stew/[objects, bitseqs], stew/ranges/ptr_arith,
   chronos, chronicles, confutils, metrics,
   json_serialization/std/[options, sets], serialization/errors,
   eth/trie/db, eth/trie/backends/rocksdb_backend, eth/async_utils,

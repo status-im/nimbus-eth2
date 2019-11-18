@@ -7,9 +7,10 @@
 
 {.used.}
 
-import
-  unittest,
-  ../beacon_chain/beacon_node
+import unittest
+
+when false:
+  import ../beacon_chain/beacon_node
 
 suite "Beacon node":
   # Compile test

@@ -45,4 +45,4 @@ proc fetchAncestorBlocks*(requestManager: RequestManager,
 
   var fetchComplete = false
   for peer in requestManager.network.randomPeers(ParallelRequests, BeaconSync):
-    traceAsyncErrors peer.fetchAncestorBlocksFromPeer(roots.rand(), responseHandler)
+    traceAsyncErrors peer.fetchAncestorBlocksFromPeer(roots.sample(), responseHandler)
