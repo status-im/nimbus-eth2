@@ -22,7 +22,7 @@ import
 const
   FixturesDir = currentSourcePath.rsplit(DirSep, 1)[0] / ".." / "official"/"fixtures"
   SSZDir = FixturesDir/"tests-v0.9.1"/const_preset/"phase0"/"ssz_static"
-  UnitTestDir = SSZDir/"IndexedAttestation"/"ssz_zero"/"case_0"
+  UnitTestDir = SSZDir/"Validator"/"ssz_zero"/"case_0"
 
 type
   SSZHashTreeRoot = object
@@ -72,11 +72,11 @@ proc loadExpectedHashTreeRoot(dir: string): SSZHashTreeRoot =
 echo "Current preset: ", const_preset
 
 let hash = loadExpectedHashTreeRoot(UnitTestDir)
-checkSSZ(IndexedAttestation, UnitTestDir, hash)
+checkSSZ(Validator, UnitTestDir, hash)
 
 echo "\n\n"
-var deserialized: ref IndexedAttestation
+var deserialized: ref Validator
 new deserialized
-deserialized[] = SSZ.loadFile(UnitTestDir/"serialized.ssz", IndexedAttestation)
+deserialized[] = SSZ.loadFile(UnitTestDir/"serialized.ssz", Validator)
 
-echo deserialized.data.hashTreeRoot()
+echo deserialized[].hashTreeRoot()

@@ -49,7 +49,7 @@ const Unsupported = toHashSet([
     # "BeaconBlock",        #
     # "BeaconBlockBody",    #
     # "BeaconBlockHeader",  #
-    # "BeaconState",        # OK on minimal, KO on mainnet
+    # "BeaconState",        #
     # "Checkpoint",         #
     # "Deposit",            #
     # "DepositData",        #
@@ -57,9 +57,9 @@ const Unsupported = toHashSet([
     # "Fork",               #
     # "HistoricalBatch",    #
     # "IndexedAttestation", #
-    # "PendingAttestation", # OK on minimal, KO on mainnet
+    # "PendingAttestation", #
     # "ProposerSlashing",   #
-    "Validator",            # HashTreeRoot KO
+    # "Validator",            # HashTreeRoot KO
     # "VoluntaryExit"       #
   ])
 
@@ -84,7 +84,6 @@ proc checkSSZ(T: typedesc, dir: string, expectedHash: SSZHashTreeRoot, skip = Sk
   new deserialized
   deserialized[] = SSZ.loadFile(dir/"serialized.ssz", T)
 
-  # echo "Dir: ", dir
   if not(skip == SkipHashTreeRoot):
     check: expectedHash.root == "0x" & toLowerASCII($deserialized.hashTreeRoot())
   if expectedHash.signing_root != "" and not(skip == SkipSigningRoot):
@@ -142,7 +141,7 @@ proc runSSZtests() =
           of "IndexedAttestation": checkSSZ(IndexedAttestation, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
-          of "Validator": checkSSZ(VoluntaryExit, path, hash)
+          of "Validator": checkSSZ(Validator, path, hash)
           of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash)
           else:
             raise newException(ValueError, "Unsupported test: " & sszType)
