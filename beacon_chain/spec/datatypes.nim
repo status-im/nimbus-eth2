@@ -357,6 +357,8 @@ macro fieldMaxLen*(x: typed): untyped =
                 "compact_validators",
                 "aggregation_bits",
                 "custody_bits": int64(MAX_VALIDATORS_PER_COMMITTEE)
+             # IndexedAttestation
+             of "attesting_indices": MAX_VALIDATORS_PER_COMMITTEE
              # BeaconBlockBody
              of "proposer_slashings": MAX_PROPOSER_SLASHINGS
              of "attester_slashings": MAX_ATTESTER_SLASHINGS

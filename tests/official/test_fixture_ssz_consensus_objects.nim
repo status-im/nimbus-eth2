@@ -45,9 +45,9 @@ const Unsupported = toHashSet([
     "AggregateAndProof",    # Type for signature aggregation - not implemented
     # "Attestation",        #
     # "AttestationData",    #
-    "AttesterSlashing",     # HashTreeRoot KO
-    "BeaconBlock",          # HashTreeRoot KO
-    "BeaconBlockBody",      # HashTreeRoot KO
+    # "AttesterSlashing",   #
+    # "BeaconBlock",        #
+    # "BeaconBlockBody",    #
     # "BeaconBlockHeader",  #
     # "BeaconState",        # OK on minimal, KO on mainnet
     # "Checkpoint",         #
@@ -56,7 +56,7 @@ const Unsupported = toHashSet([
     # "Eth1Data",           #
     # "Fork",               #
     # "HistoricalBatch",    #
-    "IndexedAttestation",   # HashTreeRoot KO
+    # "IndexedAttestation", #
     # "PendingAttestation", # OK on minimal, KO on mainnet
     # "ProposerSlashing",   #
     "Validator",            # HashTreeRoot KO
