@@ -44,8 +44,7 @@ proc merkleTreeFromLeaves*(
         values: openarray[Eth2Digest],
         Depth: static[int] = DEPOSIT_CONTRACT_TREE_DEPTH
       ): SparseMerkleTree[Depth] =
-  ## Depth should be the same as
-  ## verify_merkle_branch / is_valid_merkle_branch
+  ## Depth should be the same as is_valid_merkle_branch
 
   result.nnznodes[0] = @values
 
@@ -150,7 +149,7 @@ when isMainModule: # Checks
                 let proof = getMerkleProof(tree, index)
                 echo "Proof: ", proof
 
-                doAssert verify_merkle_branch(
+                doAssert is_valid_merkle_branch(
                   a, get_merkle_proof(tree, index = index),
                   depth = `depth`,
                   index = index.uint64,
@@ -163,7 +162,7 @@ when isMainModule: # Checks
                 let proof = getMerkleProof(tree, index)
                 # echo "Proof: ", proof
 
-                doAssert verify_merkle_branch(
+                doAssert is_valid_merkle_branch(
                   b, get_merkle_proof(tree, index = index),
                   depth = `depth`,
                   index = index.uint64,
@@ -176,7 +175,7 @@ when isMainModule: # Checks
                 let proof = getMerkleProof(tree, index)
                 # echo "Proof: ", proof
 
-                doAssert verify_merkle_branch(
+                doAssert is_valid_merkle_branch(
                   c, get_merkle_proof(tree, index = index),
                   depth = `depth`,
                   index = index.uint64,
