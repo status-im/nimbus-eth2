@@ -68,7 +68,6 @@ if [ "$ETH1_PRIVATE_KEY" != "" ]; then
 fi
 
 cd docker
-make build
 
 $DOCKER_BEACON_NODE makeDeposits \
   --quickstart-deposits=$QUICKSTART_VALIDATORS \
@@ -111,14 +110,12 @@ if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
     > /tmp/reset-network.sh
 
   bash /tmp/reset-network.sh
+  rm /tmp/reset-network.sh
 
   echo Uploading bootstrap node network key
   BOOTSTRAP_NODE_DOCKER_PATH=/docker/beacon-node-$NETWORK-1/data/BeaconNode/
   scp "$DATA_DIR_ABS/privkey.protobuf" $BOOTSTRAP_HOST:/tmp/
   ssh $BOOTSTRAP_HOST "sudo install -o dockremap -g docker /tmp/privkey.protobuf $BOOTSTRAP_NODE_DOCKER_PATH"
-
-  echo Publishing docker image...
-  make push-last
 
   echo Persisting testnet data to git...
   pushd "$NETWORK_DIR_ABS"
@@ -127,9 +124,19 @@ if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
     git push
   popd
 
-  ../env.sh nim --verbosity:0 manage_testnet_hosts.nims restart_nodes \
-    --network=$NETWORK \
-    > /tmp/restart-nodes.sh
+  #../env.sh nim --verbosity:0 manage_testnet_hosts.nims restart_nodes \
+    #--network=$NETWORK \
+    #> /tmp/restart-nodes.sh
 
-  bash /tmp/restart-nodes.sh
+  #bash /tmp/restart-nodes.sh
+  #rm /tmp/restart-nodes.sh
 fi
+
+echo "Building Docker image..."
+make build
+
+echo "Publishing Docker image..."
+make push-last
+
+echo "A Watchtower systemd service will pull the new image and start new containers based on it, on each testnet host, in the next 2 minutes."
+
