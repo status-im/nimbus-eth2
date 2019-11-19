@@ -8,13 +8,13 @@ declareCounter beacon_reorgs_total, "Total occurrences of reorganizations of the
 
 logScope: topics = "blkpool"
 
-proc parent*(bs: BlockSlot): BlockSlot =
+func parent*(bs: BlockSlot): BlockSlot =
   BlockSlot(
     blck: if bs.slot > bs.blck.slot: bs.blck else: bs.blck.parent,
     slot: bs.slot - 1
   )
 
-proc link(parent, child: BlockRef) =
+func link(parent, child: BlockRef) =
   doAssert (not (parent.root == Eth2Digest() or child.root == Eth2Digest())),
     "blocks missing root!"
   doAssert parent.root != child.root, "self-references not allowed"
@@ -22,16 +22,16 @@ proc link(parent, child: BlockRef) =
   child.parent = parent
   parent.children.add(child)
 
-proc init*(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
+func init*(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
   BlockRef(
     root: root,
     slot: slot
   )
 
-proc init*(T: type BlockRef, root: Eth2Digest, blck: BeaconBlock): BlockRef =
+func init*(T: type BlockRef, root: Eth2Digest, blck: BeaconBlock): BlockRef =
   BlockRef.init(root, blck.slot)
 
-proc findAncestorBySlot*(blck: BlockRef, slot: Slot): BlockSlot =
+func findAncestorBySlot*(blck: BlockRef, slot: Slot): BlockSlot =
   ## Find the first ancestor that has a slot number less than or equal to `slot`
   assert(not blck.isNil)
   var ret = blck
@@ -132,7 +132,7 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
     heads: @[head]
   )
 
-proc addSlotMapping(pool: BlockPool, slot: uint64, br: BlockRef) =
+func addSlotMapping(pool: BlockPool, slot: uint64, br: BlockRef) =
   proc addIfMissing(s: var seq[BlockRef], v: BlockRef) =
     if v notin s:
       s.add(v)
@@ -306,11 +306,11 @@ proc add*(
           (parentSlot.uint64 mod SLOTS_PER_EPOCH.uint64))
   )
 
-proc getRef*(pool: BlockPool, root: Eth2Digest): BlockRef =
+func getRef*(pool: BlockPool, root: Eth2Digest): BlockRef =
   ## Retrieve a resolved block reference, if available
   pool.blocks.getOrDefault(root)
 
-proc getBlockRange*(pool: BlockPool, headBlock: Eth2Digest,
+func getBlockRange*(pool: BlockPool, headBlock: Eth2Digest,
                     startSlot: Slot, skipStep: Natural,
                     output: var openarray[BlockRef]): Natural =
   ## This function populates an `output` buffer of blocks
@@ -385,7 +385,7 @@ proc get*(pool: BlockPool, root: Eth2Digest): Option[BlockData] =
   else:
     none(BlockData)
 
-proc getOrResolve*(pool: var BlockPool, root: Eth2Digest): BlockRef =
+func getOrResolve*(pool: var BlockPool, root: Eth2Digest): BlockRef =
   ## Fetch a block ref, or nil if not found (will be added to list of
   ## blocks-to-resolve)
   result = pool.getRef(root)
@@ -397,7 +397,7 @@ iterator blockRootsForSlot*(pool: BlockPool, slot: uint64|Slot): Eth2Digest =
   for br in pool.blocksBySlot.getOrDefault(slot.uint64, @[]):
     yield br.root
 
-proc checkMissing*(pool: var BlockPool): seq[FetchRecord] =
+func checkMissing*(pool: var BlockPool): seq[FetchRecord] =
   ## Return a list of blocks that we should try to resolve from other client -
   ## to be called periodically but not too often (once per slot?)
   var done: seq[Eth2Digest]
@@ -678,7 +678,7 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
           not pool.heads[n].blck.isAncestorOf(pool.finalizedHead.blck):
         pool.heads.del(n)
 
-proc latestJustifiedBlock*(pool: BlockPool): BlockSlot =
+func latestJustifiedBlock*(pool: BlockPool): BlockSlot =
   ## Return the most recent block that is justified and at least as recent
   ## as the latest finalized block
 
