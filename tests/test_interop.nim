@@ -157,11 +157,11 @@ suite "Interop":
 
     let expected =
       when const_preset == "minimal":
-        "029836dbceb95c20b101f8f44470604c0912e96949aaf1dd9ad41effd92abcbf"
+        "75016055f843b92972d647a849168e8c5f559e8d41e05f94fc3f6a9665d1cabb"
       elif const_preset == "mainnet":
-        "9cd22b0ea2ec836fef591d259f0d4273669cba4c82df32cf0aa55c388ff7e432"
+        "27e4b5dfc67b97fd7d441c60bd5c92851fc1ceebe22435903183d915b3e4e678"
       else:
         "unimplemented"
     check:
-      # hash_tree_root(initialState).data.toHex() == expected
+      hash_tree_root(initialState).data.toHex() == expected
       true

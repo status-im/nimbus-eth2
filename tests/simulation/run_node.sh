@@ -23,15 +23,15 @@ if [ "${NAT:-}" == "1" ]; then
   NAT_FLAG="--nat:any"
 fi
 
-mkdir -p $DATA_DIR/validators
+mkdir -p "$DATA_DIR/validators"
 rm -f $DATA_DIR/validators/*
 
 if [[ $NODE_ID -lt $TOTAL_NODES ]]; then
   FIRST_VALIDATOR_IDX=$(( (NUM_VALIDATORS / TOTAL_NODES) * NODE_ID ))
   LAST_VALIDATOR_IDX=$(( (NUM_VALIDATORS / TOTAL_NODES) * (NODE_ID + 1) - 1 ))
 
-  pushd $VALIDATORS_DIR >/dev/null
-    cp $(seq -s " " -f v%07g.privkey $FIRST_VALIDATOR_IDX $LAST_VALIDATOR_IDX) $DATA_DIR/validators
+  pushd "$VALIDATORS_DIR" >/dev/null
+    cp $(seq -s " " -f v%07g.privkey $FIRST_VALIDATOR_IDX $LAST_VALIDATOR_IDX) "$DATA_DIR/validators"
   popd >/dev/null
 fi
 
