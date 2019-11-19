@@ -232,10 +232,11 @@ proc process_justification_and_finalization*(
       cat = "finalization"
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#rewards-and-penalties-1
-func get_base_reward(state: BeaconState, index: ValidatorIndex): Gwei =
-  let
-    total_balance = get_total_active_balance(state)
-    effective_balance = state.validators[index].effective_balance
+func get_base_reward(state: BeaconState, index: ValidatorIndex,
+    total_balance: auto): Gwei =
+  # Spec function recalculates total_balance every time, which creates an
+  # O(n^2) situation.
+  let effective_balance = state.validators[index].effective_balance
   effective_balance * BASE_REWARD_FACTOR div
     integer_squareroot(total_balance) div BASE_REWARDS_PER_EPOCH
 
@@ -274,9 +275,10 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
     for index in eligible_validator_indices:
       if index in unslashed_attesting_indices:
         rewards[index] +=
-          get_base_reward(state, index) * attesting_balance div total_balance
+          get_base_reward(state, index, total_balance) * attesting_balance div
+            total_balance
       else:
-        penalties[index] += get_base_reward(state, index)
+        penalties[index] += get_base_reward(state, index, total_balance)
 
   # Proposer and inclusion delay micro-rewards
   ## This depends on matching_source_attestations being an indexable seq, not a
@@ -309,11 +311,12 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
       if a.inclusion_delay < attestation.inclusion_delay:
         attestation = a
 
-    let proposer_reward =
-      (get_base_reward(state, index) div PROPOSER_REWARD_QUOTIENT).Gwei
+    let
+      base_reward = get_base_reward(state, index, total_balance)
+      proposer_reward = (base_reward div PROPOSER_REWARD_QUOTIENT).Gwei
 
     rewards[attestation.proposer_index.int] += proposer_reward
-    let max_attester_reward = get_base_reward(state, index) - proposer_reward
+    let max_attester_reward = base_reward - proposer_reward
 
     rewards[index] += max_attester_reward div attestation.inclusion_delay
 
@@ -325,7 +328,7 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
         state, matching_target_attestations, stateCache)
     for index in eligible_validator_indices:
       penalties[index] +=
-        BASE_REWARDS_PER_EPOCH.uint64 * get_base_reward(state, index)
+        BASE_REWARDS_PER_EPOCH.uint64 * get_base_reward(state, index, total_balance)
       if index notin matching_target_attesting_indices:
         penalties[index] +=
           state.validators[index].effective_balance *
@@ -426,9 +429,7 @@ proc process_epoch*(state: var BeaconState) =
 
   ## Caching here for get_beacon_committee(...) can break otherwise, since
   ## get_active_validator_indices(...) usually changes.
-  # TODO is this cache still necessary/useful? presumably not, but can't remove
-  # quite yet
-  clear(per_epoch_cache.crosslink_committee_cache)
+  clear(per_epoch_cache.beacon_committee_cache)
 
   # @process_reveal_deadlines
   # @process_challenge_deadlines

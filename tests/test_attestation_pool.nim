@@ -45,7 +45,7 @@ suite "Attestation pool processing" & preset():
         beacon_committee = get_beacon_committee(state.data.data,
           state.data.data.slot, 0, cache)
         attestation = makeAttestation(
-          state.data.data, state.blck.root, beacon_committee[0])
+          state.data.data, state.blck.root, beacon_committee[0], cache)
 
       pool.add(state.data.data, state.blck, attestation)
 
@@ -65,7 +65,7 @@ suite "Attestation pool processing" & preset():
         bc0 = get_beacon_committee(state.data.data,
           state.data.data.slot, 0, cache)
         attestation0 = makeAttestation(
-          state.data.data, state.blck.root, bc0[0])
+          state.data.data, state.blck.root, bc0[0], cache)
 
       process_slots(state.data, state.data.data.slot + 1)
 
@@ -73,7 +73,7 @@ suite "Attestation pool processing" & preset():
         bc1 = get_beacon_committee(state.data.data,
           state.data.data.slot, 0, cache)
         attestation1 = makeAttestation(
-          state.data.data, state.blck.root, bc1[0])
+          state.data.data, state.blck.root, bc1[0], cache)
 
       # test reverse order
       pool.add(state.data.data, state.blck, attestation1)
@@ -95,9 +95,9 @@ suite "Attestation pool processing" & preset():
         bc0 = get_beacon_committee(state.data.data,
           state.data.data.slot, 0, cache)
         attestation0 = makeAttestation(
-          state.data.data, state.blck.root, bc0[0])
+          state.data.data, state.blck.root, bc0[0], cache)
         attestation1 = makeAttestation(
-          state.data.data, state.blck.root, bc0[1])
+          state.data.data, state.blck.root, bc0[1], cache)
 
       pool.add(state.data.data, state.blck, attestation0)
       pool.add(state.data.data, state.blck, attestation1)
@@ -119,9 +119,9 @@ suite "Attestation pool processing" & preset():
         bc0 = get_beacon_committee(state.data.data,
           state.data.data.slot, 0, cache)
         attestation0 = makeAttestation(
-          state.data.data, state.blck.root, bc0[0])
+          state.data.data, state.blck.root, bc0[0], cache)
         attestation1 = makeAttestation(
-          state.data.data, state.blck.root, bc0[1])
+          state.data.data, state.blck.root, bc0[1], cache)
 
       attestation0.combine(attestation1, {skipValidation})
 
@@ -144,9 +144,9 @@ suite "Attestation pool processing" & preset():
         bc0 = get_beacon_committee(state.data.data,
           state.data.data.slot, 0, cache)
         attestation0 = makeAttestation(
-          state.data.data, state.blck.root, bc0[0])
+          state.data.data, state.blck.root, bc0[0], cache)
         attestation1 = makeAttestation(
-          state.data.data, state.blck.root, bc0[1])
+          state.data.data, state.blck.root, bc0[1], cache)
 
       attestation0.combine(attestation1, {skipValidation})
 

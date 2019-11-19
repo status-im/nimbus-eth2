@@ -37,8 +37,24 @@ proc writeJson*(prefix, slot, v: auto) =
   let fileName = fmt"{prefix:04}-{shortLog(slot):08}.json"
   Json.saveFile(fileName, v, pretty = true)
 
-cli do(slots = 448'u,
-       validators = SLOTS_PER_EPOCH * 9, # One per shard is minimum
+func verifyConsensus(state: BeaconState, attesterRatio: auto) =
+  if attesterRatio < 0.63:
+    doAssert state.current_justified_checkpoint.epoch == 0
+    doAssert state.finalized_checkpoint.epoch == 0
+
+  # Quorum is 2/3 of validators, and at low numbers, quantization effects
+  # can dominate, so allow for play above/below attesterRatio of 2/3.
+  if attesterRatio < 0.72:
+    return
+
+  let current_epoch = get_current_epoch(state)
+  if current_epoch >= 3:
+    doAssert state.current_justified_checkpoint.epoch + 1 >= current_epoch
+  if current_epoch >= 4:
+    doAssert state.finalized_checkpoint.epoch + 2 >= current_epoch
+
+cli do(slots = SLOTS_PER_EPOCH * 6,
+       validators = SLOTS_PER_EPOCH * 11, # One per shard is minimum
        json_interval = SLOTS_PER_EPOCH,
        prefix = 0,
        attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.75,
@@ -69,6 +85,7 @@ cli do(slots = 448'u,
 
   for i in 0..<slots:
     maybeWrite()
+    verifyConsensus(state, attesterRatio)
 
     let
       attestations_idx = state.slot
@@ -113,11 +130,13 @@ cli do(slots = 448'u,
           for v in scas:
             if (rand(r, high(int)).float * attesterRatio).int <= high(int):
               if first:
-                attestation = makeAttestation(state, latest_block_root, v, flags)
+                attestation =
+                  makeAttestation(state, latest_block_root, v, cache, flags)
                 first = false
               else:
                 attestation.combine(
-                  makeAttestation(state, latest_block_root, v, flags), flags)
+                  makeAttestation(state, latest_block_root, v, cache, flags),
+                  flags)
 
         if not first:
           # add the attestation if any of the validators attested, as given

@@ -63,7 +63,7 @@ proc sendDeposits*(
   for i, dp in deposits:
     web3.defaultAccount = eth1Addresses[i]
     let depositContract = web3.contractSender(DepositContract, contractAddress)
-    let tx = await depositContract.deposit(
+    discard await depositContract.deposit(
       Bytes48(dp.data.pubKey.getBytes()),
       Bytes32(dp.data.withdrawal_credentials.data),
       Bytes96(dp.data.signature.getBytes()),

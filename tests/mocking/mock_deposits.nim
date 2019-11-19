@@ -14,7 +14,7 @@ import
   # 0.19.6 shims
   stew/objects, # import default
   # Specs
-  ../../beacon_chain/spec/[datatypes, crypto, helpers, digest],
+  ../../beacon_chain/spec/[datatypes, crypto, helpers, digest, beaconstate],
   # Internals
   ../../beacon_chain/[ssz, extras],
   # Mocking procs
@@ -141,17 +141,19 @@ template mockGenesisDepositsImpl(
 
     # 4th loop - append proof
     for valIdx in 0 ..< validatorCount.int:
-      when false: # TODO
-        result[valIdx].proof[0..31] = tree.getMerkleProof(valIdx)
-        result[valIdx].proof[32] = int_to_bytes32(index + 1)
-        doAssert:
-          verify_merkle_branch(
-            depositsDataHash[valIdx],
-            result[valIdx].proof,
-            DEPOSIT_CONTRACT_TREE_DEPTH,
-            valIdx,
-            root
-          )
+      # TODO ensure genesis & deposit process tests suffice to catch whether
+      # changes here break things; ensure that this matches the merkle proof
+      # sequence is_valid_merkle_branch(...) now looks for
+      result[valIdx].proof[0..31] = tree.getMerkleProof(valIdx)
+      result[valIdx].proof[32] =
+        Eth2Digest(data: int_to_bytes32((valIdx + 1).uint64))
+      doAssert is_valid_merkle_branch(
+          depositsDataHash[valIdx],
+          result[valIdx].proof,
+          DEPOSIT_CONTRACT_TREE_DEPTH,
+          valIdx.uint64,
+          root
+        )
 
 proc mockGenesisBalancedDeposits*(
         validatorCount: uint64,
@@ -198,6 +200,7 @@ proc mockUpdateStateForNewDeposit*(
        flags: UpdateFlags
     ): Deposit =
 
+
   # TODO withdrawal credentials
 
   mockDepositData(
@@ -209,11 +212,11 @@ proc mockUpdateStateForNewDeposit*(
     flags
   )
 
-  let tree = merkleTreeFromLeaves([hash_tree_root(result.data)])
   when false: # TODO
+    let tree = merkleTreeFromLeaves([hash_tree_root(result.data)])
     result[valIdx].proof[0..31] = tree.getMerkleProof(0)
     result[valIdx].proof[32] = int_to_bytes32(0 + 1)
-    # doAssert: verify_merkle_branch(...)
+    # doAssert is_valid_merkle_branch(...)
 
   # TODO: this logic from the eth2.0-specs test suite seems strange
   #       but confirmed by running it

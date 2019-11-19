@@ -7,9 +7,10 @@
 
 {.used.}
 
-import
-  unittest,
-  ../beacon_chain/sync_protocol
+import unittest
+
+when false:
+  import ../beacon_chain/sync_protocol
 
 suite "Sync protocol":
   # Compile test

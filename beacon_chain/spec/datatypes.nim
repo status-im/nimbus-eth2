@@ -97,6 +97,7 @@ type
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#indexedattestation
   IndexedAttestation* = object
+    # TODO ValidatorIndex, but that doesn't serialize properly
     attesting_indices*: List[uint64, MAX_VALIDATORS_PER_COMMITTEE]
     data*: AttestationData
     signature*: ValidatorSig
@@ -205,25 +206,17 @@ type
     ## Needed to process attestations, older to newer
 
     state_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
-
-    historical_roots*: seq[Eth2Digest]  ##\
-    ## model List with HISTORICAL_ROOTS_LIMIT limit as seq
-    ## TODO bound explicitly somewhere
+    historical_roots*: List[Eth2Digest, HISTORICAL_ROOTS_LIMIT]
 
     # Eth1
     eth1_data*: Eth1Data
-
-    eth1_data_votes*: seq[Eth1Data] ##\
-    ## As with `hitorical_roots`, this is a `List`. TODO bound explicitly.
-
+    eth1_data_votes*: List[Eth1Data, SLOTS_PER_ETH1_VOTING_PERIOD]
     eth1_deposit_index*: uint64
 
     # Registry
+    # TODO List[] won't construct due to VALIDATOR_REGISTRY_LIMIT > high(int)
     validators*: seq[Validator]
-    balances*: seq[uint64] ##\
-    ## Validator balances in Gwei!
-    ## Also more `List`s which need to be bounded explicitly at
-    ## VALIDATOR_REGISTRY_LIMIT
+    balances*: seq[uint64]
 
     # Shuffling
     randao_mixes*: array[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
@@ -233,8 +226,10 @@ type
     ## Per-epoch sums of slashed effective balances
 
     # Attestations
-    previous_epoch_attestations*: seq[PendingAttestation]
-    current_epoch_attestations*: seq[PendingAttestation]
+    previous_epoch_attestations*:
+      List[PendingAttestation, MAX_ATTESTATIONS * SLOTS_PER_EPOCH]
+    current_epoch_attestations*:
+      List[PendingAttestation, MAX_ATTESTATIONS * SLOTS_PER_EPOCH]
 
     # Finality
     justification_bits*: uint8 ##\
@@ -308,7 +303,7 @@ type
     root*: Eth2Digest # hash_tree_root (not signing_root!)
 
   StateCache* = object
-    crosslink_committee_cache*:
+    beacon_committee_cache*:
       Table[tuple[a: int, b: Eth2Digest], seq[ValidatorIndex]]
     active_validator_indices_cache*:
       Table[Epoch, seq[ValidatorIndex]]
