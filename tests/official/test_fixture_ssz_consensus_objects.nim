@@ -43,28 +43,34 @@ setDefaultValue(SSZHashTreeRoot, signing_root, "")
 # Checking the values against the yaml file is TODO (require more flexible Yaml parser)
 const Unsupported = toHashSet([
     "AggregateAndProof",    # Type for signature aggregation - not implemented
-    "Attestation",          # RangeError on deserialization
-    # "AttestationData",
-    "AttesterSlashing",     # RangeError on deserialization
-    "BeaconBlock",          # RangeError on deserialization
-    "BeaconBlockBody",      # RangeError on deserialization
-    # "BeaconBlockHeader",  # HashTreeRoot KO - SigningRook OK
-    "BeaconState",          # HashTreeRoot KO
-    # "Checkpoint",
-    "Deposit",              # HashTreeRoot KO
-    "DepositData",          # HashTreeRoot KO - SigningRoot KO
-    # "Eth1Data",
-    # "Fork",
-    # "HistoricalBatch",    # OK
-    "IndexedAttestation",   # RangeError on deserialization
-    # "PendingAttestation", # OK
-    "ProposerSlashing",     # HashTreeRoot KO
-    "Validator",            # HashTreeRoot KO
-    # "VoluntaryExit"       # hashTreeRoot KO - SigningRoot OK
+    # "Attestation",        #
+    # "AttestationData",    #
+    # "AttesterSlashing",   #
+    # "BeaconBlock",        #
+    # "BeaconBlockBody",    #
+    # "BeaconBlockHeader",  #
+    # "BeaconState",        #
+    # "Checkpoint",         #
+    # "Deposit",            #
+    # "DepositData",        #
+    # "Eth1Data",           #
+    # "Fork",               #
+    # "HistoricalBatch",    #
+    # "IndexedAttestation", #
+    # "PendingAttestation", #
+    # "ProposerSlashing",   #
+    # "Validator",            # HashTreeRoot KO
+    # "VoluntaryExit"       #
   ])
 
 const UnsupportedMainnet = toHashSet([
     "PendingAttestation",   # HashTreeRoot KO
+    "BeaconState",
+    "AttesterSlashing",
+    "BeaconBlockBody",
+    "IndexedAttestation",
+    "Attestation",
+    "BeaconBlock"
   ])
 
 type Skip = enum
@@ -108,10 +114,6 @@ proc runSSZtests() =
           discard
         continue
 
-    let signingRootOnly = &"                     ↶↶↶ {sszType} - Skipping HashTreeRoot and testing SigningRoot only"
-    if sszType == "BeaconBlockHeader" or sszType == "VoluntaryExit":
-      echo signingRootOnly
-
     test &"  Testing    {sszType:20}   consensus object ✓✓✓":
       let path = SSZDir/sszType
       for pathKind, sszTestKind in walkDir(path, relative = true):
@@ -128,7 +130,7 @@ proc runSSZtests() =
           of "AttesterSlashing": checkSSZ(AttesterSlashing, path, hash)
           of "BeaconBlock": checkSSZ(BeaconBlock, path, hash)
           of "BeaconBlockBody": checkSSZ(BeaconBlockBody, path, hash)
-          of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash, SkipHashTreeRoot) # TODO
+          of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
           of "BeaconState": checkSSZ(BeaconState, path, hash)
           of "Checkpoint": checkSSZ(Checkpoint, path, hash)
           of "Deposit": checkSSZ(Deposit, path, hash)
@@ -139,8 +141,8 @@ proc runSSZtests() =
           of "IndexedAttestation": checkSSZ(IndexedAttestation, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
-          of "Validator": checkSSZ(VoluntaryExit, path, hash)
-          of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash, SkipHashTreeRoot) # TODO
+          of "Validator": checkSSZ(Validator, path, hash)
+          of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash)
           else:
             raise newException(ValueError, "Unsupported test: " & sszType)
 
