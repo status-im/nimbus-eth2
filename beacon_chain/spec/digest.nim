@@ -50,7 +50,7 @@ func eth2hash*(v: openArray[byte]): Eth2Digest {.inline.} =
   ctx.update(v)
   ctx.finish()
 
-proc update*(ctx: var Sha2Context; digest: Eth2Digest) =
+func update*(ctx: var Sha2Context; digest: Eth2Digest) =
   ctx.update digest.data
 
 template withEth2Hash*(body: untyped): Eth2Digest =
