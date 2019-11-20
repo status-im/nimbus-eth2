@@ -1,5 +1,5 @@
 import
-  ospaths, chronos, json_serialization,
+  os, chronos, json_serialization,
   spec/[datatypes], beacon_chain_db
 
 const
