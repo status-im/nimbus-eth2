@@ -60,11 +60,11 @@ func toSlot*(c: BeaconClock, t: Time): tuple[afterGenesis: bool, slot: Slot] =
 func toBeaconTime*(s: Slot, offset = chronos.seconds(0)): BeaconTime =
   BeaconTime(int64(uint64(s) * SECONDS_PER_SLOT) + seconds(offset))
 
-proc now*(c: BeaconClock): BeaconTime =
+func now*(c: BeaconClock): BeaconTime =
   ## Current time, in slots - this may end up being less than GENESIS_SLOT(!)
   toBeaconTime(c, getTime())
 
-proc fromNow*(c: BeaconClock, t: BeaconTime): tuple[inFuture: bool, offset: Duration] =
+func fromNow*(c: BeaconClock, t: BeaconTime): tuple[inFuture: bool, offset: Duration] =
   let now = c.now()
 
   if int64(t) > int64(now):
@@ -72,10 +72,10 @@ proc fromNow*(c: BeaconClock, t: BeaconTime): tuple[inFuture: bool, offset: Dura
   else:
     (false, seconds(int64(now) - int64(t)))
 
-proc fromNow*(c: BeaconClock, slot: Slot): tuple[inFuture: bool, offset: Duration] =
+func fromNow*(c: BeaconClock, slot: Slot): tuple[inFuture: bool, offset: Duration] =
   c.fromNow(slot.toBeaconTime())
 
-proc saturate*(d: tuple[inFuture: bool, offset: Duration]): Duration =
+func saturate*(d: tuple[inFuture: bool, offset: Duration]): Duration =
   if d.inFuture: d.offset else: seconds(0)
 
 proc addTimer*(fromNow: Duration, cb: CallbackFunc, udata: pointer = nil) =
