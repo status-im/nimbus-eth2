@@ -11,7 +11,6 @@
 import
   # Standard library
   sets,
-  # 0.19.6 shims
   # Specs
   ../../beacon_chain/spec/[datatypes, beaconstate, helpers, validator, crypto],
   # Internals

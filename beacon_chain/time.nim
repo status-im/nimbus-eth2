@@ -60,6 +60,8 @@ func toSlot*(c: BeaconClock, t: Time): tuple[afterGenesis: bool, slot: Slot] =
 func toBeaconTime*(s: Slot, offset = chronos.seconds(0)): BeaconTime =
   BeaconTime(int64(uint64(s) * SECONDS_PER_SLOT) + seconds(offset))
 
+# TODO on Travis ARM64 CIs, this claims to have side effects, but neither Linux
+# nor Mac OS x86 CIs exhibit this behavior.
 proc now*(c: BeaconClock): BeaconTime =
   ## Current time, in slots - this may end up being less than GENESIS_SLOT(!)
   toBeaconTime(c, getTime())
@@ -75,7 +77,7 @@ proc fromNow*(c: BeaconClock, t: BeaconTime): tuple[inFuture: bool, offset: Dura
 proc fromNow*(c: BeaconClock, slot: Slot): tuple[inFuture: bool, offset: Duration] =
   c.fromNow(slot.toBeaconTime())
 
-proc saturate*(d: tuple[inFuture: bool, offset: Duration]): Duration =
+func saturate*(d: tuple[inFuture: bool, offset: Duration]): Duration =
   if d.inFuture: d.offset else: seconds(0)
 
 proc addTimer*(fromNow: Duration, cb: CallbackFunc, udata: pointer = nil) =

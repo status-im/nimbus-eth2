@@ -4,7 +4,7 @@ import
   spec/[datatypes, crypto, digest, helpers], ssz,
   beacon_node_types
 
-proc init*(T: type ValidatorPool): T =
+func init*(T: type ValidatorPool): T =
   result.validators = initTable[ValidatorPubKey, AttachedValidator]()
 
 template count*(pool: ValidatorPool): int =
@@ -22,7 +22,7 @@ proc addLocalValidator*(pool: var ValidatorPool,
 
   info "Local validator attached", pubKey, validator = shortLog(v)
 
-proc getValidator*(pool: ValidatorPool,
+func getValidator*(pool: ValidatorPool,
                    validatorKey: ValidatorPubKey): AttachedValidator =
   pool.validators.getOrDefault(validatorKey)
 

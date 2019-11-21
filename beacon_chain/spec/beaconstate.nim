@@ -174,7 +174,7 @@ func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
   increase_balance(
     state, whistleblower_index, whistleblowing_reward - proposer_reward)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#genesis
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#genesis
 func initialize_beacon_state_from_eth1*(
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
@@ -213,6 +213,9 @@ func initialize_beacon_state_from_eth1*(
       )
   )
 
+  # Seed RANDAO with Eth1 entropy
+  state.randao_mixes.fill(eth1_block_hash)
+
   # Process deposits
   let leaves = deposits.mapIt(it.data)
   for i, deposit in deposits:
@@ -237,7 +240,7 @@ func initialize_beacon_state_from_eth1*(
 
   state
 
-proc is_valid_genesis_state*(state: BeaconState): bool =
+func is_valid_genesis_state*(state: BeaconState): bool =
   if state.genesis_time < MIN_GENESIS_TIME:
     return false
   if len(get_active_validator_indices(state, GENESIS_EPOCH)) < MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
@@ -486,7 +489,7 @@ proc process_attestation*(
   else:
     false
 
-proc makeAttestationData*(
+func makeAttestationData*(
     state: BeaconState, slot: Slot, committee_index: uint64,
     beacon_block_root: Eth2Digest): AttestationData =
   ## Create an attestation / vote for the block `beacon_block_root` using the

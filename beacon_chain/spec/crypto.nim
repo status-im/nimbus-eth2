@@ -122,7 +122,7 @@ func shortLog*(x: BlsValue): string =
 func shortLog*(x: BlsCurveType): string =
   ($x)[0..7]
 
-proc hash*(x: BlsValue): Hash {.inline.} =
+func hash*(x: BlsValue): Hash {.inline.} =
   if x.kind == Real:
     hash x.blsValue.getBytes()
   else:
@@ -145,19 +145,19 @@ func pubKey*(pk: ValidatorPrivKey): ValidatorPubKey =
   else:
     pk.getKey
 
-proc init(T: type VerKey): VerKey =
+func init(T: type VerKey): VerKey =
   result.point.inf()
 
-proc init(T: type SigKey): SigKey =
+func init(T: type SigKey): SigKey =
   result.point.inf()
 
-proc combine*[T](values: openarray[BlsValue[T]]): BlsValue[T] =
+func combine*[T](values: openarray[BlsValue[T]]): BlsValue[T] =
   result = BlsValue[T](kind: Real, blsValue: T.init())
 
   for value in values:
     result.blsValue.combine(value.blsValue)
 
-proc combine*[T](x: var BlsValue[T], other: BlsValue[T]) =
+func combine*[T](x: var BlsValue[T], other: BlsValue[T]) =
   doAssert x.kind == Real and other.kind == Real
   x.blsValue.combine(other.blsValue)
 

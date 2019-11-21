@@ -1,5 +1,5 @@
 import
-  os, ospaths, strutils,
+  os, strutils,
   chronicles, chronos, blscurve, nimcrypto, json_serialization, serialization,
   web3, stint, eth/keys,
   spec/[datatypes, digest, crypto], conf, ssz, interop

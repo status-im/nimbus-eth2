@@ -49,7 +49,7 @@ func loadLayout(layout: string): Layout {.raises: [Defect, ValueError].} =
   result.cellsLeft = loadCellsLayout(sections[0])
   if sections.len == 2: result.cellsRight = loadCellsLayout(sections[1])
 
-proc updateContent(cell: var StatusBarCell, model: DataItemResolver) =
+func updateContent(cell: var StatusBarCell, model: DataItemResolver) =
   cell.content.setLen 0
   for fragment in cell.contentFragments:
     case fragment[0]
@@ -58,11 +58,11 @@ proc updateContent(cell: var StatusBarCell, model: DataItemResolver) =
     of ikExpr, ikVar:
       cell.content.add model(fragment[1])
 
-proc updateCells(cells: var seq[StatusBarCell], model: DataItemResolver) =
+func updateCells(cells: var seq[StatusBarCell], model: DataItemResolver) =
   for cell in mitems(cells):
     cell.updateContent(model)
 
-proc update*(s: var StatusBarView) =
+func update*(s: var StatusBarView) =
   updateCells s.layout.cellsLeft, s.model
   updateCells s.layout.cellsRight, s.model
 
