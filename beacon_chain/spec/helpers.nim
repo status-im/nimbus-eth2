@@ -122,17 +122,24 @@ func compute_domain*(
   result[4..7] = fork_version
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#get_domain
+
+func get_domain*(
+    fork: Fork, domain_type: DomainType, epoch: Epoch): Domain =
+  ## Return the signature domain (fork version concatenated with domain type)
+  ## of a message.
+  let
+    fork_version =
+      if epoch < fork.epoch:
+        fork.previous_version
+      else:
+        fork.current_version
+  compute_domain(domain_type, fork_version)
+
 func get_domain*(
     state: BeaconState, domain_type: DomainType, message_epoch: Epoch): Domain =
   ## Return the signature domain (fork version concatenated with domain type)
   ## of a message.
-  let
-    epoch = message_epoch
-    fork_version = if epoch < state.fork.epoch:
-        state.fork.previous_version
-      else:
-        state.fork.current_version
-  compute_domain(domain_type, fork_version)
+  get_domain(state.fork, domain_type, message_epoch)
 
 func get_domain*(state: BeaconState, domain_type: DomainType): Domain =
   get_domain(state, domain_type, get_current_epoch(state))

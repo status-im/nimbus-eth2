@@ -287,7 +287,7 @@ proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
   newHead
 
 proc sendAttestation(node: BeaconNode,
-                     state: BeaconState,
+                     fork: Fork,
                      validator: AttachedValidator,
                      attestationData: AttestationData,
                      committeeLen: int,
@@ -295,7 +295,7 @@ proc sendAttestation(node: BeaconNode,
   logScope: pcs = "send_attestation"
 
   let
-    validatorSignature = await validator.signAttestation(attestationData, state)
+    validatorSignature = await validator.signAttestation(attestationData, fork)
 
   var aggregationBits = CommitteeValidatorsBits.init(committeeLen)
   aggregationBits.raiseBit indexInCommittee
@@ -374,8 +374,9 @@ proc proposeBlock(node: BeaconNode,
     # To create a block, we'll first apply a partial block to the state, skipping
     # some validations.
     let
+      fork = state.fork
       blockBody = BeaconBlockBody(
-        randao_reveal: validator.genRandaoReveal(state, slot),
+        randao_reveal: validator.genRandaoReveal(fork, slot),
         eth1_data: eth1data,
         attestations:
           node.attestationPool.getAttestationsForBlock(state, slot),
@@ -388,10 +389,7 @@ proc proposeBlock(node: BeaconNode,
         body: blockBody,
         # TODO: This shouldn't be necessary if OpaqueBlob is the default
         signature: ValidatorSig(kind: OpaqueBlob))
-
-    var
       tmpState = hashedState
-
     discard state_transition(tmpState, newBlock, {skipValidation})
     # TODO only enable in fast-fail debugging situations
     # otherwise, bad attestations can bring down network
@@ -402,8 +400,11 @@ proc proposeBlock(node: BeaconNode,
     let blockRoot = signing_root(newBlock)
 
     # Careful, state no longer valid after here..
+    # We use the fork from the pre-newBlock state which should be fine because
+    # fork carries two epochs, so even if it's a fork block, the right thing
+    # will happen here
     newBlock.signature =
-      await validator.signBlockProposal(state, slot, blockRoot)
+      await validator.signBlockProposal(fork, slot, blockRoot)
 
     (blockRoot, newBlock)
 
@@ -551,7 +552,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
 
     for a in attestations:
       traceAsyncErrors sendAttestation(
-        node, state, a.validator, a.data, a.committeeLen, a.indexInCommittee)
+        node, state.fork, a.validator, a.data, a.committeeLen, a.indexInCommittee)
 
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     Future[BlockRef] {.async.} =
@@ -1052,9 +1053,6 @@ when isMainModule:
         config.depositPrivateKey)
 
   of query:
-    var
-      trieDB = trieDB newChainDb(config.databaseDir)
-
     case config.queryCmd
     of QueryCmd.nimQuery:
       # TODO: This will handle a simple subset of Nim using

@@ -342,15 +342,17 @@ proc is_valid_indexed_attestation*(
     return false
 
   # Verify aggregate signature
-  result = bls_verify(
+  if not bls_verify(
     bls_aggregate_pubkeys(mapIt(indices, state.validators[it.int].pubkey)),
     hash_tree_root(indexed_attestation.data).data,
     indexed_attestation.signature,
     get_domain(
       state, DOMAIN_BEACON_ATTESTER, indexed_attestation.data.target.epoch)
-  )
-  if not result:
+  ):
     notice "indexed attestation: signature verification failure"
+    return false
+
+  true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(state: BeaconState,
