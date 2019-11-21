@@ -39,7 +39,7 @@ matrix:
       before_install:
         - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib"
         - sudo apt-get -q update
-        - sudo apt-get install -y libpcre3-dev git-lfs librocksdb-dev
+        - sudo apt-get install -y libpcre3-dev librocksdb-dev
     - os: osx
       env:
         - NPROC=2
