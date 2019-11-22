@@ -43,50 +43,16 @@ setDefaultValue(SSZHashTreeRoot, signing_root, "")
 # Checking the values against the yaml file is TODO (require more flexible Yaml parser)
 const Unsupported = toHashSet([
     "AggregateAndProof",    # Type for signature aggregation - not implemented
-    # "Attestation",        #
-    # "AttestationData",    #
-    # "AttesterSlashing",   #
-    # "BeaconBlock",        #
-    # "BeaconBlockBody",    #
-    # "BeaconBlockHeader",  #
-    # "BeaconState",        #
-    # "Checkpoint",         #
-    # "Deposit",            #
-    # "DepositData",        #
-    # "Eth1Data",           #
-    # "Fork",               #
-    # "HistoricalBatch",    #
-    # "IndexedAttestation", #
-    # "PendingAttestation", #
-    # "ProposerSlashing",   #
-    # "Validator",            # HashTreeRoot KO
-    # "VoluntaryExit"       #
   ])
 
-const UnsupportedMainnet = toHashSet([
-    "PendingAttestation",   # HashTreeRoot KO
-    "BeaconState",
-    "AttesterSlashing",
-    "BeaconBlockBody",
-    "IndexedAttestation",
-    "Attestation",
-    "BeaconBlock"
-  ])
-
-type Skip = enum
-  SkipNone
-  SkipHashTreeRoot
-  SkipSigningRoot
-
-proc checkSSZ(T: typedesc, dir: string, expectedHash: SSZHashTreeRoot, skip = SkipNone) =
+proc checkSSZ(T: typedesc, dir: string, expectedHash: SSZHashTreeRoot) =
   # Deserialize into a ref object to not fill Nim stack
   var deserialized: ref T
   new deserialized
   deserialized[] = SSZ.loadFile(dir/"serialized.ssz", T)
 
-  if not(skip == SkipHashTreeRoot):
-    check: expectedHash.root == "0x" & toLowerASCII($deserialized.hashTreeRoot())
-  if expectedHash.signing_root != "" and not(skip == SkipSigningRoot):
+  check: expectedHash.root == "0x" & toLowerASCII($deserialized.hashTreeRoot())
+  if expectedHash.signing_root != "":
     check: expectedHash.signing_root == "0x" & toLowerASCII($deserialized[].signingRoot())
 
   # TODO check the value
@@ -104,17 +70,11 @@ proc runSSZtests() =
   for pathKind, sszType in walkDir(SSZDir, relative = true):
     doAssert pathKind == pcDir
     if sszType in Unsupported:
-      test &"  Skipping   {sszType:20}   consensus object ✗✗✗":
+      test &"  Skipping   {sszType:20} ✗✗✗":
         discard
       continue
 
-    when const_preset == "mainnet":
-      if sszType in UnsupportedMainnet:
-        test &"  Skipping   {sszType:20}   consensus object ✗✗✗ (skipped on mainnet-only)":
-          discard
-        continue
-
-    test &"  Testing    {sszType:20}   consensus object ✓✓✓":
+    test &"  Testing    {sszType}":
       let path = SSZDir/sszType
       for pathKind, sszTestKind in walkDir(path, relative = true):
         doAssert pathKind == pcDir
@@ -146,5 +106,5 @@ proc runSSZtests() =
           else:
             raise newException(ValueError, "Unsupported test: " & sszType)
 
-suite "Official - 0.9.1 - SSZ consensus objects " & preset():
+suite "Official - 0.9.2 - SSZ consensus objects " & preset():
   runSSZtests()

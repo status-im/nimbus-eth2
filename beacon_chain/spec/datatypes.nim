@@ -72,6 +72,23 @@ template maxSize*(n: int) {.pragma.}
 type
   Bytes = seq[byte]
 
+  # Domains
+  # ---------------------------------------------------------------
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#domain-types
+  DomainType* {.pure.} = enum
+    DOMAIN_BEACON_PROPOSER = 0
+    DOMAIN_BEACON_ATTESTER = 1
+    DOMAIN_RANDAO = 2
+    DOMAIN_DEPOSIT = 3
+    DOMAIN_VOLUNTARY_EXIT = 4
+    # Phase 1 - Custody game
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/1_custody-game.md#signature-domain-types
+    DOMAIN_CUSTODY_BIT_CHALLENGE = 6
+    # Phase 1 - Sharding
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/1_shard-data-chains.md#signature-domain-types
+    DOMAIN_SHARD_PROPOSER = 128
+    DOMAIN_SHARD_ATTESTER = 129
+
   # https://github.com/nim-lang/Nim/issues/574 and be consistent across
   # 32-bit and 64-bit word platforms.
   # TODO VALIDATOR_REGISTRY_LIMIT is 1 shl 40 in 0.8.3, and
