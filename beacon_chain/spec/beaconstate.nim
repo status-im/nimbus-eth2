@@ -46,7 +46,7 @@ func decrease_balance*(
     else:
       state.balances[index] - delta
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#deposits
+# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#deposits
 func process_deposit*(
     state: var BeaconState, deposit: Deposit, flags: UpdateFlags = {}): bool =
   # Process an Eth1 deposit, registering a validator or increasing its balance.

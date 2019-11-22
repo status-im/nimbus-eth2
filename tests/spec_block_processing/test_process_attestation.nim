@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # process_attestation (beaconstate.nim)
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.1/specs/core/0_beacon-chain.md#attestations
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#attestations
 # ---------------------------------------------------------------
 
 {.used.}
@@ -14,8 +14,6 @@
 import
   # Standard library
   unittest,
-  # shims 0.19.6
-  stew/objects, # import default
   # Specs
   ../../beacon_chain/spec/[beaconstate, datatypes, helpers, validator],
   # Mock helpers

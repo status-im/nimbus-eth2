@@ -26,7 +26,7 @@ import
 
 const
   FixturesDir = currentSourcePath.rsplit(DirSep, 1)[0] / "fixtures"
-  SSZDir = FixturesDir/"tests-v0.9.1"/const_preset/"phase0"/"ssz_static"
+  SSZDir = FixturesDir/"tests-v0.9.2"/const_preset/"phase0"/"ssz_static"
 
 type
   SSZHashTreeRoot = object
