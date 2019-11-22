@@ -46,6 +46,7 @@ proc readValue*(r: var JsonReader, a: var Domain) {.inline.} =
   # (0.20)
   a = hexToPaddedByteArray[8](r.readValue(string))
 
+# TODO: json tests were removed
 const BLSDir = JsonTestsDir/"general"/"phase0"/"bls"
 
 suite "Official - BLS tests":

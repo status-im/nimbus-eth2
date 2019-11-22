@@ -22,6 +22,7 @@ type
     count*: uint64
     mapping*: seq[uint64]
 
+# TODO: json tests were removed
 const ShufflingDir = JsonTestsDir/const_preset/"phase0"/"shuffling"/"core"/"shuffle"
 
 suite "Official - Shuffling tests [Preset: " & preset():
