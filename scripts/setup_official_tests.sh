@@ -13,7 +13,7 @@ SUBREPO_DIR="tests/official/fixtures"
 # verbosity level
 [[ -z "$V" ]] && V=0
 [[ -z "$BUILD_MSG" ]] && BUILD_MSG="Downloading official test vectors"
-CACHE_DIR="$1" # optional parameter pointing to a CI cache dir. Without it, we just download the LFS files for a local `make test`.
+CACHE_DIR="$1" # optional parameter pointing to a CI cache dir. Without it, we just download the test vectors for a local `make test`.
 
 [[ -d "${SUBREPO_DIR}" ]] || { echo "This script should be run from the \"nim-beacon-chain\" repo top dir."; exit 1; }
 
@@ -25,10 +25,14 @@ echo -e "$BUILD_MSG"
 # Main()
 
 if [[ -n "${CACHE_DIR}" ]]; then
+	# delete old cache entries we no longer use (let this run for a month or so)
+	rm -f "${CACHE_DIR}"/*.tar.xz
+
 	# Ethereum Foundation test vectors
 	mkdir -p "${CACHE_DIR}/tarballs"
 	rm -rf "${SUBREPO_DIR}/tarballs"
 	ln -s "$(pwd -P)/${CACHE_DIR}/tarballs" "${SUBREPO_DIR}"
+	# (the dir symlink above also takes care of updating the cache)
 fi
 
 pushd "${SUBREPO_DIR}"

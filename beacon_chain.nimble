@@ -63,6 +63,3 @@ task test, "Run all tests":
   # State sim; getting into 4th epoch useful to trigger consensus checks
   buildBinary "state_sim", "research/", "-r -d:release", "--validators=128 --slots=40"
 
-task sync_lfs_tests, "Sync LFS json tests":
-  # Syncs the json test files (but not the EF yaml tests)
-  exec "scripts/setup_official_tests.sh"

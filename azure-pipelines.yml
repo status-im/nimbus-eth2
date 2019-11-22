@@ -24,7 +24,7 @@ jobs:
           path: p2pdCache
 
       - task: CacheBeta@1
-        displayName: 'cache LFS JSON fixtures'
+        displayName: 'cache official test fixtures'
         inputs:
           key: jsonTestsCache
           path: jsonTestsCache
@@ -64,12 +64,11 @@ jobs:
           export PATH="/c/custom/${MINGW_DIR}/bin:$PATH"
           echo "Fetching submodules"
           git config --global core.longpaths true
-          export GIT_LFS_SKIP_SMUDGE=1
           git submodule --quiet update --init --recursive
           scripts/setup_official_tests.sh jsonTestsCache
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} CI_CACHE=NimBinaries update
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} fetch-dlls
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} P2PD_CACHE=p2pdCache
           file build/beacon_node
-          mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} DISABLE_LFS_SCRIPT=1 test
+          mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} DISABLE_TEST_FIXTURES_SCRIPT=1 test
         displayName: 'build and test'
