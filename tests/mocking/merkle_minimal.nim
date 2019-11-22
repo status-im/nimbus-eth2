@@ -11,9 +11,7 @@
 import
   # Specs
   ../../beacon_chain/spec/[datatypes, digest],
-  ../../beacon_chain/ssz,
-  # shims
-  stew/objects
+  ../../beacon_chain/ssz
 
 func round_step_down*(x: Natural, step: static Natural): int {.inline.} =
   ## Round the input to the previous multiple of "step"

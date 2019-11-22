@@ -25,7 +25,7 @@ This prevents LFS during unusual clones (i.e. when you add `--recurse-submodules
 ## Related
 
 * [status-im/nimbus](https://github.com/status-im/nimbus/): main Nimbus repository - start here to learn more about the Nimbus eco-system
-* [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md): Serenity specification that this project implements
+* [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md): Serenity specification that this project implements
 * [ethereum/beacon\_chain](https://github.com/ethereum/beacon_chain): reference implementation from the Ethereum foundation
 
 You can check where the beacon chain fits in the Ethereum research ecosystem in the [Status Athenaeum](https://github.com/status-im/athenaeum/blob/b465626cc551e361492e56d32517b2cdadd7493f/ethereum_research_records.json#L38).
