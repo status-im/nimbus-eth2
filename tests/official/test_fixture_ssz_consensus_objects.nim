@@ -59,19 +59,20 @@ const Unsupported = toHashSet([
     # "IndexedAttestation", #
     # "PendingAttestation", #
     # "ProposerSlashing",   #
-    # "Validator",            # HashTreeRoot KO
+    # "Validator",          #
     # "VoluntaryExit"       #
   ])
 
-const UnsupportedMainnet = toHashSet([
-    "PendingAttestation",   # HashTreeRoot KO
-    "BeaconState",
-    "AttesterSlashing",
-    "BeaconBlockBody",
-    "IndexedAttestation",
-    "Attestation",
-    "BeaconBlock"
-  ])
+const UnsupportedMainnet = HashSet[string]()
+# const UnsupportedMainnet = toHashSet([
+#     "PendingAttestation",
+#     "BeaconState",
+#     "AttesterSlashing",
+#     "BeaconBlockBody",
+#     "IndexedAttestation",
+#     "Attestation",
+#     "BeaconBlock"
+#   ])
 
 type Skip = enum
   SkipNone
