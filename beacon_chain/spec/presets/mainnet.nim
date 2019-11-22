@@ -166,3 +166,22 @@ const
   TARGET_AGGREGATORS_PER_COMMITTEE* = 16 # validators
   RANDOM_SUBNETS_PER_VALIDATOR* = 1 # subnet
   EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION* = 256 # epochs ~ 27 hours
+
+  # Phase 1 - Sharding
+  # ---------------------------------------------------------------
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/1_shard-data-chains.md#time-parameters
+  # TODO those are included in minimal.yaml but not mainnet.yaml
+  #      Why?
+  # SHARD_SLOTS_PER_BEACON_SLOT* = 2 # spec: SHARD_SLOTS_PER_EPOCH
+  # EPOCHS_PER_SHARD_PERIOD* = 4
+  # PHASE_1_FORK_EPOCH* = 8
+  # PHASE_1_FORK_SLOT* = 64
+
+  # Phase 1 - Custody game
+  # ---------------------------------------------------------------
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/1_custody-game.md#constants
+  # TODO those are included in minimal.yaml but not mainnet.yaml
+  #      Why?
+  # EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS* = 4096 # epochs
+  # EPOCHS_PER_CUSTODY_PERIOD* = 4
+  # CUSTODY_PERIOD_TO_RANDAO_PADDING* = 4
