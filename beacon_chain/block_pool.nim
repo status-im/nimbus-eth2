@@ -33,7 +33,7 @@ func init*(T: type BlockRef, root: Eth2Digest, blck: BeaconBlock): BlockRef =
 
 func findAncestorBySlot*(blck: BlockRef, slot: Slot): BlockSlot =
   ## Find the first ancestor that has a slot number less than or equal to `slot`
-  assert(not blck.isNil)
+  doAssert(not blck.isNil)
   var ret = blck
 
   while ret.parent != nil and ret.slot > slot:

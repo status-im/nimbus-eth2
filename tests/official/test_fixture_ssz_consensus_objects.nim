@@ -102,7 +102,7 @@ proc loadExpectedHashTreeRoot(dir: string): SSZHashTreeRoot =
 proc runSSZtests() =
   doAssert existsDir(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the official test vectors."
   for pathKind, sszType in walkDir(SSZDir, relative = true):
-    assert pathKind == pcDir
+    doAssert pathKind == pcDir
     if sszType in Unsupported:
       test &"  Skipping   {sszType:20}   consensus object ✗✗✗":
         discard
@@ -117,7 +117,7 @@ proc runSSZtests() =
     test &"  Testing    {sszType:20}   consensus object ✓✓✓":
       let path = SSZDir/sszType
       for pathKind, sszTestKind in walkDir(path, relative = true):
-        assert pathKind == pcDir
+        doAssert pathKind == pcDir
         let path = SSZDir/sszType/sszTestKind
         for pathKind, sszTestCase in walkDir(path, relative = true):
           let path = SSZDir/sszType/sszTestKind/sszTestCase

@@ -107,7 +107,7 @@ proc inspectType(tImpl, xSubField, ySubField: NimNode, stmts: var NimNode) =
       "\" of type \"" & tImpl.repr
 
 macro reportDiff*(x, y: typed{`var`|`let`|`const`}): untyped =
-  assert sameType(x, y)
+  doAssert sameType(x, y)
   result = newStmtList()
 
   let typeImpl = x.getTypeImpl

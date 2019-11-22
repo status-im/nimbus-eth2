@@ -133,7 +133,7 @@ proc checkVector(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
   var typeIdent: string
   var size: int
   let wasMatched = scanf(sszSubType, "vec_$+_$i", typeIdent, size)
-  assert wasMatched
+  doAssert wasMatched
   testVector(typeIdent, size)
 
 type BitContainer[N: static int] = BitList[N] or BitArray[N]
@@ -147,7 +147,7 @@ proc testBitContainer(T: typedesc[BitContainer], dir: string, expectedHash: SSZH
 proc checkBitVector(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
   var size: int
   let wasMatched = scanf(sszSubType, "bitvec_$i", size)
-  assert wasMatched
+  doAssert wasMatched
   case size
   of 1: testBitContainer(BitArray[1], dir, expectedHash)
   of 2: testBitContainer(BitArray[2], dir, expectedHash)
@@ -199,7 +199,7 @@ proc sszCheck(sszType, sszSubType: string) =
   of "uints":
     var bitsize: int
     let wasMatched = scanf(sszSubType, "uint_$i", bitsize)
-    assert wasMatched
+    doAssert wasMatched
     case bitsize
     of 8:  checkBasic(uint8, dir, expectedHash)
     of 16: checkBasic(uint16, dir, expectedHash)
@@ -219,7 +219,7 @@ proc sszCheck(sszType, sszSubType: string) =
   of "containers":
     var name: string
     let wasMatched = scanf(sszSubtype, "$+_", name)
-    assert wasMatched
+    doAssert wasMatched
     case name
     of "SingleFieldTestStruct": checkBasic(SingleFieldTestStruct, dir, expectedHash)
     of "SmallTestStruct": checkBasic(SmallTestStruct, dir, expectedHash)
@@ -249,7 +249,7 @@ proc sszCheck(sszType, sszSubType: string) =
 proc runSSZtests() =
   doAssert existsDir(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the official test vectors."
   for pathKind, sszType in walkDir(SSZDir, relative = true):
-    assert pathKind == pcDir
+    doAssert pathKind == pcDir
     if sszType == "bitlist":
       test &"**Skipping** {sszType} inputs - valid - skipped altogether":
         # TODO: serialization of "type BitList[maxLen] = distinct BitSeq is not supported"
@@ -269,7 +269,7 @@ proc runSSZtests() =
     test &"Testing {sszType:12} inputs - valid" & skipped:
       let path = SSZDir/sszType/"valid"
       for pathKind, sszSubType in walkDir(path, relative = true):
-        assert pathKind == pcDir
+        doAssert pathKind == pcDir
         sszCheck(sszType, sszSubType)
 
   # TODO: nim-serialization forces us to use exceptions as control flow
