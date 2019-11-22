@@ -67,6 +67,12 @@ const
   # Not part of spec. Still useful, pending removing usage if appropriate.
   ZERO_HASH* = Eth2Digest()
 
+  # Not part of spec
+  WEAK_SUBJECTVITY_PERIOD* =
+    Slot(uint64(4 * 30 * 24 * 60 * 60) div SECONDS_PER_SLOT)
+    # TODO: This needs revisiting.
+    # Why was the validator WITHDRAWAL_PERIOD altered in the spec?
+
 template maxSize*(n: int) {.pragma.}
 
 type
