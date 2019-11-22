@@ -215,7 +215,7 @@ func fromBytes*[T](R: type BlsValue[T], bytes: openarray[byte]): R =
     if not success:
       # TODO: chronicles trace
       result = R(kind: OpaqueBlob)
-      assert result.blob.len == bytes.len
+      doAssert result.blob.len == bytes.len
       result.blob[result.blob.low .. result.blob.high] = bytes
 
 func fromHex*[T](R: type BlsValue[T], hexStr: string): R =
