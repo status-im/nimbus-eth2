@@ -150,3 +150,19 @@ const
   MAX_ATTESTATIONS* = 2^7
   MAX_DEPOSITS* = 2^4
   MAX_VOLUNTARY_EXITS* = 2^4
+
+  MIN_GENESIS_TIME* {.intdefine.} = 1578009600 # Jan 3, 2020
+  MIN_GENESIS_ACTIVE_VALIDATOR_COUNT* {.intdefine.} = 2^14
+
+  # Fork choice
+  # ---------------------------------------------------------------
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_fork-choice.md#configuration
+  SAFE_SLOTS_TO_UPDATE_JUSTIFIED* = 8 # 96 seconds
+
+  # Validators
+  # ---------------------------------------------------------------
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/validator/0_beacon-chain-validator.md#misc
+  ETH1_FOLLOW_DISTANCE* = 1024 # blocks ~ 4 hours
+  TARGET_AGGREGATORS_PER_COMMITTEE* = 16 # validators
+  RANDOM_SUBNETS_PER_VALIDATOR* = 1 # subnet
+  EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION* = 256 # epochs ~ 27 hours
