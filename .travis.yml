@@ -13,8 +13,6 @@ cache:
 git:
   # when multiple CI builds are queued, the tested commit needs to be in the last X commits cloned with "--depth X"
   depth: 10
-  # disable LFS file downloading during regular cloning
-  lfs_skip_smudge: true
 
 go:
   - "1.12.x"
@@ -50,11 +48,12 @@ matrix:
 
 
 install:
-  # LFS test fixtures
+  # official test fixtures
   - scripts/setup_official_tests.sh jsonTestsCache
 
 script:
   - set -e # fail fast
   - make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" update # to allow a newer Nim version to be detected
   - make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}"
-  - make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" DISABLE_LFS_SCRIPT=1 test
+  - make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" DISABLE_TEST_FIXTURES_SCRIPT=1 test
+

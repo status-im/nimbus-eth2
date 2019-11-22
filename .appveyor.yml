@@ -2,10 +2,6 @@ version: '{build}'
 
 image: Visual Studio 2015
 
-environment:
-  # disable LFS file downloading during regular cloning
-  GIT_LFS_SKIP_SMUDGE: 1
-
 init: # Scripts called at the very beginning
   # Enable paths > 260 characters
   - ps: Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name 'LongPathsEnabled' -Value 1
@@ -30,7 +26,7 @@ install:
   - IF "%PLATFORM%" == "x86" SET PATH=C:\mingw-w64\i686-6.3.0-posix-dwarf-rt_v5-rev1\mingw32\bin;%PATH%
   - IF "%PLATFORM%" == "x64" SET PATH=C:\mingw-w64\x86_64-8.1.0-posix-seh-rt_v6-rev0\mingw64\bin;%PATH%
 
-  # LFS test fixtures
+  # official test fixtures
   - bash scripts\setup_official_tests.sh jsonTestsCache
 
 build_script:
@@ -41,6 +37,6 @@ build_script:
 test_script:
   # the "go-checks" target fails in AppVeyor, for some reason; easier to disable than to debug
   - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% DISABLE_GO_CHECKS=1 P2PD_CACHE=p2pdCache
-  - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% DISABLE_LFS_SCRIPT=1 DISABLE_GO_CHECKS=1 test
+  - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% DISABLE_TEST_FIXTURES_SCRIPT=1 DISABLE_GO_CHECKS=1 test
 
 deploy: off
