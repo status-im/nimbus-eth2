@@ -92,7 +92,7 @@ proc inspectType(tImpl, xSubField, ySubField: NimNode, stmts: var NimNode) =
     inspectType(tImpl[0], xSubField, ySubField, stmts)
   of {nnkSym, nnkBracketExpr}:
     if tImpl.kind == nnkBracketExpr:
-      assert tImpl[0].eqIdent"seq" or tImpl[0].eqIdent"array", "Error: unsupported generic type: " & $tImpl[0]
+      assert tImpl[0].eqIdent"List" or tImpl[0].eqIdent"seq" or tImpl[0].eqIdent"array", "Error: unsupported generic type: " & $tImpl[0]
       compareContainerStmt(xSubField, ySubField, stmts)
     elif $tImpl in builtinTypes:
       compareStmt(xSubField, ySubField, stmts)
