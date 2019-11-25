@@ -192,7 +192,7 @@ proc handleInitialStatus(peer: Peer,
       var s = ourStatus.headSlot + 1
       var theirStatus = theirStatus
       while s <= theirStatus.headSlot:
-        let numBlocksToRequest = min(uint64(theirStatus.headSlot - s),
+        let numBlocksToRequest = min(uint64(theirStatus.headSlot - s) + 1,
                                      MAX_REQUESTED_BLOCKS)
 
         debug "Requesting blocks", peer, remoteHeadSlot = theirStatus.headSlot,
