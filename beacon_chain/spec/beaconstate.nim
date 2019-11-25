@@ -147,12 +147,22 @@ func initiate_validator_exit*(state: var BeaconState,
     validator.exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#slash_validator
-func slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
+proc slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
     stateCache: var StateCache) =
   # Slash the validator with index ``index``.
   let epoch = get_current_epoch(state)
   initiate_validator_exit(state, slashed_index)
   let validator = addr state.validators[slashed_index]
+
+  debug "slash_validator: ejecting validator via slashing (validator_leaving)",
+    index = slashed_index,
+    num_validators = state.validators.len,
+    current_epoch = get_current_epoch(state),
+    validator_slashed = validator.slashed,
+    validator_withdrawable_epoch = validator.withdrawable_epoch,
+    validator_exit_epoch = validator.exit_epoch,
+    validator_effective_balance = validator.effective_balance
+
   validator.slashed = true
   validator.withdrawable_epoch =
     max(validator.withdrawable_epoch, epoch + EPOCHS_PER_SLASHINGS_VECTOR)
@@ -285,7 +295,7 @@ func get_total_balance*(state: BeaconState, validators: auto): Gwei =
 
 # XXX: Move to state_transition_epoch.nim?
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#registry-updates
-func process_registry_updates*(state: var BeaconState) =
+proc process_registry_updates*(state: var BeaconState) =
   ## Process activation eligibility and ejections
   ## Try to avoid caching here, since this could easily become undefined
 
@@ -297,6 +307,14 @@ func process_registry_updates*(state: var BeaconState) =
 
     if is_active_validator(validator, get_current_epoch(state)) and
         validator.effective_balance <= EJECTION_BALANCE:
+      debug "Registry updating: ejecting validator due to low balance (validator_leaving)",
+        index = index,
+        num_validators = state.validators.len,
+        current_epoch = get_current_epoch(state),
+        validator_slashed = validator.slashed,
+        validator_withdrawable_epoch = validator.withdrawable_epoch,
+        validator_exit_epoch = validator.exit_epoch,
+        validator_effective_balance = validator.effective_balance
       initiate_validator_exit(state, index.ValidatorIndex)
 
   ## Queue validators eligible for activation and not dequeued for activation
