@@ -272,7 +272,7 @@ else:
 
   proc saveConnectionAddressFile*(node: Eth2Node, filename: string) =
     let id = waitFor node.daemon.identity()
-    Json.saveFile(filename, id, pretty = false)
+    writeFile(filename, $id.addresses[0] & "/p2p/" & id.peer.pretty)
 
   proc loadConnectionAddressFile*(filename: string): PeerInfo =
     Json.loadFile(filename, PeerInfo)
