@@ -395,7 +395,7 @@ func getFinalHash*(merkelizer: SszChunksMerkelizer): Eth2Digest =
 
 let HashingStreamVTable = OutputStreamVTable(
   writePage: proc (s: OutputStreamVar, data: openarray[byte])
-                  {.nimcall, gcsafe, raises: [IOError, Defect].} =
+                  {.nimcall, gcsafe, raises: [IOError].} =
     trs "ADDING STREAM CHUNK ", data
     SszChunksMerkelizer(s.outputDevice).addChunk(data)
   ,
@@ -407,9 +407,8 @@ func getVtableAddresWithoutSideEffect: ptr OutputStreamVTable =
   # TODO this is a work-around for the somewhat broken side
   # effects analysis of Nim - reading from global let variables
   # is considered a side-effect.
-  # Nim 0.19 doesnt have the `{.noSideEffect.}:` override, so
-  # we should revisit this in Nim 0.20.2.
-  {.emit: "`result` = &`HashingStreamVTable`;".}
+  {.noSideEffect.}:
+    unsafeAddr HashingStreamVTable
 
 func newSszHashingStream(merkelizer: SszChunksMerkelizer): ref OutputStream =
   new result
