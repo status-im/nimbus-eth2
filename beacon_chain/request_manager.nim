@@ -5,6 +5,10 @@ import
   eth2_network, beacon_node_types, sync_protocol,
   eth/async_utils
 
+type
+  RequestManager* = object
+    network*: Eth2Node
+
 proc init*(T: type RequestManager, network: Eth2Node): T =
   T(network: network)
 

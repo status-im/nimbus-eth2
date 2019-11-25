@@ -73,12 +73,15 @@ proc processDeposits(m: MainchainMonitor, web3: Web3) {.async.} =
     inc m.depositCount
     m.eth1Block = blkHash
 
-    if m.pendingDeposits.len >= SLOTS_PER_EPOCH and m.pendingDeposits.len >= MIN_GENESIS_ACTIVE_VALIDATOR_COUNT and blk.timestamp.uint64 >= MIN_GENESIS_TIME.uint64:
+    if m.pendingDeposits.len >= SLOTS_PER_EPOCH and
+        m.pendingDeposits.len >= MIN_GENESIS_ACTIVE_VALIDATOR_COUNT and
+        blk.timestamp.uint64 >= MIN_GENESIS_TIME.uint64:
       # This block is a genesis candidate
       var h: Eth2Digest
       h.data = array[32, byte](blkHash)
       let startTime = blk.timestamp.uint64
-      var s = initialize_beacon_state_from_eth1(h, startTime, m.pendingDeposits, {skipValidation})
+      var s = initialize_beacon_state_from_eth1(
+        h, startTime, m.pendingDeposits, {skipValidation})
 
       if is_valid_genesis_state(s):
         # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
@@ -131,7 +134,11 @@ proc run(m: MainchainMonitor, delayBeforeStart: Duration) {.async.} =
 
   let ns = web3.contractSender(DepositContract, m.depositContractAddress)
 
-  let s = await ns.subscribe(DepositEvent, %*{"fromBlock": startBlkNum}) do(pubkey: Bytes48, withdrawalCredentials: Bytes32, amount: Bytes8, signature: Bytes96, merkleTreeIndex: Bytes8, j: JsonNode):
+  let s = await ns.subscribe(DepositEvent, %*{"fromBlock": startBlkNum}) do(
+      pubkey: Bytes48,
+      withdrawalCredentials: Bytes32,
+      amount: Bytes8,
+      signature: Bytes96, merkleTreeIndex: Bytes8, j: JsonNode):
 
     let blkHash = BlockHash.fromHex(j["blockHash"].getStr())
     let amount = bytes_to_int(array[8, byte](amount))

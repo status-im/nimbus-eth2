@@ -1,5 +1,5 @@
 import
-  deques, options, sequtils, tables,
+  deques, sequtils, tables,
   chronicles, stew/bitseqs, json_serialization/std/sets,
   ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator],
   ./extras, ./ssz, ./block_pool,

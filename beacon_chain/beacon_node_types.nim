@@ -1,45 +1,10 @@
 import
-  sets, deques, tables, options,
+  deques, tables, options,
   stew/[endians2],
   spec/[datatypes, crypto, digest],
-  beacon_chain_db, conf, mainchain_monitor, eth2_network, time
+  beacon_chain_db
 
 type
-
-  # #############################################
-  #
-  #                 Beacon Node
-  #
-  # #############################################
-  BeaconNode* = ref object
-    nickname*: string
-    network*: Eth2Node
-    forkVersion*: array[4, byte]
-    networkIdentity*: Eth2NodeIdentity
-    requestManager*: RequestManager
-    isBootstrapNode*: bool
-    bootstrapNodes*: seq[BootstrapAddr]
-    db*: BeaconChainDB
-    config*: BeaconNodeConf
-    attachedValidators*: ValidatorPool
-    blockPool*: BlockPool
-    attestationPool*: AttestationPool
-    mainchainMonitor*: MainchainMonitor
-    beaconClock*: BeaconClock
-    onBeaconBlock*: proc (node: BeaconNode, blck: BeaconBlock) {.gcsafe.}
-
-    stateCache*: StateData ##\
-    ## State cache object that's used as a scratch pad
-    ## TODO this is pretty dangerous - for example if someone sets it
-    ##      to a particular state then does `await`, it might change - prone to
-    ##      async races
-
-    justifiedStateCache*: StateData ##\
-    ## A second state cache that's used during head selection, to avoid
-    ## state replaying.
-    # TODO Something smarter, so we don't need to keep two full copies, wasteful
-
-
   # #############################################
   #
   #             Attestation Pool
@@ -237,9 +202,6 @@ type
 
   ValidatorPool* = object
     validators*: Table[ValidatorPubKey, AttachedValidator]
-
-  RequestManager* = object
-    network*: Eth2Node
 
   FetchRecord* = object
     root*: Eth2Digest

@@ -1,5 +1,5 @@
 import
-  strformat, ospaths, confutils
+  strformat, os, confutils
 
 type
   Command = enum
