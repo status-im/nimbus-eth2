@@ -229,11 +229,12 @@ func initialize_beacon_state_from_eth1*(
   # Process deposits
   let
     leaves = deposits.mapIt(it.data)
-    prefix_roots =
-      hash_tree_roots_prefix(leaves, 2'i64^DEPOSIT_CONTRACT_TREE_DEPTH)
-  for i, deposit in deposits:
-    state.eth1_data.deposit_root = prefix_roots[i]
-    discard process_deposit(state, deposit, flags)
+  var i = 0
+  for prefix_root in hash_tree_roots_prefix(
+      leaves, 2'i64^DEPOSIT_CONTRACT_TREE_DEPTH):
+    state.eth1_data.deposit_root = prefix_root
+    discard process_deposit(state, deposits[i], flags)
+    i += 1
 
   # Process activations
   for validator_index in 0 ..< state.validators.len:
