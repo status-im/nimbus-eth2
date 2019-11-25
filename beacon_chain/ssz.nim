@@ -73,7 +73,7 @@ proc init*(T: type SszReader,
            maxObjectSize = defaultMaxObjectSize): T =
   T(stream: stream, maxObjectSize: maxObjectSize)
 
-proc mount*(F: type SSZ, stream: ByteStreamVar, T: type): T =
+proc mount(F: type SSZ, stream: ByteStreamVar, T: type): T =
   mixin readValue
   var reader = init(SszReader, stream)
   reader.readValue(T)
@@ -166,7 +166,7 @@ template enumerateSubFields(holder, fieldVar, body: untyped) =
 
 func writeVarSizeType(w: var SszWriter, value: auto) {.gcsafe.}
 
-func beginRecord*(w: var SszWriter, TT: type): auto =
+func beginRecord(w: var SszWriter, TT: type): auto =
   type T = TT
   when isFixedSize(T):
     FixedSizedWriterCtx()
@@ -269,7 +269,7 @@ template fromSszBytes*[T; N](_: type TypeWithMaxLen[T, N],
   mixin fromSszBytes
   fromSszBytes(T, bytes)
 
-func fromSszBytes*(T: type BlsCurveType, bytes: openarray[byte]): auto =
+func fromSszBytes(T: type BlsCurveType, bytes: openarray[byte]): auto =
   init(T, bytes)
 
 proc readValue*(r: var SszReader, val: var auto) =
@@ -327,7 +327,7 @@ func getZeroHashWithoutSideEffect(idx: int): Eth2Digest =
   {.noSideEffect.}:
     zeroHashes[idx]
 
-func addChunk*(merkelizer: SszChunksMerkelizer, data: openarray[byte]) =
+func addChunk(merkelizer: SszChunksMerkelizer, data: openarray[byte]) =
   doAssert data.len > 0 and data.len <= bytesPerChunk
 
   if not getBitLE(merkelizer.totalChunks, 0):
@@ -350,7 +350,7 @@ func addChunk*(merkelizer: SszChunksMerkelizer, data: openarray[byte]) =
 
   inc merkelizer.totalChunks
 
-func getFinalHash*(merkelizer: SszChunksMerkelizer): Eth2Digest =
+func getFinalHash(merkelizer: SszChunksMerkelizer): Eth2Digest =
   let limit = merkelizer.limit
 
   if merkelizer.totalChunks == 0:
@@ -573,11 +573,23 @@ func hash_tree_root*(x: auto): Eth2Digest =
 
   trs "HASH TREE ROOT FOR ", name(type x), " = ", "0x", $result
 
+func hash_tree_roots_prefix*[T](lst: openarray[T], limit: auto):
+    seq[Eth2Digest] =
+  # This is a particular type's instantiation of a general fold, reduce,
+  # accumulation, prefix sums, etc family of operations. As long as that
+  # Eth1 deposit case is the only notable example -- the usual uses of a
+  # list involve, at some point, tree-hashing it -- finalized hashes are
+  # the only abstraction that escapes from this module this way.
+  var merkelizer = SszChunksMerkelizer(limit: uint64(limit))
+  for i, elem in lst:
+    merkelizer.addChunk(hash_tree_root(elem).data)
+    result.add mixInLength(merkelizer.getFinalHash(), i + 1)
+
 func lastFieldName(RecordType: type): string {.compileTime.} =
   enumAllSerializedFields(RecordType):
     result = fieldName
 
-func hasSigningRoot*(T: type): bool {.compileTime.} =
+func hasSigningRoot(T: type): bool {.compileTime.} =
   lastFieldName(T) == "signature"
 
 func signingRoot*(obj: object): Eth2Digest =

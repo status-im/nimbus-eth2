@@ -17,7 +17,7 @@ func preset*(): string =
   " [Preset: " & const_preset & ']'
 
 when ValidatorPrivKey is BlsValue:
-  func makeFakeValidatorPrivKey*(i: int): ValidatorPrivKey =
+  func makeFakeValidatorPrivKey(i: int): ValidatorPrivKey =
     # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
     # lighthouse.
     # TODO: switch to https://github.com/ethereum/eth2.0-pm/issues/60
@@ -25,14 +25,14 @@ when ValidatorPrivKey is BlsValue:
     var bytes = uint64(i + 1000).toBytesLE()
     copyMem(addr result.blsValue.x[0], addr bytes[0], sizeof(bytes))
 else:
-  func makeFakeValidatorPrivKey*(i: int): ValidatorPrivKey =
+  func makeFakeValidatorPrivKey(i: int): ValidatorPrivKey =
     # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
     # lighthouse.
     # TODO: switch to https://github.com/ethereum/eth2.0-pm/issues/60
     var bytes = uint64(i + 1000).toBytesLE()
     copyMem(addr result.x[0], addr bytes[0], sizeof(bytes))
 
-func makeFakeHash*(i: int): Eth2Digest =
+func makeFakeHash(i: int): Eth2Digest =
   var bytes = uint64(i).toBytesLE()
   static: doAssert sizeof(bytes) <= sizeof(result.data)
   copyMem(addr result.data[0], addr bytes[0], sizeof(bytes))
