@@ -20,7 +20,8 @@ import # Unit test
   ./test_state_transition,
   ./test_sync_protocol,
   # ./test_validator # Empty!
-  ./test_zero_signature
+  ./test_zero_signature,
+  ./test_peer_pool
 
 import # Refactor state transition unit tests
   ./spec_block_processing/test_genesis,
