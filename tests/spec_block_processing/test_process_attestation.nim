@@ -107,10 +107,6 @@ suite "[Unit - Spec - Block processing] Attestations " & preset():
 # - source epoch in the future
 # - invalid current source root
 # - bad source root
-# - non-zero crosslink data root
-# - bad parent crosslink
-# - bad crosslink start epoch
-# - bad crosslink end epoch
 # - inconsistent custody bits length
 # - non-empty custody bits in phase 0
 

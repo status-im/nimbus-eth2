@@ -103,7 +103,7 @@ func process_deposit*(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#compute_activation_exit_epoch
-func compute_activation_exit_epoch*(epoch: Epoch): Epoch =
+func compute_activation_exit_epoch(epoch: Epoch): Epoch =
   ## Return the epoch during which validator activations and exits initiated in
   ## ``epoch`` take effect.
   epoch + 1 + MAX_SEED_LOOKAHEAD
@@ -371,7 +371,7 @@ func get_attesting_indices*(state: BeaconState,
       result.incl index
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#get_indexed_attestation
-func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
+func get_indexed_attestation(state: BeaconState, attestation: Attestation,
     stateCache: var StateCache): IndexedAttestation =
   # Return the indexed attestation corresponding to ``attestation``.
   let

@@ -270,7 +270,7 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock,
   return true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#attestations
-proc processAttestations*(
+proc processAttestations(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool =
   ## Each block includes a number of attestations that the proposer chose. Each
