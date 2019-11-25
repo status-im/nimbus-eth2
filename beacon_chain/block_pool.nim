@@ -81,6 +81,7 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
         link(newRef, curRef)
         curRef = curRef.parent
       blocks[curRef.root] = curRef
+      trace "Populating block pool", key = curRef.root, val = curRef
 
       if latestStateRoot.isNone() and db.containsState(blck.state_root):
         latestStateRoot = some(blck.state_root)
@@ -168,6 +169,7 @@ proc addResolvedBlock(
   link(parent, blockRef)
 
   pool.blocks[blockRoot] = blockRef
+  debug "Populating block pool", key = blockRoot, val = blockRef
 
   pool.addSlotMapping(blockRef)
 
@@ -322,9 +324,9 @@ proc add*(
 
 func getRef*(pool: BlockPool, root: Eth2Digest): BlockRef =
   ## Retrieve a resolved block reference, if available
-  pool.blocks.getOrDefault(root)
+  pool.blocks.getOrDefault(root, nil)
 
-func getBlockRange*(pool: BlockPool, headBlock: Eth2Digest,
+proc getBlockRange*(pool: BlockPool, headBlock: Eth2Digest,
                     startSlot: Slot, skipStep: Natural,
                     output: var openarray[BlockRef]): Natural =
   ## This function populates an `output` buffer of blocks
@@ -362,7 +364,7 @@ func getBlockRange*(pool: BlockPool, headBlock: Eth2Digest,
   template skip(n: int) =
     for i in 0 ..< n:
       if b.parent == nil:
-        trace "stopping at parentless block", slot = b.slot
+        trace "stopping at parentless block", slot = b.slot, root = b.root
         return
       b = b.parent
 
@@ -647,7 +649,7 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
   ## of operations naturally becomes important here - after updating the head,
   ## blocks that were once considered potential candidates for a tree will
   ## now fall from grace, or no longer be considered resolved.
-  doAssert blck.parent != nil
+  doAssert blck.parent != nil or blck.slot == 0
   logScope: pcs = "fork_choice"
 
   if pool.head.blck == blck:
