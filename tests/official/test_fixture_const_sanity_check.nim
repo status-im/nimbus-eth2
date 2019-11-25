@@ -1,6 +1,8 @@
 # Sanity check on constants
 # ----------------------------------------------------------------
 
+{.used.}
+
 import
   # Standard library
   macros, os, strutils, tables, math, json, streams,

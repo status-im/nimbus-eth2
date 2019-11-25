@@ -13,11 +13,11 @@ import
 # TODO: Proceed to renaming and signature changes
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#compute_shuffled_index
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#compute_committee
-func get_shuffled_seq*(seed: Eth2Digest,
-                       list_size: uint64,
-                       ): seq[ValidatorIndex] =
+func get_shuffled_seq(seed: Eth2Digest,
+                      list_size: uint64,
+                      ): seq[ValidatorIndex] =
   ## Via https://github.com/protolambda/eth2-shuffle/blob/master/shuffle.go
-  ## Shuffles ``validators`` into crosslink committees seeded by ``seed`` and
+  ## Shuffles ``validators`` into beacon committees, seeded by ``seed`` and
   ## ``slot``.
   ## Returns a list of ``SLOTS_PER_EPOCH * committees_per_slot`` committees
   ## where each committee is itself a list of validator indices.
@@ -147,7 +147,7 @@ func get_empty_per_epoch_cache*(): StateCache =
   result.committee_count_cache = initTable[Epoch, uint64]()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#compute_proposer_index
-func compute_proposer_index*(state: BeaconState, indices: seq[ValidatorIndex],
+func compute_proposer_index(state: BeaconState, indices: seq[ValidatorIndex],
     seed: Eth2Digest, stateCache: var StateCache): ValidatorIndex =
   # Return from ``indices`` a random index sampled by effective balance.
   const MAX_RANDOM_BYTE = 255

@@ -130,13 +130,13 @@ proc mockAttestation*(
 
 proc fillAggregateAttestation*(state: BeaconState, attestation: var Attestation) =
   var cache = get_empty_per_epoch_cache()
-  let crosslink_committee = get_beacon_committee(
+  let beacon_committee = get_beacon_committee(
     state,
     attestation.data.slot,
     attestation.data.index,
     cache
   )
-  for i in 0 ..< crosslink_committee.len:
+  for i in 0 ..< beacon_committee.len:
     attestation.aggregation_bits[i] = true
 
 proc add*(state: var BeaconState, attestation: Attestation, slot: Slot) =
