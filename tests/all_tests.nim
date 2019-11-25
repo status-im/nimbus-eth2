@@ -23,9 +23,7 @@ import # Unit test
   ./test_zero_signature
 
 import # Refactor state transition unit tests
-  # ./spec_block_processing/test_genesis, # mostly TODOs,
-  # with initGenesisState(...) tested by test_process_deposits(...),
-  # and mainnet hitting pathological/quadratic eth1 deposit behavior
+  ./spec_block_processing/test_genesis,
   ./spec_block_processing/test_process_deposits,
   ./spec_block_processing/test_process_attestation,
   ./spec_epoch_processing/test_process_justification_and_finalization

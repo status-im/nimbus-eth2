@@ -232,12 +232,7 @@ func initialize_beacon_state_from_eth1*(
     prefix_roots =
       hash_tree_roots_prefix(leaves, 2'i64^DEPOSIT_CONTRACT_TREE_DEPTH)
   for i, deposit in deposits:
-    let deposit_data_list = leaves[0..i]
-    let prev_calc_method_deposit_root = hash_tree_root(
-      sszList(deposit_data_list, 2'i64^DEPOSIT_CONTRACT_TREE_DEPTH))
-
     state.eth1_data.deposit_root = prefix_roots[i]
-    doAssert state.eth1_data.deposit_root == prev_calc_method_deposit_root
     discard process_deposit(state, deposit, flags)
 
   # Process activations
