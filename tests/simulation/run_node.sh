@@ -9,6 +9,15 @@ shift
 # shellcheck source=/dev/null
 source "$(dirname "$0")/vars.sh"
 
+if [[ ! -z "$1" ]]; then
+  BOOTSTRAP_NODE_ID=$1
+  BOOTSTRAP_ADDRESS_FILE="${SIMULATION_DIR}/node-${BOOTSTRAP_NODE_ID}/beacon_node.address"
+  shift
+else
+  BOOTSTRAP_NODE_ID=$MASTER_NODE
+  BOOTSTRAP_ADDRESS_FILE=$NETWORK_BOOTSTRAP_FILE
+fi
+
 # set up the environment
 # shellcheck source=/dev/null
 source "${SIM_ROOT}/../../env.sh"
@@ -36,7 +45,7 @@ if [[ $NODE_ID -lt $TOTAL_NODES ]]; then
 fi
 
 $BEACON_NODE_BIN \
-  --bootstrap-file=$NETWORK_BOOTSTRAP_FILE \
+  --bootstrap-file=$BOOTSTRAP_ADDRESS_FILE \
   --data-dir=$DATA_DIR \
   --node-name=$NODE_ID \
   --tcp-port=$PORT \
