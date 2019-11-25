@@ -353,6 +353,15 @@ proc process_voluntary_exit*(
       return false
 
   # Initiate exit
+  debug "Exit: processing voluntary exit (validator_leaving)",
+    index = exit.validator_index,
+    num_validators = state.validators.len,
+    epoch = exit.epoch,
+    current_epoch = get_current_epoch(state),
+    validator_slashed = validator.slashed,
+    validator_withdrawable_epoch = validator.withdrawable_epoch,
+    validator_exit_epoch = validator.exit_epoch,
+    validator_effective_balance = validator.effective_balance
   initiate_validator_exit(state, exit.validator_index.ValidatorIndex)
 
   true
