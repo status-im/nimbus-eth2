@@ -610,7 +610,7 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
   pool.head = Head(blck: blck, justified: blck.findAncestorBySlot(justifiedSlot))
 
   if lastHead.blck != blck.parent:
-    info "Updated No head block (new parent)",
+    info "Updated head block (new parent)",
       lastHeadRoot = shortLog(lastHead.blck.root),
       parentRoot = shortLog(blck.parent.root),
       stateRoot = shortLog(state.data.root),
@@ -625,7 +625,7 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
     # spurious times
     beacon_reorgs_total.inc()
   else:
-    info "Updated No head block",
+    info "Updated head block",
       stateRoot = shortLog(state.data.root),
       headBlockRoot = shortLog(state.blck.root),
       stateSlot = shortLog(state.data.data.slot),
