@@ -191,7 +191,6 @@ type
   ValidatorConnection* = object
 
   AttachedValidator* = ref object
-    idx*: ValidatorIndex
     pubKey*: ValidatorPubKey
 
     case kind*: ValidatorKind

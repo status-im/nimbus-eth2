@@ -275,9 +275,11 @@ proc addLocalValidator(
 
   let idx = state.validators.findIt(it.pubKey == pubKey)
   if idx == -1:
-    warn "Validator not in registry", pubKey
-  else:
-    node.attachedValidators.addLocalValidator(ValidatorIndex(idx), pubKey, privKey)
+    # We allow adding a validator even if its key is not in the state registry:
+    # it might be that the deposit for this validator has not yet been processed
+    warn "Validator not in registry (yet?)", pubKey
+
+  node.attachedValidators.addLocalValidator(pubKey, privKey)
 
 proc addLocalValidators(node: BeaconNode, state: BeaconState) =
   for validatorKeyFile in node.config.validators:
@@ -812,19 +814,26 @@ proc createPidFile(filename: string) =
   gPidFile = filename
   addQuitProc proc {.noconv.} = removeFile gPidFile
 
-proc start(node: BeaconNode, headState: BeaconState) =
+proc start(node: BeaconNode) =
   # TODO: while it's nice to cheat by waiting for connections here, we
   #       actually need to make this part of normal application flow -
   #       losing all connections might happen at any time and we should be
   #       prepared to handle it.
   waitFor node.connectToNetwork()
 
+  let
+    head = node.blockPool.head
+    finalizedHead = node.blockPool.finalizedHead
+
   info "Starting beacon node",
     version = fullVersionStr,
     timeSinceFinalization =
-      int64(node.blockPool.finalizedHead.slot.toBeaconTime()) -
+      int64(finalizedHead.slot.toBeaconTime()) -
       int64(node.beaconClock.now()),
-    stateSlot = shortLog(headState.slot),
+    headSlot = shortLog(head.blck.slot),
+    headRoot = shortLog(head.blck.root),
+    finalizedSlot = shortLog(finalizedHead.blck.slot),
+    finalizedRoot = shortLog(finalizedHead.blck.root),
     SLOTS_PER_EPOCH,
     SECONDS_PER_SLOT,
     SPEC_VERSION,
@@ -832,7 +841,12 @@ proc start(node: BeaconNode, headState: BeaconState) =
     cat = "init",
     pcs = "start_beacon_node"
 
-  node.addLocalValidators(headState)
+  let
+    bs = BlockSlot(blck: head.blck, slot: head.blck.slot)
+
+  node.blockPool.withState(node.stateCache, bs):
+    node.addLocalValidators(state)
+
   node.run()
 
 func formatGwei(amount: uint64): string =
@@ -922,8 +936,11 @@ when hasPrompt:
 
         of "attached_validators_balance":
           var balance = uint64(0)
-          for _, validator in node.attachedValidators.validators:
-            balance += node.stateCache.data.data.balances[validator.idx]
+          # TODO slow linear scan!
+          for idx, b in node.stateCache.data.data.balances:
+            if node.getAttachedValidator(
+                node.stateCache.data.data, ValidatorIndex(idx)) != nil:
+              balance += b
           formatGwei(balance)
 
         else:
@@ -949,7 +966,7 @@ when hasPrompt:
       proc statusBarUpdatesPollingLoop() {.async.} =
         while true:
           update statusBar
-          await sleepAsync(1000)
+          await sleepAsync(chronos.seconds(1))
 
       traceAsyncErrors statusBarUpdatesPollingLoop()
 
@@ -1053,11 +1070,10 @@ when isMainModule:
     var node = waitFor BeaconNode.init(config)
     when hasPrompt: initPrompt(node)
 
-    # TODO slightly ugly to rely on node.stateCache state here..
     if node.nickname != "":
-      dynamicLogScope(node = node.nickname): node.start(node.stateCache.data.data)
+      dynamicLogScope(node = node.nickname): node.start()
     else:
-      node.start(node.stateCache.data.data)
+      node.start()
 
   of makeDeposits:
     createDir(config.depositsDir)
