@@ -166,7 +166,7 @@ template enumerateSubFields(holder, fieldVar, body: untyped) =
 
 func writeVarSizeType(w: var SszWriter, value: auto) {.gcsafe.}
 
-func beginRecord(w: var SszWriter, TT: type): auto =
+func beginRecord*(w: var SszWriter, TT: type): auto =
   type T = TT
   when isFixedSize(T):
     FixedSizedWriterCtx()
