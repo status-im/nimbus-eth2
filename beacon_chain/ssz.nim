@@ -574,8 +574,8 @@ func hash_tree_root*(x: auto): Eth2Digest =
 
   trs "HASH TREE ROOT FOR ", name(type x), " = ", "0x", $result
 
-func hash_tree_roots_prefix*[T](lst: openarray[T], limit: auto):
-    seq[Eth2Digest] =
+iterator hash_tree_roots_prefix*[T](lst: openarray[T], limit: auto):
+    Eth2Digest =
   # This is a particular type's instantiation of a general fold, reduce,
   # accumulation, prefix sums, etc family of operations. As long as that
   # Eth1 deposit case is the only notable example -- the usual uses of a
@@ -584,7 +584,7 @@ func hash_tree_roots_prefix*[T](lst: openarray[T], limit: auto):
   var merkelizer = SszChunksMerkelizer(limit: uint64(limit))
   for i, elem in lst:
     merkelizer.addChunk(hash_tree_root(elem).data)
-    result.add mixInLength(merkelizer.getFinalHash(), i + 1)
+    yield mixInLength(merkelizer.getFinalHash(), i + 1)
 
 func lastFieldName(RecordType: type): string {.compileTime.} =
   enumAllSerializedFields(RecordType):
