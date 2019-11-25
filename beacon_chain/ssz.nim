@@ -73,7 +73,7 @@ proc init*(T: type SszReader,
            maxObjectSize = defaultMaxObjectSize): T =
   T(stream: stream, maxObjectSize: maxObjectSize)
 
-proc mount(F: type SSZ, stream: ByteStreamVar, T: type): T =
+proc mount*(F: type SSZ, stream: ByteStreamVar, T: type): T =
   mixin readValue
   var reader = init(SszReader, stream)
   reader.readValue(T)
