@@ -514,8 +514,7 @@ func hashTreeRootImpl[T](x: T): Eth2Digest =
       littleEndian64(addr result.data[0], x.unsafeAddr)
     else:
       let valueAddr = unsafeAddr x
-      result.data[0..7] =
-        makeOpenArray(cast[ptr byte](valueAddr), sizeof(value))
+      result.data[0..7] = makeOpenArray(cast[ptr byte](valueAddr), 8)
   elif (when T is array: ElemType(T) is byte and
       sizeof(T) == sizeof(Eth2Digest) else: false):
     # TODO is this sizeof comparison guranteed? it's whole structure vs field
