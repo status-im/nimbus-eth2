@@ -258,8 +258,8 @@ func is_valid_genesis_state*(state: BeaconState): bool =
     return false
   return true
 
-# TODO candidate for spec?
-# https://github.com/ethereum/eth2.0-specs/blob/0.5.1/specs/core/0_beacon-chain.md#on-genesis
+# TODO this is now a non-spec helper function, and it's not really accurate
+# so only usable/used in research/ and tests/
 func get_initial_beacon_block*(state: BeaconState): BeaconBlock =
   BeaconBlock(
     slot: GENESIS_SLOT,
