@@ -1,8 +1,8 @@
 # beacon_chain
 # Copyright (c) 2018-Present Status Research & Development GmbH
 # Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
@@ -36,8 +36,7 @@ proc readValue*(r: var JsonReader, a: var seq[byte]) {.inline.} =
 
 const
   FixturesDir* = currentSourcePath.rsplit(DirSep, 1)[0] / "fixtures"
-  JsonTestsDir* = FixturesDir/"json_tests_v0.8.3"
-  SszTestsDir* = FixturesDir/"tests-v0.9.1"
+  SszTestsDir* = FixturesDir/"tests-v0.9.2"
 
 proc parseTest*(path: string, Format: typedesc[Json or SSZ], T: typedesc): T =
   try:

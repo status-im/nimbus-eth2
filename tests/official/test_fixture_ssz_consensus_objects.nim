@@ -1,8 +1,8 @@
 # beacon_chain
 # Copyright (c) 2018 Status Research & Development GmbH
 # Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
@@ -26,7 +26,7 @@ import
 
 const
   FixturesDir = currentSourcePath.rsplit(DirSep, 1)[0] / "fixtures"
-  SSZDir = FixturesDir/"tests-v0.9.1"/const_preset/"phase0"/"ssz_static"
+  SSZDir = FixturesDir/"tests-v0.9.2"/const_preset/"phase0"/"ssz_static"
 
 type
   SSZHashTreeRoot = object
@@ -43,44 +43,16 @@ setDefaultValue(SSZHashTreeRoot, signing_root, "")
 # Checking the values against the yaml file is TODO (require more flexible Yaml parser)
 const Unsupported = toHashSet([
     "AggregateAndProof",    # Type for signature aggregation - not implemented
-    "Attestation",          # RangeError on deserialization
-    # "AttestationData",
-    "AttesterSlashing",     # RangeError on deserialization
-    "BeaconBlock",          # RangeError on deserialization
-    "BeaconBlockBody",      # RangeError on deserialization
-    # "BeaconBlockHeader",  # HashTreeRoot KO - SigningRook OK
-    "BeaconState",          # HashTreeRoot KO
-    # "Checkpoint",
-    "Deposit",              # HashTreeRoot KO
-    "DepositData",          # HashTreeRoot KO - SigningRoot KO
-    # "Eth1Data",
-    # "Fork",
-    # "HistoricalBatch",    # OK
-    "IndexedAttestation",   # RangeError on deserialization
-    # "PendingAttestation", # OK
-    "ProposerSlashing",     # HashTreeRoot KO
-    "Validator",            # HashTreeRoot KO
-    # "VoluntaryExit"       # hashTreeRoot KO - SigningRoot OK
   ])
 
-const UnsupportedMainnet = toHashSet([
-    "PendingAttestation",   # HashTreeRoot KO
-  ])
-
-type Skip = enum
-  SkipNone
-  SkipHashTreeRoot
-  SkipSigningRoot
-
-proc checkSSZ(T: typedesc, dir: string, expectedHash: SSZHashTreeRoot, skip = SkipNone) =
+proc checkSSZ(T: typedesc, dir: string, expectedHash: SSZHashTreeRoot) =
   # Deserialize into a ref object to not fill Nim stack
   var deserialized: ref T
   new deserialized
   deserialized[] = SSZ.loadFile(dir/"serialized.ssz", T)
 
-  if not(skip == SkipHashTreeRoot):
-    check: expectedHash.root == "0x" & toLowerASCII($deserialized.hashTreeRoot())
-  if expectedHash.signing_root != "" and not(skip == SkipSigningRoot):
+  check: expectedHash.root == "0x" & toLowerASCII($deserialized.hashTreeRoot())
+  if expectedHash.signing_root != "":
     check: expectedHash.signing_root == "0x" & toLowerASCII($deserialized[].signingRoot())
 
   # TODO check the value
@@ -96,26 +68,16 @@ proc loadExpectedHashTreeRoot(dir: string): SSZHashTreeRoot =
 proc runSSZtests() =
   doAssert existsDir(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the official test vectors."
   for pathKind, sszType in walkDir(SSZDir, relative = true):
-    assert pathKind == pcDir
+    doAssert pathKind == pcDir
     if sszType in Unsupported:
-      test &"  Skipping   {sszType:20}   consensus object ✗✗✗":
+      test &"  Skipping   {sszType:20} ✗✗✗":
         discard
       continue
 
-    when const_preset == "mainnet":
-      if sszType in UnsupportedMainnet:
-        test &"  Skipping   {sszType:20}   consensus object ✗✗✗ (skipped on mainnet-only)":
-          discard
-        continue
-
-    let signingRootOnly = &"                     ↶↶↶ {sszType} - Skipping HashTreeRoot and testing SigningRoot only"
-    if sszType == "BeaconBlockHeader" or sszType == "VoluntaryExit":
-      echo signingRootOnly
-
-    test &"  Testing    {sszType:20}   consensus object ✓✓✓":
+    test &"  Testing    {sszType}":
       let path = SSZDir/sszType
       for pathKind, sszTestKind in walkDir(path, relative = true):
-        assert pathKind == pcDir
+        doAssert pathKind == pcDir
         let path = SSZDir/sszType/sszTestKind
         for pathKind, sszTestCase in walkDir(path, relative = true):
           let path = SSZDir/sszType/sszTestKind/sszTestCase
@@ -128,7 +90,7 @@ proc runSSZtests() =
           of "AttesterSlashing": checkSSZ(AttesterSlashing, path, hash)
           of "BeaconBlock": checkSSZ(BeaconBlock, path, hash)
           of "BeaconBlockBody": checkSSZ(BeaconBlockBody, path, hash)
-          of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash, SkipHashTreeRoot) # TODO
+          of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
           of "BeaconState": checkSSZ(BeaconState, path, hash)
           of "Checkpoint": checkSSZ(Checkpoint, path, hash)
           of "Deposit": checkSSZ(Deposit, path, hash)
@@ -139,10 +101,10 @@ proc runSSZtests() =
           of "IndexedAttestation": checkSSZ(IndexedAttestation, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
-          of "Validator": checkSSZ(VoluntaryExit, path, hash)
-          of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash, SkipHashTreeRoot) # TODO
+          of "Validator": checkSSZ(Validator, path, hash)
+          of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash)
           else:
             raise newException(ValueError, "Unsupported test: " & sszType)
 
-suite "Official - 0.9.1 - SSZ consensus objects " & preset():
+suite "Official - 0.9.2 - SSZ consensus objects " & preset():
   runSSZtests()

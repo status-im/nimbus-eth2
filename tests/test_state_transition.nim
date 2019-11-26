@@ -1,8 +1,8 @@
 # beacon_chain
 # Copyright (c) 2018 Status Research & Development GmbH
 # Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 {.used.}
@@ -105,7 +105,9 @@ suite "Block processing" & preset():
       # enable exact 1-check again and keep finalization.
       state.current_epoch_attestations.len >= 1
 
-    process_slots(state, Slot(191))
+    when const_preset=="minimal":
+      # Can take several minutes with mainnet settings
+      process_slots(state, Slot(191))
 
     # Would need to process more epochs for the attestation to be removed from
     # the state! (per above bug)

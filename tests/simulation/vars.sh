@@ -1,22 +1,26 @@
 #!/bin/bash
 
+# https://github.com/koalaman/shellcheck/wiki/SC2034
+# shellcheck disable=2034
+true
+
 PWD_CMD="pwd"
 # get native Windows paths on Mingw
 uname | grep -qi mingw && PWD_CMD="pwd -W"
 
-cd $(dirname $0)
+cd "$(dirname "$0")"
 
 SIM_ROOT="$($PWD_CMD)"
 
 # Set a default value for the env vars usually supplied by a Makefile
-cd $(git rev-parse --show-toplevel)
+cd "$(git rev-parse --show-toplevel)"
 : ${GIT_ROOT:="$($PWD_CMD)"}
 cd - &>/dev/null
 
 # When changing these, also update the readme section on running simulation
 # so that the run_node example is correct!
 NUM_VALIDATORS=${VALIDATORS:-192}
-TOTAL_NODES=${NODES:-4}
+TOTAL_NODES=${NODES:-2}
 TOTAL_USER_NODES=${USER_NODES:-0}
 TOTAL_SYSTEM_NODES=$(( TOTAL_NODES - TOTAL_USER_NODES ))
 MASTER_NODE=$(( TOTAL_NODES - 1 ))

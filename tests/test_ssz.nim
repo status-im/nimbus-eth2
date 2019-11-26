@@ -1,8 +1,8 @@
 # beacon_chain
 # Copyright (c) 2018 Status Research & Development GmbH
 # Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 {.used.}
@@ -24,24 +24,24 @@ type
     # data: array[256, bool]
 
 template reject(stmt) =
-  assert(not compiles(stmt))
+  doAssert(not compiles(stmt))
 
 static:
-  assert isFixedSize(bool) == true
+  doAssert isFixedSize(bool) == true
 
-  assert fixedPortionSize(array[10, bool]) == 10
-  assert fixedPortionSize(array[SomeEnum, uint64]) == 24
-  assert fixedPortionSize(array[3..5, string]) == 12
+  doAssert fixedPortionSize(array[10, bool]) == 10
+  doAssert fixedPortionSize(array[SomeEnum, uint64]) == 24
+  doAssert fixedPortionSize(array[3..5, string]) == 12
 
-  assert fixedPortionSize(string) == 4
-  assert fixedPortionSize(seq[bool]) == 4
-  assert fixedPortionSize(seq[string]) == 4
+  doAssert fixedPortionSize(string) == 4
+  doAssert fixedPortionSize(seq[bool]) == 4
+  doAssert fixedPortionSize(seq[string]) == 4
 
-  assert isFixedSize(array[20, bool]) == true
-  assert isFixedSize(Simple) == true
-  assert isFixedSize(string) == false
-  assert isFixedSize(seq[bool]) == false
-  assert isFixedSize(seq[string]) == false
+  doAssert isFixedSize(array[20, bool]) == true
+  doAssert isFixedSize(Simple) == true
+  doAssert isFixedSize(string) == false
+  doAssert isFixedSize(seq[bool]) == false
+  doAssert isFixedSize(seq[string]) == false
 
   reject fixedPortionSize(int)
 
@@ -55,7 +55,8 @@ type
     f5: ValidatorIndex
 
 static:
-  assert fixedPortionSize(ObjWithFields) == 1 + 4 + sizeof(EthAddress) + (256 div 8) + 4 + 8
+  doAssert fixedPortionSize(ObjWithFields) ==
+    1 + 4 + sizeof(EthAddress) + (256 div 8) + 4 + 8
 
 executeRoundTripTests SSZ
 

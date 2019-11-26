@@ -1,8 +1,8 @@
 # beacon_chain
 # Copyright (c) 2018-2019 Status Research & Development GmbH
 # Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # At the time of writing, the exact definitions of what should be used for
@@ -122,7 +122,7 @@ func shortLog*(x: BlsValue): string =
 func shortLog*(x: BlsCurveType): string =
   ($x)[0..7]
 
-proc hash*(x: BlsValue): Hash {.inline.} =
+func hash*(x: BlsValue): Hash {.inline.} =
   if x.kind == Real:
     hash x.blsValue.getBytes()
   else:
@@ -145,27 +145,27 @@ func pubKey*(pk: ValidatorPrivKey): ValidatorPubKey =
   else:
     pk.getKey
 
-proc init(T: type VerKey): VerKey =
+func init(T: type VerKey): VerKey =
   result.point.inf()
 
-proc init(T: type SigKey): SigKey =
+func init(T: type SigKey): SigKey =
   result.point.inf()
 
-proc combine*[T](values: openarray[BlsValue[T]]): BlsValue[T] =
+func combine*[T](values: openarray[BlsValue[T]]): BlsValue[T] =
   result = BlsValue[T](kind: Real, blsValue: T.init())
 
   for value in values:
     result.blsValue.combine(value.blsValue)
 
-proc combine*[T](x: var BlsValue[T], other: BlsValue[T]) =
+func combine*[T](x: var BlsValue[T], other: BlsValue[T]) =
   doAssert x.kind == Real and other.kind == Real
   x.blsValue.combine(other.blsValue)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/bls_signature.md#bls_aggregate_pubkeys
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/bls_signature.md#bls_aggregate_pubkeys
 func bls_aggregate_pubkeys*(keys: openArray[ValidatorPubKey]): ValidatorPubKey =
   keys.combine()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/bls_signature.md#bls_verify
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/bls_signature.md#bls_verify
 func bls_verify*(
     pubkey: ValidatorPubKey, msg: openArray[byte], sig: ValidatorSig,
     domain: Domain): bool =
@@ -215,7 +215,7 @@ func fromBytes*[T](R: type BlsValue[T], bytes: openarray[byte]): R =
     if not success:
       # TODO: chronicles trace
       result = R(kind: OpaqueBlob)
-      assert result.blob.len == bytes.len
+      doAssert result.blob.len == bytes.len
       result.blob[result.blob.low .. result.blob.high] = bytes
 
 func fromHex*[T](R: type BlsValue[T], hexStr: string): R =

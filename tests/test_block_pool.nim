@@ -1,14 +1,15 @@
 # beacon_chain
 # Copyright (c) 2018 Status Research & Development GmbH
 # Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 {.used.}
 
 import
   options, sequtils, unittest,
+  chronicles,
   ./testutil,
   ../beacon_chain/spec/[beaconstate, datatypes, digest],
   ../beacon_chain/[beacon_node_types, block_pool, beacon_chain_db, extras, ssz]
@@ -20,10 +21,18 @@ suite "Block pool processing" & preset():
       makeInitialDeposits(flags = {skipValidation}), {skipValidation})
     genBlock = get_initial_beacon_block(genState)
 
+  setup:
+    var
+      db = makeTestDB(genState, genBlock)
+      pool = BlockPool.init(db)
+      state = pool.loadTailState()
+
+  test "getRef returns nil for missing blocks":
+    check:
+      pool.getRef(default Eth2Digest) == nil
+
   test "loadTailState gets genesis block on first load" & preset():
     var
-      pool = BlockPool.init(makeTestDB(genState, genBlock))
-      state = pool.loadTailState()
       b0 = pool.get(state.blck.root)
 
     check:
@@ -32,10 +41,6 @@ suite "Block pool processing" & preset():
       toSeq(pool.blockRootsForSlot(GENESIS_SLOT)) == @[state.blck.root]
 
   test "Simple block add&get" & preset():
-    var
-      pool = BlockPool.init(makeTestDB(genState, genBlock))
-      state = pool.loadTailState()
-
     let
       b1 = makeBlock(state.data.data, state.blck.root, BeaconBlockBody())
       b1Root = signing_root(b1)
@@ -51,11 +56,6 @@ suite "Block pool processing" & preset():
       hash_tree_root(state.data.data) == state.data.root
 
   test "Reverse order block add & get" & preset():
-    var
-      db = makeTestDB(genState, genBlock)
-      pool = BlockPool.init(db)
-      state = pool.loadTailState()
-
     let
       b1 = addBlock(state.data.data, state.blck.root, BeaconBlockBody(), {})
       b1Root = signing_root(b1)

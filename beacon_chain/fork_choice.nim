@@ -4,7 +4,7 @@ import
   ./spec/[datatypes, crypto, helpers],
   ./attestation_pool, ./beacon_node_types, ./ssz
 
-proc get_ancestor(blck: BlockRef, slot: Slot): BlockRef =
+func get_ancestor(blck: BlockRef, slot: Slot): BlockRef =
   if blck.slot == slot:
     blck
   elif blck.slot < slot:
@@ -16,7 +16,7 @@ proc get_ancestor(blck: BlockRef, slot: Slot): BlockRef =
 # The structure of this code differs from the spec since we use a different
 # strategy for storing states and justification points - it should nonetheless
 # be close in terms of functionality.
-proc lmdGhost*(
+func lmdGhost*(
     pool: AttestationPool, start_state: BeaconState,
     start_block: BlockRef): BlockRef =
   # TODO: a Fenwick Tree datastructure to keep track of cumulated votes

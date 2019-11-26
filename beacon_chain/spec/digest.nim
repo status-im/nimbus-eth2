@@ -1,13 +1,13 @@
 # beacon_chain
 # Copyright (c) 2018-2019 Status Research & Development GmbH
 # Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # Serenity hash function / digest
 #
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#hash
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#hash
 #
 # In Phase 0 the beacon chain is deployed with SHA256 (SHA2-256).
 # Note that is is different from Keccak256 (often mistakenly called SHA3-256)
@@ -33,7 +33,7 @@ type
 
 chronicles.formatIt Eth2Digest:
   mixin toHex
-  it.data.toHex(true)
+  it.data.toHex(true)[0..7]
 
 func shortLog*(x: Eth2Digest): string =
   x.data.toHex(true)[0..7]
@@ -50,7 +50,7 @@ func eth2hash*(v: openArray[byte]): Eth2Digest {.inline.} =
   ctx.update(v)
   ctx.finish()
 
-proc update*(ctx: var Sha2Context; digest: Eth2Digest) =
+func update*(ctx: var Sha2Context; digest: Eth2Digest) =
   ctx.update digest.data
 
 template withEth2Hash*(body: untyped): Eth2Digest =

@@ -1,8 +1,8 @@
 # beacon_chain
 # Copyright (c) 2018-2019 Status Research & Development GmbH
 # Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # This file contains data types that are part of the spec and thus subject to
@@ -52,13 +52,13 @@ else:
   {.fatal: "Preset \"" & const_preset ".nim\" is not supported.".}
 
 const
-  SPEC_VERSION* = "0.9.1" ## \
+  SPEC_VERSION* = "0.9.2" ## \
   ## Spec version we're aiming to be compatible with, right now
   ## TODO: improve this scheme once we can negotiate versions in protocol
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#initial-values
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#initial-values
   GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
   ## compute_epoch_at_slot(GENESIS_SLOT)
 
@@ -67,10 +67,33 @@ const
   # Not part of spec. Still useful, pending removing usage if appropriate.
   ZERO_HASH* = Eth2Digest()
 
+  # Not part of spec
+  WEAK_SUBJECTVITY_PERIOD* =
+    Slot(uint64(4 * 30 * 24 * 60 * 60) div SECONDS_PER_SLOT)
+    # TODO: This needs revisiting.
+    # Why was the validator WITHDRAWAL_PERIOD altered in the spec?
+
 template maxSize*(n: int) {.pragma.}
 
 type
   Bytes = seq[byte]
+
+  # Domains
+  # ---------------------------------------------------------------
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#domain-types
+  DomainType* {.pure.} = enum
+    DOMAIN_BEACON_PROPOSER = 0
+    DOMAIN_BEACON_ATTESTER = 1
+    DOMAIN_RANDAO = 2
+    DOMAIN_DEPOSIT = 3
+    DOMAIN_VOLUNTARY_EXIT = 4
+    # Phase 1 - Custody game
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/1_custody-game.md#signature-domain-types
+    DOMAIN_CUSTODY_BIT_CHALLENGE = 6
+    # Phase 1 - Sharding
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/1_shard-data-chains.md#signature-domain-types
+    DOMAIN_SHARD_PROPOSER = 128
+    DOMAIN_SHARD_ATTESTER = 129
 
   # https://github.com/nim-lang/Nim/issues/574 and be consistent across
   # 32-bit and 64-bit word platforms.
@@ -84,18 +107,18 @@ type
 
   BitList*[maxLen: static int] = distinct BitSeq
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#proposerslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     proposer_index*: uint64
     header_1*: BeaconBlockHeader
     header_2*: BeaconBlockHeader
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#attesterslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#attesterslashing
   AttesterSlashing* = object
     attestation_1*: IndexedAttestation
     attestation_2*: IndexedAttestation
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#indexedattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#indexedattestation
   IndexedAttestation* = object
     # TODO ValidatorIndex, but that doesn't serialize properly
     attesting_indices*: List[uint64, MAX_VALIDATORS_PER_COMMITTEE]
@@ -104,18 +127,18 @@ type
 
   CommitteeValidatorsBits* = BitList[MAX_VALIDATORS_PER_COMMITTEE]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#attestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#attestation
   Attestation* = object
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#checkpoint
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#checkpoint
   Checkpoint* = object
     epoch*: Epoch
     root*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#AttestationData
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#AttestationData
   AttestationData* = object
     slot*: Slot
     index*: uint64
@@ -127,21 +150,21 @@ type
     source*: Checkpoint
     target*: Checkpoint
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#deposit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#deposit
   Deposit* = object
     proof*: array[DEPOSIT_CONTRACT_TREE_DEPTH + 1, Eth2Digest] ##\
     ## Merkle path to deposit data list root
 
     data*: DepositData
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#depositdata
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#depositdata
   DepositData* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
     amount*: uint64
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#voluntaryexit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
     epoch*: Epoch ##\
     ## Earliest epoch when voluntary exit can be processed
@@ -149,7 +172,7 @@ type
     validator_index*: uint64
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#beaconblock
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -170,7 +193,7 @@ type
     signature*: ValidatorSig ##\
     ## Proposer signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#beaconblockheader
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot
     parent_root*: Eth2Digest
@@ -178,7 +201,7 @@ type
     body_root*: Eth2Digest
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -191,7 +214,7 @@ type
     deposits*: List[Deposit, MAX_DEPOSITS]
     voluntary_exits*: List[VoluntaryExit, MAX_VOLUNTARY_EXITS]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#beaconstate
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -243,7 +266,7 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#validator
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#validator
   Validator* = object
     pubkey*: ValidatorPubKey
 
@@ -266,7 +289,7 @@ type
     withdrawable_epoch*: Epoch ##\
     ## When validator can withdraw or transfer funds
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#pendingattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#pendingattestation
   PendingAttestation* = object
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
@@ -276,12 +299,12 @@ type
 
     proposer_index*: uint64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#historicalbatch
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#historicalbatch
   HistoricalBatch* = object
     block_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     state_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#fork
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#fork
   Fork* = object
     # TODO: Spec introduced an alias for Version = array[4, byte]
     #       and a default parameter to compute_domain
@@ -291,7 +314,7 @@ type
     epoch*: Epoch ##\
     ## Epoch of latest fork
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#eth1data
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#eth1data
   Eth1Data* = object
     deposit_root*: Eth2Digest
     deposit_count*: uint64
@@ -352,15 +375,20 @@ macro fieldMaxLen*(x: typed): untyped =
     return newLit(0)
 
   let size = case $x[1]
+             # Obsolete
              of "pubkeys",
                 "compact_validators",
                 "aggregation_bits",
                 "custody_bits": int64(MAX_VALIDATORS_PER_COMMITTEE)
+             # IndexedAttestation
+             of "attesting_indices": MAX_VALIDATORS_PER_COMMITTEE
+             # BeaconBlockBody
              of "proposer_slashings": MAX_PROPOSER_SLASHINGS
              of "attester_slashings": MAX_ATTESTER_SLASHINGS
              of "attestations": MAX_ATTESTATIONS
              of "deposits": MAX_DEPOSITS
              of "voluntary_exits": MAX_VOLUNTARY_EXITS
+             # BeaconState
              of "historical_roots": HISTORICAL_ROOTS_LIMIT
              of "eth1_data_votes": SLOTS_PER_ETH1_VOTING_PERIOD
              of "validators": VALIDATOR_REGISTRY_LIMIT
@@ -423,6 +451,12 @@ template ethTimeUnit(typ: type) {.dirty.} =
 
   proc readValue*(reader: var JsonReader, value: var typ) =
     value = typ reader.readValue(uint64)
+
+proc writeValue*(writer: var JsonWriter, value: ValidatorIndex) =
+  writeValue(writer, uint32 value)
+
+proc readValue*(reader: var JsonReader, value: var ValidatorIndex) =
+  value = ValidatorIndex reader.readValue(uint32)
 
 proc `%`*(i: uint64): JsonNode =
   % int(i)

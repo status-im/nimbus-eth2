@@ -1,5 +1,5 @@
 import
-  confutils, ospaths, strutils, chronicles, json_serialization,
+  confutils, os, strutils, chronicles, json_serialization,
   nimcrypto/utils,
   ../beacon_chain/spec/[crypto, datatypes, digest],
   ../beacon_chain/[ssz]

@@ -1,5 +1,5 @@
 import
-  deques, options, sequtils, tables,
+  deques, sequtils, tables,
   chronicles, stew/bitseqs, json_serialization/std/sets,
   ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator],
   ./extras, ./ssz, ./block_pool,
@@ -7,7 +7,7 @@ import
 
 logScope: topics = "attpool"
 
-proc init*(T: type AttestationPool, blockPool: BlockPool): T =
+func init*(T: type AttestationPool, blockPool: BlockPool): T =
   # TODO blockPool is only used when resolving orphaned attestations - it should
   #      probably be removed as a dependency of AttestationPool (or some other
   #      smart refactoring)
@@ -129,7 +129,7 @@ proc slotIndex(
 
   int(attestationSlot - pool.startingSlot)
 
-proc updateLatestVotes(
+func updateLatestVotes(
     pool: var AttestationPool, state: BeaconState, attestationSlot: Slot,
     participants: seq[ValidatorIndex], blck: BlockRef) =
   for validator in participants:
@@ -245,7 +245,7 @@ proc add*(pool: var AttestationPool,
       validations = 1,
       cat = "filtering"
 
-proc addUnresolved*(pool: var AttestationPool, attestation: Attestation) =
+func addUnresolved*(pool: var AttestationPool, attestation: Attestation) =
   pool.unresolved[attestation.data.beacon_block_root] =
     UnresolvedAttestation(
       attestation: attestation,
@@ -333,15 +333,6 @@ proc getAttestationsForBlock*(
     if result.len >= MAX_ATTESTATIONS:
       return
 
-proc getAttestationsForTargetEpoch*(
-  pool: AttestationPool, state: var BeaconState,
-    epoch: Epoch): seq[Attestation] =
-  # TODO quick testing kludge
-  let begin_slot = compute_start_slot_at_epoch(epoch).uint64
-  let end_slot_minus1 = (compute_start_slot_at_epoch(epoch+1) - 1).uint64
-  for s in begin_slot .. end_slot_minus1:
-    result.add getAttestationsForBlock(pool, state, s.Slot)
-
 proc resolve*(pool: var AttestationPool, cache: var StateData) =
   var
     done: seq[Eth2Digest]
@@ -365,6 +356,6 @@ proc resolve*(pool: var AttestationPool, cache: var StateData) =
 
     pool.add(cache.data.data, a.blck, a.attestation)
 
-proc latestAttestation*(
+func latestAttestation*(
     pool: AttestationPool, pubKey: ValidatorPubKey): BlockRef =
   pool.latestAttestations.getOrDefault(pubKey)

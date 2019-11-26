@@ -2,6 +2,7 @@
 
 # Read in variables
 set -a
+# shellcheck source=/dev/null
 source "$(dirname "$0")/vars.sh"
 
 cd $(dirname "$0")

@@ -40,6 +40,34 @@ declareCounter beacon_blocks_received,
 
 logScope: topics = "beacnde"
 
+type
+  BeaconNode = ref object
+    nickname: string
+    network: Eth2Node
+    forkVersion: array[4, byte]
+    networkIdentity: Eth2NodeIdentity
+    requestManager: RequestManager
+    isBootstrapNode: bool
+    bootstrapNodes: seq[BootstrapAddr]
+    db: BeaconChainDB
+    config: BeaconNodeConf
+    attachedValidators: ValidatorPool
+    blockPool: BlockPool
+    attestationPool: AttestationPool
+    mainchainMonitor: MainchainMonitor
+    beaconClock: BeaconClock
+
+    stateCache: StateData ##\
+    ## State cache object that's used as a scratch pad
+    ## TODO this is pretty dangerous - for example if someone sets it
+    ##      to a particular state then does `await`, it might change - prone to
+    ##      async races
+
+    justifiedStateCache: StateData ##\
+    ## A second state cache that's used during head selection, to avoid
+    ## state replaying.
+    # TODO Something smarter, so we don't need to keep two full copies, wasteful
+
 proc onBeaconBlock*(node: BeaconNode, blck: BeaconBlock) {.gcsafe.}
 
 func localValidatorsDir(conf: BeaconNodeConf): string =
@@ -81,7 +109,7 @@ proc getStateFromSnapshot(node: BeaconNode, state: var BeaconState): bool =
               dataDir = conf.dataDir.string, snapshot = snapshotPath
         quit 1
     else:
-      error "missing genesis file"
+      debug "No genesis file in data directory", genesisPath
       writeGenesisFile = true
       genesisPath = snapshotPath
   else:
@@ -93,16 +121,19 @@ proc getStateFromSnapshot(node: BeaconNode, state: var BeaconState): bool =
 
   try:
     state = SSZ.decode(snapshotContents, BeaconState)
-  except SerializationError as err:
+  except SerializationError:
     error "Failed to import genesis file", path = genesisPath
     quit 1
 
+  info "Loaded genesis state", path = genesisPath
+
   if writeGenesisFile:
     try:
-      error "writing genesis file", path = conf.dataDir/genesisFile
+      notice "Writing genesis to data directory", path = conf.dataDir/genesisFile
       writeFile(conf.dataDir/genesisFile, snapshotContents.string)
     except CatchableError as err:
-      error "Failed to persist genesis file to data dir", err = err.msg
+      error "Failed to persist genesis file to data dir",
+        err = err.msg, genesisFile = conf.dataDir/genesisFile
       quit 1
 
   result = true
@@ -131,15 +162,10 @@ proc useBootstrapFile(node: BeaconNode, bootstrapFile: string) =
 
 proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
   new result
-  result.onBeaconBlock = onBeaconBlock
   result.config = conf
   result.networkIdentity = getPersistentNetIdentity(conf)
   result.nickname = if conf.nodeName == "auto": shortForm(result.networkIdentity)
                     else: conf.nodeName
-
-  template fail(args: varargs[untyped]) =
-    stderr.write args, "\n"
-    quit 1
 
   for bootNode in conf.bootstrapNodes:
     result.addBootstrapNode BootstrapAddr.init(bootNode)
@@ -164,22 +190,25 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
 
   var eth1MonitorStartBlock: Eth2Digest
   if result.db.getHeadBlock().isNone():
-    var state: BeaconState
-    if not result.getStateFromSnapshot(state):
+    var state = new BeaconState
+    # TODO getStateFromSnapshot never returns false - it quits..
+    if not result.getStateFromSnapshot(state[]):
       if conf.depositWeb3Url.len != 0:
-        result.mainchainMonitor = MainchainMonitor.init(conf.depositWeb3Url, conf.depositContractAddress, eth1MonitorStartBlock)
+        result.mainchainMonitor = MainchainMonitor.init(
+          conf.depositWeb3Url, conf.depositContractAddress, eth1MonitorStartBlock)
         result.mainchainMonitor.start()
       else:
         stderr.write "No state snapshot (or web3 URL) provided\n"
         quit 1
 
-      state = await result.mainchainMonitor.getGenesis()
+      state[] = await result.mainchainMonitor.getGenesis()
     else:
       eth1MonitorStartBlock = state.eth1Data.block_hash
-    result.commitGenesisState(state)
+    result.commitGenesisState(state[])
 
   if result.mainchainMonitor.isNil and conf.depositWeb3Url.len != 0:
-    result.mainchainMonitor = MainchainMonitor.init(conf.depositWeb3Url, conf.depositContractAddress, eth1MonitorStartBlock)
+    result.mainchainMonitor = MainchainMonitor.init(
+      conf.depositWeb3Url, conf.depositContractAddress, eth1MonitorStartBlock)
     result.mainchainMonitor.start()
 
   result.blockPool = BlockPool.init(result.db)
@@ -191,8 +220,9 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   # TODO sync is called when a remote peer is connected - is that the right
   #      time to do so?
   let sync = result.network.protocolState(BeaconSync)
-  sync.node = result
-  sync.db = result.db
+  sync.init(
+    result.blockPool, result.forkVersion,
+    proc(blck: BeaconBlock) = onBeaconBlock(result, blck))
 
   result.stateCache = result.blockPool.loadTailState()
   result.justifiedStateCache = result.stateCache
@@ -245,9 +275,11 @@ proc addLocalValidator(
 
   let idx = state.validators.findIt(it.pubKey == pubKey)
   if idx == -1:
-    warn "Validator not in registry", pubKey
-  else:
-    node.attachedValidators.addLocalValidator(ValidatorIndex(idx), pubKey, privKey)
+    # We allow adding a validator even if its key is not in the state registry:
+    # it might be that the deposit for this validator has not yet been processed
+    warn "Validator not in registry (yet?)", pubKey
+
+  node.attachedValidators.addLocalValidator(pubKey, privKey)
 
 proc addLocalValidators(node: BeaconNode, state: BeaconState) =
   for validatorKeyFile in node.config.validators:
@@ -259,7 +291,7 @@ proc addLocalValidators(node: BeaconNode, state: BeaconState) =
 
   info "Local validators attached ", count = node.attachedValidators.count
 
-proc getAttachedValidator(node: BeaconNode,
+func getAttachedValidator(node: BeaconNode,
                           state: BeaconState,
                           idx: ValidatorIndex): AttachedValidator =
   let validatorKey = state.validators[idx].pubkey
@@ -287,7 +319,7 @@ proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
   newHead
 
 proc sendAttestation(node: BeaconNode,
-                     state: BeaconState,
+                     fork: Fork,
                      validator: AttachedValidator,
                      attestationData: AttestationData,
                      committeeLen: int,
@@ -295,7 +327,7 @@ proc sendAttestation(node: BeaconNode,
   logScope: pcs = "send_attestation"
 
   let
-    validatorSignature = await validator.signAttestation(attestationData, state)
+    validatorSignature = await validator.signAttestation(attestationData, fork)
 
   var aggregationBits = CommitteeValidatorsBits.init(committeeLen)
   aggregationBits.raiseBit indexInCommittee
@@ -353,29 +385,25 @@ proc proposeBlock(node: BeaconNode,
     doAssert false, "head slot matches proposal slot (!)"
     # return
 
-  # Get eth1data which may be async
-  # TODO it's a bad idea to get eth1data async because that might delay block
-  #      production
-  let (eth1data, deposits) = node.blockPool.withState(
-      node.stateCache, BlockSlot(blck: head, slot: slot - 1)):
-    if node.mainchainMonitor.isNil:
-      let e1d =
-        get_eth1data_stub(
-          state.eth1_deposit_index, slot.compute_epoch_at_slot())
-
-      (e1d, newSeq[Deposit]())
-    else:
-      let e1d = node.mainchainMonitor.eth1Data
-
-      (e1d, node.mainchainMonitor.getPendingDeposits())
-
+  # Advance state to the slot immediately preceding the one we're creating a
+  # block for - potentially we will be processing empty slots along the way.
   let (nroot, nblck) = node.blockPool.withState(
       node.stateCache, BlockSlot(blck: head, slot: slot - 1)):
+    let (eth1data, deposits) =
+      if node.mainchainMonitor.isNil:
+        (get_eth1data_stub(
+            state.eth1_deposit_index, slot.compute_epoch_at_slot()),
+          newSeq[Deposit]())
+      else:
+        (node.mainchainMonitor.eth1Data,
+          node.mainchainMonitor.getPendingDeposits())
+
     # To create a block, we'll first apply a partial block to the state, skipping
     # some validations.
     let
+      fork = state.fork
       blockBody = BeaconBlockBody(
-        randao_reveal: validator.genRandaoReveal(state, slot),
+        randao_reveal: validator.genRandaoReveal(fork, slot),
         eth1_data: eth1data,
         attestations:
           node.attestationPool.getAttestationsForBlock(state, slot),
@@ -388,10 +416,7 @@ proc proposeBlock(node: BeaconNode,
         body: blockBody,
         # TODO: This shouldn't be necessary if OpaqueBlob is the default
         signature: ValidatorSig(kind: OpaqueBlob))
-
-    var
       tmpState = hashedState
-
     discard state_transition(tmpState, newBlock, {skipValidation})
     # TODO only enable in fast-fail debugging situations
     # otherwise, bad attestations can bring down network
@@ -402,8 +427,11 @@ proc proposeBlock(node: BeaconNode,
     let blockRoot = signing_root(newBlock)
 
     # Careful, state no longer valid after here..
+    # We use the fork from the pre-newBlock state which should be fine because
+    # fork carries two epochs, so even if it's a fork block, the right thing
+    # will happen here
     newBlock.signature =
-      await validator.signBlockProposal(state, slot, blockRoot)
+      await validator.signBlockProposal(fork, slot, blockRoot)
 
     (blockRoot, newBlock)
 
@@ -551,7 +579,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
 
     for a in attestations:
       traceAsyncErrors sendAttestation(
-        node, state, a.validator, a.data, a.committeeLen, a.indexInCommittee)
+        node, state.fork, a.validator, a.data, a.committeeLen, a.indexInCommittee)
 
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     Future[BlockRef] {.async.} =
@@ -786,19 +814,26 @@ proc createPidFile(filename: string) =
   gPidFile = filename
   addQuitProc proc {.noconv.} = removeFile gPidFile
 
-proc start(node: BeaconNode, headState: BeaconState) =
+proc start(node: BeaconNode) =
   # TODO: while it's nice to cheat by waiting for connections here, we
   #       actually need to make this part of normal application flow -
   #       losing all connections might happen at any time and we should be
   #       prepared to handle it.
   waitFor node.connectToNetwork()
 
+  let
+    head = node.blockPool.head
+    finalizedHead = node.blockPool.finalizedHead
+
   info "Starting beacon node",
     version = fullVersionStr,
     timeSinceFinalization =
-      int64(node.blockPool.finalizedHead.slot.toBeaconTime()) -
+      int64(finalizedHead.slot.toBeaconTime()) -
       int64(node.beaconClock.now()),
-    stateSlot = shortLog(headState.slot),
+    headSlot = shortLog(head.blck.slot),
+    headRoot = shortLog(head.blck.root),
+    finalizedSlot = shortLog(finalizedHead.blck.slot),
+    finalizedRoot = shortLog(finalizedHead.blck.root),
     SLOTS_PER_EPOCH,
     SECONDS_PER_SLOT,
     SPEC_VERSION,
@@ -806,7 +841,12 @@ proc start(node: BeaconNode, headState: BeaconState) =
     cat = "init",
     pcs = "start_beacon_node"
 
-  node.addLocalValidators(headState)
+  let
+    bs = BlockSlot(blck: head.blck, slot: head.blck.slot)
+
+  node.blockPool.withState(node.stateCache, bs):
+    node.addLocalValidators(state)
+
   node.run()
 
 func formatGwei(amount: uint64): string =
@@ -896,8 +936,11 @@ when hasPrompt:
 
         of "attached_validators_balance":
           var balance = uint64(0)
-          for _, validator in node.attachedValidators.validators:
-            balance += node.stateCache.data.data.balances[validator.idx]
+          # TODO slow linear scan!
+          for idx, b in node.stateCache.data.data.balances:
+            if node.getAttachedValidator(
+                node.stateCache.data.data, ValidatorIndex(idx)) != nil:
+              balance += b
           formatGwei(balance)
 
         else:
@@ -923,7 +966,7 @@ when hasPrompt:
       proc statusBarUpdatesPollingLoop() {.async.} =
         while true:
           update statusBar
-          await sleepAsync(1000)
+          await sleepAsync(chronos.seconds(1))
 
       traceAsyncErrors statusBarUpdatesPollingLoop()
 
@@ -1027,11 +1070,10 @@ when isMainModule:
     var node = waitFor BeaconNode.init(config)
     when hasPrompt: initPrompt(node)
 
-    # TODO slightly ugly to rely on node.stateCache state here..
     if node.nickname != "":
-      dynamicLogScope(node = node.nickname): node.start(node.stateCache.data.data)
+      dynamicLogScope(node = node.nickname): node.start()
     else:
-      node.start(node.stateCache.data.data)
+      node.start()
 
   of makeDeposits:
     createDir(config.depositsDir)
@@ -1052,9 +1094,6 @@ when isMainModule:
         config.depositPrivateKey)
 
   of query:
-    var
-      trieDB = trieDB newChainDb(config.databaseDir)
-
     case config.queryCmd
     of QueryCmd.nimQuery:
       # TODO: This will handle a simple subset of Nim using

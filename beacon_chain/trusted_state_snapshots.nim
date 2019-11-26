@@ -1,12 +1,6 @@
 import
-  ospaths, chronos, json_serialization,
+  os, chronos, json_serialization,
   spec/[datatypes], beacon_chain_db
-
-const
-  WEAK_SUBJECTVITY_PERIOD* =
-    Slot(uint64(4 * 30 * 24 * 60 * 60) div SECONDS_PER_SLOT)
-    # TODO: This needs revisiting.
-    # Why was the validator WITHDRAWAL_PERIOD altered in the spec?
 
 proc obtainTrustedStateSnapshot*(db: BeaconChainDB): Future[BeaconState] {.async.} =
   # In case our latest state is too old, we must obtain a recent snapshot

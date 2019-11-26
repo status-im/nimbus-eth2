@@ -85,8 +85,6 @@ type
 
   TransmissionError* = object of CatchableError
 
-  ResponseSizeLimitReached* = object of CatchableError
-
 const
   defaultIncomingReqTimeout = 5000
   HandshakeTimeout = FaultOrError
@@ -336,9 +334,6 @@ proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.
   let sent = await stream.transp.write(bytes)
   if sent != bytes.len:
     raise newException(TransmissionError, "Failed to deliver msg bytes")
-
-template raiseMaxRespSizeError =
-  raise newException(ResponseSizeLimitReached, "Response size limit reached")
 
 # TODO There is too much duplication in the responder functions, but
 # I hope to reduce this when I increse the reliance on output streams.
@@ -604,12 +599,6 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
         try:
           `tracing`
           `awaitUserHandler`
-        except ResponseSizeLimitReached:
-          # The response size limit is currently handled with an exception in
-          # order to make it easier to switch to an alternative policy when it
-          # will be signalled with an error response code (and to avoid making
-          # the `response` API in the high-level protocols more complicated for now).
-          chronicles.debug "response size limit reached", peer, reqName = `msgNameLit`
         except CatchableError as `errVar`:
           `await` sendErrorResponse(`peerVar`, `streamVar`, ServerError, `errVar`.msg)
 

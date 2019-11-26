@@ -24,7 +24,7 @@ all: | build-system-checks $(TOOLS)
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
 
-GIT_SUBMODULE_UPDATE := export GIT_LFS_SKIP_SMUDGE=1; git submodule update --init --recursive
+GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
 build-system-checks:
 	@[[ -e "$(BUILD_SYSTEM_DIR)/makefiles" ]] || { \
 		echo -e "'$(BUILD_SYSTEM_DIR)/makefiles' not found. Running '$(GIT_SUBMODULE_UPDATE)'.\n"; \
@@ -52,9 +52,9 @@ p2pd: | go-checks
 
 # Windows 10 with WSL enabled, but no distro installed, fails if "../../nimble.sh" is executed directly
 # in a Makefile recipe but works when prefixing it with `bash`. No idea how the PATH is overridden.
-DISABLE_LFS_SCRIPT := 0
+DISABLE_TEST_FIXTURES_SCRIPT := 0
 test: | build deps
-ifeq ($(DISABLE_LFS_SCRIPT), 0)
+ifeq ($(DISABLE_TEST_FIXTURES_SCRIPT), 0)
 	V=$(V) scripts/setup_official_tests.sh
 endif
 	$(ENV_SCRIPT) nim test $(NIM_PARAMS) beacon_chain.nims && rm -f 0000-*.json

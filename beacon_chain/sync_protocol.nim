@@ -2,7 +2,7 @@ import
   options, tables, sets, macros,
   chronicles, chronos, metrics, stew/ranges/bitranges,
   spec/[datatypes, crypto, digest, helpers], eth/rlp,
-  beacon_node_types, eth2_network, beacon_chain_db, block_pool, ssz
+  beacon_node_types, eth2_network, block_pool, ssz
 
 when networkBackend == rlpxBackend:
   import eth/rlp/options as rlpOptions
@@ -25,11 +25,11 @@ type
     else:
       index: uint32
 
-  ValidatorSet = seq[Validator]
-
+  BeaconBlockCallback* = proc(blck: BeaconBlock) {.gcsafe.}
   BeaconSyncNetworkState* = ref object
-    node*: BeaconNode
-    db*: BeaconChainDB
+    blockPool*: BlockPool
+    forkVersion*: array[4, byte]
+    onBeaconBlock*: BeaconBlockCallback
 
   BeaconSyncPeerState* = ref object
     initialStatusReceived: bool
@@ -40,29 +40,18 @@ type
 
 const
   MAX_REQUESTED_BLOCKS = 20'u64
-  MaxAncestorBlocksResponse = 256
 
-func toHeader(b: BeaconBlock): BeaconBlockHeader =
-  BeaconBlockHeader(
-    slot: b.slot,
-    parent_root: b.parent_root,
-    state_root: b.state_root,
-    body_root: hash_tree_root(b.body),
-    signature: b.signature
-  )
+func init*(
+    v: BeaconSyncNetworkState, blockPool: BlockPool,
+    forkVersion: array[4, byte], onBeaconBlock: BeaconBlockCallback) =
+  v.blockPool = blockPool
+  v.forkVersion = forkVersion
+  v.onBeaconBlock = onBeaconBlock
 
-proc fromHeaderAndBody(b: var BeaconBlock, h: BeaconBlockHeader, body: BeaconBlockBody) =
-  doAssert(hash_tree_root(body) == h.body_root)
-  b.slot = h.slot
-  b.parent_root = h.parent_root
-  b.state_root = h.state_root
-  b.body = body
-  b.signature = h.signature
-
-proc importBlocks(node: BeaconNode,
-                  blocks: openarray[BeaconBlock]) =
+proc importBlocks(state: BeaconSyncNetworkState,
+                  blocks: openarray[BeaconBlock]) {.gcsafe.} =
   for blk in blocks:
-    node.onBeaconBlock(node, blk)
+    state.onBeaconBlock(blk)
   info "Forward sync imported blocks", len = blocks.len
 
 type
@@ -73,9 +62,9 @@ type
     headRoot*: Eth2Digest
     headSlot*: Slot
 
-proc getCurrentStatus(node: BeaconNode): StatusMsg =
+proc getCurrentStatus(state: BeaconSyncNetworkState): StatusMsg {.gcsafe.} =
   let
-    blockPool = node.blockPool
+    blockPool = state.blockPool
     finalizedHead = blockPool.finalizedHead
     headBlock = blockPool.head.blck
     headRoot = headBlock.root
@@ -83,14 +72,14 @@ proc getCurrentStatus(node: BeaconNode): StatusMsg =
     finalizedEpoch = finalizedHead.slot.compute_epoch_at_slot()
 
   StatusMsg(
-    fork_version: node.forkVersion,
+    fork_version: state.forkVersion,
     finalizedRoot: finalizedHead.blck.root,
     finalizedEpoch: finalizedEpoch,
     headRoot: headRoot,
     headSlot: headSlot)
 
 proc handleInitialStatus(peer: Peer,
-                         node: BeaconNode,
+                         state: BeaconSyncNetworkState,
                          ourStatus: StatusMsg,
                          theirStatus: StatusMsg) {.async, gcsafe.}
 
@@ -102,14 +91,13 @@ p2pProtocol BeaconSync(version = 1,
   onPeerConnected do (peer: Peer):
     if peer.wasDialed:
       let
-        node = peer.networkState.node
-        ourStatus = node.getCurrentStatus
+        ourStatus = peer.networkState.getCurrentStatus()
         # TODO: The timeout here is so high only because we fail to
         # respond in time due to high CPU load in our single thread.
         theirStatus = await peer.status(ourStatus, timeout = 60.seconds)
 
       if theirStatus.isSome:
-        await peer.handleInitialStatus(node, ourStatus, theirStatus.get)
+        await peer.handleInitialStatus(peer.networkState, ourStatus, theirStatus.get)
       else:
         warn "Status response not received in time"
 
@@ -119,14 +107,14 @@ p2pProtocol BeaconSync(version = 1,
   requestResponse:
     proc status(peer: Peer, theirStatus: StatusMsg) {.libp2pProtocol("status", 1).} =
       let
-        node = peer.networkState.node
-        ourStatus = node.getCurrentStatus
+        ourStatus = peer.networkState.getCurrentStatus()
 
+      trace "Sending status msg", ourStatus
       await response.send(ourStatus)
 
       if not peer.state.initialStatusReceived:
         peer.state.initialStatusReceived = true
-        await peer.handleInitialStatus(node, ourStatus, theirStatus)
+        await peer.handleInitialStatus(peer.networkState, ourStatus, theirStatus)
 
     proc statusResp(peer: Peer, msg: StatusMsg)
 
@@ -144,7 +132,7 @@ p2pProtocol BeaconSync(version = 1,
 
       if count > 0'u64:
         let count = if step != 0: min(count, MAX_REQUESTED_BLOCKS.uint64) else: 1
-        let pool = peer.networkState.node.blockPool
+        let pool = peer.networkState.blockPool
         var results: array[MAX_REQUESTED_BLOCKS, BlockRef]
         let
           lastPos = min(count.int, results.len) - 1
@@ -159,8 +147,7 @@ p2pProtocol BeaconSync(version = 1,
             blockRoots: openarray[Eth2Digest]) {.
             libp2pProtocol("beacon_blocks_by_root", 1).} =
       let
-        pool = peer.networkState.node.blockPool
-        db = peer.networkState.db
+        pool = peer.networkState.blockPool
 
       for root in blockRoots:
         let blockRef = pool.getRef(root)
@@ -172,11 +159,13 @@ p2pProtocol BeaconSync(version = 1,
             blocks: openarray[BeaconBlock])
 
 proc handleInitialStatus(peer: Peer,
-                         node: BeaconNode,
+                         state: BeaconSyncNetworkState,
                          ourStatus: StatusMsg,
                          theirStatus: StatusMsg) {.async, gcsafe.} =
 
-  if theirStatus.forkVersion != node.forkVersion:
+  if theirStatus.forkVersion != state.forkVersion:
+    notice "Irrelevant peer",
+      peer, theirFork = theirStatus.forkVersion, ourFork = state.forkVersion
     await peer.disconnect(IrrelevantNetwork)
     return
 
@@ -203,7 +192,7 @@ proc handleInitialStatus(peer: Peer,
       var s = ourStatus.headSlot + 1
       var theirStatus = theirStatus
       while s <= theirStatus.headSlot:
-        let numBlocksToRequest = min(uint64(theirStatus.headSlot - s),
+        let numBlocksToRequest = min(uint64(theirStatus.headSlot - s) + 1,
                                      MAX_REQUESTED_BLOCKS)
 
         debug "Requesting blocks", peer, remoteHeadSlot = theirStatus.headSlot,
@@ -221,7 +210,7 @@ proc handleInitialStatus(peer: Peer,
             info "Got 0 blocks while syncing", peer
             break
 
-          node.importBlocks blocks.get
+          state.importBlocks(blocks.get)
           let lastSlot = blocks.get[^1].slot
           if lastSlot <= s:
             info "Slot did not advance during sync", peer
@@ -231,7 +220,8 @@ proc handleInitialStatus(peer: Peer,
 
           # TODO: Maybe this shouldn't happen so often.
           # The alternative could be watching up a timer here.
-          let statusResp = await peer.status(node.getCurrentStatus)
+
+          let statusResp = await peer.status(state.getCurrentStatus())
           if statusResp.isSome:
             theirStatus = statusResp.get
           else:
@@ -245,4 +235,3 @@ proc handleInitialStatus(peer: Peer,
 
   except CatchableError:
     warn "Failed to sync with peer", peer, err = getCurrentExceptionMsg()
-

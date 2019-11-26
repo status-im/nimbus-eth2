@@ -1,8 +1,8 @@
 # beacon_chain
 # Copyright (c) 2018-2019 Status Research & Development GmbH
 # Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
@@ -92,7 +92,7 @@ proc inspectType(tImpl, xSubField, ySubField: NimNode, stmts: var NimNode) =
     inspectType(tImpl[0], xSubField, ySubField, stmts)
   of {nnkSym, nnkBracketExpr}:
     if tImpl.kind == nnkBracketExpr:
-      assert tImpl[0].eqIdent"seq" or tImpl[0].eqIdent"array", "Error: unsupported generic type: " & $tImpl[0]
+      doAssert tImpl[0].eqIdent"List" or tImpl[0].eqIdent"seq" or tImpl[0].eqIdent"array", "Error: unsupported generic type: " & $tImpl[0]
       compareContainerStmt(xSubField, ySubField, stmts)
     elif $tImpl in builtinTypes:
       compareStmt(xSubField, ySubField, stmts)
@@ -107,7 +107,7 @@ proc inspectType(tImpl, xSubField, ySubField: NimNode, stmts: var NimNode) =
       "\" of type \"" & tImpl.repr
 
 macro reportDiff*(x, y: typed{`var`|`let`|`const`}): untyped =
-  assert sameType(x, y)
+  doAssert sameType(x, y)
   result = newStmtList()
 
   let typeImpl = x.getTypeImpl

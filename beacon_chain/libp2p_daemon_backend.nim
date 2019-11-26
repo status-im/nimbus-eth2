@@ -85,8 +85,6 @@ type
 
   TransmissionError* = object of CatchableError
 
-  ResponseSizeLimitReached* = object of CatchableError
-
 const
   defaultIncomingReqTimeout = 5000
   HandshakeTimeout = FaultOrError
@@ -187,21 +185,26 @@ proc readChunk(stream: P2PStream,
 
 proc readSizePrefix(transp: StreamTransport,
                     deadline: Future[void]): Future[int] {.async.} =
+  trace "about to read msg size prefix"
   var parser: VarintParser[uint64, ProtoBuf]
   while true:
     var nextByte: byte
     var readNextByte = transp.readExactly(addr nextByte, 1)
     await readNextByte or deadline
     if not readNextByte.finished:
+      trace "size prefix byte not received in time"
       return -1
     case parser.feedByte(nextByte)
     of Done:
       let res = parser.getResult
       if res > uint64(REQ_RESP_MAX_SIZE):
+        trace "size prefix outside of range", res
         return -1
       else:
+        trace "got size prefix", res
         return int(res)
     of Overflow:
+      trace "size prefix overflow"
       return -1
     of Incomplete:
       continue
@@ -209,26 +212,39 @@ proc readSizePrefix(transp: StreamTransport,
 proc readMsgBytes(stream: P2PStream,
                   withResponseCode: bool,
                   deadline: Future[void]): Future[Bytes] {.async.} =
+  trace "about to read message bytes", withResponseCode
+
   try:
     if withResponseCode:
       var responseCode: byte
+      trace "about to read response code"
       var readResponseCode = stream.transp.readExactly(addr responseCode, 1)
       await readResponseCode or deadline
+
       if not readResponseCode.finished:
+        trace "response code not received in time"
         return
-      if responseCode > ResponseCode.high.byte: return
+
+      if responseCode > ResponseCode.high.byte:
+        trace "invalid response code", responseCode
+        return
 
       logScope: responseCode = ResponseCode(responseCode)
+      trace "got response code"
+
       case ResponseCode(responseCode)
       of InvalidRequest, ServerError:
         let responseErrMsg = await readChunk(stream, string, false, deadline)
         debug "P2P request resulted in error", responseErrMsg
         return
+
       of Success:
         # The response is OK, the execution continues below
         discard
 
     var sizePrefix = await readSizePrefix(stream.transp, deadline)
+    trace "got msg size prefix", sizePrefix
+
     if sizePrefix == -1:
       debug "Failed to read an incoming message size prefix", peer = stream.peer
       return
@@ -237,12 +253,17 @@ proc readMsgBytes(stream: P2PStream,
       debug "Received SSZ with zero size", peer = stream.peer
       return
 
+    trace "about to read msg bytes"
     var msgBytes = newSeq[byte](sizePrefix)
     var readBody = stream.transp.readExactly(addr msgBytes[0], sizePrefix)
     await readBody or deadline
-    if not readBody.finished: return
+    if not readBody.finished:
+      trace "msg bytes not received in time"
+      return
 
+    trace "got message bytes", msgBytes
     return msgBytes
+
   except TransportIncompleteError:
     return @[]
 
@@ -336,9 +357,6 @@ proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.
   let sent = await stream.transp.write(bytes)
   if sent != bytes.len:
     raise newException(TransmissionError, "Failed to deliver msg bytes")
-
-template raiseMaxRespSizeError =
-  raise newException(ResponseSizeLimitReached, "Response size limit reached")
 
 # TODO There is too much duplication in the responder functions, but
 # I hope to reduce this when I increse the reliance on output streams.
@@ -572,6 +590,11 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     msg.defineThunk quote do:
       proc `thunkName`(`daemonVar`: `DaemonAPI`,
                        `streamVar`: `P2PStream`) {.async, gcsafe.} =
+        when chronicles.runtimeFilteringEnabled:
+          setLogLevel(LogLevel.TRACE)
+          defer: setLogLevel(LogLevel.DEBUG)
+          trace "incoming " & `msgNameLit` & " stream"
+
         defer:
           `await` safeClose(`streamVar`)
 
@@ -587,6 +610,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 
         var `msgVar`: `msgRecName`
         try:
+          trace "about to decode incoming msg"
           `msgVar` = decode(`Format`, `msgBytesVar`, `msgRecName`)
         except SerializationError as `errVar`:
           `await` sendErrorResponse(`peerVar`, `streamVar`, `errVar`,
@@ -603,13 +627,8 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 
         try:
           `tracing`
+          trace "about to execute user handler"
           `awaitUserHandler`
-        except ResponseSizeLimitReached:
-          # The response size limit is currently handled with an exception in
-          # order to make it easier to switch to an alternative policy when it
-          # will be signalled with an error response code (and to avoid making
-          # the `response` API in the high-level protocols more complicated for now).
-          chronicles.debug "response size limit reached", peer, reqName = `msgNameLit`
         except CatchableError as `errVar`:
           try:
             `await` sendErrorResponse(`peerVar`, `streamVar`, ServerError, `errVar`.msg)

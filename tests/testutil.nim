@@ -1,8 +1,8 @@
 # beacon_chain
 # Copyright (c) 2018-2019 Status Research & Development GmbH
 # Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
@@ -17,7 +17,7 @@ func preset*(): string =
   " [Preset: " & const_preset & ']'
 
 when ValidatorPrivKey is BlsValue:
-  func makeFakeValidatorPrivKey*(i: int): ValidatorPrivKey =
+  func makeFakeValidatorPrivKey(i: int): ValidatorPrivKey =
     # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
     # lighthouse.
     # TODO: switch to https://github.com/ethereum/eth2.0-pm/issues/60
@@ -25,14 +25,14 @@ when ValidatorPrivKey is BlsValue:
     var bytes = uint64(i + 1000).toBytesLE()
     copyMem(addr result.blsValue.x[0], addr bytes[0], sizeof(bytes))
 else:
-  func makeFakeValidatorPrivKey*(i: int): ValidatorPrivKey =
+  func makeFakeValidatorPrivKey(i: int): ValidatorPrivKey =
     # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
     # lighthouse.
     # TODO: switch to https://github.com/ethereum/eth2.0-pm/issues/60
     var bytes = uint64(i + 1000).toBytesLE()
     copyMem(addr result.x[0], addr bytes[0], sizeof(bytes))
 
-func makeFakeHash*(i: int): Eth2Digest =
+func makeFakeHash(i: int): Eth2Digest =
   var bytes = uint64(i).toBytesLE()
   static: doAssert sizeof(bytes) <= sizeof(result.data)
   copyMem(addr result.data[0], addr bytes[0], sizeof(bytes))
@@ -75,17 +75,6 @@ func makeInitialDeposits*(
   for i in 0..<n.int:
     result.add makeDeposit(i, flags)
 
-func getNextBeaconProposerIndex*(state: BeaconState): ValidatorIndex =
-  # TODO: This is a special version of get_beacon_proposer_index that takes into
-  #       account the partial update done at the start of slot processing -
-  #       see get_shard_committees_index
-  var
-    next_state = state
-    cache = get_empty_per_epoch_cache()
-
-  next_state.slot += 1
-  get_beacon_proposer_index(next_state, cache)
-
 proc addBlock*(
     state: var BeaconState, previous_block_root: Eth2Digest,
     body: BeaconBlockBody, flags: UpdateFlags = {}): BeaconBlock =
@@ -106,7 +95,7 @@ proc addBlock*(
 
   # TODO ugly hack; API needs rethinking
   var new_body = body
-  new_body.randao_reveal = privKey.genRandaoReveal(state, state.slot + 1)
+  new_body.randao_reveal = privKey.genRandaoReveal(state.fork, state.slot + 1)
   new_body.eth1_data = Eth1Data()
 
   var
@@ -128,21 +117,22 @@ proc addBlock*(
   # can set the state root in order to be able to create a valid signature
   new_block.state_root = hash_tree_root(state)
 
-  let proposerPrivkey = hackPrivKey(proposer)
-  doAssert proposerPrivkey.pubKey() == proposer.pubkey,
+  doAssert privKey.pubKey() == proposer.pubkey,
     "signature key should be derived from private key! - wrong privkey?"
 
   if skipValidation notin flags:
     let block_root = signing_root(new_block)
     # We have a signature - put it in the block and we should be done!
     new_block.signature =
-      bls_sign(proposerPrivkey, block_root.data,
-               get_domain(state, DOMAIN_BEACON_PROPOSER, compute_epoch_at_slot(new_block.slot)))
+      bls_sign(privKey, block_root.data,
+               get_domain(state, DOMAIN_BEACON_PROPOSER,
+               compute_epoch_at_slot(new_block.slot)))
 
     doAssert bls_verify(
       proposer.pubkey,
       block_root.data, new_block.signature,
-      get_domain(state, DOMAIN_BEACON_PROPOSER, compute_epoch_at_slot(new_block.slot))),
+      get_domain(
+        state, DOMAIN_BEACON_PROPOSER, compute_epoch_at_slot(new_block.slot))),
       "we just signed this message - it should pass verification!"
 
   new_block

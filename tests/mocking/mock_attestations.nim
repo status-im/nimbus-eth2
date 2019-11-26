@@ -1,8 +1,8 @@
 # beacon_chain
 # Copyright (c) 2018-2019 Status Research & Development GmbH
 # Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # Mocking attestations
@@ -11,7 +11,6 @@
 import
   # Standard library
   sets,
-  # 0.19.6 shims
   # Specs
   ../../beacon_chain/spec/[datatypes, beaconstate, helpers, validator, crypto],
   # Internals
@@ -131,13 +130,13 @@ proc mockAttestation*(
 
 proc fillAggregateAttestation*(state: BeaconState, attestation: var Attestation) =
   var cache = get_empty_per_epoch_cache()
-  let crosslink_committee = get_beacon_committee(
+  let beacon_committee = get_beacon_committee(
     state,
     attestation.data.slot,
     attestation.data.index,
     cache
   )
-  for i in 0 ..< crosslink_committee.len:
+  for i in 0 ..< beacon_committee.len:
     attestation.aggregation_bits[i] = true
 
 proc add*(state: var BeaconState, attestation: Attestation, slot: Slot) =

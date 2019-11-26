@@ -60,7 +60,7 @@ func indexableNavigatorImpl[T](m: MemRange, idx: int): MemRange =
   getMemRange(typedNavigator[idx])
 
 func fieldNavigatorImpl[RecordType; FieldType;
-                        fieldName: static string](m: MemRange): MemRange {.raises: [Defect, MalformedSszError].} =
+                        fieldName: static string](m: MemRange): MemRange {.raises: [MalformedSszError].} =
   # TODO: Make sure this doesn't fail with a Defect when
   #       navigating to an inactive field in a case object.
   var typedNavigator = sszMount(m, RecordType)

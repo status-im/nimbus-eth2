@@ -1,8 +1,8 @@
 # beacon_chain
 # Copyright (c) 2018 Status Research & Development GmbH
 # Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # SSZ Serialization (simple serialize)
@@ -269,7 +269,7 @@ template fromSszBytes*[T; N](_: type TypeWithMaxLen[T, N],
   mixin fromSszBytes
   fromSszBytes(T, bytes)
 
-func fromSszBytes*(T: type BlsCurveType, bytes: openarray[byte]): auto =
+func fromSszBytes(T: type BlsCurveType, bytes: openarray[byte]): auto =
   init(T, bytes)
 
 proc readValue*(r: var SszReader, val: var auto) =
@@ -327,7 +327,7 @@ func getZeroHashWithoutSideEffect(idx: int): Eth2Digest =
   {.noSideEffect.}:
     zeroHashes[idx]
 
-func addChunk*(merkelizer: SszChunksMerkelizer, data: openarray[byte]) =
+func addChunk(merkelizer: SszChunksMerkelizer, data: openarray[byte]) =
   doAssert data.len > 0 and data.len <= bytesPerChunk
 
   if not getBitLE(merkelizer.totalChunks, 0):
@@ -350,7 +350,7 @@ func addChunk*(merkelizer: SszChunksMerkelizer, data: openarray[byte]) =
 
   inc merkelizer.totalChunks
 
-func getFinalHash*(merkelizer: SszChunksMerkelizer): Eth2Digest =
+func getFinalHash(merkelizer: SszChunksMerkelizer): Eth2Digest =
   let limit = merkelizer.limit
 
   if merkelizer.totalChunks == 0:
@@ -395,7 +395,7 @@ func getFinalHash*(merkelizer: SszChunksMerkelizer): Eth2Digest =
 
 let HashingStreamVTable = OutputStreamVTable(
   writePage: proc (s: OutputStreamVar, data: openarray[byte])
-                  {.nimcall, gcsafe, raises: [IOError, Defect].} =
+                  {.nimcall, gcsafe, raises: [IOError].} =
     trs "ADDING STREAM CHUNK ", data
     SszChunksMerkelizer(s.outputDevice).addChunk(data)
   ,
@@ -407,9 +407,8 @@ func getVtableAddresWithoutSideEffect: ptr OutputStreamVTable =
   # TODO this is a work-around for the somewhat broken side
   # effects analysis of Nim - reading from global let variables
   # is considered a side-effect.
-  # Nim 0.19 doesnt have the `{.noSideEffect.}:` override, so
-  # we should revisit this in Nim 0.20.2.
-  {.emit: "`result` = &`HashingStreamVTable`;".}
+  {.noSideEffect.}:
+    unsafeAddr HashingStreamVTable
 
 func newSszHashingStream(merkelizer: SszChunksMerkelizer): ref OutputStream =
   new result
@@ -574,11 +573,23 @@ func hash_tree_root*(x: auto): Eth2Digest =
 
   trs "HASH TREE ROOT FOR ", name(type x), " = ", "0x", $result
 
+iterator hash_tree_roots_prefix*[T](lst: openarray[T], limit: auto):
+    Eth2Digest =
+  # This is a particular type's instantiation of a general fold, reduce,
+  # accumulation, prefix sums, etc family of operations. As long as that
+  # Eth1 deposit case is the only notable example -- the usual uses of a
+  # list involve, at some point, tree-hashing it -- finalized hashes are
+  # the only abstraction that escapes from this module this way.
+  var merkelizer = SszChunksMerkelizer(limit: uint64(limit))
+  for i, elem in lst:
+    merkelizer.addChunk(hash_tree_root(elem).data)
+    yield mixInLength(merkelizer.getFinalHash(), i + 1)
+
 func lastFieldName(RecordType: type): string {.compileTime.} =
   enumAllSerializedFields(RecordType):
     result = fieldName
 
-func hasSigningRoot*(T: type): bool {.compileTime.} =
+func hasSigningRoot(T: type): bool {.compileTime.} =
   lastFieldName(T) == "signature"
 
 func signingRoot*(obj: object): Eth2Digest =

@@ -1,8 +1,8 @@
 # beacon_chain
 # Copyright (c) 2018-2019 Status Research & Development GmbH
 # Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # State transition, as described in
@@ -43,7 +43,7 @@ declareGauge beacon_previous_validators, """Number of status="pending|active|exi
 # Canonical state transition functions
 # ---------------------------------------------------------------
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 func process_slot*(state: var BeaconState) =
   # Cache state root
   let previous_state_root = hash_tree_root(state)
@@ -80,7 +80,7 @@ func get_epoch_validator_count(state: BeaconState): int64 =
        validator.withdrawable_epoch > get_current_epoch(state):
       result += 1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 proc process_slots*(state: var BeaconState, slot: Slot) =
   doAssert state.slot <= slot
 
@@ -96,7 +96,7 @@ proc process_slots*(state: var BeaconState, slot: Slot) =
     if is_epoch_transition:
       beacon_current_validators.set(get_epoch_validator_count(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
   let state_root = hash_tree_root(state)
@@ -170,7 +170,7 @@ proc state_transition*(
 # Hashed-state transition functions
 # ---------------------------------------------------------------
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 func process_slot(state: var HashedBeaconState) =
   # Cache state root
   let previous_slot_state_root = state.root
@@ -185,7 +185,7 @@ func process_slot(state: var HashedBeaconState) =
   state.data.block_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
     signing_root(state.data.latest_block_header)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 proc process_slots*(state: var HashedBeaconState, slot: Slot) =
   # TODO: Eth specs strongly assert that state.data.slot <= slot
   #       This prevents receiving attestation in any order

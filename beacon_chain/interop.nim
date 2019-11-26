@@ -1,5 +1,4 @@
 import
-  ospaths,
   stew/endians2, stint,
   ./extras, ./ssz,
   spec/[crypto, datatypes, digest, helpers]
@@ -41,7 +40,7 @@ const eth1BlockHash* = block:
   x
 
 func makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.1/specs/core/0_deposit-contract.md#withdrawal-credentials
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_deposit-contract.md#withdrawal-credentials
   var bytes = eth2hash(k.getBytes())
   bytes.data[0] = BLS_WITHDRAWAL_PREFIX.uint8
   bytes

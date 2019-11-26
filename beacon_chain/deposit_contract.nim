@@ -70,7 +70,7 @@ proc main() {.async.} =
     web3.privateKey = initPrivateKey(cfg.privateKey)
   else:
     let accounts = await web3.provider.eth_accounts()
-    assert(accounts.len > 0)
+    doAssert(accounts.len > 0)
     web3.defaultAccount = accounts[0]
 
   case cfg.cmd
