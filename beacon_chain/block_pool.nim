@@ -169,7 +169,7 @@ proc addResolvedBlock(
   link(parent, blockRef)
 
   pool.blocks[blockRoot] = blockRef
-  debug "Populating block pool", key = blockRoot, val = blockRef
+  trace "Populating block pool", key = blockRoot, val = blockRef
 
   pool.addSlotMapping(blockRef)
 
