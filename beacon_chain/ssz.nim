@@ -511,7 +511,6 @@ func hashTreeRootImpl[T](x: T): Eth2Digest =
   when T is uint64:
     trs "UINT64; LITTLE-ENDIAN IDENTITY MAPPING"
     when system.cpuEndian == bigEndian:
-      var bytes: array[sizeof(x), byte]
       littleEndian64(addr result.data[0], x.unsafeAddr)
     else:
       let valueAddr = unsafeAddr x
