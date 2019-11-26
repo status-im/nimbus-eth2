@@ -10,7 +10,7 @@
 
 import
   endians, stew/shims/macros, options, algorithm, options,
-  stew/[bitops2, bitseqs, objects, varints, ptrops], stint,
+  stew/[bitops2, bitseqs, objects, varints, ptrops, ranges/ptr_arith], stint,
   faststreams/input_stream, serialization, serialization/testing/tracing,
   nimcrypto/sha2, blscurve, eth/common,
   ./spec/[crypto, datatypes, digest],
@@ -508,7 +508,14 @@ func bitlistHashTreeRoot(merkelizer: SszChunksMerkelizer, x: BitSeq): Eth2Digest
   mixInLength contentsHash, x.len
 
 func hashTreeRootImpl[T](x: T): Eth2Digest =
-  when (when T is array: ElemType(T) is byte and
+  when T is uint64:
+    trs "UINT64; LITTLE-ENDIAN IDENTITY MAPPING"
+    when system.cpuEndian == bigEndian:
+      littleEndian64(addr result.data[0], x.unsafeAddr)
+    else:
+      let valueAddr = unsafeAddr x
+      result.data[0..7] = makeOpenArray(cast[ptr byte](valueAddr), 8)
+  elif (when T is array: ElemType(T) is byte and
       sizeof(T) == sizeof(Eth2Digest) else: false):
     # TODO is this sizeof comparison guranteed? it's whole structure vs field
     trs "ETH2DIGEST; IDENTITY MAPPING"
