@@ -81,7 +81,7 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
         link(newRef, curRef)
         curRef = curRef.parent
       blocks[curRef.root] = curRef
-      trace "Populating block pool", key = curRef.root, val = curRef
+      debug "Populating block pool", key = curRef.root, val = curRef
 
       if latestStateRoot.isNone() and db.containsState(blck.state_root):
         latestStateRoot = some(blck.state_root)
@@ -169,7 +169,7 @@ proc addResolvedBlock(
   link(parent, blockRef)
 
   pool.blocks[blockRoot] = blockRef
-  trace "Populating block pool", key = blockRoot, val = blockRef
+  debug "Populating block pool", key = blockRoot, val = blockRef
 
   pool.addSlotMapping(blockRef)
 
@@ -352,10 +352,14 @@ proc getBlockRange*(pool: BlockPool, headBlock: Eth2Digest,
   ##
   result = output.len
 
+  trace "getBlockRange entered", headBlock, startSlot, skipStep
+
   var b = pool.getRef(headBlock)
   if b == nil:
     trace "head block not found", headBlock
     return
+
+  trace "head block found", headBlock = b
 
   if b.slot < startSlot:
     trace "head block is older than startSlot", headBlockSlot = b.slot, startSlot
