@@ -206,8 +206,6 @@ proc makeAttestation*(
     flags: UpdateFlags = {}): Attestation =
   let (committee, slot, index) =
     find_beacon_committee(state, validator_index, cache)
-  debugEcho "validator_index = ", validator_index
-  debugEcho "goit index: ", index
   makeAttestation(state, beacon_block_root, committee, slot, index,
     validator_index, cache, flags)
 
