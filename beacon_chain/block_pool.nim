@@ -366,7 +366,8 @@ proc getBlockRange*(pool: BlockPool, headBlock: Eth2Digest,
     return
 
   template skip(n: int) =
-    for i in 0 ..< n:
+    let targetSlot = b.slot - Slot(n)
+    while b.slot > targetSlot:
       if b.parent == nil:
         trace "stopping at parentless block", slot = b.slot, root = b.root
         return
@@ -391,7 +392,7 @@ proc getBlockRange*(pool: BlockPool, headBlock: Eth2Digest,
   skip blocksToSkip
 
   # From here, we can just write out the requested block range:
-  while b != nil and result > 0:
+  while b != nil and b.slot >= startSlot and result > 0:
     dec result
     output[result] = b
     trace "getBlockRange result", position = result, blockSlot = b.slot
