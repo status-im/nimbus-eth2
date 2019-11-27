@@ -214,10 +214,21 @@ proc addResolvedBlock(
   # unresolved blocks magically become resolved
   # TODO there are more efficient ways of doing this that don't risk
   #      running out of stack etc
-  let retries = pool.pending
-  for k, v in retries:
-    discard pool.add(state, k, v)
-
+  # TODO This code is convoluted because when there are more than ~1.5k
+  #      blocks being synced, there's a stack overflow as `add` gets called
+  #      for the whole chain of blocks. Instead we use this ugly field in `pool`
+  #      which could be avoided by refactoring the code
+  if not pool.inAdd:
+    pool.inAdd = true
+    defer: pool.inAdd = false
+    var keepGoing = true
+    while keepGoing:
+      let retries = pool.pending
+      for k, v in retries:
+        discard pool.add(state, k, v)
+      # Keep going for as long as the pending pool is shrinking
+      # TODO inefficient! so what?
+      keepGoing = pool.pending.len < retries.len
   blockRef
 
 proc add*(

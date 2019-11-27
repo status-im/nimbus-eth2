@@ -135,6 +135,8 @@ type
 
     heads*: seq[Head]
 
+    inAdd*: bool
+
   MissingBlock* = object
     slots*: uint64 # number of slots that are suspected missing
     tries*: int
