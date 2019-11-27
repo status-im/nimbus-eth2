@@ -370,6 +370,7 @@ proc getBlockRange*(pool: BlockPool, headBlock: Eth2Digest,
       if b.parent == nil:
         trace "stopping at parentless block", slot = b.slot, root = b.root
         return
+      trace "skipping block", nextBlock = b.parent
       b = b.parent
 
   # We must compute the last block that is eligible for inclusion
@@ -386,6 +387,7 @@ proc getBlockRange*(pool: BlockPool, headBlock: Eth2Digest,
     blocksToSkip += (alignedHeadSlot - lastWantedSlot)
 
   # Finally, we skip the computed number of blocks
+  trace "aligning head", blocksToSkip
   skip blocksToSkip
 
   # From here, we can just write out the requested block range:
