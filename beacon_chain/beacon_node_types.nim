@@ -177,7 +177,9 @@ type
     #  The `BlockRef` stored here already includes the `slot` number as well.
     #  We should either remove it or write a comment clarifying why it exists.
     blck*: BlockRef
-    slot*: Slot
+    slot*: Slot ##\
+      ## Slot time for this BlockSlot which may differ from blck.slot when time
+      ## has advanced without blocks
 
   Head* = object
     blck*: BlockRef
