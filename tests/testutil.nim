@@ -164,11 +164,14 @@ proc find_beacon_committee(
 
 proc makeAttestation*(
     state: BeaconState, beacon_block_root: Eth2Digest,
-    validator_index: ValidatorIndex, cache: var StateCache,
+    committee: seq[ValidatorIndex], slot: Slot, index: uint64,
+    validator_index: auto, cache: var StateCache,
     flags: UpdateFlags = {}): Attestation =
+  # Avoids state_sim silliness; as it's responsible for all validators,
+  # transforming, from monotonic enumerable index -> committee index ->
+  # montonoic enumerable index, is wasteful and slow. Most test callers
+  # want ValidatorIndex, so that's supported too.
   let
-    (committee, slot, index) =
-      find_beacon_committee(state, validator_index, cache)
     validator = state.validators[validator_index]
     sac_index = committee.find(validator_index)
     data = makeAttestationData(state, slot, index, beacon_block_root)
@@ -196,6 +199,17 @@ proc makeAttestation*(
     aggregation_bits: aggregation_bits,
     signature: sig
   )
+
+proc makeAttestation*(
+    state: BeaconState, beacon_block_root: Eth2Digest,
+    validator_index: ValidatorIndex, cache: var StateCache,
+    flags: UpdateFlags = {}): Attestation =
+  let (committee, slot, index) =
+    find_beacon_committee(state, validator_index, cache)
+  debugEcho "validator_index = ", validator_index
+  debugEcho "goit index: ", index
+  makeAttestation(state, beacon_block_root, committee, slot, index,
+    validator_index, cache, flags)
 
 proc makeTestDB*(tailState: BeaconState, tailBlock: BeaconBlock): BeaconChainDB =
   result = init(BeaconChainDB, newMemoryDB())
