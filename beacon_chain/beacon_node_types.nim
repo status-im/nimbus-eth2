@@ -169,13 +169,10 @@ type
     ## blck.state_root == rdata.root
 
   BlockSlot* = object
-    ## Unique identifier for a particular fork in the block chain - normally,
-    ## there's a block for every slot, but in the case a block is not produced,
-    ## the chain progresses anyway, producing a new state for every slot.
-    #
-    # TODO: Isn't this type unnecessary?
-    #  The `BlockRef` stored here already includes the `slot` number as well.
-    #  We should either remove it or write a comment clarifying why it exists.
+    ## Unique identifier for a particular fork and time in the block chain -
+    ## normally, there's a block for every slot, but in the case a block is not
+    ## produced, the chain progresses anyway, producing a new state for every
+    ## slot.
     blck*: BlockRef
     slot*: Slot ##\
       ## Slot time for this BlockSlot which may differ from blck.slot when time
