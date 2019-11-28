@@ -111,7 +111,7 @@ _Alternatively, fire up our [experimental Vagrant instance with Nim pre-installe
 
 ### Visualising simulation metrics
 
-Those [generic instructions from the Nimbus repo](https://github.com/status-im/nimbus/#metric-visualisation) apply here as well.
+The [generic instructions from the Nimbus repo](https://github.com/status-im/nimbus/#metric-visualisation) apply here as well.
 
 Specific steps:
 
