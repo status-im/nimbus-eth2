@@ -2,6 +2,7 @@ import
   deques, tables, options,
   stew/[endians2], chronicles,
   spec/[datatypes, crypto, digest],
+  nimcrypto/utils,
   beacon_chain_db
 
 type
@@ -214,8 +215,9 @@ type
 proc shortLog*(v: AttachedValidator): string = shortLog(v.pubKey)
 
 chronicles.formatIt BlockSlot:
-  ($it.blck.root)[0..7] & ":" & $it.slot
+  mixin toHex
+  it.blck.root.data[0..3].toHex(true) & ":" & $it.slot
 
 chronicles.formatIt BlockRef:
-  ($it.root)[0..7] & ":" & $it.slot
-
+  mixin toHex
+  it.root.data[0..3].toHex(true) & ":" & $it.slot

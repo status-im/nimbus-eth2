@@ -615,12 +615,22 @@ proc loadTailState*(pool: BlockPool): StateData =
   )
 
 func isAncestorOf*(a, b: BlockRef): bool =
-  if a == b:
-    true
-  elif a.slot >= b.slot or b.parent.isNil:
-    false
-  else:
-    a.isAncestorOf(b.parent)
+  var b = b
+  var depth = 0
+  const maxDepth = (100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int)
+  while true:
+    if a == b: return true
+
+    # for now, use an assert for block chain length since a chain this long
+    # indicates a circular reference here..
+    doAssert depth < maxDepth
+    depth += 1
+
+    if a.slot >= b.slot or b.parent.isNil:
+      return false
+
+    doAssert b.slot > b.parent.slot
+    b = b.parent
 
 proc delBlockAndState(pool: BlockPool, blockRoot: Eth2Digest) =
   if (let blk = pool.db.getBlock(blockRoot); blk.isSome):
