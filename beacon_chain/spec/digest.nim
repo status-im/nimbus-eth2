@@ -33,10 +33,10 @@ type
 
 chronicles.formatIt Eth2Digest:
   mixin toHex
-  it.data.toHex(true)[0..7]
+  it.data[0..3].toHex(true)
 
 func shortLog*(x: Eth2Digest): string =
-  x.data.toHex(true)[0..7]
+  x.data[0..3].toHex(true)
 
 # TODO: expose an in-place digest function
 #       when hashing in loop or into a buffer

@@ -94,3 +94,19 @@ suite "Block pool processing" & preset():
       hash_tree_root(state.data.data) == state.data.root
       pool2.get(b1Root).isSome()
       pool2.get(b2Root).isSome()
+
+  test "isAncestorOf sanity" & preset():
+    let
+      a = BlockRef(slot: Slot(1))
+      b = BlockRef(slot: Slot(2), parent: a)
+      c = BlockRef(slot: Slot(3), parent: b)
+
+    check:
+      a.isAncestorOf(a)
+      a.isAncestorOf(b)
+      a.isAncestorOf(c)
+      b.isAncestorOf(c)
+
+      not c.isAncestorOf(a)
+      not c.isAncestorOf(b)
+      not b.isAncestorOf(a)
