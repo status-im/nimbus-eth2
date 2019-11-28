@@ -12,14 +12,16 @@ import
   # Specs
   ../../beacon_chain/spec/[datatypes, crypto]
 
+# this is being indexed inside "mock_deposits.nim" by a value up to `validatorCount`
+# which is `num_validators` which is `MIN_GENESIS_ACTIVE_VALIDATOR_COUNT`
 let MockPrivKeys* = block:
-  var privkeys: array[SLOTS_PER_EPOCH * 16, ValidatorPrivKey]
+  var privkeys: array[MIN_GENESIS_ACTIVE_VALIDATOR_COUNT, ValidatorPrivKey]
   for pk in privkeys.mitems():
     pk = newPrivKey()
   privkeys
 
 let MockPubKeys* = block:
-  var pubkeys: array[SLOTS_PER_EPOCH * 16, ValidatorPubKey]
+  var pubkeys: array[MIN_GENESIS_ACTIVE_VALIDATOR_COUNT, ValidatorPubKey]
   for idx, privkey in MockPrivKeys:
     pubkeys[idx] = pubkey(privkey)
   pubkeys
