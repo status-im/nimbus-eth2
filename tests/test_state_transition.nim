@@ -8,7 +8,7 @@
 {.used.}
 
 import
-  options, unittest, chronicles,
+  unittest,
   ./testutil,
   ../beacon_chain/spec/[beaconstate, datatypes, digest, validator],
   ../beacon_chain/[state_transition, ssz]

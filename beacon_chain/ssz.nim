@@ -269,9 +269,6 @@ template fromSszBytes*[T; N](_: type TypeWithMaxLen[T, N],
   mixin fromSszBytes
   fromSszBytes(T, bytes)
 
-func fromSszBytes(T: type BlsCurveType, bytes: openarray[byte]): auto =
-  init(T, bytes)
-
 proc readValue*(r: var SszReader, val: var auto) =
   val = readSszValue(r.stream.readBytes(r.stream.endPos), val.type)
 
