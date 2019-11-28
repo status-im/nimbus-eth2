@@ -43,7 +43,7 @@ You can check where the beacon chain fits in the Ethereum research ecosystem in 
 
 ### Connecting to testnets
 
-Nimbus should be able to connect to any of the testnets published in the [eth2-clients/eth2-testnets repo](https://github.com/eth2-clients/eth2-testnets/tree/master/nimbus).
+Nimbus connects to any of the testnets published in the [eth2-clients/eth2-testnets repo](https://github.com/eth2-clients/eth2-testnets/tree/master/nimbus).
 For example, connecting to our testnet0 is done with the following commands:
 
 ```bash
