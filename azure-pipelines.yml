@@ -14,13 +14,13 @@ jobs:
       - task: CacheBeta@1
         displayName: 'cache Nim binaries'
         inputs:
-          key: NimBinaries | $(Agent.OS) | $(PLATFORM) | $(Build.SourceBranchName)
+          key: NimBinaries | $(Agent.OS) | $(PLATFORM) | "$(Build.SourceBranchName)"
           path: NimBinaries
 
       - task: CacheBeta@1
         displayName: 'cache p2pd binaries'
         inputs:
-          key: p2pdCache | $(Agent.OS) | $(PLATFORM) | $(Build.SourceBranchName)
+          key: p2pdCache | $(Agent.OS) | $(PLATFORM) | "$(Build.SourceBranchName)"
           path: p2pdCache
 
       - task: CacheBeta@1
