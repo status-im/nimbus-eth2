@@ -14,20 +14,25 @@ type
     state: BeaconState
     attestation: Attestation
 
+# TODO: change ptr uint to ptr csize_t when available in newer Nim version.
 proc copyState(state: BeaconState, output: ptr byte,
-    output_size: ptr csize): bool {.raises:[IOError, Defect].} =
-  # Not catching any errors as it is assumed that a state object will always be
-  # in a shape that it is serializable. Can raise IOError and Defects though.
-  let resultState = SSZ.encode(state)
-  if resultState.len <= output_size[]:
-    output_size[] = resultState.len
-    # Note: improvement might be to write directly to buffer with OutputStream
+    output_size: ptr uint): bool {.raises:[].} =
+  var resultState: seq[byte]
+
+  try:
+    resultState = SSZ.encode(state)
+  except IOError, Defect:
+    return false
+
+  if resultState.len.uint <= output_size[]:
+    output_size[] = resultState.len.uint
+    # TODO: improvement might be to write directly to buffer with OutputStream
     # and SszWriter
     copyMem(output, unsafeAddr resultState[0], output_size[])
     result = true
 
 proc nfuzz_block(input: openArray[byte], output: ptr byte,
-    output_size: ptr csize): bool {.exportc.} =
+    output_size: ptr uint): bool {.exportc, raises:[].} =
   var data: BlockInput
 
   try:
@@ -37,14 +42,14 @@ proc nfuzz_block(input: openArray[byte], output: ptr byte,
 
   try:
     result = state_transition(data.state, data.beaconBlock, flags = {})
-  except ValueError: # Not catching Defect, IOError and ... Exception! :(
+  except ValueError, RangeError, Exception:
     discard
 
   if result:
     result = copyState(data.state, output, output_size)
 
 proc nfuzz_attestation(input: openArray[byte], output: ptr byte,
-    output_size: ptr csize): bool {.exportc.} =
+    output_size: ptr uint): bool {.exportc, raises:[].} =
   var
     data: AttestationInput
     cache = get_empty_per_epoch_cache()
@@ -57,7 +62,7 @@ proc nfuzz_attestation(input: openArray[byte], output: ptr byte,
   try:
     result = process_attestation(data.state, data.attestation,
       flags = {}, cache)
-  except ValueError: # Not catching Defect and IOError
+  except ValueError, RangeError:
     discard
 
   if result:
@@ -67,16 +72,22 @@ proc nfuzz_attestation(input: openArray[byte], output: ptr byte,
 # However, list_size needs to be known also outside this proc to allocate output.
 # TODO: rework to copy immediatly in an uint8 openArray, considering we have to
 # go over the list anyhow?
-proc nfuzz_shuffle(input_seed: ptr byte, output: var openArray[uint64])
-    {.exportc.} =
+proc nfuzz_shuffle(input_seed: ptr byte, output: var openArray[uint64]): bool
+    {.exportc, raises:[].} =
   var seed: Eth2Digest
-  let list_size = output.len.uint64 # should be OK as max 2 bytes are passed.
+  # Should be OK as max 2 bytes are passed by the framework.
+  let list_size = output.len.uint64
 
-  copyMem(addr(seed.data), input_seed, 32)
+  copyMem(addr(seed.data), input_seed, sizeof(seed.data))
 
-  # TODO: is RangeError a valid error here that needs to be catched?
-  let shuffled_seq =  get_shuffled_seq(seed, list_size)
+  var shuffled_seq: seq[ValidatorIndex]
+  try:
+    shuffled_seq = get_shuffled_seq(seed, list_size)
+  except RangeError:
+    return false
 
+  # TODO: Hah! AssertionError doesn't get picked up by raises. Do we let them
+  # slip or shall we wrap one big try/except AssertionError around the calls?
   doAssert(list_size == shuffled_seq.len.uint64)
 
   for i in 0..<list_size:
@@ -84,3 +95,5 @@ proc nfuzz_shuffle(input_seed: ptr byte, output: var openArray[uint64])
     # assumes passed output is zeroed.
     copyMem(offset(addr output, i.int), shuffled_seq[i.int].unsafeAddr,
       sizeof(ValidatorIndex))
+
+  result = true
