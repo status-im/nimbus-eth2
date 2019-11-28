@@ -57,7 +57,7 @@ The testnets are restarted every Tuesdays and integrate the changes for the past
 
 ## Interop (for other Eth2 clients)
 
-To compare against Nimbus state transition, we provide the ncli tool:
+To run the Nimbus state transition, we provide the `ncli` tool:
 
 * [ncli](ncli)
 
