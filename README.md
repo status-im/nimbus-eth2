@@ -1,4 +1,4 @@
-# Ethereum Beacon Chain
+# Nimbus Eth2 (Beacon Chain)
 [![Build Status (Travis)](https://img.shields.io/travis/status-im/nim-beacon-chain/master.svg?label=Linux%20/%20macOS "Linux/macOS build status (Travis)")](https://travis-ci.org/status-im/nim-beacon-chain)
 [![Build Status (Azure)](https://dev.azure.com/nimbus-dev/nim-beacon-chain/_apis/build/status/status-im.nim-beacon-chain?branchName=master)](https://dev.azure.com/nimbus-dev/nim-beacon-chain/_build/latest?definitionId=3&branchName=master)
 [![License: Apache](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -9,42 +9,69 @@
 [![Gitter: #status-im/nimbus](https://img.shields.io/badge/gitter-status--im%2Fnimbus-orange.svg)](https://gitter.im/status-im/nimbus)
 [![Status: #nimbus-general](https://img.shields.io/badge/status-nimbus--general-orange.svg)](https://get.status.im/chat/public/nimbus-general)
 
-Nimbus beacon chain is a research implementation of the beacon chain component of the upcoming Ethereum Serenity upgrade, aka Eth2. See the main [Nimbus](https://github.com/status-im/nimbus/) project for the bigger picture.
+Welcome to Nimbus for Ethereum 2.0.
+
+Nimbus beacon chain is a research implementation of the beacon chain component of the upcoming Ethereum Serenity upgrade, aka Eth2.
 
 ## Related
 
-* [status-im/nimbus](https://github.com/status-im/nimbus/): main Nimbus repository - start here to learn more about the Nimbus eco-system
+* [status-im/nimbus](https://github.com/status-im/nimbus/): Nimbus for Ethereum 1
 * [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md): Serenity specification that this project implements
-* [ethereum/beacon\_chain](https://github.com/ethereum/beacon_chain): reference implementation from the Ethereum foundation
 
-You can check where the beacon chain fits in the Ethereum research ecosystem in the [Status Athenaeum](https://github.com/status-im/athenaeum/blob/b465626cc551e361492e56d32517b2cdadd7493f/ethereum_research_records.json#L38).
+You can check where the beacon chain fits in the Ethereum ecosystem our Two-Point-Oh series: https://our.status.im/tag/two-point-oh/
 
 ## Table of Contents
 
-- [Ethereum Beacon Chain](#ethereum-beacon-chain)
+- [Nimbus Eth2 (Beacon Chain)](#nimbus-eth2-beacon-chain)
   - [Related](#related)
   - [Table of Contents](#table-of-contents)
+  - [Prerequisites for everyone](#prerequisites-for-everyone)
   - [For users](#for-users)
     - [Connecting to testnets](#connecting-to-testnets)
   - [Interop (for other Eth2 clients)](#interop-for-other-eth2-clients)
   - [For researchers](#for-researchers)
     - [State transition simulation](#state-transition-simulation)
-    - [Beacon node simulation](#beacon-node-simulation)
+    - [Local network simulation](#local-network-simulation)
     - [Visualising simulation metrics](#visualising-simulation-metrics)
   - [For developers](#for-developers)
-    - [Prerequisites](#prerequisites)
     - [Windows](#windows)
     - [Linux, MacOS](#linux-macos)
     - [Raspberry Pi](#raspberry-pi)
     - [Makefile tips and tricks for developers](#makefile-tips-and-tricks-for-developers)
   - [License](#license)
 
+## Prerequisites for everyone
+
+* [RocksDB](https://github.com/facebook/rocksdb/)
+* PCRE
+* Go 1.12 (for compiling libp2p daemon - being phased out)
+* GNU Make, Bash and the usual POSIX utilities. Git 2.9.4 or newer.
+
+On Windows, a precompiled DLL collection download is available through the `fetch-dlls` Makefile target: ([Windows instructions](#windows)).
+
+```bash
+# MacOS with Homebrew
+brew install rocksdb pcre
+
+# Fedora
+dnf install rocksdb-devel pcre
+
+# Debian and Ubuntu
+sudo apt-get install librocksdb-dev libpcre3-dev
+
+# Arch (AUR)
+pakku -S rocksdb pcre-static
+```
+
+`rocksdb` can also be installed by following the [official instructions](https://github.com/facebook/rocksdb/blob/master/INSTALL.md).
+
 ## For users
 
 ### Connecting to testnets
 
 Nimbus connects to any of the testnets published in the [eth2-clients/eth2-testnets repo](https://github.com/eth2-clients/eth2-testnets/tree/master/nimbus).
-For example, connecting to our testnet0 is done with the following commands:
+
+Once the [prerequisites](#prerequisites) are installed you can connect to testnet0 with the following commands:
 
 ```bash
 git clone https://github.com/status-im/nim-beacon-chain
@@ -53,18 +80,20 @@ source env.sh
 nim scripts/connect_to_testnet.nims nimbus/testnet0
 ```
 
-The testnets are restarted every Tuesdays and integrate the changes for the past week.
+The testnets are restarted once per week, usually on Monday evenings (UTC)) and integrate the changes for the past week.
 
 ## Interop (for other Eth2 clients)
+
+After installing the [prerequisites](#prerequisites)
 
 To run the Nimbus state transition, we provide the `ncli` tool:
 
 * [ncli](ncli)
 
-The interop scripts have been moved in a common repo, the interop relied on 0.8.3 specs however which had seen significant changes.
+The interop scripts have been moved in a common repo, the interop relied on 0.8.3 specs which had seen significant changes. The interop branch still exist but is unmaintained.
 
 * [multinet](https://github.com/status-im/nim-beacon-chain/tree/master/multinet) - a set of scripts to build and run several Eth2 clients locally
-* [interop branch](https://github.com/status-im/nim-beacon-chain/tree/interop)
+* [interop branch](https://github.com/status-im/nim-beacon-chain/tree/interop) (unmaintained)
 
 ## For researchers
 
@@ -79,9 +108,11 @@ make NIMFLAGS="-d:release" state_sim
 build/state_sim --help
 ```
 
-### Beacon node simulation
+### Local network simulation
 
-The beacon node simulation will create a full peer-to-peer network of beacon nodes and validators, and run the beacon chain in real time. To change network parameters such as shard and validator counts, see [start.sh](tests/simulation/start.sh).
+The local network simulation will create a full peer-to-peer network of beacon nodes and validators on a single machine, and run the beacon chain in real time.
+
+Parameters such as shard, validator counts, and data folders are configured [vars.sh](tests/simulation/vars.sh). They can be set in as environment variables before launching the simulation.
 
 ```bash
 # Clear data files from your last run and start the simulation with a new genesis block:
@@ -91,9 +122,9 @@ make VALIDATORS=192 NODES=6 USER_NODES=1 eth2_network_simulation
 ./env.sh bash
 
 # In the above example, the network is prepared for 7 beacon nodes but one of
-# them is not started by default (`USER_NODES`) - you can start it separately
-# by running:
-./tests/simulation/run_node.sh 0 # (or the 0-based node number of the missing node)
+# them is not started by default (`USER_NODES`) - this is useful to test
+# catching up to the consensus. The following command will start the missing node.
+./tests/simulation/run_node.sh 0 # (or the index (0-based) of the missing node)
 
 # Running a separate node allows you to test sync as well as see what the action
 # looks like from a single nodes' perspective.
@@ -133,31 +164,6 @@ The dashboard you need to import in Grafana is "tests/simulation/beacon-chain-si
 
 Latest updates happen in the `devel` branch which is merged into `master` every week on Tuesday before deploying a new testnets
 The following sections explain how to setup your build environment on your platform.
-
-### Prerequisites
-
-* [RocksDB](https://github.com/facebook/rocksdb/)
-* PCRE
-* Go 1.12 (for compiling libp2p daemon - being phased out)
-* GNU Make, Bash and the usual POSIX utilities. Git 2.9.4 or newer.
-
-On Windows, a precompiled DLL collection download is available through the `fetch-dlls` Makefile target: ([Windows instructions](#windows)).
-
-```bash
-# MacOS with Homebrew
-brew install rocksdb pcre
-
-# Fedora
-dnf install rocksdb-devel pcre
-
-# Debian and Ubuntu
-sudo apt-get install librocksdb-dev libpcre3-dev
-
-# Arch (AUR)
-pakku -S rocksdb pcre-static
-```
-
-`rocksdb` can also be installed by following the [official instructions](https://github.com/facebook/rocksdb/blob/master/INSTALL.md).
 
 ### Windows
 
