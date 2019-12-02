@@ -65,6 +65,9 @@ sudo apt-get install build-essentials golang-go librocksdb-dev libpcre3-dev
 
 # Fedora
 dnf install @development-tools go rocksdb-devel pcre
+
+# Archlinux, using an AUR manager for pcre-static
+yourAURmanager -S base-devel go rocksdb pcre-static
 ```
 
 ### MacOS
