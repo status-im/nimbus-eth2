@@ -288,7 +288,12 @@ proc addLocalValidators(node: BeaconNode, state: BeaconState) =
 
   for kind, file in walkDir(node.config.localValidatorsDir):
     if kind in {pcFile, pcLinkToFile}:
-      node.addLocalValidator state, ValidatorPrivKey.init(readFile(file).string)
+      if cmpIgnoreCase(".privkey", splitFile(file).ext) == 0:
+        try:
+          let keyText = ValidatorPrivKey.init(readFile(file).string)
+          node.addLocalValidator state, keyText
+        except CatchableError:
+          warn "Failed to load a validator private key", file
 
   info "Local validators attached ", count = node.attachedValidators.count
 
@@ -1138,6 +1143,10 @@ when isMainModule:
         firstIdx = config.totalQuickstartDeposits)
 
     if config.depositWeb3Url.len > 0 and config.depositContractAddress.len > 0:
+      info "Sending deposits",
+        web3 = config.depositWeb3Url,
+        depositContract = config.depositContractAddress
+
       waitFor sendDeposits(
         quickstartDeposits & randomDeposits,
         config.depositWeb3Url,

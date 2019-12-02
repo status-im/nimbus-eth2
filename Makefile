@@ -70,10 +70,10 @@ clean_eth2_network_simulation_files:
 eth2_network_simulation: | build deps p2pd clean_eth2_network_simulation_files process_dashboard
 	GIT_ROOT="$$PWD" tests/simulation/start.sh
 
-testnet0: | build deps clean-testnet0
+testnet0: | build deps
 	+ $(MAKE) testnet0-no-clean
 
-testnet1: | build deps clean-testnet1
+testnet1: | build deps
 	+ $(MAKE) testnet1-no-clean
 
 clean-testnet0:
