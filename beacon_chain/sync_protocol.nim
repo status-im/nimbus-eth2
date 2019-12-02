@@ -233,5 +233,6 @@ proc handleInitialStatus(peer: Peer,
           error "Did not get any blocks from peer. Aborting sync."
           break
 
-  except CatchableError:
-    warn "Failed to sync with peer", peer, err = getCurrentExceptionMsg()
+  except CatchableError as e:
+    warn "Failed to sync with peer", peer, err = e.msg
+
