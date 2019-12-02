@@ -80,7 +80,7 @@ brew install go rocksdb pcre
 
 ### Windows
 
-You can install Go using the official instructions at https://golang.org/doc/install#windows.
+* install [Go](https://golang.org/doc/install#windows)
 You can install the developer tools by following the instruction in our [Windows dev environment section](#windows-dev-environment).
 It also provides a downloading script for prebuilt PCRE and RocksDB.
 
