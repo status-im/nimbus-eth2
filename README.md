@@ -97,10 +97,9 @@ Once the [prerequisites](#prerequisites) are installed you can connect to testne
 ```bash
 git clone https://github.com/status-im/nim-beacon-chain
 cd nim-beacon-chain
-make                 # This invocation will just download all Nimbus dependencies
-make                 # The second invocation will compile the Nim compiler and Nimbus
-source env.sh
-nim scripts/connect_to_testnet.nims nimbus/testnet0
+make                 # This invocation will bootstrap the build system with additional Makefiles
+make update deps     # This will build Nim and all other dependencies
+./connect-to-testnet testnet0
 ```
 
 The testnets are restarted once per week, usually on Monday evenings (UTC)) and integrate the changes for the past week.

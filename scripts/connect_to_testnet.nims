@@ -55,6 +55,7 @@ cli do (testnetName {.argument.}: string):
   let
     dataDirName = testnetName.replace("/", "_")
     dataDir = buildDir / "data" / dataDirName
+    validatorsDir = dataDir / "validators"
     beaconNodeBinary = buildDir / "beacon_node_" & dataDirName
     nimFlags = "-d:chronicles_log_level=DEBUG " & getEnv("NIM_PARAMS")
 
@@ -73,6 +74,31 @@ cli do (testnetName {.argument.}: string):
 
   cd rootDir
   exec &"""nim c {nimFlags} -d:"const_preset={preset}" -o:"{beaconNodeBinary}" beacon_chain/beacon_node.nim"""
+
+  if depositContractOpt.len > 0 and not system.dirExists(validatorsDir):
+    mode = Silent
+    echo "Would you like to become a validator (you'll need access to 32 GoETH)? [Yn]"
+    while true:
+      let answer = readLineFromStdin()
+      if answer in ["y", "Y", "yes", ""]:
+        echo "Please enter your Eth1 private key in hex form (e.g. 0x1a2...f3c). Hit Enter to cancel."
+        let privKey = readLineFromStdin()
+        if privKey.len > 0:
+          mkDir validatorsDir
+          exec replace(&"""{beaconNodeBinary} makeDeposits
+            --random-deposits=1
+            --deposits-dir="{validatorsDir}"
+            --deposit-private-key={privKey}
+            --web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a
+            {depositContractOpt}
+            """, "\n", " ")
+        break
+      elif answer in ["n", "N", "no"]:
+        break
+      else:
+        echo "Please answer 'yes' or 'no'"
+
+  mode = Verbose
   exec replace(&"""{beaconNodeBinary}
     --data-dir="{dataDir}"
     --bootstrap-file="{testnetDir/bootstrapFile}"
