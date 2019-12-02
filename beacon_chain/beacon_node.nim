@@ -19,6 +19,7 @@ const
   dataDirValidators = "validators"
   genesisFile = "genesis.ssz"
   hasPrompt = not defined(withoutPrompt)
+  maxEmptySlotCount = uint64(24*60*60) div SECONDS_PER_SLOT
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_slot,
@@ -297,6 +298,33 @@ func getAttachedValidator(node: BeaconNode,
   let validatorKey = state.validators[idx].pubkey
   node.attachedValidators.getValidator(validatorKey)
 
+proc isSynced(node: BeaconNode, head: BlockRef): bool =
+  ## TODO This function is here as a placeholder for some better heurestics to
+  ##      determine if we're in sync and should be producing blocks and
+  ##      attestations. Generally, the problem is that slot time keeps advancing
+  ##      even when there are no blocks being produced, so there's no way to
+  ##      distinguish validators geniunely going missing from the node not being
+  ##      well connected (during a network split or an internet outage for
+  ##      example). It would generally be correct to simply keep running as if
+  ##      we were the only legit node left alive, but then we run into issues:
+  ##      with enough many empty slots, the validator pool is emptied leading
+  ##      to empty committees and lots of empty slot processing that will be
+  ##      thrown away as soon as we're synced again.
+
+  let
+    # The slot we should be at, according to the clock
+    beaconTime = node.beaconClock.now()
+    wallSlot = beaconTime.toSlot()
+
+  # TODO if everyone follows this logic, the network will not recover from a
+  #      halt: nobody will be producing blocks because everone expects someone
+  #      else to do it
+  if wallSlot.afterGenesis and (wallSlot.slot > head.slot) and
+      (wallSlot.slot - head.slot) > maxEmptySlotCount:
+    false
+  else:
+    true
+
 proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
   # Use head state for attestation resolution below
 
@@ -484,11 +512,16 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
     #      though - maybe we should use the state from the block pointed to by
     #      the attestation for some of the check? Consider interop with block
     #      production!
-    let
-      bs = BlockSlot(blck: head.blck, slot: wallSlot.slot)
+    if attestation.data.slot > head.blck.slot and
+        (attestation.data.slot - head.blck.slot) > maxEmptySlotCount:
+      warn "Ignoring attestation, head block too old (out of sync?)",
+        attestationSlot = attestation.data.slot, headSlot = head.blck.slot
+    else:
+      let
+        bs = BlockSlot(blck: head.blck, slot: wallSlot.slot)
 
-    node.blockPool.withState(node.stateCache, bs):
-      node.attestationPool.add(state, attestedBlock, attestation)
+      node.blockPool.withState(node.stateCache, bs):
+        node.attestationPool.add(state, attestedBlock, attestation)
   else:
     node.attestationPool.addUnresolved(attestation)
 
@@ -697,65 +730,67 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   #                     disappear naturally - risky because user is not aware,
   #                     and might lose stake on canonical chain but "just works"
   #                     when reconnected..
-  #      Right now, we keep going
+  if not node.isSynced(head):
+    warn "Node out of sync, skipping block and attestation production for this slot",
+      slot, headSlot = head.slot
+  else:
+    var curSlot = lastSlot + 1
+    while curSlot < slot:
+      # Timers may be delayed because we're busy processing, and we might have
+      # more work to do. We'll try to do so in an expedited way.
+      # TODO maybe even collect all work synchronously to avoid unnecessary
+      #      state rewinds while waiting for async operations like validator
+      #      signature..
+      notice "Catching up",
+        curSlot = shortLog(curSlot),
+        lastSlot = shortLog(lastSlot),
+        slot = shortLog(slot),
+        cat = "overload"
 
-  var curSlot = lastSlot + 1
-  while curSlot < slot:
-    # Timers may be delayed because we're busy processing, and we might have
-    # more work to do. We'll try to do so in an expedited way.
-    # TODO maybe even collect all work synchronously to avoid unnecessary
-    #      state rewinds while waiting for async operations like validator
-    #      signature..
-    notice "Catching up",
-      curSlot = shortLog(curSlot),
-      lastSlot = shortLog(lastSlot),
-      slot = shortLog(slot),
-      cat = "overload"
+      # For every slot we're catching up, we'll propose then send
+      # attestations - head should normally be advancing along the same branch
+      # in this case
+      # TODO what if we receive blocks / attestations while doing this work?
+      head = await handleProposal(node, head, curSlot)
 
-    # For every slot we're catching up, we'll propose then send
-    # attestations - head should normally be advancing along the same branch
-    # in this case
-    # TODO what if we receive blocks / attestations while doing this work?
-    head = await handleProposal(node, head, curSlot)
+      # For each slot we missed, we need to send out attestations - if we were
+      # proposing during this time, we'll use the newly proposed head, else just
+      # keep reusing the same - the attestation that goes out will actually
+      # rewind the state to what it looked like at the time of that slot
+      # TODO smells like there's an optimization opportunity here
+      handleAttestations(node, head, curSlot)
 
-    # For each slot we missed, we need to send out attestations - if we were
-    # proposing during this time, we'll use the newly proposed head, else just
-    # keep reusing the same - the attestation that goes out will actually
-    # rewind the state to what it looked like at the time of that slot
-    # TODO smells like there's an optimization opportunity here
-    handleAttestations(node, head, curSlot)
+      curSlot += 1
 
-    curSlot += 1
+    head = await handleProposal(node, head, slot)
 
-  head = await handleProposal(node, head, slot)
+    # We've been doing lots of work up until now which took time. Normally, we
+    # send out attestations at the slot mid-point, so we go back to the clock
+    # to see how much time we need to wait.
+    # TODO the beacon clock might jump here also. It's probably easier to complete
+    #      the work for the whole slot using a monotonic clock instead, then deal
+    #      with any clock discrepancies once only, at the start of slot timer
+    #      processing..
+    let
+      attestationStart = node.beaconClock.fromNow(slot)
+      halfSlot = seconds(int64(SECONDS_PER_SLOT div 2))
 
-  # We've been doing lots of work up until now which took time. Normally, we
-  # send out attestations at the slot mid-point, so we go back to the clock
-  # to see how much time we need to wait.
-  # TODO the beacon clock might jump here also. It's probably easier to complete
-  #      the work for the whole slot using a monotonic clock instead, then deal
-  #      with any clock discrepancies once only, at the start of slot timer
-  #      processing..
-  let
-    attestationStart = node.beaconClock.fromNow(slot)
-    halfSlot = seconds(int64(SECONDS_PER_SLOT div 2))
+    if attestationStart.inFuture or attestationStart.offset <= halfSlot:
+      let fromNow =
+        if attestationStart.inFuture: attestationStart.offset + halfSlot
+        else: halfSlot - attestationStart.offset
 
-  if attestationStart.inFuture or attestationStart.offset <= halfSlot:
-    let fromNow =
-      if attestationStart.inFuture: attestationStart.offset + halfSlot
-      else: halfSlot - attestationStart.offset
+      trace "Waiting to send attestations",
+        slot = shortLog(slot),
+        fromNow = shortLog(fromNow),
+        cat = "scheduling"
 
-    trace "Waiting to send attestations",
-      slot = shortLog(slot),
-      fromNow = shortLog(fromNow),
-      cat = "scheduling"
+      await sleepAsync(fromNow)
 
-    await sleepAsync(fromNow)
+      # Time passed - we might need to select a new head in that case
+      head = node.updateHead(slot)
 
-    # Time passed - we might need to select a new head in that case
-    head = node.updateHead(slot)
-
-  handleAttestations(node, head, slot)
+    handleAttestations(node, head, slot)
 
   # TODO ... and beacon clock might jump here also. sigh.
   let
@@ -764,12 +799,28 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   addTimer(nextSlotStart) do (p: pointer):
     asyncCheck node.onSlotStart(slot, nextSlot)
 
-proc onSecond(node: BeaconNode, moment: Moment) {.async.} =
+proc handleMissingBlocks(node: BeaconNode) =
   let missingBlocks = node.blockPool.checkMissing()
   if missingBlocks.len > 0:
+    var left = missingBlocks.len
+
     info "Requesting detected missing blocks", missingBlocks
     node.requestManager.fetchAncestorBlocks(missingBlocks) do (b: BeaconBlock):
-      onBeaconBlock(node ,b)
+      onBeaconBlock(node, b)
+
+      # TODO instead of waiting for a full second to try the next missing block
+      #      fetching, we'll do it here again in case we get all blocks we asked
+      #      for (there might be new parents to fetch). of course, this is not
+      #      good because the onSecond fetching also kicks in regardless but
+      #      whatever - this is just a quick fix for making the testnet easier
+      #      work with while the sync problem is dealt with more systematically
+      dec left
+      if left == 0:
+        addTimer(Moment.now()) do (p: pointer):
+          handleMissingBlocks(node)
+
+proc onSecond(node: BeaconNode, moment: Moment) {.async.} =
+  node.handleMissingBlocks()
 
   let nextSecond = max(Moment.now(), moment + chronos.seconds(1))
   addTimer(nextSecond) do (p: pointer):
