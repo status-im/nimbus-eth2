@@ -300,6 +300,15 @@ proc process_registry_updates*(state: var BeaconState) =
   ## Process activation eligibility and ejections
   ## Try to avoid caching here, since this could easily become undefined
 
+  # Make visible, e.g.,
+  # https://github.com/status-im/nim-beacon-chain/pull/608
+  # https://github.com/sigp/lighthouse/pull/657
+  let epoch = get_current_epoch(state)
+  trace "process_registry_updates validator balances",
+    balances=state.balances,
+    active_validator_indices=get_active_validator_indices(state, epoch),
+    epoch=epoch
+
   for index, validator in state.validators:
     if validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and
         validator.effective_balance == MAX_EFFECTIVE_BALANCE:
