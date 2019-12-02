@@ -147,7 +147,7 @@ proc disconnectAndRaise(peer: Peer,
 template reraiseAsPeerDisconnected(peer: Peer, errMsgExpr: static string,
                                    reason = FaultOrError): auto =
   const errMsg = errMsgExpr
-  debug errMsg, err = getCurrentExceptionMsg()
+  debug errMsg
   disconnectAndRaise(peer, reason, errMsg)
 
 proc registerProtocol(protocol: ProtocolInfo) =

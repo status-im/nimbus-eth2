@@ -146,9 +146,9 @@ proc commitGenesisState(node: BeaconNode, tailState: BeaconState) =
     let tailBlock = get_initial_beacon_block(tailState)
     BlockPool.preInit(node.db, tailState, tailBlock)
 
-  except:
+  except CatchableError as e:
     stderr.write "Failed to initialize database\n"
-    stderr.write getCurrentExceptionMsg(), "\n"
+    stderr.write e.msg, "\n"
     quit 1
 
 proc addBootstrapNode(node: BeaconNode, bootstrapNode: BootstrapAddr) =
