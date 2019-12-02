@@ -217,7 +217,7 @@ mingw32-make test # run the test suite
 
 ### Linux, MacOS
 
-After cloning the repo.
+After cloning the repo:
 
 ```bash
 make # The first `make` invocation will update all Git submodules and prompt you to run `make` again.
