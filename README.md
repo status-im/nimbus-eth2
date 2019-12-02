@@ -26,6 +26,9 @@ You can check where the beacon chain fits in the Ethereum ecosystem our Two-Poin
   - [Related](#related)
   - [Table of Contents](#table-of-contents)
   - [Prerequisites for everyone](#prerequisites-for-everyone)
+    - [Linux](#linux)
+    - [MacOS](#macos)
+    - [Windows](#windows)
   - [For users](#for-users)
     - [Connecting to testnets](#connecting-to-testnets)
   - [Interop (for other Eth2 clients)](#interop-for-other-eth2-clients)
@@ -34,7 +37,7 @@ You can check where the beacon chain fits in the Ethereum ecosystem our Two-Poin
     - [Local network simulation](#local-network-simulation)
     - [Visualising simulation metrics](#visualising-simulation-metrics)
   - [For developers](#for-developers)
-    - [Windows](#windows)
+    - [Windows dev environment](#windows-dev-environment)
     - [Linux, MacOS](#linux-macos)
     - [Raspberry Pi](#raspberry-pi)
     - [Makefile tips and tricks for developers](#makefile-tips-and-tricks-for-developers)
@@ -42,28 +45,43 @@ You can check where the beacon chain fits in the Ethereum ecosystem our Two-Poin
 
 ## Prerequisites for everyone
 
+At the moment, Nimbus has to be built from source.
+
+Nimbus has 4 external dependencies:
+
+* Go 1.12 (for compiling libp2p daemon - being phased out)
+* Developer tools (C compiler, Make, Bash, Git)
 * [RocksDB](https://github.com/facebook/rocksdb/)
 * PCRE
-* Go 1.12 (for compiling libp2p daemon - being phased out)
-* GNU Make, Bash and the usual POSIX utilities. Git 2.9.4 or newer.
 
-On Windows, a precompiled DLL collection download is available through the `fetch-dlls` Makefile target: ([Windows instructions](#windows)).
+Nim is not an external dependency, Nimbus will build its own local copy.
 
-```bash
-# MacOS with Homebrew
-brew install rocksdb pcre
+### Linux
+
+On common Linux distributions the dependencies can be installed with:
+```sh
+# Debian and Ubuntu
+sudo apt-get install build-essentials golang-go librocksdb-dev libpcre3-dev
 
 # Fedora
-dnf install rocksdb-devel pcre
-
-# Debian and Ubuntu
-sudo apt-get install librocksdb-dev libpcre3-dev
-
-# Arch (AUR)
-pakku -S rocksdb pcre-static
+dnf install @development-tools go rocksdb-devel pcre
 ```
 
-`rocksdb` can also be installed by following the [official instructions](https://github.com/facebook/rocksdb/blob/master/INSTALL.md).
+### MacOS
+
+Assuming you use [Homebrew](https://brew.sh/) to manage packages
+
+```sh
+brew install go rocksdb pcre
+```
+
+### Windows
+
+You can install Go using the official instructions at https://golang.org/doc/install#windows.
+You can install the developer tools by following the instruction in our [Windows dev environment section](#windows-dev-environment).
+It also provides a downloading script for prebuilt PCRE and RocksDB.
+
+If you choose to install Go from source, both Go and Nimbus requires the same initial steps of installing Mingw.
 
 ## For users
 
@@ -76,6 +94,8 @@ Once the [prerequisites](#prerequisites) are installed you can connect to testne
 ```bash
 git clone https://github.com/status-im/nim-beacon-chain
 cd nim-beacon-chain
+make                 # This invocation will just download all Nimbus dependencies
+make                 # The second invocation will compile the Nim compiler and Nimbus
 source env.sh
 nim scripts/connect_to_testnet.nims nimbus/testnet0
 ```
@@ -165,7 +185,7 @@ The dashboard you need to import in Grafana is "tests/simulation/beacon-chain-si
 Latest updates happen in the `devel` branch which is merged into `master` every week on Tuesday before deploying a new testnets
 The following sections explain how to setup your build environment on your platform.
 
-### Windows
+### Windows dev environment
 
 Install Mingw-w64 for your architecture using the "[MinGW-W64 Online
 Installer](https://sourceforge.net/projects/mingw-w64/files/)" (first link
@@ -184,6 +204,8 @@ mingw32-make # this first invocation will update the Git submodules
 mingw32-make fetch-dlls # this will place the right DLLs for your architecture in the "build/" directory
 ```
 
+> If you were following the Windows testnet instructions, you can jump back to [Connecting to testnets](#connecting-to-testnets) now
+
 You can now follow those instructions in the previous section by replacing `make` with `mingw32-make` (regardless of your 32-bit or 64-bit architecture):
 
 ```bash
@@ -191,6 +213,8 @@ mingw32-make test # run the test suite
 ```
 
 ### Linux, MacOS
+
+After cloning the repo.
 
 ```bash
 make # The first `make` invocation will update all Git submodules and prompt you to run `make` again.
