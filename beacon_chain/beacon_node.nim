@@ -373,6 +373,12 @@ proc sendAttestation(node: BeaconNode,
 
   node.network.broadcast(topicAttestations, attestation)
 
+  if node.config.dump:
+    SSZ.saveFile(
+      node.config.dumpDir / "att-" & $attestationData.slot & "-" &
+      $attestationData.index & "-" & validator.pubKey.shortLog &
+      ".ssz", attestation)
+
   info "Attestation sent",
     attestationData = shortLog(attestationData),
     validator = shortLog(validator),
@@ -481,6 +487,15 @@ proc proposeBlock(node: BeaconNode,
     blockRoot = shortLog(newBlockRef.root),
     validator = shortLog(validator),
     cat = "consensus"
+
+  if node.config.dump:
+    SSZ.saveFile(
+      node.config.dumpDir / "block-" & $newBlock.slot & "-" &
+      shortLog(newBlockRef.root) & ".ssz", newBlock)
+    SSZ.saveFile(
+      node.config.dumpDir / "state-" & $tmpState.data.slot & "-" &
+      shortLog(newBlockRef.root) & "-"  & shortLog(tmpState.root) & ".ssz",
+      tmpState.data)
 
   node.network.broadcast(topicBeaconBlocks, newBlock)
 
