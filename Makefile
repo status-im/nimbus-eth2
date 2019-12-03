@@ -29,8 +29,8 @@ build-system-checks:
 	@[[ -e "$(BUILD_SYSTEM_DIR)/makefiles" ]] || { \
 		echo -e "'$(BUILD_SYSTEM_DIR)/makefiles' not found. Running '$(GIT_SUBMODULE_UPDATE)'.\n"; \
 		$(GIT_SUBMODULE_UPDATE); \
-		echo -e "\n✔️✔️✔️ Successfully fetched all required internal dependencies,\n"; \
-		echo -e "you should now \e[1mre-run '$(MAKE)' to build Nimbus\e[21m"; \
+		echo -e "\n✔️✔️✔️ Successfully fetched all required internal dependencies."; \
+		echo -e "        You should now \e[4mre-run '$(MAKE)' to build Nimbus\e[21m"; \
 		exit 0; \
 		}
 
