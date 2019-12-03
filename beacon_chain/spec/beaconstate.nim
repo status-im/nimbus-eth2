@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  tables, algorithm, math, sequtils,
+  tables, algorithm, math, sequtils, options,
   json_serialization/std/sets, chronicles, stew/bitseqs,
   ../extras, ../ssz,
   ./crypto, ./datatypes, ./digest, ./helpers, ./validator
@@ -171,14 +171,19 @@ proc slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
   decrease_balance(state, slashed_index,
     validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT)
 
+  # The rest doesn't make sense without there being any proposer index, so skip
+  let proposer_index = get_beacon_proposer_index(state, stateCache)
+  if proposer_index.isNone:
+    debug "No beacon proposer index and probably no active validators"
+    return
+
   let
-    proposer_index = get_beacon_proposer_index(state, stateCache)
     # Spec has whistleblower_index as optional param, but it's never used.
-    whistleblower_index = proposer_index
+    whistleblower_index = proposer_index.get
     whistleblowing_reward =
       (validator.effective_balance div WHISTLEBLOWER_REWARD_QUOTIENT).Gwei
     proposer_reward = whistleblowing_reward div PROPOSER_REWARD_QUOTIENT
-  increase_balance(state, proposer_index, proposer_reward)
+  increase_balance(state, proposer_index.get, proposer_reward)
   # TODO: evaluate if spec bug / underflow can be triggered
   doAssert(whistleblowing_reward >= proposer_reward, "Spec bug: underflow in slash_validator")
   increase_balance(
@@ -492,6 +497,12 @@ proc process_attestation*(
   # reused when looking for suitable blocks to include in attestations.
   # TODO don't log warnings when looking for attestations (return
   #      Result[void, cstring] instead of logging in check_attestation?)
+
+  let proposer_index = get_beacon_proposer_index(state, stateCache)
+  if proposer_index.isNone:
+    debug "No beacon proposer index and probably no active validators"
+    return false
+
   if check_attestation(state, attestation, flags, stateCache):
     let
       attestation_slot = attestation.data.slot
@@ -499,7 +510,7 @@ proc process_attestation*(
         data: attestation.data,
         aggregation_bits: attestation.aggregation_bits,
         inclusion_delay: state.slot - attestation_slot,
-        proposer_index: get_beacon_proposer_index(state, stateCache).uint64,
+        proposer_index: proposer_index.get.uint64,
       )
 
     if attestation.data.target.epoch == get_current_epoch(state):
