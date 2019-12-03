@@ -81,7 +81,7 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
         link(newRef, curRef)
         curRef = curRef.parent
       blocks[curRef.root] = curRef
-      debug "Populating block pool", key = curRef.root, val = curRef
+      trace "Populating block pool", key = curRef.root, val = curRef
 
       if latestStateRoot.isNone() and db.containsState(blck.state_root):
         latestStateRoot = some(blck.state_root)
@@ -169,7 +169,7 @@ proc addResolvedBlock(
   link(parent, blockRef)
 
   pool.blocks[blockRoot] = blockRef
-  debug "Populating block pool", key = blockRoot, val = blockRef
+  trace "Populating block pool", key = blockRoot, val = blockRef
 
   pool.addSlotMapping(blockRef)
 

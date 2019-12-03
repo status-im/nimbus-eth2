@@ -590,10 +590,13 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     msg.defineThunk quote do:
       proc `thunkName`(`daemonVar`: `DaemonAPI`,
                        `streamVar`: `P2PStream`) {.async, gcsafe.} =
-        when chronicles.runtimeFilteringEnabled:
-          setLogLevel(LogLevel.TRACE)
-          defer: setLogLevel(LogLevel.DEBUG)
-          trace "incoming " & `msgNameLit` & " stream"
+        ## Uncomment this to enable tracing on all incoming requests
+        ## You can include `msgNameLit` in the condition to select
+        ## more specific requests:
+        # when chronicles.runtimeFilteringEnabled:
+        #   setLogLevel(LogLevel.TRACE)
+        #   defer: setLogLevel(LogLevel.DEBUG)
+        #   trace "incoming " & `msgNameLit` & " stream"
 
         defer:
           `await` safeClose(`streamVar`)
