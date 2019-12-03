@@ -56,6 +56,7 @@ cli do (testnetName {.argument.}: string):
     dataDirName = testnetName.replace("/", "_")
     dataDir = buildDir / "data" / dataDirName
     validatorsDir = dataDir / "validators"
+    dumpDir = dataDir / "dump"
     beaconNodeBinary = buildDir / "beacon_node_" & dataDirName
     nimFlags = "-d:chronicles_log_level=DEBUG " & getEnv("NIM_PARAMS")
 
@@ -74,6 +75,8 @@ cli do (testnetName {.argument.}: string):
 
   cd rootDir
   exec &"""nim c {nimFlags} -d:"const_preset={preset}" -o:"{beaconNodeBinary}" beacon_chain/beacon_node.nim"""
+
+  mkDir dumpDir
 
   if depositContractOpt.len > 0 and not system.dirExists(validatorsDir):
     mode = Silent
@@ -101,6 +104,7 @@ cli do (testnetName {.argument.}: string):
   mode = Verbose
   exec replace(&"""{beaconNodeBinary}
     --data-dir="{dataDir}"
+    --dump=true
     --bootstrap-file="{testnetDir/bootstrapFile}"
     --state-snapshot="{testnetDir/genesisFile}" """ & depositContractOpt, "\n", " ")
 

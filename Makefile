@@ -90,3 +90,15 @@ testnet1-no-clean: | build deps
 
 clean: | clean-common
 	rm -rf build/{$(TOOLS_CSV),all_tests,*_node}
+
+libnfuzz.so: | build deps-common beacon_chain.nims
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim c -d:release --app:lib --noMain --nimcache:nimcache/libnfuzz $(NIM_PARAMS) -o:build/$@.0 nfuzz/libnfuzz.nim && \
+		rm -f build/$@ && \
+		ln -s $@.0 build/$@
+
+libnfuzz.a: | build deps-common beacon_chain.nims
+	echo -e $(BUILD_MSG) "build/$@" && \
+		rm -f build/$@ && \
+		$(ENV_SCRIPT) nim c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static $(NIM_PARAMS) -o:build/$@ nfuzz/libnfuzz.nim && \
+		[[ -e "$@" ]] && mv "$@" build/ # workaround for https://github.com/nim-lang/Nim/issues/12745

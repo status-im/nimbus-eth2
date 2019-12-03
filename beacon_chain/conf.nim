@@ -136,6 +136,11 @@ type
         desc: "Listening HTTP port of the metrics server."
         name: "metrics-server-port" }: uint16
 
+      dump* {.
+        defaultValue: false
+        desc: "Write SSZ dumps of blocks, attestations and states to data dir"
+        .}: bool
+
     of createTestnet:
       validatorsDir* {.
         desc: "Directory containing validator descriptors named 'vXXXXXXX.deposit.json'."
@@ -243,3 +248,6 @@ proc defaultDataDir*(conf: BeaconNodeConf): string =
 proc validatorFileBaseName*(validatorIdx: int): string =
   # there can apparently be tops 4M validators so we use 7 digits..
   fmt"v{validatorIdx:07}"
+
+func dumpDir*(conf: BeaconNodeConf): string =
+  conf.dataDir / "dump"

@@ -1,16 +1,28 @@
 import
   deques, options, sequtils, tables,
-  chronicles,
   ./spec/[datatypes, crypto, helpers],
   ./attestation_pool, ./beacon_node_types, ./ssz
 
 func get_ancestor(blck: BlockRef, slot: Slot): BlockRef =
-  if blck.slot == slot:
-    blck
-  elif blck.slot < slot:
-    nil
-  else:
-    get_ancestor(blck.parent, slot)
+  var blck = blck
+
+  var depth = 0
+  const maxDepth = (100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int)
+
+  while true:
+    if blck.slot == slot:
+      return blck
+
+    if blck.slot < slot:
+      return nil
+
+    if blck.parent == nil:
+      return nil
+
+    doAssert depth < maxDepth
+    depth += 1
+
+    blck = blck.parent
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_fork-choice.md
 # The structure of this code differs from the spec since we use a different

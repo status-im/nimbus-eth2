@@ -9,6 +9,7 @@ author        = "Status Research & Development GmbH"
 description   = "Eth2.0 research implementation of the beacon chain"
 license       = "MIT or Apache License 2.0"
 installDirs   = @["beacon_chain", "research"]
+skipDirs      = @["nfuzz"]
 bin           = @[
   "beacon_chain/beacon_node",
   "research/serialized_sizes",

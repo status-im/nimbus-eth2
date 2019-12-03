@@ -44,6 +44,9 @@ if [[ $NODE_ID -lt $TOTAL_NODES ]]; then
   popd >/dev/null
 fi
 
+rm -rf "$DATA_DIR/dump"
+mkdir -p "$DATA_DIR/dump"
+
 $BEACON_NODE_BIN \
   --bootstrap-file=$BOOTSTRAP_ADDRESS_FILE \
   --data-dir=$DATA_DIR \
