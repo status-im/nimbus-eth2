@@ -36,7 +36,7 @@ build-system-checks:
 		$(GIT_SUBMODULE_UPDATE); \
 		echo -e "\n✔️✔️✔️ Successfully fetched all required internal dependencies."; \
 		echo -e "        You should now \e[4mre-run '$(MAKE)' to build Nimbus\e[0m\n"; \
-		}
+		} && true
 
 deps: | deps-common beacon_chain.nims p2pd
 
