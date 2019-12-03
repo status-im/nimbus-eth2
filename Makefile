@@ -19,7 +19,12 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 
 .PHONY: all build-system-checks deps update p2pd test $(TOOLS) clean_eth2_network_simulation_files eth2_network_simulation clean-testnet0 testnet0 clean-testnet1 testnet1 clean
 
+ifeq ($(NIM_PARAMS),)
+# "variables.mk" was not included. We can only execute one target in this state.
+all: | build-system-checks
+else
 all: | build-system-checks $(TOOLS)
+endif
 
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
@@ -31,7 +36,6 @@ build-system-checks:
 		$(GIT_SUBMODULE_UPDATE); \
 		echo -e "\n✔️✔️✔️ Successfully fetched all required internal dependencies."; \
 		echo -e "        You should now \e[4mre-run '$(MAKE)' to build Nimbus\e[21m"; \
-		exit 0; \
 		}
 
 deps: | deps-common beacon_chain.nims p2pd
