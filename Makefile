@@ -34,7 +34,8 @@ build-system-checks:
 	@[[ -e "$(BUILD_SYSTEM_DIR)/makefiles" ]] || { \
 		echo -e "'$(BUILD_SYSTEM_DIR)/makefiles' not found. Running '$(GIT_SUBMODULE_UPDATE)'.\n"; \
 		$(GIT_SUBMODULE_UPDATE); \
-		echo -e "\n✔️✔️✔️ Successfully fetched all required internal dependencies."; \
+		CHECKMARK="\xe2\x9c\x94\xef\xb8\x8f"; \
+		echo -e "\n$${CHECKMARK}$${CHECKMARK}$${CHECKMARK} Successfully fetched all required internal dependencies."; \
 		echo -e "        You should now \e[4mre-run '$(MAKE)' to build Nimbus\e[0m\n"; \
 		}; \
 		exit 0
