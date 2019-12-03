@@ -29,8 +29,9 @@ build-system-checks:
 	@[[ -e "$(BUILD_SYSTEM_DIR)/makefiles" ]] || { \
 		echo -e "'$(BUILD_SYSTEM_DIR)/makefiles' not found. Running '$(GIT_SUBMODULE_UPDATE)'.\n"; \
 		$(GIT_SUBMODULE_UPDATE); \
-		echo -e "\nYou can now run '$(MAKE)' again."; \
-		exit 1; \
+		echo -e "\n✔️✔️✔️ Successfully fetched all required internal dependencies,\n"; \
+		echo -e "you should now \e[1mre-run '$(MAKE)' to build Nimbus\e[21m"; \
+		exit 0; \
 		}
 
 deps: | deps-common beacon_chain.nims p2pd

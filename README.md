@@ -98,7 +98,7 @@ Once the [prerequisites](#prerequisites) are installed you can connect to testne
 git clone https://github.com/status-im/nim-beacon-chain
 cd nim-beacon-chain
 make                 # This invocation will bootstrap the build system with additional Makefiles
-make update deps     # This will build Nim and all other dependencies
+make                 # This will build Nim and all other dependencies
 ./connect-to-testnet testnet0
 ```
 
