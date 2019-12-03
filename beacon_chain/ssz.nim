@@ -10,7 +10,7 @@
 
 import
   endians, stew/shims/macros, options, algorithm, options,
-  stew/[bitops2, bitseqs, objects, varints, ptrops], stint,
+  stew/[bitops2, bitseqs, objects, varints, ptrops, ranges/ptr_arith], stint,
   faststreams/input_stream, serialization, serialization/testing/tracing,
   nimcrypto/sha2, blscurve, eth/common,
   ./spec/[crypto, datatypes, digest],
@@ -139,7 +139,7 @@ func writeFixedSized(c: var WriteCursor, x: auto) =
       c.append x
     else:
       for elem in x:
-        trs "WRITING FIXED SIZE ARRAY ELEMENENT"
+        trs "WRITING FIXED SIZE ARRAY ELEMENT"
         c.writeFixedSized toSszType(elem)
   elif x is tuple|object:
     enumInstanceSerializedFields(x, fieldName, field):
@@ -268,9 +268,6 @@ template fromSszBytes*[T; N](_: type TypeWithMaxLen[T, N],
                              bytes: openarray[byte]): auto =
   mixin fromSszBytes
   fromSszBytes(T, bytes)
-
-func fromSszBytes(T: type BlsCurveType, bytes: openarray[byte]): auto =
-  init(T, bytes)
 
 proc readValue*(r: var SszReader, val: var auto) =
   val = readSszValue(r.stream.readBytes(r.stream.endPos), val.type)
@@ -508,7 +505,19 @@ func bitlistHashTreeRoot(merkelizer: SszChunksMerkelizer, x: BitSeq): Eth2Digest
   mixInLength contentsHash, x.len
 
 func hashTreeRootImpl[T](x: T): Eth2Digest =
-  when (T is BasicType) or (when T is array: ElemType(T) is BasicType else: false):
+  when T is uint64:
+    trs "UINT64; LITTLE-ENDIAN IDENTITY MAPPING"
+    when system.cpuEndian == bigEndian:
+      littleEndian64(addr result.data[0], x.unsafeAddr)
+    else:
+      let valueAddr = unsafeAddr x
+      result.data[0..7] = makeOpenArray(cast[ptr byte](valueAddr), 8)
+  elif (when T is array: ElemType(T) is byte and
+      sizeof(T) == sizeof(Eth2Digest) else: false):
+    # TODO is this sizeof comparison guranteed? it's whole structure vs field
+    trs "ETH2DIGEST; IDENTITY MAPPING"
+    Eth2Digest(data: x)
+  elif (T is BasicType) or (when T is array: ElemType(T) is BasicType else: false):
     trs "FIXED TYPE; USE CHUNK STREAM"
     merkelizeSerializedChunks x
   elif T is string or (when T is (seq|openarray): ElemType(T) is BasicType else: false):

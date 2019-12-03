@@ -81,7 +81,7 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
         link(newRef, curRef)
         curRef = curRef.parent
       blocks[curRef.root] = curRef
-      trace "Populating block pool", key = curRef.root, val = curRef
+      debug "Populating block pool", key = curRef.root, val = curRef
 
       if latestStateRoot.isNone() and db.containsState(blck.state_root):
         latestStateRoot = some(blck.state_root)
@@ -169,7 +169,7 @@ proc addResolvedBlock(
   link(parent, blockRef)
 
   pool.blocks[blockRoot] = blockRef
-  trace "Populating block pool", key = blockRoot, val = blockRef
+  debug "Populating block pool", key = blockRoot, val = blockRef
 
   pool.addSlotMapping(blockRef)
 
@@ -214,10 +214,21 @@ proc addResolvedBlock(
   # unresolved blocks magically become resolved
   # TODO there are more efficient ways of doing this that don't risk
   #      running out of stack etc
-  let retries = pool.pending
-  for k, v in retries:
-    discard pool.add(state, k, v)
-
+  # TODO This code is convoluted because when there are more than ~1.5k
+  #      blocks being synced, there's a stack overflow as `add` gets called
+  #      for the whole chain of blocks. Instead we use this ugly field in `pool`
+  #      which could be avoided by refactoring the code
+  if not pool.inAdd:
+    pool.inAdd = true
+    defer: pool.inAdd = false
+    var keepGoing = true
+    while keepGoing:
+      let retries = pool.pending
+      for k, v in retries:
+        discard pool.add(state, k, v)
+      # Keep going for as long as the pending pool is shrinking
+      # TODO inefficient! so what?
+      keepGoing = pool.pending.len < retries.len
   blockRef
 
 proc add*(
@@ -352,20 +363,26 @@ proc getBlockRange*(pool: BlockPool, headBlock: Eth2Digest,
   ##
   result = output.len
 
+  trace "getBlockRange entered", headBlock, startSlot, skipStep
+
   var b = pool.getRef(headBlock)
   if b == nil:
     trace "head block not found", headBlock
     return
+
+  trace "head block found", headBlock = b
 
   if b.slot < startSlot:
     trace "head block is older than startSlot", headBlockSlot = b.slot, startSlot
     return
 
   template skip(n: int) =
-    for i in 0 ..< n:
+    let targetSlot = b.slot - Slot(n)
+    while b.slot > targetSlot:
       if b.parent == nil:
         trace "stopping at parentless block", slot = b.slot, root = b.root
         return
+      trace "skipping block", nextBlock = b.parent
       b = b.parent
 
   # We must compute the last block that is eligible for inclusion
@@ -382,10 +399,11 @@ proc getBlockRange*(pool: BlockPool, headBlock: Eth2Digest,
     blocksToSkip += (alignedHeadSlot - lastWantedSlot)
 
   # Finally, we skip the computed number of blocks
+  trace "aligning head", blocksToSkip
   skip blocksToSkip
 
   # From here, we can just write out the requested block range:
-  while b != nil and result > 0:
+  while b != nil and b.slot >= startSlot and result > 0:
     dec result
     output[result] = b
     trace "getBlockRange result", position = result, blockSlot = b.slot
@@ -597,12 +615,22 @@ proc loadTailState*(pool: BlockPool): StateData =
   )
 
 func isAncestorOf*(a, b: BlockRef): bool =
-  if a == b:
-    true
-  elif a.slot >= b.slot or b.parent.isNil:
-    false
-  else:
-    a.isAncestorOf(b.parent)
+  var b = b
+  var depth = 0
+  const maxDepth = (100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int)
+  while true:
+    if a == b: return true
+
+    # for now, use an assert for block chain length since a chain this long
+    # indicates a circular reference here..
+    doAssert depth < maxDepth
+    depth += 1
+
+    if a.slot >= b.slot or b.parent.isNil:
+      return false
+
+    doAssert b.slot > b.parent.slot
+    b = b.parent
 
 proc delBlockAndState(pool: BlockPool, blockRoot: Eth2Digest) =
   if (let blk = pool.db.getBlock(blockRoot); blk.isSome):

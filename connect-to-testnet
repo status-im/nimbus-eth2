@@ -1,0 +1,5 @@
+#!/bin/bash
+
+cd $(dirname "$0")
+./env.sh nim scripts/connect_to_testnet.nims $1
+

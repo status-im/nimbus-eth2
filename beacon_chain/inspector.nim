@@ -250,9 +250,9 @@ proc run(conf: InspectorConf) {.async.} =
     info InspectorIdent & " started", peerID = getPeerId(identity.peer, conf),
                                       bound = identity.addresses,
                                       options = flags
-  except:
+  except CatchableError as e:
     error "Could not initialize p2pd daemon",
-          exception = getCurrentExceptionMsg()
+          exception = e.msg
     quit(1)
 
   try:
@@ -265,8 +265,8 @@ proc run(conf: InspectorConf) {.async.} =
       let t = await api.pubsubSubscribe(filter, pubsubLogger)
       info "Subscribed to custom topic", topic = filter
       subs.add((ticket: t, future: t.transp.join()))
-  except:
-    error "Could not subscribe to topics", exception = getCurrentExceptionMsg()
+  except CatchableError as e:
+    error "Could not subscribe to topics", exception = e.msg
     quit(1)
 
   # Starting DHT resolver task

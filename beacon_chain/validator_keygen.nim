@@ -52,16 +52,19 @@ proc generateDeposits*(totalValidators: int,
 proc sendDeposits*(
     deposits: seq[Deposit],
     depositWeb3Url, depositContractAddress, privateKey: string) {.async.} =
-  let
-    web3 = await newWeb3(depositWeb3Url)
-    contractAddress = Address.fromHex(depositContractAddress)
-    eth1Addresses = await web3.provider.eth_accounts()
-
+  var web3 = await newWeb3(depositWeb3Url)
   if privateKey.len != 0:
     web3.privateKey = initPrivateKey(privateKey)
 
+  let eth1Addresses = await web3.provider.eth_accounts()
+  if eth1Addresses.len == 0:
+    error "Eth1 account rejected"
+    return
+
+  let contractAddress = Address.fromHex(depositContractAddress)
+
   for i, dp in deposits:
-    web3.defaultAccount = eth1Addresses[i]
+    web3.defaultAccount = eth1Addresses[0]
     let depositContract = web3.contractSender(DepositContract, contractAddress)
     discard await depositContract.deposit(
       Bytes48(dp.data.pubKey.getBytes()),

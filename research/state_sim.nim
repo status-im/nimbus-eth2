@@ -57,7 +57,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
        validators = SLOTS_PER_EPOCH * 11, # One per shard is minimum
        json_interval = SLOTS_PER_EPOCH,
        prefix = 0,
-       attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.75,
+       attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.73,
        validate = true):
   let
     flags = if validate: {} else: {skipValidation}
@@ -82,6 +82,10 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       write(stdout, ":")
     else:
       write(stdout, ".")
+
+  # TODO doAssert against this up-front
+  # indexed attestation: validator index beyond max validators per committee
+  # len(indices) <= MAX_VALIDATORS_PER_COMMITTEE
 
   for i in 0..<slots:
     maybeWrite()
@@ -111,15 +115,13 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       # work for every slot - we'll randomize it deterministically to give
       # some variation
       let
-        epoch = compute_epoch_at_slot(state.slot)
+        target_slot = state.slot + MIN_ATTESTATION_INCLUSION_DELAY - 1
         scass = withTimerRet(timers[tShuffle]):
           mapIt(
-            0'u64 .. (get_committee_count_at_slot(state, state.slot) *
-              SLOTS_PER_EPOCH - 1),
-            get_beacon_committee(state, epoch.compute_start_slot_at_epoch + (it mod SLOTS_PER_EPOCH),
-              it div SLOTS_PER_EPOCH, cache))
+            0'u64 ..< get_committee_count_at_slot(state, target_slot),
+            get_beacon_committee(state, target_slot, it, cache))
 
-      for scas in scass:
+      for i, scas in scass:
         var
           attestation: Attestation
           first = true
@@ -131,11 +133,13 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             if (rand(r, high(int)).float * attesterRatio).int <= high(int):
               if first:
                 attestation =
-                  makeAttestation(state, latest_block_root, v, cache, flags)
+                  makeAttestation(state, latest_block_root, scas, target_slot,
+                    i.uint64, v, cache, flags)
                 first = false
               else:
                 attestation.combine(
-                  makeAttestation(state, latest_block_root, v, cache, flags),
+                  makeAttestation(state, latest_block_root, scas, target_slot,
+                    i.uint64, v, cache, flags),
                   flags)
 
         if not first:
@@ -145,15 +149,11 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           let target_slot =
             attestation.data.slot + MIN_ATTESTATION_INCLUSION_DELAY - 1
 
-          ## In principle, should enumerate possible shard/slot combinations by
-          ## inverting get_attestation_data_slot(...), but this works. Could be
-          ## filtering earlier if we know that this attestation's being created
-          ## too late to be useful, as well.
-          if target_slot > attestations_idx:
-            var target_slot_attestations =
-              getOrDefault(attestations, target_slot)
-            target_slot_attestations.add attestation
-            attestations[target_slot] = target_slot_attestations
+          doAssert target_slot > attestations_idx
+          var target_slot_attestations =
+            getOrDefault(attestations, target_slot)
+          target_slot_attestations.add attestation
+          attestations[target_slot] = target_slot_attestations
 
     flushFile(stdout)
 

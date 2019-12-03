@@ -17,8 +17,6 @@ import
   unittest,
   # Specs
   ../../beacon_chain/spec/datatypes,
-  # Internals
-  ../../beacon_chain/ssz,
   # Mock helpers
   ../mocking/mock_genesis,
   ../testutil

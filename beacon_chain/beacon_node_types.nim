@@ -2,6 +2,7 @@ import
   deques, tables, options,
   stew/[endians2], chronicles,
   spec/[datatypes, crypto, digest],
+  nimcrypto/utils,
   beacon_chain_db
 
 type
@@ -135,6 +136,8 @@ type
 
     heads*: seq[Head]
 
+    inAdd*: bool
+
   MissingBlock* = object
     slots*: uint64 # number of slots that are suspected missing
     tries*: int
@@ -169,15 +172,14 @@ type
     ## blck.state_root == rdata.root
 
   BlockSlot* = object
-    ## Unique identifier for a particular fork in the block chain - normally,
-    ## there's a block for every slot, but in the case a block is not produced,
-    ## the chain progresses anyway, producing a new state for every slot.
-    #
-    # TODO: Isn't this type unnecessary?
-    #  The `BlockRef` stored here already includes the `slot` number as well.
-    #  We should either remove it or write a comment clarifying why it exists.
+    ## Unique identifier for a particular fork and time in the block chain -
+    ## normally, there's a block for every slot, but in the case a block is not
+    ## produced, the chain progresses anyway, producing a new state for every
+    ## slot.
     blck*: BlockRef
-    slot*: Slot
+    slot*: Slot ##\
+      ## Slot time for this BlockSlot which may differ from blck.slot when time
+      ## has advanced without blocks
 
   Head* = object
     blck*: BlockRef
@@ -213,8 +215,9 @@ type
 proc shortLog*(v: AttachedValidator): string = shortLog(v.pubKey)
 
 chronicles.formatIt BlockSlot:
-  ($it.blck.root)[0..7] & ":" & $it.slot
+  mixin toHex
+  it.blck.root.data[0..3].toHex(true) & ":" & $it.slot
 
 chronicles.formatIt BlockRef:
-  ($it.root)[0..7] & ":" & $it.slot
-
+  mixin toHex
+  it.root.data[0..3].toHex(true) & ":" & $it.slot
