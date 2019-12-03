@@ -1,24 +1,21 @@
 def runStages() {
 	try {
 		stage("Clone") {
-			// The Git repo seems to be cached in some Jenkins plugin, so this is not always a clean clone.
 			checkout scm
 			sh "make build-system-checks || true"
 		}
 
-		// caching doesn't work; extension probably not configured
-
-		//cache(maxCacheSize: 250, caches: [
-			//[$class: "ArbitraryFileCache", excludes: "", includes: "**/*", path: "${WORKSPACE}/vendor/nimbus-build-system/vendor/Nim/bin"],
-			//[$class: "ArbitraryFileCache", excludes: "", includes: "**/*", path: "${WORKSPACE}/vendor/go/bin"],
-			//[$class: "ArbitraryFileCache", excludes: "", includes: "**/*", path: "${WORKSPACE}/jsonTestsCache"]
-		//]) {
+		cache(maxCacheSize: 250, caches: [
+			[$class: "ArbitraryFileCache", excludes: "", includes: "**/*", path: "${WORKSPACE}/vendor/nimbus-build-system/vendor/Nim/bin"],
+			[$class: "ArbitraryFileCache", excludes: "", includes: "**/*", path: "${WORKSPACE}/vendor/go/bin"],
+			[$class: "ArbitraryFileCache", excludes: "", includes: "**/*", path: "${WORKSPACE}/jsonTestsCache"]
+		]) {
 			stage("Build") {
 				sh "make -j${env.NPROC} update" /* to allow a newer Nim version to be detected */
 				sh "make -j${env.NPROC} deps" /* to allow the following parallel stages */
 				sh "scripts/setup_official_tests.sh jsonTestsCache"
 			}
-		//}
+		}
 
 		stage("Test") {
 			parallel(
@@ -36,6 +33,7 @@ def runStages() {
 		}
 	} catch(e) {
 		echo "'${env.STAGE_NAME}' stage failed"
+		// we need to rethrow the exception here
 		throw e
 	} finally {
 		cleanWs()
