@@ -10,7 +10,7 @@
 import
   options, unittest,
   chronicles,
-  ./testutil,
+  ./testutil, ./testblockutil,
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
   ../beacon_chain/[beacon_node_types, attestation_pool, block_pool, extras, state_transition, ssz]
 

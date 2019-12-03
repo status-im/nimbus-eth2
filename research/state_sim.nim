@@ -1,8 +1,8 @@
 import
-  confutils, stats, times,
+  confutils, stats, times, std/monotimes,
   strformat,
   options, sequtils, random, tables,
-  ../tests/[testutil],
+  ../tests/[testutil, testblockutil],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
   ../beacon_chain/[attestation_pool, extras, ssz]
 
@@ -12,24 +12,6 @@ type Timers = enum
   tHashBlock = "Tree-hash block"
   tShuffle = "Retrieve committee once using get_beacon_committee"
   tAttest = "Combine committee attestations"
-
-template withTimer(stats: var RunningStat, body: untyped) =
-  let start = cpuTime()
-
-  block:
-    body
-
-  let stop = cpuTime()
-  stats.push stop - start
-
-template withTimerRet(stats: var RunningStat, body: untyped): untyped =
-  let start = cpuTime()
-  let tmp = block:
-    body
-  let stop = cpuTime()
-  stats.push stop - start
-
-  tmp
 
 proc writeJson*(prefix, slot, v: auto) =
   var f: File
@@ -54,7 +36,7 @@ func verifyConsensus(state: BeaconState, attesterRatio: auto) =
     doAssert state.finalized_checkpoint.epoch + 2 >= current_epoch
 
 cli do(slots = SLOTS_PER_EPOCH * 6,
-       validators = SLOTS_PER_EPOCH * 11, # One per shard is minimum
+       validators = SLOTS_PER_EPOCH * 30, # One per shard is minimum
        json_interval = SLOTS_PER_EPOCH,
        prefix = 0,
        attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.73,
