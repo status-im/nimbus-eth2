@@ -37,7 +37,7 @@ build-system-checks:
 		echo -e "\n✔️✔️✔️ Successfully fetched all required internal dependencies."; \
 		echo -e "        You should now \e[4mre-run '$(MAKE)' to build Nimbus\e[0m\n"; \
 		}; \
-		true
+		exit 0
 
 deps: | deps-common beacon_chain.nims p2pd
 
