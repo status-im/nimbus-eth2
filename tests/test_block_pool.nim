@@ -9,7 +9,7 @@
 
 import
   options, sequtils, unittest,
-  ./testutil,
+  ./testutil, ./testblockutil,
   ../beacon_chain/spec/[beaconstate, datatypes, digest],
   ../beacon_chain/[beacon_node_types, block_pool, beacon_chain_db, extras, ssz]
 
