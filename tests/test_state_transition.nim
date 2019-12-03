@@ -9,7 +9,7 @@
 
 import
   unittest,
-  ./testutil,
+  ./testutil, ./testblockutil,
   ../beacon_chain/spec/[beaconstate, datatypes, digest, validator],
   ../beacon_chain/[state_transition, ssz]
 

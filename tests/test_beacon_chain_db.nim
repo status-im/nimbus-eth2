@@ -11,7 +11,7 @@ import  options, unittest, sequtils, eth/trie/[db],
   ../beacon_chain/[beacon_chain_db, extras, interop, ssz],
   ../beacon_chain/spec/[beaconstate, datatypes, digest, crypto],
   # test utilies
-  ./testutil
+  ./testutil, ./testblockutil
 
 suite "Beacon chain DB" & preset():
 
