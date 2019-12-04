@@ -80,10 +80,10 @@ cli do (testnetName {.argument.}: string):
 
   if depositContractOpt.len > 0 and not system.dirExists(validatorsDir):
     mode = Silent
-    echo "Would you like to become a validator (you'll need access to 32 GoETH)? [Yn]"
+    echo "Would you like to become a validator (you'll need access to 32 GoETH)? [yN]"
     while true:
       let answer = readLineFromStdin()
-      if answer in ["y", "Y", "yes", ""]:
+      if answer in ["y", "Y", "yes"]:
         echo "Please enter your Eth1 private key in hex form (e.g. 0x1a2...f3c). Hit Enter to cancel."
         let privKey = readLineFromStdin()
         if privKey.len > 0:
@@ -96,7 +96,7 @@ cli do (testnetName {.argument.}: string):
             {depositContractOpt}
             """, "\n", " ")
         break
-      elif answer in ["n", "N", "no"]:
+      elif answer in ["n", "N", "no", ""]:
         break
       else:
         echo "Please answer 'yes' or 'no'"
