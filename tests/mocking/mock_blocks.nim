@@ -6,6 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
+  options,
   # Specs
   ../../beacon_chain/spec/[datatypes, crypto, helpers, validator],
   # Internals
@@ -60,20 +61,21 @@ proc signMockBlock*(
   blck: var BeaconBlock
   ) =
 
-  var proposer_index: ValidatorIndex
   var emptyCache = get_empty_per_epoch_cache()
-  if blck.slot == state.slot:
-    proposer_index = get_beacon_proposer_index(state, emptyCache)
-  else:
-    # Stub to get proposer index of future slot
-    # Note: this relies on ``let`` deep-copying the state
-    #       i.e. BeaconState should have value semantics
-    #            and not contain ref objects or pointers
-    var stubState = state
-    process_slots(stub_state, blck.slot)
-    proposer_index = get_beacon_proposer_index(stub_state, emptyCache)
+  let proposer_index =
+    if blck.slot == state.slot:
+      get_beacon_proposer_index(state, emptyCache)
+    else:
+      # Stub to get proposer index of future slot
+      # Note: this relies on ``let`` deep-copying the state
+      #       i.e. BeaconState should have value semantics
+      #            and not contain ref objects or pointers
+      var stubState = state
+      process_slots(stub_state, blck.slot)
+      get_beacon_proposer_index(stub_state, emptyCache)
 
-  signMockBlockImpl(state, blck, proposer_index)
+  # In tests, just let this throw if appropriate
+  signMockBlockImpl(state, blck, proposer_index.get)
 
 proc mockBlock*(
     state: BeaconState,
