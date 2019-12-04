@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  stew/endians2,
+  options, stew/endians2,
   chronicles, eth/trie/[db],
   ../beacon_chain/[beacon_chain_db, block_pool, extras, ssz, state_transition,
     validator_pool],
@@ -86,8 +86,9 @@ proc addBlock*(
   state.slot -= 1
 
   let
-    # Index from the new state, but registry from the old state.. hmm...
-    proposer = state.validators[proposer_index]
+    # Index from the new state, but registry from the old state.. hmm...\
+    # In tests, let this throw
+    proposer = state.validators[proposer_index.get]
     privKey = hackPrivKey(proposer)
 
   # TODO ugly hack; API needs rethinking
