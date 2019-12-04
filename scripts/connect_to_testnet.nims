@@ -78,31 +78,34 @@ cli do (testnetName {.argument.}: string):
 
   mkDir dumpDir
 
+  proc execIgnoringExitCode(s: string) =
+    # reduces the error output when interrupting an external command with Ctrl+C
+    try:
+      exec s
+    except OsError:
+      discard
+
   if depositContractOpt.len > 0 and not system.dirExists(validatorsDir):
     mode = Silent
-    echo "Would you like to become a validator (you'll need access to 32 GoETH)? [yN]"
-    while true:
-      let answer = readLineFromStdin()
-      if answer in ["y", "Y", "yes"]:
-        echo "Please enter your Eth1 private key in hex form (e.g. 0x1a2...f3c). Hit Enter to cancel."
-        let privKey = readLineFromStdin()
-        if privKey.len > 0:
-          mkDir validatorsDir
-          exec replace(&"""{beaconNodeBinary} makeDeposits
-            --random-deposits=1
-            --deposits-dir="{validatorsDir}"
-            --deposit-private-key={privKey}
-            --web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a
-            {depositContractOpt}
-            """, "\n", " ")
-        break
-      elif answer in ["n", "N", "no", ""]:
-        break
-      else:
-        echo "Please answer 'yes' or 'no'"
+    echo "\nPlease enter your Goerli Eth1 private key in hex form (e.g. 0x1a2...f3c) in order to become a validator (you'll need access to 32 GoETH)."
+    echo "Hit Enter to skip this."
+    # is there no other way to print without a trailing newline?
+    exec "printf '> '"
+    let privKey = readLineFromStdin()
+    if privKey.len > 0:
+      mkDir validatorsDir
+      mode = Verbose
+      execIgnoringExitCode replace(&"""{beaconNodeBinary} makeDeposits
+        --random-deposits=1
+        --deposits-dir="{validatorsDir}"
+        --deposit-private-key={privKey}
+        --web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a
+        {depositContractOpt}
+        """, "\n", " ")
+      quit()
 
   mode = Verbose
-  exec replace(&"""{beaconNodeBinary}
+  execIgnoringExitCode replace(&"""{beaconNodeBinary}
     --data-dir="{dataDir}"
     --dump=true
     --bootstrap-file="{testnetDir/bootstrapFile}"
