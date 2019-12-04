@@ -38,7 +38,7 @@ suite "Attestation pool processing" & preset():
       {skipValidation})
     genBlock = get_initial_beacon_block(genState)
 
-  test "Can add and retrieve simple attestation" & preset():
+  timedTest "Can add and retrieve simple attestation" & preset():
     var cache = get_empty_per_epoch_cache()
     withPool:
       let
@@ -58,7 +58,7 @@ suite "Attestation pool processing" & preset():
       check:
         attestations.len == 1
 
-  test "Attestations may arrive in any order" & preset():
+  timedTest "Attestations may arrive in any order" & preset():
     var cache = get_empty_per_epoch_cache()
     withPool:
       let
@@ -88,7 +88,7 @@ suite "Attestation pool processing" & preset():
       check:
         attestations.len == 1
 
-  test "Attestations should be combined" & preset():
+  timedTest "Attestations should be combined" & preset():
     var cache = get_empty_per_epoch_cache()
     withPool:
       let
@@ -111,7 +111,7 @@ suite "Attestation pool processing" & preset():
       check:
         attestations.len == 1
 
-  test "Attestations may overlap, bigger first" & preset():
+  timedTest "Attestations may overlap, bigger first" & preset():
     var cache = get_empty_per_epoch_cache()
     withPool:
 
@@ -137,7 +137,7 @@ suite "Attestation pool processing" & preset():
       check:
         attestations.len == 1
 
-  test "Attestations may overlap, smaller first" & preset():
+  timedTest "Attestations may overlap, smaller first" & preset():
     var cache = get_empty_per_epoch_cache()
     withPool:
       var

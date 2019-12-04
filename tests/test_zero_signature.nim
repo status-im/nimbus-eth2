@@ -8,7 +8,7 @@
 {.used.}
 
 import
-  unittest,
+  unittest, ./testutil,
   ../beacon_chain/spec/[datatypes, crypto],
   ../beacon_chain/ssz
 
@@ -36,7 +36,7 @@ suite "Zero signature sanity checks":
 
   #   check(zeroSIg == deserZeroSig)
 
-  test "SSZ serialization roundtrip of BeaconBlockHeader":
+  timedTest "SSZ serialization roundtrip of BeaconBlockHeader":
 
     let defaultBlockHeader = BeaconBlockHeader(
       signature: BlsValue[Signature](kind: OpaqueBlob)

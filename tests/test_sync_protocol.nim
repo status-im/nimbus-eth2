@@ -7,7 +7,7 @@
 
 {.used.}
 
-import unittest
+import unittest, ./testutil
 
 when false:
   import ../beacon_chain/sync_protocol
@@ -15,5 +15,5 @@ when false:
 suite "Sync protocol":
   # Compile test
 
-  test "Compile":
+  timedTest "Compile":
     discard

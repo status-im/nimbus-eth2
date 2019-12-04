@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+import ./testutil
+
 import # Official constants
   ./official/test_fixture_const_sanity_check
 
@@ -35,3 +37,5 @@ import # Refactor state transition unit tests
 #        # https://github.com/status-im/nim-beacon-chain/issues/374
 #   ./official/test_fixture_shuffling,
 #   ./official/test_fixture_bls
+
+summarizeLongTests()

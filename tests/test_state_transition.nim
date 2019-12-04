@@ -26,7 +26,7 @@ suite "Block processing" & preset():
     genesisBlock = get_initial_beacon_block(genesisState)
     genesisRoot = signing_root(genesisBlock)
 
-  test "Passes from genesis state, no block" & preset():
+  timedTest "Passes from genesis state, no block" & preset():
     var
       state = genesisState
 
@@ -34,7 +34,7 @@ suite "Block processing" & preset():
     check:
       state.slot == genesisState.slot + 1
 
-  test "Passes from genesis state, empty block" & preset():
+  timedTest "Passes from genesis state, empty block" & preset():
     var
       state = genesisState
       previous_block_root = signing_root(genesisBlock)
@@ -47,7 +47,7 @@ suite "Block processing" & preset():
 
       state.slot == genesisState.slot + 1
 
-  test "Passes through epoch update, no block" & preset():
+  timedTest "Passes through epoch update, no block" & preset():
     var
       state = genesisState
 
@@ -56,7 +56,7 @@ suite "Block processing" & preset():
     check:
       state.slot == genesisState.slot + SLOTS_PER_EPOCH
 
-  test "Passes through epoch update, empty block" & preset():
+  timedTest "Passes through epoch update, empty block" & preset():
     var
       state = genesisState
       previous_block_root = genesisRoot
@@ -74,7 +74,7 @@ suite "Block processing" & preset():
     check:
       state.slot == genesisState.slot + SLOTS_PER_EPOCH
 
-  test "Attestation gets processed at epoch" & preset():
+  timedTest "Attestation gets processed at epoch" & preset():
     var
       state = genesisState
       previous_block_root = genesisRoot

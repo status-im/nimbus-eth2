@@ -7,7 +7,7 @@
 
 {.used.}
 
-import unittest
+import unittest, ./testutil
 
 when false:
   import ../beacon_chain/beacon_node
@@ -15,5 +15,5 @@ when false:
 suite "Beacon node":
   # Compile test
 
-  test "Compile":
+  timedTest "Compile":
     discard

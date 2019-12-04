@@ -108,7 +108,7 @@ proc checkConfig() =
   var config = yamlStream.loadToJson()
   doAssert config.len == 1
   for constant, value in config[0]:
-    test &"{constant:<50}{value:<20}{preset()}":
+    timedTest &"{constant:<50}{value:<20}{preset()}":
       if constant in IgnoreKeys:
         echo &"        ↶↶ Skipping {constant}"
         continue

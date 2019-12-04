@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  unittest, stint, blscurve, stew/byteutils,
+  unittest, stint, blscurve, ./testutil, stew/byteutils,
   ../beacon_chain/[extras, interop, ssz],
   ../beacon_chain/spec/[beaconstate, crypto, helpers, datatypes]
 
@@ -116,7 +116,7 @@ let depositsConfig = [
 ]
 
 suite "Interop":
-  test "Mocked start private key":
+  timedTest "Mocked start private key":
     for i, k in privateKeys:
       let
         key = makeInteropPrivKey(i)
@@ -126,7 +126,7 @@ suite "Interop":
         # getBytes is bigendian and returns full 48 bytes of key..
         Uint256.fromBytesBE(key.getBytes()[48-32..<48]) == v
 
-  test "Interop signatures":
+  timedTest "Interop signatures":
     for dep in depositsConfig:
       let computed_sig = bls_sign(
         key = dep.privkey,
@@ -137,7 +137,7 @@ suite "Interop":
       check:
         dep.sig == computed_sig
 
-  test "Interop genesis":
+  timedTest "Interop genesis":
     # Check against https://github.com/protolambda/zcli:
     # zcli keys generate --to 64 | zcli genesis mock --genesis-time 1570500000 > /tmp/state.ssz
     # zcli hash-tree-root /tmp.state.ssz
