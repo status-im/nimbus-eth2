@@ -144,12 +144,6 @@ proc disconnectAndRaise(peer: Peer,
   await peer.disconnect(r)
   raisePeerDisconnected(msg, r)
 
-template reraiseAsPeerDisconnected(peer: Peer, errMsgExpr: static string,
-                                   reason = FaultOrError): auto =
-  const errMsg = errMsgExpr
-  debug errMsg
-  disconnectAndRaise(peer, reason, errMsg)
-
 proc registerProtocol(protocol: ProtocolInfo) =
   # TODO: This can be done at compile-time in the future
   let pos = lowerBound(gProtocols, protocol)
@@ -326,16 +320,6 @@ proc sendErrorResponse(peer: Peer,
   discard await stream.transp.write(responseBytes)
   await stream.close()
 
-proc writeSizePrefix(transp: StreamTransport, size: uint64) {.async.} =
-  var
-    varintBuf: array[10, byte]
-    varintSize = vsizeof(size)
-    cursor = createWriteCursor(varintBuf)
-  cursor.appendVarint size
-  var sent = await transp.write(varintBuf[0 ..< varintSize])
-  if sent != varintSize:
-    raise newException(TransmissionError, "Failed to deliver size prefix")
-
 proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.async} =
   var deadline = sleepAsync RESP_TIMEOUT
   var streamFut = peer.network.daemon.openStream(peer.id, @[protocolId])
@@ -421,10 +405,6 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
 
   # Read the response
   return await stream.readResponse(ResponseMsg, deadline)
-
-proc p2pStreamName(MsgType: type): string =
-  mixin msgProtocol, protocolInfo, msgId
-  MsgType.msgProtocol.protocolInfo.messages[MsgType.msgId].libp2pProtocol
 
 proc init*(T: type Peer, network: Eth2Node, id: PeerID): Peer =
   new result
@@ -635,7 +615,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
         except CatchableError as `errVar`:
           try:
             `await` sendErrorResponse(`peerVar`, `streamVar`, ServerError, `errVar`.msg)
-          except CatchableError as err:
+          except CatchableError:
             debug "Failed to deliver error response", peer = `peerVar`
 
     ##
