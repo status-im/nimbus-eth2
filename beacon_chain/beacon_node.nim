@@ -651,7 +651,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
         slot=slot,
         epoch=slot.compute_epoch_at_slot,
         num_validators=state.validators.len,
-        num_active_validators=
+        active_validators=
           get_active_validator_indices(state, slot.compute_epoch_at_slot),
         balances=state.balances
 
