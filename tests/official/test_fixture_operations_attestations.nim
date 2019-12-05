@@ -39,7 +39,7 @@ template runTest(testName: string, identifier: untyped) =
     else:
       prefix = "[Invalid] "
 
-    test prefix & testName & " (" & astToStr(identifier) & ")":
+    timedTest prefix & testName & " (" & astToStr(identifier) & ")":
       var stateRef, postRef: ref BeaconState
       var attestationRef: ref Attestation
       new attestationRef

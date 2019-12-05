@@ -70,11 +70,11 @@ proc runSSZtests() =
   for pathKind, sszType in walkDir(SSZDir, relative = true):
     doAssert pathKind == pcDir
     if sszType in Unsupported:
-      test &"  Skipping   {sszType:20} ✗✗✗":
+      timedTest &"  Skipping   {sszType:20} ✗✗✗":
         discard
       continue
 
-    test &"  Testing    {sszType}":
+    timedTest &"  Testing    {sszType}":
       let path = SSZDir/sszType
       for pathKind, sszTestKind in walkDir(path, relative = true):
         doAssert pathKind == pcDir

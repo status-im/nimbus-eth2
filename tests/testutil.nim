@@ -6,14 +6,18 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  stats, stew/endians2,
+  algorithm, strformat, stats, times, std/monotimes, stew/endians2,
   chronicles, eth/trie/[db],
   ../beacon_chain/[beacon_chain_db, block_pool, ssz, beacon_node_types],
   ../beacon_chain/spec/datatypes
 
+type
+  TestDuration = tuple[duration: float, label: string]
+
 func preset*(): string =
   " [Preset: " & const_preset & ']'
 
+# For state_sim
 template withTimer*(stats: var RunningStat, body: untyped) =
   let start = getMonoTime()
 
@@ -23,6 +27,15 @@ template withTimer*(stats: var RunningStat, body: untyped) =
   let stop = getMonoTime()
   stats.push (stop - start).inMicroseconds.float / 1000000.0
 
+template withTimer*(duration: var float, body: untyped) =
+  let start = getMonoTime()
+
+  block:
+    body
+
+  duration = (getMonoTime() - start).inMicroseconds.float / 1000000.0
+
+# For state_sim
 template withTimerRet*(stats: var RunningStat, body: untyped): untyped =
   let start = getMonoTime()
   let tmp = block:
@@ -32,6 +45,34 @@ template withTimerRet*(stats: var RunningStat, body: untyped): untyped =
 
   tmp
 
+var testTimes: seq[TestDuration]
+
+proc summarizeLongTests*() =
+  # TODO clean-up and make machine-readable/storable the output
+  # TODO this is too hard-coded and mostly a demo for using the
+  # timedTest wrapper template for unittest
+  sort(testTimes, system.cmp, SortOrder.Descending)
+
+  echo ""
+  echo "10 longest individual test durations"
+  echo "------------------------------------"
+  for i, item in testTimes:
+    echo &"{item.duration:6.2f}s for {item.label}"
+    if i >= 10:
+      break
+
+template timedTest*(name, body) =
+  var f: float
+  test name:
+    withTimer f:
+      body
+
+  # TODO reached for a failed test; maybe defer or similar
+  # TODO noto thread-safe as-is
+  testTimes.add (f, name)
+
 proc makeTestDB*(tailState: BeaconState, tailBlock: BeaconBlock): BeaconChainDB =
   result = init(BeaconChainDB, newMemoryDB())
   BlockPool.preInit(result, tailState, tailBlock)
+
+export inMicroseconds

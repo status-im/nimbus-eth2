@@ -9,6 +9,7 @@
 
 import
   unittest, random, heapqueue, tables, strutils,
+  ./testutil,
   chronos,
   ../beacon_chain/peer_pool
 
@@ -36,7 +37,7 @@ proc close*(peer: PeerTest) =
   peer.future.complete()
 
 suite "PeerPool testing suite":
-  test "addPeer() test":
+  timedTest "addPeer() test":
     const peersCount = [
       [10, 5, 5, 10, 5, 5],
       [-1, 5, 5, 10, 5, 5],
@@ -63,7 +64,7 @@ suite "PeerPool testing suite":
         pool.lenAvailable == item[3]
         pool.lenAvailable({PeerType.Incoming}) == item[4]
         pool.lenAvailable({PeerType.Outgoing}) == item[5]
-  test "Acquire from empty pool":
+  timedTest "Acquire from empty pool":
     var pool0 = newPeerPool[PeerTest, PeerTestID]()
     var pool1 = newPeerPool[PeerTest, PeerTestID]()
     var pool2 = newPeerPool[PeerTest, PeerTestID]()
@@ -115,7 +116,7 @@ suite "PeerPool testing suite":
       itemFut23.finished == false
       itemFut24.finished == false
 
-  test "Acquire/Sorting and consistency test":
+  timedTest "Acquire/Sorting and consistency test":
     const
       TestsCount = 1000
       MaxNumber = 1_000_000
@@ -184,7 +185,7 @@ suite "PeerPool testing suite":
 
     check waitFor(testAcquireRelease()) == TestsCount
 
-  test "deletePeer() test":
+  timedTest "deletePeer() test":
     proc testDeletePeer(): Future[bool] {.async.} =
       var pool = newPeerPool[PeerTest, PeerTestID]()
       var peer = PeerTest.init("deletePeer")
@@ -237,7 +238,7 @@ suite "PeerPool testing suite":
       result = true
     check waitFor(testDeletePeer()) == true
 
-  test "Peer lifetime test":
+  timedTest "Peer lifetime test":
     proc testPeerLifetime(): Future[bool] {.async.} =
       var pool = newPeerPool[PeerTest, PeerTestID]()
       var peer = PeerTest.init("closingPeer")
@@ -284,7 +285,7 @@ suite "PeerPool testing suite":
 
     check waitFor(testPeerLifetime()) == true
 
-  test "Safe/Clear test":
+  timedTest "Safe/Clear test":
     var pool = newPeerPool[PeerTest, PeerTestID]()
     var peer1 = PeerTest.init("peer1", 10)
     var peer2 = PeerTest.init("peer2", 9)
@@ -331,7 +332,7 @@ suite "PeerPool testing suite":
     asyncCheck testConsumer()
     check waitFor(testClose()) == true
 
-  test "Access peers by key test":
+  timedTest "Access peers by key test":
     var pool = newPeerPool[PeerTest, PeerTestID]()
     var peer1 = PeerTest.init("peer1", 10)
     var peer2 = PeerTest.init("peer2", 9)
@@ -360,7 +361,7 @@ suite "PeerPool testing suite":
     ppeer[].weight = 100
     check pool["peer1"].weight == 100
 
-  test "Iterators test":
+  timedTest "Iterators test":
     var pool = newPeerPool[PeerTest, PeerTestID]()
     var peer1 = PeerTest.init("peer1", 10)
     var peer2 = PeerTest.init("peer2", 9)

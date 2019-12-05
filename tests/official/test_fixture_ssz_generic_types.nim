@@ -10,7 +10,7 @@ import
   os, unittest, strutils, streams, strformat, strscans,
   macros,
   # Status libraries
-  stint, stew/bitseqs,
+  stint, stew/bitseqs, ../testutil,
   # Third-party
   yaml,
   # Beacon chain internals
@@ -251,7 +251,7 @@ proc runSSZtests() =
   for pathKind, sszType in walkDir(SSZDir, relative = true):
     doAssert pathKind == pcDir
     if sszType == "bitlist":
-      test &"**Skipping** {sszType} inputs - valid - skipped altogether":
+      timedTest &"**Skipping** {sszType} inputs - valid - skipped altogether":
         # TODO: serialization of "type BitList[maxLen] = distinct BitSeq is not supported"
         #       https://github.com/status-im/nim-beacon-chain/issues/518
         discard
@@ -266,7 +266,7 @@ proc runSSZtests() =
     of "containers":
       skipped = " - skipping VarTestStruct, ComplexTestStruct, BitsStruct"
 
-    test &"Testing {sszType:12} inputs - valid" & skipped:
+    timedTest &"Testing {sszType:12} inputs - valid" & skipped:
       let path = SSZDir/sszType/"valid"
       for pathKind, sszSubType in walkDir(path, relative = true):
         doAssert pathKind == pcDir

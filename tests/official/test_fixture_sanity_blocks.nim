@@ -29,7 +29,7 @@ template runValidTest(testName: string, identifier: untyped, num_blocks: int): u
   const testDir = SanityBlocksDir / astToStr(identifier)
 
   proc `testImpl _ blck _ identifier`() =
-    test "[Valid]   " & testName & " (" & astToStr(identifier) & ")":
+    timedTest "[Valid]   " & testName & " (" & astToStr(identifier) & ")":
       var stateRef, postRef: ref BeaconState
       new stateRef
       new postRef
@@ -50,7 +50,7 @@ template runValidTest(testName: string, identifier: untyped, num_blocks: int): u
   `testImpl _ blck _ identifier`()
 
 suite "Official - Sanity - Blocks " & preset():
-  test "[Invalid] Previous slot block transition (prev_slot_block_transition)":
+  timedTest "[Invalid] Previous slot block transition (prev_slot_block_transition)":
     const testDir = SanityBlocksDir/"prev_slot_block_transition"
     var stateRef: ref BeaconState
     new stateRef
@@ -68,7 +68,7 @@ suite "Official - Sanity - Blocks " & preset():
   runValidTest("Empty block transition", empty_block_transition, 1)
 
   when false: # TODO: we need more granular skipValidation
-    test "[Invalid] Invalid state root":
+    timedTest "[Invalid] Invalid state root":
       const testDir = SanityBlocksDir/"invalid_state_root"
       var stateRef: ref BeaconState
       new stateRef

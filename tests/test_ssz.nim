@@ -10,6 +10,7 @@
 import
   unittest, options,
   stint, nimcrypto, eth/common, serialization/testing/generic_suite,
+  ./testutil,
   ../beacon_chain/spec/[datatypes, digest],
   ../beacon_chain/ssz, ../beacon_chain/ssz/[navigator, dynamic_navigator]
 
@@ -75,7 +76,7 @@ proc toDigest[N: static int](x: array[N, byte]): Eth2Digest =
   result.data[0 .. N-1] = x
 
 suite "SSZ navigator":
-  test "simple object fields":
+  timedTest "simple object fields":
     var foo = Foo(bar: Bar(b: "bar", baz: Baz(i: 10'u64)))
     let encoded = SSZ.encode(foo)
 
@@ -87,7 +88,7 @@ suite "SSZ navigator":
     let mountedBar = mountedFoo.bar
     check mountedBar.baz.i == 10'u64
 
-  test "lists with max size":
+  timedTest "lists with max size":
     let a = [byte 0x01, 0x02, 0x03].toDigest
     let b = [byte 0x04, 0x05, 0x06].toDigest
     let c = [byte 0x07, 0x08, 0x09].toDigest
@@ -101,7 +102,7 @@ suite "SSZ navigator":
     check $root2 == "9FB7D518368DC14E8CC588FB3FD2749BEEF9F493FEF70AE34AF5721543C67173"
 
 suite "SSZ dynamic navigator":
-  test "navigating fields":
+  timedTest "navigating fields":
     var fooOrig = Foo(bar: Bar(b: "bar", baz: Baz(i: 10'u64)))
     let fooEncoded = SSZ.encode(fooOrig)
 

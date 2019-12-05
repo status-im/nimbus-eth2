@@ -223,35 +223,35 @@ suite "[Unit - Spec - Epoch processing] Justification and Finalization " & prese
   template resetState: untyped =
     deepCopy(state, genesisState)
 
-  test " Rule I - 234 finalization with enough support":
+  timedTest " Rule I - 234 finalization with enough support":
     resetState()
     finalizeOn234(state, Epoch 5, sufficient_support = true)
 
-  test " Rule I - 234 finalization without support":
+  timedTest " Rule I - 234 finalization without support":
     resetState()
     finalizeOn234(state, Epoch 5, sufficient_support = false)
 
-  test " Rule II - 23 finalization with enough support":
+  timedTest " Rule II - 23 finalization with enough support":
     resetState()
     finalizeOn23(state, Epoch 4, sufficient_support = true)
 
-  test " Rule II - 23 finalization without support":
+  timedTest " Rule II - 23 finalization without support":
     resetState()
     finalizeOn23(state, Epoch 4, sufficient_support = false)
 
 
-  test " Rule III - 123 finalization with enough support":
+  timedTest " Rule III - 123 finalization with enough support":
     resetState()
     finalizeOn123(state, Epoch 6, sufficient_support = true)
 
-  test " Rule III - 123 finalization without support":
+  timedTest " Rule III - 123 finalization without support":
     resetState()
     finalizeOn123(state, Epoch 6, sufficient_support = false)
 
-  test " Rule IV - 12 finalization with enough support":
+  timedTest " Rule IV - 12 finalization with enough support":
     resetState()
     finalizeOn12(state, Epoch 3, sufficient_support = true)
 
-  test " Rule IV - 12 finalization without support":
+  timedTest " Rule IV - 12 finalization without support":
     resetState()
     finalizeOn12(state, Epoch 3, sufficient_support = false)

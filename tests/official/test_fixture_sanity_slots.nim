@@ -29,7 +29,7 @@ template runTest(testName: string, identifier: untyped, num_slots: uint64): unty
   const testDir = SanitySlotsDir / astToStr(identifier)
 
   proc `testImpl _ slots _ identifier`() =
-    test "Slots - " & testName & " (" & astToStr(identifier) & ")":
+    timedTest "Slots - " & testName & " (" & astToStr(identifier) & ")":
       var stateRef, postRef: ref BeaconState
       new stateRef
       new postRef
