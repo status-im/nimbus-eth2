@@ -647,7 +647,14 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
   node.blockPool.withState(node.stateCache, BlockSlot(blck: head, slot: slot)):
     let proposerIdx = get_beacon_proposer_index(state, cache)
     if proposerIdx.isNone:
-      debug "Missing proposer index"
+      notice "Missing proposer index",
+        slot=slot,
+        epoch=slot.compute_epoch_at_slot,
+        num_validators=state.validators.len,
+        num_active_validators=
+          get_active_validator_indices(state, slot.compute_epoch_at_slot),
+        balances=state.balances
+
       return head
 
     let validator = node.getAttachedValidator(state, proposerIdx.get)
