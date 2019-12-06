@@ -59,6 +59,7 @@ func aggregate_attestations_naively*(
   # mutates state, split that off and keep this separate.
   # TODO alias CommitteeIndex to actual type then convert various uint64's here
   # to it
+  # TODO return Option[AggregateAndProof] maybe
 
   # If the validator is selected to aggregate (`is_aggregator()`), they
   # construct an aggregate attestation
