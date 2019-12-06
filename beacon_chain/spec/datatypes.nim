@@ -320,6 +320,11 @@ type
     deposit_count*: uint64
     block_hash*: Eth2Digest
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/validator/0_beacon-chain-validator.md#aggregateandproof
+  AggregateAndProof* = object
+    index: uint64
+    selection_proof: ValidatorSig
+
   # TODO to be replaced with some magic hash caching
   HashedBeaconState* = object
     data*: BeaconState
