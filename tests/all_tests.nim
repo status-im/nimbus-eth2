@@ -26,7 +26,9 @@ import # Unit test
   ./test_peer_pool
 
 import # Refactor state transition unit tests
-  ./spec_block_processing/test_genesis,
+  # TODO re-enable when useful
+  # ./spec_block_processing/test_genesis,
+  # In mainnet these take 2 minutes and are empty TODOs
   ./spec_block_processing/test_process_deposits,
   ./spec_block_processing/test_process_attestation,
   ./spec_epoch_processing/test_process_justification_and_finalization
