@@ -4,7 +4,7 @@ import
   ../beacon_chain/[conf, eth2_network]
 
 template asyncTest*(name, body: untyped) =
-  test name:
+  timedTest name:
     proc scenario {.async.} = body
     waitFor scenario()
 

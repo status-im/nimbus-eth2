@@ -598,9 +598,6 @@ func lastFieldName(RecordType: type): string {.compileTime.} =
   enumAllSerializedFields(RecordType):
     result = fieldName
 
-func hasSigningRoot(T: type): bool {.compileTime.} =
-  lastFieldName(T) == "signature"
-
 func signingRoot*(obj: object): Eth2Digest =
   const lastField = lastFieldName(obj.type)
   merkelizeFields:

@@ -31,7 +31,7 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
 
   template valid_deposit(deposit_amount: uint64, name: string): untyped =
     # TODO: BLS signature
-    test "Deposit " & name & " MAX_EFFECTIVE_BALANCE balance (" &
+    timedTest "Deposit " & name & " MAX_EFFECTIVE_BALANCE balance (" &
           $(MAX_EFFECTIVE_BALANCE div 10'u64^9) & " ETH)":
       var state: BeaconState
       deepCopy(state, genesisState)
@@ -74,7 +74,7 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
   valid_deposit(MAX_EFFECTIVE_BALANCE, "at")
   valid_deposit(MAX_EFFECTIVE_BALANCE + 1, "over")
 
-  test "Validator top-up":
+  timedTest "Validator top-up":
 
     var state: BeaconState
     deepCopy(state, genesisState)

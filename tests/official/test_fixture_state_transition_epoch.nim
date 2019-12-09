@@ -37,7 +37,7 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, us
       for testDir in walkDirRec(suiteDir, yieldFilter = {pcDir}):
 
         let unitTestName = testDir.rsplit(DirSep, 1)[1]
-        test testName & " - " & unitTestName & preset():
+        timedTest testName & " - " & unitTestName & preset():
           var stateRef, postRef: ref BeaconState
           new stateRef
           new postRef

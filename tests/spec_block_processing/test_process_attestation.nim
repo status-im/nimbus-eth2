@@ -32,7 +32,7 @@ suite "[Unit - Spec - Block processing] Attestations " & preset():
     # The BeaconState is exposed as "state" in the calling context
     # The attestation to process must be named "attestation" in the calling context
 
-    test name:
+    timedTest name:
       var state{.inject.}: BeaconState
       deepCopy(state, genesisState)
 
@@ -72,7 +72,7 @@ suite "[Unit - Spec - Block processing] Attestations " & preset():
   # TODO check if this should be replaced
   when false:
     when MAX_EPOCHS_PER_CROSSLINK > 4'u64:
-      test "Valid attestation since max epochs per crosslinks [Skipped for preset: " & const_preset & ']':
+      timedTest "Valid attestation since max epochs per crosslinks [Skipped for preset: " & const_preset & ']':
         discard
     else:
       valid_attestation("Valid attestation since max epochs per crosslinks"):

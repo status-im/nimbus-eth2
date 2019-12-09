@@ -645,9 +645,19 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
   #      revisit this - we should be able to advance behind
   var cache = get_empty_per_epoch_cache()
   node.blockPool.withState(node.stateCache, BlockSlot(blck: head, slot: slot)):
-    let
-      proposerIdx = get_beacon_proposer_index(state, cache)
-      validator = node.getAttachedValidator(state, proposerIdx)
+    let proposerIdx = get_beacon_proposer_index(state, cache)
+    if proposerIdx.isNone:
+      notice "Missing proposer index",
+        slot=slot,
+        epoch=slot.compute_epoch_at_slot,
+        num_validators=state.validators.len,
+        active_validators=
+          get_active_validator_indices(state, slot.compute_epoch_at_slot),
+        balances=state.balances
+
+      return head
+
+    let validator = node.getAttachedValidator(state, proposerIdx.get)
 
     if validator != nil:
       return await proposeBlock(node, validator, head, slot)
@@ -655,7 +665,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     trace "Expecting block proposal",
       headRoot = shortLog(head.root),
       slot = shortLog(slot),
-      proposer = shortLog(state.validators[proposerIdx].pubKey),
+      proposer = shortLog(state.validators[proposerIdx.get].pubKey),
       cat = "consensus",
       pcs = "wait_for_proposal"
 

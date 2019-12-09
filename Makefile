@@ -13,11 +13,39 @@ BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 # we don't want an error here, so we can handle things later, in the build-system-checks target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
 
-TOOLS := beacon_node bench_bls_sig_agggregation ncli_hash_tree_root ncli_pretty ncli_signing_root ncli_transition process_dashboard deposit_contract
-TOOLS_DIRS := beacon_chain benchmarks research ncli tests/simulation
+# unconditionally built by the default Make target
+TOOLS := \
+	beacon_node \
+	bench_bls_sig_agggregation \
+	deposit_contract \
+	ncli_hash_tree_root \
+	ncli_pretty \
+	ncli_signing_root \
+	ncli_transition \
+	process_dashboard
+TOOLS_DIRS := \
+	beacon_chain \
+	benchmarks \
+	ncli \
+	research \
+	tests/simulation
 TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 
-.PHONY: all build-system-checks deps update p2pd test $(TOOLS) clean_eth2_network_simulation_files eth2_network_simulation clean-testnet0 testnet0 clean-testnet1 testnet1 clean
+.PHONY: \
+	all \
+	build-system-checks \
+	deps \
+	update \
+	p2pd \
+	test \
+	$(TOOLS) \
+	clean_eth2_network_simulation_files \
+	eth2_network_simulation \
+	clean-testnet0 \
+	testnet0 \
+	clean-testnet1 \
+	testnet1 \
+	clean
 
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included. We can only execute one target in this state.
@@ -29,6 +57,8 @@ endif
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
 
+#- the Windows build fails on Azure Pipelines if we have Unicode symbols copy/pasted here,
+#  so we encode them in ASCII
 GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
 build-system-checks:
 	@[[ -e "$(BUILD_SYSTEM_DIR)/makefiles" ]] || { \
@@ -44,7 +74,7 @@ deps: | deps-common beacon_chain.nims p2pd
 
 #- deletes and recreates "beacon_chain.nims" which on Windows is a copy instead of a proper symlink
 update: | update-common
-	rm -rf beacon_chain.nims && \
+	rm -f beacon_chain.nims && \
 		$(MAKE) beacon_chain.nims
 
 # symlink
@@ -77,26 +107,20 @@ clean_eth2_network_simulation_files:
 eth2_network_simulation: | build deps p2pd clean_eth2_network_simulation_files process_dashboard
 	GIT_ROOT="$$PWD" tests/simulation/start.sh
 
-testnet0: | build deps
-	+ $(MAKE) testnet0-no-clean
-
-testnet1: | build deps
-	+ $(MAKE) testnet1-no-clean
-
 clean-testnet0:
 	rm -rf build/data/testnet0
 
 clean-testnet1:
 	rm -rf build/data/testnet1
 
-testnet0-no-clean: | build deps
+testnet0: | build deps
 	NIM_PARAMS="$(NIM_PARAMS)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims testnet0
 
-testnet1-no-clean: | build deps
+testnet1: | build deps
 	NIM_PARAMS="$(NIM_PARAMS)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims testnet1
 
 clean: | clean-common
-	rm -rf build/{$(TOOLS_CSV),all_tests,*_node}
+	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,beacon_node_testnet*,state_sim,transition*}
 
 libnfuzz.so: | build deps-common beacon_chain.nims
 	echo -e $(BUILD_MSG) "build/$@" && \
@@ -109,3 +133,4 @@ libnfuzz.a: | build deps-common beacon_chain.nims
 		rm -f build/$@ && \
 		$(ENV_SCRIPT) nim c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static $(NIM_PARAMS) -o:build/$@ nfuzz/libnfuzz.nim && \
 		[[ -e "$@" ]] && mv "$@" build/ # workaround for https://github.com/nim-lang/Nim/issues/12745
+

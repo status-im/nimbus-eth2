@@ -15,7 +15,7 @@ import  options, unittest, sequtils, eth/trie/[db],
 
 suite "Beacon chain DB" & preset():
 
-  test "empty database" & preset():
+  timedTest "empty database" & preset():
     var
       db = init(BeaconChainDB, newMemoryDB())
 
@@ -26,7 +26,7 @@ suite "Beacon chain DB" & preset():
         # TODO re-check crash here in mainnet
         true
 
-  test "sanity check blocks" & preset():
+  timedTest "sanity check blocks" & preset():
     var
       db = init(BeaconChainDB, newMemoryDB())
 
@@ -44,7 +44,7 @@ suite "Beacon chain DB" & preset():
     check:
       db.getStateRoot(root, blck.slot).get() == root
 
-  test "sanity check states" & preset():
+  timedTest "sanity check states" & preset():
     var
       db = init(BeaconChainDB, newMemoryDB())
 
@@ -58,7 +58,7 @@ suite "Beacon chain DB" & preset():
       db.containsState(root)
       db.getState(root).get() == state
 
-  test "find ancestors" & preset():
+  timedTest "find ancestors" & preset():
     var
       db = init(BeaconChainDB, newMemoryDB())
       x: ValidatorSig
@@ -93,7 +93,7 @@ suite "Beacon chain DB" & preset():
     doAssert toSeq(db.getAncestors(a0r)) == [(a0r, a0)]
     doAssert toSeq(db.getAncestors(a2r)) == [(a2r, a2), (a1r, a1), (a0r, a0)]
 
-  test "sanity check genesis roundtrip" & preset():
+  timedTest "sanity check genesis roundtrip" & preset():
     # This is a really dumb way of checking that we can roundtrip a genesis
     # state. We've been bit by this because we've had a bug in the BLS
     # serialization where an all-zero default-initialized bls signature could

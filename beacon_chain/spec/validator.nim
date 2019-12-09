@@ -7,8 +7,8 @@
 # Helpers and functions pertaining to managing the validator set
 
 import
-  options, nimcrypto, sequtils, math, tables,
-  ./datatypes, ./digest, ./helpers
+  options, sequtils, math, tables,
+  ./crypto, ./datatypes, ./digest, ./helpers
 
 # TODO: Proceed to renaming and signature changes
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#compute_shuffled_index
@@ -148,11 +148,12 @@ func get_empty_per_epoch_cache*(): StateCache =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#compute_proposer_index
 func compute_proposer_index(state: BeaconState, indices: seq[ValidatorIndex],
-    seed: Eth2Digest, stateCache: var StateCache): ValidatorIndex =
+    seed: Eth2Digest, stateCache: var StateCache): Option[ValidatorIndex] =
   # Return from ``indices`` a random index sampled by effective balance.
   const MAX_RANDOM_BYTE = 255
 
-  doAssert len(indices) > 0
+  if len(indices) == 0:
+    return none(ValidatorIndex)
 
   # TODO fixme; should only be run once per slot and cached
   # There's exactly one beacon proposer per slot.
@@ -175,12 +176,12 @@ func compute_proposer_index(state: BeaconState, indices: seq[ValidatorIndex],
         state.validators[candidate_index].effective_balance
     if effective_balance * MAX_RANDOM_BYTE >=
         MAX_EFFECTIVE_BALANCE * random_byte:
-      return candidate_index
+      return some(candidate_index)
     i += 1
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: BeaconState, stateCache: var StateCache):
-    ValidatorIndex =
+    Option[ValidatorIndex] =
   # Return the beacon proposer index at the current slot.
   let epoch = get_current_epoch(state)
 

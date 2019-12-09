@@ -32,8 +32,8 @@
 # improvements to be made - other than that, keep things similar to spec for
 # now.
 
-import # TODO - cleanup imports
-  algorithm, collections/sets, chronicles, sequtils, sets, tables,
+import
+  algorithm, collections/sets, chronicles, options, sequtils, sets, tables,
   ../extras, ../ssz, metrics,
   beaconstate, crypto, datatypes, digest, helpers, validator
 
@@ -76,10 +76,13 @@ proc process_block_header*(
     signature: BlsValue[Signature](kind: OpaqueBlob)
   )
 
-
   # Verify proposer is not slashed
-  let proposer =
-    state.validators[get_beacon_proposer_index(state, stateCache)]
+  let proposer_index = get_beacon_proposer_index(state, stateCache)
+  if proposer_index.isNone:
+    debug "Block header: proposer missing"
+    return false
+
+  let proposer = state.validators[proposer_index.get]
   if proposer.slashed:
     notice "Block header: proposer slashed"
     return false
@@ -105,7 +108,12 @@ proc process_randao(
   let
     epoch = state.get_current_epoch()
     proposer_index = get_beacon_proposer_index(state, stateCache)
-    proposer = addr state.validators[proposer_index]
+
+  if proposer_index.isNone:
+    debug "Proposer index missing, probably along with any active validators"
+    return false
+
+  let proposer = addr state.validators[proposer_index.get]
 
   # Verify that the provided randao value is valid
   if skipValidation notin flags:

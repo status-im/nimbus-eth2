@@ -19,6 +19,12 @@ make libnfuzz.a
 make libnfuzz.so
 ```
 
+Default, the library is build with the `minimal` config. To select a specific config you can instead run:
+```bash
+# build with mainnet config
+make libnfuzz.a NIMFLAGS="-d:const_preset=mainnet"
+```
+
 For the library to be useful for fuzzing with libFuzzer (e.g. for
 integration with [beacon-fuzz](https://github.com/sigp/beacon-fuzz)) we can pass
 additional Nim arguments, e.g.:

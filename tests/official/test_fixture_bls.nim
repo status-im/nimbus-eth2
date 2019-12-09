@@ -50,13 +50,13 @@ proc readValue*(r: var JsonReader, a: var Domain) {.inline.} =
 const BLSDir = JsonTestsDir/"general"/"phase0"/"bls"
 
 suite "Official - BLS tests":
-  test "Private to public key conversion":
+  timedTest "Private to public key conversion":
     for file in walkDirRec(BLSDir/"priv_to_pub"):
       let t = parseTest(file, Json, BLSPrivToPub)
       let implResult = t.input.pubkey()
       check: implResult == t.output
 
-  test "Message signing":
+  timedTest "Message signing":
     for file in walkDirRec(BLSDir/"sign_msg"):
       let t = parseTest(file, Json, BLSSignMsg)
       let implResult = t.input.privkey.bls_sign(
@@ -65,13 +65,13 @@ suite "Official - BLS tests":
       )
       check: implResult == t.output
 
-  test "Aggregating signatures":
+  timedTest "Aggregating signatures":
     for file in walkDirRec(BLSDir/"aggregate_sigs"):
       let t = parseTest(file, Json, BLSAggSig)
       let implResult = t.input.combine()
       check: implResult == t.output
 
-  test "Aggregating public keys":
+  timedTest "Aggregating public keys":
     for file in walkDirRec(BLSDir/"aggregate_pubkeys"):
       let t = parseTest(file, Json, BLSAggPubKey)
       let implResult = t.input.combine()

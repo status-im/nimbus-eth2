@@ -26,11 +26,11 @@ suite "Block pool processing" & preset():
       pool = BlockPool.init(db)
       state = pool.loadTailState()
 
-  test "getRef returns nil for missing blocks":
+  timedTest "getRef returns nil for missing blocks":
     check:
       pool.getRef(default Eth2Digest) == nil
 
-  test "loadTailState gets genesis block on first load" & preset():
+  timedTest "loadTailState gets genesis block on first load" & preset():
     var
       b0 = pool.get(state.blck.root)
 
@@ -39,7 +39,7 @@ suite "Block pool processing" & preset():
       b0.isSome()
       toSeq(pool.blockRootsForSlot(GENESIS_SLOT)) == @[state.blck.root]
 
-  test "Simple block add&get" & preset():
+  timedTest "Simple block add&get" & preset():
     let
       b1 = makeBlock(state.data.data, state.blck.root, BeaconBlockBody())
       b1Root = signing_root(b1)
@@ -54,7 +54,7 @@ suite "Block pool processing" & preset():
       b1Ref.get().refs.root == b1Root
       hash_tree_root(state.data.data) == state.data.root
 
-  test "Reverse order block add & get" & preset():
+  timedTest "Reverse order block add & get" & preset():
     let
       b1 = addBlock(state.data.data, state.blck.root, BeaconBlockBody(), {})
       b1Root = signing_root(b1)
@@ -95,7 +95,7 @@ suite "Block pool processing" & preset():
       pool2.get(b1Root).isSome()
       pool2.get(b2Root).isSome()
 
-  test "isAncestorOf sanity" & preset():
+  timedTest "isAncestorOf sanity" & preset():
     let
       a = BlockRef(slot: Slot(1))
       b = BlockRef(slot: Slot(2), parent: a)
