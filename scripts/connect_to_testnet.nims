@@ -66,12 +66,17 @@ cli do (testnetName {.argument.}: string):
     depositContractOpt = "--deposit-contract=" & readFile(depositContractFile).strip
 
   if system.dirExists(dataDir):
-    if system.fileExists(dataDir/genesisFile):
-      let localGenesisContent = readFile(dataDir/genesisFile)
-      let testnetGenesisContent = readFile(testnetDir/genesisFile)
-      if localGenesisContent != testnetGenesisContent:
-        echo "Detected testnet restart. Deleting previous database..."
-        rmDir dataDir
+    block resetDataDir:
+      # We reset the testnet data dir if the existing data dir is
+      # incomplete (it misses a genesis file) or if it has a genesis
+      # file from an older testnet:
+      if system.fileExists(dataDir/genesisFile):
+        let localGenesisContent = readFile(dataDir/genesisFile)
+        let testnetGenesisContent = readFile(testnetDir/genesisFile)
+        if localGenesisContent == testnetGenesisContent:
+          break
+      echo "Detected testnet restart. Deleting previous database..."
+      rmDir dataDir
 
   cd rootDir
   exec &"""nim c {nimFlags} -d:"const_preset={preset}" -o:"{beaconNodeBinary}" beacon_chain/beacon_node.nim"""
