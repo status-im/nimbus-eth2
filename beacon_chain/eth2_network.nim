@@ -222,7 +222,8 @@ else:
       # TODO nim-libp2p still doesn't have support for announcing addresses
       # that are different from the host address (this is relevant when we
       # are running behind a NAT).
-      result = Eth2Node.init newStandardSwitch(some keys.seckey, hostAddress)
+      result = Eth2Node.init newStandardSwitch(some keys.seckey, hostAddress,
+                                               triggerSelf = true, gossip = true)
       await result.start()
     else:
       let keyFile = conf.ensureNetworkIdFile

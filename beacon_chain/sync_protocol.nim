@@ -7,6 +7,8 @@ import
 when networkBackend == rlpx:
   import eth/rlp/options as rlpOptions
   template libp2pProtocol*(name: string, version: int) {.pragma.}
+elif networkBackend == libp2p:
+  import libp2p/switch
 
 declarePublicGauge libp2p_peers, "Number of libp2p peers"
 
@@ -162,6 +164,14 @@ proc handleInitialStatus(peer: Peer,
                          state: BeaconSyncNetworkState,
                          ourStatus: StatusMsg,
                          theirStatus: StatusMsg) {.async, gcsafe.} =
+  when networkBackend == libp2p:
+    # TODO: This doesn't seem like an appropraite place for this call,
+    # but it's hard to pick a better place at the moment.
+    # nim-libp2p plans to add a general `onPeerConnected` callback which
+    # will allow us to implement the subscription earlier.
+    # The root of the problem is that both sides must call `subscribeToPeer`
+    # before any GossipSub traffic will flow between them.
+    await peer.network.switch.subscribeToPeer(peer.info)
 
   if theirStatus.forkVersion != state.forkVersion:
     notice "Irrelevant peer",
