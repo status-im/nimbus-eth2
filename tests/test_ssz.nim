@@ -9,7 +9,7 @@
 
 import
   unittest, options,
-  stint, nimcrypto, eth/common, serialization/testing/generic_suite,
+  stint, eth/common, serialization/testing/generic_suite,
   ./testutil,
   ../beacon_chain/spec/[datatypes, digest],
   ../beacon_chain/ssz, ../beacon_chain/ssz/[navigator, dynamic_navigator]
@@ -51,7 +51,7 @@ type
     f0: uint8
     f1: uint32
     f2: EthAddress
-    f3: MDigest[256]
+    f3: Eth2Digest
     f4: seq[byte]
     f5: ValidatorIndex
 
