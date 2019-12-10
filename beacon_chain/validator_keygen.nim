@@ -1,6 +1,6 @@
 import
   os, strutils,
-  chronicles, chronos, blscurve, json_serialization, serialization,
+  chronicles, chronos, blscurve, nimcrypto, json_serialization, serialization,
   web3, stint, eth/keys,
   spec/[datatypes, digest, crypto], conf, ssz, interop
 

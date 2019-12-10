@@ -7,8 +7,8 @@
 # Helpers and functions pertaining to managing the validator set
 
 import
-  options, sequtils, math, tables,
-  ./crypto, ./datatypes, ./digest, ./helpers
+  options, nimcrypto, sequtils, math, tables,
+  ./datatypes, ./digest, ./helpers
 
 # TODO: Proceed to renaming and signature changes
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#compute_shuffled_index
