@@ -308,7 +308,7 @@ proc process_registry_updates*(state: var BeaconState) =
   # Make visible, e.g.,
   # https://github.com/status-im/nim-beacon-chain/pull/608
   # https://github.com/sigp/lighthouse/pull/657
-  let epoch = get_current_epoch(state)
+  let epoch {.used.} = get_current_epoch(state)
   trace "process_registry_updates validator balances",
     balances=state.balances,
     active_validator_indices=get_active_validator_indices(state, epoch),

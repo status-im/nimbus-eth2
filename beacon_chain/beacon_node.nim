@@ -1,9 +1,9 @@
 import
   # Standard library
-  os, net, tables, random, strutils, times, memfiles,
+  os, net, tables, random, strutils, times,
 
   # Nimble packages
-  stew/[objects, bitseqs], stew/ranges/ptr_arith,
+  stew/[objects, bitseqs, byteutils], stew/ranges/ptr_arith,
   chronos, chronicles, confutils, metrics,
   json_serialization/std/[options, sets], serialization/errors,
   eth/trie/db, eth/trie/backends/rocksdb_backend, eth/async_utils,
@@ -16,7 +16,6 @@ import
   sync_protocol, request_manager, validator_keygen, interop, statusbar
 
 const
-  dataDirValidators = "validators"
   genesisFile = "genesis.ssz"
   hasPrompt = not defined(withoutPrompt)
   maxEmptySlotCount = uint64(24*60*60) div SECONDS_PER_SLOT
@@ -71,14 +70,8 @@ type
 
 proc onBeaconBlock*(node: BeaconNode, blck: BeaconBlock) {.gcsafe.}
 
-func localValidatorsDir(conf: BeaconNodeConf): string =
-  conf.dataDir / "validators"
-
-func databaseDir(conf: BeaconNodeConf): string =
-  conf.dataDir / "db"
-
 proc saveValidatorKey(keyName, key: string, conf: BeaconNodeConf) =
-  let validatorsDir = conf.dataDir / dataDirValidators
+  let validatorsDir = conf.localValidatorsDir
   let outputFile = validatorsDir / keyName
   createDir validatorsDir
   writeFile(outputFile, key)
@@ -283,17 +276,8 @@ proc addLocalValidator(
   node.attachedValidators.addLocalValidator(pubKey, privKey)
 
 proc addLocalValidators(node: BeaconNode, state: BeaconState) =
-  for validatorKeyFile in node.config.validators:
-    node.addLocalValidator state, validatorKeyFile.load
-
-  for kind, file in walkDir(node.config.localValidatorsDir):
-    if kind in {pcFile, pcLinkToFile}:
-      if cmpIgnoreCase(".privkey", splitFile(file).ext) == 0:
-        try:
-          let keyText = ValidatorPrivKey.init(readFile(file).string)
-          node.addLocalValidator state, keyText
-        except CatchableError:
-          warn "Failed to load a validator private key", file
+  for validatorKey in node.config.validatorKeys:
+    node.addLocalValidator state, validatorKey
 
   info "Local validators attached ", count = node.attachedValidators.count
 
@@ -1058,10 +1042,6 @@ when hasPrompt:
       # var t: Thread[ptr Prompt]
       # createThread(t, processPromptCommands, addr p)
 
-template bytes(memFile: MemFile): untyped =
-  let f = memFile
-  makeOpenArray(f.mem, byte, f.size)
-
 when isMainModule:
   randomize()
 
@@ -1191,14 +1171,14 @@ when isMainModule:
 
     of QueryCmd.get:
       let pathFragments = config.getQueryPath.split('/', maxsplit = 1)
-      var navigator: DynamicSszNavigator
+      let bytes =
+        case pathFragments[0]
+        of "genesis_state":
+          readFile(config.dataDir/genesisFile).string.toBytes()
+        else:
+          stderr.write config.getQueryPath & " is not a valid path"
+          quit 1
 
-      case pathFragments[0]
-      of "genesis_state":
-        var genesisMapFile = memfiles.open(config.dataDir/genesisFile)
-        navigator = DynamicSszNavigator.init(genesisMapFile.bytes, BeaconState)
-      else:
-        stderr.write config.getQueryPath & " is not a valid path"
-        quit 1
+      let navigator = DynamicSszNavigator.init(bytes, BeaconState)
 
       echo navigator.navigatePath(pathFragments[1 .. ^1]).toJson
