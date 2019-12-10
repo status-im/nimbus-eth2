@@ -552,6 +552,7 @@ func shortLog*(v: BeaconBlock): auto =
 
 func shortLog*(v: AttestationData): auto =
   (
+    slot: shortLog(v.slot),
     beacon_block_root: shortLog(v.beacon_block_root),
     source_epoch: shortLog(v.source.epoch),
     source_root: shortLog(v.source.root),
