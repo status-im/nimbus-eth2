@@ -26,20 +26,24 @@
 # topic/message types and GOSSIP_MAX_SIZE.
 
 import
-  options, sequtils,
+  options,
   ./spec/[datatypes, crypto, digest, helpers, validator],
   ./attestation_pool, ./beacon_node_types, ./ssz
 
-# TODO add tests
 # TODO gossipsub validation lives somewhere, maybe here
+# TODO add tests, especially for validation
 # https://github.com/status-im/nim-beacon-chain/issues/122#issuecomment-562479965
 # it's conceptually separate, sort of, but depends on beaconstate, so isn't a
 # pure libp2p thing.
 
+const
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/networking/p2p-interface.md#configuration
+  ATTESTATION_PROPAGATION_SLOT_RANGE* = 32
+  GOSSIP_MAX_SIZE = 1048576
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/validator/0_beacon-chain-validator.md#aggregation-selection
 func get_slot_signature(state: BeaconState, slot: Slot, privkey: ValidatorPrivKey):
     ValidatorSig =
-  # TODO privkey is int in spec, but bls_sign wants a ValidatorPrivKey
   let domain =
     get_domain(state, DOMAIN_BEACON_ATTESTER, compute_epoch_at_slot(slot))
   bls_sign(privkey, hash_tree_root(slot).data, domain)
@@ -55,62 +59,36 @@ func is_aggregator(state: BeaconState, slot: Slot, index: uint64,
     modulo = max(1, len(committee) div TARGET_AGGREGATORS_PER_COMMITTEE).uint64
   bytes_to_int(eth2hash(slot_signature.getBytes).data[0..7]) mod modulo == 0
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/validator/0_beacon-chain-validator.md#aggregate-signature-1
-func get_aggregate_signature(attestations: openarray[Attestation]): ValidatorSig =
-  let signatures = mapIt(attestations, it.signature)
-  bls_aggregate_signatures(signatures)
-
-func should_aggregate(
-    state: BeaconState, index: uint64, privkey: ValidatorPrivKey): bool =
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/validator/0_beacon-chain-validator.md#aggregation-selection
-  # A validator is selected to aggregate based upon the return value of
-  # is_aggregator().
-  #const use_offset = ATTESTATION_PROPAGATION_SLOT_RANGE - 3
-  #TODO implement this constant
-  # just pick some fixed time offset in past after which we should have gotten
-  # all attestations -- in principle, if we trust that we get attestations the
-  # slot get sent within SECONDS_PER_SLOT / 3, can use current slot, but seems
-  # risky. initally aim for one or two slots back to try to be currentand keep
-  # away from anything too near edge of ATTESTATION_PROPAGATION_SLOT_RANGE.
-  #
-  # static:
-  #  doAssert use_offset > 0
-  let slot = state.slot - 2
-  if slot < 0:
-    return
-  # TODO aggregate_and_proof.aggregate.data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot >= aggregate_and_proof.aggregate.data.slot
-  doAssert slot < state.slot
-  is_aggregator(state, slot, index, get_slot_signature(state, slot, privkey))
-
 proc aggregate_attestations*(
     pool: AttestationPool, state: BeaconState, index: uint64,
-    privkey: ValidatorPrivKey): Option[Attestation] =
-  # Keep this code opt-in with clean entry point; if there's a part that
-  # mutates state, split that off and keep this separate.
+    privkey: ValidatorPrivKey): Option[AggregateAndProof] =
   # TODO alias CommitteeIndex to actual type then convert various uint64's here
-  # TODO return Option[AggregateAndProof]
 
-  # If the validator is selected to aggregate (`is_aggregator()`), they
-  # construct an aggregate attestation
-  let slot = state.slot - 2
-  # TODO as before, check sanity here against (1) constant ATTESTATION_PROPAGATION_SLOT_RANGE
-  # and (2) genesis slot
-  if not should_aggregate(state, index, privkey):
-    return none(Attestation)
+  let
+    slot = state.slot - 2
+    slot_signature = get_slot_signature(state, slot, privkey)
+
+  if slot < 0:
+    return none(AggregateAndProof)
+  doAssert slot + ATTESTATION_PROPAGATION_SLOT_RANGE >= state.slot
+  doAssert state.slot >= slot
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/validator/0_beacon-chain-validator.md#aggregation-selection
+  if not is_aggregator(state, slot, index, slot_signature):
+    return none(AggregateAndProof)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/validator/0_beacon-chain-validator.md#construct-aggregate
-  # Collect attestations seen via gossip during the slot that have an
-  # equivalent attestation_data to that constructed by the validator,
-  # and create an aggregate_attestation: Attestation with the following fields.
-  # TODO set slot here and tell should_aggregate
   let attestations = getAttestationsForBlock(pool, state, slot)
-  # TODO it's a greedy set packing algorithm to avoid overlap
-  # make sure this works here or change it (both places maybe?)
-  # TODO scan for matching attestationdata; already aggregated
+
+  var correct_attestation_data: AttestationData
+
+  for attestation in attestations:
+    if attestation.data == correct_attestation_data:
+      return some(AggregateAndProof(
+        aggregator_index: index,
+        aggregate: attestation,
+        selection_proof: slot_signature))
+
+  none(AggregateAndProof)
   # SECONDS_PER_SLOT / 3 in: initial aggregation TODO adjust this elsewhere
   # SECONDS_PER_SLOT * 2 / 3
-
-  # TODO obviously wrong, but define check against attestation_data first
-  # also, this should be AggregateAndProof apparently, indeed.
-  let aggregate_attestation = attestations[0]
-  some(aggregate_attestation)
