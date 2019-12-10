@@ -479,7 +479,7 @@ proc check_attestation*(
   else:
     if not (ffg_check_data == (state.previous_justified_checkpoint.epoch,
         state.previous_justified_checkpoint.root, get_previous_epoch(state))):
-      warn("FFG data not matching current justified epoch")
+      warn("FFG data not matching previous justified epoch")
       return
 
   if not is_valid_indexed_attestation(

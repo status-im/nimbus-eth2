@@ -760,7 +760,11 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   #                     disappear naturally - risky because user is not aware,
   #                     and might lose stake on canonical chain but "just works"
   #                     when reconnected..
-  if not node.isSynced(head):
+  if node.attachedValidators.count == 0:
+    # There are no validators, thus we don't have any additional work to do
+    # beyond keeping track of the head
+    discard
+  elif not node.isSynced(head):
     warn "Node out of sync, skipping block and attestation production for this slot",
       slot, headSlot = head.slot
   else:
@@ -1198,4 +1202,3 @@ when isMainModule:
         quit 1
 
       echo navigator.navigatePath(pathFragments[1 .. ^1]).toJson
-

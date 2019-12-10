@@ -257,7 +257,7 @@ proc getAttestationsForBlock*(
   logScope: pcs = "retrieve_attestation"
 
   if newBlockSlot < (GENESIS_SLOT + MIN_ATTESTATION_INCLUSION_DELAY):
-    debug "[Attestion Pool] Too early for attestations",
+    debug "Too early for attestations",
       newBlockSlot = shortLog(newBlockSlot),
       cat = "query"
     return
