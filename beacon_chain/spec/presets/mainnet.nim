@@ -125,8 +125,6 @@ const
   MIN_EPOCHS_TO_INACTIVITY_PENALTY* = 2'u64^2 ##\
   ## epochs (25.6 minutes)
 
-  EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS* = 16384
-
   # State vector lengths
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/configs/mainnet.yaml#L98
@@ -182,6 +180,5 @@ const
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/1_custody-game.md#constants
   # TODO those are included in minimal.yaml but not mainnet.yaml
   #      Why?
-  # EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS* = 4096 # epochs
   # EPOCHS_PER_CUSTODY_PERIOD* = 4
   # CUSTODY_PERIOD_TO_RANDAO_PADDING* = 4

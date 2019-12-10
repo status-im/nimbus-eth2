@@ -49,7 +49,12 @@ elif const_preset == "minimal":
   import ./presets/minimal
   export minimal
 else:
-  {.fatal: "Preset \"" & const_preset ".nim\" is not supported.".}
+  type
+    Slot* = distinct uint64
+    Epoch* = distinct uint64
+
+  import ./presets/custom
+  loadCustomPreset const_preset
 
 const
   SPEC_VERSION* = "0.10.0" ## \
