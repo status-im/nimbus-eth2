@@ -92,6 +92,7 @@ macro nbenchAnnotate(procAst: untyped): untyped =
   let startCycle = genSym(nskLet, "nbench_" & $name & "_startCycles_")
   newBody.add getAst(fnEntry(id, startTime, startCycle))
   newbody.add nnkDefer.newTree(getAst(fnExit(id, startTime, startCycle)))
+  newBody.add procAst.body
 
   procAst.body = newBody
   result = procAst
