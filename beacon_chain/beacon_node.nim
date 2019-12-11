@@ -797,7 +797,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     # seconds after the start of slot.
     let
       attestationStart = node.beaconClock.fromNow(slot)
-      thirdSlot = seconds(int64(SECONDS_PER_SLOT div 3))
+      thirdSlot = seconds(int64(SECONDS_PER_SLOT)) div 3
 
     if attestationStart.inFuture or attestationStart.offset <= thirdSlot:
       let fromNow =
