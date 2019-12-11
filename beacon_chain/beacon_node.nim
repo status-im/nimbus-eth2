@@ -789,14 +789,20 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     #      the work for the whole slot using a monotonic clock instead, then deal
     #      with any clock discrepancies once only, at the start of slot timer
     #      processing..
+
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/validator/0_beacon-chain-validator.md#attesting
+    # A validator should create and broadcast the attestation to the
+    # associated attestation subnet one-third of the way through the slot
+    # during which the validator is assigned―that is, SECONDS_PER_SLOT / 3
+    # seconds after the start of slot.
     let
       attestationStart = node.beaconClock.fromNow(slot)
-      halfSlot = seconds(int64(SECONDS_PER_SLOT div 2))
+      thirdSlot = seconds(int64(SECONDS_PER_SLOT div 3))
 
-    if attestationStart.inFuture or attestationStart.offset <= halfSlot:
+    if attestationStart.inFuture or attestationStart.offset <= thirdSlot:
       let fromNow =
-        if attestationStart.inFuture: attestationStart.offset + halfSlot
-        else: halfSlot - attestationStart.offset
+        if attestationStart.inFuture: attestationStart.offset + thirdSlot
+        else: thirdSlot - attestationStart.offset
 
       trace "Waiting to send attestations",
         slot = shortLog(slot),
