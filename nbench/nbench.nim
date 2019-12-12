@@ -43,7 +43,7 @@ proc runFullTransition(dir, preState, blocksPrefix: string, blocksQty: int, skip
     let flags = if skipBLS: {skipValidation} # TODO: this also skips state root verification
                 else: {}
     let success = state_transition(state[], blck, flags)
-    doAssert success, "Failure when applying block " & blockPath
+    echo "State transition status: ", if success: "SUCCESS ✓" else: "FAILURE ⚠️"
 
 proc runProcessSlots(dir, preState: string, numSlots: uint64) =
   let prePath = dir / preState & ".ssz"
