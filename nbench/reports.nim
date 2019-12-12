@@ -21,16 +21,23 @@ cpuX86:
 # Reporting benchmark result
 # -------------------------------------------------------
 
-proc reportCli*(metrics: seq[Metadata]) =
+proc reportCli*(metrics: seq[Metadata], preset: string) =
 
   cpuX86:
     let name = cpuName()
-    echo "CPU: ", name
+    echo "\nCPU: ", name
 
-  const lineSep = &"""|{'-'.repeat(50)}|{'-'.repeat(20)}|{'-'.repeat(20)}|{'-'.repeat(20)}|"""
-  echo "\n\n"
+  # https://blog.trailofbits.com/2019/10/03/tsc-frequency-for-all-better-profiling-and-benchmarking/
+  # https://www.agner.org/optimize/blog/read.php?i=838
+  echo "The CPU Cycle Count is indicative only. It cannot be used to compare across systems, works at your CPU nominal frequency and is sensitive to overclocking, throttling and frequency scaling (powersaving and Turbo Boost)."
+
+  const lineSep = &"""|{'-'.repeat(50)}|{'-'.repeat(20)}|{'-'.repeat(20)}|{'-'.repeat(30)}|"""
+  echo "\n"
   echo lineSep
-  echo &"""|{"Procedures":^50}|{"# of Calls":^20}|{"Time (ms)":^20}|{"CPU cycles":^20}|"""
+  echo &"""|{"Procedures (" & preset & ')':^50}|{"# of Calls":^20}|{"Time (ms)":^20}|{"CPU cycles (in billions)":^30}|"""
+  echo &"""|{' '.repeat(50)}|{' '.repeat(20)}|{' '.repeat(20)}|{"indicative only":^30}|"""
   echo lineSep
   for m in metrics:
-    echo &"""|{m.procName:>50}|{m.numCalls:>20}|{m.cumulatedTimeNs div 1_000_000:>20}|{m.cumulatedCycles:>20}|"""
+    if m.numCalls == 0: continue
+    echo &"""|{m.procName:>50}|{m.numCalls:>20}|{m.cumulatedTimeNs.float64 * 1e-6:>20.3f}|{m.cumulatedCycles.float64 * 1e-9:>30.3f}|"""
+  echo lineSep

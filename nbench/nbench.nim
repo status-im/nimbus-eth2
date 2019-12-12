@@ -112,7 +112,7 @@ proc main() =
   else:
     quit "Unsupported"
 
-  reportCli(BenchMetrics)
+  reportCli(BenchMetrics, const_preset)
 
 when isMainModule:
   main()
