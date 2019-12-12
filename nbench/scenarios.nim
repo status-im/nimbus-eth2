@@ -15,6 +15,7 @@ type
   StartupCommand* = enum
     noCommand
     cmdFullStateTransition
+    cmdSlotProcessing
     cmdBlockProcessing
     cmdEpochProcessing
 
@@ -60,6 +61,12 @@ type
       discard
     of cmdFullStateTransition:
       discard
+    of cmdSlotProcessing:
+      numSlots* {.
+        desc: "The number of slots the pre-state will be advanced by"
+        name: "num-slots"
+        abbr: "s"
+        defaultValue: 1.}: uint64
     of cmdBlockProcessing:
       case blockProcessingCat* {.
         desc: "block transitions"

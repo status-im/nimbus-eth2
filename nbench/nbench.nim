@@ -45,6 +45,16 @@ proc runFullTransition(dir, preState, blocksPrefix: string, blocksQty: int, skip
     let success = state_transition(state[], blck, flags)
     doAssert success, "Failure when applying block " & blockPath
 
+proc runProcessSlots(dir, preState: string, numSlots: uint64) =
+  let prePath = dir / preState & ".ssz"
+
+  var state: ref BeaconState
+  new state
+  echo "Running: ", prePath
+  state[] = SSZ.loadFile(prePath, BeaconState)
+
+  process_slots(state[], state.slot + numSlots)
+
 proc main() =
   # TODO versioning
   echo "Nimbus bench, preset \"", const_preset, '\"'
@@ -60,6 +70,12 @@ proc main() =
       scenario.blocksPrefix,
       scenario.blocksQty,
       scenario.skipBLS
+    )
+  of cmdSlotProcessing:
+    runProcessSlots(
+      scenario.scenarioDir.string,
+      scenario.preState,
+      scenario.numSlots
     )
   else:
     quit "Unsupported"
