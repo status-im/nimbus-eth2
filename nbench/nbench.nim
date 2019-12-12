@@ -11,7 +11,7 @@ import
   # Status libraries
   confutils, serialization,
   # Beacon-chain
-  ../beacon_chain/spec/[datatypes, crypto],
+  ../beacon_chain/spec/[datatypes, crypto, beaconstate, validator],
   ../beacon_chain/[ssz, state_transition, extras],
   # Bench specific
   scenarios, bench_lab, reports
@@ -55,6 +55,26 @@ proc runProcessSlots(dir, preState: string, numSlots: uint64) =
 
   process_slots(state[], state.slot + numSlots)
 
+proc runProcessAttestation(dir, preState, attestation: string, skipBLS: bool) =
+  let prePath = dir / preState & ".ssz"
+
+  var state: ref BeaconState
+  new state
+  echo "Running: ", prePath
+  state[] = SSZ.loadFile(prePath, BeaconState)
+
+  var att: ref Attestation
+  new att
+  var cache = get_empty_per_epoch_cache()
+
+  let attPath = dir / attestation & ".ssz"
+  echo "Processing: ", attPath
+  att[] = SSZ.loadFile(attPath, Attestation)
+  let flags = if skipBLS: {skipValidation} # TODO: this also skips state root verification
+              else: {}
+  let success = process_attestation(state[], att[], flags, cache)
+  echo "process_attestation status: ", if success: "SUCCESS ✓" else: "FAILURE ⚠️"
+
 proc main() =
   # TODO versioning
   echo "Nimbus bench, preset \"", const_preset, '\"'
@@ -77,6 +97,18 @@ proc main() =
       scenario.preState,
       scenario.numSlots
     )
+  of cmdBlockProcessing:
+    case scenario.blockProcessingCat
+    of catAttestations:
+      runProcessAttestation(
+        scenario.scenarioDir.string,
+        scenario.preState,
+        "attestation", # Pending https://github.com/status-im/nim-confutils/issues/11
+        # scenario.attestation,
+        scenario.skipBLS
+      )
+    else:
+      quit "Unsupported"
   else:
     quit "Unsupported"
 

@@ -70,7 +70,7 @@ type
     of cmdBlockProcessing:
       case blockProcessingCat* {.
         desc: "block transitions"
-        name: "process-blocks"
+        # name: "process-blocks" # Pending https://github.com/status-im/nim-confutils/issues/10
         implicitlySelectable
         required .}: BlockProcessingCat
       of catBlockHeader:
@@ -84,7 +84,10 @@ type
       of catAttesterSlashings:
         discard
       of catAttestations:
-        discard
+        attestation*{.
+          desc: "Attestation filename (without .ssz)"
+          name: "attestation"
+          defaultValue: "attestation".}: string
       of catDeposits:
         discard
       of catVoluntaryExits:
