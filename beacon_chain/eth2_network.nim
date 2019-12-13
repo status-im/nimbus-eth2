@@ -311,16 +311,16 @@ else:
   proc subscribe*[MsgType](node: Eth2Node,
                            topic: string,
                            msgHandler: proc(msg: MsgType) {.gcsafe.} ) {.async, gcsafe.} =
-    template execMsgHandler(gossipBytes, gossipTopic) =
+    template execMsgHandler(peerExpr, gossipBytes, gossipTopic) =
       inc gossip_messages_received
       trace "Incoming gossip bytes",
-        peer = msg.peer, len = gossipBytes.len, topic = gossipTopic
+        peer = peerExpr, len = gossipBytes.len, topic = gossipTopic
       msgHandler SSZ.decode(gossipBytes, MsgType)
 
     when networkBackend == libp2p:
       let incomingMsgHandler = proc(topic: string,
                                     data: seq[byte]) {.async, gcsafe.} =
-        execMsgHandler data, topic
+        execMsgHandler "unknown", data, topic
 
       await node.switch.subscribe(topic, incomingMsgHandler)
 
@@ -328,7 +328,7 @@ else:
       let incomingMsgHandler = proc(api: DaemonAPI,
                                     ticket: PubsubTicket,
                                     msg: PubSubMessage): Future[bool] {.async, gcsafe.} =
-        execMsgHandler msg.data, msg.topics[0]
+        execMsgHandler msg.peer, msg.data, msg.topics[0]
         return true
 
       discard await node.daemon.pubsubSubscribe(topic, incomingMsgHandler)
