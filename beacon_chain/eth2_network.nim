@@ -1,6 +1,7 @@
 import
   options, tables,
-  chronos, json_serialization, strutils, chronicles, metrics, eth/net/nat,
+  chronos, json_serialization, strutils, chronicles, metrics,
+  eth/net/nat, eth/p2p/discoveryv5/enr,
   version, conf
 
 const
@@ -126,6 +127,10 @@ when networkBackend == rlpx:
   proc initAddress*(T: type BootstrapAddr, str: string): T =
     initENode(str)
 
+  proc initAddress*(T: type BootstrapAddr, ip: IpAddress, tcpPort: Port): T =
+    # TODO
+    discard
+
   func peersCount*(node: Eth2Node): int =
     node.peerPool.len
 
@@ -178,6 +183,12 @@ else:
       raise newException(MultiAddressError,
                          "Invalid bootstrap node multi-address")
 
+  template tcpEndPoint(address, port): auto =
+    MultiAddress.init(address, Protocol.IPPROTO_TCP, port)
+
+  proc initAddress*(T: type BootstrapAddr, ip: IpAddress, tcpPort: Port): T =
+    tcpEndPoint(ip, tcpPort)
+
   proc ensureNetworkIdFile(conf: BeaconNodeConf): string =
     result = conf.dataDir / networkKeyFilename
     if not fileExists(result):
@@ -198,15 +209,13 @@ else:
 
     result = KeyPair(seckey: privKey, pubkey: privKey.getKey())
 
-  template tcpEndPoint(address, port): auto =
-    MultiAddress.init(address, Protocol.IPPROTO_TCP, port)
-
   proc allMultiAddresses(nodes: seq[BootstrapAddr]): seq[string] =
     for node in nodes:
       result.add $node
 
   proc createEth2Node*(conf: BeaconNodeConf,
-                       bootstrapNodes: seq[BootstrapAddr]): Future[Eth2Node] {.async.} =
+                       bootstrapNodes: seq[BootstrapAddr],
+                       bootstrapEnrs: seq[enr.Record]): Future[Eth2Node] {.async.} =
     var
       (extIp, extTcpPort, _) = setupNat(conf)
       hostAddress = tcpEndPoint(globalListeningAddr, Port conf.tcpPort)
@@ -222,8 +231,11 @@ else:
       # TODO nim-libp2p still doesn't have support for announcing addresses
       # that are different from the host address (this is relevant when we
       # are running behind a NAT).
-      result = Eth2Node.init newStandardSwitch(some keys.seckey, hostAddress,
-                                               triggerSelf = true, gossip = true)
+      var switch = newStandardSwitch(some keys.seckey, hostAddress,
+                                     triggerSelf = true, gossip = true)
+      result = Eth2Node.init(conf, switch, keys.seckey)
+      for enr in bootstrapEnrs:
+        result.addKnownPeer(enr)
       await result.start()
     else:
       let keyFile = conf.ensureNetworkIdFile

@@ -3,6 +3,7 @@ import
   stew/[varints,base58], stew/shims/[macros, tables], chronos, chronicles,
   faststreams/output_stream, serialization,
   json_serialization/std/options, eth/p2p/p2p_protocol_dsl,
+  eth/p2p/discoveryv5/enr,
   # TODO: create simpler to use libp2p modules that use re-exports
   libp2p/[switch, multistream, connection,
           multiaddress, peerinfo, peer,
@@ -11,7 +12,10 @@ import
   libp2p/protocols/secure/[secure, secio],
   libp2p/protocols/pubsub/[pubsub, floodsub],
   libp2p/transports/[transport, tcptransport],
-  libp2p_json_serialization, ssz
+  libp2p_json_serialization, eth2_discovery, conf, ssz
+
+import
+  eth/p2p/discoveryv5/protocol as discv5_protocol
 
 export
   p2pProtocol, libp2p_json_serialization, ssz
@@ -22,7 +26,10 @@ type
   # TODO Is this really needed?
   Eth2Node* = ref object of RootObj
     switch*: Switch
+    discovery*: Eth2DiscoveryProtocol
+    wantedPeers*: int
     peers*: Table[PeerID, Peer]
+    peersByDiscoveryId*: Table[Eth2DiscoveryId, Peer]
     protocolStates*: seq[RootRef]
     libp2pTransportLoops*: seq[Future[void]]
 
@@ -32,6 +39,7 @@ type
     network*: Eth2Node
     info*: PeerInfo
     wasDialed*: bool
+    discoveryId*: Eth2DiscoveryId
     connectionState*: ConnectionState
     protocolStates*: seq[RootRef]
     maxInactivityAllowed*: Duration
@@ -139,10 +147,26 @@ include eth/p2p/p2p_backends_helpers
 include eth/p2p/p2p_tracing
 include libp2p_backends_common
 
-proc init*(T: type Eth2Node, switch: Switch): T =
+proc dialPeer*(node: Eth2Node, enr: enr.Record) {.async.} =
+  discard
+
+proc runDiscoveryLoop(node: Eth2Node) {.async.} =
+  while true:
+    if node.peersByDiscoveryId.len < node.wantedPeers:
+      let discoveredPeers = await node.discovery.lookupRandom()
+      for peer in discoveredPeers:
+        if peer.id notin node.peersByDiscoveryId:
+          # TODO do this in parallel
+          await node.dialPeer(peer.record)
+
+    await sleepAsync seconds(1)
+
+proc init*(T: type Eth2Node, conf: BeaconNodeConf,
+           switch: Switch, privKey: PrivateKey): T =
   new result
   result.switch = switch
   result.peers = initTable[PeerID, Peer]()
+  result.discovery = Eth2DiscoveryProtocol.new(conf, privKey.getBytes)
 
   newSeq result.protocolStates, allProtocols.len
   for proto in allProtocols:
@@ -153,7 +177,12 @@ proc init*(T: type Eth2Node, switch: Switch): T =
       if msg.protocolMounter != nil:
         msg.protocolMounter result
 
+proc addKnownPeer*(node: Eth2Node, peerEnr: enr.Record) =
+  node.discovery.addNode peerEnr
+
 proc start*(node: Eth2Node) {.async.} =
+  node.discovery.open()
+  node.discovery.start()
   node.libp2pTransportLoops = await node.switch.start()
 
 proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer =

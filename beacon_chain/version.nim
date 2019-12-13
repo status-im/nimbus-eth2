@@ -5,7 +5,7 @@ type
     rlpx
 
 const
-  NETWORK_TYPE {.strdefine.} = "libp2p_daemon"
+  NETWORK_TYPE {.strdefine.} = "libp2p"
 
   networkBackend* = when NETWORK_TYPE == "rlpx": rlpx
                     elif NETWORK_TYPE == "libp2p": libp2p
