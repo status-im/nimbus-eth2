@@ -713,7 +713,8 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
 
     # A reasonable criterion for "reorganizations of the chain"
     # TODO if multiple heads have gotten skipped, could fire at
-    # spurious times
+    # spurious times - for example when multiple blocks have been added between
+    # head updates
     beacon_reorgs_total.inc()
   else:
     info "Updated head block",

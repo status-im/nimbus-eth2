@@ -69,6 +69,7 @@ type
     # TODO Something smarter, so we don't need to keep two full copies, wasteful
 
 proc onBeaconBlock*(node: BeaconNode, blck: BeaconBlock) {.gcsafe.}
+proc updateHead(node: BeaconNode): BlockRef
 
 proc saveValidatorKey(keyName, key: string, conf: BeaconNodeConf) =
   let validatorsDir = conf.localValidatorsDir
@@ -214,9 +215,28 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   # TODO sync is called when a remote peer is connected - is that the right
   #      time to do so?
   let sync = result.network.protocolState(BeaconSync)
+  let node = result
   sync.init(
     result.blockPool, result.forkVersion,
-    proc(blck: BeaconBlock) = onBeaconBlock(result, blck))
+    proc(blck: BeaconBlock) =
+      if blck.slot mod SLOTS_PER_EPOCH == 0:
+        # TODO this is a hack to make sure that lmd ghost is run regularly
+        #      while syncing blocks - it's poor form to keep it here though -
+        #      the logic should be moved elsewhere
+        # TODO why only when syncing? well, because the way the code is written
+        #      we require a connection to a boot node to start, and that boot
+        #      node will start syncing as part of connection setup - it looks
+        #      like it needs to finish syncing before the slot timer starts
+        #      ticking which is a problem: all the synced blocks will be added
+        #      to the block pool without any periodic head updates while this
+        #      process is ongoing (during a blank start for example), which
+        #      leads to an unhealthy buildup of blocks in the non-finalized part
+        #      of the block pool
+        # TODO is it a problem that someone sending us a block can force
+        #      a potentially expensive head resolution?
+        discard node.updateHead()
+
+      onBeaconBlock(result, blck))
 
   result.stateCache = result.blockPool.loadTailState()
   result.justifiedStateCache = result.stateCache
@@ -314,7 +334,7 @@ proc isSynced(node: BeaconNode, head: BlockRef): bool =
   else:
     true
 
-proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
+proc updateHead(node: BeaconNode): BlockRef =
   # Use head state for attestation resolution below
 
   # Check pending attestations - maybe we found some blocks for them
@@ -330,7 +350,6 @@ proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
     lmdGhost(node.attestationPool, state, justifiedHead.blck)
 
   node.blockPool.updateHead(node.stateCache, newHead)
-  beacon_head_slot.set slot.int64
   beacon_head_root.set newHead.root.toGaugeValue
 
   newHead
@@ -727,7 +746,11 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   #      updates and is stable across some epoch transitions as well - see how
   #      we can avoid recalculating everything here
 
-  var head = node.updateHead(slot)
+  var head = node.updateHead()
+
+  # TODO is the slot of the clock or the head block more interestion? provide
+  #      rationale in comment
+  beacon_head_slot.set slot.int64
 
   # TODO if the head is very old, that is indicative of something being very
   #      wrong - us being out of sync or disconnected from the network - need
@@ -812,7 +835,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
       await sleepAsync(fromNow)
 
       # Time passed - we might need to select a new head in that case
-      head = node.updateHead(slot)
+      head = node.updateHead()
 
     handleAttestations(node, head, slot)
 
