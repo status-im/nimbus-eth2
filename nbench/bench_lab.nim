@@ -86,6 +86,7 @@ template fnExit(name: string, id: int, startTime, startCycle: untyped): untyped 
     discard BenchMetrics[id].cumulatedCycles.atomicInc(elapsedCycles)
 
     when nbench_trace:
+      # Advice: Use "when name == relevantProc" to isolate specific procedures.
       # strformat doesn't work in templates.
       echo static(alignLeft(name, 50)),
            "Time (ms): ", alignLeft(formatFloat(elapsedTime.float64 * 1e-6, precision=3), 10),

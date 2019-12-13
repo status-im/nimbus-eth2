@@ -21,7 +21,7 @@ cpuX86:
 # Reporting benchmark result
 # -------------------------------------------------------
 
-proc reportCli*(metrics: seq[Metadata], preset: string) =
+proc reportCli*(metrics: seq[Metadata], preset, flags: string) =
 
   cpuX86:
     let name = cpuName()
@@ -35,7 +35,7 @@ proc reportCli*(metrics: seq[Metadata], preset: string) =
   echo "\n"
   echo lineSep
   echo &"""|{"Procedures (" & preset & ')':^50}|{"# of Calls":^14}|{"Time (ms)":^15}|{"Avg Time (ms)":^17}|{"CPU cycles (in billions)":^26}|{"Avg cycles (in billions)":^26}|"""
-  echo &"""|{' '.repeat(50)}|{' '.repeat(14)}|{' '.repeat(15)}|{' '.repeat(17)}|{"indicative only":^26}|{"indicative only":^26}|"""
+  echo &"""|{flags:^50}|{' '.repeat(14)}|{' '.repeat(15)}|{' '.repeat(17)}|{"indicative only":^26}|{"indicative only":^26}|"""
   echo lineSep
   for m in metrics:
     if m.numCalls == 0:

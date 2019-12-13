@@ -112,7 +112,10 @@ proc main() =
   else:
     quit "Unsupported"
 
-  reportCli(BenchMetrics, const_preset)
+  # TODO: Nimbus not fine-grained enough in UpdateFlags
+  let flags = if scenario.skipBLS: "[skipBLS, skipStateRootVerification]"
+              else: "[withBLS, withStateRootVerification]"
+  reportCli(BenchMetrics, const_preset, flags)
 
 when isMainModule:
   main()
