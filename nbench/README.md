@@ -32,7 +32,7 @@ build/nbench cmdFullStateTransition -d=nbench/scenarios/mainnet/full_state_trans
 build/nbench cmdSlotProcessing -d=tests/official/fixtures/tests-v0.9.2/mainnet/phase0/sanity/slots/pyspec_tests/slots_1
 
 # Attestation processing
-nbench/nbench cmdBlockProcessing --blockProcessingCat=catAttestations -d=tests/official/fixtures/tests-v0.9.2/mainnet/phase0/operations/attestation/pyspec_tests/success_multi_proposer_index_iterations/
+build/nbench cmdBlockProcessing --blockProcessingCat=catAttestations -d=tests/official/fixtures/tests-v0.9.2/mainnet/phase0/operations/attestation/pyspec_tests/success_multi_proposer_index_iterations/
 ```
 
 TODO Reporting:
