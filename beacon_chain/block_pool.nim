@@ -22,6 +22,24 @@ func link(parent, child: BlockRef) =
   child.parent = parent
   parent.children.add(child)
 
+func isAncestorOf*(a, b: BlockRef): bool =
+  var b = b
+  var depth = 0
+  const maxDepth = (100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int)
+  while true:
+    if a == b: return true
+
+    # for now, use an assert for block chain length since a chain this long
+    # indicates a circular reference here..
+    doAssert depth < maxDepth
+    depth += 1
+
+    if a.slot >= b.slot or b.parent.isNil:
+      return false
+
+    doAssert b.slot > b.parent.slot
+    b = b.parent
+
 func init*(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
   BlockRef(
     root: root,
@@ -190,9 +208,11 @@ proc addResolvedBlock(
 
   var foundHead: Option[Head]
   for head in pool.heads.mitems():
-    if head.blck.root == blck.parent_root:
+    if head.blck.isAncestorOf(blockRef):
       if head.justified.slot != justifiedSlot:
         head.justified = blockRef.findAncestorBySlot(justifiedSlot)
+
+      head.blck = blockRef
 
       foundHead = some(head)
       break
@@ -614,24 +634,6 @@ proc loadTailState*(pool: BlockPool): StateData =
     blck: pool.tail
   )
 
-func isAncestorOf*(a, b: BlockRef): bool =
-  var b = b
-  var depth = 0
-  const maxDepth = (100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int)
-  while true:
-    if a == b: return true
-
-    # for now, use an assert for block chain length since a chain this long
-    # indicates a circular reference here..
-    doAssert depth < maxDepth
-    depth += 1
-
-    if a.slot >= b.slot or b.parent.isNil:
-      return false
-
-    doAssert b.slot > b.parent.slot
-    b = b.parent
-
 proc delBlockAndState(pool: BlockPool, blockRoot: Eth2Digest) =
   if (let blk = pool.db.getBlock(blockRoot); blk.isSome):
     pool.db.delState(blk.get.stateRoot)
@@ -769,8 +771,9 @@ proc updateHead*(pool: BlockPool, state: var StateData, blck: BlockRef) =
     let hlen = pool.heads.len
     for i in 0..<hlen:
       let n = hlen - i - 1
-      if pool.heads[n].blck.slot < pool.finalizedHead.blck.slot and
-          not pool.heads[n].blck.isAncestorOf(pool.finalizedHead.blck):
+      if pool.heads[n].blck.slot < pool.finalizedHead.blck.slot:
+        # By definition, the current head should be newer than the finalized
+        # head, so we'll never delete it here
         pool.heads.del(n)
 
   # Calculate new tail block and set it
