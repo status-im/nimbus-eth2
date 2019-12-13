@@ -6,7 +6,7 @@ import
   stew/[objects, bitseqs, byteutils],
   chronos, chronicles, confutils, metrics,
   json_serialization/std/[options, sets], serialization/errors,
-  kvstore, kvstore_lmdb, eth/async_utils,
+  kvstore, kvstore_lmdb, eth/async_utils, eth/p2p/discoveryv5/enr,
 
   # Local modules
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network],
@@ -48,6 +48,7 @@ type
     networkIdentity: Eth2NodeIdentity
     requestManager: RequestManager
     bootstrapNodes: seq[BootstrapAddr]
+    bootstrapEnrs: seq[enr.Record]
     db: BeaconChainDB
     config: BeaconNodeConf
     attachedValidators: ValidatorPool
@@ -130,6 +131,36 @@ proc loadBootstrapFile(bootstrapFile: string): seq[BootstrapAddr] =
     for line in lines(bootstrapFile):
       result.addBootstrapAddr(line)
 
+proc addEnrBootstrapNode(node: BeaconNode, enrBase64: string) =
+  info "Adding bootsrap node", enr = enrBase64
+  var enrRec: enr.Record
+  if enrRec.fromBase64(enrBase64):
+    info "Parsed ENR record", value = enrRec
+    try:
+      let
+        ip = IpAddress(family: IpAddressFamily.IPv4,
+                       address_v4: cast[array[4, uint8]](enrRec.get("ip", int)))
+        tcpPort = Port enrRec.get("tcp", int)
+        # udpPort = Port enrRec.get("udp", int)
+      node.addBootstrapNode BootstrapAddr.initAddress(ip, tcpPort)
+      node.bootstrapEnrs.add enrRec
+    except CatchableError as err:
+      warn "Invalid ENR record", enrRec
+
+proc useEnrBootstrapFile(node: BeaconNode, bootstrapFile: string) =
+  let ext = splitFile(bootstrapFile).ext
+  if cmpIgnoreCase(ext, ".txt") == 0:
+    for ln in lines(bootstrapFile):
+      node.addEnrBootstrapNode(string ln)
+  elif cmpIgnoreCase(ext, ".yaml") == 0:
+    # TODO. This is very ugly, but let's try to negotiate the
+    # removal of YAML metadata.
+    for ln in lines(bootstrapFile):
+      node.addEnrBootstrapNode(string(ln[3..^2]))
+  else:
+    error "Unknown bootstrap file format", ext
+    quit 1
+
 proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
   let
     networkId = getPersistentNetIdentity(conf)
@@ -184,7 +215,15 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
       blockPool.headState.data.data.eth1_data.block_hash)
     mainchainMonitor.start()
 
-  var bootNodes: seq[BootstrapAddr]
+  var
+    bootNodes: seq[BootstrapAddr]
+    bootstrapEnrs: seq[enr.Record]
+
+  # TODO: rebase this
+  let enrBootstrapFile = string conf.enrBootstrapNodesFile
+  if enrBootstrapFile.len > 0:
+    result.useEnrBootstrapFile(enrBootstrapFile)
+
   for node in conf.bootstrapNodes: bootNodes.addBootstrapAddr(node)
   bootNodes.add(loadBootstrapFile(string conf.bootstrapNodesFile))
   bootNodes.add(loadBootstrapFile(conf.dataDir / "bootstrap_nodes.txt"))
@@ -192,7 +231,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   bootNodes = filterIt(bootNodes, not it.isSameNode(networkId))
 
   let
-    network = await createEth2Node(conf, bootNodes)
+    network = await createEth2Node(conf, bootNodes, bootstrapEnrs)
 
   let addressFile = string(conf.dataDir) / "beacon_node.address"
   network.saveConnectionAddressFile(addressFile)
