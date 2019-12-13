@@ -8,7 +8,7 @@
 {.used.}
 
 import
-  options, sequtils, unittest,
+  options, sequtils, chronicles, unittest,
   ./testutil, ./testblockutil,
   ../beacon_chain/spec/[beaconstate, datatypes, digest],
   ../beacon_chain/[beacon_node_types, block_pool, beacon_chain_db, extras, ssz]
@@ -85,6 +85,11 @@ suite "Block pool processing" & preset():
       toSeq(pool.blockRootsForSlot(b2.slot)) == @[b2Root]
 
     db.putHeadBlock(b2Root)
+
+    # The heads structure should have been updated to contain only the new
+    # b2 head
+    check:
+      pool.heads.mapIt(it.blck) == @[b2r.get().refs]
 
     # check that init also reloads block graph
     var
