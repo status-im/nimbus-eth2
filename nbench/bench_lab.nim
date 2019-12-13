@@ -62,21 +62,34 @@ template ntag(tagname: string){.pragma.}
 # Symbols
 # --------------------------------------------------
 
-template fnEntry(id: int, startTime, startCycle: untyped): untyped =
+template fnEntry(name: string, id: int, startTime, startCycle: untyped): untyped =
   ## Bench tracing to insert on function entry
   {.noSideEffect.}:
     discard BenchMetrics[id].numCalls.atomicInc()
     let startTime = getMonoTime()
     let startCycle = getTicks()
 
-template fnExit(id: int, startTime, startCycle: untyped): untyped =
+const nbench_trace {.booldefine.} = off # For manual "debug-echo"-style timing.
+when nbench_trace:
+  # strformat doesn't work in templates.
+  from strutils import alignLeft, formatFloat
+
+template fnExit(name: string, id: int, startTime, startCycle: untyped): untyped =
   ## Bench tracing to insert before each function exit
   {.noSideEffect.}:
     let stopCycle = getTicks()
     let stopTime = getMonoTime()
+    let elapsedCycles = stopCycle - startCycle
+    let elapsedTime = inNanoseconds(stopTime - startTime)
 
-    discard BenchMetrics[id].cumulatedTimeNs.atomicInc(inNanoseconds(stopTime - startTime))
-    discard BenchMetrics[id].cumulatedCycles.atomicInc(stopCycle - startCycle)
+    discard BenchMetrics[id].cumulatedTimeNs.atomicInc(elapsedTime)
+    discard BenchMetrics[id].cumulatedCycles.atomicInc(elapsedCycles)
+
+    when nbench_trace:
+      # strformat doesn't work in templates.
+      echo static(alignLeft(name, 50)),
+           "Time (ms): ", alignLeft(formatFloat(elapsedTime.float64 * 1e-6, precision=3), 10),
+           "Cycles (billions): ", formatFloat(elapsedCycles.float64 * 1e-9, precision=3)
 
 macro nbenchAnnotate(procAst: untyped): untyped =
   procAst.expectKind({nnkProcDef, nnkFuncDef})
@@ -90,8 +103,8 @@ macro nbenchAnnotate(procAst: untyped): untyped =
   var newBody = newStmtList()
   let startTime = genSym(nskLet, "nbench_" & $name & "_startTime_")
   let startCycle = genSym(nskLet, "nbench_" & $name & "_startCycles_")
-  newBody.add getAst(fnEntry(id, startTime, startCycle))
-  newbody.add nnkDefer.newTree(getAst(fnExit(id, startTime, startCycle)))
+  newBody.add getAst(fnEntry($name, id, startTime, startCycle))
+  newbody.add nnkDefer.newTree(getAst(fnExit($name, id, startTime, startCycle)))
   newBody.add procAst.body
 
   procAst.body = newBody
