@@ -16,6 +16,7 @@ BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 # unconditionally built by the default Make target
 TOOLS := \
 	beacon_node \
+	inspector \
 	bench_bls_sig_agggregation \
 	deposit_contract \
 	ncli_hash_tree_root \
