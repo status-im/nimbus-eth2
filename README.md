@@ -36,6 +36,7 @@ You can check where the beacon chain fits in the Ethereum ecosystem our Two-Poin
     - [State transition simulation](#state-transition-simulation)
     - [Local network simulation](#local-network-simulation)
     - [Visualising simulation metrics](#visualising-simulation-metrics)
+    - [Network inspection](#network-inspection)
   - [For developers](#for-developers)
     - [Windows dev environment](#windows-dev-environment)
     - [Linux, MacOS](#linux-macos)
@@ -181,6 +182,25 @@ prometheus
 The dashboard you need to import in Grafana is "tests/simulation/beacon-chain-sim-all-nodes-Grafana-dashboard.json".
 
 ![monitoring dashboard](./media/monitoring.png)
+
+### Network inspection
+
+The [inspector tool](./beacon_chain/inspector.nim) can help monitor the libp2p network and the various channels where blocks and attestations are being transmitted, showing message and connectivity metadata. By default, it will monitor all ethereum 2 gossip traffic.
+
+```bash
+. ./env.sh
+# Build inspector for minimal config:
+./env.sh nim c -d:const_preset=minimal -o:build/inspector_minimal beacon_chain/inspector.nim
+
+# Build inspector for mainnet config:
+./env.sh nim c -d:const_preset=mainnet -o:build/inspector_mainnet beacon_chain/inspector.nim
+
+# See available options
+./env.sh build/inspector_minimal --help
+
+# Connect to a network from eth2 testnet repo bootstrap file - --decode option attempts to decode the messages as well
+./env.sh build/inspector_minimal --decode -b:$(curl -s https://raw.githubusercontent.com/eth2-clients/eth2-testnets/master/nimbus/testnet0/bootstrap_nodes.txt | head -n1)
+```
 
 ## For developers
 
