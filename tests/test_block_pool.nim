@@ -8,7 +8,7 @@
 {.used.}
 
 import
-  options, sequtils, chronicles, unittest,
+  options, sequtils, unittest, chronicles,
   ./testutil, ./testblockutil,
   ../beacon_chain/spec/[beaconstate, datatypes, digest],
   ../beacon_chain/[beacon_node_types, block_pool, beacon_chain_db, extras, ssz]
@@ -42,7 +42,7 @@ suite "Block pool processing" & preset():
   timedTest "Simple block add&get" & preset():
     let
       b1 = makeBlock(state.data.data, state.blck.root, BeaconBlockBody())
-      b1Root = signing_root(b1)
+      b1Root = hash_tree_root(b1.message)
 
     # TODO the return value is ugly here, need to fix and test..
     discard pool.add(state, b1Root, b1)
@@ -57,9 +57,9 @@ suite "Block pool processing" & preset():
   timedTest "Reverse order block add & get" & preset():
     let
       b1 = addBlock(state.data.data, state.blck.root, BeaconBlockBody(), {})
-      b1Root = signing_root(b1)
+      b1Root = hash_tree_root(b1.message)
       b2 = addBlock(state.data.data, b1Root, BeaconBlockBody(), {})
-      b2Root = signing_root(b2)
+      b2Root = hash_tree_root(b2.message)
 
     discard pool.add(state, b2Root, b2)
 
@@ -81,8 +81,8 @@ suite "Block pool processing" & preset():
 
       b1r.get().refs.children[0] == b2r.get().refs
       b2r.get().refs.parent == b1r.get().refs
-      toSeq(pool.blockRootsForSlot(b1.slot)) == @[b1Root]
-      toSeq(pool.blockRootsForSlot(b2.slot)) == @[b2Root]
+      toSeq(pool.blockRootsForSlot(b1.message.slot)) == @[b1Root]
+      toSeq(pool.blockRootsForSlot(b2.message.slot)) == @[b2Root]
 
     db.putHeadBlock(b2Root)
 

@@ -31,8 +31,8 @@ suite "Beacon chain DB" & preset():
       db = init(BeaconChainDB, newMemoryDB())
 
     let
-      blck = BeaconBlock()
-      root = signing_root(blck)
+      blck = SignedBeaconBlock()
+      root = hash_tree_root(blck.message)
 
     db.putBlock(blck)
 
@@ -40,9 +40,9 @@ suite "Beacon chain DB" & preset():
       db.containsBlock(root)
       db.getBlock(root).get() == blck
 
-    db.putStateRoot(root, blck.slot, root)
+    db.putStateRoot(root, blck.message.slot, root)
     check:
-      db.getStateRoot(root, blck.slot).get() == root
+      db.getStateRoot(root, blck.message.slot).get() == root
 
   timedTest "sanity check states" & preset():
     var
@@ -68,12 +68,14 @@ suite "Beacon chain DB" & preset():
     check: x == y
 
     let
-      a0 = BeaconBlock(slot: GENESIS_SLOT + 0)
-      a0r = signing_root(a0)
-      a1 = BeaconBlock(slot: GENESIS_SLOT + 1, parent_root: a0r)
-      a1r = signing_root(a1)
-      a2 = BeaconBlock(slot: GENESIS_SLOT + 2, parent_root: a1r)
-      a2r = signing_root(a2)
+      a0 = SignedBeaconBlock(message: BeaconBlock(slot: GENESIS_SLOT + 0))
+      a0r = hash_tree_root(a0.message)
+      a1 = SignedBeaconBlock(message:
+        BeaconBlock(slot: GENESIS_SLOT + 1, parent_root: a0r))
+      a1r = hash_tree_root(a1.message)
+      a2 = SignedBeaconBlock(message:
+        BeaconBlock(slot: GENESIS_SLOT + 2, parent_root: a1r))
+      a2r = hash_tree_root(a2.message)
 
     doAssert toSeq(db.getAncestors(a0r)) == []
     doAssert toSeq(db.getAncestors(a2r)) == []

@@ -68,7 +68,7 @@ type
     ## state replaying.
     # TODO Something smarter, so we don't need to keep two full copies, wasteful
 
-proc onBeaconBlock*(node: BeaconNode, blck: BeaconBlock) {.gcsafe.}
+proc onBeaconBlock*(node: BeaconNode, blck: SignedBeaconBlock) {.gcsafe.}
 proc updateHead(node: BeaconNode): BlockRef
 
 proc saveValidatorKey(keyName, key: string, conf: BeaconNodeConf) =
@@ -218,8 +218,8 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   let node = result
   sync.init(
     result.blockPool, result.forkVersion,
-    proc(blck: BeaconBlock) =
-      if blck.slot mod SLOTS_PER_EPOCH == 0:
+    proc(signedBlock: SignedBeaconBlock) =
+      if signedBlock.message.slot mod SLOTS_PER_EPOCH == 0:
         # TODO this is a hack to make sure that lmd ghost is run regularly
         #      while syncing blocks - it's poor form to keep it here though -
         #      the logic should be moved elsewhere
@@ -236,7 +236,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
         #      a potentially expensive head resolution?
         discard node.updateHead()
 
-      onBeaconBlock(result, blck))
+      onBeaconBlock(result, signedBlock))
 
   result.stateCache = result.blockPool.loadTailState()
   result.justifiedStateCache = result.stateCache
@@ -452,21 +452,20 @@ proc proposeBlock(node: BeaconNode,
         deposits: deposits)
 
     var
-      newBlock = BeaconBlock(
-        slot: slot,
-        parent_root: head.root,
-        body: blockBody,
-        # TODO: This shouldn't be necessary if OpaqueBlob is the default
-        signature: ValidatorSig(kind: OpaqueBlob))
+      newBlock = SignedBeaconBlock(
+        message: BeaconBlock(
+          slot: slot,
+          parent_root: head.root,
+          body: blockBody))
       tmpState = hashedState
-    discard state_transition(tmpState, newBlock, {skipValidation})
+    discard state_transition(tmpState, newBlock.message, {skipValidation})
     # TODO only enable in fast-fail debugging situations
     # otherwise, bad attestations can bring down network
     # doAssert ok # TODO: err, could this fail somehow?
 
-    newBlock.state_root = tmpState.root
+    newBlock.message.state_root = tmpState.root
 
-    let blockRoot = signing_root(newBlock)
+    let blockRoot = hash_tree_root(newBlock.message)
 
     # Careful, state no longer valid after here..
     # We use the fork from the pre-newBlock state which should be fine because
@@ -480,20 +479,20 @@ proc proposeBlock(node: BeaconNode,
   let newBlockRef = node.blockPool.add(node.stateCache, nroot, nblck)
   if newBlockRef == nil:
     warn "Unable to add proposed block to block pool",
-      newBlock = shortLog(newBlock),
+      newBlock = shortLog(newBlock.message),
       blockRoot = shortLog(blockRoot),
       cat = "bug"
     return head
 
   info "Block proposed",
-    blck = shortLog(newBlock),
+    blck = shortLog(newBlock.message),
     blockRoot = shortLog(newBlockRef.root),
     validator = shortLog(validator),
     cat = "consensus"
 
   if node.config.dump:
     SSZ.saveFile(
-      node.config.dumpDir / "block-" & $newBlock.slot & "-" &
+      node.config.dumpDir / "block-" & $newBlock.message.slot & "-" &
       shortLog(newBlockRef.root) & ".ssz", newBlock)
     SSZ.saveFile(
       node.config.dumpDir / "state-" & $tmpState.data.slot & "-" &
@@ -548,12 +547,12 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
   else:
     node.attestationPool.addUnresolved(attestation)
 
-proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
+proc onBeaconBlock(node: BeaconNode, blck: SignedBeaconBlock) =
   # We received a block but don't know much about it yet - in particular, we
   # don't know if it's part of the chain we're currently building.
-  let blockRoot = signing_root(blck)
+  let blockRoot = hash_tree_root(blck.message)
   debug "Block received",
-    blck = shortLog(blck),
+    blck = shortLog(blck.message),
     blockRoot = shortLog(blockRoot),
     cat = "block_listener",
     pcs = "receive_block"
@@ -570,8 +569,8 @@ proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
   # TODO shouldn't add attestations if the block turns out to be invalid..
   let currentSlot = node.beaconClock.now.toSlot
   if currentSlot.afterGenesis and
-     blck.slot.epoch + 1 >= currentSlot.slot.epoch:
-    for attestation in blck.body.attestations:
+     blck.message.slot.epoch + 1 >= currentSlot.slot.epoch:
+    for attestation in blck.message.body.attestations:
       node.onAttestation(attestation)
 
 proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
@@ -852,7 +851,7 @@ proc handleMissingBlocks(node: BeaconNode) =
     var left = missingBlocks.len
 
     info "Requesting detected missing blocks", missingBlocks
-    node.requestManager.fetchAncestorBlocks(missingBlocks) do (b: BeaconBlock):
+    node.requestManager.fetchAncestorBlocks(missingBlocks) do (b: SignedBeaconBlock):
       onBeaconBlock(node, b)
 
       # TODO instead of waiting for a full second to try the next missing block
@@ -874,8 +873,8 @@ proc onSecond(node: BeaconNode, moment: Moment) {.async.} =
     asyncCheck node.onSecond(nextSecond)
 
 proc run*(node: BeaconNode) =
-  waitFor node.network.subscribe(topicBeaconBlocks) do (blck: BeaconBlock):
-    onBeaconBlock(node, blck)
+  waitFor node.network.subscribe(topicBeaconBlocks) do (signedBlock: SignedBeaconBlock):
+    onBeaconBlock(node, signedBlock)
 
   waitFor node.network.subscribe(topicAttestations) do (attestation: Attestation):
     # Avoid double-counting attestation-topic attestations on shared codepath

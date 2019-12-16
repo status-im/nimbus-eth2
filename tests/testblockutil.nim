@@ -64,7 +64,7 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
 
   if skipValidation notin flags:
     result.data.signature =
-      bls_sign(privkey, signing_root(result.data).data,
+      bls_sign(privkey, hash_tree_root(result.data).data,
                domain)
 
 func makeInitialDeposits*(
@@ -74,7 +74,7 @@ func makeInitialDeposits*(
 
 proc addBlock*(
     state: var BeaconState, previous_block_root: Eth2Digest,
-    body: BeaconBlockBody, flags: UpdateFlags = {}): BeaconBlock =
+    body: BeaconBlockBody, flags: UpdateFlags = {}): SignedBeaconBlock =
   # Create and add a block to state - state will advance by one slot!
   # This is the equivalent of running
   # updateState(state, prev_block, makeBlock(...), {skipValidation})
@@ -100,44 +100,46 @@ proc addBlock*(
     # In order to reuse the state transition function, we first create a dummy
     # block that has some fields set, and use that to generate the state as it
     # would look with the new block applied.
-    new_block = BeaconBlock(
-      slot: state.slot + 1,
-      parent_root: previous_block_root,
-      state_root: Eth2Digest(), # we need the new state first
-      body: new_body,
-      signature: ValidatorSig(), # we need the rest of the block first!
+    new_block = SignedBeaconBlock(
+      message: BeaconBlock(
+        slot: state.slot + 1,
+        parent_root: previous_block_root,
+        state_root: Eth2Digest(), # we need the new state first
+        body: new_body
+      )
     )
 
-  let block_ok = state_transition(state, new_block, {skipValidation})
+  let block_ok = state_transition(state, new_block.message, {skipValidation})
   doAssert block_ok
 
   # Ok, we have the new state as it would look with the block applied - now we
   # can set the state root in order to be able to create a valid signature
-  new_block.state_root = hash_tree_root(state)
+  new_block.message.state_root = hash_tree_root(state)
 
   doAssert privKey.pubKey() == proposer.pubkey,
     "signature key should be derived from private key! - wrong privkey?"
 
   if skipValidation notin flags:
-    let block_root = signing_root(new_block)
+    let block_root = hash_tree_root(new_block.message)
     # We have a signature - put it in the block and we should be done!
     new_block.signature =
       bls_sign(privKey, block_root.data,
                get_domain(state, DOMAIN_BEACON_PROPOSER,
-               compute_epoch_at_slot(new_block.slot)))
+               compute_epoch_at_slot(new_block.message.slot)))
 
     doAssert bls_verify(
       proposer.pubkey,
       block_root.data, new_block.signature,
       get_domain(
-        state, DOMAIN_BEACON_PROPOSER, compute_epoch_at_slot(new_block.slot))),
+        state, DOMAIN_BEACON_PROPOSER,
+        compute_epoch_at_slot(new_block.message.slot))),
       "we just signed this message - it should pass verification!"
 
   new_block
 
 proc makeBlock*(
     state: BeaconState, previous_block_root: Eth2Digest,
-    body: BeaconBlockBody): BeaconBlock =
+    body: BeaconBlockBody): SignedBeaconBlock =
   # Create a block for `state.slot + 1` - like a block proposer would do!
   # It's a bit awkward - in order to produce a block for N+1, we need to
   # calculate what the state will look like after that block has been applied,
