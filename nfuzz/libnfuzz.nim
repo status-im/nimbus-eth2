@@ -13,6 +13,9 @@ type
   AttestationInput = object
     state: BeaconState
     attestation: Attestation
+  # This and AssertionError are raised to indicate programming bugs
+  # Used as a wrapper to allow exception tracking to identify unexpected exceptions
+  FuzzCrashError* = object of Exception
 
 # TODO: change ptr uint to ptr csize_t when available in newer Nim version.
 proc copyState(state: BeaconState, output: ptr byte,
@@ -32,13 +35,13 @@ proc copyState(state: BeaconState, output: ptr byte,
     result = true
 
 proc nfuzz_block(input: openArray[byte], output: ptr byte,
-    output_size: ptr uint): bool {.exportc, raises:[].} =
+    output_size: ptr uint): bool {.exportc, raises:[FuzzCrashError].} =
   var data: BlockInput
 
   try:
     data = SSZ.decode(input, BlockInput)
   except MalformedSszError, SszSizeMismatchError, RangeError:
-    return false
+      raise newException(FuzzCrashError, "SSZ deserialisation failed, likely bug in preprocessing.")
 
   try:
     result = state_transition(data.state, data.beaconBlock, flags = {})
@@ -49,7 +52,7 @@ proc nfuzz_block(input: openArray[byte], output: ptr byte,
     result = copyState(data.state, output, output_size)
 
 proc nfuzz_attestation(input: openArray[byte], output: ptr byte,
-    output_size: ptr uint): bool {.exportc, raises:[].} =
+    output_size: ptr uint): bool {.exportc, raises:[FuzzCrashError].} =
   var
     data: AttestationInput
     cache = get_empty_per_epoch_cache()
@@ -57,7 +60,7 @@ proc nfuzz_attestation(input: openArray[byte], output: ptr byte,
   try:
     data = SSZ.decode(input, AttestationInput)
   except MalformedSszError, SszSizeMismatchError, RangeError:
-    return false
+    raise newException(FuzzCrashError, "SSZ deserialisation failed, likely bug in preprocessing.")
 
   try:
     result = process_attestation(data.state, data.attestation,
