@@ -52,7 +52,7 @@ else:
   {.fatal: "Preset \"" & const_preset ".nim\" is not supported.".}
 
 const
-  SPEC_VERSION* = "0.9.2" ## \
+  SPEC_VERSION* = "0.9.3" ## \
   ## Spec version we're aiming to be compatible with, right now
   ## TODO: improve this scheme once we can negotiate versions in protocol
 
@@ -110,8 +110,8 @@ type
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     proposer_index*: uint64
-    header_1*: BeaconBlockHeader
-    header_2*: BeaconBlockHeader
+    signed_header_1*: SignedBeaconBlockHeader
+    signed_header_2*: SignedBeaconBlockHeader
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#attesterslashing
   AttesterSlashing* = object
@@ -157,12 +157,18 @@ type
 
     data*: DepositData
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#depositdata
+  DepositMessage* = object
+    pubkey*: ValidatorPubKey
+    withdrawal_credentials*: Eth2Digest
+    amount*: Gwei
+
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#depositdata
   DepositData* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
     amount*: uint64
-    signature*: ValidatorSig
+    signature*: ValidatorSig  # signing over DepositMessage
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
@@ -170,7 +176,6 @@ type
     ## Earliest epoch when voluntary exit can be processed
 
     validator_index*: uint64
-    signature*: ValidatorSig
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#beaconblock
   BeaconBlock* = object
@@ -190,16 +195,12 @@ type
 
     body*: BeaconBlockBody
 
-    signature*: ValidatorSig ##\
-    ## Proposer signature
-
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot
     parent_root*: Eth2Digest
     state_root*: Eth2Digest
     body_root*: Eth2Digest
-    signature*: ValidatorSig
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
@@ -212,7 +213,7 @@ type
     attester_slashings*: List[AttesterSlashing, MAX_ATTESTER_SLASHINGS]
     attestations*: List[Attestation, MAX_ATTESTATIONS]
     deposits*: List[Deposit, MAX_DEPOSITS]
-    voluntary_exits*: List[VoluntaryExit, MAX_VOLUNTARY_EXITS]
+    voluntary_exits*: List[SignedVoluntaryExit, MAX_VOLUNTARY_EXITS]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#beaconstate
   BeaconState* = object
@@ -320,6 +321,21 @@ type
     deposit_count*: uint64
     block_hash*: Eth2Digest
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#signedvoluntaryexit
+  SignedVoluntaryExit* = object
+    message*: VoluntaryExit
+    signature*: ValidatorSig
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#signedbeaconblock
+  SignedBeaconBlock* = object
+    message*: BeaconBlock
+    signature*: ValidatorSig
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#signedvoluntaryexit
+  SignedBeaconBlockHeader* = object
+    message*: BeaconBlockHeader
+    signature*: ValidatorSig
+
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/validator/0_beacon-chain-validator.md#aggregateandproof
   AggregateAndProof* = object
     aggregator_index*: uint64
@@ -352,6 +368,7 @@ template foreachSpecType*(op: untyped) =
   ## These are all spec types that will appear in network messages
   ## and persistent consensus data. This helper template is useful
   ## for populating RTTI tables that concern them.
+  op AggregateAndProof
   op Attestation
   op AttestationData
   op AttesterSlashing
@@ -367,6 +384,9 @@ template foreachSpecType*(op: untyped) =
   op IndexedAttestation
   op PendingAttestation
   op ProposerSlashing
+  op SignedBeaconBlock
+  op SignedBeaconBlockHeader
+  op SignedVoluntaryExit
   op Validator
   op VoluntaryExit
 
@@ -553,7 +573,6 @@ func shortLog*(v: BeaconBlock): auto =
     attestations_len: v.body.attestations.len(),
     deposits_len: v.body.deposits.len(),
     voluntary_exits_len: v.body.voluntary_exits.len(),
-    signature: shortLog(v.signature)
   )
 
 func shortLog*(v: AttestationData): auto =

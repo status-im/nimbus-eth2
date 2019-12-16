@@ -56,7 +56,7 @@ func process_slot*(state: var BeaconState) =
 
   # Cache block root
   state.block_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
-    signing_root(state.latest_block_header)
+    hash_tree_root(state.latest_block_header)
 
 func get_epoch_validator_count(state: BeaconState): int64 =
   # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
@@ -183,7 +183,7 @@ func process_slot(state: var HashedBeaconState) =
 
   # Cache block root
   state.data.block_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
-    signing_root(state.data.latest_block_header)
+    hash_tree_root(state.data.latest_block_header)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 proc process_slots*(state: var HashedBeaconState, slot: Slot) =

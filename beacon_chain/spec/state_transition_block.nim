@@ -43,7 +43,7 @@ declareGauge beacon_previous_live_validators, "Number of active validators that 
 declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
 declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#block-header
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#block-header
 proc process_block_header*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool =
@@ -56,13 +56,13 @@ proc process_block_header*(
 
   # Verify that the parent matches
   if skipValidation notin flags and not (blck.parent_root ==
-      signing_root(state.latest_block_header)):
+      hash_tree_root(state.latest_block_header)):
     # TODO: skip validation is too strong
     #       can't do "invalid_parent_root" test
     notice "Block header: previous block root mismatch",
       latest_block_header = state.latest_block_header,
       blck = shortLog(blck),
-      latest_block_header_root = shortLog(signing_root(state.latest_block_header))
+      latest_block_header_root = shortLog(hash_tree_root(state.latest_block_header))
     return false
 
   # Save current block as the new latest block
@@ -71,9 +71,6 @@ proc process_block_header*(
     parent_root: blck.parent_root,
     # state_root: zeroed, overwritten in the next `process_slot` call
     body_root: hash_tree_root(blck.body),
-    # signature is always zeroed
-    # TODO - Pure BLSSig cannot be zero: https://github.com/status-im/nim-beacon-chain/issues/374
-    signature: BlsValue[Signature](kind: OpaqueBlob)
   )
 
   # Verify proposer is not slashed
@@ -85,18 +82,6 @@ proc process_block_header*(
   let proposer = state.validators[proposer_index.get]
   if proposer.slashed:
     notice "Block header: proposer slashed"
-    return false
-
-  # Verify proposer signature
-  if skipValidation notin flags and not bls_verify(
-      proposer.pubkey,
-      signing_root(blck).data,
-      blck.signature,
-      get_domain(state, DOMAIN_BEACON_PROPOSER)):
-    notice "Block header: invalid block header",
-      proposer_pubkey = proposer.pubkey,
-      block_root = shortLog(signing_root(blck)),
-      block_signature = blck.signature
     return false
 
   true
@@ -153,7 +138,7 @@ func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
     (validator.activation_epoch <= epoch) and
     (epoch < validator.withdrawable_epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#proposer-slashings
 proc process_proposer_slashing*(
     state: var BeaconState, proposer_slashing: ProposerSlashing,
     flags: UpdateFlags, stateCache: var StateCache): bool =
@@ -164,13 +149,14 @@ proc process_proposer_slashing*(
   let proposer = state.validators[proposer_slashing.proposer_index.int]
 
   # Verify slots match
-  if not (proposer_slashing.header_1.slot ==
-      proposer_slashing.header_2.slot):
+  if not (proposer_slashing.signed_header_1.message.slot ==
+      proposer_slashing.signed_header_2.message.slot):
     notice "Proposer slashing: slot mismatch"
     return false
 
   # But the headers are different
-  if not (proposer_slashing.header_1 != proposer_slashing.header_2):
+  if not (proposer_slashing.signed_header_1.message !=
+      proposer_slashing.signed_header_2.message):
     notice "Proposer slashing: headers not different"
     return false
 
@@ -181,13 +167,15 @@ proc process_proposer_slashing*(
 
   # Signatures are valid
   if skipValidation notin flags:
-    for i, header in [proposer_slashing.header_1, proposer_slashing.header_2]:
+    for i, signed_header in [proposer_slashing.signed_header_1,
+        proposer_slashing.signed_header_2]:
       if not bls_verify(
           proposer.pubkey,
-          signing_root(header).data,
-          header.signature,
+          hash_tree_root(signed_header.message).data,
+          signed_header.signature,
           get_domain(
-            state, DOMAIN_BEACON_PROPOSER, compute_epoch_at_slot(header.slot))):
+            state, DOMAIN_BEACON_PROPOSER,
+            compute_epoch_at_slot(signed_header.message.slot))):
         notice "Proposer slashing: invalid signature",
           signature_index = i
         return false
@@ -312,20 +300,22 @@ proc processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#voluntary-exits
 proc process_voluntary_exit*(
     state: var BeaconState,
-    exit: VoluntaryExit,
+    signed_voluntary_exit: SignedVoluntaryExit,
     flags: UpdateFlags): bool =
 
+  let voluntary_exit = signed_voluntary_exit.message
+
   # Not in spec. Check that validator_index is in range
-  if exit.validator_index.int >= state.validators.len:
+  if voluntary_exit.validator_index.int >= state.validators.len:
     notice "Exit: invalid validator index",
-      index = exit.validator_index,
+      index = voluntary_exit.validator_index,
       num_validators = state.validators.len
     return false
 
-  let validator = state.validators[exit.validator_index.int]
+  let validator = state.validators[voluntary_exit.validator_index.int]
 
   # Verify the validator is active
   if not is_active_validator(validator, get_current_epoch(state)):
@@ -339,7 +329,7 @@ proc process_voluntary_exit*(
 
   ## Exits must specify an epoch when they become valid; they are not valid
   ## before then
-  if not (get_current_epoch(state) >= exit.epoch):
+  if not (get_current_epoch(state) >= voluntary_exit.epoch):
     notice "Exit: exit epoch not passed"
     return false
 
@@ -351,26 +341,26 @@ proc process_voluntary_exit*(
 
   # Verify signature
   if skipValidation notin flags:
-    let domain = get_domain(state, DOMAIN_VOLUNTARY_EXIT, exit.epoch)
+    let domain = get_domain(state, DOMAIN_VOLUNTARY_EXIT, voluntary_exit.epoch)
     if not bls_verify(
         validator.pubkey,
-        signing_root(exit).data,
-        exit.signature,
+        hash_tree_root(voluntary_exit).data,
+        signed_voluntary_exit.signature,
         domain):
       notice "Exit: invalid signature"
       return false
 
   # Initiate exit
   debug "Exit: processing voluntary exit (validator_leaving)",
-    index = exit.validator_index,
+    index = voluntary_exit.validator_index,
     num_validators = state.validators.len,
-    epoch = exit.epoch,
+    epoch = voluntary_exit.epoch,
     current_epoch = get_current_epoch(state),
     validator_slashed = validator.slashed,
     validator_withdrawable_epoch = validator.withdrawable_epoch,
     validator_exit_epoch = validator.exit_epoch,
     validator_effective_balance = validator.effective_balance
-  initiate_validator_exit(state, exit.validator_index.ValidatorIndex)
+  initiate_validator_exit(state, voluntary_exit.validator_index.ValidatorIndex)
 
   true
 
