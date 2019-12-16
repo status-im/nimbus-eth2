@@ -25,9 +25,6 @@ const
     # to join the same testnets.
 
   useInsecureFeatures* = defined(insecure)
-    # TODO This is temporarily set to true, so it's easier for other teams to
-    # launch the beacon_node with metrics enabled during the interop lock-in.
-    # We'll disable it once the lock-in is over.
 
   gitRevision* = staticExec("git rev-parse --short HEAD")
 
