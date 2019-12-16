@@ -60,8 +60,6 @@ func toSlot*(c: BeaconClock, t: Time): tuple[afterGenesis: bool, slot: Slot] =
 func toBeaconTime*(s: Slot, offset = chronos.seconds(0)): BeaconTime =
   BeaconTime(int64(uint64(s) * SECONDS_PER_SLOT) + seconds(offset))
 
-# TODO on Travis ARM64 CIs, this claims to have side effects, but neither Linux
-# nor Mac OS x86 CIs exhibit this behavior.
 proc now*(c: BeaconClock): BeaconTime =
   ## Current time, in slots - this may end up being less than GENESIS_SLOT(!)
   toBeaconTime(c, getTime())

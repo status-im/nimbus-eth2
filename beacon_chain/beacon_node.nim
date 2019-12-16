@@ -1,9 +1,9 @@
 import
   # Standard library
-  os, net, tables, random, strutils, times, memfiles,
+  os, net, tables, random, strutils, times,
 
   # Nimble packages
-  stew/[objects, bitseqs], stew/ranges/ptr_arith,
+  stew/[objects, bitseqs, byteutils], stew/ranges/ptr_arith,
   chronos, chronicles, confutils, metrics,
   json_serialization/std/[options, sets], serialization/errors,
   eth/trie/db, eth/trie/backends/rocksdb_backend, eth/async_utils,
@@ -16,7 +16,6 @@ import
   sync_protocol, request_manager, validator_keygen, interop, statusbar
 
 const
-  dataDirValidators = "validators"
   genesisFile = "genesis.ssz"
   hasPrompt = not defined(withoutPrompt)
   maxEmptySlotCount = uint64(24*60*60) div SECONDS_PER_SLOT
@@ -69,16 +68,11 @@ type
     ## state replaying.
     # TODO Something smarter, so we don't need to keep two full copies, wasteful
 
-proc onBeaconBlock*(node: BeaconNode, blck: BeaconBlock) {.gcsafe.}
-
-func localValidatorsDir(conf: BeaconNodeConf): string =
-  conf.dataDir / "validators"
-
-func databaseDir(conf: BeaconNodeConf): string =
-  conf.dataDir / "db"
+proc onBeaconBlock*(node: BeaconNode, blck: SignedBeaconBlock) {.gcsafe.}
+proc updateHead(node: BeaconNode): BlockRef
 
 proc saveValidatorKey(keyName, key: string, conf: BeaconNodeConf) =
-  let validatorsDir = conf.dataDir / dataDirValidators
+  let validatorsDir = conf.localValidatorsDir
   let outputFile = validatorsDir / keyName
   createDir validatorsDir
   writeFile(outputFile, key)
@@ -221,9 +215,28 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   # TODO sync is called when a remote peer is connected - is that the right
   #      time to do so?
   let sync = result.network.protocolState(BeaconSync)
+  let node = result
   sync.init(
     result.blockPool, result.forkVersion,
-    proc(blck: BeaconBlock) = onBeaconBlock(result, blck))
+    proc(signedBlock: SignedBeaconBlock) =
+      if signedBlock.message.slot mod SLOTS_PER_EPOCH == 0:
+        # TODO this is a hack to make sure that lmd ghost is run regularly
+        #      while syncing blocks - it's poor form to keep it here though -
+        #      the logic should be moved elsewhere
+        # TODO why only when syncing? well, because the way the code is written
+        #      we require a connection to a boot node to start, and that boot
+        #      node will start syncing as part of connection setup - it looks
+        #      like it needs to finish syncing before the slot timer starts
+        #      ticking which is a problem: all the synced blocks will be added
+        #      to the block pool without any periodic head updates while this
+        #      process is ongoing (during a blank start for example), which
+        #      leads to an unhealthy buildup of blocks in the non-finalized part
+        #      of the block pool
+        # TODO is it a problem that someone sending us a block can force
+        #      a potentially expensive head resolution?
+        discard node.updateHead()
+
+      onBeaconBlock(result, signedBlock))
 
   result.stateCache = result.blockPool.loadTailState()
   result.justifiedStateCache = result.stateCache
@@ -283,17 +296,8 @@ proc addLocalValidator(
   node.attachedValidators.addLocalValidator(pubKey, privKey)
 
 proc addLocalValidators(node: BeaconNode, state: BeaconState) =
-  for validatorKeyFile in node.config.validators:
-    node.addLocalValidator state, validatorKeyFile.load
-
-  for kind, file in walkDir(node.config.localValidatorsDir):
-    if kind in {pcFile, pcLinkToFile}:
-      if cmpIgnoreCase(".privkey", splitFile(file).ext) == 0:
-        try:
-          let keyText = ValidatorPrivKey.init(readFile(file).string)
-          node.addLocalValidator state, keyText
-        except CatchableError:
-          warn "Failed to load a validator private key", file
+  for validatorKey in node.config.validatorKeys:
+    node.addLocalValidator state, validatorKey
 
   info "Local validators attached ", count = node.attachedValidators.count
 
@@ -330,7 +334,7 @@ proc isSynced(node: BeaconNode, head: BlockRef): bool =
   else:
     true
 
-proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
+proc updateHead(node: BeaconNode): BlockRef =
   # Use head state for attestation resolution below
 
   # Check pending attestations - maybe we found some blocks for them
@@ -346,7 +350,6 @@ proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
     lmdGhost(node.attestationPool, state, justifiedHead.blck)
 
   node.blockPool.updateHead(node.stateCache, newHead)
-  beacon_head_slot.set slot.int64
   beacon_head_root.set newHead.root.toGaugeValue
 
   newHead
@@ -449,21 +452,20 @@ proc proposeBlock(node: BeaconNode,
         deposits: deposits)
 
     var
-      newBlock = BeaconBlock(
-        slot: slot,
-        parent_root: head.root,
-        body: blockBody,
-        # TODO: This shouldn't be necessary if OpaqueBlob is the default
-        signature: ValidatorSig(kind: OpaqueBlob))
+      newBlock = SignedBeaconBlock(
+        message: BeaconBlock(
+          slot: slot,
+          parent_root: head.root,
+          body: blockBody))
       tmpState = hashedState
-    discard state_transition(tmpState, newBlock, {skipValidation})
+    discard state_transition(tmpState, newBlock.message, {skipValidation})
     # TODO only enable in fast-fail debugging situations
     # otherwise, bad attestations can bring down network
     # doAssert ok # TODO: err, could this fail somehow?
 
-    newBlock.state_root = tmpState.root
+    newBlock.message.state_root = tmpState.root
 
-    let blockRoot = signing_root(newBlock)
+    let blockRoot = hash_tree_root(newBlock.message)
 
     # Careful, state no longer valid after here..
     # We use the fork from the pre-newBlock state which should be fine because
@@ -477,20 +479,20 @@ proc proposeBlock(node: BeaconNode,
   let newBlockRef = node.blockPool.add(node.stateCache, nroot, nblck)
   if newBlockRef == nil:
     warn "Unable to add proposed block to block pool",
-      newBlock = shortLog(newBlock),
+      newBlock = shortLog(newBlock.message),
       blockRoot = shortLog(blockRoot),
       cat = "bug"
     return head
 
   info "Block proposed",
-    blck = shortLog(newBlock),
+    blck = shortLog(newBlock.message),
     blockRoot = shortLog(newBlockRef.root),
     validator = shortLog(validator),
     cat = "consensus"
 
   if node.config.dump:
     SSZ.saveFile(
-      node.config.dumpDir / "block-" & $newBlock.slot & "-" &
+      node.config.dumpDir / "block-" & $newBlock.message.slot & "-" &
       shortLog(newBlockRef.root) & ".ssz", newBlock)
     SSZ.saveFile(
       node.config.dumpDir / "state-" & $tmpState.data.slot & "-" &
@@ -545,12 +547,12 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
   else:
     node.attestationPool.addUnresolved(attestation)
 
-proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
+proc onBeaconBlock(node: BeaconNode, blck: SignedBeaconBlock) =
   # We received a block but don't know much about it yet - in particular, we
   # don't know if it's part of the chain we're currently building.
-  let blockRoot = signing_root(blck)
+  let blockRoot = hash_tree_root(blck.message)
   debug "Block received",
-    blck = shortLog(blck),
+    blck = shortLog(blck.message),
     blockRoot = shortLog(blockRoot),
     cat = "block_listener",
     pcs = "receive_block"
@@ -567,8 +569,8 @@ proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
   # TODO shouldn't add attestations if the block turns out to be invalid..
   let currentSlot = node.beaconClock.now.toSlot
   if currentSlot.afterGenesis and
-     blck.slot.epoch + 1 >= currentSlot.slot.epoch:
-    for attestation in blck.body.attestations:
+     blck.message.slot.epoch + 1 >= currentSlot.slot.epoch:
+    for attestation in blck.message.body.attestations:
       node.onAttestation(attestation)
 
 proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
@@ -743,7 +745,11 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   #      updates and is stable across some epoch transitions as well - see how
   #      we can avoid recalculating everything here
 
-  var head = node.updateHead(slot)
+  var head = node.updateHead()
+
+  # TODO is the slot of the clock or the head block more interestion? provide
+  #      rationale in comment
+  beacon_head_slot.set slot.int64
 
   # TODO if the head is very old, that is indicative of something being very
   #      wrong - us being out of sync or disconnected from the network - need
@@ -805,14 +811,20 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     #      the work for the whole slot using a monotonic clock instead, then deal
     #      with any clock discrepancies once only, at the start of slot timer
     #      processing..
+
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/validator/0_beacon-chain-validator.md#attesting
+    # A validator should create and broadcast the attestation to the
+    # associated attestation subnet one-third of the way through the slot
+    # during which the validator is assigned―that is, SECONDS_PER_SLOT / 3
+    # seconds after the start of slot.
     let
       attestationStart = node.beaconClock.fromNow(slot)
-      halfSlot = seconds(int64(SECONDS_PER_SLOT div 2))
+      thirdSlot = seconds(int64(SECONDS_PER_SLOT)) div 3
 
-    if attestationStart.inFuture or attestationStart.offset <= halfSlot:
+    if attestationStart.inFuture or attestationStart.offset <= thirdSlot:
       let fromNow =
-        if attestationStart.inFuture: attestationStart.offset + halfSlot
-        else: halfSlot - attestationStart.offset
+        if attestationStart.inFuture: attestationStart.offset + thirdSlot
+        else: thirdSlot - attestationStart.offset
 
       trace "Waiting to send attestations",
         slot = shortLog(slot),
@@ -822,7 +834,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
       await sleepAsync(fromNow)
 
       # Time passed - we might need to select a new head in that case
-      head = node.updateHead(slot)
+      head = node.updateHead()
 
     handleAttestations(node, head, slot)
 
@@ -839,7 +851,7 @@ proc handleMissingBlocks(node: BeaconNode) =
     var left = missingBlocks.len
 
     info "Requesting detected missing blocks", missingBlocks
-    node.requestManager.fetchAncestorBlocks(missingBlocks) do (b: BeaconBlock):
+    node.requestManager.fetchAncestorBlocks(missingBlocks) do (b: SignedBeaconBlock):
       onBeaconBlock(node, b)
 
       # TODO instead of waiting for a full second to try the next missing block
@@ -861,8 +873,8 @@ proc onSecond(node: BeaconNode, moment: Moment) {.async.} =
     asyncCheck node.onSecond(nextSecond)
 
 proc run*(node: BeaconNode) =
-  waitFor node.network.subscribe(topicBeaconBlocks) do (blck: BeaconBlock):
-    onBeaconBlock(node, blck)
+  waitFor node.network.subscribe(topicBeaconBlocks) do (signedBlock: SignedBeaconBlock):
+    onBeaconBlock(node, signedBlock)
 
   waitFor node.network.subscribe(topicAttestations) do (attestation: Attestation):
     # Avoid double-counting attestation-topic attestations on shared codepath
@@ -1058,10 +1070,6 @@ when hasPrompt:
       # var t: Thread[ptr Prompt]
       # createThread(t, processPromptCommands, addr p)
 
-template bytes(memFile: MemFile): untyped =
-  let f = memFile
-  makeOpenArray(f.mem, byte, f.size)
-
 when isMainModule:
   randomize()
 
@@ -1191,14 +1199,14 @@ when isMainModule:
 
     of QueryCmd.get:
       let pathFragments = config.getQueryPath.split('/', maxsplit = 1)
-      var navigator: DynamicSszNavigator
+      let bytes =
+        case pathFragments[0]
+        of "genesis_state":
+          readFile(config.dataDir/genesisFile).string.toBytes()
+        else:
+          stderr.write config.getQueryPath & " is not a valid path"
+          quit 1
 
-      case pathFragments[0]
-      of "genesis_state":
-        var genesisMapFile = memfiles.open(config.dataDir/genesisFile)
-        navigator = DynamicSszNavigator.init(genesisMapFile.bytes, BeaconState)
-      else:
-        stderr.write config.getQueryPath & " is not a valid path"
-        quit 1
+      let navigator = DynamicSszNavigator.init(bytes, BeaconState)
 
       echo navigator.navigatePath(pathFragments[1 .. ^1]).toJson

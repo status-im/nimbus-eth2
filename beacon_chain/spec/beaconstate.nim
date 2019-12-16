@@ -80,7 +80,7 @@ func process_deposit*(
   if index == -1:
     # Verify the deposit signature (proof of possession)
     if skipValidation notin flags and not bls_verify(
-        pubkey, signing_root(deposit.data).data, deposit.data.signature,
+        pubkey, hash_tree_root(deposit.data).data, deposit.data.signature,
         compute_domain(DOMAIN_DEPOSIT)):
       return false
 
@@ -189,7 +189,7 @@ proc slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
   increase_balance(
     state, whistleblower_index, whistleblowing_reward - proposer_reward)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#genesis
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#genesis
 func initialize_beacon_state_from_eth1*(
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
@@ -222,9 +222,7 @@ func initialize_beacon_state_from_eth1*(
       BeaconBlockHeader(
         body_root: hash_tree_root(BeaconBlockBody(
           randao_reveal: BlsValue[Signature](kind: OpaqueBlob)
-        )),
-        # TODO - Pure BLSSig cannot be zero: https://github.com/status-im/nim-beacon-chain/issues/374
-        signature: BlsValue[Signature](kind: OpaqueBlob)
+        ))
       )
   )
 
@@ -265,17 +263,16 @@ func is_valid_genesis_state*(state: BeaconState): bool =
 
 # TODO this is now a non-spec helper function, and it's not really accurate
 # so only usable/used in research/ and tests/
-func get_initial_beacon_block*(state: BeaconState): BeaconBlock =
-  BeaconBlock(
-    slot: GENESIS_SLOT,
-    state_root: hash_tree_root(state),
-    body: BeaconBlockBody(
+func get_initial_beacon_block*(state: BeaconState): SignedBeaconBlock =
+  SignedBeaconBlock(
+    message: BeaconBlock(
+      slot: GENESIS_SLOT,
+      state_root: hash_tree_root(state),
+      body: BeaconBlockBody(
         # TODO: This shouldn't be necessary if OpaqueBlob is the default
-        randao_reveal: BlsValue[Signature](kind: OpaqueBlob)),
-    # TODO: This shouldn't be necessary if OpaqueBlob is the default
-    signature: BlsValue[Signature](kind: OpaqueBlob))
-    # parent_root, randao_reveal, eth1_data, signature, and body automatically
-    # initialized to default values.
+        randao_reveal: BlsValue[Signature](kind: OpaqueBlob))))
+      # parent_root, randao_reveal, eth1_data, signature, and body automatically
+      # initialized to default values.
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: BeaconState,
@@ -300,7 +297,24 @@ func get_total_balance*(state: BeaconState, validators: auto): Gwei =
   )
 
 # XXX: Move to state_transition_epoch.nim?
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#registry-updates
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#is_eligible_for_activation_queue
+func is_eligible_for_activation_queue(validator: Validator): bool =
+  # Check if ``validator`` is eligible to be placed into the activation queue.
+  validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and
+    validator.effective_balance == MAX_EFFECTIVE_BALANCE
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#is_eligible_for_activation
+func is_eligible_for_activation(state: BeaconState, validator: Validator):
+    bool =
+  # Check if ``validator`` is eligible for activation.
+
+  # Placement in queue is finalized
+  validator.activation_eligibility_epoch <= state.finalized_checkpoint.epoch and
+  # Has not yet been activated
+    validator.activation_epoch == FAR_FUTURE_EPOCH
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#registry-updates
 proc process_registry_updates*(state: var BeaconState) =
   ## Process activation eligibility and ejections
   ## Try to avoid caching here, since this could easily become undefined
@@ -308,17 +322,16 @@ proc process_registry_updates*(state: var BeaconState) =
   # Make visible, e.g.,
   # https://github.com/status-im/nim-beacon-chain/pull/608
   # https://github.com/sigp/lighthouse/pull/657
-  let epoch = get_current_epoch(state)
+  let epoch {.used.} = get_current_epoch(state)
   trace "process_registry_updates validator balances",
     balances=state.balances,
     active_validator_indices=get_active_validator_indices(state, epoch),
     epoch=epoch
 
   for index, validator in state.validators:
-    if validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and
-        validator.effective_balance == MAX_EFFECTIVE_BALANCE:
+    if is_eligible_for_activation_queue(validator):
       state.validators[index].activation_eligibility_epoch =
-        get_current_epoch(state)
+        get_current_epoch(state) + 1
 
     if is_active_validator(validator, get_current_epoch(state)) and
         validator.effective_balance <= EJECTION_BALANCE:
@@ -333,12 +346,9 @@ proc process_registry_updates*(state: var BeaconState) =
       initiate_validator_exit(state, index.ValidatorIndex)
 
   ## Queue validators eligible for activation and not dequeued for activation
-  ## prior to finalized epoch
   var activation_queue : seq[tuple[a: Epoch, b: int]] = @[]
   for index, validator in state.validators:
-    if validator.activation_eligibility_epoch != FAR_FUTURE_EPOCH and
-        validator.activation_epoch >=
-          compute_activation_exit_epoch(state.finalized_checkpoint.epoch):
+    if is_eligible_for_activation(state, validator):
       activation_queue.add (
         state.validators[index].activation_eligibility_epoch, index)
 
@@ -353,9 +363,8 @@ proc process_registry_updates*(state: var BeaconState) =
     let
       (_, index) = epoch_and_index
       validator = addr state.validators[index]
-    if validator.activation_epoch == FAR_FUTURE_EPOCH:
-      validator.activation_epoch =
-        compute_activation_exit_epoch(get_current_epoch(state))
+    validator.activation_epoch =
+      compute_activation_exit_epoch(get_current_epoch(state))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(

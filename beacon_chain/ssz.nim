@@ -557,6 +557,8 @@ func maxChunksCount(T: type, maxLen: static int64): int64 {.compileTime.} =
 func hash_tree_root*(x: auto): Eth2Digest =
   trs "STARTING HASH TREE ROOT FOR TYPE ", name(type(x))
   mixin toSszType
+  when x is SignedBeaconBlock:
+    doassert false
   when x is TypeWithMaxLen:
     const maxLen = x.maxLen
     type T = type valueOf(x)
@@ -593,14 +595,3 @@ iterator hash_tree_roots_prefix*[T](lst: openarray[T], limit: auto):
   for i, elem in lst:
     merkelizer.addChunk(hash_tree_root(elem).data)
     yield mixInLength(merkelizer.getFinalHash(), i + 1)
-
-func lastFieldName(RecordType: type): string {.compileTime.} =
-  enumAllSerializedFields(RecordType):
-    result = fieldName
-
-func signingRoot*(obj: object): Eth2Digest =
-  const lastField = lastFieldName(obj.type)
-  merkelizeFields:
-    obj.enumInstanceSerializedFields(fieldName, field):
-      when fieldName != lastField:
-        addField2 field

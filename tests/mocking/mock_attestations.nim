@@ -26,7 +26,7 @@ proc mockAttestationData(
   doAssert state.slot >= slot
 
   if slot == state.slot:
-    result.beacon_block_root = mockBlockForNextSlot(state).parent_root
+    result.beacon_block_root = mockBlockForNextSlot(state).message.parent_root
   else:
     result.beacon_block_root = get_block_root_at_slot(state, slot)
 
@@ -140,11 +140,12 @@ proc fillAggregateAttestation*(state: BeaconState, attestation: var Attestation)
     attestation.aggregation_bits[i] = true
 
 proc add*(state: var BeaconState, attestation: Attestation, slot: Slot) =
-  var blck = mockBlockForNextSlot(state)
-  blck.slot = slot
-  blck.body.attestations.add attestation
+  var signedBlock = mockBlockForNextSlot(state)
+  signedBlock.message.slot = slot
+  signedBlock.message.body.attestations.add attestation
   process_slots(state, slot)
-  signMockBlock(state, blck)
+  signMockBlock(state, signedBlock)
 
   # TODO: we can skip just VerifyStateRoot
-  doAssert state_transition(state, blck, flags = {skipValidation})
+  doAssert state_transition(
+    state, signedBlock.message, flags = {skipValidation})

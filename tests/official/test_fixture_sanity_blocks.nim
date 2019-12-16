@@ -11,7 +11,7 @@ import
   # Standard library
   os, unittest,
   # Beacon chain internals
-  ../../beacon_chain/spec/[datatypes],
+  ../../beacon_chain/spec/[crypto, datatypes],
   ../../beacon_chain/[ssz, state_transition, extras],
   # Test utilities
   ../testutil,
@@ -37,10 +37,10 @@ template runValidTest(testName: string, identifier: untyped, num_blocks: int): u
       postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
 
       for i in 0 ..< num_blocks:
-        let blck = parseTest(testDir/"blocks_" & $i & ".ssz", SSZ, BeaconBlock)
+        let blck = parseTest(testDir/"blocks_" & $i & ".ssz", SSZ, SignedBeaconBlock)
 
         # TODO: The EF is using invalid BLS keys so we can't verify them
-        let success = state_transition(stateRef[], blck, flags = {skipValidation})
+        let success = state_transition(stateRef[], blck.message, flags = {skipValidation})
         doAssert success, "Failure when applying block " & $i
 
       # Checks:
@@ -56,13 +56,13 @@ suite "Official - Sanity - Blocks " & preset():
     new stateRef
     stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
 
-    let blck = parseTest(testDir/"blocks_0.ssz", SSZ, BeaconBlock)
+    let blck = parseTest(testDir/"blocks_0.ssz", SSZ, SignedBeaconBlock)
 
     # Check that a block build for an old slot cannot be used for state transition
     expect(AssertionError):
       # assert in process_slots. This should not be triggered
       #                          for blocks from block_pool/network
-      discard state_transition(stateRef[], blck, flags = {skipValidation})
+      discard state_transition(stateRef[], blck.message, flags = {skipValidation})
 
   runValidTest("Same slot block transition", same_slot_block_transition, 1)
   runValidTest("Empty block transition", empty_block_transition, 1)

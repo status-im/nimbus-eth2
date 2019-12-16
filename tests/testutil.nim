@@ -71,7 +71,7 @@ template timedTest*(name, body) =
   # TODO noto thread-safe as-is
   testTimes.add (f, name)
 
-proc makeTestDB*(tailState: BeaconState, tailBlock: BeaconBlock): BeaconChainDB =
+proc makeTestDB*(tailState: BeaconState, tailBlock: SignedBeaconBlock): BeaconChainDB =
   result = init(BeaconChainDB, newMemoryDB())
   BlockPool.preInit(result, tailState, tailBlock)
 

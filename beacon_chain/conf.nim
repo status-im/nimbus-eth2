@@ -1,5 +1,6 @@
 import
-  os, options, strformat,
+  os, options, strformat, strutils,
+  chronicles, confutils,
   confutils/defs, chronicles/options as chroniclesOptions,
   spec/[crypto]
 
@@ -251,3 +252,25 @@ proc validatorFileBaseName*(validatorIdx: int): string =
 
 func dumpDir*(conf: BeaconNodeConf): string =
   conf.dataDir / "dump"
+
+func localValidatorsDir*(conf: BeaconNodeConf): string =
+  conf.dataDir / "validators"
+
+func databaseDir*(conf: BeaconNodeConf): string =
+  conf.dataDir / "db"
+
+iterator validatorKeys*(conf: BeaconNodeConf): ValidatorPrivKey =
+  for validatorKeyFile in conf.validators:
+    try:
+      yield validatorKeyFile.load
+    except CatchableError as err:
+      warn "Failed to load validator private key",
+        file = validatorKeyFile.string, err = err.msg
+
+  for kind, file in walkDir(conf.localValidatorsDir):
+    if kind in {pcFile, pcLinkToFile} and
+        cmpIgnoreCase(".privkey", splitFile(file).ext) == 0:
+      try:
+        yield ValidatorPrivKey.init(readFile(file).string)
+      except CatchableError as err:
+        warn "Failed to load a validator private key", file, err = err.msg

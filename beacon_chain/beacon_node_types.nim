@@ -106,7 +106,7 @@ type
     ## TODO evaluate the split of responsibilities between the two
     ## TODO prune the graph as tail moves
 
-    pending*: Table[Eth2Digest, BeaconBlock] ##\
+    pending*: Table[Eth2Digest, SignedBeaconBlock] ##\
     ## Blocks that have passed validation but that we lack a link back to tail
     ## for - when we receive a "missing link", we can use this data to build
     ## an entire branch
@@ -161,7 +161,7 @@ type
   BlockData* = object
     ## Body and graph in one
 
-    data*: BeaconBlock
+    data*: SignedBeaconBlock
     refs*: BlockRef
 
   StateData* = object

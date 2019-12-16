@@ -1,15 +1,15 @@
 type
   NetworkBackendType* = enum
-    libp2pBackend
-    libp2pDaemonBackend
-    rlpxBackend
+    libp2p
+    libp2pDaemon
+    rlpx
 
 const
   NETWORK_TYPE {.strdefine.} = "libp2p_daemon"
 
-  networkBackend* = when NETWORK_TYPE == "rlpx": rlpxBackend
-                    elif NETWORK_TYPE == "libp2p": libp2pBackend
-                    elif NETWORK_TYPE == "libp2p_daemon": libp2pDaemonBackend
+  networkBackend* = when NETWORK_TYPE == "rlpx": rlpx
+                    elif NETWORK_TYPE == "libp2p": libp2p
+                    elif NETWORK_TYPE == "libp2p_daemon": libp2pDaemon
                     else: {.fatal: "The 'NETWORK_TYPE' should be either 'libp2p', 'libp2p_daemon' or 'rlpx'" .}
 
 const
@@ -25,9 +25,6 @@ const
     # to join the same testnets.
 
   useInsecureFeatures* = defined(insecure)
-    # TODO This is temporarily set to true, so it's easier for other teams to
-    # launch the beacon_node with metrics enabled during the interop lock-in.
-    # We'll disable it once the lock-in is over.
 
   gitRevision* = staticExec("git rev-parse --short HEAD")
 

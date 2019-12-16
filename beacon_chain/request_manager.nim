@@ -13,7 +13,7 @@ proc init*(T: type RequestManager, network: Eth2Node): T =
   T(network: network)
 
 type
-  FetchAncestorsResponseHandler = proc (b: BeaconBlock) {.gcsafe.}
+  FetchAncestorsResponseHandler = proc (b: SignedBeaconBlock) {.gcsafe.}
 
 proc fetchAncestorBlocksFromPeer(
      peer: Peer,

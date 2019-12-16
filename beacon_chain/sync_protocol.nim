@@ -4,9 +4,11 @@ import
   spec/[datatypes, crypto, digest, helpers], eth/rlp,
   beacon_node_types, eth2_network, block_pool, ssz
 
-when networkBackend == rlpxBackend:
+when networkBackend == rlpx:
   import eth/rlp/options as rlpOptions
   template libp2pProtocol*(name: string, version: int) {.pragma.}
+elif networkBackend == libp2p:
+  import libp2p/switch
 
 declarePublicGauge libp2p_peers, "Number of libp2p peers"
 
@@ -25,7 +27,7 @@ type
     else:
       index: uint32
 
-  BeaconBlockCallback* = proc(blck: BeaconBlock) {.gcsafe.}
+  BeaconBlockCallback* = proc(blck: SignedBeaconBlock) {.gcsafe.}
   BeaconSyncNetworkState* = ref object
     blockPool*: BlockPool
     forkVersion*: array[4, byte]
@@ -49,7 +51,7 @@ func init*(
   v.onBeaconBlock = onBeaconBlock
 
 proc importBlocks(state: BeaconSyncNetworkState,
-                  blocks: openarray[BeaconBlock]) {.gcsafe.} =
+                  blocks: openarray[SignedBeaconBlock]) {.gcsafe.} =
   for blk in blocks:
     state.onBeaconBlock(blk)
   info "Forward sync imported blocks", len = blocks.len
@@ -156,12 +158,20 @@ p2pProtocol BeaconSync(version = 1,
 
     proc beaconBlocks(
             peer: Peer,
-            blocks: openarray[BeaconBlock])
+            blocks: openarray[SignedBeaconBlock])
 
 proc handleInitialStatus(peer: Peer,
                          state: BeaconSyncNetworkState,
                          ourStatus: StatusMsg,
                          theirStatus: StatusMsg) {.async, gcsafe.} =
+  when networkBackend == libp2p:
+    # TODO: This doesn't seem like an appropraite place for this call,
+    # but it's hard to pick a better place at the moment.
+    # nim-libp2p plans to add a general `onPeerConnected` callback which
+    # will allow us to implement the subscription earlier.
+    # The root of the problem is that both sides must call `subscribeToPeer`
+    # before any GossipSub traffic will flow between them.
+    await peer.network.switch.subscribeToPeer(peer.info)
 
   if theirStatus.forkVersion != state.forkVersion:
     notice "Irrelevant peer",
@@ -211,7 +221,7 @@ proc handleInitialStatus(peer: Peer,
             break
 
           state.importBlocks(blocks.get)
-          let lastSlot = blocks.get[^1].slot
+          let lastSlot = blocks.get[^1].message.slot
           if lastSlot <= s:
             info "Slot did not advance during sync", peer
             break
