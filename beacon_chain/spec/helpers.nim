@@ -28,9 +28,9 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
     y = (x + n div x) div 2
   x
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#compute_epoch_at_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#compute_epoch_at_slot
 func compute_epoch_at_slot*(slot: Slot|uint64): Epoch =
-  # Return the epoch number of the given ``slot``.
+  # Return the epoch number at ``slot``.
   (slot div SLOTS_PER_EPOCH).Epoch
 
 template epoch*(slot: Slot): Epoch =
@@ -67,13 +67,13 @@ func get_committee_count_at_slot*(state: BeaconState, slot: Slot): uint64 =
   # Otherwise, get_beacon_committee(...) cannot access some committees.
   doAssert (SLOTS_PER_EPOCH * MAX_COMMITTEES_PER_SLOT).uint64 >= result
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#get_current_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: BeaconState): Epoch =
   # Return the current epoch.
   doAssert state.slot >= GENESIS_SLOT, $state.slot
   compute_epoch_at_slot(state.slot)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#get_randao_mix
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: BeaconState,
                      epoch: Epoch): Eth2Digest =
     ## Returns the randao mix at a recent ``epoch``.
@@ -114,10 +114,11 @@ func int_to_bytes4*(x: uint64): array[4, byte] =
   result[2] = ((x shr 16) and 0xff).byte
   result[3] = ((x shr 24) and 0xff).byte
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#compute_domain
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#compute_domain
 func compute_domain*(
     domain_type: DomainType,
     fork_version: array[4, byte] = [0'u8, 0, 0, 0]): Domain =
+  # Return the domain for the ``domain_type`` and ``fork_version``.
   result[0..3] = int_to_bytes4(domain_type.uint64)
   result[4..7] = fork_version
 

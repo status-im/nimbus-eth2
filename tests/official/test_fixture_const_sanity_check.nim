@@ -20,7 +20,7 @@ const
   SpecDir = currentSourcePath.rsplit(DirSep, 1)[0] /
                   ".."/".."/"beacon_chain"/"spec"
   FixturesDir = currentSourcePath.rsplit(DirSep, 1)[0] / "fixtures"
-  Config = FixturesDir/"tests-v0.9.2"/const_preset/"config.yaml"
+  Config = FixturesDir/"tests-v0.9.3"/const_preset/"config.yaml"
 
 type
   CheckedType = SomeInteger or Slot or Epoch
@@ -119,5 +119,5 @@ proc checkConfig() =
       else:
         check: ConstsToCheck[constant] == value.getBiggestInt().uint64()
 
-suite "Official - 0.9.2 - constants & config " & preset():
+suite "Official - 0.9.3 - constants & config " & preset():
   checkConfig()
