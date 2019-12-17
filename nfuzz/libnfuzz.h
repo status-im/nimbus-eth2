@@ -12,9 +12,13 @@ extern "C" {
 void NimMain();
 
 /** Supported fuzzing tests */
+bool nfuzz_attestation(uint8_t* input_ptr, size_t input_size,
+  uint8_t* output_ptr, size_t* output_size);
+bool nfuzz_attester_slashing(uint8_t* input_ptr, size_t input_size,
+  uint8_t* output_ptr, size_t* output_size);
 bool nfuzz_block(uint8_t* input_ptr, size_t input_size,
   uint8_t* output_ptr, size_t* output_size);
-bool nfuzz_attestation(uint8_t* input_ptr, size_t input_size,
+bool nfuzz_block_header(uint8_t* input_ptr, size_t input_size,
   uint8_t* output_ptr, size_t* output_size);
 bool nfuzz_shuffle(uint8_t* seed_ptr, uint64_t* output_ptr, size_t output_size);
 
