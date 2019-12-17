@@ -9,16 +9,25 @@ import
   ../beacon_chain/extras
 
 type
+  AttestationInput = object
+    state: BeaconState
+    attestation: Attestation
+  AttesterSlashingInput = object
+    state: BeaconState
+    attesterSlashing: AttesterSlashing
   BlockInput = object
     state: BeaconState
     beaconBlock: BeaconBlock
   BlockHeaderInput = BlockInput
-  AttesterSlashingInput = object
+  DepositInput = object
     state: BeaconState
-    attesterSlashing: AttesterSlashing
-  AttestationInput = object
+    deposit: Deposit
+  ProposerSlashingInput = object
     state: BeaconState
-    attestation: Attestation
+    proposerSlashing: ProposerSlashing
+  VoluntaryExitInput = object
+    state: BeaconState
+    exit: VoluntaryExit
   # This and AssertionError are raised to indicate programming bugs
   # A wrapper to allow exception tracking to identify unexpected exceptions
   FuzzCrashError = object of Exception
@@ -47,7 +56,6 @@ proc copyState(state: BeaconState, output: ptr byte,
   # and SszWriter (but then need to ensure length doesn't overflow)
   copyMem(output, unsafeAddr resultState[0], output_size[])
   result = true
-
 
 proc nfuzz_attestation(input: openArray[byte], output: ptr byte,
     output_size: ptr uint): bool {.exportc, raises: [FuzzCrashError, Defect].} =
@@ -81,7 +89,6 @@ proc nfuzz_attestation(input: openArray[byte], output: ptr byte,
   if result:
     result = copyState(data.state, output, output_size)
 
-
 proc nfuzz_attester_slashing(input: openArray[byte], output: ptr byte,
     output_size: ptr uint): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   var
@@ -99,6 +106,7 @@ proc nfuzz_attester_slashing(input: openArray[byte], output: ptr byte,
     )
 
   try:
+    # TODO flags
     result = process_attester_slashing(data.state, data.attesterSlashing, cache)
   except ValueError as e:
     # TODO remove when status-im/nim-chronicles#60 is resolved
@@ -110,7 +118,6 @@ proc nfuzz_attester_slashing(input: openArray[byte], output: ptr byte,
 
   if result:
     result = copyState(data.state, output, output_size)
-
 
 proc nfuzz_block(input: openArray[byte], output: ptr byte,
     output_size: ptr uint): bool {.exportc, raises: [FuzzCrashError, Defect].} =
@@ -144,7 +151,6 @@ proc nfuzz_block(input: openArray[byte], output: ptr byte,
   if result:
     result = copyState(data.state, output, output_size)
 
-
 proc nfuzz_block_header(input: openArray[byte], output: ptr byte,
     output_size: ptr uint): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   var
@@ -177,6 +183,64 @@ proc nfuzz_block_header(input: openArray[byte], output: ptr byte,
     result = copyState(data.state, output, output_size)
 
 
+proc nfuzz_deposit(input: openArray[byte], output: ptr byte,
+    output_size: ptr uint): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+  var
+    data: DepositInput
+
+  try:
+    data = SSZ.decode(input, DepositInput)
+  except MalformedSszError, SszSizeMismatchError:
+    let e = getCurrentException()
+    raise newException(
+      FuzzCrashError,
+      "SSZ deserialisation failed, likely bug in preprocessing.",
+      e,
+    )
+
+  try:
+    result = process_deposit(data.state, data.deposit, {})
+  except IOError, ValueError:
+    let e = getCurrentException()
+    # TODO remove when status-im/nim-chronicles#60 is resolved
+    raise newException(
+      FuzzCrashError,
+      "Unexpected (logging?) error in deposit processing",
+      e,
+    )
+
+  if result:
+    result = copyState(data.state, output, output_size)
+
+proc nfuzz_proposer_slashing(input: openArray[byte], output: ptr byte,
+    output_size: ptr uint): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+  var
+    data: ProposerSlashingInput
+    cache = get_empty_per_epoch_cache()
+
+  try:
+    data = SSZ.decode(input, ProposerSlashingInput)
+  except MalformedSszError, SszSizeMismatchError:
+    let e = getCurrentException()
+    raise newException(
+      FuzzCrashError,
+      "SSZ deserialisation failed, likely bug in preprocessing.",
+      e,
+    )
+
+  try:
+    result = process_proposer_slashing(data.state, data.proposerSlashing, {}, cache)
+  except ValueError as e:
+    # TODO remove when status-im/nim-chronicles#60 is resolved
+    raise newException(
+      FuzzCrashError,
+      "Unexpected (logging?) error in proposer slashing",
+      e,
+    )
+
+  if result:
+    result = copyState(data.state, output, output_size)
+
 # Note: Could also accept raw input pointer and access list_size + seed here.
 # However, list_size needs to be known also outside this proc to allocate output.
 # TODO: rework to copy immediatly in an uint8 openArray, considering we have to
@@ -204,3 +268,31 @@ proc nfuzz_shuffle(input_seed: ptr byte, output: var openArray[uint64]): bool
       sizeof(ValidatorIndex))
 
   result = true
+
+proc nfuzz_voluntary_exit(input: openArray[byte], output: ptr byte,
+    output_size: ptr uint): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+  var
+    data: VoluntaryExitInput
+
+  try:
+    data = SSZ.decode(input, VoluntaryExitInput)
+  except MalformedSszError, SszSizeMismatchError:
+    let e = getCurrentException()
+    raise newException(
+      FuzzCrashError,
+      "SSZ deserialisation failed, likely bug in preprocessing.",
+      e,
+    )
+
+  try:
+    result = process_voluntary_exit(data.state, data.exit, {})
+  except ValueError as e:
+    # TODO remove when status-im/nim-chronicles#60 is resolved
+    raise newException(
+      FuzzCrashError,
+      "Unexpected (logging?) error in voluntary exit processing",
+      e,
+    )
+
+  if result:
+    result = copyState(data.state, output, output_size)
