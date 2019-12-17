@@ -16,7 +16,7 @@ Nimbus beacon chain is a research implementation of the beacon chain component o
 ## Related
 
 * [status-im/nimbus](https://github.com/status-im/nimbus/): Nimbus for Ethereum 1
-* [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md): Serenity specification that this project implements
+* [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md): Serenity specification that this project implements
 
 You can check where the beacon chain fits in the Ethereum ecosystem our Two-Point-Oh series: https://our.status.im/tag/two-point-oh/
 

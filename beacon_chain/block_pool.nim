@@ -576,7 +576,7 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
 
   trace "Replaying state transitions",
     stateSlot = shortLog(state.data.data.slot),
-    ancestorStateRoot = shortLog(ancestor.data.state_root),
+    ancestorStateRoot = shortLog(ancestor.data.message.state_root),
     ancestorStateSlot = shortLog(ancestorState.get().slot),
     slot = shortLog(bs.slot),
     blockRoot = shortLog(bs.blck.root),

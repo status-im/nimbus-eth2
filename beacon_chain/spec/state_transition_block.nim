@@ -131,7 +131,7 @@ func process_eth1_data(state: var BeaconState, body: BeaconBlockBody) =
       SLOTS_PER_ETH1_VOTING_PERIOD:
     state.eth1_data = body.eth1_data
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#is_slashable_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#is_slashable_validator
 func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
   # Check if ``validator`` is slashable.
   (not validator.slashed) and
@@ -212,7 +212,7 @@ func is_slashable_attestation_data(
     (data_1.source.epoch < data_2.source.epoch and
      data_2.target.epoch < data_1.target.epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#attester-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
        state: var BeaconState,
        attester_slashing: AttesterSlashing,
@@ -235,11 +235,8 @@ proc process_attester_slashing*(
       notice "Attester slashing: invalid attestation 2"
       return false
 
-    var slashed_any = false # Detect if trying to slash twice
+    var slashed_any = false
 
-    ## TODO there's a lot of sorting/set construction here and
-    ## verify_indexed_attestation, but go by spec unless there
-    ## is compelling perf evidence otherwise.
     for index in sorted(toSeq(intersection(
         toHashSet(attestation_1.attesting_indices),
         toHashSet(attestation_2.attesting_indices)).items), system.cmp):

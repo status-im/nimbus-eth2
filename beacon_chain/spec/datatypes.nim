@@ -58,7 +58,7 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#initial-values
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#initial-values
   GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
   ## compute_epoch_at_slot(GENESIS_SLOT)
 
@@ -80,7 +80,7 @@ type
 
   # Domains
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#domain-types
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#domain-types
   DomainType* {.pure.} = enum
     DOMAIN_BEACON_PROPOSER = 0
     DOMAIN_BEACON_ATTESTER = 1
@@ -88,7 +88,7 @@ type
     DOMAIN_DEPOSIT = 3
     DOMAIN_VOLUNTARY_EXIT = 4
     # Phase 1 - Custody game
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/1_custody-game.md#signature-domain-types
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/1_custody-game.md#signature-domain-types
     DOMAIN_CUSTODY_BIT_CHALLENGE = 6
     # Phase 1 - Sharding
     # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/1_shard-data-chains.md#signature-domain-types
@@ -127,13 +127,13 @@ type
 
   CommitteeValidatorsBits* = BitList[MAX_VALIDATORS_PER_COMMITTEE]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#attestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#attestation
   Attestation* = object
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#checkpoint
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#checkpoint
   Checkpoint* = object
     epoch*: Epoch
     root*: Eth2Digest
@@ -177,7 +177,7 @@ type
 
     validator_index*: uint64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#beaconblock
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -315,7 +315,7 @@ type
     epoch*: Epoch ##\
     ## Epoch of latest fork
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#eth1data
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#eth1data
   Eth1Data* = object
     deposit_root*: Eth2Digest
     deposit_count*: uint64

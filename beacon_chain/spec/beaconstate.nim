@@ -29,7 +29,7 @@ func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openarray[Eth2Digest], de
     value = eth2hash(buf)
   value == root
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#increase_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#increase_balance
 func increase_balance*(
     state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
   # Increase the validator balance at index ``index`` by ``delta``.
@@ -283,7 +283,7 @@ func get_block_root_at_slot*(state: BeaconState,
   doAssert slot < state.slot
   state.block_roots[slot mod SLOTS_PER_HISTORICAL_ROOT]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#get_block_root
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#get_block_root
 func get_block_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Return the block root at the start of a recent ``epoch``.
   get_block_root_at_slot(state, compute_start_slot_at_epoch(epoch))
@@ -412,7 +412,7 @@ func get_attesting_indices*(state: BeaconState,
     if bits[i]:
       result.incl index
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#get_indexed_attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#get_indexed_attestation
 func get_indexed_attestation(state: BeaconState, attestation: Attestation,
     stateCache: var StateCache): IndexedAttestation =
   # Return the indexed attestation corresponding to ``attestation``.

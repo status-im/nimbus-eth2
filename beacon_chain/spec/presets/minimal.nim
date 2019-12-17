@@ -91,6 +91,10 @@ const
   # Changed
   MIN_EPOCHS_TO_INACTIVITY_PENALTY* = 2'u64^2
 
+  EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS* = 4096 # epochs
+  EPOCHS_PER_CUSTODY_PERIOD* = 4
+  CUSTODY_PERIOD_TO_RANDAO_PADDING* = 4
+
   # State vector lengths
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/configs/minimal.yaml#L101
@@ -123,7 +127,7 @@ const
 
   # Fork choice
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_fork-choice.md#configuration
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/configs/minimal.yaml#L26
 
   # Changed
   SAFE_SLOTS_TO_UPDATE_JUSTIFIED* = 2
@@ -149,12 +153,3 @@ const
   EPOCHS_PER_SHARD_PERIOD* = 4
   PHASE_1_FORK_EPOCH* = 8
   PHASE_1_FORK_SLOT* = 64
-
-  # Phase 1 - Custody game
-  # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/1_custody-game.md#constants
-  # TODO those are included in minimal.yaml but not mainnet.yaml
-  #      Why?
-  EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS* = 4096 # epochs
-  EPOCHS_PER_CUSTODY_PERIOD* = 4
-  CUSTODY_PERIOD_TO_RANDAO_PADDING* = 4
