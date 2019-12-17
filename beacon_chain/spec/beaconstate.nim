@@ -366,7 +366,7 @@ proc process_registry_updates*(state: var BeaconState) =
     validator.activation_epoch =
       compute_activation_exit_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#is_valid_indexed_attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     state: BeaconState, indexed_attestation: IndexedAttestation): bool =
   ## Check if ``indexed_attestation`` has valid indices and signature.

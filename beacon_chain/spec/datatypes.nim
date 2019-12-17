@@ -91,7 +91,7 @@ type
     # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/1_custody-game.md#signature-domain-types
     DOMAIN_CUSTODY_BIT_CHALLENGE = 6
     # Phase 1 - Sharding
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/1_shard-data-chains.md#signature-domain-types
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/1_shard-data-chains.md#signature-domain-types
     DOMAIN_SHARD_PROPOSER = 128
     DOMAIN_SHARD_ATTESTER = 129
 
@@ -107,13 +107,13 @@ type
 
   BitList*[maxLen: static int] = distinct BitSeq
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#proposerslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     proposer_index*: uint64
     signed_header_1*: SignedBeaconBlockHeader
     signed_header_2*: SignedBeaconBlockHeader
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#attesterslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#attesterslashing
   AttesterSlashing* = object
     attestation_1*: IndexedAttestation
     attestation_2*: IndexedAttestation
@@ -195,7 +195,7 @@ type
 
     body*: BeaconBlockBody
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#beaconblockheader
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot
     parent_root*: Eth2Digest
@@ -267,7 +267,7 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#validator
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#validator
   Validator* = object
     pubkey*: ValidatorPubKey
 
@@ -277,8 +277,7 @@ type
     effective_balance*: uint64 ##\
     ## Balance at stake
 
-    slashed*: bool ##\
-    ## Was the validator slashed
+    slashed*: bool
 
     # Status epochs
     activation_eligibility_epoch*: Epoch ##\

@@ -122,8 +122,7 @@ func compute_domain*(
   result[0..3] = int_to_bytes4(domain_type.uint64)
   result[4..7] = fork_version
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#get_domain
-
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#get_domain
 func get_domain*(
     fork: Fork, domain_type: DomainType, epoch: Epoch): Domain =
   ## Return the signature domain (fork version concatenated with domain type)
@@ -145,9 +144,9 @@ func get_domain*(
 func get_domain*(state: BeaconState, domain_type: DomainType): Domain =
   get_domain(state, domain_type, get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#get_seed
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#get_seed
 func get_seed*(state: BeaconState, epoch: Epoch, domain_type: DomainType): Eth2Digest =
-  # Generate a seed for the given ``epoch``.
+  # Return the seed at ``epoch``.
 
   var seed_input : array[4+8+32, byte]
 
@@ -158,6 +157,6 @@ func get_seed*(state: BeaconState, epoch: Epoch, domain_type: DomainType): Eth2D
   seed_input[0..3] = int_to_bytes4(domain_type.uint64)
   seed_input[4..11] = int_to_bytes8(epoch.uint64)
   seed_input[12..43] =
-    get_randao_mix(state,
+    get_randao_mix(state, # Avoid underflow
       epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1).data
   eth2hash(seed_input)
