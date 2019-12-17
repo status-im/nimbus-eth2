@@ -15,58 +15,82 @@ type
     attestation: Attestation
   # This and AssertionError are raised to indicate programming bugs
   # Used as a wrapper to allow exception tracking to identify unexpected exceptions
-  FuzzCrashError* = object of Exception
+  FuzzCrashError = object of Exception
 
 # TODO: change ptr uint to ptr csize_t when available in newer Nim version.
 proc copyState(state: BeaconState, output: ptr byte,
-    output_size: ptr uint): bool {.raises:[].} =
+    output_size: ptr uint): bool {.raises:[FuzzCrashError, Defect].} =
   var resultState: seq[byte]
 
   try:
     resultState = SSZ.encode(state)
-  except IOError, Defect:
-    return false
+  except IOError as e:
+    # TODO is an IOError indicative of a bug? e.g. any state passed to it after processing should be valid and serializable?
+    # How can this raise an IOError (as the writer isn't to a file?)?
+    raise newException(FuzzCrashError, "Unexpected failure to serialize.", e)
 
-  if resultState.len.uint <= output_size[]:
-    output_size[] = resultState.len.uint
-    # TODO: improvement might be to write directly to buffer with OutputStream
-    # and SszWriter
-    copyMem(output, unsafeAddr resultState[0], output_size[])
-    result = true
+  if unlikely(resultState.len.uint > output_size[]):
+      let msg = (
+        "Not enough output buffer provided to nimbus harness. Provided: " &
+        $(output_size[]) &
+        "Required: " &
+        $resultState.len.uint
+      )
+      raise newException(FuzzCrashError, msg)
+  output_size[] = resultState.len.uint
+  # TODO: improvement might be to write directly to buffer with OutputStream
+  # and SszWriter (but then need to ensure length doesn't overflow)
+  copyMem(output, unsafeAddr resultState[0], output_size[])
+  result = true
 
 proc nfuzz_block(input: openArray[byte], output: ptr byte,
-    output_size: ptr uint): bool {.exportc, raises:[FuzzCrashError].} =
+    output_size: ptr uint): bool {.exportc, raises:[FuzzCrashError, Defect].} =
   var data: BlockInput
 
   try:
     data = SSZ.decode(input, BlockInput)
-  except MalformedSszError, SszSizeMismatchError, RangeError:
-      raise newException(FuzzCrashError, "SSZ deserialisation failed, likely bug in preprocessing.")
+  except MalformedSszError, SszSizeMismatchError:
+    let e = getCurrentException()
+    raise newException(FuzzCrashError, "SSZ deserialisation failed, likely bug in preprocessing.", e)
 
   try:
     result = state_transition(data.state, data.beaconBlock, flags = {})
-  except ValueError, RangeError, Exception:
-    discard
+  except IOError as e:
+    # TODO why an IOError?
+    raise newException(FuzzCrashError, "Unexpected IOError in state transition", e)
+  except Exception as e:
+    # TODO why an Exception?
+    # Lots of vendor code looks like it might raise straight exceptions
+    raise newException(FuzzCrashError, "Unexpected IOError in state transition", e)
+  except ValueError:
+    # TODO is a ValueError indicative of correct or incorrect processing code?
+    # If correct (but given invalid input), we should return false
+    # If incorrect, we should allow it to crash
+    result = false
 
   if result:
     result = copyState(data.state, output, output_size)
 
 proc nfuzz_attestation(input: openArray[byte], output: ptr byte,
-    output_size: ptr uint): bool {.exportc, raises:[FuzzCrashError].} =
+    output_size: ptr uint): bool {.exportc, raises:[FuzzCrashError, Defect].} =
   var
     data: AttestationInput
     cache = get_empty_per_epoch_cache()
 
   try:
     data = SSZ.decode(input, AttestationInput)
-  except MalformedSszError, SszSizeMismatchError, RangeError:
-    raise newException(FuzzCrashError, "SSZ deserialisation failed, likely bug in preprocessing.")
+  except MalformedSszError, SszSizeMismatchError:
+    let e = getCurrentException()
+    raise newException(FuzzCrashError, "SSZ deserialisation failed, likely bug in preprocessing.", e)
 
   try:
     result = process_attestation(data.state, data.attestation,
       flags = {}, cache)
-  except ValueError, RangeError:
-    discard
+  except ValueError:
+    # TODO is a ValueError indicative of correct or incorrect processing code?
+    # If correct (but given invalid input), we should return false
+    # If incorrect, we should allow it to crash
+    result = false
 
   if result:
     result = copyState(data.state, output, output_size)
@@ -76,7 +100,7 @@ proc nfuzz_attestation(input: openArray[byte], output: ptr byte,
 # TODO: rework to copy immediatly in an uint8 openArray, considering we have to
 # go over the list anyhow?
 proc nfuzz_shuffle(input_seed: ptr byte, output: var openArray[uint64]): bool
-    {.exportc, raises:[].} =
+    {.exportc, raises:[Defect].} =
   var seed: Eth2Digest
   # Should be OK as max 2 bytes are passed by the framework.
   let list_size = output.len.uint64
@@ -84,14 +108,9 @@ proc nfuzz_shuffle(input_seed: ptr byte, output: var openArray[uint64]): bool
   copyMem(addr(seed.data), input_seed, sizeof(seed.data))
 
   var shuffled_seq: seq[ValidatorIndex]
-  try:
-    shuffled_seq = get_shuffled_seq(seed, list_size)
-  except RangeError:
-    return false
+  shuffled_seq = get_shuffled_seq(seed, list_size)
 
-  # TODO: Hah! AssertionError doesn't get picked up by raises. Do we let them
-  # slip or shall we wrap one big try/except AssertionError around the calls?
-  doAssert(list_size == shuffled_seq.len.uint64)
+  doAssert(list_size == shuffled_seq.len.uint64, "Shuffled list should be of requested size.")
 
   for i in 0..<list_size:
     # ValidatorIndex is currently wrongly uint32 so we copy this 1 by 1,
