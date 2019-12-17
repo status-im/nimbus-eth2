@@ -138,7 +138,7 @@ proc process_justification_and_finalization*(
   ## matter -- in the next epoch, they'll be 2 epochs old, when BeaconState
   ## tracks current_epoch_attestations and previous_epoch_attestations only
   ## per
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#attestations
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#attestations
   ## and `get_matching_source_attestations(...)` via
   ## https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#helper-functions-1
   ## and
@@ -365,7 +365,7 @@ func process_slashings*(state: var BeaconState) =
       let penalty = penalty_numerator div total_balance * increment
       decrease_balance(state, index.ValidatorIndex, penalty)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#final-updates
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#final-updates
 func process_final_updates*(state: var BeaconState) =
   let
     current_epoch = get_current_epoch(state)
@@ -414,7 +414,7 @@ proc process_epoch*(state: var BeaconState) =
 
   var per_epoch_cache = get_empty_per_epoch_cache()
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#justification-and-finalization
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#justification-and-finalization
   process_justification_and_finalization(state, per_epoch_cache)
 
   trace "ran process_justification_and_finalization",
@@ -434,7 +434,7 @@ proc process_epoch*(state: var BeaconState) =
   # @process_reveal_deadlines
   # @process_challenge_deadlines
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#slashings
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#slashings
   process_slashings(state)
 
   # @update_period_committee

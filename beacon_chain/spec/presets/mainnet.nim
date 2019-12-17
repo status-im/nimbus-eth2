@@ -176,7 +176,7 @@ const
 
   # Phase 1 - Custody game
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/1_custody-game.md#constants
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/1_custody-game.md#constants
   # TODO those are included in minimal.yaml but not mainnet.yaml
   #      Why?
   # EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS* = 4096 # epochs
