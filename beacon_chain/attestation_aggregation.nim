@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2019 Status Research & Development GmbH
+# Copyright (c) 2019 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -33,7 +33,7 @@ const
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/networking/p2p-interface.md#configuration
   ATTESTATION_PROPAGATION_SLOT_RANGE = 32
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/validator/0_beacon-chain-validator.md#aggregation-selection
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/validator/0_beacon-chain-validator.md#aggregation-selection
 func get_slot_signature(state: BeaconState, slot: Slot, privkey: ValidatorPrivKey):
     ValidatorSig =
   let domain =

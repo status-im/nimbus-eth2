@@ -45,7 +45,7 @@ const
   MIN_GENESIS_ACTIVE_VALIDATOR_COUNT* {.intdefine.} = 16384
 
   # Constants (TODO: not actually configurable)
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#constants
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/configs/mainnet.yaml#L110
   BASE_REWARDS_PER_EPOCH* = 4
 
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
@@ -153,7 +153,7 @@ const
 
   # Fork choice
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_fork-choice.md#configuration
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/configs/mainnet.yaml#L26
   SAFE_SLOTS_TO_UPDATE_JUSTIFIED* = 8 # 96 seconds
 
   # Validators
