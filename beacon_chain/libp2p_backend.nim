@@ -1,5 +1,5 @@
 import
-  algorithm, typetraits,
+  algorithm, typetraits, net,
   stew/[varints,base58], stew/shims/[macros, tables], chronos, chronicles,
   faststreams/output_stream, serialization,
   json_serialization/std/options, eth/p2p/p2p_protocol_dsl,
@@ -99,6 +99,9 @@ type
 
   TransmissionError* = object of CatchableError
 
+const
+  TCP = net.Protocol.IPPROTO_TCP
+
 template `$`*(peer: Peer): string = id(peer.info)
 chronicles.formatIt(Peer): $it
 
@@ -147,8 +150,40 @@ include eth/p2p/p2p_backends_helpers
 include eth/p2p/p2p_tracing
 include libp2p_backends_common
 
+proc toPeerInfo*(r: enr.TypedRecord): PeerInfo =
+  if r.secp256k1.isSome:
+    var peerId = PeerID.init r.secp256k1.get
+    var addresses = newSeq[MultiAddress]()
+
+    if r.ip.isSome and r.tcp.isSome:
+      let ip = IpAddress(family: IpAddressFamily.IPv4,
+                         address_v4: r.ip.get)
+      addresses.add MultiAddress.init(ip, TCP, Port r.tcp.get)
+
+    if r.ip6.isSome:
+      let ip = IpAddress(family: IpAddressFamily.IPv6,
+                         address_v6: r.ip6.get)
+      if r.tcp6.isSome:
+        addresses.add MultiAddress.init(ip, TCP, Port r.tcp6.get)
+      elif r.tcp.isSome:
+        addresses.add MultiAddress.init(ip, TCP, Port r.tcp.get)
+      else:
+        discard
+
+    if addresses.len > 0:
+      return PeerInfo.init(peerId, addresses)
+
+proc toPeerInfo(r: Option[enr.TypedRecord]): PeerInfo =
+  if r.isSome:
+    return r.get.toPeerInfo
+
 proc dialPeer*(node: Eth2Node, enr: enr.Record) {.async.} =
-  discard
+  let peerInfo = enr.toTypedRecord.toPeerInfo
+  if peerInfo != nil:
+    discard await node.switch.dial(peerInfo)
+    var peer = node.getPeer(peerInfo)
+    peer.wasDialed = true
+    await initializeConnection(peer)
 
 proc runDiscoveryLoop(node: Eth2Node) {.async.} =
   while true:
@@ -167,6 +202,7 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf,
   result.switch = switch
   result.peers = initTable[PeerID, Peer]()
   result.discovery = Eth2DiscoveryProtocol.new(conf, privKey.getBytes)
+  result.wantedPeers = conf.maxPeers
 
   newSeq result.protocolStates, allProtocols.len
   for proto in allProtocols:
