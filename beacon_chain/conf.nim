@@ -105,6 +105,11 @@ type
         desc: "UDP listening port."
         name: "udp-port" }: int
 
+      maxPeers* {.
+        defaultValue: 10
+        desc: "The maximum number of peers to connect to"
+        name: "max-peers" }: int
+
       nat* {.
         desc: "Specify method to use for determining public address. " &
               "Must be one of: any, none, upnp, pmp, extip:<IP>."
