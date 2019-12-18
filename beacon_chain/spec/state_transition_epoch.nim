@@ -62,10 +62,11 @@ declareGauge epoch_transition_final_updates, "Epoch transition final updates tim
 # Spec
 # --------------------------------------------------------
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#get_total_active_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#get_total_active_balance
 func get_total_active_balance*(state: BeaconState): Gwei =
   # Return the combined effective balance of the active validators.
-  return get_total_balance(
+  # TODO it calls get_total_balance with set(g_a_v_i(...))
+  get_total_balance(
     state,
     get_active_validator_indices(state, get_current_epoch(state)))
 
@@ -140,9 +141,9 @@ proc process_justification_and_finalization*(
   ## per
   ## https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#attestations
   ## and `get_matching_source_attestations(...)` via
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#helper-functions-1
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#helper-functions-1
   ## and
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#final-updates
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#final-updates
   ## after which the state.previous_epoch_attestations is replaced.
   trace "Non-attesting indices in previous epoch",
     missing_all_validators=
@@ -336,7 +337,7 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
 
   (rewards, penalties)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#rewards-and-penalties-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#rewards-and-penalties-1
 func process_rewards_and_penalties(
     state: var BeaconState, cache: var StateCache) =
   if get_current_epoch(state) == GENESIS_EPOCH:
@@ -405,7 +406,7 @@ func process_final_updates*(state: var BeaconState) =
   state.previous_epoch_attestations = state.current_epoch_attestations
   state.current_epoch_attestations = @[]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#epoch-processing
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#epoch-processing
 proc process_epoch*(state: var BeaconState) =
   # @proc are placeholders
 

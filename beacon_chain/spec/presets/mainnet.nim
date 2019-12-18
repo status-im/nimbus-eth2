@@ -158,7 +158,7 @@ const
 
   # Validators
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/validator/0_beacon-chain-validator.md#misc
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/configs/mainnet.yaml#L32
   ETH1_FOLLOW_DISTANCE* = 1024 # blocks ~ 4 hours
   TARGET_AGGREGATORS_PER_COMMITTEE* = 16 # validators
   RANDOM_SUBNETS_PER_VALIDATOR* = 1 # subnet
