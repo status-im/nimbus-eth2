@@ -146,7 +146,7 @@ const
 
   # Phase 1 - Sharding
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/1_shard-data-chains.md#time-parameters
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/configs/minimal.yaml#L153
   # TODO those are included in minimal.yaml but not mainnet.yaml
   #      Why?
   SHARD_SLOTS_PER_BEACON_SLOT* = 2 # spec: SHARD_SLOTS_PER_EPOCH

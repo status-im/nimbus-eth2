@@ -99,7 +99,7 @@ func get_attesting_balance(
   get_total_balance(state, get_unslashed_attesting_indices(
     state, attestations, stateCache))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#justification-and-finalization
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#justification-and-finalization
 proc process_justification_and_finalization*(
     state: var BeaconState, stateCache: var StateCache) =
 
@@ -348,7 +348,7 @@ func process_rewards_and_penalties(
     increase_balance(state, i.ValidatorIndex, rewards[i])
     decrease_balance(state, i.ValidatorIndex, penalties[i])
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#slashings
 func process_slashings*(state: var BeaconState) =
   let
     epoch = get_current_epoch(state)
