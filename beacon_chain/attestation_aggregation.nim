@@ -12,7 +12,7 @@
 # The other part is arguably part of attestation pool -- the validation's
 # something that should be happing on receipt, not aggregation per se. In
 # that part, check that messages conform -- so, check for each type
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/networking/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/networking/p2p-interface.md#topics-and-messages
 # specifies. So by the time this calls attestation pool, all validation's
 # already done.
 #
@@ -75,7 +75,7 @@ proc aggregate_attestations*(
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/validator/0_beacon-chain-validator.md#construct-aggregate
   for attestation in getAttestationsForBlock(pool, state, slot):
     if attestation.data == attestation_data:
-      # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/validator/0_beacon-chain-validator.md#aggregateandproof
+      # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/validator/0_beacon-chain-validator.md#aggregateandproof
       return some(AggregateAndProof(
         aggregator_index: index,
         aggregate: attestation,
