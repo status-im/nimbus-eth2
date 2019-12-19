@@ -102,13 +102,13 @@ func process_deposit*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#compute_activation_exit_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#compute_activation_exit_epoch
 func compute_activation_exit_epoch(epoch: Epoch): Epoch =
   ## Return the epoch during which validator activations and exits initiated in
   ## ``epoch`` take effect.
   epoch + 1 + MAX_SEED_LOOKAHEAD
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#get_validator_churn_limit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#get_validator_churn_limit
 func get_validator_churn_limit(state: BeaconState): uint64 =
   # Return the validator churn limit for the current epoch.
   let active_validator_indices =
@@ -399,7 +399,7 @@ proc is_valid_indexed_attestation*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#get_attesting_indices
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(state: BeaconState,
                             data: AttestationData,
                             bits: CommitteeValidatorsBits,

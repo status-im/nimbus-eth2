@@ -249,7 +249,7 @@ proc process_attester_slashing*(
       return false
     return true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#attester-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#attester-slashings
 proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock,
     stateCache: var StateCache): bool =
   # Process ``AttesterSlashing`` operation.
