@@ -8,8 +8,9 @@
 import
   algorithm, strformat, stats, times, std/monotimes, stew/endians2,
   chronicles, eth/trie/[db],
-  ../beacon_chain/[beacon_chain_db, block_pool, ssz, beacon_node_types],
-  ../beacon_chain/spec/datatypes
+  ../beacon_chain/[beacon_chain_db, block_pool, extras, ssz, beacon_node_types],
+  ../beacon_chain/spec/[digest, beaconstate, datatypes],
+  testblockutil
 
 type
   TestDuration = tuple[duration: float, label: string]
@@ -74,5 +75,13 @@ template timedTest*(name, body) =
 proc makeTestDB*(tailState: BeaconState, tailBlock: SignedBeaconBlock): BeaconChainDB =
   result = init(BeaconChainDB, newMemoryDB())
   BlockPool.preInit(result, tailState, tailBlock)
+
+proc makeTestDB*(validators: int): BeaconChainDB =
+  let
+    genState = initialize_beacon_state_from_eth1(
+      Eth2Digest(), 0,
+      makeInitialDeposits(validators, flags = {skipValidation}), {skipValidation})
+    genBlock = get_initial_beacon_block(genState)
+  makeTestDB(genState, genBlock)
 
 export inMicroseconds

@@ -14,17 +14,15 @@ import
   ../beacon_chain/[beacon_node_types, block_pool, beacon_chain_db, extras, ssz]
 
 suite "Block pool processing" & preset():
-  let
-    genState = initialize_beacon_state_from_eth1(
-      Eth2Digest(), 0,
-      makeInitialDeposits(flags = {skipValidation}), {skipValidation})
-    genBlock = get_initial_beacon_block(genState)
-
   setup:
     var
-      db = makeTestDB(genState, genBlock)
+      db = makeTestDB(SLOTS_PER_EPOCH)
       pool = BlockPool.init(db)
-      state = pool.loadTailState()
+      state = pool.loadTailState().data.data
+      b1 = addBlock(state, pool.tail.root, BeaconBlockBody())
+      b1Root = hash_tree_root(b1.message)
+      b2 = addBlock(state, b1Root, BeaconBlockBody())
+      b2Root = hash_tree_root(b2.message)
 
   timedTest "getRef returns nil for missing blocks":
     check:
@@ -32,55 +30,50 @@ suite "Block pool processing" & preset():
 
   timedTest "loadTailState gets genesis block on first load" & preset():
     var
-      b0 = pool.get(state.blck.root)
+      b0 = pool.get(pool.tail.root)
 
     check:
-      state.data.data.slot == GENESIS_SLOT
       b0.isSome()
-      toSeq(pool.blockRootsForSlot(GENESIS_SLOT)) == @[state.blck.root]
+      toSeq(pool.blockRootsForSlot(GENESIS_SLOT)) == @[pool.tail.root]
 
   timedTest "Simple block add&get" & preset():
     let
-      b1 = makeBlock(state.data.data, state.blck.root, BeaconBlockBody())
-      b1Root = hash_tree_root(b1.message)
-
-    # TODO the return value is ugly here, need to fix and test..
-    discard pool.add(state, b1Root, b1)
-
-    let b1Ref = pool.get(b1Root)
+      b1Add = pool.add(b1Root, b1)
+      b1Get = pool.get(b1Root)
 
     check:
-      b1Ref.isSome()
-      b1Ref.get().refs.root == b1Root
-      hash_tree_root(state.data.data) == state.data.root
+      b1Get.isSome()
+      b1Get.get().refs.root == b1Root
+      b1Add.root == b1Get.get().refs.root
+
+    let
+      b2Add = pool.add(b2Root, b2)
+      b2Get = pool.get(b2Root)
+
+    check:
+      b2Get.isSome()
+      b2Get.get().refs.root == b2Root
+      b2Add.root == b2Get.get().refs.root
 
   timedTest "Reverse order block add & get" & preset():
-    let
-      b1 = addBlock(state.data.data, state.blck.root, BeaconBlockBody(), {})
-      b1Root = hash_tree_root(b1.message)
-      b2 = addBlock(state.data.data, b1Root, BeaconBlockBody(), {})
-      b2Root = hash_tree_root(b2.message)
-
-    discard pool.add(state, b2Root, b2)
+    discard pool.add(b2Root, b2)
 
     check:
       pool.get(b2Root).isNone() # Unresolved, shouldn't show up
       FetchRecord(root: b1Root, historySlots: 1) in pool.checkMissing()
 
-    discard pool.add(state, b1Root, b1)
-
-    check: hash_tree_root(state.data.data) == state.data.root
+    discard pool.add(b1Root, b1)
 
     let
-      b1r = pool.get(b1Root)
-      b2r = pool.get(b2Root)
+      b1Get = pool.get(b1Root)
+      b2Get = pool.get(b2Root)
 
     check:
-      b1r.isSome()
-      b2r.isSome()
+      b1Get.isSome()
+      b2Get.isSome()
 
-      b1r.get().refs.children[0] == b2r.get().refs
-      b2r.get().refs.parent == b1r.get().refs
+      b1Get.get().refs.children[0] == b2Get.get().refs
+      b2Get.get().refs.parent == b1Get.get().refs
       toSeq(pool.blockRootsForSlot(b1.message.slot)) == @[b1Root]
       toSeq(pool.blockRootsForSlot(b2.message.slot)) == @[b2Root]
 
@@ -89,14 +82,13 @@ suite "Block pool processing" & preset():
     # The heads structure should have been updated to contain only the new
     # b2 head
     check:
-      pool.heads.mapIt(it.blck) == @[b2r.get().refs]
+      pool.heads.mapIt(it.blck) == @[b2Get.get().refs]
 
     # check that init also reloads block graph
     var
       pool2 = BlockPool.init(db)
 
     check:
-      hash_tree_root(state.data.data) == state.data.root
       pool2.get(b1Root).isSome()
       pool2.get(b2Root).isSome()
 
@@ -115,3 +107,22 @@ suite "Block pool processing" & preset():
       not c.isAncestorOf(a)
       not c.isAncestorOf(b)
       not b.isAncestorOf(a)
+
+  timedTest "Can add same block twice" & preset():
+    let
+      b10 = pool.add(b1Root, b1)
+      b11 = pool.add(b1Root, b1)
+
+    check:
+      b10 == b11
+      not b10.isNil
+
+  timedTest "updateHead updates head and headState" & preset():
+    let
+      b1Add = pool.add(b1Root, b1)
+
+    pool.updateHead(b1Add)
+
+    check:
+      pool.head.blck == b1Add
+      pool.headState.data.data.slot == b1Add.slot

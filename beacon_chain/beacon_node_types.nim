@@ -138,6 +138,11 @@ type
 
     inAdd*: bool
 
+    headState*: StateData ## State given by the head block
+    justifiedState*: StateData ## Latest justified state, as seen from the head
+
+    tmpState*: StateData ## Scratchpad - may be any state
+
   MissingBlock* = object
     slots*: uint64 # number of slots that are suspected missing
     tries*: int
