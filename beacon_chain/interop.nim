@@ -59,6 +59,7 @@ func makeDeposit*(
   if skipValidation notin flags:
     ret.data.signature =
       bls_sign(
-        privkey, hash_tree_root(ret.data).data, compute_domain(DOMAIN_DEPOSIT))
+        privkey, hash_tree_root(ret.getDepositMessage).data,
+        compute_domain(DOMAIN_DEPOSIT))
 
   ret

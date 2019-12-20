@@ -428,6 +428,14 @@ macro fieldMaxLen*(x: typed): untyped =
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
     ($state.validators[validatorIdx].pubkey)[0..7]
 
+func getDepositMessage*(depositData: DepositData): DepositMessage =
+  result.pubkey = depositData.pubkey
+  result.amount = depositData.amount
+  result.withdrawal_credentials = depositData.withdrawal_credentials
+
+func getDepositMessage*(deposit: Deposit): DepositMessage =
+  deposit.data.getDepositMessage
+
 template ethTimeUnit(typ: type) {.dirty.} =
   proc `+`*(x: typ, y: uint64): typ {.borrow.}
   proc `-`*(x: typ, y: uint64): typ {.borrow.}
