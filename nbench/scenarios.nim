@@ -11,7 +11,7 @@ import
   # Status libraries
   confutils/defs, serialization,
   # Beacon-chain
-  ../beacon_chain/spec/[datatypes, crypto, beaconstate, validator],
+  ../beacon_chain/spec/[datatypes, crypto, beaconstate, validator, state_transition_block],
   ../beacon_chain/[ssz, state_transition, extras]
 
 # Nimbus Bench - Scenario configuration
@@ -80,24 +80,39 @@ type
         implicitlySelectable
         required .}: BlockProcessingCat
       of catBlockHeader:
-        discard
+        blockHeader*{.
+          desc: "Block header filename (without .ssz)"
+          name: "block-header"
+          defaultValue: "block".}: string
       of catRANDAO:
-        discard
+          discard
       of catEth1Data:
-        discard
+         discard
       of catProposerSlashings:
-        discard
+        proposerSlashing*{.
+          desc: "Proposer slashing filename (without .ssz)"
+          name: "proposer-slashing"
+          defaultValue: "proposer_slashing".}: string
       of catAttesterSlashings:
-        discard
+        attesterSlashing*{.
+          desc: "Attester slashing filename (without .ssz)"
+          name: "attester-slashing"
+          defaultValue: "attester_slashing".}: string
       of catAttestations:
         attestation*{.
           desc: "Attestation filename (without .ssz)"
           name: "attestation"
           defaultValue: "attestation".}: string
       of catDeposits:
-        discard
+        deposit*{.
+          desc: "Deposit filename (without .ssz)"
+          name: "deposit"
+          defaultValue: "deposit".}: string
       of catVoluntaryExits:
-        discard
+        voluntaryExit*{.
+          desc: "Voluntary Exit filename (without .ssz)"
+          name: "voluntary_exit"
+          defaultValue: "voluntary_exit".}: string
     of cmdEpochProcessing:
       discard
 
@@ -145,7 +160,7 @@ template processScenarioImpl(
   new consObj
   when needCache:
     var cache = get_empty_per_epoch_cache()
-  when needCache:
+  when needFlags:
     let flags = if skipBLS: {skipValidation} # TODO: this also skips state root verification
                 else: {}
 
@@ -173,4 +188,9 @@ template genProcessScenario(name, transitionFn, paramName: untyped, ConsensusObj
       # skipBLS is a dummy to avoid undeclared identifier
       processScenarioImpl(dir, preState, skipBLS = false, transitionFn, paramName, ConsensusObject, needFlags, needCache)
 
+genProcessScenario(runProcessBlockHeader, process_block_header, block_header, BeaconBlock, needFlags = true, needCache = true)
+genProcessScenario(runProcessProposerSlashing, process_proposer_slashing, proposer_slashing, ProposerSlashing, needFlags = true, needCache = true)
 genProcessScenario(runProcessAttestation, process_attestation, attestation, Attestation, needFlags = true, needCache = true)
+genProcessScenario(runProcessAttesterSlashing, process_attester_slashing, att_slash, AttesterSlashing, needFlags = false, needCache = true)
+genProcessScenario(runProcessDeposit, process_deposit, deposit, Deposit, needFlags = true, needCache = false)
+genProcessScenario(runProcessVoluntaryExits, process_voluntary_exit, deposit, SignedVoluntaryExit, needFlags = true, needCache = false)

@@ -50,12 +50,51 @@ proc main() =
     )
   of cmdBlockProcessing:
     case scenario.blockProcessingCat
+    of catBlockHeader:
+      runProcessBlockHeader(
+        scenario.scenarioDir.string,
+        scenario.preState,
+        "block", # Pending https://github.com/status-im/nim-confutils/issues/11
+        # scenario.attesterSlashing
+        scenario.skipBLS
+      )
+    of catProposerSlashings:
+      runProcessProposerSlashing(
+        scenario.scenarioDir.string,
+        scenario.preState,
+        "proposer_slashing", # Pending https://github.com/status-im/nim-confutils/issues/11
+        # scenario.attesterSlashing
+        scenario.skipBLS
+      )
+    of catAttesterSlashings:
+      runProcessAttesterSlashing(
+        scenario.scenarioDir.string,
+        scenario.preState,
+        "attester_slashing" # Pending https://github.com/status-im/nim-confutils/issues/11
+        # scenario.attesterSlashing
+      )
     of catAttestations:
       runProcessAttestation(
         scenario.scenarioDir.string,
         scenario.preState,
         "attestation", # Pending https://github.com/status-im/nim-confutils/issues/11
         # scenario.attestation,
+        scenario.skipBLS
+      )
+    of catDeposits:
+      runProcessDeposit(
+        scenario.scenarioDir.string,
+        scenario.preState,
+        "deposit", # Pending https://github.com/status-im/nim-confutils/issues/11
+        # scenario.deposit,
+        scenario.skipBLS
+      )
+    of catVoluntaryExits:
+      runProcessVoluntaryExits(
+        scenario.scenarioDir.string,
+        scenario.preState,
+        "voluntary_exit", # Pending https://github.com/status-im/nim-confutils/issues/11
+        # scenario.voluntary_exit,
         scenario.skipBLS
       )
     else:

@@ -32,8 +32,23 @@ build/nbench cmdFullStateTransition -d="${SCENARIOS}"/sanity/blocks/pyspec_tests
 # Slot processing
 build/nbench cmdSlotProcessing -d="${SCENARIOS}"/sanity/slots/pyspec_tests/slots_1
 
+# Block header processing
+build/nbench cmdBlockProcessing --blockProcessingCat=catBlockHeader -d="${SCENARIOS}"/operations/block_header/pyspec_tests/proposer_slashed/
+
+# Proposer slashing
+build/nbench cmdBlockProcessing --blockProcessingCat=catProposerSlashings -d="${SCENARIOS}"/operations/proposer_slashing/pyspec_tests/invalid_proposer_index/
+
+# Attester slashing
+build/nbench cmdBlockProcessing --blockProcessingCat=catAttesterSlashings -d="${SCENARIOS}"/operations/attester_slashing/pyspec_tests/success_surround/
+
 # Attestation processing
 build/nbench cmdBlockProcessing --blockProcessingCat=catAttestations -d="${SCENARIOS}"/operations/attestation/pyspec_tests/success_multi_proposer_index_iterations/
+
+# Deposit processing
+build/nbench cmdBlockProcessing --blockProcessingCat=catDeposits -d="${SCENARIOS}"/operations/deposit/pyspec_tests/new_deposit_max/
+
+# Voluntary exit
+build/nbench cmdBlockProcessing --blockProcessingCat=catVoluntaryExits -d="${SCENARIOS}"/operations/voluntary_exit/pyspec_tests/validator_exit_in_future/
 ```
 
 TODO Reporting:
