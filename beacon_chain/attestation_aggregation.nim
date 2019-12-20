@@ -12,7 +12,7 @@
 # The other part is arguably part of attestation pool -- the validation's
 # something that should be happing on receipt, not aggregation per se. In
 # that part, check that messages conform -- so, check for each type
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/networking/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/networking/p2p-interface.md#topics-and-messages
 # specifies. So by the time this calls attestation pool, all validation's
 # already done.
 #
@@ -30,17 +30,17 @@ import
 # https://github.com/status-im/nim-beacon-chain/issues/122#issuecomment-562479965
 
 const
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/networking/p2p-interface.md#configuration
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/networking/p2p-interface.md#configuration
   ATTESTATION_PROPAGATION_SLOT_RANGE = 32
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/validator/0_beacon-chain-validator.md#aggregation-selection
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/validator/0_beacon-chain-validator.md#aggregation-selection
 func get_slot_signature(state: BeaconState, slot: Slot, privkey: ValidatorPrivKey):
     ValidatorSig =
   let domain =
     get_domain(state, DOMAIN_BEACON_ATTESTER, compute_epoch_at_slot(slot))
   bls_sign(privkey, hash_tree_root(slot).data, domain)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/validator/0_beacon-chain-validator.md#aggregation-selection
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/validator/0_beacon-chain-validator.md#aggregation-selection
 func is_aggregator(state: BeaconState, slot: Slot, index: uint64,
     slot_signature: ValidatorSig): bool =
   # TODO index is a CommitteeIndex, aka uint64
@@ -65,17 +65,17 @@ proc aggregate_attestations*(
   doAssert slot + ATTESTATION_PROPAGATION_SLOT_RANGE >= state.slot
   doAssert state.slot >= slot
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/validator/0_beacon-chain-validator.md#aggregation-selection
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/validator/0_beacon-chain-validator.md#aggregation-selection
   if not is_aggregator(state, slot, index, slot_signature):
     return none(AggregateAndProof)
 
   let attestation_data =
     makeAttestationData(state, slot, index, get_block_root_at_slot(state, slot))
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/validator/0_beacon-chain-validator.md#construct-aggregate
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/validator/0_beacon-chain-validator.md#construct-aggregate
   for attestation in getAttestationsForBlock(pool, state, slot):
     if attestation.data == attestation_data:
-      # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/validator/0_beacon-chain-validator.md#aggregateandproof
+      # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/validator/0_beacon-chain-validator.md#aggregateandproof
       return some(AggregateAndProof(
         aggregator_index: index,
         aggregate: attestation,

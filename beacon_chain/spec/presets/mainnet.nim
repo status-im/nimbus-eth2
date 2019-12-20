@@ -153,12 +153,12 @@ const
 
   # Fork choice
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/configs/mainnet.yaml#L26
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/configs/mainnet.yaml#L26
   SAFE_SLOTS_TO_UPDATE_JUSTIFIED* = 8 # 96 seconds
 
   # Validators
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/configs/mainnet.yaml#L32
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/configs/mainnet.yaml#L32
   ETH1_FOLLOW_DISTANCE* = 1024 # blocks ~ 4 hours
   TARGET_AGGREGATORS_PER_COMMITTEE* = 16 # validators
   RANDOM_SUBNETS_PER_VALIDATOR* = 1 # subnet
@@ -166,7 +166,7 @@ const
 
   # Phase 1 - Sharding
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/1_shard-data-chains.md#time-parameters
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/1_shard-data-chains.md#time-parameters
   # TODO those are included in minimal.yaml but not mainnet.yaml
   #      Why?
   # SHARD_SLOTS_PER_BEACON_SLOT* = 2 # spec: SHARD_SLOTS_PER_EPOCH
@@ -176,7 +176,7 @@ const
 
   # Phase 1 - Custody game
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/1_custody-game.md#constants
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/1_custody-game.md#constants
   # TODO those are included in minimal.yaml but not mainnet.yaml
   #      Why?
   # EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS* = 4096 # epochs

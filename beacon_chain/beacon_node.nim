@@ -765,7 +765,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     #      with any clock discrepancies once only, at the start of slot timer
     #      processing..
 
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/validator/0_beacon-chain-validator.md#attesting
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/validator/0_beacon-chain-validator.md#attesting
     # A validator should create and broadcast the attestation to the
     # associated attestation subnet one-third of the way through the slot
     # during which the validator is assigned―that is, SECONDS_PER_SLOT / 3
