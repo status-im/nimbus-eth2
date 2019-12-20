@@ -6,7 +6,13 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  confutils/defs
+  # Standard library
+  os,
+  # Status libraries
+  confutils/defs, serialization,
+  # Beacon-chain
+  ../beacon_chain/spec/[datatypes, crypto, beaconstate, validator],
+  ../beacon_chain/[ssz, state_transition, extras]
 
 # Nimbus Bench - Scenario configuration
 # --------------------------------------------------
@@ -94,3 +100,77 @@ type
         discard
     of cmdEpochProcessing:
       discard
+
+proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, skipBLS: bool) =
+  let prePath = dir / preState & ".ssz"
+
+  var state: ref BeaconState
+  new state
+  echo "Running: ", prePath
+  state[] = SSZ.loadFile(prePath, BeaconState)
+
+  for i in 0 ..< blocksQty:
+    let blockPath = dir / blocksPrefix & $i & ".ssz"
+    echo "Processing: ", blockPath
+
+    let blck = SSZ.loadFile(blockPath, SignedBeaconBlock)
+    let flags = if skipBLS: {skipValidation} # TODO: this also skips state root verification
+                else: {}
+    let success = state_transition(state[], blck.message, flags)
+    echo "State transition status: ", if success: "SUCCESS ✓" else: "FAILURE ⚠️"
+
+proc runProcessSlots*(dir, preState: string, numSlots: uint64) =
+  let prePath = dir / preState & ".ssz"
+
+  var state: ref BeaconState
+  new state
+  echo "Running: ", prePath
+  state[] = SSZ.loadFile(prePath, BeaconState)
+
+  process_slots(state[], state.slot + numSlots)
+
+template processScenarioImpl(
+           dir, preState: string, skipBLS: bool,
+           transitionFn, paramName: untyped,
+           ConsensusObject: typedesc,
+           needFlags, needCache: static bool): untyped =
+  let prePath = dir/preState & ".ssz"
+
+  var state: ref BeaconState
+  new state
+  echo "Running: ", prePath
+  state[] = SSZ.loadFile(prePath, BeaconState)
+
+  var consObj: ref `ConsensusObject`
+  new consObj
+  when needCache:
+    var cache = get_empty_per_epoch_cache()
+  when needCache:
+    let flags = if skipBLS: {skipValidation} # TODO: this also skips state root verification
+                else: {}
+
+  let consObjPath = dir/paramName & ".ssz"
+  echo "Processing: ", consObjPath
+  consObj[] = SSZ.loadFile(consObjPath, ConsensusObject)
+
+  when needFlags and needCache:
+    let success = transitionFn(state[], consObj[], flags, cache)
+  elif needFlags:
+    let success = transitionFn(state[], consObj[], flags)
+  elif needCache:
+    let success = transitionFn(state[], consObj[], cache)
+  else:
+    let success = transitionFn(state[], consObj[])
+
+  echo astToStr(transitionFn) & " status: ", if success: "SUCCESS ✓" else: "FAILURE ⚠️"
+
+template genProcessScenario(name, transitionFn, paramName: untyped, ConsensusObject: typedesc, needFlags, needCache: static bool): untyped =
+  when needFlags:
+    proc `name`*(dir, preState, `paramName`: string, skipBLS: bool) =
+      processScenarioImpl(dir, preState, skipBLS, transitionFn, paramName, ConsensusObject, needFlags, needCache)
+  else:
+    proc `name`*(dir, preState, `paramName`: string) =
+      # skipBLS is a dummy to avoid undeclared identifier
+      processScenarioImpl(dir, preState, skipBLS = false, transitionFn, paramName, ConsensusObject, needFlags, needCache)
+
+genProcessScenario(runProcessAttestation, process_attestation, attestation, Attestation, needFlags = true, needCache = true)
