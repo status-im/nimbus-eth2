@@ -116,19 +116,32 @@ type
     of cmdEpochProcessing:
       discard
 
+proc parseSSZ(path: string, T: typedesc): T =
+  try:
+    result = SSZ.loadFile(path, T)
+  except SerializationError as err:
+    writeStackTrace()
+    stderr.write "SSZ load issue for file \"", path, "\"\n"
+    stderr.write err.formatMsg(path), "\n"
+    quit 1
+  except CatchableError as err:
+    writeStackTrace()
+    stderr.write "SSZ load issue for file \"", path, "\"\n"
+    quit 1
+
 proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, skipBLS: bool) =
   let prePath = dir / preState & ".ssz"
 
   var state: ref BeaconState
   new state
   echo "Running: ", prePath
-  state[] = SSZ.loadFile(prePath, BeaconState)
+  state[] = parseSSZ(prePath, BeaconState)
 
   for i in 0 ..< blocksQty:
     let blockPath = dir / blocksPrefix & $i & ".ssz"
     echo "Processing: ", blockPath
 
-    let blck = SSZ.loadFile(blockPath, SignedBeaconBlock)
+    let blck = parseSSZ(blockPath, SignedBeaconBlock)
     let flags = if skipBLS: {skipValidation} # TODO: this also skips state root verification
                 else: {}
     let success = state_transition(state[], blck.message, flags)
@@ -140,7 +153,7 @@ proc runProcessSlots*(dir, preState: string, numSlots: uint64) =
   var state: ref BeaconState
   new state
   echo "Running: ", prePath
-  state[] = SSZ.loadFile(prePath, BeaconState)
+  state[] = parseSSZ(prePath, BeaconState)
 
   process_slots(state[], state.slot + numSlots)
 
@@ -154,7 +167,7 @@ template processScenarioImpl(
   var state: ref BeaconState
   new state
   echo "Running: ", prePath
-  state[] = SSZ.loadFile(prePath, BeaconState)
+  state[] = parseSSZ(prePath, BeaconState)
 
   var consObj: ref `ConsensusObject`
   new consObj
@@ -166,7 +179,7 @@ template processScenarioImpl(
 
   let consObjPath = dir/paramName & ".ssz"
   echo "Processing: ", consObjPath
-  consObj[] = SSZ.loadFile(consObjPath, ConsensusObject)
+  consObj[] = parseSSZ(consObjPath, ConsensusObject)
 
   when needFlags and needCache:
     let success = transitionFn(state[], consObj[], flags, cache)
