@@ -164,7 +164,7 @@ proc makeAttestation*(
   doAssert sac_index != -1, "find_beacon_committee should guarantee this"
 
   var aggregation_bits = CommitteeValidatorsBits.init(committee.len)
-  aggregation_bits.raiseBit sac_index
+  aggregation_bits.setBit sac_index
 
   let
     msg = hash_tree_root(data)
