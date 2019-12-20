@@ -20,10 +20,10 @@ Features
 - like ncli or nfuzz, you can provide nbench isolated scenarios in SSZ format
   to analyze Nimbus behaviour.
 
-Usage:
+## Usage
 
 ```
-nim c -d:const_preset=mainnet -d:nbench -o:build/nbench nbench/nbench.nim
+nim c -d:const_preset=mainnet -d:nbench -d:release -o:build/nbench nbench/nbench.nim
 export SCENARIOS=tests/official/fixtures/tests-v0.9.3/mainnet/phase0
 
 # Full state transition
@@ -51,7 +51,18 @@ build/nbench cmdBlockProcessing --blockProcessingCat=catDeposits -d="${SCENARIOS
 build/nbench cmdBlockProcessing --blockProcessingCat=catVoluntaryExits -d="${SCENARIOS}"/operations/voluntary_exit/pyspec_tests/validator_exit_in_future/
 ```
 
-TODO Reporting:
+## Running the whole test suite
+
+Warning: this is a proof-of-concept, there is a slight degree of interleaving in output.
+Furthermore benchmarks are run in parallel and might interfere which each other.
+
+```
+nim c -d:const_preset=mainnet -d:nbench -d:release -o:build/nbench nbench/nbench.nim
+nim c -o:build/nbench_tests nbench/nbench_official_fixtures.nim
+nbench_tests --nbench=build/nbench --tests=tests/official/fixtures/tests-v0.9.3/mainnet/
+```
+
+## TODO Reporting
 - Dumping as CSV files also for archival, perf regression suite and/or data mining.
 - Piggybacking on eth-metrics and can report over Prometheus or StatsD.
 - you can augment it via label pragmas that can be applied file-wide
