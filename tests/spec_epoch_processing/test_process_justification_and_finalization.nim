@@ -46,8 +46,8 @@ proc finalizeOn234(state: var BeaconState, epoch: Epoch, sufficient_support: boo
   state.justification_bits = 0'u8 # Bitvector of length 4
   # mock 3rd and 4th latest epochs as justified
   # indices are pre-shift
-  state.justification_bits.raiseBit 1
-  state.justification_bits.raiseBit 2
+  state.justification_bits.setBit 1
+  state.justification_bits.setBit 2
   # mock the 2nd latest epoch as justifiable, with 4th as the source
   addMockAttestations(
     state,
@@ -92,7 +92,7 @@ proc finalizeOn23(state: var BeaconState, epoch: Epoch, sufficient_support: bool
   state.justification_bits = 0'u8 # Bitvector of length 4
   # mock 3rd as justified
   # indices are pre-shift
-  state.justification_bits.raiseBit 1
+  state.justification_bits.setBit 1
   # mock the 2nd latest epoch as justifiable, with 3rd as the source
   addMockAttestations(
     state,
@@ -137,7 +137,7 @@ proc finalizeOn123(state: var BeaconState, epoch: Epoch, sufficient_support: boo
   state.justification_bits = 0'u8 # Bitvector of length 4
   # mock 3rd as justified
   # indices are pre-shift
-  state.justification_bits.raiseBit 1
+  state.justification_bits.setBit 1
   # mock the 2nd latest epoch as justifiable, with 5th as the source
   addMockAttestations(
     state,
@@ -190,7 +190,7 @@ proc finalizeOn12(state: var BeaconState, epoch: Epoch, sufficient_support: bool
   state.justification_bits = 0'u8 # Bitvector of length 4
   # mock 3rd as justified
   # indices are pre-shift
-  state.justification_bits.raiseBit 0
+  state.justification_bits.setBit 0
   # mock the 2nd latest epoch as justifiable, with 3rd as the source
   addMockAttestations(
     state,

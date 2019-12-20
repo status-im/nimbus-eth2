@@ -330,7 +330,7 @@ proc sendAttestation(node: BeaconNode,
     validatorSignature = await validator.signAttestation(attestationData, fork)
 
   var aggregationBits = CommitteeValidatorsBits.init(committeeLen)
-  aggregationBits.raiseBit indexInCommittee
+  aggregationBits.setBit indexInCommittee
 
   var attestation = Attestation(
     data: attestationData,

@@ -164,7 +164,7 @@ proc process_justification_and_finalization*(
     state.current_justified_checkpoint =
       Checkpoint(epoch: previous_epoch,
                  root: get_block_root(state, previous_epoch))
-    state.justification_bits.raiseBit 1
+    state.justification_bits.setBit 1
 
     debug "Justified with previous epoch",
       current_epoch = current_epoch,
@@ -178,7 +178,7 @@ proc process_justification_and_finalization*(
     state.current_justified_checkpoint =
       Checkpoint(epoch: current_epoch,
                  root: get_block_root(state, current_epoch))
-    state.justification_bits.raiseBit 0
+    state.justification_bits.setBit 0
 
     debug "Justified with current epoch",
       current_epoch = current_epoch,

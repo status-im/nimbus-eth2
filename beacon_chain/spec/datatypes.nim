@@ -536,8 +536,8 @@ template bytes*(x: BitList): auto = bytes(BitSeq(x))
 template `[]`*(x: BitList, idx: auto): auto = BitSeq(x)[idx]
 template `[]=`*(x: var BitList, idx: auto, val: bool) = BitSeq(x)[idx] = val
 template `==`*(a, b: BitList): bool = BitSeq(a) == BitSeq(b)
-template raiseBit*(x: var BitList, idx: int) = raiseBit(BitSeq(x), idx)
-template lowerBit*(x: var BitList, idx: int) = lowerBit(BitSeq(x), idx)
+template setBit*(x: var BitList, idx: int) = setBit(BitSeq(x), idx)
+template clearBit*(x: var BitList, idx: int) = clearBit(BitSeq(x), idx)
 template overlaps*(a, b: BitList): bool = overlaps(BitSeq(a), BitSeq(b))
 template combine*(a: var BitList, b: BitList) = combine(BitSeq(a), BitSeq(b))
 template isSubsetOf*(a, b: BitList): bool = isSubsetOf(BitSeq(a), BitSeq(b))
