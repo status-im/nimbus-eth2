@@ -64,7 +64,7 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
 
   if skipValidation notin flags:
     result.data.signature =
-      bls_sign(privkey, hash_tree_root(result.data).data,
+      bls_sign(privkey, hash_tree_root(result.getDepositMessage).data,
                domain)
 
 func makeInitialDeposits*(

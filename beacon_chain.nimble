@@ -54,11 +54,11 @@ task test, "Run all tests":
   buildBinary "test_fixture_ssz_generic_types", "tests/official/", "-r -d:release -d:chronicles_log_level=DEBUG"
 
   # Consensus object SSZ tests
-  buildBinary "test_fixture_ssz_consensus_objects", "tests/official/", "-r -d:release -d:chronicles_log_level=DEBUG -d:const_preset=minimal"
+  buildBinary "test_fixture_ssz_consensus_objects", "tests/official/", "-r -d:release -d:chronicles_log_level=TRACE -d:const_preset=minimal"
   buildBinary "test_fixture_ssz_consensus_objects", "tests/official/", "-r -d:release -d:chronicles_log_level=DEBUG -d:const_preset=mainnet"
 
   buildBinary "all_fixtures_require_ssz", "tests/official/", "-r -d:release -d:chronicles_log_level=DEBUG -d:const_preset=minimal"
-  buildBinary "all_fixtures_require_ssz", "tests/official/", "-r -d:release -d:chronicles_log_level=DEBUG -d:const_preset=mainnet"
+  buildBinary "all_fixtures_require_ssz", "tests/official/", "-r -d:release -d:chronicles_log_level=TRACE -d:const_preset=mainnet"
 
   # State sim; getting into 4th epoch useful to trigger consensus checks
   buildBinary "state_sim", "research/", "-r -d:release", "--validators=128 --slots=40"

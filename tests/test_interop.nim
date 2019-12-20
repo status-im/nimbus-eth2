@@ -140,7 +140,7 @@ suite "Interop":
   timedTest "Interop genesis":
     # Check against https://github.com/protolambda/zcli:
     # zcli keys generate --to 64 | zcli genesis mock --genesis-time 1570500000 > /tmp/state.ssz
-    # zcli hash-tree-root /tmp.state.ssz
+    # zcli hash-tree-root state /tmp/state.ssz
     var deposits: seq[Deposit]
 
     for i in 0..<64:
@@ -157,11 +157,10 @@ suite "Interop":
 
     let expected =
       when const_preset == "minimal":
-        "75016055f843b92972d647a849168e8c5f559e8d41e05f94fc3f6a9665d1cabb"
+        "5a3bbcae4ab2b4eafded947689fd7bd8214a616ffffd2521befdfe2a3b2f74c0"
       elif const_preset == "mainnet":
-        "27e4b5dfc67b97fd7d441c60bd5c92851fc1ceebe22435903183d915b3e4e678"
+        "db0a887acd5e201ac579d6cdc0c4932f2a0adf342d84dc5cd11ce959fbce3760"
       else:
         "unimplemented"
     check:
       hash_tree_root(initialState).data.toHex() == expected
-      true

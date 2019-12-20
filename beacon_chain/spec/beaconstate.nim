@@ -54,7 +54,7 @@ func process_deposit*(
   # Verify the Merkle branch
   # TODO enable this check, but don't use doAssert
   if not is_valid_merkle_branch(
-    hash_tree_root(deposit.data),
+    hash_tree_root(deposit.getDepositMessage),
      deposit.proof,
      DEPOSIT_CONTRACT_TREE_DEPTH,
      state.eth1_deposit_index,
@@ -80,8 +80,8 @@ func process_deposit*(
   if index == -1:
     # Verify the deposit signature (proof of possession)
     if skipValidation notin flags and not bls_verify(
-        pubkey, hash_tree_root(deposit.data).data, deposit.data.signature,
-        compute_domain(DOMAIN_DEPOSIT)):
+        pubkey, hash_tree_root(deposit.getDepositMessage).data,
+        deposit.data.signature, compute_domain(DOMAIN_DEPOSIT)):
       return false
 
     # Add validator and balance entries
