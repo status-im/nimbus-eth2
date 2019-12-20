@@ -37,7 +37,8 @@ import
   stew/[bitseqs, bitops2], chronicles, json_serialization/std/sets,
   metrics, ../ssz,
   beaconstate, crypto, datatypes, digest, helpers, validator,
-  state_transition_helpers
+  state_transition_helpers,
+  ../../nbench/bench_lab
 
 # Logging utilities
 # --------------------------------------------------------
@@ -102,7 +103,7 @@ func get_attesting_balance(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#justification-and-finalization
 proc process_justification_and_finalization*(
-    state: var BeaconState, stateCache: var StateCache) =
+    state: var BeaconState, stateCache: var StateCache) {.nbench.}=
 
   logScope: pcs = "process_justification_and_finalization"
 
@@ -243,7 +244,7 @@ func get_base_reward(state: BeaconState, index: ValidatorIndex,
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#rewards-and-penalties-1
 func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
-    tuple[a: seq[Gwei], b: seq[Gwei]] =
+    tuple[a: seq[Gwei], b: seq[Gwei]] {.nbench.}=
   let
     previous_epoch = get_previous_epoch(state)
     total_balance = get_total_active_balance(state)
@@ -339,7 +340,7 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#rewards-and-penalties-1
 func process_rewards_and_penalties(
-    state: var BeaconState, cache: var StateCache) =
+    state: var BeaconState, cache: var StateCache) {.nbench.}=
   if get_current_epoch(state) == GENESIS_EPOCH:
     return
 
@@ -367,7 +368,7 @@ func process_slashings*(state: var BeaconState) =
       decrease_balance(state, index.ValidatorIndex, penalty)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#final-updates
-func process_final_updates*(state: var BeaconState) =
+func process_final_updates*(state: var BeaconState) {.nbench.}=
   let
     current_epoch = get_current_epoch(state)
     next_epoch = current_epoch + 1
@@ -407,7 +408,7 @@ func process_final_updates*(state: var BeaconState) =
   state.current_epoch_attestations = @[]
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#epoch-processing
-proc process_epoch*(state: var BeaconState) =
+proc process_epoch*(state: var BeaconState) {.nbench.}=
   # @proc are placeholders
 
   trace "process_epoch",

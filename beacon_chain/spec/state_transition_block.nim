@@ -35,7 +35,8 @@
 import
   algorithm, collections/sets, chronicles, options, sequtils, sets, tables,
   ../extras, ../ssz, metrics,
-  beaconstate, crypto, datatypes, digest, helpers, validator
+  beaconstate, crypto, datatypes, digest, helpers, validator,
+  ../../nbench/bench_lab
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
 declareGauge beacon_current_live_validators, "Number of active validators that successfully included attestation on chain for current epoch" # On block
@@ -46,7 +47,7 @@ declareGauge beacon_processed_deposits_total, "Number of total deposits included
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#block-header
 proc process_block_header*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
-    stateCache: var StateCache): bool =
+    stateCache: var StateCache): bool {.nbench.}=
   # Verify that the slots match
   if not (blck.slot == state.slot):
     notice "Block header: slot mismatch",
@@ -89,7 +90,7 @@ proc process_block_header*(
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#randao
 proc process_randao(
     state: var BeaconState, body: BeaconBlockBody, flags: UpdateFlags,
-    stateCache: var StateCache): bool =
+    stateCache: var StateCache): bool {.nbench.}=
   let
     epoch = state.get_current_epoch()
     proposer_index = get_beacon_proposer_index(state, stateCache)
@@ -125,7 +126,7 @@ proc process_randao(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#eth1-data
-func process_eth1_data(state: var BeaconState, body: BeaconBlockBody) =
+func process_eth1_data(state: var BeaconState, body: BeaconBlockBody) {.nbench.}=
   state.eth1_data_votes.add body.eth1_data
   if state.eth1_data_votes.count(body.eth1_data) * 2 >
       SLOTS_PER_ETH1_VOTING_PERIOD:
@@ -141,7 +142,7 @@ func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#proposer-slashings
 proc process_proposer_slashing*(
     state: var BeaconState, proposer_slashing: ProposerSlashing,
-    flags: UpdateFlags, stateCache: var StateCache): bool =
+    flags: UpdateFlags, stateCache: var StateCache): bool {.nbench.}=
   if proposer_slashing.proposer_index.int >= state.validators.len:
     notice "Proposer slashing: invalid proposer index"
     return false
@@ -187,7 +188,7 @@ proc process_proposer_slashing*(
 
 proc processProposerSlashings(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
-    stateCache: var StateCache): bool =
+    stateCache: var StateCache): bool {.nbench.}=
   if len(blck.body.proposer_slashings) > MAX_PROPOSER_SLASHINGS:
     notice "PropSlash: too many!",
       proposer_slashings = len(blck.body.proposer_slashings)
@@ -217,7 +218,7 @@ proc process_attester_slashing*(
        state: var BeaconState,
        attester_slashing: AttesterSlashing,
        stateCache: var StateCache
-     ): bool =
+     ): bool {.nbench.}=
     let
       attestation_1 = attester_slashing.attestation_1
       attestation_2 = attester_slashing.attestation_2
@@ -251,7 +252,7 @@ proc process_attester_slashing*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#attester-slashings
 proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock,
-    stateCache: var StateCache): bool =
+    stateCache: var StateCache): bool {.nbench.}=
   # Process ``AttesterSlashing`` operation.
   if len(blck.body.attester_slashings) > MAX_ATTESTER_SLASHINGS:
     notice "Attester slashing: too many!"
@@ -265,7 +266,7 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock,
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#attestations
 proc processAttestations(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
-    stateCache: var StateCache): bool =
+    stateCache: var StateCache): bool {.nbench.}=
   ## Each block includes a number of attestations that the proposer chose. Each
   ## attestation represents an update to a specific shard and is signed by a
   ## committee of validators.
@@ -285,7 +286,7 @@ proc processAttestations(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#deposits
-proc processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
+proc processDeposits(state: var BeaconState, blck: BeaconBlock): bool {.nbench.}=
   if not (len(blck.body.deposits) <= MAX_DEPOSITS):
     notice "processDeposits: too many deposits"
     return false
@@ -301,7 +302,7 @@ proc processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
 proc process_voluntary_exit*(
     state: var BeaconState,
     signed_voluntary_exit: SignedVoluntaryExit,
-    flags: UpdateFlags): bool =
+    flags: UpdateFlags): bool {.nbench.}=
 
   let voluntary_exit = signed_voluntary_exit.message
 
@@ -361,7 +362,7 @@ proc process_voluntary_exit*(
 
   true
 
-proc processVoluntaryExits(state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
+proc processVoluntaryExits(state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool {.nbench.}=
   if len(blck.body.voluntary_exits) > MAX_VOLUNTARY_EXITS:
     notice "[Block processing - Voluntary Exit]: too many exits!"
     return false
@@ -372,7 +373,7 @@ proc processVoluntaryExits(state: var BeaconState, blck: BeaconBlock, flags: Upd
 
 proc processBlock*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
-    stateCache: var StateCache): bool =
+    stateCache: var StateCache): bool {.nbench.}=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly
 

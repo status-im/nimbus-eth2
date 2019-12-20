@@ -30,10 +30,7 @@ template runTest(identifier: untyped) =
 
   proc `testImpl _ operations_attester_slashing _ identifier`() =
 
-    var flags: UpdateFlags
     var prefix: string
-    if not existsFile(testDir/"meta.yaml"):
-      flags.incl skipValidation
     if existsFile(testDir/"post.ssz"):
       prefix = "[Valid]   "
     else:

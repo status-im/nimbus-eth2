@@ -9,10 +9,11 @@ import
   tables, algorithm, math, sequtils, options,
   json_serialization/std/sets, chronicles, stew/bitseqs,
   ../extras, ../ssz,
-  ./crypto, ./datatypes, ./digest, ./helpers, ./validator
+  ./crypto, ./datatypes, ./digest, ./helpers, ./validator,
+  ../../nbench/bench_lab
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#is_valid_merkle_branch
-func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openarray[Eth2Digest], depth: uint64, index: uint64, root: Eth2Digest): bool =
+func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openarray[Eth2Digest], depth: uint64, index: uint64, root: Eth2Digest): bool {.nbench.}=
   ## Check if ``leaf`` at ``index`` verifies against the Merkle ``root`` and
   ## ``branch``.
   var
@@ -48,7 +49,7 @@ func decrease_balance*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#deposits
 func process_deposit*(
-    state: var BeaconState, deposit: Deposit, flags: UpdateFlags = {}): bool =
+    state: var BeaconState, deposit: Deposit, flags: UpdateFlags = {}): bool {.nbench.}=
   # Process an Eth1 deposit, registering a validator or increasing its balance.
 
   # Verify the Merkle branch
@@ -194,7 +195,7 @@ func initialize_beacon_state_from_eth1*(
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
     deposits: openArray[Deposit],
-    flags: UpdateFlags = {}): BeaconState =
+    flags: UpdateFlags = {}): BeaconState {.nbench.}=
   ## Get the genesis ``BeaconState``.
   ##
   ## Before the beacon chain starts, validators will register in the Eth1 chain
@@ -315,7 +316,7 @@ func is_eligible_for_activation(state: BeaconState, validator: Validator):
     validator.activation_epoch == FAR_FUTURE_EPOCH
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.3/specs/core/0_beacon-chain.md#registry-updates
-proc process_registry_updates*(state: var BeaconState) =
+proc process_registry_updates*(state: var BeaconState) {.nbench.}=
   ## Process activation eligibility and ejections
   ## Try to avoid caching here, since this could easily become undefined
 
@@ -500,7 +501,7 @@ proc check_attestation*(
 
 proc process_attestation*(
     state: var BeaconState, attestation: Attestation, flags: UpdateFlags,
-    stateCache: var StateCache): bool =
+    stateCache: var StateCache): bool {.nbench.}=
   # In the spec, attestation validation is mixed with state mutation, so here
   # we've split it into two functions so that the validation logic can be
   # reused when looking for suitable blocks to include in attestations.
