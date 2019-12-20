@@ -10,8 +10,8 @@
 import
   options, sequtils, unittest, chronicles,
   ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[beaconstate, datatypes, digest],
-  ../beacon_chain/[beacon_node_types, block_pool, beacon_chain_db, extras, ssz]
+  ../beacon_chain/spec/[datatypes, digest],
+  ../beacon_chain/[beacon_node_types, block_pool, beacon_chain_db, ssz]
 
 when const_preset == "minimal": # Too much stack space used on mainnet
   suite "Block pool processing" & preset():
