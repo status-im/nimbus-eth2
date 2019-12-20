@@ -24,15 +24,16 @@ Usage:
 
 ```
 nim c -d:const_preset=mainnet -d:nbench -o:build/nbench nbench/nbench.nim
+export SCENARIOS=tests/official/fixtures/tests-v0.9.3/mainnet/phase0
 
 # Full state transition
-build/nbench cmdFullStateTransition -d=nbench/scenarios/mainnet/full_state_transitions/voluntary_exit -q=2
+build/nbench cmdFullStateTransition -d="${SCENARIOS}"/sanity/blocks/pyspec_tests/voluntary_exit/ -q=2
 
 # Slot processing
-build/nbench cmdSlotProcessing -d=tests/official/fixtures/tests-v0.9.2/mainnet/phase0/sanity/slots/pyspec_tests/slots_1
+build/nbench cmdSlotProcessing -d="${SCENARIOS}"/sanity/slots/pyspec_tests/slots_1
 
 # Attestation processing
-build/nbench cmdBlockProcessing --blockProcessingCat=catAttestations -d=tests/official/fixtures/tests-v0.9.2/mainnet/phase0/operations/attestation/pyspec_tests/success_multi_proposer_index_iterations/
+build/nbench cmdBlockProcessing --blockProcessingCat=catAttestations -d="${SCENARIOS}"/operations/attestation/pyspec_tests/success_multi_proposer_index_iterations/
 ```
 
 TODO Reporting:
