@@ -59,7 +59,7 @@ Furthermore benchmarks are run in parallel and might interfere which each other.
 ```
 nim c -d:const_preset=mainnet -d:nbench -d:release -o:build/nbench nbench/nbench.nim
 nim c -o:build/nbench_tests nbench/nbench_official_fixtures.nim
-nbench_tests --nbench=build/nbench --tests=tests/official/fixtures/tests-v0.9.3/mainnet/
+nbench_tests --nbench=build/nbench --tests=tests/official/fixtures/tests-v0.9.4/mainnet/
 ```
 
 ## TODO Reporting
