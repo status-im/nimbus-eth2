@@ -31,10 +31,15 @@ template withState*(
   body
 
 func parent*(bs: BlockSlot): BlockSlot =
-  BlockSlot(
-    blck: if bs.slot > bs.blck.slot: bs.blck else: bs.blck.parent,
-    slot: bs.slot - 1
-  )
+  ## Return a blockslot representing the previous slot, using the parent block
+  ## if the current slot had a block
+  if bs.slot == Slot(0):
+    BlockSlot(blck: nil, slot: Slot(0))
+  else:
+    BlockSlot(
+      blck: if bs.slot > bs.blck.slot: bs.blck else: bs.blck.parent,
+      slot: bs.slot - 1
+    )
 
 func link(parent, child: BlockRef) =
   doAssert (not (parent.root == Eth2Digest() or child.root == Eth2Digest())),
@@ -62,7 +67,30 @@ func isAncestorOf*(a, b: BlockRef): bool =
     doAssert b.slot > b.parent.slot
     b = b.parent
 
-func getAncestor*(blck: BlockRef, slot: Slot): BlockRef =
+func getAncestorAt*(blck: BlockRef, slot: Slot): BlockRef =
+  ## Return the most recent block as of the time at `slot` that not more recent
+  ## than `blck` itself
+
+  var blck = blck
+
+  var depth = 0
+  const maxDepth = (100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int)
+
+  while true:
+    if blck.slot <= slot:
+      return blck
+
+    if blck.parent.isNil:
+      return nil
+
+    doAssert depth < maxDepth
+    depth += 1
+
+    blck = blck.parent
+
+func get_ancestor*(blck: BlockRef, slot: Slot): BlockRef =
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_fork-choice.md#get_ancestor
+  ## Return ancestor at slot, or nil if queried block is older
   var blck = blck
 
   var depth = 0
@@ -75,13 +103,23 @@ func getAncestor*(blck: BlockRef, slot: Slot): BlockRef =
     if blck.slot < slot:
       return nil
 
-    if blck.parent == nil:
+    if blck.parent.isNil:
       return nil
 
     doAssert depth < maxDepth
     depth += 1
 
     blck = blck.parent
+
+func atSlot*(blck: BlockRef, slot: Slot): BlockSlot =
+  ## Return a BlockSlot at a given slot, with the block set to the closest block
+  ## available. If slot comes from before the block, a suitable block ancestor
+  ## will be used, else blck is returned as if all slots after it were empty.
+  ## This helper is useful when imagining what the chain looked like at a
+  ## particular moment in time, or when imagining what it will look like in the
+  ## near future if nothing happens (such as when looking ahead for the next
+  ## block proposal)
+  BlockSlot(blck: blck.getAncestorAt(slot), slot: slot)
 
 func init*(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
   BlockRef(

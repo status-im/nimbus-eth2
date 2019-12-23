@@ -13,6 +13,75 @@ import
   ../beacon_chain/spec/[datatypes, digest],
   ../beacon_chain/[beacon_node_types, block_pool, beacon_chain_db, ssz]
 
+suite "BlockRef and helpers" & preset():
+  timedTest "isAncestorOf sanity" & preset():
+    let
+      s0 = BlockRef(slot: Slot(0))
+      s1 = BlockRef(slot: Slot(1), parent: s0)
+      s2 = BlockRef(slot: Slot(2), parent: s1)
+
+    check:
+      s0.isAncestorOf(s0)
+      s0.isAncestorOf(s1)
+      s0.isAncestorOf(s2)
+      s1.isAncestorOf(s1)
+      s1.isAncestorOf(s2)
+
+      not s2.isAncestorOf(s0)
+      not s2.isAncestorOf(s1)
+      not s1.isAncestorOf(s0)
+
+  timedTest "getAncestorAt sanity" & preset():
+    let
+      s0 = BlockRef(slot: Slot(0))
+      s1 = BlockRef(slot: Slot(1), parent: s0)
+      s2 = BlockRef(slot: Slot(2), parent: s1)
+      s4 = BlockRef(slot: Slot(4), parent: s2)
+
+    check:
+      s0.getAncestorAt(Slot(0)) == s0
+      s0.getAncestorAt(Slot(1)) == s0
+
+      s1.getAncestorAt(Slot(0)) == s0
+      s1.getAncestorAt(Slot(1)) == s1
+
+      s4.getAncestorAt(Slot(0)) == s0
+      s4.getAncestorAt(Slot(1)) == s1
+      s4.getAncestorAt(Slot(2)) == s2
+      s4.getAncestorAt(Slot(3)) == s2
+      s4.getAncestorAt(Slot(4)) == s4
+
+suite "BlockSlot and helpers" & preset():
+  timedTest "atSlot sanity" & preset():
+    let
+      s0 = BlockRef(slot: Slot(0))
+      s1 = BlockRef(slot: Slot(1), parent: s0)
+      s2 = BlockRef(slot: Slot(2), parent: s1)
+      s4 = BlockRef(slot: Slot(4), parent: s2)
+
+    check:
+      s0.atSlot(Slot(0)).blck == s0
+      s0.atSlot(Slot(0)) == s1.atSlot(Slot(0))
+      s1.atSlot(Slot(1)).blck == s1
+
+      s4.atSlot(Slot(0)).blck == s0
+
+  timedTest "parent sanity" & preset():
+    let
+      s0 = BlockRef(slot: Slot(0))
+      s00 = BlockSlot(blck: s0, slot: Slot(0))
+      s01 = BlockSlot(blck: s0, slot: Slot(1))
+      s2 = BlockRef(slot: Slot(2), parent: s0)
+      s22 = BlockSlot(blck: s2, slot: Slot(2))
+      s24 = BlockSlot(blck: s2, slot: Slot(4))
+
+    check:
+      s00.parent == BlockSlot(blck: nil, slot: Slot(0))
+      s01.parent == s00
+      s22.parent == s01
+      s24.parent == BlockSlot(blck: s2, slot: Slot(3))
+      s24.parent.parent == s22
+
 when const_preset == "minimal": # Too much stack space used on mainnet
   suite "Block pool processing" & preset():
     setup:
@@ -30,7 +99,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         pool.getRef(default Eth2Digest) == nil
 
     timedTest "loadTailState gets genesis block on first load" & preset():
-      var
+      let
         b0 = pool.get(pool.tail.root)
 
       check:
@@ -92,22 +161,6 @@ when const_preset == "minimal": # Too much stack space used on mainnet
       check:
         pool2.get(b1Root).isSome()
         pool2.get(b2Root).isSome()
-
-    timedTest "isAncestorOf sanity" & preset():
-      let
-        a = BlockRef(slot: Slot(1))
-        b = BlockRef(slot: Slot(2), parent: a)
-        c = BlockRef(slot: Slot(3), parent: b)
-
-      check:
-        a.isAncestorOf(a)
-        a.isAncestorOf(b)
-        a.isAncestorOf(c)
-        b.isAncestorOf(c)
-
-        not c.isAncestorOf(a)
-        not c.isAncestorOf(b)
-        not b.isAncestorOf(a)
 
     timedTest "Can add same block twice" & preset():
       let
