@@ -47,7 +47,6 @@ type
     forkVersion: array[4, byte]
     networkIdentity: Eth2NodeIdentity
     requestManager: RequestManager
-    isBootstrapNode: bool
     bootstrapNodes: seq[BootstrapAddr]
     db: BeaconChainDB
     config: BeaconNodeConf
@@ -135,12 +134,10 @@ proc commitGenesisState(node: BeaconNode, tailState: BeaconState) =
     quit 1
 
 proc addBootstrapNode(node: BeaconNode, bootstrapNode: BootstrapAddr) =
-  if bootstrapNode.isSameNode(node.networkIdentity):
-    node.isBootstrapNode = true
-  else:
+  if not bootstrapNode.isSameNode(node.networkIdentity):
     node.bootstrapNodes.add bootstrapNode
 
-proc useBootstrapFile(node: BeaconNode, bootstrapFile: string) =
+proc loadBootstrapFile(node: BeaconNode, bootstrapFile: string) =
   for ln in lines(bootstrapFile):
     node.addBootstrapNode BootstrapAddr.initAddress(string ln)
 
@@ -156,11 +153,11 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
 
   let bootstrapFile = string conf.bootstrapNodesFile
   if bootstrapFile.len > 0:
-    result.useBootstrapFile(bootstrapFile)
+    result.loadBootstrapFile(bootstrapFile)
 
   let siteLocalBootstrapFile = conf.dataDir / "bootstrap_nodes.txt"
   if fileExists(siteLocalBootstrapFile):
-    result.useBootstrapFile(siteLocalBootstrapFile)
+    result.loadBootstrapFile(siteLocalBootstrapFile)
 
   result.attachedValidators = ValidatorPool.init
 
@@ -361,40 +358,20 @@ proc proposeBlock(node: BeaconNode,
                   slot: Slot): Future[BlockRef] {.async.} =
   logScope: pcs = "block_proposal"
 
-  if head.slot > slot:
-    notice "Skipping proposal, we've already selected a newer head",
+  if head.slot >= slot:
+    # We should normally not have a head newer than the slot we're proposing for
+    # but this can happen if block proposal is delayed
+    warn "Skipping proposal, have newer head already",
       headSlot = shortLog(head.slot),
       headBlockRoot = shortLog(head.root),
       slot = shortLog(slot),
       cat = "fastforward"
     return head
 
-  if head.slot == 0 and slot == 0:
-    # TODO there's been a startup assertion, which sometimes (but not always
-    # evidently) crashes exactly one node on simulation startup, the one the
-    # beacon chain proposer index points to first for slot 0. it tries using
-    # slot 0 as required, notices head block's slot is also 0 (which, that's
-    # how it's created; it's never less), and promptly fails, with assertion
-    # occuring downstream via async code. This is most easily reproduced via
-    # make clean_eth2_network_simulation_files && make eth2_network_simulation
-    return head
-
-  if head.slot == slot:
-    # Weird, we should never see as head the same slot as we're proposing a
-    # block for - did someone else steal our slot? why didn't we discard it?
-    warn "Found head at same slot as we're supposed to propose for!",
-      headSlot = shortLog(head.slot),
-      headBlockRoot = shortLog(head.root),
-      cat = "consensus_conflict"
-    # TODO investigate how and when this happens.. maybe it shouldn't be an
-    #      assert?
-    doAssert false, "head slot matches proposal slot (!)"
-    # return
-
   # Advance state to the slot immediately preceding the one we're creating a
   # block for - potentially we will be processing empty slots along the way.
   let (nroot, nblck) = node.blockPool.withState(
-      node.blockPool.tmpState, BlockSlot(blck: head, slot: slot - 1)):
+      node.blockPool.tmpState, head.atSlot(slot)):
     let (eth1data, deposits) =
       if node.mainchainMonitor.isNil:
         (get_eth1data_stub(
@@ -594,12 +571,11 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
   ## Perform the proposal for the given slot, iff we have a validator attached
   ## that is supposed to do so, given the shuffling in head
 
-  # TODO here we advanced the state to the new slot, but later we'll be
+  # TODO here we advance the state to the new slot, but later we'll be
   #      proposing for it - basically, we're selecting proposer based on an
-  #      empty slot.. wait for the committee selection to settle, then
-  #      revisit this - we should be able to advance behind
+  #      empty slot
   var cache = get_empty_per_epoch_cache()
-  node.blockPool.withState(node.blockPool.tmpState, BlockSlot(blck: head, slot: slot)):
+  node.blockPool.withState(node.blockPool.tmpState, head.atSlot(slot)):
     let proposerIdx = get_beacon_proposer_index(state, cache)
     if proposerIdx.isNone:
       notice "Missing proposer index",
@@ -640,14 +616,26 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     beaconTime = node.beaconClock.now()
     wallSlot = beaconTime.toSlot()
 
-  debug "Slot start",
+  info "Slot start",
     lastSlot = shortLog(lastSlot),
     scheduledSlot = shortLog(scheduledSlot),
     beaconTime = shortLog(beaconTime),
     peers = node.network.peersCount,
+    headSlot = shortLog(node.blockPool.head.blck.slot),
+    headEpoch = shortLog(node.blockPool.head.blck.slot.compute_epoch_at_slot()),
+    headRoot = shortLog(node.blockPool.head.blck.root),
+    finalizedSlot = shortLog(node.blockPool.finalizedHead.blck.slot),
+    finalizedRoot = shortLog(node.blockPool.finalizedHead.blck.root),
+    finalizedSlot = shortLog(node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()),
     cat = "scheduling"
 
   if not wallSlot.afterGenesis or (wallSlot.slot < lastSlot):
+    let
+      slot =
+        if wallSlot.afterGenesis: wallSlot.slot
+        else: GENESIS_SLOT
+      nextSlot = slot + 1 # At least GENESIS_SLOT + 1!
+
     # This can happen if the system clock changes time for example, and it's
     # pretty bad
     # TODO shut down? time either was or is bad, and PoS relies on accuracy..
@@ -655,14 +643,8 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
       beaconTime = shortLog(beaconTime),
       lastSlot = shortLog(lastSlot),
       scheduledSlot = shortLog(scheduledSlot),
+      nextSlot = shortLog(nextSlot),
       cat = "clock_drift" # tag "scheduling|clock_drift"?
-
-    let
-      slot = Slot(
-        if wallSlot.afterGenesis:
-          max(1'u64, wallSlot.slot.uint64)
-        else: GENESIS_SLOT.uint64 + 1)
-      nextSlot = slot + 1
 
     addTimer(saturate(node.beaconClock.fromNow(nextSlot))) do (p: pointer):
       asyncCheck node.onSlotStart(slot, nextSlot)
@@ -681,9 +663,10 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     # TODO how long should the period be? Using an epoch because that's roughly
     #      how long attestations remain interesting
     # TODO should we shut down instead? clearly we're unable to keep up
-    warn "Unable to keep up, skipping ahead without doing work",
+    warn "Unable to keep up, skipping ahead",
       lastSlot = shortLog(lastSlot),
       slot = shortLog(slot),
+      nextSlot = shortLog(nextSlot),
       scheduledSlot = shortLog(scheduledSlot),
       cat = "overload"
 
@@ -795,6 +778,17 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   let
     nextSlotStart = saturate(node.beaconClock.fromNow(nextSlot))
 
+  info "Slot end",
+    slot = shortLog(slot),
+    nextSlot = shortLog(nextSlot),
+    headSlot = shortLog(node.blockPool.head.blck.slot),
+    headEpoch = shortLog(node.blockPool.head.blck.slot.compute_epoch_at_slot()),
+    headRoot = shortLog(node.blockPool.head.blck.root),
+    finalizedSlot = shortLog(node.blockPool.finalizedHead.blck.slot),
+    finalizedEpoch = shortLog(node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()),
+    finalizedRoot = shortLog(node.blockPool.finalizedHead.blck.root),
+    cat = "scheduling"
+
   addTimer(nextSlotStart) do (p: pointer):
     asyncCheck node.onSlotStart(slot, nextSlot)
 
@@ -837,19 +831,20 @@ proc run*(node: BeaconNode) =
     node.onAttestation(attestation)
 
   let
-    t = node.beaconClock.now()
-    startSlot = if t > BeaconTime(0): t.toSlot.slot + 1
-                else: GENESIS_SLOT + 1
-    fromNow = saturate(node.beaconClock.fromNow(startSlot))
+    t = node.beaconClock.now().toSlot()
+    curSlot = if t.afterGenesis: t.slot
+              else: GENESIS_SLOT
+    nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
+    fromNow = saturate(node.beaconClock.fromNow(nextSlot))
 
   info "Scheduling first slot action",
     beaconTime = shortLog(node.beaconClock.now()),
-    nextSlot = shortLog(startSlot),
+    nextSlot = shortLog(nextSlot),
     fromNow = shortLog(fromNow),
     cat = "scheduling"
 
   addTimer(fromNow) do (p: pointer):
-    asyncCheck node.onSlotStart(startSlot - 1, startSlot)
+    asyncCheck node.onSlotStart(curSlot, nextSlot)
 
   let second = Moment.now() + chronos.seconds(1)
   addTimer(second) do (p: pointer):
