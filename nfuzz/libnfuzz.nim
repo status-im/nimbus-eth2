@@ -4,7 +4,8 @@ import
   ../beacon_chain/spec/[datatypes, helpers, digest, validator, beaconstate, state_transition_block],
 # Required for deserialisation of ValidatorSig in Attestation due to
 # https://github.com/nim-lang/Nim/issues/11225
-  ../beacon_chain/spec/crypto
+  ../beacon_chain/spec/crypto,
+  ../beacon_chain/extras
 
 type
   BlockInput = object
@@ -62,7 +63,7 @@ proc nfuzz_attestation(input: openArray[byte], output: ptr byte,
 
   try:
     result = process_attestation(data.state, data.attestation,
-      flags = {}, cache)
+      {skipValidation}, cache)
   except ValueError:
     # TODO is a ValueError indicative of correct or incorrect processing code?
     # If correct (but given invalid input), we should return false
@@ -108,7 +109,7 @@ proc nfuzz_block(input: openArray[byte], output: ptr byte,
     raise newException(FuzzCrashError, "SSZ deserialisation failed, likely bug in preprocessing.", e)
 
   try:
-    result = state_transition(data.state, data.beaconBlock, flags = {})
+    result = state_transition(data.state, data.beaconBlock, {skipValidation})
   except IOError as e:
     # TODO why an IOError?
     raise newException(FuzzCrashError, "Unexpected IOError in state transition", e)
@@ -139,7 +140,7 @@ proc nfuzz_block_header(input: openArray[byte], output: ptr byte,
     raise newException(FuzzCrashError, "SSZ deserialisation failed, likely bug in preprocessing.", e)
 
   try:
-    result = process_block_header(data.state, data.beaconBlock, flags = {}, cache)
+    result = process_block_header(data.state, data.beaconBlock, {skipValidation}, cache)
   except IOError as e:
     # TODO why an IOError? - is this expected/should we return false?
     raise newException(FuzzCrashError, "Unexpected IOError in block header processing", e)
