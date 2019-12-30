@@ -109,7 +109,7 @@ proc nfuzz_block(input: openArray[byte], output: ptr byte,
     raise newException(FuzzCrashError, "SSZ deserialisation failed, likely bug in preprocessing.", e)
 
   try:
-    result = state_transition(data.state, data.beaconBlock, {skipValidation})
+    result = state_transition(data.state, data.beaconBlock, {})
   except IOError as e:
     # TODO why an IOError?
     raise newException(FuzzCrashError, "Unexpected IOError in state transition", e)
@@ -140,7 +140,8 @@ proc nfuzz_block_header(input: openArray[byte], output: ptr byte,
     raise newException(FuzzCrashError, "SSZ deserialisation failed, likely bug in preprocessing.", e)
 
   try:
-    result = process_block_header(data.state, data.beaconBlock, {skipValidation}, cache)
+    # TODO disable bls
+    result = process_block_header(data.state, data.beaconBlock, {}, cache)
   except IOError as e:
     # TODO why an IOError? - is this expected/should we return false?
     raise newException(FuzzCrashError, "Unexpected IOError in block header processing", e)
