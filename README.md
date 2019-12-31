@@ -62,7 +62,7 @@ Nim is not an external dependency, Nimbus will build its own local copy.
 On common Linux distributions the dependencies can be installed with:
 ```sh
 # Debian and Ubuntu
-sudo apt-get install build-essential golang-go librocksdb-dev libpcre3-dev
+sudo apt-get install build-essential git golang-go librocksdb-dev libpcre3-dev
 
 # Fedora
 dnf install @development-tools go rocksdb-devel pcre
