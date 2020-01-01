@@ -290,7 +290,7 @@ cd status
 git clone https://github.com/facebook/rocksdb.git
 cd rocksdb
 make shared_lib
-sudo make install
+sudo make install-shared
 cd ..
 
 # Raspberry pi doesn't include /usr/local/lib in library search path
