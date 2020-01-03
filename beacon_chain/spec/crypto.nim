@@ -21,6 +21,8 @@
 # A, B and C, and another with B, C and D, we cannot practically combine them
 # even if in theory it is possible to allow this in BLS.
 
+# Use `-d:fake_bls` to enable fake bls verification for fuzzing and other tests.
+
 import
   stew/[endians2, objects, byteutils], hashes, nimcrypto/utils,
   blscurve, json_serialization,
@@ -30,11 +32,10 @@ import
 export
   json_serialization
 
-export
-  blscurve.init, blscurve.getBytes, blscurve.combine,
-  blscurve.`$`, blscurve.`==`,
-  blscurve.Signature
+{.experimental: "codeReordering".}
 
+# TODO(gnattishness) have the type in the main file?
+# Note: not too sure about these types, so leaving untouched for now
 type
   BlsValueType* = enum
     Real
@@ -68,9 +69,213 @@ type
   BlsCurveType* = VerKey|SigKey|Signature
   ValidatorPKI* = ValidatorPrivKey|ValidatorPubKey|ValidatorSig
 
-proc init*[T](BLS: type BlsValue[T], val: auto): BLS =
-  result.kind = BlsValueType.Real
-  result.blsValue = init(T, val)
+when not defined(fake_bls):
+  # Real bls interface implementation
+  export
+    blscurve.init, blscurve.getBytes, blscurve.combine,
+    blscurve.`$`, blscurve.`==`,
+    blscurve.Signature
+
+  func `==`*(a, b: BlsValue): bool =
+    if a.kind != b.kind: return false
+    if a.kind == Real:
+      return a.blsValue == b.blsValue
+    else:
+      return a.blob == b.blob
+
+  template `==`*[T](a: BlsValue[T], b: T): bool =
+    a.blsValue == b
+
+  template `==`*[T](a: T, b: BlsValue[T]): bool =
+    a == b.blsValue
+
+  proc init*[T](BLS: type BlsValue[T], val: auto): BLS =
+    result.kind = BlsValueType.Real
+    result.blsValue = init(T, val)
+
+  func combine*[T](values: openarray[BlsValue[T]]): BlsValue[T] =
+    # TODO(gnattishness) this would also crash if an entry in the list is an OpaqueBlob kind
+    # so doesn't have a `blsValue`?
+    result = BlsValue[T](kind: Real, blsValue: T.init())
+
+    for value in values:
+      # TODO(gnattishness) correct would be this instead?
+      # or assert that they are all Real
+      # result.combine(value)
+      result.blsValue.combine(value.blsValue)
+
+  func combine*[T](x: var BlsValue[T], other: BlsValue[T]) =
+    doAssert x.kind == Real and other.kind == Real
+    x.blsValue.combine(other.blsValue)
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/bls_signature.md#bls_verify
+  func bls_verify*(
+      pubkey: ValidatorPubKey, msg: openArray[byte], sig: ValidatorSig,
+      domain: Domain): bool =
+    # name from spec!
+    if sig.kind != Real:
+      # Invalid signatures are possible in deposits (discussed with Danny)
+      return false
+    when ValidatorPubKey is BlsValue:
+      if sig.kind != Real or pubkey.kind != Real:
+        # TODO: chronicles warning
+        return false
+      # TODO bls_verify_multiple(...) used to have this workaround, and now it
+      # lives here. No matter the signature, there's also no meaningful way to
+      # verify it -- it's a kind of vacuous truth. No pubkey/sig pairs.
+      if pubkey == default(ValidatorPubKey):
+        return true
+
+      sig.blsValue.verify(msg, domain, pubkey.blsValue)
+    else:
+      sig.verify(msg, domain, pubkey)
+
+  when ValidatorPrivKey is BlsValue:
+    func bls_sign*(key: ValidatorPrivKey, msg: openarray[byte],
+                   domain: Domain): ValidatorSig =
+      # name from spec!
+      if key.kind == Real:
+        ValidatorSig(kind: Real, blsValue: key.blsValue.sign(domain, msg))
+      else:
+        ValidatorSig(kind: OpaqueBlob)
+  else:
+    func bls_sign*(key: ValidatorPrivKey, msg: openarray[byte],
+                   domain: Domain): ValidatorSig =
+      # name from spec!
+      ValidatorSig(kind: Real, blsValue: key.sign(domain, msg))
+
+  func fromBytes*[T](R: type BlsValue[T], bytes: openarray[byte]): R =
+    # This is a workaround, so that we can deserialize the serialization of a
+    # default-initialized BlsValue without raising an exception
+    when defined(ssz_testing):
+      # Only for SSZ parsing tests, everything is an opaque blob
+      R(kind: OpaqueBlob, blob: toArray(result.blob.len, bytes))
+    else:
+      # Try if valid BLS value
+      # TODO: address the side-effects in nim-blscurve
+      {.noSideEffect.}:
+        let success = init(result.blsValue, bytes)
+      if not success:
+        # TODO: chronicles trace
+        result = R(kind: OpaqueBlob)
+        doAssert result.blob.len == bytes.len
+        result.blob[result.blob.low .. result.blob.high] = bytes
+
+else:
+  # Fake bls interface, useful for fuzz and other testing
+  {.warning: "Fake bls verification enabled. Do not use in production code!".}
+  # TODO have explicit fake_bls_verify etc names that are aliased to bls_verify etc
+  # once https://github.com/nim-lang/Nim/pull/11992 is accepted
+
+  # Export these as-is
+  export
+    blscurve.init, blscurve.getBytes,
+    blscurve.`$`, blscurve.`==`,
+    blscurve.Signature
+
+  func `==`*(a, b: BlsValue): bool =
+    # convert both to bytes and compare
+    # don't care about kind
+    #return toOpenArray(a.getBytes()) == toOpenArray(b.getBytes())
+    return a.getBytes() == b.getBytes()
+
+  template `==`*[T](a: BlsValue[T], b: T): bool =
+    # allow comparison between curve and opaque blob
+    #a == BlsValue[T](kind: OpaqueBlob, blob: b.getBytes())
+    a.getBytes == b.getBytes
+
+  template `==`*[T](a: T, b: BlsValue[T]): bool =
+    # allow comparison between curve and opaque blob
+    # BlsValue[T](kind: OpaqueBlob, blob: a.getBytes()) == b
+    a.getBytes == b.getBytes
+
+  # Modified interface exported from blscurve in "real" implementation
+
+  proc combine*(sig1: var Signature, sig2: Signature) =
+    ## Aggregates signature ``sig2`` into ``sig1``.
+    ##
+    ## Fake bls: do nothing!
+    discard
+
+  proc combine*(sigs: openarray[Signature]): Signature =
+    ## Aggregates array of signatures ``sigs`` and return aggregated signature.
+    ##
+    ## Array ``sigs`` must not be empty!
+    # NOTE: Eth2 v0.9.3 spec defines aggregate to be infinity when an empty list is passed
+    # but draft spec doesn't define aggregation for an empty list
+    doAssert(len(sigs) > 0)
+    # Fake bls: return the first sig
+    result = sigs[0]
+
+  proc combine*(key1: var VerKey, key2: VerKey) =
+    ## Aggregates verification key ``key2`` into ``key1``.
+    ##
+    ## Fake bls: do nothing!
+    discard
+
+  proc combine*(keys: openarray[VerKey]): VerKey =
+    ## Aggregates array of verification keys ``keys`` and return aggregated
+    ## verification key.
+    ##
+    ## Array ``keys`` must not be empty!
+    # NOTE: Eth2 v0.9.3 spec defines aggregate to be infinity when an empty list is passed
+    # but draft spec doesn't define aggregation for an empty list
+    doAssert(len(keys) > 0)
+    # Fake bls: return the first key
+    result = keys[0]
+
+  # Section corresponding to real crypto.nim
+
+  proc init*[T](BLS: type BlsValue[T], val: auto): BLS =
+    # keep as opaque bytes
+    result.kind = BlsValueType.OpaqueBlob
+    let t: T = T.init(val)
+    result.blob = t.getBytes()
+
+  proc init*[T](BLS: type BlsValue[T], data: openarray[byte]): BLS =
+    # specializations that avoids first converting to T
+    result.kind = BlsValueType.OpaqueBlob
+    result.blob = toArray(result.blob.len, data)
+
+  proc init*[T](BLS: type BlsValue[T], data: string): BLS =
+    # specialization that avoids first converting to T
+    result = BLS.init(fromHex(data))
+
+  # Fake verify always returns `true`
+  func bls_verify*(
+      pubkey: ValidatorPubKey, msg: openarray[byte], sig: ValidatorSig,
+      domain: Domain): bool = true
+
+  func combine*[T](values: openarray[BlsValue[T]]): BlsValue[T] =
+    if len(values) == 0:
+      # empty so return infinity
+      result = BlsValue[T](kind: OpaqueBlob, blob: T.init.getBytes)
+    else:
+      # return first value
+      # TODO convert to opaque blob?
+      result = values[0]
+
+  func combine*[T](x: var BlsValue[T], other: BlsValue[T]) =
+    # do nothing!
+    discard
+
+  func bls_sign*(key: ValidatorPrivKey, msg: openarray[byte],
+                 domain: Domain): ValidatorSig =
+    # name from spec!
+    # Return empty signature, ignore key kinds
+    ValidatorSig(kind: OpaqueBlob)
+
+  func fromBytes*[T](R: type BlsValue[T], bytes: openarray[byte]): R =
+    # Everything is an opaque blob - allows comparison but don't care about verification
+    R(kind: OpaqueBlob, blob: toArray(result.blob.len, bytes))
+
+# Implementation common to both real and fake
+
+func initFromBytes*[T](val: var BlsValue[T], bytes: openarray[byte]) =
+  val = fromBytes(BlsValue[T], bytes)
+
+func initFromBytes*(val: var BlsCurveType, bytes: openarray[byte]) =
+  val = init(type(val), bytes)
 
 func `$`*(x: BlsValue): string =
   if x.kind == Real:
@@ -80,12 +285,12 @@ func `$`*(x: BlsValue): string =
     # due to the mechanics of the `shortLog` function.
     "r:" & toHex(x.blob, true)
 
-func `==`*(a, b: BlsValue): bool =
-  if a.kind != b.kind: return false
-  if a.kind == Real:
-    return a.blsValue == b.blsValue
-  else:
-    return a.blob == b.blob
+when ValidatorPrivKey is BlsValue:
+  proc newPrivKey*(): ValidatorPrivKey =
+    ValidatorPrivKey(kind: Real, blsValue: SigKey.random())
+else:
+  proc newPrivKey*(): ValidatorPrivKey =
+    SigKey.random()
 
 func getBytes*(x: BlsValue): auto =
   if x.kind == Real:
@@ -108,38 +313,20 @@ func hash*(x: BlsValue): Hash {.inline.} =
 template hash*(x: BlsCurveType): Hash =
   hash(getBytes(x))
 
-template `==`*[T](a: BlsValue[T], b: T): bool =
-  a.blsValue == b
-
-template `==`*[T](a: T, b: BlsValue[T]): bool =
-  a == b.blsValue
-
-func pubKey*(pk: ValidatorPrivKey): ValidatorPubKey =
-  when ValidatorPubKey is BlsValue:
-    ValidatorPubKey(kind: Real, blsValue: pk.getKey())
-  elif ValidatorPubKey is array:
-    pk.getKey.getBytes
-  else:
-    pk.getKey
-
+# TODO(gnattishness) is the ``type`` here equiv to typof(SigKey) or typedesc[SigKey]?
+# Ans: i think ``typeof(SigKey)`` with https://nim-lang.github.io/Nim/manual.html#procedures-command-invocation-syntax
+# TODO(gnattishness) Why have these here when there's already a similar one in blscurve?
+# Ans: I think because this is a ``func`` and can be used in other pure functions
 func init(T: type VerKey): VerKey =
   result.point.inf()
 
 func init(T: type SigKey): SigKey =
-  result.point.inf()
+  # TODO(gnattishness) confirm correct impl
+  # See https://github.com/status-im/nim-beacon-chain/issues/664
+  result.x.zero()
 
 func init(T: type Signature): Signature =
   result.point.inf()
-
-func combine*[T](values: openarray[BlsValue[T]]): BlsValue[T] =
-  result = BlsValue[T](kind: Real, blsValue: T.init())
-
-  for value in values:
-    result.blsValue.combine(value.blsValue)
-
-func combine*[T](x: var BlsValue[T], other: BlsValue[T]) =
-  doAssert x.kind == Real and other.kind == Real
-  x.blsValue.combine(other.blsValue)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/bls_signature.md#bls_aggregate_pubkeys
 func bls_aggregate_pubkeys*(keys: openArray[ValidatorPubKey]): ValidatorPubKey =
@@ -149,67 +336,21 @@ func bls_aggregate_pubkeys*(keys: openArray[ValidatorPubKey]): ValidatorPubKey =
 func bls_aggregate_signatures*(keys: openArray[ValidatorSig]): ValidatorSig =
   keys.combine()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/bls_signature.md#bls_verify
-func bls_verify*(
-    pubkey: ValidatorPubKey, msg: openArray[byte], sig: ValidatorSig,
-    domain: Domain): bool =
-  # name from spec!
-  if sig.kind != Real:
-    # Invalid signatures are possible in deposits (discussed with Danny)
-    return false
-  when ValidatorPubKey is BlsValue:
-    if sig.kind != Real or pubkey.kind != Real:
-      # TODO: chronicles warning
-      return false
-    # TODO bls_verify_multiple(...) used to have this workaround, and now it
-    # lives here. No matter the signature, there's also no meaningful way to
-    # verify it -- it's a kind of vacuous truth. No pubkey/sig pairs.
-    if pubkey == default(ValidatorPubKey):
-      return true
-
-    sig.blsValue.verify(msg, domain, pubkey.blsValue)
-  else:
-    sig.verify(msg, domain, pubkey)
-
-when ValidatorPrivKey is BlsValue:
-  func bls_sign*(key: ValidatorPrivKey, msg: openarray[byte],
-                 domain: Domain): ValidatorSig =
-    # name from spec!
-    if key.kind == Real:
-      ValidatorSig(kind: Real, blsValue: key.blsValue.sign(domain, msg))
-    else:
-      ValidatorSig(kind: OpaqueBlob)
-else:
-  func bls_sign*(key: ValidatorPrivKey, msg: openarray[byte],
-                 domain: Domain): ValidatorSig =
-    # name from spec!
-    ValidatorSig(kind: Real, blsValue: key.sign(domain, msg))
-
-func fromBytes*[T](R: type BlsValue[T], bytes: openarray[byte]): R =
-  # This is a workaround, so that we can deserialize the serialization of a
-  # default-initialized BlsValue without raising an exception
-  when defined(ssz_testing):
-    # Only for SSZ parsing tests, everything is an opaque blob
-    R(kind: OpaqueBlob, blob: toArray(result.blob.len, bytes))
-  else:
-    # Try if valid BLS value
-    # TODO: address the side-effects in nim-blscurve
-    {.noSideEffect.}:
-      let success = init(result.blsValue, bytes)
-    if not success:
-      # TODO: chronicles trace
-      result = R(kind: OpaqueBlob)
-      doAssert result.blob.len == bytes.len
-      result.blob[result.blob.low .. result.blob.high] = bytes
-
 func fromHex*[T](R: type BlsValue[T], hexStr: string): R =
   fromBytes(R, hexToSeqByte(hexStr))
 
-func initFromBytes*[T](val: var BlsValue[T], bytes: openarray[byte]) =
-  val = fromBytes(BlsValue[T], bytes)
+func pubKey*(pk: ValidatorPrivKey): ValidatorPubKey =
+  # Tests require an actual (or at least unique) corresponding pubkey be created from this
+  # e.g. MakeInitialDeposits
+  # if a performance issue for fake_bls, can create some other dummy e.g. based on the hash
+  # or bytes of the PrivKey
+  when ValidatorPubKey is BlsValue:
+    ValidatorPubKey(kind: Real, blsValue: pk.getKey())
+  elif ValidatorPubKey is array:
+    pk.getKey.getBytes
+  else:
+    pk.getKey
 
-func initFromBytes*(val: var BlsCurveType, bytes: openarray[byte]) =
-  val = init(type(val), bytes)
 
 proc writeValue*(writer: var JsonWriter, value: ValidatorPubKey) {.inline.} =
   when value is BlsValue:
@@ -245,13 +386,6 @@ proc writeValue*(writer: var JsonWriter, value: ValidatorPrivKey) {.inline.} =
 
 proc readValue*(reader: var JsonReader, value: var ValidatorPrivKey) {.inline.} =
   value.initFromBytes(fromHex reader.readValue(string))
-
-when ValidatorPrivKey is BlsValue:
-  proc newPrivKey*(): ValidatorPrivKey =
-    ValidatorPrivKey(kind: Real, blsValue: SigKey.random())
-else:
-  proc newPrivKey*(): ValidatorPrivKey =
-    SigKey.random()
 
 when networkBackend == rlpx:
   import eth/rlp
