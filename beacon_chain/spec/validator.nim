@@ -11,8 +11,8 @@ import
   ./datatypes, ./digest, ./helpers
 
 # TODO: Proceed to renaming and signature changes
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#compute_shuffled_index
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#compute_committee
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#compute_shuffled_index
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#compute_committee
 func get_shuffled_seq*(seed: Eth2Digest,
                       list_size: uint64,
                       ): seq[ValidatorIndex] =
@@ -78,7 +78,7 @@ func get_shuffled_seq*(seed: Eth2Digest,
 
   result = shuffled_active_validator_indices
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#get_previous_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(state: BeaconState): Epoch =
   # Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
   let current_epoch = get_current_epoch(state)
@@ -87,7 +87,7 @@ func get_previous_epoch*(state: BeaconState): Epoch =
   else:
     current_epoch - 1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#compute_committee
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#compute_committee
 func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
     index: uint64, count: uint64, stateCache: var StateCache): seq[ValidatorIndex] =
   ## Return the committee corresponding to ``indices``, ``seed``, ``index``,

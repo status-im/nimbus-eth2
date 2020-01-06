@@ -185,11 +185,11 @@ proc run(conf: InspectorConf) {.async.} =
     if conf.decode:
       try:
         if ticket.topic.startsWith(topicBeaconBlocks):
-          info "BeaconBlock", msg = SSZ.decode(message.data, BeaconBlock)
+          info "SignedBeaconBlock", msg = SSZ.decode(message.data, SignedBeaconBlock)
         elif ticket.topic.startsWith(topicAttestations):
           info "Attestation", msg = SSZ.decode(message.data, Attestation)
         elif ticket.topic.startsWith(topicVoluntaryExits):
-          info "VoluntaryExit", msg = SSZ.decode(message.data, VoluntaryExit)
+          info "SignedVoluntaryExit", msg = SSZ.decode(message.data, SignedVoluntaryExit)
         elif ticket.topic.startsWith(topicProposerSlashings):
           info "ProposerSlashing", msg = SSZ.decode(message.data, ProposerSlashing)
         elif ticket.topic.startsWith(topicAttesterSlashings):

@@ -39,8 +39,8 @@ const eth1BlockHash* = block:
   for v in x.data.mitems: v = 0x42
   x
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_deposit-contract.md#withdrawal-credentials
 func makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_deposit-contract.md#withdrawal-credentials
   var bytes = eth2hash(k.getBytes())
   bytes.data[0] = BLS_WITHDRAWAL_PREFIX.uint8
   bytes
@@ -59,6 +59,7 @@ func makeDeposit*(
   if skipValidation notin flags:
     ret.data.signature =
       bls_sign(
-        privkey, hash_tree_root(ret.data).data, compute_domain(DOMAIN_DEPOSIT))
+        privkey, hash_tree_root(ret.getDepositMessage).data,
+        compute_domain(DOMAIN_DEPOSIT))
 
   ret

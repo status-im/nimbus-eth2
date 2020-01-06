@@ -16,7 +16,7 @@ Nimbus beacon chain is a research implementation of the beacon chain component o
 ## Related
 
 * [status-im/nimbus](https://github.com/status-im/nimbus/): Nimbus for Ethereum 1
-* [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md): Serenity specification that this project implements
+* [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md): Serenity specification that this project implements
 
 You can check where the beacon chain fits in the Ethereum ecosystem our Two-Point-Oh series: https://our.status.im/tag/two-point-oh/
 
@@ -62,7 +62,7 @@ Nim is not an external dependency, Nimbus will build its own local copy.
 On common Linux distributions the dependencies can be installed with:
 ```sh
 # Debian and Ubuntu
-sudo apt-get install build-essentials golang-go librocksdb-dev libpcre3-dev
+sudo apt-get install build-essential git golang-go librocksdb-dev libpcre3-dev
 
 # Fedora
 dnf install @development-tools go rocksdb-devel pcre
@@ -290,7 +290,7 @@ cd status
 git clone https://github.com/facebook/rocksdb.git
 cd rocksdb
 make shared_lib
-sudo make install
+sudo make install-shared
 cd ..
 
 # Raspberry pi doesn't include /usr/local/lib in library search path

@@ -64,7 +64,7 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
 
   if skipValidation notin flags:
     result.data.signature =
-      bls_sign(privkey, hash_tree_root(result.data).data,
+      bls_sign(privkey, hash_tree_root(result.getDepositMessage).data,
                domain)
 
 func makeInitialDeposits*(
@@ -164,7 +164,7 @@ proc makeAttestation*(
   doAssert sac_index != -1, "find_beacon_committee should guarantee this"
 
   var aggregation_bits = CommitteeValidatorsBits.init(committee.len)
-  aggregation_bits.raiseBit sac_index
+  aggregation_bits.setBit sac_index
 
   let
     msg = hash_tree_root(data)

@@ -474,7 +474,7 @@ func bitlistHashTreeRoot(merkelizer: SszChunksMerkelizer, x: BitSeq): Eth2Digest
     lastCorrectedByte = Bytes(x)[^2]
   else:
     let markerPos = log2trunc(lastCorrectedByte)
-    lastCorrectedByte.lowerBit(markerPos)
+    lastCorrectedByte.clearBit(markerPos)
 
   var
     bytesInLastChunk = totalBytes mod bytesPerChunk

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2019 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -26,7 +26,7 @@ import
 
 const
   FixturesDir = currentSourcePath.rsplit(DirSep, 1)[0] / "fixtures"
-  SSZDir = FixturesDir/"tests-v0.9.3"/const_preset/"phase0"/"ssz_static"
+  SSZDir = FixturesDir/"tests-v0.9.4"/const_preset/"phase0"/"ssz_static"
 
 type
   SSZHashTreeRoot = object
@@ -102,5 +102,5 @@ proc runSSZtests() =
           else:
             raise newException(ValueError, "Unsupported test: " & sszType)
 
-suite "Official - 0.9.2 - SSZ consensus objects " & preset():
+suite "Official - 0.9.4 - SSZ consensus objects " & preset():
   runSSZtests()
