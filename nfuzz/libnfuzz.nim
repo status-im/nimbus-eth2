@@ -30,8 +30,7 @@ proc copyState(state: BeaconState, output: ptr byte,
   try:
     resultState = SSZ.encode(state)
   except IOError as e:
-    # TODO is an IOError indicative of a bug? e.g. any state passed to it after processing should be valid and serializable?
-    # How can this raise an IOError (as the writer isn't to a file?)?
+    # Shouldn't occur as the writer isn't a file
     raise newException(FuzzCrashError, "Unexpected failure to serialize.", e)
 
   if unlikely(resultState.len.uint > output_size[]):
@@ -64,11 +63,11 @@ proc nfuzz_attestation(input: openArray[byte], output: ptr byte,
   try:
     result = process_attestation(data.state, data.attestation,
       {skipValidation}, cache)
-  except ValueError:
-    # TODO is a ValueError indicative of correct or incorrect processing code?
-    # If correct (but given invalid input), we should return false
-    # If incorrect, we should allow it to crash
-    result = false
+  except ValueError as e:
+    # These exceptions are expected to be raised by chronicles logging:
+    # See status-im/nim-chronicles#60
+    # TODO remove this when resolved
+    raise newException(FuzzCrashError, "Unexpected (logging?) error in attestation processing", e)
 
   if result:
     result = copyState(data.state, output, output_size)
@@ -88,11 +87,9 @@ proc nfuzz_attester_slashing(input: openArray[byte], output: ptr byte,
 
   try:
     result = process_attester_slashing(data.state, data.attesterSlashing, cache)
-  except ValueError:
-    # TODO is a ValueError indicative of correct or incorrect processing code?
-    # If correct (but given invalid input), we should return false
-    # If incorrect, we should allow it to crash
-    result = false
+  except ValueError as e:
+    # TODO remove when status-im/nim-chronicles#60 is resolved
+    raise newException(FuzzCrashError, "Unexpected (logging?) error in attester slashing", e)
 
   if result:
     result = copyState(data.state, output, output_size)
@@ -110,18 +107,14 @@ proc nfuzz_block(input: openArray[byte], output: ptr byte,
 
   try:
     result = state_transition(data.state, data.beaconBlock, {})
-  except IOError as e:
-    # TODO why an IOError?
-    raise newException(FuzzCrashError, "Unexpected IOError in state transition", e)
+  except IOError, ValueError:
+    # TODO remove when status-im/nim-chronicles#60 is resolved
+    let e = getCurrentException()
+    raise newException(FuzzCrashError, "Unexpected (logging?) error in state transition", e)
   except Exception as e:
     # TODO why an Exception?
     # Lots of vendor code looks like it might raise a bare exception type
-    raise newException(FuzzCrashError, "Unexpected IOError in state transition", e)
-  except ValueError:
-    # TODO is a ValueError indicative of correct or incorrect processing code?
-    # If correct (but given invalid input), we should return false
-    # If incorrect, we should allow it to crash
-    result = false
+    raise newException(FuzzCrashError, "Unexpected Exception in state transition", e)
 
   if result:
     result = copyState(data.state, output, output_size)
@@ -142,14 +135,10 @@ proc nfuzz_block_header(input: openArray[byte], output: ptr byte,
   try:
     # TODO disable bls
     result = process_block_header(data.state, data.beaconBlock, {}, cache)
-  except IOError as e:
-    # TODO why an IOError? - is this expected/should we return false?
+  except IOError, ValueError:
+    let e = getCurrentException()
+    # TODO remove when status-im/nim-chronicles#60 is resolved
     raise newException(FuzzCrashError, "Unexpected IOError in block header processing", e)
-  except ValueError:
-    # TODO is a ValueError indicative of correct or incorrect processing code?
-    # If correct (but given invalid input), we should return false
-    # If incorrect, we should allow it to crash
-    result = false
 
   if result:
     result = copyState(data.state, output, output_size)
