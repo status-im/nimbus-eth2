@@ -99,6 +99,28 @@ proc main() =
       )
     else:
       quit "Unsupported"
+  of cmdEpochProcessing:
+    case scenario.epochProcessingCat
+    of catJustificationFinalization:
+      runProcessJustificationFinalization(
+        scenario.scenarioDir.string,
+        scenario.preState
+      )
+    of catRegistryUpdates:
+      runProcessRegistryUpdates(
+        scenario.scenarioDir.string,
+        scenario.preState
+      )
+    of catSlashings:
+      runProcessSlashings(
+        scenario.scenarioDir.string,
+        scenario.preState
+      )
+    of catFinalUpdates:
+      runProcessFinalUpdates(
+        scenario.scenarioDir.string,
+        scenario.preState
+      )
   else:
     quit "Unsupported"
 
