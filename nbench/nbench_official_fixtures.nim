@@ -28,9 +28,13 @@ proc collectTarget(cmds: var CmdLists, nbench, name, cmd, cat, path: string) =
     var cat = cat
     if cmd == "cmdBlockProcessing":
       cat = "--blockProcessingCat=" & cat
+    elif cmd == "cmdEpochProcessing":
+      cat = "--epochProcessingCat=" & cat
     cmds.add &"{nbench} {cmd} {cat} -d={path/folder}"
 
 proc collectBenchTargets(nbench, basePath: string): CmdLists =
+  # State processing
+  # -------------------------------------------------------------------------
   block: # Full state transitions
     echo "----------------------------------------"
     echo "Collecting full state transitions"
@@ -42,9 +46,27 @@ proc collectBenchTargets(nbench, basePath: string): CmdLists =
         inc countBlocks
       echo "Found: ", folder, " with ", countBlocks, " blocks"
       result.add &"{nbench} cmdFullStateTransition -d={path/folder} -q={$countBlocks}"
+  # Slot processing
+  # -------------------------------------------------------------------------
   block: # Slot processing
     let path = basePath/"phase0"/"sanity"/"slots"/"pyspec_tests"
     result.collectTarget(nbench, "slot", "cmdSlotProcessing", "", path)
+  # Epoch processing
+  # -------------------------------------------------------------------------
+  block: # Justification-Finalization
+    let path = basePath/"phase0"/"epoch_processing"/"justification_and_finalization"/"pyspec_tests"
+    result.collectTarget(nbench, "justification_and_finalization", "cmdEpochProcessing", "catJustificationFinalization", path)
+  block: # Registry updates
+    let path = basePath/"phase0"/"epoch_processing"/"justification_and_finalization"/"pyspec_tests"
+    result.collectTarget(nbench, "registry_updates", "cmdEpochProcessing", "catRegistryUpdates", path)
+  block: # Slashings
+    let path = basePath/"phase0"/"epoch_processing"/"slashings"/"pyspec_tests"
+    result.collectTarget(nbench, "slashings", "cmdEpochProcessing", "catSlashings", path)
+  block: # Justification-Finalization
+    let path = basePath/"phase0"/"epoch_processing"/"final_updates"/"pyspec_tests"
+    result.collectTarget(nbench, "final_updates", "cmdEpochProcessing", "catFinalUpdates", path)
+  # Block processing
+  # -------------------------------------------------------------------------
   block: # Attestation
     let path = basePath/"phase0"/"operations"/"attestation"/"pyspec_tests"
     result.collectTarget(nbench, "attestation", "cmdBlockProcessing", "catAttestations", path)
@@ -66,5 +88,6 @@ proc collectBenchTargets(nbench, basePath: string): CmdLists =
 
 cli do(nbench: string, tests: string):
   let cmdLists = collectBenchTargets(nbench, tests)
+  echo "\n========================================================\n"
   let err = execProcesses(cmdLists)
   quit err

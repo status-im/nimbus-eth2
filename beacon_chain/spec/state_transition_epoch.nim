@@ -351,7 +351,7 @@ func process_rewards_and_penalties(
     decrease_balance(state, i.ValidatorIndex, penalties[i])
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#slashings
-func process_slashings*(state: var BeaconState) =
+func process_slashings*(state: var BeaconState) {.nbench.}=
   let
     epoch = get_current_epoch(state)
     total_balance = get_total_active_balance(state)
