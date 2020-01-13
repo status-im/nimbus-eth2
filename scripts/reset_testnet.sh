@@ -32,7 +32,7 @@ echo "Beacon node data dir    : ${DATA_DIR:="build/testnet-reset-data/$NETWORK"}
 echo "Nim build flags         : $NETWORK_NIM_FLAGS"
 
 while true; do
-    read -p "Continue?" yn
+    read -p "Continue? [yn] " yn
     case $yn in
         [Yy]* ) break;;
         [Nn]* ) exit 1;;
