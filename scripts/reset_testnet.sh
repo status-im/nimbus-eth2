@@ -138,5 +138,5 @@ make build
 echo "Publishing Docker image..."
 make push-last
 
-echo "A Watchtower systemd service will pull the new image and start new containers based on it, on each testnet host, in the next 2 minutes."
+echo -e "\nA Watchtower systemd service will pull the new image and start new containers based on it, on each testnet host, in the next 2 minutes."
 
