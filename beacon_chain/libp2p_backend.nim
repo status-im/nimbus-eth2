@@ -1,11 +1,11 @@
 import
   algorithm, typetraits,
-  stew/varints, stew/shims/[macros, tables], chronos, chronicles,
+  stew/[varints,base58], stew/shims/[macros, tables], chronos, chronicles,
   faststreams/output_stream, serialization,
   json_serialization/std/options, eth/p2p/p2p_protocol_dsl,
   # TODO: create simpler to use libp2p modules that use re-exports
   libp2p/[switch, multistream, connection,
-          base58, multiaddress, peerinfo, peer,
+          multiaddress, peerinfo, peer,
           crypto/crypto, protocols/identify, protocols/protocol],
   libp2p/muxers/mplex/[mplex, types],
   libp2p/protocols/secure/[secure, secio],
