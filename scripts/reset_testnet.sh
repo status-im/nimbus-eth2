@@ -123,13 +123,6 @@ if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
     git commit -m "Reset of Nimbus $NETWORK"
     git push
   popd
-
-  #../env.sh nim --verbosity:0 manage_testnet_hosts.nims restart_nodes \
-    #--network=$NETWORK \
-    #> /tmp/restart-nodes.sh
-
-  #bash /tmp/restart-nodes.sh
-  #rm /tmp/restart-nodes.sh
 fi
 
 echo "Building Docker image..."
@@ -138,5 +131,12 @@ make build
 echo "Publishing Docker image..."
 make push-last
 
-echo -e "\nA Watchtower systemd service will pull the new image and start new containers based on it, on each testnet host, in the next 2 minutes."
+#echo -e "\nA Watchtower systemd service will pull the new image and start new containers based on it, on each testnet host, in the next 2 minutes."
+
+../env.sh nim --verbosity:0 manage_testnet_hosts.nims restart_nodes \
+  --network=$NETWORK \
+  > /tmp/restart-nodes.sh
+
+bash /tmp/restart-nodes.sh
+rm /tmp/restart-nodes.sh
 
