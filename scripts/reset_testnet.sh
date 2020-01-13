@@ -69,6 +69,9 @@ fi
 
 cd docker
 
+echo "Building Docker image..."
+make build
+
 $DOCKER_BEACON_NODE makeDeposits \
   --quickstart-deposits=$QUICKSTART_VALIDATORS \
   --random-deposits=$RANDOM_VALIDATORS \
@@ -124,9 +127,6 @@ if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
     git push
   popd
 fi
-
-echo "Building Docker image..."
-make build
 
 echo "Publishing Docker image..."
 make push-last
