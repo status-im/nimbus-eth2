@@ -105,8 +105,8 @@ template openStream(node: Eth2Node, peer: Peer, protocolId: string): untyped =
   dial(node.switch, peer.info, protocolId)
 
 proc peer(stream: P2PStream): PeerID =
-  # TODO: Can this be `none`?
-  stream.peerInfo.get.peerId
+  # TODO: Can this be `nil`?
+  stream.peerInfo.peerId
 #
 # End of compatibility layer
 
@@ -120,8 +120,8 @@ proc getPeer*(node: Eth2Node, peerInfo: PeerInfo): Peer {.gcsafe.} =
     node.peers[peerId] = result
 
 proc peerFromStream(network: Eth2Node, stream: P2PStream): Peer {.gcsafe.} =
-  # TODO: Can this be `none`?
-  return network.getPeer(stream.peerInfo.get)
+  # TODO: Can this be `nil`?
+  return network.getPeer(stream.peerInfo)
 
 proc disconnect*(peer: Peer, reason: DisconnectionReason, notifyOtherPeer = false) {.async.} =
   # TODO: How should we notify the other peer?
