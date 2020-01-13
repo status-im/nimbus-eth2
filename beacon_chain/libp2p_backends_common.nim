@@ -184,9 +184,12 @@ proc sendErrorResponse(peer: Peer,
   debug "Received an invalid request",
         peer, msgName, msgBytes, errMsg = err.formatMsg("<msg>")
 
-  let responseBytes = encodeErrorMsg(InvalidRequest, err.formatMsg("msg"))
-  await stream.writeAllBytes(responseBytes)
-  await stream.close()
+  try:
+    let responseBytes = encodeErrorMsg(InvalidRequest, err.formatMsg("msg"))
+    await stream.writeAllBytes(responseBytes)
+    await stream.close()
+  except CatchableError as err:
+    debug "Error during sendErrorResponse()", error = err.msg
 
 proc sendErrorResponse(peer: Peer,
                        stream: P2PStream,
@@ -194,9 +197,12 @@ proc sendErrorResponse(peer: Peer,
                        errMsg: string) {.async.} =
   debug "Error processing request", peer, responseCode, errMsg
 
-  let responseBytes = encodeErrorMsg(ServerError, errMsg)
-  await stream.writeAllBytes(responseBytes)
-  await stream.close()
+  try:
+    let responseBytes = encodeErrorMsg(ServerError, errMsg)
+    await stream.writeAllBytes(responseBytes)
+    await stream.close()
+  except CatchableError as err:
+    debug "Error during sendErrorResponse()", error = err.msg
 
 proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.async} =
   var deadline = sleepAsync RESP_TIMEOUT
