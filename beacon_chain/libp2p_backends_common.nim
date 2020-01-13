@@ -188,7 +188,7 @@ proc sendErrorResponse(peer: Peer,
     let responseBytes = encodeErrorMsg(InvalidRequest, err.formatMsg("msg"))
     await stream.writeAllBytes(responseBytes)
     await stream.close()
-  except CatchableError as err:
+  except Exception as err:
     debug "Error during sendErrorResponse()", error = err.msg
 
 proc sendErrorResponse(peer: Peer,
@@ -201,7 +201,7 @@ proc sendErrorResponse(peer: Peer,
     let responseBytes = encodeErrorMsg(ServerError, errMsg)
     await stream.writeAllBytes(responseBytes)
     await stream.close()
-  except CatchableError as err:
+  except Exception as err:
     debug "Error during sendErrorResponse()", error = err.msg
 
 proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.async} =
