@@ -24,6 +24,11 @@ def runStages() {
 						sh "make -j${env.NPROC}"
 					}
 				},
+				"tools (native libp2p)": {
+					stage("Tools (native libp2p)") {
+						sh "make -j${env.NPROC} NIMFLAGS='-d:NETWORK_TYPE=libp2p'"
+					}
+				},
 				"test suite": {
 					stage("Test suite") {
 						sh "make -j${env.NPROC} DISABLE_TEST_FIXTURES_SCRIPT=1 test"
