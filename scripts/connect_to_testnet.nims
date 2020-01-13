@@ -3,8 +3,9 @@ import
 
 const
   rootDir = thisDir() / ".."
-  bootstrapFile = "bootstrap_nodes.txt"
-  depositContractFile = "deposit_contract.txt"
+  bootstrapTxtFileName = "bootstrap_nodes.txt"
+  bootstrapYamlFileName = "boot_enr.yaml"
+  depositContractFileName = "deposit_contract.txt"
   genesisFile = "genesis.ssz"
   configFile = "config.yaml"
   testnetsRepo = "eth2-testnets"
@@ -37,7 +38,11 @@ cli do (testnetName {.argument.}: string):
   # TODO
   # The branch below is temporarily changed until the following issue is addressed:
   # https://github.com/eth2-clients/eth2-testnets/pull/3
-  exec &"git clone --quiet --depth=1 --branch=lighthouse-add-missing-constants {testnetsGitUrl}"
+  exec &"git clone --quiet --depth=1 {testnetsGitUrl}"
+
+  var
+    depositContractOpt = ""
+    bootstrapFileOpt = ""
 
   let testnetDir = allTestnetsDir / team / testnet
   if not system.dirExists(testnetDir):
@@ -50,8 +55,17 @@ cli do (testnetName {.argument.}: string):
       echo &"The required file {fileName} is not present in '{testnetDir}'."
       quit 1
 
-  checkRequiredFile bootstrapFile
   checkRequiredFile genesisFile
+
+  let bootstrapTxtFile = testnetDir / bootstrapTxtFileName
+  if system.fileExists(bootstrapTxtFile):
+    bootstrapFileOpt = &"--bootstrap-file=\"{bootstrapTxtFile}\""
+  else:
+    let bootstrapYamlFile = testnetDir / bootstrapYamlFileName
+    if system.fileExists(bootstrapYamlFile):
+      bootstrapFileOpt = &"--enr-bootstrap-file=\"{bootstrapYamlFile}\""
+    else:
+      echo "Warning: the network metadata doesn't include a bootstrap file"
 
   var preset = testnetDir / configFile
   if not system.fileExists(preset): preset = "minimal"
@@ -64,8 +78,7 @@ cli do (testnetName {.argument.}: string):
     beaconNodeBinary = buildDir / "beacon_node_" & dataDirName
     nimFlags = "-d:chronicles_log_level=DEBUG " & getEnv("NIM_PARAMS")
 
-  var depositContractOpt = ""
-  let depositContractFile = testnetDir / depositContractFile
+  let depositContractFile = testnetDir / depositContractFileName
   if system.fileExists(depositContractFile):
     depositContractOpt = "--deposit-contract=" & readFile(depositContractFile).strip
 
@@ -117,6 +130,6 @@ cli do (testnetName {.argument.}: string):
   execIgnoringExitCode replace(&"""{beaconNodeBinary}
     --data-dir="{dataDir}"
     --dump=true
-    --bootstrap-file="{testnetDir/bootstrapFile}"
+    {bootstrapFileOpt}
     --state-snapshot="{testnetDir/genesisFile}" """ & depositContractOpt, "\n", " ")
 
