@@ -72,11 +72,13 @@ const
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/configs/mainnet.yaml#L62
 
   GENESIS_SLOT* = 0.Slot
+  GENESIS_FORK_VERSION* = 0x00000000
   BLS_WITHDRAWAL_PREFIX* = 0'u8
 
   # Time parameters
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/configs/mainnet.yaml#L69
+  MIN_GENESIS_DELAY* = 86400 # 86400 seconds (1 day)
 
   SECONDS_PER_SLOT*{.intdefine.} = 12'u64 # Compile with -d:SECONDS_PER_SLOT=1 for 12x faster slots
   ## TODO consistent time unit across projects, similar to C++ chrono?
@@ -163,6 +165,7 @@ const
   TARGET_AGGREGATORS_PER_COMMITTEE* = 16 # validators
   RANDOM_SUBNETS_PER_VALIDATOR* = 1 # subnet
   EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION* = 256 # epochs ~ 27 hours
+  SECONDS_PER_ETH1_BLOCK* = 14 # estimate from Eth1 mainnet)
 
   # Phase 1 - Sharding
   # ---------------------------------------------------------------
