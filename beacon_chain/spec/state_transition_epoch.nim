@@ -63,7 +63,7 @@ declareGauge epoch_transition_final_updates, "Epoch transition final updates tim
 # Spec
 # --------------------------------------------------------
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#get_total_active_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/beacon-chain.md#get_total_active_balance
 func get_total_active_balance*(state: BeaconState): Gwei =
   # Return the combined effective balance of the active validators.
   # TODO it calls get_total_balance with set(g_a_v_i(...))
@@ -441,7 +441,7 @@ proc process_epoch*(state: var BeaconState) {.nbench.}=
 
   # @update_period_committee
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#final-updates
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/beacon-chain.md#final-updates
   process_final_updates(state)
 
   # @after_process_final_updates

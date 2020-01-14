@@ -52,7 +52,7 @@ else:
   {.fatal: "Preset \"" & const_preset ".nim\" is not supported.".}
 
 const
-  SPEC_VERSION* = "0.9.4" ## \
+  SPEC_VERSION* = "0.10.0" ## \
   ## Spec version we're aiming to be compatible with, right now
   ## TODO: improve this scheme once we can negotiate versions in protocol
 
@@ -215,7 +215,7 @@ type
     deposits*: List[Deposit, MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, MAX_VOLUNTARY_EXITS]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#beaconstate
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -320,6 +320,11 @@ type
     deposit_count*: uint64
     block_hash*: Eth2Digest
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/beacon-chain.md#signingroot
+  SigningRoot* = object
+    object_root*: Eth2Digest
+    domain*: uint64
+
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#signedvoluntaryexit
   SignedVoluntaryExit* = object
     message*: VoluntaryExit
@@ -340,6 +345,11 @@ type
     aggregator_index*: uint64
     aggregate*: Attestation
     selection_proof*: ValidatorSig
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/validator.md#eth1block
+  Eth1Block* = object
+    timestamp*: uint64
+    # All other eth1 block fields
 
   # TODO to be replaced with some magic hash caching
   HashedBeaconState* = object
@@ -377,6 +387,7 @@ template foreachSpecType*(op: untyped) =
   op BeaconState
   op Deposit
   op DepositData
+  op Eth1Block
   op Eth1Data
   op Fork
   op HistoricalBatch
@@ -386,6 +397,7 @@ template foreachSpecType*(op: untyped) =
   op SignedBeaconBlock
   op SignedBeaconBlockHeader
   op SignedVoluntaryExit
+  op SigningRoot
   op Validator
   op VoluntaryExit
 
