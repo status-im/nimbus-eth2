@@ -92,7 +92,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         b1 = addBlock(state, pool.tail.root, BeaconBlockBody())
         b1Root = hash_tree_root(b1.message)
         b2 = addBlock(state, b1Root, BeaconBlockBody())
-        b2Root = hash_tree_root(b2.message)
+        b2Root {.used.} = hash_tree_root(b2.message)
 
     timedTest "getRef returns nil for missing blocks":
       check:
@@ -147,7 +147,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         toSeq(pool.blockRootsForSlot(b1.message.slot)) == @[b1Root]
         toSeq(pool.blockRootsForSlot(b2.message.slot)) == @[b2Root]
 
-      db.putHeadBlock(b2Root)
+      pool.updateHead(b2Get.get().refs)
 
       # The heads structure should have been updated to contain only the new
       # b2 head
@@ -159,6 +159,9 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         pool2 = BlockPool.init(db)
 
       check:
+        # ensure we loaded the correct head state
+        pool2.head.blck.root == b2Root
+        hash_tree_root(pool2.headState.data.data) == b2.message.state_root
         pool2.get(b1Root).isSome()
         pool2.get(b2Root).isSome()
 
