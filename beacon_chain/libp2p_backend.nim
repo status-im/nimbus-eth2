@@ -1,7 +1,7 @@
 import
   algorithm, typetraits, net,
   stew/[varints,base58], stew/shims/[macros, tables], chronos, chronicles,
-  faststreams/output_stream, serialization,
+  stint, faststreams/output_stream, serialization,
   json_serialization/std/options, eth/p2p/p2p_protocol_dsl,
   eth/p2p/discoveryv5/enr,
   # TODO: create simpler to use libp2p modules that use re-exports
