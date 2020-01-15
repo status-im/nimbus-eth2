@@ -19,7 +19,7 @@
 
 import
   macros, hashes, json, strutils, tables,
-  stew/[byteutils, bitseqs], chronicles, eth/common,
+  stew/[byteutils, bitseqs], chronicles,
   ../version, ../ssz/types, ./crypto, ./digest
 
 # TODO Data types:

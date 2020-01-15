@@ -21,11 +21,11 @@
 
 import
   chronicles,
-  nimcrypto/[sha2, hash, utils], eth/common/eth_types_json_serialization,
+  nimcrypto/[sha2, hash, utils],
   hashes
 
 export
-  eth_types_json_serialization, hash.`$`
+  hash.`$`
 
 type
   Eth2Digest* = MDigest[32 * 8] ## `hash32` from spec

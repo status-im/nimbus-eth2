@@ -3,10 +3,10 @@ import
   os, net, tables, random, strutils, times, sequtils,
 
   # Nimble packages
-  stew/[objects, bitseqs, byteutils], stew/ranges/ptr_arith,
+  stew/[objects, bitseqs, byteutils],
   chronos, chronicles, confutils, metrics,
   json_serialization/std/[options, sets], serialization/errors,
-  eth/trie/db, eth/trie/backends/rocksdb_backend, eth/async_utils,
+  kvstore, kvstore_lmdb, eth/async_utils,
 
   # Local modules
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network],
@@ -135,7 +135,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     networkId = getPersistentNetIdentity(conf)
     nickname = if conf.nodeName == "auto": shortForm(networkId)
                else: conf.nodeName
-    db = BeaconChainDB.init(trieDB newChainDb(conf.databaseDir))
+    db = BeaconChainDB.init(kvStore LmdbStoreRef.init(conf.databaseDir))
 
   var mainchainMonitor: MainchainMonitor
 

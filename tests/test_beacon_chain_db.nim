@@ -7,17 +7,16 @@
 
 {.used.}
 
-import  options, unittest, sequtils, eth/trie/[db],
-  ../beacon_chain/[beacon_chain_db, extras, interop, ssz],
+import  options, unittest, sequtils,
+  ../beacon_chain/[beacon_chain_db, extras, interop, ssz, kvstore],
   ../beacon_chain/spec/[beaconstate, datatypes, digest, crypto],
   # test utilies
   ./testutil, ./testblockutil
 
 suite "Beacon chain DB" & preset():
-
   timedTest "empty database" & preset():
     var
-      db = init(BeaconChainDB, newMemoryDB())
+      db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
 
     check:
       when const_preset=="minimal":
@@ -28,7 +27,7 @@ suite "Beacon chain DB" & preset():
 
   timedTest "sanity check blocks" & preset():
     var
-      db = init(BeaconChainDB, newMemoryDB())
+      db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
 
     let
       blck = SignedBeaconBlock()
@@ -46,7 +45,7 @@ suite "Beacon chain DB" & preset():
 
   timedTest "sanity check states" & preset():
     var
-      db = init(BeaconChainDB, newMemoryDB())
+      db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
 
     let
       state = BeaconState()
@@ -60,7 +59,7 @@ suite "Beacon chain DB" & preset():
 
   timedTest "find ancestors" & preset():
     var
-      db = init(BeaconChainDB, newMemoryDB())
+      db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
       x: ValidatorSig
       y = init(ValidatorSig, x.getBytes())
 
@@ -101,7 +100,7 @@ suite "Beacon chain DB" & preset():
     # serialization where an all-zero default-initialized bls signature could
     # not be deserialized because the deserialization was too strict.
     var
-      db = init(BeaconChainDB, newMemoryDB())
+      db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
 
     let
       state = initialize_beacon_state_from_eth1(

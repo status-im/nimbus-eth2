@@ -18,6 +18,8 @@ import # Unit test
   ./test_block_pool,
   ./test_helpers,
   ./test_interop,
+  ./test_kvstore,
+  ./test_kvstore_lmdb,
   ./test_ssz,
   ./test_state_transition,
   ./test_sync_protocol,
