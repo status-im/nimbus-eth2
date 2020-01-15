@@ -132,10 +132,8 @@ proc loadBootstrapFile(bootstrapFile: string): seq[BootstrapAddr] =
       result.addBootstrapAddr(line)
 
 proc addEnrBootstrapNode(node: BeaconNode, enrBase64: string) =
-  info "Adding bootsrap node", enr = enrBase64
   var enrRec: enr.Record
-  if enrRec.fromBase64(enrBase64):
-    info "Parsed ENR record", value = enrRec
+  if enrRec.fromURI(enrBase64):
     try:
       let
         ip = IpAddress(family: IpAddressFamily.IPv4,
@@ -146,6 +144,8 @@ proc addEnrBootstrapNode(node: BeaconNode, enrBase64: string) =
       node.bootstrapEnrs.add enrRec
     except CatchableError as err:
       warn "Invalid ENR record", enrRec
+  else:
+    warn "Failed to parse ENR record", value = enrRec
 
 proc useEnrBootstrapFile(node: BeaconNode, bootstrapFile: string) =
   let ext = splitFile(bootstrapFile).ext

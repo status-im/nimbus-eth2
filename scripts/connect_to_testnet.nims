@@ -35,9 +35,6 @@ cli do (testnetName {.argument.}: string):
   rmDir(allTestnetsDir)
   cd buildDir
 
-  # TODO
-  # The branch below is temporarily changed until the following issue is addressed:
-  # https://github.com/eth2-clients/eth2-testnets/pull/3
   exec &"git clone --quiet --depth=1 {testnetsGitUrl}"
 
   var
