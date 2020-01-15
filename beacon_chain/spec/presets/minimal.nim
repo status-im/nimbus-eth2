@@ -112,7 +112,7 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/configs/minimal.yaml#L113
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/configs/minimal.yaml#L117
 
   BASE_REWARD_FACTOR* = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
