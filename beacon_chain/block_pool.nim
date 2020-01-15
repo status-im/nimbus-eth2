@@ -159,7 +159,7 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
 
   var
     blocks = {tailRef.root: tailRef}.toTable()
-    latestStateRoot = Option[Eth2Digest]()
+    latestStateRoot = Option[tuple[stateRoot: Eth2Digest, blckRef: BlockRef]]()
     headRef: BlockRef
 
   if headRoot != tailRoot:
@@ -183,12 +183,17 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
       trace "Populating block pool", key = curRef.root, val = curRef
 
       if latestStateRoot.isNone() and db.containsState(blck.message.state_root):
-        latestStateRoot = some(blck.message.state_root)
+        latestStateRoot = some((blck.message.state_root, curRef))
 
     doAssert curRef == tailRef,
       "head block does not lead to tail, database corrupt?"
   else:
     headRef = tailRef
+
+  if latestStateRoot.isNone():
+    doAssert db.containsState(tailBlock.message.state_root),
+      "state data missing for tail block, database corrupt?"
+    latestStateRoot = some((tailBlock.message.state_root, tailRef))
 
   var blocksBySlot = initTable[Slot, seq[BlockRef]]()
   for _, b in tables.pairs(blocks):
@@ -199,24 +204,15 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
   #      many live beaconstates on the stack...
   var tmpState = new Option[BeaconState]
 
+  # We're only saving epoch boundary states in the database right now, so when
+  # we're loading the head block, the corresponding state does not necessarily
+  # exist in the database - we'll load this latest state we know about and use
+  # that as finalization point.
+  tmpState[] = db.getState(latestStateRoot.get().stateRoot)
   let
-    # The head state is necessary to find out what we considered to be the
-    # finalized epoch last time we saved something.
-    headStateRoot =
-      if latestStateRoot.isSome():
-        latestStateRoot.get()
-      else:
-        db.getBlock(tailRef.root).get().message.state_root
-
-    # TODO right now, because we save a state at every epoch, this *should*
-    #      be the latest justified state or newer, meaning it's enough for
-    #      establishing what we consider to be the finalized head. This logic
-    #      will need revisiting however
-  tmpState[] = db.getState(headStateRoot)
-  let
-    finalizedHead =
-      headRef.findAncestorBySlot(
-        tmpState[].get().finalized_checkpoint.epoch.compute_start_slot_at_epoch())
+    finalizedSlot =
+      tmpState[].get().current_justified_checkpoint.epoch.compute_start_slot_at_epoch()
+    finalizedHead = headRef.findAncestorBySlot(finalizedSlot)
     justifiedSlot =
       tmpState[].get().current_justified_checkpoint.epoch.compute_start_slot_at_epoch()
     justifiedHead = headRef.findAncestorBySlot(justifiedSlot)
@@ -244,15 +240,17 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
   )
 
   res.headState = StateData(
-    data: HashedBeaconState(data: tmpState[].get(), root: headStateRoot),
-    blck: headRef)
+    data: HashedBeaconState(
+      data: tmpState[].get(), root: latestStateRoot.get().stateRoot),
+    blck: latestStateRoot.get().blckRef)
+
+  res.updateStateData(res.headState, BlockSlot(blck: head.blck, slot: head.blck.slot))
   res.tmpState = res.headState
 
   tmpState[] = db.getState(justifiedStateRoot)
   res.justifiedState = StateData(
     data: HashedBeaconState(data: tmpState[].get(), root: justifiedStateRoot),
     blck: justifiedHead.blck)
-
 
   res
 
@@ -925,6 +923,7 @@ proc preInit*(
   let
     blockRoot = hash_tree_root(signedBlock.message)
 
+  doAssert signedBlock.message.state_root == hash_tree_root(state)
   notice "New database from snapshot",
     blockRoot = shortLog(blockRoot),
     stateRoot = shortLog(signedBlock.message.state_root),

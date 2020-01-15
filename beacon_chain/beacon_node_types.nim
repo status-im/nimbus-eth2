@@ -173,8 +173,9 @@ type
     data*: HashedBeaconState
 
     blck*: BlockRef ##\
-    ## The block associated with the state found in data - in particular,
-    ## blck.state_root == rdata.root
+    ## The block associated with the state found in data - normally
+    ## `blck.state_root == data.root` but the state might have been advanced
+    ## further with empty slots invalidating this condition.
 
   BlockSlot* = object
     ## Unique identifier for a particular fork and time in the block chain -

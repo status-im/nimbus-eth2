@@ -344,7 +344,7 @@ type
   # TODO to be replaced with some magic hash caching
   HashedBeaconState* = object
     data*: BeaconState
-    root*: Eth2Digest # hash_tree_root (not signing_root!)
+    root*: Eth2Digest # hash_tree_root(data)
 
   StateCache* = object
     beacon_committee_cache*:
