@@ -52,7 +52,6 @@ Nimbus has 4 external dependencies:
 
 * Go 1.12 (for compiling libp2p daemon - being phased out)
 * Developer tools (C compiler, Make, Bash, Git)
-* [RocksDB](https://github.com/facebook/rocksdb/)
 * PCRE
 
 Nim is not an external dependency, Nimbus will build its own local copy.
@@ -62,13 +61,13 @@ Nim is not an external dependency, Nimbus will build its own local copy.
 On common Linux distributions the dependencies can be installed with:
 ```sh
 # Debian and Ubuntu
-sudo apt-get install build-essential git golang-go librocksdb-dev libpcre3-dev
+sudo apt-get install build-essential git golang-go libpcre3-dev
 
 # Fedora
-dnf install @development-tools go rocksdb-devel pcre
+dnf install @development-tools go pcre
 
 # Archlinux, using an AUR manager for pcre-static
-yourAURmanager -S base-devel go rocksdb pcre-static
+yourAURmanager -S base-devel go pcre-static
 ```
 
 ### MacOS
@@ -76,14 +75,14 @@ yourAURmanager -S base-devel go rocksdb pcre-static
 Assuming you use [Homebrew](https://brew.sh/) to manage packages
 
 ```sh
-brew install go rocksdb pcre
+brew install go pcre
 ```
 
 ### Windows
 
 * install [Go](https://golang.org/doc/install#windows)
 You can install the developer tools by following the instruction in our [Windows dev environment section](#windows-dev-environment).
-It also provides a downloading script for prebuilt PCRE and RocksDB.
+It also provides a downloading script for prebuilt PCRE.
 
 If you choose to install Go from source, both Go and Nimbus requires the same initial steps of installing Mingw.
 
@@ -220,7 +219,7 @@ Variables -> Path -> Edit -> New -> C:\mingw-w64\mingw64\bin (it's "C:\mingw-w64
 
 Install [Git for Windows](https://gitforwindows.org/) and use a "Git Bash" shell to clone and build nim-beacon-chain.
 
-If you don't want to compile RocksDB and SQLite separately, you can fetch pre-compiled DLLs with:
+If you don't want to compile PCRE separately, you can fetch pre-compiled DLLs with:
 ```bash
 mingw32-make # this first invocation will update the Git submodules
 mingw32-make fetch-dlls # this will place the right DLLs for your architecture in the "build/" directory
@@ -285,19 +284,6 @@ sudo apt-get install git libgflags-dev libsnappy-dev libpcre3-dev
 
 mkdir status
 cd status
-
-# Install rocksdb
-git clone https://github.com/facebook/rocksdb.git
-cd rocksdb
-make shared_lib
-sudo make install-shared
-cd ..
-
-# Raspberry pi doesn't include /usr/local/lib in library search path
-# Add it to your profile
-echo '# Local compiles (nimbus - rocksdb)' >> ~/.profile
-echo 'export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH' >> ~/.profile
-echo '' >> ~/.profile
 
 # Install Go at least 1.12 (Buster only includes up to 1.11)
 # Raspbian is 32-bit, so the package is go1.XX.X.linux-armv6l.tar.gz (and not arm64)

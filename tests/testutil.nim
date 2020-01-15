@@ -7,8 +7,8 @@
 
 import
   algorithm, strformat, stats, times, std/monotimes, stew/endians2,
-  chronicles, eth/trie/[db],
-  ../beacon_chain/[beacon_chain_db, block_pool, extras, ssz, beacon_node_types],
+  chronicles,
+  ../beacon_chain/[beacon_chain_db, block_pool, extras, ssz, kvstore, beacon_node_types],
   ../beacon_chain/spec/[digest, beaconstate, datatypes],
   testblockutil
 
@@ -73,7 +73,7 @@ template timedTest*(name, body) =
   testTimes.add (f, name)
 
 proc makeTestDB*(tailState: BeaconState, tailBlock: SignedBeaconBlock): BeaconChainDB =
-  result = init(BeaconChainDB, newMemoryDB())
+  result = init(BeaconChainDB, kvStore MemoryStoreRef.init())
   BlockPool.preInit(result, tailState, tailBlock)
 
 proc makeTestDB*(validators: int): BeaconChainDB =
