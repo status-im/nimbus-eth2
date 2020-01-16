@@ -91,7 +91,8 @@ proc getStateFromSnapshot(conf: BeaconNodeConf, state: var BeaconState): bool =
               dataDir = conf.dataDir.string, snapshot = snapshotPath
         quit 1
     else:
-      debug "No genesis file in data directory", genesisPath
+      debug "No previous genesis state. Importing snapshot",
+            genesisPath, dataDir = conf.dataDir.string
       writeGenesisFile = true
       genesisPath = snapshotPath
   else:
