@@ -20,7 +20,7 @@
 import
   macros, hashes, json, strutils, tables,
   stew/[byteutils, bitseqs], chronicles,
-  ../version, ../ssz/types, ./crypto, ./digest
+  ../ssz/types, ./crypto, ./digest
 
 # TODO Data types:
 # Presently, we're reusing the data types from the serialization (uint64) in the
@@ -365,16 +365,6 @@ type
       Table[Epoch, seq[ValidatorIndex]]
     committee_count_cache*: Table[Epoch, uint64]
 
-when networkBackend == rlpx:
-  import eth/rlp/bitseqs as rlpBitseqs
-  export read, append
-
-  proc read*(rlp: var Rlp, T: type BitList): T {.inline.} =
-    T rlp.read(BitSeq)
-
-  proc append*(writer: var RlpWriter, value: BitList) =
-    writer.append BitSeq(value)
-
 template foreachSpecType*(op: untyped) =
   ## These are all spec types that will appear in network messages
   ## and persistent consensus data. This helper template is useful
@@ -486,13 +476,6 @@ template ethTimeUnit(typ: type) {.dirty.} =
   proc `%`*(x: typ): JsonNode {.borrow.}
 
   # Serialization
-  when networkBackend == rlpx:
-    proc read*(rlp: var Rlp, T: type typ): typ {.inline.} =
-      typ(rlp.read(uint64))
-
-    proc append*(writer: var RlpWriter, value: typ) =
-      writer.append uint64(value)
-
   proc writeValue*(writer: var JsonWriter, value: typ) =
     writeValue(writer, uint64 value)
 

@@ -24,7 +24,7 @@
 import
   stew/[endians2, objects, byteutils], hashes, nimcrypto/utils,
   blscurve, json_serialization,
-  ../version, digest,
+  digest,
   chronicles
 
 export
@@ -249,31 +249,6 @@ when ValidatorPrivKey is BlsValue:
 else:
   proc newPrivKey*(): ValidatorPrivKey =
     SigKey.random()
-
-when networkBackend == rlpx:
-  import eth/rlp
-
-  when ValidatorPubKey is BlsValue:
-    proc append*(writer: var RlpWriter, value: ValidatorPubKey) =
-      writer.append if value.kind == Real: value.blsValue.getBytes()
-                    else: value.blob
-  else:
-    proc append*(writer: var RlpWriter, value: ValidatorPubKey) =
-      writer.append value.getBytes()
-
-  proc read*(rlp: var Rlp, T: type ValidatorPubKey): T {.inline.} =
-    result.initFromBytes rlp.toBytes.toOpenArray
-
-  when ValidatorSig is BlsValue:
-    proc append*(writer: var RlpWriter, value: ValidatorSig) =
-      writer.append if value.kind == Real: value.blsValue.getBytes()
-                    else: value.blob
-  else:
-    proc append*(writer: var RlpWriter, value: ValidatorSig) =
-      writer.append value.getBytes()
-
-  proc read*(rlp: var Rlp, T: type ValidatorSig): T {.inline.} =
-    result.initFromBytes rlp.toBytes.toOpenArray
 
 proc writeValue*(writer: var JsonWriter, value: VerKey) {.inline.} =
   writer.writeValue($value)
