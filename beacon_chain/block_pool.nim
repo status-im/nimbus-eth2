@@ -912,6 +912,26 @@ func latestJustifiedBlock*(pool: BlockPool): BlockSlot =
     if head.justified.slot > result.slot:
       result = head.justified
 
+proc isInitialized*(T: type BlockPool, db: BeaconChainDB): bool =
+  let
+    headBlockRoot = db.getHeadBlock()
+    tailBlockRoot = db.getTailBlock()
+
+  if not (headBlockRoot.isSome() and tailBlockRoot.isSome()):
+    return false
+
+  let
+    headBlock = db.getBlock(headBlockRoot.get())
+    tailBlock = db.getBlock(tailBlockRoot.get())
+
+  if not (headBlock.isSome() and tailBlock.isSome()):
+    return false
+
+  if not db.containsState(tailBlock.get().message.state_root):
+    return false
+
+  return true
+
 proc preInit*(
     T: type BlockPool, db: BeaconChainDB, state: BeaconState,
     signedBlock: SignedBeaconBlock) =
