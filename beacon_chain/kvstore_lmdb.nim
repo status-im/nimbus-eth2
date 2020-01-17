@@ -14,9 +14,9 @@ const
   MDB_NOTFOUND = -30798
 
 when defined(cpu64):
-  const LMDB_MAP_SIZE = 1024'u64 * 1024'u64 * 1024'u64 * 10'u64  # 10TB enough?
+  const LMDB_MAP_SIZE = 1024'u * 1024'u * 1024'u * 10'u  # 10TB enough?
 else:
-  const LMDB_MAP_SIZE = 1024'u64 * 1024'u64 * 1024'u64 # 32bit limitation
+  const LMDB_MAP_SIZE = 1024'u * 1024'u * 1024'u # 32bit limitation
 
 type
   MDB_Env = distinct pointer
@@ -24,26 +24,26 @@ type
   MDB_Dbi = distinct cuint
 
   MDB_val = object
-    mv_size: csize
+    mv_size: uint
     mv_data: pointer
 
   LmdbError* = object of CatchableError
 
 # Used subset of the full LMDB API
-proc mdb_env_create(env: var MDB_Env): cint {.importc.}
-proc mdb_env_open(env: MDB_Env, path: cstring, flags: cuint, mode: cint): cint {.importc.}
-proc mdb_txn_begin(env: MDB_Env, parent: MDB_Txn, flags: cuint, txn: var MDB_Txn): cint {.importc.}
-proc mdb_txn_commit(txn: MDB_Txn): cint {.importc.}
-proc mdb_txn_abort(txn: MDB_Txn) {.importc.}
-proc mdb_dbi_open(txn: MDB_Txn, name: cstring, flags: cuint, dbi: var MDB_Dbi): cint {.importc.}
-proc mdb_env_close(env: MDB_Env) {.importc.}
-proc mdb_strerror(err: cint): cstring {.importc.}
+proc mdb_env_create(env: var MDB_Env): cint {.importc, cdecl.}
+proc mdb_env_open(env: MDB_Env, path: cstring, flags: cuint, mode: cint): cint {.importc, cdecl.}
+proc mdb_txn_begin(env: MDB_Env, parent: MDB_Txn, flags: cuint, txn: var MDB_Txn): cint {.importc, cdecl.}
+proc mdb_txn_commit(txn: MDB_Txn): cint {.importc, cdecl.}
+proc mdb_txn_abort(txn: MDB_Txn) {.importc, cdecl.}
+proc mdb_dbi_open(txn: MDB_Txn, name: cstring, flags: cuint, dbi: var MDB_Dbi): cint {.importc, cdecl.}
+proc mdb_env_close(env: MDB_Env) {.importc, cdecl.}
+proc mdb_strerror(err: cint): cstring {.importc, cdecl.}
 
-proc mdb_get(txn: MDB_Txn, dbi: MDB_Dbi, key: var MDB_val, data: var MDB_val): cint {.importc.}
-proc mdb_del(txn: MDB_Txn, dbi: MDB_Dbi, key: var MDB_val, data: ptr MDB_val): cint {.importc.}
-proc mdb_put(txn: MDB_Txn, dbi: MDB_Dbi, key: var MDB_val, data: var MDB_val, flags: cuint): cint {.importc.}
+proc mdb_get(txn: MDB_Txn, dbi: MDB_Dbi, key: var MDB_val, data: var MDB_val): cint {.importc, cdecl.}
+proc mdb_del(txn: MDB_Txn, dbi: MDB_Dbi, key: var MDB_val, data: ptr MDB_val): cint {.importc, cdecl.}
+proc mdb_put(txn: MDB_Txn, dbi: MDB_Dbi, key: var MDB_val, data: var MDB_val, flags: cuint): cint {.importc, cdecl.}
 
-proc mdb_env_set_mapsize(env: MDB_Env, size: uint64): cint {.importc.}
+proc mdb_env_set_mapsize(env: MDB_Env, size: uint64): cint {.importc, cdecl.}
 
 func raiseLmdbError(err: cint) {.noreturn.} =
   let tmp = mdb_strerror(err)
@@ -55,7 +55,7 @@ type
 
 template init(T: type MDB_Val, val: openArray[byte]): T =
   T(
-    mv_size: val.len,
+    mv_size: val.len.uint,
     mv_data: unsafeAddr val[0]
   )
 
