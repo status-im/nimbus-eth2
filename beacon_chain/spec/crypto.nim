@@ -125,9 +125,6 @@ func pubKey*(pk: ValidatorPrivKey): ValidatorPubKey =
 func init(T: type VerKey): VerKey =
   result.point.inf()
 
-func init(T: type SigKey): SigKey =
-  result.point.inf()
-
 func init(T: type Signature): Signature =
   result.point.inf()
 
