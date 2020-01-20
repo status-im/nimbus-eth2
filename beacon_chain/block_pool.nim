@@ -195,11 +195,6 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
       "state data missing for tail block, database corrupt?"
     latestStateRoot = some((tailBlock.message.state_root, tailRef))
 
-  var blocksBySlot = initTable[Slot, seq[BlockRef]]()
-  for _, b in tables.pairs(blocks):
-    let slot = db.getBlock(b.root).get().message.slot
-    blocksBySlot.mgetOrPut(slot, @[]).add(b)
-
   # TODO can't do straight init because in mainnet config, there are too
   #      many live beaconstates on the stack...
   var tmpState = new Option[BeaconState]
@@ -225,13 +220,12 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
 
   debug "Block pool initialized",
     head = head.blck, finalizedHead, tail = tailRef,
-    totalBlocks = blocks.len, totalKnownSlots = blocksBySlot.len
+    totalBlocks = blocks.len
 
   let res = BlockPool(
     pending: initTable[Eth2Digest, SignedBeaconBlock](),
     missing: initTable[Eth2Digest, MissingBlock](),
     blocks: blocks,
-    blocksBySlot: blocksBySlot,
     tail: tailRef,
     head: head,
     finalizedHead: finalizedHead,
@@ -254,22 +248,6 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
 
   res
 
-proc addSlotMapping(pool: BlockPool, br: BlockRef) =
-  proc addIfMissing(s: var seq[BlockRef], v: BlockRef) =
-    if v notin s:
-      s.add(v)
-  pool.blocksBySlot.mgetOrPut(br.slot, @[]).addIfMissing(br)
-
-proc delSlotMapping(pool: BlockPool, br: BlockRef) =
-  var blks = pool.blocksBySlot.getOrDefault(br.slot)
-  if blks.len != 0:
-    let i = blks.find(br)
-    if i >= 0: blks.del(i)
-    if blks.len == 0:
-      pool.blocksBySlot.del(br.slot)
-    else:
-      pool.blocksBySlot[br.slot] = blks
-
 proc addResolvedBlock(
     pool: var BlockPool, state: var StateData, blockRoot: Eth2Digest,
     signedBlock: SignedBeaconBlock, parent: BlockRef): BlockRef =
@@ -280,8 +258,6 @@ proc addResolvedBlock(
 
   pool.blocks[blockRoot] = blockRef
   trace "Populating block pool", key = blockRoot, val = blockRef
-
-  pool.addSlotMapping(blockRef)
 
   # Resolved blocks should be stored in database
   pool.db.putBlock(blockRoot, signedBlock)
@@ -320,6 +296,7 @@ proc addResolvedBlock(
     blockRoot = shortLog(blockRoot),
     justifiedRoot = shortLog(foundHead.get().justified.blck.root),
     justifiedSlot = shortLog(foundHead.get().justified.slot),
+    heads = pool.heads.len(),
     cat = "filtering"
 
   # Now that we have the new block, we should see if any of the previously
@@ -392,8 +369,8 @@ proc add*(
 
       return
 
-    # The block might have been in either of these - we don't want any more
-    # work done on its behalf
+    # The block might have been in either of pending or missing - we don't want
+    # any more work done on its behalf
     pool.pending.del(blockRoot)
 
     # The block is resolved, now it's time to validate it to ensure that the
@@ -443,11 +420,6 @@ proc add*(
   #      filter.
   # TODO when we receive the block, we don't know how many others we're missing
   #      from that branch, so right now, we'll just do a blind guess
-  debug "Unresolved block (parent missing)",
-    blck = shortLog(blck),
-    blockRoot = shortLog(blockRoot),
-    cat = "filtering"
-
   let parentSlot = blck.slot - 1
 
   pool.missing[blck.parent_root] = MissingBlock(
@@ -461,6 +433,14 @@ proc add*(
         max(1.uint64, SLOTS_PER_EPOCH.uint64 -
           (parentSlot.uint64 mod SLOTS_PER_EPOCH.uint64))
   )
+
+  debug "Unresolved block (parent missing)",
+    blck = shortLog(blck),
+    blockRoot = shortLog(blockRoot),
+    pending = pool.pending.len,
+    missing = pool.missing.len,
+    cat = "filtering"
+
 
 func getRef*(pool: BlockPool, root: Eth2Digest): BlockRef =
   ## Retrieve a resolved block reference, if available
@@ -563,10 +543,6 @@ func getOrResolve*(pool: var BlockPool, root: Eth2Digest): BlockRef =
 
   if result.isNil:
     pool.missing[root] = MissingBlock(slots: 1)
-
-iterator blockRootsForSlot*(pool: BlockPool, slot: Slot): Eth2Digest =
-  for br in pool.blocksBySlot.getOrDefault(slot, @[]):
-    yield br.root
 
 func checkMissing*(pool: var BlockPool): seq[FetchRecord] =
   ## Return a list of blocks that we should try to resolve from other client -
@@ -757,24 +733,27 @@ proc delFinalizedStateIfNeeded(pool: BlockPool, b: BlockRef) =
 
 proc setTailBlock(pool: BlockPool, newTail: BlockRef) =
   ## Advance tail block, pruning all the states and blocks with older slots
-  let oldTail = pool.tail
-  let fromSlot = oldTail.slot.uint64
-  let toSlot = newTail.slot.uint64 - 1
-  assert(toSlot > fromSlot)
-  for s in fromSlot .. toSlot:
-    for b in pool.blocksBySlot.getOrDefault(s.Slot, @[]):
-      pool.delBlockAndState(b.root)
-      b.children = @[]
-      b.parent = nil
-      pool.blocks.del(b.root)
-      pool.pending.del(b.root)
-      pool.missing.del(b.root)
+  doAssert pool.tail.isAncestorOf(newTail),
+    "tail blocks should have linear ancestry to previous tail"
 
-    pool.blocksBySlot.del(s.Slot)
+  var b = newTail
+  while b != pool.tail:
+    doAssert b.slot > pool.tail.slot
+    doAssert b.parent != nil
+    b = b.parent
+
+    pool.delBlockAndState(b.root)
+
+    doAssert b.children.len == 1, "chain to old tail should be finalized"
+    b.children.setLen(0)
+    b.parent = nil
+
+    pool.blocks.del(b.root)
 
   pool.db.putTailBlock(newTail.root)
   pool.tail = newTail
-  pool.addSlotMapping(newTail)
+  newTail.parent = nil
+
   info "Tail block updated",
     slot = newTail.slot,
     root = shortLog(newTail.root)
@@ -849,13 +828,6 @@ proc updateHead*(pool: BlockPool, newHead: BlockRef) =
     "Block graph should always lead to a finalized block"
 
   if finalizedHead != pool.finalizedHead:
-    info "Finalized block",
-      finalizedBlockRoot = shortLog(finalizedHead.blck.root),
-      finalizedBlockSlot = shortLog(finalizedHead.slot),
-      headBlockRoot = shortLog(newHead.root),
-      headBlockSlot = shortLog(newHead.slot),
-      cat = "fork_choice"
-
     pool.finalizedHead = finalizedHead
 
     var cur = finalizedHead.blck
@@ -875,7 +847,6 @@ proc updateHead*(pool: BlockPool, newHead: BlockRef) =
         if child != cur:
           pool.blocks.del(child.root)
           pool.delBlockAndState(child.root)
-          pool.delSlotMapping(child)
         else:
           pool.delFinalizedStateIfNeeded(child)
       cur.parent.children = @[cur]
@@ -884,10 +855,18 @@ proc updateHead*(pool: BlockPool, newHead: BlockRef) =
     let hlen = pool.heads.len
     for i in 0..<hlen:
       let n = hlen - i - 1
-      if pool.heads[n].blck.slot < pool.finalizedHead.blck.slot:
-        # By definition, the current head should be newer than the finalized
-        # head, so we'll never delete it here
+      if not pool.finalizedHead.blck.isAncestorOf(pool.heads[n].blck):
+        # Any heads that are not derived from the newly finalized block are no
+        # longer viable candidates for future head selection
         pool.heads.del(n)
+
+    info "Finalized block",
+      finalizedBlockRoot = shortLog(finalizedHead.blck.root),
+      finalizedBlockSlot = shortLog(finalizedHead.slot),
+      headBlockRoot = shortLog(newHead.root),
+      headBlockSlot = shortLog(newHead.slot),
+      heads = pool.heads.len,
+      cat = "fork_choice"
 
   # Calculate new tail block and set it
   # New tail should be WEAK_SUBJECTIVITY_PERIOD * 2 older than finalizedHead

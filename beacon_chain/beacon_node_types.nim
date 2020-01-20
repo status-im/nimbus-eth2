@@ -119,8 +119,6 @@ type
     ## Tree of blocks pointing back to a finalized block on the chain we're
     ## interested in - we call that block the tail
 
-    blocksBySlot*: Table[Slot, seq[BlockRef]]
-
     tail*: BlockRef ##\
     ## The earliest finalized block we know about
 
