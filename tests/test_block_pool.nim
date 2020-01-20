@@ -104,7 +104,6 @@ when const_preset == "minimal": # Too much stack space used on mainnet
 
       check:
         b0.isSome()
-        toSeq(pool.blockRootsForSlot(GENESIS_SLOT)) == @[pool.tail.root]
 
     timedTest "Simple block add&get" & preset():
       let
@@ -115,6 +114,8 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         b1Get.isSome()
         b1Get.get().refs.root == b1Root
         b1Add.root == b1Get.get().refs.root
+        pool.heads.len == 1
+        pool.heads[0].blck == b1Add
 
       let
         b2Add = pool.add(b2Root, b2)
@@ -124,6 +125,8 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         b2Get.isSome()
         b2Get.get().refs.root == b2Root
         b2Add.root == b2Get.get().refs.root
+        pool.heads.len == 1
+        pool.heads[0].blck == b2Add
 
     timedTest "Reverse order block add & get" & preset():
       discard pool.add(b2Root, b2)
@@ -144,8 +147,6 @@ when const_preset == "minimal": # Too much stack space used on mainnet
 
         b1Get.get().refs.children[0] == b2Get.get().refs
         b2Get.get().refs.parent == b1Get.get().refs
-        toSeq(pool.blockRootsForSlot(b1.message.slot)) == @[b1Root]
-        toSeq(pool.blockRootsForSlot(b2.message.slot)) == @[b2Root]
 
       pool.updateHead(b2Get.get().refs)
 
@@ -164,6 +165,8 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         hash_tree_root(pool2.headState.data.data) == b2.message.state_root
         pool2.get(b1Root).isSome()
         pool2.get(b2Root).isSome()
+        pool2.heads.len == 1
+        pool2.heads[0].blck.root == b2Root
 
     timedTest "Can add same block twice" & preset():
       let
