@@ -142,6 +142,7 @@ proc init*(T: type LmdbStoreRef, basePath: string, readOnly = false): T =
   if (let x = mdb_env_create(env); x != 0):
     raiseLmdbError(x)
 
+  createDir(basePath)
   let dataDir = basePath / "nimbus.lmdb"
 
   if (let x = mdb_env_set_mapsize(env, LMDB_MAP_SIZE); x != 0):
