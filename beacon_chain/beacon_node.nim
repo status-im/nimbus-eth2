@@ -132,7 +132,9 @@ proc loadBootstrapFile(bootstrapFile: string): seq[BootstrapAddr] =
     for line in lines(bootstrapFile):
       result.addBootstrapAddr(line)
 
-proc addEnrBootstrapNode(node: BeaconNode, enrBase64: string) =
+proc addEnrBootstrapNode(enrBase64: string,
+                         bootNodes: var seq[BootstrapAddr],
+                         enrs: var seq[enr.Record]) =
   var enrRec: enr.Record
   if enrRec.fromURI(enrBase64):
     try:
@@ -141,23 +143,25 @@ proc addEnrBootstrapNode(node: BeaconNode, enrBase64: string) =
                        address_v4: cast[array[4, uint8]](enrRec.get("ip", int)))
         tcpPort = Port enrRec.get("tcp", int)
         # udpPort = Port enrRec.get("udp", int)
-      node.addBootstrapNode BootstrapAddr.initAddress(ip, tcpPort)
-      node.bootstrapEnrs.add enrRec
+      bootNodes.add BootstrapAddr.initAddress(ip, tcpPort)
+      enrs.add enrRec
     except CatchableError as err:
       warn "Invalid ENR record", enrRec
   else:
     warn "Failed to parse ENR record", value = enrRec
 
-proc useEnrBootstrapFile(node: BeaconNode, bootstrapFile: string) =
+proc useEnrBootstrapFile(bootstrapFile: string,
+                         bootNodes: var seq[BootstrapAddr],
+                         enrs: var seq[enr.Record]) =
   let ext = splitFile(bootstrapFile).ext
   if cmpIgnoreCase(ext, ".txt") == 0:
     for ln in lines(bootstrapFile):
-      node.addEnrBootstrapNode(string ln)
+      addEnrBootstrapNode(string ln, bootNodes, enrs)
   elif cmpIgnoreCase(ext, ".yaml") == 0:
     # TODO. This is very ugly, but let's try to negotiate the
     # removal of YAML metadata.
     for ln in lines(bootstrapFile):
-      node.addEnrBootstrapNode(string(ln[3..^2]))
+      addEnrBootstrapNode(string(ln[3..^2]), bootNodes, enrs)
   else:
     error "Unknown bootstrap file format", ext
     quit 1
@@ -218,21 +222,20 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
 
   var
     bootNodes: seq[BootstrapAddr]
-    bootstrapEnrs: seq[enr.Record]
-
-  # TODO: rebase this
-  let enrBootstrapFile = string conf.enrBootstrapNodesFile
-  if enrBootstrapFile.len > 0:
-    result.useEnrBootstrapFile(enrBootstrapFile)
+    enrs: seq[enr.Record]
 
   for node in conf.bootstrapNodes: bootNodes.addBootstrapAddr(node)
   bootNodes.add(loadBootstrapFile(string conf.bootstrapNodesFile))
   bootNodes.add(loadBootstrapFile(conf.dataDir / "bootstrap_nodes.txt"))
 
+  let enrBootstrapFile = string conf.enrBootstrapNodesFile
+  if enrBootstrapFile.len > 0:
+    useEnrBootstrapFile(enrBootstrapFile, bootNodes, enrs)
+
   bootNodes = filterIt(bootNodes, not it.isSameNode(networkId))
 
   let
-    network = await createEth2Node(conf, bootNodes, bootstrapEnrs)
+    network = await createEth2Node(conf, bootNodes, enrs)
 
   let addressFile = string(conf.dataDir) / "beacon_node.address"
   network.saveConnectionAddressFile(addressFile)
@@ -244,6 +247,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     networkIdentity: networkId,
     requestManager: RequestManager.init(network),
     bootstrapNodes: bootNodes,
+    bootstrapEnrs: enrs,
     db: db,
     config: conf,
     attachedValidators: ValidatorPool.init(),
