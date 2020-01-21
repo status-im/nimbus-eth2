@@ -34,6 +34,8 @@ type
     acqIncPeersCount: int
     acqOutPeersCount: int
 
+  PeerPoolError* = object of CatchableError
+
 proc `<`*(a, b: PeerIndex): bool =
   result = a.cmp(b, a)
 
@@ -219,8 +221,16 @@ proc deletePeer*[A, B](pool: PeerPool[A, B], peer: A, force = false): bool =
 proc addPeer*[A, B](pool: PeerPool[A, B], peer: A, peerType: PeerType): bool =
   ## Add peer ``peer`` of type ``peerType`` to PeerPool ``pool``.
   ##
-  ## Returns ``true`` on success.
+  ## Procedure returns ``false`` in case
+  ##   * if ``peer`` is already closed.
+  ##   * if ``pool`` currently has a maximum of peers.
+  ##   * if ``pool`` currently has a maximum of `Incoming` or `Outgoing` peers.
+  ##
+  ## Procedure returns ``true`` on success.
   mixin getKey, getFuture
+
+  if peer.getFuture().finished:
+    return false
 
   if len(pool.registry) >= pool.maxPeersCount:
     return false
@@ -289,6 +299,22 @@ proc acquire*[A, B](pool: PeerPool[A, B],
       result = item[].data
       break
 
+proc acquireNoWait*[A, B](pool: PeerPool[A, B],
+                          filter = {PeerType.Incoming,
+                                    PeerType.Outgoing}): A =
+  doAssert(filter != {}, "Filter must not be empty")
+  var count = 0
+  if PeerType.Incoming in filter:
+    count = count + len(pool.incQueue)
+  if PeerType.Outgoing in filter:
+    count = count + len(pool.outQueue)
+  if count < 1:
+    raise newException(PeerPoolError, "Not enough peers in pool")
+  var item = pool.getItem(filter)
+  doAssert(PeerFlags.Acquired notin item[].flags)
+  item[].flags.incl(PeerFlags.Acquired)
+  result = item[].data
+
 proc release*[A, B](pool: PeerPool[A, B], peer: A) =
   ## Release peer ``peer`` back to PeerPool ``pool``
   mixin getKey
@@ -354,6 +380,28 @@ proc acquire*[A, B](pool: PeerPool[A, B],
       pool.release(item)
     peers.setLen(0)
     raise
+  result = peers
+
+proc acquireNoWait*[A, B](pool: PeerPool[A, B],
+                          number: int,
+                          filter = {PeerType.Incoming,
+                                    PeerType.Outgoing}): seq[A] =
+  ## Acquire ``number`` number of peers from PeerPool ``pool``, which match the
+  ## filter ``filter``.
+  doAssert(filter != {}, "Filter must not be empty")
+  var peers = newSeq[A]()
+  var count = 0
+  if PeerType.Incoming in filter:
+    count = count + len(pool.incQueue)
+  if PeerType.Outgoing in filter:
+    count = count + len(pool.outQueue)
+  if count < number:
+    raise newException(PeerPoolError, "Not enough peers in pool")
+  for i in 0 ..< number:
+    var item = pool.getItem(filter)
+    doAssert(PeerFlags.Acquired notin item[].flags)
+    item[].flags.incl(PeerFlags.Acquired)
+    peers.add(item[].data)
   result = peers
 
 proc acquireIncomingPeer*[A, B](pool: PeerPool[A, B]): Future[A] {.inline.} =
