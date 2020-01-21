@@ -10,8 +10,8 @@
 import
   options, sequtils, unittest, chronicles,
   ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[datatypes, digest],
-  ../beacon_chain/[beacon_node_types, block_pool, beacon_chain_db, ssz]
+  ../beacon_chain/spec/[datatypes, digest, helpers, validator],
+  ../beacon_chain/[beacon_node_types, block_pool, beacon_chain_db, extras, ssz]
 
 suite "BlockRef and helpers" & preset():
   timedTest "isAncestorOf sanity" & preset():
@@ -186,3 +186,38 @@ when const_preset == "minimal": # Too much stack space used on mainnet
       check:
         pool.head.blck == b1Add
         pool.headState.data.data.slot == b1Add.slot
+
+  suite "BlockPool finalization tests" & preset():
+    setup:
+      var
+        db = makeTestDB(SLOTS_PER_EPOCH)
+        pool = BlockPool.init(db)
+
+    timedTest "prune heads on finalization" & preset():
+      block:
+        # Create a fork that will not be taken
+        var
+          blck = makeBlock(pool.headState.data.data, pool.head.blck.root,
+            BeaconBlockBody())
+        discard pool.add(hash_tree_root(blck.message), blck)
+
+      for i in 0 ..< (SLOTS_PER_EPOCH * 4):
+        if i == 1:
+          # There are 2 heads now because of the fork at slot 1
+          check:
+            pool.tail.children.len == 2
+            pool.heads.len == 2
+        var
+          cache = get_empty_per_epoch_cache()
+          blck = makeBlock(pool.headState.data.data, pool.head.blck.root,
+            BeaconBlockBody(
+              attestations: makeFullAttestations(
+                pool.headState.data.data, pool.head.blck.root,
+                pool.headState.data.data.slot, cache, {skipValidation})))
+        let added = pool.add(hash_tree_root(blck.message), blck)
+        pool.updateHead(added)
+
+      check:
+        pool.heads.len() == 1
+        pool.head.justified.slot.compute_epoch_at_slot() == 3
+        pool.tail.children.len == 1
