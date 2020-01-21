@@ -93,7 +93,9 @@ proc addBlock*(
 
   # TODO ugly hack; API needs rethinking
   var new_body = body
-  new_body.randao_reveal = privKey.genRandaoReveal(state.fork, state.slot + 1)
+  if skipValidation notin flags:
+    new_body.randao_reveal = privKey.genRandaoReveal(state.fork, state.slot + 1)
+
   new_body.eth1_data = Eth1Data()
 
   var
@@ -171,11 +173,8 @@ proc makeAttestation*(
     sig =
       if skipValidation notin flags:
         bls_sign(
-          hackPrivKey(validator), @(msg.data),
-          get_domain(
-            state,
-            DOMAIN_BEACON_ATTESTER,
-            data.target.epoch))
+          hackPrivKey(validator), msg.data,
+          get_domain(state, DOMAIN_BEACON_ATTESTER, data.target.epoch))
       else:
         ValidatorSig()
 
@@ -208,3 +207,33 @@ proc makeAttestation*(
     find_beacon_committee(state, validator_index, cache)
   makeAttestation(state, beacon_block_root, committee, slot, index,
     validator_index, cache, flags)
+
+proc makeFullAttestations*(
+    state: BeaconState, beacon_block_root: Eth2Digest, slot: Slot,
+    cache: var StateCache,
+    flags: UpdateFlags = {}): seq[Attestation] =
+  # Create attestations in which the full committee participates for each shard
+  # that should be attested to during a particular slot
+  let
+    count = get_committee_count_at_slot(state, slot)
+
+  for index in 0..<count:
+    let
+      committee = get_beacon_committee(state, slot, index, cache)
+      data = makeAttestationData(state, slot, index, beacon_block_root)
+      msg = hash_tree_root(data)
+
+    var
+      attestation = Attestation(
+        aggregation_bits: CommitteeValidatorsBits.init(committee.len),
+        data: data,
+        signature: ValidatorSig(kind: Real, blsValue: Signature.init())
+      )
+    for j in 0..<committee.len():
+      attestation.aggregation_bits.setBit j
+      if skipValidation notin flags:
+        attestation.signature.combine(bls_sign(
+          hackPrivKey(state.validators[committee[j]]), msg.data,
+          get_domain(state, DOMAIN_BEACON_ATTESTER, data.target.epoch)))
+
+    result.add attestation

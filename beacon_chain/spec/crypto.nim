@@ -122,10 +122,10 @@ func pubKey*(pk: ValidatorPrivKey): ValidatorPubKey =
   else:
     pk.getKey
 
-func init(T: type VerKey): VerKey =
+func init*(T: type VerKey): VerKey =
   result.point.inf()
 
-func init(T: type Signature): Signature =
+func init*(T: type Signature): Signature =
   result.point.inf()
 
 func combine*[T](values: openarray[BlsValue[T]]): BlsValue[T] =

@@ -828,29 +828,27 @@ proc updateHead*(pool: BlockPool, newHead: BlockRef) =
     "Block graph should always lead to a finalized block"
 
   if finalizedHead != pool.finalizedHead:
-    pool.finalizedHead = finalizedHead
-
     var cur = finalizedHead.blck
     while cur != pool.finalizedHead.blck:
       # Finalization means that we choose a single chain as the canonical one -
       # it also means we're no longer interested in any branches from that chain
-      # up to the finalization point
+      # up to the finalization point.
+      # The new finalized head should not be cleaned! We start at its parent and
+      # clean everything including the old finalized head.
+      cur = cur.parent
 
-      # TODO technically, if we remove from children the gc should free the block
-      #      because it should become orphaned, via mark&sweep if nothing else,
-      #      though this needs verification
+      pool.delFinalizedStateIfNeeded(cur)
+
       # TODO what about attestations? we need to drop those too, though they
       #      *should* be pretty harmless
-      # TODO remove from database as well.. here, or using some GC-like setup
-      #      that periodically cleans it up?
-      for child in cur.parent.children:
-        if child != cur:
-          pool.blocks.del(child.root)
-          pool.delBlockAndState(child.root)
-        else:
-          pool.delFinalizedStateIfNeeded(child)
-      cur.parent.children = @[cur]
-      cur = cur.parent
+      if cur.parent != nil: # This happens for the genesis / tail block
+        for child in cur.parent.children:
+          if child != cur:
+            pool.blocks.del(child.root)
+            pool.delBlockAndState(child.root)
+        cur.parent.children = @[cur]
+
+    pool.finalizedHead = finalizedHead
 
     let hlen = pool.heads.len
     for i in 0..<hlen:
