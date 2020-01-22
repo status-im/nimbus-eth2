@@ -140,11 +140,11 @@ proc process_justification_and_finalization*(
   ## matter -- in the next epoch, they'll be 2 epochs old, when BeaconState
   ## tracks current_epoch_attestations and previous_epoch_attestations only
   ## per
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#attestations
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/beacon-chain.md#attestations
   ## and `get_matching_source_attestations(...)` via
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#helper-functions-1
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/beacon-chain.md#helper-functions-1
   ## and
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#final-updates
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/beacon-chain.md#final-updates
   ## after which the state.previous_epoch_attestations is replaced.
   trace "Non-attesting indices in previous epoch",
     missing_all_validators=
@@ -338,7 +338,7 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
 
   (rewards, penalties)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#rewards-and-penalties-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/beacon-chain.md#rewards-and-penalties-1
 func process_rewards_and_penalties(
     state: var BeaconState, cache: var StateCache) {.nbench.}=
   if get_current_epoch(state) == GENESIS_EPOCH:
@@ -425,7 +425,7 @@ proc process_epoch*(state: var BeaconState) {.nbench.}=
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#rewards-and-penalties-1
   process_rewards_and_penalties(state, per_epoch_cache)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#registry-updates
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/beacon-chain.md#registry-updates
   # Don't rely on caching here.
   process_registry_updates(state)
 
