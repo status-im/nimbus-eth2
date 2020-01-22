@@ -67,9 +67,6 @@ proc init*(T: type BeaconChainDB, backend: KVStoreRef): BeaconChainDB =
 proc putBlock*(db: BeaconChainDB, key: Eth2Digest, value: SignedBeaconBlock) =
   db.backend.put(subkey(type value, key), SSZ.encode(value))
 
-proc putHead*(db: BeaconChainDB, key: Eth2Digest) =
-  db.backend.put(subkey(kHeadBlock), key.data) # TODO head block?
-
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
   # TODO prune old states - this is less easy than it seems as we never know
   #      when or if a particular state will become finalized.
@@ -92,8 +89,11 @@ proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
 proc delState*(db: BeaconChainDB, key: Eth2Digest) =
   db.backend.del(subkey(BeaconState, key))
 
+proc delStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot) =
+  db.backend.del(subkey(root, slot))
+
 proc putHeadBlock*(db: BeaconChainDB, key: Eth2Digest) =
-  db.backend.put(subkey(kHeadBlock), key.data) # TODO head block?
+  db.backend.put(subkey(kHeadBlock), key.data)
 
 proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.backend.put(subkey(kTailBlock), key.data)
