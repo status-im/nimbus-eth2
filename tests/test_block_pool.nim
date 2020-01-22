@@ -201,7 +201,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
             BeaconBlockBody())
         discard pool.add(hash_tree_root(blck.message), blck)
 
-      for i in 0 ..< (SLOTS_PER_EPOCH * 4):
+      for i in 0 ..< (SLOTS_PER_EPOCH * 6):
         if i == 1:
           # There are 2 heads now because of the fork at slot 1
           check:
@@ -219,5 +219,5 @@ when const_preset == "minimal": # Too much stack space used on mainnet
 
       check:
         pool.heads.len() == 1
-        pool.head.justified.slot.compute_epoch_at_slot() == 3
+        pool.head.justified.slot.compute_epoch_at_slot() == 5
         pool.tail.children.len == 1
