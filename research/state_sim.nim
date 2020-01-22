@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2019 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import
   confutils, stats, times, std/monotimes,
   strformat,
@@ -79,13 +86,11 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   var
     attestations = initTable[Slot, seq[Attestation]]()
     state = genesisState
-    latest_block_root = signing_root(genesisBlock)
+    latest_block_root = hash_tree_root(genesisBlock.message)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
     r: Rand
-    blck: BeaconBlock
-
-  var
+    blck: SignedBeaconBlock
     cache = get_empty_per_epoch_cache()
 
   proc maybeWrite(last: bool) =
@@ -129,7 +134,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     withTimer(timers[t]):
       blck = addBlock(state, latest_block_root, body, flags)
     latest_block_root = withTimerRet(timers[tHashBlock]):
-      signing_root(blck)
+      hash_tree_root(blck.message)
 
     if attesterRatio > 0.0:
       # attesterRatio is the fraction of attesters that actually do their

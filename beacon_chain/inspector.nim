@@ -8,7 +8,7 @@ import strutils, os, tables
 import confutils, chronicles, chronos, libp2p/daemon/daemonapi,
        libp2p/multiaddress
 import stew/byteutils as bu
-import spec/network
+import spec/[crypto, datatypes, network, digest], ssz
 
 const
   InspectorName* = "Beacon-Chain Network Inspector"
@@ -87,6 +87,11 @@ type
             " to use when connecting to the network"
       abbr: "b"
       name: "bootnodes" }: seq[string]
+
+    decode* {.
+      desc: "Try to decode message using SSZ"
+      abbr: "d"
+      defaultValue: false }: bool
 
 proc getTopic(filter: TopicFilter): string {.inline.} =
   case filter
@@ -176,6 +181,22 @@ proc run(conf: InspectorConf) {.async.} =
                              mtopics = $message.topics,
                              message = bu.toHex(message.data),
                              zpeers = len(pubsubPeers)
+
+    if conf.decode:
+      try:
+        if ticket.topic.startsWith(topicBeaconBlocks):
+          info "SignedBeaconBlock", msg = SSZ.decode(message.data, SignedBeaconBlock)
+        elif ticket.topic.startsWith(topicAttestations):
+          info "Attestation", msg = SSZ.decode(message.data, Attestation)
+        elif ticket.topic.startsWith(topicVoluntaryExits):
+          info "SignedVoluntaryExit", msg = SSZ.decode(message.data, SignedVoluntaryExit)
+        elif ticket.topic.startsWith(topicProposerSlashings):
+          info "ProposerSlashing", msg = SSZ.decode(message.data, ProposerSlashing)
+        elif ticket.topic.startsWith(topicAttesterSlashings):
+          info "AttesterSlashing", msg = SSZ.decode(message.data, AttesterSlashing)
+      except CatchableError as exc:
+        info "Unable to decode message", msg = exc.msg
+
     result = true
 
   if len(conf.topics) > 0:

@@ -12,7 +12,7 @@ import
   os, unittest,
   # Beacon chain internals
   ../../beacon_chain/spec/[datatypes, state_transition_block, validator],
-  ../../beacon_chain/[ssz, extras],
+  ../../beacon_chain/ssz,
   # Test utilities
   ../testutil,
   ./fixtures_utils,
@@ -30,10 +30,7 @@ template runTest(identifier: untyped) =
 
   proc `testImpl _ operations_attester_slashing _ identifier`() =
 
-    var flags: UpdateFlags
     var prefix: string
-    if not existsFile(testDir/"meta.yaml"):
-      flags.incl skipValidation
     if existsFile(testDir/"post.ssz"):
       prefix = "[Valid]   "
     else:

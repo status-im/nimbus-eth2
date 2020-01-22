@@ -1,17 +1,21 @@
 import
-  algorithm, typetraits,
-  stew/varints, stew/shims/[macros, tables], chronos, chronicles,
-  faststreams/output_stream, serialization,
+  algorithm, typetraits, net,
+  stew/[varints,base58], stew/shims/[macros, tables], chronos, chronicles,
+  stint, faststreams/output_stream, serialization,
   json_serialization/std/options, eth/p2p/p2p_protocol_dsl,
+  eth/p2p/discoveryv5/enr,
   # TODO: create simpler to use libp2p modules that use re-exports
   libp2p/[switch, multistream, connection,
-          base58, multiaddress, peerinfo, peer,
+          multiaddress, peerinfo, peer,
           crypto/crypto, protocols/identify, protocols/protocol],
   libp2p/muxers/mplex/[mplex, types],
   libp2p/protocols/secure/[secure, secio],
   libp2p/protocols/pubsub/[pubsub, floodsub],
   libp2p/transports/[transport, tcptransport],
-  libp2p_json_serialization, ssz
+  libp2p_json_serialization, eth2_discovery, conf, ssz
+
+import
+  eth/p2p/discoveryv5/protocol as discv5_protocol
 
 export
   p2pProtocol, libp2p_json_serialization, ssz
@@ -22,7 +26,10 @@ type
   # TODO Is this really needed?
   Eth2Node* = ref object of RootObj
     switch*: Switch
+    discovery*: Eth2DiscoveryProtocol
+    wantedPeers*: int
     peers*: Table[PeerID, Peer]
+    peersByDiscoveryId*: Table[Eth2DiscoveryId, Peer]
     protocolStates*: seq[RootRef]
     libp2pTransportLoops*: seq[Future[void]]
 
@@ -32,6 +39,7 @@ type
     network*: Eth2Node
     info*: PeerInfo
     wasDialed*: bool
+    discoveryId*: Eth2DiscoveryId
     connectionState*: ConnectionState
     protocolStates*: seq[RootRef]
     maxInactivityAllowed*: Duration
@@ -91,6 +99,9 @@ type
 
   TransmissionError* = object of CatchableError
 
+const
+  TCP = net.Protocol.IPPROTO_TCP
+
 template `$`*(peer: Peer): string = id(peer.info)
 chronicles.formatIt(Peer): $it
 
@@ -105,8 +116,8 @@ template openStream(node: Eth2Node, peer: Peer, protocolId: string): untyped =
   dial(node.switch, peer.info, protocolId)
 
 proc peer(stream: P2PStream): PeerID =
-  # TODO: Can this be `none`?
-  stream.peerInfo.get.peerId
+  # TODO: Can this be `nil`?
+  stream.peerInfo.peerId
 #
 # End of compatibility layer
 
@@ -120,8 +131,8 @@ proc getPeer*(node: Eth2Node, peerInfo: PeerInfo): Peer {.gcsafe.} =
     node.peers[peerId] = result
 
 proc peerFromStream(network: Eth2Node, stream: P2PStream): Peer {.gcsafe.} =
-  # TODO: Can this be `none`?
-  return network.getPeer(stream.peerInfo.get)
+  # TODO: Can this be `nil`?
+  return network.getPeer(stream.peerInfo)
 
 proc disconnect*(peer: Peer, reason: DisconnectionReason, notifyOtherPeer = false) {.async.} =
   # TODO: How should we notify the other peer?
@@ -139,10 +150,59 @@ include eth/p2p/p2p_backends_helpers
 include eth/p2p/p2p_tracing
 include libp2p_backends_common
 
-proc init*(T: type Eth2Node, switch: Switch): T =
+proc toPeerInfo*(r: enr.TypedRecord): PeerInfo =
+  if r.secp256k1.isSome:
+    var peerId = PeerID.init r.secp256k1.get
+    var addresses = newSeq[MultiAddress]()
+
+    if r.ip.isSome and r.tcp.isSome:
+      let ip = IpAddress(family: IpAddressFamily.IPv4,
+                         address_v4: r.ip.get)
+      addresses.add MultiAddress.init(ip, TCP, Port r.tcp.get)
+
+    if r.ip6.isSome:
+      let ip = IpAddress(family: IpAddressFamily.IPv6,
+                         address_v6: r.ip6.get)
+      if r.tcp6.isSome:
+        addresses.add MultiAddress.init(ip, TCP, Port r.tcp6.get)
+      elif r.tcp.isSome:
+        addresses.add MultiAddress.init(ip, TCP, Port r.tcp.get)
+      else:
+        discard
+
+    if addresses.len > 0:
+      return PeerInfo.init(peerId, addresses)
+
+proc toPeerInfo(r: Option[enr.TypedRecord]): PeerInfo =
+  if r.isSome:
+    return r.get.toPeerInfo
+
+proc dialPeer*(node: Eth2Node, enr: enr.Record) {.async.} =
+  let peerInfo = enr.toTypedRecord.toPeerInfo
+  if peerInfo != nil:
+    discard await node.switch.dial(peerInfo)
+    var peer = node.getPeer(peerInfo)
+    peer.wasDialed = true
+    await initializeConnection(peer)
+
+proc runDiscoveryLoop(node: Eth2Node) {.async.} =
+  while true:
+    if node.peersByDiscoveryId.len < node.wantedPeers:
+      let discoveredPeers = await node.discovery.lookupRandom()
+      for peer in discoveredPeers:
+        if peer.id notin node.peersByDiscoveryId:
+          # TODO do this in parallel
+          await node.dialPeer(peer.record)
+
+    await sleepAsync seconds(1)
+
+proc init*(T: type Eth2Node, conf: BeaconNodeConf,
+           switch: Switch, privKey: PrivateKey): T =
   new result
   result.switch = switch
   result.peers = initTable[PeerID, Peer]()
+  result.discovery = Eth2DiscoveryProtocol.new(conf, privKey.getBytes)
+  result.wantedPeers = conf.maxPeers
 
   newSeq result.protocolStates, allProtocols.len
   for proto in allProtocols:
@@ -153,7 +213,12 @@ proc init*(T: type Eth2Node, switch: Switch): T =
       if msg.protocolMounter != nil:
         msg.protocolMounter result
 
+proc addKnownPeer*(node: Eth2Node, peerEnr: enr.Record) =
+  node.discovery.addNode peerEnr
+
 proc start*(node: Eth2Node) {.async.} =
+  node.discovery.open()
+  node.discovery.start()
   node.libp2pTransportLoops = await node.switch.start()
 
 proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer =

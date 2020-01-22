@@ -1,14 +1,14 @@
 import
-  json, tables, options,
-  chronicles, serialization, json_serialization, eth/common/eth_types_json_serialization,
+  options,
+  serialization,
   spec/[datatypes, digest, crypto],
-  eth/trie/db, ssz
+  kvstore, ssz
 
 type
   BeaconChainDB* = ref object
     ## Database storing resolved blocks and states - resolved blocks are such
     ## blocks that form a chain back to the tail block.
-    backend: TrieDatabaseRef
+    backend: KVStoreRef
 
   DbKeyKind = enum
     kHashToState
@@ -37,7 +37,7 @@ func subkey(kind: DbKeyKind, key: uint64): array[sizeof(key) + 1, byte] =
 func subkey(kind: type BeaconState, key: Eth2Digest): auto =
   subkey(kHashToState, key.data)
 
-func subkey(kind: type BeaconBlock, key: Eth2Digest): auto =
+func subkey(kind: type SignedBeaconBlock, key: Eth2Digest): auto =
   subkey(kHashToBlock, key.data)
 
 func subkey(root: Eth2Digest, slot: Slot): auto =
@@ -61,10 +61,10 @@ func subkey(root: Eth2Digest, slot: Slot): auto =
 
   ret
 
-proc init*(T: type BeaconChainDB, backend: TrieDatabaseRef): BeaconChainDB =
+proc init*(T: type BeaconChainDB, backend: KVStoreRef): BeaconChainDB =
   T(backend: backend)
 
-proc putBlock*(db: BeaconChainDB, key: Eth2Digest, value: BeaconBlock) =
+proc putBlock*(db: BeaconChainDB, key: Eth2Digest, value: SignedBeaconBlock) =
   db.backend.put(subkey(type value, key), SSZ.encode(value))
 
 proc putHead*(db: BeaconChainDB, key: Eth2Digest) =
@@ -83,11 +83,11 @@ proc putStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot,
     value: Eth2Digest) =
   db.backend.put(subkey(root, slot), value.data)
 
-proc putBlock*(db: BeaconChainDB, value: BeaconBlock) =
-  db.putBlock(signing_root(value), value)
+proc putBlock*(db: BeaconChainDB, value: SignedBeaconBlock) =
+  db.putBlock(hash_tree_root(value.message), value)
 
 proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
-  db.backend.del(subkey(BeaconBlock, key))
+  db.backend.del(subkey(SignedBeaconBlock, key))
 
 proc delState*(db: BeaconChainDB, key: Eth2Digest) =
   db.backend.del(subkey(BeaconState, key))
@@ -99,21 +99,17 @@ proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.backend.put(subkey(kTailBlock), key.data)
 
 proc get(db: BeaconChainDB, key: auto, T: typedesc): Option[T] =
-  let res = db.backend.get(key)
-  if res.len != 0:
+  var res: Option[T]
+  discard db.backend.get(key, proc (data: openArray[byte]) =
     try:
-      some(SSZ.decode(res, T))
+      res = some(SSZ.decode(data, T))
     except SerializationError:
-      none(T)
-  else:
-    none(T)
+      discard
+  )
+  res
 
-proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Option[BeaconBlock] =
-  db.get(subkey(BeaconBlock, key), BeaconBlock)
-
-proc getBlock*(db: BeaconChainDB, slot: Slot): Option[BeaconBlock] =
-  # TODO implement this
-  discard
+proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Option[SignedBeaconBlock] =
+  db.get(subkey(SignedBeaconBlock, key), SignedBeaconBlock)
 
 proc getState*(db: BeaconChainDB, key: Eth2Digest): Option[BeaconState] =
   db.get(subkey(BeaconState, key), BeaconState)
@@ -130,14 +126,14 @@ proc getTailBlock*(db: BeaconChainDB): Option[Eth2Digest] =
 
 proc containsBlock*(
     db: BeaconChainDB, key: Eth2Digest): bool =
-  db.backend.contains(subkey(BeaconBlock, key))
+  db.backend.contains(subkey(SignedBeaconBlock, key))
 
 proc containsState*(
     db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(BeaconState, key))
 
 iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
-    tuple[root: Eth2Digest, blck: BeaconBlock] =
+    tuple[root: Eth2Digest, blck: SignedBeaconBlock] =
   ## Load a chain of ancestors for blck - returns a list of blocks with the
   ## oldest block last (blck will be at result[0]).
   ##
@@ -147,4 +143,4 @@ iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
   while (let blck = db.getBlock(root); blck.isSome()):
     yield (root, blck.get())
 
-    root = blck.get().parent_root
+    root = blck.get().message.parent_root

@@ -7,17 +7,16 @@
 
 {.used.}
 
-import  options, unittest, sequtils, eth/trie/[db],
-  ../beacon_chain/[beacon_chain_db, extras, interop, ssz],
+import  options, unittest, sequtils,
+  ../beacon_chain/[beacon_chain_db, extras, interop, ssz, kvstore],
   ../beacon_chain/spec/[beaconstate, datatypes, digest, crypto],
   # test utilies
   ./testutil, ./testblockutil
 
 suite "Beacon chain DB" & preset():
-
   timedTest "empty database" & preset():
     var
-      db = init(BeaconChainDB, newMemoryDB())
+      db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
 
     check:
       when const_preset=="minimal":
@@ -28,11 +27,11 @@ suite "Beacon chain DB" & preset():
 
   timedTest "sanity check blocks" & preset():
     var
-      db = init(BeaconChainDB, newMemoryDB())
+      db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
 
     let
-      blck = BeaconBlock()
-      root = signing_root(blck)
+      blck = SignedBeaconBlock()
+      root = hash_tree_root(blck.message)
 
     db.putBlock(blck)
 
@@ -40,13 +39,13 @@ suite "Beacon chain DB" & preset():
       db.containsBlock(root)
       db.getBlock(root).get() == blck
 
-    db.putStateRoot(root, blck.slot, root)
+    db.putStateRoot(root, blck.message.slot, root)
     check:
-      db.getStateRoot(root, blck.slot).get() == root
+      db.getStateRoot(root, blck.message.slot).get() == root
 
   timedTest "sanity check states" & preset():
     var
-      db = init(BeaconChainDB, newMemoryDB())
+      db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
 
     let
       state = BeaconState()
@@ -60,7 +59,7 @@ suite "Beacon chain DB" & preset():
 
   timedTest "find ancestors" & preset():
     var
-      db = init(BeaconChainDB, newMemoryDB())
+      db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
       x: ValidatorSig
       y = init(ValidatorSig, x.getBytes())
 
@@ -68,12 +67,14 @@ suite "Beacon chain DB" & preset():
     check: x == y
 
     let
-      a0 = BeaconBlock(slot: GENESIS_SLOT + 0)
-      a0r = signing_root(a0)
-      a1 = BeaconBlock(slot: GENESIS_SLOT + 1, parent_root: a0r)
-      a1r = signing_root(a1)
-      a2 = BeaconBlock(slot: GENESIS_SLOT + 2, parent_root: a1r)
-      a2r = signing_root(a2)
+      a0 = SignedBeaconBlock(message: BeaconBlock(slot: GENESIS_SLOT + 0))
+      a0r = hash_tree_root(a0.message)
+      a1 = SignedBeaconBlock(message:
+        BeaconBlock(slot: GENESIS_SLOT + 1, parent_root: a0r))
+      a1r = hash_tree_root(a1.message)
+      a2 = SignedBeaconBlock(message:
+        BeaconBlock(slot: GENESIS_SLOT + 2, parent_root: a1r))
+      a2r = hash_tree_root(a2.message)
 
     doAssert toSeq(db.getAncestors(a0r)) == []
     doAssert toSeq(db.getAncestors(a2r)) == []
@@ -99,7 +100,7 @@ suite "Beacon chain DB" & preset():
     # serialization where an all-zero default-initialized bls signature could
     # not be deserialized because the deserialization was too strict.
     var
-      db = init(BeaconChainDB, newMemoryDB())
+      db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
 
     let
       state = initialize_beacon_state_from_eth1(

@@ -27,7 +27,7 @@ type
     else:
       index: uint32
 
-  BeaconBlockCallback* = proc(blck: BeaconBlock) {.gcsafe.}
+  BeaconBlockCallback* = proc(blck: SignedBeaconBlock) {.gcsafe.}
   BeaconSyncNetworkState* = ref object
     blockPool*: BlockPool
     forkVersion*: array[4, byte]
@@ -51,7 +51,7 @@ func init*(
   v.onBeaconBlock = onBeaconBlock
 
 proc importBlocks(state: BeaconSyncNetworkState,
-                  blocks: openarray[BeaconBlock]) {.gcsafe.} =
+                  blocks: openarray[SignedBeaconBlock]) {.gcsafe.} =
   for blk in blocks:
     state.onBeaconBlock(blk)
   info "Forward sync imported blocks", len = blocks.len
@@ -158,7 +158,7 @@ p2pProtocol BeaconSync(version = 1,
 
     proc beaconBlocks(
             peer: Peer,
-            blocks: openarray[BeaconBlock])
+            blocks: openarray[SignedBeaconBlock])
 
 proc handleInitialStatus(peer: Peer,
                          state: BeaconSyncNetworkState,
@@ -221,7 +221,7 @@ proc handleInitialStatus(peer: Peer,
             break
 
           state.importBlocks(blocks.get)
-          let lastSlot = blocks.get[^1].slot
+          let lastSlot = blocks.get[^1].message.slot
           if lastSlot <= s:
             info "Slot did not advance during sync", peer
             break

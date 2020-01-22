@@ -24,7 +24,7 @@ suite "Block processing" & preset():
       Eth2Digest(), 0,
       makeInitialDeposits(), {})
     genesisBlock = get_initial_beacon_block(genesisState)
-    genesisRoot = signing_root(genesisBlock)
+    genesisRoot = hash_tree_root(genesisBlock.message)
 
   timedTest "Passes from genesis state, no block" & preset():
     var
@@ -37,10 +37,10 @@ suite "Block processing" & preset():
   timedTest "Passes from genesis state, empty block" & preset():
     var
       state = genesisState
-      previous_block_root = signing_root(genesisBlock)
+      previous_block_root = hash_tree_root(genesisBlock.message)
       new_block = makeBlock(state, previous_block_root, BeaconBlockBody())
 
-    let block_ok = state_transition(state, new_block, {})
+    let block_ok = state_transition(state, new_block.message, {})
 
     check:
       block_ok
@@ -64,12 +64,12 @@ suite "Block processing" & preset():
     for i in 1..SLOTS_PER_EPOCH.int:
       var new_block = makeBlock(state, previous_block_root, BeaconBlockBody())
 
-      let block_ok = state_transition(state, new_block, {})
+      let block_ok = state_transition(state, new_block.message, {})
 
       check:
         block_ok
 
-      previous_block_root = signing_root(new_block)
+      previous_block_root = hash_tree_root(new_block.message)
 
     check:
       state.slot == genesisState.slot + SLOTS_PER_EPOCH
@@ -98,7 +98,7 @@ suite "Block processing" & preset():
       new_block = makeBlock(state, previous_block_root, BeaconBlockBody(
         attestations: @[attestation]
       ))
-    discard state_transition(state, new_block, {})
+    discard state_transition(state, new_block.message, {})
 
     check:
       # TODO epoch attestations can get multiplied now; clean up paths to

@@ -7,7 +7,6 @@ cache:
   directories:
     - vendor/nimbus-build-system/vendor/Nim/bin
     - vendor/go/bin
-    - rocksdbCache
     - jsonTestsCache
 
 git:
@@ -27,7 +26,6 @@ matrix:
       before_install:
         - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib"
         - sudo apt-get -q update
-        - sudo apt-get install -y librocksdb-dev
     - os: linux
       arch: arm64
       sudo: required
@@ -37,14 +35,10 @@ matrix:
       before_install:
         - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib"
         - sudo apt-get -q update
-        - sudo apt-get install -y libpcre3-dev librocksdb-dev
+        - sudo apt-get install -y libpcre3-dev
     - os: osx
       env:
         - NPROC=2
-      before_install:
-        - launchctl setenv LIBRARY_PATH /usr/local/lib # for RocksDB
-        # build our own rocksdb to test with a fixed version that we think works
-        - vendor/nimbus-build-system/scripts/build_rocksdb.sh rocksdbCache
 
 
 install:
@@ -56,5 +50,6 @@ script:
   # Building Nim-1.0.4 takes up to 10 minutes on Travis - the time limit after which jobs are cancelled for having no output
   - make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" V=1 update # to allow a newer Nim version to be detected
   - make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}"
+  - make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" NIMFLAGS="-d:NETWORK_TYPE=libp2p"
   - make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" DISABLE_TEST_FIXTURES_SCRIPT=1 test
 

@@ -90,6 +90,11 @@ type
         desc: "Specifies a line-delimited file of bootsrap Ethereum network addresses."
         name: "bootstrap-file" }: InputFile
 
+      enrBootstrapNodesFile* {.
+        defaultValue: ""
+        desc: "Specifies a line-delimited file of bootstrap ENR records"
+        name: "enr-bootstrap-file" }: InputFile
+
       tcpPort* {.
         defaultValue: defaultPort(config)
         desc: "TCP listening port."
@@ -99,6 +104,11 @@ type
         defaultValue: defaultPort(config)
         desc: "UDP listening port."
         name: "udp-port" }: int
+
+      maxPeers* {.
+        defaultValue: 10
+        desc: "The maximum number of peers to connect to"
+        name: "max-peers" }: int
 
       nat* {.
         desc: "Specify method to use for determining public address. " &

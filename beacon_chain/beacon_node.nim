@@ -1,16 +1,16 @@
 import
   # Standard library
-  os, net, tables, random, strutils, times,
+  os, net, tables, random, strutils, times, sequtils,
 
   # Nimble packages
-  stew/[objects, bitseqs, byteutils], stew/ranges/ptr_arith,
+  stew/[objects, bitseqs, byteutils],
   chronos, chronicles, confutils, metrics,
   json_serialization/std/[options, sets], serialization/errors,
-  eth/trie/db, eth/trie/backends/rocksdb_backend, eth/async_utils,
+  kvstore, kvstore_lmdb, eth/async_utils, eth/p2p/discoveryv5/enr,
 
   # Local modules
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network],
-  conf, time, state_transition, fork_choice, beacon_chain_db,
+  conf, time, state_transition, beacon_chain_db,
   validator_pool, extras, attestation_pool, block_pool, eth2_network,
   beacon_node_types, mainchain_monitor, version, ssz, ssz/dynamic_navigator,
   sync_protocol, request_manager, validator_keygen, interop, statusbar
@@ -47,8 +47,8 @@ type
     forkVersion: array[4, byte]
     networkIdentity: Eth2NodeIdentity
     requestManager: RequestManager
-    isBootstrapNode: bool
     bootstrapNodes: seq[BootstrapAddr]
+    bootstrapEnrs: seq[enr.Record]
     db: BeaconChainDB
     config: BeaconNodeConf
     attachedValidators: ValidatorPool
@@ -57,18 +57,8 @@ type
     mainchainMonitor: MainchainMonitor
     beaconClock: BeaconClock
 
-    stateCache: StateData ##\
-    ## State cache object that's used as a scratch pad
-    ## TODO this is pretty dangerous - for example if someone sets it
-    ##      to a particular state then does `await`, it might change - prone to
-    ##      async races
-
-    justifiedStateCache: StateData ##\
-    ## A second state cache that's used during head selection, to avoid
-    ## state replaying.
-    # TODO Something smarter, so we don't need to keep two full copies, wasteful
-
-proc onBeaconBlock*(node: BeaconNode, blck: BeaconBlock) {.gcsafe.}
+proc onBeaconBlock*(node: BeaconNode, blck: SignedBeaconBlock) {.gcsafe.}
+proc updateHead(node: BeaconNode): BlockRef
 
 proc saveValidatorKey(keyName, key: string, conf: BeaconNodeConf) =
   let validatorsDir = conf.localValidatorsDir
@@ -77,9 +67,7 @@ proc saveValidatorKey(keyName, key: string, conf: BeaconNodeConf) =
   writeFile(outputFile, key)
   info "Imported validator key", file = outputFile
 
-proc getStateFromSnapshot(node: BeaconNode, state: var BeaconState): bool =
-  template conf: untyped = node.config
-
+proc getStateFromSnapshot(conf: BeaconNodeConf, state: var BeaconState): bool =
   var
     genesisPath = conf.dataDir/genesisFile
     snapshotContents: TaintedString
@@ -103,7 +91,8 @@ proc getStateFromSnapshot(node: BeaconNode, state: var BeaconState): bool =
               dataDir = conf.dataDir.string, snapshot = snapshotPath
         quit 1
     else:
-      debug "No genesis file in data directory", genesisPath
+      debug "No previous genesis state. Importing snapshot",
+            genesisPath, dataDir = conf.dataDir.string
       writeGenesisFile = true
       genesisPath = snapshotPath
   else:
@@ -132,120 +121,167 @@ proc getStateFromSnapshot(node: BeaconNode, state: var BeaconState): bool =
 
   result = true
 
-proc commitGenesisState(node: BeaconNode, tailState: BeaconState) =
-  info "Got genesis state", hash = hash_tree_root(tailState)
-  node.forkVersion = tailState.fork.current_version
+proc addBootstrapAddr(v: var seq[BootstrapAddr], add: TaintedString) =
   try:
-    let tailBlock = get_initial_beacon_block(tailState)
-    BlockPool.preInit(node.db, tailState, tailBlock)
-
+    v.add BootstrapAddr.initAddress(string add)
   except CatchableError as e:
-    stderr.write "Failed to initialize database\n"
-    stderr.write e.msg, "\n"
+    warn "Skipping invalid address", err = e.msg
+
+proc loadBootstrapFile(bootstrapFile: string): seq[BootstrapAddr] =
+  if fileExists(bootstrapFile):
+    for line in lines(bootstrapFile):
+      result.addBootstrapAddr(line)
+
+proc addEnrBootstrapNode(enrBase64: string,
+                         bootNodes: var seq[BootstrapAddr],
+                         enrs: var seq[enr.Record]) =
+  var enrRec: enr.Record
+  if enrRec.fromURI(enrBase64):
+    try:
+      let
+        ip = IpAddress(family: IpAddressFamily.IPv4,
+                       address_v4: cast[array[4, uint8]](enrRec.get("ip", int)))
+        tcpPort = Port enrRec.get("tcp", int)
+        # udpPort = Port enrRec.get("udp", int)
+      bootNodes.add BootstrapAddr.initAddress(ip, tcpPort)
+      enrs.add enrRec
+    except CatchableError as err:
+      warn "Invalid ENR record", enrRec
+  else:
+    warn "Failed to parse ENR record", value = enrRec
+
+proc useEnrBootstrapFile(bootstrapFile: string,
+                         bootNodes: var seq[BootstrapAddr],
+                         enrs: var seq[enr.Record]) =
+  let ext = splitFile(bootstrapFile).ext
+  if cmpIgnoreCase(ext, ".txt") == 0:
+    for ln in lines(bootstrapFile):
+      addEnrBootstrapNode(string ln, bootNodes, enrs)
+  elif cmpIgnoreCase(ext, ".yaml") == 0:
+    # TODO. This is very ugly, but let's try to negotiate the
+    # removal of YAML metadata.
+    for ln in lines(bootstrapFile):
+      addEnrBootstrapNode(string(ln[3..^2]), bootNodes, enrs)
+  else:
+    error "Unknown bootstrap file format", ext
     quit 1
 
-proc addBootstrapNode(node: BeaconNode, bootstrapNode: BootstrapAddr) =
-  if bootstrapNode.isSameNode(node.networkIdentity):
-    node.isBootstrapNode = true
-  else:
-    node.bootstrapNodes.add bootstrapNode
-
-proc useBootstrapFile(node: BeaconNode, bootstrapFile: string) =
-  for ln in lines(bootstrapFile):
-    node.addBootstrapNode BootstrapAddr.initAddress(string ln)
-
 proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
-  new result
-  result.config = conf
-  result.networkIdentity = getPersistentNetIdentity(conf)
-  result.nickname = if conf.nodeName == "auto": shortForm(result.networkIdentity)
-                    else: conf.nodeName
+  let
+    networkId = getPersistentNetIdentity(conf)
+    nickname = if conf.nodeName == "auto": shortForm(networkId)
+               else: conf.nodeName
+    db = BeaconChainDB.init(kvStore LmdbStoreRef.init(conf.databaseDir))
 
-  for bootNode in conf.bootstrapNodes:
-    result.addBootstrapNode BootstrapAddr.init(bootNode)
+  var mainchainMonitor: MainchainMonitor
 
-  let bootstrapFile = string conf.bootstrapNodesFile
-  if bootstrapFile.len > 0:
-    result.useBootstrapFile(bootstrapFile)
+  if not BlockPool.isInitialized(db):
+    # Fresh start - need to load a genesis state from somewhere
+    var genesisState = new BeaconState
 
-  let siteLocalBootstrapFile = conf.dataDir / "bootstrap_nodes.txt"
-  if fileExists(siteLocalBootstrapFile):
-    result.useBootstrapFile(siteLocalBootstrapFile)
-
-  result.attachedValidators = ValidatorPool.init
-
-  let trieDB = trieDB newChainDb(conf.databaseDir)
-  result.db = BeaconChainDB.init(trieDB)
-
-  # TODO this is problably not the right place to ensure that db is sane..
-  # TODO does it really make sense to load from DB if a state snapshot has been
-  #      specified on command line? potentially, this should be the other way
-  #      around...
-
-  var eth1MonitorStartBlock: Eth2Digest
-  if result.db.getHeadBlock().isNone():
-    var state = new BeaconState
-    # TODO getStateFromSnapshot never returns false - it quits..
-    if not result.getStateFromSnapshot(state[]):
+    # Try file from command line first
+    if not conf.getStateFromSnapshot(genesisState[]):
+      # Didn't work, try creating a genesis state using main chain monitor
+      # TODO Could move this to a separate "GenesisMonitor" process or task
+      #      that would do only this - see
       if conf.depositWeb3Url.len != 0:
-        result.mainchainMonitor = MainchainMonitor.init(
-          conf.depositWeb3Url, conf.depositContractAddress, eth1MonitorStartBlock)
-        result.mainchainMonitor.start()
+        mainchainMonitor = MainchainMonitor.init(
+          conf.depositWeb3Url, conf.depositContractAddress, Eth2Digest())
+        mainchainMonitor.start()
       else:
-        stderr.write "No state snapshot (or web3 URL) provided\n"
+        error "No initial state, need genesis state or deposit contract address"
         quit 1
 
-      state[] = await result.mainchainMonitor.getGenesis()
-    else:
-      eth1MonitorStartBlock = state.eth1Data.block_hash
-    result.commitGenesisState(state[])
+      genesisState[] = await mainchainMonitor.getGenesis()
 
-  if result.mainchainMonitor.isNil and conf.depositWeb3Url.len != 0:
-    result.mainchainMonitor = MainchainMonitor.init(
-      conf.depositWeb3Url, conf.depositContractAddress, eth1MonitorStartBlock)
-    result.mainchainMonitor.start()
+    if genesisState[].slot != GENESIS_SLOT:
+      # TODO how to get a block from a non-genesis state?
+      error "Starting from non-genesis state not supported",
+        stateSlot = genesisState[].slot,
+        stateRoot = hash_tree_root(genesisState[])
+      quit 1
 
-  result.blockPool = BlockPool.init(result.db)
-  result.attestationPool = AttestationPool.init(result.blockPool)
+    let tailBlock = get_initial_beacon_block(genesisState[])
 
-  result.network = await createEth2Node(conf, result.bootstrapNodes)
-  result.requestManager.init result.network
+    try:
+      BlockPool.preInit(db, genesisState[], tailBlock)
+      doAssert BlockPool.isInitialized(db), "preInit should have initialized db"
+    except CatchableError as e:
+      error "Failed to initialize database", err = e.msg
+      quit 1
+
+  # TODO check that genesis given on command line (if any) matches database
+  let
+    blockPool = BlockPool.init(db)
+
+  if mainchainMonitor.isNil and conf.depositWeb3Url.len != 0:
+    mainchainMonitor = MainchainMonitor.init(
+      conf.depositWeb3Url, conf.depositContractAddress,
+      blockPool.headState.data.data.eth1_data.block_hash)
+    mainchainMonitor.start()
+
+  var
+    bootNodes: seq[BootstrapAddr]
+    enrs: seq[enr.Record]
+
+  for node in conf.bootstrapNodes: bootNodes.addBootstrapAddr(node)
+  bootNodes.add(loadBootstrapFile(string conf.bootstrapNodesFile))
+  bootNodes.add(loadBootstrapFile(conf.dataDir / "bootstrap_nodes.txt"))
+
+  let enrBootstrapFile = string conf.enrBootstrapNodesFile
+  if enrBootstrapFile.len > 0:
+    useEnrBootstrapFile(enrBootstrapFile, bootNodes, enrs)
+
+  bootNodes = filterIt(bootNodes, not it.isSameNode(networkId))
+
+  let
+    network = await createEth2Node(conf, bootNodes, enrs)
+
+  let addressFile = string(conf.dataDir) / "beacon_node.address"
+  network.saveConnectionAddressFile(addressFile)
+
+  var res = BeaconNode(
+    nickname: nickname,
+    network: network,
+    forkVersion: blockPool.headState.data.data.fork.current_version,
+    networkIdentity: networkId,
+    requestManager: RequestManager.init(network),
+    bootstrapNodes: bootNodes,
+    bootstrapEnrs: enrs,
+    db: db,
+    config: conf,
+    attachedValidators: ValidatorPool.init(),
+    blockPool: blockPool,
+    attestationPool: AttestationPool.init(blockPool),
+    mainchainMonitor: mainchainMonitor,
+    beaconClock: BeaconClock.init(blockPool.headState.data.data),
+  )
 
   # TODO sync is called when a remote peer is connected - is that the right
   #      time to do so?
-  let sync = result.network.protocolState(BeaconSync)
-  sync.init(
-    result.blockPool, result.forkVersion,
-    proc(blck: BeaconBlock) = onBeaconBlock(result, blck))
+  let sync = network.protocolState(BeaconSync)
+  sync.init(blockPool, res.forkVersion,
+    proc(signedBlock: SignedBeaconBlock) =
+      if signedBlock.message.slot mod SLOTS_PER_EPOCH == 0:
+        # TODO this is a hack to make sure that lmd ghost is run regularly
+        #      while syncing blocks - it's poor form to keep it here though -
+        #      the logic should be moved elsewhere
+        # TODO why only when syncing? well, because the way the code is written
+        #      we require a connection to a boot node to start, and that boot
+        #      node will start syncing as part of connection setup - it looks
+        #      like it needs to finish syncing before the slot timer starts
+        #      ticking which is a problem: all the synced blocks will be added
+        #      to the block pool without any periodic head updates while this
+        #      process is ongoing (during a blank start for example), which
+        #      leads to an unhealthy buildup of blocks in the non-finalized part
+        #      of the block pool
+        # TODO is it a problem that someone sending us a block can force
+        #      a potentially expensive head resolution?
+        discard res.updateHead()
 
-  result.stateCache = result.blockPool.loadTailState()
-  result.justifiedStateCache = result.stateCache
+      onBeaconBlock(res, signedBlock))
 
-  let addressFile = string(conf.dataDir) / "beacon_node.address"
-  result.network.saveConnectionAddressFile(addressFile)
-  result.beaconClock = BeaconClock.init(result.stateCache.data.data)
-
-  when useInsecureFeatures:
-    if conf.metricsServer:
-      let metricsAddress = conf.metricsServerAddress
-      info "Starting metrics HTTP server", address = metricsAddress, port = conf.metricsServerPort
-      metrics.startHttpServer(metricsAddress, Port(conf.metricsServerPort))
-
-template withState(
-    pool: BlockPool, cache: var StateData, blockSlot: BlockSlot, body: untyped): untyped =
-  ## Helper template that updates state to a particular BlockSlot - usage of
-  ## cache is unsafe outside of block.
-  ## TODO async transformations will lead to a race where cache gets updated
-  ##      while waiting for future to complete - catch this here somehow?
-
-  updateStateData(pool, cache, blockSlot)
-
-  template hashedState(): HashedBeaconState {.inject, used.} = cache.data
-  template state(): BeaconState {.inject, used.} = cache.data.data
-  template blck(): BlockRef {.inject, used.} = cache.blck
-  template root(): Eth2Digest {.inject, used.} = cache.data.root
-
-  body
+  return res
 
 proc connectToNetwork(node: BeaconNode) {.async.} =
   if node.bootstrapNodes.len > 0:
@@ -314,23 +350,16 @@ proc isSynced(node: BeaconNode, head: BlockRef): bool =
   else:
     true
 
-proc updateHead(node: BeaconNode, slot: Slot): BlockRef =
-  # Use head state for attestation resolution below
-
+proc updateHead(node: BeaconNode): BlockRef =
   # Check pending attestations - maybe we found some blocks for them
-  node.attestationPool.resolve(node.stateCache)
+  node.attestationPool.resolve()
 
-  # TODO move all of this logic to BlockPool
+  # Grab the new head according to our latest attestation data
+  let newHead = node.attestationPool.selectHead()
 
-  let
-    justifiedHead = node.blockPool.latestJustifiedBlock()
-
-  let newHead = node.blockPool.withState(
-      node.justifiedStateCache, justifiedHead):
-    lmdGhost(node.attestationPool, state, justifiedHead.blck)
-
-  node.blockPool.updateHead(node.stateCache, newHead)
-  beacon_head_slot.set slot.int64
+  # Store the new head in the block pool - this may cause epochs to be
+  # justified and finalized
+  node.blockPool.updateHead(newHead)
   beacon_head_root.set newHead.root.toGaugeValue
 
   newHead
@@ -347,7 +376,7 @@ proc sendAttestation(node: BeaconNode,
     validatorSignature = await validator.signAttestation(attestationData, fork)
 
   var aggregationBits = CommitteeValidatorsBits.init(committeeLen)
-  aggregationBits.raiseBit indexInCommittee
+  aggregationBits.setBit indexInCommittee
 
   var attestation = Attestation(
     data: attestationData,
@@ -378,40 +407,20 @@ proc proposeBlock(node: BeaconNode,
                   slot: Slot): Future[BlockRef] {.async.} =
   logScope: pcs = "block_proposal"
 
-  if head.slot > slot:
-    notice "Skipping proposal, we've already selected a newer head",
+  if head.slot >= slot:
+    # We should normally not have a head newer than the slot we're proposing for
+    # but this can happen if block proposal is delayed
+    warn "Skipping proposal, have newer head already",
       headSlot = shortLog(head.slot),
       headBlockRoot = shortLog(head.root),
       slot = shortLog(slot),
       cat = "fastforward"
     return head
 
-  if head.slot == 0 and slot == 0:
-    # TODO there's been a startup assertion, which sometimes (but not always
-    # evidently) crashes exactly one node on simulation startup, the one the
-    # beacon chain proposer index points to first for slot 0. it tries using
-    # slot 0 as required, notices head block's slot is also 0 (which, that's
-    # how it's created; it's never less), and promptly fails, with assertion
-    # occuring downstream via async code. This is most easily reproduced via
-    # make clean_eth2_network_simulation_files && make eth2_network_simulation
-    return head
-
-  if head.slot == slot:
-    # Weird, we should never see as head the same slot as we're proposing a
-    # block for - did someone else steal our slot? why didn't we discard it?
-    warn "Found head at same slot as we're supposed to propose for!",
-      headSlot = shortLog(head.slot),
-      headBlockRoot = shortLog(head.root),
-      cat = "consensus_conflict"
-    # TODO investigate how and when this happens.. maybe it shouldn't be an
-    #      assert?
-    doAssert false, "head slot matches proposal slot (!)"
-    # return
-
   # Advance state to the slot immediately preceding the one we're creating a
   # block for - potentially we will be processing empty slots along the way.
   let (nroot, nblck) = node.blockPool.withState(
-      node.stateCache, BlockSlot(blck: head, slot: slot - 1)):
+      node.blockPool.tmpState, head.atSlot(slot)):
     let (eth1data, deposits) =
       if node.mainchainMonitor.isNil:
         (get_eth1data_stub(
@@ -433,21 +442,20 @@ proc proposeBlock(node: BeaconNode,
         deposits: deposits)
 
     var
-      newBlock = BeaconBlock(
-        slot: slot,
-        parent_root: head.root,
-        body: blockBody,
-        # TODO: This shouldn't be necessary if OpaqueBlob is the default
-        signature: ValidatorSig(kind: OpaqueBlob))
+      newBlock = SignedBeaconBlock(
+        message: BeaconBlock(
+          slot: slot,
+          parent_root: head.root,
+          body: blockBody))
       tmpState = hashedState
-    discard state_transition(tmpState, newBlock, {skipValidation})
+    discard state_transition(tmpState, newBlock.message, {skipValidation})
     # TODO only enable in fast-fail debugging situations
     # otherwise, bad attestations can bring down network
     # doAssert ok # TODO: err, could this fail somehow?
 
-    newBlock.state_root = tmpState.root
+    newBlock.message.state_root = tmpState.root
 
-    let blockRoot = signing_root(newBlock)
+    let blockRoot = hash_tree_root(newBlock.message)
 
     # Careful, state no longer valid after here..
     # We use the fork from the pre-newBlock state which should be fine because
@@ -458,23 +466,23 @@ proc proposeBlock(node: BeaconNode,
 
     (blockRoot, newBlock)
 
-  let newBlockRef = node.blockPool.add(node.stateCache, nroot, nblck)
+  let newBlockRef = node.blockPool.add(nroot, nblck)
   if newBlockRef == nil:
     warn "Unable to add proposed block to block pool",
-      newBlock = shortLog(newBlock),
+      newBlock = shortLog(newBlock.message),
       blockRoot = shortLog(blockRoot),
       cat = "bug"
     return head
 
   info "Block proposed",
-    blck = shortLog(newBlock),
+    blck = shortLog(newBlock.message),
     blockRoot = shortLog(newBlockRef.root),
     validator = shortLog(validator),
     cat = "consensus"
 
   if node.config.dump:
     SSZ.saveFile(
-      node.config.dumpDir / "block-" & $newBlock.slot & "-" &
+      node.config.dumpDir / "block-" & $newBlock.message.slot & "-" &
       shortLog(newBlockRef.root) & ".ssz", newBlock)
     SSZ.saveFile(
       node.config.dumpDir / "state-" & $tmpState.data.slot & "-" &
@@ -498,50 +506,39 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
     signature = shortLog(attestation.signature),
     cat = "consensus" # Tag "consensus|attestation"?
 
-  if (let attestedBlock = node.blockPool.getOrResolve(
-        attestation.data.beacon_block_root); attestedBlock != nil):
-    let
-      wallSlot = node.beaconClock.now().toSlot()
-      head = node.blockPool.head
+  let
+    wallSlot = node.beaconClock.now().toSlot()
+    head = node.blockPool.head
 
-    if not wallSlot.afterGenesis or wallSlot.slot < head.blck.slot:
-      warn "Received attestation before genesis or head - clock is wrong?",
-        afterGenesis = wallSlot.afterGenesis,
-        wallSlot = shortLog(wallSlot.slot),
-        headSlot = shortLog(head.blck.slot),
-        cat = "clock_drift" # Tag "attestation|clock_drift"?
-      return
+  if not wallSlot.afterGenesis or wallSlot.slot < head.blck.slot:
+    warn "Received attestation before genesis or head - clock is wrong?",
+      afterGenesis = wallSlot.afterGenesis,
+      wallSlot = shortLog(wallSlot.slot),
+      headSlot = shortLog(head.blck.slot),
+      cat = "clock_drift" # Tag "attestation|clock_drift"?
+    return
 
-    # TODO seems reasonable to use the latest head state here.. needs thinking
-    #      though - maybe we should use the state from the block pointed to by
-    #      the attestation for some of the check? Consider interop with block
-    #      production!
-    if attestation.data.slot > head.blck.slot and
-        (attestation.data.slot - head.blck.slot) > maxEmptySlotCount:
-      warn "Ignoring attestation, head block too old (out of sync?)",
-        attestationSlot = attestation.data.slot, headSlot = head.blck.slot
-    else:
-      let
-        bs = BlockSlot(blck: head.blck, slot: wallSlot.slot)
+  if attestation.data.slot > head.blck.slot and
+      (attestation.data.slot - head.blck.slot) > maxEmptySlotCount:
+    warn "Ignoring attestation, head block too old (out of sync?)",
+      attestationSlot = attestation.data.slot, headSlot = head.blck.slot
+    return
 
-      node.blockPool.withState(node.stateCache, bs):
-        node.attestationPool.add(state, attestedBlock, attestation)
-  else:
-    node.attestationPool.addUnresolved(attestation)
+  node.attestationPool.add(attestation)
 
-proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
+proc onBeaconBlock(node: BeaconNode, blck: SignedBeaconBlock) =
   # We received a block but don't know much about it yet - in particular, we
   # don't know if it's part of the chain we're currently building.
-  let blockRoot = signing_root(blck)
+  let blockRoot = hash_tree_root(blck.message)
   debug "Block received",
-    blck = shortLog(blck),
+    blck = shortLog(blck.message),
     blockRoot = shortLog(blockRoot),
     cat = "block_listener",
     pcs = "receive_block"
 
   beacon_blocks_received.inc()
 
-  if node.blockPool.add(node.stateCache, blockRoot, blck).isNil:
+  if node.blockPool.add(blockRoot, blck).isNil:
     return
 
   # The block we received contains attestations, and we might not yet know about
@@ -551,8 +548,8 @@ proc onBeaconBlock(node: BeaconNode, blck: BeaconBlock) =
   # TODO shouldn't add attestations if the block turns out to be invalid..
   let currentSlot = node.beaconClock.now.toSlot
   if currentSlot.afterGenesis and
-     blck.slot.epoch + 1 >= currentSlot.slot.epoch:
-    for attestation in blck.body.attestations:
+     blck.message.slot.epoch + 1 >= currentSlot.slot.epoch:
+    for attestation in blck.message.body.attestations:
       node.onAttestation(attestation)
 
 proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
@@ -600,7 +597,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   #      epoch since it doesn't change, but that has to be weighed against
   #      the complexity of handling forks correctly - instead, we use an adapted
   #      version here that calculates the committee for a single slot only
-  node.blockPool.withState(node.stateCache, attestationHead):
+  node.blockPool.withState(node.blockPool.tmpState, attestationHead):
     var cache = get_empty_per_epoch_cache()
     let committees_per_slot = get_committee_count_at_slot(state, slot)
 
@@ -623,12 +620,11 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
   ## Perform the proposal for the given slot, iff we have a validator attached
   ## that is supposed to do so, given the shuffling in head
 
-  # TODO here we advanced the state to the new slot, but later we'll be
+  # TODO here we advance the state to the new slot, but later we'll be
   #      proposing for it - basically, we're selecting proposer based on an
-  #      empty slot.. wait for the committee selection to settle, then
-  #      revisit this - we should be able to advance behind
+  #      empty slot
   var cache = get_empty_per_epoch_cache()
-  node.blockPool.withState(node.stateCache, BlockSlot(blck: head, slot: slot)):
+  node.blockPool.withState(node.blockPool.tmpState, head.atSlot(slot)):
     let proposerIdx = get_beacon_proposer_index(state, cache)
     if proposerIdx.isNone:
       notice "Missing proposer index",
@@ -669,14 +665,26 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     beaconTime = node.beaconClock.now()
     wallSlot = beaconTime.toSlot()
 
-  debug "Slot start",
+  info "Slot start",
     lastSlot = shortLog(lastSlot),
     scheduledSlot = shortLog(scheduledSlot),
     beaconTime = shortLog(beaconTime),
     peers = node.network.peersCount,
+    headSlot = shortLog(node.blockPool.head.blck.slot),
+    headEpoch = shortLog(node.blockPool.head.blck.slot.compute_epoch_at_slot()),
+    headRoot = shortLog(node.blockPool.head.blck.root),
+    finalizedSlot = shortLog(node.blockPool.finalizedHead.blck.slot),
+    finalizedRoot = shortLog(node.blockPool.finalizedHead.blck.root),
+    finalizedSlot = shortLog(node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()),
     cat = "scheduling"
 
   if not wallSlot.afterGenesis or (wallSlot.slot < lastSlot):
+    let
+      slot =
+        if wallSlot.afterGenesis: wallSlot.slot
+        else: GENESIS_SLOT
+      nextSlot = slot + 1 # At least GENESIS_SLOT + 1!
+
     # This can happen if the system clock changes time for example, and it's
     # pretty bad
     # TODO shut down? time either was or is bad, and PoS relies on accuracy..
@@ -684,14 +692,8 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
       beaconTime = shortLog(beaconTime),
       lastSlot = shortLog(lastSlot),
       scheduledSlot = shortLog(scheduledSlot),
+      nextSlot = shortLog(nextSlot),
       cat = "clock_drift" # tag "scheduling|clock_drift"?
-
-    let
-      slot = Slot(
-        if wallSlot.afterGenesis:
-          max(1'u64, wallSlot.slot.uint64)
-        else: GENESIS_SLOT.uint64 + 1)
-      nextSlot = slot + 1
 
     addTimer(saturate(node.beaconClock.fromNow(nextSlot))) do (p: pointer):
       asyncCheck node.onSlotStart(slot, nextSlot)
@@ -710,9 +712,10 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     # TODO how long should the period be? Using an epoch because that's roughly
     #      how long attestations remain interesting
     # TODO should we shut down instead? clearly we're unable to keep up
-    warn "Unable to keep up, skipping ahead without doing work",
+    warn "Unable to keep up, skipping ahead",
       lastSlot = shortLog(lastSlot),
       slot = shortLog(slot),
+      nextSlot = shortLog(nextSlot),
       scheduledSlot = shortLog(scheduledSlot),
       cat = "overload"
 
@@ -727,7 +730,11 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   #      updates and is stable across some epoch transitions as well - see how
   #      we can avoid recalculating everything here
 
-  var head = node.updateHead(slot)
+  var head = node.updateHead()
+
+  # TODO is the slot of the clock or the head block more interestion? provide
+  #      rationale in comment
+  beacon_head_slot.set slot.int64
 
   # TODO if the head is very old, that is indicative of something being very
   #      wrong - us being out of sync or disconnected from the network - need
@@ -790,7 +797,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     #      with any clock discrepancies once only, at the start of slot timer
     #      processing..
 
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/validator/0_beacon-chain-validator.md#attesting
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/validator/0_beacon-chain-validator.md#attesting
     # A validator should create and broadcast the attestation to the
     # associated attestation subnet one-third of the way through the slot
     # during which the validator is assigned―that is, SECONDS_PER_SLOT / 3
@@ -812,13 +819,24 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
       await sleepAsync(fromNow)
 
       # Time passed - we might need to select a new head in that case
-      head = node.updateHead(slot)
+      head = node.updateHead()
 
     handleAttestations(node, head, slot)
 
   # TODO ... and beacon clock might jump here also. sigh.
   let
     nextSlotStart = saturate(node.beaconClock.fromNow(nextSlot))
+
+  info "Slot end",
+    slot = shortLog(slot),
+    nextSlot = shortLog(nextSlot),
+    headSlot = shortLog(node.blockPool.head.blck.slot),
+    headEpoch = shortLog(node.blockPool.head.blck.slot.compute_epoch_at_slot()),
+    headRoot = shortLog(node.blockPool.head.blck.root),
+    finalizedSlot = shortLog(node.blockPool.finalizedHead.blck.slot),
+    finalizedEpoch = shortLog(node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()),
+    finalizedRoot = shortLog(node.blockPool.finalizedHead.blck.root),
+    cat = "scheduling"
 
   addTimer(nextSlotStart) do (p: pointer):
     asyncCheck node.onSlotStart(slot, nextSlot)
@@ -829,7 +847,7 @@ proc handleMissingBlocks(node: BeaconNode) =
     var left = missingBlocks.len
 
     info "Requesting detected missing blocks", missingBlocks
-    node.requestManager.fetchAncestorBlocks(missingBlocks) do (b: BeaconBlock):
+    node.requestManager.fetchAncestorBlocks(missingBlocks) do (b: SignedBeaconBlock):
       onBeaconBlock(node, b)
 
       # TODO instead of waiting for a full second to try the next missing block
@@ -851,8 +869,8 @@ proc onSecond(node: BeaconNode, moment: Moment) {.async.} =
     asyncCheck node.onSecond(nextSecond)
 
 proc run*(node: BeaconNode) =
-  waitFor node.network.subscribe(topicBeaconBlocks) do (blck: BeaconBlock):
-    onBeaconBlock(node, blck)
+  waitFor node.network.subscribe(topicBeaconBlocks) do (signedBlock: SignedBeaconBlock):
+    onBeaconBlock(node, signedBlock)
 
   waitFor node.network.subscribe(topicAttestations) do (attestation: Attestation):
     # Avoid double-counting attestation-topic attestations on shared codepath
@@ -862,19 +880,20 @@ proc run*(node: BeaconNode) =
     node.onAttestation(attestation)
 
   let
-    t = node.beaconClock.now()
-    startSlot = if t > BeaconTime(0): t.toSlot.slot + 1
-                else: GENESIS_SLOT + 1
-    fromNow = saturate(node.beaconClock.fromNow(startSlot))
+    t = node.beaconClock.now().toSlot()
+    curSlot = if t.afterGenesis: t.slot
+              else: GENESIS_SLOT
+    nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
+    fromNow = saturate(node.beaconClock.fromNow(nextSlot))
 
   info "Scheduling first slot action",
     beaconTime = shortLog(node.beaconClock.now()),
-    nextSlot = shortLog(startSlot),
+    nextSlot = shortLog(nextSlot),
     fromNow = shortLog(fromNow),
     cat = "scheduling"
 
   addTimer(fromNow) do (p: pointer):
-    asyncCheck node.onSlotStart(startSlot - 1, startSlot)
+    asyncCheck node.onSlotStart(curSlot, nextSlot)
 
   let second = Moment.now() + chronos.seconds(1)
   addTimer(second) do (p: pointer):
@@ -919,7 +938,7 @@ proc start(node: BeaconNode) =
   let
     bs = BlockSlot(blck: head.blck, slot: head.blck.slot)
 
-  node.blockPool.withState(node.stateCache, bs):
+  node.blockPool.withState(node.blockPool.tmpState, bs):
     node.addLocalValidators(state)
 
   node.run()
@@ -1012,9 +1031,9 @@ when hasPrompt:
         of "attached_validators_balance":
           var balance = uint64(0)
           # TODO slow linear scan!
-          for idx, b in node.stateCache.data.data.balances:
+          for idx, b in node.blockPool.headState.data.data.balances:
             if node.getAttachedValidator(
-                node.stateCache.data.data, ValidatorIndex(idx)) != nil:
+                node.blockPool.headState.data.data, ValidatorIndex(idx)) != nil:
               balance += b
           formatGwei(balance)
 
@@ -1139,7 +1158,15 @@ when isMainModule:
     createPidFile(config.dataDir.string / "beacon_node.pid")
 
     var node = waitFor BeaconNode.init(config)
-    when hasPrompt: initPrompt(node)
+    when hasPrompt:
+      initPrompt(node)
+
+    when useInsecureFeatures:
+      if config.metricsServer:
+        let metricsAddress = config.metricsServerAddress
+        info "Starting metrics HTTP server",
+          address = metricsAddress, port = config.metricsServerPort
+        metrics.startHttpServer(metricsAddress, Port(config.metricsServerPort))
 
     if node.nickname != "":
       dynamicLogScope(node = node.nickname): node.start()

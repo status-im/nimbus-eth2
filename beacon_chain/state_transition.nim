@@ -34,7 +34,8 @@ import
   collections/sets, chronicles, sets,
   ./extras, ./ssz, metrics,
   ./spec/[datatypes, digest, helpers, validator],
-  ./spec/[state_transition_block, state_transition_epoch]
+  ./spec/[state_transition_block, state_transition_epoch],
+  ../nbench/bench_lab
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
 declareGauge beacon_current_validators, """Number of status="pending|active|exited|withdrawable" validators in current epoch""" # On epoch transition
@@ -44,7 +45,7 @@ declareGauge beacon_previous_validators, """Number of status="pending|active|exi
 # ---------------------------------------------------------------
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
-func process_slot*(state: var BeaconState) =
+func process_slot*(state: var BeaconState) {.nbench.}=
   # Cache state root
   let previous_state_root = hash_tree_root(state)
   state.state_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
@@ -56,7 +57,7 @@ func process_slot*(state: var BeaconState) =
 
   # Cache block root
   state.block_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
-    signing_root(state.latest_block_header)
+    hash_tree_root(state.latest_block_header)
 
 func get_epoch_validator_count(state: BeaconState): int64 =
   # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
@@ -81,7 +82,7 @@ func get_epoch_validator_count(state: BeaconState): int64 =
       result += 1
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
-proc process_slots*(state: var BeaconState, slot: Slot) =
+proc process_slots*(state: var BeaconState, slot: Slot) {.nbench.}=
   doAssert state.slot <= slot
 
   # Catch up to the target slot
@@ -96,7 +97,7 @@ proc process_slots*(state: var BeaconState, slot: Slot) =
     if is_epoch_transition:
       beacon_current_validators.set(get_epoch_validator_count(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
   let state_root = hash_tree_root(state)
@@ -108,7 +109,7 @@ proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
     true
 
 proc state_transition*(
-    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
+    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool {.nbench.}=
   ## Time in the beacon chain moves by slots. Every time (haha.) that happens,
   ## we will update the beacon state. Normally, the state updates will be driven
   ## by the contents of a new block, but it may happen that the block goes
@@ -183,7 +184,7 @@ func process_slot(state: var HashedBeaconState) =
 
   # Cache block root
   state.data.block_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
-    signing_root(state.data.latest_block_header)
+    hash_tree_root(state.data.latest_block_header)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 proc process_slots*(state: var HashedBeaconState, slot: Slot) =

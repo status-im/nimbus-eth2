@@ -5,7 +5,7 @@
 # Tools
 
 * transition: Perform state transition given a pre-state and a block to apply (both in SSZ format)
-* signing_root/hash_tree_root: Print tree root of an SSZ object
+* hash_tree_root: Print tree root of an SSZ object
 * pretty: Pretty-print SSZ object as JSON
 
 # Building

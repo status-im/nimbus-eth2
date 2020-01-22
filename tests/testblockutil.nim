@@ -64,7 +64,7 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
 
   if skipValidation notin flags:
     result.data.signature =
-      bls_sign(privkey, signing_root(result.data).data,
+      bls_sign(privkey, hash_tree_root(result.getDepositMessage).data,
                domain)
 
 func makeInitialDeposits*(
@@ -74,7 +74,7 @@ func makeInitialDeposits*(
 
 proc addBlock*(
     state: var BeaconState, previous_block_root: Eth2Digest,
-    body: BeaconBlockBody, flags: UpdateFlags = {}): BeaconBlock =
+    body: BeaconBlockBody, flags: UpdateFlags = {}): SignedBeaconBlock =
   # Create and add a block to state - state will advance by one slot!
   # This is the equivalent of running
   # updateState(state, prev_block, makeBlock(...), {skipValidation})
@@ -93,51 +93,55 @@ proc addBlock*(
 
   # TODO ugly hack; API needs rethinking
   var new_body = body
-  new_body.randao_reveal = privKey.genRandaoReveal(state.fork, state.slot + 1)
+  if skipValidation notin flags:
+    new_body.randao_reveal = privKey.genRandaoReveal(state.fork, state.slot + 1)
+
   new_body.eth1_data = Eth1Data()
 
   var
     # In order to reuse the state transition function, we first create a dummy
     # block that has some fields set, and use that to generate the state as it
     # would look with the new block applied.
-    new_block = BeaconBlock(
-      slot: state.slot + 1,
-      parent_root: previous_block_root,
-      state_root: Eth2Digest(), # we need the new state first
-      body: new_body,
-      signature: ValidatorSig(), # we need the rest of the block first!
+    new_block = SignedBeaconBlock(
+      message: BeaconBlock(
+        slot: state.slot + 1,
+        parent_root: previous_block_root,
+        state_root: Eth2Digest(), # we need the new state first
+        body: new_body
+      )
     )
 
-  let block_ok = state_transition(state, new_block, {skipValidation})
+  let block_ok = state_transition(state, new_block.message, {skipValidation})
   doAssert block_ok
 
   # Ok, we have the new state as it would look with the block applied - now we
   # can set the state root in order to be able to create a valid signature
-  new_block.state_root = hash_tree_root(state)
+  new_block.message.state_root = hash_tree_root(state)
 
   doAssert privKey.pubKey() == proposer.pubkey,
     "signature key should be derived from private key! - wrong privkey?"
 
   if skipValidation notin flags:
-    let block_root = signing_root(new_block)
+    let block_root = hash_tree_root(new_block.message)
     # We have a signature - put it in the block and we should be done!
     new_block.signature =
       bls_sign(privKey, block_root.data,
                get_domain(state, DOMAIN_BEACON_PROPOSER,
-               compute_epoch_at_slot(new_block.slot)))
+               compute_epoch_at_slot(new_block.message.slot)))
 
     doAssert bls_verify(
       proposer.pubkey,
       block_root.data, new_block.signature,
       get_domain(
-        state, DOMAIN_BEACON_PROPOSER, compute_epoch_at_slot(new_block.slot))),
+        state, DOMAIN_BEACON_PROPOSER,
+        compute_epoch_at_slot(new_block.message.slot))),
       "we just signed this message - it should pass verification!"
 
   new_block
 
 proc makeBlock*(
     state: BeaconState, previous_block_root: Eth2Digest,
-    body: BeaconBlockBody): BeaconBlock =
+    body: BeaconBlockBody): SignedBeaconBlock =
   # Create a block for `state.slot + 1` - like a block proposer would do!
   # It's a bit awkward - in order to produce a block for N+1, we need to
   # calculate what the state will look like after that block has been applied,
@@ -162,18 +166,15 @@ proc makeAttestation*(
   doAssert sac_index != -1, "find_beacon_committee should guarantee this"
 
   var aggregation_bits = CommitteeValidatorsBits.init(committee.len)
-  aggregation_bits.raiseBit sac_index
+  aggregation_bits.setBit sac_index
 
   let
     msg = hash_tree_root(data)
     sig =
       if skipValidation notin flags:
         bls_sign(
-          hackPrivKey(validator), @(msg.data),
-          get_domain(
-            state,
-            DOMAIN_BEACON_ATTESTER,
-            data.target.epoch))
+          hackPrivKey(validator), msg.data,
+          get_domain(state, DOMAIN_BEACON_ATTESTER, data.target.epoch))
       else:
         ValidatorSig()
 
@@ -206,3 +207,33 @@ proc makeAttestation*(
     find_beacon_committee(state, validator_index, cache)
   makeAttestation(state, beacon_block_root, committee, slot, index,
     validator_index, cache, flags)
+
+proc makeFullAttestations*(
+    state: BeaconState, beacon_block_root: Eth2Digest, slot: Slot,
+    cache: var StateCache,
+    flags: UpdateFlags = {}): seq[Attestation] =
+  # Create attestations in which the full committee participates for each shard
+  # that should be attested to during a particular slot
+  let
+    count = get_committee_count_at_slot(state, slot)
+
+  for index in 0..<count:
+    let
+      committee = get_beacon_committee(state, slot, index, cache)
+      data = makeAttestationData(state, slot, index, beacon_block_root)
+      msg = hash_tree_root(data)
+
+    var
+      attestation = Attestation(
+        aggregation_bits: CommitteeValidatorsBits.init(committee.len),
+        data: data,
+        signature: ValidatorSig(kind: Real, blsValue: Signature.init())
+      )
+    for j in 0..<committee.len():
+      attestation.aggregation_bits.setBit j
+      if skipValidation notin flags:
+        attestation.signature.combine(bls_sign(
+          hackPrivKey(state.validators[committee[j]]), msg.data,
+          get_domain(state, DOMAIN_BEACON_ATTESTER, data.target.epoch)))
+
+    result.add attestation

@@ -36,9 +36,9 @@ suite "Zero signature sanity checks":
 
   #   check(zeroSIg == deserZeroSig)
 
-  timedTest "SSZ serialization roundtrip of BeaconBlockHeader":
+  timedTest "SSZ serialization roundtrip of SignedBeaconBlockHeader":
 
-    let defaultBlockHeader = BeaconBlockHeader(
+    let defaultBlockHeader = SignedBeaconBlockHeader(
       signature: BlsValue[Signature](kind: OpaqueBlob)
     )
 
@@ -50,6 +50,7 @@ suite "Zero signature sanity checks":
         allZeros
 
     let sszDefaultBlockHeader = SSZ.encode(defaultBlockHeader)
-    let deserBlockHeader = SSZ.decode(sszDefaultBlockHeader, BeaconBlockHeader)
+    let deserBlockHeader =
+      SSZ.decode(sszDefaultBlockHeader, SignedBeaconBlockHeader)
 
     check(defaultBlockHeader == deserBlockHeader)

@@ -22,6 +22,7 @@ def runStages() {
 				"tools": {
 					stage("Tools") {
 						sh "make -j${env.NPROC}"
+						sh "make -j${env.NPROC} NIMFLAGS='-d:NETWORK_TYPE=libp2p'"
 					}
 				},
 				"test suite": {

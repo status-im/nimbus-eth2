@@ -16,7 +16,7 @@ Nimbus beacon chain is a research implementation of the beacon chain component o
 ## Related
 
 * [status-im/nimbus](https://github.com/status-im/nimbus/): Nimbus for Ethereum 1
-* [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md): Serenity specification that this project implements
+* [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md): Serenity specification that this project implements
 
 You can check where the beacon chain fits in the Ethereum ecosystem our Two-Point-Oh series: https://our.status.im/tag/two-point-oh/
 
@@ -36,6 +36,7 @@ You can check where the beacon chain fits in the Ethereum ecosystem our Two-Poin
     - [State transition simulation](#state-transition-simulation)
     - [Local network simulation](#local-network-simulation)
     - [Visualising simulation metrics](#visualising-simulation-metrics)
+    - [Network inspection](#network-inspection)
   - [For developers](#for-developers)
     - [Windows dev environment](#windows-dev-environment)
     - [Linux, MacOS](#linux-macos)
@@ -51,7 +52,6 @@ Nimbus has 4 external dependencies:
 
 * Go 1.12 (for compiling libp2p daemon - being phased out)
 * Developer tools (C compiler, Make, Bash, Git)
-* [RocksDB](https://github.com/facebook/rocksdb/)
 * PCRE
 
 Nim is not an external dependency, Nimbus will build its own local copy.
@@ -61,13 +61,13 @@ Nim is not an external dependency, Nimbus will build its own local copy.
 On common Linux distributions the dependencies can be installed with:
 ```sh
 # Debian and Ubuntu
-sudo apt-get install build-essentials golang-go librocksdb-dev libpcre3-dev
+sudo apt-get install build-essential git golang-go libpcre3-dev
 
 # Fedora
-dnf install @development-tools go rocksdb-devel pcre
+dnf install @development-tools go pcre
 
 # Archlinux, using an AUR manager for pcre-static
-yourAURmanager -S base-devel go rocksdb pcre-static
+yourAURmanager -S base-devel go pcre-static
 ```
 
 ### MacOS
@@ -75,14 +75,14 @@ yourAURmanager -S base-devel go rocksdb pcre-static
 Assuming you use [Homebrew](https://brew.sh/) to manage packages
 
 ```sh
-brew install go rocksdb pcre
+brew install go pcre
 ```
 
 ### Windows
 
 * install [Go](https://golang.org/doc/install#windows)
 You can install the developer tools by following the instruction in our [Windows dev environment section](#windows-dev-environment).
-It also provides a downloading script for prebuilt PCRE and RocksDB.
+It also provides a downloading script for prebuilt PCRE.
 
 If you choose to install Go from source, both Go and Nimbus requires the same initial steps of installing Mingw.
 
@@ -182,6 +182,25 @@ The dashboard you need to import in Grafana is "tests/simulation/beacon-chain-si
 
 ![monitoring dashboard](./media/monitoring.png)
 
+### Network inspection
+
+The [inspector tool](./beacon_chain/inspector.nim) can help monitor the libp2p network and the various channels where blocks and attestations are being transmitted, showing message and connectivity metadata. By default, it will monitor all ethereum 2 gossip traffic.
+
+```bash
+. ./env.sh
+# Build inspector for minimal config:
+./env.sh nim c -d:const_preset=minimal -o:build/inspector_minimal beacon_chain/inspector.nim
+
+# Build inspector for mainnet config:
+./env.sh nim c -d:const_preset=mainnet -o:build/inspector_mainnet beacon_chain/inspector.nim
+
+# See available options
+./env.sh build/inspector_minimal --help
+
+# Connect to a network from eth2 testnet repo bootstrap file - --decode option attempts to decode the messages as well
+./env.sh build/inspector_minimal --decode -b:$(curl -s https://raw.githubusercontent.com/eth2-clients/eth2-testnets/master/nimbus/testnet0/bootstrap_nodes.txt | head -n1)
+```
+
 ## For developers
 
 Latest updates happen in the `devel` branch which is merged into `master` every week on Tuesday before deploying a new testnets
@@ -200,7 +219,7 @@ Variables -> Path -> Edit -> New -> C:\mingw-w64\mingw64\bin (it's "C:\mingw-w64
 
 Install [Git for Windows](https://gitforwindows.org/) and use a "Git Bash" shell to clone and build nim-beacon-chain.
 
-If you don't want to compile RocksDB and SQLite separately, you can fetch pre-compiled DLLs with:
+If you don't want to compile PCRE separately, you can fetch pre-compiled DLLs with:
 ```bash
 mingw32-make # this first invocation will update the Git submodules
 mingw32-make fetch-dlls # this will place the right DLLs for your architecture in the "build/" directory
@@ -265,19 +284,6 @@ sudo apt-get install git libgflags-dev libsnappy-dev libpcre3-dev
 
 mkdir status
 cd status
-
-# Install rocksdb
-git clone https://github.com/facebook/rocksdb.git
-cd rocksdb
-make shared_lib
-sudo make install
-cd ..
-
-# Raspberry pi doesn't include /usr/local/lib in library search path
-# Add it to your profile
-echo '# Local compiles (nimbus - rocksdb)' >> ~/.profile
-echo 'export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH' >> ~/.profile
-echo '' >> ~/.profile
 
 # Install Go at least 1.12 (Buster only includes up to 1.11)
 # Raspbian is 32-bit, so the package is go1.XX.X.linux-armv6l.tar.gz (and not arm64)

@@ -35,7 +35,8 @@
 import
   algorithm, collections/sets, chronicles, options, sequtils, sets, tables,
   ../extras, ../ssz, metrics,
-  beaconstate, crypto, datatypes, digest, helpers, validator
+  beaconstate, crypto, datatypes, digest, helpers, validator,
+  ../../nbench/bench_lab
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
 declareGauge beacon_current_live_validators, "Number of active validators that successfully included attestation on chain for current epoch" # On block
@@ -43,10 +44,10 @@ declareGauge beacon_previous_live_validators, "Number of active validators that 
 declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
 declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#block-header
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/beacon-chain.md#block-header
 proc process_block_header*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
-    stateCache: var StateCache): bool =
+    stateCache: var StateCache): bool {.nbench.}=
   # Verify that the slots match
   if not (blck.slot == state.slot):
     notice "Block header: slot mismatch",
@@ -56,13 +57,13 @@ proc process_block_header*(
 
   # Verify that the parent matches
   if skipValidation notin flags and not (blck.parent_root ==
-      signing_root(state.latest_block_header)):
+      hash_tree_root(state.latest_block_header)):
     # TODO: skip validation is too strong
     #       can't do "invalid_parent_root" test
     notice "Block header: previous block root mismatch",
       latest_block_header = state.latest_block_header,
       blck = shortLog(blck),
-      latest_block_header_root = shortLog(signing_root(state.latest_block_header))
+      latest_block_header_root = shortLog(hash_tree_root(state.latest_block_header))
     return false
 
   # Save current block as the new latest block
@@ -71,9 +72,6 @@ proc process_block_header*(
     parent_root: blck.parent_root,
     # state_root: zeroed, overwritten in the next `process_slot` call
     body_root: hash_tree_root(blck.body),
-    # signature is always zeroed
-    # TODO - Pure BLSSig cannot be zero: https://github.com/status-im/nim-beacon-chain/issues/374
-    signature: BlsValue[Signature](kind: OpaqueBlob)
   )
 
   # Verify proposer is not slashed
@@ -87,24 +85,12 @@ proc process_block_header*(
     notice "Block header: proposer slashed"
     return false
 
-  # Verify proposer signature
-  if skipValidation notin flags and not bls_verify(
-      proposer.pubkey,
-      signing_root(blck).data,
-      blck.signature,
-      get_domain(state, DOMAIN_BEACON_PROPOSER)):
-    notice "Block header: invalid block header",
-      proposer_pubkey = proposer.pubkey,
-      block_root = shortLog(signing_root(blck)),
-      block_signature = blck.signature
-    return false
-
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#randao
 proc process_randao(
     state: var BeaconState, body: BeaconBlockBody, flags: UpdateFlags,
-    stateCache: var StateCache): bool =
+    stateCache: var StateCache): bool {.nbench.}=
   let
     epoch = state.get_current_epoch()
     proposer_index = get_beacon_proposer_index(state, stateCache)
@@ -139,24 +125,24 @@ proc process_randao(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#eth1-data
-func process_eth1_data(state: var BeaconState, body: BeaconBlockBody) =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/beacon-chain.md#eth1-data
+func process_eth1_data(state: var BeaconState, body: BeaconBlockBody) {.nbench.}=
   state.eth1_data_votes.add body.eth1_data
   if state.eth1_data_votes.count(body.eth1_data) * 2 >
       SLOTS_PER_ETH1_VOTING_PERIOD:
     state.eth1_data = body.eth1_data
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#is_slashable_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/beacon-chain.md#is_slashable_validator
 func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
   # Check if ``validator`` is slashable.
   (not validator.slashed) and
     (validator.activation_epoch <= epoch) and
     (epoch < validator.withdrawable_epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#proposer-slashings
 proc process_proposer_slashing*(
     state: var BeaconState, proposer_slashing: ProposerSlashing,
-    flags: UpdateFlags, stateCache: var StateCache): bool =
+    flags: UpdateFlags, stateCache: var StateCache): bool {.nbench.}=
   if proposer_slashing.proposer_index.int >= state.validators.len:
     notice "Proposer slashing: invalid proposer index"
     return false
@@ -164,13 +150,14 @@ proc process_proposer_slashing*(
   let proposer = state.validators[proposer_slashing.proposer_index.int]
 
   # Verify slots match
-  if not (proposer_slashing.header_1.slot ==
-      proposer_slashing.header_2.slot):
+  if not (proposer_slashing.signed_header_1.message.slot ==
+      proposer_slashing.signed_header_2.message.slot):
     notice "Proposer slashing: slot mismatch"
     return false
 
   # But the headers are different
-  if not (proposer_slashing.header_1 != proposer_slashing.header_2):
+  if not (proposer_slashing.signed_header_1.message !=
+      proposer_slashing.signed_header_2.message):
     notice "Proposer slashing: headers not different"
     return false
 
@@ -181,13 +168,15 @@ proc process_proposer_slashing*(
 
   # Signatures are valid
   if skipValidation notin flags:
-    for i, header in [proposer_slashing.header_1, proposer_slashing.header_2]:
+    for i, signed_header in [proposer_slashing.signed_header_1,
+        proposer_slashing.signed_header_2]:
       if not bls_verify(
           proposer.pubkey,
-          signing_root(header).data,
-          header.signature,
+          hash_tree_root(signed_header.message).data,
+          signed_header.signature,
           get_domain(
-            state, DOMAIN_BEACON_PROPOSER, compute_epoch_at_slot(header.slot))):
+            state, DOMAIN_BEACON_PROPOSER,
+            compute_epoch_at_slot(signed_header.message.slot))):
         notice "Proposer slashing: invalid signature",
           signature_index = i
         return false
@@ -199,7 +188,7 @@ proc process_proposer_slashing*(
 
 proc processProposerSlashings(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
-    stateCache: var StateCache): bool =
+    stateCache: var StateCache): bool {.nbench.}=
   if len(blck.body.proposer_slashings) > MAX_PROPOSER_SLASHINGS:
     notice "PropSlash: too many!",
       proposer_slashings = len(blck.body.proposer_slashings)
@@ -212,7 +201,7 @@ proc processProposerSlashings(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#is_slashable_attestation_data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
     data_1: AttestationData, data_2: AttestationData): bool =
   ## Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG
@@ -224,12 +213,12 @@ func is_slashable_attestation_data(
     (data_1.source.epoch < data_2.source.epoch and
      data_2.target.epoch < data_1.target.epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#attester-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
        state: var BeaconState,
        attester_slashing: AttesterSlashing,
        stateCache: var StateCache
-     ): bool =
+     ): bool {.nbench.}=
     let
       attestation_1 = attester_slashing.attestation_1
       attestation_2 = attester_slashing.attestation_2
@@ -247,11 +236,8 @@ proc process_attester_slashing*(
       notice "Attester slashing: invalid attestation 2"
       return false
 
-    var slashed_any = false # Detect if trying to slash twice
+    var slashed_any = false
 
-    ## TODO there's a lot of sorting/set construction here and
-    ## verify_indexed_attestation, but go by spec unless there
-    ## is compelling perf evidence otherwise.
     for index in sorted(toSeq(intersection(
         toHashSet(attestation_1.attesting_indices),
         toHashSet(attestation_2.attesting_indices)).items), system.cmp):
@@ -264,9 +250,9 @@ proc process_attester_slashing*(
       return false
     return true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#attester-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#attester-slashings
 proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock,
-    stateCache: var StateCache): bool =
+    stateCache: var StateCache): bool {.nbench.}=
   # Process ``AttesterSlashing`` operation.
   if len(blck.body.attester_slashings) > MAX_ATTESTER_SLASHINGS:
     notice "Attester slashing: too many!"
@@ -280,7 +266,7 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock,
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#attestations
 proc processAttestations(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
-    stateCache: var StateCache): bool =
+    stateCache: var StateCache): bool {.nbench.}=
   ## Each block includes a number of attestations that the proposer chose. Each
   ## attestation represents an update to a specific shard and is signed by a
   ## committee of validators.
@@ -300,7 +286,7 @@ proc processAttestations(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#deposits
-proc processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
+proc processDeposits(state: var BeaconState, blck: BeaconBlock): bool {.nbench.}=
   if not (len(blck.body.deposits) <= MAX_DEPOSITS):
     notice "processDeposits: too many deposits"
     return false
@@ -312,20 +298,22 @@ proc processDeposits(state: var BeaconState, blck: BeaconBlock): bool =
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#voluntary-exits
 proc process_voluntary_exit*(
     state: var BeaconState,
-    exit: VoluntaryExit,
-    flags: UpdateFlags): bool =
+    signed_voluntary_exit: SignedVoluntaryExit,
+    flags: UpdateFlags): bool {.nbench.}=
+
+  let voluntary_exit = signed_voluntary_exit.message
 
   # Not in spec. Check that validator_index is in range
-  if exit.validator_index.int >= state.validators.len:
+  if voluntary_exit.validator_index.int >= state.validators.len:
     notice "Exit: invalid validator index",
-      index = exit.validator_index,
+      index = voluntary_exit.validator_index,
       num_validators = state.validators.len
     return false
 
-  let validator = state.validators[exit.validator_index.int]
+  let validator = state.validators[voluntary_exit.validator_index.int]
 
   # Verify the validator is active
   if not is_active_validator(validator, get_current_epoch(state)):
@@ -339,7 +327,7 @@ proc process_voluntary_exit*(
 
   ## Exits must specify an epoch when they become valid; they are not valid
   ## before then
-  if not (get_current_epoch(state) >= exit.epoch):
+  if not (get_current_epoch(state) >= voluntary_exit.epoch):
     notice "Exit: exit epoch not passed"
     return false
 
@@ -351,30 +339,30 @@ proc process_voluntary_exit*(
 
   # Verify signature
   if skipValidation notin flags:
-    let domain = get_domain(state, DOMAIN_VOLUNTARY_EXIT, exit.epoch)
+    let domain = get_domain(state, DOMAIN_VOLUNTARY_EXIT, voluntary_exit.epoch)
     if not bls_verify(
         validator.pubkey,
-        signing_root(exit).data,
-        exit.signature,
+        hash_tree_root(voluntary_exit).data,
+        signed_voluntary_exit.signature,
         domain):
       notice "Exit: invalid signature"
       return false
 
   # Initiate exit
   debug "Exit: processing voluntary exit (validator_leaving)",
-    index = exit.validator_index,
+    index = voluntary_exit.validator_index,
     num_validators = state.validators.len,
-    epoch = exit.epoch,
+    epoch = voluntary_exit.epoch,
     current_epoch = get_current_epoch(state),
     validator_slashed = validator.slashed,
     validator_withdrawable_epoch = validator.withdrawable_epoch,
     validator_exit_epoch = validator.exit_epoch,
     validator_effective_balance = validator.effective_balance
-  initiate_validator_exit(state, exit.validator_index.ValidatorIndex)
+  initiate_validator_exit(state, voluntary_exit.validator_index.ValidatorIndex)
 
   true
 
-proc processVoluntaryExits(state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
+proc processVoluntaryExits(state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool {.nbench.}=
   if len(blck.body.voluntary_exits) > MAX_VOLUNTARY_EXITS:
     notice "[Block processing - Voluntary Exit]: too many exits!"
     return false
@@ -385,7 +373,7 @@ proc processVoluntaryExits(state: var BeaconState, blck: BeaconBlock, flags: Upd
 
 proc processBlock*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
-    stateCache: var StateCache): bool =
+    stateCache: var StateCache): bool {.nbench.}=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly
 

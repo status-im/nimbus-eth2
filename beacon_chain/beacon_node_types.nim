@@ -106,7 +106,7 @@ type
     ## TODO evaluate the split of responsibilities between the two
     ## TODO prune the graph as tail moves
 
-    pending*: Table[Eth2Digest, BeaconBlock] ##\
+    pending*: Table[Eth2Digest, SignedBeaconBlock] ##\
     ## Blocks that have passed validation but that we lack a link back to tail
     ## for - when we receive a "missing link", we can use this data to build
     ## an entire branch
@@ -118,8 +118,6 @@ type
     blocks*: Table[Eth2Digest, BlockRef] ##\
     ## Tree of blocks pointing back to a finalized block on the chain we're
     ## interested in - we call that block the tail
-
-    blocksBySlot*: Table[Slot, seq[BlockRef]]
 
     tail*: BlockRef ##\
     ## The earliest finalized block we know about
@@ -137,6 +135,11 @@ type
     heads*: seq[Head]
 
     inAdd*: bool
+
+    headState*: StateData ## State given by the head block
+    justifiedState*: StateData ## Latest justified state, as seen from the head
+
+    tmpState*: StateData ## Scratchpad - may be any state
 
   MissingBlock* = object
     slots*: uint64 # number of slots that are suspected missing
@@ -161,15 +164,16 @@ type
   BlockData* = object
     ## Body and graph in one
 
-    data*: BeaconBlock
+    data*: SignedBeaconBlock
     refs*: BlockRef
 
   StateData* = object
     data*: HashedBeaconState
 
     blck*: BlockRef ##\
-    ## The block associated with the state found in data - in particular,
-    ## blck.state_root == rdata.root
+    ## The block associated with the state found in data - normally
+    ## `blck.state_root == data.root` but the state might have been advanced
+    ## further with empty slots invalidating this condition.
 
   BlockSlot* = object
     ## Unique identifier for a particular fork and time in the block chain -

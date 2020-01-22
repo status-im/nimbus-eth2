@@ -25,7 +25,7 @@ func signMockDepositData(
   # No state --> Genesis
   deposit_data.signature = bls_sign(
     key = privkey,
-    msg = deposit_data.signing_root().data,
+    msg = deposit_data.getDepositMessage().hash_tree_root().data,
     domain = compute_domain(
       DOMAIN_DEPOSIT,
       default(array[4, byte]) # Genesis is fork_version 0
@@ -39,7 +39,7 @@ func signMockDepositData(
       ) =
   deposit_data.signature = bls_sign(
     key = privkey,
-    msg = deposit_data.signing_root().data,
+    msg = deposit_data.getDepositMessage().hash_tree_root().data,
     domain = get_domain(
       state,
       DOMAIN_DEPOSIT

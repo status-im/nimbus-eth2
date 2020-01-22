@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2019 Status Research & Development GmbH
+# Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,7 +7,7 @@
 
 # Serenity hash function / digest
 #
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#hash
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/beacon-chain.md#hash
 #
 # In Phase 0 the beacon chain is deployed with SHA256 (SHA2-256).
 # Note that is is different from Keccak256 (often mistakenly called SHA3-256)
@@ -21,11 +21,11 @@
 
 import
   chronicles,
-  nimcrypto/[sha2, hash, utils], eth/common/eth_types_json_serialization,
+  nimcrypto/[sha2, hash, utils],
   hashes
 
 export
-  eth_types_json_serialization, hash.`$`
+  hash.`$`
 
 type
   Eth2Digest* = MDigest[32 * 8] ## `hash32` from spec
