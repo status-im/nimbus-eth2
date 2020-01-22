@@ -1,4 +1,14 @@
+# beacon_chain
+# Copyright (c) 2019 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.used.}
+
 import options, hashes, unittest
+import ./testutil
 import chronos
 import ../beacon_chain/peer_pool, ../beacon_chain/sync_manager
 
@@ -876,21 +886,21 @@ proc syncManagerFailureTest(): Future[bool] {.async.} =
   result = true
 
 suite "SyncManager test suite":
-  test "PeerSlot tests":
+  timedTest "PeerSlot tests":
     check waitFor(peerSlotTests()) == true
-  test "PeerGroup tests":
+  timedTest "PeerGroup tests":
     check waitFor(peerGroupTests()) == true
-  test "SyncQueue non-async tests":
+  timedTest "SyncQueue non-async tests":
     check syncQueueNonAsyncTests() == true
-  test "SyncQueue async tests":
+  timedTest "SyncQueue async tests":
     check waitFor(syncQueueAsyncTests()) == true
-  test "SyncManager one-peer test":
+  timedTest "SyncManager one-peer test":
     check waitFor(syncManagerOnePeerTest()) == true
-  test "SyncManager one-peer-slot test":
+  timedTest "SyncManager one-peer-slot test":
     check waitFor(syncManagerOneSlotTest()) == true
-  test "SyncManager one-peer-group test":
+  timedTest "SyncManager one-peer-group test":
     check waitFor(syncManagerOneGroupTest()) == true
-  test "SyncManager group-recovery test":
+  timedTest "SyncManager group-recovery test":
     check waitFor(syncManagerGroupRecoveryTest()) == true
-  test "SyncManager failure test":
+  timedTest "SyncManager failure test":
     check waitFor(syncManagerFailureTest()) == true
