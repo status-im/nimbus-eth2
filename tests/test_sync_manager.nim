@@ -33,7 +33,7 @@ proc getFuture*(peer: SimplePeer): Future[void] =
 proc `<`*(a, b: SimplePeer): bool =
   result = `<`(a.weight, b.weight)
 
-proc getLastSlot*(peer: SimplePeer): Slot =
+proc getHeadSlot*(peer: SimplePeer): Slot =
   if len(peer.blockchain) == 0:
     result = peer.latestSlot
   else:
@@ -550,17 +550,19 @@ proc syncQueueAsyncTests(): Future[bool] {.async.} =
   var f24 = q2.push(r24, @[chain2[6]])
   var f22 = q2.push(r22, @[chain2[2], chain2[3]])
   doAssert(f24.finished == false)
-  doAssert(f22.finished == true and f22.failed == false)
+  doAssert(f22.finished == false)
   doAssert(counter == 5)
   var f21 = q2.push(r21, @[chain2[0], chain2[1]])
   doAssert(f21.finished == true and f21.failed == false)
   await sleepAsync(100.milliseconds)
-  doAssert(f24.finished == true and f24.failed == false)
+  doAssert(f22.finished == true and f22.failed == false)
+  doAssert(f24.finished == false)
   doAssert(counter == 9)
   var f23 = q2.push(r23, @[chain2[4], chain2[5]])
   doAssert(f23.finished == true and f23.failed == false)
-  doAssert(counter == 12)
+  doAssert(counter == 11)
   await sleepAsync(100.milliseconds)
+  doAssert(f24.finished == true and f24.failed == false)
   doAssert(counter == 12)
 
   result = true
@@ -732,7 +734,6 @@ proc syncManagerOneGroupTest(): Future[bool] {.async.} =
                                            peerSlotTimeout = 1.seconds,
                                            slotsInGroup = 2)
   await sman.synchronize()
-
   for i in 0 ..< len(peers):
     if i in {0, 1, 2}:
       doAssert(checkRequest(peers[i], 0, 10000, 20, 2,
@@ -804,7 +805,6 @@ proc syncManagerGroupRecoveryTest(): Future[bool] {.async.} =
                                            peerSlotTimeout = 1.seconds,
                                            slotsInGroup = 2)
   await sman.synchronize()
-
   for i in 0 ..< len(peers):
     if i in {0, 1, 2}:
       doAssert(checkRequest(peers[i], 0, 10020, 20, 2) == true)
@@ -838,25 +838,59 @@ proc syncManagerGroupRecoveryTest(): Future[bool] {.async.} =
                             10095, 10096, 10097, 10098, 10099) == true)
   result = true
 
+proc syncManagerFailureTest(): Future[bool] {.async.} =
+  # Failure test
+  const FailuresCount = 3
+  var pool = newPeerPool[SimplePeer, SimplePeerKey]()
+  var peer = SimplePeer.init("id1", weight = 0)
 
-when isMainModule:
-  suite "SyncManager test suite":
-    test "BlockList tests":
-      # TODO
-      discard
-    # test "PeerSlot tests":
-    #   check waitFor(peerSlotTests()) == true
-    # test "PeerGroup tests":
-    #   check waitFor(peerGroupTests()) == true
-    # test "SyncQueue non-async tests":
-    #   check syncQueueNonAsyncTests() == true
-    # test "SyncQueue async tests":
-    #   check waitFor(syncQueueAsyncTests()) == true
-    # test "SyncManager one-peer test":
-    #   check waitFor(syncManagerOnePeerTest()) == true
-    # test "SyncManager one-peer-slot test":
-    #   check waitFor(syncManagerOneSlotTest()) == true
-    # test "SyncManager one-peer-group test":
-    #   check waitFor(syncManagerOneGroupTest()) == true
-    test "SyncManager group-recovery test":
-      check waitFor(syncManagerGroupRecoveryTest()) == true
+  var srcChain = newTempChain(100, Slot(10000))
+  var dstChain = newSeq[SignedBeaconBlock]()
+
+  peer.update(srcChain, failure = true)
+
+  proc lastLocalSlot(): Slot =
+    if len(dstChain) == 0:
+      result = Slot(9999)
+    else:
+      result = dstChain[^1].message.slot
+
+  proc updateBlocks(list: openarray[SignedBeaconBlock]): bool =
+    for item in list:
+      dstChain.add(item)
+    result = true
+
+  doAssert(pool.addIncomingPeer(peer) == true)
+
+  var sman = newSyncManager[SimplePeer,
+                            SimplePeerKey](pool, lastLocalSlot, updateBlocks,
+                                           peersInSlot = 3,
+                                           peerSlotTimeout = 1.seconds,
+                                           slotsInGroup = 2,
+                                           failuresCount = FailuresCount,
+                                           failurePause = 100.milliseconds)
+  await sman.synchronize()
+  doAssert(len(peer.requests) == FailuresCount)
+  for i in 0 ..< len(peer.requests):
+    doAssert(checkRequest(peer, i, 10000, 20, 1) == true)
+  result = true
+
+suite "SyncManager test suite":
+  test "PeerSlot tests":
+    check waitFor(peerSlotTests()) == true
+  test "PeerGroup tests":
+    check waitFor(peerGroupTests()) == true
+  test "SyncQueue non-async tests":
+    check syncQueueNonAsyncTests() == true
+  test "SyncQueue async tests":
+    check waitFor(syncQueueAsyncTests()) == true
+  test "SyncManager one-peer test":
+    check waitFor(syncManagerOnePeerTest()) == true
+  test "SyncManager one-peer-slot test":
+    check waitFor(syncManagerOneSlotTest()) == true
+  test "SyncManager one-peer-group test":
+    check waitFor(syncManagerOneGroupTest()) == true
+  test "SyncManager group-recovery test":
+    check waitFor(syncManagerGroupRecoveryTest()) == true
+  test "SyncManager failure test":
+    check waitFor(syncManagerFailureTest()) == true
