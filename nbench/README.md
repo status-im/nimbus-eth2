@@ -24,13 +24,25 @@ Features
 
 ```
 nim c -d:const_preset=mainnet -d:nbench -d:release -o:build/nbench nbench/nbench.nim
-export SCENARIOS=tests/official/fixtures/tests-v0.9.3/mainnet/phase0
+export SCENARIOS=tests/official/fixtures/tests-v0.9.4/mainnet/phase0
 
 # Full state transition
 build/nbench cmdFullStateTransition -d="${SCENARIOS}"/sanity/blocks/pyspec_tests/voluntary_exit/ -q=2
 
 # Slot processing
 build/nbench cmdSlotProcessing -d="${SCENARIOS}"/sanity/slots/pyspec_tests/slots_1
+
+# Justification-Finalisation
+build/nbench cmdEpochProcessing --epochProcessingCat=catJustificationFinalization -d="${SCENARIOS}"/epoch_processing/justification_and_finalization/pyspec_tests/234_ok_support/
+
+# Registry updates
+build/nbench cmdEpochProcessing --epochProcessingCat=catRegistryUpdates -d="${SCENARIOS}"/epoch_processing/registry_updates/pyspec_tests/activation_queue_efficiency/
+
+# Slashings
+build/nbench cmdEpochProcessing --epochProcessingCat=catSlashings -d="${SCENARIOS}"/epoch_processing/slashings/pyspec_tests/max_penalties/
+
+# Final updates
+build/nbench cmdEpochProcessing --epochProcessingCat=catFinalUpdates -d="${SCENARIOS}"/epoch_processing/final_updates/pyspec_tests/effective_balance_hysteresis/
 
 # Block header processing
 build/nbench cmdBlockProcessing --blockProcessingCat=catBlockHeader -d="${SCENARIOS}"/operations/block_header/pyspec_tests/proposer_slashed/
@@ -59,7 +71,7 @@ Furthermore benchmarks are run in parallel and might interfere which each other.
 ```
 nim c -d:const_preset=mainnet -d:nbench -d:release -o:build/nbench nbench/nbench.nim
 nim c -o:build/nbench_tests nbench/nbench_official_fixtures.nim
-nbench_tests --nbench=build/nbench --tests=tests/official/fixtures/tests-v0.9.4/mainnet/
+build/nbench_tests --nbench=build/nbench --tests=tests/official/fixtures/tests-v0.9.4/mainnet/
 ```
 
 ## TODO Reporting

@@ -1,12 +1,12 @@
 import
   # Standard library
-  os, net, tables, random, strutils, times,
+  os, net, tables, random, strutils, times, sequtils,
 
   # Nimble packages
-  stew/[objects, bitseqs, byteutils], stew/ranges/ptr_arith,
+  stew/[objects, bitseqs, byteutils],
   chronos, chronicles, confutils, metrics,
   json_serialization/std/[options, sets], serialization/errors,
-  eth/trie/db, eth/trie/backends/rocksdb_backend, eth/async_utils,
+  kvstore, kvstore_lmdb, eth/async_utils, eth/p2p/discoveryv5/enr,
 
   # Local modules
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network],
@@ -48,6 +48,7 @@ type
     networkIdentity: Eth2NodeIdentity
     requestManager: RequestManager
     bootstrapNodes: seq[BootstrapAddr]
+    bootstrapEnrs: seq[enr.Record]
     db: BeaconChainDB
     config: BeaconNodeConf
     attachedValidators: ValidatorPool
@@ -66,9 +67,7 @@ proc saveValidatorKey(keyName, key: string, conf: BeaconNodeConf) =
   writeFile(outputFile, key)
   info "Imported validator key", file = outputFile
 
-proc getStateFromSnapshot(node: BeaconNode, state: var BeaconState): bool =
-  template conf: untyped = node.config
-
+proc getStateFromSnapshot(conf: BeaconNodeConf, state: var BeaconState): bool =
   var
     genesisPath = conf.dataDir/genesisFile
     snapshotContents: TaintedString
@@ -92,7 +91,8 @@ proc getStateFromSnapshot(node: BeaconNode, state: var BeaconState): bool =
               dataDir = conf.dataDir.string, snapshot = snapshotPath
         quit 1
     else:
-      debug "No genesis file in data directory", genesisPath
+      debug "No previous genesis state. Importing snapshot",
+            genesisPath, dataDir = conf.dataDir.string
       writeGenesisFile = true
       genesisPath = snapshotPath
   else:
@@ -121,89 +121,146 @@ proc getStateFromSnapshot(node: BeaconNode, state: var BeaconState): bool =
 
   result = true
 
-proc commitGenesisState(node: BeaconNode, tailState: BeaconState) =
-  info "Got genesis state", hash = hash_tree_root(tailState)
-  node.forkVersion = tailState.fork.current_version
+proc addBootstrapAddr(v: var seq[BootstrapAddr], add: TaintedString) =
   try:
-    let tailBlock = get_initial_beacon_block(tailState)
-    BlockPool.preInit(node.db, tailState, tailBlock)
-
+    v.add BootstrapAddr.initAddress(string add)
   except CatchableError as e:
-    stderr.write "Failed to initialize database\n"
-    stderr.write e.msg, "\n"
+    warn "Skipping invalid address", err = e.msg
+
+proc loadBootstrapFile(bootstrapFile: string): seq[BootstrapAddr] =
+  if fileExists(bootstrapFile):
+    for line in lines(bootstrapFile):
+      result.addBootstrapAddr(line)
+
+proc addEnrBootstrapNode(enrBase64: string,
+                         bootNodes: var seq[BootstrapAddr],
+                         enrs: var seq[enr.Record]) =
+  var enrRec: enr.Record
+  if enrRec.fromURI(enrBase64):
+    try:
+      let
+        ip = IpAddress(family: IpAddressFamily.IPv4,
+                       address_v4: cast[array[4, uint8]](enrRec.get("ip", int)))
+        tcpPort = Port enrRec.get("tcp", int)
+        # udpPort = Port enrRec.get("udp", int)
+      bootNodes.add BootstrapAddr.initAddress(ip, tcpPort)
+      enrs.add enrRec
+    except CatchableError as err:
+      warn "Invalid ENR record", enrRec
+  else:
+    warn "Failed to parse ENR record", value = enrRec
+
+proc useEnrBootstrapFile(bootstrapFile: string,
+                         bootNodes: var seq[BootstrapAddr],
+                         enrs: var seq[enr.Record]) =
+  let ext = splitFile(bootstrapFile).ext
+  if cmpIgnoreCase(ext, ".txt") == 0:
+    for ln in lines(bootstrapFile):
+      addEnrBootstrapNode(string ln, bootNodes, enrs)
+  elif cmpIgnoreCase(ext, ".yaml") == 0:
+    # TODO. This is very ugly, but let's try to negotiate the
+    # removal of YAML metadata.
+    for ln in lines(bootstrapFile):
+      addEnrBootstrapNode(string(ln[3..^2]), bootNodes, enrs)
+  else:
+    error "Unknown bootstrap file format", ext
     quit 1
 
-proc addBootstrapNode(node: BeaconNode, bootstrapNode: BootstrapAddr) =
-  if not bootstrapNode.isSameNode(node.networkIdentity):
-    node.bootstrapNodes.add bootstrapNode
-
-proc loadBootstrapFile(node: BeaconNode, bootstrapFile: string) =
-  for ln in lines(bootstrapFile):
-    node.addBootstrapNode BootstrapAddr.initAddress(string ln)
-
 proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
-  new result
-  result.config = conf
-  result.networkIdentity = getPersistentNetIdentity(conf)
-  result.nickname = if conf.nodeName == "auto": shortForm(result.networkIdentity)
-                    else: conf.nodeName
+  let
+    networkId = getPersistentNetIdentity(conf)
+    nickname = if conf.nodeName == "auto": shortForm(networkId)
+               else: conf.nodeName
+    db = BeaconChainDB.init(kvStore LmdbStoreRef.init(conf.databaseDir))
 
-  for bootNode in conf.bootstrapNodes:
-    result.addBootstrapNode BootstrapAddr.init(bootNode)
+  var mainchainMonitor: MainchainMonitor
 
-  let bootstrapFile = string conf.bootstrapNodesFile
-  if bootstrapFile.len > 0:
-    result.loadBootstrapFile(bootstrapFile)
+  if not BlockPool.isInitialized(db):
+    # Fresh start - need to load a genesis state from somewhere
+    var genesisState = new BeaconState
 
-  let siteLocalBootstrapFile = conf.dataDir / "bootstrap_nodes.txt"
-  if fileExists(siteLocalBootstrapFile):
-    result.loadBootstrapFile(siteLocalBootstrapFile)
-
-  result.attachedValidators = ValidatorPool.init
-
-  let trieDB = trieDB newChainDb(conf.databaseDir)
-  result.db = BeaconChainDB.init(trieDB)
-
-  # TODO this is problably not the right place to ensure that db is sane..
-  # TODO does it really make sense to load from DB if a state snapshot has been
-  #      specified on command line? potentially, this should be the other way
-  #      around...
-
-  var eth1MonitorStartBlock: Eth2Digest
-  if result.db.getHeadBlock().isNone():
-    var state = new BeaconState
-    # TODO getStateFromSnapshot never returns false - it quits..
-    if not result.getStateFromSnapshot(state[]):
+    # Try file from command line first
+    if not conf.getStateFromSnapshot(genesisState[]):
+      # Didn't work, try creating a genesis state using main chain monitor
+      # TODO Could move this to a separate "GenesisMonitor" process or task
+      #      that would do only this - see
       if conf.depositWeb3Url.len != 0:
-        result.mainchainMonitor = MainchainMonitor.init(
-          conf.depositWeb3Url, conf.depositContractAddress, eth1MonitorStartBlock)
-        result.mainchainMonitor.start()
+        mainchainMonitor = MainchainMonitor.init(
+          conf.depositWeb3Url, conf.depositContractAddress, Eth2Digest())
+        mainchainMonitor.start()
       else:
-        stderr.write "No state snapshot (or web3 URL) provided\n"
+        error "No initial state, need genesis state or deposit contract address"
         quit 1
 
-      state[] = await result.mainchainMonitor.getGenesis()
-    else:
-      eth1MonitorStartBlock = state.eth1Data.block_hash
-    result.commitGenesisState(state[])
+      genesisState[] = await mainchainMonitor.getGenesis()
 
-  if result.mainchainMonitor.isNil and conf.depositWeb3Url.len != 0:
-    result.mainchainMonitor = MainchainMonitor.init(
-      conf.depositWeb3Url, conf.depositContractAddress, eth1MonitorStartBlock)
-    result.mainchainMonitor.start()
+    if genesisState[].slot != GENESIS_SLOT:
+      # TODO how to get a block from a non-genesis state?
+      error "Starting from non-genesis state not supported",
+        stateSlot = genesisState[].slot,
+        stateRoot = hash_tree_root(genesisState[])
+      quit 1
 
-  result.blockPool = BlockPool.init(result.db)
-  result.attestationPool = AttestationPool.init(result.blockPool)
+    let tailBlock = get_initial_beacon_block(genesisState[])
 
-  result.network = await createEth2Node(conf, result.bootstrapNodes)
-  result.requestManager.init result.network
+    try:
+      BlockPool.preInit(db, genesisState[], tailBlock)
+      doAssert BlockPool.isInitialized(db), "preInit should have initialized db"
+    except CatchableError as e:
+      error "Failed to initialize database", err = e.msg
+      quit 1
+
+  # TODO check that genesis given on command line (if any) matches database
+  let
+    blockPool = BlockPool.init(db)
+
+  if mainchainMonitor.isNil and conf.depositWeb3Url.len != 0:
+    mainchainMonitor = MainchainMonitor.init(
+      conf.depositWeb3Url, conf.depositContractAddress,
+      blockPool.headState.data.data.eth1_data.block_hash)
+    mainchainMonitor.start()
+
+  var
+    bootNodes: seq[BootstrapAddr]
+    enrs: seq[enr.Record]
+
+  for node in conf.bootstrapNodes: bootNodes.addBootstrapAddr(node)
+  bootNodes.add(loadBootstrapFile(string conf.bootstrapNodesFile))
+  bootNodes.add(loadBootstrapFile(conf.dataDir / "bootstrap_nodes.txt"))
+
+  let enrBootstrapFile = string conf.enrBootstrapNodesFile
+  if enrBootstrapFile.len > 0:
+    useEnrBootstrapFile(enrBootstrapFile, bootNodes, enrs)
+
+  bootNodes = filterIt(bootNodes, not it.isSameNode(networkId))
+
+  let
+    network = await createEth2Node(conf, bootNodes, enrs)
+
+  let addressFile = string(conf.dataDir) / "beacon_node.address"
+  network.saveConnectionAddressFile(addressFile)
+
+  var res = BeaconNode(
+    nickname: nickname,
+    network: network,
+    forkVersion: blockPool.headState.data.data.fork.current_version,
+    networkIdentity: networkId,
+    requestManager: RequestManager.init(network),
+    bootstrapNodes: bootNodes,
+    bootstrapEnrs: enrs,
+    db: db,
+    config: conf,
+    attachedValidators: ValidatorPool.init(),
+    blockPool: blockPool,
+    attestationPool: AttestationPool.init(blockPool),
+    mainchainMonitor: mainchainMonitor,
+    beaconClock: BeaconClock.init(blockPool.headState.data.data),
+  )
 
   # TODO sync is called when a remote peer is connected - is that the right
   #      time to do so?
-  let sync = result.network.protocolState(BeaconSync)
-  let node = result
-  sync.init(
-    result.blockPool, result.forkVersion,
+  let sync = network.protocolState(BeaconSync)
+  sync.init(blockPool, res.forkVersion,
     proc(signedBlock: SignedBeaconBlock) =
       if signedBlock.message.slot mod SLOTS_PER_EPOCH == 0:
         # TODO this is a hack to make sure that lmd ghost is run regularly
@@ -220,19 +277,11 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
         #      of the block pool
         # TODO is it a problem that someone sending us a block can force
         #      a potentially expensive head resolution?
-        discard node.updateHead()
+        discard res.updateHead()
 
-      onBeaconBlock(result, signedBlock))
+      onBeaconBlock(res, signedBlock))
 
-  let addressFile = string(conf.dataDir) / "beacon_node.address"
-  result.network.saveConnectionAddressFile(addressFile)
-  result.beaconClock = BeaconClock.init(result.blockPool.headState.data.data)
-
-  when useInsecureFeatures:
-    if conf.metricsServer:
-      let metricsAddress = conf.metricsServerAddress
-      info "Starting metrics HTTP server", address = metricsAddress, port = conf.metricsServerPort
-      metrics.startHttpServer(metricsAddress, Port(conf.metricsServerPort))
+  return res
 
 proc connectToNetwork(node: BeaconNode) {.async.} =
   if node.bootstrapNodes.len > 0:
@@ -1109,7 +1158,15 @@ when isMainModule:
     createPidFile(config.dataDir.string / "beacon_node.pid")
 
     var node = waitFor BeaconNode.init(config)
-    when hasPrompt: initPrompt(node)
+    when hasPrompt:
+      initPrompt(node)
+
+    when useInsecureFeatures:
+      if config.metricsServer:
+        let metricsAddress = config.metricsServerAddress
+        info "Starting metrics HTTP server",
+          address = metricsAddress, port = config.metricsServerPort
+        metrics.startHttpServer(metricsAddress, Port(config.metricsServerPort))
 
     if node.nickname != "":
       dynamicLogScope(node = node.nickname): node.start()

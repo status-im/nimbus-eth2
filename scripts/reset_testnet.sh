@@ -120,23 +120,20 @@ if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
   scp "$DATA_DIR_ABS/privkey.protobuf" $BOOTSTRAP_HOST:/tmp/
   ssh $BOOTSTRAP_HOST "sudo install -o dockremap -g docker /tmp/privkey.protobuf $BOOTSTRAP_NODE_DOCKER_PATH"
 
+  echo "Publishing Docker image..."
+  make push-last
+
   echo Persisting testnet data to git...
   pushd "$NETWORK_DIR_ABS"
     git add $COMMITTED_FILES
     git commit -m "Reset of Nimbus $NETWORK"
     git push
   popd
+
+  ../env.sh nim --verbosity:0 manage_testnet_hosts.nims restart_nodes \
+    --network=$NETWORK \
+    > /tmp/restart-nodes.sh
+
+  bash /tmp/restart-nodes.sh
+  rm /tmp/restart-nodes.sh
 fi
-
-echo "Publishing Docker image..."
-make push-last
-
-#echo -e "\nA Watchtower systemd service will pull the new image and start new containers based on it, on each testnet host, in the next 2 minutes."
-
-../env.sh nim --verbosity:0 manage_testnet_hosts.nims restart_nodes \
-  --network=$NETWORK \
-  > /tmp/restart-nodes.sh
-
-bash /tmp/restart-nodes.sh
-rm /tmp/restart-nodes.sh
-

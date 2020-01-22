@@ -1,8 +1,8 @@
 import
   confutils,
   ../beacon_chain/[extras, ssz],
-  ../beacon_chain/spec/[beaconstate, datatypes, digest, validator],
-  ../tests/testutil
+  ../beacon_chain/spec/[beaconstate, datatypes, digest],
+  ../tests/testblockutil
 
 proc stateSize(deposits: int, maxContent = false) =
   var state = initialize_beacon_state_from_eth1(

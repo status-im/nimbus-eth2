@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019 Status Research & Development GmbH
+# Copyright (c) 2019-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -75,7 +75,7 @@ proc aggregate_attestations*(
   # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/validator/0_beacon-chain-validator.md#construct-aggregate
   for attestation in getAttestationsForBlock(pool, state, slot):
     if attestation.data == attestation_data:
-      # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/validator/0_beacon-chain-validator.md#aggregateandproof
+      # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/validator.md#aggregateandproof
       return some(AggregateAndProof(
         aggregator_index: index,
         aggregate: attestation,

@@ -1,14 +1,14 @@
 import
-  json, tables, options,
-  chronicles, serialization, json_serialization, eth/common/eth_types_json_serialization,
+  options,
+  serialization,
   spec/[datatypes, digest, crypto],
-  eth/trie/db, ssz
+  kvstore, ssz
 
 type
   BeaconChainDB* = ref object
     ## Database storing resolved blocks and states - resolved blocks are such
     ## blocks that form a chain back to the tail block.
-    backend: TrieDatabaseRef
+    backend: KVStoreRef
 
   DbKeyKind = enum
     kHashToState
@@ -61,14 +61,11 @@ func subkey(root: Eth2Digest, slot: Slot): auto =
 
   ret
 
-proc init*(T: type BeaconChainDB, backend: TrieDatabaseRef): BeaconChainDB =
+proc init*(T: type BeaconChainDB, backend: KVStoreRef): BeaconChainDB =
   T(backend: backend)
 
 proc putBlock*(db: BeaconChainDB, key: Eth2Digest, value: SignedBeaconBlock) =
   db.backend.put(subkey(type value, key), SSZ.encode(value))
-
-proc putHead*(db: BeaconChainDB, key: Eth2Digest) =
-  db.backend.put(subkey(kHeadBlock), key.data) # TODO head block?
 
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
   # TODO prune old states - this is less easy than it seems as we never know
@@ -92,28 +89,27 @@ proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
 proc delState*(db: BeaconChainDB, key: Eth2Digest) =
   db.backend.del(subkey(BeaconState, key))
 
+proc delStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot) =
+  db.backend.del(subkey(root, slot))
+
 proc putHeadBlock*(db: BeaconChainDB, key: Eth2Digest) =
-  db.backend.put(subkey(kHeadBlock), key.data) # TODO head block?
+  db.backend.put(subkey(kHeadBlock), key.data)
 
 proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.backend.put(subkey(kTailBlock), key.data)
 
 proc get(db: BeaconChainDB, key: auto, T: typedesc): Option[T] =
-  let res = db.backend.get(key)
-  if res.len != 0:
+  var res: Option[T]
+  discard db.backend.get(key, proc (data: openArray[byte]) =
     try:
-      some(SSZ.decode(res, T))
+      res = some(SSZ.decode(data, T))
     except SerializationError:
-      none(T)
-  else:
-    none(T)
+      discard
+  )
+  res
 
 proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Option[SignedBeaconBlock] =
   db.get(subkey(SignedBeaconBlock, key), SignedBeaconBlock)
-
-proc getBlock*(db: BeaconChainDB, slot: Slot): Option[SignedBeaconBlock] =
-  # TODO implement this
-  discard
 
 proc getState*(db: BeaconChainDB, key: Eth2Digest): Option[BeaconState] =
   db.get(subkey(BeaconState, key), BeaconState)

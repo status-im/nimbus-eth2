@@ -26,7 +26,7 @@ import
 
 const
   FixturesDir = currentSourcePath.rsplit(DirSep, 1)[0] / "fixtures"
-  SSZDir = FixturesDir/"tests-v0.9.4"/const_preset/"phase0"/"ssz_static"
+  SSZDir = FixturesDir/"tests-v0.10.0"/const_preset/"phase0"/"ssz_static"
 
 type
   SSZHashTreeRoot = object
@@ -87,6 +87,7 @@ proc runSSZtests() =
           of "Deposit": checkSSZ(Deposit, path, hash)
           of "DepositData": checkSSZ(DepositData, path, hash)
           of "DepositMessage": checkSSZ(DepositMessage, path, hash)
+          of "Eth1Block": checkSSZ(Eth1Block, path, hash)
           of "Eth1Data": checkSSZ(Eth1Data, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
@@ -97,10 +98,11 @@ proc runSSZtests() =
           of "SignedBeaconBlockHeader":
             checkSSZ(SignedBeaconBlockHeader, path, hash)
           of "SignedVoluntaryExit": checkSSZ(SignedVoluntaryExit, path, hash)
+          of "SigningRoot": checkSSZ(SigningRoot, path, hash)
           of "Validator": checkSSZ(Validator, path, hash)
           of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash)
           else:
             raise newException(ValueError, "Unsupported test: " & sszType)
 
-suite "Official - 0.9.4 - SSZ consensus objects " & preset():
+suite "Official - 0.10.0 - SSZ consensus objects " & preset():
   runSSZtests()

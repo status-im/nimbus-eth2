@@ -12,7 +12,7 @@ import
   endians, stew/shims/macros, options, algorithm, options,
   stew/[bitops2, bitseqs, objects, varints, ptrops, ranges/ptr_arith], stint,
   faststreams/input_stream, serialization, serialization/testing/tracing,
-  nimcrypto/sha2, blscurve, eth/common,
+  nimcrypto/sha2, blscurve,
   ./spec/[crypto, datatypes, digest],
   ./ssz/[types, bytes_reader]
 

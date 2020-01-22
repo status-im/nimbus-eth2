@@ -10,8 +10,8 @@
 import
   options, sequtils, unittest, chronicles,
   ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[datatypes, digest],
-  ../beacon_chain/[beacon_node_types, block_pool, beacon_chain_db, ssz]
+  ../beacon_chain/spec/[datatypes, digest, helpers, validator],
+  ../beacon_chain/[beacon_node_types, block_pool, beacon_chain_db, extras, ssz]
 
 suite "BlockRef and helpers" & preset():
   timedTest "isAncestorOf sanity" & preset():
@@ -92,7 +92,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         b1 = addBlock(state, pool.tail.root, BeaconBlockBody())
         b1Root = hash_tree_root(b1.message)
         b2 = addBlock(state, b1Root, BeaconBlockBody())
-        b2Root = hash_tree_root(b2.message)
+        b2Root {.used.} = hash_tree_root(b2.message)
 
     timedTest "getRef returns nil for missing blocks":
       check:
@@ -104,7 +104,6 @@ when const_preset == "minimal": # Too much stack space used on mainnet
 
       check:
         b0.isSome()
-        toSeq(pool.blockRootsForSlot(GENESIS_SLOT)) == @[pool.tail.root]
 
     timedTest "Simple block add&get" & preset():
       let
@@ -115,6 +114,8 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         b1Get.isSome()
         b1Get.get().refs.root == b1Root
         b1Add.root == b1Get.get().refs.root
+        pool.heads.len == 1
+        pool.heads[0].blck == b1Add
 
       let
         b2Add = pool.add(b2Root, b2)
@@ -124,6 +125,8 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         b2Get.isSome()
         b2Get.get().refs.root == b2Root
         b2Add.root == b2Get.get().refs.root
+        pool.heads.len == 1
+        pool.heads[0].blck == b2Add
 
     timedTest "Reverse order block add & get" & preset():
       discard pool.add(b2Root, b2)
@@ -144,10 +147,8 @@ when const_preset == "minimal": # Too much stack space used on mainnet
 
         b1Get.get().refs.children[0] == b2Get.get().refs
         b2Get.get().refs.parent == b1Get.get().refs
-        toSeq(pool.blockRootsForSlot(b1.message.slot)) == @[b1Root]
-        toSeq(pool.blockRootsForSlot(b2.message.slot)) == @[b2Root]
 
-      db.putHeadBlock(b2Root)
+      pool.updateHead(b2Get.get().refs)
 
       # The heads structure should have been updated to contain only the new
       # b2 head
@@ -159,8 +160,13 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         pool2 = BlockPool.init(db)
 
       check:
+        # ensure we loaded the correct head state
+        pool2.head.blck.root == b2Root
+        hash_tree_root(pool2.headState.data.data) == b2.message.state_root
         pool2.get(b1Root).isSome()
         pool2.get(b2Root).isSome()
+        pool2.heads.len == 1
+        pool2.heads[0].blck.root == b2Root
 
     timedTest "Can add same block twice" & preset():
       let
@@ -180,3 +186,38 @@ when const_preset == "minimal": # Too much stack space used on mainnet
       check:
         pool.head.blck == b1Add
         pool.headState.data.data.slot == b1Add.slot
+
+  suite "BlockPool finalization tests" & preset():
+    setup:
+      var
+        db = makeTestDB(SLOTS_PER_EPOCH)
+        pool = BlockPool.init(db)
+
+    timedTest "prune heads on finalization" & preset():
+      block:
+        # Create a fork that will not be taken
+        var
+          blck = makeBlock(pool.headState.data.data, pool.head.blck.root,
+            BeaconBlockBody())
+        discard pool.add(hash_tree_root(blck.message), blck)
+
+      for i in 0 ..< (SLOTS_PER_EPOCH * 6):
+        if i == 1:
+          # There are 2 heads now because of the fork at slot 1
+          check:
+            pool.tail.children.len == 2
+            pool.heads.len == 2
+        var
+          cache = get_empty_per_epoch_cache()
+          blck = makeBlock(pool.headState.data.data, pool.head.blck.root,
+            BeaconBlockBody(
+              attestations: makeFullAttestations(
+                pool.headState.data.data, pool.head.blck.root,
+                pool.headState.data.data.slot, cache, {skipValidation})))
+        let added = pool.add(hash_tree_root(blck.message), blck)
+        pool.updateHead(added)
+
+      check:
+        pool.heads.len() == 1
+        pool.head.justified.slot.compute_epoch_at_slot() == 5
+        pool.tail.children.len == 1
