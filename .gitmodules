@@ -116,11 +116,6 @@
 	url = https://github.com/tormund/news.git
 	ignore = dirty
 	branch = master
-[submodule "vendor/nim-result"]
-	path = vendor/nim-result
-	url = https://github.com/arnetheduck/nim-result.git
-	ignore = dirty
-	branch = master
 [submodule "vendor/nim-prompt"]
 	path = vendor/nim-prompt
 	url = https://github.com/status-im/nim-prompt.git
