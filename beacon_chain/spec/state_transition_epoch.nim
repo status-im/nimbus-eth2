@@ -167,7 +167,7 @@ proc process_justification_and_finalization*(
                  root: get_block_root(state, previous_epoch))
     state.justification_bits.setBit 1
 
-    debug "Justified with previous epoch",
+    trace "Justified with previous epoch",
       current_epoch = current_epoch,
       checkpoint = shortLog(state.current_justified_checkpoint),
       cat = "justification"
@@ -181,7 +181,7 @@ proc process_justification_and_finalization*(
                  root: get_block_root(state, current_epoch))
     state.justification_bits.setBit 0
 
-    debug "Justified with current epoch",
+    trace "Justified with current epoch",
       current_epoch = current_epoch,
       checkpoint = shortLog(state.current_justified_checkpoint),
       cat = "justification"
@@ -195,7 +195,7 @@ proc process_justification_and_finalization*(
      old_previous_justified_checkpoint.epoch + 3 == current_epoch:
     state.finalized_checkpoint = old_previous_justified_checkpoint
 
-    debug "Finalized with rule 234",
+    trace "Finalized with rule 234",
       current_epoch = current_epoch,
       checkpoint = shortLog(state.finalized_checkpoint),
       cat = "finalization"
@@ -206,7 +206,7 @@ proc process_justification_and_finalization*(
      old_previous_justified_checkpoint.epoch + 2 == current_epoch:
     state.finalized_checkpoint = old_previous_justified_checkpoint
 
-    debug "Finalized with rule 23",
+    trace "Finalized with rule 23",
       current_epoch = current_epoch,
       checkpoint = shortLog(state.finalized_checkpoint),
       cat = "finalization"
@@ -217,7 +217,7 @@ proc process_justification_and_finalization*(
      old_current_justified_checkpoint.epoch + 2 == current_epoch:
     state.finalized_checkpoint = old_current_justified_checkpoint
 
-    debug "Finalized with rule 123",
+    trace "Finalized with rule 123",
       current_epoch = current_epoch,
       checkpoint = shortLog(state.finalized_checkpoint),
       cat = "finalization"
@@ -228,7 +228,7 @@ proc process_justification_and_finalization*(
      old_current_justified_checkpoint.epoch + 1 == current_epoch:
     state.finalized_checkpoint = old_current_justified_checkpoint
 
-    debug "Finalized with rule 12",
+    trace "Finalized with rule 12",
       current_epoch = current_epoch,
       checkpoint = shortLog(state.finalized_checkpoint),
       cat = "finalization"

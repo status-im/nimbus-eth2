@@ -599,6 +599,7 @@ func shortLog*(v: BeaconBlock): auto =
 func shortLog*(v: AttestationData): auto =
   (
     slot: shortLog(v.slot),
+    index: v.index,
     beacon_block_root: shortLog(v.beacon_block_root),
     source_epoch: shortLog(v.source.epoch),
     source_root: shortLog(v.source.root),
@@ -606,10 +607,18 @@ func shortLog*(v: AttestationData): auto =
     target_root: shortLog(v.target.root)
   )
 
+func shortLog*(v: Attestation): auto =
+  (
+    aggregation_bits: v.aggregation_bits,
+    data: shortLog(v.data),
+    signature: shortLog(v.signature)
+  )
+
 chronicles.formatIt Slot: it.shortLog
 chronicles.formatIt Epoch: it.shortLog
 chronicles.formatIt BeaconBlock: it.shortLog
 chronicles.formatIt AttestationData: it.shortLog
+chronicles.formatIt Attestation: it.shortLog
 
 import json_serialization
 export json_serialization
