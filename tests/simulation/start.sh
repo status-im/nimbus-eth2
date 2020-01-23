@@ -30,7 +30,7 @@ LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.js
 
 build_beacon_node () {
   OUTPUT_BIN=$1; shift
-  PARAMS="$NIMFLAGS $DEFS $*"
+  PARAMS="$NIMFLAGS $DEFS $@"
   echo "Building $OUTPUT_BIN ($PARAMS)"
   nim c -o:$OUTPUT_BIN $PARAMS beacon_chain/beacon_node
 }
