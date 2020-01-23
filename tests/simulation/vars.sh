@@ -25,12 +25,18 @@ TOTAL_USER_NODES=${USER_NODES:-0}
 TOTAL_SYSTEM_NODES=$(( TOTAL_NODES - TOTAL_USER_NODES ))
 MASTER_NODE=$(( TOTAL_NODES - 1 ))
 
+# You can run a mixed simulation of daemon and native libp2p nodes
+# by changing the variables below:
+NETWORK_TYPE=libp2p
+BOOTSTRAP_NODE_NETWORK_TYPE=libp2p
+
 SIMULATION_DIR="${SIM_ROOT}/data"
 METRICS_DIR="${SIM_ROOT}/prometheus"
 VALIDATORS_DIR="${SIM_ROOT}/validators"
 SNAPSHOT_FILE="${SIMULATION_DIR}/state_snapshot.ssz"
 NETWORK_BOOTSTRAP_FILE="${SIMULATION_DIR}/bootstrap_nodes.txt"
 BEACON_NODE_BIN="${SIMULATION_DIR}/beacon_node"
+BOOTSTRAP_NODE_BIN="${SIMULATION_DIR}/bootstrap_node"
 DEPLOY_DEPOSIT_CONTRACT_BIN="${SIMULATION_DIR}/deploy_deposit_contract"
 MASTER_NODE_ADDRESS_FILE="${SIMULATION_DIR}/node-${MASTER_NODE}/beacon_node.address"
 
