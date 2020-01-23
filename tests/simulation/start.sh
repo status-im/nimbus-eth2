@@ -28,8 +28,22 @@ DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-6} "  # Spec default: 12
 LAST_VALIDATOR_NUM=$(( NUM_VALIDATORS - 1 ))
 LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.json"
 
-echo "Building $BEACON_NODE_BIN ($DEFS)"
-nim c -o:"$BEACON_NODE_BIN" $NIMFLAGS $DEFS beacon_chain/beacon_node
+build_beacon_node () {
+  OUTPUT_BIN=$1; shift
+  PARAMS="$NIMFLAGS $DEFS $*"
+  echo "Building $OUTPUT_BIN ($PARAMS)"
+  nim c -o:$OUTPUT_BIN $PARAMS beacon_chain/beacon_node
+}
+
+build_beacon_node $BEACON_NODE_BIN -d:"NETWORK_TYPE=$NETWORK_TYPE"
+
+if [[ "$BOOTSTRAP_NODE_NETWORK_TYPE" != "$NETWORK_TYPE" ]]; then
+  build_beacon_node $BOOTSTRAP_NODE_BIN \
+    --nimcache:nimcache/bootstrap_node \
+    -d:"NETWORK_TYPE=$BOOTSTRAP_NODE_NETWORK_TYPE"
+else
+  cp -l $BEACON_NODE_BIN $BOOTSTRAP_NODE_BIN
+fi
 
 if [ ! -f "${LAST_VALIDATOR}" ]; then
   echo Building $DEPLOY_DEPOSIT_CONTRACT_BIN
@@ -112,8 +126,10 @@ COMMANDS=()
 
 if [[ "$USE_TMUX" != "no" ]]; then
   $TMUX new-session -s $TMUX_SESSION_NAME -d
+
   # maybe these should be moved to a user config file
   $TMUX set-option -t $TMUX_SESSION_NAME history-limit 999999
+  $TMUX set-option -t $TMUX_SESSION_NAME remain-on-exit on
   $TMUX set -t $TMUX_SESSION_NAME mouse on
 fi
 
@@ -128,7 +144,7 @@ for i in $(seq $MASTER_NODE -1 $TOTAL_USER_NODES); do
   CMD="${SIM_ROOT}/run_node.sh $i"
 
   if [[ "$USE_TMUX" != "no" ]]; then
-    $TMUX split-window -t $TMUX_SESSION_NAME "$CMD; pause"
+    $TMUX split-window -t $TMUX_SESSION_NAME "$CMD"
     $TMUX select-layout -t $TMUX_SESSION_NAME tiled
   elif [[ "$USE_MULTITAIL" != "no" ]]; then
     if [[ "$i" == "$MASTER_NODE" ]]; then
