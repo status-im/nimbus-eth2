@@ -42,7 +42,7 @@ if [[ "$BOOTSTRAP_NODE_NETWORK_TYPE" != "$NETWORK_TYPE" ]]; then
     --nimcache:nimcache/bootstrap_node \
     -d:"NETWORK_TYPE=$BOOTSTRAP_NODE_NETWORK_TYPE"
 else
-  cp -l $BEACON_NODE_BIN $BOOTSTRAP_NODE_BIN
+  cp $BEACON_NODE_BIN $BOOTSTRAP_NODE_BIN
 fi
 
 if [ ! -f "${LAST_VALIDATOR}" ]; then
