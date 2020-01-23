@@ -206,7 +206,7 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
   tmpState[] = db.getState(latestStateRoot.get().stateRoot)
   let
     finalizedSlot =
-      tmpState[].get().current_justified_checkpoint.epoch.compute_start_slot_at_epoch()
+      tmpState[].get().finalized_checkpoint.epoch.compute_start_slot_at_epoch()
     finalizedHead = headRef.findAncestorBySlot(finalizedSlot)
     justifiedSlot =
       tmpState[].get().current_justified_checkpoint.epoch.compute_start_slot_at_epoch()
