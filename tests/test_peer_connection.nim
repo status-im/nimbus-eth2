@@ -23,9 +23,8 @@ asyncTest "connect two nodes":
 
   echo "Node 1 persistent address: ", n1PersistentAddress
 
-  when networkBackend != rlpx:
-    var n1ActualAddress = await n1.daemon.identity()
-    echo "Node 1 actual address:", n1ActualAddress
+  var n1ActualAddress = await n1.daemon.identity()
+  echo "Node 1 actual address:", n1ActualAddress
 
   echo "Press any key to continue"
   discard stdin.readLine()

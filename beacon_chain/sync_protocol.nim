@@ -1,13 +1,10 @@
 import
   options, tables, sets, macros,
   chronicles, chronos, metrics, stew/ranges/bitranges,
-  spec/[datatypes, crypto, digest, helpers], eth/rlp,
+  spec/[datatypes, crypto, digest, helpers],
   beacon_node_types, eth2_network, block_pool, ssz
 
-when networkBackend == rlpx:
-  import eth/rlp/options as rlpOptions
-  template libp2pProtocol*(name: string, version: int) {.pragma.}
-elif networkBackend == libp2p:
+when networkBackend == libp2p:
   import libp2p/switch
 
 declarePublicGauge libp2p_peers, "Number of libp2p peers"

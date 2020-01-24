@@ -57,84 +57,7 @@ proc setupNat(conf: BeaconNodeConf): tuple[ip: IpAddress,
       if extPorts.isSome:
         (result.tcpPort, result.udpPort) = extPorts.get()
 
-when networkBackend == rlpx:
-  import
-    os,
-    eth/[rlp, p2p, keys], gossipsub_protocol,
-    eth/p2p/peer_pool # for log on connected peers
-
-  export
-    p2p, rlp, gossipsub_protocol
-
-  const
-    netBackendName* = "rlpx"
-    IrrelevantNetwork* = UselessPeer
-
-  type
-    Eth2Node* = EthereumNode
-    Eth2NodeIdentity* = KeyPair
-    BootstrapAddr* = ENode
-
-  proc getPersistentNetIdentity*(conf: BeaconNodeConf): Eth2NodeIdentity =
-    let privateKeyFile = conf.dataDir / "network.privkey"
-    var privKey: PrivateKey
-    if not fileExists(privateKeyFile):
-      privKey = newPrivateKey()
-      createDir conf.dataDir.string
-      writeFile(privateKeyFile, $privKey)
-    else:
-      privKey = initPrivateKey(readFile(privateKeyFile).string)
-
-    KeyPair(seckey: privKey, pubkey: privKey.getPublicKey())
-
-  proc getPersistenBootstrapAddr*(conf: BeaconNodeConf,
-                                  ip: IpAddress, port: Port): BootstrapAddr =
-    let
-      identity = getPersistentNetIdentity(conf)
-      address = Address(ip: ip, tcpPort: port, udpPort: port)
-
-    initENode(identity.pubKey, address)
-
-  proc isSameNode*(bootstrapNode: BootstrapAddr, id: Eth2NodeIdentity): bool =
-    bootstrapNode.pubKey == id.pubKey
-
-  proc shortForm*(id: Eth2NodeIdentity): string =
-    ($id.pubKey)[0..5]
-
-  proc writeValue*(writer: var JsonWriter, value: BootstrapAddr) {.inline.} =
-    writer.writeValue $value
-
-  proc readValue*(reader: var JsonReader, value: var BootstrapAddr) {.inline.} =
-    value = initENode reader.readValue(string)
-
-  proc createEth2Node*(conf: BeaconNodeConf,
-                       bootstrapNodes: seq[BootstrapAddr]): Future[EthereumNode] {.async.} =
-    let
-      keys = getPersistentNetIdentity(conf)
-      (ip, tcpPort, udpPort) = setupNat(conf)
-      address = Address(ip: ip,
-                        tcpPort: tcpPort,
-                        udpPort: udpPort)
-
-    # TODO there are more networking options to add here: local bind ip, ipv6
-    #      etc.
-    return newEthereumNode(keys, address, 0,
-                           nil, clientId)
-
-  proc saveConnectionAddressFile*(node: Eth2Node, filename: string) =
-    writeFile(filename, $node.listeningAddress)
-
-  proc initAddress*(T: type BootstrapAddr, str: string): T =
-    initENode(str)
-
-  proc initAddress*(T: type BootstrapAddr, ip: IpAddress, tcpPort: Port): T =
-    # TODO
-    discard
-
-  func peersCount*(node: Eth2Node): int =
-    node.peerPool.len
-
-else:
+when networkBackend in [libp2p, libp2pDaemon]:
   import
     os, random,
     stew/io, eth/async_utils,
@@ -362,3 +285,5 @@ else:
     shuffle peers
     if peers.len > maxPeers: peers.setLen(maxPeers)
     for p in peers: yield p
+else:
+  {.fatal: "Unsupported network backend".}
