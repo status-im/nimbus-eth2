@@ -613,7 +613,7 @@ proc syncManagerOnePeerTest(): Future[bool] {.async.} =
     result = true
 
   peer.update(srcChain)
-  doAssert(pool.addIncomingPeer(peer) == true)
+  doAssert(pool.addIncomingPeerNoWait(peer) == true)
 
   var sman = newSyncManager[SimplePeer,
                             SimplePeerKey](pool, lastLocalSlot, updateBlocks,
@@ -672,9 +672,9 @@ proc syncManagerOneSlotTest(): Future[bool] {.async.} =
 
   for i in 0 ..< len(peers):
     peers[i].update(srcChain)
-  doAssert(pool.addIncomingPeer(peers[0]) == true)
-  doAssert(pool.addOutgoingPeer(peers[1]) == true)
-  doAssert(pool.addOutgoingPeer(peers[2]) == true)
+  doAssert(pool.addIncomingPeerNoWait(peers[0]) == true)
+  doAssert(pool.addOutgoingPeerNoWait(peers[1]) == true)
+  doAssert(pool.addOutgoingPeerNoWait(peers[2]) == true)
 
   var sman = newSyncManager[SimplePeer,
                             SimplePeerKey](pool, lastLocalSlot, updateBlocks,
@@ -734,9 +734,9 @@ proc syncManagerOneGroupTest(): Future[bool] {.async.} =
   for i in 0 ..< len(peers):
     peers[i].update(srcChain)
     if i mod 2 == 0:
-      doAssert(pool.addIncomingPeer(peers[i]) == true)
+      doAssert(pool.addIncomingPeerNoWait(peers[i]) == true)
     else:
-      doAssert(pool.addOutgoingPeer(peers[i]) == true)
+      doAssert(pool.addOutgoingPeerNoWait(peers[i]) == true)
 
   var sman = newSyncManager[SimplePeer,
                             SimplePeerKey](pool, lastLocalSlot, updateBlocks,
@@ -805,9 +805,9 @@ proc syncManagerGroupRecoveryTest(): Future[bool] {.async.} =
 
   for i in 0 ..< len(peers):
     if i mod 2 == 0:
-      doAssert(pool.addIncomingPeer(peers[i]) == true)
+      doAssert(pool.addIncomingPeerNoWait(peers[i]) == true)
     else:
-      doAssert(pool.addOutgoingPeer(peers[i]) == true)
+      doAssert(pool.addOutgoingPeerNoWait(peers[i]) == true)
 
   var sman = newSyncManager[SimplePeer,
                             SimplePeerKey](pool, lastLocalSlot, updateBlocks,
@@ -870,7 +870,7 @@ proc syncManagerFailureTest(): Future[bool] {.async.} =
       dstChain.add(item)
     result = true
 
-  doAssert(pool.addIncomingPeer(peer) == true)
+  doAssert(pool.addIncomingPeerNoWait(peer) == true)
 
   var sman = newSyncManager[SimplePeer,
                             SimplePeerKey](pool, lastLocalSlot, updateBlocks,
