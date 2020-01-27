@@ -38,7 +38,7 @@ const
 
   # Constants
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/beacon-chain.md#constants
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#constants
   # TODO "The following values are (non-configurable) constants" ...
   # Unchanged
   BASE_REWARDS_PER_EPOCH* = 4
@@ -66,7 +66,7 @@ const
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/configs/minimal.yaml#L71
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L71
   # Changed: Faster to spin up testnets, but does not give validator
   # reasonable warning time for genesis
   MIN_GENESIS_DELAY* = 300
@@ -108,7 +108,7 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/configs/minimal.yaml#L117
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L117
 
   BASE_REWARD_FACTOR* = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
@@ -128,7 +128,7 @@ const
 
   # Fork choice
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/configs/minimal.yaml#L26
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L26
 
   # Changed
   SAFE_SLOTS_TO_UPDATE_JUSTIFIED* = 2
@@ -148,7 +148,7 @@ const
 
   # Phase 1 - Sharding
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/configs/minimal.yaml#L157
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L157
   # TODO those are included in minimal.yaml but not mainnet.yaml
   #      Why?
   SHARD_SLOTS_PER_BEACON_SLOT* = 2 # spec: SHARD_SLOTS_PER_EPOCH
@@ -164,4 +164,3 @@ const
   EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS* = 4096 # epochs
   EPOCHS_PER_CUSTODY_PERIOD* = 4
   CUSTODY_PERIOD_TO_RANDAO_PADDING* = 4
-

@@ -24,7 +24,7 @@ Features
 
 ```
 nim c -d:const_preset=mainnet -d:nbench -d:release -o:build/nbench nbench/nbench.nim
-export SCENARIOS=tests/official/fixtures/tests-v0.9.4/mainnet/phase0
+export SCENARIOS=tests/official/fixtures/tests-v0.10.1/mainnet/phase0
 
 # Full state transition
 build/nbench cmdFullStateTransition -d="${SCENARIOS}"/sanity/blocks/pyspec_tests/voluntary_exit/ -q=2
@@ -71,7 +71,7 @@ Furthermore benchmarks are run in parallel and might interfere which each other.
 ```
 nim c -d:const_preset=mainnet -d:nbench -d:release -o:build/nbench nbench/nbench.nim
 nim c -o:build/nbench_tests nbench/nbench_official_fixtures.nim
-build/nbench_tests --nbench=build/nbench --tests=tests/official/fixtures/tests-v0.9.4/mainnet/
+build/nbench_tests --nbench=build/nbench --tests=tests/official/fixtures/tests-v0.10.1/mainnet/
 ```
 
 ## TODO Reporting
