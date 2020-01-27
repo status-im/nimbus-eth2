@@ -167,7 +167,7 @@ func readSszValue*(input: openarray[byte], T: type): T =
           endOffset = if boundingOffsets[1] == -1: input.len
                       else: readOffset(boundingOffsets[1])
         trs "VAR FIELD ", startOffset, "-", endOffset
-        if startOffset >= endOffset:
+        if startOffset > endOffset:
           raise newException(MalformedSszError, "SSZ field offsets are not monotonically increasing")
         elif endOffset > input.len:
           raise newException(MalformedSszError, "SSZ field offset points past the end of the input")
