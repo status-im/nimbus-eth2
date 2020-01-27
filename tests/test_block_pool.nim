@@ -221,3 +221,17 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         pool.heads.len() == 1
         pool.head.justified.slot.compute_epoch_at_slot() == 5
         pool.tail.children.len == 1
+
+      let
+        pool2 = BlockPool.init(db)
+
+      # check that the state reloaded from database resembles what we had before
+      check:
+        pool2.tail.root == pool.tail.root
+        pool2.head.blck.root == pool.head.blck.root
+        pool2.finalizedHead.blck.root == pool.finalizedHead.blck.root
+        pool2.finalizedHead.slot == pool.finalizedHead.slot
+        hash_tree_root(pool2.headState.data.data) ==
+          hash_tree_root(pool.headState.data.data)
+        hash_tree_root(pool2.justifiedState.data.data) ==
+          hash_tree_root(pool.justifiedState.data.data)

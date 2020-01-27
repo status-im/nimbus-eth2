@@ -57,7 +57,7 @@ type
 
   FixedSizedWriterCtx = object
 
-  Bytes = seq[byte]
+  ByteList = seq[byte]
 
 serializationFormat SSZ,
                     Reader = SszReader,
@@ -102,7 +102,7 @@ template toSszType*(x: auto): auto =
   when x is Slot|Epoch|ValidatorIndex|enum: uint64(x)
   elif x is Eth2Digest: x.data
   elif x is BlsValue|BlsCurveType: getBytes(x)
-  elif x is BitSeq|BitList: Bytes(x)
+  elif x is BitSeq|BitList: ByteList(x)
   elif x is ref|ptr: toSszType x[]
   elif x is Option: toSszType x.get
   elif x is TypeWithMaxLen: toSszType valueOf(x)
@@ -194,7 +194,7 @@ template writeField*(w: var SszWriter,
       let initPos = w.stream.pos
       trs "WRITING VAR SIZE VALUE OF TYPE ", name(FieldType)
       when FieldType is BitSeq:
-        trs "BIT SEQ ", Bytes(field)
+        trs "BIT SEQ ", ByteList(field)
       writeVarSizeType(w, toSszType(field))
       ctx.offset += w.stream.pos - initPos
 
@@ -458,8 +458,8 @@ func bitlistHashTreeRoot(merkelizer: SszChunksMerkelizer, x: BitSeq): Eth2Digest
   trs "CHUNKIFYING BIT SEQ WITH LIMIT ", merkelizer.limit
 
   var
-    totalBytes = Bytes(x).len
-    lastCorrectedByte = Bytes(x)[^1]
+    totalBytes = ByteList(x).len
+    lastCorrectedByte = ByteList(x)[^1]
 
   if lastCorrectedByte == byte(1):
     if totalBytes == 1:
@@ -471,7 +471,7 @@ func bitlistHashTreeRoot(merkelizer: SszChunksMerkelizer, x: BitSeq): Eth2Digest
                            getZeroHashWithoutSideEffect(0)) # this is the mixed length
 
     totalBytes -= 1
-    lastCorrectedByte = Bytes(x)[^2]
+    lastCorrectedByte = ByteList(x)[^2]
   else:
     let markerPos = log2trunc(lastCorrectedByte)
     lastCorrectedByte.clearBit(markerPos)
@@ -489,14 +489,14 @@ func bitlistHashTreeRoot(merkelizer: SszChunksMerkelizer, x: BitSeq): Eth2Digest
       chunkStartPos = i * bytesPerChunk
       chunkEndPos = chunkStartPos + bytesPerChunk - 1
 
-    merkelizer.addChunk Bytes(x).toOpenArray(chunkEndPos, chunkEndPos)
+    merkelizer.addChunk ByteList(x).toOpenArray(chunkEndPos, chunkEndPos)
 
   var
     lastChunk: array[bytesPerChunk, byte]
     chunkStartPos = fullChunks * bytesPerChunk
 
   for i in 0 .. bytesInLastChunk - 2:
-    lastChunk[i] = Bytes(x)[chunkStartPos + i]
+    lastChunk[i] = ByteList(x)[chunkStartPos + i]
 
   lastChunk[bytesInLastChunk - 1] = lastCorrectedByte
 

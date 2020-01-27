@@ -47,7 +47,12 @@ fi
 rm -rf "$DATA_DIR/dump"
 mkdir -p "$DATA_DIR/dump"
 
-$BEACON_NODE_BIN \
+NODE_BIN=$BEACON_NODE_BIN
+if [[ $NODE_ID == $MASTER_NODE ]]; then
+  NODE_BIN=$BOOTSTRAP_NODE_BIN
+fi
+
+$NODE_BIN \
   --bootstrap-file=$BOOTSTRAP_ADDRESS_FILE \
   --data-dir=$DATA_DIR \
   --node-name=$NODE_ID \

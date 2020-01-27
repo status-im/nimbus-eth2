@@ -89,7 +89,7 @@ func getAncestorAt*(blck: BlockRef, slot: Slot): BlockRef =
     blck = blck.parent
 
 func get_ancestor*(blck: BlockRef, slot: Slot): BlockRef =
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/fork-choice.md#get_ancestor
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/fork-choice.md#get_ancestor
   ## Return ancestor at slot, or nil if queried block is older
   var blck = blck
 
@@ -206,7 +206,7 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
   tmpState[] = db.getState(latestStateRoot.get().stateRoot)
   let
     finalizedSlot =
-      tmpState[].get().current_justified_checkpoint.epoch.compute_start_slot_at_epoch()
+      tmpState[].get().finalized_checkpoint.epoch.compute_start_slot_at_epoch()
     finalizedHead = headRef.findAncestorBySlot(finalizedSlot)
     justifiedSlot =
       tmpState[].get().current_justified_checkpoint.epoch.compute_start_slot_at_epoch()

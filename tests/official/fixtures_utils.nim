@@ -21,7 +21,7 @@ export  # Workaround:
   serialization.readValue,
   Json, ssz
 
-# Process current EF test format (up to 0.8.2+)
+# Process current EF test format
 # ---------------------------------------------
 
 # #######################
@@ -36,7 +36,7 @@ proc readValue*(r: var JsonReader, a: var seq[byte]) {.inline.} =
 
 const
   FixturesDir* = currentSourcePath.rsplit(DirSep, 1)[0] / "fixtures"
-  SszTestsDir* = FixturesDir/"tests-v0.10.0"
+  SszTestsDir* = FixturesDir/"tests-v0.10.1"
 
 proc parseTest*(path: string, Format: typedesc[Json or SSZ], T: typedesc): T =
   try:

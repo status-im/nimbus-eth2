@@ -162,7 +162,7 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
   # voted for..
   if blck.slot > attestation.data.slot:
     notice "Invalid attestation (too new!)",
-      attestationData = shortLog(attestation.data),
+      attestation = shortLog(attestation),
       blockSlot = shortLog(blck.slot)
     return
 
@@ -174,10 +174,8 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
 
   if not validate(state, attestation):
     notice "Invalid attestation",
-      attestationData = shortLog(attestation.data),
+      attestation = shortLog(attestation),
       current_epoch = get_current_epoch(state),
-      target_epoch = attestation.data.target.epoch,
-      stateSlot = state.slot,
       cat = "filtering"
     return
 
@@ -231,11 +229,10 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
         pool.updateLatestVotes(state, attestationSlot, participants, a.blck)
 
         info "Attestation resolved",
-          attestationData = shortLog(attestation.data),
+          attestation = shortLog(attestation),
           validations = a.validations.len(),
           current_epoch = get_current_epoch(state),
-          target_epoch = attestation.data.target.epoch,
-          stateSlot = state.slot,
+          blockSlot = shortLog(blck.slot),
           cat = "filtering"
 
         found = true
@@ -251,11 +248,10 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
     pool.updateLatestVotes(state, attestationSlot, participants, blck)
 
     info "Attestation resolved",
-      attestationData = shortLog(attestation.data),
+      attestation = shortLog(attestation),
       current_epoch = get_current_epoch(state),
-      target_epoch = attestation.data.target.epoch,
-      stateSlot = state.slot,
       validations = 1,
+      blockSlot = shortLog(blck.slot),
       cat = "filtering"
 
 proc add*(pool: var AttestationPool, attestation: Attestation) =
@@ -401,6 +397,7 @@ func lmdGhost*(
     if (let vote = pool.latestAttestation(pubKey); not vote.isNil):
       latest_messages.add((i, vote))
 
+  # TODO: update to 0.10.1: https://github.com/ethereum/eth2.0-specs/pull/1589/files#diff-9fc3792aa94456eb29506fa77f77b918R143
   template get_latest_attesting_balance(blck: BlockRef): uint64 =
     var res: uint64
     for validator_index, target in latest_messages.items():

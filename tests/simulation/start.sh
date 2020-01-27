@@ -28,8 +28,22 @@ DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-6} "  # Spec default: 12
 LAST_VALIDATOR_NUM=$(( NUM_VALIDATORS - 1 ))
 LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.json"
 
-echo "Building $BEACON_NODE_BIN ($DEFS)"
-nim c -o:"$BEACON_NODE_BIN" $NIMFLAGS $DEFS beacon_chain/beacon_node
+build_beacon_node () {
+  OUTPUT_BIN=$1; shift
+  PARAMS="$NIMFLAGS $DEFS $@"
+  echo "Building $OUTPUT_BIN ($PARAMS)"
+  nim c -o:$OUTPUT_BIN $PARAMS beacon_chain/beacon_node
+}
+
+build_beacon_node $BEACON_NODE_BIN -d:"NETWORK_TYPE=$NETWORK_TYPE"
+
+if [[ "$BOOTSTRAP_NODE_NETWORK_TYPE" != "$NETWORK_TYPE" ]]; then
+  build_beacon_node $BOOTSTRAP_NODE_BIN \
+    --nimcache:nimcache/bootstrap_node \
+    -d:"NETWORK_TYPE=$BOOTSTRAP_NODE_NETWORK_TYPE"
+else
+  cp $BEACON_NODE_BIN $BOOTSTRAP_NODE_BIN
+fi
 
 if [ ! -f "${LAST_VALIDATOR}" ]; then
   echo Building $DEPLOY_DEPOSIT_CONTRACT_BIN
@@ -65,10 +79,17 @@ if [ -f "${MASTER_NODE_ADDRESS_FILE}" ]; then
   rm "${MASTER_NODE_ADDRESS_FILE}"
 fi
 
-# multitail support
-MULTITAIL="${MULTITAIL:-multitail}" # to allow overriding the program name
-USE_MULTITAIL="${USE_MULTITAIL:-no}" # make it an opt-in
-type "$MULTITAIL" &>/dev/null || USE_MULTITAIL="no"
+# to allow overriding the program names
+MULTITAIL="${MULTITAIL:-multitail}"
+TMUX="${TMUX:-tmux}"
+TMUX_SESSION_NAME="${TMUX_SESSION_NAME:-nbc-network-sim}"
+
+# Using tmux or multitail is an opt-in
+USE_MULTITAIL="${USE_MULTITAIL:-no}"
+type "$MULTITAIL" &>/dev/null || { echo $MULTITAIL is missing; USE_MULTITAIL="no"; }
+
+USE_TMUX="${USE_TMUX:-no}"
+type "$TMUX" &>/dev/null || { echo $TMUX is missing; USE_TMUX="no"; }
 
 # Prometheus config (continued inside the loop)
 mkdir -p "${METRICS_DIR}"
@@ -103,6 +124,15 @@ fi
 
 COMMANDS=()
 
+if [[ "$USE_TMUX" != "no" ]]; then
+  $TMUX new-session -s $TMUX_SESSION_NAME -d
+
+  # maybe these should be moved to a user config file
+  $TMUX set-option -t $TMUX_SESSION_NAME history-limit 999999
+  $TMUX set-option -t $TMUX_SESSION_NAME remain-on-exit on
+  $TMUX set -t $TMUX_SESSION_NAME mouse on
+fi
+
 for i in $(seq $MASTER_NODE -1 $TOTAL_USER_NODES); do
   if [[ "$i" != "$MASTER_NODE" && "$USE_MULTITAIL" == "no" ]]; then
     # Wait for the master node to write out its address file
@@ -113,7 +143,10 @@ for i in $(seq $MASTER_NODE -1 $TOTAL_USER_NODES); do
 
   CMD="${SIM_ROOT}/run_node.sh $i"
 
-  if [[ "$USE_MULTITAIL" != "no" ]]; then
+  if [[ "$USE_TMUX" != "no" ]]; then
+    $TMUX split-window -t $TMUX_SESSION_NAME "$CMD"
+    $TMUX select-layout -t $TMUX_SESSION_NAME tiled
+  elif [[ "$USE_MULTITAIL" != "no" ]]; then
     if [[ "$i" == "$MASTER_NODE" ]]; then
       SLEEP="0"
     else
@@ -133,7 +166,11 @@ for i in $(seq $MASTER_NODE -1 $TOTAL_USER_NODES); do
 EOF
 done
 
-if [[ "$USE_MULTITAIL" != "no" ]]; then
+if [[ "$USE_TMUX" != "no" ]]; then
+  $TMUX kill-pane -t $TMUX_SESSION_NAME:0.0
+  $TMUX select-layout -t $TMUX_SESSION_NAME tiled
+  $TMUX attach-session -t $TMUX_SESSION_NAME -d
+elif [[ "$USE_MULTITAIL" != "no" ]]; then
   eval $MULTITAIL -s 3 -M 0 -x \"Nimbus beacon chain\" "${COMMANDS[@]}"
 else
   wait # Stop when all nodes have gone down

@@ -12,7 +12,7 @@
 # The other part is arguably part of attestation pool -- the validation's
 # something that should be happing on receipt, not aggregation per se. In
 # that part, check that messages conform -- so, check for each type
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/networking/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/p2p-interface.md#topics-and-messages
 # specifies. So by the time this calls attestation pool, all validation's
 # already done.
 #
@@ -30,7 +30,7 @@ import
 # https://github.com/status-im/nim-beacon-chain/issues/122#issuecomment-562479965
 
 const
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/networking/p2p-interface.md#configuration
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/p2p-interface.md#configuration
   ATTESTATION_PROPAGATION_SLOT_RANGE = 32
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/validator/0_beacon-chain-validator.md#aggregation-selection
@@ -72,7 +72,7 @@ proc aggregate_attestations*(
   let attestation_data =
     makeAttestationData(state, slot, index, get_block_root_at_slot(state, slot))
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/validator/0_beacon-chain-validator.md#construct-aggregate
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/validator.md#construct-aggregate
   for attestation in getAttestationsForBlock(pool, state, slot):
     if attestation.data == attestation_data:
       # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/validator.md#aggregateandproof

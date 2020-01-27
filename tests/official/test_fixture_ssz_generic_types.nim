@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -23,7 +23,7 @@ import
 
 const
   FixturesDir = currentSourcePath.rsplit(DirSep, 1)[0] / "fixtures"
-  SSZDir = FixturesDir/"tests-v0.9.4"/"general"/"phase0"/"ssz_generic"
+  SSZDir = FixturesDir/"tests-v0.10.1"/"general"/"phase0"/"ssz_generic"
 
 type
   SSZHashTreeRoot = object
@@ -278,5 +278,5 @@ proc runSSZtests() =
   # test "Testing " & name & " inputs (" & $T & ") - invalid":
   #   const path = SSZDir/name/"invalid"
 
-suite "Official - 0.9.4 - SSZ generic types":
+suite "Official - SSZ generic types":
   runSSZtests()

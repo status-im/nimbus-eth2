@@ -14,7 +14,7 @@ const
   MDB_NOTFOUND = -30798
 
 when defined(cpu64):
-  const LMDB_MAP_SIZE = 1024'u * 1024'u * 1024'u * 10'u  # 10TB enough?
+  const LMDB_MAP_SIZE = 1024'u * 1024'u * 1024'u * 10'u  # 10 GiB enough?
 else:
   const LMDB_MAP_SIZE = 1024'u * 1024'u * 1024'u # 32bit limitation
 

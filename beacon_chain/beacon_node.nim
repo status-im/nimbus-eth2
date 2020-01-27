@@ -393,9 +393,8 @@ proc sendAttestation(node: BeaconNode,
       ".ssz", attestation)
 
   info "Attestation sent",
-    attestationData = shortLog(attestationData),
+    attestation = shortLog(attestation),
     validator = shortLog(validator),
-    signature = shortLog(validatorSignature),
     indexInCommittee = indexInCommittee,
     cat = "consensus"
 
@@ -501,14 +500,16 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
   # we're on, or that it follows the rules of the protocol
   logScope: pcs = "on_attestation"
 
-  debug "Attestation received",
-    attestationData = shortLog(attestation.data),
-    signature = shortLog(attestation.signature),
-    cat = "consensus" # Tag "consensus|attestation"?
-
   let
     wallSlot = node.beaconClock.now().toSlot()
     head = node.blockPool.head
+
+  debug "Attestation received",
+    attestation = shortLog(attestation),
+    headRoot = shortLog(head.blck.root),
+    headSlot = shortLog(head.blck.slot),
+    wallSlot = shortLog(wallSlot.slot),
+    cat = "consensus" # Tag "consensus|attestation"?
 
   if not wallSlot.afterGenesis or wallSlot.slot < head.blck.slot:
     warn "Received attestation before genesis or head - clock is wrong?",

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2019 Status Research & Development GmbH
+# Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -20,7 +20,7 @@ type
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/configs/mainnet.yaml#L6
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L6
 
   MAX_COMMITTEES_PER_SLOT* {.intdefine.} = 64
 
@@ -45,14 +45,14 @@ const
   MIN_GENESIS_ACTIVE_VALIDATOR_COUNT* {.intdefine.} = 16384
 
   # Constants (TODO: not actually configurable)
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/beacon-chain.md#constants
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#constants
   BASE_REWARDS_PER_EPOCH* = 4
 
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/configs/mainnet.yaml#L50
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L52
 
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9 ##\
   ## Minimum amounth of ETH that can be deposited in one call - deposits can
@@ -69,14 +69,14 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/configs/mainnet.yaml#L64
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L64
   GENESIS_SLOT* = 0.Slot
   GENESIS_FORK_VERSION* = 0x00000000
   BLS_WITHDRAWAL_PREFIX* = 0'u8
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/configs/mainnet.yaml#L69
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L71
   MIN_GENESIS_DELAY* = 86400 # 86400 seconds (1 day)
 
   SECONDS_PER_SLOT*{.intdefine.} = 12'u64 # Compile with -d:SECONDS_PER_SLOT=1 for 12x faster slots
@@ -128,7 +128,7 @@ const
 
   # State vector lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/configs/mainnet.yaml#L98
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L102
   EPOCHS_PER_HISTORICAL_VECTOR* = 65536
   EPOCHS_PER_SLASHINGS_VECTOR* = 8192
   HISTORICAL_ROOTS_LIMIT* = 16777216
@@ -136,7 +136,7 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/configs/mainnet.yaml#L110
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L114
   BASE_REWARD_FACTOR* = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
   PROPOSER_REWARD_QUOTIENT* = 2'u64^3
@@ -145,7 +145,7 @@ const
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/configs/mainnet.yaml#L128
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L128
   MAX_PROPOSER_SLASHINGS* = 2^4
   MAX_ATTESTER_SLASHINGS* = 2^0
   MAX_ATTESTATIONS* = 2^7
@@ -154,12 +154,12 @@ const
 
   # Fork choice
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/configs/mainnet.yaml#L26
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L26
   SAFE_SLOTS_TO_UPDATE_JUSTIFIED* = 8 # 96 seconds
 
   # Validators
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/configs/mainnet.yaml#L32
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L32
   ETH1_FOLLOW_DISTANCE* = 1024 # blocks ~ 4 hours
   TARGET_AGGREGATORS_PER_COMMITTEE* = 16 # validators
   RANDOM_SUBNETS_PER_VALIDATOR* = 1 # subnet
@@ -168,7 +168,7 @@ const
 
   # Phase 1 - Sharding
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase1/shard-data-chains.md#time-parameters
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase1/shard-data-chains.md#time-parameters
   # TODO those are included in minimal.yaml but not mainnet.yaml
   #      Why?
   # SHARD_SLOTS_PER_BEACON_SLOT* = 2 # spec: SHARD_SLOTS_PER_EPOCH
@@ -178,10 +178,9 @@ const
 
   # Phase 1 - Custody game
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase1/custody-game.md#constants
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase1/custody-game.md#constants
   # TODO those are included in minimal.yaml but not mainnet.yaml
   #      Why?
   # EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS* = 4096 # epochs
   # EPOCHS_PER_CUSTODY_PERIOD* = 4
   # CUSTODY_PERIOD_TO_RANDAO_PADDING* = 4
-

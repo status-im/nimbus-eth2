@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2019 Status Research & Development GmbH
+# Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -44,7 +44,7 @@ declareGauge beacon_previous_live_validators, "Number of active validators that 
 declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
 declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/beacon-chain.md#block-header
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#block-header
 proc process_block_header*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.}=
@@ -125,14 +125,14 @@ proc process_randao(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/beacon-chain.md#eth1-data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#eth1-data
 func process_eth1_data(state: var BeaconState, body: BeaconBlockBody) {.nbench.}=
   state.eth1_data_votes.add body.eth1_data
   if state.eth1_data_votes.count(body.eth1_data) * 2 >
       SLOTS_PER_ETH1_VOTING_PERIOD:
     state.eth1_data = body.eth1_data
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/beacon-chain.md#is_slashable_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#is_slashable_validator
 func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
   # Check if ``validator`` is slashable.
   (not validator.slashed) and
@@ -201,7 +201,7 @@ proc processProposerSlashings(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/beacon-chain.md#is_slashable_attestation_data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
     data_1: AttestationData, data_2: AttestationData): bool =
   ## Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG
