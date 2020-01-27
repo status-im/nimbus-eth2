@@ -20,7 +20,7 @@ type
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/configs/minimal.yaml#L4
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L4
 
   # Changed
   MAX_COMMITTEES_PER_SLOT* = 4
@@ -47,7 +47,7 @@ const
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/configs/minimal.yaml#L50
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L52
 
   # Unchanged
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9
@@ -57,7 +57,7 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/configs/minimal.yaml#L62
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L64
 
   # Unchanged
   GENESIS_SLOT* = 0.Slot
@@ -98,7 +98,7 @@ const
 
   # State vector lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/configs/minimal.yaml#L101
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L105
 
   # Changed
   EPOCHS_PER_HISTORICAL_VECTOR* = 64
@@ -158,7 +158,7 @@ const
 
   # Phase 1 - Custody game
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/1_custody-game.md#constants
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase1/custody-game.md#constants
   # TODO those are included in minimal.yaml but not mainnet.yaml
   #      Why?
   EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS* = 4096 # epochs

@@ -367,7 +367,7 @@ func process_slashings*(state: var BeaconState) {.nbench.}=
       let penalty = penalty_numerator div total_balance * increment
       decrease_balance(state, index.ValidatorIndex, penalty)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#final-updates
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#final-updates
 func process_final_updates*(state: var BeaconState) {.nbench.}=
   let
     current_epoch = get_current_epoch(state)
@@ -407,7 +407,7 @@ func process_final_updates*(state: var BeaconState) {.nbench.}=
   state.previous_epoch_attestations = state.current_epoch_attestations
   state.current_epoch_attestations = @[]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#epoch-processing
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(state: var BeaconState) {.nbench.}=
   # @proc are placeholders
 
@@ -416,13 +416,13 @@ proc process_epoch*(state: var BeaconState) {.nbench.}=
 
   var per_epoch_cache = get_empty_per_epoch_cache()
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#justification-and-finalization
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#justification-and-finalization
   process_justification_and_finalization(state, per_epoch_cache)
 
   trace "ran process_justification_and_finalization",
     current_epoch = get_current_epoch(state)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#rewards-and-penalties-1
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#rewards-and-penalties-1
   process_rewards_and_penalties(state, per_epoch_cache)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#registry-updates
@@ -436,7 +436,7 @@ proc process_epoch*(state: var BeaconState) {.nbench.}=
   # @process_reveal_deadlines
   # @process_challenge_deadlines
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#slashings
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#slashings
   process_slashings(state)
 
   # @update_period_committee
