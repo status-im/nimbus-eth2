@@ -52,7 +52,7 @@ const
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/configs/mainnet.yaml#L50
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L52
 
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9 ##\
   ## Minimum amounth of ETH that can be deposited in one call - deposits can
@@ -76,7 +76,7 @@ const
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/configs/mainnet.yaml#L69
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L71
   MIN_GENESIS_DELAY* = 86400 # 86400 seconds (1 day)
 
   SECONDS_PER_SLOT*{.intdefine.} = 12'u64 # Compile with -d:SECONDS_PER_SLOT=1 for 12x faster slots
@@ -128,7 +128,7 @@ const
 
   # State vector lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/configs/mainnet.yaml#L98
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L102
   EPOCHS_PER_HISTORICAL_VECTOR* = 65536
   EPOCHS_PER_SLASHINGS_VECTOR* = 8192
   HISTORICAL_ROOTS_LIMIT* = 16777216
