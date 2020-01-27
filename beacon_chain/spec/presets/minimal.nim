@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2019 Status Research & Development GmbH
+# Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -118,7 +118,7 @@ const
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/configs/minimal.yaml#L127
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L131
 
   MAX_PROPOSER_SLASHINGS* = 2^4
   MAX_ATTESTER_SLASHINGS* = 2^0
@@ -135,7 +135,7 @@ const
 
   # Validators
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/validator/0_beacon-chain-validator.md#misc
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L32
 
   # Changed
   ETH1_FOLLOW_DISTANCE* = 16 # blocks
