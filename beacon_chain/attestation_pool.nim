@@ -397,6 +397,7 @@ func lmdGhost*(
     if (let vote = pool.latestAttestation(pubKey); not vote.isNil):
       latest_messages.add((i, vote))
 
+  # TODO: update to 0.10.1: https://github.com/ethereum/eth2.0-specs/pull/1589/files#diff-9fc3792aa94456eb29506fa77f77b918R143
   template get_latest_attesting_balance(blck: BlockRef): uint64 =
     var res: uint64
     for validator_index, target in latest_messages.items():
