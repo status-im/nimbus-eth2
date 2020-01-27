@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2019 Status Research & Development GmbH
+# Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -146,7 +146,7 @@ func get_empty_per_epoch_cache*(): StateCache =
     initTable[Epoch, seq[ValidatorIndex]]()
   result.committee_count_cache = initTable[Epoch, uint64]()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#compute_proposer_index
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#compute_proposer_index
 func compute_proposer_index(state: BeaconState, indices: seq[ValidatorIndex],
     seed: Eth2Digest, stateCache: var StateCache): Option[ValidatorIndex] =
   # Return from ``indices`` a random index sampled by effective balance.

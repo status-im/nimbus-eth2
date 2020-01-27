@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2019 Status Research & Development GmbH
+# Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -71,7 +71,7 @@ func get_total_active_balance*(state: BeaconState): Gwei =
     state,
     get_active_validator_indices(state, get_current_epoch(state)))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#helper-functions-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#helper-functions-1
 func get_matching_source_attestations(state: BeaconState, epoch: Epoch):
     seq[PendingAttestation] =
   doAssert epoch in [get_current_epoch(state), get_previous_epoch(state)]
@@ -233,7 +233,7 @@ proc process_justification_and_finalization*(
       checkpoint = shortLog(state.finalized_checkpoint),
       cat = "finalization"
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#rewards-and-penalties-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#rewards-and-penalties-1
 func get_base_reward(state: BeaconState, index: ValidatorIndex,
     total_balance: auto): Gwei =
   # Spec function recalculates total_balance every time, which creates an

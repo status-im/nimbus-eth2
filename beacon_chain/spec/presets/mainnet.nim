@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2019 Status Research & Development GmbH
+# Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -136,7 +136,7 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/configs/mainnet.yaml#L110
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L114
   BASE_REWARD_FACTOR* = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
   PROPOSER_REWARD_QUOTIENT* = 2'u64^3
