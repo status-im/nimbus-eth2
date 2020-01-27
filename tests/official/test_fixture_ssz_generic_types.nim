@@ -23,7 +23,7 @@ import
 
 const
   FixturesDir = currentSourcePath.rsplit(DirSep, 1)[0] / "fixtures"
-  SSZDir = FixturesDir/"tests-v0.9.4"/"general"/"phase0"/"ssz_generic"
+  SSZDir = FixturesDir/"tests-v0.10.1"/"general"/"phase0"/"ssz_generic"
 
 type
   SSZHashTreeRoot = object
@@ -278,5 +278,5 @@ proc runSSZtests() =
   # test "Testing " & name & " inputs (" & $T & ") - invalid":
   #   const path = SSZDir/name/"invalid"
 
-suite "Official - 0.9.4 - SSZ generic types":
+suite "Official - SSZ generic types":
   runSSZtests()
