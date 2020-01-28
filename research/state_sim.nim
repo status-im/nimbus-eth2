@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019 Status Research & Development GmbH
+# Copyright (c) 2019-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -78,7 +78,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
   let
     genesisState =
-      initialize_beacon_state_from_eth1(Eth2Digest(), 0, deposits, flags)
+      initialize_beacon_state_from_eth1(
+        Eth2Digest(), 0, deposits, {skipValidation})
     genesisBlock = get_initial_beacon_block(genesisState)
 
   echo "Starting simulation..."

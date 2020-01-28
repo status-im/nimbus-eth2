@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -11,7 +11,7 @@ import
   unittest,
   ./testutil, ./testblockutil,
   ../beacon_chain/spec/[beaconstate, datatypes, digest, validator],
-  ../beacon_chain/[state_transition, ssz]
+  ../beacon_chain/[extras, state_transition, ssz]
 
 suite "Block processing" & preset():
   ## For now just test that we can compile and execute block processing with
@@ -22,7 +22,7 @@ suite "Block processing" & preset():
     # TODO bls verification is a bit of a bottleneck here
     genesisState = initialize_beacon_state_from_eth1(
       Eth2Digest(), 0,
-      makeInitialDeposits(), {})
+      makeInitialDeposits(), {skipValidation})
     genesisBlock = get_initial_beacon_block(genesisState)
     genesisRoot = hash_tree_root(genesisBlock.message)
 
