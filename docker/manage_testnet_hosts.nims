@@ -51,7 +51,7 @@ iterator nodes: Node =
   for i in 0 ..< serverCount:
     let
       serverShortName = if i == 0: "master-01" else: &"node-0{i}"
-      server = &"{serverShortName}.do-ams3.nimbus.test.statusim.net"
+      server = &"{serverShortName}.aws-eu-central-1a.nimbus.test.statusim.net"
 
     for j in 0 ..< instancesCount:
       yield Node(id: i*instancesCount + j,
