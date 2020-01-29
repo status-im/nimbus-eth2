@@ -8,9 +8,9 @@
 import
   # Standard library
   os, unittest, strutils, streams, strformat, strscans,
-  macros,
+  macros, typetraits,
   # Status libraries
-  stint, stew/bitseqs, ../testutil,
+  faststreams, stint, stew/bitseqs, ../testutil,
   # Third-party
   yaml,
   # Beacon chain internals
@@ -32,6 +32,9 @@ type
     root: string
     # Containers have a root (thankfully) and signing_root field
     signing_root: string
+
+  UnconsumedInput* = object of CatchableError
+  TestSizeError* = object of ValueError
 
 # Make signing root optional
 setDefaultValue(SSZHashTreeRoot, signing_root, "")
@@ -73,10 +76,26 @@ type
 # Type specific checks
 # ------------------------------------------------------------------------
 
-proc checkBasic(T: typedesc, dir: string, expectedHash: SSZHashTreeRoot) =
-  let deserialized = SSZ.loadFile(dir/"serialized.ssz", T)
-  check:
-    expectedHash.root == "0x" & toLowerASCII($deserialized.hashTreeRoot())
+proc checkBasic(T: typedesc,
+                dir: string,
+                expectedHash: SSZHashTreeRoot) =
+  var fileContents = readFile(dir/"serialized.ssz")
+  var stream = memoryStream(fileContents)
+  var reader = init(SszReader, stream)
+
+  # We are using heap allocation to avoid stack overflow
+  # issues caused by large objects such as `BeaconState`:
+  var deserialized = new T
+  reader.readValue(deserialized[])
+
+  if not stream[].eof:
+    raise newException(UnconsumedInput, "Remaining bytes in the input")
+
+  let
+    expectedHash = expectedHash.root
+    actualHash = "0x" & toLowerASCII($deserialized.hashTreeRoot())
+  check expectedHash == actualHash
+
   # TODO check the value
 
 macro testVector(typeIdent: string, size: int): untyped =
@@ -100,19 +119,13 @@ macro testVector(typeIdent: string, size: int): untyped =
         ident"array", newLit(s), ident(t)
       )
       var testStmt = quote do:
-        # Need heap alloc
-        var deserialized: ref `T`
-        new deserialized
-        deserialized[] = SSZ.loadFile(dir/"serialized.ssz", `T`)
-        check:
-          expectedHash.root == "0x" & toLowerASCII($deserialized.hashTreeRoot())
-          # TODO check the value
+        checkBasic(`T`, dir, expectedHash)
       sizeDispatch.add nnkElifBranch.newTree(
         newCall(ident"==", size, newLit(s)),
         testStmt
       )
     sizeDispatch.add nnkElse.newTree quote do:
-      raise newException(ValueError,
+      raise newException(TestSizeError,
         "Unsupported **size** in type/size combination: array[" &
         $size & "," & typeIdent & ']')
     dispatcher.add nnkElifBranch.newTree(
@@ -136,31 +149,25 @@ proc checkVector(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
   doAssert wasMatched
   testVector(typeIdent, size)
 
-type BitContainer[N: static int] = BitList[N] or BitArray[N]
-
-proc testBitContainer(T: typedesc[BitContainer], dir: string, expectedHash: SSZHashTreeRoot) =
-  let deserialized = SSZ.loadFile(dir/"serialized.ssz", T)
-  check:
-    expectedHash.root == "0x" & toLowerASCII($deserialized.hashTreeRoot())
-  # TODO check the value
-
 proc checkBitVector(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
   var size: int
   let wasMatched = scanf(sszSubType, "bitvec_$i", size)
   doAssert wasMatched
   case size
-  of 1: testBitContainer(BitArray[1], dir, expectedHash)
-  of 2: testBitContainer(BitArray[2], dir, expectedHash)
-  of 3: testBitContainer(BitArray[3], dir, expectedHash)
-  of 4: testBitContainer(BitArray[4], dir, expectedHash)
-  of 5: testBitContainer(BitArray[5], dir, expectedHash)
-  of 8: testBitContainer(BitArray[8], dir, expectedHash)
-  of 16: testBitContainer(BitArray[16], dir, expectedHash)
-  of 31: testBitContainer(BitArray[31], dir, expectedHash)
-  of 512: testBitContainer(BitArray[512], dir, expectedHash)
-  of 513: testBitContainer(BitArray[513], dir, expectedHash)
+  of 1: checkBasic(BitArray[1], dir, expectedHash)
+  of 2: checkBasic(BitArray[2], dir, expectedHash)
+  of 3: checkBasic(BitArray[3], dir, expectedHash)
+  of 4: checkBasic(BitArray[4], dir, expectedHash)
+  of 5: checkBasic(BitArray[5], dir, expectedHash)
+  of 8: checkBasic(BitArray[8], dir, expectedHash)
+  of 9: checkBasic(BitArray[9], dir, expectedHash)
+  of 16: checkBasic(BitArray[16], dir, expectedHash)
+  of 31: checkBasic(BitArray[31], dir, expectedHash)
+  of 32: checkBasic(BitArray[32], dir, expectedHash)
+  of 512: checkBasic(BitArray[512], dir, expectedHash)
+  of 513: checkBasic(BitArray[513], dir, expectedHash)
   else:
-    raise newException(ValueError, "Unsupported BitVector of size " & $size)
+    raise newException(TestSizeError, "Unsupported BitVector of size " & $size)
 
 # TODO: serialization of "type BitList[maxLen] = distinct BitSeq is not supported"
 #       https://github.com/status-im/nim-beacon-chain/issues/518
@@ -168,30 +175,31 @@ proc checkBitVector(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
 #   var maxLen: int
 #   let wasMatched = scanf(sszSubType, "bitlist_$i", maxLen)
 #   case maxLen
-#   of 1: testBitContainer(BitList[1], dir, expectedHash)
-#   of 2: testBitContainer(BitList[2], dir, expectedHash)
-#   of 3: testBitContainer(BitList[3], dir, expectedHash)
-#   of 4: testBitContainer(BitList[4], dir, expectedHash)
-#   of 5: testBitContainer(BitList[5], dir, expectedHash)
-#   of 8: testBitContainer(BitList[8], dir, expectedHash)
-#   of 16: testBitContainer(BitList[16], dir, expectedHash)
-#   of 31: testBitContainer(BitList[31], dir, expectedHash)
-#   of 512: testBitContainer(BitList[512], dir, expectedHash)
-#   of 513: testBitContainer(BitList[513], dir, expectedHash)
+#   of 1: checkBasic(BitList[1], dir, expectedHash)
+#   of 2: checkBasic(BitList[2], dir, expectedHash)
+#   of 3: checkBasic(BitList[3], dir, expectedHash)
+#   of 4: checkBasic(BitList[4], dir, expectedHash)
+#   of 5: checkBasic(BitList[5], dir, expectedHash)
+#   of 8: checkBasic(BitList[8], dir, expectedHash)
+#   of 16: checkBasic(BitList[16], dir, expectedHash)
+#   of 31: checkBasic(BitList[31], dir, expectedHash)
+#   of 512: checkBasic(BitList[512], dir, expectedHash)
+#   of 513: checkBasic(BitList[513], dir, expectedHash)
 #   else:
 #     raise newException(ValueError, "Unsupported Bitlist of max length " & $maxLen)
 
 # Test dispatch for valid inputs
 # ------------------------------------------------------------------------
 
-proc sszCheck(sszType, sszSubType: string) =
-  let dir = SSZDir/sszType/"valid"/sszSubType
+proc sszCheck(baseDir, sszType, sszSubType: string) =
+  let dir = baseDir/sszSubType
 
   # Hash tree root
   var expectedHash: SSZHashTreeRoot
-  var s = openFileStream(dir/"meta.yaml")
-  yaml.load(s, expectedHash)
-  s.close()
+  if fileExists(dir/"meta.yaml"):
+    var s = openFileStream(dir/"meta.yaml")
+    defer: close(s)
+    yaml.load(s, expectedHash)
 
   # Deserialization and checks
   case sszType
@@ -269,8 +277,24 @@ proc runSSZtests() =
     timedTest &"Testing {sszType:12} inputs - valid" & skipped:
       let path = SSZDir/sszType/"valid"
       for pathKind, sszSubType in walkDir(path, relative = true):
-        doAssert pathKind == pcDir
-        sszCheck(sszType, sszSubType)
+        if pathKind != pcDir: continue
+        sszCheck(path, sszType, sszSubType)
+
+    timedTest &"Testing {sszType:12} inputs - invalid" & skipped:
+      let path = SSZDir/sszType/"invalid"
+      for pathKind, sszSubType in walkDir(path, relative = true):
+        if pathKind != pcDir: continue
+        try:
+          sszCheck(path, sszType, sszSubType)
+        except SszError, UnconsumedInput:
+          discard
+        except TestSizeError as err:
+          echo err.msg
+          skip()
+        except:
+          checkpoint getStackTrace(getCurrentException())
+          checkpoint getCurrentExceptionMsg()
+          check false
 
   # TODO: nim-serialization forces us to use exceptions as control flow
   #       as we always have to check user supplied inputs

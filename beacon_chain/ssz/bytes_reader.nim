@@ -75,6 +75,14 @@ template fromSszBytes*(T: type BitSeq, bytes: openarray[byte]): auto =
 func fromSszBytes*[N](T: type BitList[N], bytes: openarray[byte]): auto =
   BitList[N] @bytes
 
+func fromSszBytes*[N](T: type BitArray[N], bytes: openarray[byte]): T =
+  # A bit vector doesn't have a marker bit, but we'll use the helper from
+  # nim-stew to determine the position of the leading (marker) bit.
+  # If it's outside the BitArray size, we have an overflow:
+  if bitsLen(bytes) > N - 1:
+    raise newException(MalformedSszError, "SSZ bit array overflow")
+  copyMem(addr result.bytes[0], unsafeAddr bytes[0], bytes.len)
+
 func readSszValue*(input: openarray[byte], T: type): T =
   mixin fromSszBytes, toSszType
 
@@ -144,6 +152,11 @@ func readSszValue*(input: openarray[byte], T: type): T =
 
       result[resultLen - 1] = readSszValue(input[offset ..< input.len], ElemType)
 
+  elif result is SomeInteger|bool|enum|BitArray:
+    trs "READING BASIC TYPE ", type(result).name, "  input=", input.len
+    result = fromSszBytes(type(result), input)
+    trs "RESULT WAS ", repr(result)
+
   elif result is object|tuple:
     const minimallyExpectedSize = fixedPortionSize(T)
     if input.len < minimallyExpectedSize:
@@ -182,11 +195,6 @@ func readSszValue*(input: openarray[byte], T: type): T =
       else:
         trs "READING FOREIGN ", fieldName, ": ", name(SszType)
         field = fromSszBytes(FieldType, input[startOffset ..< endOffset])
-
-  elif result is SomeInteger|bool|enum:
-    trs "READING BASIC TYPE ", type(result).name, "  input=", input.len
-    result = fromSszBytes(type(result), input)
-    trs "RESULT WAS ", repr(result)
 
   else:
     unsupported T
