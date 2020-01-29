@@ -269,8 +269,17 @@ template fromSszBytes*[T; N](_: type TypeWithMaxLen[T, N],
   mixin fromSszBytes
   fromSszBytes(T, bytes)
 
-proc readValue*(r: var SszReader, val: var auto) =
-  val = readSszValue(r.stream.readBytes(r.stream.endPos), val.type)
+proc readValue*[T](r: var SszReader, val: var T) =
+  const minimalSize = fixedPortionSize(T)
+  when isFixedSize(T):
+    if r.stream[].ensureBytes(minimalSize):
+      val = readSszValue(r.stream.readBytes(minimalSize), T)
+    else:
+      raise newException(MalformedSszError, "SSZ input of insufficient size")
+  else:
+    # TODO Read the fixed portion first and precisely measure the size of
+    # the dynamic portion to consume the right number of bytes.
+    val = readSszValue(r.stream.readBytes(r.stream.endPos), T)
 
 proc readValue*[T](r: var SszReader, val: var SizePrefixed[T]) =
   let length = r.stream.readVarint(uint64)
