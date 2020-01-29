@@ -436,7 +436,7 @@ func get_indexed_attestation(state: BeaconState, attestation: Attestation,
     signature: attestation.signature
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#attestations
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#attestations
 proc check_attestation*(
     state: BeaconState, attestation: Attestation, flags: UpdateFlags,
     stateCache: var StateCache): bool =
@@ -453,9 +453,21 @@ proc check_attestation*(
   trace "process_attestation: beginning",
     attestation=attestation
 
+  if not (data.index < get_committee_count_at_slot(state, data.slot)):
+    warn("Data index exceeds committee count",
+      data_index = data.index,
+      committee_count = get_committee_count_at_slot(state, data.slot))
+    return
+
   if not (data.target.epoch == get_previous_epoch(state) or
       data.target.epoch == get_current_epoch(state)):
     warn("Target epoch not current or previous epoch")
+    return
+
+  if not (data.target.epoch == compute_epoch_at_slot(data.slot)):
+    warn("Target epoch inconsistent with epoch of data slot",
+      target_epoch = data.target.epoch,
+      data_slot_epoch = compute_epoch_at_slot(data.slot))
     return
 
   if not (data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= stateSlot):

@@ -1,6 +1,6 @@
 import
-  options,
-  serialization,
+  options, typetraits,
+  serialization, chronicles,
   spec/[datatypes, digest, crypto],
   kvstore, ssz
 
@@ -100,12 +100,17 @@ proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
 
 proc get(db: BeaconChainDB, key: auto, T: typedesc): Option[T] =
   var res: Option[T]
-  discard db.backend.get(key, proc (data: openArray[byte]) =
+  discard db.backend.get(key) do (data: openArray[byte]):
     try:
       res = some(SSZ.decode(data, T))
     except SerializationError:
-      discard
-  )
+      # Please note that this is intentionally a normal assert.
+      # We consider this a hard failure in debug mode, because
+      # it suggests a corrupted database. Release builds "recover"
+      # from the situation by failing to deliver a result from the
+      # database.
+      assert false
+      error "Corrupt database entry", key, `type` = name(T)
   res
 
 proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Option[SignedBeaconBlock] =

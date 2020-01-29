@@ -12,6 +12,8 @@ IMAGE_NAME      ?= statusteam/nimbus_beacon_node:$(IMAGE_TAG)
 CURRENT_BRANCH = $(shell git rev-parse --abbrev-ref HEAD)
 COMPUTER_SAYS_NO = { echo "I'm sorry, Dave. I'm afraid I can't do that."; exit 1; }
 
+.PHONY: build push push-last
+
 build:
 	@ DOCKER_BUILDKIT=1 \
 	docker build \

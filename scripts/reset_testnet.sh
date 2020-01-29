@@ -22,7 +22,7 @@ fi
 echo Execution plan:
 
 echo "Testnet name            : $NETWORK"
-echo "Bootstrap node hostname : ${BOOTSTRAP_HOST:="master-01.do-ams3.nimbus.test.statusim.net"}"
+echo "Bootstrap node hostname : ${BOOTSTRAP_HOST:="master-01.aws-eu-central-1a.nimbus.test.statusim.net"}"
 echo "Bootstrap node ip       : ${BOOTSTRAP_IP:="$(dig +short $BOOTSTRAP_HOST)"}"
 echo "Bootstrap node port     : ${BOOTSTRAP_PORT:=9000}"
 echo "Reset testnet at end    : ${PUBLISH_TESTNET_RESETS:="1"}"

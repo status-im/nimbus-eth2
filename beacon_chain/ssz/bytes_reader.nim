@@ -3,9 +3,22 @@ import
   stew/[objects, bitseqs], serialization/testing/tracing,
   ../spec/[digest, datatypes], ./types
 
-template setLen[R, T](a: var array[R, T], length: int) =
+const
+  maxListAllocation = 1 * 1024 * 1024 * 1024 # 1 GiB
+
+template setOutputSize[R, T](a: var array[R, T], length: int) =
   if length != a.len:
     raise newException(MalformedSszError, "SSZ input of insufficient size")
+
+proc setOutputSize[T](s: var seq[T], length: int) {.inline.} =
+  if sizeof(T) * length > maxListAllocation:
+    raise newException(MalformedSszError, "SSZ list size is too large to fit in memory")
+  s.setLen length
+
+proc setOutputSize(s: var string, length: int) {.inline.} =
+  if length > maxListAllocation:
+    raise newException(MalformedSszError, "SSZ string is too large to fit in memory")
+  s.setLen length
 
 template assignNullValue(loc: untyped, T: type): auto =
   when T is ref|ptr:
@@ -20,8 +33,9 @@ template assignNullValue(loc: untyped, T: type): auto =
 func fromSszBytes*(T: type SomeInteger, data: openarray[byte]): T =
   ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
   ## All integers are serialized as **little endian**.
-  ## TODO: Assumes data points to a sufficiently large buffer
-  doAssert data.len == sizeof(result)
+  if data.len < sizeof(result):
+    raise newException(MalformedSszError, "SSZ input of insufficient size")
+
   # TODO: any better way to get a suitably aligned buffer in nim???
   # see also: https://github.com/nim-lang/Nim/issues/9206
   var tmp: uint64
@@ -37,10 +51,13 @@ func fromSszBytes*(T: type SomeInteger, data: openarray[byte]): T =
 func fromSszBytes*(T: type bool, data: openarray[byte]): T =
   # TODO: spec doesn't say what to do if the value is >1 - we'll use the C
   #       definition for now, but maybe this should be a parse error instead?
-  fromSszBytes(uint8, data) != 0
+  if data.len == 0 or data[0] > byte(1):
+    raise newException(MalformedSszError, "invalid boolean value")
+  data[0] == 1
 
 func fromSszBytes*(T: type Eth2Digest, data: openarray[byte]): T =
-  doAssert data.len == sizeof(result.data)
+  if data.len < sizeof(result.data):
+    raise newException(MalformedSszError, "SSZ input of insufficient size")
   copyMem(result.data.addr, unsafeAddr data[0], sizeof(result.data))
 
 template fromSszBytes*(T: type Slot, bytes: openarray[byte]): Slot =
@@ -58,10 +75,18 @@ template fromSszBytes*(T: type BitSeq, bytes: openarray[byte]): auto =
 func fromSszBytes*[N](T: type BitList[N], bytes: openarray[byte]): auto =
   BitList[N] @bytes
 
+func fromSszBytes*[N](T: type BitArray[N], bytes: openarray[byte]): T =
+  # A bit vector doesn't have a marker bit, but we'll use the helper from
+  # nim-stew to determine the position of the leading (marker) bit.
+  # If it's outside the BitArray size, we have an overflow:
+  if bitsLen(bytes) > N - 1:
+    raise newException(MalformedSszError, "SSZ bit array overflow")
+  copyMem(addr result.bytes[0], unsafeAddr bytes[0], bytes.len)
+
 func readSszValue*(input: openarray[byte], T: type): T =
   mixin fromSszBytes, toSszType
 
-  type T {.used.}= type(result)
+  type T {.used.} = type(result)
 
   template readOffset(n: int): int {.used.}=
     int fromSszBytes(uint32, input[n ..< n + offsetSize])
@@ -69,17 +94,20 @@ func readSszValue*(input: openarray[byte], T: type): T =
   when useListType and result is List:
     type ElemType = type result[0]
     result = T readSszValue(input, seq[ElemType])
+
   elif result is ptr|ref:
     if input.len > 0:
       new result
       result[] = readSszValue(input, type(result[]))
+
   elif result is Option:
     if input.len > 0:
       result = some readSszValue(input, result.T)
+
   elif result is string|seq|openarray|array:
     type ElemType = type result[0]
     when ElemType is byte|char:
-      result.setLen input.len
+      result.setOutputSize input.len
       if input.len > 0:
         copyMem(addr result[0], unsafeAddr input[0], input.len)
 
@@ -91,7 +119,7 @@ func readSszValue*(input: openarray[byte], T: type): T =
         ex.actualSszSize = input.len
         ex.elementSize = elemSize
         raise ex
-      result.setLen input.len div elemSize
+      result.setOutputSize input.len div elemSize
       trs "READING LIST WITH LEN ", result.len
       for i in 0 ..< result.len:
         trs "TRYING TO READ LIST ELEM ", i
@@ -104,23 +132,36 @@ func readSszValue*(input: openarray[byte], T: type): T =
         # This is an empty list.
         # The default initialization of the return value is fine.
         return
+      elif input.len < offsetSize:
+        raise newException(MalformedSszError, "SSZ input of insufficient size")
 
       var offset = readOffset 0
       trs "GOT OFFSET ", offset
       let resultLen = offset div offsetSize
       trs "LEN ", resultLen
-      result.setLen resultLen
+      result.setOutputSize resultLen
       for i in 1 ..< resultLen:
         let nextOffset = readOffset(i * offsetSize)
-        if nextOffset == offset:
-          assignNullValue result[i - 1], ElemType
+        if nextOffset <= offset:
+          raise newException(MalformedSszError, "SSZ list element offsets are not monotonically increasing")
+        elif nextOffset > input.len:
+          raise newException(MalformedSszError, "SSZ list element offset points past the end of the input")
         else:
           result[i - 1] = readSszValue(input[offset ..< nextOffset], ElemType)
         offset = nextOffset
 
       result[resultLen - 1] = readSszValue(input[offset ..< input.len], ElemType)
 
+  elif result is SomeInteger|bool|enum|BitArray:
+    trs "READING BASIC TYPE ", type(result).name, "  input=", input.len
+    result = fromSszBytes(type(result), input)
+    trs "RESULT WAS ", repr(result)
+
   elif result is object|tuple:
+    const minimallyExpectedSize = fixedPortionSize(T)
+    if input.len < minimallyExpectedSize:
+      raise newException(MalformedSszError, "SSZ input of insufficient size")
+
     enumInstanceSerializedFields(result, fieldName, field):
       const boundingOffsets = T.getFieldBoundingOffsets(fieldName)
       trs "BOUNDING OFFSET FOR FIELD ", fieldName, " = ", boundingOffsets
@@ -139,6 +180,10 @@ func readSszValue*(input: openarray[byte], T: type): T =
           endOffset = if boundingOffsets[1] == -1: input.len
                       else: readOffset(boundingOffsets[1])
         trs "VAR FIELD ", startOffset, "-", endOffset
+        if startOffset > endOffset:
+          raise newException(MalformedSszError, "SSZ field offsets are not monotonically increasing")
+        elif endOffset > input.len:
+          raise newException(MalformedSszError, "SSZ field offset points past the end of the input")
 
       # TODO The extra type escaping here is a work-around for a Nim issue:
       when type(FieldType) is type(SszType):
@@ -150,11 +195,6 @@ func readSszValue*(input: openarray[byte], T: type): T =
       else:
         trs "READING FOREIGN ", fieldName, ": ", name(SszType)
         field = fromSszBytes(FieldType, input[startOffset ..< endOffset])
-
-  elif result is SomeInteger|bool|enum:
-    trs "READING BASIC TYPE ", type(result).name, "  input=", input.len
-    result = fromSszBytes(type(result), input)
-    trs "RESULT WAS ", repr(result)
 
   else:
     unsupported T

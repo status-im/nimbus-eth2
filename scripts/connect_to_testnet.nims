@@ -69,6 +69,8 @@ cli do (testnetName {.argument.}: string):
 
   let
     dataDirName = testnetName.replace("/", "_")
+                             .replace("(", "_")
+                             .replace(")", "_")
     dataDir = buildDir / "data" / dataDirName
     validatorsDir = dataDir / "validators"
     dumpDir = dataDir / "dump"
