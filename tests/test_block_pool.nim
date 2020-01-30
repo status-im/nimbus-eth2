@@ -213,7 +213,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
             BeaconBlockBody(
               attestations: makeFullAttestations(
                 pool.headState.data.data, pool.head.blck.root,
-                pool.headState.data.data.slot, cache, {skipValidation})))
+                pool.headState.data.data.slot, cache, {})))
         let added = pool.add(hash_tree_root(blck.message), blck)
         pool.updateHead(added)
 

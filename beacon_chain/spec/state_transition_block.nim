@@ -217,6 +217,7 @@ func is_slashable_attestation_data(
 proc process_attester_slashing*(
        state: var BeaconState,
        attester_slashing: AttesterSlashing,
+       flags: UpdateFlags,
        stateCache: var StateCache
      ): bool {.nbench.}=
     let
@@ -228,11 +229,11 @@ proc process_attester_slashing*(
       notice "Attester slashing: surround or double vote check failed"
       return false
 
-    if not is_valid_indexed_attestation(state, attestation_1):
+    if not is_valid_indexed_attestation(state, attestation_1, flags):
       notice "Attester slashing: invalid attestation 1"
       return false
 
-    if not is_valid_indexed_attestation(state, attestation_2):
+    if not is_valid_indexed_attestation(state, attestation_2, flags):
       notice "Attester slashing: invalid attestation 2"
       return false
 
@@ -259,7 +260,7 @@ proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock,
     return false
 
   for attester_slashing in blck.body.attester_slashings:
-    if not process_attester_slashing(state, attester_slashing, stateCache):
+    if not process_attester_slashing(state, attester_slashing, {}, stateCache):
       return false
   return true
 
@@ -286,13 +287,14 @@ proc processAttestations(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#deposits
-proc processDeposits(state: var BeaconState, blck: BeaconBlock): bool {.nbench.}=
+proc processDeposits(state: var BeaconState, blck: BeaconBlock,
+    flags: UpdateFlags): bool {.nbench.}=
   if not (len(blck.body.deposits) <= MAX_DEPOSITS):
     notice "processDeposits: too many deposits"
     return false
 
   for deposit in blck.body.deposits:
-    if not process_deposit(state, deposit):
+    if not process_deposit(state, deposit, flags):
       notice "processDeposits: deposit invalid"
       return false
 
@@ -419,7 +421,7 @@ proc processBlock*(
     debug "[Block processing] Attestation processing failure", slot = shortLog(state.slot)
     return false
 
-  if not processDeposits(state, blck):
+  if not processDeposits(state, blck, flags):
     debug "[Block processing] Deposit processing failure", slot = shortLog(state.slot)
     return false
 

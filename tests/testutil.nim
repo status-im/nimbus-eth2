@@ -80,7 +80,8 @@ proc makeTestDB*(validators: int): BeaconChainDB =
   let
     genState = initialize_beacon_state_from_eth1(
       Eth2Digest(), 0,
-      makeInitialDeposits(validators, flags = {skipValidation}), {skipValidation})
+      makeInitialDeposits(validators, flags = {skipValidation}),
+        {skipValidation, skipMerkleValidation})
     genBlock = get_initial_beacon_block(genState)
   makeTestDB(genState, genBlock)
 
