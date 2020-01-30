@@ -111,7 +111,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         attestation1 = makeAttestation(
           state.data.data, state.blck.root, bc0[1], cache)
 
-      attestation0.combine(attestation1, {skipValidation})
+      attestation0.combine(attestation1, {})
 
       pool.add(attestation0)
       pool.add(attestation1)
@@ -135,7 +135,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         attestation1 = makeAttestation(
           state.data.data, state.blck.root, bc0[1], cache)
 
-      attestation0.combine(attestation1, {skipValidation})
+      attestation0.combine(attestation1, {})
 
       pool.add(attestation1)
       pool.add(attestation0)

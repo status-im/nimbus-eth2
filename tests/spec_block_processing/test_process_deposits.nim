@@ -56,7 +56,8 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
 
       # State transition
       # ----------------------------------------
-      check: state.process_deposit(deposit, {skipValidation})
+      check: state.process_deposit(deposit,
+        {skipValidation, skipMerkleValidation})
 
       # Check invariants
       # ----------------------------------------
@@ -100,7 +101,8 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
 
     # State transition
     # ----------------------------------------
-    check: state.process_deposit(deposit, {skipValidation})
+    check: state.process_deposit(deposit,
+      {skipValidation, skipMerkleValidation})
 
     # Check invariants
     # ----------------------------------------

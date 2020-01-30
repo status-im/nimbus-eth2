@@ -53,7 +53,7 @@ proc process_deposit*(
   # Process an Eth1 deposit, registering a validator or increasing its balance.
 
   # Verify the Merkle branch
-  if skipValidation notin flags and not is_valid_merkle_branch(
+  if skipMerkleValidation notin flags and not is_valid_merkle_branch(
     hash_tree_root(deposit.data),
     deposit.proof,
     DEPOSIT_CONTRACT_TREE_DEPTH + 1,
@@ -361,7 +361,8 @@ proc process_registry_updates*(state: var BeaconState) {.nbench.}=
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
-    state: BeaconState, indexed_attestation: IndexedAttestation): bool =
+    state: BeaconState, indexed_attestation: IndexedAttestation,
+    flags: UpdateFlags): bool =
   ## Check if ``indexed_attestation`` has valid indices and signature.
   # TODO: this is noSideEffect besides logging
   #       https://github.com/status-im/nim-chronicles/issues/62
@@ -380,7 +381,7 @@ proc is_valid_indexed_attestation*(
     return false
 
   # Verify aggregate signature
-  if not bls_verify(
+  if skipValidation notin flags and not bls_verify(
     bls_aggregate_pubkeys(mapIt(indices, state.validators[it.int].pubkey)),
     hash_tree_root(indexed_attestation.data).data,
     indexed_attestation.signature,
@@ -497,7 +498,7 @@ proc check_attestation*(
       return
 
   if not is_valid_indexed_attestation(
-      state, get_indexed_attestation(state, attestation, stateCache)):
+      state, get_indexed_attestation(state, attestation, stateCache), flags):
     warn("process_attestation: signature or bitfields incorrect")
     return
 

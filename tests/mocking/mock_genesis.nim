@@ -25,7 +25,7 @@ proc initGenesisState*(num_validators: uint64, genesis_time: uint64 = 0): Beacon
     )
 
   initialize_beacon_state_from_eth1(
-    eth1BlockHash, 0, deposits, {skipValidation})
+    eth1BlockHash, 0, deposits, {skipValidation, skipMerkleValidation})
 
 when isMainModule:
   # Smoke test
