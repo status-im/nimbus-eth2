@@ -66,13 +66,15 @@ template runTest(identifier: untyped) =
   `testImpl_proposer_slashing _ identifier`()
 
 suite "Official - Operations - Proposer slashing " & preset():
-  runTest(success)
-  runTest(invalid_sig_1)
-  runTest(invalid_sig_2)
-  runTest(invalid_sig_1_and_2)
-  runTest(invalid_proposer_index)
+  # https://github.com/ethereum/eth2.0-spec-tests/tree/v0.10.1/tests/minimal/phase0/operations/proposer_slashing/pyspec_tests
+  # https://github.com/ethereum/eth2.0-spec-tests/tree/v0.10.1/tests/mainnet/phase0/operations/proposer_slashing/pyspec_tests
   runTest(epochs_are_different)
   runTest(headers_are_same)
+  runTest(invalid_proposer_index)
+  runTest(invalid_sig_1)
+  runTest(invalid_sig_1_and_2)
+  runTest(invalid_sig_2)
   runTest(proposer_is_not_activated)
   runTest(proposer_is_slashed)
   runTest(proposer_is_withdrawn)
+  runTest(success)

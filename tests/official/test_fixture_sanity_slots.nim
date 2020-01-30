@@ -47,6 +47,8 @@ template runTest(testName: string, identifier: untyped, num_slots: uint64): unty
 # ---------------------------------------------------------------
 
 suite "Official - Sanity - Slots " & preset():
+  # https://github.com/ethereum/eth2.0-spec-tests/tree/v0.10.1/tests/minimal/phase0/sanity/slots/pyspec_tests
+  # https://github.com/ethereum/eth2.0-spec-tests/tree/v0.10.1/tests/mainnet/phase0/sanity/slots/pyspec_tests
   runTest("Advance 1 slot", slots_1, 1)
   runTest("Advance 2 slots", slots_2, 2)
   runTest("Advance an empty epoch", empty_epoch, SLOTS_PER_EPOCH)
