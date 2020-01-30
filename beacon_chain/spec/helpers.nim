@@ -13,7 +13,7 @@ import
   # Third-party
   blscurve, # defines Domain
   # Internal
-  ./datatypes, ./digest
+  ./datatypes, ./digest, ../ssz
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
@@ -143,6 +143,16 @@ func get_domain*(
 
 func get_domain*(state: BeaconState, domain_type: DomainType): Domain =
   get_domain(state, domain_type, get_current_epoch(state))
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#compute_signing_root
+func compute_signing_root*(ssz_object: auto, domain: Domain): Eth2Digest =
+  # Return the signing root of an object by calculating the root of the
+  # object-domain tree.
+  let domain_wrapped_object = SigningRoot(
+    object_root: hash_tree_root(ssz_object),
+    domain: domain
+  )
+  hash_tree_root(domain_wrapped_object)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#get_seed
 func get_seed*(state: BeaconState, epoch: Epoch, domain_type: DomainType): Eth2Digest =

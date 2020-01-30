@@ -373,7 +373,7 @@ proc is_valid_indexed_attestation*(
     notice "indexed attestation: validator index beyond max validators per committee"
     return false
 
-  # Verify indices are sorted
+  # Verify indices are sorted and unique
   # TODO but why? this is a local artifact
   if indices != sorted(indices, system.cmp):
     notice "indexed attestation: indices not sorted"
