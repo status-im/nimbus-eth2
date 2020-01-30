@@ -66,18 +66,27 @@ template runTest(testName: string, identifier: untyped) =
   `testImpl _ operations_attestations _ identifier`()
 
 suite "Official - Operations - Attestations " & preset():
-  runTest("success", success)
-  runTest("success previous epoch", success_previous_epoch)
-  runTest("invalid attestation signature", invalid_attestation_signature)
-  runTest("before inclusion delay", before_inclusion_delay)
+  # https://github.com/ethereum/eth2.0-spec-tests/tree/v0.10.1/tests/minimal/phase0/operations/attestation/pyspec_tests
+  # https://github.com/ethereum/eth2.0-spec-tests/tree/v0.10.1/tests/mainnet/phase0/operations/attestation/pyspec_tests
   runTest("after_epoch_slots", after_epoch_slots)
+  runTest("bad source root", bad_source_root)
+  runTest("before inclusion delay", before_inclusion_delay)
+  runTest("empty aggregation bits", empty_aggregation_bits)
+  runTest("future target epoch", future_target_epoch)
+  runTest("invalid attestation signature", invalid_attestation_signature)
+  runTest("invalid current source root", invalid_current_source_root)
+  runTest("invalid index", invalid_index)
+  runTest("mismatched target and slot", mismatched_target_and_slot)
+  runTest("new source epoch", new_source_epoch)
   runTest("old source epoch", old_source_epoch)
   runTest("old target epoch", old_target_epoch)
-  runTest("future target epoch", future_target_epoch)
-  runTest("new source epoch", new_source_epoch)
   runTest("source root is target root", source_root_is_target_root)
-  runTest("invalid current source root", invalid_current_source_root)
-  runTest("bad source root", bad_source_root)
-  runTest("empty aggregation bits", empty_aggregation_bits)
-  runTest("too many aggregation bits", too_many_aggregation_bits)
+  runTest("success", success)
+  runTest("success multi-proposer index interations",
+    success_multi_proposer_index_iterations)
+  runTest("success previous epoch", success_previous_epoch)
   runTest("too few aggregation bits", too_few_aggregation_bits)
+  runTest("too many aggregation bits", too_many_aggregation_bits)
+  runTest("wrong index for committee signature",
+    wrong_index_for_committee_signature)
+  runTest("wrong index for slot", wrong_index_for_slot)
