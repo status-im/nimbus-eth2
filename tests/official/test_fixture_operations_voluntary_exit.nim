@@ -64,16 +64,18 @@ template runTest(identifier: untyped) =
   `testImpl _ voluntary_exit _ identifier`()
 
 suite "Official - Operations - Voluntary exit " & preset():
+  # https://github.com/ethereum/eth2.0-spec-tests/tree/v0.10.1/tests/minimal/phase0/operations/voluntary_exit/pyspec_tests
+  # https://github.com/ethereum/eth2.0-spec-tests/tree/v0.10.1/tests/mainnet/phase0/operations/voluntary_exit/pyspec_tests
   runTest(success)
 
   when false:
     # TODO not sure how this particularly could falsely succeed
     runTest(invalid_signature)
 
+  runTest(validator_invalid_validator_index)
+  runTest(validator_already_exited)
   runTest(success_exit_queue)
   runTest(validator_exit_in_future)
-  runTest(validator_invalid_validator_index)
-  runTest(validator_not_active)
-  runTest(validator_already_exited)
+  runTest(default_exit_epoch_subsequent_exit)
   runTest(validator_not_active_long_enough)
-
+  runTest(validator_not_active)
