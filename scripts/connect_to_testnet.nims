@@ -75,7 +75,7 @@ cli do (testnetName {.argument.}: string):
     validatorsDir = dataDir / "validators"
     dumpDir = dataDir / "dump"
     beaconNodeBinary = buildDir / "beacon_node_" & dataDirName
-    nimFlags = "-d:chronicles_log_level=DEBUG " & getEnv("NIM_PARAMS")
+    nimFlags = "-d:chronicles_log_level=TRACE " & getEnv("NIM_PARAMS")
 
   let depositContractFile = testnetDir / depositContractFileName
   if system.fileExists(depositContractFile):
