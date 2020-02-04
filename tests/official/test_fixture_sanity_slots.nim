@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  os, unittest,
+  os, strutils, unittest,
   # Beacon chain internals
   ../../beacon_chain/spec/datatypes,
   ../../beacon_chain/state_transition,
@@ -20,16 +20,17 @@ import
 
 const SanitySlotsDir = SszTestsDir/const_preset/"phase0"/"sanity"/"slots"/"pyspec_tests"
 
-template runTest(testName: string, identifier: untyped, num_slots: uint64): untyped =
+proc runTest(identifier: string) =
   # We wrap the tests in a proc to avoid running out of globals
   # in the future: Nim supports up to 3500 globals
   # but unittest with the macro/templates put everything as globals
   # https://github.com/nim-lang/Nim/issues/12084#issue-486866402
-
-  const testDir = SanitySlotsDir / astToStr(identifier)
+  let
+    testDir = SanitySlotsDir / identifier
+    num_slots = readLines(testDir / "slots.yaml", 2)[0].parseInt.uint64
 
   proc `testImpl _ slots _ identifier`() =
-    timedTest "Slots - " & testName & " (" & astToStr(identifier) & ")":
+    timedTest "Slots - " & identifier:
       var stateRef, postRef: ref BeaconState
       new stateRef
       new postRef
@@ -43,18 +44,6 @@ template runTest(testName: string, identifier: untyped, num_slots: uint64): unty
 
   `testImpl _ slots _ identifier`()
 
-# 1 slot
-# ---------------------------------------------------------------
-
 suite "Official - Sanity - Slots " & preset():
-  # https://github.com/ethereum/eth2.0-spec-tests/tree/v0.10.1/tests/minimal/phase0/sanity/slots/pyspec_tests
-  # https://github.com/ethereum/eth2.0-spec-tests/tree/v0.10.1/tests/mainnet/phase0/sanity/slots/pyspec_tests
-  runTest("Advance 1 slot", slots_1, 1)
-  runTest("Advance 2 slots", slots_2, 2)
-  runTest("Advance an empty epoch", empty_epoch, SLOTS_PER_EPOCH)
-
-  const DoubleEpoch = SLOTS_PER_EPOCH.uint64*2 # workaround undeclared identifier "double_empty_epoch"
-  runTest("Advance 2 empty epochs", double_empty_epoch, DoubleEpoch)
-
-  # This starts in the middle of an epoch
-  runTest("Advance over an epoch boundary", over_epoch_boundary, SLOTS_PER_EPOCH)
+  for kind, path in walkDir(SanitySlotsDir, true):
+    runTest(path)
