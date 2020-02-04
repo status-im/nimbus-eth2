@@ -19,8 +19,10 @@ type
     cmp: proc(a, b: PeerIndex): bool {.closure, gcsafe.}
 
   PeerPool*[A, B] = ref object
-    incNeEvent: AsyncEvent
-    outNeEvent: AsyncEvent
+    incNotEmptyEvent: AsyncEvent
+    outNotEmptyEvent: AsyncEvent
+    incNotFullEvent: AsyncEvent
+    outNotFullEvent: AsyncEvent
     incQueue: HeapQueue[PeerIndex]
     outQueue: HeapQueue[PeerIndex]
     registry: Table[B, PeerIndex]
@@ -34,30 +36,40 @@ type
     acqIncPeersCount: int
     acqOutPeersCount: int
 
+  PeerPoolError* = object of CatchableError
+
 proc `<`*(a, b: PeerIndex): bool =
   result = a.cmp(b, a)
 
-proc fireEvent[A, B](pool: PeerPool[A, B], item: PeerItem[A]) {.inline.} =
+proc fireNotEmptyEvent[A, B](pool: PeerPool[A, B],
+                             item: PeerItem[A]) {.inline.} =
   if item.peerType == PeerType.Incoming:
-    pool.incNeEvent.fire()
+    pool.incNotEmptyEvent.fire()
   elif item.peerType == PeerType.Outgoing:
-    pool.outNeEvent.fire()
+    pool.outNotEmptyEvent.fire()
 
-proc waitEvent[A, B](pool: PeerPool[A, B],
-                     filter: set[PeerType]) {.async.} =
+proc fireNotFullEvent[A, B](pool: PeerPool[A, B],
+                            item: PeerItem[A]) {.inline.} =
+  if item.peerType == PeerType.Incoming:
+    pool.incNotFullEvent.fire()
+  elif item.peerType == PeerType.Outgoing:
+    pool.outNotFullEvent.fire()
+
+proc waitNotEmptyEvent[A, B](pool: PeerPool[A, B],
+                             filter: set[PeerType]) {.async.} =
   if filter == {PeerType.Incoming, PeerType.Outgoing} or filter == {}:
-    var fut1 = pool.incNeEvent.wait()
-    var fut2 = pool.outNeEvent.wait()
+    var fut1 = pool.incNotEmptyEvent.wait()
+    var fut2 = pool.outNotEmptyEvent.wait()
     try:
       discard await one(fut1, fut2)
       if fut1.finished:
         if not(fut2.finished):
           fut2.cancel()
-        pool.incNeEvent.clear()
+        pool.incNotEmptyEvent.clear()
       else:
         if not(fut1.finished):
           fut1.cancel()
-        pool.outNeEvent.clear()
+        pool.outNotEmptyEvent.clear()
     except CancelledError:
       if not(fut1.finished):
         fut1.cancel()
@@ -65,11 +77,20 @@ proc waitEvent[A, B](pool: PeerPool[A, B],
         fut2.cancel()
       raise
   elif PeerType.Incoming in filter:
-    await pool.incNeEvent.wait()
-    pool.incNeEvent.clear()
+    await pool.incNotEmptyEvent.wait()
+    pool.incNotEmptyEvent.clear()
   elif PeerType.Outgoing in filter:
-    await pool.outNeEvent.wait()
-    pool.outNeEvent.clear()
+    await pool.outNotEmptyEvent.wait()
+    pool.outNotEmptyEvent.clear()
+
+proc waitNotFullEvent[A, B](pool: PeerPool[A, B],
+                            peerType: PeerType) {.async.} =
+  if peerType == PeerType.Incoming:
+    await pool.incNotFullEvent.wait()
+    pool.incNotFullEvent.clear()
+  elif peerType == PeerType.Outgoing:
+    await pool.outNotFullEvent.wait()
+    pool.outNotFullEvent.clear()
 
 template getItem[A, B](pool: PeerPool[A, B],
                        filter: set[PeerType]): ptr PeerItem[A] =
@@ -124,13 +145,15 @@ proc newPeerPool*[A, B](maxPeers = -1,
     doAssert(maxPeers >= maxIncomingPeers + maxOutgoingPeers)
 
   res.maxPeersCount = if maxPeers < 0: high(int)
-                         else: maxPeers
+                        else: maxPeers
   res.maxIncPeersCount = if maxIncomingPeers < 0: high(int)
-                            else: maxIncomingPeers
+                           else: maxIncomingPeers
   res.maxOutPeersCount = if maxOutgoingPeers < 0: high(int)
-                            else: maxOutgoingPeers
-  res.incNeEvent = newAsyncEvent()
-  res.outNeEvent = newAsyncEvent()
+                           else: maxOutgoingPeers
+  res.incNotEmptyEvent = newAsyncEvent()
+  res.outNotEmptyEvent = newAsyncEvent()
+  res.incNotFullEvent = newAsyncEvent()
+  res.outNotFullEvent = newAsyncEvent()
   res.incQueue = initHeapQueue[PeerIndex]()
   res.outQueue = initHeapQueue[PeerIndex]()
   res.registry = initTable[B, PeerIndex]()
@@ -190,6 +213,8 @@ proc deletePeer*[A, B](pool: PeerPool[A, B], peer: A, force = false): bool =
         elif item[].peerType == PeerType.Outgoing:
           dec(pool.curOutPeersCount)
           dec(pool.acqOutPeersCount)
+
+        pool.fireNotFullEvent(item[])
         # Cleanup storage with default item, and removing key from hashtable.
         pool.storage[pindex] = PeerItem[A]()
         pool.registry.del(key)
@@ -210,60 +235,125 @@ proc deletePeer*[A, B](pool: PeerPool[A, B], peer: A, force = false): bool =
             pool.outQueue.del(i)
             break
         dec(pool.curOutPeersCount)
+
+      pool.fireNotFullEvent(item[])
       # Cleanup storage with default item, and removing key from hashtable.
       pool.storage[pindex] = PeerItem[A]()
       pool.registry.del(key)
 
     result = true
 
-proc addPeer*[A, B](pool: PeerPool[A, B], peer: A, peerType: PeerType): bool =
-  ## Add peer ``peer`` of type ``peerType`` to PeerPool ``pool``.
-  ##
-  ## Returns ``true`` on success.
-  mixin getKey, getFuture
-
-  if len(pool.registry) >= pool.maxPeersCount:
-    return false
+proc addPeerImpl[A, B](pool: PeerPool[A, B], peer: A, peerKey: B,
+                       peerType: PeerType): PeerIndex =
+  proc onPeerClosed(udata: pointer) {.gcsafe.} =
+    discard pool.deletePeer(peer)
 
   var item = PeerItem[A](data: peer, peerType: peerType,
                          index: len(pool.storage))
-  var key = getKey(peer)
+  pool.storage.add(item)
+  var pitem = addr(pool.storage[^1])
+  let pindex = PeerIndex(data: item.index, cmp: pool.cmp)
+  pool.registry[peerKey] = pindex
+  pitem[].data.getFuture().addCallback(onPeerClosed)
+  result = pindex
 
-  if not(pool.registry.hasKey(key)):
-    pool.storage.add(item)
-    var pitem = addr(pool.storage[^1])
-    let pindex = PeerIndex(data: item.index, cmp: pool.cmp)
-    pool.registry[key] = pindex
+proc addPeerNoWait*[A, B](pool: PeerPool[A, B],
+                          peer: A, peerType: PeerType): bool =
+  ## Add peer ``peer`` of type ``peerType`` to PeerPool ``pool``.
+  ##
+  ## Procedure returns ``false`` in case
+  ##   * if ``peer`` is already closed.
+  ##   * if ``pool`` already has peer ``peer`` inside.
+  ##   * if ``pool`` currently has a maximum of peers.
+  ##   * if ``pool`` currently has a maximum of `Incoming` or `Outgoing` peers.
+  ##
+  ## Procedure returns ``true`` on success.
+  mixin getKey, getFuture
 
-    proc onPeerClosed(udata: pointer) {.gcsafe.} =
-      discard pool.deletePeer(peer)
+  result = false
+  let peerKey = getKey(peer)
 
-    pitem[].data.getFuture().addCallback(onPeerClosed)
+  if not(pool.registry.hasKey(peerKey)) and not(peer.getFuture().finished):
+    if len(pool.registry) < pool.maxPeersCount:
+      if peerType == PeerType.Incoming:
+        if pool.curIncPeersCount < pool.maxIncPeersCount:
+          let pindex = pool.addPeerImpl(peer, peerKey, peerType)
+          inc(pool.curIncPeersCount)
+          pool.incQueue.push(pindex)
+          pool.incNotEmptyEvent.fire()
+          result = true
+      elif peerType == PeerType.Outgoing:
+        if pool.curOutPeersCount < pool.maxOutPeersCount:
+          let pindex = pool.addPeerImpl(peer, peerKey, peerType)
+          inc(pool.curOutPeersCount)
+          pool.outQueue.push(pindex)
+          pool.outNotEmptyEvent.fire()
+          result = true
 
+proc addPeer*[A, B](pool: PeerPool[A, B],
+                    peer: A, peerType: PeerType): Future[bool] {.async.} =
+  ## Add peer ``peer`` of type ``peerType`` to PeerPool ``pool``.
+  ##
+  ## This procedure will wait for an empty space in PeerPool ``pool``, if
+  ## PeerPool ``pool`` is full.
+  ##
+  ## Procedure returns ``false`` in case:
+  ##   * if ``peer`` is already closed.
+  ##   * if ``pool`` already has peer ``peer`` inside.
+  ##
+  ## Procedure returns ``true`` on success.
+  mixin getKey, getFuture
+
+  var res = false
+  let peerKey = getKey(peer)
+
+  if not(pool.registry.hasKey(peerKey)) and not(peer.getFuture().finished):
+    if len(pool.registry) >= pool.maxPeersCount:
+      await pool.waitNotFullEvent(peerType)
     if peerType == PeerType.Incoming:
       if pool.curIncPeersCount >= pool.maxIncPeersCount:
-        return false
-      else:
-        inc(pool.curIncPeersCount)
-        pool.incQueue.push(pindex)
-        pool.incNeEvent.fire()
+        await pool.waitNotFullEvent(peerType)
+
+      let pindex = pool.addPeerImpl(peer, peerKey, peerType)
+      inc(pool.curIncPeersCount)
+      pool.incQueue.push(pindex)
+      pool.incNotEmptyEvent.fire()
+      res = true
     elif peerType == PeerType.Outgoing:
       if pool.curOutPeersCount >= pool.maxOutPeersCount:
-        return false
-      else:
-        inc(pool.curOutPeersCount)
-        pool.outQueue.push(pindex)
-        pool.outNeEvent.fire()
+        await pool.waitNotFullEvent(peerType)
 
-    result = true
+      let pindex = pool.addPeerImpl(peer, peerKey, peerType)
+      inc(pool.curOutPeersCount)
+      pool.outQueue.push(pindex)
+      pool.outNotEmptyEvent.fire()
+      res = true
 
-proc addIncomingPeer*[A, B](pool: PeerPool[A, B], peer: A): bool {.inline.} =
+  result = res
+
+proc addIncomingPeerNoWait*[A, B](pool: PeerPool[A, B],
+                                  peer: A): bool {.inline.} =
+  ## Add incoming peer ``peer`` to PeerPool ``pool``.
+  ##
+  ## Returns ``true`` on success.
+  result = pool.addPeerNoWait(peer, PeerType.Incoming)
+
+proc addOutgoingPeerNoWait*[A, B](pool: PeerPool[A, B],
+                                  peer: A): bool {.inline.} =
+  ## Add outgoing peer ``peer`` to PeerPool ``pool``.
+  ##
+  ## Returns ``true`` on success.
+  result = pool.addPeerNoWait(peer, PeerType.Outgoing)
+
+proc addIncomingPeer*[A, B](pool: PeerPool[A, B],
+                                  peer: A): Future[bool] {.inline.} =
   ## Add incoming peer ``peer`` to PeerPool ``pool``.
   ##
   ## Returns ``true`` on success.
   result = pool.addPeer(peer, PeerType.Incoming)
 
-proc addOutgoingPeer*[A, B](pool: PeerPool[A, B], peer: A): bool {.inline.} =
+proc addOutgoingPeer*[A, B](pool: PeerPool[A, B],
+                                  peer: A): Future[bool] {.inline.} =
   ## Add outgoing peer ``peer`` to PeerPool ``pool``.
   ##
   ## Returns ``true`` on success.
@@ -281,13 +371,29 @@ proc acquire*[A, B](pool: PeerPool[A, B],
     if PeerType.Outgoing in filter:
       count = count + len(pool.outQueue)
     if count == 0:
-      await pool.waitEvent(filter)
+      await pool.waitNotEmptyEvent(filter)
     else:
       var item = pool.getItem(filter)
       doAssert(PeerFlags.Acquired notin item[].flags)
       item[].flags.incl(PeerFlags.Acquired)
       result = item[].data
       break
+
+proc acquireNoWait*[A, B](pool: PeerPool[A, B],
+                          filter = {PeerType.Incoming,
+                                    PeerType.Outgoing}): A =
+  doAssert(filter != {}, "Filter must not be empty")
+  var count = 0
+  if PeerType.Incoming in filter:
+    count = count + len(pool.incQueue)
+  if PeerType.Outgoing in filter:
+    count = count + len(pool.outQueue)
+  if count < 1:
+    raise newException(PeerPoolError, "Not enough peers in pool")
+  var item = pool.getItem(filter)
+  doAssert(PeerFlags.Acquired notin item[].flags)
+  item[].flags.incl(PeerFlags.Acquired)
+  result = item[].data
 
 proc release*[A, B](pool: PeerPool[A, B], peer: A) =
   ## Release peer ``peer`` back to PeerPool ``pool``
@@ -315,7 +421,7 @@ proc release*[A, B](pool: PeerPool[A, B], peer: A) =
         elif item[].peerType == PeerType.Outgoing:
           pool.outQueue.push(titem)
           dec(pool.acqOutPeersCount)
-        pool.fireEvent(item[])
+        pool.fireNotEmptyEvent(item[])
 
 proc release*[A, B](pool: PeerPool[A, B], peers: openarray[A]) {.inline.} =
   ## Release array of peers ``peers`` back to PeerPool ``pool``.
@@ -341,7 +447,7 @@ proc acquire*[A, B](pool: PeerPool[A, B],
         if PeerType.Outgoing in filter:
           count = count + len(pool.outQueue)
         if count == 0:
-          await pool.waitEvent(filter)
+          await pool.waitNotEmptyEvent(filter)
         else:
           var item = pool.getItem(filter)
           doAssert(PeerFlags.Acquired notin item[].flags)
@@ -354,6 +460,28 @@ proc acquire*[A, B](pool: PeerPool[A, B],
       pool.release(item)
     peers.setLen(0)
     raise
+  result = peers
+
+proc acquireNoWait*[A, B](pool: PeerPool[A, B],
+                          number: int,
+                          filter = {PeerType.Incoming,
+                                    PeerType.Outgoing}): seq[A] =
+  ## Acquire ``number`` number of peers from PeerPool ``pool``, which match the
+  ## filter ``filter``.
+  doAssert(filter != {}, "Filter must not be empty")
+  var peers = newSeq[A]()
+  var count = 0
+  if PeerType.Incoming in filter:
+    count = count + len(pool.incQueue)
+  if PeerType.Outgoing in filter:
+    count = count + len(pool.outQueue)
+  if count < number:
+    raise newException(PeerPoolError, "Not enough peers in pool")
+  for i in 0 ..< number:
+    var item = pool.getItem(filter)
+    doAssert(PeerFlags.Acquired notin item[].flags)
+    item[].flags.incl(PeerFlags.Acquired)
+    peers.add(item[].data)
   result = peers
 
 proc acquireIncomingPeer*[A, B](pool: PeerPool[A, B]): Future[A] {.inline.} =

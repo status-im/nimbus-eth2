@@ -47,27 +47,20 @@ func decrease_balance*(
     else:
       state.balances[index] - delta
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#deposits
-func process_deposit*(
+# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#deposits
+proc process_deposit*(
     state: var BeaconState, deposit: Deposit, flags: UpdateFlags = {}): bool {.nbench.}=
   # Process an Eth1 deposit, registering a validator or increasing its balance.
 
   # Verify the Merkle branch
-  # TODO enable this check, but don't use doAssert
-  if not is_valid_merkle_branch(
-    hash_tree_root(deposit.getDepositMessage),
-     deposit.proof,
-     DEPOSIT_CONTRACT_TREE_DEPTH,
-     state.eth1_deposit_index,
+  if skipValidation notin flags and not is_valid_merkle_branch(
+    hash_tree_root(deposit.data),
+    deposit.proof,
+    DEPOSIT_CONTRACT_TREE_DEPTH + 1,
+    state.eth1_deposit_index,
     state.eth1_data.deposit_root,
   ):
-    ## TODO: a notice-like mechanism which works in a func
-    ## here and elsewhere, one minimal approach is a check-if-true
-    ## and return false iff so.
-    ## obviously, better/more principled ones exist, but
-    ## generally require broader rearchitecting, and this is what
-    ## mostly happens now, just haphazardly.
-    discard
+    return false
 
   # Deposits must be processed in order
   state.eth1_deposit_index += 1
@@ -380,7 +373,7 @@ proc is_valid_indexed_attestation*(
     notice "indexed attestation: validator index beyond max validators per committee"
     return false
 
-  # Verify indices are sorted
+  # Verify indices are sorted and unique
   # TODO but why? this is a local artifact
   if indices != sorted(indices, system.cmp):
     notice "indexed attestation: indices not sorted"
