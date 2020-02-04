@@ -16,7 +16,7 @@ mkdir -p "$VALIDATORS_DIR"
 
 cd "$GIT_ROOT"
 
-NIMFLAGS="-d:chronicles_log_level=TRACE --hints:off --warnings:off --verbosity:0 --opt:speed --debuginfo"
+NIMFLAGS="-d:chronicles_log_level=TRACE -d:chronicles_sinks:textlines,json[file] --hints:off --warnings:off --verbosity:0 --opt:speed --debuginfo"
 
 # Run with "SLOTS_PER_EPOCH=8 ./start.sh" to change these
 DEFS=""

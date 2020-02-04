@@ -52,7 +52,7 @@ if [[ $NODE_ID == $MASTER_NODE ]]; then
   NODE_BIN=$BOOTSTRAP_NODE_BIN
 fi
 
-$NODE_BIN \
+cd "$DATA_DIR" && $NODE_BIN \
   --bootstrap-file=$BOOTSTRAP_ADDRESS_FILE \
   --data-dir=$DATA_DIR \
   --node-name=$NODE_ID \
