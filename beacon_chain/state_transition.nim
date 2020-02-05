@@ -197,6 +197,7 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot) =
   if state.data.slot > slot:
     notice(
       "Unusual request for a slot in the past",
+      state_root = shortLog(state.root),
       current_slot = state.data.slot,
       target_slot = slot
     )
