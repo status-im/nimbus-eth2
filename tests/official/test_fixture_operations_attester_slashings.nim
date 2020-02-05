@@ -79,5 +79,6 @@ suite "Official - Operations - Attester slashing " & preset():
     ["success_already_exited_recent", "success_already_exited_long_ago"]
   for kind, path in walkDir(OpAttSlashingDir, true):
     if path in expected_failures:
+      echo "Skipping test: ", path
       continue
     runTest(path)
