@@ -187,6 +187,55 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         pool.head.blck == b1Add
         pool.headState.data.data.slot == b1Add.slot
 
+    timedTest "updateStateData sanity" & preset():
+      let
+        b1Add = pool.add(b1Root, b1)
+        b2Add = pool.add(b2Root, b2)
+        bs1 = BlockSlot(blck: b1Add, slot: b1.message.slot)
+        bs1_3 = b1Add.atSlot(3.Slot)
+        bs2 = BlockSlot(blck: b2Add, slot: b2.message.slot)
+        bs2_3 = b2Add.atSlot(3.Slot)
+
+      var tmpState = pool.headState
+
+      # move to specific block
+      pool.updateStateData(tmpState, bs1)
+
+      check:
+        tmpState.blck == b1Add
+        tmpState.data.data.slot == bs1.slot
+
+      # Skip slots
+      pool.updateStateData(tmpState, bs1_3) # skip slots
+
+      check:
+        tmpState.blck == b1Add
+        tmpState.data.data.slot == bs1_3.slot
+
+      # Move back slots, but not blocks
+      pool.updateStateData(tmpState, bs1_3.parent())
+      check:
+        tmpState.blck == b1Add
+        tmpState.data.data.slot == bs1_3.parent().slot
+
+      # Move to different block and slot
+      pool.updateStateData(tmpState, bs2_3)
+      check:
+        tmpState.blck == b2Add
+        tmpState.data.data.slot == bs2_3.slot
+
+      # Move back slot and block
+      pool.updateStateData(tmpState, bs1)
+      check:
+        tmpState.blck == b1Add
+        tmpState.data.data.slot == bs1.slot
+
+      # Move back to genesis
+      pool.updateStateData(tmpState, bs1.parent())
+      check:
+        tmpState.blck == b1Add.parent
+        tmpState.data.data.slot == bs1.parent.slot
+
   suite "BlockPool finalization tests" & preset():
     setup:
       var
