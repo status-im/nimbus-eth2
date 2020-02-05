@@ -90,11 +90,6 @@ type
         desc: "Specifies a line-delimited file of bootsrap Ethereum network addresses."
         name: "bootstrap-file" }: InputFile
 
-      enrBootstrapNodesFile* {.
-        defaultValue: ""
-        desc: "Specifies a line-delimited file of bootstrap ENR records"
-        name: "enr-bootstrap-file" }: InputFile
-
       tcpPort* {.
         defaultValue: defaultPort(config)
         desc: "TCP listening port."

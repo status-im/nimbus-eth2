@@ -3,7 +3,7 @@ import
   stew/[varints,base58], stew/shims/[macros, tables], chronos, chronicles,
   stint, faststreams/output_stream, serialization,
   json_serialization/std/options, eth/p2p/p2p_protocol_dsl,
-  eth/p2p/discoveryv5/enr,
+  eth/p2p/discoveryv5/node,
   # TODO: create simpler to use libp2p modules that use re-exports
   libp2p/[switch, multistream, connection,
           multiaddress, peerinfo, peer,
@@ -177,22 +177,33 @@ proc toPeerInfo(r: Option[enr.TypedRecord]): PeerInfo =
   if r.isSome:
     return r.get.toPeerInfo
 
-proc dialPeer*(node: Eth2Node, enr: enr.Record) {.async.} =
-  let peerInfo = enr.toTypedRecord.toPeerInfo
-  if peerInfo != nil:
-    discard await node.switch.dial(peerInfo)
-    var peer = node.getPeer(peerInfo)
-    peer.wasDialed = true
-    await initializeConnection(peer)
+proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
+  debug "Dialing peer", peer = $peerInfo
+  discard await node.switch.dial(peerInfo)
+  var peer = node.getPeer(peerInfo)
+  peer.wasDialed = true
+  await initializeConnection(peer)
 
-proc runDiscoveryLoop(node: Eth2Node) {.async.} =
+proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
+  debug "Starting discovery loop"
+
   while true:
-    if node.peersByDiscoveryId.len < node.wantedPeers:
-      let discoveredPeers = await node.discovery.lookupRandom()
-      for peer in discoveredPeers:
-        if peer.id notin node.peersByDiscoveryId:
-          # TODO do this in parallel
-          await node.dialPeer(peer.record)
+    let currentPeerCount = node.switch.connections.len
+    libp2p_peers.set currentPeerCount.int64
+    if currentPeerCount < node.wantedPeers:
+      try:
+        let discoveredPeers = await node.discovery.lookupRandom()
+        for peer in discoveredPeers:
+          debug "Discovered peer", peer = $peer
+          try:
+            let peerInfo = peer.record.toTypedRecord.toPeerInfo
+            if peerInfo != nil and peerInfo.id notin node.switch.connections:
+              # TODO do this in parallel
+              await node.dialPeer(peerInfo)
+          except CatchableError as err:
+            debug "Failed to connect to peer", peer = $peer
+      except CatchableError as err:
+        debug "Failure in discovery", err = err.msg
 
     await sleepAsync seconds(1)
 
@@ -213,13 +224,14 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf,
       if msg.protocolMounter != nil:
         msg.protocolMounter result
 
-proc addKnownPeer*(node: Eth2Node, peerEnr: enr.Record) =
-  node.discovery.addNode peerEnr
+proc addKnownPeer*(node: Eth2Node, peer: ENode) =
+  node.discovery.addNode peer
 
 proc start*(node: Eth2Node) {.async.} =
   node.discovery.open()
   node.discovery.start()
   node.libp2pTransportLoops = await node.switch.start()
+  traceAsyncErrors node.runDiscoveryLoop()
 
 proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer =
   new result

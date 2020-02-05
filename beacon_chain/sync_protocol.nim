@@ -1,13 +1,11 @@
 import
   options, tables, sets, macros,
-  chronicles, chronos, metrics, stew/ranges/bitranges,
+  chronicles, chronos, stew/ranges/bitranges,
   spec/[datatypes, crypto, digest, helpers],
   beacon_node_types, eth2_network, block_pool, ssz
 
 when networkBackend == libp2p:
   import libp2p/switch
-
-declarePublicGauge libp2p_peers, "Number of libp2p peers"
 
 logScope:
   topics = "sync"
@@ -100,9 +98,6 @@ p2pProtocol BeaconSync(version = 1,
       else:
         warn "Status response not received in time"
 
-  onPeerDisconnected do (peer: Peer):
-    libp2p_peers.set peer.network.peers.len.int64
-
   requestResponse:
     proc status(peer: Peer, theirStatus: StatusMsg) {.libp2pProtocol("status", 1).} =
       let
@@ -181,8 +176,6 @@ proc handleInitialStatus(peer: Peer,
   # where it needs to sync and it should execute the sync algorithm with a certain
   # number of randomly selected peers. The algorithm itself must be extracted in a proc.
   try:
-    libp2p_peers.set peer.network.peers.len.int64
-
     debug "Peer connected. Initiating sync", peer,
           localHeadSlot = ourStatus.headSlot,
           remoteHeadSlot = theirStatus.headSlot,
