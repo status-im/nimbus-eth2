@@ -270,8 +270,8 @@ template fromSszBytes*[T; N](_: type TypeWithMaxLen[T, N],
   fromSszBytes(T, bytes)
 
 proc readValue*[T](r: var SszReader, val: var T) =
-  const minimalSize = fixedPortionSize(T)
   when isFixedSize(T):
+    const minimalSize = fixedPortionSize(T)
     if r.stream[].ensureBytes(minimalSize):
       val = readSszValue(r.stream.readBytes(minimalSize), T)
     else:

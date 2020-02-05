@@ -20,14 +20,6 @@ proc setOutputSize(s: var string, length: int) {.inline.} =
     raise newException(MalformedSszError, "SSZ string is too large to fit in memory")
   s.setLen length
 
-template assignNullValue(loc: untyped, T: type): auto =
-  when T is ref|ptr:
-    loc = nil
-  elif T is Option:
-    loc = T()
-  else:
-    raise newException(MalformedSszError, "SSZ list element of zero size")
-
 # fromSszBytes copies the wire representation to a Nim variable,
 # assuming there's enough data in the buffer
 func fromSszBytes*(T: type SomeInteger, data: openarray[byte]): T =
