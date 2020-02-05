@@ -624,31 +624,22 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
   # TODO here we advance the state to the new slot, but later we'll be
   #      proposing for it - basically, we're selecting proposer based on an
   #      empty slot
-  var cache = get_empty_per_epoch_cache()
-  node.blockPool.withState(node.blockPool.tmpState, head.atSlot(slot)):
-    let proposerIdx = get_beacon_proposer_index(state, cache)
-    if proposerIdx.isNone:
-      notice "Missing proposer index",
-        slot=slot,
-        epoch=slot.compute_epoch_at_slot,
-        num_validators=state.validators.len,
-        active_validators=
-          get_active_validator_indices(state, slot.compute_epoch_at_slot),
-        balances=state.balances
 
-      return head
+  let proposerKey = node.blockPool.getProposer(head, slot)
+  if proposerKey.isNone():
+    return head
 
-    let validator = node.getAttachedValidator(state, proposerIdx.get)
+  let validator = node.attachedValidators.getValidator(proposerKey.get())
 
-    if validator != nil:
-      return await proposeBlock(node, validator, head, slot)
+  if validator != nil:
+    return await proposeBlock(node, validator, head, slot)
 
-    trace "Expecting block proposal",
-      headRoot = shortLog(head.root),
-      slot = shortLog(slot),
-      proposer = shortLog(state.validators[proposerIdx.get].pubKey),
-      cat = "consensus",
-      pcs = "wait_for_proposal"
+  debug "Expecting block proposal",
+    headRoot = shortLog(head.root),
+    slot = shortLog(slot),
+    proposer = shortLog(proposerKey.get()),
+    cat = "consensus",
+    pcs = "wait_for_proposal"
 
   return head
 

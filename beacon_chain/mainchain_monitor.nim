@@ -24,7 +24,6 @@ type
 
   QueueElement = (BlockHash, DepositData)
 
-
 proc init*(T: type MainchainMonitor, web3Url, depositContractAddress: string, startBlock: Eth2Digest): T =
   result.new()
   result.web3Url = web3Url
@@ -130,7 +129,10 @@ proc run(m: MainchainMonitor, delayBeforeStart: Duration) {.async.} =
     processFut.cancel()
 
   let startBlkNum = await web3.getBlockNumber(m.eth1Block)
-  debug "Starting eth1 monitor", fromBlock = startBlkNum.uint64
+  notice "Monitoring eth1 deposits",
+    fromBlock = startBlkNum.uint64,
+    contract = $m.depositContractAddress,
+    url = m.web3Url
 
   let ns = web3.contractSender(DepositContract, m.depositContractAddress)
 
@@ -139,15 +141,17 @@ proc run(m: MainchainMonitor, delayBeforeStart: Duration) {.async.} =
       withdrawalCredentials: Bytes32,
       amount: Bytes8,
       signature: Bytes96, merkleTreeIndex: Bytes8, j: JsonNode):
+    try:
+      let blkHash = BlockHash.fromHex(j["blockHash"].getStr())
+      let amount = bytes_to_int(array[8, byte](amount))
 
-    let blkHash = BlockHash.fromHex(j["blockHash"].getStr())
-    let amount = bytes_to_int(array[8, byte](amount))
-
-    m.depositQueue.addLastNoWait((blkHash,
-      DepositData(pubkey: ValidatorPubKey.init(array[48, byte](pubkey)),
-        withdrawal_credentials: Eth2Digest(data: array[32, byte](withdrawalCredentials)),
-        amount: amount,
-        signature: ValidatorSig.init(array[96, byte](signature)))))
+      m.depositQueue.addLastNoWait((blkHash,
+        DepositData(pubkey: ValidatorPubKey.init(array[48, byte](pubkey)),
+          withdrawal_credentials: Eth2Digest(data: array[32, byte](withdrawalCredentials)),
+          amount: amount,
+          signature: ValidatorSig.init(array[96, byte](signature)))))
+    except CatchableError as exc:
+      warn "Received invalid deposit", err = exc.msg, j
 
   try:
     await processFut
