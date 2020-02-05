@@ -1,3 +1,6 @@
+import
+  metrics
+
 type
   ResponseCode* = enum
     Success
@@ -21,6 +24,8 @@ const
 
 logScope:
   topics = "libp2p"
+
+declarePublicGauge libp2p_peers, "Number of libp2p peers"
 
 template libp2pProtocol*(name: string, version: int) {.pragma.}
 

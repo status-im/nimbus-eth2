@@ -1,8 +1,12 @@
 import
-  options, tables,
-  chronos, json_serialization, strutils, chronicles, metrics,
-  eth/net/nat, eth/p2p/discoveryv5/enr,
-  version, conf
+  options, tables, strutils, sequtils,
+  chronos, json_serialization, chronicles, metrics, libp2p/crypto/secp,
+  eth/keys, eth/p2p/enode, eth/net/nat, eth/p2p/discoveryv5/enr,
+  eth2_discovery, version, conf
+
+type
+  DiscKeyPair* = keys.KeyPair
+  DiscPrivKey* = keys.PrivateKey
 
 const
   clientId* = "Nimbus beacon node v" & fullVersionStr
@@ -61,7 +65,7 @@ when networkBackend in [libp2p, libp2pDaemon]:
   import
     os, random,
     stew/io, eth/async_utils,
-    libp2p/crypto/crypto, libp2p/[multiaddress, multicodec],
+    libp2p/crypto/crypto as libp2pCrypto, libp2p/[multiaddress, multicodec],
     ssz
 
   export
@@ -94,11 +98,14 @@ when networkBackend in [libp2p, libp2pDaemon]:
     netBackendName* = "libp2p"
     networkKeyFilename = "privkey.protobuf"
 
-  type
-    BootstrapAddr* = MultiAddress
-    Eth2NodeIdentity* = KeyPair
+  func asLibp2pKey*(key: DiscPrivKey): libp2pCrypto.PrivateKey =
+    libp2pCrypto.PrivateKey(scheme: Secp256k1,
+                            skkey: SkPrivateKey(data: key.data))
 
-  proc initAddress*(T: type BootstrapAddr, str: string): T =
+  func asLibp2pKey*(key: keys.PublicKey): libp2pCrypto.PublicKey =
+    libp2pCrypto.PublicKey(scheme: Secp256k1, skkey: key)
+
+  proc initAddress*(T: type MultiAddress, str: string): T =
     let address = MultiAddress.init(str)
     if IPFS.match(address) and matchPartial(multiaddress.TCP, address):
       result = address
@@ -109,36 +116,32 @@ when networkBackend in [libp2p, libp2pDaemon]:
   template tcpEndPoint(address, port): auto =
     MultiAddress.init(address, Protocol.IPPROTO_TCP, port)
 
-  proc initAddress*(T: type BootstrapAddr, ip: IpAddress, tcpPort: Port): T =
-    tcpEndPoint(ip, tcpPort)
+  proc genRandomNetKey: DiscPrivKey =
+    let skkey = SkPrivateKey.random
+    DiscPrivKey(data: skkey.data)
 
   proc ensureNetworkIdFile(conf: BeaconNodeConf): string =
     result = conf.dataDir / networkKeyFilename
     if not fileExists(result):
       createDir conf.dataDir.string
-      let pk = PrivateKey.random(Secp256k1)
-      writeFile(result, pk.getBytes)
+      let pk = genRandomNetKey()
+      writeFile(result, pk.data)
 
-  proc getPersistentNetIdentity*(conf: BeaconNodeConf): Eth2NodeIdentity =
-    let privateKeyFile = conf.dataDir / networkKeyFilename
-    var privKey: PrivateKey
-    if not fileExists(privateKeyFile):
+  proc getPersistentNetKeys*(conf: BeaconNodeConf): DiscKeyPair =
+    let privKeyPath = conf.dataDir / networkKeyFilename
+    var privKey: DiscPrivKey
+    if not fileExists(privKeyPath):
       createDir conf.dataDir.string
-      privKey = PrivateKey.random(Secp256k1)
-      writeFile(privateKeyFile, privKey.getBytes())
+      privKey = genRandomNetKey()
+      writeFile(privKeyPath, privKey.data)
     else:
-      let strdata = readFile(privateKeyFile)
-      privKey = PrivateKey.init(cast[seq[byte]](strdata))
+      let strdata = readFile(privKeyPath)
+      privKey = initPrivateKey(cast[seq[byte]](strdata))
 
-    result = KeyPair(seckey: privKey, pubkey: privKey.getKey())
-
-  proc allMultiAddresses(nodes: seq[BootstrapAddr]): seq[string] =
-    for node in nodes:
-      result.add $node
+    DiscKeyPair(seckey: privKey, pubkey: privKey.getPublicKey())
 
   proc createEth2Node*(conf: BeaconNodeConf,
-                       bootstrapNodes: seq[BootstrapAddr],
-                       bootstrapEnrs: seq[enr.Record]): Future[Eth2Node] {.async.} =
+                       bootstrapNodes: seq[ENode]): Future[Eth2Node] {.async.} =
     var
       (extIp, extTcpPort, _) = setupNat(conf)
       hostAddress = tcpEndPoint(globalListeningAddr, Port conf.tcpPort)
@@ -150,16 +153,13 @@ when networkBackend in [libp2p, libp2pDaemon]:
                                     bootstrapNodes
 
     when networkBackend == libp2p:
-      let keys = conf.getPersistentNetIdentity
+      let keys = conf.getPersistentNetKeys
       # TODO nim-libp2p still doesn't have support for announcing addresses
       # that are different from the host address (this is relevant when we
       # are running behind a NAT).
-      var switch = newStandardSwitch(some keys.seckey, hostAddress,
+      var switch = newStandardSwitch(some keys.seckey.asLibp2pKey, hostAddress,
                                      triggerSelf = true, gossip = false)
       result = Eth2Node.init(conf, switch, keys.seckey)
-      for enr in bootstrapEnrs:
-        result.addKnownPeer(enr)
-      await result.start()
     else:
       let keyFile = conf.ensureNetworkIdFile
 
@@ -173,7 +173,7 @@ when networkBackend in [libp2p, libp2pDaemon]:
                      id = keyFile,
                      hostAddresses = @[hostAddress],
                      announcedAddresses = announcedAddresses,
-                     bootstrapNodes = allMultiAddresses(bootstrapNodes),
+                     bootstrapNodes = mapIt(bootstrapNodes, it.toMultiAddressStr),
                      peersRequired = 1)
 
       mainDaemon = await daemonFut
@@ -185,52 +185,53 @@ when networkBackend in [libp2p, libp2pDaemon]:
       result = await Eth2Node.init(mainDaemon)
 
   proc getPersistenBootstrapAddr*(conf: BeaconNodeConf,
-                                  ip: IpAddress, port: Port): BootstrapAddr =
-    let pair = getPersistentNetIdentity(conf)
-    let pidma = MultiAddress.init(multiCodec("p2p"), PeerID.init(pair.pubkey))
-    result = tcpEndPoint(ip, port) & pidma
+                                  ip: IpAddress, port: Port): ENode =
+    let pair = getPersistentNetKeys(conf)
+    initENode(pair.pubkey, Address(ip: ip, udpPort: port))
 
-  proc isSameNode*(bootstrapNode: BootstrapAddr, id: Eth2NodeIdentity): bool =
-    if IPFS.match(bootstrapNode):
-      let pid1 = PeerID.init(bootstrapNode[2].protoAddress())
-      let pid2 = PeerID.init(id.pubkey)
-      result = (pid1 == pid2)
+  proc shortForm*(id: DiscKeyPair): string =
+    $PeerID.init(id.pubkey.asLibp2pKey)
 
-  proc shortForm*(id: Eth2NodeIdentity): string =
-    $PeerID.init(id.pubkey)
-
-  proc multiAddressToPeerInfo(a: MultiAddress): PeerInfo =
-    if IPFS.match(a):
-      let
-        peerId = PeerID.init(a[2].protoAddress())
-        addresses = @[a[0] & a[1]]
-      when networkBackend == libp2p:
-        return PeerInfo.init(peerId, addresses)
-      else:
-        return PeerInfo(peer: peerId, addresses: addresses)
+  proc toPeerInfo(enode: ENode): PeerInfo =
+    let
+      peerId = PeerID.init enode.pubkey.asLibp2pKey
+      addresses = @[MultiAddress.init enode.toMultiAddressStr]
+    when networkBackend == libp2p:
+      return PeerInfo.init(peerId, addresses)
+    else:
+      return PeerInfo(peer: peerId, addresses: addresses)
 
   proc connectToNetwork*(node: Eth2Node,
-                         bootstrapNodes: seq[MultiAddress]) {.async.} =
-    # TODO: perhaps we should do these in parallel
-    var connected = false
-    for bootstrapNode in bootstrapNodes:
-      try:
-        let peerInfo = multiAddressToPeerInfo(bootstrapNode)
-        when networkBackend == libp2p:
-          discard await node.switch.dial(peerInfo)
-        else:
-          await node.daemon.connect(peerInfo.peer, peerInfo.addresses)
-        var peer = node.getPeer(peerInfo)
-        peer.wasDialed = true
-        await initializeConnection(peer)
-        connected = true
-      except CatchableError as err:
-        error "Failed to connect to bootstrap node",
-               node = bootstrapNode, err = err.msg
+                         bootstrapNodes: seq[ENode]) {.async.} =
+    when networkBackend == libp2pDaemon:
+      var connected = false
+      for bootstrapNode in bootstrapNodes:
+        try:
+          let peerInfo = toPeerInfo(bootstrapNode)
+          when networkBackend == libp2p:
+            discard await node.switch.dial(peerInfo)
+          else:
+            await node.daemon.connect(peerInfo.peer, peerInfo.addresses)
+          var peer = node.getPeer(peerInfo)
+          peer.wasDialed = true
+          await initializeConnection(peer)
+          connected = true
+        except CatchableError as err:
+          error "Failed to connect to bootstrap node",
+                 node = bootstrapNode, err = err.msg
 
-    if bootstrapNodes.len > 0 and connected == false:
-      fatal "Failed to connect to any bootstrap node. Quitting."
-      quit 1
+      if bootstrapNodes.len > 0 and connected == false:
+        fatal "Failed to connect to any bootstrap node. Quitting."
+        quit 1
+    elif networkBackend == libp2p:
+      for bootstrapNode in bootstrapNodes:
+        node.addKnownPeer bootstrapNode
+      await node.start()
+
+      await sleepAsync(10.seconds)
+      if libp2p_peers.get == 0:
+        fatal "Failed to connect to any bootstrap node. Quitting"
+        quit 1
 
   proc saveConnectionAddressFile*(node: Eth2Node, filename: string) =
     when networkBackend == libp2p:
