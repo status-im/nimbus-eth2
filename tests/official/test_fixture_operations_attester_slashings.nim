@@ -20,13 +20,13 @@ import
 
 const OpAttSlashingDir = SszTestsDir/const_preset/"phase0"/"operations"/"attester_slashing"/"pyspec_tests"
 
-template runTest(identifier: untyped) =
+proc runTest(identifier: string) =
   # We wrap the tests in a proc to avoid running out of globals
   # in the future: Nim supports up to 3500 globals
   # but unittest with the macro/templates put everything as globals
   # https://github.com/nim-lang/Nim/issues/12084#issue-486866402
 
-  const testDir = OpAttSlashingDir / astToStr(identifier)
+  let testDir = OpAttSlashingDir / identifier
 
   proc `testImpl _ operations_attester_slashing _ identifier`() =
 
@@ -39,7 +39,7 @@ template runTest(identifier: untyped) =
     else:
       prefix = "[Invalid] "
 
-    timedTest prefix & astToStr(identifier):
+    timedTest prefix & identifier:
       var stateRef, postRef: ref BeaconState
       var attesterSlashingRef: ref AttesterSlashing
       new attesterSlashingRef
@@ -68,27 +68,16 @@ template runTest(identifier: untyped) =
   `testImpl _ operations_attester_slashing _ identifier`()
 
 suite "Official - Operations - Attester slashing " & preset():
-  runTest(success_double)
-  runTest(success_surround)
-  when false:
-    # TODO these are both valid and check BLS signatures, which isn't working
-    # since 0.10.x introduces new BLS signing/verifying interface with domain
-    # in particular handled differently through compute_signing_root() rather
-    # than through the bls_verify(...) call directly. This did not become the
-    # visible issue it now is because another bug had been masking it wherein
-    # crypto.nim's bls_verify(...) call had been creating false positives, in
-    # which cases signature checks had been incorrectly passing.
-    runTest(success_already_exited_recent)
-    runTest(success_already_exited_long_ago)
-  runTest(invalid_sig_1)
-  when false: # TODO - https://github.com/status-im/nim-beacon-chain/issues/429
-    runTest(invalid_sig_2)
-  runTest(invalid_sig_1_and_2)
-  runTest(same_data)
-  runTest(no_double_or_surround)
-  runTest(participants_already_slashed)
-  when false: # TODO - https://github.com/status-im/nim-beacon-chain/issues/429
-    runTest(att1_bad_extra_index)
-    runTest(att1_bad_replaced_index)
-    runTest(att2_bad_extra_index)
-    runTest(att2_bad_replaced_index)
+  # TODO these are both valid and check BLS signatures, which isn't working
+  # since 0.10.x introduces new BLS signing/verifying interface with domain
+  # in particular handled differently through compute_signing_root() rather
+  # than through the bls_verify(...) call directly. This did not become the
+  # visible issue it now is because another bug had been masking it wherein
+  # crypto.nim's bls_verify(...) call had been creating false positives, in
+  # which cases signature checks had been incorrectly passing.
+  const expected_failures =
+    ["success_already_exited_recent", "success_already_exited_long_ago"]
+  for kind, path in walkDir(OpAttSlashingDir, true):
+    if path in expected_failures:
+      continue
+    runTest(path)
