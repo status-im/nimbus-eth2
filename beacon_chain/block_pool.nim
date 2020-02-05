@@ -438,7 +438,6 @@ proc add*(
     missing = pool.missing.len,
     cat = "filtering"
 
-
 func getRef*(pool: BlockPool, root: Eth2Digest): BlockRef =
   ## Retrieve a resolved block reference, if available
   pool.blocks.getOrDefault(root, nil)
@@ -563,11 +562,18 @@ func checkMissing*(pool: var BlockPool): seq[FetchRecord] =
       result.add(FetchRecord(root: k, historySlots: v.slots))
 
 proc skipAndUpdateState(
+    state: var HashedBeaconState, slot: Slot,
+    afterUpdate: proc (state: HashedBeaconState)) =
+  while state.data.slot < slot:
+    # Process slots one at a time in case afterUpdate needs to see empty states
+    process_slots(state, state.data.slot + 1)
+    afterUpdate(state)
+
+proc skipAndUpdateState(
     state: var HashedBeaconState, blck: BeaconBlock, flags: UpdateFlags,
     afterUpdate: proc (state: HashedBeaconState)): bool =
 
-  process_slots(state, blck.slot - 1)
-  afterUpdate(state)
+  skipAndUpdateState(state, blck.slot - 1, afterUpdate)
 
   let ok  = state_transition(state, blck, flags)
 
@@ -689,9 +695,8 @@ proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
   if state.blck.root == bs.blck.root and state.data.data.slot <= bs.slot:
     if state.data.data.slot != bs.slot:
       # Might be that we're moving to the same block but later slot
-      process_slots(state.data, bs.slot)
-      # TODO we will not save if multiple slots are skipped here
-      pool.maybePutState(state.data, bs.blck)
+      skipAndUpdateState(state.data, bs.slot) do(state: HashedBeaconState):
+        pool.maybePutState(state, bs.blck)
 
     return # State already at the right spot
 
@@ -712,10 +717,8 @@ proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
       pool.maybePutState(state, ancestors[i].refs)
     doAssert ok, "Blocks in database should never fail to apply.."
 
-  # TODO check if this triggers rest of state transition, or should
-  # TODO we will not save if multiple slots are skipped here
-  process_slots(state.data, bs.slot)
-  pool.maybePutState(state.data, bs.blck)
+  skipAndUpdateState(state.data, bs.slot) do(state: HashedBeaconState):
+    pool.maybePutState(state, bs.blck)
 
   state.blck = bs.blck
 
