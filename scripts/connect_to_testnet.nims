@@ -9,6 +9,7 @@ const
   genesisFile = "genesis.ssz"
   configFile = "config.yaml"
   testnetsRepo = "eth2-testnets"
+  web3Url = "wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
 
 let
   testnetsOrg = getEnv("ETH2_TESTNETS_ORG", "eth2-clients")
@@ -123,15 +124,18 @@ cli do (testnetName {.argument.}: string):
         --random-deposits=1
         --deposits-dir="{validatorsDir}"
         --deposit-private-key={privKey}
-        --web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a
+        --web3-url={web3Url}
         {depositContractOpt}
         """, "\n", " ")
-      quit()
+      mode = Silent
+      echo "\nDeposit sent, wait for confirmation then press enter to continue"
+      discard readLineFromStdin()
 
   mode = Verbose
   execIgnoringExitCode replace(&"""{beaconNodeBinary}
     --data-dir="{dataDir}"
     --dump=true
+    --web3-url={web3Url}
     {bootstrapFileOpt}
     --state-snapshot="{testnetDir/genesisFile}" """ & depositContractOpt, "\n", " ")
 

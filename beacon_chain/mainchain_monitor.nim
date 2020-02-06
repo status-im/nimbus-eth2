@@ -24,12 +24,16 @@ type
 
   QueueElement = (BlockHash, DepositData)
 
-proc init*(T: type MainchainMonitor, web3Url, depositContractAddress: string, startBlock: Eth2Digest): T =
-  result.new()
-  result.web3Url = web3Url
-  result.depositContractAddress = Address.fromHex(depositContractAddress)
-  result.depositQueue = newAsyncQueue[QueueElement]()
-  result.eth1Block = BlockHash(startBlock.data)
+proc init*(
+    T: type MainchainMonitor,
+    web3Url, depositContractAddress: string,
+    startBlock: Eth2Digest): T =
+  T(
+    web3Url: web3Url,
+    depositContractAddress: Address.fromHex(depositContractAddress),
+    depositQueue: newAsyncQueue[QueueElement](),
+    eth1Block: BlockHash(startBlock.data),
+  )
 
 contract(DepositContract):
   proc deposit(pubkey: Bytes48, withdrawalCredentials: Bytes32, signature: Bytes96, deposit_data_root: FixedBytes[32])
@@ -112,8 +116,18 @@ proc getGenesis*(m: MainchainMonitor): Future[BeaconState] {.async.} =
   return m.genesisState[]
 
 proc getBlockNumber(web3: Web3, hash: BlockHash): Future[Quantity] {.async.} =
-  let blk = await web3.provider.eth_getBlockByHash(hash, false)
-  return blk.number
+  debug "Querying block number", hash
+
+  try:
+    let blk = await web3.provider.eth_getBlockByHash(hash, false)
+    return blk.number
+  except CatchableError as exc:
+    # TODO this doesn't make too much sense really, but what would be a
+    #      reasonable behavior? no idea - the whole algorithm needs to be
+    #      rewritten to match the spec.
+    notice "Failed to get block number from hash, using current block instead",
+      hash, err = exc.msg
+    return await web3.provider.eth_blockNumber()
 
 proc run(m: MainchainMonitor, delayBeforeStart: Duration) {.async.} =
   if delayBeforeStart != ZeroDuration:
@@ -128,7 +142,11 @@ proc run(m: MainchainMonitor, delayBeforeStart: Duration) {.async.} =
     error "Web3 server disconnected", ulr = m.web3Url
     processFut.cancel()
 
+  # TODO this needs to implement follow distance and the rest of the honest
+  #      validator spec..
+
   let startBlkNum = await web3.getBlockNumber(m.eth1Block)
+
   notice "Monitoring eth1 deposits",
     fromBlock = startBlkNum.uint64,
     contract = $m.depositContractAddress,

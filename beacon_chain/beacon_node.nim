@@ -218,6 +218,8 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     mainchainMonitor = MainchainMonitor.init(
       conf.depositWeb3Url, conf.depositContractAddress,
       blockPool.headState.data.data.eth1_data.block_hash)
+    # TODO if we don't have any validators attached, we don't need a mainchain
+    #      monitor
     mainchainMonitor.start()
 
   var
