@@ -32,3 +32,4 @@ cli do(kind: string, file: string):
   of "state": printit(BeaconState)
   of "proposer_slashing": printit(ProposerSlashing)
   of "voluntary_exit": printit(VoluntaryExit)
+  else: echo "Unknown kind"
