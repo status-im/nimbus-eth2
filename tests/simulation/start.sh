@@ -22,7 +22,7 @@ NIMFLAGS="-d:chronicles_log_level=TRACE -d:chronicles_sinks:textlines,json[file]
 DEFS=""
 
 DEFS+="-d:MAX_COMMITTEES_PER_SLOT=${MAX_COMMITTEES_PER_SLOT:-1} "      # Spec default: 64
-DEFS+="-d:SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH:-16} "   # Spec default: 32
+DEFS+="-d:SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH:-6} "   # Spec default: 32
 DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-6} "  # Spec default: 12
 
 LAST_VALIDATOR_NUM=$(( NUM_VALIDATORS - 1 ))
