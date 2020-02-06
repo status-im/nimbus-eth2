@@ -75,6 +75,7 @@ cli do (testnetName {.argument.}: string):
     validatorsDir = dataDir / "validators"
     dumpDir = dataDir / "dump"
     beaconNodeBinary = buildDir / "beacon_node_" & dataDirName
+  var
     nimFlags = "-d:chronicles_log_level=TRACE " & getEnv("NIM_PARAMS")
 
   let depositContractFile = testnetDir / depositContractFileName
@@ -95,6 +96,8 @@ cli do (testnetName {.argument.}: string):
       rmDir dataDir
 
   cd rootDir
+  if testnet == "testnet1":
+    nimFlags &= " -d:NETWORK_TYPE=libp2p"
   exec &"""nim c {nimFlags} -d:"const_preset={preset}" -o:"{beaconNodeBinary}" beacon_chain/beacon_node.nim"""
 
   mkDir dumpDir
