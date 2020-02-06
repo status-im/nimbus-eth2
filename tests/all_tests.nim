@@ -16,6 +16,7 @@ import # Unit test
   ./test_beacon_node,
   ./test_beaconstate,
   ./test_block_pool,
+  ./test_discovery_helpers,
   ./test_helpers,
   ./test_interop,
   ./test_kvstore,
