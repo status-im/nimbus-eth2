@@ -35,5 +35,8 @@ type
     ## in place while minimizing the tech debt they create. One, in principle,
     ## should be able to remove this flag entirely. It is not intrinsically an
     ## expensive operation to perform.
+    skipBLSValidation ##\
+    ## Skip verification of BLS signatures in block processing.
+    ## Predominantly intended for use in testing, e.g. to allow extra coverage.
 
   UpdateFlags* = set[UpdateFlag]

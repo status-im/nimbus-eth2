@@ -102,8 +102,7 @@ proc process_randao(
   let proposer = addr state.validators[proposer_index.get]
 
   # Verify that the provided randao value is valid
-  if skipValidation notin flags:
-    if not bls_verify(
+  if skipBLSValidation notin flags and not bls_verify(
       proposer.pubkey,
       hash_tree_root(epoch.uint64).data,
       body.randao_reveal,
@@ -167,7 +166,7 @@ proc process_proposer_slashing*(
     return false
 
   # Signatures are valid
-  if skipValidation notin flags:
+  if skipBLSValidation notin flags:
     for i, signed_header in [proposer_slashing.signed_header_1,
         proposer_slashing.signed_header_2]:
       if not bls_verify(
@@ -253,7 +252,7 @@ proc process_attester_slashing*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#attester-slashings
 proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock,
-    stateCache: var StateCache): bool {.nbench.}=
+    flags: UpdateFlags, stateCache: var StateCache): bool {.nbench.}=
   # Process ``AttesterSlashing`` operation.
   if len(blck.body.attester_slashings) > MAX_ATTESTER_SLASHINGS:
     notice "Attester slashing: too many!"
@@ -340,7 +339,7 @@ proc process_voluntary_exit*(
     return false
 
   # Verify signature
-  if skipValidation notin flags:
+  if skipBLSValidation notin flags:
     let domain = get_domain(state, DOMAIN_VOLUNTARY_EXIT, voluntary_exit.epoch)
     if not bls_verify(
         validator.pubkey,
@@ -413,7 +412,7 @@ proc processBlock*(
     debug "[Block processing] Proposer slashing failure", slot = shortLog(state.slot)
     return false
 
-  if not processAttesterSlashings(state, blck, stateCache):
+  if not processAttesterSlashings(state, blck, flags, stateCache):
     debug "[Block processing] Attester slashing failure", slot = shortLog(state.slot)
     return false
 

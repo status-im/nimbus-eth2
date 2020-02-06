@@ -53,7 +53,7 @@ proc runTest(identifier: string) =
           doAssert not success, "We didn't expect this invalid block to be processed"
         else:
           # TODO: The EF is using invalid BLS keys so we can't verify them
-          let success = state_transition(stateRef[], blck, flags = {skipValidation})
+          let success = state_transition(stateRef[], blck.message, flags = {skipBLSValidation})
           doAssert success, "Failure when applying block " & $i
 
       # check: stateRef.hash_tree_root() == postRef.hash_tree_root()

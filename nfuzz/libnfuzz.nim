@@ -58,10 +58,11 @@ proc copyState(state: BeaconState, output: ptr byte,
   result = true
 
 proc nfuzz_attestation(input: openArray[byte], output: ptr byte,
-    output_size: ptr uint): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+    output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   var
     data: AttestationInput
     cache = get_empty_per_epoch_cache()
+  let flags = if disable_bls: {skipBLSValidation} else: {}
 
   try:
     data = SSZ.decode(input, AttestationInput)
@@ -75,7 +76,7 @@ proc nfuzz_attestation(input: openArray[byte], output: ptr byte,
 
   try:
     result = process_attestation(data.state, data.attestation,
-      {skipValidation}, cache)
+      flags, cache)
   except ValueError as e:
     # These exceptions are expected to be raised by chronicles logging:
     # See status-im/nim-chronicles#60
@@ -90,10 +91,11 @@ proc nfuzz_attestation(input: openArray[byte], output: ptr byte,
     result = copyState(data.state, output, output_size)
 
 proc nfuzz_attester_slashing(input: openArray[byte], output: ptr byte,
-    output_size: ptr uint): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+    output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   var
     data: AttesterSlashingInput
     cache = get_empty_per_epoch_cache()
+  let flags = if disable_bls: {skipBLSValidation} else: {}
 
   try:
     data = SSZ.decode(input, AttesterSlashingInput)
@@ -107,7 +109,7 @@ proc nfuzz_attester_slashing(input: openArray[byte], output: ptr byte,
 
   try:
     # TODO flags
-    result = process_attester_slashing(data.state, data.attesterSlashing, cache)
+    result = process_attester_slashing(data.state, data.attesterSlashing, flags, cache)
   except ValueError as e:
     # TODO remove when status-im/nim-chronicles#60 is resolved
     raise newException(
@@ -120,8 +122,9 @@ proc nfuzz_attester_slashing(input: openArray[byte], output: ptr byte,
     result = copyState(data.state, output, output_size)
 
 proc nfuzz_block(input: openArray[byte], output: ptr byte,
-    output_size: ptr uint): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+    output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   var data: BlockInput
+  let flags = if disable_bls: {skipBLSValidation} else: {}
 
   try:
     data = SSZ.decode(input, BlockInput)
@@ -134,7 +137,7 @@ proc nfuzz_block(input: openArray[byte], output: ptr byte,
     )
 
   try:
-    result = state_transition(data.state, data.beaconBlock, {})
+    result = state_transition(data.state, data.beaconBlock, flags)
   except IOError, ValueError:
     # TODO remove when status-im/nim-chronicles#60 is resolved
     let e = getCurrentException()
@@ -152,10 +155,11 @@ proc nfuzz_block(input: openArray[byte], output: ptr byte,
     result = copyState(data.state, output, output_size)
 
 proc nfuzz_block_header(input: openArray[byte], output: ptr byte,
-    output_size: ptr uint): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+    output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   var
     data: BlockHeaderInput
     cache = get_empty_per_epoch_cache()
+  let flags = if disable_bls: {skipBLSValidation} else: {}
 
   try:
     data = SSZ.decode(input, BlockHeaderInput)
@@ -169,7 +173,7 @@ proc nfuzz_block_header(input: openArray[byte], output: ptr byte,
 
   try:
     # TODO disable bls
-    result = process_block_header(data.state, data.beaconBlock, {}, cache)
+    result = process_block_header(data.state, data.beaconBlock, flags, cache)
   except IOError, ValueError:
     let e = getCurrentException()
     # TODO remove when status-im/nim-chronicles#60 is resolved
@@ -184,9 +188,10 @@ proc nfuzz_block_header(input: openArray[byte], output: ptr byte,
 
 
 proc nfuzz_deposit(input: openArray[byte], output: ptr byte,
-    output_size: ptr uint): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+    output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   var
     data: DepositInput
+  let flags = if disable_bls: {skipBLSValidation} else: {}
 
   try:
     data = SSZ.decode(input, DepositInput)
@@ -199,7 +204,7 @@ proc nfuzz_deposit(input: openArray[byte], output: ptr byte,
     )
 
   try:
-    result = process_deposit(data.state, data.deposit, {})
+    result = process_deposit(data.state, data.deposit, flags)
   except IOError, ValueError:
     let e = getCurrentException()
     # TODO remove when status-im/nim-chronicles#60 is resolved
@@ -213,10 +218,11 @@ proc nfuzz_deposit(input: openArray[byte], output: ptr byte,
     result = copyState(data.state, output, output_size)
 
 proc nfuzz_proposer_slashing(input: openArray[byte], output: ptr byte,
-    output_size: ptr uint): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+    output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   var
     data: ProposerSlashingInput
     cache = get_empty_per_epoch_cache()
+  let flags = if disable_bls: {skipBLSValidation} else: {}
 
   try:
     data = SSZ.decode(input, ProposerSlashingInput)
@@ -229,7 +235,7 @@ proc nfuzz_proposer_slashing(input: openArray[byte], output: ptr byte,
     )
 
   try:
-    result = process_proposer_slashing(data.state, data.proposerSlashing, {}, cache)
+    result = process_proposer_slashing(data.state, data.proposerSlashing, flags, cache)
   except ValueError as e:
     # TODO remove when status-im/nim-chronicles#60 is resolved
     raise newException(
@@ -270,9 +276,10 @@ proc nfuzz_shuffle(input_seed: ptr byte, output: var openArray[uint64]): bool
   result = true
 
 proc nfuzz_voluntary_exit(input: openArray[byte], output: ptr byte,
-    output_size: ptr uint): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+    output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   var
     data: VoluntaryExitInput
+  let flags = if disable_bls: {skipBLSValidation} else: {}
 
   try:
     data = SSZ.decode(input, VoluntaryExitInput)
@@ -285,7 +292,7 @@ proc nfuzz_voluntary_exit(input: openArray[byte], output: ptr byte,
     )
 
   try:
-    result = process_voluntary_exit(data.state, data.exit, {})
+    result = process_voluntary_exit(data.state, data.exit, flags)
   except ValueError as e:
     # TODO remove when status-im/nim-chronicles#60 is resolved
     raise newException(
