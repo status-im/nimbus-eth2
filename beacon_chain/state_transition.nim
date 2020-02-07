@@ -83,7 +83,11 @@ func get_epoch_validator_count(state: BeaconState): int64 =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc process_slots*(state: var BeaconState, slot: Slot) {.nbench.}=
-  doAssert state.slot <= slot
+  if not (state.slot <= slot):
+    warn("Trying to apply old block",
+      state_slot = state.slot,
+      slot = slot)
+    return
 
   # Catch up to the target slot
   while state.slot < slot:
