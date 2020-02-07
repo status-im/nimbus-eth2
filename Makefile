@@ -114,10 +114,10 @@ clean-testnet1:
 	rm -rf build/data/testnet1
 
 testnet0: | build deps
-	NIM_PARAMS="$(NIM_PARAMS)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims testnet0
+	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims testnet0
 
 testnet1: | build deps
-	NIM_PARAMS="$(NIM_PARAMS)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims testnet1
+	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims testnet1
 
 clean: | clean-common
 	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,beacon_node_testnet*,state_sim,transition*}
