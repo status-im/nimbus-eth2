@@ -29,10 +29,10 @@ template runTest(identifier: string, num_blocks: int): untyped =
   const testDir = SanityBlocksDir / identifier
 
   proc `testImpl _ blck _ identifier`() =
-    let prefix = if existsFile(testDir/"post.ssz"):                             
+    let prefix = if existsFile(testDir/"post.ssz"):
       "[Valid]   "
-    else:              
-      "[Invalid] "                                       
+    else:
+      "[Invalid] "
 
     timedTest prefix & identifier:
       var stateRef, postRef: ref BeaconState
