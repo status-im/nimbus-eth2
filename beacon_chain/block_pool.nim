@@ -2,7 +2,7 @@ import
   bitops, chronicles, options, tables,
   ssz, beacon_chain_db, state_transition, extras,
   beacon_node_types, metrics,
-  spec/[crypto, datatypes, digest, helpers]
+  spec/[crypto, datatypes, digest, helpers, validator]
 
 declareCounter beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # On fork choice
 
@@ -926,3 +926,20 @@ proc preInit*(
   db.putTailBlock(blockRoot)
   db.putHeadBlock(blockRoot)
   db.putStateRoot(blockRoot, state.slot, signedBlock.message.state_root)
+
+proc getProposer*(pool: BlockPool, head: BlockRef, slot: Slot): Option[ValidatorPubKey] =
+  pool.withState(pool.tmpState, head.atSlot(slot)):
+    var cache = get_empty_per_epoch_cache()
+
+    let proposerIdx = get_beacon_proposer_index(state, cache)
+    if proposerIdx.isNone:
+      warn "Missing proposer index",
+        slot=slot,
+        epoch=slot.compute_epoch_at_slot,
+        num_validators=state.validators.len,
+        active_validators=
+          get_active_validator_indices(state, slot.compute_epoch_at_slot),
+        balances=state.balances
+      return
+
+    return some(state.validators[proposerIdx.get()].pubkey)
