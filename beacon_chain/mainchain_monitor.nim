@@ -116,7 +116,7 @@ proc getGenesis*(m: MainchainMonitor): Future[BeaconState] {.async.} =
   return m.genesisState[]
 
 proc getBlockNumber(web3: Web3, hash: BlockHash): Future[Quantity] {.async.} =
-  debug "Querying block number", hash
+  debug "Querying block number", hash = $hash
 
   try:
     let blk = await web3.provider.eth_getBlockByHash(hash, false)
@@ -126,7 +126,7 @@ proc getBlockNumber(web3: Web3, hash: BlockHash): Future[Quantity] {.async.} =
     #      reasonable behavior? no idea - the whole algorithm needs to be
     #      rewritten to match the spec.
     notice "Failed to get block number from hash, using current block instead",
-      hash, err = exc.msg
+      hash = $hash, err = exc.msg
     return await web3.provider.eth_blockNumber()
 
 proc run(m: MainchainMonitor, delayBeforeStart: Duration) {.async.} =
