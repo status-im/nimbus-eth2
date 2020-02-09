@@ -5,6 +5,8 @@ SHELL := bash # the shell used internally by "make"
 GIT_REVISION      ?= $(shell git rev-parse HEAD)
 NETWORK           ?= testnet1
 NETWORK_NIM_FLAGS ?= $(shell ../scripts/load-testnet-nim-flags.sh $(NETWORK))
+# Get the required GCC flags by running `gcc -v -E - -march=native </dev/null 2>&1 | grep cc1` on the server.
+MARCH_NIM_FLAGS   ?= -d:disableMarchNative --passC:'-march=znver1 --param l1-cache-size=32 --param l1-cache-line-size=64 --param l2-cache-size=512'
 
 IMAGE_TAG       ?= $(NETWORK)
 IMAGE_NAME      ?= statusteam/nimbus_beacon_node:$(IMAGE_TAG)
@@ -19,6 +21,7 @@ build:
 	docker build \
 		--build-arg="GIT_REVISION=$(GIT_REVISION)" \
 		--build-arg="NETWORK_NIM_FLAGS=$(NETWORK_NIM_FLAGS)" \
+		--build-arg="MARCH_NIM_FLAGS=$(MARCH_NIM_FLAGS)" \
 		-t $(IMAGE_NAME) \
 		--progress=plain \
 		.

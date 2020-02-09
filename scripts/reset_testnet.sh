@@ -32,11 +32,10 @@ echo "Beacon node data dir    : ${DATA_DIR:="build/testnet-reset-data/$NETWORK"}
 echo "Nim build flags         : $NETWORK_NIM_FLAGS"
 
 while true; do
-    read -p "Continue? [yn] " yn
+    read -p "Continue? [Yn] " yn
     case $yn in
-        [Yy]* ) break;;
+        * ) break;;
         [Nn]* ) exit 1;;
-        * ) echo "Please answer yes or no.";;
     esac
 done
 
@@ -70,7 +69,8 @@ fi
 cd docker
 
 echo "Building Docker image..."
-make build
+# we're running this Docker image both locally and on the servers
+make MARCH_NIM_FLAGS="-d:disableMarchNative" build
 
 $DOCKER_BEACON_NODE makeDeposits \
   --quickstart-deposits=$QUICKSTART_VALIDATORS \
@@ -79,9 +79,8 @@ $DOCKER_BEACON_NODE makeDeposits \
 
 TOTAL_VALIDATORS="$(( $QUICKSTART_VALIDATORS + $RANDOM_VALIDATORS ))"
 
-$DOCKER_BEACON_NODE \
+$DOCKER_BEACON_NODE createTestnet \
   --data-dir=/data_dir \
-  createTestnet \
   --validators-dir=/deposits_dir \
   --total-validators=$TOTAL_VALIDATORS \
   --last-user-validator=$QUICKSTART_VALIDATORS \
@@ -90,7 +89,7 @@ $DOCKER_BEACON_NODE \
   --bootstrap-address=$BOOTSTRAP_IP \
   --bootstrap-port=$BOOTSTRAP_PORT \
   $WEB3_URL_ARG $DEPOSIT_CONTRACT_ADDRESS_ARG \
-  --genesis-offset=900 # Delay in seconds
+  --genesis-offset=300 # Delay in seconds
 
 COMMITTED_FILES=" genesis.ssz bootstrap_nodes.txt "
 
