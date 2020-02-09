@@ -72,7 +72,7 @@ jobs:
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} CI_CACHE=NimBinaries update
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} fetch-dlls
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} P2PD_CACHE=p2pdCache
-          mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} P2PD_CACHE=p2pdCache NIMFLAGS="-d:NETWORK_TYPE=libp2p"
+          mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} P2PD_CACHE=p2pdCache NIMFLAGS="-d:NETWORK_TYPE=libp2p -d:testnet_servers_image"
           file build/beacon_node
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} DISABLE_TEST_FIXTURES_SCRIPT=1 test
         displayName: 'build and test'
