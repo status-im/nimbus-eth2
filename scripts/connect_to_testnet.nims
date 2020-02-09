@@ -131,11 +131,17 @@ cli do (testnetName {.argument.}: string):
       echo "\nDeposit sent, wait for confirmation then press enter to continue"
       discard readLineFromStdin()
 
+  let logLevel = getEnv("LOG_LEVEL")
+  var logLevelOpt = ""
+  if logLevel.len > 0:
+    logLevelOpt = "--log-level=" & logLevel
+
   mode = Verbose
   execIgnoringExitCode replace(&"""{beaconNodeBinary}
     --data-dir="{dataDir}"
     --dump=true
     --web3-url={web3Url}
     {bootstrapFileOpt}
+    {logLevelOpt}
     --state-snapshot="{testnetDir/genesisFile}" """ & depositContractOpt, "\n", " ")
 
