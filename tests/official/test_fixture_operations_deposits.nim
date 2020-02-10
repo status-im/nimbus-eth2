@@ -66,5 +66,6 @@ suite "Official - Operations - Deposits " & preset():
 
   for kind, path in walkDir(OperationsDepositsDir, true):
     if path in expected_failures:
+      echo "Skipping test: ", path
       continue
     runTest(path)

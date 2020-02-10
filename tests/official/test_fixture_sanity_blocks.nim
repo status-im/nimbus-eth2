@@ -69,5 +69,6 @@ suite "Official - Sanity - Blocks " & preset():
 
   for kind, path in walkDir(SanityBlocksDir, true):
     if path in expected_failures:
+      echo "Skipping test: ", path
       continue
     runTest(path)
