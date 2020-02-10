@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  os, unittest,
+  os, sequtils, unittest,
   # Beacon chain internals
   ../../beacon_chain/spec/[crypto, datatypes],
   ../../beacon_chain/[ssz, state_transition, extras],
@@ -20,13 +20,13 @@ import
 
 const SanityBlocksDir = SszTestsDir/const_preset/"phase0"/"sanity"/"blocks"/"pyspec_tests"
 
-template runTest(identifier: string, num_blocks: int): untyped =
+proc runTest(identifier: string) =
   # We wrap the tests in a proc to avoid running out of globals
   # in the future: Nim supports up to 3500 globals
   # but unittest with the macro/templates put everything as globals
   # https://github.com/nim-lang/Nim/issues/12084#issue-486866402
 
-  const testDir = SanityBlocksDir / identifier
+  let testDir = SanityBlocksDir / identifier
 
   proc `testImpl _ blck _ identifier`() =
     let prefix = if existsFile(testDir/"post.ssz"):
@@ -43,7 +43,9 @@ template runTest(identifier: string, num_blocks: int): untyped =
         new postRef
         postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
 
-      for i in 0 ..< num_blocks:
+      # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
+      # so purely lexicographic sorting wouldn't sort properly.
+      for i in 0 ..< toSeq(walkPattern(testDir/"blocks_*.ssz")).len:
         let blck = parseTest(testDir/"blocks_" & $i & ".ssz", SSZ, SignedBeaconBlock)
 
         if postRef.isNil:
@@ -54,43 +56,18 @@ template runTest(identifier: string, num_blocks: int): untyped =
           let success = state_transition(stateRef[], blck.message, flags = {skipValidation})
           doAssert success, "Failure when applying block " & $i
 
-          # Checks:
-          # check: stateRef.hash_tree_root() == postRef.hash_tree_root()
-          if i == num_blocks - 1: reportDiff(stateRef, postRef)
+      # check: stateRef.hash_tree_root() == postRef.hash_tree_root()
+      if not postRef.isNil:
+        reportDiff(stateRef, postRef)
 
   `testImpl _ blck _ identifier`()
 
 suite "Official - Sanity - Blocks " & preset():
+  # Failing due to signature checking in indexed validation checking pending
+  # 0.10 BLS verification API with new domain handling.
   const expected_failures = ["attester_slashing"]
-  runTest("attestation", 2)
 
-  when false:
-    # Failing due to signature checking in indexed validation checking pending
-    # 0.10 BLS verification API with new domain handling.
-    runTest("attester_slashing", 1)
-  echo "Skipping test: attester_slashing"
-
-  runTest("balance_driven_status_transitions", 1)
-  runTest("deposit_in_block", 1)
-  runTest("deposit_top_up", 1)
-  runTest("empty_block_transition", 1)
-  runTest("empty_epoch_transition", 1)
-
-  when const_preset=="minimal":
-    runTest("empty_epoch_transition_not_finalizing", 1)
-    runTest("eth1_data_votes_consensus", 17)
-    runTest("eth1_data_votes_no_consensus", 16)
-
-  runTest("expected_deposit_in_block", 1)
-  runTest("high_proposer_index", 1)
-  runTest("historical_batch", 1)
-  runTest("invalid_block_sig", 1)
-  runTest("invalid_state_root", 1)
-  runTest("prev_slot_block_transition", 1)
-  runTest("proposer_after_inactive_index", 1)
-  runTest("proposer_slashing", 1)
-  runTest("same_slot_block_transition", 1)
-  runTest("skipped_slots", 1)
-  runTest("voluntary_exit", 2)
-  when const_preset=="minimal":
-    runTest("zero_block_sig", 1)
+  for kind, path in walkDir(SanityBlocksDir, true):
+    if path in expected_failures:
+      continue
+    runTest(path)

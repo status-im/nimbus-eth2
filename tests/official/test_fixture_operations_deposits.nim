@@ -20,13 +20,13 @@ import
 
 const OperationsDepositsDir = SszTestsDir/const_preset/"phase0"/"operations"/"deposit"/"pyspec_tests"
 
-template runTest(testName: string, identifier: untyped) =
+proc runTest(identifier: string) =
   # We wrap the tests in a proc to avoid running out of globals
   # in the future: Nim supports up to 3500 globals
   # but unittest with the macro/templates put everything as globals
   # https://github.com/nim-lang/Nim/issues/12084#issue-486866402
 
-  const testDir = OperationsDepositsDir / astToStr(identifier)
+  let testDir = OperationsDepositsDir / identifier
 
   proc `testImpl _ operations_deposits _ identifier`() =
 
@@ -39,7 +39,7 @@ template runTest(testName: string, identifier: untyped) =
     else:
       prefix = "[Invalid] "
 
-    timedTest prefix & testName & " (" & astToStr(identifier) & ")":
+    timedTest prefix & " " & identifier:
       var stateRef, postRef: ref BeaconState
       var depositRef: ref Deposit
       new depositRef
@@ -61,19 +61,10 @@ template runTest(testName: string, identifier: untyped) =
   `testImpl _ operations_deposits _ identifier`()
 
 suite "Official - Operations - Deposits " & preset():
-  # https://github.com/ethereum/eth2.0-spec-tests/tree/v0.10.1/tests/minimal/phase0/operations/deposit/pyspec_tests
-  # https://github.com/ethereum/eth2.0-spec-tests/tree/v0.10.1/tests/mainnet/phase0/operations/deposit/pyspec_tests
-  runTest("bad merkle proof", bad_merkle_proof)
-  runTest("invalid signature new deposit", invalid_sig_new_deposit)
-  runTest("invalid signature other version", invalid_sig_other_version)
-  runTest("invalid signature top-up", invalid_sig_top_up)
-  runTest("invalid withdrawal credentials top-up",
-    invalid_withdrawal_credentials_top_up)
-  runTest("new deposit max", new_deposit_max)
-  runTest("new deposit over max", new_deposit_over_max)
-  runTest("new deposit under max", new_deposit_under_max)
-  runTest("success top-up", success_top_up)
-  when false:
-    # TODO
-    runTest("valid signature but forked state", valid_sig_but_forked_state)
-  runTest("wrong deposit for deposit count", wrong_deposit_for_deposit_count)
+  # TODO
+  const expected_failures = ["valid_sig_but_forked_state"]
+
+  for kind, path in walkDir(OperationsDepositsDir, true):
+    if path in expected_failures:
+      continue
+    runTest(path)
