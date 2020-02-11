@@ -69,7 +69,7 @@ jobs:
           git config --global core.autocrlf false
           git submodule --quiet update --init --recursive
           scripts/setup_official_tests.sh jsonTestsCache
-          mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} CI_CACHE=NimBinaries update
+          mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} CI_CACHE=NimBinaries V=1 update
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} fetch-dlls
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} P2PD_CACHE=p2pdCache
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} P2PD_CACHE=p2pdCache NIMFLAGS="-d:NETWORK_TYPE=libp2p -d:testnet_servers_image"
