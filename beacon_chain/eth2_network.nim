@@ -1,6 +1,7 @@
 import
   options, tables, strutils, sequtils,
-  chronos, json_serialization, chronicles, metrics, libp2p/crypto/secp,
+  json_serialization, json_serialization/std/net,
+  metrics, chronos, chronicles, metrics, libp2p/crypto/secp,
   eth/keys, eth/p2p/enode, eth/net/nat, eth/p2p/discoveryv5/enr,
   eth2_discovery, version, conf
 
@@ -229,7 +230,7 @@ when networkBackend in [libp2p, libp2pDaemon]:
       await node.start()
 
       await sleepAsync(10.seconds)
-      if libp2p_peers.get == 0:
+      if libp2p_peers.value == 0:
         fatal "Failed to connect to any bootstrap node. Quitting"
         quit 1
 
