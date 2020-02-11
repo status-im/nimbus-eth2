@@ -1096,14 +1096,15 @@ when isMainModule:
     SSZ.saveFile(outSszGenesis, initialState)
     echo "Wrote ", outSszGenesis
 
-    var
-      bootstrapAddress = getPersistenBootstrapAddr(
-        config, parseIpAddress(config.bootstrapAddress), Port config.bootstrapPort)
-
     let bootstrapFile = config.outputBootstrapFile.string
     if bootstrapFile.len > 0:
-      let bootstrapAddrLine = $bootstrapAddress
-      writeFile(bootstrapFile, bootstrapAddrLine)
+      let
+        networkKeys = getPersistentNetKeys(config)
+        bootstrapAddress = enode.Address(
+          ip: parseIpAddress(config.bootstrapAddress),
+          udpPort: Port config.bootstrapPort)
+        bootstrapEnr = enr.Record.init(1, networkKeys.seckey, bootstrapAddress)
+      writeFile(bootstrapFile, bootstrapEnr.toURI)
       echo "Wrote ", bootstrapFile
 
   of importValidator:
