@@ -55,8 +55,6 @@ fi
 
 mkdir -p "$DEPOSITS_DIR_ABS"
 
-#DOCKER_BEACON_NODE="docker run -v $DEPOSITS_DIR_ABS:/deposits_dir -v $NETWORK_DIR_ABS:/network_dir -v $DATA_DIR_ABS:/data_dir statusteam/nimbus_beacon_node:$NETWORK"
-
 if [ "$ETH1_PRIVATE_KEY" != "" ]; then
   make deposit_contract
   echo "Deploying deposit contract through $WEB3_URL_ARG..."
