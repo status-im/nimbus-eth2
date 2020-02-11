@@ -1,6 +1,6 @@
 import
   os, options, strformat, strutils,
-  chronicles, confutils,
+  chronicles, confutils, json_serialization,
   confutils/defs, chronicles/options as chroniclesOptions,
   spec/[crypto]
 
@@ -289,3 +289,8 @@ iterator validatorKeys*(conf: BeaconNodeConf): ValidatorPrivKey =
         yield ValidatorPrivKey.init(readFile(file).string)
       except CatchableError as err:
         warn "Failed to load a validator private key", file, err = err.msg
+
+template writeValue*(writer: var JsonWriter,
+                     value: TypedInputFile|InputFile|InputDir|OutPath|OutDir|OutFile) =
+  writer.writeValue(string value)
+

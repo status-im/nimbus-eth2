@@ -180,7 +180,11 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   var bootNodes: seq[ENode]
   for node in conf.bootstrapNodes: bootNodes.addBootstrapNode(node)
   bootNodes.loadBootstrapFile(string conf.bootstrapNodesFile)
-  bootNodes.loadBootstrapFile(conf.dataDir / "bootstrap_nodes.txt")
+
+  let persistentBootstrapFile = conf.dataDir / "bootstrap_nodes.txt"
+  if fileExists(persistentBootstrapFile):
+    bootNodes.loadBootstrapFile(persistentBootstrapFile)
+
   bootNodes = filterIt(bootNodes, it.pubkey != netKeys.pubkey)
 
   let
@@ -1036,16 +1040,22 @@ when hasPrompt:
       # createThread(t, processPromptCommands, addr p)
 
 when isMainModule:
+  when compiles(defaultChroniclesStream.output.writer):
+    defaultChroniclesStream.output.writer =
+      proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe.} =
+        stdout.write(msg)
+
+  debug "Launching beacon node",
+        version = fullVersionStr,
+        cmdParams = commandLineParams()
+
   randomize()
 
   let config = BeaconNodeConf.load(
     version = clientId,
     copyrightBanner = clientId & "\p" & copyrights)
 
-  when compiles(defaultChroniclesStream.output.writer):
-    defaultChroniclesStream.output.writer =
-      proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe.} =
-        stdout.write(msg)
+  debug "Configuration loaded", config
 
   if config.logLevel != LogLevel.NONE:
     setLogLevel(config.logLevel)

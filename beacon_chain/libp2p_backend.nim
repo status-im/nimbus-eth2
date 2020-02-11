@@ -1,9 +1,10 @@
 import
-  algorithm, typetraits, net,
+  algorithm, typetraits, net as stdNet,
   stew/[varints,base58], stew/shims/[macros, tables], chronos, chronicles,
   stint, faststreams/output_stream, serialization,
-  json_serialization/std/options, eth/p2p/p2p_protocol_dsl,
-  eth/p2p/discoveryv5/node,
+  json_serialization/std/[net, options],
+  eth/[keys, async_utils], eth/p2p/[enode, p2p_protocol_dsl],
+  eth/p2p/discoveryv5/[enr, node],
   # TODO: create simpler to use libp2p modules that use re-exports
   libp2p/[switch, multistream, connection,
           multiaddress, peerinfo, peer,
@@ -208,11 +209,11 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
     await sleepAsync seconds(1)
 
 proc init*(T: type Eth2Node, conf: BeaconNodeConf,
-           switch: Switch, privKey: PrivateKey): T =
+           switch: Switch, privKey: keys.PrivateKey): T =
   new result
   result.switch = switch
   result.peers = initTable[PeerID, Peer]()
-  result.discovery = Eth2DiscoveryProtocol.new(conf, privKey.getBytes)
+  result.discovery = Eth2DiscoveryProtocol.new(conf, privKey.data)
   result.wantedPeers = conf.maxPeers
 
   newSeq result.protocolStates, allProtocols.len

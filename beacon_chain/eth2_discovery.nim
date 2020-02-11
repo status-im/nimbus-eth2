@@ -1,6 +1,6 @@
 import
   os, net, strutils, strformat, parseutils,
-  chronicles, stew/result, eth/keys, eth/trie/db, eth/p2p/enode,
+  chronicles, stew/[result, objects], eth/keys, eth/trie/db, eth/p2p/enode,
   eth/p2p/discoveryv5/[enr, protocol, node, discovery_db, types],
   libp2p/[multiaddress, multicodec, peer],
   libp2p/crypto/crypto as libp2pCrypto,
@@ -93,18 +93,19 @@ proc parseBootstrapAddress*(address: TaintedString): Result[ENode, cstring] =
       var enrRec: enr.Record
       if enrRec.fromURI(string address):
         try:
+          # TODO: handle IPv6
+          let ipBytes = enrRec.get("ip", seq[byte])
+          if ipBytes.len != 4:
+            return err "Malformed ENR IP address"
           let
             ip = IpAddress(family: IpAddressFamily.IPv4,
-                           address_v4: cast[array[4, uint8]](enrRec.get("ip", int)))
-            tcpPort = Port enrRec.get("tcp", int)
-            udpPort = Port enrRec.get("udp", int)
+                           address_v4: toArray(4, ipBytes))
+            udpPort = Port enrRec.get("udp", uint16)
           var pubKey: keys.PublicKey
           if not enrRec.get(pubKey):
             return err "Failed to read public key from ENR record"
           return ok ENode(pubkey: pubkey,
-                          address: Address(ip: ip,
-                                           tcpPort: tcpPort,
-                                           udpPort: udpPort))
+                          address: Address(ip: ip, udpPort: udpPort))
         except CatchableError:
           # This will continue to the failure path below
           discard
