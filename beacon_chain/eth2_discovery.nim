@@ -73,7 +73,7 @@ proc toMultiAddressStr*(enode: ENode): string =
                                                   skkey: enode.pubkey))
   &"/ip4/{enode.address.ip}/tcp/{enode.address.tcpPort}/p2p/{peerId.pretty}"
 
-proc parseBootstrapAddress*(address: TaintedString): Result[ENode, cstring] =
+proc parseBootstrapAddress*(address: TaintedString): Result[enr.Record, cstring] =
   if address.len == 0:
     return err "an empty string is not a valid bootstrap node"
 
@@ -81,17 +81,21 @@ proc parseBootstrapAddress*(address: TaintedString): Result[ENode, cstring] =
     address = string(address)
 
   if address[0] == '/':
+    return err "MultiAddress bootstrap addresses are not supported"
+    #[
     try:
       let ma = MultiAddress.init(address)
-
       return toENode(ma)
     except CatchableError:
       return err "Invalid bootstrap multiaddress"
+    ]#
   else:
     let lowerCaseAddress = toLowerAscii(string address)
     if lowerCaseAddress.startsWith("enr:"):
       var enrRec: enr.Record
       if enrRec.fromURI(string address):
+        return ok enrRec
+        #[[
         try:
           # TODO: handle IPv6
           let ipBytes = enrRec.get("ip", seq[byte])
@@ -109,36 +113,42 @@ proc parseBootstrapAddress*(address: TaintedString): Result[ENode, cstring] =
         except CatchableError:
           # This will continue to the failure path below
           discard
+        ]]#
       return err "Invalid ENR bootstrap record"
     elif lowerCaseAddress.startsWith("enode:"):
+      return err "ENode bootstrap addresses are not supported"
+      #[
       try:
         return ok initEnode(string address)
       except CatchableError as err:
         return err "Ignoring invalid enode bootstrap address"
+      ]#
     else:
       return err "Ignoring unrecognized bootstrap address type"
 
-proc addBootstrapNode*(bootNodes: var seq[ENode],
-                       bootstrapAddr: string) =
+proc addBootstrapNode*(bootstrapAddr: string,
+                       bootNodes: var seq[ENode],
+                       bootEnrs: var seq[enr.Record]) =
   let enodeRes = parseBootstrapAddress(bootstrapAddr)
   if enodeRes.isOk:
-    bootNodes.add enodeRes.value
+    bootEnrs.add enodeRes.value
   else:
     warn "Ignoring invalid bootstrap address",
           bootstrapAddr, reason = enodeRes.error
 
-proc loadBootstrapFile*(bootNodes: var seq[ENode],
-                        bootstrapFile: string) =
+proc loadBootstrapFile*(bootstrapFile: string,
+                        bootNodes: var seq[ENode],
+                        bootEnrs: var seq[enr.Record]) =
   if bootstrapFile.len == 0: return
   let ext = splitFile(bootstrapFile).ext
   if cmpIgnoreCase(ext, ".txt") == 0:
     for ln in lines(bootstrapFile):
-      bootNodes.addBootstrapNode(ln)
+      addBootstrapNode(ln, bootNodes, bootEnrs)
   elif cmpIgnoreCase(ext, ".yaml") == 0:
     # TODO. This is very ugly, but let's try to negotiate the
     # removal of YAML metadata.
     for ln in lines(bootstrapFile):
-      bootNodes.addBootstrapNode(string(ln[3..^2]))
+      addBootstrapNode(string(ln[3..^2]), bootNodes, bootEnrs)
   else:
     error "Unknown bootstrap file format", ext
     quit 1

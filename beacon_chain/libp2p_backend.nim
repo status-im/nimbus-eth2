@@ -225,7 +225,7 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf,
       if msg.protocolMounter != nil:
         msg.protocolMounter result
 
-proc addKnownPeer*(node: Eth2Node, peer: ENode) =
+template addKnownPeer*(node: Eth2Node, peer: ENode|enr.Record) =
   node.discovery.addNode peer
 
 proc start*(node: Eth2Node) {.async.} =

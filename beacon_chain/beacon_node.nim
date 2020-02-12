@@ -49,6 +49,7 @@ type
     netKeys: DiscKeyPair
     requestManager: RequestManager
     bootstrapNodes: seq[ENode]
+    bootstrapEnrs: seq[enr.Record]
     db: BeaconChainDB
     config: BeaconNodeConf
     attachedValidators: ValidatorPool
@@ -178,12 +179,13 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     mainchainMonitor.start()
 
   var bootNodes: seq[ENode]
-  for node in conf.bootstrapNodes: bootNodes.addBootstrapNode(node)
-  bootNodes.loadBootstrapFile(string conf.bootstrapNodesFile)
+  var bootEnrs: seq[enr.Record]
+  for node in conf.bootstrapNodes: addBootstrapNode(node, bootNodes, bootEnrs)
+  loadBootstrapFile(string conf.bootstrapNodesFile, bootNodes, bootEnrs)
 
   let persistentBootstrapFile = conf.dataDir / "bootstrap_nodes.txt"
   if fileExists(persistentBootstrapFile):
-    bootNodes.loadBootstrapFile(persistentBootstrapFile)
+    loadBootstrapFile(persistentBootstrapFile, bootNodes, bootEnrs)
 
   bootNodes = filterIt(bootNodes, it.pubkey != netKeys.pubkey)
 
@@ -199,6 +201,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     netKeys: netKeys,
     requestManager: RequestManager.init(network),
     bootstrapNodes: bootNodes,
+    bootstrapEnrs: bootEnrs,
     db: db,
     config: conf,
     attachedValidators: ValidatorPool.init(),
@@ -240,7 +243,8 @@ proc connectToNetwork(node: BeaconNode) {.async.} =
   else:
     info "Waiting for connections"
 
-  await node.network.connectToNetwork(node.bootstrapNodes)
+  await node.network.connectToNetwork(node.bootstrapNodes,
+                                      node.bootstrapEnrs)
 
 template findIt(s: openarray, predicate: untyped): int =
   var res = -1

@@ -203,7 +203,8 @@ when networkBackend in [libp2p, libp2pDaemon]:
       return PeerInfo(peer: peerId, addresses: addresses)
 
   proc connectToNetwork*(node: Eth2Node,
-                         bootstrapNodes: seq[ENode]) {.async.} =
+                         bootstrapNodes: seq[ENode],
+                         bootstrapEnrs: seq[enr.Record]) {.async.} =
     when networkBackend == libp2pDaemon:
       var connected = false
       for bootstrapNode in bootstrapNodes:
@@ -225,7 +226,8 @@ when networkBackend in [libp2p, libp2pDaemon]:
         fatal "Failed to connect to any bootstrap node. Quitting."
         quit 1
     elif networkBackend == libp2p:
-      for bootstrapNode in bootstrapNodes:
+      for bootstrapNode in bootstrapEnrs:
+        debug "Adding known peer", peer = bootstrapNode
         node.addKnownPeer bootstrapNode
       await node.start()
 
