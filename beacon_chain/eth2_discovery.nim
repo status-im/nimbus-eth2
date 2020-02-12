@@ -73,6 +73,24 @@ proc toMultiAddressStr*(enode: ENode): string =
                                                   skkey: enode.pubkey))
   &"/ip4/{enode.address.ip}/tcp/{enode.address.tcpPort}/p2p/{peerId.pretty}"
 
+proc toENode*(enrRec: enr.Record): Result[ENode, cstring] =
+  try:
+    # TODO: handle IPv6
+    let ipBytes = enrRec.get("ip", seq[byte])
+    if ipBytes.len != 4:
+      return err "Malformed ENR IP address"
+    let
+      ip = IpAddress(family: IpAddressFamily.IPv4,
+                     address_v4: toArray(4, ipBytes))
+      udpPort = Port enrRec.get("udp", uint16)
+    var pubKey: keys.PublicKey
+    if not enrRec.get(pubKey):
+      return err "Failed to read public key from ENR record"
+    return ok ENode(pubkey: pubkey,
+                    address: Address(ip: ip, udpPort: udpPort))
+  except CatchableError:
+    return err "Invalid ENR record"
+
 proc parseBootstrapAddress*(address: TaintedString): Result[enr.Record, cstring] =
   if address.len == 0:
     return err "an empty string is not a valid bootstrap node"
@@ -95,25 +113,6 @@ proc parseBootstrapAddress*(address: TaintedString): Result[enr.Record, cstring]
       var enrRec: enr.Record
       if enrRec.fromURI(string address):
         return ok enrRec
-        #[[
-        try:
-          # TODO: handle IPv6
-          let ipBytes = enrRec.get("ip", seq[byte])
-          if ipBytes.len != 4:
-            return err "Malformed ENR IP address"
-          let
-            ip = IpAddress(family: IpAddressFamily.IPv4,
-                           address_v4: toArray(4, ipBytes))
-            udpPort = Port enrRec.get("udp", uint16)
-          var pubKey: keys.PublicKey
-          if not enrRec.get(pubKey):
-            return err "Failed to read public key from ENR record"
-          return ok ENode(pubkey: pubkey,
-                          address: Address(ip: ip, udpPort: udpPort))
-        except CatchableError:
-          # This will continue to the failure path below
-          discard
-        ]]#
       return err "Invalid ENR bootstrap record"
     elif lowerCaseAddress.startsWith("enode:"):
       return err "ENode bootstrap addresses are not supported"
