@@ -21,12 +21,13 @@ RUN cd /root \
 # to get a fresh up-to-date version of Nim and p2pd.
 ARG GIT_REVISION
 ARG NETWORK_NIM_FLAGS
+ARG MARCH_NIM_FLAGS
 
 RUN cd /root/nim-beacon-chain \
  && git fetch \
  && git reset --hard ${GIT_REVISION} \
  && make -j$(nproc) update \
- && make LOG_LEVEL=DEBUG NIMFLAGS="-d:debug -d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node
+ && make LOG_LEVEL=TRACE NIMFLAGS="-d:debug -d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS} ${MARCH_NIM_FLAGS}" beacon_node
 
 # --------------------------------- #
 # Starting new image to reduce size #

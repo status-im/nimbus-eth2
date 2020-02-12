@@ -24,13 +24,16 @@ type
 
   QueueElement = (BlockHash, DepositData)
 
-
-proc init*(T: type MainchainMonitor, web3Url, depositContractAddress: string, startBlock: Eth2Digest): T =
-  result.new()
-  result.web3Url = web3Url
-  result.depositContractAddress = Address.fromHex(depositContractAddress)
-  result.depositQueue = newAsyncQueue[QueueElement]()
-  result.eth1Block = BlockHash(startBlock.data)
+proc init*(
+    T: type MainchainMonitor,
+    web3Url, depositContractAddress: string,
+    startBlock: Eth2Digest): T =
+  T(
+    web3Url: web3Url,
+    depositContractAddress: Address.fromHex(depositContractAddress),
+    depositQueue: newAsyncQueue[QueueElement](),
+    eth1Block: BlockHash(startBlock.data),
+  )
 
 contract(DepositContract):
   proc deposit(pubkey: Bytes48, withdrawalCredentials: Bytes32, signature: Bytes96, deposit_data_root: FixedBytes[32])
@@ -113,8 +116,18 @@ proc getGenesis*(m: MainchainMonitor): Future[BeaconState] {.async.} =
   return m.genesisState[]
 
 proc getBlockNumber(web3: Web3, hash: BlockHash): Future[Quantity] {.async.} =
-  let blk = await web3.provider.eth_getBlockByHash(hash, false)
-  return blk.number
+  debug "Querying block number", hash = $hash
+
+  try:
+    let blk = await web3.provider.eth_getBlockByHash(hash, false)
+    return blk.number
+  except CatchableError as exc:
+    # TODO this doesn't make too much sense really, but what would be a
+    #      reasonable behavior? no idea - the whole algorithm needs to be
+    #      rewritten to match the spec.
+    notice "Failed to get block number from hash, using current block instead",
+      hash = $hash, err = exc.msg
+    return await web3.provider.eth_blockNumber()
 
 proc run(m: MainchainMonitor, delayBeforeStart: Duration) {.async.} =
   if delayBeforeStart != ZeroDuration:
@@ -129,8 +142,15 @@ proc run(m: MainchainMonitor, delayBeforeStart: Duration) {.async.} =
     error "Web3 server disconnected", ulr = m.web3Url
     processFut.cancel()
 
+  # TODO this needs to implement follow distance and the rest of the honest
+  #      validator spec..
+
   let startBlkNum = await web3.getBlockNumber(m.eth1Block)
-  debug "Starting eth1 monitor", fromBlock = startBlkNum.uint64
+
+  notice "Monitoring eth1 deposits",
+    fromBlock = startBlkNum.uint64,
+    contract = $m.depositContractAddress,
+    url = m.web3Url
 
   let ns = web3.contractSender(DepositContract, m.depositContractAddress)
 
@@ -139,15 +159,17 @@ proc run(m: MainchainMonitor, delayBeforeStart: Duration) {.async.} =
       withdrawalCredentials: Bytes32,
       amount: Bytes8,
       signature: Bytes96, merkleTreeIndex: Bytes8, j: JsonNode):
+    try:
+      let blkHash = BlockHash.fromHex(j["blockHash"].getStr())
+      let amount = bytes_to_int(array[8, byte](amount))
 
-    let blkHash = BlockHash.fromHex(j["blockHash"].getStr())
-    let amount = bytes_to_int(array[8, byte](amount))
-
-    m.depositQueue.addLastNoWait((blkHash,
-      DepositData(pubkey: ValidatorPubKey.init(array[48, byte](pubkey)),
-        withdrawal_credentials: Eth2Digest(data: array[32, byte](withdrawalCredentials)),
-        amount: amount,
-        signature: ValidatorSig.init(array[96, byte](signature)))))
+      m.depositQueue.addLastNoWait((blkHash,
+        DepositData(pubkey: ValidatorPubKey.init(array[48, byte](pubkey)),
+          withdrawal_credentials: Eth2Digest(data: array[32, byte](withdrawalCredentials)),
+          amount: amount,
+          signature: ValidatorSig.init(array[96, byte](signature)))))
+    except CatchableError as exc:
+      warn "Received invalid deposit", err = exc.msg, j
 
   try:
     await processFut

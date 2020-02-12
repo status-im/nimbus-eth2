@@ -155,7 +155,7 @@ when networkBackend in [libp2p, libp2pDaemon]:
       # that are different from the host address (this is relevant when we
       # are running behind a NAT).
       var switch = newStandardSwitch(some keys.seckey, hostAddress,
-                                     triggerSelf = true, gossip = true)
+                                     triggerSelf = true, gossip = false)
       result = Eth2Node.init(conf, switch, keys.seckey)
       for enr in bootstrapEnrs:
         result.addKnownPeer(enr)

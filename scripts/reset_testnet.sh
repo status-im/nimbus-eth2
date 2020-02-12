@@ -32,11 +32,10 @@ echo "Beacon node data dir    : ${DATA_DIR:="build/testnet-reset-data/$NETWORK"}
 echo "Nim build flags         : $NETWORK_NIM_FLAGS"
 
 while true; do
-    read -p "Continue? [yn] " yn
+    read -p "Continue? [Yn] " yn
     case $yn in
-        [Yy]* ) break;;
+        * ) break;;
         [Nn]* ) exit 1;;
-        * ) echo "Please answer yes or no.";;
     esac
 done
 
@@ -56,41 +55,42 @@ fi
 
 mkdir -p "$DEPOSITS_DIR_ABS"
 
-DOCKER_BEACON_NODE="docker run -v $DEPOSITS_DIR_ABS:/deposits_dir -v $NETWORK_DIR_ABS:/network_dir -v $DATA_DIR_ABS:/data_dir statusteam/nimbus_beacon_node:$NETWORK"
-
-make deposit_contract
-
 if [ "$ETH1_PRIVATE_KEY" != "" ]; then
+  make deposit_contract
   echo "Deploying deposit contract through $WEB3_URL_ARG..."
   DEPOSIT_CONTRACT_ADDRESS=$(./build/deposit_contract deploy $WEB3_URL_ARG --private-key=$ETH1_PRIVATE_KEY)
   DEPOSIT_CONTRACT_ADDRESS_ARG="--deposit-contract=$DEPOSIT_CONTRACT_ADDRESS"
   echo "Done: $DEPOSIT_CONTRACT_ADDRESS"
 fi
 
+echo "Building a local beacon_node instance for 'makeDeposits' and 'createTestnet'"
+make NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node
+
 cd docker
 
 echo "Building Docker image..."
+# CPU-specific CFLAGS that work on the servers are in MARCH_NIM_FLAGS,
+# in docker/Makefile, and are enabled by default.
 make build
 
-$DOCKER_BEACON_NODE makeDeposits \
+../build/beacon_node makeDeposits \
   --quickstart-deposits=$QUICKSTART_VALIDATORS \
   --random-deposits=$RANDOM_VALIDATORS \
-  --deposits-dir=/deposits_dir
+  --deposits-dir="$DEPOSITS_DIR_ABS"
 
 TOTAL_VALIDATORS="$(( $QUICKSTART_VALIDATORS + $RANDOM_VALIDATORS ))"
 
-$DOCKER_BEACON_NODE \
-  --data-dir=/data_dir \
-  createTestnet \
-  --validators-dir=/deposits_dir \
+../build/beacon_node createTestnet \
+  --data-dir="$DATA_DIR_ABS" \
+  --validators-dir="$DEPOSITS_DIR_ABS" \
   --total-validators=$TOTAL_VALIDATORS \
   --last-user-validator=$QUICKSTART_VALIDATORS \
-  --output-genesis=/network_dir/genesis.ssz \
-  --output-bootstrap-file=/network_dir/bootstrap_nodes.txt \
+  --output-genesis="$NETWORK_DIR_ABS/genesis.ssz" \
+  --output-bootstrap-file="$NETWORK_DIR_ABS/bootstrap_nodes.txt" \
   --bootstrap-address=$BOOTSTRAP_IP \
   --bootstrap-port=$BOOTSTRAP_PORT \
   $WEB3_URL_ARG $DEPOSIT_CONTRACT_ADDRESS_ARG \
-  --genesis-offset=900 # Delay in seconds
+  --genesis-offset=300 # Delay in seconds
 
 COMMITTED_FILES=" genesis.ssz bootstrap_nodes.txt "
 

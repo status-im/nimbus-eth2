@@ -22,7 +22,7 @@ suite "Block processing" & preset():
     # TODO bls verification is a bit of a bottleneck here
     genesisState = initialize_beacon_state_from_eth1(
       Eth2Digest(), 0,
-      makeInitialDeposits(), {skipValidation})
+      makeInitialDeposits(), {skipMerkleValidation})
     genesisBlock = get_initial_beacon_block(genesisState)
     genesisRoot = hash_tree_root(genesisBlock.message)
 

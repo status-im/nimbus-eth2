@@ -9,6 +9,7 @@ const
   genesisFile = "genesis.ssz"
   configFile = "config.yaml"
   testnetsRepo = "eth2-testnets"
+  web3Url = "wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
 
 let
   testnetsOrg = getEnv("ETH2_TESTNETS_ORG", "eth2-clients")
@@ -75,6 +76,7 @@ cli do (testnetName {.argument.}: string):
     validatorsDir = dataDir / "validators"
     dumpDir = dataDir / "dump"
     beaconNodeBinary = buildDir / "beacon_node_" & dataDirName
+  var
     nimFlags = "-d:chronicles_log_level=TRACE " & getEnv("NIM_PARAMS")
 
   let depositContractFile = testnetDir / depositContractFileName
@@ -95,6 +97,8 @@ cli do (testnetName {.argument.}: string):
       rmDir dataDir
 
   cd rootDir
+  if testnet == "testnet1":
+    nimFlags &= " -d:NETWORK_TYPE=libp2p"
   exec &"""nim c {nimFlags} -d:"const_preset={preset}" -o:"{beaconNodeBinary}" beacon_chain/beacon_node.nim"""
 
   mkDir dumpDir
@@ -120,15 +124,24 @@ cli do (testnetName {.argument.}: string):
         --random-deposits=1
         --deposits-dir="{validatorsDir}"
         --deposit-private-key={privKey}
-        --web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a
+        --web3-url={web3Url}
         {depositContractOpt}
         """, "\n", " ")
-      quit()
+      mode = Silent
+      echo "\nDeposit sent, wait for confirmation then press enter to continue"
+      discard readLineFromStdin()
+
+  let logLevel = getEnv("LOG_LEVEL")
+  var logLevelOpt = ""
+  if logLevel.len > 0:
+    logLevelOpt = "--log-level=" & logLevel
 
   mode = Verbose
   execIgnoringExitCode replace(&"""{beaconNodeBinary}
     --data-dir="{dataDir}"
     --dump=true
+    --web3-url={web3Url}
     {bootstrapFileOpt}
+    {logLevelOpt}
     --state-snapshot="{testnetDir/genesisFile}" """ & depositContractOpt, "\n", " ")
 

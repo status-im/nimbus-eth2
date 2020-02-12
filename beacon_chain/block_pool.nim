@@ -2,7 +2,7 @@ import
   bitops, chronicles, options, tables,
   ssz, beacon_chain_db, state_transition, extras,
   beacon_node_types, metrics,
-  spec/[crypto, datatypes, digest, helpers]
+  spec/[crypto, datatypes, digest, helpers, validator]
 
 declareCounter beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # On fork choice
 
@@ -249,9 +249,10 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
   res
 
 proc addResolvedBlock(
-    pool: var BlockPool, state: var StateData, blockRoot: Eth2Digest,
+    pool: var BlockPool, state: BeaconState, blockRoot: Eth2Digest,
     signedBlock: SignedBeaconBlock, parent: BlockRef): BlockRef =
   logScope: pcs = "block_resolution"
+  doAssert state.slot == signedBlock.message.slot, "state must match block"
 
   let blockRef = BlockRef.init(blockRoot, signedBlock.message)
   link(parent, blockRef)
@@ -262,17 +263,10 @@ proc addResolvedBlock(
   # Resolved blocks should be stored in database
   pool.db.putBlock(blockRoot, signedBlock)
 
-  # TODO this is a bit ugly - we update state.data outside of this function then
-  #      set the rest here - need a blockRef to update it. Clean this up -
-  #      hopefully it won't be necessary by the time hash caching and the rest
-  #      is done..
-  doAssert state.data.data.slot == blockRef.slot
-  state.blck = blockRef
-
   # This block *might* have caused a justification - make sure we stow away
   # that information:
   let justifiedSlot =
-    state.data.data.current_justified_checkpoint.epoch.compute_start_slot_at_epoch()
+    state.current_justified_checkpoint.epoch.compute_start_slot_at_epoch()
 
   var foundHead: Option[Head]
   for head in pool.heads.mitems():
@@ -389,9 +383,12 @@ proc add*(
 
       return
 
-    # Careful, pool.tmpState is now partially inconsistent and will be updated
-    # inside addResolvedBlock
-    return pool.addResolvedBlock(pool.tmpState, blockRoot, signedBlock, parent)
+    # Careful, tmpState.data has been updated but not blck - we need to create
+    # the BlockRef first!
+    pool.tmpState.blck = pool.addResolvedBlock(
+      pool.tmpState.data.data, blockRoot, signedBlock, parent)
+
+    return pool.tmpState.blck
 
   # TODO already checked hash though? main reason to keep this is because
   # the pending pool calls this function back later in a loop, so as long
@@ -440,7 +437,6 @@ proc add*(
     pending = pool.pending.len,
     missing = pool.missing.len,
     cat = "filtering"
-
 
 func getRef*(pool: BlockPool, root: Eth2Digest): BlockRef =
   ## Retrieve a resolved block reference, if available
@@ -566,11 +562,18 @@ func checkMissing*(pool: var BlockPool): seq[FetchRecord] =
       result.add(FetchRecord(root: k, historySlots: v.slots))
 
 proc skipAndUpdateState(
+    state: var HashedBeaconState, slot: Slot,
+    afterUpdate: proc (state: HashedBeaconState)) =
+  while state.data.slot < slot:
+    # Process slots one at a time in case afterUpdate needs to see empty states
+    process_slots(state, state.data.slot + 1)
+    afterUpdate(state)
+
+proc skipAndUpdateState(
     state: var HashedBeaconState, blck: BeaconBlock, flags: UpdateFlags,
     afterUpdate: proc (state: HashedBeaconState)): bool =
 
-  process_slots(state, blck.slot - 1)
-  afterUpdate(state)
+  skipAndUpdateState(state, blck.slot - 1, afterUpdate)
 
   let ok  = state_transition(state, blck, flags)
 
@@ -603,7 +606,7 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
   var ancestors = @[pool.get(bs.blck)]
   # Common case: the last block applied is the parent of the block to apply:
   if not bs.blck.parent.isNil and state.blck.root == bs.blck.parent.root and
-      state.data.data.slot < bs.slot:
+      state.data.data.slot < bs.blck.slot:
     return ancestors
 
   # It appears that the parent root of the proposed new block is different from
@@ -692,8 +695,8 @@ proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
   if state.blck.root == bs.blck.root and state.data.data.slot <= bs.slot:
     if state.data.data.slot != bs.slot:
       # Might be that we're moving to the same block but later slot
-      process_slots(state.data, bs.slot)
-      pool.maybePutState(state.data, bs.blck)
+      skipAndUpdateState(state.data, bs.slot) do(state: HashedBeaconState):
+        pool.maybePutState(state, bs.blck)
 
     return # State already at the right spot
 
@@ -714,9 +717,8 @@ proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
       pool.maybePutState(state, ancestors[i].refs)
     doAssert ok, "Blocks in database should never fail to apply.."
 
-  # TODO check if this triggers rest of state transition, or should
-  process_slots(state.data, bs.slot)
-  pool.maybePutState(state.data, bs.blck)
+  skipAndUpdateState(state.data, bs.slot) do(state: HashedBeaconState):
+    pool.maybePutState(state, bs.blck)
 
   state.blck = bs.blck
 
@@ -924,3 +926,20 @@ proc preInit*(
   db.putTailBlock(blockRoot)
   db.putHeadBlock(blockRoot)
   db.putStateRoot(blockRoot, state.slot, signedBlock.message.state_root)
+
+proc getProposer*(pool: BlockPool, head: BlockRef, slot: Slot): Option[ValidatorPubKey] =
+  pool.withState(pool.tmpState, head.atSlot(slot)):
+    var cache = get_empty_per_epoch_cache()
+
+    let proposerIdx = get_beacon_proposer_index(state, cache)
+    if proposerIdx.isNone:
+      warn "Missing proposer index",
+        slot=slot,
+        epoch=slot.compute_epoch_at_slot,
+        num_validators=state.validators.len,
+        active_validators=
+          get_active_validator_indices(state, slot.compute_epoch_at_slot),
+        balances=state.balances
+      return
+
+    return some(state.validators[proposerIdx.get()].pubkey)

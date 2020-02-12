@@ -25,5 +25,15 @@ type
     ## TODO need to be careful here, easy to assume that slot number change is
     ##      enough, vs advancing the state - however, making a full state copy
     ##      is expensive also :/
+    skipMerkleValidation ##\
+    ## When processing deposits, skip verifying the Merkle proof trees of each
+    ## deposit. This is a holdover from both interop issues with the malformed
+    ## proofs and, more currently, nim-beacon-chain's creation of proofs which
+    ## are inconsistent with the current specification. Furthermore several of
+    ## the mocking interfaces deliberately do not create Merkle proofs. Whilst
+    ## this seems less than entirely justifiable, for now enable keeping those
+    ## in place while minimizing the tech debt they create. One, in principle,
+    ## should be able to remove this flag entirely. It is not intrinsically an
+    ## expensive operation to perform.
 
   UpdateFlags* = set[UpdateFlag]

@@ -20,13 +20,13 @@ import
 
 const OpProposerSlashingDir = SszTestsDir/const_preset/"phase0"/"operations"/"proposer_slashing"/"pyspec_tests"
 
-template runTest(identifier: untyped) =
+proc runTest(identifier: string) =
   # We wrap the tests in a proc to avoid running out of globals
   # in the future: Nim supports up to 3500 globals
   # but unittest with the macro/templates put everything as globals
   # https://github.com/nim-lang/Nim/issues/12084#issue-486866402
 
-  const testDir = OpProposerSlashingDir / astToStr(identifier)
+  let testDir = OpProposerSlashingDir / identifier
 
   proc `testImpl_proposer_slashing _ identifier`() =
 
@@ -66,15 +66,5 @@ template runTest(identifier: untyped) =
   `testImpl_proposer_slashing _ identifier`()
 
 suite "Official - Operations - Proposer slashing " & preset():
-  # https://github.com/ethereum/eth2.0-spec-tests/tree/v0.10.1/tests/minimal/phase0/operations/proposer_slashing/pyspec_tests
-  # https://github.com/ethereum/eth2.0-spec-tests/tree/v0.10.1/tests/mainnet/phase0/operations/proposer_slashing/pyspec_tests
-  runTest(epochs_are_different)
-  runTest(headers_are_same)
-  runTest(invalid_proposer_index)
-  runTest(invalid_sig_1)
-  runTest(invalid_sig_1_and_2)
-  runTest(invalid_sig_2)
-  runTest(proposer_is_not_activated)
-  runTest(proposer_is_slashed)
-  runTest(proposer_is_withdrawn)
-  runTest(success)
+  for kind, path in walkDir(OpProposerSlashingDir, true):
+    runTest(path)

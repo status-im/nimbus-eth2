@@ -218,6 +218,8 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     mainchainMonitor = MainchainMonitor.init(
       conf.depositWeb3Url, conf.depositContractAddress,
       blockPool.headState.data.data.eth1_data.block_hash)
+    # TODO if we don't have any validators attached, we don't need a mainchain
+    #      monitor
     mainchainMonitor.start()
 
   var
@@ -624,31 +626,22 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
   # TODO here we advance the state to the new slot, but later we'll be
   #      proposing for it - basically, we're selecting proposer based on an
   #      empty slot
-  var cache = get_empty_per_epoch_cache()
-  node.blockPool.withState(node.blockPool.tmpState, head.atSlot(slot)):
-    let proposerIdx = get_beacon_proposer_index(state, cache)
-    if proposerIdx.isNone:
-      notice "Missing proposer index",
-        slot=slot,
-        epoch=slot.compute_epoch_at_slot,
-        num_validators=state.validators.len,
-        active_validators=
-          get_active_validator_indices(state, slot.compute_epoch_at_slot),
-        balances=state.balances
 
-      return head
+  let proposerKey = node.blockPool.getProposer(head, slot)
+  if proposerKey.isNone():
+    return head
 
-    let validator = node.getAttachedValidator(state, proposerIdx.get)
+  let validator = node.attachedValidators.getValidator(proposerKey.get())
 
-    if validator != nil:
-      return await proposeBlock(node, validator, head, slot)
+  if validator != nil:
+    return await proposeBlock(node, validator, head, slot)
 
-    trace "Expecting block proposal",
-      headRoot = shortLog(head.root),
-      slot = shortLog(slot),
-      proposer = shortLog(state.validators[proposerIdx.get].pubKey),
-      cat = "consensus",
-      pcs = "wait_for_proposal"
+  debug "Expecting block proposal",
+    headRoot = shortLog(head.root),
+    slot = shortLog(slot),
+    proposer = shortLog(proposerKey.get()),
+    cat = "consensus",
+    pcs = "wait_for_proposal"
 
   return head
 
@@ -1113,7 +1106,7 @@ when isMainModule:
                  else: waitFor getLatestEth1BlockHash(config.depositWeb3Url)
     var
       initialState = initialize_beacon_state_from_eth1(
-        eth1Hash, startTime, deposits, {skipValidation})
+        eth1Hash, startTime, deposits, {skipValidation, skipMerkleValidation})
 
     # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
     initialState.genesis_time = startTime

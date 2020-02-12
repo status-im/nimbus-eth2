@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  os, unittest,
+  os, sequtils, unittest,
   # Beacon chain internals
   ../../beacon_chain/spec/[crypto, datatypes],
   ../../beacon_chain/[ssz, state_transition, extras],
@@ -20,90 +20,55 @@ import
 
 const SanityBlocksDir = SszTestsDir/const_preset/"phase0"/"sanity"/"blocks"/"pyspec_tests"
 
-template runValidTest(testName: string, identifier: untyped, num_blocks: int): untyped =
+proc runTest(identifier: string) =
   # We wrap the tests in a proc to avoid running out of globals
   # in the future: Nim supports up to 3500 globals
   # but unittest with the macro/templates put everything as globals
   # https://github.com/nim-lang/Nim/issues/12084#issue-486866402
 
-  const testDir = SanityBlocksDir / astToStr(identifier)
+  let testDir = SanityBlocksDir / identifier
 
   proc `testImpl _ blck _ identifier`() =
-    timedTest "[Valid]   " & testName & " (" & astToStr(identifier) & ")":
+    let prefix = if existsFile(testDir/"post.ssz"):
+      "[Valid]   "
+    else:
+      "[Invalid] "
+
+    timedTest prefix & identifier:
       var stateRef, postRef: ref BeaconState
       new stateRef
-      new postRef
       stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
-      postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
 
-      for i in 0 ..< num_blocks:
+      if existsFile(testDir/"post.ssz"):
+        new postRef
+        postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
+
+      # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
+      # so purely lexicographic sorting wouldn't sort properly.
+      for i in 0 ..< toSeq(walkPattern(testDir/"blocks_*.ssz")).len:
         let blck = parseTest(testDir/"blocks_" & $i & ".ssz", SSZ, SignedBeaconBlock)
 
-        # TODO: The EF is using invalid BLS keys so we can't verify them
-        let success = state_transition(stateRef[], blck.message, flags = {skipValidation})
-        doAssert success, "Failure when applying block " & $i
+        if postRef.isNil:
+          let success = state_transition(stateRef[], blck.message, flags = {})
+          doAssert not success, "We didn't expect this invalid block to be processed"
+        else:
+          # TODO: The EF is using invalid BLS keys so we can't verify them
+          let success = state_transition(stateRef[], blck.message, flags = {skipValidation})
+          doAssert success, "Failure when applying block " & $i
 
-      # Checks:
       # check: stateRef.hash_tree_root() == postRef.hash_tree_root()
-      reportDiff(stateRef, postRef)
+      if not postRef.isNil:
+        reportDiff(stateRef, postRef)
 
   `testImpl _ blck _ identifier`()
 
 suite "Official - Sanity - Blocks " & preset():
-  timedTest "[Invalid] Previous slot block transition (prev_slot_block_transition)":
-    const testDir = SanityBlocksDir/"prev_slot_block_transition"
-    var stateRef: ref BeaconState
-    new stateRef
-    stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
+  # Failing due to signature checking in indexed validation checking pending
+  # 0.10 BLS verification API with new domain handling.
+  const expected_failures = ["attester_slashing"]
 
-    let blck = parseTest(testDir/"blocks_0.ssz", SSZ, SignedBeaconBlock)
-
-    # Check that a block build for an old slot cannot be used for state transition
-    expect(AssertionError):
-      # assert in process_slots. This should not be triggered
-      #                          for blocks from block_pool/network
-      discard state_transition(stateRef[], blck.message, flags = {skipValidation})
-
-  runValidTest("Same slot block transition", same_slot_block_transition, 1)
-  runValidTest("Empty block transition", empty_block_transition, 1)
-
-  when false: # TODO: we need more granular skipValidation
-    timedTest "[Invalid] Invalid state root":
-      const testDir = SanityBlocksDir/"invalid_state_root"
-      var stateRef: ref BeaconState
-      new stateRef
-      stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
-
-      let blck = parseTest(testDir/"blocks_0.ssz", SSZ, BeaconBlock)
-
-      expect(AssertionError):
-        discard state_transition(stateRef[], blck, flags = {skipValidation})
-
-  runValidTest("Skipped Slots", skipped_slots, 1)
-  runValidTest("Empty epoch transition", empty_epoch_transition, 1)
-  when const_preset=="minimal":
-    runValidTest("Empty epoch transition not finalizing", empty_epoch_transition_not_finalizing, 1)
-
-  when false:
-    # TODO investigate/fix after 0.9.0 transition broke this in mainnet and
-    # in 0.9.1 even minimal broke. For the latter at least, it differs only
-    # in latest_block_header.body_root, which is just a hash_tree_root() of
-    # the one block read by this test case. All balances agree. It's an SSZ
-    # or hashing issue.
-    runValidTest("Attester slashing", attester_slashing, 1)
-  runValidTest("Proposer slashing", proposer_slashing, 1)
-
-  # TODO: Expected deposit in block
-
-  runValidTest("Deposit in block", deposit_in_block, 1)
-  runValidTest("Deposit top up", deposit_top_up, 1)
-
-  when const_preset=="minimal":
-    # TODO this doesn't work on mainnet
-    runValidTest("Attestation", attestation, 2)
-  runValidTest("Voluntary exit", voluntary_exit, 2)
-  runValidTest("Balance-driven status transitions", balance_driven_status_transitions, 1)
-  runValidTest("Historical batch", historical_batch, 1)
-  when const_preset=="minimal":
-    runValidTest("ETH1 data votes consensus", eth1_data_votes_consensus, 17)
-    runValidTest("ETH1 data votes no consensus", eth1_data_votes_no_consensus, 16)
+  for kind, path in walkDir(SanityBlocksDir, true):
+    if path in expected_failures:
+      echo "Skipping test: ", path
+      continue
+    runTest(path)
