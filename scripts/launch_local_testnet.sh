@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Mostly a duplication of "tests/simulation/{start.sh,run_node.sh}", but with a focus on
-# replicating testnets as close as possible, which means following the Docker execution labyrinth.
+# replicating testnets as closely as possible, which means following the Docker execution labyrinth.
 
 set -e
 
@@ -22,7 +22,7 @@ source "scripts/${NETWORK}.env"
 set +a
 
 NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh ${NETWORK})
-make LOG_LEVEL=DEBUG NIMFLAGS="-d:debug -d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node
+make LOG_LEVEL=DEBUG NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node
 
 rm -rf "${DEPOSITS_DIR}"
 ./build/beacon_node makeDeposits \

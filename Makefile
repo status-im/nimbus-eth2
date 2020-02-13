@@ -45,7 +45,8 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	testnet0 \
 	clean-testnet1 \
 	testnet1 \
-	clean
+	clean \
+	libbacktrace
 
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included. We can only execute one target in this state.
@@ -56,6 +57,10 @@ endif
 
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
+
+# "--import" can't be added to config.nims, for some reason
+# "--define:release" implies "--stacktrace:off" and it cannot be added to config.nims either
+NIM_PARAMS := $(NIM_PARAMS) -d:release --import:libbacktrace
 
 #- the Windows build fails on Azure Pipelines if we have Unicode symbols copy/pasted here,
 #  so we encode them in ASCII
@@ -70,7 +75,7 @@ build-system-checks:
 		}; \
 		exit 0
 
-deps: | deps-common beacon_chain.nims p2pd
+deps: | deps-common beacon_chain.nims p2pd libbacktrace
 
 #- deletes and recreates "beacon_chain.nims" which on Windows is a copy instead of a proper symlink
 update: | update-common
@@ -80,6 +85,10 @@ update: | update-common
 # symlink
 beacon_chain.nims:
 	ln -s beacon_chain.nimble $@
+
+# nim-libbacktrace
+libbacktrace:
+	+ $(MAKE) -C vendor/nim-libbacktrace
 
 P2PD_CACHE :=
 p2pd: | go-checks
@@ -121,6 +130,7 @@ testnet1: | build deps
 
 clean: | clean-common
 	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,beacon_node_testnet*,state_sim,transition*}
+	+ $(MAKE) -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
 
 libnfuzz.so: | build deps-common beacon_chain.nims
 	echo -e $(BUILD_MSG) "build/$@" && \

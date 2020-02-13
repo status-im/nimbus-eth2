@@ -134,3 +134,8 @@
 [submodule "vendor/lmdb"]
 	path = vendor/lmdb
 	url = https://github.com/status-im/lmdb.git
+[submodule "vendor/nim-libbacktrace"]
+	path = vendor/nim-libbacktrace
+	url = https://github.com/status-im/nim-libbacktrace.git
+	ignore = dirty
+	branch = master
