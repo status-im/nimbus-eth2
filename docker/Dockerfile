@@ -3,8 +3,9 @@ FROM debian:bullseye-slim AS build
 SHELL ["/bin/bash", "-c"]
 
 RUN apt-get -qq update \
- && apt-get -qq -y install build-essential make wget libpcre3-dev golang-go git &>/dev/null \
- && apt-get -qq clean
+ && apt-get -qq -y install build-essential make wget libpcre3-dev golang-go git curl &>/dev/null \
+ && apt-get -qq clean \
+ && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # let Docker cache this between Git revision and testnet version changes
 RUN cd /root \
@@ -41,9 +42,8 @@ RUN apt-get -qq update \
  && apt-get -qq clean \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-COPY run_in_docker.sh /usr/bin/run_beacon_node.sh
-COPY --from=build /root/nim-beacon-chain/build/beacon_node /usr/bin/beacon_node
-COPY --from=build /root/nim-beacon-chain/vendor/go/bin/p2pd /usr/bin/p2pd
+# "COPY" creates new image layers, so we cram all we can into one command
+COPY --from=build /root/nim-beacon-chain/docker/run_in_docker.sh /root/nim-beacon-chain/build/beacon_node /root/nim-beacon-chain/vendor/go/bin/p2pd /usr/bin/
 
 MAINTAINER Zahary Karadjov <zahary@status.im>
 LABEL description="Nimbus installation that can act as an ETH2 network bootstrap node."
@@ -51,5 +51,5 @@ LABEL description="Nimbus installation that can act as an ETH2 network bootstrap
 # TODO: This custom entry script is necessary only because we must clean up
 #       temporary files left by previous executions of the Go daeamon.
 #       We should be able to remove it once we have a native LibP2P impl.
-ENTRYPOINT ["/usr/bin/run_beacon_node.sh"]
+ENTRYPOINT ["/usr/bin/run_in_docker.sh"]
 
