@@ -22,7 +22,7 @@ build/
 *.dll
 
 # a symlink that can't be added to the repo because of Windows
-/*.nims
+/beacon_chain.nims
 
 /scripts/testnet*.sh
 

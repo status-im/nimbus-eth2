@@ -49,7 +49,7 @@ script:
   - set -e # fail fast
   # Building Nim-1.0.4 takes up to 10 minutes on Travis - the time limit after which jobs are cancelled for having no output
   - make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" V=1 update # to allow a newer Nim version to be detected
-  - make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}"
-  - make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" NIMFLAGS="-d:NETWORK_TYPE=libp2p -d:testnet_servers_image"
+  - make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" LOG_LEVEL=TRACE
+  - make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC} -d:NETWORK_TYPE=libp2p -d:testnet_servers_image" LOG_LEVEL=TRACE
   - make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" DISABLE_TEST_FIXTURES_SCRIPT=1 test
 
