@@ -9,7 +9,7 @@
 
 set -e
 
-SUBREPO_DIR="tests/official/fixtures"
+SUBREPO_DIR="vendor/nim-eth2-scenarios"
 # verbosity level
 [[ -z "$V" ]] && V=0
 [[ -z "$BUILD_MSG" ]] && BUILD_MSG="Downloading official test vectors"
