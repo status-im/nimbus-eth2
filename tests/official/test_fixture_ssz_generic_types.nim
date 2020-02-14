@@ -15,14 +15,14 @@ import
   yaml,
   # Beacon chain internals
   ../../beacon_chain/spec/[datatypes, digest],
-  ../../beacon_chain/ssz
+  ../../beacon_chain/ssz,
   # Test utilities
+  ./fixtures_utils
 
 # Parsing definitions
 # ------------------------------------------------------------------------
 
 const
-  FixturesDir = currentSourcePath.rsplit(DirSep, 1)[0] / "fixtures"
   SSZDir = FixturesDir/"tests-v0.10.1"/"general"/"phase0"/"ssz_generic"
 
 type

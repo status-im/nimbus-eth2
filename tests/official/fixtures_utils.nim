@@ -35,7 +35,7 @@ proc readValue*(r: var JsonReader, a: var seq[byte]) {.inline.} =
 # Test helpers
 
 const
-  FixturesDir* = currentSourcePath.rsplit(DirSep, 1)[0] / "fixtures"
+  FixturesDir* = currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / "vendor" / "nim-eth2-scenarios"
   SszTestsDir* = FixturesDir/"tests-v0.10.1"
 
 proc parseTest*(path: string, Format: typedesc[Json or SSZ], T: typedesc): T =

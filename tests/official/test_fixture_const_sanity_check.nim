@@ -14,12 +14,11 @@ import
   # Internals
   ../../beacon_chain/spec/[datatypes, digest],
   # Test utilities
-  ../testutil
+  ../testutil, ./fixtures_utils
 
 const
   SpecDir = currentSourcePath.rsplit(DirSep, 1)[0] /
                   ".."/".."/"beacon_chain"/"spec"
-  FixturesDir = currentSourcePath.rsplit(DirSep, 1)[0] / "fixtures"
   Config = FixturesDir/"tests-v0.10.1"/const_preset/"config.yaml"
 
 type

@@ -17,7 +17,7 @@ import
   ../../beacon_chain/spec/[crypto, datatypes, digest],
   ../../beacon_chain/ssz,
   # Test utilities
-  ../testutil
+  ../testutil, ./fixtures_utils
 
 # SSZ tests of consensus objects (minimal/mainnet preset specific)
 
@@ -25,7 +25,6 @@ import
 # ----------------------------------------------------------------
 
 const
-  FixturesDir = currentSourcePath.rsplit(DirSep, 1)[0] / "fixtures"
   SSZDir = FixturesDir/"tests-v0.10.1"/const_preset/"phase0"/"ssz_static"
 
 type
