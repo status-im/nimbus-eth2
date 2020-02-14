@@ -52,6 +52,7 @@ if [[ $NODE_ID == $MASTER_NODE ]]; then
   NODE_BIN=$BOOTSTRAP_NODE_BIN
 fi
 
+# if you want tracing messages, add "--log-level=TRACE" below
 cd "$DATA_DIR" && $NODE_BIN \
   --bootstrap-file=$BOOTSTRAP_ADDRESS_FILE \
   --data-dir=$DATA_DIR \

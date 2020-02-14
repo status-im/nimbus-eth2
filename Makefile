@@ -108,13 +108,13 @@ endif
 $(TOOLS): | build deps
 	for D in $(TOOLS_DIRS); do [ -e "$${D}/$@.nim" ] && TOOL_DIR="$${D}" && break; done && \
 		echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim c $(NIM_PARAMS) -o:build/$@ "$${TOOL_DIR}/$@.nim"
+		$(ENV_SCRIPT) nim c -o:build/$@ $(NIM_PARAMS) "$${TOOL_DIR}/$@.nim"
 
 clean_eth2_network_simulation_files:
 	rm -rf tests/simulation/{data,validators}
 
 eth2_network_simulation: | build deps p2pd clean_eth2_network_simulation_files process_dashboard
-	GIT_ROOT="$$PWD" tests/simulation/start.sh
+	+ GIT_ROOT="$$PWD" NIMFLAGS="$(NIMFLAGS)" tests/simulation/start.sh
 
 clean-testnet0:
 	rm -rf build/data/testnet0
@@ -134,13 +134,13 @@ clean: | clean-common
 
 libnfuzz.so: | build deps-common beacon_chain.nims
 	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim c -d:release --app:lib --noMain --nimcache:nimcache/libnfuzz $(NIM_PARAMS) -o:build/$@.0 nfuzz/libnfuzz.nim && \
+		$(ENV_SCRIPT) nim c -d:release --app:lib --noMain --nimcache:nimcache/libnfuzz -o:build/$@.0 $(NIM_PARAMS) nfuzz/libnfuzz.nim && \
 		rm -f build/$@ && \
 		ln -s $@.0 build/$@
 
 libnfuzz.a: | build deps-common beacon_chain.nims
 	echo -e $(BUILD_MSG) "build/$@" && \
 		rm -f build/$@ && \
-		$(ENV_SCRIPT) nim c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static $(NIM_PARAMS) -o:build/$@ nfuzz/libnfuzz.nim && \
+		$(ENV_SCRIPT) nim c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static -o:build/$@ $(NIM_PARAMS) nfuzz/libnfuzz.nim && \
 		[[ -e "$@" ]] && mv "$@" build/ # workaround for https://github.com/nim-lang/Nim/issues/12745
 
