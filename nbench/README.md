@@ -24,7 +24,7 @@ Features
 
 ```
 nim c -d:const_preset=mainnet -d:nbench -d:release -o:build/nbench nbench/nbench.nim
-export SCENARIOS=tests/official/fixtures/tests-v0.10.1/mainnet/phase0
+export SCENARIOS=vendor/nim-eth2-scenarios/tests-v0.10.1/mainnet/phase0
 
 # Full state transition
 build/nbench cmdFullStateTransition -d="${SCENARIOS}"/sanity/blocks/pyspec_tests/voluntary_exit/ -q=2
@@ -63,15 +63,15 @@ build/nbench cmdBlockProcessing --blockProcessingCat=catDeposits -d="${SCENARIOS
 build/nbench cmdBlockProcessing --blockProcessingCat=catVoluntaryExits -d="${SCENARIOS}"/operations/voluntary_exit/pyspec_tests/validator_exit_in_future/
 ```
 
-## Running the whole test suite
+## Running the whole Eth2.0 specs test suite
 
 Warning: this is a proof-of-concept, there is a slight degree of interleaving in output.
 Furthermore benchmarks are run in parallel and might interfere which each other.
 
 ```
 nim c -d:const_preset=mainnet -d:nbench -d:release -o:build/nbench nbench/nbench.nim
-nim c -o:build/nbench_tests nbench/nbench_official_fixtures.nim
-build/nbench_tests --nbench=build/nbench --tests=tests/official/fixtures/tests-v0.10.1/mainnet/
+nim c -o:build/nbench_tests nbench/nbench_spec_scenarios.nim
+build/nbench_tests --nbench=build/nbench --tests=vendor/nim-eth2-scenarios/tests-v0.10.1/mainnet/
 ```
 
 ## TODO Reporting
