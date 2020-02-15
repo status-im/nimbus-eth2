@@ -88,7 +88,7 @@ beacon_chain.nims:
 
 # nim-libbacktrace
 libbacktrace:
-	+ $(MAKE) -C vendor/nim-libbacktrace
+	+ $(MAKE) -C vendor/nim-libbacktrace BUILD_CXX_LIB=0
 
 P2PD_CACHE :=
 p2pd: | go-checks
