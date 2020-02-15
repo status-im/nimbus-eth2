@@ -6,21 +6,16 @@ set -eo pipefail
 # shellcheck source=/dev/null
 source "$(dirname "$0")/vars.sh"
 
-# set up the environment
-# shellcheck source=/dev/null
-source "${SIM_ROOT}/../../env.sh"
-
 cd "$SIM_ROOT"
 mkdir -p "$SIMULATION_DIR"
 mkdir -p "$VALIDATORS_DIR"
 
 cd "$GIT_ROOT"
 
-NIMFLAGS="-d:chronicles_log_level=TRACE -d:chronicles_sinks:textlines,json[file] --hints:off --warnings:off --verbosity:0 --opt:speed --debuginfo"
+CUSTOM_NIMFLAGS="${NIMFLAGS} -d:chronicles_log_level=TRACE -d:chronicles_sinks:textlines,json[file]"
 
 # Run with "SLOTS_PER_EPOCH=8 ./start.sh" to change these
 DEFS=""
-
 DEFS+="-d:MAX_COMMITTEES_PER_SLOT=${MAX_COMMITTEES_PER_SLOT:-1} "      # Spec default: 64
 DEFS+="-d:SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH:-6} "   # Spec default: 32
 DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-6} "  # Spec default: 12
@@ -30,9 +25,9 @@ LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.js
 
 build_beacon_node () {
   OUTPUT_BIN=$1; shift
-  PARAMS="$NIMFLAGS $DEFS $@"
+  PARAMS="$CUSTOM_NIMFLAGS $DEFS $@"
   echo "Building $OUTPUT_BIN ($PARAMS)"
-  nim c -o:$OUTPUT_BIN $PARAMS beacon_chain/beacon_node
+  make NIMFLAGS="-o:$OUTPUT_BIN $PARAMS" beacon_node
 }
 
 build_beacon_node $BEACON_NODE_BIN -d:"NETWORK_TYPE=$NETWORK_TYPE"
@@ -47,7 +42,7 @@ fi
 
 if [ ! -f "${LAST_VALIDATOR}" ]; then
   echo Building $DEPLOY_DEPOSIT_CONTRACT_BIN
-  nim c -o:"$DEPLOY_DEPOSIT_CONTRACT_BIN" $NIMFLAGS $DEFS -d:release beacon_chain/deposit_contract
+  make NIMFLAGS="-o:\"$DEPLOY_DEPOSIT_CONTRACT_BIN\" $CUSTOM_NIMFLAGS $DEFS" deposit_contract
 
   if [ "$DEPOSIT_WEB3_URL_ARG" != "" ]; then
     DEPOSIT_CONTRACT_ADDRESS=$($DEPLOY_DEPOSIT_CONTRACT_BIN deploy $DEPOSIT_WEB3_URL_ARG)
@@ -73,6 +68,8 @@ if [ ! -f "${SNAPSHOT_FILE}" ]; then
     --bootstrap-port=$(( BASE_P2P_PORT + MASTER_NODE )) \
     --genesis-offset=5 # Delay in seconds
 fi
+
+rm -f beacon_node.log
 
 # Delete any leftover address files from a previous session
 if [ -f "${MASTER_NODE_ADDRESS_FILE}" ]; then
@@ -102,14 +99,14 @@ scrape_configs:
     static_configs:
 EOF
 
-PROCESS_DASHBOARD_BIN="${SIM_ROOT}/../../build/process_dashboard"
+PROCESS_DASHBOARD_BIN="build/process_dashboard"
 
-if [ ! -f "$PROCESS_DASHBOARD_BIN" ]; then
-  nim c -d:release --outdir:build tests/simulation/process_dashboard.nim
+if [[ ! -f "$PROCESS_DASHBOARD_BIN" ]]; then
+  make NIMFLAGS="$CUSTOM_NIMFLAGS" process_dashboard
 fi
 
 # use the exported Grafana dashboard for a single node to create one for all nodes
-"${SIM_ROOT}/../../build/process_dashboard" \
+"${PROCESS_DASHBOARD_BIN}" \
   --nodes=${TOTAL_NODES} \
   --in="${SIM_ROOT}/beacon-chain-sim-node0-Grafana-dashboard.json" \
   --out="${SIM_ROOT}/beacon-chain-sim-all-nodes-Grafana-dashboard.json"
