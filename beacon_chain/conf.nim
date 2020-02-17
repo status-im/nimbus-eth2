@@ -132,6 +132,16 @@ type
               "If you set this to 'auto', a persistent automatically generated ID will be seleceted for each --dataDir folder."
         name: "node-name" }: string
 
+      verifyFinalization* {.
+        defaultValue: false
+        desc: "Specify whether to verify finalization occurs on schedule, for testing."
+        name: "verify-finalization" }: bool
+
+      checkEpochs* {.
+        defaultValue: 0
+        desc: "A positive checkEpochs selects how many epochs to run."
+        name: "check-epochs" }: uint64
+
       metricsServer* {.
         defaultValue: false
         desc: "Enable the metrics server."

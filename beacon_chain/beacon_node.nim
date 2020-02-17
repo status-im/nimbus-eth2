@@ -645,6 +645,21 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
 
   return head
 
+proc verifyFinalization(node: BeaconNode, slot: Slot) =
+  # Epoch must be >= 4 to check finalization
+  const SETTLING_TIME_OFFSET = 1'u64
+  let epoch = slot.compute_epoch_at_slot()
+
+  # Don't static-assert this -- if this isn't called, don't require it
+  doAssert SLOTS_PER_EPOCH > SETTLING_TIME_OFFSET
+
+  # Intentionally, loudly assert. Point is to fail visibly and unignorably
+  # during testing.
+  if epoch >= 4 and slot mod SLOTS_PER_EPOCH > SETTLING_TIME_OFFSET:
+    let finalizedEpoch =
+      node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()
+    doAssert finalizedEpoch + 2 == epoch
+
 proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
   ## skip a few in case we're running late.
@@ -671,6 +686,17 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     finalizedRoot = shortLog(node.blockPool.finalizedHead.blck.root),
     finalizedSlot = shortLog(node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()),
     cat = "scheduling"
+
+  # Check before any re-scheduling of onSlotStart()
+  if node.config.checkEpochs > 0'u64 and
+      scheduledSlot.compute_epoch_at_slot() >= node.config.checkEpochs:
+    info "Stopping at pre-chosen epoch",
+      chosenEpoch = node.config.checkEpochs,
+      epoch = scheduledSlot.compute_epoch_at_slot(),
+      slot = scheduledSlot
+
+    # Brute-force, but ensure it's reliably enough to run in CI.
+    quit(0)
 
   if not wallSlot.afterGenesis or (wallSlot.slot < lastSlot):
     let
@@ -699,6 +725,9 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     nextSlot = slot + 1
 
   beacon_slot.set slot.int64
+
+  if node.config.verifyFinalization:
+    verifyFinalization(node, scheduledSlot)
 
   if slot > lastSlot + SLOTS_PER_EPOCH:
     # We've fallen behind more than an epoch - there's nothing clever we can
@@ -784,7 +813,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     head = await handleProposal(node, head, slot)
 
     # We've been doing lots of work up until now which took time. Normally, we
-    # send out attestations at the slot mid-point, so we go back to the clock
+    # send out attestations at the slot thirds-point, so we go back to the clock
     # to see how much time we need to wait.
     # TODO the beacon clock might jump here also. It's probably easier to complete
     #      the work for the whole slot using a monotonic clock instead, then deal
