@@ -137,10 +137,10 @@ type
         desc: "Specify whether to verify finalization occurs on schedule, for testing."
         name: "verify-finalization" }: bool
 
-      checkEpochs* {.
+      stopAtEpoch* {.
         defaultValue: 0
-        desc: "A positive checkEpochs selects how many epochs to run."
-        name: "check-epochs" }: uint64
+        desc: "A positive epoch selects the epoch at which to stop."
+        name: "stop-at-epoch" }: uint64
 
       metricsServer* {.
         defaultValue: false
