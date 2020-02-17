@@ -232,7 +232,7 @@ when networkBackend in [libp2p, libp2pDaemon]:
       await node.start()
 
       await sleepAsync(10.seconds)
-      if libp2p_peers.value == 0:
+      if libp2p_successful_dials.value == 0:
         fatal "Failed to connect to any bootstrap node. Quitting"
         quit 1
 

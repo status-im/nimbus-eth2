@@ -24,7 +24,7 @@ proc new*(T: type Eth2DiscoveryProtocol,
     pk = initPrivateKey(rawPrivKeyBytes)
     db = DiscoveryDB.init(newMemoryDB())
 
-  newProtocol(pk, db, Port conf.udpPort)
+  newProtocol(pk, db, Port conf.tcpPort, Port conf.udpPort)
 
 proc toENode*(a: MultiAddress): Result[ENode, cstring] =
   if not IPFS.match(a):
