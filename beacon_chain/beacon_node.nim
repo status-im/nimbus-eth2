@@ -688,10 +688,10 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     cat = "scheduling"
 
   # Check before any re-scheduling of onSlotStart()
-  if node.config.checkEpochs > 0'u64 and
-      scheduledSlot.compute_epoch_at_slot() >= node.config.checkEpochs:
+  if node.config.stopAtEpoch > 0'u64 and
+      scheduledSlot.compute_epoch_at_slot() >= node.config.stopAtEpoch:
     info "Stopping at pre-chosen epoch",
-      chosenEpoch = node.config.checkEpochs,
+      chosenEpoch = node.config.stopAtEpoch,
       epoch = scheduledSlot.compute_epoch_at_slot(),
       slot = scheduledSlot
 
