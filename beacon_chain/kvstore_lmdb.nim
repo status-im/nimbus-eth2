@@ -1,5 +1,8 @@
 ## Implementation of KVStore based on LMDB
-## TODO: crashes on win32, investigate
+# TODO This implementation has several issues on restricted platforms, possibly
+#      due to mmap restrictions - see:
+#      https://github.com/status-im/nim-beacon-chain/issues/732
+#      https://github.com/status-im/nim-beacon-chain/issues/688
 
 import os
 

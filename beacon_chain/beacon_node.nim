@@ -6,7 +6,7 @@ import
   stew/[objects, bitseqs, byteutils],
   chronos, chronicles, confutils, metrics,
   json_serialization/std/[options, sets], serialization/errors,
-  kvstore, kvstore_lmdb,
+  kvstore, kvstore_sqlite3,
   eth/p2p/enode, eth/[keys, async_utils], eth/p2p/discoveryv5/enr,
 
   # Local modules
@@ -127,7 +127,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     netKeys = getPersistentNetKeys(conf)
     nickname = if conf.nodeName == "auto": shortForm(netKeys)
                else: conf.nodeName
-    db = BeaconChainDB.init(kvStore LmdbStoreRef.init(conf.databaseDir))
+    db = BeaconChainDB.init(kvStore SqliteStoreRef.init(conf.databaseDir))
 
   var mainchainMonitor: MainchainMonitor
 

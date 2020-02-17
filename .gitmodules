@@ -141,3 +141,6 @@
 	url = https://github.com/status-im/nim-libbacktrace.git
 	ignore = dirty
 	branch = master
+[submodule "vendor/nim-sqlite3-abi"]
+	path = vendor/nim-sqlite3-abi
+	url = https://github.com/arnetheduck/nim-sqlite3-abi.git
