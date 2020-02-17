@@ -30,7 +30,6 @@ type
     discovery*: Eth2DiscoveryProtocol
     wantedPeers*: int
     peers*: Table[PeerID, Peer]
-    peersByDiscoveryId*: Table[Eth2DiscoveryId, Peer]
     protocolStates*: seq[RootRef]
     libp2pTransportLoops*: seq[Future[void]]
 
@@ -153,7 +152,11 @@ include libp2p_backends_common
 
 proc toPeerInfo*(r: enr.TypedRecord): PeerInfo =
   if r.secp256k1.isSome:
-    var peerId = PeerID.init r.secp256k1.get
+    var pubKey: keys.PublicKey
+    if recoverPublicKey(r.secp256k1.get, pubKey) != EthKeysStatus.Success:
+      return # TODO
+
+    let peerId = PeerID.init crypto.PublicKey(scheme: Secp256k1, skkey: pubKey)
     var addresses = newSeq[MultiAddress]()
 
     if r.ip.isSome and r.tcp.isSome:
@@ -184,6 +187,7 @@ proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
   var peer = node.getPeer(peerInfo)
   peer.wasDialed = true
   await initializeConnection(peer)
+  inc libp2p_successful_dials
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
@@ -202,7 +206,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
               # TODO do this in parallel
               await node.dialPeer(peerInfo)
           except CatchableError as err:
-            debug "Failed to connect to peer", peer = $peer
+            debug "Failed to connect to peer", peer = $peer, err = err.msg
       except CatchableError as err:
         debug "Failure in discovery", err = err.msg
 

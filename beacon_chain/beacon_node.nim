@@ -1116,7 +1116,9 @@ when isMainModule:
         networkKeys = getPersistentNetKeys(config)
         bootstrapAddress = enode.Address(
           ip: parseIpAddress(config.bootstrapAddress),
+          tcpPort: Port config.bootstrapPort,
           udpPort: Port config.bootstrapPort)
+
         bootstrapEnr = enr.Record.init(1, networkKeys.seckey, bootstrapAddress)
       writeFile(bootstrapFile, bootstrapEnr.toURI)
       echo "Wrote ", bootstrapFile

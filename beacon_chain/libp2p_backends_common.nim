@@ -25,7 +25,11 @@ const
 logScope:
   topics = "libp2p"
 
-declarePublicGauge libp2p_peers, "Number of libp2p peers"
+declarePublicGauge libp2p_successful_dials,
+                   "Number of successfully dialed peers"
+
+declarePublicGauge libp2p_peers,
+                   "Number of active libp2p peers"
 
 template libp2pProtocol*(name: string, version: int) {.pragma.}
 
