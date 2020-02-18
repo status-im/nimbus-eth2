@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Copyright (c) 2020 Status Research & Development GmbH. Licensed under
+# either of:
+# - Apache License, version 2.0
+# - MIT license
+# at your option. This file may not be copied, modified, or distributed except
+# according to those terms.
+
 # Mostly a duplication of "tests/simulation/{start.sh,run_node.sh}", but with a focus on
 # replicating testnets as closely as possible, which means following the Docker execution labyrinth.
 
@@ -7,10 +14,82 @@ set -e
 
 cd "$(dirname "${BASH_SOURCE[0]}")"/..
 
-NETWORK=${1:-"testnet1"}
-NUM_NODES=10
+####################
+# argument parsing #
+####################
+! getopt --test > /dev/null
+if [ ${PIPESTATUS[0]} != 4 ]; then
+	echo '`getopt --test` failed in this environment.'
+	exit 1
+fi
 
+OPTS="ht:n:d:"
+LONGOPTS="help,testnet:,nodes:,data-dir:,disable-htop"
+
+# default values
+TESTNET="1"
+NUM_NODES="10"
 DATA_DIR="local_testnet_data"
+USE_HTOP="1"
+
+print_help() {
+	cat <<EOF
+Usage: $(basename $0) --testnet <testnet number> [OTHER OPTIONS] -- [BEACON NODE OPTIONS]
+E.g.: $(basename $0) --testnet ${TESTNET} --nodes ${NUM_NODES} --data-dir "${DATA_DIR}" # defaults
+CI run: $(basename $0) --disable-htop -- --verify-finalization --stop-at-epoch=5
+
+  -h, --help            this help message
+  -t, --testnet         testnet number (default: ${TESTNET})
+  -n, --nodes		number of nodes to launch (default: ${NUM_NODES})
+  -d, --data-dir	directory where all the node data and logs will end up
+			(default: "${DATA_DIR}")
+      --disable-htop	don't use "htop" to see the beacon_node processes
+EOF
+}
+
+! PARSED=$(getopt --options=${OPTS} --longoptions=${LONGOPTS} --name "$0" -- "$@")
+if [ ${PIPESTATUS[0]} != 0 ]; then
+	# getopt has complained about wrong arguments to stdout
+	exit 1
+fi
+
+# read getopt's output this way to handle the quoting right
+eval set -- "$PARSED"
+while true; do
+	case "$1" in
+		-h|--help)
+			print_help
+			exit
+			;;
+		-t|--testnet)
+			TESTNET="$2"
+			shift 2
+			;;
+		-n|--nodes)
+			NUM_NODES="$2"
+			shift 2
+			;;
+		-d|--data-dir)
+			DATA_DIR="$2"
+			shift 2
+			;;
+		--disable-htop)
+			USE_HTOP="0"
+			shift
+			;;
+		--)
+			shift
+			break
+			;;
+		*)
+			echo "argument parsing error"
+			print_help
+			exit 1
+	esac
+done
+
+NETWORK="testnet${TESTNET}"
+
 rm -rf "${DATA_DIR}"
 DEPOSITS_DIR="${DATA_DIR}/deposits_dir"
 mkdir -p "${DEPOSITS_DIR}"
@@ -21,27 +100,34 @@ set -a
 source "scripts/${NETWORK}.env"
 set +a
 
+# Windows detection
+if uname | grep -qiE "mingw|msys"; then
+	MAKE="mingw32-make"
+else
+	MAKE="make"
+fi
+
 NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh ${NETWORK})
-make LOG_LEVEL=DEBUG NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node
+$MAKE LOG_LEVEL=DEBUG NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node
 
 rm -rf "${DEPOSITS_DIR}"
 ./build/beacon_node makeDeposits \
-  --quickstart-deposits=${QUICKSTART_VALIDATORS} \
-  --random-deposits=${RANDOM_VALIDATORS} \
-  --deposits-dir="${DEPOSITS_DIR}"
+	--quickstart-deposits=${QUICKSTART_VALIDATORS} \
+	--random-deposits=${RANDOM_VALIDATORS} \
+	--deposits-dir="${DEPOSITS_DIR}"
 
 TOTAL_VALIDATORS="$(( $QUICKSTART_VALIDATORS + $RANDOM_VALIDATORS ))"
 BOOTSTRAP_IP="127.0.0.1"
 ./build/beacon_node createTestnet \
-  --data-dir="${DATA_DIR}/node0" \
-  --validators-dir="${DEPOSITS_DIR}" \
-  --total-validators=${TOTAL_VALIDATORS} \
-  --last-user-validator=${QUICKSTART_VALIDATORS} \
-  --output-genesis="${NETWORK_DIR}/genesis.ssz" \
-  --output-bootstrap-file="${NETWORK_DIR}/bootstrap_nodes.txt" \
-  --bootstrap-address=${BOOTSTRAP_IP} \
-  --bootstrap-port=${BOOTSTRAP_PORT} \
-  --genesis-offset=5 # Delay in seconds
+	--data-dir="${DATA_DIR}/node0" \
+	--validators-dir="${DEPOSITS_DIR}" \
+	--total-validators=${TOTAL_VALIDATORS} \
+	--last-user-validator=${QUICKSTART_VALIDATORS} \
+	--output-genesis="${NETWORK_DIR}/genesis.ssz" \
+	--output-bootstrap-file="${NETWORK_DIR}/bootstrap_nodes.txt" \
+	--bootstrap-address=${BOOTSTRAP_IP} \
+	--bootstrap-port=${BOOTSTRAP_PORT} \
+	--genesis-offset=5 # Delay in seconds
 
 cleanup() {
 	killall beacon_node p2pd &>/dev/null || true
@@ -71,6 +157,7 @@ for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 		--data-dir="${DATA_DIR}/node${NUM_NODE}" \
 		${BOOTSTRAP_ARG} \
 		--state-snapshot="${NETWORK_DIR}/genesis.ssz" \
+		"$@" \
 		> "${DATA_DIR}/log${NUM_NODE}.txt" 2>&1 &
 	if [[ "${PIDS}" == "" ]]; then
 		PIDS="$!"
@@ -79,6 +166,17 @@ for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 	fi
 done
 
-htop -p "$PIDS"
-cleanup
+if [[ "$USE_HTOP" == "1" ]]; then
+	htop -p "$PIDS"
+	cleanup
+else
+	FAILED=0
+	for PID in $(echo "$PIDS" | tr ',' ' '); do
+		wait $PID || FAILED="$(( FAILED += 1 ))"
+	done
+	if [[ "$FAILED" != "0" ]]; then
+		echo "${FAILED} child processes had non-zero exit codes (or exited early)."
+		exit 1
+	fi
+fi
 
