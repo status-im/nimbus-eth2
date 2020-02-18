@@ -1044,6 +1044,10 @@ when hasPrompt:
       # createThread(t, processPromptCommands, addr p)
 
 when isMainModule:
+  let config = BeaconNodeConf.load(
+    version = clientId,
+    copyrightBanner = clientId & "\p" & copyrights)
+
   when compiles(defaultChroniclesStream.output.writer):
     defaultChroniclesStream.output.writer =
       proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe.} =
@@ -1051,15 +1055,9 @@ when isMainModule:
 
   debug "Launching beacon node",
         version = fullVersionStr,
-        cmdParams = commandLineParams()
+        cmdParams = commandLineParams(), config
 
   randomize()
-
-  let config = BeaconNodeConf.load(
-    version = clientId,
-    copyrightBanner = clientId & "\p" & copyrights)
-
-  debug "Configuration loaded", config
 
   if config.logLevel != LogLevel.NONE:
     setLogLevel(config.logLevel)
