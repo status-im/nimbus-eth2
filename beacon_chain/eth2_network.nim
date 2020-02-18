@@ -231,10 +231,11 @@ when networkBackend in [libp2p, libp2pDaemon]:
         node.addKnownPeer bootstrapNode
       await node.start()
 
-      await sleepAsync(10.seconds)
-      if bootstrapEnrs.len > 0 and libp2p_successful_dials.value == 0:
-        fatal "Failed to connect to any bootstrap node. Quitting"
-        quit 1
+      when false:
+        await sleepAsync(10.seconds)
+        if libp2p_successful_dials.value == 0:
+          fatal "Failed to connect to any bootstrap node. Quitting", bootstrapEnrs
+          quit 1
 
   proc saveConnectionAddressFile*(node: Eth2Node, filename: string) =
     when networkBackend == libp2p:
