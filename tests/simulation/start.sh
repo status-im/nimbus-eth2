@@ -23,11 +23,20 @@ DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-6} "  # Spec default: 12
 LAST_VALIDATOR_NUM=$(( NUM_VALIDATORS - 1 ))
 LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.json"
 
+# Windows detection
+if uname | grep -qiE "mingw|msys"; then
+  MAKE="mingw32-make"
+  EXE_SUFFIX=".exe"
+else
+  MAKE="make"
+  EXE_SUFFIX=""
+fi
+
 build_beacon_node () {
   OUTPUT_BIN=$1; shift
   PARAMS="$CUSTOM_NIMFLAGS $DEFS $@"
   echo "Building $OUTPUT_BIN ($PARAMS)"
-  make NIMFLAGS="-o:$OUTPUT_BIN $PARAMS" beacon_node
+  $MAKE NIMFLAGS="-o:$OUTPUT_BIN $PARAMS" beacon_node
 }
 
 build_beacon_node $BEACON_NODE_BIN -d:"NETWORK_TYPE=$NETWORK_TYPE"
@@ -42,7 +51,7 @@ fi
 
 if [ ! -f "${LAST_VALIDATOR}" ]; then
   echo Building $DEPLOY_DEPOSIT_CONTRACT_BIN
-  make NIMFLAGS="-o:\"$DEPLOY_DEPOSIT_CONTRACT_BIN\" $CUSTOM_NIMFLAGS $DEFS" deposit_contract
+  $MAKE NIMFLAGS="-o:\"$DEPLOY_DEPOSIT_CONTRACT_BIN\" $CUSTOM_NIMFLAGS $DEFS" deposit_contract
 
   if [ "$DEPOSIT_WEB3_URL_ARG" != "" ]; then
     DEPOSIT_CONTRACT_ADDRESS=$($DEPLOY_DEPOSIT_CONTRACT_BIN deploy $DEPOSIT_WEB3_URL_ARG)
@@ -99,10 +108,10 @@ scrape_configs:
     static_configs:
 EOF
 
-PROCESS_DASHBOARD_BIN="build/process_dashboard"
+PROCESS_DASHBOARD_BIN="build/process_dashboard${EXE_SUFFIX}"
 
 if [[ ! -f "$PROCESS_DASHBOARD_BIN" ]]; then
-  make NIMFLAGS="$CUSTOM_NIMFLAGS" process_dashboard
+  $MAKE NIMFLAGS="$CUSTOM_NIMFLAGS" process_dashboard
 fi
 
 # use the exported Grafana dashboard for a single node to create one for all nodes
