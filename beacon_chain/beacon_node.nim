@@ -128,6 +128,7 @@ proc getStateFromSnapshot(conf: BeaconNodeConf, state: var BeaconState): bool =
 proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
   let
     netKeys = getPersistentNetKeys(conf)
+    ourPubKey = netKeys.pubkey.skkey
     nickname = if conf.nodeName == "auto": shortForm(netKeys)
                else: conf.nodeName
     db = BeaconChainDB.init(kvStore LmdbStoreRef.init(conf.databaseDir))
@@ -183,14 +184,18 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
 
   var bootNodes: seq[ENode]
   var bootEnrs: seq[enr.Record]
-  for node in conf.bootstrapNodes: addBootstrapNode(node, bootNodes, bootEnrs)
-  loadBootstrapFile(string conf.bootstrapNodesFile, bootNodes, bootEnrs)
+  for node in conf.bootstrapNodes: addBootstrapNode(node, bootNodes, bootEnrs, ourPubKey)
+  loadBootstrapFile(string conf.bootstrapNodesFile, bootNodes, bootEnrs, ourPubKey)
+
+  when networkBackend == libp2pDaemon:
+    for enr in bootEnrs:
+      let enode = toENode(enr)
+      if enode.isOk:
+        bootNodes.add enode.value
 
   let persistentBootstrapFile = conf.dataDir / "bootstrap_nodes.txt"
   if fileExists(persistentBootstrapFile):
-    loadBootstrapFile(persistentBootstrapFile, bootNodes, bootEnrs)
-
-  bootNodes = filterIt(bootNodes, it.pubkey != netKeys.pubkey.skkey)
+    loadBootstrapFile(persistentBootstrapFile, bootNodes, bootEnrs, ourPubKey)
 
   let
     network = await createEth2Node(conf, bootNodes)

@@ -9,6 +9,7 @@ import
 type
   Eth2DiscoveryProtocol* = protocol.Protocol
   Eth2DiscoveryId* = NodeId
+  PublicKey = keys.PublicKey
 
 export
   Eth2DiscoveryProtocol, open, start, close, result
@@ -82,15 +83,22 @@ proc toENode*(enrRec: enr.Record): Result[ENode, cstring] =
     let
       ip = IpAddress(family: IpAddressFamily.IPv4,
                      address_v4: toArray(4, ipBytes))
+      tcpPort = Port enrRec.get("tcp", uint16)
       udpPort = Port enrRec.get("udp", uint16)
     var pubKey: keys.PublicKey
     if not enrRec.get(pubKey):
       return err "Failed to read public key from ENR record"
     return ok ENode(pubkey: pubkey,
-                    address: Address(ip: ip, udpPort: udpPort))
+                    address: Address(ip: ip,
+                                     tcpPort: tcpPort,
+                                     udpPort: udpPort))
   except CatchableError:
     return err "Invalid ENR record"
 
+# TODO
+# This will be resoted to its more generalized form (returning ENode)
+# once we refactor the discv5 code to be more easily bootstrapped with
+# trusted, but non-signed bootstrap addresses.
 proc parseBootstrapAddress*(address: TaintedString): Result[enr.Record, cstring] =
   if address.len == 0:
     return err "an empty string is not a valid bootstrap node"
@@ -127,27 +135,32 @@ proc parseBootstrapAddress*(address: TaintedString): Result[enr.Record, cstring]
 
 proc addBootstrapNode*(bootstrapAddr: string,
                        bootNodes: var seq[ENode],
-                       bootEnrs: var seq[enr.Record]) =
-  let enodeRes = parseBootstrapAddress(bootstrapAddr)
-  if enodeRes.isOk:
-    bootEnrs.add enodeRes.value
+                       bootEnrs: var seq[enr.Record],
+                       localPubKey: PublicKey) =
+  let enrRes = parseBootstrapAddress(bootstrapAddr)
+  if enrRes.isOk:
+    let enodeRes = enrRes.value.toENode
+    if enodeRes.isOk:
+      if enodeRes.value.pubKey != localPubKey:
+        bootEnrs.add enrRes.value
   else:
     warn "Ignoring invalid bootstrap address",
-          bootstrapAddr, reason = enodeRes.error
+          bootstrapAddr, reason = enrRes.error
 
 proc loadBootstrapFile*(bootstrapFile: string,
                         bootNodes: var seq[ENode],
-                        bootEnrs: var seq[enr.Record]) =
+                        bootEnrs: var seq[enr.Record],
+                        localPubKey: PublicKey) =
   if bootstrapFile.len == 0: return
   let ext = splitFile(bootstrapFile).ext
   if cmpIgnoreCase(ext, ".txt") == 0:
     for ln in lines(bootstrapFile):
-      addBootstrapNode(ln, bootNodes, bootEnrs)
+      addBootstrapNode(ln, bootNodes, bootEnrs, localPubKey)
   elif cmpIgnoreCase(ext, ".yaml") == 0:
     # TODO. This is very ugly, but let's try to negotiate the
     # removal of YAML metadata.
     for ln in lines(bootstrapFile):
-      addBootstrapNode(string(ln[3..^2]), bootNodes, bootEnrs)
+      addBootstrapNode(string(ln[3..^2]), bootNodes, bootEnrs, localPubKey)
   else:
     error "Unknown bootstrap file format", ext
     quit 1

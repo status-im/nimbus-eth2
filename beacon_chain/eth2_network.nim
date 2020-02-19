@@ -203,12 +203,6 @@ when networkBackend in [libp2p, libp2pDaemon]:
                          bootstrapEnrs: seq[enr.Record]) {.async.} =
     when networkBackend == libp2pDaemon:
       var connected = false
-      var bootstrapNodes = bootstrapNodes
-      for enr in bootstrapEnrs:
-        let enode = toENode(enr)
-        if enode.isOk:
-          bootstrapNodes.add enode.value
-
       for bootstrapNode in bootstrapNodes:
         try:
           let peerInfo = toPeerInfo(bootstrapNode)
@@ -233,11 +227,10 @@ when networkBackend in [libp2p, libp2pDaemon]:
         node.addKnownPeer bootstrapNode
       await node.start()
 
-      when false:
-        await sleepAsync(10.seconds)
-        if libp2p_successful_dials.value == 0:
-          fatal "Failed to connect to any bootstrap node. Quitting", bootstrapEnrs
-          quit 1
+      await sleepAsync(10.seconds)
+      if bootstrapEnrs.len > 0 and libp2p_successful_dials.value == 0:
+        fatal "Failed to connect to any bootstrap node. Quitting", bootstrapEnrs
+        quit 1
 
   proc saveConnectionAddressFile*(node: Eth2Node, filename: string) =
     when networkBackend == libp2p:
