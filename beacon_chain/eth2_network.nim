@@ -156,7 +156,7 @@ when networkBackend in [libp2p, libp2pDaemon]:
       # are running behind a NAT).
       var switch = newStandardSwitch(some keys.seckey, hostAddress,
                                      triggerSelf = true, gossip = false)
-      result = Eth2Node.init(conf, switch, keys.seckey.skkey)
+      result = Eth2Node.init(conf, switch, keys.seckey.asEthKey)
     else:
       let keyFile = conf.ensureNetworkIdFile
 
@@ -227,10 +227,13 @@ when networkBackend in [libp2p, libp2pDaemon]:
         node.addKnownPeer bootstrapNode
       await node.start()
 
-      await sleepAsync(10.seconds)
-      if bootstrapEnrs.len > 0 and libp2p_successful_dials.value == 0:
-        fatal "Failed to connect to any bootstrap node. Quitting", bootstrapEnrs
-        quit 1
+      proc checkIfConnectedToBootstrapNode {.async.} =
+        await sleepAsync(10.seconds)
+        if bootstrapEnrs.len > 0 and libp2p_successful_dials.value == 0:
+          fatal "Failed to connect to any bootstrap node. Quitting", bootstrapEnrs
+          quit 1
+
+      traceAsyncErrors checkIfConnectedToBootstrapNode()
 
   proc saveConnectionAddressFile*(node: Eth2Node, filename: string) =
     when networkBackend == libp2p:

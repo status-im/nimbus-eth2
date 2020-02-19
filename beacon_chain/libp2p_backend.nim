@@ -182,12 +182,15 @@ proc toPeerInfo(r: Option[enr.TypedRecord]): PeerInfo =
     return r.get.toPeerInfo
 
 proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
-  debug "Dialing peer", peer = $peerInfo
+  logScope: peer = $peerInfo
+
+  debug "Dialing peer"
   discard await node.switch.dial(peerInfo)
   var peer = node.getPeer(peerInfo)
   peer.wasDialed = true
   await initializeConnection(peer)
   inc libp2p_successful_dials
+  debug "Network handshakes completed"
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
