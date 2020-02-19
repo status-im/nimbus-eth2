@@ -1,13 +1,14 @@
 import
   options, tables, strutils, sequtils,
   json_serialization, json_serialization/std/net,
-  metrics, chronos, chronicles, metrics, libp2p/crypto/secp,
+  metrics, chronos, chronicles, metrics, libp2p/crypto/crypto,
   eth/keys, eth/p2p/enode, eth/net/nat, eth/p2p/discoveryv5/enr,
   eth2_discovery, version, conf
 
 type
-  DiscKeyPair* = keys.KeyPair
-  DiscPrivKey* = keys.PrivateKey
+  KeyPair* = crypto.KeyPair
+  PublicKey* = crypto.PublicKey
+  PrivateKey* = crypto.PrivateKey
 
 const
   clientId* = "Nimbus beacon node v" & fullVersionStr
@@ -66,7 +67,7 @@ when networkBackend in [libp2p, libp2pDaemon]:
   import
     os, random,
     stew/io, eth/async_utils,
-    libp2p/crypto/crypto as libp2pCrypto, libp2p/[multiaddress, multicodec],
+    libp2p/[multiaddress, multicodec],
     ssz
 
   export
@@ -99,12 +100,11 @@ when networkBackend in [libp2p, libp2pDaemon]:
     netBackendName* = "libp2p"
     networkKeyFilename = "privkey.protobuf"
 
-  func asLibp2pKey*(key: DiscPrivKey): libp2pCrypto.PrivateKey =
-    libp2pCrypto.PrivateKey(scheme: Secp256k1,
-                            skkey: SkPrivateKey(data: key.data))
+  func asLibp2pKey*(key: keys.PublicKey): PublicKey =
+    PublicKey(scheme: Secp256k1, skkey: key)
 
-  func asLibp2pKey*(key: keys.PublicKey): libp2pCrypto.PublicKey =
-    libp2pCrypto.PublicKey(scheme: Secp256k1, skkey: key)
+  func asEthKey*(key: PrivateKey): keys.PrivateKey =
+    keys.PrivateKey(data: key.skkey.data)
 
   proc initAddress*(T: type MultiAddress, str: string): T =
     let address = MultiAddress.init(str)
@@ -117,29 +117,25 @@ when networkBackend in [libp2p, libp2pDaemon]:
   template tcpEndPoint(address, port): auto =
     MultiAddress.init(address, Protocol.IPPROTO_TCP, port)
 
-  proc genRandomNetKey: DiscPrivKey =
-    let skkey = SkPrivateKey.random
-    DiscPrivKey(data: skkey.data)
-
   proc ensureNetworkIdFile(conf: BeaconNodeConf): string =
     result = conf.dataDir / networkKeyFilename
     if not fileExists(result):
       createDir conf.dataDir.string
-      let pk = genRandomNetKey()
-      writeFile(result, pk.data)
+      let pk = PrivateKey.random(Secp256k1)
+      writeFile(result, pk.getBytes)
 
-  proc getPersistentNetKeys*(conf: BeaconNodeConf): DiscKeyPair =
+  proc getPersistentNetKeys*(conf: BeaconNodeConf): KeyPair =
     let privKeyPath = conf.dataDir / networkKeyFilename
-    var privKey: DiscPrivKey
+    var privKey: PrivateKey
     if not fileExists(privKeyPath):
       createDir conf.dataDir.string
-      privKey = genRandomNetKey()
-      writeFile(privKeyPath, privKey.data)
+      privKey = PrivateKey.random(Secp256k1)
+      writeFile(privKeyPath, privKey.getBytes())
     else:
-      let strdata = readFile(privKeyPath)
-      privKey = initPrivateKey(cast[seq[byte]](strdata))
+      let keyBytes = readFile(privKeyPath)
+      privKey = PrivateKey.init(keyBytes.toOpenArrayByte(0, keyBytes.high))
 
-    DiscKeyPair(seckey: privKey, pubkey: privKey.getPublicKey())
+    KeyPair(seckey: privKey, pubkey: privKey.getKey())
 
   proc createEth2Node*(conf: BeaconNodeConf,
                        bootstrapNodes: seq[ENode]): Future[Eth2Node] {.async.} =
@@ -158,9 +154,9 @@ when networkBackend in [libp2p, libp2pDaemon]:
       # TODO nim-libp2p still doesn't have support for announcing addresses
       # that are different from the host address (this is relevant when we
       # are running behind a NAT).
-      var switch = newStandardSwitch(some keys.seckey.asLibp2pKey, hostAddress,
+      var switch = newStandardSwitch(some keys.seckey, hostAddress,
                                      triggerSelf = true, gossip = false)
-      result = Eth2Node.init(conf, switch, keys.seckey)
+      result = Eth2Node.init(conf, switch, keys.seckey.skkey)
     else:
       let keyFile = conf.ensureNetworkIdFile
 
@@ -188,10 +184,10 @@ when networkBackend in [libp2p, libp2pDaemon]:
   proc getPersistenBootstrapAddr*(conf: BeaconNodeConf,
                                   ip: IpAddress, port: Port): ENode =
     let pair = getPersistentNetKeys(conf)
-    initENode(pair.pubkey, Address(ip: ip, udpPort: port))
+    initENode(pair.pubkey.skkey, Address(ip: ip, udpPort: port))
 
-  proc shortForm*(id: DiscKeyPair): string =
-    $PeerID.init(id.pubkey.asLibp2pKey)
+  proc shortForm*(id: KeyPair): string =
+    $PeerID.init(id.pubkey)
 
   proc toPeerInfo(enode: ENode): PeerInfo =
     let

@@ -21,6 +21,9 @@ const
   hasPrompt = not defined(withoutPrompt)
   maxEmptySlotCount = uint64(24*60*60) div SECONDS_PER_SLOT
 
+type
+  KeyPair = eth2_network.KeyPair
+
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_slot,
   "Latest slot of the beacon chain state"
@@ -46,7 +49,7 @@ type
     nickname: string
     network: Eth2Node
     forkVersion: array[4, byte]
-    netKeys: DiscKeyPair
+    netKeys: KeyPair
     requestManager: RequestManager
     bootstrapNodes: seq[ENode]
     bootstrapEnrs: seq[enr.Record]
@@ -187,7 +190,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   if fileExists(persistentBootstrapFile):
     loadBootstrapFile(persistentBootstrapFile, bootNodes, bootEnrs)
 
-  bootNodes = filterIt(bootNodes, it.pubkey != netKeys.pubkey)
+  bootNodes = filterIt(bootNodes, it.pubkey != netKeys.pubkey.skkey)
 
   let
     network = await createEth2Node(conf, bootNodes)
@@ -1117,7 +1120,11 @@ when isMainModule:
           tcpPort: Port config.bootstrapPort,
           udpPort: Port config.bootstrapPort)
 
-        bootstrapEnr = enr.Record.init(1, networkKeys.seckey, bootstrapAddress)
+        bootstrapEnr = enr.Record.init(
+          1, # sequence number
+          networkKeys.seckey.asEthKey,
+          bootstrapAddress)
+
       writeFile(bootstrapFile, bootstrapEnr.toURI)
       echo "Wrote ", bootstrapFile
 
