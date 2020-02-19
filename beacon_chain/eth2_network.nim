@@ -207,6 +207,12 @@ when networkBackend in [libp2p, libp2pDaemon]:
                          bootstrapEnrs: seq[enr.Record]) {.async.} =
     when networkBackend == libp2pDaemon:
       var connected = false
+      var bootstrapNodes = bootstrapNodes
+      for enr in bootstrapEnrs:
+        let enode = toENode(enr)
+        if enode.isOk:
+          bootstrapNodes.add enode.value
+
       for bootstrapNode in bootstrapNodes:
         try:
           let peerInfo = toPeerInfo(bootstrapNode)
