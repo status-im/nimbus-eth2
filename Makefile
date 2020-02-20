@@ -60,7 +60,11 @@ endif
 
 # "--import" can't be added to config.nims, for some reason
 # "--define:release" implies "--stacktrace:off" and it cannot be added to config.nims either
+ifeq ($(USE_LIBBACKTRACE), 0)
+NIM_PARAMS := $(NIM_PARAMS) -d:debug -d:disable_libbacktrace
+else
 NIM_PARAMS := $(NIM_PARAMS) -d:release --import:libbacktrace
+endif
 
 #- the Windows build fails on Azure Pipelines if we have Unicode symbols copy/pasted here,
 #  so we encode them in ASCII
@@ -75,7 +79,10 @@ build-system-checks:
 		}; \
 		exit 0
 
-deps: | deps-common beacon_chain.nims p2pd libbacktrace
+deps: | deps-common beacon_chain.nims p2pd
+ifneq ($(USE_LIBBACKTRACE), 0)
+deps: | libbacktrace
+endif
 
 #- deletes and recreates "beacon_chain.nims" which on Windows is a copy instead of a proper symlink
 update: | update-common
@@ -130,7 +137,9 @@ testnet1: | build deps
 
 clean: | clean-common
 	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,beacon_node_testnet*,state_sim,transition*}
+ifneq ($(USE_LIBBACKTRACE), 0)
 	+ $(MAKE) -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
+endif
 
 libnfuzz.so: | build deps-common beacon_chain.nims
 	echo -e $(BUILD_MSG) "build/$@" && \

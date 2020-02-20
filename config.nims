@@ -43,7 +43,7 @@ else:
 if not defined(macosx):
   # add debugging symbols and original files and line numbers
   --debugger:native
-  if not (defined(windows) and defined(i386)):
+  if not (defined(windows) and defined(i386)) and not defined(disable_libbacktrace):
     # light-weight stack traces using libbacktrace and libunwind
     --define:nimStackTraceOverride
     # "--import:libbacktrace" is added to NIM_PARAMS inside the Makefile,

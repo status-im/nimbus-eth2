@@ -42,7 +42,7 @@ proc buildBinary(name: string, srcDir = "./", params = "", cmdParams = "", lang 
   var extra_params = params
   for i in 2..<paramCount():
     extra_params &= " " & paramStr(i)
-  exec "nim " & lang & " --out:./build/" & name & " -r -d:release --import:libbacktrace " & extra_params & " " & srcDir & name & ".nim" & " " & cmdParams
+  exec "nim " & lang & " --out:./build/" & name & " -r " & extra_params & " " & srcDir & name & ".nim" & " " & cmdParams
 
 ### tasks
 task test, "Run all tests":

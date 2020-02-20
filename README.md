@@ -343,6 +343,12 @@ make NIMFLAGS="-d:release"
 make -j$(nproc) NIMFLAGS="-d:release" USE_MULTITAIL=yes eth2_network_simulation
 ```
 
+- don't use the [lightweight stack tracing implementation from nim-libbacktrace](https://github.com/status-im/nim-beacon-chain/pull/745):
+
+```bash
+make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower
+```
+
 ## License
 
 Licensed and distributed under either of
