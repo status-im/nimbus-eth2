@@ -217,3 +217,10 @@ func get_committee_assignment(
       if validator_index in committee:
         return some((committee, index, slot))
   none(tuple[a: seq[ValidatorIndex], b: uint64, c: Slot])
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#validator-assignments
+func is_proposer(
+    state: BeaconState, validator_index: ValidatorIndex): bool =
+  var cache = get_empty_per_epoch_cache()
+  let proposer_index = get_beacon_proposer_index(state, cache)
+  proposer_index.isSome and proposer_index.get == validator_index
