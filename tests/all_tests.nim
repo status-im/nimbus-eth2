@@ -21,6 +21,7 @@ import # Unit test
   ./test_interop,
   ./test_kvstore,
   ./test_kvstore_lmdb,
+  ./test_kvstore_sqlite3,
   ./test_ssz,
   ./test_state_transition,
   ./test_sync_protocol,
