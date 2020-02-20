@@ -188,7 +188,10 @@ proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
   discard await node.switch.dial(peerInfo)
   var peer = node.getPeer(peerInfo)
   peer.wasDialed = true
+  debug "Initializing connection"
   await initializeConnection(peer)
+  debug "Subscribing to pubsub"
+  await peer.network.switch.subscribeToPeer(peer.info)
   inc libp2p_successful_dials
   debug "Network handshakes completed"
 
@@ -201,6 +204,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
     if currentPeerCount < node.wantedPeers:
       try:
         let discoveredPeers = await node.discovery.lookupRandom()
+        debug "Discovered peers", peer = $discoveredPeers
         for peer in discoveredPeers:
           debug "Discovered peer", peer = $peer
           try:
