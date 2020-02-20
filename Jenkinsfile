@@ -21,7 +21,7 @@ def runStages() {
 			parallel(
 				"tools": {
 					stage("Tools") {
-						sh "make -j${env.NPROC} LOG_LEVEL=TRACE"
+						sh "make -j${env.NPROC}"
 						sh "make -j${env.NPROC} LOG_LEVEL=TRACE NIMFLAGS='-d:NETWORK_TYPE=libp2p -d:testnet_servers_image'"
 					}
 				},

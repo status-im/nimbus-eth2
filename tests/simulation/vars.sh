@@ -27,8 +27,8 @@ MASTER_NODE=$(( TOTAL_NODES - 1 ))
 
 # You can run a mixed simulation of daemon and native libp2p nodes
 # by changing the variables below:
-NETWORK_TYPE=libp2p
-BOOTSTRAP_NODE_NETWORK_TYPE=libp2p
+NETWORK_TYPE=${NETWORK_TYPE:-"libp2p"}
+BOOTSTRAP_NODE_NETWORK_TYPE=${BOOTSTRAP_NODE_NETWORK_TYPE:-"libp2p"}
 
 SIMULATION_DIR="${SIM_ROOT}/data"
 METRICS_DIR="${SIM_ROOT}/prometheus"
