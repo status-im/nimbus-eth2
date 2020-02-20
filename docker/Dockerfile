@@ -3,7 +3,7 @@ FROM debian:bullseye-slim AS build
 SHELL ["/bin/bash", "-c"]
 
 RUN apt-get -qq update \
- && apt-get -qq -y install build-essential make wget libpcre3-dev golang-go git curl &>/dev/null \
+ && apt-get -qq -y install build-essential make wget libpcre3-dev golang-go git &>/dev/null \
  && apt-get -qq clean \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
