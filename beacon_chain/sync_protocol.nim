@@ -163,7 +163,7 @@ proc handleInitialStatus(peer: Peer,
     # will allow us to implement the subscription earlier.
     # The root of the problem is that both sides must call `subscribeToPeer`
     # before any GossipSub traffic will flow between them.
-    await peer.network.switch.subscribeToPeer(peer.info)
+    discard
 
   if theirStatus.forkVersion != state.forkVersion:
     notice "Irrelevant peer",
