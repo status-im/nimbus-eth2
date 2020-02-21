@@ -40,7 +40,7 @@ func get_slot_signature(state: BeaconState, slot: Slot, privkey: ValidatorPrivKe
     get_domain(state, DOMAIN_BEACON_ATTESTER, compute_epoch_at_slot(slot))
   bls_sign(privkey, hash_tree_root(slot).data, domain)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/validator/0_beacon-chain-validator.md#aggregation-selection
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#aggregation-selection
 func is_aggregator(state: BeaconState, slot: Slot, index: uint64,
     slot_signature: ValidatorSig): bool =
   # TODO index is a CommitteeIndex, aka uint64
@@ -65,17 +65,17 @@ proc aggregate_attestations*(
   doAssert slot + ATTESTATION_PROPAGATION_SLOT_RANGE >= state.slot
   doAssert state.slot >= slot
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/validator/0_beacon-chain-validator.md#aggregation-selection
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#aggregation-selection
   if not is_aggregator(state, slot, index, slot_signature):
     return none(AggregateAndProof)
 
   let attestation_data =
     makeAttestationData(state, slot, index, get_block_root_at_slot(state, slot))
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/validator.md#construct-aggregate
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#construct-aggregate
   for attestation in getAttestationsForBlock(pool, state, slot):
     if attestation.data == attestation_data:
-      # https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/validator.md#aggregateandproof
+      # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#aggregateandproof
       return some(AggregateAndProof(
         aggregator_index: index,
         aggregate: attestation,
