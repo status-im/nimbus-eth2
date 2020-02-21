@@ -14,7 +14,7 @@ const
   topicProposerSlashings* = "/eth2/proposer_slashing/ssz"
   topicAttesterSlashings* = "/eth2/attester_slashing/ssz"
 
-  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/p2p-interface.md#configuration
   ATTESTATION_SUBNET_COUNT* = 64
 
 func getAttestationTopic*(committeeIndex: uint64): string =
