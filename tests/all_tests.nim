@@ -28,7 +28,8 @@ import # Unit test
   # ./test_validator # Empty!
   ./test_zero_signature,
   ./test_peer_pool,
-  ./test_sync_manager
+  ./test_sync_manager,
+  ./test_honest_validator
 
 import # Refactor state transition unit tests
   # TODO re-enable when useful
