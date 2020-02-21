@@ -138,6 +138,9 @@ cleanup() {
 cleanup
 
 PIDS=""
+NODES_WITH_VALIDATORS=${NODES_WITH_VALIDATORS:-4}
+VALIDATORS_PER_NODE=$(( $RANDOM_VALIDATORS / $NODES_WITH_VALIDATORS ))
+
 for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 	if [[ ${NUM_NODE} == 0 ]]; then
 		BOOTSTRAP_ARG=""
@@ -149,12 +152,22 @@ for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 		done
 	fi
 
+	# Copy validators to individual nodes.
+	# The first $NODES_WITH_VALIDATORS nodes split them equally between them, after skipping the first $QUICKSTART_VALIDATORS.
+	NODE_DATA_DIR="${DATA_DIR}/node${NUM_NODE}"
+	mkdir -p "${NODE_DATA_DIR}/validators"
+	if [[ $NUM_NODE -lt $NODES_WITH_VALIDATORS ]]; then
+		for KEYFILE in $(ls ${DEPOSITS_DIR}/*.privkey | tail -n +$(( $QUICKSTART_VALIDATORS + ($VALIDATORS_PER_NODE * $NUM_NODE) + 1 )) | head -n $VALIDATORS_PER_NODE); do
+			cp -a "$KEYFILE" "${NODE_DATA_DIR}/validators/"
+		done
+	fi
+
 	stdbuf -o0 ./env.sh build/beacon_node \
 		--nat=none \
 		--log-level=TRACE \
 		--tcp-port=$(( ${BOOTSTRAP_PORT} + ${NUM_NODE} )) \
 		--udp-port=$(( ${BOOTSTRAP_PORT} + ${NUM_NODE} )) \
-		--data-dir="${DATA_DIR}/node${NUM_NODE}" \
+		--data-dir="${NODE_DATA_DIR}" \
 		${BOOTSTRAP_ARG} \
 		--state-snapshot="${NETWORK_DIR}/genesis.ssz" \
 		"$@" \
