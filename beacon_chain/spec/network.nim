@@ -18,6 +18,6 @@ const
   ATTESTATION_SUBNET_COUNT* = 64
 
 func getAttestationTopic*(committeeIndex: uint64): string =
-  doAssert committeeIndex < ATTESTATION_SUBNET_COUNT
   # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#broadcast-attestation
-  &"/eth2/index{committeeIndex}{topicAttestationSuffix}"
+  let topicIndex = committeeIndex mod ATTESTATION_SUBNET_COUNT
+  &"/eth2/index{topicIndex}{topicAttestationSuffix}"
