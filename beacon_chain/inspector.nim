@@ -93,7 +93,7 @@ type
       abbr: "d"
       defaultValue: false }: bool
 
-func getTopic(filter: TopicFilter): seq[string] {.inline.} =
+func getTopics(filter: TopicFilter): seq[string] {.inline.} =
   case filter
   of TopicFilter.Blocks:
     @[topicBeaconBlocks]
@@ -106,7 +106,7 @@ func getTopic(filter: TopicFilter): seq[string] {.inline.} =
   of TopicFilter.AttesterSlashings:
     @[topicAttesterSlashings]
 
-proc getPeerId(peer: PeerID, conf: InspectorConf): string {.inline.} =
+func getPeerId(peer: PeerID, conf: InspectorConf): string {.inline.} =
   if conf.fullPeerId:
     result = peer.pretty()
   else:
@@ -278,8 +278,7 @@ proc run(conf: InspectorConf) {.async.} =
 
   try:
     for filter in topics:
-      let topics = getTopic(filter)
-      for topic in topics:
+      for topic in getTopics(filter):
         let t = await api.pubsubSubscribe(topic, pubsubLogger)
         info "Subscribed to topic", topic = topic
         subs.add((ticket: t, future: t.transp.join()))
