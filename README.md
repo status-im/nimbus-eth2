@@ -86,6 +86,18 @@ It also provides a downloading script for prebuilt PCRE.
 
 If you choose to install Go from source, both Go and Nimbus requires the same initial steps of installing Mingw.
 
+### Android
+
+* Install the [Termux](https://termux.com) app from FDroid or the Google Play store
+* Install a [PRoot](https://wiki.termux.com/wiki/PRoot) of your choice following the instructions for your preferred distribution. 
+Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on Arm64 architecture (common architecture for Android devices).  
+
+*Assuming Ubuntu PRoot is used*
+
+```sh
+apt install build-essential git golang-go libpcre3-dev
+```
+
 ## For users
 
 ### Connecting to testnets
