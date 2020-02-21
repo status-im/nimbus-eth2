@@ -347,7 +347,9 @@ proc sendAttestation(node: BeaconNode,
     aggregation_bits: aggregationBits
   )
 
-  node.network.broadcast(topicAttestations, attestation)
+  node.network.broadcast(
+    getAttestationTopic(attestationData.index mod ATTESTATION_SUBNET_COUNT),
+    attestation)
 
   if node.config.dump:
     SSZ.saveFile(
@@ -856,12 +858,13 @@ proc run*(node: BeaconNode) =
   waitFor node.network.subscribe(topicBeaconBlocks) do (signedBlock: SignedBeaconBlock):
     onBeaconBlock(node, signedBlock)
 
-  waitFor node.network.subscribe(topicAttestations) do (attestation: Attestation):
-    # Avoid double-counting attestation-topic attestations on shared codepath
-    # when they're reflected through beacon blocks
-    beacon_attestations_received.inc()
+  for i in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
+    waitFor node.network.subscribe(getAttestationTopic(i)) do (attestation: Attestation):
+      # Avoid double-counting attestation-topic attestations on shared codepath
+      # when they're reflected through beacon blocks
+      beacon_attestations_received.inc()
 
-    node.onAttestation(attestation)
+      node.onAttestation(attestation)
 
   let
     t = node.beaconClock.now().toSlot()
