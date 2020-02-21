@@ -192,10 +192,6 @@ proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
   debug "Initializing connection"
   await initializeConnection(peer)
 
-  # TODO: This should happen automatically in the future in nim-libp2p
-  debug "Subscribing to pubsub"
-  await peer.network.switch.subscribeToPeer(peer.info)
-
   inc libp2p_successful_dials
   debug "Network handshakes completed"
 
