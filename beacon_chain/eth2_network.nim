@@ -228,7 +228,7 @@ when networkBackend in [libp2p, libp2pDaemon]:
       await node.start()
 
       proc checkIfConnectedToBootstrapNode {.async.} =
-        await sleepAsync(10.seconds)
+        await sleepAsync(30.seconds)
         if bootstrapEnrs.len > 0 and libp2p_successful_dials.value == 0:
           fatal "Failed to connect to any bootstrap node. Quitting", bootstrapEnrs
           quit 1
