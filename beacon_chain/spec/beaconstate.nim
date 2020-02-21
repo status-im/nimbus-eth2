@@ -553,8 +553,6 @@ func makeAttestationData*(
   ## `state` is the state corresponding to the `beacon_block_root` advanced to
   ## the slot we're attesting to.
 
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/validator/0_beacon-chain-validator.md#construct-attestation
-
   let
     current_epoch = get_current_epoch(state)
     start_slot = compute_start_slot_at_epoch(current_epoch)
@@ -564,6 +562,7 @@ func makeAttestationData*(
 
   doAssert slot.compute_epoch_at_slot == current_epoch
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index,

@@ -306,6 +306,7 @@ proc getAttestationsForBlock*(
 
   for a in slotData.attestations:
     var
+      # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#construct-attestation
       attestation = Attestation(
         aggregation_bits: a.validations[0].aggregation_bits,
         data: a.data,
