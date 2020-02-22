@@ -156,7 +156,7 @@ when networkBackend in [libp2p, libp2pDaemon]:
       # are running behind a NAT).
       var switch = newStandardSwitch(some keys.seckey, hostAddress,
                                      triggerSelf = true, gossip = false)
-      result = Eth2Node.init(conf, switch, keys.seckey.asEthKey)
+      result = Eth2Node.init(conf, switch, extIp, keys.seckey.asEthKey)
     else:
       let keyFile = conf.ensureNetworkIdFile
 
