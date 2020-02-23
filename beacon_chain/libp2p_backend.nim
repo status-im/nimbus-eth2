@@ -220,11 +220,11 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
     await sleepAsync seconds(1)
 
 proc init*(T: type Eth2Node, conf: BeaconNodeConf,
-           switch: Switch, privKey: keys.PrivateKey): T =
+           switch: Switch, ip: IpAddress, privKey: keys.PrivateKey): T =
   new result
   result.switch = switch
   result.peers = initTable[PeerID, Peer]()
-  result.discovery = Eth2DiscoveryProtocol.new(conf, privKey.data)
+  result.discovery = Eth2DiscoveryProtocol.new(conf, ip, privKey.data)
   result.wantedPeers = conf.maxPeers
 
   newSeq result.protocolStates, allProtocols.len

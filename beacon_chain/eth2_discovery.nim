@@ -16,7 +16,7 @@ export
 
 proc new*(T: type Eth2DiscoveryProtocol,
           conf: BeaconNodeConf,
-          rawPrivKeyBytes: openarray[byte]): T =
+          ip: IpAddress, rawPrivKeyBytes: openarray[byte]): T =
   # TODO
   # Implement more configuration options:
   # * for setting up a specific key
@@ -25,7 +25,7 @@ proc new*(T: type Eth2DiscoveryProtocol,
     pk = initPrivateKey(rawPrivKeyBytes)
     db = DiscoveryDB.init(newMemoryDB())
 
-  newProtocol(pk, db, Port conf.tcpPort, Port conf.udpPort)
+  newProtocol(pk, db, ip, Port conf.tcpPort, Port conf.udpPort)
 
 proc toENode*(a: MultiAddress): Result[ENode, cstring] =
   if not IPFS.match(a):
