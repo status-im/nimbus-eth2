@@ -141,6 +141,9 @@ PIDS=""
 NODES_WITH_VALIDATORS=${NODES_WITH_VALIDATORS:-4}
 VALIDATORS_PER_NODE=$(( $RANDOM_VALIDATORS / $NODES_WITH_VALIDATORS ))
 
+# for the p2pd path
+source env.sh
+
 for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 	if [[ ${NUM_NODE} == 0 ]]; then
 		BOOTSTRAP_ARG=""
@@ -162,7 +165,7 @@ for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 		done
 	fi
 
-	stdbuf -o0 ./env.sh build/beacon_node \
+	stdbuf -o0 build/beacon_node \
 		--nat=none \
 		--log-level=TRACE \
 		--tcp-port=$(( ${BOOTSTRAP_PORT} + ${NUM_NODE} )) \
