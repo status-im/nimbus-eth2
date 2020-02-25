@@ -129,7 +129,7 @@ proc process_justification_and_finalization*(
     cast[uint8]((2^JUSTIFICATION_BITS_LENGTH) - 1)
 
   # This is a somewhat expensive approach
-  let active_validator_indices =
+  let active_validator_indices {.used.} =
     toHashSet(mapIt(
       get_active_validator_indices(state, get_current_epoch(state)), it.int))
 
