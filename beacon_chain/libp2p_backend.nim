@@ -184,8 +184,8 @@ proc toPeerInfo(r: Option[enr.TypedRecord]): PeerInfo =
 proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
   logScope: peer = $peerInfo
 
-  debug "Dialing peer"
-  discard await node.switch.dial(peerInfo)
+  debug "Connecting to peer"
+  await node.switch.connect(peerInfo)
   var peer = node.getPeer(peerInfo)
   peer.wasDialed = true
 

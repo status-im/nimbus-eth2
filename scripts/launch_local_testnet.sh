@@ -88,6 +88,11 @@ while true; do
 	esac
 done
 
+# when sourcing env.sh, it will try to execute $@, so empty it
+EXTRA_ARGS="$@"
+if [[ $# != 0 ]]; then
+	shift $#
+fi
 NETWORK="testnet${TESTNET}"
 
 rm -rf "${DATA_DIR}"
@@ -173,7 +178,7 @@ for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 		--data-dir="${NODE_DATA_DIR}" \
 		${BOOTSTRAP_ARG} \
 		--state-snapshot="${NETWORK_DIR}/genesis.ssz" \
-		"$@" \
+		${EXTRA_ARGS} \
 		> "${DATA_DIR}/log${NUM_NODE}.txt" 2>&1 &
 	if [[ "${PIDS}" == "" ]]; then
 		PIDS="$!"

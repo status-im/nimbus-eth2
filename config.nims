@@ -37,6 +37,7 @@ else:
 --excessiveStackTrace:on
 # enable metric collection
 --define:metrics
+--define:chronicles_line_numbers
 
 # the default open files limit is too low on macOS (512), breaking the
 # "--debugger:native" build. It can be increased with `ulimit -n 1024`.
