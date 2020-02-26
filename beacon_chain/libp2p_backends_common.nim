@@ -369,13 +369,16 @@ proc handleIncomingStream(network: Eth2Node, stream: P2PStream,
   #   defer: setLogLevel(LogLevel.DEBUG)
   #   trace "incoming " & `msgNameLit` & " stream"
 
+  let peer = peerFromStream(network, stream)
+
+  handleIncomingPeer(peer)
+
   defer:
     await safeClose(stream)
 
   let
     deadline = sleepAsync RESP_TIMEOUT
     msgBytes = await readMsgBytes(stream, false, deadline)
-    peer = peerFromStream(network, stream)
 
   if msgBytes.len == 0:
     await sendErrorResponse(peer, stream, ServerError, readTimeoutErrorMsg)

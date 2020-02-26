@@ -67,18 +67,18 @@ when networkBackend in [libp2p, libp2pDaemon]:
   import
     os, random,
     stew/io, eth/async_utils,
-    libp2p/[multiaddress, multicodec],
+    libp2p/[multiaddress, multicodec, peerinfo],
     ssz
 
   export
-    multiaddress
+    multiaddress, peerinfo
 
   when networkBackend == libp2p:
     import
-      libp2p/standard_setup, libp2p_backend
+      libp2p/standard_setup, libp2p_backend, peer_pool
 
     export
-      libp2p_backend
+      libp2p_backend, peer_pool
 
   else:
     import
@@ -244,7 +244,10 @@ when networkBackend in [libp2p, libp2pDaemon]:
       writeFile(filename, $id.addresses[0] & "/p2p/" & id.peer.pretty)
 
   func peersCount*(node: Eth2Node): int =
-    node.peers.len
+    when networkBackend == libp2p:
+      len(node.peerPool)
+    else:
+      node.peers.len
 
   proc subscribe*[MsgType](node: Eth2Node,
                            topic: string,
