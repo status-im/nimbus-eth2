@@ -123,7 +123,7 @@ of reset_network:
     if keysList.len > 0:
       echo &"  rsync -a -zz {keysList} {n.server}:/tmp/nimbus/keys/ && \\"
 
-    echo &"  ssh {n.server} 'sudo docker container stop {n.container} && " &
+    echo &"  ssh {n.server} 'sudo docker container stop {n.container}; " &
                          &"sudo mkdir -p {dockerPath}/validators && " &
                          &"sudo rm -rf {dockerPath}/validators/* && " &
                          &"sudo rm -rf {dockerPath}/db && " &
