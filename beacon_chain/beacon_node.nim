@@ -15,7 +15,8 @@ import
   conf, time, state_transition, beacon_chain_db, validator_pool, extras,
   attestation_pool, block_pool, eth2_network, eth2_discovery,
   beacon_node_types, mainchain_monitor, version, ssz, ssz/dynamic_navigator,
-  sync_protocol, request_manager, validator_keygen, interop, statusbar
+  sync_protocol, request_manager, validator_keygen, interop, statusbar,
+  attestation_aggregation
 
 const
   genesisFile = "genesis.ssz"
@@ -602,6 +603,43 @@ proc verifyFinalization(node: BeaconNode, slot: Slot) =
       node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()
     doAssert finalizedEpoch + 2 == epoch
 
+proc broadcastAggregatedAttestations(node: BeaconNode, state: auto, head: var auto, slot: Slot) =
+  # The exact head isn't that important, since here, it's transitively used
+  # by getAttestionsForBlock(...) which uses it to validate. Any state from
+  # the current/future of relevant attestations is fine. The index is via a
+  # locally attested validator. Unlike in handleAttestations(...) there's a
+  # single one at most per slot (because that's how aggregation attestation
+  # works), so the machinery that has to handle looping across, basically a
+  # set of locally attached validators is in principle not necessary, but a
+  # way to organize this. Then the private key for that validator should be
+  # the corresponding one -- whatver they are, they match.
+  let bs = BlockSlot(blck: head, slot: head.slot)
+  let committees_per_slot = get_committee_count_at_slot(state, head.slot)
+  var cache = get_empty_per_epoch_cache()
+  for committee_index in 0'u64..<committees_per_slot:
+    let
+      committee = get_beacon_committee(state, slot, committee_index, cache)
+
+    for index_in_committee, validatorIdx in committee:
+      let validator = node.getAttachedValidator(state, validatorIdx)
+      if validator != nil:
+        # This is slightly strange/inverted control flow, since really it's
+        # going to happen once per slot, but this is the best way to get at
+        # the validator index and private key pair. TODO verify it only has
+        # one isSome() with test.
+        let option_aggregateandproof =
+          aggregate_attestations(node.attestationPool, state,
+            index_in_committee.uint64,
+            # TODO https://github.com/status-im/nim-beacon-chain/issues/545
+            # this assumes in-process private keys
+            validator.privKey)
+
+        if option_aggregateandproof.isSome:
+          let aggregate_and_proof = option_aggregateandproof.get
+          node.network.broadcast(
+            getAttestationTopic(aggregate_and_proof.aggregate.data.index),
+            aggregate_and_proof)
+
 proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
   ## skip a few in case we're running late.
@@ -762,7 +800,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     #      with any clock discrepancies once only, at the start of slot timer
     #      processing..
 
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/validator/0_beacon-chain-validator.md#attesting
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#attesting
     # A validator should create and broadcast the attestation to the
     # associated attestation subnet one-third of the way through the slot
     # during which the validator is assigned―that is, SECONDS_PER_SLOT / 3
@@ -787,6 +825,20 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
       head = node.updateHead()
 
     handleAttestations(node, head, slot)
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#broadcast-aggregate
+  # If the validator is selected to aggregate (is_aggregator), then they
+  # broadcast their best aggregate to the global aggregate channel
+  # (beacon_aggregate_and_proof) two-thirds of the way through the slot
+  # TODO available resultion seems to be integral seconds
+  let bs = BlockSlot(blck: head, slot: head.slot)
+  node.blockPool.withState(node.blockPool.tmpState, bs):
+    let
+      committees_per_slot = get_committee_count_at_slot(state, head.slot)
+      twoThirdsSlot =
+        toBeaconTime(slot, seconds(2*int64(SECONDS_PER_SLOT)) div 3)
+    addTimer(saturate(node.beaconClock.fromNow(twoThirdsSlot))) do (p: pointer):
+      broadcastAggregatedAttestations(node, state, head, slot)
 
   # TODO ... and beacon clock might jump here also. sigh.
   let
