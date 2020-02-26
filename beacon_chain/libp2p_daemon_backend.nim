@@ -125,6 +125,9 @@ proc safeClose(stream: P2PStream) {.async.} =
   if P2PStreamFlags.Closed notin stream.flags:
     await close(stream)
 
+proc handleIncomingPeer*(peer: Peer) {.inline.} =
+  discard
+
 include eth/p2p/p2p_backends_helpers
 include eth/p2p/p2p_tracing
 include libp2p_backends_common
