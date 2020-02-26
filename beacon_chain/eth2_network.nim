@@ -67,18 +67,18 @@ when networkBackend in [libp2p, libp2pDaemon]:
   import
     os, random,
     stew/io, eth/async_utils,
-    libp2p/[multiaddress, multicodec, peerinfo],
+    libp2p/[multiaddress, multicodec],
     ssz
 
   export
-    multiaddress, peerinfo
+    multiaddress
 
   when networkBackend == libp2p:
     import
-      libp2p/standard_setup, libp2p_backend, peer_pool
+      libp2p/standard_setup, libp2p_backend, peer_pool, peerinfo
 
     export
-      libp2p_backend, peer_pool
+      libp2p_backend, peer_pool, peerinfo
 
   else:
     import
