@@ -1054,7 +1054,7 @@ when hasPrompt:
       # var t: Thread[ptr Prompt]
       # createThread(t, processPromptCommands, addr p)
 
-when isMainModule:
+programMain:
   let config = BeaconNodeConf.load(
     version = clientId,
     copyrightBanner = clientId & "\p" & copyrights)

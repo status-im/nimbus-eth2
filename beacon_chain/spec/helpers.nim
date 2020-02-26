@@ -28,6 +28,16 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
     y = (x + n div x) div 2
   x
 
+tests:
+  test "integer_squareroot":
+    check:
+      integer_squareroot(0'u64) == 0'u64
+      integer_squareroot(1'u64) == 1'u64
+      integer_squareroot(2'u64) == 1'u64
+      integer_squareroot(3'u64) == 1'u64
+      integer_squareroot(4'u64) == 2'u64
+      integer_squareroot(5'u64) == 2'u64
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#compute_epoch_at_slot
 func compute_epoch_at_slot*(slot: Slot|uint64): Epoch =
   # Return the epoch number at ``slot``.
@@ -113,6 +123,15 @@ func int_to_bytes4*(x: uint64): array[4, byte] =
   result[1] = ((x shr  8) and 0xff).byte
   result[2] = ((x shr 16) and 0xff).byte
   result[3] = ((x shr 24) and 0xff).byte
+
+tests:
+  test "int_to_bytes4":
+    let bytes = int_to_bytes4(1024)
+    check:
+      bytes[0] == 0
+      bytes[1] == 4
+      bytes[2] == 0
+      bytes[3] == 0
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#compute_domain
 func compute_domain*(

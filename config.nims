@@ -39,6 +39,8 @@ else:
 --define:metrics
 --define:chronicles_line_numbers
 
+switch("import", "testutils/moduletests")
+
 # the default open files limit is too low on macOS (512), breaking the
 # "--debugger:native" build. It can be increased with `ulimit -n 1024`.
 if not defined(macosx):
