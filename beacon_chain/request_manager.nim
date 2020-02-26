@@ -33,6 +33,24 @@ proc fetchAncestorBlocksFromPeer(
     debug "Error while fetching ancestor blocks",
           err = err.msg, root = rec.root, peer
 
+proc fetchAncestorBlocksFromNetwork(
+     network: Eth2Node,
+     rec: FetchRecord,
+     responseHandler: FetchAncestorsResponseHandler) {.async.} =
+  var peer: Peer
+  try:
+    peer = await network.peerPool.acquire()
+    let blocks = await peer.beaconBlocksByRoot([rec.root])
+    if blocks.isSome:
+      for b in blocks.get:
+        responseHandler(b)
+  except CatchableError as err:
+    debug "Error while fetching ancestor blocks",
+          err = err.msg, root = rec.root, peer = peer.info
+  finally:
+    if not(isNil(peer)):
+      network.peerPool.release(peer)
+
 proc fetchAncestorBlocks*(requestManager: RequestManager,
                           roots: seq[FetchRecord],
                           responseHandler: FetchAncestorsResponseHandler) =
@@ -44,8 +62,8 @@ proc fetchAncestorBlocks*(requestManager: RequestManager,
   # * Keep track of the average latency of each peer
   #   (we can give priority to peers with better latency)
   #
-
   const ParallelRequests = 2
-
-  for peer in requestManager.network.randomPeers(ParallelRequests, BeaconSync):
-    traceAsyncErrors peer.fetchAncestorBlocksFromPeer(roots.sample(), responseHandler)
+  for i in 0 ..< ParallelRequests:
+    traceAsyncErrors fetchAncestorBlocksFromNetwork(requestManager.network,
+                                                    roots.sample(),
+                                                    responseHandler)

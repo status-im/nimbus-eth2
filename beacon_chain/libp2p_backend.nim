@@ -13,7 +13,8 @@ import
   libp2p/protocols/secure/[secure, secio],
   libp2p/protocols/pubsub/[pubsub, floodsub],
   libp2p/transports/[transport, tcptransport],
-  libp2p_json_serialization, eth2_discovery, conf, ssz
+  libp2p_json_serialization, eth2_discovery, conf, ssz,
+  peer_pool
 
 import
   eth/p2p/discoveryv5/protocol as discv5_protocol
@@ -29,7 +30,7 @@ type
     switch*: Switch
     discovery*: Eth2DiscoveryProtocol
     wantedPeers*: int
-    peers*: Table[PeerID, Peer]
+    peerPool*: PeerPool[Peer, PeerID]
     protocolStates*: seq[RootRef]
     libp2pTransportLoops*: seq[Future[void]]
 
@@ -43,6 +44,7 @@ type
     connectionState*: ConnectionState
     protocolStates*: seq[RootRef]
     maxInactivityAllowed*: Duration
+    score*: int
 
   ConnectionState* = enum
     None,
@@ -125,30 +127,67 @@ proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer {.gcsafe.}
 
 proc getPeer*(node: Eth2Node, peerInfo: PeerInfo): Peer {.gcsafe.} =
   let peerId = peerInfo.peerId
-  result = node.peers.getOrDefault(peerId)
+  result = node.peerPool.getOrDefault(peerId)
   if result == nil:
     result = Peer.init(node, peerInfo)
-    node.peers[peerId] = result
 
 proc peerFromStream(network: Eth2Node, stream: P2PStream): Peer {.gcsafe.} =
   # TODO: Can this be `nil`?
   return network.getPeer(stream.peerInfo)
 
-proc disconnect*(peer: Peer, reason: DisconnectionReason, notifyOtherPeer = false) {.async.} =
+proc getKey*(peer: Peer): PeerID {.inline.} =
+  result = peer.info.peerId
+
+proc getFuture*(peer: Peer): Future[void] {.inline.} =
+  result = peer.info.lifeFuture()
+
+proc `<`*(a, b: Peer): bool =
+  result = `<`(a.score, b.score)
+
+proc disconnect*(peer: Peer, reason: DisconnectionReason,
+                 notifyOtherPeer = false) {.async.} =
   # TODO: How should we notify the other peer?
   if peer.connectionState notin {Disconnecting, Disconnected}:
     peer.connectionState = Disconnecting
     await peer.network.switch.disconnect(peer.info)
     peer.connectionState = Disconnected
-    peer.network.peers.del(peer.info.peerId)
+    peer.network.peerPool.release(peer)
 
 proc safeClose(stream: P2PStream) {.async.} =
   if not stream.closed:
     await close(stream)
 
+proc handleIncomingPeer*(peer: Peer)
+
 include eth/p2p/p2p_backends_helpers
 include eth/p2p/p2p_tracing
 include libp2p_backends_common
+
+proc handleOutgoingPeer*(peer: Peer): Future[void] {.async.} =
+  let network = peer.network
+
+  proc onPeerClosed(udata: pointer) {.gcsafe.} =
+    debug "Peer (outgoing) lost", peer = $peer.info
+    libp2p_peers.set int64(len(network.peerPool))
+
+  let res = await network.peerPool.addOutgoingPeer(peer)
+  if res:
+    debug "Peer (outgoing) has been added to PeerPool", peer = $peer.info
+    peer.getFuture().addCallback(onPeerClosed)
+  libp2p_peers.set int64(len(network.peerPool))
+
+proc handleIncomingPeer*(peer: Peer) =
+  let network = peer.network
+
+  proc onPeerClosed(udata: pointer) {.gcsafe.} =
+    debug "Peer (incoming) lost", peer = $peer.info
+    libp2p_peers.set int64(len(network.peerPool))
+
+  let res = network.peerPool.addIncomingPeerNoWait(peer)
+  if res:
+    debug "Peer (incoming) has been added to PeerPool", peer = $peer.info
+    peer.getFuture().addCallback(onPeerClosed)
+  libp2p_peers.set int64(len(network.peerPool))
 
 proc toPeerInfo*(r: enr.TypedRecord): PeerInfo =
   if r.secp256k1.isSome:
@@ -195,6 +234,8 @@ proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
   inc libp2p_successful_dials
   debug "Network handshakes completed"
 
+  await handleOutgoingPeer(peer)
+
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
 
@@ -206,7 +247,6 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
         let discoveredPeers = await node.discovery.lookupRandom()
         debug "Discovered peers", peer = $discoveredPeers
         for peer in discoveredPeers:
-          debug "Discovered peer", peer = $peer
           try:
             let peerInfo = peer.record.toTypedRecord.toPeerInfo
             if peerInfo != nil and peerInfo.id notin node.switch.connections:
@@ -223,9 +263,9 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf,
            switch: Switch, ip: IpAddress, privKey: keys.PrivateKey): T =
   new result
   result.switch = switch
-  result.peers = initTable[PeerID, Peer]()
   result.discovery = Eth2DiscoveryProtocol.new(conf, ip, privKey.data)
   result.wantedPeers = conf.maxPeers
+  result.peerPool = newPeerPool[Peer, PeerID](maxPeers = conf.maxPeers)
 
   newSeq result.protocolStates, allProtocols.len
   for proto in allProtocols:
