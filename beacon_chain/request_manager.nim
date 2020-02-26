@@ -31,7 +31,7 @@ proc fetchAncestorBlocksFromPeer(
         responseHandler(b)
   except CatchableError as err:
     debug "Error while fetching ancestor blocks",
-          err = err.msg, root = rec.root, peer
+          err = err.msg, root = rec.root, peer = peer
 
 when networkBackend == libp2p:
 
@@ -48,7 +48,7 @@ when networkBackend == libp2p:
           responseHandler(b)
     except CatchableError as err:
       debug "Error while fetching ancestor blocks",
-            err = err.msg, root = rec.root, peer = peer.info
+            err = err.msg, root = rec.root, peer = peer
     finally:
       if not(isNil(peer)):
         network.peerPool.release(peer)
@@ -74,15 +74,15 @@ elif networkBackend == libp2pDaemon:
   proc fetchAncestorBlocks*(requestManager: RequestManager,
                           roots: seq[FetchRecord],
                           responseHandler: FetchAncestorsResponseHandler) =
-  # TODO: we could have some fancier logic here:
-  #
-  # * Keeps track of what was requested
-  #   (this would give a little bit of time for the asked peer to respond)
-  #
-  # * Keep track of the average latency of each peer
-  #   (we can give priority to peers with better latency)
-  #
-  const ParallelRequests = 2
+    # TODO: we could have some fancier logic here:
+    #
+    # * Keeps track of what was requested
+    #   (this would give a little bit of time for the asked peer to respond)
+    #
+    # * Keep track of the average latency of each peer
+    #   (we can give priority to peers with better latency)
+    #
+    const ParallelRequests = 2
 
-  for peer in requestManager.network.randomPeers(ParallelRequests, BeaconSync):
-    traceAsyncErrors peer.fetchAncestorBlocksFromPeer(roots.sample(), responseHandler)
+    for peer in requestManager.network.randomPeers(ParallelRequests, BeaconSync):
+      traceAsyncErrors peer.fetchAncestorBlocksFromPeer(roots.sample(), responseHandler)

@@ -75,7 +75,7 @@ when networkBackend in [libp2p, libp2pDaemon]:
 
   when networkBackend == libp2p:
     import
-      libp2p/standard_setup, libp2p_backend, peer_pool, peerinfo
+      libp2p/standard_setup, libp2p_backend, libp2p/peerinfo, peer_pool
 
     export
       libp2p_backend, peer_pool, peerinfo
