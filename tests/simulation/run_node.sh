@@ -27,7 +27,7 @@ cd "$GIT_ROOT"
 DATA_DIR="${SIMULATION_DIR}/node-$NODE_ID"
 PORT=$(( BASE_P2P_PORT + NODE_ID ))
 
-NAT_FLAG="--nat:none"
+NAT_FLAG="--nat:extip:127.0.0.1"
 if [ "${NAT:-}" == "1" ]; then
   NAT_FLAG="--nat:any"
 fi
