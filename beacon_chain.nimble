@@ -13,6 +13,7 @@ skipDirs      = @["nfuzz"]
 bin           = @[
   "beacon_chain/beacon_node",
   "research/serialized_sizes",
+  "nbench/nbench",
   ]
 
 ### Dependencies

@@ -131,7 +131,7 @@ proc parseSSZ(path: string, T: typedesc): T =
     stderr.write "SSZ load issue for file \"", path, "\"\n"
     stderr.write err.formatMsg(path), "\n"
     quit 1
-  except CatchableError as err:
+  except CatchableError:
     writeStackTrace()
     stderr.write "SSZ load issue for file \"", path, "\"\n"
     quit 1
@@ -219,7 +219,7 @@ template processBlockScenarioImpl(
   elif needFlags:
     let success = transitionFn(state[], consObj[], flags)
   elif needCache:
-    let success = transitionFn(state[], consObj[], cache)
+    let success = transitionFn(state[], consObj[], flags, cache)
   else:
     let success = transitionFn(state[], consObj[])
 
@@ -242,6 +242,6 @@ genProcessEpochScenario(runProcessFinalUpdates, process_final_updates, needCache
 genProcessBlockScenario(runProcessBlockHeader, process_block_header, block_header, BeaconBlock, needFlags = true, needCache = true)
 genProcessBlockScenario(runProcessProposerSlashing, process_proposer_slashing, proposer_slashing, ProposerSlashing, needFlags = true, needCache = true)
 genProcessBlockScenario(runProcessAttestation, process_attestation, attestation, Attestation, needFlags = true, needCache = true)
-genProcessBlockScenario(runProcessAttesterSlashing, process_attester_slashing, att_slash, AttesterSlashing, needFlags = false, needCache = true)
+genProcessBlockScenario(runProcessAttesterSlashing, process_attester_slashing, att_slash, AttesterSlashing, needFlags = true, needCache = true)
 genProcessBlockScenario(runProcessDeposit, process_deposit, deposit, Deposit, needFlags = true, needCache = false)
 genProcessBlockScenario(runProcessVoluntaryExits, process_voluntary_exit, deposit, SignedVoluntaryExit, needFlags = true, needCache = false)
