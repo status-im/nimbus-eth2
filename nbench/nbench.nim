@@ -70,8 +70,9 @@ proc main() =
       runProcessAttesterSlashing(
         scenario.scenarioDir.string,
         scenario.preState,
-        "attester_slashing" # Pending https://github.com/status-im/nim-confutils/issues/11
+        "attester_slashing", # Pending https://github.com/status-im/nim-confutils/issues/11
         # scenario.attesterSlashing
+        scenario.skipBLS
       )
     of catAttestations:
       runProcessAttestation(
