@@ -99,4 +99,4 @@ proc applyEmptyBlock*(state: var BeaconState) =
   let signedBlock = mockBlock(state, state.slot, flags = {})
   # TODO: we only need to skip verifyStateRoot validation
   #       processBlock validation should work
-  doAssert state_transition(state, signedBlock.message, {skipValidation})
+  doAssert state_transition(state, signedBlock, {skipValidation})

@@ -111,7 +111,7 @@ proc addBlock*(
       )
     )
 
-  let block_ok = state_transition(state, new_block.message, {skipValidation})
+  let block_ok = state_transition(state, new_block, {skipValidation})
   doAssert block_ok
 
   # Ok, we have the new state as it would look with the block applied - now we
