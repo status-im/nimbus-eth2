@@ -570,12 +570,12 @@ proc skipAndUpdateState(
     afterUpdate(state)
 
 proc skipAndUpdateState(
-    state: var HashedBeaconState, blck: SignedBeaconBlock, flags: UpdateFlags,
+    state: var HashedBeaconState, signedBlock: SignedBeaconBlock, flags: UpdateFlags,
     afterUpdate: proc (state: HashedBeaconState)): bool =
 
-  skipAndUpdateState(state, blck.message.slot - 1, afterUpdate)
+  skipAndUpdateState(state, signedBlock.message.slot - 1, afterUpdate)
 
-  let ok  = state_transition(state, blck, flags)
+  let ok  = state_transition(state, signedBlock, flags)
 
   afterUpdate(state)
 

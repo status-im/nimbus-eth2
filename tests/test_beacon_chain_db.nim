@@ -30,18 +30,18 @@ suite "Beacon chain DB" & preset():
       db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
 
     let
-      blck = SignedBeaconBlock()
-      root = hash_tree_root(blck.message)
+      signedBlock = SignedBeaconBlock()
+      root = hash_tree_root(signedBlock.message)
 
-    db.putBlock(blck)
+    db.putBlock(signedBlock)
 
     check:
       db.containsBlock(root)
-      db.getBlock(root).get() == blck
+      db.getBlock(root).get() == signedBlock
 
-    db.putStateRoot(root, blck.message.slot, root)
+    db.putStateRoot(root, signedBlock.message.slot, root)
     check:
-      db.getStateRoot(root, blck.message.slot).get() == root
+      db.getStateRoot(root, signedBlock.message.slot).get() == root
 
   timedTest "sanity check states" & preset():
     var

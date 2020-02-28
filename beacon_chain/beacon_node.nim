@@ -61,7 +61,7 @@ type
     mainchainMonitor: MainchainMonitor
     beaconClock: BeaconClock
 
-proc onBeaconBlock*(node: BeaconNode, blck: SignedBeaconBlock) {.gcsafe.}
+proc onBeaconBlock*(node: BeaconNode, signedBlock: SignedBeaconBlock) {.gcsafe.}
 proc updateHead(node: BeaconNode): BlockRef
 
 proc saveValidatorKey(keyName, key: string, conf: BeaconNodeConf) =
@@ -492,19 +492,19 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
 
   node.attestationPool.add(attestation)
 
-proc onBeaconBlock(node: BeaconNode, blck: SignedBeaconBlock) =
+proc onBeaconBlock(node: BeaconNode, signedBlock: SignedBeaconBlock) =
   # We received a block but don't know much about it yet - in particular, we
   # don't know if it's part of the chain we're currently building.
-  let blockRoot = hash_tree_root(blck.message)
+  let blockRoot = hash_tree_root(signedBlock.message)
   debug "Block received",
-    blck = shortLog(blck.message),
+    signedBlock = shortLog(signedBlock.message),
     blockRoot = shortLog(blockRoot),
     cat = "block_listener",
     pcs = "receive_block"
 
   beacon_blocks_received.inc()
 
-  if node.blockPool.add(blockRoot, blck).isNil:
+  if node.blockPool.add(blockRoot, signedBlock).isNil:
     return
 
   # The block we received contains attestations, and we might not yet know about
@@ -514,8 +514,8 @@ proc onBeaconBlock(node: BeaconNode, blck: SignedBeaconBlock) =
   # TODO shouldn't add attestations if the block turns out to be invalid..
   let currentSlot = node.beaconClock.now.toSlot
   if currentSlot.afterGenesis and
-     blck.message.slot.epoch + 1 >= currentSlot.slot.epoch:
-    for attestation in blck.message.body.attestations:
+    signedBlock.message.slot.epoch + 1 >= currentSlot.slot.epoch:
+    for attestation in signedBlock.message.body.attestations:
       node.onAttestation(attestation)
 
 proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =

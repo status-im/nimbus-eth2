@@ -148,10 +148,10 @@ proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, ski
     let blockPath = dir / blocksPrefix & $i & ".ssz"
     echo "Processing: ", blockPath
 
-    let blck = parseSSZ(blockPath, SignedBeaconBlock)
+    let signedBlock = parseSSZ(blockPath, SignedBeaconBlock)
     let flags = if skipBLS: {skipValidation} # TODO: this also skips state root verification
                 else: {}
-    let success = state_transition(state[], blck.message, flags)
+    let success = state_transition(state[], signedBlock.message, flags)
     echo "State transition status: ", if success: "SUCCESS ✓" else: "FAILURE ⚠️"
 
 proc runProcessSlots*(dir, preState: string, numSlots: uint64) =

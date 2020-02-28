@@ -22,7 +22,7 @@ type
     else:
       index: uint32
 
-  BeaconBlockCallback* = proc(blck: SignedBeaconBlock) {.gcsafe.}
+  BeaconBlockCallback* = proc(signedBlock: SignedBeaconBlock) {.gcsafe.}
   BeaconSyncNetworkState* = ref object
     blockPool*: BlockPool
     forkVersion*: array[4, byte]
