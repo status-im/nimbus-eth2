@@ -412,7 +412,7 @@ proc proposeBlock(node: BeaconNode,
           parent_root: head.root,
           body: blockBody))
       tmpState = hashedState
-    discard state_transition(tmpState, newBlock.message, {skipValidation})
+    discard state_transition(tmpState, newBlock, {skipValidation})
     # TODO only enable in fast-fail debugging situations
     # otherwise, bad attestations can bring down network
     # doAssert ok # TODO: err, could this fail somehow?
