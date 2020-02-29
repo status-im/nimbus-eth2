@@ -113,7 +113,7 @@ proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
     true
 
 proc state_transition*(
-    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool {.nbench.}=
+    state: var BeaconState, signedBlock: SignedBeaconBlock, flags: UpdateFlags): bool {.nbench.}=
   ## Time in the beacon chain moves by slots. Every time (haha.) that happens,
   ## we will update the beacon state. Normally, the state updates will be driven
   ## by the contents of a new block, but it may happen that the block goes
@@ -147,7 +147,7 @@ proc state_transition*(
   var old_state = state
 
   # These should never fail.
-  process_slots(state, blck.slot)
+  process_slots(state, signedBlock.message.slot)
 
   # Block updates - these happen when there's a new block being suggested
   # by the block proposer. Every actor in the network will update its state
@@ -157,11 +157,11 @@ proc state_transition*(
   #      https://github.com/ethereum/eth2.0-specs/issues/293
   var per_epoch_cache = get_empty_per_epoch_cache()
 
-  if processBlock(state, blck, flags, per_epoch_cache):
+  if processBlock(state, signedBlock.message, flags, per_epoch_cache):
     # This is a bit awkward - at the end of processing we verify that the
     # state we arrive at is what the block producer thought it would be -
     # meaning that potentially, it could fail verification
-    if skipValidation in flags or verifyStateRoot(state, blck):
+    if skipValidation in flags or verifyStateRoot(state, signedBlock.message):
       # TODO: allow skipping just verifyStateRoot for mocking
       #       instead of both processBlock and verifyStateRoot
       #       https://github.com/status-im/nim-beacon-chain/issues/407
@@ -220,23 +220,23 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot) =
     state.root = hash_tree_root(state.data)
 
 proc state_transition*(
-    state: var HashedBeaconState, blck: BeaconBlock, flags: UpdateFlags): bool =
+    state: var HashedBeaconState, signedBlock: SignedBeaconBlock, flags: UpdateFlags): bool =
   # Save for rollback
   var old_state = state
 
-  process_slots(state, blck.slot)
+  process_slots(state, signedBlock.message.slot)
   var per_epoch_cache = get_empty_per_epoch_cache()
 
-  if processBlock(state.data, blck, flags, per_epoch_cache):
-    if skipValidation in flags or verifyStateRoot(state.data, blck):
+  if processBlock(state.data, signedBlock.message, flags, per_epoch_cache):
+    if skipValidation in flags or verifyStateRoot(state.data, signedBlock.message):
       # State root is what it should be - we're done!
 
       # TODO when creating a new block, state_root is not yet set.. comparing
       #      with zero hash here is a bit fragile however, but this whole thing
       #      should go away with proper hash caching
       state.root =
-        if blck.state_root == Eth2Digest(): hash_tree_root(state.data)
-        else: blck.state_root
+        if signedBlock.message.state_root == Eth2Digest(): hash_tree_root(state.data)
+        else: signedBlock.message.state_root
 
       return true
 

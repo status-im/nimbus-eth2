@@ -374,7 +374,7 @@ proc add*(
     #      but maybe we should use it as a hint that our clock is wrong?
     updateStateData(pool, pool.tmpState, BlockSlot(blck: parent, slot: blck.slot - 1))
 
-    if not state_transition(pool.tmpState.data, blck, {}):
+    if not state_transition(pool.tmpState.data, signedBlock, {}):
       # TODO find a better way to log all this block data
       notice "Invalid block",
         blck = shortLog(blck),
@@ -570,12 +570,12 @@ proc skipAndUpdateState(
     afterUpdate(state)
 
 proc skipAndUpdateState(
-    state: var HashedBeaconState, blck: BeaconBlock, flags: UpdateFlags,
+    state: var HashedBeaconState, signedBlock: SignedBeaconBlock, flags: UpdateFlags,
     afterUpdate: proc (state: HashedBeaconState)): bool =
 
-  skipAndUpdateState(state, blck.slot - 1, afterUpdate)
+  skipAndUpdateState(state, signedBlock.message.slot - 1, afterUpdate)
 
-  let ok  = state_transition(state, blck, flags)
+  let ok  = state_transition(state, signedBlock, flags)
 
   afterUpdate(state)
 
@@ -713,7 +713,7 @@ proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
   for i in countdown(ancestors.len - 1, 0):
     let ok =
       skipAndUpdateState(state.data,
-                         ancestors[i].data.message,
+                         ancestors[i].data,
                          {skipValidation}) do (state: HashedBeaconState):
         pool.maybePutState(state, ancestors[i].refs)
     doAssert ok, "Blocks in database should never fail to apply.."

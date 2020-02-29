@@ -40,7 +40,7 @@ suite "Block processing" & preset():
       previous_block_root = hash_tree_root(genesisBlock.message)
       new_block = makeBlock(state, previous_block_root, BeaconBlockBody())
 
-    let block_ok = state_transition(state, new_block.message, {})
+    let block_ok = state_transition(state, new_block, {})
 
     check:
       block_ok
@@ -64,7 +64,7 @@ suite "Block processing" & preset():
     for i in 1..SLOTS_PER_EPOCH.int:
       var new_block = makeBlock(state, previous_block_root, BeaconBlockBody())
 
-      let block_ok = state_transition(state, new_block.message, {})
+      let block_ok = state_transition(state, new_block, {})
 
       check:
         block_ok
@@ -98,7 +98,7 @@ suite "Block processing" & preset():
       new_block = makeBlock(state, previous_block_root, BeaconBlockBody(
         attestations: @[attestation]
       ))
-    discard state_transition(state, new_block.message, {})
+    discard state_transition(state, new_block, {})
 
     check:
       # TODO epoch attestations can get multiplied now; clean up paths to

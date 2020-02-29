@@ -148,4 +148,4 @@ proc add*(state: var BeaconState, attestation: Attestation, slot: Slot) =
 
   # TODO: we can skip just VerifyStateRoot
   doAssert state_transition(
-    state, signedBlock.message, flags = {skipValidation})
+    state, signedBlock, flags = {skipValidation})

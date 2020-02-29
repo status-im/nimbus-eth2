@@ -91,7 +91,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     timers: array[Timers, RunningStat]
     attesters: RunningStat
     r: Rand
-    blck: SignedBeaconBlock
+    signedBlock: SignedBeaconBlock
     cache = get_empty_per_epoch_cache()
 
   proc maybeWrite(last: bool) =
@@ -133,9 +133,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       else: tBlock
 
     withTimer(timers[t]):
-      blck = addBlock(state, latest_block_root, body, flags)
+      signedBlock = addBlock(state, latest_block_root, body, flags)
     latest_block_root = withTimerRet(timers[tHashBlock]):
-      hash_tree_root(blck.message)
+      hash_tree_root(signedBlock.message)
 
     if attesterRatio > 0.0:
       # attesterRatio is the fraction of attesters that actually do their
