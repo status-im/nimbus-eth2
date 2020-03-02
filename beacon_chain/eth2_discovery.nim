@@ -12,7 +12,7 @@ type
   PublicKey = keys.PublicKey
 
 export
-  Eth2DiscoveryProtocol, open, start, close, result
+  Eth2DiscoveryProtocol, open, close, result
 
 proc new*(T: type Eth2DiscoveryProtocol,
           conf: BeaconNodeConf,

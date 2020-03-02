@@ -244,7 +244,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
     libp2p_peers.set currentPeerCount.int64
     if currentPeerCount < node.wantedPeers:
       try:
-        let discoveredPeers = await node.discovery.lookupRandom()
+        let discoveredPeers = node.discovery.randomNodes(node.wantedPeers - currentPeerCount)
         debug "Discovered peers", peer = $discoveredPeers
         for peer in discoveredPeers:
           try:
@@ -281,7 +281,6 @@ template addKnownPeer*(node: Eth2Node, peer: ENode|enr.Record) =
 
 proc start*(node: Eth2Node) {.async.} =
   node.discovery.open()
-  node.discovery.start()
   node.libp2pTransportLoops = await node.switch.start()
   traceAsyncErrors node.runDiscoveryLoop()
 
