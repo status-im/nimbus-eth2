@@ -56,7 +56,7 @@ func makeDeposit*(
         pubkey: pubkey,
         withdrawal_credentials: makeWithdrawalCredentials(pubkey)))
 
-  if skipValidation notin flags:
+  if skipBlsValidation notin flags:
     ret.data.signature =
       bls_sign(
         privkey, hash_tree_root(ret.getDepositMessage).data,

@@ -62,7 +62,7 @@ proc nfuzz_attestation(input: openArray[byte], output: ptr byte,
   var
     data: AttestationInput
     cache = get_empty_per_epoch_cache()
-  let flags = if disable_bls: {skipBLSValidation} else: {}
+  let flags = if disable_bls: {skipBlsValidation} else: {}
 
   try:
     data = SSZ.decode(input, AttestationInput)
@@ -95,7 +95,7 @@ proc nfuzz_attester_slashing(input: openArray[byte], output: ptr byte,
   var
     data: AttesterSlashingInput
     cache = get_empty_per_epoch_cache()
-  let flags = if disable_bls: {skipBLSValidation} else: {}
+  let flags = if disable_bls: {skipBlsValidation} else: {}
 
   try:
     data = SSZ.decode(input, AttesterSlashingInput)
@@ -124,7 +124,7 @@ proc nfuzz_attester_slashing(input: openArray[byte], output: ptr byte,
 proc nfuzz_block(input: openArray[byte], output: ptr byte,
     output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   var data: BlockInput
-  let flags = if disable_bls: {skipBLSValidation} else: {}
+  let flags = if disable_bls: {skipBlsValidation} else: {}
 
   try:
     data = SSZ.decode(input, BlockInput)
@@ -159,7 +159,7 @@ proc nfuzz_block_header(input: openArray[byte], output: ptr byte,
   var
     data: BlockHeaderInput
     cache = get_empty_per_epoch_cache()
-  let flags = if disable_bls: {skipBLSValidation} else: {}
+  let flags = if disable_bls: {skipBlsValidation} else: {}
 
   try:
     data = SSZ.decode(input, BlockHeaderInput)
@@ -191,7 +191,7 @@ proc nfuzz_deposit(input: openArray[byte], output: ptr byte,
     output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   var
     data: DepositInput
-  let flags = if disable_bls: {skipBLSValidation} else: {}
+  let flags = if disable_bls: {skipBlsValidation} else: {}
 
   try:
     data = SSZ.decode(input, DepositInput)
@@ -222,7 +222,7 @@ proc nfuzz_proposer_slashing(input: openArray[byte], output: ptr byte,
   var
     data: ProposerSlashingInput
     cache = get_empty_per_epoch_cache()
-  let flags = if disable_bls: {skipBLSValidation} else: {}
+  let flags = if disable_bls: {skipBlsValidation} else: {}
 
   try:
     data = SSZ.decode(input, ProposerSlashingInput)
@@ -279,7 +279,7 @@ proc nfuzz_voluntary_exit(input: openArray[byte], output: ptr byte,
     output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   var
     data: VoluntaryExitInput
-  let flags = if disable_bls: {skipBLSValidation} else: {}
+  let flags = if disable_bls: {skipBlsValidation} else: {}
 
   try:
     data = SSZ.decode(input, VoluntaryExitInput)

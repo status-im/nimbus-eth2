@@ -102,7 +102,7 @@ proc process_randao(
   let proposer = addr state.validators[proposer_index.get]
 
   # Verify that the provided randao value is valid
-  if skipBLSValidation notin flags and not bls_verify(
+  if skipBlsValidation notin flags and not bls_verify(
       proposer.pubkey,
       hash_tree_root(epoch.uint64).data,
       body.randao_reveal,
@@ -166,7 +166,7 @@ proc process_proposer_slashing*(
     return false
 
   # Signatures are valid
-  if skipBLSValidation notin flags:
+  if skipBlsValidation notin flags:
     for i, signed_header in [proposer_slashing.signed_header_1,
         proposer_slashing.signed_header_2]:
       if not bls_verify(
@@ -339,7 +339,7 @@ proc process_voluntary_exit*(
     return false
 
   # Verify signature
-  if skipBLSValidation notin flags:
+  if skipBlsValidation notin flags:
     let domain = get_domain(state, DOMAIN_VOLUNTARY_EXIT, voluntary_exit.epoch)
     if not bls_verify(
         validator.pubkey,
