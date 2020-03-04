@@ -195,7 +195,7 @@ proc newKeyPair*(): tuple[pub: ValidatorPubKey, priv: ValidatorPrivKey] {.noInit
   let written = randomBytes(ikm)
   doAssert written >= 32, "Key generation failure"
 
-  result.pub.kind = Real
+  result.pub = ValidatorPubKey(kind: Real)
   doAssert keyGen(ikm, result.pub.blsValue, result.priv), "Key generation failure"
 
 # Logging
