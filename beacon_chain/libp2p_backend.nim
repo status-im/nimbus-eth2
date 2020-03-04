@@ -152,6 +152,7 @@ proc disconnect*(peer: Peer, reason: DisconnectionReason,
     await peer.network.switch.disconnect(peer.info)
     peer.connectionState = Disconnected
     peer.network.peerPool.release(peer)
+    peer.info.close()
 
 proc safeClose(stream: P2PStream) {.async.} =
   if not stream.closed:
@@ -240,11 +241,11 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
 
   while true:
-    let currentPeerCount = node.switch.connections.len
-    libp2p_peers.set currentPeerCount.int64
+    let currentPeerCount = node.peerPool.len
     if currentPeerCount < node.wantedPeers:
       try:
-        let discoveredPeers = node.discovery.randomNodes(node.wantedPeers - currentPeerCount)
+        let discoveredPeers =
+          node.discovery.randomNodes(node.wantedPeers - currentPeerCount)
         debug "Discovered peers", peer = $discoveredPeers
         for peer in discoveredPeers:
           try:
