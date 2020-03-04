@@ -332,11 +332,14 @@ template fromSszBytes*(T: type BlsValue, bytes: openarray[byte]): auto =
 # ----------------------------------------------------------------------
 
 # For confutils
-func init*(T: typedesc[ValidatorPrivKey], hex: string): T {.inline.} =
+func init*(T: typedesc[ValidatorPrivKey], hex: string): T {.noInit, inline.} =
   let success = result.fromHex(hex)
   doAssert success, "Private key is invalid" # Don't display private keys even if invalid
 
 # For mainchain monitor
-func init*(T: typedesc[ValidatorPubKey], data: array[48, byte]): T {.inline.} =
-  let success = result.fromBytes(data)
-  doAssert success, "Public key is invalid" # Don't display private keys even if invalid
+func init*(T: typedesc[ValidatorPubKey], data: array[48, byte]): T {.noInit, inline.} =
+  result.initFromBytes(data)
+
+# For mainchain monitor
+func init*(T: typedesc[ValidatorSig], data: array[96, byte]): T {.noInit, inline.} =
+  result.initFromBytes(data)
