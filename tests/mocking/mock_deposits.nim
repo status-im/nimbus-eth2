@@ -23,13 +23,17 @@ func signMockDepositData(
         privkey: ValidatorPrivKey
       ) =
   # No state --> Genesis
-  deposit_data.signature = bls_sign(
-    key = privkey,
-    msg = deposit_data.getDepositMessage().hash_tree_root().data,
-    domain = compute_domain(
+  let domain = compute_domain(
       DOMAIN_DEPOSIT,
       default(array[4, byte]) # Genesis is fork_version 0
     )
+  let signing_root = compute_signing_root(
+    deposit_data.getDepositMessage(),
+    domain
+  )
+  deposit_data.signature = blsSign(
+    privkey,
+    signing_root.data
   )
 
 func signMockDepositData(
@@ -37,13 +41,17 @@ func signMockDepositData(
         privkey: ValidatorPrivKey,
         state: BeaconState
       ) =
-  deposit_data.signature = bls_sign(
-    key = privkey,
-    msg = deposit_data.getDepositMessage().hash_tree_root().data,
-    domain = get_domain(
-      state,
-      DOMAIN_DEPOSIT
+  let domain = compute_domain(
+      DOMAIN_DEPOSIT,
+      default(array[4, byte]) # Genesis is fork_version 0
     )
+  let signing_root = compute_signing_root(
+    deposit_data.getDepositMessage(),
+    domain
+  )
+  deposit_data.signature = blsSign(
+    privkey,
+    signing_root.data
   )
 
 func mockDepositData(

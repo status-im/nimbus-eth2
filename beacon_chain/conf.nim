@@ -293,4 +293,3 @@ iterator validatorKeys*(conf: BeaconNodeConf): ValidatorPrivKey =
 template writeValue*(writer: var JsonWriter,
                      value: TypedInputFile|InputFile|InputDir|OutPath|OutDir|OutFile) =
   writer.writeValue(string value)
-

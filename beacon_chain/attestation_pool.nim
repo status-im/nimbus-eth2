@@ -31,7 +31,7 @@ proc combine*(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
     tgt.aggregation_bits.combine(src.aggregation_bits)
 
     if skipBlsValidation notin flags:
-      tgt.signature.combine(src.signature)
+      tgt.signature.aggregate(src.signature)
   else:
     trace "Ignoring overlapping attestations"
 
@@ -341,7 +341,7 @@ proc getAttestationsForBlock*(
       #      one new attestation in there
       if not attestation.aggregation_bits.overlaps(v.aggregation_bits):
         attestation.aggregation_bits.combine(v.aggregation_bits)
-        attestation.signature.combine(v.aggregate_signature)
+        attestation.signature.aggregate(v.aggregate_signature)
 
     result.add(attestation)
 

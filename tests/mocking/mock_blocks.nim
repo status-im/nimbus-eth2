@@ -27,28 +27,27 @@ proc signMockBlockImpl(
 
   let privkey = MockPrivKeys[proposer_index]
 
-  signedBlock.message.body.randao_reveal = bls_sign(
-    key = privkey,
-    msg = block_slot
-              .compute_epoch_at_slot()
-              .hash_tree_root()
-              .data,
-    domain = get_domain(
-      state,
-      DOMAIN_RANDAO,
-      message_epoch = block_slot.compute_epoch_at_slot(),
-    )
-  )
 
-  signedBlock.signature = bls_sign(
-    key = privkey,
-    msg = signedBlock.message.hash_tree_root().data,
-    domain = get_domain(
-      state,
-      DOMAIN_BEACON_PROPOSER,
-      message_epoch = block_slot.compute_epoch_at_slot(),
-    )
-  )
+  block:
+    let domain = get_domain(
+        state,
+        DOMAIN_RANDAO,
+        message_epoch = block_slot.compute_epoch_at_slot(),
+      )
+    let signing_root = compute_signing_root(
+                        block_slot.compute_epoch_at_slot(),
+                        domain
+                      )
+    signedBlock.message.body.randao_reveal = bls_sign(privkey, signing_root.data)
+
+  block:
+    let domain = get_domain(
+        state,
+        DOMAIN_BEACON_PROPOSER,
+        message_epoch = block_slot.compute_epoch_at_slot(),
+      )
+    let signing_root = compute_signing_root(signedBlock.message, domain)
+    signedBlock.signature = bls_sign(privkey, signing_root.data)
 
 proc signMockBlock*(
   state: BeaconState,

@@ -100,12 +100,9 @@ proc process_randao(
   let proposer = addr state.validators[proposer_index.get]
 
   # Verify that the provided randao value is valid
-  if skipBlsValidation notin flags and not bls_verify(
-      proposer.pubkey,
-      hash_tree_root(epoch.uint64).data,
-      body.randao_reveal,
-      get_domain(state, DOMAIN_RANDAO)):
-
+  let signing_root = compute_signing_root(epoch, get_domain(state, DOMAIN_RANDAO))
+  if skipBLSValidation notin flags:
+    if not blsVerify(proposer.pubkey, signing_root.data, body.randao_reveal):
       notice "Randao mismatch", proposer_pubkey = proposer.pubkey,
                                 message = epoch,
                                 signature = body.randao_reveal,
@@ -167,13 +164,12 @@ proc process_proposer_slashing*(
   if skipBlsValidation notin flags:
     for i, signed_header in [proposer_slashing.signed_header_1,
         proposer_slashing.signed_header_2]:
-      if not bls_verify(
-          proposer.pubkey,
-          hash_tree_root(signed_header.message).data,
-          signed_header.signature,
-          get_domain(
+      let domain = get_domain(
             state, DOMAIN_BEACON_PROPOSER,
-            compute_epoch_at_slot(signed_header.message.slot))):
+            compute_epoch_at_slot(signed_header.message.slot)
+          )
+      let signing_root = compute_signing_root(signed_header.message, domain)
+      if not blsVerify(proposer.pubkey, signing_root.data, signed_header.signature):
         notice "Proposer slashing: invalid signature",
           signature_index = i
         return false
@@ -339,11 +335,8 @@ proc process_voluntary_exit*(
   # Verify signature
   if skipBlsValidation notin flags:
     let domain = get_domain(state, DOMAIN_VOLUNTARY_EXIT, voluntary_exit.epoch)
-    if not bls_verify(
-        validator.pubkey,
-        hash_tree_root(voluntary_exit).data,
-        signed_voluntary_exit.signature,
-        domain):
+    let signing_root = compute_signing_root(voluntary_exit, domain)
+    if not bls_verify(validator.pubkey, signing_root.data, signed_voluntary_exit.signature):
       notice "Exit: invalid signature"
       return false
 

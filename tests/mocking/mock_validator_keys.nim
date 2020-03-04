@@ -17,7 +17,8 @@ import
 let MockPrivKeys* = block:
   var privkeys: array[MIN_GENESIS_ACTIVE_VALIDATOR_COUNT, ValidatorPrivKey]
   for pk in privkeys.mitems():
-    pk = newPrivKey()
+    let pair = newKeyPair()
+    pk = pair.priv
   privkeys
 
 let MockPubKeys* = block:

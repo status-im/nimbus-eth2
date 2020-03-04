@@ -96,6 +96,9 @@ type
     DOMAIN_SHARD_PROPOSER = 128
     DOMAIN_SHARD_ATTESTER = 129
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#custom-types
+  Domain* = array[8, byte]
+
   # https://github.com/nim-lang/Nim/issues/574 and be consistent across
   # 32-bit and 64-bit word platforms.
   # TODO VALIDATOR_REGISTRY_LIMIT is 1 shl 40 in 0.8.3, and
@@ -324,7 +327,7 @@ type
   # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#signingroot
   SigningRoot* = object
     object_root*: Eth2Digest
-    domain*: uint64
+    domain*: Domain
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#signedvoluntaryexit
   SignedVoluntaryExit* = object
