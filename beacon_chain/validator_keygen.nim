@@ -37,9 +37,14 @@ proc generateDeposits*(totalValidators: int,
         debug "Rewriting unreadable deposit", err = err.formatMsg(depositFn)
         discard
 
-    let
-      privKey = if randomKeys: ValidatorPrivKey.random
-                else: makeInteropPrivKey(i)
+    var
+      privkey{.noInit.}: ValidatorPrivKey
+      pubKey{.noInit.}: ValidatorPubKey
+
+    if randomKeys:
+      (pubKey, privKey) = newKeyPair()
+    else:
+      privKey = makeInteropPrivKey(i)
       pubKey = privKey.pubKey()
 
     let dp = makeDeposit(pubKey, privKey)
