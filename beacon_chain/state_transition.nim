@@ -10,7 +10,7 @@
 #
 # The purpose of this code right is primarily educational, to help piece
 # together the mechanics of the beacon state and to discover potential problem
-# areas. The entry point is `updateState` which is at the bottom of the file!
+# areas. The entry point is `state_transition` which is at the bottom of the file!
 #
 # General notes about the code (TODO):
 # * It's inefficient - we quadratically copy, allocate and iterate when there

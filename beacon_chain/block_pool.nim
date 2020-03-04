@@ -714,7 +714,7 @@ proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
     let ok =
       skipAndUpdateState(state.data,
                          ancestors[i].data,
-                         {skipValidation}) do (state: HashedBeaconState):
+                         {skipBlsValidation, skipMerkleValidation, skipStateRootValidation}) do (state: HashedBeaconState):
         pool.maybePutState(state, ancestors[i].refs)
     doAssert ok, "Blocks in database should never fail to apply.."
 

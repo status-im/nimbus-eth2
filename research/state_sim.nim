@@ -71,7 +71,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
        validate = true):
   echo "Preparing validators..."
   let
-    flags = if validate: {} else: {skipValidation}
+    # TODO should we include other skipXXXValidation flags here (e.g. StateRoot)?
+    flags = if validate: {} else: {skipBlsValidation}
     deposits = makeInitialDeposits(validators, flags)
 
   echo "Generating Genesis..."
@@ -79,7 +80,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   let
     genesisState =
       initialize_beacon_state_from_eth1(
-        Eth2Digest(), 0, deposits, {skipMerkleValidation})
+        Eth2Digest(), 0, deposits, flags + {skipMerkleValidation})
     genesisBlock = get_initial_beacon_block(genesisState)
 
   echo "Starting simulation..."

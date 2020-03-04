@@ -42,5 +42,7 @@ type
     ## Also useful to avoid unnecessary work when replaying known, good blocks.
     skipStateRootValidation ##\
     ## Skip verification of block state root.
+    skipBlockParentRootValidation ##\
+    ## Skip verification that the block's parent root matches the previous block header.
 
   UpdateFlags* = set[UpdateFlag]

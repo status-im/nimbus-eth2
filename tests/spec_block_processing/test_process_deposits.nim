@@ -43,7 +43,7 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
                       state,
                       uint64 validator_index,
                       deposit_amount,
-                      flags = {skipValidation}
+                      flags = {skipBlsValidation}
                     )
 
       # Params for sanity checks
@@ -57,7 +57,7 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
       # State transition
       # ----------------------------------------
       check: state.process_deposit(deposit,
-        {skipValidation, skipMerkleValidation})
+        {skipBlsValidation, skipMerkleValidation})
 
       # Check invariants
       # ----------------------------------------
@@ -88,7 +88,7 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
                     state,
                     uint64 validator_index,
                     deposit_amount,
-                    flags = {skipValidation}
+                    flags = {skipBlsValidation}
                   )
 
     # Params for sanity checks
@@ -102,7 +102,7 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
     # State transition
     # ----------------------------------------
     check: state.process_deposit(deposit,
-      {skipValidation, skipMerkleValidation})
+      {skipBlsValidation, skipMerkleValidation})
 
     # Check invariants
     # ----------------------------------------

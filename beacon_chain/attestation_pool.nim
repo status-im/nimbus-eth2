@@ -30,7 +30,7 @@ proc combine*(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
   if not tgt.aggregation_bits.overlaps(src.aggregation_bits):
     tgt.aggregation_bits.combine(src.aggregation_bits)
 
-    if skipValidation notin flags:
+    if skipBlsValidation notin flags:
       tgt.signature.combine(src.signature)
   else:
     trace "Ignoring overlapping attestations"

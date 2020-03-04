@@ -114,7 +114,7 @@ proc mockAttestationImpl(
   for i in 0 ..< beacon_committee.len:
     result.aggregation_bits[i] = true
 
-  if skipValidation notin flags:
+  if skipBlsValidation notin flags:
     signMockAttestation(state, result)
 
 proc mockAttestation*(
@@ -146,6 +146,5 @@ proc add*(state: var BeaconState, attestation: Attestation, slot: Slot) =
   process_slots(state, slot)
   signMockBlock(state, signedBlock)
 
-  # TODO: we can skip just VerifyStateRoot
   doAssert state_transition(
-    state, signedBlock, flags = {skipValidation})
+    state, signedBlock, flags = {skipStateRootValidation})
