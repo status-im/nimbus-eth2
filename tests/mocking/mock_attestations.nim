@@ -60,16 +60,14 @@ proc get_attestation_signature(
       ): ValidatorSig =
 
   let msg = attestation_data.hash_tree_root()
-
-  return bls_sign(
-    key = privkey,
-    msg = msg.data,
-    domain = get_domain(
+  let domain = get_domain(
       state = state,
       domain_type = DOMAIN_BEACON_ATTESTER,
       message_epoch = attestation_data.target.epoch
     )
-  )
+  let signing_root = compute_signing_root(msg, domain)
+
+  return bls_sign(privkey, signing_root.data)
 
 proc signMockAttestation*(state: BeaconState, attestation: var Attestation) =
   var cache = get_empty_per_epoch_cache()
@@ -89,7 +87,7 @@ proc signMockAttestation*(state: BeaconState, attestation: var Attestation) =
       attestation.signature = sig
       first_iter = false
     else:
-      combine(attestation.signature, sig)
+      aggregate(attestation.signature, sig)
 
 proc mockAttestationImpl(
        state: BeaconState,

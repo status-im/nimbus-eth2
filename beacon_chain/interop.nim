@@ -15,24 +15,19 @@ func get_eth1data_stub*(deposit_count: uint64, current_epoch: Epoch): Eth1Data =
     block_hash: hash_tree_root(hash_tree_root(voting_period).data),
   )
 
-when ValidatorPrivKey is BlsValue:
-  func makeInteropPrivKey*(i: int): ValidatorPrivKey =
-    discard
-    {.fatal: "todo/unused?".}
-else:
-  func makeInteropPrivKey*(i: int): ValidatorPrivKey =
-    var bytes: array[32, byte]
-    bytes[0..7] = uint64(i).toBytesLE()
+func makeInteropPrivKey*(i: int): ValidatorPrivKey =
+  var bytes: array[32, byte]
+  bytes[0..7] = uint64(i).toBytesLE()
 
-    let
-      # BLS381-12 curve order - same as milagro but formatted different
-      curveOrder =
-        "52435875175126190479447740508185965837690552500527637822603658699938581184513".parse(UInt256)
+  let
+    # BLS381-12 curve order - same as milagro but formatted different
+    curveOrder =
+      "52435875175126190479447740508185965837690552500527637822603658699938581184513".parse(UInt256)
 
-      privkeyBytes = eth2hash(bytes)
-      key = (UInt256.fromBytesLE(privkeyBytes.data) mod curveOrder).toBytesBE()
+    privkeyBytes = eth2hash(bytes)
+    key = (UInt256.fromBytesLE(privkeyBytes.data) mod curveOrder).toBytesBE()
 
-    ValidatorPrivKey.init(key)
+  result.initFromBytes(key)
 
 const eth1BlockHash* = block:
   var x: Eth2Digest
@@ -56,10 +51,10 @@ func makeDeposit*(
         pubkey: pubkey,
         withdrawal_credentials: makeWithdrawalCredentials(pubkey)))
 
-  if skipBlsValidation notin flags:
-    ret.data.signature =
-      bls_sign(
-        privkey, hash_tree_root(ret.getDepositMessage).data,
-        compute_domain(DOMAIN_DEPOSIT))
+  if skipBLSValidation notin flags:
+    let domain = compute_domain(DOMAIN_DEPOSIT)
+    let signing_root = compute_signing_root(ret.getDepositMessage, domain)
+
+    ret.data.signature = bls_sign(privkey, signing_root.data)
 
   ret

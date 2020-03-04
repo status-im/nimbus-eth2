@@ -12,7 +12,6 @@ import
   math,
   # Third-party
   stew/endians2,
-  blscurve, # defines Domain
   # Internal
   ./datatypes, ./digest, ../ssz
 

@@ -60,11 +60,6 @@ suite "Beacon chain DB" & preset():
   timedTest "find ancestors" & preset():
     var
       db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
-      x: ValidatorSig
-      y = init(ValidatorSig, x.getBytes())
-
-     # Silly serialization check that fails without the right import
-    check: x == y
 
     let
       a0 = SignedBeaconBlock(message: BeaconBlock(slot: GENESIS_SLOT + 0))

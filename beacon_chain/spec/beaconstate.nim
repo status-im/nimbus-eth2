@@ -73,9 +73,11 @@ proc process_deposit*(
 
   if index == -1:
     # Verify the deposit signature (proof of possession)
-    if skipBlsValidation notin flags and not bls_verify(
-        pubkey, hash_tree_root(deposit.getDepositMessage).data,
-        deposit.data.signature, compute_domain(DOMAIN_DEPOSIT)):
+    let domain = compute_domain(DOMAIN_DEPOSIT)
+    let signing_root = compute_signing_root(deposit.getDepositMessage, domain)
+    if skipBLSValidation notin flags and not bls_verify(
+        pubkey, signing_root.data,
+        deposit.data.signature):
       return false
 
     # Add validator and balance entries
@@ -214,7 +216,7 @@ func initialize_beacon_state_from_eth1*(
     latest_block_header:
       BeaconBlockHeader(
         body_root: hash_tree_root(BeaconBlockBody(
-          randao_reveal: BlsValue[Signature](kind: OpaqueBlob)
+          randao_reveal: ValidatorSig(kind: OpaqueBlob)
         ))
       )
   )
@@ -263,7 +265,7 @@ func get_initial_beacon_block*(state: BeaconState): SignedBeaconBlock =
       state_root: hash_tree_root(state),
       body: BeaconBlockBody(
         # TODO: This shouldn't be necessary if OpaqueBlob is the default
-        randao_reveal: BlsValue[Signature](kind: OpaqueBlob))))
+        randao_reveal: ValidatorSig(kind: OpaqueBlob))))
       # parent_root, randao_reveal, eth1_data, signature, and body automatically
       # initialized to default values.
 
@@ -381,13 +383,13 @@ proc is_valid_indexed_attestation*(
     return false
 
   # Verify aggregate signature
-  if skipBlsValidation notin flags and not bls_verify(
-    bls_aggregate_pubkeys(mapIt(indices, state.validators[it.int].pubkey)),
-    hash_tree_root(indexed_attestation.data).data,
-    indexed_attestation.signature,
-    get_domain(
-      state, DOMAIN_BEACON_ATTESTER, indexed_attestation.data.target.epoch)
-  ):
+  let pubkeys = mapIt(indices, state.validators[it.int].pubkey) # TODO: fuse loops with blsFastAggregateVerify
+  let domain = state.get_domain(DOMAIN_BEACON_ATTESTER, indexed_attestation.data.target.epoch)
+  let signing_root = compute_signing_root(indexed_attestation.data, domain)
+  if skipBLSValidation notin flags and
+       not blsFastAggregateVerify(
+             pubkeys, signing_root.data, indexed_attestation.signature
+       ):
     notice "indexed attestation: signature verification failure"
     return false
 

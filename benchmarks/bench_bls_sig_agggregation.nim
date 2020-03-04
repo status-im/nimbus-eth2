@@ -138,18 +138,25 @@ proc main(nb_samples: Natural) =
     for i in 0 ..< proof_of_possessions.len:
       pop_valid = pop_valid and proof_of_possessions[i].verifyPoP(pubkeys[i])
 
-  var agg_pubkey: VerKey
-  bench &"Benchmarking {num_validators} public keys aggregation", agg_pubkey:
-    agg_pubkey = combine(pubkeys)
+  # TODO: update with IETF API (Eth2 v0.10.1)
+  # func fastAggregateVerify*[T: byte|char](
+  #       publicKeys: openarray[PublicKey],
+  #       message: openarray[T],
+  #       signature: Signature   # Aggregated signature
+  #     ): bool
 
-  var agg_sig: Signature
-  bench &"Benchmarking {num_validators} signatures aggregation", agg_sig:
-    agg_sig = combine(signatures)
+  # var agg_pubkey: VerKey
+  # bench &"Benchmarking {num_validators} public keys aggregation", agg_pubkey:
+  #   agg_pubkey = combine(pubkeys)
 
-  var msg_verif: bool
-  bench "Benchmarking message verification", msg_verif:
-    let domain = 0'u64
-    msg_verif = agg_sig.verify(msg.data, domain, agg_pubkey)
+  # var agg_sig: Signature
+  # bench &"Benchmarking {num_validators} signatures aggregation", agg_sig:
+  #   agg_sig = combine(signatures)
+
+  # var msg_verif: bool
+  # bench "Benchmarking message verification", msg_verif:
+  #   let domain = 0'u64
+  #   msg_verif = agg_sig.verify(msg.data, domain, agg_pubkey)
 
   #####################
   #
