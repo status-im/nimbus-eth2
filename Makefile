@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Status Research & Development GmbH. Licensed under
+# Copyright (c) 2019-2020 Status Research & Development GmbH. Licensed under
 # either of:
 # - Apache License, version 2.0
 # - MIT license
@@ -52,7 +52,7 @@ ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included. We can only execute one target in this state.
 all: | build-system-checks
 else
-all: | build-system-checks $(TOOLS)
+all: | build-system-checks $(TOOLS) libnfuzz.so libnfuzz.a
 endif
 
 # must be included after the default target
@@ -141,13 +141,13 @@ ifneq ($(USE_LIBBACKTRACE), 0)
 	+ $(MAKE) -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
 endif
 
-libnfuzz.so: | build deps-common beacon_chain.nims
+libnfuzz.so: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim c -d:release --app:lib --noMain --nimcache:nimcache/libnfuzz -o:build/$@.0 $(NIM_PARAMS) nfuzz/libnfuzz.nim && \
 		rm -f build/$@ && \
 		ln -s $@.0 build/$@
 
-libnfuzz.a: | build deps-common beacon_chain.nims
+libnfuzz.a: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		rm -f build/$@ && \
 		$(ENV_SCRIPT) nim c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static -o:build/$@ $(NIM_PARAMS) nfuzz/libnfuzz.nim && \
