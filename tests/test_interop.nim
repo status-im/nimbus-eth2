@@ -149,6 +149,8 @@ suite "Interop":
       deposits.add(makeDeposit(privKey.pubKey(), privKey))
 
     var
+      # TODO this currently requires skipMerkleValidation to pass the test
+      # makeDeposit doesn't appear to produce a proof?
       initialState = initialize_beacon_state_from_eth1(
         eth1BlockHash, 1570500000, deposits, {skipMerkleValidation})
 

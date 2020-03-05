@@ -71,7 +71,7 @@ func mockDepositData(
         flags: UpdateFlags = {}
       ) =
   mockDepositData(deposit_data, pubkey, amount)
-  if skipValidation notin flags:
+  if skipBlsValidation notin flags:
     signMockDepositData(deposit_data, privkey)
 
 func mockDepositData(
@@ -84,7 +84,7 @@ func mockDepositData(
         flags: UpdateFlags = {}
       ) =
   mockDepositData(deposit_data, pubkey, amount)
-  if skipValidation notin flags:
+  if skipBlsValidation notin flags:
     signMockDepositData(deposit_data, privkey, state)
 
 template mockGenesisDepositsImpl(
@@ -96,7 +96,9 @@ template mockGenesisDepositsImpl(
       ) =
   # Genesis deposits with varying amounts
 
-  if skipValidation in flags:
+  # NOTE: this could also apply for skipMerkleValidation, but prefer to er on the
+  # side of caution and generate a valid Deposit (it can still be skipped later).
+  if skipBlsValidation in flags:
     # 1st loop - build deposit data
     for valIdx in 0 ..< validatorCount.int:
       # Directly build the Deposit in-place for speed

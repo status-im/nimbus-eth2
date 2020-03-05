@@ -149,7 +149,8 @@ func bls_aggregate_signatures*(keys: openArray[ValidatorSig]): ValidatorSig =
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/bls_signature.md#bls_verify
 func bls_verify*(
     pubkey: ValidatorPubKey, msg: openArray[byte], sig: ValidatorSig,
-    domain: Domain): bool =
+    domain: Domain
+    ): bool =
   # name from spec!
   if sig.kind != Real:
     # Invalid signatures are possible in deposits (discussed with Danny)

@@ -10,7 +10,7 @@
 #
 # The purpose of this code right is primarily educational, to help piece
 # together the mechanics of the beacon state and to discover potential problem
-# areas. The entry point is `updateState` which is at the bottom of the file!
+# areas. The entry point is `state_transition` which is at the bottom of the file!
 #
 # General notes about the code (TODO):
 # * It's inefficient - we quadratically copy, allocate and iterate when there
@@ -161,10 +161,7 @@ proc state_transition*(
     # This is a bit awkward - at the end of processing we verify that the
     # state we arrive at is what the block producer thought it would be -
     # meaning that potentially, it could fail verification
-    if skipValidation in flags or verifyStateRoot(state, signedBlock.message):
-      # TODO: allow skipping just verifyStateRoot for mocking
-      #       instead of both processBlock and verifyStateRoot
-      #       https://github.com/status-im/nim-beacon-chain/issues/407
+    if skipStateRootValidation in flags or verifyStateRoot(state, signedBlock.message):
       # State root is what it should be - we're done!
       return true
 
@@ -228,7 +225,7 @@ proc state_transition*(
   var per_epoch_cache = get_empty_per_epoch_cache()
 
   if processBlock(state.data, signedBlock.message, flags, per_epoch_cache):
-    if skipValidation in flags or verifyStateRoot(state.data, signedBlock.message):
+    if skipStateRootValidation in flags or verifyStateRoot(state.data, signedBlock.message):
       # State root is what it should be - we're done!
 
       # TODO when creating a new block, state_root is not yet set.. comparing

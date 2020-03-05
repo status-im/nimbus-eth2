@@ -73,7 +73,7 @@ proc process_deposit*(
 
   if index == -1:
     # Verify the deposit signature (proof of possession)
-    if skipValidation notin flags and not bls_verify(
+    if skipBlsValidation notin flags and not bls_verify(
         pubkey, hash_tree_root(deposit.getDepositMessage).data,
         deposit.data.signature, compute_domain(DOMAIN_DEPOSIT)):
       return false
@@ -381,7 +381,7 @@ proc is_valid_indexed_attestation*(
     return false
 
   # Verify aggregate signature
-  if skipValidation notin flags and not bls_verify(
+  if skipBlsValidation notin flags and not bls_verify(
     bls_aggregate_pubkeys(mapIt(indices, state.validators[it.int].pubkey)),
     hash_tree_root(indexed_attestation.data).data,
     indexed_attestation.signature,

@@ -149,7 +149,7 @@ proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, ski
     echo "Processing: ", blockPath
 
     let signedBlock = parseSSZ(blockPath, SignedBeaconBlock)
-    let flags = if skipBLS: {skipValidation} # TODO: this also skips state root verification
+    let flags = if skipBLS: {skipBlsValidation}
                 else: {}
     let success = state_transition(state[], signedBlock.message, flags)
     echo "State transition status: ", if success: "SUCCESS ✓" else: "FAILURE ⚠️"
@@ -207,7 +207,7 @@ template processBlockScenarioImpl(
   when needCache:
     var cache = get_empty_per_epoch_cache()
   when needFlags:
-    let flags = if skipBLS: {skipValidation} # TODO: this also skips state root verification
+    let flags = if skipBLS: {skipBlsValidation}
                 else: {}
 
   let consObjPath = dir/paramName & ".ssz"
