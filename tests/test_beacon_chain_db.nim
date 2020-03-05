@@ -103,8 +103,6 @@ suite "Beacon chain DB" & preset():
       db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
 
     let
-      # TODO(gnattishness) what validation skipping do we want here?
-      # likely need to skip in initialize_beacon_state_from_eth1
       state = initialize_beacon_state_from_eth1(
         eth1BlockHash, 0, makeInitialDeposits(SLOTS_PER_EPOCH), {skipBlsValidation})
       root = hash_tree_root(state)
