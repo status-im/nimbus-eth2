@@ -9,8 +9,8 @@
 # See https://github.com/ethereum/eth2.0-specs/blob/master/specs/simple-serialize.md
 
 import
-  endians, stew/shims/macros, options, algorithm, options,
-  stew/[bitops2, bitseqs, objects, varints, ptrops, ranges/ptr_arith], stint,
+  stew/shims/macros, options, algorithm, options,
+  stew/[bitops2, bitseqs, endians2, objects, varints, ptrops, ranges/ptr_arith], stint,
   faststreams/input_stream, serialization, serialization/testing/tracing,
   nimcrypto/sha2, blscurve,
   ./spec/[crypto, datatypes, digest],
@@ -117,20 +117,9 @@ func writeFixedSized(c: var WriteCursor, x: auto) =
   elif x is bool|char:
     c.append byte(ord(x))
   elif x is SomeUnsignedInt:
-    when system.cpuEndian == bigEndian:
-      ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
-      ## All integers are serialized as **little endian**.
-      var bytes: array[sizeof(x), byte]
-      when x.sizeof == 8: littleEndian64(addr bytes[0], x.unsafeAddr)
-      elif x.sizeof == 4: littleEndian32(addr bytes[0], x.unsafeAddr)
-      elif x.sizeof == 2: littleEndian16(addr bytes[0], x.unsafeAddr)
-      elif x.sizeof == 1: copyMem(addr bytes[0], x.unsafeAddr, sizeof(x))
-      else: unsupported x.type
-      c.append bytes
-    else:
-      let valueAddr {.used.} = unsafeAddr x
-      trs "APPENDING INT ", x, " = ", makeOpenArray(cast[ptr byte](valueAddr), sizeof(x))
-      c.appendMemCopy x
+    let value = x.toBytesLE()
+    trs "APPENDING INT ", x, " = ", value
+    c.appendMemCopy value
   elif x is StUint:
     c.appendMemCopy x # TODO: Is this always correct?
   elif x is array|string|seq|openarray:
@@ -426,8 +415,7 @@ func newSszHashingStream(merkelizer: SszChunksMerkelizer): ref OutputStream =
 
 func mixInLength(root: Eth2Digest, length: int): Eth2Digest =
   var dataLen: array[32, byte]
-  var lstLen = uint64(length)
-  littleEndian64(addr dataLen[0], addr lstLen)
+  dataLen[0..<8] = uint64(length).toBytesLE()
   hash(root.data, dataLen)
 
 func merkelizeSerializedChunks(merkelizer: SszChunksMerkelizer,
@@ -516,11 +504,7 @@ func bitlistHashTreeRoot(merkelizer: SszChunksMerkelizer, x: BitSeq): Eth2Digest
 func hashTreeRootImpl[T](x: T): Eth2Digest =
   when T is uint64:
     trs "UINT64; LITTLE-ENDIAN IDENTITY MAPPING"
-    when system.cpuEndian == bigEndian:
-      littleEndian64(addr result.data[0], x.unsafeAddr)
-    else:
-      let valueAddr = unsafeAddr x
-      result.data[0..7] = makeOpenArray(cast[ptr byte](valueAddr), 8)
+    result.data[0..<8] = x.toBytesLE()
   elif (when T is array: ElemType(T) is byte and
       sizeof(T) == sizeof(Eth2Digest) else: false):
     # TODO is this sizeof comparison guranteed? it's whole structure vs field
