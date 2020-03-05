@@ -9,8 +9,9 @@
 
 import
   # Standard lib
-  math, endians,
+  math,
   # Third-party
+  stew/endians2,
   blscurve, # defines Domain
   # Internal
   ./datatypes, ./digest, ../ssz
@@ -91,12 +92,12 @@ func bytes_to_int*(data: openarray[byte]): uint64 =
 func int_to_bytes32*(x: uint64): array[32, byte] =
   ## Little-endian data representation
   ## TODO remove uint64 when those callers fade away
-  littleEndian64(result[0].addr, x.unsafeAddr)
+  result[0..<7] = x.toBytesLE()
 
 func int_to_bytes32*(x: Epoch): array[32, byte] {.borrow.}
 
 func int_to_bytes8*(x: uint64): array[8, byte] =
-  littleEndian64(result[0].addr, x.unsafeAddr)
+  x.toBytesLE()
 
 func int_to_bytes1*(x: int): array[1, byte] =
   doAssert x >= 0
