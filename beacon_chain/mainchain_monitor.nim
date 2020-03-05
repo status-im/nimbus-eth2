@@ -83,9 +83,8 @@ proc processDeposits(m: MainchainMonitor, web3: Web3) {.async.} =
       var h: Eth2Digest
       h.data = array[32, byte](blkHash)
       let startTime = blk.timestamp.uint64
-      # TODO(gnattishness) why is this flag here? should it just be Bls or also Merkle?
       var s = initialize_beacon_state_from_eth1(
-        h, startTime, m.pendingDeposits, {skipBlsValidation})
+        h, startTime, m.pendingDeposits, {})
 
       if is_valid_genesis_state(s):
         # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
