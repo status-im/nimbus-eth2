@@ -11,10 +11,6 @@
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/p2p-interface.md#topics-and-messages
 # specifies. So by the time this calls attestation pool, all validation's
 # already done.
-#
-# Finally, some of the filtering's libp2p stuff. Consistency checks between
-# topic/message types and GOSSIP_MAX_SIZE -- mostly doesn't belong here, so
-# while TODO, isn't TODO for this module.
 
 import
   options,
