@@ -121,7 +121,7 @@ clean_eth2_network_simulation_files:
 	rm -rf tests/simulation/{data,validators}
 
 eth2_network_simulation: | build deps p2pd clean_eth2_network_simulation_files process_dashboard
-	+ GIT_ROOT="$$PWD" NIMFLAGS="$(NIMFLAGS)" tests/simulation/start.sh
+	+ GIT_ROOT="$$PWD" NIMFLAGS="$(NIMFLAGS)" LOG_LEVEL="$(LOG_LEVEL)" tests/simulation/start.sh
 
 clean-testnet0:
 	rm -rf build/data/testnet0

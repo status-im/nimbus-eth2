@@ -120,6 +120,11 @@ fi
   --in="${SIM_ROOT}/beacon-chain-sim-node0-Grafana-dashboard.json" \
   --out="${SIM_ROOT}/beacon-chain-sim-all-nodes-Grafana-dashboard.json"
 
+# propagate the log level
+if [[ -n "${LOG_LEVEL}" ]]; then
+	export LOG_LEVEL="${LOG_LEVEL}"
+fi
+
 # Kill child processes on Ctrl-C by sending SIGTERM to the whole process group,
 # passing the negative PID of this shell instance to the "kill" command.
 # Trap and ignore SIGTERM, so we don't kill this process along with its children.
