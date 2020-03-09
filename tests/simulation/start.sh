@@ -12,7 +12,7 @@ mkdir -p "$VALIDATORS_DIR"
 
 cd "$GIT_ROOT"
 
-CUSTOM_NIMFLAGS="${NIMFLAGS} -d:chronicles_log_level=TRACE -d:chronicles_sinks:textlines,json[file]"
+CUSTOM_NIMFLAGS="${NIMFLAGS} -d:chronicles_sinks:textlines,json[file]"
 
 # Run with "SLOTS_PER_EPOCH=8 ./start.sh" to change these
 DEFS=""
@@ -36,7 +36,7 @@ build_beacon_node () {
   OUTPUT_BIN=$1; shift
   PARAMS="$CUSTOM_NIMFLAGS $DEFS $@"
   echo "Building $OUTPUT_BIN ($PARAMS)"
-  $MAKE NIMFLAGS="-o:$OUTPUT_BIN $PARAMS" beacon_node
+  $MAKE NIMFLAGS="-o:$OUTPUT_BIN $PARAMS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" beacon_node
 }
 
 build_beacon_node $BEACON_NODE_BIN -d:"NETWORK_TYPE=$NETWORK_TYPE"
@@ -119,11 +119,6 @@ fi
   --nodes=${TOTAL_NODES} \
   --in="${SIM_ROOT}/beacon-chain-sim-node0-Grafana-dashboard.json" \
   --out="${SIM_ROOT}/beacon-chain-sim-all-nodes-Grafana-dashboard.json"
-
-# propagate the log level
-if [[ -n "${LOG_LEVEL}" ]]; then
-	export LOG_LEVEL="${LOG_LEVEL}"
-fi
 
 # Kill child processes on Ctrl-C by sending SIGTERM to the whole process group,
 # passing the negative PID of this shell instance to the "kill" command.
