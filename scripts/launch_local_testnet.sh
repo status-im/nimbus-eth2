@@ -24,13 +24,14 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
 fi
 
 OPTS="ht:n:d:"
-LONGOPTS="help,testnet:,nodes:,data-dir:,disable-htop"
+LONGOPTS="help,testnet:,nodes:,data-dir:,disable-htop,log-level:"
 
 # default values
 TESTNET="1"
 NUM_NODES="10"
 DATA_DIR="local_testnet_data"
 USE_HTOP="1"
+LOG_LEVEL="DEBUG"
 
 print_help() {
 	cat <<EOF
@@ -44,6 +45,7 @@ CI run: $(basename $0) --disable-htop -- --verify-finalization --stop-at-epoch=5
   -d, --data-dir	directory where all the node data and logs will end up
 			(default: "${DATA_DIR}")
       --disable-htop	don't use "htop" to see the beacon_node processes
+      --log-level	set the log level (default: ${LOG_LEVEL})
 EOF
 }
 
@@ -76,6 +78,10 @@ while true; do
 		--disable-htop)
 			USE_HTOP="0"
 			shift
+			;;
+		--log-level)
+			LOG_LEVEL="$2"
+			shift 2
 			;;
 		--)
 			shift
@@ -113,7 +119,7 @@ else
 fi
 
 NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh ${NETWORK})
-$MAKE LOG_LEVEL=DEBUG NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node
+$MAKE LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node
 
 rm -rf "${DEPOSITS_DIR}"
 ./build/beacon_node makeDeposits \
@@ -172,7 +178,7 @@ for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 
 	stdbuf -o0 build/beacon_node \
 		--nat=none \
-		--log-level=TRACE \
+		--log-level="${LOG_LEVEL}" \
 		--tcp-port=$(( ${BOOTSTRAP_PORT} + ${NUM_NODE} )) \
 		--udp-port=$(( ${BOOTSTRAP_PORT} + ${NUM_NODE} )) \
 		--data-dir="${NODE_DATA_DIR}" \

@@ -54,6 +54,7 @@ fi
 
 # if you want tracing messages, add "--log-level=TRACE" below
 cd "$DATA_DIR" && $NODE_BIN \
+  --log-level=${LOG_LEVEL:-DEBUG} \
   --bootstrap-file=$BOOTSTRAP_ADDRESS_FILE \
   --data-dir=$DATA_DIR \
   --node-name=$NODE_ID \
