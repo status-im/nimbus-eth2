@@ -254,8 +254,9 @@ when networkBackend in [libp2p, libp2pDaemon]:
                            msgHandler: proc(msg: MsgType) {.gcsafe.} ) {.async, gcsafe.} =
     template execMsgHandler(peerExpr, gossipBytes, gossipTopic) =
       inc gossip_messages_received
-      trace "Incoming gossip bytes",
-        peer = peerExpr, len = gossipBytes.len, topic = gossipTopic
+      trace "Incoming pubsub message received",
+        peer = peerExpr, len = gossipBytes.len, topic = gossipTopic,
+        message_id = `$`(sha256.digest(gossipBytes))
       msgHandler SSZ.decode(gossipBytes, MsgType)
 
     when networkBackend == libp2p:
@@ -274,13 +275,23 @@ when networkBackend in [libp2p, libp2pDaemon]:
 
       discard await node.daemon.pubsubSubscribe(topic, incomingMsgHandler)
 
+  proc traceMessage(fut: FutureBase, digest: MDigest[256]) =
+    fut.addCallback do (arg: pointer):
+      if not(fut.failed):
+        trace "Outgoing pubsub message has been sent", message_id = `$`(digest)
+
   proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
     inc gossip_messages_sent
     let broadcastBytes = SSZ.encode(msg)
+
     when networkBackend == libp2p:
-      traceAsyncErrors node.switch.publish(topic, broadcastBytes)
+      var fut = node.switch.publish(topic, broadcastBytes)
+      traceMessage(fut, sha256.digest(broadcastBytes))
+      traceAsyncErrors(fut)
     else:
-      traceAsyncErrors node.daemon.pubsubPublish(topic, broadcastBytes)
+      var fut = node.daemon.pubsubPublish(topic, broadcastBytes)
+      traceMessage(fut, sha256.digest(broadcastBytes))
+      traceAsyncErrors(fut)
 
   # TODO:
   # At the moment, this is just a compatiblity shim for the existing RLPx functionality.
