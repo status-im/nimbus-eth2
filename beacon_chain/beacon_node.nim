@@ -603,17 +603,19 @@ proc verifyFinalization(node: BeaconNode, slot: Slot) =
       node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()
     doAssert finalizedEpoch + 2 == epoch
 
-proc broadcastAggregatedAttestations(node: BeaconNode, state: auto, head: var auto, slot: Slot) =
-  # The exact head isn't that important, since here, it's transitively used
-  # by getAttestionsForBlock(...) which uses it to validate. Any state from
-  # the current/future of relevant attestations is fine. The index is via a
+proc broadcastAggregatedAttestations(
+    node: BeaconNode, state: auto, head: var auto, slot: Slot,
+    trailing_distance: uint64) =
+  # The index is via a
   # locally attested validator. Unlike in handleAttestations(...) there's a
   # single one at most per slot (because that's how aggregation attestation
   # works), so the machinery that has to handle looping across, basically a
   # set of locally attached validators is in principle not necessary, but a
   # way to organize this. Then the private key for that validator should be
   # the corresponding one -- whatver they are, they match.
-  let bs = BlockSlot(blck: head, slot: head.slot)
+
+  let bs = BlockSlot(blck: head, slot: slot)
+
   let committees_per_slot = get_committee_count_at_slot(state, head.slot)
   var cache = get_empty_per_epoch_cache()
   for committee_index in 0'u64..<committees_per_slot:
@@ -629,11 +631,13 @@ proc broadcastAggregatedAttestations(node: BeaconNode, state: auto, head: var au
         # one isSome() with test.
         let option_aggregateandproof =
           aggregate_attestations(node.attestationPool, state,
-            index_in_committee.uint64,
+            committee_index,
             # TODO https://github.com/status-im/nim-beacon-chain/issues/545
             # this assumes in-process private keys
-            validator.privKey)
+            validator.privKey,
+            trailing_distance)
 
+        # Don't broadcast when, e.g., this node isn't an aggregator
         if option_aggregateandproof.isSome:
           let aggregate_and_proof = option_aggregateandproof.get
           node.network.broadcast(
@@ -735,7 +739,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
 
   var head = node.updateHead()
 
-  # TODO is the slot of the clock or the head block more interestion? provide
+  # TODO is the slot of the clock or the head block more interesting? provide
   #      rationale in comment
   beacon_head_slot.set slot.int64
 
@@ -830,15 +834,18 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   # If the validator is selected to aggregate (is_aggregator), then they
   # broadcast their best aggregate to the global aggregate channel
   # (beacon_aggregate_and_proof) two-thirds of the way through the slot
-  # TODO available resultion seems to be integral seconds
-  let bs = BlockSlot(blck: head, slot: head.slot)
-  node.blockPool.withState(node.blockPool.tmpState, bs):
-    let
-      committees_per_slot = get_committee_count_at_slot(state, head.slot)
-      twoThirdsSlot =
+  if slot > 2:
+    const TRAILING_DISTANCE = 1
+    let aggregationSlot = slot - TRAILING_DISTANCE
+    var aggregationHead = get_ancestor(head, aggregationSlot)
+
+    let bs = BlockSlot(blck: aggregationHead, slot: aggregationSlot)
+    node.blockPool.withState(node.blockPool.tmpState, bs):
+      let twoThirdsSlot =
         toBeaconTime(slot, seconds(2*int64(SECONDS_PER_SLOT)) div 3)
-    addTimer(saturate(node.beaconClock.fromNow(twoThirdsSlot))) do (p: pointer):
-      broadcastAggregatedAttestations(node, state, head, slot)
+      addTimer(saturate(node.beaconClock.fromNow(twoThirdsSlot))) do (p: pointer):
+        broadcastAggregatedAttestations(
+          node, state, aggregationHead, aggregationSlot, TRAILING_DISTANCE)
 
   # TODO ... and beacon clock might jump here also. sigh.
   let

@@ -18,7 +18,6 @@ import
     state_transition_block],
   ./attestation_pool, ./beacon_node_types, ./ssz
 
-# TODO gossipsub validation lives somewhere, maybe here
 # TODO add tests, especially for validation
 # https://github.com/status-im/nim-beacon-chain/issues/122#issuecomment-562479965
 
@@ -35,35 +34,43 @@ func is_aggregator(state: BeaconState, slot: Slot, index: uint64,
 
 proc aggregate_attestations*(
     pool: AttestationPool, state: BeaconState, index: uint64,
-    privkey: ValidatorPrivKey): Option[AggregateAndProof] =
+    privkey: ValidatorPrivKey, trailing_distance: uint64): Option[AggregateAndProof] =
   # TODO alias CommitteeIndex to actual type then convert various uint64's here
 
-  if state.slot < 3:
-    return none(AggregateAndProof)
+  doAssert state.slot >= trailing_distance
 
-  # TODO handle epoch boundary condition better; this is ugly kludge
-  # makeAttestationData() checks slot's epoch is state.slot's epoch currently
-  if state.slot mod SLOTS_PER_EPOCH == 0:
-    return none(AggregateAndProof)
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/p2p-interface.md#configuration
+  doAssert trailing_distance <= ATTESTATION_PROPAGATION_SLOT_RANGE
 
   let
-    slot = state.slot - 1
+    slot = state.slot - trailing_distance
     slot_signature = get_slot_signature(state.fork, slot, privkey)
 
   doAssert slot + ATTESTATION_PROPAGATION_SLOT_RANGE >= state.slot
   doAssert state.slot >= slot
 
+  # TODO performance issue for future, via get_active_validator_indices(...)
+  doAssert index < get_committee_count_at_slot(state, slot)
+
+  # TODO for testing purposes, refactor this into the condition check
+  # and just calculation
   # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#aggregation-selection
   if not is_aggregator(state, slot, index, slot_signature):
     return none(AggregateAndProof)
 
-  let attestation_data =
-    makeAttestationData(state, slot, index, get_block_root_at_slot(state, slot))
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#attestation-data
+  # describes how to construct an attestation, which applies for makeAttestationData(...)
+  # TODO this won't actually match anything
+  let attestation_data = AttestationData(
+    slot: slot,
+    index: index,
+    beacon_block_root: get_block_root_at_slot(state, slot))
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#construct-aggregate
   # TODO once EV goes in w/ refactoring of getAttestationsForBlock, pull out the getSlot version and use
   # it. This is incorrect.
   for attestation in getAttestationsForBlock(pool, state):
+    # getAttestationsForBlock(...) already aggregates
     if attestation.data == attestation_data:
       # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#aggregateandproof
       return some(AggregateAndProof(
