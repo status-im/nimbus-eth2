@@ -67,27 +67,6 @@ func isAncestorOf*(a, b: BlockRef): bool =
     doAssert b.slot > b.parent.slot
     b = b.parent
 
-func getAncestorAt*(blck: BlockRef, slot: Slot): BlockRef =
-  ## Return the most recent block as of the time at `slot` that not more recent
-  ## than `blck` itself
-
-  var blck = blck
-
-  var depth = 0
-  const maxDepth = (100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int)
-
-  while true:
-    if blck.slot <= slot:
-      return blck
-
-    if blck.parent.isNil:
-      return nil
-
-    doAssert depth < maxDepth
-    depth += 1
-
-    blck = blck.parent
-
 func get_ancestor*(blck: BlockRef, slot: Slot): BlockRef =
   ## https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/fork-choice.md#get_ancestor
   ## Return ancestor at slot, or nil if queried block is older
@@ -110,6 +89,29 @@ func get_ancestor*(blck: BlockRef, slot: Slot): BlockRef =
     depth += 1
 
     blck = blck.parent
+
+func getAncestorAt*(blck: BlockRef, slot: Slot): BlockRef =
+  ## Return the most recent block as of the time at `slot` that not more recent
+  ## than `blck` itself
+
+  var blck = blck
+
+  var depth = 0
+  const maxDepth = (100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int)
+
+  while true:
+    if blck.slot <= slot:
+      return blck
+
+    if blck.parent.isNil:
+      return nil
+
+    doAssert depth < maxDepth
+    depth += 1
+
+    blck = blck.parent
+
+  doAssert result == get_ancestor(blck, slot)
 
 func atSlot*(blck: BlockRef, slot: Slot): BlockSlot =
   ## Return a BlockSlot at a given slot, with the block set to the closest block
