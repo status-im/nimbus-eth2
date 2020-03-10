@@ -151,7 +151,7 @@ func compute_signing_root*(ssz_object: auto, domain: Domain): Eth2Digest =
   # object-domain tree.
   let domain_wrapped_object = SigningRoot(
     object_root: hash_tree_root(ssz_object),
-    domain: bytes_to_int(domain)
+    domain: domain
   )
   hash_tree_root(domain_wrapped_object)
 
