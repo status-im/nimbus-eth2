@@ -16,7 +16,7 @@ import
   ../beacon_chain/[beacon_node_types, attestation_pool, block_pool, extras, state_transition, ssz]
 
 when const_preset == "minimal": # Too much stack space used on mainnet
-  suite "Attestation pool processing" & preset():
+  suiteReport "Attestation pool processing" & preset():
     ## For now just test that we can compile and execute block processing with
     ## mock data.
 

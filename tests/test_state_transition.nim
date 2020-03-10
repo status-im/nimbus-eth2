@@ -13,7 +13,7 @@ import
   ../beacon_chain/spec/[beaconstate, datatypes, digest, validator],
   ../beacon_chain/[extras, state_transition, ssz]
 
-suite "Block processing" & preset():
+suiteReport "Block processing" & preset():
   ## For now just test that we can compile and execute block processing with
   ## mock data.
 

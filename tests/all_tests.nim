@@ -46,4 +46,4 @@ import # Refactor state transition unit tests
 #   ./official/test_fixture_shuffling,
 #   ./official/test_fixture_bls
 
-summarizeLongTests()
+summarizeLongTests("AllTests")

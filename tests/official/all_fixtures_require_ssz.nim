@@ -22,4 +22,4 @@ import
   ./test_fixture_operations_proposer_slashings,
   ./test_fixture_operations_voluntary_exit
 
-summarizeLongTests()
+summarizeLongTests("FixtureAll")

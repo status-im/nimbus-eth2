@@ -13,7 +13,7 @@ import  options, unittest, sequtils,
   # test utilies
   ./testutil, ./testblockutil
 
-suite "Beacon chain DB" & preset():
+suiteReport "Beacon chain DB" & preset():
   timedTest "empty database" & preset():
     var
       db = init(BeaconChainDB, kvStore MemoryStoreRef.init())

@@ -63,6 +63,6 @@ proc runTest(identifier: string) =
 
   `testImpl _ voluntary_exit _ identifier`()
 
-suite "Official - Operations - Voluntary exit " & preset():
+suiteReport "Official - Operations - Voluntary exit " & preset():
   for kind, path in walkDir(OpVoluntaryExitDir, true):
     runTest(path)

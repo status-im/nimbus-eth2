@@ -20,7 +20,7 @@ import
   ../mocking/[mock_genesis, mock_attestations, mock_state, mock_blocks],
   ../testutil
 
-suite "[Unit - Spec - Block processing] Attestations " & preset():
+suiteReport "[Unit - Spec - Block processing] Attestations " & preset():
 
   const NumValidators = uint64(8) * SLOTS_PER_EPOCH
   let genesisState = initGenesisState(NumValidators)

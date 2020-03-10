@@ -17,7 +17,7 @@ import
 # and https://github.com/ethereum/eth2.0-specs/issues/1396
 # don't blow up.
 
-suite "Zero signature sanity checks":
+suiteReport "Zero signature sanity checks":
   # Using signature directly triggers a bug
   # in object_serialization/stew: https://github.com/status-im/nim-beacon-chain/issues/396
 

@@ -885,7 +885,7 @@ proc syncManagerFailureTest(): Future[bool] {.async.} =
     doAssert(checkRequest(peer, i, 10000, 20, 1) == true)
   result = true
 
-suite "SyncManager test suite":
+suiteReport "SyncManager test suite":
   timedTest "PeerSlot tests":
     check waitFor(peerSlotTests()) == true
   timedTest "PeerGroup tests":

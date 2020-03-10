@@ -49,7 +49,7 @@ proc readValue*(r: var JsonReader, a: var Domain) {.inline.} =
 # TODO: json tests were removed
 const BLSDir = JsonTestsDir/"general"/"phase0"/"bls"
 
-suite "Official - BLS tests":
+suiteReport "Official - BLS tests":
   timedTest "Private to public key conversion":
     for file in walkDirRec(BLSDir/"priv_to_pub"):
       let t = parseTest(file, Json, BLSPrivToPub)
