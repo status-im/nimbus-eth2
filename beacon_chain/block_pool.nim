@@ -373,7 +373,6 @@ proc add*(
     # TODO if the block is from the future, we should not be resolving it (yet),
     #      but maybe we should use it as a hint that our clock is wrong?
     updateStateData(pool, pool.tmpState, BlockSlot(blck: parent, slot: blck.slot - 1))
-
     if not state_transition(pool.tmpState.data, signedBlock, {}):
       # TODO find a better way to log all this block data
       notice "Invalid block",
@@ -382,7 +381,6 @@ proc add*(
         cat = "filtering"
 
       return
-
     # Careful, tmpState.data has been updated but not blck - we need to create
     # the BlockRef first!
     pool.tmpState.blck = pool.addResolvedBlock(
