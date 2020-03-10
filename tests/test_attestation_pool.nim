@@ -18,7 +18,7 @@ import
   ../beacon_chain/ssz
 
 when const_preset == "minimal": # Too much stack space used on mainnet
-  suite "Attestation pool processing" & preset():
+  suiteReport "Attestation pool processing" & preset():
     ## For now just test that we can compile and execute block processing with
     ## mock data.
 

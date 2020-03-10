@@ -119,7 +119,7 @@ let depositsConfig = [
   )
 ]
 
-suite "Interop":
+suiteReport "Interop":
   timedTest "Mocked start private key":
     for i, k in privateKeys:
       let

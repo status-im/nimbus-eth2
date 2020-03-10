@@ -12,7 +12,7 @@ import unittest, ./testutil
 when false:
   import ../beacon_chain/beacon_node
 
-suite "Beacon node":
+suiteReport "Beacon node":
   # Compile test
 
   timedTest "Compile":

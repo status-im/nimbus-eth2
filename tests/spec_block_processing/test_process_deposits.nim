@@ -23,7 +23,7 @@ import
   ../mocking/[mock_deposits, mock_genesis],
   ../testutil, ../helpers/math_helpers
 
-suite "[Unit - Spec - Block processing] Deposits " & preset():
+suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
 
   const NumValidators = uint64 5 * SLOTS_PER_EPOCH
   let genesisState = initGenesisState(NumValidators)

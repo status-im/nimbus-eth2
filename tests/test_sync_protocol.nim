@@ -12,7 +12,7 @@ import unittest, ./testutil
 when false:
   import ../beacon_chain/sync_protocol
 
-suite "Sync protocol":
+suiteReport "Sync protocol":
   # Compile test
 
   timedTest "Compile":

@@ -13,7 +13,7 @@ import
   ../beacon_chain/spec/[beaconstate, datatypes, digest],
   ../beacon_chain/extras
 
-suite "Beacon state" & preset():
+suiteReport "Beacon state" & preset():
   timedTest "Smoke test initialize_beacon_state_from_eth1" & preset():
     let state = initialize_beacon_state_from_eth1(
       Eth2Digest(), 0,

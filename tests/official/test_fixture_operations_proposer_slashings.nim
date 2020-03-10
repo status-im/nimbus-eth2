@@ -65,6 +65,6 @@ proc runTest(identifier: string) =
 
   `testImpl_proposer_slashing _ identifier`()
 
-suite "Official - Operations - Proposer slashing " & preset():
+suiteReport "Official - Operations - Proposer slashing " & preset():
   for kind, path in walkDir(OpProposerSlashingDir, true):
     runTest(path)

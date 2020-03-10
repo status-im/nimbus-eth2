@@ -11,7 +11,7 @@ import
   unittest, ./testutil,
   ../beacon_chain/spec/[helpers]
 
-suite "Spec helpers":
+suiteReport "Spec helpers":
   timedTest "integer_squareroot":
     check:
       integer_squareroot(0'u64) == 0'u64

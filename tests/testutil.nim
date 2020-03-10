@@ -6,8 +6,8 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  algorithm, strformat, stats, times, std/monotimes, stew/endians2,
-  chronicles,
+  algorithm, strformat, stats, times, tables, std/monotimes, stew/endians2,
+  testutils/markdown_reports, chronicles,
   ../beacon_chain/[beacon_chain_db, block_pool, extras, ssz, kvstore, beacon_node_types],
   ../beacon_chain/spec/[digest, beaconstate, datatypes],
   testblockutil
@@ -47,8 +47,10 @@ template withTimerRet*(stats: var RunningStat, body: untyped): untyped =
   tmp
 
 var testTimes: seq[TestDuration]
+var status = initOrderedTable[string, OrderedTable[string, Status]]()
+var last: string
 
-proc summarizeLongTests*() =
+proc summarizeLongTests*(name: string) =
   # TODO clean-up and make machine-readable/storable the output
   # TODO this is too hard-coded and mostly a demo for using the
   # timedTest wrapper template for unittest
@@ -62,11 +64,29 @@ proc summarizeLongTests*() =
     if i >= 10:
       break
 
+  status.sort do (a: (string, OrderedTable[string, Status]),
+                  b: (string, OrderedTable[string, Status])) -> int: cmp(a[0], b[0])
+
+  generateReport(name & "-" & const_preset, status, width=90)
+
+template suiteReport*(name, body) =
+  last = name
+  status[last] = initOrderedTable[string, Status]()
+  suite name:
+    body
+
 template timedTest*(name, body) =
   var f: float
   test name:
+    status[last][name] = Status.Fail
+
     withTimer f:
       body
+
+    status[last][name] = case testStatusIMPL
+                         of OK: Status.OK
+                         of FAILED: Status.Fail
+                         of SKIPPED: Status.Skip
 
   # TODO reached for a failed test; maybe defer or similar
   # TODO noto thread-safe as-is

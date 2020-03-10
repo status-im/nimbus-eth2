@@ -36,7 +36,7 @@ proc init*(t: typedesc[PeerTest], id: string = "",
 proc close*(peer: PeerTest) =
   peer.future.complete()
 
-suite "PeerPool testing suite":
+suiteReport "PeerPool testing suite":
   timedTest "addPeerNoWait() test":
     const peersCount = [
       [10, 5, 5, 10, 5, 5],

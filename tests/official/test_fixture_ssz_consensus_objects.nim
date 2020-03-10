@@ -103,5 +103,7 @@ proc runSSZtests() =
           else:
             raise newException(ValueError, "Unsupported test: " & sszType)
 
-suite "Official - 0.10.1 - SSZ consensus objects " & preset():
+suiteReport "Official - 0.10.1 - SSZ consensus objects " & preset():
   runSSZtests()
+
+summarizeLongTests("FixtureSSZConsensus")

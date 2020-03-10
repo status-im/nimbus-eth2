@@ -62,7 +62,7 @@ proc runTest(identifier: string) =
 
   `testImpl _ blck _ identifier`()
 
-suite "Official - Sanity - Blocks " & preset():
+suiteReport "Official - Sanity - Blocks " & preset():
   # Failing due to signature checking in indexed validation checking pending
   # 0.10 BLS verification API with new domain handling.
   const expected_failures =

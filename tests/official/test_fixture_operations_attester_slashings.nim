@@ -67,7 +67,7 @@ proc runTest(identifier: string) =
 
   `testImpl _ operations_attester_slashing _ identifier`()
 
-suite "Official - Operations - Attester slashing " & preset():
+suiteReport "Official - Operations - Attester slashing " & preset():
   # TODO these are both valid and check BLS signatures, which isn't working
   # since 0.10.x introduces new BLS signing/verifying interface with domain
   # in particular handled differently through compute_signing_root() rather

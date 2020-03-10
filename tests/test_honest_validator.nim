@@ -4,7 +4,7 @@ import
   unittest, stint, ./testutil,
   ../beacon_chain/spec/network
 
-suite "Honest validator":
+suiteReport "Honest validator":
   timedTest "Attestation topics":
     check:
       getAttestationTopic(0) == "/eth2/index0_beacon_attestation/ssz"

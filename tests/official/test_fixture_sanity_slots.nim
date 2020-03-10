@@ -44,6 +44,6 @@ proc runTest(identifier: string) =
 
   `testImpl _ slots _ identifier`()
 
-suite "Official - Sanity - Slots " & preset():
+suiteReport "Official - Sanity - Slots " & preset():
   for kind, path in walkDir(SanitySlotsDir, true):
     runTest(path)

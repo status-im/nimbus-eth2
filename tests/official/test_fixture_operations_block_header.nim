@@ -62,6 +62,6 @@ proc runTest(identifier: string) =
 
   `testImpl _ blockheader _ identifier`()
 
-suite "Official - Operations - Block header " & preset():
+suiteReport "Official - Operations - Block header " & preset():
   for kind, path in walkDir(OpBlockHeaderDir, true):
     runTest(path)
