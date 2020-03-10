@@ -601,6 +601,12 @@ func shortLog*(v: BeaconBlock): auto =
     voluntary_exits_len: v.body.voluntary_exits.len(),
   )
 
+func shortLog*(v: SignedBeaconBlock): auto =
+  (
+    blck: shortLog(v.message),
+    signature: shortLog(v.signature)
+  )
+
 func shortLog*(v: AttestationData): auto =
   (
     slot: shortLog(v.slot),

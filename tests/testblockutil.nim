@@ -62,6 +62,20 @@ func makeInitialDeposits*(
   for i in 0..<n.int:
     result.add makeDeposit(i, flags)
 
+func signBlock*(
+    fork: Fork, genesis_validators_root: Eth2Digest, blck: BeaconBlock,
+    privKey: ValidatorPrivKey, flags: UpdateFlags = {}): SignedBeaconBlock =
+  SignedBeaconBlock(
+    message: blck,
+    signature:
+      if skipBlsValidation notin flags:
+        get_block_signature(
+          fork, genesis_validators_root, blck.slot,
+          hash_tree_root(blck), privKey)
+      else:
+        ValidatorSig()
+  )
+
 proc addTestBlock*(
     state: var BeaconState,
     parent_root: Eth2Digest,
@@ -101,13 +115,10 @@ proc addTestBlock*(
 
   doAssert message.isSome(), "Should have created a valid block!"
 
-  var
-    new_block = SignedBeaconBlock(
-      message: message.get()
-    )
-
-
-  let ok = process_block(state, new_block.message, flags, cache)
+  let
+    new_block = signBlock(
+      state.fork, state.genesis_validators_root, message.get(), privKey, flags)
+    ok = process_block(state, new_block.message, flags, cache)
 
   doAssert ok, "adding block after producing it should work"
   new_block
