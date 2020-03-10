@@ -31,9 +31,9 @@
 # now.
 
 import
-  collections/sets, chronicles, sets, options,
+  collections/sets, chronicles, sets,
   ./extras, ./ssz, metrics,
-  ./spec/[datatypes, crypto, digest, helpers, validator],
+  ./spec/[datatypes, digest, helpers, validator],
   ./spec/[state_transition_block, state_transition_epoch],
   ../nbench/bench_lab
 
@@ -101,19 +101,6 @@ proc process_slots*(state: var BeaconState, slot: Slot) {.nbench.}=
     if is_epoch_transition:
       beacon_current_validators.set(get_epoch_validator_count(state))
 
-#https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#verify_block_signature
-proc verify_block_signature*(state: var BeaconState, signedBlock: SignedBeaconBlock, stateCache: var StateCache): bool {.nbench.} =
-  let proposer = state.validators[get_beacon_proposer_index(state, stateCache).get]
-  let domain = get_domain(state, DOMAIN_BEACON_PROPOSER, compute_epoch_at_slot(signedBlock.message.slot)) 
-  # TODO This will need to be changed for: 
-  # ```
-  # let signing_root = compute_signing_root(signedBlock.message,domain)
-  # return bls_verify(proposer.pubKey, signing_root.data, signedBlock.signature, domain)
-  # ```
-  # when https://github.com/status-im/nim-beacon-chain/pull/780 is merged
-  return bls_verify(proposer.pubKey, hash_tree_root(signedBlock.message).data, signedBlock.signature, domain)
-  
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
@@ -169,10 +156,6 @@ proc state_transition*(
   # TODO what should happen if block processing fails?
   #      https://github.com/ethereum/eth2.0-specs/issues/293
   var per_epoch_cache = get_empty_per_epoch_cache()
-
-  if skipBLSValidation notin flags and not verify_block_signature(state, signedBlock, per_epoch_cache):
-    state = old_state
-    return false
 
   if processBlock(state, signedBlock.message, flags, per_epoch_cache):
     # This is a bit awkward - at the end of processing we verify that the
@@ -240,10 +223,6 @@ proc state_transition*(
 
   process_slots(state, signedBlock.message.slot)
   var per_epoch_cache = get_empty_per_epoch_cache()
-
-  if skipBLSValidation notin flags and not verify_block_signature(state.data, signedBlock, per_epoch_cache):
-    state = old_state
-    return false
 
   if processBlock(state.data, signedBlock.message, flags, per_epoch_cache):
     if skipStateRootValidation in flags or verifyStateRoot(state.data, signedBlock.message):
