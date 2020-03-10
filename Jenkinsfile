@@ -29,11 +29,12 @@ def runStages() {
 					stage("Test suite") {
 						sh "make -j${env.NPROC} DISABLE_TEST_FIXTURES_SCRIPT=1 test"
 					}
-					//if ("${NODE_NAME}" ==~ /linux.*/) {
-						//stage("testnet finalization") {
-							//sh "scripts/launch_local_testnet.sh --testnet 1 --disable-htop -- --verify-finalization --stop-at-epoch=5"
-						//}
-					//}
+					if ("${NODE_NAME}" ==~ /linux.*/) {
+						stage("testnet finalization") {
+							sh "./scripts/launch_local_testnet.sh --testnet 0 --nodes 4 --disable-htop -- --verify-finalization --stop-at-epoch=5"
+							//sh "./scripts/launch_local_testnet.sh --testnet 1 --disable-htop -- --verify-finalization --stop-at-epoch=5"
+						}
+					}
 				}
 			)
 		}
