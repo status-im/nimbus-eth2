@@ -104,15 +104,15 @@ proc process_slots*(state: var BeaconState, slot: Slot) {.nbench.}=
 #https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#verify_block_signature
 proc verify_block_signature*(state: var BeaconState, signedBlock: SignedBeaconBlock, stateCache: var StateCache): bool {.nbench.} =
   let proposer = state.validators[get_beacon_proposer_index(state, stateCache).get]
-  let domain = get_domain(state, DOMAIN_BEACON_PROPOSER, compute_epoch_at_slot(signedBlock.message.slot)) 
-  # TODO This will need to be changed for: 
+  let domain = get_domain(state, DOMAIN_BEACON_PROPOSER, compute_epoch_at_slot(signedBlock.message.slot))
+  # TODO This will need to be changed for:
   # ```
   # let signing_root = compute_signing_root(signedBlock.message,domain)
   # return bls_verify(proposer.pubKey, signing_root.data, signedBlock.signature, domain)
   # ```
   # when https://github.com/status-im/nim-beacon-chain/pull/780 is merged
   return bls_verify(proposer.pubKey, hash_tree_root(signedBlock.message).data, signedBlock.signature, domain)
-  
+ 
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
