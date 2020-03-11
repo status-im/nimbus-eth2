@@ -177,7 +177,7 @@ for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 	fi
 
 	stdbuf -o0 build/beacon_node \
-		--nat=none \
+		--nat:extip:127.0.0.1 \
 		--log-level="${LOG_LEVEL}" \
 		--tcp-port=$(( ${BOOTSTRAP_PORT} + ${NUM_NODE} )) \
 		--udp-port=$(( ${BOOTSTRAP_PORT} + ${NUM_NODE} )) \
