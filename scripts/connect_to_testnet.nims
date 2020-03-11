@@ -146,5 +146,6 @@ cli do (skipGoerliKey {.
     --web3-url={web3Url}
     {bootstrapFileOpt}
     {logLevelOpt}
+    {depositContractOpt}
     --state-snapshot="{testnetDir/genesisFile}" """ & depositContractOpt, "\n", " ")
 

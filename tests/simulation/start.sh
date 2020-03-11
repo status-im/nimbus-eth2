@@ -58,10 +58,17 @@ if [ ! -f "${LAST_VALIDATOR}" ]; then
     export DEPOSIT_CONTRACT_ADDRESS
   fi
 
+  DELAY_ARGS=""
+
+  # Uncomment this line to slow down the initial deposits.
+  # This will spread them across multiple blocks which is
+  # a more realistic scenario.
+  DELAY_ARGS="--min-delay=1 --max-delay=5"
+
   $BEACON_NODE_BIN makeDeposits \
     --quickstart-deposits="${NUM_VALIDATORS}" \
     --deposits-dir="$VALIDATORS_DIR" \
-    $DEPOSIT_WEB3_URL_ARG \
+    $DEPOSIT_WEB3_URL_ARG $DELAY_ARGS \
     --deposit-contract="${DEPOSIT_CONTRACT_ADDRESS}"
 fi
 
@@ -88,6 +95,7 @@ fi
 # to allow overriding the program names
 MULTITAIL="${MULTITAIL:-multitail}"
 TMUX="${TMUX:-tmux}"
+GANACHE="${GANACHE:-ganache-cli}"
 TMUX_SESSION_NAME="${TMUX_SESSION_NAME:-nbc-network-sim}"
 
 # Using tmux or multitail is an opt-in
@@ -96,6 +104,9 @@ type "$MULTITAIL" &>/dev/null || { echo $MULTITAIL is missing; USE_MULTITAIL="no
 
 USE_TMUX="${USE_TMUX:-no}"
 type "$TMUX" &>/dev/null || { echo $TMUX is missing; USE_TMUX="no"; }
+
+USE_GANACHE="${USE_GANACHE:-no}"
+type "$GANACHE" &>/dev/null || { echo $GANACHE is missing; USE_GANACHE="no"; }
 
 # Prometheus config (continued inside the loop)
 mkdir -p "${METRICS_DIR}"
@@ -137,6 +148,16 @@ if [[ "$USE_TMUX" != "no" ]]; then
   $TMUX set-option -t $TMUX_SESSION_NAME history-limit 999999
   $TMUX set-option -t $TMUX_SESSION_NAME remain-on-exit on
   $TMUX set -t $TMUX_SESSION_NAME mouse on
+fi
+
+if [[ "$USE_GANACHE" != "no" ]]; then
+  if [[ "$USE_TMUX" != "no" ]]; then
+    $TMUX new-window -t $TMUX_SESSION_NAME "$GANACHE"
+  elif [[ "$USE_MULTITAIL" != "no" ]]; then
+    COMMANDS+=( " -cT ansi -t '$GANACHE'" )
+  else
+    $GANACHE &
+  fi
 fi
 
 for i in $(seq $MASTER_NODE -1 $TOTAL_USER_NODES); do

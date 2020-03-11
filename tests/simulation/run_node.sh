@@ -27,9 +27,9 @@ cd "$GIT_ROOT"
 DATA_DIR="${SIMULATION_DIR}/node-$NODE_ID"
 PORT=$(( BASE_P2P_PORT + NODE_ID ))
 
-NAT_FLAG="--nat:extip:127.0.0.1"
+NAT_ARG="--nat:extip:127.0.0.1"
 if [ "${NAT:-}" == "1" ]; then
-  NAT_FLAG="--nat:any"
+  NAT_ARG="--nat:any"
 fi
 
 mkdir -p "$DATA_DIR/validators"
@@ -60,8 +60,8 @@ cd "$DATA_DIR" && $NODE_BIN \
   --node-name=$NODE_ID \
   --tcp-port=$PORT \
   --udp-port=$PORT \
-  $NAT_FLAG \
   --state-snapshot=$SNAPSHOT_FILE \
+  $NAT_ARG \
   $DEPOSIT_WEB3_URL_ARG \
   --deposit-contract=$DEPOSIT_CONTRACT_ADDRESS \
   --verify-finalization \

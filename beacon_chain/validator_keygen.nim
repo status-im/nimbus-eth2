@@ -7,6 +7,9 @@ import
 contract(DepositContract):
   proc deposit(pubkey: Bytes48, withdrawalCredentials: Bytes32, signature: Bytes96, deposit_data_root: FixedBytes[32])
 
+type
+ DelayGenerator* = proc(): chronos.Duration {.closure, gcsafe.}
+
 proc writeTextFile(filename: string, contents: string) =
   writeFile(filename, contents)
   # echo "Wrote ", filename
@@ -56,15 +59,16 @@ proc generateDeposits*(totalValidators: int,
 
 proc sendDeposits*(
     deposits: seq[Deposit],
-    depositWeb3Url, depositContractAddress, privateKey: string) {.async.} =
+    web3Url, depositContractAddress, privateKey: string,
+    delayGenerator: DelayGenerator = nil) {.async.} =
 
-  var web3 = await newWeb3(depositWeb3Url)
+  var web3 = await newWeb3(web3Url)
   if privateKey.len != 0:
     web3.privateKey = initPrivateKey(privateKey)
   else:
     let accounts = await web3.provider.eth_accounts()
     if accounts.len == 0:
-      error "No account offered by the web3 provider", web3url = depositWeb3Url
+      error "No account offered by the web3 provider", web3Url
       return
     web3.defaultAccount = accounts[0]
 
@@ -78,17 +82,20 @@ proc sendDeposits*(
       Bytes96(dp.data.signature.getBytes()),
       FixedBytes[32](hash_tree_root(dp.data).data)).send(value = 32.u256.ethToWei, gasPrice = 1)
 
+    if delayGenerator != nil:
+      await sleepAsync(delayGenerator())
+
 when isMainModule:
   import confutils
 
   cli do (totalValidators: int = 125000,
           outputDir: string = "validators",
           randomKeys: bool = false,
-          depositWeb3Url: string = "",
+          web3Url: string = "",
           depositContractAddress: string = ""):
     let deposits = generateDeposits(totalValidators, outputDir, randomKeys)
 
-    if depositWeb3Url.len() > 0 and depositContractAddress.len() > 0:
+    if web3Url.len() > 0 and depositContractAddress.len() > 0:
       echo "Sending deposits to eth1..."
-      waitFor sendDeposits(deposits, depositWeb3Url, depositContractAddress, "")
+      waitFor sendDeposits(deposits, web3Url, depositContractAddress, "")
       echo "Done"

@@ -150,9 +150,11 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
       # Didn't work, try creating a genesis state using main chain monitor
       # TODO Could move this to a separate "GenesisMonitor" process or task
       #      that would do only this - see
-      if conf.depositWeb3Url.len != 0:
+      if conf.web3Url.len > 0 and conf.depositContractAddress.len > 0:
         mainchainMonitor = MainchainMonitor.init(
-          conf.depositWeb3Url, conf.depositContractAddress, Eth2Digest())
+          web3Provider(conf.web3Url),
+          conf.depositContractAddress,
+          Eth2Digest())
         mainchainMonitor.start()
       else:
         error "No initial state, need genesis state or deposit contract address"
@@ -180,9 +182,12 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   let
     blockPool = BlockPool.init(db)
 
-  if mainchainMonitor.isNil and conf.depositWeb3Url.len != 0:
+  if mainchainMonitor.isNil and
+     conf.web3Url.len > 0 and
+     conf.depositContractAddress.len > 0:
     mainchainMonitor = MainchainMonitor.init(
-      conf.depositWeb3Url, conf.depositContractAddress,
+      web3Provider(conf.web3Url),
+      conf.depositContractAddress,
       blockPool.headState.data.data.eth1_data.block_hash)
     # TODO if we don't have any validators attached, we don't need a mainchain
     #      monitor
@@ -399,12 +404,10 @@ proc proposeBlock(node: BeaconNode,
       node.blockPool.tmpState, head.atSlot(slot)):
     let (eth1data, deposits) =
       if node.mainchainMonitor.isNil:
-        (get_eth1data_stub(
-            state.eth1_deposit_index, slot.compute_epoch_at_slot()),
-          newSeq[Deposit]())
+        (get_eth1data_stub(state.eth1_deposit_index, slot.compute_epoch_at_slot()),
+         newSeq[Deposit]())
       else:
-        (node.mainchainMonitor.eth1Data,
-          node.mainchainMonitor.getPendingDeposits())
+        node.mainchainMonitor.getBlockProposalData(state)
 
     let message = makeBeaconBlock(
       state,
@@ -1157,7 +1160,14 @@ when hasPrompt:
       # var t: Thread[ptr Prompt]
       # createThread(t, processPromptCommands, addr p)
 
-when isMainModule:
+template main(body: untyped) =
+  when isMainModule:
+    proc payload =
+      body
+
+    payload()
+
+main:
   let config = BeaconNodeConf.load(
     version = clientId,
     copyrightBanner = clientId & "\p" & copyrights)
@@ -1202,8 +1212,8 @@ when isMainModule:
     let
       startTime = uint64(times.toUnix(times.getTime()) + config.genesisOffset)
       outGenesis = config.outputGenesis.string
-      eth1Hash = if config.depositWeb3Url.len == 0: eth1BlockHash
-                 else: waitFor getLatestEth1BlockHash(config.depositWeb3Url)
+      eth1Hash = if config.web3Url.len == 0: eth1BlockHash
+                 else: waitFor getLatestEth1BlockHash(config.web3Url)
     var
       initialState = initialize_beacon_state_from_eth1(
         eth1Hash, startTime, deposits, {skipBlsValidation, skipMerkleValidation})
@@ -1285,16 +1295,26 @@ when isMainModule:
         config.totalRandomDeposits, config.depositsDir, true,
         firstIdx = config.totalQuickstartDeposits)
 
-    if config.depositWeb3Url.len > 0 and config.depositContractAddress.len > 0:
+    if config.web3Url.len > 0 and config.depositContractAddress.len > 0:
+      if config.minDelay > config.maxDelay:
+        echo "The minimum delay should not be larger than the maximum delay"
+        quit 1
+
+      var delayGenerator: DelayGenerator
+      if config.maxDelay > 0.0:
+        delayGenerator = proc (): chronos.Duration {.gcsafe.} =
+          chronos.milliseconds (random(config.minDelay..config.maxDelay)*1000).int
+
       info "Sending deposits",
-        web3 = config.depositWeb3Url,
+        web3 = config.web3Url,
         depositContract = config.depositContractAddress
 
       waitFor sendDeposits(
         quickstartDeposits & randomDeposits,
-        config.depositWeb3Url,
+        config.web3Url,
         config.depositContractAddress,
-        config.depositPrivateKey)
+        config.depositPrivateKey,
+        delayGenerator)
 
   of query:
     case config.queryCmd

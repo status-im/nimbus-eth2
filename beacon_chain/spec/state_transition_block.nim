@@ -130,8 +130,8 @@ proc process_randao(
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#eth1-data
 func process_eth1_data(state: var BeaconState, body: BeaconBlockBody) {.nbench.}=
   state.eth1_data_votes.add body.eth1_data
-  if state.eth1_data_votes.count(body.eth1_data) * 2 >
-      EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH:
+  const SLOTS_PER_ETH1_VOTING_PERIOD = EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH
+  if state.eth1_data_votes.count(body.eth1_data) * 2 > SLOTS_PER_ETH1_VOTING_PERIOD:
     state.eth1_data = body.eth1_data
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#is_slashable_validator

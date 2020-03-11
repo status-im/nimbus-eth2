@@ -224,3 +224,4 @@ func is_proposer(
   var cache = get_empty_per_epoch_cache()
   let proposer_index = get_beacon_proposer_index(state, cache)
   proposer_index.isSome and proposer_index.get == validator_index
+

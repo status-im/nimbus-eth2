@@ -50,7 +50,7 @@ type
       abbr: "d"
       name: "data-dir" }: OutDir
 
-    depositWeb3Url* {.
+    web3Url* {.
       defaultValue: ""
       desc: "URL of the Web3 server to observe Eth1."
       name: "web3-url" }: string
@@ -249,6 +249,16 @@ type
         defaultValue: ""
         desc: "Private key of the controlling (sending) account",
         name: "deposit-private-key" }: string
+
+      minDelay* {.
+        defaultValue: 0.0
+        desc: "Minimum possible delay between making two deposits (in seconds)"
+        name: "min-delay" }: float
+
+      maxDelay* {.
+        defaultValue: 0.0
+        desc: "Maximum possible delay between making two deposits (in seconds)"
+        name: "max-delay" }: float
 
     of query:
       case queryCmd* {.

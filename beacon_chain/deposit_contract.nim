@@ -14,7 +14,7 @@ type
     sendEth
 
   CliConfig = object
-    depositWeb3Url* {.
+    web3Url* {.
       desc: "URL of the Web3 server to observe Eth1"
       name: "web3-url" }: string
 
@@ -65,7 +65,7 @@ proc sendEth(web3: Web3, to: string, valueEth: int): Future[TxHash] =
 
 proc main() {.async.} =
   let cfg = CliConfig.load()
-  let web3 = await newWeb3(cfg.depositWeb3Url)
+  let web3 = await newWeb3(cfg.web3Url)
   if cfg.privateKey.len != 0:
     web3.privateKey = initPrivateKey(cfg.privateKey)
   else:

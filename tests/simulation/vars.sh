@@ -43,8 +43,11 @@ MASTER_NODE_ADDRESS_FILE="${SIMULATION_DIR}/node-${MASTER_NODE}/beacon_node.addr
 BASE_P2P_PORT=30000
 BASE_RPC_PORT=7000
 BASE_METRICS_PORT=8008
-# Set DEPOSIT_WEB3_URL_ARG to empty to get genesis state from file, not using web3
-# DEPOSIT_WEB3_URL_ARG=--web3-url=ws://localhost:8545
-DEPOSIT_WEB3_URL_ARG=""
-DEPOSIT_CONTRACT_ADDRESS="0x"
+
+if [[ "$USE_GANACHE" != "no" ]]; then
+  DEPOSIT_WEB3_URL_ARG=--web3-url=ws://localhost:8545
+else
+  DEPOSIT_WEB3_URL_ARG=""
+  DEPOSIT_CONTRACT_ADDRESS="0x"
+fi
 
