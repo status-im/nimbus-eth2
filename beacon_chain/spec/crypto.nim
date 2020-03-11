@@ -235,7 +235,7 @@ func initFromBytes[T](val: var BlsValue[T], bytes: openarray[byte]) =
   # default-initialized BlsValue without raising an exception
   when defined(ssz_testing):
     # Only for SSZ parsing tests, everything is an opaque blob
-    val = BlsValue[T](kind: OpaqueBlob, blob: toArray(result.blob.len, bytes))
+    val = BlsValue[T](kind: OpaqueBlob, blob: toArray(val.blob.len, bytes))
   else:
     # Try if valid BLS value
     # TODO: address the side-effects in nim-blscurve
