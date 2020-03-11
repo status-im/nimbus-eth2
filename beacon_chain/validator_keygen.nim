@@ -42,7 +42,7 @@ proc generateDeposits*(totalValidators: int,
       pubKey{.noInit.}: ValidatorPubKey
 
     if randomKeys:
-      (pubKey, privKey) = newKeyPair()
+      (pubKey, privKey) = crypto.newKeyPair()
     else:
       privKey = makeInteropPrivKey(i)
       pubKey = privKey.pubKey()
