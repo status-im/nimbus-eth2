@@ -109,4 +109,3 @@ suite "[Unit - Spec - Block processing] Attestations " & preset():
 # - bad source root
 # - inconsistent custody bits length
 # - non-empty custody bits in phase 0
-
