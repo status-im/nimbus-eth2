@@ -18,12 +18,12 @@ TOOLS := \
 	beacon_node \
 	inspector \
 	logtrace \
-	bench_bls_sig_agggregation \
 	deposit_contract \
 	ncli_hash_tree_root \
 	ncli_pretty \
 	ncli_transition \
 	process_dashboard
+	# bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes
 TOOLS_DIRS := \
 	beacon_chain \
 	benchmarks \
@@ -153,4 +153,3 @@ libnfuzz.a: | build deps
 		rm -f build/$@ && \
 		$(ENV_SCRIPT) nim c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static -o:build/$@ $(NIM_PARAMS) nfuzz/libnfuzz.nim && \
 		[[ -e "$@" ]] && mv "$@" build/ # workaround for https://github.com/nim-lang/Nim/issues/12745
-
