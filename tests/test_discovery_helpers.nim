@@ -1,3 +1,5 @@
+{.used.}
+
 import
   net, unittest, testutil,
   eth/keys, eth/p2p/enode, libp2p/multiaddress,

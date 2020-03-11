@@ -1,7 +1,6 @@
 import
   chronos, web3, json, chronicles,
-  spec/[datatypes, digest, crypto, beaconstate, helpers],
-  ./extras
+  spec/[datatypes, digest, crypto, beaconstate, helpers]
 
 type
   MainchainMonitor* = ref object

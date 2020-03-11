@@ -1,8 +1,8 @@
 import
   os, net, strutils, strformat, parseutils,
   chronicles, stew/[result, objects], eth/keys, eth/trie/db, eth/p2p/enode,
-  eth/p2p/discoveryv5/[enr, protocol, node, discovery_db, types],
-  libp2p/[multiaddress, multicodec, peer],
+  eth/p2p/discoveryv5/[enr, protocol, discovery_db, types],
+  libp2p/[multiaddress, peer],
   libp2p/crypto/crypto as libp2pCrypto,
   conf
 
