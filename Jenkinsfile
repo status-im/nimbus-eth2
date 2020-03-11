@@ -32,7 +32,8 @@ def runStages() {
 					if ("${NODE_NAME}" ==~ /linux.*/) {
 						stage("testnet finalization") {
 							sh "./scripts/launch_local_testnet.sh --testnet 0 --nodes 4 --disable-htop -- --verify-finalization --stop-at-epoch=5"
-							//sh "./scripts/launch_local_testnet.sh --testnet 1 --disable-htop -- --verify-finalization --stop-at-epoch=5"
+							sh "./scripts/launch_local_testnet.sh --testnet 1 --nodes 4 --disable-htop -- --verify-finalization --stop-at-epoch=5 || true"
+							echo "[failures in the test above will not lead to a CI job failure]"
 						}
 					}
 				}
