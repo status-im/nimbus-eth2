@@ -217,12 +217,12 @@ proc toGaugeValue*(hash: Eth2Digest): int64 =
 # ----------------------------------------------------------------------
 
 func `$`*(x: BlsValue): string =
+  # The prefix must be short
+  # due to the mechanics of the `shortLog` function.
   if x.kind == Real:
-    "r: 0x" & x.blsValue.toHex()
+    "real: 0x" & x.blsValue.toHex()
   else:
-    # r: is short for random. The prefix must be short
-    # due to the mechanics of the `shortLog` function.
-    "r: 0x" & x.blob.toHex(lowercase = true)
+    "raw: 0x" & x.blob.toHex(lowercase = true)
 
 func getBytes*(x: BlsValue): auto =
   if x.kind == Real:
@@ -235,7 +235,7 @@ func initFromBytes[T](val: var BlsValue[T], bytes: openarray[byte]) =
   # default-initialized BlsValue without raising an exception
   when defined(ssz_testing):
     # Only for SSZ parsing tests, everything is an opaque blob
-    R(kind: OpaqueBlob, blob: toArray(result.blob.len, bytes))
+    val = BlsValue[T](kind: OpaqueBlob, blob: toArray(result.blob.len, bytes))
   else:
     # Try if valid BLS value
     # TODO: address the side-effects in nim-blscurve
