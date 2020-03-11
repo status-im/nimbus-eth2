@@ -11,7 +11,7 @@ import
   options, sequtils, unittest, chronicles,
   ./testutil, ./testblockutil,
   ../beacon_chain/spec/[datatypes, digest, helpers, validator],
-  ../beacon_chain/[beacon_node_types, block_pool, beacon_chain_db, extras, ssz]
+  ../beacon_chain/[beacon_node_types, block_pool, ssz]
 
 suite "BlockRef and helpers" & preset():
   timedTest "isAncestorOf sanity" & preset():
