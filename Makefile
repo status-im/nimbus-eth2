@@ -17,6 +17,7 @@ BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 TOOLS := \
 	beacon_node \
 	inspector \
+	logtrace \
 	bench_bls_sig_agggregation \
 	deposit_contract \
 	ncli_hash_tree_root \
