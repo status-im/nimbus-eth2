@@ -134,7 +134,7 @@ proc readMsgBytes(stream: P2PStream,
       debug "Received SSZ with zero size", peer = stream.peer
       return
 
-    trace "about to read msg bytes"
+    trace "about to read msg bytes", len = sizePrefix
     var msgBytes = newSeq[byte](sizePrefix)
     var readBody = stream.readExactly(addr msgBytes[0], sizePrefix)
     await readBody or deadline
@@ -142,7 +142,7 @@ proc readMsgBytes(stream: P2PStream,
       trace "msg bytes not received in time"
       return
 
-    trace "got message bytes", msgBytes
+    trace "got message bytes", len = sizePrefix
     return msgBytes
 
   except TransportIncompleteError:
