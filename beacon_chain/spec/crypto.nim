@@ -275,42 +275,32 @@ template hash*(x: BlsCurveType): Hash =
 # ----------------------------------------------------------------------
 
 proc writeValue*(writer: var JsonWriter, value: ValidatorPubKey) {.inline.} =
-  when value is BlsValue:
-    doAssert value.kind == Real
-    writer.writeValue($value.blsValue)
-  else:
-    writer.writeValue($value)
+  doAssert value.kind == Real
+  writer.writeValue(value.blsValue.toHex())
 
 proc readValue*(reader: var JsonReader, value: var ValidatorPubKey) {.inline.} =
   value.initFromBytes(fromHex reader.readValue(string))
 
 proc writeValue*(writer: var JsonWriter, value: ValidatorSig) {.inline.} =
-  when value is BlsValue:
-    if value.kind == Real:
-      writer.writeValue($value.blsValue)
-    else:
-      # Workaround: https://github.com/status-im/nim-beacon-chain/issues/374
-      let asHex = toHex(value.blob, true)
-      # echo "[Warning] writing raw opaque signature: ", asHex
-      writer.writeValue(asHex)
+  if value.kind == Real:
+    writer.writeValue(value.blsValue.toHex())
   else:
-    writer.writeValue($value)
+    # Workaround: https://github.com/status-im/nim-beacon-chain/issues/374
+    let asHex = value.blob.toHex(lowercase = true)
+    # echo "[Warning] writing raw opaque signature: ", asHex
+    writer.writeValue(asHex)
 
 proc readValue*(reader: var JsonReader, value: var ValidatorSig) {.inline.} =
   value.initFromBytes(fromHex reader.readValue(string))
 
 proc writeValue*(writer: var JsonWriter, value: ValidatorPrivKey) {.inline.} =
-  when value is BlsValue:
-    doAssert value.kind == Real
-    writer.writeValue($value.blsValue)
-  else:
-    writer.writeValue($value)
+  writer.writeValue(value.toHex())
 
 proc readValue*(reader: var JsonReader, value: var ValidatorPrivKey) {.inline.} =
   value.initFromBytes(fromHex reader.readValue(string))
 
 proc writeValue*(writer: var JsonWriter, value: PublicKey) {.inline.} =
-  writer.writeValue($value)
+  writer.writeValue(value.toHex())
 
 proc readValue*(reader: var JsonReader, value: var PublicKey) {.inline.} =
   let hex = reader.readValue(string)
@@ -318,7 +308,7 @@ proc readValue*(reader: var JsonReader, value: var PublicKey) {.inline.} =
   doAssert ok, "Invalid public key: " & hex
 
 proc writeValue*(writer: var JsonWriter, value: Signature) {.inline.} =
-  writer.writeValue($value)
+  writer.writeValue(value.toHex())
 
 proc readValue*(reader: var JsonReader, value: var Signature) {.inline.} =
   let hex = reader.readValue(string)

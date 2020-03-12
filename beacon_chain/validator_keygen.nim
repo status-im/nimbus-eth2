@@ -49,7 +49,7 @@ proc generateDeposits*(totalValidators: int,
 
     let dp = makeDeposit(pubKey, privKey)
 
-    writeTextFile(privKeyFn, $privKey)
+    writeTextFile(privKeyFn, privKey.toHex())
     writeFile(depositFn, dp)
 
     result.add(dp)
