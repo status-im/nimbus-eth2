@@ -51,13 +51,6 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Attestation topics                                                                         OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Interop
-```diff
-+ Interop genesis                                                                            OK
-+ Interop signatures                                                                         OK
-+ Mocked start private key                                                                   OK
-```
-OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Official - 0.10.1 - constants & config  [Preset: mainnet]
 ```diff
 + BASE_REWARD_FACTOR                                64                   [Preset: mainnet]   OK
@@ -172,11 +165,10 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## [Unit - Spec - Block processing] Attestations  [Preset: mainnet]
 ```diff
-+ Empty aggregation bit                                                                      OK
 + Valid attestation                                                                          OK
 + Valid attestation from previous epoch                                                      OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## [Unit - Spec - Block processing] Deposits  [Preset: mainnet]
 ```diff
 + Deposit at MAX_EFFECTIVE_BALANCE balance (32 ETH)                                          OK
@@ -199,4 +191,4 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 OK: 8/8 Fail: 0/8 Skip: 0/8
 
 ---TOTAL---
-OK: 116/117 Fail: 1/117 Skip: 0/117
+OK: 112/113 Fail: 1/113 Skip: 0/113
