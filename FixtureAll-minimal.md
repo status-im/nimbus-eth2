@@ -68,11 +68,9 @@ OK: 20/20 Fail: 0/20 Skip: 0/20
 ```diff
 + [Invalid] att1_bad_extra_index                                                             OK
 + [Invalid] att1_bad_replaced_index                                                          OK
-+ [Invalid] att1_duplicate_index_double_signed                                               OK
 + [Invalid] att1_duplicate_index_normal_signed                                               OK
 + [Invalid] att2_bad_extra_index                                                             OK
 + [Invalid] att2_bad_replaced_index                                                          OK
-+ [Invalid] att2_duplicate_index_double_signed                                               OK
 + [Invalid] att2_duplicate_index_normal_signed                                               OK
 + [Invalid] invalid_sig_1                                                                    OK
 + [Invalid] invalid_sig_1_and_2                                                              OK
@@ -85,7 +83,7 @@ OK: 20/20 Fail: 0/20 Skip: 0/20
 + [Valid]   success_double                                                                   OK
 + [Valid]   success_surround                                                                 OK
 ```
-OK: 18/18 Fail: 0/18 Skip: 0/18
+OK: 16/16 Fail: 0/16 Skip: 0/16
 ## Official - Operations - Block header  [Preset: minimal]
 ```diff
 + [Invalid] invalid_parent_root                                                              OK
@@ -129,7 +127,6 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 ## Official - Sanity - Blocks  [Preset: minimal]
 ```diff
-+ [Invalid] expected_deposit_in_block                                                        OK
 + [Invalid] invalid_block_sig                                                                OK
 + [Invalid] invalid_state_root                                                               OK
 + [Invalid] prev_slot_block_transition                                                       OK
@@ -151,7 +148,7 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 + [Valid]   skipped_slots                                                                    OK
 + [Valid]   voluntary_exit                                                                   OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
+OK: 20/20 Fail: 0/20 Skip: 0/20
 ## Official - Sanity - Slots  [Preset: minimal]
 ```diff
 + Slots - double_empty_epoch                                                                 OK
@@ -163,4 +160,4 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 OK: 5/5 Fail: 0/5 Skip: 0/5
 
 ---TOTAL---
-OK: 113/113 Fail: 0/113 Skip: 0/113
+OK: 110/110 Fail: 0/110 Skip: 0/110
