@@ -87,11 +87,12 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 ## Official - Operations - Block header  [Preset: minimal]
 ```diff
 + [Invalid] invalid_parent_root                                                              OK
++ [Invalid] invalid_proposer_index                                                           OK
 + [Invalid] invalid_slot_block_header                                                        OK
 + [Invalid] proposer_slashed                                                                 OK
 + [Valid]   success_block_header                                                             OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Official - Operations - Deposits  [Preset: minimal]
 ```diff
 + [Invalid]  bad_merkle_proof                                                                OK
@@ -128,6 +129,8 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 ## Official - Sanity - Blocks  [Preset: minimal]
 ```diff
 + [Invalid] invalid_block_sig                                                                OK
++ [Invalid] invalid_proposer_index_sig_from_expected_proposer                                OK
++ [Invalid] invalid_proposer_index_sig_from_proposer_index                                   OK
 + [Invalid] invalid_state_root                                                               OK
 + [Invalid] prev_slot_block_transition                                                       OK
 + [Invalid] zero_block_sig                                                                   OK
@@ -140,9 +143,7 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 + [Valid]   empty_epoch_transition_not_finalizing                                            OK
 + [Valid]   eth1_data_votes_consensus                                                        OK
 + [Valid]   eth1_data_votes_no_consensus                                                     OK
-+ [Valid]   high_proposer_index                                                              OK
 + [Valid]   historical_batch                                                                 OK
-+ [Valid]   proposer_after_inactive_index                                                    OK
 + [Valid]   proposer_slashing                                                                OK
 + [Valid]   same_slot_block_transition                                                       OK
 + [Valid]   skipped_slots                                                                    OK
@@ -160,4 +161,4 @@ OK: 20/20 Fail: 0/20 Skip: 0/20
 OK: 5/5 Fail: 0/5 Skip: 0/5
 
 ---TOTAL---
-OK: 110/110 Fail: 0/110 Skip: 0/110
+OK: 111/111 Fail: 0/111 Skip: 0/111

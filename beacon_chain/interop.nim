@@ -6,8 +6,7 @@ import
 func get_eth1data_stub*(deposit_count: uint64, current_epoch: Epoch): Eth1Data =
   # https://github.com/ethereum/eth2.0-pm/blob/e596c70a19e22c7def4fd3519e20ae4022349390/interop/mocked_eth1data/README.md
   let
-    epochs_per_period = SLOTS_PER_ETH1_VOTING_PERIOD div SLOTS_PER_EPOCH
-    voting_period = current_epoch.uint64 div epochs_per_period.uint64
+    voting_period = current_epoch.uint64 div EPOCHS_PER_ETH1_VOTING_PERIOD
 
   Eth1Data(
     deposit_root: hash_tree_root(voting_period),

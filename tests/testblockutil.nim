@@ -97,6 +97,7 @@ proc addBlock*(
     new_block = SignedBeaconBlock(
       message: BeaconBlock(
         slot: state.slot + 1,
+        proposer_index: proposer_index.get.uint64,
         parent_root: previous_block_root,
         state_root: Eth2Digest(), # we need the new state first
         body: new_body
