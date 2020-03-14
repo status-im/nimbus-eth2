@@ -19,7 +19,6 @@ import # Unit test
   ./test_discovery_helpers,
   ./test_helpers,
   ./test_kvstore,
-  ./test_kvstore_lmdb,
   ./test_kvstore_sqlite3,
   ./test_ssz,
   ./test_state_transition,
