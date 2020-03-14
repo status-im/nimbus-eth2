@@ -74,10 +74,14 @@ proc mockBlock(
     state: BeaconState,
     slot: Slot,
     flags: UpdateFlags = {}): SignedBeaconBlock =
+  ## TODO don't do this gradual construction, for exception safety
   ## Mock a BeaconBlock for the specific slot
   ## Skip signature creation if block should not be signed (skipBlsValidation present)
 
+  var emptyCache = get_empty_per_epoch_cache()
+  let proposer_index = get_beacon_proposer_index(state, emptyCache)
   result.message.slot = slot
+  result.message.proposer_index = proposer_index.get.uint64
   result.message.body.eth1_data.deposit_count = state.eth1_deposit_index
 
   var previous_block_header = state.latest_block_header

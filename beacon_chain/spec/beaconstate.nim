@@ -247,6 +247,9 @@ func initialize_beacon_state_from_eth1*(
       validator.activation_eligibility_epoch = GENESIS_EPOCH
       validator.activation_epoch = GENESIS_EPOCH
 
+  # Set genesis validators root for domain separation and chain versioning
+  state.genesis_validators_root = hash_tree_root(state.validators)
+
   state
 
 func is_valid_genesis_state*(state: BeaconState): bool =
@@ -283,10 +286,11 @@ func get_block_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Return the block root at the start of a recent ``epoch``.
   get_block_root_at_slot(state, compute_start_slot_at_epoch(epoch))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#get_total_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#get_total_balance
 func get_total_balance*(state: BeaconState, validators: auto): Gwei =
   ## Return the combined effective balance of the ``indices``. (1 Gwei minimum
   ## to avoid divisions by zero.)
+  ## Math safe up to ~10B ETH, afterwhich this overflows uint64.
   max(1'u64,
     foldl(validators, a + state.validators[b].effective_balance, 0'u64)
   )

@@ -44,6 +44,10 @@ const
   MIN_GENESIS_TIME* {.intdefine.} = 1578009600
   MIN_GENESIS_ACTIVE_VALIDATOR_COUNT* {.intdefine.} = 16384
 
+  HYSTERESIS_QUOTIENT* = 4
+  HYSTERESIS_DOWNWARD_MULTIPLIER* = 1
+  HYSTERESIS_UPWARD_MULTIPLIER* = 5
+
   # Constants (TODO: not actually configurable)
   # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#constants
   BASE_REWARDS_PER_EPOCH* = 4
@@ -106,8 +110,8 @@ const
   MAX_SEED_LOOKAHEAD* = 4 ##\
   ## epochs (~25.6 minutes)
 
-  SLOTS_PER_ETH1_VOTING_PERIOD* = 1024 ##\
-  ## slots (~1.7 hours)
+  EPOCHS_PER_ETH1_VOTING_PERIOD* = 32 ##\
+  ##  epochs (~3.4 hours)
 
   SLOTS_PER_HISTORICAL_ROOT* = 8192 ##\
   ## slots (13 hours)
@@ -123,8 +127,6 @@ const
 
   MIN_EPOCHS_TO_INACTIVITY_PENALTY* = 2'u64^2 ##\
   ## epochs (25.6 minutes)
-
-  EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS* = 16384
 
   # State vector lengths
   # ---------------------------------------------------------------
@@ -166,6 +168,50 @@ const
   EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION* = 256 # epochs ~ 27 hours
   SECONDS_PER_ETH1_BLOCK* = 14 # estimate from Eth1 mainnet)
 
+  # Phase 1: Upgrade from Phase 0
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/configs/mainnet.yaml#L161
+  PHASE_1_FORK_VERSION* = 1
+  INITIAL_ACTIVE_SHARDS* = 64
+  INITIAL_GASPRICE* = 10
+
+  # Phase 1: General
+  # ---------------------------------------------------------------
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/configs/mainnet.yaml#L169
+  MAX_SHARDS* = 1024
+  ONLINE_PERIOD* = 8 # epochs (~51 min)
+  LIGHT_CLIENT_COMMITTEE_SIZE* = 128
+  LIGHT_CLIENT_COMMITTEE_PERIOD* = 256 # epochs (~27 hours)
+  SHARD_COMMITTEE_PERIOD* = 256 # epochs (~27 hours)
+  SHARD_BLOCK_CHUNK_SIZE* = 262144
+  MAX_SHARD_BLOCK_CHUNKS* = 4
+  TARGET_SHARD_BLOCK_SIZE* = 196608
+  MAX_SHARD_BLOCKS_PER_ATTESTATION* = 12
+  MAX_GASPRICE* = 16384  # Gwei
+  MIN_GASPRICE* = 32 # Gwei
+  GASPRICE_ADJUSTMENT_COEFFICIENT* = 8
+
+  # Phase 1: Custody game
+  # ---------------------------------------------------------------
+
+  # Time parameters
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/configs/mainnet.yaml#L202
+  RANDAO_PENALTY_EPOCHS* = 2 # epchs (12.8 minutes)
+  EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS* = 16384 # epochs (~73 days)
+  EPOCHS_PER_CUSTODY_PERIOD* = 2048 # epochs (~9 days)
+  CUSTODY_PERIOD_TO_RANDAO_PADDING* = 2048 # epochs (~9 days)
+  MAX_REVEAL_LATENESS_DECREMENT* = 128 # epochs (~14 hours)
+
+  # Max operations
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/configs/mainnet.yaml#L214
+  MAX_CUSTODY_KEY_REVEALS* = 256
+  MAX_EARLY_DERIVED_SECRET_REVEALS* = 1
+  MAX_CUSTODY_SLASHINGS* = 1
+
+  # Reward and penalty quotients
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/configs/mainnet.yaml#L220
+  EARLY_DERIVED_SECRET_REVEAL_SLOT_REWARD_MULTIPLE* = 2
+  MINOR_REWARD_QUOTIENT* = 256
+
   # Phase 1 - Sharding
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase1/shard-data-chains.md#time-parameters
@@ -176,11 +222,3 @@ const
   # PHASE_1_FORK_EPOCH* = 8
   # PHASE_1_FORK_SLOT* = 64
 
-  # Phase 1 - Custody game
-  # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase1/custody-game.md#constants
-  # TODO those are included in minimal.yaml but not mainnet.yaml
-  #      Why?
-  # EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS* = 4096 # epochs
-  # EPOCHS_PER_CUSTODY_PERIOD* = 4
-  # CUSTODY_PERIOD_TO_RANDAO_PADDING* = 4

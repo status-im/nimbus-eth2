@@ -1,6 +1,6 @@
 FixtureSSZConsensus-minimal
 ===
-## Official - 0.10.1 - SSZ consensus objects  [Preset: minimal]
+## Official - 0.11.0 - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
 +   Testing    Attestation                                                                   OK
@@ -17,10 +17,12 @@ FixtureSSZConsensus-minimal
 +   Testing    Eth1Block                                                                     OK
 +   Testing    Eth1Data                                                                      OK
 +   Testing    Fork                                                                          OK
++   Testing    ForkData                                                                      OK
 +   Testing    HistoricalBatch                                                               OK
 +   Testing    IndexedAttestation                                                            OK
 +   Testing    PendingAttestation                                                            OK
 +   Testing    ProposerSlashing                                                              OK
++   Testing    SignedAggregateAndProof                                                       OK
 +   Testing    SignedBeaconBlock                                                             OK
 +   Testing    SignedBeaconBlockHeader                                                       OK
 +   Testing    SignedVoluntaryExit                                                           OK
@@ -28,7 +30,7 @@ FixtureSSZConsensus-minimal
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 ```
-OK: 25/25 Fail: 0/25 Skip: 0/25
+OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 25/25 Fail: 0/25 Skip: 0/25
+OK: 27/27 Fail: 0/27 Skip: 0/27

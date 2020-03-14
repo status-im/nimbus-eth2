@@ -81,23 +81,26 @@ type
 
   # Domains
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#domain-types
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#domain-types
   DomainType* {.pure.} = enum
     DOMAIN_BEACON_PROPOSER = 0
     DOMAIN_BEACON_ATTESTER = 1
     DOMAIN_RANDAO = 2
     DOMAIN_DEPOSIT = 3
     DOMAIN_VOLUNTARY_EXIT = 4
-    # Phase 1 - Custody game
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase1/custody-game.md#signature-domain-types
-    DOMAIN_CUSTODY_BIT_CHALLENGE = 6
+    DOMAIN_SELECTION_PROOF = 5
+    DOMAIN_AGGREGATE_AND_PROOF = 6
     # Phase 1 - Sharding
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase1/shard-data-chains.md#signature-domain-types
-    DOMAIN_SHARD_PROPOSER = 128
-    DOMAIN_SHARD_ATTESTER = 129
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase1/beacon-chain.md#misc
+    DOMAIN_SHARD_PROPOSAL = 128
+    DOMAIN_SHARD_COMMITTEE = 129
+    DOMAIN_LIGHT_CLIENT = 130
+    # Phase 1 - Custody game
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase1/custody-game.md#signature-domain-types
+    DOMAIN_CUSTODY_BIT_SLASHING = 0x83
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#custom-types
-  Domain* = array[8, byte]
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#custom-types
+  Domain* = array[32, byte]
 
   # https://github.com/nim-lang/Nim/issues/574 and be consistent across
   # 32-bit and 64-bit word platforms.
@@ -111,9 +114,8 @@ type
 
   BitList*[maxLen: static int] = distinct BitSeq
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#proposerslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#proposerslashing
   ProposerSlashing* = object
-    proposer_index*: uint64
     signed_header_1*: SignedBeaconBlockHeader
     signed_header_2*: SignedBeaconBlockHeader
 
@@ -136,6 +138,12 @@ type
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
     signature*: ValidatorSig
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#forkdata
+  ForkData* = object
+    # TODO: Spec introduced an alias for Version = array[4, byte]
+    current_version*: array[4, byte]
+    genesis_validators_root*: Eth2Digest
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#checkpoint
   Checkpoint* = object
@@ -190,6 +198,7 @@ type
     ## is formed.
 
     slot*: Slot
+    proposer_index*: uint64
 
     parent_root*: Eth2Digest ##\
     ## Root hash of the previous block
@@ -202,6 +211,7 @@ type
   # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot
+    proposer_index*: uint64
     parent_root*: Eth2Digest
     state_root*: Eth2Digest
     body_root*: Eth2Digest
@@ -223,6 +233,7 @@ type
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
+    genesis_validators_root*: Eth2Digest
     slot*: Slot
     fork*: Fork
 
@@ -238,7 +249,8 @@ type
 
     # Eth1
     eth1_data*: Eth1Data
-    eth1_data_votes*: List[Eth1Data, SLOTS_PER_ETH1_VOTING_PERIOD]
+    eth1_data_votes*:
+      List[Eth1Data, EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH]
     eth1_deposit_index*: uint64
 
     # Registry
@@ -350,6 +362,11 @@ type
     aggregate*: Attestation
     selection_proof*: ValidatorSig
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/validator.md#signedaggregateandproof
+  SignedAggregateAndProof* = object
+    message*: AggregateAndProof
+    signature*: ValidatorSig
+
   # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#eth1block
   Eth1Block* = object
     timestamp*: uint64
@@ -384,10 +401,12 @@ template foreachSpecType*(op: untyped) =
   op Eth1Block
   op Eth1Data
   op Fork
+  op ForkData
   op HistoricalBatch
   op IndexedAttestation
   op PendingAttestation
   op ProposerSlashing
+  op SignedAggregateAndProof
   op SignedBeaconBlock
   op SignedBeaconBlockHeader
   op SignedVoluntaryExit
@@ -421,7 +440,8 @@ macro fieldMaxLen*(x: typed): untyped =
              of "voluntary_exits": MAX_VOLUNTARY_EXITS
              # BeaconState
              of "historical_roots": HISTORICAL_ROOTS_LIMIT
-             of "eth1_data_votes": SLOTS_PER_ETH1_VOTING_PERIOD
+             of "eth1_data_votes":
+               EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH
              of "validators": VALIDATOR_REGISTRY_LIMIT
              of "balances": VALIDATOR_REGISTRY_LIMIT
              of "previous_epoch_attestations",

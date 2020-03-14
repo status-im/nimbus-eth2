@@ -44,7 +44,7 @@ declareGauge beacon_previous_live_validators, "Number of active validators that 
 declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
 declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#block-header
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#block-header
 proc process_block_header*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.}=
@@ -53,6 +53,16 @@ proc process_block_header*(
     notice "Block header: slot mismatch",
       block_slot = shortLog(blck.slot),
       state_slot = shortLog(state.slot)
+    return false
+
+  # Verify that proposer index is the correct index
+  let proposer_index = get_beacon_proposer_index(state, stateCache)
+  if proposer_index.isNone:
+    debug "Block header: proposer missing"
+    return false
+
+  if not (blck.proposer_index.ValidatorIndex == proposer_index.get):
+    notice "Block header: proposer index incorrect"
     return false
 
   # Verify that the parent matches
@@ -64,20 +74,16 @@ proc process_block_header*(
       latest_block_header_root = shortLog(hash_tree_root(state.latest_block_header))
     return false
 
-  # Save current block as the new latest block
+  # Cache current block as the new latest block
   state.latest_block_header = BeaconBlockHeader(
     slot: blck.slot,
+    proposer_index: blck.proposer_index,
     parent_root: blck.parent_root,
     # state_root: zeroed, overwritten in the next `process_slot` call
     body_root: hash_tree_root(blck.body),
   )
 
   # Verify proposer is not slashed
-  let proposer_index = get_beacon_proposer_index(state, stateCache)
-  if proposer_index.isNone:
-    debug "Block header: proposer missing"
-    return false
-
   let proposer = state.validators[proposer_index.get]
   if proposer.slashed:
     notice "Block header: proposer slashed"
@@ -119,48 +125,56 @@ proc process_randao(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#eth1-data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#eth1-data
 func process_eth1_data(state: var BeaconState, body: BeaconBlockBody) {.nbench.}=
   state.eth1_data_votes.add body.eth1_data
   if state.eth1_data_votes.count(body.eth1_data) * 2 >
-      SLOTS_PER_ETH1_VOTING_PERIOD:
+      EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH:
     state.eth1_data = body.eth1_data
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#is_slashable_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#is_slashable_validator
 func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
   # Check if ``validator`` is slashable.
   (not validator.slashed) and
     (validator.activation_epoch <= epoch) and
     (epoch < validator.withdrawable_epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#proposer-slashings
 proc process_proposer_slashing*(
     state: var BeaconState, proposer_slashing: ProposerSlashing,
     flags: UpdateFlags, stateCache: var StateCache): bool {.nbench.}=
-  if proposer_slashing.proposer_index.int >= state.validators.len:
+
+  let
+    header_1 = proposer_slashing.signed_header_1.message
+    header_2 = proposer_slashing.signed_header_2.message
+
+  # Not from spec
+  if header_1.proposer_index.int >= state.validators.len:
     notice "Proposer slashing: invalid proposer index"
     return false
 
-  let proposer = state.validators[proposer_slashing.proposer_index.int]
-
-  # Verify slots match
-  if not (proposer_slashing.signed_header_1.message.slot ==
-      proposer_slashing.signed_header_2.message.slot):
+  # Verify header slots match
+  if not (header_1.slot == header_2.slot):
     notice "Proposer slashing: slot mismatch"
     return false
 
-  # But the headers are different
-  if not (proposer_slashing.signed_header_1.message !=
-      proposer_slashing.signed_header_2.message):
+  # Verify header proposer indices match
+  if not (header_1.proposer_index == header_2.proposer_index):
+    notice "Proposer slashing: proposer indices mismatch"
+    return false
+
+  # Verify the headers are different
+  if not (header_1 != header_2):
     notice "Proposer slashing: headers not different"
     return false
 
-  # Check proposer is slashable
+  # Verify the proposer is slashable
+  let proposer = state.validators[header_1.proposer_index]
   if not is_slashable_validator(proposer, get_current_epoch(state)):
     notice "Proposer slashing: slashed proposer"
     return false
 
-  # Signatures are valid
+  # Verify signatures
   if skipBlsValidation notin flags:
     for i, signed_header in [proposer_slashing.signed_header_1,
         proposer_slashing.signed_header_2]:
@@ -174,8 +188,7 @@ proc process_proposer_slashing*(
           signature_index = i
         return false
 
-  slashValidator(
-    state, proposer_slashing.proposer_index.ValidatorIndex, stateCache)
+  slashValidator(state, header_1.proposer_index.ValidatorIndex, stateCache)
 
   true
 
