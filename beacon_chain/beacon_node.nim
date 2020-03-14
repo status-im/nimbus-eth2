@@ -405,10 +405,17 @@ proc proposeBlock(node: BeaconNode,
           node.attestationPool.getAttestationsForBlock(state, slot),
         deposits: deposits)
 
+    var cache = get_empty_per_epoch_cache()
+    let proposer_index = get_beacon_proposer_index(state, cache)
+    if proposer_index.isNone:
+      # TODO?
+      discard
+
     var
       newBlock = SignedBeaconBlock(
         message: BeaconBlock(
           slot: slot,
+          proposer_index: proposer_index.get.uint64,
           parent_root: head.root,
           body: blockBody))
       tmpState = hashedState
