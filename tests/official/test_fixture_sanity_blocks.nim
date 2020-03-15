@@ -70,9 +70,6 @@ suiteReport "Official - Sanity - Blocks " & preset():
       "attester_slashing",
       # TODO: regression BLS v0.10.1 to fix
       "expected_deposit_in_block",
-      # TODO: regressions in 0.11.0 for the moment
-      "high_proposer_index",
-      "proposer_after_inactive_index"
     ]
 
   for kind, path in walkDir(SanityBlocksDir, true):

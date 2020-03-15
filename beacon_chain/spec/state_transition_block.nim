@@ -62,7 +62,9 @@ proc process_block_header*(
     return false
 
   if not (blck.proposer_index.ValidatorIndex == proposer_index.get):
-    notice "Block header: proposer index incorrect"
+    notice "Block header: proposer index incorrect",
+      block_proposer_index = blck.proposer_index.ValidatorIndex,
+      proposer_index = proposer_index.get
     return false
 
   # Verify that the parent matches
@@ -376,7 +378,8 @@ proc processVoluntaryExits(state: var BeaconState, blck: BeaconBlock, flags: Upd
       return false
   return true
 
-proc processBlock*(
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#block-processing
+proc process_block*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.}=
   ## When there's a new block, we need to verify that the block is sane and
@@ -411,7 +414,7 @@ proc processBlock*(
 
   # TODO, everything below is now in process_operations
   # and implementation is per element instead of the whole seq
-
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#operations
   if not processProposerSlashings(state, blck, flags, stateCache):
     debug "[Block processing] Proposer slashing failure", slot = shortLog(state.slot)
     return false

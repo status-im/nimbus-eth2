@@ -414,8 +414,6 @@ func process_final_updates*(state: var BeaconState) {.nbench.}=
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(state: var BeaconState) {.nbench.}=
-  # @proc are placeholders
-
   trace "process_epoch",
     current_epoch = get_current_epoch(state)
 
@@ -438,18 +436,11 @@ proc process_epoch*(state: var BeaconState) {.nbench.}=
   ## get_active_validator_indices(...) usually changes.
   clear(per_epoch_cache.beacon_committee_cache)
 
-  # @process_reveal_deadlines
-  # @process_challenge_deadlines
-
   # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#slashings
   process_slashings(state)
 
-  # @update_period_committee
-
   # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#final-updates
   process_final_updates(state)
-
-  # @after_process_final_updates
 
   # Once per epoch metrics
   beacon_finalized_epoch.set(state.finalized_checkpoint.epoch.int64)
