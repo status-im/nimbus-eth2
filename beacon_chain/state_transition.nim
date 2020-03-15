@@ -157,7 +157,7 @@ proc state_transition*(
   #      https://github.com/ethereum/eth2.0-specs/issues/293
   var per_epoch_cache = get_empty_per_epoch_cache()
 
-  if processBlock(state, signedBlock.message, flags, per_epoch_cache):
+  if process_block(state, signedBlock.message, flags, per_epoch_cache):
     # This is a bit awkward - at the end of processing we verify that the
     # state we arrive at is what the block producer thought it would be -
     # meaning that potentially, it could fail verification
@@ -224,7 +224,7 @@ proc state_transition*(
   process_slots(state, signedBlock.message.slot)
   var per_epoch_cache = get_empty_per_epoch_cache()
 
-  if processBlock(state.data, signedBlock.message, flags, per_epoch_cache):
+  if process_block(state.data, signedBlock.message, flags, per_epoch_cache):
     if skipStateRootValidation in flags or verifyStateRoot(state.data, signedBlock.message):
       # State root is what it should be - we're done!
 

@@ -140,13 +140,15 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 + [Valid]   deposit_top_up                                                                   OK
 + [Valid]   empty_block_transition                                                           OK
 + [Valid]   empty_epoch_transition                                                           OK
++ [Valid]   high_proposer_index                                                              OK
 + [Valid]   historical_batch                                                                 OK
++ [Valid]   proposer_after_inactive_index                                                    OK
 + [Valid]   proposer_slashing                                                                OK
 + [Valid]   same_slot_block_transition                                                       OK
 + [Valid]   skipped_slots                                                                    OK
 + [Valid]   voluntary_exit                                                                   OK
 ```
-OK: 17/17 Fail: 0/17 Skip: 0/17
+OK: 19/19 Fail: 0/19 Skip: 0/19
 ## Official - Sanity - Slots  [Preset: mainnet]
 ```diff
 + Slots - double_empty_epoch                                                                 OK
@@ -158,4 +160,4 @@ OK: 17/17 Fail: 0/17 Skip: 0/17
 OK: 5/5 Fail: 0/5 Skip: 0/5
 
 ---TOTAL---
-OK: 108/108 Fail: 0/108 Skip: 0/108
+OK: 110/110 Fail: 0/110 Skip: 0/110
