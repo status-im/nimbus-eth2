@@ -3,7 +3,7 @@ import
   os, tables, random, strutils, times, sequtils,
 
   # Nimble packages
-  stew/[objects, bitseqs, byteutils],
+  stew/[objects, bitseqs, byteutils], stew/shims/macros,
   chronos, chronicles, confutils, metrics, json_rpc/[rpcserver, jsonmarshal],
   json_serialization/std/[options, sets, net], serialization/errors,
   kvstore, kvstore_sqlite3,
@@ -11,7 +11,7 @@ import
 
   # Local modules
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network,
-    state_transition_block],
+    state_transition_block], spec/presets/custom,
   conf, time, state_transition, beacon_chain_db, validator_pool, extras,
   attestation_pool, block_pool, eth2_network, eth2_discovery,
   beacon_node_types, mainchain_monitor, version, ssz, ssz/dynamic_navigator,
@@ -945,7 +945,17 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
     return $node.network.discovery.localNode.record
 
 proc installDebugApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
-  discard
+  rpcServer.rpc("getSpecPreset") do () -> JsonNode:
+    var res = newJObject()
+    genCode:
+      for setting in BeaconChainConstants:
+        let
+          settingSym = ident($setting)
+          settingKey = newLit(toLowerAscii($setting))
+        yield quote do:
+          res[`settingKey`] = %`settingSym`
+
+    return res
 
 proc installRpcHandlers(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.installValidatorApiHandlers(node)

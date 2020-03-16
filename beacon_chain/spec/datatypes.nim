@@ -82,7 +82,7 @@ type
   # Domains
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#domain-types
-  DomainType* {.pure.} = enum
+  DomainType* = enum
     DOMAIN_BEACON_PROPOSER = 0
     DOMAIN_BEACON_ATTESTER = 1
     DOMAIN_RANDAO = 2
@@ -509,9 +509,6 @@ proc writeValue*(writer: var JsonWriter, value: ValidatorIndex) =
 
 proc readValue*(reader: var JsonReader, value: var ValidatorIndex) =
   value = ValidatorIndex reader.readValue(uint32)
-
-proc `%`*(i: uint64): JsonNode =
-  % int(i)
 
 # `ValidatorIndex` seq handling.
 proc max*(a: ValidatorIndex, b: int) : auto =
