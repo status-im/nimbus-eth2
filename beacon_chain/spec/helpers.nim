@@ -67,13 +67,13 @@ func get_committee_count_at_slot*(state: BeaconState, slot: Slot): uint64 =
   # Otherwise, get_beacon_committee(...) cannot access some committees.
   doAssert (SLOTS_PER_EPOCH * MAX_COMMITTEES_PER_SLOT).uint64 >= result
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#get_current_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: BeaconState): Epoch =
   # Return the current epoch.
   doAssert state.slot >= GENESIS_SLOT, $state.slot
   compute_epoch_at_slot(state.slot)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#get_randao_mix
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: BeaconState,
                      epoch: Epoch): Eth2Digest =
     ## Returns the randao mix at a recent ``epoch``.
