@@ -4,7 +4,7 @@ type
     libp2pDaemon
 
 const
-  NETWORK_TYPE {.strdefine.} = "libp2p_daemon"
+  NETWORK_TYPE {.strdefine.} = "libp2p"
 
   networkBackend* = when NETWORK_TYPE == "libp2p": libp2p
                     elif NETWORK_TYPE == "libp2p_daemon": libp2pDaemon
