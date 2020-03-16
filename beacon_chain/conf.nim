@@ -1,14 +1,12 @@
 import
   os, options, strformat, strutils,
   chronicles, confutils, json_serialization,
-  confutils/defs, chronicles/options as chroniclesOptions,
+  confutils/defs, confutils/std/net,
+  chronicles/options as chroniclesOptions,
   spec/[crypto]
 
 export
-  defs, enabledLogLevel
-
-const
-  DEFAULT_NETWORK* {.strdefine.} = "testnet0"
+  defs, enabledLogLevel, parseCmdArg, completeCmdArg
 
 type
   ValidatorKeyPath* = TypedInputFile[ValidatorPrivKey, Txt, "privkey"]
@@ -75,6 +73,21 @@ type
       desc: "Textual template for the contents of the status bar."
       name: "status-bar-contents" }: string
 
+    rpcEnabled* {.
+      defaultValue: false
+      desc: "Enable the JSON-RPC server"
+      name: "rpc" }: bool
+
+    rpcPort* {.
+      defaultValue: defaultEth2RpcPort
+      desc: "HTTP port for the JSON-RPC service."
+      name: "rpc-port" }: Port
+
+    rpcAddress* {.
+      defaultValue: defaultListenAddress(config)
+      desc: "Listening address of the RPC server"
+      name: "rpc-address" }: IpAddress
+
     case cmd* {.
       command
       defaultValue: noCommand }: StartUpCmd
@@ -91,14 +104,14 @@ type
         name: "bootstrap-file" }: InputFile
 
       tcpPort* {.
-        defaultValue: defaultPort(config)
+        defaultValue: defaultEth2TcpPort
         desc: "TCP listening port."
-        name: "tcp-port" }: int
+        name: "tcp-port" }: Port
 
       udpPort* {.
-        defaultValue: defaultPort(config)
+        defaultValue: defaultEth2TcpPort
         desc: "UDP listening port."
-        name: "udp-port" }: int
+        name: "udp-port" }: Port
 
       maxPeers* {.
         defaultValue: 10
@@ -137,20 +150,20 @@ type
         desc: "A positive epoch selects the epoch at which to stop."
         name: "stop-at-epoch" }: uint64
 
-      metricsServer* {.
+      metricsEnabled* {.
         defaultValue: false
         desc: "Enable the metrics server."
-        name: "metrics-server" }: bool
+        name: "metrics" }: bool
 
-      metricsServerAddress* {.
-        defaultValue: "0.0.0.0"
+      metricsAddress* {.
+        defaultValue: defaultListenAddress(config)
         desc: "Listening address of the metrics server."
-        name: "metrics-server-address" }: string # TODO: use a validated type here
+        name: "metrics-address" }: IpAddress
 
-      metricsServerPort* {.
+      metricsPort* {.
         defaultValue: 8008
         desc: "Listening HTTP port of the metrics server."
-        name: "metrics-server-port" }: uint16
+        name: "metrics-port" }: Port
 
       dump* {.
         defaultValue: false
@@ -178,14 +191,14 @@ type
         name: "last-user-validator" }: uint64
 
       bootstrapAddress* {.
-        defaultValue: "127.0.0.1"
+        defaultValue: parseIpAddress("127.0.0.1")
         desc: "The public IP address that will be advertised as a bootstrap node for the testnet."
-        name: "bootstrap-address" }: string
+        name: "bootstrap-address" }: IpAddress
 
       bootstrapPort* {.
-        defaultValue: defaultPort(config)
+        defaultValue: defaultEth2TcpPort
         desc: "The TCP/UDP port that will be used by the bootstrap node."
-        name: "bootstrap-port" }: int
+        name: "bootstrap-port" }: Port
 
       genesisOffset* {.
         defaultValue: 5
@@ -248,9 +261,6 @@ type
           argument
           desc: "REST API path to evaluate" }: string
 
-proc defaultPort*(config: BeaconNodeConf): int =
-  9000
-
 proc defaultDataDir*(conf: BeaconNodeConf): string =
   let dataDir = when defined(windows):
     "AppData" / "Roaming" / "Nimbus"
@@ -273,6 +283,11 @@ func localValidatorsDir*(conf: BeaconNodeConf): string =
 
 func databaseDir*(conf: BeaconNodeConf): string =
   conf.dataDir / "db"
+
+func defaultListenAddress*(conf: BeaconNodeConf): IpAddress =
+  # TODO: How should we select between IPv4 and IPv6
+  # Maybe there should be a config option for this.
+  parseIpAddress("0.0.0.0")
 
 iterator validatorKeys*(conf: BeaconNodeConf): ValidatorPrivKey =
   for validatorKeyFile in conf.validators:

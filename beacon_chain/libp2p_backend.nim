@@ -277,6 +277,9 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf,
       if msg.protocolMounter != nil:
         msg.protocolMounter result
 
+template publicKey*(node: Eth2Node): keys.PublicKey =
+  node.discovery.privKey.getPublicKey
+
 template addKnownPeer*(node: Eth2Node, peer: ENode|enr.Record) =
   node.discovery.addNode peer
 
