@@ -17,6 +17,11 @@ const
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/p2p-interface.md#configuration
   ATTESTATION_SUBNET_COUNT* = 64
 
+  defaultEth2TcpPort* = 9000
+
+  # This is not part of the spec yet!
+  defaultEth2RpcPort* = 9090
+
 func getAttestationTopic*(committeeIndex: uint64): string =
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/validator.md#broadcast-attestation
   let topicIndex = committeeIndex mod ATTESTATION_SUBNET_COUNT

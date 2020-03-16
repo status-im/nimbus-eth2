@@ -1,13 +1,13 @@
 import
   # Standard library
-  os, net, tables, random, strutils, times, sequtils,
+  os, tables, random, strutils, times, sequtils,
 
   # Nimble packages
   stew/[objects, bitseqs, byteutils],
-  chronos, chronicles, confutils, metrics,
-  json_serialization/std/[options, sets], serialization/errors,
+  chronos, chronicles, confutils, metrics, json_rpc/[rpcserver, jsonmarshal],
+  json_serialization/std/[options, sets, net], serialization/errors,
   kvstore, kvstore_sqlite3,
-  eth/p2p/enode, eth/[keys, async_utils], eth/p2p/discoveryv5/enr,
+  eth/p2p/enode, eth/[keys, async_utils], eth/p2p/discoveryv5/[protocol, enr],
 
   # Local modules
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network,
@@ -24,6 +24,10 @@ const
 
 type
   KeyPair = eth2_network.KeyPair
+  RpcServer = RpcHttpServer
+
+template init(T: type RpcHttpServer, ip: IpAddress, port: Port): T =
+  newRpcHttpServer([initTAddress(ip, port)])
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_slot,
@@ -61,6 +65,7 @@ type
     attestationPool: AttestationPool
     mainchainMonitor: MainchainMonitor
     beaconClock: BeaconClock
+    rpcServer: RpcServer
 
 proc onBeaconBlock*(node: BeaconNode, signedBlock: SignedBeaconBlock) {.gcsafe.}
 proc updateHead(node: BeaconNode): BlockRef
@@ -203,6 +208,11 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     addressFile = string(conf.dataDir) / "beacon_node.address"
   network.saveConnectionAddressFile(addressFile)
 
+  let rpcServer = if conf.rpcEnabled:
+    RpcServer.init(conf.rpcAddress, conf.rpcPort)
+  else:
+    nil
+
   var res = BeaconNode(
     nickname: nickname,
     network: network,
@@ -218,6 +228,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     attestationPool: AttestationPool.init(blockPool),
     mainchainMonitor: mainchainMonitor,
     beaconClock: BeaconClock.init(blockPool.headState.data.data),
+    rpcServer: rpcServer,
   )
 
   # TODO sync is called when a remote peer is connected - is that the right
@@ -845,7 +856,107 @@ proc onSecond(node: BeaconNode, moment: Moment) {.async.} =
   addTimer(nextSecond) do (p: pointer):
     asyncCheck node.onSecond(nextSecond)
 
+# TODO: Should we move these to other modules?
+# This would require moving around other type definitions
+proc installValidatorApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
+  discard
+
+func slotOrZero(time: BeaconTime): Slot =
+  let exSlot = time.toSlot
+  if exSlot.afterGenesis: exSlot.slot
+  else: Slot(0)
+
+func currentSlot(node: BeaconNode): Slot =
+  node.beaconClock.now.slotOrZero
+
+proc connectedPeersCount(node: BeaconNode): int =
+  libp2p_peers.value.int
+
+proc fromJson(n: JsonNode; argName: string; result: var Slot) =
+  var i: int
+  fromJson(n, argName, i)
+  result = Slot(i)
+
+proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
+  rpcServer.rpc("getBeaconHead") do () -> Slot:
+    return node.currentSlot
+
+  template requireOneOf(x, y: distinct Option) =
+    if x.isNone xor y.isNone:
+      raise newException(CatchableError,
+       "Please specify one of " & astToStr(x) & " or " & astToStr(y))
+
+  template jsonResult(x: auto): auto =
+    # TODO, yes this is silly, but teching json-rpc about
+    # all beacon node types will require quite a lot of work.
+    # A minor refactoring in json-rpc can solve this. We need
+    # to allow the handlers to return raw/literal json strings.
+    parseJson(Json.encode(x))
+
+  rpcServer.rpc("getBeaconBlock") do (slot: Option[Slot],
+                                      root: Option[Eth2Digest]) -> JsonNode:
+    requireOneOf(slot, root)
+    var blockHash: Eth2Digest
+    if root.isSome:
+      blockHash = root.get
+    else:
+      let foundRef = node.blockPool.getBlockByPreciseSlot(slot.get)
+      if foundRef.isSome:
+        blockHash = foundRef.get.root
+      else:
+        return newJNull()
+
+    let dbBlock = node.db.getBlock(blockHash)
+    if dbBlock.isSome:
+      return jsonResult(dbBlock.get)
+    else:
+      return newJNull()
+
+  rpcServer.rpc("getBeaconState") do (slot: Option[Slot],
+                                      root: Option[Eth2Digest]) -> JsonNode:
+    requireOneOf(slot, root)
+    if slot.isSome:
+      let blk = node.blockPool.head.blck.atSlot(slot.get)
+      var tmpState: StateData
+      node.blockPool.withState(tmpState, blk):
+        return jsonResult(state)
+    else:
+      let state = node.db.getState(root.get)
+      if state.isSome:
+        return jsonResult(state.get)
+      else:
+        return newJNull()
+
+  rpcServer.rpc("getNetworkPeerId") do () -> string:
+    when networkBackend != libp2p:
+      raise newException(CatchableError, "Unsupported operation")
+    else:
+      return $publicKey(node.network)
+
+  rpcServer.rpc("getNetworkPeers") do () -> seq[string]:
+    when networkBackend != libp2p:
+      if true:
+        raise newException(CatchableError, "Unsupported operation")
+
+    for peerId, peer in node.network.peerPool:
+      result.add $peerId
+
+  rpcServer.rpc("getNetworkEnr") do () -> string:
+    return $node.network.discovery.localNode.record
+
+proc installDebugApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
+  discard
+
+proc installRpcHandlers(rpcServer: RpcServer, node: BeaconNode) =
+  rpcServer.installValidatorApiHandlers(node)
+  rpcServer.installBeaconApiHandlers(node)
+  rpcServer.installDebugApiHandlers(node)
+
 proc run*(node: BeaconNode) =
+  if node.rpcServer != nil:
+    node.rpcServer.installRpcHandlers(node)
+    node.rpcServer.start()
+
   waitFor node.network.subscribe(topicBeaconBlocks) do (signedBlock: SignedBeaconBlock):
     onBeaconBlock(node, signedBlock)
 
@@ -955,11 +1066,6 @@ when hasPrompt:
       else:
         p[].writeLine("Unknown command: " & cmd)
 
-  proc slotOrZero(time: BeaconTime): Slot =
-    let exSlot = time.toSlot
-    if exSlot.afterGenesis: exSlot.slot
-    else: Slot(0)
-
   proc initPrompt(node: BeaconNode) =
     if isatty(stdout) and node.config.statusBarEnabled:
       enableTrueColors()
@@ -982,7 +1088,7 @@ when hasPrompt:
         # arbitrary expression that is resolvable through this API.
         case expr.toLowerAscii
         of "connected_peers":
-          $(libp2p_peers.value.int)
+          $(node.connectedPeersCount)
 
         of "last_finalized_epoch":
           var head = node.blockPool.finalizedHead
@@ -999,7 +1105,7 @@ when hasPrompt:
           $SLOTS_PER_EPOCH
 
         of "slot":
-          $node.beaconClock.now.slotOrZero
+          $node.currentSlot
 
         of "slot_trailing_digits":
           var slotStr = $node.beaconClock.now.slotOrZero
@@ -1115,9 +1221,9 @@ when isMainModule:
       let
         networkKeys = getPersistentNetKeys(config)
         bootstrapAddress = enode.Address(
-          ip: parseIpAddress(config.bootstrapAddress),
-          tcpPort: Port config.bootstrapPort,
-          udpPort: Port config.bootstrapPort)
+          ip: config.bootstrapAddress,
+          tcpPort: config.bootstrapPort,
+          udpPort: config.bootstrapPort)
 
         bootstrapEnr = enr.Record.init(
           1, # sequence number
@@ -1151,11 +1257,11 @@ when isMainModule:
       initPrompt(node)
 
     when useInsecureFeatures:
-      if config.metricsServer:
-        let metricsAddress = config.metricsServerAddress
+      if config.metricsEnabled:
+        let metricsAddress = config.metricsAddress
         info "Starting metrics HTTP server",
-          address = metricsAddress, port = config.metricsServerPort
-        metrics.startHttpServer(metricsAddress, Port(config.metricsServerPort))
+          address = metricsAddress, port = config.metricsPort
+        metrics.startHttpServer($metricsAddress, config.metricsPort)
 
     if node.nickname != "":
       dynamicLogScope(node = node.nickname): node.start()

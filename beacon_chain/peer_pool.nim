@@ -55,6 +55,10 @@ proc fireNotFullEvent[A, B](pool: PeerPool[A, B],
   elif item.peerType == PeerType.Outgoing:
     pool.outNotFullEvent.fire()
 
+iterator pairs*[A, B](pool: PeerPool[A, B]): (B, A) =
+  for peerId, peerIdx in pool.registry:
+    yield (peerId, pool.storage[peerIdx.data].data)
+
 proc waitNotEmptyEvent[A, B](pool: PeerPool[A, B],
                              filter: set[PeerType]) {.async.} =
   if filter == {PeerType.Incoming, PeerType.Outgoing} or filter == {}:
