@@ -141,7 +141,7 @@ when networkBackend in [libp2p, libp2pDaemon]:
                        bootstrapNodes: seq[ENode]): Future[Eth2Node] {.async.} =
     var
       (extIp, extTcpPort, _) = setupNat(conf)
-      hostAddress = tcpEndPoint(globalListeningAddr, Port conf.tcpPort)
+      hostAddress = tcpEndPoint(globalListeningAddr, conf.tcpPort)
       announcedAddresses = if extIp == globalListeningAddr: @[]
                            else: @[tcpEndPoint(extIp, extTcpPort)]
 
