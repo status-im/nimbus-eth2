@@ -57,7 +57,7 @@ else:
   loadCustomPreset const_preset
 
 const
-  SPEC_VERSION* = "0.10.1" ## \
+  SPEC_VERSION* = "0.11.0" ## \
   ## Spec version we're aiming to be compatible with, right now
 
   GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
@@ -145,7 +145,7 @@ type
     current_version*: array[4, byte]
     genesis_validators_root*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#checkpoint
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#checkpoint
   Checkpoint* = object
     epoch*: Epoch
     root*: Eth2Digest

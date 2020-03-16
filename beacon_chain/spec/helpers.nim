@@ -28,7 +28,7 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
     y = (x + n div x) div 2
   x
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#compute_epoch_at_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#compute_epoch_at_slot
 func compute_epoch_at_slot*(slot: Slot|uint64): Epoch =
   # Return the epoch number at ``slot``.
   (slot div SLOTS_PER_EPOCH).Epoch
@@ -46,7 +46,7 @@ func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   ### Check if ``validator`` is active
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#get_active_validator_indices
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#get_active_validator_indices
 func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
     seq[ValidatorIndex] =
   # Return the sequence of active validator indices at ``epoch``.
@@ -54,7 +54,7 @@ func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
     if is_active_validator(val, epoch):
       result.add idx.ValidatorIndex
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#get_committee_count_at_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#get_committee_count_at_slot
 func get_committee_count_at_slot*(state: BeaconState, slot: Slot): uint64 =
   # Return the number of committees at ``slot``.
   let epoch = compute_epoch_at_slot(slot)
