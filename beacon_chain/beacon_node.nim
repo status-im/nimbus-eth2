@@ -408,8 +408,7 @@ proc proposeBlock(node: BeaconNode,
     var cache = get_empty_per_epoch_cache()
     let proposer_index = get_beacon_proposer_index(state, cache)
     if proposer_index.isNone:
-      # TODO?
-      discard
+      doAssert false, "proposeBlock: missing proposer index"
 
     var
       newBlock = SignedBeaconBlock(
