@@ -887,14 +887,10 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
        "Please specify one of " & astToStr(x) & " or " & astToStr(y))
 
   template jsonResult(x: auto): auto =
-    # TODO, yes this is silly, but teching json-rpc about
-    # all beacon node types will require quite a lot of work.
-    # A minor refactoring in json-rpc can solve this. We need
-    # to allow the handlers to return raw/literal json strings.
-    parseJson(Json.encode(x))
+    StringOfJson(Json.encode(x))
 
   rpcServer.rpc("getBeaconBlock") do (slot: Option[Slot],
-                                      root: Option[Eth2Digest]) -> JsonNode:
+                                      root: Option[Eth2Digest]) -> StringOfJson:
     requireOneOf(slot, root)
     var blockHash: Eth2Digest
     if root.isSome:
@@ -904,16 +900,16 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
       if foundRef.isSome:
         blockHash = foundRef.get.root
       else:
-        return newJNull()
+        return StringOfJson("null")
 
     let dbBlock = node.db.getBlock(blockHash)
     if dbBlock.isSome:
       return jsonResult(dbBlock.get)
     else:
-      return newJNull()
+      return StringOfJson("null")
 
   rpcServer.rpc("getBeaconState") do (slot: Option[Slot],
-                                      root: Option[Eth2Digest]) -> JsonNode:
+                                      root: Option[Eth2Digest]) -> StringOfJson:
     requireOneOf(slot, root)
     if slot.isSome:
       let blk = node.blockPool.head.blck.atSlot(slot.get)
@@ -925,7 +921,7 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
       if state.isSome:
         return jsonResult(state.get)
       else:
-        return newJNull()
+        return StringOfJson("null")
 
   rpcServer.rpc("getNetworkPeerId") do () -> string:
     when networkBackend != libp2p:
