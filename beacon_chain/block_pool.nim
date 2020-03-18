@@ -519,11 +519,11 @@ func getBlockBySlot*(pool: BlockPool, slot: Slot): BlockRef =
   ## with slot number less or equal to `slot`.
   pool.head.blck.findAncestorBySlot(slot).blck
 
-func getBlockByPreciseSlot*(pool: BlockPool, slot: Slot): Option[BlockRef] =
+func getBlockByPreciseSlot*(pool: BlockPool, slot: Slot): BlockRef =
   ## Retrieves a block from the canonical chain with a slot
   ## number equal to `slot`.
   let found = pool.getBlockBySlot(slot)
-  if found.slot != slot: some(found) else: none(BlockRef)
+  if found.slot != slot: found else: nil
 
 proc get*(pool: BlockPool, blck: BlockRef): BlockData =
   ## Retrieve the associated block body of a block reference
