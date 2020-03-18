@@ -14,19 +14,38 @@ import
 
 # this is being indexed inside "mock_deposits.nim" by a value up to `validatorCount`
 # which is `num_validators` which is `MIN_GENESIS_ACTIVE_VALIDATOR_COUNT`
-let MockPrivKeys* = block:
-  var privkeys: array[MIN_GENESIS_ACTIVE_VALIDATOR_COUNT, ValidatorPrivKey]
-  for pk in privkeys.mitems():
-    pk = newPrivKey()
-  privkeys
+proc genMockPrivKeys(privkeys: var array[MIN_GENESIS_ACTIVE_VALIDATOR_COUNT, ValidatorPrivKey]) =
+  for i in 0 ..< privkeys.len:
+    let pair = newKeyPair()
+    privkeys[i] = pair.priv
 
-let MockPubKeys* = block:
-  var pubkeys: array[MIN_GENESIS_ACTIVE_VALIDATOR_COUNT, ValidatorPubKey]
-  for idx, privkey in MockPrivKeys:
-    pubkeys[idx] = pubkey(privkey)
-  pubkeys
+proc genMockPubKeys(
+       pubkeys: var array[MIN_GENESIS_ACTIVE_VALIDATOR_COUNT, ValidatorPubKey],
+       privkeys: array[MIN_GENESIS_ACTIVE_VALIDATOR_COUNT, ValidatorPrivKey]
+     ) =
+  for i in 0 ..< privkeys.len:
+    pubkeys[i] = pubkey(privkeys[i])
+
+# Ref array necessary to limit stack usage / binary size
+var MockPrivKeys*: ref array[MIN_GENESIS_ACTIVE_VALIDATOR_COUNT, ValidatorPrivKey]
+new MockPrivKeys
+genMockPrivKeys(MockPrivKeys[])
+
+var MockPubKeys*: ref array[MIN_GENESIS_ACTIVE_VALIDATOR_COUNT, ValidatorPubKey]
+new MockPubKeys
+genMockPubKeys(MockPubKeys[], MockPrivKeys[])
 
 type MockKey = ValidatorPrivKey or ValidatorPubKey
 
 template `[]`*[N: static int](a: array[N, MockKey], idx: ValidatorIndex): MockKey =
   a[idx.int]
+
+when isMainModule:
+  from blscurve import toHex
+
+  echo "========================================"
+  echo "Mock keys"
+  for i in 0 ..< MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
+    echo "  validator ", i
+    echo "    seckey: ", MockPrivKeys[i].toHex()
+    echo "    pubkey: ", MockPubKeys[i]

@@ -24,6 +24,7 @@ func getValidator*(pool: ValidatorPool,
                    validatorKey: ValidatorPubKey): AttachedValidator =
   pool.validators.getOrDefault(validatorKey)
 
+# TODO: Honest validator - https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md
 proc signBlockProposal*(v: AttachedValidator, fork: Fork, slot: Slot,
                         blockRoot: Eth2Digest): Future[ValidatorSig] {.async.} =
 
@@ -38,7 +39,8 @@ proc signBlockProposal*(v: AttachedValidator, fork: Fork, slot: Slot,
     #      replaced by something more sensible
     await sleepAsync(chronos.milliseconds(1))
 
-    result = bls_sign(v.privKey, blockRoot.data, domain)
+    let signing_root = compute_signing_root(blockRoot, domain)
+    result = blsSign(v.privKey, signing_root.data)
   else:
     error "Unimplemented"
     quit 1
@@ -56,18 +58,20 @@ proc signAttestation*(v: AttachedValidator,
     #      replaced by something more sensible
     await sleepAsync(chronos.milliseconds(1))
 
-    result = bls_sign(v.privKey, attestationRoot.data, domain)
+    let signing_root = compute_signing_root(attestationRoot, domain)
+    result = blsSign(v.privKey, signing_root.data)
   else:
     error "Unimplemented"
     quit 1
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#randao-reveal
 func genRandaoReveal*(k: ValidatorPrivKey, fork: Fork, slot: Slot):
     ValidatorSig =
   let
     domain = get_domain(fork, DOMAIN_RANDAO, compute_epoch_at_slot(slot))
-    root = hash_tree_root(compute_epoch_at_slot(slot).uint64).data
+    signing_root = compute_signing_root(compute_epoch_at_slot(slot).uint64, domain)
 
-  bls_sign(k, root, domain)
+  bls_sign(k, signing_root.data)
 
 func genRandaoReveal*(v: AttachedValidator, fork: Fork, slot: Slot):
     ValidatorSig =

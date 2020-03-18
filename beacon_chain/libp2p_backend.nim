@@ -1,9 +1,10 @@
 import
-  algorithm, typetraits, net,
+  algorithm, typetraits, net as stdNet,
   stew/[varints,base58], stew/shims/[macros, tables], chronos, chronicles,
   stint, faststreams/output_stream, serialization,
-  json_serialization/std/options, eth/p2p/p2p_protocol_dsl,
-  eth/p2p/discoveryv5/enr,
+  json_serialization/std/[net, options],
+  eth/[keys, async_utils], eth/p2p/[enode, p2p_protocol_dsl],
+  eth/p2p/discoveryv5/[enr, node],
   # TODO: create simpler to use libp2p modules that use re-exports
   libp2p/[switch, multistream, connection,
           multiaddress, peerinfo, peer,
@@ -12,7 +13,8 @@ import
   libp2p/protocols/secure/[secure, secio],
   libp2p/protocols/pubsub/[pubsub, floodsub],
   libp2p/transports/[transport, tcptransport],
-  libp2p_json_serialization, eth2_discovery, conf, ssz
+  libp2p_json_serialization, eth2_discovery, conf, ssz,
+  peer_pool
 
 import
   eth/p2p/discoveryv5/protocol as discv5_protocol
@@ -28,8 +30,7 @@ type
     switch*: Switch
     discovery*: Eth2DiscoveryProtocol
     wantedPeers*: int
-    peers*: Table[PeerID, Peer]
-    peersByDiscoveryId*: Table[Eth2DiscoveryId, Peer]
+    peerPool*: PeerPool[Peer, PeerID]
     protocolStates*: seq[RootRef]
     libp2pTransportLoops*: seq[Future[void]]
 
@@ -43,6 +44,7 @@ type
     connectionState*: ConnectionState
     protocolStates*: seq[RootRef]
     maxInactivityAllowed*: Duration
+    score*: int
 
   ConnectionState* = enum
     None,
@@ -125,34 +127,76 @@ proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer {.gcsafe.}
 
 proc getPeer*(node: Eth2Node, peerInfo: PeerInfo): Peer {.gcsafe.} =
   let peerId = peerInfo.peerId
-  result = node.peers.getOrDefault(peerId)
+  result = node.peerPool.getOrDefault(peerId)
   if result == nil:
     result = Peer.init(node, peerInfo)
-    node.peers[peerId] = result
 
 proc peerFromStream(network: Eth2Node, stream: P2PStream): Peer {.gcsafe.} =
   # TODO: Can this be `nil`?
   return network.getPeer(stream.peerInfo)
 
-proc disconnect*(peer: Peer, reason: DisconnectionReason, notifyOtherPeer = false) {.async.} =
+proc getKey*(peer: Peer): PeerID {.inline.} =
+  result = peer.info.peerId
+
+proc getFuture*(peer: Peer): Future[void] {.inline.} =
+  result = peer.info.lifeFuture()
+
+proc `<`*(a, b: Peer): bool =
+  result = `<`(a.score, b.score)
+
+proc disconnect*(peer: Peer, reason: DisconnectionReason,
+                 notifyOtherPeer = false) {.async.} =
   # TODO: How should we notify the other peer?
   if peer.connectionState notin {Disconnecting, Disconnected}:
     peer.connectionState = Disconnecting
     await peer.network.switch.disconnect(peer.info)
     peer.connectionState = Disconnected
-    peer.network.peers.del(peer.info.peerId)
+    peer.network.peerPool.release(peer)
+    peer.info.close()
 
 proc safeClose(stream: P2PStream) {.async.} =
   if not stream.closed:
     await close(stream)
 
+proc handleIncomingPeer*(peer: Peer)
+
 include eth/p2p/p2p_backends_helpers
 include eth/p2p/p2p_tracing
 include libp2p_backends_common
 
+proc handleOutgoingPeer*(peer: Peer): Future[void] {.async.} =
+  let network = peer.network
+
+  proc onPeerClosed(udata: pointer) {.gcsafe.} =
+    debug "Peer (outgoing) lost", peer = $peer.info
+    libp2p_peers.set int64(len(network.peerPool))
+
+  let res = await network.peerPool.addOutgoingPeer(peer)
+  if res:
+    debug "Peer (outgoing) has been added to PeerPool", peer = $peer.info
+    peer.getFuture().addCallback(onPeerClosed)
+  libp2p_peers.set int64(len(network.peerPool))
+
+proc handleIncomingPeer*(peer: Peer) =
+  let network = peer.network
+
+  proc onPeerClosed(udata: pointer) {.gcsafe.} =
+    debug "Peer (incoming) lost", peer = $peer.info
+    libp2p_peers.set int64(len(network.peerPool))
+
+  let res = network.peerPool.addIncomingPeerNoWait(peer)
+  if res:
+    debug "Peer (incoming) has been added to PeerPool", peer = $peer.info
+    peer.getFuture().addCallback(onPeerClosed)
+  libp2p_peers.set int64(len(network.peerPool))
+
 proc toPeerInfo*(r: enr.TypedRecord): PeerInfo =
   if r.secp256k1.isSome:
-    var peerId = PeerID.init r.secp256k1.get
+    var pubKey: keys.PublicKey
+    if recoverPublicKey(r.secp256k1.get, pubKey) != EthKeysStatus.Success:
+      return # TODO
+
+    let peerId = PeerID.init crypto.PublicKey(scheme: Secp256k1, skkey: pubKey)
     var addresses = newSeq[MultiAddress]()
 
     if r.ip.isSome and r.tcp.isSome:
@@ -177,32 +221,52 @@ proc toPeerInfo(r: Option[enr.TypedRecord]): PeerInfo =
   if r.isSome:
     return r.get.toPeerInfo
 
-proc dialPeer*(node: Eth2Node, enr: enr.Record) {.async.} =
-  let peerInfo = enr.toTypedRecord.toPeerInfo
-  if peerInfo != nil:
-    discard await node.switch.dial(peerInfo)
-    var peer = node.getPeer(peerInfo)
-    peer.wasDialed = true
-    await initializeConnection(peer)
+proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
+  logScope: peer = $peerInfo
 
-proc runDiscoveryLoop(node: Eth2Node) {.async.} =
+  debug "Connecting to peer"
+  await node.switch.connect(peerInfo)
+  var peer = node.getPeer(peerInfo)
+  peer.wasDialed = true
+
+  debug "Initializing connection"
+  await initializeConnection(peer)
+
+  inc libp2p_successful_dials
+  debug "Network handshakes completed"
+
+  await handleOutgoingPeer(peer)
+
+proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
+  debug "Starting discovery loop"
+
   while true:
-    if node.peersByDiscoveryId.len < node.wantedPeers:
-      let discoveredPeers = await node.discovery.lookupRandom()
-      for peer in discoveredPeers:
-        if peer.id notin node.peersByDiscoveryId:
-          # TODO do this in parallel
-          await node.dialPeer(peer.record)
+    let currentPeerCount = node.peerPool.len
+    if currentPeerCount < node.wantedPeers:
+      try:
+        let discoveredPeers =
+          node.discovery.randomNodes(node.wantedPeers - currentPeerCount)
+        debug "Discovered peers", peer = $discoveredPeers
+        for peer in discoveredPeers:
+          try:
+            let peerInfo = peer.record.toTypedRecord.toPeerInfo
+            if peerInfo != nil and peerInfo.id notin node.switch.connections:
+              # TODO do this in parallel
+              await node.dialPeer(peerInfo)
+          except CatchableError as err:
+            debug "Failed to connect to peer", peer = $peer, err = err.msg
+      except CatchableError as err:
+        debug "Failure in discovery", err = err.msg
 
     await sleepAsync seconds(1)
 
 proc init*(T: type Eth2Node, conf: BeaconNodeConf,
-           switch: Switch, privKey: PrivateKey): T =
+           switch: Switch, ip: IpAddress, privKey: keys.PrivateKey): T =
   new result
   result.switch = switch
-  result.peers = initTable[PeerID, Peer]()
-  result.discovery = Eth2DiscoveryProtocol.new(conf, privKey.getBytes)
+  result.discovery = Eth2DiscoveryProtocol.new(conf, ip, privKey.data)
   result.wantedPeers = conf.maxPeers
+  result.peerPool = newPeerPool[Peer, PeerID](maxPeers = conf.maxPeers)
 
   newSeq result.protocolStates, allProtocols.len
   for proto in allProtocols:
@@ -213,13 +277,13 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf,
       if msg.protocolMounter != nil:
         msg.protocolMounter result
 
-proc addKnownPeer*(node: Eth2Node, peerEnr: enr.Record) =
-  node.discovery.addNode peerEnr
+template addKnownPeer*(node: Eth2Node, peer: ENode|enr.Record) =
+  node.discovery.addNode peer
 
 proc start*(node: Eth2Node) {.async.} =
   node.discovery.open()
-  node.discovery.start()
   node.libp2pTransportLoops = await node.switch.start()
+  traceAsyncErrors node.runDiscoveryLoop()
 
 proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer =
   new result

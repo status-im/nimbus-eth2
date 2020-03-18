@@ -17,7 +17,7 @@ import
   ../../beacon_chain/spec/[crypto, datatypes, digest],
   ../../beacon_chain/ssz,
   # Test utilities
-  ../testutil
+  ../testutil, ./fixtures_utils
 
 # SSZ tests of consensus objects (minimal/mainnet preset specific)
 
@@ -25,8 +25,7 @@ import
 # ----------------------------------------------------------------
 
 const
-  FixturesDir = currentSourcePath.rsplit(DirSep, 1)[0] / "fixtures"
-  SSZDir = FixturesDir/"tests-v0.10.1"/const_preset/"phase0"/"ssz_static"
+  SSZDir = FixturesDir/"tests-v0.11.0"/const_preset/"phase0"/"ssz_static"
 
 type
   SSZHashTreeRoot = object
@@ -90,10 +89,13 @@ proc runSSZtests() =
           of "Eth1Block": checkSSZ(Eth1Block, path, hash)
           of "Eth1Data": checkSSZ(Eth1Data, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
+          of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
           of "IndexedAttestation": checkSSZ(IndexedAttestation, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
+          of "SignedAggregateAndProof":
+            checkSSZ(SignedAggregateAndProof, path, hash)
           of "SignedBeaconBlock": checkSSZ(SignedBeaconBlock, path, hash)
           of "SignedBeaconBlockHeader":
             checkSSZ(SignedBeaconBlockHeader, path, hash)
@@ -104,5 +106,7 @@ proc runSSZtests() =
           else:
             raise newException(ValueError, "Unsupported test: " & sszType)
 
-suite "Official - 0.10.1 - SSZ consensus objects " & preset():
+suiteReport "Official - 0.11.0 - SSZ consensus objects " & preset():
   runSSZtests()
+
+summarizeLongTests("FixtureSSZConsensus")

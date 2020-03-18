@@ -33,7 +33,7 @@ proc runTest(identifier: string) =
     var flags: UpdateFlags
     var prefix: string
     if not existsFile(testDir/"meta.yaml"):
-      flags.incl skipValidation
+      flags.incl skipBlsValidation
     if existsFile(testDir/"post.ssz"):
       prefix = "[Valid]   "
     else:
@@ -63,6 +63,6 @@ proc runTest(identifier: string) =
 
   `testImpl _ voluntary_exit _ identifier`()
 
-suite "Official - Operations - Voluntary exit " & preset():
+suiteReport "Official - Operations - Voluntary exit " & preset():
   for kind, path in walkDir(OpVoluntaryExitDir, true):
     runTest(path)

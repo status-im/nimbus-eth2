@@ -1,6 +1,8 @@
-[submodule "tests/official/fixtures"]
-	path = tests/official/fixtures
-	url = https://github.com/status-im/nim-eth2-official-tests
+[submodule "vendor/nim-eth2-scenarios"]
+	path = vendor/nim-eth2-scenarios
+	url = https://github.com/status-im/nim-eth2-scenarios
+	ignore = dirty
+	branch = master
 [submodule "vendor/go/src/github.com/libp2p/go-libp2p-daemon"]
 	path = vendor/go/src/github.com/libp2p/go-libp2p-daemon
 	url = https://github.com/libp2p/go-libp2p-daemon.git
@@ -91,11 +93,6 @@
 	url = https://github.com/status-im/nim-metrics.git
 	ignore = dirty
 	branch = master
-[submodule "vendor/nim-rocksdb"]
-	path = vendor/nim-rocksdb
-	url = https://github.com/status-im/nim-rocksdb.git
-	ignore = dirty
-	branch = master
 [submodule "vendor/nim-secp256k1"]
 	path = vendor/nim-secp256k1
 	url = https://github.com/status-im/nim-secp256k1.git
@@ -131,6 +128,16 @@
 	url = https://github.com/status-im/nim-bearssl.git
 	ignore = dirty
 	branch = master
-[submodule "vendor/lmdb"]
-	path = vendor/lmdb
-	url = https://github.com/status-im/lmdb.git
+[submodule "vendor/nim-libbacktrace"]
+	path = vendor/nim-libbacktrace
+	url = https://github.com/status-im/nim-libbacktrace.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-sqlite3-abi"]
+	path = vendor/nim-sqlite3-abi
+	url = https://github.com/arnetheduck/nim-sqlite3-abi.git
+[submodule "vendor/nim-testutils"]
+	path = vendor/nim-testutils
+	url = https://github.com/status-im/nim-testutils.git
+	ignore = dirty
+	branch = master

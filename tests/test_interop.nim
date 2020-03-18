@@ -5,6 +5,10 @@ import
   ../beacon_chain/[extras, interop, ssz],
   ../beacon_chain/spec/[beaconstate, crypto, helpers, datatypes]
 
+# TODO: BLS changes in v0.10.1 will generate different interop signatures
+#       Requires an update of the interop mocked start
+#       or of ZRNT / ZCLI to v0.10.1
+
 # Interop test yaml, found here:
 # https://github.com/ethereum/eth2.0-pm/blob/a0b9d22fad424574b1307828f867b30237758468/interop/mocked_start/keygen_10_validators.yaml
 
@@ -115,7 +119,7 @@ let depositsConfig = [
   )
 ]
 
-suite "Interop":
+suiteReport "Interop":
   timedTest "Mocked start private key":
     for i, k in privateKeys:
       let
@@ -149,6 +153,8 @@ suite "Interop":
       deposits.add(makeDeposit(privKey.pubKey(), privKey))
 
     var
+      # TODO this currently requires skipMerkleValidation to pass the test
+      # makeDeposit doesn't appear to produce a proof?
       initialState = initialize_beacon_state_from_eth1(
         eth1BlockHash, 1570500000, deposits, {skipMerkleValidation})
 

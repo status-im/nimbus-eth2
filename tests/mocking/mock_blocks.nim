@@ -27,28 +27,27 @@ proc signMockBlockImpl(
 
   let privkey = MockPrivKeys[proposer_index]
 
-  signedBlock.message.body.randao_reveal = bls_sign(
-    key = privkey,
-    msg = block_slot
-              .compute_epoch_at_slot()
-              .hash_tree_root()
-              .data,
-    domain = get_domain(
-      state,
-      DOMAIN_RANDAO,
-      message_epoch = block_slot.compute_epoch_at_slot(),
-    )
-  )
 
-  signedBlock.signature = bls_sign(
-    key = privkey,
-    msg = signedBlock.message.hash_tree_root().data,
-    domain = get_domain(
-      state,
-      DOMAIN_BEACON_PROPOSER,
-      message_epoch = block_slot.compute_epoch_at_slot(),
-    )
-  )
+  block:
+    let domain = get_domain(
+        state,
+        DOMAIN_RANDAO,
+        message_epoch = block_slot.compute_epoch_at_slot(),
+      )
+    let signing_root = compute_signing_root(
+                        block_slot.compute_epoch_at_slot(),
+                        domain
+                      )
+    signedBlock.message.body.randao_reveal = bls_sign(privkey, signing_root.data)
+
+  block:
+    let domain = get_domain(
+        state,
+        DOMAIN_BEACON_PROPOSER,
+        message_epoch = block_slot.compute_epoch_at_slot(),
+      )
+    let signing_root = compute_signing_root(signedBlock.message, domain)
+    signedBlock.signature = bls_sign(privkey, signing_root.data)
 
 proc signMockBlock*(
   state: BeaconState,
@@ -75,10 +74,14 @@ proc mockBlock(
     state: BeaconState,
     slot: Slot,
     flags: UpdateFlags = {}): SignedBeaconBlock =
+  ## TODO don't do this gradual construction, for exception safety
   ## Mock a BeaconBlock for the specific slot
-  ## Add skipValidation if block should not be signed
+  ## Skip signature creation if block should not be signed (skipBlsValidation present)
 
+  var emptyCache = get_empty_per_epoch_cache()
+  let proposer_index = get_beacon_proposer_index(state, emptyCache)
   result.message.slot = slot
+  result.message.proposer_index = proposer_index.get.uint64
   result.message.body.eth1_data.deposit_count = state.eth1_deposit_index
 
   var previous_block_header = state.latest_block_header
@@ -86,7 +89,7 @@ proc mockBlock(
     previous_block_header.state_root = state.hash_tree_root()
   result.message.parent_root = previous_block_header.hash_tree_root()
 
-  if skipValidation notin flags:
+  if skipBlsValidation notin flags:
     signMockBlock(state, result)
 
 proc mockBlockForNextSlot*(state: BeaconState, flags: UpdateFlags = {}):
@@ -97,6 +100,4 @@ proc applyEmptyBlock*(state: var BeaconState) =
   ## Do a state transition with an empty signed block
   ## on the current slot
   let signedBlock = mockBlock(state, state.slot, flags = {})
-  # TODO: we only need to skip verifyStateRoot validation
-  #       processBlock validation should work
-  doAssert state_transition(state, signedBlock.message, {skipValidation})
+  doAssert state_transition(state, signedBlock, {skipStateRootValidation})

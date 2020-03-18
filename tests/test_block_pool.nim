@@ -11,9 +11,9 @@ import
   options, sequtils, unittest, chronicles,
   ./testutil, ./testblockutil,
   ../beacon_chain/spec/[datatypes, digest, helpers, validator],
-  ../beacon_chain/[beacon_node_types, block_pool, beacon_chain_db, extras, ssz]
+  ../beacon_chain/[beacon_node_types, block_pool, ssz]
 
-suite "BlockRef and helpers" & preset():
+suiteReport "BlockRef and helpers" & preset():
   timedTest "isAncestorOf sanity" & preset():
     let
       s0 = BlockRef(slot: Slot(0))
@@ -51,7 +51,7 @@ suite "BlockRef and helpers" & preset():
       s4.getAncestorAt(Slot(3)) == s2
       s4.getAncestorAt(Slot(4)) == s4
 
-suite "BlockSlot and helpers" & preset():
+suiteReport "BlockSlot and helpers" & preset():
   timedTest "atSlot sanity" & preset():
     let
       s0 = BlockRef(slot: Slot(0))
@@ -83,7 +83,7 @@ suite "BlockSlot and helpers" & preset():
       s24.parent.parent == s22
 
 when const_preset == "minimal": # Too much stack space used on mainnet
-  suite "Block pool processing" & preset():
+  suiteReport "Block pool processing" & preset():
     setup:
       var
         db = makeTestDB(SLOTS_PER_EPOCH)
@@ -236,7 +236,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         tmpState.blck == b1Add.parent
         tmpState.data.data.slot == bs1.parent.slot
 
-  suite "BlockPool finalization tests" & preset():
+  suiteReport "BlockPool finalization tests" & preset():
     setup:
       var
         db = makeTestDB(SLOTS_PER_EPOCH)

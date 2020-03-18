@@ -23,7 +23,7 @@ import
   ../mocking/[mock_deposits, mock_genesis],
   ../testutil, ../helpers/math_helpers
 
-suite "[Unit - Spec - Block processing] Deposits " & preset():
+suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
 
   const NumValidators = uint64 5 * SLOTS_PER_EPOCH
   let genesisState = initGenesisState(NumValidators)
@@ -43,7 +43,7 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
                       state,
                       uint64 validator_index,
                       deposit_amount,
-                      flags = {skipValidation}
+                      flags = {skipBlsValidation}
                     )
 
       # Params for sanity checks
@@ -57,7 +57,7 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
       # State transition
       # ----------------------------------------
       check: state.process_deposit(deposit,
-        {skipValidation, skipMerkleValidation})
+        {skipBlsValidation, skipMerkleValidation})
 
       # Check invariants
       # ----------------------------------------
@@ -88,7 +88,7 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
                     state,
                     uint64 validator_index,
                     deposit_amount,
-                    flags = {skipValidation}
+                    flags = {skipBlsValidation}
                   )
 
     # Params for sanity checks
@@ -102,7 +102,7 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
     # State transition
     # ----------------------------------------
     check: state.process_deposit(deposit,
-      {skipValidation, skipMerkleValidation})
+      {skipBlsValidation, skipMerkleValidation})
 
     # Check invariants
     # ----------------------------------------

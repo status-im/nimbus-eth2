@@ -9,6 +9,6 @@ import
   ../beacon_chain/spec/[helpers, datatypes, digest, validator, beaconstate],
   ../beacon_chain/extras
 
-suite "Validators":
+suiteReport "Validators":
   # TODO: Empty!
   discard

@@ -131,7 +131,7 @@ proc parseSSZ(path: string, T: typedesc): T =
     stderr.write "SSZ load issue for file \"", path, "\"\n"
     stderr.write err.formatMsg(path), "\n"
     quit 1
-  except CatchableError as err:
+  except CatchableError:
     writeStackTrace()
     stderr.write "SSZ load issue for file \"", path, "\"\n"
     quit 1
@@ -148,10 +148,10 @@ proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, ski
     let blockPath = dir / blocksPrefix & $i & ".ssz"
     echo "Processing: ", blockPath
 
-    let blck = parseSSZ(blockPath, SignedBeaconBlock)
-    let flags = if skipBLS: {skipValidation} # TODO: this also skips state root verification
+    let signedBlock = parseSSZ(blockPath, SignedBeaconBlock)
+    let flags = if skipBLS: {skipBlsValidation}
                 else: {}
-    let success = state_transition(state[], blck.message, flags)
+    let success = state_transition(state[], signedBlock.message, flags)
     echo "State transition status: ", if success: "SUCCESS ✓" else: "FAILURE ⚠️"
 
 proc runProcessSlots*(dir, preState: string, numSlots: uint64) =
@@ -207,7 +207,7 @@ template processBlockScenarioImpl(
   when needCache:
     var cache = get_empty_per_epoch_cache()
   when needFlags:
-    let flags = if skipBLS: {skipValidation} # TODO: this also skips state root verification
+    let flags = if skipBLS: {skipBlsValidation}
                 else: {}
 
   let consObjPath = dir/paramName & ".ssz"
@@ -219,7 +219,7 @@ template processBlockScenarioImpl(
   elif needFlags:
     let success = transitionFn(state[], consObj[], flags)
   elif needCache:
-    let success = transitionFn(state[], consObj[], cache)
+    let success = transitionFn(state[], consObj[], flags, cache)
   else:
     let success = transitionFn(state[], consObj[])
 
@@ -242,6 +242,6 @@ genProcessEpochScenario(runProcessFinalUpdates, process_final_updates, needCache
 genProcessBlockScenario(runProcessBlockHeader, process_block_header, block_header, BeaconBlock, needFlags = true, needCache = true)
 genProcessBlockScenario(runProcessProposerSlashing, process_proposer_slashing, proposer_slashing, ProposerSlashing, needFlags = true, needCache = true)
 genProcessBlockScenario(runProcessAttestation, process_attestation, attestation, Attestation, needFlags = true, needCache = true)
-genProcessBlockScenario(runProcessAttesterSlashing, process_attester_slashing, att_slash, AttesterSlashing, needFlags = false, needCache = true)
+genProcessBlockScenario(runProcessAttesterSlashing, process_attester_slashing, att_slash, AttesterSlashing, needFlags = true, needCache = true)
 genProcessBlockScenario(runProcessDeposit, process_deposit, deposit, Deposit, needFlags = true, needCache = false)
 genProcessBlockScenario(runProcessVoluntaryExits, process_voluntary_exit, deposit, SignedVoluntaryExit, needFlags = true, needCache = false)

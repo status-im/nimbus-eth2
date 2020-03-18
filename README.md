@@ -86,6 +86,18 @@ It also provides a downloading script for prebuilt PCRE.
 
 If you choose to install Go from source, both Go and Nimbus requires the same initial steps of installing Mingw.
 
+### Android
+
+* Install the [Termux](https://termux.com) app from FDroid or the Google Play store
+* Install a [PRoot](https://wiki.termux.com/wiki/PRoot) of your choice following the instructions for your preferred distribution. 
+Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on Arm64 architecture (common architecture for Android devices).  
+
+*Assuming Ubuntu PRoot is used*
+
+```sh
+apt install build-essential git golang-go libpcre3-dev
+```
+
 ## For users
 
 ### Connecting to testnets
@@ -171,7 +183,8 @@ Specific steps:
 ```bash
 # This will generate the Prometheus config and the Grafana dashboard on the fly,
 # based on the number of nodes (which you can control by passing something like NODES=6 to `make`).
-make VALIDATORS=192 NODES=6 USER_NODES=0 eth2_network_simulation
+# The `-d:insecure` flag starts an HTTP server from which the Prometheus daemon will pull the metrics.
+make VALIDATORS=192 NODES=6 USER_NODES=0 NIMFLAGS="-d:insecure" eth2_network_simulation
 
 # In another terminal tab, after the sim started:
 cd tests/simulation/prometheus
@@ -341,6 +354,12 @@ make NIMFLAGS="-d:release"
 
 ```bash
 make -j$(nproc) NIMFLAGS="-d:release" USE_MULTITAIL=yes eth2_network_simulation
+```
+
+- don't use the [lightweight stack tracing implementation from nim-libbacktrace](https://github.com/status-im/nim-beacon-chain/pull/745):
+
+```bash
+make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower
 ```
 
 ## License

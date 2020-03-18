@@ -1,6 +1,6 @@
 import
   os, options, strformat, strutils,
-  chronicles, confutils,
+  chronicles, confutils, json_serialization,
   confutils/defs, chronicles/options as chroniclesOptions,
   spec/[crypto]
 
@@ -90,11 +90,6 @@ type
         desc: "Specifies a line-delimited file of bootsrap Ethereum network addresses."
         name: "bootstrap-file" }: InputFile
 
-      enrBootstrapNodesFile* {.
-        defaultValue: ""
-        desc: "Specifies a line-delimited file of bootstrap ENR records"
-        name: "enr-bootstrap-file" }: InputFile
-
       tcpPort* {.
         defaultValue: defaultPort(config)
         desc: "TCP listening port."
@@ -131,6 +126,16 @@ type
         desc: "A name for this node that will appear in the logs. " &
               "If you set this to 'auto', a persistent automatically generated ID will be seleceted for each --dataDir folder."
         name: "node-name" }: string
+
+      verifyFinalization* {.
+        defaultValue: false
+        desc: "Specify whether to verify finalization occurs on schedule, for testing."
+        name: "verify-finalization" }: bool
+
+      stopAtEpoch* {.
+        defaultValue: 0
+        desc: "A positive epoch selects the epoch at which to stop."
+        name: "stop-at-epoch" }: uint64
 
       metricsServer* {.
         defaultValue: false
@@ -284,3 +289,7 @@ iterator validatorKeys*(conf: BeaconNodeConf): ValidatorPrivKey =
         yield ValidatorPrivKey.init(readFile(file).string)
       except CatchableError as err:
         warn "Failed to load a validator private key", file, err = err.msg
+
+template writeValue*(writer: var JsonWriter,
+                     value: TypedInputFile|InputFile|InputDir|OutPath|OutDir|OutFile) =
+  writer.writeValue(string value)

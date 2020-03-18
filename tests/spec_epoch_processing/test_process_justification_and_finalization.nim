@@ -212,7 +212,7 @@ proc finalizeOn12(state: var BeaconState, epoch: Epoch, sufficient_support: bool
     doAssert state.current_justified_checkpoint == c2    # still old current
     doAssert state.finalized_checkpoint == old_finalized # no new finalized checkpoint
 
-suite "[Unit - Spec - Epoch processing] Justification and Finalization " & preset():
+suiteReport "[Unit - Spec - Epoch processing] Justification and Finalization " & preset():
   echo "   Finalization rules are detailed at https://github.com/protolambda/eth2-docs#justification-and-finalization"
 
   const NumValidators = uint64(8) * SLOTS_PER_EPOCH

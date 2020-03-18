@@ -90,7 +90,7 @@ func get_matching_target_attestations(state: BeaconState, epoch: Epoch):
 func get_matching_head_attestations(state: BeaconState, epoch: Epoch):
     seq[PendingAttestation] =
   filterIt(
-     get_matching_source_attestations(state, epoch),
+     get_matching_target_attestations(state, epoch),
      it.data.beacon_block_root ==
        get_block_root_at_slot(state, it.data.slot)
   )
@@ -129,7 +129,7 @@ proc process_justification_and_finalization*(
     cast[uint8]((2^JUSTIFICATION_BITS_LENGTH) - 1)
 
   # This is a somewhat expensive approach
-  let active_validator_indices =
+  let active_validator_indices {.used.} =
     toHashSet(mapIt(
       get_active_validator_indices(state, get_current_epoch(state)), it.int))
 
@@ -144,7 +144,7 @@ proc process_justification_and_finalization*(
   ## and `get_matching_source_attestations(...)` via
   ## https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#helper-functions-1
   ## and
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#final-updates
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#final-updates
   ## after which the state.previous_epoch_attestations is replaced.
   trace "Non-attesting indices in previous epoch",
     missing_all_validators=
@@ -367,22 +367,27 @@ func process_slashings*(state: var BeaconState) {.nbench.}=
       let penalty = penalty_numerator div total_balance * increment
       decrease_balance(state, index.ValidatorIndex, penalty)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#final-updates
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#final-updates
 func process_final_updates*(state: var BeaconState) {.nbench.}=
   let
     current_epoch = get_current_epoch(state)
     next_epoch = current_epoch + 1
 
   # Reset eth1 data votes
-  if (state.slot + 1) mod SLOTS_PER_ETH1_VOTING_PERIOD == 0:
+  if next_epoch mod EPOCHS_PER_ETH1_VOTING_PERIOD == 0:
     state.eth1_data_votes = @[]
 
   # Update effective balances with hysteresis
   for index, validator in state.validators:
     let balance = state.balances[index]
-    const HALF_INCREMENT = EFFECTIVE_BALANCE_INCREMENT div 2
-    if balance < validator.effective_balance or
-        validator.effective_balance + 3'u64 * HALF_INCREMENT < balance:
+    const
+      HYSTERESIS_INCREMENT =
+        EFFECTIVE_BALANCE_INCREMENT div HYSTERESIS_QUOTIENT
+      DOWNWARD_THRESHOLD =
+        HYSTERESIS_INCREMENT * HYSTERESIS_DOWNWARD_MULTIPLIER
+      UPWARD_THRESHOLD = HYSTERESIS_INCREMENT * HYSTERESIS_UPWARD_MULTIPLIER
+    if balance + DOWNWARD_THRESHOLD < validator.effective_balance or
+        validator.effective_balance + UPWARD_THRESHOLD < balance:
       state.validators[index].effective_balance =
         min(
           balance - balance mod EFFECTIVE_BALANCE_INCREMENT,
@@ -409,8 +414,6 @@ func process_final_updates*(state: var BeaconState) {.nbench.}=
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(state: var BeaconState) {.nbench.}=
-  # @proc are placeholders
-
   trace "process_epoch",
     current_epoch = get_current_epoch(state)
 
@@ -433,18 +436,11 @@ proc process_epoch*(state: var BeaconState) {.nbench.}=
   ## get_active_validator_indices(...) usually changes.
   clear(per_epoch_cache.beacon_committee_cache)
 
-  # @process_reveal_deadlines
-  # @process_challenge_deadlines
-
   # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#slashings
   process_slashings(state)
 
-  # @update_period_committee
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#final-updates
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#final-updates
   process_final_updates(state)
-
-  # @after_process_final_updates
 
   # Once per epoch metrics
   beacon_finalized_epoch.set(state.finalized_checkpoint.epoch.int64)

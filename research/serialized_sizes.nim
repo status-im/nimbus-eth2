@@ -7,7 +7,7 @@ import
 proc stateSize(deposits: int, maxContent = false) =
   var state = initialize_beacon_state_from_eth1(
     Eth2Digest(), 0,
-    makeInitialDeposits(deposits, {skipValidation}), {skipValidation})
+    makeInitialDeposits(deposits, {skipBLSValidation}), {skipBLSValidation})
 
   if maxContent:
     # TODO: state.latest_attestations was removed

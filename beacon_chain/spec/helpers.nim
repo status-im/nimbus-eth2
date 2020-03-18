@@ -9,13 +9,13 @@
 
 import
   # Standard lib
-  math, endians,
+  math,
   # Third-party
-  blscurve, # defines Domain
+  stew/endians2,
   # Internal
   ./datatypes, ./digest, ../ssz
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#integer_squareroot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
   # Return the largest integer ``x`` such that ``x**2 <= n``.
   doAssert n >= 0'u64
@@ -28,7 +28,7 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
     y = (x + n div x) div 2
   x
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#compute_epoch_at_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#compute_epoch_at_slot
 func compute_epoch_at_slot*(slot: Slot|uint64): Epoch =
   # Return the epoch number at ``slot``.
   (slot div SLOTS_PER_EPOCH).Epoch
@@ -46,7 +46,7 @@ func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   ### Check if ``validator`` is active
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#get_active_validator_indices
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#get_active_validator_indices
 func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
     seq[ValidatorIndex] =
   # Return the sequence of active validator indices at ``epoch``.
@@ -54,7 +54,7 @@ func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
     if is_active_validator(val, epoch):
       result.add idx.ValidatorIndex
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#get_committee_count_at_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#get_committee_count_at_slot
 func get_committee_count_at_slot*(state: BeaconState, slot: Slot): uint64 =
   # Return the number of committees at ``slot``.
   let epoch = compute_epoch_at_slot(slot)
@@ -67,13 +67,13 @@ func get_committee_count_at_slot*(state: BeaconState, slot: Slot): uint64 =
   # Otherwise, get_beacon_committee(...) cannot access some committees.
   doAssert (SLOTS_PER_EPOCH * MAX_COMMITTEES_PER_SLOT).uint64 >= result
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#get_current_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: BeaconState): Epoch =
   # Return the current epoch.
   doAssert state.slot >= GENESIS_SLOT, $state.slot
   compute_epoch_at_slot(state.slot)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#get_randao_mix
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: BeaconState,
                      epoch: Epoch): Eth2Digest =
     ## Returns the randao mix at a recent ``epoch``.
@@ -91,12 +91,12 @@ func bytes_to_int*(data: openarray[byte]): uint64 =
 func int_to_bytes32*(x: uint64): array[32, byte] =
   ## Little-endian data representation
   ## TODO remove uint64 when those callers fade away
-  littleEndian64(result[0].addr, x.unsafeAddr)
+  result[0..<7] = x.toBytesLE()
 
 func int_to_bytes32*(x: Epoch): array[32, byte] {.borrow.}
 
 func int_to_bytes8*(x: uint64): array[8, byte] =
-  littleEndian64(result[0].addr, x.unsafeAddr)
+  x.toBytesLE()
 
 func int_to_bytes1*(x: int): array[1, byte] =
   doAssert x >= 0

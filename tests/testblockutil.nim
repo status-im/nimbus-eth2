@@ -13,21 +13,12 @@ import
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest,
     helpers, validator]
 
-when ValidatorPrivKey is BlsValue:
-  func makeFakeValidatorPrivKey(i: int): ValidatorPrivKey =
-    # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
-    # lighthouse.
-    # TODO: switch to https://github.com/ethereum/eth2.0-pm/issues/60
-    result.kind = BlsValueType.Real
-    var bytes = uint64(i + 1000).toBytesLE()
-    copyMem(addr result.blsValue.x[0], addr bytes[0], sizeof(bytes))
-else:
-  func makeFakeValidatorPrivKey(i: int): ValidatorPrivKey =
-    # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
-    # lighthouse.
-    # TODO: switch to https://github.com/ethereum/eth2.0-pm/issues/60
-    var bytes = uint64(i + 1000).toBytesLE()
-    copyMem(addr result.x[0], addr bytes[0], sizeof(bytes))
+func makeFakeValidatorPrivKey(i: int): ValidatorPrivKey =
+  # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
+  # lighthouse.
+  # TODO: switch to https://github.com/ethereum/eth2.0-pm/issues/60
+  var bytes = uint64(i + 1000).toBytesLE()
+  copyMem(addr result, addr bytes[0], sizeof(bytes))
 
 func makeFakeHash(i: int): Eth2Digest =
   var bytes = uint64(i).toBytesLE()
@@ -62,10 +53,9 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
     )
   )
 
-  if skipValidation notin flags:
-    result.data.signature =
-      bls_sign(privkey, hash_tree_root(result.getDepositMessage).data,
-               domain)
+  if skipBLSValidation notin flags:
+    let signing_root = compute_signing_root(result.getDepositMessage, domain)
+    result.data.signature = bls_sign(privkey, signing_root.data)
 
 func makeInitialDeposits*(
     n = SLOTS_PER_EPOCH, flags: UpdateFlags = {}): seq[Deposit] =
@@ -77,8 +67,10 @@ proc addBlock*(
     body: BeaconBlockBody, flags: UpdateFlags = {}): SignedBeaconBlock =
   # Create and add a block to state - state will advance by one slot!
   # This is the equivalent of running
-  # updateState(state, prev_block, makeBlock(...), {skipValidation})
+  # updateState(state, prev_block, makeBlock(...), {skipBlsValidation})
   # but avoids some slow block copies
+  # FIXME update comment - updateState no longer exists, could be `state_transition`
+  # but different number of parameters
 
   state.slot += 1
   var cache = get_empty_per_epoch_cache()
@@ -93,7 +85,7 @@ proc addBlock*(
 
   # TODO ugly hack; API needs rethinking
   var new_body = body
-  if skipValidation notin flags:
+  if skipBlsValidation notin flags:
     new_body.randao_reveal = privKey.genRandaoReveal(state.fork, state.slot + 1)
 
   new_body.eth1_data = Eth1Data()
@@ -105,13 +97,14 @@ proc addBlock*(
     new_block = SignedBeaconBlock(
       message: BeaconBlock(
         slot: state.slot + 1,
+        proposer_index: proposer_index.get.uint64,
         parent_root: previous_block_root,
         state_root: Eth2Digest(), # we need the new state first
         body: new_body
       )
     )
 
-  let block_ok = state_transition(state, new_block.message, {skipValidation})
+  let block_ok = state_transition(state, new_block, {skipBlsValidation, skipStateRootValidation})
   doAssert block_ok
 
   # Ok, we have the new state as it would look with the block applied - now we
@@ -121,20 +114,16 @@ proc addBlock*(
   doAssert privKey.pubKey() == proposer.pubkey,
     "signature key should be derived from private key! - wrong privkey?"
 
-  if skipValidation notin flags:
-    let block_root = hash_tree_root(new_block.message)
+  if skipBLSValidation notin flags:
+    let domain = get_domain(state, DOMAIN_BEACON_PROPOSER,
+                   compute_epoch_at_slot(new_block.message.slot))
+    let signing_root = compute_signing_root(new_block.message, domain)
     # We have a signature - put it in the block and we should be done!
-    new_block.signature =
-      bls_sign(privKey, block_root.data,
-               get_domain(state, DOMAIN_BEACON_PROPOSER,
-               compute_epoch_at_slot(new_block.message.slot)))
+    new_block.signature = bls_sign(privKey, signing_root.data)
 
     doAssert bls_verify(
       proposer.pubkey,
-      block_root.data, new_block.signature,
-      get_domain(
-        state, DOMAIN_BEACON_PROPOSER,
-        compute_epoch_at_slot(new_block.message.slot))),
+      signing_root.data, new_block.signature),
       "we just signed this message - it should pass verification!"
 
   new_block
@@ -169,12 +158,11 @@ proc makeAttestation*(
   aggregation_bits.setBit sac_index
 
   let
-    msg = hash_tree_root(data)
+    domain = get_domain(state, DOMAIN_BEACON_ATTESTER, data.target.epoch)
+    signing_root = compute_signing_root(data, domain)
     sig =
-      if skipValidation notin flags:
-        bls_sign(
-          hackPrivKey(validator), msg.data,
-          get_domain(state, DOMAIN_BEACON_ATTESTER, data.target.epoch))
+      if skipBLSValidation notin flags:
+        bls_sign(hackPrivKey(validator), signing_root.data)
       else:
         ValidatorSig()
 
@@ -221,19 +209,27 @@ proc makeFullAttestations*(
     let
       committee = get_beacon_committee(state, slot, index, cache)
       data = makeAttestationData(state, slot, index, beacon_block_root)
-      msg = hash_tree_root(data)
+      domain = get_domain(state, DOMAIN_BEACON_ATTESTER, data.target.epoch)
+      signing_root = compute_signing_root(data, domain)
 
-    var
-      attestation = Attestation(
-        aggregation_bits: CommitteeValidatorsBits.init(committee.len),
-        data: data,
-        signature: ValidatorSig(kind: Real, blsValue: Signature.init())
+    doAssert committee.len() >= 1
+    # Initial attestation
+    var attestation = Attestation(
+      aggregation_bits: CommitteeValidatorsBits.init(committee.len),
+      data: data,
+      signature: bls_sign(
+          hackPrivKey(state.validators[committee[0]]),
+          signing_root.data
       )
-    for j in 0..<committee.len():
+    )
+    # Aggregate the remainder
+    attestation.aggregation_bits.setBit 0
+    for j in 1 ..< committee.len():
       attestation.aggregation_bits.setBit j
-      if skipValidation notin flags:
-        attestation.signature.combine(bls_sign(
-          hackPrivKey(state.validators[committee[j]]), msg.data,
-          get_domain(state, DOMAIN_BEACON_ATTESTER, data.target.epoch)))
+      if skipBLSValidation notin flags:
+        attestation.signature.aggregate(bls_sign(
+          hackPrivKey(state.validators[committee[j]]),
+          signing_root.data
+        ))
 
     result.add attestation

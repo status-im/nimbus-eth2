@@ -87,20 +87,23 @@ proc render*(s: var StatusBarView) =
   let
     termWidth = terminalWidth()
     allCellsWidth = s.layout.cellsLeft.width + s.layout.cellsRight.width
-    centerPadding = max(0, termWidth - allCellsWidth)
 
-  stdout.setBackgroundColor backgroundColor
-  stdout.setForegroundColor foregroundColor
-  renderCells(s.layout.cellsLeft, sepLeft)
-  stdout.write spaces(centerPadding)
-  renderCells(s.layout.cellsRight, sepRight)
-  stdout.resetAttributes
-  stdout.flushFile
-
-  s.consumedLines = 1
+  if allCellsWidth > 0:
+    stdout.setBackgroundColor backgroundColor
+    stdout.setForegroundColor foregroundColor
+    renderCells(s.layout.cellsLeft, sepLeft)
+    if termWidth > allCellsWidth:
+      stdout.write spaces(termWidth - allCellsWidth)
+      s.consumedLines = 1
+    else:
+      stdout.write spaces(max(0, termWidth - s.layout.cellsLeft.width)), "\p"
+      s.consumedLines = 2
+    renderCells(s.layout.cellsRight, sepRight)
+    stdout.resetAttributes
+    stdout.flushFile
 
 proc erase*(s: var StatusBarView) =
-  # cursorUp()
+  for i in 1 ..< s.consumedLines: cursorUp()
   for i in 0 ..< s.consumedLines: eraseLine()
   s.consumedLines = 0
 

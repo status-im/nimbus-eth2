@@ -15,15 +15,15 @@ import
   yaml,
   # Beacon chain internals
   ../../beacon_chain/spec/[datatypes, digest],
-  ../../beacon_chain/ssz
+  ../../beacon_chain/ssz,
   # Test utilities
+  ./fixtures_utils
 
 # Parsing definitions
 # ------------------------------------------------------------------------
 
 const
-  FixturesDir = currentSourcePath.rsplit(DirSep, 1)[0] / "fixtures"
-  SSZDir = FixturesDir/"tests-v0.10.1"/"general"/"phase0"/"ssz_generic"
+  SSZDir = FixturesDir/"tests-v0.11.0"/"general"/"phase0"/"ssz_generic"
 
 type
   SSZHashTreeRoot = object
@@ -302,5 +302,7 @@ proc runSSZtests() =
   # test "Testing " & name & " inputs (" & $T & ") - invalid":
   #   const path = SSZDir/name/"invalid"
 
-suite "Official - SSZ generic types":
+suiteReport "Official - SSZ generic types":
   runSSZtests()
+
+summarizeLongTests("FixtureSSZGeneric")

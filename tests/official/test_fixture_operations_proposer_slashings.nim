@@ -33,7 +33,7 @@ proc runTest(identifier: string) =
     var flags: UpdateFlags
     var prefix: string
     if not existsFile(testDir/"meta.yaml"):
-      flags.incl skipValidation
+      flags.incl skipBlsValidation
     if existsFile(testDir/"post.ssz"):
       prefix = "[Valid]   "
     else:
@@ -65,6 +65,6 @@ proc runTest(identifier: string) =
 
   `testImpl_proposer_slashing _ identifier`()
 
-suite "Official - Operations - Proposer slashing " & preset():
+suiteReport "Official - Operations - Proposer slashing " & preset():
   for kind, path in walkDir(OpProposerSlashingDir, true):
     runTest(path)

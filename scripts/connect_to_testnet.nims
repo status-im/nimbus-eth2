@@ -23,7 +23,10 @@ proc validateTestnetName(parts: openarray[string]): auto =
     quit 1
   (parts[0], parts[1])
 
-cli do (testnetName {.argument.}: string):
+cli do (skipGoerliKey {.
+          desc: "Don't prompt for an Eth1 Goerli key to become a validator" .}: bool,
+        testnetName {.
+          argument .}: string):
   let
     nameParts = testnetName.split "/"
     (team, testnet) = if nameParts.len > 1: validateTestnetName nameParts
@@ -110,7 +113,7 @@ cli do (testnetName {.argument.}: string):
     except OsError:
       discard
 
-  if depositContractOpt.len > 0 and not system.dirExists(validatorsDir):
+  if not skipGoerliKey and depositContractOpt.len > 0 and not system.dirExists(validatorsDir):
     mode = Silent
     echo "\nPlease enter your Goerli Eth1 private key in hex form (e.g. 0x1a2...f3c) in order to become a validator (you'll need access to 32 GoETH)."
     echo "Hit Enter to skip this."

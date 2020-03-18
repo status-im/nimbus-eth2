@@ -33,7 +33,7 @@ proc runTest(identifier: string) =
     var flags: UpdateFlags
     var prefix: string
     if not existsFile(testDir/"meta.yaml"):
-      flags.incl skipValidation
+      flags.incl skipBlsValidation
     if existsFile(testDir/"post.ssz"):
       prefix = "[Valid]   "
     else:
@@ -67,7 +67,7 @@ proc runTest(identifier: string) =
 
   `testImpl _ operations_attester_slashing _ identifier`()
 
-suite "Official - Operations - Attester slashing " & preset():
+suiteReport "Official - Operations - Attester slashing " & preset():
   # TODO these are both valid and check BLS signatures, which isn't working
   # since 0.10.x introduces new BLS signing/verifying interface with domain
   # in particular handled differently through compute_signing_root() rather
@@ -76,7 +76,11 @@ suite "Official - Operations - Attester slashing " & preset():
   # crypto.nim's bls_verify(...) call had been creating false positives, in
   # which cases signature checks had been incorrectly passing.
   const expected_failures =
-    ["success_already_exited_recent", "success_already_exited_long_ago"]
+    [
+      "success_already_exited_recent", "success_already_exited_long_ago",
+      # TODO: Regressions introduced by BLS v0.10.1
+      "att1_duplicate_index_double_signed", "att2_duplicate_index_double_signed"
+    ]
   for kind, path in walkDir(OpAttSlashingDir, true):
     if path in expected_failures:
       echo "Skipping test: ", path

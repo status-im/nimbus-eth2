@@ -1,6 +1,6 @@
 import
-  endians, typetraits, options,
-  stew/[objects, bitseqs], serialization/testing/tracing,
+  typetraits, options,
+  stew/[bitseqs, endians2, objects, bitseqs], serialization/testing/tracing,
   ../spec/[digest, datatypes], ./types
 
 const
@@ -20,14 +20,6 @@ proc setOutputSize(s: var string, length: int) {.inline.} =
     raise newException(MalformedSszError, "SSZ string is too large to fit in memory")
   s.setLen length
 
-template assignNullValue(loc: untyped, T: type): auto =
-  when T is ref|ptr:
-    loc = nil
-  elif T is Option:
-    loc = T()
-  else:
-    raise newException(MalformedSszError, "SSZ list element of zero size")
-
 # fromSszBytes copies the wire representation to a Nim variable,
 # assuming there's enough data in the buffer
 func fromSszBytes*(T: type SomeInteger, data: openarray[byte]): T =
@@ -36,17 +28,7 @@ func fromSszBytes*(T: type SomeInteger, data: openarray[byte]): T =
   if data.len < sizeof(result):
     raise newException(MalformedSszError, "SSZ input of insufficient size")
 
-  # TODO: any better way to get a suitably aligned buffer in nim???
-  # see also: https://github.com/nim-lang/Nim/issues/9206
-  var tmp: uint64
-  var alignedBuf = cast[ptr byte](tmp.addr)
-  copyMem(alignedBuf, unsafeAddr data[0], result.sizeof)
-
-  when result.sizeof == 8: littleEndian64(result.addr, alignedBuf)
-  elif result.sizeof == 4: littleEndian32(result.addr, alignedBuf)
-  elif result.sizeof == 2: littleEndian16(result.addr, alignedBuf)
-  elif result.sizeof == 1: copyMem(result.addr, alignedBuf, sizeof(result))
-  else: {.fatal: "Unsupported type deserialization: " & $(type(result)).name.}
+  T.fromBytesLE(data)
 
 func fromSszBytes*(T: type bool, data: openarray[byte]): T =
   # TODO: spec doesn't say what to do if the value is >1 - we'll use the C

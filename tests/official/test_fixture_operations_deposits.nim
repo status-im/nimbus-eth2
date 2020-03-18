@@ -33,7 +33,7 @@ proc runTest(identifier: string) =
     var flags: UpdateFlags
     var prefix: string
     if not existsFile(testDir/"meta.yaml"):
-      flags.incl skipValidation
+      flags.incl skipBlsValidation
     if existsFile(testDir/"post.ssz"):
       prefix = "[Valid]   "
     else:
@@ -60,7 +60,7 @@ proc runTest(identifier: string) =
 
   `testImpl _ operations_deposits _ identifier`()
 
-suite "Official - Operations - Deposits " & preset():
+suiteReport "Official - Operations - Deposits " & preset():
   # TODO
   const expected_failures = ["valid_sig_but_forked_state"]
 

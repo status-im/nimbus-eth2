@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Status Research & Development GmbH. Licensed under
+# Copyright (c) 2019-2020 Status Research & Development GmbH. Licensed under
 # either of:
 # - Apache License, version 2.0
 # - MIT license
@@ -17,12 +17,13 @@ BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 TOOLS := \
 	beacon_node \
 	inspector \
-	bench_bls_sig_agggregation \
+	logtrace \
 	deposit_contract \
 	ncli_hash_tree_root \
 	ncli_pretty \
 	ncli_transition \
 	process_dashboard
+	# bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes
 TOOLS_DIRS := \
 	beacon_chain \
 	benchmarks \
@@ -45,17 +46,26 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	testnet0 \
 	clean-testnet1 \
 	testnet1 \
-	clean
+	clean \
+	libbacktrace
 
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included. We can only execute one target in this state.
 all: | build-system-checks
 else
-all: | build-system-checks $(TOOLS)
+all: | build-system-checks $(TOOLS) libnfuzz.so libnfuzz.a
 endif
 
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
+
+# "--import" can't be added to config.nims, for some reason
+# "--define:release" implies "--stacktrace:off" and it cannot be added to config.nims either
+ifeq ($(USE_LIBBACKTRACE), 0)
+NIM_PARAMS := $(NIM_PARAMS) -d:debug -d:disable_libbacktrace
+else
+NIM_PARAMS := $(NIM_PARAMS) -d:release --import:libbacktrace
+endif
 
 #- the Windows build fails on Azure Pipelines if we have Unicode symbols copy/pasted here,
 #  so we encode them in ASCII
@@ -71,6 +81,9 @@ build-system-checks:
 		exit 0
 
 deps: | deps-common beacon_chain.nims p2pd
+ifneq ($(USE_LIBBACKTRACE), 0)
+deps: | libbacktrace
+endif
 
 #- deletes and recreates "beacon_chain.nims" which on Windows is a copy instead of a proper symlink
 update: | update-common
@@ -80,6 +93,10 @@ update: | update-common
 # symlink
 beacon_chain.nims:
 	ln -s beacon_chain.nimble $@
+
+# nim-libbacktrace
+libbacktrace:
+	+ $(MAKE) -C vendor/nim-libbacktrace BUILD_CXX_LIB=0
 
 P2PD_CACHE :=
 p2pd: | go-checks
@@ -99,13 +116,13 @@ endif
 $(TOOLS): | build deps
 	for D in $(TOOLS_DIRS); do [ -e "$${D}/$@.nim" ] && TOOL_DIR="$${D}" && break; done && \
 		echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim c $(NIM_PARAMS) -o:build/$@ "$${TOOL_DIR}/$@.nim"
+		$(ENV_SCRIPT) nim c -o:build/$@ $(NIM_PARAMS) "$${TOOL_DIR}/$@.nim"
 
 clean_eth2_network_simulation_files:
 	rm -rf tests/simulation/{data,validators}
 
 eth2_network_simulation: | build deps p2pd clean_eth2_network_simulation_files process_dashboard
-	GIT_ROOT="$$PWD" tests/simulation/start.sh
+	+ GIT_ROOT="$$PWD" NIMFLAGS="$(NIMFLAGS)" LOG_LEVEL="$(LOG_LEVEL)" tests/simulation/start.sh
 
 clean-testnet0:
 	rm -rf build/data/testnet0
@@ -114,23 +131,25 @@ clean-testnet1:
 	rm -rf build/data/testnet1
 
 testnet0: | build deps
-	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims testnet0
+	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) testnet0
 
 testnet1: | build deps
-	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims testnet1
+	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) testnet1
 
 clean: | clean-common
 	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,beacon_node_testnet*,state_sim,transition*}
+ifneq ($(USE_LIBBACKTRACE), 0)
+	+ $(MAKE) -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
+endif
 
-libnfuzz.so: | build deps-common beacon_chain.nims
+libnfuzz.so: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim c -d:release --app:lib --noMain --nimcache:nimcache/libnfuzz $(NIM_PARAMS) -o:build/$@.0 nfuzz/libnfuzz.nim && \
+		$(ENV_SCRIPT) nim c -d:release --app:lib --noMain --nimcache:nimcache/libnfuzz -o:build/$@.0 $(NIM_PARAMS) nfuzz/libnfuzz.nim && \
 		rm -f build/$@ && \
 		ln -s $@.0 build/$@
 
-libnfuzz.a: | build deps-common beacon_chain.nims
+libnfuzz.a: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		rm -f build/$@ && \
-		$(ENV_SCRIPT) nim c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static $(NIM_PARAMS) -o:build/$@ nfuzz/libnfuzz.nim && \
+		$(ENV_SCRIPT) nim c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static -o:build/$@ $(NIM_PARAMS) nfuzz/libnfuzz.nim && \
 		[[ -e "$@" ]] && mv "$@" build/ # workaround for https://github.com/nim-lang/Nim/issues/12745
-

@@ -1,3 +1,6 @@
+import
+  metrics
+
 type
   ResponseCode* = enum
     Success
@@ -21,6 +24,12 @@ const
 
 logScope:
   topics = "libp2p"
+
+declarePublicGauge libp2p_successful_dials,
+                   "Number of successfully dialed peers"
+
+declarePublicGauge libp2p_peers,
+                   "Number of active libp2p peers"
 
 template libp2pProtocol*(name: string, version: int) {.pragma.}
 
@@ -125,7 +134,7 @@ proc readMsgBytes(stream: P2PStream,
       debug "Received SSZ with zero size", peer = stream.peer
       return
 
-    trace "about to read msg bytes"
+    trace "about to read msg bytes", len = sizePrefix
     var msgBytes = newSeq[byte](sizePrefix)
     var readBody = stream.readExactly(addr msgBytes[0], sizePrefix)
     await readBody or deadline
@@ -133,7 +142,7 @@ proc readMsgBytes(stream: P2PStream,
       trace "msg bytes not received in time"
       return
 
-    trace "got message bytes", msgBytes
+    trace "got message bytes", len = sizePrefix
     return msgBytes
 
   except TransportIncompleteError:
@@ -360,13 +369,16 @@ proc handleIncomingStream(network: Eth2Node, stream: P2PStream,
   #   defer: setLogLevel(LogLevel.DEBUG)
   #   trace "incoming " & `msgNameLit` & " stream"
 
+  let peer = peerFromStream(network, stream)
+
+  handleIncomingPeer(peer)
+
   defer:
     await safeClose(stream)
 
   let
     deadline = sleepAsync RESP_TIMEOUT
     msgBytes = await readMsgBytes(stream, false, deadline)
-    peer = peerFromStream(network, stream)
 
   if msgBytes.len == 0:
     await sendErrorResponse(peer, stream, ServerError, readTimeoutErrorMsg)

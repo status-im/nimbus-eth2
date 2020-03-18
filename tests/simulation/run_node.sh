@@ -27,7 +27,7 @@ cd "$GIT_ROOT"
 DATA_DIR="${SIMULATION_DIR}/node-$NODE_ID"
 PORT=$(( BASE_P2P_PORT + NODE_ID ))
 
-NAT_FLAG="--nat:none"
+NAT_FLAG="--nat:extip:127.0.0.1"
 if [ "${NAT:-}" == "1" ]; then
   NAT_FLAG="--nat:any"
 fi
@@ -52,7 +52,9 @@ if [[ $NODE_ID == $MASTER_NODE ]]; then
   NODE_BIN=$BOOTSTRAP_NODE_BIN
 fi
 
+# if you want tracing messages, add "--log-level=TRACE" below
 cd "$DATA_DIR" && $NODE_BIN \
+  --log-level=${LOG_LEVEL:-DEBUG} \
   --bootstrap-file=$BOOTSTRAP_ADDRESS_FILE \
   --data-dir=$DATA_DIR \
   --node-name=$NODE_ID \
@@ -62,6 +64,7 @@ cd "$DATA_DIR" && $NODE_BIN \
   --state-snapshot=$SNAPSHOT_FILE \
   $DEPOSIT_WEB3_URL_ARG \
   --deposit-contract=$DEPOSIT_CONTRACT_ADDRESS \
+  --verify-finalization=on \
   --metrics-server=on \
   --metrics-server-address="127.0.0.1" \
   --metrics-server-port="$(( $BASE_METRICS_PORT + $NODE_ID ))" \

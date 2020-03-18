@@ -33,7 +33,7 @@ proc runTest(identifier: string) =
     var flags: UpdateFlags
     var prefix: string
     if not existsFile(testDir/"meta.yaml"):
-      flags.incl skipValidation
+      flags.incl skipBlsValidation
     if existsFile(testDir/"post.ssz"):
       prefix = "[Valid]   "
     else:
@@ -65,6 +65,6 @@ proc runTest(identifier: string) =
 
   `testImpl _ operations_attestations _ identifier`()
 
-suite "Official - Operations - Attestations " & preset():
+suiteReport "Official - Operations - Attestations " & preset():
   for kind, path in walkDir(OperationsAttestationsDir, true):
     runTest(path)

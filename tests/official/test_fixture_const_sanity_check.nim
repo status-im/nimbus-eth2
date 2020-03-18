@@ -14,13 +14,12 @@ import
   # Internals
   ../../beacon_chain/spec/[datatypes, digest],
   # Test utilities
-  ../testutil
+  ../testutil, ./fixtures_utils
 
 const
   SpecDir = currentSourcePath.rsplit(DirSep, 1)[0] /
                   ".."/".."/"beacon_chain"/"spec"
-  FixturesDir = currentSourcePath.rsplit(DirSep, 1)[0] / "fixtures"
-  Config = FixturesDir/"tests-v0.10.1"/const_preset/"config.yaml"
+  Config = FixturesDir/"tests-v0.11.0"/const_preset/"config.yaml"
 
 type
   CheckedType = SomeInteger or Slot or Epoch
@@ -88,7 +87,8 @@ const
 
 const IgnoreKeys = [
   # Ignore all non-numeric types
-  "DEPOSIT_CONTRACT_ADDRESS"
+  "DEPOSIT_CONTRACT_ADDRESS",
+  "SHARD_BLOCK_OFFSETS"
 ]
 
 func parseU32LEHex(hexValue: string): uint32 =
@@ -116,11 +116,11 @@ proc checkConfig() =
         let domain = parseEnum[DomainType](constant)
         let value = parseU32LEHex(value.getStr())
         check: uint32(domain) == value
-      elif constant == "GENESIS_FORK_VERSION":
+      elif constant.endsWith("_FORK_VERSION"):
         let value = parseU32LEHex(value.getStr())
         check: ConstsToCheck[constant] == value
       else:
         check: ConstsToCheck[constant] == value.getBiggestInt().uint64()
 
-suite "Official - 0.10.1 - constants & config " & preset():
+suiteReport "Official - 0.11.0 - constants & config " & preset():
   checkConfig()

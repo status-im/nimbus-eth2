@@ -6,8 +6,8 @@ import
 cli do(pre: string, blck: string, post: string, verifyStateRoot = false):
   let
     stateX = SSZ.loadFile(pre, BeaconState)
-    blckX = SSZ.loadFile(blck, BeaconBlock)
-    flags = if verifyStateRoot: {skipValidation} else: {}
+    blckX = SSZ.loadFile(blck, SignedBeaconBlock)
+    flags = if verifyStateRoot: {skipStateRootValidation} else: {}
 
   var stateY = HashedBeaconState(data: stateX, root: hash_tree_root(stateX))
   if not state_transition(stateY, blckX, flags):

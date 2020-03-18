@@ -75,7 +75,7 @@ type
 proc toDigest[N: static int](x: array[N, byte]): Eth2Digest =
   result.data[0 .. N-1] = x
 
-suite "SSZ navigator":
+suiteReport "SSZ navigator":
   timedTest "simple object fields":
     var foo = Foo(bar: Bar(b: "bar", baz: Baz(i: 10'u64)))
     let encoded = SSZ.encode(foo)
@@ -101,7 +101,7 @@ suite "SSZ navigator":
     let root2 = hash_tree_root(leaves2)
     check $root2 == "9FB7D518368DC14E8CC588FB3FD2749BEEF9F493FEF70AE34AF5721543C67173"
 
-suite "SSZ dynamic navigator":
+suiteReport "SSZ dynamic navigator":
   timedTest "navigating fields":
     var fooOrig = Foo(bar: Bar(b: "bar", baz: Baz(i: 10'u64)))
     let fooEncoded = SSZ.encode(fooOrig)

@@ -1,10 +1,10 @@
 # beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
-import strutils, os, tables
+import sequtils, strutils, os, tables
 import confutils, chronicles, chronos, libp2p/daemon/daemonapi,
        libp2p/multiaddress
 import stew/byteutils as bu
@@ -93,20 +93,20 @@ type
       abbr: "d"
       defaultValue: false }: bool
 
-proc getTopic(filter: TopicFilter): string {.inline.} =
+func getTopics(filter: TopicFilter): seq[string] {.inline.} =
   case filter
   of TopicFilter.Blocks:
-    topicBeaconBlocks
+    @[topicBeaconBlocks]
   of TopicFilter.Attestations:
-    topicAttestations
+    mapIt(0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64, it.getAttestationTopic)
   of TopicFilter.Exits:
-    topicVoluntaryExits
+    @[topicVoluntaryExits]
   of TopicFilter.ProposerSlashing:
-    topicProposerSlashings
+    @[topicProposerSlashings]
   of TopicFilter.AttesterSlashings:
-    topicAttesterSlashings
+    @[topicAttesterSlashings]
 
-proc getPeerId(peer: PeerID, conf: InspectorConf): string {.inline.} =
+func getPeerId(peer: PeerID, conf: InspectorConf): string {.inline.} =
   if conf.fullPeerId:
     result = peer.pretty()
   else:
@@ -186,7 +186,7 @@ proc run(conf: InspectorConf) {.async.} =
       try:
         if ticket.topic.startsWith(topicBeaconBlocks):
           info "SignedBeaconBlock", msg = SSZ.decode(message.data, SignedBeaconBlock)
-        elif ticket.topic.startsWith(topicAttestations):
+        elif ticket.topic.endsWith(topicAttestationSuffix):
           info "Attestation", msg = SSZ.decode(message.data, Attestation)
         elif ticket.topic.startsWith(topicVoluntaryExits):
           info "SignedVoluntaryExit", msg = SSZ.decode(message.data, SignedVoluntaryExit)
@@ -278,10 +278,10 @@ proc run(conf: InspectorConf) {.async.} =
 
   try:
     for filter in topics:
-      let topic = getTopic(filter)
-      let t = await api.pubsubSubscribe(topic, pubsubLogger)
-      info "Subscribed to topic", topic = topic
-      subs.add((ticket: t, future: t.transp.join()))
+      for topic in getTopics(filter):
+        let t = await api.pubsubSubscribe(topic, pubsubLogger)
+        info "Subscribed to topic", topic = topic
+        subs.add((ticket: t, future: t.transp.join()))
     for filter in conf.customTopics:
       let t = await api.pubsubSubscribe(filter, pubsubLogger)
       info "Subscribed to custom topic", topic = filter

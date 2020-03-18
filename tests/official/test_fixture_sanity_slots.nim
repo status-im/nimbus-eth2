@@ -38,12 +38,12 @@ proc runTest(identifier: string) =
       postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
 
       process_slots(stateRef[], stateRef.slot + num_slots)
-      # check: stateRef.hash_tree_root() == postRef.hash_tree_root()
 
+      # check: stateRef.hash_tree_root() == postRef.hash_tree_root()
       reportDiff(stateRef, postRef)
 
   `testImpl _ slots _ identifier`()
 
-suite "Official - Sanity - Slots " & preset():
+suiteReport "Official - Sanity - Slots " & preset():
   for kind, path in walkDir(SanitySlotsDir, true):
     runTest(path)

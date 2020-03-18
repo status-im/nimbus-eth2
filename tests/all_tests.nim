@@ -16,17 +16,23 @@ import # Unit test
   ./test_beacon_node,
   ./test_beaconstate,
   ./test_block_pool,
+  ./test_discovery_helpers,
   ./test_helpers,
-  ./test_interop,
   ./test_kvstore,
-  ./test_kvstore_lmdb,
+  ./test_kvstore_sqlite3,
   ./test_ssz,
   ./test_state_transition,
   ./test_sync_protocol,
   # ./test_validator # Empty!
   ./test_zero_signature,
   ./test_peer_pool,
-  ./test_sync_manager
+  ./test_sync_manager,
+  ./test_honest_validator
+
+  # ./test_interop
+  # TODO: BLS changes in v0.10.1 will generate different interop signatures
+  #       Requires an update of the interop mocked start: https://github.com/ethereum/eth2.0-pm/tree/master/interop/mocked_start
+  #       or of ZRNT / ZCLI to v0.10.1
 
 import # Refactor state transition unit tests
   # TODO re-enable when useful
@@ -43,4 +49,4 @@ import # Refactor state transition unit tests
 #   ./official/test_fixture_shuffling,
 #   ./official/test_fixture_bls
 
-summarizeLongTests()
+summarizeLongTests("AllTests")

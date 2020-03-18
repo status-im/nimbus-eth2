@@ -30,8 +30,8 @@ proc combine*(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
   if not tgt.aggregation_bits.overlaps(src.aggregation_bits):
     tgt.aggregation_bits.combine(src.aggregation_bits)
 
-    if skipValidation notin flags:
-      tgt.signature.combine(src.signature)
+    if skipBlsValidation notin flags:
+      tgt.signature.aggregate(src.signature)
   else:
     trace "Ignoring overlapping attestations"
 
@@ -306,6 +306,7 @@ proc getAttestationsForBlock*(
 
   for a in slotData.attestations:
     var
+      # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#construct-attestation
       attestation = Attestation(
         aggregation_bits: a.validations[0].aggregation_bits,
         data: a.data,
@@ -340,7 +341,7 @@ proc getAttestationsForBlock*(
       #      one new attestation in there
       if not attestation.aggregation_bits.overlaps(v.aggregation_bits):
         attestation.aggregation_bits.combine(v.aggregation_bits)
-        attestation.signature.combine(v.aggregate_signature)
+        attestation.signature.aggregate(v.aggregate_signature)
 
     result.add(attestation)
 

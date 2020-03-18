@@ -33,7 +33,7 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, us
   # https://github.com/nim-lang/Nim/issues/12084#issue-486866402
 
   proc `suiteImpl _ transitionProc`() =
-    suite "Official - Epoch Processing - " & testName & preset():
+    suiteReport "Official - Epoch Processing - " & testName & preset():
       for testDir in walkDirRec(suiteDir, yieldFilter = {pcDir}):
 
         let unitTestName = testDir.rsplit(DirSep, 1)[1]

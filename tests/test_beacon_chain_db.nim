@@ -13,7 +13,7 @@ import  options, unittest, sequtils,
   # test utilies
   ./testutil, ./testblockutil
 
-suite "Beacon chain DB" & preset():
+suiteReport "Beacon chain DB" & preset():
   timedTest "empty database" & preset():
     var
       db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
@@ -30,18 +30,18 @@ suite "Beacon chain DB" & preset():
       db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
 
     let
-      blck = SignedBeaconBlock()
-      root = hash_tree_root(blck.message)
+      signedBlock = SignedBeaconBlock()
+      root = hash_tree_root(signedBlock.message)
 
-    db.putBlock(blck)
+    db.putBlock(signedBlock)
 
     check:
       db.containsBlock(root)
-      db.getBlock(root).get() == blck
+      db.getBlock(root).get() == signedBlock
 
-    db.putStateRoot(root, blck.message.slot, root)
+    db.putStateRoot(root, signedBlock.message.slot, root)
     check:
-      db.getStateRoot(root, blck.message.slot).get() == root
+      db.getStateRoot(root, signedBlock.message.slot).get() == root
 
   timedTest "sanity check states" & preset():
     var
@@ -60,11 +60,6 @@ suite "Beacon chain DB" & preset():
   timedTest "find ancestors" & preset():
     var
       db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
-      x: ValidatorSig
-      y = init(ValidatorSig, x.getBytes())
-
-     # Silly serialization check that fails without the right import
-    check: x == y
 
     let
       a0 = SignedBeaconBlock(message: BeaconBlock(slot: GENESIS_SLOT + 0))
@@ -104,7 +99,7 @@ suite "Beacon chain DB" & preset():
 
     let
       state = initialize_beacon_state_from_eth1(
-        eth1BlockHash, 0, makeInitialDeposits(SLOTS_PER_EPOCH), {skipValidation})
+        eth1BlockHash, 0, makeInitialDeposits(SLOTS_PER_EPOCH), {skipBlsValidation, skipMerkleValidation})
       root = hash_tree_root(state)
 
     db.putState(state)

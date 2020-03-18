@@ -6,12 +6,13 @@ import
   stew/[objects, bitseqs, byteutils],
   chronos, chronicles, confutils, metrics,
   json_serialization/std/[options, sets], serialization/errors,
-  kvstore, kvstore_lmdb, eth/async_utils, eth/p2p/discoveryv5/enr,
+  kvstore, kvstore_sqlite3,
+  eth/p2p/enode, eth/[keys, async_utils], eth/p2p/discoveryv5/enr,
 
   # Local modules
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network],
-  conf, time, state_transition, beacon_chain_db,
-  validator_pool, extras, attestation_pool, block_pool, eth2_network,
+  conf, time, state_transition, beacon_chain_db, validator_pool, extras,
+  attestation_pool, block_pool, eth2_network, eth2_discovery,
   beacon_node_types, mainchain_monitor, version, ssz, ssz/dynamic_navigator,
   sync_protocol, request_manager, validator_keygen, interop, statusbar
 
@@ -19,6 +20,9 @@ const
   genesisFile = "genesis.ssz"
   hasPrompt = not defined(withoutPrompt)
   maxEmptySlotCount = uint64(24*60*60) div SECONDS_PER_SLOT
+
+type
+  KeyPair = eth2_network.KeyPair
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_slot,
@@ -45,9 +49,9 @@ type
     nickname: string
     network: Eth2Node
     forkVersion: array[4, byte]
-    networkIdentity: Eth2NodeIdentity
+    netKeys: KeyPair
     requestManager: RequestManager
-    bootstrapNodes: seq[BootstrapAddr]
+    bootstrapNodes: seq[ENode]
     bootstrapEnrs: seq[enr.Record]
     db: BeaconChainDB
     config: BeaconNodeConf
@@ -57,7 +61,7 @@ type
     mainchainMonitor: MainchainMonitor
     beaconClock: BeaconClock
 
-proc onBeaconBlock*(node: BeaconNode, blck: SignedBeaconBlock) {.gcsafe.}
+proc onBeaconBlock*(node: BeaconNode, signedBlock: SignedBeaconBlock) {.gcsafe.}
 proc updateHead(node: BeaconNode): BlockRef
 
 proc saveValidatorKey(keyName, key: string, conf: BeaconNodeConf) =
@@ -121,57 +125,13 @@ proc getStateFromSnapshot(conf: BeaconNodeConf, state: var BeaconState): bool =
 
   result = true
 
-proc addBootstrapAddr(v: var seq[BootstrapAddr], add: TaintedString) =
-  try:
-    v.add BootstrapAddr.initAddress(string add)
-  except CatchableError as e:
-    warn "Skipping invalid address", err = e.msg
-
-proc loadBootstrapFile(bootstrapFile: string): seq[BootstrapAddr] =
-  if fileExists(bootstrapFile):
-    for line in lines(bootstrapFile):
-      result.addBootstrapAddr(line)
-
-proc addEnrBootstrapNode(enrBase64: string,
-                         bootNodes: var seq[BootstrapAddr],
-                         enrs: var seq[enr.Record]) =
-  var enrRec: enr.Record
-  if enrRec.fromURI(enrBase64):
-    try:
-      let
-        ip = IpAddress(family: IpAddressFamily.IPv4,
-                       address_v4: cast[array[4, uint8]](enrRec.get("ip", int)))
-        tcpPort = Port enrRec.get("tcp", int)
-        # udpPort = Port enrRec.get("udp", int)
-      bootNodes.add BootstrapAddr.initAddress(ip, tcpPort)
-      enrs.add enrRec
-    except CatchableError as err:
-      warn "Invalid ENR record", enrRec
-  else:
-    warn "Failed to parse ENR record", value = enrRec
-
-proc useEnrBootstrapFile(bootstrapFile: string,
-                         bootNodes: var seq[BootstrapAddr],
-                         enrs: var seq[enr.Record]) =
-  let ext = splitFile(bootstrapFile).ext
-  if cmpIgnoreCase(ext, ".txt") == 0:
-    for ln in lines(bootstrapFile):
-      addEnrBootstrapNode(string ln, bootNodes, enrs)
-  elif cmpIgnoreCase(ext, ".yaml") == 0:
-    # TODO. This is very ugly, but let's try to negotiate the
-    # removal of YAML metadata.
-    for ln in lines(bootstrapFile):
-      addEnrBootstrapNode(string(ln[3..^2]), bootNodes, enrs)
-  else:
-    error "Unknown bootstrap file format", ext
-    quit 1
-
 proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
   let
-    networkId = getPersistentNetIdentity(conf)
-    nickname = if conf.nodeName == "auto": shortForm(networkId)
+    netKeys = getPersistentNetKeys(conf)
+    ourPubKey = netKeys.pubkey.skkey
+    nickname = if conf.nodeName == "auto": shortForm(netKeys)
                else: conf.nodeName
-    db = BeaconChainDB.init(kvStore LmdbStoreRef.init(conf.databaseDir))
+    db = BeaconChainDB.init(kvStore SqliteStoreRef.init(conf.databaseDir))
 
   var mainchainMonitor: MainchainMonitor
 
@@ -222,34 +182,34 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     #      monitor
     mainchainMonitor.start()
 
-  var
-    bootNodes: seq[BootstrapAddr]
-    enrs: seq[enr.Record]
+  var bootNodes: seq[ENode]
+  var bootEnrs: seq[enr.Record]
+  for node in conf.bootstrapNodes: addBootstrapNode(node, bootNodes, bootEnrs, ourPubKey)
+  loadBootstrapFile(string conf.bootstrapNodesFile, bootNodes, bootEnrs, ourPubKey)
 
-  for node in conf.bootstrapNodes: bootNodes.addBootstrapAddr(node)
-  bootNodes.add(loadBootstrapFile(string conf.bootstrapNodesFile))
-  bootNodes.add(loadBootstrapFile(conf.dataDir / "bootstrap_nodes.txt"))
+  when networkBackend == libp2pDaemon:
+    for enr in bootEnrs:
+      let enode = toENode(enr)
+      if enode.isOk:
+        bootNodes.add enode.value
 
-  let enrBootstrapFile = string conf.enrBootstrapNodesFile
-  if enrBootstrapFile.len > 0:
-    useEnrBootstrapFile(enrBootstrapFile, bootNodes, enrs)
-
-  bootNodes = filterIt(bootNodes, not it.isSameNode(networkId))
+  let persistentBootstrapFile = conf.dataDir / "bootstrap_nodes.txt"
+  if fileExists(persistentBootstrapFile):
+    loadBootstrapFile(persistentBootstrapFile, bootNodes, bootEnrs, ourPubKey)
 
   let
-    network = await createEth2Node(conf, bootNodes, enrs)
-
-  let addressFile = string(conf.dataDir) / "beacon_node.address"
+    network = await createEth2Node(conf, bootNodes)
+    addressFile = string(conf.dataDir) / "beacon_node.address"
   network.saveConnectionAddressFile(addressFile)
 
   var res = BeaconNode(
     nickname: nickname,
     network: network,
     forkVersion: blockPool.headState.data.data.fork.current_version,
-    networkIdentity: networkId,
+    netKeys: netKeys,
     requestManager: RequestManager.init(network),
     bootstrapNodes: bootNodes,
-    bootstrapEnrs: enrs,
+    bootstrapEnrs: bootEnrs,
     db: db,
     config: conf,
     attachedValidators: ValidatorPool.init(),
@@ -291,7 +251,8 @@ proc connectToNetwork(node: BeaconNode) {.async.} =
   else:
     info "Waiting for connections"
 
-  await node.network.connectToNetwork(node.bootstrapNodes)
+  await node.network.connectToNetwork(node.bootstrapNodes,
+                                      node.bootstrapEnrs)
 
 template findIt(s: openarray, predicate: untyped): int =
   var res = -1
@@ -386,7 +347,9 @@ proc sendAttestation(node: BeaconNode,
     aggregation_bits: aggregationBits
   )
 
-  node.network.broadcast(topicAttestations, attestation)
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#broadcast-attestation
+  node.network.broadcast(
+    getAttestationTopic(attestationData.index), attestation)
 
   if node.config.dump:
     SSZ.saveFile(
@@ -442,14 +405,20 @@ proc proposeBlock(node: BeaconNode,
           node.attestationPool.getAttestationsForBlock(state, slot),
         deposits: deposits)
 
+    var cache = get_empty_per_epoch_cache()
+    let proposer_index = get_beacon_proposer_index(state, cache)
+    if proposer_index.isNone:
+      doAssert false, "proposeBlock: missing proposer index"
+
     var
       newBlock = SignedBeaconBlock(
         message: BeaconBlock(
           slot: slot,
+          proposer_index: proposer_index.get.uint64,
           parent_root: head.root,
           body: blockBody))
       tmpState = hashedState
-    discard state_transition(tmpState, newBlock.message, {skipValidation})
+    discard state_transition(tmpState, newBlock, {skipStateRootValidation})
     # TODO only enable in fast-fail debugging situations
     # otherwise, bad attestations can bring down network
     # doAssert ok # TODO: err, could this fail somehow?
@@ -529,19 +498,19 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
 
   node.attestationPool.add(attestation)
 
-proc onBeaconBlock(node: BeaconNode, blck: SignedBeaconBlock) =
+proc onBeaconBlock(node: BeaconNode, signedBlock: SignedBeaconBlock) =
   # We received a block but don't know much about it yet - in particular, we
   # don't know if it's part of the chain we're currently building.
-  let blockRoot = hash_tree_root(blck.message)
+  let blockRoot = hash_tree_root(signedBlock.message)
   debug "Block received",
-    blck = shortLog(blck.message),
+    signedBlock = shortLog(signedBlock.message),
     blockRoot = shortLog(blockRoot),
     cat = "block_listener",
     pcs = "receive_block"
 
   beacon_blocks_received.inc()
 
-  if node.blockPool.add(blockRoot, blck).isNil:
+  if node.blockPool.add(blockRoot, signedBlock).isNil:
     return
 
   # The block we received contains attestations, and we might not yet know about
@@ -551,8 +520,8 @@ proc onBeaconBlock(node: BeaconNode, blck: SignedBeaconBlock) =
   # TODO shouldn't add attestations if the block turns out to be invalid..
   let currentSlot = node.beaconClock.now.toSlot
   if currentSlot.afterGenesis and
-     blck.message.slot.epoch + 1 >= currentSlot.slot.epoch:
-    for attestation in blck.message.body.attestations:
+    signedBlock.message.slot.epoch + 1 >= currentSlot.slot.epoch:
+    for attestation in signedBlock.message.body.attestations:
       node.onAttestation(attestation)
 
 proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
@@ -645,6 +614,21 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
 
   return head
 
+proc verifyFinalization(node: BeaconNode, slot: Slot) =
+  # Epoch must be >= 4 to check finalization
+  const SETTLING_TIME_OFFSET = 1'u64
+  let epoch = slot.compute_epoch_at_slot()
+
+  # Don't static-assert this -- if this isn't called, don't require it
+  doAssert SLOTS_PER_EPOCH > SETTLING_TIME_OFFSET
+
+  # Intentionally, loudly assert. Point is to fail visibly and unignorably
+  # during testing.
+  if epoch >= 4 and slot mod SLOTS_PER_EPOCH > SETTLING_TIME_OFFSET:
+    let finalizedEpoch =
+      node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()
+    doAssert finalizedEpoch + 2 == epoch
+
 proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
   ## skip a few in case we're running late.
@@ -671,6 +655,17 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     finalizedRoot = shortLog(node.blockPool.finalizedHead.blck.root),
     finalizedSlot = shortLog(node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()),
     cat = "scheduling"
+
+  # Check before any re-scheduling of onSlotStart()
+  if node.config.stopAtEpoch > 0'u64 and
+      scheduledSlot.compute_epoch_at_slot() >= node.config.stopAtEpoch:
+    info "Stopping at pre-chosen epoch",
+      chosenEpoch = node.config.stopAtEpoch,
+      epoch = scheduledSlot.compute_epoch_at_slot(),
+      slot = scheduledSlot
+
+    # Brute-force, but ensure it's reliably enough to run in CI.
+    quit(0)
 
   if not wallSlot.afterGenesis or (wallSlot.slot < lastSlot):
     let
@@ -699,6 +694,9 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     nextSlot = slot + 1
 
   beacon_slot.set slot.int64
+
+  if node.config.verifyFinalization:
+    verifyFinalization(node, scheduledSlot)
 
   if slot > lastSlot + SLOTS_PER_EPOCH:
     # We've fallen behind more than an epoch - there's nothing clever we can
@@ -784,7 +782,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     head = await handleProposal(node, head, slot)
 
     # We've been doing lots of work up until now which took time. Normally, we
-    # send out attestations at the slot mid-point, so we go back to the clock
+    # send out attestations at the slot thirds-point, so we go back to the clock
     # to see how much time we need to wait.
     # TODO the beacon clock might jump here also. It's probably easier to complete
     #      the work for the whole slot using a monotonic clock instead, then deal
@@ -866,12 +864,13 @@ proc run*(node: BeaconNode) =
   waitFor node.network.subscribe(topicBeaconBlocks) do (signedBlock: SignedBeaconBlock):
     onBeaconBlock(node, signedBlock)
 
-  waitFor node.network.subscribe(topicAttestations) do (attestation: Attestation):
-    # Avoid double-counting attestation-topic attestations on shared codepath
-    # when they're reflected through beacon blocks
-    beacon_attestations_received.inc()
-
-    node.onAttestation(attestation)
+  waitFor allFutures(mapIt(
+    0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64,
+    node.network.subscribe(getAttestationTopic(it)) do (attestation: Attestation):
+      # Avoid double-counting attestation-topic attestations on shared codepath
+      # when they're reflected through beacon blocks
+      beacon_attestations_received.inc()
+      node.onAttestation(attestation)))
 
   let
     t = node.beaconClock.now().toSlot()
@@ -998,7 +997,7 @@ when hasPrompt:
         # arbitrary expression that is resolvable through this API.
         case expr.toLowerAscii
         of "connected_peers":
-          $(sync_protocol.libp2p_peers.value.int)
+          $(libp2p_peers.value.int)
 
         of "last_finalized_epoch":
           var head = node.blockPool.finalizedHead
@@ -1062,8 +1061,6 @@ when hasPrompt:
       # createThread(t, processPromptCommands, addr p)
 
 when isMainModule:
-  randomize()
-
   let config = BeaconNodeConf.load(
     version = clientId,
     copyrightBanner = clientId & "\p" & copyrights)
@@ -1072,6 +1069,12 @@ when isMainModule:
     defaultChroniclesStream.output.writer =
       proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe.} =
         stdout.write(msg)
+
+  debug "Launching beacon node",
+        version = fullVersionStr,
+        cmdParams = commandLineParams(), config
+
+  randomize()
 
   if config.logLevel != LogLevel.NONE:
     setLogLevel(config.logLevel)
@@ -1106,7 +1109,7 @@ when isMainModule:
                  else: waitFor getLatestEth1BlockHash(config.depositWeb3Url)
     var
       initialState = initialize_beacon_state_from_eth1(
-        eth1Hash, startTime, deposits, {skipValidation, skipMerkleValidation})
+        eth1Hash, startTime, deposits, {skipBlsValidation, skipMerkleValidation})
 
     # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
     initialState.genesis_time = startTime
@@ -1122,14 +1125,21 @@ when isMainModule:
     SSZ.saveFile(outSszGenesis, initialState)
     echo "Wrote ", outSszGenesis
 
-    var
-      bootstrapAddress = getPersistenBootstrapAddr(
-        config, parseIpAddress(config.bootstrapAddress), Port config.bootstrapPort)
-
     let bootstrapFile = config.outputBootstrapFile.string
     if bootstrapFile.len > 0:
-      let bootstrapAddrLine = $bootstrapAddress
-      writeFile(bootstrapFile, bootstrapAddrLine)
+      let
+        networkKeys = getPersistentNetKeys(config)
+        bootstrapAddress = enode.Address(
+          ip: parseIpAddress(config.bootstrapAddress),
+          tcpPort: Port config.bootstrapPort,
+          udpPort: Port config.bootstrapPort)
+
+        bootstrapEnr = enr.Record.init(
+          1, # sequence number
+          networkKeys.seckey.asEthKey,
+          bootstrapAddress)
+
+      writeFile(bootstrapFile, bootstrapEnr.toURI)
       echo "Wrote ", bootstrapFile
 
   of importValidator:

@@ -12,7 +12,7 @@ import
   os, unittest,
   # Beacon chain internals
   ../../beacon_chain/spec/[datatypes, state_transition_block, validator],
-  ../../beacon_chain/[ssz, extras],
+  ../../beacon_chain/ssz,
   # Test utilities
   ../testutil,
   ./fixtures_utils,
@@ -62,6 +62,6 @@ proc runTest(identifier: string) =
 
   `testImpl _ blockheader _ identifier`()
 
-suite "Official - Operations - Block header " & preset():
+suiteReport "Official - Operations - Block header " & preset():
   for kind, path in walkDir(OpBlockHeaderDir, true):
     runTest(path)

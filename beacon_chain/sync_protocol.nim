@@ -1,13 +1,11 @@
 import
   options, tables, sets, macros,
-  chronicles, chronos, metrics, stew/ranges/bitranges,
+  chronicles, chronos, stew/ranges/bitranges,
   spec/[datatypes, crypto, digest, helpers],
   beacon_node_types, eth2_network, block_pool, ssz
 
 when networkBackend == libp2p:
   import libp2p/switch
-
-declarePublicGauge libp2p_peers, "Number of libp2p peers"
 
 logScope:
   topics = "sync"
@@ -24,7 +22,7 @@ type
     else:
       index: uint32
 
-  BeaconBlockCallback* = proc(blck: SignedBeaconBlock) {.gcsafe.}
+  BeaconBlockCallback* = proc(signedBlock: SignedBeaconBlock) {.gcsafe.}
   BeaconSyncNetworkState* = ref object
     blockPool*: BlockPool
     forkVersion*: array[4, byte]
@@ -100,9 +98,6 @@ p2pProtocol BeaconSync(version = 1,
       else:
         warn "Status response not received in time"
 
-  onPeerDisconnected do (peer: Peer):
-    libp2p_peers.set peer.network.peers.len.int64
-
   requestResponse:
     proc status(peer: Peer, theirStatus: StatusMsg) {.libp2pProtocol("status", 1).} =
       let
@@ -161,15 +156,6 @@ proc handleInitialStatus(peer: Peer,
                          state: BeaconSyncNetworkState,
                          ourStatus: StatusMsg,
                          theirStatus: StatusMsg) {.async, gcsafe.} =
-  when networkBackend == libp2p:
-    # TODO: This doesn't seem like an appropraite place for this call,
-    # but it's hard to pick a better place at the moment.
-    # nim-libp2p plans to add a general `onPeerConnected` callback which
-    # will allow us to implement the subscription earlier.
-    # The root of the problem is that both sides must call `subscribeToPeer`
-    # before any GossipSub traffic will flow between them.
-    await peer.network.switch.subscribeToPeer(peer.info)
-
   if theirStatus.forkVersion != state.forkVersion:
     notice "Irrelevant peer",
       peer, theirFork = theirStatus.forkVersion, ourFork = state.forkVersion
@@ -181,8 +167,6 @@ proc handleInitialStatus(peer: Peer,
   # where it needs to sync and it should execute the sync algorithm with a certain
   # number of randomly selected peers. The algorithm itself must be extracted in a proc.
   try:
-    libp2p_peers.set peer.network.peers.len.int64
-
     debug "Peer connected. Initiating sync", peer,
           localHeadSlot = ourStatus.headSlot,
           remoteHeadSlot = theirStatus.headSlot,

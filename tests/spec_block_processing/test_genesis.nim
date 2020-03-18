@@ -27,7 +27,7 @@ import
 #   - MIN_GENESIS_TIME is not implemented
 #   - is_valid_genesis_state is not implemented
 
-suite "[Unit - Spec - Genesis] Genesis block checks " & preset():
+suiteReport "[Unit - Spec - Genesis] Genesis block checks " & preset():
   timedTest "is_valid_genesis_state for a valid state":
     discard initGenesisState(
       num_validators = MIN_GENESIS_ACTIVE_VALIDATOR_COUNT,

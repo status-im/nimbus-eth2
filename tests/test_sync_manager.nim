@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019 Status Research & Development GmbH
+# Copyright (c) 2019-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,7 +7,7 @@
 
 {.used.}
 
-import options, hashes, unittest
+import options, unittest
 import ./testutil
 import chronos
 import ../beacon_chain/peer_pool, ../beacon_chain/sync_manager
@@ -339,21 +339,30 @@ proc peerGroupTests(): Future[bool] {.async.} =
   slot1.peers = @[peers[3], peers[4], peers[5]]
   var slot2 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
   slot2.peers = @[peers[6], peers[7], peers[8]]
-  var slot3 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
-  slot3.peers = @[peers[9], peers[10], peers[11]]
-  var slot4 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
-  slot4.peers = @[peers[12], peers[13], peers[14]]
+
+  var slot31 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
+  slot31.peers = @[peers[9], peers[10], peers[11]]
+  var slot32 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
+  slot32.peers = @[peers[9], peers[10], peers[11]]
+  var slot33 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
+  slot33.peers = @[peers[9], peers[10], peers[11]]
+
+  var slot41 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
+  slot41.peers = @[peers[12], peers[13], peers[14]]
+  var slot42 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
+  slot42.peers = @[peers[12], peers[13], peers[14]]
+
   var slot5 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
   slot5.peers = @[peers[15], peers[16], peers[17]]
 
   var group0 = newPeerGroup(sman)
   group0.slots = @[slot0, slot1, slot2]
   var group1 = newPeerGroup(sman)
-  group1.slots = @[slot0, slot1, slot3]
+  group1.slots = @[slot0, slot1, slot31]
   var group2 = newPeerGroup(sman)
-  group2.slots = @[slot0, slot3, slot4]
+  group2.slots = @[slot0, slot32, slot41]
   var group3 = newPeerGroup(sman)
-  group3.slots = @[slot3, slot4, slot5]
+  group3.slots = @[slot33, slot42, slot5]
 
   var s0 = await group0.getBlocks(Slot(10000), 10'u64)
   cleanup()
@@ -885,7 +894,7 @@ proc syncManagerFailureTest(): Future[bool] {.async.} =
     doAssert(checkRequest(peer, i, 10000, 20, 1) == true)
   result = true
 
-suite "SyncManager test suite":
+suiteReport "SyncManager test suite":
   timedTest "PeerSlot tests":
     check waitFor(peerSlotTests()) == true
   timedTest "PeerGroup tests":

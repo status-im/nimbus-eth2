@@ -36,7 +36,7 @@ func increase_balance*(
   # Increase the validator balance at index ``index`` by ``delta``.
   state.balances[index] += delta
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#decrease_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#decrease_balance
 func decrease_balance*(
     state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
   ## Decrease the validator balance at index ``index`` by ``delta``, with
@@ -73,9 +73,11 @@ proc process_deposit*(
 
   if index == -1:
     # Verify the deposit signature (proof of possession)
-    if skipValidation notin flags and not bls_verify(
-        pubkey, hash_tree_root(deposit.getDepositMessage).data,
-        deposit.data.signature, compute_domain(DOMAIN_DEPOSIT)):
+    let domain = compute_domain(DOMAIN_DEPOSIT)
+    let signing_root = compute_signing_root(deposit.getDepositMessage, domain)
+    if skipBLSValidation notin flags and not bls_verify(
+        pubkey, signing_root.data,
+        deposit.data.signature):
       return false
 
     # Add validator and balance entries
@@ -102,7 +104,7 @@ func compute_activation_exit_epoch(epoch: Epoch): Epoch =
   ## ``epoch`` take effect.
   epoch + 1 + MAX_SEED_LOOKAHEAD
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#get_validator_churn_limit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#get_validator_churn_limit
 func get_validator_churn_limit(state: BeaconState): uint64 =
   # Return the validator churn limit for the current epoch.
   let active_validator_indices =
@@ -110,7 +112,7 @@ func get_validator_churn_limit(state: BeaconState): uint64 =
   max(MIN_PER_EPOCH_CHURN_LIMIT,
     len(active_validator_indices) div CHURN_LIMIT_QUOTIENT).uint64
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#initiate_validator_exit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(state: var BeaconState,
                               index: ValidatorIndex) =
   # Initiate the exit of the validator with index ``index``.
@@ -214,7 +216,7 @@ func initialize_beacon_state_from_eth1*(
     latest_block_header:
       BeaconBlockHeader(
         body_root: hash_tree_root(BeaconBlockBody(
-          randao_reveal: BlsValue[Signature](kind: OpaqueBlob)
+          randao_reveal: ValidatorSig(kind: OpaqueBlob)
         ))
       )
   )
@@ -245,6 +247,9 @@ func initialize_beacon_state_from_eth1*(
       validator.activation_eligibility_epoch = GENESIS_EPOCH
       validator.activation_epoch = GENESIS_EPOCH
 
+  # Set genesis validators root for domain separation and chain versioning
+  state.genesis_validators_root = hash_tree_root(state.validators)
+
   state
 
 func is_valid_genesis_state*(state: BeaconState): bool =
@@ -263,7 +268,7 @@ func get_initial_beacon_block*(state: BeaconState): SignedBeaconBlock =
       state_root: hash_tree_root(state),
       body: BeaconBlockBody(
         # TODO: This shouldn't be necessary if OpaqueBlob is the default
-        randao_reveal: BlsValue[Signature](kind: OpaqueBlob))))
+        randao_reveal: ValidatorSig(kind: OpaqueBlob))))
       # parent_root, randao_reveal, eth1_data, signature, and body automatically
       # initialized to default values.
 
@@ -281,23 +286,24 @@ func get_block_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Return the block root at the start of a recent ``epoch``.
   get_block_root_at_slot(state, compute_start_slot_at_epoch(epoch))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#get_total_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#get_total_balance
 func get_total_balance*(state: BeaconState, validators: auto): Gwei =
   ## Return the combined effective balance of the ``indices``. (1 Gwei minimum
   ## to avoid divisions by zero.)
+  ## Math safe up to ~10B ETH, afterwhich this overflows uint64.
   max(1'u64,
     foldl(validators, a + state.validators[b].effective_balance, 0'u64)
   )
 
 # XXX: Move to state_transition_epoch.nim?
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#is_eligible_for_activation_queue
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#is_eligible_for_activation_queue
 func is_eligible_for_activation_queue(validator: Validator): bool =
   # Check if ``validator`` is eligible to be placed into the activation queue.
   validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and
     validator.effective_balance == MAX_EFFECTIVE_BALANCE
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#is_eligible_for_activation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#is_eligible_for_activation
 func is_eligible_for_activation(state: BeaconState, validator: Validator):
     bool =
   # Check if ``validator`` is eligible for activation.
@@ -381,13 +387,13 @@ proc is_valid_indexed_attestation*(
     return false
 
   # Verify aggregate signature
-  if skipValidation notin flags and not bls_verify(
-    bls_aggregate_pubkeys(mapIt(indices, state.validators[it.int].pubkey)),
-    hash_tree_root(indexed_attestation.data).data,
-    indexed_attestation.signature,
-    get_domain(
-      state, DOMAIN_BEACON_ATTESTER, indexed_attestation.data.target.epoch)
-  ):
+  let pubkeys = mapIt(indices, state.validators[it.int].pubkey) # TODO: fuse loops with blsFastAggregateVerify
+  let domain = state.get_domain(DOMAIN_BEACON_ATTESTER, indexed_attestation.data.target.epoch)
+  let signing_root = compute_signing_root(indexed_attestation.data, domain)
+  if skipBLSValidation notin flags and
+       not blsFastAggregateVerify(
+             pubkeys, signing_root.data, indexed_attestation.signature
+       ):
     notice "indexed attestation: signature verification failure"
     return false
 
@@ -553,8 +559,6 @@ func makeAttestationData*(
   ## `state` is the state corresponding to the `beacon_block_root` advanced to
   ## the slot we're attesting to.
 
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/validator/0_beacon-chain-validator.md#construct-attestation
-
   let
     current_epoch = get_current_epoch(state)
     start_slot = compute_start_slot_at_epoch(current_epoch)
@@ -564,6 +568,7 @@ func makeAttestationData*(
 
   doAssert slot.compute_epoch_at_slot == current_epoch
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index,

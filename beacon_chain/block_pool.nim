@@ -374,7 +374,7 @@ proc add*(
     #      but maybe we should use it as a hint that our clock is wrong?
     updateStateData(pool, pool.tmpState, BlockSlot(blck: parent, slot: blck.slot - 1))
 
-    if not state_transition(pool.tmpState.data, blck, {}):
+    if not state_transition(pool.tmpState.data, signedBlock, {}):
       # TODO find a better way to log all this block data
       notice "Invalid block",
         blck = shortLog(blck),
@@ -570,12 +570,12 @@ proc skipAndUpdateState(
     afterUpdate(state)
 
 proc skipAndUpdateState(
-    state: var HashedBeaconState, blck: BeaconBlock, flags: UpdateFlags,
+    state: var HashedBeaconState, signedBlock: SignedBeaconBlock, flags: UpdateFlags,
     afterUpdate: proc (state: HashedBeaconState)): bool =
 
-  skipAndUpdateState(state, blck.slot - 1, afterUpdate)
+  skipAndUpdateState(state, signedBlock.message.slot - 1, afterUpdate)
 
-  let ok  = state_transition(state, blck, flags)
+  let ok  = state_transition(state, signedBlock, flags)
 
   afterUpdate(state)
 
@@ -712,9 +712,10 @@ proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
   # applied
   for i in countdown(ancestors.len - 1, 0):
     let ok =
-      skipAndUpdateState(state.data, ancestors[i].data.message, {skipValidation}) do(
-        state: HashedBeaconState):
-      pool.maybePutState(state, ancestors[i].refs)
+      skipAndUpdateState(state.data,
+                         ancestors[i].data,
+                         {skipBlsValidation, skipMerkleValidation, skipStateRootValidation}) do (state: HashedBeaconState):
+        pool.maybePutState(state, ancestors[i].refs)
     doAssert ok, "Blocks in database should never fail to apply.."
 
   skipAndUpdateState(state.data, bs.slot) do(state: HashedBeaconState):
@@ -931,6 +932,7 @@ proc getProposer*(pool: BlockPool, head: BlockRef, slot: Slot): Option[Validator
   pool.withState(pool.tmpState, head.atSlot(slot)):
     var cache = get_empty_per_epoch_cache()
 
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#validator-assignments
     let proposerIdx = get_beacon_proposer_index(state, cache)
     if proposerIdx.isNone:
       warn "Missing proposer index",
