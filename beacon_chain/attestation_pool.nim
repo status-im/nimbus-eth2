@@ -438,3 +438,29 @@ proc selectHead*(pool: AttestationPool): BlockRef =
     lmdGhost(pool, pool.blockPool.justifiedState.data.data, justifiedHead.blck)
 
   newHead
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/p2p-interface.md#attestation-subnets
+func isValidAttestation*(pool: AttestationPool, attestation: Attestation):
+    bool =
+  # The attestation's committee index (attestation.data.index) is for the
+  # correct subnet.
+
+  # attestation.data.slot is within the last ATTESTATION_PROPAGATION_SLOT_RANGE
+  # slots (within a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e.
+  # attestation.data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot
+  # >= attestation.data.slot (a client MAY queue future attestations for
+  # processing at the appropriate slot).
+
+  # The attestation is unaggregated -- that is, it has exactly one
+  # participating validator (len([bit for bit in attestation.aggregation_bits
+  # if bit == 0b1]) == 1).
+
+  # The attestation is the first valid attestation received for the
+  # participating validator for the slot, attestation.data.slot.
+
+  # The block being voted for (attestation.data.beacon_block_root) passes
+  # validation.
+
+  # The signature of attestation is valid.
+
+  true

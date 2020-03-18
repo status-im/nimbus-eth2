@@ -956,3 +956,34 @@ proc getProposer*(pool: BlockPool, head: BlockRef, slot: Slot): Option[Validator
       return
 
     return some(state.validators[proposerIdx.get()].pubkey)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/p2p-interface.md#global-topics
+#func isValidBeaconBlock*(pool: BlockPool, state: BeaconState,
+#    signed_beacon_block: SignedBeaconBlock): bool =
+func isValidBeaconBlock*(pool: BlockPool,
+    signed_beacon_block: SignedBeaconBlock): bool =
+  # The block is not from a future slot (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY
+  # allowance) -- i.e. validate that signed_beacon_block.message.slot <=
+  # current_slot (a client MAY queue future blocks for processing at the
+  # appropriate slot).
+  if not (signed_beacon_block.message.slot <= pool.head.blck.slot):
+    return false
+
+  # The block is from a slot greater than the latest finalized slot (with a
+  # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. validate that
+  # signed_beacon_block.message.slot >
+  # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch) (a client MAY
+  # choose to validate and store such blocks for additional purposes -- e.g.
+  # slashing detection, archive nodes, etc).
+  #if not (signed_beacon_block.message.slot >
+  #    compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)):
+  #  return false
+
+  # The block is the first block with valid signature received for the proposer
+  # for the slot, signed_beacon_block.message.slot.
+  # TODO check for existing block pool blocks
+
+  # The proposer signature, signed_beacon_block.signature, is valid.
+  # TODO
+
+  true

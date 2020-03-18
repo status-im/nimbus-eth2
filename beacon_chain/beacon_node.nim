@@ -935,14 +935,22 @@ proc run*(node: BeaconNode) =
 
   waitFor node.network.subscribe(topicBeaconBlocks) do (signedBlock: SignedBeaconBlock):
     onBeaconBlock(node, signedBlock)
+  do (signedBlock: SignedBeaconBlock) -> bool:
+    node.blockPool.isValidBeaconBlock(signedBlock)
+
+  proc attestationHandler(attestation: Attestation) =
+    # Avoid double-counting attestation-topic attestations on shared codepath
+    # when they're reflected through beacon blocks
+    beacon_attestations_received.inc()
+    node.onAttestation(attestation)
+
+  func attestationValidator(attestation: Attestation): bool =
+    node.attestationPool.isValidAttestation(attestation)
 
   waitFor allFutures(mapIt(
     0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64,
-    node.network.subscribe(getAttestationTopic(it)) do (attestation: Attestation):
-      # Avoid double-counting attestation-topic attestations on shared codepath
-      # when they're reflected through beacon blocks
-      beacon_attestations_received.inc()
-      node.onAttestation(attestation)))
+    node.network.subscribe(
+      getAttestationTopic(it), attestationHandler, attestationValidator)))
 
   let
     t = node.beaconClock.now().toSlot()
