@@ -363,7 +363,7 @@ proc sendAttestation(node: BeaconNode,
   node.network.broadcast(
     getAttestationTopic(attestationData.index), attestation)
 
-  if node.config.dump:
+  if node.config.dumpEnabled:
     SSZ.saveFile(
       node.config.dumpDir / "att-" & $attestationData.slot & "-" &
       $attestationData.index & "-" & validator.pubKey.shortLog &
@@ -444,7 +444,7 @@ proc proposeBlock(node: BeaconNode,
     validator = shortLog(validator),
     cat = "consensus"
 
-  if node.config.dump:
+  if node.config.dumpEnabled:
     SSZ.saveFile(
       node.config.dumpDir / "block-" & $newBlock.message.slot & "-" &
       shortLog(newBlockRef.root) & ".ssz", newBlock)

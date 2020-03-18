@@ -60,34 +60,6 @@ type
       desc: "Address of the deposit contract."
       name: "deposit-contract" }: string
 
-    statusBarEnabled* {.
-      defaultValue: true
-      desc: "Display a status bar at the bottom of the terminal screen."
-      name: "status-bar" }: bool
-
-    statusBarContents* {.
-      defaultValue: "peers: $connected_peers; " &
-                    "epoch: $epoch, slot: $epoch_slot/$slots_per_epoch ($slot); " &
-                    "finalized epoch: $last_finalized_epoch |" &
-                    "ETH: $attached_validators_balance"
-      desc: "Textual template for the contents of the status bar."
-      name: "status-bar-contents" }: string
-
-    rpcEnabled* {.
-      defaultValue: false
-      desc: "Enable the JSON-RPC server"
-      name: "rpc" }: bool
-
-    rpcPort* {.
-      defaultValue: defaultEth2RpcPort
-      desc: "HTTP port for the JSON-RPC service."
-      name: "rpc-port" }: Port
-
-    rpcAddress* {.
-      defaultValue: defaultListenAddress(config)
-      desc: "Listening address of the RPC server"
-      name: "rpc-address" }: IpAddress
-
     case cmd* {.
       command
       defaultValue: noCommand }: StartUpCmd
@@ -103,14 +75,19 @@ type
         desc: "Specifies a line-delimited file of bootsrap Ethereum network addresses."
         name: "bootstrap-file" }: InputFile
 
+      libp2pAddress* {.
+        defaultValue: defaultListenAddress(config)
+        desc: "Listening address for the Ethereum LibP2P traffic."
+        name: "listen-address"}: IpAddress
+
       tcpPort* {.
         defaultValue: defaultEth2TcpPort
-        desc: "TCP listening port."
+        desc: "Listening TCP port for Ethereum LibP2P traffic."
         name: "tcp-port" }: Port
 
       udpPort* {.
         defaultValue: defaultEth2TcpPort
-        desc: "UDP listening port."
+        desc: "Listening UDP port for node discovery."
         name: "udp-port" }: Port
 
       maxPeers* {.
@@ -156,7 +133,7 @@ type
         name: "metrics" }: bool
 
       metricsAddress* {.
-        defaultValue: defaultListenAddress(config)
+        defaultValue: defaultAdminListenAddress(config)
         desc: "Listening address of the metrics server."
         name: "metrics-address" }: IpAddress
 
@@ -165,10 +142,38 @@ type
         desc: "Listening HTTP port of the metrics server."
         name: "metrics-port" }: Port
 
-      dump* {.
+      statusBarEnabled* {.
+        defaultValue: true
+        desc: "Display a status bar at the bottom of the terminal screen."
+        name: "status-bar" }: bool
+
+      statusBarContents* {.
+        defaultValue: "peers: $connected_peers; " &
+                      "epoch: $epoch, slot: $epoch_slot/$slots_per_epoch ($slot); " &
+                      "finalized epoch: $last_finalized_epoch |" &
+                      "ETH: $attached_validators_balance"
+        desc: "Textual template for the contents of the status bar."
+        name: "status-bar-contents" }: string
+
+      rpcEnabled* {.
+        defaultValue: false
+        desc: "Enable the JSON-RPC server"
+        name: "rpc" }: bool
+
+      rpcPort* {.
+        defaultValue: defaultEth2RpcPort
+        desc: "HTTP port for the JSON-RPC service."
+        name: "rpc-port" }: Port
+
+      rpcAddress* {.
+        defaultValue: defaultAdminListenAddress(config)
+        desc: "Listening address of the RPC server"
+        name: "rpc-address" }: IpAddress
+
+      dumpEnabled* {.
         defaultValue: false
         desc: "Write SSZ dumps of blocks, attestations and states to data dir"
-        .}: bool
+        name: "dump" }: bool
 
     of createTestnet:
       validatorsDir* {.
@@ -288,6 +293,9 @@ func defaultListenAddress*(conf: BeaconNodeConf): IpAddress =
   # TODO: How should we select between IPv4 and IPv6
   # Maybe there should be a config option for this.
   parseIpAddress("0.0.0.0")
+
+func defaultAdminListenAddress*(conf: BeaconNodeConf): IpAddress =
+  parseIpAddress("127.0.0.1")
 
 iterator validatorKeys*(conf: BeaconNodeConf): ValidatorPrivKey =
   for validatorKeyFile in conf.validators:

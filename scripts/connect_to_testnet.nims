@@ -142,7 +142,7 @@ cli do (skipGoerliKey {.
   mode = Verbose
   execIgnoringExitCode replace(&"""{beaconNodeBinary}
     --data-dir="{dataDir}"
-    --dump=true
+    --dump
     --web3-url={web3Url}
     {bootstrapFileOpt}
     {logLevelOpt}
