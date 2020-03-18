@@ -897,8 +897,8 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
       blockHash = root.get
     else:
       let foundRef = node.blockPool.getBlockByPreciseSlot(slot.get)
-      if foundRef.isSome:
-        blockHash = foundRef.get.root
+      if foundRef != nil:
+        blockHash = foundRef.root
       else:
         return StringOfJson("null")
 
