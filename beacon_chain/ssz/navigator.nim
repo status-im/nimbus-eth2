@@ -10,8 +10,10 @@ type
   SszNavigator*[T] = object
     m: MemRange
   
+  SszDelayedNavigator*[T] = object
+    fieldList*: seq[static[string]]
+
   SszOffsetFinder*[T] = object
-    # nav*: SszNavigator[T]
     fieldList*: seq[string]
 
 func sszMount*(data: openarray[byte], T: type): SszNavigator[T] =
@@ -24,8 +26,10 @@ template sszMount*(data: MemRange, T: type): SszNavigator[T] =
 template sszMount*(T: type): SszOffsetFinder =
   SszOffsetFinder[T]()
 
-# template getOffSetInfo*(n: SszOffsetFinder): (int, int, bool) =
-#   (n.startOffset, n.length, n.dynamicType)
+template sszMountNav*(T: type): SszDelayedNavigator =
+  const s = "mes"
+  SszDelayedNavigator[T](fieldList: "me sm")
+  
 
 template getMemRange*(n: SszNavigator): MemRange =
   # Please note that this accessor was created intentionally.
@@ -70,45 +74,14 @@ proc navigateToField*[T](n: SszNavigator[T],
       startAddr: offset(n.m.startAddr, startOffset),
       length: endOffset - startOffset))
 
-# proc navigateToField*[T](n: SszNavigator[T],
-#                           fieldName: static string,
-#                           FieldType: type,
-#                           readOffset: proc(off: int):int): SszNavigator[FieldType] =
-#     mixin toSszType
-#     type SszFieldType = type toSszType(default FieldType)
-#     const boundingOffsets = getFieldBoundingOffsets(T, fieldName)
-#     checkBounds(n.m, boundingOffsets[1])
-#     when isFixedSize(SszFieldType):
-#       SszNavigator[FieldType](m: MemRange(
-#       startAddr: offset(n.m.startAddr, boundingOffsets[0]),
-#       length: boundingOffsets[1] - boundingOffsets[0]))
-#     else:
-#       # template readOffset(off): int =
-#       #   int fromSszBytes(uint32, makeOpenArray(offset(n.m.startAddr, off),
-#       #                           sizeof(uint32)))
-#       let
-#         startOffset = readOffset boundingOffsets[0]
-#         endOffset = when boundingOffsets[1] == -1: n.m.length
-#                     else: readOffset boundingOffsets[1]
-
-#     if endOffset < startOffset or endOffset > n.m.length:
-#       raise newException(MalformedSszError, "Incorrect offset values")
-
-#     SszNavigator[FieldType](m: MemRange(
-#       startAddr: offset(n.m.startAddr, startOffset),
-#       length: endOffset - startOffset))
-
 template get*[T](n:SszOffsetFinder[T], data: openArray[byte]) =
+  let startAddr = unsafeAddr data[0]
+  var mem = MemRange(startAddr: startAddr, length: data.len)
   type RecType = T
-  
-  var nav = sszMount(data, RecType)
   for field in n.fieldList:
     enumAllSerializedFields(RecType):
-      if fieldName == field:
-        let newNav = navigateToField(nav, fieldName, FieldType)
-        echo newNav
-
-
+      if field == fieldName:
+        navigateToField(mem, RecType, field, FieldType)
 
 
 template `.`*[T](n: SszNavigator[T], field: untyped): auto =
@@ -118,6 +91,9 @@ template `.`*[T](n: SszNavigator[T], field: untyped): auto =
 
 template `.`*[T](n: SszOffsetFinder[T], field: untyped): SszOffsetFinder[T] =
   SszOffsetFinder[T](fieldList: n.fieldList & astToStr(field))
+
+template `.`*[T](n: SszOffsetFinder[T], field: untyped): SszOffsetFinder[T] =
+  SszDelayedNavigator[T](fieldList: n.fieldList & astToStr(field))
 
 func indexVarSizeList(m: MemRange, idx: int): MemRange =
   template readOffset(pos): int =
