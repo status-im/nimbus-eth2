@@ -93,11 +93,6 @@
 	url = https://github.com/status-im/nim-metrics.git
 	ignore = dirty
 	branch = master
-[submodule "vendor/nim-rocksdb"]
-	path = vendor/nim-rocksdb
-	url = https://github.com/status-im/nim-rocksdb.git
-	ignore = dirty
-	branch = master
 [submodule "vendor/nim-secp256k1"]
 	path = vendor/nim-secp256k1
 	url = https://github.com/status-im/nim-secp256k1.git
