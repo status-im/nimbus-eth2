@@ -107,6 +107,9 @@ const
 template `$`*(peer: Peer): string = id(peer.info)
 chronicles.formatIt(Peer): $it
 
+template remote*(peer: Peer): untyped =
+  peer.info.peerId
+
 # TODO: This exists only as a compatibility layer between the daemon
 # APIs and the native LibP2P ones. It won't be necessary once the
 # daemon is removed.
@@ -351,6 +354,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
       msgName = $msg.ident
       msgNameLit = newLit msgName
       MsgRecName = msg.recName
+      MsgStrongRecName = msg.strongRecName
       codecNameLit = getRequestProtoName(msg.procDef)
 
     if msg.procDef.body.kind != nnkEmpty and msg.kind == msgRequest:
@@ -388,7 +392,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
           proc thunk(`streamVar`: `P2PStream`,
                       proto: string): Future[void] {.gcsafe.} =
             return handleIncomingStream(`networkVar`, `streamVar`,
-                                        `MsgRecName`, `Format`)
+                                        `MsgStrongRecName`, `Format`)
 
           mount `networkVar`.switch,
                 LPProtocol(codec: `codecNameLit`, handler: thunk)

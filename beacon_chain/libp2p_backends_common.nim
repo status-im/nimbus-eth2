@@ -358,7 +358,7 @@ proc implementSendProcBody(sendProc: SendProc) =
 
 proc handleIncomingStream(network: Eth2Node, stream: P2PStream,
                           MsgType, Format: distinct type) {.async, gcsafe.} =
-  mixin callUserHandler
+  mixin callUserHandler, RecType
   const msgName = typetraits.name(MsgType)
 
   ## Uncomment this to enable tracing on all incoming requests
@@ -384,9 +384,10 @@ proc handleIncomingStream(network: Eth2Node, stream: P2PStream,
     await sendErrorResponse(peer, stream, ServerError, readTimeoutErrorMsg)
     return
 
-  var msg: MsgType
+  type MsgRec = RecType(MsgType)
+  var msg: MsgRec
   try:
-    msg = decode(Format, msgBytes, MsgType)
+    msg = decode(Format, msgBytes, MsgRec)
   except SerializationError as err:
     await sendErrorResponse(peer, stream, err, msgName, msgBytes)
     return
@@ -399,7 +400,7 @@ proc handleIncomingStream(network: Eth2Node, stream: P2PStream,
     raise err
 
   try:
-    logReceivedMsg(peer, msg)
+    logReceivedMsg(peer, MsgType(msg))
     await callUserHandler(peer, stream, msg)
   except CatchableError as err:
     await sendErrorResponse(peer, stream, ServerError, err.msg)
