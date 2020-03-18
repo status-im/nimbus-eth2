@@ -56,17 +56,17 @@ task test, "Run all tests":
   # Mainnet config
   buildBinary "all_tests", "tests/", "-d:const_preset=mainnet"
 
-  # Generic SSZ test, doesn't use consensus objects minimal/mainnet presets
-  buildBinary "test_fixture_ssz_generic_types", "tests/official/", "-d:chronicles_log_level=TRACE"
+  # # Generic SSZ test, doesn't use consensus objects minimal/mainnet presets
+  # buildBinary "test_fixture_ssz_generic_types", "tests/official/", "-d:chronicles_log_level=TRACE"
 
-  # Consensus object SSZ tests
-  buildBinary "test_fixture_ssz_consensus_objects", "tests/official/", "-d:chronicles_log_level=TRACE -d:const_preset=minimal"
-  buildBinary "test_fixture_ssz_consensus_objects", "tests/official/", "-d:const_preset=mainnet"
+  # # Consensus object SSZ tests
+  # buildBinary "test_fixture_ssz_consensus_objects", "tests/official/", "-d:chronicles_log_level=TRACE -d:const_preset=minimal"
+  # buildBinary "test_fixture_ssz_consensus_objects", "tests/official/", "-d:const_preset=mainnet"
 
-  buildBinary "all_fixtures_require_ssz", "tests/official/", "-d:chronicles_log_level=TRACE -d:const_preset=minimal"
-  buildBinary "all_fixtures_require_ssz", "tests/official/", "-d:const_preset=mainnet"
+  # buildBinary "all_fixtures_require_ssz", "tests/official/", "-d:chronicles_log_level=TRACE -d:const_preset=minimal"
+  # buildBinary "all_fixtures_require_ssz", "tests/official/", "-d:const_preset=mainnet"
 
-  # State sim; getting into 4th epoch useful to trigger consensus checks
-  buildBinary "state_sim", "research/", "", "--validators=1024 --slots=32"
-  buildBinary "state_sim", "research/", "-d:const_preset=mainnet", "--validators=1024 --slots=128"
+  # # State sim; getting into 4th epoch useful to trigger consensus checks
+  # buildBinary "state_sim", "research/", "", "--validators=1024 --slots=32"
+  # buildBinary "state_sim", "research/", "-d:const_preset=mainnet", "--validators=1024 --slots=128"
 

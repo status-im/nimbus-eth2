@@ -9,17 +9,17 @@
 # to ignore invalid BLS signature in EF test vectors
 # https://github.com/status-im/nim-beacon-chain/issues/374
 
-import ../testutil
+# import ../testutil
 
-import
-  ./test_fixture_sanity_slots,
-  ./test_fixture_sanity_blocks,
-  ./test_fixture_operations_deposits,
-  ./test_fixture_state_transition_epoch,
-  ./test_fixture_operations_attestations,
-  ./test_fixture_operations_attester_slashings,
-  ./test_fixture_operations_block_header,
-  ./test_fixture_operations_proposer_slashings,
-  ./test_fixture_operations_voluntary_exit
+# import
+#   ./test_fixture_sanity_slots,
+#   ./test_fixture_sanity_blocks,
+#   ./test_fixture_operations_deposits,
+#   ./test_fixture_state_transition_epoch,
+#   ./test_fixture_operations_attestations,
+#   ./test_fixture_operations_attester_slashings,
+#   ./test_fixture_operations_block_header,
+#   ./test_fixture_operations_proposer_slashings,
+#   ./test_fixture_operations_voluntary_exit
 
-summarizeLongTests()
+# summarizeLongTests()
