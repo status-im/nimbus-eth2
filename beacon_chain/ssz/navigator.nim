@@ -41,7 +41,7 @@ template checkBounds(m: MemRange, offset: int) =
 template toOpenArray(m: MemRange): auto =
   makeOpenArray(m.startAddr, m.length)
 
-proc navigateToField*[T](n: SszNavigator[T],
+func navigateToField*[T](n: SszNavigator[T],
                          fieldName: static string,
                          FieldType: type): SszNavigator[FieldType] =
   mixin toSszType
