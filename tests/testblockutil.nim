@@ -11,7 +11,7 @@ import
   ../beacon_chain/[beacon_chain_db, block_pool, extras, ssz, state_transition,
     validator_pool],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest,
-    helpers, validator]
+    helpers, validator, state_transition_block]
 
 func makeFakeValidatorPrivKey(i: int): ValidatorPrivKey =
   # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
@@ -62,81 +62,70 @@ func makeInitialDeposits*(
   for i in 0..<n.int:
     result.add makeDeposit(i, flags)
 
-proc addBlock*(
-    state: var BeaconState, previous_block_root: Eth2Digest,
-    body: BeaconBlockBody, flags: UpdateFlags = {}): SignedBeaconBlock =
+proc addTestBlock*(
+    state: var BeaconState,
+    parent_root: Eth2Digest,
+    eth1_data = Eth1Data(),
+    attestations = newSeq[Attestation](),
+    deposits = newSeq[Deposit](),
+    graffiti = Eth2Digest(),
+    flags: set[UpdateFlag] = {}): SignedBeaconBlock =
   # Create and add a block to state - state will advance by one slot!
-  # This is the equivalent of running
-  # updateState(state, prev_block, makeBlock(...), {skipBlsValidation})
-  # but avoids some slow block copies
-  # FIXME update comment - updateState no longer exists, could be `state_transition`
-  # but different number of parameters
 
-  state.slot += 1
+  process_slots(state, state.slot + 1)
+
   var cache = get_empty_per_epoch_cache()
   let proposer_index = get_beacon_proposer_index(state, cache)
-  state.slot -= 1
 
   let
     # Index from the new state, but registry from the old state.. hmm...
     # In tests, let this throw
     proposer = state.validators[proposer_index.get]
     privKey = hackPrivKey(proposer)
+    randao_reveal =
+      if skipBlsValidation notin flags:
+        privKey.genRandaoReveal(state.fork, state.slot)
+      else:
+        ValidatorSig()
 
-  # TODO ugly hack; API needs rethinking
-  var new_body = body
-  if skipBlsValidation notin flags:
-    new_body.randao_reveal = privKey.genRandaoReveal(state.fork, state.slot + 1)
+  let
+    message = makeBeaconBlock(
+      state,
+      parent_root,
+      randao_reveal,
+      eth1_data,
+      graffiti,
+      attestations,
+      deposits)
 
-  new_body.eth1_data = Eth1Data()
+  doAssert message.isSome(), "Should have created a valid block!"
 
   var
-    # In order to reuse the state transition function, we first create a dummy
-    # block that has some fields set, and use that to generate the state as it
-    # would look with the new block applied.
     new_block = SignedBeaconBlock(
-      message: BeaconBlock(
-        slot: state.slot + 1,
-        proposer_index: proposer_index.get.uint64,
-        parent_root: previous_block_root,
-        state_root: Eth2Digest(), # we need the new state first
-        body: new_body
-      )
+      message: message.get()
     )
 
-  let block_ok = state_transition(state, new_block, {skipBlsValidation, skipStateRootValidation})
-  doAssert block_ok
 
-  # Ok, we have the new state as it would look with the block applied - now we
-  # can set the state root in order to be able to create a valid signature
-  new_block.message.state_root = hash_tree_root(state)
+  let ok = process_block(state, new_block.message, flags, cache)
 
-  doAssert privKey.pubKey() == proposer.pubkey,
-    "signature key should be derived from private key! - wrong privkey?"
-
-  if skipBLSValidation notin flags:
-    let domain = get_domain(state, DOMAIN_BEACON_PROPOSER,
-                   compute_epoch_at_slot(new_block.message.slot))
-    let signing_root = compute_signing_root(new_block.message, domain)
-    # We have a signature - put it in the block and we should be done!
-    new_block.signature = bls_sign(privKey, signing_root.data)
-
-    doAssert bls_verify(
-      proposer.pubkey,
-      signing_root.data, new_block.signature),
-      "we just signed this message - it should pass verification!"
-
+  doAssert ok, "adding block after producing it should work"
   new_block
 
-proc makeBlock*(
-    state: BeaconState, previous_block_root: Eth2Digest,
-    body: BeaconBlockBody): SignedBeaconBlock =
+proc makeTestBlock*(
+    state: BeaconState,
+    parent_root: Eth2Digest,
+    eth1_data = Eth1Data(),
+    attestations = newSeq[Attestation](),
+    deposits = newSeq[Deposit](),
+    graffiti = Eth2Digest(),
+    flags: set[UpdateFlag] = {}): SignedBeaconBlock =
   # Create a block for `state.slot + 1` - like a block proposer would do!
   # It's a bit awkward - in order to produce a block for N+1, we need to
   # calculate what the state will look like after that block has been applied,
   # because the block includes the state root.
-  var next_state = state
-  addBlock(next_state, previous_block_root, body)
+  var tmpState = state
+  addTestBlock(
+    tmpState, parent_root, eth1_data, attestations, deposits, graffiti, flags)
 
 proc makeAttestation*(
     state: BeaconState, beacon_block_root: Eth2Digest,
@@ -158,11 +147,9 @@ proc makeAttestation*(
   aggregation_bits.setBit sac_index
 
   let
-    domain = get_domain(state, DOMAIN_BEACON_ATTESTER, data.target.epoch)
-    signing_root = compute_signing_root(data, domain)
     sig =
       if skipBLSValidation notin flags:
-        bls_sign(hackPrivKey(validator), signing_root.data)
+        get_attestation_signature(state.fork, data, hackPrivKey(validator))
       else:
         ValidatorSig()
 
@@ -209,27 +196,24 @@ proc makeFullAttestations*(
     let
       committee = get_beacon_committee(state, slot, index, cache)
       data = makeAttestationData(state, slot, index, beacon_block_root)
-      domain = get_domain(state, DOMAIN_BEACON_ATTESTER, data.target.epoch)
-      signing_root = compute_signing_root(data, domain)
 
     doAssert committee.len() >= 1
     # Initial attestation
     var attestation = Attestation(
       aggregation_bits: CommitteeValidatorsBits.init(committee.len),
       data: data,
-      signature: bls_sign(
-          hackPrivKey(state.validators[committee[0]]),
-          signing_root.data
-      )
+      signature: get_attestation_signature(
+        state.fork, data,
+        hackPrivKey(state.validators[committee[0]]))
     )
     # Aggregate the remainder
     attestation.aggregation_bits.setBit 0
     for j in 1 ..< committee.len():
       attestation.aggregation_bits.setBit j
       if skipBLSValidation notin flags:
-        attestation.signature.aggregate(bls_sign(
-          hackPrivKey(state.validators[committee[j]]),
-          signing_root.data
+        attestation.signature.aggregate(get_attestation_signature(
+          state.fork, data,
+          hackPrivKey(state.validators[committee[j]])
         ))
 
     result.add attestation

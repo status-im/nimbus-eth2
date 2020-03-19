@@ -436,3 +436,87 @@ proc process_block*(
     return false
 
   true
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/validator.md
+# TODO There's more to do here - the spec has helpers that deal set up some of
+#      the fields in here!
+proc makeBeaconBlock*(
+    state: BeaconState,
+    parent_root: Eth2Digest,
+    randao_reveal: ValidatorSig,
+    eth1_data: Eth1Data,
+    graffiti: Eth2Digest,
+    attestations: seq[Attestation],
+    deposits: seq[Deposit]): Option[BeaconBlock] =
+  ## Create a block for the given state. The last block applied to it must be
+  ## the one identified by parent_root and process_slots must be called up to
+  ## the slot for which a block is to be created.
+  var cache = get_empty_per_epoch_cache()
+  let proposer_index = get_beacon_proposer_index(state, cache)
+  doAssert proposer_index.isSome, "Unable to get proposer index when proposing!"
+
+  # To create a block, we'll first apply a partial block to the state, skipping
+  # some validations.
+
+  var blck = BeaconBlock(
+    slot: state.slot,
+    proposer_index: proposer_index.get().uint64,
+    parent_root: parent_root,
+    body: BeaconBlockBody(
+      randao_reveal: randao_reveal,
+      eth1_data: eth1data,
+      graffiti: graffiti,
+      attestations: attestations,
+      deposits: deposits)
+  )
+
+  var tmpState = state
+  let ok = process_block(tmpState, blck, {skipBlsValidation}, cache)
+
+  if not ok:
+    warn "Unable to apply new block to state", blck = shortLog(blck)
+    return
+
+  blck.state_root = hash_tree_root(tmpState)
+
+  some(blck)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/validator.md
+func get_slot_signature*(
+    fork: Fork, slot: Slot, privkey: ValidatorPrivKey): ValidatorSig =
+  let
+    domain =
+      get_domain(fork, DOMAIN_SELECTION_PROOF, compute_epoch_at_slot(slot))
+    signing_root = compute_signing_root(slot, domain)
+
+  blsSign(privKey, signing_root.data)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/validator.md
+func get_epoch_signature*(
+    fork: Fork, slot: Slot, privkey: ValidatorPrivKey): ValidatorSig =
+  let
+    domain =
+      get_domain(fork, DOMAIN_RANDAO, compute_epoch_at_slot(slot))
+    signing_root = compute_signing_root(compute_epoch_at_slot(slot), domain)
+
+  blsSign(privKey, signing_root.data)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/validator.md
+func get_block_signature*(
+    fork: Fork, slot: Slot, root: Eth2Digest, privkey: ValidatorPrivKey): ValidatorSig =
+  let
+    domain =
+      get_domain(fork, DOMAIN_BEACON_PROPOSER, compute_epoch_at_slot(slot))
+    signing_root = compute_signing_root(root, domain)
+
+  blsSign(privKey, signing_root.data)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/validator.md
+func get_attestation_signature*(
+    fork: Fork, attestation: AttestationData, privkey: ValidatorPrivKey): ValidatorSig =
+  let
+    attestationRoot = hash_tree_root(attestation)
+    domain = get_domain(fork, DOMAIN_BEACON_ATTESTER, attestation.target.epoch)
+    signing_root = compute_signing_root(attestationRoot, domain)
+
+  blsSign(privKey, signing_root.data)

@@ -38,7 +38,7 @@ suiteReport "Block processing" & preset():
     var
       state = genesisState
       previous_block_root = hash_tree_root(genesisBlock.message)
-      new_block = makeBlock(state, previous_block_root, BeaconBlockBody())
+      new_block = makeTestBlock(state, previous_block_root)
 
     let block_ok = state_transition(state, new_block, {})
 
@@ -62,7 +62,7 @@ suiteReport "Block processing" & preset():
       previous_block_root = genesisRoot
 
     for i in 1..SLOTS_PER_EPOCH.int:
-      var new_block = makeBlock(state, previous_block_root, BeaconBlockBody())
+      let new_block = makeTestBlock(state, previous_block_root)
 
       let block_ok = state_transition(state, new_block, {})
 
@@ -95,9 +95,9 @@ suiteReport "Block processing" & preset():
     process_slots(state, GENESIS_SLOT + MIN_ATTESTATION_INCLUSION_DELAY + 1)
 
     let
-      new_block = makeBlock(state, previous_block_root, BeaconBlockBody(
-        attestations: @[attestation]
-      ))
+      new_block = makeTestBlock(state, previous_block_root,
+        attestations = @[attestation]
+      )
     discard state_transition(state, new_block, {})
 
     check:

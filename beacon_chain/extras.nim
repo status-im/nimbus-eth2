@@ -16,16 +16,8 @@
 # improved coverage, and to avoid unnecessary validation when replaying trusted
 # (previously validated) blocks.
 
-
 type
   UpdateFlag* = enum
-    nextSlot ##\
-    ## Perform the operation as if the next slot was being processed - this is
-    ## useful when using the state to verify data that will go in the next slot,
-    ## for example when proposing
-    ## TODO need to be careful here, easy to assume that slot number change is
-    ##      enough, vs advancing the state - however, making a full state copy
-    ##      is expensive also :/
     skipMerkleValidation ##\
     ## When processing deposits, skip verifying the Merkle proof trees of each
     ## deposit. This is a holdover from both interop issues with the malformed

@@ -592,6 +592,7 @@ func shortLog*(e: Epoch): uint64 =
 func shortLog*(v: BeaconBlock): auto =
   (
     slot: shortLog(v.slot),
+    proposer_index: v.proposer_index,
     parent_root: shortLog(v.parent_root),
     state_root: shortLog(v.state_root),
     proposer_slashings_len: v.body.proposer_slashings.len(),
