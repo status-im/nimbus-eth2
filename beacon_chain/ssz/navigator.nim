@@ -1,5 +1,5 @@
 import
-  macros, stew/[ptrops, objects], stew/ranges/ptr_arith,
+  stew/[ptrops, objects], stew/ranges/ptr_arith,
   ./types, ./bytes_reader
 
 type
