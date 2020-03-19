@@ -9,12 +9,11 @@ type
 
   SszNavigator*[T] = object
     m: MemRange
-  
-  SszDelayedNavigator*[T] = object
-    fieldList*: seq[static[string]]
 
-  SszOffsetFinder*[T] = object
+  SszDelayedNavigator*[T] = object
     fieldList*: seq[string]
+
+  OffsetGetter = proc(off:int):int
 
 func sszMount*(data: openarray[byte], T: type): SszNavigator[T] =
   let startAddr = unsafeAddr data[0]
@@ -23,13 +22,8 @@ func sszMount*(data: openarray[byte], T: type): SszNavigator[T] =
 template sszMount*(data: MemRange, T: type): SszNavigator[T] =
   SszNavigator[T](m: data)
 
-template sszMount*(T: type): SszOffsetFinder =
-  SszOffsetFinder[T]()
-
-template sszMountNav*(T: type): SszDelayedNavigator =
-  const s = "mes"
-  SszDelayedNavigator[T](fieldList: "me sm")
-  
+template sszMount*(T: type): SszDelayedNavigator =
+  SszDelayedNavigator[T]()
 
 template getMemRange*(n: SszNavigator): MemRange =
   # Please note that this accessor was created intentionally.
@@ -74,14 +68,40 @@ proc navigateToField*[T](n: SszNavigator[T],
       startAddr: offset(n.m.startAddr, startOffset),
       length: endOffset - startOffset))
 
-template get*[T](n:SszOffsetFinder[T], data: openArray[byte]) =
-  let startAddr = unsafeAddr data[0]
-  var mem = MemRange(startAddr: startAddr, length: data.len)
-  type RecType = T
-  for field in n.fieldList:
-    enumAllSerializedFields(RecType):
-      if field == fieldName:
-        navigateToField(mem, RecType, field, FieldType)
+
+
+proc navigateToField*(m: MemRange, RecType: type, fieldName: string, FieldType: type, readOff: OffsetGetter):(MemRange, type) =
+  mixin toSszType
+  type SszFieldType = type toSszType(default FieldType)
+  const boundingOffsets = getFieldBoundingOffsets(RecType, fieldName)
+  checkBounds(m, boundingOffsets[1])
+  when isFixedSize(SszFieldType):
+    (m: MemRange(startAddr: offset(m.startAddr, boundingOffsets[0]),
+      length: boundingOffsets[1] - boundingOffsets[0]), FieldType)
+  else:
+    let
+      startOffset = readOff(boundingOffsets[0])
+      endOffset = when boundingOffsets[1] == -1: n.m.length
+                  else: readOff(boundingOffsets[1])
+
+    if endOffset < startOffset or endOffset > m.length:
+       raise newException(MalformedSszError, "Incorrect offset values")
+
+    (m: MemRange(
+      startAddr: offset(m.startAddr, startOffset),
+      length: endOffset - startOffset), FieldType)
+    
+
+# template get*[T](n:SszDelayedNavigator[T], startingOff: int, length: int, readOff:OffsetGetter) =
+#   # let startAddr = unsafeAddr data[0]
+#   # var mem = MemRange(startAddr: startAddr, length: data.len)
+#   var fieldInfo : tuple[off: int, lgth: int,  FieldType: type]
+#   fieldInfo = (off: startingOff, lgth:length, FieldType: T)
+#   type RecType = T
+#   for field in n.fieldList:
+#     enumAllSerializedFields(RecType):
+#       if field == fieldName:
+#         fieldInfo = navigateToField(fieldInfo[0], fieldInfo[1], fieldInfo[3], field, FieldType)
 
 
 template `.`*[T](n: SszNavigator[T], field: untyped): auto =
@@ -89,10 +109,7 @@ template `.`*[T](n: SszNavigator[T], field: untyped): auto =
   type FieldType = type(default(RecType).field)
   navigateToField(n, astToStr(field), FieldType)
 
-template `.`*[T](n: SszOffsetFinder[T], field: untyped): SszOffsetFinder[T] =
-  SszOffsetFinder[T](fieldList: n.fieldList & astToStr(field))
-
-template `.`*[T](n: SszOffsetFinder[T], field: untyped): SszOffsetFinder[T] =
+template `.`*[T](n: SszDelayedNavigator[T], field: untyped): SszDelayedNavigator[T] =
   SszDelayedNavigator[T](fieldList: n.fieldList & astToStr(field))
 
 func indexVarSizeList(m: MemRange, idx: int): MemRange =
