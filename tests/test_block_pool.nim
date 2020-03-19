@@ -89,9 +89,9 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         db = makeTestDB(SLOTS_PER_EPOCH)
         pool = BlockPool.init(db)
         state = pool.loadTailState().data.data
-        b1 = addBlock(state, pool.tail.root, BeaconBlockBody())
+        b1 = addTestBlock(state, pool.tail.root)
         b1Root = hash_tree_root(b1.message)
-        b2 = addBlock(state, b1Root, BeaconBlockBody())
+        b2 = addTestBlock(state, b1Root)
         b2Root {.used.} = hash_tree_root(b2.message)
 
     timedTest "getRef returns nil for missing blocks":
@@ -246,8 +246,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
       block:
         # Create a fork that will not be taken
         var
-          blck = makeBlock(pool.headState.data.data, pool.head.blck.root,
-            BeaconBlockBody())
+          blck = makeTestBlock(pool.headState.data.data, pool.head.blck.root)
         discard pool.add(hash_tree_root(blck.message), blck)
 
       for i in 0 ..< (SLOTS_PER_EPOCH * 6):
@@ -258,11 +257,11 @@ when const_preset == "minimal": # Too much stack space used on mainnet
             pool.heads.len == 2
         var
           cache = get_empty_per_epoch_cache()
-          blck = makeBlock(pool.headState.data.data, pool.head.blck.root,
-            BeaconBlockBody(
-              attestations: makeFullAttestations(
-                pool.headState.data.data, pool.head.blck.root,
-                pool.headState.data.data.slot, cache, {})))
+          blck = makeTestBlock(
+            pool.headState.data.data, pool.head.blck.root,
+            attestations = makeFullAttestations(
+              pool.headState.data.data, pool.head.blck.root,
+              pool.headState.data.data.slot, cache, {}))
         let added = pool.add(hash_tree_root(blck.message), blck)
         pool.updateHead(added)
 

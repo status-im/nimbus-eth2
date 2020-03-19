@@ -10,7 +10,8 @@ import
   eth/p2p/enode, eth/[keys, async_utils], eth/p2p/discoveryv5/enr,
 
   # Local modules
-  spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network],
+  spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network,
+    state_transition_block],
   conf, time, state_transition, beacon_chain_db, validator_pool, extras,
   attestation_pool, block_pool, eth2_network, eth2_discovery,
   beacon_node_types, mainchain_monitor, version, ssz, ssz/dynamic_navigator,
@@ -381,8 +382,8 @@ proc proposeBlock(node: BeaconNode,
       cat = "fastforward"
     return head
 
-  # Advance state to the slot immediately preceding the one we're creating a
-  # block for - potentially we will be processing empty slots along the way.
+  # Advance state to the slot that we're proposing for - this is the equivalent
+  # of running `process_slots` up to the slot of the new block.
   let (nroot, nblck) = node.blockPool.withState(
       node.blockPool.tmpState, head.atSlot(slot)):
     let (eth1data, deposits) =
@@ -394,45 +395,27 @@ proc proposeBlock(node: BeaconNode,
         (node.mainchainMonitor.eth1Data,
           node.mainchainMonitor.getPendingDeposits())
 
-    # To create a block, we'll first apply a partial block to the state, skipping
-    # some validations.
-    let
-      fork = state.fork
-      blockBody = BeaconBlockBody(
-        randao_reveal: validator.genRandaoReveal(fork, slot),
-        eth1_data: eth1data,
-        attestations:
-          node.attestationPool.getAttestationsForBlock(state, slot),
-        deposits: deposits)
+    let message = makeBeaconBlock(
+      state,
+      head.root,
+      validator.genRandaoReveal(state.fork, slot),
+      eth1data,
+      Eth2Digest(),
+      node.attestationPool.getAttestationsForBlock(state),
+      deposits)
 
-    var cache = get_empty_per_epoch_cache()
-    let proposer_index = get_beacon_proposer_index(state, cache)
-    if proposer_index.isNone:
-      doAssert false, "proposeBlock: missing proposer index"
-
+    if not message.isSome():
+      return head # already logged elsewhere!
     var
       newBlock = SignedBeaconBlock(
-        message: BeaconBlock(
-          slot: slot,
-          proposer_index: proposer_index.get.uint64,
-          parent_root: head.root,
-          body: blockBody))
-      tmpState = hashedState
-    discard state_transition(tmpState, newBlock, {skipStateRootValidation})
-    # TODO only enable in fast-fail debugging situations
-    # otherwise, bad attestations can bring down network
-    # doAssert ok # TODO: err, could this fail somehow?
-
-    newBlock.message.state_root = tmpState.root
+        message: message.get()
+      )
 
     let blockRoot = hash_tree_root(newBlock.message)
 
-    # Careful, state no longer valid after here..
-    # We use the fork from the pre-newBlock state which should be fine because
-    # fork carries two epochs, so even if it's a fork block, the right thing
-    # will happen here
+    # Careful, state no longer valid after here because of the await..
     newBlock.signature =
-      await validator.signBlockProposal(fork, slot, blockRoot)
+      await validator.signBlockProposal(state.fork, slot, blockRoot)
 
     (blockRoot, newBlock)
 
@@ -454,10 +437,12 @@ proc proposeBlock(node: BeaconNode,
     SSZ.saveFile(
       node.config.dumpDir / "block-" & $newBlock.message.slot & "-" &
       shortLog(newBlockRef.root) & ".ssz", newBlock)
-    SSZ.saveFile(
-      node.config.dumpDir / "state-" & $tmpState.data.slot & "-" &
-      shortLog(newBlockRef.root) & "-"  & shortLog(tmpState.root) & ".ssz",
-      tmpState.data)
+    node.blockPool.withState(
+        node.blockPool.tmpState, newBlockRef.atSlot(newBlockRef.slot)):
+      SSZ.saveFile(
+        node.config.dumpDir / "state-" & $state.slot & "-" &
+        shortLog(newBlockRef.root) & "-"  & shortLog(root()) & ".ssz",
+        state())
 
   node.network.broadcast(topicBeaconBlocks, newBlock)
 

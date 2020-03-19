@@ -22,7 +22,8 @@
 
 import
   options,
-  ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator],
+  ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator,
+    state_transition_block],
   ./attestation_pool, ./beacon_node_types, ./ssz
 
 # TODO gossipsub validation lives somewhere, maybe here
@@ -32,13 +33,6 @@ import
 const
   # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/p2p-interface.md#configuration
   ATTESTATION_PROPAGATION_SLOT_RANGE = 32
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/validator/0_beacon-chain-validator.md#aggregation-selection
-func get_slot_signature(state: BeaconState, slot: Slot, privkey: ValidatorPrivKey):
-    ValidatorSig =
-  let domain =
-    get_domain(state, DOMAIN_BEACON_ATTESTER, compute_epoch_at_slot(slot))
-  bls_sign(privkey, hash_tree_root(slot).data, domain)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#aggregation-selection
 func is_aggregator(state: BeaconState, slot: Slot, index: uint64,
@@ -58,7 +52,7 @@ proc aggregate_attestations*(
 
   let
     slot = state.slot - 2
-    slot_signature = get_slot_signature(state, slot, privkey)
+    slot_signature = get_slot_signature(state.fork, slot, privkey)
 
   if slot < 0:
     return none(AggregateAndProof)

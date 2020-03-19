@@ -121,8 +121,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     let
       attestations_idx = state.slot
-      body = BeaconBlockBody(
-        attestations: attestations.getOrDefault(attestations_idx))
+      blockAttestations = attestations.getOrDefault(attestations_idx)
 
     attestations.del attestations_idx
     doAssert len(attestations) <=
@@ -134,7 +133,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       else: tBlock
 
     withTimer(timers[t]):
-      signedBlock = addBlock(state, latest_block_root, body, flags)
+      signedBlock = addTestBlock(
+        state, latest_block_root, attestations = blockAttestations, flags = flags)
     latest_block_root = withTimerRet(timers[tHashBlock]):
       hash_tree_root(signedBlock.message)
 
