@@ -207,7 +207,7 @@ func shortLog*(x: BlsValue): string =
   # The prefix must be short
   # due to the mechanics of the `shortLog` function.
   if x.kind == Real:
-    "real: 0x" & x.blsValue.toHex()[0..7]
+    "0x" & x.blsValue.toHex()[0..7]
   else:
     "raw: 0x" & x.blob.toHex(lowercase = true)[0..7]
 
@@ -228,7 +228,7 @@ func `$`*(x: BlsValue): string =
   # The prefix must be short
   # due to the mechanics of the `shortLog` function.
   if x.kind == Real:
-    "real: 0x" & x.blsValue.toHex()
+    "0x" & x.blsValue.toHex()
   else:
     "raw: 0x" & x.blob.toHex(lowercase = true)
 
