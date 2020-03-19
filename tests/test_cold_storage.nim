@@ -10,7 +10,8 @@ import unittest, options,
 suite "Cold Storage":
     timedTest "sanity blocks":
         
-        let gen = initGenesisState(10) 
+        const NumValidators = uint64(8) * SLOTS_PER_EPOCH
+        let gen = initGenesisState(NumValidators)
         var db = init(ColdStorage)        
         
         let
@@ -38,7 +39,8 @@ suite "Cold Storage":
             a2ret.message.parent_root == a1r
 
     timedTest "Inserting empty slots":
-        let gen = initGenesisState(10) 
+        const NumValidators = uint64(8) * SLOTS_PER_EPOCH
+        let gen = initGenesisState(NumValidators)        
         var db = init(ColdStorage)        
         
         let
@@ -63,7 +65,8 @@ suite "Cold Storage":
             a2ret.message.slot == a0.message.slot
 
     timedTest "Get multiple blocks":
-        let gen = initGenesisState(10) 
+        const NumValidators = uint64(8) * SLOTS_PER_EPOCH
+        let gen = initGenesisState(NumValidators)
         var db = init(ColdStorage)        
         
         let
@@ -85,8 +88,9 @@ suite "Cold Storage":
             blcks[2].message.parent_root == a1r
 
     timedTest "Low level syntax":
-        let gen = initGenesisState(10) 
-        var db = init(ColdStorage)
+        const NumValidators = uint64(8) * SLOTS_PER_EPOCH
+        let gen = initGenesisState(NumValidators)
+        var db = init(ColdStorage) 
 
         let
             a0 = SignedBeaconBlock(message: BeaconBlock(slot: GENESIS_SLOT + 0))

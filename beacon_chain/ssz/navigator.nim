@@ -70,26 +70,26 @@ proc navigateToField*[T](n: SszNavigator[T],
 
 
 
-proc navigateToField*(m: MemRange, RecType: type, fieldName: string, FieldType: type, readOff: OffsetGetter):(MemRange, type) =
-  mixin toSszType
-  type SszFieldType = type toSszType(default FieldType)
-  const boundingOffsets = getFieldBoundingOffsets(RecType, fieldName)
-  checkBounds(m, boundingOffsets[1])
-  when isFixedSize(SszFieldType):
-    (m: MemRange(startAddr: offset(m.startAddr, boundingOffsets[0]),
-      length: boundingOffsets[1] - boundingOffsets[0]), FieldType)
-  else:
-    let
-      startOffset = readOff(boundingOffsets[0])
-      endOffset = when boundingOffsets[1] == -1: n.m.length
-                  else: readOff(boundingOffsets[1])
+# proc navigateToField*(m: MemRange, RecType: type, fieldName: string, FieldType: type, readOff: OffsetGetter):(MemRange, type) =
+#   mixin toSszType
+#   type SszFieldType = type toSszType(default FieldType)
+#   const boundingOffsets = getFieldBoundingOffsets(RecType, fieldName)
+#   checkBounds(m, boundingOffsets[1])
+#   when isFixedSize(SszFieldType):
+#     (m: MemRange(startAddr: offset(m.startAddr, boundingOffsets[0]),
+#       length: boundingOffsets[1] - boundingOffsets[0]), FieldType)
+#   else:
+#     let
+#       startOffset = readOff(boundingOffsets[0])
+#       endOffset = when boundingOffsets[1] == -1: n.m.length
+#                   else: readOff(boundingOffsets[1])
 
-    if endOffset < startOffset or endOffset > m.length:
-       raise newException(MalformedSszError, "Incorrect offset values")
+#     if endOffset < startOffset or endOffset > m.length:
+#        raise newException(MalformedSszError, "Incorrect offset values")
 
-    (m: MemRange(
-      startAddr: offset(m.startAddr, startOffset),
-      length: endOffset - startOffset), FieldType)
+#     (m: MemRange(
+#       startAddr: offset(m.startAddr, startOffset),
+#       length: endOffset - startOffset), FieldType)
     
 
 # template get*[T](n:SszDelayedNavigator[T], startingOff: int, length: int, readOff:OffsetGetter) =

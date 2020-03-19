@@ -7,38 +7,38 @@
 
 import ./testutil
 
-# import # Official constants
-#   ./official/test_fixture_const_sanity_check
+import # Official constants
+  ./official/test_fixture_const_sanity_check
 
 import # Unit test
-  # ./test_attestation_pool,
-  # ./test_beacon_chain_db,
-  # ./test_beacon_node,
-  # ./test_beaconstate,
-  # ./test_block_pool,
-  ./test_cold_storage
-  # ./test_discovery_helpers,
-  # ./test_helpers,
-  # ./test_interop,
-  # ./test_kvstore,
-  # ./test_kvstore_lmdb,
-  # ./test_kvstore_sqlite3,
-  # ./test_ssz,
-  # ./test_state_transition,
-  # ./test_sync_protocol,
-  # # ./test_validator # Empty!
-  # ./test_zero_signature,
-  # ./test_peer_pool,
-  # ./test_sync_manager,
-  # ./test_honest_validator
+  ./test_attestation_pool,
+  ./test_beacon_chain_db,
+  ./test_beacon_node,
+  ./test_beaconstate,
+  ./test_block_pool,
+  ./test_cold_storage,
+  ./test_discovery_helpers,
+  ./test_helpers,
+  ./test_interop,
+  ./test_kvstore,
+  ./test_kvstore_lmdb,
+  ./test_kvstore_sqlite3,
+  ./test_ssz,
+  ./test_state_transition,
+  ./test_sync_protocol,
+  # ./test_validator # Empty!
+  ./test_zero_signature,
+  ./test_peer_pool,
+  ./test_sync_manager,
+  ./test_honest_validator
 
-#import # Refactor state transition unit tests
+import # Refactor state transition unit tests
   # TODO re-enable when useful
   # ./spec_block_processing/test_genesis,
   # In mainnet these take 2 minutes and are empty TODOs
-  # ./spec_block_processing/test_process_deposits,
-  # ./spec_block_processing/test_process_attestation,
-  # ./spec_epoch_processing/test_process_justification_and_finalization
+  ./spec_block_processing/test_process_deposits,
+  ./spec_block_processing/test_process_attestation,
+  ./spec_epoch_processing/test_process_justification_and_finalization
 
 # TODO: json tests were removed
 
