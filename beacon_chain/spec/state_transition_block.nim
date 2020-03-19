@@ -111,9 +111,9 @@ proc process_randao(
   let signing_root = compute_signing_root(epoch, get_domain(state, DOMAIN_RANDAO))
   if skipBLSValidation notin flags:
     if not blsVerify(proposer.pubkey, signing_root.data, body.randao_reveal):
-      notice "Randao mismatch", proposer_pubkey = proposer.pubkey,
+      notice "Randao mismatch", proposer_pubkey = shortLog(proposer.pubkey),
                                 message = epoch,
-                                signature = body.randao_reveal,
+                                signature = shortLog(body.randao_reveal),
                                 slot = state.slot
       return false
 
