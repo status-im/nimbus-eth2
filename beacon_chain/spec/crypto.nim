@@ -207,9 +207,9 @@ func shortLog*(x: BlsValue): string =
   # The prefix must be short
   # due to the mechanics of the `shortLog` function.
   if x.kind == Real:
-    "0x" & x.blsValue.toHex()[0..7]
+    x.blsValue.toHex()[0..7]
   else:
-    "raw: 0x" & x.blob.toHex(lowercase = true)[0..7]
+    "raw: " & x.blob.toHex(lowercase = true)[0..7]
 
 func shortLog*(x: BlsCurveType): string =
   ## Logging for raw unwrapped BLS types
@@ -228,9 +228,9 @@ func `$`*(x: BlsValue): string =
   # The prefix must be short
   # due to the mechanics of the `shortLog` function.
   if x.kind == Real:
-    "0x" & x.blsValue.toHex()
+    x.blsValue.toHex()
   else:
-    "raw: 0x" & x.blob.toHex(lowercase = true)
+    "raw: " & x.blob.toHex(lowercase = true)
 
 func getBytes*(x: BlsValue): auto =
   if x.kind == Real:
