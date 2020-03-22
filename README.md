@@ -48,9 +48,8 @@ You can check where the beacon chain fits in the Ethereum ecosystem our Two-Poin
 
 At the moment, Nimbus has to be built from source.
 
-Nimbus has 4 external dependencies:
+Nimbus has the following external dependencies:
 
-* Go 1.12 (for compiling libp2p daemon - being phased out)
 * Developer tools (C compiler, Make, Bash, Git)
 * PCRE
 
@@ -61,13 +60,13 @@ Nim is not an external dependency, Nimbus will build its own local copy.
 On common Linux distributions the dependencies can be installed with:
 ```sh
 # Debian and Ubuntu
-sudo apt-get install build-essential git golang-go libpcre3-dev
+sudo apt-get install build-essential git libpcre3-dev
 
 # Fedora
-dnf install @development-tools go pcre
+dnf install @development-tools pcre
 
 # Archlinux, using an AUR manager for pcre-static
-yourAURmanager -S base-devel go pcre-static
+yourAURmanager -S base-devel pcre-static
 ```
 
 ### MacOS
@@ -75,16 +74,13 @@ yourAURmanager -S base-devel go pcre-static
 Assuming you use [Homebrew](https://brew.sh/) to manage packages
 
 ```sh
-brew install go pcre
+brew install pcre
 ```
 
 ### Windows
 
-* install [Go](https://golang.org/doc/install#windows)
 You can install the developer tools by following the instruction in our [Windows dev environment section](#windows-dev-environment).
 It also provides a downloading script for prebuilt PCRE.
-
-If you choose to install Go from source, both Go and Nimbus requires the same initial steps of installing Mingw.
 
 ### Android
 
@@ -95,7 +91,7 @@ Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on 
 *Assuming Ubuntu PRoot is used*
 
 ```sh
-apt install build-essential git golang-go libpcre3-dev
+apt install build-essential git libpcre3-dev
 ```
 
 ## For users
@@ -295,24 +291,8 @@ sudo reboot
 # Install prerequisites
 sudo apt-get install git libgflags-dev libsnappy-dev libpcre3-dev
 
-mkdir status
-cd status
-
-# Install Go at least 1.12 (Buster only includes up to 1.11)
-# Raspbian is 32-bit, so the package is go1.XX.X.linux-armv6l.tar.gz (and not arm64)
-curl -O https://storage.googleapis.com/golang/go1.13.3.linux-armv6l.tar.gz
-sudo tar -C /usr/local -xzf go1.13.3.linux-armv6l.tar.gz
-
-echo '# Go install' >> ~/.profile
-echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.profile
-
-# Reload the environment variable changes
-source ~/.profile
-
-git clone https://github.com/status-im/nim-beacon-chain.git
-
-cd nim-beacon-chain
 # Then you can follow instructions for Linux.
+
 ```
 
 ### Makefile tips and tricks for developers
