@@ -76,8 +76,8 @@ fi
 rm -f beacon_node.log
 
 # Delete any leftover address files from a previous session
-if [ -f "${MASTER_NODE_ADDRESS_FILE}" ]; then
-  rm "${MASTER_NODE_ADDRESS_FILE}"
+if [ -f "${MASTER_NODE_PID_FILE}" ]; then
+  rm "${MASTER_NODE_PID_FILE}"
 fi
 
 # to allow overriding the program names
@@ -137,7 +137,7 @@ fi
 for i in $(seq $MASTER_NODE -1 $TOTAL_USER_NODES); do
   if [[ "$i" != "$MASTER_NODE" && "$USE_MULTITAIL" == "no" ]]; then
     # Wait for the master node to write out its address file
-    while [ ! -f "${MASTER_NODE_ADDRESS_FILE}" ]; do
+    while [ ! -f "${MASTER_NODE_PID_FILE}" ]; do
       sleep 0.1
     done
   fi
