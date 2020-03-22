@@ -19,7 +19,7 @@ rm -rf ncli/nimcache
 ../env.sh nim c \
   --cpu:i386 --os:linux --gc:none --threads:off \
   -d:release -d:clang -d:emscripten -d:noSignalHandler -d:usemalloc \
-  --nimcache:ncli/nimcache -d:"network_type=none" \
+  --nimcache:ncli/nimcache \
   -u:metrics \
   -c ncli
 
