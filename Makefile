@@ -37,7 +37,6 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	build-system-checks \
 	deps \
 	update \
-	p2pd \
 	test \
 	$(TOOLS) \
 	clean_eth2_network_simulation_files \
@@ -80,7 +79,7 @@ build-system-checks:
 		}; \
 		exit 0
 
-deps: | deps-common beacon_chain.nims p2pd
+deps: | deps-common beacon_chain.nims
 ifneq ($(USE_LIBBACKTRACE), 0)
 deps: | libbacktrace
 endif
@@ -97,12 +96,6 @@ beacon_chain.nims:
 # nim-libbacktrace
 libbacktrace:
 	+ $(MAKE) -C vendor/nim-libbacktrace BUILD_CXX_LIB=0
-
-P2PD_CACHE :=
-p2pd: | go-checks
-	BUILD_MSG="$(BUILD_MSG) $@" \
-		V=$(V) \
-		$(ENV_SCRIPT) $(BUILD_SYSTEM_DIR)/scripts/build_p2pd.sh "$(P2PD_CACHE)"
 
 # Windows 10 with WSL enabled, but no distro installed, fails if "../../nimble.sh" is executed directly
 # in a Makefile recipe but works when prefixing it with `bash`. No idea how the PATH is overridden.
@@ -121,7 +114,7 @@ $(TOOLS): | build deps
 clean_eth2_network_simulation_files:
 	rm -rf tests/simulation/{data,validators}
 
-eth2_network_simulation: | build deps p2pd clean_eth2_network_simulation_files process_dashboard
+eth2_network_simulation: | build deps clean_eth2_network_simulation_files process_dashboard
 	+ GIT_ROOT="$$PWD" NIMFLAGS="$(NIMFLAGS)" LOG_LEVEL="$(LOG_LEVEL)" tests/simulation/start.sh
 
 clean-testnet0:

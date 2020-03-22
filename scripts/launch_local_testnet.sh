@@ -141,19 +141,15 @@ BOOTSTRAP_IP="127.0.0.1"
 	--genesis-offset=5 # Delay in seconds
 
 cleanup() {
-	killall beacon_node p2pd &>/dev/null || true
+	killall beacon_node &>/dev/null || true
 	sleep 2
-	killall -9 beacon_node p2pd &>/dev/null || true
-	rm -f /tmp/nim-p2pd-*.sock || true
+	killall -9 beacon_node &>/dev/null || true
 }
 cleanup
 
 PIDS=""
 NODES_WITH_VALIDATORS=${NODES_WITH_VALIDATORS:-4}
 VALIDATORS_PER_NODE=$(( $RANDOM_VALIDATORS / $NODES_WITH_VALIDATORS ))
-
-# for the p2pd path
-source env.sh
 
 for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 	if [[ ${NUM_NODE} == 0 ]]; then
