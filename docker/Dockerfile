@@ -43,7 +43,7 @@ RUN apt-get -qq update \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # "COPY" creates new image layers, so we cram all we can into one command
-COPY --from=build /root/nim-beacon-chain/docker/run_in_docker.sh /root/nim-beacon-chain/build/beacon_node /usr/bin/
+COPY --from=build /root/nim-beacon-chain/build/beacon_node /usr/bin/
 
 MAINTAINER Zahary Karadjov <zahary@status.im>
 LABEL description="Nimbus installation that can act as an ETH2 network bootstrap node."
@@ -51,5 +51,5 @@ LABEL description="Nimbus installation that can act as an ETH2 network bootstrap
 # TODO: This custom entry script is necessary only because we must clean up
 #       temporary files left by previous executions of the Go daeamon.
 #       We should be able to remove it once we have a native LibP2P impl.
-ENTRYPOINT ["/usr/bin/run_in_docker.sh"]
+ENTRYPOINT ["/usr/bin/beacon_node"]
 
