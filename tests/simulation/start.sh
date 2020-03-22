@@ -39,15 +39,10 @@ build_beacon_node () {
   $MAKE NIMFLAGS="-o:$OUTPUT_BIN $PARAMS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" beacon_node
 }
 
-build_beacon_node $BEACON_NODE_BIN -d:"NETWORK_TYPE=$NETWORK_TYPE"
+build_beacon_node $BEACON_NODE_BIN
 
-if [[ "$BOOTSTRAP_NODE_NETWORK_TYPE" != "$NETWORK_TYPE" ]]; then
-  build_beacon_node $BOOTSTRAP_NODE_BIN \
-    --nimcache:nimcache/bootstrap_node \
-    -d:"NETWORK_TYPE=$BOOTSTRAP_NODE_NETWORK_TYPE"
-else
-  cp $BEACON_NODE_BIN $BOOTSTRAP_NODE_BIN
-fi
+# DAEMON TODO: This copy is now unnecessary
+cp $BEACON_NODE_BIN $BOOTSTRAP_NODE_BIN
 
 if [ ! -f "${LAST_VALIDATOR}" ]; then
   echo Building $DEPLOY_DEPOSIT_CONTRACT_BIN

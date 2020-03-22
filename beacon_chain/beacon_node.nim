@@ -193,12 +193,6 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   for node in conf.bootstrapNodes: addBootstrapNode(node, bootNodes, bootEnrs, ourPubKey)
   loadBootstrapFile(string conf.bootstrapNodesFile, bootNodes, bootEnrs, ourPubKey)
 
-  when networkBackend == libp2pDaemon:
-    for enr in bootEnrs:
-      let enode = toENode(enr)
-      if enode.isOk:
-        bootNodes.add enode.value
-
   let persistentBootstrapFile = conf.dataDir / "bootstrap_nodes.txt"
   if fileExists(persistentBootstrapFile):
     loadBootstrapFile(persistentBootstrapFile, bootNodes, bootEnrs, ourPubKey)
@@ -924,16 +918,9 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
         return StringOfJson("null")
 
   rpcServer.rpc("getNetworkPeerId") do () -> string:
-    when networkBackend != libp2p:
-      raise newException(CatchableError, "Unsupported operation")
-    else:
-      return $publicKey(node.network)
+    return $publicKey(node.network)
 
   rpcServer.rpc("getNetworkPeers") do () -> seq[string]:
-    when networkBackend != libp2p:
-      if true:
-        raise newException(CatchableError, "Unsupported operation")
-
     for peerId, peer in node.network.peerPool:
       result.add $peerId
 

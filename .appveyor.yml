@@ -37,7 +37,7 @@ build_script:
 test_script:
   # the "go-checks" target fails in AppVeyor, for some reason; easier to disable than to debug
   - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% DISABLE_GO_CHECKS=1 P2PD_CACHE=p2pdCache LOG_LEVEL=TRACE
-  - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% DISABLE_GO_CHECKS=1 P2PD_CACHE=p2pdCache LOG_LEVEL=TRACE NIMFLAGS="-d:NETWORK_TYPE=libp2p -d:testnet_servers_image"
+  - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% DISABLE_GO_CHECKS=1 P2PD_CACHE=p2pdCache LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image"
   - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% DISABLE_TEST_FIXTURES_SCRIPT=1 DISABLE_GO_CHECKS=1 test
 
 deploy: off

@@ -1,11 +1,8 @@
 import
   options, tables, sets, macros,
-  chronicles, chronos, stew/ranges/bitranges,
+  chronicles, chronos, stew/ranges/bitranges, libp2p/switch,
   spec/[datatypes, crypto, digest, helpers],
   beacon_node_types, eth2_network, block_pool, ssz
-
-when networkBackend == libp2p:
-  import libp2p/switch
 
 logScope:
   topics = "sync"

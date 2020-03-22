@@ -25,11 +25,6 @@ TOTAL_USER_NODES=${USER_NODES:-0}
 TOTAL_SYSTEM_NODES=$(( TOTAL_NODES - TOTAL_USER_NODES ))
 MASTER_NODE=$(( TOTAL_NODES - 1 ))
 
-# You can run a mixed simulation of daemon and native libp2p nodes
-# by changing the variables below:
-NETWORK_TYPE=${NETWORK_TYPE:-"libp2p"}
-BOOTSTRAP_NODE_NETWORK_TYPE=${BOOTSTRAP_NODE_NETWORK_TYPE:-"libp2p"}
-
 SIMULATION_DIR="${SIM_ROOT}/data"
 METRICS_DIR="${SIM_ROOT}/prometheus"
 VALIDATORS_DIR="${SIM_ROOT}/validators"
