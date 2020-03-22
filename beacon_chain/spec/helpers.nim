@@ -114,13 +114,38 @@ func int_to_bytes4*(x: uint64): array[4, byte] =
   result[2] = ((x shr 16) and 0xff).byte
   result[3] = ((x shr 24) and 0xff).byte
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#compute_domain
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#compute_fork_data_root
+func compute_fork_data_root(current_version: array[4, byte],
+    genesis_validators_root: Eth2Digest): Eth2Digest =
+  # Return the 32-byte fork data root for the ``current_version`` and
+  # ``genesis_validators_root``.
+  # This is used primarily in signature domains to avoid collisions across
+  # forks/chains.
+  hash_tree_root(ForkData(
+    current_version: current_version,
+    genesis_validators_root: genesis_validators_root
+  ))
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#compute_fork_digest
+func compute_fork_digest(current_version: array[4, byte],
+    genesis_validators_root: Eth2Digest): array[4, byte] =
+  # Return the 4-byte fork digest for the ``current_version`` and
+  # ``genesis_validators_root``.
+  # This is a digest primarily used for domain separation on the p2p layer.
+  # 4-bytes suffices for practical separation of forks/chains.
+  result[0..3] =
+    compute_fork_data_root(current_version, genesis_validators_root).data[0..3]
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#compute_domain
 func compute_domain*(
     domain_type: DomainType,
-    fork_version: array[4, byte] = [0'u8, 0, 0, 0]): Domain =
+    fork_version: array[4, byte] = [0'u8, 0, 0, 0],
+    genesis_validators_root: Eth2Digest = ZERO_HASH): Domain =
   # Return the domain for the ``domain_type`` and ``fork_version``.
+  let fork_data_root =
+    compute_fork_data_root(fork_version, genesis_validators_root)
   result[0..3] = int_to_bytes4(domain_type.uint64)
-  result[4..7] = fork_version
+  result[4..31] = fork_data_root.data[0..27]
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#get_domain
 func get_domain*(

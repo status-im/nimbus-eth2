@@ -71,7 +71,7 @@ func get_total_active_balance*(state: BeaconState): Gwei =
     state,
     get_active_validator_indices(state, get_current_epoch(state)))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#helper-functions-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#helper-functions-1
 func get_matching_source_attestations(state: BeaconState, epoch: Epoch):
     seq[PendingAttestation] =
   doAssert epoch in [get_current_epoch(state), get_previous_epoch(state)]
@@ -233,7 +233,7 @@ proc process_justification_and_finalization*(
       checkpoint = shortLog(state.finalized_checkpoint),
       cat = "finalization"
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#rewards-and-penalties-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#rewards-and-penalties-1
 func get_base_reward(state: BeaconState, index: ValidatorIndex,
     total_balance: auto): Gwei =
   # Spec function recalculates total_balance every time, which creates an
@@ -242,7 +242,7 @@ func get_base_reward(state: BeaconState, index: ValidatorIndex,
   effective_balance * BASE_REWARD_FACTOR div
     integer_squareroot(total_balance) div BASE_REWARDS_PER_EPOCH
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#rewards-and-penalties-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#rewards-and-penalties-1
 func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] {.nbench.}=
   let
@@ -276,9 +276,11 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
       attesting_balance = get_total_balance(state, unslashed_attesting_indices)
     for index in eligible_validator_indices:
       if index in unslashed_attesting_indices:
-        rewards[index] +=
-          get_base_reward(state, index, total_balance) * attesting_balance div
-            total_balance
+        # Factored out from balance totals to avoid uint64 overflow
+        const increment = EFFECTIVE_BALANCE_INCREMENT
+        let reward_numerator = get_base_reward(state, index, total_balance) *
+          (attesting_balance div increment)
+        rewards[index] = reward_numerator div (total_balance div increment)
       else:
         penalties[index] += get_base_reward(state, index, total_balance)
 
@@ -290,8 +292,6 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
       matching_source_attestations,
       get_attesting_indices(state, it.data, it.aggregation_bits, stateCache))
 
-  ## TODO if this is still a profiling issue, do higher-level semantic
-  ## translation
   for index in get_unslashed_attesting_indices(
       state, matching_source_attestations, stateCache):
     # Translation of attestation = min([...])

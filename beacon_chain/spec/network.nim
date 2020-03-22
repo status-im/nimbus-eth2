@@ -14,10 +14,10 @@ const
   topicProposerSlashings* = "/eth2/proposer_slashing/ssz"
   topicAttesterSlashings* = "/eth2/attester_slashing/ssz"
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/p2p-interface.md#configuration
   ATTESTATION_SUBNET_COUNT* = 64
 
 func getAttestationTopic*(committeeIndex: uint64): string =
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#broadcast-attestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/validator.md#broadcast-attestation
   let topicIndex = committeeIndex mod ATTESTATION_SUBNET_COUNT
-  &"/eth2/index{topicIndex}{topicAttestationSuffix}"
+  &"/eth2/committee_index{topicIndex}{topicAttestationSuffix}"
