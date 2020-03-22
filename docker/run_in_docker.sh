@@ -6,7 +6,6 @@
 # Deal with previous execution of the deamon leaving behind
 # socket files that prevent the deamon from launching again
 # inside the container:
-killall p2pd
 rm -rf /tmp/*
 
 beacon_node "$@"

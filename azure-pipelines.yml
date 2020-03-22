@@ -18,12 +18,6 @@ jobs:
           path: NimBinaries
 
       - task: CacheBeta@1
-        displayName: 'cache p2pd binaries'
-        inputs:
-          key: p2pdCache | $(Agent.OS) | $(PLATFORM) | "$(Build.SourceBranchName)"
-          path: p2pdCache
-
-      - task: CacheBeta@1
         displayName: 'cache official test fixtures'
         inputs:
           key: jsonTestsCache
@@ -71,8 +65,8 @@ jobs:
           scripts/setup_official_tests.sh jsonTestsCache
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} CI_CACHE=NimBinaries update
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} fetch-dlls
-          mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} P2PD_CACHE=p2pdCache LOG_LEVEL=TRACE
-          mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} P2PD_CACHE=p2pdCache LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image"
+          mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} LOG_LEVEL=TRACE
+          mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image"
           file build/beacon_node
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} DISABLE_TEST_FIXTURES_SCRIPT=1 test
         displayName: 'build and test'
