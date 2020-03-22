@@ -190,17 +190,15 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
 
   var bootNodes: seq[ENode]
   var bootEnrs: seq[enr.Record]
-  for node in conf.bootstrapNodes: addBootstrapNode(node, bootNodes, bootEnrs, ourPubKey)
+  for node in conf.bootstrapNodes:
+    addBootstrapNode(node, bootNodes, bootEnrs, ourPubKey)
   loadBootstrapFile(string conf.bootstrapNodesFile, bootNodes, bootEnrs, ourPubKey)
 
   let persistentBootstrapFile = conf.dataDir / "bootstrap_nodes.txt"
   if fileExists(persistentBootstrapFile):
     loadBootstrapFile(persistentBootstrapFile, bootNodes, bootEnrs, ourPubKey)
 
-  let
-    network = await createEth2Node(conf, bootNodes)
-    addressFile = string(conf.dataDir) / "beacon_node.address"
-  network.saveConnectionAddressFile(addressFile)
+  let network = await createEth2Node(conf)
 
   let rpcServer = if conf.rpcEnabled:
     RpcServer.init(conf.rpcAddress, conf.rpcPort)
@@ -252,13 +250,12 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   return res
 
 proc connectToNetwork(node: BeaconNode) {.async.} =
-  if node.bootstrapNodes.len > 0:
-    info "Connecting to bootstrap nodes", bootstrapNodes = node.bootstrapNodes
+  if node.bootstrapEnrs.len > 0:
+    info "Connecting to bootstrap nodes", bootstrapEnrs = node.bootstrapEnrs
   else:
     info "Waiting for connections"
 
-  await node.network.connectToNetwork(node.bootstrapNodes,
-                                      node.bootstrapEnrs)
+  await node.network.connectToNetwork(node.bootstrapEnrs)
 
 template findIt(s: openarray, predicate: untyped): int =
   var res = -1

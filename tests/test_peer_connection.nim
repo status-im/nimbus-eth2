@@ -35,5 +35,5 @@ asyncTest "connect two nodes":
   c2.nat = "none"
   var n2 = await createEth2Node(c2)
 
-  await n2.connectToNetwork(bootstrapNodes = @[n1PersistentAddress])
+  await n2.connectToNetwork(@[n1PersistentAddress])
 
