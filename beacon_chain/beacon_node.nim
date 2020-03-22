@@ -866,7 +866,7 @@ func slotOrZero(time: BeaconTime): Slot =
   if exSlot.afterGenesis: exSlot.slot
   else: Slot(0)
 
-func currentSlot(node: BeaconNode): Slot =
+proc currentSlot(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero
 
 proc connectedPeersCount(node: BeaconNode): int =
