@@ -48,8 +48,5 @@ COPY --from=build /root/nim-beacon-chain/build/beacon_node /usr/bin/
 MAINTAINER Zahary Karadjov <zahary@status.im>
 LABEL description="Nimbus installation that can act as an ETH2 network bootstrap node."
 
-# TODO: This custom entry script is necessary only because we must clean up
-#       temporary files left by previous executions of the Go daeamon.
-#       We should be able to remove it once we have a native LibP2P impl.
 ENTRYPOINT ["/usr/bin/beacon_node"]
 
