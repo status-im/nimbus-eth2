@@ -909,11 +909,15 @@ proc getPersistenBootstrapAddr*(conf: BeaconNodeConf,
                                 ip: IpAddress, port: Port): enr.Record =
   let
     pair = getPersistentNetKeys(conf)
-    enode = initENode(pair.pubkey.skkey, Address(ip: ip, udpPort: port))
+    enodeAddress = Address(ip: ip, udpPort: port)
 
   return enr.Record.init(1'u64, # sequence number
                          pair.seckey.asEthKey,
-                         enode.address)
+                         enodeAddress)
+
+proc announcedENR*(node: Eth2Node): enr.Record =
+  doAssert node.discovery != nil, "The Eth2Node must be initialized"
+  node.discovery.localNode.record
 
 proc shortForm*(id: KeyPair): string =
   $PeerID.init(id.pubkey)

@@ -257,6 +257,9 @@ proc connectToNetwork(node: BeaconNode) {.async.} =
 
   await node.network.connectToNetwork(node.bootstrapEnrs)
 
+  let addressFile = node.config.dataDir / "beacon_node.address"
+  writeFile(addressFile, node.network.announcedENR.toURI)
+
 template findIt(s: openarray, predicate: untyped): int =
   var res = -1
   for i, it {.inject.} in s:
