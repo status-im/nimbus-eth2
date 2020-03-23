@@ -101,6 +101,10 @@ template openStream(node: Eth2Node, peer: Peer, protocolId: string): untyped =
 
 proc init*(T: type Peer, network: Eth2Node, id: PeerID): Peer {.gcsafe.}
 
+template remote*(peer: Peer): untyped =
+  # TODO: Can we get a proper address here?
+  peer.id
+
 proc getPeer*(node: Eth2Node, peerId: PeerID): Peer {.gcsafe.} =
   result = node.peers.getOrDefault(peerId)
   if result == nil:
@@ -211,6 +215,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
       msgName = $msg.ident
       msgNameLit = newLit msgName
       MsgRecName = msg.recName
+      MsgStrongRecName = msg.strongRecName
 
     if msg.procDef.body.kind != nnkEmpty and msg.kind == msgRequest:
       # Request procs need an extra param - the stream where the response
@@ -235,7 +240,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
         proc `thunkName`(`daemonVar`: `DaemonAPI`,
                          `streamVar`: `P2PStream`): Future[void] {.gcsafe.} =
           return handleIncomingStream(`Eth2Node`(`daemonVar`.userData), `streamVar`,
-                                      `MsgRecName`, `Format`)
+                                      `MsgStrongRecName`, `Format`)
     else:
       thunkName = newNilLit()
 

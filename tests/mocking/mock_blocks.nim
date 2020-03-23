@@ -8,7 +8,7 @@
 import
   options,
   # Specs
-  ../../beacon_chain/spec/[datatypes, crypto, helpers, validator],
+  ../../beacon_chain/spec/[datatypes, crypto, validator, state_transition_block],
   # Internals
   ../../beacon_chain/[ssz, extras, state_transition],
   # Mock helpers
@@ -27,27 +27,10 @@ proc signMockBlockImpl(
 
   let privkey = MockPrivKeys[proposer_index]
 
-
-  block:
-    let domain = get_domain(
-        state,
-        DOMAIN_RANDAO,
-        message_epoch = block_slot.compute_epoch_at_slot(),
-      )
-    let signing_root = compute_signing_root(
-                        block_slot.compute_epoch_at_slot(),
-                        domain
-                      )
-    signedBlock.message.body.randao_reveal = bls_sign(privkey, signing_root.data)
-
-  block:
-    let domain = get_domain(
-        state,
-        DOMAIN_BEACON_PROPOSER,
-        message_epoch = block_slot.compute_epoch_at_slot(),
-      )
-    let signing_root = compute_signing_root(signedBlock.message, domain)
-    signedBlock.signature = bls_sign(privkey, signing_root.data)
+  signedBlock.message.body.randao_reveal = get_epoch_signature(
+    state.fork, block_slot, privkey)
+  signedBlock.signature = get_block_signature(
+    state.fork, block_slot, hash_tree_root(signedBlock.message), privkey)
 
 proc signMockBlock*(
   state: BeaconState,

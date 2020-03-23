@@ -107,6 +107,9 @@ const
 template `$`*(peer: Peer): string = id(peer.info)
 chronicles.formatIt(Peer): $it
 
+template remote*(peer: Peer): untyped =
+  peer.info.peerId
+
 # TODO: This exists only as a compatibility layer between the daemon
 # APIs and the native LibP2P ones. It won't be necessary once the
 # daemon is removed.
@@ -277,6 +280,9 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf,
       if msg.protocolMounter != nil:
         msg.protocolMounter result
 
+template publicKey*(node: Eth2Node): keys.PublicKey =
+  node.discovery.privKey.getPublicKey
+
 template addKnownPeer*(node: Eth2Node, peer: ENode|enr.Record) =
   node.discovery.addNode peer
 
@@ -348,6 +354,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
       msgName = $msg.ident
       msgNameLit = newLit msgName
       MsgRecName = msg.recName
+      MsgStrongRecName = msg.strongRecName
       codecNameLit = getRequestProtoName(msg.procDef)
 
     if msg.procDef.body.kind != nnkEmpty and msg.kind == msgRequest:
@@ -385,7 +392,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
           proc thunk(`streamVar`: `P2PStream`,
                       proto: string): Future[void] {.gcsafe.} =
             return handleIncomingStream(`networkVar`, `streamVar`,
-                                        `MsgRecName`, `Format`)
+                                        `MsgStrongRecName`, `Format`)
 
           mount `networkVar`.switch,
                 LPProtocol(codec: `codecNameLit`, handler: thunk)

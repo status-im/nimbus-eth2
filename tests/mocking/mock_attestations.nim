@@ -12,7 +12,8 @@ import
   # Standard library
   sets,
   # Specs
-  ../../beacon_chain/spec/[datatypes, beaconstate, helpers, validator, crypto],
+  ../../beacon_chain/spec/[datatypes, beaconstate, helpers, validator, crypto,
+     state_transition_block],
   # Internals
   ../../beacon_chain/[ssz, extras, state_transition],
   # Mocking procs
@@ -53,20 +54,6 @@ proc mockAttestationData(
     epoch: target_epoch, root: epoch_boundary_root
   )
 
-proc get_attestation_signature(
-       state: BeaconState,
-       attestation_data: AttestationData,
-       privkey: ValidatorPrivKey
-      ): ValidatorSig =
-  let domain = get_domain(
-      state = state,
-      domain_type = DOMAIN_BEACON_ATTESTER,
-      message_epoch = attestation_data.target.epoch
-    )
-  let signing_root = compute_signing_root(attestation_data, domain)
-
-  return blsSign(privkey, signing_root.data)
-
 proc signMockAttestation*(state: BeaconState, attestation: var Attestation) =
   var cache = get_empty_per_epoch_cache()
   let participants = get_attesting_indices(
@@ -79,7 +66,7 @@ proc signMockAttestation*(state: BeaconState, attestation: var Attestation) =
   var first_iter = true # Can't do while loop on hashset
   for validator_index in participants:
     let sig = get_attestation_signature(
-      state, attestation.data, MockPrivKeys[validator_index]
+      state.fork, attestation.data, MockPrivKeys[validator_index]
     )
     if first_iter:
       attestation.signature = sig

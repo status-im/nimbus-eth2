@@ -2,7 +2,7 @@ import
   macros, strutils, tables
 
 type
-  BeaconChainConstants* = enum
+  BeaconChainConstants* {.pure.} = enum
     BASE_REWARDS_PER_EPOCH
     BASE_REWARD_FACTOR
     BLS_WITHDRAWAL_PREFIX

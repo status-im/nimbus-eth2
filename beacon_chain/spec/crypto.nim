@@ -202,9 +202,17 @@ proc newKeyPair*(): tuple[pub: ValidatorPubKey, priv: ValidatorPrivKey] {.noInit
 # ----------------------------------------------------------------------
 
 func shortLog*(x: BlsValue): string =
-  ($x)[0..7]
+  ## Logging for wrapped BLS types
+  ## that may contain valid or non-validated data
+  # The prefix must be short
+  # due to the mechanics of the `shortLog` function.
+  if x.kind == Real:
+    x.blsValue.toHex()[0..7]
+  else:
+    "raw: " & x.blob.toHex(lowercase = true)[0..7]
 
 func shortLog*(x: BlsCurveType): string =
+  ## Logging for raw unwrapped BLS types
   ($x)[0..7]
 
 proc toGaugeValue*(hash: Eth2Digest): int64 =
@@ -220,9 +228,9 @@ func `$`*(x: BlsValue): string =
   # The prefix must be short
   # due to the mechanics of the `shortLog` function.
   if x.kind == Real:
-    "real: 0x" & x.blsValue.toHex()
+    x.blsValue.toHex()
   else:
-    "raw: 0x" & x.blob.toHex(lowercase = true)
+    "raw: " & x.blob.toHex(lowercase = true)
 
 func getBytes*(x: BlsValue): auto =
   if x.kind == Real:

@@ -514,6 +514,17 @@ proc getBlockRange*(pool: BlockPool, headBlock: Eth2Digest,
     trace "getBlockRange result", position = result, blockSlot = b.slot
     skip skipStep
 
+func getBlockBySlot*(pool: BlockPool, slot: Slot): BlockRef =
+  ## Retrieves the first block in the current canonical chain
+  ## with slot number less or equal to `slot`.
+  pool.head.blck.findAncestorBySlot(slot).blck
+
+func getBlockByPreciseSlot*(pool: BlockPool, slot: Slot): BlockRef =
+  ## Retrieves a block from the canonical chain with a slot
+  ## number equal to `slot`.
+  let found = pool.getBlockBySlot(slot)
+  if found.slot != slot: found else: nil
+
 proc get*(pool: BlockPool, blck: BlockRef): BlockData =
   ## Retrieve the associated block body of a block reference
   doAssert (not blck.isNil), "Trying to get nil BlockRef"

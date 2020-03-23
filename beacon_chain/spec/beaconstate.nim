@@ -444,11 +444,9 @@ proc check_attestation*(
   ## at the current slot. When acting as a proposer, the same rules need to
   ## be followed!
 
-  let stateSlot =
-    if nextSlot in flags: state.slot + 1
-    else: state.slot
-
-  let data = attestation.data
+  let
+    stateSlot = state.slot
+    data = attestation.data
 
   trace "process_attestation: beginning",
     attestation=attestation

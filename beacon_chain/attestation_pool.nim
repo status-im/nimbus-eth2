@@ -266,10 +266,12 @@ proc add*(pool: var AttestationPool, attestation: Attestation) =
   pool.addResolved(blck, attestation)
 
 proc getAttestationsForBlock*(
-    pool: AttestationPool, state: BeaconState,
-    newBlockSlot: Slot): seq[Attestation] =
+    pool: AttestationPool, state: BeaconState): seq[Attestation] =
+  ## Retrieve attestations that may be added to a new block at the slot of the
+  ## given state
   logScope: pcs = "retrieve_attestation"
 
+  let newBlockSlot = state.slot
   if newBlockSlot < (GENESIS_SLOT + MIN_ATTESTATION_INCLUSION_DELAY):
     debug "Too early for attestations",
       newBlockSlot = shortLog(newBlockSlot),
@@ -327,8 +329,7 @@ proc getAttestationsForBlock*(
     # TODO we're checking signatures here every time which is very slow - this
     #      is needed because validate does nothing for now and we don't want
     #      to include a broken attestation
-    if not check_attestation(
-        state, attestation, {nextSlot}, cache):
+    if not check_attestation(state, attestation, {}, cache):
       continue
 
     for v in a.validations[1..^1]:
