@@ -47,13 +47,8 @@ fi
 rm -rf "$DATA_DIR/dump"
 mkdir -p "$DATA_DIR/dump"
 
-NODE_BIN=$BEACON_NODE_BIN
-if [[ $NODE_ID == $MASTER_NODE ]]; then
-  NODE_BIN=$BOOTSTRAP_NODE_BIN
-fi
-
 # if you want tracing messages, add "--log-level=TRACE" below
-cd "$DATA_DIR" && $NODE_BIN \
+cd "$DATA_DIR" && $BEACON_NODE_BIN \
   --log-level=${LOG_LEVEL:-DEBUG} \
   --bootstrap-file=$BOOTSTRAP_ADDRESS_FILE \
   --data-dir=$DATA_DIR \

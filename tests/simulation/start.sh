@@ -41,9 +41,6 @@ build_beacon_node () {
 
 build_beacon_node $BEACON_NODE_BIN
 
-# DAEMON TODO: This copy is now unnecessary
-cp $BEACON_NODE_BIN $BOOTSTRAP_NODE_BIN
-
 if [ ! -f "${LAST_VALIDATOR}" ]; then
   echo Building $DEPLOY_DEPOSIT_CONTRACT_BIN
   $MAKE NIMFLAGS="-o:\"$DEPLOY_DEPOSIT_CONTRACT_BIN\" $CUSTOM_NIMFLAGS $DEFS" deposit_contract
