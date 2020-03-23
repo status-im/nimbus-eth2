@@ -15,6 +15,7 @@ import
   libp2p/protocols/secure/[secure, secio],
   libp2p/protocols/pubsub/[pubsub, floodsub],
   libp2p/transports/[transport, tcptransport],
+  libp2p/stream/lpstream,
   eth/[keys, async_utils], eth/p2p/[enode, p2p_protocol_dsl],
   eth/net/nat, eth/p2p/discoveryv5/[enr, node],
 
@@ -272,7 +273,11 @@ proc readMsgBytes(conn: Connection,
       var responseCode: byte
       trace "about to read response code"
       var readResponseCode = conn.readExactly(addr responseCode, 1)
-      await readResponseCode or deadline
+      try:
+        await readResponseCode or deadline
+      except LPStreamEOFError:
+        trace "end of stream received"
+        return
 
       if not readResponseCode.finished:
         trace "response code not received in time"
