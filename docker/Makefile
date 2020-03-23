@@ -30,7 +30,7 @@ push: build
 	+@ $(MAKE) push-last
 
 push-last:
-	@ [[ "$(CURRENT_BRANCH)" != "master" && "$(NETWORK)" == "testnet0" ]] && $(COMPUTER_SAYS_NO) || true
-	@ [[ "$(CURRENT_BRANCH)" != "devel" && "$(NETWORK)" == "testnet1" ]] && $(COMPUTER_SAYS_NO) || true
+	# @ [[ "$(CURRENT_BRANCH)" != "master" && "$(NETWORK)" == "testnet0" ]] && $(COMPUTER_SAYS_NO) || true
+	# @ [[ "$(CURRENT_BRANCH)" != "devel" && "$(NETWORK)" == "testnet1" ]] && $(COMPUTER_SAYS_NO) || true
 	docker push $(IMAGE_NAME)
 

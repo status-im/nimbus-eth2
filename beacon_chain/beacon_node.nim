@@ -925,7 +925,9 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
 
   rpcServer.rpc("getNetworkPeerId") do () -> string:
     when networkBackend != libp2p:
-      raise newException(CatchableError, "Unsupported operation")
+      if true:
+        raise newException(CatchableError, "Unsupported operation")
+      return ""
     else:
       return $publicKey(node.network)
 
@@ -933,12 +935,15 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
     when networkBackend != libp2p:
       if true:
         raise newException(CatchableError, "Unsupported operation")
-
-    for peerId, peer in node.network.peerPool:
-      result.add $peerId
+    else:
+      for peerId, peer in node.network.peerPool:
+        result.add $peerId
 
   rpcServer.rpc("getNetworkEnr") do () -> string:
-    return $node.network.discovery.localNode.record
+    when networkBackend == libp2p:
+      return $node.network.discovery.localNode.record
+    else:
+      return ""
 
 proc installDebugApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("getSpecPreset") do () -> JsonNode:
