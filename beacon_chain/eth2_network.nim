@@ -947,7 +947,9 @@ proc connectToNetwork*(node: Eth2Node,
       fatal "Failed to connect to any bootstrap node. Quitting", bootstrapEnrs
       quit 1
 
-  traceAsyncErrors checkIfConnectedToBootstrapNode()
+  # TODO: The initial sync forces this to time out.
+  #       Revisit when the new Sync manager is integrated.
+  # traceAsyncErrors checkIfConnectedToBootstrapNode()
 
 func peersCount*(node: Eth2Node): int =
   len(node.peerPool)
