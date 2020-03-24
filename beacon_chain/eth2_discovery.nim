@@ -12,20 +12,7 @@ type
   PublicKey = keys.PublicKey
 
 export
-  Eth2DiscoveryProtocol, open, close, result
-
-proc new*(T: type Eth2DiscoveryProtocol,
-          conf: BeaconNodeConf,
-          ip: IpAddress, rawPrivKeyBytes: openarray[byte]): T =
-  # TODO
-  # Implement more configuration options:
-  # * for setting up a specific key
-  # * for using a persistent database
-  var
-    pk = initPrivateKey(rawPrivKeyBytes)
-    db = DiscoveryDB.init(newMemoryDB())
-
-  newProtocol(pk, db, ip, conf.tcpPort, conf.udpPort)
+  Eth2DiscoveryProtocol, open, start, close, result
 
 proc toENode*(a: MultiAddress): Result[ENode, cstring] =
   if not IPFS.match(a):
@@ -165,3 +152,26 @@ proc loadBootstrapFile*(bootstrapFile: string,
     error "Unknown bootstrap file format", ext
     quit 1
 
+proc new*(T: type Eth2DiscoveryProtocol,
+          conf: BeaconNodeConf,
+          ip: IpAddress, rawPrivKeyBytes: openarray[byte]): T =
+  # TODO
+  # Implement more configuration options:
+  # * for setting up a specific key
+  # * for using a persistent database
+  var
+    pk = initPrivateKey(rawPrivKeyBytes)
+    ourPubKey = pk.getPublicKey()
+    db = DiscoveryDB.init(newMemoryDB())
+
+  var bootNodes: seq[ENode]
+  var bootEnrs: seq[enr.Record]
+  for node in conf.bootstrapNodes:
+    addBootstrapNode(node, bootNodes, bootEnrs, ourPubKey)
+  loadBootstrapFile(string conf.bootstrapNodesFile, bootNodes, bootEnrs, ourPubKey)
+
+  let persistentBootstrapFile = conf.dataDir / "bootstrap_nodes.txt"
+  if fileExists(persistentBootstrapFile):
+    loadBootstrapFile(persistentBootstrapFile, bootNodes, bootEnrs, ourPubKey)
+
+  newProtocol(pk, db, ip, conf.tcpPort, conf.udpPort, bootEnrs)
