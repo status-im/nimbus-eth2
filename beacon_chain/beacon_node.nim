@@ -56,8 +56,6 @@ type
     forkVersion: array[4, byte]
     netKeys: KeyPair
     requestManager: RequestManager
-    bootstrapNodes: seq[ENode]
-    bootstrapEnrs: seq[enr.Record]
     db: BeaconChainDB
     config: BeaconNodeConf
     attachedValidators: ValidatorPool
@@ -188,16 +186,6 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     #      monitor
     mainchainMonitor.start()
 
-  var bootNodes: seq[ENode]
-  var bootEnrs: seq[enr.Record]
-  for node in conf.bootstrapNodes:
-    addBootstrapNode(node, bootNodes, bootEnrs, ourPubKey)
-  loadBootstrapFile(string conf.bootstrapNodesFile, bootNodes, bootEnrs, ourPubKey)
-
-  let persistentBootstrapFile = conf.dataDir / "bootstrap_nodes.txt"
-  if fileExists(persistentBootstrapFile):
-    loadBootstrapFile(persistentBootstrapFile, bootNodes, bootEnrs, ourPubKey)
-
   let network = await createEth2Node(conf)
 
   let rpcServer = if conf.rpcEnabled:
@@ -211,8 +199,6 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     forkVersion: blockPool.headState.data.data.fork.current_version,
     netKeys: netKeys,
     requestManager: RequestManager.init(network),
-    bootstrapNodes: bootNodes,
-    bootstrapEnrs: bootEnrs,
     db: db,
     config: conf,
     attachedValidators: ValidatorPool.init(),
@@ -250,12 +236,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   return res
 
 proc connectToNetwork(node: BeaconNode) {.async.} =
-  if node.bootstrapEnrs.len > 0:
-    info "Connecting to bootstrap nodes", bootstrapEnrs = node.bootstrapEnrs
-  else:
-    info "Waiting for connections"
-
-  await node.network.connectToNetwork(node.bootstrapEnrs)
+  await node.network.connectToNetwork()
 
   let addressFile = node.config.dataDir / "beacon_node.address"
   writeFile(addressFile, node.network.announcedENR.toURI)
@@ -1221,7 +1202,7 @@ when isMainModule:
         bootstrapEnr = enr.Record.init(
           1, # sequence number
           networkKeys.seckey.asEthKey,
-          bootstrapAddress)
+          some(bootstrapAddress))
 
       writeFile(bootstrapFile, bootstrapEnr.toURI)
       echo "Wrote ", bootstrapFile

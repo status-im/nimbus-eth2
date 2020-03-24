@@ -702,6 +702,7 @@ template addKnownPeer*(node: Eth2Node, peer: ENode|enr.Record) =
 
 proc start*(node: Eth2Node) {.async.} =
   node.discovery.open()
+  node.discovery.start()
   node.libp2pTransportLoops = await node.switch.start()
   traceAsyncErrors node.runDiscoveryLoop()
 
@@ -918,7 +919,7 @@ proc getPersistenBootstrapAddr*(conf: BeaconNodeConf,
 
   return enr.Record.init(1'u64, # sequence number
                          pair.seckey.asEthKey,
-                         enodeAddress)
+                         some(enodeAddress))
 
 proc announcedENR*(node: Eth2Node): enr.Record =
   doAssert node.discovery != nil, "The Eth2Node must be initialized"
@@ -933,18 +934,14 @@ proc toPeerInfo(enode: ENode): PeerInfo =
     addresses = @[MultiAddress.init enode.toMultiAddressStr]
   return PeerInfo.init(peerId, addresses)
 
-proc connectToNetwork*(node: Eth2Node,
-                       bootstrapEnrs: seq[enr.Record]) {.async.} =
-  for bootstrapNode in bootstrapEnrs:
-    debug "Adding known peer", peer = bootstrapNode
-    node.addKnownPeer bootstrapNode
-
+proc connectToNetwork*(node: Eth2Node) {.async.} =
   await node.start()
 
   proc checkIfConnectedToBootstrapNode {.async.} =
     await sleepAsync(30.seconds)
-    if bootstrapEnrs.len > 0 and libp2p_successful_dials.value == 0:
-      fatal "Failed to connect to any bootstrap node. Quitting", bootstrapEnrs
+    if node.discovery.bootstrapRecords.len > 0 and libp2p_successful_dials.value == 0:
+      fatal "Failed to connect to any bootstrap node. Quitting",
+        bootstrapEnrs = node.discovery.bootstrapRecords
       quit 1
 
   # TODO: The initial sync forces this to time out.
