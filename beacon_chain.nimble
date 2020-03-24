@@ -31,6 +31,7 @@ requires "nim >= 0.19.0",
   "nimcrypto",
   "serialization",
   "stew",
+  "testutils",
   "prompt",
   "web3",
   "yaml"
@@ -44,6 +45,12 @@ proc buildBinary(name: string, srcDir = "./", params = "", cmdParams = "", lang 
   for i in 2..<paramCount():
     extra_params &= " " & paramStr(i)
   exec "nim " & lang & " --out:./build/" & name & " -r " & extra_params & " " & srcDir & name & ".nim" & " " & cmdParams
+
+task moduleTests, "Run all module tests":
+  buildBinary "beacon_node", "beacon_chain/",
+              "-d:chronicles_log_level=TRACE " &
+              "-d:const_preset=minimal " &
+              "-d:testutils_test_build"
 
 ### tasks
 task test, "Run all tests":

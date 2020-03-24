@@ -34,9 +34,9 @@ cd "$GIT_ROOT"
 DATA_DIR="${SIMULATION_DIR}/node-$NODE_ID"
 PORT=$(( BASE_P2P_PORT + NODE_ID ))
 
-NAT_FLAG="--nat:extip:127.0.0.1"
+NAT_ARG="--nat:extip:127.0.0.1"
 if [ "${NAT:-}" == "1" ]; then
-  NAT_FLAG="--nat:any"
+  NAT_ARG="--nat:any"
 fi
 
 mkdir -p "$DATA_DIR/validators"
@@ -54,6 +54,11 @@ fi
 rm -rf "$DATA_DIR/dump"
 mkdir -p "$DATA_DIR/dump"
 
+SNAPSHOT_ARG=""
+if [ -f "${SNAPSHOT_FILE}" ]; then
+  SNAPSHOT_ARG="--state-snapshot=${SNAPSHOT_FILE}"
+fi
+
 # if you want tracing messages, add "--log-level=TRACE" below
 cd "$DATA_DIR" && $BEACON_NODE_BIN \
   --log-level=${LOG_LEVEL:-DEBUG} \
@@ -62,9 +67,9 @@ cd "$DATA_DIR" && $BEACON_NODE_BIN \
   --node-name=$NODE_ID \
   --tcp-port=$PORT \
   --udp-port=$PORT \
-  $NAT_FLAG \
-  --state-snapshot=$SNAPSHOT_FILE \
-  $DEPOSIT_WEB3_URL_ARG \
+  $SNAPSHOT_ARG \
+  $NAT_ARG \
+  $WEB3_ARG \
   --deposit-contract=$DEPOSIT_CONTRACT_ADDRESS \
   --rpc \
   --rpc-address="127.0.0.1" \

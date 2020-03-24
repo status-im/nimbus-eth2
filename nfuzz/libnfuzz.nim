@@ -30,7 +30,7 @@ type
     exit: SignedVoluntaryExit
   # This and AssertionError are raised to indicate programming bugs
   # A wrapper to allow exception tracking to identify unexpected exceptions
-  FuzzCrashError = object of Exception
+  FuzzCrashError = object of CatchableError
 
 # TODO: change ptr uint to ptr csize_t when available in newer Nim version.
 proc copyState(state: BeaconState, output: ptr byte,
