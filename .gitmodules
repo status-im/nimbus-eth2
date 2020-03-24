@@ -148,3 +148,8 @@
 	url = https://github.com/status-im/nim-protobuf-serialization.git
 	ignore = dirty
 	branch = master
+[submodule "vendor/nim-rocksdb"]
+	path = vendor/nim-rocksdb
+	url = https://github.com/status-im/nim-rocksdb.git
+	ignore = dirty
+	branch = master

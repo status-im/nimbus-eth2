@@ -21,6 +21,7 @@ import # Unit test
   ./test_kvstore,
   ./test_mocking,
   ./test_kvstore_sqlite3,
+  ./test_mainchain_monitor,
   ./test_ssz,
   ./test_state_transition,
   ./test_sync_protocol,

@@ -9,7 +9,7 @@ import
   json_serialization, json_serialization/std/[net, options],
   chronos, chronicles, metrics,
   # TODO: create simpler to use libp2p modules that use re-exports
-  libp2p/[switch, standard_setup, peerinfo, peer, connection,
+  libp2p/[switch, standard_setup, peerinfo, peer, connection, errors,
           multiaddress, multicodec, crypto/crypto, crypto/secp,
           protocols/identify, protocols/protocol],
   libp2p/protocols/secure/[secure, secio],
@@ -39,6 +39,10 @@ type
 
   Bytes = seq[byte]
 
+  # TODO: This is here only to eradicate a compiler
+  # warning about unused import (rpc/messages).
+  GossipMsg = messages.Message
+
   # TODO Is this really needed?
   Eth2Node* = ref object of RootObj
     switch*: Switch
@@ -47,6 +51,7 @@ type
     peerPool*: PeerPool[Peer, PeerID]
     protocolStates*: seq[RootRef]
     libp2pTransportLoops*: seq[Future[void]]
+    discoveryLoop: Future[void]
     metadata*: Eth2Metadata
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
@@ -511,7 +516,7 @@ proc performProtocolHandshakes*(peer: Peer) {.async.} =
     if protocol.handshake != nil:
       subProtocolsHandshakes.add((protocol.handshake)(peer, nil))
 
-  await all(subProtocolsHandshakes)
+  await allFuturesThrowing(subProtocolsHandshakes)
 
 template initializeConnection*(peer: Peer): auto =
   performProtocolHandshakes(peer)
@@ -755,7 +760,8 @@ proc start*(node: Eth2Node) {.async.} =
   node.discovery.open()
   node.discovery.start()
   node.libp2pTransportLoops = await node.switch.start()
-  traceAsyncErrors node.runDiscoveryLoop()
+  node.discoveryLoop = node.runDiscoveryLoop()
+  traceAsyncErrors node.discoveryLoop
 
 proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer =
   new result
@@ -1032,9 +1038,11 @@ proc subscribe*[MsgType](node: Eth2Node,
     msgValidator SSZ.decode(gossipBytes, MsgType)
 
   # Validate messages as soon as subscribed
-  let incomingMsgValidator = proc(topic: string, message: messages.Message):
-      Future[bool] {.async, gcsafe.} =
+  let incomingMsgValidator = proc(topic: string,
+                                  message: GossipMsg): Future[bool]
+                                 {.async, gcsafe.} =
     return execMsgValidator(message.data, topic)
+
   node.switch.addValidator(topic, incomingMsgValidator)
 
   let incomingMsgHandler = proc(topic: string,
