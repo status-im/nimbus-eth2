@@ -30,8 +30,8 @@ type
     slots*: seq[PeerSlot[A, B]]
     man: SyncManager[A, B]
 
-  GetLocalHeadSlotCallback* = proc(): Slot
-  UpdateLocalBlocksCallback* = proc(list: openarray[SignedBeaconBlock]): bool
+  GetLocalHeadSlotCallback* = proc(): Slot {.gcsafe.}
+  UpdateLocalBlocksCallback* = proc(list: openarray[SignedBeaconBlock]): bool {.gcsafe.}
 
   SyncManager*[A, B] = ref object
     groups*: seq[PeerGroup[A, B]]
@@ -128,7 +128,7 @@ proc updateLastSlot*(sq: SyncQueue, last: Slot) {.inline.} =
   sq.lastSlot = last
 
 proc push*(sq: SyncQueue, sr: SyncRequest,
-           data: seq[SignedBeaconBlock]) {.async.} =
+           data: seq[SignedBeaconBlock]) {.async, gcsafe.} =
   ## Push successfull result to queue ``sq``.
   while true:
     if (sq.queueSize > 0) and (sr.slot >= sq.outSlot + uint64(sq.queueSize)):
@@ -888,7 +888,7 @@ proc updateStatus*[A, B](sman: SyncManager[A, B]) {.async.} =
         pending[i].cancel()
     raise exc
 
-proc synchronize*[A, B](sman: SyncManager[A, B]) {.async.} =
+proc synchronize*[A, B](sman: SyncManager[A, B]) {.async, gcsafe.} =
   ## TODO: This synchronization procedure is not optimal, we can do it better
   ## if spawn N parallel tasks, where N is number of peer groups.
   var

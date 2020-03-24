@@ -603,7 +603,7 @@ proc checkRequest(peer: SimplePeer, index: int, slot, count, step: int,
                   data: varargs[int]): bool {.inline.} =
   result = checkRequest(peer.requests[index], slot, count, step, data)
 
-proc syncManagerOnePeerTest(): Future[bool] {.async.} =
+proc syncManagerOnePeerTest(): Future[bool] {.async, gcsafe.} =
   # Syncing with one peer only.
   var pool = newPeerPool[SimplePeer, SimplePeerKey]()
   var peer = SimplePeer.init("id1")

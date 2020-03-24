@@ -193,14 +193,14 @@ suiteReport "PeerPool testing suite":
       itemFut23.finished == false
       itemFut24.finished == false
 
-  timedTest "Acquire/Sorting and consistency test":
+  timedTest "Acquire/Sorting and consistency test": closureScope:
     const
       TestsCount = 1000
       MaxNumber = 1_000_000
 
     var pool = newPeerPool[PeerTest, PeerTestID]()
 
-    proc testAcquireRelease(): Future[int] {.async.} =
+    proc testAcquireRelease(): Future[int] {.async, gcsafe.} =
       var weight: int
       var incoming, outgoing, total: seq[PeerTest]
       var incWeight1, outWeight1, totWeight1: int
@@ -362,7 +362,7 @@ suiteReport "PeerPool testing suite":
 
     check waitFor(testPeerLifetime()) == true
 
-  timedTest "Safe/Clear test":
+  timedTest "Safe/Clear test": closureScope:
     var pool = newPeerPool[PeerTest, PeerTestID]()
     var peer1 = PeerTest.init("peer1", 10)
     var peer2 = PeerTest.init("peer2", 9)
@@ -409,7 +409,7 @@ suiteReport "PeerPool testing suite":
     asyncCheck testConsumer()
     check waitFor(testClose()) == true
 
-  timedTest "Access peers by key test":
+  timedTest "Access peers by key test": closureScope:
     var pool = newPeerPool[PeerTest, PeerTestID]()
     var peer1 = PeerTest.init("peer1", 10)
     var peer2 = PeerTest.init("peer2", 9)
