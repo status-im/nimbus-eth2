@@ -828,7 +828,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 
 proc setupNat(conf: BeaconNodeConf): tuple[ip: IpAddress,
                                            tcpPort: Port,
-                                           udpPort: Port] =
+                                           udpPort: Port] {.gcsafe.} =
   # defaults
   result.ip = globalListeningAddr
   result.tcpPort = conf.tcpPort
@@ -857,9 +857,12 @@ proc setupNat(conf: BeaconNodeConf): tuple[ip: IpAddress,
     let extIP = getExternalIP(nat)
     if extIP.isSome:
       result.ip = extIP.get()
-      let extPorts = redirectPorts(tcpPort = result.tcpPort,
-                                   udpPort = result.udpPort,
-                                   description = clientId)
+      # TODO redirectPorts in considered a gcsafety violation
+      # because it obtains the address of a non-gcsafe proc?
+      let extPorts = ({.gcsafe.}:
+        redirectPorts(tcpPort = result.tcpPort,
+                      udpPort = result.udpPort,
+                      description = clientId))
       if extPorts.isSome:
         (result.tcpPort, result.udpPort) = extPorts.get()
 
@@ -893,7 +896,7 @@ proc getPersistentNetKeys*(conf: BeaconNodeConf): KeyPair =
 
   KeyPair(seckey: privKey, pubkey: privKey.getKey())
 
-proc createEth2Node*(conf: BeaconNodeConf): Future[Eth2Node] {.async.} =
+proc createEth2Node*(conf: BeaconNodeConf): Future[Eth2Node] {.async, gcsafe.} =
   var
     (extIp, extTcpPort, _) = setupNat(conf)
     hostAddress = tcpEndPoint(conf.libp2pAddress, conf.tcpPort)
