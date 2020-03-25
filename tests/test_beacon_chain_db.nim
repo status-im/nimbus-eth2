@@ -8,7 +8,7 @@
 {.used.}
 
 import  options, unittest, sequtils,
-  ../beacon_chain/[beacon_chain_db, extras, interop, ssz, kvstore],
+  ../beacon_chain/[beacon_chain_db, extras, interop, ssz, kvstore, persistent_store],
   ../beacon_chain/spec/[beaconstate, datatypes, digest, crypto],
   # test utilies
   ./testutil, ./testblockutil
@@ -89,6 +89,21 @@ suiteReport "Beacon chain DB" & preset():
     doAssert toSeq(db.getAncestors(a0r)) == [(a0r, a0)]
     doAssert toSeq(db.getAncestors(a2r)) == [(a2r, a2), (a1r, a1), (a0r, a0)]
 
+  timedTest "cold storage" & preset():
+    var db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
+    
+    let
+      a0 = SignedBeaconBlock(message: BeaconBlock(slot: GENESIS_SLOT + 0))
+      a0r = hash_tree_root(a0.message)
+      a1 = SignedBeaconBlock(message:
+        BeaconBlock(slot: GENESIS_SLOT + 1, parent_root: a0r))
+    
+    db.putBlockCold(a0)
+    db.putBlockCold(a1)
+    let blck = db.getBlockFromCold(Slot(1)).get
+    check:
+      blck.message.parent_root == a0r
+  
   timedTest "sanity check genesis roundtrip" & preset():
     # This is a really dumb way of checking that we can roundtrip a genesis
     # state. We've been bit by this because we've had a bug in the BLS
