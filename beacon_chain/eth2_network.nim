@@ -911,7 +911,7 @@ proc createEth2Node*(conf: BeaconNodeConf): Future[Eth2Node] {.async, gcsafe.} =
   # that are different from the host address (this is relevant when we
   # are running behind a NAT).
   var switch = newStandardSwitch(some keys.seckey, hostAddress,
-                                 triggerSelf = true, gossip = false)
+                                 triggerSelf = true, gossip = true)
   result = Eth2Node.init(conf, switch, extIp, keys.seckey.asEthKey)
 
 proc getPersistenBootstrapAddr*(conf: BeaconNodeConf,
