@@ -269,7 +269,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         pool.heads.len() == 1
         pool.head.justified.slot.compute_epoch_at_slot() == 5
         pool.tail.children.len == 1
-
+      
       let
         pool2 = BlockPool.init(db)
 

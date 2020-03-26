@@ -147,7 +147,6 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
   let
     tailBlockRoot = db.getTailBlock()
     headBlockRoot = db.getHeadBlock()
-
   doAssert tailBlockRoot.isSome(), "Missing tail block, database corrupt?"
   doAssert headBlockRoot.isSome(), "Missing head block, database corrupt?"
 
@@ -156,12 +155,12 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
     tailBlock = db.getBlock(tailRoot).get()
     tailRef = BlockRef.init(tailRoot, tailBlock.message)
     headRoot = headBlockRoot.get()
-
+  
   var
     blocks = {tailRef.root: tailRef}.toTable()
     latestStateRoot = Option[tuple[stateRoot: Eth2Digest, blckRef: BlockRef]]()
     headRef: BlockRef
-
+  
   if headRoot != tailRoot:
     var curRef: BlockRef
 
@@ -180,7 +179,6 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
         link(newRef, curRef)
         curRef = curRef.parent
       blocks[curRef.root] = curRef
-      trace "Populating block pool", key = curRef.root, val = curRef
 
       if latestStateRoot.isNone() and db.containsState(blck.message.state_root):
         latestStateRoot = some((blck.message.state_root, curRef))
@@ -859,8 +857,10 @@ proc updateHead*(pool: BlockPool, newHead: BlockRef) =
               pool.db.delBlock(child.root)
           cur.parent.children = @[cur]
 
+    #Move the previous finalizedHead to coldstorage
+    pool.db.pruneToColdStorage(finalizedHead.blck.root)
     pool.finalizedHead = finalizedHead
-
+    
     let hlen = pool.heads.len
     for i in 0..<hlen:
       let n = hlen - i - 1
