@@ -833,6 +833,15 @@ proc updateHead*(pool: BlockPool, newHead: BlockRef) =
       #  pool.delState(cur)
 
     block: # Clean up block refs, walking block by block
+      # DFS to delete all children of a given parent.
+      proc deleteDescendants(parent: BlockRef) =
+        for child in parent.children:
+          if(len(child.children) > 0):
+            deleteDescendants(child)
+          pool.blocks.del(child.root)
+          pool.db.delBlock(child.root)
+          pool.delState(BlockSlot(blck: child, slot: child.slot))
+
       var cur = finalizedHead.blck
       while cur != pool.finalizedHead.blck:
         # Finalization means that we choose a single chain as the canonical one -
@@ -847,19 +856,16 @@ proc updateHead*(pool: BlockPool, newHead: BlockRef) =
         if cur.parent != nil: # This happens for the genesis / tail block
           for child in cur.parent.children:
             if child != cur:
-              # TODO also remove states associated with the unviable forks!
-              # TODO the easiest thing to do here would probably be to use
-              #      pool.heads to find unviable heads, then walk those chains
-              #      and remove everything.. currently, if there's a child with
-              #      children of its own, those children will not be pruned
-              #      correctly from the database
-              pool.blocks.del(child.root)
-              pool.db.delBlock(child.root)
+              deleteDescendants(child)
           cur.parent.children = @[cur]
 
-    #Move the previous finalizedHead to coldstorage
-    pool.db.pruneToColdStorage(finalizedHead.blck.root)
+    # Right now, the finalized blocks themselves are stil on the graph, can't we delete them as well?
+    pool.db.pruneToPersistent(finalizedHead.blck.root)
+    
+    #Should we move the tail?
+    pool.db.putTailBlock(finalizedHead.blck.root)
     pool.finalizedHead = finalizedHead
+
     
     let hlen = pool.heads.len
     for i in 0..<hlen:

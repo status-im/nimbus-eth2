@@ -3,43 +3,29 @@ import memfiles, streams, os
 type
     DataProc* = proc(val: openArray[byte])
 
-    ColdStorage* = ref object
-        storage*: FileName
-        indices*: FileName
-
-    FileName* = object
-        name*: string
+    PersistentStore* = object
+        fn*: string
 
 const STORAGE = "storage"
-const INDEXES = "indices"
-proc createFiles(names: array[2, string]) =
-    for name in names:
-        let fs = newFileStream(name, fmWrite);
-        fs.close() 
+proc init*(T: type PersistentStore): PersistentStore =
+    let fs = newFileStream(STORAGE, fmWrite);
+    fs.close() 
+    T(fn: STORAGE)
 
-proc init*(T: type ColdStorage): ColdStorage =
-    createFiles([STORAGE, INDEXES])
-    T(storage: FileName(name: STORAGE),
-    indices: FileName(name: INDEXES))
-
-template append(fn: FileName, data: seq[byte]) =
-    let fs = newFileStream(fn.name, fmAppend)
+# Using seq[byte] for now because I get bad address errors when using openArray[byte]
+proc put*(db: PersistentStore, data: seq[byte]) =
+    let fs = newFileStream(db.fn, fmAppend)
     fs.write(cast[string](data))
     fs.close()
 
-proc getSize*(fn: FileName): uint64 =
-    uint64 getfileSize fn.name
+proc getSize*(db: PersistentStore): uint64 =
+    uint64 getfileSize db.fn
 
-# Using seq[byte] for now because I get bad address errors when using openArray[byte]
-proc put*(db: ColdStorage, key,val: seq[byte]) =
-    db.storage.append(val)
-    db.indices.append(key)
-
-#TODO substitute to use memfiles 
-proc read*(fn: FileName, offset, len: uint64, onData: DataProc) =
-    let fs = newFileStream(fn.name, fmRead)
+#TODO figure it out how to make best use of memfiles 
+proc readStorage*(db: PersistentStore, offset, len: uint64, onData: DataProc) =
+    var fs = newMemMapFileStream(db.fn, fmRead)
     var buffer = newSeq[byte](len)
     fs.setPosition(int(offset))
-    let read = fs.readData(addr(buffer[0]), int(len))
+    discard fs.readData(addr(buffer[0]), int(len))
     fs.close()
     onData(buffer)
