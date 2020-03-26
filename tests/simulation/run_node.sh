@@ -10,8 +10,15 @@ shift
 source "$(dirname "$0")/vars.sh"
 
 if [[ ! -z "$1" ]]; then
+  ADDITIONAL_BEACON_NODE_ARGS=$1
+  shift
+else
+  ADDITIONAL_BEACON_NODE_ARGS=""
+fi
+
+if [[ ! -z "$1" ]]; then
   BOOTSTRAP_NODE_ID=$1
-  BOOTSTRAP_ADDRESS_FILE="${SIMULATION_DIR}/node-${BOOTSTRAP_NODE_ID}/beacon_node.address"
+  BOOTSTRAP_ADDRESS_FILE="${SIMULATION_DIR}/beacon_node.address"
   shift
 else
   BOOTSTRAP_NODE_ID=$MASTER_NODE
@@ -59,12 +66,11 @@ cd "$DATA_DIR" && $BEACON_NODE_BIN \
   --state-snapshot=$SNAPSHOT_FILE \
   $DEPOSIT_WEB3_URL_ARG \
   --deposit-contract=$DEPOSIT_CONTRACT_ADDRESS \
-  --verify-finalization \
   --rpc \
   --rpc-address="127.0.0.1" \
   --rpc-port="$(( $BASE_RPC_PORT + $NODE_ID ))" \
   --metrics \
   --metrics-address="127.0.0.1" \
   --metrics-port="$(( $BASE_METRICS_PORT + $NODE_ID ))" \
+  ${ADDITIONAL_BEACON_NODE_ARGS} \
   "$@"
-
