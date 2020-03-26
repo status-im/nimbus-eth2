@@ -18,7 +18,7 @@ fi
 
 if [[ ! -z "$1" ]]; then
   BOOTSTRAP_NODE_ID=$1
-  BOOTSTRAP_ADDRESS_FILE="${SIMULATION_DIR}/beacon_node.address"
+  BOOTSTRAP_ADDRESS_FILE="${SIMULATION_DIR}/node-${BOOTSTRAP_NODE_ID}/beacon_node.address"
   shift
 else
   BOOTSTRAP_NODE_ID=$MASTER_NODE
