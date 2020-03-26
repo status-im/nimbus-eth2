@@ -98,9 +98,9 @@ suiteReport "Beacon chain DB" & preset():
       a1 = SignedBeaconBlock(message:
         BeaconBlock(slot: GENESIS_SLOT + 1, parent_root: a0r))
     
-    db.putBlockCold(a0)
-    db.putBlockCold(a1)
-    let blck = db.getBlockFromCold(Slot(1)).get
+    db.putPersistentBlock(a0)
+    db.putPersistentBlock(a1)
+    let blck = db.getBlock(hash_tree_root(a1.message)).get
     check:
       blck.message.parent_root == a0r
   
