@@ -180,7 +180,6 @@ for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 		--data-dir="${NODE_DATA_DIR}" \
 		${BOOTSTRAP_ARG} \
 		--state-snapshot="${NETWORK_DIR}/genesis.ssz" \
-		--verify-finalization \
 		${EXTRA_ARGS} \
 		> "${DATA_DIR}/log${NUM_NODE}.txt" 2>&1 &
 	if [[ "${PIDS}" == "" ]]; then
