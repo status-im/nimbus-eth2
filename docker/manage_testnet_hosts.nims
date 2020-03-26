@@ -103,7 +103,7 @@ of restart_nodes:
       echo &"ssh {n.server} docker pull -q statusteam/nimbus_beacon_node:{conf.network}"
     # docker-compose will rebuild the container if it detects a newer image.
     # Prints: "Recreating beacon-node-testnet1-1 ... done".
-    echo &"ssh {n.server} 'cd /docker/{n.container} && docker-compose up -d'"
+    echo &"ssh {n.server} 'cd /docker/{n.container} && docker-compose --compatibility up -d'"
 
 of reset_network:
   for n, firstValidator, lastValidator in validatorAssignments():
