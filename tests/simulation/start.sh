@@ -42,7 +42,7 @@ build_beacon_node () {
 build_beacon_node $BEACON_NODE_BIN
 
 if [ ! -f "${LAST_VALIDATOR}" ]; then
-  echo Building $DEPLOY_DEPOSIT_CONTRACT_BIN
+  echo Building "${DEPLOY_DEPOSIT_CONTRACT_BIN}"
   $MAKE NIMFLAGS="-o:\"$DEPLOY_DEPOSIT_CONTRACT_BIN\" $CUSTOM_NIMFLAGS $DEFS" deposit_contract
 
   if [ "$DEPOSIT_WEB3_URL_ARG" != "" ]; then
@@ -84,10 +84,10 @@ TMUX_SESSION_NAME="${TMUX_SESSION_NAME:-nbc-network-sim}"
 
 # Using tmux or multitail is an opt-in
 USE_MULTITAIL="${USE_MULTITAIL:-no}"
-type "$MULTITAIL" &>/dev/null || { echo $MULTITAIL is missing; USE_MULTITAIL="no"; }
+type "$MULTITAIL" &>/dev/null || { echo "${MULTITAIL}" is missing; USE_MULTITAIL="no"; }
 
 USE_TMUX="${USE_TMUX:-no}"
-type "$TMUX" &>/dev/null || { echo $TMUX is missing; USE_TMUX="no"; }
+type "$TMUX" &>/dev/null || { echo "${TMUX}" is missing; USE_TMUX="no"; }
 
 # Prometheus config (continued inside the loop)
 mkdir -p "${METRICS_DIR}"
@@ -123,12 +123,12 @@ fi
 COMMANDS=()
 
 if [[ "$USE_TMUX" != "no" ]]; then
-  $TMUX new-session -s $TMUX_SESSION_NAME -d
+  $TMUX new-session -s "${TMUX_SESSION_NAME}" -d
 
   # maybe these should be moved to a user config file
-  $TMUX set-option -t $TMUX_SESSION_NAME history-limit 999999
-  $TMUX set-option -t $TMUX_SESSION_NAME remain-on-exit on
-  $TMUX set -t $TMUX_SESSION_NAME mouse on
+  $TMUX set-option -t "${TMUX_SESSION_NAME}" history-limit 999999
+  $TMUX set-option -t "${TMUX_SESSION_NAME}" remain-on-exit on
+  $TMUX set -t "${TMUX_SESSION_NAME}" mouse on
 fi
 
 for i in $(seq $MASTER_NODE -1 $TOTAL_USER_NODES); do
@@ -139,11 +139,11 @@ for i in $(seq $MASTER_NODE -1 $TOTAL_USER_NODES); do
     done
   fi
 
-  CMD="${SIM_ROOT}/run_node.sh $i"
+  CMD="${SIM_ROOT}/run_node.sh ${i} --verify-finalization"
 
   if [[ "$USE_TMUX" != "no" ]]; then
-    $TMUX split-window -t $TMUX_SESSION_NAME "$CMD"
-    $TMUX select-layout -t $TMUX_SESSION_NAME tiled
+    $TMUX split-window -t "${TMUX_SESSION_NAME}" "$CMD"
+    $TMUX select-layout -t "${TMUX_SESSION_NAME}" tiled
   elif [[ "$USE_MULTITAIL" != "no" ]]; then
     if [[ "$i" == "$MASTER_NODE" ]]; then
       SLEEP="0"
@@ -158,7 +158,7 @@ for i in $(seq $MASTER_NODE -1 $TOTAL_USER_NODES); do
 
   # Prometheus config
   cat >> "${METRICS_DIR}/prometheus.yml" <<EOF
-      - targets: ['127.0.0.1:$(( $BASE_METRICS_PORT + $i ))']
+      - targets: ['127.0.0.1:$(( BASE_METRICS_PORT + i ))']
         labels:
           node: '$i'
 EOF
@@ -166,8 +166,8 @@ done
 
 if [[ "$USE_TMUX" != "no" ]]; then
   $TMUX kill-pane -t $TMUX_SESSION_NAME:0.0
-  $TMUX select-layout -t $TMUX_SESSION_NAME tiled
-  $TMUX attach-session -t $TMUX_SESSION_NAME -d
+  $TMUX select-layout -t "${TMUX_SESSION_NAME}" tiled
+  $TMUX attach-session -t "${TMUX_SESSION_NAME}" -d
 elif [[ "$USE_MULTITAIL" != "no" ]]; then
   eval $MULTITAIL -s 3 -M 0 -x \"Nimbus beacon chain\" "${COMMANDS[@]}"
 else
