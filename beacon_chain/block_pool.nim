@@ -862,8 +862,6 @@ proc updateHead*(pool: BlockPool, newHead: BlockRef) =
     # Right now, the finalized blocks themselves are stil on the graph, can't we delete them as well?
     pool.db.pruneToPersistent(finalizedHead.blck.root)
     
-    #Should we move the tail?
-    pool.db.putTailBlock(finalizedHead.blck.root)
     pool.finalizedHead = finalizedHead
 
     

@@ -22,7 +22,7 @@ type
     ##       healthy network sync, we probably need to store blocks at least
     ##       past the weak subjectivity period.
     kBlockSlotStateRoot ## BlockSlot -> state_root mapping
-    kHashToOffset ## Hash -> Offset : to allow to efficiently access persistent storage
+    kBlockHashToSlot ## Hash -> Offset : to allow to efficiently access persistent storage
 
 func subkey(kind: DbKeyKind): array[1, byte] =
   result[0] = byte ord(kind)
@@ -43,7 +43,7 @@ func subkey(kind: type SignedBeaconBlock, key: Eth2Digest): auto =
   subkey(kHashToBlock, key.data)
 
 func subkey(kind: type Eth2Digest, key: Eth2Digest): auto =
-  subkey(kHashToOffset, key.data)
+  subkey(kBlockHashToSlot, key.data)
 
 func subkey(root: Eth2Digest, slot: Slot): auto =
   # TODO: Copy the SSZ data to `ret` properly.
@@ -136,51 +136,41 @@ proc containsState*(
     db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(BeaconState, key))
 
-proc getPersistent*(db: BeaconChainDB, off: uint64, T: type): Option[T] =
-  var len: Option[uint64]
-  
-  db.persistent.readStorage(off, uint64(sizeof(uint64))) do (data: openArray[byte]):
-    try:
-      len = some(SSZ.decode(data, uint64))
-    except SerializationError: #TODO think what should happen in case of error
-      discard
 
-  var value: Option[T]
-  db.persistent.readStorage(off + uint64(sizeof(uint64)), len.get) do (data: openArray[byte]):
+proc read(fn: string, offset, len: uint64, T: type): Option[T] =
+  var res : Option[T]
+  fn.read(offset, len) do (data: openArray[byte]):
     try:
-       value = some(SSZ.decode(data, T))
+      res = some(SSZ.decode(data, T))
     except SerializationError:
       discard
+  res
+
+proc getPersistentBlock*(db: BeaconChainDB, slot: Slot): Option[SignedBeaconBlock] =
+  let uintsize = uint64 sizeof(uint64)
+  let indices_offset = slot * uintsize 
+  var offset = db.persistent.indices.read(indices_offset, uintsize, uint64)
+  var len = db.persistent.storage.read(offset.get, uintsize, uint64)
+  var value = db.persistent.storage.read(offset.get + uintsize, len.get, SignedBeaconBlock)
   value
 
-
-proc putPersistent(db: BeaconChainDB, key: Eth2Digest, value: auto) =
-  let available_off = db.persistent.getSize()
-  let encoded_off = SSZ.encode(available_off)
+proc putPersistentBlock*(db: BeaconChainDB, value: SignedBeaconBlock) =
+  let available_off = db.persistent.storage.getSize()
+  let key = SSZ.encode(available_off) 
   let val = SSZ.encode(value)
   let encoded_len = SSZ.encode(uint64 len(val))
-  db.backend.put(subkey(type Eth2Digest, key), SSZ.encode(encoded_off))
-  db.persistent.put(encoded_len & val)
-
-proc putPersistentBlock*(db: BeaconChainDB, value: SignedBeaconBlock) =
-  db.putPersistent(hash_tree_root(value.message), value)
-
-proc putPersistentState*(db: BeaconChainDB, value: SignedBeaconBlock) =
-  db.putPersistent(hash_tree_root(value), value)
+  db.backend.put(subkey(type Eth2Digest, hash_tree_root(value.message)), SSZ.encode(value.message.slot))
+  db.persistent.put(key, encoded_len & val)
 
 proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Option[SignedBeaconBlock] =
   if(db.containsBlock(key)):
     return db.get(subkey(SignedBeaconBlock, key), SignedBeaconBlock)
-  var off = db.get(subkey(Eth2Digest, key), uint64)
-  if off.isSome():
-    return db.getPersistent(off.get, SignedBeaconBlock)
+  var slot = db.get(subkey(Eth2Digest, key), uint64)
+  if slot.isSome():
+    return db.getPersistentBlock(Slot(slot.get))
 
 proc getState*(db: BeaconChainDB, key: Eth2Digest): Option[BeaconState] =
-  if(db.containsState(key)):
     return db.get(subkey(BeaconState, key), BeaconState)
-  var off = db.get(subkey(Eth2Digest, key), uint64)
-  if off.isSome():
-    return db.getPersistent(off.get, BeaconState)
 
 iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
     tuple[root: Eth2Digest, blck: SignedBeaconBlock] =
@@ -195,9 +185,15 @@ iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
     root = blck.get().message.parent_root
 
 proc pruneToPersistent*(db: BeaconChainDB, root: Eth2Digest) =
+  var temp_root = newSeq[Eth2Digest](0)
   for root, blck in db.getAncestors(root):
     if(not db.containsBlock(root)):
       break
-    db.putPersistentBlock(blck)
-    db.delBlock(root)
+    temp_root.add(root)
+  
+  for i in countdown(temp_root.len - 1, 0):
+    let blck = db.getBlock(temp_root[i])
+    if blck.isSome():
+      db.putPersistentBlock(blck.get)
+      db.delBlock(temp_root[i])
   

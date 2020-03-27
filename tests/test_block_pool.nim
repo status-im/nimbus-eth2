@@ -275,8 +275,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
 
       # check that the state reloaded from database resembles what we had before
       check:
-        # If the tail moves, this no longer holds true
-        # pool2.tail.root == pool.tail.root
+        pool2.tail.root == pool.tail.root
         pool2.head.blck.root == pool.head.blck.root
         pool2.finalizedHead.blck.root == pool.finalizedHead.blck.root
         pool2.finalizedHead.slot == pool.finalizedHead.slot
