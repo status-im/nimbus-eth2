@@ -66,8 +66,8 @@ proc signMockAttestation*(state: BeaconState, attestation: var Attestation) =
   var first_iter = true # Can't do while loop on hashset
   for validator_index in participants:
     let sig = get_attestation_signature(
-      state.fork, attestation.data, MockPrivKeys[validator_index],
-      state.genesis_validators_root
+      state.fork, state.genesis_validators_root, attestation.data,
+      MockPrivKeys[validator_index]
     )
     if first_iter:
       attestation.signature = sig

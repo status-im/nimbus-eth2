@@ -484,8 +484,8 @@ proc makeBeaconBlock*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#aggregation-selection
 func get_slot_signature*(
-    fork: Fork, slot: Slot, privkey: ValidatorPrivKey,
-    genesis_validators_root: Eth2Digest): ValidatorSig =
+    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
+    privkey: ValidatorPrivKey): ValidatorSig =
   let
     domain = get_domain(fork, DOMAIN_SELECTION_PROOF,
       compute_epoch_at_slot(slot), genesis_validators_root)
@@ -495,8 +495,8 @@ func get_slot_signature*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#randao-reveal
 func get_epoch_signature*(
-    fork: Fork, slot: Slot, privkey: ValidatorPrivKey,
-    genesis_validators_root: Eth2Digest): ValidatorSig =
+    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
+    privkey: ValidatorPrivKey): ValidatorSig =
   let
     domain = get_domain(fork, DOMAIN_RANDAO, compute_epoch_at_slot(slot),
       genesis_validators_root)
@@ -506,8 +506,8 @@ func get_epoch_signature*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#signature
 func get_block_signature*(
-    fork: Fork, slot: Slot, root: Eth2Digest, privkey: ValidatorPrivKey,
-    genesis_validators_root: Eth2Digest): ValidatorSig =
+    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
+    root: Eth2Digest, privkey: ValidatorPrivKey): ValidatorSig =
   let
     domain = get_domain(fork, DOMAIN_BEACON_PROPOSER,
       compute_epoch_at_slot(slot), genesis_validators_root)
@@ -517,8 +517,8 @@ func get_block_signature*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#aggregate-signature
 func get_attestation_signature*(
-    fork: Fork, attestation: AttestationData, privkey: ValidatorPrivKey,
-    genesis_validators_root: Eth2Digest): ValidatorSig =
+    fork: Fork, genesis_validators_root: Eth2Digest, attestation: AttestationData,
+    privkey: ValidatorPrivKey): ValidatorSig =
   let
     attestationRoot = hash_tree_root(attestation)
     domain = get_domain(fork, DOMAIN_BEACON_ATTESTER,

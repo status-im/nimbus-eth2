@@ -385,7 +385,7 @@ proc proposeBlock(node: BeaconNode,
     let message = makeBeaconBlock(
       state,
       head.root,
-      validator.genRandaoReveal(state.fork, slot, state.genesis_validators_root),
+      validator.genRandaoReveal(state.fork, state.genesis_validators_root, slot),
       eth1data,
       Eth2Digest(),
       node.attestationPool.getAttestationsForBlock(state),
@@ -401,8 +401,8 @@ proc proposeBlock(node: BeaconNode,
     let blockRoot = hash_tree_root(newBlock.message)
 
     # Careful, state no longer valid after here because of the await..
-    newBlock.signature =
-      await validator.signBlockProposal(state.fork, slot, blockRoot, state.genesis_validators_root)
+    newBlock.signature = await validator.signBlockProposal(
+      state.fork, state.genesis_validators_root, slot, blockRoot)
 
     (blockRoot, newBlock)
 

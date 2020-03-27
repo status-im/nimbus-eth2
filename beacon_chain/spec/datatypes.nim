@@ -57,7 +57,7 @@ else:
   loadCustomPreset const_preset
 
 const
-  SPEC_VERSION* = "0.11.0" ## \
+  SPEC_VERSION* = "0.11.1" ## \
   ## Spec version we're aiming to be compatible with, right now
 
   GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
