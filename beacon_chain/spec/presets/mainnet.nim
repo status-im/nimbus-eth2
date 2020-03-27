@@ -56,7 +56,7 @@ const
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L52
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L58
 
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9 ##\
   ## Minimum amounth of ETH that can be deposited in one call - deposits can

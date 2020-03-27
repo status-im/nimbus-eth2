@@ -71,7 +71,7 @@ const
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L71
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/minimal.yaml#L77
   # Changed: Faster to spin up testnets, but does not give validator
   # reasonable warning time for genesis
   MIN_GENESIS_DELAY* = 300
@@ -177,16 +177,6 @@ const
   MAX_GASPRICE* = 16384 # Gwei
   MIN_GASPRICE* = 32 # Gwei
   GASPRICE_ADJUSTMENT_COEFFICIENT* = 8
-
-  # Phase 1 - Sharding
-  # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L157
-  # TODO those are included in minimal.yaml but not mainnet.yaml
-  #      Why?
-  SHARD_SLOTS_PER_BEACON_SLOT* = 2 # spec: SHARD_SLOTS_PER_EPOCH
-  EPOCHS_PER_SHARD_PERIOD* = 4
-  PHASE_1_FORK_EPOCH* = 8
-  PHASE_1_FORK_SLOT* = 64
 
   # Phase 1 - Custody game
   # ---------------------------------------------------------------

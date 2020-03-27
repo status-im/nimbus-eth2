@@ -335,7 +335,7 @@ proc sendAttestation(node: BeaconNode,
     aggregation_bits: aggregationBits
   )
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#broadcast-attestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-attestation
   node.network.broadcast(
     getAttestationTopic(attestationData.index), attestation)
 
