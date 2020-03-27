@@ -84,7 +84,8 @@ proc addTestBlock*(
     privKey = hackPrivKey(proposer)
     randao_reveal =
       if skipBlsValidation notin flags:
-        privKey.genRandaoReveal(state.fork, state.slot)
+        privKey.genRandaoReveal(
+          state.fork, state.slot, state.genesis_validators_root)
       else:
         ValidatorSig()
 
@@ -149,7 +150,8 @@ proc makeAttestation*(
   let
     sig =
       if skipBLSValidation notin flags:
-        get_attestation_signature(state.fork, data, hackPrivKey(validator))
+        get_attestation_signature(state.fork, data, hackPrivKey(validator),
+          state.genesis_validators_root)
       else:
         ValidatorSig()
 
@@ -204,7 +206,8 @@ proc makeFullAttestations*(
       data: data,
       signature: get_attestation_signature(
         state.fork, data,
-        hackPrivKey(state.validators[committee[0]]))
+        hackPrivKey(state.validators[committee[0]]),
+        state.genesis_validators_root)
     )
     # Aggregate the remainder
     attestation.aggregation_bits.setBit 0
@@ -213,7 +216,8 @@ proc makeFullAttestations*(
       if skipBLSValidation notin flags:
         attestation.signature.aggregate(get_attestation_signature(
           state.fork, data,
-          hackPrivKey(state.validators[committee[j]])
+          hackPrivKey(state.validators[committee[j]]),
+          state.genesis_validators_root
         ))
 
     result.add attestation

@@ -25,7 +25,7 @@ import
 # ----------------------------------------------------------------
 
 const
-  SSZDir = FixturesDir/"tests-v0.11.0"/const_preset/"phase0"/"ssz_static"
+  SSZDir = FixturesDir/"tests-v0.11.1"/const_preset/"phase0"/"ssz_static"
 
 type
   SSZHashTreeRoot = object
@@ -106,7 +106,7 @@ proc runSSZtests() =
           else:
             raise newException(ValueError, "Unsupported test: " & sszType)
 
-suiteReport "Official - 0.11.0 - SSZ consensus objects " & preset():
+suiteReport "Official - 0.11.1 - SSZ consensus objects " & preset():
   runSSZtests()
 
 summarizeLongTests("FixtureSSZConsensus")

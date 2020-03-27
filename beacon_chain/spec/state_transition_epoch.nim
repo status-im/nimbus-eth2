@@ -242,7 +242,7 @@ func get_base_reward(state: BeaconState, index: ValidatorIndex,
   effective_balance * BASE_REWARD_FACTOR div
     integer_squareroot(total_balance) div BASE_REWARDS_PER_EPOCH
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#rewards-and-penalties-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#rewards-and-penalties-1
 func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] {.nbench.}=
   let
@@ -280,7 +280,7 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
         const increment = EFFECTIVE_BALANCE_INCREMENT
         let reward_numerator = get_base_reward(state, index, total_balance) *
           (attesting_balance div increment)
-        rewards[index] = reward_numerator div (total_balance div increment)
+        rewards[index] += reward_numerator div (total_balance div increment)
       else:
         penalties[index] += get_base_reward(state, index, total_balance)
 
