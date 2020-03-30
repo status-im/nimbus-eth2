@@ -44,7 +44,8 @@ proc aggregate_attestations*(
 
   let
     slot = state.slot - trailing_distance
-    slot_signature = get_slot_signature(state.fork, slot, privkey)
+    slot_signature = get_slot_signature(
+      state.fork, state.genesis_validators_root, slot, privkey)
 
   doAssert slot + ATTESTATION_PROPAGATION_SLOT_RANGE >= state.slot
   doAssert state.slot >= slot
