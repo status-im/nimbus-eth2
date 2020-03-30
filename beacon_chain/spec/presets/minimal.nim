@@ -43,7 +43,7 @@ const
 
   # Constants
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#constants
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#constants
   # TODO "The following values are (non-configurable) constants" ...
   # Unchanged
   BASE_REWARDS_PER_EPOCH* = 4
