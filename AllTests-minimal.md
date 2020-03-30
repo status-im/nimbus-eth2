@@ -78,7 +78,7 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Attestation topics                                                                         OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - 0.11.0 - constants & config  [Preset: minimal]
+## Official - 0.11.1 - constants & config  [Preset: minimal]
 ```diff
 + BASE_REWARD_FACTOR                                64                   [Preset: minimal]   OK
 + BLS_WITHDRAWAL_PREFIX                             "0x00"               [Preset: minimal]   OK

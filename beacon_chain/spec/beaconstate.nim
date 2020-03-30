@@ -286,12 +286,12 @@ func get_block_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Return the block root at the start of a recent ``epoch``.
   get_block_root_at_slot(state, compute_start_slot_at_epoch(epoch))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#get_total_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#get_total_balance
 func get_total_balance*(state: BeaconState, validators: auto): Gwei =
-  ## Return the combined effective balance of the ``indices``. (1 Gwei minimum
-  ## to avoid divisions by zero.)
+  ## Return the combined effective balance of the ``indices``.
+  ## ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
   ## Math safe up to ~10B ETH, afterwhich this overflows uint64.
-  max(1'u64,
+  max(EFFECTIVE_BALANCE_INCREMENT,
     foldl(validators, a + state.validators[b].effective_balance, 0'u64)
   )
 
@@ -365,7 +365,7 @@ proc process_registry_updates*(state: var BeaconState) {.nbench.}=
     validator.activation_epoch =
       compute_activation_exit_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#is_valid_indexed_attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     state: BeaconState, indexed_attestation: IndexedAttestation,
     flags: UpdateFlags): bool =
@@ -381,7 +381,6 @@ proc is_valid_indexed_attestation*(
     return false
 
   # Verify indices are sorted and unique
-  # TODO but why? this is a local artifact
   if indices != sorted(indices, system.cmp):
     notice "indexed attestation: indices not sorted"
     return false
@@ -436,7 +435,7 @@ func get_indexed_attestation(state: BeaconState, attestation: Attestation,
     signature: attestation.signature
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#attestations
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#attestations
 proc check_attestation*(
     state: BeaconState, attestation: Attestation, flags: UpdateFlags,
     stateCache: var StateCache): bool =

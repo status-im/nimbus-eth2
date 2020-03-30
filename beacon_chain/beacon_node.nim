@@ -316,14 +316,15 @@ proc updateHead(node: BeaconNode): BlockRef =
 
 proc sendAttestation(node: BeaconNode,
                      fork: Fork,
+                     genesis_validators_root: Eth2Digest,
                      validator: AttachedValidator,
                      attestationData: AttestationData,
                      committeeLen: int,
                      indexInCommittee: int) {.async.} =
   logScope: pcs = "send_attestation"
 
-  let
-    validatorSignature = await validator.signAttestation(attestationData, fork)
+  let validatorSignature = await validator.signAttestation(attestationData,
+    fork, genesis_validators_root)
 
   var aggregationBits = CommitteeValidatorsBits.init(committeeLen)
   aggregationBits.setBit indexInCommittee
@@ -334,7 +335,7 @@ proc sendAttestation(node: BeaconNode,
     aggregation_bits: aggregationBits
   )
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#broadcast-attestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-attestation
   node.network.broadcast(
     getAttestationTopic(attestationData.index), attestation)
 
@@ -384,7 +385,7 @@ proc proposeBlock(node: BeaconNode,
     let message = makeBeaconBlock(
       state,
       head.root,
-      validator.genRandaoReveal(state.fork, slot),
+      validator.genRandaoReveal(state.fork, state.genesis_validators_root, slot),
       eth1data,
       Eth2Digest(),
       node.attestationPool.getAttestationsForBlock(state),
@@ -400,8 +401,8 @@ proc proposeBlock(node: BeaconNode,
     let blockRoot = hash_tree_root(newBlock.message)
 
     # Careful, state no longer valid after here because of the await..
-    newBlock.signature =
-      await validator.signBlockProposal(state.fork, slot, blockRoot)
+    newBlock.signature = await validator.signBlockProposal(
+      state.fork, state.genesis_validators_root, slot, blockRoot)
 
     (blockRoot, newBlock)
 
@@ -556,7 +557,8 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
 
     for a in attestations:
       traceAsyncErrors sendAttestation(
-        node, state.fork, a.validator, a.data, a.committeeLen, a.indexInCommittee)
+        node, state.fork, state.genesis_validators_root, a.validator, a.data,
+        a.committeeLen, a.indexInCommittee)
 
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     Future[BlockRef] {.async.} =

@@ -149,25 +149,21 @@ func compute_domain*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#get_domain
 func get_domain*(
-    fork: Fork, domain_type: DomainType, epoch: Epoch): Domain =
+    fork: Fork, domain_type: DomainType, epoch: Epoch, genesis_validators_root: Eth2Digest): Domain =
   ## Return the signature domain (fork version concatenated with domain type)
   ## of a message.
-  let
-    fork_version =
-      if epoch < fork.epoch:
-        fork.previous_version
-      else:
-        fork.current_version
-  compute_domain(domain_type, fork_version)
+  let fork_version =
+    if epoch < fork.epoch:
+      fork.previous_version
+    else:
+      fork.current_version
+  compute_domain(domain_type, fork_version, genesis_validators_root)
 
 func get_domain*(
-    state: BeaconState, domain_type: DomainType, message_epoch: Epoch): Domain =
+    state: BeaconState, domain_type: DomainType, epoch: Epoch): Domain =
   ## Return the signature domain (fork version concatenated with domain type)
   ## of a message.
-  get_domain(state.fork, domain_type, message_epoch)
-
-func get_domain*(state: BeaconState, domain_type: DomainType): Domain =
-  get_domain(state, domain_type, get_current_epoch(state))
+  get_domain(state.fork, domain_type, epoch, state. genesis_validators_root)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#compute_signing_root
 func compute_signing_root*(ssz_object: auto, domain: Domain): Eth2Digest =

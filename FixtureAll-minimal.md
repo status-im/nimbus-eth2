@@ -45,6 +45,7 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + [Invalid] after_epoch_slots                                                                OK
 + [Invalid] bad_source_root                                                                  OK
 + [Invalid] before_inclusion_delay                                                           OK
++ [Invalid] empty_aggregation_bits                                                           OK
 + [Invalid] future_target_epoch                                                              OK
 + [Invalid] invalid_attestation_signature                                                    OK
 + [Invalid] invalid_current_source_root                                                      OK
@@ -58,7 +59,6 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + [Invalid] too_many_aggregation_bits                                                        OK
 + [Invalid] wrong_index_for_committee_signature                                              OK
 + [Invalid] wrong_index_for_slot                                                             OK
-+ [Valid]   empty_aggregation_bits                                                           OK
 + [Valid]   success                                                                          OK
 + [Valid]   success_multi_proposer_index_iterations                                          OK
 + [Valid]   success_previous_epoch                                                           OK
