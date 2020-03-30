@@ -614,9 +614,9 @@ proc broadcastAggregatedAttestations(
   # way to organize this. Then the private key for that validator should be
   # the corresponding one -- whatver they are, they match.
 
-  let bs = BlockSlot(blck: head, slot: slot)
-
-  let committees_per_slot = get_committee_count_at_slot(state, head.slot)
+  let
+    bs = BlockSlot(blck: head, slot: slot)
+    committees_per_slot = get_committee_count_at_slot(state, slot)
   var cache = get_empty_per_epoch_cache()
   for committee_index in 0'u64..<committees_per_slot:
     let
@@ -639,10 +639,8 @@ proc broadcastAggregatedAttestations(
 
         # Don't broadcast when, e.g., this node isn't an aggregator
         if option_aggregateandproof.isSome:
-          let aggregate_and_proof = option_aggregateandproof.get
           node.network.broadcast(
-            getAttestationTopic(aggregate_and_proof.aggregate.data.index),
-            aggregate_and_proof)
+            topicAggregateAndProof, option_aggregateandproof.get)
 
 proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
@@ -837,7 +835,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   if slot > 2:
     const TRAILING_DISTANCE = 1
     let aggregationSlot = slot - TRAILING_DISTANCE
-    var aggregationHead = get_ancestor(head, aggregationSlot)
+    var aggregationHead = getAncestorAt(head, aggregationSlot)
 
     let bs = BlockSlot(blck: aggregationHead, slot: aggregationSlot)
     node.blockPool.withState(node.blockPool.tmpState, bs):

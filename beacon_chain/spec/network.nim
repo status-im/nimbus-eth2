@@ -13,6 +13,7 @@ const
   topicVoluntaryExits* = "/eth2/voluntary_exit/ssz"
   topicProposerSlashings* = "/eth2/proposer_slashing/ssz"
   topicAttesterSlashings* = "/eth2/attester_slashing/ssz"
+  topicAggregateAndProof* = "/eth2/beacon_aggregate_and_proof/ssz"
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/p2p-interface.md#configuration
   ATTESTATION_SUBNET_COUNT* = 64
