@@ -30,7 +30,6 @@ proc runTest(identifier: string) =
 
   proc `testImpl _ operations_attestations _ identifier`() =
 
-    var flags: UpdateFlags
     var prefix: string
     if existsFile(testDir/"post.ssz"):
       prefix = "[Valid]   "
@@ -53,10 +52,10 @@ proc runTest(identifier: string) =
         postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
 
       if postRef.isNil:
-        let done = process_attestation(stateRef[], attestationRef[], flags, cache)
+        let done = process_attestation(stateRef[], attestationRef[], {}, cache)
         doAssert done == false, "We didn't expect this invalid attestation to be processed."
       else:
-        let done = process_attestation(stateRef[], attestationRef[], flags, cache)
+        let done = process_attestation(stateRef[], attestationRef[], {}, cache)
         doAssert done, "Valid attestation not processed"
         check: stateRef.hash_tree_root() == postRef.hash_tree_root()
         reportDiff(stateRef, postRef)
