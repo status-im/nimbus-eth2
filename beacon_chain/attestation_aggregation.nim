@@ -30,10 +30,6 @@ import
 # TODO add tests, especially for validation
 # https://github.com/status-im/nim-beacon-chain/issues/122#issuecomment-562479965
 
-const
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/p2p-interface.md#configuration
-  ATTESTATION_PROPAGATION_SLOT_RANGE = 32
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#aggregation-selection
 func is_aggregator(state: BeaconState, slot: Slot, index: uint64,
     slot_signature: ValidatorSig): bool =

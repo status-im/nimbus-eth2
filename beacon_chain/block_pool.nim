@@ -957,15 +957,10 @@ proc getProposer*(pool: BlockPool, head: BlockRef, slot: Slot): Option[Validator
 
     return some(state.validators[proposerIdx.get()].pubkey)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/p2p-interface.md#global-topics
-#func isValidBeaconBlock*(pool: BlockPool, state: BeaconState,
-#    signed_beacon_block: SignedBeaconBlock): bool =
-func isValidBeaconBlock*(pool: BlockPool,
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#global-topics
+proc isValidBeaconBlock*(pool: BlockPool,
     signed_beacon_block: SignedBeaconBlock): bool =
-  # The block is not from a future slot (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY
-  # allowance) -- i.e. validate that signed_beacon_block.message.slot <=
-  # current_slot (a client MAY queue future blocks for processing at the
-  # appropriate slot).
+  # The block is not from a future slot
   if not (signed_beacon_block.message.slot <= pool.head.blck.slot):
     return false
 
@@ -975,15 +970,36 @@ func isValidBeaconBlock*(pool: BlockPool,
   # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch) (a client MAY
   # choose to validate and store such blocks for additional purposes -- e.g.
   # slashing detection, archive nodes, etc).
-  #if not (signed_beacon_block.message.slot >
-  #    compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)):
-  #  return false
+  if not (signed_beacon_block.message.slot > pool.finalizedHead.slot):
+    return false
 
   # The block is the first block with valid signature received for the proposer
   # for the slot, signed_beacon_block.message.slot.
-  # TODO check for existing block pool blocks
+  # Elsewhere, there are already checks that only the correct proposer is
+  # allowed to propose a block, and validation already done on block so a
+  # check for the existence of that already-validated block in the pool's
+  # sufficient. TODO might check unresolved/orphaned blocks too.
+  if getBlockByPreciseSlot(pool, signed_beacon_block.message.slot).isNil:
+    return false
 
-  # The proposer signature, signed_beacon_block.signature, is valid.
-  # TODO
+  # The proposer signature, signed_beacon_block.signature, is valid with
+  # respect to the proposer_index pubkey.
+  # This needs access to BeaconState information, including fork.
+  let bs = BlockSlot(blck: pool.head.blck, slot: pool.head.blck.slot)
+  pool.withState(pool.headState, bs):
+    let
+      blockRoot = hash_tree_root(signed_beacon_block.message)
+
+      # TODO this will need rebasing once 0.11.1 spec update goes in
+      domain = get_domain(state, DOMAIN_BEACON_PROPOSER,
+        compute_epoch_at_slot(signed_beacon_block.message.slot))
+      signing_root = compute_signing_root(blockRoot, domain)
+      proposer_index = signed_beacon_block.message.proposer_index
+
+    if proposer_index >= state.validators.len.uint64:
+      return false
+    if not blsVerify(state.validators[proposer_index].pubkey,
+        signing_root.data, signed_beacon_block.signature):
+      return false
 
   true

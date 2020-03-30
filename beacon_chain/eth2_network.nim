@@ -971,8 +971,6 @@ proc subscribe*[MsgType](node: Eth2Node,
   # All message types which are subscribed to should be validated; putting
   # this in subscribe(...) ensures that the default approach is correct.
   template execMsgValidator(gossipBytes, gossipTopic): bool =
-    # The apparent duplication is logging-related, and intentional; only a
-    # single line of code
     trace "Incoming pubsub message received for validation",
       len = gossipBytes.len, topic = gossipTopic,
       message_id = `$`(sha256.digest(gossipBytes))

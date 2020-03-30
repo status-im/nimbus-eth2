@@ -944,13 +944,16 @@ proc run*(node: BeaconNode) =
     beacon_attestations_received.inc()
     node.onAttestation(attestation)
 
-  func attestationValidator(attestation: Attestation): bool =
-    node.attestationPool.isValidAttestation(attestation)
-
   waitFor allFutures(mapIt(
     0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64,
     node.network.subscribe(
-      getAttestationTopic(it), attestationHandler, attestationValidator)))
+      getAttestationTopic(it), attestationHandler,
+      proc(attestation: Attestation): bool =
+        # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#attestation-subnets
+        let (afterGenesis, slot) = node.beaconClock.now().toSlot()
+        if not afterGenesis:
+          return false
+        node.attestationPool.isValidAttestation(attestation, slot, it))))
 
   let
     t = node.beaconClock.now().toSlot()
