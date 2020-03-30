@@ -663,13 +663,16 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
       try:
         let discoveredPeers =
           node.discovery.randomNodes(node.wantedPeers - currentPeerCount)
-        debug "Discovered peers", peer = $discoveredPeers
         for peer in discoveredPeers:
           try:
             let peerInfo = peer.record.toTypedRecord.toPeerInfo
-            if peerInfo != nil and peerInfo.id notin node.switch.connections:
-              # TODO do this in parallel
-              await node.dialPeer(peerInfo)
+            if peerInfo != nil:
+              if peerInfo.id notin node.switch.connections:
+                debug "Discovered new peer", peer = $peer
+                # TODO do this in parallel
+                await node.dialPeer(peerInfo)
+              else:
+                peerInfo.close()
           except CatchableError as err:
             debug "Failed to connect to peer", peer = $peer, err = err.msg
       except CatchableError as err:
