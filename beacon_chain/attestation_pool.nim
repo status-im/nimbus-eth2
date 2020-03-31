@@ -472,7 +472,7 @@ proc isValidAttestation*(
   # participating validator (len([bit for bit in attestation.aggregation_bits
   # if bit == 0b1]) == 1).
   # TODO a cleverer algorithm, along the lines of countOnes() in nim-stew
-  # But this belongs in nim-stew, since it'd break abstraction layers, to
+  # But that belongs in nim-stew, since it'd break abstraction layers, to
   # use details of its representation from nim-beacon-chain.
   var onesCount = 0
   for aggregation_bit in attestation.aggregation_bits:
@@ -517,21 +517,14 @@ proc isValidAttestation*(
     return false
 
   # The signature of attestation is valid.
-  # This intrinsically relies on state, because finding the correct validator
-  # depends on getting the beacon committee. Currently, this is expensive, as
-  # it depends on constructing a BeaconState. It should be amortized, as much
-  # as feasible, TODO.
-  let
-    head = pool.blockPool.head
-    bs = BlockSlot(blck: head.blck, slot: head.blck.slot)
-
-  pool.blockPool.withState(pool.blockPool.headState, bs):
-    # TODO need to know above which validator anyway, and this is too general
-    # as it supports aggregated attestations (which this can't be)
-    var cache = get_empty_per_epoch_cache()
-    if not is_valid_indexed_attestation(
-        state, get_indexed_attestation(state, attestation, cache), {}):
-      debug "isValidAttestation: signature verification failed"
-      return false
+  # TODO need to know above which validator anyway, and this is too general
+  # as it supports aggregated attestations (which this can't be)
+  var cache = get_empty_per_epoch_cache()
+  if not is_valid_indexed_attestation(
+      pool.blockPool.headState.data.data,
+      get_indexed_attestation(
+        pool.blockPool.headState.data.data, attestation, cache), {}):
+    debug "isValidAttestation: signature verification failed"
+    return false
 
   true

@@ -999,21 +999,18 @@ proc isValidBeaconBlock*(pool: BlockPool,
 
   # The proposer signature, signed_beacon_block.signature, is valid with
   # respect to the proposer_index pubkey.
-  # This needs access to BeaconState information, including fork.
-  let bs = BlockSlot(blck: pool.head.blck, slot: pool.head.blck.slot)
-  pool.withState(pool.headState, bs):
-    let
-      blockRoot = hash_tree_root(signed_beacon_block.message)
-      domain = get_domain(state, DOMAIN_BEACON_PROPOSER,
-        compute_epoch_at_slot(signed_beacon_block.message.slot))
-      signing_root = compute_signing_root(blockRoot, domain)
-      proposer_index = signed_beacon_block.message.proposer_index
+  let
+    blockRoot = hash_tree_root(signed_beacon_block.message)
+    domain = get_domain(pool.headState.data.data, DOMAIN_BEACON_PROPOSER,
+      compute_epoch_at_slot(signed_beacon_block.message.slot))
+    signing_root = compute_signing_root(blockRoot, domain)
+    proposer_index = signed_beacon_block.message.proposer_index
 
-    if proposer_index >= state.validators.len.uint64:
-      return false
-    if not blsVerify(state.validators[proposer_index].pubkey,
-        signing_root.data, signed_beacon_block.signature):
-      debug "isValidBeaconBlock: block failed signature verification"
-      return false
+  if proposer_index >= pool.headState.data.data.validators.len.uint64:
+    return false
+  if not blsVerify(pool.headState.data.data.validators[proposer_index].pubkey,
+      signing_root.data, signed_beacon_block.signature):
+    debug "isValidBeaconBlock: block failed signature verification"
+    return false
 
   true
