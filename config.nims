@@ -49,8 +49,7 @@ if not defined(macosx):
   if not (defined(windows) and defined(i386)) and not defined(disable_libbacktrace):
     # light-weight stack traces using libbacktrace and libunwind
     --define:nimStackTraceOverride
-    # "--import:libbacktrace" is added to NIM_PARAMS inside the Makefile,
-    # because it doesn't work in here ("Error: undeclared identifier: 'copyMem'", like it kicks in in some other NimScript file)
+    switch("import", "libbacktrace")
 
 --define:nimOldCaseObjects # https://github.com/status-im/nim-confutils/issues/9
 

@@ -58,12 +58,11 @@ endif
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
 
-# "--import" can't be added to config.nims, for some reason
-# "--define:release" implies "--stacktrace:off" and it cannot be added to config.nims either
+# "--define:release" implies "--stacktrace:off" and it cannot be added to config.nims
 ifeq ($(USE_LIBBACKTRACE), 0)
 NIM_PARAMS := $(NIM_PARAMS) -d:debug -d:disable_libbacktrace
 else
-NIM_PARAMS := $(NIM_PARAMS) -d:release --import:libbacktrace
+NIM_PARAMS := $(NIM_PARAMS) -d:release
 endif
 
 #- the Windows build fails on Azure Pipelines if we have Unicode symbols copy/pasted here,
@@ -95,7 +94,7 @@ beacon_chain.nims:
 
 # nim-libbacktrace
 libbacktrace:
-	+ $(MAKE) -C vendor/nim-libbacktrace BUILD_CXX_LIB=0
+	+ $(MAKE) -C vendor/nim-libbacktrace BUILD_CXX_LIB=0 $(HANDLE_OUTPUT)
 
 # Windows 10 with WSL enabled, but no distro installed, fails if "../../nimble.sh" is executed directly
 # in a Makefile recipe but works when prefixing it with `bash`. No idea how the PATH is overridden.
