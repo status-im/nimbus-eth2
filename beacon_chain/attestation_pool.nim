@@ -454,14 +454,18 @@ proc selectHead*(pool: AttestationPool): BlockRef =
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#attestation-subnets
 proc isValidAttestation*(
     pool: AttestationPool, attestation: Attestation, current_slot: Slot,
-    topicCommitteeIndex: uint64): bool =
+    topicCommitteeIndex: uint64, flags: UpdateFlags): bool =
   # The attestation's committee index (attestation.data.index) is for the
   # correct subnet.
   if attestation.data.index != topicCommitteeIndex:
+    debug "isValidAttestation: attestation's committee index not for the correct subnet",
+      topicCommitteeIndex = topicCommitteeIndex,
+      attestation_data_index = attestation.data.index
     return false
 
   if not (attestation.data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >=
       current_slot and current_slot >= attestation.data.slot):
+    debug "isValidAttestation: attestation.data.slot not within ATTESTATION_PROPAGATION_SLOT_RANGE"
     return false
 
   # The attestation is unaggregated -- that is, it has exactly one
@@ -472,21 +476,32 @@ proc isValidAttestation*(
   # use details of its representation from nim-beacon-chain.
   var onesCount = 0
   for aggregation_bit in attestation.aggregation_bits:
+    if not aggregation_bit:
+      continue
     onesCount += 1
     if onesCount > 1:
+      debug "isValidAttestation: attestation has too many aggregation bits",
+        aggregation_bits = attestation.aggregation_bits
       return false
   if onesCount != 1:
+    debug "isValidAttestation: attestation has too few aggregation bits"
     return false
 
   # The attestation is the first valid attestation received for the
   # participating validator for the slot, attestation.data.slot.
   let maybeSlotData = getAttestationsForSlot(pool, attestation.data.slot)
   if maybeSlotData.isNone:
-    return false
+    return true
   for attestationEntry in maybeSlotData.get.attestations:
+    if attestation.data != attestationEntry.data:
+      continue
     # Attestations might be aggregated eagerly or lazily; allow for both.
     for validation in attestationEntry.validations:
       if attestation.aggregation_bits.isSubsetOf(validation.aggregation_bits):
+        debug "isValidAttestation: attestation already exists at slot",
+          attestation_data_slot = attestation.data.slot,
+          attestation_aggregation_bits = attestation.aggregation_bits,
+          attestation_pool_validation = validation.aggregation_bits
         return false
 
   # The block being voted for (attestation.data.beacon_block_root) passes
@@ -494,6 +509,8 @@ proc isValidAttestation*(
   # We rely on the block pool to have been validated, so check for the
   # existence of the block in the pool.
   if pool.blockPool.get(attestation.data.beacon_block_root).isNone():
+    debug "isValidAttestation: block doesn't exist in block pool",
+      attestation_data_beacon_block_root = attestation.data.beacon_block_root
     return false
 
   # The signature of attestation is valid.
@@ -511,6 +528,7 @@ proc isValidAttestation*(
     var cache = get_empty_per_epoch_cache()
     if not is_valid_indexed_attestation(
         state, get_indexed_attestation(state, attestation, cache), {}):
+      debug "isValidAttestation: signature verification failed"
       return false
 
   true

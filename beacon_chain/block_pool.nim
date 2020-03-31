@@ -959,27 +959,36 @@ proc getProposer*(pool: BlockPool, head: BlockRef, slot: Slot): Option[Validator
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#global-topics
 proc isValidBeaconBlock*(pool: BlockPool,
-    signed_beacon_block: SignedBeaconBlock): bool =
+    signed_beacon_block: SignedBeaconBlock, current_slot: Slot,
+    flags: UpdateFlags): bool =
   # The block is not from a future slot
-  if not (signed_beacon_block.message.slot <= pool.head.blck.slot):
+  if not (signed_beacon_block.message.slot <= current_slot):
+    debug "isValidBeaconBlock: block is from a future slot",
+      signed_beacon_block_message_slot = signed_beacon_block.message.slot,
+      current_slot = current_slot
     return false
 
   # The block is from a slot greater than the latest finalized slot (with a
   # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. validate that
   # signed_beacon_block.message.slot >
-  # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch) (a client MAY
-  # choose to validate and store such blocks for additional purposes -- e.g.
-  # slashing detection, archive nodes, etc).
+  # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)
   if not (signed_beacon_block.message.slot > pool.finalizedHead.slot):
+    debug "isValidBeaconBlock: block is not from a slot greater than the latest finalized slot"
     return false
 
   # The block is the first block with valid signature received for the proposer
   # for the slot, signed_beacon_block.message.slot.
-  # Elsewhere, there are already checks that only the correct proposer is
-  # allowed to propose a block, and validation already done on block so a
-  # check for the existence of that already-validated block in the pool's
-  # sufficient. TODO might check unresolved/orphaned blocks too.
-  if getBlockByPreciseSlot(pool, signed_beacon_block.message.slot).isNil:
+  # TODO might check unresolved/orphaned blocks too, and this might not see all
+  # blocks at a given slot (though, in theory, those get checked elsewhere).
+  let slotBlockRef =
+    getBlockByPreciseSlot(pool, signed_beacon_block.message.slot)
+  if (not slotBlockRef.isNil) and
+      pool.get(slotBlockRef).data.message.proposer_index ==
+        signed_beacon_block.message.proposer_index:
+    debug "isValidBeaconBlock: block isn't first block with valid signature received for the proposer",
+      signed_beacon_block_message_slot = signed_beacon_block.message.slot,
+      blckRef = getBlockByPreciseSlot(pool, signed_beacon_block.message.slot)
+
     return false
 
   # The proposer signature, signed_beacon_block.signature, is valid with
@@ -1000,6 +1009,7 @@ proc isValidBeaconBlock*(pool: BlockPool,
       return false
     if not blsVerify(state.validators[proposer_index].pubkey,
         signing_root.data, signed_beacon_block.signature):
+      debug "isValidBeaconBlock: block failed signature verification"
       return false
 
   true
