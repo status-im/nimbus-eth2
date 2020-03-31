@@ -998,8 +998,6 @@ proc isValidBeaconBlock*(pool: BlockPool,
   pool.withState(pool.headState, bs):
     let
       blockRoot = hash_tree_root(signed_beacon_block.message)
-
-      # TODO this will need rebasing once 0.11.1 spec update goes in
       domain = get_domain(state, DOMAIN_BEACON_PROPOSER,
         compute_epoch_at_slot(signed_beacon_block.message.slot))
       signing_root = compute_signing_root(blockRoot, domain)
