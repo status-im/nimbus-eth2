@@ -412,7 +412,7 @@ func get_attesting_indices*(state: BeaconState,
       result.incl index
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#get_indexed_attestation
-func get_indexed_attestation(state: BeaconState, attestation: Attestation,
+func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
     stateCache: var StateCache): IndexedAttestation =
   # Return the indexed attestation corresponding to ``attestation``.
   let
@@ -420,14 +420,6 @@ func get_indexed_attestation(state: BeaconState, attestation: Attestation,
       get_attesting_indices(
         state, attestation.data, attestation.aggregation_bits, stateCache)
 
-  ## TODO No fundamental reason to do so many type conversions
-  ## verify_indexed_attestation checks for sortedness but it's
-  ## entirely a local artifact, seemingly; networking uses the
-  ## Attestation data structure, which can't be unsorted. That
-  ## the conversion here otherwise needs sorting is due to the
-  ## usage of HashSet -- order only matters in one place (that
-  ## 0.6.3 highlights and explicates) except in that the spec,
-  ## for no obvious reason, verifies it.
   IndexedAttestation(
     attesting_indices:
       sorted(mapIt(attesting_indices.toSeq, it.uint64), system.cmp),

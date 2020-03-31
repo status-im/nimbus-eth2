@@ -13,7 +13,7 @@ import
           multiaddress, multicodec, crypto/crypto,
           protocols/identify, protocols/protocol],
   libp2p/protocols/secure/[secure, secio],
-  libp2p/protocols/pubsub/[pubsub, floodsub],
+  libp2p/protocols/pubsub/[pubsub, floodsub, rpc/messages],
   libp2p/transports/[transport, tcptransport],
   libp2p/stream/lpstream,
   eth/[keys, async_utils], eth/p2p/[enode, p2p_protocol_dsl],
@@ -757,7 +757,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   result.afterProtocolInit = proc (p: P2PProtocol) =
     p.onPeerConnected.params.add newIdentDefs(streamVar, Connection)
 
-  result.implementMsg = proc (msg: Message) =
+  result.implementMsg = proc (msg: p2p_protocol_dsl.Message) =
     let
       protocol = msg.protocol
       msgName = $msg.ident
@@ -959,13 +959,28 @@ func peersCount*(node: Eth2Node): int =
 
 proc subscribe*[MsgType](node: Eth2Node,
                          topic: string,
-                         msgHandler: proc(msg: MsgType) {.gcsafe.} ) {.async, gcsafe.} =
+                         msgHandler: proc(msg: MsgType) {.gcsafe.},
+                         msgValidator: proc(msg: MsgType): bool {.gcsafe.} ) {.async, gcsafe.} =
   template execMsgHandler(peerExpr, gossipBytes, gossipTopic) =
     inc gossip_messages_received
     trace "Incoming pubsub message received",
       peer = peerExpr, len = gossipBytes.len, topic = gossipTopic,
       message_id = `$`(sha256.digest(gossipBytes))
     msgHandler SSZ.decode(gossipBytes, MsgType)
+
+  # All message types which are subscribed to should be validated; putting
+  # this in subscribe(...) ensures that the default approach is correct.
+  template execMsgValidator(gossipBytes, gossipTopic): bool =
+    trace "Incoming pubsub message received for validation",
+      len = gossipBytes.len, topic = gossipTopic,
+      message_id = `$`(sha256.digest(gossipBytes))
+    msgValidator SSZ.decode(gossipBytes, MsgType)
+
+  # Validate messages as soon as subscribed
+  let incomingMsgValidator = proc(topic: string, message: messages.Message):
+      Future[bool] {.async, gcsafe.} =
+    return execMsgValidator(message.data, topic)
+  node.switch.addValidator(topic, incomingMsgValidator)
 
   let incomingMsgHandler = proc(topic: string,
                                 data: seq[byte]) {.async, gcsafe.} =

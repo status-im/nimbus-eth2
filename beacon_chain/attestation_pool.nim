@@ -1,5 +1,5 @@
 import
-  deques, sequtils, tables,
+  deques, sequtils, tables, options,
   chronicles, stew/[bitseqs, byteutils], json_serialization/std/sets,
   ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator],
   ./extras, ./ssz, ./block_pool, ./beacon_node_types
@@ -35,6 +35,7 @@ proc combine*(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
   else:
     trace "Ignoring overlapping attestations"
 
+# TODO remove/merge with p2p-interface validation
 proc validate(
     state: BeaconState, attestation: Attestation): bool =
   # TODO what constitutes a valid attestation when it's about to be added to
@@ -265,26 +266,20 @@ proc add*(pool: var AttestationPool, attestation: Attestation) =
 
   pool.addResolved(blck, attestation)
 
-proc getAttestationsForBlock*(
-    pool: AttestationPool, state: BeaconState): seq[Attestation] =
-  ## Retrieve attestations that may be added to a new block at the slot of the
-  ## given state
-  logScope: pcs = "retrieve_attestation"
-
-  let newBlockSlot = state.slot
+proc getAttestationsForSlot(pool: AttestationPool, newBlockSlot: Slot):
+    Option[SlotData] =
   if newBlockSlot < (GENESIS_SLOT + MIN_ATTESTATION_INCLUSION_DELAY):
     debug "Too early for attestations",
       newBlockSlot = shortLog(newBlockSlot),
       cat = "query"
-    return
+    return none(SlotData)
 
   if pool.slots.len == 0: # startingSlot not set yet!
     info "No attestations found (pool empty)",
       newBlockSlot = shortLog(newBlockSlot),
       cat = "query"
-    return
+    return none(SlotData)
 
-  var cache = get_empty_per_epoch_cache()
   let
     # TODO in theory we could include attestations from other slots also, but
     # we're currently not tracking which attestations have already been included
@@ -300,12 +295,29 @@ proc getAttestationsForBlock*(
       startingSlot = shortLog(pool.startingSlot),
       endingSlot = shortLog(pool.startingSlot + pool.slots.len.uint64),
       cat = "query"
-    return
+    return none(SlotData)
 
+  let slotDequeIdx = int(attestationSlot - pool.startingSlot)
+  some(pool.slots[slotDequeIdx])
+
+proc getAttestationsForBlock*(
+    pool: AttestationPool, state: BeaconState): seq[Attestation] =
+  ## Retrieve attestations that may be added to a new block at the slot of the
+  ## given state
+  logScope: pcs = "retrieve_attestation"
+
+  # TODO this shouldn't really need state -- it's to recheck/validate, but that
+  # should be refactored
   let
-    slotDequeIdx = int(attestationSlot - pool.startingSlot)
-    slotData = pool.slots[slotDequeIdx]
+    newBlockSlot = state.slot
+    maybeSlotData = getAttestationsForSlot(pool, newBlockSlot)
 
+  if maybeSlotData.isNone:
+    # Logging done in getAttestationsForSlot(...)
+    return
+  let slotData = maybeSlotData.get
+
+  var cache = get_empty_per_epoch_cache()
   for a in slotData.attestations:
     var
       # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#construct-attestation
@@ -438,3 +450,80 @@ proc selectHead*(pool: AttestationPool): BlockRef =
     lmdGhost(pool, pool.blockPool.justifiedState.data.data, justifiedHead.blck)
 
   newHead
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#attestation-subnets
+proc isValidAttestation*(
+    pool: AttestationPool, attestation: Attestation, current_slot: Slot,
+    topicCommitteeIndex: uint64, flags: UpdateFlags): bool =
+  # The attestation's committee index (attestation.data.index) is for the
+  # correct subnet.
+  if attestation.data.index != topicCommitteeIndex:
+    debug "isValidAttestation: attestation's committee index not for the correct subnet",
+      topicCommitteeIndex = topicCommitteeIndex,
+      attestation_data_index = attestation.data.index
+    return false
+
+  if not (attestation.data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >=
+      current_slot and current_slot >= attestation.data.slot):
+    debug "isValidAttestation: attestation.data.slot not within ATTESTATION_PROPAGATION_SLOT_RANGE"
+    return false
+
+  # The attestation is unaggregated -- that is, it has exactly one
+  # participating validator (len([bit for bit in attestation.aggregation_bits
+  # if bit == 0b1]) == 1).
+  # TODO a cleverer algorithm, along the lines of countOnes() in nim-stew
+  # But that belongs in nim-stew, since it'd break abstraction layers, to
+  # use details of its representation from nim-beacon-chain.
+  var onesCount = 0
+  for aggregation_bit in attestation.aggregation_bits:
+    if not aggregation_bit:
+      continue
+    onesCount += 1
+    if onesCount > 1:
+      debug "isValidAttestation: attestation has too many aggregation bits",
+        aggregation_bits = attestation.aggregation_bits
+      return false
+  if onesCount != 1:
+    debug "isValidAttestation: attestation has too few aggregation bits"
+    return false
+
+  # The attestation is the first valid attestation received for the
+  # participating validator for the slot, attestation.data.slot.
+  let maybeSlotData = getAttestationsForSlot(pool, attestation.data.slot)
+  if maybeSlotData.isSome:
+    for attestationEntry in maybeSlotData.get.attestations:
+      if attestation.data != attestationEntry.data:
+        continue
+      # Attestations might be aggregated eagerly or lazily; allow for both.
+      for validation in attestationEntry.validations:
+        if attestation.aggregation_bits.isSubsetOf(validation.aggregation_bits):
+          debug "isValidAttestation: attestation already exists at slot",
+            attestation_data_slot = attestation.data.slot,
+            attestation_aggregation_bits = attestation.aggregation_bits,
+            attestation_pool_validation = validation.aggregation_bits
+          return false
+
+  # The block being voted for (attestation.data.beacon_block_root) passes
+  # validation.
+  # We rely on the block pool to have been validated, so check for the
+  # existence of the block in the pool.
+  # TODO: consider a "slush pool" of attestations whose blocks have not yet
+  # propagated - i.e. imagine that attestations are smaller than blocks and
+  # therefore propagate faster, thus reordering their arrival in some nodes
+  if pool.blockPool.get(attestation.data.beacon_block_root).isNone():
+    debug "isValidAttestation: block doesn't exist in block pool",
+      attestation_data_beacon_block_root = attestation.data.beacon_block_root
+    return false
+
+  # The signature of attestation is valid.
+  # TODO need to know above which validator anyway, and this is too general
+  # as it supports aggregated attestations (which this can't be)
+  var cache = get_empty_per_epoch_cache()
+  if not is_valid_indexed_attestation(
+      pool.blockPool.headState.data.data,
+      get_indexed_attestation(
+        pool.blockPool.headState.data.data, attestation, cache), {}):
+    debug "isValidAttestation: signature verification failed"
+    return false
+
+  true

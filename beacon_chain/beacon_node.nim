@@ -935,14 +935,31 @@ proc run*(node: BeaconNode) =
 
   waitFor node.network.subscribe(topicBeaconBlocks) do (signedBlock: SignedBeaconBlock):
     onBeaconBlock(node, signedBlock)
+  do (signedBlock: SignedBeaconBlock) -> bool:
+    let (afterGenesis, slot) = node.beaconClock.now.toSlot()
+    if not afterGenesis:
+      return false
+    node.blockPool.isValidBeaconBlock(signedBlock, slot, {})
 
-  waitFor allFutures(mapIt(
-    0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64,
-    node.network.subscribe(getAttestationTopic(it)) do (attestation: Attestation):
-      # Avoid double-counting attestation-topic attestations on shared codepath
-      # when they're reflected through beacon blocks
-      beacon_attestations_received.inc()
-      node.onAttestation(attestation)))
+  proc attestationHandler(attestation: Attestation) =
+    # Avoid double-counting attestation-topic attestations on shared codepath
+    # when they're reflected through beacon blocks
+    beacon_attestations_received.inc()
+    node.onAttestation(attestation)
+
+  var attestationSubscriptions: seq[Future[void]] = @[]
+  for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
+    closureScope:
+      let ci = it
+      attestationSubscriptions.add(node.network.subscribe(
+        getAttestationTopic(ci), attestationHandler,
+        proc(attestation: Attestation): bool =
+          # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#attestation-subnets
+          let (afterGenesis, slot) = node.beaconClock.now().toSlot()
+          if not afterGenesis:
+            return false
+          node.attestationPool.isValidAttestation(attestation, slot, ci, {})))
+  waitFor allFutures(attestationSubscriptions)
 
   let
     t = node.beaconClock.now().toSlot()

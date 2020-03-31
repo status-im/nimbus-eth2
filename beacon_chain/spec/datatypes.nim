@@ -74,6 +74,9 @@ const
     # TODO: This needs revisiting.
     # Why was the validator WITHDRAWAL_PERIOD altered in the spec?
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#configuration
+  ATTESTATION_PROPAGATION_SLOT_RANGE* = 32
+
 template maxSize*(n: int) {.pragma.}
 
 type
