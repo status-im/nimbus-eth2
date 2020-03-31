@@ -490,19 +490,18 @@ proc isValidAttestation*(
   # The attestation is the first valid attestation received for the
   # participating validator for the slot, attestation.data.slot.
   let maybeSlotData = getAttestationsForSlot(pool, attestation.data.slot)
-  if maybeSlotData.isNone:
-    return true
-  for attestationEntry in maybeSlotData.get.attestations:
-    if attestation.data != attestationEntry.data:
-      continue
-    # Attestations might be aggregated eagerly or lazily; allow for both.
-    for validation in attestationEntry.validations:
-      if attestation.aggregation_bits.isSubsetOf(validation.aggregation_bits):
-        debug "isValidAttestation: attestation already exists at slot",
-          attestation_data_slot = attestation.data.slot,
-          attestation_aggregation_bits = attestation.aggregation_bits,
-          attestation_pool_validation = validation.aggregation_bits
-        return false
+  if maybeSlotData.isSome:
+    for attestationEntry in maybeSlotData.get.attestations:
+      if attestation.data != attestationEntry.data:
+        continue
+      # Attestations might be aggregated eagerly or lazily; allow for both.
+      for validation in attestationEntry.validations:
+        if attestation.aggregation_bits.isSubsetOf(validation.aggregation_bits):
+          debug "isValidAttestation: attestation already exists at slot",
+            attestation_data_slot = attestation.data.slot,
+            attestation_aggregation_bits = attestation.aggregation_bits,
+            attestation_pool_validation = validation.aggregation_bits
+          return false
 
   # The block being voted for (attestation.data.beacon_block_root) passes
   # validation.
