@@ -18,10 +18,7 @@ import
     state_transition_block],
   ./attestation_pool, ./beacon_node_types, ./ssz
 
-# TODO add tests, especially for validation
-# https://github.com/status-im/nim-beacon-chain/issues/122#issuecomment-562479965
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#aggregation-selection
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#aggregation-selection
 func is_aggregator(state: BeaconState, slot: Slot, index: uint64,
     slot_signature: ValidatorSig): bool =
   # TODO index is a CommitteeIndex, aka uint64
@@ -39,7 +36,7 @@ proc aggregate_attestations*(
 
   doAssert state.slot >= trailing_distance
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#configuration
   doAssert trailing_distance <= ATTESTATION_PROPAGATION_SLOT_RANGE
 
   let
@@ -55,11 +52,11 @@ proc aggregate_attestations*(
 
   # TODO for testing purposes, refactor this into the condition check
   # and just calculation
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#aggregation-selection
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#aggregation-selection
   if not is_aggregator(state, slot, index, slot_signature):
     return none(AggregateAndProof)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#attestation-data
   # describes how to construct an attestation, which applies for makeAttestationData(...)
   # TODO this won't actually match anything
   let attestation_data = AttestationData(
@@ -67,13 +64,13 @@ proc aggregate_attestations*(
     index: index,
     beacon_block_root: get_block_root_at_slot(state, slot))
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#construct-aggregate
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#construct-aggregate
   # TODO once EV goes in w/ refactoring of getAttestationsForBlock, pull out the getSlot version and use
   # it. This is incorrect.
   for attestation in getAttestationsForBlock(pool, state):
     # getAttestationsForBlock(...) already aggregates
     if attestation.data == attestation_data:
-      # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#aggregateandproof
+      # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#aggregateandproof
       return some(AggregateAndProof(
         aggregator_index: index,
         aggregate: attestation,
