@@ -961,6 +961,10 @@ proc getProposer*(pool: BlockPool, head: BlockRef, slot: Slot): Option[Validator
 proc isValidBeaconBlock*(pool: BlockPool,
     signed_beacon_block: SignedBeaconBlock, current_slot: Slot,
     flags: UpdateFlags): bool =
+  # In general, checks are ordered from cheap to expensive. Especially, crypto
+  # verification could be quite a bit more expensive than the rest. This is an
+  # externally easy-to-invoke function by tossing network packets at the node.
+
   # The block is not from a future slot
   # TODO allow `MAXIMUM_GOSSIP_CLOCK_DISPARITY` leniency, especially towards
   # seemingly future slots.
