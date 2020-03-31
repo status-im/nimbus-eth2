@@ -508,6 +508,9 @@ proc isValidAttestation*(
   # validation.
   # We rely on the block pool to have been validated, so check for the
   # existence of the block in the pool.
+  # TODO: consider a "slush pool" of attestations whose blocks have not yet
+  # propagated - i.e. imagine that attestations are smaller than blocks and
+  # therefore propagate faster, thus reordering their arrival in some nodes
   if pool.blockPool.get(attestation.data.beacon_block_root).isNone():
     debug "isValidAttestation: block doesn't exist in block pool",
       attestation_data_beacon_block_root = attestation.data.beacon_block_root
