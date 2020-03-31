@@ -1273,15 +1273,12 @@ when isMainModule:
     if bootstrapFile.len > 0:
       let
         networkKeys = getPersistentNetKeys(config)
-        bootstrapAddress = enode.Address(
-          ip: config.bootstrapAddress,
-          tcpPort: config.bootstrapPort,
-          udpPort: config.bootstrapPort)
-
         bootstrapEnr = enr.Record.init(
           1, # sequence number
           networkKeys.seckey.asEthKey,
-          some(bootstrapAddress))
+          some(config.bootstrapAddress),
+          config.bootstrapPort,
+          config.bootstrapPort)
 
       writeFile(bootstrapFile, bootstrapEnr.toURI)
       echo "Wrote ", bootstrapFile

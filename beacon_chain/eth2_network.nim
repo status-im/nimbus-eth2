@@ -134,9 +134,6 @@ const
 
   readTimeoutErrorMsg = "Exceeded read timeout for a request"
 
-let
-  globalListeningAddr = parseIpAddress("0.0.0.0")
-
 # Metrics for tracking attestation and beacon block loss
 declareCounter gossip_messages_sent,
   "Number of gossip messages sent by this peer"
@@ -681,10 +678,11 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
     await sleepAsync seconds(1)
 
 proc init*(T: type Eth2Node, conf: BeaconNodeConf,
-           switch: Switch, ip: IpAddress, privKey: keys.PrivateKey): T =
+           switch: Switch, ip: Option[IpAddress], tcpPort, udpPort: Port,
+           privKey: keys.PrivateKey): T =
   new result
   result.switch = switch
-  result.discovery = Eth2DiscoveryProtocol.new(conf, ip, privKey.data)
+  result.discovery = Eth2DiscoveryProtocol.new(conf, ip, tcpPort, udpPort, privKey.data)
   result.wantedPeers = conf.maxPeers
   result.peerPool = newPeerPool[Peer, PeerID](maxPeers = conf.maxPeers)
 
@@ -829,11 +827,10 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   result.implementProtocolInit = proc (p: P2PProtocol): NimNode =
     return newCall(initProtocol, newLit(p.name), p.peerInit, p.netInit)
 
-proc setupNat(conf: BeaconNodeConf): tuple[ip: IpAddress,
+proc setupNat(conf: BeaconNodeConf): tuple[ip: Option[IpAddress],
                                            tcpPort: Port,
                                            udpPort: Port] {.gcsafe.} =
   # defaults
-  result.ip = globalListeningAddr
   result.tcpPort = conf.tcpPort
   result.udpPort = conf.udpPort
 
@@ -850,16 +847,15 @@ proc setupNat(conf: BeaconNodeConf): tuple[ip: IpAddress,
     else:
       if conf.nat.startsWith("extip:") and isIpAddress(conf.nat[6..^1]):
         # any required port redirection is assumed to be done by hand
-        result.ip = parseIpAddress(conf.nat[6..^1])
+        result.ip = some(parseIpAddress(conf.nat[6..^1]))
         nat = NatNone
       else:
         error "not a valid NAT mechanism, nor a valid IP address", value = conf.nat
         quit(QuitFailure)
 
   if nat != NatNone:
-    let extIP = getExternalIP(nat)
-    if extIP.isSome:
-      result.ip = extIP.get()
+    result.ip = getExternalIP(nat)
+    if result.ip.isSome:
       # TODO redirectPorts in considered a gcsafety violation
       # because it obtains the address of a non-gcsafe proc?
       let extPorts = ({.gcsafe.}:
@@ -901,10 +897,10 @@ proc getPersistentNetKeys*(conf: BeaconNodeConf): KeyPair =
 
 proc createEth2Node*(conf: BeaconNodeConf): Future[Eth2Node] {.async, gcsafe.} =
   var
-    (extIp, extTcpPort, _) = setupNat(conf)
+    (extIp, extTcpPort, extUdpPort) = setupNat(conf)
     hostAddress = tcpEndPoint(conf.libp2pAddress, conf.tcpPort)
-    announcedAddresses = if extIp == globalListeningAddr: @[]
-                         else: @[tcpEndPoint(extIp, extTcpPort)]
+    announcedAddresses = if extIp.isNone(): @[]
+                         else: @[tcpEndPoint(extIp.get(), extTcpPort)]
 
   info "Initializing networking", hostAddress,
                                   announcedAddresses
@@ -915,17 +911,15 @@ proc createEth2Node*(conf: BeaconNodeConf): Future[Eth2Node] {.async, gcsafe.} =
   # are running behind a NAT).
   var switch = newStandardSwitch(some keys.seckey, hostAddress,
                                  triggerSelf = true, gossip = true)
-  result = Eth2Node.init(conf, switch, extIp, keys.seckey.asEthKey)
+  result = Eth2Node.init(conf, switch, extIp, extTcpPort, extUdpPort,
+                         keys.seckey.asEthKey)
 
 proc getPersistenBootstrapAddr*(conf: BeaconNodeConf,
                                 ip: IpAddress, port: Port): enr.Record =
-  let
-    pair = getPersistentNetKeys(conf)
-    enodeAddress = Address(ip: ip, udpPort: port)
-
+  let pair = getPersistentNetKeys(conf)
   return enr.Record.init(1'u64, # sequence number
                          pair.seckey.asEthKey,
-                         some(enodeAddress))
+                         some(ip), port, port)
 
 proc announcedENR*(node: Eth2Node): enr.Record =
   doAssert node.discovery != nil, "The Eth2Node must be initialized"
