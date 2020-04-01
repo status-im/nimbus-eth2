@@ -802,11 +802,12 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     #      with any clock discrepancies once only, at the start of slot timer
     #      processing..
 
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#attesting
-    # A validator should create and broadcast the attestation to the
-    # associated attestation subnet one-third of the way through the slot
-    # during which the validator is assigned―that is, SECONDS_PER_SLOT / 3
-    # seconds after the start of slot.
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#attesting
+    # A validator should create and broadcast the attestation to the associated
+    # attestation subnet when either (a) the validator has received a valid
+    # block from the expected block proposer for the assigned slot or
+    # (b) one-third of the slot has transpired (`SECONDS_PER_SLOT / 3` seconds
+    # after the start of slot) -- whichever comes first.
     let
       attestationStart = node.beaconClock.fromNow(slot)
       thirdSlot = seconds(int64(SECONDS_PER_SLOT)) div 3
@@ -828,10 +829,12 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
 
     handleAttestations(node, head, slot)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-aggregate
   # If the validator is selected to aggregate (is_aggregator), then they
-  # broadcast their best aggregate to the global aggregate channel
-  # (beacon_aggregate_and_proof) two-thirds of the way through the slot
+  # broadcast their best aggregate as a SignedAggregateAndProof to the global
+  # aggregate channel (beacon_aggregate_and_proof) two-thirds of the way
+  # through the slot-that is, SECONDS_PER_SLOT * 2 / 3 seconds after the start
+  # of slot.
   if slot > 2:
     const TRAILING_DISTANCE = 1
     let aggregationSlot = slot - TRAILING_DISTANCE
