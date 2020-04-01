@@ -130,10 +130,17 @@ const
 
   # State vector lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L102
-  EPOCHS_PER_HISTORICAL_VECTOR* = 65536
-  EPOCHS_PER_SLASHINGS_VECTOR* = 8192
-  HISTORICAL_ROOTS_LIMIT* = 16777216
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L105
+
+  EPOCHS_PER_HISTORICAL_VECTOR* = 65536 ##\
+  ## epochs (~0.8 years)
+
+  EPOCHS_PER_SLASHINGS_VECTOR* = 8192 ##\
+  ## epochs (~36 days)
+
+  HISTORICAL_ROOTS_LIMIT* = 16777216 ##\
+  ## epochs (~26,131 years)
+
   VALIDATOR_REGISTRY_LIMIT* = 1099511627776
 
   # Reward and penalty quotients
@@ -156,7 +163,7 @@ const
 
   # Fork choice
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L26
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L32
   SAFE_SLOTS_TO_UPDATE_JUSTIFIED* = 8 # 96 seconds
 
   # Validators
