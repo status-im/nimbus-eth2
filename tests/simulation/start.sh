@@ -117,7 +117,7 @@ fi
 # Trap and ignore SIGTERM, so we don't kill this process along with its children.
 if [ "$USE_MULTITAIL" = "no" ]; then
   trap '' SIGTERM
-  trap 'kill -- -$$' SIGINT EXIT
+  trap 'pkill -P $$ beacon_node' SIGINT EXIT
 fi
 
 COMMANDS=()
