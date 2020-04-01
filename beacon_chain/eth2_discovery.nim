@@ -154,7 +154,8 @@ proc loadBootstrapFile*(bootstrapFile: string,
 
 proc new*(T: type Eth2DiscoveryProtocol,
           conf: BeaconNodeConf,
-          ip: IpAddress, rawPrivKeyBytes: openarray[byte]): T =
+          ip: Option[IpAddress], tcpPort, udpPort: Port,
+          rawPrivKeyBytes: openarray[byte]): T =
   # TODO
   # Implement more configuration options:
   # * for setting up a specific key
@@ -174,4 +175,4 @@ proc new*(T: type Eth2DiscoveryProtocol,
   if fileExists(persistentBootstrapFile):
     loadBootstrapFile(persistentBootstrapFile, bootNodes, bootEnrs, ourPubKey)
 
-  newProtocol(pk, db, ip, conf.tcpPort, conf.udpPort, bootEnrs)
+  newProtocol(pk, db, ip, tcpPort, udpPort, bootEnrs)
