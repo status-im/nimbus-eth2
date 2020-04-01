@@ -52,7 +52,7 @@ const
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L52
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/minimal.yaml#L58
 
   # Unchanged
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9
@@ -117,7 +117,7 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L117
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/minimal.yaml#L117
 
   BASE_REWARD_FACTOR* = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
@@ -127,7 +127,7 @@ const
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L131
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/minimal.yaml#L131
 
   MAX_PROPOSER_SLASHINGS* = 2^4
   MAX_ATTESTER_SLASHINGS* = 2^0
@@ -144,7 +144,7 @@ const
 
   # Validators
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L32
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/minimal.yaml#L38
 
   # Changed
   ETH1_FOLLOW_DISTANCE* = 16 # blocks

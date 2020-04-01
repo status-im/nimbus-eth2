@@ -984,8 +984,30 @@ proc isValidBeaconBlock*(pool: BlockPool,
 
   # The block is the first block with valid signature received for the proposer
   # for the slot, signed_beacon_block.message.slot.
+  #
+  # While this condition is similar to the proposer slashing condition at
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#proposer-slashing
+  # it's not identical, and this check does not address slashing:
+  #
+  # (1) The beacon blocks must be conflicting, i.e. different, for the same
+  #     slot and proposer. This check also catches identical blocks.
+  #
+  # (2) By this point in the function, it's not been checked whether they're
+  #     signed yet. As in general, expensive checks should be deferred, this
+  #     would add complexity not directly relevant this function.
+  #
+  # (3) As evidenced by point (1), the similarity in the validation condition
+  #     and slashing condition, while not coincidental, aren't similar enough
+  #     to combine, as one or the other might drift.
+  #
+  # (4) Furthermore, this function, as much as possible, simply returns a yes
+  #     or no answer, without modifying other state for p2p network interface
+  #     validation. Complicating this interface, for the sake of sharing only
+  #     couple lines of code, wouldn't be worthwhile.
+  #
   # TODO might check unresolved/orphaned blocks too, and this might not see all
-  # blocks at a given slot (though, in theory, those get checked elsewhere).
+  # blocks at a given slot (though, in theory, those get checked elsewhere), or
+  # adding metrics that count how often these conditions occur.
   let slotBlockRef =
     getBlockByPreciseSlot(pool, signed_beacon_block.message.slot)
   if (not slotBlockRef.isNil) and
