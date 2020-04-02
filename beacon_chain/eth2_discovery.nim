@@ -45,7 +45,7 @@ proc toENode*(a: MultiAddress): Result[ENode, cstring] =
     var pubkey: libp2pCrypto.PublicKey
     if peerId.extractPublicKey(pubkey):
       if pubkey.scheme == Secp256k1:
-        return ok ENode(pubkey: pubkey.skkey,
+        return ok ENode(pubkey: PublicKey(pubkey.skkey),
                         address: Address(ip: ipAddress,
                                          tcpPort: Port tcpPort,
                                          udpPort: Port udpPort))
@@ -57,8 +57,8 @@ proc toENode*(a: MultiAddress): Result[ENode, cstring] =
   return err "Invalid MultiAddress"
 
 proc toMultiAddressStr*(enode: ENode): string =
-  var peerId = PeerID.init(libp2pCrypto.PublicKey(scheme: Secp256k1,
-                                                  skkey: enode.pubkey))
+  var peerId = PeerID.init(libp2pCrypto.PublicKey(
+    scheme: Secp256k1, skkey: SkPublicKey(enode.pubkey)))
   &"/ip4/{enode.address.ip}/tcp/{enode.address.tcpPort}/p2p/{peerId.pretty}"
 
 proc toENode*(enrRec: enr.Record): Result[ENode, cstring] =
