@@ -677,9 +677,14 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
 
     await sleepAsync seconds(1)
 
+proc addCapability*(node: Eth2Node, p: ProtocolInfo) =
+  for msg in proto.messages:
+    if msg.protocolMounter != nil:
+      msg.protocolMounter node
+
 proc init*(T: type Eth2Node, conf: BeaconNodeConf,
            switch: Switch, ip: Option[IpAddress], tcpPort, udpPort: Port,
-           privKey: keys.PrivateKey): T =
+           privKey: keys.PrivateKey, withAllProtocols = true): T =
   new result
   result.switch = switch
   result.discovery = Eth2DiscoveryProtocol.new(conf, ip, tcpPort, udpPort, privKey.data)
@@ -691,9 +696,12 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf,
     if proto.networkStateInitializer != nil:
       result.protocolStates[proto.index] = proto.networkStateInitializer(result)
 
-    for msg in proto.messages:
-      if msg.protocolMounter != nil:
-        msg.protocolMounter result
+    if withAllProtocols:
+      result.addCapability(proto)
+
+template addCapability*(node: Eth2Node, Protocol: type) =
+  mixin protocolInfo
+  addCapability(node, Protocol.protocolInfo)
 
 template publicKey*(node: Eth2Node): keys.PublicKey =
   node.discovery.privKey.getPublicKey
