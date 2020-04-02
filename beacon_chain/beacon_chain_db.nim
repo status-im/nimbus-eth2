@@ -156,11 +156,14 @@ proc getPersistentBlock*(db: BeaconChainDB, slot: Slot): Option[SignedBeaconBloc
 
 proc putPersistentBlock*(db: BeaconChainDB, value: SignedBeaconBlock) =
   let available_off = db.persistent.storage.getSize()
+  let headSlot = db.persistent.indices.getSize() div 8 - 1
+  let diff = value.message.slot - headSlot
+  let emptySlots = newSeq[byte]((diff - 1)  * 8,)
   let key = SSZ.encode(available_off) 
   let val = SSZ.encode(value)
   let encoded_len = SSZ.encode(uint64 len(val))
   db.backend.put(subkey(type Eth2Digest, hash_tree_root(value.message)), SSZ.encode(value.message.slot))
-  db.persistent.put(key, encoded_len & val)
+  db.persistent.put(emptySlots & key, encoded_len & val)
 
 proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Option[SignedBeaconBlock] =
   if(db.containsBlock(key)):
@@ -168,6 +171,19 @@ proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Option[SignedBeaconBlock] =
   var slot = db.get(subkey(Eth2Digest, key), uint64)
   if slot.isSome():
     return db.getPersistentBlock(Slot(slot.get))
+
+proc getFinalizedBlock*(db: BeaconChainDB, key: Slot): Option[SignedBeaconBlock] = 
+  db.getPersistentBlock(key)
+
+proc isFinalized*(db: BeaconChainDB, key: Eth2Digest) : bool =
+  db.backend.contains(subkey(Eth2Digest, key))
+
+proc getSlotForRoot(db: BeaconChainDB, key: Eth2Digest) : Option[Slot] =
+  let slot = db.get(subkey(Eth2Digest, key), uint64)
+  if slot.isSome:
+    return some(Slot(slot.get))
+  
+  none(Slot)
 
 proc getState*(db: BeaconChainDB, key: Eth2Digest): Option[BeaconState] =
     return db.get(subkey(BeaconState, key), BeaconState)

@@ -97,12 +97,21 @@ suiteReport "Beacon chain DB" & preset():
       a0r = hash_tree_root(a0.message)
       a1 = SignedBeaconBlock(message:
         BeaconBlock(slot: GENESIS_SLOT + 1, parent_root: a0r))
-    
+      a1r = hash_tree_root(a0.message)
+      a2 = SignedBeaconBlock(message:
+        BeaconBlock(slot: GENESIS_SLOT + 3, parent_root: a1r))
+
     db.putPersistentBlock(a0)
     db.putPersistentBlock(a1)
+    db.putPersistentBlock(a2)
     let blck = db.getBlock(hash_tree_root(a1.message)).get
     check:
       blck.message.parent_root == a0r
+    
+    let blck2 = db.getFinalizedBlock(Slot(3)).get
+    check:
+      blck2.message.parent_root == a1r
+    
   
   timedTest "sanity check genesis roundtrip" & preset():
     # This is a really dumb way of checking that we can roundtrip a genesis

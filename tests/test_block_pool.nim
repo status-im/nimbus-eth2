@@ -283,3 +283,23 @@ when const_preset == "minimal": # Too much stack space used on mainnet
           hash_tree_root(pool.headState.data.data)
         hash_tree_root(pool2.justifiedState.data.data) ==
           hash_tree_root(pool.justifiedState.data.data)
+      
+     
+      # Check that we get correct block ranges from both finalized and non-finalized blocks
+      proc testBlockRange(root: Eth2Digest, startSlot: Slot, skip: Natural, blocks: var openArray[BlockRef]):bool =
+        let startPos =  pool.getBlockRange(pool.head.blck.root, startSlot, skip, blocks)
+        for i in startPos ..< blocks.len:
+          check:
+            blocks[i].slot == startSlot + uint64(skip * (i - startPos))
+        true
+
+      var blocks1 : array[7, BlockRef]
+      var blocks2 : array[7, BlockRef]
+      var blocks3 : array[7, BlockRef]
+      check:
+        testBlockRange(pool.head.blck.root, Slot(1), Natural(2), blocks1) #all finalized
+        testBlockRange(pool.head.blck.root, Slot(26), Natural(2), blocks2) #some finalized some not
+        testBlockRange(pool.head.blck.root, Slot(39), Natural(2), blocks3) #none finalized
+
+       
+      

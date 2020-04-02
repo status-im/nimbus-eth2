@@ -466,13 +466,23 @@ proc getBlockRange*(pool: BlockPool, headBlock: Eth2Digest,
   ##
   result = output.len
 
+  #All blocks requested are finalized, we can fetch them by Slot
+  let lastWantedSlot = startSlot.int + (output.len - 1) * skipStep
+  if lastWantedSlot <= pool.finalizedHead.slot.int:
+    for i in 0..result - 1:
+      # What If there's no block at this slot? Do we leave the gap here or shift to the end and increment startPos?
+      let blck = pool.db.getFinalizedBlock(startSlot + uint64(i * skipStep))
+      output[i] = BlockRef(root:hash_tree_root(blck.get.message),slot:blck.get.message.slot)    
+    return 0
+
+
   trace "getBlockRange entered", headBlock, startSlot, skipStep
 
   var b = pool.getRef(headBlock)
   if b == nil:
     trace "head block not found", headBlock
     return
-
+    
   trace "head block found", headBlock = b
 
   if b.slot < startSlot:
@@ -492,12 +502,11 @@ proc getBlockRange*(pool: BlockPool, headBlock: Eth2Digest,
   # in the results. This will be a block with a slot number that's
   # aligned to the stride of the requested block range, so we first
   # compute the steps needed to get to an aligned position:
-  var blocksToSkip = b.slot.int mod skipStep
+  var blocksToSkip = (b.slot.int - startSlot.int) mod skipStep
   let alignedHeadSlot = b.slot.int - blocksToSkip
-
   # Then we see if this aligned position is within our wanted
   # range. If it's outside it, we must skip more blocks:
-  let lastWantedSlot = startSlot.int + (output.len - 1) * skipStep
+  # let lastWantedSlot = startSlot.int + (output.len - 1) * skipStep
   if alignedHeadSlot > lastWantedSlot:
     blocksToSkip += (alignedHeadSlot - lastWantedSlot)
 
@@ -511,6 +520,8 @@ proc getBlockRange*(pool: BlockPool, headBlock: Eth2Digest,
     output[result] = b
     trace "getBlockRange result", position = result, blockSlot = b.slot
     skip skipStep
+
+
 
 func getBlockBySlot*(pool: BlockPool, slot: Slot): BlockRef =
   ## Retrieves the first block in the current canonical chain
@@ -541,7 +552,7 @@ proc get*(pool: BlockPool, root: Eth2Digest): Option[BlockData] =
   else:
     none(BlockData)
 
-func getOrResolve*(pool: var BlockPool, root: Eth2Digest): BlockRef =
+proc getOrResolve*(pool: var BlockPool, root: Eth2Digest): BlockRef =
   ## Fetch a block ref, or nil if not found (will be added to list of
   ## blocks-to-resolve)
   result = pool.getRef(root)
@@ -816,7 +827,7 @@ proc updateHead*(pool: BlockPool, newHead: BlockRef) =
 
   doAssert (not finalizedHead.blck.isNil),
     "Block graph should always lead to a finalized block"
-
+  
   if finalizedHead != pool.finalizedHead:
     block: # Remove states, walking slot by slot
       discard
@@ -861,7 +872,6 @@ proc updateHead*(pool: BlockPool, newHead: BlockRef) =
 
     # Right now, the finalized blocks themselves are stil on the graph, can't we delete them as well?
     pool.db.pruneToPersistent(finalizedHead.blck.root)
-    
     pool.finalizedHead = finalizedHead
 
     
