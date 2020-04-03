@@ -100,7 +100,10 @@ libbacktrace:
 # in a Makefile recipe but works when prefixing it with `bash`. No idea how the PATH is overridden.
 DISABLE_TEST_FIXTURES_SCRIPT := 0
 test: | build deps
-	echo Fake test completed!
+ifeq ($(DISABLE_TEST_FIXTURES_SCRIPT), 0)
+	V=$(V) scripts/setup_official_tests.sh
+endif
+	$(ENV_SCRIPT) nim test $(NIM_PARAMS) beacon_chain.nims && rm -f 0000-*.json
 
 $(TOOLS): | build deps
 	for D in $(TOOLS_DIRS); do [ -e "$${D}/$@.nim" ] && TOOL_DIR="$${D}" && break; done && \
