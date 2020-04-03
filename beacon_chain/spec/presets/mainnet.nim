@@ -73,7 +73,7 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L64
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L70
   GENESIS_SLOT* = 0.Slot
   GENESIS_FORK_VERSION* = 0x00000000
   BLS_WITHDRAWAL_PREFIX* = 0'u8
@@ -145,7 +145,7 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L114
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L117
   BASE_REWARD_FACTOR* = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
   PROPOSER_REWARD_QUOTIENT* = 2'u64^3
