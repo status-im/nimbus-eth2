@@ -610,7 +610,8 @@ proc toPeerInfo*(r: enr.TypedRecord): PeerInfo =
     if recoverPublicKey(r.secp256k1.get, pubKey) != EthKeysStatus.Success:
       return # TODO
 
-    let peerId = PeerID.init crypto.PublicKey(scheme: Secp256k1, skkey: pubKey)
+    let peerId = PeerID.init crypto.PublicKey(
+      scheme: Secp256k1, skkey: SkPublicKey(pubKey))
     var addresses = newSeq[MultiAddress]()
 
     if r.ip.isSome and r.tcp.isSome:
@@ -866,10 +867,10 @@ proc setupNat(conf: BeaconNodeConf): tuple[ip: Option[IpAddress],
         (result.tcpPort, result.udpPort) = extPorts.get()
 
 func asLibp2pKey*(key: keys.PublicKey): PublicKey =
-  PublicKey(scheme: Secp256k1, skkey: key)
+  PublicKey(scheme: Secp256k1, skkey: SkPublicKey(key))
 
 func asEthKey*(key: PrivateKey): keys.PrivateKey =
-  keys.PrivateKey(data: key.skkey.data)
+  keys.PrivateKey(SkSecretKey(data: key.skkey.data))
 
 proc initAddress*(T: type MultiAddress, str: string): T =
   let address = MultiAddress.init(str)
