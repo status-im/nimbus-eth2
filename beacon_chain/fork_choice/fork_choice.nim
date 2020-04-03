@@ -37,7 +37,7 @@ func compute_deltas(
 # Fork choice routines
 # ----------------------------------------------------------------------
 
-func initForkChoice(
+func initForkChoice*(
        finalized_block_slot: Slot,
        finalized_block_state_root: Eth2Digest,
        justified_epoch: Epoch,
@@ -249,7 +249,7 @@ func compute_deltas(
 when isMainModule:
   import nimcrypto/[sha2, utils]
 
-  func eth2hash(index: int): Eth2Digest =
+  func fakeHash(index: int): Eth2Digest =
     sha256.digest(cast[array[sizeof(int), byte]](index))
 
   proc tZeroHash() =
@@ -264,7 +264,7 @@ when isMainModule:
     var new_balances: seq[Gwei]
 
     for i in 0 ..< validator_count:
-      indices.add eth2hash(i), i
+      indices.add fakeHash(i), i
       votes.add default(VoteTracker)
       old_balances.add 0
       new_balances.add 0
@@ -295,10 +295,10 @@ when isMainModule:
     var new_balances: seq[Gwei]
 
     for i in 0 ..< validator_count:
-      indices.add eth2hash(i), i
+      indices.add fakeHash(i), i
       votes.add VoteTracker(
         current_root: default(Eth2Digest),
-        next_root: eth2hash(0), # Get a non-zero hash
+        next_root: fakeHash(0), # Get a non-zero hash
         next_epoch: Epoch(0)
       )
       old_balances.add Balance
@@ -334,10 +334,10 @@ when isMainModule:
     var new_balances: seq[Gwei]
 
     for i in 0 ..< validator_count:
-      indices.add eth2hash(i), i
+      indices.add fakeHash(i), i
       votes.add VoteTracker(
         current_root: default(Eth2Digest),
-        next_root: eth2hash(i), # Each vote for a different root
+        next_root: fakeHash(i), # Each vote for a different root
         next_epoch: Epoch(0)
       )
       old_balances.add Balance
@@ -371,11 +371,11 @@ when isMainModule:
     var new_balances: seq[Gwei]
 
     for i in 0 ..< validator_count:
-      indices.add eth2hash(i), i
+      indices.add fakeHash(i), i
       votes.add VoteTracker(
         # Move vote from root 0 to root 1
-        current_root: eth2hash(0),
-        next_root: eth2hash(1),
+        current_root: fakeHash(0),
+        next_root: fakeHash(1),
         next_epoch: Epoch(0)
       )
       old_balances.add Balance
@@ -408,7 +408,7 @@ when isMainModule:
     var votes: seq[VoteTracker]
 
     # Add a block
-    indices.add eth2hash(1), 0
+    indices.add fakeHash(1), 0
 
     # 2 validators
     var deltas = newSeqUninitialized[Delta](2)
@@ -417,15 +417,15 @@ when isMainModule:
 
     # One validator moves their vote from the block to the zero hash
     votes.add VoteTracker(
-      current_root: eth2hash(1),
+      current_root: fakeHash(1),
       next_root: default(Eth2Digest),
       next_epoch: Epoch(0)
     )
 
     # One validator moves their vote from the block to something outside of the tree
     votes.add VoteTracker(
-      current_root: eth2hash(1),
-      next_root: eth2hash(1337),
+      current_root: fakeHash(1),
+      next_root: fakeHash(1337),
       next_epoch: Epoch(0)
     )
 
@@ -458,11 +458,11 @@ when isMainModule:
     var new_balances: seq[Gwei]
 
     for i in 0 ..< validator_count:
-      indices.add eth2hash(i), i
+      indices.add fakeHash(i), i
       votes.add VoteTracker(
         # Move vote from root 0 to root 1
-        current_root: eth2hash(0),
-        next_root: eth2hash(1),
+        current_root: fakeHash(0),
+        next_root: fakeHash(1),
         next_epoch: Epoch(0)
       )
       old_balances.add OldBalance
@@ -495,8 +495,8 @@ when isMainModule:
     var votes: seq[VoteTracker]
 
     # Add 2 blocks
-    indices.add eth2hash(1), 0
-    indices.add eth2hash(2), 1
+    indices.add fakeHash(1), 0
+    indices.add fakeHash(2), 1
 
     # 1 validator at the start, 2 at the end
     var deltas = newSeqUninitialized[Delta](2)
@@ -506,8 +506,8 @@ when isMainModule:
     # Both moves vote from Block 1 to 2
     for _ in 0 ..< 2:
       votes.add VoteTracker(
-        current_root: eth2hash(1),
-        next_root: eth2hash(2),
+        current_root: fakeHash(1),
+        next_root: fakeHash(2),
         next_epoch: Epoch(0)
       )
 
@@ -534,8 +534,8 @@ when isMainModule:
     var votes: seq[VoteTracker]
 
     # Add 2 blocks
-    indices.add eth2hash(1), 0
-    indices.add eth2hash(2), 1
+    indices.add fakeHash(1), 0
+    indices.add fakeHash(2), 1
 
     # 1 validator at the start, 2 at the end
     var deltas = newSeqUninitialized[Delta](2)
@@ -545,8 +545,8 @@ when isMainModule:
     # Both moves vote from Block 1 to 2
     for _ in 0 ..< 2:
       votes.add VoteTracker(
-        current_root: eth2hash(1),
-        next_root: eth2hash(2),
+        current_root: fakeHash(1),
+        next_root: fakeHash(2),
         next_epoch: Epoch(0)
       )
 

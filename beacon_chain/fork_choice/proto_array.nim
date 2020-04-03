@@ -396,12 +396,12 @@ func maybe_update_best_child_and_descendant(
           if child.root.tiebreak(best_child.root):
             change_to_child
           else:
-            change_to_none
+            no_change
         else: # Choose winner by weight
           if child.weight >= best_child.weight:
             change_to_child
           else:
-            change_to_none
+            no_change
     else:
       if child_leads_to_viable_head:
         # There is no current best-child and the child is viable
