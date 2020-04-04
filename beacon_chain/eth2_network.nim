@@ -606,12 +606,12 @@ proc handleIncomingPeer*(peer: Peer) =
 
 proc toPeerInfo*(r: enr.TypedRecord): PeerInfo =
   if r.secp256k1.isSome:
-    var pubKey: keys.PublicKey
-    if recoverPublicKey(r.secp256k1.get, pubKey) != EthKeysStatus.Success:
+    var pubKey = keys.PublicKey.fromRaw(r.secp256k1.get)
+    if pubkey.isErr:
       return # TODO
 
     let peerId = PeerID.init crypto.PublicKey(
-      scheme: Secp256k1, skkey: SkPublicKey(pubKey))
+      scheme: Secp256k1, skkey: SkPublicKey(pubKey[]))
     var addresses = newSeq[MultiAddress]()
 
     if r.ip.isSome and r.tcp.isSome:
@@ -683,7 +683,8 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf,
            privKey: keys.PrivateKey): T =
   new result
   result.switch = switch
-  result.discovery = Eth2DiscoveryProtocol.new(conf, ip, tcpPort, udpPort, privKey.data)
+  result.discovery = Eth2DiscoveryProtocol.new(
+    conf, ip, tcpPort, udpPort, privKey.toRaw)
   result.wantedPeers = conf.maxPeers
   result.peerPool = newPeerPool[Peer, PeerID](maxPeers = conf.maxPeers)
 
@@ -697,7 +698,7 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf,
         msg.protocolMounter result
 
 template publicKey*(node: Eth2Node): keys.PublicKey =
-  node.discovery.privKey.getPublicKey
+  node.discovery.privKey.toPublicKey.tryGet()
 
 template addKnownPeer*(node: Eth2Node, peer: ENode|enr.Record) =
   node.discovery.addNode peer

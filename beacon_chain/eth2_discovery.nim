@@ -72,7 +72,7 @@ proc toENode*(enrRec: enr.Record): Result[ENode, cstring] =
                      address_v4: toArray(4, ipBytes))
       tcpPort = Port enrRec.get("tcp", uint16)
       udpPort = Port enrRec.get("udp", uint16)
-    var pubKey: keys.PublicKey
+    var pubKey: PublicKey
     if not enrRec.get(pubKey):
       return err "Failed to read public key from ENR record"
     return ok ENode(pubkey: pubkey,
@@ -161,8 +161,8 @@ proc new*(T: type Eth2DiscoveryProtocol,
   # * for setting up a specific key
   # * for using a persistent database
   var
-    pk = initPrivateKey(rawPrivKeyBytes)
-    ourPubKey = pk.getPublicKey()
+    pk = PrivateKey.fromRaw(rawPrivKeyBytes).tryGet()
+    ourPubKey = pk.toPublicKey().tryGet()
     db = DiscoveryDB.init(newMemoryDB())
 
   var bootNodes: seq[ENode]
