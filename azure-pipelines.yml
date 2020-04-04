@@ -65,11 +65,12 @@ jobs:
           scripts/setup_official_tests.sh jsonTestsCache
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} CI_CACHE=NimBinaries update
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} fetch-dlls
-          if [[ $PLATFORM == "x64" ]]; then
-            # the 32-bit job struggles to complete under the 60 minutes time limit, so try to lighten it a little
-            mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} LOG_LEVEL=TRACE
-          fi
+          mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} LOG_LEVEL=TRACE
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image"
           file build/beacon_node
+          if [[ $PLATFORM == "x86" ]]; then
+            # fail fast
+            export NIMTEST_ABORT_ON_ERROR=1
+          fi
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} DISABLE_TEST_FIXTURES_SCRIPT=1 test
         displayName: 'build and test'
