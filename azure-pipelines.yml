@@ -14,7 +14,7 @@ jobs:
       - task: CacheBeta@1
         displayName: 'cache Nim binaries'
         inputs:
-          key: NimBinaries | $(Agent.OS) | $(PLATFORM) | "$(Build.SourceBranchName)" | "v2"
+          key: NimBinaries | $(Agent.OS) | $(PLATFORM) | "$(Build.SourceBranchName)" | "v3"
           path: NimBinaries
 
       - task: CacheBeta@1
@@ -64,9 +64,9 @@ jobs:
           git submodule --quiet update --init --recursive
           scripts/setup_official_tests.sh jsonTestsCache
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} CI_CACHE=NimBinaries update
-          mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} fetch-dlls
-          mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} LOG_LEVEL=TRACE
-          mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image"
-          file build/beacon_node
-          mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} DISABLE_TEST_FIXTURES_SCRIPT=1 test
+          #mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} fetch-dlls
+          #mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} LOG_LEVEL=TRACE
+          #mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image"
+          #file build/beacon_node
+          #mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} DISABLE_TEST_FIXTURES_SCRIPT=1 test
         displayName: 'build and test'
