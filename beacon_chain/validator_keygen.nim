@@ -60,7 +60,7 @@ proc sendDeposits*(
 
   var web3 = await newWeb3(depositWeb3Url)
   if privateKey.len != 0:
-    web3.privateKey = initPrivateKey(privateKey)
+    web3.privateKey = PrivateKey.fromHex(privateKey).tryGet()
   else:
     let accounts = await web3.provider.eth_accounts()
     if accounts.len == 0:
