@@ -1,3 +1,7 @@
+# TODO Cannot use push here becaise it gets applied to PeerID.init (!)
+#      probably because it's a generic proc...
+# {.push raises: [Defect].}
+
 import
   os, net, strutils, strformat, parseutils,
   chronicles, stew/[result, objects], eth/keys, eth/trie/db, eth/p2p/enode,
@@ -14,11 +18,11 @@ type
 export
   Eth2DiscoveryProtocol, open, start, close, result
 
-proc toENode*(a: MultiAddress): Result[ENode, cstring] =
-  if not IPFS.match(a):
-    return err "Unsupported MultiAddress"
-
+proc toENode*(a: MultiAddress): Result[ENode, cstring] {.raises: [Defect].} =
   try:
+    if not IPFS.match(a):
+      return err "Unsupported MultiAddress"
+
     # TODO. This code is quite messy with so much string handling.
     # MultiAddress can offer a more type-safe API?
     var
@@ -53,6 +57,10 @@ proc toENode*(a: MultiAddress): Result[ENode, cstring] =
   except CatchableError:
     # This will reach the error exit path below
     discard
+  except Exception:
+    # TODO:
+    # libp2p/crypto/ecnist.nim(118, 20) Error: can raise an unlisted exception: Exception
+    discard
 
   return err "Invalid MultiAddress"
 
@@ -61,7 +69,7 @@ proc toMultiAddressStr*(enode: ENode): string =
     scheme: Secp256k1, skkey: SkPublicKey(enode.pubkey)))
   &"/ip4/{enode.address.ip}/tcp/{enode.address.tcpPort}/p2p/{peerId.pretty}"
 
-proc toENode*(enrRec: enr.Record): Result[ENode, cstring] =
+proc toENode*(enrRec: enr.Record): Result[ENode, cstring] {.raises: [Defect].} =
   try:
     # TODO: handle IPv6
     let ipBytes = enrRec.get("ip", seq[byte])
@@ -72,10 +80,10 @@ proc toENode*(enrRec: enr.Record): Result[ENode, cstring] =
                      address_v4: toArray(4, ipBytes))
       tcpPort = Port enrRec.get("tcp", uint16)
       udpPort = Port enrRec.get("udp", uint16)
-    var pubKey: PublicKey
-    if not enrRec.get(pubKey):
+    let pubkey = enrRec.get(PublicKey)
+    if pubkey.isNone:
       return err "Failed to read public key from ENR record"
-    return ok ENode(pubkey: pubkey,
+    return ok ENode(pubkey: pubkey.get(),
                     address: Address(ip: ip,
                                      tcpPort: tcpPort,
                                      udpPort: udpPort))
