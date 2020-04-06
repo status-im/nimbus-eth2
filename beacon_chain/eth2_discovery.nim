@@ -57,10 +57,11 @@ proc toENode*(a: MultiAddress): Result[ENode, cstring] {.raises: [Defect].} =
   except CatchableError:
     # This will reach the error exit path below
     discard
-  except Exception:
+  except Exception as e:
     # TODO:
-    # libp2p/crypto/ecnist.nim(118, 20) Error: can raise an unlisted exception: Exception
-    discard
+    # nim-libp2p/libp2p/multiaddress.nim(616, 40) Error: can raise an unlisted exception: Exception
+    if e of Defect:
+      raise (ref Defect)(e)
 
   return err "Invalid MultiAddress"
 
