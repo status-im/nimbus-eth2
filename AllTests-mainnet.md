@@ -80,7 +80,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + EPOCHS_PER_SLASHINGS_VECTOR                       8192                 [Preset: mainnet]   OK
 + ETH1_FOLLOW_DISTANCE                              1024                 [Preset: mainnet]   OK
 + GASPRICE_ADJUSTMENT_COEFFICIENT                   8                    [Preset: mainnet]   OK
-+ GENESIS_FORK_VERSION                              "0x00000000"         [Preset: mainnet]   OK
+- GENESIS_FORK_VERSION                              "0x00000000"         [Preset: mainnet]   Fail
 + HISTORICAL_ROOTS_LIMIT                            16777216             [Preset: mainnet]   OK
 + HYSTERESIS_DOWNWARD_MULTIPLIER                    1                    [Preset: mainnet]   OK
 + HYSTERESIS_QUOTIENT                               4                    [Preset: mainnet]   OK
@@ -141,7 +141,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + VALIDATOR_REGISTRY_LIMIT                          1099511627776        [Preset: mainnet]   OK
 + WHISTLEBLOWER_REWARD_QUOTIENT                     512                  [Preset: mainnet]   OK
 ```
-OK: 85/87 Fail: 2/87 Skip: 0/87
+OK: 84/87 Fail: 3/87 Skip: 0/87
 ## PeerPool testing suite
 ```diff
 + Access peers by key test                                                                   OK
@@ -222,4 +222,4 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 OK: 8/8 Fail: 0/8 Skip: 0/8
 
 ---TOTAL---
-OK: 142/144 Fail: 2/144 Skip: 0/144
+OK: 141/144 Fail: 3/144 Skip: 0/144
