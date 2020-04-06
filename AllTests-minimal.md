@@ -78,6 +78,13 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Attestation topics                                                                         OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## Interop
+```diff
++ Interop genesis                                                                            OK
++ Interop signatures                                                                         OK
++ Mocked start private key                                                                   OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Official - 0.11.1 - constants & config  [Preset: minimal]
 ```diff
 + BASE_REWARD_FACTOR                                64                   [Preset: minimal]   OK
@@ -249,4 +256,4 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 OK: 8/8 Fail: 0/8 Skip: 0/8
 
 ---TOTAL---
-OK: 156/159 Fail: 3/159 Skip: 0/159
+OK: 159/162 Fail: 3/162 Skip: 0/162

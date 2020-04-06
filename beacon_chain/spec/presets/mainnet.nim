@@ -20,7 +20,7 @@ type
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L6
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L6
 
   MAX_COMMITTEES_PER_SLOT* {.intdefine.} = 64
 
@@ -49,7 +49,7 @@ const
   HYSTERESIS_UPWARD_MULTIPLIER* = 5
 
   # Constants (TODO: not actually configurable)
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#constants
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#constants
   BASE_REWARDS_PER_EPOCH* = 4
 
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
