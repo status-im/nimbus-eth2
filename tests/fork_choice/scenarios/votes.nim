@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import ../interpreter
+# import ../interpreter # included to be able to use "suiteReport"
 
 proc setup_votes(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
   var balances = @[Gwei(1), Gwei(1)]
@@ -707,12 +707,12 @@ proc setup_votes(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
   )
 
 proc test_votes() =
-  echo "  fork_choice - testing with votes"
-  # for i in 0 ..< 12:
-  #   echo "    block (", i, ") hash: ", fakeHash(i)
-  # echo "    ------------------------------------------------------"
+  timedTest "fork_choice - testing with votes":
+    # for i in 0 ..< 12:
+    #   echo "    block (", i, ") hash: ", fakeHash(i)
+    # echo "    ------------------------------------------------------"
 
-  var (ctx, ops) = setup_votes()
-  ctx.run(ops)
+    var (ctx, ops) = setup_votes()
+    ctx.run(ops)
 
 test_votes()

@@ -30,7 +30,7 @@ import # Unit test
   ./test_sync_manager,
   ./test_honest_validator,
   ./test_interop,
-  ./tests_fork_choice
+  ./fork_choice/tests_fork_choice
 
 import # Refactor state transition unit tests
   # TODO re-enable when useful

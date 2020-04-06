@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import ../interpreter
+# import ../interpreter # included to be able to use "suiteReport"
 
 proc setup_finality_01(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
   var balances = @[Gwei(1), Gwei(1)]
@@ -118,12 +118,12 @@ proc setup_finality_01(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
   )
 
 proc test_ffg01() =
-  echo "  fork_choice - testing finality #01"
-  # for i in 0 ..< 4:
-  #   echo "    block (", i, ") hash: ", fakeHash(i)
-  # echo "    ------------------------------------------------------"
+  timedTest "fork_choice - testing finality #01":
+    # for i in 0 ..< 4:
+    #   echo "    block (", i, ") hash: ", fakeHash(i)
+    # echo "    ------------------------------------------------------"
 
-  var (ctx, ops) = setup_finality_01()
-  ctx.run(ops)
+    var (ctx, ops) = setup_finality_01()
+    ctx.run(ops)
 
 test_ffg01()

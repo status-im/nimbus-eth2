@@ -197,7 +197,7 @@ func compute_deltas(
   ## - If a `Eth2Digest` in `votes` does not exist in `indices`
   ##   except for the `default(Eth2Digest)` (i.e. zero hash)
 
-  # TODO: Displaying the votes for debugging will cause the tests to fail!!!
+  # TODO: Displaying the votes for debugging will cause the tests in that very file to fail!!!
   #       if we do the precise sequence
   #       - tAll_voted_the_same()
   #       - tDifferent_votes()

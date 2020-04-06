@@ -46,6 +46,14 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Multiaddress to ENode                                                                      OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Fork Choice + Finality  [Preset: mainnet]
+```diff
++ fork_choice - testing finality #01                                                         OK
++ fork_choice - testing finality #02                                                         OK
++ fork_choice - testing no votes                                                             OK
++ fork_choice - testing with votes                                                           OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Honest validator
 ```diff
 + Attestation topics                                                                         OK
@@ -234,4 +242,4 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 OK: 8/8 Fail: 0/8 Skip: 0/8
 
 ---TOTAL---
-OK: 145/148 Fail: 3/148 Skip: 0/148
+OK: 149/152 Fail: 3/152 Skip: 0/152

@@ -515,8 +515,9 @@ func node_is_viable_for_head(self: ProtoArray, node: ProtoNode): bool {.raises: 
 # Sanity checks on internal private procedures
 
 when isMainModule:
-
   import nimcrypto/[hash, utils]
+
+  echo "Sanity checks on fork choice tiebreaks"
 
   block:
     let a = Eth2Digest.fromHex("0x0000000000000001000000000000000000000000000000000000000000000000")
@@ -535,8 +536,5 @@ when isMainModule:
   block:
     let a = Eth2Digest.fromHex("0xD86E8112F3C4C4442126F8E9F44F16867DA487F29052BF91B810457DB34209A4") # sha256(2)
     let b = Eth2Digest.fromHex("0x7C9FA136D4413FA6173637E883B6998D32E1D675F88CDDFF9DCBCF331820F4B8") # sha256(1)
-
-    echo a.data
-    echo b.data
 
     doAssert tiebreak(a, b)
