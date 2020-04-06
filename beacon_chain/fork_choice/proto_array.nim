@@ -190,7 +190,6 @@ func find_head*(
   ## The result may not be accurate if `on_new_block`
   ## is not followed by `apply_score_changes` as `on_new_block` does not
   ## update the whole tree.
-  debugEcho "      self.find_head(head = 0x", head, ", justified_root = 0x", justified_root, ")"
   if justified_root notin self.indices:
     return ForkChoiceError(
       kind: fcErrJustifiedNodeUnknown,
@@ -206,8 +205,6 @@ func find_head*(
   template justified_node: untyped {.dirty.} = self.nodes[justified_index]
     # Alias, TODO: no exceptions
 
-  debugEcho "        self.nodes[justified_index (", justified_index, ")] = ", justified_node
-
   let best_descendant_index = block:
     if justified_node.best_descendant.isSome():
       justified_node.best_descendant.unsafeGet()
@@ -222,8 +219,6 @@ func find_head*(
   template best_node: untyped {.dirty.} = self.nodes[best_descendant_index]
     # Alias, TODO: no exceptions
 
-  debugEcho "        self.nodes[best_descendant_index (", best_descendant_index, ")] = ", best_node
-
   # Perform a sanity check to ensure the node can be head
   if not self.node_is_viable_for_head(best_node):
     return ForkChoiceError(
@@ -237,7 +232,6 @@ func find_head*(
     )
 
   head = best_node.root
-  debugEcho "Head found: 0x", head
   return ForkChoiceSuccess
 
 
@@ -340,9 +334,6 @@ func maybe_update_best_child_and_descendant(
   ##    and the parent is updated with the new best descendant
   ## 3. The child is not the best child but becomes the best child
   ## 4. The child is not the best child and does not become the best child
-
-  debugEcho "      self.maybe_update_best_child_and_descendant(parent = ", parent_index, ", child = ", child_index, ")"
-
   if child_index notin {0..self.nodes.len-1}:
     return ForkChoiceError(
       kind: fcErrInvalidNodeIndex,
@@ -358,8 +349,6 @@ func maybe_update_best_child_and_descendant(
   template child: untyped {.dirty.} = self.nodes[child_index]
   template parent: untyped {.dirty.} = self.nodes[parent_index]
 
-  debugEcho "        child: ", child
-
   let (child_leads_to_viable_head, err) = self.node_leads_to_viable_head(child)
   if err.kind != fcSuccess:
     return err
@@ -373,10 +362,6 @@ func maybe_update_best_child_and_descendant(
         else: some(child_index)
       )
     no_change = (parent.best_child, parent.best_descendant)
-
-  debugEcho "          change_to_none = ", change_to_none
-  debugEcho "          change_to_child = ", change_to_child
-  debugEcho "          no_change = ", no_change
 
   # TODO: state-machine? The control-flow is messy
 
@@ -410,15 +395,10 @@ func maybe_update_best_child_and_descendant(
           # The best child leads to a viable head, but the child doesn't
           no_change
         elif child.weight == best_child.weight:
-          debugEcho "Reached tiebreak"
-          debugEcho "  child.root      0x", child.root
-          debugEcho "  best_child.root 0x", best_child.root
-          debugEcho "  child.root.tiebreak(best_child.root): ", child.root.tiebreak(best_child.root)
           # Tie-breaker of equal weights by root
           if child.root.tiebreak(best_child.root):
             change_to_child
           else:
-            debugEcho "----> no change"
             no_change
         else: # Choose winner by weight
           if child.weight >= best_child.weight:
@@ -432,9 +412,6 @@ func maybe_update_best_child_and_descendant(
       else:
         # There is no current best-child but the child is not viable
         no_change
-
-  debugEcho "        new_best_child      = ", new_best_child
-  debugEcho "        new_best_descendant = ", new_best_descendant
 
   self.nodes[parent_index].best_child = new_best_child
   self.nodes[parent_index].best_descendant = new_best_descendant

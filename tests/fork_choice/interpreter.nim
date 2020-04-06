@@ -61,7 +61,6 @@ func apply(ctx: var ForkChoice, id: int, op: Operation) =
   ## Apply the specified operation to a ForkChoice context
   ## ``id`` is additional debugging info. It is the
   ## operation index.
-  debugEcho "    ---------------------------------------------------------------------------------"
   case op.kind
   of FindHead, InvalidFindHead:
     let r = ctx.find_head(
@@ -73,10 +72,10 @@ func apply(ctx: var ForkChoice, id: int, op: Operation) =
     if op.kind == FindHead:
       doAssert r.isOk(), &"find_head (op #{id}) returned an error: {r.error}"
       doAssert r.get() == op.expected_head, &"find_head (op #{id}) returned an incorrect result: {r.get()} (expected: {op.expected_head})"
-      debugEcho "    Successfully found head: ", op.expected_head
+      debugEcho "    Found expected head: 0x", op.expected_head
     else:
       doAssert r.isErr(), "find_head was unexpectedly successful"
-      debugEcho "    Successfully detected an invalid head"
+      debugEcho "    Detected an expected invalid head"
   of ProcessBlock:
     let r = ctx.process_block(
       slot = op.slot,
@@ -87,7 +86,7 @@ func apply(ctx: var ForkChoice, id: int, op: Operation) =
       finalized_epoch = op.blk_finalized_epoch
     )
     doAssert r.isOk(), &"process_block (op #{id}) returned an error: {r.error}"
-    debugEcho "    Processed block 0x", op.root, " with parent 0x", op.parent_root, " and justified epoch ", op.blk_justified_epoch
+    debugEcho "    Processed block      0x", op.root, " with parent 0x", op.parent_root, " and justified epoch ", op.blk_justified_epoch
   of ProcessAttestation:
     let r = ctx.process_attestation(
       validator_index = op.validator_index,
@@ -95,7 +94,7 @@ func apply(ctx: var ForkChoice, id: int, op: Operation) =
       target_epoch = op.target_epoch
     )
     doAssert r.isOk(), &"process_attestation (op #{id}) returned an error: {r.error}"
-    debugEcho "    Processed attestation for validator ", op.validator_index, " targeting ", op.block_root, " at epoch ", op.target_epoch
+    debugEcho "    Processed att target 0x", op.block_root, " from validator ", op.validator_index, " for epoch ", op.target_epoch
   of Prune:
     ctx.proto_array.prune_threshold = op.prune_threshold
     let r = ctx.maybe_prune(op.finalized_root)

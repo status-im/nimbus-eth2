@@ -237,10 +237,6 @@ func compute_deltas(
           # TODO: is int64 big enough?
 
       vote.current_root = vote.next_root
-
-    # debugEcho "deltas(", vote.next_root, ") = ", if vote.next_root in indices: $deltas[indices[vote.next_root]]
-    #                                              else: "nil"
-
   return ForkChoiceSuccess
 
 # Sanity checks
