@@ -236,6 +236,8 @@ proc setup_votes(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
   #       2  1
   #          |
   #          3
+  #          |
+  #          4
   result.ops.add Operation(
     kind: ProcessBlock,
     slot: Slot(0),
@@ -473,6 +475,16 @@ proc setup_votes(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
     validator_index: ValidatorIndex(1),
     block_root: fakeHash(9),
     target_epoch: Epoch(5)
+  )
+
+  # Head should still be 9
+  result.ops.add Operation(
+    kind: FindHead,
+    justified_epoch: Epoch(2),
+    justified_root: fakeHash(5),
+    finalized_epoch: Epoch(2),
+    justified_state_balances: balances,
+    expected_head: fakeHash(9)
   )
 
   # Add block 10

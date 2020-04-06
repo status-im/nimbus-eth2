@@ -8,8 +8,6 @@
 import
   # Standard library
   std/tables, std/options, std/typetraits,
-  # Status libraries
-  nimcrypto/hash,
   # Internal
   ../spec/[datatypes, digest],
   # Fork choice
@@ -107,8 +105,12 @@ func apply_score_changes*(
       )
     node.weight = weight
 
-    # debugecho "      deltas[", node_index, "] = ", deltas[node_index]
-    # debugecho "      node.weight = ", node.weight
+    # var report: string
+    # # report.add "deltas[" & $node_index & "] = " & $deltas[node_index]
+    # report.add "node.weight = " & $node.weight
+    # report.add ", node root 0x" & $node.root
+
+    # debugecho "      ", report
 
     # If the node has a parent, try to update its best-child and best-descendant
     if node.parent.isSome():
@@ -337,6 +339,9 @@ func maybe_update_best_child_and_descendant(
   ##    and the parent is updated with the new best descendant
   ## 3. The child is not the best child but becomes the best child
   ## 4. The child is not the best child and does not become the best child
+
+  # debugEcho "      self.maybe_update_best_child_and_descendant(parent = ", parent_index, ", child = ", child_index, ")"
+
   if child_index notin {0..self.nodes.len-1}:
     return ForkChoiceError(
       kind: fcErrInvalidNodeIndex,
@@ -352,6 +357,8 @@ func maybe_update_best_child_and_descendant(
   template child: untyped {.dirty.} = self.nodes[child_index]
   template parent: untyped {.dirty.} = self.nodes[parent_index]
 
+  # debugEcho "        child: ", child
+
   let (child_leads_to_viable_head, err) = self.node_leads_to_viable_head(child)
   if err.kind != fcSuccess:
     return err
@@ -365,6 +372,10 @@ func maybe_update_best_child_and_descendant(
         else: some(child_index)
       )
     no_change = (parent.best_child, parent.best_descendant)
+
+  # debugEcho "          change_to_none = ", change_to_none
+  # debugEcho "          change_to_child = ", change_to_child
+  # debugEcho "          no_change = ", no_change
 
   # TODO: state-machine? The control-flow is messy
 
@@ -398,6 +409,10 @@ func maybe_update_best_child_and_descendant(
           # The best child leads to a viable head, but the child doesn't
           no_change
         elif child.weight == best_child.weight:
+          # debugEcho "Reached tiebreak"
+          # debugEcho "  child.root      0x", child.root
+          # debugEcho "  best_child.root 0x", best_child.root
+          # debugEcho "  child.root.tiebreak(best_child.root): ", child.root.tiebreak(best_child.root)
           # Tie-breaker of equal weights by root
           if child.root.tiebreak(best_child.root):
             change_to_child
@@ -415,6 +430,9 @@ func maybe_update_best_child_and_descendant(
       else:
         # There is no current best-child but the child is not viable
         no_change
+
+  # debugEcho "        new_best_child      = ", new_best_child
+  # debugEcho "        new_best_descendant = ", new_best_descendant
 
   self.nodes[parent_index].best_child = new_best_child
   self.nodes[parent_index].best_descendant = new_best_descendant

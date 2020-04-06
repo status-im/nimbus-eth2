@@ -16,7 +16,8 @@ import
 
 export result, datatypes, digest, fork_choice, fork_choice_types, tables, options
 
-# TODO: if the value added is 1 or 16, we error out. Why? Nim table bug with not enough spaced hashes?
+# TODO: nimcrypto.hash.`==` is returns incorrect result with those fakeHash
+#       Don't import nimcrypto, let Nim do the `==` in the mean-time
 func fakeHash*(index: SomeInteger): Eth2Digest =
   ## Create fake hashes
   ## Those are just the value serialized in big-endian
@@ -66,6 +67,7 @@ func apply(ctx: var ForkChoice, id: int, op: Operation) =
   ## Apply the specified operation to a ForkChoice context
   ## ``id`` is additional debugging info. It is the
   ## operation index.
+  # debugEcho "    ========================================================================================="
   case op.kind
   of FindHead, InvalidFindHead:
     let r = ctx.find_head(
