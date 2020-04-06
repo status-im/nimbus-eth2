@@ -94,7 +94,7 @@ type
     slot*: Slot
     state_root*: Eth2Digest
     root*: Eth2Digest
-    parent_delta*: Option[Delta]
+    parent*: Option[Index]
     justified_epoch*: Epoch
     finalized_epoch*: Epoch
     weight*: int64

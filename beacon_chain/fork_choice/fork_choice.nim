@@ -82,7 +82,7 @@ func extend[T](s: var seq[T], minLen: int) =
     #       but this should happen rarely as we reuse the buffer
     #       most of the time
     s.setLen(minLen)
-    zeroMem(s[minLen].addr, diff * sizeof(T))
+    zeroMem(s[curLen].addr, diff * sizeof(T))
 
 
 func process_attestation*(
@@ -92,7 +92,7 @@ func process_attestation*(
        target_epoch: Epoch
      ): Result[void, string] {.raises: [].} =
   ## Add an attestation to the fork choice context
-  self.votes.extend(validator_index.int)
+  self.votes.extend(validator_index.int + 1)
 
   template vote: untyped {.dirty.} = self.votes[validator_index.int]
     # alias
@@ -102,6 +102,7 @@ func process_attestation*(
     vote.next_root = block_root
     vote.next_epoch = target_epoch
 
+  result.ok()
 
 func process_block*(
        self: var ForkChoice,

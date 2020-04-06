@@ -95,8 +95,8 @@ func apply_score_changes*(
 
     # Apply the delta to the node
     # We fail fast if underflow, which shouldn't happen.
-    # Note that delta can be negative.
-    let weight = node.weight - node_delta
+    # Note that delta can be negative but weight cannot
+    let weight = node.weight + node_delta
     if weight < 0:
       return ForkChoiceError(
         kind: fcErrDeltaUnderflow,
@@ -104,12 +104,15 @@ func apply_score_changes*(
       )
     node.weight = weight
 
+    # debugecho "      deltas[", node_index, "] = ", deltas[node_index]
+    # debugecho "      node.weight = ", node.weight
+
     # If the node has a parent, try to update its best-child and best-descendant
-    if node.parent_delta.isSome():
+    if node.parent.isSome():
       # TODO: Nim `options` module could use some {.inline.}
       #       and a mutable overload for unsafeGet
       #       and a "no exceptions" (only panics) implementation.
-      let parent_index = node.parent_delta.unsafeGet()
+      let parent_index = node.parent.unsafeGet()
       if parent_index notin {0..deltas.len-1}:
         return ForkChoiceError(
           kind: fcErrInvalidParentDelta,
@@ -117,7 +120,7 @@ func apply_score_changes*(
         )
 
       # Back-propagate the nodes delta to its parent.
-      node.parent_delta.get() += node_delta
+      deltas[parent_index] += node_delta
 
       let err = self.maybe_update_best_child_and_descendant(parent_index, node_index)
       if err.kind != fcSuccess:
@@ -158,7 +161,7 @@ func on_block*(
     slot: slot,
     state_root: state_root,
     root: root,
-    parent_delta: parent_index,
+    parent: parent_index,
     justified_epoch: justified_epoch,
     finalized_epoch: finalized_epoch,
     weight: 0,
@@ -187,6 +190,7 @@ func find_head*(
   ## The result may not be accurate if `on_new_block`
   ## is not followed by `apply_score_changes` as `on_new_block` does not
   ## update the whole tree.
+  debugEcho "      self.find_head(head = 0x", head, ", justified_root = 0x", justified_root, ")"
   if justified_root notin self.indices:
     return ForkChoiceError(
       kind: fcErrJustifiedNodeUnknown,
@@ -202,6 +206,8 @@ func find_head*(
   template justified_node: untyped {.dirty.} = self.nodes[justified_index]
     # Alias, TODO: no exceptions
 
+  debugEcho "        self.nodes[justified_index (", justified_index, ")] = ", justified_node
+
   let best_descendant_index = block:
     if justified_node.best_descendant.isSome():
       justified_node.best_descendant.unsafeGet()
@@ -216,6 +222,8 @@ func find_head*(
   template best_node: untyped {.dirty.} = self.nodes[best_descendant_index]
     # Alias, TODO: no exceptions
 
+  debugEcho "        self.nodes[best_descendant_index (", best_descendant_index, ")] = ", best_node
+
   # Perform a sanity check to ensure the node can be head
   if not self.node_is_viable_for_head(best_node):
     return ForkChoiceError(
@@ -229,6 +237,7 @@ func find_head*(
     )
 
   head = best_node.root
+  debugEcho "Head found: 0x", head
   return ForkChoiceSuccess
 
 
@@ -288,12 +297,12 @@ func maybe_prune*(
   # the new layout of `self.nodes`
   for node in self.nodes.mitems():
     # If `node.parent` is less than `finalized_index`, set it to None
-    if node.parent_delta.isSome():
-      let new_parent_delta = node.parent_delta.unsafeGet() - finalized_index
-      if new_parent_delta < 0:
-        node.parent_delta = none(Delta)
+    if node.parent.isSome():
+      let new_parent = node.parent.unsafeGet() - finalized_index
+      if new_parent < 0:
+        node.parent = none(Index)
       else:
-        node.parent_delta = some(new_parent_delta)
+        node.parent = some(new_parent)
 
     if node.best_child.isSome():
       let new_best_child = node.best_child.unsafeGet() - finalized_index
@@ -331,6 +340,9 @@ func maybe_update_best_child_and_descendant(
   ##    and the parent is updated with the new best descendant
   ## 3. The child is not the best child but becomes the best child
   ## 4. The child is not the best child and does not become the best child
+
+  debugEcho "      self.maybe_update_best_child_and_descendant(parent = ", parent_index, ", child = ", child_index, ")"
+
   if child_index notin {0..self.nodes.len-1}:
     return ForkChoiceError(
       kind: fcErrInvalidNodeIndex,
@@ -346,6 +358,8 @@ func maybe_update_best_child_and_descendant(
   template child: untyped {.dirty.} = self.nodes[child_index]
   template parent: untyped {.dirty.} = self.nodes[parent_index]
 
+  debugEcho "        child: ", child
+
   let (child_leads_to_viable_head, err) = self.node_leads_to_viable_head(child)
   if err.kind != fcSuccess:
     return err
@@ -359,6 +373,10 @@ func maybe_update_best_child_and_descendant(
         else: some(child_index)
       )
     no_change = (parent.best_child, parent.best_descendant)
+
+  debugEcho "          change_to_none = ", change_to_none
+  debugEcho "          change_to_child = ", change_to_child
+  debugEcho "          no_change = ", no_change
 
   # TODO: state-machine? The control-flow is messy
 
@@ -410,9 +428,13 @@ func maybe_update_best_child_and_descendant(
         # There is no current best-child but the child is not viable
         no_change
 
+  debugEcho "        new_best_child      = ", new_best_child
+  debugEcho "        new_best_descendant = ", new_best_descendant
+
   self.nodes[parent_index].best_child = new_best_child
   self.nodes[parent_index].best_descendant = new_best_descendant
 
+  return ForkChoiceSuccess
 
 func node_leads_to_viable_head(
        self: ProtoArray, node: ProtoNode

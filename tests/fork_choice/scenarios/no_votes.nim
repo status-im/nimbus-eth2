@@ -11,6 +11,17 @@ proc setup_no_votes(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
   let balances = newSeq[Gwei](16)
   let GenesisRoot = fakeHash(0)
 
+  # Initialize the fork choice context
+  result.fork_choice = initForkChoice(
+    finalized_block_slot = Slot(0),
+    finalized_block_state_root = default(Eth2Digest),
+    justified_epoch = Epoch(1),
+    finalized_epoch = Epoch(1),
+    finalized_root = GenesisRoot
+  ).get()
+
+  # ----------------------------------
+
   # Head should be genesis
   result.ops.add Operation(
     kind: FindHead,
@@ -49,7 +60,7 @@ proc setup_no_votes(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
     expected_head: fakeHash(2)
   )
 
-  # Add block 1
+  # Add block 1 as a fork
   #
   #         0
   #        / \
@@ -249,20 +260,11 @@ proc setup_no_votes(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
     expected_head: fakeHash(6)
   )
 
-  # ----------------------------------
-  # Initialize the fork choice context
-  result.fork_choice = initForkChoice(
-    finalized_block_slot = Slot(0),
-    finalized_block_state_root = default(Eth2Digest),
-    justified_epoch = Epoch(1),
-    finalized_epoch = Epoch(1),
-    finalized_root = GenesisRoot
-  ).get()
-
 proc test_no_votes() =
   echo "  fork_choice - testing no votes"
   # for i in 0 ..< 6:
   #   echo "    block (", i, ") hash: ", fakeHash(i)
+  # echo "    ------------------------------------------------------"
 
   var (ctx, ops) = setup_no_votes()
   ctx.run(ops)
