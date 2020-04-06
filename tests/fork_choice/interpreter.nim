@@ -9,16 +9,21 @@ import
   # Standard library
   std/strformat, std/tables, std/options,
   # Status libraries
-  stew/result, nimcrypto/[sha2, utils],
+  stew/[result, endians2],
   # Internals
   ../../beacon_chain/spec/[datatypes, digest],
   ../../beacon_chain/fork_choice/[fork_choice, fork_choice_types]
 
 export result, datatypes, digest, fork_choice, fork_choice_types, tables, options
 
-func fakeHash*(index: int): Eth2Digest =
+# TODO: if the value added is 1 or 16, we error out. Why? Nim table bug with not enough spaced hashes?
+func fakeHash*(index: SomeInteger): Eth2Digest =
   ## Create fake hashes
-  sha256.digest(cast[array[sizeof(int), byte]](index))
+  ## Those are just the value serialized in big-endian
+  ## We add 16x16 to avoid having a zero hash are those are special cased
+  ## We store them in the first 8 bytes
+  ## as those are the one used in hash tables Table[Eth2Digest, T]
+  result.data[0 ..< 8] = (16*16+index).uint64.toBytesBE()
 
 # The fork choice tests are quite complex.
 # For flexibility in block arrival, timers, operations sequencing, ...

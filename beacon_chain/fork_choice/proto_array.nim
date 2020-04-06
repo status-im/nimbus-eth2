@@ -30,8 +30,11 @@ func tiebreak(a, b: Eth2Digest): bool =
   ## on the binary representation
   for i in 0 ..< a.data.len:
     if a.data[i] < b.data[i]:
+      return false
+    elif a.data[i] > b.data[i]:
       return true
-  return false
+    # else we have equality so far
+  return true
 
 # Forward declarations
 # ----------------------------------------------------------------------
@@ -467,7 +470,25 @@ when isMainModule:
 
   import nimcrypto/[hash, utils]
 
-  let a = Eth2Digest.fromHex("0xD86E8112F3C4C4442126F8E9F44F16867DA487F29052BF91B810457DB34209A4") # sha256(2)
-  let b = Eth2Digest.fromHex("0x7C9FA136D4413FA6173637E883B6998D32E1D675F88CDDFF9DCBCF331820F4B8") # sha256(1)
+  block:
+    let a = Eth2Digest.fromHex("0x0000000000000001000000000000000000000000000000000000000000000000")
+    let b = Eth2Digest.fromHex("0x0000000000000000000000000000000000000000000000000000000000000000") # sha256(1)
 
-  doAssert tiebreak(a, b)
+    doAssert tiebreak(a, b)
+
+
+  block:
+    let a = Eth2Digest.fromHex("0x0000000000000002000000000000000000000000000000000000000000000000")
+    let b = Eth2Digest.fromHex("0x0000000000000001000000000000000000000000000000000000000000000000") # sha256(1)
+
+    doAssert tiebreak(a, b)
+
+
+  block:
+    let a = Eth2Digest.fromHex("0xD86E8112F3C4C4442126F8E9F44F16867DA487F29052BF91B810457DB34209A4") # sha256(2)
+    let b = Eth2Digest.fromHex("0x7C9FA136D4413FA6173637E883B6998D32E1D675F88CDDFF9DCBCF331820F4B8") # sha256(1)
+
+    echo a.data
+    echo b.data
+
+    doAssert tiebreak(a, b)

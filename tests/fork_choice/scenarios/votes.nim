@@ -532,41 +532,41 @@ proc setup_votes(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
   result.ops.add Operation(
     kind: ProcessAttestation,
     validator_index: ValidatorIndex(2),
-    block_root: fakeHash(9),
+    block_root: fakeHash(10),
     target_epoch: Epoch(5)
   )
   result.ops.add Operation(
     kind: ProcessAttestation,
     validator_index: ValidatorIndex(3),
-    block_root: fakeHash(9),
+    block_root: fakeHash(10),
     target_epoch: Epoch(5)
   )
 
-  # # Check that the head is now 10.
-  # #
-  # #          0
-  # #         / \
-  # #        2   1
-  # #            |
-  # #            3
-  # #            |
-  # #            4
-  # #           / \
-  # #          5   6
-  # #          |
-  # #          7
-  # #          |
-  # #          8
-  # #         / \
-  # #        9  10 <- head
-  # result.ops.add Operation(
-  #   kind: FindHead,
-  #   justified_epoch: Epoch(2),
-  #   justified_root: fakeHash(5),
-  #   finalized_epoch: Epoch(2),
-  #   justified_state_balances: balances,
-  #   expected_head: fakeHash(10)
-  # )
+  # Check that the head is now 10.
+  #
+  #          0
+  #         / \
+  #        2   1
+  #            |
+  #            3
+  #            |
+  #            4
+  #           / \
+  #          5   6
+  #          |
+  #          7
+  #          |
+  #          8
+  #         / \
+  #        9  10 <- head
+  result.ops.add Operation(
+    kind: FindHead,
+    justified_epoch: Epoch(2),
+    justified_root: fakeHash(5),
+    finalized_epoch: Epoch(2),
+    justified_state_balances: balances,
+    expected_head: fakeHash(10)
+  )
 
 proc test_votes() =
   echo "  fork_choice - testing with votes"

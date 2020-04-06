@@ -244,10 +244,16 @@ func compute_deltas(
 # Sanity checks on internal private procedures
 
 when isMainModule:
-  import nimcrypto/[sha2, utils]
+  import stew/endians2
 
-  func fakeHash(index: int): Eth2Digest =
-    sha256.digest(cast[array[sizeof(int), byte]](index))
+  # TODO: if the value added is 1 or 16, we error out. Why? Nim table bug with not enough spaced hashes?
+  func fakeHash*(index: SomeInteger): Eth2Digest =
+    ## Create fake hashes
+    ## Those are just the value serialized in big-endian
+    ## We add 16x16 to avoid having a zero hash are those are special cased
+    ## We store them in the first 8 bytes
+    ## as those are the one used in hash tables Table[Eth2Digest, T]
+    result.data[0 ..< 8] = (16*16+index).uint64.toBytesBE()
 
   proc tZeroHash() =
     echo "    fork_choice compute_deltas - test zero votes"
