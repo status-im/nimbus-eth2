@@ -580,6 +580,143 @@ proc setup_votes(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
     expected_head: fakeHash(10)
   )
 
+  # Set the last 2 validators balances to 0
+  balances = @[Gwei(1), Gwei(1), Gwei(0), Gwei(0)]
+
+  # head should be 9 again
+  #            .
+  #           |
+  #           8
+  #          / \
+  # head -> 9  10
+  result.ops.add Operation(
+    kind: FindHead,
+    justified_epoch: Epoch(2),
+    justified_root: fakeHash(5),
+    finalized_epoch: Epoch(2),
+    justified_state_balances: balances,
+    expected_head: fakeHash(9)
+  )
+
+  # Set the last 2 validators balances back to 1
+  balances = @[Gwei(1), Gwei(1), Gwei(1), Gwei(1)]
+
+  # head should be 10 again
+  #            .
+  #           |
+  #           8
+  #          / \
+  #         9  10 <- head
+  result.ops.add Operation(
+    kind: FindHead,
+    justified_epoch: Epoch(2),
+    justified_root: fakeHash(5),
+    finalized_epoch: Epoch(2),
+    justified_state_balances: balances,
+    expected_head: fakeHash(10)
+  )
+
+  # Remove the validators
+  balances = @[Gwei(1), Gwei(1)]
+
+  # head should be 9 again
+  #            .
+  #           |
+  #           8
+  #          / \
+  # head -> 9  10
+  result.ops.add Operation(
+    kind: FindHead,
+    justified_epoch: Epoch(2),
+    justified_root: fakeHash(5),
+    finalized_epoch: Epoch(2),
+    justified_state_balances: balances,
+    expected_head: fakeHash(9)
+  )
+
+  # Pruning below the prune threshold doesn't prune
+  result.ops.add Operation(
+    kind: Prune,
+    finalized_root: fakeHash(5),
+    prune_threshold: high(int),
+    expected_len: 11
+  )
+
+  # Prune shouldn't have changed the head
+  result.ops.add Operation(
+    kind: FindHead,
+    justified_epoch: Epoch(2),
+    justified_root: fakeHash(5),
+    finalized_epoch: Epoch(2),
+    justified_state_balances: balances,
+    expected_head: fakeHash(9)
+  )
+
+  # Ensure that pruning above the prune threshold does prune.
+  #
+  #
+  #          0
+  #         / \
+  #        2   1
+  #            |
+  #            3
+  #            |
+  #            4
+  # -------pruned here ------
+  #          5   6
+  #          |
+  #          7
+  #          |
+  #          8
+  #         / \
+  #        9  10
+  result.ops.add Operation(
+    kind: Prune,
+    finalized_root: fakeHash(5),
+    prune_threshold: 1,
+    expected_len: 6
+  )
+
+  # Prune shouldn't have changed the head
+  result.ops.add Operation(
+    kind: FindHead,
+    justified_epoch: Epoch(2),
+    justified_root: fakeHash(5),
+    finalized_epoch: Epoch(2),
+    justified_state_balances: balances,
+    expected_head: fakeHash(9)
+  )
+
+  # Add block 11
+  #
+  #          5   6
+  #          |
+  #          7
+  #          |
+  #          8
+  #         / \
+  #        9  10
+  #        |
+  #        11
+  result.ops.add Operation(
+    kind: ProcessBlock,
+    slot: Slot(0),
+    root: fakeHash(11),
+    parent_root: fakeHash(9),
+    blk_justified_epoch: Epoch(2),
+    blk_finalized_epoch: Epoch(2)
+  )
+
+  # Head is now 11
+  result.ops.add Operation(
+    kind: FindHead,
+    justified_epoch: Epoch(2),
+    justified_root: fakeHash(5),
+    finalized_epoch: Epoch(2),
+    justified_state_balances: balances,
+    expected_head: fakeHash(11)
+  )
+
 proc test_votes() =
   echo "  fork_choice - testing with votes"
   for i in 0 ..< 11:

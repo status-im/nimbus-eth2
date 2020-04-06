@@ -172,7 +172,7 @@ func maybe_prune*(
   let err = self.proto_array.maybe_prune(finalized_root)
   if err.kind != fcSuccess:
     result.err("find_head maybe_pruned failed: " & $err)
-
+  result.ok()
 
 func compute_deltas(
        deltas: var openarray[Delta],
