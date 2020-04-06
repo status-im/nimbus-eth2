@@ -193,7 +193,7 @@ proc slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
   increase_balance(
     state, whistleblower_index, whistleblowing_reward - proposer_reward)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#genesis
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#genesis
 proc initialize_beacon_state_from_eth1*(
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,

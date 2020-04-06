@@ -943,7 +943,7 @@ proc getProposer*(pool: BlockPool, head: BlockRef, slot: Slot): Option[Validator
   pool.withState(pool.tmpState, head.atSlot(slot)):
     var cache = get_empty_per_epoch_cache()
 
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#validator-assignments
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#validator-assignments
     let proposerIdx = get_beacon_proposer_index(state, cache)
     if proposerIdx.isNone:
       warn "Missing proposer index",

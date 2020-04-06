@@ -27,12 +27,8 @@ import # Unit test
   ./test_zero_signature,
   ./test_peer_pool,
   ./test_sync_manager,
-  ./test_honest_validator
-
-  # ./test_interop
-  # TODO: BLS changes in v0.10.1 will generate different interop signatures
-  #       Requires an update of the interop mocked start: https://github.com/ethereum/eth2.0-pm/tree/master/interop/mocked_start
-  #       or of ZRNT / ZCLI to v0.10.1
+  ./test_honest_validator,
+  ./test_interop
 
 import # Refactor state transition unit tests
   # TODO re-enable when useful
