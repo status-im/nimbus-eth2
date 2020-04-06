@@ -30,8 +30,8 @@ func tiebreak(a, b: Eth2Digest): bool =
   ## on the binary representation
   for i in 0 ..< a.data.len:
     if a.data[i] < b.data[i]:
-      return false
-  return true
+      return true
+  return false
 
 # Forward declarations
 # ----------------------------------------------------------------------
@@ -410,10 +410,15 @@ func maybe_update_best_child_and_descendant(
           # The best child leads to a viable head, but the child doesn't
           no_change
         elif child.weight == best_child.weight:
+          debugEcho "Reached tiebreak"
+          debugEcho "  child.root      0x", child.root
+          debugEcho "  best_child.root 0x", best_child.root
+          debugEcho "  child.root.tiebreak(best_child.root): ", child.root.tiebreak(best_child.root)
           # Tie-breaker of equal weights by root
           if child.root.tiebreak(best_child.root):
             change_to_child
           else:
+            debugEcho "----> no change"
             no_change
         else: # Choose winner by weight
           if child.weight >= best_child.weight:
@@ -476,3 +481,16 @@ func node_is_viable_for_head(self: ProtoArray, node: ProtoNode): bool {.raises: 
     (node.finalized_epoch == self.finalized_epoch) or
     (node.finalized_epoch == Epoch(0))
   )
+
+# Sanity checks
+# ----------------------------------------------------------------------
+# Sanity checks on internal private procedures
+
+when isMainModule:
+
+  import nimcrypto/[hash, utils]
+
+  let a = Eth2Digest.fromHex("0xD86E8112F3C4C4442126F8E9F44F16867DA487F29052BF91B810457DB34209A4") # sha256(2)
+  let b = Eth2Digest.fromHex("0x7C9FA136D4413FA6173637E883B6998D32E1D675F88CDDFF9DCBCF331820F4B8") # sha256(1)
+
+  doAssert tiebreak(a, b)

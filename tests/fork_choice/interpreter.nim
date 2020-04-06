@@ -61,7 +61,7 @@ func apply(ctx: var ForkChoice, id: int, op: Operation) =
   ## Apply the specified operation to a ForkChoice context
   ## ``id`` is additional debugging info. It is the
   ## operation index.
-
+  debugEcho "    ---------------------------------------------------------------------------------"
   case op.kind
   of FindHead, InvalidFindHead:
     let r = ctx.find_head(
