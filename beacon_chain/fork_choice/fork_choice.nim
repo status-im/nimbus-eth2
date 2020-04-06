@@ -131,6 +131,8 @@ func find_head*(
        justified_state_balances: seq[Gwei]
      ): Result[Eth2Digest, string] {.raises: [UnpackError, KeyError].} =
   ## Returns the new blockchain head
+  # debugEcho "proto_array: ", self.proto_array
+  # debugEcho "-----------------------\n"
 
   # Compute deltas with previous call
   #   we might want to reuse the `deltas` buffer across calls
@@ -154,8 +156,11 @@ func find_head*(
   if score_err.kind != fcSuccess:
     result.err("find_head apply_score_changes failed: " & $score_err)
 
-  # Find the best block
   self.balances = justified_state_balances
+  # debugEcho "proto_array: ", self.proto_array
+  # debugEcho "-----------------------\n"
+
+  # Find the best block
   var new_head{.noInit.}: Eth2Digest
   let ghost_err = self.proto_array.find_head(new_head, justified_root)
   if ghost_err.kind != fcSuccess:

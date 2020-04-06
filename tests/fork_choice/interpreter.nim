@@ -49,7 +49,6 @@ type
       justified_state_balances*: seq[Gwei]
       expected_head*: Eth2Digest
     of ProcessBlock:
-      slot*: Slot
       root*: Eth2Digest
       parent_root*: Eth2Digest
       blk_justified_epoch*: Epoch
@@ -85,10 +84,10 @@ func apply(ctx: var ForkChoice, id: int, op: Operation) =
       debugEcho "    Detected an expected invalid head"
   of ProcessBlock:
     let r = ctx.process_block(
-      slot = op.slot,
+      slot = default(Slot),             # unused in fork choice, only helpful for external components
       block_root = op.root,
       parent_root = op.parent_root,
-      state_root = default(Eth2Digest),
+      state_root = default(Eth2Digest), # unused in fork choice, only helpful for external components
       justified_epoch = op.blk_justified_epoch,
       finalized_epoch = op.blk_finalized_epoch
     )

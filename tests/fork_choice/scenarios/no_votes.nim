@@ -13,8 +13,8 @@ proc setup_no_votes(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
 
   # Initialize the fork choice context
   result.fork_choice = initForkChoice(
-    finalized_block_slot = Slot(0),
-    finalized_block_state_root = default(Eth2Digest),
+    finalized_block_slot = Slot(0),                   # Metadata unused in fork choice
+    finalized_block_state_root = default(Eth2Digest), # Metadata unused in fork choice
     justified_epoch = Epoch(1),
     finalized_epoch = Epoch(1),
     finalized_root = GenesisRoot
@@ -39,7 +39,6 @@ proc setup_no_votes(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
   #       2
   result.ops.add Operation(
     kind: ProcessBlock,
-    slot: Slot(0),
     root: fakeHash(2),
     parent_root: GenesisRoot,
     blk_justified_epoch: Epoch(1),
@@ -67,7 +66,6 @@ proc setup_no_votes(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
   #       2  1
   result.ops.add Operation(
     kind: ProcessBlock,
-    slot: Slot(0),
     root: fakeHash(1),
     parent_root: GenesisRoot,
     blk_justified_epoch: Epoch(1),
@@ -97,7 +95,6 @@ proc setup_no_votes(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
   #          3
   result.ops.add Operation(
     kind: ProcessBlock,
-    slot: Slot(0),
     root: fakeHash(3),
     parent_root: fakeHash(1),
     blk_justified_epoch: Epoch(1),
@@ -129,7 +126,6 @@ proc setup_no_votes(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
   #       4  3
   result.ops.add Operation(
     kind: ProcessBlock,
-    slot: Slot(0),
     root: fakeHash(4),
     parent_root: fakeHash(2),
     blk_justified_epoch: Epoch(1),
@@ -163,7 +159,6 @@ proc setup_no_votes(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
   #       5 <- justified epoch = 2
   result.ops.add Operation(
     kind: ProcessBlock,
-    slot: Slot(0),
     root: fakeHash(5),
     parent_root: fakeHash(4),
     blk_justified_epoch: Epoch(2),
@@ -234,7 +229,6 @@ proc setup_no_votes(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
   #     6
   result.ops.add Operation(
     kind: ProcessBlock,
-    slot: Slot(0),
     root: fakeHash(6),
     parent_root: fakeHash(5),
     blk_justified_epoch: Epoch(2),
