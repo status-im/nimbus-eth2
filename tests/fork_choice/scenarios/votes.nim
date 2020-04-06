@@ -8,7 +8,7 @@
 import ../interpreter
 
 proc setup_votes(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
-  let balances = @[Gwei(1), Gwei(1)]
+  var balances = @[Gwei(1), Gwei(1)]
   let GenesisRoot = fakeHash(0)
 
   # Initialize the fork choice context
@@ -23,14 +23,14 @@ proc setup_votes(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
   # ----------------------------------
 
   # Head should be genesis
-  # result.ops.add Operation(
-  #   kind: FindHead,
-  #   justified_epoch: Epoch(1),
-  #   justified_root: GenesisRoot,
-  #   finalized_epoch: Epoch(1),
-  #   justified_state_balances: balances,
-  #   expected_head: GenesisRoot
-  # )
+  result.ops.add Operation(
+    kind: FindHead,
+    justified_epoch: Epoch(1),
+    justified_root: GenesisRoot,
+    finalized_epoch: Epoch(1),
+    justified_state_balances: balances,
+    expected_head: GenesisRoot
+  )
 
   # Add block 2
   #
@@ -51,14 +51,14 @@ proc setup_votes(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
   #         0
   #        /
   #       2 <- head
-  # result.ops.add Operation(
-  #   kind: FindHead,
-  #   justified_epoch: Epoch(1),
-  #   justified_root: GenesisRoot,
-  #   finalized_epoch: Epoch(1),
-  #   justified_state_balances: balances,
-  #   expected_head: fakeHash(2)
-  # )
+  result.ops.add Operation(
+    kind: FindHead,
+    justified_epoch: Epoch(1),
+    justified_root: GenesisRoot,
+    finalized_epoch: Epoch(1),
+    justified_state_balances: balances,
+    expected_head: fakeHash(2)
+  )
 
   # Add block 1 as a fork
   #
@@ -139,6 +139,434 @@ proc setup_votes(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
     justified_state_balances: balances,
     expected_head: fakeHash(2)
   )
+
+  # Add block 3 as on chain 1
+  #
+  #         0
+  #        / \
+  #       2  1
+  #          |
+  #          3
+  result.ops.add Operation(
+    kind: ProcessBlock,
+    slot: Slot(0),
+    root: fakeHash(3),
+    parent_root: fakeHash(1),
+    blk_justified_epoch: Epoch(1),
+    blk_finalized_epoch: Epoch(1)
+  )
+
+  # Head is still 2
+  #
+  #          0
+  #         / \
+  # head-> 2  1
+  result.ops.add Operation(
+    kind: FindHead,
+    justified_epoch: Epoch(1),
+    justified_root: GenesisRoot,
+    finalized_epoch: Epoch(1),
+    justified_state_balances: balances,
+    expected_head: fakeHash(2)
+  )
+
+  # Move validator #0 vote from 1 to 3
+  #
+  #          0
+  #         / \
+  #        2   1 <- -vote
+  #            |
+  #            3 <- +vote
+  result.ops.add Operation(
+    kind: ProcessAttestation,
+    validator_index: ValidatorIndex(0),
+    block_root: fakeHash(3),
+    target_epoch: Epoch(3)
+  )
+
+  # Head is still 2
+  #
+  #          0
+  #         / \
+  # head-> 2  1
+  result.ops.add Operation(
+    kind: FindHead,
+    justified_epoch: Epoch(1),
+    justified_root: GenesisRoot,
+    finalized_epoch: Epoch(1),
+    justified_state_balances: balances,
+    expected_head: fakeHash(2)
+  )
+
+  # Move validator #1 vote from 2 to 1 (this is an equivocation, but fork choice doesn't
+  # care)
+  #
+  #           0
+  #          / \
+  # -vote-> 2   1 <- +vote
+  #             |
+  #             3
+  result.ops.add Operation(
+    kind: ProcessAttestation,
+    validator_index: ValidatorIndex(1),
+    block_root: fakeHash(1),
+    target_epoch: Epoch(3)
+  )
+
+  # Head is now 3
+  #
+  #          0
+  #         / \
+  #        2  1
+  #           |
+  #           3 <- head
+  result.ops.add Operation(
+    kind: FindHead,
+    justified_epoch: Epoch(1),
+    justified_root: GenesisRoot,
+    finalized_epoch: Epoch(1),
+    justified_state_balances: balances,
+    expected_head: fakeHash(3)
+  )
+
+  # Add block 4 on chain 1-3
+  #
+  #         0
+  #        / \
+  #       2  1
+  #          |
+  #          3
+  result.ops.add Operation(
+    kind: ProcessBlock,
+    slot: Slot(0),
+    root: fakeHash(4),
+    parent_root: fakeHash(3),
+    blk_justified_epoch: Epoch(1),
+    blk_finalized_epoch: Epoch(1)
+  )
+
+  # Head is now 4
+  #
+  #          0
+  #         / \
+  #        2  1
+  #           |
+  #           3
+  #           |
+  #           4 <- head
+  result.ops.add Operation(
+    kind: FindHead,
+    justified_epoch: Epoch(1),
+    justified_root: GenesisRoot,
+    finalized_epoch: Epoch(1),
+    justified_state_balances: balances,
+    expected_head: fakeHash(4)
+  )
+
+  # Add block 5, which has a justified epoch of 2.
+  #
+  #          0
+  #         / \
+  #        2   1
+  #            |
+  #            3
+  #            |
+  #            4
+  #           /
+  #          5 <- justified epoch = 2
+  result.ops.add Operation(
+    kind: ProcessBlock,
+    slot: Slot(0),
+    root: fakeHash(5),
+    parent_root: fakeHash(4),
+    blk_justified_epoch: Epoch(2),
+    blk_finalized_epoch: Epoch(2)
+  )
+
+  # Ensure that 5 is filtered out and the head stays at 4.
+  #
+  #          0
+  #         / \
+  #        2   1
+  #            |
+  #            3
+  #            |
+  #            4 <- head
+  #           /
+  #          5
+  result.ops.add Operation(
+    kind: FindHead,
+    justified_epoch: Epoch(1),
+    justified_root: GenesisRoot,
+    finalized_epoch: Epoch(1),
+    justified_state_balances: balances,
+    expected_head: fakeHash(4)
+  )
+
+  # Add block 6, which has a justified epoch of 0.
+  #
+  #          0
+  #         / \
+  #        2   1
+  #            |
+  #            3
+  #            |
+  #            4
+  #           / \
+  #          5   6 <- justified epoch = 0
+  result.ops.add Operation(
+    kind: ProcessBlock,
+    slot: Slot(0),
+    root: fakeHash(6),
+    parent_root: fakeHash(4),
+    blk_justified_epoch: Epoch(1),
+    blk_finalized_epoch: Epoch(1)
+  )
+
+  # Move both votes to 5.
+  #
+  #           0
+  #          / \
+  #         2   1
+  #             |
+  #             3
+  #             |
+  #             4
+  #            / \
+  # +2 vote-> 5   6
+  result.ops.add Operation(
+    kind: ProcessAttestation,
+    validator_index: ValidatorIndex(0),
+    block_root: fakeHash(5),
+    target_epoch: Epoch(4)
+  )
+  result.ops.add Operation(
+    kind: ProcessAttestation,
+    validator_index: ValidatorIndex(1),
+    block_root: fakeHash(5),
+    target_epoch: Epoch(4)
+  )
+
+  # Add blocks 7, 8 and 9. Adding these blocks helps test the `best_descendant`
+  # functionality.
+  #
+  #          0
+  #         / \
+  #        2   1
+  #            |
+  #            3
+  #            |
+  #            4
+  #           / \
+  #          5   6
+  #          |
+  #          7
+  #          |
+  #          8
+  #         /
+  #        9
+  result.ops.add Operation(
+    kind: ProcessBlock,
+    slot: Slot(0),
+    root: fakeHash(7),
+    parent_root: fakeHash(5),
+    blk_justified_epoch: Epoch(2),
+    blk_finalized_epoch: Epoch(2)
+  )
+  result.ops.add Operation(
+    kind: ProcessBlock,
+    slot: Slot(0),
+    root: fakeHash(8),
+    parent_root: fakeHash(7),
+    blk_justified_epoch: Epoch(2),
+    blk_finalized_epoch: Epoch(2)
+  )
+  result.ops.add Operation(
+    kind: ProcessBlock,
+    slot: Slot(0),
+    root: fakeHash(9),
+    parent_root: fakeHash(8),
+    blk_justified_epoch: Epoch(2),
+    blk_finalized_epoch: Epoch(2)
+  )
+
+  # Ensure that 6 is the head, even though 5 has all the votes. This is testing to ensure
+  # that 5 is filtered out due to a differing justified epoch.
+  #
+  #          0
+  #         / \
+  #        2   1
+  #            |
+  #            3
+  #            |
+  #            4
+  #           / \
+  #          5   6 <- head
+  #          |
+  #          7
+  #          |
+  #          8
+  #         /
+  #         9
+  result.ops.add Operation(
+    kind: FindHead,
+    justified_epoch: Epoch(1),
+    justified_root: GenesisRoot,
+    finalized_epoch: Epoch(1),
+    justified_state_balances: balances,
+    expected_head: fakeHash(6)
+  )
+
+  # Change fork-choice justified epoch to 1, and the start block to 5 and ensure that 9 is
+  # the head.
+  #
+  # << Change justified epoch to 1 >>
+  #
+  #          0
+  #         / \
+  #        2   1
+  #            |
+  #            3
+  #            |
+  #            4
+  #           / \
+  #          5   6
+  #          |
+  #          7
+  #          |
+  #          8
+  #         /
+  # head-> 9
+  result.ops.add Operation(
+    kind: FindHead,
+    justified_epoch: Epoch(2),
+    justified_root: fakeHash(5),
+    finalized_epoch: Epoch(2),
+    justified_state_balances: balances,
+    expected_head: fakeHash(9)
+  )
+
+  # Update votes to block 9
+  #          0
+  #         / \
+  #        2   1
+  #            |
+  #            3
+  #            |
+  #            4
+  #           / \
+  #          5   6
+  #          |
+  #          7
+  #          |
+  #          8
+  #         /
+  #        9 <- +2 votes
+  result.ops.add Operation(
+    kind: ProcessAttestation,
+    validator_index: ValidatorIndex(0),
+    block_root: fakeHash(9),
+    target_epoch: Epoch(5)
+  )
+  result.ops.add Operation(
+    kind: ProcessAttestation,
+    validator_index: ValidatorIndex(1),
+    block_root: fakeHash(9),
+    target_epoch: Epoch(5)
+  )
+
+  # Add block 10
+  #          0
+  #         / \
+  #        2   1
+  #            |
+  #            3
+  #            |
+  #            4
+  #           / \
+  #          5   6
+  #          |
+  #          7
+  #          |
+  #          8
+  #         / \
+  #        9  10
+  result.ops.add Operation(
+    kind: ProcessBlock,
+    slot: Slot(0),
+    root: fakeHash(10),
+    parent_root: fakeHash(8),
+    blk_justified_epoch: Epoch(2),
+    blk_finalized_epoch: Epoch(2)
+  )
+
+  # Head should still be 9
+  result.ops.add Operation(
+    kind: FindHead,
+    justified_epoch: Epoch(2),
+    justified_root: fakeHash(5),
+    finalized_epoch: Epoch(2),
+    justified_state_balances: balances,
+    expected_head: fakeHash(9)
+  )
+
+  # Introduce 2 new validators
+  balances = @[Gwei(1), Gwei(1), Gwei(1), Gwei(1)]
+
+  # Have them vote for block 10
+  #          0
+  #         / \
+  #        2   1
+  #            |
+  #            3
+  #            |
+  #            4
+  #           / \
+  #          5   6
+  #          |
+  #          7
+  #          |
+  #          8
+  #         / \
+  #        9  10 <- +2 votes
+  result.ops.add Operation(
+    kind: ProcessAttestation,
+    validator_index: ValidatorIndex(2),
+    block_root: fakeHash(9),
+    target_epoch: Epoch(5)
+  )
+  result.ops.add Operation(
+    kind: ProcessAttestation,
+    validator_index: ValidatorIndex(3),
+    block_root: fakeHash(9),
+    target_epoch: Epoch(5)
+  )
+
+  # # Check that the head is now 10.
+  # #
+  # #          0
+  # #         / \
+  # #        2   1
+  # #            |
+  # #            3
+  # #            |
+  # #            4
+  # #           / \
+  # #          5   6
+  # #          |
+  # #          7
+  # #          |
+  # #          8
+  # #         / \
+  # #        9  10 <- head
+  # result.ops.add Operation(
+  #   kind: FindHead,
+  #   justified_epoch: Epoch(2),
+  #   justified_root: fakeHash(5),
+  #   finalized_epoch: Epoch(2),
+  #   justified_state_balances: balances,
+  #   expected_head: fakeHash(10)
+  # )
 
 proc test_votes() =
   echo "  fork_choice - testing with votes"

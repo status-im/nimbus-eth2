@@ -72,7 +72,7 @@ func apply(ctx: var ForkChoice, id: int, op: Operation) =
     if op.kind == FindHead:
       doAssert r.isOk(), &"find_head (op #{id}) returned an error: {r.error}"
       doAssert r.get() == op.expected_head, &"find_head (op #{id}) returned an incorrect result: {r.get()} (expected: {op.expected_head})"
-      debugEcho "    Found expected head: 0x", op.expected_head
+      debugEcho "    Found expected head: 0x", op.expected_head, " from justified checkpoint(epoch: ", op.justified_epoch, ", root: 0x", op.justified_root, ")"
     else:
       doAssert r.isErr(), "find_head was unexpectedly successful"
       debugEcho "    Detected an expected invalid head"
