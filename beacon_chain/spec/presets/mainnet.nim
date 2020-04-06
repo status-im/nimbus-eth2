@@ -75,7 +75,7 @@ const
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L70
   GENESIS_SLOT* = 0.Slot
-  GENESIS_FORK_VERSION* = 0x00000000
+  GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 0'u8]
   BLS_WITHDRAWAL_PREFIX* = 0'u8
 
   # Time parameters
