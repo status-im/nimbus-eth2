@@ -58,9 +58,9 @@ template unsafeGet*[K, V](table: Table[K, V], key: K): V =
 # Forward declarations
 # ----------------------------------------------------------------------
 
-func maybe_update_best_child_and_descendant(self: var ProtoArray, parent_index: Index, child_index: Index): ForkChoiceError {.raises: [].}
-func node_is_viable_for_head(self: ProtoArray, node: ProtoNode): bool {.raises: [].}
-func node_leads_to_viable_head(self: ProtoArray, node: ProtoNode): tuple[viable: bool, err: ForkChoiceError] {.raises: [].}
+func maybe_update_best_child_and_descendant(self: var ProtoArray, parent_index: Index, child_index: Index): ForkChoiceError {.raises: [Defect].}
+func node_is_viable_for_head(self: ProtoArray, node: ProtoNode): bool {.raises: [Defect].}
+func node_leads_to_viable_head(self: ProtoArray, node: ProtoNode): tuple[viable: bool, err: ForkChoiceError] {.raises: [Defect].}
 
 # ProtoArray routines
 # ----------------------------------------------------------------------
@@ -70,7 +70,7 @@ func apply_score_changes*(
        deltas: var openarray[Delta],
        justified_epoch: Epoch,
        finalized_epoch: Epoch
-     ): ForkChoiceError {.raises: [].}=
+     ): ForkChoiceError {.raises: [Defect].}=
   ## Iterate backwards through the array, touching all nodes and their parents
   ## and potentially the best-child of each parent.
   ##
@@ -155,7 +155,7 @@ func on_block*(
        state_root: Eth2Digest,
        justified_epoch: Epoch,
        finalized_epoch: Epoch
-     ): ForkChoiceError {.raises: [].} =
+     ): ForkChoiceError {.raises: [Defect].} =
   ## Register a block with the fork choice
   ## A `none` parent is only valid for Genesis
 
@@ -200,7 +200,7 @@ func find_head*(
         self: var ProtoArray,
         head: var Eth2Digest,
         justified_root: Eth2Digest
-     ): ForkChoiceError {.raises: [].} =
+     ): ForkChoiceError {.raises: [Defect].} =
   ## Follows the best-descendant links to find the best-block (i.e. head-block)
   ##
   ## ⚠️ Warning
@@ -259,7 +259,7 @@ func find_head*(
 func maybe_prune*(
        self: var ProtoArray,
        finalized_root: Eth2Digest
-     ): ForkChoiceError {.raises: [].} =
+     ): ForkChoiceError {.raises: [Defect].} =
   ## Update the tree with new finalization information.
   ## The tree is pruned if and only if:
   ## - The `finalized_root` and finalized epoch are different from current
@@ -340,7 +340,7 @@ func maybe_prune*(
 func maybe_update_best_child_and_descendant(
        self: var ProtoArray,
        parent_index: Index,
-       child_index: Index): ForkChoiceError {.raises: [].} =
+       child_index: Index): ForkChoiceError {.raises: [Defect].} =
   ## Observe the parent at `parent_index` with respect to the child at `child_index` and
   ## potentiatlly modify the `parent.best_child` and `parent.best_descendant` values
   ##
@@ -438,7 +438,7 @@ func maybe_update_best_child_and_descendant(
 
 func node_leads_to_viable_head(
        self: ProtoArray, node: ProtoNode
-     ): tuple[viable: bool, err: ForkChoiceError] {.raises: [].} =
+     ): tuple[viable: bool, err: ForkChoiceError] {.raises: [Defect].} =
   ## Indicates if the node itself or its best-descendant are viable
   ## for blockchain head
   let best_descendant_is_viable_for_head = block:
@@ -463,7 +463,7 @@ func node_leads_to_viable_head(
     ForkChoiceSuccess
   )
 
-func node_is_viable_for_head(self: ProtoArray, node: ProtoNode): bool {.raises: [].} =
+func node_is_viable_for_head(self: ProtoArray, node: ProtoNode): bool {.raises: [Defect].} =
   ## This is the equivalent of `filter_block_tree` function in eth2 spec
   ## https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/fork-choice.md#filter_block_tree
   ##

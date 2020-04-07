@@ -34,7 +34,7 @@ func compute_deltas(
        votes: var openArray[VoteTracker],
        old_balances: openarray[Gwei],
        new_balances: openarray[Gwei]
-     ): ForkChoiceError {.raises: [].}
+     ): ForkChoiceError {.raises: [Defect].}
 # TODO: raises [Defect] - once https://github.com/nim-lang/Nim/issues/12862 is fixed
 #       https://github.com/status-im/nim-beacon-chain/pull/865#pullrequestreview-389117232
 
@@ -51,7 +51,7 @@ func initForkChoice*(
        justified_epoch: Epoch,
        finalized_epoch: Epoch,
        finalized_root: Eth2Digest
-     ): Result[ForkChoice, string] {.raises: [].} =
+     ): Result[ForkChoice, string] {.raises: [Defect].} =
   ## Initialize a fork choice context
   var proto_array = ProtoArray(
     prune_threshold: DefaultPruneThreshold,
@@ -72,7 +72,7 @@ func initForkChoice*(
     return err("Failed to add finalized block to proto_array: " & $err)
   return ok(ForkChoice(proto_array: proto_array))
 
-func extend[T](s: var seq[T], minLen: int) {.raises: [].} =
+func extend[T](s: var seq[T], minLen: int) {.raises: [Defect].} =
   ## Extend a sequence so that it can contains at least `minLen` elements.
   ## If it's already bigger, the sequence is unmodified.
   ## The extension is zero-initialized
@@ -97,7 +97,7 @@ func process_attestation*(
        validator_index: ValidatorIndex,
        block_root: Eth2Digest,
        target_epoch: Epoch
-     ) {.raises: [].} =
+     ) {.raises: [Defect].} =
   ## Add an attestation to the fork choice context
   self.votes.extend(validator_index.int + 1)
 
@@ -118,7 +118,7 @@ func process_block*(
        state_root: Eth2Digest,
        justified_epoch: Epoch,
        finalized_epoch: Epoch
-     ): Result[void, string] {.raises: [].} =
+     ): Result[void, string] {.raises: [Defect].} =
   ## Add a block to the fork choice context
   let err = self.proto_array.on_block(
     slot, block_root, some(parent_root), state_root, justified_epoch, finalized_epoch
@@ -134,7 +134,7 @@ func find_head*(
        justified_root: Eth2Digest,
        finalized_epoch: Epoch,
        justified_state_balances: seq[Gwei]
-     ): Result[Eth2Digest, string] {.raises: [].} =
+     ): Result[Eth2Digest, string] {.raises: [Defect].} =
   ## Returns the new blockchain head
 
   # Compute deltas with previous call
@@ -169,7 +169,7 @@ func find_head*(
 
 func maybe_prune*(
        self: var ForkChoice, finalized_root: Eth2Digest
-     ): Result[void, string] {.raises: [].} =
+     ): Result[void, string] {.raises: [Defect].} =
   ## Prune blocks preceding the finalized root as they are now unneeded.
   let err = self.proto_array.maybe_prune(finalized_root)
   if err.kind != fcSuccess:
@@ -182,7 +182,7 @@ func compute_deltas(
        votes: var openArray[VoteTracker],
        old_balances: openarray[Gwei],
        new_balances: openarray[Gwei]
-     ): ForkChoiceError {.raises: [].} =
+     ): ForkChoiceError {.raises: [Defect].} =
   ## Update `deltas`
   ##   between old and new balances
   ##   between votes

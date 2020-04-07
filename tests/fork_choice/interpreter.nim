@@ -92,12 +92,11 @@ func apply(ctx: var ForkChoice, id: int, op: Operation) =
     doAssert r.isOk(), &"process_block (op #{id}) returned an error: {r.error}"
     debugEcho "    Processed block      0x", op.root, " with parent 0x", op.parent_root, " and justified epoch ", op.blk_justified_epoch
   of ProcessAttestation:
-    let r = ctx.process_attestation(
+    ctx.process_attestation(
       validator_index = op.validator_index,
       block_root = op.block_root,
       target_epoch = op.target_epoch
     )
-    doAssert r.isOk(), &"process_attestation (op #{id}) returned an error: {r.error}"
     debugEcho "    Processed att target 0x", op.block_root, " from validator ", op.validator_index, " for epoch ", op.target_epoch
   of Prune:
     ctx.proto_array.prune_threshold = op.prune_threshold
