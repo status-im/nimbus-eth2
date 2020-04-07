@@ -97,7 +97,7 @@ func process_attestation*(
        validator_index: ValidatorIndex,
        block_root: Eth2Digest,
        target_epoch: Epoch
-     ) =
+     ) {.raises: [].} =
   ## Add an attestation to the fork choice context
   self.votes.extend(validator_index.int + 1)
 
