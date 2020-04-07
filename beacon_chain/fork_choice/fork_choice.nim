@@ -573,10 +573,10 @@ when isMainModule:
   # ----------------------------------------------------------------------
 
   echo "fork_choice internal tests for compute_deltas"
-  # tZeroHash()
+  tZeroHash()
   tAll_voted_the_same()
   tDifferent_votes()
   tMoving_votes()
   tChanging_balances()
-  # tValidator_appears()
-  # tValidator_disappears()
+  tValidator_appears()
+  tValidator_disappears()
