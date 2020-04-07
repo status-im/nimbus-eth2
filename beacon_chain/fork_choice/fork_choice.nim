@@ -15,11 +15,13 @@ import
   # Fork choice
   ./fork_choice_types, ./proto_array
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/fork-choice.md
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
 # which is a port of "Proto-Array": https://github.com/protolambda/lmd-ghost
-#
-# See also the port of the port: https://github.com/protolambda/eth2-py-hacks/blob/ec9395d371903d855e1488d04b8fe89fd5be0ad9/proto_array.py
+# See also:
+# - Protolambda port of Lighthouse: https://github.com/protolambda/eth2-py-hacks/blob/ae286567/proto_array.py
+# - Prysmatic writeup: https://hackmd.io/bABJiht3Q9SyV3Ga4FT9lQ#High-level-concept
+# - Gasper Whitepaper: https://arxiv.org/abs/2003.03052
 
 const DefaultPruneThreshold = 256
 
@@ -104,6 +106,7 @@ func process_attestation*(
 
   result.ok()
 
+
 func process_block*(
        self: var ForkChoice,
        slot: Slot,
@@ -131,8 +134,6 @@ func find_head*(
        justified_state_balances: seq[Gwei]
      ): Result[Eth2Digest, string] {.raises: [UnpackError, KeyError].} =
   ## Returns the new blockchain head
-  # debugEcho "proto_array: ", self.proto_array
-  # debugEcho "-----------------------\n"
 
   # Compute deltas with previous call
   #   we might want to reuse the `deltas` buffer across calls
@@ -147,8 +148,6 @@ func find_head*(
     result.err("find_head compute_deltas failed: " & $delta_err)
     return
 
-  # debugEcho "find_head deltas: ", deltas
-
   # Apply score changes
   let score_err = self.proto_array.apply_score_changes(
     deltas, justified_epoch, finalized_epoch
@@ -157,8 +156,6 @@ func find_head*(
     result.err("find_head apply_score_changes failed: " & $score_err)
 
   self.balances = justified_state_balances
-  # debugEcho "proto_array: ", self.proto_array
-  # debugEcho "-----------------------\n"
 
   # Find the best block
   var new_head{.noInit.}: Eth2Digest
@@ -179,6 +176,7 @@ func maybe_prune*(
     result.err("find_head maybe_pruned failed: " & $err)
   result.ok()
 
+
 func compute_deltas(
        deltas: var openarray[Delta],
        indices: Table[Eth2Digest, Index],
@@ -196,16 +194,6 @@ func compute_deltas(
   ## - If a value in indices is greater than `indices.len`
   ## - If a `Eth2Digest` in `votes` does not exist in `indices`
   ##   except for the `default(Eth2Digest)` (i.e. zero hash)
-
-  # TODO: Displaying the votes for debugging will cause the tests in that very file to fail!!!
-  #       if we do the precise sequence
-  #       - tAll_voted_the_same()
-  #       - tDifferent_votes()
-  #       - tMoving_votes()
-  #       - tChanging_balances()
-  # var openarray bug?
-  #
-  # debugEcho "compute_deltas votes: ", votes
 
   for val_index, vote in votes.mpairs():
     # No need to create a score change if the validator has never voted

@@ -12,9 +12,13 @@ import
   # Internal
   ../spec/[datatypes, digest]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/fork-choice.md
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
 # which is a port of "Proto-Array": https://github.com/protolambda/lmd-ghost
+# See also:
+# - Protolambda port of Lighthouse: https://github.com/protolambda/eth2-py-hacks/blob/ae286567/proto_array.py
+# - Prysmatic writeup: https://hackmd.io/bABJiht3Q9SyV3Ga4FT9lQ#High-level-concept
+# - Gasper Whitepaper: https://arxiv.org/abs/2003.03052
 
 # ProtoArray low-level types
 # ----------------------------------------------------------------------
@@ -94,6 +98,7 @@ type
     # TODO: generic "Metadata" field for slot/state_root
     slot*: Slot              # This is unnecessary for fork choice but helps external components
     state_root*: Eth2Digest  # This is unnecessary for fork choice but helps external components
+    # Fields used in fork choice
     root*: Eth2Digest
     parent*: Option[Index]
     justified_epoch*: Epoch

@@ -13,11 +13,13 @@ import
   # Fork choice
   ./fork_choice_types
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/fork-choice.md
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
 # which is a port of "Proto-Array": https://github.com/protolambda/lmd-ghost
-#
-# See also the port of the port: https://github.com/protolambda/eth2-py-hacks/blob/ec9395d371903d855e1488d04b8fe89fd5be0ad9/proto_array.py
+# See also:
+# - Protolambda port of Lighthouse: https://github.com/protolambda/eth2-py-hacks/blob/ae286567/proto_array.py
+# - Prysmatic writeup: https://hackmd.io/bABJiht3Q9SyV3Ga4FT9lQ#High-level-concept
+# - Gasper Whitepaper: https://arxiv.org/abs/2003.03052
 
 # Helper
 # ----------------------------------------------------------------------
@@ -65,8 +67,6 @@ func apply_score_changes*(
   ## 4. If required, update the parent's best-descendant with the current node or its best-descendant
   # TODO: remove spurious raised exceptions
 
-  # debugEcho "apply_score_change"
-
   if deltas.len != self.indices.len:
     return ForkChoiceError(
              kind: fcErrInvalidDeltaLen,
@@ -107,13 +107,6 @@ func apply_score_changes*(
         index: node_index
       )
     node.weight = weight
-
-    # var report: string
-    # # report.add "deltas[" & $node_index & "] = " & $deltas[node_index]
-    # report.add "node.weight = " & $node.weight
-    # report.add ", node root 0x" & $node.root
-
-    # debugecho "      ", report
 
     # If the node has a parent, try to update its best-child and best-descendant
     if node.parent.isSome():
@@ -199,16 +192,12 @@ func find_head*(
   ## is not followed by `apply_score_changes` as `on_new_block` does not
   ## update the whole tree.
 
-  # debugEcho "proto_array: ", self
-  # debugEcho "-------------------------------------------------------------\n"
-
   if justified_root notin self.indices:
     return ForkChoiceError(
       kind: fcErrJustifiedNodeUnknown,
       block_root: justified_root
     )
   let justified_index = self.indices[justified_root] # TODO: this can't throw KeyError
-  # debugEcho "justified_index: ", justified_index
 
   if justified_index notin {0..self.nodes.len-1}:
     return ForkChoiceError(
@@ -218,15 +207,11 @@ func find_head*(
   template justified_node: untyped {.dirty.} = self.nodes[justified_index]
     # Alias, TODO: no exceptions
 
-  # debugEcho "justified_node: ", justified_node
-
   let best_descendant_index = block:
     if justified_node.best_descendant.isSome():
       justified_node.best_descendant.unsafeGet()
     else:
       justified_index
-
-  # debugEcho "best_descendant_index: ", best_descendant_index
 
   if best_descendant_index notin {0..self.nodes.len-1}:
     return ForkChoiceError(
@@ -235,8 +220,6 @@ func find_head*(
     )
   template best_node: untyped {.dirty.} = self.nodes[best_descendant_index]
     # Alias, TODO: no exceptions
-
-  # debugEcho "best_node: ", best_node
 
   # Perform a sanity check to ensure the node can be head
   if not self.node_is_viable_for_head(best_node):
@@ -253,7 +236,10 @@ func find_head*(
   head = best_node.root
   return ForkChoiceSuccess
 
-
+# TODO: pruning can be made cheaper by keeping the new offset as a field
+#       in proto_array instead of scanning the table to substract the offset.
+#       In that case pruning can always be done and does not need a threshold for efficiency.
+#       https://github.com/protolambda/eth2-py-hacks/blob/ae286567/proto_array.py
 func maybe_prune*(
        self: var ProtoArray,
        finalized_root: Eth2Digest
@@ -354,8 +340,6 @@ func maybe_update_best_child_and_descendant(
   ## 3. The child is not the best child but becomes the best child
   ## 4. The child is not the best child and does not become the best child
 
-  # debugEcho " self.maybe_update_best_child_and_descendant(parent = ", parent_index, ", child = ", child_index, ")"
-
   if child_index notin {0..self.nodes.len-1}:
     return ForkChoiceError(
       kind: fcErrInvalidNodeIndex,
@@ -371,12 +355,9 @@ func maybe_update_best_child_and_descendant(
   template child: untyped {.dirty.} = self.nodes[child_index]
   template parent: untyped {.dirty.} = self.nodes[parent_index]
 
-  # debugEcho "        child: ", child
-
   let (child_leads_to_viable_head, err) = self.node_leads_to_viable_head(child)
   if err.kind != fcSuccess:
     return err
-  # debugEcho "  child_leads_to_viable_head: ", child_leads_to_viable_head
 
   let # Aliases to the 3 possible (best_child, best_descendant) tuples
     change_to_none = (none(Index), none(Index))
@@ -388,24 +369,17 @@ func maybe_update_best_child_and_descendant(
       )
     no_change = (parent.best_child, parent.best_descendant)
 
-  # debugEcho "          change_to_none = ", change_to_none
-  # debugEcho "          change_to_child = ", change_to_child
-  # debugEcho "          no_change = ", no_change
-
   # TODO: state-machine? The control-flow is messy
-
   let (new_best_child, new_best_descendant) = block:
     if parent.best_child.isSome:
       let best_child_index = parent.best_child.unsafeGet()
       if best_child_index == child_index and not child_leads_to_viable_head:
         # The child is already the best-child of the parent
         # but it's not viable to be the head block => remove it
-        # debugEcho "        branch 1 - invalid"
         change_to_none
       elif best_child_index == child_index:
         # If the child is the best-child already, set it again to ensure
         # that the best-descendant of the parent is up-to-date.
-        # debugEcho "        branch 2 - child"
         change_to_child
       else:
         if best_child_index notin {0..self.nodes.len-1}:
@@ -421,43 +395,28 @@ func maybe_update_best_child_and_descendant(
 
         if child_leads_to_viable_head and not best_child_leads_to_viable_head:
           # The child leads to a viable head, but the current best-child doesn't
-          # debugEcho "        branch 3 - child"
           change_to_child
         elif not child_leads_to_viable_head and best_child_leads_to_viable_head:
           # The best child leads to a viable head, but the child doesn't
-          # debugEcho "        branch 4 - no change"
           no_change
         elif child.weight == best_child.weight:
-          # debugEcho "Reached tiebreak"
-          # debugEcho "  child.root      0x", child.root
-          # debugEcho "  best_child.root 0x", best_child.root
-          # debugEcho "  child.root.tiebreak(best_child.root): ", child.root.tiebreak(best_child.root)
           # Tie-breaker of equal weights by root
           if child.root.tiebreak(best_child.root):
-            # debugEcho "        branch 5 - child"
             change_to_child
           else:
-            # debugEcho "        branch 6 - no change"
             no_change
         else: # Choose winner by weight
           if child.weight >= best_child.weight:
-            # debugEcho "        branch 7 - child"
             change_to_child
           else:
-            # debugEcho "        branch 8 - no change"
             no_change
     else:
       if child_leads_to_viable_head:
         # There is no current best-child and the child is viable
-        # debugEcho "        branch 9 - child"
         change_to_child
       else:
         # There is no current best-child but the child is not viable
-        # debugEcho "        branch 10 - no change"
         no_change
-
-  # debugEcho "        new_best_child      = ", new_best_child
-  # debugEcho "        new_best_descendant = ", new_best_descendant
 
   self.nodes[parent_index].best_child = new_best_child
   self.nodes[parent_index].best_descendant = new_best_descendant
@@ -497,11 +456,6 @@ func node_is_viable_for_head(self: ProtoArray, node: ProtoNode): bool {.raises: 
   ##
   ## Any node that has a different finalized or justified epoch
   ## should not be viable for the head.
-  # debugEcho "                   viable node.justified_epoch = ", node.justified_epoch
-  # debugEcho "                   viable self.justified_epoch = ", self.justified_epoch
-  # debugEcho "                   viable node.finalized_epoch = ", node.finalized_epoch
-  # debugEcho "                   viable self.finalized_epoch = ", self.finalized_epoch
-
   (
     (node.justified_epoch == self.justified_epoch) or
     (self.justified_epoch == Epoch(0))
