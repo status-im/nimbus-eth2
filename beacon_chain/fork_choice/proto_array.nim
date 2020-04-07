@@ -36,6 +36,23 @@ func tiebreak(a, b: Eth2Digest): bool =
     # else we have equality so far
   return true
 
+template getOrFailcase*[K, V](table: Table[K, V], key: K, failcase: untyped): V =
+  ## Get a value from a Nim Table, turning KeyError into
+  ## the "failcase"
+  block:
+    var value: V
+    try:
+      value = table[key]
+    except:
+      failcase
+    value
+
+template unsafeGet*[K, V](table: Table[K, V], key: K): V =
+  ## Get a value from a Nim Table, turning KeyError into
+  ## an AssertionError defect
+  getOrFailcase(table, key):
+    doAssert false, "The " & astToStr(table) & " table shouldn't miss a key"
+
 # Forward declarations
 # ----------------------------------------------------------------------
 
@@ -51,7 +68,7 @@ func apply_score_changes*(
        deltas: var openarray[Delta],
        justified_epoch: Epoch,
        finalized_epoch: Epoch
-     ): ForkChoiceError {.raises: [UnpackError].}=
+     ): ForkChoiceError {.raises: [].}=
   ## Iterate backwards through the array, touching all nodes and their parents
   ## and potentially the best-child of each parent.
   ##
@@ -138,7 +155,7 @@ func on_block*(
        state_root: Eth2Digest,
        justified_epoch: Epoch,
        finalized_epoch: Epoch
-     ): ForkChoiceError {.raises: [KeyError].} =
+     ): ForkChoiceError {.raises: [].} =
   ## Register a block with the fork choice
   ## A `none` parent is only valid for Genesis
   # TODO: fix exceptions raised
@@ -156,7 +173,7 @@ func on_block*(
       # Is this possible?
       none(int)
     else: # TODO: How to tell the compiler not to raise KeyError
-      some(self.indices[parent.unsafeGet()])
+      some(self.indices.unsafeGet(parent.unsafeGet()))
 
   let node = ProtoNode(
     slot: slot,
@@ -184,7 +201,7 @@ func find_head*(
         self: var ProtoArray,
         head: var Eth2Digest,
         justified_root: Eth2Digest
-     ): ForkChoiceError {.raises: [KeyError].} =
+     ): ForkChoiceError {.raises: [].} =
   ## Follows the best-descendant links to find the best-block (i.e. head-block)
   ##
   ## ⚠️ Warning
@@ -192,20 +209,20 @@ func find_head*(
   ## is not followed by `apply_score_changes` as `on_new_block` does not
   ## update the whole tree.
 
-  if justified_root notin self.indices:
+  let justified_index = self.indices.getOrFailcase(justified_root):
     return ForkChoiceError(
       kind: fcErrJustifiedNodeUnknown,
       block_root: justified_root
     )
-  let justified_index = self.indices[justified_root] # TODO: this can't throw KeyError
 
   if justified_index notin {0..self.nodes.len-1}:
     return ForkChoiceError(
       kind: fcErrInvalidJustifiedIndex,
       index: justified_index
     )
+
   template justified_node: untyped {.dirty.} = self.nodes[justified_index]
-    # Alias, TODO: no exceptions
+    # Alias, IndexError are defects
 
   let best_descendant_index = block:
     if justified_node.best_descendant.isSome():
@@ -219,7 +236,7 @@ func find_head*(
       index: best_descendant_index
     )
   template best_node: untyped {.dirty.} = self.nodes[best_descendant_index]
-    # Alias, TODO: no exceptions
+    # Alias, IndexError are defects
 
   # Perform a sanity check to ensure the node can be head
   if not self.node_is_viable_for_head(best_node):
@@ -243,7 +260,7 @@ func find_head*(
 func maybe_prune*(
        self: var ProtoArray,
        finalized_root: Eth2Digest
-     ): ForkChoiceError {.raises: [KeyError].} =
+     ): ForkChoiceError {.raises: [].} =
   ## Update the tree with new finalization information.
   ## The tree is pruned if and only if:
   ## - The `finalized_root` and finalized epoch are different from current
@@ -253,14 +270,11 @@ func maybe_prune*(
   ## - The finalized epoch is less than the current one
   ## - The finalized epoch matches the current one but the finalized root is different
   ## - Internal error due to invalid indices in `self`
-  # TODO: Exceptions
-
-  if finalized_root notin self.indices:
+  let finalized_index = self.indices.getOrFailcase(finalized_root):
     return ForkChoiceError(
       kind: fcErrFinalizedNodeUnknown,
       block_root: finalized_root
     )
-  let finalized_index = self.indices[finalized_root]
 
   if finalized_index < self.prune_threshold:
     # Pruning small numbers of nodes incurs more overhead than leaving them as is

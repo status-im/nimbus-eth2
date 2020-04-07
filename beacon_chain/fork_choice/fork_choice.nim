@@ -34,7 +34,7 @@ func compute_deltas(
        votes: var openArray[VoteTracker],
        old_balances: openarray[Gwei],
        new_balances: openarray[Gwei]
-     ): ForkChoiceError {.raises: [KeyError].}
+     ): ForkChoiceError {.raises: [].}
 
 # Fork choice routines
 # ----------------------------------------------------------------------
@@ -45,7 +45,7 @@ func initForkChoice*(
        justified_epoch: Epoch,
        finalized_epoch: Epoch,
        finalized_root: Eth2Digest
-     ): Result[ForkChoice, string] {.raises: [KeyError].} =
+     ): Result[ForkChoice, string] {.raises: [].} =
   ## Initialize a fork choice context
   var proto_array = ProtoArray(
     prune_threshold: DefaultPruneThreshold,
@@ -67,7 +67,7 @@ func initForkChoice*(
   result.ok(ForkChoice(proto_array: proto_array))
 
 
-func extend[T](s: var seq[T], minLen: int) =
+func extend[T](s: var seq[T], minLen: int) {.raises: [].} =
   ## Extend a sequence so that it can contains at least `minLen` elements.
   ## If it's already bigger, the sequence is unmodified.
   ## The extension is zero-initialized
@@ -115,7 +115,7 @@ func process_block*(
        state_root: Eth2Digest,
        justified_epoch: Epoch,
        finalized_epoch: Epoch
-     ): Result[void, string] {.raises: [KeyError].} =
+     ): Result[void, string] {.raises: [].} =
   ## Add a block to the fork choice context
   let err = self.proto_array.on_block(
     slot, block_root, some(parent_root), state_root, justified_epoch, finalized_epoch
@@ -132,7 +132,7 @@ func find_head*(
        justified_root: Eth2Digest,
        finalized_epoch: Epoch,
        justified_state_balances: seq[Gwei]
-     ): Result[Eth2Digest, string] {.raises: [UnpackError, KeyError].} =
+     ): Result[Eth2Digest, string] {.raises: [].} =
   ## Returns the new blockchain head
 
   # Compute deltas with previous call
@@ -169,7 +169,7 @@ func find_head*(
 
 func maybe_prune*(
        self: var ForkChoice, finalized_root: Eth2Digest
-     ): Result[void, string] {.raises: [KeyError].} =
+     ): Result[void, string] {.raises: [].} =
   ## Prune blocks preceding the finalized root as they are now unneeded.
   let err = self.proto_array.maybe_prune(finalized_root)
   if err.kind != fcSuccess:
@@ -183,7 +183,7 @@ func compute_deltas(
        votes: var openArray[VoteTracker],
        old_balances: openarray[Gwei],
        new_balances: openarray[Gwei]
-     ): ForkChoiceError {.raises: [KeyError].} =
+     ): ForkChoiceError {.raises: [].} =
   ## Update `deltas`
   ##   between old and new balances
   ##   between votes
@@ -220,7 +220,7 @@ func compute_deltas(
       # Ignore the current or next vote if it is not known in `indices`.
       # We assume that it is outside of our tree (i.e., pre-finalization) and therefore not interesting.
       if vote.current_root in indices:
-        let index = indices[vote.current_root]
+        let index = indices.unsafeGet(vote.current_root)
         if index >= deltas.len:
           return ForkChoiceError(
             kind: fcErrInvalidNodeDelta,
@@ -231,7 +231,7 @@ func compute_deltas(
           # TODO: is int64 big enough?
 
       if vote.next_root in indices:
-        let index = indices[vote.next_root]
+        let index = indices.unsafeGet(vote.next_root)
         if index >= deltas.len:
           return ForkChoiceError(
             kind: fcErrInvalidNodeDelta,
