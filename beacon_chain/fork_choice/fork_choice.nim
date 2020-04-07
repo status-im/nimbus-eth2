@@ -9,7 +9,7 @@ import
   # Standard library
   std/tables, std/options, std/typetraits,
   # Status libraries
-  stew/result,
+  stew/results,
   # Internal
   ../spec/[datatypes, digest],
   # Fork choice
