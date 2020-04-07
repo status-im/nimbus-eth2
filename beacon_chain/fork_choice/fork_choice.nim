@@ -35,6 +35,8 @@ func compute_deltas(
        old_balances: openarray[Gwei],
        new_balances: openarray[Gwei]
      ): ForkChoiceError {.raises: [].}
+# TODO: raises [Defect] - once https://github.com/nim-lang/Nim/issues/12862 is fixed
+#       https://github.com/status-im/nim-beacon-chain/pull/865#pullrequestreview-389117232
 
 # Fork choice routines
 # ----------------------------------------------------------------------
@@ -95,7 +97,7 @@ func process_attestation*(
        validator_index: ValidatorIndex,
        block_root: Eth2Digest,
        target_epoch: Epoch
-     ): Result[void, string] {.raises: [].} =
+     ) =
   ## Add an attestation to the fork choice context
   self.votes.extend(validator_index.int + 1)
 
@@ -106,7 +108,7 @@ func process_attestation*(
     # TODO: the "default" condition is probably unneeded
     vote.next_root = block_root
     vote.next_epoch = target_epoch
-  ok()
+
 
 func process_block*(
        self: var ForkChoice,

@@ -40,10 +40,12 @@ template getOrFailcase*[K, V](table: Table[K, V], key: K, failcase: untyped): V 
   ## Get a value from a Nim Table, turning KeyError into
   ## the "failcase"
   block:
+    # TODO: try/except expression with Nim v1.2.0:
+    #       https://github.com/status-im/nim-beacon-chain/pull/865#discussion_r404856551
     var value: V
     try:
       value = table[key]
-    except:
+    except KeyError:
       failcase
     value
 
@@ -82,8 +84,6 @@ func apply_score_changes*(
   ## 3. Compare the current node with the parent's best-child,
   ##    updating if the current node should become the best-child
   ## 4. If required, update the parent's best-descendant with the current node or its best-descendant
-  # TODO: remove spurious raised exceptions
-
   if deltas.len != self.indices.len:
     return ForkChoiceError(
              kind: fcErrInvalidDeltaLen,
@@ -158,7 +158,6 @@ func on_block*(
      ): ForkChoiceError {.raises: [].} =
   ## Register a block with the fork choice
   ## A `none` parent is only valid for Genesis
-  # TODO: fix exceptions raised
 
   # If the block is already known, ignore it
   if root in self.indices:
@@ -172,7 +171,7 @@ func on_block*(
     elif parent.unsafeGet() notin self.indices:
       # Is this possible?
       none(int)
-    else: # TODO: How to tell the compiler not to raise KeyError
+    else:
       some(self.indices.unsafeGet(parent.unsafeGet()))
 
   let node = ProtoNode(
