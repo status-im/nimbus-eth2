@@ -39,6 +39,10 @@ func compute_deltas(
 # Fork choice routines
 # ----------------------------------------------------------------------
 
+# API:
+# - The private procs uses the ForkChoiceError error code
+# - The public procs use Result
+
 func initForkChoice*(
        finalized_block_slot: Slot,
        finalized_block_state_root: Eth2Digest,
