@@ -16,8 +16,6 @@ import
 
 export result, datatypes, digest, fork_choice, fork_choice_types, tables, options
 
-# TODO: nimcrypto.hash.`==` is returns incorrect result with those fakeHash
-#       Don't import nimcrypto, let Nim do the `==` in the mean-time
 func fakeHash*(index: SomeInteger): Eth2Digest =
   ## Create fake hashes
   ## Those are just the value serialized in big-endian

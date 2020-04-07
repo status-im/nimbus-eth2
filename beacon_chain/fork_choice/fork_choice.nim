@@ -251,7 +251,6 @@ func compute_deltas(
 when isMainModule:
   import stew/endians2
 
-  # TODO: Note - we don't want to import nimcrypto/hash as the `==` is buggy at the moment.
   func fakeHash*(index: SomeInteger): Eth2Digest =
     ## Create fake hashes
     ## Those are just the value serialized in big-endian
