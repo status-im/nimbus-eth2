@@ -61,11 +61,10 @@ func initForkChoice*(
     justified_epoch,
     finalized_epoch
   )
-  if err.kind != fcSuccess:
-    result.err("Failed to add finalized block to proto_array: " & $err)
-    return
-  result.ok(ForkChoice(proto_array: proto_array))
 
+  if err.kind != fcSuccess:
+    return err("Failed to add finalized block to proto_array: " & $err)
+  return ok(ForkChoice(proto_array: proto_array))
 
 func extend[T](s: var seq[T], minLen: int) {.raises: [].} =
   ## Extend a sequence so that it can contains at least `minLen` elements.
@@ -103,9 +102,7 @@ func process_attestation*(
     # TODO: the "default" condition is probably unneeded
     vote.next_root = block_root
     vote.next_epoch = target_epoch
-
-  result.ok()
-
+  ok()
 
 func process_block*(
        self: var ForkChoice,
@@ -121,9 +118,8 @@ func process_block*(
     slot, block_root, some(parent_root), state_root, justified_epoch, finalized_epoch
   )
   if err.kind != fcSuccess:
-    result.err("process_block_error: " & $err)
-    return
-  result.ok()
+    return err("process_block_error: " & $err)
+  return ok()
 
 
 func find_head*(
@@ -145,15 +141,14 @@ func find_head*(
     new_balances = justified_state_balances
   )
   if delta_err.kind != fcSuccess:
-    result.err("find_head compute_deltas failed: " & $delta_err)
-    return
+    return err("find_head compute_deltas failed: " & $delta_err)
 
   # Apply score changes
   let score_err = self.proto_array.apply_score_changes(
     deltas, justified_epoch, finalized_epoch
   )
   if score_err.kind != fcSuccess:
-    result.err("find_head apply_score_changes failed: " & $score_err)
+    return err("find_head apply_score_changes failed: " & $score_err)
 
   self.balances = justified_state_balances
 
@@ -161,10 +156,9 @@ func find_head*(
   var new_head{.noInit.}: Eth2Digest
   let ghost_err = self.proto_array.find_head(new_head, justified_root)
   if ghost_err.kind != fcSuccess:
-    result.err("find_head failed: " & $ghost_err)
-    return
+    return err("find_head failed: " & $ghost_err)
 
-  result.ok(new_head)
+  return ok(new_head)
 
 
 func maybe_prune*(
@@ -173,9 +167,8 @@ func maybe_prune*(
   ## Prune blocks preceding the finalized root as they are now unneeded.
   let err = self.proto_array.maybe_prune(finalized_root)
   if err.kind != fcSuccess:
-    result.err("find_head maybe_pruned failed: " & $err)
-  result.ok()
-
+    return err("find_head maybe_pruned failed: " & $err)
+  return ok()
 
 func compute_deltas(
        deltas: var openarray[Delta],
