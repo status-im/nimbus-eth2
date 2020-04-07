@@ -4,7 +4,7 @@
 
 import
   os, net, strutils, strformat, parseutils,
-  chronicles, stew/[result, objects], eth/keys, eth/trie/db, eth/p2p/enode,
+  chronicles, stew/[results, objects], eth/keys, eth/trie/db, eth/p2p/enode,
   eth/p2p/discoveryv5/[enr, protocol, discovery_db, types],
   libp2p/[multiaddress, peer],
   libp2p/crypto/crypto as libp2pCrypto,
@@ -16,7 +16,7 @@ type
   PublicKey = keys.PublicKey
 
 export
-  Eth2DiscoveryProtocol, open, start, close, result
+  Eth2DiscoveryProtocol, open, start, close, results
 
 proc toENode*(a: MultiAddress): Result[ENode, cstring] {.raises: [Defect].} =
   try:
