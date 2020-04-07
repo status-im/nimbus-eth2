@@ -1213,10 +1213,6 @@ when isMainModule:
       proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe.} =
         stdout.write(msg)
 
-  debug "Launching beacon node",
-        version = fullVersionStr,
-        cmdParams = commandLineParams(), config
-
   randomize()
 
   if config.logLevel != LogLevel.NONE:
@@ -1299,6 +1295,11 @@ when isMainModule:
         reportFailureFor keyFile.string
 
   of noCommand:
+    debug "Launching beacon node",
+          version = fullVersionStr,
+          cmdParams = commandLineParams(),
+          config
+
     createPidFile(config.dataDir.string / "beacon_node.pid")
 
     var node = waitFor BeaconNode.init(config)
