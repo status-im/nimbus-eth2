@@ -136,6 +136,8 @@
 [submodule "vendor/nim-sqlite3-abi"]
 	path = vendor/nim-sqlite3-abi
 	url = https://github.com/arnetheduck/nim-sqlite3-abi.git
+	ignore = dirty
+	branch = master
 [submodule "vendor/nim-testutils"]
 	path = vendor/nim-testutils
 	url = https://github.com/status-im/nim-testutils.git
