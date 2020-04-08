@@ -967,10 +967,7 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
       result.add $peerId
 
   rpcServer.rpc("getNetworkEnr") do () -> string:
-    when networkBackend == libp2p:
-      return $node.network.discovery.localNode.record
-    else:
-      return ""
+    return $node.network.discovery.localNode.record
 
 proc installDebugApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("getSpecPreset") do () -> JsonNode:
