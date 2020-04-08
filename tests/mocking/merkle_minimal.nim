@@ -1,16 +1,19 @@
 # beacon_chain
-# Copyright (c) 2018-2019 Status Research & Development GmbH
+# Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/tests/core/pyspec/eth2spec/utils/merkle_minimal.py
+
 # Merkle tree helpers
 # ---------------------------------------------------------------
 
 import
+  strutils, macros, bitops,
   # Specs
-  ../../beacon_chain/spec/[datatypes, digest],
+  ../../beacon_chain/spec/[beaconstate, datatypes, digest],
   ../../beacon_chain/ssz
 
 func round_step_down*(x: Natural, step: static Natural): int {.inline.} =
@@ -82,9 +85,7 @@ proc getMerkleProof*[Depth: static int](
     else:
       result[depth] = ZeroHashes[depth]
 
-when isMainModule: # Checks
-  import strutils, macros, bitops
-
+proc testMerkleMinimal*(): bool =
   proc toDigest[N: static int](x: array[N, byte]): Eth2Digest =
     result.data[0 .. N-1] = x
 
@@ -122,63 +123,64 @@ when isMainModule: # Checks
     #       Running tests with hash_tree_root([a, b, c])
     #       works for depth 2 (3 or 4 leaves)
 
-    when false:
-      macro roundTrips(): untyped =
-        result = newStmtList()
+    macro roundTrips(): untyped =
+      result = newStmtList()
 
-        # Unsure why sszList ident is undeclared in "quote do"
-        let list = bindSym"sszList"
+      # Unsure why sszList ident is undeclared in "quote do"
+      let list = bindSym"sszList"
 
-        # compile-time unrolled test
-        for nleaves in [3, 4, 5, 7, 8, 1 shl 10, 1 shl 32]:
-          let depth = fastLog2(nleaves-1) + 1
+      # compile-time unrolled test
+      for nleaves in [3, 4, 5, 7, 8, 1 shl 10, 1 shl 32]:
+        let depth = fastLog2(nleaves-1) + 1
 
-          result.add quote do:
-            block:
-              let tree = merkleTreeFromLeaves([a, b, c], Depth = `depth`)
-              echo "Tree: ", tree
+        result.add quote do:
+          block:
+            let tree = merkleTreeFromLeaves([a, b, c], Depth = `depth`)
+            #echo "Tree: ", tree
 
-              let leaves = `list`(@[a, b, c], int64(`nleaves`))
-              let root = hash_tree_root(leaves)
-              echo "Root: ", root
+            doAssert tree.nnznodes[`depth`].len == 1
+            let root = tree.nnznodes[`depth`][0]
+            #echo "Root: ", root
 
-              block: # proof for a
-                let index = 0
-                let proof = getMerkleProof(tree, index)
-                echo "Proof: ", proof
+            block: # proof for a
+              let index = 0
+              let proof = getMerkleProof(tree, index)
+              #echo "Proof: ", proof
 
-                doAssert is_valid_merkle_branch(
-                  a, get_merkle_proof(tree, index = index),
-                  depth = `depth`,
-                  index = index.uint64,
-                  root = root
-                ), "Failed (depth: " & $`depth` &
-                  ", nleaves: " & $`nleaves` & ')'
+              doAssert is_valid_merkle_branch(
+                a, get_merkle_proof(tree, index = index),
+                depth = `depth`,
+                index = index.uint64,
+                root = root
+              ), "Failed (depth: " & $`depth` &
+                ", nleaves: " & $`nleaves` & ')'
 
-              block: # proof for b
-                let index = 1
-                let proof = getMerkleProof(tree, index)
-                # echo "Proof: ", proof
+            block: # proof for b
+              let index = 1
+              let proof = getMerkleProof(tree, index)
 
-                doAssert is_valid_merkle_branch(
-                  b, get_merkle_proof(tree, index = index),
-                  depth = `depth`,
-                  index = index.uint64,
-                  root = root
-                ), "Failed (depth: " & $`depth` &
-                  ", nleaves: " & $`nleaves` & ')'
+              doAssert is_valid_merkle_branch(
+                b, get_merkle_proof(tree, index = index),
+                depth = `depth`,
+                index = index.uint64,
+                root = root
+              ), "Failed (depth: " & $`depth` &
+                ", nleaves: " & $`nleaves` & ')'
 
-              block: # proof for c
-                let index = 2
-                let proof = getMerkleProof(tree, index)
-                # echo "Proof: ", proof
+            block: # proof for c
+              let index = 2
+              let proof = getMerkleProof(tree, index)
 
-                doAssert is_valid_merkle_branch(
-                  c, get_merkle_proof(tree, index = index),
-                  depth = `depth`,
-                  index = index.uint64,
-                  root = root
-                ), "Failed (depth: " & $`depth` &
-                  ", nleaves: " & $`nleaves` & ')'
+              doAssert is_valid_merkle_branch(
+                c, get_merkle_proof(tree, index = index),
+                depth = `depth`,
+                index = index.uint64,
+                root = root
+              ), "Failed (depth: " & $`depth` &
+                ", nleaves: " & $`nleaves` & ')'
 
-      roundTrips()
+    roundTrips()
+    true
+
+when isMainModule:
+  discard testMerkleMinimal()

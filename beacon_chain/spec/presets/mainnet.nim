@@ -20,7 +20,7 @@ type
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L6
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L6
 
   MAX_COMMITTEES_PER_SLOT* {.intdefine.} = 64
 
@@ -49,14 +49,14 @@ const
   HYSTERESIS_UPWARD_MULTIPLIER* = 5
 
   # Constants (TODO: not actually configurable)
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#constants
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#constants
   BASE_REWARDS_PER_EPOCH* = 4
 
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L52
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L58
 
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9 ##\
   ## Minimum amounth of ETH that can be deposited in one call - deposits can
@@ -73,9 +73,9 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L64
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L70
   GENESIS_SLOT* = 0.Slot
-  GENESIS_FORK_VERSION* = 0x00000000
+  GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 0'u8]
   BLS_WITHDRAWAL_PREFIX* = 0'u8
 
   # Time parameters
@@ -130,15 +130,22 @@ const
 
   # State vector lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L102
-  EPOCHS_PER_HISTORICAL_VECTOR* = 65536
-  EPOCHS_PER_SLASHINGS_VECTOR* = 8192
-  HISTORICAL_ROOTS_LIMIT* = 16777216
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L105
+
+  EPOCHS_PER_HISTORICAL_VECTOR* = 65536 ##\
+  ## epochs (~0.8 years)
+
+  EPOCHS_PER_SLASHINGS_VECTOR* = 8192 ##\
+  ## epochs (~36 days)
+
+  HISTORICAL_ROOTS_LIMIT* = 16777216 ##\
+  ## epochs (~26,131 years)
+
   VALIDATOR_REGISTRY_LIMIT* = 1099511627776
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L114
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L117
   BASE_REWARD_FACTOR* = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
   PROPOSER_REWARD_QUOTIENT* = 2'u64^3
@@ -156,7 +163,7 @@ const
 
   # Fork choice
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L26
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L32
   SAFE_SLOTS_TO_UPDATE_JUSTIFIED* = 8 # 96 seconds
 
   # Validators

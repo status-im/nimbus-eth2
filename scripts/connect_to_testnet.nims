@@ -100,8 +100,6 @@ cli do (skipGoerliKey {.
       rmDir dataDir
 
   cd rootDir
-  if testnet == "testnet1":
-    nimFlags &= " -d:NETWORK_TYPE=libp2p"
   exec &"""nim c {nimFlags} -d:"const_preset={preset}" -o:"{beaconNodeBinary}" beacon_chain/beacon_node.nim"""
 
   mkDir dumpDir

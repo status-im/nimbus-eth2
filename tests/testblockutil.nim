@@ -43,7 +43,7 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
     privkey = makeFakeValidatorPrivKey(i)
     pubkey = privkey.pubKey()
     withdrawal_credentials = makeFakeHash(i)
-    domain = compute_domain(DOMAIN_DEPOSIT)
+    domain = compute_domain(DOMAIN_DEPOSIT, GENESIS_FORK_VERSION)
 
   result = Deposit(
     data: DepositData(
@@ -84,7 +84,8 @@ proc addTestBlock*(
     privKey = hackPrivKey(proposer)
     randao_reveal =
       if skipBlsValidation notin flags:
-        privKey.genRandaoReveal(state.fork, state.slot)
+        privKey.genRandaoReveal(
+          state.fork, state.genesis_validators_root, state.slot)
       else:
         ValidatorSig()
 
@@ -149,7 +150,8 @@ proc makeAttestation*(
   let
     sig =
       if skipBLSValidation notin flags:
-        get_attestation_signature(state.fork, data, hackPrivKey(validator))
+        get_attestation_signature(state.fork, state.genesis_validators_root,
+          data, hackPrivKey(validator))
       else:
         ValidatorSig()
 
@@ -203,7 +205,7 @@ proc makeFullAttestations*(
       aggregation_bits: CommitteeValidatorsBits.init(committee.len),
       data: data,
       signature: get_attestation_signature(
-        state.fork, data,
+        state.fork, state.genesis_validators_root, data,
         hackPrivKey(state.validators[committee[0]]))
     )
     # Aggregate the remainder
@@ -212,7 +214,7 @@ proc makeFullAttestations*(
       attestation.aggregation_bits.setBit j
       if skipBLSValidation notin flags:
         attestation.signature.aggregate(get_attestation_signature(
-          state.fork, data,
+          state.fork, state.genesis_validators_root, data,
           hackPrivKey(state.validators[committee[j]])
         ))
 

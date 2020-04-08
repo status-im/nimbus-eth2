@@ -44,7 +44,7 @@ declareGauge beacon_previous_live_validators, "Number of active validators that 
 declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
 declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#block-header
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#block-header
 proc process_block_header*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.}=
@@ -108,7 +108,8 @@ proc process_randao(
   let proposer = addr state.validators[proposer_index.get]
 
   # Verify that the provided randao value is valid
-  let signing_root = compute_signing_root(epoch, get_domain(state, DOMAIN_RANDAO))
+  let signing_root = compute_signing_root(
+    epoch, get_domain(state, DOMAIN_RANDAO, get_current_epoch(state)))
   if skipBLSValidation notin flags:
     if not blsVerify(proposer.pubkey, signing_root.data, body.randao_reveal):
       notice "Randao mismatch", proposer_pubkey = shortLog(proposer.pubkey),
@@ -127,21 +128,21 @@ proc process_randao(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#eth1-data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#eth1-data
 func process_eth1_data(state: var BeaconState, body: BeaconBlockBody) {.nbench.}=
   state.eth1_data_votes.add body.eth1_data
   if state.eth1_data_votes.count(body.eth1_data) * 2 >
       EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH:
     state.eth1_data = body.eth1_data
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#is_slashable_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#is_slashable_validator
 func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
   # Check if ``validator`` is slashable.
   (not validator.slashed) and
     (validator.activation_epoch <= epoch) and
     (epoch < validator.withdrawable_epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#proposer-slashings
 proc process_proposer_slashing*(
     state: var BeaconState, proposer_slashing: ProposerSlashing,
     flags: UpdateFlags, stateCache: var StateCache): bool {.nbench.}=
@@ -378,7 +379,7 @@ proc processVoluntaryExits(state: var BeaconState, blck: BeaconBlock, flags: Upd
       return false
   return true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#block-processing
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#block-processing
 proc process_block*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.}=
@@ -414,7 +415,7 @@ proc process_block*(
 
   # TODO, everything below is now in process_operations
   # and implementation is per element instead of the whole seq
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#operations
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#operations
   if not processProposerSlashings(state, blck, flags, stateCache):
     debug "[Block processing] Proposer slashing failure", slot = shortLog(state.slot)
     return false
@@ -481,42 +482,47 @@ proc makeBeaconBlock*(
 
   some(blck)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/validator.md
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#aggregation-selection
 func get_slot_signature*(
-    fork: Fork, slot: Slot, privkey: ValidatorPrivKey): ValidatorSig =
+    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
+    privkey: ValidatorPrivKey): ValidatorSig =
   let
-    domain =
-      get_domain(fork, DOMAIN_SELECTION_PROOF, compute_epoch_at_slot(slot))
+    domain = get_domain(fork, DOMAIN_SELECTION_PROOF,
+      compute_epoch_at_slot(slot), genesis_validators_root)
     signing_root = compute_signing_root(slot, domain)
 
   blsSign(privKey, signing_root.data)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/validator.md
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#randao-reveal
 func get_epoch_signature*(
-    fork: Fork, slot: Slot, privkey: ValidatorPrivKey): ValidatorSig =
+    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
+    privkey: ValidatorPrivKey): ValidatorSig =
   let
-    domain =
-      get_domain(fork, DOMAIN_RANDAO, compute_epoch_at_slot(slot))
+    domain = get_domain(fork, DOMAIN_RANDAO, compute_epoch_at_slot(slot),
+      genesis_validators_root)
     signing_root = compute_signing_root(compute_epoch_at_slot(slot), domain)
 
   blsSign(privKey, signing_root.data)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/validator.md
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#signature
 func get_block_signature*(
-    fork: Fork, slot: Slot, root: Eth2Digest, privkey: ValidatorPrivKey): ValidatorSig =
+    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
+    root: Eth2Digest, privkey: ValidatorPrivKey): ValidatorSig =
   let
-    domain =
-      get_domain(fork, DOMAIN_BEACON_PROPOSER, compute_epoch_at_slot(slot))
+    domain = get_domain(fork, DOMAIN_BEACON_PROPOSER,
+      compute_epoch_at_slot(slot), genesis_validators_root)
     signing_root = compute_signing_root(root, domain)
 
   blsSign(privKey, signing_root.data)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/validator.md
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#aggregate-signature
 func get_attestation_signature*(
-    fork: Fork, attestation: AttestationData, privkey: ValidatorPrivKey): ValidatorSig =
+    fork: Fork, genesis_validators_root: Eth2Digest, attestation: AttestationData,
+    privkey: ValidatorPrivKey): ValidatorSig =
   let
     attestationRoot = hash_tree_root(attestation)
-    domain = get_domain(fork, DOMAIN_BEACON_ATTESTER, attestation.target.epoch)
+    domain = get_domain(fork, DOMAIN_BEACON_ATTESTER,
+      attestation.target.epoch, genesis_validators_root)
     signing_root = compute_signing_root(attestationRoot, domain)
 
   blsSign(privKey, signing_root.data)

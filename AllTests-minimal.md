@@ -78,7 +78,14 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Attestation topics                                                                         OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - 0.11.0 - constants & config  [Preset: minimal]
+## Interop
+```diff
++ Interop genesis                                                                            OK
++ Interop signatures                                                                         OK
++ Mocked start private key                                                                   OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
+## Official - 0.11.1 - constants & config  [Preset: minimal]
 ```diff
 + BASE_REWARD_FACTOR                                64                   [Preset: minimal]   OK
 + BLS_WITHDRAWAL_PREFIX                             "0x00"               [Preset: minimal]   OK
@@ -107,7 +114,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + EPOCHS_PER_SLASHINGS_VECTOR                       64                   [Preset: minimal]   OK
 + ETH1_FOLLOW_DISTANCE                              16                   [Preset: minimal]   OK
 + GASPRICE_ADJUSTMENT_COEFFICIENT                   8                    [Preset: minimal]   OK
-+ GENESIS_FORK_VERSION                              "0x00000001"         [Preset: minimal]   OK
+- GENESIS_FORK_VERSION                              "0x00000001"         [Preset: minimal]   Fail
 + HISTORICAL_ROOTS_LIMIT                            16777216             [Preset: minimal]   OK
 + HYSTERESIS_DOWNWARD_MULTIPLIER                    1                    [Preset: minimal]   OK
 + HYSTERESIS_QUOTIENT                               4                    [Preset: minimal]   OK
@@ -168,7 +175,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + VALIDATOR_REGISTRY_LIMIT                          1099511627776        [Preset: minimal]   OK
 + WHISTLEBLOWER_REWARD_QUOTIENT                     512                  [Preset: minimal]   OK
 ```
-OK: 85/87 Fail: 2/87 Skip: 0/87
+OK: 84/87 Fail: 3/87 Skip: 0/87
 ## PeerPool testing suite
 ```diff
 + Access peers by key test                                                                   OK
@@ -249,4 +256,4 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 OK: 8/8 Fail: 0/8 Skip: 0/8
 
 ---TOTAL---
-OK: 157/159 Fail: 2/159 Skip: 0/159
+OK: 159/162 Fail: 3/162 Skip: 0/162

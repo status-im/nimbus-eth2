@@ -15,7 +15,7 @@ import
   # Internal
   ./datatypes, ./digest, ../ssz
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#integer_squareroot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
   # Return the largest integer ``x`` such that ``x**2 <= n``.
   doAssert n >= 0'u64
@@ -28,7 +28,7 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
     y = (x + n div x) div 2
   x
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#compute_epoch_at_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#compute_epoch_at_slot
 func compute_epoch_at_slot*(slot: Slot|uint64): Epoch =
   # Return the epoch number at ``slot``.
   (slot div SLOTS_PER_EPOCH).Epoch
@@ -36,17 +36,17 @@ func compute_epoch_at_slot*(slot: Slot|uint64): Epoch =
 template epoch*(slot: Slot): Epoch =
   compute_epoch_at_slot(slot)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#compute_start_slot_at_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#compute_start_slot_at_epoch
 func compute_start_slot_at_epoch*(epoch: Epoch): Slot =
   # Return the start slot of ``epoch``.
   (epoch * SLOTS_PER_EPOCH).Slot
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#is_active_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#is_active_validator
 func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   ### Check if ``validator`` is active
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#get_active_validator_indices
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#get_active_validator_indices
 func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
     seq[ValidatorIndex] =
   # Return the sequence of active validator indices at ``epoch``.
@@ -54,7 +54,7 @@ func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
     if is_active_validator(val, epoch):
       result.add idx.ValidatorIndex
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#get_committee_count_at_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#get_committee_count_at_slot
 func get_committee_count_at_slot*(state: BeaconState, slot: Slot): uint64 =
   # Return the number of committees at ``slot``.
   let epoch = compute_epoch_at_slot(slot)
@@ -67,13 +67,13 @@ func get_committee_count_at_slot*(state: BeaconState, slot: Slot): uint64 =
   # Otherwise, get_beacon_committee(...) cannot access some committees.
   doAssert (SLOTS_PER_EPOCH * MAX_COMMITTEES_PER_SLOT).uint64 >= result
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#get_current_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: BeaconState): Epoch =
   # Return the current epoch.
   doAssert state.slot >= GENESIS_SLOT, $state.slot
   compute_epoch_at_slot(state.slot)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#get_randao_mix
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: BeaconState,
                      epoch: Epoch): Eth2Digest =
     ## Returns the randao mix at a recent ``epoch``.
@@ -114,7 +114,7 @@ func int_to_bytes4*(x: uint64): array[4, byte] =
   result[2] = ((x shr 16) and 0xff).byte
   result[3] = ((x shr 24) and 0xff).byte
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#compute_fork_data_root
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#compute_fork_data_root
 func compute_fork_data_root(current_version: array[4, byte],
     genesis_validators_root: Eth2Digest): Eth2Digest =
   # Return the 32-byte fork data root for the ``current_version`` and
@@ -126,7 +126,7 @@ func compute_fork_data_root(current_version: array[4, byte],
     genesis_validators_root: genesis_validators_root
   ))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#compute_fork_digest
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#compute_fork_digest
 func compute_fork_digest(current_version: array[4, byte],
     genesis_validators_root: Eth2Digest): array[4, byte] =
   # Return the 4-byte fork digest for the ``current_version`` and
@@ -136,7 +136,7 @@ func compute_fork_digest(current_version: array[4, byte],
   result[0..3] =
     compute_fork_data_root(current_version, genesis_validators_root).data[0..3]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#compute_domain
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#compute_domain
 func compute_domain*(
     domain_type: DomainType,
     fork_version: array[4, byte] = [0'u8, 0, 0, 0],
@@ -147,29 +147,25 @@ func compute_domain*(
   result[0..3] = int_to_bytes4(domain_type.uint64)
   result[4..31] = fork_data_root.data[0..27]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#get_domain
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#get_domain
 func get_domain*(
-    fork: Fork, domain_type: DomainType, epoch: Epoch): Domain =
+    fork: Fork, domain_type: DomainType, epoch: Epoch, genesis_validators_root: Eth2Digest): Domain =
   ## Return the signature domain (fork version concatenated with domain type)
   ## of a message.
-  let
-    fork_version =
-      if epoch < fork.epoch:
-        fork.previous_version
-      else:
-        fork.current_version
-  compute_domain(domain_type, fork_version)
+  let fork_version =
+    if epoch < fork.epoch:
+      fork.previous_version
+    else:
+      fork.current_version
+  compute_domain(domain_type, fork_version, genesis_validators_root)
 
 func get_domain*(
-    state: BeaconState, domain_type: DomainType, message_epoch: Epoch): Domain =
+    state: BeaconState, domain_type: DomainType, epoch: Epoch): Domain =
   ## Return the signature domain (fork version concatenated with domain type)
   ## of a message.
-  get_domain(state.fork, domain_type, message_epoch)
+  get_domain(state.fork, domain_type, epoch, state. genesis_validators_root)
 
-func get_domain*(state: BeaconState, domain_type: DomainType): Domain =
-  get_domain(state, domain_type, get_current_epoch(state))
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#compute_signing_root
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#compute_signing_root
 func compute_signing_root*(ssz_object: auto, domain: Domain): Eth2Digest =
   # Return the signing root of an object by calculating the root of the
   # object-domain tree.
@@ -179,7 +175,7 @@ func compute_signing_root*(ssz_object: auto, domain: Domain): Eth2Digest =
   )
   hash_tree_root(domain_wrapped_object)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#get_seed
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#get_seed
 func get_seed*(state: BeaconState, epoch: Epoch, domain_type: DomainType): Eth2Digest =
   # Return the seed at ``epoch``.
 

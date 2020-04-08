@@ -22,7 +22,7 @@ def runStages() {
 				"tools": {
 					stage("Tools") {
 						sh "make -j${env.NPROC}"
-						sh "make -j${env.NPROC} LOG_LEVEL=TRACE NIMFLAGS='-d:NETWORK_TYPE=libp2p -d:testnet_servers_image'"
+						sh "make -j${env.NPROC} LOG_LEVEL=TRACE NIMFLAGS='-d:testnet_servers_image'"
 					}
 				},
 				"test suite": {
@@ -31,8 +31,8 @@ def runStages() {
 					}
 					if ("${NODE_NAME}" ==~ /linux.*/) {
 						stage("testnet finalization") {
-							sh "./scripts/launch_local_testnet.sh --testnet 0 --nodes 4 --disable-htop -- --verify-finalization --stop-at-epoch=5"
-							sh "./scripts/launch_local_testnet.sh --testnet 1 --nodes 4 --disable-htop -- --verify-finalization --stop-at-epoch=5"
+							sh "./scripts/launch_local_testnet.sh --testnet 0 --nodes 4 --log-level INFO --disable-htop -- --verify-finalization --stop-at-epoch=5"
+							sh "./scripts/launch_local_testnet.sh --testnet 1 --nodes 4 --log-level INFO --disable-htop -- --verify-finalization --stop-at-epoch=5"
 						}
 					}
 				}

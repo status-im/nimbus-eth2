@@ -1,6 +1,10 @@
+# TODO Cannot use push here becaise it gets applied to PeerID.init (!)
+#      probably because it's a generic proc...
+# {.push raises: [Defect].}
+
 import
   os, net, strutils, strformat, parseutils,
-  chronicles, stew/[result, objects], eth/keys, eth/trie/db, eth/p2p/enode,
+  chronicles, stew/[results, objects], eth/keys, eth/trie/db, eth/p2p/enode,
   eth/p2p/discoveryv5/[enr, protocol, discovery_db, types],
   libp2p/[multiaddress, peer],
   libp2p/crypto/crypto as libp2pCrypto,
@@ -12,26 +16,13 @@ type
   PublicKey = keys.PublicKey
 
 export
-  Eth2DiscoveryProtocol, open, close, result
+  Eth2DiscoveryProtocol, open, start, close, results
 
-proc new*(T: type Eth2DiscoveryProtocol,
-          conf: BeaconNodeConf,
-          ip: IpAddress, rawPrivKeyBytes: openarray[byte]): T =
-  # TODO
-  # Implement more configuration options:
-  # * for setting up a specific key
-  # * for using a persistent database
-  var
-    pk = initPrivateKey(rawPrivKeyBytes)
-    db = DiscoveryDB.init(newMemoryDB())
-
-  newProtocol(pk, db, ip, conf.tcpPort, conf.udpPort)
-
-proc toENode*(a: MultiAddress): Result[ENode, cstring] =
-  if not IPFS.match(a):
-    return err "Unsupported MultiAddress"
-
+proc toENode*(a: MultiAddress): Result[ENode, cstring] {.raises: [Defect].} =
   try:
+    if not IPFS.match(a):
+      return err "Unsupported MultiAddress"
+
     # TODO. This code is quite messy with so much string handling.
     # MultiAddress can offer a more type-safe API?
     var
@@ -58,7 +49,7 @@ proc toENode*(a: MultiAddress): Result[ENode, cstring] =
     var pubkey: libp2pCrypto.PublicKey
     if peerId.extractPublicKey(pubkey):
       if pubkey.scheme == Secp256k1:
-        return ok ENode(pubkey: pubkey.skkey,
+        return ok ENode(pubkey: PublicKey(pubkey.skkey),
                         address: Address(ip: ipAddress,
                                          tcpPort: Port tcpPort,
                                          udpPort: Port udpPort))
@@ -66,15 +57,20 @@ proc toENode*(a: MultiAddress): Result[ENode, cstring] =
   except CatchableError:
     # This will reach the error exit path below
     discard
+  except Exception as e:
+    # TODO:
+    # nim-libp2p/libp2p/multiaddress.nim(616, 40) Error: can raise an unlisted exception: Exception
+    if e of Defect:
+      raise (ref Defect)(e)
 
   return err "Invalid MultiAddress"
 
 proc toMultiAddressStr*(enode: ENode): string =
-  var peerId = PeerID.init(libp2pCrypto.PublicKey(scheme: Secp256k1,
-                                                  skkey: enode.pubkey))
+  var peerId = PeerID.init(libp2pCrypto.PublicKey(
+    scheme: Secp256k1, skkey: SkPublicKey(enode.pubkey)))
   &"/ip4/{enode.address.ip}/tcp/{enode.address.tcpPort}/p2p/{peerId.pretty}"
 
-proc toENode*(enrRec: enr.Record): Result[ENode, cstring] =
+proc toENode*(enrRec: enr.Record): Result[ENode, cstring] {.raises: [Defect].} =
   try:
     # TODO: handle IPv6
     let ipBytes = enrRec.get("ip", seq[byte])
@@ -85,10 +81,10 @@ proc toENode*(enrRec: enr.Record): Result[ENode, cstring] =
                      address_v4: toArray(4, ipBytes))
       tcpPort = Port enrRec.get("tcp", uint16)
       udpPort = Port enrRec.get("udp", uint16)
-    var pubKey: keys.PublicKey
-    if not enrRec.get(pubKey):
+    let pubkey = enrRec.get(PublicKey)
+    if pubkey.isNone:
       return err "Failed to read public key from ENR record"
-    return ok ENode(pubkey: pubkey,
+    return ok ENode(pubkey: pubkey.get(),
                     address: Address(ip: ip,
                                      tcpPort: tcpPort,
                                      udpPort: udpPort))
@@ -165,3 +161,27 @@ proc loadBootstrapFile*(bootstrapFile: string,
     error "Unknown bootstrap file format", ext
     quit 1
 
+proc new*(T: type Eth2DiscoveryProtocol,
+          conf: BeaconNodeConf,
+          ip: Option[IpAddress], tcpPort, udpPort: Port,
+          rawPrivKeyBytes: openarray[byte]): T =
+  # TODO
+  # Implement more configuration options:
+  # * for setting up a specific key
+  # * for using a persistent database
+  var
+    pk = PrivateKey.fromRaw(rawPrivKeyBytes).tryGet()
+    ourPubKey = pk.toPublicKey().tryGet()
+    db = DiscoveryDB.init(newMemoryDB())
+
+  var bootNodes: seq[ENode]
+  var bootEnrs: seq[enr.Record]
+  for node in conf.bootstrapNodes:
+    addBootstrapNode(node, bootNodes, bootEnrs, ourPubKey)
+  loadBootstrapFile(string conf.bootstrapNodesFile, bootNodes, bootEnrs, ourPubKey)
+
+  let persistentBootstrapFile = conf.dataDir / "bootstrap_nodes.txt"
+  if fileExists(persistentBootstrapFile):
+    loadBootstrapFile(persistentBootstrapFile, bootNodes, bootEnrs, ourPubKey)
+
+  newProtocol(pk, db, ip, tcpPort, udpPort, bootEnrs)

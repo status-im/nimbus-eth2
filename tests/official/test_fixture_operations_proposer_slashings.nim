@@ -30,10 +30,7 @@ proc runTest(identifier: string) =
 
   proc `testImpl_proposer_slashing _ identifier`() =
 
-    var flags: UpdateFlags
     var prefix: string
-    if not existsFile(testDir/"meta.yaml"):
-      flags.incl skipBlsValidation
     if existsFile(testDir/"post.ssz"):
       prefix = "[Valid]   "
     else:
@@ -55,10 +52,10 @@ proc runTest(identifier: string) =
       var cache = get_empty_per_epoch_cache()
 
       if postRef.isNil:
-        let done = process_proposer_slashing(stateRef[], proposerSlashing[], flags, cache)
+        let done = process_proposer_slashing(stateRef[], proposerSlashing[], {}, cache)
         doAssert done == false, "We didn't expect this invalid proposer slashing to be processed."
       else:
-        let done = process_proposer_slashing(stateRef[], proposerSlashing[], flags, cache)
+        let done = process_proposer_slashing(stateRef[], proposerSlashing[], {}, cache)
         doAssert done, "Valid proposer slashing not processed"
         check: stateRef.hash_tree_root() == postRef.hash_tree_root()
         reportDiff(stateRef, postRef)

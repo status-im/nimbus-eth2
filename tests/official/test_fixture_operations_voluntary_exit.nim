@@ -30,10 +30,7 @@ proc runTest(identifier: string) =
 
   proc `testImpl _ voluntary_exit _ identifier`() =
 
-    var flags: UpdateFlags
     var prefix: string
-    if not existsFile(testDir/"meta.yaml"):
-      flags.incl skipBlsValidation
     if existsFile(testDir/"post.ssz"):
       prefix = "[Valid]   "
     else:
@@ -53,10 +50,10 @@ proc runTest(identifier: string) =
         postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
 
       if postRef.isNil:
-        let done = process_voluntary_exit(stateRef[], voluntaryExit[], flags)
+        let done = process_voluntary_exit(stateRef[], voluntaryExit[], {})
         doAssert done == false, "We didn't expect this invalid voluntary exit to be processed."
       else:
-        let done = process_voluntary_exit(stateRef[], voluntaryExit[], flags)
+        let done = process_voluntary_exit(stateRef[], voluntaryExit[], {})
         doAssert done, "Valid voluntary exit not processed"
         check: stateRef.hash_tree_root() == postRef.hash_tree_root()
         reportDiff(stateRef, postRef)

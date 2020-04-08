@@ -19,7 +19,7 @@ import
 const
   SpecDir = currentSourcePath.rsplit(DirSep, 1)[0] /
                   ".."/".."/"beacon_chain"/"spec"
-  Config = FixturesDir/"tests-v0.11.0"/const_preset/"config.yaml"
+  Config = FixturesDir/"tests-v0.11.1"/const_preset/"config.yaml"
 
 type
   CheckedType = SomeInteger or Slot or Epoch
@@ -88,6 +88,7 @@ const
 const IgnoreKeys = [
   # Ignore all non-numeric types
   "DEPOSIT_CONTRACT_ADDRESS",
+  "GENESIS_FORK_VERSION",
   "SHARD_BLOCK_OFFSETS"
 ]
 
@@ -122,5 +123,5 @@ proc checkConfig() =
       else:
         check: ConstsToCheck[constant] == value.getBiggestInt().uint64()
 
-suiteReport "Official - 0.11.0 - constants & config " & preset():
+suiteReport "Official - 0.11.1 - constants & config " & preset():
   checkConfig()

@@ -28,9 +28,10 @@ proc signMockBlockImpl(
   let privkey = MockPrivKeys[proposer_index]
 
   signedBlock.message.body.randao_reveal = get_epoch_signature(
-    state.fork, block_slot, privkey)
+    state.fork, state.genesis_validators_root, block_slot, privkey)
   signedBlock.signature = get_block_signature(
-    state.fork, block_slot, hash_tree_root(signedBlock.message), privkey)
+    state.fork, state.genesis_validators_root, block_slot,
+    hash_tree_root(signedBlock.message), privkey)
 
 proc signMockBlock*(
   state: BeaconState,

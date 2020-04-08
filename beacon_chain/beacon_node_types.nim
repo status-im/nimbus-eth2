@@ -136,7 +136,10 @@ type
 
     inAdd*: bool
 
-    headState*: StateData ## State given by the head block
+    headState*: StateData ## \
+    ## State given by the head block; only update in `updateHead`, not anywhere
+    ## else via `withState`
+
     justifiedState*: StateData ## Latest justified state, as seen from the head
 
     tmpState*: StateData ## Scratchpad - may be any state

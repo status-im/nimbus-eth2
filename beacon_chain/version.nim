@@ -1,15 +1,3 @@
-type
-  NetworkBackendType* = enum
-    libp2p
-    libp2pDaemon
-
-const
-  NETWORK_TYPE {.strdefine.} = "libp2p_daemon"
-
-  networkBackend* = when NETWORK_TYPE == "libp2p": libp2p
-                    elif NETWORK_TYPE == "libp2p_daemon": libp2pDaemon
-                    else: {.fatal: "The 'NETWORK_TYPE' should be either 'libp2p', 'libp2p_daemon'" .}
-
 const
   copyrights* = "Copyright (c) 2019 Status Research & Development GmbH"
 
@@ -30,5 +18,5 @@ const
     $versionMajor & "." & $versionMinor & "." & $versionBuild
 
   fullVersionStr* =
-    versionAsStr & " (" & gitRevision & ", " & NETWORK_TYPE & ")"
+    versionAsStr & " (" & gitRevision & ")"
 
