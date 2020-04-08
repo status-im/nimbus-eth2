@@ -68,9 +68,7 @@ jobs:
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} LOG_LEVEL=TRACE
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image"
           file build/beacon_node
-          if [[ $PLATFORM == "x86" ]]; then
-            # fail fast
-            export NIMTEST_ABORT_ON_ERROR=1
-          fi
+          # fail fast
+          export NIMTEST_ABORT_ON_ERROR=1
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} DISABLE_TEST_FIXTURES_SCRIPT=1 test
         displayName: 'build and test'
