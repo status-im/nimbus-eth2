@@ -14,7 +14,7 @@ jobs:
       - task: CacheBeta@1
         displayName: 'cache Nim binaries'
         inputs:
-          key: NimBinaries | $(Agent.OS) | $(PLATFORM) | "$(Build.SourceBranchName)" | "v3"
+          key: NimBinaries | $(Agent.OS) | $(PLATFORM) | "$(Build.SourceBranchName)" | "v4"
           path: NimBinaries
 
       - task: CacheBeta@1
