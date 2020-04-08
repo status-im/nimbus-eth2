@@ -20,7 +20,7 @@ type
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L6
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L6
 
   MAX_COMMITTEES_PER_SLOT* {.intdefine.} = 64
 
@@ -49,7 +49,7 @@ const
   HYSTERESIS_UPWARD_MULTIPLIER* = 5
 
   # Constants (TODO: not actually configurable)
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#constants
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#constants
   BASE_REWARDS_PER_EPOCH* = 4
 
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
@@ -73,9 +73,9 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L64
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L70
   GENESIS_SLOT* = 0.Slot
-  GENESIS_FORK_VERSION* = 0x00000000
+  GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 0'u8]
   BLS_WITHDRAWAL_PREFIX* = 0'u8
 
   # Time parameters
@@ -145,7 +145,7 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/mainnet.yaml#L114
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L117
   BASE_REWARD_FACTOR* = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
   PROPOSER_REWARD_QUOTIENT* = 2'u64^3

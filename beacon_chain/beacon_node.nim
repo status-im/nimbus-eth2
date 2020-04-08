@@ -1,6 +1,6 @@
 import
   # Standard library
-  os, tables, random, strutils, times, sequtils,
+  os, tables, random, strutils, times,
 
   # Nimble packages
   stew/[objects, bitseqs, byteutils], stew/shims/macros,
@@ -12,7 +12,7 @@ import
   # Local modules
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network,
     state_transition_block], spec/presets/custom,
-  conf, time, state_transition, beacon_chain_db, validator_pool, extras,
+  conf, time, beacon_chain_db, validator_pool, extras,
   attestation_pool, block_pool, eth2_network, eth2_discovery,
   beacon_node_types, mainchain_monitor, version, ssz, ssz/dynamic_navigator,
   sync_protocol, request_manager, validator_keygen, interop, statusbar,
@@ -133,7 +133,6 @@ proc getStateFromSnapshot(conf: BeaconNodeConf, state: var BeaconState): bool =
 proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
   let
     netKeys = getPersistentNetKeys(conf)
-    ourPubKey = netKeys.pubkey.skkey
     nickname = if conf.nodeName == "auto": shortForm(netKeys)
                else: conf.nodeName
     db = BeaconChainDB.init(kvStore SqliteStoreRef.init(conf.databaseDir))
@@ -1214,10 +1213,6 @@ when isMainModule:
       proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe.} =
         stdout.write(msg)
 
-  debug "Launching beacon node",
-        version = fullVersionStr,
-        cmdParams = commandLineParams(), config
-
   randomize()
 
   if config.logLevel != LogLevel.NONE:
@@ -1300,6 +1295,11 @@ when isMainModule:
         reportFailureFor keyFile.string
 
   of noCommand:
+    debug "Launching beacon node",
+          version = fullVersionStr,
+          cmdParams = commandLineParams(),
+          config
+
     createPidFile(config.dataDir.string / "beacon_node.pid")
 
     var node = waitFor BeaconNode.init(config)

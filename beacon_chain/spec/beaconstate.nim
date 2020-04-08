@@ -12,7 +12,7 @@ import
   ./crypto, ./datatypes, ./digest, ./helpers, ./validator,
   ../../nbench/bench_lab
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#is_valid_merkle_branch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#is_valid_merkle_branch
 func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openarray[Eth2Digest], depth: uint64, index: uint64, root: Eth2Digest): bool {.nbench.}=
   ## Check if ``leaf`` at ``index`` verifies against the Merkle ``root`` and
   ## ``branch``.
@@ -47,7 +47,7 @@ func decrease_balance*(
     else:
       state.balances[index] - delta
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#deposits
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#deposits
 proc process_deposit*(
     state: var BeaconState, deposit: Deposit, flags: UpdateFlags = {}): bool {.nbench.}=
   # Process an Eth1 deposit, registering a validator or increasing its balance.
@@ -56,7 +56,7 @@ proc process_deposit*(
   if skipMerkleValidation notin flags and not is_valid_merkle_branch(
     hash_tree_root(deposit.data),
     deposit.proof,
-    DEPOSIT_CONTRACT_TREE_DEPTH + 1,
+    DEPOSIT_CONTRACT_TREE_DEPTH + 1,  # Add 1 for the `List` length mix-in
     state.eth1_deposit_index,
     state.eth1_data.deposit_root,
   ):
@@ -72,8 +72,17 @@ proc process_deposit*(
     index = validator_pubkeys.find(pubkey)
 
   if index == -1:
-    # Verify the deposit signature (proof of possession)
-    let domain = compute_domain(DOMAIN_DEPOSIT)
+    # Verify the deposit signature (proof of possession) which is not checked
+    # by the deposit contract
+
+    # Fork-agnostic domain since deposits are valid across forks
+    #
+    # TODO zcli/zrnt does use the GENESIS_FORK_VERSION which can
+    # vary between minimal/mainnet, though, despite the comment,
+    # which is copied verbatim from the eth2 beacon chain spec.
+    # https://github.com/protolambda/zrnt/blob/v0.11.0/eth2/phase0/kickstart.go#L58
+    let domain = compute_domain(DOMAIN_DEPOSIT, GENESIS_FORK_VERSION)
+
     let signing_root = compute_signing_root(deposit.getDepositMessage, domain)
     if skipBLSValidation notin flags and not bls_verify(
         pubkey, signing_root.data,
@@ -98,7 +107,7 @@ proc process_deposit*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
 func compute_activation_exit_epoch(epoch: Epoch): Epoch =
   ## Return the epoch during which validator activations and exits initiated in
   ## ``epoch`` take effect.
@@ -184,8 +193,8 @@ proc slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
   increase_balance(
     state, whistleblower_index, whistleblowing_reward - proposer_reward)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#genesis
-func initialize_beacon_state_from_eth1*(
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#genesis
+proc initialize_beacon_state_from_eth1*(
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
     deposits: openArray[Deposit],
@@ -208,6 +217,10 @@ func initialize_beacon_state_from_eth1*(
 
   const SECONDS_PER_DAY = uint64(60*60*24)
   var state = BeaconState(
+    fork: Fork(
+      previous_version: GENESIS_FORK_VERSION,
+      current_version: GENESIS_FORK_VERSION,
+      epoch: GENESIS_EPOCH),
     genesis_time:
       eth1_timestamp + 2'u64 * SECONDS_PER_DAY -
         (eth1_timestamp mod SECONDS_PER_DAY),
@@ -248,7 +261,8 @@ func initialize_beacon_state_from_eth1*(
       validator.activation_epoch = GENESIS_EPOCH
 
   # Set genesis validators root for domain separation and chain versioning
-  state.genesis_validators_root = hash_tree_root(state.validators)
+  state.genesis_validators_root =
+    hash_tree_root(sszList(state.validators, VALIDATOR_REGISTRY_LIMIT))
 
   state
 
@@ -398,7 +412,7 @@ proc is_valid_indexed_attestation*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#get_attesting_indices
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(state: BeaconState,
                             data: AttestationData,
                             bits: CommitteeValidatorsBits,

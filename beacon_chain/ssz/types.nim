@@ -62,9 +62,9 @@ type
       discard
 
 when useListType:
-  type List*[T; maxLen: static int] = distinct seq[T]
+  type List*[T; maxLen: static int64] = distinct seq[T]
 else:
-  type List*[T; maxLen: static int] = seq[T]
+  type List*[T; maxLen: static int64] = seq[T]
 
 macro unsupported*(T: typed): untyped =
   # TODO: {.fatal.} breaks compilation even in `compiles()` context,

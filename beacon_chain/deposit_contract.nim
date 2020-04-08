@@ -67,7 +67,7 @@ proc main() {.async.} =
   let cfg = CliConfig.load()
   let web3 = await newWeb3(cfg.depositWeb3Url)
   if cfg.privateKey.len != 0:
-    web3.privateKey = initPrivateKey(cfg.privateKey)
+    web3.privateKey = PrivateKey.fromHex(cfg.privateKey)[]
   else:
     let accounts = await web3.provider.eth_accounts()
     doAssert(accounts.len > 0)

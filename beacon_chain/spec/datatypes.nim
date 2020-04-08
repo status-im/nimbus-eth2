@@ -257,8 +257,7 @@ type
     eth1_deposit_index*: uint64
 
     # Registry
-    # TODO List[] won't construct due to VALIDATOR_REGISTRY_LIMIT > high(int)
-    validators*: seq[Validator]
+    validators*: List[Validator, VALIDATOR_REGISTRY_LIMIT]
     balances*: seq[uint64]
 
     # Randomness
@@ -370,7 +369,7 @@ type
     message*: AggregateAndProof
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#eth1block
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#eth1block
   Eth1Block* = object
     timestamp*: uint64
     # All other eth1 block fields

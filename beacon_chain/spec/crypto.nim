@@ -260,6 +260,10 @@ func initFromBytes*(val: var ValidatorPrivKey, bytes: openarray[byte]) {.inline.
 func fromBytes[T](R: type BlsValue[T], bytes: openarray[byte]): R {.inline.}=
   result.initFromBytes(bytes)
 
+func fromBytes[T](R: var BlsValue[T], bytes: openarray[byte]) {.inline.}=
+  # This version is only to support tests/test_interop.nim
+  R.initFromBytes(bytes)
+
 func fromHex*[T](R: var BlsValue[T], hexStr: string) {.inline.} =
   ## Initialize a BLSValue from its hex representation
   R.fromBytes(hexStr.hexToSeqByte())
