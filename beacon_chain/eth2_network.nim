@@ -353,7 +353,7 @@ proc readResponse(
     return await conn.readChunk(MsgType, true, deadline)
 
 proc encodeErrorMsg(responseCode: ResponseCode, errMsg: string): Bytes =
-  var s = init OutputStream
+  var s = memoryOutput()
   s.append byte(responseCode)
   s.appendVarint errMsg.len
   s.appendValue SSZ, errMsg
@@ -395,7 +395,7 @@ proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.
   defer:
     await safeClose(stream)
 
-  var s = init OutputStream
+  var s = memoryOutput()
   s.appendVarint requestBytes.len.uint64
   s.append requestBytes
   let bytes = s.getOutput
@@ -404,7 +404,7 @@ proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.
 # TODO There is too much duplication in the responder functions, but
 # I hope to reduce this when I increse the reliance on output streams.
 proc sendResponseChunkBytes(responder: UntypedResponder, payload: Bytes) {.async.} =
-  var s = init OutputStream
+  var s = memoryOutput()
   s.append byte(Success)
   s.appendVarint payload.len.uint64
   s.append payload
@@ -412,14 +412,14 @@ proc sendResponseChunkBytes(responder: UntypedResponder, payload: Bytes) {.async
   await responder.stream.write(bytes)
 
 proc sendResponseChunkObj(responder: UntypedResponder, val: auto) {.async.} =
-  var s = init OutputStream
+  var s = memoryOutput()
   s.append byte(Success)
   s.appendValue SSZ, sizePrefixed(val)
   let bytes = s.getOutput
   await responder.stream.write(bytes)
 
 proc sendResponseChunks[T](responder: UntypedResponder, chunks: seq[T]) {.async.} =
-  var s = init OutputStream
+  var s = memoryOutput()
   for chunk in chunks:
     s.append byte(Success)
     s.appendValue SSZ, sizePrefixed(chunk)
@@ -446,7 +446,7 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
     await safeClose(stream)
 
   # Send the request
-  var s = init OutputStream
+  var s = memoryOutput()
   s.appendVarint requestBytes.len.uint64
   s.append requestBytes
   let bytes = s.getOutput
