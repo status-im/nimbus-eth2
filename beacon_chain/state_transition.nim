@@ -101,10 +101,9 @@ proc process_slots*(state: var BeaconState, slot: Slot) {.nbench.}=
     if is_epoch_transition:
       beacon_current_validators.set(get_epoch_validator_count(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#verify_block_signature
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#verify_block_signature
 proc verify_block_signature*(
-    state: BeaconState, signedBlock: SignedBeaconBlock,
-    stateCache: var StateCache): bool {.nbench.} =
+    state: BeaconState, signedBlock: SignedBeaconBlock): bool {.nbench.} =
   if signedBlock.message.proposer_index >= state.validators.len.uint64:
     notice "Invalid proposer index in block",
       blck = shortLog(signedBlock.message)
@@ -179,10 +178,10 @@ proc state_transition*(
   # that the block is sane.
   # TODO what should happen if block processing fails?
   #      https://github.com/ethereum/eth2.0-specs/issues/293
-  var per_epoch_cache = get_empty_per_epoch_cache()
-
   if skipBLSValidation in flags or
-      verify_block_signature(state, signedBlock, per_epoch_cache):
+      verify_block_signature(state, signedBlock):
+    var per_epoch_cache = get_empty_per_epoch_cache()
+
     if processBlock(state, signedBlock.message, flags, per_epoch_cache):
       # This is a bit awkward - at the end of processing we verify that the
       # state we arrive at is what the block producer thought it would be -
@@ -248,11 +247,11 @@ proc state_transition*(
   var old_state = state
 
   process_slots(state, signedBlock.message.slot)
-  var per_epoch_cache = get_empty_per_epoch_cache()
 
   if skipBLSValidation in flags or
-      verify_block_signature(state.data, signedBlock, per_epoch_cache):
+      verify_block_signature(state.data, signedBlock):
 
+    var per_epoch_cache = get_empty_per_epoch_cache()
     if processBlock(state.data, signedBlock.message, flags, per_epoch_cache):
       if skipStateRootValidation in flags or verifyStateRoot(state.data, signedBlock.message):
         # State root is what it should be - we're done!
