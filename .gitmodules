@@ -138,3 +138,13 @@
 	url = https://github.com/status-im/nim-testutils.git
 	ignore = dirty
 	branch = master
+[submodule "vendor/nim-snappy"]
+	path = vendor/nim-snappy
+	url = https://github.com/status-im/nim-snappy.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-protobuf-serialization"]
+	path = vendor/nim-protobuf-serialization
+	url = https://github.com/status-im/nim-protobuf-serialization.git
+	ignore = dirty
+	branch = master
