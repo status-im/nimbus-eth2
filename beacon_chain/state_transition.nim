@@ -31,9 +31,9 @@
 # now.
 
 import
-  collections/sets, chronicles, sets,
+  collections/sets, chronicles, sets, options,
   ./extras, ./ssz, metrics,
-  ./spec/[datatypes, digest, helpers, validator],
+  ./spec/[datatypes, crypto, digest, helpers, validator],
   ./spec/[state_transition_block, state_transition_epoch],
   ../nbench/bench_lab
 
@@ -101,6 +101,29 @@ proc process_slots*(state: var BeaconState, slot: Slot) {.nbench.}=
     if is_epoch_transition:
       beacon_current_validators.set(get_epoch_validator_count(state))
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#verify_block_signature
+proc verify_block_signature*(
+    state: BeaconState, signedBlock: SignedBeaconBlock): bool {.nbench.} =
+  if signedBlock.message.proposer_index >= state.validators.len.uint64:
+    notice "Invalid proposer index in block",
+      blck = shortLog(signedBlock.message)
+    return false
+
+  let
+    proposer = state.validators[signedBlock.message.proposer_index]
+    domain = get_domain(
+      state, DOMAIN_BEACON_PROPOSER,
+      compute_epoch_at_slot(signedBlock.message.slot))
+    signing_root = compute_signing_root(signedBlock.message, domain)
+
+  if not bls_verify(proposer.pubKey, signing_root.data, signedBlock.signature):
+    notice "Block: signature verification failed",
+      blck = shortLog(signedBlock),
+      signingRoot = shortLog(signing_root)
+    return false
+
+  true
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
@@ -155,15 +178,17 @@ proc state_transition*(
   # that the block is sane.
   # TODO what should happen if block processing fails?
   #      https://github.com/ethereum/eth2.0-specs/issues/293
-  var per_epoch_cache = get_empty_per_epoch_cache()
+  if skipBLSValidation in flags or
+      verify_block_signature(state, signedBlock):
+    var per_epoch_cache = get_empty_per_epoch_cache()
 
-  if process_block(state, signedBlock.message, flags, per_epoch_cache):
-    # This is a bit awkward - at the end of processing we verify that the
-    # state we arrive at is what the block producer thought it would be -
-    # meaning that potentially, it could fail verification
-    if skipStateRootValidation in flags or verifyStateRoot(state, signedBlock.message):
-      # State root is what it should be - we're done!
-      return true
+    if processBlock(state, signedBlock.message, flags, per_epoch_cache):
+      # This is a bit awkward - at the end of processing we verify that the
+      # state we arrive at is what the block producer thought it would be -
+      # meaning that potentially, it could fail verification
+      if skipStateRootValidation in flags or verifyStateRoot(state, signedBlock.message):
+        # State root is what it should be - we're done!
+        return true
 
   # Block processing failed, roll back changes
   state = old_state
@@ -222,20 +247,23 @@ proc state_transition*(
   var old_state = state
 
   process_slots(state, signedBlock.message.slot)
-  var per_epoch_cache = get_empty_per_epoch_cache()
 
-  if process_block(state.data, signedBlock.message, flags, per_epoch_cache):
-    if skipStateRootValidation in flags or verifyStateRoot(state.data, signedBlock.message):
-      # State root is what it should be - we're done!
+  if skipBLSValidation in flags or
+      verify_block_signature(state.data, signedBlock):
 
-      # TODO when creating a new block, state_root is not yet set.. comparing
-      #      with zero hash here is a bit fragile however, but this whole thing
-      #      should go away with proper hash caching
-      state.root =
-        if signedBlock.message.state_root == Eth2Digest(): hash_tree_root(state.data)
-        else: signedBlock.message.state_root
+    var per_epoch_cache = get_empty_per_epoch_cache()
+    if processBlock(state.data, signedBlock.message, flags, per_epoch_cache):
+      if skipStateRootValidation in flags or verifyStateRoot(state.data, signedBlock.message):
+        # State root is what it should be - we're done!
 
-      return true
+        # TODO when creating a new block, state_root is not yet set.. comparing
+        #      with zero hash here is a bit fragile however, but this whole thing
+        #      should go away with proper hash caching
+        state.root =
+          if signedBlock.message.state_root == Eth2Digest(): hash_tree_root(state.data)
+          else: signedBlock.message.state_root
+
+        return true
 
   # Block processing failed, roll back changes
   state = old_state

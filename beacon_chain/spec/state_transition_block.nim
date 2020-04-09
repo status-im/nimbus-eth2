@@ -454,7 +454,9 @@ proc makeBeaconBlock*(
   ## the slot for which a block is to be created.
   var cache = get_empty_per_epoch_cache()
   let proposer_index = get_beacon_proposer_index(state, cache)
-  doAssert proposer_index.isSome, "Unable to get proposer index when proposing!"
+  if proposer_index.isNone:
+    warn "Unable to get proposer index when proposing!"
+    return
 
   # To create a block, we'll first apply a partial block to the state, skipping
   # some validations.
