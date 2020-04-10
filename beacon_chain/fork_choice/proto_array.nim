@@ -482,7 +482,7 @@ func node_is_viable_for_head(self: ProtoArray, node: ProtoNode): bool {.raises: 
 # Sanity checks on internal private procedures
 
 when isMainModule:
-  import nimcrypto/[hash, utils]
+  import nimcrypto/hash
 
   echo "Sanity checks on fork choice tiebreaks"
 

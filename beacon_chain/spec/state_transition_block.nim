@@ -33,7 +33,7 @@
 # now.
 
 import
-  algorithm, collections/sets, chronicles, options, sequtils, sets, tables,
+  algorithm, collections/sets, chronicles, options, sequtils, sets,
   ../extras, ../ssz, metrics,
   beaconstate, crypto, datatypes, digest, helpers, validator,
   ../../nbench/bench_lab

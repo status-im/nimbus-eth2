@@ -4,7 +4,7 @@ import
   options as stdOptions, net as stdNet,
 
   # Status libs
-  stew/[io, varints, base58], stew/shims/[macros, tables], stint,
+  stew/[varints, base58], stew/shims/[macros, tables], stint,
   faststreams/output_stream,
   json_serialization, json_serialization/std/[net, options],
   chronos, chronicles, metrics,
