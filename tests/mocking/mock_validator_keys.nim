@@ -16,7 +16,7 @@ import
 # which is `num_validators` which is `MIN_GENESIS_ACTIVE_VALIDATOR_COUNT`
 proc genMockPrivKeys(privkeys: var array[MIN_GENESIS_ACTIVE_VALIDATOR_COUNT, ValidatorPrivKey]) =
   for i in 0 ..< privkeys.len:
-    let pair = newKeyPair()
+    let pair = newKeyPair()[]
     privkeys[i] = pair.priv
 
 proc genMockPubKeys(
@@ -24,7 +24,7 @@ proc genMockPubKeys(
        privkeys: array[MIN_GENESIS_ACTIVE_VALIDATOR_COUNT, ValidatorPrivKey]
      ) =
   for i in 0 ..< privkeys.len:
-    pubkeys[i] = pubkey(privkeys[i])
+    pubkeys[i] = toPubKey(privkeys[i])
 
 # Ref array necessary to limit stack usage / binary size
 var MockPrivKeys*: ref array[MIN_GENESIS_ACTIVE_VALIDATOR_COUNT, ValidatorPrivKey]
@@ -41,8 +41,6 @@ template `[]`*[N: static int](a: array[N, MockKey], idx: ValidatorIndex): MockKe
   a[idx.int]
 
 when isMainModule:
-  from blscurve import toHex
-
   echo "========================================"
   echo "Mock keys"
   for i in 0 ..< MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:

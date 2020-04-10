@@ -20,12 +20,12 @@
 # we call this function `eth2hash`, and it outputs a `Eth2Digest`. Easy to sed :)
 
 import
-  chronicles, json_serialization,
+  chronicles,
   nimcrypto/[sha2, hash, utils],
   hashes
 
 export
-  hash.`$`, json_serialization
+  hash.`$`, sha2
 
 type
   Eth2Digest* = MDigest[32 * 8] ## `hash32` from spec
@@ -70,9 +70,3 @@ func hash*(x: Eth2Digest): Hash =
   # We just slice the first 4 or 8 bytes of the block hash
   # depending of if we are on a 32 or 64-bit platform
   result = cast[ptr Hash](unsafeAddr x)[]
-
-proc writeValue*(writer: var JsonWriter, value: Eth2Digest) =
-  writeValue(writer, value.data.toHex(true))
-
-proc readValue*(reader: var JsonReader, value: var Eth2Digest) =
-  value = Eth2Digest.fromHex(reader.readValue(string))

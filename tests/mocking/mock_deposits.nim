@@ -67,7 +67,7 @@ func mockDepositData(
 
   # Insecurely use pubkey as withdrawal key
   deposit_data.withdrawal_credentials.data[0] = byte BLS_WITHDRAWAL_PREFIX
-  deposit_data.withdrawal_credentials.data[1..^1] = pubkey.getBytes()
+  deposit_data.withdrawal_credentials.data[1..^1] = pubkey.toRaw()
                                                           .eth2hash()
                                                           .data
                                                           .toOpenArray(1, 31)

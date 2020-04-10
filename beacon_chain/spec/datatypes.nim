@@ -80,8 +80,6 @@ const
 template maxSize*(n: int) {.pragma.}
 
 type
-  Bytes = seq[byte]
-
   # Domains
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#domain-types
@@ -547,7 +545,7 @@ Json.useCustomSerialization(BitSeq):
     BitSeq reader.readValue(string).hexToSeqByte
 
   write:
-    writer.writeValue "0x" & Bytes(value).toHex
+    writer.writeValue "0x" & seq[byte](value).toHex
 
 template readValue*(reader: var JsonReader, value: var BitList) =
   type T = type(value)

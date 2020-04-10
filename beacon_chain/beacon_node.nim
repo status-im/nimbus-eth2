@@ -251,7 +251,7 @@ template findIt(s: openarray, predicate: untyped): int =
 
 proc addLocalValidator(
     node: BeaconNode, state: BeaconState, privKey: ValidatorPrivKey) =
-  let pubKey = privKey.pubKey()
+  let pubKey = privKey.toPubKey()
 
   let idx = state.validators.findIt(it.pubKey == pubKey)
   if idx == -1:

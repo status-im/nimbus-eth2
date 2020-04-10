@@ -42,7 +42,7 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
   ## for testing :)
   let
     privkey = makeFakeValidatorPrivKey(i)
-    pubkey = privkey.pubKey()
+    pubkey = privkey.toPubKey()
     withdrawal_credentials = makeFakeHash(i)
     domain = compute_domain(DOMAIN_DEPOSIT, GENESIS_FORK_VERSION)
 
