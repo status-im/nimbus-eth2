@@ -64,7 +64,6 @@ const
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/minimal.yaml#L70
 
-  # Unchanged
   GENESIS_SLOT* = 0.Slot
   GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 1'u8]
   BLS_WITHDRAWAL_PREFIX* = 0'u8
@@ -107,11 +106,13 @@ const
 
   # State vector lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L105
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/minimal.yaml#L105
 
   # Changed
   EPOCHS_PER_HISTORICAL_VECTOR* = 64
   EPOCHS_PER_SLASHINGS_VECTOR* = 64
+
+  # Unchanged
   HISTORICAL_ROOTS_LIMIT* = 16777216
   VALIDATOR_REGISTRY_LIMIT* = 1099511627776
 
@@ -137,7 +138,7 @@ const
 
   # Fork choice
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L26
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/minimal.yaml#L32
 
   # Changed
   SAFE_SLOTS_TO_UPDATE_JUSTIFIED* = 2

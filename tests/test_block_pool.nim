@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,9 +8,9 @@
 {.used.}
 
 import
-  options, sequtils, unittest, chronicles,
-  ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[datatypes, digest, helpers, validator],
+  unittest,
+  ./testutil,
+  ../beacon_chain/spec/datatypes,
   ../beacon_chain/[beacon_node_types, block_pool, ssz]
 
 suiteReport "BlockRef and helpers" & preset():
@@ -83,6 +83,11 @@ suiteReport "BlockSlot and helpers" & preset():
       s24.parent.parent == s22
 
 when const_preset == "minimal": # Too much stack space used on mainnet
+  import
+    options, sequtils,
+    ./testblockutil,
+    ../beacon_chain/spec/[digest, helpers, validator]
+
   suiteReport "Block pool processing" & preset():
     setup:
       var

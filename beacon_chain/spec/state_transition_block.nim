@@ -33,7 +33,7 @@
 # now.
 
 import
-  algorithm, collections/sets, chronicles, options, sequtils, sets, tables,
+  algorithm, collections/sets, chronicles, options, sequtils, sets,
   ../extras, ../ssz, metrics,
   beaconstate, crypto, datatypes, digest, helpers, validator,
   ../../nbench/bench_lab
@@ -210,7 +210,7 @@ proc processProposerSlashings(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#is_slashable_attestation_data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
     data_1: AttestationData, data_2: AttestationData): bool =
   ## Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG

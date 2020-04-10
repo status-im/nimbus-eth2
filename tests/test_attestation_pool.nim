@@ -8,16 +8,18 @@
 {.used.}
 
 import
-  unittest,
-  chronicles,
-  stew/byteutils,
-  ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[digest, validator],
-  ../beacon_chain/[beacon_node_types, attestation_pool, block_pool, state_transition],
   ../beacon_chain/spec/datatypes,
   ../beacon_chain/ssz
 
 when const_preset == "minimal": # Too much stack space used on mainnet
+  import
+    unittest,
+    chronicles,
+    stew/byteutils,
+    ./testutil, ./testblockutil,
+    ../beacon_chain/spec/[digest, validator],
+    ../beacon_chain/[beacon_node_types, attestation_pool, block_pool, state_transition]
+
   suiteReport "Attestation pool processing" & preset():
     ## For now just test that we can compile and execute block processing with
     ## mock data.
