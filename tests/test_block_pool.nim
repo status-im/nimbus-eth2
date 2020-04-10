@@ -84,7 +84,7 @@ suiteReport "BlockSlot and helpers" & preset():
 
 when const_preset == "minimal": # Too much stack space used on mainnet
   import
-    options, sequtils, chronicles,
+    options, sequtils,
     ./testblockutil,
     ../beacon_chain/spec/[digest, helpers, validator]
 
