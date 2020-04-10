@@ -19,9 +19,12 @@
 # (already did Blake2b --> Keccak256 --> SHA2-256),
 # we call this function `eth2hash`, and it outputs a `Eth2Digest`. Easy to sed :)
 
+{.push raises: [Defect].}
+
 import
   chronicles,
-  nimcrypto/[sha2, hash, utils],
+  nimcrypto/[sha2, hash],
+  stew/byteutils,
   hashes
 
 export
@@ -33,10 +36,10 @@ type
 
 chronicles.formatIt Eth2Digest:
   mixin toHex
-  it.data[0..3].toHex(true)
+  it.data[0..3].toHex()
 
 func shortLog*(x: Eth2Digest): string =
-  x.data[0..3].toHex(true)
+  x.data[0..3].toHex()
 
 # TODO: expose an in-place digest function
 #       when hashing in loop or into a buffer
