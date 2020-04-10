@@ -8,15 +8,9 @@
 {.used.}
 
 import
-<<<<<<< HEAD
-  unittest,
+  unittest, chronicles,
   ./testutil,
   ../beacon_chain/spec/datatypes,
-=======
-  options, sequtils, unittest,
-  ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[datatypes, digest, helpers, validator],
->>>>>>> crypto: cleanup
   ../beacon_chain/[beacon_node_types, block_pool, ssz]
 
 suiteReport "BlockRef and helpers" & preset():
