@@ -79,8 +79,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
   let
     genesisState =
-      initialize_beacon_state_from_eth1(
-        Eth2Digest(), 0, deposits, flags + {skipMerkleValidation})
+      initialize_beacon_state_from_eth1(Eth2Digest(), 0, deposits, flags)
     genesisBlock = get_initial_beacon_block(genesisState)
 
   echo "Starting simulation..."

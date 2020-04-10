@@ -62,7 +62,7 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L64
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/minimal.yaml#L70
 
   # Unchanged
   GENESIS_SLOT* = 0.Slot

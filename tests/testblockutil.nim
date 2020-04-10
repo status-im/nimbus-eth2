@@ -6,8 +6,9 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  options, stew/endians2,
+  options, sequtils, stew/endians2,
   chronicles, eth/trie/[db],
+  ./mocking/merkle_minimal,
   ../beacon_chain/[beacon_chain_db, block_pool, extras, ssz, state_transition,
     validator_pool],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest,
@@ -57,10 +58,37 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
     let signing_root = compute_signing_root(result.getDepositMessage, domain)
     result.data.signature = bls_sign(privkey, signing_root.data)
 
-func makeInitialDeposits*(
+proc attachMerkleProofs*(deposits: var seq[Deposit]) =
+  let deposit_data_roots = mapIt(deposits, it.data.hash_tree_root)
+  var
+    deposit_data_sums: seq[Eth2Digest]
+  for prefix_root in hash_tree_roots_prefix(
+      deposit_data_roots, 1'i64 shl DEPOSIT_CONTRACT_TREE_DEPTH):
+    deposit_data_sums.add prefix_root
+
+  for val_idx in 0 ..< deposits.len:
+    let merkle_tree = merkleTreeFromLeaves(deposit_data_roots[0..val_idx])
+    deposits[val_idx].proof[0..31] = merkle_tree.getMerkleProof(val_idx)
+    deposits[val_idx].proof[32].data[0..7] = int_to_bytes8((val_idx + 1).uint64)
+
+    doAssert is_valid_merkle_branch(
+      deposit_data_roots[val_idx], deposits[val_idx].proof,
+      DEPOSIT_CONTRACT_TREE_DEPTH + 1, val_idx.uint64,
+      deposit_data_sums[val_idx])
+
+proc makeInitialDeposits*(
     n = SLOTS_PER_EPOCH, flags: UpdateFlags = {}): seq[Deposit] =
   for i in 0..<n.int:
     result.add makeDeposit(i, flags)
+
+  # This needs to be done as a batch, since the Merkle proof of the i'th
+  # deposit depends on the deposit (data) of the 0th through (i-1)st, of
+  # deposits. Computing partial hash_tree_root sequences of DepositData,
+  # and ideally (but not yet) efficiently only once calculating a Merkle
+  # tree utilizing as much of the shared substructure as feasible, means
+  # attaching proofs all together, as a separate step.
+  if skipMerkleValidation notin flags:
+    attachMerkleProofs(result)
 
 func signBlock*(
     fork: Fork, genesis_validators_root: Eth2Digest, blck: BeaconBlock,

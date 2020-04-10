@@ -5,13 +5,6 @@
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-# The other part is arguably part of attestation pool -- the validation's
-# something that should be happing on receipt, not aggregation per se. In
-# that part, check that messages conform -- so, check for each type
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/p2p-interface.md#topics-and-messages
-# specifies. So by the time this calls attestation pool, all validation's
-# already done.
-
 import
   options,
   ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator,
