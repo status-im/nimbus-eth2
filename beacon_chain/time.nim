@@ -79,7 +79,7 @@ func saturate*(d: tuple[inFuture: bool, offset: Duration]): Duration =
   if d.inFuture: d.offset else: seconds(0)
 
 proc addTimer*(fromNow: Duration, cb: CallbackFunc, udata: pointer = nil) =
-  addTimer(Moment.now() + fromNow, cb, udata)
+  discard setTimer(Moment.now() + fromNow, cb, udata)
 
 func shortLog*(d: Duration): string =
   let dd = int64(d.milliseconds())

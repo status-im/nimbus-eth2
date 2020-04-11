@@ -882,14 +882,14 @@ proc handleMissingBlocks(node: BeaconNode) =
       #      work with while the sync problem is dealt with more systematically
       dec left
       if left == 0:
-        addTimer(Moment.now()) do (p: pointer):
+        discard setTimer(Moment.now()) do (p: pointer):
           handleMissingBlocks(node)
 
 proc onSecond(node: BeaconNode, moment: Moment) {.async.} =
   node.handleMissingBlocks()
 
   let nextSecond = max(Moment.now(), moment + chronos.seconds(1))
-  addTimer(nextSecond) do (p: pointer):
+  discard setTimer(nextSecond) do (p: pointer):
     asyncCheck node.onSecond(nextSecond)
 
 # TODO: Should we move these to other modules?
@@ -1037,7 +1037,7 @@ proc run*(node: BeaconNode) =
     asyncCheck node.onSlotStart(curSlot, nextSlot)
 
   let second = Moment.now() + chronos.seconds(1)
-  addTimer(second) do (p: pointer):
+  discard setTimer(second) do (p: pointer):
     asyncCheck node.onSecond(second)
 
   runForever()

@@ -10,8 +10,7 @@
 import
   times, unittest,
   ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[beaconstate, datatypes, digest],
-  ../beacon_chain/extras
+  ../beacon_chain/spec/[beaconstate, datatypes, digest]
 
 suiteReport "Beacon state" & preset():
   timedTest "Smoke test initialize_beacon_state_from_eth1" & preset():

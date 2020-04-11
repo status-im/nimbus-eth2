@@ -89,7 +89,7 @@ func getAncestorAt*(blck: BlockRef, slot: Slot): BlockRef =
     blck = blck.parent
 
 func get_ancestor*(blck: BlockRef, slot: Slot): BlockRef =
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/fork-choice.md#get_ancestor
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/fork-choice.md#get_ancestor
   ## Return ancestor at slot, or nil if queried block is older
   var blck = blck
 
