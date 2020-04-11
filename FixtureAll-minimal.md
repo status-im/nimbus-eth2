@@ -80,10 +80,12 @@ OK: 20/20 Fail: 0/20 Skip: 0/20
 + [Invalid] same_data                                                                        OK
 + [Invalid] unsorted_att_1                                                                   OK
 + [Invalid] unsorted_att_2                                                                   OK
++ [Valid]   success_already_exited_long_ago                                                  OK
++ [Valid]   success_already_exited_recent                                                    OK
 + [Valid]   success_double                                                                   OK
 + [Valid]   success_surround                                                                 OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
+OK: 18/18 Fail: 0/18 Skip: 0/18
 ## Official - Operations - Block header  [Preset: minimal]
 ```diff
 + [Invalid] invalid_parent_root                                                              OK
@@ -105,8 +107,9 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + [Valid]    new_deposit_over_max                                                            OK
 + [Valid]    new_deposit_under_max                                                           OK
 + [Valid]    success_top_up                                                                  OK
++ [Valid]    valid_sig_but_forked_state                                                      OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
+OK: 11/11 Fail: 0/11 Skip: 0/11
 ## Official - Operations - Proposer slashing  [Preset: minimal]
 ```diff
 + [Invalid] identifier                                                                       OK
@@ -163,4 +166,4 @@ OK: 22/22 Fail: 0/22 Skip: 0/22
 OK: 5/5 Fail: 0/5 Skip: 0/5
 
 ---TOTAL---
-OK: 113/113 Fail: 0/113 Skip: 0/113
+OK: 116/116 Fail: 0/116 Skip: 0/116

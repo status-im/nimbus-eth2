@@ -61,11 +61,5 @@ proc runTest(identifier: string) =
   `testImpl _ operations_deposits _ identifier`()
 
 suiteReport "Official - Operations - Deposits " & preset():
-  # TODO
-  const expected_failures = ["valid_sig_but_forked_state"]
-
   for kind, path in walkDir(OperationsDepositsDir, true):
-    if path in expected_failures:
-      echo "Skipping test: ", path
-      continue
     runTest(path)
