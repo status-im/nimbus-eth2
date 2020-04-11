@@ -26,7 +26,7 @@ func makeInteropPrivKey*(i: int): ValidatorPrivKey =
     privkeyBytes = eth2hash(bytes)
     key = (UInt256.fromBytesLE(privkeyBytes.data) mod curveOrder).toBytesBE()
 
-  result.initFromBytes(key)
+  ValidatorPrivKey.fromRaw(key).tryGet()
 
 const eth1BlockHash* = block:
   var x: Eth2Digest
@@ -35,7 +35,7 @@ const eth1BlockHash* = block:
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/deposit-contract.md#withdrawal-credentials
 func makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
-  var bytes = eth2hash(k.getBytes())
+  var bytes = eth2hash(k.toRaw())
   bytes.data[0] = BLS_WITHDRAWAL_PREFIX.uint8
   bytes
 

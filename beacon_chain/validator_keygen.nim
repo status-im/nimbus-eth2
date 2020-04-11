@@ -42,10 +42,10 @@ proc generateDeposits*(totalValidators: int,
       pubKey{.noInit.}: ValidatorPubKey
 
     if randomKeys:
-      (pubKey, privKey) = crypto.newKeyPair()
+      (pubKey, privKey) = crypto.newKeyPair().tryGet()
     else:
       privKey = makeInteropPrivKey(i)
-      pubKey = privKey.pubKey()
+      pubKey = privKey.toPubKey()
 
     let dp = makeDeposit(pubKey, privKey)
 
@@ -73,9 +73,9 @@ proc sendDeposits*(
   for i, dp in deposits:
     let depositContract = web3.contractSender(DepositContract, contractAddress)
     discard await depositContract.deposit(
-      Bytes48(dp.data.pubKey.getBytes()),
+      Bytes48(dp.data.pubKey.toRaw()),
       Bytes32(dp.data.withdrawal_credentials.data),
-      Bytes96(dp.data.signature.getBytes()),
+      Bytes96(dp.data.signature.toRaw()),
       FixedBytes[32](hash_tree_root(dp.data).data)).send(value = 32.u256.ethToWei, gasPrice = 1)
 
 when isMainModule:

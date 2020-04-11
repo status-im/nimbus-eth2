@@ -19,13 +19,16 @@
 # (already did Blake2b --> Keccak256 --> SHA2-256),
 # we call this function `eth2hash`, and it outputs a `Eth2Digest`. Easy to sed :)
 
+{.push raises: [Defect].}
+
 import
-  chronicles, json_serialization,
-  nimcrypto/[sha2, hash, utils],
+  chronicles,
+  nimcrypto/[sha2, hash],
+  stew/byteutils,
   hashes
 
 export
-  hash.`$`, json_serialization
+  hash.`$`, sha2
 
 type
   Eth2Digest* = MDigest[32 * 8] ## `hash32` from spec
@@ -33,10 +36,10 @@ type
 
 chronicles.formatIt Eth2Digest:
   mixin toHex
-  it.data[0..3].toHex(true)
+  it.data[0..3].toHex()
 
 func shortLog*(x: Eth2Digest): string =
-  x.data[0..3].toHex(true)
+  x.data[0..3].toHex()
 
 # TODO: expose an in-place digest function
 #       when hashing in loop or into a buffer
@@ -70,9 +73,3 @@ func hash*(x: Eth2Digest): Hash =
   # We just slice the first 4 or 8 bytes of the block hash
   # depending of if we are on a 32 or 64-bit platform
   result = cast[ptr Hash](unsafeAddr x)[]
-
-proc writeValue*(writer: var JsonWriter, value: Eth2Digest) =
-  writeValue(writer, value.data.toHex(true))
-
-proc readValue*(reader: var JsonReader, value: var Eth2Digest) =
-  value = Eth2Digest.fromHex(reader.readValue(string))

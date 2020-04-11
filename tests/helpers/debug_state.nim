@@ -16,7 +16,7 @@ import
 # (fully generic available - see also https://github.com/status-im/nim-beacon-chain/commit/993789bad684721bd7c74ea14b35c2d24dbb6e51)
 # ----------------------------------------------------------------
 
-proc `==`*[T](a, b: BlsValue[T]): bool =
+proc `==`*(a, b: BlsValue): bool =
   ## We sometimes need to compare real BlsValue
   ## from parsed opaque blobs that are not really on the BLS curve
   ## and full of zeros

@@ -21,60 +21,53 @@
 # A, B and C, and another with B, C and D, we cannot practically combine them
 # even if in theory it is possible to allow this in BLS.
 
+{.push raises: [Defect].}
+
 import
   # Internal
-  ./digest,
+  ./digest, ../ssz/types,
   # Status
-  stew/[endians2, objects, byteutils],
-  nimcrypto/[utils, sysrand],
-  blscurve, json_serialization,
+  stew/[endians2, objects, results, byteutils],
+  nimcrypto/sysrand,
+  blscurve,
   chronicles,
+  json_serialization,
   # Standard library
   hashes
 
-export
-  json_serialization
-
-# export
-#   blscurve.init, blscurve.getBytes, blscurve.combine,
-#   blscurve.`$`, blscurve.`==`,
-#   blscurve.Signature
+export results, json_serialization
 
 # Type definitions
 # ----------------------------------------------------------------------
+
+const
+  RawSigSize* = 96
+  RawPubKeySize* = 48
+  RawPrivKeySize* = 48
 
 type
   BlsValueType* = enum
     Real
     OpaqueBlob
 
-  BlsValue*[T] = object
+  BlsValue*[N: static int, T] = object
     # TODO This is a temporary type needed until we sort out the
     # issues with invalid BLS values appearing in the SSZ test suites.
     case kind*: BlsValueType
     of Real:
       blsValue*: T
     of OpaqueBlob:
-      when T is blscurve.Signature:
-        blob*: array[96, byte]
-      else:
-        blob*: array[48, byte]
+      blob*: array[N, byte]
 
-  ValidatorPubKey* = BlsValue[blscurve.PublicKey]
-    # Alternatives
-    # ValidatorPubKey* = blscurve.PublicKey
-    # ValidatorPubKey* = array[48, byte]
-    # The use of byte arrays proved to be a dead end pretty quickly.
-    # Plenty of code needs to be modified for a successful build and
-    # the changes will negatively affect the performance.
+  ValidatorPubKey* = BlsValue[RawPubKeySize, blscurve.PublicKey]
 
-  ValidatorPrivKey* = blscurve.SecretKey
-    # ValidatorPrivKey* = BlsValue[blscurve.SecretKey]
+  ValidatorPrivKey* = distinct blscurve.SecretKey
 
-  ValidatorSig* = BlsValue[blscurve.Signature]
+  ValidatorSig* = BlsValue[RawSigSize, blscurve.Signature]
 
-  BlsCurveType* = PublicKey|SecretKey|Signature
-  ValidatorPKI* = ValidatorPrivKey|ValidatorPubKey|ValidatorSig
+  BlsCurveType* = ValidatorPrivKey | ValidatorPubKey | ValidatorSig
+
+  BlsResult*[T] = Result[T, cstring]
 
 func `==`*(a, b: BlsValue): bool =
   if a.kind != b.kind: return false
@@ -83,22 +76,22 @@ func `==`*(a, b: BlsValue): bool =
   else:
     return a.blob == b.blob
 
-template `==`*[T](a: BlsValue[T], b: T): bool =
+template `==`*[N, T](a: BlsValue[N, T], b: T): bool =
   a.blsValue == b
 
-template `==`*[T](a: T, b: BlsValue[T]): bool =
+template `==`*[N, T](a: T, b: BlsValue[N, T]): bool =
   a == b.blsValue
 
 # API
 # ----------------------------------------------------------------------
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#bls-signatures
 
-func pubKey*(privkey: ValidatorPrivKey): ValidatorPubKey =
+func toPubKey*(privkey: ValidatorPrivKey): ValidatorPubKey =
   ## Create a private key from a public key
   # Un-specced in either hash-to-curve or Eth2
   # TODO: Test suite should use `keyGen` instead
   when ValidatorPubKey is BlsValue:
-    ValidatorPubKey(kind: Real, blsValue: privkey.privToPub())
+    ValidatorPubKey(kind: Real, blsValue: SecretKey(privkey).privToPub())
   elif ValidatorPubKey is array:
     privkey.getKey.getBytes
   else:
@@ -150,7 +143,7 @@ func blsVerify*(
 
 func blsSign*(privkey: ValidatorPrivKey, message: openarray[byte]): ValidatorSig =
   ## Computes a signature from a secret key and a message
-  ValidatorSig(kind: Real, blsValue: privkey.sign(message))
+  ValidatorSig(kind: Real, blsValue: SecretKey(privkey).sign(message))
 
 func blsFastAggregateVerify*[T: byte|char](
        publicKeys: openarray[ValidatorPubKey],
@@ -184,7 +177,7 @@ func blsFastAggregateVerify*[T: byte|char](
     unwrapped.add pubkey.blsValue
   return fastAggregateVerify(unwrapped, message, signature.blsValue)
 
-proc newKeyPair*(): tuple[pub: ValidatorPubKey, priv: ValidatorPrivKey] {.noInit.}=
+proc newKeyPair*(): BlsResult[tuple[pub: ValidatorPubKey, priv: ValidatorPrivKey]] =
   ## Generates a new public-private keypair
   ## This requires entropy on the system
   # The input-keying-material requires 32 bytes at least for security
@@ -192,28 +185,16 @@ proc newKeyPair*(): tuple[pub: ValidatorPubKey, priv: ValidatorPrivKey] {.noInit
   # must be protected against side-channel attacks
 
   var ikm: array[32, byte]
-  let written = randomBytes(ikm)
-  doAssert written >= 32, "Key generation failure"
+  if randomBytes(ikm) != 32:
+    return err "bls: no random bytes"
 
-  result.pub = ValidatorPubKey(kind: Real)
-  doAssert keyGen(ikm, result.pub.blsValue, result.priv), "Key generation failure"
-
-# Logging
-# ----------------------------------------------------------------------
-
-func shortLog*(x: BlsValue): string =
-  ## Logging for wrapped BLS types
-  ## that may contain valid or non-validated data
-  # The prefix must be short
-  # due to the mechanics of the `shortLog` function.
-  if x.kind == Real:
-    x.blsValue.toHex()[0..7]
+  var
+    sk: SecretKey
+    pk: PublicKey
+  if keyGen(ikm, pk, sk):
+    ok((ValidatorPubKey(kind: Real, blsValue: pk), ValidatorPrivKey(sk)))
   else:
-    "raw: " & x.blob.toHex(lowercase = true)[0..7]
-
-func shortLog*(x: BlsCurveType): string =
-  ## Logging for raw unwrapped BLS types
-  ($x)[0..7]
+    err "bls: cannot generate keypair"
 
 proc toGaugeValue*(hash: Eth2Digest): int64 =
   # Only the last 8 bytes are taken into consideration in accordance
@@ -224,124 +205,139 @@ proc toGaugeValue*(hash: Eth2Digest): int64 =
 # Codecs
 # ----------------------------------------------------------------------
 
+func `$`*(x: ValidatorPrivKey): string =
+  "<private key>"
+
 func `$`*(x: BlsValue): string =
   # The prefix must be short
   # due to the mechanics of the `shortLog` function.
   if x.kind == Real:
     x.blsValue.toHex()
   else:
-    "raw: " & x.blob.toHex(lowercase = true)
+    "raw: " & x.blob.toHex()
 
-func getBytes*(x: BlsValue): auto =
+func toRaw*(x: ValidatorPrivKey): array[RawPrivKeySize, byte] =
+  SecretKey(x).exportRaw()
+
+func toRaw*(x: BlsValue): auto =
   if x.kind == Real:
     x.blsValue.exportRaw()
   else:
     x.blob
 
-func initFromBytes[T](val: var BlsValue[T], bytes: openarray[byte]) =
+func toHex*(x: BlsCurveType): string =
+  toHex(toRaw(x))
+
+func fromRaw*(T: type ValidatorPrivKey, bytes: openarray[byte]): BlsResult[T] =
+  var val: SecretKey
+  if val.fromBytes(bytes):
+    ok ValidatorPrivKey(val)
+  else:
+    err "bls: invalid private key"
+
+func fromRaw*[N, T](BT: type BlsValue[N, T], bytes: openarray[byte]): BlsResult[BT] =
   # This is a workaround, so that we can deserialize the serialization of a
   # default-initialized BlsValue without raising an exception
   when defined(ssz_testing):
     # Only for SSZ parsing tests, everything is an opaque blob
-    val = BlsValue[T](kind: OpaqueBlob, blob: toArray(val.blob.len, bytes))
+    ok BT(kind: OpaqueBlob, blob: toArray(N, bytes))
   else:
     # Try if valid BLS value
-    # TODO: address the side-effects in nim-blscurve
-    val = BlsValue[T](kind: Real)
-    let success = val.blsValue.fromBytes(bytes)
-    if not success:
-      # TODO: chronicles trace
-      val = BlsValue[T](kind: OpaqueBlob)
-      val.blob[val.blob.low .. val.blob.high] = bytes
+    var val: T
+    if fromBytes(val, bytes):
+      ok BT(kind: Real, blsValue: val)
+    else:
+      ok BT(kind: OpaqueBlob, blob: toArray(N, bytes))
 
-func initFromBytes*(val: var ValidatorPrivKey, bytes: openarray[byte]) {.inline.} =
-  discard val.fromBytes(bytes)
-
-func fromBytes[T](R: type BlsValue[T], bytes: openarray[byte]): R {.inline.}=
-  result.initFromBytes(bytes)
-
-func fromBytes[T](R: var BlsValue[T], bytes: openarray[byte]) {.inline.}=
-  # This version is only to support tests/test_interop.nim
-  R.initFromBytes(bytes)
-
-func fromHex*[T](R: var BlsValue[T], hexStr: string) {.inline.} =
+func fromHex*(T: type BlsCurveType, hexStr: string): BlsResult[T] {.inline.} =
   ## Initialize a BLSValue from its hex representation
-  R.fromBytes(hexStr.hexToSeqByte())
+  try:
+    T.fromRaw(hexStr.hexToSeqByte())
+  except ValueError:
+    err "bls: cannot parse value"
 
 # Hashing
 # ----------------------------------------------------------------------
 
-func hash*(x: BlsValue): Hash {.inline.} =
-  # TODO: we can probably just slice the BlsValue
-  if x.kind == Real:
-    hash x.blsValue.exportRaw()
-  else:
-    hash x.blob
-
 template hash*(x: BlsCurveType): Hash =
   # TODO: prevent using secret keys
-  bind getBytes
-  hash(getBytes(x))
+  bind toRaw
+  hash(toRaw(x))
 
 # Serialization
 # ----------------------------------------------------------------------
 
-proc writeValue*(writer: var JsonWriter, value: ValidatorPubKey) {.inline.} =
-  doAssert value.kind == Real
-  writer.writeValue(value.blsValue.toHex())
-
-proc readValue*(reader: var JsonReader, value: var ValidatorPubKey) {.inline.} =
-  value.initFromBytes(fromHex reader.readValue(string))
-
-proc writeValue*(writer: var JsonWriter, value: ValidatorSig) {.inline.} =
-  if value.kind == Real:
-    writer.writeValue(value.blsValue.toHex())
-  else:
-    # Workaround: https://github.com/status-im/nim-beacon-chain/issues/374
-    let asHex = value.blob.toHex(lowercase = true)
-    # echo "[Warning] writing raw opaque signature: ", asHex
-    writer.writeValue(asHex)
-
-proc readValue*(reader: var JsonReader, value: var ValidatorSig) {.inline.} =
-  value.initFromBytes(fromHex reader.readValue(string))
-
-proc writeValue*(writer: var JsonWriter, value: ValidatorPrivKey) {.inline.} =
+proc writeValue*(writer: var JsonWriter, value: ValidatorPubKey) {.
+    inline, raises: [IOError, Defect].} =
   writer.writeValue(value.toHex())
 
-proc readValue*(reader: var JsonReader, value: var ValidatorPrivKey) {.inline.} =
-  value.initFromBytes(fromHex reader.readValue(string))
+proc readValue*(reader: var JsonReader, value: var ValidatorPubKey) {.
+    inline, raises: [Exception].} =
+  value = ValidatorPubKey.fromHex(reader.readValue(string)).tryGet()
 
-proc writeValue*(writer: var JsonWriter, value: PublicKey) {.inline.} =
+proc writeValue*(writer: var JsonWriter, value: ValidatorSig) {.
+    inline, raises: [IOError, Defect].} =
+  # Workaround: https://github.com/status-im/nim-beacon-chain/issues/374
   writer.writeValue(value.toHex())
 
-proc readValue*(reader: var JsonReader, value: var PublicKey) {.inline.} =
-  let hex = reader.readValue(string)
-  let ok = value.fromHex(hex)
-  doAssert ok, "Invalid public key: " & hex
+proc readValue*(reader: var JsonReader, value: var ValidatorSig) {.
+    inline, raises: [Exception].} =
+  value = ValidatorSig.fromHex(reader.readValue(string)).tryGet()
 
-proc writeValue*(writer: var JsonWriter, value: Signature) {.inline.} =
+proc writeValue*(writer: var JsonWriter, value: ValidatorPrivKey) {.
+    inline, raises: [IOError, Defect].} =
   writer.writeValue(value.toHex())
 
-proc readValue*(reader: var JsonReader, value: var Signature) {.inline.} =
-  let hex = reader.readValue(string)
-  let ok = value.fromHex(hex)
-  doAssert ok, "Invalid signature: " & hex
+proc readValue*(reader: var JsonReader, value: var ValidatorPrivKey) {.
+    inline, raises: [Exception].} =
+  value = ValidatorPrivKey.fromHex(reader.readValue(string)).tryGet()
 
 template fromSszBytes*(T: type BlsValue, bytes: openarray[byte]): auto =
-  fromBytes(T, bytes)
+  let v = fromRaw(T, bytes)
+  if v.isErr:
+    raise newException(MalformedSszError, $v.error)
+  v[]
+
+# Logging
+# ----------------------------------------------------------------------
+
+func shortLog*(x: BlsValue): string =
+  ## Logging for wrapped BLS types
+  ## that may contain valid or non-validated data
+  # The prefix must be short
+  # due to the mechanics of the `shortLog` function.
+  if x.kind == Real:
+    x.blsValue.exportRaw()[0..3].toHex()
+  else:
+    "raw: " & x.blob[0..3].toHex()
+
+func shortLog*(x: ValidatorPrivKey): string =
+  ## Logging for raw unwrapped BLS types
+  x.toRaw()[0..3].toHex()
 
 # Initialization
 # ----------------------------------------------------------------------
 
+# TODO more specific exceptions? don't raise?
+
 # For confutils
-func init*(T: typedesc[ValidatorPrivKey], hex: string): T {.noInit, inline.} =
-  let success = result.fromHex(hex)
-  doAssert success, "Private key is invalid" # Don't display private keys even if invalid
+func init*(T: typedesc[ValidatorPrivKey], hex: string): T {.noInit, raises: [ValueError, Defect].} =
+  let v = T.fromHex(hex)
+  if v.isErr:
+    raise (ref ValueError)(msg: $v.error)
+  return v[]
+
 
 # For mainchain monitor
-func init*(T: typedesc[ValidatorPubKey], data: array[48, byte]): T {.noInit, inline.} =
-  result.initFromBytes(data)
+func init*(T: typedesc[ValidatorPubKey], data: array[RawPubKeySize, byte]): T {.noInit, raises: [ValueError, Defect].} =
+  let v = T.fromRaw(data)
+  if v.isErr:
+    raise (ref ValueError)(msg: $v.error)
+  return v[]
 
 # For mainchain monitor
-func init*(T: typedesc[ValidatorSig], data: array[96, byte]): T {.noInit, inline.} =
-  result.initFromBytes(data)
+func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noInit, raises: [ValueError, Defect].} =
+  let v = T.fromRaw(data)
+  if v.isErr:
+    raise (ref ValueError)(msg: $v.error)
+  return v[]

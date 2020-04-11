@@ -12,7 +12,6 @@ import
   stew/shims/macros, options, algorithm, options,
   stew/[bitops2, bitseqs, endians2, objects, varints, ptrops, ranges/ptr_arith], stint,
   faststreams/input_stream, serialization, serialization/testing/tracing,
-  nimcrypto/sha2, blscurve,
   ./spec/[crypto, datatypes, digest],
   ./ssz/[types, bytes_reader]
 
@@ -101,7 +100,7 @@ template toSszType*(x: auto): auto =
 
   when x is Slot|Epoch|ValidatorIndex|enum: uint64(x)
   elif x is Eth2Digest: x.data
-  elif x is BlsValue|BlsCurveType: getBytes(x)
+  elif x is BlsCurveType: toRaw(x)
   elif x is BitSeq|BitList: ByteList(x)
   elif x is ref|ptr: toSszType x[]
   elif x is Option: toSszType x.get
@@ -390,7 +389,7 @@ func getFinalHash(merkelizer: SszChunksMerkelizer): Eth2Digest =
 
 let HashingStreamVTable = OutputStreamVTable(
   writePage: proc (s: OutputStreamVar, data: openarray[byte])
-                  {.nimcall, gcsafe, raises: [IOError].} =
+                  {.nimcall, gcsafe, raises: [Defect, IOError].} =
     trs "ADDING STREAM CHUNK ", data
     SszChunksMerkelizer(s.outputDevice).addChunk(data)
   ,
