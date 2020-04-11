@@ -181,7 +181,7 @@ const
 
   # Phase 1 - Custody game
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase1/custody-game.md#constants
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/minimal.yaml#L201
   # TODO those are included in minimal.yaml but not mainnet.yaml
   #      Why?
   RANDAO_PENALTY_EPOCHS* = 2
