@@ -8,7 +8,7 @@
 {.used.}
 
 import
-  unittest, chronicles,
+  unittest,
   ./testutil,
   ../beacon_chain/spec/datatypes,
   ../beacon_chain/[beacon_node_types, block_pool, ssz]
