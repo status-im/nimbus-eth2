@@ -74,12 +74,10 @@ suiteReport "Official - Operations - Attester slashing " & preset():
   # which cases signature checks had been incorrectly passing.
   const expected_failures =
     [
-      "success_already_exited_recent", "success_already_exited_long_ago",
       # TODO: Regressions introduced by BLS v0.10.1
       "att1_duplicate_index_double_signed", "att2_duplicate_index_double_signed"
     ]
   for kind, path in walkDir(OpAttSlashingDir, true):
     if path in expected_failures:
-      echo "Skipping test: ", path
       continue
     runTest(path)
