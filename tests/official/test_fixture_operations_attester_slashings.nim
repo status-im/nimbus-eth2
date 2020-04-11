@@ -79,5 +79,6 @@ suiteReport "Official - Operations - Attester slashing " & preset():
     ]
   for kind, path in walkDir(OpAttSlashingDir, true):
     if path in expected_failures:
+      echo "Skipping test: ", path
       continue
     runTest(path)
