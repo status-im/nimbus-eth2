@@ -1247,7 +1247,7 @@ when isMainModule:
                  else: waitFor getLatestEth1BlockHash(config.depositWeb3Url)
     var
       initialState = initialize_beacon_state_from_eth1(
-        eth1Hash, startTime, deposits, {skipBlsValidation})
+        eth1Hash, startTime, deposits, {skipBlsValidation, skipMerkleValidation})
 
     # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
     initialState.genesis_time = startTime
