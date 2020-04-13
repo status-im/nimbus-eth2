@@ -28,7 +28,7 @@ import
 
 export
   version, multiaddress, peer_pool, peerinfo, p2pProtocol,
-  libp2p_json_serialization, ssz
+  libp2p_json_serialization, ssz, peer
 
 logScope:
   topics = "networking"
