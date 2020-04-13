@@ -665,7 +665,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     headRoot = shortLog(node.blockPool.head.blck.root),
     finalizedSlot = shortLog(node.blockPool.finalizedHead.blck.slot),
     finalizedRoot = shortLog(node.blockPool.finalizedHead.blck.root),
-    finalizedSlot = shortLog(node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()),
+    finalizedEpoch = shortLog(node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()),
     cat = "scheduling"
 
   # Check before any re-scheduling of onSlotStart()
