@@ -884,10 +884,10 @@ proc handleMissingBlocks(node: BeaconNode) =
       #      good because the onSecond fetching also kicks in regardless but
       #      whatever - this is just a quick fix for making the testnet easier
       #      work with while the sync problem is dealt with more systematically
-      dec left
-      if left == 0:
-        discard setTimer(Moment.now()) do (p: pointer):
-          handleMissingBlocks(node)
+      # dec left
+      # if left == 0:
+      #   discard setTimer(Moment.now()) do (p: pointer):
+      #     handleMissingBlocks(node)
 
 proc onSecond(node: BeaconNode, moment: Moment) {.async.} =
   node.handleMissingBlocks()
