@@ -397,7 +397,7 @@ proc isEmpty*[A, B](peerslot: PeerSlot[A, B]): bool {.inline.} =
 proc fillPeers*[A, B](slot: PeerSlot[A, B]) {.async.} =
   doAssert(slot.man.peersInSlot > 0 and
            (slot.man.peersInSlot mod 2 == 1))
-  doAssert(len(slot.peers) == 0 or (len(slot.peers) mod 2 == 0))
+  doAssert(len(slot.peers) mod 2 == 0)
   doAssert(len(slot.peers) <= slot.man.peersInSlot)
   if len(slot.peers) == 0:
     # This is new slot

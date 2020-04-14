@@ -228,14 +228,13 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + PeerGroup tests                                                                            OK
 + PeerSlot tests                                                                             OK
 + SyncManager failure test                                                                   OK
-+ SyncManager group-recovery test                                                            OK
 + SyncManager one-peer test                                                                  OK
 + SyncManager one-peer-group test                                                            OK
 + SyncManager one-peer-slot test                                                             OK
 + SyncQueue async tests                                                                      OK
 + SyncQueue non-async tests                                                                  OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
+OK: 8/8 Fail: 0/8 Skip: 0/8
 ## Zero signature sanity checks
 ```diff
 + SSZ serialization roundtrip of SignedBeaconBlockHeader                                     OK
@@ -269,4 +268,4 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 OK: 8/8 Fail: 0/8 Skip: 0/8
 
 ---TOTAL---
-OK: 164/167 Fail: 3/167 Skip: 0/167
+OK: 163/166 Fail: 3/166 Skip: 0/166
