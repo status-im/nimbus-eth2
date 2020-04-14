@@ -1012,16 +1012,14 @@ proc isValidBeaconBlock*(pool: var BlockPool,
   if not slotBlockRef.isNil:
     let blck = pool.get(slotBlockRef).data.message
     if blck.proposer_index == signed_beacon_block.message.proposer_index and
-        blck.slot == signed_beacon_block.message.slot:
+        blck.slot == signed_beacon_block.message.slot and
+        blck != signed_beacon_block.message:
       debug "isValidBeaconBlock: block isn't first block with valid signature received for the proposer",
         signed_beacon_block_message_slot = signed_beacon_block.message.slot,
         blckRef = slotBlockRef,
         received_block = shortLog(signed_beacon_block.message),
         existing_block = shortLog(pool.get(slotBlockRef).data.message)
       return false
-
-  # The proposer signature, signed_beacon_block.signature, is valid with
-  # respect to the proposer_index pubkey.
 
   # If this block doesn't have a parent we know about, we can't/don't really
   # trace it back to a known-good state/checkpoint to verify its prevenance;
@@ -1032,11 +1030,21 @@ proc isValidBeaconBlock*(pool: var BlockPool,
   if parent_ref.isNil:
     # This doesn't mean a block is forever invalid, only that we haven't seen
     # its ancestor blocks yet. While that means for now it should be blocked,
-    # at least, from libp2p propagation, it shouldn't be ignored.
-    discard pool.add(
-      hash_tree_root(signed_beacon_block.message), signed_beacon_block)
+    # at least, from libp2p propagation, it shouldn't be ignored. TODO, if in
+    # the future this block moves from pending to being resolved, consider if
+    # it's worth broadcasting it then.
+
+    # Pending pool gets checked via `BlockPool.add(...)` later, and relevant
+    # checks are performed there. In usual paths beacon_node adds blocks via
+    # BlockPool.add(...) directly, with no additional validity checks. TODO,
+    # not specific to this, but by the pending pool keying on the htr of the
+    # BeaconBlock, not SignedBeaconBlock, opens up certain spoofing attacks.
+    pool.pending[hash_tree_root(signed_beacon_block.message)] =
+      signed_beacon_block
     return false
 
+  # The proposer signature, signed_beacon_block.signature, is valid with
+  # respect to the proposer_index pubkey.
   let bs =
     BlockSlot(blck: parent_ref, slot: pool.get(parent_ref).data.message.slot)
   pool.withState(pool.tmpState, bs):
