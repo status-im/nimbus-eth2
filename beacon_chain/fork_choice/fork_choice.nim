@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [Defect].}
+
 import
   # Standard library
   std/tables, std/options, std/typetraits,
@@ -34,7 +36,7 @@ func compute_deltas(
        votes: var openArray[VoteTracker],
        old_balances: openarray[Gwei],
        new_balances: openarray[Gwei]
-     ): ForkChoiceError {.raises: [Defect].}
+     ): ForkChoiceError
 # TODO: raises [Defect] - once https://github.com/nim-lang/Nim/issues/12862 is fixed
 #       https://github.com/status-im/nim-beacon-chain/pull/865#pullrequestreview-389117232
 
@@ -51,7 +53,7 @@ func initForkChoice*(
        justified_epoch: Epoch,
        finalized_epoch: Epoch,
        finalized_root: Eth2Digest
-     ): Result[ForkChoice, string] {.raises: [Defect].} =
+     ): Result[ForkChoice, string] =
   ## Initialize a fork choice context
   var proto_array = ProtoArray(
     prune_threshold: DefaultPruneThreshold,
@@ -72,7 +74,7 @@ func initForkChoice*(
     return err("Failed to add finalized block to proto_array: " & $err)
   return ok(ForkChoice(proto_array: proto_array))
 
-func extend[T](s: var seq[T], minLen: int) {.raises: [Defect].} =
+func extend[T](s: var seq[T], minLen: int) =
   ## Extend a sequence so that it can contains at least `minLen` elements.
   ## If it's already bigger, the sequence is unmodified.
   ## The extension is zero-initialized
@@ -97,7 +99,7 @@ func process_attestation*(
        validator_index: ValidatorIndex,
        block_root: Eth2Digest,
        target_epoch: Epoch
-     ) {.raises: [Defect].} =
+     ) =
   ## Add an attestation to the fork choice context
   self.votes.extend(validator_index.int + 1)
 
@@ -118,7 +120,7 @@ func process_block*(
        state_root: Eth2Digest,
        justified_epoch: Epoch,
        finalized_epoch: Epoch
-     ): Result[void, string] {.raises: [Defect].} =
+     ): Result[void, string] =
   ## Add a block to the fork choice context
   let err = self.proto_array.on_block(
     slot, block_root, some(parent_root), state_root, justified_epoch, finalized_epoch
@@ -134,7 +136,7 @@ func find_head*(
        justified_root: Eth2Digest,
        finalized_epoch: Epoch,
        justified_state_balances: seq[Gwei]
-     ): Result[Eth2Digest, string] {.raises: [Defect].} =
+     ): Result[Eth2Digest, string] =
   ## Returns the new blockchain head
 
   # Compute deltas with previous call
@@ -169,7 +171,7 @@ func find_head*(
 
 func maybe_prune*(
        self: var ForkChoice, finalized_root: Eth2Digest
-     ): Result[void, string] {.raises: [Defect].} =
+     ): Result[void, string] =
   ## Prune blocks preceding the finalized root as they are now unneeded.
   let err = self.proto_array.maybe_prune(finalized_root)
   if err.kind != fcSuccess:
@@ -182,7 +184,7 @@ func compute_deltas(
        votes: var openArray[VoteTracker],
        old_balances: openarray[Gwei],
        new_balances: openarray[Gwei]
-     ): ForkChoiceError {.raises: [Defect].} =
+     ): ForkChoiceError =
   ## Update `deltas`
   ##   between old and new balances
   ##   between votes
