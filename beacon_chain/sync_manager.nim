@@ -20,7 +20,6 @@ type
     slot*: Slot
     count*: uint64
     step*: uint64
-    group*: int
 
   SyncResult* = object
     request*: SyncRequest
@@ -69,10 +68,10 @@ proc init*(t: typedesc[SyncRequest], start: Slot,
   result = SyncRequest(slot: start, count: count, step: 1'u64)
 
 proc empty*(t: typedesc[SyncRequest]): SyncRequest {.inline.} =
-  result = SyncRequest(slot: Slot(0), count: 0'u64)
+  result = SyncRequest(step: 0'u64, count: 0'u64)
 
 proc isEmpty*(sr: SyncRequest): bool {.inline.} =
-  result = (sr.slot == Slot(0)) and (sr.count == 0'u64)
+  result = (sr.step == 0'u64) and (sr.count == 0'u64)
 
 proc init*(t: typedesc[SyncQueue], start, last: Slot, chunkSize: uint64,
            updateCb: UpdateLocalBlocksCallback,
