@@ -921,6 +921,10 @@ proc updateStatus*(peer: Peer): Future[bool] {.async.} =
     peer.state(BeaconSync).statusMsg = theirStatus.get()
     result = true
 
+proc updateScore*(peer: Peer, score: int) =
+  ## Update peer's ``peer`` score with value ``score``.
+  peer.score = peer.score + score
+
 proc runSyncLoop(node: BeaconNode) {.async.} =
 
   proc getLocalHeadSlot(): Slot =

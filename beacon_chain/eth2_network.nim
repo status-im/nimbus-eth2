@@ -184,6 +184,9 @@ proc getFuture*(peer: Peer): Future[void] {.inline.} =
 proc `<`*(a, b: Peer): bool =
   result = `<`(a.score, b.score)
 
+proc getScore*(a: Peer): string =
+  result = $a.score
+
 proc disconnect*(peer: Peer, reason: DisconnectionReason,
                  notifyOtherPeer = false) {.async.} =
   # TODO: How should we notify the other peer?
