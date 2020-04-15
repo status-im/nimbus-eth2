@@ -86,7 +86,7 @@ endif
 #- deletes and recreates "beacon_chain.nims" which on Windows is a copy instead of a proper symlink
 update: | update-common
 	rm -f beacon_chain.nims && \
-		$(MAKE) beacon_chain.nims
+		$(MAKE) beacon_chain.nims $(HANDLE_OUTPUT)
 
 # symlink
 beacon_chain.nims:
