@@ -126,16 +126,6 @@ func compute_fork_data_root(current_version: array[4, byte],
     genesis_validators_root: genesis_validators_root
   ))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#compute_fork_digest
-func compute_fork_digest(current_version: array[4, byte],
-    genesis_validators_root: Eth2Digest): array[4, byte] =
-  # Return the 4-byte fork digest for the ``current_version`` and
-  # ``genesis_validators_root``.
-  # This is a digest primarily used for domain separation on the p2p layer.
-  # 4-bytes suffices for practical separation of forks/chains.
-  result[0..3] =
-    compute_fork_data_root(current_version, genesis_validators_root).data[0..3]
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#compute_domain
 func compute_domain*(
     domain_type: DomainType,
