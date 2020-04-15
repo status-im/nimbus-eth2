@@ -40,13 +40,13 @@ type
 
   BasicType = char|bool|SomeUnsignedInt|StUint|ValidatorIndex
 
-  SszChunksMerkelizer = ref object
+  SszChunksMerkleizer = ref object
     combinedChunks: array[maxChunkTreeDepth, Eth2Digest]
     totalChunks: uint64
     limit: uint64
 
   SszHashingStream = ref object of OutputStream
-    merkleizer: SszChunksMerkelizer
+    merkleizer: SszChunksMerkleizer
 
   TypeWithMaxLen*[T; maxLen: static int64] = distinct T
 
@@ -324,7 +324,7 @@ func getZeroHashWithoutSideEffect(idx: int): Eth2Digest =
   {.noSideEffect.}:
     zeroHashes[idx]
 
-func addChunk(merkleizer: SszChunksMerkelizer, data: openarray[byte]) =
+func addChunk(merkleizer: SszChunksMerkleizer, data: openarray[byte]) =
   doAssert data.len > 0 and data.len <= bytesPerChunk
 
   if not getBitLE(merkleizer.totalChunks, 0):
@@ -347,7 +347,7 @@ func addChunk(merkleizer: SszChunksMerkelizer, data: openarray[byte]) =
 
   inc merkleizer.totalChunks
 
-func getFinalHash(merkleizer: SszChunksMerkelizer): Eth2Digest =
+func getFinalHash(merkleizer: SszChunksMerkleizer): Eth2Digest =
   let limit = merkleizer.limit
 
   if merkleizer.totalChunks == 0:
@@ -400,7 +400,7 @@ let SszHashingStreamVTable = OutputStreamVTable(
     discard
 )
 
-func newSszHashingStream(merkleizer: SszChunksMerkelizer): OutputStream =
+func newSszHashingStream(merkleizer: SszChunksMerkleizer): OutputStream =
   result = SszHashingStream(vtable: vtableAddr SszHashingStreamVTable,
                             pageSize: bytesPerChunk,
                             maxWriteSize: bytesPerChunk,
@@ -413,7 +413,7 @@ func mixInLength(root: Eth2Digest, length: int): Eth2Digest =
   dataLen[0..<8] = uint64(length).toBytesLE()
   hash(root.data, dataLen)
 
-func merkelizeSerializedChunks(merkleizer: SszChunksMerkelizer,
+func merkleizeSerializedChunks(merkleizer: SszChunksMerkleizer,
                                obj: auto): Eth2Digest =
 
   var hashingStream = newSszHashingStream merkleizer
@@ -424,13 +424,13 @@ func merkelizeSerializedChunks(merkleizer: SszChunksMerkelizer,
     hashingStream.flush
   merkleizer.getFinalHash
 
-func merkelizeSerializedChunks(obj: auto): Eth2Digest =
-  merkelizeSerializedChunks(SszChunksMerkelizer(), obj)
+func merkleizeSerializedChunks(obj: auto): Eth2Digest =
+  merkleizeSerializedChunks(SszChunksMerkleizer(), obj)
 
 func hash_tree_root*(x: auto): Eth2Digest {.gcsafe.}
 
-template merkelizeFields(body: untyped): Eth2Digest {.dirty.} =
-  var merkleizer {.inject.} = SszChunksMerkelizer()
+template merkleizeFields(body: untyped): Eth2Digest {.dirty.} =
+  var merkleizer {.inject.} = SszChunksMerkleizer()
 
   template addField(field) =
     let hash = hash_tree_root(field)
@@ -450,7 +450,7 @@ template merkelizeFields(body: untyped): Eth2Digest {.dirty.} =
 
   merkleizer.getFinalHash
 
-func bitlistHashTreeRoot(merkleizer: SszChunksMerkelizer, x: BitSeq): Eth2Digest =
+func bitlistHashTreeRoot(merkleizer: SszChunksMerkleizer, x: BitSeq): Eth2Digest =
   trs "CHUNKIFYING BIT SEQ WITH LIMIT ", merkleizer.limit
 
   var
@@ -511,13 +511,13 @@ func hashTreeRootImpl[T](x: T): Eth2Digest =
     Eth2Digest(data: x)
   elif (T is BasicType) or (when T is array: ElemType(T) is BasicType else: false):
     trs "FIXED TYPE; USE CHUNK STREAM"
-    merkelizeSerializedChunks x
+    merkleizeSerializedChunks x
   elif T is string or (when T is (seq|openarray): ElemType(T) is BasicType else: false):
     trs "TYPE WITH LENGTH"
-    mixInLength merkelizeSerializedChunks(x), x.len
+    mixInLength merkleizeSerializedChunks(x), x.len
   elif T is array|object|tuple:
-    trs "MERKELIZING FIELDS"
-    merkelizeFields:
+    trs "MERKLEIZING FIELDS"
+    merkleizeFields:
       x.enumerateSubFields(f):
         const maxLen = fieldMaxLen(f)
         when maxLen > 0:
@@ -527,7 +527,7 @@ func hashTreeRootImpl[T](x: T): Eth2Digest =
           addField f
   elif T is seq:
     trs "SEQ WITH VAR SIZE"
-    let hash = merkelizeFields(for e in x: addField e)
+    let hash = merkleizeFields(for e in x: addField e)
     mixInLength hash, x.len
   #elif isCaseObject(T):
   #  # TODO implement this
@@ -555,14 +555,14 @@ func hash_tree_root*(x: auto): Eth2Digest =
     const maxLen = x.maxLen
     type T = type valueOf(x)
     const limit = maxChunksCount(T, maxLen)
-    var merkleizer = SszChunksMerkelizer(limit: uint64(limit))
+    var merkleizer = SszChunksMerkleizer(limit: uint64(limit))
 
     when T is BitList:
       result = merkleizer.bitlistHashTreeRoot(BitSeq valueOf(x))
     elif T is seq:
       type E = ElemType(T)
       let contentsHash = when E is BasicType:
-        merkelizeSerializedChunks(merkleizer, valueOf(x))
+        merkleizeSerializedChunks(merkleizer, valueOf(x))
       else:
         for elem in valueOf(x):
           let elemHash = hash_tree_root(elem)
@@ -583,7 +583,7 @@ iterator hash_tree_roots_prefix*[T](lst: openarray[T], limit: auto):
   # Eth1 deposit case is the only notable example -- the usual uses of a
   # list involve, at some point, tree-hashing it -- finalized hashes are
   # the only abstraction that escapes from this module this way.
-  var merkleizer = SszChunksMerkelizer(limit: uint64(limit))
+  var merkleizer = SszChunksMerkleizer(limit: uint64(limit))
   for i, elem in lst:
     merkleizer.addChunk(hash_tree_root(elem).data)
     yield mixInLength(merkleizer.getFinalHash(), i + 1)
