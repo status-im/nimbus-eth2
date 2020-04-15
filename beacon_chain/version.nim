@@ -1,6 +1,8 @@
-const
-  copyrights* = "Copyright (c) 2019 Status Research & Development GmbH"
+import times
 
+let copyrights* = "Copyright (c) 2019-" & $(now().utc.year) & " Status Research & Development GmbH"
+
+const
   versionMajor* = 0
   versionMinor* = 3
   versionBuild* = 0
