@@ -1,6 +1,6 @@
-import times
-
-let copyrights* = "Copyright (c) 2019-" & $(now().utc.year) & " Status Research & Development GmbH"
+when not defined(nimscript):
+  import times
+  let copyrights* = "Copyright (c) 2019-" & $(now().utc.year) & " Status Research & Development GmbH"
 
 const
   versionMajor* = 0
