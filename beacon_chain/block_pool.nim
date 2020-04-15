@@ -1010,10 +1010,11 @@ proc isValidBeaconBlock*(pool: var BlockPool,
     slotBlockRef = getBlockBySlot(pool, signed_beacon_block.message.slot)
 
   if not slotBlockRef.isNil:
-    let blck = pool.get(slotBlockRef).data.message
-    if blck.proposer_index == signed_beacon_block.message.proposer_index and
-        blck.slot == signed_beacon_block.message.slot and
-        blck != signed_beacon_block.message:
+    let blck = pool.get(slotBlockRef).data
+    if blck.message.proposer_index ==
+          signed_beacon_block.message.proposer_index and
+        blck.message.slot == signed_beacon_block.message.slot and
+        blck.signature != signed_beacon_block.signature:
       debug "isValidBeaconBlock: block isn't first block with valid signature received for the proposer",
         signed_beacon_block_message_slot = signed_beacon_block.message.slot,
         blckRef = slotBlockRef,
