@@ -198,6 +198,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         b2Add = pool.add(b2Root, b2)
         bs1 = BlockSlot(blck: b1Add, slot: b1.message.slot)
         bs1_3 = b1Add.atSlot(3.Slot)
+        bs2 = BlockSlot(blck: b2Add, slot: b2.message.slot)
         bs2_3 = b2Add.atSlot(3.Slot)
 
       var tmpState = pool.headState

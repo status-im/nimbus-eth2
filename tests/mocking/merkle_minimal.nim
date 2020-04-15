@@ -85,24 +85,6 @@ proc getMerkleProof*[Depth: static int](
     else:
       result[depth] = ZeroHashes[depth]
 
-proc attachMerkleProofs*(deposits: var seq[Deposit]) =
-  let deposit_data_roots = mapIt(deposits, it.data.hash_tree_root)
-  var
-    deposit_data_sums: seq[Eth2Digest]
-  for prefix_root in hash_tree_roots_prefix(
-      deposit_data_roots, 1'i64 shl DEPOSIT_CONTRACT_TREE_DEPTH):
-    deposit_data_sums.add prefix_root
-
-  for val_idx in 0 ..< deposits.len:
-    let merkle_tree = merkleTreeFromLeaves(deposit_data_roots[0..val_idx])
-    deposits[val_idx].proof[0..31] = merkle_tree.getMerkleProof(val_idx)
-    deposits[val_idx].proof[32].data[0..7] = int_to_bytes8((val_idx + 1).uint64)
-
-    doAssert is_valid_merkle_branch(
-      deposit_data_roots[val_idx], deposits[val_idx].proof,
-      DEPOSIT_CONTRACT_TREE_DEPTH + 1, val_idx.uint64,
-      deposit_data_sums[val_idx])
-
 proc testMerkleMinimal*(): bool =
   proc toDigest[N: static int](x: array[N, byte]): Eth2Digest =
     result.data[0 .. N-1] = x

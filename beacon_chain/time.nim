@@ -1,6 +1,6 @@
 import
   chronos,
-  spec/datatypes
+  spec/[datatypes]
 
 from times import Time, getTime, fromUnix, `<`, `-`
 
