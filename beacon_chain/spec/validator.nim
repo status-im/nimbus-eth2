@@ -112,7 +112,9 @@ func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
     indices[stateCache.beacon_committee_cache[key][it]])
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#get_beacon_committee
-func get_beacon_committee*(state: BeaconState, slot: Slot, index: uint64, cache: var StateCache): seq[ValidatorIndex] =
+func get_beacon_committee*(
+    state: BeaconState, slot: Slot, index: CommitteeIndex,
+    cache: var StateCache): seq[ValidatorIndex] =
   # Return the beacon committee at ``slot`` for ``index``.
   let
     epoch = compute_epoch_at_slot(slot)
@@ -132,7 +134,8 @@ func get_beacon_committee*(state: BeaconState, slot: Slot, index: uint64, cache:
   compute_committee(
     cache.active_validator_indices_cache[epoch],
     get_seed(state, epoch, DOMAIN_BEACON_ATTESTER),
-    (slot mod SLOTS_PER_EPOCH) * cache.committee_count_cache[epoch] + index,
+    (slot mod SLOTS_PER_EPOCH) * cache.committee_count_cache[epoch] +
+      index.uint64,
     cache.committee_count_cache[epoch] * SLOTS_PER_EPOCH,
     cache
   )
@@ -197,7 +200,7 @@ func get_beacon_proposer_index*(state: BeaconState, stateCache: var StateCache):
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#validator-assignments
 func get_committee_assignment(
     state: BeaconState, epoch: Epoch, validator_index: ValidatorIndex):
-    Option[tuple[a: seq[ValidatorIndex], b: uint64, c: Slot]] {.used.} =
+    Option[tuple[a: seq[ValidatorIndex], b: CommitteeIndex, c: Slot]] {.used.} =
   # Return the committee assignment in the ``epoch`` for ``validator_index``.
   # ``assignment`` returned is a tuple of the following form:
   #     * ``assignment[0]`` is the list of validators in the committee
@@ -212,11 +215,12 @@ func get_committee_assignment(
   let start_slot = compute_start_slot_at_epoch(epoch)
   for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
     for index in 0 ..< get_committee_count_at_slot(state, slot):
+      let idx = index.CommitteeIndex
       let committee =
-        get_beacon_committee(state, slot, index, cache)
+        get_beacon_committee(state, slot, idx, cache)
       if validator_index in committee:
-        return some((committee, index, slot))
-  none(tuple[a: seq[ValidatorIndex], b: uint64, c: Slot])
+        return some((committee, idx, slot))
+  none(tuple[a: seq[ValidatorIndex], b: CommitteeIndex, c: Slot])
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#validator-assignments
 func is_proposer(

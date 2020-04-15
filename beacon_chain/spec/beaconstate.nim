@@ -420,7 +420,8 @@ func get_attesting_indices*(state: BeaconState,
                             HashSet[ValidatorIndex] =
   # Return the set of attesting indices corresponding to ``data`` and ``bits``.
   result = initHashSet[ValidatorIndex]()
-  let committee = get_beacon_committee(state, data.slot, data.index, stateCache)
+  let committee = get_beacon_committee(
+    state, data.slot, data.index.CommitteeIndex, stateCache)
   for i, index in committee:
     if bits[i]:
       result.incl index
@@ -485,7 +486,8 @@ proc check_attestation*(
       state_slot = shortLog(stateSlot))
     return
 
-  let committee = get_beacon_committee(state, data.slot, data.index, stateCache)
+  let committee = get_beacon_committee(
+    state, data.slot, data.index.CommitteeIndex, stateCache)
   if attestation.aggregation_bits.len != committee.len:
     warn("Inconsistent aggregation and committee length",
       aggregation_bits_len = attestation.aggregation_bits.len,

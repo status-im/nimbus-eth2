@@ -550,8 +550,8 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     let committees_per_slot = get_committee_count_at_slot(state, slot)
 
     for committee_index in 0'u64..<committees_per_slot:
-      let
-        committee = get_beacon_committee(state, slot, committee_index, cache)
+      let committee = get_beacon_committee(
+        state, slot, committee_index.CommitteeIndex, cache)
 
       for index_in_committee, validatorIdx in committee:
         let validator = node.getAttachedValidator(state, validatorIdx)
@@ -618,12 +618,11 @@ proc broadcastAggregatedAttestations(
   # the corresponding one -- whatver they are, they match.
 
   let
-    bs = BlockSlot(blck: head, slot: slot)
     committees_per_slot = get_committee_count_at_slot(state, slot)
   var cache = get_empty_per_epoch_cache()
   for committee_index in 0'u64..<committees_per_slot:
-    let
-      committee = get_beacon_committee(state, slot, committee_index, cache)
+    let committee = get_beacon_committee(
+      state, slot, committee_index.CommitteeIndex, cache)
 
     for index_in_committee, validatorIdx in committee:
       let validator = node.getAttachedValidator(state, validatorIdx)
@@ -634,7 +633,7 @@ proc broadcastAggregatedAttestations(
         # one isSome() with test.
         let option_aggregateandproof =
           aggregate_attestations(node.attestationPool, state,
-            committee_index,
+            committee_index.CommitteeIndex,
             # TODO https://github.com/status-im/nim-beacon-chain/issues/545
             # this assumes in-process private keys
             validator.privKey,
@@ -669,7 +668,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     headRoot = shortLog(node.blockPool.head.blck.root),
     finalizedSlot = shortLog(node.blockPool.finalizedHead.blck.slot),
     finalizedRoot = shortLog(node.blockPool.finalizedHead.blck.root),
-    finalizedSlot = shortLog(node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()),
+    finalizedEpoch = shortLog(node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()),
     cat = "scheduling"
 
   # Check before any re-scheduling of onSlotStart()
