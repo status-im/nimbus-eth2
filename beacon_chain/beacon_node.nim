@@ -1203,9 +1203,9 @@ when hasPrompt:
       # createThread(t, processPromptCommands, addr p)
 
 when isMainModule:
-  let config = BeaconNodeConf.load(
-    version = clientId,
-    copyrightBanner = clientId & "\p" & copyrights)
+  let
+    banner = clientId & "\p" & copyrights & "\p\p" & nimBanner
+    config = BeaconNodeConf.load(version = banner, copyrightBanner = banner)
 
   when compiles(defaultChroniclesStream.output.writer):
     defaultChroniclesStream.output.writer =
