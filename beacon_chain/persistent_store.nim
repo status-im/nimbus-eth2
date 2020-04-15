@@ -9,28 +9,27 @@ type
 
 
 const STORAGE = "storage"
-const INDEXES = "indices"
+const INDICES = "indices"
 proc createFiles(names: array[2, string]) =
     for name in names:
         let fs = newFileStream(name, fmWrite);
         fs.close() 
 
 proc init*(T: type PersistentStore): PersistentStore =
-    createFiles([STORAGE, INDEXES])
-    T(storage: STORAGE, indices: INDEXES)
+    createFiles([STORAGE, INDICES])
+    T(storage: STORAGE, indices: INDICES)
 
-proc append(fn: string, data: seq[byte]) =
+proc append(fn: string, data: openArray[byte]) =
     let fs = newFileStream(fn, fmAppend)
-    fs.write(cast[string](data))
+    fs.writeData(unsafeAddr(data), len(data))
     fs.close()
 
 proc getSize*(fn: string): uint64 =
     uint64 getfileSize fn
 
-# Using seq[byte] for now because I get bad address errors when using openArray[byte]
-proc put*(db: PersistentStore, key,val: seq[byte]) =
-    db.storage.append(val)
+proc put*(db: PersistentStore, key,val: openArray[byte]) =
     db.indices.append(key)
+    db.storage.append(val)
 
 # TODO figure it out how to make best use of memfiles 
 proc read*(fn: string, offset, len: uint64, onData: DataProc) =

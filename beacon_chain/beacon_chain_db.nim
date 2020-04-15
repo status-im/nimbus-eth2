@@ -154,16 +154,25 @@ proc getPersistentBlock*(db: BeaconChainDB, slot: Slot): Option[SignedBeaconBloc
   var value = db.persistent.storage.read(offset.get + uintsize, len.get, SignedBeaconBlock)
   value
 
+
 proc putPersistentBlock*(db: BeaconChainDB, value: SignedBeaconBlock) =
-  let available_off = db.persistent.storage.getSize()
   let headSlot = db.persistent.indices.getSize() div 8 - 1
-  let diff = value.message.slot - headSlot
-  let emptySlots = newSeq[byte]((diff - 1)  * 8,)
+  assert value.message.slot > headSlot or value.message.slot == 0 #properly think about error handling
+
+  let available_off = db.persistent.storage.getSize()
+  var diff = 0
+  var missingSlots = newSeq[byte](0)
+
+  if value.message.slot > Slot(0): 
+    diff = int value.message.slot - headSlot
+    missingSlots.add(repeat(byte(0),(diff - 1) * 8))
+  
   let key = SSZ.encode(available_off) 
   let val = SSZ.encode(value)
   let encoded_len = SSZ.encode(uint64 len(val))
+  
   db.backend.put(subkey(type Eth2Digest, hash_tree_root(value.message)), SSZ.encode(value.message.slot))
-  db.persistent.put(emptySlots & key, encoded_len & val)
+  db.persistent.put(missingSlots & key, encoded_len & val)
 
 proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Option[SignedBeaconBlock] =
   if(db.containsBlock(key)):
