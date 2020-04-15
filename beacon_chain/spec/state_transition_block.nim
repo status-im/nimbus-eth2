@@ -517,6 +517,19 @@ func get_block_signature*(
 
   blsSign(privKey, signing_root.data)
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-aggregate
+func get_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth2Digest,
+                                        aggregate_and_proof: AggregateAndProof,
+                                        privKey: ValidatorPrivKey): ValidatorSig =
+  let
+    aggregate = aggregate_and_proof.aggregate
+    domain = get_domain(fork, DOMAIN_AGGREGATE_AND_PROOF,
+                        compute_epoch_at_slot(aggregate.data.slot),
+                        genesis_validators_root)
+    signing_root = compute_signing_root(aggregate_and_proof, domain)
+
+  return blsSign(privKey, signing_root.data)
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#aggregate-signature
 func get_attestation_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, attestation: AttestationData,

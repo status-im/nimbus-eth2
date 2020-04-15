@@ -12,7 +12,7 @@ mkdir -p "$VALIDATORS_DIR"
 
 cd "$GIT_ROOT"
 
-CUSTOM_NIMFLAGS="${NIMFLAGS} -d:chronicles_sinks:textlines,json[file]"
+CUSTOM_NIMFLAGS="${NIMFLAGS} -d:useSysAsserts -d:chronicles_sinks:textlines,json[file]"
 
 # Run with "SLOTS_PER_EPOCH=8 ./start.sh" to change these
 DEFS=""
