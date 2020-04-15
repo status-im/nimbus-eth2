@@ -614,7 +614,6 @@ proc broadcastAggregatedAttestations(
   # the corresponding one -- whatver they are, they match.
 
   let
-    bs = BlockSlot(blck: head, slot: slot)
     committees_per_slot = get_committee_count_at_slot(state, slot)
   var cache = get_empty_per_epoch_cache()
   for committee_index in 0'u64..<committees_per_slot:
