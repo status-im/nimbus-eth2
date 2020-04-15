@@ -80,12 +80,10 @@ macro parseNumConsts(file: static string): untyped =
 
   result = quote do: `constsToCheck`
 
-const datatypesConsts = @(parseNumConsts(SpecDir/"datatypes.nim"))
-
-when const_preset == "minimal":
-  const minimalConsts = @(parseNumConsts(SpecDir/"presets"/"minimal.nim"))
-else:
-  const mainnetConsts = @(parseNumConsts(SpecDir/"presets"/"mainnet.nim"))
+const
+  datatypesConsts = @(parseNumConsts(SpecDir/"datatypes.nim"))
+  mainnetConsts   = @(parseNumConsts(SpecDir/"presets"/"mainnet.nim"))
+  minimalConsts   = @(parseNumConsts(SpecDir/"presets"/"minimal.nim"))
 
 const IgnoreKeys = [
   # Ignore all non-numeric types

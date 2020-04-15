@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -20,7 +20,14 @@ type
   UpdateFlag* = enum
     skipMerkleValidation ##\
     ## When processing deposits, skip verifying the Merkle proof trees of each
-    ## deposit.
+    ## deposit. This is a holdover from both interop issues with the malformed
+    ## proofs and, more currently, nim-beacon-chain's creation of proofs which
+    ## are inconsistent with the current specification. Furthermore several of
+    ## the mocking interfaces deliberately do not create Merkle proofs. Whilst
+    ## this seems less than entirely justifiable, for now enable keeping those
+    ## in place while minimizing the tech debt they create. One, in principle,
+    ## should be able to remove this flag entirely. It is not intrinsically an
+    ## expensive operation to perform.
     skipBlsValidation ##\
     ## Skip verification of BLS signatures in block processing.
     ## Predominantly intended for use in testing, e.g. to allow extra coverage.
