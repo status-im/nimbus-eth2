@@ -3,11 +3,6 @@
 	url = https://github.com/status-im/nim-eth2-scenarios
 	ignore = dirty
 	branch = master
-[submodule "vendor/go/src/github.com/libp2p/go-libp2p-daemon"]
-	path = vendor/go/src/github.com/libp2p/go-libp2p-daemon
-	url = https://github.com/libp2p/go-libp2p-daemon.git
-	ignore = dirty
-	branch = master
 [submodule "vendor/nim-blscurve"]
 	path = vendor/nim-blscurve
 	url = https://github.com/status-im/nim-blscurve.git

@@ -1,4 +1,4 @@
-language: go
+language: c
 
 dist: bionic
 
@@ -6,15 +6,11 @@ dist: bionic
 cache:
   directories:
     - vendor/nimbus-build-system/vendor/Nim/bin
-    - vendor/go/bin
     - jsonTestsCache
 
 git:
   # when multiple CI builds are queued, the tested commit needs to be in the last X commits cloned with "--depth X"
   depth: 10
-
-go:
-  - "1.12.x"
 
 matrix:
   include:
