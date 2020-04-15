@@ -112,6 +112,7 @@ type
   # range-limit.
   ValidatorIndex* = distinct uint32
   Gwei* = uint64
+  CommitteeIndex* = distinct uint64
 
   BitList*[maxLen: static int] = distinct BitSeq
 
@@ -154,6 +155,9 @@ type
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#AttestationData
   AttestationData* = object
     slot*: Slot
+
+    # TODO this is actually a CommitteeIndex; remove some conversions by
+    # allowing SSZ to directly handle this
     index*: uint64
 
     # LMD GHOST vote

@@ -191,7 +191,7 @@ proc find_beacon_committee(
       slot = ((epoch_committee_index mod SLOTS_PER_EPOCH) +
         epoch.compute_start_slot_at_epoch.uint64).Slot
       index = epoch_committee_index div SLOTS_PER_EPOCH
-      committee = get_beacon_committee(state, slot, index, cache)
+      committee = get_beacon_committee(state, slot, index.CommitteeIndex, cache)
     if validator_index in committee:
       return (committee, slot, index)
   doAssert false
@@ -216,7 +216,8 @@ proc makeFullAttestations*(
 
   for index in 0..<count:
     let
-      committee = get_beacon_committee(state, slot, index, cache)
+      committee = get_beacon_committee(
+        state, slot, index.CommitteeIndex, cache)
       data = makeAttestationData(state, slot, index, beacon_block_root)
 
     doAssert committee.len() >= 1

@@ -85,7 +85,7 @@ suiteReport "Block processing" & preset():
     let
       # Create an attestation for slot 1 signed by the only attester we have!
       beacon_committee =
-        get_beacon_committee(state, state.slot, 0, cache)
+        get_beacon_committee(state, state.slot, 0.CommitteeIndex, cache)
       attestation = makeAttestation(
         state, previous_block_root, beacon_committee[0], cache)
 
