@@ -141,10 +141,12 @@ type
     data*: AttestationData
     signature*: ValidatorSig
 
+  Version* = array[4, byte] # TODO Maybe make this distinct
+  ForkDigest* = array[4, byte] # TODO Maybe make this distinct
+
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#forkdata
   ForkData* = object
-    # TODO: Spec introduced an alias for Version = array[4, byte]
-    current_version*: array[4, byte]
+    current_version*: Version
     genesis_validators_root*: Eth2Digest
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#checkpoint
@@ -328,8 +330,8 @@ type
   Fork* = object
     # TODO: Spec introduced an alias for Version = array[4, byte]
     #       and a default parameter to compute_domain
-    previous_version*: array[4, byte]
-    current_version*: array[4, byte]
+    previous_version*: Version
+    current_version*: Version
 
     epoch*: Epoch ##\
     ## Epoch of latest fork

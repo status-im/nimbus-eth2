@@ -184,16 +184,18 @@ proc run(conf: InspectorConf) {.async.} =
 
     if conf.decode:
       try:
-        if ticket.topic.startsWith(topicBeaconBlocks):
+        if ticket.topic.endsWith(topicBeaconBlocksSuffix):
           info "SignedBeaconBlock", msg = SSZ.decode(message.data, SignedBeaconBlock)
         elif ticket.topic.endsWith(topicAttestationSuffix):
           info "Attestation", msg = SSZ.decode(message.data, Attestation)
-        elif ticket.topic.startsWith(topicVoluntaryExits):
+        elif ticket.topic.endssWith(topicVoluntaryExitsSuffix):
           info "SignedVoluntaryExit", msg = SSZ.decode(message.data, SignedVoluntaryExit)
-        elif ticket.topic.startsWith(topicProposerSlashings):
+        elif ticket.topic.endsWith(topicProposerSlashingsSuffix):
           info "ProposerSlashing", msg = SSZ.decode(message.data, ProposerSlashing)
-        elif ticket.topic.startsWith(topicAttesterSlashings):
+        elif ticket.topic.endsWith(topicAttesterSlashingsSuffix):
           info "AttesterSlashing", msg = SSZ.decode(message.data, AttesterSlashing)
+        elif ticket.topic.endsWith(topicAggregateAndProofsSuffix):
+          info "AggregateAndProof", msg = SSZ.decode(message.data, AggregateAndProof)
       except CatchableError as exc:
         info "Unable to decode message", msg = exc.msg
 
