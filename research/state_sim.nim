@@ -146,7 +146,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         scass = withTimerRet(timers[tShuffle]):
           mapIt(
             0'u64 ..< get_committee_count_at_slot(state, target_slot),
-            get_beacon_committee(state, target_slot, it, cache))
+            get_beacon_committee(state, target_slot, it.CommitteeIndex, cache))
 
       for i, scas in scass:
         var

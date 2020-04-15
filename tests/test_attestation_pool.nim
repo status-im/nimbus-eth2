@@ -38,7 +38,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
       let
         # Create an attestation for slot 1!
         beacon_committee = get_beacon_committee(
-          state.data.data, state.data.data.slot, 0, cache)
+          state.data.data, state.data.data.slot, 0.CommitteeIndex, cache)
         attestation = makeAttestation(
           state.data.data, state.blck.root, beacon_committee[0], cache)
 
@@ -56,7 +56,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
       let
         # Create an attestation for slot 1!
         bc0 = get_beacon_committee(
-          state.data.data, state.data.data.slot, 0, cache)
+          state.data.data, state.data.data.slot, 0.CommitteeIndex, cache)
         attestation0 = makeAttestation(
           state.data.data, state.blck.root, bc0[0], cache)
 
@@ -64,7 +64,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
 
       let
         bc1 = get_beacon_committee(state.data.data,
-          state.data.data.slot, 0, cache)
+          state.data.data.slot, 0.CommitteeIndex, cache)
         attestation1 = makeAttestation(
           state.data.data, state.blck.root, bc1[0], cache)
 
@@ -84,7 +84,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
       let
         # Create an attestation for slot 1!
         bc0 = get_beacon_committee(
-          state.data.data, state.data.data.slot, 0, cache)
+          state.data.data, state.data.data.slot, 0.CommitteeIndex, cache)
         attestation0 = makeAttestation(
           state.data.data, state.blck.root, bc0[0], cache)
         attestation1 = makeAttestation(
@@ -106,7 +106,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
       var
         # Create an attestation for slot 1!
         bc0 = get_beacon_committee(
-          state.data.data, state.data.data.slot, 0, cache)
+          state.data.data, state.data.data.slot, 0.CommitteeIndex, cache)
         attestation0 = makeAttestation(
           state.data.data, state.blck.root, bc0[0], cache)
         attestation1 = makeAttestation(
@@ -129,7 +129,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
       var
         # Create an attestation for slot 1!
         bc0 = get_beacon_committee(state.data.data,
-          state.data.data.slot, 0, cache)
+          state.data.data.slot, 0.CommitteeIndex, cache)
         attestation0 = makeAttestation(
           state.data.data, state.blck.root, bc0[0], cache)
         attestation1 = makeAttestation(
@@ -185,7 +185,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         b11Add = blockPool.add(b11Root, b11)
 
         bc1 = get_beacon_committee(
-          state.data.data, state.data.data.slot, 1, cache)
+          state.data.data, state.data.data.slot, 1.CommitteeIndex, cache)
         attestation0 = makeAttestation(state.data.data, b10Root, bc1[0], cache)
 
       pool.add(attestation0)

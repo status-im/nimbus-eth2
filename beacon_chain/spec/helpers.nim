@@ -57,6 +57,11 @@ func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#get_committee_count_at_slot
 func get_committee_count_at_slot*(state: BeaconState, slot: Slot): uint64 =
   # Return the number of committees at ``slot``.
+
+  # TODO this is mostly used in for loops which have indexes which then need to
+  # be converted to CommitteeIndex types for get_beacon_committee(...); replace
+  # with better and more type-safe use pattern, probably beginning with using a
+  # CommitteeIndex return type here.
   let epoch = compute_epoch_at_slot(slot)
   let active_validator_indices = get_active_validator_indices(state, epoch)
   let committees_per_slot = clamp(

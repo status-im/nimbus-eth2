@@ -546,8 +546,8 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     let committees_per_slot = get_committee_count_at_slot(state, slot)
 
     for committee_index in 0'u64..<committees_per_slot:
-      let
-        committee = get_beacon_committee(state, slot, committee_index, cache)
+      let committee = get_beacon_committee(
+        state, slot, committee_index.CommitteeIndex, cache)
 
       for index_in_committee, validatorIdx in committee:
         let validator = node.getAttachedValidator(state, validatorIdx)
@@ -617,8 +617,8 @@ proc broadcastAggregatedAttestations(
     committees_per_slot = get_committee_count_at_slot(state, slot)
   var cache = get_empty_per_epoch_cache()
   for committee_index in 0'u64..<committees_per_slot:
-    let
-      committee = get_beacon_committee(state, slot, committee_index, cache)
+    let committee = get_beacon_committee(
+      state, slot, committee_index.CommitteeIndex, cache)
 
     for index_in_committee, validatorIdx in committee:
       let validator = node.getAttachedValidator(state, validatorIdx)
@@ -629,7 +629,7 @@ proc broadcastAggregatedAttestations(
         # one isSome() with test.
         let option_aggregateandproof =
           aggregate_attestations(node.attestationPool, state,
-            committee_index,
+            committee_index.CommitteeIndex,
             # TODO https://github.com/status-im/nim-beacon-chain/issues/545
             # this assumes in-process private keys
             validator.privKey,
