@@ -57,6 +57,10 @@ type
       abbr: "g"
       name: "gossipsub" }: bool
 
+    forkDigest* {.
+      desc: "Sets the fork-digest value used to construct all topic names"
+      name: "forkdigest"}: string
+
     signFlag* {.
       defaultValue: false
       desc: "Sets the inspector's to send/verify signatures in pubsub messages"
@@ -93,18 +97,18 @@ type
       abbr: "d"
       defaultValue: false }: bool
 
-func getTopics(filter: TopicFilter): seq[string] {.inline.} =
+func getTopics(forkDigest: ForkDigest, filter: TopicFilter): seq[string] {.inline.} =
   case filter
   of TopicFilter.Blocks:
-    @[topicBeaconBlocks]
+    @[getBeaconBlocksTopic(forkDigest)]
   of TopicFilter.Attestations:
-    mapIt(0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64, it.getAttestationTopic)
+    mapIt(0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64, getAttestationTopic(forkDigest, it))
   of TopicFilter.Exits:
-    @[topicVoluntaryExits]
+    @[getVoluntaryExitsTopic(forkDigest)]
   of TopicFilter.ProposerSlashing:
-    @[topicProposerSlashings]
+    @[getProposerSlashingsTopic(forkDigest)]
   of TopicFilter.AttesterSlashings:
-    @[topicAttesterSlashings]
+    @[getAttesterSlashingsTopic(forkDigest)]
 
 func getPeerId(peer: PeerID, conf: InspectorConf): string {.inline.} =
   if conf.fullPeerId:
@@ -186,9 +190,9 @@ proc run(conf: InspectorConf) {.async.} =
       try:
         if ticket.topic.endsWith(topicBeaconBlocksSuffix):
           info "SignedBeaconBlock", msg = SSZ.decode(message.data, SignedBeaconBlock)
-        elif ticket.topic.endsWith(topicAttestationSuffix):
+        elif ticket.topic.endsWith(topicAttestationsSuffix):
           info "Attestation", msg = SSZ.decode(message.data, Attestation)
-        elif ticket.topic.endssWith(topicVoluntaryExitsSuffix):
+        elif ticket.topic.endsWith(topicVoluntaryExitsSuffix):
           info "SignedVoluntaryExit", msg = SSZ.decode(message.data, SignedVoluntaryExit)
         elif ticket.topic.endsWith(topicProposerSlashingsSuffix):
           info "ProposerSlashing", msg = SSZ.decode(message.data, ProposerSlashing)
@@ -278,9 +282,12 @@ proc run(conf: InspectorConf) {.async.} =
           exception = e.msg
     quit(1)
 
+  var forkDigest: ForkDigest
+  hexToByteArray(conf.forkDigest, forkDigest)
+
   try:
     for filter in topics:
-      for topic in getTopics(filter):
+      for topic in getTopics(forkDigest, filter):
         let t = await api.pubsubSubscribe(topic, pubsubLogger)
         info "Subscribed to topic", topic = topic
         subs.add((ticket: t, future: t.transp.join()))

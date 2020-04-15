@@ -29,7 +29,7 @@ const
 func getBeaconBlocksTopic*(forkDigest: ForkDigest): string =
   &"/eth2/{toHex forkDigest}/{topicBeaconBlocksSuffix}"
 
-func getVoluntaryExistsTopic*(forkDigest: ForkDigest): string =
+func getVoluntaryExitsTopic*(forkDigest: ForkDigest): string =
   &"/eth2/{toHex forkDigest}/{topicVoluntaryExitsSuffix}"
 
 func getProposerSlashingsTopic*(forkDigest: ForkDigest): string =
