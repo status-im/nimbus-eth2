@@ -27,6 +27,7 @@ import # Unit test
   # ./test_validator # Empty!
   ./test_zero_signature,
   ./test_peer_pool,
+  ./test_sync_manager,
   ./test_honest_validator,
   ./test_interop,
   ./fork_choice/tests_fork_choice

@@ -40,7 +40,6 @@ type
     debtsQueue: HeapQueue[SyncRequest]
     debtsCount: uint64
     readyQueue: HeapQueue[SyncResult]
-    readyData: seq[seq[SignedBeaconBlock]]
 
   SyncManager*[A, B] = ref object
     pool: PeerPool[A, B]
@@ -127,7 +126,8 @@ proc push*(sq: SyncQueue, sr: SyncRequest,
            data: seq[SignedBeaconBlock]) {.async, gcsafe.} =
   ## Push successfull result to queue ``sq``.
   while true:
-    if (sq.queueSize > 0) and (sr.slot >= sq.outSlot + uint64(sq.queueSize)):
+    if (sq.queueSize > 0) and
+       (sr.slot >= sq.outSlot + uint64(sq.queueSize) * sq.chunkSize):
       await sq.notFullEvent.wait()
       sq.notFullEvent.clear()
       continue
@@ -159,11 +159,13 @@ proc pop*(sq: SyncQueue, maxslot: Slot): SyncRequest =
 
     let sr = sq.debtsQueue.pop()
     if sr.lastSlot() <= maxSlot:
+      sq.debtsCount = sq.debtsCount - sr.count
       return sr
 
     let sr1 = SyncRequest.init(sr.slot, maxslot)
-    let sr2 = SyncRequest.init(maxslot, sr.lastSlot())
+    let sr2 = SyncRequest.init(maxslot + 1'u64, sr.lastSlot())
     sq.debtsQueue.push(sr2)
+    sq.debtsCount = sq.debtsCount - sr1.count
     return sr1
   else:
     if maxSlot < sq.inpSlot:
