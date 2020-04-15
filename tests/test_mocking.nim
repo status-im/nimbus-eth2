@@ -8,7 +8,7 @@
 {.used.}
 
 import
-  unittest, ./testutil, ./mocking/merkle_minimal
+  unittest, ./testutil, ../beacon_chain/merkle_minimal
 
 suiteReport "Mocking utilities":
   timedTest "merkle_minimal":

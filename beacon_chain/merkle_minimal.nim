@@ -11,9 +11,9 @@
 # ---------------------------------------------------------------
 
 import
-  strutils, macros, bitops,
+  sequtils, strutils, macros, bitops,
   # Specs
-  ../../beacon_chain/spec/[beaconstate, datatypes, digest],
+  ../../beacon_chain/spec/[beaconstate, datatypes, digest, helpers],
   ../../beacon_chain/ssz
 
 func round_step_down*(x: Natural, step: static Natural): int {.inline.} =
@@ -85,6 +85,24 @@ proc getMerkleProof*[Depth: static int](
     else:
       result[depth] = ZeroHashes[depth]
 
+proc attachMerkleProofs*(deposits: var seq[Deposit]) =
+  let deposit_data_roots = mapIt(deposits, it.data.hash_tree_root)
+  var
+    deposit_data_sums: seq[Eth2Digest]
+  for prefix_root in hash_tree_roots_prefix(
+      deposit_data_roots, 1'i64 shl DEPOSIT_CONTRACT_TREE_DEPTH):
+    deposit_data_sums.add prefix_root
+
+  for val_idx in 0 ..< deposits.len:
+    let merkle_tree = merkleTreeFromLeaves(deposit_data_roots[0..val_idx])
+    deposits[val_idx].proof[0..31] = merkle_tree.getMerkleProof(val_idx)
+    deposits[val_idx].proof[32].data[0..7] = int_to_bytes8((val_idx + 1).uint64)
+
+    doAssert is_valid_merkle_branch(
+      deposit_data_roots[val_idx], deposits[val_idx].proof,
+      DEPOSIT_CONTRACT_TREE_DEPTH + 1, val_idx.uint64,
+      deposit_data_sums[val_idx])
+
 proc testMerkleMinimal*(): bool =
   proc toDigest[N: static int](x: array[N, byte]): Eth2Digest =
     result.data[0 .. N-1] = x
@@ -126,9 +144,6 @@ proc testMerkleMinimal*(): bool =
     macro roundTrips(): untyped =
       result = newStmtList()
 
-      # Unsure why sszList ident is undeclared in "quote do"
-      let list = bindSym"sszList"
-
       # compile-time unrolled test
       for nleaves in [3, 4, 5, 7, 8, 1 shl 10, 1 shl 32]:
         let depth = fastLog2(nleaves-1) + 1
@@ -144,8 +159,6 @@ proc testMerkleMinimal*(): bool =
 
             block: # proof for a
               let index = 0
-              let proof = getMerkleProof(tree, index)
-              #echo "Proof: ", proof
 
               doAssert is_valid_merkle_branch(
                 a, get_merkle_proof(tree, index = index),
@@ -157,7 +170,6 @@ proc testMerkleMinimal*(): bool =
 
             block: # proof for b
               let index = 1
-              let proof = getMerkleProof(tree, index)
 
               doAssert is_valid_merkle_branch(
                 b, get_merkle_proof(tree, index = index),
@@ -169,7 +181,6 @@ proc testMerkleMinimal*(): bool =
 
             block: # proof for c
               let index = 2
-              let proof = getMerkleProof(tree, index)
 
               doAssert is_valid_merkle_branch(
                 c, get_merkle_proof(tree, index = index),

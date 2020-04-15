@@ -14,11 +14,9 @@ import
   # Specs
   ../../beacon_chain/spec/[datatypes, crypto, helpers, digest],
   # Internals
-  ../../beacon_chain/[ssz, extras],
+  ../../beacon_chain/[ssz, extras, merkle_minimal],
   # Mocking procs
-  ./mock_validator_keys,
-  # Other test utilities, for attachMerkleProofs()
-  ../testblockutil
+  ./mock_validator_keys
 
 func signMockDepositData(
         deposit_data: var DepositData,
