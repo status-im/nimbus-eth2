@@ -54,7 +54,6 @@ type
   BeaconNode = ref object
     nickname: string
     network: Eth2Node
-    forkVersion: array[4, byte]
     netKeys: KeyPair
     requestManager: RequestManager
     db: BeaconChainDB
@@ -65,6 +64,9 @@ type
     mainchainMonitor: MainchainMonitor
     beaconClock: BeaconClock
     rpcServer: RpcServer
+    forkDigest: ForkDigest
+    topicBeaconBlocks: string
+    topicAggregateAndProofs: string
     syncLoop: Future[void]
 
 proc onBeaconBlock*(node: BeaconNode, signedBlock: SignedBeaconBlock) {.gcsafe.}
@@ -131,6 +133,16 @@ proc getStateFromSnapshot(conf: BeaconNodeConf, state: var BeaconState): bool =
 
   result = true
 
+proc enrForkIdFromState(state: BeaconState): ENRForkID =
+  let
+    forkVer = state.fork.current_version
+    forkDigest = compute_fork_digest(forkVer, state.genesis_validators_root)
+
+  ENRForkID(
+    fork_digest: forkDigest,
+    next_fork_version: forkVer,
+    next_fork_epoch: FAR_FUTURE_EPOCH)
+
 proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
   let
     netKeys = getPersistentNetKeys(conf)
@@ -187,17 +199,20 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     #      monitor
     mainchainMonitor.start()
 
-  let network = await createEth2Node(conf)
-
   let rpcServer = if conf.rpcEnabled:
     RpcServer.init(conf.rpcAddress, conf.rpcPort)
   else:
     nil
 
+  let
+    enrForkId = enrForkIdFromState(blockPool.headState.data.data)
+    topicBeaconBlocks = getBeaconBlocksTopic(enrForkId.forkDigest)
+    topicAggregateAndProofs = getAggregateAndProofsTopic(enrForkId.forkDigest)
+    network = await createEth2Node(conf, enrForkId)
+
   var res = BeaconNode(
     nickname: nickname,
     network: network,
-    forkVersion: blockPool.headState.data.data.fork.current_version,
     netKeys: netKeys,
     requestManager: RequestManager.init(network),
     db: db,
@@ -208,12 +223,14 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     mainchainMonitor: mainchainMonitor,
     beaconClock: BeaconClock.init(blockPool.headState.data.data),
     rpcServer: rpcServer,
+    forkDigest: enrForkId.forkDigest,
+    topicBeaconBlocks: topicBeaconBlocks,
+    topicAggregateAndProofs: topicAggregateAndProofs,
   )
 
   # TODO sync is called when a remote peer is connected - is that the right
   #      time to do so?
-  let sync = network.protocolState(BeaconSync)
-  sync.init(blockPool, res.forkVersion,
+  network.initBeaconSync(blockPool, enrForkId.forkDigest,
     proc(signedBlock: SignedBeaconBlock) =
       if signedBlock.message.slot mod SLOTS_PER_EPOCH == 0:
         # TODO this is a hack to make sure that lmd ghost is run regularly
@@ -338,7 +355,7 @@ proc sendAttestation(node: BeaconNode,
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-attestation
   node.network.broadcast(
-    getAttestationTopic(attestationData.index), attestation)
+    getAttestationTopic(node.forkDigest, attestationData.index), attestation)
 
   if node.config.dumpEnabled:
     SSZ.saveFile(
@@ -432,7 +449,7 @@ proc proposeBlock(node: BeaconNode,
         shortLog(newBlockRef.root) & "-"  & shortLog(root()) & ".ssz",
         state())
 
-  node.network.broadcast(topicBeaconBlocks, newBlock)
+  node.network.broadcast(node.topicBeaconBlocks, newBlock)
 
   beacon_blocks_proposed.inc()
 
@@ -631,7 +648,7 @@ proc broadcastAggregatedAttestations(
         # going to happen once per slot, but this is the best way to get at
         # the validator index and private key pair. TODO verify it only has
         # one isSome() with test.
-        let option_aggregateandproof =
+        let aggregateAndProof =
           aggregate_attestations(node.attestationPool, state,
             committee_index.CommitteeIndex,
             # TODO https://github.com/status-im/nim-beacon-chain/issues/545
@@ -640,9 +657,14 @@ proc broadcastAggregatedAttestations(
             trailing_distance)
 
         # Don't broadcast when, e.g., this node isn't an aggregator
-        if option_aggregateandproof.isSome:
-          node.network.broadcast(
-            topicAggregateAndProof, option_aggregateandproof.get)
+        if aggregateAndProof.isSome:
+          var signedAP = SignedAggregateAndProof(
+            message: aggregateAndProof.get,
+            # TODO Make the signing async here
+            signature: validator.signAggregateAndProof(aggregateAndProof.get,
+                                                       state.fork,
+                                                       state.genesis_validators_root))
+          node.network.broadcast(node.topicAggregateAndProofs, signedAP)
 
 proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
@@ -1051,7 +1073,7 @@ proc run*(node: BeaconNode) =
     node.rpcServer.installRpcHandlers(node)
     node.rpcServer.start()
 
-  waitFor node.network.subscribe(topicBeaconBlocks) do (signedBlock: SignedBeaconBlock):
+  waitFor node.network.subscribe(node.topicBeaconBlocks) do (signedBlock: SignedBeaconBlock):
     onBeaconBlock(node, signedBlock)
   do (signedBlock: SignedBeaconBlock) -> bool:
     let (afterGenesis, slot) = node.beaconClock.now.toSlot()
@@ -1070,7 +1092,7 @@ proc run*(node: BeaconNode) =
     closureScope:
       let ci = it
       attestationSubscriptions.add(node.network.subscribe(
-        getAttestationTopic(ci), attestationHandler,
+        getAttestationTopic(node.forkDigest, ci), attestationHandler,
         proc(attestation: Attestation): bool =
           # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#attestation-subnets
           let (afterGenesis, slot) = node.beaconClock.now().toSlot()
@@ -1265,9 +1287,9 @@ when hasPrompt:
       # createThread(t, processPromptCommands, addr p)
 
 when isMainModule:
-  let config = BeaconNodeConf.load(
-    version = clientId,
-    copyrightBanner = clientId & "\p" & copyrights)
+  let
+    banner = clientId & "\p" & copyrights & "\p\p" & nimBanner
+    config = BeaconNodeConf.load(version = banner, copyrightBanner = banner)
 
   when compiles(defaultChroniclesStream.output.writer):
     defaultChroniclesStream.output.writer =
@@ -1334,7 +1356,8 @@ when isMainModule:
           networkKeys.seckey.asEthKey,
           some(config.bootstrapAddress),
           config.bootstrapPort,
-          config.bootstrapPort)
+          config.bootstrapPort,
+          [toFieldPair("eth2", SSZ.encode(enrForkIdFromState initialState))])
 
       writeFile(bootstrapFile, bootstrapEnr.toURI)
       echo "Wrote ", bootstrapFile

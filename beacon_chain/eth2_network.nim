@@ -4,8 +4,8 @@ import
   options as stdOptions, net as stdNet,
 
   # Status libs
-  stew/[varints, base58], stew/shims/[macros, tables], stint,
-  faststreams/output_stream,
+  stew/[varints, base58, bitseqs], stew/shims/[macros, tables], stint,
+  faststreams/output_stream, snappy/framing,
   json_serialization, json_serialization/std/[net, options],
   chronos, chronicles, metrics,
   # TODO: create simpler to use libp2p modules that use re-exports
@@ -21,7 +21,7 @@ import
 
   # Beacon node modules
   version, conf, eth2_discovery, libp2p_json_serialization, conf, ssz,
-  peer_pool
+  peer_pool, spec/[datatypes, network]
 
 import
   eth/p2p/discoveryv5/protocol as discv5_protocol
@@ -48,8 +48,18 @@ type
     peerPool*: PeerPool[Peer, PeerID]
     protocolStates*: seq[RootRef]
     libp2pTransportLoops*: seq[Future[void]]
+    metadata*: Eth2Metadata
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
+
+  Eth2MetaData* = object
+    seq_number*: uint64
+    attnets*: BitArray[ATTESTATION_SUBNET_COUNT]
+
+  ENRForkID* = object
+    fork_digest*: ForkDigest
+    next_fork_version*: Version
+    next_fork_epoch*: Epoch
 
   Peer* = ref object
     network*: Eth2Node
@@ -60,6 +70,7 @@ type
     protocolStates*: seq[RootRef]
     maxInactivityAllowed*: Duration
     score*: int
+    supportsSnappy: bool
 
   ConnectionState* = enum
     None,
@@ -121,13 +132,14 @@ type
 const
   clientId* = "Nimbus beacon node v" & fullVersionStr
   networkKeyFilename = "privkey.protobuf"
+  nodeMetadataFilename = "node-metadata.json"
 
   TCP = net.Protocol.IPPROTO_TCP
   HandshakeTimeout = FaultOrError
 
   # Spec constants
   # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/networking/p2p-interface.md#eth-20-network-interaction-domains
-  REQ_RESP_MAX_SIZE* = 1 * 1024 * 1024 # bytes
+  MAX_CHUNK_SIZE* = 1 * 1024 * 1024 # bytes
   GOSSIP_MAX_SIZE* = 1 * 1024 * 1024 # bytes
   TTFB_TIMEOUT* = 5.seconds
   RESP_TIMEOUT* = 10.seconds
@@ -216,7 +228,7 @@ proc getRequestProtoName(fn: NimNode): NimNode =
       if pragma.len > 0 and $pragma[0] == "libp2pProtocol":
         let protoName = $(pragma[1])
         let protoVer = $(pragma[2].intVal)
-        return newLit("/eth2/beacon_chain/req/" & protoName & "/" & protoVer & "/ssz")
+        return newLit("/eth2/beacon_chain/req/" & protoName & "/" & protoVer & "/")
 
   return newLit("")
 
@@ -251,7 +263,7 @@ proc readSizePrefix(conn: Connection,
     case parser.feedByte(nextByte)
     of Done:
       let res = parser.getResult
-      if res > uint64(REQ_RESP_MAX_SIZE):
+      if res > uint64(MAX_CHUNK_SIZE):
         trace "size prefix outside of range", res
         return -1
       else:
@@ -356,7 +368,7 @@ proc readResponse(
     return await conn.readChunk(MsgType, true, deadline)
 
 proc encodeErrorMsg(responseCode: ResponseCode, errMsg: string): Bytes =
-  var s = init OutputStream
+  var s = memoryOutput()
   s.append byte(responseCode)
   s.appendVarint errMsg.len
   s.appendValue SSZ, errMsg
@@ -385,29 +397,34 @@ proc sendErrorResponse(peer: Peer,
   await conn.close()
 
 proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.async} =
-  var deadline = sleepAsync RESP_TIMEOUT
-  var streamFut = peer.network.openStream(peer, protocolId)
+  var
+    deadline = sleepAsync RESP_TIMEOUT
+    protocolId = protocolId & (if peer.supportsSnappy: "ssz_snappy" else: "ssz")
+    streamFut = peer.network.openStream(peer, protocolId)
+
   await streamFut or deadline
+
   if not streamFut.finished:
-    # TODO: we are returning here because the deadline passed, but
-    # the stream can still be opened eventually a bit later. Who is
-    # going to close it then?
+    streamFut.cancel()
     raise newException(TransmissionError, "Failed to open LibP2P stream")
 
   let stream = streamFut.read
-  defer:
+  try:
+    var s = memoryOutput()
+    s.appendVarint requestBytes.len.uint64
+    if peer.supportsSnappy:
+      framing_format_compress(s, requestBytes)
+    else:
+      s.append requestBytes
+    let bytes = s.getOutput
+    await stream.write(bytes)
+  finally:
     await safeClose(stream)
-
-  var s = init OutputStream
-  s.appendVarint requestBytes.len.uint64
-  s.append requestBytes
-  let bytes = s.getOutput
-  await stream.write(bytes)
 
 # TODO There is too much duplication in the responder functions, but
 # I hope to reduce this when I increse the reliance on output streams.
 proc sendResponseChunkBytes(responder: UntypedResponder, payload: Bytes) {.async.} =
-  var s = init OutputStream
+  var s = memoryOutput()
   s.append byte(Success)
   s.appendVarint payload.len.uint64
   s.append payload
@@ -415,14 +432,14 @@ proc sendResponseChunkBytes(responder: UntypedResponder, payload: Bytes) {.async
   await responder.stream.write(bytes)
 
 proc sendResponseChunkObj(responder: UntypedResponder, val: auto) {.async.} =
-  var s = init OutputStream
+  var s = memoryOutput()
   s.append byte(Success)
   s.appendValue SSZ, sizePrefixed(val)
   let bytes = s.getOutput
   await responder.stream.write(bytes)
 
 proc sendResponseChunks[T](responder: UntypedResponder, chunks: seq[T]) {.async.} =
-  var s = init OutputStream
+  var s = memoryOutput()
   for chunk in chunks:
     s.append byte(Success)
     s.appendValue SSZ, sizePrefixed(chunk)
@@ -433,30 +450,33 @@ proc sendResponseChunks[T](responder: UntypedResponder, chunks: seq[T]) {.async.
 proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
                      ResponseMsg: type,
                      timeout: Duration): Future[Option[ResponseMsg]] {.gcsafe, async.} =
-  var deadline = sleepAsync timeout
+  var
+    deadline = sleepAsync timeout
+    protocolId = protocolId & (if peer.supportsSnappy: "ssz_snappy" else: "ssz")
+    streamFut = peer.network.openStream(peer, protocolId)
 
-  # Open a new LibP2P stream
-  var streamFut = peer.network.openStream(peer, protocolId)
   await streamFut or deadline
+
   if not streamFut.finished:
-    # TODO: we are returning here because the deadline passed, but
-    # the stream can still be opened eventually a bit later. Who is
-    # going to close it then?
+    streamFut.cancel()
     return none(ResponseMsg)
 
   let stream = streamFut.read
-  defer:
+  try:
+    # Send the request
+    var s = memoryOutput()
+    s.appendVarint requestBytes.len.uint64
+    if peer.supportsSnappy:
+      framing_format_compress(s, requestBytes)
+    else:
+      s.append requestBytes
+    let bytes = s.getOutput
+    await stream.write(bytes)
+
+    # Read the response
+    return await stream.readResponse(ResponseMsg, deadline)
+  finally:
     await safeClose(stream)
-
-  # Send the request
-  var s = init OutputStream
-  s.appendVarint requestBytes.len.uint64
-  s.append requestBytes
-  let bytes = s.getOutput
-  await stream.write(bytes)
-
-  # Read the response
-  return await stream.readResponse(ResponseMsg, deadline)
 
 proc init*[MsgType](T: type Responder[MsgType],
                     peer: Peer, conn: Connection): T =
@@ -549,37 +569,37 @@ proc handleIncomingStream(network: Eth2Node, conn: Connection,
 
   handleIncomingPeer(peer)
 
-  defer:
+  try:
+    let
+      deadline = sleepAsync RESP_TIMEOUT
+      msgBytes = await readMsgBytes(conn, false, deadline)
+
+    if msgBytes.len == 0:
+      await sendErrorResponse(peer, conn, ServerError, readTimeoutErrorMsg)
+      return
+
+    type MsgRec = RecType(MsgType)
+    var msg: MsgRec
+    try:
+      msg = decode(Format, msgBytes, MsgRec)
+    except SerializationError as err:
+      await sendErrorResponse(peer, conn, err, msgName, msgBytes)
+      return
+    except Exception as err:
+      # TODO. This is temporary code that should be removed after interop.
+      # It can be enabled only in certain diagnostic builds where it should
+      # re-raise the exception.
+      debug "Crash during serialization", inputBytes = toHex(msgBytes), msgName
+      await sendErrorResponse(peer, conn, ServerError, err.msg)
+      raise err
+
+    try:
+      logReceivedMsg(peer, MsgType(msg))
+      await callUserHandler(peer, conn, msg)
+    except CatchableError as err:
+      await sendErrorResponse(peer, conn, ServerError, err.msg)
+  finally:
     await safeClose(conn)
-
-  let
-    deadline = sleepAsync RESP_TIMEOUT
-    msgBytes = await readMsgBytes(conn, false, deadline)
-
-  if msgBytes.len == 0:
-    await sendErrorResponse(peer, conn, ServerError, readTimeoutErrorMsg)
-    return
-
-  type MsgRec = RecType(MsgType)
-  var msg: MsgRec
-  try:
-    msg = decode(Format, msgBytes, MsgRec)
-  except SerializationError as err:
-    await sendErrorResponse(peer, conn, err, msgName, msgBytes)
-    return
-  except Exception as err:
-    # TODO. This is temporary code that should be removed after interop.
-    # It can be enabled only in certain diagnostic builds where it should
-    # re-raise the exception.
-    debug "Crash during serialization", inputBytes = toHex(msgBytes), msgName
-    await sendErrorResponse(peer, conn, ServerError, err.msg)
-    raise err
-
-  try:
-    logReceivedMsg(peer, MsgType(msg))
-    await callUserHandler(peer, conn, msg)
-  except CatchableError as err:
-    await sendErrorResponse(peer, conn, ServerError, err.msg)
 
 proc handleOutgoingPeer*(peer: Peer): Future[void] {.async.} =
   let network = peer.network
@@ -681,15 +701,28 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
 
     await sleepAsync seconds(1)
 
-proc init*(T: type Eth2Node, conf: BeaconNodeConf,
+proc getPersistentNetMetadata*(conf: BeaconNodeConf): Eth2Metadata =
+  let metadataPath = conf.dataDir / nodeMetadataFilename
+  if not fileExists(metadataPath):
+    result = Eth2Metadata()
+    for i in 0 ..< ATTESTATION_SUBNET_COUNT:
+      # TODO: For now, we indicate that we participate in all subnets
+      result.attnets[i] = true
+    Json.saveFile(metadataPath, result)
+  else:
+    result = Json.loadFile(metadataPath, Eth2Metadata)
+
+proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
            switch: Switch, ip: Option[IpAddress], tcpPort, udpPort: Port,
            privKey: keys.PrivateKey): T =
   new result
   result.switch = switch
-  result.discovery = Eth2DiscoveryProtocol.new(
-    conf, ip, tcpPort, udpPort, privKey.toRaw)
   result.wantedPeers = conf.maxPeers
   result.peerPool = newPeerPool[Peer, PeerID](maxPeers = conf.maxPeers)
+  result.metadata = getPersistentNetMetadata(conf)
+  result.discovery = Eth2DiscoveryProtocol.new(
+    conf, ip, tcpPort, udpPort, privKey.toRaw,
+    {"eth2": SSZ.encode(enrForkId), "attnets": SSZ.encode(result.metadata.attnets)})
 
   newSeq result.protocolStates, allProtocols.len
   for proto in allProtocols:
@@ -900,7 +933,7 @@ proc getPersistentNetKeys*(conf: BeaconNodeConf): KeyPair =
 
   KeyPair(seckey: privKey, pubkey: privKey.getKey())
 
-proc createEth2Node*(conf: BeaconNodeConf): Future[Eth2Node] {.async, gcsafe.} =
+proc createEth2Node*(conf: BeaconNodeConf, enrForkId: ENRForkID): Future[Eth2Node] {.async, gcsafe.} =
   var
     (extIp, extTcpPort, extUdpPort) = setupNat(conf)
     hostAddress = tcpEndPoint(conf.libp2pAddress, conf.tcpPort)
@@ -916,7 +949,8 @@ proc createEth2Node*(conf: BeaconNodeConf): Future[Eth2Node] {.async, gcsafe.} =
   # are running behind a NAT).
   var switch = newStandardSwitch(some keys.seckey, hostAddress,
                                  triggerSelf = true, gossip = true)
-  result = Eth2Node.init(conf, switch, extIp, extTcpPort, extUdpPort,
+  result = Eth2Node.init(conf, enrForkId, switch,
+                         extIp, extTcpPort, extUdpPort,
                          keys.seckey.asEthKey)
 
 proc getPersistenBootstrapAddr*(conf: BeaconNodeConf,
@@ -924,7 +958,7 @@ proc getPersistenBootstrapAddr*(conf: BeaconNodeConf,
   let pair = getPersistentNetKeys(conf)
   return enr.Record.init(1'u64, # sequence number
                          pair.seckey.asEthKey,
-                         some(ip), port, port)
+                         some(ip), port, port, @[])
 
 proc announcedENR*(node: Eth2Node): enr.Record =
   doAssert node.discovery != nil, "The Eth2Node must be initialized"

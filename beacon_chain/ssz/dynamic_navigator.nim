@@ -34,14 +34,14 @@ type
       discard
 
     jsonPrinter: proc (m: MemRange,
-                       outStream: OutputStreamVar,
-                       pretty: bool) {.gcsafe, noSideEffect.}
+                       outStream: OutputStream,
+                       pretty: bool) {.gcsafe.}
 
   DynamicSszNavigator* = object
     m: MemRange
     typ: TypeInfo
 
-func jsonPrinterImpl[T](m: MemRange, outStream: OutputStreamVar, pretty: bool) =
+proc jsonPrinterImpl[T](m: MemRange, outStream: OutputStream, pretty: bool) =
   var typedNavigator = sszMount(m, T)
   var jsonWriter = init(JsonWriter, outStream, pretty)
   # TODO: it should be possible to serialize the navigator object
@@ -141,11 +141,17 @@ func init*(T: type DynamicSszNavigator,
   T(m: MemRange(startAddr: unsafeAddr bytes[0], length: bytes.len),
     typ: typeInfo(Navigated))
 
-func writeJson*(n: DynamicSszNavigator, outStream: OutputStreamVar, pretty = true) =
+proc writeJson*(n: DynamicSszNavigator, outStream: OutputStream, pretty = true) =
   n.typ.jsonPrinter(n.m, outStream, pretty)
 
 func toJson*(n: DynamicSszNavigator, pretty = true): string =
-  var outStream = init OutputStream
-  writeJson(n, outStream, pretty)
+  var outStream = memoryOutput()
+  {.noSideEffect.}:
+    # We are assuming that there are no side-effects here
+    # because we are using a `memoryOutput`. The computed
+    # side-effects are coming from the fact that the dynamic
+    # dispatch mechanisms used in faststreams may be reading
+    # from a file or a network device.
+    writeJson(n, outStream, pretty)
   outStream.getOutput(string)
 

@@ -9,7 +9,7 @@ logScope:
 
 type
   StatusMsg* = object
-    forkVersion*: array[4, byte]
+    forkVersion*: ForkDigest
     finalizedRoot*: Eth2Digest
     finalizedEpoch*: Epoch
     headRoot*: Eth2Digest
@@ -27,9 +27,10 @@ type
       index: uint32
 
   BeaconBlockCallback* = proc(signedBlock: SignedBeaconBlock) {.gcsafe.}
+
   BeaconSyncNetworkState* = ref object
     blockPool*: BlockPool
-    forkVersion*: array[4, byte]
+    forkDigest*: ForkDigest
     onBeaconBlock*: BeaconBlockCallback
 
   BeaconSyncPeerState* = ref object
@@ -42,13 +43,6 @@ type
 
 const
   MAX_REQUESTED_BLOCKS = 20'u64
-
-func init*(
-    v: BeaconSyncNetworkState, blockPool: BlockPool,
-    forkVersion: array[4, byte], onBeaconBlock: BeaconBlockCallback) =
-  v.blockPool = blockPool
-  v.forkVersion = forkVersion
-  v.onBeaconBlock = onBeaconBlock
 
 proc importBlocks(state: BeaconSyncNetworkState,
                   blocks: openarray[SignedBeaconBlock]) {.gcsafe.} =
@@ -66,7 +60,7 @@ proc getCurrentStatus(state: BeaconSyncNetworkState): StatusMsg {.gcsafe.} =
     finalizedEpoch = finalizedHead.slot.compute_epoch_at_slot()
 
   StatusMsg(
-    fork_version: state.forkVersion,
+    forkDigest: state.forkDigest,
     finalizedRoot: finalizedHead.blck.root,
     finalizedEpoch: finalizedEpoch,
     headRoot: headRoot,
@@ -119,6 +113,18 @@ p2pProtocol BeaconSync(version = 1,
   proc goodbye(peer: Peer, reason: DisconnectionReason) {.libp2pProtocol("goodbye", 1).}
 
   requestResponse:
+    proc ping(peer: Peer, value: uint64) {.libp2pProtocol("ping", 1).} =
+      await response.write(peer.network.metadata.seq_number)
+
+    proc pingResp(peer: Peer, value: uint64)
+
+  requestResponse:
+    proc getMetadata(peer: Peer) {.libp2pProtocol("metadata", 1).} =
+      await response.write(peer.network.metadata)
+
+    proc metadataReps(peer: Peer, metadata: Eth2Metadata)
+
+  requestResponse:
     proc beaconBlocksByRange(
             peer: Peer,
             startSlot: Slot,
@@ -159,9 +165,9 @@ proc handleInitialStatus(peer: Peer,
                          state: BeaconSyncNetworkState,
                          ourStatus: StatusMsg,
                        theirStatus: StatusMsg): Future[bool] {.async, gcsafe.} =
-  if theirStatus.forkVersion != state.forkVersion:
+  if theirStatus.forkDigest != state.forkDigest:
     notice "Irrelevant peer",
-      peer, theirFork = theirStatus.forkVersion, ourFork = state.forkVersion
+      peer, theirFork = theirStatus.forkDigest, ourFork = state.forkDigest
     await peer.disconnect(IrrelevantNetwork)
     return false
   debug "Peer connected", peer,
@@ -169,3 +175,12 @@ proc handleInitialStatus(peer: Peer,
                           remoteHeadSlot = theirStatus.headSlot,
                           remoteHeadRoot = theirStatus.headRoot
   return true
+
+proc initBeaconSync*(network: Eth2Node,
+                     blockPool: BlockPool,
+                     forkDigest: ForkDigest,
+                     onBeaconBlock: BeaconBlockCallback) =
+  var networkState = network.protocolState(BeaconSync)
+  networkState.blockPool = blockPool
+  networkState.forkDigest = forkDigest
+  networkState.onBeaconBlock = onBeaconBlock

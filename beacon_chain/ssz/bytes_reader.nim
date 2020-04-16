@@ -65,13 +65,16 @@ func fromSszBytes*[N](T: type BitArray[N], bytes: openarray[byte]): T =
     raise newException(MalformedSszError, "SSZ bit array overflow")
   copyMem(addr result.bytes[0], unsafeAddr bytes[0], bytes.len)
 
+proc `[]`[T, U, V](s: openArray[T], x: HSlice[U, V]) {.error:
+  "Please don't use openarray's [] as it allocates a result sequence".}
+
 func readSszValue*(input: openarray[byte], T: type): T =
   mixin fromSszBytes, toSszType
 
   type T {.used.} = type(result)
 
   template readOffset(n: int): int {.used.}=
-    int fromSszBytes(uint32, input[n ..< n + offsetSize])
+    int fromSszBytes(uint32, input.toOpenArray(n, n + offsetSize - 1))
 
   when useListType and result is List:
     type ElemType = type result[0]
@@ -106,7 +109,7 @@ func readSszValue*(input: openarray[byte], T: type): T =
       for i in 0 ..< result.len:
         trs "TRYING TO READ LIST ELEM ", i
         let offset = i * elemSize
-        result[i] = readSszValue(input[offset ..< offset+elemSize], ElemType)
+        result[i] = readSszValue(input.toOpenArray(offset, offset + elemSize - 1), ElemType)
       trs "LIST READING COMPLETE"
 
     else:
@@ -129,10 +132,10 @@ func readSszValue*(input: openarray[byte], T: type): T =
         elif nextOffset > input.len:
           raise newException(MalformedSszError, "SSZ list element offset points past the end of the input")
         else:
-          result[i - 1] = readSszValue(input[offset ..< nextOffset], ElemType)
+          result[i - 1] = readSszValue(input.toOpenArray(offset, nextOffset - 1), ElemType)
         offset = nextOffset
 
-      result[resultLen - 1] = readSszValue(input[offset ..< input.len], ElemType)
+      result[resultLen - 1] = readSszValue(input.toOpenArray(offset, input.len - 1), ElemType)
 
   elif result is SomeInteger|bool|enum|BitArray:
     trs "READING BASIC TYPE ", type(result).name, "  input=", input.len
@@ -170,13 +173,13 @@ func readSszValue*(input: openarray[byte], T: type): T =
       # TODO The extra type escaping here is a work-around for a Nim issue:
       when type(FieldType) is type(SszType):
         trs "READING NATIVE ", fieldName, ": ", name(SszType)
-        field = readSszValue(input[startOffset ..< endOffset], SszType)
+        field = readSszValue(input.toOpenArray(startOffset, endOffset - 1), SszType)
         trs "READING COMPLETE ", fieldName
       elif useListType and FieldType is List:
-        field = readSszValue(input[startOffset ..< endOffset], FieldType)
+        field = readSszValue(input.toOpenArray(startOffset, endOffset - 1), FieldType)
       else:
         trs "READING FOREIGN ", fieldName, ": ", name(SszType)
-        field = fromSszBytes(FieldType, input[startOffset ..< endOffset])
+        field = fromSszBytes(FieldType, input.toOpenArray(startOffset, endOffset - 1))
 
   else:
     unsupported T
