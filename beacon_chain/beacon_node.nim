@@ -929,7 +929,7 @@ proc updateStatus*(peer: Peer): Future[bool] {.async.} =
     headBlock = nstate.blockPool.head.blck
 
     ourStatus = StatusMsg(
-      fork_version: nstate.forkVersion,
+      forkDigest: nstate.forkDigest,
       finalizedRoot: finalizedHead.blck.root,
       finalizedEpoch: finalizedHead.slot.compute_epoch_at_slot(),
       headRoot: headBlock.root,

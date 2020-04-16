@@ -9,7 +9,7 @@ logScope:
 
 type
   StatusMsg* = object
-    forkVersion*: ForkDigest
+    forkDigest*: ForkDigest
     finalizedRoot*: Eth2Digest
     finalizedEpoch*: Epoch
     headRoot*: Eth2Digest
