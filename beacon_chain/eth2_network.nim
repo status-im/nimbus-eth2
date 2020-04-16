@@ -549,7 +549,7 @@ proc implementSendProcBody(sendProc: SendProc) =
 
   sendProc.useStandardBody(nil, nil, sendCallGenerator)
 
-proc handleIncomingStream(network: Eth2Node, conn: Connection,
+proc handleIncomingStream(network: Eth2Node, conn: Connection, useSnappy: bool,
                           MsgType, Format: distinct type) {.async, gcsafe.} =
   mixin callUserHandler, RecType
   const msgName = typetraits.name(MsgType)
@@ -567,13 +567,15 @@ proc handleIncomingStream(network: Eth2Node, conn: Connection,
   handleIncomingPeer(peer)
 
   try:
-    let
-      deadline = sleepAsync RESP_TIMEOUT
-      msgBytes = await readMsgBytes(conn, false, deadline)
+    let deadline = sleepAsync RESP_TIMEOUT
+    var msgBytes = await readMsgBytes(conn, false, deadline)
 
     if msgBytes.len == 0:
       await sendErrorResponse(peer, conn, ServerError, readTimeoutErrorMsg)
       return
+
+    if useSnappy:
+      msgBytes = framingFormatUncompress(msgBytes)
 
     type MsgRec = RecType(MsgType)
     var msg: MsgRec
@@ -831,13 +833,23 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
           `userHandlerCall`
 
         proc `protocolMounterName`(`networkVar`: `Eth2Node`) =
-          proc thunk(`streamVar`: `Connection`,
+          proc sszThunk(`streamVar`: `Connection`,
                       proto: string): Future[void] {.gcsafe.} =
-            return handleIncomingStream(`networkVar`, `streamVar`,
+            return handleIncomingStream(`networkVar`, `streamVar`, false,
                                         `MsgStrongRecName`, `Format`)
 
           mount `networkVar`.switch,
-                LPProtocol(codec: `codecNameLit`, handler: thunk)
+                LPProtocol(codec: `codecNameLit` & "ssz",
+                           handler: sszThunk)
+
+          proc snappyThunk(`streamVar`: `Connection`,
+                      proto: string): Future[void] {.gcsafe.} =
+            return handleIncomingStream(`networkVar`, `streamVar`, true,
+                                        `MsgStrongRecName`, `Format`)
+
+          mount `networkVar`.switch,
+                LPProtocol(codec: `codecNameLit` & "ssz_snappy",
+                           handler: snappyThunk)
 
       mounter = protocolMounterName
     else:
