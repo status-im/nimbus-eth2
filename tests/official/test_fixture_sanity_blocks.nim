@@ -58,22 +58,12 @@ proc runTest(identifier: string) =
 
       # check: stateRef.hash_tree_root() == postRef.hash_tree_root()
       if not postRef.isNil:
-        reportDiff(stateRef, postRef)
+        when false:
+          reportDiff(stateRef, postRef)
+        doAssert stateRef.hash_tree_root() == postRef.hash_tree_root()
 
   `testImpl _ blck _ identifier`()
 
 suiteReport "Official - Sanity - Blocks " & preset():
-  # Failing due to signature checking in indexed validation checking pending
-  # 0.10 BLS verification API with new domain handling.
-  const expected_failures =
-    [
-      "attester_slashing",
-      # TODO: regression BLS v0.10.1 to fix
-      "expected_deposit_in_block",
-    ]
-
   for kind, path in walkDir(SanityBlocksDir, true):
-    if path in expected_failures:
-      echo "Skipping test: ", path
-      continue
     runTest(path)

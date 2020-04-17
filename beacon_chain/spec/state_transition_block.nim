@@ -297,9 +297,17 @@ proc processAttestations(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#deposits
 proc processDeposits(state: var BeaconState, blck: BeaconBlock,
-    flags: UpdateFlags): bool {.nbench.}=
-  if not (len(blck.body.deposits) <= MAX_DEPOSITS):
-    notice "processDeposits: too many deposits"
+    flags: UpdateFlags): bool {.nbench.} =
+  let
+    num_deposits = len(blck.body.deposits).int64
+    req_deposits = min(MAX_DEPOSITS,
+      state.eth1_data.deposit_count.int64 - state.eth1_deposit_index.int64)
+  if not (num_deposits == req_deposits):
+    notice "processDeposits: incorrect number of deposits",
+      num_deposits = num_deposits,
+      req_deposits = req_deposits,
+      deposit_count = state.eth1_data.deposit_count,
+      deposit_index = state.eth1_deposit_index
     return false
 
   for deposit in blck.body.deposits:
