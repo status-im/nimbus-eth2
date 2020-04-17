@@ -133,7 +133,6 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 ## Official - Sanity - Blocks  [Preset: mainnet]
 ```diff
-+ [Invalid] expected_deposit_in_block                                                        OK
 + [Invalid] invalid_block_sig                                                                OK
 + [Invalid] invalid_proposer_index_sig_from_expected_proposer                                OK
 + [Invalid] invalid_proposer_index_sig_from_proposer_index                                   OK
@@ -141,7 +140,6 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 + [Invalid] prev_slot_block_transition                                                       OK
 + [Invalid] zero_block_sig                                                                   OK
 + [Valid]   attestation                                                                      OK
-+ [Valid]   attester_slashing                                                                OK
 + [Valid]   balance_driven_status_transitions                                                OK
 + [Valid]   deposit_in_block                                                                 OK
 + [Valid]   deposit_top_up                                                                   OK
@@ -155,7 +153,7 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 + [Valid]   skipped_slots                                                                    OK
 + [Valid]   voluntary_exit                                                                   OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
+OK: 19/19 Fail: 0/19 Skip: 0/19
 ## Official - Sanity - Slots  [Preset: mainnet]
 ```diff
 + Slots - double_empty_epoch                                                                 OK
@@ -167,4 +165,4 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 OK: 5/5 Fail: 0/5 Skip: 0/5
 
 ---TOTAL---
-OK: 117/117 Fail: 0/117 Skip: 0/117
+OK: 115/115 Fail: 0/115 Skip: 0/115
