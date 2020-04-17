@@ -165,16 +165,20 @@ func on_block*(
   if root in self.indices:
     return ForkChoiceSuccess
 
-  let node_index = self.nodes.len
+  var parent_index: Option[int]
+  if parent.isNone:
+      # Genesis (but Genesis might not be default(Eth2Digest))
+    parent_index = none(int)
+  elif parent.unsafeGet() notin self.indices:
+    return ForkChoiceError(
+      kind: fcErrUnknownParent,
+      child_root: root,
+      parent_root: parent.unsafeGet()
+    )
+  else:
+    parent_index = some(self.indices.unsafeGet(parent.unsafeGet()))
 
-  let parent_index = block:
-    if parent.isNone:
-      none(int)
-    elif parent.unsafeGet() notin self.indices:
-      # Is this possible?
-      none(int)
-    else:
-      some(self.indices.unsafeGet(parent.unsafeGet()))
+  let node_index = self.nodes.len
 
   let node = ProtoNode(
     slot: slot,
@@ -191,7 +195,7 @@ func on_block*(
   self.indices[node.root] = node_index
   self.nodes.add node # TODO: if this is costly, we can setLen + construct the node in-place
 
-  if parent_index.isSome():
+  if parent_index.isSome(): # parent_index is always valid except for Genesis
     let err = self.maybe_update_best_child_and_descendant(parent_index.unsafeGet(), node_index)
     if err.kind != fcSuccess:
       return err

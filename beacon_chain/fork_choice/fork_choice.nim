@@ -111,6 +111,12 @@ func process_attestation*(
     vote.next_root = block_root
     vote.next_epoch = target_epoch
 
+func contains*(self: ForkChoice, block_root: Eth2Digest): bool =
+  ## Returns `true` if a block is known to the fork choice
+  ## and `false` otherwise.
+  ##
+  ## In particular, before adding a block, its parent must be known to the fork choice
+  self.proto_array.indices.contains(block_root)
 
 func process_block*(
        self: var ForkChoice,
@@ -252,7 +258,7 @@ func compute_deltas(
 when isMainModule:
   import stew/endians2
 
-  func fakeHash*(index: SomeInteger): Eth2Digest =
+  func fakeHash(index: SomeInteger): Eth2Digest =
     ## Create fake hashes
     ## Those are just the value serialized in big-endian
     ## We add 16x16 to avoid having a zero hash are those are special cased

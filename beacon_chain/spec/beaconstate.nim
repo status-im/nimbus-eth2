@@ -475,6 +475,12 @@ proc check_attestation*(
   ## at the current slot. When acting as a proposer, the same rules need to
   ## be followed!
 
+  # TODO: When checking attestation from the network, currently rewinding/advancing
+  #       a temporary state is needed.
+  #       If this is too costly we can be DOS-ed.
+  #       We might want to split this into "state-dependent" checks and "state-independent" checks
+  #       The latter one should be made prior to state-rewinding.
+
   let
     stateSlot = state.slot
     data = attestation.data
