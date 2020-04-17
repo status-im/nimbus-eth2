@@ -418,14 +418,14 @@ func process_final_updates*(state: var BeaconState) {.nbench.}=
   state.previous_epoch_attestations = state.current_epoch_attestations
   state.current_epoch_attestations = @[]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#epoch-processing
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(state: var BeaconState) {.nbench.}=
   trace "process_epoch",
     current_epoch = get_current_epoch(state)
 
   var per_epoch_cache = get_empty_per_epoch_cache()
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#justification-and-finalization
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#justification-and-finalization
   process_justification_and_finalization(state, per_epoch_cache)
 
   trace "ran process_justification_and_finalization",
@@ -434,7 +434,7 @@ proc process_epoch*(state: var BeaconState) {.nbench.}=
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#rewards-and-penalties-1
   process_rewards_and_penalties(state, per_epoch_cache)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#registry-updates
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#registry-updates
   # Don't rely on caching here.
   process_registry_updates(state)
 
@@ -442,7 +442,7 @@ proc process_epoch*(state: var BeaconState) {.nbench.}=
   ## get_active_validator_indices(...) usually changes.
   clear(per_epoch_cache.beacon_committee_cache)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#slashings
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#slashings
   process_slashings(state)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#final-updates
