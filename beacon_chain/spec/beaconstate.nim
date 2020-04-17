@@ -395,7 +395,7 @@ proc is_valid_indexed_attestation*(
     return false
 
   # Verify indices are sorted and unique
-  if indices != sorted(indices, system.cmp):
+  if indices != sorted(toSet(indices).toSeq, system.cmp):
     notice "indexed attestation: indices not sorted"
     return false
 

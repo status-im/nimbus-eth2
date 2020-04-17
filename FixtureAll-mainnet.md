@@ -68,9 +68,11 @@ OK: 20/20 Fail: 0/20 Skip: 0/20
 ```diff
 + [Invalid] att1_bad_extra_index                                                             OK
 + [Invalid] att1_bad_replaced_index                                                          OK
++ [Invalid] att1_duplicate_index_double_signed                                               OK
 + [Invalid] att1_duplicate_index_normal_signed                                               OK
 + [Invalid] att2_bad_extra_index                                                             OK
 + [Invalid] att2_bad_replaced_index                                                          OK
++ [Invalid] att2_duplicate_index_double_signed                                               OK
 + [Invalid] att2_duplicate_index_normal_signed                                               OK
 + [Invalid] invalid_sig_1                                                                    OK
 + [Invalid] invalid_sig_1_and_2                                                              OK
@@ -85,7 +87,7 @@ OK: 20/20 Fail: 0/20 Skip: 0/20
 + [Valid]   success_double                                                                   OK
 + [Valid]   success_surround                                                                 OK
 ```
-OK: 18/18 Fail: 0/18 Skip: 0/18
+OK: 20/20 Fail: 0/20 Skip: 0/20
 ## Official - Operations - Block header  [Preset: mainnet]
 ```diff
 + [Invalid] invalid_parent_root                                                              OK
@@ -163,4 +165,4 @@ OK: 19/19 Fail: 0/19 Skip: 0/19
 OK: 5/5 Fail: 0/5 Skip: 0/5
 
 ---TOTAL---
-OK: 113/113 Fail: 0/113 Skip: 0/113
+OK: 115/115 Fail: 0/115 Skip: 0/115

@@ -68,9 +68,11 @@ OK: 20/20 Fail: 0/20 Skip: 0/20
 ```diff
 + [Invalid] att1_bad_extra_index                                                             OK
 + [Invalid] att1_bad_replaced_index                                                          OK
++ [Invalid] att1_duplicate_index_double_signed                                               OK
 + [Invalid] att1_duplicate_index_normal_signed                                               OK
 + [Invalid] att2_bad_extra_index                                                             OK
 + [Invalid] att2_bad_replaced_index                                                          OK
++ [Invalid] att2_duplicate_index_double_signed                                               OK
 + [Invalid] att2_duplicate_index_normal_signed                                               OK
 + [Invalid] invalid_sig_1                                                                    OK
 + [Invalid] invalid_sig_1_and_2                                                              OK
@@ -85,7 +87,7 @@ OK: 20/20 Fail: 0/20 Skip: 0/20
 + [Valid]   success_double                                                                   OK
 + [Valid]   success_surround                                                                 OK
 ```
-OK: 18/18 Fail: 0/18 Skip: 0/18
+OK: 20/20 Fail: 0/20 Skip: 0/20
 ## Official - Operations - Block header  [Preset: minimal]
 ```diff
 + [Invalid] invalid_parent_root                                                              OK
@@ -166,4 +168,4 @@ OK: 22/22 Fail: 0/22 Skip: 0/22
 OK: 5/5 Fail: 0/5 Skip: 0/5
 
 ---TOTAL---
-OK: 116/116 Fail: 0/116 Skip: 0/116
+OK: 118/118 Fail: 0/118 Skip: 0/118
