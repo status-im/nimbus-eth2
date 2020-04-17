@@ -138,7 +138,7 @@ proc main(nb_samples: Natural) =
     for i in 0 ..< proof_of_possessions.len:
       pop_valid = pop_valid and proof_of_possessions[i].verifyPoP(pubkeys[i])
 
-  # TODO: update with IETF API (Eth2 v0.10.1)
+  # TODO: update with IETF API (Eth2 v0.11.1)
   # func fastAggregateVerify*[T: byte|char](
   #       publicKeys: openarray[PublicKey],
   #       message: openarray[T],
