@@ -65,20 +65,5 @@ proc runTest(identifier: string) =
   `testImpl _ operations_attester_slashing _ identifier`()
 
 suiteReport "Official - Operations - Attester slashing " & preset():
-  # TODO these are both valid and check BLS signatures, which isn't working
-  # since 0.10.x introduces new BLS signing/verifying interface with domain
-  # in particular handled differently through compute_signing_root() rather
-  # than through the bls_verify(...) call directly. This did not become the
-  # visible issue it now is because another bug had been masking it wherein
-  # crypto.nim's bls_verify(...) call had been creating false positives, in
-  # which cases signature checks had been incorrectly passing.
-  const expected_failures =
-    [
-      # TODO: Regressions introduced by BLS v0.10.1
-      "att1_duplicate_index_double_signed", "att2_duplicate_index_double_signed"
-    ]
   for kind, path in walkDir(OpAttSlashingDir, true):
-    if path in expected_failures:
-      echo "Skipping test: ", path
-      continue
     runTest(path)
