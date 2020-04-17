@@ -169,7 +169,7 @@ func readSszValue*(input: openarray[byte], T: type): T =
           raise newException(MalformedSszError, "SSZ field offsets are not monotonically increasing")
         elif endOffset > input.len:
           raise newException(MalformedSszError, "SSZ field offset points past the end of the input")
-        elif startOffset < boundingOffsets[0]:
+        elif startOffset < minimallyExpectedSize:
           raise newException(MalformedSszError, "SSZ field offset points outside bounding offsets")
 
       # TODO The extra type escaping here is a work-around for a Nim issue:
