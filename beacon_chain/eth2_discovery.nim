@@ -7,7 +7,7 @@ import
   chronicles, stew/[results, objects], eth/keys, eth/trie/db, eth/p2p/enode,
   eth/p2p/discoveryv5/[enr, protocol, discovery_db, types],
   libp2p/[multiaddress, peer],
-  libp2p/crypto/crypto as libp2pCrypto,
+  libp2p/crypto/crypto as libp2pCrypto, libp2p/crypto/secp,
   conf
 
 type
@@ -67,7 +67,7 @@ proc toENode*(a: MultiAddress): Result[ENode, cstring] {.raises: [Defect].} =
 
 proc toMultiAddressStr*(enode: ENode): string =
   var peerId = PeerID.init(libp2pCrypto.PublicKey(
-    scheme: Secp256k1, skkey: SkPublicKey(enode.pubkey)))
+    scheme: Secp256k1, skkey: secp.SkPublicKey(enode.pubkey)))
   &"/ip4/{enode.address.ip}/tcp/{enode.address.tcpPort}/p2p/{peerId.pretty}"
 
 proc toENode*(enrRec: enr.Record): Result[ENode, cstring] {.raises: [Defect].} =

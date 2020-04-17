@@ -10,7 +10,7 @@ import
   chronos, chronicles, metrics,
   # TODO: create simpler to use libp2p modules that use re-exports
   libp2p/[switch, standard_setup, peerinfo, peer, connection,
-          multiaddress, multicodec, crypto/crypto,
+          multiaddress, multicodec, crypto/crypto, crypto/secp,
           protocols/identify, protocols/protocol],
   libp2p/protocols/secure/[secure, secio],
   libp2p/protocols/pubsub/[pubsub, floodsub, rpc/messages],
@@ -18,7 +18,6 @@ import
   libp2p/stream/lpstream,
   eth/[keys, async_utils], eth/p2p/[enode, p2p_protocol_dsl],
   eth/net/nat, eth/p2p/discoveryv5/[enr, node],
-
   # Beacon node modules
   version, conf, eth2_discovery, libp2p_json_serialization, conf, ssz,
   peer_pool, spec/[datatypes, network]
@@ -633,7 +632,7 @@ proc toPeerInfo*(r: enr.TypedRecord): PeerInfo =
       return # TODO
 
     let peerId = PeerID.init crypto.PublicKey(
-      scheme: Secp256k1, skkey: SkPublicKey(pubKey[]))
+      scheme: Secp256k1, skkey: secp.SkPublicKey(pubKey[]))
     var addresses = newSeq[MultiAddress]()
 
     if r.ip.isSome and r.tcp.isSome:
@@ -913,10 +912,10 @@ proc setupNat(conf: BeaconNodeConf): tuple[ip: Option[IpAddress],
         (result.tcpPort, result.udpPort) = extPorts.get()
 
 func asLibp2pKey*(key: keys.PublicKey): PublicKey =
-  PublicKey(scheme: Secp256k1, skkey: SkPublicKey(key))
+  PublicKey(scheme: Secp256k1, skkey: secp.SkPublicKey(key))
 
 func asEthKey*(key: PrivateKey): keys.PrivateKey =
-  keys.PrivateKey(SkSecretKey(data: key.skkey.data))
+  keys.PrivateKey(key.skkey)
 
 proc initAddress*(T: type MultiAddress, str: string): T =
   let address = MultiAddress.init(str)
