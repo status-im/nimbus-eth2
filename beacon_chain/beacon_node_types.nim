@@ -221,9 +221,7 @@ type
 proc shortLog*(v: AttachedValidator): string = shortLog(v.pubKey)
 
 chronicles.formatIt BlockSlot:
-  mixin toHex
   it.blck.root.data[0..3].toHex() & ":" & $it.slot
 
 chronicles.formatIt BlockRef:
-  mixin toHex
   it.root.data[0..3].toHex() & ":" & $it.slot
