@@ -117,7 +117,11 @@ proc addTestBlock*(
       state,
       parent_root,
       randao_reveal,
-      eth1_data,
+      # Keep deposit counts internally consistent.
+      Eth1Data(
+        deposit_root: eth1_data.deposit_root,
+        deposit_count: state.eth1_deposit_index + deposits.len.uint64,
+        block_hash: eth1_data.block_hash),
       graffiti,
       attestations,
       deposits)
