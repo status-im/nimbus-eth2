@@ -85,8 +85,8 @@ It also provides a downloading script for prebuilt PCRE.
 ### Android
 
 * Install the [Termux](https://termux.com) app from FDroid or the Google Play store
-* Install a [PRoot](https://wiki.termux.com/wiki/PRoot) of your choice following the instructions for your preferred distribution. 
-Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on Arm64 architecture (common architecture for Android devices).  
+* Install a [PRoot](https://wiki.termux.com/wiki/PRoot) of your choice following the instructions for your preferred distribution.
+Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on Arm64 architecture (common architecture for Android devices).
 
 *Assuming Ubuntu PRoot is used*
 
@@ -105,7 +105,6 @@ Once the [prerequisites](#prerequisites) are installed you can connect to testne
 ```bash
 git clone https://github.com/status-im/nim-beacon-chain
 cd nim-beacon-chain
-make                 # This invocation will bootstrap the build system with additional Makefiles
 make testnet0        # This will build Nimbus and all other dependencies
                      # and connect you to testnet0
 ```
@@ -228,9 +227,22 @@ Variables -> Path -> Edit -> New -> C:\mingw-w64\mingw64\bin (it's "C:\mingw-w64
 
 Install [Git for Windows](https://gitforwindows.org/) and use a "Git Bash" shell to clone and build nim-beacon-chain.
 
+Install [CMake](https://cmake.org/) to be able to build libunwind (used for [lightweight stack traces](https://github.com/status-im/nim-libbacktrace)).
+
+When running the tests, you might hit some Windows path length limits. Increase them by editing the Registry in a PowerShell instance with administrator privileges:
+
+```powershell
+Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name 'LongPathsEnabled' -Value 1
+```
+
+and run this in a "Git Bash" terminal:
+
+```bash
+git config --global core.longpaths true
+```
+
 If you don't want to compile PCRE separately, you can fetch pre-compiled DLLs with:
 ```bash
-mingw32-make # this first invocation will update the Git submodules
 mingw32-make fetch-dlls # this will place the right DLLs for your architecture in the "build/" directory
 ```
 
@@ -247,9 +259,9 @@ mingw32-make test # run the test suite
 After cloning the repo:
 
 ```bash
-make # The first `make` invocation will update all Git submodules and prompt you to run `make` again.
-     # It's only required once per Git clone. You'll run `make update` after each `git pull`, in the future,
-     # to keep those submodules up to date.
+# The first `make` invocation will update all Git submodules.
+# You'll run `make update` after each `git pull`, in the future, to keep those submodules up to date.
+make
 
 # Run tests
 make test

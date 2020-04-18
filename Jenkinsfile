@@ -2,7 +2,6 @@ def runStages() {
 	try {
 		stage("Clone") {
 			checkout scm
-			sh "make build-system-checks || true"
 		}
 
 		cache(maxCacheSize: 250, caches: [
