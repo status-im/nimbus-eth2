@@ -697,7 +697,7 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
         stateSlot = shortLog(state.data.data.slot),
         ancestorStateRoot = shortLog(ancestor.data.message.state_root),
         ancestorStateSlot = shortLog(state.slot),
-        slot = shortLog(bs.slot),
+        slot = shortLog(bs.blck.slot),
         blockRoot = shortLog(bs.blck.root),
         ancestors = ancestors.len,
         cat = "replay_state"
