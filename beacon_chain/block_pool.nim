@@ -688,21 +688,22 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
 
     let blockBucket =
       pool.cachedStates[parBs.slot.compute_epoch_at_slot.uint64 mod 2]
-    if parBs.blck.root in blockBucket and parBs.slot == bs.slot:
+    if parBs.blck.root in blockBucket:
       state = blockBucket[parBs.blck.root]
-      let ancestor = ancestors.pop()
-      state.blck = ancestor.refs
+      if state.data.data.slot == bs.slot:
+        let ancestor = ancestors.pop()
+        state.blck = ancestor.refs
 
-      trace "Replaying state transitions with cached/non-database state",
-        stateSlot = shortLog(state.data.data.slot),
-        ancestorStateRoot = shortLog(ancestor.data.message.state_root),
-        ancestorStateSlot = shortLog(state.blck.slot),
-        slot = shortLog(bs.blck.slot),
-        blockRoot = shortLog(bs.blck.root),
-        ancestors = ancestors.len,
-        cat = "replay_state"
+        trace "Replaying state transitions with cached/non-database state",
+          stateSlot = shortLog(state.data.data.slot),
+          ancestorStateRoot = shortLog(ancestor.data.message.state_root),
+          ancestorStateSlot = shortLog(state.blck.slot),
+          slot = shortLog(bs.blck.slot),
+          blockRoot = shortLog(bs.blck.root),
+          ancestors = ancestors.len,
+          cat = "replay_state"
 
-      return ancestors
+        return ancestors
 
     if (let tmp = pool.db.getStateRoot(parBs.blck.root, parBs.slot); tmp.isSome()):
       if pool.db.containsState(tmp.get):
