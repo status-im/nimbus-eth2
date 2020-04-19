@@ -1,7 +1,6 @@
 def runStages() {
 	try {
 		stage("Clone") {
-			preBuildCleanup()
 			checkout scm
 		}
 
