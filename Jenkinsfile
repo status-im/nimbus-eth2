@@ -11,7 +11,7 @@ def runStages() {
 			stage("Build") {
 				sh "make -j${env.NPROC} update" /* to allow a newer Nim version to be detected */
 				sh "make -j${env.NPROC} deps" /* to allow the following parallel stages */
-				sh "scripts/setup_official_tests.sh jsonTestsCache"
+				sh "V=1 ./scripts/setup_official_tests.sh jsonTestsCache"
 			}
 		}
 
