@@ -1,6 +1,7 @@
 def runStages() {
 	try {
 		stage("Clone") {
+			cleanWs()
 			checkout scm
 		}
 
