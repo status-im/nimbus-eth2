@@ -1,7 +1,7 @@
 def runStages() {
 	try {
 		stage("Clone") {
-			cleanWs()
+			preBuildCleanup()
 			checkout scm
 		}
 
@@ -42,7 +42,7 @@ def runStages() {
 		// we need to rethrow the exception here
 		throw e
 	} finally {
-		cleanWs()
+		cleanWs(disableDeferredWipeout: true, deleteDirs: true)
 	}
 }
 
