@@ -1,6 +1,7 @@
 def runStages() {
 	try {
 		stage("Clone") {
+			sh "rm -rf *"
 			checkout scm
 		}
 

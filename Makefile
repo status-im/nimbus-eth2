@@ -52,7 +52,7 @@ ifeq ($(NIM_PARAMS),)
 GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
 .DEFAULT:
 	+@ echo -e "Git submodules not found. Running '$(GIT_SUBMODULE_UPDATE)'.\n"; \
-		$(GIT_SUBMODULE_UPDATE); \
+		$(GIT_SUBMODULE_UPDATE) && \
 		echo
 # Now that the included *.mk files appeared, and are newer than this file, Make will restart itself:
 # https://www.gnu.org/software/make/manual/make.html#Remaking-Makefiles
