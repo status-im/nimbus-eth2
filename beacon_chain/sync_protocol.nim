@@ -131,19 +131,16 @@ p2pProtocol BeaconSync(version = 1,
             count: uint64,
             step: uint64) {.
             libp2pProtocol("beacon_blocks_by_range", 1).} =
-      trace "got range request", peer, count, startSlot, step
+      trace "got range request", peer, startSlot, count, step
 
       if count > 0'u64:
-        let count = if step != 0: min(count, MAX_REQUESTED_BLOCKS.uint64) else: 1
-        let pool = peer.networkState.blockPool
-        var results: array[MAX_REQUESTED_BLOCKS, BlockRef]
         let
-          lastPos = min(count.int, results.len) - 1
-          firstPos = pool.getBlockRange(pool.head.blck.root, startSlot, step,
-                                        results.toOpenArray(0, lastPos))
-        for i in firstPos.int .. lastPos.int:
-          trace "wrote response block", slot = results[i].slot
-          await response.write(pool.get(results[i]).data)
+          count = if step != 0: min(count, MAX_REQUESTED_BLOCKS.uint64) else: 1
+          pool = peer.networkState.blockPool
+        for b in pool.getBlockRange(startSlot, count, step):
+          if not b.isNil:
+            trace "wrote response block", slot = b.slot, roor = shortLog(b.root)
+            await response.write(pool.get(b).data)
 
     proc beaconBlocksByRoot(
             peer: Peer,

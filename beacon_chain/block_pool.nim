@@ -449,77 +449,34 @@ func getRef*(pool: BlockPool, root: Eth2Digest): BlockRef =
   ## Retrieve a resolved block reference, if available
   pool.blocks.getOrDefault(root, nil)
 
-proc getBlockRange*(pool: BlockPool, headBlock: Eth2Digest,
-                    startSlot: Slot, skipStep: Natural,
-                    output: var openarray[BlockRef]): Natural =
+proc getBlockRange*(
+    pool: BlockPool, startSlot: Slot, count, skipStep: Natural): seq[BlockRef] =
   ## This function populates an `output` buffer of blocks
   ## with a range starting from `startSlot` and skipping
   ## every `skipTest` number of blocks.
   ##
-  ## Please note that the function may not necessarily
-  ## populate the entire buffer. The values will be written
-  ## in a way such that the last block is placed at the end
-  ## of the buffer while the first indices of the buffer
-  ## may remain unwritten.
-  ##
-  ## The result value of the function will be the index of
-  ## the first block in the resulting buffer. If no values
-  ## were written to the buffer, the result will be equal to
-  ## `buffer.len`. In other words, you can use the function
-  ## like this:
-  ##
-  ## var buffer: array[N, BlockRef]
-  ## let startPos = pool.getBlockRange(headBlock, startSlot, skipStep, buffer)
-  ## for i in startPos ..< buffer.len:
-  ##   echo buffer[i].slot
-  ##
-  result = output.len
+  trace "getBlockRange entered",
+    head = shortLog(pool.head.blck.root), count, startSlot, skipStep
 
-  trace "getBlockRange entered", headBlock, startSlot, skipStep
-
-  var b = pool.getRef(headBlock)
-  if b == nil:
-    trace "head block not found", headBlock
+  if startSlot > pool.head.blck.slot:
+    debug "Range request for future slot",
+      head = shortLog(pool.head.blck.slot), count, startSlot, skipStep
     return
 
-  trace "head block found", headBlock = b
+  let
+    endSlot = startSlot + uint64(count * skipStep)
 
-  if b.slot < startSlot:
-    trace "head block is older than startSlot", headBlockSlot = b.slot, startSlot
-    return
+  var
+    ret = newSeq[BlockRef](count)
+    b = pool.head.blck.atSlot(endSlot)
 
-  template skip(n: int) =
-    let targetSlot = b.slot - Slot(n)
-    while b.slot > targetSlot:
-      if b.parent == nil:
-        trace "stopping at parentless block", slot = b.slot, root = b.root
-        return
-      trace "skipping block", nextBlock = b.parent
+  for i in 0..<count:
+    for j in 0..<skipStep:
       b = b.parent
+    if b.blck.slot == b.slot:
+      ret[ret.len - i - 1] = b.blck
 
-  # We must compute the last block that is eligible for inclusion
-  # in the results. This will be a block with a slot number that's
-  # aligned to the stride of the requested block range, so we first
-  # compute the steps needed to get to an aligned position:
-  var blocksToSkip = b.slot.int mod skipStep
-  let alignedHeadSlot = b.slot.int - blocksToSkip
-
-  # Then we see if this aligned position is within our wanted
-  # range. If it's outside it, we must skip more blocks:
-  let lastWantedSlot = startSlot.int + (output.len - 1) * skipStep
-  if alignedHeadSlot > lastWantedSlot:
-    blocksToSkip += (alignedHeadSlot - lastWantedSlot)
-
-  # Finally, we skip the computed number of blocks
-  trace "aligning head", blocksToSkip
-  skip blocksToSkip
-
-  # From here, we can just write out the requested block range:
-  while b != nil and b.slot >= startSlot and result > 0:
-    dec result
-    output[result] = b
-    trace "getBlockRange result", position = result, blockSlot = b.slot
-    skip skipStep
+  ret
 
 func getBlockBySlot*(pool: BlockPool, slot: Slot): BlockRef =
   ## Retrieves the first block in the current canonical chain
