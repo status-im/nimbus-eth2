@@ -92,12 +92,12 @@ type
     DOMAIN_SELECTION_PROOF = 5
     DOMAIN_AGGREGATE_AND_PROOF = 6
     # Phase 1 - Sharding
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase1/beacon-chain.md#misc
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase1/beacon-chain.md#misc
     DOMAIN_SHARD_PROPOSAL = 128
     DOMAIN_SHARD_COMMITTEE = 129
     DOMAIN_LIGHT_CLIENT = 130
     # Phase 1 - Custody game
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase1/custody-game.md#signature-domain-types
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase1/custody-game.md#signature-domain-types
     DOMAIN_CUSTODY_BIT_SLASHING = 0x83
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#custom-types
@@ -368,7 +368,7 @@ type
     aggregate*: Attestation
     selection_proof*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/validator.md#signedaggregateandproof
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#signedaggregateandproof
   SignedAggregateAndProof* = object
     message*: AggregateAndProof
     signature*: ValidatorSig

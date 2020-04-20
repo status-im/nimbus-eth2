@@ -15,8 +15,7 @@ import
   ../../beacon_chain/[ssz, state_transition, extras],
   # Test utilities
   ../testutil,
-  ./fixtures_utils,
-  ../helpers/debug_state
+  ./fixtures_utils
 
 const SanityBlocksDir = SszTestsDir/const_preset/"phase0"/"sanity"/"blocks"/"pyspec_tests"
 

@@ -131,6 +131,11 @@ type
 
     db*: BeaconChainDB
 
+    cachedStates*: array[2, BeaconChainDB] ##\
+    ## Dual BeaconChainDBs operates as a pool allocator which handles epoch
+    ## boundaries which don't align with an ongoing latency of availability
+    ## of precalculated BeaconStates from the recent past.
+
     heads*: seq[Head]
 
     inAdd*: bool
