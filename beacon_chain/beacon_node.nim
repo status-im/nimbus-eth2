@@ -623,7 +623,7 @@ proc verifyFinalization(node: BeaconNode, slot: Slot) =
     doAssert finalizedEpoch + 2 == epoch
 
 proc broadcastAggregatedAttestations(
-    node: BeaconNode, state: auto, head: var auto, slot: Slot,
+    node: BeaconNode, aggregationHead: BlockRef, aggregationSlot: Slot,
     trailing_distance: uint64) =
   # The index is via a
   # locally attested validator. Unlike in handleAttestations(...) there's a
@@ -633,37 +633,138 @@ proc broadcastAggregatedAttestations(
   # way to organize this. Then the private key for that validator should be
   # the corresponding one -- whatver they are, they match.
 
-  let
-    committees_per_slot = get_committee_count_at_slot(state, slot)
-  var cache = get_empty_per_epoch_cache()
-  for committee_index in 0'u64..<committees_per_slot:
-    let committee = get_beacon_committee(
-      state, slot, committee_index.CommitteeIndex, cache)
+  let bs = BlockSlot(blck: aggregationHead, slot: aggregationSlot)
+  node.blockPool.withState(node.blockPool.tmpState, bs):
+    let
+      committees_per_slot = get_committee_count_at_slot(state, aggregationSlot)
+    var cache = get_empty_per_epoch_cache()
+    for committee_index in 0'u64..<committees_per_slot:
+      let committee = get_beacon_committee(
+        state, aggregationSlot, committee_index.CommitteeIndex, cache)
 
-    for index_in_committee, validatorIdx in committee:
-      let validator = node.getAttachedValidator(state, validatorIdx)
-      if validator != nil:
-        # This is slightly strange/inverted control flow, since really it's
-        # going to happen once per slot, but this is the best way to get at
-        # the validator index and private key pair. TODO verify it only has
-        # one isSome() with test.
-        let aggregateAndProof =
-          aggregate_attestations(node.attestationPool, state,
-            committee_index.CommitteeIndex,
-            # TODO https://github.com/status-im/nim-beacon-chain/issues/545
-            # this assumes in-process private keys
-            validator.privKey,
-            trailing_distance)
+      for index_in_committee, validatorIdx in committee:
+        let validator = node.getAttachedValidator(state, validatorIdx)
+        if validator != nil:
+          # This is slightly strange/inverted control flow, since really it's
+          # going to happen once per slot, but this is the best way to get at
+          # the validator index and private key pair. TODO verify it only has
+          # one isSome() with test.
+          let aggregateAndProof =
+            aggregate_attestations(node.attestationPool, state,
+              committee_index.CommitteeIndex,
+              # TODO https://github.com/status-im/nim-beacon-chain/issues/545
+              # this assumes in-process private keys
+              validator.privKey,
+              trailing_distance)
 
-        # Don't broadcast when, e.g., this node isn't an aggregator
-        if aggregateAndProof.isSome:
-          var signedAP = SignedAggregateAndProof(
-            message: aggregateAndProof.get,
-            # TODO Make the signing async here
-            signature: validator.signAggregateAndProof(aggregateAndProof.get,
-                                                       state.fork,
-                                                       state.genesis_validators_root))
-          node.network.broadcast(node.topicAggregateAndProofs, signedAP)
+          # Don't broadcast when, e.g., this node isn't an aggregator
+          if aggregateAndProof.isSome:
+            var signedAP = SignedAggregateAndProof(
+              message: aggregateAndProof.get,
+              # TODO Make the signing async here
+              signature: validator.signAggregateAndProof(
+                aggregateAndProof.get, state.fork,
+                state.genesis_validators_root))
+            node.network.broadcast(node.topicAggregateAndProofs, signedAP)
+
+proc handleValidatorDuties(
+    node: BeaconNode, head: BlockRef, lastSlot, slot: Slot): Future[BlockRef] {.async.} =
+  ## Perform validator duties - create blocks, vote and aggreagte existing votes
+  if node.attachedValidators.count == 0:
+    # Nothing to do because we have no validator attached
+    return head
+
+  if not node.isSynced(head):
+    notice "Node out of sync, skipping validator duties",
+      slot, headSlot = head.slot
+    return head
+
+  var curSlot = lastSlot + 1
+  var head = head
+
+  # Start by checking if there's work we should have done in the past that we
+  # can still meaningfully do
+  while curSlot < slot:
+    # TODO maybe even collect all work synchronously to avoid unnecessary
+    #      state rewinds while waiting for async operations like validator
+    #      signature..
+    notice "Catching up",
+      curSlot = shortLog(curSlot),
+      lastSlot = shortLog(lastSlot),
+      slot = shortLog(slot),
+      cat = "overload"
+
+    # For every slot we're catching up, we'll propose then send
+    # attestations - head should normally be advancing along the same branch
+    # in this case
+    # TODO what if we receive blocks / attestations while doing this work?
+    head = await handleProposal(node, head, curSlot)
+
+    # For each slot we missed, we need to send out attestations - if we were
+    # proposing during this time, we'll use the newly proposed head, else just
+    # keep reusing the same - the attestation that goes out will actually
+    # rewind the state to what it looked like at the time of that slot
+    # TODO smells like there's an optimization opportunity here
+    handleAttestations(node, head, curSlot)
+
+    curSlot += 1
+
+  head = await handleProposal(node, head, slot)
+
+  # We've been doing lots of work up until now which took time. Normally, we
+  # send out attestations at the slot thirds-point, so we go back to the clock
+  # to see how much time we need to wait.
+  # TODO the beacon clock might jump here also. It's probably easier to complete
+  #      the work for the whole slot using a monotonic clock instead, then deal
+  #      with any clock discrepancies once only, at the start of slot timer
+  #      processing..
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#attesting
+  # A validator should create and broadcast the attestation to the associated
+  # attestation subnet when either (a) the validator has received a valid
+  # block from the expected block proposer for the assigned slot or
+  # (b) one-third of the slot has transpired (`SECONDS_PER_SLOT / 3` seconds
+  # after the start of slot) -- whichever comes first.
+  template sleepToSlotOffset(extra: chronos.Duration, msg: static string) =
+    let
+      fromNow = node.beaconClock.fromNow(slot.toBeaconTime(extra))
+
+    if fromNow.inFuture:
+      trace msg,
+        slot = shortLog(slot),
+        fromNow = shortLog(fromNow.offset),
+        cat = "scheduling"
+
+      await sleepAsync(fromNow.offset)
+
+      # Time passed - we might need to select a new head in that case
+      head = node.updateHead()
+
+  sleepToSlotOffset(
+    seconds(int64(SECONDS_PER_SLOT)) div 3, "Waiting to send attestations")
+
+  handleAttestations(node, head, slot)
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-aggregate
+  # If the validator is selected to aggregate (is_aggregator), then they
+  # broadcast their best aggregate as a SignedAggregateAndProof to the global
+  # aggregate channel (beacon_aggregate_and_proof) two-thirds of the way
+  # through the slot-that is, SECONDS_PER_SLOT * 2 / 3 seconds after the start
+  # of slot.
+  if slot > 2:
+    sleepToSlotOffset(
+      seconds(int64(SECONDS_PER_SLOT * 2) div 3),
+      "Waiting to aggregate attestations")
+
+    const TRAILING_DISTANCE = 1
+    let
+      aggregationSlot = slot - TRAILING_DISTANCE
+      aggregationHead = getAncestorAt(head, aggregationSlot)
+
+    broadcastAggregatedAttestations(
+      node, aggregationHead, aggregationSlot, TRAILING_DISTANCE)
+
+  return head
 
 proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
@@ -757,13 +858,6 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   # TODO typically, what consitutes correct actions stays constant between slot
   #      updates and is stable across some epoch transitions as well - see how
   #      we can avoid recalculating everything here
-
-  var head = node.updateHead()
-
-  # TODO is the slot of the clock or the head block more interesting? provide
-  #      rationale in comment
-  beacon_head_slot.set slot.int64
-
   # TODO if the head is very old, that is indicative of something being very
   #      wrong - us being out of sync or disconnected from the network - need
   #      to consider what to do in that case:
@@ -779,99 +873,15 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   #                     disappear naturally - risky because user is not aware,
   #                     and might lose stake on canonical chain but "just works"
   #                     when reconnected..
-  if node.attachedValidators.count == 0:
-    # There are no validators, thus we don't have any additional work to do
-    # beyond keeping track of the head
-    discard
-  elif not node.isSynced(head):
-    warn "Node out of sync, skipping block and attestation production for this slot",
-      slot, headSlot = head.slot
-  else:
-    var curSlot = lastSlot + 1
-    while curSlot < slot:
-      # Timers may be delayed because we're busy processing, and we might have
-      # more work to do. We'll try to do so in an expedited way.
-      # TODO maybe even collect all work synchronously to avoid unnecessary
-      #      state rewinds while waiting for async operations like validator
-      #      signature..
-      notice "Catching up",
-        curSlot = shortLog(curSlot),
-        lastSlot = shortLog(lastSlot),
-        slot = shortLog(slot),
-        cat = "overload"
+  var head = node.updateHead()
 
-      # For every slot we're catching up, we'll propose then send
-      # attestations - head should normally be advancing along the same branch
-      # in this case
-      # TODO what if we receive blocks / attestations while doing this work?
-      head = await handleProposal(node, head, curSlot)
+  # TODO is the slot of the clock or the head block more interesting? provide
+  #      rationale in comment
+  beacon_head_slot.set slot.int64
 
-      # For each slot we missed, we need to send out attestations - if we were
-      # proposing during this time, we'll use the newly proposed head, else just
-      # keep reusing the same - the attestation that goes out will actually
-      # rewind the state to what it looked like at the time of that slot
-      # TODO smells like there's an optimization opportunity here
-      handleAttestations(node, head, curSlot)
+  # Time passes in here..
+  head = await node.handleValidatorDuties(head, lastSlot, slot)
 
-      curSlot += 1
-
-    head = await handleProposal(node, head, slot)
-
-    # We've been doing lots of work up until now which took time. Normally, we
-    # send out attestations at the slot thirds-point, so we go back to the clock
-    # to see how much time we need to wait.
-    # TODO the beacon clock might jump here also. It's probably easier to complete
-    #      the work for the whole slot using a monotonic clock instead, then deal
-    #      with any clock discrepancies once only, at the start of slot timer
-    #      processing..
-
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#attesting
-    # A validator should create and broadcast the attestation to the associated
-    # attestation subnet when either (a) the validator has received a valid
-    # block from the expected block proposer for the assigned slot or
-    # (b) one-third of the slot has transpired (`SECONDS_PER_SLOT / 3` seconds
-    # after the start of slot) -- whichever comes first.
-    template sleepToSlotOffset(extra: chronos.Duration, msg: static string) =
-      let
-        fromNow = node.beaconClock.fromNow(slot.toBeaconTime(extra))
-
-      if fromNow.inFuture:
-        trace msg,
-          slot = shortLog(slot),
-          fromNow = shortLog(fromNow.offset),
-          cat = "scheduling"
-
-        await sleepAsync(fromNow.offset)
-
-        # Time passed - we might need to select a new head in that case
-        head = node.updateHead()
-
-    sleepToSlotOffset(
-      seconds(int64(SECONDS_PER_SLOT)) div 3, "Waiting to send attestations")
-
-    handleAttestations(node, head, slot)
-
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-aggregate
-    # If the validator is selected to aggregate (is_aggregator), then they
-    # broadcast their best aggregate as a SignedAggregateAndProof to the global
-    # aggregate channel (beacon_aggregate_and_proof) two-thirds of the way
-    # through the slot-that is, SECONDS_PER_SLOT * 2 / 3 seconds after the start
-    # of slot.
-    if slot > 2:
-      sleepToSlotOffset(
-        seconds(int64(SECONDS_PER_SLOT * 2) div 3),
-        "Waiting to aggregate attestations")
-
-      const TRAILING_DISTANCE = 1
-      let aggregationSlot = slot - TRAILING_DISTANCE
-      var aggregationHead = getAncestorAt(head, aggregationSlot)
-
-      let bs = BlockSlot(blck: aggregationHead, slot: aggregationSlot)
-      node.blockPool.withState(node.blockPool.tmpState, bs):
-        broadcastAggregatedAttestations(
-          node, state, aggregationHead, aggregationSlot, TRAILING_DISTANCE)
-
-  # TODO ... and beacon clock might jump here also. sigh.
   let
     nextSlotStart = saturate(node.beaconClock.fromNow(nextSlot))
 
