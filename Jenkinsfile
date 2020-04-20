@@ -1,8 +1,9 @@
 def runStages() {
 	try {
 		stage("Clone") {
-			sh "rm -rf *"
 			checkout scm
+			/* we need to update the submodules before caching kicks in */
+			sh "git submodule update --init --recursive"
 		}
 
 		cache(maxCacheSize: 250, caches: [
