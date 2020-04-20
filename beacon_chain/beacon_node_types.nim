@@ -131,15 +131,10 @@ type
 
     db*: BeaconChainDB
 
-    cachedStates*: array[2, Table[Eth2Digest, StateData]] ##\
-    ## Different enough use case than BeaconChainDB is for. Simpler schema,
-    ## no notion of head/tail/etc, and no in-principle durability reason. A
-    ## nested table scheme operates as a pool allocator which handles epoch
+    cachedStates*: array[2, BeaconChainDB] ##\
+    ## Dual BeaconChainDBs operates as a pool allocator which handles epoch
     ## boundaries which don't align with an ongoing latency of availability
-    ## of precalculated BeaconStates from the recent past. In BeaconChainDB
-    ## a two-level block root -> state root -> state schema exists but it's
-    ## pointless here -- just directly block root -> state suffices for use
-    ## in rewindState(...) and is intrinsically more atomic.
+    ## of precalculated BeaconStates from the recent past.
 
     heads*: seq[Head]
 

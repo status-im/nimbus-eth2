@@ -1,6 +1,6 @@
 import
   bitops, chronicles, options, tables,
-  ssz, beacon_chain_db, state_transition, extras,
+  ssz, beacon_chain_db, state_transition, extras, kvstore,
   beacon_node_types, metrics,
   spec/[crypto, datatypes, digest, helpers, validator]
 
@@ -230,8 +230,8 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
     # initialized on an epoch boundary, but that is a reasonable readability,
     # simplicity, and non-special-casing tradeoff for the inefficiency.
     cachedStates: [
-      initTable[Eth2Digest, StateData](),
-      initTable[Eth2Digest, StateData]()
+      init(BeaconChainDB, kvStore MemoryStoreRef.init()),
+      init(BeaconChainDB, kvStore MemoryStoreRef.init())
     ],
 
     blocks: blocks,
@@ -605,6 +605,8 @@ proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
   #      we could easily see a state explosion
   logScope: pcs = "save_state_at_epoch_start"
 
+  var currentCache =
+    pool.cachedStates[state.data.slot.compute_epoch_at_slot.uint64 mod 2]
   if state.data.slot mod SLOTS_PER_EPOCH == 0:
     if not pool.db.containsState(state.root):
       info "Storing state",
@@ -618,12 +620,11 @@ proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
       pool.db.putStateRoot(blck.root, state.data.slot, state.root)
 
       # Because state.data.slot mod SLOTS_PER_EPOCH == 0, wrap back to last
-      # time this was the case, i.e. last currentHalf. The opposite parity,
+      # time this was the case i.e. last currentCache. The opposite parity,
       # by contrast, has just finished filling from the previous epoch. The
       # resulting lookback window is thus >= SLOTS_PER_EPOCH in size, while
       # bounded from above by 2*SLOTS_PER_EPOCH.
-      pool.cachedStates[state.data.slot.compute_epoch_at_slot.uint64 mod 2] =
-        initTable[Eth2Digest, StateData]()
+      currentCache = init(BeaconChainDB, kvStore MemoryStoreRef.init())
   else:
     # Need to be able to efficiently access states for both attestation
     # aggregation and to process block proposals going back to the last
@@ -649,8 +650,9 @@ proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
     # by a constant-factor, worsens things. TODO the actual solution's,
     # eventually, to switch to CoW and/or ref objects for state and the
     # hash_tree_root processing.
-    pool.cachedStates[state.data.slot.compute_epoch_at_slot.uint64 mod 2][blck.root]=
-      StateData(data: state, blck: blck)
+    currentCache.putState(state.root, state.data)
+    # TODO this should be atomic with the above write..
+    currentCache.putStateRoot(blck.root, state.data.slot, state.root)
 
 proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
     seq[BlockData] =
@@ -686,29 +688,14 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
     if parBs.blck != curBs.blck:
       ancestors.add(pool.get(parBs.blck))
 
-    let blockBucket =
-      pool.cachedStates[parBs.slot.compute_epoch_at_slot.uint64 mod 2]
-    if parBs.blck.root in blockBucket:
-      state = blockBucket[parBs.blck.root]
-      if state.data.data.slot == bs.slot:
-        let ancestor = ancestors.pop()
-        state.blck = ancestor.refs
+    for db in [pool.db, pool.cachedStates[0], pool.cachedStates[1]]:
+      if (let tmp = db.getStateRoot(parBs.blck.root, parBs.slot); tmp.isSome()):
+        if db.containsState(tmp.get):
+          stateRoot = tmp
+          break
 
-        trace "Replaying state transitions with cached/non-database state",
-          stateSlot = shortLog(state.data.data.slot),
-          ancestorStateRoot = shortLog(ancestor.data.message.state_root),
-          ancestorStateSlot = shortLog(state.blck.slot),
-          slot = shortLog(bs.blck.slot),
-          blockRoot = shortLog(bs.blck.root),
-          ancestors = ancestors.len,
-          cat = "replay_state"
-
-        return ancestors
-
-    if (let tmp = pool.db.getStateRoot(parBs.blck.root, parBs.slot); tmp.isSome()):
-      if pool.db.containsState(tmp.get):
-        stateRoot = tmp
-        break
+    if stateRoot.isSome:
+      break
 
     curBs = parBs
 
@@ -726,7 +713,14 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
 
   let
     ancestor = ancestors.pop()
-    ancestorState = pool.db.getState(stateRoot.get())
+    root = stateRoot.get()
+    ancestorState =
+      if pool.db.containsState(root):
+        pool.db.getState(root)
+      elif pool.cachedStates[0].containsState(root):
+        pool.cachedStates[0].getState(root)
+      else:
+        pool.cachedStates[1].getState(root)
 
   if ancestorState.isNone():
     # TODO this should only happen if the database is corrupt - we walked the

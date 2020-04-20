@@ -451,7 +451,7 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
     protocolId = protocolId & (if peer.supportsSnappy: "ssz_snappy" else: "ssz")
     streamFut = peer.network.openStream(peer, protocolId)
 
-  await streamFut or deadline
+  discard await one(streamFut, deadline)
 
   if not streamFut.finished:
     streamFut.cancel()
