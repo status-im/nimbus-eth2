@@ -21,7 +21,7 @@ import
 const
   genesisFile = "genesis.ssz"
   hasPrompt = not defined(withoutPrompt)
-  maxEmptySlotCount = uint64(24*60*60) div SECONDS_PER_SLOT
+  maxEmptySlotCount = uint64(10*60) div SECONDS_PER_SLOT
 
 type
   KeyPair = eth2_network.KeyPair
@@ -311,8 +311,7 @@ proc isSynced(node: BeaconNode, head: BlockRef): bool =
   # TODO if everyone follows this logic, the network will not recover from a
   #      halt: nobody will be producing blocks because everone expects someone
   #      else to do it
-  if wallSlot.afterGenesis and (wallSlot.slot > head.slot) and
-      (wallSlot.slot - head.slot) > maxEmptySlotCount:
+  if wallSlot.afterGenesis and head.slot + maxEmptySlotCount < wallSlot.slot:
     false
   else:
     true
@@ -828,43 +827,43 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     # block from the expected block proposer for the assigned slot or
     # (b) one-third of the slot has transpired (`SECONDS_PER_SLOT / 3` seconds
     # after the start of slot) -- whichever comes first.
-    let
-      attestationStart = node.beaconClock.fromNow(slot)
-      thirdSlot = seconds(int64(SECONDS_PER_SLOT)) div 3
+    template sleepToSlotOffset(extra: chronos.Duration, msg: static string) =
+      let
+        fromNow = node.beaconClock.fromNow(slot.toBeaconTime(extra))
 
-    if attestationStart.inFuture or attestationStart.offset <= thirdSlot:
-      let fromNow =
-        if attestationStart.inFuture: attestationStart.offset + thirdSlot
-        else: thirdSlot - attestationStart.offset
+      if fromNow.inFuture:
+        trace msg,
+          slot = shortLog(slot),
+          fromNow = shortLog(fromNow.offset),
+          cat = "scheduling"
 
-      trace "Waiting to send attestations",
-        slot = shortLog(slot),
-        fromNow = shortLog(fromNow),
-        cat = "scheduling"
+        await sleepAsync(fromNow.offset)
 
-      await sleepAsync(fromNow)
+        # Time passed - we might need to select a new head in that case
+        head = node.updateHead()
 
-      # Time passed - we might need to select a new head in that case
-      head = node.updateHead()
+    sleepToSlotOffset(
+      seconds(int64(SECONDS_PER_SLOT)) div 3, "Waiting to send attestations")
 
     handleAttestations(node, head, slot)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-aggregate
-  # If the validator is selected to aggregate (is_aggregator), then they
-  # broadcast their best aggregate as a SignedAggregateAndProof to the global
-  # aggregate channel (beacon_aggregate_and_proof) two-thirds of the way
-  # through the slot-that is, SECONDS_PER_SLOT * 2 / 3 seconds after the start
-  # of slot.
-  if slot > 2:
-    const TRAILING_DISTANCE = 1
-    let aggregationSlot = slot - TRAILING_DISTANCE
-    var aggregationHead = getAncestorAt(head, aggregationSlot)
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-aggregate
+    # If the validator is selected to aggregate (is_aggregator), then they
+    # broadcast their best aggregate as a SignedAggregateAndProof to the global
+    # aggregate channel (beacon_aggregate_and_proof) two-thirds of the way
+    # through the slot-that is, SECONDS_PER_SLOT * 2 / 3 seconds after the start
+    # of slot.
+    if slot > 2:
+      sleepToSlotOffset(
+        seconds(int64(SECONDS_PER_SLOT * 2) div 3),
+        "Waiting to aggregate attestations")
 
-    let bs = BlockSlot(blck: aggregationHead, slot: aggregationSlot)
-    node.blockPool.withState(node.blockPool.tmpState, bs):
-      let twoThirdsSlot =
-        toBeaconTime(slot, seconds(2*int64(SECONDS_PER_SLOT)) div 3)
-      addTimer(saturate(node.beaconClock.fromNow(twoThirdsSlot))) do (p: pointer):
+      const TRAILING_DISTANCE = 1
+      let aggregationSlot = slot - TRAILING_DISTANCE
+      var aggregationHead = getAncestorAt(head, aggregationSlot)
+
+      let bs = BlockSlot(blck: aggregationHead, slot: aggregationSlot)
+      node.blockPool.withState(node.blockPool.tmpState, bs):
         broadcastAggregatedAttestations(
           node, state, aggregationHead, aggregationSlot, TRAILING_DISTANCE)
 
