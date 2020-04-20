@@ -27,7 +27,7 @@ import
 
 export
   version, multiaddress, peer_pool, peerinfo, p2pProtocol,
-  libp2p_json_serialization, ssz
+  libp2p_json_serialization, ssz, peer
 
 logScope:
   topics = "networking"
@@ -194,6 +194,9 @@ proc getFuture*(peer: Peer): Future[void] {.inline.} =
 
 proc `<`*(a, b: Peer): bool =
   result = `<`(a.score, b.score)
+
+proc getScore*(a: Peer): int =
+  result = a.score
 
 proc disconnect*(peer: Peer, reason: DisconnectionReason,
                  notifyOtherPeer = false) {.async.} =

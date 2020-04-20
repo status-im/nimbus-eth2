@@ -16,7 +16,7 @@ import
   attestation_pool, block_pool, eth2_network, eth2_discovery,
   beacon_node_types, mainchain_monitor, version, ssz, ssz/dynamic_navigator,
   sync_protocol, request_manager, validator_keygen, interop, statusbar,
-  attestation_aggregation
+  attestation_aggregation, sync_manager
 
 const
   genesisFile = "genesis.ssz"
@@ -67,6 +67,7 @@ type
     forkDigest: ForkDigest
     topicBeaconBlocks: string
     topicAggregateAndProofs: string
+    syncLoop: Future[void]
 
 proc onBeaconBlock*(node: BeaconNode, signedBlock: SignedBeaconBlock) {.gcsafe.}
 proc updateHead(node: BeaconNode): BlockRef
@@ -487,9 +488,7 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
 
   node.attestationPool.add(attestation)
 
-proc onBeaconBlock(node: BeaconNode, signedBlock: SignedBeaconBlock) =
-  # We received a block but don't know much about it yet - in particular, we
-  # don't know if it's part of the chain we're currently building.
+proc storeBlock(node: BeaconNode, signedBlock: SignedBeaconBlock): bool =
   let blockRoot = hash_tree_root(signedBlock.message)
   debug "Block received",
     signedBlock = shortLog(signedBlock.message),
@@ -498,9 +497,8 @@ proc onBeaconBlock(node: BeaconNode, signedBlock: SignedBeaconBlock) =
     pcs = "receive_block"
 
   beacon_blocks_received.inc()
-
   if node.blockPool.add(blockRoot, signedBlock).isNil:
-    return
+    return false
 
   # The block we received contains attestations, and we might not yet know about
   # all of them. Let's add them to the attestation pool - in case they block
@@ -512,6 +510,12 @@ proc onBeaconBlock(node: BeaconNode, signedBlock: SignedBeaconBlock) =
     signedBlock.message.slot.epoch + 1 >= currentSlot.slot.epoch:
     for attestation in signedBlock.message.body.attestations:
       node.onAttestation(attestation)
+  return true
+
+proc onBeaconBlock(node: BeaconNode, signedBlock: SignedBeaconBlock) =
+  # We received a block but don't know much about it yet - in particular, we
+  # don't know if it's part of the chain we're currently building.
+  discard node.storeBlock(signedBlock)
 
 proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   ## Perform all attestations that the validators attached to this node should
@@ -901,10 +905,10 @@ proc handleMissingBlocks(node: BeaconNode) =
       #      good because the onSecond fetching also kicks in regardless but
       #      whatever - this is just a quick fix for making the testnet easier
       #      work with while the sync problem is dealt with more systematically
-      dec left
-      if left == 0:
-        discard setTimer(Moment.now()) do (p: pointer):
-          handleMissingBlocks(node)
+      # dec left
+      # if left == 0:
+      #   discard setTimer(Moment.now()) do (p: pointer):
+      #     handleMissingBlocks(node)
 
 proc onSecond(node: BeaconNode, moment: Moment) {.async.} =
   node.handleMissingBlocks()
@@ -912,6 +916,62 @@ proc onSecond(node: BeaconNode, moment: Moment) {.async.} =
   let nextSecond = max(Moment.now(), moment + chronos.seconds(1))
   discard setTimer(nextSecond) do (p: pointer):
     asyncCheck node.onSecond(nextSecond)
+
+proc getHeadSlot*(peer: Peer): Slot {.inline.} =
+  ## Returns head slot for specific peer ``peer``.
+  result = peer.state(BeaconSync).statusMsg.headSlot
+
+proc updateStatus*(peer: Peer): Future[bool] {.async.} =
+  ## Request `status` of remote peer ``peer``.
+  let
+    nstate = peer.networkState(BeaconSync)
+    finalizedHead = nstate.blockPool.finalizedHead
+    headBlock = nstate.blockPool.head.blck
+
+    ourStatus = StatusMsg(
+      forkDigest: nstate.forkDigest,
+      finalizedRoot: finalizedHead.blck.root,
+      finalizedEpoch: finalizedHead.slot.compute_epoch_at_slot(),
+      headRoot: headBlock.root,
+      headSlot: headBlock.slot
+    )
+
+  let theirStatus = await peer.status(ourStatus,
+                                      timeout = chronos.seconds(60))
+  if theirStatus.isSome():
+    peer.state(BeaconSync).statusMsg = theirStatus.get()
+    result = true
+
+proc updateScore*(peer: Peer, score: int) =
+  ## Update peer's ``peer`` score with value ``score``.
+  peer.score = peer.score + score
+
+proc runSyncLoop(node: BeaconNode) {.async.} =
+
+  proc getLocalHeadSlot(): Slot =
+    result = node.blockPool.head.blck.slot
+
+  proc getLocalWallSlot(): Slot {.gcsafe.} =
+    let epoch = node.beaconClock.now().toSlot().slot.compute_epoch_at_slot() + 1'u64
+    result = epoch.compute_start_slot_at_epoch()
+
+  proc updateLocalBlocks(list: openarray[SignedBeaconBlock]): bool =
+    debug "Forward sync imported blocks", count = len(list),
+          local_head_slot = $getLocalHeadSlot()
+    for blk in list:
+      if not(node.storeBlock(blk)):
+        return false
+    discard node.updateHead()
+    info "Forward sync blocks got imported sucessfully", count = $len(list),
+         local_head_slot = $getLocalHeadSlot()
+    result = true
+
+  var syncman = newSyncManager[Peer, PeerID](
+    node.network.peerPool, getLocalHeadSlot, getLocalWallSlot,
+    updateLocalBlocks
+  )
+
+  await syncman.sync()
 
 # TODO: Should we move these to other modules?
 # This would require moving around other type definitions
@@ -1060,6 +1120,8 @@ proc run*(node: BeaconNode) =
   let second = Moment.now() + chronos.seconds(1)
   discard setTimer(second) do (p: pointer):
     asyncCheck node.onSecond(second)
+
+  node.syncLoop = runSyncLoop(node)
 
   runForever()
 
