@@ -1014,7 +1014,7 @@ proc isValidBeaconBlock*(pool: var BlockPool,
     if blck.message.proposer_index ==
           signed_beacon_block.message.proposer_index and
         blck.message.slot == signed_beacon_block.message.slot and
-        blck.signature != signed_beacon_block.signature:
+        blck.signature.toRaw() != signed_beacon_block.signature.toRaw():
       debug "isValidBeaconBlock: block isn't first block with valid signature received for the proposer",
         signed_beacon_block_message_slot = signed_beacon_block.message.slot,
         blckRef = slotBlockRef,
