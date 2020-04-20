@@ -4,6 +4,7 @@ dist: bionic
 
 # https://docs.travis-ci.com/user/caching/
 cache:
+  ccache: true
   directories:
     - vendor/nimbus-build-system/vendor/Nim/bin
     - jsonTestsCache
@@ -33,6 +34,8 @@ matrix:
         - sudo apt-get -q update
         - sudo apt-get install -y libpcre3-dev
     - os: osx
+      before_install:
+        - HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install ccache
       env:
         - NPROC=2
 
