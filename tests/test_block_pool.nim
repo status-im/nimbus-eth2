@@ -11,7 +11,7 @@ import
   unittest, chronicles,
   ./testutil,
   ../beacon_chain/spec/datatypes,
-  ../beacon_chain/[beacon_node_types, block_pool, ssz]
+  ../beacon_chain/[beacon_node_types, block_pool, ssz, state_transition]
 
 suiteReport "BlockRef and helpers" & preset():
   timedTest "isAncestorOf sanity" & preset():
@@ -132,6 +132,47 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         b2Add.root == b2Get.get().refs.root
         pool.heads.len == 1
         pool.heads[0].blck == b2Add
+
+      # Skip one slot to get a gap
+      process_slots(state, state.slot + 1)
+
+      let
+        b4 = addTestBlock(state, b2Root)
+        b4Root = hash_tree_root(b4.message)
+        b4Add = pool.add(b4Root, b4)
+
+      check:
+        b4Add.parent == b2Add
+
+      pool.updateHead(b4Add)
+
+      var blocks: array[3, BlockRef]
+
+      check:
+        pool.getBlockRange(Slot(0), 1, blocks.toOpenArray(0, 0)) == 0
+        blocks[0..<1] == [pool.tail]
+
+        pool.getBlockRange(Slot(0), 1, blocks.toOpenArray(0, 1)) == 0
+        blocks[0..<2] == [pool.tail, b1Add]
+
+        pool.getBlockRange(Slot(0), 2, blocks.toOpenArray(0, 1)) == 0
+        blocks[0..<2] == [pool.tail, b2Add]
+
+        pool.getBlockRange(Slot(0), 3, blocks.toOpenArray(0, 1)) == 1
+        blocks[0..<2] == [nil, pool.tail] # block 3 is missing!
+
+        pool.getBlockRange(Slot(2), 2, blocks.toOpenArray(0, 1)) == 0
+        blocks[0..<2] == [b2Add, b4Add] # block 3 is missing!
+
+        # empty length
+        pool.getBlockRange(Slot(2), 2, blocks.toOpenArray(0, -1)) == 0
+
+        # No blocks in sight
+        pool.getBlockRange(Slot(5), 1, blocks.toOpenArray(0, 1)) == 2
+
+        # No blocks in sight either due to gaps
+        pool.getBlockRange(Slot(3), 2, blocks.toOpenArray(0, 1)) == 2
+        blocks[0..<2] == [BlockRef nil, nil] # block 3 is missing!
 
     timedTest "Reverse order block add & get" & preset():
       discard pool.add(b2Root, b2)
@@ -273,10 +314,6 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         pool.heads.len() == 1
         pool.head.justified.slot.compute_epoch_at_slot() == 5
         pool.tail.children.len == 1
-
-        pool.getBlockRange(Slot(1), 1, 1).mapIt(it.slot) == [Slot(1)]
-        pool.getBlockRange(Slot(1), 2, 1).mapIt(it.slot) == [Slot(1), Slot(2)]
-        pool.getBlockRange(Slot(1), 2, 2).mapIt(it.slot) == [Slot(1), Slot(3)]
 
       let
         pool2 = BlockPool.init(db)
