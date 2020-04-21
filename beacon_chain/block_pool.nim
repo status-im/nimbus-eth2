@@ -979,7 +979,7 @@ proc getProposer*(pool: BlockPool, head: BlockRef, slot: Slot): Option[Validator
     return some(state.validators[proposerIdx.get()].pubkey)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#global-topics
-proc isValidBeaconBlock*(pool: BlockPool,
+proc isValidBeaconBlock*(pool: var BlockPool,
     signed_beacon_block: SignedBeaconBlock, current_slot: Slot,
     flags: UpdateFlags): bool =
   # In general, checks are ordered from cheap to expensive. Especially, crypto
@@ -1003,16 +1003,6 @@ proc isValidBeaconBlock*(pool: BlockPool,
     debug "isValidBeaconBlock: block is not from a slot greater than the latest finalized slot"
     return false
 
-  # The proposer signature, signed_beacon_block.signature, is valid with
-  # respect to the proposer_index pubkey.
-
-  # TODO resolve following two checks' robustness and remove this early exit.
-  const alwaysTrue = true
-  if alwaysTrue:
-    return true
-
-  # TODO because this check depends on the proposer aspect, and see the comment
-  # there for that issue, the fallout is this check isn't reliable anymore.
   # The block is the first block with valid signature received for the proposer
   # for the slot, signed_beacon_block.message.slot.
   #
@@ -1039,16 +1029,21 @@ proc isValidBeaconBlock*(pool: BlockPool,
   # TODO might check unresolved/orphaned blocks too, and this might not see all
   # blocks at a given slot (though, in theory, those get checked elsewhere), or
   # adding metrics that count how often these conditions occur.
-  let slotBlockRef =
-    getBlockByPreciseSlot(pool, signed_beacon_block.message.slot)
-  if (not slotBlockRef.isNil) and
-      pool.get(slotBlockRef).data.message.proposer_index ==
-        signed_beacon_block.message.proposer_index:
-    debug "isValidBeaconBlock: block isn't first block with valid signature received for the proposer",
-      signed_beacon_block_message_slot = signed_beacon_block.message.slot,
-      blckRef = getBlockByPreciseSlot(pool, signed_beacon_block.message.slot)
+  let
+    slotBlockRef = getBlockBySlot(pool, signed_beacon_block.message.slot)
 
-    return false
+  if not slotBlockRef.isNil:
+    let blck = pool.get(slotBlockRef).data
+    if blck.message.proposer_index ==
+          signed_beacon_block.message.proposer_index and
+        blck.message.slot == signed_beacon_block.message.slot and
+        blck.signature.toRaw() != signed_beacon_block.signature.toRaw():
+      debug "isValidBeaconBlock: block isn't first block with valid signature received for the proposer",
+        signed_beacon_block_message_slot = signed_beacon_block.message.slot,
+        blckRef = slotBlockRef,
+        received_block = shortLog(signed_beacon_block.message),
+        existing_block = shortLog(pool.get(slotBlockRef).data.message)
+      return false
 
   # If this block doesn't have a parent we know about, we can't/don't really
   # trace it back to a known-good state/checkpoint to verify its prevenance;
@@ -1057,36 +1052,23 @@ proc isValidBeaconBlock*(pool: BlockPool,
   # answering yes/no, not queuing other action or otherwise altering state.
   let parent_ref = pool.getRef(signed_beacon_block.message.parent_root)
   if parent_ref.isNil:
-    # TODO find where incorrect block's being produced at/around epoch 20,
-    # nim-beacon-chain commit 708ac80daef5e05e01d4fc84576f8692adc256a3, at
-    # 2020-04-02, running `make eth2_network_simulation`, or, alternately,
-    # why correctly produced ancestor block isn't found. By appearances, a
-    # chain is being forked, probably by node 0, as nodes 1/2/3 die first,
-    # then node 0 only dies eventually then nodes 1/2/3 are not around, to
-    # help it in turn finalize. So node 0 is probably culprit, around/near
-    # the end of epoch 19, in its block proposal(s). BlockPool.add() later
-    # discovers this same missing parent. The missing step here is that we
-    # need to be able to receive this block and store it in unresolved but
-    # without passing it on to other nodes (which is what EV actually does
-    # specify). The other BeaconBlock validation conditions cannot change,
-    # just because later blocks fill in gaps, but this one can. My read of
-    # the intent here is that only nodes which know about the parentage of
-    # a block should pass it on. That doesn't mean we shouldn't process it
-    # though, just not rebroadcast it.
-    # Debug output: isValidBeaconBlock: incorrectly skipping BLS validation when parent block unknown topics="blkpool" tid=2111475 file=block_pool.nim:1040 current_epoch=22 current_slot=133 parent_root=72b5b0f1 pool_head_slot=131 pool_head_state_root=48e9f4b8 proposed_block_slot=133 proposed_block_state_root=ed7b1ddd proposer_index=42 node=3
-    # So it's missing a head update, probably, at slot 132.
-    debug "isValidBeaconBlock: incorrectly skipping BLS validation when parent block unknown",
-      current_slot = current_slot,
-      current_epoch = compute_epoch_at_slot(current_slot),
-      parent_root = signed_beacon_block.message.parent_root,
-      proposed_block_slot = signed_beacon_block.message.slot,
-      proposer_index = signed_beacon_block.message.proposer_index,
-      proposed_block_state_root = signed_beacon_block.message.state_root,
-      pool_head_slot = pool.headState.data.data.slot,
-      pool_head_state_root = pool.headState.data.root
+    # This doesn't mean a block is forever invalid, only that we haven't seen
+    # its ancestor blocks yet. While that means for now it should be blocked,
+    # at least, from libp2p propagation, it shouldn't be ignored. TODO, if in
+    # the future this block moves from pending to being resolved, consider if
+    # it's worth broadcasting it then.
 
+    # Pending pool gets checked via `BlockPool.add(...)` later, and relevant
+    # checks are performed there. In usual paths beacon_node adds blocks via
+    # BlockPool.add(...) directly, with no additional validity checks. TODO,
+    # not specific to this, but by the pending pool keying on the htr of the
+    # BeaconBlock, not SignedBeaconBlock, opens up certain spoofing attacks.
+    pool.pending[hash_tree_root(signed_beacon_block.message)] =
+      signed_beacon_block
     return false
 
+  # The proposer signature, signed_beacon_block.signature, is valid with
+  # respect to the proposer_index pubkey.
   let bs =
     BlockSlot(blck: parent_ref, slot: pool.get(parent_ref).data.message.slot)
   pool.withState(pool.tmpState, bs):
