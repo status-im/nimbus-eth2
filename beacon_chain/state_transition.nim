@@ -30,6 +30,8 @@
 # improvements to be made - other than that, keep things similar to spec for
 # now.
 
+{.push raises: [Defect].}
+
 import
   chronicles,
   ./extras, ./ssz, metrics,
@@ -95,11 +97,17 @@ proc process_slots*(state: var BeaconState, slot: Slot) {.nbench.}=
     let is_epoch_transition = (state.slot + 1) mod SLOTS_PER_EPOCH == 0
     if is_epoch_transition:
       # Note: Genesis epoch = 0, no need to test if before Genesis
-      beacon_previous_validators.set(get_epoch_validator_count(state))
+      try:
+        beacon_previous_validators.set(get_epoch_validator_count(state))
+      except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
+        trace "Couldn't update metrics", msg = e.msg
       process_epoch(state)
     state.slot += 1
     if is_epoch_transition:
-      beacon_current_validators.set(get_epoch_validator_count(state))
+      try:
+        beacon_current_validators.set(get_epoch_validator_count(state))
+      except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
+        trace "Couldn't update metrics", msg = e.msg
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#verify_block_signature
 proc verify_block_signature*(
@@ -234,11 +242,17 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot) =
     let is_epoch_transition = (state.data.slot + 1) mod SLOTS_PER_EPOCH == 0
     if is_epoch_transition:
       # Note: Genesis epoch = 0, no need to test if before Genesis
-      beacon_previous_validators.set(get_epoch_validator_count(state.data))
+      try:
+        beacon_previous_validators.set(get_epoch_validator_count(state.data))
+      except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
+        trace "Couldn't update metrics", msg = e.msg
       process_epoch(state.data)
     state.data.slot += 1
     if is_epoch_transition:
-      beacon_current_validators.set(get_epoch_validator_count(state.data))
+      try:
+        beacon_current_validators.set(get_epoch_validator_count(state.data))
+      except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
+        trace "Couldn't update metrics", msg = e.msg
     state.root = hash_tree_root(state.data)
 
 proc state_transition*(

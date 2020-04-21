@@ -9,12 +9,12 @@ import
   # Standard library
   std/strformat, std/tables, std/options,
   # Status libraries
-  stew/[result, endians2],
+  stew/[results, endians2],
   # Internals
   ../../beacon_chain/spec/[datatypes, digest],
   ../../beacon_chain/fork_choice/[fork_choice, fork_choice_types]
 
-export result, datatypes, digest, fork_choice, fork_choice_types, tables, options
+export results, datatypes, digest, fork_choice, fork_choice_types, tables, options
 
 func fakeHash*(index: SomeInteger): Eth2Digest =
   ## Create fake hashes

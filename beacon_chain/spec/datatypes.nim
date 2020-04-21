@@ -17,6 +17,9 @@
 # `ref` - this can be achieved by wrapping them in higher-level
 # types / composition
 
+# TODO report compiler crash when this is uncommented
+# {.push raises: [Defect].}
+
 import
   macros, hashes, json, strutils, tables,
   stew/[byteutils, bitseqs], chronicles,

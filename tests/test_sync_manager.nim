@@ -1,3 +1,5 @@
+{.used.}
+
 import unittest
 import chronos
 import ../beacon_chain/sync_manager

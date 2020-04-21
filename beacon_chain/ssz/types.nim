@@ -1,3 +1,5 @@
+{.push raises: [Defect].}
+
 import
   tables, options,
   stew/shims/macros, stew/[objects, bitseqs],
@@ -185,9 +187,12 @@ proc fieldInfos*(RecordType: type): seq[tuple[name: string,
       fieldOffset = val[]
       val[] += fieldSize
     do:
-      let parentBranch = nestedUnder.getOrDefault(fieldCaseDiscriminator, "")
-      fieldOffset = offsetInBranch[parentBranch]
-      offsetInBranch[branchKey] = fieldOffset + fieldSize
+      try:
+        let parentBranch = nestedUnder.getOrDefault(fieldCaseDiscriminator, "")
+        fieldOffset = offsetInBranch[parentBranch]
+        offsetInBranch[branchKey] = fieldOffset + fieldSize
+      except KeyError as e:
+        raiseAssert e.msg
 
     result.add((fieldName, fieldOffset, fixedSize, branchKey))
 

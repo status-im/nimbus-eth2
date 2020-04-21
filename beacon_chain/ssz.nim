@@ -8,6 +8,10 @@
 # SSZ Serialization (simple serialize)
 # See https://github.com/ethereum/eth2.0-specs/blob/master/specs/simple-serialize.md
 
+# TODO Cannot override push, even though the function is annotated
+# nim-beacon-chain/beacon_chain/ssz.nim(212, 18) Error: can raise an unlisted exception: IOError
+#{.push raises: [Defect].}
+
 import
   stew/shims/macros, options, algorithm, options,
   stew/[bitops2, bitseqs, endians2, objects, varints, ptrops, ranges/ptr_arith], stint,
@@ -72,15 +76,15 @@ template sizePrefixed*[TT](x: TT): untyped =
 
 proc init*(T: type SszReader,
            stream: InputStream,
-           maxObjectSize = defaultMaxObjectSize): T =
+           maxObjectSize = defaultMaxObjectSize): T {.raises: [Defect].} =
   T(stream: stream, maxObjectSize: maxObjectSize)
 
-proc mount*(F: type SSZ, stream: InputStream, T: type): T =
+proc mount*(F: type SSZ, stream: InputStream, T: type): T {.raises: [Defect].} =
   mixin readValue
   var reader = init(SszReader, stream)
   reader.readValue(T)
 
-method formatMsg*(err: ref SszSizeMismatchError, filename: string): string {.gcsafe.} =
+method formatMsg*(err: ref SszSizeMismatchError, filename: string): string {.gcsafe, raises: [Defect].} =
   # TODO: implement proper error string
   "Serialisation error while processing " & filename
 
@@ -111,7 +115,7 @@ template toSszType*(x: auto): auto =
   elif useListType and x is List: seq[x.T](x)
   else: x
 
-proc writeFixedSized(c: var WriteCursor, x: auto) =
+proc writeFixedSized(c: var WriteCursor, x: auto) {.raises: [Defect, IOError].} =
   mixin toSszType
 
   when x is byte:
@@ -146,7 +150,7 @@ template supports*(_: type SSZ, T: type): bool =
   mixin toSszType
   anonConst compiles(fixedPortionSize toSszType(default(T)))
 
-func init*(T: type SszWriter, stream: OutputStream): T =
+func init*(T: type SszWriter, stream: OutputStream): T {.raises: [Defect].} =
   result.stream = stream
 
 template enumerateSubFields(holder, fieldVar, body: untyped) =
@@ -157,7 +161,7 @@ template enumerateSubFields(holder, fieldVar, body: untyped) =
 
 proc writeVarSizeType(w: var SszWriter, value: auto) {.gcsafe.}
 
-proc beginRecord*(w: var SszWriter, TT: type): auto =
+proc beginRecord*(w: var SszWriter, TT: type): auto {.raises: [Defect].} =
   type T = TT
   when isFixedSize(T):
     FixedSizedWriterCtx()
@@ -193,7 +197,7 @@ template endRecord*(w: var SszWriter, ctx: var auto) =
   when ctx is VarSizedWriterCtx:
     finalize ctx.fixedParts
 
-proc writeVarSizeType(w: var SszWriter, value: auto) =
+proc writeVarSizeType(w: var SszWriter, value: auto) {.raises: [Defect, IOError].} =
   trs "STARTING VAR SIZE TYPE"
   mixin toSszType
   type T = type toSszType(value)
@@ -230,7 +234,7 @@ proc writeVarSizeType(w: var SszWriter, value: auto) =
       writeField w, ctx, astToStr(field), field
     endRecord w, ctx
 
-proc writeValue*(w: var SszWriter, x: auto) {.gcsafe.} =
+proc writeValue*(w: var SszWriter, x: auto) {.gcsafe, raises: [Defect, IOError].} =
   mixin toSszType
   type T = type toSszType(x)
 
@@ -241,7 +245,7 @@ proc writeValue*(w: var SszWriter, x: auto) {.gcsafe.} =
   else:
     unsupported type(x)
 
-proc writeValue*[T](w: var SszWriter, x: SizePrefixed[T]) =
+proc writeValue*[T](w: var SszWriter, x: SizePrefixed[T]) {.raises: [Defect, IOError].} =
   var cursor = w.stream.delayVarSizeWrite(10)
   let initPos = w.stream.pos
   w.writeValue T(x)
@@ -260,7 +264,7 @@ template fromSszBytes*[T; N](_: type TypeWithMaxLen[T, N],
   mixin fromSszBytes
   fromSszBytes(T, bytes)
 
-proc readValue*[T](r: var SszReader, val: var T) =
+proc readValue*[T](r: var SszReader, val: var T) {.raises: [Defect, MalformedSszError, SszSizeMismatchError].} =
   when isFixedSize(T):
     const minimalSize = fixedPortionSize(T)
     if r.stream.readable(minimalSize):
@@ -272,7 +276,7 @@ proc readValue*[T](r: var SszReader, val: var T) =
     # the dynamic portion to consume the right number of bytes.
     val = readSszValue(r.stream.read(r.stream.endPos), T)
 
-proc readValue*[T](r: var SszReader, val: var SizePrefixed[T]) =
+proc readValue*[T](r: var SszReader, val: var SizePrefixed[T]) {.raises: [Defect].} =
   let length = r.stream.readVarint(uint64)
   if length > r.maxObjectSize:
     raise newException(SszMaxSizeExceeded,
@@ -415,19 +419,23 @@ func mixInLength(root: Eth2Digest, length: int): Eth2Digest =
 
 func merkleizeSerializedChunks(merkleizer: SszChunksMerkleizer,
                                obj: auto): Eth2Digest =
-
-  var hashingStream = newSszHashingStream merkleizer
-  {.noSideEffect.}:
-    # We assume there are no side-effects here, because the
-    # SszHashingStream is keeping all of its output in memory.
-    hashingStream.writeFixedSized obj
-    hashingStream.flush
-  merkleizer.getFinalHash
+  try:
+    var hashingStream = newSszHashingStream merkleizer
+    {.noSideEffect.}:
+      # We assume there are no side-effects here, because the
+      # SszHashingStream is keeping all of its output in memory.
+      hashingStream.writeFixedSized obj
+      hashingStream.flush
+    merkleizer.getFinalHash
+  except IOError as e:
+    # Hashing shouldn't raise in theory but because of abstraction
+    # tax in the faststreams library, we have to do this at runtime
+    raiseAssert($e.msg)
 
 func merkleizeSerializedChunks(obj: auto): Eth2Digest =
   merkleizeSerializedChunks(SszChunksMerkleizer(), obj)
 
-func hash_tree_root*(x: auto): Eth2Digest {.gcsafe.}
+func hash_tree_root*(x: auto): Eth2Digest {.gcsafe, raises: [Defect].}
 
 template merkleizeFields(body: untyped): Eth2Digest {.dirty.} =
   var merkleizer {.inject.} = SszChunksMerkleizer()
@@ -546,7 +554,7 @@ func maxChunksCount(T: type, maxLen: static int64): int64 {.compileTime.} =
   else:
     unsupported T # This should never happen
 
-func hash_tree_root*(x: auto): Eth2Digest =
+func hash_tree_root*(x: auto): Eth2Digest {.raises: [Defect].} =
   trs "STARTING HASH TREE ROOT FOR TYPE ", name(type(x))
   mixin toSszType
   when x is SignedBeaconBlock:

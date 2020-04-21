@@ -7,6 +7,8 @@
 
 # Uncategorized helper functions from the spec
 
+{.push raises: [Defect].}
+
 import
   # Standard lib
   math,
