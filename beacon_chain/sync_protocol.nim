@@ -134,13 +134,22 @@ p2pProtocol BeaconSync(version = 1,
       trace "got range request", peer, startSlot, count, step
 
       if count > 0'u64:
+        var blocks: array[MAX_REQUESTED_BLOCKS, BlockRef]
         let
-          count = if step != 0: min(count, MAX_REQUESTED_BLOCKS.uint64) else: 1
           pool = peer.networkState.blockPool
-        for b in pool.getBlockRange(startSlot, count, step):
-          if not b.isNil:
-            trace "wrote response block", slot = b.slot, roor = shortLog(b.root)
-            await response.write(pool.get(b).data)
+          # Limit number of blocks in response
+          count = min(count.Natural, blocks.len)
+
+        let startIndex =
+          pool.getBlockRange(startSlot, step, blocks.toOpenArray(0, count - 1))
+
+        for b in blocks[startIndex..^1]:
+          doAssert not b.isNil, "getBlockRange should return non-nil blocks only"
+          trace "wrote response block", slot = b.slot, roor = shortLog(b.root)
+          await response.write(pool.get(b).data)
+
+        debug "Block range request done",
+          peer, startSlot, count, step, found = count - startIndex
 
     proc beaconBlocksByRoot(
             peer: Peer,
@@ -149,10 +158,15 @@ p2pProtocol BeaconSync(version = 1,
       let
         pool = peer.networkState.blockPool
 
+      var found = 0
       for root in blockRoots:
         let blockRef = pool.getRef(root)
         if not isNil(blockRef):
           await response.write(pool.get(blockRef).data)
+          inc found
+
+      debug "Block root request done",
+        peer, roots = blockRoots.len, found
 
     proc beaconBlocks(
             peer: Peer,

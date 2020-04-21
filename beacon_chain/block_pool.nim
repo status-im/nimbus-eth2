@@ -450,33 +450,42 @@ func getRef*(pool: BlockPool, root: Eth2Digest): BlockRef =
   pool.blocks.getOrDefault(root, nil)
 
 proc getBlockRange*(
-    pool: BlockPool, startSlot: Slot, count, skipStep: Natural): seq[BlockRef] =
+    pool: BlockPool, startSlot: Slot, skipStep: Natural,
+    output: var openArray[BlockRef]): Natural =
   ## This function populates an `output` buffer of blocks
-  ## with a range starting from `startSlot` and skipping
-  ## every `skipTest` number of blocks.
+  ## with a slots ranging from `startSlot` up to, but not including,
+  ## `startSlot + skipStep * output.len`, skipping any slots that don't have
+  ## a block.
   ##
+  ## Blocks will be written to `output` from the end without gaps, even if
+  ## a block is missing in a particular slot. The return value shows how
+  ## many slots were missing blocks - to iterate over the result, start
+  ## at this index.
+  ##
+  ## If there were no blocks in the range, `output.len` will be returned.
+  let count = output.len
   trace "getBlockRange entered",
     head = shortLog(pool.head.blck.root), count, startSlot, skipStep
 
-  if startSlot > pool.head.blck.slot:
-    debug "Range request for future slot",
-      head = shortLog(pool.head.blck.slot), count, startSlot, skipStep
-    return
-
   let
+    skipStep = max(1, skipStep) # Treat 0 step as 1
     endSlot = startSlot + uint64(count * skipStep)
 
   var
-    ret = newSeq[BlockRef](count)
     b = pool.head.blck.atSlot(endSlot)
-
+    o = count
   for i in 0..<count:
     for j in 0..<skipStep:
       b = b.parent
     if b.blck.slot == b.slot:
-      ret[ret.len - i - 1] = b.blck
+      output[o - 1] = b.blck
+      dec o
 
-  ret
+  # Make sure the given input is cleared, just in case
+  for i in 0..<o:
+    output[i] = nil
+
+  o # Return the index of the first non-nil item in the output
 
 func getBlockBySlot*(pool: BlockPool, slot: Slot): BlockRef =
   ## Retrieves the first block in the current canonical chain
