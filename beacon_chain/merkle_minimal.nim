@@ -10,6 +10,8 @@
 # Merkle tree helpers
 # ---------------------------------------------------------------
 
+{.push raises: [Defect].}
+
 import
   sequtils, strutils, macros, bitops,
   # Specs

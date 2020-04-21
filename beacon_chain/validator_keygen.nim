@@ -44,7 +44,7 @@ proc generateDeposits*(totalValidators: int,
     if randomKeys:
       (pubKey, privKey) = crypto.newKeyPair().tryGet()
     else:
-      privKey = makeInteropPrivKey(i)
+      privKey = makeInteropPrivKey(i).tryGet()
       pubKey = privKey.toPubKey()
 
     let dp = makeDeposit(pubKey, privKey)
