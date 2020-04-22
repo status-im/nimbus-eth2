@@ -715,6 +715,29 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
 
   ancestors
 
+proc getStateData(pool: BlockPool, state: var StateData, bs: BlockSlot): bool =
+  for db in [pool.db, pool.cachedStates[0], pool.cachedStates[1]]:
+    if (let tmp = db.getStateRoot(bs.blck.root, bs.slot); tmp.isSome()):
+      if not db.containsState(tmp.get):
+        continue
+
+      let
+        root = tmp.get()
+        ancestorState = db.getState(root)
+
+      doAssert ancestorState.isSome()
+      debugEcho "FOOBAR0: got fast path out, root = ", root
+      state.data.data = ancestorState.get()
+      state.data.root = root
+      state.blck = pool.get(bs.blck).refs
+      #return some(StateData(
+      #  data: HashedBeaconState(data: ancestorState.get(), root: root),
+      #  blck: pool.get(bs.blck).refs))
+      return true
+
+  #none(StateData)
+  false
+
 proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
   ## Rewind or advance state such that it matches the given block and slot -
   ## this may include replaying from an earlier snapshot if blck is on a
@@ -731,6 +754,9 @@ proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
         pool.putState(state, bs.blck)
 
     return # State already at the right spot
+
+  if pool.getStateData(state, bs):
+    return
 
   let ancestors = rewindState(pool, state, bs)
 
