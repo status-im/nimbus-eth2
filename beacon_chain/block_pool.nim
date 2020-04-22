@@ -478,8 +478,8 @@ proc getBlockRange*(
     for j in 0..<skipStep:
       b = b.parent
     if b.blck.slot == b.slot:
-      output[o - 1] = b.blck
       dec o
+      output[o] = b.blck
 
   # Make sure the given input is cleared, just in case
   for i in 0..<o:
