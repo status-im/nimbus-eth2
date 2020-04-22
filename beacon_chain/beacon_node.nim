@@ -1375,13 +1375,15 @@ when isMainModule:
     if bootstrapFile.len > 0:
       let
         networkKeys = getPersistentNetKeys(config)
+        metadata = getPersistentNetMetadata(config)
         bootstrapEnr = enr.Record.init(
           1, # sequence number
           networkKeys.seckey.asEthKey,
           some(config.bootstrapAddress),
           config.bootstrapPort,
           config.bootstrapPort,
-          [toFieldPair("eth2", SSZ.encode(enrForkIdFromState initialState))])
+          [toFieldPair("eth2", SSZ.encode(enrForkIdFromState initialState)),
+           toFieldPair("attnets", SSZ.encode(metadata.attnets))])
 
       writeFile(bootstrapFile, bootstrapEnr.toURI)
       echo "Wrote ", bootstrapFile
