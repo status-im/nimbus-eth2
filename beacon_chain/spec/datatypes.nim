@@ -20,6 +20,8 @@
 # TODO report compiler crash when this is uncommented
 # {.push raises: [Defect].}
 
+{.experimental: "notnil".}
+
 import
   macros, hashes, json, strutils, tables,
   stew/[byteutils, bitseqs], chronicles,
@@ -242,7 +244,7 @@ type
     voluntary_exits*: List[SignedVoluntaryExit, MAX_VOLUNTARY_EXITS]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#beaconstate
-  BeaconState* = object
+  BeaconStateObj* = object
     # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
@@ -293,6 +295,9 @@ type
 
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
+
+  BeaconState* = ref BeaconStateObj not nil
+  NilableBeaconState* = ref BeaconStateObj
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#validator
   Validator* = object
@@ -564,6 +569,15 @@ template readValue*(reader: var JsonReader, value: var BitList) =
 
 template writeValue*(writer: var JsonWriter, value: BitList) =
   writeValue(writer, BitSeq value)
+
+func clone*[T](x: ref T): ref T not nil =
+  new result
+  result[] = x[]
+
+func clone*(other: HashedBeaconState): HashedBeaconState =
+  HashedBeaconState(
+    data: clone(other.data),
+    root: other.root)
 
 template init*(T: type BitList, len: int): auto = T init(BitSeq, len)
 template len*(x: BitList): auto = len(BitSeq(x))

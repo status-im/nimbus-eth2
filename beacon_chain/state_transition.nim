@@ -170,7 +170,7 @@ proc state_transition*(
 
   ## TODO, of cacheState/processEpoch/processSlot/processBloc, only the last
   ## might fail, so should this bother capturing here, or?
-  var old_state = state
+  var old_state = clone(state)
 
   # These should never fail.
   process_slots(state, signedBlock.message.slot)
@@ -194,7 +194,7 @@ proc state_transition*(
         return true
 
   # Block processing failed, roll back changes
-  state = old_state
+  state[] = old_state[]
   false
 
 # Hashed-state transition functions
@@ -253,7 +253,7 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot) =
 proc state_transition*(
     state: var HashedBeaconState, signedBlock: SignedBeaconBlock, flags: UpdateFlags): bool =
   # Save for rollback
-  var old_state = state
+  var old_state = clone(state)
 
   process_slots(state, signedBlock.message.slot)
 
@@ -275,5 +275,6 @@ proc state_transition*(
         return true
 
   # Block processing failed, roll back changes
-  state = old_state
+  state.data[] = old_state.data[]
+  state.root = old_state.root
   false

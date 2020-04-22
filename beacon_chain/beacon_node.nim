@@ -86,7 +86,7 @@ proc saveValidatorKey(keyName, key: string, conf: BeaconNodeConf) =
   writeFile(outputFile, key)
   info "Imported validator key", file = outputFile
 
-proc getStateFromSnapshot(conf: BeaconNodeConf, state: var BeaconState): bool =
+proc getStateFromSnapshot(conf: BeaconNodeConf): NilableBeaconState =
   var
     genesisPath = conf.dataDir/genesisFile
     snapshotContents: TaintedString
@@ -122,7 +122,7 @@ proc getStateFromSnapshot(conf: BeaconNodeConf, state: var BeaconState): bool =
       quit 1
 
   try:
-    state = SSZ.decode(snapshotContents, BeaconState)
+    result = SSZ.decode(snapshotContents, BeaconState)
   except SerializationError:
     error "Failed to import genesis file", path = genesisPath
     quit 1
@@ -137,8 +137,6 @@ proc getStateFromSnapshot(conf: BeaconNodeConf, state: var BeaconState): bool =
       error "Failed to persist genesis file to data dir",
         err = err.msg, genesisFile = conf.dataDir/genesisFile
       quit 1
-
-  result = true
 
 proc enrForkIdFromState(state: BeaconState): ENRForkID =
   let
@@ -161,10 +159,10 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
 
   if not BlockPool.isInitialized(db):
     # Fresh start - need to load a genesis state from somewhere
-    var genesisState = new BeaconState
+    var genesisState = conf.getStateFromSnapshot()
 
     # Try file from command line first
-    if not conf.getStateFromSnapshot(genesisState[]):
+    if genesisState.isNil:
       # Didn't work, try creating a genesis state using main chain monitor
       # TODO Could move this to a separate "GenesisMonitor" process or task
       #      that would do only this - see
@@ -178,23 +176,27 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
         error "No initial state, need genesis state or deposit contract address"
         quit 1
 
-      genesisState[] = await mainchainMonitor.getGenesis()
+      genesisState = await mainchainMonitor.getGenesis()
 
-    if genesisState[].slot != GENESIS_SLOT:
-      # TODO how to get a block from a non-genesis state?
-      error "Starting from non-genesis state not supported",
-        stateSlot = genesisState[].slot,
-        stateRoot = hash_tree_root(genesisState[])
-      quit 1
+    # This is needed to prove the not nil property from here on
+    if genesisState == nil:
+      doAssert false
+    else:
+      if genesisState.slot != GENESIS_SLOT:
+        # TODO how to get a block from a non-genesis state?
+        error "Starting from non-genesis state not supported",
+          stateSlot = genesisState.slot,
+          stateRoot = hash_tree_root(genesisState)
+        quit 1
 
-    let tailBlock = get_initial_beacon_block(genesisState[])
+      let tailBlock = get_initial_beacon_block(genesisState)
 
-    try:
-      BlockPool.preInit(db, genesisState[], tailBlock)
-      doAssert BlockPool.isInitialized(db), "preInit should have initialized db"
-    except CatchableError as e:
-      error "Failed to initialize database", err = e.msg
-      quit 1
+      try:
+        BlockPool.preInit(db, genesisState, tailBlock)
+        doAssert BlockPool.isInitialized(db), "preInit should have initialized db"
+      except CatchableError as e:
+        error "Failed to initialize database", err = e.msg
+        quit 1
 
   # TODO check that genesis given on command line (if any) matches database
   let
@@ -1057,7 +1059,7 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
     requireOneOf(slot, root)
     if slot.isSome:
       let blk = node.blockPool.head.blck.atSlot(slot.get)
-      var tmpState: StateData
+      var tmpState = emptyStateData()
       node.blockPool.withState(tmpState, blk):
         return jsonResult(state)
     else:

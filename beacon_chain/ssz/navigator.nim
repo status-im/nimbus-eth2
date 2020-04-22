@@ -40,7 +40,7 @@ func navigateToField*[T](n: SszNavigator[T],
                          fieldName: static string,
                          FieldType: type): SszNavigator[FieldType] {.raisesssz.} =
   mixin toSszType
-  type SszFieldType = type toSszType(default FieldType)
+  type SszFieldType = type toSszType(declval FieldType)
 
   const boundingOffsets = getFieldBoundingOffsets(T, fieldName)
   checkBounds(n.m, boundingOffsets[1])
@@ -101,7 +101,7 @@ func indexVarSizeList(m: MemRange, idx: int): MemRange {.raisesssz.} =
 template indexList(n, idx, T: untyped): untyped =
   type R = T
   mixin toSszType
-  type ElemType = type toSszType(default R)
+  type ElemType = type toSszType(declval R)
   when isFixedSize(ElemType):
     const elemSize = fixedPortionSize(ElemType)
     let elemPos = idx * elemSize
@@ -119,11 +119,16 @@ template `[]`*[R, T](n: SszNavigator[array[R, T]], idx: int): SszNavigator[T] =
 
 func `[]`*[T](n: SszNavigator[T]): T {.raisesssz.} =
   mixin toSszType, fromSszBytes
-  type SszRepr = type(toSszType default(T))
-  when type(SszRepr) is type(T):
-    readSszValue(toOpenArray(n.m), T)
+  when T is ref:
+    type ObjectType = type(result[])
+    new result
+    result[] = SszNavigator[ObjectType](n)[]
   else:
-    fromSszBytes(T, toOpenArray(n.m))
+    type SszRepr = type toSszType(declval T)
+    when type(SszRepr) is type(T):
+      readSszValue(toOpenArray(n.m), T)
+    else:
+      fromSszBytes(T, toOpenArray(n.m))
 
 converter derefNavigator*[T](n: SszNavigator[T]): T {.raisesssz.} =
   n[]

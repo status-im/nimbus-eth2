@@ -3,7 +3,7 @@
 
 import
   strutils, parseutils,
-  faststreams/output_stream, json_serialization/writer,
+  stew/objects, faststreams/output_stream, json_serialization/writer,
   ../spec/datatypes,
   types, bytes_reader, navigator
 
@@ -79,7 +79,7 @@ proc typeInfo*(T: type): TypeInfo =
 
 func genTypeInfo(T: type): TypeInfo =
   mixin toSszType, enumAllSerializedFields
-  type SszType = type(toSszType default(T))
+  type SszType = type toSszType(declval T)
   result = when type(SszType) isnot T:
     TypeInfo(kind: LeafValue)
   elif T is object:

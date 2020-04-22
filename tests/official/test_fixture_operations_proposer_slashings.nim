@@ -37,28 +37,20 @@ proc runTest(identifier: string) =
       prefix = "[Invalid] "
 
     timedTest prefix & astToStr(identifier):
-      var stateRef, postRef: ref BeaconState
-      var proposerSlashing: ref ProposerSlashing
-      new proposerSlashing
-      new stateRef
-
-      proposerSlashing[] = parseTest(testDir/"proposer_slashing.ssz", SSZ, ProposerSlashing)
-      stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
-
-      if existsFile(testDir/"post.ssz"):
-        new postRef
-        postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
+      let proposerSlashing = parseTest(testDir/"proposer_slashing.ssz", SSZ, ProposerSlashing)
+      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
 
       var cache = get_empty_per_epoch_cache()
 
-      if postRef.isNil:
-        let done = process_proposer_slashing(stateRef[], proposerSlashing[], {}, cache)
-        doAssert done == false, "We didn't expect this invalid proposer slashing to be processed."
-      else:
-        let done = process_proposer_slashing(stateRef[], proposerSlashing[], {}, cache)
+      if existsFile(testDir/"post.ssz"):
+        let postState = parseTest(testDir/"post.ssz", SSZ, BeaconState)
+        let done = process_proposer_slashing(preState, proposerSlashing, {}, cache)
         doAssert done, "Valid proposer slashing not processed"
-        check: stateRef.hash_tree_root() == postRef.hash_tree_root()
-        reportDiff(stateRef, postRef)
+        check: preState.hash_tree_root() == postState.hash_tree_root()
+        reportDiff(preState, postState)
+      else:
+        let done = process_proposer_slashing(preState, proposerSlashing, {}, cache)
+        doAssert done == false, "We didn't expect this invalid proposer slashing to be processed."
 
   `testImpl_proposer_slashing _ identifier`()
 

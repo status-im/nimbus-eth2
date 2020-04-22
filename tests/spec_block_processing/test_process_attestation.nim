@@ -33,8 +33,7 @@ suiteReport "[Unit - Spec - Block processing] Attestations " & preset():
     # The attestation to process must be named "attestation" in the calling context
 
     timedTest name:
-      var state{.inject.}: BeaconState
-      deepCopy(state, genesisState)
+      var state {.inject.} = clone(genesisState)
 
       # Attestation setup body
       # ----------------------------------------

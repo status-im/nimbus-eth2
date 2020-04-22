@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  options, typetraits, stew/endians2,
+  options, typetraits, stew/[results, endians2],
   serialization, chronicles,
   spec/[datatypes, digest, crypto],
   kvstore, ssz
@@ -68,11 +68,11 @@ proc init*(T: type BeaconChainDB, backend: KVStoreRef): BeaconChainDB =
 proc put(db: BeaconChainDB, key: openArray[byte], v: auto) =
   db.backend.put(key, SSZ.encode(v)).expect("working database")
 
-proc get(db: BeaconChainDB, key: openArray[byte], T: typedesc): Option[T] =
-  var res: Option[T]
+proc get(db: BeaconChainDB, key: openArray[byte], T: typedesc): Opt[T] =
+  var res: Opt[T]
   proc decode(data: openArray[byte]) =
     try:
-      res = some(SSZ.decode(data, T))
+      res.ok SSZ.decode(data, T)
     except SerializationError as e:
       # If the data can't be deserialized, it could be because it's from a
       # version of the software that uses a different SSZ encoding
@@ -119,20 +119,21 @@ proc putHeadBlock*(db: BeaconChainDB, key: Eth2Digest) =
 proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.backend.put(subkey(kTailBlock), key.data).expect("working database")
 
-proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Option[SignedBeaconBlock] =
+proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Opt[SignedBeaconBlock] =
   db.get(subkey(SignedBeaconBlock, key), SignedBeaconBlock)
 
-proc getState*(db: BeaconChainDB, key: Eth2Digest): Option[BeaconState] =
+proc getState*(db: BeaconChainDB, key: Eth2Digest): Opt[BeaconState] =
   db.get(subkey(BeaconState, key), BeaconState)
 
-proc getStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot):
-    Option[Eth2Digest] =
+proc getStateRoot*(db: BeaconChainDB,
+                   root: Eth2Digest,
+                   slot: Slot): Opt[Eth2Digest] =
   db.get(subkey(root, slot), Eth2Digest)
 
-proc getHeadBlock*(db: BeaconChainDB): Option[Eth2Digest] =
+proc getHeadBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
   db.get(subkey(kHeadBlock), Eth2Digest)
 
-proc getTailBlock*(db: BeaconChainDB): Option[Eth2Digest] =
+proc getTailBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
   db.get(subkey(kTailBlock), Eth2Digest)
 
 proc containsBlock*(
@@ -151,7 +152,7 @@ iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
   ## The search will go on until the ancestor cannot be found.
 
   var root = root
-  while (let blck = db.getBlock(root); blck.isSome()):
+  while (let blck = db.getBlock(root); blck.isOk()):
     yield (root, blck.get())
 
     root = blck.get().message.parent_root
