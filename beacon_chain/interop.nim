@@ -1,3 +1,5 @@
+{.push raises: [Defect].}
+
 import
   stew/endians2, stint,
   ./extras, ./ssz,
@@ -14,7 +16,7 @@ func get_eth1data_stub*(deposit_count: uint64, current_epoch: Epoch): Eth1Data =
     block_hash: hash_tree_root(hash_tree_root(voting_period).data),
   )
 
-func makeInteropPrivKey*(i: int): ValidatorPrivKey =
+func makeInteropPrivKey*(i: int): BlsResult[ValidatorPrivKey] =
   var bytes: array[32, byte]
   bytes[0..7] = uint64(i).toBytesLE()
 
@@ -26,7 +28,7 @@ func makeInteropPrivKey*(i: int): ValidatorPrivKey =
     privkeyBytes = eth2hash(bytes)
     key = (UInt256.fromBytesLE(privkeyBytes.data) mod curveOrder).toBytesBE()
 
-  ValidatorPrivKey.fromRaw(key).tryGet()
+  ValidatorPrivKey.fromRaw(key)
 
 const eth1BlockHash* = block:
   var x: Eth2Digest

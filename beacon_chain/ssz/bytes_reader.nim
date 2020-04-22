@@ -1,3 +1,6 @@
+{.push raises: [Defect].}
+{.pragma: raisesssz, raises: [Defect, MalformedSszError, SszSizeMismatchError].}
+
 import
   typetraits, options,
   stew/[bitseqs, endians2, objects, bitseqs], serialization/testing/tracing,
@@ -10,19 +13,19 @@ template setOutputSize[R, T](a: var array[R, T], length: int) =
   if length != a.len:
     raise newException(MalformedSszError, "SSZ input of insufficient size")
 
-proc setOutputSize[T](s: var seq[T], length: int) {.inline.} =
+proc setOutputSize[T](s: var seq[T], length: int) {.inline, raisesssz.} =
   if sizeof(T) * length > maxListAllocation:
     raise newException(MalformedSszError, "SSZ list size is too large to fit in memory")
   s.setLen length
 
-proc setOutputSize(s: var string, length: int) {.inline.} =
+proc setOutputSize(s: var string, length: int) {.inline, raisesssz.} =
   if length > maxListAllocation:
     raise newException(MalformedSszError, "SSZ string is too large to fit in memory")
   s.setLen length
 
 # fromSszBytes copies the wire representation to a Nim variable,
 # assuming there's enough data in the buffer
-func fromSszBytes*(T: type SomeInteger, data: openarray[byte]): T =
+func fromSszBytes*(T: type SomeInteger, data: openarray[byte]): T {.raisesssz.} =
   ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
   ## All integers are serialized as **little endian**.
   if data.len < sizeof(result):
@@ -30,14 +33,14 @@ func fromSszBytes*(T: type SomeInteger, data: openarray[byte]): T =
 
   T.fromBytesLE(data)
 
-func fromSszBytes*(T: type bool, data: openarray[byte]): T =
+func fromSszBytes*(T: type bool, data: openarray[byte]): T {.raisesssz.} =
   # TODO: spec doesn't say what to do if the value is >1 - we'll use the C
   #       definition for now, but maybe this should be a parse error instead?
   if data.len == 0 or data[0] > byte(1):
     raise newException(MalformedSszError, "invalid boolean value")
   data[0] == 1
 
-func fromSszBytes*(T: type Eth2Digest, data: openarray[byte]): T =
+func fromSszBytes*(T: type Eth2Digest, data: openarray[byte]): T {.raisesssz.} =
   if data.len < sizeof(result.data):
     raise newException(MalformedSszError, "SSZ input of insufficient size")
   copyMem(result.data.addr, unsafeAddr data[0], sizeof(result.data))
@@ -48,16 +51,16 @@ template fromSszBytes*(T: type Slot, bytes: openarray[byte]): Slot =
 template fromSszBytes*(T: type Epoch, bytes: openarray[byte]): Epoch =
   Epoch fromSszBytes(uint64, bytes)
 
-template fromSszBytes*(T: type enum, bytes: openarray[byte]): auto =
+template fromSszBytes*(T: type enum, bytes: openarray[byte]): auto  =
   T fromSszBytes(uint64, bytes)
 
 template fromSszBytes*(T: type BitSeq, bytes: openarray[byte]): auto =
   BitSeq @bytes
 
-func fromSszBytes*[N](T: type BitList[N], bytes: openarray[byte]): auto =
+func fromSszBytes*[N](T: type BitList[N], bytes: openarray[byte]): auto {.raisesssz.} =
   BitList[N] @bytes
 
-func fromSszBytes*[N](T: type BitArray[N], bytes: openarray[byte]): T =
+func fromSszBytes*[N](T: type BitArray[N], bytes: openarray[byte]): T {.raisesssz.} =
   # A bit vector doesn't have a marker bit, but we'll use the helper from
   # nim-stew to determine the position of the leading (marker) bit.
   # If it's outside the BitArray size, we have an overflow:
@@ -68,7 +71,7 @@ func fromSszBytes*[N](T: type BitArray[N], bytes: openarray[byte]): T =
 proc `[]`[T, U, V](s: openArray[T], x: HSlice[U, V]) {.error:
   "Please don't use openarray's [] as it allocates a result sequence".}
 
-func readSszValue*(input: openarray[byte], T: type): T =
+func readSszValue*(input: openarray[byte], T: type): T {.raisesssz.} =
   mixin fromSszBytes, toSszType
 
   type T {.used.} = type(result)

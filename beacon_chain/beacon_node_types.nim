@@ -1,3 +1,5 @@
+{.push raises: [Defect].}
+
 import
   deques, tables, options,
   stew/[endians2, byteutils], chronicles,

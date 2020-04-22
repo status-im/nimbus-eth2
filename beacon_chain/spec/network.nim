@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [Defect].}
+
 import
   strformat,
   stew/byteutils,
@@ -27,22 +29,39 @@ const
   defaultEth2RpcPort* = 9090
 
 func getBeaconBlocksTopic*(forkDigest: ForkDigest): string =
-  &"/eth2/{toHex forkDigest}/{topicBeaconBlocksSuffix}"
+  try:
+    &"/eth2/{toHex forkDigest}/{topicBeaconBlocksSuffix}"
+  except ValueError as e:
+    raiseAssert e.msg
 
 func getVoluntaryExitsTopic*(forkDigest: ForkDigest): string =
-  &"/eth2/{toHex forkDigest}/{topicVoluntaryExitsSuffix}"
+  try:
+    &"/eth2/{toHex forkDigest}/{topicVoluntaryExitsSuffix}"
+  except ValueError as e:
+    raiseAssert e.msg
 
 func getProposerSlashingsTopic*(forkDigest: ForkDigest): string =
-  &"/eth2/{toHex forkDigest}/{topicProposerSlashingsSuffix}"
+  try:
+    &"/eth2/{toHex forkDigest}/{topicProposerSlashingsSuffix}"
+  except ValueError as e:
+    raiseAssert e.msg
 
 func getAttesterSlashingsTopic*(forkDigest: ForkDigest): string =
-  &"/eth2/{toHex forkDigest}/{topicAttesterSlashingsSuffix}"
+  try:
+    &"/eth2/{toHex forkDigest}/{topicAttesterSlashingsSuffix}"
+  except ValueError as e:
+    raiseAssert e.msg
 
 func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
-  &"/eth2/{toHex forkDigest}/{topicAggregateAndProofsSuffix}"
+  try:
+    &"/eth2/{toHex forkDigest}/{topicAggregateAndProofsSuffix}"
+  except ValueError as e:
+    raiseAssert e.msg
 
 func getAttestationTopic*(forkDigest: ForkDigest, committeeIndex: uint64): string =
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/validator.md#broadcast-attestation
-  let topicIndex = committeeIndex mod ATTESTATION_SUBNET_COUNT
-  &"/eth2/{toHex forkDigest}/committee_index{topicIndex}{topicAttestationsSuffix}"
-
+  try:
+    let topicIndex = committeeIndex mod ATTESTATION_SUBNET_COUNT
+    &"/eth2/{toHex forkDigest}/committee_index{topicIndex}{topicAttestationsSuffix}"
+  except ValueError as e:
+    raiseAssert e.msg
