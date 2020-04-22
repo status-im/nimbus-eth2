@@ -7,6 +7,18 @@ export datatypes, digest, chronos, chronicles
 logScope:
   topics = "syncman"
 
+const
+  PeerScoreNoStatus* = -100
+    ## Peer did not answer `status` request.
+  PeerScoreStaleStatus* = -50
+    ## Peer's `status` answer do not progress in time.
+  PeerScoreGoodStatus* = 50
+    ## Peer's `status` answer is fine.
+  PeerScoreNoBlocks* = -100
+    ## Peer did not respond in time on `blocksByRange` request.
+  PeerScoreGoodBlocks* = 100
+    ## Peer' `blocksByRange` answer is fine.
+
 type
   GetSlotCallback* = proc(): Slot {.gcsafe, raises: [Defect].}
 
@@ -48,6 +60,7 @@ type
     getLocalHeadSlot: GetSlotCallback
     getLocalWallSlot: GetSlotCallback
     updateLocalBlocks: UpdateLocalBlocksCallback
+    chunkSize: uint64
     queue: SyncQueue
 
   SyncManagerError* = object of CatchableError
@@ -213,6 +226,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
     getLocalWallSlot: getLocalWallSlotCb,
     maxHeadAge: maxHeadAge,
     sleepTime: sleepTime,
+    chunkSize: chunkSize,
     queue: queue
   )
 
@@ -255,6 +269,8 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
       var headSlot = man.getLocalHeadSlot()
       var peerSlot = peer.getHeadSlot()
 
+      man.queue.updateLastSlot(wallSlot)
+
       debug "Peer's syncing status", wall_clock_slot = wallSlot,
             remote_head_slot = peerSlot, local_head_slot = headSlot,
             peer_score = peer.getScore(), peer = peer, topics = "syncman"
@@ -275,7 +291,7 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
               peer = peer, peer_score = peer.getScore(), topics = "syncman"
         let res = await peer.updateStatus()
         if not(res):
-          peer.updateScore(-100)
+          peer.updateScore(PeerScoreNoStatus)
           debug "Failed to get remote peer's status, exiting", peer = peer,
                 peer_score = peer.getScore(), peer_head_slot = peerSlot,
                 topics = "syncman"
@@ -288,17 +304,15 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
                 local_head_slot = headSlot,
                 remote_new_head_slot = newPeerSlot,
                 peer = peer, peer_score = peer.getScore(), topics = "syncman"
-          peer.updateScore(-50)
+          peer.updateScore(PeerScoreStaleStatus)
           break
 
         debug "Peer's status information updated", wall_clock_slot = wallSlot,
               remote_old_head_slot = peerSlot, local_head_slot = headSlot,
               remote_new_head_slot = newPeerSlot, peer = peer,
               peer_score = peer.getScore(), topics = "syncman"
-        peer.updateScore(50)
+        peer.updateScore(PeerScoreGoodStatus)
         peerSlot = newPeerSlot
-
-      man.queue.updateLastSlot(wallSlot)
 
       if (peerAge <= man.maxHeadAge) and (headAge <= man.maxHeadAge):
         debug "We are in sync with peer, exiting", wall_clock_slot = wallSlot,
@@ -326,18 +340,19 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
       if blocks.isSome():
         let data = blocks.get()
         await man.queue.push(req, data)
-        peer.updateScore(100)
+        peer.updateScore(PeerScoreGoodBlocks)
         debug "Received blocks on request", blocks_count = len(data),
               request_slot = req.slot, request_count = req.count,
               request_step = req.step, peer = peer,
               peer_score = peer.getScore(), topics = "syncman"
       else:
-        peer.updateScore(-100)
+        peer.updateScore(PeerScoreNoBlocks)
         man.queue.push(req)
         debug "Failed to receive blocks on request",
               request_slot = req.slot, request_count = req.count,
               request_step = req.step, peer = peer,
               peer_score = peer.getScore(), topics = "syncman"
+        break
 
     result = peer
   finally:
@@ -349,8 +364,8 @@ proc sync*[A, B](man: SyncManager[A, B]) {.async.} =
   var acquireFut: Future[A]
   var wallSlot, headSlot: Slot
 
-  template workersCount(): string =
-    if isNil(acquireFut): $len(pending) else: $(len(pending) - 1)
+  template workersCount(): int =
+    if isNil(acquireFut): len(pending) else: (len(pending) - 1)
 
   debug "Synchronization loop started", topics = "syncman"
 
@@ -358,8 +373,14 @@ proc sync*[A, B](man: SyncManager[A, B]) {.async.} =
     wallSlot = man.getLocalWallSlot()
     headSlot = man.getLocalHeadSlot()
 
+    var progress: string
+    if headSlot <= man.queue.lastSlot:
+      progress = man.queue.progress()
+    else:
+      progress = $headSlot & "/" & $headSlot
+
     debug "Synchronization loop start tick", wall_head_slot = wallSlot,
-          local_head_slot = headSlot, queue_status = man.queue.progress(),
+          local_head_slot = headSlot, queue_status = progress,
           workers_count = workersCount(), topics = "syncman"
 
     if headAge <= man.maxHeadAge:
@@ -410,6 +431,9 @@ proc sync*[A, B](man: SyncManager[A, B]) {.async.} =
                     peer_score = peer.getScore(), topics = "syncman"
               man.pool.release(peer)
             else:
+              if headSlot > man.queue.lastSlot:
+                man.queue = SyncQueue.init(headSlot, wallSlot, man.chunkSize,
+                                           man.updateLocalBlocks, 2)
               debug "Synchronization loop starting new worker", peer = peer,
                     wall_head_slot = wallSlot, local_head_slot = headSlot,
                     peer_score = peer.getScore(), topics = "syncman"
