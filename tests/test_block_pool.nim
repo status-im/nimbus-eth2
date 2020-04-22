@@ -11,7 +11,7 @@ import
   unittest, chronicles,
   ./testutil,
   ../beacon_chain/spec/datatypes,
-  ../beacon_chain/[beacon_node_types, block_pool, ssz, state_transition]
+  ../beacon_chain/[beacon_node_types, block_pool, ssz]
 
 suiteReport "BlockRef and helpers" & preset():
   timedTest "isAncestorOf sanity" & preset():
@@ -86,6 +86,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
   import
     options, sequtils,
     ./testblockutil,
+    ../beacon_chain/state_transition,
     ../beacon_chain/spec/[digest, helpers, validator]
 
   suiteReport "Block pool processing" & preset():
