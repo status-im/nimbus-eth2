@@ -93,7 +93,7 @@ template timedTest*(name, body) =
   testTimes.add (f, name)
 
 proc makeTestDB*(tailState: BeaconState, tailBlock: SignedBeaconBlock): BeaconChainDB =
-  result = init(BeaconChainDB, kvStore MemoryStoreRef.init())
+  result = init(BeaconChainDB, kvStore MemStoreRef.init())
   BlockPool.preInit(result, tailState, tailBlock)
 
 proc makeTestDB*(validators: int): BeaconChainDB =
