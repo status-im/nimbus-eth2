@@ -42,7 +42,10 @@ type
     slot: Slot
 
 const
-  MAX_REQUESTED_BLOCKS = 20'u64
+  MAX_REQUESTED_BLOCKS = SLOTS_PER_EPOCH  * 4
+    # A boundary on the number of blocks we'll allow in any single block
+    # request - typically clients will ask for an epoch or so at a time, but we
+    # allow a little bit more in case they want to stream blocks faster
 
 proc importBlocks(state: BeaconSyncNetworkState,
                   blocks: openarray[SignedBeaconBlock]) {.gcsafe.} =
@@ -140,10 +143,12 @@ p2pProtocol BeaconSync(version = 1,
           # Limit number of blocks in response
           count = min(count.Natural, blocks.len)
 
-        let startIndex =
-          pool.getBlockRange(startSlot, step, blocks.toOpenArray(0, count - 1))
+        let
+          endIndex = count - 1
+          startIndex =
+            pool.getBlockRange(startSlot, step, blocks.toOpenArray(0, endIndex))
 
-        for b in blocks[startIndex..^1]:
+        for b in blocks[startIndex..endIndex]:
           doAssert not b.isNil, "getBlockRange should return non-nil blocks only"
           trace "wrote response block", slot = b.slot, roor = shortLog(b.root)
           await response.write(pool.get(b).data)
@@ -157,16 +162,18 @@ p2pProtocol BeaconSync(version = 1,
             libp2pProtocol("beacon_blocks_by_root", 1).} =
       let
         pool = peer.networkState.blockPool
+        count = min(blockRoots.len, MAX_REQUESTED_BLOCKS)
 
       var found = 0
-      for root in blockRoots:
+
+      for root in blockRoots[0..<count]:
         let blockRef = pool.getRef(root)
         if not isNil(blockRef):
           await response.write(pool.get(blockRef).data)
           inc found
 
       debug "Block root request done",
-        peer, roots = blockRoots.len, found
+        peer, roots = blockRoots.len, count, found
 
     proc beaconBlocks(
             peer: Peer,

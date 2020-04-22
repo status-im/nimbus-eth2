@@ -7,8 +7,6 @@ export datatypes, digest, chronos, chronicles
 logScope:
   topics = "syncman"
 
-const MAX_REQUESTED_BLOCKS* = 20'u64
-
 type
   GetSlotCallback* = proc(): Slot {.gcsafe, raises: [Defect].}
 
