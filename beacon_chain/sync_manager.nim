@@ -200,10 +200,10 @@ proc total*(sq: SyncQueue): uint64 {.inline.} =
   ## Returns total number of slots in queue ``sq``.
   result = sq.lastSlot - sq.startSlot + 1'u64
 
-proc progress*(sq: SyncQueue): string =
+proc progress*(sq: SyncQueue): uint64 =
   ## Returns queue's ``sq`` progress string.
   let curSlot = sq.outSlot - sq.startSlot
-  result = $curSlot & "/" & $sq.total()
+  result = (curSlot * 100'u64) div sq.total()
 
 proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            getLocalHeadSlotCb: GetSlotCallback,
@@ -328,6 +328,11 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
               queue_output_slot = man.queue.outSlot,
               queue_last_slot = man.queue.lastSlot,
               peer_score = peer.getScore(), topics = "syncman"
+        # Sometimes when syncing is almost done but last requests are still
+        # pending, this can fall into endless cycle, when low number of peers
+        # are available in PeerPool. We going to wait for RESP_TIMEOUT time,
+        # so all pending requests should be finished at this moment.
+        await sleepAsync(RESP_TIMEOUT)
         break
 
       debug "Creating new request for peer", wall_clock_slot = wallSlot,
@@ -373,14 +378,16 @@ proc sync*[A, B](man: SyncManager[A, B]) {.async.} =
     wallSlot = man.getLocalWallSlot()
     headSlot = man.getLocalHeadSlot()
 
-    var progress: string
+    var progress: uint64
     if headSlot <= man.queue.lastSlot:
       progress = man.queue.progress()
     else:
-      progress = $headSlot & "/" & $headSlot
+      progress = 100'u64
 
     debug "Synchronization loop start tick", wall_head_slot = wallSlot,
           local_head_slot = headSlot, queue_status = progress,
+          queue_start_slot = man.queue.startSlot,
+          queue_last_slot = man.queue.lastSlot,
           workers_count = workersCount(), topics = "syncman"
 
     if headAge <= man.maxHeadAge:
