@@ -55,7 +55,7 @@ suiteReport "Beacon chain DB" & preset():
 
     check:
       db.containsState(root)
-      db.getState(root).get() == state
+      db.getState(root).get[] == state[]
 
   timedTest "find ancestors" & preset():
     var
@@ -106,4 +106,4 @@ suiteReport "Beacon chain DB" & preset():
 
     check:
       db.containsState(root)
-      db.getState(root).get() == state
+      db.getState(root).get[] == state[]

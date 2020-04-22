@@ -41,7 +41,7 @@ type
     depositContractAddress: Address
     dataProviderFactory*: DataProviderFactory
 
-    genesisState: ref BeaconState
+    genesisState: NilableBeaconState
     genesisStateFut: Future[void]
 
     eth1Chain: Eth1Chain
@@ -86,6 +86,10 @@ type
 
 const
   reorgDepthLimit = 1000
+
+# TODO Nim's analysis on the lock level of the methods in this
+# module seems broken. Investigate and file this as an issue.
+{.push warning[LockLevel]: off.}
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#get_eth1_data
 func compute_time_at_slot(state: BeaconState, slot: Slot): uint64 =
@@ -346,8 +350,7 @@ proc checkForGenesisEvent(m: MainchainMonitor) =
       # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
       s.genesis_time = startTime
 
-      m.genesisState.new()
-      m.genesisState[] = s
+      m.genesisState = clone(s)
       if not m.genesisStateFut.isNil:
         m.genesisStateFut.complete()
         m.genesisStateFut = nil
@@ -436,8 +439,11 @@ proc getGenesis*(m: MainchainMonitor): Future[BeaconState] {.async.} =
     await m.genesisStateFut
     m.genesisStateFut = nil
 
-  doAssert(not m.genesisState.isNil)
-  return m.genesisState[]
+  if m.genesisState == nil:
+    doAssert(false)
+    return BeaconState()
+  else:
+    return m.genesisState
 
 method getBlockByHash*(p: Web3DataProviderRef, hash: BlockHash): Future[BlockObject] =
   discard
@@ -585,7 +591,11 @@ proc stop*(m: MainchainMonitor) =
 
 proc getLatestEth1BlockHash*(url: string): Future[Eth2Digest] {.async.} =
   let web3 = await newWeb3(url)
-  defer: await web3.close()
-  let blk = await web3.provider.eth_getBlockByNumber("latest", false)
-  return Eth2Digest(data: array[32, byte](blk.hash))
+  try:
+    let blk = await web3.provider.eth_getBlockByNumber("latest", false)
+    return Eth2Digest(data: array[32, byte](blk.hash))
+  finally:
+    await web3.close()
+
+{.pop.}
 

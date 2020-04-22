@@ -33,8 +33,7 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
     # TODO: BLS signature
     timedTest "Deposit " & name & " MAX_EFFECTIVE_BALANCE balance (" &
           $(MAX_EFFECTIVE_BALANCE div 10'u64^9) & " ETH)":
-      var state: BeaconState
-      deepCopy(state, genesisState)
+      var state = clone(genesisState)
 
       # Test configuration
       # ----------------------------------------
@@ -75,9 +74,7 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
   valid_deposit(MAX_EFFECTIVE_BALANCE + 1, "over")
 
   timedTest "Validator top-up":
-
-    var state: BeaconState
-    deepCopy(state, genesisState)
+    var state = clone(genesisState)
 
     # Test configuration
     # ----------------------------------------

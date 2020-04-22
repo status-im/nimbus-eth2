@@ -34,32 +34,28 @@ proc runTest(identifier: string) =
       "[Invalid] "
 
     timedTest prefix & identifier:
-      var stateRef, postRef: ref BeaconState
-      new stateRef
-      stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
-
-      if existsFile(testDir/"post.ssz"):
-        new postRef
-        postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
+      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
+      var hasPostState = existsFile(testDir/"post.ssz")
 
       # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
       # so purely lexicographic sorting wouldn't sort properly.
       for i in 0 ..< toSeq(walkPattern(testDir/"blocks_*.ssz")).len:
         let blck = parseTest(testDir/"blocks_" & $i & ".ssz", SSZ, SignedBeaconBlock)
 
-        if postRef.isNil:
-          let success = state_transition(stateRef[], blck, flags = {})
-          doAssert not success, "We didn't expect this invalid block to be processed"
-        else:
+        if hasPostState:
           # TODO: The EF is using invalid BLS keys so we can't verify them
-          let success = state_transition(stateRef[], blck, flags = {skipBlsValidation})
+          let success = state_transition(preState, blck, flags = {skipBlsValidation})
           doAssert success, "Failure when applying block " & $i
+        else:
+          let success = state_transition(preState, blck, flags = {})
+          doAssert not success, "We didn't expect this invalid block to be processed"
 
-      # check: stateRef.hash_tree_root() == postRef.hash_tree_root()
-      if not postRef.isNil:
+      # check: preState.hash_tree_root() == postState.hash_tree_root()
+      if hasPostState:
+        let postState = parseTest(testDir/"post.ssz", SSZ, BeaconState)
         when false:
-          reportDiff(stateRef, postRef)
-        doAssert stateRef.hash_tree_root() == postRef.hash_tree_root()
+          reportDiff(preState, postState)
+        doAssert preState.hash_tree_root() == postState.hash_tree_root()
 
   `testImpl _ blck _ identifier`()
 

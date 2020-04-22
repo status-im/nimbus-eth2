@@ -9,7 +9,7 @@
 
 import
   bitops, chronicles, options, tables,
-  ssz, beacon_chain_db, state_transition, extras, kvstore,
+  stew/results, ssz, beacon_chain_db, state_transition, extras, kvstore,
   beacon_node_types, metrics,
   spec/[crypto, datatypes, digest, helpers, validator]
 
@@ -204,21 +204,20 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
       "state data missing for tail block, database corrupt?"
     latestStateRoot = some((tailBlock.message.state_root, tailRef))
 
-  # TODO can't do straight init because in mainnet config, there are too
-  #      many live beaconstates on the stack...
-  var tmpState = new Option[BeaconState]
-
   # We're only saving epoch boundary states in the database right now, so when
   # we're loading the head block, the corresponding state does not necessarily
   # exist in the database - we'll load this latest state we know about and use
   # that as finalization point.
-  tmpState[] = db.getState(latestStateRoot.get().stateRoot)
+  let stateOpt = db.getState(latestStateRoot.get().stateRoot)
+  doAssert stateOpt.isSome, "failed to obtain latest state. database corrupt?"
+  let tmpState = stateOpt.get
+
   let
     finalizedSlot =
-      tmpState[].get().finalized_checkpoint.epoch.compute_start_slot_at_epoch()
+      tmpState.finalized_checkpoint.epoch.compute_start_slot_at_epoch()
     finalizedHead = headRef.findAncestorBySlot(finalizedSlot)
     justifiedSlot =
-      tmpState[].get().current_justified_checkpoint.epoch.compute_start_slot_at_epoch()
+      tmpState.current_justified_checkpoint.epoch.compute_start_slot_at_epoch()
     justifiedHead = headRef.findAncestorBySlot(justifiedSlot)
     head = Head(blck: headRef, justified: justifiedHead)
     justifiedBlock = db.getBlock(justifiedHead.blck.root).get()
@@ -231,6 +230,18 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
     head = head.blck, finalizedHead, tail = tailRef,
     totalBlocks = blocks.len
 
+  let headState = StateData(
+    data: HashedBeaconState(
+      data: tmpState, root: latestStateRoot.get().stateRoot),
+    blck: latestStateRoot.get().blckRef)
+
+  let justifiedState = db.getState(justifiedStateRoot)
+  doAssert justifiedState.isSome,
+           "failed to obtain latest justified state. database corrupt?"
+
+  # For the initialization of `tmpState` below.
+  # Please note that it's initialized few lines below
+  {.push warning[UnsafeDefault]: off.}
   let res = BlockPool(
     pending: initTable[Eth2Digest, SignedBeaconBlock](),
     missing: initTable[Eth2Digest, MissingBlock](),
@@ -249,21 +260,17 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
     finalizedHead: finalizedHead,
     db: db,
     heads: @[head],
+    headState: headState,
+    justifiedState: StateData(
+      data: HashedBeaconState(data: justifiedState.get, root: justifiedStateRoot),
+      blck: justifiedHead.blck),
+    tmpState: default(StateData)
   )
+  {.pop.}
 
-  res.headState = StateData(
-    data: HashedBeaconState(
-      data: tmpState[].get(), root: latestStateRoot.get().stateRoot),
-    blck: latestStateRoot.get().blckRef)
-
-  res.updateStateData(res.headState, BlockSlot(blck: head.blck, slot: head.blck.slot))
-  res.tmpState = res.headState
-
-  tmpState[] = db.getState(justifiedStateRoot)
-  res.justifiedState = StateData(
-    data: HashedBeaconState(data: tmpState[].get(), root: justifiedStateRoot),
-    blck: justifiedHead.blck)
-
+  res.updateStateData(res.headState, BlockSlot(blck: head.blck,
+                                               slot: head.blck.slot))
+  res.tmpState = clone(res.headState)
   res
 
 proc addResolvedBlock(
@@ -568,7 +575,7 @@ proc skipAndUpdateState(
 
   skipAndUpdateState(state, signedBlock.message.slot - 1, afterUpdate)
 
-  let ok  = state_transition(state, signedBlock, flags)
+  let ok = state_transition(state, signedBlock, flags)
 
   afterUpdate(state)
 
@@ -653,7 +660,7 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
   #      writing and deleting state+root mappings in a single transaction, it's
   #      likely to happen and we guard against it here.
   if stateRoot.isSome() and not pool.db.containsState(stateRoot.get()):
-    stateRoot = none(type(stateRoot.get()))
+    stateRoot.err()
 
   while stateRoot.isNone():
     let parBs = curBs.parent()
@@ -718,7 +725,7 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
     ancestors = ancestors.len,
     cat = "replay_state"
 
-  state.data.data = ancestorState.get()
+  state.data.data[] = ancestorState.get()[]
   state.data.root = stateRoot.get()
   state.blck = ancestor.refs
 

@@ -148,7 +148,7 @@ template writeFixedSized(s: OutputStream, x: auto) =
 
 template supports*(_: type SSZ, T: type): bool =
   mixin toSszType
-  anonConst compiles(fixedPortionSize toSszType(default(T)))
+  anonConst compiles(fixedPortionSize toSszType(declval T))
 
 func init*(T: type SszWriter, stream: OutputStream): T {.raises: [Defect].} =
   result.stream = stream

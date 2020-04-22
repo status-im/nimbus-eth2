@@ -37,28 +37,20 @@ proc runTest(identifier: string) =
       prefix = "[Invalid] "
 
     timedTest prefix & identifier:
-      var stateRef, postRef: ref BeaconState
-      var blck: ref BeaconBlock
-      new blck
-      new stateRef
-
       var cache = get_empty_per_epoch_cache()
 
-      blck[] = parseTest(testDir/"block.ssz", SSZ, BeaconBlock)
-      stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
+      let blck = parseTest(testDir/"block.ssz", SSZ, BeaconBlock)
+      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
 
       if existsFile(testDir/"post.ssz"):
-        new postRef
-        postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
-
-      if postRef.isNil:
-        let done = process_block_header(stateRef[], blck[], {}, cache)
-        doAssert done == false, "We didn't expect this invalid block header to be processed."
-      else:
-        let done = process_block_header(stateRef[], blck[], {}, cache)
+        let postState = parseTest(testDir/"post.ssz", SSZ, BeaconState)
+        let done = process_block_header(preState, blck, {}, cache)
         doAssert done, "Valid block header not processed"
-        check: stateRef.hash_tree_root() == postRef.hash_tree_root()
-        reportDiff(stateRef, postRef)
+        check: preState.hash_tree_root() == postState.hash_tree_root()
+        reportDiff(preState, postState)
+      else:
+        let done = process_block_header(preState, blck, {}, cache)
+        doAssert done == false, "We didn't expect this invalid block header to be processed."
 
   `testImpl _ blockheader _ identifier`()
 

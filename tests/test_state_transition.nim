@@ -26,8 +26,7 @@ suiteReport "Block processing" & preset():
     genesisRoot = hash_tree_root(genesisBlock.message)
 
   timedTest "Passes from genesis state, no block" & preset():
-    var
-      state = genesisState
+    var state = clone(genesisState)
 
     process_slots(state, state.slot + 1)
     check:
@@ -35,7 +34,7 @@ suiteReport "Block processing" & preset():
 
   timedTest "Passes from genesis state, empty block" & preset():
     var
-      state = genesisState
+      state = clone(genesisState)
       previous_block_root = hash_tree_root(genesisBlock.message)
       new_block = makeTestBlock(state, previous_block_root)
 
@@ -47,8 +46,7 @@ suiteReport "Block processing" & preset():
       state.slot == genesisState.slot + 1
 
   timedTest "Passes through epoch update, no block" & preset():
-    var
-      state = genesisState
+    var state = clone(genesisState)
 
     process_slots(state, Slot(SLOTS_PER_EPOCH))
 
@@ -57,7 +55,7 @@ suiteReport "Block processing" & preset():
 
   timedTest "Passes through epoch update, empty block" & preset():
     var
-      state = genesisState
+      state = clone(genesisState)
       previous_block_root = genesisRoot
 
     for i in 1..SLOTS_PER_EPOCH.int:
@@ -75,7 +73,7 @@ suiteReport "Block processing" & preset():
 
   timedTest "Attestation gets processed at epoch" & preset():
     var
-      state = genesisState
+      state = clone(genesisState)
       previous_block_root = genesisRoot
       cache = get_empty_per_epoch_cache()
 

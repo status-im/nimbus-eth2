@@ -225,6 +225,20 @@ type
     root*: Eth2Digest
     historySlots*: uint64
 
+func emptyStateData*: StateData =
+  StateData(
+    data: HashedBeaconState(
+      # Please note that this initialization is needed in order
+      # to allocate memory for the BeaconState:
+      data: BeaconState(),
+      root: default(Eth2Digest)
+    ),
+    blck: default(BlockRef))
+
+func clone*(other: StateData): StateData =
+  StateData(data: clone(other.data),
+            blck: other.blck)
+
 proc shortLog*(v: AttachedValidator): string = shortLog(v.pubKey)
 
 chronicles.formatIt BlockSlot:

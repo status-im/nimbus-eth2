@@ -37,28 +37,20 @@ proc runTest(identifier: string) =
       prefix = "[Invalid] "
 
     timedTest prefix & identifier:
-      var stateRef, postRef: ref BeaconState
-      var attestationRef: ref Attestation
-      new attestationRef
-      new stateRef
-
       var cache = get_empty_per_epoch_cache()
 
-      attestationRef[] = parseTest(testDir/"attestation.ssz", SSZ, Attestation)
-      stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
+      let attestation = parseTest(testDir/"attestation.ssz", SSZ, Attestation)
+      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
 
       if existsFile(testDir/"post.ssz"):
-        new postRef
-        postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
-
-      if postRef.isNil:
-        let done = process_attestation(stateRef[], attestationRef[], {}, cache)
-        doAssert done == false, "We didn't expect this invalid attestation to be processed."
-      else:
-        let done = process_attestation(stateRef[], attestationRef[], {}, cache)
+        let postState = parseTest(testDir/"post.ssz", SSZ, BeaconState)
+        let done = process_attestation(preState, attestation, {}, cache)
         doAssert done, "Valid attestation not processed"
-        check: stateRef.hash_tree_root() == postRef.hash_tree_root()
-        reportDiff(stateRef, postRef)
+        check: preState.hash_tree_root() == postState.hash_tree_root()
+        reportDiff(preState, postState)
+      else:
+        let done = process_attestation(preState, attestation, {}, cache)
+        doAssert done == false, "We didn't expect this invalid attestation to be processed."
 
   `testImpl _ operations_attestations _ identifier`()
 

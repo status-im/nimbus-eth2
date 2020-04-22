@@ -84,9 +84,8 @@ func readSszValue*(input: openarray[byte], T: type): T {.raisesssz.} =
     result = T readSszValue(input, seq[ElemType])
 
   elif result is ptr|ref:
-    if input.len > 0:
-      new result
-      result[] = readSszValue(input, type(result[]))
+    new result
+    result[] = readSszValue(input, type(result[]))
 
   elif result is Option:
     if input.len > 0:
@@ -161,8 +160,8 @@ func readSszValue*(input: openarray[byte], T: type): T {.raisesssz.} =
       const boundingOffsets = T.getFieldBoundingOffsets(fieldName)
       trs "BOUNDING OFFSET FOR FIELD ", fieldName, " = ", boundingOffsets
 
-      type FieldType = type field
-      type SszType = type toSszType(default(FieldType))
+      type FieldType = type maybeDeref(field)
+      type SszType = type toSszType(declval FieldType)
 
       when isFixedSize(SszType):
         const
@@ -185,13 +184,21 @@ func readSszValue*(input: openarray[byte], T: type): T {.raisesssz.} =
       # TODO The extra type escaping here is a work-around for a Nim issue:
       when type(FieldType) is type(SszType):
         trs "READING NATIVE ", fieldName, ": ", name(SszType)
-        field = readSszValue(input.toOpenArray(startOffset, endOffset - 1), SszType)
+        maybeDeref(field) = readSszValue(
+          input.toOpenArray(startOffset, endOffset - 1),
+          SszType)
         trs "READING COMPLETE ", fieldName
+
       elif useListType and FieldType is List:
-        field = readSszValue(input.toOpenArray(startOffset, endOffset - 1), FieldType)
+        maybeDeref(field) = readSszValue(
+          input.toOpenArray(startOffset, endOffset - 1),
+          FieldType)
+
       else:
         trs "READING FOREIGN ", fieldName, ": ", name(SszType)
-        field = fromSszBytes(FieldType, input.toOpenArray(startOffset, endOffset - 1))
+        maybeDeref(field) = fromSszBytes(
+          FieldType,
+          input.toOpenArray(startOffset, endOffset - 1))
 
   else:
     unsupported T

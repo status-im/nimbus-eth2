@@ -84,13 +84,19 @@ template ElemType*[T](A: type[openarray[T]]): untyped =
 template ElemType*(T: type[seq|string|List]): untyped =
   type(default(T)[0])
 
+template maybeDeref*(x: auto): auto =
+  when type(x) is ref|ptr:
+    x[]
+  else:
+    x
+
 func isFixedSize*(T0: type): bool {.compileTime.} =
   mixin toSszType, enumAllSerializedFields
 
   when T0 is openarray|Option|ref|ptr:
     return false
   else:
-    type T = type toSszType(default T0)
+    type T = type toSszType(declval T0)
 
     when T is BasicType:
       return true
@@ -104,7 +110,7 @@ func isFixedSize*(T0: type): bool {.compileTime.} =
 
 func fixedPortionSize*(T0: type): int {.compileTime.} =
   mixin enumAllSerializedFields, toSszType
-  type T = type toSszType(default T0)
+  type T = type toSszType(declval T0)
 
   when T is BasicType: sizeof(T)
   elif T is array:
@@ -123,7 +129,7 @@ func fixedPortionSize*(T0: type): int {.compileTime.} =
 
 func sszSchemaType*(T0: type): SszType {.compileTime.} =
   mixin toSszType, enumAllSerializedFields
-  type T = type toSszType(default T0)
+  type T = type toSszType(declval T0)
 
   when T is bool:
     SszType(kind: sszBool)

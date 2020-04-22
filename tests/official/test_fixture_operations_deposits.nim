@@ -40,23 +40,15 @@ proc runTest(identifier: string) =
       prefix = "[Invalid] "
 
     timedTest prefix & " " & identifier:
-      var stateRef, postRef: ref BeaconState
-      var depositRef: ref Deposit
-      new depositRef
-      new stateRef
-
-      depositRef[] = parseTest(testDir/"deposit.ssz", SSZ, Deposit)
-      stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
+      let deposit = parseTest(testDir/"deposit.ssz", SSZ, Deposit)
+      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
 
       if existsFile(testDir/"post.ssz"):
-        new postRef
-        postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
-
-      if postRef.isNil:
-        check not process_deposit(stateRef[], depositRef[], flags)
+        let postState = parseTest(testDir/"post.ssz", SSZ, BeaconState)
+        discard process_deposit(preState, deposit, flags)
+        reportDiff(preState, postState)
       else:
-        discard process_deposit(stateRef[], depositRef[], flags)
-        reportDiff(stateRef, postRef)
+        check not process_deposit(preState, deposit, flags)
 
   `testImpl _ operations_deposits _ identifier`()
 

@@ -242,7 +242,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         bs1_3 = b1Add.atSlot(3.Slot)
         bs2_3 = b2Add.atSlot(3.Slot)
 
-      var tmpState = pool.headState
+      var tmpState = clone(pool.headState)
 
       # move to specific block
       pool.updateStateData(tmpState, bs1)
