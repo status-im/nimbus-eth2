@@ -145,6 +145,11 @@ const
 
   readTimeoutErrorMsg = "Exceeded read timeout for a request"
 
+  NewPeerScore* = 200
+    ## Score which will be assigned to new connected Peer
+  PeerScoreLimit* = 0
+    ## Score after which peer will be kicked
+
 # Metrics for tracking attestation and beacon block loss
 declareCounter gossip_messages_sent,
   "Number of gossip messages sent by this peer"
@@ -197,6 +202,10 @@ proc `<`*(a, b: Peer): bool =
 
 proc getScore*(a: Peer): int =
   result = a.score
+
+proc updateScore*(peer: Peer, score: int) =
+  ## Update peer's ``peer`` score with value ``score``.
+  peer.score = peer.score + score
 
 proc disconnect*(peer: Peer, reason: DisconnectionReason,
                  notifyOtherPeer = false) {.async.} =
@@ -611,6 +620,7 @@ proc handleOutgoingPeer*(peer: Peer): Future[void] {.async.} =
 
   let res = await network.peerPool.addOutgoingPeer(peer)
   if res:
+    peer.updateScore(NewPeerScore)
     debug "Peer (outgoing) has been added to PeerPool", peer = $peer.info
     peer.getFuture().addCallback(onPeerClosed)
   libp2p_peers.set int64(len(network.peerPool))
@@ -624,6 +634,7 @@ proc handleIncomingPeer*(peer: Peer) =
 
   let res = network.peerPool.addIncomingPeerNoWait(peer)
   if res:
+    peer.updateScore(NewPeerScore)
     debug "Peer (incoming) has been added to PeerPool", peer = $peer.info
     peer.getFuture().addCallback(onPeerClosed)
   libp2p_peers.set int64(len(network.peerPool))

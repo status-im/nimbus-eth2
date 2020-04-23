@@ -951,12 +951,7 @@ proc updateStatus*(peer: Peer): Future[bool] {.async.} =
     peer.state(BeaconSync).statusMsg = theirStatus.get()
     result = true
 
-proc updateScore*(peer: Peer, score: int) =
-  ## Update peer's ``peer`` score with value ``score``.
-  peer.score = peer.score + score
-
 proc runSyncLoop(node: BeaconNode) {.async.} =
-
   proc getLocalHeadSlot(): Slot =
     result = node.blockPool.head.blck.slot
 
@@ -966,14 +961,27 @@ proc runSyncLoop(node: BeaconNode) {.async.} =
 
   proc updateLocalBlocks(list: openarray[SignedBeaconBlock]): bool =
     debug "Forward sync imported blocks", count = len(list),
-          local_head_slot = $getLocalHeadSlot()
+          local_head_slot = getLocalHeadSlot()
     for blk in list:
       if not(node.storeBlock(blk)):
         return false
     discard node.updateHead()
-    info "Forward sync blocks got imported sucessfully", count = $len(list),
-         local_head_slot = $getLocalHeadSlot()
+    info "Forward sync blocks got imported sucessfully", count = len(list),
+         local_head_slot = getLocalHeadSlot()
     result = true
+
+  proc scoreCheck(peer: Peer): bool =
+    if peer.score < PeerScoreLimit:
+      try:
+        debug "Peer score is too low, removing it from PeerPool", peer = peer,
+              peer_score = peer.score, score_limit = PeerScoreLimit
+      except:
+        discard
+      result = false
+    else:
+      result = true
+
+  node.network.peerPool.setScoreCheck(scoreCheck)
 
   var syncman = newSyncManager[Peer, PeerID](
     node.network.peerPool, getLocalHeadSlot, getLocalWallSlot,
