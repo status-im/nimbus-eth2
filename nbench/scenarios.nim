@@ -140,7 +140,7 @@ proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, ski
   let prePath = dir / preState & ".ssz"
 
   echo "Running: ", prePath
-  var state = parseSSZ(prePath, BeaconState)
+  var state = parseSSZ(prePath, BeaconStateRef)
 
   for i in 0 ..< blocksQty:
     let blockPath = dir / blocksPrefix & $i & ".ssz"
@@ -149,16 +149,16 @@ proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, ski
     let signedBlock = parseSSZ(blockPath, SignedBeaconBlock)
     let flags = if skipBLS: {skipBlsValidation}
                 else: {}
-    let success = state_transition(state, signedBlock.message, flags)
+    let success = state_transition(state[], signedBlock.message, flags)
     echo "State transition status: ", if success: "SUCCESS ✓" else: "FAILURE ⚠️"
 
 proc runProcessSlots*(dir, preState: string, numSlots: uint64) =
   let prePath = dir / preState & ".ssz"
 
   echo "Running: ", prePath
-  var state = parseSSZ(prePath, BeaconState)
+  var state = parseSSZ(prePath, BeaconStateRef)
 
-  process_slots(state, state.slot + numSlots)
+  process_slots(state[], state.slot + numSlots)
 
 template processEpochScenarioImpl(
            dir, preState: string,
@@ -167,16 +167,16 @@ template processEpochScenarioImpl(
   let prePath = dir/preState & ".ssz"
 
   echo "Running: ", prePath
-  var state = parseSSZ(prePath, BeaconState)
+  var state = parseSSZ(prePath, BeaconStateRef)
 
   when needCache:
     var cache = get_empty_per_epoch_cache()
 
   # Epoch transitions can't fail (TODO is this true?)
   when needCache:
-    transitionFn(state, cache)
+    transitionFn(state[], cache)
   else:
-    transitionFn(state)
+    transitionFn(state[])
 
   echo astToStr(transitionFn) & " status: ", "Done" # if success: "SUCCESS ✓" else: "FAILURE ⚠️"
 
@@ -187,15 +187,13 @@ template genProcessEpochScenario(name, transitionFn: untyped, needCache: static 
 template processBlockScenarioImpl(
            dir, preState: string, skipBLS: bool,
            transitionFn, paramName: untyped,
-           ConsensusObject: typedesc,
+           ConsensusObjectRefType: typedesc,
            needFlags, needCache: static bool): untyped =
   let prePath = dir/preState & ".ssz"
 
   echo "Running: ", prePath
-  var state = parseSSZ(prePath, BeaconState)
+  var state = parseSSZ(prePath, BeaconStateRef)
 
-  var consObj: ref `ConsensusObject`
-  new consObj
   when needCache:
     var cache = get_empty_per_epoch_cache()
   when needFlags:
@@ -204,12 +202,12 @@ template processBlockScenarioImpl(
 
   let consObjPath = dir/paramName & ".ssz"
   echo "Processing: ", consObjPath
-  consObj[] = parseSSZ(consObjPath, ConsensusObject)
+  var consObj = parseSSZ(consObjPath, ConsensusObjectRefType)
 
   when needFlags and needCache:
-    let success = transitionFn(state, consObj[], flags, cache)
+    let success = transitionFn(state[], consObj[], flags, cache)
   elif needFlags:
-    let success = transitionFn(state, consObj[], flags)
+    let success = transitionFn(state[], consObj[], flags)
   elif needCache:
     let success = transitionFn(state, consObj[], flags, cache)
   else:
@@ -217,23 +215,74 @@ template processBlockScenarioImpl(
 
   echo astToStr(transitionFn) & " status: ", if success: "SUCCESS ✓" else: "FAILURE ⚠️"
 
-template genProcessBlockScenario(name, transitionFn, paramName: untyped, ConsensusObject: typedesc, needFlags, needCache: static bool): untyped =
+template genProcessBlockScenario(name, transitionFn,
+                                 paramName: untyped,
+                                 ConsensusObjectType: typedesc,
+                                 needFlags,
+                                 needCache: static bool): untyped =
   when needFlags:
     proc `name`*(dir, preState, `paramName`: string, skipBLS: bool) =
-      processBlockScenarioImpl(dir, preState, skipBLS, transitionFn, paramName, ConsensusObject, needFlags, needCache)
+      processBlockScenarioImpl(dir, preState, skipBLS, transitionFn, paramName, ref ConsensusObjectType, needFlags, needCache)
   else:
     proc `name`*(dir, preState, `paramName`: string) =
       # skipBLS is a dummy to avoid undeclared identifier
-      processBlockScenarioImpl(dir, preState, skipBLS = false, transitionFn, paramName, ConsensusObject, needFlags, needCache)
+      processBlockScenarioImpl(dir, preState, skipBLS = false, transitionFn, paramName, ref ConsensusObjectType, needFlags, needCache)
 
-genProcessEpochScenario(runProcessJustificationFinalization, process_justification_and_finalization, needCache = true)
-genProcessEpochScenario(runProcessRegistryUpdates, process_registry_updates, needCache = false)
-genProcessEpochScenario(runProcessSlashings, process_slashings, needCache = false)
-genProcessEpochScenario(runProcessFinalUpdates, process_final_updates, needCache = false)
+genProcessEpochScenario(runProcessJustificationFinalization,
+                        process_justification_and_finalization,
+                        needCache = true)
 
-genProcessBlockScenario(runProcessBlockHeader, process_block_header, block_header, BeaconBlock, needFlags = true, needCache = true)
-genProcessBlockScenario(runProcessProposerSlashing, process_proposer_slashing, proposer_slashing, ProposerSlashing, needFlags = true, needCache = true)
-genProcessBlockScenario(runProcessAttestation, process_attestation, attestation, Attestation, needFlags = true, needCache = true)
-genProcessBlockScenario(runProcessAttesterSlashing, process_attester_slashing, att_slash, AttesterSlashing, needFlags = true, needCache = true)
-genProcessBlockScenario(runProcessDeposit, process_deposit, deposit, Deposit, needFlags = true, needCache = false)
-genProcessBlockScenario(runProcessVoluntaryExits, process_voluntary_exit, deposit, SignedVoluntaryExit, needFlags = true, needCache = false)
+genProcessEpochScenario(runProcessRegistryUpdates,
+                        process_registry_updates,
+                        needCache = false)
+
+genProcessEpochScenario(runProcessSlashings,
+                        process_slashings,
+                        needCache = false)
+
+genProcessEpochScenario(runProcessFinalUpdates,
+                        process_final_updates,
+                        needCache = false)
+
+genProcessBlockScenario(runProcessBlockHeader,
+                        process_block_header,
+                        block_header,
+                        BeaconBlock,
+                        needFlags = true,
+                        needCache = true)
+
+genProcessBlockScenario(runProcessProposerSlashing,
+                        process_proposer_slashing,
+                        proposer_slashing,
+                        ProposerSlashing,
+                        needFlags = true,
+                        needCache = true)
+
+genProcessBlockScenario(runProcessAttestation,
+                        process_attestation,
+                        attestation,
+                        Attestation,
+                        needFlags = true,
+                        needCache = true)
+
+genProcessBlockScenario(runProcessAttesterSlashing,
+                        process_attester_slashing,
+                        att_slash,
+                        AttesterSlashing,
+                        needFlags = true,
+                        needCache = true)
+
+genProcessBlockScenario(runProcessDeposit,
+                        process_deposit,
+                        deposit,
+                        Deposit,
+                        needFlags = true,
+                        needCache = false)
+
+genProcessBlockScenario(runProcessVoluntaryExits,
+                        process_voluntary_exit,
+                        deposit,
+                        SignedVoluntaryExit,
+                        needFlags = true,
+                        needCache = false)
+

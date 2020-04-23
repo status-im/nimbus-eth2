@@ -221,30 +221,30 @@ proc payload =
     doAssert genesisState.validators.len == int NumValidators
 
     setup:
-      var state = clone(genesisState)
+      var state = newClone(genesisState)
 
     timedTest " Rule I - 234 finalization with enough support":
-      finalizeOn234(state, Epoch 5, sufficient_support = true)
+      finalizeOn234(state[], Epoch 5, sufficient_support = true)
 
     timedTest " Rule I - 234 finalization without support":
-      finalizeOn234(state, Epoch 5, sufficient_support = false)
+      finalizeOn234(state[], Epoch 5, sufficient_support = false)
 
     timedTest " Rule II - 23 finalization with enough support":
-      finalizeOn23(state, Epoch 4, sufficient_support = true)
+      finalizeOn23(state[], Epoch 4, sufficient_support = true)
 
     timedTest " Rule II - 23 finalization without support":
-      finalizeOn23(state, Epoch 4, sufficient_support = false)
+      finalizeOn23(state[], Epoch 4, sufficient_support = false)
 
     timedTest " Rule III - 123 finalization with enough support":
-      finalizeOn123(state, Epoch 6, sufficient_support = true)
+      finalizeOn123(state[], Epoch 6, sufficient_support = true)
 
     timedTest " Rule III - 123 finalization without support":
-      finalizeOn123(state, Epoch 6, sufficient_support = false)
+      finalizeOn123(state[], Epoch 6, sufficient_support = false)
 
     timedTest " Rule IV - 12 finalization with enough support":
-      finalizeOn12(state, Epoch 3, sufficient_support = true)
+      finalizeOn12(state[], Epoch 3, sufficient_support = true)
 
     timedTest " Rule IV - 12 finalization without support":
-      finalizeOn12(state, Epoch 3, sufficient_support = false)
+      finalizeOn12(state[], Epoch 3, sufficient_support = false)
 
 payload()

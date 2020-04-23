@@ -41,7 +41,7 @@ type
     depositContractAddress: Address
     dataProviderFactory*: DataProviderFactory
 
-    genesisState: NilableBeaconState
+    genesisState: NilableBeaconStateRef
     genesisStateFut: Future[void]
 
     eth1Chain: Eth1Chain
@@ -346,11 +346,11 @@ proc checkForGenesisEvent(m: MainchainMonitor) =
     let startTime = lastBlock.timestamp.uint64
     var s = initialize_beacon_state_from_eth1(lastBlock.voteData.block_hash,
                                               startTime, m.eth1Chain.allDeposits, {})
-    if is_valid_genesis_state(s):
+    if is_valid_genesis_state(s[]):
       # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
       s.genesis_time = startTime
 
-      m.genesisState = clone(s)
+      m.genesisState = s
       if not m.genesisStateFut.isNil:
         m.genesisStateFut.complete()
         m.genesisStateFut = nil
@@ -432,18 +432,17 @@ proc processDeposits(m: MainchainMonitor, dataProvider: DataProviderRef) {.
 proc isRunning*(m: MainchainMonitor): bool =
   not m.runFut.isNil
 
-proc getGenesis*(m: MainchainMonitor): Future[BeaconState] {.async.} =
+proc getGenesis*(m: MainchainMonitor): Future[BeaconStateRef] {.async.} =
   if m.genesisState.isNil:
     if m.genesisStateFut.isNil:
       m.genesisStateFut = newFuture[void]("getGenesis")
     await m.genesisStateFut
     m.genesisStateFut = nil
 
-  if m.genesisState == nil:
-    doAssert(false)
-    return BeaconState()
-  else:
+  if m.genesisState != nil:
     return m.genesisState
+  else:
+    raiseAssert "Unreachable code"
 
 method getBlockByHash*(p: Web3DataProviderRef, hash: BlockHash): Future[BlockObject] =
   discard

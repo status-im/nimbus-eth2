@@ -200,7 +200,7 @@ proc initialize_beacon_state_from_eth1*(
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
     deposits: openArray[Deposit],
-    flags: UpdateFlags = {}): BeaconState {.nbench.}=
+    flags: UpdateFlags = {}): BeaconStateRef {.nbench.}=
   ## Get the genesis ``BeaconState``.
   ##
   ## Before the beacon chain starts, validators will register in the Eth1 chain
@@ -218,7 +218,7 @@ proc initialize_beacon_state_from_eth1*(
   doAssert deposits.len >= SLOTS_PER_EPOCH
 
   const SECONDS_PER_DAY = uint64(60*60*24)
-  var state = BeaconState(
+  var state = BeaconStateRef(
     fork: Fork(
       previous_version: GENESIS_FORK_VERSION,
       current_version: GENESIS_FORK_VERSION,
@@ -246,7 +246,7 @@ proc initialize_beacon_state_from_eth1*(
   for prefix_root in hash_tree_roots_prefix(
       leaves, 2'i64^DEPOSIT_CONTRACT_TREE_DEPTH):
     state.eth1_data.deposit_root = prefix_root
-    discard process_deposit(state, deposits[i], flags)
+    discard process_deposit(state[], deposits[i], flags)
     i += 1
 
   # Process activations

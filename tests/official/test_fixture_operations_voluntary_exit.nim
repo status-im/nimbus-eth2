@@ -38,16 +38,16 @@ proc runTest(identifier: string) =
 
     timedTest prefix & identifier:
       let voluntaryExit = parseTest(testDir/"voluntary_exit.ssz", SSZ, SignedVoluntaryExit)
-      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
+      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconStateRef)
 
       if existsFile(testDir/"post.ssz"):
-        let postState = parseTest(testDir/"post.ssz", SSZ, BeaconState)
-        let done = process_voluntary_exit(preState, voluntaryExit, {})
+        let postState = parseTest(testDir/"post.ssz", SSZ, BeaconStateRef)
+        let done = process_voluntary_exit(preState[], voluntaryExit, {})
         doAssert done, "Valid voluntary exit not processed"
         check: preState.hash_tree_root() == postState.hash_tree_root()
         reportDiff(preState, postState)
       else:
-        let done = process_voluntary_exit(preState, voluntaryExit, {})
+        let done = process_voluntary_exit(preState[], voluntaryExit, {})
         doAssert done == false, "We didn't expect this invalid voluntary exit to be processed."
 
   `testImpl _ voluntary_exit _ identifier`()

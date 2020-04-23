@@ -48,7 +48,7 @@ suiteReport "Beacon chain DB" & preset():
       db = init(BeaconChainDB, kvStore MemStoreRef.init())
 
     let
-      state = BeaconState()
+      state = BeaconStateRef()
       root = hash_tree_root(state)
 
     db.putState(state)

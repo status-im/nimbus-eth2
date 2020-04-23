@@ -296,8 +296,9 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
-  BeaconState* = ref BeaconStateObj not nil
-  NilableBeaconState* = ref BeaconStateObj
+  BeaconState* = BeaconStateObj
+  BeaconStateRef* = ref BeaconStateObj not nil
+  NilableBeaconStateRef* = ref BeaconStateObj
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#validator
   Validator* = object
@@ -390,7 +391,7 @@ type
 
   # TODO to be replaced with some magic hash caching
   HashedBeaconState* = object
-    data*: BeaconState
+    data*: BeaconStateRef
     root*: Eth2Digest # hash_tree_root(data)
 
   StateCache* = object
@@ -570,13 +571,17 @@ template readValue*(reader: var JsonReader, value: var BitList) =
 template writeValue*(writer: var JsonWriter, value: BitList) =
   writeValue(writer, BitSeq value)
 
-func clone*[T](x: ref T): ref T not nil =
+func newClone*[T](x: T): ref T not nil =
+  new result
+  result[] = x
+
+func newClone*[T](x: ref T): ref T not nil =
   new result
   result[] = x[]
 
 func clone*(other: HashedBeaconState): HashedBeaconState =
   HashedBeaconState(
-    data: clone(other.data),
+    data: newClone(other.data),
     root: other.root)
 
 template init*(T: type BitList, len: int): auto = T init(BitSeq, len)

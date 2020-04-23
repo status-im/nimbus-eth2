@@ -38,18 +38,18 @@ proc runTest(identifier: string) =
 
     timedTest prefix & astToStr(identifier):
       let proposerSlashing = parseTest(testDir/"proposer_slashing.ssz", SSZ, ProposerSlashing)
-      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
+      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconStateRef)
 
       var cache = get_empty_per_epoch_cache()
 
       if existsFile(testDir/"post.ssz"):
-        let postState = parseTest(testDir/"post.ssz", SSZ, BeaconState)
-        let done = process_proposer_slashing(preState, proposerSlashing, {}, cache)
+        let postState = parseTest(testDir/"post.ssz", SSZ, BeaconStateRef)
+        let done = process_proposer_slashing(preState[], proposerSlashing, {}, cache)
         doAssert done, "Valid proposer slashing not processed"
         check: preState.hash_tree_root() == postState.hash_tree_root()
         reportDiff(preState, postState)
       else:
-        let done = process_proposer_slashing(preState, proposerSlashing, {}, cache)
+        let done = process_proposer_slashing(preState[], proposerSlashing, {}, cache)
         doAssert done == false, "We didn't expect this invalid proposer slashing to be processed."
 
   `testImpl_proposer_slashing _ identifier`()

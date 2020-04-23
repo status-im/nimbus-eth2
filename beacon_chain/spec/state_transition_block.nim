@@ -485,8 +485,8 @@ proc makeBeaconBlock*(
       deposits: deposits)
   )
 
-  var tmpState = clone(state)
-  let ok = process_block(tmpState, blck, {skipBlsValidation}, cache)
+  var tmpState = newClone(state)
+  let ok = process_block(tmpState[], blck, {skipBlsValidation}, cache)
 
   if not ok:
     warn "Unable to apply new block to state", blck = shortLog(blck)

@@ -95,9 +95,9 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         db = makeTestDB(SLOTS_PER_EPOCH)
         pool = BlockPool.init(db)
         state = pool.loadTailState().data.data
-        b1 = addTestBlock(state, pool.tail.root)
+        b1 = addTestBlock(state[], pool.tail.root)
         b1Root = hash_tree_root(b1.message)
-        b2 = addTestBlock(state, b1Root)
+        b2 = addTestBlock(state[], b1Root)
         b2Root {.used.} = hash_tree_root(b2.message)
 
     timedTest "getRef returns nil for missing blocks":
@@ -135,10 +135,10 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         pool.heads[0].blck == b2Add
 
       # Skip one slot to get a gap
-      process_slots(state, state.slot + 1)
+      process_slots(state[], state.slot + 1)
 
       let
-        b4 = addTestBlock(state, b2Root)
+        b4 = addTestBlock(state[], b2Root)
         b4Root = hash_tree_root(b4.message)
         b4Add = pool.add(b4Root, b4)
 
@@ -292,7 +292,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
       block:
         # Create a fork that will not be taken
         var
-          blck = makeTestBlock(pool.headState.data.data, pool.head.blck.root)
+          blck = makeTestBlock(pool.headState.data.data[], pool.head.blck.root)
         discard pool.add(hash_tree_root(blck.message), blck)
 
       for i in 0 ..< (SLOTS_PER_EPOCH * 6):
@@ -304,9 +304,9 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         var
           cache = get_empty_per_epoch_cache()
           blck = makeTestBlock(
-            pool.headState.data.data, pool.head.blck.root,
+            pool.headState.data.data[], pool.head.blck.root,
             attestations = makeFullAttestations(
-              pool.headState.data.data, pool.head.blck.root,
+              pool.headState.data.data[], pool.head.blck.root,
               pool.headState.data.data.slot, cache, {}))
         let added = pool.add(hash_tree_root(blck.message), blck)
         pool.updateHead(added)

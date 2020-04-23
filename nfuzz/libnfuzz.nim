@@ -10,23 +10,23 @@ import
 
 type
   AttestationInput = object
-    state: BeaconState
+    state: BeaconStateRef
     attestation: Attestation
   AttesterSlashingInput = object
-    state: BeaconState
+    state: BeaconStateRef
     attesterSlashing: AttesterSlashing
   BlockInput = object
-    state: BeaconState
+    state: BeaconStateRef
     beaconBlock: SignedBeaconBlock
   BlockHeaderInput = BlockInput
   DepositInput = object
-    state: BeaconState
+    state: BeaconStateRef
     deposit: Deposit
   ProposerSlashingInput = object
-    state: BeaconState
+    state: BeaconStateRef
     proposerSlashing: ProposerSlashing
   VoluntaryExitInput = object
-    state: BeaconState
+    state: BeaconStateRef
     exit: SignedVoluntaryExit
   # This and AssertionError are raised to indicate programming bugs
   # A wrapper to allow exception tracking to identify unexpected exceptions
@@ -89,44 +89,44 @@ template decodeAndProcess(typ, process: untyped): bool =
       raise newException(FuzzCrashError, "Unexpected Exception in state transition", e)
 
   if processOk:
-    copyState(data.state, output, output_size)
+    copyState(data.state[], output, output_size)
   else:
     false
 
 proc nfuzz_attestation(input: openArray[byte], output: ptr byte,
     output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(AttestationInput):
-    process_attestation(data.state, data.attestation, flags, cache)
+    process_attestation(data.state[], data.attestation, flags, cache)
 
 proc nfuzz_attester_slashing(input: openArray[byte], output: ptr byte,
     output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(AttesterSlashingInput):
-    process_attester_slashing(data.state, data.attesterSlashing, flags, cache)
+    process_attester_slashing(data.state[], data.attesterSlashing, flags, cache)
 
 proc nfuzz_block(input: openArray[byte], output: ptr byte,
     output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(BlockInput):
-    state_transition(data.state, data.beaconBlock, flags)
+    state_transition(data.state[], data.beaconBlock, flags)
 
 proc nfuzz_block_header(input: openArray[byte], output: ptr byte,
     output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(BlockHeaderInput):
-    process_block_header(data.state, data.beaconBlock.message, flags, cache)
+    process_block_header(data.state[], data.beaconBlock.message, flags, cache)
 
 proc nfuzz_deposit(input: openArray[byte], output: ptr byte,
     output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(DepositInput):
-    process_deposit(data.state, data.deposit, flags)
+    process_deposit(data.state[], data.deposit, flags)
 
 proc nfuzz_proposer_slashing(input: openArray[byte], output: ptr byte,
     output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(ProposerSlashingInput):
-    process_proposer_slashing(data.state, data.proposerSlashing, flags, cache)
+    process_proposer_slashing(data.state[], data.proposerSlashing, flags, cache)
 
 proc nfuzz_voluntary_exit(input: openArray[byte], output: ptr byte,
     output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(VoluntaryExitInput):
-    process_voluntary_exit(data.state, data.exit, flags)
+    process_voluntary_exit(data.state[], data.exit, flags)
 
 # Note: Could also accept raw input pointer and access list_size + seed here.
 # However, list_size needs to be known also outside this proc to allocate output.

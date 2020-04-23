@@ -80,7 +80,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   let
     genesisState =
       initialize_beacon_state_from_eth1(Eth2Digest(), 0, deposits, flags)
-    genesisBlock = get_initial_beacon_block(genesisState)
+    genesisBlock = get_initial_beacon_block(genesisState[])
 
   echo "Starting simulation..."
 
@@ -116,7 +116,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
   for i in 0..<slots:
     maybeWrite(false)
-    verifyConsensus(state, attesterRatio)
+    verifyConsensus(state[], attesterRatio)
 
     let
       attestations_idx = state.slot
@@ -133,7 +133,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     withTimer(timers[t]):
       signedBlock = addTestBlock(
-        state, latest_block_root, attestations = blockAttestations, flags = flags)
+        state[], latest_block_root, attestations = blockAttestations, flags = flags)
     latest_block_root = withTimerRet(timers[tHashBlock]):
       hash_tree_root(signedBlock.message)
 
@@ -145,8 +145,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         target_slot = state.slot + MIN_ATTESTATION_INCLUSION_DELAY - 1
         scass = withTimerRet(timers[tShuffle]):
           mapIt(
-            0'u64 ..< get_committee_count_at_slot(state, target_slot),
-            get_beacon_committee(state, target_slot, it.CommitteeIndex, cache))
+            0'u64 ..< get_committee_count_at_slot(state[], target_slot),
+            get_beacon_committee(state[], target_slot, it.CommitteeIndex, cache))
 
       for i, scas in scass:
         var
@@ -160,12 +160,12 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             if (rand(r, high(int)).float * attesterRatio).int <= high(int):
               if first:
                 attestation =
-                  makeAttestation(state, latest_block_root, scas, target_slot,
+                  makeAttestation(state[], latest_block_root, scas, target_slot,
                     i.uint64, v, cache, flags)
                 first = false
               else:
                 attestation.combine(
-                  makeAttestation(state, latest_block_root, scas, target_slot,
+                  makeAttestation(state[], latest_block_root, scas, target_slot,
                     i.uint64, v, cache, flags),
                   flags)
 

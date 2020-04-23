@@ -43,9 +43,7 @@ setDefaultValue(SSZHashTreeRoot, signing_root, "")
 
 proc checkSSZ(T: typedesc, dir: string, expectedHash: SSZHashTreeRoot) =
   # Deserialize into a ref object to not fill Nim stack
-  var deserialized: ref T
-  new deserialized
-  deserialized[] = SSZ.loadFile(dir/"serialized.ssz", T)
+  var deserialized = SSZ.loadFile(dir/"serialized.ssz", ref T)
 
   check: expectedHash.root == "0x" & toLowerASCII($deserialized.hashTreeRoot())
 
