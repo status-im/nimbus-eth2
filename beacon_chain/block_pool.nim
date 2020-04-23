@@ -715,7 +715,11 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
 
   ancestors
 
-proc getStateData(pool: BlockPool, state: var StateData, bs: BlockSlot): bool =
+proc getStateDataCached(pool: BlockPool, state: var StateData, bs: BlockSlot): bool =
+  # This pointedly does not run rewindState or state_transition, but otherwise
+  # mostly matches updateStateData(...), because it's too expensive to run the
+  # rewindState(...)/skipAndUpdateState(...)/state_transition(...) procs, when
+  # each hash_tree_root(...) consumes a nontrivial fraction of a second.
   for db in [pool.db, pool.cachedStates[0], pool.cachedStates[1]]:
     if (let tmp = db.getStateRoot(bs.blck.root, bs.slot); tmp.isSome()):
       if not db.containsState(tmp.get):
@@ -726,16 +730,11 @@ proc getStateData(pool: BlockPool, state: var StateData, bs: BlockSlot): bool =
         ancestorState = db.getState(root)
 
       doAssert ancestorState.isSome()
-      debugEcho "FOOBAR0: got fast path out, root = ", root
       state.data.data = ancestorState.get()
       state.data.root = root
       state.blck = pool.get(bs.blck).refs
-      #return some(StateData(
-      #  data: HashedBeaconState(data: ancestorState.get(), root: root),
-      #  blck: pool.get(bs.blck).refs))
       return true
 
-  #none(StateData)
   false
 
 proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
@@ -755,7 +754,7 @@ proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
 
     return # State already at the right spot
 
-  if pool.getStateData(state, bs):
+  if pool.getStateDataCached(state, bs):
     return
 
   let ancestors = rewindState(pool, state, bs)
