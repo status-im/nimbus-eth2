@@ -451,7 +451,7 @@ proc process_block*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/validator.md
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md
 # TODO There's more to do here - the spec has helpers that deal set up some of
 #      the fields in here!
 proc makeBeaconBlock*(
