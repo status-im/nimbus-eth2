@@ -424,6 +424,18 @@ func get_attesting_indices*(state: BeaconState,
   result = initHashSet[ValidatorIndex]()
   let committee = get_beacon_committee(
     state, data.slot, data.index.CommitteeIndex, stateCache)
+
+  # This shouldn't happen if one begins with a valid BeaconState and applies
+  # valid updates, but one can construct a BeaconState where it does. Do not
+  # do anything here since the PendingAttestation wouldn't have made it past
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#attestations
+  # which checks len(attestation.aggregation_bits) == len(committee) that in
+  # nim-beacon-chain lives in check_attestation(...).
+  # Addresses https://github.com/status-im/nim-beacon-chain/issues/922
+  if bits.len != committee.len:
+    trace "get_attesting_indices: inconsistent aggregation and committee length"
+    return
+
   for i, index in committee:
     if bits[i]:
       result.incl index
