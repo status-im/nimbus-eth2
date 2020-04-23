@@ -20,7 +20,7 @@ const
   topicAttesterSlashingsSuffix* = "attester_slashing/ssz"
   topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz"
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#configuration
   ATTESTATION_SUBNET_COUNT* = 64
 
   defaultEth2TcpPort* = 9000
@@ -59,7 +59,7 @@ func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
     raiseAssert e.msg
 
 func getAttestationTopic*(forkDigest: ForkDigest, committeeIndex: uint64): string =
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/validator.md#broadcast-attestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-attestation
   try:
     let topicIndex = committeeIndex mod ATTESTATION_SUBNET_COUNT
     &"/eth2/{toHex forkDigest}/committee_index{topicIndex}{topicAttestationsSuffix}"
