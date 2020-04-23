@@ -25,11 +25,10 @@ import
   chronicles,
   nimcrypto/[sha2, hash],
   stew/byteutils,
-  hashes,
-  eth/common/eth_types_json_serialization
+  hashes
 
 export
-  hash.`$`, sha2, writeValue, readValue
+  hash.`$`, sha2
 
 type
   Eth2Digest* = MDigest[32 * 8] ## `hash32` from spec
