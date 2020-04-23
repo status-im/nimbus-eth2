@@ -17,7 +17,7 @@ import
   ./mock_deposits
 
 
-proc initGenesisState*(num_validators: uint64, genesis_time: uint64 = 0): BeaconState =
+proc initGenesisState*(num_validators: uint64, genesis_time: uint64 = 0): BeaconStateRef =
   let deposits = mockGenesisBalancedDeposits(
       validatorCount = num_validators,
       amountInEth = 32, # We create canonical validators with 32 Eth

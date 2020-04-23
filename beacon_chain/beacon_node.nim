@@ -86,7 +86,7 @@ proc saveValidatorKey(keyName, key: string, conf: BeaconNodeConf) =
   writeFile(outputFile, key)
   info "Imported validator key", file = outputFile
 
-proc getStateFromSnapshot(conf: BeaconNodeConf): NilableBeaconState =
+proc getStateFromSnapshot(conf: BeaconNodeConf): NilableBeaconStateRef =
   var
     genesisPath = conf.dataDir/genesisFile
     snapshotContents: TaintedString
@@ -122,7 +122,7 @@ proc getStateFromSnapshot(conf: BeaconNodeConf): NilableBeaconState =
       quit 1
 
   try:
-    result = SSZ.decode(snapshotContents, BeaconState)
+    result = SSZ.decode(snapshotContents, BeaconStateRef)
   except SerializationError:
     error "Failed to import genesis file", path = genesisPath
     quit 1
@@ -189,7 +189,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
           stateRoot = hash_tree_root(genesisState)
         quit 1
 
-      let tailBlock = get_initial_beacon_block(genesisState)
+      let tailBlock = get_initial_beacon_block(genesisState[])
 
       try:
         BlockPool.preInit(db, genesisState, tailBlock)
@@ -219,7 +219,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     nil
 
   let
-    enrForkId = enrForkIdFromState(blockPool.headState.data.data)
+    enrForkId = enrForkIdFromState(blockPool.headState.data.data[])
     topicBeaconBlocks = getBeaconBlocksTopic(enrForkId.forkDigest)
     topicAggregateAndProofs = getAggregateAndProofsTopic(enrForkId.forkDigest)
     network = await createEth2Node(conf, enrForkId)
@@ -235,7 +235,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     blockPool: blockPool,
     attestationPool: AttestationPool.init(blockPool),
     mainchainMonitor: mainchainMonitor,
-    beaconClock: BeaconClock.init(blockPool.headState.data.data),
+    beaconClock: BeaconClock.init(blockPool.headState.data.data[]),
     rpcServer: rpcServer,
     forkDigest: enrForkId.forkDigest,
     topicBeaconBlocks: topicBeaconBlocks,
@@ -281,8 +281,9 @@ template findIt(s: openarray, predicate: untyped): int =
       break
   res
 
-proc addLocalValidator(
-    node: BeaconNode, state: BeaconState, privKey: ValidatorPrivKey) =
+proc addLocalValidator(node: BeaconNode,
+                       state: BeaconState,
+                       privKey: ValidatorPrivKey) =
   let pubKey = privKey.toPubKey()
 
   let idx = state.validators.findIt(it.pubKey == pubKey)
@@ -409,15 +410,15 @@ proc proposeBlock(node: BeaconNode,
         (get_eth1data_stub(state.eth1_deposit_index, slot.compute_epoch_at_slot()),
          newSeq[Deposit]())
       else:
-        node.mainchainMonitor.getBlockProposalData(state)
+        node.mainchainMonitor.getBlockProposalData(state[])
 
     let message = makeBeaconBlock(
-      state,
+      state[],
       head.root,
       validator.genRandaoReveal(state.fork, state.genesis_validators_root, slot),
       eth1data,
       Eth2Digest(),
-      node.attestationPool.getAttestationsForBlock(state),
+      node.attestationPool.getAttestationsForBlock(state[]),
       deposits)
 
     if not message.isSome():
@@ -458,7 +459,7 @@ proc proposeBlock(node: BeaconNode,
       SSZ.saveFile(
         node.config.dumpDir / "state-" & $state.slot & "-" &
         shortLog(newBlockRef.root) & "-"  & shortLog(root()) & ".ssz",
-        state())
+        state)
 
   node.network.broadcast(node.topicBeaconBlocks, newBlock)
 
@@ -575,16 +576,16 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   #      version here that calculates the committee for a single slot only
   node.blockPool.withState(node.blockPool.tmpState, attestationHead):
     var cache = get_empty_per_epoch_cache()
-    let committees_per_slot = get_committee_count_at_slot(state, slot)
+    let committees_per_slot = get_committee_count_at_slot(state[], slot)
 
     for committee_index in 0'u64..<committees_per_slot:
       let committee = get_beacon_committee(
-        state, slot, committee_index.CommitteeIndex, cache)
+        state[], slot, committee_index.CommitteeIndex, cache)
 
       for index_in_committee, validatorIdx in committee:
-        let validator = node.getAttachedValidator(state, validatorIdx)
+        let validator = node.getAttachedValidator(state[], validatorIdx)
         if validator != nil:
-          let ad = makeAttestationData(state, slot, committee_index, blck.root)
+          let ad = makeAttestationData(state[], slot, committee_index, blck.root)
           attestations.add((ad, committee.len, index_in_committee, validator))
 
     for a in attestations:
@@ -648,21 +649,21 @@ proc broadcastAggregatedAttestations(
   let bs = BlockSlot(blck: aggregationHead, slot: aggregationSlot)
   node.blockPool.withState(node.blockPool.tmpState, bs):
     let
-      committees_per_slot = get_committee_count_at_slot(state, aggregationSlot)
+      committees_per_slot = get_committee_count_at_slot(state[], aggregationSlot)
     var cache = get_empty_per_epoch_cache()
     for committee_index in 0'u64..<committees_per_slot:
       let committee = get_beacon_committee(
-        state, aggregationSlot, committee_index.CommitteeIndex, cache)
+        state[], aggregationSlot, committee_index.CommitteeIndex, cache)
 
       for index_in_committee, validatorIdx in committee:
-        let validator = node.getAttachedValidator(state, validatorIdx)
+        let validator = node.getAttachedValidator(state[], validatorIdx)
         if validator != nil:
           # This is slightly strange/inverted control flow, since really it's
           # going to happen once per slot, but this is the best way to get at
           # the validator index and private key pair. TODO verify it only has
           # one isSome() with test.
           let aggregateAndProof =
-            aggregate_attestations(node.attestationPool, state,
+            aggregate_attestations(node.attestationPool, state[],
               committee_index.CommitteeIndex,
               # TODO https://github.com/status-im/nim-beacon-chain/issues/545
               # this assumes in-process private keys
@@ -1192,7 +1193,7 @@ proc start(node: BeaconNode) =
     bs = BlockSlot(blck: head.blck, slot: head.blck.slot)
 
   node.blockPool.withState(node.blockPool.tmpState, bs):
-    node.addLocalValidators(state)
+    node.addLocalValidators(state[])
 
   node.run()
 
@@ -1281,7 +1282,7 @@ when hasPrompt:
           # TODO slow linear scan!
           for idx, b in node.blockPool.headState.data.data.balances:
             if node.getAttachedValidator(
-                node.blockPool.headState.data.data, ValidatorIndex(idx)) != nil:
+                node.blockPool.headState.data.data[], ValidatorIndex(idx)) != nil:
               balance += b
           formatGwei(balance)
 
@@ -1393,7 +1394,7 @@ programMain:
           some(config.bootstrapAddress),
           config.bootstrapPort,
           config.bootstrapPort,
-          [toFieldPair("eth2", SSZ.encode(enrForkIdFromState initialState)),
+          [toFieldPair("eth2", SSZ.encode(enrForkIdFromState initialState[])),
            toFieldPair("attnets", SSZ.encode(metadata.attnets))])
 
       writeFile(bootstrapFile, bootstrapEnr.toURI)

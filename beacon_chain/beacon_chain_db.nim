@@ -45,7 +45,7 @@ func subkey[N: static int](kind: DbKeyKind, key: array[N, byte]):
   result[0] = byte ord(kind)
   result[1 .. ^1] = key
 
-func subkey(kind: type BeaconState, key: Eth2Digest): auto =
+func subkey(kind: type BeaconStateRef, key: Eth2Digest): auto =
   subkey(kHashToState, key.data)
 
 func subkey(kind: type SignedBeaconBlock, key: Eth2Digest): auto =
@@ -86,13 +86,13 @@ proc get(db: BeaconChainDB, key: openArray[byte], T: typedesc): Opt[T] =
 proc putBlock*(db: BeaconChainDB, key: Eth2Digest, value: SignedBeaconBlock) =
   db.put(subkey(type value, key), value)
 
-proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
+proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconStateRef) =
   # TODO prune old states - this is less easy than it seems as we never know
   #      when or if a particular state will become finalized.
 
   db.put(subkey(type value, key), value)
 
-proc putState*(db: BeaconChainDB, value: BeaconState) =
+proc putState*(db: BeaconChainDB, value: BeaconStateRef) =
   db.putState(hash_tree_root(value), value)
 
 proc putStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot,
@@ -108,7 +108,7 @@ proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
     "working database")
 
 proc delState*(db: BeaconChainDB, key: Eth2Digest) =
-  db.backend.del(subkey(BeaconState, key)).expect("working database")
+  db.backend.del(subkey(BeaconStateRef, key)).expect("working database")
 
 proc delStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot) =
   db.backend.del(subkey(root, slot)).expect("working database")
@@ -122,8 +122,8 @@ proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
 proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Opt[SignedBeaconBlock] =
   db.get(subkey(SignedBeaconBlock, key), SignedBeaconBlock)
 
-proc getState*(db: BeaconChainDB, key: Eth2Digest): Opt[BeaconState] =
-  db.get(subkey(BeaconState, key), BeaconState)
+proc getState*(db: BeaconChainDB, key: Eth2Digest): Opt[BeaconStateRef] =
+  db.get(subkey(BeaconStateRef, key), BeaconStateRef)
 
 proc getStateRoot*(db: BeaconChainDB,
                    root: Eth2Digest,
@@ -136,13 +136,11 @@ proc getHeadBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
 proc getTailBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
   db.get(subkey(kTailBlock), Eth2Digest)
 
-proc containsBlock*(
-    db: BeaconChainDB, key: Eth2Digest): bool =
+proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(SignedBeaconBlock, key)).expect("working database")
 
-proc containsState*(
-    db: BeaconChainDB, key: Eth2Digest): bool =
-  db.backend.contains(subkey(BeaconState, key)).expect("working database")
+proc containsState*(db: BeaconChainDB, key: Eth2Digest): bool =
+  db.backend.contains(subkey(BeaconStateRef, key)).expect("working database")
 
 iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
     tuple[root: Eth2Digest, blck: SignedBeaconBlock] =

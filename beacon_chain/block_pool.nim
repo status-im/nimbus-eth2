@@ -33,7 +33,7 @@ template withState*(
   updateStateData(pool, cache, blockSlot)
 
   template hashedState(): HashedBeaconState {.inject, used.} = cache.data
-  template state(): BeaconState {.inject, used.} = cache.data.data
+  template state(): BeaconStateRef {.inject, used.} = cache.data.data
   template blck(): BlockRef {.inject, used.} = cache.blck
   template root(): Eth2Digest {.inject, used.} = cache.data.root
 
@@ -409,7 +409,7 @@ proc add*(
     # Careful, tmpState.data has been updated but not blck - we need to create
     # the BlockRef first!
     pool.tmpState.blck = pool.addResolvedBlock(
-      pool.tmpState.data.data, blockRoot, signedBlock, parent)
+      pool.tmpState.data.data[], blockRoot, signedBlock, parent)
 
     return pool.tmpState.blck
 
@@ -980,7 +980,7 @@ proc isInitialized*(T: type BlockPool, db: BeaconChainDB): bool =
   return true
 
 proc preInit*(
-    T: type BlockPool, db: BeaconChainDB, state: BeaconState,
+    T: type BlockPool, db: BeaconChainDB, state: BeaconStateRef,
     signedBlock: SignedBeaconBlock) =
   # write a genesis state, the way the BlockPool expects it to be stored in
   # database
@@ -1009,14 +1009,14 @@ proc getProposer*(pool: BlockPool, head: BlockRef, slot: Slot): Option[Validator
     var cache = get_empty_per_epoch_cache()
 
     # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#validator-assignments
-    let proposerIdx = get_beacon_proposer_index(state, cache)
+    let proposerIdx = get_beacon_proposer_index(state[], cache)
     if proposerIdx.isNone:
       warn "Missing proposer index",
         slot=slot,
         epoch=slot.compute_epoch_at_slot,
         num_validators=state.validators.len,
         active_validators=
-          get_active_validator_indices(state, slot.compute_epoch_at_slot),
+          get_active_validator_indices(state[], slot.compute_epoch_at_slot),
         balances=state.balances
       return
 
@@ -1118,7 +1118,7 @@ proc isValidBeaconBlock*(pool: var BlockPool,
   pool.withState(pool.tmpState, bs):
     let
       blockRoot = hash_tree_root(signed_beacon_block.message)
-      domain = get_domain(pool.headState.data.data, DOMAIN_BEACON_PROPOSER,
+      domain = get_domain(pool.headState.data.data[], DOMAIN_BEACON_PROPOSER,
         compute_epoch_at_slot(signed_beacon_block.message.slot))
       signing_root = compute_signing_root(blockRoot, domain)
       proposer_index = signed_beacon_block.message.proposer_index

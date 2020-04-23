@@ -2,7 +2,7 @@ import
   confutils, os, strutils, chronicles, json_serialization,
   nimcrypto/utils,
   ../beacon_chain/spec/[crypto, datatypes, digest],
-  ../beacon_chain/[ssz]
+  ../beacon_chain/ssz
 
 # TODO turn into arguments
 cli do(kind: string, file: string):
@@ -30,6 +30,6 @@ cli do(kind: string, file: string):
   of "deposit": printit(Deposit)
   of "deposit_data": printit(DepositData)
   of "eth1_data": printit(Eth1Data)
-  of "state": printit(BeaconState)
+  of "state": printit(BeaconStateRef)
   of "proposer_slashing": printit(ProposerSlashing)
   of "voluntary_exit": printit(VoluntaryExit)

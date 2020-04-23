@@ -31,10 +31,10 @@ proc runTest(identifier: string) =
 
   proc `testImpl _ slots _ identifier`() =
     timedTest "Slots - " & identifier:
-      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
-      let postState = parseTest(testDir/"post.ssz", SSZ, BeaconState)
+      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconStateRef)
+      let postState = parseTest(testDir/"post.ssz", SSZ, BeaconStateRef)
 
-      process_slots(preState, preState.slot + num_slots)
+      process_slots(preState[], preState.slot + num_slots)
 
       # check: preState.hash_tree_root() == postState.hash_tree_root()
       reportDiff(preState, postState)

@@ -34,7 +34,7 @@ proc runTest(identifier: string) =
       "[Invalid] "
 
     timedTest prefix & identifier:
-      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
+      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconStateRef)
       var hasPostState = existsFile(testDir/"post.ssz")
 
       # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
@@ -44,15 +44,15 @@ proc runTest(identifier: string) =
 
         if hasPostState:
           # TODO: The EF is using invalid BLS keys so we can't verify them
-          let success = state_transition(preState, blck, flags = {skipBlsValidation})
+          let success = state_transition(preState[], blck, flags = {skipBlsValidation})
           doAssert success, "Failure when applying block " & $i
         else:
-          let success = state_transition(preState, blck, flags = {})
+          let success = state_transition(preState[], blck, flags = {})
           doAssert not success, "We didn't expect this invalid block to be processed"
 
       # check: preState.hash_tree_root() == postState.hash_tree_root()
       if hasPostState:
-        let postState = parseTest(testDir/"post.ssz", SSZ, BeaconState)
+        let postState = parseTest(testDir/"post.ssz", SSZ, BeaconStateRef)
         when false:
           reportDiff(preState, postState)
         doAssert preState.hash_tree_root() == postState.hash_tree_root()

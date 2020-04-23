@@ -230,7 +230,7 @@ func emptyStateData*: StateData =
     data: HashedBeaconState(
       # Please note that this initialization is needed in order
       # to allocate memory for the BeaconState:
-      data: BeaconState(),
+      data: BeaconStateRef(),
       root: default(Eth2Digest)
     ),
     blck: default(BlockRef))

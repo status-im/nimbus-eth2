@@ -41,14 +41,14 @@ proc runTest(identifier: string) =
 
     timedTest prefix & " " & identifier:
       let deposit = parseTest(testDir/"deposit.ssz", SSZ, Deposit)
-      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
+      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconStateRef)
 
       if existsFile(testDir/"post.ssz"):
-        let postState = parseTest(testDir/"post.ssz", SSZ, BeaconState)
-        discard process_deposit(preState, deposit, flags)
+        let postState = parseTest(testDir/"post.ssz", SSZ, BeaconStateRef)
+        discard process_deposit(preState[], deposit, flags)
         reportDiff(preState, postState)
       else:
-        check not process_deposit(preState, deposit, flags)
+        check not process_deposit(preState[], deposit, flags)
 
   `testImpl _ operations_deposits _ identifier`()
 

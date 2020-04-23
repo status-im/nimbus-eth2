@@ -148,9 +148,9 @@ proc makeTestBlock*(
   # It's a bit awkward - in order to produce a block for N+1, we need to
   # calculate what the state will look like after that block has been applied,
   # because the block includes the state root.
-  var tmpState = clone(state)
+  var tmpState = newClone(state)
   addTestBlock(
-    tmpState, parent_root, eth1_data, attestations, deposits, graffiti, flags)
+    tmpState[], parent_root, eth1_data, attestations, deposits, graffiti, flags)
 
 proc makeAttestation*(
     state: BeaconState, beacon_block_root: Eth2Digest,

@@ -40,17 +40,17 @@ proc runTest(identifier: string) =
       var cache = get_empty_per_epoch_cache()
 
       let attesterSlashing = parseTest(testDir/"attester_slashing.ssz", SSZ, AttesterSlashing)
-      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
+      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconStateRef)
 
       if existsFile(testDir/"post.ssz"):
-        let postState = parseTest(testDir/"post.ssz", SSZ, BeaconState)
-        let done = process_attester_slashing(preState, attesterSlashing,
+        let postState = parseTest(testDir/"post.ssz", SSZ, BeaconStateRef)
+        let done = process_attester_slashing(preState[], attesterSlashing,
                                              {}, cache)
         doAssert done, "Valid attestater slashing not processed"
         check: preState.hash_tree_root() == postState.hash_tree_root()
         reportDiff(preState, postState)
       else:
-        let done = process_attester_slashing(preState, attesterSlashing,
+        let done = process_attester_slashing(preState[], attesterSlashing,
                                              {}, cache)
         doAssert done == false, "We didn't expect this invalid attester slashing to be processed."
 

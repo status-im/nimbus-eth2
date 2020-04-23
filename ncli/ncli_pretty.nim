@@ -29,7 +29,7 @@ cli do(kind: string, file: string):
   of "deposit": printit(Deposit)
   of "deposit_data": printit(DepositData)
   of "eth1_data": printit(Eth1Data)
-  of "state": printit(BeaconState)
+  of "state": printit(BeaconStateRef)
   of "proposer_slashing": printit(ProposerSlashing)
   of "voluntary_exit": printit(VoluntaryExit)
   else: echo "Unknown kind"

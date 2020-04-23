@@ -5,7 +5,7 @@ import
 
 cli do(pre: string, blck: string, post: string, verifyStateRoot = false):
   let
-    stateX = SSZ.loadFile(pre, BeaconState)
+    stateX = SSZ.loadFile(pre, BeaconStateRef)
     blckX = SSZ.loadFile(blck, SignedBeaconBlock)
     flags = if verifyStateRoot: {skipStateRootValidation} else: {}
 

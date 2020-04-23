@@ -33,13 +33,13 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
     # TODO: BLS signature
     timedTest "Deposit " & name & " MAX_EFFECTIVE_BALANCE balance (" &
           $(MAX_EFFECTIVE_BALANCE div 10'u64^9) & " ETH)":
-      var state = clone(genesisState)
+      var state = newClone(genesisState)
 
       # Test configuration
       # ----------------------------------------
       let validator_index = state.validators.len
       let deposit = mockUpdateStateForNewDeposit(
-                      state,
+                      state[],
                       uint64 validator_index,
                       deposit_amount,
                       flags = {skipBlsValidation}
@@ -55,7 +55,7 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
 
       # State transition
       # ----------------------------------------
-      check: state.process_deposit(deposit, {skipBlsValidation})
+      check: process_deposit(state[], deposit, {skipBlsValidation})
 
       # Check invariants
       # ----------------------------------------
@@ -74,14 +74,14 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
   valid_deposit(MAX_EFFECTIVE_BALANCE + 1, "over")
 
   timedTest "Validator top-up":
-    var state = clone(genesisState)
+    var state = newClone(genesisState)
 
     # Test configuration
     # ----------------------------------------
     let validator_index = 0
     let deposit_amount = MAX_EFFECTIVE_BALANCE div 4
     let deposit = mockUpdateStateForNewDeposit(
-                    state,
+                    state[],
                     uint64 validator_index,
                     deposit_amount,
                     flags = {skipBlsValidation}
@@ -97,7 +97,7 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
 
     # State transition
     # ----------------------------------------
-    check: state.process_deposit(deposit, {skipBlsValidation})
+    check: process_deposit(state[], deposit, {skipBlsValidation})
 
     # Check invariants
     # ----------------------------------------
