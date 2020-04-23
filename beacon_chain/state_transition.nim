@@ -13,17 +13,12 @@
 # areas. The entry point is `state_transition` which is at the bottom of the file!
 #
 # General notes about the code (TODO):
-# * It's inefficient - we quadratically copy, allocate and iterate when there
-#   are faster options
 # * Weird styling - the sections taken from the spec use python styling while
 #   the others use NEP-1 - helps grepping identifiers in spec
 # * We mix procedural and functional styles for no good reason, except that the
 #   spec does so also.
-# * There are likely lots of bugs.
 # * For indices, we get a mix of uint64, ValidatorIndex and int - this is currently
 #   swept under the rug with casts
-# * The spec uses uint64 for data types, but functions in the spec often assume
-#   signed bigint semantics - under- and overflows ensue
 # * Sane error handling is missing in most cases (yay, we'll get the chance to
 #   debate exceptions again!)
 # When updating the code, add TODO sections to mark where there are clear

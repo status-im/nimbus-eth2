@@ -71,7 +71,7 @@ yourAURmanager -S base-devel pcre-static
 
 ### MacOS
 
-Assuming you use [Homebrew](https://brew.sh/) to manage packages
+Assuming you use [Homebrew](https://brew.sh/) to manage packages:
 
 ```sh
 brew install pcre

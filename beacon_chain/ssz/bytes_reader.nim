@@ -127,6 +127,13 @@ func readSszValue*(input: openarray[byte], T: type): T {.raisesssz.} =
       trs "GOT OFFSET ", offset
       let resultLen = offset div offsetSize
       trs "LEN ", resultLen
+
+      if resultLen == 0:
+        # If there are too many elements, other constraints detect problems
+        # (not monotonically increasing, past end of input, or last element
+        # not matching up with its nextOffset properly)
+        raise newException(MalformedSszError, "SSZ list incorrectly encoded of zero length")
+
       result.setOutputSize resultLen
       for i in 1 ..< resultLen:
         let nextOffset = readOffset(i * offsetSize)
