@@ -66,20 +66,13 @@ proc init*(T: type BeaconChainDB, backend: KVStoreRef): BeaconChainDB =
   T(backend: backend)
 
 proc put(db: BeaconChainDB, key: openArray[byte], v: auto) =
-  let data =
-    try: SSZ.encode(v)
-    except IOError as e:
-      error "Error while serializing data", err = e.msg
-      raiseAssert "Error while serializing data: " & e.msg
-
-  db.backend.put(key, data).expect("working database")
+  db.backend.put(key, SSZ.encode(v)).expect("working database")
 
 proc get(db: BeaconChainDB, key: openArray[byte], T: typedesc): Option[T] =
   var res: Option[T]
   proc decode(data: openArray[byte]) =
     try:
       res = some(SSZ.decode(data, T))
-
     except SerializationError as e:
       # If the data can't be deserialized, it could be because it's from a
       # version of the software that uses a different SSZ encoding
