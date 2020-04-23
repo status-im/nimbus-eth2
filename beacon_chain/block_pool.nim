@@ -230,8 +230,8 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
     # initialized on an epoch boundary, but that is a reasonable readability,
     # simplicity, and non-special-casing tradeoff for the inefficiency.
     cachedStates: [
-      init(BeaconChainDB, kvStore MemoryStoreRef.init()),
-      init(BeaconChainDB, kvStore MemoryStoreRef.init())
+      init(BeaconChainDB, kvStore MemStoreRef.init()),
+      init(BeaconChainDB, kvStore MemStoreRef.init())
     ],
 
     blocks: blocks,
@@ -590,7 +590,7 @@ proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
       # by contrast, has just finished filling from the previous epoch. The
       # resulting lookback window is thus >= SLOTS_PER_EPOCH in size, while
       # bounded from above by 2*SLOTS_PER_EPOCH.
-      currentCache = init(BeaconChainDB, kvStore MemoryStoreRef.init())
+      currentCache = init(BeaconChainDB, kvStore MemStoreRef.init())
   else:
     # Need to be able to efficiently access states for both attestation
     # aggregation and to process block proposals going back to the last

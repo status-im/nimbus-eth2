@@ -148,7 +148,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     netKeys = getPersistentNetKeys(conf)
     nickname = if conf.nodeName == "auto": shortForm(netKeys)
                else: conf.nodeName
-    db = BeaconChainDB.init(kvStore SqliteStoreRef.init(conf.databaseDir))
+    db = BeaconChainDB.init(kvStore SqStoreRef.init(conf.databaseDir, "nbc").tryGet())
 
   var mainchainMonitor: MainchainMonitor
 

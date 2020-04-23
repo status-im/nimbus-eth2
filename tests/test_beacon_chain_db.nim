@@ -16,7 +16,7 @@ import  options, unittest, sequtils,
 suiteReport "Beacon chain DB" & preset():
   timedTest "empty database" & preset():
     var
-      db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
+      db = init(BeaconChainDB, kvStore MemStoreRef.init())
 
     check:
       when const_preset=="minimal":
@@ -27,7 +27,7 @@ suiteReport "Beacon chain DB" & preset():
 
   timedTest "sanity check blocks" & preset():
     var
-      db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
+      db = init(BeaconChainDB, kvStore MemStoreRef.init())
 
     let
       signedBlock = SignedBeaconBlock()
@@ -45,7 +45,7 @@ suiteReport "Beacon chain DB" & preset():
 
   timedTest "sanity check states" & preset():
     var
-      db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
+      db = init(BeaconChainDB, kvStore MemStoreRef.init())
 
     let
       state = BeaconState()
@@ -59,7 +59,7 @@ suiteReport "Beacon chain DB" & preset():
 
   timedTest "find ancestors" & preset():
     var
-      db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
+      db = init(BeaconChainDB, kvStore MemStoreRef.init())
 
     let
       a0 = SignedBeaconBlock(message: BeaconBlock(slot: GENESIS_SLOT + 0))
@@ -95,7 +95,7 @@ suiteReport "Beacon chain DB" & preset():
     # serialization where an all-zero default-initialized bls signature could
     # not be deserialized because the deserialization was too strict.
     var
-      db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
+      db = init(BeaconChainDB, kvStore MemStoreRef.init())
 
     let
       state = initialize_beacon_state_from_eth1(
