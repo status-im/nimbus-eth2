@@ -410,11 +410,8 @@ func process_final_updates*(state: var BeaconState) {.nbench.}=
 
   # Set historical root accumulator
   if next_epoch mod (SLOTS_PER_HISTORICAL_ROOT div SLOTS_PER_EPOCH).uint64 == 0:
-    let historical_batch = HistoricalBatch(
-      block_roots: state.block_roots,
-      state_roots: state.state_roots,
-    )
-    state.historical_roots.add (hash_tree_root(historical_batch))
+    state.historical_roots.add hash_tree_root(
+      [hash_tree_root(state.block_roots), hash_tree_root(state.state_roots)])
 
   # Rotate current/previous epoch attestations
   state.previous_epoch_attestations = state.current_epoch_attestations
