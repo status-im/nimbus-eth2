@@ -197,11 +197,12 @@ OK: 84/87 Fail: 3/87 Skip: 0/87
 + Iterators test                                                                             OK
 + Peer lifetime test                                                                         OK
 + Safe/Clear test                                                                            OK
++ Score check test                                                                           OK
 + addPeer() test                                                                             OK
 + addPeerNoWait() test                                                                       OK
 + deletePeer() test                                                                          OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
+OK: 10/10 Fail: 0/10 Skip: 0/10
 ## SSZ dynamic navigator
 ```diff
 + navigating fields                                                                          OK
@@ -256,4 +257,4 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 OK: 8/8 Fail: 0/8 Skip: 0/8
 
 ---TOTAL---
-OK: 155/158 Fail: 3/158 Skip: 0/158
+OK: 156/159 Fail: 3/159 Skip: 0/159
