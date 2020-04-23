@@ -1,3 +1,5 @@
+{.push raises: [Defect].}
+
 import
   chronos,
   spec/datatypes
@@ -79,7 +81,13 @@ func saturate*(d: tuple[inFuture: bool, offset: Duration]): Duration =
   if d.inFuture: d.offset else: seconds(0)
 
 proc addTimer*(fromNow: Duration, cb: CallbackFunc, udata: pointer = nil) =
-  discard setTimer(Moment.now() + fromNow, cb, udata)
+  try:
+    discard setTimer(Moment.now() + fromNow, cb, udata)
+  except Exception as e:
+    # TODO https://github.com/status-im/nim-chronos/issues/94
+    # shouldn't happen because we should have initialized chronos by now
+    # https://github.com/nim-lang/Nim/issues/10288 - sigh
+    raiseAssert e.msg
 
 func shortLog*(d: Duration): string =
   let dd = int64(d.milliseconds())

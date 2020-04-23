@@ -1,3 +1,12 @@
+# beacon_chain
+# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [Defect].}
+
 import
   bitops, chronicles, options, tables,
   ssz, beacon_chain_db, state_transition, extras, kvstore,
@@ -336,13 +345,13 @@ proc add*(
   logScope: pcs = "block_addition"
 
   # Already seen this block??
-  if blockRoot in pool.blocks:
+  pool.blocks.withValue(blockRoot, blockRef):
     debug "Block already exists",
       blck = shortLog(blck),
       blockRoot = shortLog(blockRoot),
       cat = "filtering"
 
-    return pool.blocks[blockRoot]
+    return blockRef[]
 
   pool.missing.del(blockRoot)
 
@@ -547,7 +556,7 @@ func checkMissing*(pool: var BlockPool): seq[FetchRecord] =
 
 proc skipAndUpdateState(
     state: var HashedBeaconState, slot: Slot,
-    afterUpdate: proc (state: HashedBeaconState)) =
+    afterUpdate: proc (state: HashedBeaconState) {.gcsafe.}) =
   while state.data.slot < slot:
     # Process slots one at a time in case afterUpdate needs to see empty states
     process_slots(state, state.data.slot + 1)
@@ -555,7 +564,7 @@ proc skipAndUpdateState(
 
 proc skipAndUpdateState(
     state: var HashedBeaconState, signedBlock: SignedBeaconBlock, flags: UpdateFlags,
-    afterUpdate: proc (state: HashedBeaconState)): bool =
+    afterUpdate: proc (state: HashedBeaconState) {.gcsafe.}): bool =
 
   skipAndUpdateState(state, signedBlock.message.slot - 1, afterUpdate)
 
@@ -845,7 +854,10 @@ proc updateHead*(pool: BlockPool, newHead: BlockRef) =
       cat = "fork_choice"
 
     # A reasonable criterion for "reorganizations of the chain"
-    beacon_reorgs_total.inc()
+    try:
+      beacon_reorgs_total.inc()
+    except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
+      trace "Couldn't update metrics", msg = e.msg
   else:
     info "Updated head block",
       stateRoot = shortLog(pool.headState.data.root),
