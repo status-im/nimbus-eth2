@@ -410,6 +410,10 @@ func process_final_updates*(state: var BeaconState) {.nbench.}=
 
   # Set historical root accumulator
   if next_epoch mod (SLOTS_PER_HISTORICAL_ROOT div SLOTS_PER_EPOCH).uint64 == 0:
+    # Equivalent to hash_tree_root(foo: HistoricalBatch), but without using
+    # significant additional stack or heap.
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#historicalbatch
+    # In response to https://github.com/status-im/nim-beacon-chain/issues/921
     state.historical_roots.add hash_tree_root(
       [hash_tree_root(state.block_roots), hash_tree_root(state.state_roots)])
 
