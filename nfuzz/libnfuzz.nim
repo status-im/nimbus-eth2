@@ -106,7 +106,7 @@ proc nfuzz_attester_slashing(input: openArray[byte], output: ptr byte,
 proc nfuzz_block(input: openArray[byte], output: ptr byte,
     output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(BlockInput):
-    state_transition(data.state[], data.beaconBlock, flags)
+    state_transition(data.state[], data.beaconBlock, flags, noRollback)
 
 proc nfuzz_block_header(input: openArray[byte], output: ptr byte,
     output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =

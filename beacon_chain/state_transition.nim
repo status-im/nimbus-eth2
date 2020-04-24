@@ -138,8 +138,15 @@ proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   else:
     true
 
+type
+  RollbackProc* = proc(v: var BeaconState) {.gcsafe.}
+
+proc noRollback*(state: var BeaconState) =
+  trace "Skipping rollback of broken state"
+
 proc state_transition*(
-    state: var BeaconState, signedBlock: SignedBeaconBlock, flags: UpdateFlags): bool {.nbench.}=
+    state: var BeaconState, signedBlock: SignedBeaconBlock, flags: UpdateFlags,
+    rollback: RollbackProc): bool {.nbench.} =
   ## Time in the beacon chain moves by slots. Every time (haha.) that happens,
   ## we will update the beacon state. Normally, the state updates will be driven
   ## by the contents of a new block, but it may happen that the block goes
@@ -151,6 +158,12 @@ proc state_transition*(
   ## The flags are used to specify that certain validations should be skipped
   ## for the new block. This is done during block proposal, to create a state
   ## whose hash can be included in the new block.
+  ##
+  ## `rollback` is called if the transition fails and the given state has been
+  ## partially changed. If a temporary state was given to `state_transition`,
+  ## it is safe to use `noRollback` and leave it broken, else the state
+  ## object should be rolled back to a consistent state. If the transition fails
+  ## before the state has been updated, `rollback` will not be called.
   #
   # TODO this function can be written with a loop inside to handle all empty
   #      slots up to the slot of the new_block - but then again, why not eagerly
@@ -167,11 +180,7 @@ proc state_transition*(
   #      many functions will mutate `state` partially without rolling back
   #      the changes in case of failure (look out for `var BeaconState` and
   #      bool return values...)
-
-  ## TODO, of cacheState/processEpoch/processSlot/processBloc, only the last
-  ## might fail, so should this bother capturing here, or?
-  var old_state = newClone(state)
-
+  doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
   # These should never fail.
   process_slots(state, signedBlock.message.slot)
 
@@ -194,7 +203,7 @@ proc state_transition*(
         return true
 
   # Block processing failed, roll back changes
-  state = old_state[]
+  rollback(state)
   false
 
 # Hashed-state transition functions
@@ -250,11 +259,16 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot) =
         trace "Couldn't update metrics", msg = e.msg
     state.root = hash_tree_root(state.data)
 
-proc state_transition*(
-    state: var HashedBeaconState, signedBlock: SignedBeaconBlock, flags: UpdateFlags): bool =
-  # Save for rollback
-  var old_state = clone(state)
+type
+  RollbackHashedProc* = proc(state: var HashedBeaconState) {.gcsafe.}
 
+proc noRollback*(state: var HashedBeaconState) =
+  trace "Skipping rollback of broken state"
+
+proc state_transition*(
+    state: var HashedBeaconState, signedBlock: SignedBeaconBlock,
+    flags: UpdateFlags, rollback: RollbackHashedProc): bool =
+  doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
   process_slots(state, signedBlock.message.slot)
 
   if skipBLSValidation in flags or
@@ -275,6 +289,6 @@ proc state_transition*(
         return true
 
   # Block processing failed, roll back changes
-  state.data[] = old_state.data[]
-  state.root = old_state.root
+  rollback(state)
+
   false

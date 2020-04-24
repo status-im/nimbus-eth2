@@ -398,7 +398,17 @@ proc add*(
     # TODO if the block is from the future, we should not be resolving it (yet),
     #      but maybe we should use it as a hint that our clock is wrong?
     updateStateData(pool, pool.tmpState, BlockSlot(blck: parent, slot: blck.slot - 1))
-    if not state_transition(pool.tmpState.data, signedBlock, {}):
+
+    let
+      poolPtr = unsafeAddr pool # safe because restore is short-lived
+    proc restore(v: var HashedBeaconState) =
+      # TODO address this ugly workaround - there should probably be a
+      #      `state_transition` that takes a `StateData` instead and updates
+      #      the block as well
+      doAssert v.addr == addr poolPtr.tmpState.data
+      poolPtr.tmpState = poolPtr.headState
+
+    if not state_transition(pool.tmpState.data, signedBlock, {}, restore):
       # TODO find a better way to log all this block data
       notice "Invalid block",
         blck = shortLog(blck),
@@ -561,26 +571,6 @@ func checkMissing*(pool: var BlockPool): seq[FetchRecord] =
     if v.tries.popcount() == 1:
       result.add(FetchRecord(root: k, historySlots: v.slots))
 
-proc skipAndUpdateState(
-    state: var HashedBeaconState, slot: Slot,
-    afterUpdate: proc (state: HashedBeaconState) {.gcsafe.}) =
-  while state.data.slot < slot:
-    # Process slots one at a time in case afterUpdate needs to see empty states
-    process_slots(state, state.data.slot + 1)
-    afterUpdate(state)
-
-proc skipAndUpdateState(
-    state: var HashedBeaconState, signedBlock: SignedBeaconBlock, flags: UpdateFlags,
-    afterUpdate: proc (state: HashedBeaconState) {.gcsafe.}): bool =
-
-  skipAndUpdateState(state, signedBlock.message.slot - 1, afterUpdate)
-
-  let ok = state_transition(state, signedBlock, flags)
-
-  afterUpdate(state)
-
-  ok
-
 proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
   # TODO we save state at every epoch start but never remove them - we also
   #      potentially save multiple states per slot if reorgs happen, meaning
@@ -635,6 +625,31 @@ proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
     currentCache.putState(state.root, state.data)
     # TODO this should be atomic with the above write..
     currentCache.putStateRoot(blck.root, state.data.slot, state.root)
+
+proc skipAndUpdateState(
+    pool: BlockPool,
+    state: var HashedBeaconState, blck: BlockRef, slot: Slot) =
+  while state.data.slot < slot:
+    # Process slots one at a time in case afterUpdate needs to see empty states
+    process_slots(state, state.data.slot + 1)
+    pool.putState(state, blck)
+
+proc skipAndUpdateState(
+    pool: BlockPool,
+    state: var StateData, blck: BlockData, flags: UpdateFlags): bool =
+
+  pool.skipAndUpdateState(state.data, blck.refs, blck.data.message.slot - 1)
+
+  var statePtr = unsafeAddr state # safe because `restore` is locally scoped
+  proc restore(v: var HashedBeaconState) =
+    doAssert (addr(statePtr.data) == addr v)
+    statePtr[] = pool.headState
+
+  let ok  = state_transition(state.data, blck.data, flags, restore)
+  if ok:
+    pool.putState(state.data, blck.refs)
+
+  ok
 
 proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
     seq[BlockData] =
@@ -765,8 +780,7 @@ proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
   if state.blck.root == bs.blck.root and state.data.data.slot <= bs.slot:
     if state.data.data.slot != bs.slot:
       # Might be that we're moving to the same block but later slot
-      skipAndUpdateState(state.data, bs.slot) do(state: HashedBeaconState):
-        pool.putState(state, bs.blck)
+      pool.skipAndUpdateState(state.data, bs.blck, bs.slot)
 
     return # State already at the right spot
 
@@ -785,14 +799,12 @@ proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
   # applied. Pathologically quadratic in slot number, naïvely.
   for i in countdown(ancestors.len - 1, 0):
     let ok =
-      skipAndUpdateState(state.data,
-                         ancestors[i].data,
-                         {skipBlsValidation, skipMerkleValidation, skipStateRootValidation}) do (state: HashedBeaconState):
-        pool.putState(state, ancestors[i].refs)
+      pool.skipAndUpdateState(
+        state, ancestors[i],
+        {skipBlsValidation, skipMerkleValidation, skipStateRootValidation})
     doAssert ok, "Blocks in database should never fail to apply.."
 
-  skipAndUpdateState(state.data, bs.slot) do(state: HashedBeaconState):
-    pool.putState(state, bs.blck)
+  pool.skipAndUpdateState(state.data, bs.blck, bs.slot)
 
   state.blck = bs.blck
 
