@@ -7,7 +7,6 @@ const
   bootstrapYamlFileName = "boot_enr.yaml"
   depositContractFileName = "deposit_contract.txt"
   genesisFile = "genesis.ssz"
-  configFile = "config.yaml"
   testnetsRepo = "eth2-testnets"
   web3Url = "wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
 
@@ -68,9 +67,6 @@ cli do (skipGoerliKey {.
     else:
       echo "Warning: the network metadata doesn't include a bootstrap file"
 
-  var preset = testnetDir / configFile
-  if not system.fileExists(preset): preset = "minimal"
-
   let
     dataDirName = testnetName.replace("/", "_")
                              .replace("(", "_")
@@ -100,7 +96,7 @@ cli do (skipGoerliKey {.
       rmDir dataDir
 
   cd rootDir
-  exec &"""nim c {nimFlags} -d:"const_preset={preset}" -o:"{beaconNodeBinary}" beacon_chain/beacon_node.nim"""
+  exec &"""nim c {nimFlags} -o:"{beaconNodeBinary}" beacon_chain/beacon_node.nim"""
 
   mkDir dumpDir
 
