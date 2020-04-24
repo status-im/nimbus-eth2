@@ -119,11 +119,11 @@ clean-testnet0:
 clean-testnet1:
 	rm -rf build/data/testnet1
 
-testnet0: | build deps
-	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) testnet0
-
-testnet1: | build deps
-	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) testnet1
+# - we're getting the preset from a testnet-specific .env file
+# - try SCRIPT_PARAMS="--skipGoerliKey"
+testnet0 testnet1: | build deps
+	source scripts/$@.env; \
+		NIM_PARAMS="$(NIM_PARAMS) -d:const_preset=$$CONST_PRESET" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) $@
 
 clean: | clean-common
 	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,beacon_node_testnet*,state_sim,transition*}
