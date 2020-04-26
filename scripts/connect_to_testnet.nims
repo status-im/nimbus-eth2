@@ -141,5 +141,5 @@ cli do (skipGoerliKey {.
     {bootstrapFileOpt}
     {logLevelOpt}
     {depositContractOpt}
-    --state-snapshot="{testnetDir/genesisFile}" """ & depositContractOpt, "\n", " ")
+    --state-snapshot="{testnetDir/genesisFile}" """, "\n", " ")
 
