@@ -476,7 +476,7 @@ proc add*(
     # the BlockRef first!
     pool.tmpState.blck = pool.addResolvedBlock(
       pool.tmpState.data.data[], blockRoot, signedBlock, parent)
-    pool.putState(pool.tmpState.data[], pool.tmpState.blck)
+    pool.putState(pool.tmpState.data, pool.tmpState.blck)
 
     return pool.tmpState.blck
 
