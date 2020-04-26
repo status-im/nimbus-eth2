@@ -63,12 +63,15 @@ except:
 if openFilesLimit < openFilesLimitTarget:
   echo "Open files limit too low. Increase it with \"ulimit -n " & $openFilesLimitTarget & "\""
 else:
-  # add debugging symbols and original files and line numbers
-  --debugger:native
-  if not (defined(windows) and defined(i386)) and not defined(disable_libbacktrace):
-    # light-weight stack traces using libbacktrace and libunwind
-    --define:nimStackTraceOverride
-    switch("import", "libbacktrace")
+  # --debugger:native fails on static libraries, on macOS, because it tries to
+  # run dsymutil on them: https://github.com/nim-lang/Nim/issues/14132
+  if not defined(macosx):
+    # add debugging symbols and original files and line numbers
+    --debugger:native
+    if not (defined(windows) and defined(i386)) and not defined(disable_libbacktrace):
+      # light-weight stack traces using libbacktrace and libunwind
+      --define:nimStackTraceOverride
+      switch("import", "libbacktrace")
 
 --define:nimOldCaseObjects # https://github.com/status-im/nim-confutils/issues/9
 
