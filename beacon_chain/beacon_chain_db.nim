@@ -69,10 +69,15 @@ proc put(db: BeaconChainDB, key: openArray[byte], v: auto) =
   db.backend.put(key, SSZ.encode(v)).expect("working database")
 
 proc get(db: BeaconChainDB, key: openArray[byte], T: typedesc): Option[T] =
-  var res: Option[T]
+  # TODO Originally, this code was returning `Option[T]` - this gets us into
+  #      trouble because it takes up a lot of stack space, so instead we'll
+  #      do this ugly ref trick
+  var res: ref T
   proc decode(data: openArray[byte]) =
     try:
-      res = some(SSZ.decode(data, T))
+      let tmp = new T
+      tmp[] = SSZ.decode(data, T)
+      res = tmp
     except SerializationError as e:
       # If the data can't be deserialized, it could be because it's from a
       # version of the software that uses a different SSZ encoding
@@ -81,7 +86,8 @@ proc get(db: BeaconChainDB, key: openArray[byte], T: typedesc): Option[T] =
 
   discard db.backend.get(key, decode).expect("working database")
 
-  res
+  if not res.isNil:
+    return some(res[])
 
 proc putBlock*(db: BeaconChainDB, key: Eth2Digest, value: SignedBeaconBlock) =
   db.put(subkey(type value, key), value)
