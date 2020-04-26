@@ -1,13 +1,22 @@
+import strutils
+
 if defined(release):
   switch("nimcache", "nimcache/release/$projectName")
 else:
   switch("nimcache", "nimcache/debug/$projectName")
 
+const stack_size {.intdefine.}: int = 0
+
+# conservative compile-time estimation for single functions
+when defined(stack_size) and defined(gcc):
+  switch("passC", "-Wstack-usage=" & $stack_size)
+
 if defined(windows):
   # disable timestamps in Windows PE headers - https://wiki.debian.org/ReproducibleBuilds/TimestampsInPEBinaries
   switch("passL", "-Wl,--no-insert-timestamp")
-  # increase stack size
-  switch("passL", "-Wl,--stack,1000000")
+  # set stack size
+  when defined(stack_size):
+    switch("passL", "-Wl,--stack," & $stack_size)
   # https://github.com/nim-lang/Nim/issues/4057
   --tlsEmulation:off
   if defined(i386):
@@ -43,9 +52,17 @@ else:
 
 switch("import", "testutils/moduletests")
 
-# the default open files limit is too low on macOS (512), breaking the
+# The default open files limit is too low on macOS (512), breaking the
 # "--debugger:native" build. It can be increased with `ulimit -n 1024`.
-if not defined(macosx):
+let openFilesLimitTarget = 1024
+var openFilesLimit = 0
+try:
+  openFilesLimit = staticExec("ulimit -n").parseInt()
+except:
+  echo "ulimit error"
+if openFilesLimit < openFilesLimitTarget:
+  echo "Open files limit too low. Increase it with \"ulimit -n " & $openFilesLimitTarget & "\""
+else:
   # add debugging symbols and original files and line numbers
   --debugger:native
   if not (defined(windows) and defined(i386)) and not defined(disable_libbacktrace):

@@ -25,6 +25,9 @@ import
   sync_protocol, request_manager, validator_keygen, interop, statusbar,
   attestation_aggregation, sync_manager
 
+when defined(posix):
+  import posix
+
 const
   genesisFile = "genesis.ssz"
   hasPrompt = not defined(withoutPrompt)
@@ -1346,6 +1349,24 @@ programMain:
     quit(QuitFailure)
   setControlCHook(controlCHandler)
 
+  ## Set the stack size limit on POSIX systems (the Windows one is set in
+  ## config.nims).
+  # TODO: move this to nim-stew, if we need to use it elsewhere
+  when defined(posix):
+    const
+      RLIMIT_STACK = 3 # from "/usr/include/bits/resource.h"
+      stack_size {.intdefine.}: int = 0
+    var
+      rlimit: RLimit
+    when defined(stack_size):
+      if getrlimit(RLIMIT_STACK, rlimit) == -1:
+        error "getrlimit() error", msg = osErrorMsg(osLastError())
+      else:
+        rlimit.rlim_cur = stack_size
+        if setrlimit(RLIMIT_STACK, rlimit) == -1:
+          error "setrlimit() error", msg = osErrorMsg(osLastError())
+
+  ## handle command line arguments
   case config.cmd
   of createTestnet:
     var deposits: seq[Deposit]

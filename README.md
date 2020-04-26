@@ -354,6 +354,12 @@ make -j$(nproc) NIMFLAGS="-d:release" USE_MULTITAIL=yes eth2_network_simulation
 make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower
 ```
 
+- show (some) C compiler warnings:
+
+```bash
+make NIMFLAGS="-d:cwarnings" beacon_node
+```
+
 ## License
 
 Licensed and distributed under either of
