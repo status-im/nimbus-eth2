@@ -58,6 +58,14 @@ template fromSszBytes*(T: type BitSeq, bytes: openarray[byte]): auto =
   BitSeq @bytes
 
 func fromSszBytes*[N](T: type BitList[N], bytes: openarray[byte]): auto {.raisesssz.} =
+  if bytes.len == 0:
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/ssz/simple-serialize.md#bitlistn
+    # "An additional 1 bit is added to the end, at index e where e is the
+    # length of the bitlist (not the limit), so that the length in bits will
+    # also be known."
+    # It's not possible to have a literally 0-byte (raw) Bitlist.
+    # https://github.com/status-im/nim-beacon-chain/issues/931
+    raise newException(MalformedSszError, "SSZ input Bitlist too small")
   BitList[N] @bytes
 
 func fromSszBytes*[N](T: type BitArray[N], bytes: openarray[byte]): T {.raisesssz.} =

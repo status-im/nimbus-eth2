@@ -1,3 +1,5 @@
+{.used.}
+
 import
   unittest,
   chronos, web3/ethtypes,
