@@ -44,10 +44,12 @@ proc runTest(identifier: string) =
 
         if hasPostState:
           # TODO: The EF is using invalid BLS keys so we can't verify them
-          let success = state_transition(preState[], blck, flags = {skipBlsValidation})
+          let success = state_transition(
+            preState[], blck, flags = {skipBlsValidation}, noRollback)
           doAssert success, "Failure when applying block " & $i
         else:
-          let success = state_transition(preState[], blck, flags = {})
+          let success = state_transition(
+            preState[], blck, flags = {}, noRollback)
           doAssert not success, "We didn't expect this invalid block to be processed"
 
       # check: preState.hash_tree_root() == postState.hash_tree_root()

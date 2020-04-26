@@ -131,4 +131,4 @@ proc add*(state: var BeaconState, attestation: Attestation, slot: Slot) =
   signMockBlock(state, signedBlock)
 
   doAssert state_transition(
-    state, signedBlock, flags = {skipStateRootValidation})
+    state, signedBlock, flags = {skipStateRootValidation}, noRollback)
