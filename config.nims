@@ -7,7 +7,7 @@ if defined(windows):
   # disable timestamps in Windows PE headers - https://wiki.debian.org/ReproducibleBuilds/TimestampsInPEBinaries
   switch("passL", "-Wl,--no-insert-timestamp")
   # increase stack size
-  switch("passL", "-Wl,--stack,8388608")
+  switch("passL", "-Wl,--stack,1000000")
   # https://github.com/nim-lang/Nim/issues/4057
   --tlsEmulation:off
   if defined(i386):
