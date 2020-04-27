@@ -684,6 +684,11 @@ proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
   var peer = node.getPeer(peerInfo)
   peer.wasDialed = true
 
+  #let msDial = newMultistream()
+  #let conn = node.switch.connections.getOrDefault(peerInfo.id)
+  #let ls = await msDial.list(conn)
+  #debug "Supported protocols", ls
+
   debug "Initializing connection"
   await initializeConnection(peer)
 

@@ -32,9 +32,9 @@ type
 
   BeaconNodeConf* = object
     logLevel* {.
-      defaultValue: LogLevel.DEBUG
+      defaultValue: "DEBUG"
       desc: "Sets the log level."
-      name: "log-level" }: LogLevel
+      name: "log-level" }: string
 
     eth1Network* {.
       defaultValue: goerli
