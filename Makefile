@@ -22,7 +22,8 @@ TOOLS := \
 	ncli_hash_tree_root \
 	ncli_pretty \
 	ncli_transition \
-	process_dashboard
+	process_dashboard \
+	stackSizes
 	# bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes
 TOOLS_DIRS := \
 	beacon_chain \
