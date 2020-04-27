@@ -102,8 +102,8 @@ func voting_period_start_time*(state: BeaconState): uint64 =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#get_eth1_data
 func is_candidate_block(blk: Eth1Block, period_start: uint64): bool =
-  (blk.timestamp <= period_start - SECONDS_PER_ETH1_BLOCK * ETH1_FOLLOW_DISTANCE) and
-  (blk.timestamp >= period_start - SECONDS_PER_ETH1_BLOCK * ETH1_FOLLOW_DISTANCE * 2)
+  (blk.timestamp + SECONDS_PER_ETH1_BLOCK.uint64 * ETH1_FOLLOW_DISTANCE.uint64 <= period_start) and
+  (blk.timestamp + SECONDS_PER_ETH1_BLOCK.uint64 * ETH1_FOLLOW_DISTANCE.uint64 * 2 >= period_start)
 
 func asEth2Digest(x: BlockHash): Eth2Digest =
   Eth2Digest(data: array[32, byte](x))

@@ -65,7 +65,8 @@ const
   SPEC_VERSION* = "0.11.1" ## \
   ## Spec version we're aiming to be compatible with, right now
 
-  GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
+  GENESIS_SLOT* = Slot(0)
+  GENESIS_EPOCH* = (GENESIS_SLOT.int div SLOTS_PER_EPOCH).Epoch ##\
   ## compute_epoch_at_slot(GENESIS_SLOT)
 
   FAR_FUTURE_EPOCH* = (not 0'u64).Epoch # 2^64 - 1 in spec
@@ -83,6 +84,9 @@ const
   ATTESTATION_PROPAGATION_SLOT_RANGE* = 32
 
   SLOTS_PER_ETH1_VOTING_PERIOD* = Slot(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)
+
+  DEPOSIT_CONTRACT_TREE_DEPTH* = 32
+  BASE_REWARDS_PER_EPOCH* = 4
 
 template maxSize*(n: int) {.pragma.}
 
