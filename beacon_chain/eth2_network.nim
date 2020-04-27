@@ -1027,7 +1027,7 @@ proc subscribe*[MsgType](node: Eth2Node,
     trace "Incoming pubsub message received",
       peer = peerExpr, len = gossipBytes.len, topic = gossipTopic,
       message_id = `$`(sha256.digest(gossipBytes))
-    if useSnappy:
+    when useSnappy:
       msgHandler SSZ.decode(snappy.decode(gossipBytes), MsgType)
     else:
       msgHandler SSZ.decode(gossipBytes, MsgType)
@@ -1038,7 +1038,7 @@ proc subscribe*[MsgType](node: Eth2Node,
     trace "Incoming pubsub message received for validation",
       len = gossipBytes.len, topic = gossipTopic,
       message_id = `$`(sha256.digest(gossipBytes))
-    if useSnappy:
+    when useSnappy:
       msgValidator SSZ.decode(snappy.decode(gossipBytes), MsgType)
     else:
       msgValidator SSZ.decode(gossipBytes, MsgType)
