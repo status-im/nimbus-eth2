@@ -467,7 +467,78 @@ func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
     signature: attestation.signature
   )
 
+# Attestation validation
+# ------------------------------------------------------------------------------------------
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase0/beacon-chain.md#attestations
+#
+# TODO: Refactor, we need:
+# - cheap validations that do not involve the fork state (to avoid unnecessary and costly rewinding which are probably a DOS vector)
+# - check that must be done on the targeted state (for example beacon committee consistency)
+# - check that requires easily computed data from the targeted sate (slots, epoch, justified checkpoints)
+
+proc isValidAttestationSlot*(attestationSlot, stateSlot: Slot): bool =
+  ## Attestation check that does not depend on the whole block state
+  ## for cheaper prefiltering of attestations that come from the network
+  ## to limit DOS via state rewinding
+
+  if not (attestationSlot + MIN_ATTESTATION_INCLUSION_DELAY <= stateSlot):
+    warn("Attestation too new",
+      attestation_slot = shortLog(attestationSlot),
+      state_slot = shortLog(stateSlot))
+    return false
+
+  if not (stateSlot <= attestationSlot + SLOTS_PER_EPOCH):
+    warn("Attestation too old",
+      attestation_slot = shortLog(attestationSlot),
+      state_slot = shortLog(stateSlot))
+    return false
+
+  return true
+
+# TODO remove/merge with p2p-interface validation
+proc isValidAttestationTargetEpoch*(
+    state: BeaconState, attestation: Attestation): bool =
+  # TODO what constitutes a valid attestation when it's about to be added to
+  #      the pool? we're interested in attestations that will become viable
+  #      for inclusion in blocks in the future and on any fork, so we need to
+  #      consider that validations might happen using the state of a different
+  #      fork.
+  #      Some things are always invalid (like out-of-bounds issues etc), but
+  #      others are more subtle - how do we validate the signature for example?
+  #      It might be valid on one fork but not another. One thing that helps
+  #      is that committees are stable per epoch and that it should be OK to
+  #      include an attestation in a block even if the corresponding validator
+  #      was slashed in the same epoch - there's no penalty for doing this and
+  #      the vote counting logic will take care of any ill effects (TODO verify)
+  let data = attestation.data
+  # TODO re-enable check
+  #if not (data.crosslink.shard < SHARD_COUNT):
+  #  notice "Attestation shard too high",
+  #    attestation_shard = data.crosslink.shard
+  #  return
+
+  # Without this check, we can't get a slot number for the attestation as
+  # certain helpers will assert
+  # TODO this could probably be avoided by being smart about the specific state
+  #      used to validate the attestation: most likely if we pick the state of
+  #      the beacon block being voted for and a slot in the target epoch
+  #      of the attestation, we'll be safe!
+  # TODO the above state selection logic should probably live here in the
+  #      attestation pool
+  if not (data.target.epoch == get_previous_epoch(state) or
+      data.target.epoch == get_current_epoch(state)):
+    warn("Target epoch not current or previous epoch")
+    return
+
+  if not (data.target.epoch == compute_epoch_at_slot(data.slot)):
+    warn("Target epoch inconsistent with epoch of data slot",
+      target_epoch = data.target.epoch,
+      data_slot_epoch = compute_epoch_at_slot(data.slot))
+    return
+
+  true
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#attestations
 proc check_attestation*(
     state: BeaconState, attestation: Attestation, flags: UpdateFlags,
     stateCache: var StateCache): bool =
@@ -494,27 +565,12 @@ proc check_attestation*(
       committee_count = get_committee_count_at_slot(state, data.slot))
     return
 
-  if not (data.target.epoch == get_previous_epoch(state) or
-      data.target.epoch == get_current_epoch(state)):
-    warn("Target epoch not current or previous epoch")
+  if not isValidAttestationTargetEpoch(state, attestation):
+    # Logging in isValidAttestationTargetEpoch
     return
 
-  if not (data.target.epoch == compute_epoch_at_slot(data.slot)):
-    warn("Target epoch inconsistent with epoch of data slot",
-      target_epoch = data.target.epoch,
-      data_slot_epoch = compute_epoch_at_slot(data.slot))
-    return
-
-  if not (data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= stateSlot):
-    warn("Attestation too new",
-      attestation_slot = shortLog(data.slot),
-      state_slot = shortLog(stateSlot))
-    return
-
-  if not (stateSlot <= data.slot + SLOTS_PER_EPOCH):
-    warn("Attestation too old",
-      attestation_slot = shortLog(data.slot),
-      state_slot = shortLog(stateSlot))
+  if not isValidAttestationSlot(data.slot, stateSlot):
+    # Logging in isValidAttestationSlot
     return
 
   let committee = get_beacon_committee(

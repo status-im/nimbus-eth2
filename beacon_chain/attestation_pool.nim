@@ -135,6 +135,18 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
   # TODO: How fast is state rewind?
   #       Can this be a DOS vector.
 
+  # TODO: filter valid attestation as much as possible before state rewind
+  # TODO: the below check does not respect the inclusion delay
+  #       we should use isValidAttestationSlot instead
+  if blck.slot > attestation.data.slot:
+    notice "Invalid attestation (too new!)",
+      attestation = shortLog(attestation),
+      blockSlot = shortLog(blck.slot)
+    return
+  # if not isValidAttestationSlot(attestation.data.slot, blck.slot):
+  #   # Logging in isValidAttestationSlot
+  #   return
+
   # Get a temporary state at the (block, slot) targeted by the attestation
   updateStateData(
     pool.blockPool, pool.blockPool.tmpState,
@@ -149,7 +161,7 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
 
   # TODO: stateCache usage
   var stateCache = get_empty_per_epoch_cache()
-  if not check_attestation(state, attestation, flags = {}, stateCache):
+  if not isValidAttestationTargetEpoch(state, attestation):
     notice "Invalid attestation",
       attestation = shortLog(attestation),
       current_epoch = get_current_epoch(state),
