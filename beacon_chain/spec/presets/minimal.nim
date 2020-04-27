@@ -41,15 +41,6 @@ const
   HYSTERESIS_DOWNWARD_MULTIPLIER* = 1
   HYSTERESIS_UPWARD_MULTIPLIER* = 5
 
-  # Constants
-  # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#constants
-  # TODO "The following values are (non-configurable) constants" ...
-  # Unchanged
-  BASE_REWARDS_PER_EPOCH* = 4
-
-  DEPOSIT_CONTRACT_TREE_DEPTH* = 32
-
   # Gwei values
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/minimal.yaml#L58
@@ -64,7 +55,6 @@ const
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/minimal.yaml#L70
 
-  GENESIS_SLOT* = 0.Slot
   GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 1'u8]
   BLS_WITHDRAWAL_PREFIX* = 0'u8
 

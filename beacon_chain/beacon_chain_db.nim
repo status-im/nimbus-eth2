@@ -4,7 +4,7 @@ import
   options, typetraits, stew/[results, endians2],
   serialization, chronicles,
   spec/[datatypes, digest, crypto],
-  kvstore, ssz
+  eth/db/kvstore, ssz
 
 type
   BeaconChainDB* = ref object

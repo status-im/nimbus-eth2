@@ -78,15 +78,13 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   echo "Generating Genesis..."
 
   let
-    genesisState =
-      initialize_beacon_state_from_eth1(Eth2Digest(), 0, deposits, flags)
-    genesisBlock = get_initial_beacon_block(genesisState[])
+    state = initialize_beacon_state_from_eth1(Eth2Digest(), 0, deposits, flags)
+  let genesisBlock = get_initial_beacon_block(state[])
 
   echo "Starting simulation..."
 
   var
     attestations = initTable[Slot, seq[Attestation]]()
-    state = genesisState
     latest_block_root = hash_tree_root(genesisBlock.message)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
@@ -102,10 +100,10 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         write(stdout, ".")
 
       if last:
-        writeJson("state.json", state)
+        writeJson("state.json", state[])
     else:
-      if state.slot mod json_interval.uint64 == 0:
-        writeJson(jsonName(prefix, state.slot), state)
+      if state[].slot mod json_interval.uint64 == 0:
+        writeJson(jsonName(prefix, state.slot), state[])
         write(stdout, ":")
       else:
         write(stdout, ".")

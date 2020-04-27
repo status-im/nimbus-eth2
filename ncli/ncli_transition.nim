@@ -10,7 +10,7 @@ cli do(pre: string, blck: string, post: string, verifyStateRoot = false):
     flags = if verifyStateRoot: {skipStateRootValidation} else: {}
 
   var stateY = HashedBeaconState(data: stateX, root: hash_tree_root(stateX))
-  if not state_transition(stateY, blckX, flags):
+  if not state_transition(stateY, blckX, flags, noRollback):
     error "State transition failed"
-
-  SSZ.saveFile(post, stateY.data)
+  else:
+    SSZ.saveFile(post, stateY.data)

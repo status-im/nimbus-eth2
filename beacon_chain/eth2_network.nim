@@ -5,7 +5,7 @@ import
 
   # Status libs
   stew/[varints, base58, bitseqs], stew/shims/[macros, tables], stint,
-  faststreams/output_stream, snappy/framing,
+  faststreams/output_stream, snappy, snappy/framing,
   json_serialization, json_serialization/std/[net, options],
   chronos, chronicles, metrics,
   # TODO: create simpler to use libp2p modules that use re-exports
@@ -1022,34 +1022,52 @@ proc subscribe*[MsgType](node: Eth2Node,
                          topic: string,
                          msgHandler: proc(msg: MsgType) {.gcsafe.},
                          msgValidator: proc(msg: MsgType): bool {.gcsafe.} ) {.async, gcsafe.} =
-  template execMsgHandler(peerExpr, gossipBytes, gossipTopic) =
+  template execMsgHandler(peerExpr, gossipBytes, gossipTopic, useSnappy) =
     inc gossip_messages_received
     trace "Incoming pubsub message received",
       peer = peerExpr, len = gossipBytes.len, topic = gossipTopic,
       message_id = `$`(sha256.digest(gossipBytes))
-    msgHandler SSZ.decode(gossipBytes, MsgType)
+    when useSnappy:
+      msgHandler SSZ.decode(snappy.decode(gossipBytes), MsgType)
+    else:
+      msgHandler SSZ.decode(gossipBytes, MsgType)
 
   # All message types which are subscribed to should be validated; putting
   # this in subscribe(...) ensures that the default approach is correct.
-  template execMsgValidator(gossipBytes, gossipTopic): bool =
+  template execMsgValidator(gossipBytes, gossipTopic, useSnappy): bool =
     trace "Incoming pubsub message received for validation",
       len = gossipBytes.len, topic = gossipTopic,
       message_id = `$`(sha256.digest(gossipBytes))
-    msgValidator SSZ.decode(gossipBytes, MsgType)
+    when useSnappy:
+      msgValidator SSZ.decode(snappy.decode(gossipBytes), MsgType)
+    else:
+      msgValidator SSZ.decode(gossipBytes, MsgType)
 
   # Validate messages as soon as subscribed
   let incomingMsgValidator = proc(topic: string,
                                   message: GossipMsg): Future[bool]
                                  {.async, gcsafe.} =
-    return execMsgValidator(message.data, topic)
+    return execMsgValidator(message.data, topic, false)
+  let incomingMsgValidatorSnappy = proc(topic: string,
+                                        message: GossipMsg): Future[bool]
+                                       {.async, gcsafe.} =
+    return execMsgValidator(message.data, topic, true)
 
   node.switch.addValidator(topic, incomingMsgValidator)
+  node.switch.addValidator(topic & "_snappy", incomingMsgValidatorSnappy)
 
   let incomingMsgHandler = proc(topic: string,
                                 data: seq[byte]) {.async, gcsafe.} =
-    execMsgHandler "unknown", data, topic
+    execMsgHandler "unknown", data, topic, false
+  let incomingMsgHandlerSnappy = proc(topic: string,
+                                      data: seq[byte]) {.async, gcsafe.} =
+    execMsgHandler "unknown", data, topic, true
 
-  await node.switch.subscribe(topic, incomingMsgHandler)
+  var switchSubscriptions: seq[Future[void]] = @[]
+  switchSubscriptions.add(node.switch.subscribe(topic, incomingMsgHandler))
+  switchSubscriptions.add(node.switch.subscribe(topic & "_snappy", incomingMsgHandlerSnappy))
+  
+  await allFutures(switchSubscriptions)
 
 proc traceMessage(fut: FutureBase, digest: MDigest[256]) =
   fut.addCallback do (arg: pointer):
@@ -1062,6 +1080,11 @@ proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
   var fut = node.switch.publish(topic, broadcastBytes)
   traceMessage(fut, sha256.digest(broadcastBytes))
   traceAsyncErrors(fut)
+  # also publish to the snappy-compressed topics
+  let snappyEncoded = snappy.encode(broadcastBytes)
+  var futSnappy = node.switch.publish(topic & "_snappy", snappyEncoded)
+  traceMessage(futSnappy, sha256.digest(snappyEncoded))
+  traceAsyncErrors(futSnappy)
 
 # TODO:
 # At the moment, this is just a compatiblity shim for the existing RLPx functionality.
