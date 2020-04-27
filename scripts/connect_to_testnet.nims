@@ -107,7 +107,7 @@ cli do (skipGoerliKey {.
       rmDir dataDir
 
   cd rootDir
-  exec &"""nim c {nimFlags} -d:"const_preset={preset}" -o:"{beaconNodeBinary}" beacon_chain/beacon_node.nim"""
+  exec &"""nim c {nimFlags} -d:"const_preset={preset}" -d:"chronicles_sinks=textlines,json[file(json-log.txt)],textblocks[file(text-log.txt)]" -o:"{beaconNodeBinary}" beacon_chain/beacon_node.nim"""
 
   mkDir dumpDir
 
@@ -142,7 +142,7 @@ cli do (skipGoerliKey {.
   let logLevel = getEnv("LOG_LEVEL")
   var logLevelOpt = ""
   if logLevel.len > 0:
-    logLevelOpt = "--log-level=" & logLevel
+    logLevelOpt = &"""--log-level="{logLevel}" """
 
   mode = Verbose
   execIgnoringExitCode replace(&"""{beaconNodeBinary}

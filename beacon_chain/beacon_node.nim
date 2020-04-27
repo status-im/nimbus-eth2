@@ -7,11 +7,12 @@
 
 import
   # Standard library
-  os, tables, random, strutils, times,
+  os, tables, random, strutils, times, sequtils,
 
   # Nimble packages
   stew/[objects, bitseqs, byteutils], stew/shims/macros,
-  chronos, chronicles, confutils, metrics, json_rpc/[rpcserver, jsonmarshal],
+  chronos, confutils, metrics, json_rpc/[rpcserver, jsonmarshal],
+  chronicles, chronicles/helpers as chroniclesHelpers,
   json_serialization/std/[options, sets, net], serialization/errors,
   eth/db/kvstore, eth/db/kvstore_sqlite3,
   eth/p2p/enode, eth/[keys, async_utils], eth/p2p/discoveryv5/[protocol, enr],
@@ -1334,8 +1335,20 @@ programMain:
 
   randomize()
 
-  if config.logLevel != LogLevel.NONE:
-    setLogLevel(config.logLevel)
+  try:
+    let directives = config.logLevel.split(";")
+    try:
+      setLogLevel(parseEnum[LogLevel](directives[0]))
+    except CatchableError:
+      raise (ref ValueError)(msg: "Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL")
+
+    if directives.len > 1:
+      for topicName, settings in parseTopicDirectives(directives[1..^1]):
+        if not setTopicState(topicName, settings.state, settings.logLevel):
+          warn "Unrecognized logging topic", topic = topicName
+  except CatchableError as err:
+    stderr.write "Invalid value for --log-level. " & err.msg
+    quit 1
 
   ## Ctrl+C handling
   proc controlCHandler() {.noconv.} =
