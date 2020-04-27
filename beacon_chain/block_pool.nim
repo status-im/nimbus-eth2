@@ -339,6 +339,62 @@ proc addResolvedBlock(
       keepGoing = pool.pending.len < retries.len
   blockRef
 
+proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
+  # TODO we save state at every epoch start but never remove them - we also
+  #      potentially save multiple states per slot if reorgs happen, meaning
+  #      we could easily see a state explosion
+  logScope: pcs = "save_state_at_epoch_start"
+
+  var currentCache =
+    pool.cachedStates[state.data.slot.compute_epoch_at_slot.uint64 mod 2]
+  if state.data.slot mod SLOTS_PER_EPOCH == 0:
+    if not pool.db.containsState(state.root):
+      info "Storing state",
+        blockRoot = shortLog(blck.root),
+        blockSlot = shortLog(blck.slot),
+        stateSlot = shortLog(state.data.slot),
+        stateRoot = shortLog(state.root),
+        cat = "caching"
+      pool.db.putState(state.root, state.data)
+      # TODO this should be atomic with the above write..
+      pool.db.putStateRoot(blck.root, state.data.slot, state.root)
+
+      # Because state.data.slot mod SLOTS_PER_EPOCH == 0, wrap back to last
+      # time this was the case i.e. last currentCache. The opposite parity,
+      # by contrast, has just finished filling from the previous epoch. The
+      # resulting lookback window is thus >= SLOTS_PER_EPOCH in size, while
+      # bounded from above by 2*SLOTS_PER_EPOCH.
+      currentCache = init(BeaconChainDB, kvStore MemStoreRef.init())
+  else:
+    # Need to be able to efficiently access states for both attestation
+    # aggregation and to process block proposals going back to the last
+    # finalized slot. Ideally to avoid potential combinatiorial forking
+    # storage and/or memory constraints could CoW, up to and including,
+    # in particular, hash_tree_root() which is expensive to do 30 times
+    # since the previous epoch, to efficiently state_transition back to
+    # desired slot. However, none of that's in place, so there are both
+    # expensive, repeated BeaconState copies as well as computationally
+    # time-consuming-near-end-of-epoch hash tree roots. The latter are,
+    # effectively, naïvely O(n^2) in slot number otherwise, so when the
+    # slots become in the mid-to-high-20s it's spending all its time in
+    # pointlessly repeated calculations of prefix-state-transitions. An
+    # intermediate time/memory workaround involves storing only mapping
+    # between BlockRefs, or BlockSlots, and the BeaconState tree roots,
+    # but that still involves tens of megabytes worth of copying, along
+    # with the concomitant memory allocator and GC load. Instead, use a
+    # more memory-intensive (but more conceptually straightforward, and
+    # faster) strategy to just store, for the most recent slots. Keep a
+    # block's StateData of odd-numbered epoch in bucket 1, whilst evens
+    # land in bucket 0 (which is handed back to GC in if branch). There
+    # still is a possibility of combinatorial explosion, but this only,
+    # by a constant-factor, worsens things. TODO the actual solution's,
+    # eventually, to switch to CoW and/or ref objects for state and the
+    # hash_tree_root processing.
+    if not currentCache.containsState(state.root):
+      currentCache.putState(state.root, state.data)
+      # TODO this should be atomic with the above write..
+      currentCache.putStateRoot(blck.root, state.data.slot, state.root)
+
 proc add*(
     pool: var BlockPool, blockRoot: Eth2Digest,
     signedBlock: SignedBeaconBlock): BlockRef {.gcsafe.} =
@@ -420,6 +476,7 @@ proc add*(
     # the BlockRef first!
     pool.tmpState.blck = pool.addResolvedBlock(
       pool.tmpState.data.data[], blockRoot, signedBlock, parent)
+    pool.putState(pool.tmpState.data, pool.tmpState.blck)
 
     return pool.tmpState.blck
 
@@ -570,61 +627,6 @@ func checkMissing*(pool: var BlockPool): seq[FetchRecord] =
   for k, v in pool.missing.pairs():
     if v.tries.popcount() == 1:
       result.add(FetchRecord(root: k, historySlots: v.slots))
-
-proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
-  # TODO we save state at every epoch start but never remove them - we also
-  #      potentially save multiple states per slot if reorgs happen, meaning
-  #      we could easily see a state explosion
-  logScope: pcs = "save_state_at_epoch_start"
-
-  var currentCache =
-    pool.cachedStates[state.data.slot.compute_epoch_at_slot.uint64 mod 2]
-  if state.data.slot mod SLOTS_PER_EPOCH == 0:
-    if not pool.db.containsState(state.root):
-      info "Storing state",
-        blockRoot = shortLog(blck.root),
-        blockSlot = shortLog(blck.slot),
-        stateSlot = shortLog(state.data.slot),
-        stateRoot = shortLog(state.root),
-        cat = "caching"
-      pool.db.putState(state.root, state.data)
-      # TODO this should be atomic with the above write..
-      pool.db.putStateRoot(blck.root, state.data.slot, state.root)
-
-      # Because state.data.slot mod SLOTS_PER_EPOCH == 0, wrap back to last
-      # time this was the case i.e. last currentCache. The opposite parity,
-      # by contrast, has just finished filling from the previous epoch. The
-      # resulting lookback window is thus >= SLOTS_PER_EPOCH in size, while
-      # bounded from above by 2*SLOTS_PER_EPOCH.
-      currentCache = init(BeaconChainDB, kvStore MemStoreRef.init())
-  else:
-    # Need to be able to efficiently access states for both attestation
-    # aggregation and to process block proposals going back to the last
-    # finalized slot. Ideally to avoid potential combinatiorial forking
-    # storage and/or memory constraints could CoW, up to and including,
-    # in particular, hash_tree_root() which is expensive to do 30 times
-    # since the previous epoch, to efficiently state_transition back to
-    # desired slot. However, none of that's in place, so there are both
-    # expensive, repeated BeaconState copies as well as computationally
-    # time-consuming-near-end-of-epoch hash tree roots. The latter are,
-    # effectively, naïvely O(n^2) in slot number otherwise, so when the
-    # slots become in the mid-to-high-20s it's spending all its time in
-    # pointlessly repeated calculations of prefix-state-transitions. An
-    # intermediate time/memory workaround involves storing only mapping
-    # between BlockRefs, or BlockSlots, and the BeaconState tree roots,
-    # but that still involves tens of megabytes worth of copying, along
-    # with the concomitant memory allocator and GC load. Instead, use a
-    # more memory-intensive (but more conceptually straightforward, and
-    # faster) strategy to just store, for the most recent slots. Keep a
-    # block's StateData of odd-numbered epoch in bucket 1, whilst evens
-    # land in bucket 0 (which is handed back to GC in if branch). There
-    # still is a possibility of combinatorial explosion, but this only,
-    # by a constant-factor, worsens things. TODO the actual solution's,
-    # eventually, to switch to CoW and/or ref objects for state and the
-    # hash_tree_root processing.
-    currentCache.putState(state.root, state.data)
-    # TODO this should be atomic with the above write..
-    currentCache.putStateRoot(blck.root, state.data.slot, state.root)
 
 proc skipAndUpdateState(
     pool: BlockPool,
