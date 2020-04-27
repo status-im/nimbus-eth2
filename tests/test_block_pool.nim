@@ -94,7 +94,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
       var
         db = makeTestDB(SLOTS_PER_EPOCH)
         pool = BlockPool.init(db)
-        state = pool.loadTailState().data.data
+        state = newClone(pool.loadTailState().data.data)
         b1 = addTestBlock(state[], pool.tail.root)
         b1Root = hash_tree_root(b1.message)
         b2 = addTestBlock(state[], b1Root)
@@ -242,42 +242,42 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         bs1_3 = b1Add.atSlot(3.Slot)
         bs2_3 = b2Add.atSlot(3.Slot)
 
-      var tmpState = clone(pool.headState)
+      var tmpState = newClone(pool.headState)
 
       # move to specific block
-      pool.updateStateData(tmpState, bs1)
+      pool.updateStateData(tmpState[], bs1)
 
       check:
         tmpState.blck == b1Add
         tmpState.data.data.slot == bs1.slot
 
       # Skip slots
-      pool.updateStateData(tmpState, bs1_3) # skip slots
+      pool.updateStateData(tmpState[], bs1_3) # skip slots
 
       check:
         tmpState.blck == b1Add
         tmpState.data.data.slot == bs1_3.slot
 
       # Move back slots, but not blocks
-      pool.updateStateData(tmpState, bs1_3.parent())
+      pool.updateStateData(tmpState[], bs1_3.parent())
       check:
         tmpState.blck == b1Add
         tmpState.data.data.slot == bs1_3.parent().slot
 
       # Move to different block and slot
-      pool.updateStateData(tmpState, bs2_3)
+      pool.updateStateData(tmpState[], bs2_3)
       check:
         tmpState.blck == b2Add
         tmpState.data.data.slot == bs2_3.slot
 
       # Move back slot and block
-      pool.updateStateData(tmpState, bs1)
+      pool.updateStateData(tmpState[], bs1)
       check:
         tmpState.blck == b1Add
         tmpState.data.data.slot == bs1.slot
 
       # Move back to genesis
-      pool.updateStateData(tmpState, bs1.parent())
+      pool.updateStateData(tmpState[], bs1.parent())
       check:
         tmpState.blck == b1Add.parent
         tmpState.data.data.slot == bs1.parent.slot
@@ -292,7 +292,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
       block:
         # Create a fork that will not be taken
         var
-          blck = makeTestBlock(pool.headState.data.data[], pool.head.blck.root)
+          blck = makeTestBlock(pool.headState.data.data, pool.head.blck.root)
         discard pool.add(hash_tree_root(blck.message), blck)
 
       for i in 0 ..< (SLOTS_PER_EPOCH * 6):
@@ -304,9 +304,9 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         var
           cache = get_empty_per_epoch_cache()
           blck = makeTestBlock(
-            pool.headState.data.data[], pool.head.blck.root,
+            pool.headState.data.data, pool.head.blck.root,
             attestations = makeFullAttestations(
-              pool.headState.data.data[], pool.head.blck.root,
+              pool.headState.data.data, pool.head.blck.root,
               pool.headState.data.data.slot, cache, {}))
         let added = pool.add(hash_tree_root(blck.message), blck)
         pool.updateHead(added)

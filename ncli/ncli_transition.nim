@@ -4,13 +4,16 @@ import
   ../beacon_chain/[extras, state_transition, ssz]
 
 cli do(pre: string, blck: string, post: string, verifyStateRoot = false):
+
   let
-    stateX = SSZ.loadFile(pre, BeaconStateRef)
+    stateY = (ref HashedBeaconState)()
     blckX = SSZ.loadFile(blck, SignedBeaconBlock)
     flags = if verifyStateRoot: {skipStateRootValidation} else: {}
 
-  var stateY = HashedBeaconState(data: stateX, root: hash_tree_root(stateX))
-  if not state_transition(stateY, blckX, flags, noRollback):
+  stateY.data = SSZ.loadFile(pre, BeaconState)
+  stateY.root = hash_tree_root(stateY.data)
+
+  if not state_transition(stateY[], blckX, flags, noRollback):
     error "State transition failed"
   else:
     SSZ.saveFile(post, stateY.data)

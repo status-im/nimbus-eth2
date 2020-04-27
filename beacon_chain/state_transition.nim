@@ -139,7 +139,7 @@ proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
     true
 
 type
-  RollbackProc* = proc(v: var BeaconState) {.gcsafe.}
+  RollbackProc* = proc(v: var BeaconState) {.gcsafe, raises: [Defect].}
 
 proc noRollback*(state: var BeaconState) =
   trace "Skipping rollback of broken state"
@@ -247,14 +247,14 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot) =
     if is_epoch_transition:
       # Note: Genesis epoch = 0, no need to test if before Genesis
       try:
-        beacon_previous_validators.set(get_epoch_validator_count(state.data[]))
+        beacon_previous_validators.set(get_epoch_validator_count(state.data))
       except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
         trace "Couldn't update metrics", msg = e.msg
-      process_epoch(state.data[])
+      process_epoch(state.data)
     state.data.slot += 1
     if is_epoch_transition:
       try:
-        beacon_current_validators.set(get_epoch_validator_count(state.data[]))
+        beacon_current_validators.set(get_epoch_validator_count(state.data))
       except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
         trace "Couldn't update metrics", msg = e.msg
     state.root = hash_tree_root(state.data)
@@ -272,18 +272,18 @@ proc state_transition*(
   process_slots(state, signedBlock.message.slot)
 
   if skipBLSValidation in flags or
-      verify_block_signature(state.data[], signedBlock):
+      verify_block_signature(state.data, signedBlock):
 
     var per_epoch_cache = get_empty_per_epoch_cache()
-    if processBlock(state.data[], signedBlock.message, flags, per_epoch_cache):
-      if skipStateRootValidation in flags or verifyStateRoot(state.data[], signedBlock.message):
+    if processBlock(state.data, signedBlock.message, flags, per_epoch_cache):
+      if skipStateRootValidation in flags or verifyStateRoot(state.data, signedBlock.message):
         # State root is what it should be - we're done!
 
         # TODO when creating a new block, state_root is not yet set.. comparing
         #      with zero hash here is a bit fragile however, but this whole thing
         #      should go away with proper hash caching
         state.root =
-          if signedBlock.message.state_root == Eth2Digest(): hash_tree_root(state.data[])
+          if signedBlock.message.state_root == Eth2Digest(): hash_tree_root(state.data)
           else: signedBlock.message.state_root
 
         return true

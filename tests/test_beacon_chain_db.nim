@@ -8,7 +8,7 @@
 {.used.}
 
 import  options, unittest, sequtils,
-  ../beacon_chain/[beacon_chain_db, extras, interop, ssz],
+  ../beacon_chain/[beacon_chain_db, extras, interop, ssz, state_transition],
   ../beacon_chain/spec/[beaconstate, datatypes, digest, crypto],
   eth/db/kvstore,
   # test utilies
@@ -18,13 +18,10 @@ suiteReport "Beacon chain DB" & preset():
   timedTest "empty database" & preset():
     var
       db = init(BeaconChainDB, kvStore MemStoreRef.init())
-
+      tmpState = BeaconStateRef()
     check:
-      when const_preset=="minimal":
-        db.getState(Eth2Digest()).isNone and db.getBlock(Eth2Digest()).isNone
-      else:
-        # TODO re-check crash here in mainnet
-        true
+      not db.getState(Eth2Digest(), tmpState[], noRollback)
+      db.getBlock(Eth2Digest()).isNone
 
   timedTest "sanity check blocks" & preset():
     var
@@ -50,13 +47,15 @@ suiteReport "Beacon chain DB" & preset():
 
     let
       state = BeaconStateRef()
+      state2 = BeaconStateRef()
       root = hash_tree_root(state)
 
-    db.putState(state)
+    db.putState(state[])
 
     check:
       db.containsState(root)
-      db.getState(root).get[] == state[]
+      db.getState(root, state2[], noRollback)
+      state2[] == state[]
 
   timedTest "find ancestors" & preset():
     var
@@ -103,8 +102,10 @@ suiteReport "Beacon chain DB" & preset():
         eth1BlockHash, 0, makeInitialDeposits(SLOTS_PER_EPOCH), {skipBlsValidation})
       root = hash_tree_root(state)
 
-    db.putState(state)
+    db.putState(state[])
 
+    var tmpState = BeaconStateRef()
     check:
       db.containsState(root)
-      db.getState(root).get[] == state[]
+      db.getState(root, tmpState[], noRollback)
+      tmpState[] == state[]

@@ -180,7 +180,7 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
     pool.blockPool, pool.blockPool.tmpState,
     BlockSlot(blck: blck, slot: attestation.data.slot))
 
-  template state(): BeaconState = pool.blockPool.tmpState.data.data[]
+  template state(): BeaconState = pool.blockPool.tmpState.data.data
 
   if not validate(state, attestation):
     notice "Invalid attestation",
@@ -456,7 +456,7 @@ proc selectHead*(pool: AttestationPool): BlockRef =
     justifiedHead = pool.blockPool.latestJustifiedBlock()
 
   let newHead =
-    lmdGhost(pool, pool.blockPool.justifiedState.data.data[], justifiedHead.blck)
+    lmdGhost(pool, pool.blockPool.justifiedState.data.data, justifiedHead.blck)
 
   newHead
 
@@ -529,9 +529,9 @@ proc isValidAttestation*(
   # as it supports aggregated attestations (which this can't be)
   var cache = get_empty_per_epoch_cache()
   if not is_valid_indexed_attestation(
-      pool.blockPool.headState.data.data[],
+      pool.blockPool.headState.data.data,
       get_indexed_attestation(
-        pool.blockPool.headState.data.data[], attestation, cache), {}):
+        pool.blockPool.headState.data.data, attestation, cache), {}):
     debug "isValidAttestation: signature verification failed"
     return false
 

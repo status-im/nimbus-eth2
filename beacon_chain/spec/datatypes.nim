@@ -391,7 +391,7 @@ type
 
   # TODO to be replaced with some magic hash caching
   HashedBeaconState* = object
-    data*: BeaconStateRef
+    data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
   StateCache* = object
@@ -578,11 +578,6 @@ func newClone*[T](x: T): ref T not nil =
 func newClone*[T](x: ref T): ref T not nil =
   new result
   result[] = x[]
-
-func clone*(other: HashedBeaconState): HashedBeaconState =
-  HashedBeaconState(
-    data: newClone(other.data),
-    root: other.root)
 
 template init*(T: type BitList, len: int): auto = T init(BitSeq, len)
 template len*(x: BitList): auto = len(BitSeq(x))
