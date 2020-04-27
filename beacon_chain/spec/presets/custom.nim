@@ -1,5 +1,9 @@
 import
-  macros, strutils, tables
+  macros, strutils, tables,
+  stew/endians2
+
+export
+  toBytesBE
 
 type
   BeaconChainConstants* {.pure.} = enum
@@ -7,21 +11,33 @@ type
     BASE_REWARD_FACTOR
     BLS_WITHDRAWAL_PREFIX
     CHURN_LIMIT_QUOTIENT
+    CUSTODY_PERIOD_TO_RANDAO_PADDING
+    DEPOSIT_CONTRACT_ADDRESS
     DEPOSIT_CONTRACT_TREE_DEPTH
+    DOMAIN_AGGREGATE_AND_PROOF
     DOMAIN_BEACON_ATTESTER
     DOMAIN_BEACON_PROPOSER
+    DOMAIN_CUSTODY_BIT_SLASHING
     DOMAIN_DEPOSIT
+    DOMAIN_LIGHT_CLIENT
     DOMAIN_RANDAO
+    DOMAIN_SELECTION_PROOF
+    DOMAIN_SHARD_COMMITTEE
+    DOMAIN_SHARD_PROPOSAL
     DOMAIN_VOLUNTARY_EXIT
+    EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS
     EARLY_DERIVED_SECRET_REVEAL_SLOT_REWARD_MULTIPLE
     EFFECTIVE_BALANCE_INCREMENT
     EJECTION_BALANCE
+    EPOCHS_PER_CUSTODY_PERIOD
     EPOCHS_PER_ETH1_VOTING_PERIOD
     EPOCHS_PER_HISTORICAL_VECTOR
+    EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION
     EPOCHS_PER_SLASHINGS_VECTOR
     ETH1_FOLLOW_DISTANCE
     GASPRICE_ADJUSTMENT_COEFFICIENT
     GENESIS_EPOCH
+    GENESIS_FORK_VERSION
     GENESIS_SLOT
     HISTORICAL_ROOTS_LIMIT
     HYSTERESIS_DOWNWARD_MULTIPLIER
@@ -41,6 +57,7 @@ type
     MAX_DEPOSITS
     MAX_EARLY_DERIVED_SECRET_REVEALS
     MAX_EFFECTIVE_BALANCE
+    MAX_EPOCHS_PER_CROSSLINK
     MAX_GASPRICE
     MAX_PROPOSER_SLASHINGS
     MAX_REVEAL_LATENESS_DECREMENT
@@ -56,6 +73,7 @@ type
     MIN_EPOCHS_TO_INACTIVITY_PENALTY
     MIN_GASPRICE
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT
+    MIN_GENESIS_DELAY
     MIN_GENESIS_TIME
     MIN_PER_EPOCH_CHURN_LIMIT
     MIN_SEED_LOOKAHEAD
@@ -66,14 +84,18 @@ type
     PHASE_1_FORK_VERSION
     PROPOSER_REWARD_QUOTIENT
     RANDAO_PENALTY_EPOCHS
+    RANDOM_SUBNETS_PER_VALIDATOR
     SAFE_SLOTS_TO_UPDATE_JUSTIFIED
     SECONDS_PER_DAY
+    SECONDS_PER_ETH1_BLOCK
     SECONDS_PER_SLOT
     SHARD_BLOCK_CHUNK_SIZE
+    SHARD_BLOCK_OFFSETS
     SHARD_COMMITTEE_PERIOD
     SHUFFLE_ROUND_COUNT
     SLOTS_PER_EPOCH
     SLOTS_PER_HISTORICAL_ROOT
+    TARGET_AGGREGATORS_PER_COMMITTEE
     TARGET_COMMITTEE_SIZE
     TARGET_SHARD_BLOCK_SIZE
     VALIDATOR_REGISTRY_LIMIT
@@ -88,30 +110,42 @@ const
     SECONDS_PER_DAY,
 
     # These are defined as an enum in datatypes.nim:
-    DOMAIN_BEACON_ATTESTER,
     DOMAIN_BEACON_PROPOSER,
-    DOMAIN_DEPOSIT,
+    DOMAIN_BEACON_ATTESTER,
     DOMAIN_RANDAO,
+    DOMAIN_DEPOSIT,
     DOMAIN_VOLUNTARY_EXIT,
+    DOMAIN_SELECTION_PROOF,
+    DOMAIN_AGGREGATE_AND_PROOF,
+    DOMAIN_SHARD_PROPOSAL,
+    DOMAIN_SHARD_COMMITTEE,
+    DOMAIN_LIGHT_CLIENT,
+    DOMAIN_CUSTODY_BIT_SLASHING,
   }
 
 const
+  forkVersionConversionFn = "'u32.toBytesBE"
+    # The fork version appears as a number in the preset,
+    # but our codebase works with a byte array.
+
   customTypes = {
-    GENESIS_SLOT: "Slot",
-    BLS_WITHDRAWAL_PREFIX: "byte",
-    BASE_REWARD_FACTOR: "uint64",
-    EFFECTIVE_BALANCE_INCREMENT: "uint64",
-    EJECTION_BALANCE: "uint64",
-    EPOCHS_PER_SLASHINGS_VECTOR: "uint64",
-    INACTIVITY_PENALTY_QUOTIENT: "uint64",
-    MAX_EFFECTIVE_BALANCE: "uint64",
-    MIN_DEPOSIT_AMOUNT: "uint64",
-    MIN_EPOCHS_TO_INACTIVITY_PENALTY: "uint64",
-    MIN_VALIDATOR_WITHDRAWABILITY_DELAY: "uint64",
-    PERSISTENT_COMMITTEE_PERIOD: "uint64",
-    PROPOSER_REWARD_QUOTIENT: "uint64",
-    SECONDS_PER_SLOT: "uint64",
-    WHISTLEBLOWER_REWARD_QUOTIENT: "uint64",
+    BASE_REWARD_FACTOR: "'u64",
+    BLS_WITHDRAWAL_PREFIX: ".byte",
+    EFFECTIVE_BALANCE_INCREMENT: "'u64",
+    EJECTION_BALANCE: "'u64",
+    EPOCHS_PER_SLASHINGS_VECTOR: "'u64",
+    GENESIS_FORK_VERSION: forkVersionConversionFn,
+    GENESIS_SLOT: ".Slot",
+    INACTIVITY_PENALTY_QUOTIENT: "'u64",
+    MAX_EFFECTIVE_BALANCE: "'u64",
+    MIN_DEPOSIT_AMOUNT: "'u64",
+    MIN_EPOCHS_TO_INACTIVITY_PENALTY: "'u64",
+    MIN_VALIDATOR_WITHDRAWABILITY_DELAY: "'u64",
+    PERSISTENT_COMMITTEE_PERIOD: "'u64",
+    PHASE_1_FORK_VERSION: forkVersionConversionFn,
+    PROPOSER_REWARD_QUOTIENT: "'u64",
+    SECONDS_PER_SLOT: "'u64",
+    WHISTLEBLOWER_REWARD_QUOTIENT: "'u64",
   }.toTable
 
 template entireSet(T: type enum): untyped =
@@ -139,13 +173,17 @@ macro loadCustomPreset*(path: static string): untyped =
     try:
       let constant = parseEnum[BeaconChainConstants](constParts[0])
       if constant in dubiousConstants: continue
-      constParts.add customTypes.getOrDefault(constant, "int")
+      if customTypes.hasKey(constant):
+        constParts.add customTypes[constant]
       presetConstants.incl constant
     except ValueError:
       warning lineinfo & "Unrecognized constant in a preset: " & constParts[0]
       continue
 
-    result.add parseStmt("const $1* {.intdefine.} = $3($2)" % constParts)
+    if constParts.len == 3:
+      result.add parseStmt("const $1* {.intdefine.} = $2$3" % constParts)
+    else:
+      result.add parseStmt("const $1* {.intdefine.} = $2" % constParts)
 
   let missingConstants = BeaconChainConstants.entireSet - presetConstants
   if missingConstants.card > 0:
