@@ -14,13 +14,17 @@ import  options, unittest, sequtils,
   # test utilies
   ./testutil, ./testblockutil
 
+proc getStateRef(db: BeaconChainDB, root: Eth2Digest): NilableBeaconStateRef =
+  let res = BeaconStateRef()
+  if db.getState(root, res[], noRollback):
+    return res
+
 suiteReport "Beacon chain DB" & preset():
   timedTest "empty database" & preset():
     var
       db = init(BeaconChainDB, kvStore MemStoreRef.init())
-      tmpState = BeaconStateRef()
     check:
-      not db.getState(Eth2Digest(), tmpState[], noRollback)
+      db.getStateRef(Eth2Digest()).isNil
       db.getBlock(Eth2Digest()).isNone
 
   timedTest "sanity check blocks" & preset():
@@ -47,15 +51,13 @@ suiteReport "Beacon chain DB" & preset():
 
     let
       state = BeaconStateRef()
-      state2 = BeaconStateRef()
       root = hash_tree_root(state)
 
     db.putState(state[])
 
     check:
       db.containsState(root)
-      db.getState(root, state2[], noRollback)
-      state2[] == state[]
+      db.getStateRef(root)[] == state[]
 
   timedTest "find ancestors" & preset():
     var
@@ -104,8 +106,6 @@ suiteReport "Beacon chain DB" & preset():
 
     db.putState(state[])
 
-    var tmpState = BeaconStateRef()
     check:
       db.containsState(root)
-      db.getState(root, tmpState[], noRollback)
-      tmpState[] == state[]
+      db.getStateRef(root)[] == state[]

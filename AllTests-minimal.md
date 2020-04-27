@@ -52,9 +52,10 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 OK: 5/5 Fail: 0/5 Skip: 0/5
 ## BlockPool finalization tests [Preset: minimal]
 ```diff
++ init with gaps [Preset: minimal]                                                           OK
 + prune heads on finalization [Preset: minimal]                                              OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## BlockRef and helpers [Preset: minimal]
 ```diff
 + getAncestorAt sanity [Preset: minimal]                                                     OK
@@ -257,4 +258,4 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 OK: 8/8 Fail: 0/8 Skip: 0/8
 
 ---TOTAL---
-OK: 156/159 Fail: 3/159 Skip: 0/159
+OK: 157/160 Fail: 3/160 Skip: 0/160

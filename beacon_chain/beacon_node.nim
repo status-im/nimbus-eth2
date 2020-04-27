@@ -550,7 +550,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
       slot = shortLog(slot)
     return
 
-  let attestationHead = head.findAncestorBySlot(slot)
+  let attestationHead = head.atSlot(slot)
   if head != attestationHead.blck:
     # In rare cases, such as when we're busy syncing or just slow, we'll be
     # attesting to a past state - we must then recreate the world as it looked

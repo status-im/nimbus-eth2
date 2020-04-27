@@ -227,8 +227,14 @@ type
 
 proc shortLog*(v: AttachedValidator): string = shortLog(v.pubKey)
 
-chronicles.formatIt BlockSlot:
-  it.blck.root.data[0..3].toHex() & ":" & $it.slot
+proc shortLog*(v: BlockSlot): string =
+  if v.blck.slot == v.slot:
+    v.blck.root.data[0..3].toHex() & ":" & $v.blck.slot
+  else: # There was a gap - log it
+    v.blck.root.data[0..3].toHex() & ":" & $v.blck.slot & "@" & $v.slot
 
-chronicles.formatIt BlockRef:
-  it.root.data[0..3].toHex() & ":" & $it.slot
+proc shortLog*(v: BlockRef): string =
+  v.root.data[0..3].toHex() & ":" & $v.slot
+
+chronicles.formatIt BlockSlot: shortLog(it)
+chronicles.formatIt BlockRef: shortLog(it)

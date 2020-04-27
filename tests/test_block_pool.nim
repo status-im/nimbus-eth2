@@ -329,3 +329,41 @@ when const_preset == "minimal": # Too much stack space used on mainnet
           hash_tree_root(pool.headState.data.data)
         hash_tree_root(pool2.justifiedState.data.data) ==
           hash_tree_root(pool.justifiedState.data.data)
+
+    timedTest "init with gaps" & preset():
+      var cache = get_empty_per_epoch_cache()
+      for i in 0 ..< (SLOTS_PER_EPOCH * 6 - 2):
+        var
+          blck = makeTestBlock(
+            pool.headState.data.data, pool.head.blck.root,
+            attestations = makeFullAttestations(
+              pool.headState.data.data, pool.head.blck.root,
+              pool.headState.data.data.slot, cache, {}))
+        let added = pool.add(hash_tree_root(blck.message), blck)
+        pool.updateHead(added)
+
+      # Advance past epoch so that the epoch transition is gapped
+      process_slots(pool.headState.data.data, Slot(SLOTS_PER_EPOCH * 6 + 2) )
+
+      var blck = makeTestBlock(
+        pool.headState.data.data, pool.head.blck.root,
+        attestations = makeFullAttestations(
+          pool.headState.data.data, pool.head.blck.root,
+          pool.headState.data.data.slot, cache, {}))
+
+      let added = pool.add(hash_tree_root(blck.message), blck)
+      pool.updateHead(added)
+
+      let
+        pool2 = BlockPool.init(db)
+
+      # check that the state reloaded from database resembles what we had before
+      check:
+        pool2.tail.root == pool.tail.root
+        pool2.head.blck.root == pool.head.blck.root
+        pool2.finalizedHead.blck.root == pool.finalizedHead.blck.root
+        pool2.finalizedHead.slot == pool.finalizedHead.slot
+        hash_tree_root(pool2.headState.data.data) ==
+          hash_tree_root(pool.headState.data.data)
+        hash_tree_root(pool2.justifiedState.data.data) ==
+          hash_tree_root(pool.justifiedState.data.data)
