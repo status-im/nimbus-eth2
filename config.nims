@@ -9,7 +9,7 @@ const stack_size {.intdefine.}: int = 0
 
 # conservative compile-time estimation for single functions
 when defined(stack_size) and defined(gcc):
-  switch("passC", "-Wstack-usage=" & $stack_size)
+  switch("passC", "-Werror=stack-usage=" & $stack_size)
 
 if defined(windows):
   # disable timestamps in Windows PE headers - https://wiki.debian.org/ReproducibleBuilds/TimestampsInPEBinaries
@@ -55,11 +55,14 @@ switch("import", "testutils/moduletests")
 # The default open files limit is too low on macOS (512), breaking the
 # "--debugger:native" build. It can be increased with `ulimit -n 1024`.
 let openFilesLimitTarget = 1024
-var openFilesLimit = 0
-try:
-  openFilesLimit = staticExec("ulimit -n").parseInt()
-except:
-  echo "ulimit error"
+var openFilesLimit = openFilesLimitTarget # so Windows, where `ulimit` fails, is not affected
+
+if not defined(windows):
+  try:
+    openFilesLimit = staticExec("ulimit -n").parseInt()
+  except:
+    echo "ulimit error"
+
 if openFilesLimit < openFilesLimitTarget:
   echo "Open files limit too low. Increase it with \"ulimit -n " & $openFilesLimitTarget & "\""
 else:
