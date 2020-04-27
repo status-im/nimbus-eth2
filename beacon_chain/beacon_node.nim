@@ -13,7 +13,7 @@ import
   stew/[objects, bitseqs, byteutils], stew/shims/macros,
   chronos, chronicles, confutils, metrics, json_rpc/[rpcserver, jsonmarshal],
   json_serialization/std/[options, sets, net], serialization/errors,
-  kvstore, kvstore_sqlite3,
+  eth/db/kvstore, eth/db/kvstore_sqlite3,
   eth/p2p/enode, eth/[keys, async_utils], eth/p2p/discoveryv5/[protocol, enr],
 
   # Local modules

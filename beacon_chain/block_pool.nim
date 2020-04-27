@@ -9,7 +9,7 @@
 
 import
   bitops, chronicles, options, tables,
-  stew/results, ssz, beacon_chain_db, state_transition, extras, kvstore,
+  stew/results, ssz, beacon_chain_db, state_transition, extras, eth/db/kvstore,
   beacon_node_types, metrics,
   spec/[crypto, datatypes, digest, helpers, validator]
 
