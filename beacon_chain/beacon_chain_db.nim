@@ -1,10 +1,10 @@
 {.push raises: [Defect].}
 
 import
-  options, typetraits, stew/[results, endians2],
+  typetraits, stew/[results, endians2],
   serialization, chronicles,
   spec/[datatypes, digest, crypto],
-  eth/db/kvstore, ssz
+  eth/db/kvstore, ssz, state_transition
 
 type
   BeaconChainDB* = ref object
@@ -45,7 +45,7 @@ func subkey[N: static int](kind: DbKeyKind, key: array[N, byte]):
   result[0] = byte ord(kind)
   result[1 .. ^1] = key
 
-func subkey(kind: type BeaconStateRef, key: Eth2Digest): auto =
+func subkey(kind: type BeaconState, key: Eth2Digest): auto =
   subkey(kHashToState, key.data)
 
 func subkey(kind: type SignedBeaconBlock, key: Eth2Digest): auto =
@@ -86,13 +86,13 @@ proc get(db: BeaconChainDB, key: openArray[byte], T: typedesc): Opt[T] =
 proc putBlock*(db: BeaconChainDB, key: Eth2Digest, value: SignedBeaconBlock) =
   db.put(subkey(type value, key), value)
 
-proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconStateRef) =
+proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
   # TODO prune old states - this is less easy than it seems as we never know
   #      when or if a particular state will become finalized.
 
   db.put(subkey(type value, key), value)
 
-proc putState*(db: BeaconChainDB, value: BeaconStateRef) =
+proc putState*(db: BeaconChainDB, value: BeaconState) =
   db.putState(hash_tree_root(value), value)
 
 proc putStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot,
@@ -108,7 +108,7 @@ proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
     "working database")
 
 proc delState*(db: BeaconChainDB, key: Eth2Digest) =
-  db.backend.del(subkey(BeaconStateRef, key)).expect("working database")
+  db.backend.del(subkey(BeaconState, key)).expect("working database")
 
 proc delStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot) =
   db.backend.del(subkey(root, slot)).expect("working database")
@@ -122,8 +122,31 @@ proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
 proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Opt[SignedBeaconBlock] =
   db.get(subkey(SignedBeaconBlock, key), SignedBeaconBlock)
 
-proc getState*(db: BeaconChainDB, key: Eth2Digest): Opt[BeaconStateRef] =
-  db.get(subkey(BeaconStateRef, key), BeaconStateRef)
+proc getState*(
+    db: BeaconChainDB, key: Eth2Digest, output: var BeaconState,
+    rollback: RollbackProc): bool =
+  ## Load state into `output` - BeaconState is large so we want to avoid
+  ## re-allocating it if possible
+  ## Return `true` iff the entry was found in the database and `output` was
+  ## overwritten.
+  # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
+  #      https://github.com/nim-lang/Nim/issues/14126
+  # TODO RVO is inefficient for large objects:
+  #      https://github.com/nim-lang/Nim/issues/13879
+  # TODO address is needed because there's no way to express lifetimes in nim
+  #      we'll use unsafeAddr to find the code later
+  let outputAddr = unsafeAddr output # callback is local
+  proc decode(data: openArray[byte]) =
+    try:
+      # TODO can't write to output directly..
+      outputAddr[] = SSZ.decode(data, BeaconState)
+    except SerializationError as e:
+      # If the data can't be deserialized, it could be because it's from a
+      # version of the software that uses a different SSZ encoding
+      warn "Unable to deserialize data, old database?", err = e.msg
+      rollback(outputAddr[])
+
+  db.backend.get(subkey(BeaconState, key), decode).expect("working database")
 
 proc getStateRoot*(db: BeaconChainDB,
                    root: Eth2Digest,
@@ -140,7 +163,7 @@ proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(SignedBeaconBlock, key)).expect("working database")
 
 proc containsState*(db: BeaconChainDB, key: Eth2Digest): bool =
-  db.backend.contains(subkey(BeaconStateRef, key)).expect("working database")
+  db.backend.contains(subkey(BeaconState, key)).expect("working database")
 
 iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
     tuple[root: Eth2Digest, blck: SignedBeaconBlock] =

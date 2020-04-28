@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  deques, tables, options,
+  deques, tables,
   stew/[endians2, byteutils], chronicles,
   spec/[datatypes, crypto, digest],
   beacon_chain_db
@@ -225,24 +225,16 @@ type
     root*: Eth2Digest
     historySlots*: uint64
 
-func emptyStateData*: StateData =
-  StateData(
-    data: HashedBeaconState(
-      # Please note that this initialization is needed in order
-      # to allocate memory for the BeaconState:
-      data: BeaconStateRef(),
-      root: default(Eth2Digest)
-    ),
-    blck: default(BlockRef))
-
-func clone*(other: StateData): StateData =
-  StateData(data: clone(other.data),
-            blck: other.blck)
-
 proc shortLog*(v: AttachedValidator): string = shortLog(v.pubKey)
 
-chronicles.formatIt BlockSlot:
-  it.blck.root.data[0..3].toHex() & ":" & $it.slot
+proc shortLog*(v: BlockSlot): string =
+  if v.blck.slot == v.slot:
+    v.blck.root.data[0..3].toHex() & ":" & $v.blck.slot
+  else: # There was a gap - log it
+    v.blck.root.data[0..3].toHex() & ":" & $v.blck.slot & "@" & $v.slot
 
-chronicles.formatIt BlockRef:
-  it.root.data[0..3].toHex() & ":" & $it.slot
+proc shortLog*(v: BlockRef): string =
+  v.root.data[0..3].toHex() & ":" & $v.slot
+
+chronicles.formatIt BlockSlot: shortLog(it)
+chronicles.formatIt BlockRef: shortLog(it)

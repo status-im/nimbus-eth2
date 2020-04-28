@@ -23,7 +23,7 @@ import
   attestation_pool, block_pool, eth2_network, eth2_discovery,
   beacon_node_types, mainchain_monitor, version, ssz, ssz/dynamic_navigator,
   sync_protocol, request_manager, validator_keygen, interop, statusbar,
-  attestation_aggregation, sync_manager
+  attestation_aggregation, sync_manager, state_transition
 
 const
   genesisFile = "genesis.ssz"
@@ -192,7 +192,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
       let tailBlock = get_initial_beacon_block(genesisState[])
 
       try:
-        BlockPool.preInit(db, genesisState, tailBlock)
+        BlockPool.preInit(db, genesisState[], tailBlock)
         doAssert BlockPool.isInitialized(db), "preInit should have initialized db"
       except CatchableError as e:
         error "Failed to initialize database", err = e.msg
@@ -219,7 +219,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     nil
 
   let
-    enrForkId = enrForkIdFromState(blockPool.headState.data.data[])
+    enrForkId = enrForkIdFromState(blockPool.headState.data.data)
     topicBeaconBlocks = getBeaconBlocksTopic(enrForkId.forkDigest)
     topicAggregateAndProofs = getAggregateAndProofsTopic(enrForkId.forkDigest)
     network = await createEth2Node(conf, enrForkId)
@@ -235,7 +235,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     blockPool: blockPool,
     attestationPool: AttestationPool.init(blockPool),
     mainchainMonitor: mainchainMonitor,
-    beaconClock: BeaconClock.init(blockPool.headState.data.data[]),
+    beaconClock: BeaconClock.init(blockPool.headState.data.data),
     rpcServer: rpcServer,
     forkDigest: enrForkId.forkDigest,
     topicBeaconBlocks: topicBeaconBlocks,
@@ -410,15 +410,15 @@ proc proposeBlock(node: BeaconNode,
         (get_eth1data_stub(state.eth1_deposit_index, slot.compute_epoch_at_slot()),
          newSeq[Deposit]())
       else:
-        node.mainchainMonitor.getBlockProposalData(state[])
+        node.mainchainMonitor.getBlockProposalData(state)
 
     let message = makeBeaconBlock(
-      state[],
+      state,
       head.root,
       validator.genRandaoReveal(state.fork, state.genesis_validators_root, slot),
       eth1data,
       Eth2Digest(),
-      node.attestationPool.getAttestationsForBlock(state[]),
+      node.attestationPool.getAttestationsForBlock(state),
       deposits)
 
     if not message.isSome():
@@ -546,7 +546,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
       slot = shortLog(slot)
     return
 
-  let attestationHead = head.findAncestorBySlot(slot)
+  let attestationHead = head.atSlot(slot)
   if head != attestationHead.blck:
     # In rare cases, such as when we're busy syncing or just slow, we'll be
     # attesting to a past state - we must then recreate the world as it looked
@@ -576,16 +576,16 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   #      version here that calculates the committee for a single slot only
   node.blockPool.withState(node.blockPool.tmpState, attestationHead):
     var cache = get_empty_per_epoch_cache()
-    let committees_per_slot = get_committee_count_at_slot(state[], slot)
+    let committees_per_slot = get_committee_count_at_slot(state, slot)
 
     for committee_index in 0'u64..<committees_per_slot:
       let committee = get_beacon_committee(
-        state[], slot, committee_index.CommitteeIndex, cache)
+        state, slot, committee_index.CommitteeIndex, cache)
 
       for index_in_committee, validatorIdx in committee:
-        let validator = node.getAttachedValidator(state[], validatorIdx)
+        let validator = node.getAttachedValidator(state, validatorIdx)
         if validator != nil:
-          let ad = makeAttestationData(state[], slot, committee_index, blck.root)
+          let ad = makeAttestationData(state, slot, committee_index, blck.root)
           attestations.add((ad, committee.len, index_in_committee, validator))
 
     for a in attestations:
@@ -649,21 +649,21 @@ proc broadcastAggregatedAttestations(
   let bs = BlockSlot(blck: aggregationHead, slot: aggregationSlot)
   node.blockPool.withState(node.blockPool.tmpState, bs):
     let
-      committees_per_slot = get_committee_count_at_slot(state[], aggregationSlot)
+      committees_per_slot = get_committee_count_at_slot(state, aggregationSlot)
     var cache = get_empty_per_epoch_cache()
     for committee_index in 0'u64..<committees_per_slot:
       let committee = get_beacon_committee(
-        state[], aggregationSlot, committee_index.CommitteeIndex, cache)
+        state, aggregationSlot, committee_index.CommitteeIndex, cache)
 
       for index_in_committee, validatorIdx in committee:
-        let validator = node.getAttachedValidator(state[], validatorIdx)
+        let validator = node.getAttachedValidator(state, validatorIdx)
         if validator != nil:
           # This is slightly strange/inverted control flow, since really it's
           # going to happen once per slot, but this is the best way to get at
           # the validator index and private key pair. TODO verify it only has
           # one isSome() with test.
           let aggregateAndProof =
-            aggregate_attestations(node.attestationPool, state[],
+            aggregate_attestations(node.attestationPool, state,
               committee_index.CommitteeIndex,
               # TODO https://github.com/status-im/nim-beacon-chain/issues/545
               # this assumes in-process private keys
@@ -1060,13 +1060,13 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
     requireOneOf(slot, root)
     if slot.isSome:
       let blk = node.blockPool.head.blck.atSlot(slot.get)
-      var tmpState = emptyStateData()
-      node.blockPool.withState(tmpState, blk):
+      node.blockPool.withState(node.blockPool.tmpState, blk):
         return jsonResult(state)
     else:
-      let state = node.db.getState(root.get)
-      if state.isSome:
-        return jsonResult(state.get)
+      let tmp = BeaconStateRef() # TODO use tmpState - but load the entire StateData!
+      let state = node.db.getState(root.get, tmp[], noRollback)
+      if state:
+        return jsonResult(tmp[])
       else:
         return StringOfJson("null")
 
@@ -1193,7 +1193,7 @@ proc start(node: BeaconNode) =
     bs = BlockSlot(blck: head.blck, slot: head.blck.slot)
 
   node.blockPool.withState(node.blockPool.tmpState, bs):
-    node.addLocalValidators(state[])
+    node.addLocalValidators(state)
 
   node.run()
 
@@ -1282,7 +1282,7 @@ when hasPrompt:
           # TODO slow linear scan!
           for idx, b in node.blockPool.headState.data.data.balances:
             if node.getAttachedValidator(
-                node.blockPool.headState.data.data[], ValidatorIndex(idx)) != nil:
+                node.blockPool.headState.data.data, ValidatorIndex(idx)) != nil:
               balance += b
           formatGwei(balance)
 

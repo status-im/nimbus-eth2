@@ -33,7 +33,7 @@ template withState*(
   updateStateData(pool, cache, blockSlot)
 
   template hashedState(): HashedBeaconState {.inject, used.} = cache.data
-  template state(): BeaconStateRef {.inject, used.} = cache.data.data
+  template state(): BeaconState {.inject, used.} = cache.data.data
   template blck(): BlockRef {.inject, used.} = cache.blck
   template root(): Eth2Digest {.inject, used.} = cache.data.root
 
@@ -139,16 +139,6 @@ func init*(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
 func init*(T: type BlockRef, root: Eth2Digest, blck: BeaconBlock): BlockRef =
   BlockRef.init(root, blck.slot)
 
-func findAncestorBySlot*(blck: BlockRef, slot: Slot): BlockSlot =
-  ## Find the first ancestor that has a slot number less than or equal to `slot`
-  doAssert(not blck.isNil)
-  var ret = blck
-
-  while ret.parent != nil and ret.slot > slot:
-    ret = ret.parent
-
-  BlockSlot(blck: ret, slot: slot)
-
 proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
   # TODO we require that the db contains both a head and a tail block -
   #      asserting here doesn't seem like the right way to go about it however..
@@ -168,7 +158,6 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
 
   var
     blocks = {tailRef.root: tailRef}.toTable()
-    latestStateRoot = Option[tuple[stateRoot: Eth2Digest, blckRef: BlockRef]]()
     headRef: BlockRef
 
   if headRoot != tailRoot:
@@ -191,34 +180,54 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
       blocks[curRef.root] = curRef
       trace "Populating block pool", key = curRef.root, val = curRef
 
-      if latestStateRoot.isNone() and db.containsState(blck.message.state_root):
-        latestStateRoot = some((blck.message.state_root, curRef))
-
     doAssert curRef == tailRef,
       "head block does not lead to tail, database corrupt?"
   else:
     headRef = tailRef
 
-  if latestStateRoot.isNone():
-    doAssert db.containsState(tailBlock.message.state_root),
-      "state data missing for tail block, database corrupt?"
-    latestStateRoot = some((tailBlock.message.state_root, tailRef))
+  var
+    bs = headRef.atSlot(headRef.slot)
+    tmpState = (ref StateData)()
 
-  # We're only saving epoch boundary states in the database right now, so when
-  # we're loading the head block, the corresponding state does not necessarily
-  # exist in the database - we'll load this latest state we know about and use
-  # that as finalization point.
-  let stateOpt = db.getState(latestStateRoot.get().stateRoot)
-  doAssert stateOpt.isSome, "failed to obtain latest state. database corrupt?"
-  let tmpState = stateOpt.get
+  # Now that we have a head block, we need to find the most recent state that
+  # we have saved in the database
+  while bs.blck != nil:
+    let root = db.getStateRoot(bs.blck.root, bs.slot)
+    if root.isSome():
+      # TODO load StateData from BeaconChainDB
+      let loaded = db.getState(root.get(), tmpState.data.data, noRollback)
+      if not loaded:
+        # TODO We don't write state root and state atomically, so we need to be
+        #      lenient here in case of dirty shutdown - transactions would be
+        #      nice!
+        warn "State root, but no state - database corrupt?",
+          stateRoot = root.get(), blockRoot = bs.blck.root, blockSlot = bs.slot
+        continue
 
+      tmpState.data.root = root.get()
+      tmpState.blck = bs.blck
+
+      break
+
+    bs = bs.parent() # Iterate slot by slot in case there's a gap!
+
+  if tmpState.blck == nil:
+    warn "No state found in head history, database corrupt?"
+    # TODO Potentially we could recover from here instead of crashing - what
+    #      would be a good recovery model?
+    raiseAssert "No state found in head history, database corrupt?"
+
+  # We presently save states on the epoch boundary - it means that the latest
+  # state we loaded might be older than head block - nonetheless, it will be
+  # from the same epoch as the head, thus the finalized and justified slots are
+  # the same - these only change on epoch boundaries.
   let
     finalizedSlot =
-      tmpState.finalized_checkpoint.epoch.compute_start_slot_at_epoch()
-    finalizedHead = headRef.findAncestorBySlot(finalizedSlot)
+       tmpState.data.data.finalized_checkpoint.epoch.compute_start_slot_at_epoch()
+    finalizedHead = headRef.atSlot(finalizedSlot)
     justifiedSlot =
-      tmpState.current_justified_checkpoint.epoch.compute_start_slot_at_epoch()
-    justifiedHead = headRef.findAncestorBySlot(justifiedSlot)
+      tmpState.data.data.current_justified_checkpoint.epoch.compute_start_slot_at_epoch()
+    justifiedHead = headRef.atSlot(justifiedSlot)
     head = Head(blck: headRef, justified: justifiedHead)
     justifiedBlock = db.getBlock(justifiedHead.blck.root).get()
     justifiedStateRoot = justifiedBlock.message.state_root
@@ -226,22 +235,6 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
   doAssert justifiedHead.slot >= finalizedHead.slot,
     "justified head comes before finalized head - database corrupt?"
 
-  debug "Block pool initialized",
-    head = head.blck, finalizedHead, tail = tailRef,
-    totalBlocks = blocks.len
-
-  let headState = StateData(
-    data: HashedBeaconState(
-      data: tmpState, root: latestStateRoot.get().stateRoot),
-    blck: latestStateRoot.get().blckRef)
-
-  let justifiedState = db.getState(justifiedStateRoot)
-  doAssert justifiedState.isSome,
-           "failed to obtain latest justified state. database corrupt?"
-
-  # For the initialization of `tmpState` below.
-  # Please note that it's initialized few lines below
-  {.push warning[UnsafeDefault]: off.}
   let res = BlockPool(
     pending: initTable[Eth2Digest, SignedBeaconBlock](),
     missing: initTable[Eth2Digest, MissingBlock](),
@@ -260,17 +253,18 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
     finalizedHead: finalizedHead,
     db: db,
     heads: @[head],
-    headState: headState,
-    justifiedState: StateData(
-      data: HashedBeaconState(data: justifiedState.get, root: justifiedStateRoot),
-      blck: justifiedHead.blck),
-    tmpState: default(StateData)
+    headState: tmpState[],
+    justifiedState: tmpState[], # This is wrong but we'll update it below
+    tmpState: tmpState[]
   )
-  {.pop.}
 
-  res.updateStateData(res.headState, BlockSlot(blck: head.blck,
-                                               slot: head.blck.slot))
-  res.tmpState = clone(res.headState)
+  res.updateStateData(res.justifiedState, justifiedHead)
+  res.updateStateData(res.headState, headRef.atSlot(headRef.slot))
+
+  info "Block pool initialized",
+    head = head.blck, justifiedHead, finalizedHead, tail = tailRef,
+    totalBlocks = blocks.len
+
   res
 
 proc addResolvedBlock(
@@ -297,7 +291,7 @@ proc addResolvedBlock(
   for head in pool.heads.mitems():
     if head.blck.isAncestorOf(blockRef):
       if head.justified.slot != justifiedSlot:
-        head.justified = blockRef.findAncestorBySlot(justifiedSlot)
+        head.justified = blockRef.atSlot(justifiedSlot)
 
       head.blck = blockRef
 
@@ -307,14 +301,13 @@ proc addResolvedBlock(
   if foundHead.isNone():
     foundHead = some(Head(
       blck: blockRef,
-      justified: blockRef.findAncestorBySlot(justifiedSlot)))
+      justified: blockRef.atSlot(justifiedSlot)))
     pool.heads.add(foundHead.get())
 
   info "Block resolved",
     blck = shortLog(signedBlock.message),
     blockRoot = shortLog(blockRoot),
-    justifiedRoot = shortLog(foundHead.get().justified.blck.root),
-    justifiedSlot = shortLog(foundHead.get().justified.slot),
+    justifiedHead = foundHead.get().justified,
     heads = pool.heads.len(),
     cat = "filtering"
 
@@ -339,6 +332,29 @@ proc addResolvedBlock(
       keepGoing = pool.pending.len < retries.len
   blockRef
 
+proc getState(
+    pool: BlockPool, db: BeaconChainDB, stateRoot: Eth2Digest, blck: BlockRef,
+    output: var StateData): bool =
+  let outputAddr = unsafeAddr output # local scope
+  proc rollback(v: var BeaconState) =
+    if outputAddr == (unsafeAddr pool.headState):
+      # TODO seeing the headState in the rollback shouldn't happen - we load
+      #      head states only when updating the head position, and by that time
+      #      the database will have gone through enough sanity checks that
+      #      SSZ exceptions shouldn't happen, which is when rollback happens.
+      #      Nonetheless, this is an ugly workaround that needs to go away
+      doAssert false, "Cannot alias headState"
+
+    outputAddr[] = pool.headState
+
+  if not db.getState(stateRoot, output.data.data, rollback):
+    return false
+
+  output.blck = blck
+  output.data.root = stateRoot
+
+  true
+
 proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
   # TODO we save state at every epoch start but never remove them - we also
   #      potentially save multiple states per slot if reorgs happen, meaning
@@ -350,8 +366,7 @@ proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
   if state.data.slot mod SLOTS_PER_EPOCH == 0:
     if not pool.db.containsState(state.root):
       info "Storing state",
-        blockRoot = shortLog(blck.root),
-        blockSlot = shortLog(blck.slot),
+        blck = shortLog(blck),
         stateSlot = shortLog(state.data.slot),
         stateRoot = shortLog(state.root),
         cat = "caching"
@@ -425,7 +440,8 @@ proc add*(
   if blck.slot <= pool.finalizedHead.slot:
     debug "Old block, dropping",
       blck = shortLog(blck),
-      tailSlot = shortLog(pool.tail.slot),
+      finalizedHead = shortLog(pool.finalizedHead),
+      tail = shortLog(pool.tail),
       blockRoot = shortLog(blockRoot),
       cat = "filtering"
 
@@ -439,8 +455,7 @@ proc add*(
       notice "Invalid block slot",
         blck = shortLog(blck),
         blockRoot = shortLog(blockRoot),
-        parentRoot = shortLog(parent.root),
-        parentSlot = shortLog(parent.slot)
+        parentBlock = shortLog(parent)
 
       return
 
@@ -475,7 +490,7 @@ proc add*(
     # Careful, tmpState.data has been updated but not blck - we need to create
     # the BlockRef first!
     pool.tmpState.blck = pool.addResolvedBlock(
-      pool.tmpState.data.data[], blockRoot, signedBlock, parent)
+      pool.tmpState.data.data, blockRoot, signedBlock, parent)
     pool.putState(pool.tmpState.data, pool.tmpState.blck)
 
     return pool.tmpState.blck
@@ -573,7 +588,7 @@ proc getBlockRange*(
 func getBlockBySlot*(pool: BlockPool, slot: Slot): BlockRef =
   ## Retrieves the first block in the current canonical chain
   ## with slot number less or equal to `slot`.
-  pool.head.blck.findAncestorBySlot(slot).blck
+  pool.head.blck.atSlot(slot).blck
 
 func getBlockByPreciseSlot*(pool: BlockPool, slot: Slot): BlockRef =
   ## Retrieves a block from the canonical chain with a slot
@@ -642,12 +657,12 @@ proc skipAndUpdateState(
 
   pool.skipAndUpdateState(state.data, blck.refs, blck.data.message.slot - 1)
 
-  var statePtr = unsafeAddr state # safe because `restore` is locally scoped
-  proc restore(v: var HashedBeaconState) =
+  var statePtr = unsafeAddr state # safe because `rollback` is locally scoped
+  proc rollback(v: var HashedBeaconState) =
     doAssert (addr(statePtr.data) == addr v)
     statePtr[] = pool.headState
 
-  let ok  = state_transition(state.data, blck.data, flags, restore)
+  let ok  = state_transition(state.data, blck.data, flags, rollback)
   if ok:
     pool.putState(state.data, blck.refs)
 
@@ -713,38 +728,34 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
   let
     ancestor = ancestors.pop()
     root = stateRoot.get()
-    ancestorState =
-      if pool.db.containsState(root):
-        pool.db.getState(root)
-      elif pool.cachedStates[0].containsState(root):
-        pool.cachedStates[0].getState(root)
-      else:
-        pool.cachedStates[1].getState(root)
 
-  if ancestorState.isNone():
-    # TODO this should only happen if the database is corrupt - we walked the
-    #      list of parent blocks and couldn't find a corresponding state in the
-    #      database, which should never happen (at least we should have the
-    #      tail state in there!)
-    error "Couldn't find ancestor state or block parent missing!",
-      blockRoot = shortLog(bs.blck.root),
-      blockSlot = shortLog(bs.blck.slot),
-      slot = shortLog(bs.slot),
-      cat = "crash"
-    doAssert false, "Oh noes, we passed big bang!"
+  if pool.cachedStates[0].containsState(root):
+    doAssert pool.getState(pool.cachedStates[0], root, ancestor.refs, state)
+  elif pool.cachedStates[1].containsState(root):
+    doAssert pool.getState(pool.cachedStates[1], root, ancestor.refs, state)
+  else:
+    let found = pool.getState(pool.db, root, ancestor.refs, state)
+
+    if not found:
+      # TODO this should only happen if the database is corrupt - we walked the
+      #      list of parent blocks and couldn't find a corresponding state in the
+      #      database, which should never happen (at least we should have the
+      #      tail state in there!)
+      error "Couldn't find ancestor state or block parent missing!",
+        blockRoot = shortLog(bs.blck.root),
+        blockSlot = shortLog(bs.blck.slot),
+        slot = shortLog(bs.slot),
+        cat = "crash"
+      doAssert false, "Oh noes, we passed big bang!"
 
   trace "Replaying state transitions",
     stateSlot = shortLog(state.data.data.slot),
     ancestorStateRoot = shortLog(ancestor.data.message.state_root),
-    ancestorStateSlot = shortLog(ancestorState.get().slot),
+    ancestorStateSlot = shortLog(state.data.data.slot),
     slot = shortLog(bs.slot),
     blockRoot = shortLog(bs.blck.root),
     ancestors = ancestors.len,
     cat = "replay_state"
-
-  state.data.data[] = ancestorState.get()[]
-  state.data.root = stateRoot.get()
-  state.blck = ancestor.refs
 
   ancestors
 
@@ -755,17 +766,15 @@ proc getStateDataCached(pool: BlockPool, state: var StateData, bs: BlockSlot): b
   # each hash_tree_root(...) consumes a nontrivial fraction of a second.
   for db in [pool.db, pool.cachedStates[0], pool.cachedStates[1]]:
     if (let tmp = db.getStateRoot(bs.blck.root, bs.slot); tmp.isSome()):
-      if not db.containsState(tmp.get):
+      let found = pool.getState(db, tmp.get(), bs.blck, state)
+      if not found:
+        # TODO We don't write state root and state atomically, so we need to be
+        #      lenient here in case of dirty shutdown - transactions would be
+        #      nice!
+        warn "State root, but no state - cache corrupt?",
+          stateRoot = tmp.get(), blockRoot = bs.blck.root, blockSlot = bs.slot
         continue
 
-      let
-        root = tmp.get()
-        ancestorState = db.getState(root)
-
-      doAssert ancestorState.isSome()
-      state.data.data = ancestorState.get()
-      state.data.root = root
-      state.blck = pool.get(bs.blck).refs
       return true
 
   false
@@ -813,12 +822,9 @@ proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
 proc loadTailState*(pool: BlockPool): StateData =
   ## Load the state associated with the current tail in the pool
   let stateRoot = pool.db.getBlock(pool.tail.root).get().message.state_root
-  StateData(
-    data: HashedBeaconState(
-      data: pool.db.getState(stateRoot).get(),
-      root: stateRoot),
-    blck: pool.tail
-  )
+  let found = pool.getState(pool.db, stateRoot, pool.tail, result)
+  # TODO turn into regular error, this can happen
+  doAssert found, "Failed to load tail state, database corrupt?"
 
 proc delState(pool: BlockPool, bs: BlockSlot) =
   # Delete state state and mapping for a particular block+slot
@@ -838,8 +844,7 @@ proc updateHead*(pool: BlockPool, newHead: BlockRef) =
 
   if pool.head.blck == newHead:
     info "No head block update",
-      headBlockRoot = shortLog(newHead.root),
-      headBlockSlot = shortLog(newHead.slot),
+      head = shortLog(newHead),
       cat = "fork_choice"
 
     return
@@ -857,7 +862,7 @@ proc updateHead*(pool: BlockPool, newHead: BlockRef) =
                       .current_justified_checkpoint
                       .epoch
                       .compute_start_slot_at_epoch()
-    justifiedBS = newHead.findAncestorBySlot(justifiedSlot)
+    justifiedBS = newHead.atSlot(justifiedSlot)
 
   pool.head = Head(blck: newHead, justified: justifiedBS)
   updateStateData(pool, pool.justifiedState, justifiedBS)
@@ -865,10 +870,10 @@ proc updateHead*(pool: BlockPool, newHead: BlockRef) =
   # TODO isAncestorOf may be expensive - too expensive?
   if not lastHead.blck.isAncestorOf(newHead):
     info "Updated head block (new parent)",
-      lastHeadRoot = shortLog(lastHead.blck.root),
-      parentRoot = shortLog(newHead.parent.root),
+      lastHead = shortLog(lastHead.blck),
+      headParent = shortLog(newHead.parent),
       stateRoot = shortLog(pool.headState.data.root),
-      headBlockRoot = shortLog(pool.headState.blck.root),
+      headBlock = shortLog(pool.headState.blck),
       stateSlot = shortLog(pool.headState.data.data.slot),
       justifiedEpoch = shortLog(pool.headState.data.data.current_justified_checkpoint.epoch),
       finalizedEpoch = shortLog(pool.headState.data.data.finalized_checkpoint.epoch),
@@ -882,7 +887,7 @@ proc updateHead*(pool: BlockPool, newHead: BlockRef) =
   else:
     info "Updated head block",
       stateRoot = shortLog(pool.headState.data.root),
-      headBlockRoot = shortLog(pool.headState.blck.root),
+      headBlock = shortLog(pool.headState.blck),
       stateSlot = shortLog(pool.headState.data.data.slot),
       justifiedEpoch = shortLog(pool.headState.data.data.current_justified_checkpoint.epoch),
       finalizedEpoch = shortLog(pool.headState.data.data.finalized_checkpoint.epoch),
@@ -893,7 +898,7 @@ proc updateHead*(pool: BlockPool, newHead: BlockRef) =
       pool.headState.data.data.finalized_checkpoint.epoch.
       compute_start_slot_at_epoch()
     # TODO there might not be a block at the epoch boundary - what then?
-    finalizedHead = newHead.findAncestorBySlot(finalizedEpochStartSlot)
+    finalizedHead = newHead.atSlot(finalizedEpochStartSlot)
 
   doAssert (not finalizedHead.blck.isNil),
     "Block graph should always lead to a finalized block"
@@ -949,10 +954,8 @@ proc updateHead*(pool: BlockPool, newHead: BlockRef) =
         pool.heads.del(n)
 
     info "Finalized block",
-      finalizedBlockRoot = shortLog(finalizedHead.blck.root),
-      finalizedBlockSlot = shortLog(finalizedHead.slot),
-      headBlockRoot = shortLog(newHead.root),
-      headBlockSlot = shortLog(newHead.slot),
+      finalizedHead = shortLog(finalizedHead),
+      head = shortLog(newHead),
       heads = pool.heads.len,
       cat = "fork_choice"
 
@@ -994,7 +997,7 @@ proc isInitialized*(T: type BlockPool, db: BeaconChainDB): bool =
   return true
 
 proc preInit*(
-    T: type BlockPool, db: BeaconChainDB, state: BeaconStateRef,
+    T: type BlockPool, db: BeaconChainDB, state: BeaconState,
     signedBlock: SignedBeaconBlock) =
   # write a genesis state, the way the BlockPool expects it to be stored in
   # database
@@ -1023,14 +1026,14 @@ proc getProposer*(pool: BlockPool, head: BlockRef, slot: Slot): Option[Validator
     var cache = get_empty_per_epoch_cache()
 
     # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#validator-assignments
-    let proposerIdx = get_beacon_proposer_index(state[], cache)
+    let proposerIdx = get_beacon_proposer_index(state, cache)
     if proposerIdx.isNone:
       warn "Missing proposer index",
         slot=slot,
         epoch=slot.compute_epoch_at_slot,
         num_validators=state.validators.len,
         active_validators=
-          get_active_validator_indices(state[], slot.compute_epoch_at_slot),
+          get_active_validator_indices(state, slot.compute_epoch_at_slot),
         balances=state.balances
       return
 
@@ -1132,7 +1135,7 @@ proc isValidBeaconBlock*(pool: var BlockPool,
   pool.withState(pool.tmpState, bs):
     let
       blockRoot = hash_tree_root(signed_beacon_block.message)
-      domain = get_domain(pool.headState.data.data[], DOMAIN_BEACON_PROPOSER,
+      domain = get_domain(pool.headState.data.data, DOMAIN_BEACON_PROPOSER,
         compute_epoch_at_slot(signed_beacon_block.message.slot))
       signing_root = compute_signing_root(blockRoot, domain)
       proposer_index = signed_beacon_block.message.proposer_index
