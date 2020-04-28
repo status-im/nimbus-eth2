@@ -418,6 +418,13 @@ proc add*(
   ## the state parameter may be updated to include the given block, if
   ## everything checks out
   # TODO reevaluate passing the state in like this
+
+  # TODO: to facilitate adding the block to the attestation pool
+  #       this should also return justified and finalized epoch corresponding
+  #       to each block.
+  #       This would be easy apart from the "Block already exists"
+  #       early return.
+
   let blck = signedBlock.message
   doAssert blockRoot == hash_tree_root(blck)
 
@@ -998,7 +1005,7 @@ func latestJustifiedBlock*(pool: BlockPool): BlockSlot =
   ## as the latest finalized block
 
   doAssert pool.heads.len > 0,
-    "We should have at least the genesis block in heaads"
+    "We should have at least the genesis block in heads"
   doAssert (not pool.head.blck.isNil()),
     "Genesis block will be head, if nothing else"
 

@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/tables, std/options, std/typetraits,
+  std/tables, std/typetraits,
   # Status libraries
   stew/results,
   # Internal
@@ -48,8 +48,8 @@ func compute_deltas(
 # - The public procs use Result
 
 func initForkChoice*(
-       finalized_block_slot: Slot,
-       finalized_block_state_root: Eth2Digest,
+       finalized_block_slot: Slot,             # This is unnecessary for fork choice but helps external components
+       finalized_block_state_root: Eth2Digest, # This is unnecessary for fork choice but helps external components
        justified_epoch: Epoch,
        finalized_epoch: Epoch,
        finalized_root: Eth2Digest
@@ -64,7 +64,8 @@ func initForkChoice*(
   let err = proto_array.on_block(
     finalized_block_slot,
     finalized_root,
-    none(Eth2Digest),
+    hasParentInForkChoice = false,
+    default(Eth2Digest),
     finalized_block_state_root,
     justified_epoch,
     finalized_epoch
@@ -129,7 +130,7 @@ func process_block*(
      ): Result[void, string] =
   ## Add a block to the fork choice context
   let err = self.proto_array.on_block(
-    slot, block_root, some(parent_root), state_root, justified_epoch, finalized_epoch
+    slot, block_root, hasParentInForkChoice = true, parent_root, state_root, justified_epoch, finalized_epoch
   )
   if err.kind != fcSuccess:
     return err("process_block_error: " & $err)

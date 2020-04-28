@@ -209,7 +209,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     config: conf,
     attachedValidators: ValidatorPool.init(),
     blockPool: blockPool,
-    attestationPool: AttestationPool.init(blockPool),
+    attestationPool: AttestationPool.init(blockPool, blockPool.finalizedHead),
     mainchainMonitor: mainchainMonitor,
     beaconClock: BeaconClock.init(blockPool.headState.data.data),
     rpcServer: rpcServer,
@@ -295,8 +295,10 @@ proc storeBlock(node: BeaconNode, signedBlock: SignedBeaconBlock): bool =
     dump(node.config.dumpDir / "incoming", signedBlock, blockRoot)
 
   beacon_blocks_received.inc()
-  if node.blockPool.add(blockRoot, signedBlock).isNil:
+  let blockRef = node.blockPool.add(blockRoot, signedBlock)
+  if blockRef.isNil:
     return false
+  node.attestationPool.add(blockRef)
 
   # The block we received contains attestations, and we might not yet know about
   # all of them. Let's add them to the attestation pool - in case they block
@@ -698,7 +700,7 @@ proc run*(node: BeaconNode) =
           let (afterGenesis, slot) = node.beaconClock.now().toSlot()
           if not afterGenesis:
             return false
-          node.attestationPool.isValidAttestation(attestation, slot, ci, {})))
+          node.attestationPool.isValidAttestation(attestation, slot, ci)))
   waitFor allFutures(attestationSubscriptions)
 
   let

@@ -8,10 +8,10 @@
 {.push raises: [Defect].}
 
 import
-  options,
+  options, chronicles,
   ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator,
     state_transition_block],
-  ./attestation_pool, ./beacon_node_types, ./ssz
+  ./block_pool, ./attestation_pool, ./beacon_node_types, ./ssz
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#aggregation-selection
 func is_aggregator(state: BeaconState, slot: Slot, index: CommitteeIndex,
@@ -74,7 +74,7 @@ proc aggregate_attestations*(
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#attestation-subnets
 proc isValidAttestation*(
     pool: AttestationPool, attestation: Attestation, current_slot: Slot,
-    topicCommitteeIndex: uint64, flags: UpdateFlags): bool =
+    topicCommitteeIndex: uint64): bool =
   # The attestation's committee index (attestation.data.index) is for the
   # correct subnet.
   if attestation.data.index != topicCommitteeIndex:
@@ -109,9 +109,9 @@ proc isValidAttestation*(
 
   # The attestation is the first valid attestation received for the
   # participating validator for the slot, attestation.data.slot.
-  let maybeSlotData = getAttestationsForSlot(pool, attestation.data.slot)
-  if maybeSlotData.isSome:
-    for attestationEntry in maybeSlotData.get.attestations:
+  let maybeAttestationsSeen = getAttestationsForSlot(pool, attestation.data.slot)
+  if maybeAttestationsSeen.isSome:
+    for attestationEntry in maybeAttestationsSeen.get.attestations:
       if attestation.data != attestationEntry.data:
         continue
       # Attestations might be aggregated eagerly or lazily; allow for both.

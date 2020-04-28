@@ -153,30 +153,36 @@ func on_block*(
        self: var ProtoArray,
        slot: Slot,
        root: Eth2Digest,
-       parent: Option[Eth2Digest],
+       hasParentInForkChoice: bool,
+       parent: Eth2Digest,
        state_root: Eth2Digest,
        justified_epoch: Epoch,
        finalized_epoch: Epoch
      ): ForkChoiceError =
   ## Register a block with the fork choice
-  ## A `none` parent is only valid for Genesis
+  ## A block `hasParentInForkChoice` may be false
+  ## on fork choice initialization:
+  ## - either from Genesis
+  ## - or from a finalized state loaded from database
+
+  # Note: if parent is an "Option" type, we can run out of stack space.
 
   # If the block is already known, ignore it
   if root in self.indices:
     return ForkChoiceSuccess
 
   var parent_index: Option[int]
-  if parent.isNone:
+  if not hasParentInForkChoice:
       # Genesis (but Genesis might not be default(Eth2Digest))
     parent_index = none(int)
-  elif parent.unsafeGet() notin self.indices:
+  elif parent notin self.indices:
     return ForkChoiceError(
       kind: fcErrUnknownParent,
       child_root: root,
-      parent_root: parent.unsafeGet()
+      parent_root: parent
     )
   else:
-    parent_index = some(self.indices.unsafeGet(parent.unsafeGet()))
+    parent_index = some(self.indices.unsafeGet(parent))
 
   let node_index = self.nodes.len
 

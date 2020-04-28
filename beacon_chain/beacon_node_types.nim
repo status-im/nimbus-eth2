@@ -4,7 +4,8 @@ import
   deques, tables,
   stew/[endians2, byteutils], chronicles,
   spec/[datatypes, crypto, digest],
-  beacon_chain_db, extras
+  beacon_chain_db, extras,
+  fork_choice/fork_choice_types
 
 type
   # #############################################
@@ -36,7 +37,7 @@ type
     ## this seq and aggregate only when needed
     ## TODO there are obvious caching opportunities here..
 
-  SlotData* = object
+  AttestationsSeen* = object
     attestations*: seq[AttestationEntry] ## \
     ## Depending on the world view of the various validators, they may have
     ## voted on different states - here we collect all the different
@@ -56,7 +57,7 @@ type
     ## contains both votes that have been included in the chain and those that
     ## have not.
 
-    slots*: Deque[SlotData] ## \
+    mapSlotsToAttestations*: Deque[AttestationsSeen] ## \
     ## We keep one item per slot such that indexing matches slot number
     ## together with startingSlot
 
@@ -68,9 +69,8 @@ type
 
     unresolved*: Table[Eth2Digest, UnresolvedAttestation]
 
-    latestAttestations*: Table[ValidatorPubKey, BlockRef] ##\
-    ## Map that keeps track of the most recent vote of each attester - see
-    ## fork_choice
+    forkChoice*: ForkChoice ##\
+    ## Tracks the most recent vote of each attester
 
   # #############################################
   #
@@ -158,6 +158,8 @@ type
     ## Node in object graph guaranteed to lead back to tail block, and to have
     ## a corresponding entry in database.
     ## Block graph should form a tree - in particular, there are no cycles.
+
+    # TODO: we probably want BlockRef to also keep track of justified and finalized epoch
 
     root*: Eth2Digest ##\
     ## Root that can be used to retrieve block data from database
