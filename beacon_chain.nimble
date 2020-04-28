@@ -78,5 +78,5 @@ task test, "Run all tests":
   buildBinary "all_fixtures_require_ssz", "tests/official/", "-d:const_preset=mainnet"
 
   # State sim; getting into 4th epoch useful to trigger consensus checks
-  buildBinary "state_sim", "research/", "", "--validators=1024 --slots=32"
-  buildBinary "state_sim", "research/", "-d:const_preset=mainnet", "--validators=1024 --slots=128"
+  buildBinary "state_sim", "research/", "-d:const_preset=minimal", "--validators=2000 --slots=32"
+  buildBinary "state_sim", "research/", "-d:const_preset=mainnet", "--validators=2000 --slots=128"

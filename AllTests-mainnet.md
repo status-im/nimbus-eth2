@@ -1,5 +1,16 @@
 AllTests-mainnet
 ===
+## Attestation pool processing [Preset: mainnet]
+```diff
++ Attestations may arrive in any order [Preset: mainnet]                                     OK
++ Attestations may overlap, bigger first [Preset: mainnet]                                   OK
++ Attestations may overlap, smaller first [Preset: mainnet]                                  OK
++ Attestations should be combined [Preset: mainnet]                                          OK
++ Can add and retrieve simple attestation [Preset: mainnet]                                  OK
++ Fork choice returns block with attestation                                                 OK
++ Fork choice returns latest block with no attestations                                      OK
+```
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Beacon chain DB [Preset: mainnet]
 ```diff
 + empty database [Preset: mainnet]                                                           OK
@@ -230,4 +241,4 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 OK: 8/8 Fail: 0/8 Skip: 0/8
 
 ---TOTAL---
-OK: 141/144 Fail: 3/144 Skip: 0/144
+OK: 148/151 Fail: 3/151 Skip: 0/151
