@@ -52,29 +52,35 @@ else:
 
 switch("import", "testutils/moduletests")
 
-# The default open files limit is too low on macOS (512), breaking the
-# "--debugger:native" build. It can be increased with `ulimit -n 1024`.
-let openFilesLimitTarget = 1024
-var openFilesLimit = openFilesLimitTarget # so Windows, where `ulimit` fails, is not affected
-
-if not defined(windows):
+var canEnableDebuggingSymbols = true
+if defined(macosx):
+  # The default open files limit is too low on macOS (512), breaking the
+  # "--debugger:native" build. It can be increased with `ulimit -n 1024`.
+  let openFilesLimitTarget = 1024
+  var openFilesLimit = 0
   try:
-    openFilesLimit = staticExec("ulimit -n").parseInt()
+    openFilesLimit = staticExec("ulimit -n").strip(chars = Whitespace + Newlines).parseInt()
+    if openFilesLimit < openFilesLimitTarget:
+      echo "Open files limit too low to enable debugging symbols and lightweight stack traces."
+      echo "Increase it with \"ulimit -n " & $openFilesLimitTarget & "\""
+      canEnableDebuggingSymbols = false
   except:
     echo "ulimit error"
+# We ignore this resource limit on Windows, where a default `ulimit -n` of 256
+# in Git Bash is apparently ignored by the OS, and on Linux where the default of
+# 1024 is good enough for us.
 
-if openFilesLimit < openFilesLimitTarget:
-  echo "Open files limit too low. Increase it with \"ulimit -n " & $openFilesLimitTarget & "\""
-else:
-  # --debugger:native fails on static libraries, on macOS, because it tries to
-  # run dsymutil on them: https://github.com/nim-lang/Nim/issues/14132
-  if not defined(macosx):
-    # add debugging symbols and original files and line numbers
-    --debugger:native
-    if not (defined(windows) and defined(i386)) and not defined(disable_libbacktrace):
-      # light-weight stack traces using libbacktrace and libunwind
-      --define:nimStackTraceOverride
-      switch("import", "libbacktrace")
+# - macOS: "--debugger:native" fails on static libraries, because it tries to
+#   run dsymutil on them: https://github.com/nim-lang/Nim/issues/14132
+#   TODO: allow it to run on macOS when this compiler bug is fixed in our
+#   version
+if not defined(macosx) and canEnableDebuggingSymbols:
+  # add debugging symbols and original files and line numbers
+  --debugger:native
+  if not (defined(windows) and defined(i386)) and not defined(disable_libbacktrace):
+    # lightweight stack traces using libbacktrace and libunwind (32-bit Windows not supported)
+    --define:nimStackTraceOverride
+    switch("import", "libbacktrace")
 
 --define:nimOldCaseObjects # https://github.com/status-im/nim-confutils/issues/9
 
