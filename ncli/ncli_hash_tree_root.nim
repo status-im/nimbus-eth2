@@ -17,7 +17,7 @@ cli do(kind: string, file: string):
         echo "Unknown file type: ", ext
         quit 1
     )
-    echo hash_tree_root(v).data.toHex()
+    echo hash_tree_root(v[]).data.toHex()
 
   let ext = splitFile(file).ext
 
