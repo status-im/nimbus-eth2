@@ -40,10 +40,10 @@ proc runTest(identifier: string) =
       var cache = get_empty_per_epoch_cache()
 
       let attesterSlashing = parseTest(testDir/"attester_slashing.ssz", SSZ, AttesterSlashing)
-      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconStateRef)
+      var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
 
       if existsFile(testDir/"post.ssz"):
-        let postState = parseTest(testDir/"post.ssz", SSZ, BeaconStateRef)
+        let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
         let done = process_attester_slashing(preState[], attesterSlashing,
                                              {}, cache)
         doAssert done, "Valid attestater slashing not processed"

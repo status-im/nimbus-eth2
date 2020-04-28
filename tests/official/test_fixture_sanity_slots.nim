@@ -31,8 +31,8 @@ proc runTest(identifier: string) =
 
   proc `testImpl _ slots _ identifier`() =
     timedTest "Slots - " & identifier:
-      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconStateRef)
-      let postState = parseTest(testDir/"post.ssz", SSZ, BeaconStateRef)
+      var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
+      let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
 
       process_slots(preState[], preState.slot + num_slots)
 

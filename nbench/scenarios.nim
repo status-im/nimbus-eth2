@@ -140,7 +140,7 @@ proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, ski
   let prePath = dir / preState & ".ssz"
 
   echo "Running: ", prePath
-  var state = parseSSZ(prePath, BeaconStateRef)
+  var state = newClone(parseSSZ(prePath, BeaconState))
 
   for i in 0 ..< blocksQty:
     let blockPath = dir / blocksPrefix & $i & ".ssz"
@@ -157,7 +157,7 @@ proc runProcessSlots*(dir, preState: string, numSlots: uint64) =
   let prePath = dir / preState & ".ssz"
 
   echo "Running: ", prePath
-  var state = parseSSZ(prePath, BeaconStateRef)
+  var state = newClone(parseSSZ(prePath, BeaconState))
 
   process_slots(state[], state.slot + numSlots)
 
@@ -168,7 +168,7 @@ template processEpochScenarioImpl(
   let prePath = dir/preState & ".ssz"
 
   echo "Running: ", prePath
-  var state = parseSSZ(prePath, BeaconStateRef)
+  var state = newClone(parseSSZ(prePath, BeaconState))
 
   when needCache:
     var cache = get_empty_per_epoch_cache()
@@ -193,7 +193,7 @@ template processBlockScenarioImpl(
   let prePath = dir/preState & ".ssz"
 
   echo "Running: ", prePath
-  var state = parseSSZ(prePath, BeaconStateRef)
+  var state = newClone(parseSSZ(prePath, BeaconState))
 
   when needCache:
     var cache = get_empty_per_epoch_cache()

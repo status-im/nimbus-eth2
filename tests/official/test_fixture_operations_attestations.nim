@@ -40,14 +40,14 @@ proc runTest(identifier: string) =
       var cache = get_empty_per_epoch_cache()
 
       let attestation = parseTest(testDir/"attestation.ssz", SSZ, Attestation)
-      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconStateRef)
+      var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
 
       if existsFile(testDir/"post.ssz"):
-        let postState = parseTest(testDir/"post.ssz", SSZ, BeaconStateRef)
+        let postState = parseTest(testDir/"post.ssz", SSZ, BeaconState)
         let done = process_attestation(preState[], attestation, {}, cache)
         doAssert done, "Valid attestation not processed"
         check: preState.hash_tree_root() == postState.hash_tree_root()
-        reportDiff(preState, postState)
+        reportDiff(preState[], postState[])
       else:
         let done = process_attestation(preState[], attestation, {}, cache)
         doAssert done == false, "We didn't expect this invalid attestation to be processed."

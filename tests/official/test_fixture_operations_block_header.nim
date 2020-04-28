@@ -40,10 +40,10 @@ proc runTest(identifier: string) =
       var cache = get_empty_per_epoch_cache()
 
       let blck = parseTest(testDir/"block.ssz", SSZ, BeaconBlock)
-      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconStateRef)
+      var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
 
       if existsFile(testDir/"post.ssz"):
-        let postState = parseTest(testDir/"post.ssz", SSZ, BeaconStateRef)
+        let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
         let done = process_block_header(preState[], blck, {}, cache)
         doAssert done, "Valid block header not processed"
         check: preState.hash_tree_root() == postState.hash_tree_root()

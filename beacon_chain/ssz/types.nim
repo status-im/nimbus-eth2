@@ -84,12 +84,6 @@ template ElemType*[T](A: type[openarray[T]]): untyped =
 template ElemType*(T: type[seq|string|List]): untyped =
   type(default(T)[0])
 
-template maybeDeref*(x: auto): auto =
-  when type(x) is ref|ptr:
-    x[]
-  else:
-    x
-
 func isFixedSize*(T0: type): bool {.compileTime.} =
   mixin toSszType, enumAllSerializedFields
 
