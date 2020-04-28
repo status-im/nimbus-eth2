@@ -47,7 +47,7 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, us
           else:
             transitionProc(preState[])
 
-          reportDiff(preState[], postState[])
+          reportDiff(preState, postState)
 
   `suiteImpl _ transitionProc`()
 
