@@ -87,7 +87,7 @@ template ElemType*(T: type[seq|string|List]): untyped =
 func isFixedSize*(T0: type): bool {.compileTime.} =
   mixin toSszType, enumAllSerializedFields
 
-  when T0 is openarray
+  when T0 is openarray:
     return false
   else:
     type T = type toSszType(declval T0)
