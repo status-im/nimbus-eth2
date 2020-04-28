@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  os, tables, random, strutils, times, sequtils,
+  os, tables, random, strutils, times,
 
   # Nimble packages
   stew/[objects, bitseqs, byteutils], stew/shims/macros,
@@ -1339,14 +1339,14 @@ programMain:
     let directives = config.logLevel.split(";")
     try:
       setLogLevel(parseEnum[LogLevel](directives[0]))
-    except CatchableError:
+    except ValueError:
       raise (ref ValueError)(msg: "Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL")
 
     if directives.len > 1:
       for topicName, settings in parseTopicDirectives(directives[1..^1]):
         if not setTopicState(topicName, settings.state, settings.logLevel):
           warn "Unrecognized logging topic", topic = topicName
-  except CatchableError as err:
+  except ValueError as err:
     stderr.write "Invalid value for --log-level. " & err.msg
     quit 1
 
