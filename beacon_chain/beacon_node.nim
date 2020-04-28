@@ -121,15 +121,11 @@ proc getStateFromSnapshot(conf: BeaconNodeConf): NilableBeaconStateRef =
       error "Failed to read genesis file", err = err.msg
       quit 1
 
-  try:
-    let res = BeaconStateRef()
-    res[] = SSZ.decode(snapshotContents, BeaconState)
-    result = res
+  result = try:
+    newClone(SSZ.decode(snapshotContents, BeaconState))
   except SerializationError:
     error "Failed to import genesis file", path = genesisPath
     quit 1
-
-  echo sizeof(result[])
 
   info "Loaded genesis state", path = genesisPath
 

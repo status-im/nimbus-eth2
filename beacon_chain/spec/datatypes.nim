@@ -571,13 +571,14 @@ template readValue*(reader: var JsonReader, value: var BitList) =
 template writeValue*(writer: var JsonWriter, value: BitList) =
   writeValue(writer, BitSeq value)
 
-func newClone*[T](x: T): ref T not nil =
-  new result
-  result[] = x
+template newClone*[T: not ref](x: T): ref T =
+  # TODO not nil in return type: https://github.com/nim-lang/Nim/issues/14146
+  let res = new typeof(x) # TODO safe to do noinit here?
+  res[] = x
+  res
 
-func newClone*[T](x: ref T): ref T not nil =
-  new result
-  result[] = x[]
+template newClone*[T](x: ref T not nil): ref T =
+  newClone(x[])
 
 template init*(T: type BitList, len: int): auto = T init(BitSeq, len)
 template len*(x: BitList): auto = len(BitSeq(x))
