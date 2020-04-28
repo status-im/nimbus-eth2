@@ -27,9 +27,12 @@ cli do (skipGoerliKey {.
           desc: "Don't prompt for an Eth1 Goerli key to become a validator" .}: bool,
 
         constPreset {.
-          defaultValue: ""
           desc: "The Ethereum 2.0 const preset of the network (optional)"
-          name: "const-preset" .}: string,
+          name: "const-preset" .} = "",
+
+        devBuild {.
+          desc: "Enables more extensive logging and debugging support"
+          name: "dev-build" .} = false,
 
         testnetName {.argument .}: string):
   let
@@ -89,6 +92,9 @@ cli do (skipGoerliKey {.
   var
     nimFlags = "-d:chronicles_log_level=TRACE " & getEnv("NIM_PARAMS")
 
+  if devBuild:
+    nimFlags.add """ -d:"chronicles_sinks=textlines,json[file(nbc.log)]" """
+
   let depositContractFile = testnetDir / depositContractFileName
   if system.fileExists(depositContractFile):
     depositContractOpt = "--deposit-contract=" & readFile(depositContractFile).strip
@@ -107,7 +113,7 @@ cli do (skipGoerliKey {.
       rmDir dataDir
 
   cd rootDir
-  exec &"""nim c {nimFlags} -d:"const_preset={preset}" -d:"chronicles_sinks=textlines,json[file(json-log.txt)],textblocks[file(text-log.txt)]" -o:"{beaconNodeBinary}" beacon_chain/beacon_node.nim"""
+  exec &"""nim c {nimFlags} -d:"const_preset={preset}" -o:"{beaconNodeBinary}" beacon_chain/beacon_node.nim"""
 
   mkDir dumpDir
 
