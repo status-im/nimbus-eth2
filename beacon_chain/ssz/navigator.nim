@@ -119,16 +119,11 @@ template `[]`*[R, T](n: SszNavigator[array[R, T]], idx: int): SszNavigator[T] =
 
 func `[]`*[T](n: SszNavigator[T]): T {.raisesssz.} =
   mixin toSszType, fromSszBytes
-  when T is ref:
-    type ObjectType = type(result[])
-    new result
-    result[] = SszNavigator[ObjectType](n)[]
+  type SszRepr = type toSszType(declval T)
+  when type(SszRepr) is type(T):
+    readSszValue(toOpenArray(n.m), T)
   else:
-    type SszRepr = type toSszType(declval T)
-    when type(SszRepr) is type(T):
-      readSszValue(toOpenArray(n.m), T)
-    else:
-      fromSszBytes(T, toOpenArray(n.m))
+    fromSszBytes(T, toOpenArray(n.m))
 
 converter derefNavigator*[T](n: SszNavigator[T]): T {.raisesssz.} =
   n[]

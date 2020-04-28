@@ -87,7 +87,7 @@ template ElemType*(T: type[seq|string|List]): untyped =
 func isFixedSize*(T0: type): bool {.compileTime.} =
   mixin toSszType, enumAllSerializedFields
 
-  when T0 is openarray|Option|ref|ptr:
+  when T0 is openarray
     return false
   else:
     type T = type toSszType(declval T0)
@@ -111,7 +111,7 @@ func fixedPortionSize*(T0: type): int {.compileTime.} =
     type E = ElemType(T)
     when isFixedSize(E): len(T) * fixedPortionSize(E)
     else: len(T) * offsetSize
-  elif T is seq|string|openarray|ref|ptr|Option: offsetSize
+  elif T is seq|string|openarray: offsetSize
   elif T is object|tuple:
     enumAllSerializedFields(T):
       when isFixedSize(FieldType):

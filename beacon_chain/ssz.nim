@@ -109,8 +109,6 @@ template toSszType*(x: auto): auto =
   elif x is Eth2Digest: x.data
   elif x is BlsCurveType: toRaw(x)
   elif x is BitSeq|BitList: ByteList(x)
-  elif x is ref|ptr: toSszType x[]
-  elif x is Option: toSszType x.get
   elif x is TypeWithMaxLen: toSszType valueOf(x)
   elif useListType and x is List: seq[x.T](x)
   else: x
@@ -217,10 +215,6 @@ proc writeVarSizeType(w: var SszWriter, value: auto) {.raises: [Defect, IOError]
       var cursor = w.stream.delayFixedSizeWrite offset
       for elem in value:
         cursor.writeFixedSized uint32(offset)
-        when elem is Option:
-          if not isSome(elem): continue
-        elif elem is ptr|ref:
-          if isNil(elem): continue
         let initPos = w.stream.pos
         w.writeVarSizeType toSszType(elem)
         offset += w.stream.pos - initPos

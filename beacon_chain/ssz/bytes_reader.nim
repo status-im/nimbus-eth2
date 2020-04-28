@@ -91,14 +91,6 @@ func readSszValue*(input: openarray[byte], T: type): T {.raisesssz.} =
     type ElemType = type result[0]
     result = T readSszValue(input, seq[ElemType])
 
-  elif result is ptr|ref:
-    new result
-    result[] = readSszValue(input, type(result[]))
-
-  elif result is Option:
-    if input.len > 0:
-      result = some readSszValue(input, result.T)
-
   elif result is string|seq|openarray|array:
     type ElemType = type result[0]
     when ElemType is byte|char:
