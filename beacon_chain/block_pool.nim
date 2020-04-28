@@ -399,9 +399,8 @@ proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
     # by a constant-factor, worsens things. TODO the actual solution's,
     # eventually, to switch to CoW and/or ref objects for state and the
     # hash_tree_root processing.
-    let key = (a: blck.root, b: state.data.slot)
-    if key notin pool.cachedStates[epochParity]:
-      pool.cachedStates[epochParity][key] = state
+    discard pool.cachedStates[epochParity].hasKeyOrPut(
+      (a: blck.root, b: state.data.slot), state)
 
 proc add*(
     pool: var BlockPool, blockRoot: Eth2Digest,
