@@ -38,24 +38,6 @@ import
 declareGauge beacon_current_validators, """Number of status="pending|active|exited|withdrawable" validators in current epoch""" # On epoch transition
 declareGauge beacon_previous_validators, """Number of status="pending|active|exited|withdrawable" validators in previous epoch""" # On epoch transition
 
-# Canonical state transition functions
-# ---------------------------------------------------------------
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-func process_slot*(state: var BeaconState) {.nbench.}=
-  # Cache state root
-  let previous_state_root = hash_tree_root(state)
-  state.state_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
-    previous_state_root
-
-  # Cache latest block header state root
-  if state.latest_block_header.state_root == ZERO_HASH:
-    state.latest_block_header.state_root = previous_state_root
-
-  # Cache block root
-  state.block_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
-    hash_tree_root(state.latest_block_header)
-
 func get_epoch_validator_count(state: BeaconState): int64 =
   # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
   #
@@ -77,32 +59,6 @@ func get_epoch_validator_count(state: BeaconState): int64 =
           validator.effective_balance > MAX_EFFECTIVE_BALANCE) and
        validator.withdrawable_epoch > get_current_epoch(state):
       result += 1
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-proc process_slots*(state: var BeaconState, slot: Slot) {.nbench.}=
-  if not (state.slot <= slot):
-    warn("Trying to apply old block",
-      state_slot = state.slot,
-      slot = slot)
-    return
-
-  # Catch up to the target slot
-  while state.slot < slot:
-    process_slot(state)
-    let is_epoch_transition = (state.slot + 1) mod SLOTS_PER_EPOCH == 0
-    if is_epoch_transition:
-      # Note: Genesis epoch = 0, no need to test if before Genesis
-      try:
-        beacon_previous_validators.set(get_epoch_validator_count(state))
-      except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
-        trace "Couldn't update metrics", msg = e.msg
-      process_epoch(state)
-    state.slot += 1
-    if is_epoch_transition:
-      try:
-        beacon_current_validators.set(get_epoch_validator_count(state))
-      except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
-        trace "Couldn't update metrics", msg = e.msg
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#verify_block_signature
 proc verify_block_signature*(
@@ -144,9 +100,80 @@ type
 proc noRollback*(state: var BeaconState) =
   trace "Skipping rollback of broken state"
 
+type
+  RollbackHashedProc* = proc(state: var HashedBeaconState) {.gcsafe.}
+
+# Hashed-state transition functions
+# ---------------------------------------------------------------
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+func process_slot*(state: var HashedBeaconState) {.nbench.} =
+  # Cache state root
+  let previous_slot_state_root = state.root
+  state.data.state_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
+    previous_slot_state_root
+
+  # Cache latest block header state root
+  if state.data.latest_block_header.state_root == ZERO_HASH:
+    state.data.latest_block_header.state_root = previous_slot_state_root
+
+  # Cache block root
+  state.data.block_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
+    hash_tree_root(state.data.latest_block_header)
+
+# TODO remove this once callers gone
+func process_slot*(state: var BeaconState) =
+  var hashedState = HashedBeaconState(data: state, root: hash_tree_root(state))
+  process_slot(hashedState)
+  state = hashedState.data
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+proc process_slots*(state: var HashedBeaconState, slot: Slot) {.nbench.} =
+  # TODO: Eth specs strongly assert that state.data.slot <= slot
+  #       This prevents receiving attestation in any order
+  #       (see tests/test_attestation_pool)
+  #       but it maybe an artifact of the test case
+  #       as this was not triggered in the testnet1
+  #       after a hour
+  if state.data.slot > slot:
+    notice(
+      "Unusual request for a slot in the past",
+      state_root = shortLog(state.root),
+      current_slot = state.data.slot,
+      target_slot = slot
+    )
+
+  # Catch up to the target slot
+  while state.data.slot < slot:
+    process_slot(state)
+    let is_epoch_transition = (state.data.slot + 1) mod SLOTS_PER_EPOCH == 0
+    if is_epoch_transition:
+      # Note: Genesis epoch = 0, no need to test if before Genesis
+      try:
+        beacon_previous_validators.set(get_epoch_validator_count(state.data))
+      except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
+        trace "Couldn't update metrics", msg = e.msg
+      process_epoch(state.data)
+    state.data.slot += 1
+    if is_epoch_transition:
+      try:
+        beacon_current_validators.set(get_epoch_validator_count(state.data))
+      except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
+        trace "Couldn't update metrics", msg = e.msg
+    state.root = hash_tree_root(state.data)
+
+# TODO remove this once callers gone
+proc process_slots*(state: var BeaconState, slot: Slot) =
+  var hashedState = HashedBeaconState(data: state, root: hash_tree_root(state))
+  process_slots(hashedState, slot)
+  state = hashedState.data
+
+proc noRollback*(state: var HashedBeaconState) =
+  trace "Skipping rollback of broken state"
+
 proc state_transition*(
-    state: var BeaconState, signedBlock: SignedBeaconBlock, flags: UpdateFlags,
-    rollback: RollbackProc): bool {.nbench.} =
+    state: var HashedBeaconState, signedBlock: SignedBeaconBlock,
+    flags: UpdateFlags, rollback: RollbackHashedProc): bool =
   ## Time in the beacon chain moves by slots. Every time (haha.) that happens,
   ## we will update the beacon state. Normally, the state updates will be driven
   ## by the contents of a new block, but it may happen that the block goes
@@ -191,87 +218,6 @@ proc state_transition*(
   # TODO what should happen if block processing fails?
   #      https://github.com/ethereum/eth2.0-specs/issues/293
   if skipBLSValidation in flags or
-      verify_block_signature(state, signedBlock):
-    var per_epoch_cache = get_empty_per_epoch_cache()
-
-    if processBlock(state, signedBlock.message, flags, per_epoch_cache):
-      # This is a bit awkward - at the end of processing we verify that the
-      # state we arrive at is what the block producer thought it would be -
-      # meaning that potentially, it could fail verification
-      if skipStateRootValidation in flags or verifyStateRoot(state, signedBlock.message):
-        # State root is what it should be - we're done!
-        return true
-
-  # Block processing failed, roll back changes
-  rollback(state)
-  false
-
-# Hashed-state transition functions
-# ---------------------------------------------------------------
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-func process_slot(state: var HashedBeaconState) =
-  # Cache state root
-  let previous_slot_state_root = state.root
-  state.data.state_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
-    previous_slot_state_root
-
-  # Cache latest block header state root
-  if state.data.latest_block_header.state_root == ZERO_HASH:
-    state.data.latest_block_header.state_root = previous_slot_state_root
-
-  # Cache block root
-  state.data.block_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
-    hash_tree_root(state.data.latest_block_header)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-proc process_slots*(state: var HashedBeaconState, slot: Slot) =
-  # TODO: Eth specs strongly assert that state.data.slot <= slot
-  #       This prevents receiving attestation in any order
-  #       (see tests/test_attestation_pool)
-  #       but it maybe an artifact of the test case
-  #       as this was not triggered in the testnet1
-  #       after a hour
-  if state.data.slot > slot:
-    notice(
-      "Unusual request for a slot in the past",
-      state_root = shortLog(state.root),
-      current_slot = state.data.slot,
-      target_slot = slot
-    )
-
-  # Catch up to the target slot
-  while state.data.slot < slot:
-    process_slot(state)
-    let is_epoch_transition = (state.data.slot + 1) mod SLOTS_PER_EPOCH == 0
-    if is_epoch_transition:
-      # Note: Genesis epoch = 0, no need to test if before Genesis
-      try:
-        beacon_previous_validators.set(get_epoch_validator_count(state.data))
-      except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
-        trace "Couldn't update metrics", msg = e.msg
-      process_epoch(state.data)
-    state.data.slot += 1
-    if is_epoch_transition:
-      try:
-        beacon_current_validators.set(get_epoch_validator_count(state.data))
-      except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
-        trace "Couldn't update metrics", msg = e.msg
-    state.root = hash_tree_root(state.data)
-
-type
-  RollbackHashedProc* = proc(state: var HashedBeaconState) {.gcsafe.}
-
-proc noRollback*(state: var HashedBeaconState) =
-  trace "Skipping rollback of broken state"
-
-proc state_transition*(
-    state: var HashedBeaconState, signedBlock: SignedBeaconBlock,
-    flags: UpdateFlags, rollback: RollbackHashedProc): bool =
-  doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
-  process_slots(state, signedBlock.message.slot)
-
-  if skipBLSValidation in flags or
       verify_block_signature(state.data, signedBlock):
 
     var per_epoch_cache = get_empty_per_epoch_cache()
@@ -292,3 +238,11 @@ proc state_transition*(
   rollback(state)
 
   false
+
+# TODO remove this once callers gone
+proc state_transition*(
+    state: var BeaconState, signedBlock: SignedBeaconBlock, flags: UpdateFlags,
+    rollback: RollbackHashedProc): bool {.nbench.} =
+  var hashedState = HashedBeaconState(data: state, root: hash_tree_root(state))
+  result = state_transition(hashedState, signedBlock, flags, rollback)
+  state = hashedState.data
