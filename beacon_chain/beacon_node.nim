@@ -959,11 +959,15 @@ proc updateStatus*(peer: Peer): Future[bool] {.async.} =
       headSlot: headBlock.slot
     )
 
-  let theirStatus = await peer.status(ourStatus,
-                                      timeout = chronos.seconds(60))
-  if theirStatus.isSome():
-    peer.state(BeaconSync).statusMsg = theirStatus.get()
-    result = true
+  let theirFut = awaitne peer.status(ourStatus,
+                                     timeout = chronos.seconds(60))
+  if theirFut.failed():
+    result = false
+  else:
+    let theirStatus = theirFut.read()
+    if theirStatus.isSome():
+      peer.state(BeaconSync).statusMsg = theirStatus.get()
+      result = true
 
 proc runSyncLoop(node: BeaconNode) {.async.} =
   proc getLocalHeadSlot(): Slot =
