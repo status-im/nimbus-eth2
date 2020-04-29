@@ -238,15 +238,10 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
   let res = BlockPool(
     pending: initTable[Eth2Digest, SignedBeaconBlock](),
     missing: initTable[Eth2Digest, MissingBlock](),
-
-    # Usually one of the other of these will get re-initialized if the pool's
-    # initialized on an epoch boundary, but that is a reasonable readability,
-    # simplicity, and non-special-casing tradeoff for the inefficiency.
     cachedStates: [
-      init(BeaconChainDB, kvStore MemStoreRef.init()),
-      init(BeaconChainDB, kvStore MemStoreRef.init())
+      newTable[tuple[a: Eth2Digest, b: Slot], StateData](),
+      newTable[tuple[a: Eth2Digest, b: Slot], StateData]()
     ],
-
     blocks: blocks,
     tail: tailRef,
     head: head,
@@ -361,8 +356,7 @@ proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
   #      we could easily see a state explosion
   logScope: pcs = "save_state_at_epoch_start"
 
-  var currentCache =
-    pool.cachedStates[state.data.slot.compute_epoch_at_slot.uint64 mod 2]
+  let epochParity = state.data.slot.compute_epoch_at_slot.uint64 mod 2
   if state.data.slot mod SLOTS_PER_EPOCH == 0:
     if not pool.db.containsState(state.root):
       info "Storing state",
@@ -374,12 +368,13 @@ proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
       # TODO this should be atomic with the above write..
       pool.db.putStateRoot(blck.root, state.data.slot, state.root)
 
-      # Because state.data.slot mod SLOTS_PER_EPOCH == 0, wrap back to last
-      # time this was the case i.e. last currentCache. The opposite parity,
-      # by contrast, has just finished filling from the previous epoch. The
-      # resulting lookback window is thus >= SLOTS_PER_EPOCH in size, while
-      # bounded from above by 2*SLOTS_PER_EPOCH.
-      currentCache = init(BeaconChainDB, kvStore MemStoreRef.init())
+    # Because state.data.slot mod SLOTS_PER_EPOCH == 0, wrap back to last
+    # time this was the case i.e. last currentCache. The opposite parity,
+    # by contrast, has just finished filling from the previous epoch. The
+    # resulting lookback window is thus >= SLOTS_PER_EPOCH in size, while
+    # bounded from above by 2*SLOTS_PER_EPOCH.
+    pool.cachedStates[epochParity] =
+      newTable[tuple[a: Eth2Digest, b: Slot], StateData]()
   else:
     # Need to be able to efficiently access states for both attestation
     # aggregation and to process block proposals going back to the last
@@ -405,10 +400,10 @@ proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
     # by a constant-factor, worsens things. TODO the actual solution's,
     # eventually, to switch to CoW and/or ref objects for state and the
     # hash_tree_root processing.
-    if not currentCache.containsState(state.root):
-      currentCache.putState(state.root, state.data)
-      # TODO this should be atomic with the above write..
-      currentCache.putStateRoot(blck.root, state.data.slot, state.root)
+    let key = (a: blck.root, b: state.data.slot)
+    if key notin pool.cachedStates[epochParity]:
+      # Avoid constructing StateData if not necessary
+      pool.cachedStates[epochParity][key] = StateData(data: state, blck: blck)
 
 proc add*(
     pool: var BlockPool, blockRoot: Eth2Digest,
@@ -702,14 +697,35 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
     if parBs.blck != curBs.blck:
       ancestors.add(pool.get(parBs.blck))
 
-    for db in [pool.db, pool.cachedStates[0], pool.cachedStates[1]]:
-      if (let tmp = db.getStateRoot(parBs.blck.root, parBs.slot); tmp.isSome()):
-        if db.containsState(tmp.get):
-          stateRoot = tmp
-          break
+    # TODO investigate replacing with getStateCached, by refactoring whole
+    # function. Empirically, this becomes pretty rare once good caches are
+    # used in the front-end.
+    for cachedState in pool.cachedStates:
+      let key = (a: parBs.blck.root, b: parBs.slot)
 
-    if stateRoot.isSome:
-      break
+      try:
+        state = cachedState[key]
+      except KeyError:
+        continue
+      let ancestor = ancestors.pop()
+      when false:
+        doAssert state.blck == ancestor.refs
+
+      trace "Replaying state transitions via in-memory cache",
+        stateSlot = shortLog(state.data.data.slot),
+        ancestorStateRoot = shortLog(ancestor.data.message.state_root),
+        ancestorStateSlot = shortLog(state.data.data.slot),
+        slot = shortLog(bs.slot),
+        blockRoot = shortLog(bs.blck.root),
+        ancestors = ancestors.len,
+        cat = "replay_state"
+
+      return ancestors
+
+    if (let tmp = pool.db.getStateRoot(parBs.blck.root, parBs.slot); tmp.isSome()):
+      if pool.db.containsState(tmp.get):
+        stateRoot = tmp
+        break
 
     curBs = parBs
 
@@ -728,25 +744,19 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
   let
     ancestor = ancestors.pop()
     root = stateRoot.get()
+    found = pool.getState(pool.db, root, ancestor.refs, state)
 
-  if pool.cachedStates[0].containsState(root):
-    doAssert pool.getState(pool.cachedStates[0], root, ancestor.refs, state)
-  elif pool.cachedStates[1].containsState(root):
-    doAssert pool.getState(pool.cachedStates[1], root, ancestor.refs, state)
-  else:
-    let found = pool.getState(pool.db, root, ancestor.refs, state)
-
-    if not found:
-      # TODO this should only happen if the database is corrupt - we walked the
-      #      list of parent blocks and couldn't find a corresponding state in the
-      #      database, which should never happen (at least we should have the
-      #      tail state in there!)
-      error "Couldn't find ancestor state or block parent missing!",
-        blockRoot = shortLog(bs.blck.root),
-        blockSlot = shortLog(bs.blck.slot),
-        slot = shortLog(bs.slot),
-        cat = "crash"
-      doAssert false, "Oh noes, we passed big bang!"
+  if not found:
+    # TODO this should only happen if the database is corrupt - we walked the
+    #      list of parent blocks and couldn't find a corresponding state in the
+    #      database, which should never happen (at least we should have the
+    #      tail state in there!)
+    error "Couldn't find ancestor state or block parent missing!",
+      blockRoot = shortLog(bs.blck.root),
+      blockSlot = shortLog(bs.blck.slot),
+      slot = shortLog(bs.slot),
+      cat = "crash"
+    doAssert false, "Oh noes, we passed big bang!"
 
   trace "Replaying state transitions",
     stateSlot = shortLog(state.data.data.slot),
@@ -764,18 +774,18 @@ proc getStateDataCached(pool: BlockPool, state: var StateData, bs: BlockSlot): b
   # mostly matches updateStateData(...), because it's too expensive to run the
   # rewindState(...)/skipAndUpdateState(...)/state_transition(...) procs, when
   # each hash_tree_root(...) consumes a nontrivial fraction of a second.
-  for db in [pool.db, pool.cachedStates[0], pool.cachedStates[1]]:
-    if (let tmp = db.getStateRoot(bs.blck.root, bs.slot); tmp.isSome()):
-      let found = pool.getState(db, tmp.get(), bs.blck, state)
-      if not found:
-        # TODO We don't write state root and state atomically, so we need to be
-        #      lenient here in case of dirty shutdown - transactions would be
-        #      nice!
-        warn "State root, but no state - cache corrupt?",
-          stateRoot = tmp.get(), blockRoot = bs.blck.root, blockSlot = bs.slot
-        continue
-
+  for poolStateCache in pool.cachedStates:
+    try:
+      state = poolStateCache[(a: bs.blck.root, b: bs.slot)]
       return true
+    except KeyError:
+      discard
+
+  # In-memory caches didn't hit. Try main blockpool database. This is slower
+  # than the caches due to SSZ (de)serializing and disk I/O, so prefer them.
+  if (let tmp = pool.db.getStateRoot(bs.blck.root, bs.slot); tmp.isSome()):
+    doAssert pool.getState(pool.db, tmp.get(), bs.blck, state)
+    return true
 
   false
 
