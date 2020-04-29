@@ -492,7 +492,7 @@ proc makeBeaconBlock*(
     warn "Unable to apply new block to state", blck = shortLog(blck)
     return
 
-  blck.state_root = hash_tree_root(tmpState)
+  blck.state_root = hash_tree_root(tmpState[])
 
   some(blck)
 

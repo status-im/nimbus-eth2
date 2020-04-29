@@ -109,8 +109,6 @@ template toSszType*(x: auto): auto =
   elif x is Eth2Digest: x.data
   elif x is BlsCurveType: toRaw(x)
   elif x is BitSeq|BitList: ByteList(x)
-  elif x is ref|ptr: toSszType x[]
-  elif x is Option: toSszType x.get
   elif x is TypeWithMaxLen: toSszType valueOf(x)
   elif useListType and x is List: seq[x.T](x)
   else: x
@@ -217,10 +215,6 @@ proc writeVarSizeType(w: var SszWriter, value: auto) {.raises: [Defect, IOError]
       var cursor = w.stream.delayFixedSizeWrite offset
       for elem in value:
         cursor.writeFixedSized uint32(offset)
-        when elem is Option:
-          if not isSome(elem): continue
-        elif elem is ptr|ref:
-          if isNil(elem): continue
         let initPos = w.stream.pos
         w.writeVarSizeType toSszType(elem)
         offset += w.stream.pos - initPos
@@ -509,7 +503,9 @@ func bitlistHashTreeRoot(merkleizer: SszChunksMerkleizer, x: BitSeq): Eth2Digest
   mixInLength contentsHash, x.len
 
 func hashTreeRootImpl[T](x: T): Eth2Digest =
-  when T is uint64:
+  when T is SignedBeaconBlock:
+    unsupported T # Blocks are identified by htr(BeaconBlock) so we avoid these
+  elif T is uint64:
     trs "UINT64; LITTLE-ENDIAN IDENTITY MAPPING"
     result.data[0..<8] = x.toBytesLE()
   elif (when T is array: ElemType(T) is byte and
@@ -557,8 +553,6 @@ func maxChunksCount(T: type, maxLen: static int64): int64 {.compileTime.} =
 func hash_tree_root*(x: auto): Eth2Digest {.raises: [Defect].} =
   trs "STARTING HASH TREE ROOT FOR TYPE ", name(type(x))
   mixin toSszType
-  when x is SignedBeaconBlock:
-    doassert false
   when x is TypeWithMaxLen:
     const maxLen = x.maxLen
     type T = type valueOf(x)

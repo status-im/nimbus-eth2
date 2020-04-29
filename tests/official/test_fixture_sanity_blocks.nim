@@ -34,7 +34,7 @@ proc runTest(identifier: string) =
       "[Invalid] "
 
     timedTest prefix & identifier:
-      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconStateRef)
+      var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
       var hasPostState = existsFile(testDir/"post.ssz")
 
       # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
@@ -54,10 +54,10 @@ proc runTest(identifier: string) =
 
       # check: preState.hash_tree_root() == postState.hash_tree_root()
       if hasPostState:
-        let postState = parseTest(testDir/"post.ssz", SSZ, BeaconStateRef)
+        let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
         when false:
           reportDiff(preState, postState)
-        doAssert preState.hash_tree_root() == postState.hash_tree_root()
+        doAssert preState[].hash_tree_root() == postState[].hash_tree_root()
 
   `testImpl _ blck _ identifier`()
 

@@ -35,7 +35,7 @@
 {.push raises: [Defect].}
 
 import
-  math, options, sequtils, tables,
+  math, sequtils, tables,
   stew/[bitseqs, bitops2], chronicles, json_serialization/std/sets,
   metrics, ../ssz,
   beaconstate, crypto, datatypes, digest, helpers, validator,

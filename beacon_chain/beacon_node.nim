@@ -122,8 +122,8 @@ proc getStateFromSnapshot(conf: BeaconNodeConf): NilableBeaconStateRef =
       error "Failed to read genesis file", err = err.msg
       quit 1
 
-  try:
-    result = SSZ.decode(snapshotContents, BeaconStateRef)
+  result = try:
+    newClone(SSZ.decode(snapshotContents, BeaconState))
   except SerializationError:
     error "Failed to import genesis file", path = genesisPath
     quit 1
@@ -187,7 +187,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
         # TODO how to get a block from a non-genesis state?
         error "Starting from non-genesis state not supported",
           stateSlot = genesisState.slot,
-          stateRoot = hash_tree_root(genesisState)
+          stateRoot = hash_tree_root(genesisState[])
         quit 1
 
       let tailBlock = get_initial_beacon_block(genesisState[])
@@ -1397,7 +1397,7 @@ programMain:
       echo "Wrote ", outGenesis
 
     let outSszGenesis = outGenesis.changeFileExt "ssz"
-    SSZ.saveFile(outSszGenesis, initialState)
+    SSZ.saveFile(outSszGenesis, initialState[])
     echo "Wrote ", outSszGenesis
 
     let bootstrapFile = config.outputBootstrapFile.string

@@ -165,4 +165,4 @@ suiteReport "Interop":
       else:
         "unimplemented"
     check:
-      hash_tree_root(initialState).data.toHex() == expected
+      hash_tree_root(initialState[]).data.toHex() == expected

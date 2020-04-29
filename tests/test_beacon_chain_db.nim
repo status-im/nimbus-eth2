@@ -52,7 +52,7 @@ suiteReport "Beacon chain DB" & preset():
 
     let
       state = BeaconStateRef()
-      root = hash_tree_root(state)
+      root = hash_tree_root(state[])
 
     db.putState(state[])
 
@@ -103,7 +103,7 @@ suiteReport "Beacon chain DB" & preset():
     let
       state = initialize_beacon_state_from_eth1(
         eth1BlockHash, 0, makeInitialDeposits(SLOTS_PER_EPOCH), {skipBlsValidation})
-      root = hash_tree_root(state)
+      root = hash_tree_root(state[])
 
     db.putState(state[])
 
