@@ -63,7 +63,7 @@ func verifyConsensus(state: BeaconState, attesterRatio: auto) =
     doAssert state.finalized_checkpoint.epoch + 2 >= current_epoch
 
 cli do(slots = SLOTS_PER_EPOCH * 6,
-       validators = SLOTS_PER_EPOCH * 30, # One per shard is minimum
+       validators = SLOTS_PER_EPOCH * 100, # One per shard is minimum
        json_interval = SLOTS_PER_EPOCH,
        write_last_json = false,
        prefix = 0,
