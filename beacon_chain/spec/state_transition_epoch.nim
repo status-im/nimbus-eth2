@@ -32,8 +32,10 @@
 # improvements to be made - other than that, keep things similar to spec for
 # now.
 
+{.push raises: [Defect].}
+
 import
-  math, options, sequtils, tables,
+  math, sequtils, tables,
   stew/[bitseqs, bitops2], chronicles, json_serialization/std/sets,
   metrics, ../ssz,
   beaconstate, crypto, datatypes, digest, helpers, validator,
@@ -146,9 +148,9 @@ proc process_justification_and_finalization*(
   ## matter -- in the next epoch, they'll be 2 epochs old, when BeaconState
   ## tracks current_epoch_attestations and previous_epoch_attestations only
   ## per
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#attestations
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#attestations
   ## and `get_matching_source_attestations(...)` via
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#helper-functions-1
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#helper-functions-1
   ## and
   ## https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#final-updates
   ## after which the state.previous_epoch_attestations is replaced.
@@ -408,24 +410,25 @@ func process_final_updates*(state: var BeaconState) {.nbench.}=
 
   # Set historical root accumulator
   if next_epoch mod (SLOTS_PER_HISTORICAL_ROOT div SLOTS_PER_EPOCH).uint64 == 0:
-    let historical_batch = HistoricalBatch(
-      block_roots: state.block_roots,
-      state_roots: state.state_roots,
-    )
-    state.historical_roots.add (hash_tree_root(historical_batch))
+    # Equivalent to hash_tree_root(foo: HistoricalBatch), but without using
+    # significant additional stack or heap.
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#historicalbatch
+    # In response to https://github.com/status-im/nim-beacon-chain/issues/921
+    state.historical_roots.add hash_tree_root(
+      [hash_tree_root(state.block_roots), hash_tree_root(state.state_roots)])
 
   # Rotate current/previous epoch attestations
   state.previous_epoch_attestations = state.current_epoch_attestations
   state.current_epoch_attestations = @[]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#epoch-processing
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(state: var BeaconState) {.nbench.}=
   trace "process_epoch",
     current_epoch = get_current_epoch(state)
 
   var per_epoch_cache = get_empty_per_epoch_cache()
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#justification-and-finalization
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#justification-and-finalization
   process_justification_and_finalization(state, per_epoch_cache)
 
   trace "ran process_justification_and_finalization",
@@ -434,7 +437,7 @@ proc process_epoch*(state: var BeaconState) {.nbench.}=
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#rewards-and-penalties-1
   process_rewards_and_penalties(state, per_epoch_cache)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#registry-updates
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#registry-updates
   # Don't rely on caching here.
   process_registry_updates(state)
 
@@ -442,20 +445,23 @@ proc process_epoch*(state: var BeaconState) {.nbench.}=
   ## get_active_validator_indices(...) usually changes.
   clear(per_epoch_cache.beacon_committee_cache)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#slashings
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#slashings
   process_slashings(state)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#final-updates
   process_final_updates(state)
 
   # Once per epoch metrics
-  beacon_finalized_epoch.set(state.finalized_checkpoint.epoch.int64)
-  beacon_finalized_root.set(state.finalized_checkpoint.root.toGaugeValue)
-  beacon_current_justified_epoch.set(
-    state.current_justified_checkpoint.epoch.int64)
-  beacon_current_justified_root.set(
-    state.current_justified_checkpoint.root.toGaugeValue)
-  beacon_previous_justified_epoch.set(
-    state.previous_justified_checkpoint.epoch.int64)
-  beacon_previous_justified_root.set(
-    state.previous_justified_checkpoint.root.toGaugeValue)
+  try:
+    beacon_finalized_epoch.set(state.finalized_checkpoint.epoch.int64)
+    beacon_finalized_root.set(state.finalized_checkpoint.root.toGaugeValue)
+    beacon_current_justified_epoch.set(
+      state.current_justified_checkpoint.epoch.int64)
+    beacon_current_justified_root.set(
+      state.current_justified_checkpoint.root.toGaugeValue)
+    beacon_previous_justified_epoch.set(
+      state.previous_justified_checkpoint.epoch.int64)
+    beacon_previous_justified_root.set(
+      state.previous_justified_checkpoint.root.toGaugeValue)
+  except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
+    trace "Couldn't update metrics", msg = e.msg

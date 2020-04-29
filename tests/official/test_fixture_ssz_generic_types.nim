@@ -80,15 +80,11 @@ proc checkBasic(T: typedesc,
                 dir: string,
                 expectedHash: SSZHashTreeRoot) =
   var fileContents = readFile(dir/"serialized.ssz")
-  var stream = memoryStream(fileContents)
+  var stream = memoryInput(fileContents)
   var reader = init(SszReader, stream)
+  var deserialized = reader.readValue(T)
 
-  # We are using heap allocation to avoid stack overflow
-  # issues caused by large objects such as `BeaconState`:
-  var deserialized = new T
-  reader.readValue(deserialized[])
-
-  if not stream[].eof:
+  if stream.readable:
     raise newException(UnconsumedInput, "Remaining bytes in the input")
 
   let

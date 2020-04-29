@@ -1,3 +1,6 @@
+{.push raises: [Defect].}
+{.pragma: raisesssz, raises: [Defect, MalformedSszError, SszSizeMismatchError].}
+
 import
   stew/[ptrops, objects], stew/ranges/ptr_arith,
   ./types, ./bytes_reader
@@ -35,9 +38,9 @@ template toOpenArray(m: MemRange): auto =
 
 func navigateToField*[T](n: SszNavigator[T],
                          fieldName: static string,
-                         FieldType: type): SszNavigator[FieldType] =
+                         FieldType: type): SszNavigator[FieldType] {.raisesssz.} =
   mixin toSszType
-  type SszFieldType = type toSszType(default FieldType)
+  type SszFieldType = type toSszType(declval FieldType)
 
   const boundingOffsets = getFieldBoundingOffsets(T, fieldName)
   checkBounds(n.m, boundingOffsets[1])
@@ -67,7 +70,7 @@ template `.`*[T](n: SszNavigator[T], field: untyped): auto =
   type FieldType = type(default(RecType).field)
   navigateToField(n, astToStr(field), FieldType)
 
-func indexVarSizeList(m: MemRange, idx: int): MemRange =
+func indexVarSizeList(m: MemRange, idx: int): MemRange {.raisesssz.} =
   template readOffset(pos): int =
     int fromSszBytes(uint32, makeOpenArray(offset(m.startAddr, pos), offsetSize))
 
@@ -98,7 +101,7 @@ func indexVarSizeList(m: MemRange, idx: int): MemRange =
 template indexList(n, idx, T: untyped): untyped =
   type R = T
   mixin toSszType
-  type ElemType = type toSszType(default R)
+  type ElemType = type toSszType(declval R)
   when isFixedSize(ElemType):
     const elemSize = fixedPortionSize(ElemType)
     let elemPos = idx * elemSize
@@ -114,14 +117,14 @@ template `[]`*[T](n: SszNavigator[seq[T]], idx: int): SszNavigator[T] =
 template `[]`*[R, T](n: SszNavigator[array[R, T]], idx: int): SszNavigator[T] =
   indexList(n, idx, T)
 
-func `[]`*[T](n: SszNavigator[T]): T =
+func `[]`*[T](n: SszNavigator[T]): T {.raisesssz.} =
   mixin toSszType, fromSszBytes
-  type SszRepr = type(toSszType default(T))
+  type SszRepr = type toSszType(declval T)
   when type(SszRepr) is type(T):
     readSszValue(toOpenArray(n.m), T)
   else:
     fromSszBytes(T, toOpenArray(n.m))
 
-converter derefNavigator*[T](n: SszNavigator[T]): T =
+converter derefNavigator*[T](n: SszNavigator[T]): T {.raisesssz.} =
   n[]
 

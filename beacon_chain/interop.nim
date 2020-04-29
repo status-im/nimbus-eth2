@@ -1,3 +1,5 @@
+{.push raises: [Defect].}
+
 import
   stew/endians2, stint,
   ./extras, ./ssz,
@@ -14,7 +16,7 @@ func get_eth1data_stub*(deposit_count: uint64, current_epoch: Epoch): Eth1Data =
     block_hash: hash_tree_root(hash_tree_root(voting_period).data),
   )
 
-func makeInteropPrivKey*(i: int): ValidatorPrivKey =
+func makeInteropPrivKey*(i: int): BlsResult[ValidatorPrivKey] =
   var bytes: array[32, byte]
   bytes[0..7] = uint64(i).toBytesLE()
 
@@ -26,16 +28,16 @@ func makeInteropPrivKey*(i: int): ValidatorPrivKey =
     privkeyBytes = eth2hash(bytes)
     key = (UInt256.fromBytesLE(privkeyBytes.data) mod curveOrder).toBytesBE()
 
-  result.initFromBytes(key)
+  ValidatorPrivKey.fromRaw(key)
 
 const eth1BlockHash* = block:
   var x: Eth2Digest
   for v in x.data.mitems: v = 0x42
   x
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/deposit-contract.md#withdrawal-credentials
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/deposit-contract.md#withdrawal-credentials
 func makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
-  var bytes = eth2hash(k.getBytes())
+  var bytes = eth2hash(k.toRaw())
   bytes.data[0] = BLS_WITHDRAWAL_PREFIX.uint8
   bytes
 

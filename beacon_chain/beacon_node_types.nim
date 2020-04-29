@@ -1,8 +1,9 @@
+{.push raises: [Defect].}
+
 import
-  deques, tables, options,
-  stew/[endians2], chronicles,
+  deques, tables,
+  stew/[endians2, byteutils], chronicles,
   spec/[datatypes, crypto, digest],
-  nimcrypto/utils,
   beacon_chain_db
 
 type
@@ -132,6 +133,12 @@ type
 
     db*: BeaconChainDB
 
+    cachedStates*:
+      array[2, TableRef[tuple[a: Eth2Digest, b: Slot], StateData]] ##\
+    ## Dual BeaconChainDBs operates as a pool allocator which handles epoch
+    ## boundaries which don't align with an ongoing latency of availability
+    ## of precalculated BeaconStates from the recent past.
+
     heads*: seq[Head]
 
     inAdd*: bool
@@ -221,10 +228,14 @@ type
 
 proc shortLog*(v: AttachedValidator): string = shortLog(v.pubKey)
 
-chronicles.formatIt BlockSlot:
-  mixin toHex
-  it.blck.root.data[0..3].toHex(true) & ":" & $it.slot
+proc shortLog*(v: BlockSlot): string =
+  if v.blck.slot == v.slot:
+    v.blck.root.data[0..3].toHex() & ":" & $v.blck.slot
+  else: # There was a gap - log it
+    v.blck.root.data[0..3].toHex() & ":" & $v.blck.slot & "@" & $v.slot
 
-chronicles.formatIt BlockRef:
-  mixin toHex
-  it.root.data[0..3].toHex(true) & ":" & $it.slot
+proc shortLog*(v: BlockRef): string =
+  v.root.data[0..3].toHex() & ":" & $v.slot
+
+chronicles.formatIt BlockSlot: shortLog(it)
+chronicles.formatIt BlockRef: shortLog(it)

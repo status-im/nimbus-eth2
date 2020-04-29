@@ -4,13 +4,13 @@ import
   options as stdOptions, net as stdNet,
 
   # Status libs
-  stew/[io, varints, base58], stew/shims/[macros, tables], stint,
-  faststreams/output_stream,
+  stew/[varints, base58, bitseqs], stew/shims/[macros, tables], stint,
+  faststreams/output_stream, snappy, snappy/framing,
   json_serialization, json_serialization/std/[net, options],
   chronos, chronicles, metrics,
   # TODO: create simpler to use libp2p modules that use re-exports
-  libp2p/[switch, standard_setup, peerinfo, peer, connection,
-          multiaddress, multicodec, crypto/crypto,
+  libp2p/[switch, standard_setup, peerinfo, peer, connection, errors,
+          multiaddress, multicodec, crypto/crypto, crypto/secp,
           protocols/identify, protocols/protocol],
   libp2p/protocols/secure/[secure, secio],
   libp2p/protocols/pubsub/[pubsub, floodsub, rpc/messages],
@@ -18,17 +18,16 @@ import
   libp2p/stream/lpstream,
   eth/[keys, async_utils], eth/p2p/[enode, p2p_protocol_dsl],
   eth/net/nat, eth/p2p/discoveryv5/[enr, node],
-
   # Beacon node modules
   version, conf, eth2_discovery, libp2p_json_serialization, conf, ssz,
-  peer_pool
+  peer_pool, spec/[datatypes, network]
 
 import
   eth/p2p/discoveryv5/protocol as discv5_protocol
 
 export
   version, multiaddress, peer_pool, peerinfo, p2pProtocol,
-  libp2p_json_serialization, ssz
+  libp2p_json_serialization, ssz, peer
 
 logScope:
   topics = "networking"
@@ -40,6 +39,10 @@ type
 
   Bytes = seq[byte]
 
+  # TODO: This is here only to eradicate a compiler
+  # warning about unused import (rpc/messages).
+  GossipMsg = messages.Message
+
   # TODO Is this really needed?
   Eth2Node* = ref object of RootObj
     switch*: Switch
@@ -48,8 +51,19 @@ type
     peerPool*: PeerPool[Peer, PeerID]
     protocolStates*: seq[RootRef]
     libp2pTransportLoops*: seq[Future[void]]
+    discoveryLoop: Future[void]
+    metadata*: Eth2Metadata
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
+
+  Eth2MetaData* = object
+    seq_number*: uint64
+    attnets*: BitArray[ATTESTATION_SUBNET_COUNT]
+
+  ENRForkID* = object
+    fork_digest*: ForkDigest
+    next_fork_version*: Version
+    next_fork_epoch*: Epoch
 
   Peer* = ref object
     network*: Eth2Node
@@ -60,6 +74,7 @@ type
     protocolStates*: seq[RootRef]
     maxInactivityAllowed*: Duration
     score*: int
+    supportsSnappy: bool
 
   ConnectionState* = enum
     None,
@@ -121,18 +136,24 @@ type
 const
   clientId* = "Nimbus beacon node v" & fullVersionStr
   networkKeyFilename = "privkey.protobuf"
+  nodeMetadataFilename = "node-metadata.json"
 
   TCP = net.Protocol.IPPROTO_TCP
   HandshakeTimeout = FaultOrError
 
   # Spec constants
   # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/networking/p2p-interface.md#eth-20-network-interaction-domains
-  REQ_RESP_MAX_SIZE* = 1 * 1024 * 1024 # bytes
+  MAX_CHUNK_SIZE* = 1 * 1024 * 1024 # bytes
   GOSSIP_MAX_SIZE* = 1 * 1024 * 1024 # bytes
   TTFB_TIMEOUT* = 5.seconds
   RESP_TIMEOUT* = 10.seconds
 
   readTimeoutErrorMsg = "Exceeded read timeout for a request"
+
+  NewPeerScore* = 200
+    ## Score which will be assigned to new connected Peer
+  PeerScoreLimit* = 0
+    ## Score after which peer will be kicked
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter gossip_messages_sent,
@@ -184,6 +205,13 @@ proc getFuture*(peer: Peer): Future[void] {.inline.} =
 proc `<`*(a, b: Peer): bool =
   result = `<`(a.score, b.score)
 
+proc getScore*(a: Peer): int =
+  result = a.score
+
+proc updateScore*(peer: Peer, score: int) =
+  ## Update peer's ``peer`` score with value ``score``.
+  peer.score = peer.score + score
+
 proc disconnect*(peer: Peer, reason: DisconnectionReason,
                  notifyOtherPeer = false) {.async.} =
   # TODO: How should we notify the other peer?
@@ -213,7 +241,7 @@ proc getRequestProtoName(fn: NimNode): NimNode =
       if pragma.len > 0 and $pragma[0] == "libp2pProtocol":
         let protoName = $(pragma[1])
         let protoVer = $(pragma[2].intVal)
-        return newLit("/eth2/beacon_chain/req/" & protoName & "/" & protoVer & "/ssz")
+        return newLit("/eth2/beacon_chain/req/" & protoName & "/" & protoVer & "/")
 
   return newLit("")
 
@@ -248,7 +276,7 @@ proc readSizePrefix(conn: Connection,
     case parser.feedByte(nextByte)
     of Done:
       let res = parser.getResult
-      if res > uint64(REQ_RESP_MAX_SIZE):
+      if res > uint64(MAX_CHUNK_SIZE):
         trace "size prefix outside of range", res
         return -1
       else:
@@ -353,7 +381,7 @@ proc readResponse(
     return await conn.readChunk(MsgType, true, deadline)
 
 proc encodeErrorMsg(responseCode: ResponseCode, errMsg: string): Bytes =
-  var s = init OutputStream
+  var s = memoryOutput()
   s.append byte(responseCode)
   s.appendVarint errMsg.len
   s.appendValue SSZ, errMsg
@@ -382,29 +410,34 @@ proc sendErrorResponse(peer: Peer,
   await conn.close()
 
 proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.async} =
-  var deadline = sleepAsync RESP_TIMEOUT
-  var streamFut = peer.network.openStream(peer, protocolId)
+  var
+    deadline = sleepAsync RESP_TIMEOUT
+    protocolId = protocolId & (if peer.supportsSnappy: "ssz_snappy" else: "ssz")
+    streamFut = peer.network.openStream(peer, protocolId)
+
   await streamFut or deadline
+
   if not streamFut.finished:
-    # TODO: we are returning here because the deadline passed, but
-    # the stream can still be opened eventually a bit later. Who is
-    # going to close it then?
+    streamFut.cancel()
     raise newException(TransmissionError, "Failed to open LibP2P stream")
 
   let stream = streamFut.read
-  defer:
+  try:
+    var s = memoryOutput()
+    s.appendVarint requestBytes.len.uint64
+    if peer.supportsSnappy:
+      framing_format_compress(s, requestBytes)
+    else:
+      s.append requestBytes
+    let bytes = s.getOutput
+    await stream.write(bytes)
+  finally:
     await safeClose(stream)
-
-  var s = init OutputStream
-  s.appendVarint requestBytes.len.uint64
-  s.append requestBytes
-  let bytes = s.getOutput
-  await stream.write(bytes)
 
 # TODO There is too much duplication in the responder functions, but
 # I hope to reduce this when I increse the reliance on output streams.
 proc sendResponseChunkBytes(responder: UntypedResponder, payload: Bytes) {.async.} =
-  var s = init OutputStream
+  var s = memoryOutput()
   s.append byte(Success)
   s.appendVarint payload.len.uint64
   s.append payload
@@ -412,14 +445,14 @@ proc sendResponseChunkBytes(responder: UntypedResponder, payload: Bytes) {.async
   await responder.stream.write(bytes)
 
 proc sendResponseChunkObj(responder: UntypedResponder, val: auto) {.async.} =
-  var s = init OutputStream
+  var s = memoryOutput()
   s.append byte(Success)
   s.appendValue SSZ, sizePrefixed(val)
   let bytes = s.getOutput
   await responder.stream.write(bytes)
 
 proc sendResponseChunks[T](responder: UntypedResponder, chunks: seq[T]) {.async.} =
-  var s = init OutputStream
+  var s = memoryOutput()
   for chunk in chunks:
     s.append byte(Success)
     s.appendValue SSZ, sizePrefixed(chunk)
@@ -430,30 +463,33 @@ proc sendResponseChunks[T](responder: UntypedResponder, chunks: seq[T]) {.async.
 proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
                      ResponseMsg: type,
                      timeout: Duration): Future[Option[ResponseMsg]] {.gcsafe, async.} =
-  var deadline = sleepAsync timeout
+  var
+    deadline = sleepAsync timeout
+    protocolId = protocolId & (if peer.supportsSnappy: "ssz_snappy" else: "ssz")
+    streamFut = peer.network.openStream(peer, protocolId)
 
-  # Open a new LibP2P stream
-  var streamFut = peer.network.openStream(peer, protocolId)
   await streamFut or deadline
+
   if not streamFut.finished:
-    # TODO: we are returning here because the deadline passed, but
-    # the stream can still be opened eventually a bit later. Who is
-    # going to close it then?
+    streamFut.cancel()
     return none(ResponseMsg)
 
   let stream = streamFut.read
-  defer:
+  try:
+    # Send the request
+    var s = memoryOutput()
+    s.appendVarint requestBytes.len.uint64
+    if peer.supportsSnappy:
+      framing_format_compress(s, requestBytes)
+    else:
+      s.append requestBytes
+    let bytes = s.getOutput
+    await stream.write(bytes)
+
+    # Read the response
+    return await stream.readResponse(ResponseMsg, deadline)
+  finally:
     await safeClose(stream)
-
-  # Send the request
-  var s = init OutputStream
-  s.appendVarint requestBytes.len.uint64
-  s.append requestBytes
-  let bytes = s.getOutput
-  await stream.write(bytes)
-
-  # Read the response
-  return await stream.readResponse(ResponseMsg, deadline)
 
 proc init*[MsgType](T: type Responder[MsgType],
                     peer: Peer, conn: Connection): T =
@@ -480,7 +516,7 @@ proc performProtocolHandshakes*(peer: Peer) {.async.} =
     if protocol.handshake != nil:
       subProtocolsHandshakes.add((protocol.handshake)(peer, nil))
 
-  await all(subProtocolsHandshakes)
+  await allFuturesThrowing(subProtocolsHandshakes)
 
 template initializeConnection*(peer: Peer): auto =
   performProtocolHandshakes(peer)
@@ -529,7 +565,7 @@ proc implementSendProcBody(sendProc: SendProc) =
 
   sendProc.useStandardBody(nil, nil, sendCallGenerator)
 
-proc handleIncomingStream(network: Eth2Node, conn: Connection,
+proc handleIncomingStream(network: Eth2Node, conn: Connection, useSnappy: bool,
                           MsgType, Format: distinct type) {.async, gcsafe.} =
   mixin callUserHandler, RecType
   const msgName = typetraits.name(MsgType)
@@ -546,37 +582,39 @@ proc handleIncomingStream(network: Eth2Node, conn: Connection,
 
   handleIncomingPeer(peer)
 
-  defer:
+  try:
+    let deadline = sleepAsync RESP_TIMEOUT
+    var msgBytes = await readMsgBytes(conn, false, deadline)
+
+    if msgBytes.len == 0:
+      await sendErrorResponse(peer, conn, ServerError, readTimeoutErrorMsg)
+      return
+
+    if useSnappy:
+      msgBytes = framingFormatUncompress(msgBytes)
+
+    type MsgRec = RecType(MsgType)
+    var msg: MsgRec
+    try:
+      msg = decode(Format, msgBytes, MsgRec)
+    except SerializationError as err:
+      await sendErrorResponse(peer, conn, err, msgName, msgBytes)
+      return
+    except Exception as err:
+      # TODO. This is temporary code that should be removed after interop.
+      # It can be enabled only in certain diagnostic builds where it should
+      # re-raise the exception.
+      debug "Crash during serialization", inputBytes = toHex(msgBytes), msgName
+      await sendErrorResponse(peer, conn, ServerError, err.msg)
+      raise err
+
+    try:
+      logReceivedMsg(peer, MsgType(msg))
+      await callUserHandler(peer, conn, msg)
+    except CatchableError as err:
+      await sendErrorResponse(peer, conn, ServerError, err.msg)
+  finally:
     await safeClose(conn)
-
-  let
-    deadline = sleepAsync RESP_TIMEOUT
-    msgBytes = await readMsgBytes(conn, false, deadline)
-
-  if msgBytes.len == 0:
-    await sendErrorResponse(peer, conn, ServerError, readTimeoutErrorMsg)
-    return
-
-  type MsgRec = RecType(MsgType)
-  var msg: MsgRec
-  try:
-    msg = decode(Format, msgBytes, MsgRec)
-  except SerializationError as err:
-    await sendErrorResponse(peer, conn, err, msgName, msgBytes)
-    return
-  except Exception as err:
-    # TODO. This is temporary code that should be removed after interop.
-    # It can be enabled only in certain diagnostic builds where it should
-    # re-raise the exception.
-    debug "Crash during serialization", inputBytes = toHex(msgBytes), msgName
-    await sendErrorResponse(peer, conn, ServerError, err.msg)
-    raise err
-
-  try:
-    logReceivedMsg(peer, MsgType(msg))
-    await callUserHandler(peer, conn, msg)
-  except CatchableError as err:
-    await sendErrorResponse(peer, conn, ServerError, err.msg)
 
 proc handleOutgoingPeer*(peer: Peer): Future[void] {.async.} =
   let network = peer.network
@@ -587,6 +625,7 @@ proc handleOutgoingPeer*(peer: Peer): Future[void] {.async.} =
 
   let res = await network.peerPool.addOutgoingPeer(peer)
   if res:
+    peer.updateScore(NewPeerScore)
     debug "Peer (outgoing) has been added to PeerPool", peer = $peer.info
     peer.getFuture().addCallback(onPeerClosed)
   libp2p_peers.set int64(len(network.peerPool))
@@ -600,6 +639,7 @@ proc handleIncomingPeer*(peer: Peer) =
 
   let res = network.peerPool.addIncomingPeerNoWait(peer)
   if res:
+    peer.updateScore(NewPeerScore)
     debug "Peer (incoming) has been added to PeerPool", peer = $peer.info
     peer.getFuture().addCallback(onPeerClosed)
   libp2p_peers.set int64(len(network.peerPool))
@@ -611,7 +651,7 @@ proc toPeerInfo*(r: enr.TypedRecord): PeerInfo =
       return # TODO
 
     let peerId = PeerID.init crypto.PublicKey(
-      scheme: Secp256k1, skkey: SkPublicKey(pubKey[]))
+      scheme: Secp256k1, skkey: secp.SkPublicKey(pubKey[]))
     var addresses = newSeq[MultiAddress]()
 
     if r.ip.isSome and r.tcp.isSome:
@@ -643,6 +683,11 @@ proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
   await node.switch.connect(peerInfo)
   var peer = node.getPeer(peerInfo)
   peer.wasDialed = true
+
+  #let msDial = newMultistream()
+  #let conn = node.switch.connections.getOrDefault(peerInfo.id)
+  #let ls = await msDial.list(conn)
+  #debug "Supported protocols", ls
 
   debug "Initializing connection"
   await initializeConnection(peer)
@@ -678,15 +723,28 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
 
     await sleepAsync seconds(1)
 
-proc init*(T: type Eth2Node, conf: BeaconNodeConf,
+proc getPersistentNetMetadata*(conf: BeaconNodeConf): Eth2Metadata =
+  let metadataPath = conf.dataDir / nodeMetadataFilename
+  if not fileExists(metadataPath):
+    result = Eth2Metadata()
+    for i in 0 ..< ATTESTATION_SUBNET_COUNT:
+      # TODO: For now, we indicate that we participate in all subnets
+      result.attnets[i] = true
+    Json.saveFile(metadataPath, result)
+  else:
+    result = Json.loadFile(metadataPath, Eth2Metadata)
+
+proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
            switch: Switch, ip: Option[IpAddress], tcpPort, udpPort: Port,
            privKey: keys.PrivateKey): T =
   new result
   result.switch = switch
-  result.discovery = Eth2DiscoveryProtocol.new(
-    conf, ip, tcpPort, udpPort, privKey.toRaw)
   result.wantedPeers = conf.maxPeers
   result.peerPool = newPeerPool[Peer, PeerID](maxPeers = conf.maxPeers)
+  result.metadata = getPersistentNetMetadata(conf)
+  result.discovery = Eth2DiscoveryProtocol.new(
+    conf, ip, tcpPort, udpPort, privKey.toRaw,
+    {"eth2": SSZ.encode(enrForkId), "attnets": SSZ.encode(result.metadata.attnets)})
 
   newSeq result.protocolStates, allProtocols.len
   for proto in allProtocols:
@@ -707,7 +765,8 @@ proc start*(node: Eth2Node) {.async.} =
   node.discovery.open()
   node.discovery.start()
   node.libp2pTransportLoops = await node.switch.start()
-  traceAsyncErrors node.runDiscoveryLoop()
+  node.discoveryLoop = node.runDiscoveryLoop()
+  traceAsyncErrors node.discoveryLoop
 
 proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer =
   new result
@@ -798,13 +857,23 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
           `userHandlerCall`
 
         proc `protocolMounterName`(`networkVar`: `Eth2Node`) =
-          proc thunk(`streamVar`: `Connection`,
+          proc sszThunk(`streamVar`: `Connection`,
                       proto: string): Future[void] {.gcsafe.} =
-            return handleIncomingStream(`networkVar`, `streamVar`,
+            return handleIncomingStream(`networkVar`, `streamVar`, false,
                                         `MsgStrongRecName`, `Format`)
 
           mount `networkVar`.switch,
-                LPProtocol(codec: `codecNameLit`, handler: thunk)
+                LPProtocol(codec: `codecNameLit` & "ssz",
+                           handler: sszThunk)
+
+          proc snappyThunk(`streamVar`: `Connection`,
+                      proto: string): Future[void] {.gcsafe.} =
+            return handleIncomingStream(`networkVar`, `streamVar`, true,
+                                        `MsgStrongRecName`, `Format`)
+
+          mount `networkVar`.switch,
+                LPProtocol(codec: `codecNameLit` & "ssz_snappy",
+                           handler: snappyThunk)
 
       mounter = protocolMounterName
     else:
@@ -868,10 +937,10 @@ proc setupNat(conf: BeaconNodeConf): tuple[ip: Option[IpAddress],
         (result.tcpPort, result.udpPort) = extPorts.get()
 
 func asLibp2pKey*(key: keys.PublicKey): PublicKey =
-  PublicKey(scheme: Secp256k1, skkey: SkPublicKey(key))
+  PublicKey(scheme: Secp256k1, skkey: secp.SkPublicKey(key))
 
 func asEthKey*(key: PrivateKey): keys.PrivateKey =
-  keys.PrivateKey(SkSecretKey(data: key.skkey.data))
+  keys.PrivateKey(key.skkey)
 
 proc initAddress*(T: type MultiAddress, str: string): T =
   let address = MultiAddress.init(str)
@@ -897,7 +966,7 @@ proc getPersistentNetKeys*(conf: BeaconNodeConf): KeyPair =
 
   KeyPair(seckey: privKey, pubkey: privKey.getKey())
 
-proc createEth2Node*(conf: BeaconNodeConf): Future[Eth2Node] {.async, gcsafe.} =
+proc createEth2Node*(conf: BeaconNodeConf, enrForkId: ENRForkID): Future[Eth2Node] {.async, gcsafe.} =
   var
     (extIp, extTcpPort, extUdpPort) = setupNat(conf)
     hostAddress = tcpEndPoint(conf.libp2pAddress, conf.tcpPort)
@@ -913,7 +982,8 @@ proc createEth2Node*(conf: BeaconNodeConf): Future[Eth2Node] {.async, gcsafe.} =
   # are running behind a NAT).
   var switch = newStandardSwitch(some keys.seckey, hostAddress,
                                  triggerSelf = true, gossip = true)
-  result = Eth2Node.init(conf, switch, extIp, extTcpPort, extUdpPort,
+  result = Eth2Node.init(conf, enrForkId, switch,
+                         extIp, extTcpPort, extUdpPort,
                          keys.seckey.asEthKey)
 
 proc getPersistenBootstrapAddr*(conf: BeaconNodeConf,
@@ -921,7 +991,7 @@ proc getPersistenBootstrapAddr*(conf: BeaconNodeConf,
   let pair = getPersistentNetKeys(conf)
   return enr.Record.init(1'u64, # sequence number
                          pair.seckey.asEthKey,
-                         some(ip), port, port)
+                         some(ip), port, port, @[])
 
 proc announcedENR*(node: Eth2Node): enr.Record =
   doAssert node.discovery != nil, "The Eth2Node must be initialized"
@@ -957,32 +1027,52 @@ proc subscribe*[MsgType](node: Eth2Node,
                          topic: string,
                          msgHandler: proc(msg: MsgType) {.gcsafe.},
                          msgValidator: proc(msg: MsgType): bool {.gcsafe.} ) {.async, gcsafe.} =
-  template execMsgHandler(peerExpr, gossipBytes, gossipTopic) =
+  template execMsgHandler(peerExpr, gossipBytes, gossipTopic, useSnappy) =
     inc gossip_messages_received
     trace "Incoming pubsub message received",
       peer = peerExpr, len = gossipBytes.len, topic = gossipTopic,
       message_id = `$`(sha256.digest(gossipBytes))
-    msgHandler SSZ.decode(gossipBytes, MsgType)
+    when useSnappy:
+      msgHandler SSZ.decode(snappy.decode(gossipBytes), MsgType)
+    else:
+      msgHandler SSZ.decode(gossipBytes, MsgType)
 
   # All message types which are subscribed to should be validated; putting
   # this in subscribe(...) ensures that the default approach is correct.
-  template execMsgValidator(gossipBytes, gossipTopic): bool =
+  template execMsgValidator(gossipBytes, gossipTopic, useSnappy): bool =
     trace "Incoming pubsub message received for validation",
       len = gossipBytes.len, topic = gossipTopic,
       message_id = `$`(sha256.digest(gossipBytes))
-    msgValidator SSZ.decode(gossipBytes, MsgType)
+    when useSnappy:
+      msgValidator SSZ.decode(snappy.decode(gossipBytes), MsgType)
+    else:
+      msgValidator SSZ.decode(gossipBytes, MsgType)
 
   # Validate messages as soon as subscribed
-  let incomingMsgValidator = proc(topic: string, message: messages.Message):
-      Future[bool] {.async, gcsafe.} =
-    return execMsgValidator(message.data, topic)
+  let incomingMsgValidator = proc(topic: string,
+                                  message: GossipMsg): Future[bool]
+                                 {.async, gcsafe.} =
+    return execMsgValidator(message.data, topic, false)
+  let incomingMsgValidatorSnappy = proc(topic: string,
+                                        message: GossipMsg): Future[bool]
+                                       {.async, gcsafe.} =
+    return execMsgValidator(message.data, topic, true)
+
   node.switch.addValidator(topic, incomingMsgValidator)
+  node.switch.addValidator(topic & "_snappy", incomingMsgValidatorSnappy)
 
   let incomingMsgHandler = proc(topic: string,
                                 data: seq[byte]) {.async, gcsafe.} =
-    execMsgHandler "unknown", data, topic
+    execMsgHandler "unknown", data, topic, false
+  let incomingMsgHandlerSnappy = proc(topic: string,
+                                      data: seq[byte]) {.async, gcsafe.} =
+    execMsgHandler "unknown", data, topic, true
 
-  await node.switch.subscribe(topic, incomingMsgHandler)
+  var switchSubscriptions: seq[Future[void]] = @[]
+  switchSubscriptions.add(node.switch.subscribe(topic, incomingMsgHandler))
+  switchSubscriptions.add(node.switch.subscribe(topic & "_snappy", incomingMsgHandlerSnappy))
+  
+  await allFutures(switchSubscriptions)
 
 proc traceMessage(fut: FutureBase, digest: MDigest[256]) =
   fut.addCallback do (arg: pointer):
@@ -995,6 +1085,11 @@ proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
   var fut = node.switch.publish(topic, broadcastBytes)
   traceMessage(fut, sha256.digest(broadcastBytes))
   traceAsyncErrors(fut)
+  # also publish to the snappy-compressed topics
+  let snappyEncoded = snappy.encode(broadcastBytes)
+  var futSnappy = node.switch.publish(topic & "_snappy", snappyEncoded)
+  traceMessage(futSnappy, sha256.digest(snappyEncoded))
+  traceAsyncErrors(futSnappy)
 
 # TODO:
 # At the moment, this is just a compatiblity shim for the existing RLPx functionality.

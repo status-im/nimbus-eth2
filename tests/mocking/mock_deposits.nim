@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2019 Status Research & Development GmbH
+# Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -12,11 +12,11 @@ import
   # Standard library
   math, random,
   # Specs
-  ../../beacon_chain/spec/[datatypes, crypto, helpers, digest, beaconstate],
+  ../../beacon_chain/spec/[datatypes, crypto, helpers, digest],
   # Internals
-  ../../beacon_chain/[ssz, extras],
+  ../../beacon_chain/[ssz, extras, merkle_minimal],
   # Mocking procs
-  ./merkle_minimal, ./mock_validator_keys
+  ./mock_validator_keys
 
 func signMockDepositData(
         deposit_data: var DepositData,
@@ -65,7 +65,7 @@ func mockDepositData(
 
   # Insecurely use pubkey as withdrawal key
   deposit_data.withdrawal_credentials.data[0] = byte BLS_WITHDRAWAL_PREFIX
-  deposit_data.withdrawal_credentials.data[1..^1] = pubkey.getBytes()
+  deposit_data.withdrawal_credentials.data[1..^1] = pubkey.toRaw()
                                                           .eth2hash()
                                                           .data
                                                           .toOpenArray(1, 31)
@@ -143,26 +143,6 @@ template mockGenesisDepositsImpl(
       depositsData.add result[valIdx].data
       depositsDataHash.add hash_tree_root(result[valIdx].data)
 
-    # 2nd & 3rd loops - build hashes and proofs
-    let root = hash_tree_root(depositsData)
-    let tree = merkleTreeFromLeaves(depositsDataHash)
-
-    # 4th loop - append proof
-    for valIdx in 0 ..< validatorCount.int:
-      # TODO ensure genesis & deposit process tests suffice to catch whether
-      # changes here break things; ensure that this matches the merkle proof
-      # sequence is_valid_merkle_branch(...) now looks for
-      result[valIdx].proof[0..31] = tree.getMerkleProof(valIdx)
-      result[valIdx].proof[32] =
-        Eth2Digest(data: int_to_bytes32((valIdx + 1).uint64))
-      doAssert is_valid_merkle_branch(
-          depositsDataHash[valIdx],
-          result[valIdx].proof,
-          DEPOSIT_CONTRACT_TREE_DEPTH,
-          valIdx.uint64,
-          root
-        )
-
 proc mockGenesisBalancedDeposits*(
         validatorCount: uint64,
         amountInEth: Positive,
@@ -179,6 +159,7 @@ proc mockGenesisBalancedDeposits*(
   let amount = amountInEth.uint64 * 10'u64^9
   mockGenesisDepositsImpl(result, validatorCount,amount,flags):
     discard
+  attachMerkleProofs(result)
 
 proc mockGenesisUnBalancedDeposits*(
         validatorCount: uint64,
@@ -199,6 +180,7 @@ proc mockGenesisUnBalancedDeposits*(
 
   mockGenesisDepositsImpl(result, validatorCount, amount, flags):
     amount = rng.rand(amountRangeInEth).uint64 * 10'u64^9
+  attachMerkleProofs(result)
 
 proc mockUpdateStateForNewDeposit*(
        state: var BeaconState,
@@ -220,14 +202,13 @@ proc mockUpdateStateForNewDeposit*(
     flags
   )
 
-  when false: # TODO
-    let tree = merkleTreeFromLeaves([hash_tree_root(result.data)])
-    result[valIdx].proof[0..31] = tree.getMerkleProof(0)
-    result[valIdx].proof[32] = int_to_bytes32(0 + 1)
-    # doAssert is_valid_merkle_branch(...)
+  var result_seq = @[result]
+  attachMerkleProofs(result_seq)
+  result.proof = result_seq[0].proof
 
   # TODO: this logic from the eth2.0-specs test suite seems strange
   #       but confirmed by running it
   state.eth1_deposit_index = 0
-  state.eth1_data.deposit_root = hash_tree_root(result.data)
+  state.eth1_data.deposit_root =
+     hash_tree_root(sszList(@[result.data], 2'i64^DEPOSIT_CONTRACT_TREE_DEPTH))
   state.eth1_data.deposit_count = 1

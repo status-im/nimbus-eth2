@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [Defect].}
+
 import
   tables, algorithm, math, sequtils, options,
   json_serialization/std/sets, chronicles, stew/bitseqs,
@@ -198,7 +200,7 @@ proc initialize_beacon_state_from_eth1*(
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
     deposits: openArray[Deposit],
-    flags: UpdateFlags = {}): BeaconState {.nbench.}=
+    flags: UpdateFlags = {}): BeaconStateRef {.nbench.}=
   ## Get the genesis ``BeaconState``.
   ##
   ## Before the beacon chain starts, validators will register in the Eth1 chain
@@ -216,7 +218,7 @@ proc initialize_beacon_state_from_eth1*(
   doAssert deposits.len >= SLOTS_PER_EPOCH
 
   const SECONDS_PER_DAY = uint64(60*60*24)
-  var state = BeaconState(
+  var state = BeaconStateRef(
     fork: Fork(
       previous_version: GENESIS_FORK_VERSION,
       current_version: GENESIS_FORK_VERSION,
@@ -244,7 +246,7 @@ proc initialize_beacon_state_from_eth1*(
   for prefix_root in hash_tree_roots_prefix(
       leaves, 2'i64^DEPOSIT_CONTRACT_TREE_DEPTH):
     state.eth1_data.deposit_root = prefix_root
-    discard process_deposit(state, deposits[i], flags)
+    discard process_deposit(state[], deposits[i], flags)
     i += 1
 
   # Process activations
@@ -327,7 +329,7 @@ func is_eligible_for_activation(state: BeaconState, validator: Validator):
   # Has not yet been activated
     validator.activation_epoch == FAR_FUTURE_EPOCH
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#registry-updates
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#registry-updates
 proc process_registry_updates*(state: var BeaconState) {.nbench.}=
   ## Process activation eligibility and ejections
   ## Try to avoid caching here, since this could easily become undefined
@@ -395,7 +397,7 @@ proc is_valid_indexed_attestation*(
     return false
 
   # Verify indices are sorted and unique
-  if indices != sorted(indices, system.cmp):
+  if indices != sorted(toHashSet(indices).toSeq, system.cmp):
     notice "indexed attestation: indices not sorted"
     return false
 
@@ -420,7 +422,20 @@ func get_attesting_indices*(state: BeaconState,
                             HashSet[ValidatorIndex] =
   # Return the set of attesting indices corresponding to ``data`` and ``bits``.
   result = initHashSet[ValidatorIndex]()
-  let committee = get_beacon_committee(state, data.slot, data.index, stateCache)
+  let committee = get_beacon_committee(
+    state, data.slot, data.index.CommitteeIndex, stateCache)
+
+  # This shouldn't happen if one begins with a valid BeaconState and applies
+  # valid updates, but one can construct a BeaconState where it does. Do not
+  # do anything here since the PendingAttestation wouldn't have made it past
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#attestations
+  # which checks len(attestation.aggregation_bits) == len(committee) that in
+  # nim-beacon-chain lives in check_attestation(...).
+  # Addresses https://github.com/status-im/nim-beacon-chain/issues/922
+  if bits.len != committee.len:
+    trace "get_attesting_indices: inconsistent aggregation and committee length"
+    return
+
   for i, index in committee:
     if bits[i]:
       result.incl index
@@ -485,7 +500,8 @@ proc check_attestation*(
       state_slot = shortLog(stateSlot))
     return
 
-  let committee = get_beacon_committee(state, data.slot, data.index, stateCache)
+  let committee = get_beacon_committee(
+    state, data.slot, data.index.CommitteeIndex, stateCache)
   if attestation.aggregation_bits.len != committee.len:
     warn("Inconsistent aggregation and committee length",
       aggregation_bits_len = attestation.aggregation_bits.len,

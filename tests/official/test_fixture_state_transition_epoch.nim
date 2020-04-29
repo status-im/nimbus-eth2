@@ -38,16 +38,16 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, us
 
         let unitTestName = testDir.rsplit(DirSep, 1)[1]
         timedTest testName & " - " & unitTestName & preset():
-          let stateRef = parseTest(testDir/"pre.ssz", SSZ, ref BeaconState)
-          let postRef = parseTest(testDir/"post.ssz", SSZ, ref BeaconState)
+          var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
+          let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
 
           when useCache:
             var cache = get_empty_per_epoch_cache()
-            transitionProc(stateRef[], cache)
+            transitionProc(preState[], cache)
           else:
-            transitionProc(stateRef[])
+            transitionProc(preState[])
 
-          reportDiff(stateRef, postRef)
+          reportDiff(preState, postState)
 
   `suiteImpl _ transitionProc`()
 

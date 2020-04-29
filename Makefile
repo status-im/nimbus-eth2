@@ -10,7 +10,7 @@ SHELL := bash # the shell used internally by "make"
 # used inside the included makefiles
 BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 
-# we don't want an error here, so we can handle things later, in the build-system-checks target
+# we don't want an error here, so we can handle things later, in the ".DEFAULT" target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
 
 # unconditionally built by the default Make target
@@ -22,7 +22,8 @@ TOOLS := \
 	ncli_hash_tree_root \
 	ncli_pretty \
 	ncli_transition \
-	process_dashboard
+	process_dashboard \
+	stackSizes
 	# bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes
 TOOLS_DIRS := \
 	beacon_chain \
@@ -34,7 +35,6 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 
 .PHONY: \
 	all \
-	build-system-checks \
 	deps \
 	update \
 	test \
@@ -49,11 +49,22 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	libbacktrace
 
 ifeq ($(NIM_PARAMS),)
-# "variables.mk" was not included. We can only execute one target in this state.
-all: | build-system-checks
-else
-all: | build-system-checks $(TOOLS) libnfuzz.so libnfuzz.a
-endif
+# "variables.mk" was not included, so we update the submodules.
+GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
+.DEFAULT:
+	+@ echo -e "Git submodules not found. Running '$(GIT_SUBMODULE_UPDATE)'.\n"; \
+		$(GIT_SUBMODULE_UPDATE) && \
+		echo
+# Now that the included *.mk files appeared, and are newer than this file, Make will restart itself:
+# https://www.gnu.org/software/make/manual/make.html#Remaking-Makefiles
+#
+# After restarting, it will execute its original goal, so we don't have to start a child Make here
+# with "$(MAKE) $(MAKECMDGOALS)". Isn't hidden control flow great?
+
+else # "variables.mk" was included. Business as usual until the end of this file.
+
+# default target, because it's the first one that doesn't start with '.'
+all: | $(TOOLS) libnfuzz.so libnfuzz.a
 
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
@@ -65,19 +76,6 @@ else
 NIM_PARAMS := $(NIM_PARAMS) -d:release
 endif
 
-#- the Windows build fails on Azure Pipelines if we have Unicode symbols copy/pasted here,
-#  so we encode them in ASCII
-GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
-build-system-checks:
-	@[[ -e "$(BUILD_SYSTEM_DIR)/makefiles" ]] || { \
-		echo -e "'$(BUILD_SYSTEM_DIR)/makefiles' not found. Running '$(GIT_SUBMODULE_UPDATE)'.\n"; \
-		$(GIT_SUBMODULE_UPDATE); \
-		CHECKMARK="\xe2\x9c\x94\xef\xb8\x8f"; \
-		echo -e "\n$${CHECKMARK}$${CHECKMARK}$${CHECKMARK} Successfully fetched all required internal dependencies."; \
-		echo -e "        You should now \e[4mre-run '$(MAKE)' to build Nimbus\e[0m\n"; \
-		}; \
-		exit 0
-
 deps: | deps-common beacon_chain.nims
 ifneq ($(USE_LIBBACKTRACE), 0)
 deps: | libbacktrace
@@ -86,7 +84,7 @@ endif
 #- deletes and recreates "beacon_chain.nims" which on Windows is a copy instead of a proper symlink
 update: | update-common
 	rm -f beacon_chain.nims && \
-		$(MAKE) beacon_chain.nims
+		$(MAKE) beacon_chain.nims $(HANDLE_OUTPUT)
 
 # symlink
 beacon_chain.nims:
@@ -94,7 +92,7 @@ beacon_chain.nims:
 
 # nim-libbacktrace
 libbacktrace:
-	+ $(MAKE) -C vendor/nim-libbacktrace BUILD_CXX_LIB=0 $(HANDLE_OUTPUT)
+	+ $(MAKE) -C vendor/nim-libbacktrace --no-print-directory BUILD_CXX_LIB=0
 
 # Windows 10 with WSL enabled, but no distro installed, fails if "../../nimble.sh" is executed directly
 # in a Makefile recipe but works when prefixing it with `bash`. No idea how the PATH is overridden.
@@ -122,11 +120,18 @@ clean-testnet0:
 clean-testnet1:
 	rm -rf build/data/testnet1
 
-testnet0: | build deps
-	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) testnet0
+# - we're getting the preset from a testnet-specific .env file
+# - try SCRIPT_PARAMS="--skipGoerliKey"
+testnet0 testnet1: | build deps
+	source scripts/$@.env; \
+		NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) --const-preset=$$CONST_PRESET --dev-build $@
 
-testnet1: | build deps
-	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) testnet1
+schlesi: | build deps
+	LOG_LEVEL="DEBUG" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/schlesi
+
+schlesi-dev: | build deps
+	LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
+		$(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) --dev-build shared/schlesi
 
 clean: | clean-common
 	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,beacon_node_testnet*,state_sim,transition*}
@@ -145,3 +150,6 @@ libnfuzz.a: | build deps
 		rm -f build/$@ && \
 		$(ENV_SCRIPT) nim c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static -o:build/$@ $(NIM_PARAMS) nfuzz/libnfuzz.nim && \
 		[[ -e "$@" ]] && mv "$@" build/ # workaround for https://github.com/nim-lang/Nim/issues/12745
+
+endif # "variables.mk" was not included
+

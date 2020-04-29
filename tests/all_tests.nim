@@ -18,18 +18,17 @@ import # Unit test
   ./test_block_pool,
   ./test_discovery_helpers,
   ./test_helpers,
-  ./test_kvstore,
   ./test_mocking,
-  ./test_kvstore_sqlite3,
+  ./test_mainchain_monitor,
   ./test_ssz,
   ./test_state_transition,
   ./test_sync_protocol,
-  # ./test_validator # Empty!
   ./test_zero_signature,
   ./test_peer_pool,
   ./test_sync_manager,
   ./test_honest_validator,
-  ./test_interop
+  ./test_interop,
+  ./fork_choice/tests_fork_choice
 
 import # Refactor state transition unit tests
   # TODO re-enable when useful

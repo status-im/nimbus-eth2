@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,7 +7,7 @@
 
 
 # process_deposit (beaconstate.nim)
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#deposits
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#deposits
 # ---------------------------------------------------------------
 
 {.used.}
@@ -33,14 +33,13 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
     # TODO: BLS signature
     timedTest "Deposit " & name & " MAX_EFFECTIVE_BALANCE balance (" &
           $(MAX_EFFECTIVE_BALANCE div 10'u64^9) & " ETH)":
-      var state: BeaconState
-      deepCopy(state, genesisState)
+      var state = newClone(genesisState)
 
       # Test configuration
       # ----------------------------------------
       let validator_index = state.validators.len
       let deposit = mockUpdateStateForNewDeposit(
-                      state,
+                      state[],
                       uint64 validator_index,
                       deposit_amount,
                       flags = {skipBlsValidation}
@@ -56,8 +55,7 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
 
       # State transition
       # ----------------------------------------
-      check: state.process_deposit(deposit,
-        {skipBlsValidation, skipMerkleValidation})
+      check: process_deposit(state[], deposit, {skipBlsValidation})
 
       # Check invariants
       # ----------------------------------------
@@ -76,16 +74,14 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
   valid_deposit(MAX_EFFECTIVE_BALANCE + 1, "over")
 
   timedTest "Validator top-up":
-
-    var state: BeaconState
-    deepCopy(state, genesisState)
+    var state = newClone(genesisState)
 
     # Test configuration
     # ----------------------------------------
     let validator_index = 0
     let deposit_amount = MAX_EFFECTIVE_BALANCE div 4
     let deposit = mockUpdateStateForNewDeposit(
-                    state,
+                    state[],
                     uint64 validator_index,
                     deposit_amount,
                     flags = {skipBlsValidation}
@@ -101,8 +97,7 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
 
     # State transition
     # ----------------------------------------
-    check: state.process_deposit(deposit,
-      {skipBlsValidation, skipMerkleValidation})
+    check: process_deposit(state[], deposit, {skipBlsValidation})
 
     # Check invariants
     # ----------------------------------------

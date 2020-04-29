@@ -52,9 +52,10 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 OK: 5/5 Fail: 0/5 Skip: 0/5
 ## BlockPool finalization tests [Preset: minimal]
 ```diff
++ init with gaps [Preset: minimal]                                                           OK
 + prune heads on finalization [Preset: minimal]                                              OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## BlockRef and helpers [Preset: minimal]
 ```diff
 + getAncestorAt sanity [Preset: minimal]                                                     OK
@@ -73,6 +74,14 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Multiaddress to ENode                                                                      OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Fork Choice + Finality  [Preset: minimal]
+```diff
++ fork_choice - testing finality #01                                                         OK
++ fork_choice - testing finality #02                                                         OK
++ fork_choice - testing no votes                                                             OK
++ fork_choice - testing with votes                                                           OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Honest validator
 ```diff
 + Attestation topics                                                                         OK
@@ -189,11 +198,12 @@ OK: 84/87 Fail: 3/87 Skip: 0/87
 + Iterators test                                                                             OK
 + Peer lifetime test                                                                         OK
 + Safe/Clear test                                                                            OK
++ Score check test                                                                           OK
 + addPeer() test                                                                             OK
 + addPeerNoWait() test                                                                       OK
 + deletePeer() test                                                                          OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
+OK: 10/10 Fail: 0/10 Skip: 0/10
 ## SSZ dynamic navigator
 ```diff
 + navigating fields                                                                          OK
@@ -215,19 +225,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Compile                                                                                    OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## SyncManager test suite
-```diff
-+ PeerGroup tests                                                                            OK
-+ PeerSlot tests                                                                             OK
-+ SyncManager failure test                                                                   OK
-+ SyncManager group-recovery test                                                            OK
-+ SyncManager one-peer test                                                                  OK
-+ SyncManager one-peer-group test                                                            OK
-+ SyncManager one-peer-slot test                                                             OK
-+ SyncQueue async tests                                                                      OK
-+ SyncQueue non-async tests                                                                  OK
-```
-OK: 9/9 Fail: 0/9 Skip: 0/9
 ## Zero signature sanity checks
 ```diff
 + SSZ serialization roundtrip of SignedBeaconBlockHeader                                     OK
@@ -261,4 +258,4 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 OK: 8/8 Fail: 0/8 Skip: 0/8
 
 ---TOTAL---
-OK: 160/163 Fail: 3/163 Skip: 0/163
+OK: 157/160 Fail: 3/160 Skip: 0/160

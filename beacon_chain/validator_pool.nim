@@ -24,7 +24,7 @@ func getValidator*(pool: ValidatorPool,
                    validatorKey: ValidatorPubKey): AttachedValidator =
   pool.validators.getOrDefault(validatorKey)
 
-# TODO: Honest validator - https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md
+# TODO: Honest validator - https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md
 proc signBlockProposal*(v: AttachedValidator, fork: Fork,
                         genesis_validators_root: Eth2Digest, slot: Slot,
                         blockRoot: Eth2Digest): Future[ValidatorSig] {.async.} =
@@ -55,6 +55,16 @@ proc signAttestation*(v: AttachedValidator,
       fork, genesis_validators_root, attestation, v.privKey)
   else:
     error "Unimplemented"
+    quit 1
+
+proc signAggregateAndProof*(v: AttachedValidator,
+                            aggregate_and_proof: AggregateAndProof,
+                            fork: Fork, genesis_validators_root: Eth2Digest): ValidatorSig =
+  if v.kind == inProcess:
+    result = get_aggregate_and_proof_signature(
+      fork, genesis_validators_root, aggregate_and_proof, v.privKey)
+  else:
+    error "Out of process signAggregateAndProof not implemented"
     quit 1
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#randao-reveal

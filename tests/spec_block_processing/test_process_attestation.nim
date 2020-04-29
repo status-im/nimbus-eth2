@@ -33,8 +33,7 @@ suiteReport "[Unit - Spec - Block processing] Attestations " & preset():
     # The attestation to process must be named "attestation" in the calling context
 
     timedTest name:
-      var state{.inject.}: BeaconState
-      deepCopy(state, genesisState)
+      var state {.inject.} = newClone(genesisState)
 
       # Attestation setup body
       # ----------------------------------------
@@ -50,24 +49,24 @@ suiteReport "[Unit - Spec - Block processing] Attestations " & preset():
       # ----------------------------------------
       var cache = get_empty_per_epoch_cache()
       check process_attestation(
-        state, attestation, flags = {}, cache
+        state[], attestation, flags = {}, cache
       )
 
       # Check that the attestation was processed
-      if attestation.data.target.epoch == state.get_current_epoch():
+      if attestation.data.target.epoch == get_current_epoch(state[]):
         check(state.current_epoch_attestations.len == current_epoch_count + 1)
       else:
         check(state.previous_epoch_attestations.len == previous_epoch_count + 1)
 
   valid_attestation("Valid attestation"):
-    let attestation = mockAttestation(state)
+    let attestation = mockAttestation(state[])
     state.slot += MIN_ATTESTATION_INCLUSION_DELAY
 
   valid_attestation("Valid attestation from previous epoch"):
-    let attestation = mockAttestation(state)
+    let attestation = mockAttestation(state[])
     state.slot = Slot(SLOTS_PER_EPOCH - 1)
-    nextEpoch(state)
-    applyEmptyBlock(state)
+    nextEpoch(state[])
+    applyEmptyBlock(state[])
 
   # TODO check if this should be replaced
   when false:
@@ -77,14 +76,14 @@ suiteReport "[Unit - Spec - Block processing] Attestations " & preset():
     else:
       valid_attestation("Valid attestation since max epochs per crosslinks"):
         for _ in 0 ..< MAX_EPOCHS_PER_CROSSLINK + 2:
-          nextEpoch(state)
-        applyEmptyBlock(state)
+          nextEpoch(state[])
+        applyEmptyBlock(state[])
 
-        let attestation = mockAttestation(state)
+        let attestation = mockAttestation(state[])
         check: attestation.data.crosslink.end_epoch - attestation.data.crosslink.start_epoch == MAX_EPOCHS_PER_CROSSLINK
 
         for _ in 0 ..< MIN_ATTESTATION_INCLUSION_DELAY:
-          nextSlot(state)
+          nextSlot(state[])
 
   # TODO: regression BLS V0.10.1
   echo "[Skipping] \"Empty aggregation bit\""

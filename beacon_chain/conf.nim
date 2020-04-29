@@ -1,3 +1,5 @@
+{.push raises: [Defect].}
+
 import
   os, options, strformat, strutils,
   chronicles, confutils, json_serialization,
@@ -30,9 +32,9 @@ type
 
   BeaconNodeConf* = object
     logLevel* {.
-      defaultValue: LogLevel.DEBUG
+      defaultValue: "DEBUG"
       desc: "Sets the log level."
-      name: "log-level" }: LogLevel
+      name: "log-level" }: string
 
     eth1Network* {.
       defaultValue: goerli
@@ -50,7 +52,7 @@ type
       abbr: "d"
       name: "data-dir" }: OutDir
 
-    depositWeb3Url* {.
+    web3Url* {.
       defaultValue: ""
       desc: "URL of the Web3 server to observe Eth1."
       name: "web3-url" }: string
@@ -250,6 +252,16 @@ type
         desc: "Private key of the controlling (sending) account",
         name: "deposit-private-key" }: string
 
+      minDelay* {.
+        defaultValue: 0.0
+        desc: "Minimum possible delay between making two deposits (in seconds)"
+        name: "min-delay" }: float
+
+      maxDelay* {.
+        defaultValue: 0.0
+        desc: "Maximum possible delay between making two deposits (in seconds)"
+        name: "max-delay" }: float
+
     of query:
       case queryCmd* {.
         defaultValue: nimQuery
@@ -278,7 +290,10 @@ proc defaultDataDir*(conf: BeaconNodeConf): string =
 
 proc validatorFileBaseName*(validatorIdx: int): string =
   # there can apparently be tops 4M validators so we use 7 digits..
-  fmt"v{validatorIdx:07}"
+  try:
+    fmt"v{validatorIdx:07}"
+  except ValueError as e:
+    raiseAssert e.msg
 
 func dumpDir*(conf: BeaconNodeConf): string =
   conf.dataDir / "dump"
@@ -292,10 +307,10 @@ func databaseDir*(conf: BeaconNodeConf): string =
 func defaultListenAddress*(conf: BeaconNodeConf): IpAddress =
   # TODO: How should we select between IPv4 and IPv6
   # Maybe there should be a config option for this.
-  parseIpAddress("0.0.0.0")
+  return static: parseIpAddress("0.0.0.0")
 
 func defaultAdminListenAddress*(conf: BeaconNodeConf): IpAddress =
-  parseIpAddress("127.0.0.1")
+  return static: parseIpAddress("127.0.0.1")
 
 iterator validatorKeys*(conf: BeaconNodeConf): ValidatorPrivKey =
   for validatorKeyFile in conf.validators:
@@ -305,13 +320,17 @@ iterator validatorKeys*(conf: BeaconNodeConf): ValidatorPrivKey =
       warn "Failed to load validator private key",
         file = validatorKeyFile.string, err = err.msg
 
-  for kind, file in walkDir(conf.localValidatorsDir):
-    if kind in {pcFile, pcLinkToFile} and
-        cmpIgnoreCase(".privkey", splitFile(file).ext) == 0:
-      try:
-        yield ValidatorPrivKey.init(readFile(file).string)
-      except CatchableError as err:
-        warn "Failed to load a validator private key", file, err = err.msg
+  try:
+    for kind, file in walkDir(conf.localValidatorsDir):
+      if kind in {pcFile, pcLinkToFile} and
+          cmpIgnoreCase(".privkey", splitFile(file).ext) == 0:
+        try:
+          yield ValidatorPrivKey.init(readFile(file).string)
+        except CatchableError as err:
+          warn "Failed to load a validator private key", file, err = err.msg
+  except OSError as err:
+    warn "Cannot load validator keys",
+      dir = conf.localValidatorsDir, err = err.msg
 
 template writeValue*(writer: var JsonWriter,
                      value: TypedInputFile|InputFile|InputDir|OutPath|OutDir|OutFile) =

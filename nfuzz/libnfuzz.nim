@@ -30,7 +30,7 @@ type
     exit: SignedVoluntaryExit
   # This and AssertionError are raised to indicate programming bugs
   # A wrapper to allow exception tracking to identify unexpected exceptions
-  FuzzCrashError = object of Exception
+  FuzzCrashError = object of CatchableError
 
 # TODO: change ptr uint to ptr csize_t when available in newer Nim version.
 proc copyState(state: BeaconState, output: ptr byte,
@@ -61,7 +61,7 @@ template decodeAndProcess(typ, process: untyped): bool =
 
   var
     cache {.used, inject.} = get_empty_per_epoch_cache()
-    data {.inject.} =
+    data {.inject.} = newClone(
       try:
         SSZ.decode(input, typ)
       except MalformedSszError as e:
@@ -72,6 +72,7 @@ template decodeAndProcess(typ, process: untyped): bool =
         raise newException(
           FuzzCrashError,
           "SSZ size mismatch, likely bug in preprocessing.", e)
+    )
   let processOk =
     try:
       process
@@ -106,7 +107,7 @@ proc nfuzz_attester_slashing(input: openArray[byte], output: ptr byte,
 proc nfuzz_block(input: openArray[byte], output: ptr byte,
     output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(BlockInput):
-    state_transition(data.state, data.beaconBlock, flags)
+    state_transition(data.state, data.beaconBlock, flags, noRollback)
 
 proc nfuzz_block_header(input: openArray[byte], output: ptr byte,
     output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =

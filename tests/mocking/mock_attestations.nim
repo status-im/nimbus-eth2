@@ -86,7 +86,7 @@ proc mockAttestationImpl(
     beacon_committee = get_beacon_committee(
       state,
       result.data.slot,
-      result.data.index,
+      result.data.index.CommitteeIndex,
       cache
     )
     committee_size = beacon_committee.len
@@ -117,7 +117,7 @@ proc fillAggregateAttestation*(state: BeaconState, attestation: var Attestation)
   let beacon_committee = get_beacon_committee(
     state,
     attestation.data.slot,
-    attestation.data.index,
+    attestation.data.index.CommitteeIndex,
     cache
   )
   for i in 0 ..< beacon_committee.len:
@@ -131,4 +131,4 @@ proc add*(state: var BeaconState, attestation: Attestation, slot: Slot) =
   signMockBlock(state, signedBlock)
 
   doAssert state_transition(
-    state, signedBlock, flags = {skipStateRootValidation})
+    state, signedBlock, flags = {skipStateRootValidation}, noRollback)

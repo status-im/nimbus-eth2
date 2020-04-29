@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2019 Status Research & Development GmbH
+# Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,8 +8,8 @@
 import
   options, stew/endians2,
   chronicles, eth/trie/[db],
-  ../beacon_chain/[beacon_chain_db, block_pool, extras, ssz, state_transition,
-    validator_pool],
+  ../beacon_chain/[beacon_chain_db, block_pool, extras, merkle_minimal, ssz,
+    state_transition, validator_pool],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest,
     helpers, validator, state_transition_block]
 
@@ -41,7 +41,7 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
   ## for testing :)
   let
     privkey = makeFakeValidatorPrivKey(i)
-    pubkey = privkey.pubKey()
+    pubkey = privkey.toPubKey()
     withdrawal_credentials = makeFakeHash(i)
     domain = compute_domain(DOMAIN_DEPOSIT, GENESIS_FORK_VERSION)
 
@@ -57,10 +57,33 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
     let signing_root = compute_signing_root(result.getDepositMessage, domain)
     result.data.signature = bls_sign(privkey, signing_root.data)
 
-func makeInitialDeposits*(
+proc makeInitialDeposits*(
     n = SLOTS_PER_EPOCH, flags: UpdateFlags = {}): seq[Deposit] =
   for i in 0..<n.int:
     result.add makeDeposit(i, flags)
+
+  # This needs to be done as a batch, since the Merkle proof of the i'th
+  # deposit depends on the deposit (data) of the 0th through (i-1)st, of
+  # deposits. Computing partial hash_tree_root sequences of DepositData,
+  # and ideally (but not yet) efficiently only once calculating a Merkle
+  # tree utilizing as much of the shared substructure as feasible, means
+  # attaching proofs all together, as a separate step.
+  if skipMerkleValidation notin flags:
+    attachMerkleProofs(result)
+
+func signBlock*(
+    fork: Fork, genesis_validators_root: Eth2Digest, blck: BeaconBlock,
+    privKey: ValidatorPrivKey, flags: UpdateFlags = {}): SignedBeaconBlock =
+  SignedBeaconBlock(
+    message: blck,
+    signature:
+      if skipBlsValidation notin flags:
+        get_block_signature(
+          fork, genesis_validators_root, blck.slot,
+          hash_tree_root(blck), privKey)
+      else:
+        ValidatorSig()
+  )
 
 proc addTestBlock*(
     state: var BeaconState,
@@ -94,20 +117,21 @@ proc addTestBlock*(
       state,
       parent_root,
       randao_reveal,
-      eth1_data,
+      # Keep deposit counts internally consistent.
+      Eth1Data(
+        deposit_root: eth1_data.deposit_root,
+        deposit_count: state.eth1_deposit_index + deposits.len.uint64,
+        block_hash: eth1_data.block_hash),
       graffiti,
       attestations,
       deposits)
 
   doAssert message.isSome(), "Should have created a valid block!"
 
-  var
-    new_block = SignedBeaconBlock(
-      message: message.get()
-    )
-
-
-  let ok = process_block(state, new_block.message, flags, cache)
+  let
+    new_block = signBlock(
+      state.fork, state.genesis_validators_root, message.get(), privKey, flags)
+    ok = process_block(state, new_block.message, flags, cache)
 
   doAssert ok, "adding block after producing it should work"
   new_block
@@ -124,9 +148,9 @@ proc makeTestBlock*(
   # It's a bit awkward - in order to produce a block for N+1, we need to
   # calculate what the state will look like after that block has been applied,
   # because the block includes the state root.
-  var tmpState = state
+  var tmpState = newClone(state)
   addTestBlock(
-    tmpState, parent_root, eth1_data, attestations, deposits, graffiti, flags)
+    tmpState[], parent_root, eth1_data, attestations, deposits, graffiti, flags)
 
 proc makeAttestation*(
     state: BeaconState, beacon_block_root: Eth2Digest,
@@ -171,7 +195,7 @@ proc find_beacon_committee(
       slot = ((epoch_committee_index mod SLOTS_PER_EPOCH) +
         epoch.compute_start_slot_at_epoch.uint64).Slot
       index = epoch_committee_index div SLOTS_PER_EPOCH
-      committee = get_beacon_committee(state, slot, index, cache)
+      committee = get_beacon_committee(state, slot, index.CommitteeIndex, cache)
     if validator_index in committee:
       return (committee, slot, index)
   doAssert false
@@ -196,7 +220,8 @@ proc makeFullAttestations*(
 
   for index in 0..<count:
     let
-      committee = get_beacon_committee(state, slot, index, cache)
+      committee = get_beacon_committee(
+        state, slot, index.CommitteeIndex, cache)
       data = makeAttestationData(state, slot, index, beacon_block_root)
 
     doAssert committee.len() >= 1

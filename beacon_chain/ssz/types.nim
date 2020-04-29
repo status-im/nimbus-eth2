@@ -1,3 +1,5 @@
+{.push raises: [Defect].}
+
 import
   tables, options,
   stew/shims/macros, stew/[objects, bitseqs],
@@ -85,10 +87,10 @@ template ElemType*(T: type[seq|string|List]): untyped =
 func isFixedSize*(T0: type): bool {.compileTime.} =
   mixin toSszType, enumAllSerializedFields
 
-  when T0 is openarray|Option|ref|ptr:
+  when T0 is openarray:
     return false
   else:
-    type T = type toSszType(default T0)
+    type T = type toSszType(declval T0)
 
     when T is BasicType:
       return true
@@ -102,14 +104,14 @@ func isFixedSize*(T0: type): bool {.compileTime.} =
 
 func fixedPortionSize*(T0: type): int {.compileTime.} =
   mixin enumAllSerializedFields, toSszType
-  type T = type toSszType(default T0)
+  type T = type toSszType(declval T0)
 
   when T is BasicType: sizeof(T)
   elif T is array:
     type E = ElemType(T)
     when isFixedSize(E): len(T) * fixedPortionSize(E)
     else: len(T) * offsetSize
-  elif T is seq|string|openarray|ref|ptr|Option: offsetSize
+  elif T is seq|string|openarray: offsetSize
   elif T is object|tuple:
     enumAllSerializedFields(T):
       when isFixedSize(FieldType):
@@ -121,7 +123,7 @@ func fixedPortionSize*(T0: type): int {.compileTime.} =
 
 func sszSchemaType*(T0: type): SszType {.compileTime.} =
   mixin toSszType, enumAllSerializedFields
-  type T = type toSszType(default T0)
+  type T = type toSszType(declval T0)
 
   when T is bool:
     SszType(kind: sszBool)
@@ -185,9 +187,12 @@ proc fieldInfos*(RecordType: type): seq[tuple[name: string,
       fieldOffset = val[]
       val[] += fieldSize
     do:
-      let parentBranch = nestedUnder.getOrDefault(fieldCaseDiscriminator, "")
-      fieldOffset = offsetInBranch[parentBranch]
-      offsetInBranch[branchKey] = fieldOffset + fieldSize
+      try:
+        let parentBranch = nestedUnder.getOrDefault(fieldCaseDiscriminator, "")
+        fieldOffset = offsetInBranch[parentBranch]
+        offsetInBranch[branchKey] = fieldOffset + fieldSize
+      except KeyError as e:
+        raiseAssert e.msg
 
     result.add((fieldName, fieldOffset, fixedSize, branchKey))
 

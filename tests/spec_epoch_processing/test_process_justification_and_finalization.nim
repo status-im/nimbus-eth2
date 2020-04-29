@@ -212,46 +212,39 @@ proc finalizeOn12(state: var BeaconState, epoch: Epoch, sufficient_support: bool
     doAssert state.current_justified_checkpoint == c2    # still old current
     doAssert state.finalized_checkpoint == old_finalized # no new finalized checkpoint
 
-suiteReport "[Unit - Spec - Epoch processing] Justification and Finalization " & preset():
-  echo "   Finalization rules are detailed at https://github.com/protolambda/eth2-docs#justification-and-finalization"
+proc payload =
+  suiteReport "[Unit - Spec - Epoch processing] Justification and Finalization " & preset():
+    echo "   Finalization rules are detailed at https://github.com/protolambda/eth2-docs#justification-and-finalization"
 
-  const NumValidators = uint64(8) * SLOTS_PER_EPOCH
-  let genesisState = initGenesisState(NumValidators)
-  doAssert genesisState.validators.len == int NumValidators
+    const NumValidators = uint64(8) * SLOTS_PER_EPOCH
+    let genesisState = initGenesisState(NumValidators)
+    doAssert genesisState.validators.len == int NumValidators
 
-  var state: BeaconState
-  template resetState: untyped =
-    deepCopy(state, genesisState)
+    setup:
+      var state = newClone(genesisState)
 
-  timedTest " Rule I - 234 finalization with enough support":
-    resetState()
-    finalizeOn234(state, Epoch 5, sufficient_support = true)
+    timedTest " Rule I - 234 finalization with enough support":
+      finalizeOn234(state[], Epoch 5, sufficient_support = true)
 
-  timedTest " Rule I - 234 finalization without support":
-    resetState()
-    finalizeOn234(state, Epoch 5, sufficient_support = false)
+    timedTest " Rule I - 234 finalization without support":
+      finalizeOn234(state[], Epoch 5, sufficient_support = false)
 
-  timedTest " Rule II - 23 finalization with enough support":
-    resetState()
-    finalizeOn23(state, Epoch 4, sufficient_support = true)
+    timedTest " Rule II - 23 finalization with enough support":
+      finalizeOn23(state[], Epoch 4, sufficient_support = true)
 
-  timedTest " Rule II - 23 finalization without support":
-    resetState()
-    finalizeOn23(state, Epoch 4, sufficient_support = false)
+    timedTest " Rule II - 23 finalization without support":
+      finalizeOn23(state[], Epoch 4, sufficient_support = false)
 
+    timedTest " Rule III - 123 finalization with enough support":
+      finalizeOn123(state[], Epoch 6, sufficient_support = true)
 
-  timedTest " Rule III - 123 finalization with enough support":
-    resetState()
-    finalizeOn123(state, Epoch 6, sufficient_support = true)
+    timedTest " Rule III - 123 finalization without support":
+      finalizeOn123(state[], Epoch 6, sufficient_support = false)
 
-  timedTest " Rule III - 123 finalization without support":
-    resetState()
-    finalizeOn123(state, Epoch 6, sufficient_support = false)
+    timedTest " Rule IV - 12 finalization with enough support":
+      finalizeOn12(state[], Epoch 3, sufficient_support = true)
 
-  timedTest " Rule IV - 12 finalization with enough support":
-    resetState()
-    finalizeOn12(state, Epoch 3, sufficient_support = true)
+    timedTest " Rule IV - 12 finalization without support":
+      finalizeOn12(state[], Epoch 3, sufficient_support = false)
 
-  timedTest " Rule IV - 12 finalization without support":
-    resetState()
-    finalizeOn12(state, Epoch 3, sufficient_support = false)
+payload()

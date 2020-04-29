@@ -8,7 +8,7 @@
 {.used.}
 
 import
-  unittest, options,
+  unittest, options, json_serialization,
   stint, nimcrypto, eth/common, serialization/testing/generic_suite,
   ./testutil,
   ../beacon_chain/spec/[datatypes, digest],

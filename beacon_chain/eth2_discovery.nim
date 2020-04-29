@@ -3,11 +3,11 @@
 # {.push raises: [Defect].}
 
 import
-  os, net, strutils, strformat, parseutils,
+  os, net, sequtils, strutils, strformat, parseutils,
   chronicles, stew/[results, objects], eth/keys, eth/trie/db, eth/p2p/enode,
   eth/p2p/discoveryv5/[enr, protocol, discovery_db, types],
   libp2p/[multiaddress, peer],
-  libp2p/crypto/crypto as libp2pCrypto,
+  libp2p/crypto/crypto as libp2pCrypto, libp2p/crypto/secp,
   conf
 
 type
@@ -67,7 +67,7 @@ proc toENode*(a: MultiAddress): Result[ENode, cstring] {.raises: [Defect].} =
 
 proc toMultiAddressStr*(enode: ENode): string =
   var peerId = PeerID.init(libp2pCrypto.PublicKey(
-    scheme: Secp256k1, skkey: SkPublicKey(enode.pubkey)))
+    scheme: Secp256k1, skkey: secp.SkPublicKey(enode.pubkey)))
   &"/ip4/{enode.address.ip}/tcp/{enode.address.tcpPort}/p2p/{peerId.pretty}"
 
 proc toENode*(enrRec: enr.Record): Result[ENode, cstring] {.raises: [Defect].} =
@@ -164,7 +164,8 @@ proc loadBootstrapFile*(bootstrapFile: string,
 proc new*(T: type Eth2DiscoveryProtocol,
           conf: BeaconNodeConf,
           ip: Option[IpAddress], tcpPort, udpPort: Port,
-          rawPrivKeyBytes: openarray[byte]): T =
+          rawPrivKeyBytes: openarray[byte],
+          enrFields: openarray[(string, seq[byte])]): T =
   # TODO
   # Implement more configuration options:
   # * for setting up a specific key
@@ -184,4 +185,6 @@ proc new*(T: type Eth2DiscoveryProtocol,
   if fileExists(persistentBootstrapFile):
     loadBootstrapFile(persistentBootstrapFile, bootNodes, bootEnrs, ourPubKey)
 
-  newProtocol(pk, db, ip, tcpPort, udpPort, bootEnrs)
+  let enrFieldPairs = mapIt(enrFields, toFieldPair(it[0], it[1]))
+  newProtocol(pk, db, ip, tcpPort, udpPort, enrFieldPairs, bootEnrs)
+

@@ -25,8 +25,16 @@ proc validateTestnetName(parts: openarray[string]): auto =
 
 cli do (skipGoerliKey {.
           desc: "Don't prompt for an Eth1 Goerli key to become a validator" .}: bool,
-        testnetName {.
-          argument .}: string):
+
+        constPreset {.
+          desc: "The Ethereum 2.0 const preset of the network (optional)"
+          name: "const-preset" .} = "",
+
+        devBuild {.
+          desc: "Enables more extensive logging and debugging support"
+          name: "dev-build" .} = false,
+
+        testnetName {.argument .}: string):
   let
     nameParts = testnetName.split "/"
     (team, testnet) = if nameParts.len > 1: validateTestnetName nameParts
@@ -69,7 +77,9 @@ cli do (skipGoerliKey {.
       echo "Warning: the network metadata doesn't include a bootstrap file"
 
   var preset = testnetDir / configFile
-  if not system.fileExists(preset): preset = "minimal"
+  if not system.fileExists(preset):
+    preset = constPreset
+    if preset.len == 0: preset = "minimal"
 
   let
     dataDirName = testnetName.replace("/", "_")
@@ -81,6 +91,9 @@ cli do (skipGoerliKey {.
     beaconNodeBinary = buildDir / "beacon_node_" & dataDirName
   var
     nimFlags = "-d:chronicles_log_level=TRACE " & getEnv("NIM_PARAMS")
+
+  if devBuild:
+    nimFlags.add """ -d:"chronicles_sinks=textlines,json[file(nbc.log)]" """
 
   let depositContractFile = testnetDir / depositContractFileName
   if system.fileExists(depositContractFile):
@@ -121,7 +134,7 @@ cli do (skipGoerliKey {.
     if privKey.len > 0:
       mkDir validatorsDir
       mode = Verbose
-      execIgnoringExitCode replace(&"""{beaconNodeBinary} makeDeposits
+      exec replace(&"""{beaconNodeBinary} makeDeposits
         --random-deposits=1
         --deposits-dir="{validatorsDir}"
         --deposit-private-key={privKey}
@@ -135,7 +148,7 @@ cli do (skipGoerliKey {.
   let logLevel = getEnv("LOG_LEVEL")
   var logLevelOpt = ""
   if logLevel.len > 0:
-    logLevelOpt = "--log-level=" & logLevel
+    logLevelOpt = &"""--log-level="{logLevel}" """
 
   mode = Verbose
   execIgnoringExitCode replace(&"""{beaconNodeBinary}
@@ -144,5 +157,6 @@ cli do (skipGoerliKey {.
     --web3-url={web3Url}
     {bootstrapFileOpt}
     {logLevelOpt}
-    --state-snapshot="{testnetDir/genesisFile}" """ & depositContractOpt, "\n", " ")
+    {depositContractOpt}
+    --state-snapshot="{testnetDir/genesisFile}" """, "\n", " ")
 

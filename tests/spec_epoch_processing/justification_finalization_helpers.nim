@@ -45,7 +45,7 @@ proc addMockAttestations*(
       var cache = get_empty_per_epoch_cache()
 
       let committee = get_beacon_committee(
-                        state, slot.Slot, index, cache)
+                        state, slot.Slot, index.CommitteeIndex, cache)
 
       # Create a bitfield filled with the given count per attestation,
       # exactly on the right-most part of the committee field.

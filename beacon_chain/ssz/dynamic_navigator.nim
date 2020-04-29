@@ -1,6 +1,9 @@
+{.push raises: [Defect].}
+{.pragma: raisesssz, raises: [Defect, IOError, MalformedSszError, SszSizeMismatchError].}
+
 import
   strutils, parseutils,
-  faststreams/output_stream, json_serialization/writer,
+  stew/objects, faststreams/output_stream, json_serialization/writer,
   ../spec/datatypes,
   types, bytes_reader, navigator
 
@@ -18,8 +21,7 @@ type
     fieldType: TypeInfo
     navigator: proc (m: MemRange): MemRange {. gcsafe
                                                noSideEffect
-                                               raises: [Defect,
-                                                        MalformedSszError] }
+                                               raisesssz }
   TypeInfo = ref object
     case kind: ObjKind
     of Record:
@@ -28,20 +30,19 @@ type
       elemType: TypeInfo
       navigator: proc (m: MemRange, idx: int): MemRange {. gcsafe
                                                            noSideEffect
-                                                           raises: [Defect,
-                                                                    MalformedSszError] }
+                                                           raisesssz }
     else:
       discard
 
     jsonPrinter: proc (m: MemRange,
-                       outStream: OutputStreamVar,
-                       pretty: bool) {.gcsafe, noSideEffect.}
+                       outStream: OutputStream,
+                       pretty: bool) {.gcsafe, raisesssz.}
 
   DynamicSszNavigator* = object
     m: MemRange
     typ: TypeInfo
 
-func jsonPrinterImpl[T](m: MemRange, outStream: OutputStreamVar, pretty: bool) =
+proc jsonPrinterImpl[T](m: MemRange, outStream: OutputStream, pretty: bool) {.raisesssz.} =
   var typedNavigator = sszMount(m, T)
   var jsonWriter = init(JsonWriter, outStream, pretty)
   # TODO: it should be possible to serialize the navigator object
@@ -55,12 +56,12 @@ func findField(fields: seq[FieldInfo], name: string): FieldInfo =
     if field.name == name:
       return field
 
-func indexableNavigatorImpl[T](m: MemRange, idx: int): MemRange =
+func indexableNavigatorImpl[T](m: MemRange, idx: int): MemRange {.raisesssz.} =
   var typedNavigator = sszMount(m, T)
   getMemRange(typedNavigator[idx])
 
 func fieldNavigatorImpl[RecordType; FieldType;
-                        fieldName: static string](m: MemRange): MemRange {.raises: [MalformedSszError].} =
+                        fieldName: static string](m: MemRange): MemRange {.raisesssz.} =
   # TODO: Make sure this doesn't fail with a Defect when
   #       navigating to an inactive field in a case object.
   var typedNavigator = sszMount(m, RecordType)
@@ -78,7 +79,7 @@ proc typeInfo*(T: type): TypeInfo =
 
 func genTypeInfo(T: type): TypeInfo =
   mixin toSszType, enumAllSerializedFields
-  type SszType = type(toSszType default(T))
+  type SszType = type toSszType(declval T)
   result = when type(SszType) isnot T:
     TypeInfo(kind: LeafValue)
   elif T is object:
@@ -97,12 +98,12 @@ func genTypeInfo(T: type): TypeInfo =
 
   result.jsonPrinter = jsonPrinterImpl[T]
 
-func `[]`*(n: DynamicSszNavigator, idx: int): DynamicSszNavigator =
+func `[]`*(n: DynamicSszNavigator, idx: int): DynamicSszNavigator {.raisesssz.} =
   doAssert n.typ.kind == Indexable
   DynamicSszNavigator(m: n.typ.navigator(n.m, idx), typ: n.typ.elemType)
 
 func navigate*(n: DynamicSszNavigator, path: string): DynamicSszNavigator {.
-               raises: [Defect, ValueError, MalformedSszError] .} =
+               raises: [Defect, KeyError, IOError, MalformedSszError, SszSizeMismatchError, ValueError] .} =
   case n.typ.kind
   of Record:
     let fieldInfo = n.typ.fields.findField(path)
@@ -129,11 +130,11 @@ template navigatePathImpl(nav, iterabalePathFragments: untyped) =
       return
 
 func navigatePath*(n: DynamicSszNavigator, path: string): DynamicSszNavigator {.
-                   raises: [Defect, ValueError, MalformedSszError] .} =
+                   raises: [Defect, IOError, ValueError, MalformedSszError, SszSizeMismatchError] .} =
   navigatePathImpl n, split(path, '/')
 
 func navigatePath*(n: DynamicSszNavigator, path: openarray[string]): DynamicSszNavigator {.
-                   raises: [Defect, ValueError, MalformedSszError] .} =
+                   raises: [Defect, IOError, ValueError, MalformedSszError, SszSizeMismatchError] .} =
   navigatePathImpl n, path
 
 func init*(T: type DynamicSszNavigator,
@@ -141,11 +142,16 @@ func init*(T: type DynamicSszNavigator,
   T(m: MemRange(startAddr: unsafeAddr bytes[0], length: bytes.len),
     typ: typeInfo(Navigated))
 
-func writeJson*(n: DynamicSszNavigator, outStream: OutputStreamVar, pretty = true) =
+proc writeJson*(n: DynamicSszNavigator, outStream: OutputStream, pretty = true) {.raisesssz.} =
   n.typ.jsonPrinter(n.m, outStream, pretty)
 
-func toJson*(n: DynamicSszNavigator, pretty = true): string =
-  var outStream = init OutputStream
-  writeJson(n, outStream, pretty)
+func toJson*(n: DynamicSszNavigator, pretty = true): string {.raisesssz.} =
+  var outStream = memoryOutput()
+  {.noSideEffect.}:
+    # We are assuming that there are no side-effects here
+    # because we are using a `memoryOutput`. The computed
+    # side-effects are coming from the fact that the dynamic
+    # dispatch mechanisms used in faststreams may be reading
+    # from a file or a network device.
+    writeJson(n, outStream, pretty)
   outStream.getOutput(string)
-

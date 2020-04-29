@@ -8,8 +8,9 @@
 import
   algorithm, strformat, stats, times, tables, std/monotimes, stew/endians2,
   testutils/markdown_reports, chronicles,
-  ../beacon_chain/[beacon_chain_db, block_pool, extras, ssz, kvstore, beacon_node_types],
+  ../beacon_chain/[beacon_chain_db, block_pool, extras, ssz,  beacon_node_types],
   ../beacon_chain/spec/[digest, beaconstate, datatypes],
+  eth/db/kvstore,
   testblockutil
 
 type
@@ -93,7 +94,7 @@ template timedTest*(name, body) =
   testTimes.add (f, name)
 
 proc makeTestDB*(tailState: BeaconState, tailBlock: SignedBeaconBlock): BeaconChainDB =
-  result = init(BeaconChainDB, kvStore MemoryStoreRef.init())
+  result = init(BeaconChainDB, kvStore MemStoreRef.init())
   BlockPool.preInit(result, tailState, tailBlock)
 
 proc makeTestDB*(validators: int): BeaconChainDB =
@@ -101,8 +102,8 @@ proc makeTestDB*(validators: int): BeaconChainDB =
     genState = initialize_beacon_state_from_eth1(
       Eth2Digest(), 0,
       makeInitialDeposits(validators, flags = {skipBlsValidation}),
-        {skipBlsValidation, skipMerkleValidation})
-    genBlock = get_initial_beacon_block(genState)
-  makeTestDB(genState, genBlock)
+        {skipBlsValidation})
+    genBlock = get_initial_beacon_block(genState[])
+  makeTestDB(genState[], genBlock)
 
 export inMicroseconds

@@ -2,18 +2,18 @@ def runStages() {
 	try {
 		stage("Clone") {
 			checkout scm
-			sh "make build-system-checks || true"
+			/* we need to update the submodules before caching kicks in */
+			sh "git submodule update --init --recursive"
 		}
 
 		cache(maxCacheSize: 250, caches: [
 			[$class: "ArbitraryFileCache", excludes: "", includes: "**/*", path: "${WORKSPACE}/vendor/nimbus-build-system/vendor/Nim/bin"],
-			[$class: "ArbitraryFileCache", excludes: "", includes: "**/*", path: "${WORKSPACE}/vendor/go/bin"],
 			[$class: "ArbitraryFileCache", excludes: "", includes: "**/*", path: "${WORKSPACE}/jsonTestsCache"]
 		]) {
 			stage("Build") {
 				sh "make -j${env.NPROC} update" /* to allow a newer Nim version to be detected */
 				sh "make -j${env.NPROC} deps" /* to allow the following parallel stages */
-				sh "scripts/setup_official_tests.sh jsonTestsCache"
+				sh "V=1 ./scripts/setup_official_tests.sh jsonTestsCache"
 			}
 		}
 
@@ -43,7 +43,7 @@ def runStages() {
 		// we need to rethrow the exception here
 		throw e
 	} finally {
-		cleanWs()
+		cleanWs(disableDeferredWipeout: true, deleteDirs: true)
 	}
 }
 

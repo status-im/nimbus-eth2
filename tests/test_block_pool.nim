@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,9 +8,9 @@
 {.used.}
 
 import
-  options, sequtils, unittest, chronicles,
-  ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[datatypes, digest, helpers, validator],
+  unittest, chronicles,
+  ./testutil,
+  ../beacon_chain/spec/datatypes,
   ../beacon_chain/[beacon_node_types, block_pool, ssz]
 
 suiteReport "BlockRef and helpers" & preset():
@@ -83,15 +83,21 @@ suiteReport "BlockSlot and helpers" & preset():
       s24.parent.parent == s22
 
 when const_preset == "minimal": # Too much stack space used on mainnet
+  import
+    options, sequtils,
+    ./testblockutil,
+    ../beacon_chain/state_transition,
+    ../beacon_chain/spec/[digest, helpers, validator]
+
   suiteReport "Block pool processing" & preset():
     setup:
       var
         db = makeTestDB(SLOTS_PER_EPOCH)
         pool = BlockPool.init(db)
-        state = pool.loadTailState().data.data
-        b1 = addTestBlock(state, pool.tail.root)
+        state = newClone(pool.loadTailState().data.data)
+        b1 = addTestBlock(state[], pool.tail.root)
         b1Root = hash_tree_root(b1.message)
-        b2 = addTestBlock(state, b1Root)
+        b2 = addTestBlock(state[], b1Root)
         b2Root {.used.} = hash_tree_root(b2.message)
 
     timedTest "getRef returns nil for missing blocks":
@@ -127,6 +133,47 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         b2Add.root == b2Get.get().refs.root
         pool.heads.len == 1
         pool.heads[0].blck == b2Add
+
+      # Skip one slot to get a gap
+      process_slots(state[], state.slot + 1)
+
+      let
+        b4 = addTestBlock(state[], b2Root)
+        b4Root = hash_tree_root(b4.message)
+        b4Add = pool.add(b4Root, b4)
+
+      check:
+        b4Add.parent == b2Add
+
+      pool.updateHead(b4Add)
+
+      var blocks: array[3, BlockRef]
+
+      check:
+        pool.getBlockRange(Slot(0), 1, blocks.toOpenArray(0, 0)) == 0
+        blocks[0..<1] == [pool.tail]
+
+        pool.getBlockRange(Slot(0), 1, blocks.toOpenArray(0, 1)) == 0
+        blocks[0..<2] == [pool.tail, b1Add]
+
+        pool.getBlockRange(Slot(0), 2, blocks.toOpenArray(0, 1)) == 0
+        blocks[0..<2] == [pool.tail, b2Add]
+
+        pool.getBlockRange(Slot(0), 3, blocks.toOpenArray(0, 1)) == 1
+        blocks[0..<2] == [nil, pool.tail] # block 3 is missing!
+
+        pool.getBlockRange(Slot(2), 2, blocks.toOpenArray(0, 1)) == 0
+        blocks[0..<2] == [b2Add, b4Add] # block 3 is missing!
+
+        # empty length
+        pool.getBlockRange(Slot(2), 2, blocks.toOpenArray(0, -1)) == 0
+
+        # No blocks in sight
+        pool.getBlockRange(Slot(5), 1, blocks.toOpenArray(0, 1)) == 2
+
+        # No blocks in sight either due to gaps
+        pool.getBlockRange(Slot(3), 2, blocks.toOpenArray(0, 1)) == 2
+        blocks[0..<2] == [BlockRef nil, nil] # block 3 is missing!
 
     timedTest "Reverse order block add & get" & preset():
       discard pool.add(b2Root, b2)
@@ -193,45 +240,44 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         b2Add = pool.add(b2Root, b2)
         bs1 = BlockSlot(blck: b1Add, slot: b1.message.slot)
         bs1_3 = b1Add.atSlot(3.Slot)
-        bs2 = BlockSlot(blck: b2Add, slot: b2.message.slot)
         bs2_3 = b2Add.atSlot(3.Slot)
 
-      var tmpState = pool.headState
+      var tmpState = newClone(pool.headState)
 
       # move to specific block
-      pool.updateStateData(tmpState, bs1)
+      pool.updateStateData(tmpState[], bs1)
 
       check:
         tmpState.blck == b1Add
         tmpState.data.data.slot == bs1.slot
 
       # Skip slots
-      pool.updateStateData(tmpState, bs1_3) # skip slots
+      pool.updateStateData(tmpState[], bs1_3) # skip slots
 
       check:
         tmpState.blck == b1Add
         tmpState.data.data.slot == bs1_3.slot
 
       # Move back slots, but not blocks
-      pool.updateStateData(tmpState, bs1_3.parent())
+      pool.updateStateData(tmpState[], bs1_3.parent())
       check:
         tmpState.blck == b1Add
         tmpState.data.data.slot == bs1_3.parent().slot
 
       # Move to different block and slot
-      pool.updateStateData(tmpState, bs2_3)
+      pool.updateStateData(tmpState[], bs2_3)
       check:
         tmpState.blck == b2Add
         tmpState.data.data.slot == bs2_3.slot
 
       # Move back slot and block
-      pool.updateStateData(tmpState, bs1)
+      pool.updateStateData(tmpState[], bs1)
       check:
         tmpState.blck == b1Add
         tmpState.data.data.slot == bs1.slot
 
       # Move back to genesis
-      pool.updateStateData(tmpState, bs1.parent())
+      pool.updateStateData(tmpState[], bs1.parent())
       check:
         tmpState.blck == b1Add.parent
         tmpState.data.data.slot == bs1.parent.slot
@@ -269,6 +315,44 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         pool.heads.len() == 1
         pool.head.justified.slot.compute_epoch_at_slot() == 5
         pool.tail.children.len == 1
+
+      let
+        pool2 = BlockPool.init(db)
+
+      # check that the state reloaded from database resembles what we had before
+      check:
+        pool2.tail.root == pool.tail.root
+        pool2.head.blck.root == pool.head.blck.root
+        pool2.finalizedHead.blck.root == pool.finalizedHead.blck.root
+        pool2.finalizedHead.slot == pool.finalizedHead.slot
+        hash_tree_root(pool2.headState.data.data) ==
+          hash_tree_root(pool.headState.data.data)
+        hash_tree_root(pool2.justifiedState.data.data) ==
+          hash_tree_root(pool.justifiedState.data.data)
+
+    timedTest "init with gaps" & preset():
+      var cache = get_empty_per_epoch_cache()
+      for i in 0 ..< (SLOTS_PER_EPOCH * 6 - 2):
+        var
+          blck = makeTestBlock(
+            pool.headState.data.data, pool.head.blck.root,
+            attestations = makeFullAttestations(
+              pool.headState.data.data, pool.head.blck.root,
+              pool.headState.data.data.slot, cache, {}))
+        let added = pool.add(hash_tree_root(blck.message), blck)
+        pool.updateHead(added)
+
+      # Advance past epoch so that the epoch transition is gapped
+      process_slots(pool.headState.data.data, Slot(SLOTS_PER_EPOCH * 6 + 2) )
+
+      var blck = makeTestBlock(
+        pool.headState.data.data, pool.head.blck.root,
+        attestations = makeFullAttestations(
+          pool.headState.data.data, pool.head.blck.root,
+          pool.headState.data.data.slot, cache, {}))
+
+      let added = pool.add(hash_tree_root(blck.message), blck)
+      pool.updateHead(added)
 
       let
         pool2 = BlockPool.init(db)

@@ -20,7 +20,6 @@ platform:
   - x86
 
 install:
-  - git submodule update --init --recursive
   # use the newest versions documented here: https://www.appveyor.com/docs/windows-images-software/#mingw-msys-cygwin
   - IF "%PLATFORM%" == "x86" SET PATH=C:\mingw-w64\i686-6.3.0-posix-dwarf-rt_v5-rev1\mingw32\bin;%PATH%
   - IF "%PLATFORM%" == "x64" SET PATH=C:\mingw-w64\x86_64-8.1.0-posix-seh-rt_v6-rev0\mingw64\bin;%PATH%
@@ -34,9 +33,8 @@ build_script:
   - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% fetch-dlls
 
 test_script:
-  # the "go-checks" target fails in AppVeyor, for some reason; easier to disable than to debug
-  - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% DISABLE_GO_CHECKS=1 LOG_LEVEL=TRACE
-  - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% DISABLE_GO_CHECKS=1 LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image"
-  - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% DISABLE_TEST_FIXTURES_SCRIPT=1 DISABLE_GO_CHECKS=1 test
+  - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% LOG_LEVEL=TRACE
+  - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image"
+  - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% DISABLE_TEST_FIXTURES_SCRIPT=1 test
 
 deploy: off

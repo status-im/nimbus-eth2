@@ -32,8 +32,10 @@
 # improvements to be made - other than that, keep things similar to spec for
 # now.
 
+{.push raises: [Defect].}
+
 import
-  algorithm, collections/sets, chronicles, options, sequtils, sets, tables,
+  algorithm, collections/sets, chronicles, options, sequtils, sets,
   ../extras, ../ssz, metrics,
   beaconstate, crypto, datatypes, digest, helpers, validator,
   ../../nbench/bench_lab
@@ -121,7 +123,7 @@ proc process_randao(
   # Mix it in
   let
     mix = get_randao_mix(state, epoch)
-    rr = eth2hash(body.randao_reveal.getBytes()).data
+    rr = eth2hash(body.randao_reveal.toRaw()).data
 
   for i in 0 ..< mix.data.len:
     state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR].data[i] = mix.data[i] xor rr[i]
@@ -131,8 +133,7 @@ proc process_randao(
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#eth1-data
 func process_eth1_data(state: var BeaconState, body: BeaconBlockBody) {.nbench.}=
   state.eth1_data_votes.add body.eth1_data
-  if state.eth1_data_votes.count(body.eth1_data) * 2 >
-      EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH:
+  if state.eth1_data_votes.count(body.eth1_data) * 2 > SLOTS_PER_ETH1_VOTING_PERIOD.int:
     state.eth1_data = body.eth1_data
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#is_slashable_validator
@@ -210,7 +211,7 @@ proc processProposerSlashings(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#is_slashable_attestation_data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
     data_1: AttestationData, data_2: AttestationData): bool =
   ## Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG
@@ -222,7 +223,7 @@ func is_slashable_attestation_data(
     (data_1.source.epoch < data_2.source.epoch and
      data_2.target.epoch < data_1.target.epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#attester-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
        state: var BeaconState,
        attester_slashing: AttesterSlashing,
@@ -297,9 +298,17 @@ proc processAttestations(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#deposits
 proc processDeposits(state: var BeaconState, blck: BeaconBlock,
-    flags: UpdateFlags): bool {.nbench.}=
-  if not (len(blck.body.deposits) <= MAX_DEPOSITS):
-    notice "processDeposits: too many deposits"
+    flags: UpdateFlags): bool {.nbench.} =
+  let
+    num_deposits = len(blck.body.deposits).int64
+    req_deposits = min(MAX_DEPOSITS,
+      state.eth1_data.deposit_count.int64 - state.eth1_deposit_index.int64)
+  if not (num_deposits == req_deposits):
+    notice "processDeposits: incorrect number of deposits",
+      num_deposits = num_deposits,
+      req_deposits = req_deposits,
+      deposit_count = state.eth1_data.deposit_count,
+      deposit_index = state.eth1_deposit_index
     return false
 
   for deposit in blck.body.deposits:
@@ -392,16 +401,19 @@ proc process_block*(
   # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
   # doesn't seem to specify at what point in block processing this metric is to be read,
   # and this avoids the early-return issue (could also use defer, etc).
-  beacon_pending_deposits.set(
-    state.eth1_data.deposit_count.int64 - state.eth1_deposit_index.int64)
-  beacon_processed_deposits_total.set(state.eth1_deposit_index.int64)
+  try:
+    beacon_pending_deposits.set(
+      state.eth1_data.deposit_count.int64 - state.eth1_deposit_index.int64)
+    beacon_processed_deposits_total.set(state.eth1_deposit_index.int64)
 
-  # Adds nontrivial additional computation, but only does so when metrics
-  # enabled.
-  beacon_current_live_validators.set(toHashSet(
-    mapIt(state.current_epoch_attestations, it.proposerIndex)).len.int64)
-  beacon_previous_live_validators.set(toHashSet(
-    mapIt(state.previous_epoch_attestations, it.proposerIndex)).len.int64)
+    # Adds nontrivial additional computation, but only does so when metrics
+    # enabled.
+    beacon_current_live_validators.set(toHashSet(
+      mapIt(state.current_epoch_attestations, it.proposerIndex)).len.int64)
+    beacon_previous_live_validators.set(toHashSet(
+      mapIt(state.previous_epoch_attestations, it.proposerIndex)).len.int64)
+  except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
+    trace "Couldn't update metrics", msg = e.msg
 
   if not process_block_header(state, blck, flags, stateCache):
     notice "Block header not valid", slot = shortLog(state.slot)
@@ -438,7 +450,7 @@ proc process_block*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/validator.md
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md
 # TODO There's more to do here - the spec has helpers that deal set up some of
 #      the fields in here!
 proc makeBeaconBlock*(
@@ -454,7 +466,9 @@ proc makeBeaconBlock*(
   ## the slot for which a block is to be created.
   var cache = get_empty_per_epoch_cache()
   let proposer_index = get_beacon_proposer_index(state, cache)
-  doAssert proposer_index.isSome, "Unable to get proposer index when proposing!"
+  if proposer_index.isNone:
+    warn "Unable to get proposer index when proposing!"
+    return
 
   # To create a block, we'll first apply a partial block to the state, skipping
   # some validations.
@@ -471,14 +485,14 @@ proc makeBeaconBlock*(
       deposits: deposits)
   )
 
-  var tmpState = state
-  let ok = process_block(tmpState, blck, {skipBlsValidation}, cache)
+  let tmpState = newClone(state)
+  let ok = process_block(tmpState[], blck, {skipBlsValidation}, cache)
 
   if not ok:
     warn "Unable to apply new block to state", blck = shortLog(blck)
     return
 
-  blck.state_root = hash_tree_root(tmpState)
+  blck.state_root = hash_tree_root(tmpState[])
 
   some(blck)
 
@@ -514,6 +528,19 @@ func get_block_signature*(
     signing_root = compute_signing_root(root, domain)
 
   blsSign(privKey, signing_root.data)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-aggregate
+func get_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth2Digest,
+                                        aggregate_and_proof: AggregateAndProof,
+                                        privKey: ValidatorPrivKey): ValidatorSig =
+  let
+    aggregate = aggregate_and_proof.aggregate
+    domain = get_domain(fork, DOMAIN_AGGREGATE_AND_PROOF,
+                        compute_epoch_at_slot(aggregate.data.slot),
+                        genesis_validators_root)
+    signing_root = compute_signing_root(aggregate_and_proof, domain)
+
+  return blsSign(privKey, signing_root.data)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#aggregate-signature
 func get_attestation_signature*(

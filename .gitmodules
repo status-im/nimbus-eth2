@@ -3,11 +3,6 @@
 	url = https://github.com/status-im/nim-eth2-scenarios
 	ignore = dirty
 	branch = master
-[submodule "vendor/go/src/github.com/libp2p/go-libp2p-daemon"]
-	path = vendor/go/src/github.com/libp2p/go-libp2p-daemon
-	url = https://github.com/libp2p/go-libp2p-daemon.git
-	ignore = dirty
-	branch = master
 [submodule "vendor/nim-blscurve"]
 	path = vendor/nim-blscurve
 	url = https://github.com/status-im/nim-blscurve.git
@@ -141,5 +136,20 @@
 [submodule "vendor/nim-testutils"]
 	path = vendor/nim-testutils
 	url = https://github.com/status-im/nim-testutils.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-snappy"]
+	path = vendor/nim-snappy
+	url = https://github.com/status-im/nim-snappy.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-protobuf-serialization"]
+	path = vendor/nim-protobuf-serialization
+	url = https://github.com/status-im/nim-protobuf-serialization.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-rocksdb"]
+	path = vendor/nim-rocksdb
+	url = https://github.com/status-im/nim-rocksdb.git
 	ignore = dirty
 	branch = master
