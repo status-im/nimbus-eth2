@@ -46,7 +46,7 @@ proc runTest(identifier: string) =
         let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
         let done = process_proposer_slashing(preState[], proposerSlashing, {}, cache)
         doAssert done, "Valid proposer slashing not processed"
-        check: preState.hash_tree_root() == postState.hash_tree_root()
+        check: preState[].hash_tree_root() == postState[].hash_tree_root()
         reportDiff(preState, postState)
       else:
         let done = process_proposer_slashing(preState[], proposerSlashing, {}, cache)

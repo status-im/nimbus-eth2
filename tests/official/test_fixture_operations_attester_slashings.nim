@@ -47,7 +47,7 @@ proc runTest(identifier: string) =
         let done = process_attester_slashing(preState[], attesterSlashing,
                                              {}, cache)
         doAssert done, "Valid attestater slashing not processed"
-        check: preState.hash_tree_root() == postState.hash_tree_root()
+        check: preState[].hash_tree_root() == postState[].hash_tree_root()
         reportDiff(preState, postState)
       else:
         let done = process_attester_slashing(preState[], attesterSlashing,

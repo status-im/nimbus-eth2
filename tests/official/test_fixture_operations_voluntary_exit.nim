@@ -44,7 +44,7 @@ proc runTest(identifier: string) =
         let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
         let done = process_voluntary_exit(preState[], voluntaryExit, {})
         doAssert done, "Valid voluntary exit not processed"
-        check: preState.hash_tree_root() == postState.hash_tree_root()
+        check: preState[].hash_tree_root() == postState[].hash_tree_root()
         reportDiff(preState, postState)
       else:
         let done = process_voluntary_exit(preState[], voluntaryExit, {})

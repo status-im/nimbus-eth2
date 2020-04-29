@@ -57,7 +57,7 @@ proc runTest(identifier: string) =
         let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
         when false:
           reportDiff(preState, postState)
-        doAssert preState.hash_tree_root() == postState.hash_tree_root()
+        doAssert preState[].hash_tree_root() == postState[].hash_tree_root()
 
   `testImpl _ blck _ identifier`()
 

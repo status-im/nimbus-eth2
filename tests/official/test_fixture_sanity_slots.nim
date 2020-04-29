@@ -36,7 +36,7 @@ proc runTest(identifier: string) =
 
       process_slots(preState[], preState.slot + num_slots)
 
-      # check: preState.hash_tree_root() == postState.hash_tree_root()
+      check: preState[].hash_tree_root() == postState[].hash_tree_root()
       reportDiff(preState, postState)
 
   `testImpl _ slots _ identifier`()

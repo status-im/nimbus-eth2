@@ -35,12 +35,11 @@ type
   Eth2Digest* = MDigest[32 * 8] ## `hash32` from spec
   Eth2Hash* = sha256            ## Context for hash function
 
-chronicles.formatIt Eth2Digest:
-  mixin toHex
-  it.data[0..3].toHex()
-
 func shortLog*(x: Eth2Digest): string =
   x.data[0..3].toHex()
+
+chronicles.formatIt Eth2Digest:
+  shortLog(it)
 
 # TODO: expose an in-place digest function
 #       when hashing in loop or into a buffer

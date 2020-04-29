@@ -43,11 +43,11 @@ proc runTest(identifier: string) =
       var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
 
       if existsFile(testDir/"post.ssz"):
-        let postState = parseTest(testDir/"post.ssz", SSZ, BeaconState)
+        let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
         let done = process_attestation(preState[], attestation, {}, cache)
         doAssert done, "Valid attestation not processed"
-        check: preState.hash_tree_root() == postState.hash_tree_root()
-        reportDiff(preState[], postState[])
+        check: preState[].hash_tree_root() == postState[].hash_tree_root()
+        reportDiff(preState, postState)
       else:
         let done = process_attestation(preState[], attestation, {}, cache)
         doAssert done == false, "We didn't expect this invalid attestation to be processed."

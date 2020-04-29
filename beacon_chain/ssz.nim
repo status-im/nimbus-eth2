@@ -503,7 +503,9 @@ func bitlistHashTreeRoot(merkleizer: SszChunksMerkleizer, x: BitSeq): Eth2Digest
   mixInLength contentsHash, x.len
 
 func hashTreeRootImpl[T](x: T): Eth2Digest =
-  when T is uint64:
+  when T is SignedBeaconBlock:
+    unsupported T # Blocks are identified by htr(BeaconBlock) so we avoid these
+  elif T is uint64:
     trs "UINT64; LITTLE-ENDIAN IDENTITY MAPPING"
     result.data[0..<8] = x.toBytesLE()
   elif (when T is array: ElemType(T) is byte and
@@ -551,8 +553,6 @@ func maxChunksCount(T: type, maxLen: static int64): int64 {.compileTime.} =
 func hash_tree_root*(x: auto): Eth2Digest {.raises: [Defect].} =
   trs "STARTING HASH TREE ROOT FOR TYPE ", name(type(x))
   mixin toSszType
-  when x is SignedBeaconBlock:
-    doassert false
   when x is TypeWithMaxLen:
     const maxLen = x.maxLen
     type T = type valueOf(x)

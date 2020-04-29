@@ -405,36 +405,6 @@ type
       Table[Epoch, seq[ValidatorIndex]]
     committee_count_cache*: Table[Epoch, uint64]
 
-template foreachSpecType*(op: untyped) =
-  ## These are all spec types that will appear in network messages
-  ## and persistent consensus data. This helper template is useful
-  ## for populating RTTI tables that concern them.
-  op AggregateAndProof
-  op Attestation
-  op AttestationData
-  op AttesterSlashing
-  op BeaconBlock
-  op BeaconBlockBody
-  op BeaconBlockHeader
-  op BeaconState
-  op Deposit
-  op DepositData
-  op Eth1Block
-  op Eth1Data
-  op Fork
-  op ForkData
-  op HistoricalBatch
-  op IndexedAttestation
-  op PendingAttestation
-  op ProposerSlashing
-  op SignedAggregateAndProof
-  op SignedBeaconBlock
-  op SignedBeaconBlockHeader
-  op SignedVoluntaryExit
-  op SigningRoot
-  op Validator
-  op VoluntaryExit
-
 macro fieldMaxLen*(x: typed): untyped =
   # TODO This macro is a temporary solution for the lack of a
   # more proper way to specify the max length of the List[T; N]
