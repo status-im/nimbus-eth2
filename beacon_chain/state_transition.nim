@@ -121,12 +121,6 @@ func process_slot*(state: var HashedBeaconState) {.nbench.} =
   state.data.block_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
     hash_tree_root(state.data.latest_block_header)
 
-# TODO remove this once callers gone
-func process_slot*(state: var BeaconState) =
-  var hashedState = HashedBeaconState(data: state, root: hash_tree_root(state))
-  process_slot(hashedState)
-  state = hashedState.data
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc process_slots*(state: var HashedBeaconState, slot: Slot) {.nbench.} =
   # TODO: Eth specs strongly assert that state.data.slot <= slot

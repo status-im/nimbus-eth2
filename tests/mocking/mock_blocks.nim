@@ -61,9 +61,9 @@ proc mockBlockForNextSlot*(state: BeaconState, flags: UpdateFlags = {}):
     SignedBeaconBlock =
   mockBlock(state, state.slot + 1, flags)
 
-proc applyEmptyBlock*(state: var BeaconState) =
+proc applyEmptyBlock*(state: var HashedBeaconState) =
   ## Do a state transition with an empty signed block
   ## on the current slot
-  let signedBlock = mockBlock(state, state.slot, flags = {})
+  let signedBlock = mockBlock(state.data, state.data.slot, flags = {})
   doAssert state_transition(
     state, signedBlock, {skipStateRootValidation}, noRollback)
