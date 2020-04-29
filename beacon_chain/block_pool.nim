@@ -239,8 +239,8 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
     pending: initTable[Eth2Digest, SignedBeaconBlock](),
     missing: initTable[Eth2Digest, MissingBlock](),
     cachedStates: [
-      newTable[tuple[a: Eth2Digest, b: Slot], HashedBeaconState](),
-      newTable[tuple[a: Eth2Digest, b: Slot], HashedBeaconState]()
+      newTable[tuple[a: Eth2Digest, b: Slot], StateData](),
+      newTable[tuple[a: Eth2Digest, b: Slot], StateData]()
     ],
     blocks: blocks,
     tail: tailRef,
@@ -373,7 +373,8 @@ proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
     # by contrast, has just finished filling from the previous epoch. The
     # resulting lookback window is thus >= SLOTS_PER_EPOCH in size, while
     # bounded from above by 2*SLOTS_PER_EPOCH.
-    pool.cachedStates[epochParity].clear()
+    pool.cachedStates[epochParity] =
+      newTable[tuple[a: Eth2Digest, b: Slot], StateData]()
   else:
     # Need to be able to efficiently access states for both attestation
     # aggregation and to process block proposals going back to the last
@@ -399,8 +400,10 @@ proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
     # by a constant-factor, worsens things. TODO the actual solution's,
     # eventually, to switch to CoW and/or ref objects for state and the
     # hash_tree_root processing.
-    discard pool.cachedStates[epochParity].hasKeyOrPut(
-      (a: blck.root, b: state.data.slot), state)
+    let key = (a: blck.root, b: state.data.slot)
+    if key notin pool.cachedStates[epochParity]:
+      # Avoid constructing StateData if not necessary
+      pool.cachedStates[epochParity][key] = StateData(data: state, blck: blck)
 
 proc add*(
     pool: var BlockPool, blockRoot: Eth2Digest,
@@ -699,11 +702,13 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
     # used in the front-end.
     for cachedState in pool.cachedStates:
       let key = (a: parBs.blck.root, b: parBs.slot)
-      if key notin cachedState:
-        continue
 
-      state.data = cachedState.getOrDefault(key)
+      try:
+        state = cachedState[key]
+      except KeyError:
+        continue
       let ancestor = ancestors.pop()
+      doAssert state.blck == ancestor.refs
       state.blck = ancestor.refs
 
       trace "Replaying state transitions via in-memory cache",
@@ -769,13 +774,12 @@ proc getStateDataCached(pool: BlockPool, state: var StateData, bs: BlockSlot): b
   # mostly matches updateStateData(...), because it's too expensive to run the
   # rewindState(...)/skipAndUpdateState(...)/state_transition(...) procs, when
   # each hash_tree_root(...) consumes a nontrivial fraction of a second.
-  let key = (a: bs.blck.root, b: bs.slot)
   for poolStateCache in pool.cachedStates:
-    if key notin poolStateCache:
-      continue
-    state.data = poolStateCache.getOrDefault(key)
-    state.blck = bs.blck
-    return true
+    try:
+      state = poolStateCache[(a: bs.blck.root, b: bs.slot)]
+      return true
+    except KeyError:
+      discard
 
   # In-memory caches didn't hit. Try main blockpool database. This is slower
   # than the caches due to SSZ (de)serializing and disk I/O, so prefer them.
