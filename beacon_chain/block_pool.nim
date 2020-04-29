@@ -708,8 +708,8 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
       except KeyError:
         continue
       let ancestor = ancestors.pop()
-      doAssert state.blck == ancestor.refs
-      state.blck = ancestor.refs
+      when false:
+        doAssert state.blck == ancestor.refs
 
       trace "Replaying state transitions via in-memory cache",
         stateSlot = shortLog(state.data.data.slot),
