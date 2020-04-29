@@ -189,9 +189,9 @@ echo Creating grafana dashboards...
   --in="${SIM_ROOT}/beacon-chain-sim-node0-Grafana-dashboard.json" \
   --out="${SIM_ROOT}/beacon-chain-sim-all-nodes-Grafana-dashboard.json"
 
-# Kill child processes on Ctrl-C by sending SIGTERM to the whole process group,
-# passing the negative PID of this shell instance to the "kill" command.
-# Trap and ignore SIGTERM, so we don't kill this process along with its children.
+# Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
+# instance as the parent and the target process name as a pattern to the
+# "pkill" command.
 if [[ "$USE_MULTITAIL" == "no" && "$USE_TMUX" == "no" ]]; then
   trap 'pkill -P $$ beacon_node' SIGINT EXIT
 fi
