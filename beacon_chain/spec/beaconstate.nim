@@ -268,6 +268,15 @@ proc initialize_beacon_state_from_eth1*(
 
   state
 
+proc initialize_hashed_beacon_state_from_eth1*(
+    eth1_block_hash: Eth2Digest,
+    eth1_timestamp: uint64,
+    deposits: openArray[Deposit],
+    flags: UpdateFlags = {}): HashedBeaconState =
+  let genesisState = initialize_beacon_state_from_eth1(
+    eth1_block_hash, eth1_timestamp, deposits, flags)
+  HashedBeaconState(data: genesisState[], root: hash_tree_root(genesisState))
+
 func is_valid_genesis_state*(state: BeaconState): bool =
   if state.genesis_time < MIN_GENESIS_TIME:
     return false

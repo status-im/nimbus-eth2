@@ -27,7 +27,7 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
 
   const NumValidators = uint64 5 * SLOTS_PER_EPOCH
   let genesisState = initGenesisState(NumValidators)
-  doAssert genesisState.validators.len == int NumValidators
+  doAssert genesisState.data.validators.len == int NumValidators
 
   template valid_deposit(deposit_amount: uint64, name: string): untyped =
     # TODO: BLS signature
@@ -37,9 +37,9 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
 
       # Test configuration
       # ----------------------------------------
-      let validator_index = state.validators.len
+      let validator_index = state.data.validators.len
       let deposit = mockUpdateStateForNewDeposit(
-                      state[],
+                      state.data,
                       uint64 validator_index,
                       deposit_amount,
                       flags = {skipBlsValidation}
@@ -47,25 +47,25 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
 
       # Params for sanity checks
       # ----------------------------------------
-      let pre_val_count = state.validators.len
+      let pre_val_count = state.data.validators.len
       let pre_balance = if validator_index < pre_val_count:
-                          state.balances[validator_index]
+                          state.data.balances[validator_index]
                         else:
                           0
 
       # State transition
       # ----------------------------------------
-      check: process_deposit(state[], deposit, {skipBlsValidation})
+      check: process_deposit(state.data, deposit, {skipBlsValidation})
 
       # Check invariants
       # ----------------------------------------
       check:
-        state.validators.len == pre_val_count + 1
-        state.balances.len == pre_val_count + 1
-        state.balances[validator_index] == pre_balance + deposit.data.amount
-        state.validators[validator_index].effective_balance ==
+        state.data.validators.len == pre_val_count + 1
+        state.data.balances.len == pre_val_count + 1
+        state.data.balances[validator_index] == pre_balance + deposit.data.amount
+        state.data.validators[validator_index].effective_balance ==
           round_multiple_down(
-            min(MAX_EFFECTIVE_BALANCE, state.balances[validator_index]),
+            min(MAX_EFFECTIVE_BALANCE, state.data.balances[validator_index]),
             EFFECTIVE_BALANCE_INCREMENT
           )
 
@@ -81,7 +81,7 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
     let validator_index = 0
     let deposit_amount = MAX_EFFECTIVE_BALANCE div 4
     let deposit = mockUpdateStateForNewDeposit(
-                    state[],
+                    state.data,
                     uint64 validator_index,
                     deposit_amount,
                     flags = {skipBlsValidation}
@@ -89,25 +89,25 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
 
     # Params for sanity checks
     # ----------------------------------------
-    let pre_val_count = state.validators.len
+    let pre_val_count = state.data.validators.len
     let pre_balance = if validator_index < pre_val_count:
-                        state.balances[validator_index]
+                        state.data.balances[validator_index]
                       else:
                         0
 
     # State transition
     # ----------------------------------------
-    check: process_deposit(state[], deposit, {skipBlsValidation})
+    check: process_deposit(state.data, deposit, {skipBlsValidation})
 
     # Check invariants
     # ----------------------------------------
     check:
-      state.validators.len == pre_val_count
-      state.balances.len == pre_val_count
-      state.balances[validator_index] == pre_balance + deposit.data.amount
-      state.validators[validator_index].effective_balance ==
+      state.data.validators.len == pre_val_count
+      state.data.balances.len == pre_val_count
+      state.data.balances[validator_index] == pre_balance + deposit.data.amount
+      state.data.validators[validator_index].effective_balance ==
         round_multiple_down(
-          min(MAX_EFFECTIVE_BALANCE, state.balances[validator_index]),
+          min(MAX_EFFECTIVE_BALANCE, state.data.balances[validator_index]),
           EFFECTIVE_BALANCE_INCREMENT
         )
 

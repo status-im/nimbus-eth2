@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -24,10 +24,10 @@ import
 # (source) https://github.com/protolambda/eth2-docs#justification-and-finalization
 # for a visualization of finalization rules
 
-proc finalizeOn234(state: var BeaconState, epoch: Epoch, sufficient_support: bool) =
+proc finalizeOn234(state: var HashedBeaconState, epoch: Epoch, sufficient_support: bool) =
   ## Check finalization on rule 1 "234"
   doAssert epoch > 4
-  state.slot = Slot((epoch * SLOTS_PER_EPOCH) - 1) # Skip ahead to just before epoch
+  state.data.slot = Slot((epoch * SLOTS_PER_EPOCH) - 1) # Skip ahead to just before epoch
 
   # 43210 -- epochs ago
   # 3210x -- justification bitfields indices
@@ -35,22 +35,22 @@ proc finalizeOn234(state: var BeaconState, epoch: Epoch, sufficient_support: boo
 
   # checkpoints for epochs ago
   let (c1, c2, c3, c4, _) = getCheckpoints(epoch)
-  putCheckpointsInBlockRoots(state, [c1, c2, c3, c4])
+  putCheckpointsInBlockRoots(state.data, [c1, c2, c3, c4])
 
   # Save for final checks
-  let old_finalized = state.finalized_checkpoint
+  let old_finalized = state.data.finalized_checkpoint
 
   # Mock the state
-  state.previous_justified_checkpoint = c4
-  state.current_justified_checkpoint = c3
-  state.justification_bits = 0'u8 # Bitvector of length 4
+  state.data.previous_justified_checkpoint = c4
+  state.data.current_justified_checkpoint = c3
+  state.data.justification_bits = 0'u8 # Bitvector of length 4
   # mock 3rd and 4th latest epochs as justified
   # indices are pre-shift
-  state.justification_bits.setBit 1
-  state.justification_bits.setBit 2
+  state.data.justification_bits.setBit 1
+  state.data.justification_bits.setBit 2
   # mock the 2nd latest epoch as justifiable, with 4th as the source
   addMockAttestations(
-    state,
+    state.data,
     epoch = epoch - 2,
     source = c4,
     target = c2,
@@ -61,18 +61,18 @@ proc finalizeOn234(state: var BeaconState, epoch: Epoch, sufficient_support: boo
   transitionEpochUntilJustificationFinalization(state)
 
   # Checks
-  doAssert state.previous_justified_checkpoint == c3     # changed to old current
+  doAssert state.data.previous_justified_checkpoint == c3     # changed to old current
   if sufficient_support:
-    doAssert state.current_justified_checkpoint == c2    # changed to second latest
-    doAssert state.finalized_checkpoint == c4            # finalized old previous justified epoch
+    doAssert state.data.current_justified_checkpoint == c2    # changed to second latest
+    doAssert state.data.finalized_checkpoint == c4            # finalized old previous justified epoch
   else:
-    doAssert state.current_justified_checkpoint == c3    # still old current
-    doAssert state.finalized_checkpoint == old_finalized # no new finalized checkpoint
+    doAssert state.data.current_justified_checkpoint == c3    # still old current
+    doAssert state.data.finalized_checkpoint == old_finalized # no new finalized checkpoint
 
-proc finalizeOn23(state: var BeaconState, epoch: Epoch, sufficient_support: bool) =
+proc finalizeOn23(state: var HashedBeaconState, epoch: Epoch, sufficient_support: bool) =
   ## Check finalization on rule 2 "23"
   doAssert epoch > 3
-  state.slot = Slot((epoch * SLOTS_PER_EPOCH) - 1) # Skip ahead to just before epoch
+  state.data.slot = Slot((epoch * SLOTS_PER_EPOCH) - 1) # Skip ahead to just before epoch
 
   # 43210 -- epochs ago
   # 210xx -- justification bitfields indices preshift
@@ -81,21 +81,21 @@ proc finalizeOn23(state: var BeaconState, epoch: Epoch, sufficient_support: bool
 
   # checkpoints for epochs ago
   let (c1, c2, c3, _, _) = getCheckpoints(epoch)
-  putCheckpointsInBlockRoots(state, [c1, c2, c3])
+  putCheckpointsInBlockRoots(state.data, [c1, c2, c3])
 
   # Save for final checks
-  let old_finalized = state.finalized_checkpoint
+  let old_finalized = state.data.finalized_checkpoint
 
   # Mock the state
-  state.previous_justified_checkpoint = c3
-  state.current_justified_checkpoint = c3
-  state.justification_bits = 0'u8 # Bitvector of length 4
+  state.data.previous_justified_checkpoint = c3
+  state.data.current_justified_checkpoint = c3
+  state.data.justification_bits = 0'u8 # Bitvector of length 4
   # mock 3rd as justified
   # indices are pre-shift
-  state.justification_bits.setBit 1
+  state.data.justification_bits.setBit 1
   # mock the 2nd latest epoch as justifiable, with 3rd as the source
   addMockAttestations(
-    state,
+    state.data,
     epoch = epoch - 2,
     source = c3,
     target = c2,
@@ -106,18 +106,18 @@ proc finalizeOn23(state: var BeaconState, epoch: Epoch, sufficient_support: bool
   transitionEpochUntilJustificationFinalization(state)
 
   # Checks
-  doAssert state.previous_justified_checkpoint == c3     # changed to old current
+  doAssert state.data.previous_justified_checkpoint == c3     # changed to old current
   if sufficient_support:
-    doAssert state.current_justified_checkpoint == c2    # changed to second latest
-    doAssert state.finalized_checkpoint == c3            # finalized old previous justified epoch
+    doAssert state.data.current_justified_checkpoint == c2    # changed to second latest
+    doAssert state.data.finalized_checkpoint == c3            # finalized old previous justified epoch
   else:
-    doAssert state.current_justified_checkpoint == c3    # still old current
-    doAssert state.finalized_checkpoint == old_finalized # no new finalized checkpoint
+    doAssert state.data.current_justified_checkpoint == c3    # still old current
+    doAssert state.data.finalized_checkpoint == old_finalized # no new finalized checkpoint
 
-proc finalizeOn123(state: var BeaconState, epoch: Epoch, sufficient_support: bool) =
+proc finalizeOn123(state: var HashedBeaconState, epoch: Epoch, sufficient_support: bool) =
   ## Check finalization on rule 3 "123"
   doAssert epoch > 5
-  state.slot = Slot((epoch * SLOTS_PER_EPOCH) - 1) # Skip ahead to just before epoch
+  state.data.slot = Slot((epoch * SLOTS_PER_EPOCH) - 1) # Skip ahead to just before epoch
 
   # 43210 -- epochs ago
   # 210xx -- justification bitfields indices preshift
@@ -126,21 +126,21 @@ proc finalizeOn123(state: var BeaconState, epoch: Epoch, sufficient_support: boo
 
   # checkpoints for epochs ago
   let (c1, c2, c3, c4, c5) = getCheckpoints(epoch)
-  putCheckpointsInBlockRoots(state, [c1, c2, c3, c4, c5])
+  putCheckpointsInBlockRoots(state.data, [c1, c2, c3, c4, c5])
 
   # Save for final checks
-  let old_finalized = state.finalized_checkpoint
+  let old_finalized = state.data.finalized_checkpoint
 
   # Mock the state
-  state.previous_justified_checkpoint = c5
-  state.current_justified_checkpoint = c3
-  state.justification_bits = 0'u8 # Bitvector of length 4
+  state.data.previous_justified_checkpoint = c5
+  state.data.current_justified_checkpoint = c3
+  state.data.justification_bits = 0'u8 # Bitvector of length 4
   # mock 3rd as justified
   # indices are pre-shift
-  state.justification_bits.setBit 1
+  state.data.justification_bits.setBit 1
   # mock the 2nd latest epoch as justifiable, with 5th as the source
   addMockAttestations(
-    state,
+    state.data,
     epoch = epoch - 2,
     source = c5,
     target = c2,
@@ -148,7 +148,7 @@ proc finalizeOn123(state: var BeaconState, epoch: Epoch, sufficient_support: boo
   )
   # mock the 1st latest epoch as justifiable with 3rd as source
   addMockAttestations(
-    state,
+    state.data,
     epoch = epoch - 1,
     source = c3,
     target = c1,
@@ -159,18 +159,18 @@ proc finalizeOn123(state: var BeaconState, epoch: Epoch, sufficient_support: boo
   transitionEpochUntilJustificationFinalization(state)
 
   # Checks
-  doAssert state.previous_justified_checkpoint == c3     # changed to old current
+  doAssert state.data.previous_justified_checkpoint == c3     # changed to old current
   if sufficient_support:
-    doAssert state.current_justified_checkpoint == c1    # changed to second latest
-    doAssert state.finalized_checkpoint == c3            # finalized old previous justified epoch
+    doAssert state.data.current_justified_checkpoint == c1    # changed to second latest
+    doAssert state.data.finalized_checkpoint == c3            # finalized old previous justified epoch
   else:
-    doAssert state.current_justified_checkpoint == c3    # still old current
-    doAssert state.finalized_checkpoint == old_finalized # no new finalized checkpoint
+    doAssert state.data.current_justified_checkpoint == c3    # still old current
+    doAssert state.data.finalized_checkpoint == old_finalized # no new finalized checkpoint
 
-proc finalizeOn12(state: var BeaconState, epoch: Epoch, sufficient_support: bool) =
+proc finalizeOn12(state: var HashedBeaconState, epoch: Epoch, sufficient_support: bool) =
   ## Check finalization on rule 4 "12"
   doAssert epoch > 2
-  state.slot = Slot((epoch * SLOTS_PER_EPOCH) - 1) # Skip ahead to just before epoch
+  state.data.slot = Slot((epoch * SLOTS_PER_EPOCH) - 1) # Skip ahead to just before epoch
 
   # 43210 -- epochs ago
   # 210xx -- justification bitfields indices preshift
@@ -179,21 +179,21 @@ proc finalizeOn12(state: var BeaconState, epoch: Epoch, sufficient_support: bool
 
   # checkpoints for epochs ago
   let (c1, c2, _, _, _) = getCheckpoints(epoch)
-  putCheckpointsInBlockRoots(state, [c1, c2])
+  putCheckpointsInBlockRoots(state.data, [c1, c2])
 
   # Save for final checks
-  let old_finalized = state.finalized_checkpoint
+  let old_finalized = state.data.finalized_checkpoint
 
   # Mock the state
-  state.previous_justified_checkpoint = c2
-  state.current_justified_checkpoint = c2
-  state.justification_bits = 0'u8 # Bitvector of length 4
+  state.data.previous_justified_checkpoint = c2
+  state.data.current_justified_checkpoint = c2
+  state.data.justification_bits = 0'u8 # Bitvector of length 4
   # mock 3rd as justified
   # indices are pre-shift
-  state.justification_bits.setBit 0
+  state.data.justification_bits.setBit 0
   # mock the 2nd latest epoch as justifiable, with 3rd as the source
   addMockAttestations(
-    state,
+    state.data,
     epoch = epoch - 1,
     source = c2,
     target = c1,
@@ -204,13 +204,13 @@ proc finalizeOn12(state: var BeaconState, epoch: Epoch, sufficient_support: bool
   transitionEpochUntilJustificationFinalization(state)
 
   # Checks
-  doAssert state.previous_justified_checkpoint == c2     # changed to old current
+  doAssert state.data.previous_justified_checkpoint == c2     # changed to old current
   if sufficient_support:
-    doAssert state.current_justified_checkpoint == c1    # changed to second latest
-    doAssert state.finalized_checkpoint == c2            # finalized old previous justified epoch
+    doAssert state.data.current_justified_checkpoint == c1    # changed to second latest
+    doAssert state.data.finalized_checkpoint == c2            # finalized old previous justified epoch
   else:
-    doAssert state.current_justified_checkpoint == c2    # still old current
-    doAssert state.finalized_checkpoint == old_finalized # no new finalized checkpoint
+    doAssert state.data.current_justified_checkpoint == c2    # still old current
+    doAssert state.data.finalized_checkpoint == old_finalized # no new finalized checkpoint
 
 proc payload =
   suiteReport "[Unit - Spec - Epoch processing] Justification and Finalization " & preset():
@@ -218,7 +218,7 @@ proc payload =
 
     const NumValidators = uint64(8) * SLOTS_PER_EPOCH
     let genesisState = initGenesisState(NumValidators)
-    doAssert genesisState.validators.len == int NumValidators
+    doAssert genesisState.data.validators.len == int NumValidators
 
     setup:
       var state = newClone(genesisState)

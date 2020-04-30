@@ -24,7 +24,7 @@ suiteReport "[Unit - Spec - Block processing] Attestations " & preset():
 
   const NumValidators = uint64(8) * SLOTS_PER_EPOCH
   let genesisState = initGenesisState(NumValidators)
-  doAssert genesisState.validators.len == int NumValidators
+  doAssert genesisState.data.validators.len == int NumValidators
 
   template valid_attestation(name: string, body: untyped): untyped {.dirty.}=
     # Process a valid attestation
@@ -42,29 +42,29 @@ suiteReport "[Unit - Spec - Block processing] Attestations " & preset():
       # Params for sanity checks
       # ----------------------------------------
       let
-        current_epoch_count = state.current_epoch_attestations.len
-        previous_epoch_count = state.previous_epoch_attestations.len
+        current_epoch_count = state.data.current_epoch_attestations.len
+        previous_epoch_count = state.data.previous_epoch_attestations.len
 
       # State transition
       # ----------------------------------------
       var cache = get_empty_per_epoch_cache()
       check process_attestation(
-        state[], attestation, flags = {}, cache
+        state.data, attestation, flags = {}, cache
       )
 
       # Check that the attestation was processed
-      if attestation.data.target.epoch == get_current_epoch(state[]):
-        check(state.current_epoch_attestations.len == current_epoch_count + 1)
+      if attestation.data.target.epoch == get_current_epoch(state.data):
+        check(state.data.current_epoch_attestations.len == current_epoch_count + 1)
       else:
-        check(state.previous_epoch_attestations.len == previous_epoch_count + 1)
+        check(state.data.previous_epoch_attestations.len == previous_epoch_count + 1)
 
   valid_attestation("Valid attestation"):
-    let attestation = mockAttestation(state[])
-    state.slot += MIN_ATTESTATION_INCLUSION_DELAY
+    let attestation = mockAttestation(state.data)
+    state.data.slot += MIN_ATTESTATION_INCLUSION_DELAY
 
   valid_attestation("Valid attestation from previous epoch"):
-    let attestation = mockAttestation(state[])
-    state.slot = Slot(SLOTS_PER_EPOCH - 1)
+    let attestation = mockAttestation(state.data)
+    state.data.slot = Slot(SLOTS_PER_EPOCH - 1)
     nextEpoch(state[])
     applyEmptyBlock(state[])
 
@@ -90,7 +90,7 @@ suiteReport "[Unit - Spec - Block processing] Attestations " & preset():
 
   # valid_attestation("Empty aggregation bit"):
   #   var attestation = mockAttestation(state)
-  #   state.slot += MIN_ATTESTATION_INCLUSION_DELAY
+  #   state.data.slot += MIN_ATTESTATION_INCLUSION_DELAY
 
   #   # Overwrite committee
   #   attestation.aggregation_bits = init(CommitteeValidatorsBits, attestation.aggregation_bits.len)
