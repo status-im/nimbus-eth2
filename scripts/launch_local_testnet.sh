@@ -140,12 +140,15 @@ BOOTSTRAP_IP="127.0.0.1"
 	--bootstrap-port=${BOOTSTRAP_PORT} \
 	--genesis-offset=5 # Delay in seconds
 
+# Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
+# instance as the parent and the target process name as a pattern to the
+# "pkill" command.
 cleanup() {
-	killall beacon_node &>/dev/null || true
+	pkill -P $$ beacon_node &>/dev/null || true
 	sleep 2
-	killall -9 beacon_node &>/dev/null || true
+	pkill -9 -P $$ beacon_node &>/dev/null || true
 }
-cleanup
+trap 'cleanup' SIGINT SIGTERM EXIT
 
 PIDS=""
 NODES_WITH_VALIDATORS=${NODES_WITH_VALIDATORS:-4}
@@ -172,7 +175,7 @@ for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 		done
 	fi
 
-	stdbuf -o0 build/beacon_node \
+	./build/beacon_node \
 		--nat:extip:127.0.0.1 \
 		--log-level="${LOG_LEVEL}" \
 		--tcp-port=$(( ${BOOTSTRAP_PORT} + ${NUM_NODE} )) \
