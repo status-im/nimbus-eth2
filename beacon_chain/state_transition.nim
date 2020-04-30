@@ -157,7 +157,7 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot) {.nbench.} =
     state.root = hash_tree_root(state.data)
 
 # TODO remove this once callers gone
-proc process_slots*(state: var BeaconState, slot: Slot) =
+proc process_slots*(state: var BeaconState, slot: Slot) {.deprecated: "Use HashedBeaconState version".} =
   var hashedState = HashedBeaconState(data: state, root: hash_tree_root(state))
   process_slots(hashedState, slot)
   state = hashedState.data
@@ -167,14 +167,11 @@ proc noRollback*(state: var HashedBeaconState) =
 
 proc state_transition*(
     state: var HashedBeaconState, signedBlock: SignedBeaconBlock,
-    flags: UpdateFlags, rollback: RollbackHashedProc): bool =
+    flags: UpdateFlags, rollback: RollbackHashedProc): bool {.nbench.} =
   ## Time in the beacon chain moves by slots. Every time (haha.) that happens,
   ## we will update the beacon state. Normally, the state updates will be driven
   ## by the contents of a new block, but it may happen that the block goes
   ## missing - the state updates happen regardless.
-  ##
-  ## Each call to this function will advance the state by one slot - new_block,
-  ## must match that slot. If the update fails, the state will remain unchanged.
   ##
   ## The flags are used to specify that certain validations should be skipped
   ## for the new block. This is done during block proposal, to create a state
@@ -232,11 +229,3 @@ proc state_transition*(
   rollback(state)
 
   false
-
-# TODO remove this once callers gone
-proc state_transition*(
-    state: var BeaconState, signedBlock: SignedBeaconBlock, flags: UpdateFlags,
-    rollback: RollbackHashedProc): bool {.nbench.} =
-  var hashedState = HashedBeaconState(data: state, root: hash_tree_root(state))
-  result = state_transition(hashedState, signedBlock, flags, rollback)
-  state = hashedState.data
