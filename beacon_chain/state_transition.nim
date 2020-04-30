@@ -199,6 +199,12 @@ proc state_transition*(
   #      the changes in case of failure (look out for `var BeaconState` and
   #      bool return values...)
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
+
+  if skipBLSValidation notin flags and
+      not verify_block_signature(state.data, signedBlock):
+    # No need to roll back because no change occurred.
+    return false
+
   # These should never fail.
   process_slots(state, signedBlock.message.slot)
 
@@ -208,22 +214,19 @@ proc state_transition*(
   # that the block is sane.
   # TODO what should happen if block processing fails?
   #      https://github.com/ethereum/eth2.0-specs/issues/293
-  if skipBLSValidation in flags or
-      verify_block_signature(state.data, signedBlock):
+  var per_epoch_cache = get_empty_per_epoch_cache()
+  if processBlock(state.data, signedBlock.message, flags, per_epoch_cache):
+    if skipStateRootValidation in flags or verifyStateRoot(state.data, signedBlock.message):
+      # State root is what it should be - we're done!
 
-    var per_epoch_cache = get_empty_per_epoch_cache()
-    if processBlock(state.data, signedBlock.message, flags, per_epoch_cache):
-      if skipStateRootValidation in flags or verifyStateRoot(state.data, signedBlock.message):
-        # State root is what it should be - we're done!
+      # TODO when creating a new block, state_root is not yet set.. comparing
+      #      with zero hash here is a bit fragile however, but this whole thing
+      #      should go away with proper hash caching
+      state.root =
+        if signedBlock.message.state_root == Eth2Digest(): hash_tree_root(state.data)
+        else: signedBlock.message.state_root
 
-        # TODO when creating a new block, state_root is not yet set.. comparing
-        #      with zero hash here is a bit fragile however, but this whole thing
-        #      should go away with proper hash caching
-        state.root =
-          if signedBlock.message.state_root == Eth2Digest(): hash_tree_root(state.data)
-          else: signedBlock.message.state_root
-
-        return true
+      return true
 
   # Block processing failed, roll back changes
   rollback(state)
