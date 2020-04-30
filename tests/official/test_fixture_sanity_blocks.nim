@@ -34,8 +34,11 @@ proc runTest(identifier: string) =
       "[Invalid] "
 
     timedTest prefix & identifier:
-      var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
-      var hasPostState = existsFile(testDir/"post.ssz")
+      var
+        preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
+        hasPostState = existsFile(testDir/"post.ssz")
+        hashedPreState = HashedBeaconState(
+          data: preState[], root: hash_tree_root(preState[]))
 
       # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
       # so purely lexicographic sorting wouldn't sort properly.
@@ -45,19 +48,18 @@ proc runTest(identifier: string) =
         if hasPostState:
           # TODO: The EF is using invalid BLS keys so we can't verify them
           let success = state_transition(
-            preState[], blck, flags = {skipBlsValidation}, noRollback)
+            hashedPreState, blck, flags = {skipBlsValidation}, noRollback)
           doAssert success, "Failure when applying block " & $i
         else:
           let success = state_transition(
-            preState[], blck, flags = {}, noRollback)
+            hashedPreState, blck, flags = {}, noRollback)
           doAssert not success, "We didn't expect this invalid block to be processed"
 
-      # check: preState.hash_tree_root() == postState.hash_tree_root()
       if hasPostState:
         let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
         when false:
-          reportDiff(preState, postState)
-        doAssert preState[].hash_tree_root() == postState[].hash_tree_root()
+          reportDiff(hashedPreState.data, postState)
+        doAssert hashedPreState.root == postState[].hash_tree_root()
 
   `testImpl _ blck _ identifier`()
 

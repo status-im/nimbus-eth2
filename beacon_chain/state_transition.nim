@@ -229,11 +229,3 @@ proc state_transition*(
   rollback(state)
 
   false
-
-# TODO remove this once callers gone
-proc state_transition*(
-    state: var BeaconState, signedBlock: SignedBeaconBlock, flags: UpdateFlags,
-    rollback: RollbackHashedProc): bool {.deprecated: "Use HashedBeaconState version".} =
-  var hashedState = HashedBeaconState(data: state, root: hash_tree_root(state))
-  result = state_transition(hashedState, signedBlock, flags, rollback)
-  state = hashedState.data
