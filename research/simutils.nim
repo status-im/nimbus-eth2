@@ -5,6 +5,7 @@ import
   ../beacon_chain/spec/[beaconstate, datatypes, digest, helpers]
 
 template withTimer*(stats: var RunningStat, body: untyped) =
+  # TODO unify timing somehow
   let start = cpuTime()
 
   block:
