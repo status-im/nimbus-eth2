@@ -230,7 +230,6 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
     justifiedHead = headRef.atSlot(justifiedSlot)
     head = Head(blck: headRef, justified: justifiedHead)
     justifiedBlock = db.getBlock(justifiedHead.blck.root).get()
-    justifiedStateRoot = justifiedBlock.message.state_root
 
   doAssert justifiedHead.slot >= finalizedHead.slot,
     "justified head comes before finalized head - database corrupt?"
