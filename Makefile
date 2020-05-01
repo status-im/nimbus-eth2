@@ -23,7 +23,9 @@ TOOLS := \
 	ncli_pretty \
 	ncli_transition \
 	process_dashboard \
-	stackSizes
+	stackSizes \
+	state_sim \
+	block_sim
 	# bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes
 TOOLS_DIRS := \
 	beacon_chain \
@@ -134,7 +136,7 @@ schlesi-dev: | build deps
 		$(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) --dev-build shared/schlesi
 
 clean: | clean-common
-	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,beacon_node_testnet*,state_sim,transition*}
+	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,beacon_node_testnet*,block_sim,state_sim,transition*}
 ifneq ($(USE_LIBBACKTRACE), 0)
 	+ $(MAKE) -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
 endif

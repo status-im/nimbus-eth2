@@ -5,13 +5,17 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+# `state_sim` runs the state transition function in isolation, creating blocks
+# and attesting to them as if the network was running as a whole.
+
 import
-  confutils, stats, times, std/monotimes,
+  confutils, stats, times,
   strformat,
   options, sequtils, random, tables,
   ../tests/[testblockutil],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
-  ../beacon_chain/[attestation_pool, extras, ssz]
+  ../beacon_chain/[attestation_pool, extras, ssz],
+  ./simutils
 
 type Timers = enum
   tBlock = "Process non-epoch slot with block"
@@ -19,24 +23,6 @@ type Timers = enum
   tHashBlock = "Tree-hash block"
   tShuffle = "Retrieve committee once using get_beacon_committee"
   tAttest = "Combine committee attestations"
-
-template withTimer(stats: var RunningStat, body: untyped) =
-  let start = cpuTime()
-
-  block:
-    body
-
-  let stop = cpuTime()
-  stats.push stop - start
-
-template withTimerRet(stats: var RunningStat, body: untyped): untyped =
-  let start = cpuTime()
-  let tmp = block:
-    body
-  let stop = cpuTime()
-  stats.push stop - start
-
-  tmp
 
 proc jsonName(prefix, slot: auto): string =
   fmt"{prefix:04}-{shortLog(slot):08}.json"
@@ -46,22 +32,6 @@ proc writeJson*(fn, v: auto) =
   defer: close(f)
   Json.saveFile(fn, v, pretty = true)
 
-func verifyConsensus(state: BeaconState, attesterRatio: auto) =
-  if attesterRatio < 0.63:
-    doAssert state.current_justified_checkpoint.epoch == 0
-    doAssert state.finalized_checkpoint.epoch == 0
-
-  # Quorum is 2/3 of validators, and at low numbers, quantization effects
-  # can dominate, so allow for play above/below attesterRatio of 2/3.
-  if attesterRatio < 0.72:
-    return
-
-  let current_epoch = get_current_epoch(state)
-  if current_epoch >= 3:
-    doAssert state.current_justified_checkpoint.epoch + 1 >= current_epoch
-  if current_epoch >= 4:
-    doAssert state.finalized_checkpoint.epoch + 2 >= current_epoch
-
 cli do(slots = SLOTS_PER_EPOCH * 6,
        validators = SLOTS_PER_EPOCH * 100, # One per shard is minimum
        json_interval = SLOTS_PER_EPOCH,
@@ -69,17 +39,10 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
        prefix = 0,
        attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.73,
        validate = true):
-  echo "Preparing validators..."
   let
-    # TODO should we include other skipXXXValidation flags here (e.g. StateRoot)?
     flags = if validate: {} else: {skipBlsValidation}
-    deposits = makeInitialDeposits(validators, flags)
-
-  echo "Generating Genesis..."
-
-  let
-    state = initialize_beacon_state_from_eth1(Eth2Digest(), 0, deposits, flags)
-  let genesisBlock = get_initial_beacon_block(state[])
+    state = loadGenesis(validators, validate)
+    genesisBlock = get_initial_beacon_block(state[])
 
   echo "Starting simulation..."
 
@@ -191,19 +154,4 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
   echo "Done!"
 
-  echo "Validators: ", validators, ", epoch length: ", SLOTS_PER_EPOCH
-  echo "Validators per attestation (mean): ", attesters.mean
-
-  proc fmtTime(t: float): string = &"{t * 1000 :>12.3f}, "
-
-  echo "All time are ms"
-  echo &"{\"Average\" :>12}, {\"StdDev\" :>12}, {\"Min\" :>12}, " &
-    &"{\"Max\" :>12}, {\"Samples\" :>12}, {\"Test\" :>12}"
-
-  if not validate:
-    echo "Validation is turned off meaning that no BLS operations are performed"
-
-  for t in Timers:
-    echo fmtTime(timers[t].mean), fmtTime(timers[t].standardDeviationS),
-      fmtTime(timers[t].min), fmtTime(timers[t].max), &"{timers[t].n :>12}, ",
-      $t
+  printTimers(state[], attesters, validate, timers)

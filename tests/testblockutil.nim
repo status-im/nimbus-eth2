@@ -25,7 +25,7 @@ func makeFakeHash(i: int): Eth2Digest =
   static: doAssert sizeof(bytes) <= sizeof(result.data)
   copyMem(addr result.data[0], addr bytes[0], sizeof(bytes))
 
-func hackPrivKey(v: Validator): ValidatorPrivKey =
+func hackPrivKey*(v: Validator): ValidatorPrivKey =
   ## Extract private key, per above hack
   var bytes: array[8, byte]
   static: doAssert sizeof(bytes) <= sizeof(v.withdrawal_credentials.data)
