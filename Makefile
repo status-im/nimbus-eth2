@@ -166,9 +166,10 @@ publish-book: | book
 	rm -rf tmp-book/* && \
 	cp -a docs/book/* tmp-book/ && \
 	cd tmp-book && \
-	git add . && \
-	git commit -m "make publish-book" && \
-	git push origin gh-pages && \
+	git add . && { \
+		git commit -m "make publish-book" && \
+		git push origin gh-pages || true; } && \
+	cd .. && \
 	git worktree remove -f tmp-book && \
 	rm -rf tmp-book
 
