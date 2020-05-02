@@ -160,9 +160,15 @@ installation directory to &quot;C:\mingw-w64&quot; and add it to your system PAT
 Computer&quot;/&quot;This PC&quot; -&gt; Properties -&gt; Advanced system settings -&gt; Environment
 Variables -&gt; Path -&gt; Edit -&gt; New -&gt; C:\mingw-w64\mingw64\bin (it's &quot;C:\mingw-w64\mingw32\bin&quot; on 32-bit)</p>
 <p>Install <a href="https://gitforwindows.org/">Git for Windows</a> and use a &quot;Git Bash&quot; shell to clone and build nim-beacon-chain.</p>
+<p>Install <a href="https://cmake.org/">CMake</a> to be able to build libunwind (used for <a href="https://github.com/status-im/nim-libbacktrace">lightweight stack traces</a>).</p>
+<p>When running the tests, you might hit some Windows path length limits. Increase them by editing the Registry in a PowerShell instance with administrator privileges:</p>
+<pre><code class="language-powershell">Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name 'LongPathsEnabled' -Value 1
+</code></pre>
+<p>and run this in a &quot;Git Bash&quot; terminal:</p>
+<pre><code class="language-bash">git config --global core.longpaths true
+</code></pre>
 <p>If you don't want to compile PCRE separately, you can fetch pre-compiled DLLs with:</p>
-<pre><code class="language-bash">mingw32-make # this first invocation will update the Git submodules
-mingw32-make fetch-dlls # this will place the right DLLs for your architecture in the &quot;build/&quot; directory
+<pre><code class="language-bash">mingw32-make fetch-dlls # this will place the right DLLs for your architecture in the &quot;build/&quot; directory
 </code></pre>
 <blockquote>
 <p>If you were following the Windows testnet instructions, you can jump back to <a href="#connecting-to-testnets">Connecting to testnets</a> now</p>
@@ -172,9 +178,9 @@ mingw32-make fetch-dlls # this will place the right DLLs for your architecture i
 </code></pre>
 <h3><a class="header" href="#linux-macos" id="linux-macos">Linux, MacOS</a></h3>
 <p>After cloning the repo:</p>
-<pre><code class="language-bash">make # The first `make` invocation will update all Git submodules and prompt you to run `make` again.
-     # It's only required once per Git clone. You'll run `make update` after each `git pull`, in the future,
-     # to keep those submodules up to date.
+<pre><code class="language-bash"># The first `make` invocation will update all Git submodules.
+# You'll run `make update` after each `git pull`, in the future, to keep those submodules up to date.
+make
 
 # Run tests
 make test
