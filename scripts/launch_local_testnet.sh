@@ -150,9 +150,19 @@ cleanup() {
 }
 trap 'cleanup' SIGINT SIGTERM EXIT
 
+dump_logs() {
+	LOG_LINES=20
+	for LOG in "${DATA_DIR}"/log*.txt; do
+		echo "Last ${LOG_LINES} lines of ${LOG}:"
+		tail -n ${LOG_LINES} "${LOG}"
+		echo "======"
+	done
+}
+
 PIDS=""
 NODES_WITH_VALIDATORS=${NODES_WITH_VALIDATORS:-4}
 VALIDATORS_PER_NODE=$(( $RANDOM_VALIDATORS / $NODES_WITH_VALIDATORS ))
+BOOTSTRAP_TIMEOUT=10 # in seconds
 
 for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 	if [[ ${NUM_NODE} == 0 ]]; then
@@ -160,8 +170,15 @@ for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 	else
 		BOOTSTRAP_ARG="--bootstrap-file=${NETWORK_DIR}/bootstrap_nodes.txt"
 		# Wait for the master node to write out its address file
+		START_TIMESTAMP=$(date +%s)
 		while [ ! -f "${DATA_DIR}/node0/beacon_node.address" ]; do
 			sleep 0.1
+			NOW_TIMESTAMP=$(date +%s)
+			if [[ "$(( NOW_TIMESTAMP - START_TIMESTAMP ))" -ge "$BOOTSTRAP_TIMEOUT" ]]; then
+				echo "Bootstrap node failed to start in ${BOOTSTRAP_TIMEOUT} seconds. Aborting."
+				dump_logs
+				exit 1
+			fi
 		done
 	fi
 
@@ -178,19 +195,29 @@ for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 	./build/beacon_node \
 		--nat:extip:127.0.0.1 \
 		--log-level="${LOG_LEVEL}" \
-		--tcp-port=$(( ${BOOTSTRAP_PORT} + ${NUM_NODE} )) \
-		--udp-port=$(( ${BOOTSTRAP_PORT} + ${NUM_NODE} )) \
+		--tcp-port=$(( BOOTSTRAP_PORT + NUM_NODE )) \
+		--udp-port=$(( BOOTSTRAP_PORT + NUM_NODE )) \
 		--data-dir="${NODE_DATA_DIR}" \
 		${BOOTSTRAP_ARG} \
 		--state-snapshot="${NETWORK_DIR}/genesis.ssz" \
 		${EXTRA_ARGS} \
 		> "${DATA_DIR}/log${NUM_NODE}.txt" 2>&1 &
+
 	if [[ "${PIDS}" == "" ]]; then
 		PIDS="$!"
 	else
 		PIDS="${PIDS},$!"
 	fi
 done
+
+# give the regular nodes time to crash
+sleep 5
+BG_JOBS="$(jobs | wc -l)"
+if [[ "$BG_JOBS" != "$NUM_NODES" ]]; then
+	echo "$((NUM_NODES - BG_JOBS)) beacon_node instance(s) exited early. Aborting."
+	dump_logs
+	exit 1
+fi
 
 if [[ "$USE_HTOP" == "1" ]]; then
 	htop -p "$PIDS"
@@ -202,6 +229,7 @@ else
 	done
 	if [[ "$FAILED" != "0" ]]; then
 		echo "${FAILED} child processes had non-zero exit codes (or exited early)."
+		dump_logs
 		exit 1
 	fi
 fi
