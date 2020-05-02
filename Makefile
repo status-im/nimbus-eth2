@@ -48,7 +48,11 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	clean-testnet1 \
 	testnet1 \
 	clean \
-	libbacktrace
+	libbacktrace \
+	schlesi \
+	schlesi-dev \
+	book \
+	publish-book
 
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
@@ -152,6 +156,22 @@ libnfuzz.a: | build deps
 		rm -f build/$@ && \
 		$(ENV_SCRIPT) nim c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static -o:build/$@ $(NIM_PARAMS) nfuzz/libnfuzz.nim && \
 		[[ -e "$@" ]] && mv "$@" build/ # workaround for https://github.com/nim-lang/Nim/issues/12745
+
+book:
+	cd docs && \
+	mdbook build
+
+publish-book: | book
+	git worktree add tmp-book gh-pages && \
+	rm -rf tmp-book/* && \
+	cp -a docs/book/* tmp-book/ && \
+	cd tmp-book && \
+	git add . && { \
+		git commit -m "make publish-book" && \
+		git push origin gh-pages || true; } && \
+	cd .. && \
+	git worktree remove -f tmp-book && \
+	rm -rf tmp-book
 
 endif # "variables.mk" was not included
 
