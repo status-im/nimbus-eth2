@@ -33,13 +33,15 @@ type Timers = enum
   tEpoch = "Process epoch slot with block"
   tHashBlock = "Tree-hash block"
   tSignBlock = "Sign block"
-  tShuffle = "Retrieve committee once using get_beacon_committee"
-  tAttest = "Combine committee attestations"
+  tAttest = "Have committee attest to block"
+  tReplay = "Replay all produced blocks"
 
 # TODO confutils is an impenetrable black box. how can a help text be added here?
 cli do(slots = SLOTS_PER_EPOCH * 6,
        validators = SLOTS_PER_EPOCH * 100, # One per shard is minimum
-       attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.73):
+       attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.73,
+       blockRatio {.desc: "ratio of slots with blocks"} = 1.0,
+       replay = true):
   let
     state = loadGenesis(validators, true)
     genesisBlock = get_initial_beacon_block(state[])
@@ -56,11 +58,12 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     attPool = AttestationPool.init(blockPool)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
-    r: Rand
+    r = initRand(1)
 
-  proc handleAttestations() =
+  let replayState = newClone(blockPool.headState)
+
+  proc handleAttestations(slot: Slot) =
     let
-      slot = blockPool.head.blck.slot
       attestationHead = blockPool.head.blck.atSlot(slot)
 
     blockPool.withState(blockPool.tmpState, attestationHead):
@@ -72,7 +75,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           state, slot, committee_index.CommitteeIndex, cache)
 
         for index_in_committee, validatorIdx in committee:
-          if (rand(r, high(int)).float * attesterRatio).int <= high(int):
+          if rand(r, 1.0) <= attesterRatio:
             let
               data = makeAttestationData(state, slot, committee_index, blck.root)
               sig =
@@ -89,10 +92,12 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
                 signature: sig
               ))
 
-  proc proposeBlock() =
+  proc proposeBlock(slot: Slot) =
+    if rand(r, 1.0) > blockRatio:
+      return
+
     let
       head = blockPool.head.blck
-      slot = blockPool.head.blck.slot + 1
 
     blockPool.withState(blockPool.tmpState, head.atSlot(slot)):
       var cache = get_empty_per_epoch_cache()
@@ -130,18 +135,21 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
   for i in 0..<slots:
     let
-      slot = blockPool.headState.data.data.slot + 1
+      slot = Slot(i + 1)
       t =
-        if slot mod SLOTS_PER_EPOCH == 0: tEpoch
+        if slot.isEpoch: tEpoch
         else: tBlock
 
-    withTimer(timers[t]):
-      proposeBlock()
+    if blockRatio > 0.0:
+      withTimer(timers[t]):
+        proposeBlock(slot)
     if attesterRatio > 0.0:
       withTimer(timers[tAttest]):
-        handleAttestations()
+        handleAttestations(slot)
 
-    verifyConsensus(blockPool.headState.data.data, attesterRatio)
+    # TODO if attestation pool was smarter, it would include older attestations
+    #      too!
+    verifyConsensus(blockPool.headState.data.data, attesterRatio * blockRatio)
 
     if t == tEpoch:
       echo &". slot: {shortLog(slot)} ",
@@ -149,6 +157,11 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     else:
       write(stdout, ".")
       flushFile(stdout)
+
+  if replay:
+    withTimer(timers[tReplay]):
+      blockPool.updateStateData(
+        replayState[], blockPool.head.blck.atSlot(Slot(slots)))
 
   echo "Done!"
 

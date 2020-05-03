@@ -24,6 +24,9 @@ build/
 
 # State sim # TODO - move in another folder
 0000-*.json
+*.ssz
+*.log
+*.sqlite3
 
 /local_testnet_data
 

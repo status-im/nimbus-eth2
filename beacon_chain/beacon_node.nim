@@ -247,7 +247,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
   #      time to do so?
   network.initBeaconSync(blockPool, enrForkId.forkDigest,
     proc(signedBlock: SignedBeaconBlock) =
-      if signedBlock.message.slot mod SLOTS_PER_EPOCH == 0:
+      if signedBlock.message.slot.isEpoch:
         # TODO this is a hack to make sure that lmd ghost is run regularly
         #      while syncing blocks - it's poor form to keep it here though -
         #      the logic should be moved elsewhere
