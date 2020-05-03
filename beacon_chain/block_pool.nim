@@ -195,19 +195,13 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
     let root = db.getStateRoot(bs.blck.root, bs.slot)
     if root.isSome():
       # TODO load StateData from BeaconChainDB
-      let loaded = db.getState(root.get(), tmpState.data.data, noRollback)
-      if not loaded:
-        # TODO We don't write state root and state atomically, so we need to be
-        #      lenient here in case of dirty shutdown - transactions would be
-        #      nice!
-        warn "State root, but no state - database corrupt?",
-          stateRoot = root.get(), blockRoot = bs.blck.root, blockSlot = bs.slot
-        continue
+      # We save state root separately for empty slots which means we might
+      # sometimes not find a state even though we saved its state root
+      if db.getState(root.get(), tmpState.data.data, noRollback):
+        tmpState.data.root = root.get()
+        tmpState.blck = bs.blck
 
-      tmpState.data.root = root.get()
-      tmpState.blck = bs.blck
-
-      break
+        break
 
     bs = bs.parent() # Iterate slot by slot in case there's a gap!
 
@@ -355,8 +349,17 @@ proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
   #      we could easily see a state explosion
   logScope: pcs = "save_state_at_epoch_start"
 
+  var rootWritten = false
+  if state.data.slot != blck.slot:
+    # This is a state that was produced by a skip slot for which there is no
+    # block - we'll save the state root in the database in case we need to
+    # replay the skip
+    pool.db.putStateRoot(blck.root, state.data.slot, state.root)
+    rootWritten = true
+
   let epochParity = state.data.slot.compute_epoch_at_slot.uint64 mod 2
-  if state.data.slot mod SLOTS_PER_EPOCH == 0:
+
+  if state.data.slot.isEpoch:
     if not pool.db.containsState(state.root):
       info "Storing state",
         blck = shortLog(blck),
@@ -364,8 +367,8 @@ proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
         stateRoot = shortLog(state.root),
         cat = "caching"
       pool.db.putState(state.root, state.data)
-      # TODO this should be atomic with the above write..
-      pool.db.putStateRoot(blck.root, state.data.slot, state.root)
+      if not rootWritten:
+        pool.db.putStateRoot(blck.root, state.data.slot, state.root)
 
     # Because state.data.slot mod SLOTS_PER_EPOCH == 0, wrap back to last
     # time this was the case i.e. last currentCache. The opposite parity,
@@ -462,7 +465,8 @@ proc add*(
 
     # TODO if the block is from the future, we should not be resolving it (yet),
     #      but maybe we should use it as a hint that our clock is wrong?
-    updateStateData(pool, pool.tmpState, BlockSlot(blck: parent, slot: blck.slot - 1))
+    updateStateData(
+      pool, pool.tmpState, BlockSlot(blck: parent, slot: blck.slot - 1))
 
     let
       poolPtr = unsafeAddr pool # safe because restore is short-lived
@@ -639,17 +643,24 @@ func checkMissing*(pool: var BlockPool): seq[FetchRecord] =
 
 proc skipAndUpdateState(
     pool: BlockPool,
-    state: var HashedBeaconState, blck: BlockRef, slot: Slot) =
+    state: var HashedBeaconState, blck: BlockRef, slot: Slot, save: bool) =
   while state.data.slot < slot:
     # Process slots one at a time in case afterUpdate needs to see empty states
-    process_slots(state, state.data.slot + 1)
-    pool.putState(state, blck)
+    # TODO when replaying, we already do this query when loading the ancestors -
+    #      save and reuse
+    # TODO possibly we should keep this in memory for the hot blocks
+    let nextStateRoot = pool.db.getStateRoot(blck.root, state.data.slot + 1)
+    advance_slot(state, nextStateRoot)
+
+    if save:
+      pool.putState(state, blck)
 
 proc skipAndUpdateState(
     pool: BlockPool,
-    state: var StateData, blck: BlockData, flags: UpdateFlags): bool =
+    state: var StateData, blck: BlockData, flags: UpdateFlags, save: bool): bool =
 
-  pool.skipAndUpdateState(state.data, blck.refs, blck.data.message.slot - 1)
+  pool.skipAndUpdateState(
+    state.data, blck.refs, blck.data.message.slot - 1, save)
 
   var statePtr = unsafeAddr state # safe because `rollback` is locally scoped
   proc rollback(v: var HashedBeaconState) =
@@ -657,7 +668,7 @@ proc skipAndUpdateState(
     statePtr[] = pool.headState
 
   let ok  = state_transition(state.data, blck.data, flags, rollback)
-  if ok:
+  if ok and save:
     pool.putState(state.data, blck.refs)
 
   ok
@@ -678,15 +689,14 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
   # successive parent block and checking if we can find the corresponding state
   # in the database.
   var
-    stateRoot = pool.db.getStateRoot(bs.blck.root, bs.slot)
+    stateRoot = block:
+      let tmp = pool.db.getStateRoot(bs.blck.root, bs.slot)
+      if tmp.isSome() and pool.db.containsState(tmp.get()):
+        tmp
+      else:
+        # State roots are sometimes kept in database even though state is not
+        err(Opt[Eth2Digest])
     curBs = bs
-
-  # TODO this can happen when state root is saved but state is gone - this would
-  #      indicate a corrupt database, but since we're not atomically
-  #      writing and deleting state+root mappings in a single transaction, it's
-  #      likely to happen and we guard against it here.
-  if stateRoot.isSome() and not pool.db.containsState(stateRoot.get()):
-    stateRoot.err()
 
   while stateRoot.isNone():
     let parBs = curBs.parent()
@@ -783,8 +793,7 @@ proc getStateDataCached(pool: BlockPool, state: var StateData, bs: BlockSlot): b
   # In-memory caches didn't hit. Try main blockpool database. This is slower
   # than the caches due to SSZ (de)serializing and disk I/O, so prefer them.
   if (let tmp = pool.db.getStateRoot(bs.blck.root, bs.slot); tmp.isSome()):
-    doAssert pool.getState(pool.db, tmp.get(), bs.blck, state)
-    return true
+    return pool.getState(pool.db, tmp.get(), bs.blck, state)
 
   false
 
@@ -800,7 +809,7 @@ proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
   if state.blck.root == bs.blck.root and state.data.data.slot <= bs.slot:
     if state.data.data.slot != bs.slot:
       # Might be that we're moving to the same block but later slot
-      pool.skipAndUpdateState(state.data, bs.blck, bs.slot)
+      pool.skipAndUpdateState(state.data, bs.blck, bs.slot, true)
 
     return # State already at the right spot
 
@@ -818,13 +827,22 @@ proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
   # it's the one that we found the state with, and it has already been
   # applied. Pathologically quadratic in slot number, naïvely.
   for i in countdown(ancestors.len - 1, 0):
+    # Because the ancestors are in the database, there's no need to persist them
+    # again. Also, because we're applying blocks that were loaded from the
+    # database, we can skip certain checks that have already been performed
+    # before adding the block to the database. In particular, this means that
+    # no state root calculation will take place here, because we can load
+    # the final state root from the block itself.
     let ok =
       pool.skipAndUpdateState(
         state, ancestors[i],
-        {skipBlsValidation, skipMerkleValidation, skipStateRootValidation})
+        {skipBlsValidation, skipMerkleValidation, skipStateRootValidation},
+        false)
     doAssert ok, "Blocks in database should never fail to apply.."
 
-  pool.skipAndUpdateState(state.data, bs.blck, bs.slot)
+  # We save states here - blocks were guaranteed to have passed through the save
+  # function once at least, but not so for empty slots!
+  pool.skipAndUpdateState(state.data, bs.blck, bs.slot, true)
 
   state.blck = bs.blck
 
@@ -839,7 +857,6 @@ proc delState(pool: BlockPool, bs: BlockSlot) =
   # Delete state state and mapping for a particular block+slot
   if (let root = pool.db.getStateRoot(bs.blck.root, bs.slot); root.isSome()):
     pool.db.delState(root.get())
-    pool.db.delStateRoot(bs.blck.root, bs.slot)
 
 proc updateHead*(pool: BlockPool, newHead: BlockRef) =
   ## Update what we consider to be the current head, as given by the fork

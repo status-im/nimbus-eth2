@@ -51,7 +51,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     latest_block_root = hash_tree_root(genesisBlock.message)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
-    r: Rand
+    r = initRand(1)
     signedBlock: SignedBeaconBlock
     cache = get_empty_per_epoch_cache()
 
@@ -89,7 +89,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     let t =
       if (state.slot > GENESIS_SLOT and
-        (state.slot + 1) mod SLOTS_PER_EPOCH == 0): tEpoch
+        (state.slot + 1).isEpoch): tEpoch
       else: tBlock
 
     withTimer(timers[t]):

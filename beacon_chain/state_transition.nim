@@ -29,6 +29,7 @@
 
 import
   chronicles,
+  stew/results,
   ./extras, ./ssz, metrics,
   ./spec/[datatypes, crypto, digest, helpers, validator],
   ./spec/[state_transition_block, state_transition_epoch],
@@ -122,6 +123,32 @@ func process_slot*(state: var HashedBeaconState) {.nbench.} =
     hash_tree_root(state.data.latest_block_header)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+proc advance_slot*(state: var HashedBeaconState, nextStateRoot: Opt[Eth2Digest]) =
+  # Special case version of process_slots that moves one slot at a time - can
+  # run faster if the state root is known already (for example when replaying
+  # existing slots)
+  process_slot(state)
+  let is_epoch_transition = (state.data.slot + 1).isEpoch
+  if is_epoch_transition:
+    # Note: Genesis epoch = 0, no need to test if before Genesis
+    try:
+      beacon_previous_validators.set(get_epoch_validator_count(state.data))
+    except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
+      trace "Couldn't update metrics", msg = e.msg
+    process_epoch(state.data)
+  state.data.slot += 1
+  if is_epoch_transition:
+    try:
+      beacon_current_validators.set(get_epoch_validator_count(state.data))
+    except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
+      trace "Couldn't update metrics", msg = e.msg
+
+  if nextStateRoot.isSome:
+    state.root = nextStateRoot.get()
+  else:
+    state.root = hash_tree_root(state.data)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc process_slots*(state: var HashedBeaconState, slot: Slot) {.nbench.} =
   # TODO: Eth specs strongly assert that state.data.slot <= slot
   #       This prevents receiving attestation in any order
@@ -129,6 +156,11 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot) {.nbench.} =
   #       but it maybe an artifact of the test case
   #       as this was not triggered in the testnet1
   #       after a hour
+  # TODO this function is not _really_ necessary: when replaying states, we
+  #      advance slots one by one before calling `state_transition` - this way,
+  #      we avoid the state root calculation - as such, instead of advancing
+  #      slots "automatically" in `state_transition`, perhaps it would be better
+  #      to keep a pre-condition that state must be at the right slot already?
   if state.data.slot > slot:
     notice(
       "Unusual request for a slot in the past",
@@ -139,22 +171,7 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot) {.nbench.} =
 
   # Catch up to the target slot
   while state.data.slot < slot:
-    process_slot(state)
-    let is_epoch_transition = (state.data.slot + 1) mod SLOTS_PER_EPOCH == 0
-    if is_epoch_transition:
-      # Note: Genesis epoch = 0, no need to test if before Genesis
-      try:
-        beacon_previous_validators.set(get_epoch_validator_count(state.data))
-      except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
-        trace "Couldn't update metrics", msg = e.msg
-      process_epoch(state.data)
-    state.data.slot += 1
-    if is_epoch_transition:
-      try:
-        beacon_current_validators.set(get_epoch_validator_count(state.data))
-      except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
-        trace "Couldn't update metrics", msg = e.msg
-    state.root = hash_tree_root(state.data)
+    advance_slot(state, err(Opt[Eth2Digest]))
 
 # TODO remove this once callers gone
 proc process_slots*(state: var BeaconState, slot: Slot) {.deprecated: "Use HashedBeaconState version".} =

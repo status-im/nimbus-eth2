@@ -40,7 +40,7 @@ func verifyConsensus*(state: BeaconState, attesterRatio: auto) =
     doAssert state.finalized_checkpoint.epoch + 2 >= current_epoch
 
 proc loadGenesis*(validators: int, validate: bool): ref BeaconState =
-  let fn = &"genesim_{const_preset}_{validators}"
+  let fn = &"genesim_{const_preset}_{validators}.ssz"
   if fileExists(fn):
     let res = newClone(SSZ.loadFile(fn, BeaconState))
     if res.slot != GENESIS_SLOT:

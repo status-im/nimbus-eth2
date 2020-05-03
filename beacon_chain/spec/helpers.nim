@@ -38,6 +38,9 @@ func compute_epoch_at_slot*(slot: Slot|uint64): Epoch =
 template epoch*(slot: Slot): Epoch =
   compute_epoch_at_slot(slot)
 
+template isEpoch*(slot: Slot): bool =
+  (slot mod SLOTS_PER_EPOCH) == 0
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#compute_start_slot_at_epoch
 func compute_start_slot_at_epoch*(epoch: Epoch): Slot =
   # Return the start slot of ``epoch``.
