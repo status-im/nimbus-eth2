@@ -24,7 +24,7 @@ import
   attestation_pool, block_pool, eth2_network, eth2_discovery,
   beacon_node_types, mainchain_monitor, version, ssz, ssz/dynamic_navigator,
   sync_protocol, request_manager, validator_keygen, interop, statusbar,
-  attestation_aggregation, sync_manager, state_transition
+  attestation_aggregation, sync_manager, state_transition, sszdump
 
 const
   genesisFile = "genesis.ssz"
@@ -373,10 +373,7 @@ proc sendAttestation(node: BeaconNode,
     getAttestationTopic(node.forkDigest, attestationData.index), attestation)
 
   if node.config.dumpEnabled:
-    SSZ.saveFile(
-      node.config.dumpDir / "att-" & $attestationData.slot & "-" &
-      $attestationData.index & "-" & validator.pubKey.shortLog &
-      ".ssz", attestation)
+    dump(node.config.dumpDir, attestationData, validator.pubKey)
 
   info "Attestation sent",
     attestation = shortLog(attestation),
@@ -452,15 +449,10 @@ proc proposeBlock(node: BeaconNode,
     cat = "consensus"
 
   if node.config.dumpEnabled:
-    SSZ.saveFile(
-      node.config.dumpDir / "block-" & $newBlock.message.slot & "-" &
-      shortLog(newBlockRef.root) & ".ssz", newBlock)
+    dump(node.config.dumpDir, newBlock, newBlockRef)
     node.blockPool.withState(
         node.blockPool.tmpState, newBlockRef.atSlot(newBlockRef.slot)):
-      SSZ.saveFile(
-        node.config.dumpDir / "state-" & $state.slot & "-" &
-        shortLog(newBlockRef.root) & "-"  & shortLog(root()) & ".ssz",
-        state)
+      dump(node.config.dumpDir, hashedState, newBlockRef)
 
   node.network.broadcast(node.topicBeaconBlocks, newBlock)
 
