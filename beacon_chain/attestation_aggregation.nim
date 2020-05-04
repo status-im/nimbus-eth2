@@ -140,9 +140,9 @@ proc isValidAttestation*(
   # as it supports aggregated attestations (which this can't be)
   var cache = get_empty_per_epoch_cache()
   if not is_valid_indexed_attestation(
-      pool.blockPool.headState.data.data[],
+      pool.blockPool.headState.data.data,
       get_indexed_attestation(
-        pool.blockPool.headState.data.data[], attestation, cache), {}):
+        pool.blockPool.headState.data.data, attestation, cache), {}):
     debug "isValidAttestation: signature verification failed"
     return false
 
