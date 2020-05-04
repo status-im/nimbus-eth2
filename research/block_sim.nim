@@ -55,7 +55,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
   var
     blockPool = BlockPool.init(db)
-    attPool = AttestationPool.init(blockPool)
+    attPool = AttestationPool.init(blockPool, blockPool.finalizedHead)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
     r = initRand(1)
