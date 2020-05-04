@@ -23,7 +23,7 @@ TOOLS := \
 	ncli_pretty \
 	ncli_transition \
 	process_dashboard \
-	stackSizes \
+	stack_sizes \
 	state_sim \
 	block_sim
 	# bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes

@@ -8,8 +8,8 @@
 {.push raises: [Defect].}
 
 import
-  bitops, chronicles, options, tables,
-  stew/results, ssz, beacon_chain_db, state_transition, extras, eth/db/kvstore,
+  chronicles, options, tables,
+  stew/[bitops2, results], ssz, beacon_chain_db, state_transition, extras, eth/db/kvstore,
   beacon_node_types, metrics,
   spec/[crypto, datatypes, digest, helpers, validator]
 
@@ -638,7 +638,7 @@ func checkMissing*(pool: var BlockPool): seq[FetchRecord] =
 
   # simple (simplistic?) exponential backoff for retries..
   for k, v in pool.missing.pairs():
-    if v.tries.popcount() == 1:
+    if countOnes(v.tries.uint64) == 1:
       result.add(FetchRecord(root: k, historySlots: v.slots))
 
 proc skipAndUpdateState(
