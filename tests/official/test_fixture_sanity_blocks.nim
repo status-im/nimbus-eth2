@@ -12,7 +12,7 @@ import
   os, sequtils, unittest,
   # Beacon chain internals
   ../../beacon_chain/spec/[crypto, datatypes],
-  ../../beacon_chain/[ssz, state_transition, extras],
+  ../../beacon_chain/[ssz, state_transition],
   # Test utilities
   ../testutil,
   ./fixtures_utils
@@ -46,9 +46,8 @@ proc runTest(identifier: string) =
         let blck = parseTest(testDir/"blocks_" & $i & ".ssz", SSZ, SignedBeaconBlock)
 
         if hasPostState:
-          # TODO: The EF is using invalid BLS keys so we can't verify them
           let success = state_transition(
-            hashedPreState, blck, flags = {skipBlsValidation}, noRollback)
+            hashedPreState, blck, flags = {}, noRollback)
           doAssert success, "Failure when applying block " & $i
         else:
           let success = state_transition(

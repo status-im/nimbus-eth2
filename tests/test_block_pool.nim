@@ -94,11 +94,15 @@ when const_preset == "minimal": # Too much stack space used on mainnet
       var
         db = makeTestDB(SLOTS_PER_EPOCH)
         pool = BlockPool.init(db)
-        state = newClone(pool.loadTailState().data.data)
-        b1 = addTestBlock(state[], pool.tail.root)
+        state = newClone(pool.loadTailState().data)
+        b1 = addTestBlock(state.data, pool.tail.root)
         b1Root = hash_tree_root(b1.message)
-        b2 = addTestBlock(state[], b1Root)
+        b2 = addTestBlock(state.data, b1Root)
         b2Root {.used.} = hash_tree_root(b2.message)
+
+      # addTestBlock(...) operates on BeaconState, so doesn't update root
+      # TODO fix addTestBlock to work on HashedBeaconState directly
+      state.root = hash_tree_root(state.data)
 
     timedTest "getRef returns nil for missing blocks":
       check:
@@ -135,12 +139,14 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         pool.heads[0].blck == b2Add
 
       # Skip one slot to get a gap
-      process_slots(state[], state.slot + 1)
+      process_slots(state[], state.data.slot + 1)
 
       let
-        b4 = addTestBlock(state[], b2Root)
+        b4 = addTestBlock(state.data, b2Root)
         b4Root = hash_tree_root(b4.message)
         b4Add = pool.add(b4Root, b4)
+      # TODO fix addTestBlock to work on HashedBeaconState
+      state.root = hash_tree_root(state.data)
 
       check:
         b4Add.parent == b2Add
@@ -343,7 +349,7 @@ when const_preset == "minimal": # Too much stack space used on mainnet
         pool.updateHead(added)
 
       # Advance past epoch so that the epoch transition is gapped
-      process_slots(pool.headState.data.data, Slot(SLOTS_PER_EPOCH * 6 + 2) )
+      process_slots(pool.headState.data, Slot(SLOTS_PER_EPOCH * 6 + 2) )
 
       var blck = makeTestBlock(
         pool.headState.data.data, pool.head.blck.root,
