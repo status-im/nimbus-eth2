@@ -45,7 +45,7 @@ import
 
 
 # Constant presets
-const const_preset* {.strdefine.} = "minimal"
+const const_preset* {.strdefine.} = "mainnet"
 
 when const_preset == "mainnet":
   import ./presets/mainnet

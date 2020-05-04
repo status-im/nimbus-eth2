@@ -173,12 +173,6 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot) {.nbench.} =
   while state.data.slot < slot:
     advance_slot(state, err(Opt[Eth2Digest]))
 
-# TODO remove this once callers gone
-proc process_slots*(state: var BeaconState, slot: Slot) {.deprecated: "Use HashedBeaconState version".} =
-  var hashedState = HashedBeaconState(data: state, root: hash_tree_root(state))
-  process_slots(hashedState, slot)
-  state = hashedState.data
-
 proc noRollback*(state: var HashedBeaconState) =
   trace "Skipping rollback of broken state"
 
