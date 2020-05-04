@@ -9,6 +9,8 @@
 [![Gitter: #status-im/nimbus](https://img.shields.io/badge/gitter-status--im%2Fnimbus-orange.svg)](https://gitter.im/status-im/nimbus)
 [![Status: #nimbus-general](https://img.shields.io/badge/status-nimbus--general-orange.svg)](https://get.status.im/chat/public/nimbus-general)
 
+This is a non-semantic change aimed to force rebuilding in CI, not using some cached result from an identical commit.
+
 Welcome to Nimbus for Ethereum 2.0.
 
 Nimbus beacon chain is a research implementation of the beacon chain component of the upcoming Ethereum Serenity upgrade, aka Eth2.
