@@ -102,8 +102,6 @@ when const_preset == "minimal": # Too much stack space used on mainnet
 
       # addTestBlock(...) operates on BeaconState, so doesn't update root
       # TODO fix addTestBlock to work on HashedBeaconState directly
-      doAssert hash_tree_root(pool.loadTailState().data.data) ==
-        pool.loadTailState().data.root
       state.root = hash_tree_root(state.data)
 
     timedTest "getRef returns nil for missing blocks":
