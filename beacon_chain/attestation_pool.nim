@@ -161,6 +161,7 @@ func addUnresolved(pool: var AttestationPool, attestation: Attestation) =
       attestation: attestation,
     )
 
+
 proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attestation) =
   doAssert blck.root == attestation.data.beacon_block_root
 
@@ -238,11 +239,12 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
         a.validations.add(validation)
         pool.updateLatestVotes(state, attestationSlot, participants, a.blck)
 
-        info "Attestation resolved",
+        info "FOOBAR Attestation resolved",
           attestation = shortLog(attestation),
           validations = a.validations.len(),
           current_epoch = get_current_epoch(state),
           blockSlot = shortLog(blck.slot),
+          attestationSlot = attestationSlot,
           cat = "filtering"
 
         found = true
@@ -257,14 +259,15 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
     ))
     pool.updateLatestVotes(state, attestationSlot, participants, blck)
 
-    info "Attestation resolved",
+    info "FOO Attestation resolved (first)",
       attestation = shortLog(attestation),
       current_epoch = get_current_epoch(state),
       validations = 1,
       blockSlot = shortLog(blck.slot),
+      attestationSlot = attestationSlot,
       cat = "filtering"
 
-proc add*(pool: var AttestationPool, attestation: Attestation) =
+proc add*(pool: var AttestationPool, attestation: Attestation) {.deprecated.} =
   logScope: pcs = "atp_add_attestation"
 
   let blck = pool.blockPool.getOrResolve(attestation.data.beacon_block_root)
@@ -307,6 +310,9 @@ proc getAttestationsForSlot(pool: AttestationPool, newBlockSlot: Slot):
     return none(SlotData)
 
   let slotDequeIdx = int(attestationSlot - pool.startingSlot)
+  debug "FOOBAR: getAttestationsForSlot: accessing pool.slots",
+    attestationSlot = attestationSlot,
+    newBlockSlot = newBlockSlot
   some(pool.slots[slotDequeIdx])
 
 proc getAttestationsForBlock*(pool: AttestationPool,
@@ -319,15 +325,26 @@ proc getAttestationsForBlock*(pool: AttestationPool,
   # should be refactored
   let
     newBlockSlot = state.slot
-    maybeSlotData = getAttestationsForSlot(pool, newBlockSlot)
+  #  maybeSlotData = getAttestationsForSlot(pool, newBlockSlot)
 
-  if maybeSlotData.isNone:
+  #if maybeSlotData.isNone:
     # Logging done in getAttestationsForSlot(...)
+  #  return
+  #let slotData = maybeSlotData.get
+
+  var attestations: seq[AttestationEntry]
+
+  for i in countdown(newBlockSlot.int, max(1, newBlockSlot.int - 3)):
+    let maybeSlotData = getAttestationsForSlot(pool, i.Slot)
+    if maybeSlotData.isSome:
+      insert(attestations, maybeSlotData.get.attestations)
+
+  if attestations.len == 0:
     return
-  let slotData = maybeSlotData.get
 
   var cache = get_empty_per_epoch_cache()
-  for a in slotData.attestations:
+  for a in attestations:
+  #for a in slotData.attestations:
     var
       # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#construct-attestation
       attestation = Attestation(
@@ -351,6 +368,9 @@ proc getAttestationsForBlock*(pool: AttestationPool,
     #      is needed because validate does nothing for now and we don't want
     #      to include a broken attestation
     if not check_attestation(state, attestation, {}, cache):
+      debug "Attestation no longer passes check_attestation",
+        attestation = shortLog(attestation),
+        state_slot = state.slot
       continue
 
     for v in a.validations[1..^1]:
@@ -364,10 +384,11 @@ proc getAttestationsForBlock*(pool: AttestationPool,
       if not attestation.aggregation_bits.overlaps(v.aggregation_bits):
         attestation.aggregation_bits.combine(v.aggregation_bits)
         attestation.signature.aggregate(v.aggregate_signature)
-
     result.add(attestation)
 
     if result.len >= MAX_ATTESTATIONS:
+      debug "FOOBAR getAttestationsForBlock: returning early",
+        attestationSlot = newBlockSlot - 1
       return
 
 proc resolve*(pool: var AttestationPool) =
@@ -466,6 +487,12 @@ proc isValidAttestation*(
     topicCommitteeIndex: uint64, flags: UpdateFlags): bool =
   # The attestation's committee index (attestation.data.index) is for the
   # correct subnet.
+
+  let a = true
+  if a:
+    return true
+
+
   if attestation.data.index != topicCommitteeIndex:
     debug "isValidAttestation: attestation's committee index not for the correct subnet",
       topicCommitteeIndex = topicCommitteeIndex,
