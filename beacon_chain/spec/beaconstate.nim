@@ -538,7 +538,7 @@ proc isValidAttestationTargetEpoch*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#attestations
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase0/beacon-chain.md#attestations
 proc check_attestation*(
     state: BeaconState, attestation: Attestation, flags: UpdateFlags,
     stateCache: var StateCache): bool =
