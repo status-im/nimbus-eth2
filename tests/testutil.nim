@@ -73,8 +73,11 @@ proc summarizeLongTests*(name: string) =
 template suiteReport*(name, body) =
   last = name
   status[last] = initOrderedTable[string, Status]()
-  suite name:
-    body
+  block: # namespacing
+    proc runSuite() =
+      suite name:
+        body
+    runSuite()
 
 template timedTest*(name, body) =
   var f: float
