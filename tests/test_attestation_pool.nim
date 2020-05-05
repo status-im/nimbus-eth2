@@ -32,7 +32,7 @@ proc main() =
 
       # Genesis state that results in 3 members per committee
       var blockPool = BlockPool.init(makeTestDB(SLOTS_PER_EPOCH * 3))
-      pool[] = AttestationPool.init(blockPool, blockPool.finalizedHead)
+      pool[] = AttestationPool.init(blockPool)
       state[] = loadTailState(blockPool)
       # Slot 0 is a finalized slot - won't be making attestations for it..
       process_slots(state.data, state.data.data.slot + 1)

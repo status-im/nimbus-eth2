@@ -209,7 +209,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     config: conf,
     attachedValidators: ValidatorPool.init(),
     blockPool: blockPool,
-    attestationPool: AttestationPool.init(blockPool, blockPool.finalizedHead),
+    attestationPool: AttestationPool.init(blockPool),
     mainchainMonitor: mainchainMonitor,
     beaconClock: BeaconClock.init(blockPool.headState.data.data),
     rpcServer: rpcServer,
