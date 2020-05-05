@@ -231,5 +231,3 @@ proc main() =
         head4 == b11Add
 
 main()
-
-main()
