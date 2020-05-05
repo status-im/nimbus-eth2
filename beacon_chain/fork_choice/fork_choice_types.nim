@@ -132,3 +132,9 @@ type
     proto_array*: ProtoArray
     votes*: seq[VoteTracker]
     balances*: seq[Gwei]
+
+func shortlog*(vote: VoteTracker): string =
+  result = "Vote("
+  result &= "current_root: " & shortlog(vote.current_root)
+  result &= ", next_root: " & shortlog(vote.next_root)
+  result &= ", next_epoch: " & $vote.next_epoch & ')'

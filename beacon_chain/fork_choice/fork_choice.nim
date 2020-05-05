@@ -11,7 +11,7 @@ import
   # Standard library
   std/tables, std/typetraits,
   # Status libraries
-  stew/results,
+  stew/results, chronicles,
   # Internal
   ../spec/[datatypes, digest],
   # Fork choice
@@ -42,6 +42,10 @@ func compute_deltas(
 
 # Fork choice routines
 # ----------------------------------------------------------------------
+
+logScope:
+  topics = "fork_choice"
+  cat = "fork_choice"
 
 # API:
 # - The private procs uses the ForkChoiceError error code
@@ -112,6 +116,18 @@ func process_attestation*(
     vote.next_root = block_root
     vote.next_epoch = target_epoch
 
+    {.noSideEffect.}:
+      info "Integrating vote in fork choice",
+        validator_index = $validator_index,
+        new_vote = shortlog(vote)
+  else:
+    {.noSideEffect.}:
+      info "Ignoring double-vote for fork choice",
+        validator_index = $validator_index,
+        current_vote = shortlog(vote),
+        ignored_block_root = shortlog(block_root),
+        ignored_target_epoch = $target_epoch
+
 func contains*(self: ForkChoice, block_root: Eth2Digest): bool =
   ## Returns `true` if a block is known to the fork choice
   ## and `false` otherwise.
@@ -134,6 +150,14 @@ func process_block*(
   )
   if err.kind != fcSuccess:
     return err("process_block_error: " & $err)
+
+  {.noSideEffect.}:
+    info "Integrating block in fork choice",
+      block_root = $shortlog(block_root),
+      parent_root = $shortlog(parent_root),
+      justified_epoch = $justified_epoch,
+      finalized_epoch = $finalized_epoch
+
   return ok()
 
 
