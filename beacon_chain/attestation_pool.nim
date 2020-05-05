@@ -17,7 +17,7 @@ import
 
 logScope: topics = "attpool"
 
-func init*(T: type AttestationPool, blockPool: BlockPool, finalizedHead: BlockSlot): T =
+func init*(T: type AttestationPool, blockPool: BlockPool): T =
   ## Initialize an AttestationPool from the blockPool `headState`
   ## The `finalized_root` works around the finalized_checkpoint of the genesis block
   ## holding a zero_root.
@@ -33,7 +33,7 @@ func init*(T: type AttestationPool, blockPool: BlockPool, finalizedHead: BlockSl
     justified_epoch = blockPool.headState.data.data.current_justified_checkpoint.epoch,
     finalized_epoch = blockPool.headState.data.data.finalized_checkpoint.epoch,
     # finalized_root = blockPool.headState.data.data.finalized_checkpoint.root
-    finalized_root = finalizedHead.blck.root
+    finalized_root = blockPool.finalizedHead.blck.root
   ).get()
 
   T(
