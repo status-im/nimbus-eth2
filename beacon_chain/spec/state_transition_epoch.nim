@@ -169,7 +169,7 @@ proc process_justification_and_finalization*(
     required_balance = get_total_active_balance(state) * 2,
     attesting_balance_prev = get_attesting_balance(state, matching_target_attestations_previous, stateCache)
   if get_attesting_balance(state, matching_target_attestations_previous,
-      stateCache) * 3 >= get_total_active_balance(state) * 2:
+      stateCache) * 5 >= get_total_active_balance(state) * 4:
     state.current_justified_checkpoint =
       Checkpoint(epoch: previous_epoch,
                  root: get_block_root(state, previous_epoch))
@@ -183,7 +183,7 @@ proc process_justification_and_finalization*(
   let matching_target_attestations_current =
     get_matching_target_attestations(state, current_epoch)  # Current epoch
   if get_attesting_balance(state, matching_target_attestations_current,
-      stateCache) * 3 >= get_total_active_balance(state) * 2:
+      stateCache) * 5 >= get_total_active_balance(state) * 4:
     state.current_justified_checkpoint =
       Checkpoint(epoch: current_epoch,
                  root: get_block_root(state, current_epoch))

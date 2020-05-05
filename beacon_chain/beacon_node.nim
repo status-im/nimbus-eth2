@@ -597,6 +597,8 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
 
   let proposerKey = node.blockPool.getProposer(head, slot)
   if proposerKey.isNone():
+    debug "FOOBAR handleProposal: proposerKey isNone",
+      slot = slot
     return head
 
   let validator = node.attachedValidators.getValidator(proposerKey.get())
@@ -615,7 +617,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
 
 proc verifyFinalization(node: BeaconNode, slot: Slot) =
   # Epoch must be >= 4 to check finalization
-  const SETTLING_TIME_OFFSET = 1'u64
+  const SETTLING_TIME_OFFSET = 3'u64
   let epoch = slot.compute_epoch_at_slot()
 
   # Don't static-assert this -- if this isn't called, don't require it
