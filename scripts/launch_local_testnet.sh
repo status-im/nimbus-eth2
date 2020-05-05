@@ -24,7 +24,7 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
 fi
 
 OPTS="ht:n:d:"
-LONGOPTS="help,testnet:,nodes:,data-dir:,disable-htop,log-level:"
+LONGOPTS="help,testnet:,nodes:,data-dir:,disable-htop,log-level:,grafana"
 
 # default values
 TESTNET="1"
@@ -32,6 +32,7 @@ NUM_NODES="10"
 DATA_DIR="local_testnet_data"
 USE_HTOP="1"
 LOG_LEVEL="DEBUG"
+ENABLE_GRAFANA="0"
 
 print_help() {
 	cat <<EOF
@@ -46,6 +47,7 @@ CI run: $(basename $0) --disable-htop -- --verify-finalization --stop-at-epoch=5
 			(default: "${DATA_DIR}")
       --disable-htop	don't use "htop" to see the beacon_node processes
       --log-level	set the log level (default: ${LOG_LEVEL})
+      --grafana		generate Grafana dashboards (and Prometheus config file)
 EOF
 }
 
@@ -83,6 +85,10 @@ while true; do
 			LOG_LEVEL="$2"
 			shift 2
 			;;
+		--grafana)
+			ENABLE_GRAFANA="1"
+			shift
+			;;
 		--)
 			shift
 			break
@@ -100,6 +106,7 @@ if [[ $# != 0 ]]; then
 	shift $#
 fi
 NETWORK="testnet${TESTNET}"
+BASE_METRICS_PORT=8008
 
 rm -rf "${DATA_DIR}"
 DEPOSITS_DIR="${DATA_DIR}/deposits_dir"
@@ -139,6 +146,35 @@ BOOTSTRAP_IP="127.0.0.1"
 	--bootstrap-address=${BOOTSTRAP_IP} \
 	--bootstrap-port=${BOOTSTRAP_PORT} \
 	--genesis-offset=5 # Delay in seconds
+
+if [[ "$ENABLE_GRAFANA" == "1" ]]; then
+	# Prometheus config
+	cat > "${DATA_DIR}/prometheus.yml" <<EOF
+global:
+  scrape_interval: 1s
+
+scrape_configs:
+  - job_name: "nimbus"
+    static_configs:
+EOF
+	for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
+		cat >> "${DATA_DIR}/prometheus.yml" <<EOF
+      - targets: ['127.0.0.1:$(( BASE_METRICS_PORT + NUM_NODE ))']
+        labels:
+          node: '$NUM_NODE'
+EOF
+	done
+
+	# use the exported Grafana dashboard for a single node to create one for all nodes
+	PROCESS_DASHBOARD_BIN="build/process_dashboard"
+	if [[ ! -f "$PROCESS_DASHBOARD_BIN" ]]; then
+	  $MAKE process_dashboard
+	fi
+	"${PROCESS_DASHBOARD_BIN}" \
+	  --nodes=${NUM_NODES} \
+	  --in="tests/simulation/beacon-chain-sim-node0-Grafana-dashboard.json" \
+	  --out="${DATA_DIR}/local-testnet-all-nodes-Grafana-dashboard.json"
+fi
 
 # Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
 # instance as the parent and the target process name as a pattern to the
@@ -200,6 +236,9 @@ for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 		--data-dir="${NODE_DATA_DIR}" \
 		${BOOTSTRAP_ARG} \
 		--state-snapshot="${NETWORK_DIR}/genesis.ssz" \
+		--metrics \
+		--metrics-address="127.0.0.1" \
+		--metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
 		${EXTRA_ARGS} \
 		> "${DATA_DIR}/log${NUM_NODE}.txt" 2>&1 &
 

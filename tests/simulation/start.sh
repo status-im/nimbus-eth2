@@ -26,10 +26,8 @@ LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.js
 # Windows detection
 if uname | grep -qiE "mingw|msys"; then
   MAKE="mingw32-make"
-  EXE_SUFFIX=".exe"
 else
   MAKE="make"
-  EXE_SUFFIX=""
 fi
 
 # to allow overriding the program names
@@ -176,7 +174,7 @@ if [ -f "${MASTER_NODE_ADDRESS_FILE}" ]; then
   rm "${MASTER_NODE_ADDRESS_FILE}"
 fi
 
-PROCESS_DASHBOARD_BIN="build/process_dashboard${EXE_SUFFIX}"
+PROCESS_DASHBOARD_BIN="build/process_dashboard"
 
 if [[ ! -f "$PROCESS_DASHBOARD_BIN" ]]; then
   $MAKE NIMFLAGS="$CUSTOM_NIMFLAGS" process_dashboard
