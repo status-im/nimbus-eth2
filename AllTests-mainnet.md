@@ -30,6 +30,17 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Smoke test initialize_beacon_state_from_eth1 [Preset: mainnet]                             OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## Block pool processing [Preset: mainnet]
+```diff
++ Can add same block twice [Preset: mainnet]                                                 OK
++ Reverse order block add & get [Preset: mainnet]                                            OK
++ Simple block add&get [Preset: mainnet]                                                     OK
++ getRef returns nil for missing blocks                                                      OK
++ loadTailState gets genesis block on first load [Preset: mainnet]                           OK
++ updateHead updates head and headState [Preset: mainnet]                                    OK
++ updateStateData sanity [Preset: mainnet]                                                   OK
+```
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Block processing [Preset: mainnet]
 ```diff
 + Attestation gets processed at epoch [Preset: mainnet]                                      OK
@@ -242,4 +253,4 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 OK: 8/8 Fail: 0/8 Skip: 0/8
 
 ---TOTAL---
-OK: 149/152 Fail: 3/152 Skip: 0/152
+OK: 156/159 Fail: 3/159 Skip: 0/159
