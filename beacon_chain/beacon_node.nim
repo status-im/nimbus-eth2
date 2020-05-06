@@ -22,7 +22,8 @@ import
     state_transition_block], spec/presets/custom,
   conf, time, beacon_chain_db, validator_pool, extras,
   attestation_pool, block_pool, eth2_network, eth2_discovery,
-  beacon_node_types, mainchain_monitor, version, ssz, ssz/dynamic_navigator,
+  beacon_node_common, beacon_node_types,
+  mainchain_monitor, version, ssz, ssz/dynamic_navigator,
   sync_protocol, request_manager, validator_keygen, interop, statusbar,
   attestation_aggregation, sync_manager, state_transition, sszdump
 
