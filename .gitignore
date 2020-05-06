@@ -28,5 +28,4 @@ build/
 *.log
 *.sqlite3
 
-/local_testnet_data
-
+/local_testnet_data*/
