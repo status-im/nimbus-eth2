@@ -18,22 +18,23 @@ import
   eth/p2p/enode, eth/[keys, async_utils], eth/p2p/discoveryv5/[protocol, enr],
 
   # Local modules
-  spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network,
-    state_transition_block], spec/presets/custom,
+  spec/[datatypes, digest, crypto, beaconstate, helpers, network],
+  spec/presets/custom,
   conf, time, beacon_chain_db, validator_pool, extras,
   attestation_pool, block_pool, eth2_network, eth2_discovery,
   beacon_node_common, beacon_node_types,
   mainchain_monitor, version, ssz, ssz/dynamic_navigator,
   sync_protocol, request_manager, validator_keygen, interop, statusbar,
-  attestation_aggregation, sync_manager, state_transition, sszdump
+  sync_manager, state_transition,
+  validator_duties
 
 const
   genesisFile = "genesis.ssz"
   hasPrompt = not defined(withoutPrompt)
 
 type
+  RpcServer* = RpcHttpServer
   KeyPair = eth2_network.KeyPair
-  RpcServer = RpcHttpServer
 
 template init(T: type RpcHttpServer, ip: IpAddress, port: Port): T =
   newRpcHttpServer([initTAddress(ip, port)])
@@ -51,25 +52,6 @@ declareCounter beacon_blocks_received,
   "Number of beacon chain blocks received by this peer"
 
 logScope: topics = "beacnde"
-
-type
-  BeaconNode = ref object
-    nickname: string
-    network: Eth2Node
-    netKeys: KeyPair
-    requestManager: RequestManager
-    db: BeaconChainDB
-    config: BeaconNodeConf
-    attachedValidators: ValidatorPool
-    blockPool: BlockPool
-    attestationPool: AttestationPool
-    mainchainMonitor: MainchainMonitor
-    beaconClock: BeaconClock
-    rpcServer: RpcServer
-    forkDigest: ForkDigest
-    topicBeaconBlocks: string
-    topicAggregateAndProofs: string
-    syncLoop: Future[void]
 
 proc onBeaconBlock*(node: BeaconNode, signedBlock: SignedBeaconBlock) {.gcsafe.}
 

@@ -19,6 +19,8 @@ import
   sync_protocol, request_manager
 
 type
+  RpcServer* = RpcHttpServer
+
   BeaconNode* = ref object
     nickname*: string
     network*: Eth2Node
