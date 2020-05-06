@@ -80,7 +80,7 @@ proc checkBasic(T: typedesc,
                 dir: string,
                 expectedHash: SSZHashTreeRoot) =
   var fileContents = readFile(dir/"serialized.ssz")
-  var stream = memoryInput(fileContents)
+  var stream = unsafeMemoryInput(fileContents)
   var reader = init(SszReader, stream)
   var deserialized = reader.readValue(T)
 
