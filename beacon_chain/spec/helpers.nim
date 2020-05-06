@@ -17,6 +17,11 @@ import
   # Internal
   ./datatypes, ./digest, ../ssz
 
+type
+  # This solves an ambiguous identifier Error in some contexts
+  # (other candidate is nativesockets.Domain)
+  Domain = datatypes.Domain
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
   # Return the largest integer ``x`` such that ``x**2 <= n``.

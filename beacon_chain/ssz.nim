@@ -15,7 +15,7 @@
 import
   stew/shims/macros, options, algorithm, options, strformat,
   stew/[bitops2, bitseqs, endians2, objects, varints, ptrops, ranges/ptr_arith], stint,
-  faststreams/input_stream, serialization, serialization/testing/tracing,
+  faststreams/[inputs, outputs, buffers], serialization, serialization/testing/tracing,
   ./spec/[crypto, datatypes, digest],
   ./ssz/[types, bytes_reader]
 
@@ -117,36 +117,36 @@ template toSszType*(x: auto): auto =
   elif useListType and x is List: seq[x.T](x)
   else: x
 
-proc writeFixedSized(c: var WriteCursor, x: auto) {.raises: [Defect, IOError].} =
+proc writeFixedSized(s: var (OutputStream|WriteCursor), x: auto) {.raises: [Defect, IOError].} =
   mixin toSszType
 
   when x is byte:
-    c.append x
+    s.write x
   elif x is bool|char:
-    c.append byte(ord(x))
+    s.write byte(ord(x))
   elif x is SomeUnsignedInt:
     let value = x.toBytesLE()
     trs "APPENDING INT ", x, " = ", value
-    c.appendMemCopy value
+    s.writeMemCopy value
   elif x is StUint:
-    c.appendMemCopy x # TODO: Is this always correct?
+    s.writeMemCopy x # TODO: Is this always correct?
   elif x is array|string|seq|openarray:
     when x[0] is byte:
       trs "APPENDING FIXED SIZE BYTES", x
-      c.append x
+      s.write x
     else:
       for elem in x:
         trs "WRITING FIXED SIZE ARRAY ELEMENT"
-        c.writeFixedSized toSszType(elem)
+        s.writeFixedSized toSszType(elem)
   elif x is tuple|object:
     enumInstanceSerializedFields(x, fieldName, field):
       trs "WRITING FIXED SIZE FIELD", fieldName
-      c.writeFixedSized toSszType(field)
+      s.writeFixedSized toSszType(field)
   else:
     unsupported x.type
 
-template writeFixedSized(s: OutputStream, x: auto) =
-  writeFixedSized(s.cursor, x)
+template writeOffset(cursor: var WriteCursor, offset: int) =
+  write cursor, toBytesLE(uint32 offset)
 
 template supports*(_: type SSZ, T: type): bool =
   mixin toSszType
@@ -184,10 +184,10 @@ template writeField*(w: var SszWriter,
     type FieldType = type toSszType(field)
 
     when isFixedSize(FieldType):
-      ctx.fixedParts.writeFixedSized toSszType(field)
+      writeFixedSized(ctx.fixedParts, toSszType(field))
     else:
       trs "WRITING OFFSET ", ctx.offset, " FOR ", fieldName
-      ctx.fixedParts.writeFixedSized uint32(ctx.offset)
+      writeOffset(ctx.fixedParts, ctx.offset)
       let initPos = w.stream.pos
       trs "WRITING VAR SIZE VALUE OF TYPE ", name(FieldType)
       when FieldType is BitSeq:
@@ -254,15 +254,15 @@ proc writeValue*[T](w: var SszWriter, x: SizePrefixed[T]) {.raises: [Defect, IOE
     # cursor.writeAndFinalize length.varintBytes
   else:
     var buf: VarintBuffer
-    buf.appendVarint length
-    cursor.writeAndFinalize buf.writtenBytes
+    buf.writeVarint length
+    cursor.finalWrite buf.writtenBytes
 
 template fromSszBytes*[T; N](_: type TypeWithMaxLen[T, N],
                              bytes: openarray[byte]): auto =
   mixin fromSszBytes
   fromSszBytes(T, bytes)
 
-proc readValue*[T](r: var SszReader, val: var T) {.raises: [Defect, MalformedSszError, SszSizeMismatchError].} =
+proc readValue*[T](r: var SszReader, val: var T) {.raises: [Defect, MalformedSszError, SszSizeMismatchError, IOError].} =
   when isFixedSize(T):
     const minimalSize = fixedPortionSize(T)
     if r.stream.readable(minimalSize):
@@ -272,7 +272,7 @@ proc readValue*[T](r: var SszReader, val: var T) {.raises: [Defect, MalformedSsz
   else:
     # TODO Read the fixed portion first and precisely measure the size of
     # the dynamic portion to consume the right number of bytes.
-    val = readSszValue(r.stream.read(r.stream.endPos), T)
+    val = readSszValue(r.stream.read(r.stream.len.get), T)
 
 proc readValue*[T](r: var SszReader, val: var SizePrefixed[T]) {.raises: [Defect].} =
   let length = r.stream.readVarint(uint64)
@@ -393,22 +393,45 @@ func getFinalHash(merkleizer: SszChunksMerkleizer): Eth2Digest =
       result = mergeBranches(result, getZeroHashWithoutSideEffect(i))
 
 let SszHashingStreamVTable = OutputStreamVTable(
-  writePageSync: proc (s: OutputStream, data: openarray[byte])
-                      {.nimcall, gcsafe, raises: [Defect, IOError].} =
-    trs "ADDING STREAM CHUNK ", data
-    SszHashingStream(s).merkleizer.addChunk(data)
+  writeSync: proc (s: OutputStream, src: pointer, srcLen: Natural)
+                  {.nimcall, gcsafe, raises: [Defect, IOError].} =
+    let merkleizer = SszHashingStream(s).merkleizer
+
+    implementWrites(s.buffers, src, srcLen, "FILE",
+                    writeStartAddr, writeLen):
+      var
+        remainingBytes = writeLen
+        pos = cast[ptr byte](writeStartAddr)
+
+      while remainingBytes >= bytesPerChunk:
+        merkleizer.addChunk(makeOpenArray(pos, bytesPerChunk))
+        pos = offset(pos, bytesPerChunk)
+        remainingBytes -= bytesPerChunk
+
+      if remainingBytes > 0:
+        merkleizer.addChunk(makeOpenArray(pos, remainingBytes))
+
+      writeLen
   ,
   flushSync: proc (s: OutputStream) {.nimcall, gcsafe.} =
     discard
 )
 
 func newSszHashingStream(merkleizer: SszChunksMerkleizer): OutputStream =
-  result = SszHashingStream(vtable: vtableAddr SszHashingStreamVTable,
-                            pageSize: bytesPerChunk,
-                            maxWriteSize: bytesPerChunk,
-                            minWriteSize: bytesPerChunk,
-                            merkleizer: merkleizer)
-  result.initWithSinglePage()
+  # This is very close to the optimal page size.
+  const pageSize = 4000
+  # What's important for us is that it will hold complete chunks:
+  static: assert(pageSize mod bytesPerChunk == 0)
+
+  var
+    buffers = initPageBuffers(pageSize)
+    span = buffers.getWritableSpan
+
+  SszHashingStream(vtable: vtableAddr SszHashingStreamVTable,
+                   buffers: buffers,
+                   span: span,
+                   spanEndPos: span.len,
+                   merkleizer: merkleizer)
 
 func mixInLength(root: Eth2Digest, length: int): Eth2Digest =
   var dataLen: array[32, byte]

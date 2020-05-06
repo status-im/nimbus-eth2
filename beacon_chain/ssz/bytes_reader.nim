@@ -36,7 +36,7 @@ func fromSszBytes*(T: type SomeInteger, data: openarray[byte]): T {.raisesssz.} 
 func fromSszBytes*(T: type bool, data: openarray[byte]): T {.raisesssz.} =
   # TODO: spec doesn't say what to do if the value is >1 - we'll use the C
   #       definition for now, but maybe this should be a parse error instead?
-  if data.len == 0 or data[0] > byte(1):
+  if data.len == 0 or byte(data[0]) > byte(1):
     raise newException(MalformedSszError, "invalid boolean value")
   data[0] == 1
 

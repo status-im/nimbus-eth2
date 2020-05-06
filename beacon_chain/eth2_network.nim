@@ -5,7 +5,7 @@ import
 
   # Status libs
   stew/[varints, base58, bitseqs], stew/shims/[macros, tables], stint,
-  faststreams/output_stream, snappy, snappy/framing,
+  faststreams/outputs, snappy, snappy/framing,
   json_serialization, json_serialization/std/[net, options],
   chronos, chronicles, metrics,
   # TODO: create simpler to use libp2p modules that use re-exports

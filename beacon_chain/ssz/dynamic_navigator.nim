@@ -3,7 +3,7 @@
 
 import
   strutils, parseutils,
-  stew/objects, faststreams/output_stream, json_serialization/writer,
+  stew/objects, faststreams/outputs, json_serialization/writer,
   ../spec/datatypes,
   types, bytes_reader, navigator
 
