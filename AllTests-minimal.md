@@ -246,16 +246,16 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 4/4 Fail: 0/4 Skip: 0/4
 ## [Unit - Spec - Epoch processing] Justification and Finalization  [Preset: minimal]
 ```diff
-+  Rule I - 234 finalization with enough support                                             OK
+-  Rule I - 234 finalization with enough support                                             Fail
 +  Rule I - 234 finalization without support                                                 OK
-+  Rule II - 23 finalization with enough support                                             OK
+-  Rule II - 23 finalization with enough support                                             Fail
 +  Rule II - 23 finalization without support                                                 OK
-+  Rule III - 123 finalization with enough support                                           OK
+-  Rule III - 123 finalization with enough support                                           Fail
 +  Rule III - 123 finalization without support                                               OK
-+  Rule IV - 12 finalization with enough support                                             OK
+-  Rule IV - 12 finalization with enough support                                             Fail
 +  Rule IV - 12 finalization without support                                                 OK
 ```
-OK: 8/8 Fail: 0/8 Skip: 0/8
+OK: 4/8 Fail: 4/8 Skip: 0/8
 
 ---TOTAL---
-OK: 157/160 Fail: 3/160 Skip: 0/160
+OK: 153/160 Fail: 7/160 Skip: 0/160

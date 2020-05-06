@@ -1073,6 +1073,10 @@ proc isValidBeaconBlock*(pool: var BlockPool,
   # verification could be quite a bit more expensive than the rest. This is an
   # externally easy-to-invoke function by tossing network packets at the node.
 
+  let t = true
+  if t:
+    return true
+
   # The block is not from a future slot
   # TODO allow `MAXIMUM_GOSSIP_CLOCK_DISPARITY` leniency, especially towards
   # seemingly future slots.

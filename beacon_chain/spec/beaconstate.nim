@@ -564,12 +564,14 @@ proc process_attestation*(
 
     if attestation.data.target.epoch == get_current_epoch(state):
       trace "process_attestation: current_epoch_attestations.add",
+        attestation = shortLog(attestation),
         pending_attestation = pending_attestation,
         indices = get_attesting_indices(
           state, attestation.data, attestation.aggregation_bits, stateCache).len
       state.current_epoch_attestations.add(pending_attestation)
     else:
       trace "process_attestation: previous_epoch_attestations.add",
+        attestation = shortLog(attestation),
         pending_attestation = pending_attestation,
         indices = get_attesting_indices(
           state, attestation.data, attestation.aggregation_bits, stateCache).len
@@ -577,6 +579,10 @@ proc process_attestation*(
 
     true
   else:
+    trace "process_attestation: check_attestation failed",
+      attestation = shortLog(attestation),
+      indices = get_attesting_indices(
+        state, attestation.data, attestation.aggregation_bits, stateCache).len
     false
 
 func makeAttestationData*(

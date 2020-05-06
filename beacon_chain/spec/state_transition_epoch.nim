@@ -99,7 +99,7 @@ func get_matching_head_attestations(state: BeaconState, epoch: Epoch):
        get_block_root_at_slot(state, it.data.slot)
   )
 
-func get_attesting_balance(
+proc get_attesting_balance(
     state: BeaconState, attestations: seq[PendingAttestation],
     stateCache: var StateCache): Gwei =
   # Return the combined effective balance of the set of unslashed validators
@@ -169,7 +169,7 @@ proc process_justification_and_finalization*(
     required_balance = get_total_active_balance(state) * 2,
     attesting_balance_prev = get_attesting_balance(state, matching_target_attestations_previous, stateCache)
   if get_attesting_balance(state, matching_target_attestations_previous,
-      stateCache) * 3 >= get_total_active_balance(state) * 2:
+      stateCache) * 5 >= get_total_active_balance(state) * 4:
     state.current_justified_checkpoint =
       Checkpoint(epoch: previous_epoch,
                  root: get_block_root(state, previous_epoch))
@@ -183,7 +183,7 @@ proc process_justification_and_finalization*(
   let matching_target_attestations_current =
     get_matching_target_attestations(state, current_epoch)  # Current epoch
   if get_attesting_balance(state, matching_target_attestations_current,
-      stateCache) * 3 >= get_total_active_balance(state) * 2:
+      stateCache) * 5 >= get_total_active_balance(state) * 4:
     state.current_justified_checkpoint =
       Checkpoint(epoch: current_epoch,
                  root: get_block_root(state, current_epoch))
@@ -251,7 +251,7 @@ func get_base_reward(state: BeaconState, index: ValidatorIndex,
     integer_squareroot(total_balance) div BASE_REWARDS_PER_EPOCH
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#rewards-and-penalties-1
-func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
+proc get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] {.nbench.}=
   let
     previous_epoch = get_previous_epoch(state)
@@ -347,7 +347,7 @@ func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
   (rewards, penalties)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#rewards-and-penalties-1
-func process_rewards_and_penalties(
+proc process_rewards_and_penalties(
     state: var BeaconState, cache: var StateCache) {.nbench.}=
   if get_current_epoch(state) == GENESIS_EPOCH:
     return

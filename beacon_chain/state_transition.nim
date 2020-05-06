@@ -209,6 +209,11 @@ proc state_transition*(
   #      many functions will mutate `state` partially without rolling back
   #      the changes in case of failure (look out for `var BeaconState` and
   #      bool return values...)
+
+  trace "in state_transition: processing block, check tbd",
+    signature = signedBlock.signature,
+    blockRoot = hash_tree_root(signedBlock.message)
+
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
   # These should never fail.
   process_slots(state, signedBlock.message.slot)
@@ -223,6 +228,9 @@ proc state_transition*(
       verify_block_signature(state.data, signedBlock):
 
     var per_epoch_cache = get_empty_per_epoch_cache()
+    trace "in state_transition: processing block, signature passed",
+      signature = signedBlock.signature,
+      blockRoot = hash_tree_root(signedBlock.message)
     if processBlock(state.data, signedBlock.message, flags, per_epoch_cache):
       if skipStateRootValidation in flags or verifyStateRoot(state.data, signedBlock.message):
         # State root is what it should be - we're done!

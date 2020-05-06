@@ -10,8 +10,13 @@
 import
   # Standard library
   sets,
+  stew/[bitseqs],
   # Internals
   ./datatypes, ./digest, ./beaconstate
+import
+  deques, sequtils, tables, options,
+  chronicles, stew/[bitseqs, byteutils],
+  beaconstate, datatypes, crypto, digest, helpers, validator
 
 # Logging utilities
 # --------------------------------------------------------
@@ -25,17 +30,20 @@ func shortLog*(x: Checkpoint): string =
 # --------------------------------------------------------
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#helper-functions-1
-func get_attesting_indices*(
+proc get_attesting_indices*(
     state: BeaconState, attestations: openarray[PendingAttestation],
     stateCache: var StateCache): HashSet[ValidatorIndex] =
   # This is part of get_unslashed_attesting_indices(...) in spec.
   result = initHashSet[ValidatorIndex]()
   for a in attestations:
+    debug "FOOBAR: get_attesting_indices()",
+      attestation_data = shortLog(a.data),
+      aggregation_bits = a.aggregation_bits
     result = result.union(get_attesting_indices(
       state, a.data, a.aggregation_bits, stateCache))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#helper-functions-1
-func get_unslashed_attesting_indices*(
+proc get_unslashed_attesting_indices*(
     state: BeaconState, attestations: openarray[PendingAttestation],
     stateCache: var StateCache): HashSet[ValidatorIndex] =
   result = get_attesting_indices(state, attestations, stateCache)
