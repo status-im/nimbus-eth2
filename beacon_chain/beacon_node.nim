@@ -29,7 +29,6 @@ import
 const
   genesisFile = "genesis.ssz"
   hasPrompt = not defined(withoutPrompt)
-  MaxEmptySlotCount = uint64(10*60) div SECONDS_PER_SLOT
 
 type
   KeyPair = eth2_network.KeyPair
