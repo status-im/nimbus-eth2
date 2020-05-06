@@ -981,7 +981,8 @@ proc createEth2Node*(conf: BeaconNodeConf, enrForkId: ENRForkID): Future[Eth2Nod
   # that are different from the host address (this is relevant when we
   # are running behind a NAT).
   var switch = newStandardSwitch(some keys.seckey, hostAddress,
-                                 triggerSelf = true, gossip = true)
+                                 triggerSelf = true, gossip = true,
+                                 sign = false, verifySignature = false)
   result = Eth2Node.init(conf, enrForkId, switch,
                          extIp, extTcpPort, extUdpPort,
                          keys.seckey.asEthKey)
@@ -1071,7 +1072,7 @@ proc subscribe*[MsgType](node: Eth2Node,
   var switchSubscriptions: seq[Future[void]] = @[]
   switchSubscriptions.add(node.switch.subscribe(topic, incomingMsgHandler))
   switchSubscriptions.add(node.switch.subscribe(topic & "_snappy", incomingMsgHandlerSnappy))
-  
+
   await allFutures(switchSubscriptions)
 
 proc traceMessage(fut: FutureBase, digest: MDigest[256]) =
