@@ -306,14 +306,14 @@ proc disconnectAndRaise(peer: Peer,
   await peer.disconnect(r)
   raisePeerDisconnected(msg, r)
 
-proc readSizePrefix(s: AsyncInputStream): Future[int] {.async.} =
+proc readSizePrefix(s: AsyncInputStream, maxSize: uint64): Future[int] {.async.} =
   trace "about to read msg size prefix"
   var parser: VarintParser[uint64, ProtoBuf]
   while s.readable:
     case parser.feedByte(s.read)
     of Done:
       let res = parser.getResult
-      if res > uint64(MAX_CHUNK_SIZE):
+      if res > maxSize:
         trace "size prefix outside of range", res
         return -1
       else:
@@ -326,10 +326,10 @@ proc readSizePrefix(s: AsyncInputStream): Future[int] {.async.} =
       continue
 
 proc readSszValue(s: AsyncInputStream, MsgType: type): Future[MsgType] {.async.} =
-  let size = await s.readSizePrefix
+  let size = await s.readSizePrefix(uint64(MAX_CHUNK_SIZE))
   if size > 0 and s.readable(size):
-    s.nonBlockingReads(ss):
-      return ss.readValue(SSZ, MsgType)
+    s.withReadableRange(size, r):
+      return r.readValue(SSZ, MsgType)
   else:
     raise newException(CatchableError,
                       "Failed to read an incoming message size prefix")
