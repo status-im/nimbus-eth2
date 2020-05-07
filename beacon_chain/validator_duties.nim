@@ -7,25 +7,25 @@
 
 import
   # Standard library
-  os, tables, random, strutils, times,
+  os, tables, strutils, times,
 
   # Nimble packages
-  stew/[objects, bitseqs, byteutils], stew/shims/macros,
-  chronos, confutils, metrics, json_rpc/[rpcserver, jsonmarshal],
-  chronicles, chronicles/helpers as chroniclesHelpers,
+  stew/[objects, bitseqs], stew/shims/macros,
+  chronos, metrics, json_rpc/[rpcserver, jsonmarshal],
+  chronicles,
   json_serialization/std/[options, sets, net], serialization/errors,
   eth/db/kvstore, eth/db/kvstore_sqlite3,
-  eth/p2p/enode, eth/[keys, async_utils], eth/p2p/discoveryv5/[protocol, enr],
+  eth/[keys, async_utils], eth/p2p/discoveryv5/[protocol, enr],
 
   # Local modules
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network,
-    state_transition_block], spec/presets/custom,
-  conf, time, beacon_chain_db, validator_pool, extras,
-  attestation_pool, block_pool, eth2_network, eth2_discovery,
+    state_transition_block],
+  conf, time, beacon_chain_db, validator_pool,
+  attestation_pool, block_pool, eth2_network,
   beacon_node_common, beacon_node_types,
   mainchain_monitor, version, ssz, ssz/dynamic_navigator,
-  sync_protocol, request_manager, validator_keygen, interop, statusbar,
-  attestation_aggregation, sync_manager, state_transition, sszdump
+  request_manager, interop, statusbar,
+  attestation_aggregation, sync_manager, sszdump
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_attestations_sent,

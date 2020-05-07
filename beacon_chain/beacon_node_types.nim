@@ -4,7 +4,7 @@ import
   deques, tables,
   stew/[endians2, byteutils], chronicles,
   spec/[datatypes, crypto, digest],
-  beacon_chain_db
+  beacon_chain_db, extras
 
 type
   # #############################################
@@ -143,13 +143,15 @@ type
 
     inAdd*: bool
 
-    headState*: StateData ## \
+    headState*: StateData ##\
     ## State given by the head block; only update in `updateHead`, not anywhere
     ## else via `withState`
 
     justifiedState*: StateData ## Latest justified state, as seen from the head
 
     tmpState*: StateData ## Scratchpad - may be any state
+
+    updateFlags*: UpdateFlags
 
   MissingBlock* = object
     slots*: uint64 # number of slots that are suspected missing

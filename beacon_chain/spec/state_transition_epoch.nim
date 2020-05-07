@@ -37,7 +37,7 @@
 import
   math, sequtils, tables,
   stew/[bitseqs, bitops2], chronicles, json_serialization/std/sets,
-  metrics, ../ssz,
+  metrics, ../extras, ../ssz,
   beaconstate, crypto, datatypes, digest, helpers, validator,
   state_transition_helpers,
   ../../nbench/bench_lab
@@ -110,8 +110,8 @@ func get_attesting_balance(
     state, attestations, stateCache))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#justification-and-finalization
-proc process_justification_and_finalization*(
-    state: var BeaconState, stateCache: var StateCache) {.nbench.}=
+proc process_justification_and_finalization*(state: var BeaconState,
+    stateCache: var StateCache, updateFlags: UpdateFlags = {}) {.nbench.} =
 
   logScope: pcs = "process_justification_and_finalization"
 
@@ -422,17 +422,22 @@ func process_final_updates*(state: var BeaconState) {.nbench.}=
   state.current_epoch_attestations = @[]
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#epoch-processing
-proc process_epoch*(state: var BeaconState) {.nbench.}=
+proc process_epoch*(state: var BeaconState, updateFlags: UpdateFlags)
+    {.nbench.} =
   trace "process_epoch",
     current_epoch = get_current_epoch(state)
 
   var per_epoch_cache = get_empty_per_epoch_cache()
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#justification-and-finalization
-  process_justification_and_finalization(state, per_epoch_cache)
+  process_justification_and_finalization(state, per_epoch_cache, updateFlags)
 
-  trace "ran process_justification_and_finalization",
-    current_epoch = get_current_epoch(state)
+  # state.slot hasn't been incremented yet.
+  if verifyFinalization in updateFlags and get_current_epoch(state) >= 3:
+    # Rule 2/3/4 finalization results in the most pessimal case. The other
+    # three finalization rules finalize more quickly as long as the any of
+    # the finalization rules triggered.
+    doAssert state.finalized_checkpoint.epoch + 3 >= get_current_epoch(state)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#rewards-and-penalties-1
   process_rewards_and_penalties(state, per_epoch_cache)
