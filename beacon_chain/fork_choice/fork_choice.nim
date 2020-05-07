@@ -151,11 +151,10 @@ func process_block*(
   if err.kind != fcSuccess:
     return err("process_block_error: " & $err)
 
-
   {.noSideEffect.}:
     info "Integrating block in fork choice",
       block_root = $shortlog(block_root),
-      # parent_root = $shortlog(parent_root), # TODO: For some reason this segfaults
+      parent_root = $shortlog(parent_root),
       justified_epoch = $justified_epoch,
       finalized_epoch = $finalized_epoch
 

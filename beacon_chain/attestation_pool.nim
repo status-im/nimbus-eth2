@@ -295,7 +295,7 @@ proc add*(pool: var AttestationPool, blck: BlockRef) =
   pool.forkChoice.process_block(
     slot = blck.slot,
     block_root = blck.root,
-    parent_root = blck.parent.root,
+    parent_root = if not blck.parent.isNil: blck.parent.root else: default(Eth2Digest),
     state_root = default(Eth2Digest), # This is unnecessary for fork choice but may help external components
     justified_epoch = pool.blockPool.tmpState.data.data.current_justified_checkpoint.epoch,
     finalized_epoch = pool.blockPool.tmpState.data.data.finalized_checkpoint.epoch,
