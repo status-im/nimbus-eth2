@@ -393,11 +393,30 @@ func getFinalHash(merkleizer: SszChunksMerkleizer): Eth2Digest =
       result = mergeBranches(result, getZeroHashWithoutSideEffect(i))
 
 let SszHashingStreamVTable = OutputStreamVTable(
+  # The SSZ Hashing stream is a way to simplify the implementation
+  # of `hash_tree_root` for variable-sized objects.
+  #
+  # Since the hash result is defined over the serialized representation
+  # of the objects and not over their memory contents, computing the
+  # hash naturally involves executing the serialization routines.
+  #
+  # It would be wasteful if we need to allocate memory for this, so we
+  # take a short-cut by defining a "virtual" output stream that will
+  # hash the serialized output as it is being produced.
+  #
+  # Since SSZ uses delayed writes, sometimes the buffering mechanism
+  # of FastStreams will allocate just enough memory to resolve the
+  # delayed writes, but our expectation is that most of the time
+  # the stream will be drained with just a single reusable memory
+  # page (currently set to 4000 bytes which equals 125 chunks).
   writeSync: proc (s: OutputStream, src: pointer, srcLen: Natural)
                   {.nimcall, gcsafe, raises: [Defect, IOError].} =
     let merkleizer = SszHashingStream(s).merkleizer
 
-    implementWrites(s.buffers, src, srcLen, "FILE",
+    # This drains the FastStreams buffers in the usual way, simulating
+    # writing to an external device, but in our case, we just divide
+    # the content in chunks and feed them to the merkleizer:
+    implementWrites(s.buffers, src, srcLen, "Hashing Stream",
                     writeStartAddr, writeLen):
       var
         remainingBytes = writeLen
