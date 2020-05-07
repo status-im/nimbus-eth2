@@ -26,7 +26,7 @@ import
   mainchain_monitor, version, ssz, ssz/dynamic_navigator,
   sync_protocol, request_manager, validator_keygen, interop, statusbar,
   sync_manager, state_transition,
-  validator_duties
+  validator_duties, attestation_aggregation
 
 const
   genesisFile = "genesis.ssz"
