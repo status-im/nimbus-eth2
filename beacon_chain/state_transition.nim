@@ -131,17 +131,11 @@ proc advance_slot*(state: var HashedBeaconState, nextStateRoot: Opt[Eth2Digest])
   let is_epoch_transition = (state.data.slot + 1).isEpoch
   if is_epoch_transition:
     # Note: Genesis epoch = 0, no need to test if before Genesis
-    try:
-      beacon_previous_validators.set(get_epoch_validator_count(state.data))
-    except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
-      trace "Couldn't update metrics", msg = e.msg
+    beacon_previous_validators.set(get_epoch_validator_count(state.data))
     process_epoch(state.data)
   state.data.slot += 1
   if is_epoch_transition:
-    try:
-      beacon_current_validators.set(get_epoch_validator_count(state.data))
-    except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
-      trace "Couldn't update metrics", msg = e.msg
+    beacon_current_validators.set(get_epoch_validator_count(state.data))
 
   if nextStateRoot.isSome:
     state.root = nextStateRoot.get()
