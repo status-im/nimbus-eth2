@@ -333,10 +333,10 @@ proc getState(
   let outputAddr = unsafeAddr output # local scope
   func restore(v: var BeaconState) =
     if outputAddr == (unsafeAddr pool.headState):
-      # TODO seeing the headState in the rollback shouldn't happen - we load
+      # TODO seeing the headState in the restore shouldn't happen - we load
       #      head states only when updating the head position, and by that time
       #      the database will have gone through enough sanity checks that
-      #      SSZ exceptions shouldn't happen, which is when rollback happens.
+      #      SSZ exceptions shouldn't happen, which is when restore happens.
       #      Nonetheless, this is an ugly workaround that needs to go away
       doAssert false, "Cannot alias headState"
 
@@ -670,13 +670,13 @@ proc skipAndUpdateState(
   pool.skipAndUpdateState(
     state.data, blck.refs, blck.data.message.slot - 1, save)
 
-  var statePtr = unsafeAddr state # safe because `rollback` is locally scoped
-  func rollback(v: var HashedBeaconState) =
+  var statePtr = unsafeAddr state # safe because `restore` is locally scoped
+  func restore(v: var HashedBeaconState) =
     doAssert (addr(statePtr.data) == addr v)
     statePtr[] = pool.headState
 
   let ok = state_transition(
-    state.data, blck.data, flags + pool.updateFlags, rollback)
+    state.data, blck.data, flags + pool.updateFlags, restore)
   if ok and save:
     pool.putState(state.data, blck.refs)
 
