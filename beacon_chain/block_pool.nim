@@ -675,7 +675,8 @@ proc skipAndUpdateState(
     doAssert (addr(statePtr.data) == addr v)
     statePtr[] = pool.headState
 
-  let ok = state_transition(state.data, blck.data, pool.updateFlags, rollback)
+  let ok = state_transition(
+    state.data, blck.data, flags + pool.updateFlags, rollback)
   if ok and save:
     pool.putState(state.data, blck.refs)
 
