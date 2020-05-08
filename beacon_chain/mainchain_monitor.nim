@@ -82,7 +82,7 @@ type
     pubkey: Bytes48,
     withdrawalCredentials: Bytes32,
     amount: Bytes8,
-    signature: Bytes96, merkleTreeIndex: Bytes8, j: JsonNode) {.gcsafe.}
+    signature: Bytes96, merkleTreeIndex: Bytes8, j: JsonNode) {.raises: [Defect], gcsafe.}
 
 const
   reorgDepthLimit = 1000
@@ -553,7 +553,8 @@ proc run(m: MainchainMonitor, delayBeforeStart: Duration) {.async.} =
       pubkey: Bytes48,
       withdrawalCredentials: Bytes32,
       amount: Bytes8,
-      signature: Bytes96, merkleTreeIndex: Bytes8, j: JsonNode):
+      signature: Bytes96, merkleTreeIndex: Bytes8, j: JsonNode)
+      {.raises: [Defect], gcsafe.}:
     try:
       let
         blockHash = BlockHash.fromHex(j["blockHash"].getStr())
@@ -564,6 +565,12 @@ proc run(m: MainchainMonitor, delayBeforeStart: Duration) {.async.} =
 
     except CatchableError as exc:
       warn "Received invalid deposit", err = exc.msg, j
+    except Exception as err:
+      # chronos still raises exceptions which inherit directly from Exception
+      if err[] of Defect:
+        raise (ref Defect)(err)
+      else:
+        warn "Received invalid deposit", err = err.msg, j
 
 proc start(m: MainchainMonitor, delayBeforeStart: Duration) =
   if m.runFut.isNil:
