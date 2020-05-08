@@ -245,8 +245,13 @@ proc init*(T: type BlockPool, db: BeaconChainDB,
     headState: tmpState[],
     justifiedState: tmpState[], # This is wrong but we'll update it below
     tmpState: tmpState[],
-    updateFlags: updateFlags
+
+    # The only allowed flag right now is verifyFinalization, as the others all
+    # allow skipping some validation.
+    updateFlags: {verifyFinalization} * updateFlags
   )
+
+  doAssert res.updateFlags in [{}, {verifyFinalization}]
 
   res.updateStateData(res.justifiedState, justifiedHead)
   res.updateStateData(res.headState, headRef.atSlot(headRef.slot))
@@ -326,7 +331,7 @@ proc getState(
     pool: BlockPool, db: BeaconChainDB, stateRoot: Eth2Digest, blck: BlockRef,
     output: var StateData): bool =
   let outputAddr = unsafeAddr output # local scope
-  func rollback(v: var BeaconState) =
+  func restore(v: var BeaconState) =
     if outputAddr == (unsafeAddr pool.headState):
       # TODO seeing the headState in the rollback shouldn't happen - we load
       #      head states only when updating the head position, and by that time
@@ -337,7 +342,7 @@ proc getState(
 
     outputAddr[] = pool.headState
 
-  if not db.getState(stateRoot, output.data.data, rollback):
+  if not db.getState(stateRoot, output.data.data, restore):
     return false
 
   output.blck = blck
