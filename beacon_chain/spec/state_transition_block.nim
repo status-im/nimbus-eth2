@@ -401,19 +401,16 @@ proc process_block*(
   # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
   # doesn't seem to specify at what point in block processing this metric is to be read,
   # and this avoids the early-return issue (could also use defer, etc).
-  try:
-    beacon_pending_deposits.set(
-      state.eth1_data.deposit_count.int64 - state.eth1_deposit_index.int64)
-    beacon_processed_deposits_total.set(state.eth1_deposit_index.int64)
+  beacon_pending_deposits.set(
+    state.eth1_data.deposit_count.int64 - state.eth1_deposit_index.int64)
+  beacon_processed_deposits_total.set(state.eth1_deposit_index.int64)
 
-    # Adds nontrivial additional computation, but only does so when metrics
-    # enabled.
-    beacon_current_live_validators.set(toHashSet(
-      mapIt(state.current_epoch_attestations, it.proposerIndex)).len.int64)
-    beacon_previous_live_validators.set(toHashSet(
-      mapIt(state.previous_epoch_attestations, it.proposerIndex)).len.int64)
-  except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
-    trace "Couldn't update metrics", msg = e.msg
+  # Adds nontrivial additional computation, but only does so when metrics
+  # enabled.
+  beacon_current_live_validators.set(toHashSet(
+    mapIt(state.current_epoch_attestations, it.proposerIndex)).len.int64)
+  beacon_previous_live_validators.set(toHashSet(
+    mapIt(state.previous_epoch_attestations, it.proposerIndex)).len.int64)
 
   if not process_block_header(state, blck, flags, stateCache):
     notice "Block header not valid", slot = shortLog(state.slot)
