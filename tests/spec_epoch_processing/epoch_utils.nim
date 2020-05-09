@@ -31,4 +31,4 @@ proc transitionEpochUntilJustificationFinalization*(state: var HashedBeaconState
   # From process_epoch()
   var per_epoch_cache = get_empty_per_epoch_cache()
 
-  process_justification_and_finalization(state.data, per_epoch_cache)
+  process_justification_and_finalization(state.data, per_epoch_cache, {})

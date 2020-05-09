@@ -13,10 +13,9 @@ import
 
   # Local modules
   spec/[datatypes, crypto],
-  conf, time, beacon_chain_db, validator_pool,
+  conf, time, beacon_chain_db,
   attestation_pool, block_pool, eth2_network,
-  beacon_node_types, mainchain_monitor,
-  sync_protocol, request_manager
+  beacon_node_types, mainchain_monitor, request_manager
 
 type
   RpcServer* = RpcHttpServer

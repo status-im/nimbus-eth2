@@ -123,7 +123,8 @@ func process_slot*(state: var HashedBeaconState) {.nbench.} =
     hash_tree_root(state.data.latest_block_header)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-proc advance_slot*(state: var HashedBeaconState, nextStateRoot: Opt[Eth2Digest]) =
+proc advance_slot*(state: var HashedBeaconState,
+    nextStateRoot: Opt[Eth2Digest], updateFlags: UpdateFlags) =
   # Special case version of process_slots that moves one slot at a time - can
   # run faster if the state root is known already (for example when replaying
   # existing slots)
@@ -132,7 +133,7 @@ proc advance_slot*(state: var HashedBeaconState, nextStateRoot: Opt[Eth2Digest])
   if is_epoch_transition:
     # Note: Genesis epoch = 0, no need to test if before Genesis
     beacon_previous_validators.set(get_epoch_validator_count(state.data))
-    process_epoch(state.data)
+    process_epoch(state.data, updateFlags)
   state.data.slot += 1
   if is_epoch_transition:
     beacon_current_validators.set(get_epoch_validator_count(state.data))
@@ -143,7 +144,8 @@ proc advance_slot*(state: var HashedBeaconState, nextStateRoot: Opt[Eth2Digest])
     state.root = hash_tree_root(state.data)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-proc process_slots*(state: var HashedBeaconState, slot: Slot) {.nbench.} =
+proc process_slots*(state: var HashedBeaconState, slot: Slot,
+    updateFlags: UpdateFlags = {}) {.nbench.} =
   # TODO: Eth specs strongly assert that state.data.slot <= slot
   #       This prevents receiving attestation in any order
   #       (see tests/test_attestation_pool)
@@ -165,7 +167,7 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot) {.nbench.} =
 
   # Catch up to the target slot
   while state.data.slot < slot:
-    advance_slot(state, err(Opt[Eth2Digest]))
+    advance_slot(state, err(Opt[Eth2Digest]), updateFlags)
 
 proc noRollback*(state: var HashedBeaconState) =
   trace "Skipping rollback of broken state"
@@ -205,7 +207,7 @@ proc state_transition*(
   #      bool return values...)
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
   # These should never fail.
-  process_slots(state, signedBlock.message.slot)
+  process_slots(state, signedBlock.message.slot, flags)
 
   # Block updates - these happen when there's a new block being suggested
   # by the block proposer. Every actor in the network will update its state
@@ -217,6 +219,9 @@ proc state_transition*(
       verify_block_signature(state.data, signedBlock):
 
     var per_epoch_cache = get_empty_per_epoch_cache()
+    trace "in state_transition: processing block, signature passed",
+      signature = signedBlock.signature,
+      blockRoot = hash_tree_root(signedBlock.message)
     if processBlock(state.data, signedBlock.message, flags, per_epoch_cache):
       if skipStateRootValidation in flags or verifyStateRoot(state.data, signedBlock.message):
         # State root is what it should be - we're done!

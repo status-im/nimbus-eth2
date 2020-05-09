@@ -139,7 +139,8 @@ func init*(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
 func init*(T: type BlockRef, root: Eth2Digest, blck: BeaconBlock): BlockRef =
   BlockRef.init(root, blck.slot)
 
-proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
+proc init*(T: type BlockPool, db: BeaconChainDB,
+    updateFlags: UpdateFlags = {}): BlockPool =
   # TODO we require that the db contains both a head and a tail block -
   #      asserting here doesn't seem like the right way to go about it however..
 
@@ -243,8 +244,14 @@ proc init*(T: type BlockPool, db: BeaconChainDB): BlockPool =
     heads: @[head],
     headState: tmpState[],
     justifiedState: tmpState[], # This is wrong but we'll update it below
-    tmpState: tmpState[]
+    tmpState: tmpState[],
+
+    # The only allowed flag right now is verifyFinalization, as the others all
+    # allow skipping some validation.
+    updateFlags: {verifyFinalization} * updateFlags
   )
+
+  doAssert res.updateFlags in [{}, {verifyFinalization}]
 
   res.updateStateData(res.justifiedState, justifiedHead)
   res.updateStateData(res.headState, headRef.atSlot(headRef.slot))
@@ -324,18 +331,18 @@ proc getState(
     pool: BlockPool, db: BeaconChainDB, stateRoot: Eth2Digest, blck: BlockRef,
     output: var StateData): bool =
   let outputAddr = unsafeAddr output # local scope
-  proc rollback(v: var BeaconState) =
+  func restore(v: var BeaconState) =
     if outputAddr == (unsafeAddr pool.headState):
-      # TODO seeing the headState in the rollback shouldn't happen - we load
+      # TODO seeing the headState in the restore shouldn't happen - we load
       #      head states only when updating the head position, and by that time
       #      the database will have gone through enough sanity checks that
-      #      SSZ exceptions shouldn't happen, which is when rollback happens.
+      #      SSZ exceptions shouldn't happen, which is when restore happens.
       #      Nonetheless, this is an ugly workaround that needs to go away
       doAssert false, "Cannot alias headState"
 
     outputAddr[] = pool.headState
 
-  if not db.getState(stateRoot, output.data.data, rollback):
+  if not db.getState(stateRoot, output.data.data, restore):
     return false
 
   output.blck = blck
@@ -470,14 +477,15 @@ proc add*(
 
     let
       poolPtr = unsafeAddr pool # safe because restore is short-lived
-    proc restore(v: var HashedBeaconState) =
+    func restore(v: var HashedBeaconState) =
       # TODO address this ugly workaround - there should probably be a
       #      `state_transition` that takes a `StateData` instead and updates
       #      the block as well
       doAssert v.addr == addr poolPtr.tmpState.data
       poolPtr.tmpState = poolPtr.headState
 
-    if not state_transition(pool.tmpState.data, signedBlock, {}, restore):
+    if not state_transition(
+        pool.tmpState.data, signedBlock, pool.updateFlags, restore):
       # TODO find a better way to log all this block data
       notice "Invalid block",
         blck = shortLog(blck),
@@ -545,7 +553,7 @@ func getRef*(pool: BlockPool, root: Eth2Digest): BlockRef =
   ## Retrieve a resolved block reference, if available
   pool.blocks.getOrDefault(root, nil)
 
-proc getBlockRange*(
+func getBlockRange*(
     pool: BlockPool, startSlot: Slot, skipStep: Natural,
     output: var openArray[BlockRef]): Natural =
   ## This function populates an `output` buffer of blocks
@@ -650,7 +658,7 @@ proc skipAndUpdateState(
     #      save and reuse
     # TODO possibly we should keep this in memory for the hot blocks
     let nextStateRoot = pool.db.getStateRoot(blck.root, state.data.slot + 1)
-    advance_slot(state, nextStateRoot)
+    advance_slot(state, nextStateRoot, pool.updateFlags)
 
     if save:
       pool.putState(state, blck)
@@ -662,12 +670,13 @@ proc skipAndUpdateState(
   pool.skipAndUpdateState(
     state.data, blck.refs, blck.data.message.slot - 1, save)
 
-  var statePtr = unsafeAddr state # safe because `rollback` is locally scoped
-  proc rollback(v: var HashedBeaconState) =
+  var statePtr = unsafeAddr state # safe because `restore` is locally scoped
+  func restore(v: var HashedBeaconState) =
     doAssert (addr(statePtr.data) == addr v)
     statePtr[] = pool.headState
 
-  let ok  = state_transition(state.data, blck.data, flags, rollback)
+  let ok = state_transition(
+    state.data, blck.data, flags + pool.updateFlags, restore)
   if ok and save:
     pool.putState(state.data, blck.refs)
 

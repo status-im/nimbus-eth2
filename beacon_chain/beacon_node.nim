@@ -168,8 +168,12 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
         quit 1
 
   # TODO check that genesis given on command line (if any) matches database
-  let
-    blockPool = BlockPool.init(db)
+  let blockPool = BlockPool.init(
+    db,
+    if conf.verifyFinalization:
+      {verifyFinalization}
+    else:
+      {})
 
   if mainchainMonitor.isNil and
      conf.web3Url.len > 0 and
@@ -305,21 +309,6 @@ proc onBeaconBlock(node: BeaconNode, signedBlock: SignedBeaconBlock) =
   # don't know if it's part of the chain we're currently building.
   discard node.storeBlock(signedBlock)
 
-proc verifyFinalization(node: BeaconNode, slot: Slot) =
-  # Epoch must be >= 4 to check finalization
-  const SETTLING_TIME_OFFSET = 1'u64
-  let epoch = slot.compute_epoch_at_slot()
-
-  # Don't static-assert this -- if this isn't called, don't require it
-  doAssert SLOTS_PER_EPOCH > SETTLING_TIME_OFFSET
-
-  # Intentionally, loudly assert. Point is to fail visibly and unignorably
-  # during testing.
-  if epoch >= 4 and slot mod SLOTS_PER_EPOCH > SETTLING_TIME_OFFSET:
-    let finalizedEpoch =
-      node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()
-    doAssert finalizedEpoch + 2 == epoch
-
 proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
   ## skip a few in case we're running late.
@@ -385,9 +374,6 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     nextSlot = slot + 1
 
   beacon_slot.set slot.int64
-
-  if node.config.verifyFinalization:
-    verifyFinalization(node, scheduledSlot)
 
   if slot > lastSlot + SLOTS_PER_EPOCH:
     # We've fallen behind more than an epoch - there's nothing clever we can
