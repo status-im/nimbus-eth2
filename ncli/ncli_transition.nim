@@ -15,5 +15,6 @@ cli do(pre: string, blck: string, post: string, verifyStateRoot = false):
 
   if not state_transition(stateY[], blckX, flags, noRollback):
     error "State transition failed"
+    quit 1
   else:
     SSZ.saveFile(post, stateY.data)

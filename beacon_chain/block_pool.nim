@@ -915,10 +915,7 @@ proc updateHead*(pool: BlockPool, newHead: BlockRef) =
       cat = "fork_choice"
 
     # A reasonable criterion for "reorganizations of the chain"
-    try:
-      beacon_reorgs_total.inc()
-    except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
-      trace "Couldn't update metrics", msg = e.msg
+    beacon_reorgs_total.inc()
   else:
     info "Updated head block",
       stateRoot = shortLog(pool.headState.data.root),

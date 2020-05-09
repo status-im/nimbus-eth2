@@ -539,7 +539,9 @@ proc runSyncLoop(node: BeaconNode) {.async.} =
 
   var syncman = newSyncManager[Peer, PeerID](
     node.network.peerPool, getLocalHeadSlot, getLocalWallSlot,
-    updateLocalBlocks
+    updateLocalBlocks,
+    # TODO increase when block processing perf improves
+    chunkSize = 8
   )
 
   await syncman.sync()

@@ -457,16 +457,13 @@ proc process_epoch*(state: var BeaconState, updateFlags: UpdateFlags)
   process_final_updates(state)
 
   # Once per epoch metrics
-  try:
-    beacon_finalized_epoch.set(state.finalized_checkpoint.epoch.int64)
-    beacon_finalized_root.set(state.finalized_checkpoint.root.toGaugeValue)
-    beacon_current_justified_epoch.set(
-      state.current_justified_checkpoint.epoch.int64)
-    beacon_current_justified_root.set(
-      state.current_justified_checkpoint.root.toGaugeValue)
-    beacon_previous_justified_epoch.set(
-      state.previous_justified_checkpoint.epoch.int64)
-    beacon_previous_justified_root.set(
-      state.previous_justified_checkpoint.root.toGaugeValue)
-  except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
-    trace "Couldn't update metrics", msg = e.msg
+  beacon_finalized_epoch.set(state.finalized_checkpoint.epoch.int64)
+  beacon_finalized_root.set(state.finalized_checkpoint.root.toGaugeValue)
+  beacon_current_justified_epoch.set(
+    state.current_justified_checkpoint.epoch.int64)
+  beacon_current_justified_root.set(
+    state.current_justified_checkpoint.root.toGaugeValue)
+  beacon_previous_justified_epoch.set(
+    state.previous_justified_checkpoint.epoch.int64)
+  beacon_previous_justified_root.set(
+    state.previous_justified_checkpoint.root.toGaugeValue)
