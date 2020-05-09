@@ -952,7 +952,7 @@ programMain:
           [toFieldPair("eth2", SSZ.encode(enrForkIdFromState initialState[])),
            toFieldPair("attnets", SSZ.encode(metadata.attnets))])
 
-      writeFile(bootstrapFile, bootstrapEnr.toURI)
+      writeFile(bootstrapFile, bootstrapEnr.tryGet().toURI)
       echo "Wrote ", bootstrapFile
 
   of importValidator:
