@@ -233,8 +233,8 @@ proc init*(T: type BlockPool, db: BeaconChainDB,
     pending: initTable[Eth2Digest, SignedBeaconBlock](),
     missing: initTable[Eth2Digest, MissingBlock](),
     cachedStates: [
-      newTable[tuple[a: Eth2Digest, b: Slot], StateData](),
-      newTable[tuple[a: Eth2Digest, b: Slot], StateData]()
+      newTable[tuple[a: Eth2Digest, b: Slot], StateData](initialSize = 2),
+      newTable[tuple[a: Eth2Digest, b: Slot], StateData](initialSize = 2)
     ],
     blocks: blocks,
     tail: tailRef,
@@ -383,7 +383,7 @@ proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
     # resulting lookback window is thus >= SLOTS_PER_EPOCH in size, while
     # bounded from above by 2*SLOTS_PER_EPOCH.
     pool.cachedStates[epochParity] =
-      newTable[tuple[a: Eth2Digest, b: Slot], StateData]()
+      newTable[tuple[a: Eth2Digest, b: Slot], StateData](initialSize = 2)
   else:
     # Need to be able to efficiently access states for both attestation
     # aggregation and to process block proposals going back to the last
