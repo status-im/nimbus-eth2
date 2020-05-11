@@ -235,8 +235,8 @@ proc init*(T: type BlockPool, db: BeaconChainDB,
     pending: initTable[Eth2Digest, SignedBeaconBlock](),
     missing: initTable[Eth2Digest, MissingBlock](),
     cachedStates: [
-      newTable[tuple[a: Eth2Digest, b: Slot], StateData](initialSize = 2),
-      newTable[tuple[a: Eth2Digest, b: Slot], StateData](initialSize = 2)
+      initTable[tuple[a: Eth2Digest, b: Slot], ref StateData](initialSize = 2),
+      initTable[tuple[a: Eth2Digest, b: Slot], ref StateData](initialSize = 2)
     ],
     blocks: blocks,
     tail: tailRef,
@@ -366,7 +366,8 @@ proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
     pool.db.putStateRoot(blck.root, state.data.slot, state.root)
     rootWritten = true
 
-  let epochParity = state.data.slot.compute_epoch_at_slot.uint64 mod 2
+  const BUCKET_SLOT_LENGTH = 8
+  let bucketParity = (state.data.slot mod (2*BUCKET_SLOT_LENGTH)) mod 2
 
   if state.data.slot.isEpoch:
     if not pool.db.containsState(state.root):
@@ -379,42 +380,42 @@ proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
       if not rootWritten:
         pool.db.putStateRoot(blck.root, state.data.slot, state.root)
 
-    # Because state.data.slot mod SLOTS_PER_EPOCH == 0, wrap back to last
-    # time this was the case i.e. last currentCache. The opposite parity,
-    # by contrast, has just finished filling from the previous epoch. The
-    # resulting lookback window is thus >= SLOTS_PER_EPOCH in size, while
-    # bounded from above by 2*SLOTS_PER_EPOCH.
-    pool.cachedStates[epochParity] =
-      newTable[tuple[a: Eth2Digest, b: Slot], StateData](initialSize = 2)
-  else:
-    # Need to be able to efficiently access states for both attestation
-    # aggregation and to process block proposals going back to the last
-    # finalized slot. Ideally to avoid potential combinatiorial forking
-    # storage and/or memory constraints could CoW, up to and including,
-    # in particular, hash_tree_root() which is expensive to do 30 times
-    # since the previous epoch, to efficiently state_transition back to
-    # desired slot. However, none of that's in place, so there are both
-    # expensive, repeated BeaconState copies as well as computationally
-    # time-consuming-near-end-of-epoch hash tree roots. The latter are,
-    # effectively, naïvely O(n^2) in slot number otherwise, so when the
-    # slots become in the mid-to-high-20s it's spending all its time in
-    # pointlessly repeated calculations of prefix-state-transitions. An
-    # intermediate time/memory workaround involves storing only mapping
-    # between BlockRefs, or BlockSlots, and the BeaconState tree roots,
-    # but that still involves tens of megabytes worth of copying, along
-    # with the concomitant memory allocator and GC load. Instead, use a
-    # more memory-intensive (but more conceptually straightforward, and
-    # faster) strategy to just store, for the most recent slots. Keep a
-    # block's StateData of odd-numbered epoch in bucket 1, whilst evens
-    # land in bucket 0 (which is handed back to GC in if branch). There
-    # still is a possibility of combinatorial explosion, but this only,
-    # by a constant-factor, worsens things. TODO the actual solution's,
-    # eventually, to switch to CoW and/or ref objects for state and the
-    # hash_tree_root processing.
-    let key = (a: blck.root, b: state.data.slot)
-    if key notin pool.cachedStates[epochParity]:
-      # Avoid constructing StateData if not necessary
-      pool.cachedStates[epochParity][key] = StateData(data: state, blck: blck)
+  if state.data.slot mod BUCKET_SLOT_LENGTH == 0:
+    # The lookback window's >= BUCKET_SLOT_LENGTH and <= BUCKET_SLOT_LENGTH*2.
+    pool.cachedStates[bucketParity] =
+      initTable[tuple[a: Eth2Digest, b: Slot], ref StateData](initialSize = 2)
+
+  # Need to be able to efficiently access states for both attestation
+  # aggregation and to process block proposals going back to the last
+  # finalized slot. Ideally to avoid potential combinatiorial forking
+  # storage and/or memory constraints could CoW, up to and including,
+  # in particular, hash_tree_root() which is expensive to do 30 times
+  # since the previous epoch, to efficiently state_transition back to
+  # desired slot. However, none of that's in place, so there are both
+  # expensive, repeated BeaconState copies as well as computationally
+  # time-consuming-near-end-of-epoch hash tree roots. The latter are,
+  # effectively, naïvely O(n^2) in slot number otherwise, so when the
+  # slots become in the mid-to-high-20s it's spending all its time in
+  # pointlessly repeated calculations of prefix-state-transitions. An
+  # intermediate time/memory workaround involves storing only mapping
+  # between BlockRefs, or BlockSlots, and the BeaconState tree roots,
+  # but that still involves tens of megabytes worth of copying, along
+  # with the concomitant memory allocator and GC load. Instead, use a
+  # more memory-intensive (but more conceptually straightforward, and
+  # faster) strategy to just store, for the most recent slots. Keep a
+  # block's StateData of odd-numbered epoch in bucket 1, whilst evens
+  # land in bucket 0 (which is handed back to GC in if branch). There
+  # still is a possibility of combinatorial explosion, but this only,
+  # by a constant-factor, worsens things. TODO the actual solution's,
+  # eventually, to switch to CoW and/or ref objects for state and the
+  # hash_tree_root processing.
+  let key = (a: blck.root, b: state.data.slot)
+  if key notin pool.cachedStates[bucketParity]:
+    # Avoid constructing StateData if not necessary
+    var stateData = new StateData
+    stateData.data = state
+    stateData.blck = blck
+    pool.cachedStates[bucketParity][key] = stateData
 
 proc add*(
     pool: var BlockPool, blockRoot: Eth2Digest,
@@ -724,7 +725,7 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
       let key = (a: parBs.blck.root, b: parBs.slot)
 
       try:
-        state = cachedState[key]
+        state = cachedState[key][]
       except KeyError:
         continue
       let ancestor = ancestors.pop()
@@ -796,9 +797,14 @@ proc getStateDataCached(pool: BlockPool, state: var StateData, bs: BlockSlot): b
   # mostly matches updateStateData(...), because it's too expensive to run the
   # rewindState(...)/skipAndUpdateState(...)/state_transition(...) procs, when
   # each hash_tree_root(...) consumes a nontrivial fraction of a second.
+  when false:
+    # For debugging/development purposes to assess required lookback window for
+    # any given use case.
+    doAssert state.data.data.slot <= bs.slot + 4
+
   for poolStateCache in pool.cachedStates:
     try:
-      state = poolStateCache[(a: bs.blck.root, b: bs.slot)]
+      state = poolStateCache[(a: bs.blck.root, b: bs.slot)][]
       beacon_state_data_cache_hits.inc()
       return true
     except KeyError:
