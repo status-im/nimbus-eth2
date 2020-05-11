@@ -188,7 +188,7 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
   let
     attestationSlot = attestation.data.slot
     idx = pool.slotIndex(state, attestationSlot)
-    AttestationsSeen = addr pool.mapSlotsToAttestations[idx]
+    attestationsSeen = addr pool.mapSlotsToAttestations[idx]
     validation = Validation(
       aggregation_bits: attestation.aggregation_bits,
       aggregate_signature: attestation.signature)
@@ -196,7 +196,7 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
       state, attestation.data, validation.aggregation_bits)
 
   var found = false
-  for a in AttestationsSeen.attestations.mitems():
+  for a in attestationsSeen.attestations.mitems():
     if a.data == attestation.data:
       for v in a.validations:
         if validation.aggregation_bits.isSubsetOf(v.aggregation_bits):
@@ -244,7 +244,7 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
       break
 
   if not found:
-    AttestationsSeen.attestations.add(AttestationEntry(
+    attestationsSeen.attestations.add(AttestationEntry(
       data: attestation.data,
       blck: blck,
       validations: @[validation]
