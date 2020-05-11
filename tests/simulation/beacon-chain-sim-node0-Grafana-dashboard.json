@@ -1327,7 +1327,7 @@
       ],
       "datasource": null,
       "decimals": null,
-      "format": "s",
+      "format": "dthms",
       "gauge": {
         "maxValue": 100,
         "minValue": 0,
@@ -1838,5 +1838,5 @@
   "variables": {
     "list": []
   },
-  "version": 28
+  "version": 30
 }
