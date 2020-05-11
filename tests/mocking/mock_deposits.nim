@@ -25,7 +25,7 @@ func signMockDepositData(
   # No state --> Genesis
   let domain = compute_domain(
       DOMAIN_DEPOSIT,
-      default(array[4, byte]) # Genesis is fork_version 0
+      Version(GENESIS_FORK_VERSION)
     )
   let signing_root = compute_signing_root(
     deposit_data.getDepositMessage(),
@@ -43,7 +43,7 @@ func signMockDepositData(
       ) =
   let domain = compute_domain(
       DOMAIN_DEPOSIT,
-      default(array[4, byte]) # Genesis is fork_version 0
+      Version(GENESIS_FORK_VERSION)
     )
   let signing_root = compute_signing_root(
     deposit_data.getDepositMessage(),

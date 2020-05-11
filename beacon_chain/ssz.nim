@@ -13,7 +13,7 @@
 #{.push raises: [Defect].}
 
 import
-  stew/shims/macros, options, algorithm, options,
+  stew/shims/macros, options, algorithm, options, strformat,
   stew/[bitops2, bitseqs, endians2, objects, varints, ptrops, ranges/ptr_arith], stint,
   faststreams/input_stream, serialization, serialization/testing/tracing,
   ./spec/[crypto, datatypes, digest],
@@ -86,7 +86,10 @@ proc mount*(F: type SSZ, stream: InputStream, T: type): T {.raises: [Defect].} =
 
 method formatMsg*(err: ref SszSizeMismatchError, filename: string): string {.gcsafe, raises: [Defect].} =
   # TODO: implement proper error string
-  "Serialisation error while processing " & filename
+  try:
+    &"SSZ size mismatch, element {err.elementSize}, actual {err.actualSszSize}, type {err.deserializedType}, file {filename}"
+  except CatchableError:
+    "SSZ size mismatch"
 
 when false:
   # TODO: Nim can't handle yet this simpler definition. File an issue.
@@ -110,6 +113,7 @@ template toSszType*(x: auto): auto =
   elif x is BlsCurveType: toRaw(x)
   elif x is BitSeq|BitList: ByteList(x)
   elif x is TypeWithMaxLen: toSszType valueOf(x)
+  elif x is ForkDigest|Version: array[4, byte](x)
   elif useListType and x is List: seq[x.T](x)
   else: x
 

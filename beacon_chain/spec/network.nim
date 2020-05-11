@@ -9,7 +9,6 @@
 
 import
   strformat,
-  stew/byteutils,
   datatypes
 
 const
@@ -30,31 +29,31 @@ const
 
 func getBeaconBlocksTopic*(forkDigest: ForkDigest): string =
   try:
-    &"/eth2/{toHex forkDigest}/{topicBeaconBlocksSuffix}"
+    &"/eth2/{$forkDigest}/{topicBeaconBlocksSuffix}"
   except ValueError as e:
     raiseAssert e.msg
 
 func getVoluntaryExitsTopic*(forkDigest: ForkDigest): string =
   try:
-    &"/eth2/{toHex forkDigest}/{topicVoluntaryExitsSuffix}"
+    &"/eth2/{$forkDigest}/{topicVoluntaryExitsSuffix}"
   except ValueError as e:
     raiseAssert e.msg
 
 func getProposerSlashingsTopic*(forkDigest: ForkDigest): string =
   try:
-    &"/eth2/{toHex forkDigest}/{topicProposerSlashingsSuffix}"
+    &"/eth2/{$forkDigest}/{topicProposerSlashingsSuffix}"
   except ValueError as e:
     raiseAssert e.msg
 
 func getAttesterSlashingsTopic*(forkDigest: ForkDigest): string =
   try:
-    &"/eth2/{toHex forkDigest}/{topicAttesterSlashingsSuffix}"
+    &"/eth2/{$forkDigest}/{topicAttesterSlashingsSuffix}"
   except ValueError as e:
     raiseAssert e.msg
 
 func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
   try:
-    &"/eth2/{toHex forkDigest}/{topicAggregateAndProofsSuffix}"
+    &"/eth2/{$forkDigest}/{topicAggregateAndProofsSuffix}"
   except ValueError as e:
     raiseAssert e.msg
 
@@ -62,6 +61,6 @@ func getAttestationTopic*(forkDigest: ForkDigest, committeeIndex: uint64): strin
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-attestation
   try:
     let topicIndex = committeeIndex mod ATTESTATION_SUBNET_COUNT
-    &"/eth2/{toHex forkDigest}/committee_index{topicIndex}{topicAttestationsSuffix}"
+    &"/eth2/{$forkDigest}/committee_index{topicIndex}{topicAttestationsSuffix}"
   except ValueError as e:
     raiseAssert e.msg
