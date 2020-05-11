@@ -206,8 +206,7 @@ proc writeVarSizeType(w: var SszWriter, value: auto) {.raises: [Defect, IOError]
 
   when T is seq|string|openarray:
     type E = ElemType(T)
-    const isFixed = when E is Option: false
-                    else: isFixedSize(E)
+    const isFixed = isFixedSize(E)
     when isFixed:
       trs "WRITING LIST WITH FIXED SIZE ELEMENTS"
       for elem in value:
@@ -242,6 +241,32 @@ proc writeValue*(w: var SszWriter, x: auto) {.gcsafe, raises: [Defect, IOError].
     w.writeVarSizeType toSszType(x)
   else:
     unsupported type(x)
+
+func sszSize*(value: auto): int =
+  mixin toSszType
+  type T = type toSszType(value)
+
+  when isFixedSize(T):
+    anonConst fixedPortionSize(T)
+
+  elif T is seq|string|array|openarray:
+    type E = ElemType(T)
+    when isFixedSize(E):
+      len(value) * anonConst(fixedPortionSize(E))
+    else:
+      result = len(value) * offsetSize
+      for elem in value:
+        result += sszSize(toSszType elem)
+
+  elif T is object|tuple:
+    result = anonConst fixedPortionSize(T)
+    enumInstanceSerializedFields(value, _, field):
+      type FieldType = type toSszType(field)
+      when not isFixedSize(FieldType):
+        result += sszSize(toSszType field)
+
+  else:
+    unsupported T
 
 proc writeValue*[T](w: var SszWriter, x: SizePrefixed[T]) {.raises: [Defect, IOError].} =
   var cursor = w.stream.delayVarSizeWrite(10)
@@ -465,7 +490,7 @@ func merkleizeSerializedChunks(merkleizer: SszChunksMerkleizer,
       # We assume there are no side-effects here, because the
       # SszHashingStream is keeping all of its output in memory.
       hashingStream.writeFixedSized obj
-      hashingStream.flush
+      close hashingStream
     merkleizer.getFinalHash
   except IOError as e:
     # Hashing shouldn't raise in theory but because of abstraction

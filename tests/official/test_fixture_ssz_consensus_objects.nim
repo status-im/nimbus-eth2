@@ -41,10 +41,10 @@ setDefaultValue(SSZHashTreeRoot, signing_root, "")
 # Note this only tracks HashTreeRoot
 # Checking the values against the yaml file is TODO (require more flexible Yaml parser)
 
-
 proc checkSSZ(T: type SignedBeaconBlock, dir: string, expectedHash: SSZHashTreeRoot) =
   # Deserialize into a ref object to not fill Nim stack
-  var deserialized = newClone(SSZ.loadFile(dir/"serialized.ssz", T))
+  let encoded = readFileBytes(dir/"serialized.ssz")
+  var deserialized = newClone sszDecodeEntireInput(encoded, T)
 
   # SignedBeaconBlocks usually not hashed because they're identified by
   # htr(BeaconBlock), so do it manually
@@ -52,15 +52,22 @@ proc checkSSZ(T: type SignedBeaconBlock, dir: string, expectedHash: SSZHashTreeR
     [hash_tree_root(deserialized.message),
     hash_tree_root(deserialized.signature)]))
 
-  # TODO check the value
+  check SSZ.encode(deserialized[]) == encoded
+  check sszSize(deserialized[]) == encoded.len
 
-proc checkSSZ(T: typedesc, dir: string, expectedHash: SSZHashTreeRoot) =
+  # TODO check the value (requires YAML loader)
+
+proc checkSSZ(T: type, dir: string, expectedHash: SSZHashTreeRoot) =
   # Deserialize into a ref object to not fill Nim stack
-  var deserialized = newClone(SSZ.loadFile(dir/"serialized.ssz", T))
+  let encoded = readFileBytes(dir/"serialized.ssz")
+  var deserialized = newClone sszDecodeEntireInput(encoded, T)
 
   check: expectedHash.root == "0x" & toLowerASCII($hash_tree_root(deserialized[]))
 
-  # TODO check the value
+  check SSZ.encode(deserialized[]) == encoded
+  check sszSize(deserialized[]) == encoded.len
+
+  # TODO check the value (requires YAML loader)
 
 proc loadExpectedHashTreeRoot(dir: string): SSZHashTreeRoot =
   var s = openFileStream(dir/"roots.yaml")

@@ -33,9 +33,6 @@ type
     # Containers have a root (thankfully) and signing_root field
     signing_root: string
 
-  UnconsumedInput* = object of CatchableError
-  TestSizeError* = object of ValueError
-
 # Make signing root optional
 setDefaultValue(SSZHashTreeRoot, signing_root, "")
 
@@ -79,18 +76,15 @@ type
 proc checkBasic(T: typedesc,
                 dir: string,
                 expectedHash: SSZHashTreeRoot) =
-  var fileContents = readFile(dir/"serialized.ssz")
-  var stream = unsafeMemoryInput(fileContents)
-  var reader = init(SszReader, stream)
-  var deserialized = reader.readValue(T)
-
-  if stream.readable:
-    raise newException(UnconsumedInput, "Remaining bytes in the input")
+  var fileContents = readFileBytes(dir/"serialized.ssz")
+  var deserialized = sszDecodeEntireInput(fileContents, T)
 
   let
     expectedHash = expectedHash.root
     actualHash = "0x" & toLowerASCII($deserialized.hashTreeRoot())
+
   check expectedHash == actualHash
+  check sszSize(deserialized) == fileContents.len
 
   # TODO check the value
 
