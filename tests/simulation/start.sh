@@ -110,7 +110,7 @@ if [[ "$USE_TMUX" != "no" ]]; then
   $TMUX select-window -t "${TMUX_SESSION_NAME}:sim"
 fi
 
-$MAKE -j2 NIMFLAGS="$CUSTOM_NIMFLAGS $DEFS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" beacon_node
+$MAKE -j3 NIMFLAGS="$CUSTOM_NIMFLAGS $DEFS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" beacon_node process_dashboard deposit_contract
 
 if [ ! -f "${LAST_VALIDATOR}" ]; then
   if [ "$WEB3_ARG" != "" ]; then
