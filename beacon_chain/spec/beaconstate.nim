@@ -89,7 +89,7 @@ proc process_deposit*(
         deposit.data.signature):
       # It's ok that deposits fail - they get included in blocks regardless
       # TODO spec test?
-      debug "Deposit signature verification failed",
+      debug "Skipping deposit with invalid signature",
         pubkey, signing_root, signature = deposit.data.signature
       return true
 
