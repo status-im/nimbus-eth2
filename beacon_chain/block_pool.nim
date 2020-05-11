@@ -412,10 +412,8 @@ proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
   let key = (a: blck.root, b: state.data.slot)
   if key notin pool.cachedStates[bucketParity]:
     # Avoid constructing StateData if not necessary
-    var stateData = new StateData
-    stateData.data = state
-    stateData.blck = blck
-    pool.cachedStates[bucketParity][key] = stateData
+    pool.cachedStates[bucketParity][key] =
+      (ref StateData)(data: state, blck: blck)
 
 proc add*(
     pool: var BlockPool, blockRoot: Eth2Digest,
