@@ -116,6 +116,7 @@ cli do (skipGoerliKey {.
   exec &"""nim c {nimFlags} -d:"const_preset={preset}" -o:"{beaconNodeBinary}" beacon_chain/beacon_node.nim"""
 
   mkDir dumpDir
+  mkDir dumpDir / "incoming"
 
   proc execIgnoringExitCode(s: string) =
     # reduces the error output when interrupting an external command with Ctrl+C

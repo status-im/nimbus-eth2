@@ -62,6 +62,9 @@ proc process_deposit*(
     state.eth1_deposit_index,
     state.eth1_data.deposit_root,
   ):
+    notice "Deposit merkle validation failed",
+      proof = deposit.proof, deposit_root = state.eth1_data.deposit_root,
+      deposit_index = state.eth1_deposit_index
     return false
 
   # Deposits must be processed in order
@@ -78,18 +81,17 @@ proc process_deposit*(
     # by the deposit contract
 
     # Fork-agnostic domain since deposits are valid across forks
-    #
-    # TODO zcli/zrnt does use the GENESIS_FORK_VERSION which can
-    # vary between minimal/mainnet, though, despite the comment,
-    # which is copied verbatim from the eth2 beacon chain spec.
-    # https://github.com/protolambda/zrnt/blob/v0.11.0/eth2/phase0/kickstart.go#L58
-    let domain = compute_domain(DOMAIN_DEPOSIT, GENESIS_FORK_VERSION)
+    let domain = compute_domain(DOMAIN_DEPOSIT)
 
     let signing_root = compute_signing_root(deposit.getDepositMessage, domain)
     if skipBLSValidation notin flags and not bls_verify(
         pubkey, signing_root.data,
         deposit.data.signature):
-      return false
+      # It's ok that deposits fail - they get included in blocks regardless
+      # TODO spec test?
+      debug "Deposit signature verification failed",
+        pubkey, signing_root, signature = deposit.data.signature
+      return true
 
     # Add validator and balance entries
     state.validators.add(Validator(
@@ -220,8 +222,8 @@ proc initialize_beacon_state_from_eth1*(
   const SECONDS_PER_DAY = uint64(60*60*24)
   var state = BeaconStateRef(
     fork: Fork(
-      previous_version: GENESIS_FORK_VERSION,
-      current_version: GENESIS_FORK_VERSION,
+      previous_version: Version(GENESIS_FORK_VERSION),
+      current_version: Version(GENESIS_FORK_VERSION),
       epoch: GENESIS_EPOCH),
     genesis_time:
       eth1_timestamp + 2'u64 * SECONDS_PER_DAY -

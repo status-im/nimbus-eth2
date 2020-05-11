@@ -437,6 +437,12 @@ proc sync*[A, B](man: SyncManager[A, B]) {.async.} =
                     wall_head_slot = wallSlot, local_head_slot = headSlot,
                     peer_score = peer.getScore(), topics = "syncman"
               man.pool.release(peer)
+            elif not peer.hasInitialStatus:
+              # TODO Don't even consider these peers!
+              debug "Peer not ready", peer
+              man.pool.release(peer)
+              # TODO goes into tight loop without this
+              await sleepAsync(RESP_TIMEOUT)
             else:
               if headSlot > man.queue.lastSlot:
                 man.queue = SyncQueue.init(headSlot, wallSlot, man.chunkSize,

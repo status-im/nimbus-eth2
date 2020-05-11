@@ -22,7 +22,7 @@ import
   spec/presets/custom,
   conf, time, beacon_chain_db, validator_pool, extras,
   attestation_pool, block_pool, eth2_network, eth2_discovery,
-  beacon_node_common, beacon_node_types,
+  beacon_node_common, beacon_node_types, sszdump,
   mainchain_monitor, version, ssz, ssz/dynamic_navigator,
   sync_protocol, request_manager, validator_keygen, interop, statusbar,
   sync_manager, state_transition,
@@ -291,6 +291,9 @@ proc storeBlock(node: BeaconNode, signedBlock: SignedBeaconBlock): bool =
     cat = "block_listener",
     pcs = "receive_block"
 
+  if node.config.dumpEnabled:
+    dump(node.config.dumpDir / "incoming", signedBlock, blockRoot)
+
   beacon_blocks_received.inc()
   if node.blockPool.add(blockRoot, signedBlock).isNil:
     return false
@@ -479,35 +482,6 @@ proc onSecond(node: BeaconNode, moment: Moment) {.async.} =
   discard setTimer(nextSecond) do (p: pointer):
     asyncCheck node.onSecond(nextSecond)
 
-proc getHeadSlot*(peer: Peer): Slot {.inline.} =
-  ## Returns head slot for specific peer ``peer``.
-  result = peer.state(BeaconSync).statusMsg.headSlot
-
-proc updateStatus*(peer: Peer): Future[bool] {.async.} =
-  ## Request `status` of remote peer ``peer``.
-  let
-    nstate = peer.networkState(BeaconSync)
-    finalizedHead = nstate.blockPool.finalizedHead
-    headBlock = nstate.blockPool.head.blck
-
-    ourStatus = StatusMsg(
-      forkDigest: nstate.forkDigest,
-      finalizedRoot: finalizedHead.blck.root,
-      finalizedEpoch: finalizedHead.slot.compute_epoch_at_slot(),
-      headRoot: headBlock.root,
-      headSlot: headBlock.slot
-    )
-
-  let theirFut = awaitne peer.status(ourStatus,
-                                     timeout = chronos.seconds(60))
-  if theirFut.failed():
-    result = false
-  else:
-    let theirStatus = theirFut.read()
-    if theirStatus.isSome():
-      peer.state(BeaconSync).statusMsg = theirStatus.get()
-      result = true
-
 proc runSyncLoop(node: BeaconNode) {.async.} =
   proc getLocalHeadSlot(): Slot =
     result = node.blockPool.head.blck.slot
@@ -544,7 +518,7 @@ proc runSyncLoop(node: BeaconNode) {.async.} =
     node.network.peerPool, getLocalHeadSlot, getLocalWallSlot,
     updateLocalBlocks,
     # TODO increase when block processing perf improves
-    chunkSize = 8
+    chunkSize = 16
   )
 
   await syncman.sync()

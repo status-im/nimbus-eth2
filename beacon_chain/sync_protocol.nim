@@ -47,32 +47,40 @@ const
     # request - typically clients will ask for an epoch or so at a time, but we
     # allow a little bit more in case they want to stream blocks faster
 
+proc shortLog*(s: StatusMsg): auto =
+  (
+    forkDigest: s.forkDigest,
+    finalizedRoot: shortLog(s.finalizedRoot),
+    finalizedEpoch: shortLog(s.finalizedEpoch),
+    headRoot: shortLog(s.headRoot),
+    headSlot: shortLog(s.headSlot)
+  )
+chronicles.formatIt(StatusMsg): shortLog(it)
+
 proc importBlocks(state: BeaconSyncNetworkState,
                   blocks: openarray[SignedBeaconBlock]) {.gcsafe.} =
   for blk in blocks:
     state.onBeaconBlock(blk)
   info "Forward sync imported blocks", len = blocks.len
 
-proc getCurrentStatus(state: BeaconSyncNetworkState): StatusMsg {.gcsafe.} =
+proc getCurrentStatus*(state: BeaconSyncNetworkState): StatusMsg {.gcsafe.} =
   let
     blockPool = state.blockPool
-    finalizedHead = blockPool.finalizedHead
     headBlock = blockPool.head.blck
-    headRoot = headBlock.root
-    headSlot = headBlock.slot
-    finalizedEpoch = finalizedHead.slot.compute_epoch_at_slot()
 
   StatusMsg(
     forkDigest: state.forkDigest,
-    finalizedRoot: finalizedHead.blck.root,
-    finalizedEpoch: finalizedEpoch,
-    headRoot: headRoot,
-    headSlot: headSlot)
+    finalizedRoot: blockPool.headState.data.data.finalized_checkpoint.root,
+    finalizedEpoch: blockPool.headState.data.data.finalized_checkpoint.epoch,
+    headRoot: headBlock.root,
+    headSlot: headBlock.slot)
 
 proc handleInitialStatus(peer: Peer,
                          state: BeaconSyncNetworkState,
                          ourStatus: StatusMsg,
                          theirStatus: StatusMsg): Future[bool] {.async, gcsafe.}
+
+proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) {.gcsafe.}
 
 p2pProtocol BeaconSync(version = 1,
                        rlpxName = "bcs",
@@ -92,7 +100,7 @@ p2pProtocol BeaconSync(version = 1,
         let res = await peer.handleInitialStatus(peer.networkState,
                                                  ourStatus, tstatus)
         if res:
-          peer.state(BeaconSync).statusMsg = tstatus
+          peer.setStatusMsg(tstatus)
       else:
         warn "Status response not received in time"
 
@@ -101,15 +109,13 @@ p2pProtocol BeaconSync(version = 1,
       let
         ourStatus = peer.networkState.getCurrentStatus()
 
+      if not await peer.handleInitialStatus(
+          peer.networkState, ourStatus, theirStatus):
+        return
+      peer.setStatusMsg(theirStatus)
+
       trace "Sending status msg", ourStatus
       await response.send(ourStatus)
-
-      if not peer.state.initialStatusReceived:
-        peer.state.initialStatusReceived = true
-        let res = await peer.handleInitialStatus(peer.networkState,
-                                                 ourStatus, theirStatus)
-        if res:
-          peer.state(BeaconSync).statusMsg = theirStatus
 
     proc statusResp(peer: Peer, msg: StatusMsg)
 
@@ -179,19 +185,44 @@ p2pProtocol BeaconSync(version = 1,
             peer: Peer,
             blocks: openarray[SignedBeaconBlock])
 
+proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) =
+  debug "Peer status", peer, statusMsg
+  peer.state(BeaconSync).initialStatusReceived = true
+  peer.state(BeaconSync).statusMsg = statusMsg
+
+proc updateStatus*(peer: Peer): Future[bool] {.async.} =
+  ## Request `status` of remote peer ``peer``.
+  let
+    nstate = peer.networkState(BeaconSync)
+    ourStatus = getCurrentStatus(nstate)
+
+  let theirFut = awaitne peer.status(ourStatus,
+                                     timeout = chronos.seconds(60))
+  if theirFut.failed():
+    result = false
+  else:
+    let theirStatus = theirFut.read()
+    if theirStatus.isSome():
+      peer.setStatusMsg(theirStatus.get())
+      result = true
+
+proc hasInitialStatus*(peer: Peer): bool {.inline.} =
+  ## Returns head slot for specific peer ``peer``.
+  peer.state(BeaconSync).initialStatusReceived
+
+proc getHeadSlot*(peer: Peer): Slot {.inline.} =
+  ## Returns head slot for specific peer ``peer``.
+  result = peer.state(BeaconSync).statusMsg.headSlot
+
 proc handleInitialStatus(peer: Peer,
                          state: BeaconSyncNetworkState,
                          ourStatus: StatusMsg,
-                       theirStatus: StatusMsg): Future[bool] {.async, gcsafe.} =
+                         theirStatus: StatusMsg): Future[bool] {.async, gcsafe.} =
   if theirStatus.forkDigest != state.forkDigest:
-    notice "Irrelevant peer",
-      peer, theirFork = theirStatus.forkDigest, ourFork = state.forkDigest
+    notice "Irrelevant peer", peer, theirStatus, ourStatus
     await peer.disconnect(IrrelevantNetwork)
     return false
-  debug "Peer connected", peer,
-                          localHeadSlot = ourStatus.headSlot,
-                          remoteHeadSlot = theirStatus.headSlot,
-                          remoteHeadRoot = theirStatus.headRoot
+  debug "Peer connected", peer, theirStatus, ourStatus
   return true
 
 proc initBeaconSync*(network: Eth2Node,
