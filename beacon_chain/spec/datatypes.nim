@@ -152,8 +152,8 @@ type
     data*: AttestationData
     signature*: ValidatorSig
 
-  Version* = array[4, byte] # TODO Maybe make this distinct
-  ForkDigest* = array[4, byte] # TODO Maybe make this distinct
+  Version* = distinct array[4, byte]
+  ForkDigest* = distinct array[4, byte]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#forkdata
   ForkData* = object
@@ -501,6 +501,17 @@ proc writeValue*(writer: var JsonWriter, value: ValidatorIndex) =
 proc readValue*(reader: var JsonReader, value: var ValidatorIndex) =
   value = ValidatorIndex reader.readValue(uint32)
 
+proc writeValue*(writer: var JsonWriter, value: Version | ForkDigest) =
+  writeValue(writer, $value)
+
+proc readValue*(reader: var JsonReader, value: var Version) =
+  let hex = reader.readValue(string)
+  hexToByteArray(hex, array[4, byte](value))
+
+proc readValue*(reader: var JsonReader, value: var ForkDigest) =
+  let hex = reader.readValue(string)
+  hexToByteArray(hex, array[4, byte](value))
+
 # `ValidatorIndex` seq handling.
 proc max*(a: ValidatorIndex, b: int) : auto =
   max(a.int, b)
@@ -579,6 +590,17 @@ when useListType:
   template `&`*[T; N](a, b: List[T, N]): List[T, N] = seq[T](a) & seq[T](b)
 else:
   template asSeq*[T; N](x: List[T, N]): auto = x
+
+func `$`*(v: ForkDigest | Version): string =
+  toHex(array[4, byte](v))
+
+# TODO where's borrow support when you need it
+func `==`*(a, b: ForkDigest | Version): bool =
+  array[4, byte](a) == array[4, byte](b)
+func len*(v: ForkDigest | Version): int = sizeof(v)
+func low*(v: ForkDigest | Version): int = 0
+func high*(v: ForkDigest | Version): int = len(v) - 1
+func `[]`*(v: ForkDigest | Version, idx: int): byte = array[4, byte](v)[idx]
 
 func shortLog*(s: Slot): uint64 =
   s - GENESIS_SLOT

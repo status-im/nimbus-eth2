@@ -51,6 +51,16 @@ template fromSszBytes*(T: type Slot, bytes: openarray[byte]): Slot =
 template fromSszBytes*(T: type Epoch, bytes: openarray[byte]): Epoch =
   Epoch fromSszBytes(uint64, bytes)
 
+func fromSszBytes*(T: type ForkDigest, bytes: openarray[byte]): T {.raisesssz.} =
+  if bytes.len < sizeof(result):
+    raise newException(MalformedSszError, "SSZ input of insufficient size")
+  copyMem(result.addr, unsafeAddr bytes[0], sizeof(result))
+
+func fromSszBytes*(T: type Version, bytes: openarray[byte]): T {.raisesssz.} =
+  if bytes.len < sizeof(result):
+    raise newException(MalformedSszError, "SSZ input of insufficient size")
+  copyMem(result.addr, unsafeAddr bytes[0], sizeof(result))
+
 template fromSszBytes*(T: type enum, bytes: openarray[byte]): auto  =
   T fromSszBytes(uint64, bytes)
 

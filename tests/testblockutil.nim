@@ -43,7 +43,7 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
     privkey = makeFakeValidatorPrivKey(i)
     pubkey = privkey.toPubKey()
     withdrawal_credentials = makeFakeHash(i)
-    domain = compute_domain(DOMAIN_DEPOSIT, GENESIS_FORK_VERSION)
+    domain = compute_domain(DOMAIN_DEPOSIT, Version(GENESIS_FORK_VERSION))
 
   result = Deposit(
     data: DepositData(

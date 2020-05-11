@@ -268,7 +268,7 @@ proc tryGetForkDigest(hexdigest: string): Option[ForkDigest] =
   var res: ForkDigest
   if len(hexdigest) > 0:
     try:
-      hexToByteArray(hexdigest, res)
+      hexToByteArray(hexdigest, array[4 ,byte](res))
       result = some(res)
     except CatchableError:
       discard
@@ -441,8 +441,8 @@ proc logEnrAddress(address: string) =
       if eth2Data.isSome():
         try:
           var forkid = SSZ.decode(eth2Data.get(), ENRForkID)
-          eth2fork_digest = bu.toHex(forkid.fork_digest)
-          eth2next_fork_version = bu.toHex(forkid.next_fork_version)
+          eth2fork_digest = $forkid.fork_digest
+          eth2next_fork_version = $forkid.next_fork_version
           eth2next_fork_epoch = strutils.toHex(cast[uint64](forkid.next_fork_epoch))
         except CatchableError:
           eth2fork_digest = "Error"
@@ -634,8 +634,8 @@ proc run(conf: InspectorConf) {.async.} =
           if forkDigest.get() != forkOpt.get():
             warn "Bootstrap node address has different forkDigest",
                  address = item.addressRec.toUri(),
-                 address_fork_digest = bu.toHex(forkOpt.get()),
-                 stored_fork_digest = bu.toHex(forkDigest.get())
+                 address_fork_digest = $(forkOpt.get()),
+                 stored_fork_digest = $(forkDigest.get())
         else:
           forkDigest = forkOpt
 
@@ -673,8 +673,8 @@ proc run(conf: InspectorConf) {.async.} =
     if argForkDigest.isSome():
       if forkDigest.isSome() != argForkDigest.isSome():
         warn "forkDigest argument value is different, using argument value",
-             argument_fork_digest = toHex(argForkDigest.get()),
-             bootstrap_fork_digest = toHex(forkDigest.get())
+             argument_fork_digest = argForkDigest.get(),
+             bootstrap_fork_digest = forkDigest.get()
         forkDigest = argForkDigest
 
   let seckey = lcrypto.PrivateKey.random(PKScheme.Secp256k1)
