@@ -61,6 +61,7 @@ declareGauge epoch_transition_times_rewards_and_penalties, "Epoch transition rew
 declareGauge epoch_transition_registry_updates, "Epoch transition registry updates time"
 declareGauge epoch_transition_slashings, "Epoch transition slashings time"
 declareGauge epoch_transition_final_updates, "Epoch transition final updates time"
+declareGauge beacon_current_epoch, "Current epoch"
 
 # Spec
 # --------------------------------------------------------
@@ -424,8 +425,9 @@ func process_final_updates*(state: var BeaconState) {.nbench.}=
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(state: var BeaconState, updateFlags: UpdateFlags)
     {.nbench.} =
+  let currentEpoch = get_current_epoch(state)
   trace "process_epoch",
-    current_epoch = get_current_epoch(state)
+    current_epoch = currentEpoch
 
   var per_epoch_cache = get_empty_per_epoch_cache()
 
@@ -433,11 +435,11 @@ proc process_epoch*(state: var BeaconState, updateFlags: UpdateFlags)
   process_justification_and_finalization(state, per_epoch_cache, updateFlags)
 
   # state.slot hasn't been incremented yet.
-  if verifyFinalization in updateFlags and get_current_epoch(state) >= 3:
+  if verifyFinalization in updateFlags and currentEpoch >= 3:
     # Rule 2/3/4 finalization results in the most pessimal case. The other
     # three finalization rules finalize more quickly as long as the any of
     # the finalization rules triggered.
-    doAssert state.finalized_checkpoint.epoch + 3 >= get_current_epoch(state)
+    doAssert state.finalized_checkpoint.epoch + 3 >= currentEpoch
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#rewards-and-penalties-1
   process_rewards_and_penalties(state, per_epoch_cache)
@@ -457,6 +459,7 @@ proc process_epoch*(state: var BeaconState, updateFlags: UpdateFlags)
   process_final_updates(state)
 
   # Once per epoch metrics
+  beacon_current_epoch.set(currentEpoch.int64)
   beacon_finalized_epoch.set(state.finalized_checkpoint.epoch.int64)
   beacon_finalized_root.set(state.finalized_checkpoint.root.toGaugeValue)
   beacon_current_justified_epoch.set(

@@ -128,7 +128,6 @@ fi
 NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh ${NETWORK})
 $MAKE LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node
 
-rm -rf "${DEPOSITS_DIR}"
 ./build/beacon_node makeDeposits \
 	--quickstart-deposits=${QUICKSTART_VALIDATORS} \
 	--random-deposits=${RANDOM_VALIDATORS} \

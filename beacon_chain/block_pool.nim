@@ -14,6 +14,8 @@ import
   spec/[crypto, datatypes, digest, helpers, validator]
 
 declareCounter beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # On fork choice
+declareCounter beacon_state_data_cache_hits, "pool.cachedStates hits"
+declareCounter beacon_state_data_cache_misses, "pool.cachedStates misses"
 
 logScope: topics = "blkpool"
 
@@ -729,6 +731,7 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
       when false:
         doAssert state.blck == ancestor.refs
 
+      beacon_state_data_cache_hits.inc()
       trace "Replaying state transitions via in-memory cache",
         stateSlot = shortLog(state.data.data.slot),
         ancestorStateRoot = shortLog(ancestor.data.message.state_root),
@@ -740,6 +743,7 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
 
       return ancestors
 
+    beacon_state_data_cache_misses.inc()
     if (let tmp = pool.db.getStateRoot(parBs.blck.root, parBs.slot); tmp.isSome()):
       if pool.db.containsState(tmp.get):
         stateRoot = tmp
@@ -795,12 +799,14 @@ proc getStateDataCached(pool: BlockPool, state: var StateData, bs: BlockSlot): b
   for poolStateCache in pool.cachedStates:
     try:
       state = poolStateCache[(a: bs.blck.root, b: bs.slot)]
+      beacon_state_data_cache_hits.inc()
       return true
     except KeyError:
       discard
 
   # In-memory caches didn't hit. Try main blockpool database. This is slower
   # than the caches due to SSZ (de)serializing and disk I/O, so prefer them.
+  beacon_state_data_cache_misses.inc()
   if (let tmp = pool.db.getStateRoot(bs.blck.root, bs.slot); tmp.isSome()):
     return pool.getState(pool.db, tmp.get(), bs.blck, state)
 

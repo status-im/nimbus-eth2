@@ -51,6 +51,9 @@ declareCounter beacon_attestations_received,
 declareCounter beacon_blocks_received,
   "Number of beacon chain blocks received by this peer"
 
+declareHistogram beacon_attestation_received_seconds_from_slot_start,
+  "Interval between slot start and attestation receival", buckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
+
 logScope: topics = "beacnde"
 
 proc onBeaconBlock*(node: BeaconNode, signedBlock: SignedBeaconBlock) {.gcsafe.}
@@ -658,6 +661,8 @@ proc run*(node: BeaconNode) =
     # Avoid double-counting attestation-topic attestations on shared codepath
     # when they're reflected through beacon blocks
     beacon_attestations_received.inc()
+    beacon_attestation_received_seconds_from_slot_start.observe(node.beaconClock.now.int64 - (attestation.data.slot.int64 * SECONDS_PER_SLOT.int64))
+
     node.onAttestation(attestation)
 
   var attestationSubscriptions: seq[Future[void]] = @[]
