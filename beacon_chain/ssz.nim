@@ -14,8 +14,10 @@
 
 import
   stew/shims/macros, options, algorithm, options, strformat,
-  stew/[bitops2, bitseqs, endians2, objects, varints, ptrops, ranges/ptr_arith], stint,
-  faststreams/[inputs, outputs, buffers], serialization, serialization/testing/tracing,
+  stint, stew/[bitops2, bitseqs, objects, varints, ptrops],
+  stew/ranges/[ptr_arith, stackarrays],
+  faststreams/[inputs, outputs, buffers],
+  serialization, serialization/testing/tracing,
   ./spec/[crypto, datatypes, digest],
   ./ssz/[types, bytes_reader]
 
@@ -44,13 +46,9 @@ type
 
   BasicType = char|bool|SomeUnsignedInt|StUint|ValidatorIndex
 
-  SszChunksMerkleizer = ref object
-    combinedChunks: array[maxChunkTreeDepth, Eth2Digest]
+  SszChunksMerkleizer = object
+    combinedChunks: StackArray[Eth2Digest]
     totalChunks: uint64
-    limit: uint64
-
-  SszHashingStream = ref object of OutputStream
-    merkleizer: SszChunksMerkleizer
 
   TypeWithMaxLen*[T; maxLen: static int64] = distinct T
 
@@ -124,12 +122,11 @@ proc writeFixedSized(s: var (OutputStream|WriteCursor), x: auto) {.raises: [Defe
     s.write x
   elif x is bool|char:
     s.write byte(ord(x))
-  elif x is SomeUnsignedInt:
-    let value = x.toBytesLE()
-    trs "APPENDING INT ", x, " = ", value
-    s.writeMemCopy value
-  elif x is StUint:
-    s.writeMemCopy x # TODO: Is this always correct?
+  elif x is SomeUnsignedInt|StUint:
+    when cpuEndian == bigEndian:
+      s.write toBytesLE(x)
+    else:
+      s.writeMemCopy x
   elif x is array|string|seq|openarray:
     when x[0] is byte:
       trs "APPENDING FIXED SIZE BYTES", x
@@ -344,14 +341,14 @@ func computeZeroHashes: array[100, Eth2Digest] =
 
 let zeroHashes = computeZeroHashes()
 
-func getZeroHashWithoutSideEffect(idx: int): Eth2Digest =
+template getZeroHashWithoutSideEffect(idx: int): Eth2Digest =
   # TODO this is a work-around for the somewhat broken side
   # effects analysis of Nim - reading from global let variables
   # is considered a side-effect.
   {.noSideEffect.}:
     zeroHashes[idx]
 
-func addChunk(merkleizer: SszChunksMerkleizer, data: openarray[byte]) =
+func addChunk(merkleizer: var SszChunksMerkleizer, data: openarray[byte]) =
   doAssert data.len > 0 and data.len <= bytesPerChunk
 
   if not getBitLE(merkleizer.totalChunks, 0):
@@ -374,22 +371,27 @@ func addChunk(merkleizer: SszChunksMerkleizer, data: openarray[byte]) =
 
   inc merkleizer.totalChunks
 
-func getFinalHash(merkleizer: SszChunksMerkleizer): Eth2Digest =
-  let limit = merkleizer.limit
+template createMerkleizer(totalElements: int64): SszChunksMerkleizer =
+  trs "CREATING A MERKLEIZER FOR ", totalElements
+  let merkleizerHeight = bitWidth nextPow2(uint64 totalElements)
 
+  SszChunksMerkleizer(
+    combinedChunks: allocStackArrayNoInit(Eth2Digest, merkleizerHeight),
+    totalChunks: 0)
+
+func getFinalHash(merkleizer: var SszChunksMerkleizer): Eth2Digest =
   if merkleizer.totalChunks == 0:
-    let limitHeight = if limit != 0: bitWidth(limit - 1) else: 0
-    return getZeroHashWithoutSideEffect(limitHeight)
+    let treeHeight = merkleizer.combinedChunks.high
+    return getZeroHashWithoutSideEffect(treeHeight)
 
   let
     bottomHashIdx = firstOne(merkleizer.totalChunks) - 1
     submittedChunksHeight = bitWidth(merkleizer.totalChunks - 1)
-    topHashIdx = if limit <= 1: submittedChunksHeight
-                 else: max(submittedChunksHeight, bitWidth(limit - 1))
+    topHashIdx = merkleizer.combinedChunks.high
 
   trs "BOTTOM HASH ", bottomHashIdx
   trs "SUBMITTED HEIGHT ", submittedChunksHeight
-  trs "LIMIT ", limit
+  trs "TOP HASH IDX ", topHashIdx
 
   if bottomHashIdx != submittedChunksHeight:
     # Our tree is not finished. We must complete the work in progress
@@ -417,93 +419,15 @@ func getFinalHash(merkleizer: SszChunksMerkleizer): Eth2Digest =
     for i in bottomHashIdx + 1 ..< topHashIdx:
       result = mergeBranches(result, getZeroHashWithoutSideEffect(i))
 
-let SszHashingStreamVTable = OutputStreamVTable(
-  # The SSZ Hashing stream is a way to simplify the implementation
-  # of `hash_tree_root` for variable-sized objects.
-  #
-  # Since the hash result is defined over the serialized representation
-  # of the objects and not over their memory contents, computing the
-  # hash naturally involves executing the serialization routines.
-  #
-  # It would be wasteful if we need to allocate memory for this, so we
-  # take a short-cut by defining a "virtual" output stream that will
-  # hash the serialized output as it is being produced.
-  #
-  # Since SSZ uses delayed writes, sometimes the buffering mechanism
-  # of FastStreams will allocate just enough memory to resolve the
-  # delayed writes, but our expectation is that most of the time
-  # the stream will be drained with just a single reusable memory
-  # page (currently set to 4000 bytes which equals 125 chunks).
-  writeSync: proc (s: OutputStream, src: pointer, srcLen: Natural)
-                  {.nimcall, gcsafe, raises: [Defect, IOError].} =
-    let merkleizer = SszHashingStream(s).merkleizer
-
-    # This drains the FastStreams buffers in the usual way, simulating
-    # writing to an external device, but in our case, we just divide
-    # the content in chunks and feed them to the merkleizer:
-    implementWrites(s.buffers, src, srcLen, "Hashing Stream",
-                    writeStartAddr, writeLen):
-      var
-        remainingBytes = writeLen
-        pos = cast[ptr byte](writeStartAddr)
-
-      while remainingBytes >= bytesPerChunk:
-        merkleizer.addChunk(makeOpenArray(pos, bytesPerChunk))
-        pos = offset(pos, bytesPerChunk)
-        remainingBytes -= bytesPerChunk
-
-      if remainingBytes > 0:
-        merkleizer.addChunk(makeOpenArray(pos, remainingBytes))
-
-      writeLen
-  ,
-  flushSync: proc (s: OutputStream) {.nimcall, gcsafe.} =
-    discard
-)
-
-func newSszHashingStream(merkleizer: SszChunksMerkleizer): OutputStream =
-  # This is very close to the optimal page size.
-  const pageSize = 4000
-  # What's important for us is that it will hold complete chunks:
-  static: assert(pageSize mod bytesPerChunk == 0)
-
-  var
-    buffers = initPageBuffers(pageSize)
-    span = buffers.getWritableSpan
-
-  SszHashingStream(vtable: vtableAddr SszHashingStreamVTable,
-                   buffers: buffers,
-                   span: span,
-                   spanEndPos: span.len,
-                   merkleizer: merkleizer)
-
 func mixInLength(root: Eth2Digest, length: int): Eth2Digest =
   var dataLen: array[32, byte]
   dataLen[0..<8] = uint64(length).toBytesLE()
   hash(root.data, dataLen)
 
-func merkleizeSerializedChunks(merkleizer: SszChunksMerkleizer,
-                               obj: auto): Eth2Digest =
-  try:
-    var hashingStream = newSszHashingStream merkleizer
-    {.noSideEffect.}:
-      # We assume there are no side-effects here, because the
-      # SszHashingStream is keeping all of its output in memory.
-      hashingStream.writeFixedSized obj
-      close hashingStream
-    merkleizer.getFinalHash
-  except IOError as e:
-    # Hashing shouldn't raise in theory but because of abstraction
-    # tax in the faststreams library, we have to do this at runtime
-    raiseAssert($e.msg)
-
-func merkleizeSerializedChunks(obj: auto): Eth2Digest =
-  merkleizeSerializedChunks(SszChunksMerkleizer(), obj)
-
 func hash_tree_root*(x: auto): Eth2Digest {.gcsafe, raises: [Defect].}
 
-template merkleizeFields(body: untyped): Eth2Digest {.dirty.} =
-  var merkleizer {.inject.} = SszChunksMerkleizer()
+template merkleizeFields(totalElements: int, body: untyped): Eth2Digest =
+  var merkleizer {.inject.} = createMerkleizer(totalElements)
 
   template addField(field) =
     let hash = hash_tree_root(field)
@@ -521,10 +445,65 @@ template merkleizeFields(body: untyped): Eth2Digest {.dirty.} =
 
   body
 
-  merkleizer.getFinalHash
+  getFinalHash(merkleizer)
 
-func bitlistHashTreeRoot(merkleizer: SszChunksMerkleizer, x: BitSeq): Eth2Digest =
-  trs "CHUNKIFYING BIT SEQ WITH LIMIT ", merkleizer.limit
+func chunkedHashTreeRootForBasicTypes[T](merkleizer: var SszChunksMerkleizer,
+                                         arr: openarray[T]): Eth2Digest =
+  static:
+    assert T is BasicType
+
+  when T is byte:
+    var
+      remainingBytes = arr.len
+      pos = cast[ptr byte](unsafeAddr arr[0])
+
+    while remainingBytes >= bytesPerChunk:
+      merkleizer.addChunk(makeOpenArray(pos, bytesPerChunk))
+      pos = offset(pos, bytesPerChunk)
+      remainingBytes -= bytesPerChunk
+
+    if remainingBytes > 0:
+      merkleizer.addChunk(makeOpenArray(pos, remainingBytes))
+
+  elif T is char or cpuEndian == littleEndian:
+    let
+      baseAddr = cast[ptr byte](unsafeAddr arr[0])
+      len = arr.len * sizeof(T)
+    return chunkedHashTreeRootForBasicTypes(merkleizer, makeOpenArray(baseAddr, len))
+
+  else:
+    static:
+      assert T is SomeUnsignedInt|StUInt|ValidatorIndex
+      assert bytesPerChunk mod sizeof(Т) == 0
+
+    const valuesPerChunk = bytesPerChunk div sizeof(Т)
+
+    template writeAt(chunk: var array[bytesPerChunk], at: int, val: SomeUnsignedInt|StUint) =
+      type ArrType = type toBytesLE(val)
+      (cast[ptr ArrType](addr chunk[at]))[] = toBytesLE(val)
+
+    var writtenValues = 0
+
+    var chunk: array[bytesPerChunk, byte]
+    while writtenValues < arr.len - valuesPerChunk:
+      for i in 0 ..< valuesPerChunk:
+        chunk.writeAt(i * sizeof(T), arr[writtenValues + i])
+      merkleizer.addChunk chunk
+      inc writtenValues, valuesPerChunk
+
+    let remainingValues = arr.len - writtenValues
+    if remainingValues > 0:
+      var lastChunk: array[bytesPerChunk, byte]
+      for i in 0 ..< remainingValues:
+        chunk.writeAt(i * sizeof(T), arr[writtenValues + i])
+      merkleizer.addChunk lastChunk
+
+  getFinalHash(merkleizer)
+
+func bitlistHashTreeRoot(merkleizer: var SszChunksMerkleizer, x: BitSeq): Eth2Digest =
+  # TODO: Switch to a simpler BitList representation and
+  #       replace this with `chunkedHashTreeRoot`
+  trs "CHUNKIFYING BIT SEQ WITH LIMIT ", merkleizer.combinedChunks.len
 
   var
     totalBytes = ByteList(x).len
@@ -534,8 +513,7 @@ func bitlistHashTreeRoot(merkleizer: SszChunksMerkleizer, x: BitSeq): Eth2Digest
     if totalBytes == 1:
       # This is an empty bit list.
       # It should be hashed as a tree containing all zeros:
-      let treeHeight = if merkleizer.limit == 0: 0
-                       else: log2trunc(merkleizer.limit)
+      let treeHeight = merkleizer.combinedChunks.high
       return mergeBranches(getZeroHashWithoutSideEffect(treeHeight),
                            getZeroHashWithoutSideEffect(0)) # this is the mixed length
 
@@ -573,26 +551,46 @@ func bitlistHashTreeRoot(merkleizer: SszChunksMerkleizer, x: BitSeq): Eth2Digest
   let contentsHash = merkleizer.getFinalHash
   mixInLength contentsHash, x.len
 
+func maxChunksCount(T: type, maxLen: int64): int64 =
+  when T is BitList:
+    (maxLen + bitsPerChunk - 1) div bitsPerChunk
+  elif T is seq|array:
+    type E = ElemType(T)
+    when E is BasicType:
+      (maxLen * sizeof(E) + bytesPerChunk - 1) div bytesPerChunk
+    else:
+      maxLen
+  else:
+    unsupported T # This should never happen
+
 func hashTreeRootImpl[T](x: T): Eth2Digest =
   when T is SignedBeaconBlock:
     unsupported T # Blocks are identified by htr(BeaconBlock) so we avoid these
-  elif T is uint64:
-    trs "UINT64; LITTLE-ENDIAN IDENTITY MAPPING"
-    result.data[0..<8] = x.toBytesLE()
+  elif T is bool|char:
+    result.data[0] = byte(x)
+  elif T is SomeUnsignedInt|StUint|ValidatorIndex:
+    when cpuEndian == bigEndian:
+      result.data[0..<sizeof(x)] = toBytesLE(x)
+    else:
+      copyMem(addr result.data[0], unsafeAddr x, sizeof x)
   elif (when T is array: ElemType(T) is byte and
       sizeof(T) == sizeof(Eth2Digest) else: false):
     # TODO is this sizeof comparison guranteed? it's whole structure vs field
     trs "ETH2DIGEST; IDENTITY MAPPING"
     Eth2Digest(data: x)
-  elif (T is BasicType) or (when T is array: ElemType(T) is BasicType else: false):
+  elif (when T is array: ElemType(T) is BasicType else: false):
     trs "FIXED TYPE; USE CHUNK STREAM"
-    merkleizeSerializedChunks x
+    var markleizer = createMerkleizer(maxChunksCount(T, x.len))
+    chunkedHashTreeRootForBasicTypes(markleizer, x)
   elif T is string or (when T is (seq|openarray): ElemType(T) is BasicType else: false):
     trs "TYPE WITH LENGTH"
-    mixInLength merkleizeSerializedChunks(x), x.len
+    var markleizer = createMerkleizer(maxChunksCount(T, x.len))
+    mixInLength chunkedHashTreeRootForBasicTypes(markleizer, x), x.len
   elif T is array|object|tuple:
     trs "MERKLEIZING FIELDS"
-    merkleizeFields:
+    const totalFields = when T is array: len(x)
+                        else: totalSerializedFields(T)
+    merkleizeFields(totalFields):
       x.enumerateSubFields(f):
         const maxLen = fieldMaxLen(f)
         when maxLen > 0:
@@ -602,24 +600,12 @@ func hashTreeRootImpl[T](x: T): Eth2Digest =
           addField f
   elif T is seq:
     trs "SEQ WITH VAR SIZE"
-    let hash = merkleizeFields(for e in x: addField e)
+    let hash = merkleizeFields(x.len, for e in x: addField e)
     mixInLength hash, x.len
   #elif isCaseObject(T):
   #  # TODO implement this
   else:
     unsupported T
-
-func maxChunksCount(T: type, maxLen: static int64): int64 {.compileTime.} =
-  when T is BitList:
-    (maxLen + bitsPerChunk - 1) div bitsPerChunk
-  elif T is seq:
-    type E = ElemType(T)
-    when E is BasicType:
-      (maxLen * sizeof(E) + bytesPerChunk - 1) div bytesPerChunk
-    else:
-      maxLen
-  else:
-    unsupported T # This should never happen
 
 func hash_tree_root*(x: auto): Eth2Digest {.raises: [Defect].} =
   trs "STARTING HASH TREE ROOT FOR TYPE ", name(type(x))
@@ -628,14 +614,14 @@ func hash_tree_root*(x: auto): Eth2Digest {.raises: [Defect].} =
     const maxLen = x.maxLen
     type T = type valueOf(x)
     const limit = maxChunksCount(T, maxLen)
-    var merkleizer = SszChunksMerkleizer(limit: uint64(limit))
+    var merkleizer = createMerkleizer(limit)
 
     when T is BitList:
       result = merkleizer.bitlistHashTreeRoot(BitSeq valueOf(x))
     elif T is seq:
       type E = ElemType(T)
       let contentsHash = when E is BasicType:
-        merkleizeSerializedChunks(merkleizer, valueOf(x))
+        chunkedHashTreeRootForBasicTypes(merkleizer, valueOf(x))
       else:
         for elem in valueOf(x):
           let elemHash = hash_tree_root(elem)
@@ -656,7 +642,7 @@ iterator hash_tree_roots_prefix*[T](lst: openarray[T], limit: auto):
   # Eth1 deposit case is the only notable example -- the usual uses of a
   # list involve, at some point, tree-hashing it -- finalized hashes are
   # the only abstraction that escapes from this module this way.
-  var merkleizer = SszChunksMerkleizer(limit: uint64(limit))
+  var merkleizer = createMerkleizer(limit)
   for i, elem in lst:
     merkleizer.addChunk(hash_tree_root(elem).data)
     yield mixInLength(merkleizer.getFinalHash(), i + 1)
