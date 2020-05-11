@@ -126,7 +126,7 @@ else
 fi
 
 NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh ${NETWORK})
-$MAKE LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node
+$MAKE -j2 LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node process_dashboard
 
 ./build/beacon_node makeDeposits \
 	--quickstart-deposits=${QUICKSTART_VALIDATORS} \
@@ -165,11 +165,7 @@ EOF
 	done
 
 	# use the exported Grafana dashboard for a single node to create one for all nodes
-	PROCESS_DASHBOARD_BIN="build/process_dashboard"
-	if [[ ! -f "$PROCESS_DASHBOARD_BIN" ]]; then
-	  $MAKE process_dashboard
-	fi
-	"${PROCESS_DASHBOARD_BIN}" \
+	./build/process_dashboard \
 	  --nodes=${NUM_NODES} \
 	  --in="tests/simulation/beacon-chain-sim-node0-Grafana-dashboard.json" \
 	  --out="${DATA_DIR}/local-testnet-all-nodes-Grafana-dashboard.json"
