@@ -1,7 +1,7 @@
 import
   options, tables, sets, macros,
   chronicles, chronos, stew/ranges/bitranges, libp2p/switch,
-  spec/[datatypes, crypto, digest, helpers],
+  spec/[datatypes, crypto, digest],
   beacon_node_types, eth2_network, block_pool, ssz
 
 logScope:
@@ -216,10 +216,8 @@ proc handleStatus(peer: Peer,
     if not peer.state(BeaconSync).initialStatusReceived:
       # Initial/handshake status message handling
       peer.state(BeaconSync).initialStatusReceived = true
-      debug "Peer connected", peer,
-                              localHeadSlot = ourStatus.headSlot,
-                              remoteHeadSlot = theirStatus.headSlot,
-                              remoteHeadRoot = theirStatus.headRoot
+      debug "Peer connected", peer, ourStatus = shortLog(ourStatus),
+                              theirStatus = shortLog(theirStatus)
       var res: bool
       if peer.wasDialed:
         res = await handleOutgoingPeer(peer)

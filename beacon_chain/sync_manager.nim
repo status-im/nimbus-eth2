@@ -71,14 +71,19 @@ proc getShortMap*(req: SyncRequest,
   ## Returns all slot numbers in ``data`` as placement map.
   var res = newStringOfCap(req.count)
   var slider = req.slot
+  var last = 0
   for i in 0 ..< req.count:
-    for item in data.items():
-      if slider == item.message.slot:
-        res.add('x')
-        break
-      elif slider < item.message.slot:
-        res.add('.')
-        break
+    if last < len(data):
+      for k in last ..< len(data):
+        if slider == data[k].message.slot:
+          res.add('x')
+          last = k + 1
+          break
+        elif slider < data[k].message.slot:
+          res.add('.')
+          break
+    else:
+      res.add('.')
     slider = slider + req.step
   result = res
 
