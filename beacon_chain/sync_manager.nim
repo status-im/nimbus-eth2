@@ -1,7 +1,7 @@
 import chronicles
 import options, deques, heapqueue, tables, strutils, sequtils
 import stew/bitseqs, chronos, chronicles
-import spec/datatypes, spec/digest, peer_pool
+import spec/datatypes, spec/digest, peer_pool, eth2_network
 export datatypes, digest, chronos, chronicles
 
 logScope:
@@ -64,7 +64,7 @@ type
     queue: SyncQueue
 
   SyncManagerError* = object of CatchableError
-  OptionBeaconBlocks* = Option[seq[SignedBeaconBlock]]
+  BeaconBlocksRes* = NetRes[seq[SignedBeaconBlock]]
 
 proc getShortMap*(req: SyncRequest,
                   data: openarray[SignedBeaconBlock]): string =
@@ -257,7 +257,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
   )
 
 proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
-                      req: SyncRequest): Future[OptionBeaconBlocks] {.async.} =
+                      req: SyncRequest): Future[BeaconBlocksRes] {.async.} =
   mixin beaconBlocksByRange, getScore, `==`
   doAssert(not(req.isEmpty()), "Request must not be empty!")
   debug "Requesting blocks from peer", peer = peer,
@@ -270,7 +270,7 @@ proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
           errMsg = workFut.readError().msg, topics = "syncman"
   else:
     let res = workFut.read()
-    if res.isNone():
+    if res.isErr:
       debug "Error, while reading getBlocks response",
             peer = peer, slot = req.slot, count = req.count,
             step = req.step, topics = "syncman"
@@ -368,7 +368,7 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
             peer_score = peer.getScore(), topics = "syncman"
 
       let blocks = await man.getBlocks(peer, req)
-      if blocks.isSome():
+      if blocks.isOk:
         let data = blocks.get()
         let smap = getShortMap(req, data)
         debug "Received blocks on request", blocks_count = len(data),

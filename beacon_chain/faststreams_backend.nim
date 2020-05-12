@@ -49,70 +49,86 @@ func libp2pInput*(conn: Connection,
     buffers: initPageBuffers(pageSize),
     conn: conn)
 
-proc readSizePrefix(s: AsyncInputStream, maxSize: uint64): Future[int] {.async.} =
-  trace "about to read msg size prefix"
-  var parser: VarintParser[uint64, ProtoBuf]
+proc readSizePrefix(s: AsyncInputStream,
+                    maxSize: uint32): Future[NetRes[uint32]] {.async.} =
+  var parser: VarintParser[uint32, ProtoBuf]
   while s.readable:
     case parser.feedByte(s.read)
     of Done:
       let res = parser.getResult
       if res > maxSize:
-        trace "size prefix outside of range", res
-        return -1
+        return neterr SizePrefixOverflow
       else:
-        trace "got size prefix", res
-        return int(res)
+        return ok res
     of Overflow:
-      trace "size prefix overflow"
-      return -1
+      return neterr SizePrefixOverflow
     of Incomplete:
       continue
 
-proc readSszValue(s: AsyncInputStream, MsgType: type): Future[MsgType] {.async.} =
-  let size = await s.readSizePrefix(uint64(MAX_CHUNK_SIZE))
-  if size > 0 and s.readable(size):
+  return neterr UnexpectedEOF
+
+proc readSszValue(s: AsyncInputStream,
+                  size: int,
+                  MsgType: type): Future[NetRes[MsgType]] {.async.} =
+  if s.readable(size):
     s.withReadableRange(size, r):
       return r.readValue(SSZ, MsgType)
   else:
-    raise newException(CatchableError,
-                      "Failed to read an incoming message size prefix")
+    return neterr UnexpectedEOF
 
-proc readResponseCode(s: AsyncInputStream): Future[Result[bool, string]] {.async.} =
-  if s.readable:
-    let responseCode = s.read
-    static: assert responseCode.type.low == 0
-    if responseCode > ResponseCode.high.byte:
-      return err("Invalid response code")
+proc readChunkPayload(s: AsyncInputStream,
+                      noSnappy: bool,
+                      MsgType: type): Future[NetRes[MsgType]] {.async.} =
+  let prefix = await readSizePrefix(s, MAX_CHUNK_SIZE)
+  let size = if prefix.isOk: prefix.value.int
+             else: return err(prefix.error)
 
-    case ResponseCode(responseCode):
-    of InvalidRequest, ServerError:
-      return err(await s.readSszValue(string))
-    of Success:
-      return ok true
+  if size > 0:
+    let processingFut = if noSnappy:
+      readSszValue(s, size, MsgType)
+    else:
+      executePipeline(uncompressFramedStream,
+                      readSszValue(size, MsgType))
+
+    return await processingFut
   else:
-    return ok false
+    return neterr ZeroSizePrefix
 
-proc readChunk(s: AsyncInputStream,
-               MsgType: typedesc): Future[Option[MsgType]] {.async.} =
-  let rc = await s.readResponseCode()
-  if rc.isOk:
-    if rc[]:
-      return some(await readSszValue(s, MsgType))
-  else:
-    trace "Failed to read response code",
-           reason = rc.error
+proc readResponseChunk(s: AsyncInputStream,
+                       noSnappy: bool,
+                       MsgType: typedesc): Future[NetRes[MsgType]] {.async.} =
+  let responseCodeByte = s.read
+
+  static: assert ResponseCode.low.ord == 0
+  if responseCodeByte > ResponseCode.high.byte:
+    return neterr InvalidResponseCode
+
+  let responseCode = ResponseCode responseCodeByte
+  case responseCode:
+  of InvalidRequest, ServerError:
+    let errorMsgChunk = await readChunkPayload(s, noSnappy, string)
+    let errorMsg = if errorMsgChunk.isOk: errorMsgChunk.value
+                   else: return err(errorMsgChunk.error)
+    return err Eth2NetworkingError(kind: ReceivedErrorResponse,
+                                   responseCode: responseCode,
+                                   errorMsg: errorMsg)
+  of Success:
+    discard
+
+  return await readChunkPayload(s, noSnappy, MsgType)
 
 proc readResponse(s: AsyncInputStream,
-                  MsgType: type): Future[Option[MsgType]] {.gcsafe, async.} =
+                  noSnappy: bool,
+                  MsgType: type): Future[NetRes[MsgType]] {.gcsafe, async.} =
   when MsgType is seq:
     type E = ElemType(MsgType)
     var results: MsgType
-    while true:
-      let nextRes = await s.readChunk(E)
-      if nextRes.isNone: break
-      results.add nextRes.get
-    if results.len > 0:
-      return some(results)
+    while s.readable:
+      results.add(? await s.readResponseChunk(noSnappy, E))
+    return ok results
   else:
-    return await s.readChunk(MsgType)
+    if s.readable:
+      return await s.readResponseChunk(noSnappy, MsgType)
+    else:
+      return neterr UnexpectedEOF
 

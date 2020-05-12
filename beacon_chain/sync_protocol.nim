@@ -95,7 +95,7 @@ p2pProtocol BeaconSync(version = 1,
         # respond in time due to high CPU load in our single thread.
         theirStatus = await peer.status(ourStatus, timeout = 60.seconds)
 
-      if theirStatus.isSome:
+      if theirStatus.isOk:
         await peer.handleStatus(peer.networkState,
                                 ourStatus, theirStatus.get())
       else:
@@ -193,8 +193,8 @@ proc updateStatus*(peer: Peer): Future[bool] {.async.} =
     result = false
   else:
     let theirStatus = theirFut.read()
-    if theirStatus.isSome():
-      peer.setStatusMsg(theirStatus.get())
+    if theirStatus.isOk:
+      peer.setStatusMsg(theirStatus.get)
       result = true
 
 proc hasInitialStatus*(peer: Peer): bool {.inline.} =

@@ -26,7 +26,7 @@ proc fetchAncestorBlocksFromPeer(
   # blocks starting N positions before this slot number.
   try:
     let blocks = await peer.beaconBlocksByRoot([rec.root])
-    if blocks.isSome:
+    if blocks.isOk:
       for b in blocks.get:
         responseHandler(b)
   except CatchableError as err:
@@ -41,7 +41,7 @@ proc fetchAncestorBlocksFromNetwork(
   try:
     peer = await network.peerPool.acquire()
     let blocks = await peer.beaconBlocksByRoot([rec.root])
-    if blocks.isSome:
+    if blocks.isOk:
       for b in blocks.get:
         responseHandler(b)
   except CatchableError as err:
