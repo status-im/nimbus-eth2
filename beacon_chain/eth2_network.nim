@@ -168,60 +168,16 @@ declarePublicGauge libp2p_successful_dials,
 declarePublicGauge libp2p_peers,
   "Number of active libp2p peers"
 
-type
-  LibP2PInputStream = ref object of InputStream
-    conn: Connection
-
-const
-  closingErrMsg = "Failed to close LibP2P stream"
-  readingErrMsg = "Failed to read from LibP2P stream"
-
 proc safeClose(conn: Connection) {.async.} =
   if not conn.closed:
     await close(conn)
 
-proc libp2pCloseWait(s: LibP2PInputStream) {.async.} =
-  fsTranslateErrors closingErrMsg:
-    await safeClose(s.conn)
+const
+  snappy_implementation {.strdefine.} = "libp2p"
 
-proc libp2pReadOnce(s: LibP2PInputStream,
-                    dst: pointer, dstLen: Natural): Future[Natural] {.async.} =
-  fsTranslateErrors readingErrMsg:
-    try:
-      return implementSingleRead(s.buffers, dst, dstLen, ReadFlags {},
-                                 readStartAddr, readLen):
-        await s.conn.readOnce(readStartAddr, readLen)
-    except LPStreamEOFError:
-      s.buffers.eofReached = true
-
-# TODO: Use the Raising type here
-let libp2pInputVTable = InputStreamVTable(
-  readSync: proc (s: InputStream, dst: pointer, dstLen: Natural): Natural
-                 {.nimcall, gcsafe, raises: [IOError, Defect].} =
-    doAssert(false, "synchronous reading is not allowed")
-  ,
-  readAsync: proc (s: InputStream, dst: pointer, dstLen: Natural): Future[Natural]
-                  {.nimcall, gcsafe, raises: [IOError, Defect].} =
-    fsTranslateErrors "Unexpected exception from merely forwarding a future":
-      return libp2pReadOnce(Libp2pInputStream s, dst, dstLen)
-  ,
-  closeSync: proc (s: InputStream)
-                  {.nimcall, gcsafe, raises: [IOError, Defect].} =
-    fsTranslateErrors closingErrMsg:
-      s.closeFut = Libp2pInputStream(s).conn.close()
-  ,
-  closeAsync: proc (s: InputStream): Future[void]
-                   {.nimcall, gcsafe, raises: [IOError, Defect].} =
-    fsTranslateErrors "Unexpected exception from merely forwarding a future":
-      return libp2pCloseWait(Libp2pInputStream s)
-)
-
-func libp2pInput*(conn: Connection,
-                  pageSize = defaultPageSize): AsyncInputStream =
-  AsyncInputStream LibP2PInputStream(
-    vtable: vtableAddr libp2pInputVTable,
-    buffers: initPageBuffers(pageSize),
-    conn: conn)
+const useNativeSnappy = when snappy_implementation == "native": true
+                        elif snappy_implementation == "libp2p": false
+                        else: {.fatal: "Please set snappy_implementation to either 'libp2p' or 'native'".}
 
 template libp2pProtocol*(name: string, version: int) {.pragma.}
 
@@ -306,73 +262,6 @@ proc disconnectAndRaise(peer: Peer,
   await peer.disconnect(r)
   raisePeerDisconnected(msg, r)
 
-proc readSizePrefix(s: AsyncInputStream, maxSize: uint64): Future[int] {.async.} =
-  trace "about to read msg size prefix"
-  var parser: VarintParser[uint64, ProtoBuf]
-  while s.readable:
-    case parser.feedByte(s.read)
-    of Done:
-      let res = parser.getResult
-      if res > maxSize:
-        trace "size prefix outside of range", res
-        return -1
-      else:
-        trace "got size prefix", res
-        return int(res)
-    of Overflow:
-      trace "size prefix overflow"
-      return -1
-    of Incomplete:
-      continue
-
-proc readSszValue(s: AsyncInputStream, MsgType: type): Future[MsgType] {.async.} =
-  let size = await s.readSizePrefix(uint64(MAX_CHUNK_SIZE))
-  if size > 0 and s.readable(size):
-    s.withReadableRange(size, r):
-      return r.readValue(SSZ, MsgType)
-  else:
-    raise newException(CatchableError,
-                      "Failed to read an incoming message size prefix")
-
-proc readResponseCode(s: AsyncInputStream): Future[Result[bool, string]] {.async.} =
-  if s.readable:
-    let responseCode = s.read
-    static: assert responseCode.type.low == 0
-    if responseCode > ResponseCode.high.byte:
-      return err("Invalid response code")
-
-    case ResponseCode(responseCode):
-    of InvalidRequest, ServerError:
-      return err(await s.readSszValue(string))
-    of Success:
-      return ok true
-  else:
-    return ok false
-
-proc readChunk(s: AsyncInputStream,
-               MsgType: typedesc): Future[Option[MsgType]] {.async.} =
-  let rc = await s.readResponseCode()
-  if rc.isOk:
-    if rc[]:
-      return some(await readSszValue(s, MsgType))
-  else:
-    trace "Failed to read response code",
-           reason = rc.error
-
-proc readResponse(s: AsyncInputStream,
-                  MsgType: type): Future[Option[MsgType]] {.gcsafe, async.} =
-  when MsgType is seq:
-    type E = ElemType(MsgType)
-    var results: MsgType
-    while true:
-      let nextRes = await s.readChunk(E)
-      if nextRes.isNone: break
-      results.add nextRes.get
-    if results.len > 0:
-      return some(results)
-  else:
-    return await s.readChunk(MsgType)
-
 proc encodeErrorMsg(responseCode: ResponseCode, errMsg: string): Bytes =
   var s = memoryOutput()
   s.write byte(responseCode)
@@ -441,22 +330,31 @@ proc sendResponseChunks[T](responder: UntypedResponder, chunks: seq[T]) {.async.
   let bytes = s.getOutput
   await responder.stream.write(bytes)
 
+when useNativeSnappy:
+  include faststreams_backend
+else:
+  include libp2p_streams_backend
+
+template awaitWithTimeout[T](operation: Future[T],
+                             deadline: Future[void],
+                             onTimeout: untyped): T =
+  let f = operation
+  await f or deadline
+  if not f.finished:
+    cancel f
+    onTimeout
+  else:
+    f.read
+
 proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
                      ResponseMsg: type,
                      timeout: Duration): Future[Option[ResponseMsg]] {.gcsafe, async.} =
   var
     deadline = sleepAsync timeout
     protocolId = protocolId & (if peer.supportsSnappy: "ssz_snappy" else: "ssz")
-    streamFut = peer.network.openStream(peer, protocolId)
 
-  await streamFut or deadline
-
-  if not streamFut.finished:
-    streamFut.cancel()
-    return none(ResponseMsg)
-
-  let stream = streamFut.read
-
+  let stream = awaitWithTimeout(peer.network.openStream(peer, protocolId),
+                                deadline): return none(ResponseMsg)
   try:
     # Send the request
     var s = memoryOutput()
@@ -469,8 +367,11 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
     await stream.write(bytes)
 
     # Read the response
-    let response = libp2pInput(stream)
-    return await response.readResponse(ResponseMsg)
+    when useNativeSnappy:
+      return awaitWithTimeout(readResponse(libp2pInput(stream), ResponseMsg),
+                              deadline, none(ResponseMsg))
+    else:
+      return await readResponse(stream, ResponseMsg, deadline)
   finally:
     await safeClose(stream)
 
@@ -553,6 +454,8 @@ proc handleIncomingStream(network: Eth2Node,
                           useSnappy: bool,
                           MsgType: type) {.async, gcsafe.} =
   mixin callUserHandler, RecType
+
+  type MsgRec = RecType(MsgType)
   const msgName = typetraits.name(MsgType)
 
   ## Uncomment this to enable tracing on all incoming requests
@@ -566,46 +469,73 @@ proc handleIncomingStream(network: Eth2Node,
   try:
     let peer = peerFromStream(network, conn)
 
-    let s = libp2pInput(conn)
+    when useNativeSnappy:
+      let s = libp2pInput(conn)
 
-    if s.timeoutToNextByte(TTFB_TIMEOUT):
-      await sendErrorResponse(peer, conn, InvalidRequest,
-                              "Request first byte not sent in time")
-      return
+      if s.timeoutToNextByte(TTFB_TIMEOUT):
+        await sendErrorResponse(peer, conn, InvalidRequest,
+                                "Request first byte not sent in time")
+        return
 
-    let deadline = sleepAsync RESP_TIMEOUT
+      let deadline = sleepAsync RESP_TIMEOUT
 
-    let processingFut = if useSnappy:
-      s.executePipeline(uncompressFramedStream,
-                        readSszValue MsgType)
+      let processingFut = if useSnappy:
+        s.executePipeline(uncompressFramedStream,
+                          readSszValue MsgRec)
+      else:
+        s.readSszValue MsgRec
+
+      try:
+        await processingFut or deadline
+      except SerializationError as err:
+        await sendErrorResponse(peer, conn, InvalidRequest, err.formatMsg("msg"))
+        return
+      except SnappyError as err:
+        await sendErrorResponse(peer, conn, InvalidRequest, err.msg)
+        return
+
+      if not processingFut.finished:
+        processingFut.cancel()
+        await sendErrorResponse(peer, conn, InvalidRequest,
+                                "Request full data not sent in time")
+        return
+
+      try:
+        logReceivedMsg(peer, MsgType(processingFut.read))
+        await callUserHandler(peer, conn, processingFut.read)
+      except CatchableError as err:
+        await sendErrorResponse(peer, conn, ServerError, err.msg)
+
     else:
-      s.readSszValue MsgType
+      let deadline = sleepAsync RESP_TIMEOUT
+      var msgBytes = await readMsgBytes(conn, false, deadline)
 
-    try:
-      await processingFut or deadline
-    except SerializationError as err:
-      await sendErrorResponse(peer, conn, InvalidRequest, err.formatMsg("msg"))
-      return
-    except SnappyError as err:
-      await sendErrorResponse(peer, conn, InvalidRequest, err.msg)
-      return
+      if msgBytes.len == 0:
+        await sendErrorResponse(peer, conn, ServerError, readTimeoutErrorMsg)
+        return
 
-    if not processingFut.finished:
-      processingFut.cancel()
-      await sendErrorResponse(peer, conn, InvalidRequest,
-                              "Request full data not sent in time")
-      return
+      if useSnappy:
+        msgBytes = framingFormatUncompress(msgBytes)
 
-    if processingFut.error != nil:
-      await sendErrorResponse(peer, conn, ServerError,
-                              processingFut.error.msg)
-      return
+      var msg: MsgRec
+      try:
+        msg = decode(SSZ, msgBytes, MsgRec)
+      except SerializationError as err:
+        await sendErrorResponse(peer, conn, InvalidRequest, err.formatMsg("msg"))
+        return
+      except Exception as err:
+        # TODO. This is temporary code that should be removed after interop.
+        # It can be enabled only in certain diagnostic builds where it should
+        # re-raise the exception.
+        debug "Crash during serialization", inputBytes = toHex(msgBytes), msgName
+        await sendErrorResponse(peer, conn, ServerError, err.msg)
+        raise err
 
-    try:
-      logReceivedMsg(peer, processingFut.read)
-      await callUserHandler(peer, conn, processingFut.read)
-    except CatchableError as err:
-      await sendErrorResponse(peer, conn, ServerError, err.msg)
+      try:
+        logReceivedMsg(peer, MsgType(msg))
+        await callUserHandler(peer, conn, msg)
+      except CatchableError as err:
+        await sendErrorResponse(peer, conn, ServerError, err.msg)
 
   except CatchableError as err:
     debug "Error processing an incoming request", err = err.msg
@@ -859,7 +789,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
           proc sszThunk(`streamVar`: `Connection`,
                       proto: string): Future[void] {.gcsafe.} =
             return handleIncomingStream(`networkVar`, `streamVar`, false,
-                                        `MsgRecName`)
+                                        `MsgStrongRecName`)
 
           mount `networkVar`.switch,
                 LPProtocol(codec: `codecNameLit` & "ssz",
@@ -868,7 +798,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
           proc snappyThunk(`streamVar`: `Connection`,
                       proto: string): Future[void] {.gcsafe.} =
             return handleIncomingStream(`networkVar`, `streamVar`, true,
-                                        `MsgRecName`)
+                                        `MsgStrongRecName`)
 
           mount `networkVar`.switch,
                 LPProtocol(codec: `codecNameLit` & "ssz_snappy",
