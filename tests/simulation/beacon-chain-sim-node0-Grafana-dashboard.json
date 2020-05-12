@@ -950,13 +950,15 @@
       "targets": [
         {
           "expr": "sum(beacon_attestations_sent_total)",
+          "interval": "",
+          "legendFormat": "",
           "refId": "A"
         }
       ],
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "att'ns sent (all) #0",
+      "title": "att'ns sent #all",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -1095,13 +1097,13 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(beacon_blocks_received_total{node=\"0\"}[2s])",
+          "expr": "rate(beacon_blocks_received_total{node=\"0\"}[4s]) * 3",
           "interval": "",
           "legendFormat": "received",
           "refId": "B"
         },
         {
-          "expr": "rate(beacon_blocks_proposed_total{node=\"0\"}[2s])",
+          "expr": "rate(beacon_blocks_proposed_total{node=\"0\"}[4s]) * 3",
           "interval": "",
           "legendFormat": "proposed",
           "refId": "A"
@@ -1685,13 +1687,13 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(beacon_attestations_received_total{node=\"0\"}[2s])",
+          "expr": "rate(beacon_attestations_received_total{node=\"0\"}[4s]) * 3",
           "interval": "",
           "legendFormat": "received",
           "refId": "A"
         },
         {
-          "expr": "rate(beacon_attestations_sent_total{node=\"0\"}[2s])",
+          "expr": "rate(beacon_attestations_sent_total{node=\"0\"}[4s]) * 3",
           "interval": "",
           "legendFormat": "sent",
           "refId": "B"
@@ -1771,7 +1773,7 @@
       "reverseYBuckets": false,
       "targets": [
         {
-          "expr": "rate(beacon_attestation_received_seconds_from_slot_start_bucket{node=\"0\"}[2s])",
+          "expr": "rate(beacon_attestation_received_seconds_from_slot_start_bucket{node=\"0\"}[4s]) * 3",
           "format": "heatmap",
           "instant": false,
           "interval": "",
@@ -1838,5 +1840,5 @@
   "variables": {
     "list": []
   },
-  "version": 30
+  "version": 31
 }
