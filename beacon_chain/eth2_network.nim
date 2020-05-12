@@ -4,8 +4,8 @@ import
   options as stdOptions, net as stdNet,
 
   # Status libs
-  stew/[varints, base58, bitseqs], stew/shims/[macros, tables], stint,
-  faststreams/[inputs, outputs, buffers], snappy, snappy/framing,
+  stew/[varints, base58, bitseqs, results], stew/shims/[macros, tables],
+  stint, faststreams/[inputs, outputs, buffers], snappy, snappy/framing,
   json_serialization, json_serialization/std/[net, options],
   chronos, chronicles, metrics,
   # TODO: create simpler to use libp2p modules that use re-exports
@@ -27,7 +27,7 @@ import
 
 export
   version, multiaddress, peer_pool, peerinfo, p2pProtocol,
-  libp2p_json_serialization, ssz, peer
+  libp2p_json_serialization, ssz, peer, results
 
 logScope:
   topics = "networking"
@@ -74,7 +74,7 @@ type
     protocolStates*: seq[RootRef]
     maxInactivityAllowed*: Duration
     score*: int
-    supportsSnappy: bool
+    lacksSnappy: bool
 
   ConnectionState* = enum
     None,
@@ -86,6 +86,7 @@ type
   UntypedResponder = object
     peer*: Peer
     stream*: Connection
+    noSnappy*: bool
 
   Responder*[MsgType] = distinct UntypedResponder
 
@@ -133,6 +134,30 @@ type
 
   TransmissionError* = object of CatchableError
 
+  Eth2NetworkingErrorKind* = enum
+    BrokenConnection
+    ReceivedErrorResponse
+    UnexpectedEOF
+    PotentiallyExpectedEOF
+    InvalidResponseCode
+    InvalidSnappyBytes
+    InvalidSszBytes
+    StreamOpenTimeout
+    ReadResponseTimeout
+    ZeroSizePrefix
+    SizePrefixOverflow
+
+  Eth2NetworkingError = object
+    case kind*: Eth2NetworkingErrorKind
+    of ReceivedErrorResponse:
+      responseCode: ResponseCode
+      errorMsg: string
+    else:
+      discard
+
+  NetRes*[T] = Result[T, Eth2NetworkingError]
+    ## This is type returned from all network requests
+
 const
   clientId* = "Nimbus beacon node v" & fullVersionStr
   networkKeyFilename = "privkey.protobuf"
@@ -154,6 +179,9 @@ const
     ## Score which will be assigned to new connected Peer
   PeerScoreLimit* = 0
     ## Score after which peer will be kicked
+
+template neterr(kindParam: Eth2NetworkingErrorKind): auto =
+  err(type(result), Eth2NetworkingError(kind: kindParam))
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter gossip_messages_sent,
@@ -187,8 +215,23 @@ chronicles.formatIt(Peer): $it
 template remote*(peer: Peer): untyped =
   peer.info.peerId
 
-template openStream(node: Eth2Node, peer: Peer, protocolId: string): untyped =
-  dial(node.switch, peer.info, protocolId)
+proc openStream(node: Eth2Node,
+                peer: Peer,
+                protocolId: string): Future[Connection] {.async.} =
+  let protocolId = protocolId & (if peer.lacksSnappy: "ssz" else: "ssz_snappy")
+  try:
+    result = await dial(node.switch, peer.info, protocolId)
+  except CancelledError:
+    raise
+  except CatchableError:
+    # TODO: LibP2P should raise a more specific exception here
+    if peer.lacksSnappy == false:
+      peer.lacksSnappy = true
+      trace "Snappy connection failed. Trying without Snappy",
+            peer, protocolId
+      return await openStream(node, peer, protocolId)
+    else:
+      raise
 
 func peerId(conn: Connection): PeerID =
   # TODO: Can this be `nil`?
@@ -262,27 +305,36 @@ proc disconnectAndRaise(peer: Peer,
   await peer.disconnect(r)
   raisePeerDisconnected(msg, r)
 
-proc encodeErrorMsg(responseCode: ResponseCode, errMsg: string): Bytes =
-  var s = memoryOutput()
-  s.write byte(responseCode)
-  s.writeVarint errMsg.len
-  s.writeValue SSZ, errMsg
-  s.getOutput
+proc writeChunk*(conn: Connection,
+                 responseCode: Option[ResponseCode],
+                 payload: Bytes,
+                 noSnappy: bool) {.async.} =
+  var output = memoryOutput()
+
+  if responseCode.isSome:
+    output.write byte(responseCode.get)
+
+  output.write varintBytes(payload.len.uint64)
+
+  if noSnappy:
+    output.write(payload)
+  else:
+    output.write(framingFormatCompress payload)
+
+  await conn.write(output.getOutput)
 
 proc sendErrorResponse(peer: Peer,
                        conn: Connection,
+                       noSnappy: bool,
                        responseCode: ResponseCode,
                        errMsg: string) {.async.} =
   debug "Error processing request", peer, responseCode, errMsg
 
-  let responseBytes = encodeErrorMsg(ServerError, errMsg)
-  await conn.write(responseBytes)
-  await conn.close()
+  await conn.writeChunk(some responseCode, SSZ.encode(errMsg), noSnappy)
 
 proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.async} =
   var
     deadline = sleepAsync RESP_TIMEOUT
-    protocolId = protocolId & (if peer.supportsSnappy: "ssz_snappy" else: "ssz")
     streamFut = peer.network.openStream(peer, protocolId)
 
   await streamFut or deadline
@@ -293,42 +345,20 @@ proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.
 
   let stream = streamFut.read
   try:
-    var s = memoryOutput()
-    s.writeVarint requestBytes.len.uint64
-    if peer.supportsSnappy:
-      framing_format_compress(s, requestBytes)
-    else:
-      s.write requestBytes
-    let bytes = s.getOutput
-    await stream.write(bytes)
+    await stream.writeChunk(none ResponseCode, requestBytes, peer.lacksSnappy)
   finally:
     await safeClose(stream)
 
-# TODO There is too much duplication in the responder functions, but
-# I hope to reduce this when I increse the reliance on output streams.
 proc sendResponseChunkBytes(responder: UntypedResponder, payload: Bytes) {.async.} =
-  var s = memoryOutput()
-  s.write byte(Success)
-  s.writeVarint payload.len.uint64
-  s.write payload
-  let bytes = s.getOutput
-  await responder.stream.write(bytes)
+  await responder.stream.writeChunk(some Success, payload, responder.noSnappy)
 
 proc sendResponseChunkObj(responder: UntypedResponder, val: auto) {.async.} =
-  var s = memoryOutput()
-  s.write byte(Success)
-  s.writeValue SSZ, sizePrefixed(val)
-  let bytes = s.getOutput
-  await responder.stream.write(bytes)
+  await responder.stream.writeChunk(some Success, SSZ.encode(val),
+                                    responder.noSnappy)
 
 proc sendResponseChunks[T](responder: UntypedResponder, chunks: seq[T]) {.async.} =
-  var s = memoryOutput()
   for chunk in chunks:
-    s.write byte(Success)
-    s.writeValue SSZ, sizePrefixed(chunk)
-
-  let bytes = s.getOutput
-  await responder.stream.write(bytes)
+    await sendResponseChunkObj(responder, chunk)
 
 when useNativeSnappy:
   include faststreams_backend
@@ -348,36 +378,29 @@ template awaitWithTimeout[T](operation: Future[T],
 
 proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
                      ResponseMsg: type,
-                     timeout: Duration): Future[Option[ResponseMsg]] {.gcsafe, async.} =
-  var
-    deadline = sleepAsync timeout
-    protocolId = protocolId & (if peer.supportsSnappy: "ssz_snappy" else: "ssz")
+                     timeout: Duration): Future[NetRes[ResponseMsg]]
+                    {.gcsafe, async.} =
+  var deadline = sleepAsync timeout
 
   let stream = awaitWithTimeout(peer.network.openStream(peer, protocolId),
-                                deadline): return none(ResponseMsg)
+                                deadline): return neterr StreamOpenTimeout
   try:
     # Send the request
-    var s = memoryOutput()
-    s.writeVarint requestBytes.len.uint64
-    if peer.supportsSnappy:
-      framing_format_compress(s, requestBytes)
-    else:
-      s.write requestBytes
-    let bytes = s.getOutput
-    await stream.write(bytes)
+    await stream.writeChunk(none ResponseCode, requestBytes, peer.lacksSnappy)
 
     # Read the response
-    when useNativeSnappy:
-      return awaitWithTimeout(readResponse(libp2pInput(stream), ResponseMsg),
-                              deadline, none(ResponseMsg))
-    else:
-      return await readResponse(stream, ResponseMsg, deadline)
+    return awaitWithTimeout(
+      readResponse(when useNativeSnappy: libp2pInput(stream)
+                   else: stream,
+                   peer.lacksSnappy,
+                   ResponseMsg),
+      deadline, neterr(ReadResponseTimeout))
   finally:
     await safeClose(stream)
 
 proc init*[MsgType](T: type Responder[MsgType],
-                    peer: Peer, conn: Connection): T =
-  T(UntypedResponder(peer: peer, stream: conn))
+                    peer: Peer, conn: Connection, noSnappy: bool): T =
+  T(UntypedResponder(peer: peer, stream: conn, noSnappy: noSnappy))
 
 template write*[M](r: var Responder[M], val: auto): auto =
   mixin send
@@ -451,7 +474,7 @@ proc implementSendProcBody(sendProc: SendProc) =
 
 proc handleIncomingStream(network: Eth2Node,
                           conn: Connection,
-                          useSnappy: bool,
+                          noSnappy: bool,
                           MsgType: type) {.async, gcsafe.} =
   mixin callUserHandler, RecType
 
@@ -469,73 +492,68 @@ proc handleIncomingStream(network: Eth2Node,
   try:
     let peer = peerFromStream(network, conn)
 
-    when useNativeSnappy:
-      let s = libp2pInput(conn)
+    template returnInvalidRequest(msg: string) =
+      await sendErrorResponse(peer, conn, noSnappy, InvalidRequest, msg)
+      return
 
-      if s.timeoutToNextByte(TTFB_TIMEOUT):
-        await sendErrorResponse(peer, conn, InvalidRequest,
-                                "Request first byte not sent in time")
-        return
+    let s = when useNativeSnappy:
+      let fs = libp2pInput(conn)
 
-      let deadline = sleepAsync RESP_TIMEOUT
+      if fs.timeoutToNextByte(TTFB_TIMEOUT):
+        returnInvalidRequest "Request first byte not sent in time"
 
-      let processingFut = if useSnappy:
-        s.executePipeline(uncompressFramedStream,
-                          readSszValue MsgRec)
-      else:
-        s.readSszValue MsgRec
-
-      try:
-        await processingFut or deadline
-      except SerializationError as err:
-        await sendErrorResponse(peer, conn, InvalidRequest, err.formatMsg("msg"))
-        return
-      except SnappyError as err:
-        await sendErrorResponse(peer, conn, InvalidRequest, err.msg)
-        return
-
-      if not processingFut.finished:
-        processingFut.cancel()
-        await sendErrorResponse(peer, conn, InvalidRequest,
-                                "Request full data not sent in time")
-        return
-
-      try:
-        logReceivedMsg(peer, MsgType(processingFut.read))
-        await callUserHandler(peer, conn, processingFut.read)
-      except CatchableError as err:
-        await sendErrorResponse(peer, conn, ServerError, err.msg)
-
+      fs
     else:
-      let deadline = sleepAsync RESP_TIMEOUT
-      var msgBytes = await readMsgBytes(conn, false, deadline)
+      # TODO The TTFB timeout is not implemented in LibP2P streams back-end
+      conn
 
-      if msgBytes.len == 0:
-        await sendErrorResponse(peer, conn, ServerError, readTimeoutErrorMsg)
-        return
+    let deadline = sleepAsync RESP_TIMEOUT
 
-      if useSnappy:
-        msgBytes = framingFormatUncompress(msgBytes)
+    let msg = try:
+      awaitWithTimeout(readChunkPayload(s, noSnappy, MsgRec), deadline):
+        returnInvalidRequest "Request full data not sent in time"
 
-      var msg: MsgRec
-      try:
-        msg = decode(SSZ, msgBytes, MsgRec)
-      except SerializationError as err:
-        await sendErrorResponse(peer, conn, InvalidRequest, err.formatMsg("msg"))
-        return
-      except Exception as err:
-        # TODO. This is temporary code that should be removed after interop.
-        # It can be enabled only in certain diagnostic builds where it should
-        # re-raise the exception.
-        debug "Crash during serialization", inputBytes = toHex(msgBytes), msgName
-        await sendErrorResponse(peer, conn, ServerError, err.msg)
-        raise err
+    except SerializationError as err:
+      returnInvalidRequest err.formatMsg("msg")
 
-      try:
-        logReceivedMsg(peer, MsgType(msg))
-        await callUserHandler(peer, conn, msg)
-      except CatchableError as err:
-        await sendErrorResponse(peer, conn, ServerError, err.msg)
+    except SnappyError as err:
+      returnInvalidRequest err.msg
+
+    if msg.isErr:
+      let (responseCode, errMsg) = case msg.error.kind
+        of UnexpectedEOF, PotentiallyExpectedEOF:
+          (InvalidRequest, "Incomplete request")
+
+        of InvalidSnappyBytes:
+          (InvalidRequest, "Failed to decompress snappy payload")
+
+        of InvalidSszBytes:
+          (InvalidRequest, "Failed to decode SSZ payload")
+
+        of ZeroSizePrefix:
+          (InvalidRequest, "The request chunk cannot have a size of zero")
+
+        of SizePrefixOverflow:
+          (InvalidRequest, "The chunk size exceed the maximum allowed")
+
+        of InvalidResponseCode, ReceivedErrorResponse,
+           StreamOpenTimeout, ReadResponseTimeout:
+          # These shouldn't be possible in a request, because
+          # there are no response codes being read, no stream
+          # openings and no reading of responses:
+          (ServerError, "Internal server error")
+
+        of BrokenConnection:
+          return
+
+      await sendErrorResponse(peer, conn, noSnappy, responseCode, errMsg)
+      return
+
+    try:
+      logReceivedMsg(peer, MsgType(msg.get))
+      await callUserHandler(peer, conn, noSnappy, msg.get)
+    except CatchableError as err:
+      await sendErrorResponse(peer, conn, noSnappy, ServerError, err.msg)
 
   except CatchableError as err:
     debug "Error processing an incoming request", err = err.msg
@@ -720,6 +738,7 @@ proc registerMsg(protocol: ProtocolInfo,
 proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   var
     Format = ident "SSZ"
+    Bool = bindSym "bool"
     Responder = bindSym "Responder"
     Connection = bindSym "Connection"
     Peer = bindSym "Peer"
@@ -729,6 +748,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     msgVar = ident "msg"
     networkVar = ident "network"
     callUserHandler = ident "callUserHandler"
+    noSnappyVar = ident "noSnappy"
 
   p.useRequestIds = false
   p.useSingleRecordInlining = true
@@ -740,6 +760,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   result.registerProtocol = bindSym "registerProtocol"
   result.setEventHandlers = bindSym "setEventHandlers"
   result.SerializationFormat = Format
+  result.RequestResultsWrapper = ident "NetRes"
   result.ResponderType = Responder
 
   result.afterProtocolInit = proc (p: P2PProtocol) =
@@ -758,7 +779,8 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
       # Request procs need an extra param - the stream where the response
       # should be written:
       msg.userHandler.params.insert(2, newIdentDefs(streamVar, Connection))
-      msg.initResponderCall.add streamVar
+      msg.userHandler.params.insert(3, newIdentdefs(noSnappyVar, Bool))
+      msg.initResponderCall.add [streamVar, noSnappyVar]
 
     ##
     ## Implement the Thunk:
@@ -775,20 +797,22 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     ##
     let
       protocolMounterName = ident(msgName & "_mounter")
-      userHandlerCall = msg.genUserHandlerCall(msgVar, [peerVar, streamVar])
+      userHandlerCall = msg.genUserHandlerCall(
+        msgVar, [peerVar, streamVar, noSnappyVar])
 
     var mounter: NimNode
     if msg.userHandler != nil:
       protocol.outRecvProcs.add quote do:
         template `callUserHandler`(`peerVar`: `Peer`,
                                    `streamVar`: `Connection`,
+                                   `noSnappyVar`: bool,
                                    `msgVar`: `MsgRecName`): untyped =
           `userHandlerCall`
 
         proc `protocolMounterName`(`networkVar`: `Eth2Node`) =
           proc sszThunk(`streamVar`: `Connection`,
                       proto: string): Future[void] {.gcsafe.} =
-            return handleIncomingStream(`networkVar`, `streamVar`, false,
+            return handleIncomingStream(`networkVar`, `streamVar`, true,
                                         `MsgStrongRecName`)
 
           mount `networkVar`.switch,
@@ -797,7 +821,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 
           proc snappyThunk(`streamVar`: `Connection`,
                       proto: string): Future[void] {.gcsafe.} =
-            return handleIncomingStream(`networkVar`, `streamVar`, true,
+            return handleIncomingStream(`networkVar`, `streamVar`, false,
                                         `MsgStrongRecName`)
 
           mount `networkVar`.switch,
