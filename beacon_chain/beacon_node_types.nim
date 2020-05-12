@@ -154,7 +154,7 @@ type
     slots*: uint64 # number of slots that are suspected missing
     tries*: int
 
-  BlockRef* {.acyclic.} = ref object
+  BlockRef* = ref object
     ## Node in object graph guaranteed to lead back to tail block, and to have
     ## a corresponding entry in database.
     ## Block graph should form a tree - in particular, there are no cycles.
