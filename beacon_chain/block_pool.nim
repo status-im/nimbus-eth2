@@ -235,8 +235,10 @@ proc init*(T: type BlockPool, db: BeaconChainDB,
     pending: initTable[Eth2Digest, SignedBeaconBlock](),
     missing: initTable[Eth2Digest, MissingBlock](),
     cachedStates: [
-      initTable[tuple[a: Eth2Digest, b: Slot], ref StateData](initialSize = 2),
-      initTable[tuple[a: Eth2Digest, b: Slot], ref StateData](initialSize = 2)
+      initTable[tuple[a: Eth2Digest, b: Slot],
+        ref HashedBeaconState](initialSize = 2),
+      initTable[tuple[a: Eth2Digest, b: Slot],
+        ref HashedBeaconState](initialSize = 2)
     ],
     blocks: blocks,
     tail: tailRef,
@@ -383,7 +385,8 @@ proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
   if state.data.slot mod BUCKET_SLOT_LENGTH == 0:
     # The lookback window's >= BUCKET_SLOT_LENGTH and <= BUCKET_SLOT_LENGTH*2.
     pool.cachedStates[bucketParity] =
-      initTable[tuple[a: Eth2Digest, b: Slot], ref StateData](initialSize = 2)
+      initTable[tuple[a: Eth2Digest, b: Slot],
+        ref HashedBeaconState](initialSize = 2)
 
   # Need to be able to efficiently access states for both attestation
   # aggregation and to process block proposals going back to the last
@@ -411,9 +414,10 @@ proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
   # hash_tree_root processing.
   let key = (a: blck.root, b: state.data.slot)
   if key notin pool.cachedStates[bucketParity]:
-    # Avoid constructing StateData if not necessary
-    pool.cachedStates[bucketParity][key] =
-      (ref StateData)(data: state, blck: blck)
+    var foo:ref HashedBeaconState
+    foo = new HashedBeaconState
+    foo[] = state
+    pool.cachedStates[bucketParity][key] = foo
 
 proc add*(
     pool: var BlockPool, blockRoot: Eth2Digest,
@@ -723,12 +727,11 @@ proc rewindState(pool: BlockPool, state: var StateData, bs: BlockSlot):
       let key = (a: parBs.blck.root, b: parBs.slot)
 
       try:
-        state = cachedState[key][]
+        state.data = cachedState[key][]
       except KeyError:
         continue
       let ancestor = ancestors.pop()
-      when false:
-        doAssert state.blck == ancestor.refs
+      state.blck = ancestor.refs
 
       beacon_state_data_cache_hits.inc()
       trace "Replaying state transitions via in-memory cache",
@@ -802,7 +805,8 @@ proc getStateDataCached(pool: BlockPool, state: var StateData, bs: BlockSlot): b
 
   for poolStateCache in pool.cachedStates:
     try:
-      state = poolStateCache[(a: bs.blck.root, b: bs.slot)][]
+      state.data = poolStateCache[(a: bs.blck.root, b: bs.slot)][]
+      state.blck = bs.blck
       beacon_state_data_cache_hits.inc()
       return true
     except KeyError:
