@@ -1,7 +1,7 @@
 import
   options, tables, sets, macros,
   chronicles, chronos, stew/ranges/bitranges, libp2p/switch,
-  spec/[datatypes, crypto, digest, helpers],
+  spec/[datatypes, crypto, digest],
   beacon_node_types, eth2_network, block_pool, ssz
 
 logScope:
