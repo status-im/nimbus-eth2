@@ -1,5 +1,5 @@
 import chronicles
-import options, deques, heapqueue, tables, strutils
+import options, deques, heapqueue, tables, strutils, sequtils
 import stew/bitseqs, chronos, chronicles
 import spec/datatypes, spec/digest, peer_pool
 export datatypes, digest, chronos, chronicles
@@ -65,6 +65,27 @@ type
 
   SyncManagerError* = object of CatchableError
   OptionBeaconBlocks* = Option[seq[SignedBeaconBlock]]
+
+proc getShortMap*(req: SyncRequest,
+                  data: openarray[SignedBeaconBlock]): string =
+  ## Returns all slot numbers in ``data`` as placement map.
+  var res = newStringOfCap(req.count)
+  var slider = req.slot
+  for i in 0 ..< req.count:
+    for item in data.items():
+      if slider == item.message.slot:
+        res.add('x')
+        break
+      elif slider < item.message.slot:
+        res.add('.')
+        break
+    slider = slider + req.step
+  result = res
+
+proc getFullMap*(req: SyncRequest,
+                 data: openarray[SignedBeaconBlock]): string =
+  # Returns all slot numbers in ``data`` as comma-delimeted string.
+  result = mapIt(data, $it.message.slot).join(", ")
 
 proc init*(t: typedesc[SyncRequest], slot: Slot,
            count: uint64): SyncRequest {.inline.} =
@@ -344,12 +365,17 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
       let blocks = await man.getBlocks(peer, req)
       if blocks.isSome():
         let data = blocks.get()
-        await man.queue.push(req, data)
-        peer.updateScore(PeerScoreGoodBlocks)
+        let smap = getShortMap(req, data)
         debug "Received blocks on request", blocks_count = len(data),
-              request_slot = req.slot, request_count = req.count,
-              request_step = req.step, peer = peer,
-              peer_score = peer.getScore(), topics = "syncman"
+              blocks_map = smap, request_slot = req.slot,
+              request_count = req.count, request_step = req.step,
+              peer = peer, peer_score = peer.getScore(), topics = "syncman"
+        await man.queue.push(req, data)
+        debug "Received blocks got accepted", blocks_count = len(data),
+              blocks_map = smap, request_slot = req.slot,
+              request_count = req.count, request_step = req.step,
+              peer = peer, peer_score = peer.getScore(), topics = "syncman"
+        peer.updateScore(PeerScoreGoodBlocks)
       else:
         peer.updateScore(PeerScoreNoBlocks)
         man.queue.push(req)
