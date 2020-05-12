@@ -133,11 +133,8 @@ type
 
     db*: BeaconChainDB
 
-    cachedStates*:
-      array[2, TableRef[tuple[a: Eth2Digest, b: Slot], StateData]] ##\
-    ## Dual BeaconChainDBs operates as a pool allocator which handles epoch
-    ## boundaries which don't align with an ongoing latency of availability
-    ## of precalculated BeaconStates from the recent past.
+    cachedStates*: seq[tuple[blockRoot: Eth2Digest, slot: Slot,
+      state: ref HashedBeaconState]]
 
     heads*: seq[Head]
 
