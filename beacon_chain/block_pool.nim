@@ -872,7 +872,7 @@ proc delState(pool: BlockPool, bs: BlockSlot) =
   if (let root = pool.db.getStateRoot(bs.blck.root, bs.slot); root.isSome()):
     pool.db.delState(root.get())
 
-proc updateHead*(pool: BlockPool, newHead: BlockRef, logNoUpdate: bool) =
+proc updateHead*(pool: BlockPool, newHead: BlockRef, logNoUpdate = false) =
   ## Update what we consider to be the current head, as given by the fork
   ## choice.
   ## The choice of head affects the choice of finalization point - the order
