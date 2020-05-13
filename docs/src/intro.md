@@ -19,3 +19,12 @@ In this book, we will cover:
 6. Common [questions and answers](./faq.md) to satisfy your curiosity.
 
 Feel free to give us feedback on how to improve as well as contribute to our book on github. :)
+
+## Disclaimer
+
+This documentation is assuming Nimbus is in its ideal state. The project is still under active development. Please submit Github issues if encountered any problem.
+
+<!-- > > > TODO:
+
+1. fill up the gitbook content
+2. write questions in the faq.md page -->
