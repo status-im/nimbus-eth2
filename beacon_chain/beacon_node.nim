@@ -572,31 +572,26 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
     return node.blockPool.head.blck.slot
 
   rpcServer.rpc("getChainHead") do () -> JsonNode:
-    var res = newJObject()
-
     let
       head = node.blockPool.head
       finalized = node.blockPool.headState.data.data.finalized_checkpoint
       justified = node.blockPool.headState.data.data.current_justified_checkpoint
-    res[`head_slot`] = $(head.blck.slot)
-    res[`head_block_root`] = $(head.blck.root)
-    res[`finalized_slot`] = $(finalized.slot)
-    res[`finalized_block_root`] = $(finalized.root)
-    res[`justified_slot`] = $(justified.slot)
-    res[`justified_block_root`] = $(justified.root)
-
-    return res
+    return %* {
+      "head_slot": head.blck.slot,
+      "head_block_root": head.blck.root.data.toHex(),
+      "finalized_slot": finalized.epoch * SLOTS_PER_EPOCH,
+      "finalized_block_root": finalized.root.data.toHex(),
+      "justified_slot": justified.epoch * SLOTS_PER_EPOCH,
+      "justified_block_root": justified.root.data.toHex(),
+    }
 
   rpcServer.rpc("getSyncing") do () -> bool:
-    beaconTime = node.beaconClock.now()
-    wallSlot = beaconTime.toSlot()
+    let
+      beaconTime = node.beaconClock.now()
+      wallSlot = currentSlot(node)
+      headSlot = node.blockPool.head.blck.slot
     # FIXME: temporary hack: If more than 1 block away from expected head, then we are "syncing"
-    return node.blockPool.head.blck.slot + 1 < wallSlot
-
-  rpcServer.rpc("getGenesisTime") do () -> string:
-    let blk = node.blockPool.head.blck.atSlot(slot.get)
-    node.blockPool.withState(node.blockPool.tmpState, blk):
-      return state.genesis_time
+    return (headSlot + 1) < wallSlot
 
   template requireOneOf(x, y: distinct Option) =
     if x.isNone xor y.isNone:
