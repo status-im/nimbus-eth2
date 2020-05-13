@@ -408,7 +408,7 @@ proc putState(pool: BlockPool, state: HashedBeaconState, blck: BlockRef) =
     while pool.cachedStates.len > MAX_CACHE_SIZE:
       discard pool.cachedStates.pop()
     let cacheLen = pool.cachedStates.len
-    debug "BlockPool.putState(): state cache updated", cacheLen
+    trace "BlockPool.putState(): state cache updated", cacheLen
     doAssert cacheLen > 0 and cacheLen <= MAX_CACHE_SIZE
 
 proc add*(
