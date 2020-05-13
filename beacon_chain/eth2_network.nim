@@ -49,6 +49,7 @@ type
     discovery*: Eth2DiscoveryProtocol
     wantedPeers*: int
     peerPool*: PeerPool[Peer, PeerID]
+    connQueue*: AsyncQueue[PeerInfo]
     protocolStates*: seq[RootRef]
     libp2pTransportLoops*: seq[Future[void]]
     discoveryLoop: Future[void]
@@ -644,6 +645,55 @@ proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
   inc libp2p_successful_dials
   debug "Network handshakes completed"
 
+proc dialPeers*(node: Eth2Node, addresses: seq[PeerInfo],
+                timeout: chronos.Duration) {.async.} =
+  ## Establish connection with peers concurrently.
+  var pending = newSeq[Future[void]]()
+  var res = newSeq[PeerInfo]()
+  var timed, succeed, failed: int
+
+  for pinfo in addresses:
+    pending.add(node.dialPeer(pinfo))
+
+  debug "Connecting to peers", count = len(pending)
+
+  if len(pending) > 0:
+    var timer = sleepAsync(timeout)
+    discard await one(timer, allFutures(pending))
+    for i in 0 ..< len(pending):
+      let fut = pending[i]
+      if fut.finished():
+        if fut.failed():
+          inc(failed)
+          warn "Unable to connect to node", address = $addresses[i],
+                errMsg = fut.readError().msg
+        else:
+          inc(succeed)
+          info "Connected to node", address = $addresses[i]
+      else:
+        inc(timed)
+        fut.cancel()
+        warn "Connection to node timed out", address = $addresses[i]
+
+  trace "Connection statistics", succeed = succeed, failed = failed,
+                                 timeout = timed, count = len(pending)
+
+proc runConnectLoop*(node: Eth2Node,
+                     timeout: chronos.Duration): Future[void] {.async.} =
+  var addresses = newSeq[PeerInfo]()
+  trace "Starting connection loop"
+
+  while true:
+    if len(addresses) > 0:
+      addresses.setLen(0)
+    let pi = await node.connQueue.popFirst()
+    addresses.add(pi)
+    while not(node.connQueue.empty()):
+      addresses.add(node.connQueue.popFirstNoWait())
+    trace "Connection loop got new peers", count = len(addresses),
+                                           addresses = $addresses
+    await node.dialPeers(addresses, timeout)
+
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
 
@@ -654,17 +704,13 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
         let discoveredPeers =
           node.discovery.randomNodes(node.wantedPeers - currentPeerCount)
         for peer in discoveredPeers:
-          try:
-            let peerInfo = peer.record.toTypedRecord.toPeerInfo
-            if peerInfo != nil:
-              if peerInfo.id notin node.switch.connections:
-                debug "Discovered new peer", peer = $peer
-                # TODO do this in parallel
-                await node.dialPeer(peerInfo)
-              else:
-                peerInfo.close()
-          except CatchableError as err:
-            debug "Failed to connect to peer", peer = $peer, err = err.msg
+          let peerInfo = peer.record.toTypedRecord.toPeerInfo
+          if peerInfo != nil:
+            if peerInfo.id notin node.switch.connections:
+              debug "Discovered new peer", peer = $peer
+              await node.connQueue.addLast(peerInfo)
+            else:
+              peerInfo.close()
       except CatchableError as err:
         debug "Failure in discovery", err = err.msg
 
@@ -688,6 +734,7 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
   result.switch = switch
   result.wantedPeers = conf.maxPeers
   result.peerPool = newPeerPool[Peer, PeerID](maxPeers = conf.maxPeers)
+  result.connQueue = newAsyncQueue[PeerInfo](10)
   result.metadata = getPersistentNetMetadata(conf)
   result.discovery = Eth2DiscoveryProtocol.new(
     conf, ip, tcpPort, udpPort, privKey.toRaw,
@@ -701,6 +748,8 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
     for msg in proto.messages:
       if msg.protocolMounter != nil:
         msg.protocolMounter result
+
+  traceAsyncErrors runConnectLoop(result, chronos.seconds(60))
 
 template publicKey*(node: Eth2Node): keys.PublicKey =
   node.discovery.privKey.toPublicKey.tryGet()
