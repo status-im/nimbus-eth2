@@ -13,14 +13,6 @@ import
   # Internals
   ./datatypes, ./digest, ./beaconstate
 
-# Logging utilities
-# --------------------------------------------------------
-
-# TODO: gather all logging utilities
-#       from crypto, digest, etc in a single file
-func shortLog*(x: Checkpoint): string =
-  "(epoch: " & $x.epoch & ", root: \"" & shortLog(x.root) & "\")"
-
 # Helpers used in epoch transition and trace-level block transition
 # --------------------------------------------------------
 
