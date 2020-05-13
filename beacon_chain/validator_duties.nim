@@ -432,6 +432,9 @@ proc handleValidatorDuties*(
 
   const attCutoff = chronos.seconds(SECONDS_PER_SLOT.int64 div 3)
   let cutoffFromNow = node.beaconClock.fromNow(slot.toBeaconTime(attCutoff))
+  # TODO: timeout investigation, to be removed
+  info "Looking to attest to a block",
+    timeout = cutoffFromNow
 
   if cutoffFromNow.inFuture:
     let foundBlockInTime = await withTimeout(
