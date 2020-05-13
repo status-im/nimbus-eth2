@@ -12,6 +12,7 @@ Once the [prerequisites](#prerequisites) are installed, you can connect to testn
 git clone https://github.com/status-im/nim-beacon-chain
 cd nim-beacon-chain
 git checkout devel
+git pull
 make                 # This invocation will bootstrap the build system with additional Makefiles
 make testnet0        # This will build Nimbus and all other dependencies
                      # and connect you to testnet0
