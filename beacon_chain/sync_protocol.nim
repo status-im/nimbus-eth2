@@ -75,10 +75,10 @@ proc getCurrentStatus*(state: BeaconSyncNetworkState): StatusMsg {.gcsafe.} =
     headRoot: headBlock.root,
     headSlot: headBlock.slot)
 
-proc handleInitialStatus(peer: Peer,
-                         state: BeaconSyncNetworkState,
-                         ourStatus: StatusMsg,
-                         theirStatus: StatusMsg): Future[bool] {.async, gcsafe.}
+proc handleStatus(peer: Peer,
+                  state: BeaconSyncNetworkState,
+                  ourStatus: StatusMsg,
+                  theirStatus: StatusMsg): Future[void] {.gcsafe.}
 
 proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) {.gcsafe.}
 
@@ -96,26 +96,17 @@ p2pProtocol BeaconSync(version = 1,
         theirStatus = await peer.status(ourStatus, timeout = 60.seconds)
 
       if theirStatus.isSome:
-        let tstatus = theirStatus.get()
-        let res = await peer.handleInitialStatus(peer.networkState,
-                                                 ourStatus, tstatus)
-        if res:
-          peer.setStatusMsg(tstatus)
+        await peer.handleStatus(peer.networkState,
+                                ourStatus, theirStatus.get())
       else:
-        warn "Status response not received in time"
+        warn "Status response not received in time", peer = peer
 
   requestResponse:
     proc status(peer: Peer, theirStatus: StatusMsg) {.libp2pProtocol("status", 1).} =
-      let
-        ourStatus = peer.networkState.getCurrentStatus()
-
-      if not await peer.handleInitialStatus(
-          peer.networkState, ourStatus, theirStatus):
-        return
-      peer.setStatusMsg(theirStatus)
-
-      trace "Sending status msg", ourStatus
+      let ourStatus = peer.networkState.getCurrentStatus()
+      trace "Sending status message", peer = peer, status = ourStatus
       await response.send(ourStatus)
+      await peer.handleStatus(peer.networkState, ourStatus, theirStatus)
 
     proc statusResp(peer: Peer, msg: StatusMsg)
 
@@ -214,16 +205,30 @@ proc getHeadSlot*(peer: Peer): Slot {.inline.} =
   ## Returns head slot for specific peer ``peer``.
   result = peer.state(BeaconSync).statusMsg.headSlot
 
-proc handleInitialStatus(peer: Peer,
-                         state: BeaconSyncNetworkState,
-                         ourStatus: StatusMsg,
-                         theirStatus: StatusMsg): Future[bool] {.async, gcsafe.} =
+proc handleStatus(peer: Peer,
+                  state: BeaconSyncNetworkState,
+                  ourStatus: StatusMsg,
+                  theirStatus: StatusMsg) {.async, gcsafe.} =
   if theirStatus.forkDigest != state.forkDigest:
     notice "Irrelevant peer", peer, theirStatus, ourStatus
     await peer.disconnect(IrrelevantNetwork)
-    return false
-  debug "Peer connected", peer, theirStatus, ourStatus
-  return true
+  else:
+    if not peer.state(BeaconSync).initialStatusReceived:
+      # Initial/handshake status message handling
+      peer.state(BeaconSync).initialStatusReceived = true
+      debug "Peer connected", peer, ourStatus = shortLog(ourStatus),
+                              theirStatus = shortLog(theirStatus)
+      var res: bool
+      if peer.wasDialed:
+        res = await handleOutgoingPeer(peer)
+      else:
+        res = await handleIncomingPeer(peer)
+
+      if not res:
+        debug "Peer is dead or already in pool", peer
+        await peer.disconnect(ClientShutDown)
+
+    peer.setStatusMsg(theirStatus)
 
 proc initBeaconSync*(network: Eth2Node,
                      blockPool: BlockPool,

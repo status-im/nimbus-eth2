@@ -226,8 +226,6 @@ proc safeClose(conn: Connection) {.async.} =
   if not conn.closed:
     await close(conn)
 
-proc handleIncomingPeer*(peer: Peer)
-
 include eth/p2p/p2p_backends_helpers
 include eth/p2p/p2p_tracing
 
@@ -580,8 +578,6 @@ proc handleIncomingStream(network: Eth2Node, conn: Connection, useSnappy: bool,
 
   let peer = peerFromStream(network, conn)
 
-  handleIncomingPeer(peer)
-
   try:
     let deadline = sleepAsync RESP_TIMEOUT
     var msgBytes = await readMsgBytes(conn, false, deadline)
@@ -616,7 +612,7 @@ proc handleIncomingStream(network: Eth2Node, conn: Connection, useSnappy: bool,
   finally:
     await safeClose(conn)
 
-proc handleOutgoingPeer*(peer: Peer): Future[void] {.async.} =
+proc handleOutgoingPeer*(peer: Peer): Future[bool] {.async.} =
   let network = peer.network
 
   proc onPeerClosed(udata: pointer) {.gcsafe.} =
@@ -628,20 +624,24 @@ proc handleOutgoingPeer*(peer: Peer): Future[void] {.async.} =
     peer.updateScore(NewPeerScore)
     debug "Peer (outgoing) has been added to PeerPool", peer = $peer.info
     peer.getFuture().addCallback(onPeerClosed)
+    result = true
+
   libp2p_peers.set int64(len(network.peerPool))
 
-proc handleIncomingPeer*(peer: Peer) =
+proc handleIncomingPeer*(peer: Peer): Future[bool] {.async.} =
   let network = peer.network
 
   proc onPeerClosed(udata: pointer) {.gcsafe.} =
     debug "Peer (incoming) lost", peer = $peer.info
     libp2p_peers.set int64(len(network.peerPool))
 
-  let res = network.peerPool.addIncomingPeerNoWait(peer)
+  let res = await network.peerPool.addIncomingPeer(peer)
   if res:
     peer.updateScore(NewPeerScore)
     debug "Peer (incoming) has been added to PeerPool", peer = $peer.info
     peer.getFuture().addCallback(onPeerClosed)
+    result = true
+
   libp2p_peers.set int64(len(network.peerPool))
 
 proc toPeerInfo*(r: enr.TypedRecord): PeerInfo =
@@ -694,8 +694,6 @@ proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
 
   inc libp2p_successful_dials
   debug "Network handshakes completed"
-
-  await handleOutgoingPeer(peer)
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
@@ -1101,4 +1099,3 @@ iterator randomPeers*(node: Eth2Node, maxPeers: int, Protocol: type): Peer =
   shuffle peers
   if peers.len > maxPeers: peers.setLen(maxPeers)
   for p in peers: yield p
-
