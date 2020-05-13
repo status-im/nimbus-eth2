@@ -352,9 +352,21 @@ proc broadcastAggregatedAttestations(
                 state.genesis_validators_root))
             node.network.broadcast(node.topicAggregateAndProofs, signedAP)
 
+func isBlockFromExpectedProposerAtSlot(blck: BlockRef, targetSlot: Slot): bool =
+  ## Returns true if the block is from the expected proposer
+  ##
+  ## This is true if-and-only-if the block slot matches the target slot
+  blck.slot == targetSlot
+
+template displayParent(blck: BlockRef): string =
+  if blck.parent.isNil:
+    "orphan"
+  else:
+    shortLog(blck.parent.root)
+
 proc handleValidatorDuties*(
     node: BeaconNode, head: BlockRef, lastSlot, slot: Slot): Future[BlockRef] {.async.} =
-  ## Perform validator duties - create blocks, vote and aggreagte existing votes
+  ## Perform validator duties - create blocks, vote and aggregate existing votes
   if node.attachedValidators.count == 0:
     # Nothing to do because we have no validator attached
     return head
@@ -406,10 +418,65 @@ proc handleValidatorDuties*(
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#attesting
   # A validator should create and broadcast the attestation to the associated
-  # attestation subnet when either (a) the validator has received a valid
-  # block from the expected block proposer for the assigned slot or
+  # attestation subnet when either
+  # (a) the validator has received a valid
+  #     block from the expected block proposer for the assigned slot or
   # (b) one-third of the slot has transpired (`SECONDS_PER_SLOT / 3` seconds
-  # after the start of slot) -- whichever comes first.
+  #     after the start of slot) -- whichever comes first.
+  proc waitForProposedBlock(node: BeaconNode, slot: Slot): Future[void] {.async.} =
+    # Wait until the head is from the expected proposer
+    var head = node.updateHead(logNoUpdate = true)
+    while not head.isBlockFromExpectedProposerAtSlot(slot):
+      poll()
+      head = node.updateHead(logNoUpdate = false)
+
+  const attCutoff = chronos.seconds(SECONDS_PER_SLOT.int64 div 3)
+  let cutoffFromNow = node.beaconClock.fromNow(slot.toBeaconTime(attCutoff))
+
+  if cutoffFromNow.inFuture:
+    let foundBlockInTime = await withTimeout(
+            waitForProposedBlock(node, slot),
+            cutoffFromNow.offset
+          )
+
+    # Reload the head - this should be the same as in `waitForProposedBlock`
+    head = node.updateHead()
+
+    if foundBlockInTime:
+      info "Found a block from expected proposer, attesting immediately",
+        block_root = shortlog(head.root),
+        parent = head.displayParent(),
+        slot = head.slot,
+        justified = shortLog(head.justified_checkpoint),
+        finalized = shortLog(head.finalized_checkpoint)
+    else:
+      info "Timeout when waiting 2s from an expected block, attesting",
+        block_root = shortlog(head.root),
+        parent = head.displayParent(),
+        slot = head.slot,
+        justified = shortLog(head.justified_checkpoint),
+        finalized = shortLog(head.finalized_checkpoint)
+  else:
+    # Reload the head
+    head = node.updateHead()
+
+    info "Late for attesting",
+        block_root = shortlog(head.root),
+        parent = head.displayParent(),
+      slot = head.slot,
+      justified = shortLog(head.justified_checkpoint),
+      finalized = shortLog(head.finalized_checkpoint),
+      blockFromExpectedProposer = head.isBlockFromExpectedProposerAtSlot(slot)
+
+  # Attest to the head we found
+  handleAttestations(node, head, slot)
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-aggregate
+  # If the validator is selected to aggregate (is_aggregator), then they
+  # broadcast their best aggregate as a SignedAggregateAndProof to the global
+  # aggregate channel (beacon_aggregate_and_proof) two-thirds of the way
+  # through the slot-that is, SECONDS_PER_SLOT * 2 / 3 seconds after the start
+  # of slot.
   template sleepToSlotOffset(extra: chronos.Duration, msg: static string) =
     let
       fromNow = node.beaconClock.fromNow(slot.toBeaconTime(extra))
@@ -423,19 +490,9 @@ proc handleValidatorDuties*(
       await sleepAsync(fromNow.offset)
 
       # Time passed - we might need to select a new head in that case
-      head = node.updateHead()
+      head = node.updateHead(logNoUpdate = false)
 
-  sleepToSlotOffset(
-    seconds(int64(SECONDS_PER_SLOT)) div 3, "Waiting to send attestations")
-
-  handleAttestations(node, head, slot)
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-aggregate
-  # If the validator is selected to aggregate (is_aggregator), then they
-  # broadcast their best aggregate as a SignedAggregateAndProof to the global
-  # aggregate channel (beacon_aggregate_and_proof) two-thirds of the way
-  # through the slot-that is, SECONDS_PER_SLOT * 2 / 3 seconds after the start
-  # of slot.
+  # TODO: this should probably be independent from block-proposal and signing
   if slot > 2:
     sleepToSlotOffset(
       seconds(int64(SECONDS_PER_SLOT * 2) div 3),

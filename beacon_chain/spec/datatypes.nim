@@ -645,6 +645,12 @@ func shortLog*(v: Attestation): auto =
     signature: shortLog(v.signature)
   )
 
+func shortLog*(cp: Checkpoint): auto =
+  (
+    epoch: cp.epoch,
+    root: shortLog(cp.root)
+  )
+
 chronicles.formatIt Slot: it.shortLog
 chronicles.formatIt Epoch: it.shortLog
 chronicles.formatIt BeaconBlock: it.shortLog

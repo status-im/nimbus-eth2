@@ -170,6 +170,10 @@ type
 
     slot*: Slot # TODO could calculate this by walking to root, but..
 
+    # Cache for ProtoArray fork-choice
+    justified_checkpoint*: Checkpoint
+    finalized_checkpoint*: Checkpoint
+
   BlockData* = object
     ## Body and graph in one
 
@@ -195,6 +199,7 @@ type
       ## has advanced without blocks
 
   Head* = object
+    # TODO: delete - all BlockRef tracks the justified checkpoint
     blck*: BlockRef
     justified*: BlockSlot
 

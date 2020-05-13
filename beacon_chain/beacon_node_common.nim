@@ -44,7 +44,7 @@ const MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
 declareGauge beacon_head_root,
   "Root of the head block of the beacon chain"
 
-proc updateHead*(node: BeaconNode): BlockRef =
+proc updateHead*(node: BeaconNode, logNoUpdate = true): BlockRef =
   # Check pending attestations - maybe we found some blocks for them
   node.attestationPool.resolve()
 
@@ -53,7 +53,7 @@ proc updateHead*(node: BeaconNode): BlockRef =
 
   # Store the new head in the block pool - this may cause epochs to be
   # justified and finalized
-  node.blockPool.updateHead(newHead)
+  node.blockPool.updateHead(newHead, logNoUpdate)
   beacon_head_root.set newHead.root.toGaugeValue
 
   newHead

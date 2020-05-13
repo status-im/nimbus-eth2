@@ -266,7 +266,12 @@ proc addResolvedBlock(
   logScope: pcs = "block_resolution"
   doAssert state.slot == signedBlock.message.slot, "state must match block"
 
-  let blockRef = BlockRef.init(blockRoot, signedBlock.message)
+  let blockRef = BlockRef(
+    root: blockRoot,
+    slot: signedBlock.message.slot,
+    justified_checkpoint: state.current_justified_checkpoint,
+    finalized_checkpoint: state.finalized_checkpoint
+  )
   link(parent, blockRef)
 
   pool.blocks[blockRoot] = blockRef
@@ -867,7 +872,7 @@ proc delState(pool: BlockPool, bs: BlockSlot) =
   if (let root = pool.db.getStateRoot(bs.blck.root, bs.slot); root.isSome()):
     pool.db.delState(root.get())
 
-proc updateHead*(pool: BlockPool, newHead: BlockRef) =
+proc updateHead*(pool: BlockPool, newHead: BlockRef, logNoUpdate: bool) =
   ## Update what we consider to be the current head, as given by the fork
   ## choice.
   ## The choice of head affects the choice of finalization point - the order
@@ -878,10 +883,10 @@ proc updateHead*(pool: BlockPool, newHead: BlockRef) =
   logScope: pcs = "fork_choice"
 
   if pool.head.blck == newHead:
-    info "No head block update",
-      head = shortLog(newHead),
-      cat = "fork_choice"
-
+    if logNoUpdate:
+      info "No head block update",
+        head = shortLog(newHead),
+        cat = "fork_choice"
     return
 
   let
