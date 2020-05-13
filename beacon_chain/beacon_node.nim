@@ -569,7 +569,34 @@ proc fromJson(n: JsonNode; argName: string; result: var Slot) =
 
 proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("getBeaconHead") do () -> Slot:
-    return node.currentSlot
+    return node.blockPool.head.blck.slot
+
+  rpcServer.rpc("getChainHead") do () -> JsonNode:
+    var res = newJObject()
+
+    let
+      head = node.blockPool.head
+      finalized = node.blockPool.headState.data.data.finalized_checkpoint
+      justified = node.blockPool.headState.data.data.current_justified_checkpoint
+    res[`head_slot`] = $(head.blck.slot)
+    res[`head_block_root`] = $(head.blck.root)
+    res[`finalized_slot`] = $(finalized.slot)
+    res[`finalized_block_root`] = $(finalized.root)
+    res[`justified_slot`] = $(justified.slot)
+    res[`justified_block_root`] = $(justified.root)
+
+    return res
+
+  rpcServer.rpc("getSyncing") do () -> bool:
+    beaconTime = node.beaconClock.now()
+    wallSlot = beaconTime.toSlot()
+    # FIXME: temporary hack: If more than 1 block away from expected head, then we are "syncing"
+    return node.blockPool.head.blck.slot + 1 < wallSlot
+
+  rpcServer.rpc("getGenesisTime") do () -> string:
+    let blk = node.blockPool.head.blck.atSlot(slot.get)
+    node.blockPool.withState(node.blockPool.tmpState, blk):
+      return state.genesis_time
 
   template requireOneOf(x, y: distinct Option) =
     if x.isNone xor y.isNone:
@@ -624,6 +651,9 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
     return $node.network.discovery.localNode.record
 
 proc installDebugApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
+  rpcServer.rpc("getNodeVersion") do () -> string:
+    return "Nimbus/" & fullVersionStr
+
   rpcServer.rpc("getSpecPreset") do () -> JsonNode:
     var res = newJObject()
     genCode:
