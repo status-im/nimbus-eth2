@@ -315,6 +315,25 @@ proc onBeaconBlock(node: BeaconNode, signedBlock: SignedBeaconBlock) =
   # don't know if it's part of the chain we're currently building.
   discard node.storeBlock(signedBlock)
 
+func verifyFinalization(node: BeaconNode, slot: Slot) =
+  # Epoch must be >= 4 to check finalization
+  const SETTLING_TIME_OFFSET = 1'u64
+  let epoch = slot.compute_epoch_at_slot()
+
+  # Don't static-assert this -- if this isn't called, don't require it
+  doAssert SLOTS_PER_EPOCH > SETTLING_TIME_OFFSET
+
+  # Intentionally, loudly assert. Point is to fail visibly and unignorably
+  # during testing.
+  if epoch >= 4 and slot mod SLOTS_PER_EPOCH > SETTLING_TIME_OFFSET:
+    let finalizedEpoch =
+      node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()
+    # Finalization rule 234, that has the most lag slots among the cases, sets
+    # state.finalized_checkpoint = old_previous_justified_checkpoint.epoch + 3
+    # and then state.slot gets incremented, to increase the maximum offset, if
+    # finalization occurs every slot, to 4 slots vs scheduledSlot.
+    doAssert finalizedEpoch + 4 >= epoch
+
 proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
   ## skip a few in case we're running late.
@@ -343,8 +362,9 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     cat = "scheduling"
 
   # Check before any re-scheduling of onSlotStart()
-  if node.config.stopAtEpoch > 0'u64 and
-      scheduledSlot.compute_epoch_at_slot() >= node.config.stopAtEpoch:
+  # Offset backwards slightly to allow this epoch's finalization check to occur
+  if scheduledSlot > 3 and node.config.stopAtEpoch > 0'u64 and
+      (scheduledSlot - 3).compute_epoch_at_slot() >= node.config.stopAtEpoch:
     info "Stopping at pre-chosen epoch",
       chosenEpoch = node.config.stopAtEpoch,
       epoch = scheduledSlot.compute_epoch_at_slot(),
@@ -380,6 +400,9 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     nextSlot = slot + 1
 
   beacon_slot.set slot.int64
+
+  if node.config.verifyFinalization:
+    verifyFinalization(node, scheduledSlot)
 
   if slot > lastSlot + SLOTS_PER_EPOCH:
     # We've fallen behind more than an epoch - there's nothing clever we can
