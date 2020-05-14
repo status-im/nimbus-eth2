@@ -31,8 +31,9 @@ def runStages() {
 					}
 					if ("${NODE_NAME}" ==~ /linux.*/) {
 						stage("testnet finalization") {
-							sh "timeout -k 20s 10m ./scripts/launch_local_testnet.sh --testnet 0 --nodes 4 --log-level INFO --disable-htop -- --verify-finalization --stop-at-epoch=5"
-							sh "timeout -k 20s 40m ./scripts/launch_local_testnet.sh --testnet 1 --nodes 4 --log-level INFO --disable-htop -- --verify-finalization --stop-at-epoch=5"
+							// EXECUTOR_NUMBER will be 0 or 1, since we have 2 executors per Jenkins node
+							sh "timeout -k 20s 10m ./scripts/launch_local_testnet.sh --testnet 0 --nodes 4 --log-level INFO --disable-htop --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) -- --verify-finalization --stop-at-epoch=5"
+							sh "timeout -k 20s 40m ./scripts/launch_local_testnet.sh --testnet 1 --nodes 4 --log-level INFO --disable-htop --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) -- --verify-finalization --stop-at-epoch=5"
 						}
 					}
 				}
