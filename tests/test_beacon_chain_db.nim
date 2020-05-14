@@ -20,15 +20,23 @@ proc getStateRef(db: BeaconChainDB, root: Eth2Digest): NilableBeaconStateRef =
   if db.getState(root, res[], noRollback):
     return res
 
+template wrappedTimedTest(name: string, body: untyped) =
+  ## Workaround for stack overflow
+  block: # Symbol namespacing
+    proc wrappedTest() =
+      timedTest name:
+        body
+    wrappedTest()
+
 suiteReport "Beacon chain DB" & preset():
-  timedTest "empty database" & preset():
+  wrappedTimedTest "empty database" & preset():
     var
       db = init(BeaconChainDB, kvStore MemStoreRef.init())
     check:
       db.getStateRef(Eth2Digest()).isNil
       db.getBlock(Eth2Digest()).isNone
 
-  timedTest "sanity check blocks" & preset():
+  wrappedTimedTest "sanity check blocks" & preset():
     var
       db = init(BeaconChainDB, kvStore MemStoreRef.init())
 
@@ -46,7 +54,7 @@ suiteReport "Beacon chain DB" & preset():
     check:
       db.getStateRoot(root, signedBlock.message.slot).get() == root
 
-  timedTest "sanity check states" & preset():
+  wrappedTimedTest "sanity check states" & preset():
     var
       db = init(BeaconChainDB, kvStore MemStoreRef.init())
 
@@ -60,7 +68,7 @@ suiteReport "Beacon chain DB" & preset():
       db.containsState(root)
       db.getStateRef(root)[] == state[]
 
-  timedTest "find ancestors" & preset():
+  wrappedTimedTest "find ancestors" & preset():
     var
       db = init(BeaconChainDB, kvStore MemStoreRef.init())
 
@@ -92,7 +100,7 @@ suiteReport "Beacon chain DB" & preset():
     doAssert toSeq(db.getAncestors(a0r)) == [(a0r, a0)]
     doAssert toSeq(db.getAncestors(a2r)) == [(a2r, a2), (a1r, a1), (a0r, a0)]
 
-  timedTest "sanity check genesis roundtrip" & preset():
+  wrappedTimedTest "sanity check genesis roundtrip" & preset():
     # This is a really dumb way of checking that we can roundtrip a genesis
     # state. We've been bit by this because we've had a bug in the BLS
     # serialization where an all-zero default-initialized bls signature could
