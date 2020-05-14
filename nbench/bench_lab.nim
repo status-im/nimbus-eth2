@@ -64,7 +64,7 @@ template ntag(tagname: string){.pragma.}
 
 template fnEntry(name: string, id: int, startTime, startCycle: untyped): untyped =
   ## Bench tracing to insert on function entry
-  {.noSideEffect.}:
+  {.noSideEffect, gcsafe.}:
     discard BenchMetrics[id].numCalls.atomicInc()
     let startTime = getMonoTime()
     let startCycle = getTicks()
@@ -76,7 +76,7 @@ when nbench_trace:
 
 template fnExit(name: string, id: int, startTime, startCycle: untyped): untyped =
   ## Bench tracing to insert before each function exit
-  {.noSideEffect.}:
+  {.noSideEffect, gcsafe.}:
     let stopCycle = getTicks()
     let stopTime = getMonoTime()
     let elapsedCycles = stopCycle - startCycle

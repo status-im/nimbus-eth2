@@ -19,7 +19,8 @@ import
   faststreams/[inputs, outputs, buffers],
   serialization, serialization/testing/tracing,
   ./spec/[crypto, datatypes, digest],
-  ./ssz/[types, bytes_reader]
+  ./ssz/[types, bytes_reader],
+  ../nbench/bench_lab
 
 # ################### Helper functions ###################################
 
@@ -607,7 +608,7 @@ func hashTreeRootImpl[T](x: T): Eth2Digest =
   else:
     unsupported T
 
-func hash_tree_root*(x: auto): Eth2Digest {.raises: [Defect].} =
+func hash_tree_root*(x: auto): Eth2Digest {.raises: [Defect], nbench.} =
   trs "STARTING HASH TREE ROOT FOR TYPE ", name(type(x))
   mixin toSszType
   when x is TypeWithMaxLen:
