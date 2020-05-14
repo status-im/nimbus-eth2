@@ -666,6 +666,48 @@ proc installRpcHandlers(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.installBeaconApiHandlers(node)
   rpcServer.installDebugApiHandlers(node)
 
+proc installAttestationHandlers(node: BeaconNode) =
+  proc attestationHandler(attestation: Attestation) =
+    # Avoid double-counting attestation-topic attestations on shared codepath
+    # when they're reflected through beacon blocks
+    beacon_attestations_received.inc()
+    beacon_attestation_received_seconds_from_slot_start.observe(
+      node.beaconClock.now.int64 -
+        (attestation.data.slot.int64 * SECONDS_PER_SLOT.int64))
+
+    node.onAttestation(attestation)
+
+  var attestationSubscriptions: seq[Future[void]] = @[]
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#mainnet-3
+  for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
+    closureScope:
+      let ci = it
+      attestationSubscriptions.add(node.network.subscribe(
+        getMainnetAttestationTopic(node.forkDigest, ci), attestationHandler,
+        # This proc needs to be within closureScope; don't lift out of loop.
+        proc(attestation: Attestation): bool =
+          # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#attestation-subnets
+          let (afterGenesis, slot) = node.beaconClock.now().toSlot()
+          if not afterGenesis:
+            return false
+          node.attestationPool.isValidAttestation(attestation, slot, ci, {})))
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#interop-3
+  attestationSubscriptions.add(node.network.subscribe(
+    getInteropAttestationTopic(node.forkDigest), attestationHandler,
+    proc(attestation: Attestation): bool =
+      # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#attestation-subnets
+      let (afterGenesis, slot) = node.beaconClock.now().toSlot()
+      if not afterGenesis:
+        return false
+      # isValidAttestation checks attestation.data.index == topicCommitteeIndex
+      # which doesn't make sense here, so rig that check to vacuously pass.
+      node.attestationPool.isValidAttestation(
+        attestation, slot, attestation.data.index, {})))
+
+  waitFor allFutures(attestationSubscriptions)
+
 proc run*(node: BeaconNode) =
   if node.rpcServer != nil:
     node.rpcServer.installRpcHandlers(node)
@@ -679,27 +721,7 @@ proc run*(node: BeaconNode) =
       return false
     node.blockPool.isValidBeaconBlock(signedBlock, slot, {})
 
-  proc attestationHandler(attestation: Attestation) =
-    # Avoid double-counting attestation-topic attestations on shared codepath
-    # when they're reflected through beacon blocks
-    beacon_attestations_received.inc()
-    beacon_attestation_received_seconds_from_slot_start.observe(node.beaconClock.now.int64 - (attestation.data.slot.int64 * SECONDS_PER_SLOT.int64))
-
-    node.onAttestation(attestation)
-
-  var attestationSubscriptions: seq[Future[void]] = @[]
-  for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
-    closureScope:
-      let ci = it
-      attestationSubscriptions.add(node.network.subscribe(
-        getAttestationTopic(node.forkDigest, ci), attestationHandler,
-        proc(attestation: Attestation): bool =
-          # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#attestation-subnets
-          let (afterGenesis, slot) = node.beaconClock.now().toSlot()
-          if not afterGenesis:
-            return false
-          node.attestationPool.isValidAttestation(attestation, slot, ci, {})))
-  waitFor allFutures(attestationSubscriptions)
+  installAttestationHandlers(node)
 
   let
     t = node.beaconClock.now().toSlot()
