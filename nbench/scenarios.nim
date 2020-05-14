@@ -126,8 +126,7 @@ type
 proc parseSSZ(path: string, T: typedesc): T =
   try:
     when T is ref:
-      new result
-      result[] = SSZ.loadFile(path, typeof(default(T)[]))
+      result = newClone(SSZ.loadFile(path, typeof(default(T)[])))
     else:
       result = SSZ.loadFile(path, T)
   except SerializationError as err:
