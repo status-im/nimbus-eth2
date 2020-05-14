@@ -9,7 +9,7 @@ import
   # Standard lib
   macros, std/[monotimes, times],
   # Internal
-  platforms/x86
+  platforms/platforms
 
 # Bench laboratory
 # --------------------------------------------------
@@ -43,7 +43,8 @@ type
     # TODO - replace by eth-metrics once we figure out a CSV/JSON/Console backend
     numCalls*: int64
     cumulatedTimeNs*: int64 # in nanoseconds
-    cumulatedCycles*: int64
+    when SupportsGetTicks:
+      cumulatedCycles*: int64
 
 var ctBenchMetrics*{.compileTime.}: seq[Metadata]
   ## Metrics are collected here, this is just a temporary holder of compileTime values
@@ -67,7 +68,10 @@ template fnEntry(name: string, id: int, startTime, startCycle: untyped): untyped
   {.noSideEffect, gcsafe.}:
     discard BenchMetrics[id].numCalls.atomicInc()
     let startTime = getMonoTime()
-    let startCycle = getTicks()
+    when SupportsGetTicks:
+      let startCycle = getTicks()
+    else:
+      let startCycle = 0
 
 const nbench_trace {.booldefine.} = off # For manual "debug-echo"-style timing.
 when nbench_trace:
@@ -77,20 +81,27 @@ when nbench_trace:
 template fnExit(name: string, id: int, startTime, startCycle: untyped): untyped =
   ## Bench tracing to insert before each function exit
   {.noSideEffect, gcsafe.}:
-    let stopCycle = getTicks()
+    when SupportsGetTicks:
+      let stopCycle = getTicks()
     let stopTime = getMonoTime()
-    let elapsedCycles = stopCycle - startCycle
+    when SupportsGetTicks:
+      let elapsedCycles = stopCycle - startCycle
     let elapsedTime = inNanoseconds(stopTime - startTime)
 
     discard BenchMetrics[id].cumulatedTimeNs.atomicInc(elapsedTime)
-    discard BenchMetrics[id].cumulatedCycles.atomicInc(elapsedCycles)
+    when SupportsGetTicks:
+      discard BenchMetrics[id].cumulatedCycles.atomicInc(elapsedCycles)
 
     when nbench_trace:
       # Advice: Use "when name == relevantProc" to isolate specific procedures.
       # strformat doesn't work in templates.
-      echo static(alignLeft(name, 50)),
-           "Time (ms): ", alignLeft(formatFloat(elapsedTime.float64 * 1e-6, precision=3), 10),
-           "Cycles (billions): ", formatFloat(elapsedCycles.float64 * 1e-9, precision=3)
+      when SupportsGetTicks:
+        echo static(alignLeft(name, 50)),
+            "Time (ms): ", alignLeft(formatFloat(elapsedTime.float64 * 1e-6, precision=3), 10),
+            "Cycles (billions): ", formatFloat(elapsedCycles.float64 * 1e-9, precision=3)
+      else:
+        echo static(alignLeft(name, 50)),
+            "Time (ms): ", alignLeft(formatFloat(elapsedTime.float64 * 1e-6, precision=3), 10)
 
 macro nbenchAnnotate(procAst: untyped): untyped =
   procAst.expectKind({nnkProcDef, nnkFuncDef})
@@ -100,7 +111,7 @@ macro nbenchAnnotate(procAst: untyped): untyped =
   # TODO, get the module and the package the proc is coming from
   #       and the tag "crypto", "ssz", "block_transition", "epoch_transition" ...
 
-  ctBenchMetrics.add Metadata(procName: $name, numCalls: 0, cumulatedTimeNs: 0, cumulatedCycles: 0)
+  ctBenchMetrics.add Metadata(procName: $name)
   var newBody = newStmtList()
   let startTime = genSym(nskLet, "nbench_" & $name & "_startTime_")
   let startCycle = genSym(nskLet, "nbench_" & $name & "_startCycles_")
