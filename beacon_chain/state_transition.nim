@@ -39,7 +39,7 @@ import
 declareGauge beacon_current_validators, """Number of status="pending|active|exited|withdrawable" validators in current epoch""" # On epoch transition
 declareGauge beacon_previous_validators, """Number of status="pending|active|exited|withdrawable" validators in previous epoch""" # On epoch transition
 
-func get_epoch_validator_count(state: BeaconState): int64 =
+func get_epoch_validator_count(state: BeaconState): int64 {.nbench.} =
   # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
   #
   # This O(n) loop doesn't add to the algorithmic complexity of the epoch
@@ -124,7 +124,7 @@ func process_slot*(state: var HashedBeaconState) {.nbench.} =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc advance_slot*(state: var HashedBeaconState,
-    nextStateRoot: Opt[Eth2Digest], updateFlags: UpdateFlags) =
+    nextStateRoot: Opt[Eth2Digest], updateFlags: UpdateFlags) {.nbench.} =
   # Special case version of process_slots that moves one slot at a time - can
   # run faster if the state root is known already (for example when replaying
   # existing slots)

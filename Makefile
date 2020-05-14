@@ -25,12 +25,15 @@ TOOLS := \
 	process_dashboard \
 	stack_sizes \
 	state_sim \
-	block_sim
+	block_sim \
+	nbench \
+	nbench_spec_scenarios
 	# bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes
 TOOLS_DIRS := \
 	beacon_chain \
 	benchmarks \
 	ncli \
+	nbench \
 	research \
 	tests/simulation
 TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
@@ -174,4 +177,3 @@ publish-book: | book
 	rm -rf tmp-book
 
 endif # "variables.mk" was not included
-
