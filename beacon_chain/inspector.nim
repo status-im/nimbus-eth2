@@ -204,8 +204,8 @@ func getTopics(forkDigest: ForkDigest,
     var topics = newSeq[string](ATTESTATION_SUBNET_COUNT * 2)
     var offset = 0
     for i in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
-      topics[offset] = getAttestationTopic(forkDigest, i)
-      topics[offset + 1] = getAttestationTopic(forkDigest, i) & "_snappy"
+      topics[offset] = getMainnetAttestationTopic(forkDigest, i)
+      topics[offset + 1] = getMainnetAttestationTopic(forkDigest, i) & "_snappy"
       offset += 2
     topics
 
@@ -514,8 +514,8 @@ proc pubsubLogger(conf: InspectorConf, switch: Switch,
       if topic.endsWith(topicBeaconBlocksSuffix) or
          topic.endsWith(topicBeaconBlocksSuffix & "_snappy"):
         info "SignedBeaconBlock", msg = SSZ.decode(buffer, SignedBeaconBlock)
-      elif topic.endsWith(topicAttestationsSuffix) or
-           topic.endsWith(topicAttestationsSuffix & "_snappy"):
+      elif topic.endsWith(topicMainnetAttestationsSuffix) or
+           topic.endsWith(topicMainnetAttestationsSuffix & "_snappy"):
         info "Attestation", msg = SSZ.decode(buffer, Attestation)
       elif topic.endsWith(topicVoluntaryExitsSuffix) or
            topic.endsWith(topicVoluntaryExitsSuffix & "_snappy"):

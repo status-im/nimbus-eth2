@@ -84,9 +84,10 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Honest validator
 ```diff
-+ Attestation topics                                                                         OK
++ General pubsub topics:                                                                     OK
++ Mainnet attestation topics                                                                 OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Interop
 ```diff
 + Interop genesis                                                                            OK
@@ -258,4 +259,4 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 OK: 8/8 Fail: 0/8 Skip: 0/8
 
 ---TOTAL---
-OK: 157/160 Fail: 3/160 Skip: 0/160
+OK: 158/161 Fail: 3/161 Skip: 0/161

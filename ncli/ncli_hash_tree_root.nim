@@ -1,5 +1,5 @@
 import
-  confutils, os, strutils, chronicles, json_serialization,
+  confutils, os, strutils, json_serialization,
   stew/byteutils,
   ../beacon_chain/spec/[crypto, datatypes, digest],
   ../beacon_chain/ssz
