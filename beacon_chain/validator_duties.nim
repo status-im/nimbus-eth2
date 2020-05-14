@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  os, tables, strutils, times,
+  os, tables, strutils, times, atomics,
 
   # Nimble packages
   stew/[objects, bitseqs], stew/shims/macros,
@@ -423,22 +423,27 @@ proc handleValidatorDuties*(
   #     block from the expected block proposer for the assigned slot or
   # (b) one-third of the slot has transpired (`SECONDS_PER_SLOT / 3` seconds
   #     after the start of slot) -- whichever comes first.
-  proc waitForProposedBlock(node: BeaconNode, slot: Slot): Future[void] {.async.} =
+
+  # Poor man's AsyncChannel to notify timeout
+  # TODO: refactor with a Producer->Consumer mode of operation
+  var timedOut: Atomic[bool]
+  timedOut.store(false, moRelaxed)
+  let timeOutNotifChannel = timedOut.addr
+
+  proc waitForProposedBlock(node: BeaconNode, slot: Slot, timeOutNotifChannel: ptr Atomic[bool]): Future[void] {.async.} =
     # Wait until the head is from the expected proposer
+    # TODO: refactor with a Producer->Consumer mode of operation
     var head = node.updateHead(logNoUpdate = true)
-    while not head.isBlockFromExpectedProposerAtSlot(slot):
-      poll()
+    while not head.isBlockFromExpectedProposerAtSlot(slot) and not timeOutNotifChannel[].load(moRelaxed):
+      await sleepAsync(chronos.milliseconds(50)) # Timers are expensive and it takes 300~600ms to process a block at the moment
       head = node.updateHead(logNoUpdate = false)
 
   const attCutoff = chronos.seconds(SECONDS_PER_SLOT.int64 div 3)
   let cutoffFromNow = node.beaconClock.fromNow(slot.toBeaconTime(attCutoff))
-  # TODO: timeout investigation, to be removed
-  info "Looking to attest to a block",
-    timeout = cutoffFromNow
 
   if cutoffFromNow.inFuture:
     let foundBlockInTime = await withTimeout(
-            waitForProposedBlock(node, slot),
+            waitForProposedBlock(node, slot, timeOutNotifChannel),
             cutoffFromNow.offset
           )
 
@@ -453,6 +458,8 @@ proc handleValidatorDuties*(
         justified = shortLog(head.justified_checkpoint),
         finalized = shortLog(head.finalized_checkpoint)
     else:
+      timeOutNotifChannel[].store(true, moRelaxed)
+
       info "Timeout when waiting 2s from an expected block, attesting",
         block_root = shortlog(head.root),
         parent = head.displayParent(),
