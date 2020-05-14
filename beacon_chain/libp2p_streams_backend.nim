@@ -42,15 +42,22 @@ proc uncompressFramedStream*(conn: Connection,
 
       let
         crc = uint32.fromBytesLE frameData.toOpenArray(0, 3)
-        todo = expectedSize - output.len
+        remaining = expectedSize - output.len
+        chunkLen = min(remaining, uncompressedData.len)
+
+      # Grab up to MAX_UNCOMPRESSED_DATA_LEN bytes, but no more than remains
+      # according to the expected size. If it turns out that the uncompressed
+      # data is longer than that, snappyUncompress will fail and we will not
+      # decompress the chunk at all, instead reporting failure.
+      let
         uncompressedLen = snappyUncompress(
           frameData.toOpenArray(4, dataLen - 1),
-          uncompressedData.toOpenArray(0, min(todo, uncompressedData.len) - 1))
+          uncompressedData.toOpenArray(0, chunkLen - 1))
 
       if uncompressedLen <= 0:
         return err "Failed to decompress snappy frame"
       doAssert output.len + uncompressedLen <= expectedSize,
-        "enforced by `min` above"
+        "enforced by `remains` limit above"
 
       if not checkCrc(uncompressedData.toOpenArray(0, uncompressedLen-1), crc):
         return err "Snappy content CRC checksum failed"
