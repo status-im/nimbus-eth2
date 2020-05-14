@@ -24,7 +24,7 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
 fi
 
 OPTS="ht:n:d:"
-LONGOPTS="help,testnet:,nodes:,data-dir:,disable-htop,log-level:,grafana"
+LONGOPTS="help,testnet:,nodes:,data-dir:,disable-htop,log-level:,grafana,base-port:,base-metrics-port:"
 
 # default values
 TESTNET="1"
@@ -33,6 +33,8 @@ DATA_DIR="local_testnet_data"
 USE_HTOP="1"
 LOG_LEVEL="DEBUG"
 ENABLE_GRAFANA="0"
+BASE_PORT="9000"
+BASE_METRICS_PORT="8008"
 
 print_help() {
 	cat <<EOF
@@ -40,14 +42,16 @@ Usage: $(basename $0) --testnet <testnet number> [OTHER OPTIONS] -- [BEACON NODE
 E.g.: $(basename $0) --testnet ${TESTNET} --nodes ${NUM_NODES} --data-dir "${DATA_DIR}" # defaults
 CI run: $(basename $0) --disable-htop -- --verify-finalization --stop-at-epoch=5
 
-  -h, --help            this help message
-  -t, --testnet         testnet number (default: ${TESTNET})
-  -n, --nodes		number of nodes to launch (default: ${NUM_NODES})
-  -d, --data-dir	directory where all the node data and logs will end up
-			(default: "${DATA_DIR}")
-      --disable-htop	don't use "htop" to see the beacon_node processes
-      --log-level	set the log level (default: ${LOG_LEVEL})
-      --grafana		generate Grafana dashboards (and Prometheus config file)
+  -h, --help			this help message
+  -t, --testnet			testnet number (default: ${TESTNET})
+  -n, --nodes			number of nodes to launch (default: ${NUM_NODES})
+  -d, --data-dir		directory where all the node data and logs will end up
+				(default: "${DATA_DIR}")
+      --base-port		bootstrap node's Eth2 traffic port (default: ${BASE_PORT})
+      --base-metrics-port	bootstrap node's metrics server port (default: ${BASE_METRICS_PORT})
+      --disable-htop		don't use "htop" to see the beacon_node processes
+      --log-level		set the log level (default: ${LOG_LEVEL})
+      --grafana			generate Grafana dashboards (and Prometheus config file)
 EOF
 }
 
@@ -89,6 +93,14 @@ while true; do
 			ENABLE_GRAFANA="1"
 			shift
 			;;
+		--base-port)
+			BASE_PORT="$2"
+			shift 2
+			;;
+		--base-metrics-port)
+			BASE_METRICS_PORT="$2"
+			shift 2
+			;;
 		--)
 			shift
 			break
@@ -106,7 +118,6 @@ if [[ $# != 0 ]]; then
 	shift $#
 fi
 NETWORK="testnet${TESTNET}"
-BASE_METRICS_PORT=8008
 
 rm -rf "${DATA_DIR}"
 DEPOSITS_DIR="${DATA_DIR}/deposits_dir"
@@ -143,7 +154,7 @@ BOOTSTRAP_IP="127.0.0.1"
 	--output-genesis="${NETWORK_DIR}/genesis.ssz" \
 	--output-bootstrap-file="${NETWORK_DIR}/bootstrap_nodes.txt" \
 	--bootstrap-address=${BOOTSTRAP_IP} \
-	--bootstrap-port=${BOOTSTRAP_PORT} \
+	--bootstrap-port=${BASE_PORT} \
 	--genesis-offset=5 # Delay in seconds
 
 if [[ "$ENABLE_GRAFANA" == "1" ]]; then
@@ -226,8 +237,8 @@ for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 	./build/beacon_node \
 		--nat:extip:127.0.0.1 \
 		--log-level="${LOG_LEVEL}" \
-		--tcp-port=$(( BOOTSTRAP_PORT + NUM_NODE )) \
-		--udp-port=$(( BOOTSTRAP_PORT + NUM_NODE )) \
+		--tcp-port=$(( BASE_PORT + NUM_NODE )) \
+		--udp-port=$(( BASE_PORT + NUM_NODE )) \
 		--data-dir="${NODE_DATA_DIR}" \
 		${BOOTSTRAP_ARG} \
 		--state-snapshot="${NETWORK_DIR}/genesis.ssz" \
