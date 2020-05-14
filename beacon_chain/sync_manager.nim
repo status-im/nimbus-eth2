@@ -260,19 +260,29 @@ proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
                       req: SyncRequest): Future[BeaconBlocksRes] {.async.} =
   mixin beaconBlocksByRange, getScore, `==`
   doAssert(not(req.isEmpty()), "Request must not be empty!")
+  # TODO this is a workaround to "retry" fetching blocks when the head is
+  #      lagging - this happens when peers don't respond with all the blocks
+  #      we requested or when there's a gap at the end of a request span. We
+  #      might accidentally re-request some blocks this way
+  let
+    firstSlot = man.getLocalHeadSlot() + 1
+    start = if req.slot > firstSlot: firstSlot else: req.slot
+    count = if req.slot > firstSlot: req.count + (req.slot - firstSlot) else: req.count
+
   debug "Requesting blocks from peer", peer = peer,
-        slot = req.slot, slot_count = req.count, step = req.step,
+        slot = start, slot_count = count, step = req.step,
         peer_score = peer.getScore(), topics = "syncman"
-  var workFut = awaitne beaconBlocksByRange(peer, req.slot, req.count, req.step)
+
+  var workFut = awaitne beaconBlocksByRange(peer, start, count, req.step)
   if workFut.failed():
     debug "Error, while waiting getBlocks response", peer = peer,
-          slot = req.slot, slot_count = req.count, step = req.step,
+          slot = start, slot_count = count, step = req.step,
           errMsg = workFut.readError().msg, topics = "syncman"
   else:
     let res = workFut.read()
     if res.isErr:
       debug "Error, while reading getBlocks response",
-            peer = peer, slot = req.slot, count = req.count,
+            peer = peer, slot = start, count = count,
             step = req.step, topics = "syncman"
     result = res
 
@@ -434,7 +444,7 @@ proc sync*[A, B](man: SyncManager[A, B]) {.async.} =
         # later.
         discard await withTimeout(peerFut, man.sleepTime)
     else:
-      if isNil(acquireFut):
+      if isNil(acquireFut) and workersCount() < 1:
         acquireFut = man.pool.acquire()
         pending.add(acquireFut)
 
@@ -484,7 +494,7 @@ proc sync*[A, B](man: SyncManager[A, B]) {.async.} =
               temp.add(syncWorker(man, peer))
 
           acquireFut = nil
-          if headAge > man.maxHeadAge:
+          if headAge > man.maxHeadAge and workersCount() < 1:
             acquireFut = man.pool.acquire()
             temp.add(acquireFut)
         else:

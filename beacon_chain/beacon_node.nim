@@ -541,7 +541,7 @@ proc runSyncLoop(node: BeaconNode) {.async.} =
     node.network.peerPool, getLocalHeadSlot, getLocalWallSlot,
     updateLocalBlocks,
     # TODO increase when block processing perf improves
-    chunkSize = 16
+    chunkSize = 8
   )
 
   await syncman.sync()
