@@ -51,7 +51,7 @@ type
     root*: Eth2Digest
     historySlots*: uint64
 
-  HotDB* = ref object
+  CandidateChains* = ref object
     ## Pool of blocks responsible for keeping a DAG of resolved blocks.
     ##
     ## The BlockPool is responsible for the following
@@ -59,12 +59,12 @@ type
     ## - Handle requests and updates to the "ColdDB" which
     ##   holds the canonical chain.
     ## - Maintain a direct acyclic graph (DAG) of
-    ##   candidate chains (the HotDB) from the last
+    ##   candidate chains (the CandidateChains) from the last
     ##   finalized block.
     ##
     ## When a chain becomes finalized, it is saved in the ColdDB,
     ## the rejected candidates are discard and the BlockPool
-    ## is HotDB is pruned, only keeping the last finalized block.
+    ## is CandidateChains is pruned, only keeping the last finalized block.
     ##
     ## The last finalized block is called the tail block.
 
@@ -76,7 +76,7 @@ type
       ## Used to access and stores **blocks**
 
     # -----------------------------------
-    # HotDB - DAG of candidate chains
+    # CandidateChains - DAG of candidate chains
 
     blocks*: Table[Eth2Digest, BlockRef] ##\
     ## Directed acyclic graph of blocks pointing back to a finalized block on the chain we're

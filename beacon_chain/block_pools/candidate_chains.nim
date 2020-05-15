@@ -15,8 +15,8 @@ import
 {.push raises: [Defect].}
 logScope: topics = "hotdb"
 
-proc putBlock*(hotDB: var HotDB, blockRoot: Eth2Digest, signedBlock: SignedBeaconBlock) {.inline.} =
-  hotDB.db.putBlock(blockRoot, signedBlock)
+proc putBlock*(dag: var CandidateChains, blockRoot: Eth2Digest, signedBlock: SignedBeaconBlock) {.inline.} =
+  dag.db.putBlock(blockRoot, signedBlock)
 
 func parent*(bs: BlockSlot): BlockSlot =
   ## Return a blockslot representing the previous slot, using the parent block
@@ -118,7 +118,7 @@ func init*(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
 func init*(T: type BlockRef, root: Eth2Digest, blck: BeaconBlock): BlockRef =
   BlockRef.init(root, blck.slot)
 
-# HotDB init
+# CandidateChains init
 # --------------------------------------------
 #
 # Interleaved with Rewinder at the moment
@@ -174,18 +174,18 @@ proc loadDAG*(db: BeaconChainDB): tuple[blocks: Table[Eth2Digest, BlockRef], hea
 
   (blocks, headRef, tailRef)
 
-proc init*(T: type HotDB, db: BeaconChainDB,
+proc init*(T: type CandidateChains, db: BeaconChainDB,
            blocks: Table[Eth2Digest, BlockRef],
            headRef, tailRef: BLockRef,
            justifiedHead: BlockSlot,
-           finalizedHead: BlockSlot): HotDB =
+           finalizedHead: BlockSlot): CandidateChains =
   # We presently save states on the epoch boundary - it means that the latest
   # state we loaded might be older than head block - nonetheless, it will be
   # from the same epoch as the head, thus the finalized and justified slots are
   # the same - these only change on epoch boundaries.
   let head = Head(blck: headRef, justified: justifiedHead)
 
-  let res = HotDB(
+  let res = CandidateChains(
     blocks: blocks,
     tail: tailRef,
     head: head,
@@ -194,7 +194,7 @@ proc init*(T: type HotDB, db: BeaconChainDB,
     heads: @[head]
   )
 
-  info "HotDB initialized",
+  info "CandidateChains initialized",
     head = head.blck, justifiedHead, finalizedHead, tail = tailRef,
     totalBlocks = blocks.len
 
@@ -202,12 +202,12 @@ proc init*(T: type HotDB, db: BeaconChainDB,
 
 # --------------------------------------------
 
-func getRef*(hotDB: HotDB, root: Eth2Digest): BlockRef =
+func getRef*(dag: CandidateChains, root: Eth2Digest): BlockRef =
   ## Retrieve a resolved block reference, if available
-  hotDB.blocks.getOrDefault(root, nil)
+  dag.blocks.getOrDefault(root, nil)
 
 func getBlockRange*(
-    hotDB: HotDB, startSlot: Slot, skipStep: Natural,
+    dag: CandidateChains, startSlot: Slot, skipStep: Natural,
     output: var openArray[BlockRef]): Natural =
   ## This function populates an `output` buffer of blocks
   ## with a slots ranging from `startSlot` up to, but not including,
@@ -222,14 +222,14 @@ func getBlockRange*(
   ## If there were no blocks in the range, `output.len` will be returned.
   let count = output.len
   trace "getBlockRange entered",
-    head = shortLog(hotDB.head.blck.root), count, startSlot, skipStep
+    head = shortLog(dag.head.blck.root), count, startSlot, skipStep
 
   let
     skipStep = max(1, skipStep) # Treat 0 step as 1
     endSlot = startSlot + uint64(count * skipStep)
 
   var
-    b = hotDB.head.blck.atSlot(endSlot)
+    b = dag.head.blck.atSlot(endSlot)
     o = count
   for i in 0..<count:
     for j in 0..<skipStep:
@@ -244,55 +244,55 @@ func getBlockRange*(
 
   o # Return the index of the first non-nil item in the output
 
-func getBlockBySlot*(hotDB: HotDB, slot: Slot): BlockRef =
+func getBlockBySlot*(dag: CandidateChains, slot: Slot): BlockRef =
   ## Retrieves the first block in the current canonical chain
   ## with slot number less or equal to `slot`.
-  hotDB.head.blck.atSlot(slot).blck
+  dag.head.blck.atSlot(slot).blck
 
-func getBlockByPreciseSlot*(hotDB: HotDB, slot: Slot): BlockRef =
+func getBlockByPreciseSlot*(dag: CandidateChains, slot: Slot): BlockRef =
   ## Retrieves a block from the canonical chain with a slot
   ## number equal to `slot`.
-  let found = hotDB.getBlockBySlot(slot)
+  let found = dag.getBlockBySlot(slot)
   if found.slot != slot: found else: nil
 
-proc get*(hotDB: HotDB, blck: BlockRef): BlockData =
+proc get*(dag: CandidateChains, blck: BlockRef): BlockData =
   ## Retrieve the associated block body of a block reference
   # TODO: Duplicated in Rewinder
   doAssert (not blck.isNil), "Trying to get nil BlockRef"
 
-  let data = hotDB.db.getBlock(blck.root)
+  let data = dag.db.getBlock(blck.root)
   doAssert data.isSome, "BlockRef without backing data, database corrupt?"
 
   BlockData(data: data.get(), refs: blck)
 
-proc get*(hotDB: HotDB, root: Eth2Digest): Option[BlockData] =
+proc get*(dag: CandidateChains, root: Eth2Digest): Option[BlockData] =
   ## Retrieve a resolved block reference and its associated body, if available
-  let refs = hotDB.getRef(root)
+  let refs = dag.getRef(root)
 
   if not refs.isNil:
-    some(hotDB.get(refs))
+    some(dag.get(refs))
   else:
     none(BlockData)
 
-func latestJustifiedBlock*(hotDB: HotDB): BlockSlot =
+func latestJustifiedBlock*(dag: CandidateChains): BlockSlot =
   ## Return the most recent block that is justified and at least as recent
   ## as the latest finalized block
 
-  doAssert hotDB.heads.len > 0,
+  doAssert dag.heads.len > 0,
     "We should have at least the genesis block in heaads"
-  doAssert (not hotDB.head.blck.isNil()),
+  doAssert (not dag.head.blck.isNil()),
     "Genesis block will be head, if nothing else"
 
   # Prefer stability: use justified block from current head to break ties!
-  result = hotDB.head.justified
-  for head in hotDB.heads[1 ..< ^0]:
+  result = dag.head.justified
+  for head in dag.heads[1 ..< ^0]:
     if head.justified.slot > result.slot:
       result = head.justified
 
 proc preInit*(
-    T: type HotDB, db: BeaconChainDB, state: BeaconState,
+    T: type CandidateChains, db: BeaconChainDB, state: BeaconState,
     signedBlock: SignedBeaconBlock) =
-  # write a genesis state, the way the HotDB expects it to be stored in
+  # write a genesis state, the way the CandidateChains expects it to be stored in
   # database
   # TODO probably should just init a blockpool with the freshly written
   #      state - but there's more refactoring needed to make it nice - doing
@@ -314,7 +314,7 @@ proc preInit*(
   db.putHeadBlock(blockRoot)
   db.putStateRoot(blockRoot, state.slot, signedBlock.message.state_root)
 
-proc isInitialized*(T: type HotDB, db: BeaconChainDB): bool =
+proc isInitialized*(T: type CandidateChains, db: BeaconChainDB): bool =
   let
     headBlockRoot = db.getHeadBlock()
     tailBlockRoot = db.getTailBlock()
@@ -334,8 +334,8 @@ proc isInitialized*(T: type HotDB, db: BeaconChainDB): bool =
 
   return true
 
-proc putHeadBlock*(hotDB: var HotDB, key: Eth2Digest) {.inline.}=
-  hotDB.db.putHeadBlock(key)
+proc putHeadBlock*(dag: var CandidateChains, key: Eth2Digest) {.inline.}=
+  dag.db.putHeadBlock(key)
 
-proc delBlock*(hotDB: var HotDB, key: Eth2Digest) {.inline.}=
-  hotDB.db.delBlock(key)
+proc delBlock*(dag: var CandidateChains, key: Eth2Digest) {.inline.}=
+  dag.db.delBlock(key)

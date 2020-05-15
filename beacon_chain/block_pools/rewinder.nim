@@ -13,7 +13,7 @@ import
   ../ssz, ../beacon_chain_db, ../state_transition, ../extras,
   ../spec/[crypto, datatypes, digest, helpers, validator],
 
-  block_pools_types, hot_db
+  block_pools_types, candidate_chains
 
 declareCounter beacon_state_data_cache_hits, "rewinder.cachedStates hits"
 declareCounter beacon_state_data_cache_misses, "rewinder.cachedStates misses"
@@ -92,7 +92,7 @@ proc init*(T: type Rewinder,
 
 proc get*(rewinder: Rewinder, blck: BlockRef): BlockData =
   ## Retrieve the associated block body of a block reference
-  # TODO: duplicated in hot_db
+  # TODO: duplicated in candidate_chains
   doAssert (not blck.isNil), "Trying to get nil BlockRef"
 
   let data = rewinder.db.getBlock(blck.root)
@@ -396,10 +396,10 @@ proc updateStateData*(rewinder: Rewinder, state: var StateData, bs: BlockSlot) =
 
   state.blck = bs.blck
 
-proc loadTailState*(rewinder: Rewinder, hotDB: HotDB): StateData =
-  ## Load the state associated with the current tail in the HotDB
-  let stateRoot = rewinder.db.getBlock(hotDB.tail.root).get().message.state_root
-  let found = rewinder.getState(rewinder.db, stateRoot, hotDB.tail, result)
+proc loadTailState*(rewinder: Rewinder, dag: CandidateChains): StateData =
+  ## Load the state associated with the current tail in the CandidateChains
+  let stateRoot = rewinder.db.getBlock(dag.tail.root).get().message.state_root
+  let found = rewinder.getState(rewinder.db, stateRoot, dag.tail, result)
   # TODO turn into regular error, this can happen
   doAssert found, "Failed to load tail state, database corrupt?"
 
