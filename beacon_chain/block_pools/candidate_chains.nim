@@ -13,7 +13,7 @@ import
   block_pools_types
 
 {.push raises: [Defect].}
-logScope: topics = "hotdb"
+logScope: topics = "dag"
 
 proc putBlock*(dag: var CandidateChains, blockRoot: Eth2Digest, signedBlock: SignedBeaconBlock) {.inline.} =
   dag.db.putBlock(blockRoot, signedBlock)

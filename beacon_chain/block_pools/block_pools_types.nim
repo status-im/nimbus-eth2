@@ -11,16 +11,21 @@ import
   ../spec/[datatypes, crypto, digest],
   ../beacon_chain_db, ../extras
 
-# #############################################
+# #################################################
 #
-#            Quarantine & DagChain
+#  Quarantine & DAG of Candidate chains & Rewinder
 #
-# #############################################
+# #################################################
 #
-# The Quarantine and DagChain data structures
-# keeps track respectively of unsafe blocks coming from the network
-# and blocks that underwent verification and have a resolved path to
-# the last finalized block known.
+# The Quarantine
+# keeps tracks unsafe blocks coming from the network
+#
+# The DAG of Candidate Chains
+# keeps tracks blocks that underwent verification
+# and have a resolved path to the last finalized block known.
+#
+# The Rewinder
+# handles mutable state, state caching and state transition
 
 type
   Quarantine* = object
