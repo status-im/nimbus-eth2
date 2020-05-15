@@ -509,15 +509,18 @@ proc handleIncomingStream(network: Eth2Node,
 
     let deadline = sleepAsync RESP_TIMEOUT
 
-    let msg = try:
-      awaitWithTimeout(readChunkPayload(s, noSnappy, MsgRec), deadline):
-        returnInvalidRequest "Request full data not sent in time"
+    let msg = if sizeof(MsgRec) > 0:
+      try:
+        awaitWithTimeout(readChunkPayload(s, noSnappy, MsgRec), deadline):
+          returnInvalidRequest "Request full data not sent in time"
 
-    except SerializationError as err:
-      returnInvalidRequest err.formatMsg("msg")
+      except SerializationError as err:
+        returnInvalidRequest err.formatMsg("msg")
 
-    except SnappyError as err:
-      returnInvalidRequest err.msg
+      except SnappyError as err:
+        returnInvalidRequest err.msg
+    else:
+      NetRes[MsgRec].ok default(MsgRec)
 
     if msg.isErr:
       let (responseCode, errMsg) = case msg.error.kind
@@ -556,7 +559,7 @@ proc handleIncomingStream(network: Eth2Node,
       await sendErrorResponse(peer, conn, noSnappy, ServerError, err.msg)
 
   except CatchableError as err:
-    debug "Error processing an incoming request", err = err.msg
+    debug "Error processing an incoming request", err = err.msg, msgName
 
   finally:
     await safeClose(conn)
@@ -1031,7 +1034,7 @@ proc subscribe*[MsgType](node: Eth2Node,
 proc traceMessage(fut: FutureBase, digest: MDigest[256]) =
   fut.addCallback do (arg: pointer):
     if not(fut.failed):
-      trace "Outgoing pubsub message has been sent", message_id = `$`(digest)
+      trace "Outgoing pubsub message sent", message_id = `$`(digest)
 
 proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
   inc gossip_messages_sent
