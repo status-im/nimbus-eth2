@@ -7,11 +7,11 @@
 
 import
   extras, beacon_chain_db,
-  spec/[crypto, datatypes, digest]
+  spec/[crypto, datatypes, digest, helpers]
 
 
 import
-  block_pools/[block_pools_types, clearance, hot_db, quarantine]
+  block_pools/[block_pools_types, clearance, hot_db, quarantine, rewinder, update_head]
 
 # Block_Pools
 # --------------------------------------------
@@ -24,6 +24,7 @@ type
     # TODO: Rename BlockPools
     quarantine: Quarantine
     hotDB: HotDB
+    rewinder: Rewinder
 
   BlockPool* = BlockPools
 
@@ -52,7 +53,7 @@ template finalizedHead*(pool: BlockPool): BlockSlot =
 
 proc add*(pool: var BlockPool, blockRoot: Eth2Digest,
           signedBlock: SignedBeaconBlock): BlockRef {.gcsafe.} =
-  add(pool.hotDB, pool.quarantine, blockRoot, signedBlock)
+  add(pool.hotDB, pool.quarantine, pool.rewinder, blockRoot, signedBlock)
 
 export parent        # func parent*(bs: BlockSlot): BlockSlot
 export isAncestorOf  # func isAncestorOf*(a, b: BlockRef): bool
@@ -63,7 +64,25 @@ export atSlot        # func atSlot*(blck: BlockRef, slot: Slot): BlockSlot
 
 proc init*(T: type BlockPools, db: BeaconChainDB,
     updateFlags: UpdateFlags = {}): BlockPools =
-  result.hotDB = init(HotDB, db, updateFlags)
+
+  let (blocks, headRef, tailRef) = db.loadDAG()
+  let mostRecentState = db.getMostRecentState(headRef.atSlot(headRef.slot))
+
+  let
+    finalizedSlot =
+        mostRecentState.data.data.finalized_checkpoint.epoch.compute_start_slot_at_epoch()
+    finalizedHead = headRef.atSlot(finalizedSlot)
+    justifiedSlot =
+      mostRecentState.data.data.current_justified_checkpoint.epoch.compute_start_slot_at_epoch()
+    justifiedHead = headRef.atSlot(justifiedSlot)
+
+  doAssert justifiedHead.slot >= finalizedHead.slot,
+    "justified head comes before finalized head - database corrupt?"
+
+  result.hotDB = HotDB.init(db, blocks, headRef, tailRef, justifiedHead, finalizedHead)
+  result.rewinder = Rewinder.init(
+    db, headRef.atSlot(headRef.slot),
+    justifiedHead, mostRecentState, updateFlags)
 
 export init          # func init*(T: type BlockRef, root: Eth2Digest, blck: BeaconBlock): BlockRef
 
@@ -110,42 +129,39 @@ func getOrResolve*(pool: var BlockPool, root: Eth2Digest): BlockRef =
   ## blocks-to-resolve)
   getOrResolve(pool.hotDB, pool.quarantine, root)
 
-proc updateHead*(pool: BlockPool, newHead: BlockRef) =
+proc updateHead*(pool: var BlockPool, newHead: BlockRef) =
   ## Update what we consider to be the current head, as given by the fork
   ## choice.
   ## The choice of head affects the choice of finalization point - the order
   ## of operations naturally becomes important here - after updating the head,
   ## blocks that were once considered potential candidates for a tree will
   ## now fall from grace, or no longer be considered resolved.
-  updateHead(pool.hotDB, newHead)
+  updateHead(pool.hotDB, pool.rewinder, newHead)
 
 proc latestJustifiedBlock*(pool: BlockPool): BlockSlot =
   ## Return the most recent block that is justified and at least as recent
   ## as the latest finalized block
   latestJustifiedBlock(pool.hotDB)
 
-proc isInitialized*(T: type BlockPool, db: BeaconChainDB): bool =
-  isInitialized(HotDB, db)
-
 proc preInit*(
     T: type BlockPool, db: BeaconChainDB, state: BeaconState,
     signedBlock: SignedBeaconBlock) =
   preInit(HotDB, db, state, signedBlock)
 
-proc getProposer*(pool: BlockPool, head: BlockRef, slot: Slot): Option[ValidatorPubKey] =
-  getProposer(pool.hotDB, head, slot)
+proc isInitialized*(T: type BlockPool, db: BeaconChainDB): bool =
+  isInitialized(HotDB, db)
 
 # Rewinder / State transitions
 # --------------------------------------------
 
 template headState*(pool: BlockPool): StateData =
-  pool.hotDB.headState
+  pool.rewinder.headState
 
 template tmpState*(pool: BlockPool): StateData =
-  pool.hotDB.tmpState
+  pool.rewinder.tmpState
 
 template justifiedState*(pool: BlockPool): StateData =
-  pool.hotDB.justifiedState
+  pool.rewinder.justifiedState
 
 template withState*(
     pool: BlockPool, cache: var StateData, blockSlot: BlockSlot, body: untyped): untyped =
@@ -154,7 +170,7 @@ template withState*(
   ## TODO async transformations will lead to a race where cache gets updated
   ##      while waiting for future to complete - catch this here somehow?
 
-  withState(pool.hotDB, cache, blockSlot, body)
+  withState(pool.rewinder, cache, blockSlot, body)
 
 proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
   ## Rewind or advance state such that it matches the given block and slot -
@@ -162,12 +178,17 @@ proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
   ## different branch or has advanced to a higher slot number than slot
   ## If slot is higher than blck.slot, replay will fill in with empty/non-block
   ## slots, else it is ignored
-  updateStateData(pool.hotDB, state, bs)
+  updateStateData(pool.rewinder, state, bs)
 
 proc loadTailState*(pool: BlockPool): StateData =
-  loadTailState(pool.hotDB)
+  loadTailState(pool.rewinder, pool.hot_db)
 
 proc isValidBeaconBlock*(pool: var BlockPool,
                          signed_beacon_block: SignedBeaconBlock,
                          current_slot: Slot, flags: UpdateFlags): bool =
-  isValidBeaconBlock(pool.hotDB, pool.quarantine, signed_beacon_block, current_slot, flags)
+  isValidBeaconBlock(
+    pool.hotDB, pool.quarantine, pool.rewinder,
+    signed_beacon_block, current_slot, flags)
+
+proc getProposer*(pool: BlockPool, head: BlockRef, slot: Slot): Option[ValidatorPubKey] =
+  getProposer(pool.rewinder, head.atSlot(slot))

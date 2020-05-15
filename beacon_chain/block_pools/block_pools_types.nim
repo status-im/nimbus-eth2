@@ -73,6 +73,7 @@ type
 
     db*: BeaconChainDB ##\
       ## ColdDB - Stores the canonical chain
+      ## Used to access and stores **blocks**
 
     # -----------------------------------
     # HotDB - DAG of candidate chains
@@ -95,8 +96,23 @@ type
     ## The latest block that was finalized according to the block in head
     ## Ancestors of this block are guaranteed to have 1 child only.
 
+
+  Rewinder* = ref object
+    ## The Rewinder handles mutable state which is required for
+    ## - block and attestation validation
+    ## - block proposal
+    ## - signing duties
+    ## - aggregation
+
     # -----------------------------------
-    # Rewinder - Mutable state processing
+    # ColdDB - Canonical chain
+
+    db*: BeaconChainDB ##\
+      ## ColdDB - Stores the canonical chain
+      ## Used to access and stores **blocks**
+
+    # -----------------------------------
+    # Rewinder
 
     cachedStates*: seq[tuple[blockRoot: Eth2Digest, slot: Slot,
       state: ref HashedBeaconState]]

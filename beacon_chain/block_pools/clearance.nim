@@ -11,16 +11,17 @@ import
   ../ssz, ../state_transition, ../extras,
   ../spec/[crypto, datatypes, digest, helpers],
 
-  block_pools_types, hot_db
+  block_pools_types, hot_db, rewinder
 
 # Clearance
 # ---------------------------------------------
 #
-# This module is in charge of making the
-# "quarantined" network blocks
-# pass the firewall and be stored in the blockpool
+# This module is in charge of
+# - making the "quarantined" network blocks
+#   pass the firewall and be stored in the blockpool
+# - Update the head block
 
-logScope: topics = "clearblk"
+logScope: topics = "clearance"
 {.push raises: [Defect].}
 
 func getOrResolve*(hotDB: HotDB, quarantine: var Quarantine, root: Eth2Digest): BlockRef =
@@ -33,11 +34,13 @@ func getOrResolve*(hotDB: HotDB, quarantine: var Quarantine, root: Eth2Digest): 
 
 proc add*(
     hotDB: var HotDB, quarantine: var Quarantine,
+    rewinder: var Rewinder,
     blockRoot: Eth2Digest,
     signedBlock: SignedBeaconBlock): BlockRef {.gcsafe.}
 
 proc addResolvedBlock(
     hotDB: var HotDB, quarantine: var Quarantine,
+    rewinder: var Rewinder,
     state: BeaconState, blockRoot: Eth2Digest,
     signedBlock: SignedBeaconBlock, parent: BlockRef): BlockRef =
   logScope: pcs = "block_resolution"
@@ -96,7 +99,7 @@ proc addResolvedBlock(
     while keepGoing:
       let retries = quarantine.pending
       for k, v in retries:
-        discard add(hotDB, quarantine, k, v)
+        discard add(hotDB, quarantine, rewinder, k, v)
       # Keep going for as long as the pending hotDB is shrinking
       # TODO inefficient! so what?
       keepGoing = quarantine.pending.len < retries.len
@@ -104,6 +107,7 @@ proc addResolvedBlock(
 
 proc add*(
     hotDB: var HotDB, quarantine: var Quarantine,
+    rewinder: var Rewinder,
     blockRoot: Eth2Digest,
     signedBlock: SignedBeaconBlock): BlockRef {.gcsafe.} =
   ## return the block, if resolved...
@@ -161,11 +165,11 @@ proc add*(
 
     # TODO if the block is from the future, we should not be resolving it (yet),
     #      but maybe we should use it as a hint that our clock is wrong?
-    updateStateData(
-      hotDB, hotDB.tmpState, BlockSlot(blck: parent, slot: blck.slot - 1))
+    rewinder.updateStateData(
+      rewinder.tmpState, BlockSlot(blck: parent, slot: blck.slot - 1))
 
     let
-      poolPtr = unsafeAddr hotDB # safe because restore is short-lived
+      poolPtr = unsafeAddr rewinder # safe because restore is short-lived
     func restore(v: var HashedBeaconState) =
       # TODO address this ugly workaround - there should probably be a
       #      `state_transition` that takes a `StateData` instead and updates
@@ -174,7 +178,7 @@ proc add*(
       poolPtr.tmpState = poolPtr.headState
 
     if not state_transition(
-        hotDB.tmpState.data, signedBlock, hotDB.updateFlags, restore):
+        rewinder.tmpState.data, signedBlock, rewinder.updateFlags, restore):
       # TODO find a better way to log all this block data
       notice "Invalid block",
         blck = shortLog(blck),
@@ -184,12 +188,12 @@ proc add*(
       return
     # Careful, tmpState.data has been updated but not blck - we need to create
     # the BlockRef first!
-    hotDB.tmpState.blck = addResolvedBlock(
-      hotDB, quarantine,
-      hotDB.tmpState.data.data, blockRoot, signedBlock, parent)
-    hotDB.putState(hotDB.tmpState.data, hotDB.tmpState.blck)
+    rewinder.tmpState.blck = addResolvedBlock(
+      hotDB, quarantine, rewinder,
+      rewinder.tmpState.data.data, blockRoot, signedBlock, parent)
+    rewinder.putState(rewinder.tmpState.data, rewinder.tmpState.blck)
 
-    return hotDB.tmpState.blck
+    return rewinder.tmpState.blck
 
   # TODO already checked hash though? main reason to keep this is because
   # the pending hotDB calls this function back later in a loop, so as long
@@ -241,7 +245,7 @@ proc add*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#global-topics
 proc isValidBeaconBlock*(
-       hotDB: HotDB, quarantine: var Quarantine,
+       hotDB: HotDB, quarantine: var Quarantine, rewinder: var Rewinder,
        signed_beacon_block: SignedBeaconBlock, current_slot: Slot,
        flags: UpdateFlags): bool =
   # In general, checks are ordered from cheap to expensive. Especially, crypto
@@ -333,17 +337,17 @@ proc isValidBeaconBlock*(
   # respect to the proposer_index pubkey.
   let bs =
     BlockSlot(blck: parent_ref, slot: hotDB.get(parent_ref).data.message.slot)
-  hotDB.withState(hotDB.tmpState, bs):
+  rewinder.withState(rewinder.tmpState, bs):
     let
       blockRoot = hash_tree_root(signed_beacon_block.message)
-      domain = get_domain(hotDB.headState.data.data, DOMAIN_BEACON_PROPOSER,
+      domain = get_domain(rewinder.headState.data.data, DOMAIN_BEACON_PROPOSER,
         compute_epoch_at_slot(signed_beacon_block.message.slot))
       signing_root = compute_signing_root(blockRoot, domain)
       proposer_index = signed_beacon_block.message.proposer_index
 
-    if proposer_index >= hotDB.headState.data.data.validators.len.uint64:
+    if proposer_index >= rewinder.headState.data.data.validators.len.uint64:
       return false
-    if not blsVerify(hotDB.headState.data.data.validators[proposer_index].pubkey,
+    if not blsVerify(rewinder.headState.data.data.validators[proposer_index].pubkey,
         signing_root.data, signed_beacon_block.signature):
       debug "isValidBeaconBlock: block failed signature verification"
       return false
