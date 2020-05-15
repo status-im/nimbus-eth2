@@ -479,7 +479,7 @@ proc handleIncomingStream(network: Eth2Node,
   mixin callUserHandler, RecType
 
   type MsgRec = RecType(MsgType)
-  const msgName = typetraits.name(MsgType)
+  const msgName {.used.} = typetraits.name(MsgType)
 
   ## Uncomment this to enable tracing on all incoming requests
   ## You can include `msgNameLit` in the condition to select
