@@ -34,7 +34,6 @@ when defined(serialization_tracing):
 const
   bytesPerChunk = 32
   bitsPerChunk = bytesPerChunk * 8
-  maxChunkTreeDepth = 25
   defaultMaxObjectSize = 1 * 1024 * 1024
 
 type
