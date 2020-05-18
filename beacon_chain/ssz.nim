@@ -13,9 +13,9 @@
 #{.push raises: [Defect].}
 
 import
-  stew/shims/macros, options, algorithm, options, strformat,
+  options, algorithm, options, strformat, typetraits,
   stint, stew/[bitops2, bitseqs, objects, varints, ptrops],
-  stew/ranges/[ptr_arith, stackarrays],
+  stew/ranges/[ptr_arith, stackarrays], stew/shims/macros,
   faststreams/[inputs, outputs, buffers],
   serialization, serialization/testing/tracing,
   ./spec/[crypto, datatypes, digest],
@@ -44,13 +44,11 @@ type
   SszWriter* = object
     stream: OutputStream
 
-  BasicType = char|bool|SomeUnsignedInt|StUint|ValidatorIndex
+  BasicType = byte|char|bool|SomeUnsignedInt|StUint
 
   SszChunksMerkleizer = object
     combinedChunks: StackArray[Eth2Digest]
     totalChunks: uint64
-
-  TypeWithMaxLen*[T; maxLen: static int64] = distinct T
 
   SizePrefixed*[T] = distinct T
   SszMaxSizeExceeded* = object of SerializationError
@@ -89,20 +87,6 @@ method formatMsg*(err: ref SszSizeMismatchError, filename: string): string {.gcs
   except CatchableError:
     "SSZ size mismatch"
 
-when false:
-  # TODO: Nim can't handle yet this simpler definition. File an issue.
-  template valueOf[T; N](x: TypeWithMaxLen[T, N]): auto = T(x)
-else:
-  proc unwrapImpl[T; N: static int64](x: ptr TypeWithMaxLen[T, N]): ptr T =
-    cast[ptr T](x)
-
-  template valueOf(x: TypeWithMaxLen): auto =
-    let xaddr = unsafeAddr x
-    unwrapImpl(xaddr)[]
-
-template sszList*(x: seq|array, maxLen: static int64): auto =
-  TypeWithMaxLen[type(x), maxLen](x)
-
 template toSszType*(x: auto): auto =
   mixin toSszType
 
@@ -110,9 +94,8 @@ template toSszType*(x: auto): auto =
   elif x is Eth2Digest: x.data
   elif x is BlsCurveType: toRaw(x)
   elif x is BitSeq|BitList: ByteList(x)
-  elif x is TypeWithMaxLen: toSszType valueOf(x)
   elif x is ForkDigest|Version: array[4, byte](x)
-  elif useListType and x is List: seq[x.T](x)
+  elif x is List: asSeq(x)
   else: x
 
 proc writeFixedSized(s: var (OutputStream|WriteCursor), x: auto) {.raises: [Defect, IOError].} =
@@ -279,11 +262,6 @@ proc writeValue*[T](w: var SszWriter, x: SizePrefixed[T]) {.raises: [Defect, IOE
     buf.writeVarint length
     cursor.finalWrite buf.writtenBytes
 
-template fromSszBytes*[T; N](_: type TypeWithMaxLen[T, N],
-                             bytes: openarray[byte]): auto =
-  mixin fromSszBytes
-  fromSszBytes(T, bytes)
-
 proc readValue*[T](r: var SszReader, val: var T) {.raises: [Defect, MalformedSszError, SszSizeMismatchError, IOError].} =
   when isFixedSize(T):
     const minimalSize = fixedPortionSize(T)
@@ -435,17 +413,14 @@ template merkleizeFields(totalElements: int, body: untyped): Eth2Digest =
     addChunk(merkleizer, hash.data)
     trs "CHUNK ADDED"
 
-  template addField2(field) {.used.}=
-    const maxLen = fieldMaxLen(field)
-    when maxLen > 0:
-      type FieldType = type field
-      addField TypeWithMaxLen[FieldType, maxLen](field)
-    else:
-      addField field
-
   body
 
   getFinalHash(merkleizer)
+
+template writeBytesLE(chunk: var array[bytesPerChunk, byte], atParam: int,
+                      val: SomeUnsignedInt|StUint) =
+  let at = atParam
+  chunk[at ..< at + sizeof(val)] = toBytesLE(val)
 
 func chunkedHashTreeRootForBasicTypes[T](merkleizer: var SszChunksMerkleizer,
                                          arr: openarray[T]): Eth2Digest =
@@ -473,21 +448,17 @@ func chunkedHashTreeRootForBasicTypes[T](merkleizer: var SszChunksMerkleizer,
 
   else:
     static:
-      assert T is SomeUnsignedInt|StUInt|ValidatorIndex
+      assert T is SomeUnsignedInt|StUInt
       assert bytesPerChunk mod sizeof(Т) == 0
 
     const valuesPerChunk = bytesPerChunk div sizeof(Т)
-
-    template writeAt(chunk: var array[bytesPerChunk], at: int, val: SomeUnsignedInt|StUint) =
-      type ArrType = type toBytesLE(val)
-      (cast[ptr ArrType](addr chunk[at]))[] = toBytesLE(val)
 
     var writtenValues = 0
 
     var chunk: array[bytesPerChunk, byte]
     while writtenValues < arr.len - valuesPerChunk:
       for i in 0 ..< valuesPerChunk:
-        chunk.writeAt(i * sizeof(T), arr[writtenValues + i])
+        chunk.writeBytesLE(i * sizeof(T), arr[writtenValues + i])
       merkleizer.addChunk chunk
       inc writtenValues, valuesPerChunk
 
@@ -495,7 +466,7 @@ func chunkedHashTreeRootForBasicTypes[T](merkleizer: var SszChunksMerkleizer,
     if remainingValues > 0:
       var lastChunk: array[bytesPerChunk, byte]
       for i in 0 ..< remainingValues:
-        chunk.writeAt(i * sizeof(T), arr[writtenValues + i])
+        chunk.writeBytesLE(i * sizeof(T), arr[writtenValues + i])
       merkleizer.addChunk lastChunk
 
   getFinalHash(merkleizer)
@@ -552,9 +523,9 @@ func bitlistHashTreeRoot(merkleizer: var SszChunksMerkleizer, x: BitSeq): Eth2Di
   mixInLength contentsHash, x.len
 
 func maxChunksCount(T: type, maxLen: int64): int64 =
-  when T is BitList:
+  when T is BitSeq|BitList:
     (maxLen + bitsPerChunk - 1) div bitsPerChunk
-  elif T is seq|array:
+  elif T is array|List|seq|openarray:
     type E = ElemType(T)
     when E is BasicType:
       (maxLen * sizeof(E) + bytesPerChunk - 1) div bytesPerChunk
@@ -563,45 +534,37 @@ func maxChunksCount(T: type, maxLen: int64): int64 =
   else:
     unsupported T # This should never happen
 
-func hashTreeRootImpl[T](x: T): Eth2Digest =
+func hashTreeRootAux[T](x: T): Eth2Digest =
   when T is SignedBeaconBlock:
     unsupported T # Blocks are identified by htr(BeaconBlock) so we avoid these
   elif T is bool|char:
     result.data[0] = byte(x)
-  elif T is SomeUnsignedInt|StUint|ValidatorIndex:
+  elif T is SomeUnsignedInt|StUint:
     when cpuEndian == bigEndian:
       result.data[0..<sizeof(x)] = toBytesLE(x)
     else:
       copyMem(addr result.data[0], unsafeAddr x, sizeof x)
-  elif (when T is array: ElemType(T) is byte and
-      sizeof(T) == sizeof(Eth2Digest) else: false):
-    # TODO is this sizeof comparison guranteed? it's whole structure vs field
-    trs "ETH2DIGEST; IDENTITY MAPPING"
-    Eth2Digest(data: x)
   elif (when T is array: ElemType(T) is BasicType else: false):
-    trs "FIXED TYPE; USE CHUNK STREAM"
-    var markleizer = createMerkleizer(maxChunksCount(T, x.len))
-    chunkedHashTreeRootForBasicTypes(markleizer, x)
-  elif T is string or (when T is (seq|openarray): ElemType(T) is BasicType else: false):
-    trs "TYPE WITH LENGTH"
-    var markleizer = createMerkleizer(maxChunksCount(T, x.len))
-    mixInLength chunkedHashTreeRootForBasicTypes(markleizer, x), x.len
+    type E = ElemType(T)
+    when sizeof(T) <= sizeof(result.data):
+      when E is byte|char|bool or cpuEndian == littleEndian:
+        copyMem(addr result.data[0], unsafeAddr x, sizeof x)
+      else:
+        var pos = 0
+        for e in x:
+          writeBytesLE(result.data, pos, e)
+          pos += sizeof(E)
+    else:
+      trs "FIXED TYPE; USE CHUNK STREAM"
+      var markleizer = createMerkleizer(maxChunksCount(T, x.len))
+      chunkedHashTreeRootForBasicTypes(markleizer, x)
   elif T is array|object|tuple:
     trs "MERKLEIZING FIELDS"
     const totalFields = when T is array: len(x)
                         else: totalSerializedFields(T)
     merkleizeFields(totalFields):
       x.enumerateSubFields(f):
-        const maxLen = fieldMaxLen(f)
-        when maxLen > 0:
-          type FieldType = type f
-          addField TypeWithMaxLen[FieldType, maxLen](f)
-        else:
-          addField f
-  elif T is seq:
-    trs "SEQ WITH VAR SIZE"
-    let hash = merkleizeFields(x.len, for e in x: addField e)
-    mixInLength hash, x.len
+        addField f
   #elif isCaseObject(T):
   #  # TODO implement this
   else:
@@ -610,28 +573,26 @@ func hashTreeRootImpl[T](x: T): Eth2Digest =
 func hash_tree_root*(x: auto): Eth2Digest {.raises: [Defect], nbench.} =
   trs "STARTING HASH TREE ROOT FOR TYPE ", name(type(x))
   mixin toSszType
-  when x is TypeWithMaxLen:
-    const maxLen = x.maxLen
-    type T = type valueOf(x)
+  when x is List|BitList:
+    const maxLen = static(x.maxLen)
+    type T = type(x)
     const limit = maxChunksCount(T, maxLen)
     var merkleizer = createMerkleizer(limit)
 
-    when T is BitList:
-      result = merkleizer.bitlistHashTreeRoot(BitSeq valueOf(x))
-    elif T is seq:
+    when x is BitList:
+      result = merkleizer.bitlistHashTreeRoot(BitSeq x)
+    else:
       type E = ElemType(T)
       let contentsHash = when E is BasicType:
-        chunkedHashTreeRootForBasicTypes(merkleizer, valueOf(x))
+        chunkedHashTreeRootForBasicTypes(merkleizer, asSeq x)
       else:
-        for elem in valueOf(x):
+        for elem in x:
           let elemHash = hash_tree_root(elem)
           merkleizer.addChunk(elemHash.data)
         merkleizer.getFinalHash()
-      result = mixInLength(contentsHash, valueOf(x).len)
-    else:
-      unsupported T # This should never happen
+      result = mixInLength(contentsHash, x.len)
   else:
-    result = hashTreeRootImpl toSszType(x)
+    result = hashTreeRootAux toSszType(x)
 
   trs "HASH TREE ROOT FOR ", name(type x), " = ", "0x", $result
 

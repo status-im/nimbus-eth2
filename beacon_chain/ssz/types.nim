@@ -1,12 +1,11 @@
 {.push raises: [Defect].}
 
 import
-  tables, options,
+  tables, options, typetraits,
   stew/shims/macros, stew/[objects, bitseqs],
   serialization/[object_serialization, errors]
 
 const
-  useListType* = false
   offsetSize* = 4
 
 type
@@ -63,10 +62,41 @@ type
     of Field:
       discard
 
-when useListType:
-  type List*[T; maxLen: static int64] = distinct seq[T]
-else:
-  type List*[T; maxLen: static int64] = seq[T]
+  List*[T; maxLen: static int64] = distinct seq[T]
+  BitList*[maxLen: static int] = distinct BitSeq
+
+template add*(x: List, val: x.T) = add(distinctBase x, val)
+template len*(x: List): auto = len(distinctBase x)
+template low*(x: List): auto = low(distinctBase x)
+template high*(x: List): auto = high(distinctBase x)
+template `[]`*(x: List, idx: auto): auto = distinctBase(x)[idx]
+template `[]=`*[T; N](x: List[T, N], idx: auto, val: T) = seq[T](x)[idx] = val
+template `==`*(a, b: List): bool = distinctBase(a) == distinctBase(b)
+template asSeq*(x: List): auto = distinctBase x
+template `&`*[T; N](a, b: List[T, N]): List[T, N] = List[T, N](seq[T](a) & seq[T](b))
+template `$`*(x: List): auto = $(distinctBase x)
+
+template items* (x: List): untyped = items(distinctBase x)
+template pairs* (x: List): untyped = pairs(distinctBase x)
+template mitems*(x: List): untyped = mitems(distinctBase x)
+template mpairs*(x: List): untyped = mpairs(distinctBase x)
+
+template init*(T: type BitList, len: int): auto = T init(BitSeq, len)
+template len*(x: BitList): auto = len(BitSeq(x))
+template bytes*(x: BitList): auto = bytes(BitSeq(x))
+template `[]`*(x: BitList, idx: auto): auto = BitSeq(x)[idx]
+template `[]=`*(x: var BitList, idx: auto, val: bool) = BitSeq(x)[idx] = val
+template `==`*(a, b: BitList): bool = BitSeq(a) == BitSeq(b)
+template setBit*(x: var BitList, idx: int) = setBit(BitSeq(x), idx)
+template clearBit*(x: var BitList, idx: int) = clearBit(BitSeq(x), idx)
+template overlaps*(a, b: BitList): bool = overlaps(BitSeq(a), BitSeq(b))
+template combine*(a: var BitList, b: BitList) = combine(BitSeq(a), BitSeq(b))
+template isSubsetOf*(a, b: BitList): bool = isSubsetOf(BitSeq(a), BitSeq(b))
+template `$`*(a: BitList): string = $(BitSeq(a))
+
+iterator items*(x: BitList): bool =
+  for i in 0 ..< x.len:
+    yield x[i]
 
 macro unsupported*(T: typed): untyped =
   # TODO: {.fatal.} breaks compilation even in `compiles()` context,

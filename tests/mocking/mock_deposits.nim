@@ -210,5 +210,5 @@ proc mockUpdateStateForNewDeposit*(
   #       but confirmed by running it
   state.eth1_deposit_index = 0
   state.eth1_data.deposit_root =
-     hash_tree_root(sszList(@[result.data], 2'i64^DEPOSIT_CONTRACT_TREE_DEPTH))
+     hash_tree_root(List[DepositData, 2'i64^DEPOSIT_CONTRACT_TREE_DEPTH](@[result.data]))
   state.eth1_data.deposit_count = 1

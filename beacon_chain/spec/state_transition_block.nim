@@ -133,7 +133,7 @@ proc process_randao(
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#eth1-data
 func process_eth1_data(state: var BeaconState, body: BeaconBlockBody) {.nbench.}=
   state.eth1_data_votes.add body.eth1_data
-  if state.eth1_data_votes.count(body.eth1_data) * 2 > SLOTS_PER_ETH1_VOTING_PERIOD.int:
+  if state.eth1_data_votes.asSeq.count(body.eth1_data) * 2 > SLOTS_PER_ETH1_VOTING_PERIOD.int:
     state.eth1_data = body.eth1_data
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#is_slashable_validator
@@ -250,8 +250,8 @@ proc process_attester_slashing*(
     var slashed_any = false
 
     for index in sorted(toSeq(intersection(
-        toHashSet(attestation_1.attesting_indices),
-        toHashSet(attestation_2.attesting_indices)).items), system.cmp):
+        toHashSet(attestation_1.attesting_indices.asSeq),
+        toHashSet(attestation_2.attesting_indices.asSeq)).items), system.cmp):
       if is_slashable_validator(
           state.validators[index.int], get_current_epoch(state)):
         slash_validator(state, index.ValidatorIndex, stateCache)
@@ -478,9 +478,8 @@ proc makeBeaconBlock*(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
       graffiti: graffiti,
-      attestations: attestations,
-      deposits: deposits)
-  )
+      attestations: List[Attestation, MAX_ATTESTATIONS](attestations),
+      deposits: List[Deposit, MAX_DEPOSITS](deposits)))
 
   let tmpState = newClone(state)
   let ok = process_block(tmpState[], blck, {skipBlsValidation}, cache)

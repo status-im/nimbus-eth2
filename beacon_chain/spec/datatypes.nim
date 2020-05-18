@@ -25,7 +25,10 @@
 import
   macros, hashes, json, strutils, tables,
   stew/[byteutils, bitseqs], chronicles,
-  ../ssz/types, ./crypto, ./digest
+  ../ssz/types as sszTypes, ./crypto, ./digest
+
+export
+  sszTypes
 
 # TODO Data types:
 # Presently, we're reusing the data types from the serialization (uint64) in the
@@ -124,8 +127,6 @@ type
   ValidatorIndex* = distinct uint32
   Gwei* = uint64
   CommitteeIndex* = distinct uint64
-
-  BitList*[maxLen: static int] = distinct BitSeq
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase0/beacon-chain.md#proposerslashing
   ProposerSlashing* = object
@@ -273,7 +274,7 @@ type
 
     # Registry
     validators*: List[Validator, VALIDATOR_REGISTRY_LIMIT]
-    balances*: seq[uint64]
+    balances*: List[uint64, VALIDATOR_REGISTRY_LIMIT]
 
     # Randomness
     randao_mixes*: array[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
@@ -405,43 +406,6 @@ type
       Table[Epoch, seq[ValidatorIndex]]
     committee_count_cache*: Table[Epoch, uint64]
 
-macro fieldMaxLen*(x: typed): untyped =
-  # TODO This macro is a temporary solution for the lack of a
-  # more proper way to specify the max length of the List[T; N]
-  # objects in the spec.
-  # May be replaced with `getCustomPragma` once we upgrade to
-  # Nim 0.20.2 or with a distinct List type, which would require
-  # more substantial refactorings in the spec code.
-  if x.kind != nnkDotExpr:
-    return newLit(0)
-
-  let size = case $x[1]
-             # Obsolete
-             of "pubkeys",
-                "compact_validators",
-                "aggregation_bits",
-                "custody_bits": int64(MAX_VALIDATORS_PER_COMMITTEE)
-             # IndexedAttestation
-             of "attesting_indices": MAX_VALIDATORS_PER_COMMITTEE
-             # BeaconBlockBody
-             of "proposer_slashings": MAX_PROPOSER_SLASHINGS
-             of "attester_slashings": MAX_ATTESTER_SLASHINGS
-             of "attestations": MAX_ATTESTATIONS
-             of "deposits": MAX_DEPOSITS
-             of "voluntary_exits": MAX_VOLUNTARY_EXITS
-             # BeaconState
-             of "historical_roots": HISTORICAL_ROOTS_LIMIT
-             of "eth1_data_votes":
-               EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH
-             of "validators": VALIDATOR_REGISTRY_LIMIT
-             of "balances": VALIDATOR_REGISTRY_LIMIT
-             of "previous_epoch_attestations",
-                "current_epoch_attestations": MAX_ATTESTATIONS *
-                                              SLOTS_PER_EPOCH
-             else: 0
-
-  newLit size
-
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
     ($state.validators[validatorIdx].pubkey)[0..7]
 
@@ -549,6 +513,14 @@ Json.useCustomSerialization(BitSeq):
   write:
     writer.writeValue "0x" & seq[byte](value).toHex
 
+template readValue*(reader: var JsonReader, value: var List) =
+  type T = type(value)
+  type E = ElemType(T)
+  value = T readValue(reader, seq[E])
+
+template writeValue*(writer: var JsonWriter, value: List) =
+  writeValue(writer, asSeq value)
+
 template readValue*(reader: var JsonReader, value: var BitList) =
   type T = type(value)
   value = T readValue(reader, BitSeq)
@@ -564,32 +536,6 @@ template newClone*[T: not ref](x: T): ref T =
 
 template newClone*[T](x: ref T not nil): ref T =
   newClone(x[])
-
-template init*(T: type BitList, len: int): auto = T init(BitSeq, len)
-template len*(x: BitList): auto = len(BitSeq(x))
-template bytes*(x: BitList): auto = bytes(BitSeq(x))
-template `[]`*(x: BitList, idx: auto): auto = BitSeq(x)[idx]
-template `[]=`*(x: var BitList, idx: auto, val: bool) = BitSeq(x)[idx] = val
-template `==`*(a, b: BitList): bool = BitSeq(a) == BitSeq(b)
-template setBit*(x: var BitList, idx: int) = setBit(BitSeq(x), idx)
-template clearBit*(x: var BitList, idx: int) = clearBit(BitSeq(x), idx)
-template overlaps*(a, b: BitList): bool = overlaps(BitSeq(a), BitSeq(b))
-template combine*(a: var BitList, b: BitList) = combine(BitSeq(a), BitSeq(b))
-template isSubsetOf*(a, b: BitList): bool = isSubsetOf(BitSeq(a), BitSeq(b))
-template `$`*(a: BitList): string = $(BitSeq(a))
-iterator items*(x: BitList): bool =
-  for i in 0 ..< x.len:
-    yield x[i]
-
-when useListType:
-  template len*[T; N](x: List[T, N]): auto = len(seq[T](x))
-  template `[]`*[T; N](x: List[T, N], idx: auto): auto = seq[T](x)[idx]
-  template `[]=`*[T; N](x: List[T, N], idx: auto, val: bool) = seq[T](x)[idx] = val
-  template `==`*[T; N](a, b: List[T, N]): bool = seq[T](a) == seq[T](b)
-  template asSeq*[T; N](x: List[T, N]): auto = seq[T](x)
-  template `&`*[T; N](a, b: List[T, N]): List[T, N] = seq[T](a) & seq[T](b)
-else:
-  template asSeq*[T; N](x: List[T, N]): auto = x
 
 func `$`*(v: ForkDigest | Version): string =
   toHex(array[4, byte](v))
