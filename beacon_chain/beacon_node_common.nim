@@ -20,6 +20,10 @@ import
 type
   RpcServer* = RpcHttpServer
 
+  # "state" is already taken by BeaconState
+  BeaconNodeStatus* = enum
+    Starting, Running, Stopping
+
   BeaconNode* = ref object
     nickname*: string
     network*: Eth2Node
@@ -37,6 +41,7 @@ type
     topicBeaconBlocks*: string
     topicAggregateAndProofs*: string
     syncLoop*: Future[void]
+    status*: BeaconNodeStatus
 
 const MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
 

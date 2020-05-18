@@ -216,6 +216,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     forkDigest: enrForkId.forkDigest,
     topicBeaconBlocks: topicBeaconBlocks,
     topicAggregateAndProofs: topicAggregateAndProofs,
+    status: BeaconNodeStatus.Starting,
   )
 
   # TODO sync is called when a remote peer is connected - is that the right
@@ -708,44 +709,61 @@ proc installAttestationHandlers(node: BeaconNode) =
 
   waitFor allFutures(attestationSubscriptions)
 
+proc stop*(node: BeaconNode) =
+  node.status = BeaconNodeStatus.Stopping
+  info "Graceful shutdown"
+  waitFor node.network.stop()
+
 proc run*(node: BeaconNode) =
-  if node.rpcServer != nil:
-    node.rpcServer.installRpcHandlers(node)
-    node.rpcServer.start()
+  if node.status == BeaconNodeStatus.Starting:
+    # it might have been set to "Stopping" with Ctrl+C
+    node.status = BeaconNodeStatus.Running
 
-  waitFor node.network.subscribe(node.topicBeaconBlocks) do (signedBlock: SignedBeaconBlock):
-    onBeaconBlock(node, signedBlock)
-  do (signedBlock: SignedBeaconBlock) -> bool:
-    let (afterGenesis, slot) = node.beaconClock.now.toSlot()
-    if not afterGenesis:
-      return false
-    node.blockPool.isValidBeaconBlock(signedBlock, slot, {})
+    if node.rpcServer != nil:
+      node.rpcServer.installRpcHandlers(node)
+      node.rpcServer.start()
 
-  installAttestationHandlers(node)
+    waitFor node.network.subscribe(node.topicBeaconBlocks) do (signedBlock: SignedBeaconBlock):
+      onBeaconBlock(node, signedBlock)
+    do (signedBlock: SignedBeaconBlock) -> bool:
+      let (afterGenesis, slot) = node.beaconClock.now.toSlot()
+      if not afterGenesis:
+        return false
+      node.blockPool.isValidBeaconBlock(signedBlock, slot, {})
 
-  let
-    t = node.beaconClock.now().toSlot()
-    curSlot = if t.afterGenesis: t.slot
-              else: GENESIS_SLOT
-    nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
-    fromNow = saturate(node.beaconClock.fromNow(nextSlot))
+    installAttestationHandlers(node)
 
-  info "Scheduling first slot action",
-    beaconTime = shortLog(node.beaconClock.now()),
-    nextSlot = shortLog(nextSlot),
-    fromNow = shortLog(fromNow),
-    cat = "scheduling"
+    let
+      t = node.beaconClock.now().toSlot()
+      curSlot = if t.afterGenesis: t.slot
+                else: GENESIS_SLOT
+      nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
+      fromNow = saturate(node.beaconClock.fromNow(nextSlot))
 
-  addTimer(fromNow) do (p: pointer):
-    asyncCheck node.onSlotStart(curSlot, nextSlot)
+    info "Scheduling first slot action",
+      beaconTime = shortLog(node.beaconClock.now()),
+      nextSlot = shortLog(nextSlot),
+      fromNow = shortLog(fromNow),
+      cat = "scheduling"
 
-  let second = Moment.now() + chronos.seconds(1)
-  discard setTimer(second) do (p: pointer):
-    asyncCheck node.onSecond(second)
+    addTimer(fromNow) do (p: pointer):
+      asyncCheck node.onSlotStart(curSlot, nextSlot)
 
-  node.syncLoop = runSyncLoop(node)
+    let second = Moment.now() + chronos.seconds(1)
+    discard setTimer(second) do (p: pointer):
+      asyncCheck node.onSecond(second)
 
-  runForever()
+    node.syncLoop = runSyncLoop(node)
+
+  # main event loop
+  while node.status == BeaconNodeStatus.Running:
+    try:
+      poll()
+    except CatchableError as e:
+      debug "Exception in poll()", exc = e.name, err = e.msg
+
+  # time to say goodbye
+  node.stop()
 
 var gPidFile: string
 proc createPidFile(filename: string) =
@@ -911,46 +929,37 @@ when hasPrompt:
       # var t: Thread[ptr Prompt]
       # createThread(t, processPromptCommands, addr p)
 
-programMain:
-  let
-    banner = clientId & "\p" & copyrights & "\p\p" & nimBanner
-    config = BeaconNodeConf.load(version = banner, copyrightBanner = banner)
+# programMain
+let
+  banner = clientId & "\p" & copyrights & "\p\p" & nimBanner
+  config = BeaconNodeConf.load(version = banner, copyrightBanner = banner)
 
-  when compiles(defaultChroniclesStream.output.writer):
-    defaultChroniclesStream.output.writer =
-      proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe, raises: [Defect].} =
-        try:
-          stdout.write(msg)
-        except IOError as err:
-          logLoggingFailure(cstring(msg), err)
+when compiles(defaultChroniclesStream.output.writer):
+  defaultChroniclesStream.output.writer =
+    proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe, raises: [Defect].} =
+      try:
+        stdout.write(msg)
+      except IOError as err:
+        logLoggingFailure(cstring(msg), err)
 
-  randomize()
+randomize()
 
+try:
+  let directives = config.logLevel.split(";")
   try:
-    let directives = config.logLevel.split(";")
-    try:
-      setLogLevel(parseEnum[LogLevel](directives[0]))
-    except ValueError:
-      raise (ref ValueError)(msg: "Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL")
+    setLogLevel(parseEnum[LogLevel](directives[0]))
+  except ValueError:
+    raise (ref ValueError)(msg: "Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL")
 
-    if directives.len > 1:
-      for topicName, settings in parseTopicDirectives(directives[1..^1]):
-        if not setTopicState(topicName, settings.state, settings.logLevel):
-          warn "Unrecognized logging topic", topic = topicName
-  except ValueError as err:
-    stderr.write "Invalid value for --log-level. " & err.msg
-    quit 1
+  if directives.len > 1:
+    for topicName, settings in parseTopicDirectives(directives[1..^1]):
+      if not setTopicState(topicName, settings.state, settings.logLevel):
+        warn "Unrecognized logging topic", topic = topicName
+except ValueError as err:
+  stderr.write "Invalid value for --log-level. " & err.msg
+  quit 1
 
-  ## Ctrl+C handling
-  proc controlCHandler() {.noconv.} =
-    when defined(windows):
-      # workaround for https://github.com/nim-lang/Nim/issues/4057
-      setupForeignThreadGc()
-    debug "Shutting down after having received SIGINT"
-    quit(QuitFailure)
-  setControlCHook(controlCHandler)
-
-  case config.cmd
+case config.cmd:
   of createTestnet:
     var deposits: seq[Deposit]
     for i in config.firstValidator.int ..< config.totalValidators.int:
@@ -1028,7 +1037,19 @@ programMain:
 
     createPidFile(config.dataDir.string / "beacon_node.pid")
 
+    # `controlCHandler()` needs `node` to be a global variable, so we can't put it
+    # in a Nim block that has C-like scoping rules
     var node = waitFor BeaconNode.init(config)
+
+    ## Ctrl+C handling
+    proc controlCHandler() {.noconv.} =
+      when defined(windows):
+        # workaround for https://github.com/nim-lang/Nim/issues/4057
+        setupForeignThreadGc()
+      info "Shutting down after having received SIGINT"
+      node.status = BeaconNodeStatus.Stopping
+    setControlCHook(controlCHandler)
+
     when hasPrompt:
       initPrompt(node)
 
@@ -1063,7 +1084,8 @@ programMain:
       var delayGenerator: DelayGenerator
       if config.maxDelay > 0.0:
         delayGenerator = proc (): chronos.Duration {.gcsafe.} =
-          chronos.milliseconds (rand(config.minDelay..config.maxDelay)*1000).int
+          {.gcsafe.}:
+            chronos.milliseconds (rand(config.minDelay..config.maxDelay)*1000).int
 
       info "Sending deposits",
         web3 = config.web3Url,
