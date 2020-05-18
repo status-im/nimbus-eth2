@@ -940,7 +940,8 @@ proc createEth2Node*(conf: BeaconNodeConf, enrForkId: ENRForkID): Future[Eth2Nod
   # are running behind a NAT).
   var switch = newStandardSwitch(some keys.seckey, hostAddress,
                                  triggerSelf = true, gossip = true,
-                                 sign = false, verifySignature = false, transportFlags = {TransportFlag.ReuseAddr})
+                                 sign = false, verifySignature = false,
+                                 transportFlags = {ServerFlags.ReuseAddr})
   result = Eth2Node.init(conf, enrForkId, switch,
                          extIp, extTcpPort, extUdpPort,
                          keys.seckey.asEthKey)
