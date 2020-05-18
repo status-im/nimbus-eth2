@@ -265,8 +265,7 @@ proc initialize_beacon_state_from_eth1*(
       validator.activation_epoch = GENESIS_EPOCH
 
   # Set genesis validators root for domain separation and chain versioning
-  state.genesis_validators_root =
-    hash_tree_root(sszList(state.validators, VALIDATOR_REGISTRY_LIMIT))
+  state.genesis_validators_root = hash_tree_root(state.validators)
 
   state
 
@@ -402,8 +401,10 @@ proc is_valid_indexed_attestation*(
   #       https://github.com/status-im/nim-chronicles/issues/62
 
   # Verify indices are sorted and unique
+  # TODO: A simple loop can verify that the indicates are monotonically
+  #       increasing and non-repeating here!
   let indices = indexed_attestation.attesting_indices
-  if indices != sorted(toHashSet(indices).toSeq, system.cmp):
+  if indices.asSeq != sorted(toHashSet(indices.asSeq).toSeq, system.cmp):
     notice "indexed attestation: indices not sorted"
     return false
 
@@ -457,7 +458,8 @@ func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
 
   IndexedAttestation(
     attesting_indices:
-      sorted(mapIt(attesting_indices.toSeq, it.uint64), system.cmp),
+      List[uint64, MAX_VALIDATORS_PER_COMMITTEE](
+        sorted(mapIt(attesting_indices.toSeq, it.uint64), system.cmp)),
     data: attestation.data,
     signature: attestation.signature
   )

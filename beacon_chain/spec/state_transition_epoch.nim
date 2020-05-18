@@ -77,13 +77,13 @@ func get_total_active_balance*(state: BeaconState): Gwei =
     get_active_validator_indices(state, get_current_epoch(state)))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase0/beacon-chain.md#helper-functions-1
-func get_matching_source_attestations(state: BeaconState, epoch: Epoch):
-    seq[PendingAttestation] =
+func get_matching_source_attestations(state: BeaconState,
+                                      epoch: Epoch): seq[PendingAttestation] =
   doAssert epoch in [get_current_epoch(state), get_previous_epoch(state)]
   if epoch == get_current_epoch(state):
-    state.current_epoch_attestations
+    state.current_epoch_attestations.asSeq
   else:
-    state.previous_epoch_attestations
+    state.previous_epoch_attestations.asSeq
 
 func get_matching_target_attestations(state: BeaconState, epoch: Epoch):
     seq[PendingAttestation] =
@@ -384,7 +384,7 @@ func process_final_updates*(state: var BeaconState) {.nbench.}=
 
   # Reset eth1 data votes
   if next_epoch mod EPOCHS_PER_ETH1_VOTING_PERIOD == 0:
-    state.eth1_data_votes = @[]
+    state.eth1_data_votes = typeof(state.eth1_data_votes) @[]
 
   # Update effective balances with hysteresis
   for index, validator in state.validators:
@@ -420,7 +420,7 @@ func process_final_updates*(state: var BeaconState) {.nbench.}=
 
   # Rotate current/previous epoch attestations
   state.previous_epoch_attestations = state.current_epoch_attestations
-  state.current_epoch_attestations = @[]
+  state.current_epoch_attestations = typeof(state.current_epoch_attestations) @[]
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(state: var BeaconState, updateFlags: UpdateFlags)

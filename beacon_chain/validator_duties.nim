@@ -54,7 +54,7 @@ proc addLocalValidator*(node: BeaconNode,
                        privKey: ValidatorPrivKey) =
   let pubKey = privKey.toPubKey()
 
-  let idx = state.validators.findIt(it.pubKey == pubKey)
+  let idx = state.validators.asSeq.findIt(it.pubKey == pubKey)
   if idx == -1:
     # We allow adding a validator even if its key is not in the state registry:
     # it might be that the deposit for this validator has not yet been processed
