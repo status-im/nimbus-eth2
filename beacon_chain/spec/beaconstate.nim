@@ -392,22 +392,17 @@ proc process_registry_updates*(state: var BeaconState) {.nbench.}=
     validator.activation_epoch =
       compute_activation_exit_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     state: BeaconState, indexed_attestation: IndexedAttestation,
     flags: UpdateFlags): bool =
-  ## Check if ``indexed_attestation`` has valid indices and signature.
+  # Check if ``indexed_attestation`` has sorted and unique indices and a valid
+  # aggregate signature.
   # TODO: this is noSideEffect besides logging
   #       https://github.com/status-im/nim-chronicles/issues/62
 
-  let indices = indexed_attestation.attesting_indices
-
-  # Verify max number of indices
-  if not (len(indices) <= MAX_VALIDATORS_PER_COMMITTEE):
-    notice "indexed attestation: validator index beyond max validators per committee"
-    return false
-
   # Verify indices are sorted and unique
+  let indices = indexed_attestation.attesting_indices
   if indices != sorted(toHashSet(indices).toSeq, system.cmp):
     notice "indexed attestation: indices not sorted"
     return false
