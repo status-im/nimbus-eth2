@@ -910,17 +910,19 @@ template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, Protocol.IPPROTO_TCP, port)
 
 proc getPersistentNetKeys*(conf: BeaconNodeConf): KeyPair =
-  let privKeyPath = conf.dataDir / networkKeyFilename
-  var privKey: PrivateKey
-  if not fileExists(privKeyPath):
-    createDir conf.dataDir.string
-    privKey = PrivateKey.random(Secp256k1)
-    writeFile(privKeyPath, privKey.getBytes())
-  else:
-    let keyBytes = readFile(privKeyPath)
-    privKey = PrivateKey.init(keyBytes.toOpenArrayByte(0, keyBytes.high))
+  let
+    privKeyPath = conf.dataDir / networkKeyFilename
+    privKey =
+      if not fileExists(privKeyPath):
+        createDir conf.dataDir.string
+        let key = PrivateKey.random(Secp256k1).tryGet()
+        writeFile(privKeyPath, key.getBytes().tryGet())
+        key
+      else:
+        let keyBytes = readFile(privKeyPath)
+        PrivateKey.init(keyBytes.toOpenArrayByte(0, keyBytes.high)).tryGet()
 
-  KeyPair(seckey: privKey, pubkey: privKey.getKey())
+  KeyPair(seckey: privKey, pubkey: privKey.getKey().tryGet())
 
 proc createEth2Node*(conf: BeaconNodeConf, enrForkId: ENRForkID): Future[Eth2Node] {.async, gcsafe.} =
   var

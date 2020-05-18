@@ -316,10 +316,10 @@ proc init*(p: typedesc[PeerInfo],
     if trecOpt.isSome():
       trec = trecOpt.get()
       if trec.secp256k1.isSome():
-        var skpubkey: SkPublicKey
-        if skpubkey.init(trec.secp256k1.get()):
+        let skpubkey = SkPublicKey.fromRaw(trec.secp256k1.get())
+        if skpubkey.isOk():
           let peerid = PeerID.init(PublicKey(scheme: Secp256k1,
-                                             skkey: skpubkey))
+                                             skkey: skpubkey[]))
           var mas = newSeq[MultiAddress]()
           if trec.ip.isSome() and trec.tcp.isSome():
             let ma = MultiAddress.init(multiCodec("ip4"), trec.ip.get()) &
@@ -411,7 +411,7 @@ proc bootstrapDiscovery(conf: InspectorConf,
                         privkey: lcrypto.PrivateKey,
                         bootnodes: seq[enr.Record],
                         enrFields: Option[ENRFieldPair]): DiscoveryProtocol =
-  var pk = ethkeys.PrivateKey.fromRaw(privkey.getBytes()).tryGet()
+  var pk = ethkeys.PrivateKey(privkey.skkey)
   var db = DiscoveryDB.init(newMemoryDB())
   let udpPort = Port(conf.discoveryPort)
   let tcpPort = Port(conf.ethPort)
@@ -684,7 +684,7 @@ proc run(conf: InspectorConf) {.async.} =
              bootstrap_fork_digest = forkDigest.get()
         forkDigest = argForkDigest
 
-  let seckey = lcrypto.PrivateKey.random(PKScheme.Secp256k1)
+  let seckey = lcrypto.PrivateKey.random(PKScheme.Secp256k1).tryGet()
   # let pubkey = seckey.getKey()
 
   let hostAddress = tryGetMultiAddress(conf.bindAddress)
