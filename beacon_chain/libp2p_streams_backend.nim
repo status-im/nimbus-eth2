@@ -21,7 +21,7 @@ proc uncompressFramedStream*(conn: Connection,
     try:
       await conn.readExactly(addr frameHeader[0], frameHeader.len)
     except LPStreamEOFError, LPStreamIncompleteError:
-      break
+      return err "no snappy frame"
 
     let x = uint32.fromBytesLE frameHeader
     let id = x and 0xFF
@@ -118,6 +118,7 @@ proc readChunkPayload(conn: Connection,
     if data.isOk:
       return ok SSZ.decode(data.get(), MsgType)
     else:
+      debug "Failed getting snappy frame", msg = $data.error, conn = $conn
       return neterr InvalidSnappyBytes
 
 proc readResponseChunk(conn: Connection,
