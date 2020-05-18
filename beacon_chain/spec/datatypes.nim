@@ -62,7 +62,7 @@ else:
   loadCustomPreset const_preset
 
 const
-  SPEC_VERSION* = "0.11.1" ## \
+  SPEC_VERSION* = "0.11.2" ## \
   ## Spec version we're aiming to be compatible with, right now
 
   GENESIS_SLOT* = Slot(0)

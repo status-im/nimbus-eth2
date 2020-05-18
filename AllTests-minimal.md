@@ -136,7 +136,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + HYSTERESIS_UPWARD_MULTIPLIER                      5                    [Preset: minimal]   OK
 + INACTIVITY_PENALTY_QUOTIENT                       33554432             [Preset: minimal]   OK
 + INITIAL_ACTIVE_SHARDS                             4                    [Preset: minimal]   OK
-+ INITIAL_GASPRICE                                  10                   [Preset: minimal]   OK
 + LIGHT_CLIENT_COMMITTEE_PERIOD                     256                  [Preset: minimal]   OK
 + LIGHT_CLIENT_COMMITTEE_SIZE                       128                  [Preset: minimal]   OK
 + MAX_ATTESTATIONS                                  128                  [Preset: minimal]   OK
@@ -161,7 +160,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + MIN_ATTESTATION_INCLUSION_DELAY                   1                    [Preset: minimal]   OK
 + MIN_DEPOSIT_AMOUNT                                1000000000           [Preset: minimal]   OK
 + MIN_EPOCHS_TO_INACTIVITY_PENALTY                  4                    [Preset: minimal]   OK
-+ MIN_GASPRICE                                      32                   [Preset: minimal]   OK
++ MIN_GASPRICE                                      8                    [Preset: minimal]   OK
 + MIN_GENESIS_ACTIVE_VALIDATOR_COUNT                64                   [Preset: minimal]   OK
 + MIN_GENESIS_DELAY                                 300                  [Preset: minimal]   OK
 + MIN_GENESIS_TIME                                  1578009600           [Preset: minimal]   OK
@@ -190,7 +189,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + VALIDATOR_REGISTRY_LIMIT                          1099511627776        [Preset: minimal]   OK
 + WHISTLEBLOWER_REWARD_QUOTIENT                     512                  [Preset: minimal]   OK
 ```
-OK: 84/87 Fail: 3/87 Skip: 0/87
+OK: 83/86 Fail: 3/86 Skip: 0/86
 ## PeerPool testing suite
 ```diff
 + Access peers by key test                                                                   OK
@@ -259,4 +258,4 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 OK: 8/8 Fail: 0/8 Skip: 0/8
 
 ---TOTAL---
-OK: 158/161 Fail: 3/161 Skip: 0/161
+OK: 157/160 Fail: 3/160 Skip: 0/160

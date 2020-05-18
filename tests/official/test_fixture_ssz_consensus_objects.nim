@@ -25,7 +25,7 @@ import
 # ----------------------------------------------------------------
 
 const
-  SSZDir = FixturesDir/"tests-v0.11.1"/const_preset/"phase0"/"ssz_static"
+  SSZDir = SszTestsDir/const_preset/"phase0"/"ssz_static"
 
 type
   SSZHashTreeRoot = object

@@ -151,7 +151,6 @@ const
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/configs/minimal.yaml#L161
   PHASE_1_FORK_VERSION* = 16777217
   INITIAL_ACTIVE_SHARDS* = 4
-  INITIAL_GASPRICE* = 10
 
   # Phase 1: General
   # ---------------------------------------------------------------
@@ -166,7 +165,7 @@ const
   TARGET_SHARD_BLOCK_SIZE* = 196608
   MAX_SHARD_BLOCKS_PER_ATTESTATION* = 12
   MAX_GASPRICE* = 16384 # Gwei
-  MIN_GASPRICE* = 32 # Gwei
+  MIN_GASPRICE* = 8 # Gwei
   GASPRICE_ADJUSTMENT_COEFFICIENT* = 8
 
   # Phase 1 - Custody game
