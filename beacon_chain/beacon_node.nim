@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  os, tables, random, strutils, times,
+  os, tables, random, strutils, times, math,
 
   # Nimble packages
   stew/[objects, bitseqs, byteutils], stew/shims/macros,
@@ -516,12 +516,22 @@ proc runSyncLoop(node: BeaconNode) {.async.} =
   proc updateLocalBlocks(list: openarray[SignedBeaconBlock]): bool =
     debug "Forward sync imported blocks", count = len(list),
           local_head_slot = getLocalHeadSlot()
+    let sm = now(chronos.Moment)
     for blk in list:
       if not(node.storeBlock(blk)):
         return false
     discard node.updateHead()
+
+    let dur = now(chronos.Moment) - sm
+    let secs = float(chronos.seconds(1).nanoseconds)
+    var storeSpeed = 0.0
+    if not(dur.isZero()):
+      let v = float(len(list)) * (secs / float(dur.nanoseconds))
+      # We doing round manually because stdlib.round is deprecated
+      storeSpeed = round(v * 10000) / 10000
+
     info "Forward sync blocks got imported sucessfully", count = len(list),
-         local_head_slot = getLocalHeadSlot()
+         local_head_slot = getLocalHeadSlot(), store_speed = storeSpeed
     result = true
 
   proc scoreCheck(peer: Peer): bool =
@@ -540,8 +550,12 @@ proc runSyncLoop(node: BeaconNode) {.async.} =
   var syncman = newSyncManager[Peer, PeerID](
     node.network.peerPool, getLocalHeadSlot, getLocalWallSlot,
     updateLocalBlocks,
-    # TODO increase when block processing perf improves
-    chunkSize = 16
+    # 4 blocks per chunk is the optimal value right now, because our current
+    # syncing speed is around 4 blocks per second. So there no need to request
+    # more then 4 blocks right now. As soon as `store_speed` value become
+    # significantly more then 4 blocks per second you can increase this
+    # value appropriately.
+    chunkSize = 4
   )
 
   await syncman.sync()
