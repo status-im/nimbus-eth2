@@ -2,9 +2,8 @@
 
 import
   deques, tables,
-  stew/[endians2, byteutils], chronicles,
+  stew/endians2,
   spec/[datatypes, crypto, digest],
-  beacon_chain_db, extras,
   block_pools/block_pools_types,
   block_pool # TODO: refactoring compat shim
 
