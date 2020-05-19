@@ -442,6 +442,7 @@ proc getGenesis*(m: MainchainMonitor): Future[BeaconStateRef] {.async.} =
   if m.genesisState != nil:
     return m.genesisState
   else:
+    result = new BeaconStateRef # make the compiler happy
     raiseAssert "Unreachable code"
 
 method getBlockByHash*(p: Web3DataProviderRef, hash: BlockHash): Future[BlockObject] =

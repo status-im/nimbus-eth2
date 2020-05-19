@@ -36,6 +36,13 @@ type
   RpcServer* = RpcHttpServer
   KeyPair = eth2_network.KeyPair
 
+  # "state" is already taken by BeaconState
+  BeaconNodeStatus* = enum
+    Starting, Running, Stopping
+
+# this needs to be global, so it can be set in the Ctrl+C signal handler
+var status = BeaconNodeStatus.Starting
+
 template init(T: type RpcHttpServer, ip: IpAddress, port: Port): T =
   newRpcHttpServer([initTAddress(ip, port)])
 
@@ -722,44 +729,61 @@ proc installAttestationHandlers(node: BeaconNode) =
 
   waitFor allFutures(attestationSubscriptions)
 
+proc stop*(node: BeaconNode) =
+  status = BeaconNodeStatus.Stopping
+  info "Graceful shutdown"
+  waitFor node.network.stop()
+
 proc run*(node: BeaconNode) =
-  if node.rpcServer != nil:
-    node.rpcServer.installRpcHandlers(node)
-    node.rpcServer.start()
+  if status == BeaconNodeStatus.Starting:
+    # it might have been set to "Stopping" with Ctrl+C
+    status = BeaconNodeStatus.Running
 
-  waitFor node.network.subscribe(node.topicBeaconBlocks) do (signedBlock: SignedBeaconBlock):
-    onBeaconBlock(node, signedBlock)
-  do (signedBlock: SignedBeaconBlock) -> bool:
-    let (afterGenesis, slot) = node.beaconClock.now.toSlot()
-    if not afterGenesis:
-      return false
-    node.blockPool.isValidBeaconBlock(signedBlock, slot, {})
+    if node.rpcServer != nil:
+      node.rpcServer.installRpcHandlers(node)
+      node.rpcServer.start()
 
-  installAttestationHandlers(node)
+    waitFor node.network.subscribe(node.topicBeaconBlocks) do (signedBlock: SignedBeaconBlock):
+      onBeaconBlock(node, signedBlock)
+    do (signedBlock: SignedBeaconBlock) -> bool:
+      let (afterGenesis, slot) = node.beaconClock.now.toSlot()
+      if not afterGenesis:
+        return false
+      node.blockPool.isValidBeaconBlock(signedBlock, slot, {})
 
-  let
-    t = node.beaconClock.now().toSlot()
-    curSlot = if t.afterGenesis: t.slot
-              else: GENESIS_SLOT
-    nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
-    fromNow = saturate(node.beaconClock.fromNow(nextSlot))
+    installAttestationHandlers(node)
 
-  info "Scheduling first slot action",
-    beaconTime = shortLog(node.beaconClock.now()),
-    nextSlot = shortLog(nextSlot),
-    fromNow = shortLog(fromNow),
-    cat = "scheduling"
+    let
+      t = node.beaconClock.now().toSlot()
+      curSlot = if t.afterGenesis: t.slot
+                else: GENESIS_SLOT
+      nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
+      fromNow = saturate(node.beaconClock.fromNow(nextSlot))
 
-  addTimer(fromNow) do (p: pointer):
-    asyncCheck node.onSlotStart(curSlot, nextSlot)
+    info "Scheduling first slot action",
+      beaconTime = shortLog(node.beaconClock.now()),
+      nextSlot = shortLog(nextSlot),
+      fromNow = shortLog(fromNow),
+      cat = "scheduling"
 
-  let second = Moment.now() + chronos.seconds(1)
-  discard setTimer(second) do (p: pointer):
-    asyncCheck node.onSecond(second)
+    addTimer(fromNow) do (p: pointer):
+      asyncCheck node.onSlotStart(curSlot, nextSlot)
 
-  node.syncLoop = runSyncLoop(node)
+    let second = Moment.now() + chronos.seconds(1)
+    discard setTimer(second) do (p: pointer):
+      asyncCheck node.onSecond(second)
 
-  runForever()
+    node.syncLoop = runSyncLoop(node)
+
+  # main event loop
+  while status == BeaconNodeStatus.Running:
+    try:
+      poll()
+    except CatchableError as e:
+      debug "Exception in poll()", exc = e.name, err = e.msg
+
+  # time to say goodbye
+  node.stop()
 
 var gPidFile: string
 proc createPidFile(filename: string) =
@@ -955,15 +979,6 @@ programMain:
     stderr.write "Invalid value for --log-level. " & err.msg
     quit 1
 
-  ## Ctrl+C handling
-  proc controlCHandler() {.noconv.} =
-    when defined(windows):
-      # workaround for https://github.com/nim-lang/Nim/issues/4057
-      setupForeignThreadGc()
-    debug "Shutting down after having received SIGINT"
-    quit(QuitFailure)
-  setControlCHook(controlCHandler)
-
   case config.cmd
   of createTestnet:
     var deposits: seq[Deposit]
@@ -1043,6 +1058,16 @@ programMain:
     createPidFile(config.dataDir.string / "beacon_node.pid")
 
     var node = waitFor BeaconNode.init(config)
+
+    ## Ctrl+C handling
+    proc controlCHandler() {.noconv.} =
+      when defined(windows):
+        # workaround for https://github.com/nim-lang/Nim/issues/4057
+        setupForeignThreadGc()
+      info "Shutting down after having received SIGINT"
+      status = BeaconNodeStatus.Stopping
+    setControlCHook(controlCHandler)
+
     when hasPrompt:
       initPrompt(node)
 

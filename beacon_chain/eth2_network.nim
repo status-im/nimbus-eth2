@@ -718,6 +718,13 @@ proc start*(node: Eth2Node) {.async.} =
   node.discoveryLoop = node.runDiscoveryLoop()
   traceAsyncErrors node.discoveryLoop
 
+proc stop*(node: Eth2Node) {.async.} =
+  # ignore errors in futures, since we're shutting down
+  await allFutures(@[
+    node.discovery.closeWait(),
+    node.switch.stop(),
+    ])
+
 proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer =
   new result
   result.info = info
