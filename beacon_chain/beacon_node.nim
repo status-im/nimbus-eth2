@@ -36,6 +36,13 @@ type
   RpcServer* = RpcHttpServer
   KeyPair = eth2_network.KeyPair
 
+  # "state" is already taken by BeaconState
+  BeaconNodeStatus* = enum
+    Starting, Running, Stopping
+
+# this needs to be global, so it can be set in the Ctrl+C signal handler
+var status = BeaconNodeStatus.Starting
+
 template init(T: type RpcHttpServer, ip: IpAddress, port: Port): T =
   newRpcHttpServer([initTAddress(ip, port)])
 
@@ -216,7 +223,6 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     forkDigest: enrForkId.forkDigest,
     topicBeaconBlocks: topicBeaconBlocks,
     topicAggregateAndProofs: topicAggregateAndProofs,
-    status: BeaconNodeStatus.Starting,
   )
 
   # TODO sync is called when a remote peer is connected - is that the right
@@ -710,14 +716,14 @@ proc installAttestationHandlers(node: BeaconNode) =
   waitFor allFutures(attestationSubscriptions)
 
 proc stop*(node: BeaconNode) =
-  node.status = BeaconNodeStatus.Stopping
+  status = BeaconNodeStatus.Stopping
   info "Graceful shutdown"
   waitFor node.network.stop()
 
 proc run*(node: BeaconNode) =
-  if node.status == BeaconNodeStatus.Starting:
+  if status == BeaconNodeStatus.Starting:
     # it might have been set to "Stopping" with Ctrl+C
-    node.status = BeaconNodeStatus.Running
+    status = BeaconNodeStatus.Running
 
     if node.rpcServer != nil:
       node.rpcServer.installRpcHandlers(node)
@@ -756,7 +762,7 @@ proc run*(node: BeaconNode) =
     node.syncLoop = runSyncLoop(node)
 
   # main event loop
-  while node.status == BeaconNodeStatus.Running:
+  while status == BeaconNodeStatus.Running:
     try:
       poll()
     except CatchableError as e:
@@ -929,37 +935,37 @@ when hasPrompt:
       # var t: Thread[ptr Prompt]
       # createThread(t, processPromptCommands, addr p)
 
-# programMain
-let
-  banner = clientId & "\p" & copyrights & "\p\p" & nimBanner
-  config = BeaconNodeConf.load(version = banner, copyrightBanner = banner)
+programMain:
+  let
+    banner = clientId & "\p" & copyrights & "\p\p" & nimBanner
+    config = BeaconNodeConf.load(version = banner, copyrightBanner = banner)
 
-when compiles(defaultChroniclesStream.output.writer):
-  defaultChroniclesStream.output.writer =
-    proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe, raises: [Defect].} =
-      try:
-        stdout.write(msg)
-      except IOError as err:
-        logLoggingFailure(cstring(msg), err)
+  when compiles(defaultChroniclesStream.output.writer):
+    defaultChroniclesStream.output.writer =
+      proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe, raises: [Defect].} =
+        try:
+          stdout.write(msg)
+        except IOError as err:
+          logLoggingFailure(cstring(msg), err)
 
-randomize()
+  randomize()
 
-try:
-  let directives = config.logLevel.split(";")
   try:
-    setLogLevel(parseEnum[LogLevel](directives[0]))
-  except ValueError:
-    raise (ref ValueError)(msg: "Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL")
+    let directives = config.logLevel.split(";")
+    try:
+      setLogLevel(parseEnum[LogLevel](directives[0]))
+    except ValueError:
+      raise (ref ValueError)(msg: "Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL")
 
-  if directives.len > 1:
-    for topicName, settings in parseTopicDirectives(directives[1..^1]):
-      if not setTopicState(topicName, settings.state, settings.logLevel):
-        warn "Unrecognized logging topic", topic = topicName
-except ValueError as err:
-  stderr.write "Invalid value for --log-level. " & err.msg
-  quit 1
+    if directives.len > 1:
+      for topicName, settings in parseTopicDirectives(directives[1..^1]):
+        if not setTopicState(topicName, settings.state, settings.logLevel):
+          warn "Unrecognized logging topic", topic = topicName
+  except ValueError as err:
+    stderr.write "Invalid value for --log-level. " & err.msg
+    quit 1
 
-case config.cmd:
+  case config.cmd
   of createTestnet:
     var deposits: seq[Deposit]
     for i in config.firstValidator.int ..< config.totalValidators.int:
@@ -1037,8 +1043,6 @@ case config.cmd:
 
     createPidFile(config.dataDir.string / "beacon_node.pid")
 
-    # `controlCHandler()` needs `node` to be a global variable, so we can't put it
-    # in a Nim block that has C-like scoping rules
     var node = waitFor BeaconNode.init(config)
 
     ## Ctrl+C handling
@@ -1047,7 +1051,7 @@ case config.cmd:
         # workaround for https://github.com/nim-lang/Nim/issues/4057
         setupForeignThreadGc()
       info "Shutting down after having received SIGINT"
-      node.status = BeaconNodeStatus.Stopping
+      status = BeaconNodeStatus.Stopping
     setControlCHook(controlCHandler)
 
     when hasPrompt:
@@ -1084,8 +1088,7 @@ case config.cmd:
       var delayGenerator: DelayGenerator
       if config.maxDelay > 0.0:
         delayGenerator = proc (): chronos.Duration {.gcsafe.} =
-          {.gcsafe.}:
-            chronos.milliseconds (rand(config.minDelay..config.maxDelay)*1000).int
+          chronos.milliseconds (rand(config.minDelay..config.maxDelay)*1000).int
 
       info "Sending deposits",
         web3 = config.web3Url,
