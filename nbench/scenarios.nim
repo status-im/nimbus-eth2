@@ -168,7 +168,8 @@ proc runProcessSlots*(dir, preState: string, numSlots: uint64) =
   )
   state.root = hash_tree_root(state.data)
 
-  process_slots(state[], state.data.slot + numSlots)
+  # Shouldn't necessarily assert, because nbench can run test suite
+  discard process_slots(state[], state.data.slot + numSlots)
 
 template processEpochScenarioImpl(
            dir, preState: string,
