@@ -15,25 +15,25 @@ import
   block_pools_types
 
 declareCounter beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # On fork choice
-declareCounter beacon_state_data_cache_hits, "hotDB.cachedStates hits"
-declareCounter beacon_state_data_cache_misses, "hotDB.cachedStates misses"
+declareCounter beacon_state_data_cache_hits, "dag.cachedStates hits"
+declareCounter beacon_state_data_cache_misses, "dag.cachedStates misses"
 
 logScope: topics = "hotdb"
 
-proc putBlock*(hotDB: var HotDB, blockRoot: Eth2Digest, signedBlock: SignedBeaconBlock) {.inline.} =
-  hotDB.db.putBlock(blockRoot, signedBlock)
+proc putBlock*(dag: var CandidateChains, blockRoot: Eth2Digest, signedBlock: SignedBeaconBlock) {.inline.} =
+  dag.db.putBlock(blockRoot, signedBlock)
 
 proc updateStateData*(
-  hotDB: HotDB, state: var StateData, bs: BlockSlot) {.gcsafe.}
+  dag: CandidateChains, state: var StateData, bs: BlockSlot) {.gcsafe.}
 
 template withState*(
-    hotDB: HotDB, cache: var StateData, blockSlot: BlockSlot, body: untyped): untyped =
+    dag: CandidateChains, cache: var StateData, blockSlot: BlockSlot, body: untyped): untyped =
   ## Helper template that updates state to a particular BlockSlot - usage of
   ## cache is unsafe outside of block.
   ## TODO async transformations will lead to a race where cache gets updated
   ##      while waiting for future to complete - catch this here somehow?
 
-  updateStateData(hotDB, cache, blockSlot)
+  updateStateData(dag, cache, blockSlot)
 
   template hashedState(): HashedBeaconState {.inject, used.} = cache.data
   template state(): BeaconState {.inject, used.} = cache.data.data
@@ -142,8 +142,8 @@ func init*(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
 func init*(T: type BlockRef, root: Eth2Digest, blck: BeaconBlock): BlockRef =
   BlockRef.init(root, blck.slot)
 
-proc init*(T: type HotDB, db: BeaconChainDB,
-    updateFlags: UpdateFlags = {}): HotDB =
+proc init*(T: type CandidateChains, db: BeaconChainDB,
+    updateFlags: UpdateFlags = {}): CandidateChains =
   # TODO we require that the db contains both a head and a tail block -
   #      asserting here doesn't seem like the right way to go about it however..
 
@@ -182,7 +182,7 @@ proc init*(T: type HotDB, db: BeaconChainDB,
         link(newRef, curRef)
         curRef = curRef.parent
       blocks[curRef.root] = curRef
-      trace "Populating block hotDB", key = curRef.root, val = curRef
+      trace "Populating block dag", key = curRef.root, val = curRef
 
     doAssert curRef == tailRef,
       "head block does not lead to tail, database corrupt?"
@@ -231,7 +231,7 @@ proc init*(T: type HotDB, db: BeaconChainDB,
   doAssert justifiedHead.slot >= finalizedHead.slot,
     "justified head comes before finalized head - database corrupt?"
 
-  let res = HotDB(
+  let res = CandidateChains(
     blocks: blocks,
     tail: tailRef,
     head: head,
@@ -252,18 +252,18 @@ proc init*(T: type HotDB, db: BeaconChainDB,
   res.updateStateData(res.justifiedState, justifiedHead)
   res.updateStateData(res.headState, headRef.atSlot(headRef.slot))
 
-  info "Block hotDB initialized",
+  info "Block dag initialized",
     head = head.blck, justifiedHead, finalizedHead, tail = tailRef,
     totalBlocks = blocks.len
 
   res
 
 proc getState(
-    hotDB: HotDB, db: BeaconChainDB, stateRoot: Eth2Digest, blck: BlockRef,
+    dag: CandidateChains, db: BeaconChainDB, stateRoot: Eth2Digest, blck: BlockRef,
     output: var StateData): bool =
   let outputAddr = unsafeAddr output # local scope
   func restore(v: var BeaconState) =
-    if outputAddr == (unsafeAddr hotDB.headState):
+    if outputAddr == (unsafeAddr dag.headState):
       # TODO seeing the headState in the restore shouldn't happen - we load
       #      head states only when updating the head position, and by that time
       #      the database will have gone through enough sanity checks that
@@ -271,7 +271,7 @@ proc getState(
       #      Nonetheless, this is an ugly workaround that needs to go away
       doAssert false, "Cannot alias headState"
 
-    outputAddr[] = hotDB.headState
+    outputAddr[] = dag.headState
 
   if not db.getState(stateRoot, output.data.data, restore):
     return false
@@ -281,15 +281,15 @@ proc getState(
 
   true
 
-func getStateCacheIndex(hotDB: HotDB, blockRoot: Eth2Digest, slot: Slot): int =
-  for i, cachedState in hotDB.cachedStates:
+func getStateCacheIndex(dag: CandidateChains, blockRoot: Eth2Digest, slot: Slot): int =
+  for i, cachedState in dag.cachedStates:
     let (cacheBlockRoot, cacheSlot, state) = cachedState
     if cacheBlockRoot == blockRoot and cacheSlot == slot:
       return i
 
   -1
 
-proc putState*(hotDB: HotDB, state: HashedBeaconState, blck: BlockRef) =
+proc putState*(dag: CandidateChains, state: HashedBeaconState, blck: BlockRef) =
   # TODO we save state at every epoch start but never remove them - we also
   #      potentially save multiple states per slot if reorgs happen, meaning
   #      we could easily see a state explosion
@@ -300,19 +300,19 @@ proc putState*(hotDB: HotDB, state: HashedBeaconState, blck: BlockRef) =
     # This is a state that was produced by a skip slot for which there is no
     # block - we'll save the state root in the database in case we need to
     # replay the skip
-    hotDB.db.putStateRoot(blck.root, state.data.slot, state.root)
+    dag.db.putStateRoot(blck.root, state.data.slot, state.root)
     rootWritten = true
 
   if state.data.slot.isEpoch:
-    if not hotDB.db.containsState(state.root):
+    if not dag.db.containsState(state.root):
       info "Storing state",
         blck = shortLog(blck),
         stateSlot = shortLog(state.data.slot),
         stateRoot = shortLog(state.root),
         cat = "caching"
-      hotDB.db.putState(state.root, state.data)
+      dag.db.putState(state.root, state.data)
       if not rootWritten:
-        hotDB.db.putStateRoot(blck.root, state.data.slot, state.root)
+        dag.db.putStateRoot(blck.root, state.data.slot, state.root)
 
   # Need to be able to efficiently access states for both attestation
   # aggregation and to process block proposals going back to the last
@@ -332,24 +332,24 @@ proc putState*(hotDB: HotDB, state: HashedBeaconState, blck: BlockRef) =
   # with the concomitant memory allocator and GC load. Instead, use a
   # more memory-intensive (but more conceptually straightforward, and
   # faster) strategy to just store, for the most recent slots.
-  let stateCacheIndex = hotDB.getStateCacheIndex(blck.root, state.data.slot)
+  let stateCacheIndex = dag.getStateCacheIndex(blck.root, state.data.slot)
   if stateCacheIndex == -1:
     # Could use a deque or similar, but want simpler structure, and the data
     # items are small and few.
     const MAX_CACHE_SIZE = 32
-    insert(hotDB.cachedStates, (blck.root, state.data.slot, newClone(state)))
-    while hotDB.cachedStates.len > MAX_CACHE_SIZE:
-      discard hotDB.cachedStates.pop()
-    let cacheLen = hotDB.cachedStates.len
-    trace "HotDB.putState(): state cache updated", cacheLen
+    insert(dag.cachedStates, (blck.root, state.data.slot, newClone(state)))
+    while dag.cachedStates.len > MAX_CACHE_SIZE:
+      discard dag.cachedStates.pop()
+    let cacheLen = dag.cachedStates.len
+    trace "CandidateChains.putState(): state cache updated", cacheLen
     doAssert cacheLen > 0 and cacheLen <= MAX_CACHE_SIZE
 
-func getRef*(hotDB: HotDB, root: Eth2Digest): BlockRef =
+func getRef*(dag: CandidateChains, root: Eth2Digest): BlockRef =
   ## Retrieve a resolved block reference, if available
-  hotDB.blocks.getOrDefault(root, nil)
+  dag.blocks.getOrDefault(root, nil)
 
 func getBlockRange*(
-    hotDB: HotDB, startSlot: Slot, skipStep: Natural,
+    dag: CandidateChains, startSlot: Slot, skipStep: Natural,
     output: var openArray[BlockRef]): Natural =
   ## This function populates an `output` buffer of blocks
   ## with a slots ranging from `startSlot` up to, but not including,
@@ -364,14 +364,14 @@ func getBlockRange*(
   ## If there were no blocks in the range, `output.len` will be returned.
   let count = output.len
   trace "getBlockRange entered",
-    head = shortLog(hotDB.head.blck.root), count, startSlot, skipStep
+    head = shortLog(dag.head.blck.root), count, startSlot, skipStep
 
   let
     skipStep = max(1, skipStep) # Treat 0 step as 1
     endSlot = startSlot + uint64(count * skipStep)
 
   var
-    b = hotDB.head.blck.atSlot(endSlot)
+    b = dag.head.blck.atSlot(endSlot)
     o = count
   for i in 0..<count:
     for j in 0..<skipStep:
@@ -386,73 +386,73 @@ func getBlockRange*(
 
   o # Return the index of the first non-nil item in the output
 
-func getBlockBySlot*(hotDB: HotDB, slot: Slot): BlockRef =
+func getBlockBySlot*(dag: CandidateChains, slot: Slot): BlockRef =
   ## Retrieves the first block in the current canonical chain
   ## with slot number less or equal to `slot`.
-  hotDB.head.blck.atSlot(slot).blck
+  dag.head.blck.atSlot(slot).blck
 
-func getBlockByPreciseSlot*(hotDB: HotDB, slot: Slot): BlockRef =
+func getBlockByPreciseSlot*(dag: CandidateChains, slot: Slot): BlockRef =
   ## Retrieves a block from the canonical chain with a slot
   ## number equal to `slot`.
-  let found = hotDB.getBlockBySlot(slot)
+  let found = dag.getBlockBySlot(slot)
   if found.slot != slot: found else: nil
 
-proc get*(hotDB: HotDB, blck: BlockRef): BlockData =
+proc get*(dag: CandidateChains, blck: BlockRef): BlockData =
   ## Retrieve the associated block body of a block reference
   doAssert (not blck.isNil), "Trying to get nil BlockRef"
 
-  let data = hotDB.db.getBlock(blck.root)
+  let data = dag.db.getBlock(blck.root)
   doAssert data.isSome, "BlockRef without backing data, database corrupt?"
 
   BlockData(data: data.get(), refs: blck)
 
-proc get*(hotDB: HotDB, root: Eth2Digest): Option[BlockData] =
+proc get*(dag: CandidateChains, root: Eth2Digest): Option[BlockData] =
   ## Retrieve a resolved block reference and its associated body, if available
-  let refs = hotDB.getRef(root)
+  let refs = dag.getRef(root)
 
   if not refs.isNil:
-    some(hotDB.get(refs))
+    some(dag.get(refs))
   else:
     none(BlockData)
 
 proc skipAndUpdateState(
-    hotDB: HotDB,
+    dag: CandidateChains,
     state: var HashedBeaconState, blck: BlockRef, slot: Slot, save: bool) =
   while state.data.slot < slot:
     # Process slots one at a time in case afterUpdate needs to see empty states
     # TODO when replaying, we already do this query when loading the ancestors -
     #      save and reuse
     # TODO possibly we should keep this in memory for the hot blocks
-    let nextStateRoot = hotDB.db.getStateRoot(blck.root, state.data.slot + 1)
-    advance_slot(state, nextStateRoot, hotDB.updateFlags)
+    let nextStateRoot = dag.db.getStateRoot(blck.root, state.data.slot + 1)
+    advance_slot(state, nextStateRoot, dag.updateFlags)
 
     if save:
-      hotDB.putState(state, blck)
+      dag.putState(state, blck)
 
 proc skipAndUpdateState(
-    hotDB: HotDB,
+    dag: CandidateChains,
     state: var StateData, blck: BlockData, flags: UpdateFlags, save: bool): bool =
 
-  hotDB.skipAndUpdateState(
+  dag.skipAndUpdateState(
     state.data, blck.refs, blck.data.message.slot - 1, save)
 
   var statePtr = unsafeAddr state # safe because `restore` is locally scoped
   func restore(v: var HashedBeaconState) =
     doAssert (addr(statePtr.data) == addr v)
-    statePtr[] = hotDB.headState
+    statePtr[] = dag.headState
 
   let ok = state_transition(
-    state.data, blck.data, flags + hotDB.updateFlags, restore)
+    state.data, blck.data, flags + dag.updateFlags, restore)
   if ok and save:
-    hotDB.putState(state.data, blck.refs)
+    dag.putState(state.data, blck.refs)
 
   ok
 
-proc rewindState(hotDB: HotDB, state: var StateData, bs: BlockSlot):
+proc rewindState(dag: CandidateChains, state: var StateData, bs: BlockSlot):
     seq[BlockData] =
   logScope: pcs = "replay_state"
 
-  var ancestors = @[hotDB.get(bs.blck)]
+  var ancestors = @[dag.get(bs.blck)]
   # Common case: the last block applied is the parent of the block to apply:
   if not bs.blck.parent.isNil and state.blck.root == bs.blck.parent.root and
       state.data.data.slot < bs.blck.slot:
@@ -465,8 +465,8 @@ proc rewindState(hotDB: HotDB, state: var StateData, bs: BlockSlot):
   # in the database.
   var
     stateRoot = block:
-      let tmp = hotDB.db.getStateRoot(bs.blck.root, bs.slot)
-      if tmp.isSome() and hotDB.db.containsState(tmp.get()):
+      let tmp = dag.db.getStateRoot(bs.blck.root, bs.slot)
+      if tmp.isSome() and dag.db.containsState(tmp.get()):
         tmp
       else:
         # State roots are sometimes kept in database even though state is not
@@ -479,14 +479,14 @@ proc rewindState(hotDB: HotDB, state: var StateData, bs: BlockSlot):
       break # Bug probably!
 
     if parBs.blck != curBs.blck:
-      ancestors.add(hotDB.get(parBs.blck))
+      ancestors.add(dag.get(parBs.blck))
 
     # TODO investigate replacing with getStateCached, by refactoring whole
     # function. Empirically, this becomes pretty rare once good caches are
     # used in the front-end.
-    let idx = hotDB.getStateCacheIndex(parBs.blck.root, parBs.slot)
+    let idx = dag.getStateCacheIndex(parBs.blck.root, parBs.slot)
     if idx >= 0:
-      state.data = hotDB.cachedStates[idx].state[]
+      state.data = dag.cachedStates[idx].state[]
       let ancestor = ancestors.pop()
       state.blck = ancestor.refs
 
@@ -503,8 +503,8 @@ proc rewindState(hotDB: HotDB, state: var StateData, bs: BlockSlot):
       return ancestors
 
     beacon_state_data_cache_misses.inc()
-    if (let tmp = hotDB.db.getStateRoot(parBs.blck.root, parBs.slot); tmp.isSome()):
-      if hotDB.db.containsState(tmp.get):
+    if (let tmp = dag.db.getStateRoot(parBs.blck.root, parBs.slot); tmp.isSome()):
+      if dag.db.containsState(tmp.get):
         stateRoot = tmp
         break
 
@@ -525,7 +525,7 @@ proc rewindState(hotDB: HotDB, state: var StateData, bs: BlockSlot):
   let
     ancestor = ancestors.pop()
     root = stateRoot.get()
-    found = hotDB.getState(hotDB.db, root, ancestor.refs, state)
+    found = dag.getState(dag.db, root, ancestor.refs, state)
 
   if not found:
     # TODO this should only happen if the database is corrupt - we walked the
@@ -550,7 +550,7 @@ proc rewindState(hotDB: HotDB, state: var StateData, bs: BlockSlot):
 
   ancestors
 
-proc getStateDataCached(hotDB: HotDB, state: var StateData, bs: BlockSlot): bool =
+proc getStateDataCached(dag: CandidateChains, state: var StateData, bs: BlockSlot): bool =
   # This pointedly does not run rewindState or state_transition, but otherwise
   # mostly matches updateStateData(...), because it's too expensive to run the
   # rewindState(...)/skipAndUpdateState(...)/state_transition(...) procs, when
@@ -560,9 +560,9 @@ proc getStateDataCached(hotDB: HotDB, state: var StateData, bs: BlockSlot): bool
     # any given use case.
     doAssert state.data.data.slot <= bs.slot + 4
 
-  let idx = hotDB.getStateCacheIndex(bs.blck.root, bs.slot)
+  let idx = dag.getStateCacheIndex(bs.blck.root, bs.slot)
   if idx >= 0:
-    state.data = hotDB.cachedStates[idx].state[]
+    state.data = dag.cachedStates[idx].state[]
     state.blck = bs.blck
     beacon_state_data_cache_hits.inc()
     return true
@@ -570,12 +570,12 @@ proc getStateDataCached(hotDB: HotDB, state: var StateData, bs: BlockSlot): bool
   # In-memory caches didn't hit. Try main blockpool database. This is slower
   # than the caches due to SSZ (de)serializing and disk I/O, so prefer them.
   beacon_state_data_cache_misses.inc()
-  if (let tmp = hotDB.db.getStateRoot(bs.blck.root, bs.slot); tmp.isSome()):
-    return hotDB.getState(hotDB.db, tmp.get(), bs.blck, state)
+  if (let tmp = dag.db.getStateRoot(bs.blck.root, bs.slot); tmp.isSome()):
+    return dag.getState(dag.db, tmp.get(), bs.blck, state)
 
   false
 
-proc updateStateData*(hotDB: HotDB, state: var StateData, bs: BlockSlot) =
+proc updateStateData*(dag: CandidateChains, state: var StateData, bs: BlockSlot) =
   ## Rewind or advance state such that it matches the given block and slot -
   ## this may include replaying from an earlier snapshot if blck is on a
   ## different branch or has advanced to a higher slot number than slot
@@ -587,14 +587,14 @@ proc updateStateData*(hotDB: HotDB, state: var StateData, bs: BlockSlot) =
   if state.blck.root == bs.blck.root and state.data.data.slot <= bs.slot:
     if state.data.data.slot != bs.slot:
       # Might be that we're moving to the same block but later slot
-      hotDB.skipAndUpdateState(state.data, bs.blck, bs.slot, true)
+      dag.skipAndUpdateState(state.data, bs.blck, bs.slot, true)
 
     return # State already at the right spot
 
-  if hotDB.getStateDataCached(state, bs):
+  if dag.getStateDataCached(state, bs):
     return
 
-  let ancestors = rewindState(hotDB, state, bs)
+  let ancestors = rewindState(dag, state, bs)
 
   # If we come this far, we found the state root. The last block on the stack
   # is the one that produced this particular state, so we can pop it
@@ -612,7 +612,7 @@ proc updateStateData*(hotDB: HotDB, state: var StateData, bs: BlockSlot) =
     # no state root calculation will take place here, because we can load
     # the final state root from the block itself.
     let ok =
-      hotDB.skipAndUpdateState(
+      dag.skipAndUpdateState(
         state, ancestors[i],
         {skipBlsValidation, skipMerkleValidation, skipStateRootValidation},
         false)
@@ -620,23 +620,23 @@ proc updateStateData*(hotDB: HotDB, state: var StateData, bs: BlockSlot) =
 
   # We save states here - blocks were guaranteed to have passed through the save
   # function once at least, but not so for empty slots!
-  hotDB.skipAndUpdateState(state.data, bs.blck, bs.slot, true)
+  dag.skipAndUpdateState(state.data, bs.blck, bs.slot, true)
 
   state.blck = bs.blck
 
-proc loadTailState*(hotDB: HotDB): StateData =
-  ## Load the state associated with the current tail in the hotDB
-  let stateRoot = hotDB.db.getBlock(hotDB.tail.root).get().message.state_root
-  let found = hotDB.getState(hotDB.db, stateRoot, hotDB.tail, result)
+proc loadTailState*(dag: CandidateChains): StateData =
+  ## Load the state associated with the current tail in the dag
+  let stateRoot = dag.db.getBlock(dag.tail.root).get().message.state_root
+  let found = dag.getState(dag.db, stateRoot, dag.tail, result)
   # TODO turn into regular error, this can happen
   doAssert found, "Failed to load tail state, database corrupt?"
 
-proc delState(hotDB: HotDB, bs: BlockSlot) =
+proc delState(dag: CandidateChains, bs: BlockSlot) =
   # Delete state state and mapping for a particular block+slot
-  if (let root = hotDB.db.getStateRoot(bs.blck.root, bs.slot); root.isSome()):
-    hotDB.db.delState(root.get())
+  if (let root = dag.db.getStateRoot(bs.blck.root, bs.slot); root.isSome()):
+    dag.db.delState(root.get())
 
-proc updateHead*(hotDB: HotDB, newHead: BlockRef) =
+proc updateHead*(dag: CandidateChains, newHead: BlockRef) =
   ## Update what we consider to be the current head, as given by the fork
   ## choice.
   ## The choice of head affects the choice of finalization point - the order
@@ -646,7 +646,7 @@ proc updateHead*(hotDB: HotDB, newHead: BlockRef) =
   doAssert newHead.parent != nil or newHead.slot == 0
   logScope: pcs = "fork_choice"
 
-  if hotDB.head.blck == newHead:
+  if dag.head.blck == newHead:
     info "No head block update",
       head = shortLog(newHead),
       cat = "fork_choice"
@@ -654,49 +654,49 @@ proc updateHead*(hotDB: HotDB, newHead: BlockRef) =
     return
 
   let
-    lastHead = hotDB.head
-  hotDB.db.putHeadBlock(newHead.root)
+    lastHead = dag.head
+  dag.db.putHeadBlock(newHead.root)
 
   # Start off by making sure we have the right state
   updateStateData(
-    hotDB, hotDB.headState, BlockSlot(blck: newHead, slot: newHead.slot))
+    dag, dag.headState, BlockSlot(blck: newHead, slot: newHead.slot))
 
   let
-    justifiedSlot = hotDB.headState.data.data
+    justifiedSlot = dag.headState.data.data
                       .current_justified_checkpoint
                       .epoch
                       .compute_start_slot_at_epoch()
     justifiedBS = newHead.atSlot(justifiedSlot)
 
-  hotDB.head = Head(blck: newHead, justified: justifiedBS)
-  updateStateData(hotDB, hotDB.justifiedState, justifiedBS)
+  dag.head = Head(blck: newHead, justified: justifiedBS)
+  updateStateData(dag, dag.justifiedState, justifiedBS)
 
   # TODO isAncestorOf may be expensive - too expensive?
   if not lastHead.blck.isAncestorOf(newHead):
     info "Updated head block (new parent)",
       lastHead = shortLog(lastHead.blck),
       headParent = shortLog(newHead.parent),
-      stateRoot = shortLog(hotDB.headState.data.root),
-      headBlock = shortLog(hotDB.headState.blck),
-      stateSlot = shortLog(hotDB.headState.data.data.slot),
-      justifiedEpoch = shortLog(hotDB.headState.data.data.current_justified_checkpoint.epoch),
-      finalizedEpoch = shortLog(hotDB.headState.data.data.finalized_checkpoint.epoch),
+      stateRoot = shortLog(dag.headState.data.root),
+      headBlock = shortLog(dag.headState.blck),
+      stateSlot = shortLog(dag.headState.data.data.slot),
+      justifiedEpoch = shortLog(dag.headState.data.data.current_justified_checkpoint.epoch),
+      finalizedEpoch = shortLog(dag.headState.data.data.finalized_checkpoint.epoch),
       cat = "fork_choice"
 
     # A reasonable criterion for "reorganizations of the chain"
     beacon_reorgs_total.inc()
   else:
     info "Updated head block",
-      stateRoot = shortLog(hotDB.headState.data.root),
-      headBlock = shortLog(hotDB.headState.blck),
-      stateSlot = shortLog(hotDB.headState.data.data.slot),
-      justifiedEpoch = shortLog(hotDB.headState.data.data.current_justified_checkpoint.epoch),
-      finalizedEpoch = shortLog(hotDB.headState.data.data.finalized_checkpoint.epoch),
+      stateRoot = shortLog(dag.headState.data.root),
+      headBlock = shortLog(dag.headState.blck),
+      stateSlot = shortLog(dag.headState.data.data.slot),
+      justifiedEpoch = shortLog(dag.headState.data.data.current_justified_checkpoint.epoch),
+      finalizedEpoch = shortLog(dag.headState.data.data.finalized_checkpoint.epoch),
       cat = "fork_choice"
 
   let
     finalizedEpochStartSlot =
-      hotDB.headState.data.data.finalized_checkpoint.epoch.
+      dag.headState.data.data.finalized_checkpoint.epoch.
       compute_start_slot_at_epoch()
     # TODO there might not be a block at the epoch boundary - what then?
     finalizedHead = newHead.atSlot(finalizedEpochStartSlot)
@@ -704,24 +704,24 @@ proc updateHead*(hotDB: HotDB, newHead: BlockRef) =
   doAssert (not finalizedHead.blck.isNil),
     "Block graph should always lead to a finalized block"
 
-  if finalizedHead != hotDB.finalizedHead:
+  if finalizedHead != dag.finalizedHead:
     block: # Remove states, walking slot by slot
       discard
       # TODO this is very aggressive - in theory all our operations start at
       #      the finalized block so all states before that can be wiped..
       # TODO this is disabled for now because the logic for initializing the
-      #      block hotDB and potentially a few other places depend on certain
+      #      block dag and potentially a few other places depend on certain
       #      states (like the tail state) being present. It's also problematic
       #      because it is not clear what happens when tail and finalized states
       #      happen on an empty slot..
       # var cur = finalizedHead
-      # while cur != hotDB.finalizedHead:
+      # while cur != dag.finalizedHead:
       #  cur = cur.parent
-      #  hotDB.delState(cur)
+      #  dag.delState(cur)
 
     block: # Clean up block refs, walking block by block
       var cur = finalizedHead.blck
-      while cur != hotDB.finalizedHead.blck:
+      while cur != dag.finalizedHead.blck:
         # Finalization means that we choose a single chain as the canonical one -
         # it also means we're no longer interested in any branches from that chain
         # up to the finalization point.
@@ -736,48 +736,48 @@ proc updateHead*(hotDB: HotDB, newHead: BlockRef) =
             if child != cur:
               # TODO also remove states associated with the unviable forks!
               # TODO the easiest thing to do here would probably be to use
-              #      hotDB.heads to find unviable heads, then walk those chains
+              #      dag.heads to find unviable heads, then walk those chains
               #      and remove everything.. currently, if there's a child with
               #      children of its own, those children will not be pruned
               #      correctly from the database
-              hotDB.blocks.del(child.root)
-              hotDB.db.delBlock(child.root)
+              dag.blocks.del(child.root)
+              dag.db.delBlock(child.root)
           cur.parent.children = @[cur]
 
-    hotDB.finalizedHead = finalizedHead
+    dag.finalizedHead = finalizedHead
 
-    let hlen = hotDB.heads.len
+    let hlen = dag.heads.len
     for i in 0..<hlen:
       let n = hlen - i - 1
-      if not hotDB.finalizedHead.blck.isAncestorOf(hotDB.heads[n].blck):
+      if not dag.finalizedHead.blck.isAncestorOf(dag.heads[n].blck):
         # Any heads that are not derived from the newly finalized block are no
         # longer viable candidates for future head selection
-        hotDB.heads.del(n)
+        dag.heads.del(n)
 
     info "Finalized block",
       finalizedHead = shortLog(finalizedHead),
       head = shortLog(newHead),
-      heads = hotDB.heads.len,
+      heads = dag.heads.len,
       cat = "fork_choice"
 
     # TODO prune everything before weak subjectivity period
 
-func latestJustifiedBlock*(hotDB: HotDB): BlockSlot =
+func latestJustifiedBlock*(dag: CandidateChains): BlockSlot =
   ## Return the most recent block that is justified and at least as recent
   ## as the latest finalized block
 
-  doAssert hotDB.heads.len > 0,
+  doAssert dag.heads.len > 0,
     "We should have at least the genesis block in heaads"
-  doAssert (not hotDB.head.blck.isNil()),
+  doAssert (not dag.head.blck.isNil()),
     "Genesis block will be head, if nothing else"
 
   # Prefer stability: use justified block from current head to break ties!
-  result = hotDB.head.justified
-  for head in hotDB.heads[1 ..< ^0]:
+  result = dag.head.justified
+  for head in dag.heads[1 ..< ^0]:
     if head.justified.slot > result.slot:
       result = head.justified
 
-proc isInitialized*(T: type HotDB, db: BeaconChainDB): bool =
+proc isInitialized*(T: type CandidateChains, db: BeaconChainDB): bool =
   let
     headBlockRoot = db.getHeadBlock()
     tailBlockRoot = db.getTailBlock()
@@ -798,9 +798,9 @@ proc isInitialized*(T: type HotDB, db: BeaconChainDB): bool =
   return true
 
 proc preInit*(
-    T: type HotDB, db: BeaconChainDB, state: BeaconState,
+    T: type CandidateChains, db: BeaconChainDB, state: BeaconState,
     signedBlock: SignedBeaconBlock) =
-  # write a genesis state, the way the HotDB expects it to be stored in
+  # write a genesis state, the way the CandidateChains expects it to be stored in
   # database
   # TODO probably should just init a blockpool with the freshly written
   #      state - but there's more refactoring needed to make it nice - doing
@@ -822,8 +822,8 @@ proc preInit*(
   db.putHeadBlock(blockRoot)
   db.putStateRoot(blockRoot, state.slot, signedBlock.message.state_root)
 
-proc getProposer*(hotDB: HotDB, head: BlockRef, slot: Slot): Option[ValidatorPubKey] =
-  hotDB.withState(hotDB.tmpState, head.atSlot(slot)):
+proc getProposer*(dag: CandidateChains, head: BlockRef, slot: Slot): Option[ValidatorPubKey] =
+  dag.withState(dag.tmpState, head.atSlot(slot)):
     var cache = get_empty_per_epoch_cache()
 
     # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#validator-assignments

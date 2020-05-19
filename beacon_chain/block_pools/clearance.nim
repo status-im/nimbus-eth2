@@ -11,7 +11,7 @@ import
   ../ssz, ../state_transition, ../extras,
   ../spec/[crypto, datatypes, digest, helpers],
 
-  block_pools_types, hot_db
+  block_pools_types, candidate_chains
 
 # Clearance
 # ---------------------------------------------
@@ -23,21 +23,21 @@ import
 logScope: topics = "clearblk"
 {.push raises: [Defect].}
 
-func getOrResolve*(hotDB: HotDB, quarantine: var Quarantine, root: Eth2Digest): BlockRef =
+func getOrResolve*(dag: CandidateChains, quarantine: var Quarantine, root: Eth2Digest): BlockRef =
   ## Fetch a block ref, or nil if not found (will be added to list of
   ## blocks-to-resolve)
-  result = hotDB.getRef(root)
+  result = dag.getRef(root)
 
   if result.isNil:
     quarantine.missing[root] = MissingBlock(slots: 1)
 
 proc add*(
-    hotDB: var HotDB, quarantine: var Quarantine,
+    dag: var CandidateChains, quarantine: var Quarantine,
     blockRoot: Eth2Digest,
     signedBlock: SignedBeaconBlock): BlockRef {.gcsafe.}
 
 proc addResolvedBlock(
-    hotDB: var HotDB, quarantine: var Quarantine,
+    dag: var CandidateChains, quarantine: var Quarantine,
     state: BeaconState, blockRoot: Eth2Digest,
     signedBlock: SignedBeaconBlock, parent: BlockRef): BlockRef =
   logScope: pcs = "block_resolution"
@@ -46,11 +46,11 @@ proc addResolvedBlock(
   let blockRef = BlockRef.init(blockRoot, signedBlock.message)
   link(parent, blockRef)
 
-  hotDB.blocks[blockRoot] = blockRef
-  trace "Populating block hotDB", key = blockRoot, val = blockRef
+  dag.blocks[blockRoot] = blockRef
+  trace "Populating block dag", key = blockRoot, val = blockRef
 
   # Resolved blocks should be stored in database
-  hotDB.putBlock(blockRoot, signedBlock)
+  dag.putBlock(blockRoot, signedBlock)
 
   # This block *might* have caused a justification - make sure we stow away
   # that information:
@@ -58,7 +58,7 @@ proc addResolvedBlock(
     state.current_justified_checkpoint.epoch.compute_start_slot_at_epoch()
 
   var foundHead: Option[Head]
-  for head in hotDB.heads.mitems():
+  for head in dag.heads.mitems():
     if head.blck.isAncestorOf(blockRef):
       if head.justified.slot != justifiedSlot:
         head.justified = blockRef.atSlot(justifiedSlot)
@@ -72,13 +72,13 @@ proc addResolvedBlock(
     foundHead = some(Head(
       blck: blockRef,
       justified: blockRef.atSlot(justifiedSlot)))
-    hotDB.heads.add(foundHead.get())
+    dag.heads.add(foundHead.get())
 
   info "Block resolved",
     blck = shortLog(signedBlock.message),
     blockRoot = shortLog(blockRoot),
     justifiedHead = foundHead.get().justified,
-    heads = hotDB.heads.len(),
+    heads = dag.heads.len(),
     cat = "filtering"
 
   # Now that we have the new block, we should see if any of the previously
@@ -87,7 +87,7 @@ proc addResolvedBlock(
   #      running out of stack etc
   # TODO This code is convoluted because when there are more than ~1.5k
   #      blocks being synced, there's a stack overflow as `add` gets called
-  #      for the whole chain of blocks. Instead we use this ugly field in `hotDB`
+  #      for the whole chain of blocks. Instead we use this ugly field in `dag`
   #      which could be avoided by refactoring the code
   if not quarantine.inAdd:
     quarantine.inAdd = true
@@ -96,14 +96,14 @@ proc addResolvedBlock(
     while keepGoing:
       let retries = quarantine.pending
       for k, v in retries:
-        discard add(hotDB, quarantine, k, v)
-      # Keep going for as long as the pending hotDB is shrinking
+        discard add(dag, quarantine, k, v)
+      # Keep going for as long as the pending dag is shrinking
       # TODO inefficient! so what?
       keepGoing = quarantine.pending.len < retries.len
   blockRef
 
 proc add*(
-    hotDB: var HotDB, quarantine: var Quarantine,
+    dag: var CandidateChains, quarantine: var Quarantine,
     blockRoot: Eth2Digest,
     signedBlock: SignedBeaconBlock): BlockRef {.gcsafe.} =
   ## return the block, if resolved...
@@ -116,7 +116,7 @@ proc add*(
   logScope: pcs = "block_addition"
 
   # Already seen this block??
-  hotDB.blocks.withValue(blockRoot, blockRef):
+  dag.blocks.withValue(blockRoot, blockRef):
     debug "Block already exists",
       blck = shortLog(blck),
       blockRoot = shortLog(blockRoot),
@@ -130,21 +130,21 @@ proc add*(
   # One way this can happen is that we start resolving a block and finalization
   # happens in the meantime - the block we requested will then be stale
   # by the time it gets here.
-  if blck.slot <= hotDB.finalizedHead.slot:
+  if blck.slot <= dag.finalizedHead.slot:
     debug "Old block, dropping",
       blck = shortLog(blck),
-      finalizedHead = shortLog(hotDB.finalizedHead),
-      tail = shortLog(hotDB.tail),
+      finalizedHead = shortLog(dag.finalizedHead),
+      tail = shortLog(dag.tail),
       blockRoot = shortLog(blockRoot),
       cat = "filtering"
 
     return
 
-  let parent = hotDB.blocks.getOrDefault(blck.parent_root)
+  let parent = dag.blocks.getOrDefault(blck.parent_root)
 
   if parent != nil:
     if parent.slot >= blck.slot:
-      # TODO Malicious block? inform peer hotDB?
+      # TODO Malicious block? inform peer dag?
       notice "Invalid block slot",
         blck = shortLog(blck),
         blockRoot = shortLog(blockRoot),
@@ -162,10 +162,10 @@ proc add*(
     # TODO if the block is from the future, we should not be resolving it (yet),
     #      but maybe we should use it as a hint that our clock is wrong?
     updateStateData(
-      hotDB, hotDB.tmpState, BlockSlot(blck: parent, slot: blck.slot - 1))
+      dag, dag.tmpState, BlockSlot(blck: parent, slot: blck.slot - 1))
 
     let
-      poolPtr = unsafeAddr hotDB # safe because restore is short-lived
+      poolPtr = unsafeAddr dag # safe because restore is short-lived
     func restore(v: var HashedBeaconState) =
       # TODO address this ugly workaround - there should probably be a
       #      `state_transition` that takes a `StateData` instead and updates
@@ -174,7 +174,7 @@ proc add*(
       poolPtr.tmpState = poolPtr.headState
 
     if not state_transition(
-        hotDB.tmpState.data, signedBlock, hotDB.updateFlags, restore):
+        dag.tmpState.data, signedBlock, dag.updateFlags, restore):
       # TODO find a better way to log all this block data
       notice "Invalid block",
         blck = shortLog(blck),
@@ -184,16 +184,16 @@ proc add*(
       return
     # Careful, tmpState.data has been updated but not blck - we need to create
     # the BlockRef first!
-    hotDB.tmpState.blck = addResolvedBlock(
-      hotDB, quarantine,
-      hotDB.tmpState.data.data, blockRoot, signedBlock, parent)
-    hotDB.putState(hotDB.tmpState.data, hotDB.tmpState.blck)
+    dag.tmpState.blck = addResolvedBlock(
+      dag, quarantine,
+      dag.tmpState.data.data, blockRoot, signedBlock, parent)
+    dag.putState(dag.tmpState.data, dag.tmpState.blck)
 
-    return hotDB.tmpState.blck
+    return dag.tmpState.blck
 
   # TODO already checked hash though? main reason to keep this is because
-  # the pending hotDB calls this function back later in a loop, so as long
-  # as hotDB.add(...) requires a SignedBeaconBlock, easier to keep them in
+  # the pending dag calls this function back later in a loop, so as long
+  # as dag.add(...) requires a SignedBeaconBlock, easier to keep them in
   # pending too.
   quarantine.pending[blockRoot] = signedBlock
 
@@ -223,8 +223,8 @@ proc add*(
   quarantine.missing[blck.parent_root] = MissingBlock(
     slots:
       # The block is at least two slots ahead - try to grab whole history
-      if parentSlot > hotDB.head.blck.slot:
-        parentSlot - hotDB.head.blck.slot
+      if parentSlot > dag.head.blck.slot:
+        parentSlot - dag.head.blck.slot
       else:
         # It's a sibling block from a branch that we're missing - fetch one
         # epoch at a time
@@ -241,7 +241,7 @@ proc add*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#global-topics
 proc isValidBeaconBlock*(
-       hotDB: HotDB, quarantine: var Quarantine,
+       dag: CandidateChains, quarantine: var Quarantine,
        signed_beacon_block: SignedBeaconBlock, current_slot: Slot,
        flags: UpdateFlags): bool =
   # In general, checks are ordered from cheap to expensive. Especially, crypto
@@ -261,7 +261,7 @@ proc isValidBeaconBlock*(
   # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. validate that
   # signed_beacon_block.message.slot >
   # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)
-  if not (signed_beacon_block.message.slot > hotDB.finalizedHead.slot):
+  if not (signed_beacon_block.message.slot > dag.finalizedHead.slot):
     debug "isValidBeaconBlock: block is not from a slot greater than the latest finalized slot"
     return false
 
@@ -292,10 +292,10 @@ proc isValidBeaconBlock*(
   # blocks at a given slot (though, in theory, those get checked elsewhere), or
   # adding metrics that count how often these conditions occur.
   let
-    slotBlockRef = getBlockBySlot(hotDB, signed_beacon_block.message.slot)
+    slotBlockRef = getBlockBySlot(dag, signed_beacon_block.message.slot)
 
   if not slotBlockRef.isNil:
-    let blck = hotDB.get(slotBlockRef).data
+    let blck = dag.get(slotBlockRef).data
     if blck.message.proposer_index ==
           signed_beacon_block.message.proposer_index and
         blck.message.slot == signed_beacon_block.message.slot and
@@ -304,7 +304,7 @@ proc isValidBeaconBlock*(
         signed_beacon_block_message_slot = signed_beacon_block.message.slot,
         blckRef = slotBlockRef,
         received_block = shortLog(signed_beacon_block.message),
-        existing_block = shortLog(hotDB.get(slotBlockRef).data.message)
+        existing_block = shortLog(dag.get(slotBlockRef).data.message)
       return false
 
   # If this block doesn't have a parent we know about, we can't/don't really
@@ -312,7 +312,7 @@ proc isValidBeaconBlock*(
   # while one could getOrResolve to queue up searching for missing parent it
   # might not be the best place. As much as feasible, this function aims for
   # answering yes/no, not queuing other action or otherwise altering state.
-  let parent_ref = hotDB.getRef(signed_beacon_block.message.parent_root)
+  let parent_ref = dag.getRef(signed_beacon_block.message.parent_root)
   if parent_ref.isNil:
     # This doesn't mean a block is forever invalid, only that we haven't seen
     # its ancestor blocks yet. While that means for now it should be blocked,
@@ -320,10 +320,10 @@ proc isValidBeaconBlock*(
     # the future this block moves from pending to being resolved, consider if
     # it's worth broadcasting it then.
 
-    # Pending hotDB gets checked via `HotDB.add(...)` later, and relevant
+    # Pending dag gets checked via `CandidateChains.add(...)` later, and relevant
     # checks are performed there. In usual paths beacon_node adds blocks via
-    # HotDB.add(...) directly, with no additional validity checks. TODO,
-    # not specific to this, but by the pending hotDB keying on the htr of the
+    # CandidateChains.add(...) directly, with no additional validity checks. TODO,
+    # not specific to this, but by the pending dag keying on the htr of the
     # BeaconBlock, not SignedBeaconBlock, opens up certain spoofing attacks.
     quarantine.pending[hash_tree_root(signed_beacon_block.message)] =
       signed_beacon_block
@@ -332,18 +332,18 @@ proc isValidBeaconBlock*(
   # The proposer signature, signed_beacon_block.signature, is valid with
   # respect to the proposer_index pubkey.
   let bs =
-    BlockSlot(blck: parent_ref, slot: hotDB.get(parent_ref).data.message.slot)
-  hotDB.withState(hotDB.tmpState, bs):
+    BlockSlot(blck: parent_ref, slot: dag.get(parent_ref).data.message.slot)
+  dag.withState(dag.tmpState, bs):
     let
       blockRoot = hash_tree_root(signed_beacon_block.message)
-      domain = get_domain(hotDB.headState.data.data, DOMAIN_BEACON_PROPOSER,
+      domain = get_domain(dag.headState.data.data, DOMAIN_BEACON_PROPOSER,
         compute_epoch_at_slot(signed_beacon_block.message.slot))
       signing_root = compute_signing_root(blockRoot, domain)
       proposer_index = signed_beacon_block.message.proposer_index
 
-    if proposer_index >= hotDB.headState.data.data.validators.len.uint64:
+    if proposer_index >= dag.headState.data.data.validators.len.uint64:
       return false
-    if not blsVerify(hotDB.headState.data.data.validators[proposer_index].pubkey,
+    if not blsVerify(dag.headState.data.data.validators[proposer_index].pubkey,
         signing_root.data, signed_beacon_block.signature):
       debug "isValidBeaconBlock: block failed signature verification"
       return false

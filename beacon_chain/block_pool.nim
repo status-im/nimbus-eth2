@@ -11,7 +11,7 @@ import
 
 
 import
-  block_pools/[block_pools_types, clearance, hot_db, quarantine]
+  block_pools/[block_pools_types, clearance, candidate_chains, quarantine]
 
 # Block_Pools
 # --------------------------------------------
@@ -23,7 +23,7 @@ type
   BlockPools* = object
     # TODO: Rename BlockPools
     quarantine: Quarantine
-    hotDB: HotDB
+    dag: CandidateChains
 
   BlockPool* = BlockPools
 
@@ -35,24 +35,24 @@ type
 func checkMissing*(pool: var BlockPool): seq[FetchRecord] {.noInit.} =
   checkMissing(pool.quarantine)
 
-# HotDB
+# CandidateChains
 # --------------------------------------------
 
 template tail*(pool: BlockPool): BlockRef =
-  pool.hotDB.tail
+  pool.dag.tail
 
 template heads*(pool: BlockPool): seq[Head] =
-  pool.hotDB.heads
+  pool.dag.heads
 
 template head*(pool: BlockPool): Head =
-  pool.hotDB.head
+  pool.dag.head
 
 template finalizedHead*(pool: BlockPool): BlockSlot =
-  pool.hotDB.finalizedHead
+  pool.dag.finalizedHead
 
 proc add*(pool: var BlockPool, blockRoot: Eth2Digest,
           signedBlock: SignedBeaconBlock): BlockRef {.gcsafe.} =
-  add(pool.hotDB, pool.quarantine, blockRoot, signedBlock)
+  add(pool.dag, pool.quarantine, blockRoot, signedBlock)
 
 export parent        # func parent*(bs: BlockSlot): BlockSlot
 export isAncestorOf  # func isAncestorOf*(a, b: BlockRef): bool
@@ -63,13 +63,13 @@ export atSlot        # func atSlot*(blck: BlockRef, slot: Slot): BlockSlot
 
 proc init*(T: type BlockPools, db: BeaconChainDB,
     updateFlags: UpdateFlags = {}): BlockPools =
-  result.hotDB = init(HotDB, db, updateFlags)
+  result.dag = init(CandidateChains, db, updateFlags)
 
 export init          # func init*(T: type BlockRef, root: Eth2Digest, blck: BeaconBlock): BlockRef
 
 func getRef*(pool: BlockPool, root: Eth2Digest): BlockRef =
   ## Retrieve a resolved block reference, if available
-  pool.hotDB.getRef(root)
+  pool.dag.getRef(root)
 
 func getBlockRange*(
     pool: BlockPool, startSlot: Slot, skipStep: Natural,
@@ -85,30 +85,30 @@ func getBlockRange*(
   ## at this index.
   ##
   ## If there were no blocks in the range, `output.len` will be returned.
-  pool.hotDB.getBlockRange(startSlot, skipStep, output)
+  pool.dag.getBlockRange(startSlot, skipStep, output)
 
 func getBlockBySlot*(pool: BlockPool, slot: Slot): BlockRef =
   ## Retrieves the first block in the current canonical chain
   ## with slot number less or equal to `slot`.
-  pool.hotDB.getBlockBySlot(slot)
+  pool.dag.getBlockBySlot(slot)
 
 func getBlockByPreciseSlot*(pool: BlockPool, slot: Slot): BlockRef =
   ## Retrieves a block from the canonical chain with a slot
   ## number equal to `slot`.
-  pool.hotDB.getBlockByPreciseSlot(slot)
+  pool.dag.getBlockByPreciseSlot(slot)
 
 proc get*(pool: BlockPool, blck: BlockRef): BlockData =
   ## Retrieve the associated block body of a block reference
-  pool.hotDB.get(blck)
+  pool.dag.get(blck)
 
 proc get*(pool: BlockPool, root: Eth2Digest): Option[BlockData] =
   ## Retrieve a resolved block reference and its associated body, if available
-  pool.hotDB.get(root)
+  pool.dag.get(root)
 
 func getOrResolve*(pool: var BlockPool, root: Eth2Digest): BlockRef =
   ## Fetch a block ref, or nil if not found (will be added to list of
   ## blocks-to-resolve)
-  getOrResolve(pool.hotDB, pool.quarantine, root)
+  getOrResolve(pool.dag, pool.quarantine, root)
 
 proc updateHead*(pool: BlockPool, newHead: BlockRef) =
   ## Update what we consider to be the current head, as given by the fork
@@ -117,35 +117,35 @@ proc updateHead*(pool: BlockPool, newHead: BlockRef) =
   ## of operations naturally becomes important here - after updating the head,
   ## blocks that were once considered potential candidates for a tree will
   ## now fall from grace, or no longer be considered resolved.
-  updateHead(pool.hotDB, newHead)
+  updateHead(pool.dag, newHead)
 
 proc latestJustifiedBlock*(pool: BlockPool): BlockSlot =
   ## Return the most recent block that is justified and at least as recent
   ## as the latest finalized block
-  latestJustifiedBlock(pool.hotDB)
+  latestJustifiedBlock(pool.dag)
 
 proc isInitialized*(T: type BlockPool, db: BeaconChainDB): bool =
-  isInitialized(HotDB, db)
+  isInitialized(CandidateChains, db)
 
 proc preInit*(
     T: type BlockPool, db: BeaconChainDB, state: BeaconState,
     signedBlock: SignedBeaconBlock) =
-  preInit(HotDB, db, state, signedBlock)
+  preInit(CandidateChains, db, state, signedBlock)
 
 proc getProposer*(pool: BlockPool, head: BlockRef, slot: Slot): Option[ValidatorPubKey] =
-  getProposer(pool.hotDB, head, slot)
+  getProposer(pool.dag, head, slot)
 
 # Rewinder / State transitions
 # --------------------------------------------
 
 template headState*(pool: BlockPool): StateData =
-  pool.hotDB.headState
+  pool.dag.headState
 
 template tmpState*(pool: BlockPool): StateData =
-  pool.hotDB.tmpState
+  pool.dag.tmpState
 
 template justifiedState*(pool: BlockPool): StateData =
-  pool.hotDB.justifiedState
+  pool.dag.justifiedState
 
 template withState*(
     pool: BlockPool, cache: var StateData, blockSlot: BlockSlot, body: untyped): untyped =
@@ -154,7 +154,7 @@ template withState*(
   ## TODO async transformations will lead to a race where cache gets updated
   ##      while waiting for future to complete - catch this here somehow?
 
-  withState(pool.hotDB, cache, blockSlot, body)
+  withState(pool.dag, cache, blockSlot, body)
 
 proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
   ## Rewind or advance state such that it matches the given block and slot -
@@ -162,12 +162,12 @@ proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
   ## different branch or has advanced to a higher slot number than slot
   ## If slot is higher than blck.slot, replay will fill in with empty/non-block
   ## slots, else it is ignored
-  updateStateData(pool.hotDB, state, bs)
+  updateStateData(pool.dag, state, bs)
 
 proc loadTailState*(pool: BlockPool): StateData =
-  loadTailState(pool.hotDB)
+  loadTailState(pool.dag)
 
 proc isValidBeaconBlock*(pool: var BlockPool,
                          signed_beacon_block: SignedBeaconBlock,
                          current_slot: Slot, flags: UpdateFlags): bool =
-  isValidBeaconBlock(pool.hotDB, pool.quarantine, signed_beacon_block, current_slot, flags)
+  isValidBeaconBlock(pool.dag, pool.quarantine, signed_beacon_block, current_slot, flags)
