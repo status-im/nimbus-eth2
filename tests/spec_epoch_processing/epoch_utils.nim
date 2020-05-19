@@ -17,7 +17,7 @@ proc processSlotsUntilEndCurrentEpoch(state: var HashedBeaconState) =
     state.data.slot + SLOTS_PER_EPOCH - (state.data.slot mod SLOTS_PER_EPOCH)
 
   # Transition to slot before the epoch state transition
-  process_slots(state, slot - 1)
+  discard process_slots(state, slot - 1)
 
   # For the last slot of the epoch,
   # only process_slot without process_epoch

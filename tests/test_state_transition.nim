@@ -29,7 +29,7 @@ suiteReport "Block processing" & preset():
     var state = newClone(genesisState)
 
   timedTest "Passes from genesis state, no block" & preset():
-    process_slots(state[], state.data.slot + 1)
+    discard process_slots(state[], state.data.slot + 1)
     check:
       state.data.slot == genesisState.data.slot + 1
 
@@ -46,7 +46,7 @@ suiteReport "Block processing" & preset():
       state.data.slot == genesisState.data.slot + 1
 
   timedTest "Passes through epoch update, no block" & preset():
-    process_slots(state[], Slot(SLOTS_PER_EPOCH))
+    discard process_slots(state[], Slot(SLOTS_PER_EPOCH))
 
     check:
       state.data.slot == genesisState.data.slot + SLOTS_PER_EPOCH
@@ -74,7 +74,7 @@ suiteReport "Block processing" & preset():
       cache = get_empty_per_epoch_cache()
 
     # Slot 0 is a finalized slot - won't be making attestations for it..
-    process_slots(state[], state.data.slot + 1)
+    discard process_slots(state[], state.data.slot + 1)
 
     let
       # Create an attestation for slot 1 signed by the only attester we have!
@@ -85,7 +85,8 @@ suiteReport "Block processing" & preset():
 
     # Some time needs to pass before attestations are included - this is
     # to let the attestation propagate properly to interested participants
-    process_slots(state[], GENESIS_SLOT + MIN_ATTESTATION_INCLUSION_DELAY + 1)
+    discard process_slots(
+      state[], GENESIS_SLOT + MIN_ATTESTATION_INCLUSION_DELAY + 1)
 
     let
       new_block = makeTestBlock(state.data, previous_block_root,
@@ -100,7 +101,7 @@ suiteReport "Block processing" & preset():
 
     when const_preset=="minimal":
       # Can take several minutes with mainnet settings
-      process_slots(state[], Slot(191))
+      discard process_slots(state[], Slot(191))
 
     # Would need to process more epochs for the attestation to be removed from
     # the state! (per above bug)

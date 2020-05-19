@@ -15,17 +15,12 @@
 # The entry point is `process_block` which is at the bottom of this file.
 #
 # General notes about the code (TODO):
-# * It's inefficient - we quadratically copy, allocate and iterate when there
-#   are faster options
 # * Weird styling - the sections taken from the spec use python styling while
 #   the others use NEP-1 - helps grepping identifiers in spec
 # * We mix procedural and functional styles for no good reason, except that the
 #   spec does so also.
-# * There are likely lots of bugs.
 # * For indices, we get a mix of uint64, ValidatorIndex and int - this is currently
 #   swept under the rug with casts
-# * The spec uses uint64 for data types, but functions in the spec often assume
-#   signed bigint semantics - under- and overflows ensue
 # * Sane error handling is missing in most cases (yay, we'll get the chance to
 #   debate exceptions again!)
 # When updating the code, add TODO sections to mark where there are clear
@@ -46,7 +41,7 @@ declareGauge beacon_previous_live_validators, "Number of active validators that 
 declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
 declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#block-header
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#block-header
 proc process_block_header*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.}=
@@ -55,6 +50,11 @@ proc process_block_header*(
     notice "Block header: slot mismatch",
       block_slot = shortLog(blck.slot),
       state_slot = shortLog(state.slot)
+    return false
+
+  # Verify that the block is newer than latest block header
+  if not (blck.slot > state.latest_block_header.slot):
+    debug "Block header: block not newer than latest block header"
     return false
 
   # Verify that proposer index is the correct index

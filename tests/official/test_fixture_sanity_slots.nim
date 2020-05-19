@@ -37,7 +37,8 @@ proc runTest(identifier: string) =
           data: preState[], root: hash_tree_root(preState[]))
       let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
 
-      process_slots(hashedPreState, hashedPreState.data.slot + num_slots)
+      discard process_slots(
+        hashedPreState, hashedPreState.data.slot + num_slots)
 
       check: hashedPreState.root == postState[].hash_tree_root()
       let newPreState = newClone(hashedPreState.data)

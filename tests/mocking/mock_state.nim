@@ -18,8 +18,8 @@ proc nextEpoch*(state: var HashedBeaconState) =
   ## Transition to the start of the next epoch
   let slot =
     state.data.slot + SLOTS_PER_EPOCH - (state.data.slot mod SLOTS_PER_EPOCH)
-  process_slots(state, slot)
+  discard process_slots(state, slot)
 
 proc nextSlot*(state: var HashedBeaconState) =
   ## Transition to the next slot
-  process_slots(state, state.data.slot + 1)
+  discard process_slots(state, state.data.slot + 1)

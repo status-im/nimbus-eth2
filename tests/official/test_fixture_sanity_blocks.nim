@@ -42,7 +42,8 @@ proc runTest(identifier: string) =
 
       # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
       # so purely lexicographic sorting wouldn't sort properly.
-      for i in 0 ..< toSeq(walkPattern(testDir/"blocks_*.ssz")).len:
+      let numBlocks = toSeq(walkPattern(testDir/"blocks_*.ssz")).len
+      for i in 0 ..< numBlocks:
         let blck = parseTest(testDir/"blocks_" & $i & ".ssz", SSZ, SignedBeaconBlock)
 
         if hasPostState:
@@ -52,7 +53,8 @@ proc runTest(identifier: string) =
         else:
           let success = state_transition(
             hashedPreState, blck, flags = {}, noRollback)
-          doAssert not success, "We didn't expect this invalid block to be processed"
+          doAssert (i + 1 < numBlocks) or not success,
+            "We didn't expect these invalid blocks to be processed"
 
       if hasPostState:
         let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))

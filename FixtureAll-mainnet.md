@@ -90,13 +90,14 @@ OK: 20/20 Fail: 0/20 Skip: 0/20
 OK: 20/20 Fail: 0/20 Skip: 0/20
 ## Official - Operations - Block header  [Preset: mainnet]
 ```diff
++ [Invalid] invalid_multiple_blocks_single_slot                                              OK
 + [Invalid] invalid_parent_root                                                              OK
 + [Invalid] invalid_proposer_index                                                           OK
 + [Invalid] invalid_slot_block_header                                                        OK
 + [Invalid] proposer_slashed                                                                 OK
 + [Valid]   success_block_header                                                             OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## Official - Operations - Deposits  [Preset: mainnet]
 ```diff
 + [Invalid]  bad_merkle_proof                                                                OK
@@ -138,7 +139,10 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 + [Invalid] invalid_proposer_index_sig_from_expected_proposer                                OK
 + [Invalid] invalid_proposer_index_sig_from_proposer_index                                   OK
 + [Invalid] invalid_state_root                                                               OK
++ [Invalid] parent_from_same_slot                                                            OK
 + [Invalid] prev_slot_block_transition                                                       OK
++ [Invalid] proposal_for_genesis_slot                                                        OK
++ [Invalid] same_slot_block_transition                                                       OK
 + [Invalid] zero_block_sig                                                                   OK
 + [Valid]   attestation                                                                      OK
 + [Valid]   attester_slashing                                                                OK
@@ -151,11 +155,10 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 + [Valid]   historical_batch                                                                 OK
 + [Valid]   proposer_after_inactive_index                                                    OK
 + [Valid]   proposer_slashing                                                                OK
-+ [Valid]   same_slot_block_transition                                                       OK
 + [Valid]   skipped_slots                                                                    OK
 + [Valid]   voluntary_exit                                                                   OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
+OK: 23/23 Fail: 0/23 Skip: 0/23
 ## Official - Sanity - Slots  [Preset: mainnet]
 ```diff
 + Slots - double_empty_epoch                                                                 OK
@@ -167,4 +170,4 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 OK: 5/5 Fail: 0/5 Skip: 0/5
 
 ---TOTAL---
-OK: 117/117 Fail: 0/117 Skip: 0/117
+OK: 120/120 Fail: 0/120 Skip: 0/120

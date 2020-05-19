@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # process_attestation (beaconstate.nim)
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase0/beacon-chain.md#attestations
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#attestations
 # ---------------------------------------------------------------
 
 {.used.}
@@ -17,7 +17,7 @@ import
   # Specs
   ../../beacon_chain/spec/[beaconstate, datatypes, helpers, validator],
   # Mock helpers
-  ../mocking/[mock_genesis, mock_attestations, mock_state, mock_blocks],
+  ../mocking/[mock_genesis, mock_attestations, mock_state],
   ../testutil
 
 suiteReport "[Unit - Spec - Block processing] Attestations " & preset():
@@ -63,27 +63,10 @@ suiteReport "[Unit - Spec - Block processing] Attestations " & preset():
     state.data.slot += MIN_ATTESTATION_INCLUSION_DELAY
 
   valid_attestation("Valid attestation from previous epoch"):
+    nextSlot(state[])
     let attestation = mockAttestation(state.data)
     state.data.slot = Slot(SLOTS_PER_EPOCH - 1)
     nextEpoch(state[])
-    applyEmptyBlock(state[])
-
-  # TODO check if this should be replaced
-  when false:
-    when MAX_EPOCHS_PER_CROSSLINK > 4'u64:
-      timedTest "Valid attestation since max epochs per crosslinks [Skipped for preset: " & const_preset & ']':
-        discard
-    else:
-      valid_attestation("Valid attestation since max epochs per crosslinks"):
-        for _ in 0 ..< MAX_EPOCHS_PER_CROSSLINK + 2:
-          nextEpoch(state[])
-        applyEmptyBlock(state[])
-
-        let attestation = mockAttestation(state[])
-        check: attestation.data.crosslink.end_epoch - attestation.data.crosslink.start_epoch == MAX_EPOCHS_PER_CROSSLINK
-
-        for _ in 0 ..< MIN_ATTESTATION_INCLUSION_DELAY:
-          nextSlot(state[])
 
   # TODO: regression BLS V0.10.1
   echo "[Skipping] \"Empty aggregation bit\""

@@ -127,7 +127,7 @@ proc add*(state: var HashedBeaconState, attestation: Attestation, slot: Slot) =
   var signedBlock = mockBlockForNextSlot(state.data)
   signedBlock.message.slot = slot
   signedBlock.message.body.attestations.add attestation
-  process_slots(state, slot)
+  discard process_slots(state, slot)
   signMockBlock(state.data, signedBlock)
 
   doAssert state_transition(

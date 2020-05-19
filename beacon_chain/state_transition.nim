@@ -143,9 +143,9 @@ proc advance_slot*(state: var HashedBeaconState,
   else:
     state.root = hash_tree_root(state.data)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc process_slots*(state: var HashedBeaconState, slot: Slot,
-    updateFlags: UpdateFlags = {}) {.nbench.} =
+    updateFlags: UpdateFlags = {}): bool {.nbench.} =
   # TODO: Eth specs strongly assert that state.data.slot <= slot
   #       This prevents receiving attestation in any order
   #       (see tests/test_attestation_pool)
@@ -157,17 +157,20 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot,
   #      we avoid the state root calculation - as such, instead of advancing
   #      slots "automatically" in `state_transition`, perhaps it would be better
   #      to keep a pre-condition that state must be at the right slot already?
-  if state.data.slot > slot:
+  if not (state.data.slot < slot):
     notice(
       "Unusual request for a slot in the past",
       state_root = shortLog(state.root),
       current_slot = state.data.slot,
       target_slot = slot
     )
+    return false
 
   # Catch up to the target slot
   while state.data.slot < slot:
     advance_slot(state, err(Opt[Eth2Digest]), updateFlags)
+
+  true
 
 proc noRollback*(state: var HashedBeaconState) =
   trace "Skipping rollback of broken state"
@@ -206,8 +209,10 @@ proc state_transition*(
   #      the changes in case of failure (look out for `var BeaconState` and
   #      bool return values...)
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
-  # These should never fail.
-  process_slots(state, signedBlock.message.slot, flags)
+
+  if not process_slots(state, signedBlock.message.slot, flags):
+    rollback(state)
+    return false
 
   # Block updates - these happen when there's a new block being suggested
   # by the block proposer. Every actor in the network will update its state

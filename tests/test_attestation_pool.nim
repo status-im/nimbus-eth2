@@ -26,7 +26,7 @@ suiteReport "Attestation pool processing" & preset():
       pool = AttestationPool.init(blockPool)
       state = newClone(loadTailState(blockPool))
     # Slot 0 is a finalized slot - won't be making attestations for it..
-    process_slots(state.data, state.data.data.slot + 1)
+    discard process_slots(state.data, state.data.data.slot + 1)
 
   timedTest "Can add and retrieve simple attestation" & preset():
     var cache = get_empty_per_epoch_cache()
@@ -39,7 +39,7 @@ suiteReport "Attestation pool processing" & preset():
 
     pool.add(attestation)
 
-    process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1)
+    discard process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1)
 
     let attestations = pool.getAttestationsForBlock(state.data.data)
 
@@ -55,7 +55,7 @@ suiteReport "Attestation pool processing" & preset():
       attestation0 = makeAttestation(
         state.data.data, state.blck.root, bc0[0], cache)
 
-    process_slots(state.data, state.data.data.slot + 1)
+    discard process_slots(state.data, state.data.data.slot + 1)
 
     let
       bc1 = get_beacon_committee(state.data.data,
@@ -67,7 +67,7 @@ suiteReport "Attestation pool processing" & preset():
     pool.add(attestation1)
     pool.add(attestation0)
 
-    process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1)
+    discard process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1)
 
     let attestations = pool.getAttestationsForBlock(state.data.data)
 
@@ -88,7 +88,7 @@ suiteReport "Attestation pool processing" & preset():
     pool.add(attestation0)
     pool.add(attestation1)
 
-    process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1)
+    discard process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1)
 
     let attestations = pool.getAttestationsForBlock(state.data.data)
 
@@ -112,7 +112,7 @@ suiteReport "Attestation pool processing" & preset():
     pool.add(attestation0)
     pool.add(attestation1)
 
-    process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1)
+    discard process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1)
 
     let attestations = pool.getAttestationsForBlock(state.data.data)
 
@@ -135,7 +135,7 @@ suiteReport "Attestation pool processing" & preset():
     pool.add(attestation1)
     pool.add(attestation0)
 
-    process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1)
+    discard process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1)
 
     let attestations = pool.getAttestationsForBlock(state.data.data)
 
