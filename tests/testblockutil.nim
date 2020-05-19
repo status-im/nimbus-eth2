@@ -97,7 +97,7 @@ proc addTestBlock*(
 
   # TODO workaround, disable when this works directly
   var hashedState = HashedBeaconState(data: state, root: hash_tree_root(state))
-  discard process_slots(hashedState, hashedState.data.slot + 1)
+  doAssert process_slots(hashedState, hashedState.data.slot + 1)
   state = hashedState.data
 
   var cache = get_empty_per_epoch_cache()

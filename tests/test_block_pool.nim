@@ -132,7 +132,8 @@ suiteReport "Block pool processing" & preset():
       pool.heads[0].blck == b2Add
 
     # Skip one slot to get a gap
-    discard process_slots(stateData.data, stateData.data.data.slot + 1)
+    check:
+      process_slots(stateData.data, stateData.data.data.slot + 1)
 
     let
       b4 = addTestBlock(stateData.data.data, b2Root)
@@ -345,8 +346,9 @@ when const_preset == "minimal":  # These require some minutes in mainnet
         pool.updateHead(added)
 
       # Advance past epoch so that the epoch transition is gapped
-      discard process_slots(
-        pool.headState.data, Slot(SLOTS_PER_EPOCH * 6 + 2) )
+      check:
+        process_slots(
+          pool.headState.data, Slot(SLOTS_PER_EPOCH * 6 + 2) )
 
       var blck = makeTestBlock(
         pool.headState.data.data, pool.head.blck.root,
