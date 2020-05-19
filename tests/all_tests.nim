@@ -18,6 +18,7 @@ import # Unit test
   ./test_block_pool,
   ./test_discovery_helpers,
   ./test_helpers,
+  ./test_keystore,
   ./test_mocking,
   ./test_mainchain_monitor,
   ./test_ssz,
