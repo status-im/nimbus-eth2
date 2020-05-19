@@ -154,6 +154,70 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
   ## ``updateCb`` procedure which will be used to send downloaded blocks to
   ## consumer. Procedure should return ``false`` only when it receives
   ## incorrect blocks, and ``true`` if sequence of blocks is correct.
+
+  # SyncQueue is the core of sync manager, this data structure distributes
+  # requests to peers and manages responses from peers.
+  #
+  # Because SyncQueue is async data structure it manages backpressure and
+  # order of incoming responses and it also resolves "joker's" problem.
+  #
+  # Joker's problem
+  #
+  # According to current Ethereum2 network specification
+  # > Clients MUST respond with at least one block, if they have it and it
+  # > exists in the range. Clients MAY limit the number of blocks in the
+  # > response.
+  #
+  # Such rule can lead to very uncertain responses, for example let slots from
+  # 10 to 12 will be not empty. Client which follows specification can answer
+  # with any response from this list (X - block, `-` empty space):
+  #
+  # 1.   X X X
+  # 2.   - - X
+  # 3.   - X -
+  # 4.   - X X
+  # 5.   X - -
+  # 6.   X - X
+  # 7.   X X -
+  #
+  # If peer answers with `1` everything will be fine and `block_pool` will be
+  # able to process all 3 blocks. In case of `2`, `3`, `4`, `6` - `block_pool`
+  # will fail immediately with chunk and report "parent is missing" error.
+  # But in case of `5` and `7` blocks will be processed by `block_pool` without
+  # any problems, however it will start producing problems right from this
+  # uncertain last slot. SyncQueue will start producing requests for next
+  # blocks, but all the responses from this point will fail with "parent is
+  # missing" error. Lets call such peers "jokers", because they are joking
+  # with responses.
+  #
+  # To fix "joker" problem i'm going to introduce "zero-point" which will
+  # represent first non-empty slot in gap at the end of requested chunk.
+  # If SyncQueue receives chunk of blocks with gap at the end and this chunk
+  # will be successfully processed by `block_pool` it will set `zero_point` to
+  # the first uncertain (empty) slot. For example:
+  #
+  # Case 1
+  #   X  X  X  X  X  -
+  #   3  4  5  6  7  8
+  #
+  # Case2
+  #   X  X  -  -  -  -
+  #   3  4  5  6  7  8
+  #
+  # In Case 1 `zero-point` will be equal to 8, in Case 2 `zero-point` will be
+  # set to 5.
+  #
+  # When `zero-point` is set and the next received chunk of blocks will be
+  # empty, then peer produced this chunk of blocks will be added to suspect
+  # list.
+  #
+  # If the next chunk of blocks has at least one non-empty block and this chunk
+  # will be successfully processed by `block_pool`, then `zero-point` will be
+  # reset and suspect list will be cleared.
+  #
+  # If the `block_pool` failed to process next chunk of blocks, SyncQueue will
+  # perform rollback to `zero-point` and penalize all the peers in suspect list.
+
   doAssert(chunkSize > 0'u64, "Chunk size should not be zero")
   result = SyncQueue[T](
     startSlot: start,
@@ -469,6 +533,19 @@ template peerAge(): uint64 =
 
 proc syncWorker*[A, B](man: SyncManager[A, B],
                        peer: A): Future[A] {.async.} =
+  # Sync worker is the lowest level loop which performs syncing with single
+  # peer.
+  #
+  # Logic here is pretty simple:
+  # 1. Obtain request from SyncQueue.
+  # 2. Send this request to a peer and obtain response.
+  # 3. Push response to the SyncQueue, (doesn't matter if it success or failure)
+  # 4. Update main SyncQueue last slot with wall time slot number.
+  # 5. From time to time we also requesting peer's status information.
+  # 6. If our current head slot is near equal to peer's head slot we are
+  #    exiting this loop and finishing that sync-worker task.
+  # 7. Repeat
+
   mixin getKey, getScore, getHeadSlot
 
   debug "Starting syncing with peer", peer = peer,
@@ -576,6 +653,13 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
     man.pool.release(peer)
 
 proc sync*[A, B](man: SyncManager[A, B]) {.async.} =
+  # This procedure manages main loop of SyncManager and in this loop it
+  # performs
+  # 1. It checks for current sync status, "are we synced?".
+  # 2. If we are in active syncing, it tries to acquire peers from PeerPool and
+  #    spawns new sync-workers.
+  # 3. It stops spawning sync-workers when we are "in sync".
+  # 4. It calculates syncing performance.
   mixin getKey, getScore
   var pending = newSeq[Future[A]]()
   var acquireFut: Future[A]

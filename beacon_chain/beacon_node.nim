@@ -550,8 +550,12 @@ proc runSyncLoop(node: BeaconNode) {.async.} =
   var syncman = newSyncManager[Peer, PeerID](
     node.network.peerPool, getLocalHeadSlot, getLocalWallSlot,
     updateLocalBlocks,
-    # TODO increase when block processing perf improves
-    chunkSize = 16
+    # 4 blocks per chunk is the optimal value right now, because our current
+    # syncing speed is around 4 blocks per second. So there no need to request
+    # more then 4 blocks right now. As soon as `store_speed` value become
+    # significantly more then 4 blocks per second you can increase this
+    # value appropriately.
+    chunkSize = 4
   )
 
   await syncman.sync()
