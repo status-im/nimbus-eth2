@@ -118,7 +118,7 @@ proc readChunkPayload(conn: Connection,
     if data.isOk:
       return ok SSZ.decode(data.get(), MsgType)
     else:
-      debug "Failed getting snappy frame", msg = $data.error, conn = $conn
+      debug "Snappy decompression/read failed", msg = $data.error, conn = $conn
       return neterr InvalidSnappyBytes
 
 proc readResponseChunk(conn: Connection,
