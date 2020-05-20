@@ -720,11 +720,14 @@ proc start*(node: Eth2Node) {.async.} =
   traceAsyncErrors node.discoveryLoop
 
 proc stop*(node: Eth2Node) {.async.} =
-  # ignore errors in futures, since we're shutting down
-  await allFutures(@[
-    node.discovery.closeWait(),
-    node.switch.stop(),
-    ])
+  # Ignore errors in futures, since we're shutting down.
+  # Use a timer to avoid hangups.
+  discard await one(sleepAsync(5.seconds),
+                    allFutures(@[
+                      node.discovery.closeWait(),
+                      node.switch.stop(),
+                    ])
+    )
 
 proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer =
   new result
