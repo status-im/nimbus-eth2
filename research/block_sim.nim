@@ -130,7 +130,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           state.fork, state.genesis_validators_root, newBlock.message.slot,
           blockRoot, privKey)
 
-      let added = blockPool.add(blockRoot, newBlock)
+      let added = blockPool.add(blockRoot, newBlock).tryGet()
       blockPool.updateHead(added)
 
   for i in 0..<slots:

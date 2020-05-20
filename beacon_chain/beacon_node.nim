@@ -290,7 +290,8 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
 
   node.attestationPool.add(attestation)
 
-proc storeBlock(node: BeaconNode, signedBlock: SignedBeaconBlock): bool =
+proc storeBlock(
+    node: BeaconNode, signedBlock: SignedBeaconBlock): Result[void, BlockError] =
   let blockRoot = hash_tree_root(signedBlock.message)
   debug "Block received",
     signedBlock = shortLog(signedBlock.message),
@@ -302,8 +303,7 @@ proc storeBlock(node: BeaconNode, signedBlock: SignedBeaconBlock): bool =
     dump(node.config.dumpDir / "incoming", signedBlock, blockRoot)
 
   beacon_blocks_received.inc()
-  if node.blockPool.add(blockRoot, signedBlock).isNil:
-    return false
+  discard ? node.blockPool.add(blockRoot, signedBlock)
 
   # The block we received contains attestations, and we might not yet know about
   # all of them. Let's add them to the attestation pool - in case they block
@@ -315,7 +315,7 @@ proc storeBlock(node: BeaconNode, signedBlock: SignedBeaconBlock): bool =
     signedBlock.message.slot.epoch + 1 >= currentSlot.slot.epoch:
     for attestation in signedBlock.message.body.attestations:
       node.onAttestation(attestation)
-  return true
+  ok()
 
 proc onBeaconBlock(node: BeaconNode, signedBlock: SignedBeaconBlock) =
   # We received a block but don't know much about it yet - in particular, we
@@ -525,7 +525,7 @@ proc runSyncLoop(node: BeaconNode) {.async.} =
           local_head_slot = getLocalHeadSlot()
     let sm = now(chronos.Moment)
     for blk in list:
-      if not(node.storeBlock(blk)):
+      if node.storeBlock(blk).isErr:
         return false
     discard node.updateHead()
 

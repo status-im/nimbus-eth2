@@ -23,6 +23,11 @@ import
 # the last finalized block known.
 
 type
+  BlockError* = enum
+    MissingParent
+    Old
+    Invalid
+
   Quarantine* = object
     ## Keeps track of unsafe blocks coming from the network
     ## and that cannot be added to the chain
