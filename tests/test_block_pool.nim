@@ -8,7 +8,7 @@
 {.used.}
 
 import
-  chronicles, options, sequtils, unittest,
+  options, sequtils, unittest,
   ./testutil, ./testblockutil,
   ../beacon_chain/spec/[datatypes, digest, helpers],
   ../beacon_chain/[beacon_node_types, block_pool, state_transition, ssz]

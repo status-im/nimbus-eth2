@@ -7,8 +7,9 @@
 import strutils, os, tables, options
 import confutils, chronicles, chronos
 import libp2p/[switch, standard_setup, connection, multiaddress, multicodec,
-               peer, crypto/secp, peerinfo, peer]
+               peer, peerinfo, peer]
 import libp2p/crypto/crypto as lcrypto
+import libp2p/crypto/secp as lsecp
 import eth/p2p/discoveryv5/enr as enr
 import eth/p2p/discoveryv5/[protocol, discovery_db, types]
 import eth/keys as ethkeys, eth/trie/db
@@ -316,10 +317,10 @@ proc init*(p: typedesc[PeerInfo],
     if trecOpt.isSome():
       trec = trecOpt.get()
       if trec.secp256k1.isSome():
-        let skpubkey = SkPublicKey.fromRaw(trec.secp256k1.get())
+        let skpubkey = lsecp.SkPublicKey.init(trec.secp256k1.get())
         if skpubkey.isOk():
           let peerid = PeerID.init(PublicKey(scheme: Secp256k1,
-                                             skkey: skpubkey[]))
+                                             skkey: skpubkey.get()))
           var mas = newSeq[MultiAddress]()
           if trec.ip.isSome() and trec.tcp.isSome():
             let ma = MultiAddress.init(multiCodec("ip4"), trec.ip.get()) &
