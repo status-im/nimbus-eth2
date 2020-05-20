@@ -6,12 +6,11 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  json, math,
-  stew/results,
-  nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, sysrand, utils],
+  json, math, strutils,
+  eth/keyfile/uuid,
+  stew/[results, byteutils],
+  nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, sysrand],
   ./crypto
-
-import strutils except fromHex
 
 export results
 
@@ -109,11 +108,11 @@ proc decryptKeystore*(data, passphrase: string): KsResult[seq[byte]] =
       crypto = ks{"crypto"}.to(Crypto[KdfPbkdf2])
       kdfParams = crypto.kdf.params
 
-    salt = fromHex(kdfParams.salt)
+    salt = hexToSeqByte(kdfParams.salt)
     decKey = sha256.pbkdf2(passphrase, salt, kdfParams.c, kdfParams.dklen)
-    iv = fromHex(crypto.cipher.params.iv)
-    cipherMsg = fromHex(crypto.cipher.message)
-    checksumMsg = fromHex(crypto.checksum.message)
+    iv = hexToSeqByte(crypto.cipher.params.iv)
+    cipherMsg = hexToSeqByte(crypto.cipher.message)
+    checksumMsg = hexToSeqByte(crypto.checksum.message)
   else:
     return err "ks: unknown cipher"
 
@@ -166,7 +165,7 @@ proc encryptKeystore*[T: KdfParams](secret: openarray[byte];
                            pbkdf2Params.dklen)
 
     var kdf = Kdf[KdfPbkdf2](function: "pbkdf2", params: pbkdf2Params, message: "")
-    kdf.params.salt = kdfSalt.toHex(lowercase=true)
+    kdf.params.salt = kdfSalt.toHex()
   else:
     return
 
@@ -185,17 +184,17 @@ proc encryptKeystore*[T: KdfParams](secret: openarray[byte];
         kdf: kdf,
         checksum: Checksum(
           function: "sha256",
-          message: sum.toHex(lowercase=true)
+          message: sum.toHex()
         ),
         cipher: Cipher(
           function: "aes-128-ctr",
-          params: CipherParams(iv: aesIv.toHex(lowercase=true)),
-          message: cipherMsg.toHex(lowercase=true)
+          params: CipherParams(iv: aesIv.toHex()),
+          message: cipherMsg.toHex()
         )
       ),
       pubkey: pubkey.toHex(),
       path: path,
-      uuid: "", # TODO: uuid library?
+      uuid: $(uuidGenerate().tryGet()), # error handling?
       version: 4
     )
 
