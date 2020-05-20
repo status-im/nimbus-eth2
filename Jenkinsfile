@@ -11,11 +11,11 @@ def runStages() {
 			[$class: "ArbitraryFileCache", excludes: "", includes: "**/*", path: "${WORKSPACE}/jsonTestsCache"]
 		]) {
 			stage("Build") {
-				sh '''#!/bin/bash
+				sh """#!/bin/bash
 				make -j${env.NPROC} update # to allow a newer Nim version to be detected
 				make -j${env.NPROC} deps" # to allow the following parallel stages
 				V=1 ./scripts/setup_official_tests.sh jsonTestsCache
-				'''
+				"""
 			}
 		}
 
