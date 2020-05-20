@@ -87,7 +87,6 @@ cli do (skipGoerliKey {.
                              .replace(")", "_")
     dataDir = buildDir / "data" / dataDirName
     validatorsDir = dataDir / "validators"
-    dumpDir = dataDir / "dump"
     beaconNodeBinary = buildDir / "beacon_node_" & dataDirName
   var
     nimFlags = "-d:chronicles_log_level=TRACE " & getEnv("NIM_PARAMS")
@@ -114,9 +113,6 @@ cli do (skipGoerliKey {.
 
   cd rootDir
   exec &"""nim c {nimFlags} -d:"const_preset={preset}" -o:"{beaconNodeBinary}" beacon_chain/beacon_node.nim"""
-
-  mkDir dumpDir
-  mkDir dumpDir / "incoming"
 
   proc execIgnoringExitCode(s: string) =
     # reduces the error output when interrupting an external command with Ctrl+C

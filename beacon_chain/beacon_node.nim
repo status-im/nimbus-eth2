@@ -1057,6 +1057,10 @@ programMain:
 
     createPidFile(config.dataDir.string / "beacon_node.pid")
 
+    if config.dumpEnabled:
+      createDir(config.dumpDir)
+      createDir(config.dumpDir / "incoming")
+
     var node = waitFor BeaconNode.init(config)
 
     ## Ctrl+C handling
