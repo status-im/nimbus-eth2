@@ -14,7 +14,7 @@ import
           protocols/identify, protocols/protocol],
   libp2p/protocols/secure/[secure, secio],
   libp2p/protocols/pubsub/[pubsub, floodsub, rpc/messages],
-  libp2p/transports/[transport, tcptransport],
+  libp2p/transports/tcptransport,
   libp2p/stream/lpstream,
   eth/[keys, async_utils], eth/p2p/[enode, p2p_protocol_dsl],
   eth/net/nat, eth/p2p/discoveryv5/[enr, node],
