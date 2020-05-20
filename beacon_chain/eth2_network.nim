@@ -4,8 +4,9 @@ import
   options as stdOptions, net as stdNet,
 
   # Status libs
-  stew/[varints, base58, bitseqs, results], stew/shims/[macros, tables],
-  stint, faststreams/[inputs, outputs, buffers], snappy, snappy/framing,
+  stew/[varints, base58, bitseqs, endians2, results],
+  stew/shims/[macros, tables],
+  faststreams/[inputs, outputs, buffers], snappy, snappy/framing,
   json_serialization, json_serialization/std/[net, options],
   chronos, chronicles, metrics,
   # TODO: create simpler to use libp2p modules that use re-exports
