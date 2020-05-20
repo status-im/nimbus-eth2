@@ -14,6 +14,8 @@ import
 
 export results
 
+{.push raises: [Defect].}
+
 type
   ChecksumParams = object
 
@@ -83,12 +85,24 @@ template shaChecksum(key, cipher: openarray[byte]): untyped =
   ctx.update(cipher)
   ctx.finish().data
 
-proc decryptKeystore*(data, passphrase: string): KsResult[seq[byte]] =
-  var ks: JsonNode
+template tryJsonToCrypto(ks: JsonNode; crypto: typedesc): untyped =
   try:
-    ks = parseJson(data)
-  except JsonParsingError:
-    return err "ks: failed to parse keystore"
+    ks{"crypto"}.to(Crypto[crypto])
+  except Exception:
+    return err "ks: failed to parse crypto"
+
+template hexToBytes(data, name: string): untyped =
+  try:
+    hexToSeqByte(data)
+  except ValueError:
+    return err "ks: failed to parse " & name
+
+proc decryptKeystore*(data, passphrase: string): KsResult[seq[byte]] =
+  let ks =
+    try:
+      parseJson(data)
+    except Exception:
+      return err "ks: failed to parse keystore"
 
   var
     decKey: seq[byte]
@@ -101,18 +115,18 @@ proc decryptKeystore*(data, passphrase: string): KsResult[seq[byte]] =
 
   case kdf
   of "scrypt":
-    let crypto = ks{"crypto"}.to(Crypto[KdfScrypt])
+    let crypto = tryJsonToCrypto(ks, KdfScrypt)
     return err "ks: scrypt not supported"
   of "pbkdf2":
     let
-      crypto = ks{"crypto"}.to(Crypto[KdfPbkdf2])
+      crypto = tryJsonToCrypto(ks, KdfPbkdf2)
       kdfParams = crypto.kdf.params
 
-    salt = hexToSeqByte(kdfParams.salt)
+    salt = hexToBytes(kdfParams.salt, "salt")
     decKey = sha256.pbkdf2(passphrase, salt, kdfParams.c, kdfParams.dklen)
-    iv = hexToSeqByte(crypto.cipher.params.iv)
-    cipherMsg = hexToSeqByte(crypto.cipher.message)
-    checksumMsg = hexToSeqByte(crypto.checksum.message)
+    iv = hexToBytes(crypto.cipher.params.iv, "iv")
+    cipherMsg = hexToBytes(crypto.cipher.message, "cipher")
+    checksumMsg = hexToBytes(crypto.checksum.message, "checksum")
   else:
     return err "ks: unknown cipher"
 
@@ -173,10 +187,9 @@ proc encryptKeystore*[T: KdfParams](secret: openarray[byte];
   aesCipher.encrypt(secret, cipherMsg)
   aesCipher.clear()
 
-  let
-    privkey = ValidatorPrivkey.fromRaw(secret)
-    pubkey = privkey.tryGet().toPubKey()
+  let pubkey = toPubKey(? ValidatorPrivkey.fromRaw(secret))
 
+  let
     sum = shaChecksum(decKey[16..<32], cipherMsg)
 
     keystore = Keystore[T](
@@ -194,7 +207,7 @@ proc encryptKeystore*[T: KdfParams](secret: openarray[byte];
       ),
       pubkey: pubkey.toHex(),
       path: path,
-      uuid: $(uuidGenerate().tryGet()), # error handling?
+      uuid: $(? uuidGenerate()),
       version: 4
     )
 
