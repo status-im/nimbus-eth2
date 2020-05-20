@@ -317,10 +317,11 @@ proc init*(p: typedesc[PeerInfo],
     if trecOpt.isSome():
       trec = trecOpt.get()
       if trec.secp256k1.isSome():
-        let skpubkey = lsecp.SkPublicKey.init(trec.secp256k1.get())
+        let skpubkey = ethkeys.PublicKey.fromRaw(trec.secp256k1.get())
         if skpubkey.isOk():
-          let peerid = PeerID.init(PublicKey(scheme: Secp256k1,
-                                             skkey: skpubkey.get()))
+          let peerid = PeerID.init(
+            PublicKey(scheme: Secp256k1,
+                      skkey: lsecp.SkPublicKey(skpubkey.get())))
           var mas = newSeq[MultiAddress]()
           if trec.ip.isSome() and trec.tcp.isSome():
             let ma = MultiAddress.init(multiCodec("ip4"), trec.ip.get()) &
