@@ -14,7 +14,7 @@ import
   ./crypto, ./datatypes, ./digest, ./helpers, ./validator,
   ../../nbench/bench_lab
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#is_valid_merkle_branch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#is_valid_merkle_branch
 func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openarray[Eth2Digest], depth: uint64, index: uint64, root: Eth2Digest): bool {.nbench.}=
   ## Check if ``leaf`` at ``index`` verifies against the Merkle ``root`` and
   ## ``branch``.
@@ -32,13 +32,13 @@ func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openarray[Eth2Digest], de
     value = eth2hash(buf)
   value == root
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#increase_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#increase_balance
 func increase_balance*(
     state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
   # Increase the validator balance at index ``index`` by ``delta``.
   state.balances[index] += delta
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#decrease_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#decrease_balance
 func decrease_balance*(
     state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
   ## Decrease the validator balance at index ``index`` by ``delta``, with
@@ -49,7 +49,7 @@ func decrease_balance*(
     else:
       state.balances[index] - delta
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#deposits
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#deposits
 proc process_deposit*(
     state: var BeaconState, deposit: Deposit, flags: UpdateFlags = {}): bool {.nbench.}=
   # Process an Eth1 deposit, registering a validator or increasing its balance.
@@ -62,6 +62,9 @@ proc process_deposit*(
     state.eth1_deposit_index,
     state.eth1_data.deposit_root,
   ):
+    notice "Deposit merkle validation failed",
+      proof = deposit.proof, deposit_root = state.eth1_data.deposit_root,
+      deposit_index = state.eth1_deposit_index
     return false
 
   # Deposits must be processed in order
@@ -78,18 +81,17 @@ proc process_deposit*(
     # by the deposit contract
 
     # Fork-agnostic domain since deposits are valid across forks
-    #
-    # TODO zcli/zrnt does use the GENESIS_FORK_VERSION which can
-    # vary between minimal/mainnet, though, despite the comment,
-    # which is copied verbatim from the eth2 beacon chain spec.
-    # https://github.com/protolambda/zrnt/blob/v0.11.0/eth2/phase0/kickstart.go#L58
-    let domain = compute_domain(DOMAIN_DEPOSIT, GENESIS_FORK_VERSION)
+    let domain = compute_domain(DOMAIN_DEPOSIT)
 
     let signing_root = compute_signing_root(deposit.getDepositMessage, domain)
     if skipBLSValidation notin flags and not bls_verify(
         pubkey, signing_root.data,
         deposit.data.signature):
-      return false
+      # It's ok that deposits fail - they get included in blocks regardless
+      # TODO spec test?
+      debug "Skipping deposit with invalid signature",
+        pubkey, signing_root, signature = deposit.data.signature
+      return true
 
     # Add validator and balance entries
     state.validators.add(Validator(
@@ -109,13 +111,13 @@ proc process_deposit*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
 func compute_activation_exit_epoch(epoch: Epoch): Epoch =
   ## Return the epoch during which validator activations and exits initiated in
   ## ``epoch`` take effect.
   epoch + 1 + MAX_SEED_LOOKAHEAD
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#get_validator_churn_limit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_validator_churn_limit
 func get_validator_churn_limit(state: BeaconState): uint64 =
   # Return the validator churn limit for the current epoch.
   let active_validator_indices =
@@ -123,7 +125,7 @@ func get_validator_churn_limit(state: BeaconState): uint64 =
   max(MIN_PER_EPOCH_CHURN_LIMIT,
     len(active_validator_indices) div CHURN_LIMIT_QUOTIENT).uint64
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#initiate_validator_exit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(state: var BeaconState,
                               index: ValidatorIndex) =
   # Initiate the exit of the validator with index ``index``.
@@ -152,7 +154,7 @@ func initiate_validator_exit*(state: var BeaconState,
   validator.withdrawable_epoch =
     validator.exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#slash_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#slash_validator
 proc slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
     stateCache: var StateCache) =
   # Slash the validator with index ``index``.
@@ -178,6 +180,7 @@ proc slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
     validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT)
 
   # The rest doesn't make sense without there being any proposer index, so skip
+  # Apply proposer and whistleblower rewards
   let proposer_index = get_beacon_proposer_index(state, stateCache)
   if proposer_index.isNone:
     debug "No beacon proposer index and probably no active validators"
@@ -195,7 +198,7 @@ proc slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
   increase_balance(
     state, whistleblower_index, whistleblowing_reward - proposer_reward)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#genesis
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#genesis
 proc initialize_beacon_state_from_eth1*(
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
@@ -220,8 +223,8 @@ proc initialize_beacon_state_from_eth1*(
   const SECONDS_PER_DAY = uint64(60*60*24)
   var state = BeaconStateRef(
     fork: Fork(
-      previous_version: GENESIS_FORK_VERSION,
-      current_version: GENESIS_FORK_VERSION,
+      previous_version: Version(GENESIS_FORK_VERSION),
+      current_version: Version(GENESIS_FORK_VERSION),
       epoch: GENESIS_EPOCH),
     genesis_time:
       eth1_timestamp + 2'u64 * SECONDS_PER_DAY -
@@ -263,10 +266,18 @@ proc initialize_beacon_state_from_eth1*(
       validator.activation_epoch = GENESIS_EPOCH
 
   # Set genesis validators root for domain separation and chain versioning
-  state.genesis_validators_root =
-    hash_tree_root(sszList(state.validators, VALIDATOR_REGISTRY_LIMIT))
+  state.genesis_validators_root = hash_tree_root(state.validators)
 
   state
+
+proc initialize_hashed_beacon_state_from_eth1*(
+    eth1_block_hash: Eth2Digest,
+    eth1_timestamp: uint64,
+    deposits: openArray[Deposit],
+    flags: UpdateFlags = {}): HashedBeaconState =
+  let genesisState = initialize_beacon_state_from_eth1(
+    eth1_block_hash, eth1_timestamp, deposits, flags)
+  HashedBeaconState(data: genesisState[], root: hash_tree_root(genesisState[]))
 
 func is_valid_genesis_state*(state: BeaconState): bool =
   if state.genesis_time < MIN_GENESIS_TIME:
@@ -288,7 +299,7 @@ func get_initial_beacon_block*(state: BeaconState): SignedBeaconBlock =
       # parent_root, randao_reveal, eth1_data, signature, and body automatically
       # initialized to default values.
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#get_block_root_at_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: BeaconState,
                              slot: Slot): Eth2Digest =
   # Return the block root at a recent ``slot``.
@@ -297,12 +308,12 @@ func get_block_root_at_slot*(state: BeaconState,
   doAssert slot < state.slot
   state.block_roots[slot mod SLOTS_PER_HISTORICAL_ROOT]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#get_block_root
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_block_root
 func get_block_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Return the block root at the start of a recent ``epoch``.
   get_block_root_at_slot(state, compute_start_slot_at_epoch(epoch))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#get_total_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_total_balance
 func get_total_balance*(state: BeaconState, validators: auto): Gwei =
   ## Return the combined effective balance of the ``indices``.
   ## ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
@@ -313,13 +324,13 @@ func get_total_balance*(state: BeaconState, validators: auto): Gwei =
 
 # XXX: Move to state_transition_epoch.nim?
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#is_eligible_for_activation_queue
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#is_eligible_for_activation_queue
 func is_eligible_for_activation_queue(validator: Validator): bool =
   # Check if ``validator`` is eligible to be placed into the activation queue.
   validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and
     validator.effective_balance == MAX_EFFECTIVE_BALANCE
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#is_eligible_for_activation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#is_eligible_for_activation
 func is_eligible_for_activation(state: BeaconState, validator: Validator):
     bool =
   # Check if ``validator`` is eligible for activation.
@@ -329,7 +340,7 @@ func is_eligible_for_activation(state: BeaconState, validator: Validator):
   # Has not yet been activated
     validator.activation_epoch == FAR_FUTURE_EPOCH
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#registry-updates
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#registry-updates
 proc process_registry_updates*(state: var BeaconState) {.nbench.}=
   ## Process activation eligibility and ejections
   ## Try to avoid caching here, since this could easily become undefined
@@ -381,23 +392,20 @@ proc process_registry_updates*(state: var BeaconState) {.nbench.}=
     validator.activation_epoch =
       compute_activation_exit_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     state: BeaconState, indexed_attestation: IndexedAttestation,
     flags: UpdateFlags): bool =
-  ## Check if ``indexed_attestation`` has valid indices and signature.
+  # Check if ``indexed_attestation`` has sorted and unique indices and a valid
+  # aggregate signature.
   # TODO: this is noSideEffect besides logging
   #       https://github.com/status-im/nim-chronicles/issues/62
 
-  let indices = indexed_attestation.attesting_indices
-
-  # Verify max number of indices
-  if not (len(indices) <= MAX_VALIDATORS_PER_COMMITTEE):
-    notice "indexed attestation: validator index beyond max validators per committee"
-    return false
-
   # Verify indices are sorted and unique
-  if indices != sorted(toHashSet(indices).toSeq, system.cmp):
+  # TODO: A simple loop can verify that the indicates are monotonically
+  #       increasing and non-repeating here!
+  let indices = indexed_attestation.attesting_indices
+  if indices.asSeq != sorted(toHashSet(indices.asSeq).toSeq, system.cmp):
     notice "indexed attestation: indices not sorted"
     return false
 
@@ -414,7 +422,7 @@ proc is_valid_indexed_attestation*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#get_attesting_indices
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(state: BeaconState,
                             data: AttestationData,
                             bits: CommitteeValidatorsBits,
@@ -428,7 +436,7 @@ func get_attesting_indices*(state: BeaconState,
   # This shouldn't happen if one begins with a valid BeaconState and applies
   # valid updates, but one can construct a BeaconState where it does. Do not
   # do anything here since the PendingAttestation wouldn't have made it past
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#attestations
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#attestations
   # which checks len(attestation.aggregation_bits) == len(committee) that in
   # nim-beacon-chain lives in check_attestation(...).
   # Addresses https://github.com/status-im/nim-beacon-chain/issues/922
@@ -440,7 +448,7 @@ func get_attesting_indices*(state: BeaconState,
     if bits[i]:
       result.incl index
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#get_indexed_attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_indexed_attestation
 func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
     stateCache: var StateCache): IndexedAttestation =
   # Return the indexed attestation corresponding to ``attestation``.
@@ -451,12 +459,13 @@ func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
 
   IndexedAttestation(
     attesting_indices:
-      sorted(mapIt(attesting_indices.toSeq, it.uint64), system.cmp),
+      List[uint64, MAX_VALIDATORS_PER_COMMITTEE](
+        sorted(mapIt(attesting_indices.toSeq, it.uint64), system.cmp)),
     data: attestation.data,
     signature: attestation.signature
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#attestations
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#attestations
 proc check_attestation*(
     state: BeaconState, attestation: Attestation, flags: UpdateFlags,
     stateCache: var StateCache): bool =
@@ -555,12 +564,14 @@ proc process_attestation*(
 
     if attestation.data.target.epoch == get_current_epoch(state):
       trace "process_attestation: current_epoch_attestations.add",
+        attestation = shortLog(attestation),
         pending_attestation = pending_attestation,
         indices = get_attesting_indices(
           state, attestation.data, attestation.aggregation_bits, stateCache).len
       state.current_epoch_attestations.add(pending_attestation)
     else:
       trace "process_attestation: previous_epoch_attestations.add",
+        attestation = shortLog(attestation),
         pending_attestation = pending_attestation,
         indices = get_attesting_indices(
           state, attestation.data, attestation.aggregation_bits, stateCache).len
@@ -568,6 +579,10 @@ proc process_attestation*(
 
     true
   else:
+    trace "process_attestation: check_attestation failed",
+      attestation = shortLog(attestation),
+      indices = get_attesting_indices(
+        state, attestation.data, attestation.aggregation_bits, stateCache).len
     false
 
 func makeAttestationData*(
@@ -587,7 +602,7 @@ func makeAttestationData*(
 
   doAssert slot.compute_epoch_at_slot == current_epoch
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index,

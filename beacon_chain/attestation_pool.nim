@@ -317,17 +317,34 @@ proc getAttestationsForBlock*(pool: AttestationPool,
 
   # TODO this shouldn't really need state -- it's to recheck/validate, but that
   # should be refactored
-  let
-    newBlockSlot = state.slot
-    maybeSlotData = getAttestationsForSlot(pool, newBlockSlot)
+  let newBlockSlot = state.slot
+  var attestations: seq[AttestationEntry]
 
-  if maybeSlotData.isNone:
-    # Logging done in getAttestationsForSlot(...)
+  # This isn't maximally efficient -- iterators or other approaches would
+  # avoid lots of memory allocations -- but this provides a more flexible
+  # base upon which to experiment with, and isn't yet profiling hot-path,
+  # while avoiding penalizing slow attesting too much (as, in the spec it
+  # is supposed to be available two epochs back; it's not meant as). This
+  # isn't a good solution, either -- see the set-packing comment below as
+  # one issue. It also creates problems with lots of repeat attestations,
+  # as a bunch of synchronized beacon_nodes do almost the opposite of the
+  # intended thing -- sure, _blocks_ have to be popular (via attestation)
+  # but _attestations_ shouldn't have to be so frequently repeated, as an
+  # artifact of this state-free, identical-across-clones choice basis. In
+  # addResolved, too, the new attestations get added to the end, while in
+  # these functions, it's reading from the beginning, et cetera. This all
+  # needs a single unified strategy.
+  const LOOKBACK_WINDOW = 3
+  for i in max(1, newBlockSlot.int64 - LOOKBACK_WINDOW) .. newBlockSlot.int64:
+    let maybeSlotData = getAttestationsForSlot(pool, i.Slot)
+    if maybeSlotData.isSome:
+      insert(attestations, maybeSlotData.get.attestations)
+
+  if attestations.len == 0:
     return
-  let slotData = maybeSlotData.get
 
   var cache = get_empty_per_epoch_cache()
-  for a in slotData.attestations:
+  for a in attestations:
     var
       # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#construct-attestation
       attestation = Attestation(
@@ -368,6 +385,8 @@ proc getAttestationsForBlock*(pool: AttestationPool,
     result.add(attestation)
 
     if result.len >= MAX_ATTESTATIONS:
+      debug "getAttestationsForBlock: returning early after hitting MAX_ATTESTATIONS",
+        attestationSlot = newBlockSlot - 1
       return
 
 proc resolve*(pool: var AttestationPool) =

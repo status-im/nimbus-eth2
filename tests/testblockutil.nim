@@ -25,7 +25,7 @@ func makeFakeHash(i: int): Eth2Digest =
   static: doAssert sizeof(bytes) <= sizeof(result.data)
   copyMem(addr result.data[0], addr bytes[0], sizeof(bytes))
 
-func hackPrivKey(v: Validator): ValidatorPrivKey =
+func hackPrivKey*(v: Validator): ValidatorPrivKey =
   ## Extract private key, per above hack
   var bytes: array[8, byte]
   static: doAssert sizeof(bytes) <= sizeof(v.withdrawal_credentials.data)
@@ -43,7 +43,7 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
     privkey = makeFakeValidatorPrivKey(i)
     pubkey = privkey.toPubKey()
     withdrawal_credentials = makeFakeHash(i)
-    domain = compute_domain(DOMAIN_DEPOSIT, GENESIS_FORK_VERSION)
+    domain = compute_domain(DOMAIN_DEPOSIT, Version(GENESIS_FORK_VERSION))
 
   result = Deposit(
     data: DepositData(
@@ -95,7 +95,10 @@ proc addTestBlock*(
     flags: set[UpdateFlag] = {}): SignedBeaconBlock =
   # Create and add a block to state - state will advance by one slot!
 
-  process_slots(state, state.slot + 1)
+  # TODO workaround, disable when this works directly
+  var hashedState = HashedBeaconState(data: state, root: hash_tree_root(state))
+  doAssert process_slots(hashedState, hashedState.data.slot + 1)
+  state = hashedState.data
 
   var cache = get_empty_per_epoch_cache()
   let proposer_index = get_beacon_proposer_index(state, cache)

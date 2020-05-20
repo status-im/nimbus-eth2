@@ -125,7 +125,10 @@ type
 
 proc parseSSZ(path: string, T: typedesc): T =
   try:
-    result = SSZ.loadFile(path, T)
+    when T is ref:
+      result = newClone(SSZ.loadFile(path, typeof(default(T)[])))
+    else:
+      result = SSZ.loadFile(path, T)
   except SerializationError as err:
     writeStackTrace()
     stderr.write "SSZ load issue for file \"", path, "\"\n"
@@ -140,7 +143,10 @@ proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, ski
   let prePath = dir / preState & ".ssz"
 
   echo "Running: ", prePath
-  var state = newClone(parseSSZ(prePath, BeaconState))
+  let state = (ref HashedBeaconState)(
+    data: parseSSZ(prePath, BeaconState)
+  )
+  state.root = hash_tree_root(state.data)
 
   for i in 0 ..< blocksQty:
     let blockPath = dir / blocksPrefix & $i & ".ssz"
@@ -157,9 +163,13 @@ proc runProcessSlots*(dir, preState: string, numSlots: uint64) =
   let prePath = dir / preState & ".ssz"
 
   echo "Running: ", prePath
-  var state = newClone(parseSSZ(prePath, BeaconState))
+  let state = (ref HashedBeaconState)(
+    data: parseSSZ(prePath, BeaconState)
+  )
+  state.root = hash_tree_root(state.data)
 
-  process_slots(state[], state.slot + numSlots)
+  # Shouldn't necessarily assert, because nbench can run test suite
+  discard process_slots(state[], state.data.slot + numSlots)
 
 template processEpochScenarioImpl(
            dir, preState: string,
@@ -168,16 +178,19 @@ template processEpochScenarioImpl(
   let prePath = dir/preState & ".ssz"
 
   echo "Running: ", prePath
-  var state = newClone(parseSSZ(prePath, BeaconState))
+  let state = (ref HashedBeaconState)(
+    data: parseSSZ(prePath, BeaconState)
+  )
+  state.root = hash_tree_root(state.data)
 
   when needCache:
     var cache = get_empty_per_epoch_cache()
 
   # Epoch transitions can't fail (TODO is this true?)
   when needCache:
-    transitionFn(state[], cache)
+    transitionFn(state.data, cache)
   else:
-    transitionFn(state[])
+    transitionFn(state.data)
 
   echo astToStr(transitionFn) & " status: ", "Done" # if success: "SUCCESS ✓" else: "FAILURE ⚠️"
 
@@ -193,7 +206,10 @@ template processBlockScenarioImpl(
   let prePath = dir/preState & ".ssz"
 
   echo "Running: ", prePath
-  var state = newClone(parseSSZ(prePath, BeaconState))
+  let state = (ref HashedBeaconState)(
+    data: parseSSZ(prePath, BeaconState)
+  )
+  state.root = hash_tree_root(state.data)
 
   when needCache:
     var cache = get_empty_per_epoch_cache()
@@ -206,9 +222,9 @@ template processBlockScenarioImpl(
   var consObj = parseSSZ(consObjPath, ConsensusObjectRefType)
 
   when needFlags and needCache:
-    let success = transitionFn(state[], consObj[], flags, cache)
+    let success = transitionFn(state.data, consObj[], flags, cache)
   elif needFlags:
-    let success = transitionFn(state[], consObj[], flags)
+    let success = transitionFn(state.data, consObj[], flags)
   elif needCache:
     let success = transitionFn(state, consObj[], flags, cache)
   else:
@@ -286,4 +302,3 @@ genProcessBlockScenario(runProcessVoluntaryExits,
                         SignedVoluntaryExit,
                         needFlags = true,
                         needCache = false)
-

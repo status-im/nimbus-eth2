@@ -23,12 +23,17 @@ TOOLS := \
 	ncli_pretty \
 	ncli_transition \
 	process_dashboard \
-	stackSizes
+	stack_sizes \
+	state_sim \
+	block_sim \
+	nbench \
+	nbench_spec_scenarios
 	# bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes
 TOOLS_DIRS := \
 	beacon_chain \
 	benchmarks \
 	ncli \
+	nbench \
 	research \
 	tests/simulation
 TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
@@ -46,7 +51,11 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	clean-testnet1 \
 	testnet1 \
 	clean \
-	libbacktrace
+	libbacktrace \
+	schlesi \
+	schlesi-dev \
+	book \
+	publish-book
 
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
@@ -111,7 +120,7 @@ $(TOOLS): | build deps
 clean_eth2_network_simulation_files:
 	rm -rf tests/simulation/{data,validators}
 
-eth2_network_simulation: | build deps clean_eth2_network_simulation_files process_dashboard
+eth2_network_simulation: | build deps clean_eth2_network_simulation_files
 	+ GIT_ROOT="$$PWD" NIMFLAGS="$(NIMFLAGS)" LOG_LEVEL="$(LOG_LEVEL)" tests/simulation/start.sh
 
 clean-testnet0:
@@ -127,14 +136,14 @@ testnet0 testnet1: | build deps
 		NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) --const-preset=$$CONST_PRESET --dev-build $@
 
 schlesi: | build deps
-	LOG_LEVEL="DEBUG" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/schlesi
+	LOG_LEVEL="DEBUG" NIM_PARAMS="$(NIM_PARAMS)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/schlesi
 
 schlesi-dev: | build deps
-	LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
+	LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" NIM_PARAMS="$(NIM_PARAMS)" \
 		$(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) --dev-build shared/schlesi
 
 clean: | clean-common
-	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,beacon_node_testnet*,state_sim,transition*}
+	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,beacon_node_testnet*,block_sim,state_sim,transition*}
 ifneq ($(USE_LIBBACKTRACE), 0)
 	+ $(MAKE) -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
 endif
@@ -151,5 +160,20 @@ libnfuzz.a: | build deps
 		$(ENV_SCRIPT) nim c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static -o:build/$@ $(NIM_PARAMS) nfuzz/libnfuzz.nim && \
 		[[ -e "$@" ]] && mv "$@" build/ # workaround for https://github.com/nim-lang/Nim/issues/12745
 
-endif # "variables.mk" was not included
+book:
+	cd docs && \
+	mdbook build
 
+publish-book: | book
+	git worktree add tmp-book gh-pages && \
+	rm -rf tmp-book/* && \
+	cp -a docs/book/* tmp-book/ && \
+	cd tmp-book && \
+	git add . && { \
+		git commit -m "make publish-book" && \
+		git push origin gh-pages || true; } && \
+	cd .. && \
+	git worktree remove -f tmp-book && \
+	rm -rf tmp-book
+
+endif # "variables.mk" was not included

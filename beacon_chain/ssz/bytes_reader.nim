@@ -36,7 +36,7 @@ func fromSszBytes*(T: type SomeInteger, data: openarray[byte]): T {.raisesssz.} 
 func fromSszBytes*(T: type bool, data: openarray[byte]): T {.raisesssz.} =
   # TODO: spec doesn't say what to do if the value is >1 - we'll use the C
   #       definition for now, but maybe this should be a parse error instead?
-  if data.len == 0 or data[0] > byte(1):
+  if data.len == 0 or byte(data[0]) > byte(1):
     raise newException(MalformedSszError, "invalid boolean value")
   data[0] == 1
 
@@ -50,6 +50,16 @@ template fromSszBytes*(T: type Slot, bytes: openarray[byte]): Slot =
 
 template fromSszBytes*(T: type Epoch, bytes: openarray[byte]): Epoch =
   Epoch fromSszBytes(uint64, bytes)
+
+func fromSszBytes*(T: type ForkDigest, bytes: openarray[byte]): T {.raisesssz.} =
+  if bytes.len < sizeof(result):
+    raise newException(MalformedSszError, "SSZ input of insufficient size")
+  copyMem(result.addr, unsafeAddr bytes[0], sizeof(result))
+
+func fromSszBytes*(T: type Version, bytes: openarray[byte]): T {.raisesssz.} =
+  if bytes.len < sizeof(result):
+    raise newException(MalformedSszError, "SSZ input of insufficient size")
+  copyMem(result.addr, unsafeAddr bytes[0], sizeof(result))
 
 template fromSszBytes*(T: type enum, bytes: openarray[byte]): auto  =
   T fromSszBytes(uint64, bytes)
@@ -87,7 +97,7 @@ func readSszValue*(input: openarray[byte], T: type): T {.raisesssz.} =
   template readOffset(n: int): int {.used.}=
     int fromSszBytes(uint32, input.toOpenArray(n, n + offsetSize - 1))
 
-  when useListType and result is List:
+  when result is List:
     type ElemType = type result[0]
     result = T readSszValue(input, seq[ElemType])
 
@@ -189,8 +199,16 @@ func readSszValue*(input: openarray[byte], T: type): T {.raisesssz.} =
           SszType)
         trs "READING COMPLETE ", fieldName
 
-      elif useListType and FieldType is List:
-        field = readSszValue(
+      elif FieldType is List:
+        # TODO
+        # The `typeof(field)` coercion below is required to deal with a Nim
+        # bug. For some reason, Nim gets confused about the type of the list
+        # returned from the `readSszValue` function. This could be a generics
+        # caching issue caused by the use of distinct types. Such an issue
+        # would be very scary in general, but in this particular situation
+        # it shouldn't matter, because the different flavours of `List[T, N]`
+        # won't produce different serializations.
+        field = typeof(field) readSszValue(
           input.toOpenArray(startOffset, endOffset - 1),
           FieldType)
 

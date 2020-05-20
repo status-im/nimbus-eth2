@@ -8,7 +8,7 @@
 import
   algorithm, strformat, stats, times, tables, std/monotimes, stew/endians2,
   testutils/markdown_reports, chronicles,
-  ../beacon_chain/[beacon_chain_db, block_pool, extras, ssz,  beacon_node_types],
+  ../beacon_chain/[beacon_chain_db, block_pool, extras, ssz],
   ../beacon_chain/spec/[digest, beaconstate, datatypes],
   eth/db/kvstore,
   testblockutil
@@ -73,8 +73,11 @@ proc summarizeLongTests*(name: string) =
 template suiteReport*(name, body) =
   last = name
   status[last] = initOrderedTable[string, Status]()
-  suite name:
-    body
+  block: # namespacing
+    proc runSuite() =
+      suite name:
+        body
+    runSuite()
 
 template timedTest*(name, body) =
   var f: float

@@ -76,7 +76,8 @@ proc get(db: BeaconChainDB, key: openArray[byte], T: typedesc): Opt[T] =
     except SerializationError as e:
       # If the data can't be deserialized, it could be because it's from a
       # version of the software that uses a different SSZ encoding
-      warn "Unable to deserialize data, old database?", err = e.msg
+      warn "Unable to deserialize data, old database?",
+        err = e.msg, typ = name(T), dataLen = data.len
       discard
 
   discard db.backend.get(key, decode).expect("working database")

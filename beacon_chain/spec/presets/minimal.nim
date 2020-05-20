@@ -148,14 +148,13 @@ const
 
   # Phase 1: Upgrade from Phase 0
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/configs/minimal.yaml#L161
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L161
   PHASE_1_FORK_VERSION* = 16777217
   INITIAL_ACTIVE_SHARDS* = 4
-  INITIAL_GASPRICE* = 10
 
   # Phase 1: General
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/configs/minimal.yaml#L171
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L169
   MAX_SHARDS* = 8
   ONLINE_PERIOD* = 8 # epochs ~ 51 minutes
   LIGHT_CLIENT_COMMITTEE_SIZE* = 128
@@ -166,30 +165,26 @@ const
   TARGET_SHARD_BLOCK_SIZE* = 196608
   MAX_SHARD_BLOCKS_PER_ATTESTATION* = 12
   MAX_GASPRICE* = 16384 # Gwei
-  MIN_GASPRICE* = 32 # Gwei
+  MIN_GASPRICE* = 8 # Gwei
   GASPRICE_ADJUSTMENT_COEFFICIENT* = 8
 
   # Phase 1 - Custody game
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/minimal.yaml#L201
-  # TODO those are included in minimal.yaml but not mainnet.yaml
-  #      Why?
+  # Time parameters
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L202
   RANDAO_PENALTY_EPOCHS* = 2
   EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS* = 4096 # epochs
   EPOCHS_PER_CUSTODY_PERIOD* = 2048
-
-  # Time parameters
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/configs/minimal.yaml#L204
   CUSTODY_PERIOD_TO_RANDAO_PADDING* = 2048
   MAX_REVEAL_LATENESS_DECREMENT* = 128
 
   # Max operations
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/configs/minimal.yaml#L216
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L214
   MAX_CUSTODY_KEY_REVEALS* = 256
   MAX_EARLY_DERIVED_SECRET_REVEALS* = 1
   MAX_CUSTODY_SLASHINGS* = 1
 
   # Reward and penalty quotients
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/configs/minimal.yaml#L222
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L220
   EARLY_DERIVED_SECRET_REVEAL_SLOT_REWARD_MULTIPLE* = 2
   MINOR_REWARD_QUOTIENT* = 256

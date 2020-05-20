@@ -24,7 +24,7 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
 fi
 
 OPTS="ht:n:d:"
-LONGOPTS="help,testnet:,nodes:,data-dir:,disable-htop,log-level:"
+LONGOPTS="help,testnet:,nodes:,data-dir:,disable-htop,log-level:,grafana,base-port:,base-metrics-port:"
 
 # default values
 TESTNET="1"
@@ -32,6 +32,9 @@ NUM_NODES="10"
 DATA_DIR="local_testnet_data"
 USE_HTOP="1"
 LOG_LEVEL="DEBUG"
+ENABLE_GRAFANA="0"
+BASE_PORT="9000"
+BASE_METRICS_PORT="8008"
 
 print_help() {
 	cat <<EOF
@@ -39,13 +42,16 @@ Usage: $(basename $0) --testnet <testnet number> [OTHER OPTIONS] -- [BEACON NODE
 E.g.: $(basename $0) --testnet ${TESTNET} --nodes ${NUM_NODES} --data-dir "${DATA_DIR}" # defaults
 CI run: $(basename $0) --disable-htop -- --verify-finalization --stop-at-epoch=5
 
-  -h, --help            this help message
-  -t, --testnet         testnet number (default: ${TESTNET})
-  -n, --nodes		number of nodes to launch (default: ${NUM_NODES})
-  -d, --data-dir	directory where all the node data and logs will end up
-			(default: "${DATA_DIR}")
-      --disable-htop	don't use "htop" to see the beacon_node processes
-      --log-level	set the log level (default: ${LOG_LEVEL})
+  -h, --help			this help message
+  -t, --testnet			testnet number (default: ${TESTNET})
+  -n, --nodes			number of nodes to launch (default: ${NUM_NODES})
+  -d, --data-dir		directory where all the node data and logs will end up
+				(default: "${DATA_DIR}")
+      --base-port		bootstrap node's Eth2 traffic port (default: ${BASE_PORT})
+      --base-metrics-port	bootstrap node's metrics server port (default: ${BASE_METRICS_PORT})
+      --disable-htop		don't use "htop" to see the beacon_node processes
+      --log-level		set the log level (default: ${LOG_LEVEL})
+      --grafana			generate Grafana dashboards (and Prometheus config file)
 EOF
 }
 
@@ -81,6 +87,18 @@ while true; do
 			;;
 		--log-level)
 			LOG_LEVEL="$2"
+			shift 2
+			;;
+		--grafana)
+			ENABLE_GRAFANA="1"
+			shift
+			;;
+		--base-port)
+			BASE_PORT="$2"
+			shift 2
+			;;
+		--base-metrics-port)
+			BASE_METRICS_PORT="$2"
 			shift 2
 			;;
 		--)
@@ -119,9 +137,8 @@ else
 fi
 
 NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh ${NETWORK})
-$MAKE LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node
+$MAKE -j2 LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node process_dashboard
 
-rm -rf "${DEPOSITS_DIR}"
 ./build/beacon_node makeDeposits \
 	--quickstart-deposits=${QUICKSTART_VALIDATORS} \
 	--random-deposits=${RANDOM_VALIDATORS} \
@@ -137,19 +154,57 @@ BOOTSTRAP_IP="127.0.0.1"
 	--output-genesis="${NETWORK_DIR}/genesis.ssz" \
 	--output-bootstrap-file="${NETWORK_DIR}/bootstrap_nodes.txt" \
 	--bootstrap-address=${BOOTSTRAP_IP} \
-	--bootstrap-port=${BOOTSTRAP_PORT} \
+	--bootstrap-port=${BASE_PORT} \
 	--genesis-offset=5 # Delay in seconds
 
+if [[ "$ENABLE_GRAFANA" == "1" ]]; then
+	# Prometheus config
+	cat > "${DATA_DIR}/prometheus.yml" <<EOF
+global:
+  scrape_interval: 1s
+
+scrape_configs:
+  - job_name: "nimbus"
+    static_configs:
+EOF
+	for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
+		cat >> "${DATA_DIR}/prometheus.yml" <<EOF
+      - targets: ['127.0.0.1:$(( BASE_METRICS_PORT + NUM_NODE ))']
+        labels:
+          node: '$NUM_NODE'
+EOF
+	done
+
+	# use the exported Grafana dashboard for a single node to create one for all nodes
+	./build/process_dashboard \
+	  --nodes=${NUM_NODES} \
+	  --in="tests/simulation/beacon-chain-sim-node0-Grafana-dashboard.json" \
+	  --out="${DATA_DIR}/local-testnet-all-nodes-Grafana-dashboard.json"
+fi
+
+# Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
+# instance as the parent and the target process name as a pattern to the
+# "pkill" command.
 cleanup() {
-	killall beacon_node &>/dev/null || true
+	pkill -P $$ beacon_node &>/dev/null || true
 	sleep 2
-	killall -9 beacon_node &>/dev/null || true
+	pkill -9 -P $$ beacon_node &>/dev/null || true
 }
-cleanup
+trap 'cleanup' SIGINT SIGTERM EXIT
+
+dump_logs() {
+	LOG_LINES=20
+	for LOG in "${DATA_DIR}"/log*.txt; do
+		echo "Last ${LOG_LINES} lines of ${LOG}:"
+		tail -n ${LOG_LINES} "${LOG}"
+		echo "======"
+	done
+}
 
 PIDS=""
 NODES_WITH_VALIDATORS=${NODES_WITH_VALIDATORS:-4}
 VALIDATORS_PER_NODE=$(( $RANDOM_VALIDATORS / $NODES_WITH_VALIDATORS ))
+BOOTSTRAP_TIMEOUT=10 # in seconds
 
 for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 	if [[ ${NUM_NODE} == 0 ]]; then
@@ -157,8 +212,15 @@ for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 	else
 		BOOTSTRAP_ARG="--bootstrap-file=${NETWORK_DIR}/bootstrap_nodes.txt"
 		# Wait for the master node to write out its address file
+		START_TIMESTAMP=$(date +%s)
 		while [ ! -f "${DATA_DIR}/node0/beacon_node.address" ]; do
 			sleep 0.1
+			NOW_TIMESTAMP=$(date +%s)
+			if [[ "$(( NOW_TIMESTAMP - START_TIMESTAMP ))" -ge "$BOOTSTRAP_TIMEOUT" ]]; then
+				echo "Bootstrap node failed to start in ${BOOTSTRAP_TIMEOUT} seconds. Aborting."
+				dump_logs
+				exit 1
+			fi
 		done
 	fi
 
@@ -172,22 +234,35 @@ for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 		done
 	fi
 
-	stdbuf -o0 build/beacon_node \
+	./build/beacon_node \
 		--nat:extip:127.0.0.1 \
 		--log-level="${LOG_LEVEL}" \
-		--tcp-port=$(( ${BOOTSTRAP_PORT} + ${NUM_NODE} )) \
-		--udp-port=$(( ${BOOTSTRAP_PORT} + ${NUM_NODE} )) \
+		--tcp-port=$(( BASE_PORT + NUM_NODE )) \
+		--udp-port=$(( BASE_PORT + NUM_NODE )) \
 		--data-dir="${NODE_DATA_DIR}" \
 		${BOOTSTRAP_ARG} \
 		--state-snapshot="${NETWORK_DIR}/genesis.ssz" \
+		--metrics \
+		--metrics-address="127.0.0.1" \
+		--metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
 		${EXTRA_ARGS} \
 		> "${DATA_DIR}/log${NUM_NODE}.txt" 2>&1 &
+
 	if [[ "${PIDS}" == "" ]]; then
 		PIDS="$!"
 	else
 		PIDS="${PIDS},$!"
 	fi
 done
+
+# give the regular nodes time to crash
+sleep 5
+BG_JOBS="$(jobs | wc -l)"
+if [[ "$BG_JOBS" != "$NUM_NODES" ]]; then
+	echo "$((NUM_NODES - BG_JOBS)) beacon_node instance(s) exited early. Aborting."
+	dump_logs
+	exit 1
+fi
 
 if [[ "$USE_HTOP" == "1" ]]; then
 	htop -p "$PIDS"
@@ -199,6 +274,7 @@ else
 	done
 	if [[ "$FAILED" != "0" ]]; then
 		echo "${FAILED} child processes had non-zero exit codes (or exited early)."
+		dump_logs
 		exit 1
 	fi
 fi

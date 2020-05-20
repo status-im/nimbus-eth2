@@ -43,9 +43,10 @@ for nodeNum in 0 .. (nodes - 1):
     panel["title"] = %* replace(panel["title"].getStr(), "#0", "#" & $nodeNum)
     panel["id"] = %* (panelIndex + (nodeNum * numPanels))
     panel["gridPos"]["y"] = %* (panel["gridPos"]["y"].getInt() + (nodeNum * gridHeight))
-    var targets = panel["targets"]
-    for target in targets.mitems:
-      target["expr"] = %* replace(target["expr"].getStr(), "{node=\"0\"}", "{node=\"" & $nodeNum & "\"}")
+    if panel.hasKey("targets"):
+      var targets = panel["targets"]
+      for target in targets.mitems:
+        target["expr"] = %* replace(target["expr"].getStr(), "{node=\"0\"}", "{node=\"" & $nodeNum & "\"}")
     outputData["panels"].add(panel)
     panelIndex.inc()
 

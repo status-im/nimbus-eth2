@@ -27,9 +27,9 @@ proc addMockAttestations*(
   # Alias the attestations container
   var attestations: ptr seq[PendingAttestation]
   if state.get_current_epoch() == epoch:
-    attestations = state.current_epoch_attestations.addr
+    attestations = state.current_epoch_attestations.asSeq.addr
   elif state.get_previous_epoch() == epoch:
-    attestations = state.previous_epoch_attestations.addr
+    attestations = state.previous_epoch_attestations.asSeq.addr
   else:
     raise newException(ValueError, &"Cannot include attestations from epoch {state.get_current_epoch()} in epoch {epoch}")
 

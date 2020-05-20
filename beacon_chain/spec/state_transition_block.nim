@@ -15,17 +15,12 @@
 # The entry point is `process_block` which is at the bottom of this file.
 #
 # General notes about the code (TODO):
-# * It's inefficient - we quadratically copy, allocate and iterate when there
-#   are faster options
 # * Weird styling - the sections taken from the spec use python styling while
 #   the others use NEP-1 - helps grepping identifiers in spec
 # * We mix procedural and functional styles for no good reason, except that the
 #   spec does so also.
-# * There are likely lots of bugs.
 # * For indices, we get a mix of uint64, ValidatorIndex and int - this is currently
 #   swept under the rug with casts
-# * The spec uses uint64 for data types, but functions in the spec often assume
-#   signed bigint semantics - under- and overflows ensue
 # * Sane error handling is missing in most cases (yay, we'll get the chance to
 #   debate exceptions again!)
 # When updating the code, add TODO sections to mark where there are clear
@@ -46,7 +41,7 @@ declareGauge beacon_previous_live_validators, "Number of active validators that 
 declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
 declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#block-header
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#block-header
 proc process_block_header*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.}=
@@ -55,6 +50,11 @@ proc process_block_header*(
     notice "Block header: slot mismatch",
       block_slot = shortLog(blck.slot),
       state_slot = shortLog(state.slot)
+    return false
+
+  # Verify that the block is newer than latest block header
+  if not (blck.slot > state.latest_block_header.slot):
+    debug "Block header: block not newer than latest block header"
     return false
 
   # Verify that proposer index is the correct index
@@ -130,20 +130,20 @@ proc process_randao(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#eth1-data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#eth1-data
 func process_eth1_data(state: var BeaconState, body: BeaconBlockBody) {.nbench.}=
   state.eth1_data_votes.add body.eth1_data
-  if state.eth1_data_votes.count(body.eth1_data) * 2 > SLOTS_PER_ETH1_VOTING_PERIOD.int:
+  if state.eth1_data_votes.asSeq.count(body.eth1_data) * 2 > SLOTS_PER_ETH1_VOTING_PERIOD.int:
     state.eth1_data = body.eth1_data
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#is_slashable_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#is_slashable_validator
 func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
   # Check if ``validator`` is slashable.
   (not validator.slashed) and
     (validator.activation_epoch <= epoch) and
     (epoch < validator.withdrawable_epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#proposer-slashings
 proc process_proposer_slashing*(
     state: var BeaconState, proposer_slashing: ProposerSlashing,
     flags: UpdateFlags, stateCache: var StateCache): bool {.nbench.}=
@@ -211,7 +211,7 @@ proc processProposerSlashings(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#is_slashable_attestation_data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
     data_1: AttestationData, data_2: AttestationData): bool =
   ## Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG
@@ -223,7 +223,7 @@ func is_slashable_attestation_data(
     (data_1.source.epoch < data_2.source.epoch and
      data_2.target.epoch < data_1.target.epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#attester-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
        state: var BeaconState,
        attester_slashing: AttesterSlashing,
@@ -250,8 +250,8 @@ proc process_attester_slashing*(
     var slashed_any = false
 
     for index in sorted(toSeq(intersection(
-        toHashSet(attestation_1.attesting_indices),
-        toHashSet(attestation_2.attesting_indices)).items), system.cmp):
+        toHashSet(attestation_1.attesting_indices.asSeq),
+        toHashSet(attestation_2.attesting_indices.asSeq)).items), system.cmp):
       if is_slashable_validator(
           state.validators[index.int], get_current_epoch(state)):
         slash_validator(state, index.ValidatorIndex, stateCache)
@@ -388,7 +388,7 @@ proc processVoluntaryExits(state: var BeaconState, blck: BeaconBlock, flags: Upd
       return false
   return true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#block-processing
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#block-processing
 proc process_block*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.}=
@@ -401,19 +401,16 @@ proc process_block*(
   # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
   # doesn't seem to specify at what point in block processing this metric is to be read,
   # and this avoids the early-return issue (could also use defer, etc).
-  try:
-    beacon_pending_deposits.set(
-      state.eth1_data.deposit_count.int64 - state.eth1_deposit_index.int64)
-    beacon_processed_deposits_total.set(state.eth1_deposit_index.int64)
+  beacon_pending_deposits.set(
+    state.eth1_data.deposit_count.int64 - state.eth1_deposit_index.int64)
+  beacon_processed_deposits_total.set(state.eth1_deposit_index.int64)
 
-    # Adds nontrivial additional computation, but only does so when metrics
-    # enabled.
-    beacon_current_live_validators.set(toHashSet(
-      mapIt(state.current_epoch_attestations, it.proposerIndex)).len.int64)
-    beacon_previous_live_validators.set(toHashSet(
-      mapIt(state.previous_epoch_attestations, it.proposerIndex)).len.int64)
-  except Exception as e: # TODO https://github.com/status-im/nim-metrics/pull/22
-    trace "Couldn't update metrics", msg = e.msg
+  # Adds nontrivial additional computation, but only does so when metrics
+  # enabled.
+  beacon_current_live_validators.set(toHashSet(
+    mapIt(state.current_epoch_attestations, it.proposerIndex)).len.int64)
+  beacon_previous_live_validators.set(toHashSet(
+    mapIt(state.previous_epoch_attestations, it.proposerIndex)).len.int64)
 
   if not process_block_header(state, blck, flags, stateCache):
     notice "Block header not valid", slot = shortLog(state.slot)
@@ -427,7 +424,7 @@ proc process_block*(
 
   # TODO, everything below is now in process_operations
   # and implementation is per element instead of the whole seq
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#operations
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#operations
   if not processProposerSlashings(state, blck, flags, stateCache):
     debug "[Block processing] Proposer slashing failure", slot = shortLog(state.slot)
     return false
@@ -481,9 +478,8 @@ proc makeBeaconBlock*(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
       graffiti: graffiti,
-      attestations: attestations,
-      deposits: deposits)
-  )
+      attestations: List[Attestation, MAX_ATTESTATIONS](attestations),
+      deposits: List[Deposit, MAX_DEPOSITS](deposits)))
 
   let tmpState = newClone(state)
   let ok = process_block(tmpState[], blck, {skipBlsValidation}, cache)

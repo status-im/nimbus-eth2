@@ -4,8 +4,8 @@ import
   options as stdOptions, net as stdNet,
 
   # Status libs
-  stew/[varints, base58, bitseqs], stew/shims/[macros, tables], stint,
-  faststreams/output_stream, snappy, snappy/framing,
+  stew/[varints, base58, bitseqs, results], stew/shims/[macros, tables],
+  stint, faststreams/[inputs, outputs, buffers], snappy, snappy/framing,
   json_serialization, json_serialization/std/[net, options],
   chronos, chronicles, metrics,
   # TODO: create simpler to use libp2p modules that use re-exports
@@ -14,7 +14,7 @@ import
           protocols/identify, protocols/protocol],
   libp2p/protocols/secure/[secure, secio],
   libp2p/protocols/pubsub/[pubsub, floodsub, rpc/messages],
-  libp2p/transports/[transport, tcptransport],
+  libp2p/transports/tcptransport,
   libp2p/stream/lpstream,
   eth/[keys, async_utils], eth/p2p/[enode, p2p_protocol_dsl],
   eth/net/nat, eth/p2p/discoveryv5/[enr, node],
@@ -27,7 +27,7 @@ import
 
 export
   version, multiaddress, peer_pool, peerinfo, p2pProtocol,
-  libp2p_json_serialization, ssz, peer
+  libp2p_json_serialization, ssz, peer, results
 
 logScope:
   topics = "networking"
@@ -74,7 +74,7 @@ type
     protocolStates*: seq[RootRef]
     maxInactivityAllowed*: Duration
     score*: int
-    supportsSnappy: bool
+    lacksSnappy: bool
 
   ConnectionState* = enum
     None,
@@ -86,6 +86,7 @@ type
   UntypedResponder = object
     peer*: Peer
     stream*: Connection
+    noSnappy*: bool
 
   Responder*[MsgType] = distinct UntypedResponder
 
@@ -133,6 +134,30 @@ type
 
   TransmissionError* = object of CatchableError
 
+  Eth2NetworkingErrorKind* = enum
+    BrokenConnection
+    ReceivedErrorResponse
+    UnexpectedEOF
+    PotentiallyExpectedEOF
+    InvalidResponseCode
+    InvalidSnappyBytes
+    InvalidSszBytes
+    StreamOpenTimeout
+    ReadResponseTimeout
+    ZeroSizePrefix
+    SizePrefixOverflow
+
+  Eth2NetworkingError = object
+    case kind*: Eth2NetworkingErrorKind
+    of ReceivedErrorResponse:
+      responseCode: ResponseCode
+      errorMsg: string
+    else:
+      discard
+
+  NetRes*[T] = Result[T, Eth2NetworkingError]
+    ## This is type returned from all network requests
+
 const
   clientId* = "Nimbus beacon node v" & fullVersionStr
   networkKeyFilename = "privkey.protobuf"
@@ -155,6 +180,9 @@ const
   PeerScoreLimit* = 0
     ## Score after which peer will be kicked
 
+template neterr(kindParam: Eth2NetworkingErrorKind): auto =
+  err(type(result), Eth2NetworkingError(kind: kindParam))
+
 # Metrics for tracking attestation and beacon block loss
 declareCounter gossip_messages_sent,
   "Number of gossip messages sent by this peer"
@@ -168,6 +196,17 @@ declarePublicGauge libp2p_successful_dials,
 declarePublicGauge libp2p_peers,
   "Number of active libp2p peers"
 
+proc safeClose(conn: Connection) {.async.} =
+  if not conn.closed:
+    await close(conn)
+
+const
+  snappy_implementation {.strdefine.} = "libp2p"
+
+const useNativeSnappy = when snappy_implementation == "native": true
+                        elif snappy_implementation == "libp2p": false
+                        else: {.fatal: "Please set snappy_implementation to either 'libp2p' or 'native'".}
+
 template libp2pProtocol*(name: string, version: int) {.pragma.}
 
 template `$`*(peer: Peer): string = id(peer.info)
@@ -176,8 +215,23 @@ chronicles.formatIt(Peer): $it
 template remote*(peer: Peer): untyped =
   peer.info.peerId
 
-template openStream(node: Eth2Node, peer: Peer, protocolId: string): untyped =
-  dial(node.switch, peer.info, protocolId)
+proc openStream(node: Eth2Node,
+                peer: Peer,
+                protocolId: string): Future[Connection] {.async.} =
+  let protocolId = protocolId & (if peer.lacksSnappy: "ssz" else: "ssz_snappy")
+  try:
+    result = await dial(node.switch, peer.info, protocolId)
+  except CancelledError:
+    raise
+  except CatchableError:
+    # TODO: LibP2P should raise a more specific exception here
+    if peer.lacksSnappy == false:
+      peer.lacksSnappy = true
+      trace "Snappy connection failed. Trying without Snappy",
+            peer, protocolId
+      return await openStream(node, peer, protocolId)
+    else:
+      raise
 
 func peerId(conn: Connection): PeerID =
   # TODO: Can this be `nil`?
@@ -222,12 +276,6 @@ proc disconnect*(peer: Peer, reason: DisconnectionReason,
     peer.network.peerPool.release(peer)
     peer.info.close()
 
-proc safeClose(conn: Connection) {.async.} =
-  if not conn.closed:
-    await close(conn)
-
-proc handleIncomingPeer*(peer: Peer)
-
 include eth/p2p/p2p_backends_helpers
 include eth/p2p/p2p_tracing
 
@@ -257,162 +305,36 @@ proc disconnectAndRaise(peer: Peer,
   await peer.disconnect(r)
   raisePeerDisconnected(msg, r)
 
-proc readChunk(conn: Connection,
-               MsgType: type,
-               withResponseCode: bool,
-               deadline: Future[void]): Future[Option[MsgType]] {.gcsafe.}
+proc writeChunk*(conn: Connection,
+                 responseCode: Option[ResponseCode],
+                 payload: Bytes,
+                 noSnappy: bool) {.async.} =
+  var output = memoryOutput()
 
-proc readSizePrefix(conn: Connection,
-                    deadline: Future[void]): Future[int] {.async.} =
-  trace "about to read msg size prefix"
-  var parser: VarintParser[uint64, ProtoBuf]
-  while true:
-    var nextByte: byte
-    var readNextByte = conn.readExactly(addr nextByte, 1)
-    await readNextByte or deadline
-    if not readNextByte.finished:
-      trace "size prefix byte not received in time"
-      return -1
-    case parser.feedByte(nextByte)
-    of Done:
-      let res = parser.getResult
-      if res > uint64(MAX_CHUNK_SIZE):
-        trace "size prefix outside of range", res
-        return -1
-      else:
-        trace "got size prefix", res
-        return int(res)
-    of Overflow:
-      trace "size prefix overflow"
-      return -1
-    of Incomplete:
-      continue
+  if responseCode.isSome:
+    output.write byte(responseCode.get)
 
-proc readMsgBytes(conn: Connection,
-                  withResponseCode: bool,
-                  deadline: Future[void]): Future[Bytes] {.async.} =
-  trace "about to read message bytes", withResponseCode
+  output.write varintBytes(payload.len.uint64)
 
-  try:
-    if withResponseCode:
-      var responseCode: byte
-      trace "about to read response code"
-      var readResponseCode = conn.readExactly(addr responseCode, 1)
-      try:
-        await readResponseCode or deadline
-      except LPStreamEOFError:
-        trace "end of stream received"
-        return
-
-      if not readResponseCode.finished:
-        trace "response code not received in time"
-        return
-
-      if responseCode > ResponseCode.high.byte:
-        trace "invalid response code", responseCode
-        return
-
-      logScope: responseCode = ResponseCode(responseCode)
-      trace "got response code"
-
-      case ResponseCode(responseCode)
-      of InvalidRequest, ServerError:
-        let responseErrMsg = await conn.readChunk(string, false, deadline)
-        debug "P2P request resulted in error", responseErrMsg
-        return
-
-      of Success:
-        # The response is OK, the execution continues below
-        discard
-
-    var sizePrefix = await conn.readSizePrefix(deadline)
-    trace "got msg size prefix", sizePrefix
-
-    if sizePrefix == -1:
-      debug "Failed to read an incoming message size prefix", peer = conn.peerId
-      return
-
-    if sizePrefix == 0:
-      debug "Received SSZ with zero size", peer = conn.peerId
-      return
-
-    trace "about to read msg bytes", len = sizePrefix
-    var msgBytes = newSeq[byte](sizePrefix)
-    var readBody = conn.readExactly(addr msgBytes[0], sizePrefix)
-    await readBody or deadline
-    if not readBody.finished:
-      trace "msg bytes not received in time"
-      return
-
-    trace "got message bytes", len = sizePrefix
-    return msgBytes
-
-  except TransportIncompleteError:
-    return @[]
-
-proc readChunk(conn: Connection,
-               MsgType: type,
-               withResponseCode: bool,
-               deadline: Future[void]): Future[Option[MsgType]] {.gcsafe, async.} =
-  var msgBytes = await conn.readMsgBytes(withResponseCode, deadline)
-  try:
-    if msgBytes.len > 0:
-      return some SSZ.decode(msgBytes, MsgType)
-  except SerializationError as err:
-    debug "Failed to decode a network message",
-          msgBytes, errMsg = err.formatMsg("<msg>")
-    return
-
-proc readResponse(
-       conn: Connection,
-       MsgType: type,
-       deadline: Future[void]): Future[Option[MsgType]] {.gcsafe, async.} =
-
-  when MsgType is seq:
-    type E = ElemType(MsgType)
-    var results: MsgType
-    while true:
-      let nextRes = await conn.readChunk(E, true, deadline)
-      if nextRes.isNone: break
-      results.add nextRes.get
-    if results.len > 0:
-      return some(results)
+  if noSnappy:
+    output.write(payload)
   else:
-    return await conn.readChunk(MsgType, true, deadline)
+    output.write(framingFormatCompress payload)
 
-proc encodeErrorMsg(responseCode: ResponseCode, errMsg: string): Bytes =
-  var s = memoryOutput()
-  s.append byte(responseCode)
-  s.appendVarint errMsg.len
-  s.appendValue SSZ, errMsg
-  s.getOutput
+  await conn.write(output.getOutput)
 
 proc sendErrorResponse(peer: Peer,
                        conn: Connection,
-                       err: ref SerializationError,
-                       msgName: string,
-                       msgBytes: Bytes) {.async.} =
-  debug "Received an invalid request",
-        peer, msgName, msgBytes, errMsg = err.formatMsg("<msg>")
-
-  let responseBytes = encodeErrorMsg(InvalidRequest, err.formatMsg("msg"))
-  await conn.write(responseBytes)
-  await conn.close()
-
-proc sendErrorResponse(peer: Peer,
-                       conn: Connection,
+                       noSnappy: bool,
                        responseCode: ResponseCode,
                        errMsg: string) {.async.} =
   debug "Error processing request", peer, responseCode, errMsg
 
-  let responseBytes = encodeErrorMsg(ServerError, errMsg)
-  await conn.write(responseBytes)
-  await conn.close()
+  await conn.writeChunk(some responseCode, SSZ.encode(errMsg), noSnappy)
 
 proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.async} =
   var
     deadline = sleepAsync RESP_TIMEOUT
-    protocolId = protocolId & (if peer.supportsSnappy: "ssz_snappy" else: "ssz")
     streamFut = peer.network.openStream(peer, protocolId)
 
   await streamFut or deadline
@@ -423,77 +345,62 @@ proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.
 
   let stream = streamFut.read
   try:
-    var s = memoryOutput()
-    s.appendVarint requestBytes.len.uint64
-    if peer.supportsSnappy:
-      framing_format_compress(s, requestBytes)
-    else:
-      s.append requestBytes
-    let bytes = s.getOutput
-    await stream.write(bytes)
+    await stream.writeChunk(none ResponseCode, requestBytes, peer.lacksSnappy)
   finally:
     await safeClose(stream)
 
-# TODO There is too much duplication in the responder functions, but
-# I hope to reduce this when I increse the reliance on output streams.
 proc sendResponseChunkBytes(responder: UntypedResponder, payload: Bytes) {.async.} =
-  var s = memoryOutput()
-  s.append byte(Success)
-  s.appendVarint payload.len.uint64
-  s.append payload
-  let bytes = s.getOutput
-  await responder.stream.write(bytes)
+  await responder.stream.writeChunk(some Success, payload, responder.noSnappy)
 
 proc sendResponseChunkObj(responder: UntypedResponder, val: auto) {.async.} =
-  var s = memoryOutput()
-  s.append byte(Success)
-  s.appendValue SSZ, sizePrefixed(val)
-  let bytes = s.getOutput
-  await responder.stream.write(bytes)
+  await responder.stream.writeChunk(some Success, SSZ.encode(val),
+                                    responder.noSnappy)
 
 proc sendResponseChunks[T](responder: UntypedResponder, chunks: seq[T]) {.async.} =
-  var s = memoryOutput()
   for chunk in chunks:
-    s.append byte(Success)
-    s.appendValue SSZ, sizePrefixed(chunk)
+    await sendResponseChunkObj(responder, chunk)
 
-  let bytes = s.getOutput
-  await responder.stream.write(bytes)
+when useNativeSnappy:
+  include faststreams_backend
+else:
+  include libp2p_streams_backend
+
+template awaitWithTimeout[T](operation: Future[T],
+                             deadline: Future[void],
+                             onTimeout: untyped): T =
+  let f = operation
+  await f or deadline
+  if not f.finished:
+    cancel f
+    onTimeout
+  else:
+    f.read
 
 proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
                      ResponseMsg: type,
-                     timeout: Duration): Future[Option[ResponseMsg]] {.gcsafe, async.} =
-  var
-    deadline = sleepAsync timeout
-    protocolId = protocolId & (if peer.supportsSnappy: "ssz_snappy" else: "ssz")
-    streamFut = peer.network.openStream(peer, protocolId)
+                     timeout: Duration): Future[NetRes[ResponseMsg]]
+                    {.gcsafe, async.} =
+  var deadline = sleepAsync timeout
 
-  await streamFut or deadline
-
-  if not streamFut.finished:
-    streamFut.cancel()
-    return none(ResponseMsg)
-
-  let stream = streamFut.read
+  let stream = awaitWithTimeout(peer.network.openStream(peer, protocolId),
+                                deadline): return neterr StreamOpenTimeout
   try:
     # Send the request
-    var s = memoryOutput()
-    s.appendVarint requestBytes.len.uint64
-    if peer.supportsSnappy:
-      framing_format_compress(s, requestBytes)
-    else:
-      s.append requestBytes
-    let bytes = s.getOutput
-    await stream.write(bytes)
+    await stream.writeChunk(none ResponseCode, requestBytes, peer.lacksSnappy)
 
     # Read the response
-    return await stream.readResponse(ResponseMsg, deadline)
+    return awaitWithTimeout(
+      readResponse(when useNativeSnappy: libp2pInput(stream)
+                   else: stream,
+                   peer.lacksSnappy,
+                   ResponseMsg),
+      deadline, neterr(ReadResponseTimeout))
   finally:
     await safeClose(stream)
 
 proc init*[MsgType](T: type Responder[MsgType],
-                    peer: Peer, conn: Connection): T =
-  T(UntypedResponder(peer: peer, stream: conn))
+                    peer: Peer, conn: Connection, noSnappy: bool): T =
+  T(UntypedResponder(peer: peer, stream: conn, noSnappy: noSnappy))
 
 template write*[M](r: var Responder[M], val: auto): auto =
   mixin send
@@ -565,10 +472,14 @@ proc implementSendProcBody(sendProc: SendProc) =
 
   sendProc.useStandardBody(nil, nil, sendCallGenerator)
 
-proc handleIncomingStream(network: Eth2Node, conn: Connection, useSnappy: bool,
-                          MsgType, Format: distinct type) {.async, gcsafe.} =
+proc handleIncomingStream(network: Eth2Node,
+                          conn: Connection,
+                          noSnappy: bool,
+                          MsgType: type) {.async, gcsafe.} =
   mixin callUserHandler, RecType
-  const msgName = typetraits.name(MsgType)
+
+  type MsgRec = RecType(MsgType)
+  const msgName {.used.} = typetraits.name(MsgType)
 
   ## Uncomment this to enable tracing on all incoming requests
   ## You can include `msgNameLit` in the condition to select
@@ -578,45 +489,82 @@ proc handleIncomingStream(network: Eth2Node, conn: Connection, useSnappy: bool,
   #   defer: setLogLevel(LogLevel.DEBUG)
   #   trace "incoming " & `msgNameLit` & " conn"
 
-  let peer = peerFromStream(network, conn)
-
-  handleIncomingPeer(peer)
-
   try:
+    let peer = peerFromStream(network, conn)
+
+    template returnInvalidRequest(msg: string) =
+      await sendErrorResponse(peer, conn, noSnappy, InvalidRequest, msg)
+      return
+
+    let s = when useNativeSnappy:
+      let fs = libp2pInput(conn)
+
+      if fs.timeoutToNextByte(TTFB_TIMEOUT):
+        returnInvalidRequest "Request first byte not sent in time"
+
+      fs
+    else:
+      # TODO The TTFB timeout is not implemented in LibP2P streams back-end
+      conn
+
     let deadline = sleepAsync RESP_TIMEOUT
-    var msgBytes = await readMsgBytes(conn, false, deadline)
 
-    if msgBytes.len == 0:
-      await sendErrorResponse(peer, conn, ServerError, readTimeoutErrorMsg)
+    let msg = if sizeof(MsgRec) > 0:
+      try:
+        awaitWithTimeout(readChunkPayload(s, noSnappy, MsgRec), deadline):
+          returnInvalidRequest "Request full data not sent in time"
+
+      except SerializationError as err:
+        returnInvalidRequest err.formatMsg("msg")
+
+      except SnappyError as err:
+        returnInvalidRequest err.msg
+    else:
+      NetRes[MsgRec].ok default(MsgRec)
+
+    if msg.isErr:
+      let (responseCode, errMsg) = case msg.error.kind
+        of UnexpectedEOF, PotentiallyExpectedEOF:
+          (InvalidRequest, "Incomplete request")
+
+        of InvalidSnappyBytes:
+          (InvalidRequest, "Failed to decompress snappy payload")
+
+        of InvalidSszBytes:
+          (InvalidRequest, "Failed to decode SSZ payload")
+
+        of ZeroSizePrefix:
+          (InvalidRequest, "The request chunk cannot have a size of zero")
+
+        of SizePrefixOverflow:
+          (InvalidRequest, "The chunk size exceed the maximum allowed")
+
+        of InvalidResponseCode, ReceivedErrorResponse,
+           StreamOpenTimeout, ReadResponseTimeout:
+          # These shouldn't be possible in a request, because
+          # there are no response codes being read, no stream
+          # openings and no reading of responses:
+          (ServerError, "Internal server error")
+
+        of BrokenConnection:
+          return
+
+      await sendErrorResponse(peer, conn, noSnappy, responseCode, errMsg)
       return
 
-    if useSnappy:
-      msgBytes = framingFormatUncompress(msgBytes)
-
-    type MsgRec = RecType(MsgType)
-    var msg: MsgRec
     try:
-      msg = decode(Format, msgBytes, MsgRec)
-    except SerializationError as err:
-      await sendErrorResponse(peer, conn, err, msgName, msgBytes)
-      return
-    except Exception as err:
-      # TODO. This is temporary code that should be removed after interop.
-      # It can be enabled only in certain diagnostic builds where it should
-      # re-raise the exception.
-      debug "Crash during serialization", inputBytes = toHex(msgBytes), msgName
-      await sendErrorResponse(peer, conn, ServerError, err.msg)
-      raise err
-
-    try:
-      logReceivedMsg(peer, MsgType(msg))
-      await callUserHandler(peer, conn, msg)
+      logReceivedMsg(peer, MsgType(msg.get))
+      await callUserHandler(peer, conn, noSnappy, msg.get)
     except CatchableError as err:
-      await sendErrorResponse(peer, conn, ServerError, err.msg)
+      await sendErrorResponse(peer, conn, noSnappy, ServerError, err.msg)
+
+  except CatchableError as err:
+    debug "Error processing an incoming request", err = err.msg, msgName
+
   finally:
     await safeClose(conn)
 
-proc handleOutgoingPeer*(peer: Peer): Future[void] {.async.} =
+proc handleOutgoingPeer*(peer: Peer): Future[bool] {.async.} =
   let network = peer.network
 
   proc onPeerClosed(udata: pointer) {.gcsafe.} =
@@ -628,20 +576,24 @@ proc handleOutgoingPeer*(peer: Peer): Future[void] {.async.} =
     peer.updateScore(NewPeerScore)
     debug "Peer (outgoing) has been added to PeerPool", peer = $peer.info
     peer.getFuture().addCallback(onPeerClosed)
+    result = true
+
   libp2p_peers.set int64(len(network.peerPool))
 
-proc handleIncomingPeer*(peer: Peer) =
+proc handleIncomingPeer*(peer: Peer): Future[bool] {.async.} =
   let network = peer.network
 
   proc onPeerClosed(udata: pointer) {.gcsafe.} =
     debug "Peer (incoming) lost", peer = $peer.info
     libp2p_peers.set int64(len(network.peerPool))
 
-  let res = network.peerPool.addIncomingPeerNoWait(peer)
+  let res = await network.peerPool.addIncomingPeer(peer)
   if res:
     peer.updateScore(NewPeerScore)
     debug "Peer (incoming) has been added to PeerPool", peer = $peer.info
     peer.getFuture().addCallback(onPeerClosed)
+    result = true
+
   libp2p_peers.set int64(len(network.peerPool))
 
 proc toPeerInfo*(r: enr.TypedRecord): PeerInfo =
@@ -694,8 +646,6 @@ proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
 
   inc libp2p_successful_dials
   debug "Network handshakes completed"
-
-  await handleOutgoingPeer(peer)
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
@@ -768,6 +718,13 @@ proc start*(node: Eth2Node) {.async.} =
   node.discoveryLoop = node.runDiscoveryLoop()
   traceAsyncErrors node.discoveryLoop
 
+proc stop*(node: Eth2Node) {.async.} =
+  # ignore errors in futures, since we're shutting down
+  await allFutures(@[
+    node.discovery.closeWait(),
+    node.switch.stop(),
+    ])
+
 proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer =
   new result
   result.info = info
@@ -791,6 +748,7 @@ proc registerMsg(protocol: ProtocolInfo,
 proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   var
     Format = ident "SSZ"
+    Bool = bindSym "bool"
     Responder = bindSym "Responder"
     Connection = bindSym "Connection"
     Peer = bindSym "Peer"
@@ -800,6 +758,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     msgVar = ident "msg"
     networkVar = ident "network"
     callUserHandler = ident "callUserHandler"
+    noSnappyVar = ident "noSnappy"
 
   p.useRequestIds = false
   p.useSingleRecordInlining = true
@@ -811,6 +770,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   result.registerProtocol = bindSym "registerProtocol"
   result.setEventHandlers = bindSym "setEventHandlers"
   result.SerializationFormat = Format
+  result.RequestResultsWrapper = ident "NetRes"
   result.ResponderType = Responder
 
   result.afterProtocolInit = proc (p: P2PProtocol) =
@@ -829,7 +789,8 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
       # Request procs need an extra param - the stream where the response
       # should be written:
       msg.userHandler.params.insert(2, newIdentDefs(streamVar, Connection))
-      msg.initResponderCall.add streamVar
+      msg.userHandler.params.insert(3, newIdentdefs(noSnappyVar, Bool))
+      msg.initResponderCall.add [streamVar, noSnappyVar]
 
     ##
     ## Implement the Thunk:
@@ -846,21 +807,23 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     ##
     let
       protocolMounterName = ident(msgName & "_mounter")
-      userHandlerCall = msg.genUserHandlerCall(msgVar, [peerVar, streamVar])
+      userHandlerCall = msg.genUserHandlerCall(
+        msgVar, [peerVar, streamVar, noSnappyVar])
 
     var mounter: NimNode
     if msg.userHandler != nil:
       protocol.outRecvProcs.add quote do:
         template `callUserHandler`(`peerVar`: `Peer`,
                                    `streamVar`: `Connection`,
+                                   `noSnappyVar`: bool,
                                    `msgVar`: `MsgRecName`): untyped =
           `userHandlerCall`
 
         proc `protocolMounterName`(`networkVar`: `Eth2Node`) =
           proc sszThunk(`streamVar`: `Connection`,
                       proto: string): Future[void] {.gcsafe.} =
-            return handleIncomingStream(`networkVar`, `streamVar`, false,
-                                        `MsgStrongRecName`, `Format`)
+            return handleIncomingStream(`networkVar`, `streamVar`, true,
+                                        `MsgStrongRecName`)
 
           mount `networkVar`.switch,
                 LPProtocol(codec: `codecNameLit` & "ssz",
@@ -868,8 +831,8 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 
           proc snappyThunk(`streamVar`: `Connection`,
                       proto: string): Future[void] {.gcsafe.} =
-            return handleIncomingStream(`networkVar`, `streamVar`, true,
-                                        `MsgStrongRecName`, `Format`)
+            return handleIncomingStream(`networkVar`, `streamVar`, false,
+                                        `MsgStrongRecName`)
 
           mount `networkVar`.switch,
                 LPProtocol(codec: `codecNameLit` & "ssz_snappy",
@@ -954,17 +917,19 @@ template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, Protocol.IPPROTO_TCP, port)
 
 proc getPersistentNetKeys*(conf: BeaconNodeConf): KeyPair =
-  let privKeyPath = conf.dataDir / networkKeyFilename
-  var privKey: PrivateKey
-  if not fileExists(privKeyPath):
-    createDir conf.dataDir.string
-    privKey = PrivateKey.random(Secp256k1)
-    writeFile(privKeyPath, privKey.getBytes())
-  else:
-    let keyBytes = readFile(privKeyPath)
-    privKey = PrivateKey.init(keyBytes.toOpenArrayByte(0, keyBytes.high))
+  let
+    privKeyPath = conf.dataDir / networkKeyFilename
+    privKey =
+      if not fileExists(privKeyPath):
+        createDir conf.dataDir.string
+        let key = PrivateKey.random(Secp256k1).tryGet()
+        writeFile(privKeyPath, key.getBytes().tryGet())
+        key
+      else:
+        let keyBytes = readFile(privKeyPath)
+        PrivateKey.init(keyBytes.toOpenArrayByte(0, keyBytes.high)).tryGet()
 
-  KeyPair(seckey: privKey, pubkey: privKey.getKey())
+  KeyPair(seckey: privKey, pubkey: privKey.getKey().tryGet())
 
 proc createEth2Node*(conf: BeaconNodeConf, enrForkId: ENRForkID): Future[Eth2Node] {.async, gcsafe.} =
   var
@@ -981,13 +946,15 @@ proc createEth2Node*(conf: BeaconNodeConf, enrForkId: ENRForkID): Future[Eth2Nod
   # that are different from the host address (this is relevant when we
   # are running behind a NAT).
   var switch = newStandardSwitch(some keys.seckey, hostAddress,
-                                 triggerSelf = true, gossip = true)
+                                 triggerSelf = true, gossip = true,
+                                 sign = false, verifySignature = false,
+                                 transportFlags = {ServerFlags.ReuseAddr})
   result = Eth2Node.init(conf, enrForkId, switch,
                          extIp, extTcpPort, extUdpPort,
                          keys.seckey.asEthKey)
 
 proc getPersistenBootstrapAddr*(conf: BeaconNodeConf,
-                                ip: IpAddress, port: Port): enr.Record =
+                                ip: IpAddress, port: Port): EnrResult[enr.Record] =
   let pair = getPersistentNetKeys(conf)
   return enr.Record.init(1'u64, # sequence number
                          pair.seckey.asEthKey,
@@ -1071,13 +1038,13 @@ proc subscribe*[MsgType](node: Eth2Node,
   var switchSubscriptions: seq[Future[void]] = @[]
   switchSubscriptions.add(node.switch.subscribe(topic, incomingMsgHandler))
   switchSubscriptions.add(node.switch.subscribe(topic & "_snappy", incomingMsgHandlerSnappy))
-  
+
   await allFutures(switchSubscriptions)
 
 proc traceMessage(fut: FutureBase, digest: MDigest[256]) =
   fut.addCallback do (arg: pointer):
     if not(fut.failed):
-      trace "Outgoing pubsub message has been sent", message_id = `$`(digest)
+      trace "Outgoing pubsub message sent", message_id = `$`(digest)
 
 proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
   inc gossip_messages_sent
@@ -1100,4 +1067,3 @@ iterator randomPeers*(node: Eth2Node, maxPeers: int, Protocol: type): Peer =
   shuffle peers
   if peers.len > maxPeers: peers.setLen(maxPeers)
   for p in peers: yield p
-

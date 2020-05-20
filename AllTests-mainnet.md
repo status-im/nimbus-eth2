@@ -30,6 +30,17 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Smoke test initialize_beacon_state_from_eth1 [Preset: mainnet]                             OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## Block pool processing [Preset: mainnet]
+```diff
++ Can add same block twice [Preset: mainnet]                                                 OK
++ Reverse order block add & get [Preset: mainnet]                                            OK
++ Simple block add&get [Preset: mainnet]                                                     OK
++ getRef returns nil for missing blocks                                                      OK
++ loadTailState gets genesis block on first load [Preset: mainnet]                           OK
++ updateHead updates head and headState [Preset: mainnet]                                    OK
++ updateStateData sanity [Preset: mainnet]                                                   OK
+```
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Block processing [Preset: mainnet]
 ```diff
 + Attestation gets processed at epoch [Preset: mainnet]                                      OK
@@ -67,9 +78,10 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Honest validator
 ```diff
-+ Attestation topics                                                                         OK
++ General pubsub topics:                                                                     OK
++ Mainnet attestation topics                                                                 OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Interop
 ```diff
 + Interop genesis                                                                            OK
@@ -118,7 +130,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + HYSTERESIS_UPWARD_MULTIPLIER                      5                    [Preset: mainnet]   OK
 + INACTIVITY_PENALTY_QUOTIENT                       33554432             [Preset: mainnet]   OK
 + INITIAL_ACTIVE_SHARDS                             64                   [Preset: mainnet]   OK
-+ INITIAL_GASPRICE                                  10                   [Preset: mainnet]   OK
 + LIGHT_CLIENT_COMMITTEE_PERIOD                     256                  [Preset: mainnet]   OK
 + LIGHT_CLIENT_COMMITTEE_SIZE                       128                  [Preset: mainnet]   OK
 + MAX_ATTESTATIONS                                  128                  [Preset: mainnet]   OK
@@ -143,7 +154,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + MIN_ATTESTATION_INCLUSION_DELAY                   1                    [Preset: mainnet]   OK
 + MIN_DEPOSIT_AMOUNT                                1000000000           [Preset: mainnet]   OK
 + MIN_EPOCHS_TO_INACTIVITY_PENALTY                  4                    [Preset: mainnet]   OK
-+ MIN_GASPRICE                                      32                   [Preset: mainnet]   OK
++ MIN_GASPRICE                                      8                    [Preset: mainnet]   OK
 + MIN_GENESIS_ACTIVE_VALIDATOR_COUNT                16384                [Preset: mainnet]   OK
 + MIN_GENESIS_DELAY                                 86400                [Preset: mainnet]   OK
 + MIN_GENESIS_TIME                                  1578009600           [Preset: mainnet]   OK
@@ -172,7 +183,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + VALIDATOR_REGISTRY_LIMIT                          1099511627776        [Preset: mainnet]   OK
 + WHISTLEBLOWER_REWARD_QUOTIENT                     512                  [Preset: mainnet]   OK
 ```
-OK: 84/87 Fail: 3/87 Skip: 0/87
+OK: 83/86 Fail: 3/86 Skip: 0/86
 ## PeerPool testing suite
 ```diff
 + Access peers by key test                                                                   OK
@@ -241,4 +252,4 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 OK: 8/8 Fail: 0/8 Skip: 0/8
 
 ---TOTAL---
-OK: 148/151 Fail: 3/151 Skip: 0/151
+OK: 155/158 Fail: 3/158 Skip: 0/158

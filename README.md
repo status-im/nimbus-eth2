@@ -16,7 +16,7 @@ Nimbus beacon chain is a research implementation of the beacon chain component o
 ## Related
 
 * [status-im/nimbus](https://github.com/status-im/nimbus/): Nimbus for Ethereum 1
-* [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/tree/v0.11.1#phase-0): Serenity specification that this project implements
+* [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/tree/v0.11.2#phase-0): Serenity specification that this project implements
 
 You can check where the beacon chain fits in the Ethereum ecosystem our Two-Point-Oh series: https://our.status.im/tag/two-point-oh/
 
@@ -352,6 +352,12 @@ make -j$(nproc) NIMFLAGS="-d:release" USE_MULTITAIL=yes eth2_network_simulation
 
 ```bash
 make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower
+```
+
+- publish a book using [mdBook](https://github.com/rust-lang/mdBook) from sources in "docs/" to GitHub pages:
+
+```bash
+make publish-book
 ```
 
 ## License

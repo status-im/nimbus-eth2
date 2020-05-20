@@ -9,15 +9,15 @@
 
 import
   strformat,
-  stew/byteutils,
   datatypes
 
 const
   topicBeaconBlocksSuffix* = "beacon_block/ssz"
-  topicAttestationsSuffix* = "_beacon_attestation/ssz"
+  topicMainnetAttestationsSuffix* = "_beacon_attestation/ssz"
   topicVoluntaryExitsSuffix* = "voluntary_exit/ssz"
   topicProposerSlashingsSuffix* = "proposer_slashing/ssz"
   topicAttesterSlashingsSuffix* = "attester_slashing/ssz"
+  topicInteropAttestationSuffix* = "beacon_attestation/ssz"
   topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz"
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#configuration
@@ -28,40 +28,52 @@ const
   # This is not part of the spec yet!
   defaultEth2RpcPort* = 9090
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#topics-and-messages
 func getBeaconBlocksTopic*(forkDigest: ForkDigest): string =
   try:
-    &"/eth2/{toHex forkDigest}/{topicBeaconBlocksSuffix}"
+    &"/eth2/{$forkDigest}/{topicBeaconBlocksSuffix}"
   except ValueError as e:
     raiseAssert e.msg
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#topics-and-messages
 func getVoluntaryExitsTopic*(forkDigest: ForkDigest): string =
   try:
-    &"/eth2/{toHex forkDigest}/{topicVoluntaryExitsSuffix}"
+    &"/eth2/{$forkDigest}/{topicVoluntaryExitsSuffix}"
   except ValueError as e:
     raiseAssert e.msg
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#topics-and-messages
 func getProposerSlashingsTopic*(forkDigest: ForkDigest): string =
   try:
-    &"/eth2/{toHex forkDigest}/{topicProposerSlashingsSuffix}"
+    &"/eth2/{$forkDigest}/{topicProposerSlashingsSuffix}"
   except ValueError as e:
     raiseAssert e.msg
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#topics-and-messages
 func getAttesterSlashingsTopic*(forkDigest: ForkDigest): string =
   try:
-    &"/eth2/{toHex forkDigest}/{topicAttesterSlashingsSuffix}"
+    &"/eth2/{$forkDigest}/{topicAttesterSlashingsSuffix}"
   except ValueError as e:
     raiseAssert e.msg
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#interop-3
+func getInteropAttestationTopic*(forkDigest: ForkDigest): string =
+  try:
+    &"/eth2/{$forkDigest}/{topicInteropAttestationSuffix}"
+  except ValueError as e:
+    raiseAssert e.msg
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#topics-and-messages
 func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
   try:
-    &"/eth2/{toHex forkDigest}/{topicAggregateAndProofsSuffix}"
+    &"/eth2/{$forkDigest}/{topicAggregateAndProofsSuffix}"
   except ValueError as e:
     raiseAssert e.msg
 
-func getAttestationTopic*(forkDigest: ForkDigest, committeeIndex: uint64): string =
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#mainnet-3
+func getMainnetAttestationTopic*(forkDigest: ForkDigest, committeeIndex: uint64): string =
   try:
     let topicIndex = committeeIndex mod ATTESTATION_SUBNET_COUNT
-    &"/eth2/{toHex forkDigest}/committee_index{topicIndex}{topicAttestationsSuffix}"
+    &"/eth2/{$forkDigest}/committee_index{topicIndex}{topicMainnetAttestationsSuffix}"
   except ValueError as e:
     raiseAssert e.msg

@@ -53,7 +53,7 @@ func makeDeposit*(
         withdrawal_credentials: makeWithdrawalCredentials(pubkey)))
 
   if skipBLSValidation notin flags:
-    let domain = compute_domain(DOMAIN_DEPOSIT, GENESIS_FORK_VERSION)
+    let domain = compute_domain(DOMAIN_DEPOSIT)
     let signing_root = compute_signing_root(ret.getDepositMessage, domain)
 
     ret.data.signature = bls_sign(privkey, signing_root.data)

@@ -10,7 +10,7 @@ import
   # Specs
   ../../beacon_chain/spec/[datatypes, validator, state_transition_block],
   # Internals
-  ../../beacon_chain/[ssz, extras, state_transition],
+  ../../beacon_chain/[ssz, extras],
   # Mock helpers
   ./mock_validator_keys
 
@@ -60,10 +60,3 @@ proc mockBlock(
 proc mockBlockForNextSlot*(state: BeaconState, flags: UpdateFlags = {}):
     SignedBeaconBlock =
   mockBlock(state, state.slot + 1, flags)
-
-proc applyEmptyBlock*(state: var BeaconState) =
-  ## Do a state transition with an empty signed block
-  ## on the current slot
-  let signedBlock = mockBlock(state, state.slot, flags = {})
-  doAssert state_transition(
-    state, signedBlock, {skipStateRootValidation}, noRollback)

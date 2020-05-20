@@ -106,8 +106,19 @@ proc nfuzz_attester_slashing(input: openArray[byte], output: ptr byte,
 
 proc nfuzz_block(input: openArray[byte], output: ptr byte,
     output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+  # There's not a perfect approach here, but it's not worth switching the rest
+  # and requiring HashedBeaconState (yet). So to keep consistent, puts wrapper
+  # only in one function.
+  proc state_transition(
+      data: auto, blck: auto, flags: auto, rollback: RollbackHashedProc):
+      auto =
+    var hashedState =
+      HashedBeaconState(data: data.state, root: hash_tree_root(data.state))
+    result = state_transition(hashedState, blck, flags, rollback)
+    data.state = hashedState.data
+
   decodeAndProcess(BlockInput):
-    state_transition(data.state, data.beaconBlock, flags, noRollback)
+    state_transition(data, data.beaconBlock, flags, noRollback)
 
 proc nfuzz_block_header(input: openArray[byte], output: ptr byte,
     output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =

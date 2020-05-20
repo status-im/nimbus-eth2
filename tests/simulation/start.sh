@@ -12,7 +12,7 @@ mkdir -p "$VALIDATORS_DIR"
 
 cd "$GIT_ROOT"
 
-CUSTOM_NIMFLAGS="${NIMFLAGS} -d:useSysAsserts -d:chronicles_sinks:textlines,json[file] -d:const_preset=mainnet"
+CUSTOM_NIMFLAGS="${NIMFLAGS} -d:useSysAsserts -d:chronicles_sinks:textlines,json[file] -d:const_preset=mainnet -d:insecure"
 
 # Run with "SLOTS_PER_EPOCH=8 ./start.sh" to change these
 DEFS=""
@@ -26,10 +26,8 @@ LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.js
 # Windows detection
 if uname | grep -qiE "mingw|msys"; then
   MAKE="mingw32-make"
-  EXE_SUFFIX=".exe"
 else
   MAKE="make"
-  EXE_SUFFIX=""
 fi
 
 # to allow overriding the program names
@@ -112,19 +110,9 @@ if [[ "$USE_TMUX" != "no" ]]; then
   $TMUX select-window -t "${TMUX_SESSION_NAME}:sim"
 fi
 
-build_beacon_node () {
-  OUTPUT_BIN=$1; shift
-  PARAMS="$CUSTOM_NIMFLAGS $DEFS $@"
-  echo "Building $OUTPUT_BIN ($PARAMS)"
-  $MAKE NIMFLAGS="-o:$OUTPUT_BIN $PARAMS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" beacon_node
-}
-
-build_beacon_node $BEACON_NODE_BIN
+$MAKE -j3 --no-print-directory NIMFLAGS="$CUSTOM_NIMFLAGS $DEFS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" beacon_node process_dashboard deposit_contract
 
 if [ ! -f "${LAST_VALIDATOR}" ]; then
-  echo Building "${DEPLOY_DEPOSIT_CONTRACT_BIN}"
-  $MAKE NIMFLAGS="-o:\"$DEPLOY_DEPOSIT_CONTRACT_BIN\" $CUSTOM_NIMFLAGS $DEFS" deposit_contract
-
   if [ "$WEB3_ARG" != "" ]; then
     echo Deploying the validator deposit contract...
     DEPOSIT_CONTRACT_ADDRESS=$($DEPLOY_DEPOSIT_CONTRACT_BIN deploy $WEB3_ARG)
@@ -176,22 +164,16 @@ if [ -f "${MASTER_NODE_ADDRESS_FILE}" ]; then
   rm "${MASTER_NODE_ADDRESS_FILE}"
 fi
 
-PROCESS_DASHBOARD_BIN="build/process_dashboard${EXE_SUFFIX}"
-
-if [[ ! -f "$PROCESS_DASHBOARD_BIN" ]]; then
-  $MAKE NIMFLAGS="$CUSTOM_NIMFLAGS" process_dashboard
-fi
-
 # use the exported Grafana dashboard for a single node to create one for all nodes
 echo Creating grafana dashboards...
-"${PROCESS_DASHBOARD_BIN}" \
+./build/process_dashboard \
   --nodes=${TOTAL_NODES} \
   --in="${SIM_ROOT}/beacon-chain-sim-node0-Grafana-dashboard.json" \
   --out="${SIM_ROOT}/beacon-chain-sim-all-nodes-Grafana-dashboard.json"
 
-# Kill child processes on Ctrl-C by sending SIGTERM to the whole process group,
-# passing the negative PID of this shell instance to the "kill" command.
-# Trap and ignore SIGTERM, so we don't kill this process along with its children.
+# Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
+# instance as the parent and the target process name as a pattern to the
+# "pkill" command.
 if [[ "$USE_MULTITAIL" == "no" && "$USE_TMUX" == "no" ]]; then
   trap 'pkill -P $$ beacon_node' SIGINT EXIT
 fi

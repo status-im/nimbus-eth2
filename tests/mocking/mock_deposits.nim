@@ -25,7 +25,7 @@ func signMockDepositData(
   # No state --> Genesis
   let domain = compute_domain(
       DOMAIN_DEPOSIT,
-      default(array[4, byte]) # Genesis is fork_version 0
+      Version(GENESIS_FORK_VERSION)
     )
   let signing_root = compute_signing_root(
     deposit_data.getDepositMessage(),
@@ -43,7 +43,7 @@ func signMockDepositData(
       ) =
   let domain = compute_domain(
       DOMAIN_DEPOSIT,
-      default(array[4, byte]) # Genesis is fork_version 0
+      Version(GENESIS_FORK_VERSION)
     )
   let signing_root = compute_signing_root(
     deposit_data.getDepositMessage(),
@@ -210,5 +210,5 @@ proc mockUpdateStateForNewDeposit*(
   #       but confirmed by running it
   state.eth1_deposit_index = 0
   state.eth1_data.deposit_root =
-     hash_tree_root(sszList(@[result.data], 2'i64^DEPOSIT_CONTRACT_TREE_DEPTH))
+     hash_tree_root(List[DepositData, 2'i64^DEPOSIT_CONTRACT_TREE_DEPTH](@[result.data]))
   state.eth1_data.deposit_count = 1
