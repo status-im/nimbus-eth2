@@ -65,25 +65,28 @@ type
   KsResult*[T] = Result[T, cstring]
 
 const
+  saltSize = 32
+
   scryptParams = KdfScrypt(
-    dklen: 32,
+    dklen: saltSize,
     n: 2^18,
     r: 1,
     p: 8
   )
 
   pbkdf2Params = KdfPbkdf2(
-    dklen: 32,
+    dklen: saltSize,
     c: 2^18,
     prf: "hmac-sha256"
   )
 
-template shaChecksum(key, cipher: openarray[byte]): untyped =
+proc shaChecksum(key, cipher: openarray[byte]): array[32, byte] =
   var ctx: sha256
   ctx.init()
   ctx.update(key)
   ctx.update(cipher)
-  ctx.finish().data
+  result = ctx.finish().data
+  ctx.clear()
 
 template tryJsonToCrypto(ks: JsonNode; crypto: typedesc): untyped =
   try:
@@ -130,10 +133,10 @@ proc decryptKeystore*(data, passphrase: string): KsResult[seq[byte]] =
   else:
     return err "ks: unknown cipher"
 
-  if decKey.len < 32:
+  if decKey.len < saltSize:
     return err "ks: decryption key must be at least 32 bytes"
 
-  let sum = shaChecksum(decKey[16..<32], cipherMsg)
+  let sum = shaChecksum(decKey.toOpenArray(16, 31), cipherMsg)
   if sum != checksumMsg:
     return err "ks: invalid checksum"
 
@@ -141,7 +144,7 @@ proc decryptKeystore*(data, passphrase: string): KsResult[seq[byte]] =
     aesCipher: CTR[aes128]
     secret = newSeq[byte](cipherMsg.len)
 
-  aesCipher.init(decKey[0..<16], iv)
+  aesCipher.init(decKey.toOpenArray(0, 15), iv)
   aesCipher.decrypt(cipherMsg, secret)
   aesCipher.clear()
 
@@ -156,22 +159,22 @@ proc encryptKeystore*[T: KdfParams](secret: openarray[byte];
   var
     decKey: seq[byte]
     aesCipher: CTR[aes128]
-    aesIv = newSeq[byte](16)
-    kdfSalt = newSeq[byte](32)
+    aesIv = newSeq[byte](aes128.sizeBlock)
+    kdfSalt = newSeq[byte](saltSize)
     cipherMsg = newSeq[byte](secret.len)
 
-  if salt.len == 32:
+  if salt.len == saltSize:
     kdfSalt = @salt
   elif salt.len > 0:
     return err "ks: invalid salt"
-  elif randomBytes(kdfSalt) != 32:
+  elif randomBytes(kdfSalt) != saltSize:
     return err "ks: no random bytes for salt"
 
-  if iv.len == 16:
+  if iv.len == aes128.sizeBlock:
     aesIv = @iv
   elif iv.len > 0:
     return err "ks: invalid iv"
-  elif randomBytes(aesIv) != 16:
+  elif randomBytes(aesIv) != aes128.sizeBlock:
     return err "ks: no random bytes for iv"
 
   when T is KdfPbkdf2:
@@ -183,14 +186,14 @@ proc encryptKeystore*[T: KdfParams](secret: openarray[byte];
   else:
     return
 
-  aesCipher.init(decKey[0..<16], aesIv)
+  aesCipher.init(decKey.toOpenArray(0, 15), aesIv)
   aesCipher.encrypt(secret, cipherMsg)
   aesCipher.clear()
 
-  let pubkey = toPubKey(? ValidatorPrivkey.fromRaw(secret))
+  let pubkey = (? ValidatorPrivkey.fromRaw(secret)).toPubKey()
 
   let
-    sum = shaChecksum(decKey[16..<32], cipherMsg)
+    sum = shaChecksum(decKey.toOpenArray(16, 31), cipherMsg)
 
     keystore = Keystore[T](
       crypto: Crypto[T](
