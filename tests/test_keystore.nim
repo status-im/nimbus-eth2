@@ -9,7 +9,7 @@
 
 import
   unittest, ./testutil, json,
-  nimcrypto/utils,
+  stew/byteutils,
   ../beacon_chain/spec/keystore
 
 from strutils import replace
@@ -80,10 +80,9 @@ const
 
 const
   password = "testpassword"
-  secret = fromHex("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f")
-  salt = fromHex("d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3")
-  iv = fromHex("264daa3f303d7259501c93d997d84fe6")
-  uuid = "64625def-3331-4eea-ab6f-782f3ed16a83"
+  secret = hexToSeqByte("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f")
+  salt = hexToSeqByte("d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3")
+  iv = hexToSeqByte("264daa3f303d7259501c93d997d84fe6")
 
 suiteReport "Keystore":
   timedTest "Pbkdf2 decryption":
@@ -94,9 +93,15 @@ suiteReport "Keystore":
   timedTest "Pbkdf2 encryption":
     let encrypt = encryptKeystore[KdfPbkdf2](secret, password, salt=salt, iv=iv,
                                              path="m/12381/60/0/0", ugly=false)
-
     check encrypt.isOk
-    check encrypt.get() == pbkdf2Vector.replace(uuid, "")
+
+    var
+      encryptJson = parseJson(encrypt.get())
+      pbkdf2Json = parseJson(pbkdf2Vector)
+    encryptJson{"uuid"} = %""
+    pbkdf2Json{"uuid"} = %""
+
+    check encryptJson == pbkdf2Json
 
   timedTest "Pbkdf2 error":
     check encryptKeystore[KdfPbkdf2](secret, "", salt = [byte 1]).isErr
