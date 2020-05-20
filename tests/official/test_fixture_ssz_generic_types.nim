@@ -10,7 +10,7 @@ import
   os, unittest, strutils, streams, strformat, strscans,
   macros, typetraits,
   # Status libraries
-  faststreams, stint, stew/bitseqs, ../testutil,
+  faststreams, stew/bitseqs, ../testutil,
   # Third-party
   yaml,
   # Beacon chain internals

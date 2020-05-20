@@ -14,7 +14,7 @@
 
 import
   options, algorithm, options, strformat, typetraits,
-  stint, stew/[bitops2, bitseqs, objects, varints, ptrops],
+  stew/[bitops2, bitseqs, endians2, objects, varints, ptrops],
   stew/ranges/[ptr_arith, stackarrays], stew/shims/macros,
   faststreams/[inputs, outputs, buffers],
   serialization, serialization/testing/tracing,
@@ -44,7 +44,7 @@ type
   SszWriter* = object
     stream: OutputStream
 
-  BasicType = byte|char|bool|SomeUnsignedInt|StUint
+  BasicType = byte|char|bool|SomeUnsignedInt
 
   SszChunksMerkleizer = object
     combinedChunks: StackArray[Eth2Digest]
@@ -105,7 +105,7 @@ proc writeFixedSized(s: var (OutputStream|WriteCursor), x: auto) {.raises: [Defe
     s.write x
   elif x is bool|char:
     s.write byte(ord(x))
-  elif x is SomeUnsignedInt|StUint:
+  elif x is SomeUnsignedInt:
     when cpuEndian == bigEndian:
       s.write toBytesLE(x)
     else:
@@ -418,7 +418,7 @@ template merkleizeFields(totalElements: int, body: untyped): Eth2Digest =
   getFinalHash(merkleizer)
 
 template writeBytesLE(chunk: var array[bytesPerChunk, byte], atParam: int,
-                      val: SomeUnsignedInt|StUint) =
+                      val: SomeUnsignedInt) =
   let at = atParam
   chunk[at ..< at + sizeof(val)] = toBytesLE(val)
 
@@ -448,7 +448,7 @@ func chunkedHashTreeRootForBasicTypes[T](merkleizer: var SszChunksMerkleizer,
 
   else:
     static:
-      assert T is SomeUnsignedInt|StUInt
+      assert T is SomeUnsignedInt
       assert bytesPerChunk mod sizeof(Т) == 0
 
     const valuesPerChunk = bytesPerChunk div sizeof(Т)
@@ -539,7 +539,7 @@ func hashTreeRootAux[T](x: T): Eth2Digest =
     unsupported T # Blocks are identified by htr(BeaconBlock) so we avoid these
   elif T is bool|char:
     result.data[0] = byte(x)
-  elif T is SomeUnsignedInt|StUint:
+  elif T is SomeUnsignedInt:
     when cpuEndian == bigEndian:
       result.data[0..<sizeof(x)] = toBytesLE(x)
     else:

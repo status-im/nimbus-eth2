@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  unittest, stint, ./testutil,
+  unittest, ./testutil,
   ../beacon_chain/spec/[datatypes, network]
 
 suiteReport "Honest validator":
