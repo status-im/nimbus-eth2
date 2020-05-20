@@ -84,7 +84,7 @@ template `==`*[N, T](a: T, b: BlsValue[N, T]): bool =
 
 # API
 # ----------------------------------------------------------------------
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#bls-signatures
 
 func toPubKey*(privkey: ValidatorPrivKey): ValidatorPubKey =
   ## Create a private key from a public key
@@ -97,7 +97,7 @@ func toPubKey*(privkey: ValidatorPrivKey): ValidatorPubKey =
   else:
     privkey.getKey
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#bls-signatures
 func aggregate*[T](values: openarray[ValidatorSig]): ValidatorSig =
   ## Aggregate arrays of sequences of Validator Signatures
   ## This assumes that they are real signatures
@@ -112,7 +112,7 @@ func aggregate*(x: var ValidatorSig, other: ValidatorSig) =
   ## This assumes that they are real signatures
   x.blsValue.aggregate(other.blsValue)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#bls-signatures
 func blsVerify*(
     pubkey: ValidatorPubKey, message: openArray[byte],
     signature: ValidatorSig): bool =
