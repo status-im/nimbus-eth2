@@ -4,7 +4,7 @@ import
   options as stdOptions, net as stdNet,
 
   # Status libs
-  stew/[varints, base58, bitseqs, endians2, results],
+  stew/[varints, base58, bitseqs, endians2, results, byteutils],
   stew/shims/[macros, tables],
   faststreams/[inputs, outputs, buffers], snappy, snappy/framing,
   json_serialization, json_serialization/std/[net, options],
@@ -39,6 +39,7 @@ type
   PrivateKey* = crypto.PrivateKey
 
   Bytes = seq[byte]
+  ErrorMsg = List[byte, 256]
 
   # TODO: This is here only to eradicate a compiler
   # warning about unused import (rpc/messages).
@@ -152,7 +153,7 @@ type
     case kind*: Eth2NetworkingErrorKind
     of ReceivedErrorResponse:
       responseCode: ResponseCode
-      errorMsg: string
+      errorMsg: ErrorMsg
     else:
       discard
 
@@ -324,13 +325,16 @@ proc writeChunk*(conn: Connection,
 
   await conn.write(output.getOutput)
 
+template errorMsgLit(x: static string): ErrorMsg =
+  const val = ErrorMsg toBytes(x)
+  val
+
 proc sendErrorResponse(peer: Peer,
                        conn: Connection,
                        noSnappy: bool,
                        responseCode: ResponseCode,
-                       errMsg: string) {.async.} =
+                       errMsg: ErrorMsg) {.async.} =
   debug "Error processing request", peer, responseCode, errMsg
-
   await conn.writeChunk(some responseCode, SSZ.encode(errMsg), noSnappy)
 
 proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.async} =
@@ -493,15 +497,18 @@ proc handleIncomingStream(network: Eth2Node,
   try:
     let peer = peerFromStream(network, conn)
 
-    template returnInvalidRequest(msg: string) =
+    template returnInvalidRequest(msg: ErrorMsg) =
       await sendErrorResponse(peer, conn, noSnappy, InvalidRequest, msg)
       return
+
+    template returnInvalidRequest(msg: string) =
+      returnInvalidRequest(ErrorMsg msg.toBytes)
 
     let s = when useNativeSnappy:
       let fs = libp2pInput(conn)
 
       if fs.timeoutToNextByte(TTFB_TIMEOUT):
-        returnInvalidRequest "Request first byte not sent in time"
+        returnInvalidRequest(errorMsgLit "Request first byte not sent in time")
 
       fs
     else:
@@ -513,7 +520,7 @@ proc handleIncomingStream(network: Eth2Node,
     let msg = if sizeof(MsgRec) > 0:
       try:
         awaitWithTimeout(readChunkPayload(s, noSnappy, MsgRec), deadline):
-          returnInvalidRequest "Request full data not sent in time"
+          returnInvalidRequest(errorMsgLit "Request full data not sent in time")
 
       except SerializationError as err:
         returnInvalidRequest err.formatMsg("msg")
@@ -526,26 +533,26 @@ proc handleIncomingStream(network: Eth2Node,
     if msg.isErr:
       let (responseCode, errMsg) = case msg.error.kind
         of UnexpectedEOF, PotentiallyExpectedEOF:
-          (InvalidRequest, "Incomplete request")
+          (InvalidRequest, errorMsgLit "Incomplete request")
 
         of InvalidSnappyBytes:
-          (InvalidRequest, "Failed to decompress snappy payload")
+          (InvalidRequest, errorMsgLit "Failed to decompress snappy payload")
 
         of InvalidSszBytes:
-          (InvalidRequest, "Failed to decode SSZ payload")
+          (InvalidRequest, errorMsgLit "Failed to decode SSZ payload")
 
         of ZeroSizePrefix:
-          (InvalidRequest, "The request chunk cannot have a size of zero")
+          (InvalidRequest, errorMsgLit "The request chunk cannot have a size of zero")
 
         of SizePrefixOverflow:
-          (InvalidRequest, "The chunk size exceed the maximum allowed")
+          (InvalidRequest, errorMsgLit "The chunk size exceed the maximum allowed")
 
         of InvalidResponseCode, ReceivedErrorResponse,
            StreamOpenTimeout, ReadResponseTimeout:
           # These shouldn't be possible in a request, because
           # there are no response codes being read, no stream
           # openings and no reading of responses:
-          (ServerError, "Internal server error")
+          (ServerError, errorMsgLit "Internal server error")
 
         of BrokenConnection:
           return
@@ -557,7 +564,8 @@ proc handleIncomingStream(network: Eth2Node,
       logReceivedMsg(peer, MsgType(msg.get))
       await callUserHandler(peer, conn, noSnappy, msg.get)
     except CatchableError as err:
-      await sendErrorResponse(peer, conn, noSnappy, ServerError, err.msg)
+      await sendErrorResponse(peer, conn, noSnappy, ServerError,
+                              ErrorMsg err.msg.toBytes)
 
   except CatchableError as err:
     debug "Error processing an incoming request", err = err.msg, msgName
@@ -825,7 +833,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 
         proc `protocolMounterName`(`networkVar`: `Eth2Node`) =
           proc sszThunk(`streamVar`: `Connection`,
-                      proto: string): Future[void] {.gcsafe.} =
+                        proto: string): Future[void] {.gcsafe.} =
             return handleIncomingStream(`networkVar`, `streamVar`, true,
                                         `MsgStrongRecName`)
 
@@ -834,7 +842,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
                            handler: sszThunk)
 
           proc snappyThunk(`streamVar`: `Connection`,
-                      proto: string): Future[void] {.gcsafe.} =
+                           proto: string): Future[void] {.gcsafe.} =
             return handleIncomingStream(`networkVar`, `streamVar`, false,
                                         `MsgStrongRecName`)
 

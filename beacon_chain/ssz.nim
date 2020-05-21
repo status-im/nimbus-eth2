@@ -15,7 +15,7 @@
 import
   options, algorithm, options, strformat, typetraits,
   stew/[bitops2, bitseqs, endians2, objects, varints, ptrops],
-  stew/ranges/[ptr_arith, stackarrays], stew/shims/macros,
+  stew/ranges/ptr_arith, stew/shims/macros,
   faststreams/[inputs, outputs, buffers],
   serialization, serialization/testing/tracing,
   ./spec/[crypto, datatypes, digest],
@@ -44,11 +44,10 @@ type
   SszWriter* = object
     stream: OutputStream
 
-  BasicType = byte|char|bool|SomeUnsignedInt
-
   SszChunksMerkleizer = object
-    combinedChunks: StackArray[Eth2Digest]
+    combinedChunks: ptr UncheckedArray[Eth2Digest]
     totalChunks: uint64
+    topIndex: int
 
   SizePrefixed*[T] = distinct T
   SszMaxSizeExceeded* = object of SerializationError
@@ -110,7 +109,7 @@ proc writeFixedSized(s: var (OutputStream|WriteCursor), x: auto) {.raises: [Defe
       s.write toBytesLE(x)
     else:
       s.writeMemCopy x
-  elif x is array|string|seq|openarray:
+  elif x is array|seq|openarray:
     when x[0] is byte:
       trs "APPENDING FIXED SIZE BYTES", x
       s.write x
@@ -136,7 +135,7 @@ func init*(T: type SszWriter, stream: OutputStream): T {.raises: [Defect].} =
   result.stream = stream
 
 template enumerateSubFields(holder, fieldVar, body: untyped) =
-  when holder is array|string|seq|openarray:
+  when holder is array|seq|openarray:
     for fieldVar in holder: body
   else:
     enumInstanceSerializedFields(holder, _, fieldVar): body
@@ -184,7 +183,7 @@ proc writeVarSizeType(w: var SszWriter, value: auto) {.raises: [Defect, IOError]
   mixin toSszType
   type T = type toSszType(value)
 
-  when T is seq|string|openarray:
+  when T is seq|openarray:
     type E = ElemType(T)
     const isFixed = isFixedSize(E)
     when isFixed:
@@ -217,7 +216,7 @@ proc writeValue*(w: var SszWriter, x: auto) {.gcsafe, raises: [Defect, IOError].
 
   when isFixedSize(T):
     w.stream.writeFixedSized toSszType(x)
-  elif T is array|seq|openarray|string|object|tuple:
+  elif T is array|seq|openarray|object|tuple:
     w.writeVarSizeType toSszType(x)
   else:
     unsupported type(x)
@@ -229,7 +228,7 @@ func sszSize*(value: auto): int =
   when isFixedSize(T):
     anonConst fixedPortionSize(T)
 
-  elif T is seq|string|array|openarray:
+  elif T is seq|array|openarray:
     type E = ElemType(T)
     when isFixedSize(E):
       len(value) * anonConst(fixedPortionSize(E))
@@ -337,7 +336,7 @@ func addChunk(merkleizer: var SszChunksMerkleizer, data: openarray[byte]) =
   else:
     var hash = mergeBranches(merkleizer.combinedChunks[0], data)
 
-    for i in 1 .. high(merkleizer.combinedChunks):
+    for i in 1 .. merkleizer.topIndex:
       trs "ITERATING"
       if getBitLE(merkleizer.totalChunks, i):
         trs "CALLING MERGE BRANCHES"
@@ -349,23 +348,25 @@ func addChunk(merkleizer: var SszChunksMerkleizer, data: openarray[byte]) =
 
   inc merkleizer.totalChunks
 
-template createMerkleizer(totalElements: int64): SszChunksMerkleizer =
+template createMerkleizer(totalElements: static Limit): SszChunksMerkleizer =
   trs "CREATING A MERKLEIZER FOR ", totalElements
-  let merkleizerHeight = bitWidth nextPow2(uint64 totalElements)
+
+  const treeHeight = bitWidth nextPow2(uint64 totalElements)
+  var combinedChunks {.noInit.}: array[treeHeight, Eth2Digest]
 
   SszChunksMerkleizer(
-    combinedChunks: allocStackArrayNoInit(Eth2Digest, merkleizerHeight),
+    combinedChunks: cast[ptr UncheckedArray[Eth2Digest]](addr combinedChunks),
+    topIndex: treeHeight - 1,
     totalChunks: 0)
 
 func getFinalHash(merkleizer: var SszChunksMerkleizer): Eth2Digest =
   if merkleizer.totalChunks == 0:
-    let treeHeight = merkleizer.combinedChunks.high
-    return getZeroHashWithoutSideEffect(treeHeight)
+    return getZeroHashWithoutSideEffect(merkleizer.topIndex)
 
   let
     bottomHashIdx = firstOne(merkleizer.totalChunks) - 1
     submittedChunksHeight = bitWidth(merkleizer.totalChunks - 1)
-    topHashIdx = merkleizer.combinedChunks.high
+    topHashIdx = merkleizer.topIndex
 
   trs "BOTTOM HASH ", bottomHashIdx
   trs "SUBMITTED HEIGHT ", submittedChunksHeight
@@ -404,7 +405,7 @@ func mixInLength(root: Eth2Digest, length: int): Eth2Digest =
 
 func hash_tree_root*(x: auto): Eth2Digest {.gcsafe, raises: [Defect].}
 
-template merkleizeFields(totalElements: int, body: untyped): Eth2Digest =
+template merkleizeFields(totalElements: static Limit, body: untyped): Eth2Digest =
   var merkleizer {.inject.} = createMerkleizer(totalElements)
 
   template addField(field) =
@@ -474,7 +475,7 @@ func chunkedHashTreeRootForBasicTypes[T](merkleizer: var SszChunksMerkleizer,
 func bitlistHashTreeRoot(merkleizer: var SszChunksMerkleizer, x: BitSeq): Eth2Digest =
   # TODO: Switch to a simpler BitList representation and
   #       replace this with `chunkedHashTreeRoot`
-  trs "CHUNKIFYING BIT SEQ WITH LIMIT ", merkleizer.combinedChunks.len
+  trs "CHUNKIFYING BIT SEQ WITH TOP INDEX ", merkleizer.topIndex
 
   var
     totalBytes = ByteList(x).len
@@ -484,8 +485,7 @@ func bitlistHashTreeRoot(merkleizer: var SszChunksMerkleizer, x: BitSeq): Eth2Di
     if totalBytes == 1:
       # This is an empty bit list.
       # It should be hashed as a tree containing all zeros:
-      let treeHeight = merkleizer.combinedChunks.high
-      return mergeBranches(getZeroHashWithoutSideEffect(treeHeight),
+      return mergeBranches(getZeroHashWithoutSideEffect(merkleizer.topIndex),
                            getZeroHashWithoutSideEffect(0)) # this is the mixed length
 
     totalBytes -= 1
@@ -596,8 +596,7 @@ func hash_tree_root*(x: auto): Eth2Digest {.raises: [Defect], nbench.} =
 
   trs "HASH TREE ROOT FOR ", name(type x), " = ", "0x", $result
 
-iterator hash_tree_roots_prefix*[T](lst: openarray[T], limit: auto):
-    Eth2Digest =
+iterator hash_tree_roots_prefix*[T](lst: openarray[T], limit: static Limit): Eth2Digest =
   # This is a particular type's instantiation of a general fold, reduce,
   # accumulation, prefix sums, etc family of operations. As long as that
   # Eth1 deposit case is the only notable example -- the usual uses of a

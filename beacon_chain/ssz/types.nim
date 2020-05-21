@@ -9,7 +9,17 @@ const
   offsetSize* = 4
 
 type
-  BasicType* = char|bool|SomeUnsignedInt
+  UintN* = SomeUnsignedInt # TODO: Add StUint here
+  BasicType* = bool|UintN
+
+  Limit* = int64
+
+  List*[T; maxLen: static Limit] = distinct seq[T]
+  BitList*[maxLen: static Limit] = distinct BitSeq
+
+  # Note for readers:
+  # We use `array` for `Vector` and
+  #        `BitArray` for `BitVector`
 
   SszError* = object of SerializationError
 
@@ -62,9 +72,6 @@ type
     of Field:
       discard
 
-  List*[T; maxLen: static int64] = distinct seq[T]
-  BitList*[maxLen: static int] = distinct BitSeq
-
 template add*(x: List, val: x.T) = add(distinctBase x, val)
 template len*(x: List): auto = len(distinctBase x)
 template low*(x: List): auto = low(distinctBase x)
@@ -111,7 +118,7 @@ template ElemType*(T: type[array]): untyped =
 template ElemType*[T](A: type[openarray[T]]): untyped =
   T
 
-template ElemType*(T: type[seq|string|List]): untyped =
+template ElemType*(T: type[seq|List]): untyped =
   type(default(T)[0])
 
 func isFixedSize*(T0: type): bool {.compileTime.} =
@@ -141,7 +148,7 @@ func fixedPortionSize*(T0: type): int {.compileTime.} =
     type E = ElemType(T)
     when isFixedSize(E): len(T) * fixedPortionSize(E)
     else: len(T) * offsetSize
-  elif T is seq|string|openarray: offsetSize
+  elif T is seq|openarray: offsetSize
   elif T is object|tuple:
     enumAllSerializedFields(T):
       when isFixedSize(FieldType):
@@ -165,7 +172,7 @@ func sszSchemaType*(T0: type): SszType {.compileTime.} =
     SszType(kind: sszUInt, bits: 32)
   elif T is uint64:
     SszType(kind: sszUInt, bits: 64)
-  elif T is seq|string:
+  elif T is seq:
     SszType(kind: sszList, listElemType: sszSchemaType(ElemType(T)))
   elif T is array:
     SszType(kind: sszVector, vectorElemType: sszSchemaType(ElemType(T)))

@@ -138,7 +138,7 @@ proc readResponseChunk(conn: Connection,
     let responseCode = ResponseCode responseCodeByte
     case responseCode:
     of InvalidRequest, ServerError:
-      let errorMsgChunk = await readChunkPayload(conn, noSnappy, string)
+      let errorMsgChunk = await readChunkPayload(conn, noSnappy, ErrorMsg)
       let errorMsg = if errorMsgChunk.isOk: errorMsgChunk.value
                      else: return err(errorMsgChunk.error)
       return err Eth2NetworkingError(kind: ReceivedErrorResponse,
