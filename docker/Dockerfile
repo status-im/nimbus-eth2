@@ -11,7 +11,6 @@ RUN apt-get -qq update \
 RUN cd /root \
  && git clone https://github.com/status-im/nim-beacon-chain.git \
  && cd nim-beacon-chain \
- && { make &>/dev/null || true; } \
  && make -j$(nproc) update \
  && make deps
 
@@ -24,18 +23,16 @@ ARG GIT_REVISION
 ARG NETWORK_NIM_FLAGS
 ARG MARCH_NIM_FLAGS
 
-# TODO: remove the double update after devel is merged into master
 RUN cd /root/nim-beacon-chain \
  && git fetch \
  && git reset --hard ${GIT_REVISION} \
- && { make -j$(nproc) update || true; } \
  && make -j$(nproc) update \
  && make LOG_LEVEL=TRACE NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS} ${MARCH_NIM_FLAGS}" beacon_node
 
 # --------------------------------- #
 # Starting new image to reduce size #
 # --------------------------------- #
-FROM debian:bullseye-slim
+FROM debian:bullseye-slim as deploy
 
 SHELL ["/bin/bash", "-c"]
 
