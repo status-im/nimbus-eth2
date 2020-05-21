@@ -4,8 +4,9 @@ import
   options as stdOptions, net as stdNet,
 
   # Status libs
-  stew/[varints, base58, bitseqs, results], stew/shims/[macros, tables],
-  stint, faststreams/[inputs, outputs, buffers], snappy, snappy/framing,
+  stew/[varints, base58, bitseqs, endians2, results],
+  stew/shims/[macros, tables],
+  faststreams/[inputs, outputs, buffers], snappy, snappy/framing,
   json_serialization, json_serialization/std/[net, options],
   chronos, chronicles, metrics,
   # TODO: create simpler to use libp2p modules that use re-exports
@@ -719,11 +720,14 @@ proc start*(node: Eth2Node) {.async.} =
   traceAsyncErrors node.discoveryLoop
 
 proc stop*(node: Eth2Node) {.async.} =
-  # ignore errors in futures, since we're shutting down
-  await allFutures(@[
-    node.discovery.closeWait(),
-    node.switch.stop(),
-    ])
+  # Ignore errors in futures, since we're shutting down.
+  # Use a timer to avoid hangups.
+  discard await one(sleepAsync(5.seconds),
+                    allFutures(@[
+                      node.discovery.closeWait(),
+                      node.switch.stop(),
+                    ])
+    )
 
 proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer =
   new result

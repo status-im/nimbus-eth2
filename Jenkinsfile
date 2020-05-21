@@ -11,9 +11,12 @@ def runStages() {
 			[$class: "ArbitraryFileCache", excludes: "", includes: "**/*", path: "${WORKSPACE}/jsonTestsCache"]
 		]) {
 			stage("Build") {
-				sh "make -j${env.NPROC} update" /* to allow a newer Nim version to be detected */
-				sh "make -j${env.NPROC} deps" /* to allow the following parallel stages */
-				sh "V=1 ./scripts/setup_official_tests.sh jsonTestsCache"
+				sh """#!/bin/bash
+				set -e
+				make -j${env.NPROC} update # to allow a newer Nim version to be detected
+				make -j${env.NPROC} deps # to allow the following parallel stages
+				V=1 ./scripts/setup_official_tests.sh jsonTestsCache
+				"""
 			}
 		}
 
@@ -21,8 +24,11 @@ def runStages() {
 			parallel(
 				"tools": {
 					stage("Tools") {
-						sh "make -j${env.NPROC}"
-						sh "make -j${env.NPROC} LOG_LEVEL=TRACE NIMFLAGS='-d:testnet_servers_image'"
+						sh """#!/bin/bash
+						set -e
+						make -j${env.NPROC}
+						make -j${env.NPROC} LOG_LEVEL=TRACE NIMFLAGS='-d:testnet_servers_image'
+						"""
 					}
 				},
 				"test suite": {
@@ -32,8 +38,11 @@ def runStages() {
 					if ("${NODE_NAME}" ==~ /linux.*/) {
 						stage("testnet finalization") {
 							// EXECUTOR_NUMBER will be 0 or 1, since we have 2 executors per Jenkins node
-							sh "timeout -k 20s 10m ./scripts/launch_local_testnet.sh --testnet 0 --nodes 4 --log-level INFO --disable-htop --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) -- --verify-finalization --stop-at-epoch=5"
-							sh "timeout -k 20s 40m ./scripts/launch_local_testnet.sh --testnet 1 --nodes 4 --log-level INFO --disable-htop --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) -- --verify-finalization --stop-at-epoch=5"
+							sh """#!/bin/bash
+							set -e
+							timeout -k 20s 10m ./scripts/launch_local_testnet.sh --testnet 0 --nodes 4 --log-level INFO --disable-htop --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) -- --verify-finalization --stop-at-epoch=5
+							timeout -k 20s 40m ./scripts/launch_local_testnet.sh --testnet 1 --nodes 4 --log-level INFO --disable-htop --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) -- --verify-finalization --stop-at-epoch=5
+							"""
 						}
 					}
 				}
