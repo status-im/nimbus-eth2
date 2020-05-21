@@ -7,11 +7,14 @@
 
 import
   extras, beacon_chain_db,
+  stew/results,
   spec/[crypto, datatypes, digest]
 
 
 import
   block_pools/[block_pools_types, clearance, candidate_chains, quarantine]
+
+export results
 
 # Block_Pools
 # --------------------------------------------
@@ -51,7 +54,7 @@ template finalizedHead*(pool: BlockPool): BlockSlot =
   pool.dag.finalizedHead
 
 proc add*(pool: var BlockPool, blockRoot: Eth2Digest,
-          signedBlock: SignedBeaconBlock): BlockRef {.gcsafe.} =
+          signedBlock: SignedBeaconBlock): Result[BlockRef, BlockError] {.gcsafe.} =
   add(pool.dag, pool.quarantine, blockRoot, signedBlock)
 
 export parent        # func parent*(bs: BlockSlot): BlockSlot

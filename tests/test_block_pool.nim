@@ -110,7 +110,7 @@ suiteReport "Block pool processing" & preset():
 
   timedTest "Simple block add&get" & preset():
     let
-      b1Add = pool.add(b1Root, b1)
+      b1Add = pool.add(b1Root, b1)[]
       b1Get = pool.get(b1Root)
 
     check:
@@ -121,7 +121,7 @@ suiteReport "Block pool processing" & preset():
       pool.heads[0].blck == b1Add
 
     let
-      b2Add = pool.add(b2Root, b2)
+      b2Add = pool.add(b2Root, b2)[]
       b2Get = pool.get(b2Root)
 
     check:
@@ -138,7 +138,7 @@ suiteReport "Block pool processing" & preset():
     let
       b4 = addTestBlock(stateData.data.data, b2Root)
       b4Root = hash_tree_root(b4.message)
-      b4Add = pool.add(b4Root, b4)
+      b4Add = pool.add(b4Root, b4)[]
     # TODO fix addTestBlock to work on HashedBeaconState
     stateData.data.root = hash_tree_root(stateData.data.data)
 
@@ -176,13 +176,13 @@ suiteReport "Block pool processing" & preset():
       blocks[0..<2] == [BlockRef nil, nil] # block 3 is missing!
 
   timedTest "Reverse order block add & get" & preset():
-    discard pool.add(b2Root, b2)
+    check: pool.add(b2Root, b2).error == MissingParent
 
     check:
       pool.get(b2Root).isNone() # Unresolved, shouldn't show up
       FetchRecord(root: b1Root, historySlots: 1) in pool.checkMissing()
 
-    discard pool.add(b1Root, b1)
+    check: pool.add(b1Root, b1).isOk
 
     let
       b1Get = pool.get(b1Root)
@@ -217,8 +217,8 @@ suiteReport "Block pool processing" & preset():
 
   timedTest "Can add same block twice" & preset():
     let
-      b10 = pool.add(b1Root, b1)
-      b11 = pool.add(b1Root, b1)
+      b10 = pool.add(b1Root, b1)[]
+      b11 = pool.add(b1Root, b1)[]
 
     check:
       b10 == b11
@@ -226,7 +226,7 @@ suiteReport "Block pool processing" & preset():
 
   timedTest "updateHead updates head and headState" & preset():
     let
-      b1Add = pool.add(b1Root, b1)
+      b1Add = pool.add(b1Root, b1)[]
 
     pool.updateHead(b1Add)
 
@@ -236,8 +236,8 @@ suiteReport "Block pool processing" & preset():
 
   timedTest "updateStateData sanity" & preset():
     let
-      b1Add = pool.add(b1Root, b1)
-      b2Add = pool.add(b2Root, b2)
+      b1Add = pool.add(b1Root, b1)[]
+      b2Add = pool.add(b2Root, b2)[]
       bs1 = BlockSlot(blck: b1Add, slot: b1.message.slot)
       bs1_3 = b1Add.atSlot(3.Slot)
       bs2_3 = b2Add.atSlot(3.Slot)
@@ -296,7 +296,7 @@ when const_preset == "minimal":  # These require some minutes in mainnet
         # Create a fork that will not be taken
         var
           blck = makeTestBlock(pool.headState.data.data, pool.head.blck.root)
-        discard pool.add(hash_tree_root(blck.message), blck)
+        check: pool.add(hash_tree_root(blck.message), blck).isOk
 
       for i in 0 ..< (SLOTS_PER_EPOCH * 6):
         if i == 1:
@@ -311,7 +311,7 @@ when const_preset == "minimal":  # These require some minutes in mainnet
             attestations = makeFullAttestations(
               pool.headState.data.data, pool.head.blck.root,
               pool.headState.data.data.slot, cache, {}))
-        let added = pool.add(hash_tree_root(blck.message), blck)
+        let added = pool.add(hash_tree_root(blck.message), blck)[]
         pool.updateHead(added)
 
       check:
@@ -342,7 +342,7 @@ when const_preset == "minimal":  # These require some minutes in mainnet
             attestations = makeFullAttestations(
               pool.headState.data.data, pool.head.blck.root,
               pool.headState.data.data.slot, cache, {}))
-        let added = pool.add(hash_tree_root(blck.message), blck)
+        let added = pool.add(hash_tree_root(blck.message), blck)[]
         pool.updateHead(added)
 
       # Advance past epoch so that the epoch transition is gapped
@@ -356,7 +356,7 @@ when const_preset == "minimal":  # These require some minutes in mainnet
           pool.headState.data.data, pool.head.blck.root,
           pool.headState.data.data.slot, cache, {}))
 
-      let added = pool.add(hash_tree_root(blck.message), blck)
+      let added = pool.add(hash_tree_root(blck.message), blck)[]
       pool.updateHead(added)
 
       let

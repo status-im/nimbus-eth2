@@ -189,30 +189,31 @@ proc proposeBlock(node: BeaconNode,
     (blockRoot, newBlock)
 
   let newBlockRef = node.blockPool.add(nroot, nblck)
-  if newBlockRef == nil:
+  if newBlockRef.isErr:
     warn "Unable to add proposed block to block pool",
       newBlock = shortLog(newBlock.message),
       blockRoot = shortLog(blockRoot),
       cat = "bug"
+
     return head
 
   info "Block proposed",
     blck = shortLog(newBlock.message),
-    blockRoot = shortLog(newBlockRef.root),
+    blockRoot = shortLog(newBlockRef[].root),
     validator = shortLog(validator),
     cat = "consensus"
 
   if node.config.dumpEnabled:
-    dump(node.config.dumpDir, newBlock, newBlockRef)
+    dump(node.config.dumpDir, newBlock, newBlockRef[])
     node.blockPool.withState(
-        node.blockPool.tmpState, newBlockRef.atSlot(newBlockRef.slot)):
-      dump(node.config.dumpDir, hashedState, newBlockRef)
+        node.blockPool.tmpState, newBlockRef[].atSlot(newBlockRef[].slot)):
+      dump(node.config.dumpDir, hashedState, newBlockRef[])
 
   node.network.broadcast(node.topicBeaconBlocks, newBlock)
 
   beacon_blocks_proposed.inc()
 
-  return newBlockRef
+  return newBlockRef[]
 
 
 proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =

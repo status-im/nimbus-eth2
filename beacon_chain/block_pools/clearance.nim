@@ -7,11 +7,13 @@
 
 import
   chronicles, tables,
-  metrics,
+  metrics, stew/results,
   ../ssz, ../state_transition, ../extras,
   ../spec/[crypto, datatypes, digest, helpers],
 
   block_pools_types, candidate_chains
+
+export results
 
 # Clearance
 # ---------------------------------------------
@@ -34,7 +36,7 @@ func getOrResolve*(dag: CandidateChains, quarantine: var Quarantine, root: Eth2D
 proc add*(
     dag: var CandidateChains, quarantine: var Quarantine,
     blockRoot: Eth2Digest,
-    signedBlock: SignedBeaconBlock): BlockRef {.gcsafe.}
+    signedBlock: SignedBeaconBlock): Result[BlockRef, BlockError] {.gcsafe.}
 
 proc addResolvedBlock(
     dag: var CandidateChains, quarantine: var Quarantine,
@@ -105,7 +107,7 @@ proc addResolvedBlock(
 proc add*(
     dag: var CandidateChains, quarantine: var Quarantine,
     blockRoot: Eth2Digest,
-    signedBlock: SignedBeaconBlock): BlockRef {.gcsafe.} =
+    signedBlock: SignedBeaconBlock): Result[BlockRef, BlockError] {.gcsafe.} =
   ## return the block, if resolved...
   ## the state parameter may be updated to include the given block, if
   ## everything checks out
@@ -122,7 +124,7 @@ proc add*(
       blockRoot = shortLog(blockRoot),
       cat = "filtering"
 
-    return blockRef[]
+    return ok blockRef[]
 
   quarantine.missing.del(blockRoot)
 
@@ -138,7 +140,7 @@ proc add*(
       blockRoot = shortLog(blockRoot),
       cat = "filtering"
 
-    return
+    return err Old
 
   let parent = dag.blocks.getOrDefault(blck.parent_root)
 
@@ -150,7 +152,7 @@ proc add*(
         blockRoot = shortLog(blockRoot),
         parentBlock = shortLog(parent)
 
-      return
+      return err Invalid
 
     # The block might have been in either of pending or missing - we don't want
     # any more work done on its behalf
@@ -181,7 +183,7 @@ proc add*(
         blockRoot = shortLog(blockRoot),
         cat = "filtering"
 
-      return
+      return err Invalid
     # Careful, tmpState.data has been updated but not blck - we need to create
     # the BlockRef first!
     dag.tmpState.blck = addResolvedBlock(
@@ -189,7 +191,7 @@ proc add*(
       dag.tmpState.data.data, blockRoot, signedBlock, parent)
     dag.putState(dag.tmpState.data, dag.tmpState.blck)
 
-    return dag.tmpState.blck
+    return ok dag.tmpState.blck
 
   # TODO already checked hash though? main reason to keep this is because
   # the pending dag calls this function back later in a loop, so as long
@@ -204,7 +206,7 @@ proc add*(
 
   if blck.parent_root in quarantine.missing or
       blck.parent_root in quarantine.pending:
-    return
+    return err MissingParent
 
   # This is an unresolved block - put its parent on the missing list for now...
   # TODO if we receive spam blocks, one heurestic to implement might be to wait
@@ -238,6 +240,8 @@ proc add*(
     pending = quarantine.pending.len,
     missing = quarantine.missing.len,
     cat = "filtering"
+
+  return err MissingParent
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#global-topics
 proc isValidBeaconBlock*(

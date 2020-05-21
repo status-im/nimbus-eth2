@@ -152,7 +152,7 @@ suiteReport "Attestation pool processing" & preset():
     let
       b1 = addTestBlock(state.data.data, blockPool.tail.root)
       b1Root = hash_tree_root(b1.message)
-      b1Add = blockPool.add(b1Root, b1)
+      b1Add = blockPool.add(b1Root, b1)[]
       head = pool.selectHead()
 
     check:
@@ -161,7 +161,7 @@ suiteReport "Attestation pool processing" & preset():
     let
       b2 = addTestBlock(state.data.data, b1Root)
       b2Root = hash_tree_root(b2.message)
-      b2Add = blockPool.add(b2Root, b2)
+      b2Add = blockPool.add(b2Root, b2)[]
       head2 = pool.selectHead()
 
     check:
@@ -172,7 +172,7 @@ suiteReport "Attestation pool processing" & preset():
     let
       b10 = makeTestBlock(state.data.data, blockPool.tail.root)
       b10Root = hash_tree_root(b10.message)
-      b10Add = blockPool.add(b10Root, b10)
+      b10Add = blockPool.add(b10Root, b10)[]
       head = pool.selectHead()
 
     check:
@@ -183,7 +183,7 @@ suiteReport "Attestation pool processing" & preset():
         graffiti = Eth2Digest(data: [1'u8, 0, 0, 0 ,0 ,0 ,0 ,0 ,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
       )
       b11Root = hash_tree_root(b11.message)
-      b11Add = blockPool.add(b11Root, b11)
+      b11Add = blockPool.add(b11Root, b11)[]
 
       bc1 = get_beacon_committee(
         state.data.data, state.data.data.slot, 1.CommitteeIndex, cache)
