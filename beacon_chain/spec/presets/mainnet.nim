@@ -20,7 +20,7 @@ type
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L6
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/mainnet.yaml#L6
 
   MAX_COMMITTEES_PER_SLOT* {.intdefine.} = 64
 
@@ -41,8 +41,8 @@ const
   MIN_PER_EPOCH_CHURN_LIMIT* = 4
   CHURN_LIMIT_QUOTIENT* = 2^16
   SHUFFLE_ROUND_COUNT* = 90
-  MIN_GENESIS_TIME* {.intdefine.} = 1578009600
   MIN_GENESIS_ACTIVE_VALIDATOR_COUNT* {.intdefine.} = 16384
+  MIN_GENESIS_TIME* {.intdefine.} = 1578009600
 
   HYSTERESIS_QUOTIENT* = 4
   HYSTERESIS_DOWNWARD_MULTIPLIER* = 1
@@ -50,7 +50,7 @@ const
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L58
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/mainnet.yaml#L58
 
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9 ##\
   ## Minimum amounth of ETH that can be deposited in one call - deposits can
@@ -67,13 +67,13 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L70
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/mainnet.yaml#L70
   GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 0'u8]
   BLS_WITHDRAWAL_PREFIX* = 0'u8
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L77
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/mainnet.yaml#L77
   MIN_GENESIS_DELAY* = 86400 # 86400 seconds (1 day)
 
   SECONDS_PER_SLOT*{.intdefine.} = 12'u64 # Compile with -d:SECONDS_PER_SLOT=1 for 12x faster slots
@@ -123,7 +123,7 @@ const
 
   # State vector lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L105
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/mainnet.yaml#L105
 
   EPOCHS_PER_HISTORICAL_VECTOR* = 65536 ##\
   ## epochs (~0.8 years)
@@ -138,7 +138,7 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L117
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/mainnet.yaml#L117
   BASE_REWARD_FACTOR* = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
   PROPOSER_REWARD_QUOTIENT* = 2'u64^3
@@ -147,7 +147,7 @@ const
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L131
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/mainnet.yaml#L131
   MAX_PROPOSER_SLASHINGS* = 2^4
   MAX_ATTESTER_SLASHINGS* = 2^0
   MAX_ATTESTATIONS* = 2^7
@@ -156,17 +156,17 @@ const
 
   # Fork choice
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L32
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/mainnet.yaml#L32
   SAFE_SLOTS_TO_UPDATE_JUSTIFIED* = 8 # 96 seconds
 
   # Validators
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/mainnet.yaml#L38
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/mainnet.yaml#L38
   ETH1_FOLLOW_DISTANCE* = 1024 # blocks ~ 4 hours
   TARGET_AGGREGATORS_PER_COMMITTEE* = 16 # validators
   RANDOM_SUBNETS_PER_VALIDATOR* = 1 # subnet
   EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION* = 256 # epochs ~ 27 hours
-  SECONDS_PER_ETH1_BLOCK* = 14 # estimate from Eth1 mainnet)
+  SECONDS_PER_ETH1_BLOCK* = 14 # (estimate from Eth1 mainnet)
 
   # Phase 1: Upgrade from Phase 0
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/mainnet.yaml#L161

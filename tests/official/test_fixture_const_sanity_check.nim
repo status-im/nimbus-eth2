@@ -111,10 +111,10 @@ proc checkConfig() =
   var config = yamlStream.loadToJson()
   doAssert config.len == 1
   for constant, value in config[0]:
+    if constant in IgnoreKeys:
+      echo &"        ↶↶ Skipping {constant}"
+      continue
     timedTest &"{constant:<50}{value:<20}{preset()}":
-      if constant in IgnoreKeys:
-        echo &"        ↶↶ Skipping {constant}"
-        continue
       if constant.startsWith("DOMAIN"):
         let domain = parseEnum[DomainType](constant)
         let value = parseU32LEHex(value.getStr())
@@ -125,5 +125,5 @@ proc checkConfig() =
       else:
         check: ConstsToCheck[constant] == value.getBiggestInt().uint64()
 
-suiteReport "Official - 0.11.1 - constants & config " & preset():
+suiteReport "Official - 0.11.3 - constants & config " & preset():
   checkConfig()
