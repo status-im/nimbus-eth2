@@ -111,11 +111,11 @@ proc checkConfig() =
   var config = yamlStream.loadToJson()
   doAssert config.len == 1
   for constant, value in config[0]:
-    if constant in IgnoreKeys:
-      echo &"        ↶↶ Skipping {constant}"
-      continue
     timedTest &"{constant:<50}{value:<20}{preset()}":
-      if constant.startsWith("DOMAIN"):
+      if constant in IgnoreKeys:
+        echo &"        ↶↶ Skipping {constant}"
+        skip()
+      elif constant.startsWith("DOMAIN"):
         let domain = parseEnum[DomainType](constant)
         let value = parseU32LEHex(value.getStr())
         check: uint32(domain) == value
