@@ -150,7 +150,7 @@ suiteReport "Attestation pool processing" & preset():
 
   timedTest "Fork choice returns latest block with no attestations":
     let
-      b1 = addTestBlock(state.data.data, blockPool.tail.root)
+      b1 = addTestBlock(state.data, blockPool.tail.root)
       b1Root = hash_tree_root(b1.message)
       b1Add = blockPool.add(b1Root, b1)[]
       head = pool.selectHead()
@@ -159,7 +159,7 @@ suiteReport "Attestation pool processing" & preset():
       head == b1Add
 
     let
-      b2 = addTestBlock(state.data.data, b1Root)
+      b2 = addTestBlock(state.data, b1Root)
       b2Root = hash_tree_root(b2.message)
       b2Add = blockPool.add(b2Root, b2)[]
       head2 = pool.selectHead()
@@ -170,7 +170,7 @@ suiteReport "Attestation pool processing" & preset():
   timedTest "Fork choice returns block with attestation":
     var cache = get_empty_per_epoch_cache()
     let
-      b10 = makeTestBlock(state.data.data, blockPool.tail.root)
+      b10 = makeTestBlock(state.data, blockPool.tail.root)
       b10Root = hash_tree_root(b10.message)
       b10Add = blockPool.add(b10Root, b10)[]
       head = pool.selectHead()
@@ -179,7 +179,7 @@ suiteReport "Attestation pool processing" & preset():
       head == b10Add
 
     let
-      b11 = makeTestBlock(state.data.data, blockPool.tail.root,
+      b11 = makeTestBlock(state.data, blockPool.tail.root,
         graffiti = Eth2Digest(data: [1'u8, 0, 0, 0 ,0 ,0 ,0 ,0 ,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
       )
       b11Root = hash_tree_root(b11.message)

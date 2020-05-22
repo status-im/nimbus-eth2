@@ -18,9 +18,8 @@ import
   eth/[keys, async_utils], eth/p2p/discoveryv5/[protocol, enr],
 
   # Local modules
-  spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network,
-    state_transition_block],
-  conf, time, validator_pool,
+  spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network],
+  conf, time, validator_pool, state_transition,
   attestation_pool, block_pool, eth2_network,
   beacon_node_common, beacon_node_types,
   mainchain_monitor, version, ssz, interop,
@@ -139,6 +138,7 @@ proc sendAttestation(node: BeaconNode,
 
 proc proposeBlock(node: BeaconNode,
                   validator: AttachedValidator,
+                  validator_index: ValidatorIndex,
                   head: BlockRef,
                   slot: Slot): Future[BlockRef] {.async.} =
   logScope: pcs = "block_proposal"
@@ -164,17 +164,36 @@ proc proposeBlock(node: BeaconNode,
       else:
         node.mainchainMonitor.getBlockProposalData(state)
 
+    let
+      poolPtr = unsafeAddr node.blockPool.dag # safe because restore is short-lived
+
+    func restore(v: var HashedBeaconState) =
+      # TODO address this ugly workaround - there should probably be a
+      #      `state_transition` that takes a `StateData` instead and updates
+      #      the block as well
+      doAssert v.addr == addr poolPtr.tmpState.data
+      poolPtr.tmpState = poolPtr.headState
+
     let message = makeBeaconBlock(
-      state,
+      hashedState,
+      validator_index,
       head.root,
       validator.genRandaoReveal(state.fork, state.genesis_validators_root, slot),
       eth1data,
       Eth2Digest(),
       node.attestationPool.getAttestationsForBlock(state),
-      deposits)
+      deposits,
+      restore)
 
     if not message.isSome():
       return head # already logged elsewhere!
+
+    # TODO this restore is needed because otherwise tmpState will be internally
+    #      inconsistent - it's blck will not be pointing to the block that
+    #      created this state - we have to reset it here before `await` to avoid
+    #      races.
+    restore(poolPtr.tmpState.data)
+
     var
       newBlock = SignedBeaconBlock(
         message: message.get()
@@ -289,24 +308,24 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
   #      proposing for it - basically, we're selecting proposer based on an
   #      empty slot
 
-  let proposerKey = node.blockPool.getProposer(head, slot)
-  if proposerKey.isNone():
+  let proposer = node.blockPool.getProposer(head, slot)
+  if proposer.isNone():
     return head
 
-  let validator = node.attachedValidators.getValidator(proposerKey.get())
+  let validator = node.attachedValidators.getValidator(proposer.get()[1])
 
   if validator != nil:
-    return await proposeBlock(node, validator, head, slot)
+    return await proposeBlock(node, validator, proposer.get()[0], head, slot)
 
   debug "Expecting block proposal",
     headRoot = shortLog(head.root),
     slot = shortLog(slot),
-    proposer = shortLog(proposerKey.get()),
+    proposer_index = proposer.get()[0],
+    proposer = shortLog(proposer.get()[1]),
     cat = "consensus",
     pcs = "wait_for_proposal"
 
   return head
-
 
 proc broadcastAggregatedAttestations(
     node: BeaconNode, aggregationHead: BlockRef, aggregationSlot: Slot,
