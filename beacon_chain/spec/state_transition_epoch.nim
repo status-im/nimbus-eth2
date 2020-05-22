@@ -384,7 +384,7 @@ func process_final_updates*(state: var BeaconState) {.nbench.}=
 
   # Reset eth1 data votes
   if next_epoch mod EPOCHS_PER_ETH1_VOTING_PERIOD == 0:
-    state.eth1_data_votes = typeof(state.eth1_data_votes) @[]
+    state.eth1_data_votes = type(state.eth1_data_votes) @[]
 
   # Update effective balances with hysteresis
   for index, validator in state.validators:

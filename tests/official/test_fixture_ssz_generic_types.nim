@@ -58,7 +58,7 @@ type
     A: uint16
     B: List[uint16, 128]
     C: uint8
-    D: array[256, byte]
+    D: List[byte, 256]
     E: VarTestStruct
     F: array[4, FixedTestStruct]
     G: array[2, VarTestStruct]
@@ -79,9 +79,8 @@ proc checkBasic(T: typedesc,
   var fileContents = readFileBytes(dir/"serialized.ssz")
   var deserialized = sszDecodeEntireInput(fileContents, T)
 
-  let
-    expectedHash = expectedHash.root
-    actualHash = "0x" & toLowerASCII($deserialized.hashTreeRoot())
+  let expectedHash = expectedHash.root
+  let actualHash = "0x" & toLowerASCII($deserialized.hashTreeRoot())
 
   check expectedHash == actualHash
   check sszSize(deserialized) == fileContents.len
@@ -159,24 +158,24 @@ proc checkBitVector(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
   else:
     raise newException(TestSizeError, "Unsupported BitVector of size " & $size)
 
-# TODO: serialization of "type BitList[maxLen] = distinct BitSeq is not supported"
-#       https://github.com/status-im/nim-beacon-chain/issues/518
-# proc checkBitList(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
-#   var maxLen: int
-#   let wasMatched = scanf(sszSubType, "bitlist_$i", maxLen)
-#   case maxLen
-#   of 1: checkBasic(BitList[1], dir, expectedHash)
-#   of 2: checkBasic(BitList[2], dir, expectedHash)
-#   of 3: checkBasic(BitList[3], dir, expectedHash)
-#   of 4: checkBasic(BitList[4], dir, expectedHash)
-#   of 5: checkBasic(BitList[5], dir, expectedHash)
-#   of 8: checkBasic(BitList[8], dir, expectedHash)
-#   of 16: checkBasic(BitList[16], dir, expectedHash)
-#   of 31: checkBasic(BitList[31], dir, expectedHash)
-#   of 512: checkBasic(BitList[512], dir, expectedHash)
-#   of 513: checkBasic(BitList[513], dir, expectedHash)
-#   else:
-#     raise newException(ValueError, "Unsupported Bitlist of max length " & $maxLen)
+proc checkBitList(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
+  var maxLen: int
+  let wasMatched = scanf(sszSubType, "bitlist_$i", maxLen)
+  case maxLen
+  of 0: checkBasic(BitList[0], dir, expectedHash)
+  of 1: checkBasic(BitList[1], dir, expectedHash)
+  of 2: checkBasic(BitList[2], dir, expectedHash)
+  of 3: checkBasic(BitList[3], dir, expectedHash)
+  of 4: checkBasic(BitList[4], dir, expectedHash)
+  of 5: checkBasic(BitList[5], dir, expectedHash)
+  of 8: checkBasic(BitList[8], dir, expectedHash)
+  of 16: checkBasic(BitList[16], dir, expectedHash)
+  of 31: checkBasic(BitList[31], dir, expectedHash)
+  of 32: checkBasic(BitList[32], dir, expectedHash)
+  of 512: checkBasic(BitList[512], dir, expectedHash)
+  of 513: checkBasic(BitList[513], dir, expectedHash)
+  else:
+    raise newException(ValueError, "Unsupported Bitlist of max length " & $maxLen)
 
 # Test dispatch for valid inputs
 # ------------------------------------------------------------------------
@@ -213,7 +212,7 @@ proc sszCheck(baseDir, sszType, sszSubType: string) =
       raise newException(ValueError, "unknown uint in test: " & sszSubType)
   of "basic_vector": checkVector(sszSubType, dir, expectedHash)
   of "bitvector": checkBitVector(sszSubType, dir, expectedHash)
-  # of "bitlist": checkBitList(sszSubType, dir, expectedHash)
+  of "bitlist": checkBitList(sszSubType, dir, expectedHash)
   of "containers":
     var name: string
     let wasMatched = scanf(sszSubtype, "$+_", name)
@@ -222,15 +221,12 @@ proc sszCheck(baseDir, sszType, sszSubType: string) =
     of "SingleFieldTestStruct": checkBasic(SingleFieldTestStruct, dir, expectedHash)
     of "SmallTestStruct": checkBasic(SmallTestStruct, dir, expectedHash)
     of "FixedTestStruct": checkBasic(FixedTestStruct, dir, expectedHash)
-    of "VarTestStruct":
-      # Runtime issues
-      discard # checkBasic(VarTestStruct, dir, expectedHash)
-    of "ComplexTestStruct":
-      # Compile-time issues
-      discard # checkBasic(ComplexTestStruct, dir, expectedHash)
+    of "VarTestStruct": checkBasic(VarTestStruct, dir, expectedHash)
+    of "ComplexTestStruct": checkBasic(ComplexTestStruct, dir, expectedHash)
     of "BitsStruct":
+      discard
       # Compile-time issues
-      discard # checkBasic(BitsStruct, dir, expectedHash)
+      # checkBasic(BitsStruct, dir, expectedHash)
     else:
       raise newException(ValueError, "unknown container in test: " & sszSubType)
   else:
@@ -248,12 +244,6 @@ proc runSSZtests() =
   doAssert existsDir(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the official test vectors."
   for pathKind, sszType in walkDir(SSZDir, relative = true):
     doAssert pathKind == pcDir
-    if sszType == "bitlist":
-      timedTest &"**Skipping** {sszType} inputs - valid - skipped altogether":
-        # TODO: serialization of "type BitList[maxLen] = distinct BitSeq is not supported"
-        #       https://github.com/status-im/nim-beacon-chain/issues/518
-        discard
-      continue
 
     var skipped: string
     case sszType
@@ -262,7 +252,7 @@ proc runSSZtests() =
     of "basic_vector":
       skipped = " - skipping Vector[uint128, N] and Vector[uint256, N]"
     of "containers":
-      skipped = " - skipping VarTestStruct, ComplexTestStruct, BitsStruct"
+      skipped = " - skipping BitsStruct"
 
     timedTest &"Testing {sszType:12} inputs - valid" & skipped:
       let path = SSZDir/sszType/"valid"
@@ -285,12 +275,6 @@ proc runSSZtests() =
           checkpoint getStackTrace(getCurrentException())
           checkpoint getCurrentExceptionMsg()
           check false
-
-  # TODO: nim-serialization forces us to use exceptions as control flow
-  #       as we always have to check user supplied inputs
-  # Skipped
-  # test "Testing " & name & " inputs (" & $T & ") - invalid":
-  #   const path = SSZDir/name/"invalid"
 
 suiteReport "Official - SSZ generic types":
   runSSZtests()

@@ -33,10 +33,6 @@ static:
   doAssert fixedPortionSize(array[SomeEnum, uint64]) == 24
   doAssert fixedPortionSize(array[3..5, List[byte, 256]]) == 12
 
-  doAssert fixedPortionSize(List[byte, 256]) == 4
-  doAssert fixedPortionSize(List[bool, 128]) == 4
-  doAssert fixedPortionSize(List[List[byte, 128], 256]) == 4
-
   doAssert isFixedSize(array[20, bool]) == true
   doAssert isFixedSize(Simple) == true
   doAssert isFixedSize(List[bool, 128]) == false
