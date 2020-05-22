@@ -135,7 +135,8 @@ proc preInit*(
     signedBlock: SignedBeaconBlock) =
   preInit(CandidateChains, db, state, signedBlock)
 
-proc getProposer*(pool: BlockPool, head: BlockRef, slot: Slot): Option[ValidatorPubKey] =
+proc getProposer*(pool: BlockPool, head: BlockRef, slot: Slot):
+    Option[(ValidatorIndex, ValidatorPubKey)] =
   getProposer(pool.dag, head, slot)
 
 # Rewinder / State transitions

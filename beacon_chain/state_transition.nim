@@ -244,3 +244,47 @@ proc state_transition*(
   rollback(state)
 
   false
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md
+# TODO There's more to do here - the spec has helpers that deal set up some of
+#      the fields in here!
+proc makeBeaconBlock*(
+    state: var HashedBeaconState,
+    proposer_index: ValidatorIndex,
+    parent_root: Eth2Digest,
+    randao_reveal: ValidatorSig,
+    eth1_data: Eth1Data,
+    graffiti: Eth2Digest,
+    attestations: seq[Attestation],
+    deposits: seq[Deposit],
+    rollback: RollbackHashedProc): Option[BeaconBlock] =
+  ## Create a block for the given state. The last block applied to it must be
+  ## the one identified by parent_root and process_slots must be called up to
+  ## the slot for which a block is to be created.
+  var cache = get_empty_per_epoch_cache()
+
+  # To create a block, we'll first apply a partial block to the state, skipping
+  # some validations.
+
+  var blck = BeaconBlock(
+    slot: state.data.slot,
+    proposer_index: proposer_index.uint64,
+    parent_root: parent_root,
+    body: BeaconBlockBody(
+      randao_reveal: randao_reveal,
+      eth1_data: eth1data,
+      graffiti: graffiti,
+      attestations: List[Attestation, MAX_ATTESTATIONS](attestations),
+      deposits: List[Deposit, MAX_DEPOSITS](deposits)))
+
+  let ok = process_block(state.data, blck, {skipBlsValidation}, cache)
+
+  if not ok:
+    warn "Unable to apply new block to state", blck = shortLog(blck)
+    rollback(state)
+    return
+
+  state.root = hash_tree_root(state.data)
+  blck.state_root = state.root
+
+  some(blck)
