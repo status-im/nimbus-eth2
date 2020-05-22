@@ -324,23 +324,19 @@ proc process_operations(state: var BeaconState, body: BeaconBlockBody,
       deposit_index = state.eth1_deposit_index
     return false
 
-  proc for_ops(state: var BeaconState, operations: auto, fn: auto, flags: auto,
-      stateCache: var auto) =
+  template for_ops_cached(operations: auto, fn: auto) =
     for operation in operations:
       discard fn(state, operation, flags, stateCache)
 
-  proc for_ops(
-      state: var BeaconState, operations: auto, fn: auto, flags: auto) =
+  template for_ops(operations: auto, fn: auto) =
     for operation in operations:
       discard fn(state, operation, flags)
 
-  for_ops(state, body.proposer_slashings, process_proposer_slashing, flags,
-    stateCache)
-  for_ops(state, body.attester_slashings, process_attester_slashing, flags,
-    stateCache)
-  for_ops(state, body.attestations, process_attestation, flags, stateCache)
-  for_ops(state, body.deposits, process_deposit, flags)
-  for_ops(state, body.voluntary_exits, process_voluntary_exit, flags)
+  for_ops_cached(body.proposer_slashings, process_proposer_slashing)
+  for_ops_cached(body.attester_slashings, process_attester_slashing)
+  for_ops_cached(body.attestations, process_attestation)
+  for_ops(body.deposits, process_deposit)
+  for_ops(body.voluntary_exits, process_voluntary_exit)
 
   true
 
