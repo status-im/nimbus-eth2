@@ -459,7 +459,7 @@ func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
 
   IndexedAttestation(
     attesting_indices:
-      List[uint64, MAX_VALIDATORS_PER_COMMITTEE](
+      List[uint64, MAX_VALIDATORS_PER_COMMITTEE].init(
         sorted(mapIt(attesting_indices.toSeq, it.uint64), system.cmp)),
     data: attestation.data,
     signature: attestation.signature
