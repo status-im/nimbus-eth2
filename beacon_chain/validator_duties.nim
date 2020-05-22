@@ -136,6 +136,74 @@ proc sendAttestation(node: BeaconNode,
 
   beacon_attestations_sent.inc()
 
+type
+  ValidatorInfoForMakeBeaconBlockType* = enum
+    viValidator
+    viRandao_reveal
+  ValidatorInfoForMakeBeaconBlock* = object
+    case kind*: ValidatorInfoForMakeBeaconBlockType
+    of viValidator: validator*: AttachedValidator
+    else: randao_reveal*: ValidatorSig
+
+proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
+                                    val_info: ValidatorInfoForMakeBeaconBlock,
+                                    validator_index: ValidatorIndex,
+                                    graffiti: Eth2Digest,
+                                    head: BlockRef,
+                                    slot: Slot):
+    tuple[message: Option[BeaconBlock], fork: Fork, genesis_validators_root: Eth2Digest] =
+  # Advance state to the slot that we're proposing for - this is the equivalent
+  # of running `process_slots` up to the slot of the new block.
+  node.blockPool.withState(
+      node.blockPool.tmpState, head.atSlot(slot)):
+    let (eth1data, deposits) =
+      if node.mainchainMonitor.isNil:
+        (get_eth1data_stub(state.eth1_deposit_index, slot.compute_epoch_at_slot()),
+         newSeq[Deposit]())
+      else:
+        node.mainchainMonitor.getBlockProposalData(state)
+
+    # TODO perhaps just making the enclosing function accept 2 different types at the
+    # same time and doing some compile-time branching logic is cleaner (without the
+    # need for the discriminated union)... but we need the `state` from `withState`
+    # in order to get the fork/root for the specific head/slot for the randao_reveal
+    # and it's causing problems when the function becomes a generic for 2 types...
+    proc getRandaoReveal(val_info: ValidatorInfoForMakeBeaconBlock): ValidatorSig =
+      if val_info.kind == viValidator:
+        val_info.validator.genRandaoReveal(state.fork, state.genesis_validators_root, slot)
+      else:
+        val_info.randao_reveal
+
+    let
+      poolPtr = unsafeAddr node.blockPool.dag # safe because restore is short-lived
+
+    func restore(v: var HashedBeaconState) =
+      # TODO address this ugly workaround - there should probably be a
+      #      `state_transition` that takes a `StateData` instead and updates
+      #      the block as well
+      doAssert v.addr == addr poolPtr.tmpState.data
+      poolPtr.tmpState = poolPtr.headState
+
+    let message = makeBeaconBlock(
+      hashedState,
+      validator_index,
+      head.root,
+      getRandaoReveal(val_info),
+      eth1data,
+      graffiti,
+      node.attestationPool.getAttestationsForBlock(state),
+      deposits,
+      restore)
+
+    if message.isSome():
+      # TODO this restore is needed because otherwise tmpState will be internally
+      #      inconsistent - it's blck will not be pointing to the block that
+      #      created this state - we have to reset it here before `await` to avoid
+      #      races.
+      restore(poolPtr.tmpState.data)
+
+    return (message, state.fork, state.genesis_validators_root)
+
 proc proposeBlock(node: BeaconNode,
                   validator: AttachedValidator,
                   validator_index: ValidatorIndex,
@@ -153,61 +221,22 @@ proc proposeBlock(node: BeaconNode,
       cat = "fastforward"
     return head
 
-  # Advance state to the slot that we're proposing for - this is the equivalent
-  # of running `process_slots` up to the slot of the new block.
-  let (nroot, nblck) = node.blockPool.withState(
-      node.blockPool.tmpState, head.atSlot(slot)):
-    let (eth1data, deposits) =
-      if node.mainchainMonitor.isNil:
-        (get_eth1data_stub(state.eth1_deposit_index, slot.compute_epoch_at_slot()),
-         newSeq[Deposit]())
-      else:
-        node.mainchainMonitor.getBlockProposalData(state)
+  let valInfo = ValidatorInfoForMakeBeaconBlock(kind: viValidator, validator: validator)
+  let beaconBlockTuple = makeBeaconBlockForHeadAndSlot(node, valInfo, validator_index, Eth2Digest(), head, slot)
 
-    let
-      poolPtr = unsafeAddr node.blockPool.dag # safe because restore is short-lived
+  if not beaconBlockTuple.message.isSome():
+    return head # already logged elsewhere!
+  var
+    newBlock = SignedBeaconBlock(
+      message: beaconBlockTuple.message.get()
+    )
 
-    func restore(v: var HashedBeaconState) =
-      # TODO address this ugly workaround - there should probably be a
-      #      `state_transition` that takes a `StateData` instead and updates
-      #      the block as well
-      doAssert v.addr == addr poolPtr.tmpState.data
-      poolPtr.tmpState = poolPtr.headState
+  let blockRoot = hash_tree_root(newBlock.message)
 
-    let message = makeBeaconBlock(
-      hashedState,
-      validator_index,
-      head.root,
-      validator.genRandaoReveal(state.fork, state.genesis_validators_root, slot),
-      eth1data,
-      Eth2Digest(),
-      node.attestationPool.getAttestationsForBlock(state),
-      deposits,
-      restore)
+  newBlock.signature = await validator.signBlockProposal(
+    beaconBlockTuple.fork, beaconBlockTuple.genesis_validators_root, slot, blockRoot)
 
-    if not message.isSome():
-      return head # already logged elsewhere!
-
-    # TODO this restore is needed because otherwise tmpState will be internally
-    #      inconsistent - it's blck will not be pointing to the block that
-    #      created this state - we have to reset it here before `await` to avoid
-    #      races.
-    restore(poolPtr.tmpState.data)
-
-    var
-      newBlock = SignedBeaconBlock(
-        message: message.get()
-      )
-
-    let blockRoot = hash_tree_root(newBlock.message)
-
-    # Careful, state no longer valid after here because of the await..
-    newBlock.signature = await validator.signBlockProposal(
-      state.fork, state.genesis_validators_root, slot, blockRoot)
-
-    (blockRoot, newBlock)
-
-  let newBlockRef = node.blockPool.add(nroot, nblck)
+  let newBlockRef = node.blockPool.add(blockRoot, newBlock)
   if newBlockRef.isErr:
     warn "Unable to add proposed block to block pool",
       newBlock = shortLog(newBlock.message),

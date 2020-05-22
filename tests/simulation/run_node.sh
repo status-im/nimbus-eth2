@@ -59,8 +59,26 @@ if [ -f "${SNAPSHOT_FILE}" ]; then
   SNAPSHOT_ARG="--state-snapshot=${SNAPSHOT_FILE}"
 fi
 
+cd "$DATA_DIR"
+
+# uncomment to force always using an external VC binary for VC duties
+# TODO remove this when done with implementing the VC - here just for convenience during dev
+#EXTERNAL_VALIDATORS="yes"
+
+EXTERNAL_VALIDATORS_ARG=""
+if [ "${EXTERNAL_VALIDATORS:-}" == "yes" ]; then
+  EXTERNAL_VALIDATORS_ARG="--external-validators"
+  # we lass a few seconds as delay for the start ==> that way we can start the
+  # beacon node before the VC - otherwise we would have to add "&" conditionally to
+  # the command which starts the BN - makes the shell script much more complicated
+  $VALIDATOR_CLIENT_BIN \
+    --data-dir=$DATA_DIR \
+    --rpc-port="$(( $BASE_RPC_PORT + $NODE_ID ))" \
+    --delay-start=5 &
+fi
+
 # if you want tracing messages, add "--log-level=TRACE" below
-cd "$DATA_DIR" && $BEACON_NODE_BIN \
+$BEACON_NODE_BIN \
   --log-level=${LOG_LEVEL:-DEBUG} \
   --bootstrap-file=$BOOTSTRAP_ADDRESS_FILE \
   --data-dir=$DATA_DIR \
@@ -68,6 +86,7 @@ cd "$DATA_DIR" && $BEACON_NODE_BIN \
   --tcp-port=$PORT \
   --udp-port=$PORT \
   $SNAPSHOT_ARG \
+  $EXTERNAL_VALIDATORS_ARG \
   $NAT_ARG \
   $WEB3_ARG \
   --deposit-contract=$DEPOSIT_CONTRACT_ADDRESS \
