@@ -1,36 +1,31 @@
 import
+  # Standard library
   options,
-  ../datatypes
+  # Local modules
+  ../[datatypes, digest, crypto],
+  json_rpc/jsonmarshal,
+  validator_callsigs_types
 
-# https://github.com/ethereum/eth2.0-APIs/tree/master/apis/validator
+# TODO check which arguments are part of the path in the REST API
 
-type
-  SyncStatus* = object
-    starting_slot*: Slot
-    current_slot*: Slot
-    highest_slot*: Slot
+proc get_v1_validator_blocks(slot: Slot, graffiti: Eth2Digest, randao_reveal: ValidatorSig): BeaconBlock
 
-  SyncingStatusResponse* = object
-    is_syncing*: bool
-    sync_status*: SyncStatus
+# TODO this doesn't have "validator" in it's path but is used by the validators nonetheless
+proc post_v1_beacon_blocks(body: SignedBeaconBlock)
 
-  ValidatorDuty* = object
-    validator_pubkey: ValidatorPubKey
-    attestation_slot: Slot
-    attestation_shard: uint
-    block_proposal_slot: Slot
+proc get_v1_validator_attestation_data(slot: Slot, committee_index: CommitteeIndex): AttestationData
 
-proc getNodeVersion(): string
-proc getGenesisTime(): uint64
-proc getSyncingStatus(): SyncingStatusResponse
-proc getValidator(key: ValidatorPubKey): Validator
-proc getValidatorDuties(validators: openarray[ValidatorPubKey], epoch: Epoch): seq[ValidatorDuty]
-proc getBlockForSigning(slot: Slot, randaoReveal: string): BeaconBlock
-proc postBlock(blk: BeaconBlock)
-proc getAttestationForSigning(validatorKey: ValidatorPubKey, pocBit: int, slot: Slot, shard: uint): Attestation
-proc postAttestation(attestation: Attestation)
+proc get_v1_validator_aggregate_attestation(query: Eth2Digest): Attestation
 
-# Optional RPCs
+proc post_v1_validator_aggregate_and_proof(payload: SignedAggregateAndProof)
 
-proc getForkId()
+# TODO this should perhaps be a GET instead of a POST?
+proc post_v1_validator_duties_attester(epoch: Epoch, public_keys: seq[ValidatorPubKey]): seq[AttesterDuties]
 
+proc get_v1_validator_duties_proposer(epoch: Epoch): seq[ValidatorPubkeySlotPair]
+
+proc post_v1_validator_beacon_committee_subscription(committee_index: CommitteeIndex,
+                                                     slot: Slot,
+                                                     aggregator: bool,
+                                                     validator_pubkey: ValidatorPubKey,
+                                                     slot_signature: ValidatorSig)

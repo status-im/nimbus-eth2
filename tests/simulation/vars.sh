@@ -31,6 +31,7 @@ VALIDATORS_DIR="${SIM_ROOT}/validators"
 SNAPSHOT_FILE="${SIMULATION_DIR}/state_snapshot.ssz"
 NETWORK_BOOTSTRAP_FILE="${SIMULATION_DIR}/bootstrap_nodes.txt"
 BEACON_NODE_BIN="${GIT_ROOT}/build/beacon_node"
+VALIDATOR_CLIENT_BIN="${GIT_ROOT}/build/validator_client"
 DEPLOY_DEPOSIT_CONTRACT_BIN="${GIT_ROOT}/build/deposit_contract"
 MASTER_NODE_ADDRESS_FILE="${SIMULATION_DIR}/node-${MASTER_NODE}/beacon_node.address"
 

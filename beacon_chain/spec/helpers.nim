@@ -15,7 +15,7 @@ import
   # Third-party
   stew/endians2,
   # Internal
-  ./datatypes, ./digest, ../ssz
+  ./datatypes, ./digest, ./crypto, ../ssz
 
 type
   # This solves an ambiguous identifier Error in some contexts

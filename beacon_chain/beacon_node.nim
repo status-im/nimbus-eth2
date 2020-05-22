@@ -12,7 +12,7 @@ import
   # Nimble packages
   stew/[objects, bitseqs, byteutils], stew/shims/macros,
   chronos, confutils, metrics, json_rpc/[rpcserver, jsonmarshal],
-  chronicles, chronicles/helpers as chroniclesHelpers,
+  chronicles,
   json_serialization/std/[options, sets, net], serialization/errors,
   eth/db/kvstore, eth/db/kvstore_sqlite3,
   eth/p2p/enode, eth/[keys, async_utils], eth/p2p/discoveryv5/[protocol, enr],
@@ -22,14 +22,14 @@ import
   spec/presets/custom,
   conf, time, beacon_chain_db, validator_pool, extras,
   attestation_pool, block_pool, eth2_network, eth2_discovery,
-  beacon_node_common, beacon_node_types, sszdump,
+  beacon_node_common, beacon_node_types,
+  nimbus_binary_common,
   mainchain_monitor, version, ssz, ssz/dynamic_navigator,
   sync_protocol, request_manager, validator_keygen, interop, statusbar,
   sync_manager, state_transition,
-  validator_duties
+  validator_duties, validator_api
 
 const
-  genesisFile = "genesis.ssz"
   hasPrompt = not defined(withoutPrompt)
 
 type
@@ -55,67 +55,11 @@ declareGauge beacon_head_slot,
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_attestations_received,
   "Number of beacon chain attestations received by this peer"
-declareCounter beacon_blocks_received,
-  "Number of beacon chain blocks received by this peer"
 
 declareHistogram beacon_attestation_received_seconds_from_slot_start,
   "Interval between slot start and attestation receival", buckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
 logScope: topics = "beacnde"
-
-proc onBeaconBlock*(node: BeaconNode, signedBlock: SignedBeaconBlock) {.gcsafe.}
-
-proc getStateFromSnapshot(conf: BeaconNodeConf): NilableBeaconStateRef =
-  var
-    genesisPath = conf.dataDir/genesisFile
-    snapshotContents: TaintedString
-    writeGenesisFile = false
-
-  if conf.stateSnapshot.isSome:
-    let
-      snapshotPath = conf.stateSnapshot.get.string
-      snapshotExt = splitFile(snapshotPath).ext
-
-    if cmpIgnoreCase(snapshotExt, ".ssz") != 0:
-      error "The supplied state snapshot must be a SSZ file",
-            suppliedPath = snapshotPath
-      quit 1
-
-    snapshotContents = readFile(snapshotPath)
-    if fileExists(genesisPath):
-      let genesisContents = readFile(genesisPath)
-      if snapshotContents != genesisContents:
-        error "Data directory not empty. Existing genesis state differs from supplied snapshot",
-              dataDir = conf.dataDir.string, snapshot = snapshotPath
-        quit 1
-    else:
-      debug "No previous genesis state. Importing snapshot",
-            genesisPath, dataDir = conf.dataDir.string
-      writeGenesisFile = true
-      genesisPath = snapshotPath
-  else:
-    try:
-      snapshotContents = readFile(genesisPath)
-    except CatchableError as err:
-      error "Failed to read genesis file", err = err.msg
-      quit 1
-
-  result = try:
-    newClone(SSZ.decode(snapshotContents, BeaconState))
-  except SerializationError:
-    error "Failed to import genesis file", path = genesisPath
-    quit 1
-
-  info "Loaded genesis state", path = genesisPath
-
-  if writeGenesisFile:
-    try:
-      notice "Writing genesis to data directory", path = conf.dataDir/genesisFile
-      writeFile(conf.dataDir/genesisFile, snapshotContents.string)
-    except CatchableError as err:
-      error "Failed to persist genesis file to data dir",
-        err = err.msg, genesisFile = conf.dataDir/genesisFile
-      quit 1
 
 proc enrForkIdFromState(state: BeaconState): ENRForkID =
   let
@@ -255,72 +199,6 @@ proc connectToNetwork(node: BeaconNode) {.async.} =
 
   let addressFile = node.config.dataDir / "beacon_node.address"
   writeFile(addressFile, node.network.announcedENR.toURI)
-
-
-proc onAttestation(node: BeaconNode, attestation: Attestation) =
-  # We received an attestation from the network but don't know much about it
-  # yet - in particular, we haven't verified that it belongs to particular chain
-  # we're on, or that it follows the rules of the protocol
-  logScope: pcs = "on_attestation"
-
-  let
-    wallSlot = node.beaconClock.now().toSlot()
-    head = node.blockPool.head
-
-  debug "Attestation received",
-    attestation = shortLog(attestation),
-    headRoot = shortLog(head.blck.root),
-    headSlot = shortLog(head.blck.slot),
-    wallSlot = shortLog(wallSlot.slot),
-    cat = "consensus" # Tag "consensus|attestation"?
-
-  if not wallSlot.afterGenesis or wallSlot.slot < head.blck.slot:
-    warn "Received attestation before genesis or head - clock is wrong?",
-      afterGenesis = wallSlot.afterGenesis,
-      wallSlot = shortLog(wallSlot.slot),
-      headSlot = shortLog(head.blck.slot),
-      cat = "clock_drift" # Tag "attestation|clock_drift"?
-    return
-
-  if attestation.data.slot > head.blck.slot and
-      (attestation.data.slot - head.blck.slot) > MaxEmptySlotCount:
-    warn "Ignoring attestation, head block too old (out of sync?)",
-      attestationSlot = attestation.data.slot, headSlot = head.blck.slot
-    return
-
-  node.attestationPool.add(attestation)
-
-proc storeBlock(
-    node: BeaconNode, signedBlock: SignedBeaconBlock): Result[void, BlockError] =
-  let blockRoot = hash_tree_root(signedBlock.message)
-  debug "Block received",
-    signedBlock = shortLog(signedBlock.message),
-    blockRoot = shortLog(blockRoot),
-    cat = "block_listener",
-    pcs = "receive_block"
-
-  if node.config.dumpEnabled:
-    dump(node.config.dumpDir / "incoming", signedBlock, blockRoot)
-
-  beacon_blocks_received.inc()
-  discard ? node.blockPool.add(blockRoot, signedBlock)
-
-  # The block we received contains attestations, and we might not yet know about
-  # all of them. Let's add them to the attestation pool - in case they block
-  # is not yet resolved, neither will the attestations be!
-  # But please note that we only care about recent attestations.
-  # TODO shouldn't add attestations if the block turns out to be invalid..
-  let currentSlot = node.beaconClock.now.toSlot
-  if currentSlot.afterGenesis and
-    signedBlock.message.slot.epoch + 1 >= currentSlot.slot.epoch:
-    for attestation in signedBlock.message.body.attestations:
-      node.onAttestation(attestation)
-  ok()
-
-proc onBeaconBlock(node: BeaconNode, signedBlock: SignedBeaconBlock) =
-  # We received a block but don't know much about it yet - in particular, we
-  # don't know if it's part of the chain we're currently building.
-  discard node.storeBlock(signedBlock)
 
 func verifyFinalization(node: BeaconNode, slot: Slot) =
   # Epoch must be >= 4 to check finalization
@@ -567,16 +445,6 @@ proc runSyncLoop(node: BeaconNode) {.async.} =
 
   await syncman.sync()
 
-# TODO: Should we move these to other modules?
-# This would require moving around other type definitions
-proc installValidatorApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
-  discard
-
-func slotOrZero(time: BeaconTime): Slot =
-  let exSlot = time.toSlot
-  if exSlot.afterGenesis: exSlot.slot
-  else: Slot(0)
-
 proc currentSlot(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero
 
@@ -683,7 +551,9 @@ proc installDebugApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
     return res
 
 proc installRpcHandlers(rpcServer: RpcServer, node: BeaconNode) =
-  rpcServer.installValidatorApiHandlers(node)
+  # TODO: remove this if statement later - here just to test the config option for now
+  if node.config.externalValidators:
+    rpcServer.installValidatorApiHandlers(node)
   rpcServer.installBeaconApiHandlers(node)
   rpcServer.installDebugApiHandlers(node)
 
@@ -754,9 +624,7 @@ proc run*(node: BeaconNode) =
     installAttestationHandlers(node)
 
     let
-      t = node.beaconClock.now().toSlot()
-      curSlot = if t.afterGenesis: t.slot
-                else: GENESIS_SLOT
+      curSlot = node.beaconClock.now().slotOrZero()
       nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
       fromNow = saturate(node.beaconClock.fromNow(nextSlot))
 
@@ -954,30 +822,7 @@ programMain:
     banner = clientId & "\p" & copyrights & "\p\p" & nimBanner
     config = BeaconNodeConf.load(version = banner, copyrightBanner = banner)
 
-  when compiles(defaultChroniclesStream.output.writer):
-    defaultChroniclesStream.output.writer =
-      proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe, raises: [Defect].} =
-        try:
-          stdout.write(msg)
-        except IOError as err:
-          logLoggingFailure(cstring(msg), err)
-
-  randomize()
-
-  try:
-    let directives = config.logLevel.split(";")
-    try:
-      setLogLevel(parseEnum[LogLevel](directives[0]))
-    except ValueError:
-      raise (ref ValueError)(msg: "Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL")
-
-    if directives.len > 1:
-      for topicName, settings in parseTopicDirectives(directives[1..^1]):
-        if not setTopicState(topicName, settings.state, settings.logLevel):
-          warn "Unrecognized logging topic", topic = topicName
-  except ValueError as err:
-    stderr.write "Invalid value for --log-level. " & err.msg
-    quit 1
+  setupMainProc(config.logLevel)
 
   case config.cmd
   of createTestnet:
@@ -1063,14 +908,7 @@ programMain:
 
     var node = waitFor BeaconNode.init(config)
 
-    ## Ctrl+C handling
-    proc controlCHandler() {.noconv.} =
-      when defined(windows):
-        # workaround for https://github.com/nim-lang/Nim/issues/4057
-        setupForeignThreadGc()
-      info "Shutting down after having received SIGINT"
-      status = BeaconNodeStatus.Stopping
-    setControlCHook(controlCHandler)
+    ctrlCHandling: status = BeaconNodeStatus.Stopping
 
     when hasPrompt:
       initPrompt(node)

@@ -53,6 +53,11 @@ func toSlot*(t: BeaconTime): tuple[afterGenesis: bool, slot: Slot] =
   else:
     (false, Slot(uint64(-ti) div SECONDS_PER_SLOT))
 
+func slotOrZero*(time: BeaconTime): Slot =
+  let exSlot = time.toSlot
+  if exSlot.afterGenesis: exSlot.slot
+  else: Slot(0)
+
 func toBeaconTime*(c: BeaconClock, t: Time): BeaconTime =
   BeaconTime(times.inSeconds(t - c.genesis))
 

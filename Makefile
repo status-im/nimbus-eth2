@@ -15,6 +15,7 @@ BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 
 # unconditionally built by the default Make target
 TOOLS := \
+	validator_client \
 	beacon_node \
 	inspector \
 	logtrace \

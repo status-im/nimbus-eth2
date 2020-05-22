@@ -187,14 +187,14 @@ func compute_proposer_index(state: BeaconState, indices: seq[ValidatorIndex],
     i += 1
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_beacon_proposer_index
-func get_beacon_proposer_index*(state: BeaconState, stateCache: var StateCache):
+func get_beacon_proposer_index*(state: BeaconState, stateCache: var StateCache, slot: Slot):
     Option[ValidatorIndex] =
   # Return the beacon proposer index at the current slot.
   let epoch = get_current_epoch(state)
 
   var buffer: array[32 + 8, byte]
   buffer[0..31] = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER).data
-  buffer[32..39] = int_to_bytes8(state.slot.uint64)
+  buffer[32..39] = int_to_bytes8(slot.uint64)
 
   # TODO fixme; should only be run once per slot and cached
   # There's exactly one beacon proposer per slot.
@@ -203,6 +203,21 @@ func get_beacon_proposer_index*(state: BeaconState, stateCache: var StateCache):
     indices = get_active_validator_indices(state, epoch)
 
   compute_proposer_index(state, indices, seed, stateCache)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#get_beacon_proposer_index
+func get_beacon_proposer_index*(state: BeaconState, stateCache: var StateCache):
+    Option[ValidatorIndex] =
+  return get_beacon_proposer_index(state, stateCache, state.slot)
+
+# Not from spec
+# TODO: cache the results from this and reuse in subsequent calls to get_beacon_proposer_index
+func get_beacon_proposer_indexes_for_epoch*(state: BeaconState, epoch: Epoch, stateCache: var StateCache):
+    seq[tuple[s: Slot, i: ValidatorIndex]] =
+  for i in 0 ..< SLOTS_PER_EPOCH:
+    let currSlot = (compute_start_slot_at_epoch(epoch).int + i).Slot
+    let idx = get_beacon_proposer_index(state, stateCache, currSlot)
+    if idx.isSome:
+      result.add (currSlot, idx.get)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#validator-assignments
 func get_committee_assignment(
