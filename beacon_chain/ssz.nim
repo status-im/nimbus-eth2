@@ -306,7 +306,7 @@ func mergeBranches(existing: Eth2Digest, newData: openarray[byte]): Eth2Digest =
     let paddingBytes = bytesPerChunk - newData.len
     if paddingBytes > 0:
       trs "USING ", paddingBytes, " PADDING BYTES"
-      h.update zeroChunk[0 ..< paddingBytes]
+      h.update zeroChunk.toOpenArray(0, paddingBytes - 1)
   trs "HASH RESULT ", result
 
 template mergeBranches(a, b: Eth2Digest): Eth2Digest =
