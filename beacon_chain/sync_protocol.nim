@@ -7,6 +7,12 @@ import
 logScope:
   topics = "sync"
 
+const
+  MAX_REQUESTED_BLOCKS = SLOTS_PER_EPOCH  * 4
+    # A boundary on the number of blocks we'll allow in any single block
+    # request - typically clients will ask for an epoch or so at a time, but we
+    # allow a little bit more in case they want to stream blocks faster
+
 type
   StatusMsg* = object
     forkDigest*: ForkDigest
@@ -41,11 +47,7 @@ type
     blockRoot: Eth2Digest
     slot: Slot
 
-const
-  MAX_REQUESTED_BLOCKS = SLOTS_PER_EPOCH  * 4
-    # A boundary on the number of blocks we'll allow in any single block
-    # request - typically clients will ask for an epoch or so at a time, but we
-    # allow a little bit more in case they want to stream blocks faster
+  BlockRootsList* = List[Eth2Digest, MAX_REQUESTED_BLOCKS]
 
 proc shortLog*(s: StatusMsg): auto =
   (
@@ -83,11 +85,10 @@ proc handleStatus(peer: Peer,
 proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) {.gcsafe.}
 
 p2pProtocol BeaconSync(version = 1,
-                       rlpxName = "bcs",
                        networkState = BeaconSyncNetworkState,
                        peerState = BeaconSyncPeerState):
 
-  onPeerConnected do (peer: Peer):
+  onPeerConnected do (peer: Peer) {.async.}:
     if peer.wasDialed:
       let
         ourStatus = peer.networkState.getCurrentStatus()
@@ -101,80 +102,71 @@ p2pProtocol BeaconSync(version = 1,
       else:
         warn "Status response not received in time", peer = peer
 
-  requestResponse:
-    proc status(peer: Peer, theirStatus: StatusMsg) {.libp2pProtocol("status", 1).} =
-      let ourStatus = peer.networkState.getCurrentStatus()
-      trace "Sending status message", peer = peer, status = ourStatus
-      await response.send(ourStatus)
-      await peer.handleStatus(peer.networkState, ourStatus, theirStatus)
+  proc status(peer: Peer,
+              theirStatus: StatusMsg,
+              response: SingleChunkResponse[StatusMsg])
+    {.async, libp2pProtocol("status", 1).} =
+    let ourStatus = peer.networkState.getCurrentStatus()
+    trace "Sending status message", peer = peer, status = ourStatus
+    await response.send(ourStatus)
+    await peer.handleStatus(peer.networkState, ourStatus, theirStatus)
 
-    proc statusResp(peer: Peer, msg: StatusMsg)
+  proc ping(peer: Peer, value: uint64): uint64
+    {.libp2pProtocol("ping", 1).} =
+    return peer.network.metadata.seq_number
 
-  proc goodbye(peer: Peer, reason: DisconnectionReason) {.libp2pProtocol("goodbye", 1).}
+  proc getMetadata(peer: Peer): Eth2Metadata
+    {.libp2pProtocol("metadata", 1).} =
+    return peer.network.metadata
 
-  requestResponse:
-    proc ping(peer: Peer, value: uint64) {.libp2pProtocol("ping", 1).} =
-      await response.write(peer.network.metadata.seq_number)
+  proc beaconBlocksByRange(peer: Peer,
+                           startSlot: Slot,
+                           count: uint64,
+                           step: uint64,
+                           response: MultipleChunksResponse[SignedBeaconBlock])
+    {.async, libp2pProtocol("beacon_blocks_by_range", 1).} =
+    trace "got range request", peer, startSlot, count, step
 
-    proc pingResp(peer: Peer, value: uint64)
-
-  requestResponse:
-    proc getMetadata(peer: Peer) {.libp2pProtocol("metadata", 1).} =
-      await response.write(peer.network.metadata)
-
-    proc metadataReps(peer: Peer, metadata: Eth2Metadata)
-
-  requestResponse:
-    proc beaconBlocksByRange(
-            peer: Peer,
-            startSlot: Slot,
-            count: uint64,
-            step: uint64) {.
-            libp2pProtocol("beacon_blocks_by_range", 1).} =
-      trace "got range request", peer, startSlot, count, step
-
-      if count > 0'u64:
-        var blocks: array[MAX_REQUESTED_BLOCKS, BlockRef]
-        let
-          pool = peer.networkState.blockPool
-          # Limit number of blocks in response
-          count = min(count.Natural, blocks.len)
-
-        let
-          endIndex = count - 1
-          startIndex =
-            pool.getBlockRange(startSlot, step, blocks.toOpenArray(0, endIndex))
-
-        for b in blocks[startIndex..endIndex]:
-          doAssert not b.isNil, "getBlockRange should return non-nil blocks only"
-          trace "wrote response block", slot = b.slot, roor = shortLog(b.root)
-          await response.write(pool.get(b).data)
-
-        debug "Block range request done",
-          peer, startSlot, count, step, found = count - startIndex
-
-    proc beaconBlocksByRoot(
-            peer: Peer,
-            blockRoots: openarray[Eth2Digest]) {.
-            libp2pProtocol("beacon_blocks_by_root", 1).} =
+    if count > 0'u64:
+      var blocks: array[MAX_REQUESTED_BLOCKS, BlockRef]
       let
         pool = peer.networkState.blockPool
-        count = min(blockRoots.len, MAX_REQUESTED_BLOCKS)
+        # Limit number of blocks in response
+        count = min(count.Natural, blocks.len)
 
-      var found = 0
+      let
+        endIndex = count - 1
+        startIndex =
+          pool.getBlockRange(startSlot, step, blocks.toOpenArray(0, endIndex))
 
-      for root in blockRoots[0..<count]:
-        let blockRef = pool.getRef(root)
-        if not isNil(blockRef):
-          await response.write(pool.get(blockRef).data)
-          inc found
+      for b in blocks[startIndex..endIndex]:
+        doAssert not b.isNil, "getBlockRange should return non-nil blocks only"
+        trace "wrote response block", slot = b.slot, roor = shortLog(b.root)
+        await response.write(pool.get(b).data)
 
-      debug "Block root request done",
-        peer, roots = blockRoots.len, count, found
+      debug "Block range request done",
+        peer, startSlot, count, step, found = count - startIndex
 
-    proc beaconBlocks(
-            peer: Peer,
-            blocks: openarray[SignedBeaconBlock])
+  proc beaconBlocksByRoot(peer: Peer,
+                          blockRoots: BlockRootsList,
+                          response: MultipleChunksResponse[SignedBeaconBlock])
+    {.async, libp2pProtocol("beacon_blocks_by_root", 1).} =
+    let
+      pool = peer.networkState.blockPool
+      count = blockRoots.len
+
+    var found = 0
+
+    for root in blockRoots[0..<count]:
+      let blockRef = pool.getRef(root)
+      if not isNil(blockRef):
+        await response.write(pool.get(blockRef).data)
+        inc found
+
+    debug "Block root request done",
+      peer, roots = blockRoots.len, count, found
+
+  proc goodbye(peer: Peer, reason: DisconnectionReason) {.libp2pProtocol("goodbye", 1).}
 
 proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) =
   debug "Peer status", peer, statusMsg
