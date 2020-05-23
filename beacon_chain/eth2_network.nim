@@ -85,12 +85,20 @@ type
     Disconnecting,
     Disconnected
 
-  UntypedResponder = object
+  UntypedResponse = ref object
     peer*: Peer
     stream*: Connection
     noSnappy*: bool
+    writtenChunks*: int
 
-  Responder*[MsgType] = distinct UntypedResponder
+  SingleChunkResponse*[MsgType] = distinct UntypedResponse
+    ## Protocol requests using this type will produce request-making
+    ## client-side procs that return `NetRes[MsgType]`
+
+  MultipleChunksResponse*[MsgType] = distinct UntypedResponse
+    ## Protocol requests using this type will produce request-making
+    ## client-side procs that return `NetRes[seq[MsgType]]`.
+    ## In the future, such procs will return an `InputStream[NetRes[MsgType]]`.
 
   MessageInfo* = object
     name*: string
@@ -354,16 +362,24 @@ proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.
   finally:
     await safeClose(stream)
 
-proc sendResponseChunkBytes(responder: UntypedResponder, payload: Bytes) {.async.} =
-  await responder.stream.writeChunk(some Success, payload, responder.noSnappy)
+proc sendResponseChunkBytes(response: UntypedResponse, payload: Bytes) {.async.} =
+  inc response.writtenChunks
+  await response.stream.writeChunk(some Success, payload, response.noSnappy)
 
-proc sendResponseChunkObj(responder: UntypedResponder, val: auto) {.async.} =
-  await responder.stream.writeChunk(some Success, SSZ.encode(val),
-                                    responder.noSnappy)
+proc sendResponseChunkObj(response: UntypedResponse, val: auto) {.async.} =
+  inc response.writtenChunks
+  await response.stream.writeChunk(some Success, SSZ.encode(val), response.noSnappy)
 
-proc sendResponseChunks[T](responder: UntypedResponder, chunks: seq[T]) {.async.} =
-  for chunk in chunks:
-    await sendResponseChunkObj(responder, chunk)
+template sendUserHandlerResultAsChunkImpl*(stream: Connection,
+                                           noSnappy: bool,
+                                           handlerResultFut: Future): untyped =
+  let handlerRes = await handlerResultFut
+  writeChunk(stream, some Success, SSZ.encode(handlerRes), noSnappy)
+
+template sendUserHandlerResultAsChunkImpl*(stream: Connection,
+                                           noSnappy: bool,
+                                           handlerResult: auto): untyped =
+  writeChunk(stream, some Success, SSZ.encode(handlerResult), noSnappy)
 
 when useNativeSnappy:
   include faststreams_backend
@@ -403,24 +419,20 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
   finally:
     await safeClose(stream)
 
-proc init*[MsgType](T: type Responder[MsgType],
+proc init*[MsgType](T: type MultipleChunksResponse[MsgType],
                     peer: Peer, conn: Connection, noSnappy: bool): T =
-  T(UntypedResponder(peer: peer, stream: conn, noSnappy: noSnappy))
+  T(UntypedResponse(peer: peer, stream: conn, noSnappy: noSnappy))
 
-template write*[M](r: var Responder[M], val: auto): auto =
-  mixin send
-  type Msg = M
-  type MsgRec = RecType(Msg)
-  when MsgRec is seq|openarray:
-    type E = ElemType(MsgRec)
-    when val is E:
-      sendResponseChunkObj(UntypedResponder(r), val)
-    elif val is MsgRec:
-      sendResponseChunks(UntypedResponder(r), val)
-    else:
-      {.fatal: "Unepected message type".}
-  else:
-    send(r, val)
+proc init*[MsgType](T: type SingleChunkResponse[MsgType],
+                    peer: Peer, conn: Connection, noSnappy: bool): T =
+  T(UntypedResponse(peer: peer, stream: conn, noSnappy: noSnappy))
+
+template write*[M](r: MultipleChunksResponse[M], val: M): untyped =
+  sendResponseChunkObj(UntypedResponse(r), val)
+
+template send*[M](r: SingleChunkResponse[M], val: auto): untyped =
+  doAssert UntypedResponse(r).writtenChunks == 0
+  sendResponseChunkObj(UntypedResponse(r), val)
 
 proc performProtocolHandshakes*(peer: Peer) {.async.} =
   var subProtocolsHandshakes = newSeqOfCap[Future[void]](allProtocols.len)
@@ -457,23 +469,21 @@ proc setEventHandlers(p: ProtocolInfo,
 proc implementSendProcBody(sendProc: SendProc) =
   let
     msg = sendProc.msg
-    UntypedResponder = bindSym "UntypedResponder"
+    UntypedResponse = bindSym "UntypedResponse"
 
   proc sendCallGenerator(peer, bytes: NimNode): NimNode =
     if msg.kind != msgResponse:
       let msgProto = getRequestProtoName(msg.procDef)
       case msg.kind
       of msgRequest:
-        let
-          timeout = msg.timeoutParam[0]
-          ResponseRecord = msg.response.recName
+        let ResponseRecord = msg.response.recName
         quote:
           makeEth2Request(`peer`, `msgProto`, `bytes`,
-                          `ResponseRecord`, `timeout`)
+                          `ResponseRecord`, `timeoutVar`)
       else:
         quote: sendNotificationMsg(`peer`, `msgProto`, `bytes`)
     else:
-      quote: sendResponseChunkBytes(`UntypedResponder`(`peer`), `bytes`)
+      quote: sendResponseChunkBytes(`UntypedResponse`(`peer`), `bytes`)
 
   sendProc.useStandardBody(nil, nil, sendCallGenerator)
 
@@ -562,7 +572,8 @@ proc handleIncomingStream(network: Eth2Node,
 
     try:
       logReceivedMsg(peer, MsgType(msg.get))
-      await callUserHandler(peer, conn, noSnappy, msg.get)
+      let userHandlerFut = callUserHandler(MsgType, peer, conn, noSnappy, msg.get)
+      await userHandlerFut
     except CatchableError as err:
       await sendErrorResponse(peer, conn, noSnappy, ServerError,
                               ErrorMsg err.msg.toBytes)
@@ -761,7 +772,6 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   var
     Format = ident "SSZ"
     Bool = bindSym "bool"
-    Responder = bindSym "Responder"
     Connection = bindSym "Connection"
     Peer = bindSym "Peer"
     Eth2Node = bindSym "Eth2Node"
@@ -771,6 +781,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     networkVar = ident "network"
     callUserHandler = ident "callUserHandler"
     noSnappyVar = ident "noSnappy"
+    MSG = ident "MSG"
 
   p.useRequestIds = false
   p.useSingleRecordInlining = true
@@ -783,12 +794,14 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   result.setEventHandlers = bindSym "setEventHandlers"
   result.SerializationFormat = Format
   result.RequestResultsWrapper = ident "NetRes"
-  result.ResponderType = Responder
 
   result.afterProtocolInit = proc (p: P2PProtocol) =
     p.onPeerConnected.params.add newIdentDefs(streamVar, Connection)
 
   result.implementMsg = proc (msg: p2p_protocol_dsl.Message) =
+    if msg.kind == msgResponse:
+      return
+
     let
       protocol = msg.protocol
       msgName = $msg.ident
@@ -796,13 +809,6 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
       MsgRecName = msg.recName
       MsgStrongRecName = msg.strongRecName
       codecNameLit = getRequestProtoName(msg.procDef)
-
-    if msg.procDef.body.kind != nnkEmpty and msg.kind == msgRequest:
-      # Request procs need an extra param - the stream where the response
-      # should be written:
-      msg.userHandler.params.insert(2, newIdentDefs(streamVar, Connection))
-      msg.userHandler.params.insert(3, newIdentdefs(noSnappyVar, Bool))
-      msg.initResponderCall.add [streamVar, noSnappyVar]
 
     ##
     ## Implement the Thunk:
@@ -817,15 +823,38 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     ## initialize the network object by creating handlers bound to the
     ## specific network.
     ##
-    let
-      protocolMounterName = ident(msgName & "_mounter")
-      userHandlerCall = msg.genUserHandlerCall(
-        msgVar, [peerVar, streamVar, noSnappyVar])
-
     var mounter: NimNode
     if msg.userHandler != nil:
+      var
+        protocolMounterName = ident(msgName & "_mounter")
+        userHandlerCall: NimNode
+        OutputParamType = msg.outputParamType
+
+      if OutputParamType == nil:
+        userHandlerCall = newCall(ident"sendUserHandlerResultAsChunkImpl",
+                                  streamVar,
+                                  noSnappyVar,
+                                  msg.genUserHandlerCall(msgVar, [peerVar]))
+      else:
+        if OutputParamType.kind == nnkVarTy:
+          OutputParamType = OutputParamType[0]
+
+        let isChunkStream = eqIdent(OutputParamType[0], "MultipleChunksResponse")
+        msg.response.recName = if isChunkStream:
+          newTree(nnkBracketExpr, ident"seq", OutputParamType[1])
+        else:
+          OutputParamType[1]
+
+        let responseVar = ident("response")
+        userHandlerCall = newStmtList(
+          newVarStmt(responseVar,
+                     newCall(ident"init", OutputParamType,
+                                          peerVar, streamVar, noSnappyVar)),
+          msg.genUserHandlerCall(msgVar, [peerVar], outputParam = responseVar))
+
       protocol.outRecvProcs.add quote do:
-        template `callUserHandler`(`peerVar`: `Peer`,
+        template `callUserHandler`(`MSG`: type `MsgStrongRecName`,
+                                   `peerVar`: `Peer`,
                                    `streamVar`: `Connection`,
                                    `noSnappyVar`: bool,
                                    `msgVar`: `MsgRecName`): untyped =
@@ -833,7 +862,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 
         proc `protocolMounterName`(`networkVar`: `Eth2Node`) =
           proc sszThunk(`streamVar`: `Connection`,
-                        proto: string): Future[void] {.gcsafe.} =
+                        `protocolVar`: string): Future[void] {.gcsafe.} =
             return handleIncomingStream(`networkVar`, `streamVar`, true,
                                         `MsgStrongRecName`)
 
@@ -842,7 +871,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
                            handler: sszThunk)
 
           proc snappyThunk(`streamVar`: `Connection`,
-                           proto: string): Future[void] {.gcsafe.} =
+                           `protocolVar`: string): Future[void] {.gcsafe.} =
             return handleIncomingStream(`networkVar`, `streamVar`, false,
                                         `MsgStrongRecName`)
 

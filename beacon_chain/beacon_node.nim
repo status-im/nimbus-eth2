@@ -1139,3 +1139,4 @@ programMain:
       let navigator = DynamicSszNavigator.init(bytes, BeaconState)
 
       echo navigator.navigatePath(pathFragments[1 .. ^1]).toJson
+
