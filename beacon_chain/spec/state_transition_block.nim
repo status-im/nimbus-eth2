@@ -326,11 +326,13 @@ proc process_operations(state: var BeaconState, body: BeaconBlockBody,
 
   template for_ops_cached(operations: auto, fn: auto) =
     for operation in operations:
-      discard fn(state, operation, flags, stateCache)
+      if not fn(state, operation, flags, stateCache):
+        return false
 
   template for_ops(operations: auto, fn: auto) =
     for operation in operations:
-      discard fn(state, operation, flags)
+      if not fn(state, operation, flags):
+        return false
 
   for_ops_cached(body.proposer_slashings, process_proposer_slashing)
   for_ops_cached(body.attester_slashings, process_attester_slashing)
