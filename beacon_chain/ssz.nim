@@ -182,6 +182,8 @@ template endRecord*(w: var SszWriter, ctx: var auto) =
 
 proc writeSeq[T](w: var SszWriter, value: seq[T])
                 {.raises: [Defect, IOError].} =
+  # Please note that `writeSeq` exists in order to reduce the code bloat
+  # produced from generic instantiations of the unique `List[N, T]` types.
   when isFixedSize(T):
     trs "WRITING LIST WITH FIXED SIZE ELEMENTS"
     for elem in value:
@@ -205,8 +207,11 @@ proc writeVarSizeType(w: var SszWriter, value: auto) {.raises: [Defect, IOError]
   type T = type toSszType(value)
 
   when T is List:
+    # We reduce code bloat by forwarding all `List` types to a general `seq[T]` proc.
     writeSeq(w, asSeq value)
   elif T is BitList:
+    # ATTENTION! We can reuse `writeSeq` only as long as our BitList type is implemented
+    # to internally match the binary representation of SSZ BitLists in memory.
     writeSeq(w, bytes value)
   elif T is object|tuple|array:
     trs "WRITING OBJECT OR ARRAY"
@@ -441,7 +446,7 @@ template writeBytesLE(chunk: var array[bytesPerChunk, byte], atParam: int,
 func chunkedHashTreeRootForBasicTypes[T](merkleizer: var SszChunksMerkleizer,
                                          arr: openarray[T]): Eth2Digest =
   static:
-    assert T is BasicType
+    doAssert T is BasicType
 
   when T is byte:
     var
@@ -464,8 +469,8 @@ func chunkedHashTreeRootForBasicTypes[T](merkleizer: var SszChunksMerkleizer,
 
   else:
     static:
-      assert T is UintN
-      assert bytesPerChunk mod sizeof(Т) == 0
+      doAssert T is UintN
+      doAssert bytesPerChunk mod sizeof(Т) == 0
 
     const valuesPerChunk = bytesPerChunk div sizeof(Т)
 
