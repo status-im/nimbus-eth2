@@ -116,6 +116,9 @@ type
 
     updateFlags*: UpdateFlags
 
+  EpochRef* = ref object
+    shuffled_active_validator_indices*: seq[ValidatorIndex]
+
   BlockRef* = ref object
     ## Node in object graph guaranteed to lead back to tail block, and to have
     ## a corresponding entry in database.
@@ -131,6 +134,8 @@ type
     # TODO do we strictly need this?
 
     slot*: Slot # TODO could calculate this by walking to root, but..
+
+    epochInfo*: EpochRef
 
   BlockData* = object
     ## Body and graph in one

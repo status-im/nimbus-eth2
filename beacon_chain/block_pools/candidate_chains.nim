@@ -53,6 +53,11 @@ func parent*(bs: BlockSlot): BlockSlot =
       slot: bs.slot - 1
     )
 
+func populateEpochCache*(state: BeaconState, epoch: Epoch): EpochRef =
+  result = new EpochRef
+  result.shuffled_active_validator_indices =
+    get_shuffled_active_validator_indices(state, epoch)
+
 func link*(parent, child: BlockRef) =
   doAssert (not (parent.root == Eth2Digest() or child.root == Eth2Digest())),
     "blocks missing root!"
@@ -133,7 +138,7 @@ func atSlot*(blck: BlockRef, slot: Slot): BlockSlot =
   ## block proposal)
   BlockSlot(blck: blck.getAncestorAt(slot), slot: slot)
 
-func init*(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
+func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
   BlockRef(
     root: root,
     slot: slot
@@ -441,8 +446,26 @@ proc skipAndUpdateState(
     doAssert (addr(statePtr.data) == addr v)
     statePtr[] = dag.headState
 
+  # While addResolved(...)-created BlockRefs already have this, BlockRefs
+  # loaded from BeaconChainDB don't, necessarily, so there's be a startup
+  # period, during which this proc and clearance.add(...) might fill them
+  # in before their respective state_transition() calls. TODO, if can get
+  # this from same epoch in same part of tree, that'd be better.
+  if blck.refs.epochInfo.isNil:
+    blck.refs.epochInfo =
+      populateEpochCache(
+        state.data.data, state.data.data.slot.compute_epoch_at_slot)
+    trace "candidate_chains.skipAndUpdateState(): back-filling parent.epochInfo",
+      state_slot = state.data.data.slot
+
+  # TODO it's probably not the right way to convey this, but for now, avoids
+  # death-by-dozens-of-pointless-changes in developing this
+  var stateCache = get_empty_per_epoch_cache()
+  stateCache.shuffled_active_validator_indices[state.data.data.slot.compute_epoch_at_slot] =
+    blck.refs.epochInfo.shuffled_active_validator_indices
+
   let ok = state_transition(
-    state.data, blck.data, flags + dag.updateFlags, restore)
+    state.data, blck.data, stateCache, flags + dag.updateFlags, restore)
   if ok and save:
     dag.putState(state.data, blck.refs)
 

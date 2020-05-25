@@ -95,7 +95,7 @@ proc process_block_header*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#randao
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#randao
 proc process_randao(
     state: var BeaconState, body: BeaconBlockBody, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.}=
@@ -107,9 +107,9 @@ proc process_randao(
     debug "Proposer index missing, probably along with any active validators"
     return false
 
+  # Verify RANDAO reveal
   let proposer = addr state.validators[proposer_index.get]
 
-  # Verify that the provided randao value is valid
   let signing_root = compute_signing_root(
     epoch, get_domain(state, DOMAIN_RANDAO, get_current_epoch(state)))
   if skipBLSValidation notin flags:

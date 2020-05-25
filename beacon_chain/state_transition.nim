@@ -28,6 +28,7 @@
 {.push raises: [Defect].}
 
 import
+  tables,
   chronicles,
   stew/results,
   ./extras, ./ssz, metrics,
@@ -177,6 +178,8 @@ proc noRollback*(state: var HashedBeaconState) =
 
 proc state_transition*(
     state: var HashedBeaconState, signedBlock: SignedBeaconBlock,
+    # TODO this is ... okay, but not perfect; align with EpochRef
+    stateCache: var StateCache,
     flags: UpdateFlags, rollback: RollbackHashedProc): bool {.nbench.} =
   ## Time in the beacon chain moves by slots. Every time (haha.) that happens,
   ## we will update the beacon state. Normally, the state updates will be driven
@@ -209,6 +212,7 @@ proc state_transition*(
   #      the changes in case of failure (look out for `var BeaconState` and
   #      bool return values...)
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
+  doAssert stateCache.shuffled_active_validator_indices.hasKey(state.data.slot.compute_epoch_at_slot)
 
   if not process_slots(state, signedBlock.message.slot, flags):
     rollback(state)
@@ -223,11 +227,11 @@ proc state_transition*(
   if skipBLSValidation in flags or
       verify_block_signature(state.data, signedBlock):
 
-    var per_epoch_cache = get_empty_per_epoch_cache()
+    # TODO after checking scaffolding, remove this
     trace "in state_transition: processing block, signature passed",
       signature = signedBlock.signature,
       blockRoot = hash_tree_root(signedBlock.message)
-    if processBlock(state.data, signedBlock.message, flags, per_epoch_cache):
+    if processBlock(state.data, signedBlock.message, flags, stateCache):
       if skipStateRootValidation in flags or verifyStateRoot(state.data, signedBlock.message):
         # State root is what it should be - we're done!
 
@@ -244,6 +248,18 @@ proc state_transition*(
   rollback(state)
 
   false
+
+proc state_transition*(
+    state: var HashedBeaconState, signedBlock: SignedBeaconBlock,
+    flags: UpdateFlags, rollback: RollbackHashedProc): bool {.nbench.} =
+  # TODO consider moving this to testutils or similar, since non-testing
+  # and fuzzing code should always be coming from blockpool which should
+  # always be providing cache or equivalent
+  var cache = get_empty_per_epoch_cache()
+  cache.shuffled_active_validator_indices[state.data.slot.compute_epoch_at_slot] =
+    get_shuffled_active_validator_indices(
+      state.data, state.data.slot.compute_epoch_at_slot)
+  state_transition(state, signedBlock, cache, flags, rollback)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md
 # TODO There's more to do here - the spec has helpers that deal set up some of
