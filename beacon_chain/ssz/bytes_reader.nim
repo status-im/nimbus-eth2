@@ -6,9 +6,6 @@ import
   stew/[bitseqs, endians2, objects, bitseqs], serialization/testing/tracing,
   ../spec/[digest, datatypes], ./types
 
-const
-  maxListAllocation = 1 * 1024 * 1024 * 1024 # 1 GiB
-
 template raiseIncorrectSize(T: type) =
   const typeName = name(T)
   raise newException(MalformedSszError,
@@ -18,7 +15,7 @@ template setOutputSize[R, T](a: var array[R, T], length: int) =
   if length != a.len:
     raiseIncorrectSize a.type
 
-proc setOutputSize(list: var List, length: int) {.inline, raisesssz.} =
+proc setOutputSize(list: var List, length: int) {.raisesssz.} =
   if int64(length) > list.maxLen:
     raise newException(MalformedSszError, "SSZ list maximum size exceeded")
   list.setLen length
@@ -200,8 +197,14 @@ func readSszValue*(input: openarray[byte], T: type): T {.raisesssz.} =
       const boundingOffsets = T.getFieldBoundingOffsets(fieldName)
       trs "BOUNDING OFFSET FOR FIELD ", fieldName, " = ", boundingOffsets
 
-      type FieldType = type field
-      type SszType = type toSszType(declval FieldType)
+      # type FieldType = type field # buggy
+      # For some reason, Nim gets confused about the alias here. This could be a
+      # generics caching issue caused by the use of distinct types. Such an
+      # issue is very scary in general.
+      # The bug can be seen with the two List[uint64, N] types that exist in
+      # the spec, with different N.
+
+      type SszType = type toSszType(declval type(field))
 
       when isFixedSize(SszType):
         const
@@ -222,30 +225,20 @@ func readSszValue*(input: openarray[byte], T: type): T {.raisesssz.} =
           raise newException(MalformedSszError, "SSZ field offset points outside bounding offsets")
 
       # TODO The extra type escaping here is a work-around for a Nim issue:
-      when type(FieldType) is type(SszType):
+      when type(field) is type(SszType):
         trs "READING NATIVE ", fieldName, ": ", name(SszType)
-        field = typeof(field) readSszValue(
-          input.toOpenArray(startOffset, endOffset - 1),
-          SszType)
-        trs "READING COMPLETE ", fieldName
 
-      elif FieldType is List:
-        # TODO
-        # The `typeof(field)` coercion below is required to deal with a Nim
-        # bug. For some reason, Nim gets confused about the type of the list
-        # returned from the `readSszValue` function. This could be a generics
-        # caching issue caused by the use of distinct types. Such an issue
-        # would be very scary in general, but in this particular situation
-        # it shouldn't matter, because the different flavours of `List[T, N]`
-        # won't produce different serializations.
-        field = typeof(field) readSszValue(
+        # TODO passing in `FieldType` instead of `type(field)` triggers a
+        #      bug in the compiler
+        field = readSszValue(
           input.toOpenArray(startOffset, endOffset - 1),
-          FieldType)
+          type(field))
+        trs "READING COMPLETE ", fieldName
 
       else:
         trs "READING FOREIGN ", fieldName, ": ", name(SszType)
         field = fromSszBytes(
-          FieldType,
+          type(field),
           input.toOpenArray(startOffset, endOffset - 1))
 
   else:
