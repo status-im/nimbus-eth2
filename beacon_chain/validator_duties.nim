@@ -18,9 +18,8 @@ import
   eth/[keys, async_utils], eth/p2p/discoveryv5/[protocol, enr],
 
   # Local modules
-  spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network,
-    state_transition_block],
-  conf, time, validator_pool,
+  spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network],
+  conf, time, validator_pool, state_transition,
   attestation_pool, block_pool, eth2_network,
   beacon_node_common, beacon_node_types,
   mainchain_monitor, version, ssz, interop,
@@ -137,8 +136,77 @@ proc sendAttestation(node: BeaconNode,
 
   beacon_attestations_sent.inc()
 
+type
+  ValidatorInfoForMakeBeaconBlockType* = enum
+    viValidator
+    viRandao_reveal
+  ValidatorInfoForMakeBeaconBlock* = object
+    case kind*: ValidatorInfoForMakeBeaconBlockType
+    of viValidator: validator*: AttachedValidator
+    else: randao_reveal*: ValidatorSig
+
+proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
+                                    val_info: ValidatorInfoForMakeBeaconBlock,
+                                    validator_index: ValidatorIndex,
+                                    graffiti: Eth2Digest,
+                                    head: BlockRef,
+                                    slot: Slot):
+    tuple[message: Option[BeaconBlock], fork: Fork, genesis_validators_root: Eth2Digest] =
+  # Advance state to the slot that we're proposing for - this is the equivalent
+  # of running `process_slots` up to the slot of the new block.
+  node.blockPool.withState(
+      node.blockPool.tmpState, head.atSlot(slot)):
+    let (eth1data, deposits) =
+      if node.mainchainMonitor.isNil:
+        (get_eth1data_stub(state.eth1_deposit_index, slot.compute_epoch_at_slot()),
+         newSeq[Deposit]())
+      else:
+        node.mainchainMonitor.getBlockProposalData(state)
+
+    # TODO perhaps just making the enclosing function accept 2 different types at the
+    # same time and doing some compile-time branching logic is cleaner (without the
+    # need for the discriminated union)... but we need the `state` from `withState`
+    # in order to get the fork/root for the specific head/slot for the randao_reveal
+    # and it's causing problems when the function becomes a generic for 2 types...
+    proc getRandaoReveal(val_info: ValidatorInfoForMakeBeaconBlock): ValidatorSig =
+      if val_info.kind == viValidator:
+        val_info.validator.genRandaoReveal(state.fork, state.genesis_validators_root, slot)
+      else:
+        val_info.randao_reveal
+
+    let
+      poolPtr = unsafeAddr node.blockPool.dag # safe because restore is short-lived
+
+    func restore(v: var HashedBeaconState) =
+      # TODO address this ugly workaround - there should probably be a
+      #      `state_transition` that takes a `StateData` instead and updates
+      #      the block as well
+      doAssert v.addr == addr poolPtr.tmpState.data
+      poolPtr.tmpState = poolPtr.headState
+
+    let message = makeBeaconBlock(
+      hashedState,
+      validator_index,
+      head.root,
+      getRandaoReveal(val_info),
+      eth1data,
+      graffiti,
+      node.attestationPool.getAttestationsForBlock(state),
+      deposits,
+      restore)
+
+    if message.isSome():
+      # TODO this restore is needed because otherwise tmpState will be internally
+      #      inconsistent - it's blck will not be pointing to the block that
+      #      created this state - we have to reset it here before `await` to avoid
+      #      races.
+      restore(poolPtr.tmpState.data)
+
+    return (message, state.fork, state.genesis_validators_root)
+
 proc proposeBlock(node: BeaconNode,
                   validator: AttachedValidator,
+                  validator_index: ValidatorIndex,
                   head: BlockRef,
                   slot: Slot): Future[BlockRef] {.async.} =
   logScope: pcs = "block_proposal"
@@ -153,66 +221,47 @@ proc proposeBlock(node: BeaconNode,
       cat = "fastforward"
     return head
 
-  # Advance state to the slot that we're proposing for - this is the equivalent
-  # of running `process_slots` up to the slot of the new block.
-  let (nroot, nblck) = node.blockPool.withState(
-      node.blockPool.tmpState, head.atSlot(slot)):
-    let (eth1data, deposits) =
-      if node.mainchainMonitor.isNil:
-        (get_eth1data_stub(state.eth1_deposit_index, slot.compute_epoch_at_slot()),
-         newSeq[Deposit]())
-      else:
-        node.mainchainMonitor.getBlockProposalData(state)
+  let valInfo = ValidatorInfoForMakeBeaconBlock(kind: viValidator, validator: validator)
+  let beaconBlockTuple = makeBeaconBlockForHeadAndSlot(node, valInfo, validator_index, Eth2Digest(), head, slot)
 
-    let message = makeBeaconBlock(
-      state,
-      head.root,
-      validator.genRandaoReveal(state.fork, state.genesis_validators_root, slot),
-      eth1data,
-      Eth2Digest(),
-      node.attestationPool.getAttestationsForBlock(state),
-      deposits)
+  if not beaconBlockTuple.message.isSome():
+    return head # already logged elsewhere!
+  var
+    newBlock = SignedBeaconBlock(
+      message: beaconBlockTuple.message.get()
+    )
 
-    if not message.isSome():
-      return head # already logged elsewhere!
-    var
-      newBlock = SignedBeaconBlock(
-        message: message.get()
-      )
+  let blockRoot = hash_tree_root(newBlock.message)
 
-    let blockRoot = hash_tree_root(newBlock.message)
+  newBlock.signature = await validator.signBlockProposal(
+    beaconBlockTuple.fork, beaconBlockTuple.genesis_validators_root, slot, blockRoot)
 
-    # Careful, state no longer valid after here because of the await..
-    newBlock.signature = await validator.signBlockProposal(
-      state.fork, state.genesis_validators_root, slot, blockRoot)
-
-    (blockRoot, newBlock)
-
-  let newBlockRef = node.blockPool.add(nroot, nblck)
-  if newBlockRef == nil:
+  let newBlockRef = node.blockPool.add(blockRoot, newBlock)
+  if newBlockRef.isErr:
     warn "Unable to add proposed block to block pool",
       newBlock = shortLog(newBlock.message),
       blockRoot = shortLog(blockRoot),
       cat = "bug"
+
     return head
 
   info "Block proposed",
     blck = shortLog(newBlock.message),
-    blockRoot = shortLog(newBlockRef.root),
+    blockRoot = shortLog(newBlockRef[].root),
     validator = shortLog(validator),
     cat = "consensus"
 
   if node.config.dumpEnabled:
-    dump(node.config.dumpDir, newBlock, newBlockRef)
+    dump(node.config.dumpDir, newBlock, newBlockRef[])
     node.blockPool.withState(
-        node.blockPool.tmpState, newBlockRef.atSlot(newBlockRef.slot)):
-      dump(node.config.dumpDir, hashedState, newBlockRef)
+        node.blockPool.tmpState, newBlockRef[].atSlot(newBlockRef[].slot)):
+      dump(node.config.dumpDir, hashedState, newBlockRef[])
 
   node.network.broadcast(node.topicBeaconBlocks, newBlock)
 
   beacon_blocks_proposed.inc()
 
-  return newBlockRef
+  return newBlockRef[]
 
 
 proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
@@ -288,24 +337,24 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
   #      proposing for it - basically, we're selecting proposer based on an
   #      empty slot
 
-  let proposerKey = node.blockPool.getProposer(head, slot)
-  if proposerKey.isNone():
+  let proposer = node.blockPool.getProposer(head, slot)
+  if proposer.isNone():
     return head
 
-  let validator = node.attachedValidators.getValidator(proposerKey.get())
+  let validator = node.attachedValidators.getValidator(proposer.get()[1])
 
   if validator != nil:
-    return await proposeBlock(node, validator, head, slot)
+    return await proposeBlock(node, validator, proposer.get()[0], head, slot)
 
   debug "Expecting block proposal",
     headRoot = shortLog(head.root),
     slot = shortLog(slot),
-    proposer = shortLog(proposerKey.get()),
+    proposer_index = proposer.get()[0],
+    proposer = shortLog(proposer.get()[1]),
     cat = "consensus",
     pcs = "wait_for_proposal"
 
   return head
-
 
 proc broadcastAggregatedAttestations(
     node: BeaconNode, aggregationHead: BlockRef, aggregationSlot: Slot,

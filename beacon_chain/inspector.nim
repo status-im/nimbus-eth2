@@ -460,8 +460,8 @@ proc logEnrAddress(address: string) =
         eth2next_fork_epoch = "None"
 
       if attnData.isSome():
-        var attn = SSZ.decode(attnData.get(), seq[byte])
-        attnets = bu.toHex(attn)
+        var attn = SSZ.decode(attnData.get(), List[byte, 9999999]) # TODO: what's the limit on that list?
+        attnets = bu.toHex(attn.asSeq)
       else:
         attnets = "None"
 

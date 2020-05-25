@@ -31,17 +31,11 @@ static:
 
   doAssert fixedPortionSize(array[10, bool]) == 10
   doAssert fixedPortionSize(array[SomeEnum, uint64]) == 24
-  doAssert fixedPortionSize(array[3..5, string]) == 12
-
-  doAssert fixedPortionSize(string) == 4
-  doAssert fixedPortionSize(seq[bool]) == 4
-  doAssert fixedPortionSize(seq[string]) == 4
+  doAssert fixedPortionSize(array[3..5, List[byte, 256]]) == 12
 
   doAssert isFixedSize(array[20, bool]) == true
   doAssert isFixedSize(Simple) == true
-  doAssert isFixedSize(string) == false
-  doAssert isFixedSize(seq[bool]) == false
-  doAssert isFixedSize(seq[string]) == false
+  doAssert isFixedSize(List[bool, 128]) == false
 
   reject fixedPortionSize(int)
 
@@ -64,8 +58,10 @@ type
   Foo = object
     bar: Bar
 
+  BarList = List[uint64, 128]
+
   Bar = object
-    b: string
+    b: BarList
     baz: Baz
 
   Baz = object
@@ -76,13 +72,13 @@ proc toDigest[N: static int](x: array[N, byte]): Eth2Digest =
 
 suiteReport "SSZ navigator":
   timedTest "simple object fields":
-    var foo = Foo(bar: Bar(b: "bar", baz: Baz(i: 10'u64)))
+    var foo = Foo(bar: Bar(b: BarList @[1'u64, 2, 3], baz: Baz(i: 10'u64)))
     let encoded = SSZ.encode(foo)
 
     check SSZ.decode(encoded, Foo) == foo
 
     let mountedFoo = sszMount(encoded, Foo)
-    check mountedFoo.bar.b == "bar"
+    check mountedFoo.bar.b[] == BarList @[1'u64, 2, 3]
 
     let mountedBar = mountedFoo.bar
     check mountedBar.baz.i == 10'u64
@@ -102,16 +98,16 @@ suiteReport "SSZ navigator":
 
 suiteReport "SSZ dynamic navigator":
   timedTest "navigating fields":
-    var fooOrig = Foo(bar: Bar(b: "bar", baz: Baz(i: 10'u64)))
+    var fooOrig = Foo(bar: Bar(b: BarList @[1'u64, 2, 3], baz: Baz(i: 10'u64)))
     let fooEncoded = SSZ.encode(fooOrig)
 
     var navFoo = DynamicSszNavigator.init(fooEncoded, Foo)
 
     var navBar = navFoo.navigate("bar")
-    check navBar.toJson(pretty = false) == """{"b":"bar","baz":{"i":10}}"""
+    check navBar.toJson(pretty = false) == """{"b":[1,2,3],"baz":{"i":10}}"""
 
     var navB = navBar.navigate("b")
-    check navB.toJson == "\"bar\""
+    check navB.toJson(pretty = false) == "[1,2,3]"
 
     var navBaz = navBar.navigate("baz")
     var navI = navBaz.navigate("i")

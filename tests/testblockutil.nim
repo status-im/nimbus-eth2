@@ -86,7 +86,7 @@ func signBlock*(
   )
 
 proc addTestBlock*(
-    state: var BeaconState,
+    state: var HashedBeaconState,
     parent_root: Eth2Digest,
     eth1_data = Eth1Data(),
     attestations = newSeq[Attestation](),
@@ -94,53 +94,46 @@ proc addTestBlock*(
     graffiti = Eth2Digest(),
     flags: set[UpdateFlag] = {}): SignedBeaconBlock =
   # Create and add a block to state - state will advance by one slot!
-
-  # TODO workaround, disable when this works directly
-  var hashedState = HashedBeaconState(data: state, root: hash_tree_root(state))
-  doAssert process_slots(hashedState, hashedState.data.slot + 1)
-  state = hashedState.data
+  advance_slot(state, err(Opt[Eth2Digest]), flags)
 
   var cache = get_empty_per_epoch_cache()
-  let proposer_index = get_beacon_proposer_index(state, cache)
-
   let
-    # Index from the new state, but registry from the old state.. hmm...
-    # In tests, let this throw
-    proposer = state.validators[proposer_index.get]
-    privKey = hackPrivKey(proposer)
+    proposer_index = get_beacon_proposer_index(state.data, cache)
+    privKey = hackPrivKey(state.data.validators[proposer_index.get])
     randao_reveal =
       if skipBlsValidation notin flags:
         privKey.genRandaoReveal(
-          state.fork, state.genesis_validators_root, state.slot)
+          state.data.fork, state.data.genesis_validators_root, state.data.slot)
       else:
         ValidatorSig()
 
   let
     message = makeBeaconBlock(
       state,
+      proposer_index.get(),
       parent_root,
       randao_reveal,
       # Keep deposit counts internally consistent.
       Eth1Data(
         deposit_root: eth1_data.deposit_root,
-        deposit_count: state.eth1_deposit_index + deposits.len.uint64,
+        deposit_count: state.data.eth1_deposit_index + deposits.len.uint64,
         block_hash: eth1_data.block_hash),
       graffiti,
       attestations,
-      deposits)
+      deposits,
+      noRollback)
 
   doAssert message.isSome(), "Should have created a valid block!"
 
   let
     new_block = signBlock(
-      state.fork, state.genesis_validators_root, message.get(), privKey, flags)
-    ok = process_block(state, new_block.message, flags, cache)
+      state.data.fork,
+      state.data.genesis_validators_root, message.get(), privKey, flags)
 
-  doAssert ok, "adding block after producing it should work"
   new_block
 
 proc makeTestBlock*(
-    state: BeaconState,
+    state: HashedBeaconState,
     parent_root: Eth2Digest,
     eth1_data = Eth1Data(),
     attestations = newSeq[Attestation](),

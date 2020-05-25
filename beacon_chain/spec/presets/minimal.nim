@@ -20,7 +20,7 @@ type
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/minimal.yaml#L4
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L4
 
   # Changed
   MAX_COMMITTEES_PER_SLOT* = 4
@@ -43,7 +43,7 @@ const
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/minimal.yaml#L58
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L58
 
   # Unchanged
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9
@@ -53,14 +53,14 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/minimal.yaml#L70
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L70
 
   GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 1'u8]
   BLS_WITHDRAWAL_PREFIX* = 0'u8
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/minimal.yaml#L77
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L77
   # Changed: Faster to spin up testnets, but does not give validator
   # reasonable warning time for genesis
   MIN_GENESIS_DELAY* = 300
@@ -96,7 +96,7 @@ const
 
   # State vector lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/minimal.yaml#L105
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L105
 
   # Changed
   EPOCHS_PER_HISTORICAL_VECTOR* = 64
@@ -108,7 +108,7 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/minimal.yaml#L117
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L117
 
   BASE_REWARD_FACTOR* = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
@@ -118,7 +118,7 @@ const
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/minimal.yaml#L131
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L131
 
   MAX_PROPOSER_SLASHINGS* = 2^4
   MAX_ATTESTER_SLASHINGS* = 2^0
@@ -128,14 +128,14 @@ const
 
   # Fork choice
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/minimal.yaml#L32
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L32
 
   # Changed
   SAFE_SLOTS_TO_UPDATE_JUSTIFIED* = 2
 
   # Validators
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/configs/minimal.yaml#L38
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L38
 
   # Changed
   ETH1_FOLLOW_DISTANCE* = 16 # blocks

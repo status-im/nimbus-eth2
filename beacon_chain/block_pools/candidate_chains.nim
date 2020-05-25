@@ -822,7 +822,9 @@ proc preInit*(
   db.putHeadBlock(blockRoot)
   db.putStateRoot(blockRoot, state.slot, signedBlock.message.state_root)
 
-proc getProposer*(dag: CandidateChains, head: BlockRef, slot: Slot): Option[ValidatorPubKey] =
+proc getProposer*(
+    dag: CandidateChains, head: BlockRef, slot: Slot):
+    Option[(ValidatorIndex, ValidatorPubKey)] =
   dag.withState(dag.tmpState, head.atSlot(slot)):
     var cache = get_empty_per_epoch_cache()
 
@@ -838,4 +840,4 @@ proc getProposer*(dag: CandidateChains, head: BlockRef, slot: Slot): Option[Vali
         balances=state.balances
       return
 
-    return some(state.validators[proposerIdx.get()].pubkey)
+    return some((proposerIdx.get(), state.validators[proposerIdx.get()].pubkey))

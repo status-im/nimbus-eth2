@@ -42,7 +42,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   let
     flags = if validate: {} else: {skipBlsValidation}
     state = loadGenesis(validators, validate)
-    genesisBlock = get_initial_beacon_block(state[])
+    genesisBlock = get_initial_beacon_block(state.data)
 
   echo "Starting simulation..."
 
@@ -57,7 +57,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
   proc maybeWrite(last: bool) =
     if write_last_json:
-      if state.slot mod json_interval.uint64 == 0:
+      if state[].data.slot mod json_interval.uint64 == 0:
         write(stdout, ":")
       else:
         write(stdout, ".")
@@ -65,8 +65,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       if last:
         writeJson("state.json", state[])
     else:
-      if state[].slot mod json_interval.uint64 == 0:
-        writeJson(jsonName(prefix, state.slot), state[])
+      if state[].data.slot mod json_interval.uint64 == 0:
+        writeJson(jsonName(prefix, state[].data.slot), state[].data)
         write(stdout, ":")
       else:
         write(stdout, ".")
@@ -77,10 +77,10 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
   for i in 0..<slots:
     maybeWrite(false)
-    verifyConsensus(state[], attesterRatio)
+    verifyConsensus(state[].data, attesterRatio)
 
     let
-      attestations_idx = state.slot
+      attestations_idx = state[].data.slot
       blockAttestations = attestations.getOrDefault(attestations_idx)
 
     attestations.del attestations_idx
@@ -88,8 +88,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       (SLOTS_PER_EPOCH.int + MIN_ATTESTATION_INCLUSION_DELAY.int)
 
     let t =
-      if (state.slot > GENESIS_SLOT and
-        (state.slot + 1).isEpoch): tEpoch
+      if (state[].data.slot > GENESIS_SLOT and
+        (state[].data.slot + 1).isEpoch): tEpoch
       else: tBlock
 
     withTimer(timers[t]):
@@ -103,11 +103,11 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       # work for every slot - we'll randomize it deterministically to give
       # some variation
       let
-        target_slot = state.slot + MIN_ATTESTATION_INCLUSION_DELAY - 1
+        target_slot = state[].data.slot + MIN_ATTESTATION_INCLUSION_DELAY - 1
         scass = withTimerRet(timers[tShuffle]):
           mapIt(
-            0'u64 ..< get_committee_count_at_slot(state[], target_slot),
-            get_beacon_committee(state[], target_slot, it.CommitteeIndex, cache))
+            0'u64 ..< get_committee_count_at_slot(state[].data, target_slot),
+            get_beacon_committee(state[].data, target_slot, it.CommitteeIndex, cache))
 
       for i, scas in scass:
         var
@@ -121,12 +121,12 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             if (rand(r, high(int)).float * attesterRatio).int <= high(int):
               if first:
                 attestation =
-                  makeAttestation(state[], latest_block_root, scas, target_slot,
+                  makeAttestation(state[].data, latest_block_root, scas, target_slot,
                     i.uint64, v, cache, flags)
                 first = false
               else:
                 attestation.combine(
-                  makeAttestation(state[], latest_block_root, scas, target_slot,
+                  makeAttestation(state[].data, latest_block_root, scas, target_slot,
                     i.uint64, v, cache, flags),
                   flags)
 
@@ -145,13 +145,13 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     flushFile(stdout)
 
-    if (state.slot) mod SLOTS_PER_EPOCH == 0:
-      echo &" slot: {shortLog(state.slot)} ",
-        &"epoch: {shortLog(state.slot.compute_epoch_at_slot)}"
+    if (state[].data.slot) mod SLOTS_PER_EPOCH == 0:
+      echo &" slot: {shortLog(state[].data.slot)} ",
+        &"epoch: {shortLog(state[].data.slot.compute_epoch_at_slot)}"
 
 
   maybeWrite(true) # catch that last state as well..
 
   echo "Done!"
 
-  printTimers(state[], attesters, validate, timers)
+  printTimers(state[].data, attesters, validate, timers)

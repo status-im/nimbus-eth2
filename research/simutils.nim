@@ -39,16 +39,18 @@ func verifyConsensus*(state: BeaconState, attesterRatio: auto) =
   if current_epoch >= 4:
     doAssert state.finalized_checkpoint.epoch + 2 >= current_epoch
 
-proc loadGenesis*(validators: int, validate: bool): ref BeaconState =
+proc loadGenesis*(validators: int, validate: bool): ref HashedBeaconState =
   let fn = &"genesim_{const_preset}_{validators}.ssz"
+  let res = (ref HashedBeaconState)()
   if fileExists(fn):
-    let res = newClone(SSZ.loadFile(fn, BeaconState))
-    if res.slot != GENESIS_SLOT:
+    res.data = SSZ.loadFile(fn, BeaconState)
+    res.root = hash_tree_root(res.data)
+    if res.data.slot != GENESIS_SLOT:
       echo "Can only start from genesis state"
       quit 1
 
-    if res.validators.len != validators:
-      echo &"Supplied genesis file has {res.validators.len} validators, while {validators} where requested, running anyway"
+    if res.data.validators.len != validators:
+      echo &"Supplied genesis file has {res.data.validators.len} validators, while {validators} where requested, running anyway"
 
     echo &"Loaded {fn}..."
     # TODO check that the private keys are interop keys
@@ -63,12 +65,13 @@ proc loadGenesis*(validators: int, validate: bool): ref BeaconState =
 
     echo "Generating Genesis..."
 
-    let state =
-      initialize_beacon_state_from_eth1(Eth2Digest(), 0, deposits, flags)
+    res.data =
+      initialize_beacon_state_from_eth1(Eth2Digest(), 0, deposits, flags)[]
+    res.root = hash_tree_root(res.data)
 
     echo &"Saving to {fn}..."
-    SSZ.saveFile(fn, state[])
-    state
+    SSZ.saveFile(fn, res.data)
+    res
 
 proc printTimers*[Timers: enum](
     state: BeaconState, attesters: RunningStat, validate: bool,

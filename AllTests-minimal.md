@@ -100,13 +100,13 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + merkle_minimal                                                                             OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - 0.11.1 - constants & config  [Preset: minimal]
+## Official - 0.11.3 - constants & config  [Preset: minimal]
 ```diff
 + BASE_REWARD_FACTOR                                64                   [Preset: minimal]   OK
 + BLS_WITHDRAWAL_PREFIX                             "0x00"               [Preset: minimal]   OK
 + CHURN_LIMIT_QUOTIENT                              65536                [Preset: minimal]   OK
 + CUSTODY_PERIOD_TO_RANDAO_PADDING                  2048                 [Preset: minimal]   OK
-- DEPOSIT_CONTRACT_ADDRESS                          "0x1234567890123456789012345678901234567 Fail
+  DEPOSIT_CONTRACT_ADDRESS                          "0x1234567890123456789012345678901234567 Skip
 + DOMAIN_AGGREGATE_AND_PROOF                        "0x06000000"         [Preset: minimal]   OK
 + DOMAIN_BEACON_ATTESTER                            "0x01000000"         [Preset: minimal]   OK
 + DOMAIN_BEACON_PROPOSER                            "0x00000000"         [Preset: minimal]   OK
@@ -129,7 +129,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + EPOCHS_PER_SLASHINGS_VECTOR                       64                   [Preset: minimal]   OK
 + ETH1_FOLLOW_DISTANCE                              16                   [Preset: minimal]   OK
 + GASPRICE_ADJUSTMENT_COEFFICIENT                   8                    [Preset: minimal]   OK
-- GENESIS_FORK_VERSION                              "0x00000001"         [Preset: minimal]   Fail
+  GENESIS_FORK_VERSION                              "0x00000001"         [Preset: minimal]   Skip
 + HISTORICAL_ROOTS_LIMIT                            16777216             [Preset: minimal]   OK
 + HYSTERESIS_DOWNWARD_MULTIPLIER                    1                    [Preset: minimal]   OK
 + HYSTERESIS_QUOTIENT                               4                    [Preset: minimal]   OK
@@ -178,7 +178,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + SECONDS_PER_ETH1_BLOCK                            14                   [Preset: minimal]   OK
 + SECONDS_PER_SLOT                                  6                    [Preset: minimal]   OK
 + SHARD_BLOCK_CHUNK_SIZE                            262144               [Preset: minimal]   OK
-- SHARD_BLOCK_OFFSETS                               [1,2,3,5,8,13,21,34,55,89,144,233] [Pres Fail
+  SHARD_BLOCK_OFFSETS                               [1,2,3,5,8,13,21,34,55,89,144,233] [Pres Skip
 + SHARD_COMMITTEE_PERIOD                            256                  [Preset: minimal]   OK
 + SHUFFLE_ROUND_COUNT                               10                   [Preset: minimal]   OK
 + SLOTS_PER_EPOCH                                   8                    [Preset: minimal]   OK
@@ -189,7 +189,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + VALIDATOR_REGISTRY_LIMIT                          1099511627776        [Preset: minimal]   OK
 + WHISTLEBLOWER_REWARD_QUOTIENT                     512                  [Preset: minimal]   OK
 ```
-OK: 83/86 Fail: 3/86 Skip: 0/86
+OK: 83/86 Fail: 0/86 Skip: 3/86
 ## PeerPool testing suite
 ```diff
 + Access peers by key test                                                                   OK
@@ -258,4 +258,4 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 OK: 8/8 Fail: 0/8 Skip: 0/8
 
 ---TOTAL---
-OK: 157/160 Fail: 3/160 Skip: 0/160
+OK: 157/160 Fail: 0/160 Skip: 3/160

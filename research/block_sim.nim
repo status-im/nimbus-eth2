@@ -24,7 +24,7 @@ import
     state_transition_block],
   ../beacon_chain/[
     attestation_pool, block_pool, beacon_node_types, beacon_chain_db,
-    interop, ssz, validator_pool],
+    interop, ssz, state_transition, validator_pool],
   eth/db/[kvstore, kvstore_sqlite3],
   ./simutils
 
@@ -44,14 +44,14 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
        replay = true):
   let
     state = loadGenesis(validators, true)
-    genesisBlock = get_initial_beacon_block(state[])
+    genesisBlock = get_initial_beacon_block(state[].data)
 
   echo "Starting simulation..."
 
   let
     db = BeaconChainDB.init(kvStore SqStoreRef.init(".", "block_sim").tryGet())
 
-  BlockPool.preInit(db, state[], genesisBlock)
+  BlockPool.preInit(db, state[].data, genesisBlock)
 
   var
     blockPool = BlockPool.init(db)
@@ -108,13 +108,15 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         eth1data = get_eth1data_stub(
           state.eth1_deposit_index, slot.compute_epoch_at_slot())
         message = makeBeaconBlock(
-          state,
+          hashedState,
+          proposerIdx,
           head.root,
           privKey.genRandaoReveal(state.fork, state.genesis_validators_root, slot),
           eth1data,
           Eth2Digest(),
           attPool.getAttestationsForBlock(state),
-          @[])
+          @[],
+          noRollback)
 
       var
         newBlock = SignedBeaconBlock(
@@ -130,7 +132,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           state.fork, state.genesis_validators_root, newBlock.message.slot,
           blockRoot, privKey)
 
-      let added = blockPool.add(blockRoot, newBlock)
+      let added = blockPool.add(blockRoot, newBlock).tryGet()
+      blck() = added
       blockPool.updateHead(added)
 
   for i in 0..<slots:

@@ -114,8 +114,8 @@ proc checkConfig() =
     timedTest &"{constant:<50}{value:<20}{preset()}":
       if constant in IgnoreKeys:
         echo &"        ↶↶ Skipping {constant}"
-        continue
-      if constant.startsWith("DOMAIN"):
+        skip()
+      elif constant.startsWith("DOMAIN"):
         let domain = parseEnum[DomainType](constant)
         let value = parseU32LEHex(value.getStr())
         check: uint32(domain) == value
@@ -125,5 +125,5 @@ proc checkConfig() =
       else:
         check: ConstsToCheck[constant] == value.getBiggestInt().uint64()
 
-suiteReport "Official - 0.11.1 - constants & config " & preset():
+suiteReport "Official - 0.11.3 - constants & config " & preset():
   checkConfig()

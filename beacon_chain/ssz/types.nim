@@ -9,7 +9,17 @@ const
   offsetSize* = 4
 
 type
-  BasicType* = char|bool|SomeUnsignedInt
+  UintN* = SomeUnsignedInt # TODO: Add StUint here
+  BasicType* = bool|UintN
+
+  Limit* = int64
+
+  List*[T; maxLen: static Limit] = distinct seq[T]
+  BitList*[maxLen: static Limit] = distinct BitSeq
+
+  # Note for readers:
+  # We use `array` for `Vector` and
+  #        `BitArray` for `BitVector`
 
   SszError* = object of SerializationError
 
@@ -62,28 +72,40 @@ type
     of Field:
       discard
 
-  List*[T; maxLen: static int64] = distinct seq[T]
-  BitList*[maxLen: static int] = distinct BitSeq
+template asSeq*(x: List): auto = distinctBase(x)
 
-template add*(x: List, val: x.T) = add(distinctBase x, val)
+template init*[T](L: type List, x: seq[T], N: static Limit): auto =
+  List[T, N](x)
+
+template init*[T, N](L: type List[T, N], x: seq[T]): auto =
+  List[T, N](x)
+
+template `$`*(x: List): auto = $(distinctBase x)
+template add*(x: List, val: auto) = add(distinctBase x, val)
 template len*(x: List): auto = len(distinctBase x)
+template setLen*(x: List, val: auto) = setLen(distinctBase x, val)
 template low*(x: List): auto = low(distinctBase x)
 template high*(x: List): auto = high(distinctBase x)
-template `[]`*(x: List, idx: auto): auto = distinctBase(x)[idx]
-template `[]=`*[T; N](x: List[T, N], idx: auto, val: T) = seq[T](x)[idx] = val
-template `==`*(a, b: List): bool = distinctBase(a) == distinctBase(b)
-template asSeq*(x: List): auto = distinctBase x
-template `&`*[T; N](a, b: List[T, N]): List[T, N] = List[T, N](seq[T](a) & seq[T](b))
-template `$`*(x: List): auto = $(distinctBase x)
+template `[]`*(x: List, idx: auto): untyped = distinctBase(x)[idx]
+template `[]=`*(x: List, idx: auto, val: auto) = distinctBase(x)[idx] = val
+template `==`*(a, b: List): bool = asSeq(a) == distinctBase(b)
+
+template `&`*(a, b: List): auto = (type(a)(distinctBase(a) & distinctBase(b)))
 
 template items* (x: List): untyped = items(distinctBase x)
 template pairs* (x: List): untyped = pairs(distinctBase x)
 template mitems*(x: List): untyped = mitems(distinctBase x)
 template mpairs*(x: List): untyped = mpairs(distinctBase x)
 
+template init*(L: type BitList, x: seq[byte], N: static Limit): auto =
+  BitList[N](data: x)
+
+template init*[N](L: type BitList[N], x: seq[byte]): auto =
+  L(data: x)
+
 template init*(T: type BitList, len: int): auto = T init(BitSeq, len)
 template len*(x: BitList): auto = len(BitSeq(x))
-template bytes*(x: BitList): auto = bytes(BitSeq(x))
+template bytes*(x: BitList): auto = seq[byte](x)
 template `[]`*(x: BitList, idx: auto): auto = BitSeq(x)[idx]
 template `[]=`*(x: var BitList, idx: auto, val: bool) = BitSeq(x)[idx] = val
 template `==`*(a, b: BitList): bool = BitSeq(a) == BitSeq(b)
@@ -111,7 +133,7 @@ template ElemType*(T: type[array]): untyped =
 template ElemType*[T](A: type[openarray[T]]): untyped =
   T
 
-template ElemType*(T: type[seq|string|List]): untyped =
+template ElemType*(T: type[seq|List]): untyped =
   type(default(T)[0])
 
 func isFixedSize*(T0: type): bool {.compileTime.} =
@@ -141,7 +163,7 @@ func fixedPortionSize*(T0: type): int {.compileTime.} =
     type E = ElemType(T)
     when isFixedSize(E): len(T) * fixedPortionSize(E)
     else: len(T) * offsetSize
-  elif T is seq|string|openarray: offsetSize
+  elif T is seq|openarray: offsetSize
   elif T is object|tuple:
     enumAllSerializedFields(T):
       when isFixedSize(FieldType):
@@ -165,7 +187,7 @@ func sszSchemaType*(T0: type): SszType {.compileTime.} =
     SszType(kind: sszUInt, bits: 32)
   elif T is uint64:
     SszType(kind: sszUInt, bits: 64)
-  elif T is seq|string:
+  elif T is seq:
     SszType(kind: sszList, listElemType: sszSchemaType(ElemType(T)))
   elif T is array:
     SszType(kind: sszVector, vectorElemType: sszSchemaType(ElemType(T)))

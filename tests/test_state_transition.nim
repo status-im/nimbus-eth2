@@ -36,7 +36,7 @@ suiteReport "Block processing" & preset():
   timedTest "Passes from genesis state, empty block" & preset():
     var
       previous_block_root = hash_tree_root(genesisBlock.message)
-      new_block = makeTestBlock(state.data, previous_block_root)
+      new_block = makeTestBlock(state[], previous_block_root)
 
     let block_ok = state_transition(state[], new_block, {}, noRollback)
 
@@ -55,7 +55,7 @@ suiteReport "Block processing" & preset():
       previous_block_root = genesisRoot
 
     for i in 1..SLOTS_PER_EPOCH.int:
-      let new_block = makeTestBlock(state.data, previous_block_root)
+      let new_block = makeTestBlock(state[], previous_block_root)
 
       let block_ok = state_transition(state[], new_block, {}, noRollback)
 
@@ -90,7 +90,7 @@ suiteReport "Block processing" & preset():
         state[], GENESIS_SLOT + MIN_ATTESTATION_INCLUSION_DELAY + 1)
 
     let
-      new_block = makeTestBlock(state.data, previous_block_root,
+      new_block = makeTestBlock(state[], previous_block_root,
         attestations = @[attestation]
       )
     check state_transition(state[], new_block, {}, noRollback)

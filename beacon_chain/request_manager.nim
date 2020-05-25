@@ -25,7 +25,7 @@ proc fetchAncestorBlocksFromPeer(
   # block to be stored in the FetchRecord, so we can ask for a range of
   # blocks starting N positions before this slot number.
   try:
-    let blocks = await peer.beaconBlocksByRoot([rec.root])
+    let blocks = await peer.beaconBlocksByRoot(BlockRootsList @[rec.root])
     if blocks.isOk:
       for b in blocks.get:
         responseHandler(b)
@@ -40,7 +40,7 @@ proc fetchAncestorBlocksFromNetwork(
   var peer: Peer
   try:
     peer = await network.peerPool.acquire()
-    let blocks = await peer.beaconBlocksByRoot([rec.root])
+    let blocks = await peer.beaconBlocksByRoot(BlockRootsList @[rec.root])
     if blocks.isOk:
       for b in blocks.get:
         responseHandler(b)

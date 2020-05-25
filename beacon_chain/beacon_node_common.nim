@@ -8,14 +8,22 @@
 # Common routines for a BeaconNode and a BeaconValidator node
 
 import
+  # Standard library
+  os, tables,
+
   # Nimble packages
   chronos, json_rpc/rpcserver, metrics,
+  chronicles,
 
   # Local modules
-  spec/[datatypes, crypto],
-  conf, time, beacon_chain_db,
+  spec/[datatypes, crypto, digest, helpers],
+  conf, time, beacon_chain_db, sszdump,
   attestation_pool, block_pool, eth2_network,
   beacon_node_types, mainchain_monitor, request_manager
+
+# This removes an invalid Nim warning that the digest module is unused here
+# It's currently used for `shortLog(head.blck.root)`
+type Eth2Digest = digest.Eth2Digest
 
 type
   RpcServer* = RpcHttpServer
@@ -38,11 +46,81 @@ type
     topicAggregateAndProofs*: string
     syncLoop*: Future[void]
 
-const MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
+const
+  MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
 
 # Metrics
 declareGauge beacon_head_root,
   "Root of the head block of the beacon chain"
+
+# Metrics for tracking attestation and beacon block loss
+declareCounter beacon_blocks_received,
+  "Number of beacon chain blocks received by this peer"
+
+proc onAttestation*(node: BeaconNode, attestation: Attestation) =
+  # We received an attestation from the network but don't know much about it
+  # yet - in particular, we haven't verified that it belongs to particular chain
+  # we're on, or that it follows the rules of the protocol
+  logScope: pcs = "on_attestation"
+
+  let
+    wallSlot = node.beaconClock.now().toSlot()
+    head = node.blockPool.head
+
+  debug "Attestation received",
+    attestation = shortLog(attestation),
+    headRoot = shortLog(head.blck.root),
+    headSlot = shortLog(head.blck.slot),
+    wallSlot = shortLog(wallSlot.slot),
+    cat = "consensus" # Tag "consensus|attestation"?
+
+  if not wallSlot.afterGenesis or wallSlot.slot < head.blck.slot:
+    warn "Received attestation before genesis or head - clock is wrong?",
+      afterGenesis = wallSlot.afterGenesis,
+      wallSlot = shortLog(wallSlot.slot),
+      headSlot = shortLog(head.blck.slot),
+      cat = "clock_drift" # Tag "attestation|clock_drift"?
+    return
+
+  if attestation.data.slot > head.blck.slot and
+      (attestation.data.slot - head.blck.slot) > MaxEmptySlotCount:
+    warn "Ignoring attestation, head block too old (out of sync?)",
+      attestationSlot = attestation.data.slot, headSlot = head.blck.slot
+    return
+
+  node.attestationPool.add(attestation)
+
+proc storeBlock*(
+    node: BeaconNode, signedBlock: SignedBeaconBlock): Result[void, BlockError] =
+  let blockRoot = hash_tree_root(signedBlock.message)
+  debug "Block received",
+    signedBlock = shortLog(signedBlock.message),
+    blockRoot = shortLog(blockRoot),
+    cat = "block_listener",
+    pcs = "receive_block"
+
+  if node.config.dumpEnabled:
+    dump(node.config.dumpDir / "incoming", signedBlock, blockRoot)
+
+  beacon_blocks_received.inc()
+  discard ? node.blockPool.add(blockRoot, signedBlock)
+
+  # The block we received contains attestations, and we might not yet know about
+  # all of them. Let's add them to the attestation pool - in case they block
+  # is not yet resolved, neither will the attestations be!
+  # But please note that we only care about recent attestations.
+  # TODO shouldn't add attestations if the block turns out to be invalid..
+  let currentSlot = node.beaconClock.now.toSlot
+  if currentSlot.afterGenesis and
+    signedBlock.message.slot.epoch + 1 >= currentSlot.slot.epoch:
+    for attestation in signedBlock.message.body.attestations:
+      node.onAttestation(attestation)
+  ok()
+
+proc onBeaconBlock*(node: BeaconNode, signedBlock: SignedBeaconBlock) =
+  # We received a block but don't know much about it yet - in particular, we
+  # don't know if it's part of the chain we're currently building.
+  discard node.storeBlock(signedBlock)
 
 proc updateHead*(node: BeaconNode): BlockRef =
   # Check pending attestations - maybe we found some blocks for them

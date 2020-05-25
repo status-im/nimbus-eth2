@@ -196,21 +196,6 @@ proc process_proposer_slashing*(
 
   true
 
-proc processProposerSlashings(
-    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
-    stateCache: var StateCache): bool {.nbench.}=
-  if len(blck.body.proposer_slashings) > MAX_PROPOSER_SLASHINGS:
-    notice "PropSlash: too many!",
-      proposer_slashings = len(blck.body.proposer_slashings)
-    return false
-
-  for proposer_slashing in blck.body.proposer_slashings:
-    if not process_proposer_slashing(
-        state, proposer_slashing, flags, stateCache):
-      return false
-
-  true
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
     data_1: AttestationData, data_2: AttestationData): bool =
@@ -260,63 +245,6 @@ proc process_attester_slashing*(
       notice "Attester slashing: Trying to slash participant(s) twice"
       return false
     return true
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#attester-slashings
-proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock,
-    flags: UpdateFlags, stateCache: var StateCache): bool {.nbench.}=
-  # Process ``AttesterSlashing`` operation.
-  if len(blck.body.attester_slashings) > MAX_ATTESTER_SLASHINGS:
-    notice "Attester slashing: too many!"
-    return false
-
-  for attester_slashing in blck.body.attester_slashings:
-    if not process_attester_slashing(state, attester_slashing, {}, stateCache):
-      return false
-  return true
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#attestations
-proc processAttestations(
-    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
-    stateCache: var StateCache): bool {.nbench.}=
-  ## Each block includes a number of attestations that the proposer chose. Each
-  ## attestation represents an update to a specific shard and is signed by a
-  ## committee of validators.
-  ## Here we make sanity checks for each attestation and it to the state - most
-  ## updates will happen at the epoch boundary where state updates happen in
-  ## bulk.
-  if blck.body.attestations.len > MAX_ATTESTATIONS:
-    notice "Attestation: too many!", attestations = blck.body.attestations.len
-    return false
-
-  trace "in processAttestations, not processed attestations",
-    attestations_len = blck.body.attestations.len()
-
-  if not blck.body.attestations.allIt(process_attestation(state, it, flags, stateCache)):
-    return false
-
-  true
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#deposits
-proc processDeposits(state: var BeaconState, blck: BeaconBlock,
-    flags: UpdateFlags): bool {.nbench.} =
-  let
-    num_deposits = len(blck.body.deposits).int64
-    req_deposits = min(MAX_DEPOSITS,
-      state.eth1_data.deposit_count.int64 - state.eth1_deposit_index.int64)
-  if not (num_deposits == req_deposits):
-    notice "processDeposits: incorrect number of deposits",
-      num_deposits = num_deposits,
-      req_deposits = req_deposits,
-      deposit_count = state.eth1_data.deposit_count,
-      deposit_index = state.eth1_deposit_index
-    return false
-
-  for deposit in blck.body.deposits:
-    if not process_deposit(state, deposit, flags):
-      notice "processDeposits: deposit invalid"
-      return false
-
-  true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#voluntary-exits
 proc process_voluntary_exit*(
@@ -379,14 +307,40 @@ proc process_voluntary_exit*(
 
   true
 
-proc processVoluntaryExits(state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool {.nbench.}=
-  if len(blck.body.voluntary_exits) > MAX_VOLUNTARY_EXITS:
-    notice "[Block processing - Voluntary Exit]: too many exits!"
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#operations
+proc process_operations(state: var BeaconState, body: BeaconBlockBody,
+    flags: UpdateFlags, stateCache: var StateCache): bool {.nbench.} =
+  # Verify that outstanding deposits are processed up to the maximum number of
+  # deposits
+  let
+    num_deposits = len(body.deposits).int64
+    req_deposits = min(MAX_DEPOSITS,
+      state.eth1_data.deposit_count.int64 - state.eth1_deposit_index.int64)
+  if not (num_deposits == req_deposits):
+    notice "processOperations: incorrect number of deposits",
+      num_deposits = num_deposits,
+      req_deposits = req_deposits,
+      deposit_count = state.eth1_data.deposit_count,
+      deposit_index = state.eth1_deposit_index
     return false
-  for exit in blck.body.voluntary_exits:
-    if not process_voluntary_exit(state, exit, flags):
-      return false
-  return true
+
+  template for_ops_cached(operations: auto, fn: auto) =
+    for operation in operations:
+      if not fn(state, operation, flags, stateCache):
+        return false
+
+  template for_ops(operations: auto, fn: auto) =
+    for operation in operations:
+      if not fn(state, operation, flags):
+        return false
+
+  for_ops_cached(body.proposer_slashings, process_proposer_slashing)
+  for_ops_cached(body.attester_slashings, process_attester_slashing)
+  for_ops_cached(body.attestations, process_attestation)
+  for_ops(body.deposits, process_deposit)
+  for_ops(body.voluntary_exits, process_voluntary_exit)
+
+  true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#block-processing
 proc process_block*(
@@ -421,76 +375,11 @@ proc process_block*(
     return false
 
   process_eth1_data(state, blck.body)
-
-  # TODO, everything below is now in process_operations
-  # and implementation is per element instead of the whole seq
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#operations
-  if not processProposerSlashings(state, blck, flags, stateCache):
-    debug "[Block processing] Proposer slashing failure", slot = shortLog(state.slot)
-    return false
-
-  if not processAttesterSlashings(state, blck, flags, stateCache):
-    debug "[Block processing] Attester slashing failure", slot = shortLog(state.slot)
-    return false
-
-  if not processAttestations(state, blck, flags, stateCache):
-    debug "[Block processing] Attestation processing failure", slot = shortLog(state.slot)
-    return false
-
-  if not processDeposits(state, blck, flags):
-    debug "[Block processing] Deposit processing failure", slot = shortLog(state.slot)
-    return false
-
-  if not processVoluntaryExits(state, blck, flags):
-    debug "[Block processing - Voluntary Exit] Exit processing failure", slot = shortLog(state.slot)
+  if not process_operations(state, blck.body, flags, stateCache):
+    # One could combine this and the default-true, but that's a bit implicit
     return false
 
   true
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md
-# TODO There's more to do here - the spec has helpers that deal set up some of
-#      the fields in here!
-proc makeBeaconBlock*(
-    state: BeaconState,
-    parent_root: Eth2Digest,
-    randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data,
-    graffiti: Eth2Digest,
-    attestations: seq[Attestation],
-    deposits: seq[Deposit]): Option[BeaconBlock] =
-  ## Create a block for the given state. The last block applied to it must be
-  ## the one identified by parent_root and process_slots must be called up to
-  ## the slot for which a block is to be created.
-  var cache = get_empty_per_epoch_cache()
-  let proposer_index = get_beacon_proposer_index(state, cache)
-  if proposer_index.isNone:
-    warn "Unable to get proposer index when proposing!"
-    return
-
-  # To create a block, we'll first apply a partial block to the state, skipping
-  # some validations.
-
-  var blck = BeaconBlock(
-    slot: state.slot,
-    proposer_index: proposer_index.get().uint64,
-    parent_root: parent_root,
-    body: BeaconBlockBody(
-      randao_reveal: randao_reveal,
-      eth1_data: eth1data,
-      graffiti: graffiti,
-      attestations: List[Attestation, MAX_ATTESTATIONS](attestations),
-      deposits: List[Deposit, MAX_DEPOSITS](deposits)))
-
-  let tmpState = newClone(state)
-  let ok = process_block(tmpState[], blck, {skipBlsValidation}, cache)
-
-  if not ok:
-    warn "Unable to apply new block to state", blck = shortLog(blck)
-    return
-
-  blck.state_root = hash_tree_root(tmpState[])
-
-  some(blck)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#aggregation-selection
 func get_slot_signature*(
