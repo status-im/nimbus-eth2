@@ -16,14 +16,14 @@ import
   chronicles,
 
   # Local modules
-  spec/[datatypes, crypto, helpers],
+  spec/[datatypes, crypto, digest, helpers],
   conf, time, beacon_chain_db, sszdump,
   attestation_pool, block_pool, eth2_network,
   beacon_node_types, mainchain_monitor, request_manager
 
-# TODO figure out how to silence the `unused pragma` warning for specific builds of this
-# https://discordapp.com/channels/613988663034118151/614014714590134292/713053239297179668
-import spec/digest
+# This removes an invalid Nim warning that the digest module is unused here
+# It's currently used for `shortLog(head.blck.root)`
+type Eth2Digest = digest.Eth2Digest
 
 type
   RpcServer* = RpcHttpServer

@@ -83,7 +83,7 @@ var BeaconSyncProtocolObj = initProtocol("BeaconSync", createPeerState[Peer,
     ref[BeaconSyncPeerState:ObjectType]], createNetworkState[Eth2Node,
     ref[BeaconSyncNetworkState:ObjectType]])
 var BeaconSyncProtocol = addr BeaconSyncProtocolObj
-template protocolInfo*(P`gensym187610300: type BeaconSync): auto =
+template protocolInfo*(PROTO: type BeaconSync): auto =
   BeaconSyncProtocol
 
 proc status*(peer: Peer; theirStatus: StatusMsg;
