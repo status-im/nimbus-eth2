@@ -41,6 +41,8 @@ else:
 # for heap-usage-by-instance-type metrics and object base-type strings
 --define:nimTypeNames
 
+# switch("define", "snappy_implementation=libp2p")
+
 switch("import", "testutils/moduletests")
 
 const useLibStackTrace = not defined(macosx) and
