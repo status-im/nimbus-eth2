@@ -143,6 +143,13 @@ schlesi-dev: | build deps
 	LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" NIM_PARAMS="$(NIM_PARAMS)" \
 		$(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) --dev-build shared/schlesi
 
+witti: | build deps
+	LOG_LEVEL="DEBUG" NIM_PARAMS="$(NIM_PARAMS)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/witti
+
+witti-dev: | build deps
+	LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" NIM_PARAMS="$(NIM_PARAMS)" \
+		$(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) --dev-build shared/witti
+
 clean: | clean-common
 	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,beacon_node_testnet*,block_sim,state_sim,transition*}
 ifneq ($(USE_LIBBACKTRACE), 0)
