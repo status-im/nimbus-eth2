@@ -135,10 +135,7 @@ proc addBootstrapNode*(bootstrapAddr: string,
                        localPubKey: PublicKey) =
   let enrRes = parseBootstrapAddress(bootstrapAddr)
   if enrRes.isOk:
-    let enodeRes = enrRes.value.toENode
-    if enodeRes.isOk:
-      if enodeRes.value.pubKey != localPubKey:
-        bootEnrs.add enrRes.value
+    bootEnrs.add enrRes.value
   else:
     warn "Ignoring invalid bootstrap address",
           bootstrapAddr, reason = enrRes.error
