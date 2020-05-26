@@ -399,10 +399,13 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
+  # TODO remove some of these, or otherwise coordinate with EpochRef
   StateCache* = object
     beacon_committee_cache*:
       Table[tuple[a: int, b: Eth2Digest], seq[ValidatorIndex]]
     active_validator_indices_cache*:
+      Table[Epoch, seq[ValidatorIndex]]
+    shuffled_active_validator_indices*:
       Table[Epoch, seq[ValidatorIndex]]
     committee_count_cache*: Table[Epoch, uint64]
 
