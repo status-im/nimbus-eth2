@@ -572,8 +572,7 @@ proc handleIncomingStream(network: Eth2Node,
 
     try:
       logReceivedMsg(peer, MsgType(msg.get))
-      let userHandlerFut = callUserHandler(MsgType, peer, conn, noSnappy, msg.get)
-      await userHandlerFut
+      await callUserHandler(MsgType, peer, conn, noSnappy, msg.get)
     except CatchableError as err:
       await sendErrorResponse(peer, conn, noSnappy, ServerError,
                               ErrorMsg err.msg.toBytes)
@@ -809,6 +808,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
       MsgRecName = msg.recName
       MsgStrongRecName = msg.strongRecName
       codecNameLit = getRequestProtoName(msg.procDef)
+      protocolMounterName = ident(msgName & "Mounter")
 
     ##
     ## Implement the Thunk:
@@ -823,18 +823,19 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     ## initialize the network object by creating handlers bound to the
     ## specific network.
     ##
-    var mounter: NimNode
+    var userHandlerCall = newTree(nnkDiscardStmt)
+
     if msg.userHandler != nil:
-      var
-        protocolMounterName = ident(msgName & "_mounter")
-        userHandlerCall: NimNode
-        OutputParamType = msg.outputParamType
+      var OutputParamType = if msg.kind == msgRequest: msg.outputParamType
+                            else: nil
 
       if OutputParamType == nil:
-        userHandlerCall = newCall(ident"sendUserHandlerResultAsChunkImpl",
-                                  streamVar,
-                                  noSnappyVar,
-                                  msg.genUserHandlerCall(msgVar, [peerVar]))
+        userHandlerCall = msg.genUserHandlerCall(msgVar, [peerVar])
+        if msg.kind == msgRequest:
+          userHandlerCall = newCall(ident"sendUserHandlerResultAsChunkImpl",
+                                    streamVar,
+                                    noSnappyVar,
+                                    userHandlerCall)
       else:
         if OutputParamType.kind == nnkVarTy:
           OutputParamType = OutputParamType[0]
@@ -852,36 +853,32 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
                                           peerVar, streamVar, noSnappyVar)),
           msg.genUserHandlerCall(msgVar, [peerVar], outputParam = responseVar))
 
-      protocol.outRecvProcs.add quote do:
-        template `callUserHandler`(`MSG`: type `MsgStrongRecName`,
-                                   `peerVar`: `Peer`,
-                                   `streamVar`: `Connection`,
-                                   `noSnappyVar`: bool,
-                                   `msgVar`: `MsgRecName`): untyped =
-          `userHandlerCall`
+    protocol.outRecvProcs.add quote do:
+      template `callUserHandler`(`MSG`: type `MsgStrongRecName`,
+                                 `peerVar`: `Peer`,
+                                 `streamVar`: `Connection`,
+                                 `noSnappyVar`: bool,
+                                 `msgVar`: `MsgRecName`): untyped =
+        `userHandlerCall`
 
-        proc `protocolMounterName`(`networkVar`: `Eth2Node`) =
-          proc sszThunk(`streamVar`: `Connection`,
-                        `protocolVar`: string): Future[void] {.gcsafe.} =
-            return handleIncomingStream(`networkVar`, `streamVar`, true,
-                                        `MsgStrongRecName`)
+      proc `protocolMounterName`(`networkVar`: `Eth2Node`) =
+        proc sszThunk(`streamVar`: `Connection`,
+                      `protocolVar`: string): Future[void] {.gcsafe.} =
+          return handleIncomingStream(`networkVar`, `streamVar`, true,
+                                      `MsgStrongRecName`)
 
-          mount `networkVar`.switch,
-                LPProtocol(codec: `codecNameLit` & "ssz",
-                           handler: sszThunk)
+        mount `networkVar`.switch,
+              LPProtocol(codec: `codecNameLit` & "ssz",
+                         handler: sszThunk)
 
-          proc snappyThunk(`streamVar`: `Connection`,
-                           `protocolVar`: string): Future[void] {.gcsafe.} =
-            return handleIncomingStream(`networkVar`, `streamVar`, false,
-                                        `MsgStrongRecName`)
+        proc snappyThunk(`streamVar`: `Connection`,
+                         `protocolVar`: string): Future[void] {.gcsafe.} =
+          return handleIncomingStream(`networkVar`, `streamVar`, false,
+                                      `MsgStrongRecName`)
 
-          mount `networkVar`.switch,
-                LPProtocol(codec: `codecNameLit` & "ssz_snappy",
-                           handler: snappyThunk)
-
-      mounter = protocolMounterName
-    else:
-      mounter = newNilLit()
+        mount `networkVar`.switch,
+              LPProtocol(codec: `codecNameLit` & "ssz_snappy",
+                         handler: snappyThunk)
 
     ##
     ## Implement Senders and Handshake
@@ -896,7 +893,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
       newCall(registerMsg,
               protocol.protocolInfoVar,
               msgNameLit,
-              mounter,
+              protocolMounterName,
               codecNameLit))
 
   result.implementProtocolInit = proc (p: P2PProtocol): NimNode =

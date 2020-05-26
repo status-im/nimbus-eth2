@@ -166,7 +166,10 @@ p2pProtocol BeaconSync(version = 1,
     debug "Block root request done",
       peer, roots = blockRoots.len, count, found
 
-  proc goodbye(peer: Peer, reason: DisconnectionReason) {.libp2pProtocol("goodbye", 1).}
+  proc goodbye(peer: Peer,
+               reason: DisconnectionReason)
+    {.async, libp2pProtocol("goodbye", 1).} =
+    debug "Received Goodbye message", reason
 
 proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) =
   debug "Peer status", peer, statusMsg
