@@ -219,7 +219,7 @@ func get_beacon_proposer_indexes_for_epoch*(state: BeaconState, epoch: Epoch, st
     if idx.isSome:
       result.add (currSlot, idx.get)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#validator-assignments
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/validator.md#validator-assignments
 func get_committee_assignment(
     state: BeaconState, epoch: Epoch, validator_index: ValidatorIndex):
     Option[tuple[a: seq[ValidatorIndex], b: CommitteeIndex, c: Slot]] {.used.} =
@@ -244,7 +244,7 @@ func get_committee_assignment(
         return some((committee, idx, slot))
   none(tuple[a: seq[ValidatorIndex], b: CommitteeIndex, c: Slot])
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#validator-assignments
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/validator.md#validator-assignments
 func is_proposer(
     state: BeaconState, validator_index: ValidatorIndex): bool {.used.} =
   var cache = get_empty_per_epoch_cache()
