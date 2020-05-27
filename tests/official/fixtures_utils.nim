@@ -58,7 +58,7 @@ template readFileBytes*(path: string): seq[byte] =
 proc sszDecodeEntireInput*(input: openarray[byte], Decoded: type): Decoded =
   var stream = unsafeMemoryInput(input)
   var reader = init(SszReader, stream, input.len)
-  result = reader.readValue(Decoded)
+  reader.readValue(result)
 
   if stream.readable:
     raise newException(UnconsumedInput, "Remaining bytes in the input")

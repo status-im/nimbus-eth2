@@ -121,7 +121,7 @@ func `[]`*[T](n: SszNavigator[T]): T {.raisesssz.} =
   mixin toSszType, fromSszBytes
   type SszRepr = type toSszType(declval T)
   when type(SszRepr) is type(T) or T is List:
-    readSszValue(toOpenArray(n.m), T)
+    readSszValue(toOpenArray(n.m), result)
   else:
     fromSszBytes(T, toOpenArray(n.m))
 
