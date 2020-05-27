@@ -30,48 +30,6 @@ type
     actualSszSize*: int
     elementSize*: int
 
-  SszChunksLimitExceeded* = object of SszError
-
-  SszSchema* = ref object
-    nodes*: seq[SszNode]
-
-  SszTypeKind* = enum
-    sszNull
-    sszUInt
-    sszBool
-    sszList
-    sszVector
-    sszBitList
-    sszBitVector
-    sszRecord
-
-  SszType* = ref object
-    case kind*: SszTypeKind
-    of sszUInt, sszBitVector:
-      bits*: int
-    of sszBool, sszNull, sszBitList:
-      discard
-    of sszVector:
-      size*: int
-      vectorElemType*: SszType
-    of sszList:
-      listElemType*: SszType
-    of sszRecord:
-      schema*: SszSchema
-
-  SszNodeKind* = enum
-    Field
-    Union
-
-  SszNode* = ref object
-    name*: string
-    typ*: SszType
-    case kind: SszNodeKind
-    of Union:
-      variants*: seq[SszSchema]
-    of Field:
-      discard
-
 template asSeq*(x: List): auto = distinctBase(x)
 
 template init*[T](L: type List, x: seq[T], N: static Limit): auto =
@@ -81,21 +39,21 @@ template init*[T, N](L: type List[T, N], x: seq[T]): auto =
   List[T, N](x)
 
 template `$`*(x: List): auto = $(distinctBase x)
-template add*(x: List, val: auto) = add(distinctBase x, val)
+template add*(x: var List, val: auto) = add(distinctBase x, val)
 template len*(x: List): auto = len(distinctBase x)
-template setLen*(x: List, val: auto) = setLen(distinctBase x, val)
+template setLen*(x: var List, val: auto) = setLen(distinctBase x, val)
 template low*(x: List): auto = low(distinctBase x)
 template high*(x: List): auto = high(distinctBase x)
 template `[]`*(x: List, idx: auto): untyped = distinctBase(x)[idx]
-template `[]=`*(x: List, idx: auto, val: auto) = distinctBase(x)[idx] = val
+template `[]=`*(x: var List, idx: auto, val: auto) = distinctBase(x)[idx] = val
 template `==`*(a, b: List): bool = asSeq(a) == distinctBase(b)
 
 template `&`*(a, b: List): auto = (type(a)(distinctBase(a) & distinctBase(b)))
 
 template items* (x: List): untyped = items(distinctBase x)
 template pairs* (x: List): untyped = pairs(distinctBase x)
-template mitems*(x: List): untyped = mitems(distinctBase x)
-template mpairs*(x: List): untyped = mpairs(distinctBase x)
+template mitems*(x: var List): untyped = mitems(distinctBase x)
+template mpairs*(x: var List): untyped = mpairs(distinctBase x)
 
 template init*(L: type BitList, x: seq[byte], N: static Limit): auto =
   BitList[N](data: x)
@@ -130,32 +88,27 @@ macro unsupported*(T: typed): untyped =
 template ElemType*(T: type[array]): untyped =
   type(default(T)[low(T)])
 
-template ElemType*[T](A: type[openarray[T]]): untyped =
-  T
-
 template ElemType*(T: type[seq|List]): untyped =
   type(default(T)[0])
 
 func isFixedSize*(T0: type): bool {.compileTime.} =
   mixin toSszType, enumAllSerializedFields
 
-  when T0 is openarray:
-    return false
-  else:
-    type T = type toSszType(declval T0)
+  type T = type toSszType(declval T0)
 
-    when T is BasicType:
-      return true
-    elif T is array:
-      return isFixedSize(ElemType(T))
-    elif T is object|tuple:
-      enumAllSerializedFields(T):
-        when not isFixedSize(FieldType):
-          return false
-      return true
+  when T is BasicType:
+    return true
+  elif T is array:
+    return isFixedSize(ElemType(T))
+  elif T is object|tuple:
+    enumAllSerializedFields(T):
+      when not isFixedSize(FieldType):
+        return false
+    return true
 
 func fixedPortionSize*(T0: type): int {.compileTime.} =
   mixin enumAllSerializedFields, toSszType
+
   type T = type toSszType(declval T0)
 
   when T is BasicType: sizeof(T)
@@ -163,50 +116,12 @@ func fixedPortionSize*(T0: type): int {.compileTime.} =
     type E = ElemType(T)
     when isFixedSize(E): len(T) * fixedPortionSize(E)
     else: len(T) * offsetSize
-  elif T is seq|openarray: offsetSize
   elif T is object|tuple:
     enumAllSerializedFields(T):
       when isFixedSize(FieldType):
         result += fixedPortionSize(FieldType)
       else:
         result += offsetSize
-  else:
-    unsupported T0
-
-func sszSchemaType*(T0: type): SszType {.compileTime.} =
-  mixin toSszType, enumAllSerializedFields
-  type T = type toSszType(declval T0)
-
-  when T is bool:
-    SszType(kind: sszBool)
-  elif T is uint8|char:
-    SszType(kind: sszUInt, bits: 8)
-  elif T is uint16:
-    SszType(kind: sszUInt, bits: 16)
-  elif T is uint32:
-    SszType(kind: sszUInt, bits: 32)
-  elif T is uint64:
-    SszType(kind: sszUInt, bits: 64)
-  elif T is seq:
-    SszType(kind: sszList, listElemType: sszSchemaType(ElemType(T)))
-  elif T is array:
-    SszType(kind: sszVector, vectorElemType: sszSchemaType(ElemType(T)))
-  elif T is BitArray:
-    SszType(kind: sszBitVector, bits: T.bits)
-  elif T is BitSeq:
-    SszType(kind: sszBitList)
-  elif T is object|tuple:
-    var recordSchema = SszSchema()
-    var caseBranches = initTable[string, SszSchema]()
-    caseBranches[""] = recordSchema
-    # TODO case objects are still not supported here.
-    # `recordFields` has to be refactored to properly
-    # report nested discriminator fields.
-    enumAllSerializedFields(T):
-      recordSchema.nodes.add SszNode(
-        name: fieldName,
-        typ: sszSchemaType(FieldType),
-        kind: Field)
   else:
     unsupported T0
 

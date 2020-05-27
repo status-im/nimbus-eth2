@@ -59,7 +59,8 @@ proc getStateFromSnapshot*(conf: BeaconNodeConf|ValidatorClientConf): NilableBea
       quit 1
 
   result = try:
-    newClone(SSZ.decode(snapshotContents, BeaconState))
+    newClone(SSZ.decode(
+      toOpenArrayByte(snapshotContents, 0, snapshotContents.high), BeaconState))
   except SerializationError:
     error "Failed to import genesis file", path = genesisPath
     quit 1
