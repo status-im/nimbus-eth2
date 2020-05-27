@@ -12,6 +12,10 @@
 # nim-beacon-chain/beacon_chain/ssz.nim(212, 18) Error: can raise an unlisted exception: IOError
 #{.push raises: [Defect].}
 
+# TODO Many RVO bugs, careful
+# https://github.com/nim-lang/Nim/issues/14470
+# https://github.com/nim-lang/Nim/issues/14126
+
 import
   options, algorithm, options, strformat, typetraits,
   stew/[bitops2, bitseqs, endians2, objects, varints, ptrops],
@@ -65,6 +69,7 @@ serializationFormat SSZ,
 template decode*(Format: type SSZ,
                  input: openarray[byte],
                  RecordType: distinct type): auto =
+  # TODO how badly is this affected by RVO bugs?
   serialization.decode(SSZ, input, RecordType, maxObjectSize = input.len)
 
 template loadFile*(Format: type SSZ,
@@ -291,20 +296,20 @@ proc readValue*[T](r: var SszReader, val: var T) {.raises: [Defect, MalformedSsz
   when isFixedSize(T):
     const minimalSize = fixedPortionSize(T)
     if r.stream.readable(minimalSize):
-      val = readSszValue(r.stream.read(minimalSize), T)
+      readSszValue(r.stream.read(minimalSize), val)
     else:
       raise newException(MalformedSszError, "SSZ input of insufficient size")
   else:
     # TODO Read the fixed portion first and precisely measure the size of
     # the dynamic portion to consume the right number of bytes.
-    val = readSszValue(r.stream.read(r.stream.len.get), T)
+    readSszValue(r.stream.read(r.stream.len.get), val)
 
 proc readValue*[T](r: var SszReader, val: var SizePrefixed[T]) {.raises: [Defect].} =
   let length = r.stream.readVarint(uint64)
   if length > r.maxObjectSize:
     raise newException(SszMaxSizeExceeded,
                        "Maximum SSZ object size exceeded: " & $length)
-  val = readSszValue(r.stream.read(length), T)
+  readSszValue(r.stream.read(length), T(val))
 
 const
   zeroChunk = default array[32, byte]
