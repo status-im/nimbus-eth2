@@ -78,7 +78,6 @@ const
     "version": 4
 }""" #"
 
-const
   password = "testpassword"
   secret = hexToSeqByte("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f")
   salt = hexToSeqByte("d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3")
@@ -92,7 +91,7 @@ suiteReport "Keystore":
 
   timedTest "Pbkdf2 encryption":
     let encrypt = encryptKeystore[KdfPbkdf2](secret, password, salt=salt, iv=iv,
-                                             path="m/12381/60/0/0", ugly=false)
+                                             path="m/12381/60/0/0")
     check encrypt.isOk
 
     var
@@ -103,8 +102,24 @@ suiteReport "Keystore":
 
     check encryptJson == pbkdf2Json
 
-  timedTest "Pbkdf2 error":
+  timedTest "Pbkdf2 errors":
     check encryptKeystore[KdfPbkdf2](secret, "", salt = [byte 1]).isErr
     check encryptKeystore[KdfPbkdf2](secret, "", iv = [byte 1]).isErr
 
+    check decryptKeystore(pbkdf2Vector, "wrong pass").isErr
     check decryptKeystore(pbkdf2Vector, "").isErr
+    check decryptKeystore("{\"a\": 0}", "").isErr
+    check decryptKeystore("", "").isErr
+
+    template checkVariant(remove): untyped =
+      check decryptKeystore(pbkdf2Vector.replace(remove, ""), password).isErr
+
+    checkVariant "d4e5" # salt
+    checkVariant "18b1" # checksum
+    checkVariant "264d" # iv
+    checkVariant "a924" # cipher
+
+    var badKdf = parseJson(pbkdf2Vector)
+    badKdf{"crypto", "kdf", "function"} = %"invalid"
+
+    check decryptKeystore($badKdf, password).iserr
