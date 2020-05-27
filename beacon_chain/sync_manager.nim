@@ -948,10 +948,10 @@ proc sync*[A, B](man: SyncManager[A, B]) {.async.} =
 
     pending = temp
 
-    # if len(man.failures) > man.maxRecurringFailures and (workersCount() > 1):
-    #   debug "Number of recurring failures exceeds limit, resetting queue",
-    #         workers_count = $workers_count(), rec_failures = $len(man.failures)
-    #   await man.queue.resetWait(none[Slot]())
+    if len(man.failures) > man.maxRecurringFailures and (workersCount() > 1):
+      debug "Number of recurring failures exceeds limit, reseting queue",
+            workers_count = $workers_count(), rec_failures = $len(man.failures)
+      await man.queue.resetWait(none[Slot]())
 
     debug "Synchronization loop end tick", wall_head_slot = wallSlot,
           local_head_slot = headSlot, workers_count = workersCount(),

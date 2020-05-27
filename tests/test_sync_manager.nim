@@ -1,6 +1,6 @@
 {.used.}
 
-import unittest, strutils
+import unittest
 import chronos
 import ../beacon_chain/sync_manager
 
