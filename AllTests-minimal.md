@@ -95,6 +95,13 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Mocked start private key                                                                   OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Keystore
+```diff
++ Pbkdf2 decryption                                                                          OK
++ Pbkdf2 encryption                                                                          OK
++ Pbkdf2 errors                                                                              OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Mocking utilities
 ```diff
 + merkle_minimal                                                                             OK
@@ -258,4 +265,4 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 OK: 8/8 Fail: 0/8 Skip: 0/8
 
 ---TOTAL---
-OK: 157/160 Fail: 0/160 Skip: 3/160
+OK: 160/163 Fail: 0/163 Skip: 3/163
