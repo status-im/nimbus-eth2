@@ -118,6 +118,7 @@ type
 
   EpochRef* = ref object
     shuffled_active_validator_indices*: seq[ValidatorIndex]
+    epoch*: Epoch
 
   BlockRef* = ref object
     ## Node in object graph guaranteed to lead back to tail block, and to have
@@ -135,7 +136,8 @@ type
 
     slot*: Slot # TODO could calculate this by walking to root, but..
 
-    epochInfo*: EpochRef
+    epochsInfo*: seq[EpochRef]
+    ## Could be multiple, since blocks could be skipped, but usually, not many
 
   BlockData* = object
     ## Body and graph in one

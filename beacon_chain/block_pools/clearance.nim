@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  chronicles, tables,
+  chronicles, sequtils, tables,
   metrics, stew/results,
   ../ssz, ../state_transition, ../extras,
   ../spec/[crypto, datatypes, digest, helpers, validator],
@@ -46,8 +46,8 @@ proc addResolvedBlock(
   doAssert state.slot == signedBlock.message.slot, "state must match block"
 
   let blockRef = BlockRef.init(blockRoot, signedBlock.message)
-  parent.epochInfo =
-    populateEpochCache(state, state.slot.compute_epoch_at_slot)
+  parent.epochsInfo =
+    @[populateEpochCache(state, state.slot.compute_epoch_at_slot)]
   link(parent, blockRef)
 
   dag.blocks[blockRoot] = blockRef
@@ -177,27 +177,33 @@ proc add*(
       doAssert v.addr == addr poolPtr.tmpState.data
       poolPtr.tmpState = poolPtr.headState
 
-    # While addResolved(...)-created BlockRefs already have this, BlockRefs
-    # loaded from BeaconChainDB don't, necessarily, so there's be a startup
-    # period, during which here and candidate_chain.skipAndUpdateState(...)
-    # might have to fill them in before their respective state_transition()
-    # calls.
-    # TODO here and elsewhere, pull out epoch calculations, or maybe
-    # let foo = addr dag.tmpState.data.data
-    if parent.epochInfo.isNil:
-      parent.epochInfo =
-        populateEpochCache(
-          dag.tmpState.data.data, dag.tmpState.data.data.slot.compute_epoch_at_slot)
-      trace "clearance.add(): back-filling parent.epochInfo",
-        state_slot = dag.tmpState.data.data.slot
+    # See also candidate_chains.skipAndUpdateState(...)
+    let
+      state_epoch = dag.tmpState.data.data.slot.compute_epoch_at_slot
+      # TODO can replace filterIt and this whole approach with something without
+      # additional allocations, imports, etc
+      matching_epochinfo = parent.epochsInfo.filterIt(it.epoch == state_epoch)
+      epochInfo =
+        if matching_epochinfo.len == 0:
+          let cache = populateEpochCache(dag.tmpState.data.data, state_epoch)
+          parent.epochsInfo.add(cache)
+          trace "clearance.add(): back-filling parent.epochInfo",
+            state_slot = dag.tmpState.data.data.slot
+          cache
+        elif matching_epochinfo.len == 1:
+          matching_epochinfo[0]
+        else:
+          doAssert false
+          matching_epochinfo[0]  # Typecheck
 
     # TODO it's probably not the right way to convey this, but for now, avoids
     # death-by-dozens-of-pointless-changes in developing this
     # TODO rename these, since now, the two "state cache"s are juxtaposed
     # directly
     var stateCache = get_empty_per_epoch_cache()
-    stateCache.shuffled_active_validator_indices[dag.tmpState.data.data.slot.compute_epoch_at_slot] =
-      parent.epochInfo.shuffled_active_validator_indices
+    stateCache.shuffled_active_validator_indices[state_epoch] =
+      epochInfo.shuffled_active_validator_indices
+    # End of section to refactor/combine
 
     if not state_transition(
         dag.tmpState.data, signedBlock, stateCache, dag.updateFlags, restore):

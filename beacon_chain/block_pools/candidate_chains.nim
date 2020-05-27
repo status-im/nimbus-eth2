@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  chronicles, options, tables,
+  chronicles, options, sequtils, tables,
   metrics,
   ../ssz, ../beacon_chain_db, ../state_transition, ../extras,
   ../spec/[crypto, datatypes, digest, helpers, validator],
@@ -54,9 +54,10 @@ func parent*(bs: BlockSlot): BlockSlot =
     )
 
 func populateEpochCache*(state: BeaconState, epoch: Epoch): EpochRef =
-  result = new EpochRef
-  result.shuffled_active_validator_indices =
-    get_shuffled_active_validator_indices(state, epoch)
+  result = (EpochRef)(
+    epoch: state.slot.compute_epoch_at_slot,
+    shuffled_active_validator_indices:
+      get_shuffled_active_validator_indices(state, epoch))
 
 func link*(parent, child: BlockRef) =
   doAssert (not (parent.root == Eth2Digest() or child.root == Eth2Digest())),
@@ -446,26 +447,33 @@ proc skipAndUpdateState(
     doAssert (addr(statePtr.data) == addr v)
     statePtr[] = dag.headState
 
-  # While addResolved(...)-created BlockRefs already have this, BlockRefs
-  # loaded from BeaconChainDB don't, necessarily, so there's be a startup
-  # period, during which this proc and clearance.add(...) might fill them
-  # in before their respective state_transition() calls. TODO, if can get
-  # this from same epoch in same part of tree, that'd be better.
-  if blck.refs.epochInfo.isNil:
-    blck.refs.epochInfo =
-      populateEpochCache(
-        state.data.data, state.data.data.slot.compute_epoch_at_slot)
-    trace "candidate_chains.skipAndUpdateState(): back-filling parent.epochInfo",
-      state_slot = state.data.data.slot
+  # TODO consider refactoring with clearance.add(...)
+  let
+    state_epoch = state.data.data.slot.compute_epoch_at_slot
+    matching_epochinfo = blck.refs.epochsInfo.filterIt(it.epoch == state_epoch)
+    epochInfo =
+      if matching_epochinfo.len == 0:
+        let cache = populateEpochCache(state.data.data, state_epoch)
+        blck.refs.epochsInfo.add(cache)
+        trace "candidate_chains.skipAndUpdateState(): back-filling parent.epochInfo",
+          state_slot = state.data.data.slot
+        cache
+      elif matching_epochinfo.len == 1:
+        matching_epochinfo[0]
+      else:
+        doAssert false
+        matching_epochinfo[0] # Typecheck
 
   # TODO it's probably not the right way to convey this, but for now, avoids
   # death-by-dozens-of-pointless-changes in developing this
   var stateCache = get_empty_per_epoch_cache()
-  stateCache.shuffled_active_validator_indices[state.data.data.slot.compute_epoch_at_slot] =
-    blck.refs.epochInfo.shuffled_active_validator_indices
+  stateCache.shuffled_active_validator_indices[state_epoch] =
+    epochInfo.shuffled_active_validator_indices
+  # End of tentative refactored proc
 
   let ok = state_transition(
     state.data, blck.data, stateCache, flags + dag.updateFlags, restore)
+
   if ok and save:
     dag.putState(state.data, blck.refs)
 
