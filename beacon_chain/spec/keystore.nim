@@ -136,6 +136,9 @@ proc decryptKeystore*(data, passphrase: string): KsResult[seq[byte]] =
   if decKey.len < saltSize:
     return err "ks: decryption key must be at least 32 bytes"
 
+  if iv.len < aes128.sizeBlock:
+    return err "ks: invalid iv"
+
   let sum = shaChecksum(decKey.toOpenArray(16, 31), cipherMsg)
   if sum != checksumMsg:
     return err "ks: invalid checksum"
