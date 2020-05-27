@@ -18,14 +18,9 @@ type
     importValidator
     createTestnet
     makeDeposits
-    query
 
   VCStartUpCmd* = enum
     VCNoCommand
-
-  QueryCmd* = enum
-    nimQuery
-    get
 
   Eth1Network* = enum
     custom
@@ -269,22 +264,6 @@ type
         defaultValue: 0.0
         desc: "Maximum possible delay between making two deposits (in seconds)"
         name: "max-delay" }: float
-
-    of query:
-      case queryCmd* {.
-        defaultValue: nimQuery
-        command
-        desc: "Query the beacon node database and print the result" }: QueryCmd
-
-      of nimQuery:
-        nimQueryExpression* {.
-          argument
-          desc: "Nim expression to evaluate (using limited syntax)" }: string
-
-      of get:
-        getQueryPath* {.
-          argument
-          desc: "REST API path to evaluate" }: string
 
   ValidatorClientConf* = object
     logLevel* {.
