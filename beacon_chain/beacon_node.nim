@@ -30,6 +30,7 @@ import
   validator_duties, validator_api
 
 const
+  genesisFile* = "genesis.ssz"
   hasPrompt = not defined(withoutPrompt)
 
 type
@@ -60,6 +61,58 @@ declareHistogram beacon_attestation_received_seconds_from_slot_start,
   "Interval between slot start and attestation receival", buckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
 logScope: topics = "beacnde"
+
+proc getStateFromSnapshot(conf: BeaconNodeConf): NilableBeaconStateRef =
+  var
+    genesisPath = conf.dataDir/genesisFile
+    snapshotContents: TaintedString
+    writeGenesisFile = false
+
+  if conf.stateSnapshot.isSome:
+    let
+      snapshotPath = conf.stateSnapshot.get.string
+      snapshotExt = splitFile(snapshotPath).ext
+
+    if cmpIgnoreCase(snapshotExt, ".ssz") != 0:
+      error "The supplied state snapshot must be a SSZ file",
+            suppliedPath = snapshotPath
+      quit 1
+
+    snapshotContents = readFile(snapshotPath)
+    if fileExists(genesisPath):
+      let genesisContents = readFile(genesisPath)
+      if snapshotContents != genesisContents:
+        error "Data directory not empty. Existing genesis state differs from supplied snapshot",
+              dataDir = conf.dataDir.string, snapshot = snapshotPath
+        quit 1
+    else:
+      debug "No previous genesis state. Importing snapshot",
+            genesisPath, dataDir = conf.dataDir.string
+      writeGenesisFile = true
+      genesisPath = snapshotPath
+  else:
+    try:
+      snapshotContents = readFile(genesisPath)
+    except CatchableError as err:
+      error "Failed to read genesis file", err = err.msg
+      quit 1
+
+  result = try:
+    newClone(SSZ.decode(snapshotContents, BeaconState))
+  except SerializationError:
+    error "Failed to import genesis file", path = genesisPath
+    quit 1
+
+  info "Loaded genesis state", path = genesisPath
+
+  if writeGenesisFile:
+    try:
+      notice "Writing genesis to data directory", path = conf.dataDir/genesisFile
+      writeFile(conf.dataDir/genesisFile, snapshotContents.string)
+    except CatchableError as err:
+      error "Failed to persist genesis file to data dir",
+        err = err.msg, genesisFile = conf.dataDir/genesisFile
+      quit 1
 
 proc enrForkIdFromState(state: BeaconState): ENRForkID =
   let
@@ -557,7 +610,7 @@ proc installDebugApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
 
 proc installRpcHandlers(rpcServer: RpcServer, node: BeaconNode) =
   # TODO: remove this if statement later - here just to test the config option for now
-  if node.config.externalValidators:
+  if node.config.validatorApi:
     rpcServer.installValidatorApiHandlers(node)
   rpcServer.installBeaconApiHandlers(node)
   rpcServer.installDebugApiHandlers(node)
@@ -823,9 +876,7 @@ when hasPrompt:
       # createThread(t, processPromptCommands, addr p)
 
 programMain:
-  let
-    banner = clientId & "\p" & copyrights & "\p\p" & nimBanner
-    config = BeaconNodeConf.load(version = banner, copyrightBanner = banner)
+  let config = makeBannerAndConfig(clientId, BeaconNodeConf)
 
   setupMainProc(config.logLevel)
 

@@ -27,18 +27,20 @@ type
 
   BeaconTime* = distinct int64 ## Seconds from beacon genesis time
 
-proc init*(T: type BeaconClock, state: BeaconState): T =
-  ## Initialize time from a beacon state. The genesis time of a beacon state is
-  ## constant throughout its lifetime, so the state from any slot will do,
-  ## including the genesis state.
-
+proc init*(T: type BeaconClock, genesis_time: uint64): T =
   let
-    unixGenesis = fromUnix(state.genesis_time.int64)
+    unixGenesis = fromUnix(genesis_time.int64)
     # GENESIS_SLOT offsets slot time, but to simplify calculations, we apply that
     # offset to genesis instead of applying it at every time conversion
     unixGenesisOffset = times.seconds(int(GENESIS_SLOT * SECONDS_PER_SLOT))
 
   T(genesis: unixGenesis - unixGenesisOffset)
+
+proc init*(T: type BeaconClock, state: BeaconState): T =
+  ## Initialize time from a beacon state. The genesis time of a beacon state is
+  ## constant throughout its lifetime, so the state from any slot will do,
+  ## including the genesis state.
+  BeaconClock.init(state.genesis_time)
 
 template `<`*(a, b: BeaconTime): bool =
   int64(a) < int64(b)

@@ -12,6 +12,7 @@ import
   # Nimble packages
   stew/shims/[tables, macros],
   chronos, confutils, metrics, json_rpc/[rpcclient, jsonmarshal],
+  chronicles,
   blscurve, json_serialization/std/[options, sets, net],
 
   # Local modules
@@ -27,7 +28,7 @@ import
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 
 ## Generate client convenience marshalling wrappers from forward declarations
-createRpcSigs(RpcClient, sourceDir & DirSep & "spec" & DirSep & "eth2_apis" & DirSep & "validator_callsigs.nim")
+createRpcSigs(RpcClient, sourceDir / "spec" / "eth2_apis" / "validator_callsigs.nim")
 
 type
   ValidatorClient = ref object
@@ -35,9 +36,41 @@ type
     client: RpcHttpClient
     beaconClock: BeaconClock
     attachedValidators: ValidatorPool
-    validatorDutiesForEpoch: Table[Slot, ValidatorPubKey]
+    fork: Fork
+    proposalsForEpoch: Table[Slot, ValidatorPubKey]
+    attestationsForEpoch: Table[Slot, AttesterDuties]
+    beaconGenesis: BeaconGenesisTuple
+
+# TODO remove this and move to real logging once done experimenting
+# it's much easier to distinguish such output from the one with timestamps
+proc port_logged(vc: ValidatorClient, msg: string) =
+  echo "== ", vc.config.rpcPort, " ", msg
+
+proc getValidatorDutiesForEpoch(vc: ValidatorClient, epoch: Epoch) {.gcsafe, async.} =
+  vc.port_logged "await 1"
+  let proposals = await vc.client.get_v1_validator_duties_proposer(epoch)
+  vc.port_logged "await 2"
+  # update the block proposal duties this VC should do during this epoch
+  vc.proposalsForEpoch.clear()
+  for curr in proposals:
+    if vc.attachedValidators.validators.contains curr.public_key:
+      vc.proposalsForEpoch.add(curr.slot, curr.public_key)
+
+  # couldn't use mapIt in ANY shape or form so reverting to raw loops - sorry Sean Parent :|
+  var validatorPubkeys: seq[ValidatorPubKey]
+  for key in vc.attachedValidators.validators.keys:
+    validatorPubkeys.add key
+  # update the attestation duties this VC should do during this epoch
+  let attestations = await vc.client.post_v1_validator_duties_attester(epoch, validatorPubkeys)
+  vc.attestationsForEpoch.clear()
+  for a in attestations:
+    vc.attestationsForEpoch.add(a.slot, a)
+
+  # for now we will get the fork each time we update the validator duties for each epoch
+  vc.fork = await vc.client.get_v1_beacon_states_fork("head")
 
 proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, async.} =
+  vc.port_logged "WAKE UP! slot " & $scheduledSlot
 
   let
     # The slot we should be at, according to the clock
@@ -49,40 +82,49 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
     nextSlot = slot + 1
 
   try:
-    # TODO think about handling attestations in addition to block proposals - is waitFor OK...?
-
-    # at the start of each epoch - request all validators which should propose
-    # during this epoch and match that against the validators in this VC instance
+    # at the start of each epoch - request all validator duties for the current epoch
+    # TODO perhaps call this not on the first slot of each Epoch but perhaps 1 slot earlier
+    # because there are a few back-and-forth requests which could take up time for attesting...
     if scheduledSlot.isEpoch:
-      let validatorDutiesForEpoch = waitFor vc.client.get_v1_validator_duties_proposer(scheduledSlot.compute_epoch_at_slot)
-      # update the duties (block proposals) this VC client should do during this epoch
-      vc.validatorDutiesForEpoch.clear()
-      for curr in validatorDutiesForEpoch:
-        if vc.attachedValidators.validators.contains curr.public_key:
-          vc.validatorDutiesForEpoch.add(curr.slot, curr.public_key)
+      await getValidatorDutiesForEpoch(vc, scheduledSlot.compute_epoch_at_slot)
+
     # check if we have a validator which needs to propose on this slot
-    if vc.validatorDutiesForEpoch.contains slot:
-      let pubkey = vc.validatorDutiesForEpoch[slot]
-      let validator = vc.attachedValidators.validators[pubkey]
+    if vc.proposalsForEpoch.contains slot:
+      let public_key = vc.proposalsForEpoch[slot]
+      let validator = vc.attachedValidators.validators[public_key]
 
-      # TODO get these from the BN and store them in the ValidatorClient
-      let fork = Fork()
-      let genesis_validators_root = Eth2Digest()
+      let randao_reveal = validator.genRandaoReveal(
+        vc.fork, vc.beaconGenesis.genesis_validators_root, slot)
 
-
-      let randao_reveal = validator.genRandaoReveal(fork, genesis_validators_root, slot)
+      vc.port_logged "await 3"
 
       var newBlock = SignedBeaconBlock(
-          message: waitFor vc.client.get_v1_validator_blocks(slot, Eth2Digest(), randao_reveal)
+          message: await vc.client.get_v1_validator_blocks(slot, Eth2Digest(), randao_reveal)
         )
 
+      vc.port_logged "await 4"
+      
       let blockRoot = hash_tree_root(newBlock.message)
-      newBlock.signature = waitFor validator.signBlockProposal(fork, genesis_validators_root, slot, blockRoot)
+      newBlock.signature = await validator.signBlockProposal(
+        vc.fork, vc.beaconGenesis.genesis_validators_root, slot, blockRoot)
 
-      discard waitFor vc.client.post_v1_beacon_blocks(newBlock)
+      vc.port_logged "about to await for the last time!"
+
+      discard await vc.client.post_v1_beacon_blocks(newBlock)
+
+      vc.port_logged "did we do it?"
+
+    # check if we have a validator which needs to propose on this slot
+    if vc.attestationsForEpoch.contains slot:
+      let a = vc.attestationsForEpoch[slot]
+      let validator = vc.attachedValidators.validators[a.public_key]
+
+      discard validator
+
+      vc.port_logged("attestation: " & $a.committee_index.int64 & " " & $a.validator_committee_index)
 
   except CatchableError as err:
-    echo err.msg
+    error "Caught an unexpected error", err = err.msg
 
   let
     nextSlotStart = saturate(vc.beaconClock.fromNow(nextSlot))
@@ -93,10 +135,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
     asyncCheck vc.onSlotStart(slot, nextSlot)
 
 programMain:
-  let
-    clientIdVC = "Nimbus validator client v" & fullVersionStr
-    banner = clientIdVC & "\p" & copyrights & "\p\p" & nimBanner
-    config = ValidatorClientConf.load(version = banner, copyrightBanner = banner)
+  let config = makeBannerAndConfig("Nimbus validator client v" & fullVersionStr, ValidatorClientConf)
 
   sleep(config.delayStart * 1000)
 
@@ -113,28 +152,36 @@ programMain:
           cmdParams = commandLineParams(),
           config
 
-    # TODO: the genesis time should be obtained through calls to the beacon node
-    # this applies also for genesis_validators_root... and the fork!
-    var genesisState = config.getStateFromSnapshot()
-
     var vc = ValidatorClient(
       config: config,
       client: newRpcHttpClient(),
-      beaconClock: BeaconClock.init(genesisState[]),
       attachedValidators: ValidatorPool.init()
     )
-    vc.validatorDutiesForEpoch.init()
+    vc.proposalsForEpoch.init()
+    vc.attestationsForEpoch.init()
 
+    # load all the validators from the data dir into memory
     for curr in vc.config.validatorKeys:
       vc.attachedValidators.addLocalValidator(curr.toPubKey, curr)
 
+    # TODO perhaps we should handle the case if the BN is down and try to connect to it
+    # untill success, and also later on disconnets we should continue trying to reconnect
     waitFor vc.client.connect("localhost", Port(config.rpcPort)) # TODO: use config.rpcAddress
-    echo "connected to beacon node running on port ", config.rpcPort
+    info "Connected to beacon node", port = config.rpcPort
+
+    # init the beacon clock
+    vc.beaconGenesis = waitFor vc.client.get_v1_beacon_genesis()
+    vc.beaconClock = BeaconClock.init(vc.beaconGenesis.genesis_time)
 
     let
       curSlot = vc.beaconClock.now().slotOrZero()
       nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
       fromNow = saturate(vc.beaconClock.fromNow(nextSlot))
+
+    # onSlotStart() requests the validator duties only on the start of each epoch
+    # so we should request the duties here when the VC binary boots up in order
+    # to handle the case when in the middle of an epoch. Also for the genesis slot.
+    waitFor vc.getValidatorDutiesForEpoch(curSlot.compute_epoch_at_slot)
 
     info "Scheduling first slot action",
       beaconTime = shortLog(vc.beaconClock.now()),
