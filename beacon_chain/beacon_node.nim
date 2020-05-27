@@ -24,7 +24,7 @@ import
   attestation_pool, block_pool, eth2_network, eth2_discovery,
   beacon_node_common, beacon_node_types,
   nimbus_binary_common,
-  mainchain_monitor, version, ssz, ssz/dynamic_navigator,
+  mainchain_monitor, version, ssz,
   sync_protocol, request_manager, validator_keygen, interop, statusbar,
   sync_manager, state_transition,
   validator_duties, validator_api
@@ -1012,25 +1012,3 @@ programMain:
         config.depositContractAddress,
         config.depositPrivateKey,
         delayGenerator)
-
-  of query:
-    case config.queryCmd
-    of QueryCmd.nimQuery:
-      # TODO: This will handle a simple subset of Nim using
-      #       dot syntax and `[]` indexing.
-      echo "nim query: ", config.nimQueryExpression
-
-    of QueryCmd.get:
-      let pathFragments = config.getQueryPath.split('/', maxsplit = 1)
-      let bytes =
-        case pathFragments[0]
-        of "genesis_state":
-          readFile(config.dataDir/genesisFile).string.toBytes()
-        else:
-          stderr.write config.getQueryPath & " is not a valid path"
-          quit 1
-
-      let navigator = DynamicSszNavigator.init(bytes, BeaconState)
-
-      echo navigator.navigatePath(pathFragments[1 .. ^1]).toJson
-

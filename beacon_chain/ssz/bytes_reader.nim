@@ -31,8 +31,7 @@ func fromSszBytes*(T: type UintN, data: openarray[byte]): T {.raisesssz.} =
   T.fromBytesLE(data)
 
 func fromSszBytes*(T: type bool, data: openarray[byte]): T {.raisesssz.} =
-  # TODO: spec doesn't say what to do if the value is >1 - we'll use the C
-  #       definition for now, but maybe this should be a parse error instead?
+  # Strict: only allow 0 or 1
   if data.len != 1 or byte(data[0]) > byte(1):
     raise newException(MalformedSszError, "invalid boolean value")
   data[0] == 1
@@ -123,14 +122,14 @@ func readSszValue*(input: openarray[byte], T: type): T {.raisesssz.} =
       checkForForbiddenBits(T, input, result.maxLen + 1)
 
   elif result is List|array:
-    type ElemType = type result[0]
-    when ElemType is byte:
+    type E = type result[0]
+    when E is byte:
       result.setOutputSize input.len
       if input.len > 0:
         copyMem(addr result[0], unsafeAddr input[0], input.len)
 
-    elif isFixedSize(ElemType):
-      const elemSize = fixedPortionSize(ElemType)
+    elif isFixedSize(E):
+      const elemSize = fixedPortionSize(E)
       if input.len mod elemSize != 0:
         var ex = new SszSizeMismatchError
         ex.deserializedType = cstring typetraits.name(T)
@@ -142,7 +141,7 @@ func readSszValue*(input: openarray[byte], T: type): T {.raisesssz.} =
       for i in 0 ..< result.len:
         trs "TRYING TO READ LIST ELEM ", i
         let offset = i * elemSize
-        result[i] = readSszValue(input.toOpenArray(offset, offset + elemSize - 1), ElemType)
+        result[i] = readSszValue(input.toOpenArray(offset, offset + elemSize - 1), E)
       trs "LIST READING COMPLETE"
 
     else:
@@ -171,10 +170,10 @@ func readSszValue*(input: openarray[byte], T: type): T {.raisesssz.} =
         if nextOffset <= offset:
           raise newException(MalformedSszError, "SSZ list element offsets are not monotonically increasing")
         else:
-          result[i - 1] = readSszValue(input.toOpenArray(offset, nextOffset - 1), ElemType)
+          result[i - 1] = readSszValue(input.toOpenArray(offset, nextOffset - 1), E)
         offset = nextOffset
 
-      result[resultLen - 1] = readSszValue(input.toOpenArray(offset, input.len - 1), ElemType)
+      result[resultLen - 1] = readSszValue(input.toOpenArray(offset, input.len - 1), E)
 
   # TODO: Should be possible to remove BitArray from here
   elif result is UintN|bool|enum:

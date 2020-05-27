@@ -29,12 +29,11 @@ export
 
 when defined(serialization_tracing):
   import
-    typetraits, stew/ranges/ptr_arith
+    typetraits
 
 const
   bytesPerChunk = 32
   bitsPerChunk = bytesPerChunk * 8
-  defaultMaxObjectSize = 1 * 1024 * 1024
 
 type
   SszReader* = object
@@ -63,6 +62,17 @@ serializationFormat SSZ,
                     Writer = SszWriter,
                     PreferedOutput = seq[byte]
 
+template decode*(Format: type SSZ,
+                 input: openarray[byte],
+                 RecordType: distinct type): auto =
+  serialization.decode(SSZ, input, RecordType, maxObjectSize = input.len)
+
+template loadFile*(Format: type SSZ,
+                   file: string,
+                   RecordType: distinct type): auto =
+  let bytes = readFile(file)
+  decode(SSZ, toOpenArrayByte(string bytes, 0, bytes.high), RecordType)
+
 template bytes(x: BitSeq): untyped =
   seq[byte](x)
 
@@ -72,16 +82,12 @@ template sizePrefixed*[TT](x: TT): untyped =
 
 proc init*(T: type SszReader,
            stream: InputStream,
-           maxObjectSize = defaultMaxObjectSize): T {.raises: [Defect].} =
+           maxObjectSize: int): T {.raises: [Defect].} =
   T(stream: stream, maxObjectSize: maxObjectSize)
 
-proc mount*(F: type SSZ, stream: InputStream, T: type): T {.raises: [Defect].} =
-  mixin readValue
-  var reader = init(SszReader, stream)
-  reader.readValue(T)
-
-method formatMsg*(err: ref SszSizeMismatchError, filename: string): string {.gcsafe, raises: [Defect].} =
-  # TODO: implement proper error string
+method formatMsg*(
+  err: ref SszSizeMismatchError,
+  filename: string): string {.gcsafe, raises: [Defect].} =
   try:
     &"SSZ size mismatch, element {err.elementSize}, actual {err.actualSszSize}, type {err.deserializedType}, file {filename}"
   except CatchableError:
@@ -96,7 +102,7 @@ template toSszType*(x: auto): auto =
   when x is Slot|Epoch|ValidatorIndex|enum: uint64(x)
   elif x is Eth2Digest: x.data
   elif x is BlsCurveType: toRaw(x)
-  elif x is ForkDigest|Version: array[4, byte](x)
+  elif x is ForkDigest|Version: distinctBase(x)
   else: x
 
 proc writeFixedSized(s: var (OutputStream|WriteCursor), x: auto) {.raises: [Defect, IOError].} =
@@ -140,7 +146,7 @@ template enumerateSubFields(holder, fieldVar, body: untyped) =
   when holder is array:
     for fieldVar in holder: body
   else:
-    enumInstanceSerializedFields(holder, _, fieldVar): body
+    enumInstanceSerializedFields(holder, _{.used.}, fieldVar): body
 
 proc writeVarSizeType(w: var SszWriter, value: auto) {.gcsafe.}
 
@@ -306,8 +312,8 @@ const
 func hash(a, b: openArray[byte]): Eth2Digest =
   result = withEth2Hash:
     trs "MERGING BRANCHES "
-    trs a
-    trs b
+    trs toHex(a)
+    trs toHex(b)
 
     h.update a
     h.update b
@@ -316,8 +322,8 @@ func hash(a, b: openArray[byte]): Eth2Digest =
 func mergeBranches(existing: Eth2Digest, newData: openarray[byte]): Eth2Digest =
   result = withEth2Hash:
     trs "MERGING BRANCHES OPEN ARRAY"
-    trs existing.data
-    trs newData
+    trs toHex(existing.data)
+    trs toHex(newData)
 
     h.update existing.data
     h.update newData
@@ -331,19 +337,12 @@ func mergeBranches(existing: Eth2Digest, newData: openarray[byte]): Eth2Digest =
 template mergeBranches(a, b: Eth2Digest): Eth2Digest =
   hash(a.data, b.data)
 
-func computeZeroHashes: array[100, Eth2Digest] =
+func computeZeroHashes: array[64, Eth2Digest] =
   result[0] = Eth2Digest(data: zeroChunk)
   for i in 1 .. result.high:
     result[i] = mergeBranches(result[i - 1], result[i - 1])
 
-let zeroHashes = computeZeroHashes()
-
-template getZeroHashWithoutSideEffect(idx: int): Eth2Digest =
-  # TODO this is a work-around for the somewhat broken side
-  # effects analysis of Nim - reading from global let variables
-  # is considered a side-effect.
-  {.noSideEffect.}:
-    zeroHashes[idx]
+const zeroHashes = computeZeroHashes()
 
 func addChunk(merkleizer: var SszChunksMerkleizer, data: openarray[byte]) =
   doAssert data.len > 0 and data.len <= bytesPerChunk
@@ -381,7 +380,7 @@ template createMerkleizer(totalElements: static Limit): SszChunksMerkleizer =
 
 func getFinalHash(merkleizer: var SszChunksMerkleizer): Eth2Digest =
   if merkleizer.totalChunks == 0:
-    return getZeroHashWithoutSideEffect(merkleizer.topIndex)
+    return zeroHashes[merkleizer.topIndex]
 
   let
     bottomHashIdx = firstOne(merkleizer.totalChunks) - 1
@@ -396,14 +395,14 @@ func getFinalHash(merkleizer: var SszChunksMerkleizer): Eth2Digest =
     # Our tree is not finished. We must complete the work in progress
     # branches and then extend the tree to the right height.
     result = mergeBranches(merkleizer.combinedChunks[bottomHashIdx],
-                           getZeroHashWithoutSideEffect(bottomHashIdx))
+                           zeroHashes[bottomHashIdx])
 
     for i in bottomHashIdx + 1 ..< topHashIdx:
       if getBitLE(merkleizer.totalChunks, i):
         result = mergeBranches(merkleizer.combinedChunks[i], result)
         trs "COMBINED"
       else:
-        result = mergeBranches(result, getZeroHashWithoutSideEffect(i))
+        result = mergeBranches(result, zeroHashes[i])
         trs "COMBINED WITH ZERO"
 
   elif bottomHashIdx == topHashIdx:
@@ -413,10 +412,10 @@ func getFinalHash(merkleizer: var SszChunksMerkleizer): Eth2Digest =
     # We have a perfect tree of user chunks, but we have more work to
     # do - we must extend it to reach the desired height
     result = mergeBranches(merkleizer.combinedChunks[bottomHashIdx],
-                           getZeroHashWithoutSideEffect(bottomHashIdx))
+                           zeroHashes[bottomHashIdx])
 
     for i in bottomHashIdx + 1 ..< topHashIdx:
-      result = mergeBranches(result, getZeroHashWithoutSideEffect(i))
+      result = mergeBranches(result, zeroHashes[i])
 
 func mixInLength(root: Eth2Digest, length: int): Eth2Digest =
   var dataLen: array[32, byte]
@@ -505,8 +504,8 @@ func bitListHashTreeRoot(merkleizer: var SszChunksMerkleizer, x: BitSeq): Eth2Di
     if totalBytes == 1:
       # This is an empty bit list.
       # It should be hashed as a tree containing all zeros:
-      return mergeBranches(getZeroHashWithoutSideEffect(merkleizer.topIndex),
-                           getZeroHashWithoutSideEffect(0)) # this is the mixed length
+      return mergeBranches(zeroHashes[merkleizer.topIndex],
+                           zeroHashes[0]) # this is the mixed length
 
     totalBytes -= 1
     lastCorrectedByte = bytes(x)[^2]
@@ -595,14 +594,14 @@ func hashTreeRootAux[T](x: T): Eth2Digest =
 func hash_tree_root*(x: auto): Eth2Digest {.raises: [Defect], nbench.} =
   trs "STARTING HASH TREE ROOT FOR TYPE ", name(type(x))
   mixin toSszType
-  when x is List|BitList:
+  result = when x is List|BitList:
     const maxLen = static(x.maxLen)
     type T = type(x)
     const limit = maxChunksCount(T, maxLen)
     var merkleizer = createMerkleizer(limit)
 
     when x is BitList:
-      result = merkleizer.bitListHashTreeRoot(BitSeq x)
+      merkleizer.bitListHashTreeRoot(BitSeq x)
     else:
       type E = ElemType(T)
       let contentsHash = when E is BasicType:
@@ -612,9 +611,9 @@ func hash_tree_root*(x: auto): Eth2Digest {.raises: [Defect], nbench.} =
           let elemHash = hash_tree_root(elem)
           merkleizer.addChunk(elemHash.data)
         merkleizer.getFinalHash()
-      result = mixInLength(contentsHash, x.len)
+      mixInLength(contentsHash, x.len)
   else:
-    result = hashTreeRootAux toSszType(x)
+    hashTreeRootAux toSszType(x)
 
   trs "HASH TREE ROOT FOR ", name(type x), " = ", "0x", $result
 

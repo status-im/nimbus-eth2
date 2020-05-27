@@ -22,6 +22,7 @@ TOOLS := \
 	deposit_contract \
 	ncli_hash_tree_root \
 	ncli_pretty \
+	ncli_query \
 	ncli_transition \
 	process_dashboard \
 	stack_sizes \
