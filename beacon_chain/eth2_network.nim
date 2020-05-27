@@ -187,8 +187,10 @@ const
 
   NewPeerScore* = 200
     ## Score which will be assigned to new connected Peer
-  PeerScoreLimit* = 0
+  PeerScoreLowLimit* = 0
     ## Score after which peer will be kicked
+  PeerScoreHighLimit* = 1000
+    ## Max value of peer's score
 
 template neterr(kindParam: Eth2NetworkingErrorKind): auto =
   err(type(result), Eth2NetworkingError(kind: kindParam))
@@ -272,9 +274,11 @@ proc `<`*(a, b: Peer): bool =
 proc getScore*(a: Peer): int =
   result = a.score
 
-proc updateScore*(peer: Peer, score: int) =
+proc updateScore*(peer: Peer, score: int) {.inline.} =
   ## Update peer's ``peer`` score with value ``score``.
   peer.score = peer.score + score
+  if peer.score > PeerScoreHighLimit:
+    peer.score = PeerScoreHighLimit
 
 proc disconnect*(peer: Peer, reason: DisconnectionReason,
                  notifyOtherPeer = false) {.async.} =
