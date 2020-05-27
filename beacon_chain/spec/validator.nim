@@ -220,7 +220,7 @@ func get_beacon_proposer_indexes_for_epoch*(state: BeaconState, epoch: Epoch, st
       result.add (currSlot, idx.get)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/validator.md#validator-assignments
-func get_committee_assignment(
+func get_committee_assignment*(
     state: BeaconState, epoch: Epoch, validator_index: ValidatorIndex):
     Option[tuple[a: seq[ValidatorIndex], b: CommitteeIndex, c: Slot]] {.used.} =
   # Return the committee assignment in the ``epoch`` for ``validator_index``.

@@ -26,8 +26,36 @@ type
 
 proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
 
+  # TODO Probably the `beacon` ones (and not `validator`) should be defined elsewhere...
+  rpcServer.rpc("get_v1_beacon_states_fork") do (stateId: string) -> Fork:
+    notice "== get_v1_beacon_states_fork", stateId = stateId
+    result = case stateId:
+      of "head":
+        discard node.updateHead() # TODO do we need this?
+        node.blockPool.headState.data.data.fork
+      of "genesis":
+        Fork(previous_version: Version(GENESIS_FORK_VERSION),
+             current_version: Version(GENESIS_FORK_VERSION),
+             epoch: 0.Epoch)
+      of "finalized":
+        # TODO
+        Fork()
+      of "justified":
+        # TODO
+        Fork()
+      else:
+        # TODO parse `stateId` as either a number (slot) or a hash (stateRoot)
+        Fork()
+
+  # TODO Probably the `beacon` ones (and not `validator`) should be defined elsewhere...
+  rpcServer.rpc("get_v1_beacon_genesis") do () -> BeaconGenesisTuple:
+    notice "== get_v1_beacon_genesis"
+    return BeaconGenesisTuple(genesis_time: node.blockPool.headState.data.data.genesis_time,
+                              genesis_validators_root: node.blockPool.headState.data.data.genesis_validators_root, 
+                              genesis_fork_version: Version(GENESIS_FORK_VERSION))
+
   rpcServer.rpc("get_v1_validator_blocks") do (slot: Slot, graffiti: Eth2Digest, randao_reveal: ValidatorSig) -> BeaconBlock:
-    
+    notice "== get_v1_validator_blocks", slot = slot
     var head = node.updateHead()
 
     let proposer = node.blockPool.getProposer(head, slot)
@@ -38,11 +66,16 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     let res = makeBeaconBlockForHeadAndSlot(node, valInfo, proposer.get()[0], graffiti, head, slot)
 
     # TODO how do we handle the case when we cannot return a meaningful block? 404...
-    doAssert(res.message.isSome())
-    return res.message.get()
+    # currently this fails often - perhaps because the block has already been
+    # processed and signed with the inProcess validator...
+    # doAssert(res.message.isSome())
+    return res.message.get(BeaconBlock()) # returning a default if empty
 
-  rpcServer.rpc("post_v1_beacon_blocks") do (body: SignedBeaconBlock):
+  rpcServer.rpc("post_v1_beacon_blocks") do (body: SignedBeaconBlock) -> bool :
+    notice "== post_v1_beacon_blocks"
+    # TODO make onBeaconBlock return a result and discard it wherever its unnecessary
     onBeaconBlock(node, body)
+    return true
 
   rpcServer.rpc("get_v1_validator_attestation_data") do (slot: Slot, committee_index: CommitteeIndex) -> AttestationData:
     discard
@@ -55,11 +88,22 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     discard
 
   rpcServer.rpc("post_v1_validator_duties_attester") do (epoch: Epoch, public_keys: seq[ValidatorPubKey]) -> seq[AttesterDuties]:
-    discard
+    notice "== post_v1_validator_duties_attester", epoch = epoch
+    for pubkey in public_keys:
+      let idx = node.blockPool.headState.data.data.validators.asSeq.findIt(it.pubKey == pubkey)
+      if idx != -1:
+        let res = node.blockPool.headState.data.data.get_committee_assignment(epoch, idx.ValidatorIndex)
+        if res.isSome:
+          result.add(AttesterDuties(public_key: pubkey,
+                                    committee_index: res.get.b,
+                                    committee_length: res.get.a.len.uint64,
+                                    validator_committee_index: res.get.a.find(idx.ValidatorIndex).uint64,
+                                    slot: res.get.c))
 
   rpcServer.rpc("get_v1_validator_duties_proposer") do (epoch: Epoch) -> seq[ValidatorPubkeySlotPair]:
+    notice "== get_v1_validator_duties_proposer", epoch = epoch
     var cache = get_empty_per_epoch_cache()
-    return get_beacon_proposer_indexes_for_epoch(node.blockPool.headState.data.data, epoch, cache).mapIt(ValidatorPubkeySlotPair(
+    result = get_beacon_proposer_indexes_for_epoch(node.blockPool.headState.data.data, epoch, cache).mapIt(ValidatorPubkeySlotPair(
         public_key: node.blockPool.headState.data.data.validators[it.i].pubkey,
         slot: it.s
       ))

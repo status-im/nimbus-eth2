@@ -135,3 +135,11 @@ proc updateHead*(node: BeaconNode): BlockRef =
   beacon_head_root.set newHead.root.toGaugeValue
 
   newHead
+
+template findIt*(s: openarray, predicate: untyped): int64 =
+  var res = -1
+  for i, it {.inject.} in s:
+    if predicate:
+      res = i
+      break
+  res

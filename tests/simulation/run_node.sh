@@ -63,15 +63,18 @@ cd "$DATA_DIR"
 
 # uncomment to force always using an external VC binary for VC duties
 # TODO remove this when done with implementing the VC - here just for convenience during dev
-#EXTERNAL_VALIDATORS="yes"
+#VALIDATOR_API="yes"
 
-EXTERNAL_VALIDATORS_ARG=""
-if [ "${EXTERNAL_VALIDATORS:-}" == "yes" ]; then
-  EXTERNAL_VALIDATORS_ARG="--external-validators"
+VALIDATOR_API_ARG=""
+if [ "${VALIDATOR_API:-}" == "yes" ]; then
+  VALIDATOR_API_ARG="--validator-api"
   # we lass a few seconds as delay for the start ==> that way we can start the
   # beacon node before the VC - otherwise we would have to add "&" conditionally to
   # the command which starts the BN - makes the shell script much more complicated
+  # TODO launch the VC through the start.sh script in order to address this comment:
+  # https://github.com/status-im/nim-beacon-chain/pull/1055#discussion_r429540155
   $VALIDATOR_CLIENT_BIN \
+    --log-level=${LOG_LEVEL:-DEBUG} \
     --data-dir=$DATA_DIR \
     --rpc-port="$(( $BASE_RPC_PORT + $NODE_ID ))" \
     --delay-start=5 &
@@ -86,7 +89,7 @@ $BEACON_NODE_BIN \
   --tcp-port=$PORT \
   --udp-port=$PORT \
   $SNAPSHOT_ARG \
-  $EXTERNAL_VALIDATORS_ARG \
+  $VALIDATOR_API_ARG \
   $NAT_ARG \
   $WEB3_ARG \
   --deposit-contract=$DEPOSIT_CONTRACT_ADDRESS \

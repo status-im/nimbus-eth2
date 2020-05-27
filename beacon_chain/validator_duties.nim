@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  os, tables, strutils, times,
+  os, tables, strutils,
 
   # Nimble packages
   stew/[objects, bitseqs], stew/shims/macros,
@@ -39,14 +39,6 @@ proc saveValidatorKey*(keyName, key: string, conf: BeaconNodeConf) =
   createDir validatorsDir
   writeFile(outputFile, key)
   info "Imported validator key", file = outputFile
-
-template findIt(s: openarray, predicate: untyped): int =
-  var res = -1
-  for i, it {.inject.} in s:
-    if predicate:
-      res = i
-      break
-  res
 
 proc addLocalValidator*(node: BeaconNode,
                        state: BeaconState,
@@ -137,13 +129,13 @@ proc sendAttestation(node: BeaconNode,
   beacon_attestations_sent.inc()
 
 type
-  ValidatorInfoForMakeBeaconBlockType* = enum
+  ValidatorInfoForMakeBeaconBlockKind* = enum
     viValidator
     viRandao_reveal
   ValidatorInfoForMakeBeaconBlock* = object
-    case kind*: ValidatorInfoForMakeBeaconBlockType
+    case kind*: ValidatorInfoForMakeBeaconBlockKind
     of viValidator: validator*: AttachedValidator
-    else: randao_reveal*: ValidatorSig
+    of viRandao_reveal: randao_reveal*: ValidatorSig
 
 proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     val_info: ValidatorInfoForMakeBeaconBlock,
@@ -170,9 +162,9 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
     # and it's causing problems when the function becomes a generic for 2 types...
     proc getRandaoReveal(val_info: ValidatorInfoForMakeBeaconBlock): ValidatorSig =
       if val_info.kind == viValidator:
-        val_info.validator.genRandaoReveal(state.fork, state.genesis_validators_root, slot)
-      else:
-        val_info.randao_reveal
+        return val_info.validator.genRandaoReveal(state.fork, state.genesis_validators_root, slot)
+      elif val_info.kind == viRandao_reveal:
+        return val_info.randao_reveal
 
     let
       poolPtr = unsafeAddr node.blockPool.dag # safe because restore is short-lived
