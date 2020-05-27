@@ -152,6 +152,7 @@ cli do (skipGoerliKey {.
     --data-dir="{dataDir}"
     --dump
     --web3-url={web3Url}
+    --metrics
     {bootstrapFileOpt}
     {logLevelOpt}
     {depositContractOpt}
