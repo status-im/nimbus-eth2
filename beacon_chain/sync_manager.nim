@@ -67,7 +67,6 @@ type
 
     counter*: uint64
     pending*: Table[uint64, Slot]
-    pendingLock*: AsyncLock
 
     waiters: seq[Future[bool]]
     syncUpdate*: SyncUpdateCallback[T]
