@@ -65,12 +65,6 @@ serializationFormat SSZ,
                     Writer = SszWriter,
                     PreferedOutput = seq[byte]
 
-template loadFile*(Format: type SSZ,
-                   file: string,
-                   RecordType: distinct type): auto =
-  let bytes = readFile(file)
-  decode(SSZ, toOpenArrayByte(string bytes, 0, bytes.high), RecordType)
-
 template bytes(x: BitSeq): untyped =
   seq[byte](x)
 
