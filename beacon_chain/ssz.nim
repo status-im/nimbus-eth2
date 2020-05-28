@@ -136,7 +136,7 @@ func init*(T: type SszWriter, stream: OutputStream): T {.raises: [Defect].} =
   result.stream = stream
 
 template enumerateSubFields(holder, fieldVar, body: untyped) =
-  when holder is array:
+  when holder is array|HashArray:
     for fieldVar in holder: body
   else:
     enumInstanceSerializedFields(holder, _{.used.}, fieldVar): body
@@ -148,7 +148,7 @@ proc beginRecord*(w: var SszWriter, TT: type): auto {.raises: [Defect].} =
   when isFixedSize(T):
     FixedSizedWriterCtx()
   else:
-    const offset = when T is array: len(T) * offsetSize
+    const offset = when T is array|HashArray: len(T) * offsetSize
                    else: fixedPortionSize(T)
     VarSizedWriterCtx(offset: offset,
                       fixedParts: w.stream.delayFixedSizeWrite(offset))
@@ -205,13 +205,19 @@ proc writeVarSizeType(w: var SszWriter, value: auto) {.raises: [Defect, IOError]
   mixin toSszType
   type T = type toSszType(value)
 
-  when T is List:
+  when T is List|HashList:
     # We reduce code bloat by forwarding all `List` types to a general `seq[T]` proc.
     writeSeq(w, asSeq value)
   elif T is BitList:
     # ATTENTION! We can reuse `writeSeq` only as long as our BitList type is implemented
     # to internally match the binary representation of SSZ BitLists in memory.
     writeSeq(w, bytes value)
+  elif T is HashArray:
+    trs "WRITING HASHARRAY"
+    var ctx = beginRecord(w, T.T)
+    enumerateSubFields(value, field):
+      writeField w, ctx, astToStr(field), field.data
+    endRecord w, ctx
   elif T is object|tuple|array:
     trs "WRITING OBJECT OR ARRAY"
     var ctx = beginRecord(w, T)
@@ -244,10 +250,12 @@ func sszSize*(value: auto): int {.gcsafe, raises: [Defect].} =
   when isFixedSize(T):
     anonConst fixedPortionSize(T)
 
-  elif T is array|List:
+  elif T is array|List|HashList|HashArray:
     type E = ElemType(T)
     when isFixedSize(E):
       len(value) * anonConst(fixedPortionSize(E))
+    elif T is HashArray:
+      sszSizeForVarSizeList(value.data)
     elif T is array:
       sszSizeForVarSizeList(value)
     else:
@@ -577,10 +585,91 @@ func hashTreeRootAux[T](x: T): Eth2Digest =
   else:
     unsupported T
 
+func mergedDataHash(x: HashList|HashArray, dataIdx: int64): Eth2Digest =
+  trs "DATA HASH ", dataIdx, " ", x.data.len
+
+  if dataIdx + 1 > x.data.len():
+    zeroHashes[x.maxDepth]
+  elif dataIdx + 1 == x.data.len():
+    mergeBranches(
+      hash_tree_root(x.data[dataIdx]),
+      Eth2Digest())
+  else:
+    mergeBranches(
+      hash_tree_root(x.data[dataIdx]),
+      hash_tree_root(x.data[dataIdx + 1]))
+
+func cachedHash*(x: HashList, vIdx: int64): Eth2Digest =
+  doAssert vIdx >= 1
+
+  let
+    layer = layer(vIdx)
+    idxInLayer = vIdx - (1 shl layer)
+    layerIdx = idxInlayer + x.indices[layer]
+
+  doAssert layer < x.maxDepth
+  trs "GETTING ", vIdx, " ", layerIdx, " ", layer, " ", x.indices.len
+  if layerIdx >= x.indices[layer + 1]:
+    trs "ZERO ", x.indices[layer], " ", x.indices[layer + 1]
+    zeroHashes[x.maxDepth - layer]
+  else:
+    if true or not isCached(x.hashes[layerIdx]):
+      # TODO oops. so much for maintaining non-mutability.
+      let px = unsafeAddr x
+
+      trs "REFRESHING ", vIdx, " ", layerIdx, " ", layer
+
+      px[].hashes[layerIdx] =
+        if layer == x.maxDepth - 1:
+          let dataIdx = vIdx * 2 - 1 shl (x.maxDepth)
+          mergedDataHash(x, dataIdx)
+        else:
+          mergeBranches(
+            cachedHash(x, vIdx * 2),
+            cachedHash(x, vIdx * 2 + 1))
+    else:
+      trs "CACHED ", layerIdx
+
+    x.hashes[layerIdx]
+
+func cachedHash*(x: HashArray, i: int): Eth2Digest =
+  doAssert i > 0, "Only valid for flat merkle tree indices"
+
+  if not isCached(x.hashes[i]):
+    # TODO oops. so much for maintaining non-mutability.
+    let px = unsafeAddr x
+
+    px[].hashes[i] =
+      if i * 2 >= x.hashes.len():
+        let dataIdx = i * 2 - x.hashes.len()
+        mergedDataHash(x, dataIdx)
+      else:
+        mergeBranches(
+          cachedHash(x, i * 2),
+          cachedHash(x, i * 2 + 1))
+
+  return x.hashes[i]
+
 func hash_tree_root*(x: auto): Eth2Digest {.raises: [Defect], nbench.} =
   trs "STARTING HASH TREE ROOT FOR TYPE ", name(type(x))
   mixin toSszType
-  result = when x is List|BitList:
+
+  result = when x is HashArray:
+      if x.hashes.len < 2:
+        zeroHashes[log2trunc(uint64(x.data.len() + 1))]
+      else:
+        cachedHash(x, 1)
+    elif x is HashList:
+      if x.hashes.len < 2:
+        mixInLength(zeroHashes[x.maxDepth], x.data.len())
+      else:
+        if not isCached(x.hashes[0]):
+          # TODO oops. so much for maintaining non-mutability.
+          let px = unsafeAddr x
+
+          px[].hashes[0] = mixInLength(cachedHash(x, 1), x.data.len)
+        x.hashes[0]
+  elif x is List|BitList:
     const maxLen = static(x.maxLen)
     type T = type(x)
     const limit = maxChunksCount(T, maxLen)

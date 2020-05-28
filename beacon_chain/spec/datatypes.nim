@@ -260,24 +260,24 @@ type
     latest_block_header*: BeaconBlockHeader ##\
     ## `latest_block_header.state_root == ZERO_HASH` temporarily
 
-    block_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
+    block_roots*: HashArray[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
     ## Needed to process attestations, older to newer
 
-    state_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+    state_roots*: HashArray[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     historical_roots*: List[Eth2Digest, HISTORICAL_ROOTS_LIMIT]
 
     # Eth1
     eth1_data*: Eth1Data
     eth1_data_votes*:
-      List[Eth1Data, EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH]
+      HashList[Eth1Data, EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH]
     eth1_deposit_index*: uint64
 
     # Registry
-    validators*: List[Validator, VALIDATOR_REGISTRY_LIMIT]
+    validators*: HashList[Validator, VALIDATOR_REGISTRY_LIMIT]
     balances*: List[uint64, VALIDATOR_REGISTRY_LIMIT]
 
     # Randomness
-    randao_mixes*: array[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
+    randao_mixes*: HashArray[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
 
     # Slashings
     slashings*: array[EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
@@ -285,9 +285,9 @@ type
 
     # Attestations
     previous_epoch_attestations*:
-      List[PendingAttestation, MAX_ATTESTATIONS * SLOTS_PER_EPOCH]
+      HashList[PendingAttestation, MAX_ATTESTATIONS * SLOTS_PER_EPOCH]
     current_epoch_attestations*:
-      List[PendingAttestation, MAX_ATTESTATIONS * SLOTS_PER_EPOCH]
+      HashList[PendingAttestation, MAX_ATTESTATIONS * SLOTS_PER_EPOCH]
 
     # Finality
     justification_bits*: uint8 ##\

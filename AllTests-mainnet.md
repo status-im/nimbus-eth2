@@ -62,12 +62,6 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + parent sanity [Preset: mainnet]                                                            OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## Discovery v5 utilities
-```diff
-+ ENR to ENode                                                                               OK
-+ Multiaddress to ENode                                                                      OK
-```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Fork Choice + Finality  [Preset: mainnet]
 ```diff
 + fork_choice - testing finality #01                                                         OK
@@ -257,6 +251,11 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 +  Rule IV - 12 finalization without support                                                 OK
 ```
 OK: 8/8 Fail: 0/8 Skip: 0/8
+## hash
+```diff
++ HashArray                                                                                  OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
 OK: 158/161 Fail: 0/161 Skip: 3/161

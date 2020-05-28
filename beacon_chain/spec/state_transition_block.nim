@@ -95,6 +95,10 @@ proc process_block_header*(
 
   true
 
+proc `xor`[T: array](a, b: T): T =
+  for i in 0..<result.len:
+    result[i] = a[i] xor b[i]
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#randao
 proc process_randao(
     state: var BeaconState, body: BeaconBlockBody, flags: UpdateFlags,
@@ -125,14 +129,15 @@ proc process_randao(
     mix = get_randao_mix(state, epoch)
     rr = eth2hash(body.randao_reveal.toRaw()).data
 
-  for i in 0 ..< mix.data.len:
-    state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR].data[i] = mix.data[i] xor rr[i]
+  state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR].data =
+    mix.data xor rr
 
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#eth1-data
 func process_eth1_data(state: var BeaconState, body: BeaconBlockBody) {.nbench.}=
   state.eth1_data_votes.add body.eth1_data
+
   if state.eth1_data_votes.asSeq.count(body.eth1_data) * 2 > SLOTS_PER_ETH1_VOTING_PERIOD.int:
     state.eth1_data = body.eth1_data
 

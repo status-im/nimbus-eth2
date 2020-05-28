@@ -88,13 +88,16 @@ suiteReport "SSZ navigator":
     let b = [byte 0x04, 0x05, 0x06].toDigest
     let c = [byte 0x07, 0x08, 0x09].toDigest
 
-    let leaves = List[Eth2Digest, int64(1 shl 3)](@[a, b, c])
+    var leaves = HashList[Eth2Digest, int64(1 shl 3)]()
+    leaves.add a
+    leaves.add b
+    leaves.add c
     let root = hash_tree_root(leaves)
     check $root == "5248085B588FAB1DD1E03F3CD62201602B12E6560665935964F46E805977E8C5"
 
-    let leaves2 = List[Eth2Digest, int64(1 shl 10)](@[a, b, c])
-    let root2 = hash_tree_root(leaves2)
-    check $root2 == "9FB7D518368DC14E8CC588FB3FD2749BEEF9F493FEF70AE34AF5721543C67173"
+    while leaves.len < leaves.maxLen:
+      leaves.add c
+      check hash_tree_root(leaves) == hash_tree_root(leaves.data)
 
 suiteReport "SSZ dynamic navigator":
   timedTest "navigating fields":
@@ -116,3 +119,39 @@ suiteReport "SSZ dynamic navigator":
     expect KeyError:
       discard navBar.navigate("biz")
 
+type
+  Obj = object
+    arr: array[8, Eth2Digest]
+
+    li: List[Eth2Digest, 8]
+
+  HashObj = object
+    arr: HashArray[8, Eth2Digest]
+
+    li: HashList[Eth2Digest, 8]
+
+suiteReport "hash":
+  timedTest "HashArray":
+    var
+      o = Obj()
+      ho = HashObj()
+
+    template both(body) =
+      block:
+        template it: auto {.inject.} = o
+        body
+      block:
+        template it: auto {.inject.} = ho
+        body
+
+      let htro = hash_tree_root(o)
+      let htrho = hash_tree_root(ho)
+
+      check:
+        o.arr == ho.arr.data
+        o.li == ho.li.data
+        htro == htrho
+
+    both: it.arr[0].data[0] = byte 1
+
+    both: it.li.add Eth2Digest()

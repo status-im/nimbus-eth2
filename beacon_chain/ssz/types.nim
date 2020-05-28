@@ -2,8 +2,9 @@
 
 import
   tables, options, typetraits,
-  stew/shims/macros, stew/[objects, bitseqs],
-  serialization/[object_serialization, errors]
+  stew/shims/macros, stew/[byteutils, bitops2, objects, bitseqs],
+  serialization/[object_serialization, errors],
+  ../spec/digest
 
 const
   offsetSize* = 4
@@ -30,6 +31,15 @@ type
     actualSszSize*: int
     elementSize*: int
 
+  HashArray*[maxLen: static int; T] = object
+    data*: array[maxLen, T]
+    hashes* {.dontSerialize.}: array[maxLen, Eth2Digest]
+
+  HashList*[T; maxLen: static int64] = object
+    data*: List[T, maxLen]
+    hashes* {.dontSerialize.}: seq[Eth2Digest]
+    indices* {.dontSerialize.}: array[log2trunc(maxLen.uint64) + 1, int]
+
 template asSeq*(x: List): auto = distinctBase(x)
 
 template init*[T](L: type List, x: seq[T], N: static Limit): auto =
@@ -46,7 +56,7 @@ template low*(x: List): auto = low(distinctBase x)
 template high*(x: List): auto = high(distinctBase x)
 template `[]`*(x: List, idx: auto): untyped = distinctBase(x)[idx]
 template `[]=`*(x: var List, idx: auto, val: auto) = distinctBase(x)[idx] = val
-template `==`*(a, b: List): bool = asSeq(a) == distinctBase(b)
+template `==`*(a, b: List): bool = distinctBase(a) == distinctBase(b)
 
 template `&`*(a, b: List): auto = (type(a)(distinctBase(a) & distinctBase(b)))
 
@@ -78,12 +88,145 @@ iterator items*(x: BitList): bool =
   for i in 0 ..< x.len:
     yield x[i]
 
+template isCached*(v: Eth2Digest): bool =
+  ## An entry is "in the cache" if the first 8 bytes are zero - conveniently,
+  ## Nim initializes values this way, and while there may be false positives,
+  ## that's fine.
+  v.data.toOpenArray(0, 7) != [byte 0, 0, 0, 0, 0, 0, 0, 0]
+template clearCache*(v: var Eth2Digest) =
+  v.data[0..<8] = [byte 0, 0, 0, 0, 0, 0, 0, 0]
+
+proc clearTree*(a: var HashArray, dataIdx: auto) =
+  ## Clear all cache entries after data at dataIdx has been modified
+  var idx = 1 shl (a.maxDepth - 1) + int(dataIdx div 2)
+  while idx != 0:
+    clearCache(a.hashes[idx])
+    idx = idx div 2
+
+func nodesAtLayer*(layer, depth, leaves: int): int =
+  ## Given a number of leaves, how many nodes do you need at a given layer
+  ## in a binary tree structure?
+  let leavesPerNode = 1 shl (depth - layer)
+  (leaves + leavesPerNode - 1) div leavesPerNode
+
+func cacheNodes*(depth, leaves: int): int =
+  ## Total number of nodes needed to cache a tree of a given depth with
+  ## `leaves` items in it (the rest zero-filled)
+  var res = 0
+  for i in 0..<depth:
+    res += nodesAtLayer(i, depth, leaves)
+  res
+
+template layer*(vIdx: int64): int =
+  ## Layer 0 = layer at which the root hash is
+  ## We place the root hash at index 1 which simplifies the math and leaves
+  ## index 0 for the mixed-in-length
+  log2trunc(vIdx.uint64).int
+
+template maxDepth*(a: HashList|HashArray): int =
+  ## Layer where data is
+  layer(a.maxLen)
+
+proc clearTree*(a: var HashList, dataIdx: auto) =
+  if a.hashes.len == 0:
+    return
+
+  var
+    idx = 1 shl (a.maxDepth - 1) + int(dataIdx div 2)
+    layer = a.maxDepth - 1
+  while idx > 0:
+    let
+      idxInLayer = idx - (1 shl layer)
+      layerIdx = idxInlayer + a.indices[layer]
+    if layerIdx < a.indices[layer + 1]:
+      clearCache(a.hashes[layerIdx])
+
+    idx = idx div 2
+    layer = layer - 1
+
+  clearCache(a.hashes[0])
+
+proc growHashes*(a: var HashList) =
+  # Ensure that the hash cache is big enough for the data in the list
+  let
+    leaves = a.data.len()
+    newSize = 1 + cacheNodes(a.maxDepth, leaves)
+
+  if a.hashes.len >= newSize:
+    return
+
+  var
+    newHashes = newSeq[Eth2Digest](newSize)
+    newIndices = default(type a.indices)
+
+  if a.hashes.len != newSize:
+    newIndices[0] = nodesAtLayer(0, a.maxDepth, leaves)
+    for i in 1..a.maxDepth:
+      newIndices[i] = newIndices[i - 1] + nodesAtLayer(i - 1, a.maxDepth, leaves)
+
+  for i in 1..<a.maxDepth:
+    for j in 0..<(a.indices[i] - a.indices[i-1]):
+      newHashes[newIndices[i - 1] + j] = a.hashes[a.indices[i - 1] + j]
+
+  swap(a.hashes, newHashes)
+  a.indices = newIndices
+
+template `[]`*(a: HashArray, b: auto): auto =
+  a.data[b]
+
+proc `[]`*[maxLen: static int; T](a: var HashArray[maxLen, T], b: auto): var T =
+  clearTree(a, b.int64)
+  a.data[b]
+
+proc `[]=`*(a: var HashArray, b: auto, c: auto) =
+  clearTree(a, b.int64)
+  a.data[b] = c
+
+template fill*[N: static int; T](a: var HashArray[N, T], c: T) =
+  mixin fill
+  fill(a.data, c)
+template sum*[N: static int; T](a: var HashArray[N, T]): T =
+  mixin sum
+  sum(a.data)
+
+template len*[N: static int; T](a: type HashArray[N, T]): int = N
+
+template add*(x: var HashList, val: x.T) =
+  add(x.data, val)
+  x.growHashes()
+  clearTree(x, x.data.len() - 1) # invalidate entry we just added
+
+template len*(x: HashList|HashArray): auto = len(x.data)
+template low*(x: HashList|HashArray): auto = low(x.data)
+template high*(x: HashList|HashArray): auto = high(x.data)
+template `[]`*(x: HashList, idx: auto): auto = x.data[idx]
+proc `[]`*[T; maxLen: static int64](x: var HashList[T, maxLen], idx: auto): var T =
+  clearTree(x, idx.int64)
+  x.data[idx]
+
+proc `[]=`*(x: var HashList, idx: int64, val: auto) =
+  clearTree(x, idx.int64)
+  x.data[idx] = val
+
+template `==`*(a, b: HashList|HashArray): bool = a.data == b.data
+template asSeq*(x: HashList): auto = asSeq(x.data)
+template `$`*(x: HashList): auto = $(x.data)
+
+template items* (x: HashList|HashArray): untyped = items(x.data)
+template pairs* (x: HashList|HashArray): untyped = pairs(x.data)
+
 macro unsupported*(T: typed): untyped =
   # TODO: {.fatal.} breaks compilation even in `compiles()` context,
   # so we use this macro instead. It's also much better at figuring
   # out the actual type that was used in the instantiation.
   # File both problems as issues.
   error "SSZ serialization of the type " & humaneTypeName(T) & " is not supported"
+
+template ElemType*(T: type[HashArray]): untyped =
+  type(default(T).data[0])
+
+template ElemType*(T: type[HashList]): untyped =
+  type(default(T).data[0])
 
 template ElemType*(T: type[array]): untyped =
   type(default(T)[low(T)])
@@ -98,7 +241,7 @@ func isFixedSize*(T0: type): bool {.compileTime.} =
 
   when T is BasicType:
     return true
-  elif T is array:
+  elif T is array|HashArray:
     return isFixedSize(ElemType(T))
   elif T is object|tuple:
     enumAllSerializedFields(T):
@@ -112,7 +255,7 @@ func fixedPortionSize*(T0: type): int {.compileTime.} =
   type T = type toSszType(declval T0)
 
   when T is BasicType: sizeof(T)
-  elif T is array:
+  elif T is array|HashArray:
     type E = ElemType(T)
     when isFixedSize(E): len(T) * fixedPortionSize(E)
     else: len(T) * offsetSize
