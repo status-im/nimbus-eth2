@@ -23,6 +23,7 @@ TOOLS := \
 	ncli_hash_tree_root \
 	ncli_pretty \
 	ncli_transition \
+	ncli_db \
 	process_dashboard \
 	stack_sizes \
 	state_sim \
