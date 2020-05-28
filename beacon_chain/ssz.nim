@@ -42,7 +42,6 @@ const
 type
   SszReader* = object
     stream: InputStream
-    maxObjectSize: int
 
   SszWriter* = object
     stream: OutputStream
@@ -66,12 +65,6 @@ serializationFormat SSZ,
                     Writer = SszWriter,
                     PreferedOutput = seq[byte]
 
-template decode*(Format: type SSZ,
-                 input: openarray[byte],
-                 RecordType: distinct type): auto =
-  # TODO how badly is this affected by RVO bugs?
-  serialization.decode(SSZ, input, RecordType, maxObjectSize = input.len)
-
 template loadFile*(Format: type SSZ,
                    file: string,
                    RecordType: distinct type): auto =
@@ -85,10 +78,8 @@ template sizePrefixed*[TT](x: TT): untyped =
   type T = TT
   SizePrefixed[T](x)
 
-proc init*(T: type SszReader,
-           stream: InputStream,
-           maxObjectSize: int): T {.raises: [Defect].} =
-  T(stream: stream, maxObjectSize: maxObjectSize)
+proc init*(T: type SszReader, stream: InputStream): T {.raises: [Defect].} =
+  T(stream: stream)
 
 method formatMsg*(
   err: ref SszSizeMismatchError,
@@ -304,13 +295,6 @@ proc readValue*[T](r: var SszReader, val: var T) {.raises: [Defect, MalformedSsz
     # the dynamic portion to consume the right number of bytes.
     readSszValue(r.stream.read(r.stream.len.get), val)
 
-proc readValue*[T](r: var SszReader, val: var SizePrefixed[T]) {.raises: [Defect].} =
-  let length = r.stream.readVarint(uint64)
-  if length > r.maxObjectSize:
-    raise newException(SszMaxSizeExceeded,
-                       "Maximum SSZ object size exceeded: " & $length)
-  readSszValue(r.stream.read(length), T(val))
-
 const
   zeroChunk = default array[32, byte]
 
@@ -342,7 +326,7 @@ func mergeBranches(existing: Eth2Digest, newData: openarray[byte]): Eth2Digest =
 template mergeBranches(a, b: Eth2Digest): Eth2Digest =
   hash(a.data, b.data)
 
-func computeZeroHashes: array[64, Eth2Digest] =
+func computeZeroHashes: array[sizeof(Limit) * 8, Eth2Digest] =
   result[0] = Eth2Digest(data: zeroChunk)
   for i in 1 .. result.high:
     result[i] = mergeBranches(result[i - 1], result[i - 1])
