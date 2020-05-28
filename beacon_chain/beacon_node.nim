@@ -398,13 +398,17 @@ proc runSyncLoop(node: BeaconNode) {.async.} =
     let epoch = node.beaconClock.now().toSlot().slot.compute_epoch_at_slot() + 1'u64
     result = epoch.compute_start_slot_at_epoch()
 
-  proc updateLocalBlocks(list: openarray[SignedBeaconBlock]): bool =
+  proc updateLocalBlocks(list: openarray[SignedBeaconBlock]): Result[void, BlockError] =
     debug "Forward sync imported blocks", count = len(list),
           local_head_slot = getLocalHeadSlot()
     let sm = now(chronos.Moment)
     for blk in list:
-      if node.storeBlock(blk).isErr:
-        return false
+      let res = node.storeBlock(blk)
+      # We going to ignore `BlockError.Old` errors because we have working
+      # backward sync and it can happens that we can perform overlapping
+      # requests.
+      if res.isErr and res.error != BlockError.Old:
+        return res
     discard node.updateHead()
 
     let dur = now(chronos.Moment) - sm
@@ -417,13 +421,14 @@ proc runSyncLoop(node: BeaconNode) {.async.} =
 
     info "Forward sync blocks got imported sucessfully", count = len(list),
          local_head_slot = getLocalHeadSlot(), store_speed = storeSpeed
-    result = true
+    ok()
 
   proc scoreCheck(peer: Peer): bool =
-    if peer.score < PeerScoreLimit:
+    if peer.score < PeerScoreLowLimit:
       try:
         debug "Peer score is too low, removing it from PeerPool", peer = peer,
-              peer_score = peer.score, score_limit = PeerScoreLimit
+              peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
+              score_high_limit = PeerScoreHighLimit
       except:
         discard
       result = false

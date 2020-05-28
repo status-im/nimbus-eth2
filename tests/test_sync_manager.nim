@@ -24,7 +24,8 @@ suite "SyncManager test suite":
       curslot = curslot + 1'u64
 
   proc syncUpdate(req: SyncRequest[SomeTPeer],
-                  data: openarray[SignedBeaconBlock]): bool {.gcsafe.} =
+                data: openarray[SignedBeaconBlock]): Result[void, BlockError] {.
+    gcsafe.} =
     discard
 
   test "[SyncQueue] Start and finish slots equal":
@@ -198,14 +199,14 @@ suite "SyncManager test suite":
       var counter = 0
 
       proc syncReceiver(req: SyncRequest[SomeTPeer],
-                        list: openarray[SignedBeaconBlock]): bool {.gcsafe.} =
-        result = true
+                list: openarray[SignedBeaconBlock]): Result[void, BlockError] {.
+        gcsafe.} =
         for item in list:
           if item.message.slot == Slot(counter):
             inc(counter)
           else:
-            result = false
-            break
+            return err(Invalid)
+        return ok()
 
       var chain = createChain(Slot(0), Slot(2))
       var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(2), 1'u64,
@@ -241,14 +242,14 @@ suite "SyncManager test suite":
       var counter = 5
 
       proc syncReceiver(req: SyncRequest[SomeTPeer],
-                        list: openarray[SignedBeaconBlock]): bool {.gcsafe.} =
-        result = true
+                list: openarray[SignedBeaconBlock]): Result[void, BlockError] {.
+        gcsafe.} =
         for item in list:
           if item.message.slot == Slot(counter):
             inc(counter)
           else:
-            result = false
-            break
+            return err(Invalid)
+        return ok()
 
       var chain = createChain(Slot(5), Slot(11))
       var queue = SyncQueue.init(SomeTPeer, Slot(5), Slot(11), 2'u64,
@@ -282,6 +283,75 @@ suite "SyncManager test suite":
       doAssert(r22.item == p2)
       doAssert(r23.item == p3)
       doAssert(r24.item == p4)
+      result = true
+
+    check waitFor(test())
+
+  test "[SyncQueue] Async pending and resetWait() test":
+    proc test(): Future[bool] {.async.} =
+      var counter = 5
+
+      proc syncReceiver(req: SyncRequest[SomeTPeer],
+                list: openarray[SignedBeaconBlock]): Result[void, BlockError] {.
+        gcsafe.} =
+        for item in list:
+          if item.message.slot == Slot(counter):
+            inc(counter)
+          else:
+            return err(Invalid)
+        return ok()
+
+      var chain = createChain(Slot(5), Slot(18))
+      var queue = SyncQueue.init(SomeTPeer, Slot(5), Slot(18), 2'u64,
+                                 syncReceiver, 2)
+      let p1 = SomeTPeer()
+      let p2 = SomeTPeer()
+      let p3 = SomeTPeer()
+      let p4 = SomeTPeer()
+      let p5 = SomeTPeer()
+      let p6 = SomeTPeer()
+      let p7 = SomeTPeer()
+
+      var r21 = queue.pop(Slot(20), p1)
+      var r22 = queue.pop(Slot(20), p2)
+      var r23 = queue.pop(Slot(20), p3)
+      var r24 = queue.pop(Slot(20), p4)
+      var r25 = queue.pop(Slot(20), p5)
+      var r26 = queue.pop(Slot(20), p6)
+      var r27 = queue.pop(Slot(20), p7)
+
+      var f21 = queue.push(r21, @[chain[0], chain[1]])
+      # This should be silently ignored, because r21 is already processed.
+      var e21 = queue.push(r21, @[chain[0], chain[1]])
+      queue.push(r22)
+      queue.push(r23)
+      var f26 = queue.push(r26, @[chain[10], chain[11]])
+      var f27 = queue.push(r27, @[chain[12], chain[13]])
+
+      doAssert(f21.finished == true and f21.failed == false)
+      doAssert(e21.finished == true and e21.failed == false)
+      doAssert(f26.finished == false)
+      doAssert(f27.finished == false)
+      await queue.resetWait(none[Slot]())
+      doAssert(f26.finished == true and f26.failed == false)
+      doAssert(f27.finished == true and f27.failed == false)
+      doAssert(queue.inpSlot == Slot(7) and queue.outSlot == Slot(7))
+      doAssert(counter == 7)
+      doAssert(len(queue) == 12)
+      # This should be silently ignored, because r21 is already processed.
+      var o21 = queue.push(r21, @[chain[0], chain[1]])
+      var o22 = queue.push(r22, @[chain[2], chain[3]])
+      queue.push(r23)
+      queue.push(r24)
+      var o25 = queue.push(r25, @[chain[8], chain[9]])
+      var o26 = queue.push(r26, @[chain[10], chain[11]])
+      var o27 = queue.push(r27, @[chain[12], chain[13]])
+      doAssert(o21.finished == true and o21.failed == false)
+      doAssert(o22.finished == true and o22.failed == false)
+      doAssert(o25.finished == true and o25.failed == false)
+      doAssert(o26.finished == true and o26.failed == false)
+      doAssert(o27.finished == true and o27.failed == false)
+      doAssert(len(queue) == 12)
       result = true
 
     check waitFor(test())
