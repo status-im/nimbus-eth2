@@ -44,7 +44,7 @@ setDefaultValue(SSZHashTreeRoot, signing_root, "")
 proc checkSSZ(T: type SignedBeaconBlock, dir: string, expectedHash: SSZHashTreeRoot) =
   # Deserialize into a ref object to not fill Nim stack
   let encoded = readFileBytes(dir/"serialized.ssz")
-  var deserialized = newClone sszDecodeEntireInput(encoded, T)
+  var deserialized = newClone(sszDecodeEntireInput(encoded, T))
 
   # SignedBeaconBlocks usually not hashed because they're identified by
   # htr(BeaconBlock), so do it manually
@@ -60,7 +60,7 @@ proc checkSSZ(T: type SignedBeaconBlock, dir: string, expectedHash: SSZHashTreeR
 proc checkSSZ(T: type, dir: string, expectedHash: SSZHashTreeRoot) =
   # Deserialize into a ref object to not fill Nim stack
   let encoded = readFileBytes(dir/"serialized.ssz")
-  var deserialized = newClone sszDecodeEntireInput(encoded, T)
+  var deserialized = newClone(sszDecodeEntireInput(encoded, T))
 
   check: expectedHash.root == "0x" & toLowerASCII($hash_tree_root(deserialized[]))
 

@@ -20,13 +20,13 @@ suiteReport "Block processing" & preset():
   let
     # Genesis state with minimal number of deposits
     # TODO bls verification is a bit of a bottleneck here
-    genesisState = initialize_hashed_beacon_state_from_eth1(
-      Eth2Digest(), 0, makeInitialDeposits(), {})
+    genesisState = newClone(initialize_hashed_beacon_state_from_eth1(
+      Eth2Digest(), 0, makeInitialDeposits(), {}))
     genesisBlock = get_initial_beacon_block(genesisState.data)
     genesisRoot = hash_tree_root(genesisBlock.message)
 
   setup:
-    var state = newClone(genesisState)
+    var state = newClone(genesisState[])
 
   timedTest "Passes from genesis state, no block" & preset():
     check:
