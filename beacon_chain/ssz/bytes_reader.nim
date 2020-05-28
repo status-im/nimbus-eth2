@@ -84,7 +84,7 @@ template checkForForbiddenBits(ResulType: type,
     if (input[^1] and forbiddenBitsMask) != 0:
       raiseIncorrectSize ResulType
 
-func readSszValue*(input: openarray[byte], val: var auto) {.raisesssz.} =
+func readSszValue*[T](input: openarray[byte], val: var T) {.raisesssz.} =
   mixin fromSszBytes, toSszType
 
   template readOffsetUnchecked(n: int): int {.used.}=
@@ -108,11 +108,20 @@ func readSszValue*(input: openarray[byte], val: var auto) {.raisesssz.} =
     if input.len == 0:
       raise newException(MalformedSszError, "Invalid empty SSZ BitList value")
 
+    # Since our BitLists have an in-memory representation that precisely
+    # matches their SSZ encoding, we can deserialize them as regular Lists:
     const maxExpectedSize = (val.maxLen div 8) + 1
-    # TODO can't cast here..
-    var v: List[byte, maxExpectedSize]
-    readSszValue(input, v)
-    val = (type val)(v)
+    type MatchingListType = List[byte, maxExpectedSize]
+
+    when false:
+      # TODO: Nim doesn't like this simple type coercion,
+      #       we'll rely on `cast` for now (see below)
+      readSszValue(input, MatchingListType val)
+    else:
+      static:
+        # As a sanity check, we verify that the coercion is accepted by the compiler:
+        doAssert MatchingListType(val) is MatchingListType
+      readSszValue(input, cast[ptr MatchingListType](addr val)[])
 
     let resultBytesCount = len bytes(val)
 
@@ -120,7 +129,7 @@ func readSszValue*(input: openarray[byte], val: var auto) {.raisesssz.} =
       raise newException(MalformedSszError, "SSZ BitList is not properly terminated")
 
     if resultBytesCount == maxExpectedSize:
-      checkForForbiddenBits(type val, input, val.maxLen + 1)
+      checkForForbiddenBits(T, input, val.maxLen + 1)
 
   elif val is List|array:
     type E = type val[0]
@@ -133,7 +142,7 @@ func readSszValue*(input: openarray[byte], val: var auto) {.raisesssz.} =
       const elemSize = fixedPortionSize(E)
       if input.len mod elemSize != 0:
         var ex = new SszSizeMismatchError
-        ex.deserializedType = cstring typetraits.name(type val)
+        ex.deserializedType = cstring typetraits.name(T)
         ex.actualSszSize = input.len
         ex.elementSize = elemSize
         raise ex
@@ -184,17 +193,17 @@ func readSszValue*(input: openarray[byte], val: var auto) {.raisesssz.} =
 
   elif val is BitArray:
     if sizeof(val) != input.len:
-      raiseIncorrectSize(type val)
-    checkForForbiddenBits(type val, input, val.bits)
+      raiseIncorrectSize(T)
+    checkForForbiddenBits(T, input, val.bits)
     copyMem(addr val.bytes[0], unsafeAddr input[0], input.len)
 
   elif val is object|tuple:
-    const minimallyExpectedSize = fixedPortionSize(type val)
+    const minimallyExpectedSize = fixedPortionSize(T)
     if input.len < minimallyExpectedSize:
       raise newException(MalformedSszError, "SSZ input of insufficient size")
 
     enumInstanceSerializedFields(val, fieldName, field):
-      const boundingOffsets = getFieldBoundingOffsets(type val, fieldName)
+      const boundingOffsets = getFieldBoundingOffsets(T, fieldName)
       trs "BOUNDING OFFSET FOR FIELD ", fieldName, " = ", boundingOffsets
 
       # type FieldType = type field # buggy
@@ -242,4 +251,4 @@ func readSszValue*(input: openarray[byte], val: var auto) {.raisesssz.} =
           input.toOpenArray(startOffset, endOffset - 1))
 
   else:
-    unsupported (type val)
+    unsupported T
