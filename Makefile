@@ -53,8 +53,12 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	testnet1 \
 	clean \
 	libbacktrace \
+	clean-schlesi \
 	schlesi \
 	schlesi-dev \
+	clean-witti \
+	witti \
+	witti-dev \
 	book \
 	publish-book
 
@@ -134,21 +138,25 @@ clean-testnet1:
 # - try SCRIPT_PARAMS="--skipGoerliKey"
 testnet0 testnet1: | build deps
 	source scripts/$@.env; \
-		NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) --const-preset=$$CONST_PRESET --dev-build $@
+		NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) --const-preset=$$CONST_PRESET --dev-build $@
+
+clean-schlesi:
+	rm -rf build/data/shared_schlesi
 
 schlesi: | build deps
-	LOG_LEVEL="DEBUG" NIM_PARAMS="$(NIM_PARAMS)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/schlesi
+	NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/schlesi
 
 schlesi-dev: | build deps
-	LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" NIM_PARAMS="$(NIM_PARAMS)" \
-		$(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) --dev-build shared/schlesi
+	NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/schlesi
+
+clean-witti:
+	rm -rf build/data/shared_witti
 
 witti: | build deps
-	LOG_LEVEL="DEBUG" NIM_PARAMS="$(NIM_PARAMS)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/witti
+	NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/witti
 
 witti-dev: | build deps
-	LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" NIM_PARAMS="$(NIM_PARAMS)" \
-		$(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) --dev-build shared/witti
+	NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/witti
 
 clean: | clean-common
 	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,beacon_node_testnet*,block_sim,state_sim,transition*}
