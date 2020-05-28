@@ -14,7 +14,7 @@ import
 import
   block_pools/[block_pools_types, clearance, candidate_chains, quarantine]
 
-export results
+export results, block_pools_types
 
 # Block_Pools
 # --------------------------------------------

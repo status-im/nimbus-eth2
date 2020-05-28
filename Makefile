@@ -24,6 +24,7 @@ TOOLS := \
 	ncli_pretty \
 	ncli_query \
 	ncli_transition \
+	ncli_db \
 	process_dashboard \
 	stack_sizes \
 	state_sim \
