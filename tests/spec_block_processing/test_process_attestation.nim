@@ -23,7 +23,7 @@ import
 suiteReport "[Unit - Spec - Block processing] Attestations " & preset():
 
   const NumValidators = uint64(8) * SLOTS_PER_EPOCH
-  let genesisState = initGenesisState(NumValidators)
+  let genesisState = newClone(initGenesisState(NumValidators))
   doAssert genesisState.data.validators.len == int NumValidators
 
   template valid_attestation(name: string, body: untyped): untyped {.dirty.}=
@@ -33,7 +33,7 @@ suiteReport "[Unit - Spec - Block processing] Attestations " & preset():
     # The attestation to process must be named "attestation" in the calling context
 
     timedTest name:
-      var state {.inject.} = newClone(genesisState)
+      var state {.inject.} = newClone(genesisState[])
 
       # Attestation setup body
       # ----------------------------------------

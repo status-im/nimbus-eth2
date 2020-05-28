@@ -33,13 +33,13 @@ proc runTest(identifier: string) =
     timedTest "Slots - " & identifier:
       var
         preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
-        hashedPreState = HashedBeaconState(
+        hashedPreState = (ref HashedBeaconState)(
           data: preState[], root: hash_tree_root(preState[]))
       let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
 
       check:
         process_slots(
-          hashedPreState, hashedPreState.data.slot + num_slots)
+          hashedPreState[], hashedPreState.data.slot + num_slots)
 
         hashedPreState.root == postState[].hash_tree_root()
       let newPreState = newClone(hashedPreState.data)

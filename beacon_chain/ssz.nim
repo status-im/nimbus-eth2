@@ -259,7 +259,7 @@ func sszSize*(value: auto): int {.gcsafe, raises: [Defect].} =
 
   elif T is object|tuple:
     result = anonConst fixedPortionSize(T)
-    enumInstanceSerializedFields(value, _, field):
+    enumInstanceSerializedFields(value, _{.used.}, field):
       type FieldType = type toSszType(field)
       when not isFixedSize(FieldType):
         result += sszSize(toSszType field)

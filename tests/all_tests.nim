@@ -31,8 +31,6 @@ import # Unit test
   ./fork_choice/tests_fork_choice
 
 import # Refactor state transition unit tests
-  # TODO re-enable when useful
-  # ./spec_block_processing/test_genesis,
   # In mainnet these take 2 minutes and are empty TODOs
   ./spec_block_processing/test_process_deposits,
   ./spec_block_processing/test_process_attestation,

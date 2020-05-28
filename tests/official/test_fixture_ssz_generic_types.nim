@@ -77,13 +77,13 @@ proc checkBasic(T: typedesc,
                 dir: string,
                 expectedHash: SSZHashTreeRoot) =
   var fileContents = readFileBytes(dir/"serialized.ssz")
-  var deserialized = sszDecodeEntireInput(fileContents, T)
+  var deserialized = newClone(sszDecodeEntireInput(fileContents, T))
 
   let expectedHash = expectedHash.root
-  let actualHash = "0x" & toLowerASCII($deserialized.hashTreeRoot())
+  let actualHash = "0x" & toLowerASCII($hash_tree_root(deserialized[]))
 
   check expectedHash == actualHash
-  check sszSize(deserialized) == fileContents.len
+  check sszSize(deserialized[]) == fileContents.len
 
   # TODO check the value
 

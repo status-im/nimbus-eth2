@@ -217,11 +217,11 @@ proc payload =
     echo "   Finalization rules are detailed at https://github.com/protolambda/eth2-docs#justification-and-finalization"
 
     const NumValidators = uint64(8) * SLOTS_PER_EPOCH
-    let genesisState = initGenesisState(NumValidators)
+    let genesisState = newClone(initGenesisState(NumValidators))
     doAssert genesisState.data.validators.len == int NumValidators
 
     setup:
-      var state = newClone(genesisState)
+      var state = newClone(genesisState[])
 
     timedTest " Rule I - 234 finalization with enough support":
       finalizeOn234(state[], Epoch 5, sufficient_support = true)

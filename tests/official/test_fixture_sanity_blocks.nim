@@ -37,7 +37,7 @@ proc runTest(identifier: string) =
       var
         preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
         hasPostState = existsFile(testDir/"post.ssz")
-        hashedPreState = HashedBeaconState(
+        hashedPreState = (ref HashedBeaconState)(
           data: preState[], root: hash_tree_root(preState[]))
 
       # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
@@ -48,11 +48,11 @@ proc runTest(identifier: string) =
 
         if hasPostState:
           let success = state_transition(
-            hashedPreState, blck, flags = {}, noRollback)
+            hashedPreState[], blck, flags = {}, noRollback)
           doAssert success, "Failure when applying block " & $i
         else:
           let success = state_transition(
-            hashedPreState, blck, flags = {}, noRollback)
+            hashedPreState[], blck, flags = {}, noRollback)
           doAssert (i + 1 < numBlocks) or not success,
             "We didn't expect these invalid blocks to be processed"
 
