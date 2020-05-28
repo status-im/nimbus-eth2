@@ -1,13 +1,9 @@
-# TODO Cannot use push here becaise it gets applied to PeerID.init (!)
-#      probably because it's a generic proc...
-# {.push raises: [Defect].}
+{.push raises: [Defect].}
 
 import
-  os, net, sequtils, strutils, strformat, parseutils,
-  chronicles, stew/[results, objects], eth/keys, eth/trie/db, eth/p2p/enode,
-  eth/p2p/discoveryv5/[enr, protocol, discovery_db, types],
-  libp2p/[multiaddress, peer],
-  libp2p/crypto/crypto as libp2pCrypto, libp2p/crypto/secp,
+  os, net, sequtils, strutils,
+  chronicles, stew/results, eth/keys, eth/trie/db,
+  eth/p2p/discoveryv5/[enr, protocol, discovery_db, node],
   conf
 
 type
@@ -16,86 +12,10 @@ type
   PublicKey = keys.PublicKey
 
 export
-  Eth2DiscoveryProtocol, open, start, close, results
+  Eth2DiscoveryProtocol, open, start, close, closeWait, randomNodes, results
 
-proc toENode*(a: MultiAddress): Result[ENode, cstring] {.raises: [Defect].} =
-  try:
-    if not IPFS.match(a):
-      return err "Unsupported MultiAddress"
-
-    # TODO. This code is quite messy with so much string handling.
-    # MultiAddress can offer a more type-safe API?
-    var
-      peerId = PeerID.init(a[2].protoAddress())
-      addressFragments = split($a[0], "/")
-      portFragments = split($a[1], "/")
-      tcpPort: int
-
-    if addressFragments.len != 3 or
-       addressFragments[1] != "ip4" or
-       portFragments.len != 3 or
-       portFragments[1] notin ["tcp", "udp"] or
-       parseInt(portFragments[2], tcpPort) == 0:
-      return err "Only IPv4 MultiAddresses are supported"
-
-    let
-      ipAddress = parseIpAddress(addressFragments[2])
-
-      # TODO. The multiaddress will have either a TCP or a UDP value, but
-      # is it reasonable to assume that a client will use the same ports?
-      # Probably not, but how can we bootstrap then?
-      udpPort = tcpPort
-
-    var pubkey: libp2pCrypto.PublicKey
-    if peerId.extractPublicKey(pubkey):
-      if pubkey.scheme == Secp256k1:
-        return ok ENode(pubkey: PublicKey(pubkey.skkey),
-                        address: Address(ip: ipAddress,
-                                         tcpPort: Port tcpPort,
-                                         udpPort: Port udpPort))
-
-  except CatchableError:
-    # This will reach the error exit path below
-    discard
-  except Exception as e:
-    # TODO:
-    # nim-libp2p/libp2p/multiaddress.nim(616, 40) Error: can raise an unlisted exception: Exception
-    if e of Defect:
-      raise (ref Defect)(e)
-
-  return err "Invalid MultiAddress"
-
-proc toMultiAddressStr*(enode: ENode): string =
-  var peerId = PeerID.init(libp2pCrypto.PublicKey(
-    scheme: Secp256k1, skkey: secp.SkPublicKey(enode.pubkey)))
-  &"/ip4/{enode.address.ip}/tcp/{enode.address.tcpPort}/p2p/{peerId.pretty}"
-
-proc toENode*(enrRec: enr.Record): Result[ENode, cstring] {.raises: [Defect].} =
-  try:
-    # TODO: handle IPv6
-    let ipBytes = enrRec.get("ip", seq[byte])
-    if ipBytes.len != 4:
-      return err "Malformed ENR IP address"
-    let
-      ip = IpAddress(family: IpAddressFamily.IPv4,
-                     address_v4: toArray(4, ipBytes))
-      tcpPort = Port enrRec.get("tcp", uint16)
-      udpPort = Port enrRec.get("udp", uint16)
-    let pubkey = enrRec.get(PublicKey)
-    if pubkey.isNone:
-      return err "Failed to read public key from ENR record"
-    return ok ENode(pubkey: pubkey.get(),
-                    address: Address(ip: ip,
-                                     tcpPort: tcpPort,
-                                     udpPort: udpPort))
-  except CatchableError:
-    return err "Invalid ENR record"
-
-# TODO
-# This will be resoted to its more generalized form (returning ENode)
-# once we refactor the discv5 code to be more easily bootstrapped with
-# trusted, but non-signed bootstrap addresses.
-proc parseBootstrapAddress*(address: TaintedString): Result[enr.Record, cstring] =
+proc parseBootstrapAddress*(address: TaintedString):
+    Result[enr.Record, cstring] =
   if address.len == 0:
     return err "an empty string is not a valid bootstrap node"
 
@@ -104,13 +24,6 @@ proc parseBootstrapAddress*(address: TaintedString): Result[enr.Record, cstring]
 
   if address[0] == '/':
     return err "MultiAddress bootstrap addresses are not supported"
-    #[
-    try:
-      let ma = MultiAddress.init(address)
-      return toENode(ma)
-    except CatchableError:
-      return err "Invalid bootstrap multiaddress"
-    ]#
   else:
     let lowerCaseAddress = toLowerAscii(string address)
     if lowerCaseAddress.startsWith("enr:"):
@@ -120,40 +33,41 @@ proc parseBootstrapAddress*(address: TaintedString): Result[enr.Record, cstring]
       return err "Invalid ENR bootstrap record"
     elif lowerCaseAddress.startsWith("enode:"):
       return err "ENode bootstrap addresses are not supported"
-      #[
-      try:
-        return ok initEnode(string address)
-      except CatchableError as err:
-        return err "Ignoring invalid enode bootstrap address"
-      ]#
     else:
       return err "Ignoring unrecognized bootstrap address type"
 
 proc addBootstrapNode*(bootstrapAddr: string,
-                       bootNodes: var seq[ENode],
-                       bootEnrs: var seq[enr.Record],
+                       bootstrapEnrs: var seq[enr.Record],
                        localPubKey: PublicKey) =
   let enrRes = parseBootstrapAddress(bootstrapAddr)
   if enrRes.isOk:
-    bootEnrs.add enrRes.value
+    bootstrapEnrs.add enrRes.value
   else:
     warn "Ignoring invalid bootstrap address",
           bootstrapAddr, reason = enrRes.error
 
 proc loadBootstrapFile*(bootstrapFile: string,
-                        bootNodes: var seq[ENode],
-                        bootEnrs: var seq[enr.Record],
+                        bootstrapEnrs: var seq[enr.Record],
                         localPubKey: PublicKey) =
   if bootstrapFile.len == 0: return
   let ext = splitFile(bootstrapFile).ext
   if cmpIgnoreCase(ext, ".txt") == 0:
-    for ln in lines(bootstrapFile):
-      addBootstrapNode(ln, bootNodes, bootEnrs, localPubKey)
+    try:
+      for ln in lines(bootstrapFile):
+        addBootstrapNode(ln, bootstrapEnrs, localPubKey)
+    except IOError as e:
+      error "Could not read bootstrap file", msg = e.msg
+      quit 1
+
   elif cmpIgnoreCase(ext, ".yaml") == 0:
     # TODO. This is very ugly, but let's try to negotiate the
     # removal of YAML metadata.
-    for ln in lines(bootstrapFile):
-      addBootstrapNode(string(ln[3..^2]), bootNodes, bootEnrs, localPubKey)
+    try:
+      for ln in lines(bootstrapFile):
+        addBootstrapNode(string(ln[3..^2]), bootstrapEnrs, localPubKey)
+    except IOError as e:
+      error "Could not read bootstrap file", msg = e.msg
+      quit 1
   else:
     error "Unknown bootstrap file format", ext
     quit 1
@@ -162,26 +76,26 @@ proc new*(T: type Eth2DiscoveryProtocol,
           conf: BeaconNodeConf,
           ip: Option[IpAddress], tcpPort, udpPort: Port,
           rawPrivKeyBytes: openarray[byte],
-          enrFields: openarray[(string, seq[byte])]): T =
+          enrFields: openarray[(string, seq[byte])]):
+          T {.raises: [Exception, Defect].} =
   # TODO
   # Implement more configuration options:
   # * for setting up a specific key
   # * for using a persistent database
-  var
-    pk = PrivateKey.fromRaw(rawPrivKeyBytes).tryGet()
-    ourPubKey = pk.toPublicKey().tryGet()
+  let
+    pk = PrivateKey.fromRaw(rawPrivKeyBytes).expect("Valid private key")
+    ourPubKey = pk.toPublicKey().expect("Public key from valid private key")
+    # TODO: `newMemoryDB()` causes raises: [Exception]
     db = DiscoveryDB.init(newMemoryDB())
 
-  var bootNodes: seq[ENode]
-  var bootEnrs: seq[enr.Record]
+  var bootstrapEnrs: seq[enr.Record]
   for node in conf.bootstrapNodes:
-    addBootstrapNode(node, bootNodes, bootEnrs, ourPubKey)
-  loadBootstrapFile(string conf.bootstrapNodesFile, bootNodes, bootEnrs, ourPubKey)
+    addBootstrapNode(node, bootstrapEnrs, ourPubKey)
+  loadBootstrapFile(string conf.bootstrapNodesFile, bootstrapEnrs, ourPubKey)
 
   let persistentBootstrapFile = conf.dataDir / "bootstrap_nodes.txt"
   if fileExists(persistentBootstrapFile):
-    loadBootstrapFile(persistentBootstrapFile, bootNodes, bootEnrs, ourPubKey)
+    loadBootstrapFile(persistentBootstrapFile, bootstrapEnrs, ourPubKey)
 
   let enrFieldPairs = mapIt(enrFields, toFieldPair(it[0], it[1]))
-  newProtocol(pk, db, ip, tcpPort, udpPort, enrFieldPairs, bootEnrs)
-
+  newProtocol(pk, db, ip, tcpPort, udpPort, enrFieldPairs, bootstrapEnrs)

@@ -17,14 +17,11 @@ import
   libp2p/protocols/pubsub/[pubsub, floodsub, rpc/messages],
   libp2p/transports/tcptransport,
   libp2p/stream/lpstream,
-  eth/[keys, async_utils], eth/p2p/[enode, p2p_protocol_dsl],
+  eth/[keys, async_utils], eth/p2p/p2p_protocol_dsl,
   eth/net/nat, eth/p2p/discoveryv5/[enr, node],
   # Beacon node modules
   version, conf, eth2_discovery, libp2p_json_serialization, conf, ssz,
   peer_pool, spec/[datatypes, network]
-
-import
-  eth/p2p/discoveryv5/protocol as discv5_protocol
 
 export
   version, multiaddress, peer_pool, peerinfo, p2pProtocol,
@@ -681,14 +678,16 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
           node.discovery.randomNodes(node.wantedPeers - currentPeerCount)
         for peer in discoveredPeers:
           try:
-            let peerInfo = peer.record.toTypedRecord.toPeerInfo
-            if peerInfo != nil:
-              if peerInfo.id notin node.switch.connections:
-                debug "Discovered new peer", peer = $peer
-                # TODO do this in parallel
-                await node.dialPeer(peerInfo)
-              else:
-                peerInfo.close()
+            let peerRecord = peer.record.toTypedRecord
+            if peerRecord.isOk:
+              let peerInfo = peerRecord.value.toPeerInfo
+              if peerInfo != nil:
+                if peerInfo.id notin node.switch.connections:
+                  debug "Discovered new peer", peer = $peer
+                  # TODO do this in parallel
+                  await node.dialPeer(peerInfo)
+                else:
+                  peerInfo.close()
           except CatchableError as err:
             debug "Failed to connect to peer", peer = $peer, err = err.msg
       except CatchableError as err:
@@ -731,7 +730,7 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
 template publicKey*(node: Eth2Node): keys.PublicKey =
   node.discovery.privKey.toPublicKey.tryGet()
 
-template addKnownPeer*(node: Eth2Node, peer: ENode|enr.Record) =
+template addKnownPeer*(node: Eth2Node, peer: enr.Record) =
   node.discovery.addNode peer
 
 proc start*(node: Eth2Node) {.async.} =
@@ -1008,12 +1007,6 @@ proc announcedENR*(node: Eth2Node): enr.Record =
 
 proc shortForm*(id: KeyPair): string =
   $PeerID.init(id.pubkey)
-
-proc toPeerInfo(enode: ENode): PeerInfo =
-  let
-    peerId = PeerID.init enode.pubkey.asLibp2pKey
-    addresses = @[MultiAddress.init enode.toMultiAddressStr]
-  return PeerInfo.init(peerId, addresses)
 
 proc connectToNetwork*(node: Eth2Node) {.async.} =
   await node.start()
