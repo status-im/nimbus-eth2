@@ -139,6 +139,23 @@ func atSlot*(blck: BlockRef, slot: Slot): BlockSlot =
   ## block proposal)
   BlockSlot(blck: blck.getAncestorAt(slot), slot: slot)
 
+func getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
+  # This is the only intended mechanism by which to get an EpochRef
+  let
+    state_epoch = state.slot.compute_epoch_at_slot
+    matching_epochinfo = blck.epochsInfo.filterIt(it.epoch == state_epoch)
+
+  if matching_epochinfo.len == 0:
+    let cache = populateEpochCache(state, state_epoch)
+    blck.epochsInfo.add(cache)
+    trace "candidate_chains.skipAndUpdateState(): back-filling parent.epochInfo",
+      state_slot = state.slot
+    cache
+  elif matching_epochinfo.len == 1:
+    matching_epochinfo[0]
+  else:
+    raiseAssert "multiple EpochRefs per epoch per BlockRef invalid"
+
 func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
   BlockRef(
     root: root,
@@ -447,29 +464,13 @@ proc skipAndUpdateState(
     doAssert (addr(statePtr.data) == addr v)
     statePtr[] = dag.headState
 
-  # TODO consider refactoring with clearance.add(...)
-  let
-    state_epoch = state.data.data.slot.compute_epoch_at_slot
-    matching_epochinfo = blck.refs.epochsInfo.filterIt(it.epoch == state_epoch)
-    epochInfo =
-      if matching_epochinfo.len == 0:
-        let cache = populateEpochCache(state.data.data, state_epoch)
-        blck.refs.epochsInfo.add(cache)
-        trace "candidate_chains.skipAndUpdateState(): back-filling parent.epochInfo",
-          state_slot = state.data.data.slot
-        cache
-      elif matching_epochinfo.len == 1:
-        matching_epochinfo[0]
-      else:
-        doAssert false
-        matching_epochinfo[0] # Typecheck
-
   # TODO it's probably not the right way to convey this, but for now, avoids
   # death-by-dozens-of-pointless-changes in developing this
+  let epochInfo = getEpochInfo(blck.refs, state.data.data)
   var stateCache = get_empty_per_epoch_cache()
-  stateCache.shuffled_active_validator_indices[state_epoch] =
-    epochInfo.shuffled_active_validator_indices
-  # End of tentative refactored proc
+  stateCache.shuffled_active_validator_indices[
+    state.data.data.slot.compute_epoch_at_slot] =
+      epochInfo.shuffled_active_validator_indices
 
   let ok = state_transition(
     state.data, blck.data, stateCache, flags + dag.updateFlags, restore)

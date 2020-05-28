@@ -137,7 +137,9 @@ type
     slot*: Slot # TODO could calculate this by walking to root, but..
 
     epochsInfo*: seq[EpochRef]
-    ## Could be multiple, since blocks could be skipped, but usually, not many
+    ## Could be multiple, since blocks could skip slots, but usually, not many
+    ## Even if competing forks happen later during this epoch, potential empty
+    ## slots beforehand must all be from this fork.
 
   BlockData* = object
     ## Body and graph in one

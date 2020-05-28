@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  chronicles, sequtils, tables,
+  chronicles, tables,
   metrics, stew/results,
   ../ssz, ../state_transition, ../extras,
   ../spec/[crypto, datatypes, digest, helpers, validator],
@@ -177,32 +177,15 @@ proc add*(
       doAssert v.addr == addr poolPtr.tmpState.data
       poolPtr.tmpState = poolPtr.headState
 
-    # See also candidate_chains.skipAndUpdateState(...)
-    let
-      state_epoch = dag.tmpState.data.data.slot.compute_epoch_at_slot
-      # TODO can replace filterIt and this whole approach with something without
-      # additional allocations, imports, etc
-      matching_epochinfo = parent.epochsInfo.filterIt(it.epoch == state_epoch)
-      epochInfo =
-        if matching_epochinfo.len == 0:
-          let cache = populateEpochCache(dag.tmpState.data.data, state_epoch)
-          parent.epochsInfo.add(cache)
-          trace "clearance.add(): back-filling parent.epochInfo",
-            state_slot = dag.tmpState.data.data.slot
-          cache
-        elif matching_epochinfo.len == 1:
-          matching_epochinfo[0]
-        else:
-          doAssert false
-          matching_epochinfo[0]  # Typecheck
-
     # TODO it's probably not the right way to convey this, but for now, avoids
     # death-by-dozens-of-pointless-changes in developing this
     # TODO rename these, since now, the two "state cache"s are juxtaposed
     # directly
+    let epochInfo = getEpochInfo(parent, dag.tmpState.data.data)
     var stateCache = get_empty_per_epoch_cache()
-    stateCache.shuffled_active_validator_indices[state_epoch] =
-      epochInfo.shuffled_active_validator_indices
+    stateCache.shuffled_active_validator_indices[
+      dag.tmpState.data.data.slot.compute_epoch_at_slot] =
+        epochInfo.shuffled_active_validator_indices
     # End of section to refactor/combine
 
     if not state_transition(
