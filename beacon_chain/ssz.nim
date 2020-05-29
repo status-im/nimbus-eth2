@@ -18,7 +18,7 @@
 
 import
   options, algorithm, options, strformat, typetraits,
-  stew/[bitops2, bitseqs, endians2, objects, varints, ptrops],
+  stew/[bitops2, byteutils, bitseqs, endians2, objects, varints, ptrops],
   stew/ranges/ptr_arith, stew/shims/macros,
   faststreams/[inputs, outputs, buffers],
   serialization, serialization/testing/tracing,
@@ -586,18 +586,27 @@ func hashTreeRootAux[T](x: T): Eth2Digest =
     unsupported T
 
 func mergedDataHash(x: HashList|HashArray, dataIdx: int64): Eth2Digest =
-  trs "DATA HASH ", dataIdx, " ", x.data.len
+  when x.T is uint64:
+    when cpuEndian == bigEndian:
+      unsupported type x
+    let
+      pos = offset(cast[ptr byte](unsafeAddr x.data[0]), dataIdx.int * 32)
+      pos2 = offset(pos, 32)
 
-  if dataIdx + 1 > x.data.len():
-    zeroHashes[x.maxDepth]
-  elif dataIdx + 1 == x.data.len():
-    mergeBranches(
-      hash_tree_root(x.data[dataIdx]),
-      Eth2Digest())
+    hash(makeOpenArray(pos, 32), makeOpenArray(pos2, 32))
   else:
-    mergeBranches(
-      hash_tree_root(x.data[dataIdx]),
-      hash_tree_root(x.data[dataIdx + 1]))
+    trs "DATA HASH ", dataIdx, " ", x.data.len
+
+    if dataIdx + 1 > x.data.len():
+      zeroHashes[x.maxDepth]
+    elif dataIdx + 1 == x.data.len():
+      mergeBranches(
+        hash_tree_root(x.data[dataIdx]),
+        Eth2Digest())
+    else:
+      mergeBranches(
+        hash_tree_root(x.data[dataIdx]),
+        hash_tree_root(x.data[dataIdx + 1]))
 
 func cachedHash*(x: HashList, vIdx: int64): Eth2Digest =
   doAssert vIdx >= 1
@@ -655,10 +664,7 @@ func hash_tree_root*(x: auto): Eth2Digest {.raises: [Defect], nbench.} =
   mixin toSszType
 
   result = when x is HashArray:
-      if x.hashes.len < 2:
-        zeroHashes[log2trunc(uint64(x.data.len() + 1))]
-      else:
-        cachedHash(x, 1)
+      cachedHash(x, 1)
     elif x is HashList:
       if x.hashes.len < 2:
         mixInLength(zeroHashes[x.maxDepth], x.data.len())

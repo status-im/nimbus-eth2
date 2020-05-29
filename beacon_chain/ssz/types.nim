@@ -9,6 +9,13 @@ import
 const
   offsetSize* = 4
 
+func hashChunks(maxLen: int64, T: type): int64 =
+  # For simplificy of implementation, HashArray only supports a few types - this
+  # could/should obviously be extended
+  when T is uint64:
+    maxLen * sizeof(T) div 32
+  else: maxLen
+
 type
   UintN* = SomeUnsignedInt # TODO: Add StUint here
   BasicType* = bool|UintN
@@ -33,7 +40,7 @@ type
 
   HashArray*[maxLen: static int; T] = object
     data*: array[maxLen, T]
-    hashes* {.dontSerialize.}: array[maxLen, Eth2Digest]
+    hashes* {.dontSerialize.}: array[hashChunks(maxLen, T), Eth2Digest]
 
   HashList*[T; maxLen: static int64] = object
     data*: List[T, maxLen]
@@ -98,7 +105,10 @@ template clearCache*(v: var Eth2Digest) =
 
 proc clearTree*(a: var HashArray, dataIdx: auto) =
   ## Clear all cache entries after data at dataIdx has been modified
-  var idx = 1 shl (a.maxDepth - 1) + int(dataIdx div 2)
+  when a.T is uint64:
+    var idx = 1 shl (a.maxDepth - 1) + int(dataIdx div 8)
+  else:
+    var idx = 1 shl (a.maxDepth - 1) + int(dataIdx div 2)
   while idx != 0:
     clearCache(a.hashes[idx])
     idx = idx div 2
@@ -123,9 +133,13 @@ template layer*(vIdx: int64): int =
   ## index 0 for the mixed-in-length
   log2trunc(vIdx.uint64).int
 
+template maxChunks*(a: HashList|HashArray): int64 =
+  ## Layer where data is
+  hashChunks(a.maxLen, a.T)
+
 template maxDepth*(a: HashList|HashArray): int =
   ## Layer where data is
-  layer(a.maxLen)
+  layer(a.maxChunks)
 
 proc clearTree*(a: var HashList, dataIdx: auto) =
   if a.hashes.len == 0:

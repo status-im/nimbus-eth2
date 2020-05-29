@@ -264,7 +264,7 @@ type
     ## Needed to process attestations, older to newer
 
     state_roots*: HashArray[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
-    historical_roots*: List[Eth2Digest, HISTORICAL_ROOTS_LIMIT]
+    historical_roots*: HashList[Eth2Digest, HISTORICAL_ROOTS_LIMIT]
 
     # Eth1
     eth1_data*: Eth1Data
@@ -280,7 +280,7 @@ type
     randao_mixes*: HashArray[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
 
     # Slashings
-    slashings*: array[EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
+    slashings*: HashArray[EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
     ## Per-epoch sums of slashed effective balances
 
     # Attestations

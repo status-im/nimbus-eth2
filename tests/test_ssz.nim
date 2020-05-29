@@ -95,9 +95,8 @@ suiteReport "SSZ navigator":
     let root = hash_tree_root(leaves)
     check $root == "5248085B588FAB1DD1E03F3CD62201602B12E6560665935964F46E805977E8C5"
 
-    while leaves.len < leaves.maxLen:
-      leaves.add c
-      check hash_tree_root(leaves) == hash_tree_root(leaves.data)
+    leaves.add c
+    check hash_tree_root(leaves) == hash_tree_root(leaves.data)
 
 suiteReport "SSZ dynamic navigator":
   timedTest "navigating fields":
@@ -155,3 +154,10 @@ suiteReport "hash":
     both: it.arr[0].data[0] = byte 1
 
     both: it.li.add Eth2Digest()
+
+
+  var y: HashArray[32, uint64]
+
+  doAssert hash_tree_root(y) == hash_tree_root(y.data)
+  y[4] = 42'u64
+  doAssert hash_tree_root(y) == hash_tree_root(y.data)
