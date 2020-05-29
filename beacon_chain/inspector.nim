@@ -11,7 +11,7 @@ import libp2p/[switch, standard_setup, connection, multiaddress, multicodec,
 import libp2p/crypto/crypto as lcrypto
 import libp2p/crypto/secp as lsecp
 import eth/p2p/discoveryv5/enr as enr
-import eth/p2p/discoveryv5/[protocol, discovery_db, types]
+import eth/p2p/discoveryv5/[protocol, discovery_db, node]
 import eth/keys as ethkeys, eth/trie/db
 import stew/[results, objects]
 import stew/byteutils as bu
@@ -314,7 +314,7 @@ proc init*(p: typedesc[PeerInfo],
   var trec: enr.TypedRecord
   try:
     let trecOpt = enraddr.toTypedRecord()
-    if trecOpt.isSome():
+    if trecOpt.isOk():
       trec = trecOpt.get()
       if trec.secp256k1.isSome():
         let skpubkey = ethkeys.PublicKey.fromRaw(trec.secp256k1.get())
@@ -441,7 +441,7 @@ proc logEnrAddress(address: string) =
     var attnData = rec.tryGet("attnets", seq[byte])
     var optrec = rec.toTypedRecord()
 
-    if optrec.isSome():
+    if optrec.isOk():
       trec = optrec.get()
 
       if eth2Data.isSome():
