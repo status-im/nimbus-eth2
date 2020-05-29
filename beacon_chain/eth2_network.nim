@@ -1,6 +1,6 @@
 import
   # Std lib
-  typetraits, strutils, os, random, algorithm,
+  typetraits, strutils, os, random, algorithm, sequtils,
   options as stdOptions, net as stdNet,
 
   # Status libs
@@ -741,14 +741,17 @@ proc start*(node: Eth2Node) {.async.} =
   traceAsyncErrors node.discoveryLoop
 
 proc stop*(node: Eth2Node) {.async.} =
-  # Ignore errors in futures, since we're shutting down.
-  # Use a timer to avoid hangups.
-  discard await one(sleepAsync(5.seconds),
-                    allFutures(@[
-                      node.discovery.closeWait(),
-                      node.switch.stop(),
-                    ])
-    )
+  # Ignore errors in futures, since we're shutting down (but log them on the
+  # TRACE level, if a timeout is reached).
+  let
+    waitedFutures = @[
+      node.discovery.closeWait(),
+      node.switch.stop(),
+    ]
+    timeout = 5.seconds
+    completed = await withTimeout(allFutures(waitedFutures), timeout)
+  if not completed:
+    trace "Eth2Node.stop(): timeout reached", timeout, futureErrors = waitedFutures.filterIt(it.error != nil).mapIt(it.error.msg)
 
 proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer =
   new result
