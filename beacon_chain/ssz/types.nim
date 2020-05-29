@@ -236,17 +236,20 @@ macro unsupported*(T: typed): untyped =
   # File both problems as issues.
   error "SSZ serialization of the type " & humaneTypeName(T) & " is not supported"
 
-template ElemType*(T: type[HashArray]): untyped =
-  type(default(T).data[0])
+template ElemType*(T: type HashArray): untyped =
+  T.T
 
-template ElemType*(T: type[HashList]): untyped =
-  type(default(T).data[0])
+template ElemType*(T: type HashList): untyped =
+  T.T
 
-template ElemType*(T: type[array]): untyped =
+template ElemType*(T: type array): untyped =
   type(default(T)[low(T)])
 
-template ElemType*(T: type[seq|List]): untyped =
+template ElemType*(T: type seq): untyped =
   type(default(T)[0])
+
+template ElemType*(T: type List): untyped =
+  T.T
 
 func isFixedSize*(T0: type): bool {.compileTime.} =
   mixin toSszType, enumAllSerializedFields
