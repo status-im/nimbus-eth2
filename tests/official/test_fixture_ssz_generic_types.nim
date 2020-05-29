@@ -223,10 +223,7 @@ proc sszCheck(baseDir, sszType, sszSubType: string) =
     of "FixedTestStruct": checkBasic(FixedTestStruct, dir, expectedHash)
     of "VarTestStruct": checkBasic(VarTestStruct, dir, expectedHash)
     of "ComplexTestStruct": checkBasic(ComplexTestStruct, dir, expectedHash)
-    of "BitsStruct":
-      discard
-      # Compile-time issues
-      # checkBasic(BitsStruct, dir, expectedHash)
+    of "BitsStruct": checkBasic(BitsStruct, dir, expectedHash)
     else:
       raise newException(ValueError, "unknown container in test: " & sszSubType)
   else:

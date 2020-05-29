@@ -28,6 +28,9 @@ import
 
 # ################### Helper functions ###################################
 
+when hasSerializationTracing:
+  import stew/byteutils
+
 export
   serialization, types, bytes_reader
 

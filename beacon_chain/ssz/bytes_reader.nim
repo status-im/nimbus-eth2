@@ -225,6 +225,11 @@ func readSszValue*[T](input: openarray[byte], val: var T) {.raisesssz.} =
           startOffset = readOffsetUnchecked(boundingOffsets[0])
           endOffset = if boundingOffsets[1] == -1: input.len
                       else: readOffsetUnchecked(boundingOffsets[1])
+
+        when boundingOffsets.isFirstOffset:
+          if startOffset != minimallyExpectedSize:
+            raise newException(MalformedSszError, "SSZ object dynamic portion starts at invalid offset")
+
         trs "VAR FIELD ", startOffset, "-", endOffset
         if startOffset > endOffset:
           raise newException(MalformedSszError, "SSZ field offsets are not monotonically increasing")
