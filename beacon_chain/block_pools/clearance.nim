@@ -186,7 +186,6 @@ proc add*(
     stateCache.shuffled_active_validator_indices[
       dag.tmpState.data.data.slot.compute_epoch_at_slot] =
         epochInfo.shuffled_active_validator_indices
-    # End of section to refactor/combine
 
     if not state_transition(
         dag.tmpState.data, signedBlock, stateCache, dag.updateFlags, restore):

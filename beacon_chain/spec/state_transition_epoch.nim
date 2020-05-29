@@ -423,13 +423,11 @@ func process_final_updates*(state: var BeaconState) {.nbench.}=
   state.current_epoch_attestations = default(type state.current_epoch_attestations)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#epoch-processing
-proc process_epoch*(state: var BeaconState, updateFlags: UpdateFlags)
-    {.nbench.} =
+proc process_epoch*(state: var BeaconState, updateFlags: UpdateFlags,
+    per_epoch_cache: var StateCache) {.nbench.} =
   let currentEpoch = get_current_epoch(state)
   trace "process_epoch",
     current_epoch = currentEpoch
-
-  var per_epoch_cache = get_empty_per_epoch_cache()
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#justification-and-finalization
   process_justification_and_finalization(state, per_epoch_cache, updateFlags)
@@ -450,7 +448,8 @@ proc process_epoch*(state: var BeaconState, updateFlags: UpdateFlags)
 
   ## Caching here for get_beacon_committee(...) can break otherwise, since
   ## get_active_validator_indices(...) usually changes.
-  clear(per_epoch_cache.beacon_committee_cache)
+  per_epoch_cache.shuffled_active_validator_indices[currentEpoch] =
+    get_shuffled_active_validator_indices(state, currentEpoch)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#slashings
   process_slashings(state)

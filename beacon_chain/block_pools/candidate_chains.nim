@@ -447,7 +447,12 @@ proc skipAndUpdateState(
     #      save and reuse
     # TODO possibly we should keep this in memory for the hot blocks
     let nextStateRoot = dag.db.getStateRoot(blck.root, state.data.slot + 1)
-    advance_slot(state, nextStateRoot, dag.updateFlags)
+    let epochInfo = getEpochInfo(blck, state.data)
+    var stateCache = get_empty_per_epoch_cache()
+    stateCache.shuffled_active_validator_indices[
+      state.data.slot.compute_epoch_at_slot] =
+        epochInfo.shuffled_active_validator_indices
+    advance_slot(state, nextStateRoot, dag.updateFlags, stateCache)
 
     if save:
       dag.putState(state, blck)
@@ -467,6 +472,7 @@ proc skipAndUpdateState(
   # TODO it's probably not the right way to convey this, but for now, avoids
   # death-by-dozens-of-pointless-changes in developing this
   let epochInfo = getEpochInfo(blck.refs, state.data.data)
+  # TODO refactor into utility-convert-EpochRef-to-var-StateData function
   var stateCache = get_empty_per_epoch_cache()
   stateCache.shuffled_active_validator_indices[
     state.data.data.slot.compute_epoch_at_slot] =
