@@ -165,9 +165,10 @@ proc fieldInfos*(RecordType: type): seq[tuple[name: string,
 
 func getFieldBoundingOffsetsImpl(RecordType: type,
                                  fieldName: static string):
-     tuple[fieldOffset, nextFieldOffset: int] {.compileTime.} =
-  result = (-1, -1)
+     tuple[fieldOffset, nextFieldOffset: int, isFirstOffset: bool] {.compileTime.} =
+  result = (-1, -1, false)
   var fieldBranchKey: string
+  var isFirstOffset = true
 
   for f in fieldInfos(RecordType):
     if fieldName == f.name:
@@ -177,6 +178,7 @@ func getFieldBoundingOffsetsImpl(RecordType: type,
         return
       else:
         fieldBranchKey = f.branchKey
+      result.isFirstOffset = isFirstOffset
 
     elif result[0] != -1 and
          f.fixedSize == 0 and
@@ -185,9 +187,12 @@ func getFieldBoundingOffsetsImpl(RecordType: type,
       result[1] = f.offset
       return
 
+    if f.fixedSize == 0:
+      isFirstOffset = false
+
 func getFieldBoundingOffsets*(RecordType: type,
                               fieldName: static string):
-     tuple[fieldOffset, nextFieldOffset: int] {.compileTime.} =
+     tuple[fieldOffset, nextFieldOffset: int, isFirstOffset: bool] {.compileTime.} =
   ## Returns the start and end offsets of a field.
   ##
   ## For fixed-size fields, the start offset points to the first
