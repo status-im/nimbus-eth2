@@ -6,7 +6,8 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  json, math, strutils,
+  math, strutils,
+  json_serialization,
   eth/keyfile/uuid,
   stew/[results, byteutils],
   nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, sysrand],
@@ -32,31 +33,36 @@ type
     params: CipherParams
     message: string
 
-  KdfScrypt* = object
+  ScryptParams = object
     dklen: int
     n, p, r: int
     salt: string
 
-  KdfPbkdf2* = object
+  Pbkdf2Params = object
     dklen: int
     c: int
     prf: string
     salt: string
 
-  KdfParams = KdfPbkdf2 | KdfScrypt
+  KdfKind* = enum
+    kdfPbkdf2 = "pbkdf2"
+    kdfScrypt = "scrypt"
 
-  Kdf[T: KdfParams] = object
-    function: string
-    params: T
+  Kdf = object
+    case function: KdfKind
+    of kdfPbkdf2:
+      pbkdf2Params {.serializedFieldName("params").}: Pbkdf2Params
+    of kdfScrypt:
+      scryptParams {.serializedFieldName("params").}: ScryptParams
     message: string
 
-  Crypto[T: KdfParams] = object
-    kdf: Kdf[T]
+  Crypto = object
+    kdf: Kdf
     checksum: Checksum
     cipher: Cipher
 
-  Keystore[T: KdfParams] = object
-    crypto: Crypto[T]
+  Keystore = object
+    crypto: Crypto
     pubkey: string
     path: string
     uuid: string
@@ -65,17 +71,17 @@ type
   KsResult*[T] = Result[T, cstring]
 
 const
-  saltSize = 32
+  keyLen = 32
 
-  scryptParams = KdfScrypt(
-    dklen: saltSize,
+  scryptParams = ScryptParams(
+    dklen: keyLen,
     n: 2^18,
     r: 1,
     p: 8
   )
 
-  pbkdf2Params = KdfPbkdf2(
-    dklen: saltSize,
+  pbkdf2Params = Pbkdf2Params(
+    dklen: keyLen,
     c: 2^18,
     prf: "hmac-sha256"
   )
@@ -88,52 +94,36 @@ proc shaChecksum(key, cipher: openarray[byte]): array[32, byte] =
   result = ctx.finish().data
   ctx.clear()
 
-template tryJsonToCrypto(ks: JsonNode; crypto: typedesc): untyped =
-  try:
-    ks{"crypto"}.to(Crypto[crypto])
-  except Exception:
-    return err "ks: failed to parse crypto"
-
 template hexToBytes(data, name: string): untyped =
   try:
     hexToSeqByte(data)
   except ValueError:
     return err "ks: failed to parse " & name
 
-proc decryptKeystore*(data, passphrase: string): KsResult[seq[byte]] =
-  let ks =
-    try:
-      parseJson(data)
-    except Exception:
-      return err "ks: failed to parse keystore"
+proc decryptKeystore*(json, passphrase: string): KsResult[seq[byte]] =
+  let
+    crypto =
+      try:
+        Json.decode(json, Keystore).crypto
+      except Exception:
+        return err "ks: failed to parse keystore"
 
-  var
-    decKey: seq[byte]
-    salt: seq[byte]
-    iv: seq[byte]
-    cipherMsg: seq[byte]
-    checksumMsg: seq[byte]
-
-  let kdf = ks{"crypto", "kdf", "function"}.getStr
-
-  case kdf
-  of "scrypt":
-    let crypto = tryJsonToCrypto(ks, KdfScrypt)
-    return err "ks: scrypt not supported"
-  of "pbkdf2":
-    let
-      crypto = tryJsonToCrypto(ks, KdfPbkdf2)
-      kdfParams = crypto.kdf.params
-
-    salt = hexToBytes(kdfParams.salt, "salt")
-    decKey = sha256.pbkdf2(passphrase, salt, kdfParams.c, kdfParams.dklen)
     iv = hexToBytes(crypto.cipher.params.iv, "iv")
     cipherMsg = hexToBytes(crypto.cipher.message, "cipher")
     checksumMsg = hexToBytes(crypto.checksum.message, "checksum")
-  else:
-    return err "ks: unknown cipher"
 
-  if decKey.len < saltSize:
+  var decKey: seq[byte]
+
+  case crypto.kdf.function
+  of kdfPbkdf2:
+    let salt = hexToBytes(crypto.kdf.pbkdf2Params.salt, "salt")
+    decKey = sha256.pbkdf2(passphrase, salt,
+                           crypto.kdf.pbkdf2Params.c,
+                           crypto.kdf.pbkdf2Params.dklen)
+  of kdfScrypt:
+    return err "ks: scrypt not supported"
+
+  if decKey.len < keyLen:
     return err "ks: decryption key must be at least 32 bytes"
 
   if iv.len < aes128.sizeBlock:
@@ -153,53 +143,53 @@ proc decryptKeystore*(data, passphrase: string): KsResult[seq[byte]] =
 
   result = ok secret
 
-proc encryptKeystore*[T: KdfParams](secret: openarray[byte];
-                                    passphrase: string;
-                                    path="";
-                                    salt: openarray[byte] = @[];
-                                    iv: openarray[byte] = @[];
-                                    ugly=true): KsResult[string] =
+proc encryptKeystore*(cipher: KdfKind;
+                      secret: openarray[byte];
+                      passphrase: string;
+                      path="";
+                      salt: openarray[byte] = @[];
+                      iv: openarray[byte] = @[]): KsResult[string] =
   var
+    kdf: Kdf
     decKey: seq[byte]
     aesCipher: CTR[aes128]
     aesIv = newSeq[byte](aes128.sizeBlock)
-    kdfSalt = newSeq[byte](saltSize)
+    kdfSalt = newSeq[byte](keyLen)
     cipherMsg = newSeq[byte](secret.len)
 
-  if salt.len == saltSize:
+  if salt.len == keyLen:
     kdfSalt = @salt
   elif salt.len > 0:
-    return err "ks: invalid salt"
-  elif randomBytes(kdfSalt) != saltSize:
+    return err "ks: invalid salt length"
+  elif randomBytes(kdfSalt) != keyLen:
     return err "ks: no random bytes for salt"
 
   if iv.len == aes128.sizeBlock:
     aesIv = @iv
   elif iv.len > 0:
-    return err "ks: invalid iv"
+    return err "ks: invalid iv length"
   elif randomBytes(aesIv) != aes128.sizeBlock:
     return err "ks: no random bytes for iv"
 
-  when T is KdfPbkdf2:
-    decKey = sha256.pbkdf2(passphrase, kdfSalt, pbkdf2Params.c,
-                           pbkdf2Params.dklen)
+  case cipher
+  of kdfPbkdf2:
+    var params = pbkdf2Params
+    params.salt = kdfSalt.toHex()
+    kdf = Kdf(function: kdfPbkdf2, pbkdf2Params: params)
 
-    var kdf = Kdf[KdfPbkdf2](function: "pbkdf2", params: pbkdf2Params, message: "")
-    kdf.params.salt = kdfSalt.toHex()
-  else:
-    return
+    decKey = sha256.pbkdf2(passphrase, params.salt, params.c, params.dklen)
+  of kdfScrypt:
+    return err "ks: scrypt not supported"
 
   aesCipher.init(decKey.toOpenArray(0, 15), aesIv)
   aesCipher.encrypt(secret, cipherMsg)
   aesCipher.clear()
 
-  let pubkey = (? ValidatorPrivkey.fromRaw(secret)).toPubKey()
-
   let
     sum = shaChecksum(decKey.toOpenArray(16, 31), cipherMsg)
 
-    keystore = Keystore[T](
-      crypto: Crypto[T](
+    keystore = Keystore(
+      crypto: Crypto(
         kdf: kdf,
         checksum: Checksum(
           function: "sha256",
@@ -211,11 +201,13 @@ proc encryptKeystore*[T: KdfParams](secret: openarray[byte];
           message: cipherMsg.toHex()
         )
       ),
-      pubkey: pubkey.toHex(),
+      pubkey: (? ValidatorPrivkey.fromRaw(secret)).toPubKey().toHex(),
       path: path,
       uuid: $(? uuidGenerate()),
       version: 4
     )
 
-  result = ok(if ugly: $(%keystore)
-              else: pretty(%keystore, indent=4))
+  try:
+    result = ok keystore.toJson(pretty=true)
+  except IOError:
+    result = err "ks: json serialization error"
