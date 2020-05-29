@@ -79,6 +79,17 @@ func get_shuffled_seq*(seed: Eth2Digest,
 
   result = shuffled_active_validator_indices
 
+func get_shuffled_active_validator_indices*(state: BeaconState, epoch: Epoch):
+    seq[ValidatorIndex] =
+  # Non-spec function, to cache a data structure from which one can cheaply
+  # compute both get_active_validator_indexes() and get_beacon_committee().
+  let active_validator_indices = get_active_validator_indices(state, epoch)
+  mapIt(
+    get_shuffled_seq(
+      get_seed(state, epoch, DOMAIN_BEACON_ATTESTER),
+      active_validator_indices.len.uint64),
+    active_validator_indices[it])
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(state: BeaconState): Epoch =
   # Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
@@ -152,6 +163,8 @@ func get_empty_per_epoch_cache*(): StateCache =
   result.beacon_committee_cache =
     initTable[tuple[a: int, b: Eth2Digest], seq[ValidatorIndex]]()
   result.active_validator_indices_cache =
+    initTable[Epoch, seq[ValidatorIndex]]()
+  result.shuffled_active_validator_indices =
     initTable[Epoch, seq[ValidatorIndex]]()
   result.committee_count_cache = initTable[Epoch, uint64]()
 

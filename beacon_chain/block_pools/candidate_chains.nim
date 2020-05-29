@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  chronicles, options, tables,
+  chronicles, options, sequtils, tables,
   metrics,
   ../ssz, ../beacon_chain_db, ../state_transition, ../extras,
   ../spec/[crypto, datatypes, digest, helpers, validator],
@@ -52,6 +52,12 @@ func parent*(bs: BlockSlot): BlockSlot =
       blck: if bs.slot > bs.blck.slot: bs.blck else: bs.blck.parent,
       slot: bs.slot - 1
     )
+
+func populateEpochCache*(state: BeaconState, epoch: Epoch): EpochRef =
+  result = (EpochRef)(
+    epoch: state.slot.compute_epoch_at_slot,
+    shuffled_active_validator_indices:
+      get_shuffled_active_validator_indices(state, epoch))
 
 func link*(parent, child: BlockRef) =
   doAssert (not (parent.root == Eth2Digest() or child.root == Eth2Digest())),
@@ -132,6 +138,23 @@ func atSlot*(blck: BlockRef, slot: Slot): BlockSlot =
   ## near future if nothing happens (such as when looking ahead for the next
   ## block proposal)
   BlockSlot(blck: blck.getAncestorAt(slot), slot: slot)
+
+func getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
+  # This is the only intended mechanism by which to get an EpochRef
+  let
+    state_epoch = state.slot.compute_epoch_at_slot
+    matching_epochinfo = blck.epochsInfo.filterIt(it.epoch == state_epoch)
+
+  if matching_epochinfo.len == 0:
+    let cache = populateEpochCache(state, state_epoch)
+    blck.epochsInfo.add(cache)
+    trace "candidate_chains.skipAndUpdateState(): back-filling parent.epochInfo",
+      state_slot = state.slot
+    cache
+  elif matching_epochinfo.len == 1:
+    matching_epochinfo[0]
+  else:
+    raiseAssert "multiple EpochRefs per epoch per BlockRef invalid"
 
 func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
   BlockRef(
@@ -441,8 +464,17 @@ proc skipAndUpdateState(
     doAssert (addr(statePtr.data) == addr v)
     statePtr[] = dag.headState
 
+  # TODO it's probably not the right way to convey this, but for now, avoids
+  # death-by-dozens-of-pointless-changes in developing this
+  let epochInfo = getEpochInfo(blck.refs, state.data.data)
+  var stateCache = get_empty_per_epoch_cache()
+  stateCache.shuffled_active_validator_indices[
+    state.data.data.slot.compute_epoch_at_slot] =
+      epochInfo.shuffled_active_validator_indices
+
   let ok = state_transition(
-    state.data, blck.data, flags + dag.updateFlags, restore)
+    state.data, blck.data, stateCache, flags + dag.updateFlags, restore)
+
   if ok and save:
     dag.putState(state.data, blck.refs)
 

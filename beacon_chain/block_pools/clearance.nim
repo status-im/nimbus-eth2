@@ -9,7 +9,7 @@ import
   chronicles, tables,
   metrics, stew/results,
   ../ssz, ../state_transition, ../extras,
-  ../spec/[crypto, datatypes, digest, helpers],
+  ../spec/[crypto, datatypes, digest, helpers, validator],
 
   block_pools_types, candidate_chains
 
@@ -46,6 +46,8 @@ proc addResolvedBlock(
   doAssert state.slot == signedBlock.message.slot, "state must match block"
 
   let blockRef = BlockRef.init(blockRoot, signedBlock.message)
+  parent.epochsInfo =
+    @[populateEpochCache(state, state.slot.compute_epoch_at_slot)]
   link(parent, blockRef)
 
   dag.blocks[blockRoot] = blockRef
@@ -175,8 +177,19 @@ proc add*(
       doAssert v.addr == addr poolPtr.tmpState.data
       poolPtr.tmpState = poolPtr.headState
 
+    # TODO it's probably not the right way to convey this, but for now, avoids
+    # death-by-dozens-of-pointless-changes in developing this
+    # TODO rename these, since now, the two "state cache"s are juxtaposed
+    # directly
+    let epochInfo = getEpochInfo(parent, dag.tmpState.data.data)
+    var stateCache = get_empty_per_epoch_cache()
+    stateCache.shuffled_active_validator_indices[
+      dag.tmpState.data.data.slot.compute_epoch_at_slot] =
+        epochInfo.shuffled_active_validator_indices
+    # End of section to refactor/combine
+
     if not state_transition(
-        dag.tmpState.data, signedBlock, dag.updateFlags, restore):
+        dag.tmpState.data, signedBlock, stateCache, dag.updateFlags, restore):
       # TODO find a better way to log all this block data
       notice "Invalid block",
         blck = shortLog(blck),
