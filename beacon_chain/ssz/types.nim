@@ -10,8 +10,9 @@ const
   offsetSize* = 4
 
 func hashChunks(maxLen: int64, T: type): int64 =
-  # For simplificy of implementation, HashArray only supports a few types - this
+  # For simplicity of implementation, HashArray only supports a few types - this
   # could/should obviously be extended
+  # TODO duplicated in maxChunksCount
   when T is uint64:
     maxLen * sizeof(T) div 32
   else: maxLen
@@ -38,11 +39,11 @@ type
     actualSszSize*: int
     elementSize*: int
 
-  HashArray*[maxLen: static int; T] = object
+  HashArray*[maxLen: static Limit; T] = object
     data*: array[maxLen, T]
     hashes* {.dontSerialize.}: array[hashChunks(maxLen, T), Eth2Digest]
 
-  HashList*[T; maxLen: static int64] = object
+  HashList*[T; maxLen: static Limit] = object
     data*: List[T, maxLen]
     hashes* {.dontSerialize.}: seq[Eth2Digest]
     indices* {.dontSerialize.}: array[log2trunc(maxLen.uint64) + 1, int]
@@ -103,7 +104,7 @@ template isCached*(v: Eth2Digest): bool =
 template clearCache*(v: var Eth2Digest) =
   v.data[0..<8] = [byte 0, 0, 0, 0, 0, 0, 0, 0]
 
-proc clearTree*(a: var HashArray, dataIdx: auto) =
+proc clearCaches*(a: var HashArray, dataIdx: auto) =
   ## Clear all cache entries after data at dataIdx has been modified
   when a.T is uint64:
     var idx = 1 shl (a.maxDepth - 1) + int(dataIdx div 8)
@@ -141,7 +142,7 @@ template maxDepth*(a: HashList|HashArray): int =
   ## Layer where data is
   layer(a.maxChunks)
 
-proc clearTree*(a: var HashList, dataIdx: auto) =
+proc clearCaches*(a: var HashList, dataIdx: auto) =
   if a.hashes.len == 0:
     return
 
@@ -185,41 +186,32 @@ proc growHashes*(a: var HashList) =
   swap(a.hashes, newHashes)
   a.indices = newIndices
 
-template `[]`*(a: HashArray, b: auto): auto =
-  a.data[b]
+template len*(a: type HashArray): auto = int(a.maxLen)
 
-proc `[]`*[maxLen: static int; T](a: var HashArray[maxLen, T], b: auto): var T =
-  clearTree(a, b.int64)
-  a.data[b]
-
-proc `[]=`*(a: var HashArray, b: auto, c: auto) =
-  clearTree(a, b.int64)
-  a.data[b] = c
-
-template fill*[N: static int; T](a: var HashArray[N, T], c: T) =
-  mixin fill
-  fill(a.data, c)
-template sum*[N: static int; T](a: var HashArray[N, T]): T =
-  mixin sum
-  sum(a.data)
-
-template len*[N: static int; T](a: type HashArray[N, T]): int = N
-
-template add*(x: var HashList, val: x.T) =
+template add*(x: var HashList, val: auto) =
   add(x.data, val)
   x.growHashes()
-  clearTree(x, x.data.len() - 1) # invalidate entry we just added
+  clearCaches(x, x.data.len() - 1)
 
 template len*(x: HashList|HashArray): auto = len(x.data)
 template low*(x: HashList|HashArray): auto = low(x.data)
 template high*(x: HashList|HashArray): auto = high(x.data)
-template `[]`*(x: HashList, idx: auto): auto = x.data[idx]
-proc `[]`*[T; maxLen: static int64](x: var HashList[T, maxLen], idx: auto): var T =
-  clearTree(x, idx.int64)
+template `[]`*(x: HashList|HashArray, idx: auto): auto = x.data[idx]
+
+proc `[]`*(a: var HashArray, b: auto): var a.T =
+  clearCaches(a, b.Limit)
+  a.data[b]
+
+proc `[]=`*(a: var HashArray, b: auto, c: auto) =
+  clearCaches(a, b.Limit)
+  a.data[b] = c
+
+proc `[]`*(x: var HashList, idx: auto): var x.T =
+  clearCaches(x, idx.int64)
   x.data[idx]
 
 proc `[]=`*(x: var HashList, idx: int64, val: auto) =
-  clearTree(x, idx.int64)
+  clearCaches(x, idx.int64)
   x.data[idx] = val
 
 template `==`*(a, b: HashList|HashArray): bool = a.data == b.data
@@ -228,6 +220,13 @@ template `$`*(x: HashList): auto = $(x.data)
 
 template items* (x: HashList|HashArray): untyped = items(x.data)
 template pairs* (x: HashList|HashArray): untyped = pairs(x.data)
+
+template fill*(a: var HashArray, c: auto) =
+  mixin fill
+  fill(a.data, c)
+template sum*[maxLen; T](a: var HashArray[maxLen, T]): T =
+  mixin sum
+  sum(a.data)
 
 macro unsupported*(T: typed): untyped =
   # TODO: {.fatal.} breaks compilation even in `compiles()` context,
@@ -274,8 +273,8 @@ func fixedPortionSize*(T0: type): int {.compileTime.} =
   when T is BasicType: sizeof(T)
   elif T is array|HashArray:
     type E = ElemType(T)
-    when isFixedSize(E): len(T) * fixedPortionSize(E)
-    else: len(T) * offsetSize
+    when isFixedSize(E): int(len(T)) * fixedPortionSize(E)
+    else: int(len(T)) * offsetSize
   elif T is object|tuple:
     enumAllSerializedFields(T):
       when isFixedSize(FieldType):

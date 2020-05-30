@@ -280,7 +280,7 @@ type
     randao_mixes*: HashArray[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
 
     # Slashings
-    slashings*: HashArray[EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
+    slashings*: HashArray[int64(EPOCHS_PER_SLASHINGS_VECTOR), uint64] ##\
     ## Per-epoch sums of slashed effective balances
 
     # Attestations
@@ -513,9 +513,7 @@ Json.useCustomSerialization(BitSeq):
     writer.writeValue "0x" & seq[byte](value).toHex
 
 template readValue*(reader: var JsonReader, value: var List) =
-  type T = type(value)
-  type E = ElemType(T)
-  value = T readValue(reader, seq[E])
+  value = T readValue(reader, seq[type value[0]])
 
 template writeValue*(writer: var JsonWriter, value: List) =
   writeValue(writer, asSeq value)
