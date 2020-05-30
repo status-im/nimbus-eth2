@@ -22,13 +22,16 @@
 
 {.experimental: "notnil".}
 
+{.push raises: [Defect].}
+
 import
   macros, hashes, json, strutils, tables,
   stew/[byteutils], chronicles,
-  ../ssz/types, ./crypto, ./digest
+  json_serialization/types as jsonTypes,
+  ../ssz/types as sszTypes, ./crypto, ./digest
 
 export
-  types
+  sszTypes
 
 # TODO Data types:
 # Presently, we're reusing the data types from the serialization (uint64) in the
@@ -405,6 +408,8 @@ type
     committee_count_cache*: Table[Epoch, uint64]
     beacon_proposer_indices*: Table[Slot, Option[ValidatorIndex]]
 
+  JsonError = jsonTypes.JsonError
+
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
     ($state.validators[validatorIdx].pubkey)[0..7]
 
@@ -452,28 +457,40 @@ template ethTimeUnit(typ: type) {.dirty.} =
   proc `%`*(x: typ): JsonNode {.borrow.}
 
   # Serialization
-  proc writeValue*(writer: var JsonWriter, value: typ) =
+  proc writeValue*(writer: var JsonWriter, value: typ)
+                  {.raises: [IOError, Defect].}=
     writeValue(writer, uint64 value)
 
-  proc readValue*(reader: var JsonReader, value: var typ) =
+  proc readValue*(reader: var JsonReader, value: var typ)
+                 {.raises: [IOError, JsonError, Defect].} =
     value = typ reader.readValue(uint64)
 
-proc writeValue*(writer: var JsonWriter, value: ValidatorIndex) =
+proc writeValue*(writer: var JsonWriter, value: ValidatorIndex)
+                {.raises: [IOError, Defect].} =
   writeValue(writer, uint32 value)
 
-proc readValue*(reader: var JsonReader, value: var ValidatorIndex) =
+proc readValue*(reader: var JsonReader, value: var ValidatorIndex)
+               {.raises: [IOError, JsonError, Defect].} =
   value = ValidatorIndex reader.readValue(uint32)
 
-proc writeValue*(writer: var JsonWriter, value: Version | ForkDigest) =
+template writeValue*(writer: var JsonWriter, value: Version | ForkDigest) =
   writeValue(writer, $value)
 
-proc readValue*(reader: var JsonReader, value: var Version) =
+proc readValue*(reader: var JsonReader, value: var Version)
+               {.raises: [IOError, JsonError, Defect].} =
   let hex = reader.readValue(string)
-  hexToByteArray(hex, array[4, byte](value))
+  try:
+    hexToByteArray(hex, array[4, byte](value))
+  except ValueError:
+    raiseUnexpectedValue(reader, "Hex string of 4 bytes expected")
 
-proc readValue*(reader: var JsonReader, value: var ForkDigest) =
+proc readValue*(reader: var JsonReader, value: var ForkDigest)
+               {.raises: [IOError, JsonError, Defect].} =
   let hex = reader.readValue(string)
-  hexToByteArray(hex, array[4, byte](value))
+  try:
+    hexToByteArray(hex, array[4, byte](value))
+  except ValueError:
+    raiseUnexpectedValue(reader, "Hex string of 4 bytes expected")
 
 # `ValidatorIndex` seq handling.
 proc max*(a: ValidatorIndex, b: int) : auto =
@@ -500,15 +517,24 @@ ethTimeUnit Epoch
 Json.useCustomSerialization(BeaconState.justification_bits):
   read:
     let s = reader.readValue(string)
-    if s.len != 4: raise newException(ValueError, "unexpected number of bytes")
-    s.parseHexInt.uint8
+
+    if s.len != 4:
+      raiseUnexpectedValue(reader, "A string with 4 characters expected")
+
+    try:
+      s.parseHexInt.uint8
+    except ValueError:
+      raiseUnexpectedValue(reader, "The `justification_bits` value must be a hex string")
 
   write:
     writer.writeValue "0x" & value.toHex
 
 Json.useCustomSerialization(BitSeq):
   read:
-    BitSeq reader.readValue(string).hexToSeqByte
+    try:
+      BitSeq reader.readValue(string).hexToSeqByte
+    except ValueError:
+      raiseUnexpectedValue(reader, "A BitSeq value should be a valid hex string")
 
   write:
     writer.writeValue "0x" & seq[byte](value).toHex
