@@ -164,7 +164,6 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot,
 
   # Catch up to the target slot
   var cache = get_empty_per_epoch_cache()
-  # TODO do same test/state_transition split to deal with tests vs should-be-there cache
   while state.data.slot < slot:
     advance_slot(state, err(Opt[Eth2Digest]), updateFlags, cache)
 
@@ -236,6 +235,7 @@ proc state_transition*(
         # TODO when creating a new block, state_root is not yet set.. comparing
         #      with zero hash here is a bit fragile however, but this whole thing
         #      should go away with proper hash caching
+        # TODO shouldn't ever have to recalculate; verifyStateRoot() does it
         state.root =
           if signedBlock.message.state_root == Eth2Digest(): hash_tree_root(state.data)
           else: signedBlock.message.state_root

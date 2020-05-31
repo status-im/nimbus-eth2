@@ -454,11 +454,7 @@ proc skipAndUpdateState(
     #      save and reuse
     # TODO possibly we should keep this in memory for the hot blocks
     let nextStateRoot = dag.db.getStateRoot(blck.root, state.data.slot + 1)
-    let epochInfo = getEpochInfo(blck, state.data)
-    var stateCache = get_empty_per_epoch_cache()
-    stateCache.shuffled_active_validator_indices[
-      state.data.slot.compute_epoch_at_slot] =
-        epochInfo.shuffled_active_validator_indices
+    var stateCache = getEpochCache(blck, state.data)
     advance_slot(state, nextStateRoot, dag.updateFlags, stateCache)
 
     if save:
