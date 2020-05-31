@@ -46,7 +46,7 @@ type
   HashList*[T; maxLen: static Limit] = object
     data*: List[T, maxLen]
     hashes* {.dontSerialize.}: seq[Eth2Digest]
-    indices* {.dontSerialize.}: array[log2trunc(maxLen.uint64) + 1, int]
+    indices* {.dontSerialize.}: array[log2trunc(maxLen.uint64) + 1, int64]
 
 template asSeq*(x: List): auto = distinctBase(x)
 
@@ -151,7 +151,7 @@ proc clearCaches*(a: var HashList, dataIdx: int64) =
     layer = a.maxDepth - 1
   while idx > 0:
     let
-      idxInLayer = idx - (1 shl layer)
+      idxInLayer = idx - (1'i64 shl layer)
       layerIdx = idxInlayer + a.indices[layer]
     if layerIdx < a.indices[layer + 1]:
       clearCache(a.hashes[layerIdx])
