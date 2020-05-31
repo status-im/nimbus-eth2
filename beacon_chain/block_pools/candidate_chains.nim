@@ -156,6 +156,13 @@ func getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
   else:
     raiseAssert "multiple EpochRefs per epoch per BlockRef invalid"
 
+func getEpochCache*(blck: BlockRef, state: BeaconState): StateCache =
+  let epochInfo = getEpochInfo(blck, state)
+  result = get_empty_per_epoch_cache()
+  result.shuffled_active_validator_indices[
+    state.slot.compute_epoch_at_slot] =
+      epochInfo.shuffled_active_validator_indices
+
 func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
   BlockRef(
     root: root,
@@ -456,13 +463,6 @@ proc skipAndUpdateState(
 
     if save:
       dag.putState(state, blck)
-
-func getEpochCache*(blck: BlockRef, state: BeaconState): StateCache =
-  let epochInfo = getEpochInfo(blck, state)
-  result = get_empty_per_epoch_cache()
-  result.shuffled_active_validator_indices[
-    state.slot.compute_epoch_at_slot] =
-      epochInfo.shuffled_active_validator_indices
 
 proc skipAndUpdateState(
     dag: CandidateChains,

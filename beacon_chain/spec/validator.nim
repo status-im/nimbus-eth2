@@ -101,11 +101,12 @@ func get_previous_epoch*(state: BeaconState): Epoch =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#compute_committee
 func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
-    index: uint64, count: uint64, epoch: Epoch, stateCache: var StateCache): seq[ValidatorIndex] =
+    index: uint64, count: uint64): seq[ValidatorIndex] =
   ## Return the committee corresponding to ``indices``, ``seed``, ``index``,
   ## and committee ``count``.
 
-  # indices only used here for its length
+  # indices only used here for its length, or for the shuffled version,
+  # so unlike spec, pass the shuffled version in directly.
   try:
     let
       start = (len(indices).uint64 * index) div count
@@ -117,8 +118,8 @@ func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
     doAssert index_count <= 2'u64^40
 
     # In spec, this calls get_shuffled_index() every time, but that's wasteful
-    stateCache.shuffled_active_validator_indices[epoch][
-      start.int .. (endIdx.int-1)]
+    # Here, get_beacon_committee() gets the shuffled version.
+    indices[start.int .. (endIdx.int-1)]
   except KeyError:
     raiseAssert("Cached entries are added before use")
 
@@ -145,16 +146,12 @@ func get_beacon_committee*(
       cache.committee_count_cache[epoch] =
         get_committee_count_at_slot(state, slot)
 
-    # TODO here, don't pass `epoch`, because it's not part of original
-    # signature, just the part compute_committee needs
     compute_committee(
       cache.shuffled_active_validator_indices[epoch],
       get_seed(state, epoch, DOMAIN_BEACON_ATTESTER),
       (slot mod SLOTS_PER_EPOCH) * cache.committee_count_cache[epoch] +
         index.uint64,
-      cache.committee_count_cache[epoch] * SLOTS_PER_EPOCH,
-      epoch,
-      cache
+      cache.committee_count_cache[epoch] * SLOTS_PER_EPOCH
     )
   except KeyError:
     raiseAssert "values are added to cache before using them"
