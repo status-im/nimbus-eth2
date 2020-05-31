@@ -585,35 +585,49 @@ func hashTreeRootAux[T](x: T): Eth2Digest =
   else:
     unsupported T
 
-func mergedDataHash(x: HashList|HashArray, dataIdx: int64): Eth2Digest =
+func mergedDataHash(x: HashList|HashArray, chunkIdx: int64): Eth2Digest =
+  # The hash of the two cached
+  trs "DATA HASH ", chunkIdx, " ", x.data.len
+
   when x.T is uint64:
     when cpuEndian == bigEndian:
-      unsupported type x
+      unsupported type x # No bigendian support here!
+
     let
-      pos = offset(cast[ptr byte](unsafeAddr x.data[0]), dataIdx.int * 32)
-      pos2 = offset(pos, 32)
+      bytes = cast[ptr UncheckedArray[byte]](unsafeAddr x.data[0])
+      byteIdx = chunkIdx * bytesPerChunk
+      byteLen = x.data.len * sizeof(x.T)
 
-    hash(makeOpenArray(pos, 32), makeOpenArray(pos2, 32))
+    const zero64 = default(array[64, byte])
+
+    if byteIdx >= byteLen:
+      zeroHashes[1]
+    else:
+      let
+        nbytes = min(byteLen - byteIdx, 64)
+        padding = 64 - nbytes
+
+      hash(
+        toOpenArray(bytes, int(byteIdx), int(byteIdx + nbytes - 1)),
+        toOpenArray(zero64, 0, int(padding - 1)))
   else:
-    trs "DATA HASH ", dataIdx, " ", x.data.len
-
-    if dataIdx + 1 > x.data.len():
+    if chunkIdx + 1 > x.data.len():
       zeroHashes[x.maxDepth]
-    elif dataIdx + 1 == x.data.len():
+    elif chunkIdx + 1 == x.data.len():
       mergeBranches(
-        hash_tree_root(x.data[dataIdx]),
+        hash_tree_root(x.data[chunkIdx]),
         Eth2Digest())
     else:
       mergeBranches(
-        hash_tree_root(x.data[dataIdx]),
-        hash_tree_root(x.data[dataIdx + 1]))
+        hash_tree_root(x.data[chunkIdx]),
+        hash_tree_root(x.data[chunkIdx + 1]))
 
 func cachedHash*(x: HashList, vIdx: int64): Eth2Digest =
   doAssert vIdx >= 1
 
   let
     layer = layer(vIdx)
-    idxInLayer = vIdx - (1 shl layer)
+    idxInLayer = vIdx - (1'i64 shl layer)
     layerIdx = idxInlayer + x.indices[layer]
 
   doAssert layer < x.maxDepth
@@ -630,7 +644,7 @@ func cachedHash*(x: HashList, vIdx: int64): Eth2Digest =
 
       px[].hashes[layerIdx] =
         if layer == x.maxDepth - 1:
-          let dataIdx = vIdx * 2 - 1 shl (x.maxDepth)
+          let dataIdx = vIdx * 2 - 1'i64 shl (x.maxDepth)
           mergedDataHash(x, dataIdx)
         else:
           mergeBranches(

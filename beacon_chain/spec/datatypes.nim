@@ -274,7 +274,7 @@ type
 
     # Registry
     validators*: HashList[Validator, VALIDATOR_REGISTRY_LIMIT]
-    balances*: List[uint64, VALIDATOR_REGISTRY_LIMIT]
+    balances*: HashList[uint64, VALIDATOR_REGISTRY_LIMIT]
 
     # Randomness
     randao_mixes*: HashArray[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]

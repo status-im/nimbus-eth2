@@ -142,12 +142,12 @@ template maxDepth*(a: HashList|HashArray): int =
   ## Layer where data is
   layer(a.maxChunks)
 
-proc clearCaches*(a: var HashList, dataIdx: auto) =
+proc clearCaches*(a: var HashList, dataIdx: int64) =
   if a.hashes.len == 0:
     return
 
   var
-    idx = 1 shl (a.maxDepth - 1) + int(dataIdx div 2)
+    idx = 1'i64 shl (a.maxDepth - 1) + int64(dataIdx div 2)
     layer = a.maxDepth - 1
   while idx > 0:
     let
@@ -210,7 +210,7 @@ proc `[]`*(x: var HashList, idx: auto): var x.T =
   clearCaches(x, idx.int64)
   x.data[idx]
 
-proc `[]=`*(x: var HashList, idx: int64, val: auto) =
+proc `[]=`*(x: var HashList, idx: auto, val: auto) =
   clearCaches(x, idx.int64)
   x.data[idx] = val
 
