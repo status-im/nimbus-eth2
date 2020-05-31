@@ -117,9 +117,8 @@ func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
     doAssert index_count <= 2'u64^40
 
     # In spec, this calls get_shuffled_index() every time, but that's wasteful
-    mapIt(
-      start.int .. (endIdx.int-1),
-      stateCache.shuffled_active_validator_indices[epoch][it])
+    stateCache.shuffled_active_validator_indices[epoch][
+      start.int .. (endIdx.int-1)]
   except KeyError:
     raiseAssert("Cached entries are added before use")
 
