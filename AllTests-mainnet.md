@@ -62,12 +62,6 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + parent sanity [Preset: mainnet]                                                            OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## Discovery v5 utilities
-```diff
-+ ENR to ENode                                                                               OK
-+ Multiaddress to ENode                                                                      OK
-```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Fork Choice + Finality  [Preset: mainnet]
 ```diff
 + fork_choice - testing finality #01                                                         OK
@@ -259,4 +253,4 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 OK: 8/8 Fail: 0/8 Skip: 0/8
 
 ---TOTAL---
-OK: 158/161 Fail: 0/161 Skip: 3/161
+OK: 156/159 Fail: 0/159 Skip: 3/159
