@@ -636,7 +636,7 @@ func cachedHash*(x: HashList, vIdx: int64): Eth2Digest =
     trs "ZERO ", x.indices[layer], " ", x.indices[layer + 1]
     zeroHashes[x.maxDepth - layer]
   else:
-    if true or not isCached(x.hashes[layerIdx]):
+    if not isCached(x.hashes[layerIdx]):
       # TODO oops. so much for maintaining non-mutability.
       let px = unsafeAddr x
 
