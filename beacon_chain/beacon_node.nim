@@ -998,7 +998,7 @@ programMain:
   of createTestnet:
     var deposits: seq[Deposit]
     for i in config.firstValidator.int ..< config.totalValidators.int:
-      let depositFile = config.validatorsDir /
+      let depositFile = config.testnetDepositsDir /
                         validatorFileBaseName(i) & ".deposit.json"
       try:
         deposits.add Json.loadFile(depositFile, Deposit)
@@ -1096,15 +1096,13 @@ programMain:
       node.start()
 
   of makeDeposits:
-    createDir(config.depositsDir)
+    createDir(config.outValidatorsDir)
 
     let
-      quickstartDeposits = generateDeposits(
-        config.totalQuickstartDeposits, config.depositsDir, false)
-
-      randomDeposits = generateDeposits(
-        config.totalRandomDeposits, config.depositsDir, true,
-        firstIdx = config.totalQuickstartDeposits)
+      deposits = generateDeposits(
+        config.totalDeposits,
+        config.outValidatorsDir,
+        config.outSecretsDir).tryGet
 
     if config.web3Url.len > 0 and config.depositContractAddress.len > 0:
       if config.minDelay > config.maxDelay:
@@ -1121,8 +1119,9 @@ programMain:
         depositContract = config.depositContractAddress
 
       waitFor sendDeposits(
-        quickstartDeposits & randomDeposits,
+        deposits,
         config.web3Url,
         config.depositContractAddress,
         config.depositPrivateKey,
         delayGenerator)
+

@@ -69,6 +69,8 @@ type
 
   BlsResult*[T] = Result[T, cstring]
 
+  RandomSourceDepleted* = object of CatchableError
+
 func `==`*(a, b: BlsValue): bool =
   if a.kind != b.kind: return false
   if a.kind == Real:
@@ -81,6 +83,9 @@ template `==`*[N, T](a: BlsValue[N, T], b: T): bool =
 
 template `==`*[N, T](a: T, b: BlsValue[N, T]): bool =
   a == b.blsValue
+
+template `==`*(a, b: ValidatorPrivKey): bool =
+  blscurve.SecretKey(a) == blscurve.SecretKey(b)
 
 # API
 # ----------------------------------------------------------------------
@@ -341,3 +346,17 @@ func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noInit
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)
   return v[]
+
+proc getRandomBytes*(n: Natural): seq[byte]
+                    {.raises: [RandomSourceDepleted, Defect].} =
+  result = newSeq[byte](n)
+  if randomBytes(result) != result.len:
+    raise newException(RandomSourceDepleted, "Failed to generate random bytes")
+
+proc getRandomBytesOrPanic*(output: var openarray[byte]) =
+  doAssert randomBytes(output) == output.len
+
+proc getRandomBytesOrPanic*(n: Natural): seq[byte] =
+  result = newSeq[byte](n)
+  getRandomBytesOrPanic(result)
+

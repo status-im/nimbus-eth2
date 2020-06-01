@@ -1,76 +1,153 @@
 import
-  os, strutils,
+  os, strutils, terminal,
   chronicles, chronos, blscurve, nimcrypto, json_serialization, serialization,
-  web3, stint, eth/keys,
-  spec/[datatypes, digest, crypto], conf, ssz/merkleization, interop, merkle_minimal
+  web3, stint, eth/keys, confutils,
+  spec/[datatypes, digest, crypto, keystore], conf, ssz/merkleization, merkle_minimal
 
 contract(DepositContract):
   proc deposit(pubkey: Bytes48, withdrawalCredentials: Bytes32, signature: Bytes96, deposit_data_root: FixedBytes[32])
 
+const
+  keystoreFileName* = "keystore.json"
+  depositFileName* = "deposit.json"
+
 type
  DelayGenerator* = proc(): chronos.Duration {.closure, gcsafe.}
 
-proc writeTextFile(filename: string, contents: string) =
-  writeFile(filename, contents)
-  # echo "Wrote ", filename
-
-proc writeFile(filename: string, value: auto) =
-  Json.saveFile(filename, value, pretty = true)
-  # echo "Wrote ", filename
+{.push raises: [Defect].}
 
 proc ethToWei(eth: UInt256): UInt256 =
   eth * 1000000000000000000.u256
 
-proc generateDeposits*(totalValidators: int,
-                       outputDir: string,
-                       randomKeys: bool,
-                       firstIdx = 0): seq[Deposit] =
-  info "Generating deposits", totalValidators, outputDir, randomKeys
-  for i in 0 ..< totalValidators:
-    let
-      v = validatorFileBaseName(firstIdx + i)
-      depositFn = outputDir / v & ".deposit.json"
-      privKeyFn = outputDir / v & ".privkey"
+proc loadKeyStore(conf: BeaconNodeConf|ValidatorClientConf,
+                  validatorsDir, keyName: string): Option[ValidatorPrivKey] =
+  let
+    keystorePath = validatorsDir / keyName / keystoreFileName
+    keystoreContents = KeyStoreContent:
+      try: readFile(keystorePath)
+      except IOError as err:
+        error "Failed to read keystore", err = err.msg, path = keystorePath
+        return
 
-    if existsFile(depositFn) and existsFile(privKeyFn):
-      try:
-        result.add Json.loadFile(depositFn, Deposit)
-        continue
-      except SerializationError as err:
-        debug "Rewriting unreadable deposit", err = err.formatMsg(depositFn)
-        discard
+  if conf.secretsDir.isSome:
+    let passphrasePath = conf.secretsDir.get / keyName
+    if fileExists(passphrasePath):
+      let
+        passphrase = KeyStorePass:
+          try: readFile(passphrasePath)
+          except IOError as err:
+            error "Failed to read passphrase file", err = err.msg, path = passphrasePath
+            return
 
-    var
-      privkey{.noInit.}: ValidatorPrivKey
-      pubKey{.noInit.}: ValidatorPubKey
+      let res = decryptKeystore(keystoreContents, passphrase)
+      if res.isOk:
+        return res.get.some
+      else:
+        error "Failed to decrypt keystore", keystorePath, passphrasePath
+        return
 
-    if randomKeys:
-      (pubKey, privKey) = crypto.newKeyPair().tryGet()
+  if conf.nonInteractive:
+    error "Unable to load validator key store. Please ensure matching passphrase exists in the secrets dir",
+      keyName, validatorsDir, secretsDir = conf.secretsDir
+    return
+
+  var remainingAttempts = 3
+  var prompt = "Please enter passphrase for key \"" & validatorsDir/keyName & "\""
+  while remainingAttempts > 0:
+    let passphrase = KeyStorePass:
+      try: readPasswordFromStdin(prompt)
+      except IOError:
+        error "STDIN not readable. Cannot obtain KeyStore password"
+        return
+
+    let decrypted = decryptKeystore(keystoreContents, passphrase)
+    if decrypted.isOk:
+      return decrypted.get.some
     else:
-      privKey = makeInteropPrivKey(i).tryGet()
-      pubKey = privKey.toPubKey()
+      prompt = "Keystore decryption failed. Please try again"
+      dec remainingAttempts
 
-    let dp = makeDeposit(pubKey, privKey)
+iterator validatorKeys*(conf: BeaconNodeConf|ValidatorClientConf): ValidatorPrivKey =
+  for validatorKeyFile in conf.validators:
+    try:
+      yield validatorKeyFile.load
+    except CatchableError as err:
+      error "Failed to load validator private key",
+            file = validatorKeyFile.string, err = err.msg
+      quit 1
 
-    result.add(dp)
+  let validatorsDir = conf.localValidatorsDir
+  try:
+    for kind, file in walkDir(validatorsDir):
+      if kind == pcDir:
+        let keyName = splitFile(file).name
+        let key = loadKeyStore(conf, validatorsDir, keyName)
+        if key.isSome:
+          yield key.get
+        else:
+          quit 1
+  except OSError as err:
+    error "Validator keystores directory not accessible",
+          path = validatorsDir, err = err.msg
+    quit 1
+
+type
+  GenerateDepositsError = enum
+    RandomSourceDepleted,
+    FailedToCreateValidatoDir
+    FailedToCreateSecretFile
+    FailedToCreateKeystoreFile
+    FailedToCreateDepositFile
+
+proc generateDeposits*(totalValidators: int,
+                       validatorsDir: string,
+                       secretsDir: string): Result[seq[Deposit], GenerateDepositsError] =
+  var deposits: seq[Deposit]
+
+  info "Generating deposits", totalValidators, validatorsDir, secretsDir
+  for i in 0 ..< totalValidators:
+    let password = KeyStorePass getRandomBytesOrPanic(32).toHex
+    let credentials = generateCredentials(password = password)
+
+    let
+      keyName = $(credentials.signingKey.toPubKey)
+      validatorDir = validatorsDir / keyName
+      passphraseFile = secretsDir / keyName
+      depositFile = validatorDir / depositFileName
+      keystoreFile = validatorDir / keystoreFileName
+
+    if existsDir(validatorDir) and existsFile(depositFile):
+      continue
+
+    try: createDir validatorDir
+    except OSError, IOError: return err FailedToCreateValidatoDir
+
+    try: writeFile(secretsDir / keyName, password.string)
+    except IOError: return err FailedToCreateSecretFile
+
+    try: writeFile(keystoreFile, credentials.keyStore.string)
+    except IOError: return err FailedToCreateKeystoreFile
+
+    deposits.add credentials.prepareDeposit()
 
     # Does quadratic additional work, but fast enough, and otherwise more
     # cleanly allows free intermixing of pre-existing and newly generated
     # deposit and private key files. TODO: only generate new Merkle proof
     # for the most recent deposit if this becomes bottleneck.
-    attachMerkleProofs(result)
+    attachMerkleProofs(deposits)
+    try: Json.saveFile(depositFile, deposits[^1], pretty = true)
+    except: return err FailedToCreateDepositFile
 
-    writeTextFile(privKeyFn, privKey.toHex())
-    writeFile(depositFn, result[result.len - 1])
+  ok deposits
 
-proc sendDeposits*(
-    deposits: seq[Deposit],
-    web3Url, depositContractAddress, privateKey: string,
-    delayGenerator: DelayGenerator = nil) {.async.} =
+{.pop.}
 
+proc sendDeposits*(deposits: seq[Deposit],
+                   web3Url, depositContractAddress, privateKey: string,
+                   delayGenerator: DelayGenerator = nil) {.async.} =
   var web3 = await newWeb3(web3Url)
   if privateKey.len != 0:
-    web3.privateKey = PrivateKey.fromHex(privateKey).tryGet()
+    web3.privateKey = PrivateKey.fromHex(privateKey).tryGet
   else:
     let accounts = await web3.provider.eth_accounts()
     if accounts.len == 0:
@@ -79,9 +156,9 @@ proc sendDeposits*(
     web3.defaultAccount = accounts[0]
 
   let contractAddress = Address.fromHex(depositContractAddress)
+  let depositContract = web3.contractSender(DepositContract, contractAddress)
 
   for i, dp in deposits:
-    let depositContract = web3.contractSender(DepositContract, contractAddress)
     discard await depositContract.deposit(
       Bytes48(dp.data.pubKey.toRaw()),
       Bytes32(dp.data.withdrawal_credentials.data),
@@ -91,17 +168,3 @@ proc sendDeposits*(
     if delayGenerator != nil:
       await sleepAsync(delayGenerator())
 
-when isMainModule:
-  import confutils
-
-  cli do (totalValidators: int = 125000,
-          outputDir: string = "validators",
-          randomKeys: bool = false,
-          web3Url: string = "",
-          depositContractAddress: string = ""):
-    let deposits = generateDeposits(totalValidators, outputDir, randomKeys)
-
-    if web3Url.len() > 0 and depositContractAddress.len() > 0:
-      echo "Sending deposits to eth1..."
-      waitFor sendDeposits(deposits, web3Url, depositContractAddress, "")
-      echo "Done"

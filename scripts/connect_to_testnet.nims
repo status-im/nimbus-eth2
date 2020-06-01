@@ -87,6 +87,7 @@ cli do (skipGoerliKey {.
                              .replace(")", "_")
     dataDir = buildDir / "data" / dataDirName
     validatorsDir = dataDir / "validators"
+    secretsDir = dataDir / "secrets"
     beaconNodeBinary = buildDir / "beacon_node_" & dataDirName
   var
     nimFlags = "-d:chronicles_log_level=TRACE " & getEnv("NIM_PARAMS")
@@ -137,7 +138,8 @@ cli do (skipGoerliKey {.
       mode = Verbose
       exec replace(&"""{beaconNodeBinary} makeDeposits
         --random-deposits=1
-        --deposits-dir="{validatorsDir}"
+        --out-validators-dir="{validatorsDir}"
+        --out-secrets-dir="{secretsDir}"
         --deposit-private-key={privKey}
         --web3-url={web3Url}
         {depositContractOpt}

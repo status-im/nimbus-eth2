@@ -119,7 +119,7 @@ suiteReport "Interop":
   timedTest "Mocked start private key":
     for i, k in privateKeys:
       let
-        key = makeInteropPrivKey(i)[]
+        key = makeInteropPrivKey(i)
         v = k.parse(UInt256, 16)
 
       check:
@@ -144,9 +144,8 @@ suiteReport "Interop":
     var deposits: seq[Deposit]
 
     for i in 0..<64:
-      let
-        privKey = makeInteropPrivKey(i)[]
-      deposits.add(makeDeposit(privKey.toPubKey(), privKey))
+      let privKey = makeInteropPrivKey(i)
+      deposits.add makeDeposit(privKey.toPubKey(), privKey)
 
     const genesis_time = 1570500000
     var

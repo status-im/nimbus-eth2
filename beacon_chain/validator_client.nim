@@ -21,7 +21,7 @@ import
   eth2_network, eth2_discovery, validator_pool, beacon_node_types,
   nimbus_binary_common,
   version, ssz/merkleization,
-  sync_manager,
+  sync_manager, validator_keygen,
   spec/eth2_apis/validator_callsigs_types,
   eth2_json_rpc_serialization
 

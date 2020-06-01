@@ -28,6 +28,7 @@ MASTER_NODE=$(( TOTAL_NODES - 1 ))
 SIMULATION_DIR="${SIM_ROOT}/data"
 METRICS_DIR="${SIM_ROOT}/prometheus"
 VALIDATORS_DIR="${SIM_ROOT}/validators"
+SECRETS_DIR="${SIM_ROOT}/secrets"
 SNAPSHOT_FILE="${SIMULATION_DIR}/state_snapshot.ssz"
 NETWORK_BOOTSTRAP_FILE="${SIMULATION_DIR}/bootstrap_nodes.txt"
 BEACON_NODE_BIN="${GIT_ROOT}/build/beacon_node"

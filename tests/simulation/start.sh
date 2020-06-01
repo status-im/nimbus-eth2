@@ -9,6 +9,7 @@ source "$(dirname "$0")/vars.sh"
 cd "$SIM_ROOT"
 mkdir -p "$SIMULATION_DIR"
 mkdir -p "$VALIDATORS_DIR"
+mkdir -p "$SECRETS_DIR"
 
 cd "$GIT_ROOT"
 
@@ -118,8 +119,9 @@ if [ ! -f "${LAST_VALIDATOR}" ]; then
   fi
 
   $BEACON_NODE_BIN makeDeposits \
-    --quickstart-deposits="${NUM_VALIDATORS}" \
-    --deposits-dir="$VALIDATORS_DIR" \
+    --count="${NUM_VALIDATORS}" \
+    --out-validators-dir="$VALIDATORS_DIR" \
+    --out-secrets-dir="$SECRETS_DIR" \
     $MAKE_DEPOSITS_WEB3_ARG $DELAY_ARGS \
     --deposit-contract="${DEPOSIT_CONTRACT_ADDRESS}"
 
