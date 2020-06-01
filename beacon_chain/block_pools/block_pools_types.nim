@@ -139,7 +139,8 @@ type
     epochsInfo*: seq[EpochRef]
     ## Could be multiple, since blocks could skip slots, but usually, not many
     ## Even if competing forks happen later during this epoch, potential empty
-    ## slots beforehand must all be from this fork.
+    ## slots beforehand must all be from this fork. getEpochInfo() is the only
+    ## supported way of accesssing these.
 
   BlockData* = object
     ## Body and graph in one

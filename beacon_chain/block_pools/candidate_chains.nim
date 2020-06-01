@@ -156,6 +156,13 @@ func getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
   else:
     raiseAssert "multiple EpochRefs per epoch per BlockRef invalid"
 
+func getEpochCache*(blck: BlockRef, state: BeaconState): StateCache =
+  let epochInfo = getEpochInfo(blck, state)
+  result = get_empty_per_epoch_cache()
+  result.shuffled_active_validator_indices[
+    state.slot.compute_epoch_at_slot] =
+      epochInfo.shuffled_active_validator_indices
+
 func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
   BlockRef(
     root: root,
@@ -447,7 +454,8 @@ proc skipAndUpdateState(
     #      save and reuse
     # TODO possibly we should keep this in memory for the hot blocks
     let nextStateRoot = dag.db.getStateRoot(blck.root, state.data.slot + 1)
-    advance_slot(state, nextStateRoot, dag.updateFlags)
+    var stateCache = getEpochCache(blck, state.data)
+    advance_slot(state, nextStateRoot, dag.updateFlags, stateCache)
 
     if save:
       dag.putState(state, blck)
@@ -464,14 +472,7 @@ proc skipAndUpdateState(
     doAssert (addr(statePtr.data) == addr v)
     statePtr[] = dag.headState
 
-  # TODO it's probably not the right way to convey this, but for now, avoids
-  # death-by-dozens-of-pointless-changes in developing this
-  let epochInfo = getEpochInfo(blck.refs, state.data.data)
-  var stateCache = get_empty_per_epoch_cache()
-  stateCache.shuffled_active_validator_indices[
-    state.data.data.slot.compute_epoch_at_slot] =
-      epochInfo.shuffled_active_validator_indices
-
+  var stateCache = getEpochCache(blck.refs, state.data.data)
   let ok = state_transition(
     state.data, blck.data, stateCache, flags + dag.updateFlags, restore)
 

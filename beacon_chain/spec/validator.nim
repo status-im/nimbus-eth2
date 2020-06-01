@@ -9,7 +9,7 @@
 {.push raises: [Defect].}
 
 import
-  options, nimcrypto, sequtils, math, tables,
+  options, sequtils, math, tables,
   ./datatypes, ./digest, ./helpers
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#compute_shuffled_index
@@ -101,18 +101,16 @@ func get_previous_epoch*(state: BeaconState): Epoch =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#compute_committee
 func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
-    index: uint64, count: uint64, stateCache: var StateCache): seq[ValidatorIndex] =
+    index: uint64, count: uint64): seq[ValidatorIndex] =
   ## Return the committee corresponding to ``indices``, ``seed``, ``index``,
   ## and committee ``count``.
+
+  # indices only used here for its length, or for the shuffled version,
+  # so unlike spec, pass the shuffled version in directly.
   try:
     let
       start = (len(indices).uint64 * index) div count
       endIdx = (len(indices).uint64 * (index + 1)) div count
-      key = (indices.len, seed)
-
-    if key notin stateCache.beacon_committee_cache:
-      stateCache.beacon_committee_cache[key] =
-        get_shuffled_seq(seed, len(indices).uint64)
 
     # These assertions from compute_shuffled_index(...)
     let index_count = indices.len().uint64
@@ -120,9 +118,8 @@ func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
     doAssert index_count <= 2'u64^40
 
     # In spec, this calls get_shuffled_index() every time, but that's wasteful
-    mapIt(
-      start.int .. (endIdx.int-1),
-      indices[stateCache.beacon_committee_cache[key][it]])
+    # Here, get_beacon_committee() gets the shuffled version.
+    indices[start.int .. (endIdx.int-1)]
   except KeyError:
     raiseAssert("Cached entries are added before use")
 
@@ -135,12 +132,14 @@ func get_beacon_committee*(
     epoch = compute_epoch_at_slot(slot)
 
   try:
-    ## This is a somewhat more fragile, but high-ROI, caching setup --
-    ## get_active_validator_indices() is slow to run in a loop and only
-    ## changes once per epoch.
-    if epoch notin cache.active_validator_indices_cache:
-      cache.active_validator_indices_cache[epoch] =
-        get_active_validator_indices(state, epoch)
+    # This is a somewhat more fragile, but high-ROI, caching setup --
+    # get_active_validator_indices() is slow to run in a loop and only
+    # changes once per epoch. It is not, in the general case, possible
+    # to precompute these arbitrarily far out so still need to pick up
+    # missing cases here.
+    if epoch notin cache.shuffled_active_validator_indices:
+      cache.shuffled_active_validator_indices[epoch] =
+        get_shuffledactive_validator_indices(state, epoch)
 
     # Constant throughout an epoch
     if epoch notin cache.committee_count_cache:
@@ -148,22 +147,17 @@ func get_beacon_committee*(
         get_committee_count_at_slot(state, slot)
 
     compute_committee(
-      cache.active_validator_indices_cache[epoch],
+      cache.shuffled_active_validator_indices[epoch],
       get_seed(state, epoch, DOMAIN_BEACON_ATTESTER),
       (slot mod SLOTS_PER_EPOCH) * cache.committee_count_cache[epoch] +
         index.uint64,
-      cache.committee_count_cache[epoch] * SLOTS_PER_EPOCH,
-      cache
+      cache.committee_count_cache[epoch] * SLOTS_PER_EPOCH
     )
   except KeyError:
     raiseAssert "values are added to cache before using them"
 
 # Not from spec
 func get_empty_per_epoch_cache*(): StateCache =
-  result.beacon_committee_cache =
-    initTable[tuple[a: int, b: Eth2Digest], seq[ValidatorIndex]]()
-  result.active_validator_indices_cache =
-    initTable[Epoch, seq[ValidatorIndex]]()
   result.shuffled_active_validator_indices =
     initTable[Epoch, seq[ValidatorIndex]]()
   result.committee_count_cache = initTable[Epoch, uint64]()
