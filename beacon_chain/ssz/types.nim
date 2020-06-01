@@ -117,8 +117,8 @@ proc clearCaches*(a: var HashArray, dataIdx: auto) =
 func nodesAtLayer*(layer, depth, leaves: int): int =
   ## Given a number of leaves, how many nodes do you need at a given layer
   ## in a binary tree structure?
-  let leavesPerNode = 1 shl (depth - layer)
-  (leaves + leavesPerNode - 1) div leavesPerNode
+  let leavesPerNode = 1'i64 shl (depth - layer)
+  int((leaves + leavesPerNode - 1) div leavesPerNode)
 
 func cacheNodes*(depth, leaves: int): int =
   ## Total number of nodes needed to cache a tree of a given depth with

@@ -88,7 +88,7 @@ suiteReport "SSZ navigator":
     let b = [byte 0x04, 0x05, 0x06].toDigest
     let c = [byte 0x07, 0x08, 0x09].toDigest
 
-    var leaves = HashList[Eth2Digest, int64(1 shl 3)]()
+    var leaves = HashList[Eth2Digest, 1'i64 shl 3]()
     leaves.add a
     leaves.add b
     leaves.add c
@@ -97,6 +97,12 @@ suiteReport "SSZ navigator":
 
     leaves.add c
     check hash_tree_root(leaves) == hash_tree_root(leaves.data)
+
+    var leaves2 = HashList[Eth2Digest, 1'i64 shl 48]() # Large number!
+    leaves2.add a
+    leaves2.add b
+    leaves2.add c
+    check hash_tree_root(leaves2) == hash_tree_root(leaves2.data)
 
 suiteReport "SSZ dynamic navigator":
   timedTest "navigating fields":
