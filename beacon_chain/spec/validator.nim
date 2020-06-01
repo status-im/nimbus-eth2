@@ -107,18 +107,18 @@ func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
 
   # indices only used here for its length, or for the shuffled version,
   # so unlike spec, pass the shuffled version in directly.
+  let
+    start = (len(indices).uint64 * index) div count
+    endIdx = (len(indices).uint64 * (index + 1)) div count
+
+  # These assertions from compute_shuffled_index(...)
+  let index_count = indices.len().uint64
+  doAssert endIdx <= index_count
+  doAssert index_count <= 2'u64^40
+
+  # In spec, this calls get_shuffled_index() every time, but that's wasteful
+  # Here, get_beacon_committee() gets the shuffled version.
   try:
-    let
-      start = (len(indices).uint64 * index) div count
-      endIdx = (len(indices).uint64 * (index + 1)) div count
-
-    # These assertions from compute_shuffled_index(...)
-    let index_count = indices.len().uint64
-    doAssert endIdx <= index_count
-    doAssert index_count <= 2'u64^40
-
-    # In spec, this calls get_shuffled_index() every time, but that's wasteful
-    # Here, get_beacon_committee() gets the shuffled version.
     indices[start.int .. (endIdx.int-1)]
   except KeyError:
     raiseAssert("Cached entries are added before use")
@@ -131,21 +131,21 @@ func get_beacon_committee*(
   let
     epoch = compute_epoch_at_slot(slot)
 
+  # This is a somewhat more fragile, but high-ROI, caching setup --
+  # get_active_validator_indices() is slow to run in a loop and only
+  # changes once per epoch. It is not, in the general case, possible
+  # to precompute these arbitrarily far out so still need to pick up
+  # missing cases here.
+  if epoch notin cache.shuffled_active_validator_indices:
+    cache.shuffled_active_validator_indices[epoch] =
+      get_shuffledactive_validator_indices(state, epoch)
+
+  # Constant throughout an epoch
+  if epoch notin cache.committee_count_cache:
+    cache.committee_count_cache[epoch] =
+      get_committee_count_at_slot(state, slot)
+
   try:
-    # This is a somewhat more fragile, but high-ROI, caching setup --
-    # get_active_validator_indices() is slow to run in a loop and only
-    # changes once per epoch. It is not, in the general case, possible
-    # to precompute these arbitrarily far out so still need to pick up
-    # missing cases here.
-    if epoch notin cache.shuffled_active_validator_indices:
-      cache.shuffled_active_validator_indices[epoch] =
-        get_shuffledactive_validator_indices(state, epoch)
-
-    # Constant throughout an epoch
-    if epoch notin cache.committee_count_cache:
-      cache.committee_count_cache[epoch] =
-        get_committee_count_at_slot(state, slot)
-
     compute_committee(
       cache.shuffled_active_validator_indices[epoch],
       get_seed(state, epoch, DOMAIN_BEACON_ATTESTER),
@@ -211,15 +211,15 @@ func get_beacon_proposer_index*(state: BeaconState, stateCache: var StateCache, 
 
   compute_proposer_index(state, indices, seed, stateCache)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/beacon-chain.md#get_beacon_proposer_index
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: BeaconState, stateCache: var StateCache):
     Option[ValidatorIndex] =
-  return get_beacon_proposer_index(state, stateCache, state.slot)
+  get_beacon_proposer_index(state, stateCache, state.slot)
 
 # Not from spec
 # TODO: cache the results from this and reuse in subsequent calls to get_beacon_proposer_index
-func get_beacon_proposer_indexes_for_epoch*(state: BeaconState, epoch: Epoch, stateCache: var StateCache):
-    seq[tuple[s: Slot, i: ValidatorIndex]] =
+func get_beacon_proposer_indexes_for_epoch*(state: BeaconState, epoch: Epoch,
+    stateCache: var StateCache): seq[tuple[s: Slot, i: ValidatorIndex]] =
   for i in 0 ..< SLOTS_PER_EPOCH:
     let currSlot = (compute_start_slot_at_epoch(epoch).int + i).Slot
     let idx = get_beacon_proposer_index(state, stateCache, currSlot)
