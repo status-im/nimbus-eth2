@@ -26,16 +26,6 @@ func round_step_down*(x: Natural, step: static Natural): int {.inline.} =
   else:
     result = x - x mod step
 
-let ZeroHashes = block:
-  # hashes for a merkle tree full of zeros for leafs
-  var zh = @[Eth2Digest()]
-  for i in 1 ..< DEPOSIT_CONTRACT_TREE_DEPTH:
-    let nodehash = withEth2Hash:
-      h.update zh[i-1]
-      h.update zh[i-1]
-    zh.add nodehash
-  zh
-
 type SparseMerkleTree*[Depth: static int] = object
   ## Sparse Merkle tree
   # There is an extra "depth" layer to store leaf nodes
@@ -67,7 +57,7 @@ proc merkleTreeFromLeaves*(
       # with the zeroHash corresponding to the current depth
       let nodeHash = withEth2Hash:
         h.update result.nnznodes[depth-1][^1]
-        h.update ZeroHashes[depth-1]
+        h.update zeroHashes[depth-1]
       result.nnznodes[depth].add nodeHash
 
 proc getMerkleProof*[Depth: static int](
@@ -85,7 +75,7 @@ proc getMerkleProof*[Depth: static int](
     if nodeIdx < tree.nnznodes[depth].len:
       result[depth] = tree.nnznodes[depth][nodeIdx]
     else:
-      result[depth] = ZeroHashes[depth]
+      result[depth] = zeroHashes[depth]
 
 proc attachMerkleProofs*(deposits: var seq[Deposit]) =
   let deposit_data_roots = mapIt(deposits, it.data.hash_tree_root)

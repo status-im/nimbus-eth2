@@ -114,8 +114,13 @@ fi
 NETWORK="testnet${TESTNET}"
 
 rm -rf "${DATA_DIR}"
+
 DEPOSITS_DIR="${DATA_DIR}/deposits_dir"
 mkdir -p "${DEPOSITS_DIR}"
+
+SECRETS_DIR="${DATA_DIR}/secrets"
+mkdir -p "${SECRETS_DIR}"
+
 NETWORK_DIR="${DATA_DIR}/network_dir"
 mkdir -p "${NETWORK_DIR}"
 
@@ -134,17 +139,16 @@ NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh ${NETWORK})
 $MAKE LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node
 
 ./build/beacon_node makeDeposits \
-	--quickstart-deposits=${QUICKSTART_VALIDATORS} \
-	--random-deposits=${RANDOM_VALIDATORS} \
-	--deposits-dir="${DEPOSITS_DIR}"
+	--count=${TOTAL_VALIDATORS} \
+	--out-validators-dir="${DEPOSITS_DIR}" \
+  --out-secrets-dir="${SECRETS_DIR}"
 
-TOTAL_VALIDATORS="$(( $QUICKSTART_VALIDATORS + $RANDOM_VALIDATORS ))"
 BOOTSTRAP_IP="127.0.0.1"
 ./build/beacon_node createTestnet \
 	--data-dir="${DATA_DIR}/node0" \
 	--validators-dir="${DEPOSITS_DIR}" \
 	--total-validators=${TOTAL_VALIDATORS} \
-	--last-user-validator=${QUICKSTART_VALIDATORS} \
+	--last-user-validator=${USER_VALIDATORS} \
 	--output-genesis="${NETWORK_DIR}/genesis.ssz" \
 	--output-bootstrap-file="${NETWORK_DIR}/bootstrap_nodes.txt" \
 	--bootstrap-address=${BOOTSTRAP_IP} \
@@ -199,11 +203,12 @@ for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 	fi
 
 	# Copy validators to individual nodes.
-	# The first $NODES_WITH_VALIDATORS nodes split them equally between them, after skipping the first $QUICKSTART_VALIDATORS.
+	# The first $NODES_WITH_VALIDATORS nodes split them equally between them, after skipping the first $USER_VALIDATORS.
 	NODE_DATA_DIR="${DATA_DIR}/node${NUM_NODE}"
 	mkdir -p "${NODE_DATA_DIR}/validators"
 	if [[ $NUM_NODE -lt $NODES_WITH_VALIDATORS ]]; then
-		for KEYFILE in $(ls ${DEPOSITS_DIR}/*.privkey | tail -n +$(( $QUICKSTART_VALIDATORS + ($VALIDATORS_PER_NODE * $NUM_NODE) + 1 )) | head -n $VALIDATORS_PER_NODE); do
+		# TODO: There are no longer privkey files
+    for KEYFILE in $(ls ${DEPOSITS_DIR}/*.privkey | tail -n +$(( $USER_VALIDATORS + ($VALIDATORS_PER_NODE * $NUM_NODE) + 1 )) | head -n $VALIDATORS_PER_NODE); do
 			cp -a "$KEYFILE" "${NODE_DATA_DIR}/validators/"
 		done
 	fi

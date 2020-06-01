@@ -72,7 +72,7 @@ func computeZeroHashes: array[sizeof(Limit) * 8, Eth2Digest] =
   for i in 1 .. result.high:
     result[i] = mergeBranches(result[i - 1], result[i - 1])
 
-const zeroHashes = computeZeroHashes()
+const zeroHashes* = computeZeroHashes()
 
 func addChunk(merkleizer: var SszChunksMerkleizer, data: openarray[byte]) =
   doAssert data.len > 0 and data.len <= bytesPerChunk
