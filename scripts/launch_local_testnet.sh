@@ -141,7 +141,7 @@ $MAKE LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="-d:insecure -d:testnet_servers_image ${
 ./build/beacon_node makeDeposits \
 	--count=${TOTAL_VALIDATORS} \
 	--out-validators-dir="${DEPOSITS_DIR}" \
-  --out-secrets-dir="${SECRETS_DIR}"
+	--out-secrets-dir="${SECRETS_DIR}"
 
 BOOTSTRAP_IP="127.0.0.1"
 ./build/beacon_node createTestnet \
@@ -206,10 +206,12 @@ for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 	# The first $NODES_WITH_VALIDATORS nodes split them equally between them, after skipping the first $USER_VALIDATORS.
 	NODE_DATA_DIR="${DATA_DIR}/node${NUM_NODE}"
 	mkdir -p "${NODE_DATA_DIR}/validators"
+	mkdir -p "${NODE_DATA_DIR}/secrets"
+
 	if [[ $NUM_NODE -lt $NODES_WITH_VALIDATORS ]]; then
-		# TODO: There are no longer privkey files
-    for KEYFILE in $(ls ${DEPOSITS_DIR}/*.privkey | tail -n +$(( $USER_VALIDATORS + ($VALIDATORS_PER_NODE * $NUM_NODE) + 1 )) | head -n $VALIDATORS_PER_NODE); do
-			cp -a "$KEYFILE" "${NODE_DATA_DIR}/validators/"
+		for VALIDATOR in $(ls ${DEPOSITS_DIR}/* | tail -n +$(( $USER_VALIDATORS + ($VALIDATORS_PER_NODE * $NUM_NODE) + 1 )) | head -n $VALIDATORS_PER_NODE); do
+			cp -ar "$VALIDATOR" "${NODE_DATA_DIR}/validators/"
+			cp -a "${SECRETS_DIR}/${VALIDATOR}" "${NODE_DATA_DIR}/secrets"
 		done
 	fi
 

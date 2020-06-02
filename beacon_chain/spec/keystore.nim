@@ -7,8 +7,9 @@
 
 import
   json, math, strutils, strformat,
-  eth/keyfile/uuid, stew/[results, byteutils, bitseqs, bitops2],
-  nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, sysrand], blscurve,
+  stew/[results, byteutils, bitseqs, bitops2], stew/shims/macros,
+  eth/keyfile/uuid, blscurve,
+  nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, sysrand],
   datatypes, crypto, digest, helpers
 
 export
@@ -102,7 +103,16 @@ const
 
   # https://github.com/bitcoin/bips/blob/master/bip-0039/bip-0039-wordlists.md
   wordListLen = 2048
-  englishWords = split slurp("english_word_list.txt")
+
+macro wordListArray(filename: static string): array[wordListLen, cstring] =
+  result = newTree(nnkBracket)
+  var words = slurp(filename).split()
+  words.setLen wordListLen
+  for word in words:
+    result.add newCall("cstring", newLit(word))
+
+const
+  englishWords = wordListArray "english_word_list.txt"
 
 iterator pathNodesImpl(path: string): Natural
                       {.raises: [ValueError].} =
@@ -142,7 +152,7 @@ func getSeed*(mnemonic: Mnemonic, password: KeyStorePass): KeySeed =
   let salt = "mnemonic-" & password.string
   KeySeed sha512.pbkdf2(mnemonic.string, salt, 2048, 64)
 
-proc generateMnemonic*(words: openarray[string],
+proc generateMnemonic*(words: openarray[cstring],
                        entropyParam: openarray[byte] = @[]): Mnemonic =
   # https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#generating-the-mnemonic
   doAssert words.len == wordListLen
@@ -163,7 +173,9 @@ proc generateMnemonic*(words: openarray[string],
 
   entropy.add byte(checksum.data.getBitsBE(0 ..< checksumBits))
 
-  var res = words[entropy.getBitsBE(0..10)]
+  var res = ""
+  res.add words[entropy.getBitsBE(0..10)]
+
   for i in 1 ..< mnemonicWordCount:
     let
       firstBit = i*11
@@ -276,7 +288,7 @@ proc encryptKeystore*(T: type[KdfParams],
                       path = KeyPath "",
                       salt: openarray[byte] = @[],
                       iv: openarray[byte] = @[],
-                      ugly = true): KeyStoreContent =
+                      pretty = true): KeyStoreContent =
   var
     secret = privKey.toRaw[^32..^1]
     decKey: seq[byte]
@@ -334,8 +346,8 @@ proc encryptKeystore*(T: type[KdfParams],
       uuid: $uuid,
       version: 4)
 
-  KeyStoreContent if ugly: $(%keystore)
-                  else: pretty(%keystore, indent=4)
+  KeyStoreContent if pretty: json.pretty(%keystore, indent=4)
+                  else: $(%keystore)
 
 proc restoreCredentials*(mnemonic: Mnemonic,
                          password = KeyStorePass ""): Credentials =

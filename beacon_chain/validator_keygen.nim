@@ -52,7 +52,7 @@ proc loadKeyStore(conf: BeaconNodeConf|ValidatorClientConf,
     return
 
   var remainingAttempts = 3
-  var prompt = "Please enter passphrase for key \"" & validatorsDir/keyName & "\""
+  var prompt = "Please enter passphrase for key \"" & validatorsDir/keyName & "\"\n"
   while remainingAttempts > 0:
     let passphrase = KeyStorePass:
       try: readPasswordFromStdin(prompt)

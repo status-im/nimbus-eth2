@@ -117,7 +117,6 @@ if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
     --deposits-dir="$DEPOSITS_DIR_ABS" \
     --network-data-dir="$NETWORK_DIR_ABS" \
     --user-validators=$USER_VALIDATORS \
-    --total-validators=$TOTAL_VALIDATORS \
     > /tmp/reset-network.sh
 
   bash /tmp/reset-network.sh

@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  os, options, strformat,
+  os, options,
   chronicles, confutils, json_serialization,
   confutils/defs, confutils/std/net,
   chronicles/options as chroniclesOptions,
@@ -106,11 +106,11 @@ type
         name: "validator" }: seq[ValidatorKeyPath]
 
       validatorsDir* {.
-        desc: "A directory containing validator keystores"
+        desc: "A directory containing validator keystores."
         name: "validators-dir" }: Option[InputDir]
 
       secretsDir* {.
-        desc: "A directory containing validator keystore passwords"
+        desc: "A directory containing validator keystore passwords."
         name: "secrets-dir" }: Option[InputDir]
 
       stateSnapshot* {.
@@ -304,11 +304,11 @@ type
         name: "validator" }: seq[ValidatorKeyPath]
 
       validatorsDir* {.
-        desc: "A directory containing validator keystores"
+        desc: "A directory containing validator keystores."
         name: "validators-dir" }: Option[InputDir]
 
       secretsDir* {.
-        desc: "A directory containing validator keystore passwords"
+        desc: "A directory containing validator keystore passwords."
         name: "secrets-dir" }: Option[InputDir]
 
 proc defaultDataDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
@@ -320,13 +320,6 @@ proc defaultDataDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
     ".cache" / "nimbus"
 
   getHomeDir() / dataDir / "BeaconNode"
-
-proc validatorFileBaseName*(validatorIdx: int): string =
-  # there can apparently be tops 4M validators so we use 7 digits..
-  try:
-    fmt"v{validatorIdx:07}"
-  except ValueError as e:
-    raiseAssert e.msg
 
 func dumpDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
   conf.dataDir / "dump"

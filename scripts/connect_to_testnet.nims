@@ -137,7 +137,7 @@ cli do (skipGoerliKey {.
       mkDir validatorsDir
       mode = Verbose
       exec replace(&"""{beaconNodeBinary} makeDeposits
-        --random-deposits=1
+        --count=1
         --out-validators-dir="{validatorsDir}"
         --out-secrets-dir="{secretsDir}"
         --deposit-private-key={privKey}
