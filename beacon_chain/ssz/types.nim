@@ -8,6 +8,8 @@ import
 
 const
   offsetSize* = 4
+  bytesPerChunk* = 32
+
 
 # A few index types from here onwards:
 # * dataIdx - leaf index starting from 0 to maximum length of collection
@@ -18,7 +20,7 @@ const
 proc dataPerChunk(T: type): int =
   # How many data items fit in a chunk
   when T is bool|SomeUnsignedInt: # BasicType
-    32 div sizeof(T)
+    bytesPerChunk div sizeof(T)
   else:
     1
 
@@ -26,7 +28,7 @@ template chunkIdx*(T: type, dataIdx: int64): int64 =
   # Given a data index, which chunk does it belong to?
   dataIdx div dataPerChunk(T)
 
-template maxChunkIdx(T: type, maxLen: int64): int64 =
+template maxChunkIdx*(T: type, maxLen: int64): int64 =
   # Given a number of data items, how many chunks are needed?
   chunkIdx(T, maxLen + dataPerChunk(T) - 1)
 
