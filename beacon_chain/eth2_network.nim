@@ -652,20 +652,22 @@ proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
   logScope: peer = $peerInfo
 
   debug "Connecting to peer"
-  await node.switch.connect(peerInfo)
-  var peer = node.getPeer(peerInfo)
-  peer.wasDialed = true
+  if await withTimeout(node.switch.connect(peerInfo), 10.seconds):
+    var peer = node.getPeer(peerInfo)
+    peer.wasDialed = true
 
-  #let msDial = newMultistream()
-  #let conn = node.switch.connections.getOrDefault(peerInfo.id)
-  #let ls = await msDial.list(conn)
-  #debug "Supported protocols", ls
+    #let msDial = newMultistream()
+    #let conn = node.switch.connections.getOrDefault(peerInfo.id)
+    #let ls = await msDial.list(conn)
+    #debug "Supported protocols", ls
 
-  debug "Initializing connection"
-  await initializeConnection(peer)
+    debug "Initializing connection"
+    await initializeConnection(peer)
 
-  inc libp2p_successful_dials
-  debug "Network handshakes completed"
+    inc libp2p_successful_dials
+    debug "Network handshakes completed"
+  else:
+    debug "Connection timed out"
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
