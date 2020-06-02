@@ -17,6 +17,7 @@ In this book, we will cover:
 4. The [api documentation](./api.md) for interested developers.
 5. [Advanced usage](./advanced.md) for developers.
 6. Common [questions and answers](./faq.md) to satisfy your curiosity.
+7. How to [contribute](./contribute.md) to this book.
 
 Feel free to give us feedback on how to improve as well as contribute to our book on github. :)
 
