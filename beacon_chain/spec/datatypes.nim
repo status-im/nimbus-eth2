@@ -513,7 +513,7 @@ Json.useCustomSerialization(BitSeq):
     writer.writeValue "0x" & seq[byte](value).toHex
 
 template readValue*(reader: var JsonReader, value: var List) =
-  value = T readValue(reader, seq[type value[0]])
+  value = type(value)(readValue(reader, seq[type value[0]]))
 
 template writeValue*(writer: var JsonWriter, value: List) =
   writeValue(writer, asSeq value)

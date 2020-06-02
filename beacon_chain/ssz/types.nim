@@ -10,6 +10,11 @@ const
   offsetSize* = 4
   bytesPerChunk* = 32
 
+type
+  UintN* = SomeUnsignedInt # TODO: Add StUint here
+  BasicType* = bool|UintN
+
+  Limit* = int64
 
 # A few index types from here onwards:
 # * dataIdx - leaf index starting from 0 to maximum length of collection
@@ -17,9 +22,9 @@ const
 # * vIdx - virtual index in merkle tree - the root is found at index 1, its
 #          two children at 2, 3 then 4, 5, 6, 7 etc
 
-proc dataPerChunk(T: type): int =
+template dataPerChunk(T: type): int =
   # How many data items fit in a chunk
-  when T is bool|SomeUnsignedInt: # BasicType
+  when T is BasicType:
     bytesPerChunk div sizeof(T)
   else:
     1
@@ -39,11 +44,6 @@ template layer*(vIdx: int64): int =
   log2trunc(vIdx.uint64).int
 
 type
-  UintN* = SomeUnsignedInt # TODO: Add StUint here
-  BasicType* = bool|UintN
-
-  Limit* = int64
-
   List*[T; maxLen: static Limit] = distinct seq[T]
   BitList*[maxLen: static Limit] = distinct BitSeq
 
