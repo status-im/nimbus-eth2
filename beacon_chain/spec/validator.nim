@@ -9,7 +9,7 @@
 {.push raises: [Defect].}
 
 import
-  options, sequtils, math, tables,
+  algorithm, options, sequtils, math, tables,
   ./datatypes, ./digest, ./helpers
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#compute_shuffled_index
@@ -138,7 +138,7 @@ func get_beacon_committee*(
   # missing cases here.
   if epoch notin cache.shuffled_active_validator_indices:
     cache.shuffled_active_validator_indices[epoch] =
-      get_shuffledactive_validator_indices(state, epoch)
+      get_shuffled_active_validator_indices(state, epoch)
 
   # Constant throughout an epoch
   if epoch notin cache.committee_count_cache:
@@ -164,7 +164,7 @@ func get_empty_per_epoch_cache*(): StateCache =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#compute_proposer_index
 func compute_proposer_index(state: BeaconState, indices: seq[ValidatorIndex],
-    seed: Eth2Digest, stateCache: var StateCache): Option[ValidatorIndex] =
+    seed: Eth2Digest): Option[ValidatorIndex] =
   # Return from ``indices`` a random index sampled by effective balance.
   const MAX_RANDOM_BYTE = 255
 
@@ -194,7 +194,7 @@ func compute_proposer_index(state: BeaconState, indices: seq[ValidatorIndex],
     i += 1
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_beacon_proposer_index
-func get_beacon_proposer_index*(state: BeaconState, stateCache: var StateCache, slot: Slot):
+func get_beacon_proposer_index*(state: BeaconState, cache: var StateCache, slot: Slot):
     Option[ValidatorIndex] =
   # Return the beacon proposer index at the current slot.
   let epoch = get_current_epoch(state)
@@ -205,11 +205,19 @@ func get_beacon_proposer_index*(state: BeaconState, stateCache: var StateCache, 
 
   # TODO fixme; should only be run once per slot and cached
   # There's exactly one beacon proposer per slot.
-  let
-    seed = eth2hash(buffer)
-    indices = get_active_validator_indices(state, epoch)
+  if epoch notin cache.shuffled_active_validator_indices:
+    cache.shuffled_active_validator_indices[epoch] =
+      get_shuffled_active_validator_indices(state, epoch)
 
-  compute_proposer_index(state, indices, seed, stateCache)
+  try:
+    let
+      seed = eth2hash(buffer)
+      indices =
+        sorted(cache.shuffled_active_validator_indices[epoch], system.cmp)
+
+    compute_proposer_index(state, indices, seed)
+  except KeyError:
+    raiseAssert("Cached entries are added before use")
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: BeaconState, stateCache: var StateCache):
