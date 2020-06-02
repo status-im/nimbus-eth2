@@ -993,9 +993,16 @@ programMain:
   case config.cmd
   of createTestnet:
     var deposits: seq[Deposit]
-    for i in config.firstValidator.int ..< config.totalValidators.int:
-      let depositFile = config.testnetDepositsDir /
-                        validatorFileBaseName(i) & ".deposit.json"
+    var i = -1
+    for kind, dir in walkDir(config.testnetDepositsDir.string):
+      if kind != pcDir:
+        continue
+
+      inc i
+      if i < config.firstValidator.int:
+        continue
+
+      let depositFile = dir / "deposit.json"
       try:
         deposits.add Json.loadFile(depositFile, Deposit)
       except SerializationError as err:
@@ -1093,6 +1100,7 @@ programMain:
 
   of makeDeposits:
     createDir(config.outValidatorsDir)
+    createDir(config.outSecretsDir)
 
     let
       deposits = generateDeposits(

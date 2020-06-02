@@ -21,9 +21,6 @@ DEFS+="-d:MAX_COMMITTEES_PER_SLOT=${MAX_COMMITTEES_PER_SLOT:-1} "      # Spec de
 DEFS+="-d:SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH:-6} "   # Spec default: 32
 DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-6} "  # Spec default: 12
 
-LAST_VALIDATOR_NUM=$(( NUM_VALIDATORS - 1 ))
-LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.json"
-
 # Windows detection
 if uname | grep -qiE "mingw|msys"; then
   MAKE="mingw32-make"
@@ -96,10 +93,20 @@ if [[ "$USE_TMUX" != "no" ]]; then
   $TMUX select-window -t "${TMUX_SESSION_NAME}:sim"
 fi
 
-$MAKE -j3 --no-print-directory NIMFLAGS="$CUSTOM_NIMFLAGS $DEFS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" beacon_node validator_client deposit_contract
+$MAKE -j3 --no-print-directory NIMFLAGS="$CUSTOM_NIMFLAGS $DEFS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" beacon_node validator_client
 
-if [ ! -f "${LAST_VALIDATOR}" ]; then
+count_files () {
+  { ls -1q $1 2> /dev/null || true ; } | wc -l
+}
+
+EXISTING_VALIDATORS=$(count_files "$VALIDATORS_DIR/*/deposit.json")
+
+if [[ $EXISTING_VALIDATORS -lt $NUM_VALIDATORS ]]; then
+  rm -rf "$VALIDATORS_DIR"
+  rm -rf "$SECRETS_DIR"
+
   if [ "$WEB3_ARG" != "" ]; then
+    make deposit_contract
     echo Deploying the validator deposit contract...
     DEPOSIT_CONTRACT_ADDRESS=$($DEPLOY_DEPOSIT_CONTRACT_BIN deploy $WEB3_ARG)
     echo Contract deployed at $DEPOSIT_CONTRACT_ADDRESS
