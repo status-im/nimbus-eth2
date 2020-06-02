@@ -202,25 +202,19 @@ proc writeSeq[T](w: var SszWriter, value: seq[T])
 
 proc writeVarSizeType(w: var SszWriter, value: auto) {.raises: [Defect, IOError].} =
   trs "STARTING VAR SIZE TYPE"
-  mixin toSszType
-  type T = type toSszType(value)
 
-  when T is List|HashList:
+  when value is HashArray|HashList:
+    writeVarSizeType(w, value.data)
+  elif value is List:
     # We reduce code bloat by forwarding all `List` types to a general `seq[T]` proc.
     writeSeq(w, asSeq value)
-  elif T is BitList:
+  elif value is BitList:
     # ATTENTION! We can reuse `writeSeq` only as long as our BitList type is implemented
     # to internally match the binary representation of SSZ BitLists in memory.
     writeSeq(w, bytes value)
-  elif T is HashArray:
-    trs "WRITING HASHARRAY"
-    var ctx = beginRecord(w, T.T)
-    enumerateSubFields(value, field):
-      writeField w, ctx, astToStr(field), field.data
-    endRecord w, ctx
-  elif T is object|tuple|array:
+  elif value is object|tuple|array:
     trs "WRITING OBJECT OR ARRAY"
-    var ctx = beginRecord(w, T)
+    var ctx = beginRecord(w, type value)
     enumerateSubFields(value, field):
       writeField w, ctx, astToStr(field), field
     endRecord w, ctx
@@ -589,7 +583,7 @@ func mergedDataHash(x: HashList|HashArray, chunkIdx: int64): Eth2Digest =
   # The hash of the two cached
   trs "DATA HASH ", chunkIdx, " ", x.data.len
 
-  when x.T is uint64:
+  when x.T is BasicType:
     when cpuEndian == bigEndian:
       unsupported type x # No bigendian support here!
 

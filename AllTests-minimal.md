@@ -212,10 +212,11 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## SSZ navigator
 ```diff
++ basictype                                                                                  OK
 + lists with max size                                                                        OK
 + simple object fields                                                                       OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Spec helpers
 ```diff
 + integer_squareroot                                                                         OK

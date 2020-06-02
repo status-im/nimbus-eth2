@@ -9,13 +9,32 @@ import
 const
   offsetSize* = 4
 
-func hashChunks(maxLen: int64, T: type): int64 =
-  # For simplicity of implementation, HashArray only supports a few types - this
-  # could/should obviously be extended
-  # TODO duplicated in maxChunksCount
-  when T is uint64:
-    maxLen * sizeof(T) div 32
-  else: maxLen
+# A few index types from here onwards:
+# * dataIdx - leaf index starting from 0 to maximum length of collection
+# * chunkIdx - leaf data index after chunking starting from 0
+# * vIdx - virtual index in merkle tree - the root is found at index 1, its
+#          two children at 2, 3 then 4, 5, 6, 7 etc
+
+proc dataPerChunk(T: type): int =
+  # How many data items fit in a chunk
+  when T is bool|SomeUnsignedInt: # BasicType
+    32 div sizeof(T)
+  else:
+    1
+
+template chunkIdx*(T: type, dataIdx: int64): int64 =
+  # Given a data index, which chunk does it belong to?
+  dataIdx div dataPerChunk(T)
+
+template maxChunkIdx(T: type, maxLen: int64): int64 =
+  # Given a number of data items, how many chunks are needed?
+  chunkIdx(T, maxLen + dataPerChunk(T) - 1)
+
+template layer*(vIdx: int64): int =
+  ## Layer 0 = layer at which the root hash is
+  ## We place the root hash at index 1 which simplifies the math and leaves
+  ## index 0 for the mixed-in-length
+  log2trunc(vIdx.uint64).int
 
 type
   UintN* = SomeUnsignedInt # TODO: Add StUint here
@@ -41,12 +60,12 @@ type
 
   HashArray*[maxLen: static Limit; T] = object
     data*: array[maxLen, T]
-    hashes* {.dontSerialize.}: array[hashChunks(maxLen, T), Eth2Digest]
+    hashes* {.dontSerialize.}: array[maxChunkIdx(T, maxLen), Eth2Digest]
 
   HashList*[T; maxLen: static Limit] = object
     data*: List[T, maxLen]
     hashes* {.dontSerialize.}: seq[Eth2Digest]
-    indices* {.dontSerialize.}: array[log2trunc(maxLen.uint64) + 1, int64]
+    indices* {.dontSerialize.}: array[layer(maxChunkIdx(T, maxLen)) + 1, int64]
 
 template asSeq*(x: List): auto = distinctBase(x)
 
@@ -104,12 +123,20 @@ template isCached*(v: Eth2Digest): bool =
 template clearCache*(v: var Eth2Digest) =
   v.data[0..<8] = [byte 0, 0, 0, 0, 0, 0, 0, 0]
 
+template maxChunks*(a: HashList|HashArray): int64 =
+  ## Layer where data is
+  chunkIdx(a.T, a.maxLen)
+
+template maxDepth*(a: HashList|HashArray): int =
+  ## Layer where data is
+  layer(a.maxChunks)
+
+template chunkIdx(a: HashList|HashArray, dataIdx: int64): int64 =
+  chunkIdx(a.T, dataIdx)
+
 proc clearCaches*(a: var HashArray, dataIdx: auto) =
   ## Clear all cache entries after data at dataIdx has been modified
-  when a.T is uint64:
-    var idx = 1 shl (a.maxDepth - 1) + int(dataIdx div 8)
-  else:
-    var idx = 1 shl (a.maxDepth - 1) + int(dataIdx div 2)
+  var idx = 1 shl (a.maxDepth - 1) + (chunkIdx(a, dataIdx) div 2)
   while idx != 0:
     clearCache(a.hashes[idx])
     idx = idx div 2
@@ -128,26 +155,12 @@ func cacheNodes*(depth, leaves: int): int =
     res += nodesAtLayer(i, depth, leaves)
   res
 
-template layer*(vIdx: int64): int =
-  ## Layer 0 = layer at which the root hash is
-  ## We place the root hash at index 1 which simplifies the math and leaves
-  ## index 0 for the mixed-in-length
-  log2trunc(vIdx.uint64).int
-
-template maxChunks*(a: HashList|HashArray): int64 =
-  ## Layer where data is
-  hashChunks(a.maxLen, a.T)
-
-template maxDepth*(a: HashList|HashArray): int =
-  ## Layer where data is
-  layer(a.maxChunks)
-
 proc clearCaches*(a: var HashList, dataIdx: int64) =
   if a.hashes.len == 0:
     return
 
   var
-    idx = 1'i64 shl (a.maxDepth - 1) + int64(dataIdx div 2)
+    idx = 1'i64 shl (a.maxDepth - 1) + (chunkIdx(a, dataIdx) div 2)
     layer = a.maxDepth - 1
   while idx > 0:
     let
@@ -164,7 +177,8 @@ proc clearCaches*(a: var HashList, dataIdx: int64) =
 proc growHashes*(a: var HashList) =
   # Ensure that the hash cache is big enough for the data in the list
   let
-    leaves = a.data.len()
+    leaves = int(
+      chunkIdx(a, a.data.len() + dataPerChunk(a.T) - 1))
     newSize = 1 + cacheNodes(a.maxDepth, leaves)
 
   if a.hashes.len >= newSize:
