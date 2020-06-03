@@ -9,8 +9,8 @@
 
 import
   tables, algorithm, math, sequtils, options,
-  json_serialization/std/sets, chronicles, stew/bitseqs,
-  ../extras, ../ssz,
+  json_serialization/std/sets, chronicles,
+  ../extras, ../ssz/merkleization,
   ./crypto, ./datatypes, ./digest, ./helpers, ./validator,
   ../../nbench/bench_lab
 

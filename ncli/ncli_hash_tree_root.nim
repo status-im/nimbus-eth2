@@ -2,7 +2,7 @@ import
   confutils, os, strutils, json_serialization,
   stew/byteutils,
   ../beacon_chain/spec/[crypto, datatypes, digest],
-  ../beacon_chain/ssz
+  ../beacon_chain/ssz/[merkleization, ssz_serialization]
 
 # TODO turn into arguments
 cli do(kind: string, file: string):

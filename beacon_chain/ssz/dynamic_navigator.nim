@@ -5,10 +5,10 @@ import
   strutils, parseutils,
   stew/objects, faststreams/outputs, json_serialization/writer,
   ../spec/datatypes,
-  types, bytes_reader, navigator
+  types, ssz_serialization, navigator
 
 export
-  navigator
+  navigator, ssz_serialization, types
 
 type
   ObjKind = enum

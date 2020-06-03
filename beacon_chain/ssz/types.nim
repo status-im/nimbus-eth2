@@ -1,10 +1,13 @@
 {.push raises: [Defect].}
 
 import
-  tables, options, typetraits,
-  stew/shims/macros, stew/[byteutils, bitops2, objects, bitseqs],
+  tables, options, typetraits, strformat,
+  stew/shims/macros, stew/[byteutils, bitops2, objects],
   serialization/[object_serialization, errors],
+  ./spec_types, ./bitseqs,
   ../spec/digest
+
+export bitseqs
 
 const
   offsetSize* = 4
@@ -47,6 +50,15 @@ type
   List*[T; maxLen: static Limit] = distinct seq[T]
   BitList*[maxLen: static Limit] = distinct BitSeq
 
+  HashArray*[maxLen: static Limit; T] = object
+    data*: array[maxLen, T]
+    hashes* {.dontSerialize.}: array[maxChunkIdx(T, maxLen), Eth2Digest]
+
+  HashList*[T; maxLen: static Limit] = object
+    data*: List[T, maxLen]
+    hashes* {.dontSerialize.}: seq[Eth2Digest]
+    indices* {.dontSerialize.}: array[layer(maxChunkIdx(T, maxLen)) + 1, int64]
+
   # Note for readers:
   # We use `array` for `Vector` and
   #        `BitArray` for `BitVector`
@@ -59,15 +71,6 @@ type
     deserializedType*: cstring
     actualSszSize*: int
     elementSize*: int
-
-  HashArray*[maxLen: static Limit; T] = object
-    data*: array[maxLen, T]
-    hashes* {.dontSerialize.}: array[maxChunkIdx(T, maxLen), Eth2Digest]
-
-  HashList*[T; maxLen: static Limit] = object
-    data*: List[T, maxLen]
-    hashes* {.dontSerialize.}: seq[Eth2Digest]
-    indices* {.dontSerialize.}: array[layer(maxChunkIdx(T, maxLen)) + 1, int64]
 
 template asSeq*(x: List): auto = distinctBase(x)
 
@@ -385,3 +388,17 @@ func getFieldBoundingOffsets*(RecordType: type,
   ## the end of the variable-size field.
   type T = RecordType
   anonConst getFieldBoundingOffsetsImpl(T, fieldName)
+
+template enumerateSubFields*(holder, fieldVar, body: untyped) =
+  when holder is array|HashArray:
+    for fieldVar in holder: body
+  else:
+    enumInstanceSerializedFields(holder, _{.used.}, fieldVar): body
+
+method formatMsg*(
+  err: ref SszSizeMismatchError,
+  filename: string): string {.gcsafe, raises: [Defect].} =
+  try:
+    &"SSZ size mismatch, element {err.elementSize}, actual {err.actualSszSize}, type {err.deserializedType}, file {filename}"
+  except CatchableError:
+    "SSZ size mismatch"

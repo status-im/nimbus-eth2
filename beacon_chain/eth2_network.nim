@@ -4,7 +4,7 @@ import
   options as stdOptions, net as stdNet,
 
   # Status libs
-  stew/[varints, base58, bitseqs, endians2, results, byteutils],
+  stew/[varints, base58, endians2, results, byteutils],
   stew/shims/[macros, tables],
   faststreams/[inputs, outputs, buffers], snappy, snappy/framing,
   json_serialization, json_serialization/std/[net, options],
@@ -20,12 +20,13 @@ import
   eth/[keys, async_utils], eth/p2p/p2p_protocol_dsl,
   eth/net/nat, eth/p2p/discoveryv5/[enr, node],
   # Beacon node modules
-  version, conf, eth2_discovery, libp2p_json_serialization, conf, ssz,
+  version, conf, eth2_discovery, libp2p_json_serialization, conf,
+  ssz/ssz_serialization,
   peer_pool, spec/[datatypes, network]
 
 export
   version, multiaddress, peer_pool, peerinfo, p2pProtocol,
-  libp2p_json_serialization, ssz, peer, results
+  libp2p_json_serialization, ssz_serialization, peer, results
 
 logScope:
   topics = "networking"

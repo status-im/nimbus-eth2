@@ -11,8 +11,11 @@ import
   # Status libraries
   confutils/defs, serialization,
   # Beacon-chain
-  ../beacon_chain/spec/[datatypes, crypto, helpers, beaconstate, validator, state_transition_block, state_transition_epoch],
-  ../beacon_chain/[ssz, state_transition, extras]
+  ../beacon_chain/spec/[
+      datatypes, crypto, helpers, beaconstate, validator,
+      state_transition_block, state_transition_epoch],
+  ../beacon_chain/[state_transition, extras],
+  ../beacon_chain/ssz/[merkleization, ssz_serialization]
 
 # Nimbus Bench - Scenario configuration
 # --------------------------------------------------

@@ -11,7 +11,7 @@ import
   options,
   ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator,
     state_transition_block],
-  ./attestation_pool, ./beacon_node_types, ./ssz
+  ./attestation_pool, ./beacon_node_types
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#aggregation-selection
 func is_aggregator(state: BeaconState, slot: Slot, index: CommitteeIndex,

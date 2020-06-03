@@ -10,7 +10,7 @@ import
   os, tables, random, strutils, times, math,
 
   # Nimble packages
-  stew/[objects, bitseqs, byteutils], stew/shims/macros,
+  stew/[objects, byteutils], stew/shims/macros,
   chronos, confutils, metrics, json_rpc/[rpcserver, jsonmarshal],
   chronicles,
   json_serialization/std/[options, sets, net], serialization/errors,
@@ -24,7 +24,7 @@ import
   attestation_pool, block_pool, eth2_network, eth2_discovery,
   beacon_node_common, beacon_node_types,
   nimbus_binary_common,
-  mainchain_monitor, version, ssz,
+  mainchain_monitor, version, ssz/[merkleization],
   sync_protocol, request_manager, validator_keygen, interop, statusbar,
   sync_manager, state_transition,
   validator_duties, validator_api

@@ -10,7 +10,7 @@ import
   os, tables, strutils,
 
   # Nimble packages
-  stew/[objects, bitseqs], stew/shims/macros,
+  stew/[objects], stew/shims/macros,
   chronos, metrics, json_rpc/[rpcserver, jsonmarshal],
   chronicles,
   json_serialization/std/[options, sets, net], serialization/errors,
@@ -22,7 +22,7 @@ import
   conf, time, validator_pool, state_transition,
   attestation_pool, block_pool, eth2_network,
   beacon_node_common, beacon_node_types,
-  mainchain_monitor, version, ssz, interop,
+  mainchain_monitor, version, ssz/merkleization, interop,
   attestation_aggregation, sync_manager, sszdump
 
 # Metrics for tracking attestation and beacon block loss

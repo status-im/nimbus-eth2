@@ -9,8 +9,6 @@ import
   # Standard library
   os, unittest, strutils, streams, strformat,
   macros, sets,
-  # Status libraries
-  stew/bitseqs,
   # Third-party
   yaml,
   # Beacon chain internals

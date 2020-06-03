@@ -25,7 +25,7 @@
 
 import
   # Internal
-  ./digest, ../ssz/types,
+  ./digest,
   # Status
   stew/[endians2, objects, results, byteutils],
   nimcrypto/sysrand,

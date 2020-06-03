@@ -20,7 +20,7 @@ import
   conf, time,
   eth2_network, eth2_discovery, validator_pool, beacon_node_types,
   nimbus_binary_common,
-  version, ssz, ssz/dynamic_navigator,
+  version, ssz/merkleization,
   sync_manager,
   spec/eth2_apis/validator_callsigs_types,
   eth2_json_rpc_serialization
@@ -103,7 +103,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
         )
 
       vc.port_logged "await 4"
-      
+
       let blockRoot = hash_tree_root(newBlock.message)
       newBlock.signature = await validator.signBlockProposal(
         vc.fork, vc.beaconGenesis.genesis_validators_root, slot, blockRoot)

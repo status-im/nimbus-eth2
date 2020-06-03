@@ -2,7 +2,7 @@
 
 import
   stew/endians2, stint,
-  ./extras, ./ssz,
+  ./extras, ./ssz/merkleization,
   spec/[crypto, datatypes, digest, helpers]
 
 func get_eth1data_stub*(deposit_count: uint64, current_epoch: Epoch): Eth1Data =

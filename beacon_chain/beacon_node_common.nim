@@ -18,6 +18,7 @@ import
   # Local modules
   spec/[datatypes, crypto, digest, helpers],
   conf, time, beacon_chain_db, sszdump,
+  ssz/merkleization,
   attestation_pool, block_pool, eth2_network,
   beacon_node_types, mainchain_monitor, request_manager,
   sync_manager

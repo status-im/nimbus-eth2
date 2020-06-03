@@ -1,13 +1,13 @@
 import
   # Standard library
   tables, json,
-  
+
   # Nimble packages
-  stew/[byteutils, bitseqs],
+  stew/byteutils, ssz/types,
   json_rpc/jsonmarshal,
 
   # Local modules
-  spec/[datatypes, digest, crypto]
+  spec/[datatypes, crypto]
 
 proc fromJson*(n: JsonNode, argName: string, result: var ValidatorPubKey) =
   result = ValidatorPubKey.fromHex(n.getStr()).tryGet()

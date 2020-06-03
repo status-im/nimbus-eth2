@@ -24,8 +24,9 @@ import
     state_transition_block],
   ../beacon_chain/[
     attestation_pool, block_pool, beacon_node_types, beacon_chain_db,
-    interop, ssz, state_transition, validator_pool],
+    interop, state_transition, validator_pool],
   eth/db/[kvstore, kvstore_sqlite3],
+  ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils
 
 type Timers = enum

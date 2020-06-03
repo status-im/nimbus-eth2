@@ -8,7 +8,7 @@
 import
   chronicles, tables,
   metrics, stew/results,
-  ../ssz, ../state_transition, ../extras,
+  ../ssz/merkleization, ../state_transition, ../extras,
   ../spec/[crypto, datatypes, digest, helpers],
 
   block_pools_types, candidate_chains

@@ -2,7 +2,7 @@ import
   os, strutils,
   chronicles, chronos, blscurve, nimcrypto, json_serialization, serialization,
   web3, stint, eth/keys,
-  spec/[datatypes, digest, crypto], conf, ssz, interop, merkle_minimal
+  spec/[datatypes, digest, crypto], conf, ssz/merkleization, interop, merkle_minimal
 
 contract(DepositContract):
   proc deposit(pubkey: Bytes48, withdrawalCredentials: Bytes32, signature: Bytes96, deposit_data_root: FixedBytes[32])

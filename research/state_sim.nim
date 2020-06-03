@@ -14,7 +14,8 @@ import
   options, sequtils, random, tables,
   ../tests/[testblockutil],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
-  ../beacon_chain/[attestation_pool, extras, ssz],
+  ../beacon_chain/[attestation_pool, extras],
+  ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils
 
 type Timers = enum
