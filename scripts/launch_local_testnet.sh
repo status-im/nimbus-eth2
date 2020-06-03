@@ -181,8 +181,8 @@ dump_logs() {
 
 PIDS=""
 NODES_WITH_VALIDATORS=${NODES_WITH_VALIDATORS:-4}
-SYSTEM_VALIDATORS=$((TOTAL_VALIDATORS - USER_VALIDATORS))
-VALIDATORS_PER_NODE=$((SYSTEM_VALIDATORS / NODES_WITH_VALIDATORS))
+SYSTEM_VALIDATORS=$(( TOTAL_VALIDATORS - USER_VALIDATORS ))
+VALIDATORS_PER_NODE=$(( SYSTEM_VALIDATORS / NODES_WITH_VALIDATORS ))
 BOOTSTRAP_TIMEOUT=10 # in seconds
 
 for NUM_NODE in $(seq 0 $((NUM_NODES - 1))); do
@@ -210,14 +210,15 @@ for NUM_NODE in $(seq 0 $((NUM_NODES - 1))); do
 	mkdir -p "${NODE_DATA_DIR}/secrets"
 
 	if [[ $NUM_NODE -lt $NODES_WITH_VALIDATORS ]]; then
-		for VALIDATOR in $(ls ${DEPOSITS_DIR}/* | tail -n +$(( $USER_VALIDATORS + ($VALIDATORS_PER_NODE * $NUM_NODE) + 1 )) | head -n $VALIDATORS_PER_NODE); do
-			cp -ar "$VALIDATOR" "${NODE_DATA_DIR}/validators/"
+		for VALIDATOR in $(ls ${DEPOSITS_DIR} | tail -n +$(( $USER_VALIDATORS + ($VALIDATORS_PER_NODE * $NUM_NODE) + 1 )) | head -n $VALIDATORS_PER_NODE); do
+			cp -ar "${DEPOSITS_DIR}/$VALIDATOR" "${NODE_DATA_DIR}/validators/"
 			cp -a "${SECRETS_DIR}/${VALIDATOR}" "${NODE_DATA_DIR}/secrets"
 		done
 	fi
 
 	./build/beacon_node \
-		--nat:extip:127.0.0.1 \
+		--non-interactive \
+    --nat:extip:127.0.0.1 \
 		--log-level="${LOG_LEVEL}" \
 		--tcp-port=$(( BASE_PORT + NUM_NODE )) \
 		--udp-port=$(( BASE_PORT + NUM_NODE )) \
