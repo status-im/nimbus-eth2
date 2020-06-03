@@ -33,27 +33,28 @@ make testnet0        # This will build Nimbus and all other dependencies
                      # and connect you to testnet0
 ```
 
-![](./img/connect_testnet.PNG)
+<img src="./img/connect_testnet.PNG" alt="" style="margin: 0 40 0 40"/>
 
 7. The testnet should now be up and running. Then, you will be prompted to enter your private key of the account you want to deposit the 32 Etheres from. Find your private key from MetaMask as below:
 
-![](./img/export_pkey.PNG)
+<img src="./img/export_pkey.PNG" alt="" width="200" style="margin: 0 40 0 40"/>
 
-![](./img/enter_private_key.PNG)
+<img src="./img/enter_private_key.PNG" alt="" style="margin: 0 40 0 40"/>
 
 8. Wait for a few seconds until you see your deposit has been sent:
 
-![](./img/deposit_sent.PNG)
+<img src="./img/deposit_sent.PNG" alt="" style="margin: 0 40 0 40"/>
 
-9. Now you should be syncing with the network. It may take a while (may be quite a few hours). You can know that you are synced if you see the following output. 
+9. Now you should be syncing with the network. It may take a while (may be quite a few hours). You can know that you are synced if you see the following output.
 
-![](./img/.PNG)
+<img src="./img/success.PNG" alt="" style="margin: 0 40 0 40"/>
 
+You can also get a brief estimate of the time remaining until your network gets synced by comparing the output `epoch` value and the one in the blockchain explorer (the [witti explorer](https://witti.beaconcha.in) for example).
 
 ## Trouble Shooting
 
-The directory that stores the blockchain data of the testnet is `build/data/testnet0`. Delete this folder if you want to start over.
-For example, you can start over with a fresh storgae if you entered a wrong private key.
-Sample private key: `2042c4306c27f21a85bb1d7b16a8a4270aa674dd3aec4483420ef4ee401957a6`. Feel free to copy this value directly from MetaMask.
+1. The directory that stores the blockchain data of the testnet is `build/data/testnet0` (replace `testnet0` with other testnet names). Delete this folder if you want to start over. For example, you can start over with a fresh storgae if you entered a wrong private key.
 
-You have to switch to the devel branch
+2. Currently, you have to switch to the devel branch in order to run the validator node successfully.
+
+3. Everytime you want to update your node to the latest version, run `git pull`, `make update`, and then `make testnet0`.
