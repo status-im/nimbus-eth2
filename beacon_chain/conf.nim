@@ -303,11 +303,11 @@ type
         abbr: "v"
         name: "validator" }: seq[ValidatorKeyPath]
 
-      validatorsDir* {.
+      validatorsDirFlag* {.
         desc: "A directory containing validator keystores."
         name: "validators-dir" }: Option[InputDir]
 
-      secretsDir* {.
+      secretsDirFlag* {.
         desc: "A directory containing validator keystore passwords."
         name: "secrets-dir" }: Option[InputDir]
 
