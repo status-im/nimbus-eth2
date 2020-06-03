@@ -722,7 +722,7 @@ proc connectWorker(network: Eth2Node) {.async.} =
                 errMsg = fut.readError().msg
           inc libp2p_failed_dials
           network.addSeen(pi)
-          continue
+        continue
       debug "Connection to remote peer timed out", peer = $pi
       inc libp2p_timeout_dials
       network.addSeen(pi)
