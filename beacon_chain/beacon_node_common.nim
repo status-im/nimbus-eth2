@@ -19,7 +19,8 @@ import
   spec/[datatypes, crypto, digest, helpers],
   conf, time, beacon_chain_db, sszdump,
   attestation_pool, block_pool, eth2_network,
-  beacon_node_types, mainchain_monitor, request_manager
+  beacon_node_types, mainchain_monitor, request_manager,
+  sync_manager
 
 # This removes an invalid Nim warning that the digest module is unused here
 # It's currently used for `shortLog(head.blck.root)`
@@ -42,9 +43,11 @@ type
     beaconClock*: BeaconClock
     rpcServer*: RpcServer
     forkDigest*: ForkDigest
+    syncManager*: SyncManager[Peer, PeerID]
     topicBeaconBlocks*: string
     topicAggregateAndProofs*: string
-    syncLoop*: Future[void]
+    forwardSyncLoop*: Future[void]
+    onSecondLoop*: Future[void]
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT

@@ -42,6 +42,10 @@ type
   # warning about unused import (rpc/messages).
   GossipMsg = messages.Message
 
+  SeenItem* = object
+    pinfo*: PeerInfo
+    stamp*: chronos.Moment
+
   # TODO Is this really needed?
   Eth2Node* = ref object of RootObj
     switch*: Switch
@@ -52,6 +56,11 @@ type
     libp2pTransportLoops*: seq[Future[void]]
     discoveryLoop: Future[void]
     metadata*: Eth2Metadata
+    connectTimeout*: chronos.Duration
+    seenThreshold*: chronos.Duration
+    connQueue: AsyncQueue[PeerInfo]
+    seenTable: Table[PeerID, SeenItem]
+    connWorkers: seq[Future[void]]
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
 
@@ -189,6 +198,9 @@ const
   PeerScoreHighLimit* = 1000
     ## Max value of peer's score
 
+  ConcurrentConnections* = 10
+    ## Maximum number of active concurrent connection requests.
+
 template neterr(kindParam: Eth2NetworkingErrorKind): auto =
   err(type(result), Eth2NetworkingError(kind: kindParam))
 
@@ -201,6 +213,12 @@ declareCounter gossip_messages_received,
 
 declarePublicGauge libp2p_successful_dials,
   "Number of successfully dialed peers"
+
+declarePublicGauge libp2p_failed_dials,
+  "Number of dialing attempts that failed"
+
+declarePublicGauge libp2p_timeout_dials,
+  "Number of dialing attempts that exceeded timeout"
 
 declarePublicGauge libp2p_peers,
   "Number of active libp2p peers"
@@ -648,26 +666,70 @@ proc toPeerInfo(r: Option[enr.TypedRecord]): PeerInfo =
   if r.isSome:
     return r.get.toPeerInfo
 
+proc isSeen*(network: ETh2Node, pinfo: PeerInfo): bool =
+  let currentTime = now(chronos.Moment)
+  let item = network.seenTable.getOrDefault(pinfo.peerId)
+  if isNil(item.pinfo):
+    # Peer is not in SeenTable.
+    return false
+  if currentTime - item.stamp >= network.seenThreshold:
+    network.seenTable.del(pinfo.peerId)
+    return false
+  return true
+
+proc addSeen*(network: ETh2Node, pinfo: PeerInfo) =
+  let item = SeenItem(pinfo: pinfo, stamp: now(chronos.Moment))
+  network.seenTable[pinfo.peerId] = item
+
 proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
   logScope: peer = $peerInfo
 
   debug "Connecting to peer"
-  if await withTimeout(node.switch.connect(peerInfo), 10.seconds):
-    var peer = node.getPeer(peerInfo)
-    peer.wasDialed = true
+  await node.switch.connect(peerInfo)
+  var peer = node.getPeer(peerInfo)
+  peer.wasDialed = true
 
-    #let msDial = newMultistream()
-    #let conn = node.switch.connections.getOrDefault(peerInfo.id)
-    #let ls = await msDial.list(conn)
-    #debug "Supported protocols", ls
+  #let msDial = newMultistream()
+  #let conn = node.switch.connections.getOrDefault(peerInfo.id)
+  #let ls = await msDial.list(conn)
+  #debug "Supported protocols", ls
 
-    debug "Initializing connection"
-    await initializeConnection(peer)
+  debug "Initializing connection"
+  await initializeConnection(peer)
 
-    inc libp2p_successful_dials
-    debug "Network handshakes completed"
-  else:
-    debug "Connection timed out"
+  inc libp2p_successful_dials
+  debug "Network handshakes completed"
+
+proc connectWorker(network: Eth2Node) {.async.} =
+  debug "Connection worker started"
+  while true:
+    let pi = await network.connQueue.popFirst()
+    let r1 = network.peerPool.hasPeer(pi.peerId)
+    let r2 = network.isSeen(pi)
+
+    if not(r1) and not(r2):
+      # We trying to connect to peers which are not present in our PeerPool and
+      # not present in our SeenTable.
+      var fut = network.dialPeer(pi)
+      # We discarding here just because we going to check future state, to avoid
+      # condition where connection happens and timeout reached.
+      let res = await withTimeout(fut, network.connectTimeout)
+      # We handling only timeout and errors, because successfull connections
+      # will be stored in PeerPool.
+      if fut.finished():
+        if fut.failed() and not(fut.cancelled()):
+          debug "Unable to establish connection with peer", peer = $pi,
+                errMsg = fut.readError().msg
+          inc libp2p_failed_dials
+          network.addSeen(pi)
+          continue
+      debug "Connection to remote peer timed out", peer = $pi
+      inc libp2p_timeout_dials
+      network.addSeen(pi)
+    else:
+      debug "Peer is already connected or already seen", peer = $pi,
+            peer_pool_has_peer = $r1, seen_table_has_peer = $r2,
+            seen_table_size = len(network.seenTable)
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
@@ -686,8 +748,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
               if peerInfo != nil:
                 if peerInfo.id notin node.switch.connections:
                   debug "Discovered new peer", peer = $peer
-                  # TODO do this in parallel
-                  await node.dialPeer(peerInfo)
+                  await node.connQueue.addLast(peerInfo)
                 else:
                   peerInfo.close()
           except CatchableError as err:
@@ -715,6 +776,10 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
   result.switch = switch
   result.wantedPeers = conf.maxPeers
   result.peerPool = newPeerPool[Peer, PeerID](maxPeers = conf.maxPeers)
+  result.connectTimeout = 10.seconds
+  result.seenThreshold = 10.minutes
+  result.seenTable = initTable[PeerID, SeenItem]()
+  result.connQueue = newAsyncQueue[PeerInfo](ConcurrentConnections)
   result.metadata = getPersistentNetMetadata(conf)
   result.discovery = Eth2DiscoveryProtocol.new(
     conf, ip, tcpPort, udpPort, privKey.toRaw,
@@ -728,6 +793,9 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
     for msg in proto.messages:
       if msg.protocolMounter != nil:
         msg.protocolMounter result
+
+  for i in 0 ..< ConcurrentConnections:
+    result.connWorkers.add(connectWorker(result))
 
 template publicKey*(node: Eth2Node): keys.PublicKey =
   node.discovery.privKey.toPublicKey.tryGet()
