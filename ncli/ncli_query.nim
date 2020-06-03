@@ -1,8 +1,7 @@
 import
-  confutils, os, strutils, chronicles, json_serialization,
+  confutils, os, strutils, json_serialization,
   stew/byteutils,
-  ../beacon_chain/spec/[crypto, datatypes, digest],
-  ../beacon_chain/[ssz],
+  ../beacon_chain/spec/[crypto, datatypes],
   ../beacon_chain/ssz/dynamic_navigator
 
 type

@@ -31,7 +31,7 @@ import
   tables,
   chronicles,
   stew/results,
-  ./extras, ./ssz, metrics,
+  ./extras, ./ssz/merkleization, metrics,
   ./spec/[datatypes, crypto, digest, helpers, validator],
   ./spec/[state_transition_block, state_transition_epoch],
   ../nbench/bench_lab

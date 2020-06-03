@@ -16,7 +16,7 @@ import
   sequtils, strutils, macros, bitops,
   # Specs
   ../../beacon_chain/spec/[beaconstate, datatypes, digest, helpers],
-  ../../beacon_chain/ssz
+  ../../beacon_chain/ssz/merkleization
 
 func round_step_down*(x: Natural, step: static Natural): int {.inline.} =
   ## Round the input to the previous multiple of "step"

@@ -1,6 +1,6 @@
 import chronicles
 import options, deques, heapqueue, tables, strutils, sequtils, math, algorithm
-import stew/[bitseqs, results], chronos, chronicles
+import stew/results, chronos, chronicles
 import spec/datatypes, spec/digest, peer_pool, eth2_network
 import eth/async_utils
 

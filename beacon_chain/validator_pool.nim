@@ -1,7 +1,7 @@
 import
   tables,
   chronos, chronicles,
-  spec/[datatypes, crypto, digest, state_transition_block], ssz,
+  spec/[datatypes, crypto, digest, state_transition_block],
   beacon_node_types
 
 func init*(T: type ValidatorPool): T =

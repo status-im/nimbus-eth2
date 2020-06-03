@@ -36,8 +36,8 @@
 
 import
   math, sequtils, tables,
-  stew/[bitseqs, bitops2], chronicles, json_serialization/std/sets,
-  metrics, ../extras, ../ssz,
+  stew/[bitops2], chronicles, json_serialization/std/sets,
+  metrics, ../extras, ../ssz/merkleization,
   beaconstate, crypto, datatypes, digest, helpers, validator,
   state_transition_helpers,
   ../../nbench/bench_lab

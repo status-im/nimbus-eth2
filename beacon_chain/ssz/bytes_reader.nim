@@ -3,8 +3,8 @@
 
 import
   typetraits, options,
-  stew/[bitseqs, bitops2, endians2, objects, bitseqs], serialization/testing/tracing,
-  ../spec/[digest, datatypes], ./types
+  stew/[bitops2, endians2, objects], serialization/testing/tracing,
+  ../spec/[digest, datatypes], ./types, ./spec_types
 
 template raiseIncorrectSize(T: type) =
   const typeName = name(T)

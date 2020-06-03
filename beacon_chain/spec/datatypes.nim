@@ -24,11 +24,11 @@
 
 import
   macros, hashes, json, strutils, tables,
-  stew/[byteutils, bitseqs], chronicles,
-  ../ssz/types as sszTypes, ./crypto, ./digest
+  stew/[byteutils], chronicles,
+  ../ssz/types, ./crypto, ./digest
 
 export
-  sszTypes
+  types
 
 # TODO Data types:
 # Presently, we're reusing the data types from the serialization (uint64) in the

@@ -2,7 +2,7 @@
   confutils, stats, chronicles, strformat, tables,
   ../beacon_chain/block_pool,
   ../beacon_chain/spec/[crypto, datatypes, helpers],
-  ../beacon_chain/[beacon_chain_db, extras, state_transition, ssz],
+  ../beacon_chain/[beacon_chain_db, extras, state_transition],
   ../research/simutils,
   eth/db/[kvstore, kvstore_sqlite3]
 

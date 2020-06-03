@@ -1,7 +1,6 @@
 import
   os, strformat,
-  ssz,
-  serialization,
+  ssz/ssz_serialization,
   beacon_node_types,
   ./spec/[crypto, datatypes, digest]
 

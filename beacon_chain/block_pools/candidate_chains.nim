@@ -10,7 +10,7 @@
 import
   chronicles, options, sequtils, tables,
   metrics,
-  ../ssz, ../beacon_chain_db, ../state_transition, ../extras,
+  ../ssz/merkleization, ../beacon_chain_db, ../state_transition, ../extras,
   ../spec/[crypto, datatypes, digest, helpers, validator],
   block_pools_types
 

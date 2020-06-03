@@ -1,7 +1,8 @@
 import
   stats, os, strformat, times,
   ../tests/[testblockutil],
-  ../beacon_chain/[extras, ssz],
+  ../beacon_chain/[extras],
+  ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ../beacon_chain/spec/[beaconstate, datatypes, digest, helpers]
 
 template withTimer*(stats: var RunningStat, body: untyped) =

@@ -10,7 +10,7 @@ import
   tables, strutils, sequtils,
 
   # Nimble packages
-  stew/[objects, bitseqs],
+  stew/[objects],
   chronos, metrics, json_rpc/[rpcserver, jsonmarshal],
 
   # Local modules
@@ -51,7 +51,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("get_v1_beacon_genesis") do () -> BeaconGenesisTuple:
     notice "== get_v1_beacon_genesis"
     return BeaconGenesisTuple(genesis_time: node.blockPool.headState.data.data.genesis_time,
-                              genesis_validators_root: node.blockPool.headState.data.data.genesis_validators_root, 
+                              genesis_validators_root: node.blockPool.headState.data.data.genesis_validators_root,
                               genesis_fork_version: Version(GENESIS_FORK_VERSION))
 
   rpcServer.rpc("get_v1_validator_blocks") do (slot: Slot, graffiti: Eth2Digest, randao_reveal: ValidatorSig) -> BeaconBlock:
