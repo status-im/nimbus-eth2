@@ -29,22 +29,21 @@ proc loadKeyStore(conf: BeaconNodeConf|ValidatorClientConf,
         error "Failed to read keystore", err = err.msg, path = keystorePath
         return
 
-  if conf.secretsDir.isSome:
-    let passphrasePath = conf.secretsDir.get / keyName
-    if fileExists(passphrasePath):
-      let
-        passphrase = KeyStorePass:
-          try: readFile(passphrasePath)
-          except IOError as err:
-            error "Failed to read passphrase file", err = err.msg, path = passphrasePath
-            return
+  let passphrasePath = conf.secretsDir / keyName
+  if fileExists(passphrasePath):
+    let
+      passphrase = KeyStorePass:
+        try: readFile(passphrasePath)
+        except IOError as err:
+          error "Failed to read passphrase file", err = err.msg, path = passphrasePath
+          return
 
-      let res = decryptKeystore(keystoreContents, passphrase)
-      if res.isOk:
-        return res.get.some
-      else:
-        error "Failed to decrypt keystore", keystorePath, passphrasePath
-        return
+    let res = decryptKeystore(keystoreContents, passphrase)
+    if res.isOk:
+      return res.get.some
+    else:
+      error "Failed to decrypt keystore", keystorePath, passphrasePath
+      return
 
   if conf.nonInteractive:
     error "Unable to load validator key store. Please ensure matching passphrase exists in the secrets dir",
@@ -76,7 +75,7 @@ iterator validatorKeys*(conf: BeaconNodeConf|ValidatorClientConf): ValidatorPriv
             file = validatorKeyFile.string, err = err.msg
       quit 1
 
-  let validatorsDir = conf.localValidatorsDir
+  let validatorsDir = conf.validatorsDir
   try:
     for kind, file in walkDir(validatorsDir):
       if kind == pcDir:

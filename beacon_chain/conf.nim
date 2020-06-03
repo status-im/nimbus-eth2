@@ -105,11 +105,11 @@ type
         abbr: "v"
         name: "validator" }: seq[ValidatorKeyPath]
 
-      validatorsDir* {.
+      validatorsDirFlag* {.
         desc: "A directory containing validator keystores."
         name: "validators-dir" }: Option[InputDir]
 
-      secretsDir* {.
+      secretsDirFlag* {.
         desc: "A directory containing validator keystore passwords."
         name: "secrets-dir" }: Option[InputDir]
 
@@ -324,8 +324,11 @@ proc defaultDataDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
 func dumpDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
   conf.dataDir / "dump"
 
-func localValidatorsDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
-  string conf.validatorsDir.get(InputDir(conf.dataDir / "validators"))
+func validatorsDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
+  string conf.validatorsDirFlag.get(InputDir(conf.dataDir / "validators"))
+
+func secretsDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
+  string conf.secretsDirFlag.get(InputDir(conf.dataDir / "secrets"))
 
 func databaseDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
   conf.dataDir / "db"

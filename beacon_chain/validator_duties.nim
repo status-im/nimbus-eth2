@@ -34,7 +34,7 @@ declareCounter beacon_blocks_proposed,
 logScope: topics = "beacval"
 
 proc saveValidatorKey*(keyName, key: string, conf: BeaconNodeConf) =
-  let validatorsDir = conf.localValidatorsDir
+  let validatorsDir = conf.validatorsDir
   let outputFile = validatorsDir / keyName
   createDir validatorsDir
   writeFile(outputFile, key)
