@@ -115,6 +115,7 @@ if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
   ../env.sh nim --verbosity:0 --hints:off manage_testnet_hosts.nims reset_network \
     --network=$NETWORK \
     --deposits-dir="$DEPOSITS_DIR_ABS" \
+    --secrets-dir="$SECRETS_DIR_ABS" \
     --network-data-dir="$NETWORK_DIR_ABS" \
     --user-validators=$USER_VALIDATORS \
     > /tmp/reset-network.sh
