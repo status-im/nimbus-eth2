@@ -51,6 +51,9 @@ of QueryCmd.get:
       stderr.write config.getQueryPath & " is not a valid path"
       quit 1
 
-  let navigator = DynamicSszNavigator.init(bytes, BeaconState)
+  # TODO nasty compile error here
+  # /home/arnetheduck/status/nim-beacon-chain/beacon_chain/ssz/navigator.nim(45, 50) template/generic instantiation of `getFieldBoundingOffsets` from here
+  # Error: internal error: (filename: "semtypes.nim", line: 1864, column: 21)
+  # let navigator = DynamicSszNavigator.init(bytes, BeaconState)
 
-  echo navigator.navigatePath(pathFragments[1 .. ^1]).toJson
+  # echo navigator.navigatePath(pathFragments[1 .. ^1]).toJson

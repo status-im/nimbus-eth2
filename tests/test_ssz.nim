@@ -9,7 +9,7 @@
 
 import
   unittest, options, json_serialization,
-  nimcrypto, eth/common, serialization/testing/generic_suite,
+  nimcrypto, serialization/testing/generic_suite,
   ./testutil,
   ../beacon_chain/spec/[datatypes, digest],
   ../beacon_chain/ssz, ../beacon_chain/ssz/[navigator, dynamic_navigator]
@@ -21,7 +21,8 @@ type
   Simple = object
     flag: bool
     # ignored {.dontSerialize.}: string
-    # data: array[256, bool]
+    data: array[256, bool]
+    data2: HashArray[256, bool]
 
 template reject(stmt) =
   doAssert(not compiles(stmt))
@@ -43,14 +44,14 @@ type
   ObjWithFields = object
     f0: uint8
     f1: uint32
-    f2: EthAddress
+    f2: array[20, byte]
     f3: MDigest[256]
     f4: seq[byte]
     f5: ValidatorIndex
 
 static:
   doAssert fixedPortionSize(ObjWithFields) ==
-    1 + 4 + sizeof(EthAddress) + (256 div 8) + 4 + 8
+    1 + 4 + sizeof(array[20, byte]) + (256 div 8) + 4 + 8
 
 executeRoundTripTests SSZ
 
@@ -88,13 +89,49 @@ suiteReport "SSZ navigator":
     let b = [byte 0x04, 0x05, 0x06].toDigest
     let c = [byte 0x07, 0x08, 0x09].toDigest
 
-    let leaves = List[Eth2Digest, int64(1 shl 3)](@[a, b, c])
+    var leaves = HashList[Eth2Digest, 1'i64 shl 3]()
+    leaves.add a
+    leaves.add b
+    leaves.add c
     let root = hash_tree_root(leaves)
     check $root == "5248085B588FAB1DD1E03F3CD62201602B12E6560665935964F46E805977E8C5"
 
-    let leaves2 = List[Eth2Digest, int64(1 shl 10)](@[a, b, c])
-    let root2 = hash_tree_root(leaves2)
-    check $root2 == "9FB7D518368DC14E8CC588FB3FD2749BEEF9F493FEF70AE34AF5721543C67173"
+    while leaves.len < 1 shl 3:
+      leaves.add c
+      check hash_tree_root(leaves) == hash_tree_root(leaves.data)
+
+    leaves = default(type leaves)
+
+    while leaves.len < (1 shl 3) - 1:
+      leaves.add c
+      leaves.add c
+      check hash_tree_root(leaves) == hash_tree_root(leaves.data)
+
+    leaves = default(type leaves)
+
+    while leaves.len < (1 shl 3) - 2:
+      leaves.add c
+      leaves.add c
+      leaves.add c
+      check hash_tree_root(leaves) == hash_tree_root(leaves.data)
+
+    for i in 0 ..< leaves.data.len - 2:
+      leaves[i] = a
+      leaves[i + 1] = b
+      leaves[i + 2] = c
+      check hash_tree_root(leaves) == hash_tree_root(leaves.data)
+
+    var leaves2 = HashList[Eth2Digest, 1'i64 shl 48]() # Large number!
+    leaves2.add a
+    leaves2.add b
+    leaves2.add c
+    check hash_tree_root(leaves2) == hash_tree_root(leaves2.data)
+
+  timedTest "basictype":
+    var leaves = HashList[uint64, 1'i64 shl 3]()
+    while leaves.len < leaves.maxLen:
+      leaves.add leaves.len.uint64
+      check hash_tree_root(leaves) == hash_tree_root(leaves.data)
 
 suiteReport "SSZ dynamic navigator":
   timedTest "navigating fields":
@@ -116,3 +153,45 @@ suiteReport "SSZ dynamic navigator":
     expect KeyError:
       discard navBar.navigate("biz")
 
+type
+  Obj = object
+    arr: array[8, Eth2Digest]
+
+    li: List[Eth2Digest, 8]
+
+  HashObj = object
+    arr: HashArray[8, Eth2Digest]
+
+    li: HashList[Eth2Digest, 8]
+
+suiteReport "hash":
+  timedTest "HashArray":
+    var
+      o = Obj()
+      ho = HashObj()
+
+    template both(body) =
+      block:
+        template it: auto {.inject.} = o
+        body
+      block:
+        template it: auto {.inject.} = ho
+        body
+
+      let htro = hash_tree_root(o)
+      let htrho = hash_tree_root(ho)
+
+      check:
+        o.arr == ho.arr.data
+        o.li == ho.li.data
+        htro == htrho
+
+    both: it.arr[0].data[0] = byte 1
+
+    both: it.li.add Eth2Digest()
+
+  var y: HashArray[32, uint64]
+  doAssert hash_tree_root(y) == hash_tree_root(y.data)
+  for i in 0..<y.len:
+    y[i] = 42'u64
+    doAssert hash_tree_root(y) == hash_tree_root(y.data)

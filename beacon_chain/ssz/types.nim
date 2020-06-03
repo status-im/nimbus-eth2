@@ -2,11 +2,13 @@
 
 import
   tables, options, typetraits,
-  stew/shims/macros, stew/[objects, bitseqs],
-  serialization/[object_serialization, errors]
+  stew/shims/macros, stew/[byteutils, bitops2, objects, bitseqs],
+  serialization/[object_serialization, errors],
+  ../spec/digest
 
 const
   offsetSize* = 4
+  bytesPerChunk* = 32
 
 type
   UintN* = SomeUnsignedInt # TODO: Add StUint here
@@ -14,6 +16,34 @@ type
 
   Limit* = int64
 
+# A few index types from here onwards:
+# * dataIdx - leaf index starting from 0 to maximum length of collection
+# * chunkIdx - leaf data index after chunking starting from 0
+# * vIdx - virtual index in merkle tree - the root is found at index 1, its
+#          two children at 2, 3 then 4, 5, 6, 7 etc
+
+template dataPerChunk(T: type): int =
+  # How many data items fit in a chunk
+  when T is BasicType:
+    bytesPerChunk div sizeof(T)
+  else:
+    1
+
+template chunkIdx*(T: type, dataIdx: int64): int64 =
+  # Given a data index, which chunk does it belong to?
+  dataIdx div dataPerChunk(T)
+
+template maxChunkIdx*(T: type, maxLen: int64): int64 =
+  # Given a number of data items, how many chunks are needed?
+  chunkIdx(T, maxLen + dataPerChunk(T) - 1)
+
+template layer*(vIdx: int64): int =
+  ## Layer 0 = layer at which the root hash is
+  ## We place the root hash at index 1 which simplifies the math and leaves
+  ## index 0 for the mixed-in-length
+  log2trunc(vIdx.uint64).int
+
+type
   List*[T; maxLen: static Limit] = distinct seq[T]
   BitList*[maxLen: static Limit] = distinct BitSeq
 
@@ -29,6 +59,15 @@ type
     deserializedType*: cstring
     actualSszSize*: int
     elementSize*: int
+
+  HashArray*[maxLen: static Limit; T] = object
+    data*: array[maxLen, T]
+    hashes* {.dontSerialize.}: array[maxChunkIdx(T, maxLen), Eth2Digest]
+
+  HashList*[T; maxLen: static Limit] = object
+    data*: List[T, maxLen]
+    hashes* {.dontSerialize.}: seq[Eth2Digest]
+    indices* {.dontSerialize.}: array[layer(maxChunkIdx(T, maxLen)) + 1, int64]
 
 template asSeq*(x: List): auto = distinctBase(x)
 
@@ -46,7 +85,7 @@ template low*(x: List): auto = low(distinctBase x)
 template high*(x: List): auto = high(distinctBase x)
 template `[]`*(x: List, idx: auto): untyped = distinctBase(x)[idx]
 template `[]=`*(x: var List, idx: auto, val: auto) = distinctBase(x)[idx] = val
-template `==`*(a, b: List): bool = asSeq(a) == distinctBase(b)
+template `==`*(a, b: List): bool = distinctBase(a) == distinctBase(b)
 
 template `&`*(a, b: List): auto = (type(a)(distinctBase(a) & distinctBase(b)))
 
@@ -78,6 +117,133 @@ iterator items*(x: BitList): bool =
   for i in 0 ..< x.len:
     yield x[i]
 
+template isCached*(v: Eth2Digest): bool =
+  ## An entry is "in the cache" if the first 8 bytes are zero - conveniently,
+  ## Nim initializes values this way, and while there may be false positives,
+  ## that's fine.
+  v.data.toOpenArray(0, 7) != [byte 0, 0, 0, 0, 0, 0, 0, 0]
+template clearCache*(v: var Eth2Digest) =
+  v.data[0..<8] = [byte 0, 0, 0, 0, 0, 0, 0, 0]
+
+template maxChunks*(a: HashList|HashArray): int64 =
+  ## Layer where data is
+  chunkIdx(a.T, a.maxLen)
+
+template maxDepth*(a: HashList|HashArray): int =
+  ## Layer where data is
+  layer(a.maxChunks)
+
+template chunkIdx(a: HashList|HashArray, dataIdx: int64): int64 =
+  chunkIdx(a.T, dataIdx)
+
+proc clearCaches*(a: var HashArray, dataIdx: auto) =
+  ## Clear all cache entries after data at dataIdx has been modified
+  var idx = 1 shl (a.maxDepth - 1) + (chunkIdx(a, dataIdx) div 2)
+  while idx != 0:
+    clearCache(a.hashes[idx])
+    idx = idx div 2
+
+func nodesAtLayer*(layer, depth, leaves: int): int =
+  ## Given a number of leaves, how many nodes do you need at a given layer
+  ## in a binary tree structure?
+  let leavesPerNode = 1'i64 shl (depth - layer)
+  int((leaves + leavesPerNode - 1) div leavesPerNode)
+
+func cacheNodes*(depth, leaves: int): int =
+  ## Total number of nodes needed to cache a tree of a given depth with
+  ## `leaves` items in it (the rest zero-filled)
+  var res = 0
+  for i in 0..<depth:
+    res += nodesAtLayer(i, depth, leaves)
+  res
+
+proc clearCaches*(a: var HashList, dataIdx: int64) =
+  if a.hashes.len == 0:
+    return
+
+  var
+    idx = 1'i64 shl (a.maxDepth - 1) + (chunkIdx(a, dataIdx) div 2)
+    layer = a.maxDepth - 1
+  while idx > 0:
+    let
+      idxInLayer = idx - (1'i64 shl layer)
+      layerIdx = idxInlayer + a.indices[layer]
+    if layerIdx < a.indices[layer + 1]:
+      clearCache(a.hashes[layerIdx])
+
+    idx = idx div 2
+    layer = layer - 1
+
+  clearCache(a.hashes[0])
+
+proc growHashes*(a: var HashList) =
+  # Ensure that the hash cache is big enough for the data in the list
+  let
+    leaves = int(
+      chunkIdx(a, a.data.len() + dataPerChunk(a.T) - 1))
+    newSize = 1 + cacheNodes(a.maxDepth, leaves)
+
+  if a.hashes.len >= newSize:
+    return
+
+  var
+    newHashes = newSeq[Eth2Digest](newSize)
+    newIndices = default(type a.indices)
+
+  if a.hashes.len != newSize:
+    newIndices[0] = nodesAtLayer(0, a.maxDepth, leaves)
+    for i in 1..a.maxDepth:
+      newIndices[i] = newIndices[i - 1] + nodesAtLayer(i - 1, a.maxDepth, leaves)
+
+  for i in 1..<a.maxDepth:
+    for j in 0..<(a.indices[i] - a.indices[i-1]):
+      newHashes[newIndices[i - 1] + j] = a.hashes[a.indices[i - 1] + j]
+
+  swap(a.hashes, newHashes)
+  a.indices = newIndices
+
+template len*(a: type HashArray): auto = int(a.maxLen)
+
+template add*(x: var HashList, val: auto) =
+  add(x.data, val)
+  x.growHashes()
+  clearCaches(x, x.data.len() - 1)
+
+template len*(x: HashList|HashArray): auto = len(x.data)
+template low*(x: HashList|HashArray): auto = low(x.data)
+template high*(x: HashList|HashArray): auto = high(x.data)
+template `[]`*(x: HashList|HashArray, idx: auto): auto = x.data[idx]
+
+proc `[]`*(a: var HashArray, b: auto): var a.T =
+  clearCaches(a, b.Limit)
+  a.data[b]
+
+proc `[]=`*(a: var HashArray, b: auto, c: auto) =
+  clearCaches(a, b.Limit)
+  a.data[b] = c
+
+proc `[]`*(x: var HashList, idx: auto): var x.T =
+  clearCaches(x, idx.int64)
+  x.data[idx]
+
+proc `[]=`*(x: var HashList, idx: auto, val: auto) =
+  clearCaches(x, idx.int64)
+  x.data[idx] = val
+
+template `==`*(a, b: HashList|HashArray): bool = a.data == b.data
+template asSeq*(x: HashList): auto = asSeq(x.data)
+template `$`*(x: HashList): auto = $(x.data)
+
+template items* (x: HashList|HashArray): untyped = items(x.data)
+template pairs* (x: HashList|HashArray): untyped = pairs(x.data)
+
+template fill*(a: var HashArray, c: auto) =
+  mixin fill
+  fill(a.data, c)
+template sum*[maxLen; T](a: var HashArray[maxLen, T]): T =
+  mixin sum
+  sum(a.data)
+
 macro unsupported*(T: typed): untyped =
   # TODO: {.fatal.} breaks compilation even in `compiles()` context,
   # so we use this macro instead. It's also much better at figuring
@@ -85,11 +251,20 @@ macro unsupported*(T: typed): untyped =
   # File both problems as issues.
   error "SSZ serialization of the type " & humaneTypeName(T) & " is not supported"
 
-template ElemType*(T: type[array]): untyped =
+template ElemType*(T: type HashArray): untyped =
+  T.T
+
+template ElemType*(T: type HashList): untyped =
+  T.T
+
+template ElemType*(T: type array): untyped =
   type(default(T)[low(T)])
 
-template ElemType*(T: type[seq|List]): untyped =
+template ElemType*(T: type seq): untyped =
   type(default(T)[0])
+
+template ElemType*(T: type List): untyped =
+  T.T
 
 func isFixedSize*(T0: type): bool {.compileTime.} =
   mixin toSszType, enumAllSerializedFields
@@ -98,7 +273,7 @@ func isFixedSize*(T0: type): bool {.compileTime.} =
 
   when T is BasicType:
     return true
-  elif T is array:
+  elif T is array|HashArray:
     return isFixedSize(ElemType(T))
   elif T is object|tuple:
     enumAllSerializedFields(T):
@@ -112,10 +287,10 @@ func fixedPortionSize*(T0: type): int {.compileTime.} =
   type T = type toSszType(declval T0)
 
   when T is BasicType: sizeof(T)
-  elif T is array:
+  elif T is array|HashArray:
     type E = ElemType(T)
-    when isFixedSize(E): len(T) * fixedPortionSize(E)
-    else: len(T) * offsetSize
+    when isFixedSize(E): int(len(T)) * fixedPortionSize(E)
+    else: int(len(T)) * offsetSize
   elif T is object|tuple:
     enumAllSerializedFields(T):
       when isFixedSize(FieldType):

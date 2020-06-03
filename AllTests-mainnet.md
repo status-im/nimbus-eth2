@@ -206,10 +206,11 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## SSZ navigator
 ```diff
++ basictype                                                                                  OK
 + lists with max size                                                                        OK
 + simple object fields                                                                       OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Spec helpers
 ```diff
 + integer_squareroot                                                                         OK
@@ -251,6 +252,11 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 +  Rule IV - 12 finalization without support                                                 OK
 ```
 OK: 8/8 Fail: 0/8 Skip: 0/8
+## hash
+```diff
++ HashArray                                                                                  OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
 OK: 156/159 Fail: 0/159 Skip: 3/159

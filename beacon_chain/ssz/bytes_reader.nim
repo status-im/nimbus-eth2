@@ -3,7 +3,7 @@
 
 import
   typetraits, options,
-  stew/[bitseqs, endians2, objects, bitseqs], serialization/testing/tracing,
+  stew/[bitseqs, bitops2, endians2, objects, bitseqs], serialization/testing/tracing,
   ../spec/[digest, datatypes], ./types
 
 template raiseIncorrectSize(T: type) =
@@ -65,8 +65,6 @@ template fromSszBytes*(T: type BitSeq, bytes: openarray[byte]): auto =
 
 proc `[]`[T, U, V](s: openArray[T], x: HSlice[U, V]) {.error:
   "Please don't use openarray's [] as it allocates a result sequence".}
-
-# func readOpenArray[T](result: var openarray[T], input: openarray[byte]) =
 
 template checkForForbiddenBits(ResulType: type,
                                input: openarray[byte],
@@ -130,6 +128,16 @@ func readSszValue*[T](input: openarray[byte], val: var T) {.raisesssz.} =
 
     if resultBytesCount == maxExpectedSize:
       checkForForbiddenBits(T, input, val.maxLen + 1)
+
+  elif val is HashList:
+    readSszValue(input, val.data)
+    val.hashes.setLen(0)
+    val.growHashes()
+
+  elif val is HashArray:
+    readSszValue(input, val.data)
+    for h in val.hashes.mitems():
+      clearCache(h)
 
   elif val is List|array:
     type E = type val[0]
@@ -248,7 +256,6 @@ func readSszValue*[T](input: openarray[byte], val: var T) {.raisesssz.} =
           input.toOpenArray(startOffset, endOffset - 1),
           field)
         trs "READING COMPLETE ", fieldName
-
       else:
         trs "READING FOREIGN ", fieldName, ": ", name(SszType)
         field = fromSszBytes(
