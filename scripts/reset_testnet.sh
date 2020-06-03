@@ -64,7 +64,17 @@ if [ "$ETH1_PRIVATE_KEY" != "" ]; then
 fi
 
 echo "Building a local beacon_node instance for 'makeDeposits' and 'createTestnet'"
-make NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node
+make -j2 NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node process_dashboard
+
+echo "Generating Grafana dashboards for remote testnet servers"
+for testnet in 0 1; do
+  ./build/process_dashboard \
+    --nodes=20 \
+    --in="tests/simulation/beacon-chain-sim-node0-Grafana-dashboard.json" \
+    --out="docker/beacon-chain-sim-remote-testnet${testnet}-Grafana-dashboard.json" \
+    --type="remote" \
+    --testnet="${testnet}"
+done
 
 cd docker
 
@@ -104,7 +114,7 @@ if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
   # TODO If we try to use direct piping here, bash doesn't execute all of the commands.
   #      The reasons for this are unclear at the moment.
 
-  ../env.sh nim --verbosity:0 manage_testnet_hosts.nims reset_network \
+  ../env.sh nim --verbosity:0 --hints:off manage_testnet_hosts.nims reset_network \
     --network=$NETWORK \
     --deposits-dir="$DEPOSITS_DIR_ABS" \
     --network-data-dir="$NETWORK_DIR_ABS" \
@@ -130,7 +140,7 @@ if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
     git push
   popd
 
-  ../env.sh nim --verbosity:0 manage_testnet_hosts.nims restart_nodes \
+  ../env.sh nim --verbosity:0 --hints:off manage_testnet_hosts.nims restart_nodes \
     --network=$NETWORK \
     > /tmp/restart-nodes.sh
 
