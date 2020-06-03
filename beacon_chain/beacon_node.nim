@@ -25,7 +25,7 @@ import
   beacon_node_common, beacon_node_types, block_pools/block_pools_types,
   nimbus_binary_common,
   mainchain_monitor, version, ssz/[merkleization], sszdump,
-  sync_protocol, request_manager, validator_keygen, interop, statusbar,
+  sync_protocol, request_manager, keystore_directories, interop, statusbar,
   sync_manager, state_transition,
   validator_duties, validator_api, attestation_aggregation
 
