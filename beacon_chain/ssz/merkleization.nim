@@ -5,6 +5,10 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+# This module contains the parts necessary to create a merkle hash from the core
+# SSZ types outlined in the spec:
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/ssz/simple-serialize.md#merkleization
+
 {.push raises: [Defect].}
 
 import

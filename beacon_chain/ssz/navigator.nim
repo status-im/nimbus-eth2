@@ -3,7 +3,9 @@
 
 import
   stew/[ptrops, objects], stew/ranges/ptr_arith,
-  ./bytes_reader, ./types, ./ssz_serialization
+  ./bytes_reader, ./types, ./spec_types
+
+export bytes_reader, types
 
 type
   MemRange* = object
