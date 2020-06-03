@@ -118,16 +118,16 @@ func compute_activation_exit_epoch(epoch: Epoch): Epoch =
   epoch + 1 + MAX_SEED_LOOKAHEAD
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_validator_churn_limit
-func get_validator_churn_limit(state: BeaconState): uint64 =
+func get_validator_churn_limit(state: BeaconState, cache: var StateCache):
+    uint64 =
   # Return the validator churn limit for the current epoch.
-  let active_validator_indices =
-    get_active_validator_indices(state, get_current_epoch(state))
   max(MIN_PER_EPOCH_CHURN_LIMIT,
-    len(active_validator_indices) div CHURN_LIMIT_QUOTIENT).uint64
+    len(cache.shuffled_active_validator_indices) div
+      CHURN_LIMIT_QUOTIENT).uint64
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(state: var BeaconState,
-                              index: ValidatorIndex) =
+                              index: ValidatorIndex, cache: var StateCache) =
   # Initiate the exit of the validator with index ``index``.
 
   # Return if validator already initiated exit
@@ -146,7 +146,7 @@ func initiate_validator_exit*(state: var BeaconState,
     a + (if b.exit_epoch == exit_queue_epoch: 1'u64 else: 0'u64),
     0'u64)
 
-  if exit_queue_churn >= get_validator_churn_limit(state):
+  if exit_queue_churn >= get_validator_churn_limit(state, cache):
     exit_queue_epoch += 1
 
   # Set validator exit epoch and withdrawable epoch
@@ -156,10 +156,10 @@ func initiate_validator_exit*(state: var BeaconState,
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#slash_validator
 proc slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
-    stateCache: var StateCache) =
+    cache: var StateCache) =
   # Slash the validator with index ``index``.
   let epoch = get_current_epoch(state)
-  initiate_validator_exit(state, slashed_index)
+  initiate_validator_exit(state, slashed_index, cache)
   let validator = addr state.validators[slashed_index]
 
   debug "slash_validator: ejecting validator via slashing (validator_leaving)",
@@ -181,7 +181,7 @@ proc slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
 
   # The rest doesn't make sense without there being any proposer index, so skip
   # Apply proposer and whistleblower rewards
-  let proposer_index = get_beacon_proposer_index(state, stateCache)
+  let proposer_index = get_beacon_proposer_index(state, cache)
   if proposer_index.isNone:
     debug "No beacon proposer index and probably no active validators"
     return
@@ -282,6 +282,7 @@ proc initialize_hashed_beacon_state_from_eth1*(
 func is_valid_genesis_state*(state: BeaconState): bool =
   if state.genesis_time < MIN_GENESIS_TIME:
     return false
+  # This is an okay get_active_validator_indices(...) for the time being.
   if len(get_active_validator_indices(state, GENESIS_EPOCH)) < MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
     return false
   return true
@@ -341,7 +342,8 @@ func is_eligible_for_activation(state: BeaconState, validator: Validator):
     validator.activation_epoch == FAR_FUTURE_EPOCH
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#registry-updates
-proc process_registry_updates*(state: var BeaconState) {.nbench.}=
+proc process_registry_updates*(state: var BeaconState,
+    cache: var StateCache) {.nbench.}=
   ## Process activation eligibility and ejections
   ## Try to avoid caching here, since this could easily become undefined
 
@@ -354,6 +356,12 @@ proc process_registry_updates*(state: var BeaconState) {.nbench.}=
     active_validator_indices=get_active_validator_indices(state, epoch),
     epoch=epoch
 
+  # is_active_validator(...) is activation_epoch <= epoch < exit_epoch,
+  # and changes here to either activation_epoch or exit_epoch only take
+  # effect with a compute_activation_exit_epoch(...) delay of, based on
+  # the current epoch, 1 + MAX_SEED_LOOKAHEAD epochs ahead. Thus caches
+  # remain valid for this epoch through though this function along with
+  # the rest of the epoch transition.
   for index, validator in state.validators:
     if is_eligible_for_activation_queue(validator):
       state.validators[index].activation_eligibility_epoch =
@@ -369,7 +377,7 @@ proc process_registry_updates*(state: var BeaconState) {.nbench.}=
         validator_withdrawable_epoch = validator.withdrawable_epoch,
         validator_exit_epoch = validator.exit_epoch,
         validator_effective_balance = validator.effective_balance
-      initiate_validator_exit(state, index.ValidatorIndex)
+      initiate_validator_exit(state, index.ValidatorIndex, cache)
 
   ## Queue validators eligible for activation and not dequeued for activation
   var activation_queue : seq[tuple[a: Epoch, b: int]] = @[]
@@ -382,7 +390,7 @@ proc process_registry_updates*(state: var BeaconState) {.nbench.}=
 
   ## Dequeued validators for activation up to churn limit (without resetting
   ## activation epoch)
-  let churn_limit = get_validator_churn_limit(state)
+  let churn_limit = get_validator_churn_limit(state, cache)
   for i, epoch_and_index in activation_queue:
     if i.uint64 >= churn_limit:
       break

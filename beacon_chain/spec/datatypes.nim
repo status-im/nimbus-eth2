@@ -490,6 +490,7 @@ proc `[]=`*[T](a: var seq[T], b: ValidatorIndex, c: T) =
 
 # `ValidatorIndex` Nim integration
 proc `==`*(x, y: ValidatorIndex) : bool {.borrow.}
+proc `<`*(x, y: ValidatorIndex) : bool {.borrow.}
 proc hash*(x: ValidatorIndex): Hash {.borrow.}
 proc `$`*(x: ValidatorIndex): auto = $(x.int64)
 
