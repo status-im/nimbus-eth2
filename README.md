@@ -77,6 +77,8 @@ Assuming you use [Homebrew](https://brew.sh/) to manage packages:
 brew install pcre
 ```
 
+Make sure you have [CMake](https://cmake.org/) installed, to be able to build libunwind (used for [lightweight stack traces](https://github.com/status-im/nim-libbacktrace)).
+
 ### Windows
 
 You can install the developer tools by following the instruction in our [Windows dev environment section](#windows-dev-environment).
