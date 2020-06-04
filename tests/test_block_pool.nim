@@ -10,7 +10,7 @@
 import
   options, sequtils, unittest,
   ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[datatypes, digest, helpers],
+  ../beacon_chain/spec/[datatypes, digest, helpers, validator],
   ../beacon_chain/[beacon_node_types, block_pool, state_transition, ssz]
 
 suiteReport "BlockRef and helpers" & preset():
@@ -88,9 +88,10 @@ suiteReport "Block pool processing" & preset():
       db = makeTestDB(SLOTS_PER_EPOCH)
       pool = BlockPool.init(db)
       stateData = newClone(pool.loadTailState())
-      b1 = addTestBlock(stateData.data, pool.tail.root)
+      cache = get_empty_per_epoch_cache()
+      b1 = addTestBlock(stateData.data, pool.tail.root, cache)
       b1Root = hash_tree_root(b1.message)
-      b2 = addTestBlock(stateData.data, b1Root)
+      b2 = addTestBlock(stateData.data, b1Root, cache)
       b2Root {.used.} = hash_tree_root(b2.message)
 
   timedTest "getRef returns nil for missing blocks":
@@ -132,7 +133,7 @@ suiteReport "Block pool processing" & preset():
       process_slots(stateData.data, stateData.data.data.slot + 1)
 
     let
-      b4 = addTestBlock(stateData.data, b2Root)
+      b4 = addTestBlock(stateData.data, b2Root, cache)
       b4Root = hash_tree_root(b4.message)
       b4Add = pool.add(b4Root, b4)[]
 
@@ -284,12 +285,13 @@ when const_preset == "minimal":  # These require some minutes in mainnet
       var
         db = makeTestDB(SLOTS_PER_EPOCH)
         pool = BlockPool.init(db)
+        cache = get_empty_per_epoch_cache()
 
     timedTest "prune heads on finalization" & preset():
       block:
         # Create a fork that will not be taken
         var
-          blck = makeTestBlock(pool.headState.data, pool.head.blck.root)
+          blck = makeTestBlock(pool.headState.data, pool.head.blck.root, cache)
         check: pool.add(hash_tree_root(blck.message), blck).isOk
 
       for i in 0 ..< (SLOTS_PER_EPOCH * 6):
@@ -299,9 +301,8 @@ when const_preset == "minimal":  # These require some minutes in mainnet
             pool.tail.children.len == 2
             pool.heads.len == 2
         var
-          cache = get_empty_per_epoch_cache()
           blck = makeTestBlock(
-            pool.headState.data, pool.head.blck.root,
+            pool.headState.data, pool.head.blck.root, cache,
             attestations = makeFullAttestations(
               pool.headState.data.data, pool.head.blck.root,
               pool.headState.data.data.slot, cache, {}))
@@ -332,7 +333,7 @@ when const_preset == "minimal":  # These require some minutes in mainnet
       for i in 0 ..< (SLOTS_PER_EPOCH * 6 - 2):
         var
           blck = makeTestBlock(
-            pool.headState.data, pool.head.blck.root,
+            pool.headState.data, pool.head.blck.root, cache,
             attestations = makeFullAttestations(
               pool.headState.data.data, pool.head.blck.root,
               pool.headState.data.data.slot, cache, {}))
@@ -345,7 +346,7 @@ when const_preset == "minimal":  # These require some minutes in mainnet
           pool.headState.data, Slot(SLOTS_PER_EPOCH * 6 + 2) )
 
       var blck = makeTestBlock(
-        pool.headState.data, pool.head.blck.root,
+        pool.headState.data, pool.head.blck.root, cache,
         attestations = makeFullAttestations(
           pool.headState.data.data, pool.head.blck.root,
           pool.headState.data.data.slot, cache, {}))

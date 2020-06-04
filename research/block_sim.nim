@@ -117,7 +117,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           Eth2Digest(),
           attPool.getAttestationsForBlock(state),
           @[],
-          noRollback)
+          noRollback,
+          cache)
 
       var
         newBlock = SignedBeaconBlock(
