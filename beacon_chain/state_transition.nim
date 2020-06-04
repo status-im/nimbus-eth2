@@ -273,11 +273,11 @@ proc makeBeaconBlock*(
     graffiti: Eth2Digest,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    rollback: RollbackHashedProc): Option[BeaconBlock] =
+    rollback: RollbackHashedProc,
+    cache: var StateCache): Option[BeaconBlock] =
   ## Create a block for the given state. The last block applied to it must be
   ## the one identified by parent_root and process_slots must be called up to
   ## the slot for which a block is to be created.
-  var cache = get_empty_per_epoch_cache()
 
   # To create a block, we'll first apply a partial block to the state, skipping
   # some validations.

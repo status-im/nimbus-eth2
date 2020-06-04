@@ -176,6 +176,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       doAssert v.addr == addr poolPtr.tmpState.data
       poolPtr.tmpState = poolPtr.headState
 
+    var cache = get_empty_per_epoch_cache()
     let message = makeBeaconBlock(
       hashedState,
       validator_index,
@@ -185,7 +186,8 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       graffiti,
       node.attestationPool.getAttestationsForBlock(state),
       deposits,
-      restore)
+      restore,
+      cache)
 
     if message.isSome():
       # TODO this restore is needed because otherwise tmpState will be internally

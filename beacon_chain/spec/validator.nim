@@ -196,6 +196,12 @@ func compute_proposer_index(state: BeaconState, indices: seq[ValidatorIndex],
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: BeaconState, cache: var StateCache, slot: Slot):
     Option[ValidatorIndex] =
+  try:
+    if slot in cache.beacon_proposer_indices:
+      return cache.beacon_proposer_indices[slot]
+  except KeyError:
+    raiseAssert("Cached entries are added before use")
+
   # Return the beacon proposer index at the current slot.
   let epoch = get_current_epoch(state)
 
@@ -215,14 +221,16 @@ func get_beacon_proposer_index*(state: BeaconState, cache: var StateCache, slot:
       indices =
         sorted(cache.shuffled_active_validator_indices[epoch], system.cmp)
 
-    compute_proposer_index(state, indices, seed)
+    cache.beacon_proposer_indices[slot] =
+      compute_proposer_index(state, indices, seed)
+    cache.beacon_proposer_indices[slot]
   except KeyError:
     raiseAssert("Cached entries are added before use")
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_beacon_proposer_index
-func get_beacon_proposer_index*(state: BeaconState, stateCache: var StateCache):
+func get_beacon_proposer_index*(state: BeaconState, cache: var StateCache):
     Option[ValidatorIndex] =
-  get_beacon_proposer_index(state, stateCache, state.slot)
+  get_beacon_proposer_index(state, cache, state.slot)
 
 # Not from spec
 # TODO: cache the results from this and reuse in subsequent calls to get_beacon_proposer_index

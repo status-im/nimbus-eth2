@@ -1,8 +1,7 @@
 import
   confutils, os, strutils, json_serialization,
   stew/byteutils,
-  ../beacon_chain/spec/[crypto, datatypes],
-  ../beacon_chain/ssz/dynamic_navigator
+  ../beacon_chain/spec/[crypto, datatypes]
 
 type
   QueryCmd* = enum
