@@ -357,12 +357,22 @@ template errorMsgLit(x: static string): ErrorMsg =
   const val = ErrorMsg toBytes(x)
   val
 
+proc formatErrorMsg(msg: ErrorMSg): string =
+  let candidate = string.fromBytes(asSeq(msg))
+  for c in candidate:
+    # TODO UTF-8 - but let's start with ASCII
+    if ord(c) < 32 or ord(c) > 127:
+      return byteutils.toHex(asSeq(msg))
+
+  return candidate
+
 proc sendErrorResponse(peer: Peer,
                        conn: Connection,
                        noSnappy: bool,
                        responseCode: ResponseCode,
                        errMsg: ErrorMsg) {.async.} =
-  debug "Error processing request", peer, responseCode, errMsg
+  debug "Error processing request",
+    peer, responseCode, errMsg = formatErrorMsg(errMsg)
   await conn.writeChunk(some responseCode, SSZ.encode(errMsg), noSnappy)
 
 proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.async} =
