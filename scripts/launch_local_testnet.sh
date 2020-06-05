@@ -155,7 +155,7 @@ BOOTSTRAP_IP="127.0.0.1"
 	--output-bootstrap-file="${NETWORK_DIR}/bootstrap_nodes.txt" \
 	--bootstrap-address=${BOOTSTRAP_IP} \
 	--bootstrap-port=${BASE_PORT} \
-	--genesis-offset=5 # Delay in seconds
+	--genesis-offset=30 # Delay in seconds
 
 if [[ "$ENABLE_GRAFANA" == "1" ]]; then
 	# Prometheus config

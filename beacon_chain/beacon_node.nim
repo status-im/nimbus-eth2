@@ -44,7 +44,7 @@ type
 # this needs to be global, so it can be set in the Ctrl+C signal handler
 var status = BeaconNodeStatus.Starting
 
-template init(T: type RpcHttpServer, ip: IpAddress, port: Port): T =
+template init(T: type RpcHttpServer, ip: ValidIpAddress, port: Port): T =
   newRpcHttpServer([initTAddress(ip, port)])
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics

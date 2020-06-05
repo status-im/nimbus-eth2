@@ -78,7 +78,7 @@ type
       libp2pAddress* {.
         defaultValue: defaultListenAddress(config)
         desc: "Listening address for the Ethereum LibP2P traffic."
-        name: "listen-address"}: IpAddress
+        name: "listen-address" }: ValidIpAddress
 
       tcpPort* {.
         defaultValue: defaultEth2TcpPort
@@ -140,7 +140,7 @@ type
       metricsAddress* {.
         defaultValue: defaultAdminListenAddress(config)
         desc: "Listening address of the metrics server."
-        name: "metrics-address" }: IpAddress
+        name: "metrics-address" }: ValidIpAddress
 
       metricsPort* {.
         defaultValue: 8008
@@ -173,7 +173,7 @@ type
       rpcAddress* {.
         defaultValue: defaultAdminListenAddress(config)
         desc: "Listening address of the RPC server"
-        name: "rpc-address" }: IpAddress
+        name: "rpc-address" }: ValidIpAddress
 
       dumpEnabled* {.
         defaultValue: false
@@ -201,9 +201,9 @@ type
         name: "last-user-validator" }: uint64
 
       bootstrapAddress* {.
-        defaultValue: parseIpAddress("127.0.0.1")
+        defaultValue: ValidIpAddress.init("127.0.0.1")
         desc: "The public IP address that will be advertised as a bootstrap node for the testnet."
-        name: "bootstrap-address" }: IpAddress
+        name: "bootstrap-address" }: ValidIpAddress
 
       bootstrapPort* {.
         defaultValue: defaultEth2TcpPort
@@ -290,7 +290,7 @@ type
       rpcAddress* {.
         defaultValue: defaultAdminListenAddress(config)
         desc: "Address of the server to connect to for RPC."
-        name: "rpc-address" }: IpAddress
+        name: "rpc-address" }: ValidIpAddress
 
       validators* {.
         required
@@ -330,13 +330,13 @@ func localValidatorsDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
 func databaseDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
   conf.dataDir / "db"
 
-func defaultListenAddress*(conf: BeaconNodeConf|ValidatorClientConf): IpAddress =
+func defaultListenAddress*(conf: BeaconNodeConf|ValidatorClientConf): ValidIpAddress =
   # TODO: How should we select between IPv4 and IPv6
   # Maybe there should be a config option for this.
-  return static: parseIpAddress("0.0.0.0")
+  (static ValidIpAddress.init("0.0.0.0"))
 
-func defaultAdminListenAddress*(conf: BeaconNodeConf|ValidatorClientConf): IpAddress =
-  return static: parseIpAddress("127.0.0.1")
+func defaultAdminListenAddress*(conf: BeaconNodeConf|ValidatorClientConf): ValidIpAddress =
+  (static ValidIpAddress.init("127.0.0.1"))
 
 iterator validatorKeys*(conf: BeaconNodeConf|ValidatorClientConf): ValidatorPrivKey =
   for validatorKeyFile in conf.validators:

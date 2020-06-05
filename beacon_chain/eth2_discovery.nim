@@ -1,8 +1,8 @@
 {.push raises: [Defect].}
 
 import
-  os, net, sequtils, strutils,
-  chronicles, stew/results, eth/keys, eth/trie/db,
+  os, sequtils, strutils,
+  chronicles, stew/shims/net, stew/results, eth/keys, eth/trie/db,
   eth/p2p/discoveryv5/[enr, protocol, discovery_db, node],
   conf
 
@@ -74,7 +74,7 @@ proc loadBootstrapFile*(bootstrapFile: string,
 
 proc new*(T: type Eth2DiscoveryProtocol,
           conf: BeaconNodeConf,
-          ip: Option[IpAddress], tcpPort, udpPort: Port,
+          ip: Option[ValidIpAddress], tcpPort, udpPort: Port,
           rawPrivKeyBytes: openarray[byte],
           enrFields: openarray[(string, seq[byte])]):
           T {.raises: [Exception, Defect].} =

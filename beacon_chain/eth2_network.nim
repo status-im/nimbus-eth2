@@ -1,10 +1,11 @@
 import
   # Std lib
   typetraits, strutils, os, random, algorithm, sequtils,
-  options as stdOptions, net as stdNet,
+  options as stdOptions,
 
   # Status libs
   stew/[varints, base58, endians2, results, byteutils],
+  stew/shims/net as stewNet,
   stew/shims/[macros, tables],
   faststreams/[inputs, outputs, buffers], snappy, snappy/framing,
   json_serialization, json_serialization/std/[net, options],
@@ -656,17 +657,15 @@ proc toPeerInfo*(r: enr.TypedRecord): PeerInfo =
     var addresses = newSeq[MultiAddress]()
 
     if r.ip.isSome and r.tcp.isSome:
-      let ip = IpAddress(family: IpAddressFamily.IPv4,
-                         address_v4: r.ip.get)
-      addresses.add MultiAddress.init(ip, TCP, Port r.tcp.get)
+      let ip = ipv4(r.ip.get)
+      addresses.add MultiAddress.init(ip, tcpProtocol, Port r.tcp.get)
 
     if r.ip6.isSome:
-      let ip = IpAddress(family: IpAddressFamily.IPv6,
-                         address_v6: r.ip6.get)
+      let ip = ipv6(r.ip6.get)
       if r.tcp6.isSome:
-        addresses.add MultiAddress.init(ip, TCP, Port r.tcp6.get)
+        addresses.add MultiAddress.init(ip, tcpProtocol, Port r.tcp6.get)
       elif r.tcp.isSome:
-        addresses.add MultiAddress.init(ip, TCP, Port r.tcp.get)
+        addresses.add MultiAddress.init(ip, tcpProtocol, Port r.tcp.get)
       else:
         discard
 
@@ -781,7 +780,7 @@ proc getPersistentNetMetadata*(conf: BeaconNodeConf): Eth2Metadata =
     result = Json.loadFile(metadataPath, Eth2Metadata)
 
 proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
-           switch: Switch, ip: Option[IpAddress], tcpPort, udpPort: Port,
+           switch: Switch, ip: Option[ValidIpAddress], tcpPort, udpPort: Port,
            privKey: keys.PrivateKey): T =
   new result
   result.switch = switch
@@ -986,7 +985,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   result.implementProtocolInit = proc (p: P2PProtocol): NimNode =
     return newCall(initProtocol, newLit(p.name), p.peerInit, p.netInit)
 
-proc setupNat(conf: BeaconNodeConf): tuple[ip: Option[IpAddress],
+proc setupNat(conf: BeaconNodeConf): tuple[ip: Option[ValidIpAddress],
                                            tcpPort: Port,
                                            udpPort: Port] {.gcsafe.} =
   # defaults
@@ -1004,17 +1003,22 @@ proc setupNat(conf: BeaconNodeConf): tuple[ip: Option[IpAddress],
     of "pmp":
       nat = NatPmp
     else:
-      if conf.nat.startsWith("extip:") and isIpAddress(conf.nat[6..^1]):
-        # any required port redirection is assumed to be done by hand
-        result.ip = some(parseIpAddress(conf.nat[6..^1]))
-        nat = NatNone
+      if conf.nat.startsWith("extip:"):
+        try:
+          # any required port redirection is assumed to be done by hand
+          result.ip = some(ValidIpAddress.init(conf.nat[6..^1]))
+          nat = NatNone
+        except ValueError:
+          error "nor a valid IP address", address = conf.nat[6..^1]
+          quit QuitFailure
       else:
-        error "not a valid NAT mechanism, nor a valid IP address", value = conf.nat
-        quit(QuitFailure)
+        error "not a valid NAT mechanism", value = conf.nat
+        quit QuitFailure
 
   if nat != NatNone:
-    result.ip = getExternalIP(nat)
-    if result.ip.isSome:
+    let extIp = getExternalIP(nat)
+    if extIP.isSome:
+      result.ip = some(ValidIpAddress.init extIp.get)
       # TODO redirectPorts in considered a gcsafety violation
       # because it obtains the address of a non-gcsafe proc?
       let extPorts = ({.gcsafe.}:
@@ -1039,7 +1043,7 @@ proc initAddress*(T: type MultiAddress, str: string): T =
                        "Invalid bootstrap node multi-address")
 
 template tcpEndPoint(address, port): auto =
-  MultiAddress.init(address, Protocol.IPPROTO_TCP, port)
+  MultiAddress.init(address, tcpProtocol, port)
 
 proc getPersistentNetKeys*(conf: BeaconNodeConf): KeyPair =
   let
@@ -1079,7 +1083,7 @@ proc createEth2Node*(conf: BeaconNodeConf, enrForkId: ENRForkID): Future[Eth2Nod
                          keys.seckey.asEthKey)
 
 proc getPersistenBootstrapAddr*(conf: BeaconNodeConf,
-                                ip: IpAddress, port: Port): EnrResult[enr.Record] =
+                                ip: ValidIpAddress, port: Port): EnrResult[enr.Record] =
   let pair = getPersistentNetKeys(conf)
   return enr.Record.init(1'u64, # sequence number
                          pair.seckey.asEthKey,
