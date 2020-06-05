@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  chronicles, tables,
+  chronicles, sequtils, tables,
   metrics, stew/results,
   ../ssz/merkleization, ../state_transition, ../extras,
   ../spec/[crypto, datatypes, digest, helpers],
@@ -46,8 +46,8 @@ proc addResolvedBlock(
   doAssert state.slot == signedBlock.message.slot, "state must match block"
 
   let blockRef = BlockRef.init(blockRoot, signedBlock.message)
-  parent.epochsInfo =
-    @[populateEpochCache(state, state.slot.compute_epoch_at_slot)]
+  blockRef.epochsInfo = filterIt(parent.epochsInfo,
+    it.epoch + 1 >= state.slot.compute_epoch_at_slot)
   link(parent, blockRef)
 
   dag.blocks[blockRoot] = blockRef
