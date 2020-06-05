@@ -532,6 +532,14 @@ proc isValidAttestation*(
             attestation_pool_validation = validation.aggregation_bits
           return false
 
+  # Temporary: on Witti testnet, attestations and blocks routinely come in out
+  # of order. TODO we need to support this case but to enable participation in
+  # Witti, before https://github.com/status-im/nim-beacon-chain/issues/1106 is
+  # fixed, just disable these validations for now.
+  const kludge = true
+  if kludge:
+    return true
+
   # The block being voted for (attestation.data.beacon_block_root) passes
   # validation.
   # We rely on the block pool to have been validated, so check for the
