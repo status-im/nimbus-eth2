@@ -71,9 +71,8 @@ type
 
     unresolved*: Table[Eth2Digest, UnresolvedAttestation]
 
-    latestAttestations*: Table[ValidatorPubKey, BlockRef] ##\
-    ## Map that keeps track of the most recent vote of each attester - see
-    ## fork_choice
+    forkChoice*: ForkChoice ##\
+    ## Tracks the most recent vote of each attester
 
   # #############################################
   #

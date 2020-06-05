@@ -33,7 +33,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       process_slots(state.data, state.data.data.slot + 1)
 
-    # pool[].add(blockPool[].tail) # Make the tail known to fork choice
+    pool[].add(blockPool[].tail) # Make the tail known to fork choice
 
   timedTest "Can add and retrieve simple attestation" & preset():
     var cache = get_empty_per_epoch_cache()
@@ -161,7 +161,7 @@ suiteReport "Attestation pool processing" & preset():
       b1Root = hash_tree_root(b1.message)
       b1Add = blockpool[].add(b1Root, b1)[]
 
-    # pool[].add(b1Add) - make a block known to the future fork choice
+    pool[].add(b1Add)
     let head = pool[].selectHead()
 
     check:
@@ -172,7 +172,7 @@ suiteReport "Attestation pool processing" & preset():
       b2Root = hash_tree_root(b2.message)
       b2Add = blockpool[].add(b2Root, b2)[]
 
-    # pool[].add(b2Add) - make a block known to the future fork choice
+    pool[].add(b2Add)
     let head2 = pool[].selectHead()
 
     check:
@@ -185,7 +185,7 @@ suiteReport "Attestation pool processing" & preset():
       b10Root = hash_tree_root(b10.message)
       b10Add = blockpool[].add(b10Root, b10)[]
 
-    # pool[].add(b10Add) - make a block known to the future fork choice
+    pool[].add(b10Add)
     let head = pool[].selectHead()
 
     check:
@@ -202,7 +202,7 @@ suiteReport "Attestation pool processing" & preset():
         state.data.data, state.data.data.slot, 1.CommitteeIndex, cache)
       attestation0 = makeAttestation(state.data.data, b10Root, bc1[0], cache)
 
-    # pool[].add(b11Add) - make a block known to the future fork choice
+    pool[].add(b11Add)
     pool[].add(attestation0)
 
     let head2 = pool[].selectHead()
@@ -217,15 +217,12 @@ suiteReport "Attestation pool processing" & preset():
     pool[].add(attestation1)
 
     let head3 = pool[].selectHead()
-    # Warning - the tiebreak are incorrect and guaranteed consensus fork, it should be bigger
-    let smaller = if b10Root.data < b11Root.data: b10Add else: b11Add
+    let bigger = if b10Root.data > b11Root.data: b10Add else: b11Add
 
     check:
       # Ties broken lexicographically in spec -> ?
       # all implementations favor the biggest root
-      # TODO
-      # currently using smaller as we have used for over a year
-      head3 == smaller
+      head3 == bigger
 
     pool[].add(attestation2)
 
