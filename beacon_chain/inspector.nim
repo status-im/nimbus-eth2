@@ -15,6 +15,7 @@ import eth/p2p/discoveryv5/[protocol, discovery_db, node]
 import eth/keys as ethkeys, eth/trie/db
 import stew/[results, objects]
 import stew/byteutils as bu
+import stew/shims/net
 import nimcrypto/[hash, keccak]
 import secp256k1 as s
 import stint
@@ -154,6 +155,8 @@ type
       desc: "Disable discovery",
       defaultValue: false.}: bool
 
+  StrRes[T] = Result[T, string]
+
 proc `==`*(a, b: ENRFieldPair): bool {.inline.} =
   result = (a.eth2 == b.eth2)
 
@@ -242,7 +245,9 @@ proc getBootstrapAddress(bootnode: string): Option[BootstrapAddress] =
         else:
           warn "Incorrect or empty ENR bootstrap address", address = stripped
       else:
-        let ma = MultiAddress.init(stripped)
+        let maRes = MultiAddress.init(stripped)
+        let ma = if maRes.isOk: maRes.get
+                 else: return
         if ETH2BN.match(ma) or DISCV5BN.match(ma):
           let res = BootstrapAddress(kind: BootstrapKind.MultiAddr,
                                      addressMa: ma)
@@ -279,12 +284,11 @@ proc tryGetForkDigest(hexdigest: string): Option[ForkDigest] =
       discard
 
 proc tryGetMultiAddress(address: string): Option[MultiAddress] =
-  try:
-    let ma = MultiAddress.init(address)
-    if IP4.match(ma) or IP6.match(ma):
-      result = some(ma)
-  except MultiAddressError:
-    discard
+  let maRes = MultiAddress.init(address)
+  let ma = if maRes.isOk: maRes.get
+           else: return
+  if IP4.match(ma) or IP6.match(ma):
+    result = some(ma)
 
 proc loadBootstrapNodes(conf: InspectorConf): seq[BootstrapAddress] =
   result = newSeq[BootstrapAddress]()
@@ -303,14 +307,14 @@ proc loadBootstrapNodes(conf: InspectorConf): seq[BootstrapAddress] =
       result.add(res.get())
 
 proc init*(p: typedesc[PeerInfo],
-           maddr: MultiAddress): Option[PeerInfo] {.inline.} =
+           maddr: MultiAddress): StrRes[PeerInfo] {.inline.} =
   ## Initialize PeerInfo using address which includes PeerID.
   if IPFS.match(maddr):
-    let peerid = maddr[2].protoAddress()
-    result = some(PeerInfo.init(PeerID.init(peerid), [maddr[0] & maddr[1]]))
+    let peerid = ? protoAddress(? maddr[2])
+    result = ok(PeerInfo.init(PeerID.init(peerid), [(? maddr[0]) & (? maddr[1])]))
 
 proc init*(p: typedesc[PeerInfo],
-           enraddr: enr.Record): Option[PeerInfo] =
+           enraddr: enr.Record): StrRes[PeerInfo] =
   var trec: enr.TypedRecord
   try:
     let trecOpt = enraddr.toTypedRecord()
@@ -324,22 +328,22 @@ proc init*(p: typedesc[PeerInfo],
                       skkey: lsecp.SkPublicKey(skpubkey.get())))
           var mas = newSeq[MultiAddress]()
           if trec.ip.isSome() and trec.tcp.isSome():
-            let ma = MultiAddress.init(multiCodec("ip4"), trec.ip.get()) &
-                     MultiAddress.init(multiCodec("tcp"), trec.tcp.get())
+            let ma = (? MultiAddress.init(multiCodec("ip4"), trec.ip.get())) &
+                     (? MultiAddress.init(multiCodec("tcp"), trec.tcp.get()))
             mas.add(ma)
           if trec.ip6.isSome() and trec.tcp6.isSome():
-            let ma = MultiAddress.init(multiCodec("ip6"), trec.ip6.get()) &
-                     MultiAddress.init(multiCodec("tcp"), trec.tcp6.get())
+            let ma = (? MultiAddress.init(multiCodec("ip6"), trec.ip6.get())) &
+                     (? MultiAddress.init(multiCodec("tcp"), trec.tcp6.get()))
             mas.add(ma)
           if trec.ip.isSome() and trec.udp.isSome():
-            let ma = MultiAddress.init(multiCodec("ip4"), trec.ip.get()) &
-                     MultiAddress.init(multiCodec("udp"), trec.udp.get())
+            let ma = (? MultiAddress.init(multiCodec("ip4"), trec.ip.get())) &
+                     (? MultiAddress.init(multiCodec("udp"), trec.udp.get()))
             mas.add(ma)
           if trec.ip6.isSome() and trec.udp6.isSome():
-            let ma = MultiAddress.init(multiCodec("ip6"), trec.ip6.get()) &
-                     MultiAddress.init(multiCodec("udp"), trec.udp6.get())
+            let ma = (? MultiAddress.init(multiCodec("ip6"), trec.ip6.get())) &
+                     (? MultiAddress.init(multiCodec("udp"), trec.udp6.get()))
             mas.add(ma)
-          result = some(PeerInfo.init(peerid, mas))
+          result = ok PeerInfo.init(peerid, mas)
   except CatchableError as exc:
     warn "Error", errMsg = exc.msg, record = enraddr.toUri()
 
@@ -398,15 +402,17 @@ proc connectLoop*(switch: Switch,
     for item in infos:
       peerTable[item.peerId] = item
 
-proc toIpAddress*(ma: MultiAddress): Option[IpAddress] =
+proc toIpAddress*(ma: MultiAddress): Option[ValidIpAddress] =
   if IP4.match(ma):
-    let address = ma.protoAddress()
-    result = some(IpAddress(family: IpAddressFamily.IPv4,
-                            address_v4: toArray(4, address)))
+    let addressRes = ma.protoAddress()
+    let address = if addressRes.isOk: addressRes.get
+                  else: return
+    result = some(ipv4 toArray(4, address))
   elif IP6.match(ma):
-    let address = ma.protoAddress()
-    result = some(IpAddress(family: IpAddressFamily.IPv6,
-                            address_v6: toArray(16, address)))
+    let addressRes = ma.protoAddress()
+    let address = if addressRes.isOk: addressRes.get
+                  else: return
+    result = some(ipv6 toArray(16, address))
 
 proc bootstrapDiscovery(conf: InspectorConf,
                         host: MultiAddress,
@@ -557,7 +563,7 @@ proc resolveLoop(conf: InspectorConf,
         let nodeOpt = await discovery.resolve(idOpt.get())
         if nodeOpt.isSome():
           let peerOpt = PeerInfo.init(nodeOpt.get().record)
-          if peerOpt.isSome():
+          if peerOpt.isOk():
             let peer = peerOpt.get()
             trace "Peer resolved", peer_id = peerId,
                                    node_id = idOpt.get(),
@@ -588,7 +594,7 @@ proc discoveryLoop(conf: InspectorConf,
       let discoveredPeers = discovery.randomNodes(wantedPeers - len(peers))
       for peer in discoveredPeers:
         let pinfoOpt = PeerInfo.init(peer.record)
-        if pinfoOpt.isSome():
+        if pinfoOpt.isOk():
           let pinfo = pinfoOpt.get()
           if pinfo.hasTCP():
             if pinfo.id() notin switch.connections:
@@ -626,7 +632,7 @@ proc run(conf: InspectorConf) {.async.} =
       logEnrAddress(item.addressRec.toUri())
 
       let pinfoOpt = PeerInfo.init(item.addressRec)
-      if pinfoOpt.isSome():
+      if pinfoOpt.isOk():
         let pinfo = pinfoOpt.get()
         for ma in pinfo.addrs:
           if TCP.match(ma):
