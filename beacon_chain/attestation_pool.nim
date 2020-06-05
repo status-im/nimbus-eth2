@@ -11,7 +11,7 @@ import
   deques, sequtils, tables, options,
   chronicles, stew/[byteutils], json_serialization/std/sets,
   ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator],
-  ./extras, ./block_pool, ./beacon_node_types
+  ./extras, ./block_pool, ./block_pools/candidate_chains, ./beacon_node_types
 
 logScope: topics = "attpool"
 
@@ -149,9 +149,9 @@ func updateLatestVotes(
       pool.latestAttestations[pubKey] = blck
 
 func get_attesting_indices_seq(state: BeaconState,
-                                attestation_data: AttestationData,
-                                bits: CommitteeValidatorsBits): seq[ValidatorIndex] =
-  var cache = get_empty_per_epoch_cache()
+                               attestation_data: AttestationData,
+                               bits: CommitteeValidatorsBits,
+                               cache: var StateCache): seq[ValidatorIndex] =
   toSeq(items(get_attesting_indices(
     state, attestation_data, bits, cache)))
 
@@ -191,6 +191,7 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
 
   # TODO inefficient data structures..
 
+  var cache = getEpochCache(blck, state)
   let
     attestationSlot = attestation.data.slot
     idx = pool.slotIndex(state, attestationSlot)
@@ -199,7 +200,7 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
       aggregation_bits: attestation.aggregation_bits,
       aggregate_signature: attestation.signature)
     participants = get_attesting_indices_seq(
-      state, attestation.data, validation.aggregation_bits)
+      state, attestation.data, validation.aggregation_bits, cache)
 
   var found = false
   for a in slotData.attestations.mitems():
@@ -214,7 +215,7 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
           #      and therefore being useful after all?
           trace "Ignoring subset attestation",
             existingParticipants = get_attesting_indices_seq(
-              state, a.data, v.aggregation_bits),
+              state, a.data, v.aggregation_bits, cache),
             newParticipants = participants,
             cat = "filtering"
           found = true
@@ -228,7 +229,7 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
           existingParticipants = a.validations.filterIt(
             it.aggregation_bits.isSubsetOf(validation.aggregation_bits)
           ).mapIt(get_attesting_indices_seq(
-            state, a.data, it.aggregation_bits)),
+            state, a.data, it.aggregation_bits, cache)),
           newParticipants = participants,
           cat = "pruning"
 
