@@ -91,7 +91,7 @@ type
         name: "udp-port" }: Port
 
       maxPeers* {.
-        defaultValue: 10
+        defaultValue: 79 # The Wall gets released
         desc: "The maximum number of peers to connect to"
         name: "max-peers" }: int
 
