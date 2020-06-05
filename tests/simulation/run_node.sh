@@ -43,8 +43,16 @@ mkdir -p "$DATA_DIR/validators"
 rm -f $DATA_DIR/validators/*
 
 if [[ $NODE_ID -lt $TOTAL_NODES ]]; then
-  FIRST_VALIDATOR_IDX=$(( (NUM_VALIDATORS / TOTAL_NODES) * NODE_ID ))
-  LAST_VALIDATOR_IDX=$(( (NUM_VALIDATORS / TOTAL_NODES) * (NODE_ID + 1) - 1 ))
+  VALIDATORS_PER_NODE=$((NUM_VALIDATORS / TOTAL_NODES))
+  VALIDATORS_PER_NODE_HALF=$((VALIDATORS_PER_NODE / 2))
+  FIRST_VALIDATOR_IDX=$(( VALIDATORS_PER_NODE * NODE_ID ))
+  # if using validator client binaries in addition to beacon nodes
+  # we will split the keys for this instance in half between the BN and the VC
+  if [ "${SPLIT_VALIDATORS_BETWEEN_BN_AND_VC:-}" == "yes" ]; then
+    LAST_VALIDATOR_IDX=$(( FIRST_VALIDATOR_IDX + VALIDATORS_PER_NODE_HALF - 1 ))
+  else
+    LAST_VALIDATOR_IDX=$(( FIRST_VALIDATOR_IDX + VALIDATORS_PER_NODE - 1 ))
+  fi
 
   pushd "$VALIDATORS_DIR" >/dev/null
     cp $(seq -s " " -f v%07g.privkey $FIRST_VALIDATOR_IDX $LAST_VALIDATOR_IDX) "$DATA_DIR/validators"
@@ -61,25 +69,6 @@ fi
 
 cd "$DATA_DIR"
 
-# uncomment to force always using an external VC binary for VC duties
-# TODO remove this when done with implementing the VC - here just for convenience during dev
-#VALIDATOR_API="yes"
-
-VALIDATOR_API_ARG=""
-if [ "${VALIDATOR_API:-}" == "yes" ]; then
-  VALIDATOR_API_ARG="--validator-api"
-  # we lass a few seconds as delay for the start ==> that way we can start the
-  # beacon node before the VC - otherwise we would have to add "&" conditionally to
-  # the command which starts the BN - makes the shell script much more complicated
-  # TODO launch the VC through the start.sh script in order to address this comment:
-  # https://github.com/status-im/nim-beacon-chain/pull/1055#discussion_r429540155
-  $VALIDATOR_CLIENT_BIN \
-    --log-level=${LOG_LEVEL:-DEBUG} \
-    --data-dir=$DATA_DIR \
-    --rpc-port="$(( $BASE_RPC_PORT + $NODE_ID ))" \
-    --delay-start=5 &
-fi
-
 # if you want tracing messages, add "--log-level=TRACE" below
 $BEACON_NODE_BIN \
   --log-level=${LOG_LEVEL:-DEBUG} \
@@ -89,7 +78,6 @@ $BEACON_NODE_BIN \
   --tcp-port=$PORT \
   --udp-port=$PORT \
   $SNAPSHOT_ARG \
-  $VALIDATOR_API_ARG \
   $NAT_ARG \
   $WEB3_ARG \
   --deposit-contract=$DEPOSIT_CONTRACT_ADDRESS \

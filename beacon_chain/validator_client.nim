@@ -38,18 +38,16 @@ type
     attachedValidators: ValidatorPool
     fork: Fork
     proposalsForEpoch: Table[Slot, ValidatorPubKey]
-    attestationsForEpoch: Table[Slot, AttesterDuties]
+    attestationsForEpoch: Table[Slot, seq[AttesterDuties]]
     beaconGenesis: BeaconGenesisTuple
 
-# TODO remove this and move to real logging once done experimenting
-# it's much easier to distinguish such output from the one with timestamps
+# TODO remove this and move to real logging once done experimenting - it's much
+# easier to distinguish such output from the one from chronicles with timestamps
 proc port_logged(vc: ValidatorClient, msg: string) =
   echo "== ", vc.config.rpcPort, " ", msg
 
 proc getValidatorDutiesForEpoch(vc: ValidatorClient, epoch: Epoch) {.gcsafe, async.} =
-  vc.port_logged "await 1"
   let proposals = await vc.client.get_v1_validator_duties_proposer(epoch)
-  vc.port_logged "await 2"
   # update the block proposal duties this VC should do during this epoch
   vc.proposalsForEpoch.clear()
   for curr in proposals:
@@ -61,16 +59,17 @@ proc getValidatorDutiesForEpoch(vc: ValidatorClient, epoch: Epoch) {.gcsafe, asy
   for key in vc.attachedValidators.validators.keys:
     validatorPubkeys.add key
   # update the attestation duties this VC should do during this epoch
-  let attestations = await vc.client.post_v1_validator_duties_attester(epoch, validatorPubkeys)
+  let attestations = await vc.client.post_v1_validator_duties_attester(
+    epoch, validatorPubkeys)
   vc.attestationsForEpoch.clear()
   for a in attestations:
-    vc.attestationsForEpoch.add(a.slot, a)
+    if vc.attestationsForEpoch.hasKeyOrPut(a.slot, @[a]):
+      vc.attestationsForEpoch[a.slot].add(a)
 
   # for now we will get the fork each time we update the validator duties for each epoch
   vc.fork = await vc.client.get_v1_beacon_states_fork("head")
 
 proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, async.} =
-  vc.port_logged "WAKE UP! slot " & $scheduledSlot
 
   let
     # The slot we should be at, according to the clock
@@ -81,12 +80,16 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
     slot = wallSlot.slot # afterGenesis == true!
     nextSlot = slot + 1
 
+  vc.port_logged "WAKE UP! scheduledSlot " & $scheduledSlot & " slot " & $slot
+
   try:
-    # at the start of each epoch - request all validator duties for the current epoch
-    # TODO perhaps call this not on the first slot of each Epoch but perhaps 1 slot earlier
-    # because there are a few back-and-forth requests which could take up time for attesting...
-    if scheduledSlot.isEpoch:
-      await getValidatorDutiesForEpoch(vc, scheduledSlot.compute_epoch_at_slot)
+    # at the start of each epoch - request all validator duties
+    # TODO perhaps call this not on the first slot of each Epoch but perhaps
+    # 1 slot earlier because there are a few back-and-forth requests which
+    # could take up time for attesting... Perhaps this should be called more
+    # than once per epoch because of forks & other events...
+    if slot.isEpoch:
+      await getValidatorDutiesForEpoch(vc, slot.compute_epoch_at_slot)
 
     # check if we have a validator which needs to propose on this slot
     if vc.proposalsForEpoch.contains slot:
@@ -96,32 +99,38 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
       let randao_reveal = validator.genRandaoReveal(
         vc.fork, vc.beaconGenesis.genesis_validators_root, slot)
 
-      vc.port_logged "await 3"
-
       var newBlock = SignedBeaconBlock(
           message: await vc.client.get_v1_validator_blocks(slot, Eth2Digest(), randao_reveal)
         )
-
-      vc.port_logged "await 4"
 
       let blockRoot = hash_tree_root(newBlock.message)
       newBlock.signature = await validator.signBlockProposal(
         vc.fork, vc.beaconGenesis.genesis_validators_root, slot, blockRoot)
 
-      vc.port_logged "about to await for the last time!"
-
       discard await vc.client.post_v1_beacon_blocks(newBlock)
 
-      vc.port_logged "did we do it?"
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#attesting
+    # A validator should create and broadcast the attestation to the associated
+    # attestation subnet when either (a) the validator has received a valid
+    # block from the expected block proposer for the assigned slot or
+    # (b) one-third of the slot has transpired (`SECONDS_PER_SLOT / 3` seconds
+    # after the start of slot) -- whichever comes first.
+    discard await vc.beaconClock.sleepToSlotOffset(
+      seconds(int64(SECONDS_PER_SLOT)) div 3, slot, "Waiting to send attestations")
 
-    # check if we have a validator which needs to propose on this slot
+    # check if we have validators which need to attest on this slot
     if vc.attestationsForEpoch.contains slot:
-      let a = vc.attestationsForEpoch[slot]
-      let validator = vc.attachedValidators.validators[a.public_key]
+      for a in vc.attestationsForEpoch[slot]:
+        let validator = vc.attachedValidators.validators[a.public_key]
 
-      discard validator
+        let ad = await vc.client.get_v1_validator_attestation_data(slot, a.committee_index)
 
-      vc.port_logged("attestation: " & $a.committee_index.int64 & " " & $a.validator_committee_index)
+        # TODO I don't like these (u)int64-to-int conversions...
+        let attestation = await validator.produceAndSignAttestation(
+          ad, a.committee_length.int, a.validator_committee_index.int,
+          vc.fork, vc.beaconGenesis.genesis_validators_root)
+
+        discard await vc.client.post_v1_beacon_pool_attestations(attestation)
 
   except CatchableError as err:
     error "Caught an unexpected error", err = err.msg
@@ -136,8 +145,6 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
 
 programMain:
   let config = makeBannerAndConfig("Nimbus validator client v" & fullVersionStr, ValidatorClientConf)
-
-  sleep(config.delayStart * 1000)
 
   setupMainProc(config.logLevel)
 

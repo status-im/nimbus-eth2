@@ -16,7 +16,7 @@ import
   chronicles, chronicles/helpers as chroniclesHelpers,
 
   # Local modules
-  spec/[datatypes, crypto], eth2_network
+  spec/[datatypes, crypto], eth2_network, time
 
 proc setupMainProc*(logLevel: string) =
   when compiles(defaultChroniclesStream.output.writer):
@@ -57,3 +57,19 @@ template ctrlCHandling*(extraCode: untyped) =
 template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =
   let banner = clientId & "\p" & copyrights & "\p\p" & nimBanner
   ConfType.load(version = banner, copyrightBanner = banner)
+
+# TODO not sure if this belongs here but it doesn't belong in `time.nim` either
+proc sleepToSlotOffset*(clock: BeaconClock, extra: chronos.Duration,
+                        slot: Slot, msg: static string): Future[bool] {.async.} =
+  let
+    fromNow = clock.fromNow(slot.toBeaconTime(extra))
+
+  if fromNow.inFuture:
+    trace msg,
+      slot = shortLog(slot),
+      fromNow = shortLog(fromNow.offset),
+      cat = "scheduling"
+
+    await sleepAsync(fromNow.offset)
+    return true
+  return false

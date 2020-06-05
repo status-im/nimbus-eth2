@@ -24,7 +24,7 @@ import
   attestation_pool, block_pool, eth2_network, eth2_discovery,
   beacon_node_common, beacon_node_types, block_pools/block_pools_types,
   nimbus_binary_common,
-  mainchain_monitor, version, ssz/[merkleization],
+  mainchain_monitor, version, ssz/[merkleization], sszdump,
   sync_protocol, request_manager, validator_keygen, interop, statusbar,
   sync_manager, state_transition,
   validator_duties, validator_api, attestation_aggregation
@@ -56,11 +56,15 @@ declareGauge beacon_head_slot,
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_attestations_received,
   "Number of beacon chain attestations received by this peer"
+declareCounter beacon_blocks_received,
+  "Number of beacon chain blocks received by this peer"
 
 declareHistogram beacon_attestation_received_seconds_from_slot_start,
   "Interval between slot start and attestation receival", buckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
 logScope: topics = "beacnde"
+
+proc onBeaconBlock(node: BeaconNode, signedBlock: SignedBeaconBlock) {.gcsafe.}
 
 proc getStateFromSnapshot(conf: BeaconNodeConf): NilableBeaconStateRef =
   var
@@ -252,6 +256,81 @@ proc connectToNetwork(node: BeaconNode) {.async.} =
 
   let addressFile = node.config.dataDir / "beacon_node.address"
   writeFile(addressFile, node.network.announcedENR.toURI)
+
+proc onAttestation(node: BeaconNode, attestation: Attestation) =
+  # We received an attestation from the network but don't know much about it
+  # yet - in particular, we haven't verified that it belongs to particular chain
+  # we're on, or that it follows the rules of the protocol
+  logScope: pcs = "on_attestation"
+
+  let
+    wallSlot = node.beaconClock.now().toSlot()
+    head = node.blockPool.head
+
+  debug "Attestation received",
+    attestation = shortLog(attestation),
+    headRoot = shortLog(head.blck.root),
+    headSlot = shortLog(head.blck.slot),
+    wallSlot = shortLog(wallSlot.slot),
+    cat = "consensus" # Tag "consensus|attestation"?
+
+  if not wallSlot.afterGenesis or wallSlot.slot < head.blck.slot:
+    warn "Received attestation before genesis or head - clock is wrong?",
+      afterGenesis = wallSlot.afterGenesis,
+      wallSlot = shortLog(wallSlot.slot),
+      headSlot = shortLog(head.blck.slot),
+      cat = "clock_drift" # Tag "attestation|clock_drift"?
+    return
+
+  if attestation.data.slot > head.blck.slot and
+      (attestation.data.slot - head.blck.slot) > MaxEmptySlotCount:
+    warn "Ignoring attestation, head block too old (out of sync?)",
+      attestationSlot = attestation.data.slot, headSlot = head.blck.slot
+    return
+
+  node.attestationPool.add(attestation)
+
+proc storeBlock(
+    node: BeaconNode, signedBlock: SignedBeaconBlock): Result[void, BlockError] =
+  let blockRoot = hash_tree_root(signedBlock.message)
+  debug "Block received",
+    signedBlock = shortLog(signedBlock.message),
+    blockRoot = shortLog(blockRoot),
+    cat = "block_listener",
+    pcs = "receive_block"
+
+  if node.config.dumpEnabled:
+    dump(node.config.dumpDir / "incoming", signedBlock, blockRoot)
+
+  beacon_blocks_received.inc()
+  let blck = node.blockPool.add(blockRoot, signedBlock)
+  if blck.isErr:
+    if blck.error == Invalid and node.config.dumpEnabled:
+      let parent = node.blockPool.getRef(signedBlock.message.parent_root)
+      if parent != nil:
+        node.blockPool.withState(
+          node.blockPool.tmpState, parent.atSlot(signedBlock.message.slot - 1)):
+            dump(node.config.dumpDir / "invalid", hashedState, parent)
+            dump(node.config.dumpDir / "invalid", signedBlock, blockRoot)
+
+    return err(blck.error)
+
+  # The block we received contains attestations, and we might not yet know about
+  # all of them. Let's add them to the attestation pool - in case the block
+  # is not yet resolved, neither will the attestations be!
+  # But please note that we only care about recent attestations.
+  # TODO shouldn't add attestations if the block turns out to be invalid..
+  let currentSlot = node.beaconClock.now.toSlot
+  if currentSlot.afterGenesis and
+    signedBlock.message.slot.epoch + 1 >= currentSlot.slot.epoch:
+    for attestation in signedBlock.message.body.attestations:
+      node.onAttestation(attestation)
+  ok()
+
+proc onBeaconBlock(node: BeaconNode, signedBlock: SignedBeaconBlock) =
+  # We received a block but don't know much about it yet - in particular, we
+  # don't know if it's part of the chain we're currently building.
+  discard node.storeBlock(signedBlock)
 
 func verifyFinalization(node: BeaconNode, slot: Slot) =
   # Epoch must be >= 4 to check finalization
@@ -621,9 +700,7 @@ proc installDebugApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
     return res
 
 proc installRpcHandlers(rpcServer: RpcServer, node: BeaconNode) =
-  # TODO: remove this if statement later - here just to test the config option for now
-  if node.config.validatorApi:
-    rpcServer.installValidatorApiHandlers(node)
+  rpcServer.installValidatorApiHandlers(node)
   rpcServer.installBeaconApiHandlers(node)
   rpcServer.installDebugApiHandlers(node)
 
@@ -638,6 +715,14 @@ proc installAttestationHandlers(node: BeaconNode) =
 
     node.onAttestation(attestation)
 
+  proc attestationValidator(attestation: Attestation,
+                            committeeIndex: uint64): bool =
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#attestation-subnets
+    let (afterGenesis, slot) = node.beaconClock.now().toSlot()
+    if not afterGenesis:
+      return false
+    node.attestationPool.isValidAttestation(attestation, slot, committeeIndex, {})
+
   var attestationSubscriptions: seq[Future[void]] = @[]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#mainnet-3
@@ -648,25 +733,16 @@ proc installAttestationHandlers(node: BeaconNode) =
         getMainnetAttestationTopic(node.forkDigest, ci), attestationHandler,
         # This proc needs to be within closureScope; don't lift out of loop.
         proc(attestation: Attestation): bool =
-          # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#attestation-subnets
-          let (afterGenesis, slot) = node.beaconClock.now().toSlot()
-          if not afterGenesis:
-            return false
-          node.attestationPool.isValidAttestation(attestation, slot, ci)))
+          attestationValidator(attestation, ci)
 
   when ETH2_SPEC == "v0.11.3":
     # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#interop-3
     attestationSubscriptions.add(node.network.subscribe(
       getInteropAttestationTopic(node.forkDigest), attestationHandler,
       proc(attestation: Attestation): bool =
-        # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#attestation-subnets
-        let (afterGenesis, slot) = node.beaconClock.now().toSlot()
-        if not afterGenesis:
-          return false
         # isValidAttestation checks attestation.data.index == topicCommitteeIndex
         # which doesn't make sense here, so rig that check to vacuously pass.
-        node.attestationPool.isValidAttestation(
-          attestation, slot, attestation.data.index)))
+        attestationValidator(attestation, attestation.data.index)
 
   waitFor allFutures(attestationSubscriptions)
 

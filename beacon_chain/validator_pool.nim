@@ -57,6 +57,19 @@ proc signAttestation*(v: AttachedValidator,
     error "Unimplemented"
     quit 1
 
+proc produceAndSignAttestation*(validator: AttachedValidator,
+                                attestationData: AttestationData,
+                                committeeLen: int, indexInCommittee: int,
+                                fork: Fork, genesis_validators_root: Eth2Digest):
+                                Future[Attestation] {.async.} =
+  let validatorSignature = await validator.signAttestation(attestationData,
+    fork, genesis_validators_root)
+
+  var aggregationBits = CommitteeValidatorsBits.init(committeeLen)
+  aggregationBits.setBit indexInCommittee
+
+  return Attestation(data: attestationData, signature: validatorSignature, aggregation_bits: aggregationBits)
+
 proc signAggregateAndProof*(v: AttachedValidator,
                             aggregate_and_proof: AggregateAndProof,
                             fork: Fork, genesis_validators_root: Eth2Digest): ValidatorSig =
