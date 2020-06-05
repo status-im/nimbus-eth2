@@ -179,20 +179,9 @@ fi
 
 LAST_WAITING_NODE=0
 
-for i in $(seq $MASTER_NODE -1 $TOTAL_USER_NODES); do
-  if [[ "$i" != "$MASTER_NODE" && "$USE_MULTITAIL" == "no" ]]; then
-    # Wait for the master node to write out its address file
-    while [ ! -f "${MASTER_NODE_ADDRESS_FILE}" ]; do
-      if (( LAST_WAITING_NODE != i )); then
-        echo Waiting for $MASTER_NODE_ADDRESS_FILE to appear...
-        LAST_WAITING_NODE=i
-      fi
-      sleep 0.1
-    done
-  fi
-
-  CMD="${SIM_ROOT}/run_node.sh ${i} --verify-finalization"
-
+function run_cmd {
+  i=$1
+  CMD=$2
   if [[ "$USE_TMUX" != "no" ]]; then
     echo "Starting node $i..."
     echo $TMUX split-window -t "${TMUX_SESSION_NAME}" "$CMD"
@@ -208,6 +197,26 @@ for i in $(seq $MASTER_NODE -1 $TOTAL_USER_NODES); do
     COMMANDS+=( " -cT ansi -t 'node #$i' -l 'sleep $SLEEP; $CMD; echo [node execution completed]; while true; do sleep 100; done'" )
   else
     eval "${CMD}" &
+  fi
+}
+
+for i in $(seq $MASTER_NODE -1 $TOTAL_USER_NODES); do
+  if [[ "$i" != "$MASTER_NODE" && "$USE_MULTITAIL" == "no" ]]; then
+    # Wait for the master node to write out its address file
+    while [ ! -f "${MASTER_NODE_ADDRESS_FILE}" ]; do
+      if (( LAST_WAITING_NODE != i )); then
+        echo Waiting for $MASTER_NODE_ADDRESS_FILE to appear...
+        LAST_WAITING_NODE=i
+      fi
+      sleep 0.1
+    done
+  fi
+
+  run_cmd $i "${SIM_ROOT}/run_node.sh ${i} --verify-finalization"
+
+  if [ "${SPLIT_VALIDATORS_BETWEEN_BN_AND_VC:-}" == "yes" ]; then
+    # start the VC with a few seconds of delay so that we can connect through RPC
+    run_cmd $i "sleep 3 && ${SIM_ROOT}/run_validator.sh ${i}"
   fi
 done
 
