@@ -25,6 +25,25 @@ type
 # * vIdx - virtual index in merkle tree - the root is found at index 1, its
 #          two children at 2, 3 then 4, 5, 6, 7 etc
 
+func nextPow2Int64(x: int64): int64 =
+  # TODO the nextPow2 in bitops2 works with uint64 - there's a bug in the nim
+  #      compiler preventing it to be used - it seems that a conversion to
+  #      uint64 cannot be done with the static maxLen :(
+  var v = x - 1
+
+  # round down, make sure all bits are 1 below the threshold, then add 1
+  v = v or v shr 1
+  v = v or v shr 2
+  v = v or v shr 4
+  when bitsof(x) > 8:
+    v = v or v shr 8
+  when bitsof(x) > 16:
+    v = v or v shr 16
+  when bitsof(x) > 32:
+    v = v or v shr 32
+
+  v + 1
+
 template dataPerChunk(T: type): int =
   # How many data items fit in a chunk
   when T is BasicType:
@@ -38,7 +57,10 @@ template chunkIdx*(T: type, dataIdx: int64): int64 =
 
 template maxChunkIdx*(T: type, maxLen: int64): int64 =
   # Given a number of data items, how many chunks are needed?
-  chunkIdx(T, maxLen + dataPerChunk(T) - 1)
+  # TODO compiler bug:
+  # beacon_chain/ssz/types.nim(75, 53) Error: cannot generate code for: maxLen
+  # nextPow2(chunkIdx(T, maxLen + dataPerChunk(T) - 1).uint64).int64
+  nextPow2Int64(chunkIdx(T, maxLen + dataPerChunk(T) - 1))
 
 template layer*(vIdx: int64): int =
   ## Layer 0 = layer at which the root hash is
@@ -57,7 +79,7 @@ type
   HashList*[T; maxLen: static Limit] = object
     data*: List[T, maxLen]
     hashes* {.dontSerialize.}: seq[Eth2Digest]
-    indices* {.dontSerialize.}: array[layer(maxChunkIdx(T, maxLen)) + 1, int64]
+    indices* {.dontSerialize.}: array[int(layer(maxChunkIdx(T, maxLen))) + 1, int64]
 
   # Note for readers:
   # We use `array` for `Vector` and
@@ -130,11 +152,11 @@ template clearCache*(v: var Eth2Digest) =
 
 template maxChunks*(a: HashList|HashArray): int64 =
   ## Layer where data is
-  chunkIdx(a.T, a.maxLen)
+  maxChunkIdx(a.T, a.maxLen)
 
 template maxDepth*(a: HashList|HashArray): int =
   ## Layer where data is
-  layer(a.maxChunks)
+  layer(nextPow2(a.maxChunks.uint64).int64)
 
 template chunkIdx(a: HashList|HashArray, dataIdx: int64): int64 =
   chunkIdx(a.T, dataIdx)

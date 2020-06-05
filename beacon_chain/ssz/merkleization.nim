@@ -21,6 +21,9 @@ import
 export
   spec_types, types
 
+when hasSerializationTracing:
+  import stew/byteutils, typetraits
+
 const
   zero64 = default array[64, byte]
   bitsPerChunk = bytesPerChunk * 8
@@ -375,7 +378,6 @@ func mergedDataHash(x: HashList|HashArray, chunkIdx: int64): Eth2Digest =
 
 template mergedHash(x: HashList|HashArray, vIdxParam: int64): Eth2Digest =
   # The merged hash of the data at `vIdx` and `vIdx + 1`
-
   let vIdx = vIdxParam
   if vIdx >= x.maxChunks:
     let dataIdx = vIdx - x.maxChunks
@@ -393,8 +395,9 @@ func hashTreeRootCached*(x: HashList, vIdx: int64): Eth2Digest =
     idxInLayer = vIdx - (1'i64 shl layer)
     layerIdx = idxInlayer + x.indices[layer]
 
-  doAssert layer < x.maxDepth
   trs "GETTING ", vIdx, " ", layerIdx, " ", layer, " ", x.indices.len
+
+  doAssert layer < x.maxDepth
   if layerIdx >= x.indices[layer + 1]:
     trs "ZERO ", x.indices[layer], " ", x.indices[layer + 1]
     zeroHashes[x.maxDepth - layer]

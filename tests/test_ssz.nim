@@ -127,6 +127,13 @@ suiteReport "SSZ navigator":
     leaves2.add c
     check hash_tree_root(leaves2) == hash_tree_root(leaves2.data)
 
+    var leaves3 = HashList[Eth2Digest, 7]() # Non-power-of-2
+    check hash_tree_root(leaves3) == hash_tree_root(leaves3.data)
+    leaves3.add a
+    leaves3.add b
+    leaves3.add c
+    check hash_tree_root(leaves3) == hash_tree_root(leaves3.data)
+
   timedTest "basictype":
     var leaves = HashList[uint64, 1'i64 shl 3]()
     while leaves.len < leaves.maxLen:
