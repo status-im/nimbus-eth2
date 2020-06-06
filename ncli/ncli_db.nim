@@ -1,8 +1,9 @@
   import
   confutils, stats, chronicles, strformat, tables,
-  ../beacon_chain/block_pool,
-  ../beacon_chain/spec/[crypto, datatypes, helpers],
-  ../beacon_chain/[beacon_chain_db, extras, state_transition],
+  stew/byteutils,
+  ../beacon_chain/[beacon_chain_db, block_pool, extras, state_transition],
+  ../beacon_chain/spec/[crypto, datatypes, digest, helpers],
+  ../beacon_chain/sszdump,
   ../research/simutils,
   eth/db/[kvstore, kvstore_sqlite3]
 
@@ -16,6 +17,7 @@ type Timers = enum
 type
   DbCmd* = enum
     bench
+    dumpState
 
   DbConf = object
     databaseDir* {.
@@ -25,13 +27,18 @@ type
 
     case cmd* {.
       command
-      desc: "Run benchmark by applying all blocks from database"
+      desc: ""
       .}: DbCmd
 
     of bench:
       validate* {.
         defaultValue: true
         desc: "Enable BLS validation" }: bool
+
+    of dumpState:
+      stateRoot* {.
+        argument
+        desc: "State roots to save".}: seq[string]
 
 proc cmdBench(conf: DbConf) =
   var timers: array[Timers, RunningStat]
@@ -81,10 +88,28 @@ proc cmdBench(conf: DbConf) =
 
   printTimers(conf.validate, timers)
 
+proc cmdDumpState(conf: DbConf) =
+  let
+    db = BeaconChainDB.init(
+      kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
+
+  for stateRoot in conf.stateRoot:
+    try:
+      let root = Eth2Digest(data: hexToByteArray[32](stateRoot))
+      var state = (ref HashedBeaconState)(root: root)
+      if not db.getState(root, state.data, noRollback):
+        echo "Couldn't load ", root
+      else:
+        dump("./", state[])
+    except CatchableError as e:
+      echo "Couldn't load ", stateRoot, ": ", e.msg
+
 when isMainModule:
   let
-    config = DbConf.load()
+    conf = DbConf.load()
 
-  case config.cmd
+  case conf.cmd
   of bench:
-    cmdBench(config)
+    cmdBench(conf)
+  of dumpState:
+    cmdDumpState(conf)
