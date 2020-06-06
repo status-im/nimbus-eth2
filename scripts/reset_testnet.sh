@@ -69,7 +69,6 @@ make -j2 NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" be
 echo "Generating Grafana dashboards for remote testnet servers"
 for testnet in 0 1; do
   ./build/process_dashboard \
-    --nodes=20 \
     --in="tests/simulation/beacon-chain-sim-node0-Grafana-dashboard.json" \
     --out="docker/beacon-chain-sim-remote-testnet${testnet}-Grafana-dashboard.json" \
     --type="remote" \

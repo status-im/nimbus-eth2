@@ -48,22 +48,6 @@
   "links": [],
   "panels": [
     {
-      "content": "",
-      "datasource": null,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 0
-      },
-      "id": 44,
-      "mode": "markdown",
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "node #0",
-      "type": "text"
-    },
-    {
       "aliasColors": {},
       "bars": false,
       "dashLength": 10,
@@ -75,7 +59,7 @@
         "h": 6,
         "w": 14,
         "x": 0,
-        "y": 1
+        "y": 0
       },
       "hiddenSeries": false,
       "id": 2,
@@ -195,7 +179,7 @@
         "h": 5,
         "w": 10,
         "x": 14,
-        "y": 1
+        "y": 0
       },
       "hiddenSeries": false,
       "id": 16,
@@ -289,7 +273,7 @@
         "h": 5,
         "w": 10,
         "x": 14,
-        "y": 6
+        "y": 5
       },
       "hiddenSeries": false,
       "id": 20,
@@ -385,7 +369,7 @@
         "h": 6,
         "w": 14,
         "x": 0,
-        "y": 7
+        "y": 6
       },
       "hiddenSeries": false,
       "id": 18,
@@ -480,7 +464,7 @@
         "h": 5,
         "w": 10,
         "x": 14,
-        "y": 11
+        "y": 10
       },
       "hiddenSeries": false,
       "id": 24,
@@ -569,7 +553,7 @@
         "h": 6,
         "w": 14,
         "x": 0,
-        "y": 13
+        "y": 12
       },
       "hiddenSeries": false,
       "id": 22,
@@ -672,7 +656,7 @@
         "h": 2,
         "w": 5,
         "x": 14,
-        "y": 16
+        "y": 15
       },
       "id": 6,
       "interval": null,
@@ -755,7 +739,7 @@
         "h": 2,
         "w": 5,
         "x": 19,
-        "y": 16
+        "y": 15
       },
       "id": 8,
       "interval": null,
@@ -838,7 +822,7 @@
         "h": 2,
         "w": 3,
         "x": 14,
-        "y": 18
+        "y": 17
       },
       "id": 28,
       "interval": null,
@@ -924,7 +908,7 @@
         "h": 2,
         "w": 4,
         "x": 17,
-        "y": 18
+        "y": 17
       },
       "id": 13,
       "interval": null,
@@ -1009,7 +993,7 @@
         "h": 2,
         "w": 3,
         "x": 21,
-        "y": 18
+        "y": 17
       },
       "id": 14,
       "interval": null,
@@ -1084,7 +1068,7 @@
         "h": 6,
         "w": 14,
         "x": 0,
-        "y": 19
+        "y": 18
       },
       "hiddenSeries": false,
       "id": 38,
@@ -1188,7 +1172,7 @@
         "h": 2,
         "w": 3,
         "x": 14,
-        "y": 20
+        "y": 19
       },
       "id": 32,
       "interval": null,
@@ -1272,7 +1256,7 @@
         "h": 2,
         "w": 4,
         "x": 17,
-        "y": 20
+        "y": 19
       },
       "id": 34,
       "interval": null,
@@ -1357,7 +1341,7 @@
         "h": 2,
         "w": 3,
         "x": 21,
-        "y": 20
+        "y": 19
       },
       "id": 40,
       "interval": null,
@@ -1442,7 +1426,7 @@
         "h": 2,
         "w": 3,
         "x": 14,
-        "y": 22
+        "y": 21
       },
       "id": 12,
       "interval": null,
@@ -1524,7 +1508,7 @@
         "h": 2,
         "w": 4,
         "x": 17,
-        "y": 22
+        "y": 21
       },
       "id": 36,
       "interval": null,
@@ -1598,7 +1582,7 @@
         "h": 5,
         "w": 14,
         "x": 0,
-        "y": 25
+        "y": 24
       },
       "hiddenSeries": false,
       "id": 30,
@@ -1700,7 +1684,7 @@
         "h": 6,
         "w": 14,
         "x": 0,
-        "y": 30
+        "y": 29
       },
       "heatmap": {},
       "hideZeroBuckets": false,
@@ -1780,5 +1764,5 @@
   "variables": {
     "list": []
   },
-  "version": 35
+  "version": 38
 }
