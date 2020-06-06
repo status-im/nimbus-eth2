@@ -47,8 +47,9 @@ install:
 script:
   - set -e # fail fast
   # Building Nim-1.0.4 takes up to 10 minutes on Travis - the time limit after which jobs are cancelled for having no output
-  - make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" V=1 update # to allow a newer Nim version to be detected
-  - make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" LOG_LEVEL=TRACE
-  - make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC} -d:testnet_servers_image" LOG_LEVEL=TRACE
-  - make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" DISABLE_TEST_FIXTURES_SCRIPT=1 test
+  - make -j${NPROC} NIMFLAGS="--parallelBuild:2" V=1 update # to allow a newer Nim version to be detected
+  - make -j${NPROC} NIMFLAGS="--parallelBuild:2" LOG_LEVEL=TRACE
+  - make -j${NPROC} NIMFLAGS="--parallelBuild:2 -d:testnet_servers_image" LOG_LEVEL=TRACE
+  # Compiling "test_all" on ARM64 can take longer than 10 minutes, so make it verbose.
+  - make -j${NPROC} NIMFLAGS="--parallelBuild:2" DISABLE_TEST_FIXTURES_SCRIPT=1 V=1 test
 
