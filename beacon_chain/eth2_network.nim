@@ -694,7 +694,7 @@ proc addSeen*(network: ETh2Node, pinfo: PeerInfo) =
 proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
   logScope: peer = $peerInfo
 
-  debug "Connecting to peer"
+  debug "Connecting to discovered peer"
   await node.switch.connect(peerInfo)
   var peer = node.getPeer(peerInfo)
   peer.wasDialed = true
@@ -737,7 +737,7 @@ proc connectWorker(network: Eth2Node) {.async.} =
       inc libp2p_timeout_dials
       network.addSeen(pi)
     else:
-      debug "Peer is already connected or already seen", peer = $pi,
+      trace "Peer is already connected or already seen", peer = $pi,
             peer_pool_has_peer = $r1, seen_table_has_peer = $r2,
             seen_table_size = len(network.seenTable)
 
@@ -757,7 +757,6 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
               let peerInfo = peerRecord.value.toPeerInfo
               if peerInfo != nil:
                 if peerInfo.id notin node.switch.connections:
-                  debug "Discovered new peer", peer = $peer
                   await node.connQueue.addLast(peerInfo)
                 else:
                   peerInfo.close()

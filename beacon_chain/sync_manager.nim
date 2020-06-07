@@ -300,6 +300,7 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
     counter: 1'u64,
     pending: initTable[uint64, SyncRequest[T]](),
     debtsQueue: initHeapQueue[SyncRequest[T]](),
+    zeroPoint: some[Slot](start),
     inpSlot: start,
     outSlot: start
   )
@@ -669,7 +670,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            getLocalWallSlotCb: GetSlotCallback,
                            updateLocalBlocksCb: UpdateLocalBlocksCallback,
                            maxStatusAge = uint64(SLOTS_PER_EPOCH * 4),
-                           maxHeadAge = uint64(SLOTS_PER_EPOCH * 4),
+                           maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
                            sleepTime = (int(SLOTS_PER_EPOCH) *
                                         int(SECONDS_PER_SLOT)).seconds,
                            chunkSize = uint64(SLOTS_PER_EPOCH),
@@ -727,6 +728,17 @@ template headAge(): uint64 =
 template peerAge(): uint64 =
   if peerSlot > wallSlot: 0'u64 else: wallSlot - peerSlot
 
+template checkPeerScore(peer, body: untyped): untyped =
+  mixin getScore
+  let currentScore = peer.getScore()
+  body
+  let newScore = peer.getScore()
+  if currentScore > newScore:
+    debug "Overdue penalty for peer's score received, exiting", peer = peer,
+          penalty = newScore - currentScore, peer_score = newScore,
+          topics = "syncman"
+    break
+
 proc syncWorker*[A, B](man: SyncManager[A, B],
                        peer: A): Future[A] {.async.} =
   # Sync worker is the lowest level loop which performs syncing with single
@@ -775,7 +787,10 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
         debug "Updating peer's status information", wall_clock_slot = wallSlot,
               remote_head_slot = peerSlot, local_head_slot = headSlot,
               peer = peer, peer_score = peer.getScore(), topics = "syncman"
-        let res = await peer.updateStatus()
+
+        checkPeerScore peer:
+          let res = await peer.updateStatus()
+
         if not(res):
           peer.updateScore(PeerScoreNoStatus)
           debug "Failed to get remote peer's status, exiting", peer = peer,
@@ -822,7 +837,10 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
         # pending, this can fall into endless cycle, when low number of peers
         # are available in PeerPool. We going to wait for RESP_TIMEOUT time,
         # so all pending requests should be finished at this moment.
-        await sleepAsync(RESP_TIMEOUT)
+
+        checkPeerScore peer:
+          await sleepAsync(RESP_TIMEOUT)
+
         let failure = SyncFailure.init(SyncFailureKind.EmptyProblem, peer)
         man.failures.add(failure)
         break
@@ -833,7 +851,9 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
             request_step = req.step, peer = peer,
             peer_score = peer.getScore(), topics = "syncman"
 
-      let blocks = await man.getBlocks(peer, req)
+      checkPeerScore peer:
+        let blocks = await man.getBlocks(peer, req)
+
       if blocks.isOk:
         let data = blocks.get()
         let smap = getShortMap(req, data)
@@ -854,7 +874,8 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
           break
 
         # Scoring will happen in `syncUpdate`.
-        await man.queue.push(req, data)
+        checkPeerScore peer,
+          await man.queue.push(req, data)
         # Cleaning up failures.
         man.failures.setLen(0)
       else:
