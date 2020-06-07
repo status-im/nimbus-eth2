@@ -177,7 +177,6 @@ EOF
 
 	# use the exported Grafana dashboard for a single node to create one for all nodes
 	./build/process_dashboard \
-	  --nodes=${NUM_NODES} \
 	  --in="tests/simulation/beacon-chain-sim-node0-Grafana-dashboard.json" \
 	  --out="${DATA_DIR}/local-testnet-all-nodes-Grafana-dashboard.json"
 fi

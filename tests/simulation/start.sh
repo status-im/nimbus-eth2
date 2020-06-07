@@ -167,7 +167,6 @@ fi
 # use the exported Grafana dashboard for a single node to create one for all nodes
 echo Creating grafana dashboards...
 ./build/process_dashboard \
-  --nodes=${TOTAL_NODES} \
   --in="${SIM_ROOT}/beacon-chain-sim-node0-Grafana-dashboard.json" \
   --out="${SIM_ROOT}/beacon-chain-sim-all-nodes-Grafana-dashboard.json"
 
