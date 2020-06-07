@@ -93,7 +93,7 @@ case outputType:
           "options": [],
           "query": "label_values(process_virtual_memory_bytes{job=\"beacon-node-metrics\"},container)",
           "refresh": 1,
-          "regex": "",
+          "regex": "/.*testnet""" & $testnet & """.*/",
           "skipUrlSync": false,
           "sort": 1,
           "tagValuesQuery": "",
@@ -166,7 +166,7 @@ for panel in panels.mitems:
 
 case outputType:
   of OutputType.local:
-    outputData["title"] = %* (outputData["title"].getStr() & " (all nodes)")
+    outputData["title"] = %* "NBC local testnet/sim (all nodes)"
     outputData["uid"] = %* (outputData["uid"].getStr() & "a")
   of OutputType.remote:
     outputData["title"] = %* ("Nimbus testnet" & $testnet)
