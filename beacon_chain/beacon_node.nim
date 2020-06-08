@@ -22,7 +22,7 @@ import
   spec/presets/custom,
   conf, time, beacon_chain_db, validator_pool, extras,
   attestation_pool, block_pool, eth2_network, eth2_discovery,
-  beacon_node_common, beacon_node_types,
+  beacon_node_common, beacon_node_types, block_pools/block_pools_types,
   nimbus_binary_common,
   mainchain_monitor, version, ssz/[merkleization],
   sync_protocol, request_manager, validator_keygen, interop, statusbar,
@@ -820,25 +820,47 @@ when hasPrompt:
         of "connected_peers":
           $(node.connectedPeersCount)
 
-        of "last_finalized_epoch":
-          var head = node.blockPool.finalizedHead
-          # TODO: Should we display a state root instead?
-          $(head.slot.epoch) & " (" & shortLog(head.blck.root) & ")"
+        of "head_root":
+          shortLog(node.blockPool.head.blck.root)
+        of "head_epoch":
+          $(node.blockPool.head.blck.slot.epoch)
+        of "head_epoch_slot":
+          $(node.blockPool.head.blck.slot mod SLOTS_PER_EPOCH)
+        of "head_slot":
+          $(node.blockPool.head.blck.slot)
+
+        of "justifed_root":
+          shortLog(node.blockPool.head.justified.blck.root)
+        of "justifed_epoch":
+          $(node.blockPool.head.justified.slot.epoch)
+        of "justifed_epoch_slot":
+          $(node.blockPool.head.justified.slot mod SLOTS_PER_EPOCH)
+        of "justifed_slot":
+          $(node.blockPool.head.justified.slot)
+
+        of "finalized_root":
+          shortLog(node.blockPool.finalizedHead.blck.root)
+        of "finalized_epoch":
+          $(node.blockPool.finalizedHead.slot.epoch)
+        of "finalized_epoch_slot":
+          $(node.blockPool.finalizedHead.slot mod SLOTS_PER_EPOCH)
+        of "finalized_slot":
+          $(node.blockPool.finalizedHead.slot)
 
         of "epoch":
-          $node.beaconClock.now.slotOrZero.epoch
+          $node.currentSlot.epoch
 
         of "epoch_slot":
-          $(node.beaconClock.now.slotOrZero mod SLOTS_PER_EPOCH)
-
-        of "slots_per_epoch":
-          $SLOTS_PER_EPOCH
+          $(node.currentSlot mod SLOTS_PER_EPOCH)
 
         of "slot":
           $node.currentSlot
 
+        of "slots_per_epoch":
+          $SLOTS_PER_EPOCH
+
         of "slot_trailing_digits":
-          var slotStr = $node.beaconClock.now.slotOrZero
+          var slotStr = $node.currentSlot
           if slotStr.len > 3: slotStr = slotStr[^3..^1]
           slotStr
 
