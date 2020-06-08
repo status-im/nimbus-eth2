@@ -34,8 +34,7 @@ import
   ./extras, ./ssz/merkleization, metrics,
   ./spec/[datatypes, crypto, digest, helpers, validator],
   ./spec/[state_transition_block, state_transition_epoch],
-  ../nbench/bench_lab,
-  ./ssz/ssz_serialization
+  ../nbench/bench_lab
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
 declareGauge beacon_current_validators, """Number of status="pending|active|exited|withdrawable" validators in current epoch""" # On epoch transition
@@ -91,10 +90,6 @@ proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
   let state_root = hash_tree_root(state)
   if state_root != blck.state_root:
-    try:
-      SSZ.saveFile("/home/user/foo.ssz", state)
-    except IOError:
-      debugEcho "tried to save"
     notice "Block: root verification failed",
       block_state_root = blck.state_root, state_root
     false
