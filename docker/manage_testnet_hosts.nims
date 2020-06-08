@@ -1,5 +1,5 @@
 import
-  strformat, os, confutils, algorightm
+  strformat, os, confutils, algorithm
 
 type
   Command = enum

@@ -187,13 +187,21 @@ proc generateMnemonic*(words: openarray[cstring],
 
 proc deriveChildKey*(parentKey: ValidatorPrivKey,
                      index: Natural): ValidatorPrivKey =
-  doAssert derive_child_secretKey(SecretKey result,
-                                  SecretKey parentKey,
-                                  uint32 index)
+  let success = derive_child_secretKey(SecretKey result,
+                                       SecretKey parentKey,
+                                       uint32 index)
+  # TODO `derive_child_secretKey` is reporting pre-condition
+  #       failures with return values. We should turn the checks
+  #       into asserts inside the function.
+  doAssert success
 
 proc deriveMasterKey*(seed: KeySeed): ValidatorPrivKey =
-  doAssert derive_master_secretKey(SecretKey result,
-                                   seq[byte] seed)
+  let success = derive_master_secretKey(SecretKey result,
+                                        seq[byte] seed)
+  # TODO `derive_master_secretKey` is reporting pre-condition
+  #       failures with return values. We should turn the checks
+  #       into asserts inside the function.
+  doAssert success
 
 proc deriveMasterKey*(mnemonic: Mnemonic,
                       password: KeyStorePass): ValidatorPrivKey =

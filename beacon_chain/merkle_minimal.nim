@@ -18,6 +18,14 @@ import
   ../../beacon_chain/spec/[beaconstate, datatypes, digest, helpers],
   ../../beacon_chain/ssz/merkleization
 
+# TODO
+#
+# This module currently represents a direct translation of the Python
+# code, appearing in the spec. We need to review it to ensure that it
+# doesn't duplicate any code defined in ssz.nim already.
+#
+# All tests need to be moved to the test suite.
+
 func round_step_down*(x: Natural, step: static Natural): int {.inline.} =
   ## Round the input to the previous multiple of "step"
   when (step and (step - 1)) == 0:
@@ -60,10 +68,8 @@ proc merkleTreeFromLeaves*(
         h.update zeroHashes[depth-1]
       result.nnznodes[depth].add nodeHash
 
-proc getMerkleProof*[Depth: static int](
-        tree: SparseMerkleTree[Depth],
-        index: int,
-      ): array[Depth, Eth2Digest] =
+proc getMerkleProof*[Depth: static int](tree: SparseMerkleTree[Depth],
+                                        index: int): array[Depth, Eth2Digest] =
 
   # Descend down the tree according to the bit representation
   # of the index:
