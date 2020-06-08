@@ -63,13 +63,15 @@ const
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L77
   # Changed: Faster to spin up testnets, but does not give validator
   # reasonable warning time for genesis
-  MIN_GENESIS_DELAY* = 300
+  GENESIS_DELAY* = 300
 
   # Unchanged
   SECONDS_PER_SLOT*{.intdefine.} = 6'u64
 
   # Unchanged
   MIN_ATTESTATION_INCLUSION_DELAY* = 1
+
+  SHARD_COMMITTEE_PERIOD* = 64 # epochs
 
   # Changed
   SLOTS_PER_EPOCH* {.intdefine.} = 8
@@ -79,14 +81,11 @@ const
   MAX_SEED_LOOKAHEAD* = 4
 
   # Changed
-  EPOCHS_PER_ETH1_VOTING_PERIOD* = 2
+  EPOCHS_PER_ETH1_VOTING_PERIOD* = 4
   SLOTS_PER_HISTORICAL_ROOT* = 64
 
   # Unchanged
   MIN_VALIDATOR_WITHDRAWABILITY_DELAY* = 2'u64^8
-
-  # Changed
-  PERSISTENT_COMMITTEE_PERIOD* = 128
 
   # Unchanged
   MAX_EPOCHS_PER_CROSSLINK* = 4
@@ -113,7 +112,7 @@ const
   BASE_REWARD_FACTOR* = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
   PROPOSER_REWARD_QUOTIENT* = 2'u64^3
-  INACTIVITY_PENALTY_QUOTIENT* = 2'u64^25
+  INACTIVITY_PENALTY_QUOTIENT* = 2'u64^24
   MIN_SLASHING_PENALTY_QUOTIENT* = 32 # 2^5
 
   # Max operations per block
@@ -121,7 +120,7 @@ const
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L131
 
   MAX_PROPOSER_SLASHINGS* = 2^4
-  MAX_ATTESTER_SLASHINGS* = 2^0
+  MAX_ATTESTER_SLASHINGS* = 2^1
   MAX_ATTESTATIONS* = 2^7
   MAX_DEPOSITS* = 2^4
   MAX_VOLUNTARY_EXITS* = 2^4
@@ -150,6 +149,7 @@ const
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L161
   PHASE_1_FORK_VERSION* = 16777217
+  PHASE_1_GENESIS_SLOT* = 8
   INITIAL_ACTIVE_SHARDS* = 4
 
   # Phase 1: General
@@ -159,7 +159,6 @@ const
   ONLINE_PERIOD* = 8 # epochs ~ 51 minutes
   LIGHT_CLIENT_COMMITTEE_SIZE* = 128
   LIGHT_CLIENT_COMMITTEE_PERIOD* = 256 # epochs
-  SHARD_COMMITTEE_PERIOD* = 256 # epochs
   SHARD_BLOCK_CHUNK_SIZE* = 262144
   MAX_SHARD_BLOCK_CHUNKS* = 4
   TARGET_SHARD_BLOCK_SIZE* = 196608

@@ -45,7 +45,8 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + [Invalid] after_epoch_slots                                                                OK
 + [Invalid] bad_source_root                                                                  OK
 + [Invalid] before_inclusion_delay                                                           OK
-+ [Invalid] empty_aggregation_bits                                                           OK
++ [Invalid] empty_participants_seemingly_valid_sig                                           OK
++ [Invalid] empty_participants_zeroes_sig                                                    OK
 + [Invalid] future_target_epoch                                                              OK
 + [Invalid] invalid_attestation_signature                                                    OK
 + [Invalid] invalid_current_source_root                                                      OK
@@ -63,7 +64,7 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + [Valid]   success_multi_proposer_index_iterations                                          OK
 + [Valid]   success_previous_epoch                                                           OK
 ```
-OK: 20/20 Fail: 0/20 Skip: 0/20
+OK: 21/21 Fail: 0/21 Skip: 0/21
 ## Official - Operations - Attester slashing  [Preset: minimal]
 ```diff
 + [Invalid] att1_bad_extra_index                                                             OK
@@ -134,6 +135,10 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 ## Official - Sanity - Blocks  [Preset: minimal]
 ```diff
++ [Invalid] double_same_proposer_slashings_same_block                                        OK
++ [Invalid] double_similar_proposer_slashings_same_block                                     OK
++ [Invalid] double_validator_exit_same_block                                                 OK
++ [Invalid] duplicate_attester_slashing                                                      OK
 + [Invalid] expected_deposit_in_block                                                        OK
 + [Invalid] invalid_block_sig                                                                OK
 + [Invalid] invalid_proposer_index_sig_from_expected_proposer                                OK
@@ -152,16 +157,18 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 + [Valid]   empty_block_transition                                                           OK
 + [Valid]   empty_epoch_transition                                                           OK
 + [Valid]   empty_epoch_transition_not_finalizing                                            OK
-+ [Valid]   eth1_data_votes_consensus                                                        OK
-+ [Valid]   eth1_data_votes_no_consensus                                                     OK
 + [Valid]   high_proposer_index                                                              OK
 + [Valid]   historical_batch                                                                 OK
++ [Valid]   multiple_attester_slashings_no_overlap                                           OK
++ [Valid]   multiple_attester_slashings_partial_overlap                                      OK
++ [Valid]   multiple_different_proposer_slashings_same_block                                 OK
++ [Valid]   multiple_different_validator_exits_same_block                                    OK
 + [Valid]   proposer_after_inactive_index                                                    OK
 + [Valid]   proposer_slashing                                                                OK
 + [Valid]   skipped_slots                                                                    OK
 + [Valid]   voluntary_exit                                                                   OK
 ```
-OK: 26/26 Fail: 0/26 Skip: 0/26
+OK: 32/32 Fail: 0/32 Skip: 0/32
 ## Official - Sanity - Slots  [Preset: minimal]
 ```diff
 + Slots - double_empty_epoch                                                                 OK
@@ -173,4 +180,4 @@ OK: 26/26 Fail: 0/26 Skip: 0/26
 OK: 5/5 Fail: 0/5 Skip: 0/5
 
 ---TOTAL---
-OK: 123/123 Fail: 0/123 Skip: 0/123
+OK: 130/130 Fail: 0/130 Skip: 0/130

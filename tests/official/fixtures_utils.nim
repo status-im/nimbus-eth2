@@ -40,7 +40,7 @@ type
 
 const
   FixturesDir* = currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / "vendor" / "nim-eth2-scenarios"
-  SszTestsDir* = FixturesDir/"tests-v0.11.3"
+  SszTestsDir* = FixturesDir/"tests-v0.12.1"
 
 proc parseTest*(path: string, Format: typedesc[Json or SSZ], T: typedesc): T =
   try:

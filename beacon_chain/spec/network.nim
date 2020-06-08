@@ -17,7 +17,6 @@ const
   topicVoluntaryExitsSuffix* = "voluntary_exit/ssz"
   topicProposerSlashingsSuffix* = "proposer_slashing/ssz"
   topicAttesterSlashingsSuffix* = "attester_slashing/ssz"
-  topicInteropAttestationSuffix* = "beacon_attestation/ssz"
   topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz"
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#configuration
@@ -53,13 +52,6 @@ func getProposerSlashingsTopic*(forkDigest: ForkDigest): string =
 func getAttesterSlashingsTopic*(forkDigest: ForkDigest): string =
   try:
     &"/eth2/{$forkDigest}/{topicAttesterSlashingsSuffix}"
-  except ValueError as e:
-    raiseAssert e.msg
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#interop-3
-func getInteropAttestationTopic*(forkDigest: ForkDigest): string =
-  try:
-    &"/eth2/{$forkDigest}/{topicInteropAttestationSuffix}"
   except ValueError as e:
     raiseAssert e.msg
 
