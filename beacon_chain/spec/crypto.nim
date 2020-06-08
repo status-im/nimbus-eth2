@@ -84,9 +84,6 @@ template `==`*[N, T](a: BlsValue[N, T], b: T): bool =
 template `==`*[N, T](a: T, b: BlsValue[N, T]): bool =
   a == b.blsValue
 
-template `==`*(a, b: ValidatorPrivKey): bool =
-  blscurve.SecretKey(a) == blscurve.SecretKey(b)
-
 # API
 # ----------------------------------------------------------------------
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#bls-signatures

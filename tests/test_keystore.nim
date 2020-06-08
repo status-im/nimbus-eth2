@@ -9,10 +9,13 @@
 
 import
   unittest, ./testutil, json,
-  stew/byteutils,
+  stew/byteutils, blscurve,
   ../beacon_chain/spec/[crypto, keystore]
 
 from strutils import replace
+
+template `==`*(a, b: ValidatorPrivKey): bool =
+  blscurve.SecretKey(a) == blscurve.SecretKey(b)
 
 const
   scryptVector = """{
