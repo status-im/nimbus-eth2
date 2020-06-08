@@ -203,6 +203,17 @@ const
   ConcurrentConnections* = 10
     ## Maximum number of active concurrent connection requests.
 
+  SeenTableTimeTimeout* = 10.minutes
+    ## Seen period of time for timeout connections
+  SeenTableTimeDeadPeer* = 10.minutes
+    ## Period of time for dead peers.
+  SeenTableTimeIrrelevantNetwork* = 24.hours
+    ## Period of time for `IrrelevantNetwork` error reason.
+  SeenTableTimeClientShutDown* = 10.minutes
+    ## Period of time for `ClientShutDown` error reason.
+  SeemTableTimeFaultOrError* = 10.minutes
+    ## Period of time for `FaultOnError` error reason.
+
 template neterr(kindParam: Eth2NetworkingErrorKind): auto =
   err(type(result), Eth2NetworkingError(kind: kindParam))
 
@@ -297,6 +308,23 @@ proc updateScore*(peer: Peer, score: int) {.inline.} =
   if peer.score > PeerScoreHighLimit:
     peer.score = PeerScoreHighLimit
 
+proc isSeen*(network: ETh2Node, pinfo: PeerInfo): bool =
+  let currentTime = now(chronos.Moment)
+  let item = network.seenTable.getOrDefault(pinfo.peerId)
+  if isNil(item.pinfo):
+    # Peer is not in SeenTable.
+    return false
+  if currentTime >= item.stamp:
+    # Peer is in SeenTable, but the time period has expired.
+    network.seenTable.del(pinfo.peerId)
+    return false
+  return true
+
+proc addSeen*(network: ETh2Node, pinfo: PeerInfo,
+              period: chronos.Duration) =
+  let item = SeenItem(pinfo: pinfo, stamp: now(chronos.Moment) + period)
+  network.seenTable[pinfo.peerId] = item
+
 proc disconnect*(peer: Peer, reason: DisconnectionReason,
                  notifyOtherPeer = false) {.async.} =
   # TODO: How should we notify the other peer?
@@ -305,6 +333,14 @@ proc disconnect*(peer: Peer, reason: DisconnectionReason,
     await peer.network.switch.disconnect(peer.info)
     peer.connectionState = Disconnected
     peer.network.peerPool.release(peer)
+    let seenTime = case reason
+      of ClientShutDown:
+        SeenTableTimeClientShutDown
+      of IrrelevantNetwork:
+        SeenTableTimeIrrelevantNetwork
+      of FaultOrError:
+        SeemTableTimeFaultOrError
+    peer.network.addSeen(peer.info, seenTime)
     peer.info.close()
 
 include eth/p2p/p2p_backends_helpers
@@ -676,21 +712,6 @@ proc toPeerInfo(r: Option[enr.TypedRecord]): PeerInfo =
   if r.isSome:
     return r.get.toPeerInfo
 
-proc isSeen*(network: ETh2Node, pinfo: PeerInfo): bool =
-  let currentTime = now(chronos.Moment)
-  let item = network.seenTable.getOrDefault(pinfo.peerId)
-  if isNil(item.pinfo):
-    # Peer is not in SeenTable.
-    return false
-  if currentTime - item.stamp >= network.seenThreshold:
-    network.seenTable.del(pinfo.peerId)
-    return false
-  return true
-
-proc addSeen*(network: ETh2Node, pinfo: PeerInfo) =
-  let item = SeenItem(pinfo: pinfo, stamp: now(chronos.Moment))
-  network.seenTable[pinfo.peerId] = item
-
 proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
   logScope: peer = $peerInfo
 
@@ -731,11 +752,11 @@ proc connectWorker(network: Eth2Node) {.async.} =
           debug "Unable to establish connection with peer", peer = $pi,
                 errMsg = fut.readError().msg
           inc libp2p_failed_dials
-          network.addSeen(pi)
+          network.addSeen(pi, SeenTableTimeDeadPeer)
         continue
       debug "Connection to remote peer timed out", peer = $pi
       inc libp2p_timeout_dials
-      network.addSeen(pi)
+      network.addSeen(pi, SeenTableTimeTimeout)
     else:
       trace "Peer is already connected or already seen", peer = $pi,
             peer_pool_has_peer = $r1, seen_table_has_peer = $r2,
