@@ -286,7 +286,7 @@ proc process_voluntary_exit*(
 
   # Verify the validator has been active long enough
   if not (get_current_epoch(state) >= validator.activation_epoch +
-      PERSISTENT_COMMITTEE_PERIOD):
+      SHARD_COMMITTEE_PERIOD):
     notice "Exit: not in validator set long enough"
     return false
 

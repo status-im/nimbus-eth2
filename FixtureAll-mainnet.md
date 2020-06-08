@@ -45,7 +45,8 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + [Invalid] after_epoch_slots                                                                OK
 + [Invalid] bad_source_root                                                                  OK
 + [Invalid] before_inclusion_delay                                                           OK
-+ [Invalid] empty_aggregation_bits                                                           OK
++ [Invalid] empty_participants_seemingly_valid_sig                                           OK
++ [Invalid] empty_participants_zeroes_sig                                                    OK
 + [Invalid] future_target_epoch                                                              OK
 + [Invalid] invalid_attestation_signature                                                    OK
 + [Invalid] invalid_current_source_root                                                      OK
@@ -63,7 +64,7 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + [Valid]   success_multi_proposer_index_iterations                                          OK
 + [Valid]   success_previous_epoch                                                           OK
 ```
-OK: 20/20 Fail: 0/20 Skip: 0/20
+OK: 21/21 Fail: 0/21 Skip: 0/21
 ## Official - Operations - Attester slashing  [Preset: mainnet]
 ```diff
 + [Invalid] att1_bad_extra_index                                                             OK
@@ -134,6 +135,10 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 ## Official - Sanity - Blocks  [Preset: mainnet]
 ```diff
++ [Invalid] double_same_proposer_slashings_same_block                                        OK
++ [Invalid] double_similar_proposer_slashings_same_block                                     OK
++ [Invalid] double_validator_exit_same_block                                                 OK
++ [Invalid] duplicate_attester_slashing                                                      OK
 + [Invalid] expected_deposit_in_block                                                        OK
 + [Invalid] invalid_block_sig                                                                OK
 + [Invalid] invalid_proposer_index_sig_from_expected_proposer                                OK
@@ -153,12 +158,16 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 + [Valid]   empty_epoch_transition                                                           OK
 + [Valid]   high_proposer_index                                                              OK
 + [Valid]   historical_batch                                                                 OK
++ [Valid]   multiple_attester_slashings_no_overlap                                           OK
++ [Valid]   multiple_attester_slashings_partial_overlap                                      OK
++ [Valid]   multiple_different_proposer_slashings_same_block                                 OK
++ [Valid]   multiple_different_validator_exits_same_block                                    OK
 + [Valid]   proposer_after_inactive_index                                                    OK
 + [Valid]   proposer_slashing                                                                OK
 + [Valid]   skipped_slots                                                                    OK
 + [Valid]   voluntary_exit                                                                   OK
 ```
-OK: 23/23 Fail: 0/23 Skip: 0/23
+OK: 31/31 Fail: 0/31 Skip: 0/31
 ## Official - Sanity - Slots  [Preset: mainnet]
 ```diff
 + Slots - double_empty_epoch                                                                 OK
@@ -170,4 +179,4 @@ OK: 23/23 Fail: 0/23 Skip: 0/23
 OK: 5/5 Fail: 0/5 Skip: 0/5
 
 ---TOTAL---
-OK: 120/120 Fail: 0/120 Skip: 0/120
+OK: 129/129 Fail: 0/129 Skip: 0/129

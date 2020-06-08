@@ -53,8 +53,7 @@ type
     next_fork_epoch*: Epoch
 
   TopicFilter* {.pure.} = enum
-    Blocks, Attestations, Exits, ProposerSlashing, AttesterSlashings,
-      InteropAttestations
+    Blocks, Attestations, Exits, ProposerSlashing, AttesterSlashings
 
   BootstrapKind* {.pure.} = enum
     Enr, MultiAddr
@@ -204,9 +203,6 @@ func getTopics(forkDigest: ForkDigest,
     @[topic, topic & "_snappy"]
   of TopicFilter.AttesterSlashings:
     let topic = getAttesterSlashingsTopic(forkDigest)
-    @[topic, topic & "_snappy"]
-  of TopicFilter.InteropAttestations:
-    let topic = getInteropAttestationTopic(forkDigest)
     @[topic, topic & "_snappy"]
   of TopicFilter.Attestations:
     var topics = newSeq[string](ATTESTATION_SUBNET_COUNT * 2)
@@ -542,9 +538,6 @@ proc pubsubLogger(conf: InspectorConf, switch: Switch,
       elif topic.endsWith(topicAggregateAndProofsSuffix) or
            topic.endsWith(topicAggregateAndProofsSuffix & "_snappy"):
         info "AggregateAndProof", msg = SSZ.decode(buffer, AggregateAndProof)
-      elif topic.endsWith(topicInteropAttestationSuffix) or
-           topic.endsWith(topicInteropAttestationSuffix & "_snappy"):
-        info "Attestation", msg = SSZ.decode(buffer, Attestation)
 
     except CatchableError as exc:
       info "Unable to decode message", errMsg = exc.msg
@@ -711,8 +704,7 @@ proc run(conf: InspectorConf) {.async.} =
       if lcitem == "*":
         topics.incl({TopicFilter.Blocks, TopicFilter.Attestations,
                      TopicFilter.Exits, TopicFilter.ProposerSlashing,
-                     TopicFilter.AttesterSlashings,
-                     TopicFilter.InteropAttestations})
+                     TopicFilter.AttesterSlashings})
         break
       elif lcitem == "a":
         topics.incl(TopicFilter.Attestations)
@@ -724,15 +716,12 @@ proc run(conf: InspectorConf) {.async.} =
         topics.incl(TopicFilter.ProposerSlashing)
       elif lcitem == "as":
         topics.incl(TopicFilter.AttesterSlashings)
-      elif lcitem == "ia":
-        topics.incl(TopicFilter.InteropAttestations)
       else:
         discard
   else:
     topics.incl({TopicFilter.Blocks, TopicFilter.Attestations,
                  TopicFilter.Exits, TopicFilter.ProposerSlashing,
-                 TopicFilter.AttesterSlashings,
-                 TopicFilter.InteropAttestations})
+                 TopicFilter.AttesterSlashings})
 
   proc pubsubTrampoline(topic: string,
                         data: seq[byte]): Future[void] {.gcsafe.} =
