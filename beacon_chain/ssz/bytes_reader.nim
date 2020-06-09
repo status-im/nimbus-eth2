@@ -85,14 +85,14 @@ template checkForForbiddenBits(ResulType: type,
 func readSszValue*[T](input: openarray[byte], val: var T) {.raisesssz.} =
   mixin fromSszBytes, toSszType
 
-  template readOffsetUnchecked(n: int): int {.used.}=
-    int fromSszBytes(uint32, input.toOpenArray(n, n + offsetSize - 1))
+  template readOffsetUnchecked(n: int): uint32 {.used.}=
+    fromSszBytes(uint32, input.toOpenArray(n, n + offsetSize - 1))
 
   template readOffset(n: int): int {.used.} =
     let offset = readOffsetUnchecked(n)
-    if offset > input.len:
+    if offset > input.len.uint32:
       raise newException(MalformedSszError, "SSZ list element offset points past the end of the input")
-    offset
+    int(offset)
 
   #when result is List:
   #  result.setOutputSize input.len
@@ -141,6 +141,7 @@ func readSszValue*[T](input: openarray[byte], val: var T) {.raisesssz.} =
 
   elif val is List|array:
     type E = type val[0]
+
     when E is byte:
       val.setOutputSize input.len
       if input.len > 0:
@@ -171,8 +172,8 @@ func readSszValue*[T](input: openarray[byte], val: var T) {.raisesssz.} =
         raise newException(MalformedSszError, "SSZ input of insufficient size")
 
       var offset = readOffset 0
-
       trs "GOT OFFSET ", offset
+
       let resultLen = offset div offsetSize
       trs "LEN ", resultLen
 
@@ -206,8 +207,10 @@ func readSszValue*[T](input: openarray[byte], val: var T) {.raisesssz.} =
     copyMem(addr val.bytes[0], unsafeAddr input[0], input.len)
 
   elif val is object|tuple:
-    const minimallyExpectedSize = fixedPortionSize(T)
-    if input.len < minimallyExpectedSize:
+    let inputLen = uint32 input.len
+    const minimallyExpectedSize = uint32 fixedPortionSize(T)
+
+    if inputLen < minimallyExpectedSize:
       raise newException(MalformedSszError, "SSZ input of insufficient size")
 
     enumInstanceSerializedFields(val, fieldName, field):
@@ -231,7 +234,7 @@ func readSszValue*[T](input: openarray[byte], val: var T) {.raisesssz.} =
       else:
         let
           startOffset = readOffsetUnchecked(boundingOffsets[0])
-          endOffset = if boundingOffsets[1] == -1: input.len
+          endOffset = if boundingOffsets[1] == -1: inputLen
                       else: readOffsetUnchecked(boundingOffsets[1])
 
         when boundingOffsets.isFirstOffset:
@@ -241,7 +244,7 @@ func readSszValue*[T](input: openarray[byte], val: var T) {.raisesssz.} =
         trs "VAR FIELD ", startOffset, "-", endOffset
         if startOffset > endOffset:
           raise newException(MalformedSszError, "SSZ field offsets are not monotonically increasing")
-        elif endOffset > input.len:
+        elif endOffset > inputLen:
           raise newException(MalformedSszError, "SSZ field offset points past the end of the input")
         elif startOffset < minimallyExpectedSize:
           raise newException(MalformedSszError, "SSZ field offset points outside bounding offsets")
@@ -253,14 +256,14 @@ func readSszValue*[T](input: openarray[byte], val: var T) {.raisesssz.} =
         # TODO passing in `FieldType` instead of `type(field)` triggers a
         #      bug in the compiler
         readSszValue(
-          input.toOpenArray(startOffset, endOffset - 1),
+          input.toOpenArray(int(startOffset), int(endOffset - 1)),
           field)
         trs "READING COMPLETE ", fieldName
       else:
         trs "READING FOREIGN ", fieldName, ": ", name(SszType)
         field = fromSszBytes(
           type(field),
-          input.toOpenArray(startOffset, endOffset - 1))
+          input.toOpenArray(int(startOffset), int(endOffset - 1)))
 
   else:
     unsupported T
