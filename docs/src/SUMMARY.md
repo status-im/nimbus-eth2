@@ -8,3 +8,4 @@
 - [API](./api.md)
 - [Advanced Usage for Developers](./advanced.md)
 - [FAQs](./faq.md)
+- [Contribute](./contribute.md)
