@@ -50,15 +50,26 @@ export
 # internal state that's gone through sanity checks already.
 
 
+const ETH2_SPEC* {.strdefine.} = "v0.11.3"
+static: doAssert: ETH2_SPEC == "v0.11.3" or ETH2_SPEC == "v0.12.1"
+
 # Constant presets
 const const_preset* {.strdefine.} = "mainnet"
 
 when const_preset == "mainnet":
-  import ./presets/mainnet
-  export mainnet
+  when ETH2_SPEC == "v0.12.1":
+    import ./presets/mainnet
+    export mainnet
+  else:
+    import ./presets/mainnet_v0_11_3
+    export mainnet_v0_11_3
 elif const_preset == "minimal":
-  import ./presets/minimal
-  export minimal
+  when ETH2_SPEC == "v0.12.1":
+    import ./presets/minimal
+    export minimal
+  else:
+    import ./presets/minimal_v0_11_3
+    export minimal_v0_11_3
 else:
   type
     Slot* = distinct uint64
@@ -68,7 +79,11 @@ else:
   loadCustomPreset const_preset
 
 const
-  SPEC_VERSION* = "0.12.1" ## \
+  SPEC_VERSION* =
+    when ETH2_SPEC == "v0.12.1":
+      "0.12.1"
+    else:
+      "0.11.3" ## \
   ## Spec version we're aiming to be compatible with, right now
 
   GENESIS_SLOT* = Slot(0)
@@ -238,11 +253,6 @@ type
     state_root*: Eth2Digest
     body_root*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#signingdata
-  SigningData* = object
-    object_root*: Eth2Digest
-    domain*: Domain
-
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
@@ -392,13 +402,6 @@ type
     message*: AggregateAndProof
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#eth1block
-  Eth1Block* = object
-    timestamp*: uint64
-    deposit_root*: Eth2Digest
-    deposit_count*: uint64
-    # All other eth1 block fields
-
   # TODO to be replaced with some magic hash caching
   HashedBeaconState* = object
     data*: BeaconState
@@ -411,6 +414,29 @@ type
     beacon_proposer_indices*: Table[Slot, Option[ValidatorIndex]]
 
   JsonError = jsonTypes.JsonError
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#signingdata
+# TODO move back into big `type` block
+when ETH2_SPEC == "v0.12.1":
+  type SigningData* = object
+    object_root*: Eth2Digest
+    domain*: Domain
+else:
+  type SigningRoot* = object
+    object_root*: Eth2Digest
+    domain*: Domain
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#eth1block
+when ETH2_SPEC == "v0.12.1":
+  type Eth1Block* = object
+    timestamp*: uint64
+    deposit_root*: Eth2Digest
+    deposit_count*: uint64
+    # All other eth1 block fields
+else:
+  type Eth1Block* = object
+    timestamp*: uint64
+    # All other eth1 block fields
 
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
     ($state.validators[validatorIdx].pubkey)[0..7]

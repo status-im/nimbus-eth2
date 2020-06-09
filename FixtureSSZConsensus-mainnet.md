@@ -1,6 +1,6 @@
 FixtureSSZConsensus-mainnet
 ===
-## Official - 0.12.1 - SSZ consensus objects  [Preset: mainnet]
+## Official - SSZ consensus objects  [Preset: mainnet]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
 +   Testing    Attestation                                                                   OK

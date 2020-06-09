@@ -10,6 +10,7 @@ import
   os, strutils, typetraits,
   # Internals
   ../../beacon_chain/ssz,
+  ../../beacon_chain/spec/datatypes,
   # Status libs
   stew/byteutils,
   serialization, json_serialization
@@ -40,7 +41,11 @@ type
 
 const
   FixturesDir* = currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / "vendor" / "nim-eth2-scenarios"
-  SszTestsDir* = FixturesDir/"tests-v0.12.1"
+  SszTestsDir* =
+    when ETH2_SPEC == "v0.12.1":
+      FixturesDir/"tests-v0.12.1"
+    else:
+      FixturesDir/"tests-v0.11.3"
 
 proc parseTest*(path: string, Format: typedesc[Json or SSZ], T: typedesc): T =
   try:

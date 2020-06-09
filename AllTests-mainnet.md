@@ -95,7 +95,7 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + merkle_minimal                                                                             OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - 0.12.1 - constants & config  [Preset: mainnet]
+## Official - constants & config  [Preset: mainnet]
 ```diff
 + BASE_REWARD_FACTOR                                64                   [Preset: mainnet]   OK
 + BLS_WITHDRAWAL_PREFIX                             "0x00"               [Preset: mainnet]   OK

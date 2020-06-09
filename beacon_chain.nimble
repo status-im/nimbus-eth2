@@ -49,7 +49,7 @@ proc buildBinary(name: string, srcDir = "./", params = "", cmdParams = "", lang 
 task moduleTests, "Run all module tests":
   buildBinary "beacon_node", "beacon_chain/",
               "-d:chronicles_log_level=TRACE " &
-              "-d:const_preset=minimal -d:BLS_ETH2_SPEC=\"v0.12.x\" " &
+              "-d:const_preset=minimal -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\" " &
               "-d:testutils_test_build"
 
 ### tasks
@@ -59,24 +59,34 @@ task test, "Run all tests":
   # price we pay for that.
 
   # Minimal config
-  buildBinary "proto_array", "beacon_chain/fork_choice/", "-d:const_preset=minimal -d:BLS_ETH2_SPEC=\"v0.12.x\""
-  buildBinary "fork_choice", "beacon_chain/fork_choice/", "-d:const_preset=minimal -d:BLS_ETH2_SPEC=\"v0.12.x\""
-  buildBinary "all_tests", "tests/", "-d:chronicles_log_level=TRACE -d:const_preset=minimal -d:BLS_ETH2_SPEC=\"v0.12.x\""
+  buildBinary "proto_array", "beacon_chain/fork_choice/", "-d:const_preset=minimal -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
+  buildBinary "fork_choice", "beacon_chain/fork_choice/", "-d:const_preset=minimal -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
+  buildBinary "all_tests", "tests/", "-d:chronicles_log_level=TRACE -d:const_preset=minimal -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
   # Mainnet config
-  buildBinary "proto_array", "beacon_chain/fork_choice/", "-d:const_preset=mainnet -d:BLS_ETH2_SPEC=\"v0.12.x\""
-  buildBinary "fork_choice", "beacon_chain/fork_choice/", "-d:const_preset=mainnet -d:BLS_ETH2_SPEC=\"v0.12.x\""
-  buildBinary "all_tests", "tests/", "-d:const_preset=mainnet -d:BLS_ETH2_SPEC=\"v0.12.x\""
+  buildBinary "proto_array", "beacon_chain/fork_choice/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
+  buildBinary "fork_choice", "beacon_chain/fork_choice/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
+  buildBinary "all_tests", "tests/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
 
   # Generic SSZ test, doesn't use consensus objects minimal/mainnet presets
   buildBinary "test_fixture_ssz_generic_types", "tests/official/", "-d:chronicles_log_level=TRACE"
 
   # Consensus object SSZ tests
-  buildBinary "test_fixture_ssz_consensus_objects", "tests/official/", "-d:chronicles_log_level=TRACE -d:const_preset=minimal -d:BLS_ETH2_SPEC=\"v0.12.x\""
-  buildBinary "test_fixture_ssz_consensus_objects", "tests/official/", "-d:const_preset=mainnet -d:BLS_ETH2_SPEC=\"v0.12.x\""
+  # 0.11.3
+  buildBinary "test_fixture_ssz_consensus_objects", "tests/official/", "-d:chronicles_log_level=TRACE -d:const_preset=minimal -d:ETH2_SPEC=\"v0.11.3\""
+  buildBinary "test_fixture_ssz_consensus_objects", "tests/official/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v0.11.3\""
 
-  buildBinary "all_fixtures_require_ssz", "tests/official/", "-d:chronicles_log_level=TRACE -d:const_preset=minimal -d:BLS_ETH2_SPEC=\"v0.12.x\""
-  buildBinary "all_fixtures_require_ssz", "tests/official/", "-d:const_preset=mainnet -d:BLS_ETH2_SPEC=\"v0.12.x\""
+  # 0.12.1
+  buildBinary "test_fixture_ssz_consensus_objects", "tests/official/", "-d:chronicles_log_level=TRACE -d:const_preset=minimal -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
+  buildBinary "test_fixture_ssz_consensus_objects", "tests/official/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
+
+  # 0.11.3
+  buildBinary "all_fixtures_require_ssz", "tests/official/", "-d:chronicles_log_level=TRACE -d:const_preset=minimal -d:ETH2_SPEC=\"v0.11.3\""
+  buildBinary "all_fixtures_require_ssz", "tests/official/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v0.11.3\""
+
+  # 0.12.1
+  buildBinary "all_fixtures_require_ssz", "tests/official/", "-d:chronicles_log_level=TRACE -d:const_preset=minimal -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
+  buildBinary "all_fixtures_require_ssz", "tests/official/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
 
   # State sim; getting into 4th epoch useful to trigger consensus checks
-  buildBinary "state_sim", "research/", "-d:const_preset=minimal -d:BLS_ETH2_SPEC=\"v0.12.x\"", "--validators=2000 --slots=32"
-  buildBinary "state_sim", "research/", "-d:const_preset=mainnet -d:BLS_ETH2_SPEC=\"v0.12.x\"", "--validators=2000 --slots=128"
+  buildBinary "state_sim", "research/", "-d:const_preset=minimal -d:ETH2_SPEC=\"v0.11.3\"", "--validators=2000 --slots=32"
+  buildBinary "state_sim", "research/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\"", "--validators=2000 --slots=128"

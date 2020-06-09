@@ -654,6 +654,20 @@ proc installAttestationHandlers(node: BeaconNode) =
             return false
           node.attestationPool.isValidAttestation(attestation, slot, ci, {})))
 
+  when ETH2_SPEC == "v0.11.3":
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#interop-3
+    attestationSubscriptions.add(node.network.subscribe(
+      getInteropAttestationTopic(node.forkDigest), attestationHandler,
+      proc(attestation: Attestation): bool =
+        # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#attestation-subnets
+        let (afterGenesis, slot) = node.beaconClock.now().toSlot()
+        if not afterGenesis:
+          return false
+        # isValidAttestation checks attestation.data.index == topicCommitteeIndex
+        # which doesn't make sense here, so rig that check to vacuously pass.
+        node.attestationPool.isValidAttestation(
+          attestation, slot, attestation.data.index, {})))
+
   waitFor allFutures(attestationSubscriptions)
 
 proc stop*(node: BeaconNode) =
