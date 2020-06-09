@@ -13,6 +13,10 @@ suiteReport "Honest validator":
       getVoluntaryExitsTopic(forkDigest) == "/eth2/00000000/voluntary_exit/ssz"
       getProposerSlashingsTopic(forkDigest) == "/eth2/00000000/proposer_slashing/ssz"
       getAttesterSlashingsTopic(forkDigest) == "/eth2/00000000/attester_slashing/ssz"
+      when ETH2_SPEC == "v0.11.3":
+        getInteropAttestationTopic(forkDigest) == "/eth2/00000000/beacon_attestation/ssz"
+      else:
+        true
       getAggregateAndProofsTopic(forkDigest) == "/eth2/00000000/beacon_aggregate_and_proof/ssz"
 
   timedTest "Mainnet attestation topics":

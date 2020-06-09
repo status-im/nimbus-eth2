@@ -27,6 +27,9 @@ const
   # This is not part of the spec yet!
   defaultEth2RpcPort* = 9090
 
+when ETH2_SPEC == "v0.11.3":
+  const topicInteropAttestationSuffix* = "beacon_attestation/ssz"
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#topics-and-messages
 func getBeaconBlocksTopic*(forkDigest: ForkDigest): string =
   try:
@@ -61,6 +64,13 @@ func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
     &"/eth2/{$forkDigest}/{topicAggregateAndProofsSuffix}"
   except ValueError as e:
     raiseAssert e.msg
+
+when ETH2_SPEC == "v0.11.3":
+  func getInteropAttestationTopic*(forkDigest: ForkDigest): string =
+    try:
+      &"/eth2/{$forkDigest}/{topicInteropAttestationSuffix}"
+    except ValueError as e:
+      raiseAssert e.msg
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#mainnet-3
 func getMainnetAttestationTopic*(forkDigest: ForkDigest, committeeIndex: uint64): string =

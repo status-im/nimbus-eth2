@@ -116,13 +116,18 @@ proc runSSZtests() =
           of "SignedBeaconBlockHeader":
             checkSSZ(SignedBeaconBlockHeader, path, hash)
           of "SignedVoluntaryExit": checkSSZ(SignedVoluntaryExit, path, hash)
-          of "SigningData": checkSSZ(SigningData, path, hash)
+          of "SigningData":
+            when ETH2_SPEC == "v0.12.1":
+              checkSSZ(SigningData, path, hash)
+          of "SigningRoot":
+            when ETH2_SPEC == "v0.11.3":
+              checkSSZ(SigningRoot, path, hash)
           of "Validator": checkSSZ(Validator, path, hash)
           of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash)
           else:
             raise newException(ValueError, "Unsupported test: " & sszType)
 
-suiteReport "Official - 0.12.1 - SSZ consensus objects " & preset():
+suiteReport "Official - SSZ consensus objects " & preset():
   runSSZtests()
 
 summarizeLongTests("FixtureSSZConsensus")

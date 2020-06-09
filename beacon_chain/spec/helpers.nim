@@ -185,10 +185,16 @@ func get_domain*(
 func compute_signing_root*(ssz_object: auto, domain: Domain): Eth2Digest =
   # Return the signing root of an object by calculating the root of the
   # object-domain tree.
-  let domain_wrapped_object = SigningData(
-    object_root: hash_tree_root(ssz_object),
-    domain: domain
-  )
+  when ETH2_SPEC == "v0.12.1":
+    let domain_wrapped_object = SigningData(
+      object_root: hash_tree_root(ssz_object),
+      domain: domain
+    )
+  else:
+    let domain_wrapped_object = SigningRoot(
+      object_root: hash_tree_root(ssz_object),
+      domain: domain
+    )
   hash_tree_root(domain_wrapped_object)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_seed
