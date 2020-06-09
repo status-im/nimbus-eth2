@@ -180,12 +180,12 @@
 <h2><a class="header" href="#differences-compared-to-ethereum-10" id="differences-compared-to-ethereum-10">Differences Compared to Ethereum 1.0</a></h2>
 <p>In traditional PoW, those that propose new blocks are called <strong><em>miners</em></strong>, whereas in PoS, they are called <strong><em>validators</em></strong>. In essence, <em>miners</em> rely on actual hardware (such as some specifically manufactured mining machines), while <em>validators</em> rely on just software.</p>
 <h2><a class="header" href="#what-it-is-like-to-be-a-validator" id="what-it-is-like-to-be-a-validator">What it is Like to Be a Validator?</a></h2>
-<p>It is obvious that you must have enough computing power or a dedicated hardware in order to be a miner, but how about being a validator? Here is a breif overview:</p>
+<p>It is obvious that you must have enough computing power or dedicated hardware in order to be a miner, but how about being a validator? Here is a brief overview:</p>
 <ol>
-<li>A special smart contract named <strong><em>registration contract</em></strong> is deployed on the original Ethereum blockchain. Note that in this case, the new beacon chain and the original blockchain co-exists.</li>
-<li>To &quot;register&quot; as a validator, you have to first deposit <strong><em>32 Etheres</em></strong> from your account to this smart contract.</li>
+<li>A special smart contract named <strong><em>deposit contract</em></strong> is deployed on the original Ethereum blockchain. Note that in this case, the new beacon chain and the original blockchain co-exists.</li>
+<li>To &quot;register&quot; as a validator, you have to first deposit <strong><em>32 Ether</em></strong> from your account to this smart contract.</li>
 <li>Run the beacon node and wait for the network to sync before your validator is activated.</li>
-<li>That's all! Remember to stay connected to the network, or you may lost your deposit. :P</li>
+<li>That's all! Remember to stay connected to the network, or you may lose your deposit. :P</li>
 </ol>
 <h1><a class="header" href="#what-is-nimbus" id="what-is-nimbus">What is Nimbus?</a></h1>
 <p>In a sentence, Nimbus is an Ethereum 1.0 &amp; 2.0 Client for Resource-Restricted Devices.</p>
@@ -223,12 +223,12 @@ make testnet0        # This will build Nimbus and all other dependencies
 </code></pre>
 <img src="./img/connect_testnet.PNG" alt="" style="margin: 0 40 0 40"/>
 <ol start="7">
-<li>The testnet should now be up and running. Then, you will be prompted to enter your private key of the account you want to deposit the 32 Etheres from. Find your private key from MetaMask as below:</li>
+<li>The testnet should now be up and running. Then, you will be prompted to enter your private key of the account you want to deposit the 32 Ether from. Find your private key from MetaMask as below:</li>
 </ol>
 <img src="./img/export_pkey.PNG" alt="" width="200" style="margin: 0 40 0 40"/>
 <img src="./img/enter_private_key.PNG" alt="" style="margin: 0 40 0 40"/>
 <ol start="8">
-<li>Wait for a few seconds until you see your deposit has been sent:</li>
+<li>Wait for a few seconds until you see that your deposit has been sent:</li>
 </ol>
 <img src="./img/deposit_sent.PNG" alt="" style="margin: 0 40 0 40"/>
 <ol start="9">
@@ -239,7 +239,7 @@ make testnet0        # This will build Nimbus and all other dependencies
 <h2><a class="header" href="#trouble-shooting" id="trouble-shooting">Trouble Shooting</a></h2>
 <ol>
 <li>
-<p>The directory that stores the blockchain data of the testnet is <code>build/data/testnet0</code> (replace <code>testnet0</code> with other testnet names). Delete this folder if you want to start over. For example, you can start over with a fresh storgae if you entered a wrong private key.</p>
+<p>The directory that stores the blockchain data of the testnet is <code>build/data/testnet0</code> (replace <code>testnet0</code> with other testnet names). Delete this folder if you want to start over. For example, you can start over with a fresh storage if you entered a wrong private key.</p>
 </li>
 <li>
 <p>Currently, you have to switch to the devel branch in order to run the validator node successfully.</p>
@@ -391,8 +391,8 @@ make LOG_LEVEL=TRACE beacon_node # log everything
 </code></pre>
 <h1><a class="header" href="#frequently-asked-questions" id="frequently-asked-questions">Frequently Asked Questions</a></h1>
 <h1><a class="header" href="#contribute" id="contribute">Contribute</a></h1>
-<p>Follow these steps to contribute to this book! <br>
-We use a utility tool called mdBook to create online books from Markdown files.</p>
+<p>Follow these steps to contribute to this book! </p>
+<p>We use an utility tool called mdBook to create online books from Markdown files.</p>
 <h2><a class="header" href="#before-you-start" id="before-you-start">Before You Start</a></h2>
 <ol>
 <li>Install mdBook from <a href="https://github.com/rust-lang/mdBook">here</a>.</li>
