@@ -152,7 +152,7 @@ proc process_justification_and_finalization*(state: var BeaconState,
   ## https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#final-updates
   ## after which the state.previous_epoch_attestations is replaced.
   let total_active_balance = get_total_active_balance(state, stateCache)
-  info "Non-attesting indices in previous epoch",
+  trace "Non-attesting indices in previous epoch",
     missing_all_validators=
       difference(active_validator_indices,
         toHashSet(mapIt(get_attesting_indices(state,

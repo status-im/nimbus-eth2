@@ -71,7 +71,7 @@ proc onAttestation*(node: BeaconNode, attestation: Attestation) =
     wallSlot = node.beaconClock.now().toSlot()
     head = node.blockPool.head
 
-  info "Attestation received",
+  debug "Attestation received",
     attestation = shortLog(attestation),
     headRoot = shortLog(head.blck.root),
     headSlot = shortLog(head.blck.slot),
@@ -97,7 +97,7 @@ proc onAttestation*(node: BeaconNode, attestation: Attestation) =
 proc storeBlock*(
     node: BeaconNode, signedBlock: SignedBeaconBlock): Result[void, BlockError] =
   let blockRoot = hash_tree_root(signedBlock.message)
-  info "Block received",
+  debug "Block received",
     signedBlock = shortLog(signedBlock.message),
     blockRoot = shortLog(blockRoot),
     cat = "block_listener",
