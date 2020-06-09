@@ -17,9 +17,6 @@
 # `ref` - this can be achieved by wrapping them in higher-level
 # types / composition
 
-# TODO report compiler crash when this is uncommented
-# {.push raises: [Defect].}
-
 {.experimental: "notnil".}
 
 {.push raises: [Defect].}
