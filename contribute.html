@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>What is Beacon Chain? - The Nimbus Beacon Chain Book</title>
+        <title>Contribute - The Nimbus Beacon Chain Book</title>
         
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
@@ -81,7 +81,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="beacon-chain.html" class="active"><strong aria-hidden="true">1.1.</strong> What is Beacon Chain?</a></li><li class="chapter-item expanded "><a href="nimbus.html"><strong aria-hidden="true">1.2.</strong> What is Nimbus?</a></li></ol></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">2.</strong> Become a Validator</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">3.</strong> Installation</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">4.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">5.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">6.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">7.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="beacon-chain.html"><strong aria-hidden="true">1.1.</strong> What is Beacon Chain?</a></li><li class="chapter-item expanded "><a href="nimbus.html"><strong aria-hidden="true">1.2.</strong> What is Nimbus?</a></li></ol></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">2.</strong> Become a Validator</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">3.</strong> Installation</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">4.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">5.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">6.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html" class="active"><strong aria-hidden="true">7.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -147,34 +147,37 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#what-is-beacon-chain" id="what-is-beacon-chain">What is Beacon Chain?</a></h1>
-<p>A complete introduction about the beacon chain can be found in the <a href="https://our.status.im/two-point-oh-the-beacon-chain/">Ethereum 2.0 blog series</a>.</p>
-<p>In short, the beacon chain is a <strong>new type of blockchain</strong> to help the Ethereum blockchain to smoothly transfer its consensus algorithm from PoW (Proof of Work) to PoS (Proof of Stake), aka Ethereum 2.0. You can also see it as a hybrid PoS + PoW solution.</p>
-<h2><a class="header" href="#differences-compared-to-ethereum-10" id="differences-compared-to-ethereum-10">Differences Compared to Ethereum 1.0</a></h2>
-<p>In traditional PoW, those that propose new blocks are called <strong><em>miners</em></strong>, whereas in PoS, they are called <strong><em>validators</em></strong>. In essence, <em>miners</em> rely on actual hardware (such as some specifically manufactured mining machines), while <em>validators</em> rely on just software.</p>
-<h2><a class="header" href="#what-it-is-like-to-be-a-validator" id="what-it-is-like-to-be-a-validator">What it is Like to Be a Validator?</a></h2>
-<p>It is obvious that you must have enough computing power or a dedicated hardware in order to be a miner, but how about being a validator? Here is a breif overview:</p>
+                        <h1><a class="header" href="#contribute" id="contribute">Contribute</a></h1>
+<p>Follow these steps to contribute to this book! <br>
+We use a utility tool called mdBook to create online books from Markdown files.</p>
+<h2><a class="header" href="#before-you-start" id="before-you-start">Before You Start</a></h2>
 <ol>
-<li>A special smart contract named <strong><em>registration contract</em></strong> is deployed on the original Ethereum blockchain. Note that in this case, the new beacon chain and the original blockchain co-exists.</li>
-<li>To &quot;register&quot; as a validator, you have to first deposit <strong><em>32 Etheres</em></strong> from your account to this smart contract.</li>
-<li>Run the beacon node and wait for the network to sync before your validator is activated.</li>
-<li>That's all! Remember to stay connected to the network, or you may lost your deposit. :P</li>
+<li>Install mdBook from <a href="https://github.com/rust-lang/mdBook">here</a>.</li>
+<li>Clone the repository by <code>git clone https://github.com/status-im/nim-beacon-chain.git</code>.</li>
+<li>Go to where the Markdown files are located by <code>cd docs</code>.</li>
 </ol>
+<h2><a class="header" href="#real-time-update-and-preview-changes" id="real-time-update-and-preview-changes">Real-Time Update and Preview Changes</a></h2>
+<ol>
+<li>Run <code>mdbook serve</code> in the terminal.</li>
+<li>Preview the book at <a href="http://localhost:3000">http://localhost:3000</a>.</li>
+</ol>
+<h2><a class="header" href="#build-and-deploy" id="build-and-deploy">Build and Deploy</a></h2>
+<ol>
+<li><code>mdbook build</code></li>
+<li><code>make publish-book</code></li>
+</ol>
+<p>Thank you so much for your help to the decentralized and open source community. :)</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="intro.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="faq.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
-                        
-                            <a rel="next" href="nimbus.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
-                            </a>
                         
 
                         <div style="clear: both"></div>
@@ -184,15 +187,11 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="intro.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="faq.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
-                
-                    <a rel="next" href="nimbus.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
-                    </a>
                 
             </nav>
 

@@ -81,7 +81,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="beacon-chain.html"><strong aria-hidden="true">1.1.</strong> What is Beacon Chain?</a></li><li class="chapter-item expanded "><a href="nimbus.html"><strong aria-hidden="true">1.2.</strong> What is Nimbus?</a></li></ol></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">2.</strong> Become a Validator</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">3.</strong> Installation</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">4.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html" class="active"><strong aria-hidden="true">5.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">6.</strong> FAQs</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="beacon-chain.html"><strong aria-hidden="true">1.1.</strong> What is Beacon Chain?</a></li><li class="chapter-item expanded "><a href="nimbus.html"><strong aria-hidden="true">1.2.</strong> What is Nimbus?</a></li></ol></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">2.</strong> Become a Validator</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">3.</strong> Installation</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">4.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html" class="active"><strong aria-hidden="true">5.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">6.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">7.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -160,15 +160,9 @@ installation directory to &quot;C:\mingw-w64&quot; and add it to your system PAT
 Computer&quot;/&quot;This PC&quot; -&gt; Properties -&gt; Advanced system settings -&gt; Environment
 Variables -&gt; Path -&gt; Edit -&gt; New -&gt; C:\mingw-w64\mingw64\bin (it's &quot;C:\mingw-w64\mingw32\bin&quot; on 32-bit)</p>
 <p>Install <a href="https://gitforwindows.org/">Git for Windows</a> and use a &quot;Git Bash&quot; shell to clone and build nim-beacon-chain.</p>
-<p>Install <a href="https://cmake.org/">CMake</a> to be able to build libunwind (used for <a href="https://github.com/status-im/nim-libbacktrace">lightweight stack traces</a>).</p>
-<p>When running the tests, you might hit some Windows path length limits. Increase them by editing the Registry in a PowerShell instance with administrator privileges:</p>
-<pre><code class="language-powershell">Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name 'LongPathsEnabled' -Value 1
-</code></pre>
-<p>and run this in a &quot;Git Bash&quot; terminal:</p>
-<pre><code class="language-bash">git config --global core.longpaths true
-</code></pre>
 <p>If you don't want to compile PCRE separately, you can fetch pre-compiled DLLs with:</p>
-<pre><code class="language-bash">mingw32-make fetch-dlls # this will place the right DLLs for your architecture in the &quot;build/&quot; directory
+<pre><code class="language-bash">mingw32-make # this first invocation will update the Git submodules
+mingw32-make fetch-dlls # this will place the right DLLs for your architecture in the &quot;build/&quot; directory
 </code></pre>
 <blockquote>
 <p>If you were following the Windows testnet instructions, you can jump back to <a href="#connecting-to-testnets">Connecting to testnets</a> now</p>
@@ -178,9 +172,9 @@ Variables -&gt; Path -&gt; Edit -&gt; New -&gt; C:\mingw-w64\mingw64\bin (it's &
 </code></pre>
 <h3><a class="header" href="#linux-macos" id="linux-macos">Linux, MacOS</a></h3>
 <p>After cloning the repo:</p>
-<pre><code class="language-bash"># The first `make` invocation will update all Git submodules.
-# You'll run `make update` after each `git pull`, in the future, to keep those submodules up to date.
-make
+<pre><code class="language-bash">make # The first `make` invocation will update all Git submodules and prompt you to run `make` again.
+     # It's only required once per Git clone. You'll run `make update` after each `git pull`, in the future,
+     # to keep those submodules up to date.
 
 # Run tests
 make test
