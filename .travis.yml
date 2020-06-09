@@ -38,6 +38,9 @@ matrix:
         - HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install ccache
       env:
         - NPROC=2
+  allow_failures:
+    # ARM64 is a bit buggy: https://travis-ci.community/t/no-output-has-been-received-and-then-build-terminated-on-arm64/8834
+    - arch: arm64
 
 
 install:
