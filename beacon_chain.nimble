@@ -88,5 +88,5 @@ task test, "Run all tests":
   buildBinary "all_fixtures_require_ssz", "tests/official/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
 
   # State sim; getting into 4th epoch useful to trigger consensus checks
-  buildBinary "state_sim", "research/", "-d:const_preset=minimal -d:ETH2_SPEC=\"v0.11.3\"", "--validators=2000 --slots=32"
+  buildBinary "state_sim", "research/", "-d:const_preset=minimal -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\"", "--validators=2000 --slots=32"
   buildBinary "state_sim", "research/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\"", "--validators=2000 --slots=128"
