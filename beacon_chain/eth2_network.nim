@@ -124,8 +124,8 @@ type
     # Private fields:
     peerStateInitializer*: PeerStateInitializer
     networkStateInitializer*: NetworkStateInitializer
-    handshake*: HandshakeStep
-    disconnectHandler*: DisconnectionHandler
+    onPeerConnected*: OnPeerConnectedHandler
+    onPeerDisconnected*: OnPeerDisconnectedHandler
 
   ProtocolInfo* = ptr ProtocolInfoObj
 
@@ -136,8 +136,8 @@ type
 
   PeerStateInitializer* = proc(peer: Peer): RootRef {.gcsafe.}
   NetworkStateInitializer* = proc(network: EthereumNode): RootRef {.gcsafe.}
-  HandshakeStep* = proc(peer: Peer, conn: Connection): Future[void] {.gcsafe.}
-  DisconnectionHandler* = proc(peer: Peer): Future[void] {.gcsafe.}
+  OnPeerConnectedHandler* = proc(peer: Peer, conn: Connection): Future[void] {.gcsafe.}
+  OnPeerDisconnectedHandler* = proc(peer: Peer): Future[void] {.gcsafe.}
   ThunkProc* = LPProtoHandler
   MounterProc* = proc(network: Eth2Node) {.gcsafe.}
   MessageContentPrinter* = proc(msg: pointer): string {.gcsafe.}
@@ -504,13 +504,10 @@ template send*[M](r: SingleChunkResponse[M], val: auto): untyped =
 proc performProtocolHandshakes*(peer: Peer) {.async.} =
   var subProtocolsHandshakes = newSeqOfCap[Future[void]](allProtocols.len)
   for protocol in allProtocols:
-    if protocol.handshake != nil:
-      subProtocolsHandshakes.add((protocol.handshake)(peer, nil))
+    if protocol.onPeerConnected != nil:
+      subProtocolsHandshakes.add protocol.onPeerConnected(peer, nil)
 
   await allFuturesThrowing(subProtocolsHandshakes)
-
-template initializeConnection*(peer: Peer): auto =
-  performProtocolHandshakes(peer)
 
 proc initProtocol(name: string,
                   peerInit: PeerStateInitializer,
@@ -528,10 +525,10 @@ proc registerProtocol(protocol: ProtocolInfo) =
     gProtocols[i].index = i
 
 proc setEventHandlers(p: ProtocolInfo,
-                      handshake: HandshakeStep,
-                      disconnectHandler: DisconnectionHandler) =
-  p.handshake = handshake
-  p.disconnectHandler = disconnectHandler
+                      onPeerConnected: OnPeerConnectedHandler,
+                      onPeerDisconnected: OnPeerDisconnectedHandler) =
+  p.onPeerConnected = onPeerConnected
+  p.onPeerDisconnected = onPeerDisconnected
 
 proc implementSendProcBody(sendProc: SendProc) =
   let
@@ -726,7 +723,7 @@ proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
   #debug "Supported protocols", ls
 
   debug "Initializing connection"
-  await initializeConnection(peer)
+  await performProtocolHandshakes(peer)
 
   inc libp2p_successful_dials
   debug "Network handshakes completed"
