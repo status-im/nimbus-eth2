@@ -10,6 +10,8 @@
 import
   # Standard library
   std/tables, std/options,
+  # Status
+  chronicles,
   # Internal
   ../spec/[datatypes, digest]
 
@@ -133,8 +135,11 @@ type
     votes*: seq[VoteTracker]
     balances*: seq[Gwei]
 
-func shortlog*(vote: VoteTracker): string =
-  result = "Vote("
-  result &= "current_root: " & shortlog(vote.current_root)
-  result &= ", next_root: " & shortlog(vote.next_root)
-  result &= ", next_epoch: " & $vote.next_epoch & ')'
+func shortlog*(vote: VoteTracker): auto =
+  (
+    current_root: vote.current_root,
+    next_root: vote.next_root,
+    next_epoch: vote.next_epoch
+  )
+
+chronicles.formatIt VoteTracker: it.shortLog
