@@ -1,7 +1,9 @@
 # Contribute
 
-Follow these steps to contribute to this book! <br>
-We use a utility tool called mdBook to create online books from Markdown files.
+Follow these steps to contribute to this book! 
+
+
+We use an utility tool called mdBook to create online books from Markdown files.
 
 ## Before You Start
 

@@ -10,10 +10,9 @@ In traditional PoW, those that propose new blocks are called **_miners_**, where
 
 ## What it is Like to Be a Validator?
 
-It is obvious that you must have enough computing power or a dedicated hardware in order to be a miner, but how about being a validator? Here is a breif overview:
+It is obvious that you must have enough computing power or dedicated hardware in order to be a miner, but how about being a validator? Here is a brief overview:
 
-1. A special smart contract named **_registration contract_** is deployed on the original Ethereum blockchain. Note that in this case, the new beacon chain and the original blockchain co-exists.
-2. To "register" as a validator, you have to first deposit **_32 Etheres_** from your account to this smart contract.
+1. A special smart contract named **_deposit contract_** is deployed on the original Ethereum blockchain. Note that in this case, the new beacon chain and the original blockchain co-exists.
+2. To "register" as a validator, you have to first deposit **_32 Ether_** from your account to this smart contract.
 3. Run the beacon node and wait for the network to sync before your validator is activated.
-4. That's all! Remember to stay connected to the network, or you may lost your deposit. :P
-
+4. That's all! Remember to stay connected to the network, or you may lose your deposit. :P

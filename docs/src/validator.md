@@ -35,13 +35,13 @@ make testnet0        # This will build Nimbus and all other dependencies
 
 <img src="./img/connect_testnet.PNG" alt="" style="margin: 0 40 0 40"/>
 
-7. The testnet should now be up and running. Then, you will be prompted to enter your private key of the account you want to deposit the 32 Etheres from. Find your private key from MetaMask as below:
+7. The testnet should now be up and running. Then, you will be prompted to enter your private key of the account you want to deposit the 32 Ether from. Find your private key from MetaMask as below:
 
 <img src="./img/export_pkey.PNG" alt="" width="200" style="margin: 0 40 0 40"/>
 
 <img src="./img/enter_private_key.PNG" alt="" style="margin: 0 40 0 40"/>
 
-8. Wait for a few seconds until you see your deposit has been sent:
+8. Wait for a few seconds until you see that your deposit has been sent:
 
 <img src="./img/deposit_sent.PNG" alt="" style="margin: 0 40 0 40"/>
 
@@ -53,7 +53,7 @@ You can also get a brief estimate of the time remaining until your network gets 
 
 ## Trouble Shooting
 
-1. The directory that stores the blockchain data of the testnet is `build/data/testnet0` (replace `testnet0` with other testnet names). Delete this folder if you want to start over. For example, you can start over with a fresh storgae if you entered a wrong private key.
+1. The directory that stores the blockchain data of the testnet is `build/data/testnet0` (replace `testnet0` with other testnet names). Delete this folder if you want to start over. For example, you can start over with a fresh storage if you entered a wrong private key.
 
 2. Currently, you have to switch to the devel branch in order to run the validator node successfully.
 
