@@ -27,7 +27,7 @@ import
   mainchain_monitor, version, ssz/[merkleization],
   sync_protocol, request_manager, validator_keygen, interop, statusbar,
   sync_manager, state_transition,
-  validator_duties, validator_api
+  validator_duties, validator_api, attestation_aggregation
 
 const
   genesisFile* = "genesis.ssz"
@@ -387,7 +387,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   beacon_head_slot.set slot.int64
 
   # Time passes in here..
-  head = await node.handleValidatorDuties(head, lastSlot, slot)
+  asyncCheck node.handleValidatorDuties(lastSlot, slot)
 
   let
     nextSlotStart = saturate(node.beaconClock.fromNow(nextSlot))
@@ -652,7 +652,7 @@ proc installAttestationHandlers(node: BeaconNode) =
           let (afterGenesis, slot) = node.beaconClock.now().toSlot()
           if not afterGenesis:
             return false
-          node.attestationPool.isValidAttestation(attestation, slot, ci, {})))
+          node.attestationPool.isValidAttestation(attestation, slot, ci)))
 
   when ETH2_SPEC == "v0.11.3":
     # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#interop-3
@@ -666,7 +666,7 @@ proc installAttestationHandlers(node: BeaconNode) =
         # isValidAttestation checks attestation.data.index == topicCommitteeIndex
         # which doesn't make sense here, so rig that check to vacuously pass.
         node.attestationPool.isValidAttestation(
-          attestation, slot, attestation.data.index, {})))
+          attestation, slot, attestation.data.index)))
 
   waitFor allFutures(attestationSubscriptions)
 

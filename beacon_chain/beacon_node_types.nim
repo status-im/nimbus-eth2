@@ -5,7 +5,8 @@ import
   stew/endians2,
   spec/[datatypes, crypto, digest],
   block_pools/block_pools_types,
-  block_pool # TODO: refactoring compat shim
+  block_pool, # TODO: refactoring compat shim
+  fork_choice/fork_choice_types
 
 export block_pools_types
 
@@ -39,7 +40,7 @@ type
     ## this seq and aggregate only when needed
     ## TODO there are obvious caching opportunities here..
 
-  SlotData* = object
+  AttestationsSeen* = object
     attestations*: seq[AttestationEntry] ## \
     ## Depending on the world view of the various validators, they may have
     ## voted on different states - here we collect all the different
@@ -59,7 +60,7 @@ type
     ## contains both votes that have been included in the chain and those that
     ## have not.
 
-    slots*: Deque[SlotData] ## \
+    mapSlotsToAttestations*: Deque[AttestationsSeen] ## \
     ## We keep one item per slot such that indexing matches slot number
     ## together with startingSlot
 

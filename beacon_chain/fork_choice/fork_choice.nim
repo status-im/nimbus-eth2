@@ -9,9 +9,9 @@
 
 import
   # Standard library
-  std/tables, std/options, std/typetraits,
+  std/tables, std/typetraits,
   # Status libraries
-  stew/results,
+  stew/results, chronicles,
   # Internal
   ../spec/[datatypes, digest],
   # Fork choice
@@ -43,13 +43,17 @@ func compute_deltas(
 # Fork choice routines
 # ----------------------------------------------------------------------
 
+logScope:
+  topics = "fork_choice"
+  cat = "fork_choice"
+
 # API:
 # - The private procs uses the ForkChoiceError error code
 # - The public procs use Result
 
 func initForkChoice*(
-       finalized_block_slot: Slot,
-       finalized_block_state_root: Eth2Digest,
+       finalized_block_slot: Slot,             # This is unnecessary for fork choice but helps external components
+       finalized_block_state_root: Eth2Digest, # This is unnecessary for fork choice but helps external components
        justified_epoch: Epoch,
        finalized_epoch: Epoch,
        finalized_root: Eth2Digest
@@ -64,7 +68,8 @@ func initForkChoice*(
   let err = proto_array.on_block(
     finalized_block_slot,
     finalized_root,
-    none(Eth2Digest),
+    hasParentInForkChoice = false,
+    default(Eth2Digest),
     finalized_block_state_root,
     justified_epoch,
     finalized_epoch
@@ -111,6 +116,31 @@ func process_attestation*(
     vote.next_root = block_root
     vote.next_epoch = target_epoch
 
+    {.noSideEffect.}:
+      info "Integrating vote in fork choice",
+        validator_index = $validator_index,
+        new_vote = shortlog(vote)
+  else:
+    {.noSideEffect.}:
+      if vote.next_epoch != target_epoch or vote.next_root != block_root:
+        warn "Change of vote ignored for fork choice. Potential for slashing.",
+          validator_index = $validator_index,
+          current_vote = shortlog(vote),
+          ignored_block_root = shortlog(block_root),
+          ignored_target_epoch = $target_epoch
+      else:
+        info "Ignoring double-vote for fork choice",
+          validator_index = $validator_index,
+          current_vote = shortlog(vote),
+          ignored_block_root = shortlog(block_root),
+          ignored_target_epoch = $target_epoch
+
+func contains*(self: ForkChoice, block_root: Eth2Digest): bool =
+  ## Returns `true` if a block is known to the fork choice
+  ## and `false` otherwise.
+  ##
+  ## In particular, before adding a block, its parent must be known to the fork choice
+  self.proto_array.indices.contains(block_root)
 
 func process_block*(
        self: var ForkChoice,
@@ -123,10 +153,18 @@ func process_block*(
      ): Result[void, string] =
   ## Add a block to the fork choice context
   let err = self.proto_array.on_block(
-    slot, block_root, some(parent_root), state_root, justified_epoch, finalized_epoch
+    slot, block_root, hasParentInForkChoice = true, parent_root, state_root, justified_epoch, finalized_epoch
   )
   if err.kind != fcSuccess:
     return err("process_block_error: " & $err)
+
+  {.noSideEffect.}:
+    info "Integrating block in fork choice",
+      block_root = $shortlog(block_root),
+      parent_root = $shortlog(parent_root),
+      justified_epoch = $justified_epoch,
+      finalized_epoch = $finalized_epoch
+
   return ok()
 
 
@@ -165,6 +203,13 @@ func find_head*(
   let ghost_err = self.proto_array.find_head(new_head, justified_root)
   if ghost_err.kind != fcSuccess:
     return err("find_head failed: " & $ghost_err)
+
+  {.noSideEffect.}:
+    info "Fork choice requested",
+      justified_epoch = $justified_epoch,
+      justified_root = shortlog(justified_root),
+      finalized_epoch = $finalized_epoch,
+      fork_choice_head = shortlog(new_head)
 
   return ok(new_head)
 
@@ -252,7 +297,7 @@ func compute_deltas(
 when isMainModule:
   import stew/endians2
 
-  func fakeHash*(index: SomeInteger): Eth2Digest =
+  func fakeHash(index: SomeInteger): Eth2Digest =
     ## Create fake hashes
     ## Those are just the value serialized in big-endian
     ## We add 16x16 to avoid having a zero hash are those are special cased

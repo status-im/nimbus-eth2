@@ -800,7 +800,7 @@ func latestJustifiedBlock*(dag: CandidateChains): BlockSlot =
   ## as the latest finalized block
 
   doAssert dag.heads.len > 0,
-    "We should have at least the genesis block in heaads"
+    "We should have at least the genesis block in heads"
   doAssert (not dag.head.blck.isNil()),
     "Genesis block will be head, if nothing else"
 

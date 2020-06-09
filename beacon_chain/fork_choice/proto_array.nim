@@ -153,28 +153,38 @@ func on_block*(
        self: var ProtoArray,
        slot: Slot,
        root: Eth2Digest,
-       parent: Option[Eth2Digest],
+       hasParentInForkChoice: bool,
+       parent: Eth2Digest,
        state_root: Eth2Digest,
        justified_epoch: Epoch,
        finalized_epoch: Epoch
      ): ForkChoiceError =
   ## Register a block with the fork choice
-  ## A `none` parent is only valid for Genesis
+  ## A block `hasParentInForkChoice` may be false
+  ## on fork choice initialization:
+  ## - either from Genesis
+  ## - or from a finalized state loaded from database
+
+  # Note: if parent is an "Option" type, we can run out of stack space.
 
   # If the block is already known, ignore it
   if root in self.indices:
     return ForkChoiceSuccess
 
-  let node_index = self.nodes.len
+  var parent_index: Option[int]
+  if not hasParentInForkChoice:
+      # Genesis (but Genesis might not be default(Eth2Digest))
+    parent_index = none(int)
+  elif parent notin self.indices:
+    return ForkChoiceError(
+      kind: fcErrUnknownParent,
+      child_root: root,
+      parent_root: parent
+    )
+  else:
+    parent_index = some(self.indices.unsafeGet(parent))
 
-  let parent_index = block:
-    if parent.isNone:
-      none(int)
-    elif parent.unsafeGet() notin self.indices:
-      # Is this possible?
-      none(int)
-    else:
-      some(self.indices.unsafeGet(parent.unsafeGet()))
+  let node_index = self.nodes.len
 
   let node = ProtoNode(
     slot: slot,
@@ -191,7 +201,7 @@ func on_block*(
   self.indices[node.root] = node_index
   self.nodes.add node # TODO: if this is costly, we can setLen + construct the node in-place
 
-  if parent_index.isSome():
+  if parent_index.isSome(): # parent_index is always valid except for Genesis
     let err = self.maybe_update_best_child_and_descendant(parent_index.unsafeGet(), node_index)
     if err.kind != fcSuccess:
       return err
