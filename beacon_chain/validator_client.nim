@@ -25,6 +25,8 @@ import
   spec/eth2_apis/validator_callsigs_types,
   eth2_json_rpc_serialization
 
+logScope: topics = "vc"
+
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 
 ## Generate client convenience marshalling wrappers from forward declarations
@@ -40,11 +42,6 @@ type
     proposalsForEpoch: Table[Slot, ValidatorPubKey]
     attestationsForEpoch: Table[Slot, seq[AttesterDuties]]
     beaconGenesis: BeaconGenesisTuple
-
-# TODO remove this and move to real logging once done experimenting - it's much
-# easier to distinguish such output from the one from chronicles with timestamps
-proc port_logged(vc: ValidatorClient, msg: string) =
-  echo "== ", vc.config.rpcPort, " ", msg
 
 proc getValidatorDutiesForEpoch(vc: ValidatorClient, epoch: Epoch) {.gcsafe, async.} =
   let proposals = await vc.client.get_v1_validator_duties_proposer(epoch)
@@ -80,7 +77,12 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
     slot = wallSlot.slot # afterGenesis == true!
     nextSlot = slot + 1
 
-  vc.port_logged "WAKE UP! scheduledSlot " & $scheduledSlot & " slot " & $slot
+  info "Slot start",
+    lastSlot = shortLog(lastSlot),
+    scheduledSlot = shortLog(scheduledSlot),
+    beaconTime = shortLog(beaconTime),
+    portBN = vc.config.rpcPort,
+    cat = "scheduling"
 
   try:
     # at the start of each epoch - request all validator duties
@@ -138,8 +140,22 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
   let
     nextSlotStart = saturate(vc.beaconClock.fromNow(nextSlot))
 
-  # it's much easier to wake up on every slot compared to scheduling the start of each
-  # epoch and only the precise slots when the VC should sign/propose/attest with a key
+  info "Slot end",
+    slot = shortLog(slot),
+    nextSlot = shortLog(nextSlot),
+    portBN = vc.config.rpcPort,
+    cat = "scheduling"
+
+  when declared(GC_fullCollect):
+    # The slots in the validator client work as frames in a game: we want to make
+    # sure that we're ready for the next one and don't get stuck in lengthy
+    # garbage collection tasks when time is of essence in the middle of a slot -
+    # while this does not guarantee that we'll never collect during a slot, it
+    # makes sure that all the scratch space we used during slot tasks (logging,
+    # temporary buffers etc) gets recycled for the next slot that is likely to
+    # need similar amounts of memory.
+    GC_fullCollect()
+
   addTimer(nextSlotStart) do (p: pointer):
     asyncCheck vc.onSlotStart(slot, nextSlot)
 

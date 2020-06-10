@@ -26,7 +26,10 @@ proc post_v1_beacon_blocks(body: SignedBeaconBlock): bool
 
 proc get_v1_validator_attestation_data(slot: Slot, committee_index: CommitteeIndex): AttestationData
 
-proc get_v1_validator_aggregate_attestation(attestation_data_root: Eth2Digest): Attestation
+# TODO at the time of writing (10.06.2020) the API specifies this call to have a hash of
+# the attestation data instead of the object itself but we also need the slot.. see here:
+# https://docs.google.com/spreadsheets/d/1kVIx6GvzVLwNYbcd-Fj8YUlPf4qGrWUlS35uaTnIAVg/edit?disco=AAAAGh7r_fQ
+proc get_v1_validator_aggregate_attestation(attestation_data: AttestationData): Attestation
 
 # TODO returns a bool even though in the API there is no return type - because of nim-json-rpc
 proc post_v1_validator_aggregate_and_proof(payload: SignedAggregateAndProof): bool

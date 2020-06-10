@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  tables, strutils, sequtils,
+  tables, strutils,
 
   # Nimble packages
   stew/[objects],
@@ -15,7 +15,7 @@ import
   chronicles,
 
   # Local modules
-  spec/[datatypes, digest, crypto, validator, beaconstate],
+  spec/[datatypes, digest, crypto, validator, beaconstate, helpers],
   block_pool, ssz/merkleization,
   beacon_node_common, beacon_node_types,
   validator_duties, eth2_network,
@@ -24,6 +24,8 @@ import
 
 type
   RpcServer* = RpcHttpServer
+
+logScope: topics = "valapi"
 
 proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
 
@@ -75,9 +77,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       node, valInfo, proposer.get()[0], graffiti, head, slot)
 
     # TODO how do we handle the case when we cannot return a meaningful block? 404...
-    # currently this fails often - perhaps because the block has already been
-    # processed and signed with the inProcess validator...
-    # doAssert(res.message.isSome())
+    doAssert(res.message.isSome())
     return res.message.get(BeaconBlock()) # returning a default if empty
 
   rpcServer.rpc("post_v1_beacon_blocks") do (body: SignedBeaconBlock) -> bool:
@@ -106,13 +106,13 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       return makeAttestationData(state, slot, committee_index.uint64, blck.root)
 
   rpcServer.rpc("get_v1_validator_aggregate_attestation") do (
-      attestation_data_root: Eth2Digest)-> Attestation:
+      attestation_data: AttestationData)-> Attestation:
     notice "== get_v1_validator_aggregate_attestation"
-    # TODO look at attestation.data.beacon_block_root
 
   rpcServer.rpc("post_v1_validator_aggregate_and_proof") do (
       payload: SignedAggregateAndProof) -> bool:
     notice "== post_v1_validator_aggregate_and_proof"
+    # TODO is this enough?
     node.network.broadcast(node.topicAggregateAndProofs, payload)
     return true
 
@@ -137,15 +137,15 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("get_v1_validator_duties_proposer") do (
       epoch: Epoch) -> seq[ValidatorPubkeySlotPair]:
     notice "== get_v1_validator_duties_proposer", epoch = epoch
-    discard node.updateHead() # TODO do we need this?
-    var cache = get_empty_per_epoch_cache()
-    result = get_beacon_proposer_indexes_for_epoch(node.blockPool.headState.data.data,
-      epoch, cache).mapIt(ValidatorPubkeySlotPair(
-        public_key: node.blockPool.headState.data.data.validators[it.i].pubkey,
-        slot: it.s
-      ))
+    let head = node.updateHead()
+    for i in 0 ..< SLOTS_PER_EPOCH:
+      let currSlot = (compute_start_slot_at_epoch(epoch).int + i).Slot
+      let proposer = node.blockPool.getProposer(head, currSlot)
+      if proposer.isSome():
+        result.add(ValidatorPubkeySlotPair(public_key: proposer.get()[1], slot: currSlot))
 
   rpcServer.rpc("post_v1_validator_beacon_committee_subscription") do (
       committee_index: CommitteeIndex, slot: Slot, aggregator: bool,
       validator_pubkey: ValidatorPubKey, slot_signature: ValidatorSig):
     notice "== post_v1_validator_beacon_committee_subscription"
+    # TODO
