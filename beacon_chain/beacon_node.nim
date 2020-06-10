@@ -721,7 +721,7 @@ proc installAttestationHandlers(node: BeaconNode) =
     let (afterGenesis, slot) = node.beaconClock.now().toSlot()
     if not afterGenesis:
       return false
-    node.attestationPool.isValidAttestation(attestation, slot, committeeIndex, {})
+    node.attestationPool.isValidAttestation(attestation, slot, committeeIndex)
 
   var attestationSubscriptions: seq[Future[void]] = @[]
 
@@ -734,6 +734,7 @@ proc installAttestationHandlers(node: BeaconNode) =
         # This proc needs to be within closureScope; don't lift out of loop.
         proc(attestation: Attestation): bool =
           attestationValidator(attestation, ci)
+      ))
 
   when ETH2_SPEC == "v0.11.3":
     # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#interop-3
@@ -743,6 +744,7 @@ proc installAttestationHandlers(node: BeaconNode) =
         # isValidAttestation checks attestation.data.index == topicCommitteeIndex
         # which doesn't make sense here, so rig that check to vacuously pass.
         attestationValidator(attestation, attestation.data.index)
+    ))
 
   waitFor allFutures(attestationSubscriptions)
 
