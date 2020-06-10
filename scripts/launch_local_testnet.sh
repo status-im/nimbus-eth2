@@ -153,7 +153,7 @@ BOOTSTRAP_IP="127.0.0.1"
 	--output-bootstrap-file="${NETWORK_DIR}/bootstrap_nodes.txt" \
 	--bootstrap-address=${BOOTSTRAP_IP} \
 	--bootstrap-port=${BASE_PORT} \
-	--genesis-offset=30 # Delay in seconds
+	--genesis-offset=60 # Delay in seconds
 
 ./scripts/make_prometheus_config.sh \
 	--nodes ${NUM_NODES} \
