@@ -232,16 +232,6 @@ func get_beacon_proposer_index*(state: BeaconState, cache: var StateCache):
     Option[ValidatorIndex] =
   get_beacon_proposer_index(state, cache, state.slot)
 
-# Not from spec
-# TODO: cache the results from this and reuse in subsequent calls to get_beacon_proposer_index
-func get_beacon_proposer_indexes_for_epoch*(state: BeaconState, epoch: Epoch,
-    stateCache: var StateCache): seq[tuple[s: Slot, i: ValidatorIndex]] =
-  for i in 0 ..< SLOTS_PER_EPOCH:
-    let currSlot = (compute_start_slot_at_epoch(epoch).int + i).Slot
-    let idx = get_beacon_proposer_index(state, stateCache, currSlot)
-    if idx.isSome:
-      result.add (currSlot, idx.get)
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/validator.md#validator-assignments
 func get_committee_assignment*(
     state: BeaconState, epoch: Epoch, validator_index: ValidatorIndex):
