@@ -7,7 +7,7 @@ To become a validator, you have to first connect to a testnet, deposit your Ethe
 Though Nimbus can connect to any of the testnets published in the [eth2-clients/eth2-testnets repo](https://github.com/eth2-clients/eth2-testnets/tree/master/nimbus), below are the recommended ones:
 
 - Public Testnet: [witti](https://github.com/goerli/witti) ([explorer](https://witti.beaconcha.in))
-- Local Testnet: testnet0
+- Local Testnet: testnet0 (currently not available)
 
 ## Connecting to Testnets
 
@@ -58,3 +58,5 @@ You can also get a brief estimate of the time remaining until your network gets 
 2. Currently, you have to switch to the devel branch in order to run the validator node successfully.
 
 3. Everytime you want to update your node to the latest version, run `git pull`, `make update`, and then `make testnet0`.
+
+4. If `make update` has been running for too long, you can use `make update V=1` or `make update V=2` for verbose output.
