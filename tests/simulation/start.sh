@@ -52,25 +52,10 @@ type "$GANACHE" &>/dev/null || { echo $GANACHE is missing; USE_GANACHE="no"; }
 USE_PROMETHEUS="${LAUNCH_PROMETHEUS:-no}"
 type "$PROMETHEUS" &>/dev/null || { echo $PROMETHEUS is missing; USE_PROMETHEUS="no"; }
 
-# Prometheus config (continued inside the loop)
-mkdir -p "${METRICS_DIR}"
-cat > "${METRICS_DIR}/prometheus.yml" <<EOF
-global:
-  scrape_interval: 1s
-
-scrape_configs:
-  - job_name: "nimbus"
-    static_configs:
-EOF
-
-for i in $(seq $MASTER_NODE -1 $TOTAL_USER_NODES); do
-  # Prometheus config
-  cat >> "${METRICS_DIR}/prometheus.yml" <<EOF
-      - targets: ['127.0.0.1:$(( BASE_METRICS_PORT + i ))']
-        labels:
-          node: '$i'
-EOF
-done
+./scripts/make_prometheus_config.sh \
+	--nodes ${TOTAL_NODES} \
+	--base-metrics-port ${BASE_METRICS_PORT} \
+	--config-file "${METRICS_DIR}/prometheus.yml"
 
 COMMANDS=()
 
@@ -110,7 +95,7 @@ if [[ "$USE_TMUX" != "no" ]]; then
   $TMUX select-window -t "${TMUX_SESSION_NAME}:sim"
 fi
 
-$MAKE -j3 --no-print-directory NIMFLAGS="$CUSTOM_NIMFLAGS $DEFS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" beacon_node validator_client process_dashboard deposit_contract
+$MAKE -j3 --no-print-directory NIMFLAGS="$CUSTOM_NIMFLAGS $DEFS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" beacon_node validator_client deposit_contract
 
 if [ ! -f "${LAST_VALIDATOR}" ]; then
   if [ "$WEB3_ARG" != "" ]; then
@@ -163,12 +148,6 @@ rm -f beacon_node.log
 if [ -f "${MASTER_NODE_ADDRESS_FILE}" ]; then
   rm "${MASTER_NODE_ADDRESS_FILE}"
 fi
-
-# use the exported Grafana dashboard for a single node to create one for all nodes
-echo Creating grafana dashboards...
-./build/process_dashboard \
-  --in="${SIM_ROOT}/beacon-chain-sim-node0-Grafana-dashboard.json" \
-  --out="${SIM_ROOT}/beacon-chain-sim-all-nodes-Grafana-dashboard.json"
 
 # Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
 # instance as the parent and the target process name as a pattern to the

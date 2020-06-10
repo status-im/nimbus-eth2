@@ -102,16 +102,29 @@ apt install build-essential git libpcre3-dev
 
 Nimbus connects to any of the testnets published in the [eth2-clients/eth2-testnets repo](https://github.com/eth2-clients/eth2-testnets/tree/master/nimbus).
 
-Once the [prerequisites](#prerequisites) are installed you can connect to testnet0 with the following commands:
+Once the [prerequisites](#prerequisites) are installed you can connect to the [Witti testnet](https://github.com/goerli/witti) with the following commands:
 
 ```bash
 git clone https://github.com/status-im/nim-beacon-chain
 cd nim-beacon-chain
-make testnet0        # This will build Nimbus and all other dependencies
-                     # and connect you to testnet0
+make witti           # This will build Nimbus and all other dependencies
+                     # and connect you to Witti
 ```
 
-The testnets are restarted once per week, usually on Monday evenings (UTC)) and integrate the changes for the past week.
+### Getting metrics from a local testnet client
+
+```bash
+# the primitive HTTP server started to serve the metrics is considered insecure
+make NIMFLAGS="-d:insecure" witti
+```
+
+You can now see the raw metrics on http://127.0.0.1:8008/metrics but they're not very useful like this, so let's feed them to a Prometheus instance:
+
+```bash
+prometheus --config.file=build/data/shared_witti/prometheus.yml
+```
+
+For some pretty pictures, get [Grafana](https://grafana.com/) up and running, then import the dashboard definition in "grafana/beacon\_nodes\_Grafana\_dashboard.json".
 
 ## Interop (for other Eth2 clients)
 
@@ -178,8 +191,8 @@ The [generic instructions from the Nimbus repo](https://github.com/status-im/nim
 Specific steps:
 
 ```bash
-# This will generate the Prometheus config and the Grafana dashboard on the fly,
-# based on the number of nodes (which you can control by passing something like NODES=6 to `make`).
+# This will generate the Prometheus config on the fly, based on the number of
+# nodes (which you can control by passing something like NODES=6 to `make`).
 # The `-d:insecure` flag starts an HTTP server from which the Prometheus daemon will pull the metrics.
 make VALIDATORS=192 NODES=6 USER_NODES=0 NIMFLAGS="-d:insecure" eth2_network_simulation
 
@@ -188,7 +201,7 @@ cd tests/simulation/prometheus
 prometheus
 ```
 
-The dashboard you need to import in Grafana is "tests/simulation/beacon-chain-sim-all-nodes-Grafana-dashboard.json".
+The dashboard you need to import in Grafana is "grafana/beacon\_nodes\_Grafana\_dashboard.json".
 
 ![monitoring dashboard](./media/monitoring.png)
 

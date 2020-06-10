@@ -38,7 +38,7 @@ TOOLS_DIRS := \
 	ncli \
 	nbench \
 	research \
-	tests/simulation
+	tools
 TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 
 .PHONY: \

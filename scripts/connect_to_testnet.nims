@@ -112,6 +112,9 @@ cli do (skipGoerliKey {.
       rmDir dataDir
 
   cd rootDir
+
+  exec &"""./scripts/make_prometheus_config.sh --nodes 1 --base-metrics-port 8008 --config-file "{dataDir}/prometheus.yml""""
+
   exec &"""nim c {nimFlags} -d:"const_preset={preset}" -o:"{beaconNodeBinary}" beacon_chain/beacon_node.nim"""
 
   proc execIgnoringExitCode(s: string) =

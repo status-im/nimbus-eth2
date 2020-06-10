@@ -24,7 +24,7 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
 fi
 
 OPTS="ht:n:d:"
-LONGOPTS="help,testnet:,nodes:,data-dir:,disable-htop,log-level:,grafana,base-port:,base-metrics-port:"
+LONGOPTS="help,testnet:,nodes:,data-dir:,disable-htop,log-level:,base-port:,base-metrics-port:"
 
 # default values
 TESTNET="1"
@@ -32,7 +32,6 @@ NUM_NODES="10"
 DATA_DIR="local_testnet_data"
 USE_HTOP="1"
 LOG_LEVEL="DEBUG"
-ENABLE_GRAFANA="0"
 BASE_PORT="9000"
 BASE_METRICS_PORT="8008"
 
@@ -51,7 +50,6 @@ CI run: $(basename $0) --disable-htop -- --verify-finalization --stop-at-epoch=5
       --base-metrics-port	bootstrap node's metrics server port (default: ${BASE_METRICS_PORT})
       --disable-htop		don't use "htop" to see the beacon_node processes
       --log-level		set the log level (default: ${LOG_LEVEL})
-      --grafana			generate Grafana dashboards (and Prometheus config file)
 EOF
 }
 
@@ -88,10 +86,6 @@ while true; do
 		--log-level)
 			LOG_LEVEL="$2"
 			shift 2
-			;;
-		--grafana)
-			ENABLE_GRAFANA="1"
-			shift
 			;;
 		--base-port)
 			BASE_PORT="$2"
@@ -137,7 +131,7 @@ else
 fi
 
 NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh ${NETWORK})
-$MAKE -j2 LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node process_dashboard
+$MAKE LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node
 
 ./build/beacon_node makeDeposits \
 	--quickstart-deposits=${QUICKSTART_VALIDATORS} \
@@ -157,29 +151,10 @@ BOOTSTRAP_IP="127.0.0.1"
 	--bootstrap-port=${BASE_PORT} \
 	--genesis-offset=30 # Delay in seconds
 
-if [[ "$ENABLE_GRAFANA" == "1" ]]; then
-	# Prometheus config
-	cat > "${DATA_DIR}/prometheus.yml" <<EOF
-global:
-  scrape_interval: 1s
-
-scrape_configs:
-  - job_name: "nimbus"
-    static_configs:
-EOF
-	for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
-		cat >> "${DATA_DIR}/prometheus.yml" <<EOF
-      - targets: ['127.0.0.1:$(( BASE_METRICS_PORT + NUM_NODE ))']
-        labels:
-          node: '$NUM_NODE'
-EOF
-	done
-
-	# use the exported Grafana dashboard for a single node to create one for all nodes
-	./build/process_dashboard \
-	  --in="tests/simulation/beacon-chain-sim-node0-Grafana-dashboard.json" \
-	  --out="${DATA_DIR}/local-testnet-all-nodes-Grafana-dashboard.json"
-fi
+./scripts/make_prometheus_config.sh \
+	--nodes ${NUM_NODES} \
+	--base-metrics-port ${BASE_METRICS_PORT} \
+	--config-file "${DATA_DIR}/prometheus.yml"
 
 # Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
 # instance as the parent and the target process name as a pattern to the
