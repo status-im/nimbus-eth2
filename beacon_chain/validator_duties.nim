@@ -53,12 +53,6 @@ proc addLocalValidator*(node: BeaconNode,
 
   node.attachedValidators.addLocalValidator(pubKey, privKey)
 
-proc addLocalValidators*(node: BeaconNode, state: BeaconState) =
-  for validatorKey in node.config.validatorKeys:
-    node.addLocalValidator state, validatorKey
-
-  info "Local validators attached ", count = node.attachedValidators.count
-
 func getAttachedValidator*(node: BeaconNode,
                           state: BeaconState,
                           idx: ValidatorIndex): AttachedValidator =
