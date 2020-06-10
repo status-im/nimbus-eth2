@@ -254,9 +254,6 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
 proc connectToNetwork(node: BeaconNode) {.async.} =
   await node.network.connectToNetwork()
 
-  let addressFile = node.config.dataDir / "beacon_node.address"
-  writeFile(addressFile, node.network.announcedENR.toURI)
-
 proc onAttestation(node: BeaconNode, attestation: Attestation) =
   # We received an attestation from the network but don't know much about it
   # yet - in particular, we haven't verified that it belongs to particular chain
@@ -538,7 +535,7 @@ proc runForwardSyncLoop(node: BeaconNode) {.async.} =
     result = node.blockPool.head.blck.slot
 
   proc getLocalWallSlot(): Slot {.gcsafe.} =
-    let epoch = node.beaconClock.now().toSlot().slot.compute_epoch_at_slot() +
+    let epoch = node.beaconClock.now().slotOrZero.compute_epoch_at_slot() +
                 1'u64
     result = epoch.compute_start_slot_at_epoch()
 
@@ -815,8 +812,6 @@ proc start(node: BeaconNode) =
   #       actually need to make this part of normal application flow -
   #       losing all connections might happen at any time and we should be
   #       prepared to handle it.
-  waitFor node.connectToNetwork()
-
   let
     head = node.blockPool.head
     finalizedHead = node.blockPool.finalizedHead
@@ -837,12 +832,21 @@ proc start(node: BeaconNode) =
     cat = "init",
     pcs = "start_beacon_node"
 
-  let
-    bs = BlockSlot(blck: head.blck, slot: head.blck.slot)
+  node.network.startListening()
+  let addressFile = node.config.dataDir / "beacon_node.address"
+  writeFile(addressFile, node.network.announcedENR.toURI)
+
+  let bs = BlockSlot(blck: head.blck, slot: head.blck.slot)
 
   node.blockPool.withState(node.blockPool.tmpState, bs):
-    node.addLocalValidators(state)
+    for validatorKey in node.config.validatorKeys:
+      node.addLocalValidator state, validatorKey
+      # Allow some network events to be processed:
+      waitFor sleepAsync(1)
 
+    info "Local validators attached ", count = node.attachedValidators.count
+
+  waitFor node.network.connectToNetwork()
   node.run()
 
 func formatGwei(amount: uint64): string =

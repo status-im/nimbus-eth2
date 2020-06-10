@@ -821,17 +821,19 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
       if msg.protocolMounter != nil:
         msg.protocolMounter result
 
-  for i in 0 ..< ConcurrentConnections:
-    result.connWorkers.add(connectWorker(result))
-
 template publicKey*(node: Eth2Node): keys.PublicKey =
   node.discovery.privKey.toPublicKey.tryGet()
 
 template addKnownPeer*(node: Eth2Node, peer: enr.Record) =
   node.discovery.addNode peer
 
-proc start*(node: Eth2Node) {.async.} =
+proc startListening*(node: Eth2Node) =
   node.discovery.open()
+
+proc start*(node: Eth2Node) {.async.} =
+  for i in 0 ..< ConcurrentConnections:
+    node.connWorkers.add connectWorker(node)
+
   node.discovery.start()
   node.libp2pTransportLoops = await node.switch.start()
   node.discoveryLoop = node.runDiscoveryLoop()
