@@ -114,6 +114,14 @@ proc add*(
   ## the state parameter may be updated to include the given block, if
   ## everything checks out
   # TODO reevaluate passing the state in like this
+
+  # TODO: to facilitate adding the block to the attestation pool
+  #       this should also return justified and finalized epoch corresponding
+  #       to each block.
+  #       This would be easy apart from the "Block already exists"
+  #       early return.
+
+
   let blck = signedBlock.message
   doAssert blockRoot == hash_tree_root(blck)
 

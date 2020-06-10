@@ -398,19 +398,19 @@ proc broadcastAggregatedAttestations(
             node.network.broadcast(node.topicAggregateAndProofs, signedAP)
 
 proc handleValidatorDuties*(
-    node: BeaconNode, head: BlockRef, lastSlot, slot: Slot): Future[BlockRef] {.async.} =
+    node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   ## Perform validator duties - create blocks, vote and aggreagte existing votes
+  var head = node.updateHead()
   if node.attachedValidators.count == 0:
     # Nothing to do because we have no validator attached
-    return head
+    return
 
   if not node.isSynced(head):
     notice "Node out of sync, skipping validator duties",
       slot, headSlot = head.slot
-    return head
+    return
 
   var curSlot = lastSlot + 1
-  var head = head
 
   # Start by checking if there's work we should have done in the past that we
   # can still meaningfully do
@@ -493,5 +493,3 @@ proc handleValidatorDuties*(
 
     broadcastAggregatedAttestations(
       node, aggregationHead, aggregationSlot, TRAILING_DISTANCE)
-
-  return head

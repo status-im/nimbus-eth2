@@ -173,7 +173,7 @@ proc process_justification_and_finalization*(state: var BeaconState,
                  root: get_block_root(state, previous_epoch))
     state.justification_bits.setBit 1
 
-    trace "Justified with previous epoch",
+    info "Justified with previous epoch",
       current_epoch = current_epoch,
       checkpoint = shortLog(state.current_justified_checkpoint),
       cat = "justification"
@@ -187,7 +187,7 @@ proc process_justification_and_finalization*(state: var BeaconState,
                  root: get_block_root(state, current_epoch))
     state.justification_bits.setBit 0
 
-    trace "Justified with current epoch",
+    info "Justified with current epoch",
       current_epoch = current_epoch,
       checkpoint = shortLog(state.current_justified_checkpoint),
       cat = "justification"
@@ -201,7 +201,7 @@ proc process_justification_and_finalization*(state: var BeaconState,
      old_previous_justified_checkpoint.epoch + 3 == current_epoch:
     state.finalized_checkpoint = old_previous_justified_checkpoint
 
-    trace "Finalized with rule 234",
+    info "Finalized with rule 234",
       current_epoch = current_epoch,
       checkpoint = shortLog(state.finalized_checkpoint),
       cat = "finalization"
@@ -212,7 +212,7 @@ proc process_justification_and_finalization*(state: var BeaconState,
      old_previous_justified_checkpoint.epoch + 2 == current_epoch:
     state.finalized_checkpoint = old_previous_justified_checkpoint
 
-    trace "Finalized with rule 23",
+    info "Finalized with rule 23",
       current_epoch = current_epoch,
       checkpoint = shortLog(state.finalized_checkpoint),
       cat = "finalization"
@@ -223,7 +223,7 @@ proc process_justification_and_finalization*(state: var BeaconState,
      old_current_justified_checkpoint.epoch + 2 == current_epoch:
     state.finalized_checkpoint = old_current_justified_checkpoint
 
-    trace "Finalized with rule 123",
+    info "Finalized with rule 123",
       current_epoch = current_epoch,
       checkpoint = shortLog(state.finalized_checkpoint),
       cat = "finalization"
@@ -234,7 +234,7 @@ proc process_justification_and_finalization*(state: var BeaconState,
      old_current_justified_checkpoint.epoch + 1 == current_epoch:
     state.finalized_checkpoint = old_current_justified_checkpoint
 
-    trace "Finalized with rule 12",
+    info "Finalized with rule 12",
       current_epoch = current_epoch,
       checkpoint = shortLog(state.finalized_checkpoint),
       cat = "finalization"
