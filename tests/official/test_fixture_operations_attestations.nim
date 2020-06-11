@@ -12,7 +12,7 @@ import
   os, unittest,
   # Beacon chain internals
   ../../beacon_chain/spec/[datatypes, beaconstate, validator],
-  ../../beacon_chain/[ssz, extras],
+  ../../beacon_chain/ssz,
   # Test utilities
   ../testutil,
   ./fixtures_utils,
@@ -30,38 +30,27 @@ proc runTest(identifier: string) =
 
   proc `testImpl _ operations_attestations _ identifier`() =
 
-    var flags: UpdateFlags
     var prefix: string
-    if not existsFile(testDir/"meta.yaml"):
-      flags.incl skipBlsValidation
     if existsFile(testDir/"post.ssz"):
       prefix = "[Valid]   "
     else:
       prefix = "[Invalid] "
 
     timedTest prefix & identifier:
-      var stateRef, postRef: ref BeaconState
-      var attestationRef: ref Attestation
-      new attestationRef
-      new stateRef
-
       var cache = get_empty_per_epoch_cache()
 
-      attestationRef[] = parseTest(testDir/"attestation.ssz", SSZ, Attestation)
-      stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
+      let attestation = parseTest(testDir/"attestation.ssz", SSZ, Attestation)
+      var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
 
       if existsFile(testDir/"post.ssz"):
-        new postRef
-        postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
-
-      if postRef.isNil:
-        let done = process_attestation(stateRef[], attestationRef[], flags, cache)
-        doAssert done == false, "We didn't expect this invalid attestation to be processed."
-      else:
-        let done = process_attestation(stateRef[], attestationRef[], flags, cache)
+        let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
+        let done = process_attestation(preState[], attestation, {}, cache)
         doAssert done, "Valid attestation not processed"
-        check: stateRef.hash_tree_root() == postRef.hash_tree_root()
-        reportDiff(stateRef, postRef)
+        check: preState[].hash_tree_root() == postState[].hash_tree_root()
+        reportDiff(preState, postState)
+      else:
+        let done = process_attestation(preState[], attestation, {}, cache)
+        doAssert done == false, "We didn't expect this invalid attestation to be processed."
 
   `testImpl _ operations_attestations _ identifier`()
 

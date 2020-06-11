@@ -8,7 +8,7 @@
 import
   macros,
   nimcrypto/utils,
-  ../../beacon_chain/spec/[datatypes, crypto, digest]
+  ../../beacon_chain/spec/[datatypes, crypto, digest], ../../beacon_chain/ssz/types
   # digest is necessary for them to be printed as hex
 
 # Define comparison of object variants for BLSValue
@@ -16,7 +16,7 @@ import
 # (fully generic available - see also https://github.com/status-im/nim-beacon-chain/commit/993789bad684721bd7c74ea14b35c2d24dbb6e51)
 # ----------------------------------------------------------------
 
-proc `==`*[T](a, b: BlsValue[T]): bool =
+proc `==`*(a, b: BlsValue): bool =
   ## We sometimes need to compare real BlsValue
   ## from parsed opaque blobs that are not really on the BLS curve
   ## and full of zeros
@@ -92,7 +92,7 @@ proc inspectType(tImpl, xSubField, ySubField: NimNode, stmts: var NimNode) =
     inspectType(tImpl[0], xSubField, ySubField, stmts)
   of {nnkSym, nnkBracketExpr}:
     if tImpl.kind == nnkBracketExpr:
-      doAssert tImpl[0].eqIdent"List" or tImpl[0].eqIdent"seq" or tImpl[0].eqIdent"array", "Error: unsupported generic type: " & $tImpl[0]
+      # doAssert tImpl[0].eqIdent"List" or tImpl[0].eqIdent"seq" or tImpl[0].eqIdent"array", "Error: unsupported generic type: " & $tImpl[0]
       compareContainerStmt(xSubField, ySubField, stmts)
     elif $tImpl in builtinTypes:
       compareStmt(xSubField, ySubField, stmts)
@@ -106,7 +106,7 @@ proc inspectType(tImpl, xSubField, ySubField: NimNode, stmts: var NimNode) =
       " for field \"" & $xSubField.toStrLit &
       "\" of type \"" & tImpl.repr
 
-macro reportDiff*(x, y: typed{`var`|`let`|`const`}): untyped =
+macro reportDiff*(x, y: typed): untyped =
   doAssert sameType(x, y)
   result = newStmtList()
 

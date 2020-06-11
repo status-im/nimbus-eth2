@@ -12,7 +12,7 @@ import
   os, unittest,
   # Beacon chain internals
   ../../beacon_chain/spec/[datatypes, state_transition_block, validator],
-  ../../beacon_chain/[ssz, extras],
+  ../../beacon_chain/ssz,
   # Test utilities
   ../testutil,
   ./fixtures_utils,
@@ -30,38 +30,27 @@ proc runTest(identifier: string) =
 
   proc `testImpl_proposer_slashing _ identifier`() =
 
-    var flags: UpdateFlags
     var prefix: string
-    if not existsFile(testDir/"meta.yaml"):
-      flags.incl skipBlsValidation
     if existsFile(testDir/"post.ssz"):
       prefix = "[Valid]   "
     else:
       prefix = "[Invalid] "
 
     timedTest prefix & astToStr(identifier):
-      var stateRef, postRef: ref BeaconState
-      var proposerSlashing: ref ProposerSlashing
-      new proposerSlashing
-      new stateRef
-
-      proposerSlashing[] = parseTest(testDir/"proposer_slashing.ssz", SSZ, ProposerSlashing)
-      stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
-
-      if existsFile(testDir/"post.ssz"):
-        new postRef
-        postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
+      let proposerSlashing = parseTest(testDir/"proposer_slashing.ssz", SSZ, ProposerSlashing)
+      var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
 
       var cache = get_empty_per_epoch_cache()
 
-      if postRef.isNil:
-        let done = process_proposer_slashing(stateRef[], proposerSlashing[], flags, cache)
-        doAssert done == false, "We didn't expect this invalid proposer slashing to be processed."
-      else:
-        let done = process_proposer_slashing(stateRef[], proposerSlashing[], flags, cache)
+      if existsFile(testDir/"post.ssz"):
+        let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
+        let done = process_proposer_slashing(preState[], proposerSlashing, {}, cache)
         doAssert done, "Valid proposer slashing not processed"
-        check: stateRef.hash_tree_root() == postRef.hash_tree_root()
-        reportDiff(stateRef, postRef)
+        check: preState[].hash_tree_root() == postState[].hash_tree_root()
+        reportDiff(preState, postState)
+      else:
+        let done = process_proposer_slashing(preState[], proposerSlashing, {}, cache)
+        doAssert done == false, "We didn't expect this invalid proposer slashing to be processed."
 
   `testImpl_proposer_slashing _ identifier`()
 

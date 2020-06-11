@@ -8,26 +8,37 @@
 {.used.}
 
 import  options, unittest, sequtils,
-  ../beacon_chain/[beacon_chain_db, extras, interop, ssz, kvstore, persistent_store],
+  ../beacon_chain/[beacon_chain_db, extras, interop, ssz, state_transition],
   ../beacon_chain/spec/[beaconstate, datatypes, digest, crypto],
+  eth/db/kvstore,
   # test utilies
   ./testutil, ./testblockutil
 
+proc getStateRef(db: BeaconChainDB, root: Eth2Digest): NilableBeaconStateRef =
+  # load beaconstate the way BlockPool does it - into an existing instance
+  let res = BeaconStateRef()
+  if db.getState(root, res[], noRollback):
+    return res
+
+template wrappedTimedTest(name: string, body: untyped) =
+  # `check` macro takes a copy of whatever it's checking, on the stack!
+  block: # Symbol namespacing
+    proc wrappedTest() =
+      timedTest name:
+        body
+    wrappedTest()
+
 suiteReport "Beacon chain DB" & preset():
-  timedTest "empty database" & preset():
+  wrappedTimedTest "empty database" & preset():
     var
-      db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
-
+      db = init(BeaconChainDB, kvStore MemStoreRef.init())
     check:
-      when const_preset=="minimal":
-        db.getState(Eth2Digest()).isNone and db.getBlock(Eth2Digest()).isNone
-      else:
-        # TODO re-check crash here in mainnet
-        true
+      db.getStateRef(Eth2Digest()).isNil
+      db.getBlock(Eth2Digest()).isNone
 
-  timedTest "sanity check blocks" & preset():
+  wrappedTimedTest "sanity check blocks" & preset():
     var
-      db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
+      db = init(BeaconChainDB, kvStore MemStoreRef.init())
 
     let
       signedBlock = SignedBeaconBlock()
@@ -43,23 +54,23 @@ suiteReport "Beacon chain DB" & preset():
     check:
       db.getStateRoot(root, signedBlock.message.slot).get() == root
 
-  timedTest "sanity check states" & preset():
+  wrappedTimedTest "sanity check states" & preset():
     var
-      db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
+      db = init(BeaconChainDB, kvStore MemStoreRef.init())
 
     let
-      state = BeaconState()
-      root = hash_tree_root(state)
+      state = BeaconStateRef()
+      root = hash_tree_root(state[])
 
-    db.putState(state)
+    db.putState(state[])
 
     check:
       db.containsState(root)
-      db.getState(root).get() == state
+      hash_tree_root(db.getStateRef(root)[]) == root
 
-  timedTest "find ancestors" & preset():
+  wrappedTimedTest "find ancestors" & preset():
     var
-      db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
+      db = init(BeaconChainDB, kvStore MemStoreRef.init())
 
     let
       a0 = SignedBeaconBlock(message: BeaconBlock(slot: GENESIS_SLOT + 0))
@@ -89,45 +100,89 @@ suiteReport "Beacon chain DB" & preset():
     doAssert toSeq(db.getAncestors(a0r)) == [(a0r, a0)]
     doAssert toSeq(db.getAncestors(a2r)) == [(a2r, a2), (a1r, a1), (a0r, a0)]
 
-  timedTest "cold storage" & preset():
-    var db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
+  wrappedTimedTest "cold storage" & preset():
+    var
+      db = init(BeaconChainDB, kvStore MemStoreRef.init())
     
     let
       a0 = SignedBeaconBlock(message: BeaconBlock(slot: GENESIS_SLOT + 0))
       a0r = hash_tree_root(a0.message)
       a1 = SignedBeaconBlock(message:
         BeaconBlock(slot: GENESIS_SLOT + 1, parent_root: a0r))
-      a1r = hash_tree_root(a0.message)
+      a1r = hash_tree_root(a1.message)
       a2 = SignedBeaconBlock(message:
         BeaconBlock(slot: GENESIS_SLOT + 3, parent_root: a1r))
-
+      a2r = hash_tree_root(a2.message)
+    
     db.putPersistentBlock(a0)
     db.putPersistentBlock(a1)
     db.putPersistentBlock(a2)
+
     let blck = db.getBlock(hash_tree_root(a1.message)).get
     check:
       blck.message.parent_root == a0r
-    
+
     let blck2 = db.getFinalizedBlock(Slot(3)).get
     check:
       blck2.message.parent_root == a1r
+
+  wrappedTimedTest "pruning db to persistent storage" & preset():
+    var
+      db = init(BeaconChainDB, kvStore MemStoreRef.init())
     
-  
-  timedTest "sanity check genesis roundtrip" & preset():
+    let
+      a0 = SignedBeaconBlock(message: BeaconBlock(slot: GENESIS_SLOT + 0))
+      a0r = hash_tree_root(a0.message)
+      a1 = SignedBeaconBlock(message:
+        BeaconBlock(slot: GENESIS_SLOT + 1, parent_root: a0r))
+      a1r = hash_tree_root(a1.message)
+      a2 = SignedBeaconBlock(message:
+        BeaconBlock(slot: GENESIS_SLOT + 3, parent_root: a1r))
+      a2r = hash_tree_root(a2.message)
+
+    db.putBlock(a0)
+    db.putBlock(a1)
+    db.putBlock(a2)
+
+    db.pruneToPersistent(a2r)
+
+    check:
+      db.isFinalized(a0r)
+      db.isFinalized(a1r)
+      db.isFinalized(a2r)
+      #Blocks shouldn't be on kvStore
+      not db.containsBlock(a0r)
+      not db.containsBlock(a1r)
+      not db.containsBlock(a2r)
+
+    let blck0 = db.getBlock(hash_tree_root(a0.message)).get
+    let blck1 = db.getBlock(hash_tree_root(a1.message)).get
+    let blck2 = db.getBlock(hash_tree_root(a2.message)).get
+    
+    check:
+      hash_tree_root(blck0.message) == a0r
+      hash_tree_root(blck1.message) == a1r
+      hash_tree_root(blck2.message) == a2r
+
+    
+
+  wrappedTimedTest "sanity check genesis roundtrip" & preset():
     # This is a really dumb way of checking that we can roundtrip a genesis
     # state. We've been bit by this because we've had a bug in the BLS
     # serialization where an all-zero default-initialized bls signature could
     # not be deserialized because the deserialization was too strict.
     var
-      db = init(BeaconChainDB, kvStore MemoryStoreRef.init())
+      db = init(BeaconChainDB, kvStore MemStoreRef.init())
 
     let
       state = initialize_beacon_state_from_eth1(
-        eth1BlockHash, 0, makeInitialDeposits(SLOTS_PER_EPOCH), {skipBlsValidation, skipMerkleValidation})
-      root = hash_tree_root(state)
+        eth1BlockHash, 0, makeInitialDeposits(SLOTS_PER_EPOCH), {skipBlsValidation})
+      root = hash_tree_root(state[])
 
-    db.putState(state)
+    db.putState(state[])
+
+    check db.containsState(root)
+    let state2 = db.getStateRef(root)
 
     check:
-      db.containsState(root)
-      db.getState(root).get() == state
+      hash_tree_root(state2[]) == root

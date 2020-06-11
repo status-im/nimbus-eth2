@@ -52,9 +52,10 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 OK: 5/5 Fail: 0/5 Skip: 0/5
 ## BlockPool finalization tests [Preset: minimal]
 ```diff
++ init with gaps [Preset: minimal]                                                           OK
 + prune heads on finalization [Preset: minimal]                                              OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## BlockRef and helpers [Preset: minimal]
 ```diff
 + getAncestorAt sanity [Preset: minimal]                                                     OK
@@ -67,24 +68,46 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + parent sanity [Preset: minimal]                                                            OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## Discovery v5 utilities
+## Fork Choice + Finality  [Preset: minimal]
 ```diff
-+ ENR to ENode                                                                               OK
-+ Multiaddress to ENode                                                                      OK
++ fork_choice - testing finality #01                                                         OK
++ fork_choice - testing finality #02                                                         OK
++ fork_choice - testing no votes                                                             OK
++ fork_choice - testing with votes                                                           OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Honest validator
 ```diff
-+ Attestation topics                                                                         OK
++ General pubsub topics:                                                                     OK
++ Mainnet attestation topics                                                                 OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
+## Interop
+```diff
++ Interop genesis                                                                            OK
++ Interop signatures                                                                         OK
++ Mocked start private key                                                                   OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
+## Keystore
+```diff
++ Pbkdf2 decryption                                                                          OK
++ Pbkdf2 encryption                                                                          OK
++ Pbkdf2 errors                                                                              OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
+## Mocking utilities
+```diff
++ merkle_minimal                                                                             OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - 0.11.0 - constants & config  [Preset: minimal]
+## Official - 0.11.3 - constants & config  [Preset: minimal]
 ```diff
 + BASE_REWARD_FACTOR                                64                   [Preset: minimal]   OK
 + BLS_WITHDRAWAL_PREFIX                             "0x00"               [Preset: minimal]   OK
 + CHURN_LIMIT_QUOTIENT                              65536                [Preset: minimal]   OK
 + CUSTODY_PERIOD_TO_RANDAO_PADDING                  2048                 [Preset: minimal]   OK
-- DEPOSIT_CONTRACT_ADDRESS                          "0x1234567890123456789012345678901234567 Fail
+  DEPOSIT_CONTRACT_ADDRESS                          "0x1234567890123456789012345678901234567 Skip
 + DOMAIN_AGGREGATE_AND_PROOF                        "0x06000000"         [Preset: minimal]   OK
 + DOMAIN_BEACON_ATTESTER                            "0x01000000"         [Preset: minimal]   OK
 + DOMAIN_BEACON_PROPOSER                            "0x00000000"         [Preset: minimal]   OK
@@ -107,14 +130,13 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + EPOCHS_PER_SLASHINGS_VECTOR                       64                   [Preset: minimal]   OK
 + ETH1_FOLLOW_DISTANCE                              16                   [Preset: minimal]   OK
 + GASPRICE_ADJUSTMENT_COEFFICIENT                   8                    [Preset: minimal]   OK
-+ GENESIS_FORK_VERSION                              "0x00000001"         [Preset: minimal]   OK
+  GENESIS_FORK_VERSION                              "0x00000001"         [Preset: minimal]   Skip
 + HISTORICAL_ROOTS_LIMIT                            16777216             [Preset: minimal]   OK
 + HYSTERESIS_DOWNWARD_MULTIPLIER                    1                    [Preset: minimal]   OK
 + HYSTERESIS_QUOTIENT                               4                    [Preset: minimal]   OK
 + HYSTERESIS_UPWARD_MULTIPLIER                      5                    [Preset: minimal]   OK
 + INACTIVITY_PENALTY_QUOTIENT                       33554432             [Preset: minimal]   OK
 + INITIAL_ACTIVE_SHARDS                             4                    [Preset: minimal]   OK
-+ INITIAL_GASPRICE                                  10                   [Preset: minimal]   OK
 + LIGHT_CLIENT_COMMITTEE_PERIOD                     256                  [Preset: minimal]   OK
 + LIGHT_CLIENT_COMMITTEE_SIZE                       128                  [Preset: minimal]   OK
 + MAX_ATTESTATIONS                                  128                  [Preset: minimal]   OK
@@ -139,7 +161,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + MIN_ATTESTATION_INCLUSION_DELAY                   1                    [Preset: minimal]   OK
 + MIN_DEPOSIT_AMOUNT                                1000000000           [Preset: minimal]   OK
 + MIN_EPOCHS_TO_INACTIVITY_PENALTY                  4                    [Preset: minimal]   OK
-+ MIN_GASPRICE                                      32                   [Preset: minimal]   OK
++ MIN_GASPRICE                                      8                    [Preset: minimal]   OK
 + MIN_GENESIS_ACTIVE_VALIDATOR_COUNT                64                   [Preset: minimal]   OK
 + MIN_GENESIS_DELAY                                 300                  [Preset: minimal]   OK
 + MIN_GENESIS_TIME                                  1578009600           [Preset: minimal]   OK
@@ -157,7 +179,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + SECONDS_PER_ETH1_BLOCK                            14                   [Preset: minimal]   OK
 + SECONDS_PER_SLOT                                  6                    [Preset: minimal]   OK
 + SHARD_BLOCK_CHUNK_SIZE                            262144               [Preset: minimal]   OK
-- SHARD_BLOCK_OFFSETS                               [1,2,3,5,8,13,21,34,55,89,144,233] [Pres Fail
+  SHARD_BLOCK_OFFSETS                               [1,2,3,5,8,13,21,34,55,89,144,233] [Pres Skip
 + SHARD_COMMITTEE_PERIOD                            256                  [Preset: minimal]   OK
 + SHUFFLE_ROUND_COUNT                               10                   [Preset: minimal]   OK
 + SLOTS_PER_EPOCH                                   8                    [Preset: minimal]   OK
@@ -168,7 +190,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + VALIDATOR_REGISTRY_LIMIT                          1099511627776        [Preset: minimal]   OK
 + WHISTLEBLOWER_REWARD_QUOTIENT                     512                  [Preset: minimal]   OK
 ```
-OK: 85/87 Fail: 2/87 Skip: 0/87
+OK: 83/86 Fail: 0/86 Skip: 3/86
 ## PeerPool testing suite
 ```diff
 + Access peers by key test                                                                   OK
@@ -177,11 +199,12 @@ OK: 85/87 Fail: 2/87 Skip: 0/87
 + Iterators test                                                                             OK
 + Peer lifetime test                                                                         OK
 + Safe/Clear test                                                                            OK
++ Score check test                                                                           OK
 + addPeer() test                                                                             OK
 + addPeerNoWait() test                                                                       OK
 + deletePeer() test                                                                          OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
+OK: 10/10 Fail: 0/10 Skip: 0/10
 ## SSZ dynamic navigator
 ```diff
 + navigating fields                                                                          OK
@@ -189,10 +212,11 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## SSZ navigator
 ```diff
++ basictype                                                                                  OK
 + lists with max size                                                                        OK
 + simple object fields                                                                       OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Spec helpers
 ```diff
 + integer_squareroot                                                                         OK
@@ -203,19 +227,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Compile                                                                                    OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## SyncManager test suite
-```diff
-+ PeerGroup tests                                                                            OK
-+ PeerSlot tests                                                                             OK
-+ SyncManager failure test                                                                   OK
-+ SyncManager group-recovery test                                                            OK
-+ SyncManager one-peer test                                                                  OK
-+ SyncManager one-peer-group test                                                            OK
-+ SyncManager one-peer-slot test                                                             OK
-+ SyncQueue async tests                                                                      OK
-+ SyncQueue non-async tests                                                                  OK
-```
-OK: 9/9 Fail: 0/9 Skip: 0/9
 ## Zero signature sanity checks
 ```diff
 + SSZ serialization roundtrip of SignedBeaconBlockHeader                                     OK
@@ -247,6 +258,11 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 +  Rule IV - 12 finalization without support                                                 OK
 ```
 OK: 8/8 Fail: 0/8 Skip: 0/8
+## hash
+```diff
++ HashArray                                                                                  OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 157/159 Fail: 2/159 Skip: 0/159
+OK: 160/163 Fail: 0/163 Skip: 3/163

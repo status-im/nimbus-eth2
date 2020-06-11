@@ -15,26 +15,23 @@
 # The entry point is `process_block` which is at the bottom of this file.
 #
 # General notes about the code (TODO):
-# * It's inefficient - we quadratically copy, allocate and iterate when there
-#   are faster options
 # * Weird styling - the sections taken from the spec use python styling while
 #   the others use NEP-1 - helps grepping identifiers in spec
 # * We mix procedural and functional styles for no good reason, except that the
 #   spec does so also.
-# * There are likely lots of bugs.
 # * For indices, we get a mix of uint64, ValidatorIndex and int - this is currently
 #   swept under the rug with casts
-# * The spec uses uint64 for data types, but functions in the spec often assume
-#   signed bigint semantics - under- and overflows ensue
 # * Sane error handling is missing in most cases (yay, we'll get the chance to
 #   debate exceptions again!)
 # When updating the code, add TODO sections to mark where there are clear
 # improvements to be made - other than that, keep things similar to spec for
 # now.
 
+{.push raises: [Defect].}
+
 import
-  algorithm, collections/sets, chronicles, options, sequtils, sets, tables,
-  ../extras, ../ssz, metrics,
+  algorithm, collections/sets, chronicles, options, sequtils, sets,
+  ../extras, ../ssz/merkleization, metrics,
   beaconstate, crypto, datatypes, digest, helpers, validator,
   ../../nbench/bench_lab
 
@@ -44,7 +41,7 @@ declareGauge beacon_previous_live_validators, "Number of active validators that 
 declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
 declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#block-header
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#block-header
 proc process_block_header*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.}=
@@ -53,6 +50,11 @@ proc process_block_header*(
     notice "Block header: slot mismatch",
       block_slot = shortLog(blck.slot),
       state_slot = shortLog(state.slot)
+    return false
+
+  # Verify that the block is newer than latest block header
+  if not (blck.slot > state.latest_block_header.slot):
+    debug "Block header: block not newer than latest block header"
     return false
 
   # Verify that proposer index is the correct index
@@ -93,7 +95,11 @@ proc process_block_header*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#randao
+proc `xor`[T: array](a, b: T): T =
+  for i in 0..<result.len:
+    result[i] = a[i] xor b[i]
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#randao
 proc process_randao(
     state: var BeaconState, body: BeaconBlockBody, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.}=
@@ -105,10 +111,11 @@ proc process_randao(
     debug "Proposer index missing, probably along with any active validators"
     return false
 
+  # Verify RANDAO reveal
   let proposer = addr state.validators[proposer_index.get]
 
-  # Verify that the provided randao value is valid
-  let signing_root = compute_signing_root(epoch, get_domain(state, DOMAIN_RANDAO))
+  let signing_root = compute_signing_root(
+    epoch, get_domain(state, DOMAIN_RANDAO, get_current_epoch(state)))
   if skipBLSValidation notin flags:
     if not blsVerify(proposer.pubkey, signing_root.data, body.randao_reveal):
       notice "Randao mismatch", proposer_pubkey = shortLog(proposer.pubkey),
@@ -120,28 +127,28 @@ proc process_randao(
   # Mix it in
   let
     mix = get_randao_mix(state, epoch)
-    rr = eth2hash(body.randao_reveal.getBytes()).data
+    rr = eth2hash(body.randao_reveal.toRaw()).data
 
-  for i in 0 ..< mix.data.len:
-    state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR].data[i] = mix.data[i] xor rr[i]
+  state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR].data =
+    mix.data xor rr
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#eth1-data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#eth1-data
 func process_eth1_data(state: var BeaconState, body: BeaconBlockBody) {.nbench.}=
   state.eth1_data_votes.add body.eth1_data
-  if state.eth1_data_votes.count(body.eth1_data) * 2 >
-      EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH:
+
+  if state.eth1_data_votes.asSeq.count(body.eth1_data) * 2 > SLOTS_PER_ETH1_VOTING_PERIOD.int:
     state.eth1_data = body.eth1_data
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#is_slashable_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#is_slashable_validator
 func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
   # Check if ``validator`` is slashable.
   (not validator.slashed) and
     (validator.activation_epoch <= epoch) and
     (epoch < validator.withdrawable_epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#proposer-slashings
 proc process_proposer_slashing*(
     state: var BeaconState, proposer_slashing: ProposerSlashing,
     flags: UpdateFlags, stateCache: var StateCache): bool {.nbench.}=
@@ -194,22 +201,7 @@ proc process_proposer_slashing*(
 
   true
 
-proc processProposerSlashings(
-    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
-    stateCache: var StateCache): bool {.nbench.}=
-  if len(blck.body.proposer_slashings) > MAX_PROPOSER_SLASHINGS:
-    notice "PropSlash: too many!",
-      proposer_slashings = len(blck.body.proposer_slashings)
-    return false
-
-  for proposer_slashing in blck.body.proposer_slashings:
-    if not process_proposer_slashing(
-        state, proposer_slashing, flags, stateCache):
-      return false
-
-  true
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#is_slashable_attestation_data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
     data_1: AttestationData, data_2: AttestationData): bool =
   ## Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG
@@ -221,7 +213,7 @@ func is_slashable_attestation_data(
     (data_1.source.epoch < data_2.source.epoch and
      data_2.target.epoch < data_1.target.epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#attester-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
        state: var BeaconState,
        attester_slashing: AttesterSlashing,
@@ -248,8 +240,8 @@ proc process_attester_slashing*(
     var slashed_any = false
 
     for index in sorted(toSeq(intersection(
-        toHashSet(attestation_1.attesting_indices),
-        toHashSet(attestation_2.attesting_indices)).items), system.cmp):
+        toHashSet(attestation_1.attesting_indices.asSeq),
+        toHashSet(attestation_2.attesting_indices.asSeq)).items), system.cmp):
       if is_slashable_validator(
           state.validators[index.int], get_current_epoch(state)):
         slash_validator(state, index.ValidatorIndex, stateCache)
@@ -258,55 +250,6 @@ proc process_attester_slashing*(
       notice "Attester slashing: Trying to slash participant(s) twice"
       return false
     return true
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#attester-slashings
-proc processAttesterSlashings(state: var BeaconState, blck: BeaconBlock,
-    flags: UpdateFlags, stateCache: var StateCache): bool {.nbench.}=
-  # Process ``AttesterSlashing`` operation.
-  if len(blck.body.attester_slashings) > MAX_ATTESTER_SLASHINGS:
-    notice "Attester slashing: too many!"
-    return false
-
-  for attester_slashing in blck.body.attester_slashings:
-    if not process_attester_slashing(state, attester_slashing, {}, stateCache):
-      return false
-  return true
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#attestations
-proc processAttestations(
-    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
-    stateCache: var StateCache): bool {.nbench.}=
-  ## Each block includes a number of attestations that the proposer chose. Each
-  ## attestation represents an update to a specific shard and is signed by a
-  ## committee of validators.
-  ## Here we make sanity checks for each attestation and it to the state - most
-  ## updates will happen at the epoch boundary where state updates happen in
-  ## bulk.
-  if blck.body.attestations.len > MAX_ATTESTATIONS:
-    notice "Attestation: too many!", attestations = blck.body.attestations.len
-    return false
-
-  trace "in processAttestations, not processed attestations",
-    attestations_len = blck.body.attestations.len()
-
-  if not blck.body.attestations.allIt(process_attestation(state, it, flags, stateCache)):
-    return false
-
-  true
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_beacon-chain.md#deposits
-proc processDeposits(state: var BeaconState, blck: BeaconBlock,
-    flags: UpdateFlags): bool {.nbench.}=
-  if not (len(blck.body.deposits) <= MAX_DEPOSITS):
-    notice "processDeposits: too many deposits"
-    return false
-
-  for deposit in blck.body.deposits:
-    if not process_deposit(state, deposit, flags):
-      notice "processDeposits: deposit invalid"
-      return false
-
-  true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#voluntary-exits
 proc process_voluntary_exit*(
@@ -365,20 +308,48 @@ proc process_voluntary_exit*(
     validator_withdrawable_epoch = validator.withdrawable_epoch,
     validator_exit_epoch = validator.exit_epoch,
     validator_effective_balance = validator.effective_balance
-  initiate_validator_exit(state, voluntary_exit.validator_index.ValidatorIndex)
+  var cache = get_empty_per_epoch_cache()
+  initiate_validator_exit(
+    state, voluntary_exit.validator_index.ValidatorIndex, cache)
 
   true
 
-proc processVoluntaryExits(state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags): bool {.nbench.}=
-  if len(blck.body.voluntary_exits) > MAX_VOLUNTARY_EXITS:
-    notice "[Block processing - Voluntary Exit]: too many exits!"
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#operations
+proc process_operations(state: var BeaconState, body: BeaconBlockBody,
+    flags: UpdateFlags, stateCache: var StateCache): bool {.nbench.} =
+  # Verify that outstanding deposits are processed up to the maximum number of
+  # deposits
+  let
+    num_deposits = len(body.deposits).int64
+    req_deposits = min(MAX_DEPOSITS,
+      state.eth1_data.deposit_count.int64 - state.eth1_deposit_index.int64)
+  if not (num_deposits == req_deposits):
+    notice "processOperations: incorrect number of deposits",
+      num_deposits = num_deposits,
+      req_deposits = req_deposits,
+      deposit_count = state.eth1_data.deposit_count,
+      deposit_index = state.eth1_deposit_index
     return false
-  for exit in blck.body.voluntary_exits:
-    if not process_voluntary_exit(state, exit, flags):
-      return false
-  return true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#block-processing
+  template for_ops_cached(operations: auto, fn: auto) =
+    for operation in operations:
+      if not fn(state, operation, flags, stateCache):
+        return false
+
+  template for_ops(operations: auto, fn: auto) =
+    for operation in operations:
+      if not fn(state, operation, flags):
+        return false
+
+  for_ops_cached(body.proposer_slashings, process_proposer_slashing)
+  for_ops_cached(body.attester_slashings, process_attester_slashing)
+  for_ops_cached(body.attestations, process_attestation)
+  for_ops(body.deposits, process_deposit)
+  for_ops(body.voluntary_exits, process_voluntary_exit)
+
+  true
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#block-processing
 proc process_block*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.}=
@@ -411,112 +382,66 @@ proc process_block*(
     return false
 
   process_eth1_data(state, blck.body)
-
-  # TODO, everything below is now in process_operations
-  # and implementation is per element instead of the whole seq
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#operations
-  if not processProposerSlashings(state, blck, flags, stateCache):
-    debug "[Block processing] Proposer slashing failure", slot = shortLog(state.slot)
-    return false
-
-  if not processAttesterSlashings(state, blck, flags, stateCache):
-    debug "[Block processing] Attester slashing failure", slot = shortLog(state.slot)
-    return false
-
-  if not processAttestations(state, blck, flags, stateCache):
-    debug "[Block processing] Attestation processing failure", slot = shortLog(state.slot)
-    return false
-
-  if not processDeposits(state, blck, flags):
-    debug "[Block processing] Deposit processing failure", slot = shortLog(state.slot)
-    return false
-
-  if not processVoluntaryExits(state, blck, flags):
-    debug "[Block processing - Voluntary Exit] Exit processing failure", slot = shortLog(state.slot)
+  if not process_operations(state, blck.body, flags, stateCache):
+    # One could combine this and the default-true, but that's a bit implicit
     return false
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/validator.md
-# TODO There's more to do here - the spec has helpers that deal set up some of
-#      the fields in here!
-proc makeBeaconBlock*(
-    state: BeaconState,
-    parent_root: Eth2Digest,
-    randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data,
-    graffiti: Eth2Digest,
-    attestations: seq[Attestation],
-    deposits: seq[Deposit]): Option[BeaconBlock] =
-  ## Create a block for the given state. The last block applied to it must be
-  ## the one identified by parent_root and process_slots must be called up to
-  ## the slot for which a block is to be created.
-  var cache = get_empty_per_epoch_cache()
-  let proposer_index = get_beacon_proposer_index(state, cache)
-  doAssert proposer_index.isSome, "Unable to get proposer index when proposing!"
-
-  # To create a block, we'll first apply a partial block to the state, skipping
-  # some validations.
-
-  var blck = BeaconBlock(
-    slot: state.slot,
-    proposer_index: proposer_index.get().uint64,
-    parent_root: parent_root,
-    body: BeaconBlockBody(
-      randao_reveal: randao_reveal,
-      eth1_data: eth1data,
-      graffiti: graffiti,
-      attestations: attestations,
-      deposits: deposits)
-  )
-
-  var tmpState = state
-  let ok = process_block(tmpState, blck, {skipBlsValidation}, cache)
-
-  if not ok:
-    warn "Unable to apply new block to state", blck = shortLog(blck)
-    return
-
-  blck.state_root = hash_tree_root(tmpState)
-
-  some(blck)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/validator.md
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#aggregation-selection
 func get_slot_signature*(
-    fork: Fork, slot: Slot, privkey: ValidatorPrivKey): ValidatorSig =
+    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
+    privkey: ValidatorPrivKey): ValidatorSig =
   let
-    domain =
-      get_domain(fork, DOMAIN_SELECTION_PROOF, compute_epoch_at_slot(slot))
+    domain = get_domain(fork, DOMAIN_SELECTION_PROOF,
+      compute_epoch_at_slot(slot), genesis_validators_root)
     signing_root = compute_signing_root(slot, domain)
 
   blsSign(privKey, signing_root.data)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/validator.md
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#randao-reveal
 func get_epoch_signature*(
-    fork: Fork, slot: Slot, privkey: ValidatorPrivKey): ValidatorSig =
+    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
+    privkey: ValidatorPrivKey): ValidatorSig =
   let
-    domain =
-      get_domain(fork, DOMAIN_RANDAO, compute_epoch_at_slot(slot))
+    domain = get_domain(fork, DOMAIN_RANDAO, compute_epoch_at_slot(slot),
+      genesis_validators_root)
     signing_root = compute_signing_root(compute_epoch_at_slot(slot), domain)
 
   blsSign(privKey, signing_root.data)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/validator.md
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#signature
 func get_block_signature*(
-    fork: Fork, slot: Slot, root: Eth2Digest, privkey: ValidatorPrivKey): ValidatorSig =
+    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
+    root: Eth2Digest, privkey: ValidatorPrivKey): ValidatorSig =
   let
-    domain =
-      get_domain(fork, DOMAIN_BEACON_PROPOSER, compute_epoch_at_slot(slot))
+    domain = get_domain(fork, DOMAIN_BEACON_PROPOSER,
+      compute_epoch_at_slot(slot), genesis_validators_root)
     signing_root = compute_signing_root(root, domain)
 
   blsSign(privKey, signing_root.data)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/validator.md
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-aggregate
+func get_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth2Digest,
+                                        aggregate_and_proof: AggregateAndProof,
+                                        privKey: ValidatorPrivKey): ValidatorSig =
+  let
+    aggregate = aggregate_and_proof.aggregate
+    domain = get_domain(fork, DOMAIN_AGGREGATE_AND_PROOF,
+                        compute_epoch_at_slot(aggregate.data.slot),
+                        genesis_validators_root)
+    signing_root = compute_signing_root(aggregate_and_proof, domain)
+
+  return blsSign(privKey, signing_root.data)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#aggregate-signature
 func get_attestation_signature*(
-    fork: Fork, attestation: AttestationData, privkey: ValidatorPrivKey): ValidatorSig =
+    fork: Fork, genesis_validators_root: Eth2Digest, attestation: AttestationData,
+    privkey: ValidatorPrivKey): ValidatorSig =
   let
     attestationRoot = hash_tree_root(attestation)
-    domain = get_domain(fork, DOMAIN_BEACON_ATTESTER, attestation.target.epoch)
+    domain = get_domain(fork, DOMAIN_BEACON_ATTESTER,
+      attestation.target.epoch, genesis_validators_root)
     signing_root = compute_signing_root(attestationRoot, domain)
 
   blsSign(privKey, signing_root.data)

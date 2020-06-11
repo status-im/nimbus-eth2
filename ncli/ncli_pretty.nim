@@ -1,22 +1,21 @@
 import
   confutils, os, strutils, chronicles, json_serialization,
   ../beacon_chain/spec/[crypto, datatypes, digest],
-  ../beacon_chain/[ssz]
+  ../beacon_chain/ssz/ssz_serialization
 
 # TODO turn into arguments
 cli do(kind: string, file: string):
-
   template printit(t: untyped) {.dirty.} =
-      let v =
-        if cmpIgnoreCase(ext, ".ssz") == 0:
-          SSZ.loadFile(file, t)
-        elif cmpIgnoreCase(ext, ".json") == 0:
-          JSON.loadFile(file, t)
-        else:
-          echo "Unknown file type: ", ext
-          quit 1
-
-      echo JSON.encode(v, pretty = true)
+    let v = newClone(
+      if cmpIgnoreCase(ext, ".ssz") == 0:
+        SSZ.loadFile(file, t)
+      elif cmpIgnoreCase(ext, ".json") == 0:
+        JSON.loadFile(file, t)
+      else:
+        echo "Unknown file type: ", ext
+        quit 1
+    )
+    echo JSON.encode(v[], pretty = true)
 
   let ext = splitFile(file).ext
 

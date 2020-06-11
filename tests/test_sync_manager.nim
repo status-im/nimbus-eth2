@@ -1,915 +1,481 @@
-# beacon_chain
-# Copyright (c) 2019-2020 Status Research & Development GmbH
-# Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
-# at your option. This file may not be copied, modified, or distributed except according to those terms.
-
 {.used.}
 
-import options, unittest
-import ./testutil
+import unittest
 import chronos
-import ../beacon_chain/peer_pool, ../beacon_chain/sync_manager
+import ../beacon_chain/sync_manager
 
 type
-  PeerRequest = object
-    headRoot: Eth2Digest
-    startSlot: Slot
-    count: uint64
-    step: uint64
-    data: seq[Slot]
+  SomeTPeer = ref object
 
-  SimplePeerKey = string
+proc `$`*(peer: SomeTPeer): string =
+  "SomeTPeer"
 
-  SimplePeer = ref object
-    id: SimplePeerKey
-    weight: int
-    lifu: Future[void]
-    blockchain: seq[SignedBeaconBlock]
-    latestSlot: Slot
-    delay: Duration
-    malicious: bool
-    failure: bool
-    disconnect: bool
-    requests: seq[PeerRequest]
-
-proc getKey*(peer: SimplePeer): SimplePeerKey =
-  result = peer.id
-
-proc getFuture*(peer: SimplePeer): Future[void] =
-  result = peer.lifu
-
-proc `<`*(a, b: SimplePeer): bool =
-  result = `<`(a.weight, b.weight)
-
-proc getHeadSlot*(peer: SimplePeer): Slot =
-  if len(peer.blockchain) == 0:
-    result = peer.latestSlot
-  else:
-    result = peer.blockchain[len(peer.blockchain) - 1].message.slot
-
-proc init*(t: typedesc[SimplePeer], id: string = "", malicious = false,
-           weight: int = 0, slot: int = 0,
-           delay: Duration = ZeroDuration): SimplePeer =
-  result = SimplePeer(id: id, weight: weight, lifu: newFuture[void](),
-                      delay: delay, latestSlot: Slot(slot),
-                      malicious: malicious)
-
-proc update*(peer: SimplePeer, chain: openarray[SignedBeaconBlock],
-             malicious = false, failure = false, disconnect = false,
-             delay: Duration = ZeroDuration) =
-  peer.malicious = malicious
-  peer.delay = delay
-  peer.failure = failure
-  peer.disconnect = disconnect
-  peer.blockchain.setLen(0)
-  for item in chain:
-    peer.blockchain.add(item)
-
-proc close*(peer: SimplePeer) =
-  peer.lifu.complete()
-
-proc getHeadRoot*(peer: SimplePeer): Eth2Digest =
+proc updateScore(peer: SomeTPeer, score: int) =
   discard
 
-proc updateStatus*[A](peer: A): Future[void] =
-  var res = newFuture[void]("updateStatus")
-  res.complete()
-  return res
+suite "SyncManager test suite":
+  proc createChain(start, finish: Slot): seq[SignedBeaconBlock] =
+    doAssert(start <= finish)
+    let count = int(finish - start + 1'u64)
+    result = newSeq[SignedBeaconBlock](count)
+    var curslot = start
+    for item in result.mitems():
+      item.message.slot = curslot
+      curslot = curslot + 1'u64
 
-proc getBeaconBlocksByRange*[A](peer: A, headRoot: Eth2Digest, startSlot: Slot,
-                                count: uint64,
-                         step: uint64): Future[OptionBeaconBlockSeq] {.async.} =
-  var req = PeerRequest(headRoot: headRoot, startSlot: startSlot, count: count,
-                        step: step)
-  var res = newSeq[SignedBeaconBlock]()
-  var reqres = newSeq[Slot]()
-  if peer.delay != ZeroDuration:
-    await sleepAsync(peer.delay)
+  proc syncUpdate(req: SyncRequest[SomeTPeer],
+                data: openarray[SignedBeaconBlock]): Result[void, BlockError] {.
+    gcsafe.} =
+    discard
 
-  var counter = 0'u64
+  test "[SyncQueue] Start and finish slots equal":
+    let p1 = SomeTPeer()
+    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(0), 1'u64, syncUpdate)
+    check len(queue) == 1
+    var r11 = queue.pop(Slot(0), p1)
+    check len(queue) == 0
+    queue.push(r11)
+    check len(queue) == 1
+    var r11e = queue.pop(Slot(0), p1)
+    check:
+      len(queue) == 0
+      r11e == r11
+      r11.item == p1
+      r11e.item == r11.item
+      r11.slot == Slot(0) and r11.count == 1'u64 and r11.step == 1'u64
 
-  if peer.failure:
-    peer.requests.add(req)
-    if peer.disconnect:
-      peer.close()
-    raise newException(SyncManagerError, "Error")
+  test "[SyncQueue] Two full requests success/fail":
+    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(1), 1'u64, syncUpdate)
+    let p1 = SomeTPeer()
+    let p2 = SomeTPeer()
+    check len(queue) == 2
+    var r21 = queue.pop(Slot(1), p1)
+    check len(queue) == 1
+    var r22 = queue.pop(Slot(1), p2)
+    check len(queue) == 0
+    queue.push(r22)
+    check len(queue) == 1
+    queue.push(r21)
+    check len(queue) == 2
+    var r21e = queue.pop(Slot(1), p1)
+    check len(queue) == 1
+    var r22e = queue.pop(Slot(1), p2)
+    check:
+      len(queue) == 0
+      r21 == r21e
+      r22 == r22e
+      r21.item == p1
+      r22.item == p2
+      r21.item == r21e.item
+      r22.item == r22e.item
+      r21.slot == Slot(0) and r21.count == 1'u64 and r21.step == 1'u64
+      r22.slot == Slot(1) and r22.count == 1'u64 and r22.step == 1'u64
 
-  if peer.malicious:
-    var index = 0
-    while counter < count:
-      if index < len(peer.blockchain):
-        res.add(peer.blockchain[index])
-        reqres.add(peer.blockchain[index].message.slot)
-      else:
-        break
-      index = index + int(step)
-      counter = counter + 1'u64
-    req.data = reqres
-    peer.requests.add(req)
-    result = some(res)
-  else:
-    var index = -1
-    for i in 0 ..< len(peer.blockchain):
-      if peer.blockchain[i].message.slot == startSlot:
-        index = i
-        break
+  test "[SyncQueue] Full and incomplete success/fail start from zero":
+    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 2'u64, syncUpdate)
+    let p1 = SomeTPeer()
+    let p2 = SomeTPeer()
+    let p3 = SomeTPeer()
+    check len(queue) == 5
+    var r31 = queue.pop(Slot(4), p1)
+    check len(queue) == 3
+    var r32 = queue.pop(Slot(4), p2)
+    check len(queue) == 1
+    var r33 = queue.pop(Slot(4), p3)
+    check len(queue) == 0
+    queue.push(r33)
+    check len(queue) == 1
+    queue.push(r32)
+    check len(queue) == 3
+    queue.push(r31)
+    check len(queue) == 5
+    var r31e = queue.pop(Slot(4), p1)
+    check len(queue) == 3
+    var r32e = queue.pop(Slot(4), p2)
+    check len(queue) == 1
+    var r33e = queue.pop(Slot(4), p3)
+    check:
+      len(queue) == 0
+      r31 == r31e
+      r32 == r32e
+      r33 == r33e
+      r31.item == r31e.item
+      r32.item == r32e.item
+      r33.item == r33e.item
+      r31.item == p1
+      r32.item == p2
+      r33.item == p3
+      r31.slot == Slot(0) and r31.count == 2'u64 and r31.step == 1'u64
+      r32.slot == Slot(2) and r32.count == 2'u64 and r32.step == 1'u64
+      r33.slot == Slot(4) and r33.count == 1'u64 and r33.step == 1'u64
 
-    if index >= 0:
-      while counter < count:
-        if index < len(peer.blockchain):
-          res.add(peer.blockchain[index])
-          reqres.add(peer.blockchain[index].message.slot)
-        else:
-          break
-        index = index + int(step)
+  test "[SyncQueue] Full and incomplete success/fail start from non-zero":
+    var queue = SyncQueue.init(SomeTPeer, Slot(1), Slot(5), 3'u64, syncUpdate)
+    let p1 = SomeTPeer()
+    let p2 = SomeTPeer()
+    check len(queue) == 5
+    var r41 = queue.pop(Slot(5), p1)
+    check len(queue) == 2
+    var r42 = queue.pop(Slot(5), p2)
+    check len(queue) == 0
+    queue.push(r42)
+    check len(queue) == 2
+    queue.push(r41)
+    check len(queue) == 5
+    var r41e = queue.pop(Slot(5), p1)
+    check len(queue) == 2
+    var r42e = queue.pop(Slot(5), p2)
+    check:
+      len(queue) == 0
+      r41 == r41e
+      r42 == r42e
+      r41.item == r41e.item
+      r42.item == r42e.item
+      r41.item == p1
+      r42.item == p2
+      r41.slot == Slot(1) and r41.count == 3'u64 and r41.step == 1'u64
+      r42.slot == Slot(4) and r42.count == 2'u64 and r42.step == 1'u64
+
+  test "[SyncQueue] Smart and stupid success/fail":
+    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 5'u64, syncUpdate)
+    let p1 = SomeTPeer()
+    let p2 = SomeTPeer()
+    check len(queue) == 5
+    var r51 = queue.pop(Slot(3), p1)
+    check len(queue) == 1
+    var r52 = queue.pop(Slot(4), p2)
+    check len(queue) == 0
+    queue.push(r52)
+    check len(queue) == 1
+    queue.push(r51)
+    check len(queue) == 5
+    var r51e = queue.pop(Slot(3), p1)
+    check len(queue) == 1
+    var r52e = queue.pop(Slot(4), p2)
+    check:
+      len(queue) == 0
+      r51 == r51e
+      r52 == r52e
+      r51.item == r51e.item
+      r52.item == r52e.item
+      r51.item == p1
+      r52.item == p2
+      r51.slot == Slot(0) and r51.count == 4'u64 and r51.step == 1'u64
+      r52.slot == Slot(4) and r52.count == 1'u64 and r52.step == 1'u64
+
+  test "[SyncQueue] One smart and one stupid + debt split + empty":
+    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 5'u64, syncUpdate)
+    let p1 = SomeTPeer()
+    let p2 = SomeTPeer()
+    let p3 = SomeTPeer()
+    let p4 = SomeTPeer()
+    check len(queue) == 5
+    var r61 = queue.pop(Slot(4), p1)
+    check len(queue) == 0
+    queue.push(r61)
+    var r61e = queue.pop(Slot(2), p1)
+    check len(queue) == 2
+    var r62e = queue.pop(Slot(2), p2)
+    check len(queue) == 2
+    check r62e.isEmpty()
+    var r63e = queue.pop(Slot(3), p3)
+    check len(queue) == 1
+    var r64e = queue.pop(Slot(4), p4)
+    check:
+      len(queue) == 0
+      r61.slot == Slot(0) and r61.count == 5'u64 and r61.step == 1'u64
+      r61e.slot == Slot(0) and r61e.count == 3'u64 and r61e.step == 1'u64
+      r62e.isEmpty()
+      r63e.slot == Slot(3) and r63e.count == 1'u64 and r63e.step == 1'u64
+      r64e.slot == Slot(4) and r64e.count == 1'u64 and r64e.step == 1'u64
+      r61.item == p1
+      r61e.item == p1
+      isNil(r62e.item) == true
+      r63e.item == p3
+      r64e.item == p4
+
+  test "[SyncQueue] Async unordered push start from zero":
+    proc test(): Future[bool] {.async.} =
+      var counter = 0
+
+      proc syncReceiver(req: SyncRequest[SomeTPeer],
+                list: openarray[SignedBeaconBlock]): Result[void, BlockError] {.
+        gcsafe.} =
+        for item in list:
+          if item.message.slot == Slot(counter):
+            inc(counter)
+          else:
+            return err(Invalid)
+        return ok()
+
+      var chain = createChain(Slot(0), Slot(2))
+      var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(2), 1'u64,
+                                 syncReceiver, 1)
+      let p1 = SomeTPeer()
+      let p2 = SomeTPeer()
+      let p3 = SomeTPeer()
+      var r11 = queue.pop(Slot(2), p1)
+      var r12 = queue.pop(Slot(2), p2)
+      var r13 = queue.pop(Slot(2), p3)
+      var f13 = queue.push(r13, @[chain[2]])
+      var f12 = queue.push(r12, @[chain[1]])
+      await sleepAsync(100.milliseconds)
+      doAssert(f12.finished == false)
+      doAssert(f13.finished == false)
+      doAssert(counter == 0)
+      var f11 = queue.push(r11, @[chain[0]])
+      doAssert(counter == 1)
+      doAssert(f11.finished == true and f11.failed == false)
+      await sleepAsync(100.milliseconds)
+      doAssert(f12.finished == true and f12.failed == false)
+      doAssert(f13.finished == true and f13.failed == false)
+      doAssert(counter == 3)
+      doAssert(r11.item == p1)
+      doAssert(r12.item == p2)
+      doAssert(r13.item == p3)
+      result = true
+
+    check waitFor(test())
+
+  test "[SyncQueue] Async unordered push with not full start from non-zero":
+    proc test(): Future[bool] {.async.} =
+      var counter = 5
+
+      proc syncReceiver(req: SyncRequest[SomeTPeer],
+                list: openarray[SignedBeaconBlock]): Result[void, BlockError] {.
+        gcsafe.} =
+        for item in list:
+          if item.message.slot == Slot(counter):
+            inc(counter)
+          else:
+            return err(Invalid)
+        return ok()
+
+      var chain = createChain(Slot(5), Slot(11))
+      var queue = SyncQueue.init(SomeTPeer, Slot(5), Slot(11), 2'u64,
+                                 syncReceiver, 2)
+      let p1 = SomeTPeer()
+      let p2 = SomeTPeer()
+      let p3 = SomeTPeer()
+      let p4 = SomeTPeer()
+
+      var r21 = queue.pop(Slot(11), p1)
+      var r22 = queue.pop(Slot(11), p2)
+      var r23 = queue.pop(Slot(11), p3)
+      var r24 = queue.pop(Slot(11), p4)
+
+      var f24 = queue.push(r24, @[chain[6]])
+      var f22 = queue.push(r22, @[chain[2], chain[3]])
+      doAssert(f24.finished == false)
+      doAssert(f22.finished == true and f22.failed == false)
+      doAssert(counter == 5)
+      var f21 = queue.push(r21, @[chain[0], chain[1]])
+      doAssert(f21.finished == true and f21.failed == false)
+      await sleepAsync(100.milliseconds)
+      doAssert(f24.finished == true and f24.failed == false)
+      doAssert(counter == 9)
+      var f23 = queue.push(r23, @[chain[4], chain[5]])
+      doAssert(f23.finished == true and f23.failed == false)
+      doAssert(counter == 12)
+      await sleepAsync(100.milliseconds)
+      doAssert(counter == 12)
+      doAssert(r21.item == p1)
+      doAssert(r22.item == p2)
+      doAssert(r23.item == p3)
+      doAssert(r24.item == p4)
+      result = true
+
+    check waitFor(test())
+
+  test "[SyncQueue] Async pending and resetWait() test":
+    proc test(): Future[bool] {.async.} =
+      var counter = 5
+
+      proc syncReceiver(req: SyncRequest[SomeTPeer],
+                list: openarray[SignedBeaconBlock]): Result[void, BlockError] {.
+        gcsafe.} =
+        for item in list:
+          if item.message.slot == Slot(counter):
+            inc(counter)
+          else:
+            return err(Invalid)
+        return ok()
+
+      var chain = createChain(Slot(5), Slot(18))
+      var queue = SyncQueue.init(SomeTPeer, Slot(5), Slot(18), 2'u64,
+                                 syncReceiver, 2)
+      let p1 = SomeTPeer()
+      let p2 = SomeTPeer()
+      let p3 = SomeTPeer()
+      let p4 = SomeTPeer()
+      let p5 = SomeTPeer()
+      let p6 = SomeTPeer()
+      let p7 = SomeTPeer()
+
+      var r21 = queue.pop(Slot(20), p1)
+      var r22 = queue.pop(Slot(20), p2)
+      var r23 = queue.pop(Slot(20), p3)
+      var r24 = queue.pop(Slot(20), p4)
+      var r25 = queue.pop(Slot(20), p5)
+      var r26 = queue.pop(Slot(20), p6)
+      var r27 = queue.pop(Slot(20), p7)
+
+      var f21 = queue.push(r21, @[chain[0], chain[1]])
+      # This should be silently ignored, because r21 is already processed.
+      var e21 = queue.push(r21, @[chain[0], chain[1]])
+      queue.push(r22)
+      queue.push(r23)
+      var f26 = queue.push(r26, @[chain[10], chain[11]])
+      var f27 = queue.push(r27, @[chain[12], chain[13]])
+
+      doAssert(f21.finished == true and f21.failed == false)
+      doAssert(e21.finished == true and e21.failed == false)
+      doAssert(f26.finished == false)
+      doAssert(f27.finished == false)
+      await queue.resetWait(none[Slot]())
+      doAssert(f26.finished == true and f26.failed == false)
+      doAssert(f27.finished == true and f27.failed == false)
+      doAssert(queue.inpSlot == Slot(7) and queue.outSlot == Slot(7))
+      doAssert(counter == 7)
+      doAssert(len(queue) == 12)
+      # This should be silently ignored, because r21 is already processed.
+      var o21 = queue.push(r21, @[chain[0], chain[1]])
+      var o22 = queue.push(r22, @[chain[2], chain[3]])
+      queue.push(r23)
+      queue.push(r24)
+      var o25 = queue.push(r25, @[chain[8], chain[9]])
+      var o26 = queue.push(r26, @[chain[10], chain[11]])
+      var o27 = queue.push(r27, @[chain[12], chain[13]])
+      doAssert(o21.finished == true and o21.failed == false)
+      doAssert(o22.finished == true and o22.failed == false)
+      doAssert(o25.finished == true and o25.failed == false)
+      doAssert(o26.finished == true and o26.failed == false)
+      doAssert(o27.finished == true and o27.failed == false)
+      doAssert(len(queue) == 12)
+      result = true
+
+    check waitFor(test())
+
+  test "[SyncQueue] hasEndGap() test":
+    let chain1 = createChain(Slot(1), Slot(1))
+    let chain2 = newSeq[SignedBeaconBlock]()
+
+    for counter in countdown(32'u64, 2'u64):
+      let req = SyncRequest[SomeTPeer](slot: Slot(1), count: counter,
+                                      step: 1'u64)
+      let sr = SyncResult[SomeTPeer](request: req, data: chain1)
+      check sr.hasEndGap() == true
+
+    let req = SyncRequest[SomeTPeer](slot: Slot(1), count: 1'u64, step: 1'u64)
+    let sr1 = SyncResult[SomeTPeer](request: req, data: chain1)
+    let sr2 = SyncResult[SomeTPeer](request: req, data: chain2)
+    check:
+      sr1.hasEndGap() == false
+      sr2.hasEndGap() == true
+
+  test "[SyncQueue] getLastNonEmptySlot() test":
+    let chain1 = createChain(Slot(10), Slot(10))
+    let chain2 = newSeq[SignedBeaconBlock]()
+
+    for counter in countdown(32'u64, 2'u64):
+      let req = SyncRequest[SomeTPeer](slot: Slot(10), count: counter,
+                                       step: 1'u64)
+      let sr = SyncResult[SomeTPeer](request: req, data: chain1)
+      check sr.getLastNonEmptySlot() == Slot(10)
+
+    let req = SyncRequest[SomeTPeer](slot: Slot(100), count: 1'u64, step: 1'u64)
+    let sr = SyncResult[SomeTPeer](request: req, data: chain2)
+    check sr.getLastNonEmptySlot() == Slot(100)
+
+  test "[SyncQueue] contains() test":
+    proc checkRange[T](req: SyncRequest[T]): bool =
+      var slot = req.slot
+      var counter = 0'u64
+      while counter < req.count:
+        if not(req.contains(slot)):
+          return false
+        slot = slot + req.step
         counter = counter + 1'u64
-      req.data = reqres
-      result = some(res)
-    peer.requests.add(req)
-
-proc newTempChain*(number: int, start: Slot): seq[SignedBeaconBlock] =
-  result = newSeq[SignedBeaconBlock](number)
-  for i in 0 ..< number:
-    result[i].message.slot = start + uint64(i)
-
-proc `==`*(a1, a2: SignedBeaconBlock): bool {.inline.} =
-  result = (a1.message.slot == a2.message.slot) and
-           (a1.message.parent_root == a2.message.parent_root) and
-           (a1.message.state_root == a2.message.state_root)
-
-proc peerSlotTests(): Future[bool] {.async.} =
-  # slot0: 3 ok
-  # slot1: 2 ok 1 timeout
-  # slot2: 1 ok 2 timeout
-  # slot3: 2 ok 1 bad
-  # slot4: 1 ok 2 bad
-  # slot5: 2 ok 1 failure
-  # slot6: 1 ok 2 failure
-  # slot7: 1 ok 1 bad 1 failure
-  # slot8: 1 bad 1 timeout 1 failure
-  # slot9: 3 bad
-  # slot10: 3 timeout
-  # slot11: 3 failure
-  var pool = newPeerPool[SimplePeer, SimplePeerKey]()
-  var sman = newSyncManager[SimplePeer,
-                            SimplePeerKey](pool, nil, nil,
-                                           peersInSlot = 3,
-                                           peerSlotTimeout = 1.seconds,
-                                           slotsInGroup = 6)
-
-  var chain1 = newTempChain(10, Slot(10000))
-  var chain2 = newTempChain(10, Slot(11000))
-
-  var peers = newSeq[SimplePeer]()
-  for i in 0 ..< 36:
-    var peer = SimplePeer.init("id" & $i)
-    peers.add(peer)
-
-  peers[0].update(chain1)
-  peers[1].update(chain1)
-  peers[2].update(chain1)
-
-  peers[3].update(chain1)
-  peers[4].update(chain1, delay = 2.seconds)
-  peers[5].update(chain1)
-
-  peers[6].update(chain1)
-  peers[7].update(chain1, delay = 2.seconds)
-  peers[8].update(chain1, delay = 2.seconds)
-
-  peers[9].update(chain1)
-  peers[10].update(chain1)
-  peers[11].update(chain2, malicious = true)
-
-  peers[12].update(chain1)
-  peers[13].update(chain2, malicious = true)
-  peers[14].update(chain2, malicious = true)
-
-  peers[15].update(chain1)
-  peers[16].update(chain1)
-  peers[17].update(chain1, failure = true)
-
-  peers[18].update(chain1)
-  peers[19].update(chain1, failure = true)
-  peers[20].update(chain1, failure = true)
-
-  peers[21].update(chain1)
-  peers[22].update(chain2, malicious = true)
-  peers[23].update(chain1, failure = true)
-
-  peers[24].update(chain2, malicious = true)
-  peers[25].update(chain1, failure = true)
-  peers[26].update(chain1, delay = 2.seconds)
-
-  peers[27].update(chain2, malicious = true)
-  peers[28].update(chain2, malicious = true)
-  peers[29].update(chain2, malicious = true)
-
-  peers[30].update(chain1, delay = 2.seconds)
-  peers[31].update(chain1, delay = 2.seconds)
-  peers[32].update(chain1, delay = 2.seconds)
-
-  peers[33].update(chain1, failure = true)
-  peers[34].update(chain1, failure = true)
-  peers[35].update(chain1, failure = true)
-
-  var slot0 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
-  slot0.peers = @[peers[0], peers[1], peers[2]]
-
-  var slot1 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
-  slot1.peers = @[peers[3], peers[4], peers[5]]
-
-  var slot2 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
-  slot2.peers = @[peers[6], peers[7], peers[8]]
-
-  var slot3 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
-  slot3.peers = @[peers[9], peers[10], peers[11]]
-
-  var slot4 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
-  slot4.peers = @[peers[12], peers[13], peers[14]]
-
-  var slot5 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
-  slot5.peers = @[peers[15], peers[16], peers[17]]
-
-  var slot6 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
-  slot6.peers = @[peers[18], peers[19], peers[20]]
-
-  var slot7 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
-  slot7.peers = @[peers[21], peers[22], peers[23]]
-
-  var slot8 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
-  slot8.peers = @[peers[24], peers[25], peers[26]]
-
-  var slot9 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
-  slot9.peers = @[peers[27], peers[28], peers[29]]
-
-  var slot10 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
-  slot10.peers = @[peers[30], peers[31], peers[32]]
-
-  var slot11 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
-  slot11.peers = @[peers[33], peers[34], peers[35]]
-
-  var s0 = await slot0.getBlocks(Slot(10000), 10'u64, 1'u64)
-  var s1 = await slot1.getBlocks(Slot(10000), 10'u64, 1'u64)
-  var s2 = await slot2.getBlocks(Slot(10000), 10'u64, 1'u64)
-  var s3 = await slot3.getBlocks(Slot(10000), 10'u64, 1'u64)
-  var s4 = await slot4.getBlocks(Slot(10000), 10'u64, 1'u64)
-  var s5 = await slot5.getBlocks(Slot(10000), 10'u64, 1'u64)
-  var s6 = await slot6.getBlocks(Slot(10000), 10'u64, 1'u64)
-  var s7 = await slot7.getBlocks(Slot(10000), 10'u64, 1'u64)
-  var s8 = await slot8.getBlocks(Slot(10000), 10'u64, 1'u64)
-  var s9 = await slot9.getBlocks(Slot(10000), 10'u64, 1'u64)
-  var s10 = await slot10.getBlocks(Slot(10000), 10'u64, 1'u64)
-  var s11 = await slot11.getBlocks(Slot(10000), 10'u64, 1'u64)
-
-  var expected = BlockList.init(Slot(10000), 10'u64, 1'u64, chain1).get()
-
-  doAssert(s0.isSome())
-  doAssert(s1.isSome())
-  doAssert(s2.isNone())
-  doAssert(s3.isSome())
-  doAssert(s4.isNone())
-  doAssert(s5.isSome())
-  doAssert(s6.isNone())
-  doAssert(s7.isNone())
-  doAssert(s8.isNone())
-  doAssert(s9.isNone())
-  doAssert(s10.isNone())
-  doAssert(s11.isNone())
-  doAssert($s0.get() == $expected)
-  doAssert($s1.get() == $expected)
-  doAssert($s3.get() == $expected)
-  doAssert($s5.get() == $expected)
-
-  result = true
-
-proc peerGroupTests(): Future[bool] {.async.} =
-  # group0: 3 ok
-  # group1: 2 ok 1 bad
-  # group2: 1 ok 2 bad
-  # group3: 3 bad
-  var pool = newPeerPool[SimplePeer, SimplePeerKey]()
-  var sman = newSyncManager[SimplePeer,
-                            SimplePeerKey](pool, nil, nil,
-                                           peersInSlot = 3,
-                                           peerSlotTimeout = 1.seconds,
-                                           slotsInGroup = 6)
-
-  var chain1 = newTempChain(10, Slot(10000))
-  var chain2 = newTempChain(10, Slot(11000))
-
-  var peers = newSeq[SimplePeer]()
-  for i in 0 ..< 18:
-    var peer = SimplePeer.init("id" & $i)
-    peers.add(peer)
-
-  proc cleanup() =
-    for i in 0 ..< 18:
-      peers[i].requests.setLen(0)
-
-  peers[0].update(chain1)
-  peers[1].update(chain1)
-  peers[2].update(chain1)
-
-  peers[3].update(chain1)
-  peers[4].update(chain1)
-  peers[5].update(chain1)
-
-  peers[6].update(chain1)
-  peers[7].update(chain1)
-  peers[8].update(chain1)
-
-  peers[9].update(chain1)
-  peers[10].update(chain2, malicious = true)
-  peers[11].update(chain2, malicious = true)
-
-  peers[12].update(chain1, delay = 2.seconds)
-  peers[13].update(chain1, delay = 2.seconds)
-  peers[14].update(chain1, delay = 2.seconds)
-
-  peers[15].update(chain1, failure = true)
-  peers[16].update(chain1, failure = true)
-  peers[17].update(chain1, failure = true)
-
-  var slot0 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
-  slot0.peers = @[peers[0], peers[1], peers[2]]
-  var slot1 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
-  slot1.peers = @[peers[3], peers[4], peers[5]]
-  var slot2 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
-  slot2.peers = @[peers[6], peers[7], peers[8]]
-
-  var slot31 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
-  slot31.peers = @[peers[9], peers[10], peers[11]]
-  var slot32 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
-  slot32.peers = @[peers[9], peers[10], peers[11]]
-  var slot33 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
-  slot33.peers = @[peers[9], peers[10], peers[11]]
-
-  var slot41 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
-  slot41.peers = @[peers[12], peers[13], peers[14]]
-  var slot42 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
-  slot42.peers = @[peers[12], peers[13], peers[14]]
-
-  var slot5 = newPeerSlot[SimplePeer, SimplePeerKey](sman)
-  slot5.peers = @[peers[15], peers[16], peers[17]]
-
-  var group0 = newPeerGroup(sman)
-  group0.slots = @[slot0, slot1, slot2]
-  var group1 = newPeerGroup(sman)
-  group1.slots = @[slot0, slot1, slot31]
-  var group2 = newPeerGroup(sman)
-  group2.slots = @[slot0, slot32, slot41]
-  var group3 = newPeerGroup(sman)
-  group3.slots = @[slot33, slot42, slot5]
-
-  var s0 = await group0.getBlocks(Slot(10000), 10'u64)
-  cleanup()
-  var s1 = await group1.getBlocks(Slot(10000), 10'u64)
-  cleanup()
-  var s2 = await group2.getBlocks(Slot(10000), 10'u64)
-  cleanup()
-  var s3 = await group3.getBlocks(Slot(10000), 10'u64)
-  cleanup()
-
-  var expected = BlockList.init(Slot(10000), 10'u64, 1'u64, chain1).get()
-
-  doAssert(s0.isSome())
-  doAssert(s1.isSome())
-  doAssert(s2.isSome())
-  doAssert(s3.isNone())
-
-  doAssert($s0.get() == $expected)
-  doAssert($s1.get() == $expected)
-  doAssert($s2.get() == $expected)
-
-  result = true
-
-proc syncQueueNonAsyncTests(): bool =
-  var q1 = SyncQueue.init(Slot(0), Slot(0), 1'u64, nil)
-  doAssert(len(q1) == 1)
-  var r11 = q1.pop()
-  doAssert(len(q1) == 0)
-  q1.push(r11)
-  doAssert(len(q1) == 1)
-  var r11e = q1.pop()
-  doAssert(len(q1) == 0)
-  doAssert(r11e == r11)
-  doAssert(r11.slot == Slot(0) and r11.count == 1'u64)
-
-  var q2 = SyncQueue.init(Slot(0), Slot(1), 1'u64, nil)
-  doAssert(len(q2) == 2)
-  var r21 = q2.pop()
-  doAssert(len(q2) == 1)
-  var r22 = q2.pop()
-  doAssert(len(q2) == 0)
-  q2.push(r22)
-  doAssert(len(q2) == 1)
-  q2.push(r21)
-  doAssert(len(q2) == 2)
-  var r21e = q2.pop()
-  doAssert(len(q2) == 1)
-  var r22e = q2.pop()
-  doAssert(len(q2) == 0)
-  doAssert(r21 == r21e)
-  doAssert(r22 == r22e)
-  doAssert(r21.slot == Slot(0) and r21.count == 1'u64)
-  doAssert(r22.slot == Slot(1) and r22.count == 1'u64)
-
-  var q3 = SyncQueue.init(Slot(0), Slot(4), 2'u64, nil)
-  doAssert(len(q3) == 5)
-  var r31 = q3.pop()
-  doAssert(len(q3) == 3)
-  var r32 = q3.pop()
-  doAssert(len(q3) == 1)
-  var r33 = q3.pop()
-  doAssert(len(q3) == 0)
-  q3.push(r33)
-  doAssert(len(q3) == 1)
-  q3.push(r32)
-  doAssert(len(q3) == 3)
-  q3.push(r31)
-  doAssert(len(q3) == 5)
-  var r31e = q3.pop()
-  doAssert(len(q3) == 3)
-  var r32e = q3.pop()
-  doAssert(len(q3) == 1)
-  var r33e = q3.pop()
-  doAssert(len(q3) == 0)
-  doAssert(r31 == r31e)
-  doAssert(r32 == r32e)
-  doAssert(r33 == r33e)
-  doAssert(r31.slot == Slot(0) and r31.count == 2'u64)
-  doAssert(r32.slot == Slot(2) and r32.count == 2'u64)
-  doAssert(r33.slot == Slot(4) and r33.count == 1'u64)
-
-  var q4 = SyncQueue.init(Slot(1), Slot(5), 3'u64, nil)
-  doAssert(len(q4) == 5)
-  var r41 = q4.pop()
-  doAssert(len(q4) == 2)
-  var r42 = q4.pop()
-  doAssert(len(q4) == 0)
-  q4.push(r42)
-  doAssert(len(q4) == 2)
-  q4.push(r41)
-  doAssert(len(q4) == 5)
-  var r41e = q4.pop()
-  doAssert(len(q4) == 2)
-  var r42e = q4.pop()
-  doAssert(len(q4) == 0)
-  doAssert(r41 == r41e)
-  doAssert(r42 == r42e)
-  doAssert(r41.slot == Slot(1) and r41.count == 3'u64)
-  doAssert(r42.slot == Slot(4) and r42.count == 2'u64)
-
-  var q5 = SyncQueue.init(Slot(1), Slot(30), 2'u64, nil)
-  doAssert(len(q5) == 30)
-  var r51 = q5.pop(5)
-  doAssert(len(q5) == 20)
-  doAssert(r51.slot == Slot(1) and r51.count == 10 and r51.step == 5)
-  q5.push(r51, 3'u64)
-  doAssert(len(q5) == 30)
-  var r511 = q5.pop()
-  var r512 = q5.pop()
-  doAssert(len(q5) == 20)
-  doAssert(r511.slot == Slot(1) and r511.count == 6 and r511.step == 3)
-  doAssert(r512.slot == Slot(7) and r512.count == 4 and r512.step == 2)
-  q5.push(r511, 2'u64)
-  q5.push(r512, 1'u64)
-  doAssert(len(q5) == 30)
-  var r5111 = q5.pop()
-  var r5112 = q5.pop()
-  var r5121 = q5.pop()
-  var r5122 = q5.pop()
-  doAssert(len(q5) == 20)
-  doAssert(r5111.slot == Slot(1) and r5111.count == 4 and r5111.step == 2)
-  doAssert(r5112.slot == Slot(5) and r5112.count == 2 and r5112.step == 1)
-  doAssert(r5121.slot == Slot(7) and r5121.count == 2 and r5121.step == 1)
-  doAssert(r5122.slot == Slot(9) and r5122.count == 2 and r5122.step == 1)
-
-  var q6 = SyncQueue.init(Slot(1), Slot(7), 10'u64, nil)
-  doAssert(len(q6) == 7)
-  var r61 = q6.pop()
-  doAssert(r61.slot == Slot(1) and r61.count == 7 and r61.step == 1)
-  doAssert(len(q6) == 0)
-
-  var q7 = SyncQueue.init(Slot(1), Slot(7), 10'u64, nil)
-  doAssert(len(q7) == 7)
-  var r71 = q7.pop(5)
-  doAssert(len(q7) == 0)
-  doAssert(r71.slot == Slot(1) and r71.count == 7 and r71.step == 5)
-  q7.push(r71, 3'u64)
-  doAssert(len(q7) == 7)
-  var r72 = q7.pop()
-  doAssert(r72.slot == Slot(1) and r72.count == 7 and r72.step == 3)
-  q7.push(r72, 2'u64)
-  doAssert(len(q7) == 7)
-  var r73 = q7.pop()
-  doAssert(len(q7) == 0)
-  doAssert(r73.slot == Slot(1) and r73.count == 7 and r73.step == 2)
-  q7.push(r73, 1'u64)
-  doAssert(len(q7) == 7)
-  var r74 = q7.pop()
-  doAssert(len(q7) == 0)
-  doAssert(r74.slot == Slot(1) and r74.count == 7 and r74.step == 1)
-
-  result = true
-
-proc syncQueueAsyncTests(): Future[bool] {.async.} =
-  var chain1 = newSeq[SignedBeaconBlock](3)
-  chain1[0].message.slot = Slot(0)
-  chain1[1].message.slot = Slot(1)
-  chain1[2].message.slot = Slot(2)
-  var chain2 = newSeq[SignedBeaconBlock](7)
-  chain2[0].message.slot = Slot(5)
-  chain2[1].message.slot = Slot(6)
-  chain2[2].message.slot = Slot(7)
-  chain2[3].message.slot = Slot(8)
-  chain2[4].message.slot = Slot(9)
-  chain2[5].message.slot = Slot(10)
-  chain2[6].message.slot = Slot(11)
-
-  var counter = 0
-  proc receiver1(list: openarray[SignedBeaconBlock]): bool =
-    result = true
-    for item in list:
-      if item.message.slot == uint64(counter):
-        inc(counter)
-      else:
-        result = false
-        break
-
-  var q1 = SyncQueue.init(Slot(0), Slot(2), 1'u64, receiver1, 1)
-  var r11 = q1.pop()
-  var r12 = q1.pop()
-  var r13 = q1.pop()
-  var f13 = q1.push(r13, @[chain1[2]])
-  var f12 = q1.push(r12, @[chain1[1]])
-  await sleepAsync(100.milliseconds)
-  doAssert(f12.finished == false)
-  doAssert(f13.finished == false)
-  doAssert(counter == 0)
-  var f11 = q1.push(r11, @[chain1[0]])
-  doAssert(counter == 1)
-  doAssert(f11.finished == true and f11.failed == false)
-  await sleepAsync(100.milliseconds)
-  doAssert(f12.finished == true and f12.failed == false)
-  doAssert(f13.finished == true and f13.failed == false)
-  doAssert(counter == 3)
-
-  var q2 = SyncQueue.init(Slot(5), Slot(11), 2'u64, receiver1, 2)
-  var r21 = q2.pop()
-  var r22 = q2.pop()
-  var r23 = q2.pop()
-  var r24 = q2.pop()
-
-  counter = 5
-
-  var f24 = q2.push(r24, @[chain2[6]])
-  var f22 = q2.push(r22, @[chain2[2], chain2[3]])
-  doAssert(f24.finished == false)
-  doAssert(f22.finished == false)
-  doAssert(counter == 5)
-  var f21 = q2.push(r21, @[chain2[0], chain2[1]])
-  doAssert(f21.finished == true and f21.failed == false)
-  await sleepAsync(100.milliseconds)
-  doAssert(f22.finished == true and f22.failed == false)
-  doAssert(f24.finished == false)
-  doAssert(counter == 9)
-  var f23 = q2.push(r23, @[chain2[4], chain2[5]])
-  doAssert(f23.finished == true and f23.failed == false)
-  doAssert(counter == 11)
-  await sleepAsync(100.milliseconds)
-  doAssert(f24.finished == true and f24.failed == false)
-  doAssert(counter == 12)
-
-  result = true
-
-proc checkRequest(req: PeerRequest, slot, count, step: int,
-                  data: varargs[int]): bool =
-  result = (req.startSlot == Slot(slot)) and (req.count == uint64(count)) and
-           (req.step == uint64(step))
-  if result:
-    if len(data) != len(req.data):
-      result = false
-    else:
-      for i in 0 ..< len(data):
-        if Slot(data[i]) != req.data[i]:
-          result = false
-          break
-
-proc checkRequest(peer: SimplePeer, index: int, slot, count, step: int,
-                  data: varargs[int]): bool {.inline.} =
-  result = checkRequest(peer.requests[index], slot, count, step, data)
-
-proc syncManagerOnePeerTest(): Future[bool] {.async.} =
-  # Syncing with one peer only.
-  var pool = newPeerPool[SimplePeer, SimplePeerKey]()
-  var peer = SimplePeer.init("id1")
-  var srcChain = newTempChain(100, Slot(10000))
-  var dstChain = newSeq[SignedBeaconBlock]()
-
-  proc lastLocalSlot(): Slot =
-    if len(dstChain) == 0:
-      result = Slot(9999)
-    else:
-      result = dstChain[^1].message.slot
-
-  proc updateBlocks(list: openarray[SignedBeaconBlock]): bool =
-    for item in list:
-      dstChain.add(item)
-    result = true
-
-  peer.update(srcChain)
-  doAssert(pool.addIncomingPeerNoWait(peer) == true)
-
-  var sman = newSyncManager[SimplePeer,
-                            SimplePeerKey](pool, lastLocalSlot, updateBlocks,
-                                           peersInSlot = 3,
-                                           peerSlotTimeout = 1.seconds,
-                                           slotsInGroup = 6)
-  await sman.synchronize()
-  doAssert(checkRequest(peer, 0, 10000, 20, 1,
-                        10000, 10001, 10002, 10003, 10004,
-                        10005, 10006, 10007, 10008, 10009,
-                        10010, 10011, 10012, 10013, 10014,
-                        10015, 10016, 10017, 10018, 10019) == true)
-  doAssert(checkRequest(peer, 1, 10020, 20, 1,
-                        10020, 10021, 10022, 10023, 10024,
-                        10025, 10026, 10027, 10028, 10029,
-                        10030, 10031, 10032, 10033, 10034,
-                        10035, 10036, 10037, 10038, 10039) == true)
-  doAssert(checkRequest(peer, 2, 10040, 20, 1,
-                        10040, 10041, 10042, 10043, 10044,
-                        10045, 10046, 10047, 10048, 10049,
-                        10050, 10051, 10052, 10053, 10054,
-                        10055, 10056, 10057, 10058, 10059) == true)
-  doAssert(checkRequest(peer, 3, 10060, 20, 1,
-                        10060, 10061, 10062, 10063, 10064,
-                        10065, 10066, 10067, 10068, 10069,
-                        10070, 10071, 10072, 10073, 10074,
-                        10075, 10076, 10077, 10078, 10079) == true)
-  doAssert(checkRequest(peer, 4, 10080, 20, 1,
-                        10080, 10081, 10082, 10083, 10084,
-                        10085, 10086, 10087, 10088, 10089,
-                        10090, 10091, 10092, 10093, 10094,
-                        10095, 10096, 10097, 10098, 10099) == true)
-  result = true
-
-proc syncManagerOneSlotTest(): Future[bool] {.async.} =
-  # Syncing with one slot (2n + 1 number of peers) only.
-  var pool = newPeerPool[SimplePeer, SimplePeerKey]()
-
-  var peers = newSeq[SimplePeer](3)
-  for i in 0 ..< len(peers):
-    peers[i] = SimplePeer.init("id" & $(i + 1))
-
-  var srcChain = newTempChain(100, Slot(10000))
-  var dstChain = newSeq[SignedBeaconBlock]()
-
-  proc lastLocalSlot(): Slot =
-    if len(dstChain) == 0:
-      result = Slot(9999)
-    else:
-      result = dstChain[^1].message.slot
-
-  proc updateBlocks(list: openarray[SignedBeaconBlock]): bool =
-    for item in list:
-      dstChain.add(item)
-    result = true
-
-  for i in 0 ..< len(peers):
-    peers[i].update(srcChain)
-  doAssert(pool.addIncomingPeerNoWait(peers[0]) == true)
-  doAssert(pool.addOutgoingPeerNoWait(peers[1]) == true)
-  doAssert(pool.addOutgoingPeerNoWait(peers[2]) == true)
-
-  var sman = newSyncManager[SimplePeer,
-                            SimplePeerKey](pool, lastLocalSlot, updateBlocks,
-                                           peersInSlot = 3,
-                                           peerSlotTimeout = 1.seconds,
-                                           slotsInGroup = 6)
-  await sman.synchronize()
-  for i in 0 ..< len(peers):
-    doAssert(checkRequest(peers[i], 0, 10000, 20, 1,
-                          10000, 10001, 10002, 10003, 10004,
-                          10005, 10006, 10007, 10008, 10009,
-                          10010, 10011, 10012, 10013, 10014,
-                          10015, 10016, 10017, 10018, 10019) == true)
-    doAssert(checkRequest(peers[i], 1, 10020, 20, 1,
-                          10020, 10021, 10022, 10023, 10024,
-                          10025, 10026, 10027, 10028, 10029,
-                          10030, 10031, 10032, 10033, 10034,
-                          10035, 10036, 10037, 10038, 10039) == true)
-    doAssert(checkRequest(peers[i], 2, 10040, 20, 1,
-                          10040, 10041, 10042, 10043, 10044,
-                          10045, 10046, 10047, 10048, 10049,
-                          10050, 10051, 10052, 10053, 10054,
-                          10055, 10056, 10057, 10058, 10059) == true)
-    doAssert(checkRequest(peers[i], 3, 10060, 20, 1,
-                          10060, 10061, 10062, 10063, 10064,
-                          10065, 10066, 10067, 10068, 10069,
-                          10070, 10071, 10072, 10073, 10074,
-                          10075, 10076, 10077, 10078, 10079) == true)
-    doAssert(checkRequest(peers[i], 4, 10080, 20, 1,
-                          10080, 10081, 10082, 10083, 10084,
-                          10085, 10086, 10087, 10088, 10089,
-                          10090, 10091, 10092, 10093, 10094,
-                          10095, 10096, 10097, 10098, 10099) == true)
-  result = true
-
-proc syncManagerOneGroupTest(): Future[bool] {.async.} =
-  # Syncing with one group of peers (n peer slots).
-  var pool = newPeerPool[SimplePeer, SimplePeerKey]()
-  var peers = newSeq[SimplePeer](6)
-  for i in 0 ..< len(peers):
-    peers[i] = SimplePeer.init("id" & $(i + 1), weight = 10 - i)
-
-  var srcChain = newTempChain(100, Slot(10000))
-  var dstChain = newSeq[SignedBeaconBlock]()
-
-  proc lastLocalSlot(): Slot =
-    if len(dstChain) == 0:
-      result = Slot(9999)
-    else:
-      result = dstChain[^1].message.slot
-
-  proc updateBlocks(list: openarray[SignedBeaconBlock]): bool =
-    for item in list:
-      dstChain.add(item)
-    result = true
-
-  for i in 0 ..< len(peers):
-    peers[i].update(srcChain)
-    if i mod 2 == 0:
-      doAssert(pool.addIncomingPeerNoWait(peers[i]) == true)
-    else:
-      doAssert(pool.addOutgoingPeerNoWait(peers[i]) == true)
-
-  var sman = newSyncManager[SimplePeer,
-                            SimplePeerKey](pool, lastLocalSlot, updateBlocks,
-                                           peersInSlot = 3,
-                                           peerSlotTimeout = 1.seconds,
-                                           slotsInGroup = 2)
-  await sman.synchronize()
-  for i in 0 ..< len(peers):
-    if i in {0, 1, 2}:
-      doAssert(checkRequest(peers[i], 0, 10000, 20, 2,
-                            10000, 10002, 10004, 10006, 10008,
-                            10010, 10012, 10014, 10016, 10018,
-                            10020, 10022, 10024, 10026, 10028,
-                            10030, 10032, 10034, 10036, 10038) == true)
-      doAssert(checkRequest(peers[i], 1, 10040, 20, 2,
-                            10040, 10042, 10044, 10046, 10048,
-                            10050, 10052, 10054, 10056, 10058,
-                            10060, 10062, 10064, 10066, 10068,
-                            10070, 10072, 10074, 10076, 10078) == true)
-      doAssert(checkRequest(peers[i], 2, 10080, 10, 2,
-                            10080, 10082, 10084, 10086, 10088,
-                            10090, 10092, 10094, 10096, 10098) == true)
-    elif i in {3, 4, 5}:
-      doAssert(checkRequest(peers[i], 0, 10001, 20, 2,
-                            10001, 10003, 10005, 10007, 10009,
-                            10011, 10013, 10015, 10017, 10019,
-                            10021, 10023, 10025, 10027, 10029,
-                            10031, 10033, 10035, 10037, 10039) == true)
-      doAssert(checkRequest(peers[i], 1, 10041, 20, 2,
-                            10041, 10043, 10045, 10047, 10049,
-                            10051, 10053, 10055, 10057, 10059,
-                            10061, 10063, 10065, 10067, 10069,
-                            10071, 10073, 10075, 10077, 10079) == true)
-      doAssert(checkRequest(peers[i], 2, 10081, 10, 2,
-                            10081, 10083, 10085, 10087, 10089,
-                            10091, 10093, 10095, 10097, 10099) == true)
-
-  result = true
-
-proc syncManagerGroupRecoveryTest(): Future[bool] {.async.} =
-  # Syncing with two groups of peers (n peer slots), when one groups is failed
-  # to deliver request, and this request is bigger then other group.
-  var pool = newPeerPool[SimplePeer, SimplePeerKey]()
-  var peers = newSeq[SimplePeer](6 + 3)
-  for i in 0 ..< len(peers):
-    peers[i] = SimplePeer.init("id" & $(i + 1), weight = 9 - i)
-
-  var srcChain = newTempChain(100, Slot(10000))
-  var dstChain = newSeq[SignedBeaconBlock]()
-
-  for i in 0 ..< 6:
-    peers[i].update(srcChain, failure = true, disconnect = true)
-  for i in 6 ..< len(peers):
-    peers[i].update(srcChain)
-
-  proc lastLocalSlot(): Slot =
-    if len(dstChain) == 0:
-      result = Slot(9999)
-    else:
-      result = dstChain[^1].message.slot
-
-  proc updateBlocks(list: openarray[SignedBeaconBlock]): bool =
-    for item in list:
-      dstChain.add(item)
-    result = true
-
-  for i in 0 ..< len(peers):
-    if i mod 2 == 0:
-      doAssert(pool.addIncomingPeerNoWait(peers[i]) == true)
-    else:
-      doAssert(pool.addOutgoingPeerNoWait(peers[i]) == true)
-
-  var sman = newSyncManager[SimplePeer,
-                            SimplePeerKey](pool, lastLocalSlot, updateBlocks,
-                                           peersInSlot = 3,
-                                           peerSlotTimeout = 1.seconds,
-                                           slotsInGroup = 2)
-  await sman.synchronize()
-  for i in 0 ..< len(peers):
-    if i in {0, 1, 2}:
-      doAssert(checkRequest(peers[i], 0, 10020, 20, 2) == true)
-    elif i in {3, 4, 5}:
-      doAssert(checkRequest(peers[i], 0, 10021, 20, 2) == true)
-    elif i in {6, 7, 8}:
-      doAssert(checkRequest(peers[i], 0, 10000, 20, 1,
-                            10000, 10001, 10002, 10003, 10004,
-                            10005, 10006, 10007, 10008, 10009,
-                            10010, 10011, 10012, 10013, 10014,
-                            10015, 10016, 10017, 10018, 10019) == true)
-      doAssert(checkRequest(peers[i], 1, 10020, 20, 1,
-                            10020, 10021, 10022, 10023, 10024,
-                            10025, 10026, 10027, 10028, 10029,
-                            10030, 10031, 10032, 10033, 10034,
-                            10035, 10036, 10037, 10038, 10039) == true)
-      doAssert(checkRequest(peers[i], 2, 10040, 20, 1,
-                            10040, 10041, 10042, 10043, 10044,
-                            10045, 10046, 10047, 10048, 10049,
-                            10050, 10051, 10052, 10053, 10054,
-                            10055, 10056, 10057, 10058, 10059) == true)
-      doAssert(checkRequest(peers[i], 3, 10060, 20, 1,
-                            10060, 10061, 10062, 10063, 10064,
-                            10065, 10066, 10067, 10068, 10069,
-                            10070, 10071, 10072, 10073, 10074,
-                            10075, 10076, 10077, 10078, 10079) == true)
-      doAssert(checkRequest(peers[i], 4, 10080, 20, 1,
-                            10080, 10081, 10082, 10083, 10084,
-                            10085, 10086, 10087, 10088, 10089,
-                            10090, 10091, 10092, 10093, 10094,
-                            10095, 10096, 10097, 10098, 10099) == true)
-  result = true
-
-proc syncManagerFailureTest(): Future[bool] {.async.} =
-  # Failure test
-  const FailuresCount = 3
-  var pool = newPeerPool[SimplePeer, SimplePeerKey]()
-  var peer = SimplePeer.init("id1", weight = 0)
-
-  var srcChain = newTempChain(100, Slot(10000))
-  var dstChain = newSeq[SignedBeaconBlock]()
-
-  peer.update(srcChain, failure = true)
-
-  proc lastLocalSlot(): Slot =
-    if len(dstChain) == 0:
-      result = Slot(9999)
-    else:
-      result = dstChain[^1].message.slot
-
-  proc updateBlocks(list: openarray[SignedBeaconBlock]): bool =
-    for item in list:
-      dstChain.add(item)
-    result = true
-
-  doAssert(pool.addIncomingPeerNoWait(peer) == true)
-
-  var sman = newSyncManager[SimplePeer,
-                            SimplePeerKey](pool, lastLocalSlot, updateBlocks,
-                                           peersInSlot = 3,
-                                           peerSlotTimeout = 1.seconds,
-                                           slotsInGroup = 2,
-                                           failuresCount = FailuresCount,
-                                           failurePause = 100.milliseconds)
-  await sman.synchronize()
-  doAssert(len(peer.requests) == FailuresCount)
-  for i in 0 ..< len(peer.requests):
-    doAssert(checkRequest(peer, i, 10000, 20, 1) == true)
-  result = true
-
-suiteReport "SyncManager test suite":
-  timedTest "PeerSlot tests":
-    check waitFor(peerSlotTests()) == true
-  timedTest "PeerGroup tests":
-    check waitFor(peerGroupTests()) == true
-  timedTest "SyncQueue non-async tests":
-    check syncQueueNonAsyncTests() == true
-  timedTest "SyncQueue async tests":
-    check waitFor(syncQueueAsyncTests()) == true
-  timedTest "SyncManager one-peer test":
-    check waitFor(syncManagerOnePeerTest()) == true
-  timedTest "SyncManager one-peer-slot test":
-    check waitFor(syncManagerOneSlotTest()) == true
-  timedTest "SyncManager one-peer-group test":
-    check waitFor(syncManagerOneGroupTest()) == true
-  timedTest "SyncManager group-recovery test":
-    check waitFor(syncManagerGroupRecoveryTest()) == true
-  timedTest "SyncManager failure test":
-    check waitFor(syncManagerFailureTest()) == true
+      return true
+
+    var req1 = SyncRequest[SomeTPeer](slot: Slot(5), count: 10'u64, step: 1'u64)
+    var req2 = SyncRequest[SomeTPeer](slot: Slot(1), count: 10'u64, step: 2'u64)
+    var req3 = SyncRequest[SomeTPeer](slot: Slot(2), count: 10'u64, step: 3'u64)
+    var req4 = SyncRequest[SomeTPeer](slot: Slot(3), count: 10'u64, step: 4'u64)
+    var req5 = SyncRequest[SomeTPeer](slot: Slot(4), count: 10'u64, step: 5'u64)
+
+    check:
+      req1.checkRange() == true
+      req2.checkRange() == true
+      req3.checkRange() == true
+      req4.checkRange() == true
+      req5.checkRange() == true
+
+      req1.contains(Slot(4)) == false
+      req1.contains(Slot(15)) == false
+
+      req2.contains(Slot(0)) == false
+      req2.contains(Slot(21)) == false
+      req2.contains(Slot(20)) == false
+
+      req3.contains(Slot(0)) == false
+      req3.contains(Slot(1)) == false
+      req3.contains(Slot(32)) == false
+      req3.contains(Slot(31)) == false
+      req3.contains(Slot(30)) == false
+
+      req4.contains(Slot(0)) == false
+      req4.contains(Slot(1)) == false
+      req4.contains(Slot(2)) == false
+      req4.contains(Slot(43)) == false
+      req4.contains(Slot(42)) == false
+      req4.contains(Slot(41)) == false
+      req4.contains(Slot(40)) == false
+
+      req5.contains(Slot(0)) == false
+      req5.contains(Slot(1)) == false
+      req5.contains(Slot(2)) == false
+      req5.contains(Slot(3)) == false
+      req5.contains(Slot(54)) == false
+      req5.contains(Slot(53)) == false
+      req5.contains(Slot(52)) == false
+      req5.contains(Slot(51)) == false
+      req5.contains(Slot(50)) == false
+
+  test "[SyncQueue] checkResponse() test":
+    let chain = createChain(Slot(10), Slot(20))
+    let r1 = SyncRequest[SomeTPeer](slot: Slot(11), count: 1'u64, step: 1'u64)
+    let r21 = SyncRequest[SomeTPeer](slot: Slot(11), count: 2'u64, step: 1'u64)
+    let r22 = SyncRequest[SomeTPeer](slot: Slot(11), count: 2'u64, step: 2'u64)
+
+    check:
+      checkResponse(r1, @[chain[1]]) == true
+      checkResponse(r1, @[]) == true
+      checkResponse(r1, @[chain[1], chain[1]]) == false
+      checkResponse(r1, @[chain[0]]) == false
+      checkResponse(r1, @[chain[2]]) == false
+
+      checkResponse(r21, @[chain[1]]) == true
+      checkResponse(r21, @[]) == true
+      checkResponse(r21, @[chain[1], chain[2]]) == true
+      checkResponse(r21, @[chain[2]]) == true
+      checkResponse(r21, @[chain[1], chain[2], chain[3]]) == false
+      checkResponse(r21, @[chain[0], chain[1]]) == false
+      checkResponse(r21, @[chain[0]]) == false
+      checkResponse(r21, @[chain[2], chain[1]]) == false
+      checkResponse(r21, @[chain[2], chain[1]]) == false
+      checkResponse(r21, @[chain[2], chain[3]]) == false
+      checkResponse(r21, @[chain[3]]) == false
+
+      checkResponse(r22, @[chain[1]]) == true
+      checkResponse(r22, @[]) == true
+      checkResponse(r22, @[chain[1], chain[3]]) == true
+      checkResponse(r22, @[chain[3]]) == true
+      checkResponse(r22, @[chain[1], chain[3], chain[5]]) == false
+      checkResponse(r22, @[chain[0], chain[1]]) == false
+      checkResponse(r22, @[chain[1], chain[2]]) == false
+      checkResponse(r22, @[chain[2], chain[3]]) == false
+      checkResponse(r22, @[chain[3], chain[4]]) == false
+      checkResponse(r22, @[chain[4], chain[5]]) == false
+      checkResponse(r22, @[chain[4]]) == false
+      checkResponse(r22, @[chain[3], chain[1]]) == false

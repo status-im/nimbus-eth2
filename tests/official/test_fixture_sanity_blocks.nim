@@ -12,11 +12,10 @@ import
   os, sequtils, unittest,
   # Beacon chain internals
   ../../beacon_chain/spec/[crypto, datatypes],
-  ../../beacon_chain/[ssz, state_transition, extras],
+  ../../beacon_chain/[ssz, state_transition],
   # Test utilities
   ../testutil,
-  ./fixtures_utils,
-  ../helpers/debug_state
+  ./fixtures_utils
 
 const SanityBlocksDir = SszTestsDir/const_preset/"phase0"/"sanity"/"blocks"/"pyspec_tests"
 
@@ -35,45 +34,36 @@ proc runTest(identifier: string) =
       "[Invalid] "
 
     timedTest prefix & identifier:
-      var stateRef, postRef: ref BeaconState
-      new stateRef
-      stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
-
-      if existsFile(testDir/"post.ssz"):
-        new postRef
-        postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
+      var
+        preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
+        hasPostState = existsFile(testDir/"post.ssz")
+        hashedPreState = (ref HashedBeaconState)(
+          data: preState[], root: hash_tree_root(preState[]))
 
       # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
       # so purely lexicographic sorting wouldn't sort properly.
-      for i in 0 ..< toSeq(walkPattern(testDir/"blocks_*.ssz")).len:
+      let numBlocks = toSeq(walkPattern(testDir/"blocks_*.ssz")).len
+      for i in 0 ..< numBlocks:
         let blck = parseTest(testDir/"blocks_" & $i & ".ssz", SSZ, SignedBeaconBlock)
 
-        if postRef.isNil:
-          let success = state_transition(stateRef[], blck, flags = {})
-          doAssert not success, "We didn't expect this invalid block to be processed"
-        else:
-          # TODO: The EF is using invalid BLS keys so we can't verify them
-          let success = state_transition(stateRef[], blck, flags = {skipBlsValidation})
+        if hasPostState:
+          let success = state_transition(
+            hashedPreState[], blck, flags = {}, noRollback)
           doAssert success, "Failure when applying block " & $i
+        else:
+          let success = state_transition(
+            hashedPreState[], blck, flags = {}, noRollback)
+          doAssert (i + 1 < numBlocks) or not success,
+            "We didn't expect these invalid blocks to be processed"
 
-      # check: stateRef.hash_tree_root() == postRef.hash_tree_root()
-      if not postRef.isNil:
-        reportDiff(stateRef, postRef)
+      if hasPostState:
+        let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
+        when false:
+          reportDiff(hashedPreState.data, postState)
+        doAssert hashedPreState.root == postState[].hash_tree_root()
 
   `testImpl _ blck _ identifier`()
 
 suiteReport "Official - Sanity - Blocks " & preset():
-  # Failing due to signature checking in indexed validation checking pending
-  # 0.10 BLS verification API with new domain handling.
-  const expected_failures =
-    [
-      "attester_slashing",
-      # TODO: regression BLS v0.10.1 to fix
-      "expected_deposit_in_block",
-    ]
-
   for kind, path in walkDir(SanityBlocksDir, true):
-    if path in expected_failures:
-      echo "Skipping test: ", path
-      continue
     runTest(path)

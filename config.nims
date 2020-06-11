@@ -38,6 +38,10 @@ else:
 # enable metric collection
 --define:metrics
 --define:chronicles_line_numbers
+# for heap-usage-by-instance-type metrics and object base-type strings
+--define:nimTypeNames
+
+switch("import", "testutils/moduletests")
 
 # the default open files limit is too low on macOS (512), breaking the
 # "--debugger:native" build. It can be increased with `ulimit -n 1024`.
@@ -47,8 +51,7 @@ if not defined(macosx):
   if not (defined(windows) and defined(i386)) and not defined(disable_libbacktrace):
     # light-weight stack traces using libbacktrace and libunwind
     --define:nimStackTraceOverride
-    # "--import:libbacktrace" is added to NIM_PARAMS inside the Makefile,
-    # because it doesn't work in here ("Error: undeclared identifier: 'copyMem'", like it kicks in in some other NimScript file)
+    switch("import", "libbacktrace")
 
 --define:nimOldCaseObjects # https://github.com/status-im/nim-confutils/issues/9
 

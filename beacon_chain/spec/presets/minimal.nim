@@ -20,7 +20,7 @@ type
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L4
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L4
 
   # Changed
   MAX_COMMITTEES_PER_SLOT* = 4
@@ -41,18 +41,9 @@ const
   HYSTERESIS_DOWNWARD_MULTIPLIER* = 1
   HYSTERESIS_UPWARD_MULTIPLIER* = 5
 
-  # Constants
-  # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#constants
-  # TODO "The following values are (non-configurable) constants" ...
-  # Unchanged
-  BASE_REWARDS_PER_EPOCH* = 4
-
-  DEPOSIT_CONTRACT_TREE_DEPTH* = 32
-
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L52
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L58
 
   # Unchanged
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9
@@ -62,16 +53,14 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L64
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L70
 
-  # Unchanged
-  GENESIS_SLOT* = 0.Slot
-  GENESIS_FORK_VERSION* = 0x01000000
+  GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 1'u8]
   BLS_WITHDRAWAL_PREFIX* = 0'u8
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L71
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L77
   # Changed: Faster to spin up testnets, but does not give validator
   # reasonable warning time for genesis
   MIN_GENESIS_DELAY* = 300
@@ -107,17 +96,19 @@ const
 
   # State vector lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L105
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L105
 
   # Changed
   EPOCHS_PER_HISTORICAL_VECTOR* = 64
   EPOCHS_PER_SLASHINGS_VECTOR* = 64
+
+  # Unchanged
   HISTORICAL_ROOTS_LIMIT* = 16777216
   VALIDATOR_REGISTRY_LIMIT* = 1099511627776
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L117
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L117
 
   BASE_REWARD_FACTOR* = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
@@ -127,7 +118,7 @@ const
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L131
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L131
 
   MAX_PROPOSER_SLASHINGS* = 2^4
   MAX_ATTESTER_SLASHINGS* = 2^0
@@ -137,14 +128,14 @@ const
 
   # Fork choice
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L26
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L32
 
   # Changed
   SAFE_SLOTS_TO_UPDATE_JUSTIFIED* = 2
 
   # Validators
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L32
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L38
 
   # Changed
   ETH1_FOLLOW_DISTANCE* = 16 # blocks
@@ -157,14 +148,13 @@ const
 
   # Phase 1: Upgrade from Phase 0
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/configs/minimal.yaml#L161
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L161
   PHASE_1_FORK_VERSION* = 16777217
   INITIAL_ACTIVE_SHARDS* = 4
-  INITIAL_GASPRICE* = 10
 
   # Phase 1: General
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/configs/minimal.yaml#L171
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L169
   MAX_SHARDS* = 8
   ONLINE_PERIOD* = 8 # epochs ~ 51 minutes
   LIGHT_CLIENT_COMMITTEE_SIZE* = 128
@@ -175,40 +165,26 @@ const
   TARGET_SHARD_BLOCK_SIZE* = 196608
   MAX_SHARD_BLOCKS_PER_ATTESTATION* = 12
   MAX_GASPRICE* = 16384 # Gwei
-  MIN_GASPRICE* = 32 # Gwei
+  MIN_GASPRICE* = 8 # Gwei
   GASPRICE_ADJUSTMENT_COEFFICIENT* = 8
-
-  # Phase 1 - Sharding
-  # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/configs/minimal.yaml#L157
-  # TODO those are included in minimal.yaml but not mainnet.yaml
-  #      Why?
-  SHARD_SLOTS_PER_BEACON_SLOT* = 2 # spec: SHARD_SLOTS_PER_EPOCH
-  EPOCHS_PER_SHARD_PERIOD* = 4
-  PHASE_1_FORK_EPOCH* = 8
-  PHASE_1_FORK_SLOT* = 64
 
   # Phase 1 - Custody game
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase1/custody-game.md#constants
-  # TODO those are included in minimal.yaml but not mainnet.yaml
-  #      Why?
+  # Time parameters
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L202
   RANDAO_PENALTY_EPOCHS* = 2
   EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS* = 4096 # epochs
   EPOCHS_PER_CUSTODY_PERIOD* = 2048
-
-  # Time parameters
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/configs/minimal.yaml#L204
   CUSTODY_PERIOD_TO_RANDAO_PADDING* = 2048
   MAX_REVEAL_LATENESS_DECREMENT* = 128
 
   # Max operations
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/configs/minimal.yaml#L216
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L214
   MAX_CUSTODY_KEY_REVEALS* = 256
   MAX_EARLY_DERIVED_SECRET_REVEALS* = 1
   MAX_CUSTODY_SLASHINGS* = 1
 
   # Reward and penalty quotients
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/configs/minimal.yaml#L222
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L220
   EARLY_DERIVED_SECRET_REVEAL_SLOT_REWARD_MULTIPLE* = 2
   MINOR_REWARD_QUOTIENT* = 256

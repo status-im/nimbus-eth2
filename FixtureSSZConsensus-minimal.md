@@ -1,6 +1,6 @@
 FixtureSSZConsensus-minimal
 ===
-## Official - 0.11.0 - SSZ consensus objects  [Preset: minimal]
+## Official - 0.11.3 - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
 +   Testing    Attestation                                                                   OK

@@ -66,7 +66,8 @@ proc signMockAttestation*(state: BeaconState, attestation: var Attestation) =
   var first_iter = true # Can't do while loop on hashset
   for validator_index in participants:
     let sig = get_attestation_signature(
-      state.fork, attestation.data, MockPrivKeys[validator_index]
+      state.fork, state.genesis_validators_root, attestation.data,
+      MockPrivKeys[validator_index]
     )
     if first_iter:
       attestation.signature = sig
@@ -85,7 +86,7 @@ proc mockAttestationImpl(
     beacon_committee = get_beacon_committee(
       state,
       result.data.slot,
-      result.data.index,
+      result.data.index.CommitteeIndex,
       cache
     )
     committee_size = beacon_committee.len
@@ -116,18 +117,18 @@ proc fillAggregateAttestation*(state: BeaconState, attestation: var Attestation)
   let beacon_committee = get_beacon_committee(
     state,
     attestation.data.slot,
-    attestation.data.index,
+    attestation.data.index.CommitteeIndex,
     cache
   )
   for i in 0 ..< beacon_committee.len:
     attestation.aggregation_bits[i] = true
 
-proc add*(state: var BeaconState, attestation: Attestation, slot: Slot) =
-  var signedBlock = mockBlockForNextSlot(state)
+proc add*(state: var HashedBeaconState, attestation: Attestation, slot: Slot) =
+  var signedBlock = mockBlockForNextSlot(state.data)
   signedBlock.message.slot = slot
   signedBlock.message.body.attestations.add attestation
-  process_slots(state, slot)
-  signMockBlock(state, signedBlock)
+  doAssert process_slots(state, slot)
+  signMockBlock(state.data, signedBlock)
 
   doAssert state_transition(
-    state, signedBlock, flags = {skipStateRootValidation})
+    state, signedBlock, flags = {skipStateRootValidation}, noRollback)

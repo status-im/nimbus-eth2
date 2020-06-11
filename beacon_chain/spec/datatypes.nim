@@ -17,10 +17,21 @@
 # `ref` - this can be achieved by wrapping them in higher-level
 # types / composition
 
+# TODO report compiler crash when this is uncommented
+# {.push raises: [Defect].}
+
+{.experimental: "notnil".}
+
+{.push raises: [Defect].}
+
 import
   macros, hashes, json, strutils, tables,
-  stew/[byteutils, bitseqs], chronicles,
-  ../ssz/types, ./crypto, ./digest
+  stew/[byteutils], chronicles,
+  json_serialization/types as jsonTypes,
+  ../ssz/types as sszTypes, ./crypto, ./digest
+
+export
+  sszTypes
 
 # TODO Data types:
 # Presently, we're reusing the data types from the serialization (uint64) in the
@@ -40,7 +51,7 @@ import
 
 
 # Constant presets
-const const_preset* {.strdefine.} = "minimal"
+const const_preset* {.strdefine.} = "mainnet"
 
 when const_preset == "mainnet":
   import ./presets/mainnet
@@ -57,10 +68,11 @@ else:
   loadCustomPreset const_preset
 
 const
-  SPEC_VERSION* = "0.11.0" ## \
+  SPEC_VERSION* = "0.11.3" ## \
   ## Spec version we're aiming to be compatible with, right now
 
-  GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
+  GENESIS_SLOT* = Slot(0)
+  GENESIS_EPOCH* = (GENESIS_SLOT.int div SLOTS_PER_EPOCH).Epoch ##\
   ## compute_epoch_at_slot(GENESIS_SLOT)
 
   FAR_FUTURE_EPOCH* = (not 0'u64).Epoch # 2^64 - 1 in spec
@@ -74,14 +86,20 @@ const
     # TODO: This needs revisiting.
     # Why was the validator WITHDRAWAL_PERIOD altered in the spec?
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase0/p2p-interface.md#configuration
+  ATTESTATION_PROPAGATION_SLOT_RANGE* = 32
+
+  SLOTS_PER_ETH1_VOTING_PERIOD* = Slot(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)
+
+  DEPOSIT_CONTRACT_TREE_DEPTH* = 32
+  BASE_REWARDS_PER_EPOCH* = 4
+
 template maxSize*(n: int) {.pragma.}
 
 type
-  Bytes = seq[byte]
-
   # Domains
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#domain-types
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#domain-types
   DomainType* = enum
     DOMAIN_BEACON_PROPOSER = 0
     DOMAIN_BEACON_ATTESTER = 1
@@ -91,15 +109,15 @@ type
     DOMAIN_SELECTION_PROOF = 5
     DOMAIN_AGGREGATE_AND_PROOF = 6
     # Phase 1 - Sharding
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase1/beacon-chain.md#misc
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase1/beacon-chain.md#misc
     DOMAIN_SHARD_PROPOSAL = 128
     DOMAIN_SHARD_COMMITTEE = 129
     DOMAIN_LIGHT_CLIENT = 130
     # Phase 1 - Custody game
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase1/custody-game.md#signature-domain-types
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase1/custody-game.md#signature-domain-types
     DOMAIN_CUSTODY_BIT_SLASHING = 0x83
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#custom-types
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#custom-types
   Domain* = array[32, byte]
 
   # https://github.com/nim-lang/Nim/issues/574 and be consistent across
@@ -111,20 +129,19 @@ type
   # range-limit.
   ValidatorIndex* = distinct uint32
   Gwei* = uint64
+  CommitteeIndex* = distinct uint64
 
-  BitList*[maxLen: static int] = distinct BitSeq
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#proposerslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     signed_header_1*: SignedBeaconBlockHeader
     signed_header_2*: SignedBeaconBlockHeader
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#attesterslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#attesterslashing
   AttesterSlashing* = object
     attestation_1*: IndexedAttestation
     attestation_2*: IndexedAttestation
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#indexedattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#indexedattestation
   IndexedAttestation* = object
     # TODO ValidatorIndex, but that doesn't serialize properly
     attesting_indices*: List[uint64, MAX_VALIDATORS_PER_COMMITTEE]
@@ -133,26 +150,31 @@ type
 
   CommitteeValidatorsBits* = BitList[MAX_VALIDATORS_PER_COMMITTEE]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#attestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#attestation
   Attestation* = object
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#forkdata
+  Version* = distinct array[4, byte]
+  ForkDigest* = distinct array[4, byte]
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#forkdata
   ForkData* = object
-    # TODO: Spec introduced an alias for Version = array[4, byte]
-    current_version*: array[4, byte]
+    current_version*: Version
     genesis_validators_root*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#checkpoint
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#checkpoint
   Checkpoint* = object
     epoch*: Epoch
     root*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#AttestationData
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#AttestationData
   AttestationData* = object
     slot*: Slot
+
+    # TODO this is actually a CommitteeIndex; remove some conversions by
+    # allowing SSZ to directly handle this
     index*: uint64
 
     # LMD GHOST vote
@@ -162,34 +184,34 @@ type
     source*: Checkpoint
     target*: Checkpoint
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#deposit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#deposit
   Deposit* = object
     proof*: array[DEPOSIT_CONTRACT_TREE_DEPTH + 1, Eth2Digest] ##\
     ## Merkle path to deposit root
 
     data*: DepositData
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#depositmessage
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#depositmessage
   DepositMessage* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
     amount*: Gwei
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#depositdata
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#depositdata
   DepositData* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
     amount*: uint64
     signature*: ValidatorSig  # Signing over DepositMessage
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#voluntaryexit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
     epoch*: Epoch ##\
     ## Earliest epoch when voluntary exit can be processed
 
     validator_index*: uint64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#beaconblock
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -208,7 +230,7 @@ type
 
     body*: BeaconBlockBody
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#beaconblockheader
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot
     proposer_index*: uint64
@@ -216,7 +238,7 @@ type
     state_root*: Eth2Digest
     body_root*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -229,8 +251,8 @@ type
     deposits*: List[Deposit, MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, MAX_VOLUNTARY_EXITS]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#beaconstate
-  BeaconState* = object
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#beaconstate
+  BeaconStateObj* = object
     # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
@@ -241,35 +263,34 @@ type
     latest_block_header*: BeaconBlockHeader ##\
     ## `latest_block_header.state_root == ZERO_HASH` temporarily
 
-    block_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
+    block_roots*: HashArray[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
     ## Needed to process attestations, older to newer
 
-    state_roots*: array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
-    historical_roots*: List[Eth2Digest, HISTORICAL_ROOTS_LIMIT]
+    state_roots*: HashArray[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+    historical_roots*: HashList[Eth2Digest, HISTORICAL_ROOTS_LIMIT]
 
     # Eth1
     eth1_data*: Eth1Data
     eth1_data_votes*:
-      List[Eth1Data, EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH]
+      HashList[Eth1Data, EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH]
     eth1_deposit_index*: uint64
 
     # Registry
-    # TODO List[] won't construct due to VALIDATOR_REGISTRY_LIMIT > high(int)
-    validators*: seq[Validator]
-    balances*: seq[uint64]
+    validators*: HashList[Validator, VALIDATOR_REGISTRY_LIMIT]
+    balances*: HashList[uint64, VALIDATOR_REGISTRY_LIMIT]
 
     # Randomness
-    randao_mixes*: array[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
+    randao_mixes*: HashArray[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
 
     # Slashings
-    slashings*: array[EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
+    slashings*: HashArray[int64(EPOCHS_PER_SLASHINGS_VECTOR), uint64] ##\
     ## Per-epoch sums of slashed effective balances
 
     # Attestations
     previous_epoch_attestations*:
-      List[PendingAttestation, MAX_ATTESTATIONS * SLOTS_PER_EPOCH]
+      HashList[PendingAttestation, MAX_ATTESTATIONS * SLOTS_PER_EPOCH]
     current_epoch_attestations*:
-      List[PendingAttestation, MAX_ATTESTATIONS * SLOTS_PER_EPOCH]
+      HashList[PendingAttestation, MAX_ATTESTATIONS * SLOTS_PER_EPOCH]
 
     # Finality
     justification_bits*: uint8 ##\
@@ -283,7 +304,11 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#validator
+  BeaconState* = BeaconStateObj
+  BeaconStateRef* = ref BeaconStateObj not nil
+  NilableBeaconStateRef* = ref BeaconStateObj
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#validator
   Validator* = object
     pubkey*: ValidatorPubKey
 
@@ -305,7 +330,7 @@ type
     withdrawable_epoch*: Epoch ##\
     ## When validator can withdraw or transfer funds
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#pendingattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#pendingattestation
   PendingAttestation* = object
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
@@ -315,59 +340,59 @@ type
 
     proposer_index*: uint64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#historicalbatch
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#historicalbatch
   HistoricalBatch* = object
     block_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     state_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#fork
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#fork
   Fork* = object
     # TODO: Spec introduced an alias for Version = array[4, byte]
     #       and a default parameter to compute_domain
-    previous_version*: array[4, byte]
-    current_version*: array[4, byte]
+    previous_version*: Version
+    current_version*: Version
 
     epoch*: Epoch ##\
     ## Epoch of latest fork
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#eth1data
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#eth1data
   Eth1Data* = object
     deposit_root*: Eth2Digest
     deposit_count*: uint64
     block_hash*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#signingroot
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#signingroot
   SigningRoot* = object
     object_root*: Eth2Digest
     domain*: Domain
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#signedvoluntaryexit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#signedvoluntaryexit
   SignedVoluntaryExit* = object
     message*: VoluntaryExit
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#signedbeaconblock
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/beacon-chain.md#signedbeaconblockheader
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#signedbeaconblockheader
   SignedBeaconBlockHeader* = object
     message*: BeaconBlockHeader
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#aggregateandproof
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase0/validator.md#aggregateandproof
   AggregateAndProof* = object
     aggregator_index*: uint64
     aggregate*: Attestation
     selection_proof*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.0/specs/phase0/validator.md#signedaggregateandproof
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase0/validator.md#signedaggregateandproof
   SignedAggregateAndProof* = object
     message*: AggregateAndProof
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/validator.md#eth1block
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase0/validator.md#eth1block
   Eth1Block* = object
     timestamp*: uint64
     # All other eth1 block fields
@@ -378,78 +403,12 @@ type
     root*: Eth2Digest # hash_tree_root(data)
 
   StateCache* = object
-    beacon_committee_cache*:
-      Table[tuple[a: int, b: Eth2Digest], seq[ValidatorIndex]]
-    active_validator_indices_cache*:
+    shuffled_active_validator_indices*:
       Table[Epoch, seq[ValidatorIndex]]
     committee_count_cache*: Table[Epoch, uint64]
+    beacon_proposer_indices*: Table[Slot, Option[ValidatorIndex]]
 
-template foreachSpecType*(op: untyped) =
-  ## These are all spec types that will appear in network messages
-  ## and persistent consensus data. This helper template is useful
-  ## for populating RTTI tables that concern them.
-  op AggregateAndProof
-  op Attestation
-  op AttestationData
-  op AttesterSlashing
-  op BeaconBlock
-  op BeaconBlockBody
-  op BeaconBlockHeader
-  op BeaconState
-  op Deposit
-  op DepositData
-  op Eth1Block
-  op Eth1Data
-  op Fork
-  op ForkData
-  op HistoricalBatch
-  op IndexedAttestation
-  op PendingAttestation
-  op ProposerSlashing
-  op SignedAggregateAndProof
-  op SignedBeaconBlock
-  op SignedBeaconBlockHeader
-  op SignedVoluntaryExit
-  op SigningRoot
-  op Validator
-  op VoluntaryExit
-
-macro fieldMaxLen*(x: typed): untyped =
-  # TODO This macro is a temporary solution for the lack of a
-  # more proper way to specify the max length of the List[T; N]
-  # objects in the spec.
-  # May be replaced with `getCustomPragma` once we upgrade to
-  # Nim 0.20.2 or with a distinct List type, which would require
-  # more substantial refactorings in the spec code.
-  if x.kind != nnkDotExpr:
-    return newLit(0)
-
-  let size = case $x[1]
-             # Obsolete
-             of "pubkeys",
-                "compact_validators",
-                "aggregation_bits",
-                "custody_bits": int64(MAX_VALIDATORS_PER_COMMITTEE)
-             # IndexedAttestation
-             of "attesting_indices": MAX_VALIDATORS_PER_COMMITTEE
-             # BeaconBlockBody
-             of "proposer_slashings": MAX_PROPOSER_SLASHINGS
-             of "attester_slashings": MAX_ATTESTER_SLASHINGS
-             of "attestations": MAX_ATTESTATIONS
-             of "deposits": MAX_DEPOSITS
-             of "voluntary_exits": MAX_VOLUNTARY_EXITS
-             # BeaconState
-             of "historical_roots": HISTORICAL_ROOTS_LIMIT
-             of "eth1_data_votes":
-               EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH
-             of "validators": VALIDATOR_REGISTRY_LIMIT
-             of "balances": VALIDATOR_REGISTRY_LIMIT
-             of "previous_epoch_attestations",
-                "current_epoch_attestations": MAX_ATTESTATIONS *
-                                              SLOTS_PER_EPOCH
-             else: 0
-
-  newLit size
+  JsonError = jsonTypes.JsonError
 
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
     ($state.validators[validatorIdx].pubkey)[0..7]
@@ -498,17 +457,40 @@ template ethTimeUnit(typ: type) {.dirty.} =
   proc `%`*(x: typ): JsonNode {.borrow.}
 
   # Serialization
-  proc writeValue*(writer: var JsonWriter, value: typ) =
+  proc writeValue*(writer: var JsonWriter, value: typ)
+                  {.raises: [IOError, Defect].}=
     writeValue(writer, uint64 value)
 
-  proc readValue*(reader: var JsonReader, value: var typ) =
+  proc readValue*(reader: var JsonReader, value: var typ)
+                 {.raises: [IOError, JsonError, Defect].} =
     value = typ reader.readValue(uint64)
 
-proc writeValue*(writer: var JsonWriter, value: ValidatorIndex) =
+proc writeValue*(writer: var JsonWriter, value: ValidatorIndex)
+                {.raises: [IOError, Defect].} =
   writeValue(writer, uint32 value)
 
-proc readValue*(reader: var JsonReader, value: var ValidatorIndex) =
+proc readValue*(reader: var JsonReader, value: var ValidatorIndex)
+               {.raises: [IOError, JsonError, Defect].} =
   value = ValidatorIndex reader.readValue(uint32)
+
+template writeValue*(writer: var JsonWriter, value: Version | ForkDigest) =
+  writeValue(writer, $value)
+
+proc readValue*(reader: var JsonReader, value: var Version)
+               {.raises: [IOError, JsonError, Defect].} =
+  let hex = reader.readValue(string)
+  try:
+    hexToByteArray(hex, array[4, byte](value))
+  except ValueError:
+    raiseUnexpectedValue(reader, "Hex string of 4 bytes expected")
+
+proc readValue*(reader: var JsonReader, value: var ForkDigest)
+               {.raises: [IOError, JsonError, Defect].} =
+  let hex = reader.readValue(string)
+  try:
+    hexToByteArray(hex, array[4, byte](value))
+  except ValueError:
+    raiseUnexpectedValue(reader, "Hex string of 4 bytes expected")
 
 # `ValidatorIndex` seq handling.
 proc max*(a: ValidatorIndex, b: int) : auto =
@@ -525,6 +507,7 @@ proc `[]=`*[T](a: var seq[T], b: ValidatorIndex, c: T) =
 
 # `ValidatorIndex` Nim integration
 proc `==`*(x, y: ValidatorIndex) : bool {.borrow.}
+proc `<`*(x, y: ValidatorIndex) : bool {.borrow.}
 proc hash*(x: ValidatorIndex): Hash {.borrow.}
 proc `$`*(x: ValidatorIndex): auto = $(x.int64)
 
@@ -534,18 +517,33 @@ ethTimeUnit Epoch
 Json.useCustomSerialization(BeaconState.justification_bits):
   read:
     let s = reader.readValue(string)
-    if s.len != 4: raise newException(ValueError, "unexpected number of bytes")
-    s.parseHexInt.uint8
+
+    if s.len != 4:
+      raiseUnexpectedValue(reader, "A string with 4 characters expected")
+
+    try:
+      s.parseHexInt.uint8
+    except ValueError:
+      raiseUnexpectedValue(reader, "The `justification_bits` value must be a hex string")
 
   write:
     writer.writeValue "0x" & value.toHex
 
 Json.useCustomSerialization(BitSeq):
   read:
-    BitSeq reader.readValue(string).hexToSeqByte
+    try:
+      BitSeq reader.readValue(string).hexToSeqByte
+    except ValueError:
+      raiseUnexpectedValue(reader, "A BitSeq value should be a valid hex string")
 
   write:
-    writer.writeValue "0x" & Bytes(value).toHex
+    writer.writeValue "0x" & seq[byte](value).toHex
+
+template readValue*(reader: var JsonReader, value: var List) =
+  value = type(value)(readValue(reader, seq[type value[0]]))
+
+template writeValue*(writer: var JsonWriter, value: List) =
+  writeValue(writer, asSeq value)
 
 template readValue*(reader: var JsonReader, value: var BitList) =
   type T = type(value)
@@ -554,31 +552,25 @@ template readValue*(reader: var JsonReader, value: var BitList) =
 template writeValue*(writer: var JsonWriter, value: BitList) =
   writeValue(writer, BitSeq value)
 
-template init*(T: type BitList, len: int): auto = T init(BitSeq, len)
-template len*(x: BitList): auto = len(BitSeq(x))
-template bytes*(x: BitList): auto = bytes(BitSeq(x))
-template `[]`*(x: BitList, idx: auto): auto = BitSeq(x)[idx]
-template `[]=`*(x: var BitList, idx: auto, val: bool) = BitSeq(x)[idx] = val
-template `==`*(a, b: BitList): bool = BitSeq(a) == BitSeq(b)
-template setBit*(x: var BitList, idx: int) = setBit(BitSeq(x), idx)
-template clearBit*(x: var BitList, idx: int) = clearBit(BitSeq(x), idx)
-template overlaps*(a, b: BitList): bool = overlaps(BitSeq(a), BitSeq(b))
-template combine*(a: var BitList, b: BitList) = combine(BitSeq(a), BitSeq(b))
-template isSubsetOf*(a, b: BitList): bool = isSubsetOf(BitSeq(a), BitSeq(b))
-template `$`*(a: BitList): string = $(BitSeq(a))
-iterator items*(x: BitList): bool =
-  for i in 0 ..< x.len:
-    yield x[i]
+template newClone*[T: not ref](x: T): ref T =
+  # TODO not nil in return type: https://github.com/nim-lang/Nim/issues/14146
+  let res = new typeof(x) # TODO safe to do noinit here?
+  res[] = x
+  res
 
-when useListType:
-  template len*[T; N](x: List[T, N]): auto = len(seq[T](x))
-  template `[]`*[T; N](x: List[T, N], idx: auto): auto = seq[T](x)[idx]
-  template `[]=`*[T; N](x: List[T, N], idx: auto, val: bool) = seq[T](x)[idx] = val
-  template `==`*[T; N](a, b: List[T, N]): bool = seq[T](a) == seq[T](b)
-  template asSeq*[T; N](x: List[T, N]): auto = seq[T](x)
-  template `&`*[T; N](a, b: List[T, N]): List[T, N] = seq[T](a) & seq[T](b)
-else:
-  template asSeq*[T; N](x: List[T, N]): auto = x
+template newClone*[T](x: ref T not nil): ref T =
+  newClone(x[])
+
+func `$`*(v: ForkDigest | Version): string =
+  toHex(array[4, byte](v))
+
+# TODO where's borrow support when you need it
+func `==`*(a, b: ForkDigest | Version): bool =
+  array[4, byte](a) == array[4, byte](b)
+func len*(v: ForkDigest | Version): int = sizeof(v)
+func low*(v: ForkDigest | Version): int = 0
+func high*(v: ForkDigest | Version): int = len(v) - 1
+func `[]`*(v: ForkDigest | Version, idx: int): byte = array[4, byte](v)[idx]
 
 func shortLog*(s: Slot): uint64 =
   s - GENESIS_SLOT
@@ -597,6 +589,12 @@ func shortLog*(v: BeaconBlock): auto =
     attestations_len: v.body.attestations.len(),
     deposits_len: v.body.deposits.len(),
     voluntary_exits_len: v.body.voluntary_exits.len(),
+  )
+
+func shortLog*(v: SignedBeaconBlock): auto =
+  (
+    blck: shortLog(v.message),
+    signature: shortLog(v.signature)
   )
 
 func shortLog*(v: AttestationData): auto =

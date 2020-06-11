@@ -1,12 +1,12 @@
+# Required for deserialisation of ValidatorSig in Attestation due to
+# https://github.com/nim-lang/Nim/issues/11225
+
 import
   stew/ptrops, stew/ranges/ptr_arith,
-  ../beacon_chain/[ssz, state_transition],
-  ../beacon_chain/spec/[datatypes, digest, validator, beaconstate,
+  ../beacon_chain/[extras, state_transition],
+  ../beacon_chain/spec/[crypto, datatypes, digest, validator, beaconstate,
       state_transition_block],
-  # Required for deserialisation of ValidatorSig in Attestation due to
-# https://github.com/nim-lang/Nim/issues/11225
-  ../beacon_chain/spec/crypto,
-  ../beacon_chain/extras
+  ../beacon_chain/ssz/[merkleization, ssz_serialization]
 
 type
   AttestationInput = object
@@ -30,7 +30,7 @@ type
     exit: SignedVoluntaryExit
   # This and AssertionError are raised to indicate programming bugs
   # A wrapper to allow exception tracking to identify unexpected exceptions
-  FuzzCrashError = object of Exception
+  FuzzCrashError = object of CatchableError
 
 # TODO: change ptr uint to ptr csize_t when available in newer Nim version.
 proc copyState(state: BeaconState, output: ptr byte,
@@ -61,7 +61,7 @@ template decodeAndProcess(typ, process: untyped): bool =
 
   var
     cache {.used, inject.} = get_empty_per_epoch_cache()
-    data {.inject.} =
+    data {.inject.} = newClone(
       try:
         SSZ.decode(input, typ)
       except MalformedSszError as e:
@@ -72,6 +72,7 @@ template decodeAndProcess(typ, process: untyped): bool =
         raise newException(
           FuzzCrashError,
           "SSZ size mismatch, likely bug in preprocessing.", e)
+    )
   let processOk =
     try:
       process
@@ -105,8 +106,19 @@ proc nfuzz_attester_slashing(input: openArray[byte], output: ptr byte,
 
 proc nfuzz_block(input: openArray[byte], output: ptr byte,
     output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+  # There's not a perfect approach here, but it's not worth switching the rest
+  # and requiring HashedBeaconState (yet). So to keep consistent, puts wrapper
+  # only in one function.
+  proc state_transition(
+      data: auto, blck: auto, flags: auto, rollback: RollbackHashedProc):
+      auto =
+    var hashedState =
+      HashedBeaconState(data: data.state, root: hash_tree_root(data.state))
+    result = state_transition(hashedState, blck, flags, rollback)
+    data.state = hashedState.data
+
   decodeAndProcess(BlockInput):
-    state_transition(data.state, data.beaconBlock, flags)
+    state_transition(data, data.beaconBlock, flags, noRollback)
 
 proc nfuzz_block_header(input: openArray[byte], output: ptr byte,
     output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =

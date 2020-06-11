@@ -18,6 +18,8 @@ type
     data: int
     cmp: proc(a, b: PeerIndex): bool {.closure, gcsafe.}
 
+  PeerScoreCheckCallback*[T] = proc(peer: T): bool {.gcsafe, raises: [Defect].}
+
   PeerPool*[A, B] = ref object
     incNotEmptyEvent: AsyncEvent
     outNotEmptyEvent: AsyncEvent
@@ -28,6 +30,7 @@ type
     registry: Table[B, PeerIndex]
     storage: seq[PeerItem[A]]
     cmp: proc(a, b: PeerIndex): bool {.closure, gcsafe.}
+    scoreCheck: PeerScoreCheckCallback[A]
     maxPeersCount: int
     maxIncPeersCount: int
     maxOutPeersCount: int
@@ -125,9 +128,9 @@ template getItem[A, B](pool: PeerPool[A, B],
       pindex = pool.incQueue.pop().data
   addr(pool.storage[pindex])
 
-proc newPeerPool*[A, B](maxPeers = -1,
-                        maxIncomingPeers = -1,
-                        maxOutgoingPeers = -1): PeerPool[A, B] =
+proc newPeerPool*[A, B](maxPeers = -1, maxIncomingPeers = -1,
+                        maxOutgoingPeers = -1,
+                scoreCheckCb: PeerScoreCheckCallback[A] = nil): PeerPool[A, B] =
   ## Create new PeerPool.
   ##
   ## ``maxPeers`` - maximum number of peers allowed. All the peers which
@@ -141,6 +144,10 @@ proc newPeerPool*[A, B](maxPeers = -1,
   ## ``maxOutgoingPeers`` - maximum number of outgoing peers allowed. All the
   ## outgoing peers exceeds this number will be rejected. By default this
   ## number if infinite.
+  ##
+  ## ``scoreCheckCb`` - callback which will be called for all released peers.
+  ## If callback procedure returns ``false`` peer will be removed from
+  ## PeerPool.
   ##
   ## Please note, that if ``maxPeers`` is positive non-zero value, then equation
   ## ``maxPeers >= maxIncomingPeers + maxOutgoingPeers`` must be ``true``.
@@ -161,6 +168,7 @@ proc newPeerPool*[A, B](maxPeers = -1,
   res.incQueue = initHeapQueue[PeerIndex]()
   res.outQueue = initHeapQueue[PeerIndex]()
   res.registry = initTable[B, PeerIndex]()
+  res.scoreCheck = scoreCheckCb
   res.storage = newSeq[PeerItem[A]]()
 
   proc peerCmp(a, b: PeerIndex): bool {.closure, gcsafe.} =
@@ -195,6 +203,16 @@ proc lenAcquired*[A, B](pool: PeerPool[A, B],
     result = result + pool.acqIncPeersCount
   if PeerType.Outgoing in filter:
     result = result + pool.acqOutPeersCount
+
+proc checkPeerScore*[A, B](pool: PeerPool[A, B], peer: A): bool {.inline.} =
+  ## Returns ``true`` if peer passing score check.
+  if not(isNil(pool.scoreCheck)):
+    if pool.scoreCheck(peer):
+      result = true
+    else:
+      result = false
+  else:
+    result = true
 
 proc deletePeer*[A, B](pool: PeerPool[A, B], peer: A, force = false): bool =
   ## Remove ``peer`` from PeerPool ``pool``.
@@ -274,6 +292,9 @@ proc addPeerNoWait*[A, B](pool: PeerPool[A, B],
   ## Procedure returns ``true`` on success.
   mixin getKey, getFuture
 
+  if not(pool.checkPeerScore(peer)):
+    return false
+
   result = false
   let peerKey = getKey(peer)
 
@@ -308,6 +329,9 @@ proc addPeer*[A, B](pool: PeerPool[A, B],
   ## Procedure returns ``true`` on success.
   mixin getKey, getFuture
 
+  if not(pool.checkPeerScore(peer)):
+    return false
+
   var res = false
   let peerKey = getKey(peer)
 
@@ -317,7 +341,6 @@ proc addPeer*[A, B](pool: PeerPool[A, B],
     if peerType == PeerType.Incoming:
       if pool.curIncPeersCount >= pool.maxIncPeersCount:
         await pool.waitNotFullEvent(peerType)
-
       let pindex = pool.addPeerImpl(peer, peerKey, peerType)
       inc(pool.curIncPeersCount)
       pool.incQueue.push(pindex)
@@ -408,6 +431,8 @@ proc release*[A, B](pool: PeerPool[A, B], peer: A) =
     let pindex = titem.data
     var item = addr(pool.storage[pindex])
     if PeerFlags.Acquired in item[].flags:
+      if not(pool.checkPeerScore(peer)):
+        item[].flags.incl(DeleteOnRelease)
       item[].flags.excl(PeerFlags.Acquired)
       if PeerFlags.DeleteOnRelease in item[].flags:
         if item[].peerType == PeerType.Incoming:
@@ -607,3 +632,8 @@ proc clearSafe*[A, B](pool: PeerPool[A, B]) {.async.} =
     for item in peers:
       acquired.add(item)
   pool.clear()
+
+proc setScoreCheck*[A, B](pool: PeerPool[A, B],
+                          scoreCheckCb: PeerScoreCheckCallback[A]) =
+  ## Add ScoreCheck callback.
+  pool.scoreCheck = scoreCheckCb

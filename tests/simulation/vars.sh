@@ -30,15 +30,19 @@ METRICS_DIR="${SIM_ROOT}/prometheus"
 VALIDATORS_DIR="${SIM_ROOT}/validators"
 SNAPSHOT_FILE="${SIMULATION_DIR}/state_snapshot.ssz"
 NETWORK_BOOTSTRAP_FILE="${SIMULATION_DIR}/bootstrap_nodes.txt"
-BEACON_NODE_BIN="${SIMULATION_DIR}/beacon_node"
-DEPLOY_DEPOSIT_CONTRACT_BIN="${SIMULATION_DIR}/deploy_deposit_contract"
+BEACON_NODE_BIN="${GIT_ROOT}/build/beacon_node"
+VALIDATOR_CLIENT_BIN="${GIT_ROOT}/build/validator_client"
+DEPLOY_DEPOSIT_CONTRACT_BIN="${GIT_ROOT}/build/deposit_contract"
 MASTER_NODE_ADDRESS_FILE="${SIMULATION_DIR}/node-${MASTER_NODE}/beacon_node.address"
 
 BASE_P2P_PORT=30000
 BASE_RPC_PORT=7000
 BASE_METRICS_PORT=8008
-# Set DEPOSIT_WEB3_URL_ARG to empty to get genesis state from file, not using web3
-# DEPOSIT_WEB3_URL_ARG=--web3-url=ws://localhost:8545
-DEPOSIT_WEB3_URL_ARG=""
-DEPOSIT_CONTRACT_ADDRESS="0x"
+
+if [[ "$USE_GANACHE" == "yes" ]]; then
+  WEB3_ARG=--web3-url=ws://localhost:8545
+else
+  WEB3_ARG=""
+  DEPOSIT_CONTRACT_ADDRESS="0x"
+fi
 

@@ -7,7 +7,7 @@
 
 # Serenity hash function / digest
 #
-# https://github.com/ethereum/eth2.0-specs/blob/v0.10.1/specs/phase0/beacon-chain.md#hash
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#hash
 #
 # In Phase 0 the beacon chain is deployed with SHA256 (SHA2-256).
 # Note that is is different from Keccak256 (often mistakenly called SHA3-256)
@@ -19,24 +19,27 @@
 # (already did Blake2b --> Keccak256 --> SHA2-256),
 # we call this function `eth2hash`, and it outputs a `Eth2Digest`. Easy to sed :)
 
+{.push raises: [Defect].}
+
 import
-  chronicles, json_serialization,
-  nimcrypto/[sha2, hash, utils],
-  hashes
+  chronicles,
+  nimcrypto/[sha2, hash],
+  stew/byteutils,
+  hashes,
+  eth/common/eth_types_json_serialization
 
 export
-  hash.`$`, json_serialization
+  hash.`$`, sha2, readValue, writeValue
 
 type
   Eth2Digest* = MDigest[32 * 8] ## `hash32` from spec
   Eth2Hash* = sha256            ## Context for hash function
 
-chronicles.formatIt Eth2Digest:
-  mixin toHex
-  it.data[0..3].toHex(true)
-
 func shortLog*(x: Eth2Digest): string =
-  x.data[0..3].toHex(true)
+  x.data[0..3].toHex()
+
+chronicles.formatIt Eth2Digest:
+  shortLog(it)
 
 # TODO: expose an in-place digest function
 #       when hashing in loop or into a buffer
@@ -70,9 +73,3 @@ func hash*(x: Eth2Digest): Hash =
   # We just slice the first 4 or 8 bytes of the block hash
   # depending of if we are on a 32 or 64-bit platform
   result = cast[ptr Hash](unsafeAddr x)[]
-
-proc writeValue*(writer: var JsonWriter, value: Eth2Digest) =
-  writeValue(writer, value.data.toHex(true))
-
-proc readValue*(reader: var JsonReader, value: var Eth2Digest) =
-  value = Eth2Digest.fromHex(reader.readValue(string))

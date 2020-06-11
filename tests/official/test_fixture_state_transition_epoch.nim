@@ -38,19 +38,16 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, us
 
         let unitTestName = testDir.rsplit(DirSep, 1)[1]
         timedTest testName & " - " & unitTestName & preset():
-          var stateRef, postRef: ref BeaconState
-          new stateRef
-          new postRef
-          stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
-          postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
+          var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
+          let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
 
           when useCache:
             var cache = get_empty_per_epoch_cache()
-            transitionProc(stateRef[], cache)
+            transitionProc(preState[], cache)
           else:
-            transitionProc(stateRef[])
+            transitionProc(preState[])
 
-          reportDiff(stateRef, postRef)
+          reportDiff(preState, postState)
 
   `suiteImpl _ transitionProc`()
 
@@ -69,13 +66,13 @@ runSuite(JustificationFinalizationDir, "Justification & Finalization",  process_
 # ---------------------------------------------------------------
 
 const RegistryUpdatesDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"/"registry_updates"/"pyspec_tests"
-runSuite(RegistryUpdatesDir, "Registry updates",  process_registry_updates, useCache = false)
+runSuite(RegistryUpdatesDir, "Registry updates",  process_registry_updates, useCache = true)
 
 # Slashings
 # ---------------------------------------------------------------
 
 const SlashingsDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"/"slashings"/"pyspec_tests"
-runSuite(SlashingsDir, "Slashings",  process_slashings, useCache = false)
+runSuite(SlashingsDir, "Slashings",  process_slashings, useCache = true)
 
 # Final updates
 # ---------------------------------------------------------------

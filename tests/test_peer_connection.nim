@@ -1,5 +1,6 @@
 import
   unittest, os,
+  stew/shims/net,
   chronos, confutils,
   ../beacon_chain/[conf, eth2_network]
 
@@ -17,9 +18,9 @@ asyncTest "connect two nodes":
   c1.nat = "none"
 
   var n1PersistentAddress = c1.getPersistenBootstrapAddr(
-    parseIpAddress("127.0.0.1"), Port c1.tcpPort)
+    ValidIpAddress.init("127.0.0.1"), Port c1.tcpPort)
 
-  var n1 = await createEth2Node(c1)
+  var n1 = await createEth2Node(c1, ENRForkID())
 
   echo "Node 1 persistent address: ", n1PersistentAddress
 
@@ -33,7 +34,7 @@ asyncTest "connect two nodes":
   c2.dataDir = OutDir(tempDir / "node-2")
   c2.tcpPort = 50001
   c2.nat = "none"
-  var n2 = await createEth2Node(c2)
+  var n2 = await createEth2Node(c2, ENRForkID())
 
   await n2.connectToNetwork(@[n1PersistentAddress])
 

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,7 +7,7 @@
 
 
 # process_deposit (beaconstate.nim)
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#deposits
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#deposits
 # ---------------------------------------------------------------
 
 {.used.}
@@ -26,21 +26,20 @@ import
 suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
 
   const NumValidators = uint64 5 * SLOTS_PER_EPOCH
-  let genesisState = initGenesisState(NumValidators)
-  doAssert genesisState.validators.len == int NumValidators
+  let genesisState = newClone(initGenesisState(NumValidators))
+  doAssert genesisState.data.validators.len == int NumValidators
 
   template valid_deposit(deposit_amount: uint64, name: string): untyped =
     # TODO: BLS signature
     timedTest "Deposit " & name & " MAX_EFFECTIVE_BALANCE balance (" &
           $(MAX_EFFECTIVE_BALANCE div 10'u64^9) & " ETH)":
-      var state: BeaconState
-      deepCopy(state, genesisState)
+      var state = newClone(genesisState[])
 
       # Test configuration
       # ----------------------------------------
-      let validator_index = state.validators.len
+      let validator_index = state.data.validators.len
       let deposit = mockUpdateStateForNewDeposit(
-                      state,
+                      state.data,
                       uint64 validator_index,
                       deposit_amount,
                       flags = {skipBlsValidation}
@@ -48,26 +47,25 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
 
       # Params for sanity checks
       # ----------------------------------------
-      let pre_val_count = state.validators.len
+      let pre_val_count = state.data.validators.len
       let pre_balance = if validator_index < pre_val_count:
-                          state.balances[validator_index]
+                          state.data.balances[validator_index]
                         else:
                           0
 
       # State transition
       # ----------------------------------------
-      check: state.process_deposit(deposit,
-        {skipBlsValidation, skipMerkleValidation})
+      check: process_deposit(state.data, deposit, {skipBlsValidation})
 
       # Check invariants
       # ----------------------------------------
       check:
-        state.validators.len == pre_val_count + 1
-        state.balances.len == pre_val_count + 1
-        state.balances[validator_index] == pre_balance + deposit.data.amount
-        state.validators[validator_index].effective_balance ==
+        state.data.validators.len == pre_val_count + 1
+        state.data.balances.len == pre_val_count + 1
+        state.data.balances[validator_index] == pre_balance + deposit.data.amount
+        state.data.validators[validator_index].effective_balance ==
           round_multiple_down(
-            min(MAX_EFFECTIVE_BALANCE, state.balances[validator_index]),
+            min(MAX_EFFECTIVE_BALANCE, state.data.balances[validator_index]),
             EFFECTIVE_BALANCE_INCREMENT
           )
 
@@ -76,16 +74,14 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
   valid_deposit(MAX_EFFECTIVE_BALANCE + 1, "over")
 
   timedTest "Validator top-up":
-
-    var state: BeaconState
-    deepCopy(state, genesisState)
+    var state = newClone(genesisState)
 
     # Test configuration
     # ----------------------------------------
     let validator_index = 0
     let deposit_amount = MAX_EFFECTIVE_BALANCE div 4
     let deposit = mockUpdateStateForNewDeposit(
-                    state,
+                    state.data,
                     uint64 validator_index,
                     deposit_amount,
                     flags = {skipBlsValidation}
@@ -93,26 +89,25 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
 
     # Params for sanity checks
     # ----------------------------------------
-    let pre_val_count = state.validators.len
+    let pre_val_count = state.data.validators.len
     let pre_balance = if validator_index < pre_val_count:
-                        state.balances[validator_index]
+                        state.data.balances[validator_index]
                       else:
                         0
 
     # State transition
     # ----------------------------------------
-    check: state.process_deposit(deposit,
-      {skipBlsValidation, skipMerkleValidation})
+    check: process_deposit(state.data, deposit, {skipBlsValidation})
 
     # Check invariants
     # ----------------------------------------
     check:
-      state.validators.len == pre_val_count
-      state.balances.len == pre_val_count
-      state.balances[validator_index] == pre_balance + deposit.data.amount
-      state.validators[validator_index].effective_balance ==
+      state.data.validators.len == pre_val_count
+      state.data.balances.len == pre_val_count
+      state.data.balances[validator_index] == pre_balance + deposit.data.amount
+      state.data.validators[validator_index].effective_balance ==
         round_multiple_down(
-          min(MAX_EFFECTIVE_BALANCE, state.balances[validator_index]),
+          min(MAX_EFFECTIVE_BALANCE, state.data.balances[validator_index]),
           EFFECTIVE_BALANCE_INCREMENT
         )
 

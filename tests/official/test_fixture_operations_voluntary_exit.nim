@@ -12,7 +12,7 @@ import
   os, unittest,
   # Beacon chain internals
   ../../beacon_chain/spec/[datatypes, state_transition_block],
-  ../../beacon_chain/[ssz, extras],
+  ../../beacon_chain/ssz,
   # Test utilities
   ../testutil,
   ./fixtures_utils,
@@ -30,36 +30,25 @@ proc runTest(identifier: string) =
 
   proc `testImpl _ voluntary_exit _ identifier`() =
 
-    var flags: UpdateFlags
     var prefix: string
-    if not existsFile(testDir/"meta.yaml"):
-      flags.incl skipBlsValidation
     if existsFile(testDir/"post.ssz"):
       prefix = "[Valid]   "
     else:
       prefix = "[Invalid] "
 
     timedTest prefix & identifier:
-      var stateRef, postRef: ref BeaconState
-      var voluntaryExit: ref SignedVoluntaryExit
-      new voluntaryExit
-      new stateRef
-
-      voluntaryExit[] = parseTest(testDir/"voluntary_exit.ssz", SSZ, SignedVoluntaryExit)
-      stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
+      let voluntaryExit = parseTest(testDir/"voluntary_exit.ssz", SSZ, SignedVoluntaryExit)
+      var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
 
       if existsFile(testDir/"post.ssz"):
-        new postRef
-        postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
-
-      if postRef.isNil:
-        let done = process_voluntary_exit(stateRef[], voluntaryExit[], flags)
-        doAssert done == false, "We didn't expect this invalid voluntary exit to be processed."
-      else:
-        let done = process_voluntary_exit(stateRef[], voluntaryExit[], flags)
+        let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
+        let done = process_voluntary_exit(preState[], voluntaryExit, {})
         doAssert done, "Valid voluntary exit not processed"
-        check: stateRef.hash_tree_root() == postRef.hash_tree_root()
-        reportDiff(stateRef, postRef)
+        check: preState[].hash_tree_root() == postState[].hash_tree_root()
+        reportDiff(preState, postState)
+      else:
+        let done = process_voluntary_exit(preState[], voluntaryExit, {})
+        doAssert done == false, "We didn't expect this invalid voluntary exit to be processed."
 
   `testImpl _ voluntary_exit _ identifier`()
 

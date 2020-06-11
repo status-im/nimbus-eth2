@@ -12,7 +12,7 @@ import
   os, unittest,
   # Beacon chain internals
   ../../beacon_chain/spec/[datatypes, state_transition_block, validator],
-  ../../beacon_chain/[extras, ssz],
+  ../../beacon_chain/ssz,
   # Test utilities
   ../testutil,
   ./fixtures_utils,
@@ -30,59 +30,32 @@ proc runTest(identifier: string) =
 
   proc `testImpl _ operations_attester_slashing _ identifier`() =
 
-    var flags: UpdateFlags
     var prefix: string
-    if not existsFile(testDir/"meta.yaml"):
-      flags.incl skipBlsValidation
     if existsFile(testDir/"post.ssz"):
       prefix = "[Valid]   "
     else:
       prefix = "[Invalid] "
 
     timedTest prefix & identifier:
-      var stateRef, postRef: ref BeaconState
-      var attesterSlashingRef: ref AttesterSlashing
-      new attesterSlashingRef
-      new stateRef
-
       var cache = get_empty_per_epoch_cache()
 
-      attesterSlashingRef[] = parseTest(testDir/"attester_slashing.ssz", SSZ, AttesterSlashing)
-      stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
+      let attesterSlashing = parseTest(testDir/"attester_slashing.ssz", SSZ, AttesterSlashing)
+      var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
 
       if existsFile(testDir/"post.ssz"):
-        new postRef
-        postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
-
-      if postRef.isNil:
-        let done = process_attester_slashing(stateRef[], attesterSlashingRef[],
-          flags, cache)
-        doAssert done == false, "We didn't expect this invalid attester slashing to be processed."
-      else:
-        let done = process_attester_slashing(stateRef[], attesterSlashingRef[],
-          flags, cache)
+        let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
+        let done = process_attester_slashing(preState[], attesterSlashing,
+                                             {}, cache)
         doAssert done, "Valid attestater slashing not processed"
-        check: stateRef.hash_tree_root() == postRef.hash_tree_root()
-        reportDiff(stateRef, postRef)
+        check: preState[].hash_tree_root() == postState[].hash_tree_root()
+        reportDiff(preState, postState)
+      else:
+        let done = process_attester_slashing(preState[], attesterSlashing,
+                                             {}, cache)
+        doAssert done == false, "We didn't expect this invalid attester slashing to be processed."
 
   `testImpl _ operations_attester_slashing _ identifier`()
 
 suiteReport "Official - Operations - Attester slashing " & preset():
-  # TODO these are both valid and check BLS signatures, which isn't working
-  # since 0.10.x introduces new BLS signing/verifying interface with domain
-  # in particular handled differently through compute_signing_root() rather
-  # than through the bls_verify(...) call directly. This did not become the
-  # visible issue it now is because another bug had been masking it wherein
-  # crypto.nim's bls_verify(...) call had been creating false positives, in
-  # which cases signature checks had been incorrectly passing.
-  const expected_failures =
-    [
-      "success_already_exited_recent", "success_already_exited_long_ago",
-      # TODO: Regressions introduced by BLS v0.10.1
-      "att1_duplicate_index_double_signed", "att2_duplicate_index_double_signed"
-    ]
   for kind, path in walkDir(OpAttSlashingDir, true):
-    if path in expected_failures:
-      echo "Skipping test: ", path
-      continue
     runTest(path)

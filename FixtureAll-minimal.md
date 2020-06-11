@@ -45,6 +45,7 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + [Invalid] after_epoch_slots                                                                OK
 + [Invalid] bad_source_root                                                                  OK
 + [Invalid] before_inclusion_delay                                                           OK
++ [Invalid] empty_aggregation_bits                                                           OK
 + [Invalid] future_target_epoch                                                              OK
 + [Invalid] invalid_attestation_signature                                                    OK
 + [Invalid] invalid_current_source_root                                                      OK
@@ -58,7 +59,6 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + [Invalid] too_many_aggregation_bits                                                        OK
 + [Invalid] wrong_index_for_committee_signature                                              OK
 + [Invalid] wrong_index_for_slot                                                             OK
-+ [Valid]   empty_aggregation_bits                                                           OK
 + [Valid]   success                                                                          OK
 + [Valid]   success_multi_proposer_index_iterations                                          OK
 + [Valid]   success_previous_epoch                                                           OK
@@ -68,9 +68,11 @@ OK: 20/20 Fail: 0/20 Skip: 0/20
 ```diff
 + [Invalid] att1_bad_extra_index                                                             OK
 + [Invalid] att1_bad_replaced_index                                                          OK
++ [Invalid] att1_duplicate_index_double_signed                                               OK
 + [Invalid] att1_duplicate_index_normal_signed                                               OK
 + [Invalid] att2_bad_extra_index                                                             OK
 + [Invalid] att2_bad_replaced_index                                                          OK
++ [Invalid] att2_duplicate_index_double_signed                                               OK
 + [Invalid] att2_duplicate_index_normal_signed                                               OK
 + [Invalid] invalid_sig_1                                                                    OK
 + [Invalid] invalid_sig_1_and_2                                                              OK
@@ -80,19 +82,22 @@ OK: 20/20 Fail: 0/20 Skip: 0/20
 + [Invalid] same_data                                                                        OK
 + [Invalid] unsorted_att_1                                                                   OK
 + [Invalid] unsorted_att_2                                                                   OK
++ [Valid]   success_already_exited_long_ago                                                  OK
++ [Valid]   success_already_exited_recent                                                    OK
 + [Valid]   success_double                                                                   OK
 + [Valid]   success_surround                                                                 OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
+OK: 20/20 Fail: 0/20 Skip: 0/20
 ## Official - Operations - Block header  [Preset: minimal]
 ```diff
++ [Invalid] invalid_multiple_blocks_single_slot                                              OK
 + [Invalid] invalid_parent_root                                                              OK
 + [Invalid] invalid_proposer_index                                                           OK
 + [Invalid] invalid_slot_block_header                                                        OK
 + [Invalid] proposer_slashed                                                                 OK
 + [Valid]   success_block_header                                                             OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## Official - Operations - Deposits  [Preset: minimal]
 ```diff
 + [Invalid]  bad_merkle_proof                                                                OK
@@ -105,8 +110,9 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + [Valid]    new_deposit_over_max                                                            OK
 + [Valid]    new_deposit_under_max                                                           OK
 + [Valid]    success_top_up                                                                  OK
++ [Valid]    valid_sig_but_forked_state                                                      OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
+OK: 11/11 Fail: 0/11 Skip: 0/11
 ## Official - Operations - Proposer slashing  [Preset: minimal]
 ```diff
 + [Invalid] identifier                                                                       OK
@@ -128,13 +134,18 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 ## Official - Sanity - Blocks  [Preset: minimal]
 ```diff
++ [Invalid] expected_deposit_in_block                                                        OK
 + [Invalid] invalid_block_sig                                                                OK
 + [Invalid] invalid_proposer_index_sig_from_expected_proposer                                OK
 + [Invalid] invalid_proposer_index_sig_from_proposer_index                                   OK
 + [Invalid] invalid_state_root                                                               OK
++ [Invalid] parent_from_same_slot                                                            OK
 + [Invalid] prev_slot_block_transition                                                       OK
++ [Invalid] proposal_for_genesis_slot                                                        OK
++ [Invalid] same_slot_block_transition                                                       OK
 + [Invalid] zero_block_sig                                                                   OK
 + [Valid]   attestation                                                                      OK
++ [Valid]   attester_slashing                                                                OK
 + [Valid]   balance_driven_status_transitions                                                OK
 + [Valid]   deposit_in_block                                                                 OK
 + [Valid]   deposit_top_up                                                                   OK
@@ -147,11 +158,10 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 + [Valid]   historical_batch                                                                 OK
 + [Valid]   proposer_after_inactive_index                                                    OK
 + [Valid]   proposer_slashing                                                                OK
-+ [Valid]   same_slot_block_transition                                                       OK
 + [Valid]   skipped_slots                                                                    OK
 + [Valid]   voluntary_exit                                                                   OK
 ```
-OK: 22/22 Fail: 0/22 Skip: 0/22
+OK: 26/26 Fail: 0/26 Skip: 0/26
 ## Official - Sanity - Slots  [Preset: minimal]
 ```diff
 + Slots - double_empty_epoch                                                                 OK
@@ -163,4 +173,4 @@ OK: 22/22 Fail: 0/22 Skip: 0/22
 OK: 5/5 Fail: 0/5 Skip: 0/5
 
 ---TOTAL---
-OK: 113/113 Fail: 0/113 Skip: 0/113
+OK: 123/123 Fail: 0/123 Skip: 0/123

@@ -1,6 +1,10 @@
-const
-  copyrights* = "Copyright (c) 2019 Status Research & Development GmbH"
+{.push raises: [Defect].}
 
+when not defined(nimscript):
+  import times
+  let copyrights* = "Copyright (c) 2019-" & $(now().utc.year) & " Status Research & Development GmbH"
+
+const
   versionMajor* = 0
   versionMinor* = 3
   versionBuild* = 0
@@ -14,9 +18,10 @@ const
 
   gitRevision* = staticExec("git rev-parse --short HEAD")
 
+  nimBanner* = staticExec("nim --version")
+
   versionAsStr* =
     $versionMajor & "." & $versionMinor & "." & $versionBuild
 
   fullVersionStr* =
     versionAsStr & " (" & gitRevision & ")"
-

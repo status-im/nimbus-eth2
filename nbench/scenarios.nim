@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,12 +7,15 @@
 
 import
   # Standard library
-  os,
+  os, tables,
   # Status libraries
   confutils/defs, serialization,
   # Beacon-chain
-  ../beacon_chain/spec/[datatypes, crypto, beaconstate, validator, state_transition_block, state_transition_epoch],
-  ../beacon_chain/[ssz, state_transition, extras]
+  ../beacon_chain/spec/[
+      datatypes, crypto, helpers, beaconstate, validator,
+      state_transition_block, state_transition_epoch],
+  ../beacon_chain/[state_transition, extras],
+  ../beacon_chain/ssz/[merkleization, ssz_serialization]
 
 # Nimbus Bench - Scenario configuration
 # --------------------------------------------------
@@ -125,7 +128,10 @@ type
 
 proc parseSSZ(path: string, T: typedesc): T =
   try:
-    result = SSZ.loadFile(path, T)
+    when T is ref:
+      result = newClone(SSZ.loadFile(path, typeof(default(T)[])))
+    else:
+      result = SSZ.loadFile(path, T)
   except SerializationError as err:
     writeStackTrace()
     stderr.write "SSZ load issue for file \"", path, "\"\n"
@@ -139,10 +145,11 @@ proc parseSSZ(path: string, T: typedesc): T =
 proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, skipBLS: bool) =
   let prePath = dir / preState & ".ssz"
 
-  var state: ref BeaconState
-  new state
   echo "Running: ", prePath
-  state[] = parseSSZ(prePath, BeaconState)
+  let state = (ref HashedBeaconState)(
+    data: parseSSZ(prePath, BeaconState)
+  )
+  state.root = hash_tree_root(state.data)
 
   for i in 0 ..< blocksQty:
     let blockPath = dir / blocksPrefix & $i & ".ssz"
@@ -151,18 +158,21 @@ proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, ski
     let signedBlock = parseSSZ(blockPath, SignedBeaconBlock)
     let flags = if skipBLS: {skipBlsValidation}
                 else: {}
-    let success = state_transition(state[], signedBlock.message, flags)
+    let success = state_transition(
+      state[], signedBlock, flags, noRollback)
     echo "State transition status: ", if success: "SUCCESS ✓" else: "FAILURE ⚠️"
 
 proc runProcessSlots*(dir, preState: string, numSlots: uint64) =
   let prePath = dir / preState & ".ssz"
 
-  var state: ref BeaconState
-  new state
   echo "Running: ", prePath
-  state[] = parseSSZ(prePath, BeaconState)
+  let state = (ref HashedBeaconState)(
+    data: parseSSZ(prePath, BeaconState)
+  )
+  state.root = hash_tree_root(state.data)
 
-  process_slots(state[], state.slot + numSlots)
+  # Shouldn't necessarily assert, because nbench can run test suite
+  discard process_slots(state[], state.data.slot + numSlots)
 
 template processEpochScenarioImpl(
            dir, preState: string,
@@ -170,19 +180,23 @@ template processEpochScenarioImpl(
            needCache: static bool): untyped =
   let prePath = dir/preState & ".ssz"
 
-  var state: ref BeaconState
-  new state
   echo "Running: ", prePath
-  state[] = parseSSZ(prePath, BeaconState)
+  let state = (ref HashedBeaconState)(
+    data: parseSSZ(prePath, BeaconState)
+  )
+  state.root = hash_tree_root(state.data)
 
   when needCache:
     var cache = get_empty_per_epoch_cache()
+    let epoch = state.data.slot.compute_epoch_at_slot
+    cache.shuffled_active_validator_indices[epoch] =
+      get_shuffled_active_validator_indices(state.data, epoch)
 
   # Epoch transitions can't fail (TODO is this true?)
   when needCache:
-    transitionFn(state[], cache)
+    transitionFn(state.data, cache)
   else:
-    transitionFn(state[])
+    transitionFn(state.data)
 
   echo astToStr(transitionFn) & " status: ", "Done" # if success: "SUCCESS ✓" else: "FAILURE ⚠️"
 
@@ -193,17 +207,16 @@ template genProcessEpochScenario(name, transitionFn: untyped, needCache: static 
 template processBlockScenarioImpl(
            dir, preState: string, skipBLS: bool,
            transitionFn, paramName: untyped,
-           ConsensusObject: typedesc,
+           ConsensusObjectRefType: typedesc,
            needFlags, needCache: static bool): untyped =
   let prePath = dir/preState & ".ssz"
 
-  var state: ref BeaconState
-  new state
   echo "Running: ", prePath
-  state[] = parseSSZ(prePath, BeaconState)
+  let state = (ref HashedBeaconState)(
+    data: parseSSZ(prePath, BeaconState)
+  )
+  state.root = hash_tree_root(state.data)
 
-  var consObj: ref `ConsensusObject`
-  new consObj
   when needCache:
     var cache = get_empty_per_epoch_cache()
   when needFlags:
@@ -212,36 +225,86 @@ template processBlockScenarioImpl(
 
   let consObjPath = dir/paramName & ".ssz"
   echo "Processing: ", consObjPath
-  consObj[] = parseSSZ(consObjPath, ConsensusObject)
+  var consObj = parseSSZ(consObjPath, ConsensusObjectRefType)
 
   when needFlags and needCache:
-    let success = transitionFn(state[], consObj[], flags, cache)
+    let success = transitionFn(state.data, consObj[], flags, cache)
   elif needFlags:
-    let success = transitionFn(state[], consObj[], flags)
+    let success = transitionFn(state.data, consObj[], flags)
   elif needCache:
-    let success = transitionFn(state[], consObj[], flags, cache)
+    let success = transitionFn(state, consObj[], flags, cache)
   else:
-    let success = transitionFn(state[], consObj[])
+    let success = transitionFn(state, consObj[])
 
   echo astToStr(transitionFn) & " status: ", if success: "SUCCESS ✓" else: "FAILURE ⚠️"
 
-template genProcessBlockScenario(name, transitionFn, paramName: untyped, ConsensusObject: typedesc, needFlags, needCache: static bool): untyped =
+template genProcessBlockScenario(name, transitionFn,
+                                 paramName: untyped,
+                                 ConsensusObjectType: typedesc,
+                                 needFlags,
+                                 needCache: static bool): untyped =
   when needFlags:
     proc `name`*(dir, preState, `paramName`: string, skipBLS: bool) =
-      processBlockScenarioImpl(dir, preState, skipBLS, transitionFn, paramName, ConsensusObject, needFlags, needCache)
+      processBlockScenarioImpl(dir, preState, skipBLS, transitionFn, paramName, ref ConsensusObjectType, needFlags, needCache)
   else:
     proc `name`*(dir, preState, `paramName`: string) =
       # skipBLS is a dummy to avoid undeclared identifier
-      processBlockScenarioImpl(dir, preState, skipBLS = false, transitionFn, paramName, ConsensusObject, needFlags, needCache)
+      processBlockScenarioImpl(dir, preState, skipBLS = false, transitionFn, paramName, ref ConsensusObjectType, needFlags, needCache)
 
-genProcessEpochScenario(runProcessJustificationFinalization, process_justification_and_finalization, needCache = true)
-genProcessEpochScenario(runProcessRegistryUpdates, process_registry_updates, needCache = false)
-genProcessEpochScenario(runProcessSlashings, process_slashings, needCache = false)
-genProcessEpochScenario(runProcessFinalUpdates, process_final_updates, needCache = false)
+genProcessEpochScenario(runProcessJustificationFinalization,
+                        process_justification_and_finalization,
+                        needCache = true)
 
-genProcessBlockScenario(runProcessBlockHeader, process_block_header, block_header, BeaconBlock, needFlags = true, needCache = true)
-genProcessBlockScenario(runProcessProposerSlashing, process_proposer_slashing, proposer_slashing, ProposerSlashing, needFlags = true, needCache = true)
-genProcessBlockScenario(runProcessAttestation, process_attestation, attestation, Attestation, needFlags = true, needCache = true)
-genProcessBlockScenario(runProcessAttesterSlashing, process_attester_slashing, att_slash, AttesterSlashing, needFlags = true, needCache = true)
-genProcessBlockScenario(runProcessDeposit, process_deposit, deposit, Deposit, needFlags = true, needCache = false)
-genProcessBlockScenario(runProcessVoluntaryExits, process_voluntary_exit, deposit, SignedVoluntaryExit, needFlags = true, needCache = false)
+genProcessEpochScenario(runProcessRegistryUpdates,
+                        process_registry_updates,
+                        needCache = true)
+
+genProcessEpochScenario(runProcessSlashings,
+                        process_slashings,
+                        needCache = true)
+
+genProcessEpochScenario(runProcessFinalUpdates,
+                        process_final_updates,
+                        needCache = false)
+
+genProcessBlockScenario(runProcessBlockHeader,
+                        process_block_header,
+                        block_header,
+                        BeaconBlock,
+                        needFlags = true,
+                        needCache = true)
+
+genProcessBlockScenario(runProcessProposerSlashing,
+                        process_proposer_slashing,
+                        proposer_slashing,
+                        ProposerSlashing,
+                        needFlags = true,
+                        needCache = true)
+
+genProcessBlockScenario(runProcessAttestation,
+                        process_attestation,
+                        attestation,
+                        Attestation,
+                        needFlags = true,
+                        needCache = true)
+
+genProcessBlockScenario(runProcessAttesterSlashing,
+                        process_attester_slashing,
+                        att_slash,
+                        AttesterSlashing,
+                        needFlags = true,
+                        needCache = true)
+
+genProcessBlockScenario(runProcessDeposit,
+                        process_deposit,
+                        deposit,
+                        Deposit,
+                        needFlags = true,
+                        needCache = false)
+
+genProcessBlockScenario(runProcessVoluntaryExits,
+                        process_voluntary_exit,
+                        deposit,
+                        SignedVoluntaryExit,
+                        needFlags = true,
+                        needCache = false)

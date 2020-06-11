@@ -15,28 +15,23 @@ import # Unit test
   ./test_beacon_chain_db,
   ./test_beacon_node,
   ./test_beaconstate,
+  ./test_bitseqs,
   ./test_block_pool,
-  ./test_discovery_helpers,
   ./test_helpers,
-  ./test_kvstore,
-  ./test_kvstore_sqlite3,
+  ./test_keystore,
+  ./test_mocking,
+  ./test_mainchain_monitor,
   ./test_ssz,
   ./test_state_transition,
   ./test_sync_protocol,
-  # ./test_validator # Empty!
   ./test_zero_signature,
   ./test_peer_pool,
   ./test_sync_manager,
-  ./test_honest_validator
-
-  # ./test_interop
-  # TODO: BLS changes in v0.10.1 will generate different interop signatures
-  #       Requires an update of the interop mocked start: https://github.com/ethereum/eth2.0-pm/tree/master/interop/mocked_start
-  #       or of ZRNT / ZCLI to v0.10.1
+  ./test_honest_validator,
+  ./test_interop,
+  ./fork_choice/tests_fork_choice
 
 import # Refactor state transition unit tests
-  # TODO re-enable when useful
-  # ./spec_block_processing/test_genesis,
   # In mainnet these take 2 minutes and are empty TODOs
   ./spec_block_processing/test_process_deposits,
   ./spec_block_processing/test_process_attestation,

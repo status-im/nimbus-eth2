@@ -9,8 +9,6 @@ import
   # Standard library
   os, unittest, strutils, streams, strformat,
   macros, sets,
-  # Status libraries
-  stint, stew/bitseqs,
   # Third-party
   yaml,
   # Beacon chain internals
@@ -25,7 +23,7 @@ import
 # ----------------------------------------------------------------
 
 const
-  SSZDir = FixturesDir/"tests-v0.11.0"/const_preset/"phase0"/"ssz_static"
+  SSZDir = SszTestsDir/const_preset/"phase0"/"ssz_static"
 
 type
   SSZHashTreeRoot = object
@@ -41,15 +39,33 @@ setDefaultValue(SSZHashTreeRoot, signing_root, "")
 # Note this only tracks HashTreeRoot
 # Checking the values against the yaml file is TODO (require more flexible Yaml parser)
 
-proc checkSSZ(T: typedesc, dir: string, expectedHash: SSZHashTreeRoot) =
+proc checkSSZ(T: type SignedBeaconBlock, dir: string, expectedHash: SSZHashTreeRoot) =
   # Deserialize into a ref object to not fill Nim stack
-  var deserialized: ref T
-  new deserialized
-  deserialized[] = SSZ.loadFile(dir/"serialized.ssz", T)
+  let encoded = readFileBytes(dir/"serialized.ssz")
+  var deserialized = newClone(sszDecodeEntireInput(encoded, T))
 
-  check: expectedHash.root == "0x" & toLowerASCII($deserialized.hashTreeRoot())
+  # SignedBeaconBlocks usually not hashed because they're identified by
+  # htr(BeaconBlock), so do it manually
+  check: expectedHash.root == "0x" & toLowerASCII($hash_tree_root(
+    [hash_tree_root(deserialized.message),
+    hash_tree_root(deserialized.signature)]))
 
-  # TODO check the value
+  check SSZ.encode(deserialized[]) == encoded
+  check sszSize(deserialized[]) == encoded.len
+
+  # TODO check the value (requires YAML loader)
+
+proc checkSSZ(T: type, dir: string, expectedHash: SSZHashTreeRoot) =
+  # Deserialize into a ref object to not fill Nim stack
+  let encoded = readFileBytes(dir/"serialized.ssz")
+  var deserialized = newClone(sszDecodeEntireInput(encoded, T))
+
+  check: expectedHash.root == "0x" & toLowerASCII($hash_tree_root(deserialized[]))
+
+  check SSZ.encode(deserialized[]) == encoded
+  check sszSize(deserialized[]) == encoded.len
+
+  # TODO check the value (requires YAML loader)
 
 proc loadExpectedHashTreeRoot(dir: string): SSZHashTreeRoot =
   var s = openFileStream(dir/"roots.yaml")
@@ -106,7 +122,7 @@ proc runSSZtests() =
           else:
             raise newException(ValueError, "Unsupported test: " & sszType)
 
-suiteReport "Official - 0.11.0 - SSZ consensus objects " & preset():
+suiteReport "Official - 0.11.3 - SSZ consensus objects " & preset():
   runSSZtests()
 
 summarizeLongTests("FixtureSSZConsensus")

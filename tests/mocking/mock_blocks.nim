@@ -8,9 +8,9 @@
 import
   options,
   # Specs
-  ../../beacon_chain/spec/[datatypes, crypto, validator, state_transition_block],
+  ../../beacon_chain/spec/[datatypes, validator, state_transition_block],
   # Internals
-  ../../beacon_chain/[ssz, extras, state_transition],
+  ../../beacon_chain/[ssz, extras],
   # Mock helpers
   ./mock_validator_keys
 
@@ -19,39 +19,21 @@ import
 
 proc signMockBlockImpl(
       state: BeaconState,
-      signedBlock: var SignedBeaconBlock,
-      proposer_index: ValidatorIndex
+      signedBlock: var SignedBeaconBlock
     ) =
   let block_slot = signedBlock.message.slot
   doAssert state.slot <= block_slot
 
-  let privkey = MockPrivKeys[proposer_index]
+  let privkey = MockPrivKeys[signedBlock.message.proposer_index]
 
   signedBlock.message.body.randao_reveal = get_epoch_signature(
-    state.fork, block_slot, privkey)
+    state.fork, state.genesis_validators_root, block_slot, privkey)
   signedBlock.signature = get_block_signature(
-    state.fork, block_slot, hash_tree_root(signedBlock.message), privkey)
+    state.fork, state.genesis_validators_root, block_slot,
+    hash_tree_root(signedBlock.message), privkey)
 
-proc signMockBlock*(
-  state: BeaconState,
-  signedBlock: var SignedBeaconBlock
-  ) =
-
-  var emptyCache = get_empty_per_epoch_cache()
-  let proposer_index =
-    if signedBlock.message.slot == state.slot:
-      get_beacon_proposer_index(state, emptyCache)
-    else:
-      # Stub to get proposer index of future slot
-      # Note: this relies on ``let`` deep-copying the state
-      #       i.e. BeaconState should have value semantics
-      #            and not contain ref objects or pointers
-      var stubState = state
-      process_slots(stub_state, signedBlock.message.slot)
-      get_beacon_proposer_index(stub_state, emptyCache)
-
-  # In tests, just let this throw if appropriate
-  signMockBlockImpl(state, signedBlock, proposer_index.get)
+proc signMockBlock*(state: BeaconState, signedBlock: var SignedBeaconBlock) =
+  signMockBlockImpl(state, signedBlock)
 
 proc mockBlock(
     state: BeaconState,
@@ -78,9 +60,3 @@ proc mockBlock(
 proc mockBlockForNextSlot*(state: BeaconState, flags: UpdateFlags = {}):
     SignedBeaconBlock =
   mockBlock(state, state.slot + 1, flags)
-
-proc applyEmptyBlock*(state: var BeaconState) =
-  ## Do a state transition with an empty signed block
-  ## on the current slot
-  let signedBlock = mockBlock(state, state.slot, flags = {})
-  doAssert state_transition(state, signedBlock, {skipStateRootValidation})

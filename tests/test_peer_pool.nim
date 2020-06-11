@@ -193,14 +193,14 @@ suiteReport "PeerPool testing suite":
       itemFut23.finished == false
       itemFut24.finished == false
 
-  timedTest "Acquire/Sorting and consistency test":
+  timedTest "Acquire/Sorting and consistency test": closureScope:
     const
       TestsCount = 1000
       MaxNumber = 1_000_000
 
     var pool = newPeerPool[PeerTest, PeerTestID]()
 
-    proc testAcquireRelease(): Future[int] {.async.} =
+    proc testAcquireRelease(): Future[int] {.async, gcsafe.} =
       var weight: int
       var incoming, outgoing, total: seq[PeerTest]
       var incWeight1, outWeight1, totWeight1: int
@@ -362,7 +362,7 @@ suiteReport "PeerPool testing suite":
 
     check waitFor(testPeerLifetime()) == true
 
-  timedTest "Safe/Clear test":
+  timedTest "Safe/Clear test": closureScope:
     var pool = newPeerPool[PeerTest, PeerTestID]()
     var peer1 = PeerTest.init("peer1", 10)
     var peer2 = PeerTest.init("peer2", 9)
@@ -409,7 +409,7 @@ suiteReport "PeerPool testing suite":
     asyncCheck testConsumer()
     check waitFor(testClose()) == true
 
-  timedTest "Access peers by key test":
+  timedTest "Access peers by key test": closureScope:
     var pool = newPeerPool[PeerTest, PeerTestID]()
     var peer1 = PeerTest.init("peer1", 10)
     var peer2 = PeerTest.init("peer2", 9)
@@ -537,3 +537,63 @@ suiteReport "PeerPool testing suite":
       len(acqui1) == 3
       len(acqui2) == 2
       len(acqui3) == 1
+
+  timedTest "Score check test":
+    var pool = newPeerPool[PeerTest, PeerTestID]()
+    proc scoreCheck(peer: PeerTest): bool =
+      if peer.weight >= 0:
+        result = true
+      else:
+        result = false
+    var peer1 = PeerTest.init("peer1", 100)
+    var peer2 = PeerTest.init("peer2", 50)
+    var peer3 = PeerTest.init("peer3", 1)
+    var peer4 = PeerTest.init("peer4", -50)
+    var peer5 = PeerTest.init("peer5", -100)
+
+    pool.setScoreCheck(scoreCheck)
+
+    check:
+      pool.addPeerNoWait(peer1, PeerType.Incoming) == true
+      pool.addPeerNoWait(peer2, PeerType.Incoming) == true
+      pool.addPeerNoWait(peer3, PeerType.Outgoing) == true
+      pool.addPeerNoWait(peer4, PeerType.Incoming) == false
+      pool.addPeerNoWait(peer5, PeerType.Outgoing) == false
+      len(pool) == 3
+      lenAvailable(pool) == 3
+
+    check:
+      waitFor(pool.addPeer(peer4, PeerType.Incoming)) == false
+      waitFor(pool.addPeer(peer5, PeerType.Outgoing)) == false
+      len(pool) == 3
+      lenAvailable(pool) == 3
+
+    discard waitFor(pool.acquire({PeerType.Incoming}))
+    discard waitFor(pool.acquire({PeerType.Incoming}))
+    discard waitFor(pool.acquire({PeerType.Outgoing}))
+
+    check:
+      lenAvailable(pool) == 0
+      lenAcquired(pool) == 3
+      len(pool) == 3
+
+    peer3.weight -= 2
+    pool.release(peer3)
+    check:
+      lenAvailable(pool) == 0
+      lenAcquired(pool) == 2
+      len(pool) == 2
+
+    peer2.weight -= 100
+    pool.release(peer2)
+    check:
+      lenAvailable(pool) == 0
+      lenAcquired(pool) == 1
+      len(pool) == 1
+
+    peer1.weight -= 200
+    pool.release(peer1)
+    check:
+      lenAvailable(pool) == 0
+      lenAcquired(pool) == 0
+      len(pool) == 0

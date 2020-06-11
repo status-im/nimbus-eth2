@@ -10,6 +10,13 @@ shift
 source "$(dirname "$0")/vars.sh"
 
 if [[ ! -z "$1" ]]; then
+  ADDITIONAL_BEACON_NODE_ARGS=$1
+  shift
+else
+  ADDITIONAL_BEACON_NODE_ARGS=""
+fi
+
+if [[ ! -z "$1" ]]; then
   BOOTSTRAP_NODE_ID=$1
   BOOTSTRAP_ADDRESS_FILE="${SIMULATION_DIR}/node-${BOOTSTRAP_NODE_ID}/beacon_node.address"
   shift
@@ -27,9 +34,9 @@ cd "$GIT_ROOT"
 DATA_DIR="${SIMULATION_DIR}/node-$NODE_ID"
 PORT=$(( BASE_P2P_PORT + NODE_ID ))
 
-NAT_FLAG="--nat:extip:127.0.0.1"
+NAT_ARG="--nat:extip:127.0.0.1"
 if [ "${NAT:-}" == "1" ]; then
-  NAT_FLAG="--nat:any"
+  NAT_ARG="--nat:any"
 fi
 
 mkdir -p "$DATA_DIR/validators"
@@ -47,24 +54,50 @@ fi
 rm -rf "$DATA_DIR/dump"
 mkdir -p "$DATA_DIR/dump"
 
+SNAPSHOT_ARG=""
+if [ -f "${SNAPSHOT_FILE}" ]; then
+  SNAPSHOT_ARG="--state-snapshot=${SNAPSHOT_FILE}"
+fi
+
+cd "$DATA_DIR"
+
+# uncomment to force always using an external VC binary for VC duties
+# TODO remove this when done with implementing the VC - here just for convenience during dev
+#VALIDATOR_API="yes"
+
+VALIDATOR_API_ARG=""
+if [ "${VALIDATOR_API:-}" == "yes" ]; then
+  VALIDATOR_API_ARG="--validator-api"
+  # we lass a few seconds as delay for the start ==> that way we can start the
+  # beacon node before the VC - otherwise we would have to add "&" conditionally to
+  # the command which starts the BN - makes the shell script much more complicated
+  # TODO launch the VC through the start.sh script in order to address this comment:
+  # https://github.com/status-im/nim-beacon-chain/pull/1055#discussion_r429540155
+  $VALIDATOR_CLIENT_BIN \
+    --log-level=${LOG_LEVEL:-DEBUG} \
+    --data-dir=$DATA_DIR \
+    --rpc-port="$(( $BASE_RPC_PORT + $NODE_ID ))" \
+    --delay-start=5 &
+fi
+
 # if you want tracing messages, add "--log-level=TRACE" below
-cd "$DATA_DIR" && $BEACON_NODE_BIN \
+$BEACON_NODE_BIN \
   --log-level=${LOG_LEVEL:-DEBUG} \
   --bootstrap-file=$BOOTSTRAP_ADDRESS_FILE \
   --data-dir=$DATA_DIR \
   --node-name=$NODE_ID \
   --tcp-port=$PORT \
   --udp-port=$PORT \
-  $NAT_FLAG \
-  --state-snapshot=$SNAPSHOT_FILE \
-  $DEPOSIT_WEB3_URL_ARG \
+  $SNAPSHOT_ARG \
+  $VALIDATOR_API_ARG \
+  $NAT_ARG \
+  $WEB3_ARG \
   --deposit-contract=$DEPOSIT_CONTRACT_ADDRESS \
-  --verify-finalization \
   --rpc \
   --rpc-address="127.0.0.1" \
   --rpc-port="$(( $BASE_RPC_PORT + $NODE_ID ))" \
   --metrics \
   --metrics-address="127.0.0.1" \
   --metrics-port="$(( $BASE_METRICS_PORT + $NODE_ID ))" \
+  ${ADDITIONAL_BEACON_NODE_ARGS} \
   "$@"
-

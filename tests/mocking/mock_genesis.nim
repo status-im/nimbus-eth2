@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2019 Status Research & Development GmbH
+# Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -17,15 +17,15 @@ import
   ./mock_deposits
 
 
-proc initGenesisState*(num_validators: uint64, genesis_time: uint64 = 0): BeaconState =
+proc initGenesisState*(num_validators: uint64, genesis_time: uint64 = 0): HashedBeaconState =
   let deposits = mockGenesisBalancedDeposits(
       validatorCount = num_validators,
       amountInEth = 32, # We create canonical validators with 32 Eth
       flags = {skipBlsValidation}
     )
 
-  initialize_beacon_state_from_eth1(
-    eth1BlockHash, 0, deposits, {skipBlsValidation, skipMerkleValidation})
+  initialize_hashed_beacon_state_from_eth1(
+    eth1BlockHash, 0, deposits, {skipBlsValidation})
 
 when isMainModule:
   # Smoke test

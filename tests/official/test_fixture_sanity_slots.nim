@@ -31,16 +31,19 @@ proc runTest(identifier: string) =
 
   proc `testImpl _ slots _ identifier`() =
     timedTest "Slots - " & identifier:
-      var stateRef, postRef: ref BeaconState
-      new stateRef
-      new postRef
-      stateRef[] = parseTest(testDir/"pre.ssz", SSZ, BeaconState)
-      postRef[] = parseTest(testDir/"post.ssz", SSZ, BeaconState)
+      var
+        preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
+        hashedPreState = (ref HashedBeaconState)(
+          data: preState[], root: hash_tree_root(preState[]))
+      let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
 
-      process_slots(stateRef[], stateRef.slot + num_slots)
+      check:
+        process_slots(
+          hashedPreState[], hashedPreState.data.slot + num_slots)
 
-      # check: stateRef.hash_tree_root() == postRef.hash_tree_root()
-      reportDiff(stateRef, postRef)
+        hashedPreState.root == postState[].hash_tree_root()
+      let newPreState = newClone(hashedPreState.data)
+      reportDiff(newPreState, postState)
 
   `testImpl _ slots _ identifier`()
 
