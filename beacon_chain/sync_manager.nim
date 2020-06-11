@@ -1,7 +1,7 @@
 import chronicles
 import options, deques, heapqueue, tables, strutils, sequtils, math, algorithm
 import stew/results, chronos, chronicles
-import spec/datatypes, spec/digest, peer_pool, eth2_network
+import spec/[datatypes, digest], peer_pool, eth2_network
 import eth/async_utils
 
 import block_pools/block_pools_types
@@ -66,22 +66,18 @@ type
   SyncQueue*[T] = ref object
     inpSlot*: Slot
     outSlot*: Slot
-
     startSlot*: Slot
     lastSlot: Slot
     chunkSize*: uint64
     queueSize*: int
-
     counter*: uint64
     pending*: Table[uint64, SyncRequest[T]]
-
     waiters: seq[SyncWaiter[T]]
     syncUpdate*: SyncUpdateCallback[T]
-
+    getFirstSlotAFE*: GetSlotCallback
     debtsQueue: HeapQueue[SyncRequest[T]]
     debtsCount: uint64
     readyQueue: HeapQueue[SyncResult[T]]
-
     zeroPoint: Option[Slot]
     suspects: seq[SyncResult[T]]
 
@@ -95,6 +91,7 @@ type
     toleranceValue: uint64
     getLocalHeadSlot: GetSlotCallback
     getLocalWallSlot: GetSlotCallback
+    getFirstSlotAFE: GetSlotCallback
     syncUpdate: SyncUpdateCallback[A]
     chunkSize: uint64
     queue: SyncQueue[A]
@@ -211,6 +208,7 @@ proc isEmpty*[T](sr: SyncRequest[T]): bool {.inline.} =
 proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
               start, last: Slot, chunkSize: uint64,
               updateCb: SyncUpdateCallback[T],
+              fsafeCb: GetSlotCallback,
               queueSize: int = -1): SyncQueue[T] =
   ## Create new synchronization queue with parameters
   ##
@@ -296,11 +294,11 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
     chunkSize: chunkSize,
     queueSize: queueSize,
     syncUpdate: updateCb,
+    getFirstSlotAFE: fsafeCb,
     waiters: newSeq[SyncWaiter[T]](),
     counter: 1'u64,
     pending: initTable[uint64, SyncRequest[T]](),
     debtsQueue: initHeapQueue[SyncRequest[T]](),
-    zeroPoint: some[Slot](start),
     inpSlot: start,
     outSlot: start
   )
@@ -561,13 +559,25 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
           sq.zeroPoint = none[Slot]()
         else:
           # If we got `BlockError.MissingParent` and `zero-point` is not set
-          # it means that peer returns chain of blocks with holes.
+          # it means that peer returns chain of blocks with holes or block_pool
+          # in incorrect state. We going to rewind to the latest finalized
+          # epoch.
           let req = item.request
-          warn "Received sequence of blocks with holes", peer = req.item,
-               request_slot = req.slot, request_count = req.count,
-               request_step = req.step, blocks_count = len(item.data),
-               blocks_map = getShortMap(req, item.data)
-          req.item.updateScore(PeerScoreBadBlocks)
+          let finalizedSlot = sq.getFirstSlotAFE()
+          if finalizedSlot < req.slot:
+            warn "Unexpected missing parent, rewind to latest finalized epoch slot",
+                 peer = req.item, to_slot = finalizedSlot,
+                 request_slot = req.slot, request_count = req.count,
+                 request_step = req.step, blocks_count = len(item.data),
+                 blocks_map = getShortMap(req, item.data)
+            await sq.resetWait(some(finalizedSlot))
+          else:
+            error "Unexpected missing parent at finalized epoch slot",
+                  peer = req.item, to_slot = finalizedSlot,
+                  request_slot = req.slot, request_count = req.count,
+                  request_step = req.step, blocks_count = len(item.data),
+                  blocks_map = getShortMap(req, item.data)
+            req.item.updateScore(PeerScoreBadBlocks)
       elif res.error == BlockError.Invalid:
         let req = item.request
         warn "Received invalid sequence of blocks", peer = req.item,
@@ -668,6 +678,7 @@ proc speed*(start, finish: SyncMoment): float {.inline.} =
 proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            getLocalHeadSlotCb: GetSlotCallback,
                            getLocalWallSlotCb: GetSlotCallback,
+                           getFSAFECb: GetSlotCallback,
                            updateLocalBlocksCb: UpdateLocalBlocksCallback,
                            maxStatusAge = uint64(SLOTS_PER_EPOCH * 4),
                            maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
@@ -687,7 +698,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
     return res
 
   let queue = SyncQueue.init(A, getLocalHeadSlotCb(), getLocalWallSlotCb(),
-                             chunkSize, syncUpdate, 2)
+                             chunkSize, syncUpdate, getFSAFECb, 2)
 
   result = SyncManager[A, B](
     pool: pool,
@@ -695,6 +706,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
     getLocalHeadSlot: getLocalHeadSlotCb,
     syncUpdate: syncUpdate,
     getLocalWallSlot: getLocalWallSlotCb,
+    getFirstSlotAFE: getFSAFECb,
     maxHeadAge: maxHeadAge,
     maxRecurringFailures: maxRecurringFailures,
     sleepTime: sleepTime,
@@ -1000,7 +1012,8 @@ proc sync*[A, B](man: SyncManager[A, B]) {.async.} =
             else:
               if headSlot > man.queue.lastSlot:
                 man.queue = SyncQueue.init(A, headSlot, wallSlot,
-                                           man.chunkSize, man.syncUpdate, 2)
+                                           man.chunkSize, man.syncUpdate,
+                                           man.getFirstSlotAFE, 2)
               debug "Synchronization loop starting new worker", peer = peer,
                     wall_head_slot = wallSlot, local_head_slot = headSlot,
                     peer_score = peer.getScore(), topics = "syncman"

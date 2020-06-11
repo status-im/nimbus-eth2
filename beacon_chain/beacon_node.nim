@@ -542,6 +542,10 @@ proc runForwardSyncLoop(node: BeaconNode) {.async.} =
                 1'u64
     result = epoch.compute_start_slot_at_epoch()
 
+  proc getFirstSlotAtFinalizedEpoch(): Slot {.gcsafe.} =
+    let fepoch = node.blockPool.headState.data.data.finalized_checkpoint.epoch
+    compute_start_slot_at_epoch(fepoch)
+
   proc updateLocalBlocks(list: openarray[SignedBeaconBlock]): Result[void, BlockError] =
     debug "Forward sync imported blocks", count = len(list),
           local_head_slot = getLocalHeadSlot()
@@ -583,7 +587,7 @@ proc runForwardSyncLoop(node: BeaconNode) {.async.} =
 
   node.syncManager = newSyncManager[Peer, PeerID](
     node.network.peerPool, getLocalHeadSlot, getLocalWallSlot,
-    updateLocalBlocks,
+    getFirstSlotAtFinalizedEpoch, updateLocalBlocks,
     # 4 blocks per chunk is the optimal value right now, because our current
     # syncing speed is around 4 blocks per second. So there no need to request
     # more then 4 blocks right now. As soon as `store_speed` value become
