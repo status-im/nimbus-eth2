@@ -41,8 +41,8 @@ proc saveValidatorKey*(keyName, key: string, conf: BeaconNodeConf) =
   info "Imported validator key", file = outputFile
 
 proc addLocalValidator*(node: BeaconNode,
-                       state: BeaconState,
-                       privKey: ValidatorPrivKey) =
+                        state: BeaconState,
+                        privKey: ValidatorPrivKey) =
   let pubKey = privKey.toPubKey()
 
   let idx = state.validators.asSeq.findIt(it.pubKey == pubKey)
@@ -53,9 +53,22 @@ proc addLocalValidator*(node: BeaconNode,
 
   node.attachedValidators.addLocalValidator(pubKey, privKey)
 
+proc addLocalValidators*(node: BeaconNode) {.async.} =
+  let
+    head = node.blockPool.head
+    bs = BlockSlot(blck: head.blck, slot: head.blck.slot)
+
+  node.blockPool.withState(node.blockPool.tmpState, bs):
+    for validatorKey in node.config.validatorKeys:
+      node.addLocalValidator state, validatorKey
+      # Allow some network events to be processed:
+      await sleepAsync(0.seconds)
+
+    info "Local validators attached ", count = node.attachedValidators.count
+
 func getAttachedValidator*(node: BeaconNode,
-                          state: BeaconState,
-                          idx: ValidatorIndex): AttachedValidator =
+                           state: BeaconState,
+                           idx: ValidatorIndex): AttachedValidator =
   let validatorKey = state.validators[idx].pubkey
   node.attachedValidators.getValidator(validatorKey)
 
