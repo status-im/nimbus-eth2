@@ -120,6 +120,7 @@ cli do (skipGoerliKey {.
       discard
 
   cd rootDir
+  mkDir dataDir
 
   # macOS may not have gnu-getopts installed and in the PATH
   execIgnoringExitCode &"""./scripts/make_prometheus_config.sh --nodes 1 --base-metrics-port 8008 --config-file "{dataDir}/prometheus.yml""""
