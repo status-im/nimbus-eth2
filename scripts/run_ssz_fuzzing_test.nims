@@ -1,5 +1,6 @@
 import os except dirExists
 import strformat, confutils
+import testutils/fuzzing_engines
 
 const
   gitRoot = thisDir() / ".."
@@ -10,13 +11,8 @@ const
 
   fuzzNims = gitRoot / "vendor" / "nim-testutils" / "testutils" / "fuzzing" / "fuzz.nims"
 
-type
-  FuzzerKind = enum
-    libFuzzer
-    afl
-
 cli do (testname {.argument.}: string,
-        fuzzer = libFuzzer):
+        fuzzer = defaultFuzzingEngine):
 
   if not dirExists(fixturesDir):
     echo "Please run `make test` first in order to download the official ETH2 test vectors"
@@ -43,5 +39,5 @@ cli do (testname {.argument.}: string,
 
   let testProgram = fuzzingTestsDir / &"ssz_decode_{testname}.nim"
 
-  exec &"""nim "{fuzzNims}" "{fuzzer}" "{testProgram}" "{corpusDir}"  """
+  exec &"""ntu fuzz --fuzzer={fuzzer} --corpus="{corpusDir}" "{testProgram}" """
 
