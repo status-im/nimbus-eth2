@@ -1115,7 +1115,7 @@ proc announcedENR*(node: Eth2Node): enr.Record =
 proc shortForm*(id: KeyPair): string =
   $PeerID.init(id.pubkey)
 
-proc connectToNetwork*(node: Eth2Node) {.async.} =
+proc startLookingForPeers*(node: Eth2Node) {.async.} =
   await node.start()
 
   proc checkIfConnectedToBootstrapNode {.async.} =
@@ -1125,9 +1125,7 @@ proc connectToNetwork*(node: Eth2Node) {.async.} =
         bootstrapEnrs = node.discovery.bootstrapRecords
       quit 1
 
-  # TODO: The initial sync forces this to time out.
-  #       Revisit when the new Sync manager is integrated.
-  # traceAsyncErrors checkIfConnectedToBootstrapNode()
+  traceAsyncErrors checkIfConnectedToBootstrapNode()
 
 func peersCount*(node: Eth2Node): int =
   len(node.peerPool)

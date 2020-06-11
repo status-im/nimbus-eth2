@@ -31,6 +31,7 @@ import
 
 const
   genesisFile* = "genesis.ssz"
+  timeToInitNetworkingBeforeGenesis = chronos.seconds(10)
   hasPrompt = not defined(withoutPrompt)
 
 type
@@ -145,7 +146,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     if genesisState.isNil:
       # Didn't work, try creating a genesis state using main chain monitor
       # TODO Could move this to a separate "GenesisMonitor" process or task
-      #      that would do only this - see
+      #      that would do only this - see Paul's proposal for this.
       if conf.web3Url.len > 0 and conf.depositContractAddress.len > 0:
         mainchainMonitor = MainchainMonitor.init(
           web3Provider(conf.web3Url),
@@ -226,8 +227,10 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     topicAggregateAndProofs: topicAggregateAndProofs,
   )
 
-  # TODO sync is called when a remote peer is connected - is that the right
-  #      time to do so?
+  traceAsyncErrors res.addLocalValidators()
+
+  # This merely configures the BeaconSync
+  # The traffic will be started when we join the network.
   network.initBeaconSync(blockPool, enrForkId.forkDigest,
     proc(signedBlock: SignedBeaconBlock) =
       if signedBlock.message.slot.isEpoch:
@@ -250,9 +253,6 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
       onBeaconBlock(res, signedBlock))
 
   return res
-
-proc connectToNetwork(node: BeaconNode) {.async.} =
-  await node.network.connectToNetwork()
 
 proc onAttestation(node: BeaconNode, attestation: Attestation) =
   # We received an attestation from the network but don't know much about it
@@ -807,14 +807,24 @@ proc createPidFile(filename: string) =
   gPidFile = filename
   addQuitProc proc {.noconv.} = removeFile gPidFile
 
+proc initializeNetworking(node: BeaconNode) {.async.} =
+  node.network.startListening()
+
+  let addressFile = node.config.dataDir / "beacon_node.address"
+  writeFile(addressFile, node.network.announcedENR.toURI)
+
+  await node.network.startLookingForPeers()
+
 proc start(node: BeaconNode) =
-  # TODO: while it's nice to cheat by waiting for connections here, we
-  #       actually need to make this part of normal application flow -
-  #       losing all connections might happen at any time and we should be
-  #       prepared to handle it.
   let
     head = node.blockPool.head
     finalizedHead = node.blockPool.finalizedHead
+
+  let genesisTime = node.beaconClock.fromNow(toBeaconTime(Slot 0))
+
+  if genesisTime.inFuture and genesisTime.offset > timeToInitNetworkingBeforeGenesis:
+    info "Waiting for the genesis event", genesisIn = genesisTime.offset
+    waitFor sleepAsync(genesisTime.offset - timeToInitNetworkingBeforeGenesis)
 
   info "Starting beacon node",
     version = fullVersionStr,
@@ -832,21 +842,7 @@ proc start(node: BeaconNode) =
     cat = "init",
     pcs = "start_beacon_node"
 
-  node.network.startListening()
-  let addressFile = node.config.dataDir / "beacon_node.address"
-  writeFile(addressFile, node.network.announcedENR.toURI)
-
-  let bs = BlockSlot(blck: head.blck, slot: head.blck.slot)
-
-  node.blockPool.withState(node.blockPool.tmpState, bs):
-    for validatorKey in node.config.validatorKeys:
-      node.addLocalValidator state, validatorKey
-      # Allow some network events to be processed:
-      waitFor sleepAsync(1)
-
-    info "Local validators attached ", count = node.attachedValidators.count
-
-  waitFor node.network.connectToNetwork()
+  waitFor node.initializeNetworking()
   node.run()
 
 func formatGwei(amount: uint64): string =

@@ -36,5 +36,5 @@ asyncTest "connect two nodes":
   c2.nat = "none"
   var n2 = await createEth2Node(c2, ENRForkID())
 
-  await n2.connectToNetwork(@[n1PersistentAddress])
+  await n2.startLookingForPeers(@[n1PersistentAddress])
 
