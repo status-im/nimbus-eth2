@@ -34,6 +34,15 @@ cli do (skipGoerliKey {.
           desc: "Enables more extensive logging and debugging support"
           name: "dev-build" .} = false,
 
+        nodeID {.
+          desc: "Node ID" .} = 0.int,
+
+        basePort {.
+          desc: "Base TCP/UDP port (nodeID will be added to it)" .} = 9000.int,
+
+        baseMetricsPort {.
+          desc: "Base metrics port (nodeID will be added to it)" .} = 8008.int,
+
         testnetName {.argument .}: string):
   let
     nameParts = testnetName.split "/"
@@ -84,7 +93,7 @@ cli do (skipGoerliKey {.
   let
     dataDirName = testnetName.replace("/", "_")
                              .replace("(", "_")
-                             .replace(")", "_")
+                             .replace(")", "_") & "_" & $nodeID
     dataDir = buildDir / "data" / dataDirName
     validatorsDir = dataDir / "validators"
     secretsDir = dataDir / "secrets"
@@ -123,7 +132,7 @@ cli do (skipGoerliKey {.
   mkDir dataDir
 
   # macOS may not have gnu-getopts installed and in the PATH
-  execIgnoringExitCode &"""./scripts/make_prometheus_config.sh --nodes 1 --base-metrics-port 8008 --config-file "{dataDir}/prometheus.yml""""
+  execIgnoringExitCode &"""./scripts/make_prometheus_config.sh --nodes """ & $(1 + nodeID) & &""" --base-metrics-port {baseMetricsPort} --config-file "{dataDir}/prometheus.yml""""
 
   exec &"""nim c {nimFlags} -d:"const_preset={preset}" -o:"{beaconNodeBinary}" beacon_chain/beacon_node.nim"""
 
@@ -159,7 +168,10 @@ cli do (skipGoerliKey {.
     --data-dir="{dataDir}"
     --dump
     --web3-url={web3Url}
+    --tcp-port=""" & $(basePort + nodeID) & &"""
+    --udp-port=""" & $(basePort + nodeID) & &"""
     --metrics
+    --metrics-port=""" & $(baseMetricsPort + nodeID) & &"""
     {bootstrapFileOpt}
     {logLevelOpt}
     {depositContractOpt}

@@ -113,6 +113,20 @@ make witti           # This will build Nimbus and all other dependencies
                      # and connect you to Witti
 ```
 
+Sometimes, you may want to disable the interactive prompt asking you for a Goerli key in order to become a validator:
+
+```bash
+make SCRIPT_PARAMS="--skipGoerliKey" witti # not a validator
+```
+
+You can also start multiple local nodes, in different terminal windows/tabs, by specifying their numeric IDs:
+
+```bash
+make SCRIPT_PARAMS="--nodeID=0" witti # the default
+make SCRIPT_PARAMS="--nodeID=1" witti
+make SCRIPT_PARAMS="--nodeID=2" witti
+```
+
 ### Getting metrics from a local testnet client
 
 ```bash
@@ -123,7 +137,8 @@ make NIMFLAGS="-d:insecure" witti
 You can now see the raw metrics on http://127.0.0.1:8008/metrics but they're not very useful like this, so let's feed them to a Prometheus instance:
 
 ```bash
-prometheus --config.file=build/data/shared_witti/prometheus.yml
+prometheus --config.file=build/data/shared_witti_0/prometheus.yml
+# when starting multiple nodes at the same time, just use the config file from the one with the highest ID
 ```
 
 For some pretty pictures, get [Grafana](https://grafana.com/) up and running, then import the dashboard definition in "grafana/beacon\_nodes\_Grafana\_dashboard.json".
