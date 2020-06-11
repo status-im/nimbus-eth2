@@ -143,6 +143,8 @@ $MAKE LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="-d:insecure -d:testnet_servers_image ${
 	--out-validators-dir="${DEPOSITS_DIR}" \
 	--out-secrets-dir="${SECRETS_DIR}"
 
+GENESIS_OFFSET=30
+
 BOOTSTRAP_IP="127.0.0.1"
 ./build/beacon_node createTestnet \
 	--data-dir="${DATA_DIR}/node0" \
@@ -153,7 +155,7 @@ BOOTSTRAP_IP="127.0.0.1"
 	--output-bootstrap-file="${NETWORK_DIR}/bootstrap_nodes.txt" \
 	--bootstrap-address=${BOOTSTRAP_IP} \
 	--bootstrap-port=${BASE_PORT} \
-	--genesis-offset=60 # Delay in seconds
+	--genesis-offset=${GENESIS_OFFSET} # Delay in seconds
 
 ./scripts/make_prometheus_config.sh \
 	--nodes ${NUM_NODES} \
@@ -195,7 +197,7 @@ for NUM_NODE in $(seq 0 $((NUM_NODES - 1))); do
 		while [ ! -f "${DATA_DIR}/node0/beacon_node.address" ]; do
 			sleep 0.1
 			NOW_TIMESTAMP=$(date +%s)
-			if [[ "$(( NOW_TIMESTAMP - START_TIMESTAMP ))" -ge "$BOOTSTRAP_TIMEOUT" ]]; then
+			if [[ "$(( NOW_TIMESTAMP - START_TIMESTAMP - GENESIS_OFFSET ))" -ge "$BOOTSTRAP_TIMEOUT" ]]; then
 				echo "Bootstrap node failed to start in ${BOOTSTRAP_TIMEOUT} seconds. Aborting."
 				dump_logs
 				exit 1
