@@ -63,6 +63,7 @@ type
     connQueue: AsyncQueue[PeerInfo]
     seenTable: Table[PeerID, SeenItem]
     connWorkers: seq[Future[void]]
+    forkId: ENRForkID
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
 
@@ -762,12 +763,14 @@ proc connectWorker(network: Eth2Node) {.async.} =
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
 
+  let enrField = ("eth2", SSZ.encode(node.forkId))
   while true:
     let currentPeerCount = node.peerPool.len
     if currentPeerCount < node.wantedPeers:
       try:
         let discoveredPeers =
-          node.discovery.randomNodes(node.wantedPeers - currentPeerCount)
+          node.discovery.randomNodes(node.wantedPeers - currentPeerCount,
+            enrField)
         for peer in discoveredPeers:
           try:
             let peerRecord = peer.record.toTypedRecord
@@ -808,9 +811,10 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
   result.seenTable = initTable[PeerID, SeenItem]()
   result.connQueue = newAsyncQueue[PeerInfo](ConcurrentConnections)
   result.metadata = getPersistentNetMetadata(conf)
+  result.forkId = enrForkId
   result.discovery = Eth2DiscoveryProtocol.new(
     conf, ip, tcpPort, udpPort, privKey.toRaw,
-    {"eth2": SSZ.encode(enrForkId), "attnets": SSZ.encode(result.metadata.attnets)})
+    {"eth2": SSZ.encode(result.forkId), "attnets": SSZ.encode(result.metadata.attnets)})
 
   newSeq result.protocolStates, allProtocols.len
   for proto in allProtocols:
