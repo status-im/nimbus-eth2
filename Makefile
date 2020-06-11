@@ -15,23 +15,24 @@ BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 
 # unconditionally built by the default Make target
 TOOLS := \
-	validator_client \
 	beacon_node \
+	block_sim \
+	deposit_contract \
 	inspector \
 	logtrace \
-	deposit_contract \
+	nbench \
+	nbench_spec_scenarios \
+	ncli_db \
 	ncli_hash_tree_root \
 	ncli_pretty \
 	ncli_query \
 	ncli_transition \
-	ncli_db \
 	process_dashboard \
 	stack_sizes \
 	state_sim \
-	block_sim \
-	nbench \
-	nbench_spec_scenarios
+	validator_client \
 	# bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes
+
 TOOLS_DIRS := \
 	beacon_chain \
 	benchmarks \
@@ -166,6 +167,14 @@ witti: | build deps
 
 witti-dev: | build deps
 	NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/witti
+
+ctail: | build deps
+	mkdir -p vendor/.nimble/bin/
+	$(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ctail c vendor/nim-chronicles-tail/ctail.nim
+
+ntu: | build deps
+	mkdir -p vendor/.nimble/bin/
+	$(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ntu c vendor/nim-testutils/ntu.nim
 
 clean: | clean-common
 	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,beacon_node_*,block_sim,state_sim,transition*}

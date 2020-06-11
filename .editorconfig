@@ -1,0 +1,14 @@
+root = true
+
+[*.nim]
+indent_style = space
+indent_size = 2
+
+[*.sh]
+indent_style = space
+indent_size = 2
+
+[Makefile]
+ident_size = 2
+ident_style = tab
+
