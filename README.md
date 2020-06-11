@@ -31,6 +31,7 @@ You can check where the beacon chain fits in the Ethereum ecosystem our Two-Poin
     - [Windows](#windows)
   - [For users](#for-users)
     - [Connecting to testnets](#connecting-to-testnets)
+    - [Getting metrics from a local testnet client](#getting-metrics-from-a-local-testnet-client)
   - [Interop (for other Eth2 clients)](#interop-for-other-eth2-clients)
   - [For researchers](#for-researchers)
     - [State transition simulation](#state-transition-simulation)
@@ -42,6 +43,7 @@ You can check where the beacon chain fits in the Ethereum ecosystem our Two-Poin
     - [Linux, MacOS](#linux-macos)
     - [Raspberry Pi](#raspberry-pi)
     - [Makefile tips and tricks for developers](#makefile-tips-and-tricks-for-developers)
+    - [CI setup](#ci-setup)
   - [License](#license)
 
 ## Prerequisites for everyone
@@ -374,6 +376,12 @@ make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower
 ```bash
 make publish-book
 ```
+
+### CI setup
+
+Local testnets run for 4 epochs each, to test finalization. That happens only on Jenkins Linux hosts, and their logs are available for download as artifacts, from the job's page. Don't expect these artifacts to be kept more than a day after the corresponding branch is deleted.
+
+![Jenkins artifacts](./media/jenkins_artifacts.png)
 
 ## License
 
