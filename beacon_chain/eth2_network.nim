@@ -654,13 +654,13 @@ proc handleOutgoingPeer*(peer: Peer): Future[bool] {.async.} =
   let network = peer.network
 
   proc onPeerClosed(udata: pointer) {.gcsafe.} =
-    debug "Peer (outgoing) lost", peer = $peer.info
+    debug "Peer (outgoing) lost", peer
     libp2p_peers.set int64(len(network.peerPool))
 
   let res = await network.peerPool.addOutgoingPeer(peer)
   if res:
     peer.updateScore(NewPeerScore)
-    debug "Peer (outgoing) has been added to PeerPool", peer = $peer.info
+    debug "Peer (outgoing) has been added to PeerPool", peer
     peer.getFuture().addCallback(onPeerClosed)
     result = true
 
@@ -670,13 +670,13 @@ proc handleIncomingPeer*(peer: Peer): Future[bool] {.async.} =
   let network = peer.network
 
   proc onPeerClosed(udata: pointer) {.gcsafe.} =
-    debug "Peer (incoming) lost", peer = $peer.info
+    debug "Peer (incoming) lost", peer
     libp2p_peers.set int64(len(network.peerPool))
 
   let res = await network.peerPool.addIncomingPeer(peer)
   if res:
     peer.updateScore(NewPeerScore)
-    debug "Peer (incoming) has been added to PeerPool", peer = $peer.info
+    debug "Peer (incoming) has been added to PeerPool", peer
     peer.getFuture().addCallback(onPeerClosed)
     result = true
 
@@ -713,7 +713,7 @@ proc toPeerInfo(r: Option[enr.TypedRecord]): PeerInfo =
     return r.get.toPeerInfo
 
 proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
-  logScope: peer = $peerInfo
+  logScope: peer = peerInfo.id
 
   debug "Connecting to discovered peer"
   await node.switch.connect(peerInfo)
@@ -749,16 +749,16 @@ proc connectWorker(network: Eth2Node) {.async.} =
       # will be stored in PeerPool.
       if fut.finished():
         if fut.failed() and not(fut.cancelled()):
-          debug "Unable to establish connection with peer", peer = $pi,
+          debug "Unable to establish connection with peer", peer = pi.id,
                 errMsg = fut.readError().msg
           inc libp2p_failed_dials
           network.addSeen(pi, SeenTableTimeDeadPeer)
         continue
-      debug "Connection to remote peer timed out", peer = $pi
+      debug "Connection to remote peer timed out", peer = pi.id
       inc libp2p_timeout_dials
       network.addSeen(pi, SeenTableTimeTimeout)
     else:
-      trace "Peer is already connected or already seen", peer = $pi,
+      trace "Peer is already connected or already seen", peer = pi.id,
             peer_pool_has_peer = $r1, seen_table_has_peer = $r2,
             seen_table_size = len(network.seenTable)
 

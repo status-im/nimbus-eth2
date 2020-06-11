@@ -161,15 +161,6 @@ type
 proc `==`*(a, b: ENRFieldPair): bool {.inline.} =
   result = (a.eth2 == b.eth2)
 
-proc shortLog*(a: PeerInfo): string =
-  for ma in a.addrs:
-    if TCP.match(ma):
-      return $ma & "/" & $a.peerId
-  for ma in a.addrs:
-    if UDP.match(ma):
-      return $ma & "/" & $a.peerId
-  result = $a
-
 proc hasTCP(a: PeerInfo): bool =
   for ma in a.addrs:
     if TCP.match(ma):
@@ -188,7 +179,7 @@ proc toNodeId(a: PeerID): Option[NodeId] =
 chronicles.formatIt PeerInfo: it.shortLog
 chronicles.formatIt seq[PeerInfo]:
   var res = newSeq[string]()
-  for item in it.items(): res.add(item.shortLog())
+  for item in it.items(): res.add($item.shortLog())
   "[" & res.join(", ") & "]"
 
 func getTopics(forkDigest: ForkDigest,

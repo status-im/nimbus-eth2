@@ -249,7 +249,7 @@ proc goodbyeUserHandler(peer: Peer; reason: DisconnectionReason) {.async,
     cast[ref[BeaconSyncNetworkState:ObjectType]](getNetworkState(peer.network,
         BeaconSyncProtocol))
 
-  debug "Received Goodbye message", reason
+  debug "Received Goodbye message", reason, peer
 
 template callUserHandler(MSG: type statusObj; peer: Peer; stream: Connection;
                         noSnappy: bool; msg: StatusMsg): untyped =
@@ -375,6 +375,8 @@ proc BeaconSyncPeerConnected(peer: Peer; stream: Connection) {.async, gcsafe.} =
     cast[ref[BeaconSyncNetworkState:ObjectType]](getNetworkState(peer.network,
         BeaconSyncProtocol))
 
+  debug "Peer connected", peer, peerInfo = shortLog(peer.info),
+       wasDialed = peer.wasDialed
   if peer.wasDialed:
     let
       ourStatus = peer.networkState.getCurrentStatus()
@@ -382,7 +384,7 @@ proc BeaconSyncPeerConnected(peer: Peer; stream: Connection) {.async, gcsafe.} =
     if theirStatus.isOk:
       await peer.handleStatus(peer.networkState, ourStatus, theirStatus.get())
     else:
-      warn "Status response not received in time", peer = peer
+      warn "Status response not received in time", peer
 
 setEventHandlers(BeaconSyncProtocol, BeaconSyncPeerConnected, nil)
 registerProtocol(BeaconSyncProtocol)
