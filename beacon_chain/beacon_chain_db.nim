@@ -4,6 +4,8 @@ import
   typetraits, stew/[results, endians2],
   serialization, chronicles,
   eth/db/kvstore,
+  faststreams,
+  persistent_store, sequtils,
   ./spec/[datatypes, digest, crypto],
   ./ssz/[ssz_serialization, merkleization], ./state_transition
 
@@ -22,6 +24,7 @@ type
     ## between different versions of the client and accidentally using an old
     ## database.
     backend: KvStoreRef
+    persistent: PersistentStore
 
   DbKeyKind = enum
     kHashToState
@@ -34,6 +37,7 @@ type
     ##       healthy network sync, we probably need to store blocks at least
     ##       past the weak subjectivity period.
     kBlockSlotStateRoot ## BlockSlot -> state_root mapping
+    kBlockHashToSlot
 
 # Subkeys essentially create "tables" within the key-value store by prefixing
 # each entry with a table id
@@ -52,6 +56,9 @@ func subkey(kind: type BeaconState, key: Eth2Digest): auto =
 func subkey(kind: type SignedBeaconBlock, key: Eth2Digest): auto =
   subkey(kHashToBlock, key.data)
 
+func subkey(kind: type Eth2Digest, key: Eth2Digest): auto =
+  subkey(kBlockHashToSlot, key.data)
+
 func subkey(root: Eth2Digest, slot: Slot): array[40, byte] =
   var ret: array[40, byte]
   # big endian to get a naturally ascending order on slots in sorted indices
@@ -64,7 +71,12 @@ func subkey(root: Eth2Digest, slot: Slot): array[40, byte] =
   ret
 
 proc init*(T: type BeaconChainDB, backend: KVStoreRef): BeaconChainDB =
-  T(backend: backend)
+  var persistent: PersistentStore
+  try:
+    persistent = PersistentStore.init()
+  except Exception:
+    warn "Unable to create cold storage files"
+  T(backend: backend, persistent:persistent)
 
 proc put(db: BeaconChainDB, key: openArray[byte], v: auto) =
   db.backend.put(key, SSZ.encode(v)).expect("working database")
@@ -121,9 +133,6 @@ proc putHeadBlock*(db: BeaconChainDB, key: Eth2Digest) =
 proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.backend.put(subkey(kTailBlock), key.data).expect("working database")
 
-proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Opt[SignedBeaconBlock] =
-  db.get(subkey(SignedBeaconBlock, key), SignedBeaconBlock)
-
 proc getState*(
     db: BeaconChainDB, key: Eth2Digest, output: var BeaconState,
     rollback: RollbackProc): bool =
@@ -167,6 +176,80 @@ proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
 proc containsState*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(BeaconState, key)).expect("working database")
 
+proc read(fn: string, offset,len: uint64, T:type): Opt[T] =
+  var res: Opt[T]
+  try:
+    fn.read(offset, len) do (data: openArray[byte]):
+      res.ok SSZ.decode(data, T)
+  except Exception as e:
+    warn "Unable to deserialize data, old database?", err = e.msg
+  res
+
+proc getPersistentBlock*(db: BeaconChainDB, slot: Slot): Opt[SignedBeaconBlock] =
+  let uintsize = uint64 sizeof(uint64)
+  let indices_offset = slot * uintsize
+  var offset = db.persistent.indices.read(indices_offset, uintsize,uint64)
+  var len = db.persistent.storage.read(offset.get, uintsize, uint64)
+  var value = db.persistent.storage.read(offset.get + uintsize, len.get, SignedBeaconBlock)
+  value
+
+proc putPersistentBlock*(db: BeaconChainDB, value:SignedBeaconBlock) =
+  var headSlot, available_off: uint64
+  try:
+    headSlot = db.persistent.indices.getSize() div 8 - 1
+    available_off = db.persistent.storage.getSize()
+  except CatchableError:
+    warn "Unable to read cold storage size"
+
+  var valueStream = memoryOutput()
+  var valueCursor = valueStream.delayFixedSizeWrite(sizeOf(uint64))
+  var valueSszWriter = SszWriter.init(valueStream)
+  let cursorStart = valueStream.pos
+  
+  var keyStream = memoryOutput()
+
+  try:
+    if value.message.slot > Slot(0):
+      let diff = int value.message.slot - headSlot
+      keyStream.write repeat(byte(0), (diff - 1) * 8)
+
+    valueSszWriter.writeValue(value)
+    
+    var keySszWriter = SszWriter.init(keyStream)
+    keySszWriter.writeValue(available_off)
+  except IOError:
+    warn "Error writing ssz"
+
+  valueCursor.finalWrite toBytesLE(uint64 (valueStream.pos - cursorStart))
+
+  db.backend.put(subkey(type Eth2Digest, hash_tree_root(value.message)), SSZ.encode(value.message.slot)).expect("working database")
+  try:
+    db.persistent.put(keyStream.getOutput, valueStream.getOutput)
+  except Exception:
+    warn "Unable to write to cold storage"
+    
+
+proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Opt[SignedBeaconBlock] =
+  if(db.containsBlock(key)):
+    return db.get(subkey(SignedBeaconBlock, key), SignedBeaconBlock)
+  var slot = db.get(subkey(Eth2Digest, key), uint64)
+
+  if slot.isSome():
+    return db.getPersistentBlock(Slot(slot.get))
+
+proc getFinalizedBlock*(db: BeaconChainDB, key: Slot): Opt[SignedBeaconBlock] =
+  db.getPersistentBlock(key)
+
+proc isFinalized*(db: BeaconChainDB, key: Eth2Digest): bool =
+  db.backend.contains(subkey(Eth2Digest, key)).expect("working database")
+
+proc getSlotForRoot(db: BeaconChainDB, key: Eth2Digest): Option[Slot] =
+  let slot = db.get(subkey(Eth2Digest, key), uint64)
+  if slot.isSome:
+    return some(Slot(slot.get))
+
+  none(Slot)
+
 iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
     tuple[root: Eth2Digest, blck: SignedBeaconBlock] =
   ## Load a chain of ancestors for blck - returns a list of blocks with the
@@ -179,3 +262,16 @@ iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
     yield (root, blck.get())
 
     root = blck.get().message.parent_root
+
+proc pruneToPersistent*(db: BeaconChainDB, root: Eth2Digest) =
+  var temp_root = newSeq[Eth2Digest](0)
+  for root, blck in db.getAncestors(root):
+    if(not db.containsBlock(root)):
+      break
+    temp_root.add(root)
+  for i in countdown(temp_root.len - 1 ,0):
+    let blck = db.getBlock(temp_root[i])
+    if blck.isSome():
+      db.putPersistentBlock(blck.get)
+      db.delBlock(temp_root[i])
+  

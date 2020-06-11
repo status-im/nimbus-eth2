@@ -100,6 +100,72 @@ suiteReport "Beacon chain DB" & preset():
     doAssert toSeq(db.getAncestors(a0r)) == [(a0r, a0)]
     doAssert toSeq(db.getAncestors(a2r)) == [(a2r, a2), (a1r, a1), (a0r, a0)]
 
+  wrappedTimedTest "cold storage" & preset():
+    var
+      db = init(BeaconChainDB, kvStore MemStoreRef.init())
+    
+    let
+      a0 = SignedBeaconBlock(message: BeaconBlock(slot: GENESIS_SLOT + 0))
+      a0r = hash_tree_root(a0.message)
+      a1 = SignedBeaconBlock(message:
+        BeaconBlock(slot: GENESIS_SLOT + 1, parent_root: a0r))
+      a1r = hash_tree_root(a1.message)
+      a2 = SignedBeaconBlock(message:
+        BeaconBlock(slot: GENESIS_SLOT + 3, parent_root: a1r))
+      a2r = hash_tree_root(a2.message)
+    
+    db.putPersistentBlock(a0)
+    db.putPersistentBlock(a1)
+    db.putPersistentBlock(a2)
+
+    let blck = db.getBlock(hash_tree_root(a1.message)).get
+    check:
+      blck.message.parent_root == a0r
+
+    let blck2 = db.getFinalizedBlock(Slot(3)).get
+    check:
+      blck2.message.parent_root == a1r
+
+  wrappedTimedTest "pruning db to persistent storage" & preset():
+    var
+      db = init(BeaconChainDB, kvStore MemStoreRef.init())
+    
+    let
+      a0 = SignedBeaconBlock(message: BeaconBlock(slot: GENESIS_SLOT + 0))
+      a0r = hash_tree_root(a0.message)
+      a1 = SignedBeaconBlock(message:
+        BeaconBlock(slot: GENESIS_SLOT + 1, parent_root: a0r))
+      a1r = hash_tree_root(a1.message)
+      a2 = SignedBeaconBlock(message:
+        BeaconBlock(slot: GENESIS_SLOT + 3, parent_root: a1r))
+      a2r = hash_tree_root(a2.message)
+
+    db.putBlock(a0)
+    db.putBlock(a1)
+    db.putBlock(a2)
+
+    db.pruneToPersistent(a2r)
+
+    check:
+      db.isFinalized(a0r)
+      db.isFinalized(a1r)
+      db.isFinalized(a2r)
+      #Blocks shouldn't be on kvStore
+      not db.containsBlock(a0r)
+      not db.containsBlock(a1r)
+      not db.containsBlock(a2r)
+
+    let blck0 = db.getBlock(hash_tree_root(a0.message)).get
+    let blck1 = db.getBlock(hash_tree_root(a1.message)).get
+    let blck2 = db.getBlock(hash_tree_root(a2.message)).get
+    
+    check:
+      hash_tree_root(blck0.message) == a0r
+      hash_tree_root(blck1.message) == a1r
+      hash_tree_root(blck2.message) == a2r
+
+    
+
   wrappedTimedTest "sanity check genesis roundtrip" & preset():
     # This is a really dumb way of checking that we can roundtrip a genesis
     # state. We've been bit by this because we've had a bug in the BLS

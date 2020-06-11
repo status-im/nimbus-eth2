@@ -753,6 +753,13 @@ proc updateHead*(dag: CandidateChains, newHead: BlockRef) =
       #  dag.delState(cur)
 
     block: # Clean up block refs, walking block by block
+      proc deleteDescendants(parent: BlockRef) =
+        for child in parent.children:
+          if(len(child.children) > 0):
+            deleteDescendants(child)
+          dag.blocks.del(child.root)
+          dag.db.delBlock(child.root)
+
       var cur = finalizedHead.blck
       while cur != dag.finalizedHead.blck:
         # Finalization means that we choose a single chain as the canonical one -
@@ -773,8 +780,7 @@ proc updateHead*(dag: CandidateChains, newHead: BlockRef) =
               #      and remove everything.. currently, if there's a child with
               #      children of its own, those children will not be pruned
               #      correctly from the database
-              dag.blocks.del(child.root)
-              dag.db.delBlock(child.root)
+              deleteDescendants(child)
           cur.parent.children = @[cur]
 
     dag.finalizedHead = finalizedHead
@@ -794,6 +800,7 @@ proc updateHead*(dag: CandidateChains, newHead: BlockRef) =
       cat = "fork_choice"
 
     # TODO prune everything before weak subjectivity period
+    dag.db.pruneToPersistent(finalizedHead.blck.root)
 
 func latestJustifiedBlock*(dag: CandidateChains): BlockSlot =
   ## Return the most recent block that is justified and at least as recent
