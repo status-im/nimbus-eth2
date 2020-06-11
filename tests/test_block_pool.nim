@@ -279,7 +279,6 @@ suiteReport "Block pool processing" & preset():
 
 when const_preset == "minimal":  # These require some minutes in mainnet
   import ../beacon_chain/spec/helpers
-  echo "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx"
   suiteReport "BlockPool finalization tests" & preset():
     setup:
       var
