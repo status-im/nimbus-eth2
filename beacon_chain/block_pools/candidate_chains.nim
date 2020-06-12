@@ -647,7 +647,7 @@ proc updateStateData*(dag: CandidateChains, state: var StateData, bs: BlockSlot)
     let ok =
       dag.skipAndUpdateState(
         state, ancestors[i],
-        {skipBlsValidation, skipMerkleValidation, skipStateRootValidation},
+        {skipBlsValidation, skipStateRootValidation},
         false)
     doAssert ok, "Blocks in database should never fail to apply.."
 
