@@ -313,11 +313,49 @@ proc getState(
 
 func getStateCacheIndex(dag: CandidateChains, blockRoot: Eth2Digest, slot: Slot): int =
   for i, cachedState in dag.cachedStates:
-    let (cacheBlockRoot, cacheSlot, state) = cachedState
+    let (cacheBlockRoot, cacheSlot, _) = cachedState
     if cacheBlockRoot == blockRoot and cacheSlot == slot:
       return i
 
   -1
+
+func putStateCache(
+    dag: CandidateChains, state: HashedBeaconState, blck: BlockRef) =
+  # Need to be able to efficiently access states for both attestation
+  # aggregation and to process block proposals going back to the last
+  # finalized slot. Ideally to avoid potential combinatiorial forking
+  # storage and/or memory constraints could CoW, up to and including,
+  # in particular, hash_tree_root() which is expensive to do 30 times
+  # since the previous epoch, to efficiently state_transition back to
+  # desired slot. However, none of that's in place, so there are both
+  # expensive, repeated BeaconState copies as well as computationally
+  # time-consuming-near-end-of-epoch hash tree roots. The latter are,
+  # effectively, naïvely O(n^2) in slot number otherwise, so when the
+  # slots become in the mid-to-high-20s it's spending all its time in
+  # pointlessly repeated calculations of prefix-state-transitions. An
+  # intermediate time/memory workaround involves storing only mapping
+  # between BlockRefs, or BlockSlots, and the BeaconState tree roots,
+  # but that still involves tens of megabytes worth of copying, along
+  # with the concomitant memory allocator and GC load. Instead, use a
+  # more memory-intensive (but more conceptually straightforward, and
+  # faster) strategy to just store, for the most recent slots.
+  let stateCacheIndex = dag.getStateCacheIndex(blck.root, state.data.slot)
+  if stateCacheIndex == -1:
+    # Could use a deque or similar, but want simpler structure, and the data
+    # items are small and few.
+    const MAX_CACHE_SIZE = 32
+
+    let cacheLen = dag.cachedStates.len
+    doAssert cacheLen <= MAX_CACHE_SIZE
+
+    let entry =
+      if dag.cachedStates.len == MAX_CACHE_SIZE: dag.cachedStates.pop().state
+      else: (ref HashedBeaconState)()
+    entry[] = state
+
+    insert(dag.cachedStates, (blck.root, state.data.slot, entry))
+    trace "CandidateChains.putState(): state cache updated",
+      cacheLen, root = shortLog(blck.root), slot = state.data.slot
 
 proc putState*(dag: CandidateChains, state: HashedBeaconState, blck: BlockRef) =
   # TODO we save state at every epoch start but never remove them - we also
@@ -344,35 +382,7 @@ proc putState*(dag: CandidateChains, state: HashedBeaconState, blck: BlockRef) =
       if not rootWritten:
         dag.db.putStateRoot(blck.root, state.data.slot, state.root)
 
-  # Need to be able to efficiently access states for both attestation
-  # aggregation and to process block proposals going back to the last
-  # finalized slot. Ideally to avoid potential combinatiorial forking
-  # storage and/or memory constraints could CoW, up to and including,
-  # in particular, hash_tree_root() which is expensive to do 30 times
-  # since the previous epoch, to efficiently state_transition back to
-  # desired slot. However, none of that's in place, so there are both
-  # expensive, repeated BeaconState copies as well as computationally
-  # time-consuming-near-end-of-epoch hash tree roots. The latter are,
-  # effectively, naïvely O(n^2) in slot number otherwise, so when the
-  # slots become in the mid-to-high-20s it's spending all its time in
-  # pointlessly repeated calculations of prefix-state-transitions. An
-  # intermediate time/memory workaround involves storing only mapping
-  # between BlockRefs, or BlockSlots, and the BeaconState tree roots,
-  # but that still involves tens of megabytes worth of copying, along
-  # with the concomitant memory allocator and GC load. Instead, use a
-  # more memory-intensive (but more conceptually straightforward, and
-  # faster) strategy to just store, for the most recent slots.
-  let stateCacheIndex = dag.getStateCacheIndex(blck.root, state.data.slot)
-  if stateCacheIndex == -1:
-    # Could use a deque or similar, but want simpler structure, and the data
-    # items are small and few.
-    const MAX_CACHE_SIZE = 32
-    insert(dag.cachedStates, (blck.root, state.data.slot, newClone(state)))
-    while dag.cachedStates.len > MAX_CACHE_SIZE:
-      discard dag.cachedStates.pop()
-    let cacheLen = dag.cachedStates.len
-    trace "CandidateChains.putState(): state cache updated", cacheLen
-    doAssert cacheLen > 0 and cacheLen <= MAX_CACHE_SIZE
+  putStateCache(dag, state, blck)
 
 func getRef*(dag: CandidateChains, root: Eth2Digest): BlockRef =
   ## Retrieve a resolved block reference, if available

@@ -266,7 +266,9 @@ proc isValidBeaconBlock*(
   # The block is not from a future slot
   # TODO allow `MAXIMUM_GOSSIP_CLOCK_DISPARITY` leniency, especially towards
   # seemingly future slots.
-  if not (signed_beacon_block.message.slot <= current_slot):
+  # TODO using +1 here while this is being sorted - should queue these until
+  #      they're within the DISPARITY limit
+  if not (signed_beacon_block.message.slot <= current_slot + 1):
     debug "isValidBeaconBlock: block is from a future slot",
       signed_beacon_block_message_slot = signed_beacon_block.message.slot,
       current_slot = current_slot
