@@ -90,7 +90,7 @@ func get_shuffled_active_validator_indices*(state: BeaconState, epoch: Epoch):
       active_validator_indices.len.uint64),
     active_validator_indices[it])
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_previous_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(state: BeaconState): Epoch =
   # Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
   let current_epoch = get_current_epoch(state)
@@ -232,7 +232,7 @@ func get_beacon_proposer_index*(state: BeaconState, cache: var StateCache):
     Option[ValidatorIndex] =
   get_beacon_proposer_index(state, cache, state.slot)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/validator.md#validator-assignments
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#validator-assignments
 func get_committee_assignment*(
     state: BeaconState, epoch: Epoch, validator_index: ValidatorIndex):
     Option[tuple[a: seq[ValidatorIndex], b: CommitteeIndex, c: Slot]] {.used.} =

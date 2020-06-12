@@ -143,12 +143,12 @@ type
   Gwei* = uint64
   CommitteeIndex* = distinct uint64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#proposerslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     signed_header_1*: SignedBeaconBlockHeader
     signed_header_2*: SignedBeaconBlockHeader
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#attesterslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#attesterslashing
   AttesterSlashing* = object
     attestation_1*: IndexedAttestation
     attestation_2*: IndexedAttestation
@@ -181,7 +181,7 @@ type
     epoch*: Epoch
     root*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#AttestationData
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#AttestationData
   AttestationData* = object
     slot*: Slot
 
@@ -196,7 +196,7 @@ type
     source*: Checkpoint
     target*: Checkpoint
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#deposit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#deposit
   Deposit* = object
     proof*: array[DEPOSIT_CONTRACT_TREE_DEPTH + 1, Eth2Digest] ##\
     ## Merkle path to deposit root
@@ -209,7 +209,7 @@ type
     withdrawal_credentials*: Eth2Digest
     amount*: Gwei
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#depositdata
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#depositdata
   DepositData* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
@@ -367,13 +367,13 @@ type
     epoch*: Epoch ##\
     ## Epoch of latest fork
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#eth1data
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#eth1data
   Eth1Data* = object
     deposit_root*: Eth2Digest
     deposit_count*: uint64
     block_hash*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#signedvoluntaryexit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#signedvoluntaryexit
   SignedVoluntaryExit* = object
     message*: VoluntaryExit
     signature*: ValidatorSig
