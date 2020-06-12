@@ -69,8 +69,7 @@ proc makeInitialDeposits*(
   # and ideally (but not yet) efficiently only once calculating a Merkle
   # tree utilizing as much of the shared substructure as feasible, means
   # attaching proofs all together, as a separate step.
-  if skipMerkleValidation notin flags:
-    attachMerkleProofs(result)
+  attachMerkleProofs(result)
 
 func signBlock*(
     fork: Fork, genesis_validators_root: Eth2Digest, blck: BeaconBlock,
