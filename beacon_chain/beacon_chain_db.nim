@@ -250,9 +250,6 @@ proc getSlotForRoot(db: BeaconChainDB, key: Eth2Digest): Option[Slot] =
 
   none(Slot)
 
-proc getState*(db: BeaconChainDB, key: Eth2Digest): Option[BeaconState] =
-    return db.get(subkey(BeaconState, key), BeaconState)
-
 iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
     tuple[root: Eth2Digest, blck: SignedBeaconBlock] =
   ## Load a chain of ancestors for blck - returns a list of blocks with the
