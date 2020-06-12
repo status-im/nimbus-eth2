@@ -5,7 +5,8 @@ import
   stew/endians2,
   spec/[datatypes, crypto, digest],
   block_pools/block_pools_types,
-  block_pool # TODO: refactoring compat shim
+  block_pool, # TODO: refactoring compat shim
+  fork_choice/fork_choice_types
 
 export block_pools_types
 
