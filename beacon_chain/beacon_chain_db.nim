@@ -141,7 +141,7 @@ proc getState*(
   proc decode(data: openArray[byte]) =
     try:
       # TODO can't write to output directly..
-      outputAddr[] = SSZ.decode(data, BeaconState)
+      assign(outputAddr[], SSZ.decode(data, BeaconState))
     except SerializationError as e:
       # If the data can't be deserialized, it could be because it's from a
       # version of the software that uses a different SSZ encoding

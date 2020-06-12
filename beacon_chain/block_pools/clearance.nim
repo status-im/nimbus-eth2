@@ -183,7 +183,7 @@ proc add*(
       #      `state_transition` that takes a `StateData` instead and updates
       #      the block as well
       doAssert v.addr == addr poolPtr.tmpState.data
-      poolPtr.tmpState = poolPtr.headState
+      assign(poolPtr.tmpState, poolPtr.headState)
 
     var stateCache = getEpochCache(parent, dag.tmpState.data.data)
     if not state_transition(

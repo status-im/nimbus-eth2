@@ -301,7 +301,7 @@ proc getState(
       #      Nonetheless, this is an ugly workaround that needs to go away
       doAssert false, "Cannot alias headState"
 
-    outputAddr[] = dag.headState
+    assign(outputAddr[], dag.headState)
 
   if not db.getState(stateRoot, output.data.data, restore):
     return false
@@ -351,7 +351,7 @@ func putStateCache(
     let entry =
       if dag.cachedStates.len == MAX_CACHE_SIZE: dag.cachedStates.pop().state
       else: (ref HashedBeaconState)()
-    entry[] = state
+    assign(entry[], state)
 
     insert(dag.cachedStates, (blck.root, state.data.slot, entry))
     trace "CandidateChains.putState(): state cache updated",
@@ -529,7 +529,7 @@ proc rewindState(dag: CandidateChains, state: var StateData, bs: BlockSlot):
     # used in the front-end.
     let idx = dag.getStateCacheIndex(parBs.blck.root, parBs.slot)
     if idx >= 0:
-      state.data = dag.cachedStates[idx].state[]
+      assign(state.data, dag.cachedStates[idx].state[])
       let ancestor = ancestors.pop()
       state.blck = ancestor.refs
 
@@ -605,7 +605,7 @@ proc getStateDataCached(dag: CandidateChains, state: var StateData, bs: BlockSlo
 
   let idx = dag.getStateCacheIndex(bs.blck.root, bs.slot)
   if idx >= 0:
-    state.data = dag.cachedStates[idx].state[]
+    assign(state.data, dag.cachedStates[idx].state[])
     state.blck = bs.blck
     beacon_state_data_cache_hits.inc()
     return true
