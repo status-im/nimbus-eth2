@@ -537,7 +537,7 @@ proc selectHead_v2(pool: var AttestationPool): BlockRef =
   let newHead = pool.forkChoice_v2.find_head(
     justified_epoch = pool.blockPool.justifiedState.data.data.slot.compute_epoch_at_slot(),
     justified_root = pool.blockPool.head.justified.blck.root,
-    finalized_epoch = pool.blockPool.justifiedState.data.data.finalized_checkpoint.epoch,
+    finalized_epoch = pool.blockPool.headState.data.data.finalized_checkpoint.epoch,
     justified_state_balances = attesterBalances
   ).get()
 
