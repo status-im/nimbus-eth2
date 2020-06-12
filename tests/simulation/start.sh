@@ -39,17 +39,26 @@ WAIT_GENESIS="${WAIT_GENESIS:-no}"
 
 # Using tmux or multitail is an opt-in
 USE_MULTITAIL="${USE_MULTITAIL:-no}"
-type "$MULTITAIL" &>/dev/null || { echo "${MULTITAIL}" is missing; USE_MULTITAIL="no"; }
+if [[ "$USE_MULTITAIL" != "no" ]]; then
+  type "$MULTITAIL" &>/dev/null || { echo "${MULTITAIL}" is missing; USE_MULTITAIL="no"; }
+fi
 
 USE_TMUX="${USE_TMUX:-no}"
-type "$TMUX" &>/dev/null || { echo "${TMUX}" is missing; USE_TMUX="no"; }
+if [[ "$USE_TMUX" != "no" ]]; then
+  type "$TMUX" &>/dev/null || { echo "${TMUX}" is missing; USE_TMUX="no"; }
+fi
 
 USE_GANACHE="${USE_GANACHE:-no}"
-type "$GANACHE" &>/dev/null || { echo $GANACHE is missing; USE_GANACHE="no"; }
+if [[ "$USE_GANACHE" != "no" ]]; then
+  type "$GANACHE" &>/dev/null || { echo $GANACHE is missing; USE_GANACHE="no"; }
+fi
 
-USE_PROMETHEUS="${LAUNCH_PROMETHEUS:-no}"
-type "$PROMETHEUS" &>/dev/null || { echo $PROMETHEUS is missing; USE_PROMETHEUS="no"; }
+USE_PROMETHEUS="${USE_PROMETHEUS:-no}"
+if [[ "$USE_PROMETHEUS" != "no" ]]; then
+  type "$PROMETHEUS" &>/dev/null || { echo $PROMETHEUS is missing; USE_PROMETHEUS="no"; }
+fi
 
+mkdir -p "${METRICS_DIR}"
 ./scripts/make_prometheus_config.sh \
 	--nodes ${TOTAL_NODES} \
 	--base-metrics-port ${BASE_METRICS_PORT} \

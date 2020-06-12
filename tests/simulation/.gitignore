@@ -1,4 +1,5 @@
-data/
-validators/
-prometheus/
+/data
+/validators
+/prometheus
+/secrets
 
