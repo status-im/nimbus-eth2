@@ -325,6 +325,10 @@ proc storeBlock(
   if blck.isErr:
     return err(blck.error)
 
+  # Still here? This means we received a valid block and we need to add it
+  # to the fork choice
+  node.attestationPool.addForkChoice_v2(blck.get())
+
   # The block we received contains attestations, and we might not yet know about
   # all of them. Let's add them to the attestation pool.
   let currentSlot = node.beaconClock.now.toSlot
