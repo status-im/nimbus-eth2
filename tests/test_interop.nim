@@ -150,8 +150,6 @@ suiteReport "Interop":
 
     const genesis_time = 1570500000
     var
-      # TODO this currently requires skipMerkleValidation to pass the test
-      # makeDeposit doesn't appear to produce a proof?
       initialState = initialize_beacon_state_from_eth1(
         eth1BlockHash, genesis_time, deposits, {})
 

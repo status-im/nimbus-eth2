@@ -104,8 +104,8 @@ template mockGenesisDepositsImpl(
       ) =
   # Genesis deposits with varying amounts
 
-  # NOTE: this could also apply for skipMerkleValidation, but prefer to er on the
-  # side of caution and generate a valid Deposit (it can still be skipped later).
+  # NOTE: prefer to er on the side of caution and generate a valid Deposit
+  # (it can still be skipped later).
   if skipBlsValidation in flags:
     # 1st loop - build deposit data
     for valIdx in 0 ..< validatorCount.int:
