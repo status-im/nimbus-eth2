@@ -663,10 +663,8 @@ func assign*[T](tgt: var T, src: T) =
   when supportsCopyMem(T):
     copyMem(addr tgt, unsafeAddr src, sizeof(tgt))
   elif T is object|tuple:
-    for tgtname, tgtfield in fieldPairs(tgt):
-      for srcname, srcfield in fieldPairs(src):
-        when tgtname == srcname:
-          assign(tgtfield, srcfield)
+    for t, s in fields(tgt, src):
+      assign(t, s)
   elif T is List|BitList:
     assign(distinctBase tgt, distinctBase src)
   elif T is seq:
