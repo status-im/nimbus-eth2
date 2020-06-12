@@ -20,7 +20,8 @@ import
   conf, time, beacon_chain_db,
   attestation_pool, block_pool, eth2_network,
   beacon_node_types, mainchain_monitor, request_manager,
-  sync_manager
+  sync_manager,
+  fork_choice/fork_choice
 
 # This removes an invalid Nim warning that the digest module is unused here
 # It's currently used for `shortLog(head.blck.root)`
@@ -68,6 +69,9 @@ proc updateHead*(node: BeaconNode): BlockRef =
   # justified and finalized
   node.blockPool.updateHead(newHead)
   beacon_head_root.set newHead.root.toGaugeValue
+
+  # Cleanup the fork choice v2 if we have a finalized head
+  node.attestationPool.pruneBefore(node.blockPool.finalizedHead)
 
   newHead
 
