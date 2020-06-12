@@ -11,8 +11,8 @@ Nimbus beacon chain is a research implementation of the beacon chain component o
 
 In this book, we will cover:
 
-1. [What is beacon chain](./beacon-chain.md) and [what is Nimbus](./nimbus.md) to equip you with some basic knowledge.
-2. How to [become a validator](./validator.md) in Ethereum as a user.
+1. [What is beacon chain](./faq.md#1-what-is-beacon-chain) and [what is Nimbus](./faq.md#4-what-is-nimbus) to equip you with some basic knowledge.
+2. How to [become a validator](./validator.md) in Ethereum 2.0 as a user.
 3. [Installation steps](./install.md) for nimbus beacon chain.
 4. The [api documentation](./api.md) for interested developers.
 5. [Advanced usage](./advanced.md) for developers.
