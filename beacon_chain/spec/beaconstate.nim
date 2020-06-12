@@ -174,7 +174,7 @@ proc slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
   validator.slashed = true
   validator.withdrawable_epoch =
     max(validator.withdrawable_epoch, epoch + EPOCHS_PER_SLASHINGS_VECTOR)
-  state.slashings[epoch mod EPOCHS_PER_SLASHINGS_VECTOR] +=
+  state.slashings[int(epoch mod EPOCHS_PER_SLASHINGS_VECTOR)] +=
     validator.effective_balance
   decrease_balance(state, slashed_index,
     validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT)

@@ -566,7 +566,7 @@ func process_final_updates*(state: var BeaconState) {.nbench.}=
           MAX_EFFECTIVE_BALANCE)
 
   # Reset slashings
-  state.slashings[next_epoch mod EPOCHS_PER_SLASHINGS_VECTOR] = 0.Gwei
+  state.slashings[int(next_epoch mod EPOCHS_PER_SLASHINGS_VECTOR)] = 0.Gwei
 
   # Set randao mix
   state.randao_mixes[next_epoch mod EPOCHS_PER_HISTORICAL_VECTOR] =

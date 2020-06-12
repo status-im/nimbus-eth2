@@ -303,12 +303,13 @@ proc storeBlock(
   let blck = node.blockPool.add(blockRoot, signedBlock)
   if blck.isErr:
     if blck.error == Invalid and node.config.dumpEnabled:
+      dump(node.config.dumpDir / "invalid", signedBlock, blockRoot)
+
       let parent = node.blockPool.getRef(signedBlock.message.parent_root)
       if parent != nil:
-        node.blockPool.withState(
-          node.blockPool.tmpState, parent.atSlot(signedBlock.message.slot - 1)):
+        let parentBs = parent.atSlot(signedBlock.message.slot - 1)
+        node.blockPool.withState(node.blockPool.tmpState, parentBs):
             dump(node.config.dumpDir / "invalid", hashedState, parent)
-            dump(node.config.dumpDir / "invalid", signedBlock, blockRoot)
 
     return err(blck.error)
 
@@ -1082,6 +1083,7 @@ programMain:
     if config.dumpEnabled:
       createDir(config.dumpDir)
       createDir(config.dumpDir / "incoming")
+      createDir(config.dumpDir / "invalid")
 
     var node = waitFor BeaconNode.init(config)
 

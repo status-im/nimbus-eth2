@@ -22,6 +22,7 @@ cli do(kind: string, file: string):
   case kind
   of "attester_slashing": printit(AttesterSlashing)
   of "attestation": printit(Attestation)
+  of "signed_block": printit(SignedBeaconBlock)
   of "block": printit(BeaconBlock)
   of "block_body": printit(BeaconBlockBody)
   of "block_header": printit(BeaconBlockHeader)
