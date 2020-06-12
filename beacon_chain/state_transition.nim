@@ -62,7 +62,7 @@ func get_epoch_validator_count(state: BeaconState): int64 {.nbench.} =
        validator.withdrawable_epoch > get_current_epoch(state):
       result += 1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#verify_block_signature
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature*(
     state: BeaconState, signedBlock: SignedBeaconBlock): bool {.nbench.} =
   if signedBlock.message.proposer_index >= state.validators.len.uint64:
@@ -85,7 +85,7 @@ proc verify_block_signature*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
   let state_root = hash_tree_root(state)
@@ -108,7 +108,7 @@ type
 # Hashed-state transition functions
 # ---------------------------------------------------------------
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 func process_slot*(state: var HashedBeaconState) {.nbench.} =
   # Cache state root
   let previous_slot_state_root = state.root
@@ -123,7 +123,7 @@ func process_slot*(state: var HashedBeaconState) {.nbench.} =
   state.data.block_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
     hash_tree_root(state.data.latest_block_header)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc advance_slot*(state: var HashedBeaconState,
     nextStateRoot: Opt[Eth2Digest], updateFlags: UpdateFlags,
     epochCache: var StateCache) {.nbench.} =
@@ -145,7 +145,7 @@ proc advance_slot*(state: var HashedBeaconState,
   else:
     state.root = hash_tree_root(state.data)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc process_slots*(state: var HashedBeaconState, slot: Slot,
     updateFlags: UpdateFlags = {}): bool {.nbench.} =
   # TODO this function is not _really_ necessary: when replaying states, we
