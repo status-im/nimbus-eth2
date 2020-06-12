@@ -4,7 +4,7 @@ _Documentation for Nimbus Beacon Chain users and developers._
 
 Nimbus beacon chain is a research implementation of the beacon chain component of the upcoming Ethereum Serenity upgrade, aka Eth2.
 
-- Open sourced at [github.com/status-im/nim-beacon-chain/docs](github.com/status-im/nim-beacon-chain/docs).
+- Open sourced at [github.com/status-im/nim-beacon-chain](https://github.com/status-im/nim-beacon-chain/tree/master).
 - Specification of our implementation can be found at [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/tree/v0.11.1#phase-0).
 
 ## Overview
