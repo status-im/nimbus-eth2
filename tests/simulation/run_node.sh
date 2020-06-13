@@ -61,7 +61,7 @@ if [[ $NODE_ID -lt $TOTAL_NODES ]]; then
 
   pushd "$VALIDATORS_DIR" >/dev/null
   for VALIDATOR in $(ls | tail -n +$(( ($VALIDATORS_PER_NODE * $NODE_ID) + 1 )) | head -n $ATTACHED_VALIDATORS); do
-      cp -ar "$VALIDATOR" "$NODE_VALIDATORS_DIR"
+      cp -a "$VALIDATOR" "$NODE_VALIDATORS_DIR"
       cp -a "$SECRETS_DIR/$VALIDATOR" "$NODE_SECRETS_DIR"
     done
   popd >/dev/null
