@@ -661,10 +661,16 @@ func assign*[T](tgt: var T, src: T) =
   # time in it - `assign`, in the same test, doesn't even show in the perf trace
 
   when supportsCopyMem(T):
-    copyMem(addr tgt, unsafeAddr src, sizeof(tgt))
+    when sizeof(src) <= sizeof(int):
+      tgt = src
+    else:
+      copyMem(addr tgt, unsafeAddr src, sizeof(tgt))
   elif T is object|tuple:
     for t, s in fields(tgt, src):
-      assign(t, s)
+      when supportsCopyMem(type s) and sizeof(s) <= sizeof(int) * 2:
+        t = s # Shortcut
+      else:
+        assign(t, s)
   elif T is List|BitList:
     assign(distinctBase tgt, distinctBase src)
   elif T is seq:
