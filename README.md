@@ -243,8 +243,11 @@ The [inspector tool](./beacon_chain/inspector.nim) can help monitor the libp2p n
 
 ## For developers
 
-Latest updates happen in the `devel` branch which is merged into `master` every week on Tuesday before deploying a new testnets
-The following sections explain how to setup your build environment on your platform.
+Latest updates happen in the `devel` branch which is merged into `master` every week on Tuesday before deploying new testnets.
+
+Interesting Make variables and targets are documented in the [nimbus-build-system](https://github.com/status-im/nimbus-build-system) repo.
+
+The following sections explain how to set up your build environment on your platform.
 
 ### Windows dev environment
 
