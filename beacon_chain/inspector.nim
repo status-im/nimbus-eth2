@@ -207,8 +207,12 @@ func getTopics(forkDigest: ForkDigest,
     var topics = newSeq[string](ATTESTATION_SUBNET_COUNT * 2)
     var offset = 0
     for i in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
-      topics[offset] = getMainnetAttestationTopic(forkDigest, i)
-      topics[offset + 1] = getMainnetAttestationTopic(forkDigest, i) & "_snappy"
+      when ETH2_SPEC == "v0.12.1":
+        topics[offset] = getAttestationTopic(forkDigest, i)
+        topics[offset + 1] = getAttestationTopic(forkDigest, i) & "_snappy"
+      else:
+        topics[offset] = getMainnetAttestationTopic(forkDigest, i)
+        topics[offset + 1] = getMainnetAttestationTopic(forkDigest, i) & "_snappy"
       offset += 2
     topics
 

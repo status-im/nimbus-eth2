@@ -70,18 +70,32 @@ proc aggregate_attestations*(
 
   none(AggregateAndProof)
 
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#attestation-subnets
 proc isValidAttestation*(
     pool: AttestationPool, attestation: Attestation, current_slot: Slot,
     topicCommitteeIndex: uint64): bool =
-  # The attestation's committee index (attestation.data.index) is for the
-  # correct subnet.
-  if attestation.data.index != topicCommitteeIndex:
-    debug "isValidAttestation: attestation's committee index not for the correct subnet",
-      topicCommitteeIndex = topicCommitteeIndex,
-      attestation_data_index = attestation.data.index
-    return false
+  when ETH2_SPEC == "v0.12.1":
+    # TODO see validator_duties.sendAttestation() for example of how to derive
+    # the 0.12.1 condition data efficiently; even so, might re-order given how
+    # this condition's more expensive than rest. REJECT/IGNORE result would be
+    # different, but that's reasonable for now:
+    #
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md
+    # [REJECT] The attestation is for the correct subnet (i.e.
+    # compute_subnet_for_attestation(state, attestation) == subnet_id).
+    if attestation.data.index != topicCommitteeIndex:
+      debug "isValidAttestation: attestation's committee index not for the correct subnet",
+        topicCommitteeIndex = topicCommitteeIndex,
+        attestation_data_index = attestation.data.index
+      return false
+  else:
+    # The attestation's committee index (attestation.data.index) is for the
+    # correct subnet.
+    if attestation.data.index != topicCommitteeIndex:
+      debug "isValidAttestation: attestation's committee index not for the correct subnet",
+        topicCommitteeIndex = topicCommitteeIndex,
+        attestation_data_index = attestation.data.index
+      return false
 
   if not (attestation.data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >=
       current_slot and current_slot >= attestation.data.slot):

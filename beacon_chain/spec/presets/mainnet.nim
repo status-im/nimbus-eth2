@@ -24,7 +24,7 @@ const
 
   MAX_COMMITTEES_PER_SLOT* {.intdefine.} = 64
 
-  TARGET_COMMITTEE_SIZE* = 2^7 ##\
+  TARGET_COMMITTEE_SIZE* = 128 ##\
   ## Number of validators in the committee attesting to one shard
   ## Per spec:
   ## For the safety of crosslinks `TARGET_COMMITTEE_SIZE` exceeds

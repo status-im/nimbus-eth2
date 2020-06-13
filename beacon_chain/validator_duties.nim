@@ -101,10 +101,26 @@ proc isSynced(node: BeaconNode, head: BlockRef): bool =
 proc sendAttestation*(node: BeaconNode, attestation: Attestation) =
   logScope: pcs = "send_attestation"
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-attestation
-  node.network.broadcast(
-    getMainnetAttestationTopic(node.forkDigest, attestation.data.index),
-    attestation)
+  when ETH2_SPEC == "v0.12.1":
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
+    let blck = node.blockPool.getRef(attestation.data.beacon_block_root)
+
+    if blck.isNil:
+      debug "Attempt to send attestation without corresponding block"
+      return
+
+    let epochInfo =
+      node.blockPool.dag.getEpochInfo(
+        attestation.data.slot.compute_epoch_at_slot)
+
+    node.network.broadcast(
+      getAttestationTopic(node.forkDigest, attestation.data.index, epochInfo.shuffled_active_validator_indices.len),
+      attestation)
+  else:
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/validator.md#broadcast-attestation
+    node.network.broadcast(
+      getMainnetAttestationTopic(node.forkDigest, attestation.data.index),
+      attestation)
 
   beacon_attestations_sent.inc()
 
@@ -119,6 +135,11 @@ proc createAndSendAttestation(node: BeaconNode,
 
   var attestation = await validator.produceAndSignAttestation(attestationData, committeeLen, indexInCommittee, fork, genesis_validators_root)
 
+  # TODO the non-API caller here already has a state, etc, which has this
+  # this information without resorting to epochRef: split sendAttestation
+  # into the two-argument version for the validator_duty codepath, with a
+  # one-argument wrapper as one sees here to fill in from epochRef, which
+  # the validator API codepath uses.
   node.sendAttestation(attestation)
 
   if node.config.dumpEnabled:

@@ -53,7 +53,7 @@ func parent*(bs: BlockSlot): BlockSlot =
       slot: bs.slot - 1
     )
 
-func populateEpochCache*(state: BeaconState, epoch: Epoch): EpochRef =
+func populateEpochCache(state: BeaconState, epoch: Epoch): EpochRef =
   result = (EpochRef)(
     epoch: state.slot.compute_epoch_at_slot,
     shuffled_active_validator_indices:
@@ -139,8 +139,19 @@ func atSlot*(blck: BlockRef, slot: Slot): BlockSlot =
   ## block proposal)
   BlockSlot(blck: blck.getAncestorAt(slot), slot: slot)
 
+# This is the only intended mechanism by which to get an EpochRef
+func getEpochInfo*(blck: BlockRef, epoch: Epoch): EpochRef =
+  let matching_epochinfo = blck.epochsInfo.filterIt(it.epoch == epoch)
+
+  if matching_epochinfo.len == 0:
+    trace "candidate_chains.getEpochInfo: parent.epochInfo missing"
+    raiseAssert "TOOD remove this assert before committing"
+  elif matching_epochinfo.len == 1:
+    matching_epochinfo[0]
+  else:
+    raiseAssert "multiple EpochRefs per epoch per BlockRef invalid"
+
 func getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
-  # This is the only intended mechanism by which to get an EpochRef
   let
     state_epoch = state.slot.compute_epoch_at_slot
     matching_epochinfo = blck.epochsInfo.filterIt(it.epoch == state_epoch)
@@ -148,7 +159,7 @@ func getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
   if matching_epochinfo.len == 0:
     let cache = populateEpochCache(state, state_epoch)
     blck.epochsInfo.add(cache)
-    trace "candidate_chains.skipAndUpdateState(): back-filling parent.epochInfo",
+    trace "candidate_chains.getEpochInfo: back-filling parent.epochInfo",
       state_slot = state.slot
     cache
   elif matching_epochinfo.len == 1:
