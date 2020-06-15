@@ -139,6 +139,24 @@ proc generateDeposits*(totalValidators: int,
 
   ok deposits
 
+proc loadDeposits*(depositsDir: string): seq[Deposit] =
+  try:
+    for kind, dir in walkDir(depositsDir):
+      if kind == pcDir:
+        let depositFile = dir / depositFileName
+        try:
+          result.add Json.loadFile(depositFile, Deposit)
+        except IOError as err:
+          error "Failed to open deposit file", depositFile, err = err.msg
+          quit 1
+        except SerializationError as err:
+          error "Invalid deposit file", error = formatMsg(err, depositFile)
+          quit 1
+  except OSError as err:
+    error "Deposits directory not accessible",
+           path = depositsDir, err = err.msg
+    quit 1
+
 {.pop.}
 
 proc sendDeposits*(deposits: seq[Deposit],

@@ -408,8 +408,6 @@ type
     committee_count_cache*: Table[Epoch, uint64]
     beacon_proposer_indices*: Table[Slot, Option[ValidatorIndex]]
 
-  JsonError = jsonTypes.JsonError
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#signingdata
 # TODO move back into big `type` block
 when ETH2_SPEC == "v0.12.1":
@@ -485,7 +483,7 @@ template ethTimeUnit(typ: type) {.dirty.} =
     writeValue(writer, uint64 value)
 
   proc readValue*(reader: var JsonReader, value: var typ)
-                 {.raises: [IOError, JsonError, Defect].} =
+                 {.raises: [IOError, SerializationError, Defect].} =
     value = typ reader.readValue(uint64)
 
 proc writeValue*(writer: var JsonWriter, value: ValidatorIndex)
@@ -493,14 +491,14 @@ proc writeValue*(writer: var JsonWriter, value: ValidatorIndex)
   writeValue(writer, uint32 value)
 
 proc readValue*(reader: var JsonReader, value: var ValidatorIndex)
-               {.raises: [IOError, JsonError, Defect].} =
+               {.raises: [IOError, SerializationError, Defect].} =
   value = ValidatorIndex reader.readValue(uint32)
 
 template writeValue*(writer: var JsonWriter, value: Version | ForkDigest) =
   writeValue(writer, $value)
 
 proc readValue*(reader: var JsonReader, value: var Version)
-               {.raises: [IOError, JsonError, Defect].} =
+               {.raises: [IOError, SerializationError, Defect].} =
   let hex = reader.readValue(string)
   try:
     hexToByteArray(hex, array[4, byte](value))
@@ -508,7 +506,7 @@ proc readValue*(reader: var JsonReader, value: var Version)
     raiseUnexpectedValue(reader, "Hex string of 4 bytes expected")
 
 proc readValue*(reader: var JsonReader, value: var ForkDigest)
-               {.raises: [IOError, JsonError, Defect].} =
+               {.raises: [IOError, SerializationError, Defect].} =
   let hex = reader.readValue(string)
   try:
     hexToByteArray(hex, array[4, byte](value))
