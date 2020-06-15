@@ -20,7 +20,8 @@ import
   # Local modules
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network],
   conf, time, validator_pool, state_transition,
-  attestation_pool, block_pool, eth2_network, keystore_management,
+  attestation_pool, block_pool, block_pools/candidate_chains,
+  eth2_network, keystore_management,
   beacon_node_common, beacon_node_types, nimbus_binary_common,
   mainchain_monitor, version, ssz/merkleization, interop,
   attestation_aggregation, sync_manager, sszdump
@@ -98,23 +99,15 @@ proc isSynced(node: BeaconNode, head: BlockRef): bool =
   else:
     true
 
-proc sendAttestation*(node: BeaconNode, attestation: Attestation) =
+proc sendAttestation*(
+    node: BeaconNode, attestation: Attestation, num_active_validators: uint64) =
   logScope: pcs = "send_attestation"
 
   when ETH2_SPEC == "v0.12.1":
     # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
-    let blck = node.blockPool.getRef(attestation.data.beacon_block_root)
-
-    if blck.isNil:
-      debug "Attempt to send attestation without corresponding block"
-      return
-
-    let epochInfo =
-      node.blockPool.dag.getEpochInfo(
-        attestation.data.slot.compute_epoch_at_slot)
-
     node.network.broadcast(
-      getAttestationTopic(node.forkDigest, attestation.data.index, epochInfo.shuffled_active_validator_indices.len),
+      getAttestationTopic(node.forkDigest, attestation.data.index,
+        num_active_validators),
       attestation)
   else:
     # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/validator.md#broadcast-attestation
@@ -124,23 +117,34 @@ proc sendAttestation*(node: BeaconNode, attestation: Attestation) =
 
   beacon_attestations_sent.inc()
 
+proc sendAttestation*(node: BeaconNode, attestation: Attestation) =
+  # This version is for the validator API, which doesn't supply either
+  # num_active_validators or have direct access itself to it.
+  let blck = node.blockPool.getRef(attestation.data.beacon_block_root)
+
+  if blck.isNil:
+    debug "Attempt to send attestation without corresponding block"
+    return
+
+  let epochInfo =
+    blck.getEpochInfo(attestation.data.slot.compute_epoch_at_slot)
+
+  node.sendAttestation(
+    attestation, epochInfo.shuffled_active_validator_indices.len.uint64)
+
 proc createAndSendAttestation(node: BeaconNode,
                               fork: Fork,
                               genesis_validators_root: Eth2Digest,
                               validator: AttachedValidator,
                               attestationData: AttestationData,
                               committeeLen: int,
-                              indexInCommittee: int) {.async.} =
+                              indexInCommittee: int,
+                              num_active_validators: uint64) {.async.} =
   logScope: pcs = "send_attestation"
 
   var attestation = await validator.produceAndSignAttestation(attestationData, committeeLen, indexInCommittee, fork, genesis_validators_root)
 
-  # TODO the non-API caller here already has a state, etc, which has this
-  # this information without resorting to epochRef: split sendAttestation
-  # into the two-argument version for the validator_duty codepath, with a
-  # one-argument wrapper as one sees here to fill in from epochRef, which
-  # the validator API codepath uses.
-  node.sendAttestation(attestation)
+  node.sendAttestation(attestation, num_active_validators)
 
   if node.config.dumpEnabled:
     dump(node.config.dumpDir, attestation.data, validator.pubKey)
@@ -335,8 +339,15 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   #      the complexity of handling forks correctly - instead, we use an adapted
   #      version here that calculates the committee for a single slot only
   node.blockPool.withState(node.blockPool.tmpState, attestationHead):
-    var cache = get_empty_per_epoch_cache()
-    let committees_per_slot = get_committee_count_at_slot(state, slot)
+    var cache = getEpochCache(attestationHead.blck, state)
+    let
+      committees_per_slot = get_committee_count_at_slot(state, slot)
+      num_active_validators =
+        try:
+          cache.shuffled_active_validator_indices[
+            slot.compute_epoch_at_slot].len.uint64
+        except KeyError:
+          raiseAssert "getEpochCache(...) didn't fill cache"
 
     for committee_index in 0'u64..<committees_per_slot:
       let committee = get_beacon_committee(
@@ -351,7 +362,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     for a in attestations:
       traceAsyncErrors createAndSendAttestation(
         node, state.fork, state.genesis_validators_root, a.validator, a.data,
-        a.committeeLen, a.indexInCommittee)
+        a.committeeLen, a.indexInCommittee, num_active_validators)
 
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     Future[BlockRef] {.async.} =
