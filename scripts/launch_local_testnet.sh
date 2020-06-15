@@ -138,10 +138,11 @@ fi
 NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh ${NETWORK})
 $MAKE LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node
 
-./build/beacon_node makeDeposits \
+./build/beacon_node deposits create \
 	--count=${TOTAL_VALIDATORS} \
 	--out-validators-dir="${DEPOSITS_DIR}" \
-	--out-secrets-dir="${SECRETS_DIR}"
+	--out-secrets-dir="${SECRETS_DIR}" \
+	--dont-send
 
 GENESIS_OFFSET=30
 

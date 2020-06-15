@@ -65,7 +65,7 @@ if [ "$ETH1_PRIVATE_KEY" != "" ]; then
   echo "Done: $DEPOSIT_CONTRACT_ADDRESS"
 fi
 
-echo "Building a local beacon_node instance for 'makeDeposits' and 'createTestnet'"
+echo "Building a local beacon_node instance for 'deposits create' and 'createTestnet'"
 make -j2 NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node process_dashboard
 
 echo "Generating Grafana dashboards for remote testnet servers"
@@ -83,10 +83,11 @@ echo "Building Docker image..."
 # in docker/Makefile, and are enabled by default.
 make build
 
-../build/beacon_node makeDeposits \
+../build/beacon_node deposits create \
   --count=$TOTAL_VALIDATORS \
   --out-validators-dir="$DEPOSITS_DIR_ABS" \
-  --out-secrets-dir="$SECRETS_DIR_ABS"
+  --out-secrets-dir="$SECRETS_DIR_ABS" \
+  --dont-send
 
 ../build/beacon_node createTestnet \
   --data-dir="$DATA_DIR_ABS" \

@@ -1046,7 +1046,7 @@ programMain:
       except SerializationError as err:
         stderr.write "Error while loading a deposit file:\n"
         stderr.write err.formatMsg(depositFile), "\n"
-        stderr.write "Please regenerate the deposit files by running makeDeposits again\n"
+        stderr.write "Please regenerate the deposit files by running 'beacon_node deposits create' again\n"
         quit 1
 
     let
@@ -1134,20 +1134,23 @@ programMain:
     else:
       node.start()
 
-  of makeDeposits:
-    createDir(config.outValidatorsDir)
-    createDir(config.outSecretsDir)
+  of deposits:
+    case config.depositsCmd
+    of DepositsCmd.create:
+      createDir(config.outValidatorsDir)
+      createDir(config.outSecretsDir)
 
-    let
-      deposits = generateDeposits(
+      discard generateDeposits(
         config.totalDeposits,
         config.outValidatorsDir,
-        config.outSecretsDir).tryGet
+        config.outSecretsDir)
 
-    if config.web3Url.len > 0 and config.depositContractAddress.len > 0:
+    of DepositsCmd.send:
       if config.minDelay > config.maxDelay:
         echo "The minimum delay should not be larger than the maximum delay"
         quit 1
+
+      let deposits = loadDeposits(config.depositsDir)
 
       var delayGenerator: DelayGenerator
       if config.maxDelay > 0.0:

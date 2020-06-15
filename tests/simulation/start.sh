@@ -2,6 +2,31 @@
 
 set -eo pipefail
 
+# To allow overriding the program names
+MULTITAIL="${MULTITAIL:-multitail}"
+TMUX="${TMUX:-tmux}"
+GANACHE="${GANACHE:-ganache-cli}"
+PROMETHEUS="${PROMETHEUS:-prometheus}"
+CTAIL="${CTAIL:-ctail}"
+
+# Using tmux or multitail is an opt-in
+USE_MULTITAIL="${USE_MULTITAIL:-no}"
+type "$MULTITAIL" &>/dev/null || { echo "${MULTITAIL}" is missing; USE_MULTITAIL="no"; }
+
+USE_TMUX="${USE_TMUX:-no}"
+type "$TMUX" &>/dev/null || { echo "${TMUX}" is missing; USE_TMUX="no"; }
+
+WAIT_GENESIS="${WAIT_GENESIS:-no}"
+
+USE_GANACHE="${USE_GANACHE:-yes}"
+type "$GANACHE" &>/dev/null || { echo $GANACHE is missing; USE_GANACHE="no"; WAIT_GENESIS="no"; }
+
+USE_PROMETHEUS="${USE_PROMETHEUS:-yes}"
+type "$PROMETHEUS" &>/dev/null || { echo $PROMETHEUS is missing; USE_PROMETHEUS="no"; }
+
+USE_CTAIL="${USE_CTAIL:-yes}"
+type "$CTAIL" &>/dev/null || { echo $CTAIL is missing; USE_CTAIL="no"; }
+
 # Read in variables
 # shellcheck source=/dev/null
 source "$(dirname "$0")/vars.sh"
@@ -28,11 +53,6 @@ else
   MAKE="make"
 fi
 
-# to allow overriding the program names
-MULTITAIL="${MULTITAIL:-multitail}"
-TMUX="${TMUX:-tmux}"
-GANACHE="${GANACHE:-ganache-cli}"
-PROMETHEUS="${PROMETHEUS:-prometheus}"
 TMUX_SESSION_NAME="${TMUX_SESSION_NAME:-nbc-sim}"
 
 WAIT_GENESIS="${WAIT_GENESIS:-no}"
@@ -91,7 +111,8 @@ fi
 
 if [[ "$USE_PROMETHEUS" != "no" ]]; then
   if [[ "$USE_TMUX" != "no" ]]; then
-    $TMUX new-window -d -t $TMUX_SESSION_NAME -n "$PROMETHEUS" "cd '$METRICS_DIR' && $PROMETHEUS"
+    PROMETHEUS_FLAGS="--config.file=./prometheus.yml --storage.tsdb.path=./data"
+    $TMUX new-window -d -t $TMUX_SESSION_NAME -n "$PROMETHEUS" "cd '$METRICS_DIR' && $PROMETHEUS $PROMETHEUS_FLAGS"
   else
     echo NOTICE: $PROMETHEUS will be started automatically only with USE_TMUX=1
     USE_PROMETHEUS="no"
@@ -114,67 +135,15 @@ if [[ $EXISTING_VALIDATORS -lt $NUM_VALIDATORS ]]; then
   rm -rf "$VALIDATORS_DIR"
   rm -rf "$SECRETS_DIR"
 
-  if [ "$WEB3_ARG" != "" ]; then
-    make deposit_contract
-    echo Deploying the validator deposit contract...
-    DEPOSIT_CONTRACT_ADDRESS=$($DEPLOY_DEPOSIT_CONTRACT_BIN deploy $WEB3_ARG)
-    echo Contract deployed at $DEPOSIT_CONTRACT_ADDRESS
-    export DEPOSIT_CONTRACT_ADDRESS
-  fi
-
-  DELAY_ARGS=""
-
-  # Uncomment this line to slow down the initial deposits.
-  # This will spread them across multiple blocks which is
-  # a more realistic scenario.
-  DELAY_ARGS="--min-delay=1 --max-delay=5"
-
-  MAKE_DEPOSITS_WEB3_ARG=$WEB3_ARG
-  if [[ "$WAIT_GENESIS" == "no" ]]; then
-    MAKE_DEPOSITS_WEB3_ARG=""
-  fi
-
-  $BEACON_NODE_BIN makeDeposits \
+  $BEACON_NODE_BIN deposits create \
     --count="${NUM_VALIDATORS}" \
+    --non-interactive \
     --out-validators-dir="$VALIDATORS_DIR" \
     --out-secrets-dir="$SECRETS_DIR" \
-    $MAKE_DEPOSITS_WEB3_ARG $DELAY_ARGS \
-    --deposit-contract="${DEPOSIT_CONTRACT_ADDRESS}"
+    --dont-send
 
   echo "All deposits prepared"
 fi
-
-if [ ! -f "${SNAPSHOT_FILE}" ]; then
-  if [[ "${WAIT_GENESIS}" == "no" ]]; then
-    echo Creating testnet genesis...
-    $BEACON_NODE_BIN \
-      --data-dir="${SIMULATION_DIR}/node-$MASTER_NODE" \
-      createTestnet \
-      --validators-dir="${VALIDATORS_DIR}" \
-      --total-validators="${NUM_VALIDATORS}" \
-      --output-genesis="${SNAPSHOT_FILE}" \
-      --output-bootstrap-file="${NETWORK_BOOTSTRAP_FILE}" \
-      --bootstrap-address=127.0.0.1 \
-      --bootstrap-port=$(( BASE_P2P_PORT + MASTER_NODE )) \
-      --genesis-offset=15 # Delay in seconds
-  fi
-fi
-
-rm -f beacon_node.log
-
-# Delete any leftover address files from a previous session
-if [ -f "${MASTER_NODE_ADDRESS_FILE}" ]; then
-  rm "${MASTER_NODE_ADDRESS_FILE}"
-fi
-
-# Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
-# instance as the parent and the target process name as a pattern to the
-# "pkill" command.
-if [[ "$USE_MULTITAIL" == "no" && "$USE_TMUX" == "no" ]]; then
-  trap 'pkill -P $$ beacon_node' SIGINT EXIT
-fi
-
-LAST_WAITING_NODE=0
 
 function run_cmd {
   i=$1
@@ -198,6 +167,61 @@ function run_cmd {
   fi
 }
 
+if [ "$WEB3_ARG" != "" ]; then
+  make deposit_contract
+  echo Deploying the validator deposit contract...
+  echo $DEPLOY_DEPOSIT_CONTRACT_BIN deploy $WEB3_ARG
+  DEPOSIT_CONTRACT_ADDRESS=$($DEPLOY_DEPOSIT_CONTRACT_BIN deploy $WEB3_ARG)
+  echo Contract deployed at $DEPOSIT_CONTRACT_ADDRESS
+  export DEPOSIT_CONTRACT_ADDRESS
+
+  if [[ "$WAIT_GENESIS" != "no" ]]; then
+    echo "(deposit maker)" "$BEACON_NODE_BIN deposits send \
+      --non-interactive \
+      --validators-dir='$VALIDATORS_DIR' \
+      --min-delay=1 --max-delay=5 \
+      $WEB3_ARG \
+      --deposit-contract=${DEPOSIT_CONTRACT_ADDRESS}"
+
+    run_cmd "(deposit maker)" "$BEACON_NODE_BIN deposits send \
+      --non-interactive \
+      --validators-dir='$VALIDATORS_DIR' \
+      --min-delay=1 --max-delay=5 \
+      $WEB3_ARG \
+      --deposit-contract=${DEPOSIT_CONTRACT_ADDRESS}"
+  fi
+fi
+
+if [ ! -f "${SNAPSHOT_FILE}" ]; then
+  if [[ "${WAIT_GENESIS}" == "no" ]]; then
+    echo Creating testnet genesis...
+    $BEACON_NODE_BIN \
+      --data-dir="${SIMULATION_DIR}/node-$MASTER_NODE" \
+      createTestnet \
+      --validators-dir="${VALIDATORS_DIR}" \
+      --total-validators="${NUM_VALIDATORS}" \
+      --output-genesis="${SNAPSHOT_FILE}" \
+      --output-bootstrap-file="${NETWORK_BOOTSTRAP_FILE}" \
+      --bootstrap-address=127.0.0.1 \
+      --bootstrap-port=$(( BASE_P2P_PORT + MASTER_NODE )) \
+      --genesis-offset=15 # Delay in seconds
+  fi
+fi
+
+# Delete any leftover address files from a previous session
+if [ -f "${MASTER_NODE_ADDRESS_FILE}" ]; then
+  rm "${MASTER_NODE_ADDRESS_FILE}"
+fi
+
+# Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
+# instance as the parent and the target process name as a pattern to the
+# "pkill" command.
+if [[ "$USE_MULTITAIL" == "no" && "$USE_TMUX" == "no" ]]; then
+  trap 'pkill -P $$ beacon_node' SIGINT EXIT
+fi
+
+LAST_WAITING_NODE=0
+
 for i in $(seq $MASTER_NODE -1 $TOTAL_USER_NODES); do
   if [[ "$i" != "$MASTER_NODE" && "$USE_MULTITAIL" == "no" ]]; then
     # Wait for the master node to write out its address file
@@ -217,6 +241,15 @@ for i in $(seq $MASTER_NODE -1 $TOTAL_USER_NODES); do
     run_cmd $i "sleep 3 && ${SIM_ROOT}/run_validator.sh ${i}" "validator"
   fi
 done
+
+if [[ "$USE_CTAIL" != "no" ]]; then
+  if [[ "$USE_TMUX" != "no" ]]; then
+    $TMUX new-window -d -t $TMUX_SESSION_NAME -n "$CTAIL" "$CTAIL tail -q -n +1 -f ${SIMULATION_DIR}/node-*/beacon_node.log"
+  else
+    echo NOTICE: $CTAIL will be started automatically only with USE_TMUX=1
+    USE_CTAIL="no"
+  fi
+fi
 
 if [[ "$USE_TMUX" != "no" ]]; then
   # kill the console window in the pane where the simulation is running
