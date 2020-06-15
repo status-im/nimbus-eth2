@@ -285,7 +285,7 @@ proc `<`*[T](a, b: SyncResult[T]): bool {.inline.} =
 
 proc `==`*[T](a, b: SyncRequest[T]): bool {.inline.} =
   result = ((a.slot == b.slot) and (a.count == b.count) and
-            (a.step == b.step)) and (a.index == b.index)
+            (a.step == b.step))
 
 proc lastSlot*[T](req: SyncRequest[T]): Slot {.inline.} =
   ## Returns last slot for request ``req``.
