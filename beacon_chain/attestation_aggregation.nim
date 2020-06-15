@@ -8,10 +8,11 @@
 {.push raises: [Defect].}
 
 import
-  options, chronicles,
-  ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator,
+  options, tables, chronicles,
+  ./spec/[beaconstate, datatypes, crypto, digest, helpers, network, validator,
     state_transition_block],
-  ./block_pool, ./attestation_pool, ./beacon_node_types, ./ssz
+  ./block_pool, ./block_pools/candidate_chains,
+  ./attestation_pool, ./beacon_node_types, ./ssz
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#aggregation-selection
 func is_aggregator(state: BeaconState, slot: Slot, index: CommitteeIndex,
@@ -75,18 +76,29 @@ proc isValidAttestation*(
     pool: AttestationPool, attestation: Attestation, current_slot: Slot,
     topicCommitteeIndex: uint64): bool =
   when ETH2_SPEC == "v0.12.1":
-    # TODO see validator_duties.sendAttestation() for example of how to derive
-    # the 0.12.1 condition data efficiently; even so, might re-order given how
-    # this condition's more expensive than rest. REJECT/IGNORE result would be
-    # different, but that's reasonable for now:
-    #
     # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md
     # [REJECT] The attestation is for the correct subnet (i.e.
     # compute_subnet_for_attestation(state, attestation) == subnet_id).
-    if attestation.data.index != topicCommitteeIndex:
+    let blck = pool.blockPool.getRef(attestation.data.beacon_block_root)
+    if blck.isNil:
+      # TODO:
+      # https://github.com/status-im/nim-beacon-chain/issues/1106
+      # https://github.com/status-im/nim-beacon-chain/issues/1141
+      debug "isValidAttestation: received atttestation to non-existent block"
+      return false
+
+    let
+      epoch = attestation.data.slot.compute_epoch_at_slot
+      epochInfo = blck.getEpochInfo(epoch)
+      requiredSubnetIndex =
+        compute_subnet_for_attestation(
+          epochInfo.shuffled_active_validator_indices.len.uint64, attestation)
+
+    if requiredSubnetIndex != topicCommitteeIndex:
       debug "isValidAttestation: attestation's committee index not for the correct subnet",
         topicCommitteeIndex = topicCommitteeIndex,
-        attestation_data_index = attestation.data.index
+        attestation_data_index = attestation.data.index,
+        requiredSubnetIndex = requiredSubnetIndex
       return false
   else:
     # The attestation's committee index (attestation.data.index) is for the

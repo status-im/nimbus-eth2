@@ -108,5 +108,6 @@ when ETH2_SPEC == "v0.12.1":
       raiseAssert e.msg
 
   func getAttestationTopic*(forkDigest: ForkDigest, attestation: Attestation, num_active_validators: uint64): string =
-    let attestation_subnet = compute_subnet_for_attestation(num_active_validators, attestation)
-    getAttestationTopic(forkDigest, attestation_subnet)
+    getAttestationTopic(
+      forkDigest,
+      compute_subnet_for_attestation(num_active_validators, attestation))

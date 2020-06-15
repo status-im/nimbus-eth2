@@ -145,7 +145,7 @@ func getEpochInfo*(blck: BlockRef, epoch: Epoch): EpochRef =
 
   if matching_epochinfo.len == 0:
     trace "candidate_chains.getEpochInfo: parent.epochInfo missing"
-    raiseAssert "TOOD remove this assert before committing"
+    raiseAssert "callers to non-BeaconState getEpochInfo should ensure it's seeded"
   elif matching_epochinfo.len == 1:
     matching_epochinfo[0]
   else:
