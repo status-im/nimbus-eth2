@@ -25,7 +25,7 @@ const
     ## Peer's response contains incorrect blocks.
   PeerScoreBadResponse* = -1000
     ## Peer's response is not in requested range.
-  PeerScoreJokeBlocks* = -200
+  PeerScoreMissingBlocks* = -200
     ## Peer response contains too many empty blocks.
 
 type
@@ -446,7 +446,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
 
       if res.error == BlockError.MissingParent:
         # If we got `BlockError.MissingParent` it means that peer returns chain
-        # of blocks with holes or `block_pool` is in incorrect state. We going
+        # of blocks with holes or `block_pool` is in incomplete state. We going
         # to rewind to the first slot at latest finalized epoch.
         let req = item.request
         let finalizedSlot = sq.getFirstSlotAFE()
@@ -457,6 +457,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
                request_step = req.step, blocks_count = len(item.data),
                blocks_map = getShortMap(req, item.data)
           resetSlot = some(finalizedSlot)
+          req.item.updateScore(PeerScoreMissingBlocks)
         else:
           error "Unexpected missing parent at finalized epoch slot",
                 peer = req.item, to_slot = finalizedSlot,
