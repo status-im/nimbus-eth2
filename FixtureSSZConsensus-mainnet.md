@@ -26,7 +26,7 @@ FixtureSSZConsensus-mainnet
 +   Testing    SignedBeaconBlock                                                             OK
 +   Testing    SignedBeaconBlockHeader                                                       OK
 +   Testing    SignedVoluntaryExit                                                           OK
-+   Testing    SigningData                                                                   OK
++   Testing    SigningRoot                                                                   OK
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 ```
