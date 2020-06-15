@@ -213,7 +213,7 @@ type
   DepositData* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
-    amount*: uint64
+    amount*: Gwei
     signature*: ValidatorSig  # Signing over DepositMessage
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#voluntaryexit
@@ -619,6 +619,14 @@ func shortLog*(v: BeaconBlock): auto =
 func shortLog*(v: SignedBeaconBlock): auto =
   (
     blck: shortLog(v.message),
+    signature: shortLog(v.signature)
+  )
+
+func shortLog*(v: DepositData): auto =
+  (
+    pubkey: shortLog(v.pubkey),
+    withdrawal_credentials: shortlog(v.withdrawal_credentials),
+    amount: v.amount,
     signature: shortLog(v.signature)
   )
 

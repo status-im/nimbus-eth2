@@ -32,7 +32,7 @@ import
   chronicles,
   stew/results,
   ./extras, ./ssz/merkleization, metrics,
-  ./spec/[datatypes, crypto, digest, helpers, validator],
+  ./spec/[datatypes, crypto, digest, helpers, signatures, validator],
   ./spec/[state_transition_block, state_transition_epoch],
   ../nbench/bench_lab
 
@@ -64,23 +64,20 @@ func get_epoch_validator_count(state: BeaconState): int64 {.nbench.} =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature*(
-    state: BeaconState, signedBlock: SignedBeaconBlock): bool {.nbench.} =
-  if signedBlock.message.proposer_index >= state.validators.len.uint64:
+    state: BeaconState, signed_block: SignedBeaconBlock): bool {.nbench.} =
+  let
+    proposer_index = signed_block.message.proposer_index
+  if proposer_index >= state.validators.len.uint64:
     notice "Invalid proposer index in block",
-      blck = shortLog(signedBlock.message)
+      blck = shortLog(signed_block.message)
     return false
 
-  let
-    proposer = state.validators[signedBlock.message.proposer_index]
-    domain = get_domain(
-      state, DOMAIN_BEACON_PROPOSER,
-      compute_epoch_at_slot(signedBlock.message.slot))
-    signing_root = compute_signing_root(signedBlock.message, domain)
-
-  if not bls_verify(proposer.pubKey, signing_root.data, signedBlock.signature):
+  if not verify_block_signature(
+      state.fork, state.genesis_validators_root, signed_block.message.slot,
+      signed_block.message, state.validators[proposer_index].pubkey,
+      signed_block.signature):
     notice "Block: signature verification failed",
-      blck = shortLog(signedBlock),
-      signingRoot = shortLog(signing_root)
+      blck = shortLog(signedBlock)
     return false
 
   true
