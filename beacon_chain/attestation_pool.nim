@@ -11,7 +11,8 @@ import
   deques, sequtils, tables, options,
   chronicles, stew/[byteutils], json_serialization/std/sets,
   ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator],
-  ./extras, ./block_pool, ./block_pools/candidate_chains, ./beacon_node_types
+  ./extras, ./block_pool, ./block_pools/candidate_chains, ./beacon_node_types,
+  ./fork_choice/[fork_choice_types, fork_choice]
 
 logScope: topics = "attpool"
 
@@ -22,10 +23,23 @@ func init*(T: type AttestationPool, blockPool: BlockPool): T =
   # TODO blockPool is only used when resolving orphaned attestations - it should
   #      probably be removed as a dependency of AttestationPool (or some other
   #      smart refactoring)
+
+  # TODO: In tests, on blockpool.init the finalized root
+  #       from the `headState` and `justifiedState` is zero
+  let forkChoice = initForkChoice(
+    finalized_block_slot = default(Slot),             # This is unnecessary for fork choice but may help external components
+    finalized_block_state_root = default(Eth2Digest), # This is unnecessary for fork choice but may help external components
+    justified_epoch = blockPool.headState.data.data.current_justified_checkpoint.epoch,
+    finalized_epoch = blockPool.headState.data.data.finalized_checkpoint.epoch,
+    # finalized_root = blockPool.headState.data.data.finalized_checkpoint.root
+    finalized_root = blockPool.finalizedHead.blck.root
+  ).get()
+
   T(
     mapSlotsToAttestations: initDeque[AttestationsSeen](),
     blockPool: blockPool,
     unresolved: initTable[Eth2Digest, UnresolvedAttestation](),
+    forkChoice_v2: forkChoice
   )
 
 proc combine*(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
@@ -107,12 +121,20 @@ proc slotIndex(
 func updateLatestVotes(
     pool: var AttestationPool, state: BeaconState, attestationSlot: Slot,
     participants: seq[ValidatorIndex], blck: BlockRef) =
+
+  # ForkChoice v2
+  let target_epoch = compute_epoch_at_slot(attestationSlot)
+
   for validator in participants:
+    # ForkChoice v1
     let
       pubKey = state.validators[validator].pubkey
       current = pool.latestAttestations.getOrDefault(pubKey)
     if current.isNil or current.slot < attestationSlot:
       pool.latestAttestations[pubKey] = blck
+
+    # ForkChoice v2
+    pool.forkChoice_v2.process_attestation(validator, blck.root, target_epoch)
 
 func get_attesting_indices_seq(state: BeaconState,
                                attestation_data: AttestationData,
@@ -261,6 +283,34 @@ proc add*(pool: var AttestationPool, attestation: Attestation) =
 
   pool.addResolved(blck, attestation)
 
+proc addForkChoice_v2*(pool: var AttestationPool, blck: BlockRef) =
+  ## Add a verified block to the fork choice context
+  ## The current justifiedState of the block pool is used as reference
+
+  # TODO: add(BlockPool, blockRoot: Eth2Digest, SignedBeaconBlock): BlockRef
+  # should ideally return the justified_epoch and finalized_epoch
+  # so that we can pass them directly to this proc without having to
+  # redo "updateStateData"
+  #
+  # In any case, `updateStateData` should shortcut
+  # to `getStateDataCached`
+
+  updateStateData(
+    pool.blockPool,
+    pool.blockPool.tmpState,
+    BlockSlot(blck: blck, slot: blck.slot)
+  )
+
+  let blockData = pool.blockPool.get(blck)
+  pool.forkChoice_v2.process_block(
+    slot = blck.slot,
+    block_root = blck.root,
+    parent_root = if not blck.parent.isNil: blck.parent.root else: default(Eth2Digest),
+    state_root = default(Eth2Digest), # This is unnecessary for fork choice but may help external components
+    justified_epoch = pool.blockPool.tmpState.data.data.current_justified_checkpoint.epoch,
+    finalized_epoch = pool.blockPool.tmpState.data.data.finalized_checkpoint.epoch,
+  ).get()
+
 proc getAttestationsForSlot*(pool: AttestationPool, newBlockSlot: Slot):
     Option[AttestationsSeen] =
   if newBlockSlot < (GENESIS_SLOT + MIN_ATTESTATION_INCLUSION_DELAY):
@@ -395,7 +445,10 @@ proc resolve*(pool: var AttestationPool) =
   for a in resolved:
     pool.addResolved(a.blck, a.attestation)
 
-func latestAttestation*(
+# Fork choice v1
+# ---------------------------------------------------------------
+
+func latestAttestation(
     pool: AttestationPool, pubKey: ValidatorPubKey): BlockRef =
   pool.latestAttestations.getOrDefault(pubKey)
 
@@ -403,7 +456,7 @@ func latestAttestation*(
 # The structure of this code differs from the spec since we use a different
 # strategy for storing states and justification points - it should nonetheless
 # be close in terms of functionality.
-func lmdGhost*(
+func lmdGhost(
     pool: AttestationPool, start_state: BeaconState,
     start_block: BlockRef): BlockRef =
   # TODO: a Fenwick Tree datastructure to keep track of cumulated votes
@@ -454,7 +507,7 @@ func lmdGhost*(
           winCount = candCount
       head = winner
 
-proc selectHead*(pool: AttestationPool): BlockRef =
+proc selectHead_v1(pool: AttestationPool): BlockRef =
   let
     justifiedHead = pool.blockPool.latestJustifiedBlock()
 
@@ -462,3 +515,47 @@ proc selectHead*(pool: AttestationPool): BlockRef =
     lmdGhost(pool, pool.blockPool.justifiedState.data.data, justifiedHead.blck)
 
   newHead
+
+# Fork choice v2
+# ---------------------------------------------------------------
+
+func getAttesterBalances(state: StateData): seq[Gwei] {.noInit.}=
+  ## Get the balances from a state
+  result.newSeq(state.data.data.validators.len) # zero-init
+
+  let epoch = state.data.data.slot.compute_epoch_at_slot()
+
+  for i in 0 ..< result.len:
+    # All non-active validators have a 0 balance
+    template validator: Validator = state.data.data.validators[i]
+    if validator.is_active_validator(epoch):
+      result[i] = validator.effective_balance
+
+proc selectHead_v2(pool: var AttestationPool): BlockRef =
+  let attesterBalances = pool.blockPool.justifiedState.getAttesterBalances()
+
+  let newHead = pool.forkChoice_v2.find_head(
+    justified_epoch = pool.blockPool.justifiedState.data.data.slot.compute_epoch_at_slot(),
+    justified_root = pool.blockPool.head.justified.blck.root,
+    finalized_epoch = pool.blockPool.headState.data.data.finalized_checkpoint.epoch,
+    justified_state_balances = attesterBalances
+  ).get()
+
+  pool.blockPool.getRef(newHead)
+
+proc pruneBefore*(pool: var AttestationPool, finalizedhead: BlockSlot) =
+  pool.forkChoice_v2.maybe_prune(finalizedHead.blck.root).get()
+
+# Dual-Headed Fork choice
+# ---------------------------------------------------------------
+
+proc selectHead*(pool: var AttestationPool): BlockRef =
+  let head_v1 = pool.selectHead_v1()
+  let head_v2 = pool.selectHead_v2()
+
+  if head_v1 != head_v2:
+    error "Fork choice engines in disagreement, using block from v1.",
+      v1_block = shortlog(head_v1),
+      v2_block = shortlog(head_v2)
+
+  return head_v1
