@@ -53,7 +53,7 @@ proc connectToBN(vc: ValidatorClient) {.gcsafe, async.} =
         address = vc.config.rpcAddress
       return
     except CatchableError as err:
-      error "Could not connect to the BN - retrying!", err = err.msg
+      warn "Could not connect to the BN - retrying!", err = err.msg
       await sleepAsync(chronos.seconds(1)) # 1 second before retrying
 
 template attemptUntilSuccess(vc: ValidatorClient, body: untyped) =
@@ -62,7 +62,7 @@ template attemptUntilSuccess(vc: ValidatorClient, body: untyped) =
       body
       break
     except CatchableError as err:
-      error "Caught an unexpected error", err = err.msg
+      warn "Caught an unexpected error", err = err.msg
       waitFor vc.connectToBN()
 
 proc getValidatorDutiesForEpoch(vc: ValidatorClient, epoch: Epoch) {.gcsafe, async.} =
@@ -157,7 +157,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
         discard await vc.client.post_v1_beacon_pool_attestations(attestation)
 
   except CatchableError as err:
-    error "Caught an unexpected error", err = err.msg, slot = shortLog(slot)
+    warn "Caught an unexpected error", err = err.msg, slot = shortLog(slot)
     await vc.connectToBN()
 
   let

@@ -57,7 +57,8 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
              genesis_validators_root: node.blockPool.headState.data.data.genesis_validators_root,
              genesis_fork_version: Version(GENESIS_FORK_VERSION))
 
-  rpcServer.rpc("post_v1_beacon_pool_attestations") do (attestation: Attestation) -> bool:
+  rpcServer.rpc("post_v1_beacon_pool_attestations") do (
+      attestation: Attestation) -> bool:
     node.sendAttestation(attestation)
     return true
 
@@ -77,7 +78,9 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     return res.message.get()
 
   rpcServer.rpc("post_v1_beacon_blocks") do (body: SignedBeaconBlock) -> bool:
-    debug "post_v1_beacon_blocks", slot = body.message.slot, prop_idx = body.message.proposer_index
+    debug "post_v1_beacon_blocks",
+      slot = body.message.slot,
+      prop_idx = body.message.proposer_index
 
     let head = node.updateHead()
     if head.slot >= body.message.slot:
@@ -86,7 +89,8 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
         headBlockRoot = shortLog(head.root),
         slot = shortLog(body.message.slot),
         cat = "fastforward"
-      raise newException(CatchableError, "Proposal is for a past slot: " & $body.message.slot)
+      raise newException(CatchableError,
+        "Proposal is for a past slot: " & $body.message.slot)
     if head == await proposeSignedBlock(node, head, AttachedValidator(), 
                                         body, hash_tree_root(body.message)):
       raise newException(CatchableError, "Could not propose block")
