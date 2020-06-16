@@ -313,10 +313,6 @@ proc storeBlock(
 
     return err(blck.error)
 
-  # Still here? This means we received a valid block and we need to add it
-  # to the fork choice
-  node.attestationPool.addForkChoice_v2(blck.get())
-
   # The block we received contains attestations, and we might not yet know about
   # all of them. Let's add them to the attestation pool - in case the block
   # is not yet resolved, neither will the attestations be!
@@ -1138,3 +1134,4 @@ programMain:
         config.depositContractAddress,
         config.depositPrivateKey,
         delayGenerator)
+
