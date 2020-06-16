@@ -41,7 +41,7 @@ func verifyConsensus*(state: BeaconState, attesterRatio: auto) =
     doAssert state.finalized_checkpoint.epoch + 2 >= current_epoch
 
 proc loadGenesis*(validators: int, validate: bool): ref HashedBeaconState =
-  let fn = &"genesim_{const_preset}_{validators}.ssz"
+  let fn = &"genesim_{const_preset}_{validators}_{SPEC_VERSION}.ssz"
   let res = (ref HashedBeaconState)()
   if fileExists(fn):
     res.data = SSZ.loadFile(fn, BeaconState)
@@ -72,6 +72,7 @@ proc loadGenesis*(validators: int, validate: bool): ref HashedBeaconState =
 
     echo &"Saving to {fn}..."
     SSZ.saveFile(fn, res.data)
+
     res
 
 proc printTimers*[Timers: enum](
