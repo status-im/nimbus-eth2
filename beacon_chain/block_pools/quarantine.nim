@@ -6,12 +6,14 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  chronicles, tables,
+  chronicles, tables, options,
   stew/bitops2,
   metrics,
-  ../spec/digest,
-
+  ../spec/[datatypes, digest],
+  ../ssz/merkleization,
   block_pools_types
+
+export options
 
 logScope: topics = "quarant"
 {.push raises: [Defect].}
@@ -35,4 +37,19 @@ func checkMissing*(quarantine: var Quarantine): seq[FetchRecord] =
   # simple (simplistic?) exponential backoff for retries..
   for k, v in quarantine.missing.pairs():
     if countOnes(v.tries.uint64) == 1:
-      result.add(FetchRecord(root: k, historySlots: v.slots))
+      result.add(FetchRecord(root: k))
+
+func add*(quarantine: var Quarantine, dag: CandidateChains,
+          sblck: SignedBeaconBlock,
+          broot: Option[Eth2Digest] = none[Eth2Digest]()) =
+  ## Adds block to quarantine's `orphans` and `missing` lists.
+  let blockRoot = if broot.isSome():
+      broot.get()
+    else:
+      hash_tree_root(sblck.message)
+
+  quarantine.orphans[blockRoot] = sblck
+
+  let parentRoot = sblck.message.parent_root
+  if parentRoot notin quarantine.missing:
+    quarantine.missing[parentRoot] = MissingBlock()

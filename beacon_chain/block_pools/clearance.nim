@@ -12,7 +12,7 @@ import
   metrics, stew/results,
   ../ssz/merkleization, ../state_transition, ../extras,
   ../spec/[crypto, datatypes, digest, helpers, signatures],
-  block_pools_types, candidate_chains
+  block_pools_types, candidate_chains, quarantine
 
 export results
 
@@ -32,7 +32,7 @@ func getOrResolve*(dag: CandidateChains, quarantine: var Quarantine, root: Eth2D
   result = dag.getRef(root)
 
   if result.isNil:
-    quarantine.missing[root] = MissingBlock(slots: 1)
+    quarantine.missing[root] = MissingBlock()
 
 proc add*(
     dag: var CandidateChains, quarantine: var Quarantine,
@@ -99,12 +99,12 @@ proc addResolvedBlock(
     defer: quarantine.inAdd = false
     var keepGoing = true
     while keepGoing:
-      let retries = quarantine.pending
+      let retries = quarantine.orphans
       for k, v in retries:
         discard add(dag, quarantine, k, v)
       # Keep going for as long as the pending dag is shrinking
       # TODO inefficient! so what?
-      keepGoing = quarantine.pending.len < retries.len
+      keepGoing = quarantine.orphans.len < retries.len
   blockRef
 
 proc add*(
@@ -165,9 +165,9 @@ proc add*(
 
       return err Invalid
 
-    # The block might have been in either of pending or missing - we don't want
-    # any more work done on its behalf
-    quarantine.pending.del(blockRoot)
+    # The block might have been in either of `orphans` or `missing` - we don't
+    # want any more work done on its behalf
+    quarantine.orphans.del(blockRoot)
 
     # The block is resolved, now it's time to validate it to ensure that the
     # blocks we add to the database are clean for the given state
@@ -209,7 +209,7 @@ proc add*(
   # the pending dag calls this function back later in a loop, so as long
   # as dag.add(...) requires a SignedBeaconBlock, easier to keep them in
   # pending too.
-  quarantine.pending[blockRoot] = signedBlock
+  quarantine.add(dag, signedBlock, some(blockRoot))
 
   # TODO possibly, it makes sense to check the database - that would allow sync
   #      to simply fill up the database with random blocks the other clients
@@ -217,7 +217,7 @@ proc add*(
   #      junk that's not part of the block graph
 
   if blck.parent_root in quarantine.missing or
-      blck.parent_root in quarantine.pending:
+      blck.parent_root in quarantine.orphans:
     return err MissingParent
 
   # This is an unresolved block - put its parent on the missing list for now...
@@ -232,24 +232,11 @@ proc add*(
   #      filter.
   # TODO when we receive the block, we don't know how many others we're missing
   #      from that branch, so right now, we'll just do a blind guess
-  let parentSlot = blck.slot - 1
-
-  quarantine.missing[blck.parent_root] = MissingBlock(
-    slots:
-      # The block is at least two slots ahead - try to grab whole history
-      if parentSlot > dag.head.blck.slot:
-        parentSlot - dag.head.blck.slot
-      else:
-        # It's a sibling block from a branch that we're missing - fetch one
-        # epoch at a time
-        max(1.uint64, SLOTS_PER_EPOCH.uint64 -
-          (parentSlot.uint64 mod SLOTS_PER_EPOCH.uint64))
-  )
 
   debug "Unresolved block (parent missing)",
     blck = shortLog(blck),
     blockRoot = shortLog(blockRoot),
-    pending = quarantine.pending.len,
+    orphans = quarantine.orphans.len,
     missing = quarantine.missing.len,
     cat = "filtering"
 
@@ -345,8 +332,7 @@ proc isValidBeaconBlock*(
     # not specific to this, but by the pending dag keying on the htr of the
     # BeaconBlock, not SignedBeaconBlock, opens up certain spoofing attacks.
     debug "parent unknown, putting block in quarantine"
-    quarantine.pending[hash_tree_root(signed_beacon_block.message)] =
-      signed_beacon_block
+    quarantine.add(dag, signed_beacon_block)
     return err(MissingParent)
 
   # The proposer signature, signed_beacon_block.signature, is valid with
