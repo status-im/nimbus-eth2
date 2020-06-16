@@ -6,7 +6,14 @@ cd "$(dirname "$0")"
 
 TMUX_CMD="${TMUX_CMD:-tmux}"
 USE_TMUX="${USE_TMUX:-yes}"
-type "$TMUX_CMD" &>/dev/null || { echo "${TMUX_CMD}" is missing; USE_TMUX="no"; }
+
+if [[ "$USE_MULTITAIL" == "yes" ]]; then
+  USE_TMUX="no"
+fi
+
+if [[ "$USE_TMUX" != "no" ]]; then
+  type "$TMUX_CMD" &>/dev/null || { echo "${TMUX_CMD}" is missing; USE_TMUX="no"; }
+fi
 
 if [[ "$USE_TMUX" != "no" ]]; then
   TMUX_SESSION_NAME="${TMUX_SESSION_NAME:-nbc-sim}"
@@ -30,10 +37,6 @@ if [[ "$USE_TMUX" != "no" ]]; then
 
   $TMUX_CMD new-window -t "${TMUX_SESSION_NAME}" -n "start-script" "$PWD/start.sh"
   $TMUX_CMD select-window -t "${TMUX_SESSION_NAME}:start-script"
-
-  #$TMUX_CMD send-keys -t "${TMUX_SESSION_NAME}:0" "$PWD/start.sh" Enter
-  #$TMUX_CMD select-window -t "${TMUX_SESSION_NAME}:0"
-  # $TMUX_CMD attach-session -t "${TMUX_SESSION_NAME}"
 
   $TMUX_CMD attach-session -t "${TMUX_SESSION_NAME}"
 else

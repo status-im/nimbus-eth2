@@ -48,7 +48,7 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	update \
 	test \
 	$(TOOLS) \
-	clean_eth2_network_simulation_files \
+	clean_eth2_network_simulation_all \
 	eth2_network_simulation \
 	clean-testnet0 \
 	testnet0 \
@@ -132,10 +132,13 @@ $(TOOLS): | build deps
 		echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim c -o:build/$@ $(NIM_PARAMS) "$${TOOL_DIR}/$@.nim"
 
-clean_eth2_network_simulation_files:
+clean_eth2_network_simulation_data:
+	rm -rf tests/simulation/{data}
+
+clean_eth2_network_simulation_all:
 	rm -rf tests/simulation/{data,validators}
 
-eth2_network_simulation: | build deps clean_eth2_network_simulation_files
+eth2_network_simulation: | build deps clean_eth2_network_simulation_data
 	+ GIT_ROOT="$$PWD" NIMFLAGS="$(NIMFLAGS)" LOG_LEVEL="$(LOG_LEVEL)" tests/simulation/start-in-tmux.sh
 
 clean-testnet0:

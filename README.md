@@ -191,7 +191,20 @@ make VALIDATORS=192 NODES=6 USER_NODES=1 eth2_network_simulation
 # looks like from a single nodes' perspective.
 ```
 
-By default all validators are loaded within the beacon nodes, but if you want to use external processes as validator clients you can pass `BN_VC_VALIDATOR_SPLIT=yes` as an additional argument to the `make eth2_network_simulation` command and that will split the `VALIDATORS` between beacon nodes and validator clients - for example with `192` validators and `6` nodes you will end up with 6 beacon node and 6 validator client processes, where each of them will handle 16 validators.
+By default, all validators are loaded within the beacon nodes, but if you want to use
+external processes as validator clients you can pass `BN_VC_VALIDATOR_SPLIT=yes` as an
+additional argument to the `make eth2_network_simulation` command and that will split
+the `VALIDATORS` between beacon nodes and validator clients - for example with `192`
+validators and `6` nodes you will end up with 6 beacon node and 6 validator client
+processes, where each of them will handle 16 validators.
+
+By default, the simulation will start from a pre-generated genesis state. If you wish to
+simulate the bootstrap process with a Ethereum 1.0 validator deposit contract, start the
+simulation with `WAIT_GENESIS=yes`
+
+```
+make eth2_network_simulation WAIT_GENESIS=yes
+```
 
 You can also separate the output from each beacon node in its own panel, using [multitail](http://www.vanheusden.com/multitail/):
 
