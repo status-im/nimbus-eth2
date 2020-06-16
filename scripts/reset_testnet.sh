@@ -85,7 +85,7 @@ make build
 
 ../build/beacon_node deposits create \
   --count=$TOTAL_VALIDATORS \
-  --out-validators-dir="$DEPOSITS_DIR_ABS" \
+  --out-deposits-dir="$DEPOSITS_DIR_ABS" \
   --out-secrets-dir="$SECRETS_DIR_ABS" \
   --dont-send
 

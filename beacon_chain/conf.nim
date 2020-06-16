@@ -243,7 +243,7 @@ type
         name: "keyfile" }: seq[ValidatorKeyPath]
 
     of deposits:
-      case depositsCmd*: DepositsCmd
+      case depositsCmd* {.command.}: DepositsCmd
       of create:
         totalDeposits* {.
           defaultValue: 1
@@ -253,7 +253,7 @@ type
         outValidatorsDir* {.
           defaultValue: "validators"
           desc: "Output folder for validator keystores and deposits."
-          name: "out-validators-dir" }: string
+          name: "out-deposits-dir" }: string
 
         outSecretsDir* {.
           defaultValue: "secrets"
@@ -277,7 +277,7 @@ type
         depositsDir* {.
           defaultValue: "validators"
           desc: "A folder with validator metadata created by the `deposits create` command."
-          name: "out-validators-dir" }: string
+          name: "deposits-dir" }: string
 
         minDelay* {.
           defaultValue: 0.0
@@ -288,7 +288,7 @@ type
           defaultValue: 0.0
           desc: "Maximum possible delay between making two deposits (in seconds)."
           name: "max-delay" }: float
- 
+
   ValidatorClientConf* = object
     logLevel* {.
       defaultValue: "DEBUG"
