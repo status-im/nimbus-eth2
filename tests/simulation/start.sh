@@ -129,7 +129,7 @@ if [ ! -f "${SNAPSHOT_FILE}" ]; then
       --output-bootstrap-file="${NETWORK_BOOTSTRAP_FILE}" \
       --bootstrap-address=127.0.0.1 \
       --bootstrap-port=$(( BASE_P2P_PORT + MASTER_NODE )) \
-      --genesis-offset=45 # Delay in seconds
+      --genesis-offset=15 # Delay in seconds
   fi
 fi
 
@@ -139,6 +139,7 @@ function run_cmd {
   bin_name=$3
   if [[ "$USE_TMUX" == "yes" ]]; then
     echo "Starting node $i..."
+    $TMUX_CMD select-window -t "${TMUX_SESSION_NAME}:sim"
     $TMUX_CMD split-window -t "${TMUX_SESSION_NAME}" "$CMD"
     $TMUX_CMD select-layout -t "${TMUX_SESSION_NAME}:sim" tiled
   elif [[ "$USE_MULTITAIL" != "no" ]]; then
