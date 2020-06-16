@@ -40,12 +40,10 @@ func verifyConsensus*(state: BeaconState, attesterRatio: auto) =
   if current_epoch >= 4:
     doAssert state.finalized_checkpoint.epoch + 2 >= current_epoch
 
-const GENESIM_CACHING_ENABLED {.intdefine.} = 0
-
 proc loadGenesis*(validators: int, validate: bool): ref HashedBeaconState =
-  let fn = &"genesim_{const_preset}_{validators}.ssz"
+  let fn = &"genesim_{const_preset}_{validators}_{SPEC_VERSION}.ssz"
   let res = (ref HashedBeaconState)()
-  if fileExists(fn) and GENESIM_CACHING_ENABLED != 0:
+  if fileExists(fn):
     res.data = SSZ.loadFile(fn, BeaconState)
     res.root = hash_tree_root(res.data)
     if res.data.slot != GENESIS_SLOT:
@@ -72,9 +70,8 @@ proc loadGenesis*(validators: int, validate: bool): ref HashedBeaconState =
       initialize_beacon_state_from_eth1(Eth2Digest(), 0, deposits, flags)[]
     res.root = hash_tree_root(res.data)
 
-    when GENESIM_CACHING_ENABLED != 0:
-      echo &"Saving to {fn}..."
-      SSZ.saveFile(fn, res.data)
+    echo &"Saving to {fn}..."
+    SSZ.saveFile(fn, res.data)
 
     res
 

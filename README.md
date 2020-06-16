@@ -395,12 +395,6 @@ make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower
 make publish-book
 ```
 
-- write / load genesis files for `state_sim` and `block_sim`:
-
-```bash
-make NIMFLAGS="-d:GENESIM_CACHING_ENABLED=1" test
-```
-
 ### CI setup
 
 Local testnets run for 4 epochs each, to test finalization. That happens only on Jenkins Linux hosts, and their logs are available for download as artifacts, from the job's page. Don't expect these artifacts to be kept more than a day after the corresponding branch is deleted.
