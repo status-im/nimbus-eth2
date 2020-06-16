@@ -287,6 +287,22 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
 
   node.attestationPool.add(attestation)
 
+proc dumpBlock[T](
+    node: BeaconNode, signedBlock: SignedBeaconBlock,
+    res: Result[T, BlockError]) =
+  if node.config.dumpEnabled and res.isErr:
+    case res.error
+    of Invalid:
+      dump(
+        node.config.dumpDirInvalid, signedBlock,
+        hash_tree_root(signedBlock.message))
+    of MissingParent:
+      dump(
+        node.config.dumpDirIncoming, signedBlock,
+        hash_tree_root(signedBlock.message))
+    else:
+      discard
+
 proc storeBlock(
     node: BeaconNode, signedBlock: SignedBeaconBlock): Result[void, BlockError] =
   let blockRoot = hash_tree_root(signedBlock.message)
@@ -296,28 +312,16 @@ proc storeBlock(
     cat = "block_listener",
     pcs = "receive_block"
 
-  if node.config.dumpEnabled:
-    dump(node.config.dumpDir / "incoming", signedBlock, blockRoot)
-
   beacon_blocks_received.inc()
   let blck = node.blockPool.add(blockRoot, signedBlock)
+
+  node.dumpBlock(signedBlock, blck)
+
   if blck.isErr:
-    if blck.error == Invalid and node.config.dumpEnabled:
-      dump(node.config.dumpDir / "invalid", signedBlock, blockRoot)
-
-      let parent = node.blockPool.getRef(signedBlock.message.parent_root)
-      if parent != nil:
-        let parentBs = parent.atSlot(signedBlock.message.slot - 1)
-        node.blockPool.withState(node.blockPool.tmpState, parentBs):
-            dump(node.config.dumpDir / "invalid", hashedState, parent)
-
     return err(blck.error)
 
   # The block we received contains attestations, and we might not yet know about
-  # all of them. Let's add them to the attestation pool - in case the block
-  # is not yet resolved, neither will the attestations be!
-  # But please note that we only care about recent attestations.
-  # TODO shouldn't add attestations if the block turns out to be invalid..
+  # all of them. Let's add them to the attestation pool.
   let currentSlot = node.beaconClock.now.toSlot
   if currentSlot.afterGenesis and
     signedBlock.message.slot.epoch + 1 >= currentSlot.slot.epoch:
@@ -770,7 +774,11 @@ proc run*(node: BeaconNode) =
       let (afterGenesis, slot) = node.beaconClock.now.toSlot()
       if not afterGenesis:
         return false
-      node.blockPool.isValidBeaconBlock(signedBlock, slot, {})
+
+      let blck = node.blockPool.isValidBeaconBlock(signedBlock, slot, {})
+      node.dumpBlock(signedBlock, blck)
+
+      blck.isOk
 
     installAttestationHandlers(node)
 
@@ -1080,10 +1088,7 @@ programMain:
 
     createPidFile(config.dataDir.string / "beacon_node.pid")
 
-    if config.dumpEnabled:
-      createDir(config.dumpDir)
-      createDir(config.dumpDir / "incoming")
-      createDir(config.dumpDir / "invalid")
+    config.createDumpDirs()
 
     var node = waitFor BeaconNode.init(config)
 

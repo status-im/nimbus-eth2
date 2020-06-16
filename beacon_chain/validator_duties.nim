@@ -122,7 +122,7 @@ proc createAndSendAttestation(node: BeaconNode,
   node.sendAttestation(attestation)
 
   if node.config.dumpEnabled:
-    dump(node.config.dumpDir, attestation.data, validator.pubKey)
+    dump(node.config.dumpDirOutgoing, attestation.data, validator.pubKey)
 
   info "Attestation sent",
     attestation = shortLog(attestation),
@@ -221,10 +221,7 @@ proc proposeSignedBlock*(node: BeaconNode,
     cat = "consensus"
 
   if node.config.dumpEnabled:
-    dump(node.config.dumpDir, newBlock, newBlockRef[])
-    node.blockPool.withState(
-        node.blockPool.tmpState, newBlockRef[].atSlot(newBlockRef[].slot)):
-      dump(node.config.dumpDir, hashedState, newBlockRef[])
+    dump(node.config.dumpDirOutgoing, newBlock, newBlockRef[])
 
   node.network.broadcast(node.topicBeaconBlocks, newBlock)
 

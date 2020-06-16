@@ -18,6 +18,7 @@ type
   DbCmd* = enum
     bench
     dumpState
+    rewindState
 
   DbConf = object
     databaseDir* {.
@@ -39,6 +40,15 @@ type
       stateRoot* {.
         argument
         desc: "State roots to save".}: seq[string]
+
+    of rewindState:
+      blockRoot* {.
+        argument
+        desc: "Block root".}: string
+
+      slot* {.
+        argument
+        desc: "Slot".}: uint64
 
 proc cmdBench(conf: DbConf) =
   var timers: array[Timers, RunningStat]
@@ -104,6 +114,28 @@ proc cmdDumpState(conf: DbConf) =
     except CatchableError as e:
       echo "Couldn't load ", stateRoot, ": ", e.msg
 
+proc cmdRewindState(conf: DbConf) =
+  echo "Opening database..."
+  let
+    db = BeaconChainDB.init(
+      kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
+
+  if not BlockPool.isInitialized(db):
+    echo "Database not initialized"
+    quit 1
+
+  echo "Initializing block pool..."
+  let pool = BlockPool.init(db, {})
+
+  let blckRef = pool.getRef(fromHex(Eth2Digest, conf.blockRoot))
+  if blckRef == nil:
+    echo "Block not found in database"
+    return
+
+  pool.withState(pool.tmpState, blckRef.atSlot(Slot(conf.slot))):
+    echo "Writing state..."
+    dump("./", hashedState, blck)
+
 when isMainModule:
   let
     conf = DbConf.load()
@@ -113,3 +145,5 @@ when isMainModule:
     cmdBench(conf)
   of dumpState:
     cmdDumpState(conf)
+  of rewindState:
+    cmdRewindState(conf)

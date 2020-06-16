@@ -259,7 +259,7 @@ proc add*(
 proc isValidBeaconBlock*(
        dag: CandidateChains, quarantine: var Quarantine,
        signed_beacon_block: SignedBeaconBlock, current_slot: Slot,
-       flags: UpdateFlags): bool =
+       flags: UpdateFlags): Result[void, BlockError] =
   logScope:
     topics = "clearance valid_blck"
     received_block = shortLog(signed_beacon_block.message)
@@ -276,7 +276,7 @@ proc isValidBeaconBlock*(
   if not (signed_beacon_block.message.slot <= current_slot + 1):
     debug "block is from a future slot",
       current_slot
-    return false
+    return err(Invalid)
 
   # The block is from a slot greater than the latest finalized slot (with a
   # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. validate that
@@ -284,7 +284,7 @@ proc isValidBeaconBlock*(
   # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)
   if not (signed_beacon_block.message.slot > dag.finalizedHead.slot):
     debug "block is not from a slot greater than the latest finalized slot"
-    return false
+    return err(Invalid)
 
   # The block is the first block with valid signature received for the proposer
   # for the slot, signed_beacon_block.message.slot.
@@ -324,7 +324,7 @@ proc isValidBeaconBlock*(
       debug "block isn't first block with valid signature received for the proposer",
         blckRef = slotBlockRef,
         existing_block = shortLog(blck.message)
-      return false
+      return err(Invalid)
 
   # If this block doesn't have a parent we know about, we can't/don't really
   # trace it back to a known-good state/checkpoint to verify its prevenance;
@@ -347,7 +347,7 @@ proc isValidBeaconBlock*(
     debug "parent unknown, putting block in quarantine"
     quarantine.pending[hash_tree_root(signed_beacon_block.message)] =
       signed_beacon_block
-    return false
+    return err(MissingParent)
 
   # The proposer signature, signed_beacon_block.signature, is valid with
   # respect to the proposer_index pubkey.
@@ -356,13 +356,13 @@ proc isValidBeaconBlock*(
 
   if proposer.isNone:
     notice "cannot compute proposer for message"
-    return false
+    return err(Invalid)
 
   if proposer.get()[0] !=
       ValidatorIndex(signed_beacon_block.message.proposer_index):
     debug "block had unexpected proposer",
       expected_proposer = proposer.get()[0]
-    return false
+    return err(Invalid)
 
   if not verify_block_signature(
       dag.headState.data.data.fork,
@@ -374,6 +374,6 @@ proc isValidBeaconBlock*(
     debug "block failed signature verification",
       signature = shortLog(signed_beacon_block.signature)
 
-    return false
+    return err(Invalid)
 
-  true
+  ok()

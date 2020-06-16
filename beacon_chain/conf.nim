@@ -324,6 +324,25 @@ proc defaultDataDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
 func dumpDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
   conf.dataDir / "dump"
 
+func dumpDirInvalid*(conf: BeaconNodeConf|ValidatorClientConf): string =
+  conf.dumpDir / "invalid" # things that failed validation
+
+func dumpDirIncoming*(conf: BeaconNodeConf|ValidatorClientConf): string =
+  conf.dumpDir / "incoming" # things that couldn't be validated (missingparent etc)
+
+func dumpDirOutgoing*(conf: BeaconNodeConf|ValidatorClientConf): string =
+  conf.dumpDir / "outgoing" # things we produced
+
+proc createDumpDirs*(conf: BeaconNodeConf) =
+  if conf.dumpEnabled:
+    try:
+      createDir(conf.dumpDirInvalid)
+      createDir(conf.dumpDirIncoming)
+      createDir(conf.dumpDirOutgoing)
+    except CatchableError as err:
+      # Dumping is mainly a debugging feature, so ignore these..
+      warn "Cannot create dump directories", msg = err.msg
+
 func validatorsDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
   string conf.validatorsDirFlag.get(InputDir(conf.dataDir / "validators"))
 
