@@ -29,7 +29,7 @@ func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openarray[Eth2Digest], de
     else:
       buf[0..31] = value.data
       buf[32..63] = branch[i.int].data
-    value = eth2hash(buf)
+    value = eth2digest(buf)
   value == root
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#increase_balance

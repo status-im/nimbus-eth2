@@ -130,7 +130,7 @@ proc process_randao(
   # Mix it in
   let
     mix = get_randao_mix(state, epoch)
-    rr = eth2hash(body.randao_reveal.toRaw()).data
+    rr = eth2digest(body.randao_reveal.toRaw()).data
 
   state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR].data =
     mix.data xor rr

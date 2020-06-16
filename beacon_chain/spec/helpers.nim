@@ -212,4 +212,4 @@ func get_seed*(state: BeaconState, epoch: Epoch, domain_type: DomainType): Eth2D
   seed_input[12..43] =
     get_randao_mix(state, # Avoid underflow
       epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1).data
-  eth2hash(seed_input)
+  eth2digest(seed_input)

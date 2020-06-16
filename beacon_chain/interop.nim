@@ -25,7 +25,7 @@ func makeInteropPrivKey*(i: int): ValidatorPrivKey =
     curveOrder =
       "52435875175126190479447740508185965837690552500527637822603658699938581184513".parse(UInt256)
 
-    privkeyBytes = eth2hash(bytes)
+    privkeyBytes = eth2digest(bytes)
     key = (UInt256.fromBytesLE(privkeyBytes.data) mod curveOrder).toBytesBE()
 
   ValidatorPrivKey.fromRaw(key).get

@@ -52,14 +52,14 @@ func get_shuffled_seq*(seed: Eth2Digest,
     source_buffer[32] = round_bytes1
 
     # Only one pivot per round.
-    let pivot = bytes_to_int(eth2hash(pivot_buffer).data.toOpenArray(0, 7)) mod list_size
+    let pivot = bytes_to_int(eth2digest(pivot_buffer).data.toOpenArray(0, 7)) mod list_size
 
     ## Only need to run, per round, position div 256 hashes, so precalculate
     ## them. This consumes memory, but for low-memory devices, it's possible
     ## to mitigate by some light LRU caching and similar.
     for reduced_position in 0 ..< sources.len:
       source_buffer[33..36] = int_to_bytes4(reduced_position.uint64)
-      sources[reduced_position] = eth2hash(source_buffer)
+      sources[reduced_position] = eth2digest(source_buffer)
 
     ## Iterate over all the indices. This was in get_permuted_index, but large
     ## efficiency gains exist in caching and re-using data.
@@ -185,7 +185,7 @@ func compute_proposer_index(state: BeaconState, indices: seq[ValidatorIndex],
     buffer[32..39] = int_to_bytes8(i.uint64 div 32)
     let
       candidate_index = shuffled_seq[(i.uint64 mod seq_len).int]
-      random_byte = (eth2hash(buffer).data)[i mod 32]
+      random_byte = (eth2digest(buffer).data)[i mod 32]
       effective_balance =
         state.validators[candidate_index].effective_balance
     if effective_balance * MAX_RANDOM_BYTE >=
@@ -217,7 +217,7 @@ func get_beacon_proposer_index*(state: BeaconState, cache: var StateCache, slot:
 
   try:
     let
-      seed = eth2hash(buffer)
+      seed = eth2digest(buffer)
       indices =
         sorted(cache.shuffled_active_validator_indices[epoch], system.cmp)
 
