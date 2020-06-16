@@ -604,7 +604,7 @@ proc currentSlot(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero
 
 proc connectedPeersCount(node: BeaconNode): int =
-  libp2p_peers.value.int
+  nbc_peers.value.int
 
 proc fromJson(n: JsonNode; argName: string; result: var Slot) =
   var i: int

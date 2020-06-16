@@ -43,6 +43,9 @@ cli do (skipGoerliKey {.
         baseMetricsPort {.
           desc: "Base metrics port (nodeID will be added to it)" .} = 8008.int,
 
+        baseRpcPort {.
+          desc: "Base rpc port (nodeID will be added to it)" .} = 9090.int,
+
         testnetName {.argument .}: string):
   let
     nameParts = testnetName.split "/"
@@ -172,6 +175,8 @@ cli do (skipGoerliKey {.
     --udp-port=""" & $(basePort + nodeID) & &"""
     --metrics
     --metrics-port=""" & $(baseMetricsPort + nodeID) & &"""
+    --rpc
+    --rpc-port=""" & $(baseRpcPort + nodeID) & &"""
     {bootstrapFileOpt}
     {logLevelOpt}
     {depositContractOpt}
