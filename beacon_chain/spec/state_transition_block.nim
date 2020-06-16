@@ -32,7 +32,8 @@
 import
   algorithm, collections/sets, chronicles, options, sequtils, sets,
   ../extras, ../ssz/merkleization, metrics,
-  beaconstate, crypto, datatypes, digest, helpers, validator,
+  ./beaconstate, ./crypto, ./datatypes, ./digest, ./helpers, ./validator,
+  ./signatures,
   ../../nbench/bench_lab
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
@@ -104,7 +105,6 @@ proc process_randao(
     state: var BeaconState, body: BeaconBlockBody, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.}=
   let
-    epoch = state.get_current_epoch()
     proposer_index = get_beacon_proposer_index(state, stateCache)
 
   if proposer_index.isNone:
@@ -112,14 +112,17 @@ proc process_randao(
     return false
 
   # Verify RANDAO reveal
-  let proposer = addr state.validators[proposer_index.get]
+  let
+    epoch = state.get_current_epoch()
 
-  let signing_root = compute_signing_root(
-    epoch, get_domain(state, DOMAIN_RANDAO, get_current_epoch(state)))
   if skipBLSValidation notin flags:
-    if not blsVerify(proposer.pubkey, signing_root.data, body.randao_reveal):
-      notice "Randao mismatch", proposer_pubkey = shortLog(proposer.pubkey),
-                                message = epoch,
+    let proposer_pubkey = state.validators[proposer_index.get].pubkey
+
+    if not verify_epoch_signature(
+        state.fork, state.genesis_validators_root, epoch, proposer_pubkey,
+        body.randao_reveal):
+      notice "Randao mismatch", proposer_pubkey = shortLog(proposer_pubkey),
+                                epoch,
                                 signature = shortLog(body.randao_reveal),
                                 slot = state.slot
       return false
@@ -187,12 +190,9 @@ proc process_proposer_slashing*(
   if skipBlsValidation notin flags:
     for i, signed_header in [proposer_slashing.signed_header_1,
         proposer_slashing.signed_header_2]:
-      let domain = get_domain(
-            state, DOMAIN_BEACON_PROPOSER,
-            compute_epoch_at_slot(signed_header.message.slot)
-          )
-      let signing_root = compute_signing_root(signed_header.message, domain)
-      if not blsVerify(proposer.pubkey, signing_root.data, signed_header.signature):
+      if not verify_block_signature(
+          state.fork, state.genesis_validators_root, signed_header.message.slot,
+          signed_header.message, proposer.pubkey, signed_header.signature):
         notice "Proposer slashing: invalid signature",
           signature_index = i
         return false
@@ -260,7 +260,7 @@ proc process_voluntary_exit*(
   let voluntary_exit = signed_voluntary_exit.message
 
   # Not in spec. Check that validator_index is in range
-  if voluntary_exit.validator_index.int >= state.validators.len:
+  if voluntary_exit.validator_index >= state.validators.len.uint64:
     notice "Exit: invalid validator index",
       index = voluntary_exit.validator_index,
       num_validators = state.validators.len
@@ -298,9 +298,9 @@ proc process_voluntary_exit*(
 
   # Verify signature
   if skipBlsValidation notin flags:
-    let domain = get_domain(state, DOMAIN_VOLUNTARY_EXIT, voluntary_exit.epoch)
-    let signing_root = compute_signing_root(voluntary_exit, domain)
-    if not bls_verify(validator.pubkey, signing_root.data, signed_voluntary_exit.signature):
+    if not verify_voluntary_exit_signature(
+        state.fork, state.genesis_validators_root, voluntary_exit,
+        validator.pubkey, signed_voluntary_exit.signature):
       notice "Exit: invalid signature"
       return false
 
@@ -393,61 +393,3 @@ proc process_block*(
     return false
 
   true
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#aggregation-selection
-func get_slot_signature*(
-    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    privkey: ValidatorPrivKey): ValidatorSig =
-  let
-    domain = get_domain(fork, DOMAIN_SELECTION_PROOF,
-      compute_epoch_at_slot(slot), genesis_validators_root)
-    signing_root = compute_signing_root(slot, domain)
-
-  blsSign(privKey, signing_root.data)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#randao-reveal
-func get_epoch_signature*(
-    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    privkey: ValidatorPrivKey): ValidatorSig =
-  let
-    domain = get_domain(fork, DOMAIN_RANDAO, compute_epoch_at_slot(slot),
-      genesis_validators_root)
-    signing_root = compute_signing_root(compute_epoch_at_slot(slot), domain)
-
-  blsSign(privKey, signing_root.data)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#signature
-func get_block_signature*(
-    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    root: Eth2Digest, privkey: ValidatorPrivKey): ValidatorSig =
-  let
-    domain = get_domain(fork, DOMAIN_BEACON_PROPOSER,
-      compute_epoch_at_slot(slot), genesis_validators_root)
-    signing_root = compute_signing_root(root, domain)
-
-  blsSign(privKey, signing_root.data)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-aggregate
-func get_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth2Digest,
-                                        aggregate_and_proof: AggregateAndProof,
-                                        privKey: ValidatorPrivKey): ValidatorSig =
-  let
-    aggregate = aggregate_and_proof.aggregate
-    domain = get_domain(fork, DOMAIN_AGGREGATE_AND_PROOF,
-                        compute_epoch_at_slot(aggregate.data.slot),
-                        genesis_validators_root)
-    signing_root = compute_signing_root(aggregate_and_proof, domain)
-
-  return blsSign(privKey, signing_root.data)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#aggregate-signature
-func get_attestation_signature*(
-    fork: Fork, genesis_validators_root: Eth2Digest, attestation: AttestationData,
-    privkey: ValidatorPrivKey): ValidatorSig =
-  let
-    attestationRoot = hash_tree_root(attestation)
-    domain = get_domain(fork, DOMAIN_BEACON_ATTESTER,
-      attestation.target.epoch, genesis_validators_root)
-    signing_root = compute_signing_root(attestationRoot, domain)
-
-  blsSign(privKey, signing_root.data)

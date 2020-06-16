@@ -10,7 +10,7 @@ import
   stew/[results, byteutils, bitseqs, bitops2], stew/shims/macros,
   eth/keyfile/uuid, blscurve,
   nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, sysrand],
-  datatypes, crypto, digest, helpers
+  ./datatypes, ./crypto, ./digest, ./signatures
 
 export
   results
@@ -396,9 +396,6 @@ proc prepareDeposit*(credentials: Credentials,
         pubkey: signingPubKey,
         withdrawal_credentials: makeWithdrawalCredentials(withdrawalPubKey)))
 
-  let domain = compute_domain(DOMAIN_DEPOSIT)
-  let signing_root = compute_signing_root(ret.getDepositMessage, domain)
+  ret.data.signature = get_deposit_signature(ret.data, credentials.signingKey)
 
-  ret.data.signature = bls_sign(credentials.signingKey, signing_root.data)
   ret
-

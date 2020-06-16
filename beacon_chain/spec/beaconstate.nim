@@ -11,7 +11,7 @@ import
   tables, algorithm, math, sequtils, options,
   json_serialization/std/sets, chronicles,
   ../extras, ../ssz/merkleization,
-  ./crypto, ./datatypes, ./digest, ./helpers, ./validator,
+  ./crypto, ./datatypes, ./digest, ./helpers, ./signatures, ./validator,
   ../../nbench/bench_lab
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#is_valid_merkle_branch
@@ -79,19 +79,13 @@ proc process_deposit*(
   if index == -1:
     # Verify the deposit signature (proof of possession) which is not checked
     # by the deposit contract
-
-    # Fork-agnostic domain since deposits are valid across forks
-    let domain = compute_domain(DOMAIN_DEPOSIT)
-
-    let signing_root = compute_signing_root(deposit.getDepositMessage, domain)
-    if skipBLSValidation notin flags and not bls_verify(
-        pubkey, signing_root.data,
-        deposit.data.signature):
-      # It's ok that deposits fail - they get included in blocks regardless
-      # TODO spec test?
-      debug "Skipping deposit with invalid signature",
-        pubkey, signing_root, signature = deposit.data.signature
-      return true
+    if skipBLSValidation notin flags:
+      if not verify_deposit_signature(deposit.data):
+        # It's ok that deposits fail - they get included in blocks regardless
+        # TODO spec test?
+        debug "Skipping deposit with invalid signature",
+          deposit = shortLog(deposit.data)
+        return true
 
     # Add validator and balance entries
     state.validators.add(Validator(
@@ -418,15 +412,14 @@ proc is_valid_indexed_attestation*(
     return false
 
   # Verify aggregate signature
-  let pubkeys = mapIt(indices, state.validators[it.int].pubkey) # TODO: fuse loops with blsFastAggregateVerify
-  let domain = state.get_domain(DOMAIN_BEACON_ATTESTER, indexed_attestation.data.target.epoch)
-  let signing_root = compute_signing_root(indexed_attestation.data, domain)
-  if skipBLSValidation notin flags and
-       not blsFastAggregateVerify(
-             pubkeys, signing_root.data, indexed_attestation.signature
-       ):
-    notice "indexed attestation: signature verification failure"
-    return false
+  if skipBLSValidation notin flags:
+     # TODO: fuse loops with blsFastAggregateVerify
+    let pubkeys = mapIt(indices, state.validators[it.int].pubkey)
+    if not verify_attestation_signature(
+        state.fork, state.genesis_validators_root, indexed_attestation.data,
+        pubkeys, indexed_attestation.signature):
+      notice "indexed attestation: signature verification failure"
+      return false
 
   true
 

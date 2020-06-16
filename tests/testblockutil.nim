@@ -12,7 +12,7 @@ import
   ../beacon_chain/ssz/merkleization,
     state_transition, validator_pool],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest,
-    helpers, validator, state_transition_block]
+    helpers, validator, signatures]
 
 func makeFakeValidatorPrivKey(i: int): ValidatorPrivKey =
   # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
@@ -44,7 +44,6 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
     privkey = makeFakeValidatorPrivKey(i)
     pubkey = privkey.toPubKey()
     withdrawal_credentials = makeFakeHash(i)
-    domain = compute_domain(DOMAIN_DEPOSIT, Version(GENESIS_FORK_VERSION))
 
   result = Deposit(
     data: DepositData(
@@ -55,8 +54,7 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
   )
 
   if skipBLSValidation notin flags:
-    let signing_root = compute_signing_root(result.getDepositMessage, domain)
-    result.data.signature = bls_sign(privkey, signing_root.data)
+    result.data.signature = get_deposit_signature(result.data, privkey)
 
 proc makeInitialDeposits*(
     n = SLOTS_PER_EPOCH, flags: UpdateFlags = {}): seq[Deposit] =

@@ -5,12 +5,13 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [Defect].}
+
 import
   chronicles, sequtils, tables,
   metrics, stew/results,
   ../ssz/merkleization, ../state_transition, ../extras,
-  ../spec/[crypto, datatypes, digest, helpers],
-
+  ../spec/[crypto, datatypes, digest, helpers, signatures],
   block_pools_types, candidate_chains
 
 export results
@@ -22,8 +23,8 @@ export results
 # "quarantined" network blocks
 # pass the firewall and be stored in the blockpool
 
-logScope: topics = "clearblk"
-{.push raises: [Defect].}
+logScope:
+  topics = "clearance"
 
 func getOrResolve*(dag: CandidateChains, quarantine: var Quarantine, root: Eth2Digest): BlockRef =
   ## Fetch a block ref, or nil if not found (will be added to list of
@@ -259,6 +260,10 @@ proc isValidBeaconBlock*(
        dag: CandidateChains, quarantine: var Quarantine,
        signed_beacon_block: SignedBeaconBlock, current_slot: Slot,
        flags: UpdateFlags): bool =
+  logScope:
+    topics = "clearance valid_blck"
+    received_block = shortLog(signed_beacon_block.message)
+
   # In general, checks are ordered from cheap to expensive. Especially, crypto
   # verification could be quite a bit more expensive than the rest. This is an
   # externally easy-to-invoke function by tossing network packets at the node.
@@ -269,9 +274,8 @@ proc isValidBeaconBlock*(
   # TODO using +1 here while this is being sorted - should queue these until
   #      they're within the DISPARITY limit
   if not (signed_beacon_block.message.slot <= current_slot + 1):
-    debug "isValidBeaconBlock: block is from a future slot",
-      signed_beacon_block_message_slot = signed_beacon_block.message.slot,
-      current_slot = current_slot
+    debug "block is from a future slot",
+      current_slot
     return false
 
   # The block is from a slot greater than the latest finalized slot (with a
@@ -279,7 +283,7 @@ proc isValidBeaconBlock*(
   # signed_beacon_block.message.slot >
   # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)
   if not (signed_beacon_block.message.slot > dag.finalizedHead.slot):
-    debug "isValidBeaconBlock: block is not from a slot greater than the latest finalized slot"
+    debug "block is not from a slot greater than the latest finalized slot"
     return false
 
   # The block is the first block with valid signature received for the proposer
@@ -317,11 +321,9 @@ proc isValidBeaconBlock*(
           signed_beacon_block.message.proposer_index and
         blck.message.slot == signed_beacon_block.message.slot and
         blck.signature.toRaw() != signed_beacon_block.signature.toRaw():
-      debug "isValidBeaconBlock: block isn't first block with valid signature received for the proposer",
-        signed_beacon_block_message_slot = signed_beacon_block.message.slot,
+      debug "block isn't first block with valid signature received for the proposer",
         blckRef = slotBlockRef,
-        received_block = shortLog(signed_beacon_block.message),
-        existing_block = shortLog(dag.get(slotBlockRef).data.message)
+        existing_block = shortLog(blck.message)
       return false
 
   # If this block doesn't have a parent we know about, we can't/don't really
@@ -342,27 +344,36 @@ proc isValidBeaconBlock*(
     # CandidateChains.add(...) directly, with no additional validity checks. TODO,
     # not specific to this, but by the pending dag keying on the htr of the
     # BeaconBlock, not SignedBeaconBlock, opens up certain spoofing attacks.
+    debug "parent unknown, putting block in quarantine"
     quarantine.pending[hash_tree_root(signed_beacon_block.message)] =
       signed_beacon_block
     return false
 
   # The proposer signature, signed_beacon_block.signature, is valid with
   # respect to the proposer_index pubkey.
-  let bs =
-    BlockSlot(blck: parent_ref, slot: dag.get(parent_ref).data.message.slot)
-  dag.withState(dag.tmpState, bs):
-    let
-      blockRoot = hash_tree_root(signed_beacon_block.message)
-      domain = get_domain(dag.headState.data.data, DOMAIN_BEACON_PROPOSER,
-        compute_epoch_at_slot(signed_beacon_block.message.slot))
-      signing_root = compute_signing_root(blockRoot, domain)
-      proposer_index = signed_beacon_block.message.proposer_index
+  let
+    proposer = getProposer(dag, parent_ref, signed_beacon_block.message.slot)
 
-    if proposer_index >= dag.headState.data.data.validators.len.uint64:
-      return false
-    if not blsVerify(dag.headState.data.data.validators[proposer_index].pubkey,
-        signing_root.data, signed_beacon_block.signature):
-      debug "isValidBeaconBlock: block failed signature verification"
-      return false
+  if proposer.isNone:
+    notice "cannot compute proposer for message"
+    return false
+
+  if proposer.get()[0] !=
+      ValidatorIndex(signed_beacon_block.message.proposer_index):
+    debug "block had unexpected proposer",
+      expected_proposer = proposer.get()[0]
+    return false
+
+  if not verify_block_signature(
+      dag.headState.data.data.fork,
+      dag.headState.data.data.genesis_validators_root,
+      signed_beacon_block.message.slot,
+      signed_beacon_block.message,
+      proposer.get()[1],
+      signed_beacon_block.signature):
+    debug "block failed signature verification",
+      signature = shortLog(signed_beacon_block.signature)
+
+    return false
 
   true

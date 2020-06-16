@@ -12,88 +12,34 @@ import
   # Standard library
   math, random,
   # Specs
-  ../../beacon_chain/spec/[datatypes, crypto, helpers, digest],
+  ../../beacon_chain/spec/[datatypes, crypto, digest, keystore, signatures],
   # Internals
   ../../beacon_chain/[ssz, extras, merkle_minimal],
   # Mocking procs
   ./mock_validator_keys
 
-func signMockDepositData(
-        deposit_data: var DepositData,
-        privkey: ValidatorPrivKey
-      ) =
-  # No state --> Genesis
-  let domain = compute_domain(
-      DOMAIN_DEPOSIT,
-      Version(GENESIS_FORK_VERSION)
-    )
-  let signing_root = compute_signing_root(
-    deposit_data.getDepositMessage(),
-    domain
-  )
-  deposit_data.signature = blsSign(
-    privkey,
-    signing_root.data
-  )
-
-func signMockDepositData(
-        deposit_data: var DepositData,
-        privkey: ValidatorPrivKey,
-        state: BeaconState
-      ) =
-  let domain = compute_domain(
-      DOMAIN_DEPOSIT,
-      Version(GENESIS_FORK_VERSION)
-    )
-  let signing_root = compute_signing_root(
-    deposit_data.getDepositMessage(),
-    domain
-  )
-  deposit_data.signature = blsSign(
-    privkey,
-    signing_root.data
-  )
-
 func mockDepositData(
-        deposit_data: var DepositData,
         pubkey: ValidatorPubKey,
         amount: uint64,
-        # withdrawal_credentials: Eth2Digest
-      ) =
-  deposit_data.pubkey = pubkey
-  deposit_data.amount = amount
-
+      ): DepositData =
   # Insecurely use pubkey as withdrawal key
-  deposit_data.withdrawal_credentials.data[0] = byte BLS_WITHDRAWAL_PREFIX
-  deposit_data.withdrawal_credentials.data[1..^1] = pubkey.toRaw()
-                                                          .eth2hash()
-                                                          .data
-                                                          .toOpenArray(1, 31)
+  DepositData(
+    pubkey: pubkey,
+    withdrawal_credentials: makeWithdrawalCredentials(pubkey),
+    amount: amount,
+  )
 
 func mockDepositData(
-        deposit_data: var DepositData,
         pubkey: ValidatorPubKey,
         privkey: ValidatorPrivKey,
         amount: uint64,
         # withdrawal_credentials: Eth2Digest,
         flags: UpdateFlags = {}
-      ) =
-  mockDepositData(deposit_data, pubkey, amount)
+      ): DepositData =
+  var ret = mockDepositData(pubkey, amount)
   if skipBlsValidation notin flags:
-    signMockDepositData(deposit_data, privkey)
-
-func mockDepositData(
-        deposit_data: var DepositData,
-        pubkey: ValidatorPubKey,
-        privkey: ValidatorPrivKey,
-        amount: uint64,
-        # withdrawal_credentials: Eth2Digest,
-        state: BeaconState,
-        flags: UpdateFlags = {}
-      ) =
-  mockDepositData(deposit_data, pubkey, amount)
-  if skipBlsValidation notin flags:
-    signMockDepositData(deposit_data, privkey, state)
+    ret.signature = get_deposit_signature(ret, privkey)
+  ret
 
 template mockGenesisDepositsImpl(
         result: seq[Deposit],
@@ -115,11 +61,7 @@ template mockGenesisDepositsImpl(
       updateAmount
 
       # DepositData
-      mockDepositData(
-        result[valIdx].data,
-        MockPubKeys[valIdx],
-        amount
-      )
+      result[valIdx].data = mockDepositData(MockPubKeys[valIdx], amount)
   else: # With signing
     var depositsDataHash: seq[Eth2Digest]
     var depositsData: seq[DepositData]
@@ -132,13 +74,8 @@ template mockGenesisDepositsImpl(
       updateAmount
 
       # DepositData
-      mockDepositData(
-        result[valIdx].data,
-        MockPubKeys[valIdx],
-        MockPrivKeys[valIdx],
-        amount,
-        flags
-      )
+      result[valIdx].data = mockDepositData(
+        MockPubKeys[valIdx], MockPrivKeys[valIdx], amount, flags)
 
       depositsData.add result[valIdx].data
       depositsDataHash.add hash_tree_root(result[valIdx].data)
@@ -193,8 +130,7 @@ proc mockUpdateStateForNewDeposit*(
 
   # TODO withdrawal credentials
 
-  mockDepositData(
-    result.data,
+  result.data = mockDepositData(
     MockPubKeys[validator_index],
     MockPrivKeys[validator_index],
     amount,

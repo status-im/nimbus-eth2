@@ -20,8 +20,7 @@ import
   options, random, tables,
   ../tests/[testblockutil],
   ../beacon_chain/spec/[
-    beaconstate, crypto, datatypes, digest, helpers, validator,
-    state_transition_block],
+    beaconstate, crypto, datatypes, digest, helpers, validator, signatures],
   ../beacon_chain/[
     attestation_pool, block_pool, beacon_node_types, beacon_chain_db,
     interop, state_transition, validator_pool],
