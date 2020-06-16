@@ -5,7 +5,7 @@ set -eo pipefail
 cd "$(dirname "$0")"
 
 TMUX_CMD="${TMUX_CMD:-tmux}"
-USE_TMUX="${USE_TMUX:-no}"
+USE_TMUX="${USE_TMUX:-yes}"
 type "$TMUX_CMD" &>/dev/null || { echo "${TMUX_CMD}" is missing; USE_TMUX="no"; }
 
 if [[ "$USE_TMUX" != "no" ]]; then

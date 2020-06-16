@@ -3,6 +3,7 @@
 set -eo pipefail
 
 # To allow overriding the program names
+TMUX_CMD="${TMUX_CMD:-tmux}"
 MULTITAIL_CMD="${MULTITAIL_CMD:-multitail}"
 GANACHE_CMD="${GANACHE_CMD:-ganache-cli}"
 PROMETHEUS_CMD="${PROMETHEUS_CMD:-prometheus}"
@@ -14,22 +15,22 @@ WAIT_GENESIS="${WAIT_GENESIS:-no}"
 
 USE_MULTITAIL="${USE_MULTITAIL:-no}"
 if [[ "$USE_MULTITAIL" != "no" ]]; then
-  type "$MULTITAIL" &>/dev/null || { echo "${MULTITAIL}" is missing; USE_MULTITAIL="no"; }
+  type "$MULTITAIL_CMD" &>/dev/null || { echo "${MULTITAIL_CMD}" is missing; USE_MULTITAIL="no"; }
 fi
 
-USE_TMUX="${USE_TMUX:-yes}"
-if [[ "$USE_TMUX" == "yes" ]]; then
-  type "$TMUX" &>/dev/null || { echo "${TMUX}" is missing; USE_TMUX="no"; }
+USE_TMUX="${USE_TMUX:-no}"
+if [[ "$USE_TMUX" != "no" ]]; then
+  type "$TMUX_CMD" &>/dev/null || { echo "${TMUX_CMD}" is missing; USE_TMUX="no"; }
 fi
 
 USE_GANACHE="${USE_GANACHE:-yes}"
 if [[ "$USE_GANACHE" == "yes" ]]; then
-  type "$GANACHE" &>/dev/null || { echo $GANACHE is missing; USE_GANACHE="no"; }
+  type "$GANACHE_CMD" &>/dev/null || { echo $GANACHE_CMD is missing; USE_GANACHE="no"; }
 fi
 
 USE_PROMETHEUS="${USE_PROMETHEUS:-yes}"
 if [[ "$USE_PROMETHEUS" == "yes" ]]; then
-  type "$PROMETHEUS" &>/dev/null || { echo $PROMETHEUS is missing; USE_PROMETHEUS="no"; }
+  type "$PROMETHEUS_CMD" &>/dev/null || { echo $PROMETHEUS_CMD is missing; USE_PROMETHEUS="no"; }
 fi
 
 USE_CTAIL="${USE_CTAIL:-yes}"
@@ -132,10 +133,6 @@ if [ ! -f "${SNAPSHOT_FILE}" ]; then
   fi
 fi
 
-if [[ "$USE_TMUX" == "yes" ]]; then
-  $TMUX_CMD select-window -t "${TMUX_SESSION_NAME}:sim"
-fi
-
 function run_cmd {
   i=$1
   CMD=$2
@@ -173,6 +170,10 @@ if [ "$USE_GANACHE" != "no" ]; then
       $WEB3_ARG \
       --deposit-contract=${DEPOSIT_CONTRACT_ADDRESS}"
   fi
+fi
+
+if [[ "$USE_TMUX" == "yes" ]]; then
+  $TMUX_CMD select-window -t "${TMUX_SESSION_NAME}:sim"
 fi
 
 # Delete any leftover address files from a previous session
