@@ -147,7 +147,7 @@ cli do (skipGoerliKey {.
       mode = Verbose
       exec replace(&"""{beaconNodeBinary} deposits create
         --count=1
-        --out-validators-dir="{validatorsDir}"
+        --out-deposits-dir="{validatorsDir}"
         --out-secrets-dir="{secretsDir}"
         --deposit-private-key={privKey}
         --web3-url={web3Url}

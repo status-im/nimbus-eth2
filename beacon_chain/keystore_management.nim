@@ -176,11 +176,13 @@ proc sendDeposits*(deposits: seq[Deposit],
   let depositContract = web3.contractSender(DepositContract, contractAddress)
 
   for i, dp in deposits:
-    discard await depositContract.deposit(
+    let status = await depositContract.deposit(
       Bytes48(dp.data.pubKey.toRaw()),
       Bytes32(dp.data.withdrawal_credentials.data),
       Bytes96(dp.data.signature.toRaw()),
       FixedBytes[32](hash_tree_root(dp.data).data)).send(value = 32.u256.ethToWei, gasPrice = 1)
+
+    info "Deposit sent", status = $status
 
     if delayGenerator != nil:
       await sleepAsync(delayGenerator())

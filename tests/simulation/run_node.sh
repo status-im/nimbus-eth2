@@ -16,6 +16,8 @@ else
   ADDITIONAL_BEACON_NODE_ARGS=""
 fi
 
+BOOTSTRAP_ARG=""
+
 if [[ ! -z "$1" ]]; then
   BOOTSTRAP_NODE_ID=$1
   BOOTSTRAP_ADDRESS_FILE="${SIMULATION_DIR}/node-${BOOTSTRAP_NODE_ID}/beacon_node.address"
@@ -23,6 +25,10 @@ if [[ ! -z "$1" ]]; then
 else
   BOOTSTRAP_NODE_ID=$MASTER_NODE
   BOOTSTRAP_ADDRESS_FILE=$NETWORK_BOOTSTRAP_FILE
+fi
+
+if [[ "$NODE_ID" != "$MASTER_NODE" ]]; then
+  BOOTSTRAP_ARG="--bootstrap-file=$BOOTSTRAP_ADDRESS_FILE"
 fi
 
 # set up the environment
@@ -75,12 +81,17 @@ if [ -f "${SNAPSHOT_FILE}" ]; then
   SNAPSHOT_ARG="--state-snapshot=${SNAPSHOT_FILE}"
 fi
 
+DEPOSIT_CONTRACT_ARGS=""
+if [ -f "${DEPOSIT_CONTRACT_FILE}" ]; then
+  DEPOSIT_CONTRACT_ARGS="--deposit-contract=$(cat $DEPOSIT_CONTRACT_FILE) $WEB3_ARG"
+fi
+
 cd "$NODE_DATA_DIR"
 
 # if you want tracing messages, add "--log-level=TRACE" below
 $BEACON_NODE_BIN \
   --log-level=${LOG_LEVEL:-DEBUG} \
-  --bootstrap-file=$BOOTSTRAP_ADDRESS_FILE \
+  $BOOTSTRAP_ARG \
   --data-dir=$NODE_DATA_DIR \
   --secrets-dir=$NODE_SECRETS_DIR \
   --node-name=$NODE_ID \
@@ -88,8 +99,7 @@ $BEACON_NODE_BIN \
   --udp-port=$PORT \
   $SNAPSHOT_ARG \
   $NAT_ARG \
-  $WEB3_ARG \
-  --deposit-contract=$DEPOSIT_CONTRACT_ADDRESS \
+  $DEPOSIT_CONTRACT_ARGS \
   --rpc \
   --rpc-address="127.0.0.1" \
   --rpc-port="$(( $BASE_RPC_PORT + $NODE_ID ))" \

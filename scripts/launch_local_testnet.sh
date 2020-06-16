@@ -140,7 +140,7 @@ $MAKE LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="-d:insecure -d:testnet_servers_image ${
 
 ./build/beacon_node deposits create \
 	--count=${TOTAL_VALIDATORS} \
-	--out-validators-dir="${DEPOSITS_DIR}" \
+	--out-deposits-dir="${DEPOSITS_DIR}" \
 	--out-secrets-dir="${SECRETS_DIR}" \
 	--dont-send
 

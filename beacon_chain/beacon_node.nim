@@ -31,7 +31,7 @@ import
 
 const
   genesisFile* = "genesis.ssz"
-  timeToInitNetworkingBeforeGenesis = chronos.seconds(10)
+  timeToInitNetworkingBeforeGenesis = chronos.seconds(30)
   hasPrompt = not defined(withoutPrompt)
 
 type
@@ -95,12 +95,14 @@ proc getStateFromSnapshot(conf: BeaconNodeConf): NilableBeaconStateRef =
             genesisPath, dataDir = conf.dataDir.string
       writeGenesisFile = true
       genesisPath = snapshotPath
-  else:
-    try:
-      snapshotContents = readFile(genesisPath)
+  elif fileExists(genesisPath):
+    try: snapshotContents = readFile(genesisPath)
     except CatchableError as err:
       error "Failed to read genesis file", err = err.msg
       quit 1
+  else:
+    # No snapshot was provided. We should wait for genesis.
+    return nil
 
   result = try:
     newClone(SSZ.decode(snapshotContents, BeaconState))

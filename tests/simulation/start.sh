@@ -3,29 +3,39 @@
 set -eo pipefail
 
 # To allow overriding the program names
-MULTITAIL="${MULTITAIL:-multitail}"
-TMUX="${TMUX:-tmux}"
-GANACHE="${GANACHE:-ganache-cli}"
-PROMETHEUS="${PROMETHEUS:-prometheus}"
-CTAIL="${CTAIL:-ctail}"
+MULTITAIL_CMD="${MULTITAIL_CMD:-multitail}"
+GANACHE_CMD="${GANACHE_CMD:-ganache-cli}"
+PROMETHEUS_CMD="${PROMETHEUS_CMD:-prometheus}"
+CTAIL_CMD="${CTAIL_CMD:-ctail}"
 
-# Using tmux or multitail is an opt-in
-USE_MULTITAIL="${USE_MULTITAIL:-no}"
-type "$MULTITAIL" &>/dev/null || { echo "${MULTITAIL}" is missing; USE_MULTITAIL="no"; }
-
-USE_TMUX="${USE_TMUX:-no}"
-type "$TMUX" &>/dev/null || { echo "${TMUX}" is missing; USE_TMUX="no"; }
+TMUX_SESSION_NAME="${TMUX_SESSION_NAME:-nbc-sim}"
 
 WAIT_GENESIS="${WAIT_GENESIS:-no}"
 
+USE_MULTITAIL="${USE_MULTITAIL:-no}"
+if [[ "$USE_MULTITAIL" != "no" ]]; then
+  type "$MULTITAIL" &>/dev/null || { echo "${MULTITAIL}" is missing; USE_MULTITAIL="no"; }
+fi
+
+USE_TMUX="${USE_TMUX:-yes}"
+if [[ "$USE_TMUX" == "yes" ]]; then
+  type "$TMUX" &>/dev/null || { echo "${TMUX}" is missing; USE_TMUX="no"; }
+fi
+
 USE_GANACHE="${USE_GANACHE:-yes}"
-type "$GANACHE" &>/dev/null || { echo $GANACHE is missing; USE_GANACHE="no"; WAIT_GENESIS="no"; }
+if [[ "$USE_GANACHE" == "yes" ]]; then
+  type "$GANACHE" &>/dev/null || { echo $GANACHE is missing; USE_GANACHE="no"; }
+fi
 
 USE_PROMETHEUS="${USE_PROMETHEUS:-yes}"
-type "$PROMETHEUS" &>/dev/null || { echo $PROMETHEUS is missing; USE_PROMETHEUS="no"; }
+if [[ "$USE_PROMETHEUS" == "yes" ]]; then
+  type "$PROMETHEUS" &>/dev/null || { echo $PROMETHEUS is missing; USE_PROMETHEUS="no"; }
+fi
 
 USE_CTAIL="${USE_CTAIL:-yes}"
-type "$CTAIL" &>/dev/null || { echo $CTAIL is missing; USE_CTAIL="no"; }
+if [[ "$USE_CTAIL" == "yes" ]]; then
+  type "$CTAIL_CMD" &>/dev/null || { echo $CTAIL_CMD is missing; USE_CTAIL="no"; }
+fi
 
 # Read in variables
 # shellcheck source=/dev/null
@@ -53,31 +63,6 @@ else
   MAKE="make"
 fi
 
-TMUX_SESSION_NAME="${TMUX_SESSION_NAME:-nbc-sim}"
-
-WAIT_GENESIS="${WAIT_GENESIS:-no}"
-
-# Using tmux or multitail is an opt-in
-USE_MULTITAIL="${USE_MULTITAIL:-no}"
-if [[ "$USE_MULTITAIL" != "no" ]]; then
-  type "$MULTITAIL" &>/dev/null || { echo "${MULTITAIL}" is missing; USE_MULTITAIL="no"; }
-fi
-
-USE_TMUX="${USE_TMUX:-yes}"
-if [[ "$USE_TMUX" == "yes" ]]; then
-  type "$TMUX" &>/dev/null || { echo "${TMUX}" is missing; USE_TMUX="no"; }
-fi
-
-USE_GANACHE="${USE_GANACHE:-yes}"
-if [[ "$USE_GANACHE" == "yes" ]]; then
-  type "$GANACHE" &>/dev/null || { echo $GANACHE is missing; USE_GANACHE="no"; }
-fi
-
-USE_PROMETHEUS="${USE_PROMETHEUS:-yes}"
-if [[ "$USE_PROMETHEUS" == "yes" ]]; then
-  type "$PROMETHEUS" &>/dev/null || { echo $PROMETHEUS is missing; USE_PROMETHEUS="no"; }
-fi
-
 mkdir -p "${METRICS_DIR}"
 ./scripts/make_prometheus_config.sh \
 	--nodes ${TOTAL_NODES} \
@@ -86,41 +71,27 @@ mkdir -p "${METRICS_DIR}"
 
 COMMANDS=()
 
-if [[ "$USE_TMUX" != "no" ]]; then
-  $TMUX new-session -s "${TMUX_SESSION_NAME}" -d
-
-  # maybe these should be moved to a user config file
-  $TMUX set-option -t "${TMUX_SESSION_NAME}" history-limit 999999
-  $TMUX set-option -t "${TMUX_SESSION_NAME}" remain-on-exit on
-  $TMUX set -t "${TMUX_SESSION_NAME}" mouse on
-
-  # We create a new window, so the above settings can take place
-  $TMUX new-window -d -t "${TMUX_SESSION_NAME}" -n "sim"
-
-  trap 'tmux kill-session -t "${TMUX_SESSION_NAME}"' SIGINT EXIT
-fi
-
-if [[ "$USE_GANACHE" != "no" ]]; then
-  if [[ "$USE_TMUX" != "no" ]]; then
-    $TMUX new-window -d -t $TMUX_SESSION_NAME -n "$GANACHE" "$GANACHE"
+if [[ "$USE_GANACHE" == "yes" ]]; then
+  if [[ "$USE_TMUX" == "yes" ]]; then
+    $TMUX_CMD new-window -d -t $TMUX_SESSION_NAME -n "$GANACHE_CMD" "$GANACHE_CMD -e 100000"
   else
-    echo NOTICE: $GANACHE will be started automatically only with USE_TMUX=1
+    echo NOTICE: $GANACHE_CMD will be started automatically only with USE_TMUX=1
     USE_GANACHE="no"
   fi
 fi
 
-if [[ "$USE_PROMETHEUS" != "no" ]]; then
-  if [[ "$USE_TMUX" != "no" ]]; then
+if [[ "$USE_PROMETHEUS" == "yes" ]]; then
+  if [[ "$USE_TMUX" == "yes" ]]; then
+    rm -rf "${METRICS_DIR}/data"
+    mkdir -p "${METRICS_DIR}/data"
+    # TODO: Prometheus is not shut down properly on tmux kill-session
+    killall prometheus
     PROMETHEUS_FLAGS="--config.file=./prometheus.yml --storage.tsdb.path=./data"
-    $TMUX new-window -d -t $TMUX_SESSION_NAME -n "$PROMETHEUS" "cd '$METRICS_DIR' && $PROMETHEUS $PROMETHEUS_FLAGS"
+    $TMUX_CMD new-window -d -t $TMUX_SESSION_NAME -n "$PROMETHEUS_CMD" "cd '$METRICS_DIR' && $PROMETHEUS_CMD $PROMETHEUS_FLAGS"
   else
-    echo NOTICE: $PROMETHEUS will be started automatically only with USE_TMUX=1
+    echo NOTICE: $PROMETHEUS_CMD will be started automatically only with USE_TMUX=1
     USE_PROMETHEUS="no"
   fi
-fi
-
-if [[ "$USE_TMUX" != "no" ]]; then
-  $TMUX select-window -t "${TMUX_SESSION_NAME}:sim"
 fi
 
 $MAKE -j3 --no-print-directory NIMFLAGS="$CUSTOM_NIMFLAGS $DEFS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" beacon_node validator_client
@@ -138,22 +109,41 @@ if [[ $EXISTING_VALIDATORS -lt $NUM_VALIDATORS ]]; then
   $BEACON_NODE_BIN deposits create \
     --count="${NUM_VALIDATORS}" \
     --non-interactive \
-    --out-validators-dir="$VALIDATORS_DIR" \
+    --out-deposits-dir="$VALIDATORS_DIR" \
     --out-secrets-dir="$SECRETS_DIR" \
     --dont-send
 
   echo "All deposits prepared"
 fi
 
+if [ ! -f "${SNAPSHOT_FILE}" ]; then
+  if [[ "${WAIT_GENESIS}" != "yes" ]]; then
+    echo Creating testnet genesis...
+    $BEACON_NODE_BIN \
+      --data-dir="${SIMULATION_DIR}/node-$MASTER_NODE" \
+      createTestnet \
+      --validators-dir="${VALIDATORS_DIR}" \
+      --total-validators="${NUM_VALIDATORS}" \
+      --output-genesis="${SNAPSHOT_FILE}" \
+      --output-bootstrap-file="${NETWORK_BOOTSTRAP_FILE}" \
+      --bootstrap-address=127.0.0.1 \
+      --bootstrap-port=$(( BASE_P2P_PORT + MASTER_NODE )) \
+      --genesis-offset=45 # Delay in seconds
+  fi
+fi
+
+if [[ "$USE_TMUX" == "yes" ]]; then
+  $TMUX_CMD select-window -t "${TMUX_SESSION_NAME}:sim"
+fi
+
 function run_cmd {
   i=$1
   CMD=$2
   bin_name=$3
-  if [[ "$USE_TMUX" != "no" ]]; then
+  if [[ "$USE_TMUX" == "yes" ]]; then
     echo "Starting node $i..."
-    echo $TMUX split-window -t "${TMUX_SESSION_NAME}" "$CMD"
-    $TMUX split-window -t "${TMUX_SESSION_NAME}" "$CMD"
-    $TMUX select-layout -t "${TMUX_SESSION_NAME}" tiled
+    $TMUX_CMD split-window -t "${TMUX_SESSION_NAME}" "$CMD"
+    $TMUX_CMD select-layout -t "${TMUX_SESSION_NAME}:sim" tiled
   elif [[ "$USE_MULTITAIL" != "no" ]]; then
     if [[ "$i" == "$MASTER_NODE" ]]; then
       SLEEP="0"
@@ -167,44 +157,21 @@ function run_cmd {
   fi
 }
 
-if [ "$WEB3_ARG" != "" ]; then
+if [ "$USE_GANACHE" != "no" ]; then
   make deposit_contract
   echo Deploying the validator deposit contract...
   echo $DEPLOY_DEPOSIT_CONTRACT_BIN deploy $WEB3_ARG
   DEPOSIT_CONTRACT_ADDRESS=$($DEPLOY_DEPOSIT_CONTRACT_BIN deploy $WEB3_ARG)
   echo Contract deployed at $DEPOSIT_CONTRACT_ADDRESS
-  export DEPOSIT_CONTRACT_ADDRESS
+  echo $DEPOSIT_CONTRACT_ADDRESS > $DEPOSIT_CONTRACT_FILE
 
-  if [[ "$WAIT_GENESIS" != "no" ]]; then
-    echo "(deposit maker)" "$BEACON_NODE_BIN deposits send \
-      --non-interactive \
-      --validators-dir='$VALIDATORS_DIR' \
-      --min-delay=1 --max-delay=5 \
-      $WEB3_ARG \
-      --deposit-contract=${DEPOSIT_CONTRACT_ADDRESS}"
-
+  if [[ "$WAIT_GENESIS" == "yes" ]]; then
     run_cmd "(deposit maker)" "$BEACON_NODE_BIN deposits send \
       --non-interactive \
-      --validators-dir='$VALIDATORS_DIR' \
+      --deposits-dir='$VALIDATORS_DIR' \
       --min-delay=1 --max-delay=5 \
       $WEB3_ARG \
       --deposit-contract=${DEPOSIT_CONTRACT_ADDRESS}"
-  fi
-fi
-
-if [ ! -f "${SNAPSHOT_FILE}" ]; then
-  if [[ "${WAIT_GENESIS}" == "no" ]]; then
-    echo Creating testnet genesis...
-    $BEACON_NODE_BIN \
-      --data-dir="${SIMULATION_DIR}/node-$MASTER_NODE" \
-      createTestnet \
-      --validators-dir="${VALIDATORS_DIR}" \
-      --total-validators="${NUM_VALIDATORS}" \
-      --output-genesis="${SNAPSHOT_FILE}" \
-      --output-bootstrap-file="${NETWORK_BOOTSTRAP_FILE}" \
-      --bootstrap-address=127.0.0.1 \
-      --bootstrap-port=$(( BASE_P2P_PORT + MASTER_NODE )) \
-      --genesis-offset=15 # Delay in seconds
   fi
 fi
 
@@ -216,7 +183,7 @@ fi
 # Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
 # instance as the parent and the target process name as a pattern to the
 # "pkill" command.
-if [[ "$USE_MULTITAIL" == "no" && "$USE_TMUX" == "no" ]]; then
+if [[ "$USE_MULTITAIL" == "no" && "$USE_TMUX" != "yes" ]]; then
   trap 'pkill -P $$ beacon_node' SIGINT EXIT
 fi
 
@@ -243,24 +210,21 @@ for i in $(seq $MASTER_NODE -1 $TOTAL_USER_NODES); do
 done
 
 if [[ "$USE_CTAIL" != "no" ]]; then
-  if [[ "$USE_TMUX" != "no" ]]; then
-    $TMUX new-window -d -t $TMUX_SESSION_NAME -n "$CTAIL" "$CTAIL tail -q -n +1 -f ${SIMULATION_DIR}/node-*/beacon_node.log"
+  if [[ "$USE_TMUX" == "yes" ]]; then
+    $TMUX_CMD new-window -d -t $TMUX_SESSION_NAME -n "$CTAIL_CMD" "$CTAIL_CMD tail -q -n +1 -f ${SIMULATION_DIR}/node-*/beacon_node.log"
   else
-    echo NOTICE: $CTAIL will be started automatically only with USE_TMUX=1
+    echo NOTICE: $CTAIL_CMD will be started automatically only with USE_TMUX=1
     USE_CTAIL="no"
   fi
 fi
 
-if [[ "$USE_TMUX" != "no" ]]; then
+if [[ "$USE_TMUX" == "yes" ]]; then
   # kill the console window in the pane where the simulation is running
-  $TMUX kill-pane -t $TMUX_SESSION_NAME:sim.0
-  # kill the original console window
-  # (this one doesn't have the right history-limit)
-  $TMUX kill-pane -t $TMUX_SESSION_NAME:0.0
-  $TMUX select-layout -t "${TMUX_SESSION_NAME}" tiled
-  $TMUX attach-session -t "${TMUX_SESSION_NAME}" -d
+  $TMUX_CMD kill-pane -t $TMUX_SESSION_NAME:sim.0
+  $TMUX_CMD select-window -t "${TMUX_SESSION_NAME}:sim"
+  $TMUX_CMD select-layout tiled
 elif [[ "$USE_MULTITAIL" != "no" ]]; then
-  eval $MULTITAIL -s 3 -M 0 -x \"Nimbus beacon chain\" "${COMMANDS[@]}"
+  eval $MULTITAIL_CMD -s 3 -M 0 -x \"Nimbus beacon chain\" "${COMMANDS[@]}"
 else
   wait # Stop when all nodes have gone down
 fi

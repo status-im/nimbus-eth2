@@ -538,41 +538,42 @@ proc run(m: MainchainMonitor, delayBeforeStart: Duration) {.async.} =
   defer: await close(dataProvider)
 
   let processFut = m.processDeposits(dataProvider)
-  defer: await processFut
+  try:
+    dataProvider.onDisconnect do:
+      error "Eth1 data provider disconnected",
+            provider = m.dataProviderFactory.desc
+      processFut.cancel()
 
-  dataProvider.onDisconnect do:
-    error "Eth1 data provider disconnected",
-          provider = m.dataProviderFactory.desc
-    processFut.cancel()
+    let startBlkNum = await dataProvider.getBlockNumber(m.startBlock)
+    notice "Monitoring eth1 deposits",
+      fromBlock = startBlkNum.uint64,
+      contract = $m.depositContractAddress,
+      url = m.dataProviderFactory.desc
 
-  let startBlkNum = await dataProvider.getBlockNumber(m.startBlock)
-  notice "Monitoring eth1 deposits",
-    fromBlock = startBlkNum.uint64,
-    contract = $m.depositContractAddress,
-    url = m.dataProviderFactory.desc
+    await dataProvider.onDepositEvent(Eth1BlockNumber(startBlkNum)) do (
+        pubkey: Bytes48,
+        withdrawalCredentials: Bytes32,
+        amount: Bytes8,
+        signature: Bytes96, merkleTreeIndex: Bytes8, j: JsonNode)
+        {.raises: [Defect], gcsafe.}:
+      try:
+        let
+          blockHash = BlockHash.fromHex(j["blockHash"].getStr())
+          eventType = if j.hasKey("removed"): RemovedEvent
+                      else: NewEvent
 
-  await dataProvider.onDepositEvent(Eth1BlockNumber(startBlkNum)) do (
-      pubkey: Bytes48,
-      withdrawalCredentials: Bytes32,
-      amount: Bytes8,
-      signature: Bytes96, merkleTreeIndex: Bytes8, j: JsonNode)
-      {.raises: [Defect], gcsafe.}:
-    try:
-      let
-        blockHash = BlockHash.fromHex(j["blockHash"].getStr())
-        eventType = if j.hasKey("removed"): RemovedEvent
-                    else: NewEvent
+        m.depositQueue.addLastNoWait((blockHash, eventType))
 
-      m.depositQueue.addLastNoWait((blockHash, eventType))
-
-    except CatchableError as exc:
-      warn "Received invalid deposit", err = exc.msg, j
-    except Exception as err:
-      # chronos still raises exceptions which inherit directly from Exception
-      if err[] of Defect:
-        raise (ref Defect)(err)
-      else:
-        warn "Received invalid deposit", err = err.msg, j
+      except CatchableError as exc:
+        warn "Received invalid deposit", err = exc.msg, j
+      except Exception as err:
+        # chronos still raises exceptions which inherit directly from Exception
+        if err[] of Defect:
+          raise (ref Defect)(err)
+        else:
+          warn "Received invalid deposit", err = err.msg, j
+  finally:
+    await processFut
 
 proc start(m: MainchainMonitor, delayBeforeStart: Duration) =
   if m.runFut.isNil:
