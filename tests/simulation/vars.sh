@@ -46,6 +46,3 @@ else
   WEB3_ARG=""
   DEPOSIT_CONTRACT_ADDRESS="0x"
 fi
-
-# uncomment to enable the use of VCs in addition to BNs - will split the validators equally
-#SPLIT_VALIDATORS_BETWEEN_BN_AND_VC="yes"

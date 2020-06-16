@@ -22,7 +22,7 @@ import
   nimbus_binary_common,
   version, ssz/merkleization,
   sync_manager, keystore_management,
-  spec/eth2_apis/validator_callsigs_types,
+  spec/eth2_apis/callsigs_types,
   eth2_json_rpc_serialization
 
 logScope: topics = "vc"
@@ -31,6 +31,7 @@ template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 
 ## Generate client convenience marshalling wrappers from forward declarations
 createRpcSigs(RpcClient, sourceDir / "spec" / "eth2_apis" / "validator_callsigs.nim")
+createRpcSigs(RpcClient, sourceDir / "spec" / "eth2_apis" / "beacon_callsigs.nim")
 
 type
   ValidatorClient = ref object
@@ -42,6 +43,27 @@ type
     proposalsForEpoch: Table[Slot, ValidatorPubKey]
     attestationsForEpoch: Table[Slot, seq[AttesterDuties]]
     beaconGenesis: BeaconGenesisTuple
+
+proc connectToBN(vc: ValidatorClient) {.gcsafe, async.} =
+  while true:
+    try:
+      await vc.client.connect($vc.config.rpcAddress, Port(vc.config.rpcPort))
+      info "Connected to BN",
+        port = vc.config.rpcPort,
+        address = vc.config.rpcAddress
+      return
+    except CatchableError as err:
+      error "Could not connect to the BN - retrying!", err = err.msg
+      await sleepAsync(chronos.seconds(1)) # 1 second before retrying
+
+template attemptUntilSuccess(vc: ValidatorClient, body: untyped) =
+  while true:
+    try:
+      body
+      break
+    except CatchableError as err:
+      error "Caught an unexpected error", err = err.msg
+      waitFor vc.connectToBN()
 
 proc getValidatorDutiesForEpoch(vc: ValidatorClient, epoch: Epoch) {.gcsafe, async.} =
   let proposals = await vc.client.get_v1_validator_duties_proposer(epoch)
@@ -135,7 +157,8 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
         discard await vc.client.post_v1_beacon_pool_attestations(attestation)
 
   except CatchableError as err:
-    error "Caught an unexpected error", err = err.msg
+    error "Caught an unexpected error", err = err.msg, slot = shortLog(slot)
+    await vc.connectToBN()
 
   let
     nextSlotStart = saturate(vc.beaconClock.fromNow(nextSlot))
@@ -187,24 +210,20 @@ programMain:
     for curr in vc.config.validatorKeys:
       vc.attachedValidators.addLocalValidator(curr.toPubKey, curr)
 
-    # TODO perhaps we should handle the case if the BN is down and try to connect to it
-    # untill success, and also later on disconnets we should continue trying to reconnect
-    waitFor vc.client.connect("localhost", Port(config.rpcPort)) # TODO: use config.rpcAddress
-    info "Connected to beacon node", port = config.rpcPort
+    waitFor vc.connectToBN()
 
-    # init the beacon clock
-    vc.beaconGenesis = waitFor vc.client.get_v1_beacon_genesis()
-    vc.beaconClock = BeaconClock.init(vc.beaconGenesis.genesis_time)
+    vc.attemptUntilSuccess:
+      # init the beacon clock
+      vc.beaconGenesis = waitFor vc.client.get_v1_beacon_genesis()
+      vc.beaconClock = BeaconClock.init(vc.beaconGenesis.genesis_time)
 
     let
       curSlot = vc.beaconClock.now().slotOrZero()
       nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
       fromNow = saturate(vc.beaconClock.fromNow(nextSlot))
 
-    # onSlotStart() requests the validator duties only on the start of each epoch
-    # so we should request the duties here when the VC binary boots up in order
-    # to handle the case when in the middle of an epoch. Also for the genesis slot.
-    waitFor vc.getValidatorDutiesForEpoch(curSlot.compute_epoch_at_slot)
+    vc.attemptUntilSuccess:
+      waitFor vc.getValidatorDutiesForEpoch(curSlot.compute_epoch_at_slot)
 
     info "Scheduling first slot action",
       beaconTime = shortLog(vc.beaconClock.now()),
