@@ -1,4 +1,3 @@
-
 # beacon_chain
 # Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
@@ -11,6 +10,8 @@
 import
   # Standard library
   std/tables, std/options,
+  # Status
+  chronicles,
   # Internal
   ../spec/[datatypes, digest]
 
@@ -44,6 +45,9 @@ type
     fcErrInvalidDeltaLen
     fcErrRevertedFinalizedEpoch
     fcErrInvalidBestNode
+    # -------------------------
+    # TODO: Extra error modes beyond Proto/Lighthouse to be reviewed
+    fcErrUnknownParent
 
   FcUnderflowKind* = enum
     ## Fork Choice Overflow Kinds
@@ -88,6 +92,9 @@ type
       head_root*: Eth2Digest
       head_justified_epoch*: Epoch
       head_finalized_epoch*: Epoch
+    of fcErrUnknownParent:
+      child_root*: Eth2Digest
+      parent_root*: Eth2Digest
 
   ProtoArray* = object
     prune_threshold*: int
@@ -127,3 +134,12 @@ type
     proto_array*: ProtoArray
     votes*: seq[VoteTracker]
     balances*: seq[Gwei]
+
+func shortlog*(vote: VoteTracker): auto =
+  (
+    current_root: vote.current_root,
+    next_root: vote.next_root,
+    next_epoch: vote.next_epoch
+  )
+
+chronicles.formatIt VoteTracker: it.shortLog

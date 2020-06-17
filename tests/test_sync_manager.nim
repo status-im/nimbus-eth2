@@ -13,6 +13,9 @@ proc `$`*(peer: SomeTPeer): string =
 proc updateScore(peer: SomeTPeer, score: int) =
   discard
 
+proc getFirstSlotAtFinalizedEpoch(): Slot =
+  Slot(0)
+
 suite "SyncManager test suite":
   proc createChain(start, finish: Slot): seq[SignedBeaconBlock] =
     doAssert(start <= finish)
@@ -24,12 +27,14 @@ suite "SyncManager test suite":
       curslot = curslot + 1'u64
 
   proc syncUpdate(req: SyncRequest[SomeTPeer],
-                  data: openarray[SignedBeaconBlock]): bool {.gcsafe.} =
+                data: openarray[SignedBeaconBlock]): Result[void, BlockError] {.
+    gcsafe.} =
     discard
 
   test "[SyncQueue] Start and finish slots equal":
     let p1 = SomeTPeer()
-    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(0), 1'u64, syncUpdate)
+    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(0), 1'u64, syncUpdate,
+                               getFirstSlotAtFinalizedEpoch)
     check len(queue) == 1
     var r11 = queue.pop(Slot(0), p1)
     check len(queue) == 0
@@ -44,7 +49,8 @@ suite "SyncManager test suite":
       r11.slot == Slot(0) and r11.count == 1'u64 and r11.step == 1'u64
 
   test "[SyncQueue] Two full requests success/fail":
-    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(1), 1'u64, syncUpdate)
+    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(1), 1'u64, syncUpdate,
+                               getFirstSlotAtFinalizedEpoch)
     let p1 = SomeTPeer()
     let p2 = SomeTPeer()
     check len(queue) == 2
@@ -71,7 +77,8 @@ suite "SyncManager test suite":
       r22.slot == Slot(1) and r22.count == 1'u64 and r22.step == 1'u64
 
   test "[SyncQueue] Full and incomplete success/fail start from zero":
-    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 2'u64, syncUpdate)
+    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 2'u64, syncUpdate,
+                               getFirstSlotAtFinalizedEpoch)
     let p1 = SomeTPeer()
     let p2 = SomeTPeer()
     let p3 = SomeTPeer()
@@ -109,7 +116,8 @@ suite "SyncManager test suite":
       r33.slot == Slot(4) and r33.count == 1'u64 and r33.step == 1'u64
 
   test "[SyncQueue] Full and incomplete success/fail start from non-zero":
-    var queue = SyncQueue.init(SomeTPeer, Slot(1), Slot(5), 3'u64, syncUpdate)
+    var queue = SyncQueue.init(SomeTPeer, Slot(1), Slot(5), 3'u64, syncUpdate,
+                               getFirstSlotAtFinalizedEpoch)
     let p1 = SomeTPeer()
     let p2 = SomeTPeer()
     check len(queue) == 5
@@ -136,7 +144,8 @@ suite "SyncManager test suite":
       r42.slot == Slot(4) and r42.count == 2'u64 and r42.step == 1'u64
 
   test "[SyncQueue] Smart and stupid success/fail":
-    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 5'u64, syncUpdate)
+    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 5'u64, syncUpdate,
+                               getFirstSlotAtFinalizedEpoch)
     let p1 = SomeTPeer()
     let p2 = SomeTPeer()
     check len(queue) == 5
@@ -163,7 +172,8 @@ suite "SyncManager test suite":
       r52.slot == Slot(4) and r52.count == 1'u64 and r52.step == 1'u64
 
   test "[SyncQueue] One smart and one stupid + debt split + empty":
-    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 5'u64, syncUpdate)
+    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 5'u64, syncUpdate,
+                               getFirstSlotAtFinalizedEpoch)
     let p1 = SomeTPeer()
     let p2 = SomeTPeer()
     let p3 = SomeTPeer()
@@ -198,18 +208,18 @@ suite "SyncManager test suite":
       var counter = 0
 
       proc syncReceiver(req: SyncRequest[SomeTPeer],
-                        list: openarray[SignedBeaconBlock]): bool {.gcsafe.} =
-        result = true
+                list: openarray[SignedBeaconBlock]): Result[void, BlockError] {.
+        gcsafe.} =
         for item in list:
           if item.message.slot == Slot(counter):
             inc(counter)
           else:
-            result = false
-            break
+            return err(Invalid)
+        return ok()
 
       var chain = createChain(Slot(0), Slot(2))
       var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(2), 1'u64,
-                                 syncReceiver, 1)
+                                 syncReceiver, getFirstSlotAtFinalizedEpoch, 1)
       let p1 = SomeTPeer()
       let p2 = SomeTPeer()
       let p3 = SomeTPeer()
@@ -241,18 +251,18 @@ suite "SyncManager test suite":
       var counter = 5
 
       proc syncReceiver(req: SyncRequest[SomeTPeer],
-                        list: openarray[SignedBeaconBlock]): bool {.gcsafe.} =
-        result = true
+                list: openarray[SignedBeaconBlock]): Result[void, BlockError] {.
+        gcsafe.} =
         for item in list:
           if item.message.slot == Slot(counter):
             inc(counter)
           else:
-            result = false
-            break
+            return err(Invalid)
+        return ok()
 
       var chain = createChain(Slot(5), Slot(11))
       var queue = SyncQueue.init(SomeTPeer, Slot(5), Slot(11), 2'u64,
-                                 syncReceiver, 2)
+                                 syncReceiver, getFirstSlotAtFinalizedEpoch, 2)
       let p1 = SomeTPeer()
       let p2 = SomeTPeer()
       let p3 = SomeTPeer()
@@ -286,6 +296,75 @@ suite "SyncManager test suite":
 
     check waitFor(test())
 
+  test "[SyncQueue] Async pending and resetWait() test":
+    proc test(): Future[bool] {.async.} =
+      var counter = 5
+
+      proc syncReceiver(req: SyncRequest[SomeTPeer],
+                list: openarray[SignedBeaconBlock]): Result[void, BlockError] {.
+        gcsafe.} =
+        for item in list:
+          if item.message.slot == Slot(counter):
+            inc(counter)
+          else:
+            return err(Invalid)
+        return ok()
+
+      var chain = createChain(Slot(5), Slot(18))
+      var queue = SyncQueue.init(SomeTPeer, Slot(5), Slot(18), 2'u64,
+                                 syncReceiver, getFirstSlotAtFinalizedEpoch, 2)
+      let p1 = SomeTPeer()
+      let p2 = SomeTPeer()
+      let p3 = SomeTPeer()
+      let p4 = SomeTPeer()
+      let p5 = SomeTPeer()
+      let p6 = SomeTPeer()
+      let p7 = SomeTPeer()
+
+      var r21 = queue.pop(Slot(20), p1)
+      var r22 = queue.pop(Slot(20), p2)
+      var r23 = queue.pop(Slot(20), p3)
+      var r24 = queue.pop(Slot(20), p4)
+      var r25 = queue.pop(Slot(20), p5)
+      var r26 = queue.pop(Slot(20), p6)
+      var r27 = queue.pop(Slot(20), p7)
+
+      var f21 = queue.push(r21, @[chain[0], chain[1]])
+      # This should be silently ignored, because r21 is already processed.
+      var e21 = queue.push(r21, @[chain[0], chain[1]])
+      queue.push(r22)
+      queue.push(r23)
+      var f26 = queue.push(r26, @[chain[10], chain[11]])
+      var f27 = queue.push(r27, @[chain[12], chain[13]])
+
+      doAssert(f21.finished == true and f21.failed == false)
+      doAssert(e21.finished == true and e21.failed == false)
+      doAssert(f26.finished == false)
+      doAssert(f27.finished == false)
+      await queue.resetWait(none[Slot]())
+      doAssert(f26.finished == true and f26.failed == false)
+      doAssert(f27.finished == true and f27.failed == false)
+      doAssert(queue.inpSlot == Slot(7) and queue.outSlot == Slot(7))
+      doAssert(counter == 7)
+      doAssert(len(queue) == 12)
+      # This should be silently ignored, because r21 is already processed.
+      var o21 = queue.push(r21, @[chain[0], chain[1]])
+      var o22 = queue.push(r22, @[chain[2], chain[3]])
+      queue.push(r23)
+      queue.push(r24)
+      var o25 = queue.push(r25, @[chain[8], chain[9]])
+      var o26 = queue.push(r26, @[chain[10], chain[11]])
+      var o27 = queue.push(r27, @[chain[12], chain[13]])
+      doAssert(o21.finished == true and o21.failed == false)
+      doAssert(o22.finished == true and o22.failed == false)
+      doAssert(o25.finished == true and o25.failed == false)
+      doAssert(o26.finished == true and o26.failed == false)
+      doAssert(o27.finished == true and o27.failed == false)
+      doAssert(len(queue) == 12)
+      result = true
+
+    check waitFor(test())
+
   test "[SyncQueue] hasEndGap() test":
     let chain1 = createChain(Slot(1), Slot(1))
     let chain2 = newSeq[SignedBeaconBlock]()
@@ -309,10 +388,103 @@ suite "SyncManager test suite":
 
     for counter in countdown(32'u64, 2'u64):
       let req = SyncRequest[SomeTPeer](slot: Slot(10), count: counter,
-                                      step: 1'u64)
+                                       step: 1'u64)
       let sr = SyncResult[SomeTPeer](request: req, data: chain1)
       check sr.getLastNonEmptySlot() == Slot(10)
 
     let req = SyncRequest[SomeTPeer](slot: Slot(100), count: 1'u64, step: 1'u64)
     let sr = SyncResult[SomeTPeer](request: req, data: chain2)
     check sr.getLastNonEmptySlot() == Slot(100)
+
+  test "[SyncQueue] contains() test":
+    proc checkRange[T](req: SyncRequest[T]): bool =
+      var slot = req.slot
+      var counter = 0'u64
+      while counter < req.count:
+        if not(req.contains(slot)):
+          return false
+        slot = slot + req.step
+        counter = counter + 1'u64
+      return true
+
+    var req1 = SyncRequest[SomeTPeer](slot: Slot(5), count: 10'u64, step: 1'u64)
+    var req2 = SyncRequest[SomeTPeer](slot: Slot(1), count: 10'u64, step: 2'u64)
+    var req3 = SyncRequest[SomeTPeer](slot: Slot(2), count: 10'u64, step: 3'u64)
+    var req4 = SyncRequest[SomeTPeer](slot: Slot(3), count: 10'u64, step: 4'u64)
+    var req5 = SyncRequest[SomeTPeer](slot: Slot(4), count: 10'u64, step: 5'u64)
+
+    check:
+      req1.checkRange() == true
+      req2.checkRange() == true
+      req3.checkRange() == true
+      req4.checkRange() == true
+      req5.checkRange() == true
+
+      req1.contains(Slot(4)) == false
+      req1.contains(Slot(15)) == false
+
+      req2.contains(Slot(0)) == false
+      req2.contains(Slot(21)) == false
+      req2.contains(Slot(20)) == false
+
+      req3.contains(Slot(0)) == false
+      req3.contains(Slot(1)) == false
+      req3.contains(Slot(32)) == false
+      req3.contains(Slot(31)) == false
+      req3.contains(Slot(30)) == false
+
+      req4.contains(Slot(0)) == false
+      req4.contains(Slot(1)) == false
+      req4.contains(Slot(2)) == false
+      req4.contains(Slot(43)) == false
+      req4.contains(Slot(42)) == false
+      req4.contains(Slot(41)) == false
+      req4.contains(Slot(40)) == false
+
+      req5.contains(Slot(0)) == false
+      req5.contains(Slot(1)) == false
+      req5.contains(Slot(2)) == false
+      req5.contains(Slot(3)) == false
+      req5.contains(Slot(54)) == false
+      req5.contains(Slot(53)) == false
+      req5.contains(Slot(52)) == false
+      req5.contains(Slot(51)) == false
+      req5.contains(Slot(50)) == false
+
+  test "[SyncQueue] checkResponse() test":
+    let chain = createChain(Slot(10), Slot(20))
+    let r1 = SyncRequest[SomeTPeer](slot: Slot(11), count: 1'u64, step: 1'u64)
+    let r21 = SyncRequest[SomeTPeer](slot: Slot(11), count: 2'u64, step: 1'u64)
+    let r22 = SyncRequest[SomeTPeer](slot: Slot(11), count: 2'u64, step: 2'u64)
+
+    check:
+      checkResponse(r1, @[chain[1]]) == true
+      checkResponse(r1, @[]) == true
+      checkResponse(r1, @[chain[1], chain[1]]) == false
+      checkResponse(r1, @[chain[0]]) == false
+      checkResponse(r1, @[chain[2]]) == false
+
+      checkResponse(r21, @[chain[1]]) == true
+      checkResponse(r21, @[]) == true
+      checkResponse(r21, @[chain[1], chain[2]]) == true
+      checkResponse(r21, @[chain[2]]) == true
+      checkResponse(r21, @[chain[1], chain[2], chain[3]]) == false
+      checkResponse(r21, @[chain[0], chain[1]]) == false
+      checkResponse(r21, @[chain[0]]) == false
+      checkResponse(r21, @[chain[2], chain[1]]) == false
+      checkResponse(r21, @[chain[2], chain[1]]) == false
+      checkResponse(r21, @[chain[2], chain[3]]) == false
+      checkResponse(r21, @[chain[3]]) == false
+
+      checkResponse(r22, @[chain[1]]) == true
+      checkResponse(r22, @[]) == true
+      checkResponse(r22, @[chain[1], chain[3]]) == true
+      checkResponse(r22, @[chain[3]]) == true
+      checkResponse(r22, @[chain[1], chain[3], chain[5]]) == false
+      checkResponse(r22, @[chain[0], chain[1]]) == false
+      checkResponse(r22, @[chain[1], chain[2]]) == false
+      checkResponse(r22, @[chain[2], chain[3]]) == false
+      checkResponse(r22, @[chain[3], chain[4]]) == false
+      checkResponse(r22, @[chain[4], chain[5]]) == false
+      checkResponse(r22, @[chain[4]]) == false
+      checkResponse(r22, @[chain[3], chain[1]]) == false

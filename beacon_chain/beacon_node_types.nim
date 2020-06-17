@@ -39,7 +39,7 @@ type
     ## this seq and aggregate only when needed
     ## TODO there are obvious caching opportunities here..
 
-  SlotData* = object
+  AttestationsSeen* = object
     attestations*: seq[AttestationEntry] ## \
     ## Depending on the world view of the various validators, they may have
     ## voted on different states - here we collect all the different
@@ -59,7 +59,7 @@ type
     ## contains both votes that have been included in the chain and those that
     ## have not.
 
-    slots*: Deque[SlotData] ## \
+    mapSlotsToAttestations*: Deque[AttestationsSeen] ## \
     ## We keep one item per slot such that indexing matches slot number
     ## together with startingSlot
 

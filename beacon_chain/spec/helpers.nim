@@ -15,14 +15,14 @@ import
   # Third-party
   stew/endians2,
   # Internal
-  ./datatypes, ./digest, ./crypto, ../ssz
+  ./datatypes, ./digest, ./crypto, ../ssz/merkleization
 
 type
   # This solves an ambiguous identifier Error in some contexts
   # (other candidate is nativesockets.Domain)
   Domain = datatypes.Domain
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#integer_squareroot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
   # Return the largest integer ``x`` such that ``x**2 <= n``.
   doAssert n >= 0'u64
@@ -35,7 +35,7 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
     y = (x + n div x) div 2
   x
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#compute_epoch_at_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#compute_epoch_at_slot
 func compute_epoch_at_slot*(slot: Slot|uint64): Epoch =
   # Return the epoch number at ``slot``.
   (slot div SLOTS_PER_EPOCH).Epoch
@@ -46,12 +46,12 @@ template epoch*(slot: Slot): Epoch =
 template isEpoch*(slot: Slot): bool =
   (slot mod SLOTS_PER_EPOCH) == 0
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#compute_start_slot_at_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#compute_start_slot_at_epoch
 func compute_start_slot_at_epoch*(epoch: Epoch): Slot =
   # Return the start slot of ``epoch``.
   (epoch * SLOTS_PER_EPOCH).Slot
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#is_active_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#is_active_validator
 func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   ### Check if ``validator`` is active
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
@@ -152,7 +152,7 @@ func compute_fork_digest*(current_version: Version,
     compute_fork_data_root(
       current_version, genesis_validators_root).data.toOpenArray(0, 3)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#compute_domain
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#compute_domain
 func compute_domain*(
     domain_type: DomainType,
     fork_version: Version = Version(GENESIS_FORK_VERSION),
@@ -185,10 +185,16 @@ func get_domain*(
 func compute_signing_root*(ssz_object: auto, domain: Domain): Eth2Digest =
   # Return the signing root of an object by calculating the root of the
   # object-domain tree.
-  let domain_wrapped_object = SigningRoot(
-    object_root: hash_tree_root(ssz_object),
-    domain: domain
-  )
+  when ETH2_SPEC == "v0.12.1":
+    let domain_wrapped_object = SigningData(
+      object_root: hash_tree_root(ssz_object),
+      domain: domain
+    )
+  else:
+    let domain_wrapped_object = SigningRoot(
+      object_root: hash_tree_root(ssz_object),
+      domain: domain
+    )
   hash_tree_root(domain_wrapped_object)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_seed
@@ -206,4 +212,4 @@ func get_seed*(state: BeaconState, epoch: Epoch, domain_type: DomainType): Eth2D
   seed_input[12..43] =
     get_randao_mix(state, # Avoid underflow
       epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1).data
-  eth2hash(seed_input)
+  eth2digest(seed_input)

@@ -10,6 +10,7 @@ import
   os, strutils, typetraits,
   # Internals
   ../../beacon_chain/ssz,
+  ../../beacon_chain/spec/datatypes,
   # Status libs
   stew/byteutils,
   serialization, json_serialization
@@ -39,8 +40,9 @@ type
   TestSizeError* = object of ValueError
 
 const
-  FixturesDir* = currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / "vendor" / "nim-eth2-scenarios"
-  SszTestsDir* = FixturesDir/"tests-v0.11.3"
+  FixturesDir* =
+    currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / "vendor" / "nim-eth2-scenarios"
+  SszTestsDir* = FixturesDir / "tests-v" & SPEC_VERSION
 
 proc parseTest*(path: string, Format: typedesc[Json or SSZ], T: typedesc): T =
   try:
@@ -58,8 +60,7 @@ template readFileBytes*(path: string): seq[byte] =
 proc sszDecodeEntireInput*(input: openarray[byte], Decoded: type): Decoded =
   var stream = unsafeMemoryInput(input)
   var reader = init(SszReader, stream)
-  result = reader.readValue(Decoded)
+  reader.readValue(result)
 
   if stream.readable:
     raise newException(UnconsumedInput, "Remaining bytes in the input")
-

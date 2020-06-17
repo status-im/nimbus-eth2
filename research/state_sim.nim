@@ -14,7 +14,8 @@ import
   options, sequtils, random, tables,
   ../tests/[testblockutil],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
-  ../beacon_chain/[attestation_pool, extras, ssz],
+  ../beacon_chain/[attestation_pool, extras],
+  ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils
 
 type Timers = enum
@@ -94,7 +95,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     withTimer(timers[t]):
       signedBlock = addTestBlock(
-        state[], latest_block_root, attestations = blockAttestations, flags = flags)
+        state[], latest_block_root, cache, attestations = blockAttestations,
+        flags = flags)
     latest_block_root = withTimerRet(timers[tHashBlock]):
       hash_tree_root(signedBlock.message)
 
@@ -104,9 +106,12 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       # some variation
       let
         target_slot = state[].data.slot + MIN_ATTESTATION_INCLUSION_DELAY - 1
+        commitee_count = get_committee_count_at_slot(state[].data, target_slot)
+
+      let
         scass = withTimerRet(timers[tShuffle]):
           mapIt(
-            0'u64 ..< get_committee_count_at_slot(state[].data, target_slot),
+            0 ..< commitee_count.int,
             get_beacon_committee(state[].data, target_slot, it.CommitteeIndex, cache))
 
       for i, scas in scass:

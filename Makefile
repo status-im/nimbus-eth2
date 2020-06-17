@@ -22,7 +22,9 @@ TOOLS := \
 	deposit_contract \
 	ncli_hash_tree_root \
 	ncli_pretty \
+	ncli_query \
 	ncli_transition \
+	ncli_db \
 	process_dashboard \
 	stack_sizes \
 	state_sim \
@@ -36,7 +38,7 @@ TOOLS_DIRS := \
 	ncli \
 	nbench \
 	research \
-	tests/simulation
+	tools
 TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 
 .PHONY: \
@@ -53,8 +55,12 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	testnet1 \
 	clean \
 	libbacktrace \
+	clean-schlesi \
 	schlesi \
 	schlesi-dev \
+	clean-witti \
+	witti \
+	witti-dev \
 	book \
 	publish-book
 
@@ -78,6 +84,13 @@ all: | $(TOOLS) libnfuzz.so libnfuzz.a
 
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
+
+ifeq ($(OS), Windows_NT)
+  ifeq ($(ARCH), x86)
+    # 32-bit Windows is not supported by libbacktrace/libunwind
+    USE_LIBBACKTRACE := 0
+  endif
+endif
 
 # "--define:release" implies "--stacktrace:off" and it cannot be added to config.nims
 ifeq ($(USE_LIBBACKTRACE), 0)
@@ -125,26 +138,37 @@ eth2_network_simulation: | build deps clean_eth2_network_simulation_files
 	+ GIT_ROOT="$$PWD" NIMFLAGS="$(NIMFLAGS)" LOG_LEVEL="$(LOG_LEVEL)" tests/simulation/start.sh
 
 clean-testnet0:
-	rm -rf build/data/testnet0
+	rm -rf build/data/testnet0*
 
 clean-testnet1:
-	rm -rf build/data/testnet1
+	rm -rf build/data/testnet1*
 
 # - we're getting the preset from a testnet-specific .env file
 # - try SCRIPT_PARAMS="--skipGoerliKey"
 testnet0 testnet1: | build deps
 	source scripts/$@.env; \
-		NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) --const-preset=$$CONST_PRESET --dev-build $@
+		NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) --const-preset=$$CONST_PRESET --dev-build $@
+
+clean-schlesi:
+	rm -rf build/data/shared_schlesi*
 
 schlesi: | build deps
-	LOG_LEVEL="DEBUG" NIM_PARAMS="$(NIM_PARAMS)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/schlesi
+	NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/schlesi
 
 schlesi-dev: | build deps
-	LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" NIM_PARAMS="$(NIM_PARAMS)" \
-		$(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) --dev-build shared/schlesi
+	NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/schlesi
+
+clean-witti:
+	rm -rf build/data/shared_witti*
+
+witti: | build deps
+	NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/witti
+
+witti-dev: | build deps
+	NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/witti
 
 clean: | clean-common
-	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,beacon_node_testnet*,block_sim,state_sim,transition*}
+	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,beacon_node_*,block_sim,state_sim,transition*}
 ifneq ($(USE_LIBBACKTRACE), 0)
 	+ $(MAKE) -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
 endif

@@ -25,7 +25,7 @@
 
 import
   # Internal
-  ./digest, ../ssz/types,
+  ./digest,
   # Status
   stew/[endians2, objects, results, byteutils],
   nimcrypto/sysrand,
@@ -69,6 +69,8 @@ type
 
   BlsResult*[T] = Result[T, cstring]
 
+  RandomSourceDepleted* = object of CatchableError
+
 func `==`*(a, b: BlsValue): bool =
   if a.kind != b.kind: return false
   if a.kind == Real:
@@ -97,22 +99,12 @@ func toPubKey*(privkey: ValidatorPrivKey): ValidatorPubKey =
   else:
     privkey.getKey
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#bls-signatures
-func aggregate*[T](values: openarray[ValidatorSig]): ValidatorSig =
-  ## Aggregate arrays of sequences of Validator Signatures
-  ## This assumes that they are real signatures
-
-  result = BlsValue[T](kind: Real, blsValue: values[0].BlsValue)
-
-  for i in 1 ..< values.len:
-    result.blsValue.aggregate(values[i].blsValue)
-
 func aggregate*(x: var ValidatorSig, other: ValidatorSig) =
   ## Aggregate 2 Validator Signatures
   ## This assumes that they are real signatures
   x.blsValue.aggregate(other.blsValue)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#bls-signatures
 func blsVerify*(
     pubkey: ValidatorPubKey, message: openArray[byte],
     signature: ValidatorSig): bool =
@@ -141,13 +133,13 @@ func blsVerify*(
   #   return true
   pubkey.blsValue.verify(message, signature.blsValue)
 
-func blsSign*(privkey: ValidatorPrivKey, message: openarray[byte]): ValidatorSig =
+func blsSign*(privkey: ValidatorPrivKey, message: openArray[byte]): ValidatorSig =
   ## Computes a signature from a secret key and a message
   ValidatorSig(kind: Real, blsValue: SecretKey(privkey).sign(message))
 
-func blsFastAggregateVerify*[T: byte|char](
-       publicKeys: openarray[ValidatorPubKey],
-       message: openarray[T],
+func blsFastAggregateVerify*(
+       publicKeys: openArray[ValidatorPubKey],
+       message: openArray[byte],
        signature: ValidatorSig
      ): bool =
   ## Verify the aggregate of multiple signatures on the same message
@@ -175,7 +167,8 @@ func blsFastAggregateVerify*[T: byte|char](
     if pubkey.kind != Real:
       return false
     unwrapped.add pubkey.blsValue
-  return fastAggregateVerify(unwrapped, message, signature.blsValue)
+
+  fastAggregateVerify(unwrapped, message, signature.blsValue)
 
 proc newKeyPair*(): BlsResult[tuple[pub: ValidatorPubKey, priv: ValidatorPrivKey]] =
   ## Generates a new public-private keypair
@@ -228,14 +221,14 @@ func toRaw*(x: BlsValue): auto =
 func toHex*(x: BlsCurveType): string =
   toHex(toRaw(x))
 
-func fromRaw*(T: type ValidatorPrivKey, bytes: openarray[byte]): BlsResult[T] =
+func fromRaw*(T: type ValidatorPrivKey, bytes: openArray[byte]): BlsResult[T] =
   var val: SecretKey
   if val.fromBytes(bytes):
     ok ValidatorPrivKey(val)
   else:
     err "bls: invalid private key"
 
-func fromRaw*[N, T](BT: type BlsValue[N, T], bytes: openarray[byte]): BlsResult[BT] =
+func fromRaw*[N, T](BT: type BlsValue[N, T], bytes: openArray[byte]): BlsResult[BT] =
   # This is a workaround, so that we can deserialize the serialization of a
   # default-initialized BlsValue without raising an exception
   when defined(ssz_testing):
@@ -292,7 +285,7 @@ proc readValue*(reader: var JsonReader, value: var ValidatorPrivKey) {.
     inline, raises: [Exception].} =
   value = ValidatorPrivKey.fromHex(reader.readValue(string)).tryGet()
 
-template fromSszBytes*(T: type BlsValue, bytes: openarray[byte]): auto =
+template fromSszBytes*(T: type BlsValue, bytes: openArray[byte]): auto =
   let v = fromRaw(T, bytes)
   if v.isErr:
     raise newException(MalformedSszError, $v.error)
@@ -341,3 +334,16 @@ func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noInit
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)
   return v[]
+
+proc getRandomBytes*(n: Natural): seq[byte]
+                    {.raises: [RandomSourceDepleted, Defect].} =
+  result = newSeq[byte](n)
+  if randomBytes(result) != result.len:
+    raise newException(RandomSourceDepleted, "Failed to generate random bytes")
+
+proc getRandomBytesOrPanic*(output: var openArray[byte]) =
+  doAssert randomBytes(output) == output.len
+
+proc getRandomBytesOrPanic*(n: Natural): seq[byte] =
+  result = newSeq[byte](n)
+  getRandomBytesOrPanic(result)

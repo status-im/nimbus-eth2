@@ -10,7 +10,7 @@ import
   os, unittest, strutils, streams, strformat, strscans,
   macros, typetraits,
   # Status libraries
-  faststreams, stew/bitseqs, ../testutil,
+  faststreams, ../testutil,
   # Third-party
   yaml,
   # Beacon chain internals
@@ -63,6 +63,15 @@ type
     F: array[4, FixedTestStruct]
     G: array[2, VarTestStruct]
 
+  HashArrayComplexTestStruct = object
+    A: uint16
+    B: List[uint16, 128]
+    C: uint8
+    D: List[byte, 256]
+    E: VarTestStruct
+    F: HashArray[4, FixedTestStruct]
+    G: HashArray[2, VarTestStruct]
+
   BitsStruct = object
     A: BitList[5]
     B: BitArray[2]
@@ -77,13 +86,13 @@ proc checkBasic(T: typedesc,
                 dir: string,
                 expectedHash: SSZHashTreeRoot) =
   var fileContents = readFileBytes(dir/"serialized.ssz")
-  var deserialized = sszDecodeEntireInput(fileContents, T)
+  var deserialized = newClone(sszDecodeEntireInput(fileContents, T))
 
   let expectedHash = expectedHash.root
-  let actualHash = "0x" & toLowerASCII($deserialized.hashTreeRoot())
+  let actualHash = "0x" & toLowerASCII($hash_tree_root(deserialized[]))
 
   check expectedHash == actualHash
-  check sszSize(deserialized) == fileContents.len
+  check sszSize(deserialized[]) == fileContents.len
 
   # TODO check the value
 
@@ -222,11 +231,10 @@ proc sszCheck(baseDir, sszType, sszSubType: string) =
     of "SmallTestStruct": checkBasic(SmallTestStruct, dir, expectedHash)
     of "FixedTestStruct": checkBasic(FixedTestStruct, dir, expectedHash)
     of "VarTestStruct": checkBasic(VarTestStruct, dir, expectedHash)
-    of "ComplexTestStruct": checkBasic(ComplexTestStruct, dir, expectedHash)
-    of "BitsStruct":
-      discard
-      # Compile-time issues
-      # checkBasic(BitsStruct, dir, expectedHash)
+    of "ComplexTestStruct":
+      checkBasic(ComplexTestStruct, dir, expectedHash)
+      checkBasic(HashArrayComplexTestStruct, dir, expectedHash)
+    of "BitsStruct": checkBasic(BitsStruct, dir, expectedHash)
     else:
       raise newException(ValueError, "unknown container in test: " & sszSubType)
   else:

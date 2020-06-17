@@ -1,7 +1,7 @@
 import
   confutils, os, strutils, chronicles, json_serialization,
   ../beacon_chain/spec/[crypto, datatypes, digest],
-  ../beacon_chain/[ssz]
+  ../beacon_chain/ssz/ssz_serialization
 
 # TODO turn into arguments
 cli do(kind: string, file: string):
@@ -22,6 +22,7 @@ cli do(kind: string, file: string):
   case kind
   of "attester_slashing": printit(AttesterSlashing)
   of "attestation": printit(Attestation)
+  of "signed_block": printit(SignedBeaconBlock)
   of "block": printit(BeaconBlock)
   of "block_body": printit(BeaconBlockBody)
   of "block_header": printit(BeaconBlockHeader)

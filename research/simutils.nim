@@ -1,7 +1,8 @@
 import
-  stats, os, strformat,
+  stats, os, strformat, times,
   ../tests/[testblockutil],
-  ../beacon_chain/[extras, ssz],
+  ../beacon_chain/[extras],
+  ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ../beacon_chain/spec/[beaconstate, datatypes, digest, helpers]
 
 template withTimer*(stats: var RunningStat, body: untyped) =
@@ -40,7 +41,7 @@ func verifyConsensus*(state: BeaconState, attesterRatio: auto) =
     doAssert state.finalized_checkpoint.epoch + 2 >= current_epoch
 
 proc loadGenesis*(validators: int, validate: bool): ref HashedBeaconState =
-  let fn = &"genesim_{const_preset}_{validators}.ssz"
+  let fn = &"genesim_{const_preset}_{validators}_{SPEC_VERSION}.ssz"
   let res = (ref HashedBeaconState)()
   if fileExists(fn):
     res.data = SSZ.loadFile(fn, BeaconState)
@@ -71,14 +72,13 @@ proc loadGenesis*(validators: int, validate: bool): ref HashedBeaconState =
 
     echo &"Saving to {fn}..."
     SSZ.saveFile(fn, res.data)
+
     res
 
 proc printTimers*[Timers: enum](
-    state: BeaconState, attesters: RunningStat, validate: bool,
-    timers: array[Timers, RunningStat]) =
-  echo "Validators: ", state.validators.len, ", epoch length: ", SLOTS_PER_EPOCH
-  echo "Validators per attestation (mean): ", attesters.mean
-
+  validate: bool,
+  timers: array[Timers, RunningStat]
+) =
   proc fmtTime(t: float): string = &"{t * 1000 :>12.3f}, "
 
   echo "All time are ms"
@@ -92,3 +92,10 @@ proc printTimers*[Timers: enum](
     echo fmtTime(timers[t].mean), fmtTime(timers[t].standardDeviationS),
       fmtTime(timers[t].min), fmtTime(timers[t].max), &"{timers[t].n :>12}, ",
       $t
+
+proc printTimers*[Timers: enum](
+    state: BeaconState, attesters: RunningStat, validate: bool,
+    timers: array[Timers, RunningStat]) =
+  echo "Validators: ", state.validators.len, ", epoch length: ", SLOTS_PER_EPOCH
+  echo "Validators per attestation (mean): ", attesters.mean
+  printTimers(validate, timers)

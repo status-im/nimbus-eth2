@@ -1,6 +1,6 @@
 FixtureSSZConsensus-minimal
 ===
-## Official - 0.11.3 - SSZ consensus objects  [Preset: minimal]
+## Official - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
 +   Testing    Attestation                                                                   OK
@@ -26,7 +26,7 @@ FixtureSSZConsensus-minimal
 +   Testing    SignedBeaconBlock                                                             OK
 +   Testing    SignedBeaconBlockHeader                                                       OK
 +   Testing    SignedVoluntaryExit                                                           OK
-+   Testing    SigningRoot                                                                   OK
++   Testing    SigningData                                                                   OK
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 ```

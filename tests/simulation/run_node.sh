@@ -31,7 +31,10 @@ source "${SIM_ROOT}/../../env.sh"
 
 cd "$GIT_ROOT"
 
-DATA_DIR="${SIMULATION_DIR}/node-$NODE_ID"
+NODE_DATA_DIR="${SIMULATION_DIR}/node-$NODE_ID"
+NODE_VALIDATORS_DIR=$NODE_DATA_DIR/validators/
+NODE_SECRETS_DIR=$NODE_DATA_DIR/secrets/
+
 PORT=$(( BASE_P2P_PORT + NODE_ID ))
 
 NAT_ARG="--nat:extip:127.0.0.1"
@@ -39,54 +42,51 @@ if [ "${NAT:-}" == "1" ]; then
   NAT_ARG="--nat:any"
 fi
 
-mkdir -p "$DATA_DIR/validators"
-rm -f $DATA_DIR/validators/*
+rm -rf "$NODE_VALIDATORS_DIR"
+mkdir -p "$NODE_VALIDATORS_DIR"
+
+rm -rf "$NODE_SECRETS_DIR"
+mkdir -p "$NODE_SECRETS_DIR"
+
+VALIDATORS_PER_NODE=$((NUM_VALIDATORS / TOTAL_NODES))
 
 if [[ $NODE_ID -lt $TOTAL_NODES ]]; then
-  FIRST_VALIDATOR_IDX=$(( (NUM_VALIDATORS / TOTAL_NODES) * NODE_ID ))
-  LAST_VALIDATOR_IDX=$(( (NUM_VALIDATORS / TOTAL_NODES) * (NODE_ID + 1) - 1 ))
+  # if using validator client binaries in addition to beacon nodes
+  # we will split the keys for this instance in half between the BN and the VC
+  if [ "${SPLIT_VALIDATORS_BETWEEN_BN_AND_VC:-}" == "yes" ]; then
+    ATTACHED_VALIDATORS=$((VALIDATORS_PER_NODE / 2))
+  else
+    ATTACHED_VALIDATORS=$VALIDATORS_PER_NODE
+  fi
 
   pushd "$VALIDATORS_DIR" >/dev/null
-    cp $(seq -s " " -f v%07g.privkey $FIRST_VALIDATOR_IDX $LAST_VALIDATOR_IDX) "$DATA_DIR/validators"
+  for VALIDATOR in $(ls | tail -n +$(( ($VALIDATORS_PER_NODE * $NODE_ID) + 1 )) | head -n $ATTACHED_VALIDATORS); do
+      cp -a "$VALIDATOR" "$NODE_VALIDATORS_DIR"
+      cp -a "$SECRETS_DIR/$VALIDATOR" "$NODE_SECRETS_DIR"
+    done
   popd >/dev/null
 fi
 
-rm -rf "$DATA_DIR/dump"
-mkdir -p "$DATA_DIR/dump"
+rm -rf "$NODE_DATA_DIR/dump"
+mkdir -p "$NODE_DATA_DIR/dump"
 
 SNAPSHOT_ARG=""
 if [ -f "${SNAPSHOT_FILE}" ]; then
   SNAPSHOT_ARG="--state-snapshot=${SNAPSHOT_FILE}"
 fi
 
-cd "$DATA_DIR"
-
-# uncomment to force always using an external VC binary for VC duties
-# TODO remove this when done with implementing the VC - here just for convenience during dev
-#EXTERNAL_VALIDATORS="yes"
-
-EXTERNAL_VALIDATORS_ARG=""
-if [ "${EXTERNAL_VALIDATORS:-}" == "yes" ]; then
-  EXTERNAL_VALIDATORS_ARG="--external-validators"
-  # we lass a few seconds as delay for the start ==> that way we can start the
-  # beacon node before the VC - otherwise we would have to add "&" conditionally to
-  # the command which starts the BN - makes the shell script much more complicated
-  $VALIDATOR_CLIENT_BIN \
-    --data-dir=$DATA_DIR \
-    --rpc-port="$(( $BASE_RPC_PORT + $NODE_ID ))" \
-    --delay-start=5 &
-fi
+cd "$NODE_DATA_DIR"
 
 # if you want tracing messages, add "--log-level=TRACE" below
 $BEACON_NODE_BIN \
   --log-level=${LOG_LEVEL:-DEBUG} \
   --bootstrap-file=$BOOTSTRAP_ADDRESS_FILE \
-  --data-dir=$DATA_DIR \
+  --data-dir=$NODE_DATA_DIR \
+  --secrets-dir=$NODE_SECRETS_DIR \
   --node-name=$NODE_ID \
   --tcp-port=$PORT \
   --udp-port=$PORT \
   $SNAPSHOT_ARG \
-  $EXTERNAL_VALIDATORS_ARG \
   $NAT_ARG \
   $WEB3_ARG \
   --deposit-contract=$DEPOSIT_CONTRACT_ADDRESS \

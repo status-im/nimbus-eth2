@@ -1,6 +1,6 @@
 FixtureSSZConsensus-mainnet
 ===
-## Official - 0.11.3 - SSZ consensus objects  [Preset: mainnet]
+## Official - SSZ consensus objects  [Preset: mainnet]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
 +   Testing    Attestation                                                                   OK
@@ -26,7 +26,7 @@ FixtureSSZConsensus-mainnet
 +   Testing    SignedBeaconBlock                                                             OK
 +   Testing    SignedBeaconBlockHeader                                                       OK
 +   Testing    SignedVoluntaryExit                                                           OK
-+   Testing    SigningRoot                                                                   OK
++   Testing    SigningData                                                                   OK
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 ```

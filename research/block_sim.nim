@@ -20,12 +20,12 @@ import
   options, random, tables,
   ../tests/[testblockutil],
   ../beacon_chain/spec/[
-    beaconstate, crypto, datatypes, digest, helpers, validator,
-    state_transition_block],
+    beaconstate, crypto, datatypes, digest, helpers, validator, signatures],
   ../beacon_chain/[
     attestation_pool, block_pool, beacon_node_types, beacon_chain_db,
-    interop, ssz, state_transition, validator_pool],
+    interop, state_transition, validator_pool],
   eth/db/[kvstore, kvstore_sqlite3],
+  ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils
 
 type Timers = enum
@@ -38,7 +38,7 @@ type Timers = enum
 
 # TODO confutils is an impenetrable black box. how can a help text be added here?
 cli do(slots = SLOTS_PER_EPOCH * 6,
-       validators = SLOTS_PER_EPOCH * 100, # One per shard is minimum
+       validators = SLOTS_PER_EPOCH * 130, # One per shard is minimum
        attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.73,
        blockRatio {.desc: "ratio of slots with blocks"} = 1.0,
        replay = true):
@@ -116,7 +116,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           Eth2Digest(),
           attPool.getAttestationsForBlock(state),
           @[],
-          noRollback)
+          noRollback,
+          cache)
 
       var
         newBlock = SignedBeaconBlock(

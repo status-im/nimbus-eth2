@@ -21,7 +21,7 @@ proc getStateRef(db: BeaconChainDB, root: Eth2Digest): NilableBeaconStateRef =
     return res
 
 template wrappedTimedTest(name: string, body: untyped) =
-  ## Workaround for stack overflow
+  # `check` macro takes a copy of whatever it's checking, on the stack!
   block: # Symbol namespacing
     proc wrappedTest() =
       timedTest name:
@@ -66,7 +66,7 @@ suiteReport "Beacon chain DB" & preset():
 
     check:
       db.containsState(root)
-      db.getStateRef(root)[] == state[]
+      hash_tree_root(db.getStateRef(root)[]) == root
 
   wrappedTimedTest "find ancestors" & preset():
     var
@@ -115,6 +115,8 @@ suiteReport "Beacon chain DB" & preset():
 
     db.putState(state[])
 
+    check db.containsState(root)
+    let state2 = db.getStateRef(root)
+
     check:
-      db.containsState(root)
-      db.getStateRef(root)[] == state[]
+      hash_tree_root(state2[]) == root

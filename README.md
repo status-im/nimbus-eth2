@@ -7,7 +7,7 @@
 
 [![Discord: Nimbus](https://img.shields.io/badge/discord-nimbus-orange.svg)](https://discord.gg/XRxWahP)
 [![Gitter: #status-im/nimbus](https://img.shields.io/badge/gitter-status--im%2Fnimbus-orange.svg)](https://gitter.im/status-im/nimbus)
-[![Status: #nimbus-general](https://img.shields.io/badge/status-nimbus--general-orange.svg)](https://get.status.im/chat/public/nimbus-general)
+[![Status: #nimbus-general](https://img.shields.io/badge/status-nimbus--general-orange.svg)](https://join.status.im/nimbus-general)
 
 Welcome to Nimbus for Ethereum 2.0.
 
@@ -16,7 +16,7 @@ Nimbus beacon chain is a research implementation of the beacon chain component o
 ## Related
 
 * [status-im/nimbus](https://github.com/status-im/nimbus/): Nimbus for Ethereum 1
-* [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/tree/v0.11.2#phase-0): Serenity specification that this project implements
+* [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/tree/v0.12.1#phase-0): Serenity specification that this project implements
 
 You can check where the beacon chain fits in the Ethereum ecosystem our Two-Point-Oh series: https://our.status.im/tag/two-point-oh/
 
@@ -31,6 +31,7 @@ You can check where the beacon chain fits in the Ethereum ecosystem our Two-Poin
     - [Windows](#windows)
   - [For users](#for-users)
     - [Connecting to testnets](#connecting-to-testnets)
+    - [Getting metrics from a local testnet client](#getting-metrics-from-a-local-testnet-client)
   - [Interop (for other Eth2 clients)](#interop-for-other-eth2-clients)
   - [For researchers](#for-researchers)
     - [State transition simulation](#state-transition-simulation)
@@ -42,6 +43,7 @@ You can check where the beacon chain fits in the Ethereum ecosystem our Two-Poin
     - [Linux, MacOS](#linux-macos)
     - [Raspberry Pi](#raspberry-pi)
     - [Makefile tips and tricks for developers](#makefile-tips-and-tricks-for-developers)
+    - [CI setup](#ci-setup)
   - [License](#license)
 
 ## Prerequisites for everyone
@@ -77,6 +79,8 @@ Assuming you use [Homebrew](https://brew.sh/) to manage packages:
 brew install pcre
 ```
 
+Make sure you have [CMake](https://cmake.org/) installed, to be able to build libunwind (used for [lightweight stack traces](https://github.com/status-im/nim-libbacktrace)).
+
 ### Windows
 
 You can install the developer tools by following the instruction in our [Windows dev environment section](#windows-dev-environment).
@@ -100,16 +104,44 @@ apt install build-essential git libpcre3-dev
 
 Nimbus connects to any of the testnets published in the [eth2-clients/eth2-testnets repo](https://github.com/eth2-clients/eth2-testnets/tree/master/nimbus).
 
-Once the [prerequisites](#prerequisites) are installed you can connect to testnet0 with the following commands:
+Once the [prerequisites](#prerequisites) are installed you can connect to the [Witti testnet](https://github.com/goerli/witti) with the following commands:
 
 ```bash
 git clone https://github.com/status-im/nim-beacon-chain
 cd nim-beacon-chain
-make testnet0        # This will build Nimbus and all other dependencies
-                     # and connect you to testnet0
+make witti           # This will build Nimbus and all other dependencies
+                     # and connect you to Witti
 ```
 
-The testnets are restarted once per week, usually on Monday evenings (UTC)) and integrate the changes for the past week.
+Sometimes, you may want to disable the interactive prompt asking you for a Goerli key in order to become a validator:
+
+```bash
+make SCRIPT_PARAMS="--skipGoerliKey" witti # not a validator
+```
+
+You can also start multiple local nodes, in different terminal windows/tabs, by specifying their numeric IDs:
+
+```bash
+make SCRIPT_PARAMS="--nodeID=0" witti # the default
+make SCRIPT_PARAMS="--nodeID=1" witti
+make SCRIPT_PARAMS="--nodeID=2" witti
+```
+
+### Getting metrics from a local testnet client
+
+```bash
+# the primitive HTTP server started to serve the metrics is considered insecure
+make NIMFLAGS="-d:insecure" witti
+```
+
+You can now see the raw metrics on http://127.0.0.1:8008/metrics but they're not very useful like this, so let's feed them to a Prometheus instance:
+
+```bash
+prometheus --config.file=build/data/shared_witti_0/prometheus.yml
+# when starting multiple nodes at the same time, just use the config file from the one with the highest ID
+```
+
+For some pretty pictures, get [Grafana](https://grafana.com/) up and running, then import the dashboard definition in "grafana/beacon\_nodes\_Grafana\_dashboard.json".
 
 ## Interop (for other Eth2 clients)
 
@@ -176,8 +208,8 @@ The [generic instructions from the Nimbus repo](https://github.com/status-im/nim
 Specific steps:
 
 ```bash
-# This will generate the Prometheus config and the Grafana dashboard on the fly,
-# based on the number of nodes (which you can control by passing something like NODES=6 to `make`).
+# This will generate the Prometheus config on the fly, based on the number of
+# nodes (which you can control by passing something like NODES=6 to `make`).
 # The `-d:insecure` flag starts an HTTP server from which the Prometheus daemon will pull the metrics.
 make VALIDATORS=192 NODES=6 USER_NODES=0 NIMFLAGS="-d:insecure" eth2_network_simulation
 
@@ -186,7 +218,7 @@ cd tests/simulation/prometheus
 prometheus
 ```
 
-The dashboard you need to import in Grafana is "tests/simulation/beacon-chain-sim-all-nodes-Grafana-dashboard.json".
+The dashboard you need to import in Grafana is "grafana/beacon\_nodes\_Grafana\_dashboard.json".
 
 ![monitoring dashboard](./media/monitoring.png)
 
@@ -211,8 +243,11 @@ The [inspector tool](./beacon_chain/inspector.nim) can help monitor the libp2p n
 
 ## For developers
 
-Latest updates happen in the `devel` branch which is merged into `master` every week on Tuesday before deploying a new testnets
-The following sections explain how to setup your build environment on your platform.
+Latest updates happen in the `devel` branch which is merged into `master` every week on Tuesday before deploying new testnets.
+
+Interesting Make variables and targets are documented in the [nimbus-build-system](https://github.com/status-im/nimbus-build-system) repo.
+
+The following sections explain how to set up your build environment on your platform.
 
 ### Windows dev environment
 
@@ -359,6 +394,12 @@ make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower
 ```bash
 make publish-book
 ```
+
+### CI setup
+
+Local testnets run for 4 epochs each, to test finalization. That happens only on Jenkins Linux hosts, and their logs are available for download as artifacts, from the job's page. Don't expect these artifacts to be kept more than a day after the corresponding branch is deleted.
+
+![Jenkins artifacts](./media/jenkins_artifacts.png)
 
 ## License
 

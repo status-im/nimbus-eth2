@@ -43,7 +43,7 @@ const
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L58
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L58
 
   # Unchanged
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9
@@ -53,17 +53,17 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L70
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L70
 
   GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 1'u8]
   BLS_WITHDRAWAL_PREFIX* = 0'u8
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L77
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L77
   # Changed: Faster to spin up testnets, but does not give validator
   # reasonable warning time for genesis
-  MIN_GENESIS_DELAY* = 300
+  GENESIS_DELAY* = 300
 
   # Unchanged
   SECONDS_PER_SLOT*{.intdefine.} = 6'u64
@@ -79,14 +79,13 @@ const
   MAX_SEED_LOOKAHEAD* = 4
 
   # Changed
-  EPOCHS_PER_ETH1_VOTING_PERIOD* = 2
+  EPOCHS_PER_ETH1_VOTING_PERIOD* = 4
   SLOTS_PER_HISTORICAL_ROOT* = 64
 
   # Unchanged
   MIN_VALIDATOR_WITHDRAWABILITY_DELAY* = 2'u64^8
 
-  # Changed
-  PERSISTENT_COMMITTEE_PERIOD* = 128
+  SHARD_COMMITTEE_PERIOD* = 64 # epochs
 
   # Unchanged
   MAX_EPOCHS_PER_CROSSLINK* = 4
@@ -108,20 +107,20 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L117
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L117
 
   BASE_REWARD_FACTOR* = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
   PROPOSER_REWARD_QUOTIENT* = 2'u64^3
-  INACTIVITY_PENALTY_QUOTIENT* = 2'u64^25
+  INACTIVITY_PENALTY_QUOTIENT* = 2'u64^24
   MIN_SLASHING_PENALTY_QUOTIENT* = 32 # 2^5
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L131
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L131
 
   MAX_PROPOSER_SLASHINGS* = 2^4
-  MAX_ATTESTER_SLASHINGS* = 2^0
+  MAX_ATTESTER_SLASHINGS* = 2^1
   MAX_ATTESTATIONS* = 2^7
   MAX_DEPOSITS* = 2^4
   MAX_VOLUNTARY_EXITS* = 2^4
@@ -135,7 +134,7 @@ const
 
   # Validators
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L38
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L38
 
   # Changed
   ETH1_FOLLOW_DISTANCE* = 16 # blocks
@@ -148,18 +147,18 @@ const
 
   # Phase 1: Upgrade from Phase 0
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L161
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L161
   PHASE_1_FORK_VERSION* = 16777217
+  PHASE_1_GENESIS_SLOT* = 8
   INITIAL_ACTIVE_SHARDS* = 4
 
   # Phase 1: General
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L169
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L171
   MAX_SHARDS* = 8
   ONLINE_PERIOD* = 8 # epochs ~ 51 minutes
   LIGHT_CLIENT_COMMITTEE_SIZE* = 128
   LIGHT_CLIENT_COMMITTEE_PERIOD* = 256 # epochs
-  SHARD_COMMITTEE_PERIOD* = 256 # epochs
   SHARD_BLOCK_CHUNK_SIZE* = 262144
   MAX_SHARD_BLOCK_CHUNKS* = 4
   TARGET_SHARD_BLOCK_SIZE* = 196608
@@ -171,7 +170,7 @@ const
   # Phase 1 - Custody game
   # ---------------------------------------------------------------
   # Time parameters
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L202
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L202
   RANDAO_PENALTY_EPOCHS* = 2
   EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS* = 4096 # epochs
   EPOCHS_PER_CUSTODY_PERIOD* = 2048
@@ -179,12 +178,12 @@ const
   MAX_REVEAL_LATENESS_DECREMENT* = 128
 
   # Max operations
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L214
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L214
   MAX_CUSTODY_KEY_REVEALS* = 256
   MAX_EARLY_DERIVED_SECRET_REVEALS* = 1
   MAX_CUSTODY_SLASHINGS* = 1
 
   # Reward and penalty quotients
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L220
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L220
   EARLY_DERIVED_SECRET_REVEAL_SLOT_REWARD_MULTIPLE* = 2
   MINOR_REWARD_QUOTIENT* = 256

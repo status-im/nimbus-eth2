@@ -28,10 +28,11 @@
 {.push raises: [Defect].}
 
 import
+  tables,
   chronicles,
   stew/results,
-  ./extras, ./ssz, metrics,
-  ./spec/[datatypes, crypto, digest, helpers, validator],
+  ./extras, ./ssz/merkleization, metrics,
+  ./spec/[datatypes, crypto, digest, helpers, signatures, validator],
   ./spec/[state_transition_block, state_transition_epoch],
   ../nbench/bench_lab
 
@@ -61,30 +62,27 @@ func get_epoch_validator_count(state: BeaconState): int64 {.nbench.} =
        validator.withdrawable_epoch > get_current_epoch(state):
       result += 1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#verify_block_signature
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature*(
-    state: BeaconState, signedBlock: SignedBeaconBlock): bool {.nbench.} =
-  if signedBlock.message.proposer_index >= state.validators.len.uint64:
+    state: BeaconState, signed_block: SignedBeaconBlock): bool {.nbench.} =
+  let
+    proposer_index = signed_block.message.proposer_index
+  if proposer_index >= state.validators.len.uint64:
     notice "Invalid proposer index in block",
-      blck = shortLog(signedBlock.message)
+      blck = shortLog(signed_block.message)
     return false
 
-  let
-    proposer = state.validators[signedBlock.message.proposer_index]
-    domain = get_domain(
-      state, DOMAIN_BEACON_PROPOSER,
-      compute_epoch_at_slot(signedBlock.message.slot))
-    signing_root = compute_signing_root(signedBlock.message, domain)
-
-  if not bls_verify(proposer.pubKey, signing_root.data, signedBlock.signature):
+  if not verify_block_signature(
+      state.fork, state.genesis_validators_root, signed_block.message.slot,
+      signed_block.message, state.validators[proposer_index].pubkey,
+      signed_block.signature):
     notice "Block: signature verification failed",
-      blck = shortLog(signedBlock),
-      signingRoot = shortLog(signing_root)
+      blck = shortLog(signedBlock)
     return false
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
   let state_root = hash_tree_root(state)
@@ -107,7 +105,7 @@ type
 # Hashed-state transition functions
 # ---------------------------------------------------------------
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 func process_slot*(state: var HashedBeaconState) {.nbench.} =
   # Cache state root
   let previous_slot_state_root = state.root
@@ -122,9 +120,10 @@ func process_slot*(state: var HashedBeaconState) {.nbench.} =
   state.data.block_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
     hash_tree_root(state.data.latest_block_header)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc advance_slot*(state: var HashedBeaconState,
-    nextStateRoot: Opt[Eth2Digest], updateFlags: UpdateFlags) {.nbench.} =
+    nextStateRoot: Opt[Eth2Digest], updateFlags: UpdateFlags,
+    epochCache: var StateCache) {.nbench.} =
   # Special case version of process_slots that moves one slot at a time - can
   # run faster if the state root is known already (for example when replaying
   # existing slots)
@@ -133,7 +132,7 @@ proc advance_slot*(state: var HashedBeaconState,
   if is_epoch_transition:
     # Note: Genesis epoch = 0, no need to test if before Genesis
     beacon_previous_validators.set(get_epoch_validator_count(state.data))
-    process_epoch(state.data, updateFlags)
+    process_epoch(state.data, updateFlags, epochCache)
   state.data.slot += 1
   if is_epoch_transition:
     beacon_current_validators.set(get_epoch_validator_count(state.data))
@@ -143,15 +142,9 @@ proc advance_slot*(state: var HashedBeaconState,
   else:
     state.root = hash_tree_root(state.data)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc process_slots*(state: var HashedBeaconState, slot: Slot,
     updateFlags: UpdateFlags = {}): bool {.nbench.} =
-  # TODO: Eth specs strongly assert that state.data.slot <= slot
-  #       This prevents receiving attestation in any order
-  #       (see tests/test_attestation_pool)
-  #       but it maybe an artifact of the test case
-  #       as this was not triggered in the testnet1
-  #       after a hour
   # TODO this function is not _really_ necessary: when replaying states, we
   #      advance slots one by one before calling `state_transition` - this way,
   #      we avoid the state root calculation - as such, instead of advancing
@@ -167,8 +160,9 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot,
     return false
 
   # Catch up to the target slot
+  var cache = get_empty_per_epoch_cache()
   while state.data.slot < slot:
-    advance_slot(state, err(Opt[Eth2Digest]), updateFlags)
+    advance_slot(state, err(Opt[Eth2Digest]), updateFlags, cache)
 
   true
 
@@ -177,6 +171,8 @@ proc noRollback*(state: var HashedBeaconState) =
 
 proc state_transition*(
     state: var HashedBeaconState, signedBlock: SignedBeaconBlock,
+    # TODO this is ... okay, but not perfect; align with EpochRef
+    stateCache: var StateCache,
     flags: UpdateFlags, rollback: RollbackHashedProc): bool {.nbench.} =
   ## Time in the beacon chain moves by slots. Every time (haha.) that happens,
   ## we will update the beacon state. Normally, the state updates will be driven
@@ -209,6 +205,8 @@ proc state_transition*(
   #      the changes in case of failure (look out for `var BeaconState` and
   #      bool return values...)
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
+  doAssert stateCache.shuffled_active_validator_indices.hasKey(
+    state.data.slot.compute_epoch_at_slot)
 
   if not process_slots(state, signedBlock.message.slot, flags):
     rollback(state)
@@ -223,17 +221,18 @@ proc state_transition*(
   if skipBLSValidation in flags or
       verify_block_signature(state.data, signedBlock):
 
-    var per_epoch_cache = get_empty_per_epoch_cache()
+    # TODO after checking scaffolding, remove this
     trace "in state_transition: processing block, signature passed",
       signature = signedBlock.signature,
       blockRoot = hash_tree_root(signedBlock.message)
-    if processBlock(state.data, signedBlock.message, flags, per_epoch_cache):
+    if processBlock(state.data, signedBlock.message, flags, stateCache):
       if skipStateRootValidation in flags or verifyStateRoot(state.data, signedBlock.message):
         # State root is what it should be - we're done!
 
         # TODO when creating a new block, state_root is not yet set.. comparing
         #      with zero hash here is a bit fragile however, but this whole thing
         #      should go away with proper hash caching
+        # TODO shouldn't ever have to recalculate; verifyStateRoot() does it
         state.root =
           if signedBlock.message.state_root == Eth2Digest(): hash_tree_root(state.data)
           else: signedBlock.message.state_root
@@ -244,6 +243,20 @@ proc state_transition*(
   rollback(state)
 
   false
+
+proc state_transition*(
+    state: var HashedBeaconState, signedBlock: SignedBeaconBlock,
+    flags: UpdateFlags, rollback: RollbackHashedProc): bool {.nbench.} =
+  # TODO consider moving this to testutils or similar, since non-testing
+  # and fuzzing code should always be coming from blockpool which should
+  # always be providing cache or equivalent
+  var cache = get_empty_per_epoch_cache()
+  # TODO not here, but in blockpool, should fill in as far ahead towards
+  # block's slot as protocol allows to be known already
+  cache.shuffled_active_validator_indices[state.data.slot.compute_epoch_at_slot] =
+    get_shuffled_active_validator_indices(
+      state.data, state.data.slot.compute_epoch_at_slot)
+  state_transition(state, signedBlock, cache, flags, rollback)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md
 # TODO There's more to do here - the spec has helpers that deal set up some of
@@ -257,11 +270,11 @@ proc makeBeaconBlock*(
     graffiti: Eth2Digest,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    rollback: RollbackHashedProc): Option[BeaconBlock] =
+    rollback: RollbackHashedProc,
+    cache: var StateCache): Option[BeaconBlock] =
   ## Create a block for the given state. The last block applied to it must be
   ## the one identified by parent_root and process_slots must be called up to
   ## the slot for which a block is to be created.
-  var cache = get_empty_per_epoch_cache()
 
   # To create a block, we'll first apply a partial block to the state, skipping
   # some validations.

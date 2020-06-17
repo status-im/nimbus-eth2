@@ -3,11 +3,8 @@
 
 import
   typetraits, options,
-  stew/[bitseqs, endians2, objects, bitseqs], serialization/testing/tracing,
-  ../spec/[digest, datatypes], ./types
-
-const
-  maxListAllocation = 1 * 1024 * 1024 * 1024 # 1 GiB
+  stew/[bitops2, endians2, objects], serialization/testing/tracing,
+  ../spec/[digest, datatypes], ./types, ./spec_types
 
 template raiseIncorrectSize(T: type) =
   const typeName = name(T)
@@ -18,7 +15,7 @@ template setOutputSize[R, T](a: var array[R, T], length: int) =
   if length != a.len:
     raiseIncorrectSize a.type
 
-proc setOutputSize(list: var List, length: int) {.inline, raisesssz.} =
+proc setOutputSize(list: var List, length: int) {.raisesssz.} =
   if int64(length) > list.maxLen:
     raise newException(MalformedSszError, "SSZ list maximum size exceeded")
   list.setLen length
@@ -34,8 +31,7 @@ func fromSszBytes*(T: type UintN, data: openarray[byte]): T {.raisesssz.} =
   T.fromBytesLE(data)
 
 func fromSszBytes*(T: type bool, data: openarray[byte]): T {.raisesssz.} =
-  # TODO: spec doesn't say what to do if the value is >1 - we'll use the C
-  #       definition for now, but maybe this should be a parse error instead?
+  # Strict: only allow 0 or 1
   if data.len != 1 or byte(data[0]) > byte(1):
     raise newException(MalformedSszError, "invalid boolean value")
   data[0] == 1
@@ -70,8 +66,6 @@ template fromSszBytes*(T: type BitSeq, bytes: openarray[byte]): auto =
 proc `[]`[T, U, V](s: openArray[T], x: HSlice[U, V]) {.error:
   "Please don't use openarray's [] as it allocates a result sequence".}
 
-# func readOpenArray[T](result: var openarray[T], input: openarray[byte]) =
-
 template checkForForbiddenBits(ResulType: type,
                                input: openarray[byte],
                                expectedBits: static int) =
@@ -88,19 +82,17 @@ template checkForForbiddenBits(ResulType: type,
     if (input[^1] and forbiddenBitsMask) != 0:
       raiseIncorrectSize ResulType
 
-func readSszValue*(input: openarray[byte], T: type): T {.raisesssz.} =
+func readSszValue*[T](input: openarray[byte], val: var T) {.raisesssz.} =
   mixin fromSszBytes, toSszType
 
-  type T {.used.} = type(result)
-
-  template readOffsetUnchecked(n: int): int {.used.}=
-    int fromSszBytes(uint32, input.toOpenArray(n, n + offsetSize - 1))
+  template readOffsetUnchecked(n: int): uint32 {.used.}=
+    fromSszBytes(uint32, input.toOpenArray(n, n + offsetSize - 1))
 
   template readOffset(n: int): int {.used.} =
     let offset = readOffsetUnchecked(n)
-    if offset > input.len:
+    if offset > input.len.uint32:
       raise newException(MalformedSszError, "SSZ list element offset points past the end of the input")
-    offset
+    int(offset)
 
   #when result is List:
   #  result.setOutputSize input.len
@@ -110,42 +102,65 @@ func readSszValue*(input: openarray[byte], T: type): T {.raisesssz.} =
   #  result.checkOutputSize input.len
   #  readOpenArray(result, input)
 
-  when result is BitList:
+  when val is BitList:
     if input.len == 0:
       raise newException(MalformedSszError, "Invalid empty SSZ BitList value")
 
-    const maxExpectedSize = (result.maxLen div 8) + 1
-    result = T readSszValue(input, List[byte, maxExpectedSize])
+    # Since our BitLists have an in-memory representation that precisely
+    # matches their SSZ encoding, we can deserialize them as regular Lists:
+    const maxExpectedSize = (val.maxLen div 8) + 1
+    type MatchingListType = List[byte, maxExpectedSize]
 
-    let resultBytesCount = len bytes(result)
+    when false:
+      # TODO: Nim doesn't like this simple type coercion,
+      #       we'll rely on `cast` for now (see below)
+      readSszValue(input, MatchingListType val)
+    else:
+      static:
+        # As a sanity check, we verify that the coercion is accepted by the compiler:
+        doAssert MatchingListType(val) is MatchingListType
+      readSszValue(input, cast[ptr MatchingListType](addr val)[])
 
-    if bytes(result)[resultBytesCount - 1] == 0:
+    let resultBytesCount = len bytes(val)
+
+    if bytes(val)[resultBytesCount - 1] == 0:
       raise newException(MalformedSszError, "SSZ BitList is not properly terminated")
 
     if resultBytesCount == maxExpectedSize:
-      checkForForbiddenBits(T, input, result.maxLen + 1)
+      checkForForbiddenBits(T, input, val.maxLen + 1)
 
-  elif result is List|array:
-    type ElemType = type result[0]
-    when ElemType is byte:
-      result.setOutputSize input.len
+  elif val is HashList:
+    readSszValue(input, val.data)
+    val.hashes.setLen(0)
+    val.growHashes()
+
+  elif val is HashArray:
+    readSszValue(input, val.data)
+    for h in val.hashes.mitems():
+      clearCache(h)
+
+  elif val is List|array:
+    type E = type val[0]
+
+    when E is byte:
+      val.setOutputSize input.len
       if input.len > 0:
-        copyMem(addr result[0], unsafeAddr input[0], input.len)
+        copyMem(addr val[0], unsafeAddr input[0], input.len)
 
-    elif isFixedSize(ElemType):
-      const elemSize = fixedPortionSize(ElemType)
+    elif isFixedSize(E):
+      const elemSize = fixedPortionSize(E)
       if input.len mod elemSize != 0:
         var ex = new SszSizeMismatchError
         ex.deserializedType = cstring typetraits.name(T)
         ex.actualSszSize = input.len
         ex.elementSize = elemSize
         raise ex
-      result.setOutputSize input.len div elemSize
-      trs "READING LIST WITH LEN ", result.len
-      for i in 0 ..< result.len:
+      val.setOutputSize input.len div elemSize
+      trs "READING LIST WITH LEN ", val.len
+      for i in 0 ..< val.len:
         trs "TRYING TO READ LIST ELEM ", i
         let offset = i * elemSize
-        result[i] = readSszValue(input.toOpenArray(offset, offset + elemSize - 1), ElemType)
+        readSszValue(input.toOpenArray(offset, offset + elemSize - 1), val[i])
       trs "LIST READING COMPLETE"
 
     else:
@@ -157,8 +172,8 @@ func readSszValue*(input: openarray[byte], T: type): T {.raisesssz.} =
         raise newException(MalformedSszError, "SSZ input of insufficient size")
 
       var offset = readOffset 0
-
       trs "GOT OFFSET ", offset
+
       let resultLen = offset div offsetSize
       trs "LEN ", resultLen
 
@@ -168,40 +183,48 @@ func readSszValue*(input: openarray[byte], T: type): T {.raisesssz.} =
         # not matching up with its nextOffset properly)
         raise newException(MalformedSszError, "SSZ list incorrectly encoded of zero length")
 
-      result.setOutputSize resultLen
+      val.setOutputSize resultLen
       for i in 1 ..< resultLen:
         let nextOffset = readOffset(i * offsetSize)
         if nextOffset <= offset:
           raise newException(MalformedSszError, "SSZ list element offsets are not monotonically increasing")
         else:
-          result[i - 1] = readSszValue(input.toOpenArray(offset, nextOffset - 1), ElemType)
+          readSszValue(input.toOpenArray(offset, nextOffset - 1), val[i - 1])
         offset = nextOffset
 
-      result[resultLen - 1] = readSszValue(input.toOpenArray(offset, input.len - 1), ElemType)
+      readSszValue(input.toOpenArray(offset, input.len - 1), val[resultLen - 1])
 
   # TODO: Should be possible to remove BitArray from here
-  elif result is UintN|bool|enum:
-    trs "READING BASIC TYPE ", type(result).name, "  input=", input.len
-    result = fromSszBytes(type(result), input)
-    trs "RESULT WAS ", repr(result)
+  elif val is UintN|bool|enum:
+    trs "READING BASIC TYPE ", typetraits.name(T), "  input=", input.len
+    val = fromSszBytes(T, input)
+    trs "RESULT WAS ", repr(val)
 
-  elif result is BitArray:
-    if sizeof(result) != input.len:
-      raiseIncorrectSize T
-    checkForForbiddenBits(T, input, result.bits)
-    copyMem(addr result.bytes[0], unsafeAddr input[0], input.len)
+  elif val is BitArray:
+    if sizeof(val) != input.len:
+      raiseIncorrectSize(T)
+    checkForForbiddenBits(T, input, val.bits)
+    copyMem(addr val.bytes[0], unsafeAddr input[0], input.len)
 
-  elif result is object|tuple:
-    const minimallyExpectedSize = fixedPortionSize(T)
-    if input.len < minimallyExpectedSize:
+  elif val is object|tuple:
+    let inputLen = uint32 input.len
+    const minimallyExpectedSize = uint32 fixedPortionSize(T)
+
+    if inputLen < minimallyExpectedSize:
       raise newException(MalformedSszError, "SSZ input of insufficient size")
 
-    enumInstanceSerializedFields(result, fieldName, field):
-      const boundingOffsets = T.getFieldBoundingOffsets(fieldName)
+    enumInstanceSerializedFields(val, fieldName, field):
+      const boundingOffsets = getFieldBoundingOffsets(T, fieldName)
       trs "BOUNDING OFFSET FOR FIELD ", fieldName, " = ", boundingOffsets
 
-      type FieldType = type field
-      type SszType = type toSszType(declval FieldType)
+      # type FieldType = type field # buggy
+      # For some reason, Nim gets confused about the alias here. This could be a
+      # generics caching issue caused by the use of distinct types. Such an
+      # issue is very scary in general.
+      # The bug can be seen with the two List[uint64, N] types that exist in
+      # the spec, with different N.
+
+      type SszType = type toSszType(declval type(field))
 
       when isFixedSize(SszType):
         const
@@ -211,42 +234,36 @@ func readSszValue*(input: openarray[byte], T: type): T {.raisesssz.} =
       else:
         let
           startOffset = readOffsetUnchecked(boundingOffsets[0])
-          endOffset = if boundingOffsets[1] == -1: input.len
+          endOffset = if boundingOffsets[1] == -1: inputLen
                       else: readOffsetUnchecked(boundingOffsets[1])
+
+        when boundingOffsets.isFirstOffset:
+          if startOffset != minimallyExpectedSize:
+            raise newException(MalformedSszError, "SSZ object dynamic portion starts at invalid offset")
+
         trs "VAR FIELD ", startOffset, "-", endOffset
         if startOffset > endOffset:
           raise newException(MalformedSszError, "SSZ field offsets are not monotonically increasing")
-        elif endOffset > input.len:
+        elif endOffset > inputLen:
           raise newException(MalformedSszError, "SSZ field offset points past the end of the input")
         elif startOffset < minimallyExpectedSize:
           raise newException(MalformedSszError, "SSZ field offset points outside bounding offsets")
 
       # TODO The extra type escaping here is a work-around for a Nim issue:
-      when type(FieldType) is type(SszType):
+      when type(field) is type(SszType):
         trs "READING NATIVE ", fieldName, ": ", name(SszType)
-        field = typeof(field) readSszValue(
-          input.toOpenArray(startOffset, endOffset - 1),
-          SszType)
+
+        # TODO passing in `FieldType` instead of `type(field)` triggers a
+        #      bug in the compiler
+        readSszValue(
+          input.toOpenArray(int(startOffset), int(endOffset - 1)),
+          field)
         trs "READING COMPLETE ", fieldName
-
-      elif FieldType is List:
-        # TODO
-        # The `typeof(field)` coercion below is required to deal with a Nim
-        # bug. For some reason, Nim gets confused about the type of the list
-        # returned from the `readSszValue` function. This could be a generics
-        # caching issue caused by the use of distinct types. Such an issue
-        # would be very scary in general, but in this particular situation
-        # it shouldn't matter, because the different flavours of `List[T, N]`
-        # won't produce different serializations.
-        field = typeof(field) readSszValue(
-          input.toOpenArray(startOffset, endOffset - 1),
-          FieldType)
-
       else:
         trs "READING FOREIGN ", fieldName, ": ", name(SszType)
         field = fromSszBytes(
-          FieldType,
-          input.toOpenArray(startOffset, endOffset - 1))
+          type(field),
+          input.toOpenArray(int(startOffset), int(endOffset - 1)))
 
   else:
     unsupported T

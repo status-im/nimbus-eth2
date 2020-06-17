@@ -8,10 +8,11 @@
 import
   options, stew/endians2,
   chronicles, eth/trie/[db],
-  ../beacon_chain/[beacon_chain_db, block_pool, extras, merkle_minimal, ssz,
+  ../beacon_chain/[beacon_chain_db, block_pool, extras, merkle_minimal,
+  ../beacon_chain/ssz/merkleization,
     state_transition, validator_pool],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest,
-    helpers, validator, state_transition_block]
+    helpers, validator, signatures]
 
 func makeFakeValidatorPrivKey(i: int): ValidatorPrivKey =
   # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
@@ -43,7 +44,6 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
     privkey = makeFakeValidatorPrivKey(i)
     pubkey = privkey.toPubKey()
     withdrawal_credentials = makeFakeHash(i)
-    domain = compute_domain(DOMAIN_DEPOSIT, Version(GENESIS_FORK_VERSION))
 
   result = Deposit(
     data: DepositData(
@@ -54,8 +54,7 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
   )
 
   if skipBLSValidation notin flags:
-    let signing_root = compute_signing_root(result.getDepositMessage, domain)
-    result.data.signature = bls_sign(privkey, signing_root.data)
+    result.data.signature = get_deposit_signature(result.data, privkey)
 
 proc makeInitialDeposits*(
     n = SLOTS_PER_EPOCH, flags: UpdateFlags = {}): seq[Deposit] =
@@ -68,8 +67,7 @@ proc makeInitialDeposits*(
   # and ideally (but not yet) efficiently only once calculating a Merkle
   # tree utilizing as much of the shared substructure as feasible, means
   # attaching proofs all together, as a separate step.
-  if skipMerkleValidation notin flags:
-    attachMerkleProofs(result)
+  attachMerkleProofs(result)
 
 func signBlock*(
     fork: Fork, genesis_validators_root: Eth2Digest, blck: BeaconBlock,
@@ -88,15 +86,15 @@ func signBlock*(
 proc addTestBlock*(
     state: var HashedBeaconState,
     parent_root: Eth2Digest,
+    cache: var StateCache,
     eth1_data = Eth1Data(),
     attestations = newSeq[Attestation](),
     deposits = newSeq[Deposit](),
     graffiti = Eth2Digest(),
     flags: set[UpdateFlag] = {}): SignedBeaconBlock =
   # Create and add a block to state - state will advance by one slot!
-  advance_slot(state, err(Opt[Eth2Digest]), flags)
+  advance_slot(state, err(Opt[Eth2Digest]), flags, cache)
 
-  var cache = get_empty_per_epoch_cache()
   let
     proposer_index = get_beacon_proposer_index(state.data, cache)
     privKey = hackPrivKey(state.data.validators[proposer_index.get])
@@ -121,7 +119,8 @@ proc addTestBlock*(
       graffiti,
       attestations,
       deposits,
-      noRollback)
+      noRollback,
+      cache)
 
   doAssert message.isSome(), "Should have created a valid block!"
 
@@ -135,6 +134,7 @@ proc addTestBlock*(
 proc makeTestBlock*(
     state: HashedBeaconState,
     parent_root: Eth2Digest,
+    cache: var StateCache,
     eth1_data = Eth1Data(),
     attestations = newSeq[Attestation](),
     deposits = newSeq[Deposit](),
@@ -146,7 +146,8 @@ proc makeTestBlock*(
   # because the block includes the state root.
   var tmpState = newClone(state)
   addTestBlock(
-    tmpState[], parent_root, eth1_data, attestations, deposits, graffiti, flags)
+    tmpState[], parent_root, cache, eth1_data, attestations, deposits,
+    graffiti, flags)
 
 proc makeAttestation*(
     state: BeaconState, beacon_block_root: Eth2Digest,

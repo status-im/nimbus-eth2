@@ -24,7 +24,7 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
 fi
 
 OPTS="ht:n:d:"
-LONGOPTS="help,testnet:,nodes:,data-dir:,disable-htop,log-level:,grafana,base-port:,base-metrics-port:"
+LONGOPTS="help,testnet:,nodes:,data-dir:,disable-htop,log-level:,base-port:,base-metrics-port:"
 
 # default values
 TESTNET="1"
@@ -32,7 +32,6 @@ NUM_NODES="10"
 DATA_DIR="local_testnet_data"
 USE_HTOP="1"
 LOG_LEVEL="DEBUG"
-ENABLE_GRAFANA="0"
 BASE_PORT="9000"
 BASE_METRICS_PORT="8008"
 
@@ -51,7 +50,6 @@ CI run: $(basename $0) --disable-htop -- --verify-finalization --stop-at-epoch=5
       --base-metrics-port	bootstrap node's metrics server port (default: ${BASE_METRICS_PORT})
       --disable-htop		don't use "htop" to see the beacon_node processes
       --log-level		set the log level (default: ${LOG_LEVEL})
-      --grafana			generate Grafana dashboards (and Prometheus config file)
 EOF
 }
 
@@ -89,10 +87,6 @@ while true; do
 			LOG_LEVEL="$2"
 			shift 2
 			;;
-		--grafana)
-			ENABLE_GRAFANA="1"
-			shift
-			;;
 		--base-port)
 			BASE_PORT="$2"
 			shift 2
@@ -120,8 +114,13 @@ fi
 NETWORK="testnet${TESTNET}"
 
 rm -rf "${DATA_DIR}"
+
 DEPOSITS_DIR="${DATA_DIR}/deposits_dir"
 mkdir -p "${DEPOSITS_DIR}"
+
+SECRETS_DIR="${DATA_DIR}/secrets"
+mkdir -p "${SECRETS_DIR}"
+
 NETWORK_DIR="${DATA_DIR}/network_dir"
 mkdir -p "${NETWORK_DIR}"
 
@@ -137,50 +136,31 @@ else
 fi
 
 NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh ${NETWORK})
-$MAKE -j2 LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node process_dashboard
+$MAKE LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node
 
 ./build/beacon_node makeDeposits \
-	--quickstart-deposits=${QUICKSTART_VALIDATORS} \
-	--random-deposits=${RANDOM_VALIDATORS} \
-	--deposits-dir="${DEPOSITS_DIR}"
+	--count=${TOTAL_VALIDATORS} \
+	--out-validators-dir="${DEPOSITS_DIR}" \
+	--out-secrets-dir="${SECRETS_DIR}"
 
-TOTAL_VALIDATORS="$(( $QUICKSTART_VALIDATORS + $RANDOM_VALIDATORS ))"
+GENESIS_OFFSET=30
+
 BOOTSTRAP_IP="127.0.0.1"
 ./build/beacon_node createTestnet \
 	--data-dir="${DATA_DIR}/node0" \
 	--validators-dir="${DEPOSITS_DIR}" \
 	--total-validators=${TOTAL_VALIDATORS} \
-	--last-user-validator=${QUICKSTART_VALIDATORS} \
+	--last-user-validator=${USER_VALIDATORS} \
 	--output-genesis="${NETWORK_DIR}/genesis.ssz" \
 	--output-bootstrap-file="${NETWORK_DIR}/bootstrap_nodes.txt" \
 	--bootstrap-address=${BOOTSTRAP_IP} \
 	--bootstrap-port=${BASE_PORT} \
-	--genesis-offset=5 # Delay in seconds
+	--genesis-offset=${GENESIS_OFFSET} # Delay in seconds
 
-if [[ "$ENABLE_GRAFANA" == "1" ]]; then
-	# Prometheus config
-	cat > "${DATA_DIR}/prometheus.yml" <<EOF
-global:
-  scrape_interval: 1s
-
-scrape_configs:
-  - job_name: "nimbus"
-    static_configs:
-EOF
-	for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
-		cat >> "${DATA_DIR}/prometheus.yml" <<EOF
-      - targets: ['127.0.0.1:$(( BASE_METRICS_PORT + NUM_NODE ))']
-        labels:
-          node: '$NUM_NODE'
-EOF
-	done
-
-	# use the exported Grafana dashboard for a single node to create one for all nodes
-	./build/process_dashboard \
-	  --nodes=${NUM_NODES} \
-	  --in="tests/simulation/beacon-chain-sim-node0-Grafana-dashboard.json" \
-	  --out="${DATA_DIR}/local-testnet-all-nodes-Grafana-dashboard.json"
-fi
+./scripts/make_prometheus_config.sh \
+	--nodes ${NUM_NODES} \
+	--base-metrics-port ${BASE_METRICS_PORT} \
+	--config-file "${DATA_DIR}/prometheus.yml"
 
 # Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
 # instance as the parent and the target process name as a pattern to the
@@ -203,10 +183,11 @@ dump_logs() {
 
 PIDS=""
 NODES_WITH_VALIDATORS=${NODES_WITH_VALIDATORS:-4}
-VALIDATORS_PER_NODE=$(( $RANDOM_VALIDATORS / $NODES_WITH_VALIDATORS ))
+SYSTEM_VALIDATORS=$(( TOTAL_VALIDATORS - USER_VALIDATORS ))
+VALIDATORS_PER_NODE=$(( SYSTEM_VALIDATORS / NODES_WITH_VALIDATORS ))
 BOOTSTRAP_TIMEOUT=10 # in seconds
 
-for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
+for NUM_NODE in $(seq 0 $((NUM_NODES - 1))); do
 	if [[ ${NUM_NODE} == 0 ]]; then
 		BOOTSTRAP_ARG=""
 	else
@@ -216,7 +197,7 @@ for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 		while [ ! -f "${DATA_DIR}/node0/beacon_node.address" ]; do
 			sleep 0.1
 			NOW_TIMESTAMP=$(date +%s)
-			if [[ "$(( NOW_TIMESTAMP - START_TIMESTAMP ))" -ge "$BOOTSTRAP_TIMEOUT" ]]; then
+			if [[ "$(( NOW_TIMESTAMP - START_TIMESTAMP - GENESIS_OFFSET ))" -ge "$BOOTSTRAP_TIMEOUT" ]]; then
 				echo "Bootstrap node failed to start in ${BOOTSTRAP_TIMEOUT} seconds. Aborting."
 				dump_logs
 				exit 1
@@ -225,17 +206,21 @@ for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 	fi
 
 	# Copy validators to individual nodes.
-	# The first $NODES_WITH_VALIDATORS nodes split them equally between them, after skipping the first $QUICKSTART_VALIDATORS.
+	# The first $NODES_WITH_VALIDATORS nodes split them equally between them, after skipping the first $USER_VALIDATORS.
 	NODE_DATA_DIR="${DATA_DIR}/node${NUM_NODE}"
 	mkdir -p "${NODE_DATA_DIR}/validators"
+	mkdir -p "${NODE_DATA_DIR}/secrets"
+
 	if [[ $NUM_NODE -lt $NODES_WITH_VALIDATORS ]]; then
-		for KEYFILE in $(ls ${DEPOSITS_DIR}/*.privkey | tail -n +$(( $QUICKSTART_VALIDATORS + ($VALIDATORS_PER_NODE * $NUM_NODE) + 1 )) | head -n $VALIDATORS_PER_NODE); do
-			cp -a "$KEYFILE" "${NODE_DATA_DIR}/validators/"
+		for VALIDATOR in $(ls ${DEPOSITS_DIR} | tail -n +$(( $USER_VALIDATORS + ($VALIDATORS_PER_NODE * $NUM_NODE) + 1 )) | head -n $VALIDATORS_PER_NODE); do
+			cp -ar "${DEPOSITS_DIR}/$VALIDATOR" "${NODE_DATA_DIR}/validators/"
+			cp -a "${SECRETS_DIR}/${VALIDATOR}" "${NODE_DATA_DIR}/secrets/"
 		done
 	fi
 
 	./build/beacon_node \
-		--nat:extip:127.0.0.1 \
+		--non-interactive \
+    --nat:extip:127.0.0.1 \
 		--log-level="${LOG_LEVEL}" \
 		--tcp-port=$(( BASE_PORT + NUM_NODE )) \
 		--udp-port=$(( BASE_PORT + NUM_NODE )) \

@@ -116,6 +116,10 @@ type
 
     updateFlags*: UpdateFlags
 
+  EpochRef* = ref object
+    shuffled_active_validator_indices*: seq[ValidatorIndex]
+    epoch*: Epoch
+
   BlockRef* = ref object
     ## Node in object graph guaranteed to lead back to tail block, and to have
     ## a corresponding entry in database.
@@ -131,6 +135,12 @@ type
     # TODO do we strictly need this?
 
     slot*: Slot # TODO could calculate this by walking to root, but..
+
+    epochsInfo*: seq[EpochRef]
+    ## Could be multiple, since blocks could skip slots, but usually, not many
+    ## Even if competing forks happen later during this epoch, potential empty
+    ## slots beforehand must all be from this fork. getEpochInfo() is the only
+    ## supported way of accesssing these.
 
   BlockData* = object
     ## Body and graph in one

@@ -31,8 +31,9 @@
 
 import
   algorithm, collections/sets, chronicles, options, sequtils, sets,
-  ../extras, ../ssz, metrics,
-  beaconstate, crypto, datatypes, digest, helpers, validator,
+  ../extras, ../ssz/merkleization, metrics,
+  ./beaconstate, ./crypto, ./datatypes, ./digest, ./helpers, ./validator,
+  ./signatures,
   ../../nbench/bench_lab
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
@@ -41,7 +42,7 @@ declareGauge beacon_previous_live_validators, "Number of active validators that 
 declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
 declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#block-header
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#block-header
 proc process_block_header*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.}=
@@ -95,27 +96,33 @@ proc process_block_header*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.2/specs/core/0_beacon-chain.md#randao
+proc `xor`[T: array](a, b: T): T =
+  for i in 0..<result.len:
+    result[i] = a[i] xor b[i]
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#randao
 proc process_randao(
     state: var BeaconState, body: BeaconBlockBody, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.}=
   let
-    epoch = state.get_current_epoch()
     proposer_index = get_beacon_proposer_index(state, stateCache)
 
   if proposer_index.isNone:
     debug "Proposer index missing, probably along with any active validators"
     return false
 
-  let proposer = addr state.validators[proposer_index.get]
+  # Verify RANDAO reveal
+  let
+    epoch = state.get_current_epoch()
 
-  # Verify that the provided randao value is valid
-  let signing_root = compute_signing_root(
-    epoch, get_domain(state, DOMAIN_RANDAO, get_current_epoch(state)))
   if skipBLSValidation notin flags:
-    if not blsVerify(proposer.pubkey, signing_root.data, body.randao_reveal):
-      notice "Randao mismatch", proposer_pubkey = shortLog(proposer.pubkey),
-                                message = epoch,
+    let proposer_pubkey = state.validators[proposer_index.get].pubkey
+
+    if not verify_epoch_signature(
+        state.fork, state.genesis_validators_root, epoch, proposer_pubkey,
+        body.randao_reveal):
+      notice "Randao mismatch", proposer_pubkey = shortLog(proposer_pubkey),
+                                epoch,
                                 signature = shortLog(body.randao_reveal),
                                 slot = state.slot
       return false
@@ -123,27 +130,28 @@ proc process_randao(
   # Mix it in
   let
     mix = get_randao_mix(state, epoch)
-    rr = eth2hash(body.randao_reveal.toRaw()).data
+    rr = eth2digest(body.randao_reveal.toRaw()).data
 
-  for i in 0 ..< mix.data.len:
-    state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR].data[i] = mix.data[i] xor rr[i]
+  state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR].data =
+    mix.data xor rr
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#eth1-data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#eth1-data
 func process_eth1_data(state: var BeaconState, body: BeaconBlockBody) {.nbench.}=
   state.eth1_data_votes.add body.eth1_data
+
   if state.eth1_data_votes.asSeq.count(body.eth1_data) * 2 > SLOTS_PER_ETH1_VOTING_PERIOD.int:
     state.eth1_data = body.eth1_data
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#is_slashable_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#is_slashable_validator
 func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
   # Check if ``validator`` is slashable.
   (not validator.slashed) and
     (validator.activation_epoch <= epoch) and
     (epoch < validator.withdrawable_epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#proposer-slashings
 proc process_proposer_slashing*(
     state: var BeaconState, proposer_slashing: ProposerSlashing,
     flags: UpdateFlags, stateCache: var StateCache): bool {.nbench.}=
@@ -182,12 +190,9 @@ proc process_proposer_slashing*(
   if skipBlsValidation notin flags:
     for i, signed_header in [proposer_slashing.signed_header_1,
         proposer_slashing.signed_header_2]:
-      let domain = get_domain(
-            state, DOMAIN_BEACON_PROPOSER,
-            compute_epoch_at_slot(signed_header.message.slot)
-          )
-      let signing_root = compute_signing_root(signed_header.message, domain)
-      if not blsVerify(proposer.pubkey, signing_root.data, signed_header.signature):
+      if not verify_block_signature(
+          state.fork, state.genesis_validators_root, signed_header.message.slot,
+          signed_header.message, proposer.pubkey, signed_header.signature):
         notice "Proposer slashing: invalid signature",
           signature_index = i
         return false
@@ -208,7 +213,7 @@ func is_slashable_attestation_data(
     (data_1.source.epoch < data_2.source.epoch and
      data_2.target.epoch < data_1.target.epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#attester-slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
        state: var BeaconState,
        attester_slashing: AttesterSlashing,
@@ -255,7 +260,7 @@ proc process_voluntary_exit*(
   let voluntary_exit = signed_voluntary_exit.message
 
   # Not in spec. Check that validator_index is in range
-  if voluntary_exit.validator_index.int >= state.validators.len:
+  if voluntary_exit.validator_index >= state.validators.len.uint64:
     notice "Exit: invalid validator index",
       index = voluntary_exit.validator_index,
       num_validators = state.validators.len
@@ -280,16 +285,22 @@ proc process_voluntary_exit*(
     return false
 
   # Verify the validator has been active long enough
-  if not (get_current_epoch(state) >= validator.activation_epoch +
-      PERSISTENT_COMMITTEE_PERIOD):
-    notice "Exit: not in validator set long enough"
-    return false
+  when ETH2_SPEC == "v0.12.1":
+    if not (get_current_epoch(state) >= validator.activation_epoch +
+        SHARD_COMMITTEE_PERIOD):
+      notice "Exit: not in validator set long enough"
+      return false
+  else:
+    if not (get_current_epoch(state) >= validator.activation_epoch +
+        PERSISTENT_COMMITTEE_PERIOD):
+      notice "Exit: not in validator set long enough"
+      return false
 
   # Verify signature
   if skipBlsValidation notin flags:
-    let domain = get_domain(state, DOMAIN_VOLUNTARY_EXIT, voluntary_exit.epoch)
-    let signing_root = compute_signing_root(voluntary_exit, domain)
-    if not bls_verify(validator.pubkey, signing_root.data, signed_voluntary_exit.signature):
+    if not verify_voluntary_exit_signature(
+        state.fork, state.genesis_validators_root, voluntary_exit,
+        validator.pubkey, signed_voluntary_exit.signature):
       notice "Exit: invalid signature"
       return false
 
@@ -303,11 +314,13 @@ proc process_voluntary_exit*(
     validator_withdrawable_epoch = validator.withdrawable_epoch,
     validator_exit_epoch = validator.exit_epoch,
     validator_effective_balance = validator.effective_balance
-  initiate_validator_exit(state, voluntary_exit.validator_index.ValidatorIndex)
+  var cache = get_empty_per_epoch_cache()
+  initiate_validator_exit(
+    state, voluntary_exit.validator_index.ValidatorIndex, cache)
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#operations
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#operations
 proc process_operations(state: var BeaconState, body: BeaconBlockBody,
     flags: UpdateFlags, stateCache: var StateCache): bool {.nbench.} =
   # Verify that outstanding deposits are processed up to the maximum number of
@@ -342,7 +355,7 @@ proc process_operations(state: var BeaconState, body: BeaconBlockBody,
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#block-processing
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#block-processing
 proc process_block*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.}=
@@ -380,61 +393,3 @@ proc process_block*(
     return false
 
   true
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#aggregation-selection
-func get_slot_signature*(
-    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    privkey: ValidatorPrivKey): ValidatorSig =
-  let
-    domain = get_domain(fork, DOMAIN_SELECTION_PROOF,
-      compute_epoch_at_slot(slot), genesis_validators_root)
-    signing_root = compute_signing_root(slot, domain)
-
-  blsSign(privKey, signing_root.data)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#randao-reveal
-func get_epoch_signature*(
-    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    privkey: ValidatorPrivKey): ValidatorSig =
-  let
-    domain = get_domain(fork, DOMAIN_RANDAO, compute_epoch_at_slot(slot),
-      genesis_validators_root)
-    signing_root = compute_signing_root(compute_epoch_at_slot(slot), domain)
-
-  blsSign(privKey, signing_root.data)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#signature
-func get_block_signature*(
-    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    root: Eth2Digest, privkey: ValidatorPrivKey): ValidatorSig =
-  let
-    domain = get_domain(fork, DOMAIN_BEACON_PROPOSER,
-      compute_epoch_at_slot(slot), genesis_validators_root)
-    signing_root = compute_signing_root(root, domain)
-
-  blsSign(privKey, signing_root.data)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-aggregate
-func get_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth2Digest,
-                                        aggregate_and_proof: AggregateAndProof,
-                                        privKey: ValidatorPrivKey): ValidatorSig =
-  let
-    aggregate = aggregate_and_proof.aggregate
-    domain = get_domain(fork, DOMAIN_AGGREGATE_AND_PROOF,
-                        compute_epoch_at_slot(aggregate.data.slot),
-                        genesis_validators_root)
-    signing_root = compute_signing_root(aggregate_and_proof, domain)
-
-  return blsSign(privKey, signing_root.data)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#aggregate-signature
-func get_attestation_signature*(
-    fork: Fork, genesis_validators_root: Eth2Digest, attestation: AttestationData,
-    privkey: ValidatorPrivKey): ValidatorSig =
-  let
-    attestationRoot = hash_tree_root(attestation)
-    domain = get_domain(fork, DOMAIN_BEACON_ATTESTER,
-      attestation.target.epoch, genesis_validators_root)
-    signing_root = compute_signing_root(attestationRoot, domain)
-
-  blsSign(privKey, signing_root.data)

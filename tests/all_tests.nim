@@ -15,9 +15,10 @@ import # Unit test
   ./test_beacon_chain_db,
   ./test_beacon_node,
   ./test_beaconstate,
+  ./test_bitseqs,
   ./test_block_pool,
-  ./test_discovery_helpers,
   ./test_helpers,
+  ./test_keystore,
   ./test_mocking,
   ./test_mainchain_monitor,
   ./test_ssz,
@@ -31,8 +32,6 @@ import # Unit test
   ./fork_choice/tests_fork_choice
 
 import # Refactor state transition unit tests
-  # TODO re-enable when useful
-  # ./spec_block_processing/test_genesis,
   # In mainnet these take 2 minutes and are empty TODOs
   ./spec_block_processing/test_process_deposits,
   ./spec_block_processing/test_process_attestation,

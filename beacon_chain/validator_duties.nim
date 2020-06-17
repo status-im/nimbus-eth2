@@ -7,10 +7,10 @@
 
 import
   # Standard library
-  os, tables, strutils, times,
+  os, tables, strutils,
 
   # Nimble packages
-  stew/[objects, bitseqs], stew/shims/macros,
+  stew/[byteutils, objects], stew/shims/macros,
   chronos, metrics, json_rpc/[rpcserver, jsonmarshal],
   chronicles,
   json_serialization/std/[options, sets, net], serialization/errors,
@@ -20,9 +20,9 @@ import
   # Local modules
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network],
   conf, time, validator_pool, state_transition,
-  attestation_pool, block_pool, eth2_network,
-  beacon_node_common, beacon_node_types,
-  mainchain_monitor, version, ssz, interop,
+  attestation_pool, block_pool, eth2_network, keystore_management,
+  beacon_node_common, beacon_node_types, nimbus_binary_common,
+  mainchain_monitor, version, ssz/merkleization, interop,
   attestation_aggregation, sync_manager, sszdump
 
 # Metrics for tracking attestation and beacon block loss
@@ -34,23 +34,15 @@ declareCounter beacon_blocks_proposed,
 logScope: topics = "beacval"
 
 proc saveValidatorKey*(keyName, key: string, conf: BeaconNodeConf) =
-  let validatorsDir = conf.localValidatorsDir
+  let validatorsDir = conf.validatorsDir
   let outputFile = validatorsDir / keyName
   createDir validatorsDir
   writeFile(outputFile, key)
   info "Imported validator key", file = outputFile
 
-template findIt(s: openarray, predicate: untyped): int =
-  var res = -1
-  for i, it {.inject.} in s:
-    if predicate:
-      res = i
-      break
-  res
-
 proc addLocalValidator*(node: BeaconNode,
-                       state: BeaconState,
-                       privKey: ValidatorPrivKey) =
+                        state: BeaconState,
+                        privKey: ValidatorPrivKey) =
   let pubKey = privKey.toPubKey()
 
   let idx = state.validators.asSeq.findIt(it.pubKey == pubKey)
@@ -61,15 +53,22 @@ proc addLocalValidator*(node: BeaconNode,
 
   node.attachedValidators.addLocalValidator(pubKey, privKey)
 
-proc addLocalValidators*(node: BeaconNode, state: BeaconState) =
-  for validatorKey in node.config.validatorKeys:
-    node.addLocalValidator state, validatorKey
+proc addLocalValidators*(node: BeaconNode) {.async.} =
+  let
+    head = node.blockPool.head
+    bs = BlockSlot(blck: head.blck, slot: head.blck.slot)
 
-  info "Local validators attached ", count = node.attachedValidators.count
+  node.blockPool.withState(node.blockPool.tmpState, bs):
+    for validatorKey in node.config.validatorKeys:
+      node.addLocalValidator state, validatorKey
+      # Allow some network events to be processed:
+      await sleepAsync(0.seconds)
+
+    info "Local validators attached ", count = node.attachedValidators.count
 
 func getAttachedValidator*(node: BeaconNode,
-                          state: BeaconState,
-                          idx: ValidatorIndex): AttachedValidator =
+                           state: BeaconState,
+                           idx: ValidatorIndex): AttachedValidator =
   let validatorKey = state.validators[idx].pubkey
   node.attachedValidators.getValidator(validatorKey)
 
@@ -99,34 +98,31 @@ proc isSynced(node: BeaconNode, head: BlockRef): bool =
   else:
     true
 
-proc sendAttestation(node: BeaconNode,
-                     fork: Fork,
-                     genesis_validators_root: Eth2Digest,
-                     validator: AttachedValidator,
-                     attestationData: AttestationData,
-                     committeeLen: int,
-                     indexInCommittee: int) {.async.} =
+proc sendAttestation*(node: BeaconNode, attestation: Attestation) =
   logScope: pcs = "send_attestation"
-
-  let validatorSignature = await validator.signAttestation(attestationData,
-    fork, genesis_validators_root)
-
-  var aggregationBits = CommitteeValidatorsBits.init(committeeLen)
-  aggregationBits.setBit indexInCommittee
-
-  var attestation = Attestation(
-    data: attestationData,
-    signature: validatorSignature,
-    aggregation_bits: aggregationBits
-  )
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-attestation
   node.network.broadcast(
-    getMainnetAttestationTopic(node.forkDigest, attestationData.index),
+    getMainnetAttestationTopic(node.forkDigest, attestation.data.index),
     attestation)
 
+  beacon_attestations_sent.inc()
+
+proc createAndSendAttestation(node: BeaconNode,
+                              fork: Fork,
+                              genesis_validators_root: Eth2Digest,
+                              validator: AttachedValidator,
+                              attestationData: AttestationData,
+                              committeeLen: int,
+                              indexInCommittee: int) {.async.} =
+  logScope: pcs = "send_attestation"
+
+  var attestation = await validator.produceAndSignAttestation(attestationData, committeeLen, indexInCommittee, fork, genesis_validators_root)
+
+  node.sendAttestation(attestation)
+
   if node.config.dumpEnabled:
-    dump(node.config.dumpDir, attestationData, validator.pubKey)
+    dump(node.config.dumpDirOutgoing, attestation.data, validator.pubKey)
 
   info "Attestation sent",
     attestation = shortLog(attestation),
@@ -134,16 +130,14 @@ proc sendAttestation(node: BeaconNode,
     indexInCommittee = indexInCommittee,
     cat = "consensus"
 
-  beacon_attestations_sent.inc()
-
 type
-  ValidatorInfoForMakeBeaconBlockType* = enum
+  ValidatorInfoForMakeBeaconBlockKind* = enum
     viValidator
     viRandao_reveal
   ValidatorInfoForMakeBeaconBlock* = object
-    case kind*: ValidatorInfoForMakeBeaconBlockType
+    case kind*: ValidatorInfoForMakeBeaconBlockKind
     of viValidator: validator*: AttachedValidator
-    else: randao_reveal*: ValidatorSig
+    of viRandao_reveal: randao_reveal*: ValidatorSig
 
 proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     val_info: ValidatorInfoForMakeBeaconBlock,
@@ -170,9 +164,9 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
     # and it's causing problems when the function becomes a generic for 2 types...
     proc getRandaoReveal(val_info: ValidatorInfoForMakeBeaconBlock): ValidatorSig =
       if val_info.kind == viValidator:
-        val_info.validator.genRandaoReveal(state.fork, state.genesis_validators_root, slot)
-      else:
-        val_info.randao_reveal
+        return val_info.validator.genRandaoReveal(state.fork, state.genesis_validators_root, slot)
+      elif val_info.kind == viRandao_reveal:
+        return val_info.randao_reveal
 
     let
       poolPtr = unsafeAddr node.blockPool.dag # safe because restore is short-lived
@@ -182,8 +176,9 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       #      `state_transition` that takes a `StateData` instead and updates
       #      the block as well
       doAssert v.addr == addr poolPtr.tmpState.data
-      poolPtr.tmpState = poolPtr.headState
+      assign(poolPtr.tmpState, poolPtr.headState)
 
+    var cache = get_empty_per_epoch_cache()
     let message = makeBeaconBlock(
       hashedState,
       validator_index,
@@ -193,7 +188,8 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       graffiti,
       node.attestationPool.getAttestationsForBlock(state),
       deposits,
-      restore)
+      restore,
+      cache)
 
     if message.isSome():
       # TODO this restore is needed because otherwise tmpState will be internally
@@ -203,6 +199,35 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       restore(poolPtr.tmpState.data)
 
     return (message, state.fork, state.genesis_validators_root)
+
+proc proposeSignedBlock*(node: BeaconNode,
+                         head: BlockRef,
+                         validator: AttachedValidator,
+                         newBlock: SignedBeaconBlock,
+                         blockRoot: Eth2Digest): Future[BlockRef] {.async.} =
+  let newBlockRef = node.blockPool.add(blockRoot, newBlock)
+  if newBlockRef.isErr:
+    warn "Unable to add proposed block to block pool",
+      newBlock = shortLog(newBlock.message),
+      blockRoot = shortLog(blockRoot),
+      cat = "bug"
+
+    return head
+
+  info "Block proposed",
+    blck = shortLog(newBlock.message),
+    blockRoot = shortLog(newBlockRef[].root),
+    validator = shortLog(validator),
+    cat = "consensus"
+
+  if node.config.dumpEnabled:
+    dump(node.config.dumpDirOutgoing, newBlock, newBlockRef[])
+
+  node.network.broadcast(node.topicBeaconBlocks, newBlock)
+
+  beacon_blocks_proposed.inc()
+
+  return newBlockRef[]
 
 proc proposeBlock(node: BeaconNode,
                   validator: AttachedValidator,
@@ -221,8 +246,10 @@ proc proposeBlock(node: BeaconNode,
       cat = "fastforward"
     return head
 
+  var graffiti: Eth2Digest
+  graffiti.data[0..<5] = toBytes("quack")
   let valInfo = ValidatorInfoForMakeBeaconBlock(kind: viValidator, validator: validator)
-  let beaconBlockTuple = makeBeaconBlockForHeadAndSlot(node, valInfo, validator_index, Eth2Digest(), head, slot)
+  let beaconBlockTuple = makeBeaconBlockForHeadAndSlot(node, valInfo, validator_index, graffiti, head, slot)
 
   if not beaconBlockTuple.message.isSome():
     return head # already logged elsewhere!
@@ -236,33 +263,7 @@ proc proposeBlock(node: BeaconNode,
   newBlock.signature = await validator.signBlockProposal(
     beaconBlockTuple.fork, beaconBlockTuple.genesis_validators_root, slot, blockRoot)
 
-  let newBlockRef = node.blockPool.add(blockRoot, newBlock)
-  if newBlockRef.isErr:
-    warn "Unable to add proposed block to block pool",
-      newBlock = shortLog(newBlock.message),
-      blockRoot = shortLog(blockRoot),
-      cat = "bug"
-
-    return head
-
-  info "Block proposed",
-    blck = shortLog(newBlock.message),
-    blockRoot = shortLog(newBlockRef[].root),
-    validator = shortLog(validator),
-    cat = "consensus"
-
-  if node.config.dumpEnabled:
-    dump(node.config.dumpDir, newBlock, newBlockRef[])
-    node.blockPool.withState(
-        node.blockPool.tmpState, newBlockRef[].atSlot(newBlockRef[].slot)):
-      dump(node.config.dumpDir, hashedState, newBlockRef[])
-
-  node.network.broadcast(node.topicBeaconBlocks, newBlock)
-
-  beacon_blocks_proposed.inc()
-
-  return newBlockRef[]
-
+  return await node.proposeSignedBlock(head, validator, newBlock, blockRoot)
 
 proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   ## Perform all attestations that the validators attached to this node should
@@ -324,7 +325,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
           attestations.add((ad, committee.len, index_in_committee, validator))
 
     for a in attestations:
-      traceAsyncErrors sendAttestation(
+      traceAsyncErrors createAndSendAttestation(
         node, state.fork, state.genesis_validators_root, a.validator, a.data,
         a.committeeLen, a.indexInCommittee)
 
@@ -402,19 +403,19 @@ proc broadcastAggregatedAttestations(
             node.network.broadcast(node.topicAggregateAndProofs, signedAP)
 
 proc handleValidatorDuties*(
-    node: BeaconNode, head: BlockRef, lastSlot, slot: Slot): Future[BlockRef] {.async.} =
+    node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   ## Perform validator duties - create blocks, vote and aggreagte existing votes
+  var head = node.updateHead()
   if node.attachedValidators.count == 0:
     # Nothing to do because we have no validator attached
-    return head
+    return
 
   if not node.isSynced(head):
     notice "Node out of sync, skipping validator duties",
       slot, headSlot = head.slot
-    return head
+    return
 
   var curSlot = lastSlot + 1
-  var head = head
 
   # Start by checking if there's work we should have done in the past that we
   # can still meaningfully do
@@ -453,40 +454,30 @@ proc handleValidatorDuties*(
   #      with any clock discrepancies once only, at the start of slot timer
   #      processing..
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#attesting
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#attesting
   # A validator should create and broadcast the attestation to the associated
   # attestation subnet when either (a) the validator has received a valid
   # block from the expected block proposer for the assigned slot or
   # (b) one-third of the slot has transpired (`SECONDS_PER_SLOT / 3` seconds
   # after the start of slot) -- whichever comes first.
-  template sleepToSlotOffset(extra: chronos.Duration, msg: static string) =
-    let
-      fromNow = node.beaconClock.fromNow(slot.toBeaconTime(extra))
-
-    if fromNow.inFuture:
-      trace msg,
-        slot = shortLog(slot),
-        fromNow = shortLog(fromNow.offset),
-        cat = "scheduling"
-
-      await sleepAsync(fromNow.offset)
-
+  template sleepToSlotOffsetWithHeadUpdate(extra: chronos.Duration, msg: static string) =
+    if await node.beaconClock.sleepToSlotOffset(extra, slot, msg):
       # Time passed - we might need to select a new head in that case
       head = node.updateHead()
 
-  sleepToSlotOffset(
+  sleepToSlotOffsetWithHeadUpdate(
     seconds(int64(SECONDS_PER_SLOT)) div 3, "Waiting to send attestations")
 
   handleAttestations(node, head, slot)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#broadcast-aggregate
   # If the validator is selected to aggregate (is_aggregator), then they
   # broadcast their best aggregate as a SignedAggregateAndProof to the global
   # aggregate channel (beacon_aggregate_and_proof) two-thirds of the way
   # through the slot-that is, SECONDS_PER_SLOT * 2 / 3 seconds after the start
   # of slot.
   if slot > 2:
-    sleepToSlotOffset(
+    sleepToSlotOffsetWithHeadUpdate(
       seconds(int64(SECONDS_PER_SLOT * 2) div 3),
       "Waiting to aggregate attestations")
 
@@ -497,5 +488,3 @@ proc handleValidatorDuties*(
 
     broadcastAggregatedAttestations(
       node, aggregationHead, aggregationSlot, TRAILING_DISTANCE)
-
-  return head

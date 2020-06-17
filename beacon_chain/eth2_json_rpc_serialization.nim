@@ -1,13 +1,13 @@
 import
   # Standard library
   tables, json,
-  
+
   # Nimble packages
-  stew/[bitseqs],
+  stew/byteutils, ssz/types,
   json_rpc/jsonmarshal,
 
   # Local modules
-  spec/[datatypes, digest, crypto]
+  spec/[datatypes, crypto]
 
 proc fromJson*(n: JsonNode, argName: string, result: var ValidatorPubKey) =
   result = ValidatorPubKey.fromHex(n.getStr()).tryGet()
@@ -29,6 +29,12 @@ proc fromJson*(n: JsonNode, argName: string, result: var ValidatorSig) =
   result = ValidatorSig.fromHex(n.getStr()).tryGet()
 
 proc `%`*(value: ValidatorSig): JsonNode =
+  result = newJString($value)
+
+proc fromJson*(n: JsonNode, argName: string, result: var Version) =
+  hexToByteArray(n.getStr(), array[4, byte](result))
+
+proc `%`*(value: Version): JsonNode =
   result = newJString($value)
 
 template genFromJsonForIntType(t: untyped) =

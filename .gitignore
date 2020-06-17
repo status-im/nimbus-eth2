@@ -32,3 +32,9 @@ build/
 *.sqlite3
 
 /local_testnet_data*/
+
+# Prometheus db
+/data
+# Grafana dashboards
+/docker/*.json
+

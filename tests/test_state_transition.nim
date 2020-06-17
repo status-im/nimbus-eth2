@@ -20,13 +20,13 @@ suiteReport "Block processing" & preset():
   let
     # Genesis state with minimal number of deposits
     # TODO bls verification is a bit of a bottleneck here
-    genesisState = initialize_hashed_beacon_state_from_eth1(
-      Eth2Digest(), 0, makeInitialDeposits(), {})
+    genesisState = newClone(initialize_hashed_beacon_state_from_eth1(
+      Eth2Digest(), 0, makeInitialDeposits(), {}))
     genesisBlock = get_initial_beacon_block(genesisState.data)
     genesisRoot = hash_tree_root(genesisBlock.message)
 
   setup:
-    var state = newClone(genesisState)
+    var state = newClone(genesisState[])
 
   timedTest "Passes from genesis state, no block" & preset():
     check:
@@ -36,7 +36,8 @@ suiteReport "Block processing" & preset():
   timedTest "Passes from genesis state, empty block" & preset():
     var
       previous_block_root = hash_tree_root(genesisBlock.message)
-      new_block = makeTestBlock(state[], previous_block_root)
+      cache = get_empty_per_epoch_cache()
+      new_block = makeTestBlock(state[], previous_block_root, cache)
 
     let block_ok = state_transition(state[], new_block, {}, noRollback)
 
@@ -53,9 +54,10 @@ suiteReport "Block processing" & preset():
   timedTest "Passes through epoch update, empty block" & preset():
     var
       previous_block_root = genesisRoot
+      cache = get_empty_per_epoch_cache()
 
     for i in 1..SLOTS_PER_EPOCH.int:
-      let new_block = makeTestBlock(state[], previous_block_root)
+      let new_block = makeTestBlock(state[], previous_block_root, cache)
 
       let block_ok = state_transition(state[], new_block, {}, noRollback)
 
@@ -90,7 +92,7 @@ suiteReport "Block processing" & preset():
         state[], GENESIS_SLOT + MIN_ATTESTATION_INCLUSION_DELAY + 1)
 
     let
-      new_block = makeTestBlock(state[], previous_block_root,
+      new_block = makeTestBlock(state[], previous_block_root, cache,
         attestations = @[attestation]
       )
     check state_transition(state[], new_block, {}, noRollback)

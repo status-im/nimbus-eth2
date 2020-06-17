@@ -1,10 +1,11 @@
 {.push raises: [Defect].}
 
 import
-  typetraits, stew/[results, endians2],
-  serialization, chronicles,
-  spec/[datatypes, digest, crypto],
-  eth/db/kvstore, ssz, state_transition
+  typetraits, stew/[results, objects, endians2],
+  serialization, chronicles, snappy,
+  eth/db/kvstore,
+  ./spec/[datatypes, digest, crypto],
+  ./ssz/[ssz_serialization, merkleization], ./state_transition
 
 type
   BeaconChainDB* = ref object
@@ -65,14 +66,39 @@ func subkey(root: Eth2Digest, slot: Slot): array[40, byte] =
 proc init*(T: type BeaconChainDB, backend: KVStoreRef): BeaconChainDB =
   T(backend: backend)
 
+proc snappyEncode(inp: openArray[byte]): seq[byte] =
+  try:
+    snappy.encode(inp)
+  except CatchableError as err:
+    raiseAssert err.msg
+
+proc put(db: BeaconChainDB, key: openArray[byte], v: Eth2Digest) =
+  db.backend.put(key, v.data).expect("working database")
+
 proc put(db: BeaconChainDB, key: openArray[byte], v: auto) =
-  db.backend.put(key, SSZ.encode(v)).expect("working database")
+  db.backend.put(key, snappyEncode(SSZ.encode(v))).expect("working database")
+
+proc get(db: BeaconChainDB, key: openArray[byte], T: type Eth2Digest): Opt[T] =
+  var res: Opt[T]
+  proc decode(data: openArray[byte]) =
+    if data.len == 32:
+      res.ok Eth2Digest(data: toArray(32, data))
+    else:
+      # If the data can't be deserialized, it could be because it's from a
+      # version of the software that uses a different SSZ encoding
+      warn "Unable to deserialize data, old database?",
+       typ = name(T), dataLen = data.len
+      discard
+
+  discard db.backend.get(key, decode).expect("working database")
+
+  res
 
 proc get(db: BeaconChainDB, key: openArray[byte], T: typedesc): Opt[T] =
   var res: Opt[T]
   proc decode(data: openArray[byte]) =
     try:
-      res.ok SSZ.decode(data, T)
+      res.ok SSZ.decode(snappy.decode(data), T)
     except SerializationError as e:
       # If the data can't be deserialized, it could be because it's from a
       # version of the software that uses a different SSZ encoding
@@ -98,8 +124,7 @@ proc putState*(db: BeaconChainDB, value: BeaconState) =
 
 proc putStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot,
     value: Eth2Digest) =
-  db.backend.put(subkey(root, slot), value.data).expect(
-    "working database")
+  db.put(subkey(root, slot), value)
 
 proc putBlock*(db: BeaconChainDB, value: SignedBeaconBlock) =
   db.putBlock(hash_tree_root(value.message), value)
@@ -115,10 +140,10 @@ proc delStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot) =
   db.backend.del(subkey(root, slot)).expect("working database")
 
 proc putHeadBlock*(db: BeaconChainDB, key: Eth2Digest) =
-  db.backend.put(subkey(kHeadBlock), key.data).expect("working database")
+  db.put(subkey(kHeadBlock), key)
 
 proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
-  db.backend.put(subkey(kTailBlock), key.data).expect("working database")
+  db.put(subkey(kTailBlock), key)
 
 proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Opt[SignedBeaconBlock] =
   db.get(subkey(SignedBeaconBlock, key), SignedBeaconBlock)
@@ -140,7 +165,7 @@ proc getState*(
   proc decode(data: openArray[byte]) =
     try:
       # TODO can't write to output directly..
-      outputAddr[] = SSZ.decode(data, BeaconState)
+      assign(outputAddr[], SSZ.decode(snappy.decode(data), BeaconState))
     except SerializationError as e:
       # If the data can't be deserialized, it could be because it's from a
       # version of the software that uses a different SSZ encoding

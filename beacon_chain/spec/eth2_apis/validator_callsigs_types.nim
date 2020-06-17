@@ -15,7 +15,13 @@ type
     validator_committee_index*: uint64
     slot*: Slot
 
-  # TODO do we even need this? how about a simple tuple?
+  # TODO do we even need this? how about a simple tuple (alias)?
   ValidatorPubkeySlotPair* = object
     public_key*: ValidatorPubKey
     slot*: Slot
+
+  # TODO do we even need this? how about a simple tuple (alias)?
+  BeaconGenesisTuple* = object
+    genesis_time*: uint64
+    genesis_validators_root*: Eth2Digest
+    genesis_fork_version*: Version

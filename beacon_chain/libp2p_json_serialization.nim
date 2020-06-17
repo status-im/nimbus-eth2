@@ -11,5 +11,9 @@ proc writeValue*(writer: var JsonWriter, value: MultiAddress) {.inline.} =
   writer.writeValue $value
 
 proc readValue*(reader: var JsonReader, value: var MultiAddress) {.inline.} =
-  value = MultiAddress.init reader.readValue(string)
+  let addressRes = MultiAddress.init reader.readValue(string)
+  if addressRes.isOk:
+    value = addressRes.value
+  else:
+    raiseUnexpectedValue(reader, "Invalid MultiAddress value")
 

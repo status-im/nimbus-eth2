@@ -14,7 +14,7 @@ import
 import
   block_pools/[block_pools_types, clearance, candidate_chains, quarantine]
 
-export results
+export results, block_pools_types
 
 # Block_Pools
 # --------------------------------------------
@@ -171,7 +171,8 @@ proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
 proc loadTailState*(pool: BlockPool): StateData =
   loadTailState(pool.dag)
 
-proc isValidBeaconBlock*(pool: var BlockPool,
-                         signed_beacon_block: SignedBeaconBlock,
-                         current_slot: Slot, flags: UpdateFlags): bool =
-  isValidBeaconBlock(pool.dag, pool.quarantine, signed_beacon_block, current_slot, flags)
+proc isValidBeaconBlock*(
+    pool: var BlockPool, signed_beacon_block: SignedBeaconBlock,
+    current_slot: Slot, flags: UpdateFlags): Result[void, BlockError] =
+  isValidBeaconBlock(
+    pool.dag, pool.quarantine, signed_beacon_block, current_slot, flags)

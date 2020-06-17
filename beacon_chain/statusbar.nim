@@ -75,11 +75,14 @@ func width(cells: seq[StatusBarCell]): int =
 
 proc renderCells(cells: seq[StatusBarCell], sep: string) =
   for i, cell in cells:
-    if i > 0: stdout.write sep
+    stdout.setBackgroundColor backgroundColor
+    stdout.setForegroundColor foregroundColor
     stdout.setStyle {styleDim}
+    if i > 0: stdout.write sep
     stdout.write " ", cell.label, ": "
     stdout.setStyle {styleBright}
     stdout.write cell.content, " "
+    stdout.resetAttributes()
 
 proc render*(s: var StatusBarView) =
   doAssert s.consumedLines == 0
@@ -89,9 +92,8 @@ proc render*(s: var StatusBarView) =
     allCellsWidth = s.layout.cellsLeft.width + s.layout.cellsRight.width
 
   if allCellsWidth > 0:
-    stdout.setBackgroundColor backgroundColor
-    stdout.setForegroundColor foregroundColor
     renderCells(s.layout.cellsLeft, sepLeft)
+    stdout.setBackgroundColor backgroundColor
     if termWidth > allCellsWidth:
       stdout.write spaces(termWidth - allCellsWidth)
       s.consumedLines = 1
@@ -99,7 +101,6 @@ proc render*(s: var StatusBarView) =
       stdout.write spaces(max(0, termWidth - s.layout.cellsLeft.width)), "\p"
       s.consumedLines = 2
     renderCells(s.layout.cellsRight, sepRight)
-    stdout.resetAttributes
     stdout.flushFile
 
 proc erase*(s: var StatusBarView) =

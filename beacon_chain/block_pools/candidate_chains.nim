@@ -8,9 +8,9 @@
 {.push raises: [Defect].}
 
 import
-  chronicles, options, tables,
+  chronicles, options, sequtils, tables,
   metrics,
-  ../ssz, ../beacon_chain_db, ../state_transition, ../extras,
+  ../ssz/merkleization, ../beacon_chain_db, ../state_transition, ../extras,
   ../spec/[crypto, datatypes, digest, helpers, validator],
   block_pools_types
 
@@ -52,6 +52,12 @@ func parent*(bs: BlockSlot): BlockSlot =
       blck: if bs.slot > bs.blck.slot: bs.blck else: bs.blck.parent,
       slot: bs.slot - 1
     )
+
+func populateEpochCache*(state: BeaconState, epoch: Epoch): EpochRef =
+  result = (EpochRef)(
+    epoch: state.slot.compute_epoch_at_slot,
+    shuffled_active_validator_indices:
+      get_shuffled_active_validator_indices(state, epoch))
 
 func link*(parent, child: BlockRef) =
   doAssert (not (parent.root == Eth2Digest() or child.root == Eth2Digest())),
@@ -133,7 +139,31 @@ func atSlot*(blck: BlockRef, slot: Slot): BlockSlot =
   ## block proposal)
   BlockSlot(blck: blck.getAncestorAt(slot), slot: slot)
 
-func init*(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
+func getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
+  # This is the only intended mechanism by which to get an EpochRef
+  let
+    state_epoch = state.slot.compute_epoch_at_slot
+    matching_epochinfo = blck.epochsInfo.filterIt(it.epoch == state_epoch)
+
+  if matching_epochinfo.len == 0:
+    let cache = populateEpochCache(state, state_epoch)
+    blck.epochsInfo.add(cache)
+    trace "candidate_chains.skipAndUpdateState(): back-filling parent.epochInfo",
+      state_slot = state.slot
+    cache
+  elif matching_epochinfo.len == 1:
+    matching_epochinfo[0]
+  else:
+    raiseAssert "multiple EpochRefs per epoch per BlockRef invalid"
+
+func getEpochCache*(blck: BlockRef, state: BeaconState): StateCache =
+  let epochInfo = getEpochInfo(blck, state)
+  result = get_empty_per_epoch_cache()
+  result.shuffled_active_validator_indices[
+    state.slot.compute_epoch_at_slot] =
+      epochInfo.shuffled_active_validator_indices
+
+func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
   BlockRef(
     root: root,
     slot: slot
@@ -271,7 +301,7 @@ proc getState(
       #      Nonetheless, this is an ugly workaround that needs to go away
       doAssert false, "Cannot alias headState"
 
-    outputAddr[] = dag.headState
+    assign(outputAddr[], dag.headState)
 
   if not db.getState(stateRoot, output.data.data, restore):
     return false
@@ -283,11 +313,49 @@ proc getState(
 
 func getStateCacheIndex(dag: CandidateChains, blockRoot: Eth2Digest, slot: Slot): int =
   for i, cachedState in dag.cachedStates:
-    let (cacheBlockRoot, cacheSlot, state) = cachedState
+    let (cacheBlockRoot, cacheSlot, _) = cachedState
     if cacheBlockRoot == blockRoot and cacheSlot == slot:
       return i
 
   -1
+
+func putStateCache(
+    dag: CandidateChains, state: HashedBeaconState, blck: BlockRef) =
+  # Need to be able to efficiently access states for both attestation
+  # aggregation and to process block proposals going back to the last
+  # finalized slot. Ideally to avoid potential combinatiorial forking
+  # storage and/or memory constraints could CoW, up to and including,
+  # in particular, hash_tree_root() which is expensive to do 30 times
+  # since the previous epoch, to efficiently state_transition back to
+  # desired slot. However, none of that's in place, so there are both
+  # expensive, repeated BeaconState copies as well as computationally
+  # time-consuming-near-end-of-epoch hash tree roots. The latter are,
+  # effectively, naïvely O(n^2) in slot number otherwise, so when the
+  # slots become in the mid-to-high-20s it's spending all its time in
+  # pointlessly repeated calculations of prefix-state-transitions. An
+  # intermediate time/memory workaround involves storing only mapping
+  # between BlockRefs, or BlockSlots, and the BeaconState tree roots,
+  # but that still involves tens of megabytes worth of copying, along
+  # with the concomitant memory allocator and GC load. Instead, use a
+  # more memory-intensive (but more conceptually straightforward, and
+  # faster) strategy to just store, for the most recent slots.
+  let stateCacheIndex = dag.getStateCacheIndex(blck.root, state.data.slot)
+  if stateCacheIndex == -1:
+    # Could use a deque or similar, but want simpler structure, and the data
+    # items are small and few.
+    const MAX_CACHE_SIZE = 32
+
+    let cacheLen = dag.cachedStates.len
+    doAssert cacheLen <= MAX_CACHE_SIZE
+
+    let entry =
+      if dag.cachedStates.len == MAX_CACHE_SIZE: dag.cachedStates.pop().state
+      else: (ref HashedBeaconState)()
+    assign(entry[], state)
+
+    insert(dag.cachedStates, (blck.root, state.data.slot, entry))
+    trace "CandidateChains.putState(): state cache updated",
+      cacheLen, root = shortLog(blck.root), slot = state.data.slot
 
 proc putState*(dag: CandidateChains, state: HashedBeaconState, blck: BlockRef) =
   # TODO we save state at every epoch start but never remove them - we also
@@ -314,35 +382,7 @@ proc putState*(dag: CandidateChains, state: HashedBeaconState, blck: BlockRef) =
       if not rootWritten:
         dag.db.putStateRoot(blck.root, state.data.slot, state.root)
 
-  # Need to be able to efficiently access states for both attestation
-  # aggregation and to process block proposals going back to the last
-  # finalized slot. Ideally to avoid potential combinatiorial forking
-  # storage and/or memory constraints could CoW, up to and including,
-  # in particular, hash_tree_root() which is expensive to do 30 times
-  # since the previous epoch, to efficiently state_transition back to
-  # desired slot. However, none of that's in place, so there are both
-  # expensive, repeated BeaconState copies as well as computationally
-  # time-consuming-near-end-of-epoch hash tree roots. The latter are,
-  # effectively, naïvely O(n^2) in slot number otherwise, so when the
-  # slots become in the mid-to-high-20s it's spending all its time in
-  # pointlessly repeated calculations of prefix-state-transitions. An
-  # intermediate time/memory workaround involves storing only mapping
-  # between BlockRefs, or BlockSlots, and the BeaconState tree roots,
-  # but that still involves tens of megabytes worth of copying, along
-  # with the concomitant memory allocator and GC load. Instead, use a
-  # more memory-intensive (but more conceptually straightforward, and
-  # faster) strategy to just store, for the most recent slots.
-  let stateCacheIndex = dag.getStateCacheIndex(blck.root, state.data.slot)
-  if stateCacheIndex == -1:
-    # Could use a deque or similar, but want simpler structure, and the data
-    # items are small and few.
-    const MAX_CACHE_SIZE = 32
-    insert(dag.cachedStates, (blck.root, state.data.slot, newClone(state)))
-    while dag.cachedStates.len > MAX_CACHE_SIZE:
-      discard dag.cachedStates.pop()
-    let cacheLen = dag.cachedStates.len
-    trace "CandidateChains.putState(): state cache updated", cacheLen
-    doAssert cacheLen > 0 and cacheLen <= MAX_CACHE_SIZE
+  putStateCache(dag, state, blck)
 
 func getRef*(dag: CandidateChains, root: Eth2Digest): BlockRef =
   ## Retrieve a resolved block reference, if available
@@ -424,7 +464,8 @@ proc skipAndUpdateState(
     #      save and reuse
     # TODO possibly we should keep this in memory for the hot blocks
     let nextStateRoot = dag.db.getStateRoot(blck.root, state.data.slot + 1)
-    advance_slot(state, nextStateRoot, dag.updateFlags)
+    var stateCache = getEpochCache(blck, state.data)
+    advance_slot(state, nextStateRoot, dag.updateFlags, stateCache)
 
     if save:
       dag.putState(state, blck)
@@ -441,8 +482,10 @@ proc skipAndUpdateState(
     doAssert (addr(statePtr.data) == addr v)
     statePtr[] = dag.headState
 
+  var stateCache = getEpochCache(blck.refs, state.data.data)
   let ok = state_transition(
-    state.data, blck.data, flags + dag.updateFlags, restore)
+    state.data, blck.data, stateCache, flags + dag.updateFlags, restore)
+
   if ok and save:
     dag.putState(state.data, blck.refs)
 
@@ -486,7 +529,7 @@ proc rewindState(dag: CandidateChains, state: var StateData, bs: BlockSlot):
     # used in the front-end.
     let idx = dag.getStateCacheIndex(parBs.blck.root, parBs.slot)
     if idx >= 0:
-      state.data = dag.cachedStates[idx].state[]
+      assign(state.data, dag.cachedStates[idx].state[])
       let ancestor = ancestors.pop()
       state.blck = ancestor.refs
 
@@ -562,7 +605,7 @@ proc getStateDataCached(dag: CandidateChains, state: var StateData, bs: BlockSlo
 
   let idx = dag.getStateCacheIndex(bs.blck.root, bs.slot)
   if idx >= 0:
-    state.data = dag.cachedStates[idx].state[]
+    assign(state.data, dag.cachedStates[idx].state[])
     state.blck = bs.blck
     beacon_state_data_cache_hits.inc()
     return true
@@ -614,7 +657,7 @@ proc updateStateData*(dag: CandidateChains, state: var StateData, bs: BlockSlot)
     let ok =
       dag.skipAndUpdateState(
         state, ancestors[i],
-        {skipBlsValidation, skipMerkleValidation, skipStateRootValidation},
+        {skipBlsValidation, skipStateRootValidation},
         false)
     doAssert ok, "Blocks in database should never fail to apply.."
 
@@ -767,7 +810,7 @@ func latestJustifiedBlock*(dag: CandidateChains): BlockSlot =
   ## as the latest finalized block
 
   doAssert dag.heads.len > 0,
-    "We should have at least the genesis block in heaads"
+    "We should have at least the genesis block in heads"
   doAssert (not dag.head.blck.isNil()),
     "Genesis block will be head, if nothing else"
 
@@ -828,7 +871,7 @@ proc getProposer*(
   dag.withState(dag.tmpState, head.atSlot(slot)):
     var cache = get_empty_per_epoch_cache()
 
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#validator-assignments
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/validator.md#validator-assignments
     let proposerIdx = get_beacon_proposer_index(state, cache)
     if proposerIdx.isNone:
       warn "Missing proposer index",

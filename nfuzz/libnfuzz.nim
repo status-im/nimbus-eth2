@@ -1,12 +1,12 @@
+# Required for deserialisation of ValidatorSig in Attestation due to
+# https://github.com/nim-lang/Nim/issues/11225
+
 import
   stew/ptrops, stew/ranges/ptr_arith,
-  ../beacon_chain/[ssz, state_transition],
-  ../beacon_chain/spec/[datatypes, digest, validator, beaconstate,
+  ../beacon_chain/[extras, state_transition],
+  ../beacon_chain/spec/[crypto, datatypes, digest, validator, beaconstate,
       state_transition_block],
-  # Required for deserialisation of ValidatorSig in Attestation due to
-# https://github.com/nim-lang/Nim/issues/11225
-  ../beacon_chain/spec/crypto,
-  ../beacon_chain/extras
+  ../beacon_chain/ssz/[merkleization, ssz_serialization]
 
 type
   AttestationInput = object

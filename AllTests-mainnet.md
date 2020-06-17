@@ -62,12 +62,6 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + parent sanity [Preset: mainnet]                                                            OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## Discovery v5 utilities
-```diff
-+ ENR to ENode                                                                               OK
-+ Multiaddress to ENode                                                                      OK
-```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Fork Choice + Finality  [Preset: mainnet]
 ```diff
 + fork_choice - testing finality #01                                                         OK
@@ -89,12 +83,19 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Mocked start private key                                                                   OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Keystore
+```diff
++ Pbkdf2 decryption                                                                          OK
++ Pbkdf2 encryption                                                                          OK
++ Pbkdf2 errors                                                                              OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Mocking utilities
 ```diff
 + merkle_minimal                                                                             OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - 0.11.3 - constants & config  [Preset: mainnet]
+## Official - constants & config  [Preset: mainnet]
 ```diff
 + BASE_REWARD_FACTOR                                64                   [Preset: mainnet]   OK
 + BLS_WITHDRAWAL_PREFIX                             "0x00"               [Preset: mainnet]   OK
@@ -123,17 +124,18 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + EPOCHS_PER_SLASHINGS_VECTOR                       8192                 [Preset: mainnet]   OK
 + ETH1_FOLLOW_DISTANCE                              1024                 [Preset: mainnet]   OK
 + GASPRICE_ADJUSTMENT_COEFFICIENT                   8                    [Preset: mainnet]   OK
++ GENESIS_DELAY                                     172800               [Preset: mainnet]   OK
   GENESIS_FORK_VERSION                              "0x00000000"         [Preset: mainnet]   Skip
 + HISTORICAL_ROOTS_LIMIT                            16777216             [Preset: mainnet]   OK
 + HYSTERESIS_DOWNWARD_MULTIPLIER                    1                    [Preset: mainnet]   OK
 + HYSTERESIS_QUOTIENT                               4                    [Preset: mainnet]   OK
 + HYSTERESIS_UPWARD_MULTIPLIER                      5                    [Preset: mainnet]   OK
-+ INACTIVITY_PENALTY_QUOTIENT                       33554432             [Preset: mainnet]   OK
++ INACTIVITY_PENALTY_QUOTIENT                       16777216             [Preset: mainnet]   OK
 + INITIAL_ACTIVE_SHARDS                             64                   [Preset: mainnet]   OK
 + LIGHT_CLIENT_COMMITTEE_PERIOD                     256                  [Preset: mainnet]   OK
 + LIGHT_CLIENT_COMMITTEE_SIZE                       128                  [Preset: mainnet]   OK
 + MAX_ATTESTATIONS                                  128                  [Preset: mainnet]   OK
-+ MAX_ATTESTER_SLASHINGS                            1                    [Preset: mainnet]   OK
++ MAX_ATTESTER_SLASHINGS                            2                    [Preset: mainnet]   OK
 + MAX_COMMITTEES_PER_SLOT                           64                   [Preset: mainnet]   OK
 + MAX_CUSTODY_KEY_REVEALS                           256                  [Preset: mainnet]   OK
 + MAX_CUSTODY_SLASHINGS                             1                    [Preset: mainnet]   OK
@@ -156,15 +158,14 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + MIN_EPOCHS_TO_INACTIVITY_PENALTY                  4                    [Preset: mainnet]   OK
 + MIN_GASPRICE                                      8                    [Preset: mainnet]   OK
 + MIN_GENESIS_ACTIVE_VALIDATOR_COUNT                16384                [Preset: mainnet]   OK
-+ MIN_GENESIS_DELAY                                 86400                [Preset: mainnet]   OK
 + MIN_GENESIS_TIME                                  1578009600           [Preset: mainnet]   OK
 + MIN_PER_EPOCH_CHURN_LIMIT                         4                    [Preset: mainnet]   OK
 + MIN_SEED_LOOKAHEAD                                1                    [Preset: mainnet]   OK
 + MIN_SLASHING_PENALTY_QUOTIENT                     32                   [Preset: mainnet]   OK
 + MIN_VALIDATOR_WITHDRAWABILITY_DELAY               256                  [Preset: mainnet]   OK
 + ONLINE_PERIOD                                     8                    [Preset: mainnet]   OK
-+ PERSISTENT_COMMITTEE_PERIOD                       2048                 [Preset: mainnet]   OK
 + PHASE_1_FORK_VERSION                              "0x01000000"         [Preset: mainnet]   OK
++ PHASE_1_GENESIS_SLOT                              32                   [Preset: mainnet]   OK
 + PROPOSER_REWARD_QUOTIENT                          8                    [Preset: mainnet]   OK
 + RANDAO_PENALTY_EPOCHS                             2                    [Preset: mainnet]   OK
 + RANDOM_SUBNETS_PER_VALIDATOR                      1                    [Preset: mainnet]   OK
@@ -205,10 +206,11 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## SSZ navigator
 ```diff
++ basictype                                                                                  OK
 + lists with max size                                                                        OK
 + simple object fields                                                                       OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Spec helpers
 ```diff
 + integer_squareroot                                                                         OK
@@ -250,6 +252,11 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 +  Rule IV - 12 finalization without support                                                 OK
 ```
 OK: 8/8 Fail: 0/8 Skip: 0/8
+## hash
+```diff
++ HashArray                                                                                  OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 155/158 Fail: 0/158 Skip: 3/158
+OK: 158/161 Fail: 0/161 Skip: 3/161

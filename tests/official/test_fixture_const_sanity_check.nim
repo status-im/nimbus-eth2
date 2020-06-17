@@ -125,5 +125,5 @@ proc checkConfig() =
       else:
         check: ConstsToCheck[constant] == value.getBiggestInt().uint64()
 
-suiteReport "Official - 0.11.3 - constants & config " & preset():
+suiteReport "Official - constants & config " & preset():
   checkConfig()

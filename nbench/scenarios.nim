@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,12 +7,15 @@
 
 import
   # Standard library
-  os,
+  os, tables,
   # Status libraries
   confutils/defs, serialization,
   # Beacon-chain
-  ../beacon_chain/spec/[datatypes, crypto, beaconstate, validator, state_transition_block, state_transition_epoch],
-  ../beacon_chain/[ssz, state_transition, extras]
+  ../beacon_chain/spec/[
+      datatypes, crypto, helpers, beaconstate, validator,
+      state_transition_block, state_transition_epoch],
+  ../beacon_chain/[state_transition, extras],
+  ../beacon_chain/ssz/[merkleization, ssz_serialization]
 
 # Nimbus Bench - Scenario configuration
 # --------------------------------------------------
@@ -185,6 +188,9 @@ template processEpochScenarioImpl(
 
   when needCache:
     var cache = get_empty_per_epoch_cache()
+    let epoch = state.data.slot.compute_epoch_at_slot
+    cache.shuffled_active_validator_indices[epoch] =
+      get_shuffled_active_validator_indices(state.data, epoch)
 
   # Epoch transitions can't fail (TODO is this true?)
   when needCache:
@@ -251,11 +257,11 @@ genProcessEpochScenario(runProcessJustificationFinalization,
 
 genProcessEpochScenario(runProcessRegistryUpdates,
                         process_registry_updates,
-                        needCache = false)
+                        needCache = true)
 
 genProcessEpochScenario(runProcessSlashings,
                         process_slashings,
-                        needCache = false)
+                        needCache = true)
 
 genProcessEpochScenario(runProcessFinalUpdates,
                         process_final_updates,

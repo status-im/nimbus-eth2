@@ -1,5 +1,5 @@
 import
-  testutils/fuzzing, faststreams/inputs,
+  testutils/fuzzing, faststreams/inputs, serialization/testing/tracing,
   ../../beacon_chain/ssz,
   ../../beacon_chain/spec/[datatypes, crypto, digest, datatypes]
 
@@ -19,11 +19,22 @@ template sszFuzzingTest*(T: type) =
 
       let reEncoded = SSZ.encode(decoded)
 
+      when T isnot SignedBeaconBlock:
+        let hash = hash_tree_root(decoded)
+
       if payload != reEncoded:
+        when hasSerializationTracing:
+          # Run deserialization again to produce a seriazation trace
+          # (this is useful for comparing with the initial deserialization)
+          discard SSZ.decode(reEncoded, T)
+
         echo "Payload with len = ", payload.len
         echo payload
         echo "Re-encoided payload with len = ", reEncoded.len
         echo reEncoded
+
+        when T isnot SignedBeaconBlock:
+          echo "HTR: ", hash
 
         echo repr(decoded)
 

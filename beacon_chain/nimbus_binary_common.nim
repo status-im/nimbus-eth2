@@ -5,75 +5,18 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-# Common routines for a BeaconNode and a BeaconValidator node
+# Common routines for a BeaconNode and a ValidatorClient
 
 import
   # Standard library
-  os, tables, random, strutils,
+  tables, random, strutils,
 
   # Nimble packages
   chronos,
   chronicles, chronicles/helpers as chroniclesHelpers,
 
   # Local modules
-  spec/[datatypes, crypto],
-  conf,
-  block_pool, eth2_network
-
-const
-  genesisFile* = "genesis.ssz"
-
-proc getStateFromSnapshot*(conf: BeaconNodeConf|ValidatorClientConf): NilableBeaconStateRef =
-  var
-    genesisPath = conf.dataDir/genesisFile
-    snapshotContents: TaintedString
-    writeGenesisFile = false
-
-  if conf.stateSnapshot.isSome:
-    let
-      snapshotPath = conf.stateSnapshot.get.string
-      snapshotExt = splitFile(snapshotPath).ext
-
-    if cmpIgnoreCase(snapshotExt, ".ssz") != 0:
-      error "The supplied state snapshot must be a SSZ file",
-            suppliedPath = snapshotPath
-      quit 1
-
-    snapshotContents = readFile(snapshotPath)
-    if fileExists(genesisPath):
-      let genesisContents = readFile(genesisPath)
-      if snapshotContents != genesisContents:
-        error "Data directory not empty. Existing genesis state differs from supplied snapshot",
-              dataDir = conf.dataDir.string, snapshot = snapshotPath
-        quit 1
-    else:
-      debug "No previous genesis state. Importing snapshot",
-            genesisPath, dataDir = conf.dataDir.string
-      writeGenesisFile = true
-      genesisPath = snapshotPath
-  else:
-    try:
-      snapshotContents = readFile(genesisPath)
-    except CatchableError as err:
-      error "Failed to read genesis file", err = err.msg
-      quit 1
-
-  result = try:
-    newClone(SSZ.decode(snapshotContents, BeaconState))
-  except SerializationError:
-    error "Failed to import genesis file", path = genesisPath
-    quit 1
-
-  info "Loaded genesis state", path = genesisPath
-
-  if writeGenesisFile:
-    try:
-      notice "Writing genesis to data directory", path = conf.dataDir/genesisFile
-      writeFile(conf.dataDir/genesisFile, snapshotContents.string)
-    except CatchableError as err:
-      error "Failed to persist genesis file to data dir",
-        err = err.msg, genesisFile = conf.dataDir/genesisFile
-      quit 1
+  spec/[datatypes, crypto], eth2_network, time
 
 proc setupMainProc*(logLevel: string) =
   when compiles(defaultChroniclesStream.output.writer):
@@ -110,3 +53,23 @@ template ctrlCHandling*(extraCode: untyped) =
     info "Shutting down after having received SIGINT"
     extraCode
   setControlCHook(controlCHandler)
+
+template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =
+  let banner = clientId & "\p" & copyrights & "\p\p" & nimBanner
+  ConfType.load(version = banner, copyrightBanner = banner)
+
+# TODO not sure if this belongs here but it doesn't belong in `time.nim` either
+proc sleepToSlotOffset*(clock: BeaconClock, extra: chronos.Duration,
+                        slot: Slot, msg: static string): Future[bool] {.async.} =
+  let
+    fromNow = clock.fromNow(slot.toBeaconTime(extra))
+
+  if fromNow.inFuture:
+    trace msg,
+      slot = shortLog(slot),
+      fromNow = shortLog(fromNow.offset),
+      cat = "scheduling"
+
+    await sleepAsync(fromNow.offset)
+    return true
+  return false

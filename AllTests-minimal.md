@@ -68,12 +68,6 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + parent sanity [Preset: minimal]                                                            OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## Discovery v5 utilities
-```diff
-+ ENR to ENode                                                                               OK
-+ Multiaddress to ENode                                                                      OK
-```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Fork Choice + Finality  [Preset: minimal]
 ```diff
 + fork_choice - testing finality #01                                                         OK
@@ -95,12 +89,19 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Mocked start private key                                                                   OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Keystore
+```diff
++ Pbkdf2 decryption                                                                          OK
++ Pbkdf2 encryption                                                                          OK
++ Pbkdf2 errors                                                                              OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Mocking utilities
 ```diff
 + merkle_minimal                                                                             OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - 0.11.3 - constants & config  [Preset: minimal]
+## Official - constants & config  [Preset: minimal]
 ```diff
 + BASE_REWARD_FACTOR                                64                   [Preset: minimal]   OK
 + BLS_WITHDRAWAL_PREFIX                             "0x00"               [Preset: minimal]   OK
@@ -123,23 +124,24 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + EFFECTIVE_BALANCE_INCREMENT                       1000000000           [Preset: minimal]   OK
 + EJECTION_BALANCE                                  16000000000          [Preset: minimal]   OK
 + EPOCHS_PER_CUSTODY_PERIOD                         2048                 [Preset: minimal]   OK
-+ EPOCHS_PER_ETH1_VOTING_PERIOD                     2                    [Preset: minimal]   OK
++ EPOCHS_PER_ETH1_VOTING_PERIOD                     4                    [Preset: minimal]   OK
 + EPOCHS_PER_HISTORICAL_VECTOR                      64                   [Preset: minimal]   OK
 + EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION             256                  [Preset: minimal]   OK
 + EPOCHS_PER_SLASHINGS_VECTOR                       64                   [Preset: minimal]   OK
 + ETH1_FOLLOW_DISTANCE                              16                   [Preset: minimal]   OK
 + GASPRICE_ADJUSTMENT_COEFFICIENT                   8                    [Preset: minimal]   OK
++ GENESIS_DELAY                                     300                  [Preset: minimal]   OK
   GENESIS_FORK_VERSION                              "0x00000001"         [Preset: minimal]   Skip
 + HISTORICAL_ROOTS_LIMIT                            16777216             [Preset: minimal]   OK
 + HYSTERESIS_DOWNWARD_MULTIPLIER                    1                    [Preset: minimal]   OK
 + HYSTERESIS_QUOTIENT                               4                    [Preset: minimal]   OK
 + HYSTERESIS_UPWARD_MULTIPLIER                      5                    [Preset: minimal]   OK
-+ INACTIVITY_PENALTY_QUOTIENT                       33554432             [Preset: minimal]   OK
++ INACTIVITY_PENALTY_QUOTIENT                       16777216             [Preset: minimal]   OK
 + INITIAL_ACTIVE_SHARDS                             4                    [Preset: minimal]   OK
 + LIGHT_CLIENT_COMMITTEE_PERIOD                     256                  [Preset: minimal]   OK
 + LIGHT_CLIENT_COMMITTEE_SIZE                       128                  [Preset: minimal]   OK
 + MAX_ATTESTATIONS                                  128                  [Preset: minimal]   OK
-+ MAX_ATTESTER_SLASHINGS                            1                    [Preset: minimal]   OK
++ MAX_ATTESTER_SLASHINGS                            2                    [Preset: minimal]   OK
 + MAX_COMMITTEES_PER_SLOT                           4                    [Preset: minimal]   OK
 + MAX_CUSTODY_KEY_REVEALS                           256                  [Preset: minimal]   OK
 + MAX_CUSTODY_SLASHINGS                             1                    [Preset: minimal]   OK
@@ -162,15 +164,14 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + MIN_EPOCHS_TO_INACTIVITY_PENALTY                  4                    [Preset: minimal]   OK
 + MIN_GASPRICE                                      8                    [Preset: minimal]   OK
 + MIN_GENESIS_ACTIVE_VALIDATOR_COUNT                64                   [Preset: minimal]   OK
-+ MIN_GENESIS_DELAY                                 300                  [Preset: minimal]   OK
 + MIN_GENESIS_TIME                                  1578009600           [Preset: minimal]   OK
 + MIN_PER_EPOCH_CHURN_LIMIT                         4                    [Preset: minimal]   OK
 + MIN_SEED_LOOKAHEAD                                1                    [Preset: minimal]   OK
 + MIN_SLASHING_PENALTY_QUOTIENT                     32                   [Preset: minimal]   OK
 + MIN_VALIDATOR_WITHDRAWABILITY_DELAY               256                  [Preset: minimal]   OK
 + ONLINE_PERIOD                                     8                    [Preset: minimal]   OK
-+ PERSISTENT_COMMITTEE_PERIOD                       128                  [Preset: minimal]   OK
 + PHASE_1_FORK_VERSION                              "0x01000001"         [Preset: minimal]   OK
++ PHASE_1_GENESIS_SLOT                              8                    [Preset: minimal]   OK
 + PROPOSER_REWARD_QUOTIENT                          8                    [Preset: minimal]   OK
 + RANDAO_PENALTY_EPOCHS                             2                    [Preset: minimal]   OK
 + RANDOM_SUBNETS_PER_VALIDATOR                      1                    [Preset: minimal]   OK
@@ -179,7 +180,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + SECONDS_PER_SLOT                                  6                    [Preset: minimal]   OK
 + SHARD_BLOCK_CHUNK_SIZE                            262144               [Preset: minimal]   OK
   SHARD_BLOCK_OFFSETS                               [1,2,3,5,8,13,21,34,55,89,144,233] [Pres Skip
-+ SHARD_COMMITTEE_PERIOD                            256                  [Preset: minimal]   OK
++ SHARD_COMMITTEE_PERIOD                            64                   [Preset: minimal]   OK
 + SHUFFLE_ROUND_COUNT                               10                   [Preset: minimal]   OK
 + SLOTS_PER_EPOCH                                   8                    [Preset: minimal]   OK
 + SLOTS_PER_HISTORICAL_ROOT                         64                   [Preset: minimal]   OK
@@ -211,10 +212,11 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## SSZ navigator
 ```diff
++ basictype                                                                                  OK
 + lists with max size                                                                        OK
 + simple object fields                                                                       OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Spec helpers
 ```diff
 + integer_squareroot                                                                         OK
@@ -256,6 +258,11 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 +  Rule IV - 12 finalization without support                                                 OK
 ```
 OK: 8/8 Fail: 0/8 Skip: 0/8
+## hash
+```diff
++ HashArray                                                                                  OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 157/160 Fail: 0/160 Skip: 3/160
+OK: 160/163 Fail: 0/163 Skip: 3/163

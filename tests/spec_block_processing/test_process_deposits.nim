@@ -7,7 +7,7 @@
 
 
 # process_deposit (beaconstate.nim)
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#deposits
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#deposits
 # ---------------------------------------------------------------
 
 {.used.}
@@ -26,14 +26,14 @@ import
 suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
 
   const NumValidators = uint64 5 * SLOTS_PER_EPOCH
-  let genesisState = initGenesisState(NumValidators)
+  let genesisState = newClone(initGenesisState(NumValidators))
   doAssert genesisState.data.validators.len == int NumValidators
 
   template valid_deposit(deposit_amount: uint64, name: string): untyped =
     # TODO: BLS signature
     timedTest "Deposit " & name & " MAX_EFFECTIVE_BALANCE balance (" &
           $(MAX_EFFECTIVE_BALANCE div 10'u64^9) & " ETH)":
-      var state = newClone(genesisState)
+      var state = newClone(genesisState[])
 
       # Test configuration
       # ----------------------------------------
