@@ -24,6 +24,8 @@ if [[ "$USE_TMUX" != "no" ]]; then
 
   $TMUX_CMD new-session -s "${TMUX_SESSION_NAME}" -d
 
+  $TMUX_CMD bind-key -n q kill-session
+
   # maybe these should be moved to a user config file
   $TMUX_CMD set-option -t "${TMUX_SESSION_NAME}" history-limit 999999
   $TMUX_CMD set-option -t "${TMUX_SESSION_NAME}" remain-on-exit on
@@ -33,9 +35,7 @@ if [[ "$USE_TMUX" != "no" ]]; then
   $TMUX_CMD new-window -d -t "${TMUX_SESSION_NAME}" -n "sim"
   $TMUX_CMD kill-pane -t "${TMUX_SESSION_NAME}:0"
 
-  trap 'tmux kill-session -t "${TMUX_SESSION_NAME}"' SIGINT EXIT
-
-  $TMUX_CMD new-window -t "${TMUX_SESSION_NAME}" -n "start-script" "$PWD/start.sh"
+  $TMUX_CMD new-window -t "${TMUX_SESSION_NAME}" -n "start-script" "if ! $PWD/start.sh; then; read; tmux kill-session; fi"
   $TMUX_CMD select-window -t "${TMUX_SESSION_NAME}:start-script"
 
   $TMUX_CMD attach-session -t "${TMUX_SESSION_NAME}"

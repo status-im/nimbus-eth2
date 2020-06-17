@@ -140,7 +140,7 @@ function run_cmd {
   if [[ "$USE_TMUX" == "yes" ]]; then
     echo "Starting node $i..."
     $TMUX_CMD select-window -t "${TMUX_SESSION_NAME}:sim"
-    $TMUX_CMD split-window -t "${TMUX_SESSION_NAME}" "$CMD"
+    $TMUX_CMD split-window -t "${TMUX_SESSION_NAME}" "if ! $CMD; then; read; fi"
     $TMUX_CMD select-layout -t "${TMUX_SESSION_NAME}:sim" tiled
   elif [[ "$USE_MULTITAIL" != "no" ]]; then
     if [[ "$i" == "$MASTER_NODE" ]]; then
