@@ -53,7 +53,7 @@ VALIDATORS_PER_NODE=$((NUM_VALIDATORS / TOTAL_NODES))
 if [[ $NODE_ID -lt $TOTAL_NODES ]]; then
   # if using validator client binaries in addition to beacon nodes
   # we will split the keys for this instance in half between the BN and the VC
-  if [ "${SPLIT_VALIDATORS_BETWEEN_BN_AND_VC:-}" == "yes" ]; then
+  if [ "${BN_VC_VALIDATOR_SPLIT:-}" == "yes" ]; then
     ATTACHED_VALIDATORS=$((VALIDATORS_PER_NODE / 2))
   else
     ATTACHED_VALIDATORS=$VALIDATORS_PER_NODE

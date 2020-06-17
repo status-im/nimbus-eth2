@@ -212,7 +212,7 @@ for i in $(seq $MASTER_NODE -1 $TOTAL_USER_NODES); do
 
   run_cmd $i "${SIM_ROOT}/run_node.sh ${i} --verify-finalization" "node"
 
-  if [ "${SPLIT_VALIDATORS_BETWEEN_BN_AND_VC:-}" == "yes" ]; then
+  if [ "${BN_VC_VALIDATOR_SPLIT:-}" == "yes" ]; then
     # start the VC with a few seconds of delay so that we can connect through RPC
     run_cmd $i "sleep 3 && ${SIM_ROOT}/run_validator.sh ${i}" "validator"
   fi
