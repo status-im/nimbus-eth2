@@ -4,10 +4,13 @@ import
   json_rpc/jsonmarshal,
   callsigs_types
 
+proc get_v1_beacon_genesis(): BeaconGenesisTuple
+
+# TODO stateId is part of the REST path
+proc get_v1_beacon_states_root(stateId: string): Eth2Digest
+
 # TODO stateId is part of the REST path
 proc get_v1_beacon_states_fork(stateId: string): Fork
-
-proc get_v1_beacon_genesis(): BeaconGenesisTuple
 
 
 

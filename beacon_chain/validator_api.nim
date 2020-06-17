@@ -31,31 +31,45 @@ logScope: topics = "valapi"
 
 proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
 
+  rpcServer.rpc("get_v1_beacon_genesis") do () -> BeaconGenesisTuple:
+    debug "get_v1_beacon_genesis"
+    return (genesis_time: node.blockPool.headState.data.data.genesis_time,
+             genesis_validators_root:
+              node.blockPool.headState.data.data.genesis_validators_root,
+             genesis_fork_version: Version(GENESIS_FORK_VERSION))
+
+  rpcServer.rpc("get_v1_beacon_states_root") do (stateId: string) -> Eth2Digest:
+    debug "get_v1_beacon_states_root", stateId = stateId
+    result = case stateId:
+      of "head":
+        raise newException(CatchableError, "Not implemented")
+      of "genesis":
+        node.blockPool.headState.data.data.genesis_validators_root
+      of "finalized":
+        node.blockPool.headState.data.data.finalized_checkpoint.root
+      of "justified":
+        node.blockPool.headState.data.data.current_justified_checkpoint.root
+      else:
+        # should parse `stateId` as either a number (slot) or a hash (stateRoot)
+        raise newException(CatchableError, "Not implemented")
+
   rpcServer.rpc("get_v1_beacon_states_fork") do (stateId: string) -> Fork:
     debug "get_v1_beacon_states_fork", stateId = stateId
     result = case stateId:
       of "head":
-        discard node.updateHead() # TODO do we need this?
         node.blockPool.headState.data.data.fork
       of "genesis":
         Fork(previous_version: Version(GENESIS_FORK_VERSION),
              current_version: Version(GENESIS_FORK_VERSION),
              epoch: GENESIS_EPOCH)
       of "finalized":
-        # TODO
-        Fork()
+        # how? node.blockPool.finalizedHead is not enough...
+        raise newException(CatchableError, "Not implemented")
       of "justified":
-        # TODO
-        Fork()
+        node.blockPool.justifiedState.data.data.fork
       else:
-        # TODO parse `stateId` as either a number (slot) or a hash (stateRoot)
-        Fork()
-
-  rpcServer.rpc("get_v1_beacon_genesis") do () -> BeaconGenesisTuple:
-    debug "get_v1_beacon_genesis"
-    return (genesis_time: node.blockPool.headState.data.data.genesis_time,
-             genesis_validators_root: node.blockPool.headState.data.data.genesis_validators_root,
-             genesis_fork_version: Version(GENESIS_FORK_VERSION))
+        # should parse `stateId` as either a number (slot) or a hash (stateRoot)
+        raise newException(CatchableError, "Not implemented")
 
   rpcServer.rpc("post_v1_beacon_pool_attestations") do (
       attestation: Attestation) -> bool:
@@ -140,8 +154,8 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       if proposer.isSome():
         result.add((public_key: proposer.get()[1], slot: currSlot))
 
-  rpcServer.rpc("post_v1_validator_beacon_committee_subscription") do (
+  rpcServer.rpc("post_v1_validator_beacon_committee_subscriptions") do (
       committee_index: CommitteeIndex, slot: Slot, aggregator: bool,
       validator_pubkey: ValidatorPubKey, slot_signature: ValidatorSig) -> bool:
-    debug "post_v1_validator_beacon_committee_subscription"
-    # TODO
+    debug "post_v1_validator_beacon_committee_subscriptions"
+    raise newException(CatchableError, "Not implemented")

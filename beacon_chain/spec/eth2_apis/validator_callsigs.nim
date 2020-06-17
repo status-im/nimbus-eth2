@@ -33,8 +33,8 @@ proc post_v1_validator_duties_attester(epoch: Epoch, public_keys: seq[ValidatorP
 # TODO epoch is part of the REST path
 proc get_v1_validator_duties_proposer(epoch: Epoch): seq[ValidatorPubkeySlotPair]
 
-proc post_v1_validator_beacon_committee_subscription(committee_index: CommitteeIndex,
-                                                     slot: Slot,
-                                                     aggregator: bool,
-                                                     validator_pubkey: ValidatorPubKey,
-                                                     slot_signature: ValidatorSig): bool
+proc post_v1_validator_beacon_committee_subscriptions(committee_index: CommitteeIndex,
+                                                      slot: Slot,
+                                                      aggregator: bool,
+                                                      validator_pubkey: ValidatorPubKey,
+                                                      slot_signature: ValidatorSig): bool
