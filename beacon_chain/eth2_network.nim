@@ -192,8 +192,6 @@ const
   TTFB_TIMEOUT* = 5.seconds
   RESP_TIMEOUT* = 10.seconds
 
-  readTimeoutErrorMsg = "Exceeded read timeout for a request"
-
   NewPeerScore* = 200
     ## Score which will be assigned to new connected Peer
   PeerScoreLowLimit* = 0
@@ -273,10 +271,6 @@ proc openStream(node: Eth2Node,
       return await openStream(node, peer, protocolId)
     else:
       raise
-
-func peerId(conn: Connection): PeerID =
-  # TODO: Can this be `nil`?
-  conn.peerInfo.peerId
 
 proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer {.gcsafe.}
 
@@ -571,6 +565,11 @@ proc handleIncomingStream(network: Eth2Node,
 
   try:
     let peer = peerFromStream(network, conn)
+
+    # TODO peer connection setup is broken, update info in some better place
+    #      whenever race is fix:
+    #      https://github.com/status-im/nim-beacon-chain/issues/1157
+    peer.info = conn.peerInfo
 
     template returnInvalidRequest(msg: ErrorMsg) =
       await sendErrorResponse(peer, conn, noSnappy, InvalidRequest, msg)
