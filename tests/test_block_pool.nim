@@ -178,7 +178,7 @@ suiteReport "Block pool processing" & preset():
 
     check:
       pool.get(b2Root).isNone() # Unresolved, shouldn't show up
-      FetchRecord(root: b1Root, historySlots: 1) in pool.checkMissing()
+      FetchRecord(root: b1Root) in pool.checkMissing()
 
     check: pool.add(b1Root, b1).isOk
 
