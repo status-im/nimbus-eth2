@@ -219,22 +219,22 @@ template neterr(kindParam: Eth2NetworkingErrorKind): auto =
   err(type(result), Eth2NetworkingError(kind: kindParam))
 
 # Metrics for tracking attestation and beacon block loss
-declareCounter gossip_messages_sent,
+declareCounter nbc_gossip_messages_sent,
   "Number of gossip messages sent by this peer"
 
-declareCounter gossip_messages_received,
+declareCounter nbc_gossip_messages_received,
   "Number of gossip messages received by this peer"
 
-declarePublicGauge libp2p_successful_dials,
+declarePublicCounter nbc_successful_dials,
   "Number of successfully dialed peers"
 
-declarePublicGauge libp2p_failed_dials,
+declarePublicCounter nbc_failed_dials,
   "Number of dialing attempts that failed"
 
-declarePublicGauge libp2p_timeout_dials,
+declarePublicCounter nbc_timeout_dials,
   "Number of dialing attempts that exceeded timeout"
 
-declarePublicGauge libp2p_peers,
+declarePublicGauge nbc_peers,
   "Number of active libp2p peers"
 
 proc safeClose(conn: Connection) {.async.} =
@@ -653,7 +653,7 @@ proc handleOutgoingPeer*(peer: Peer): Future[bool] {.async.} =
 
   proc onPeerClosed(udata: pointer) {.gcsafe.} =
     debug "Peer (outgoing) lost", peer
-    libp2p_peers.set int64(len(network.peerPool))
+    nbc_peers.set int64(len(network.peerPool))
 
   let res = await network.peerPool.addOutgoingPeer(peer)
   if res:
@@ -662,14 +662,14 @@ proc handleOutgoingPeer*(peer: Peer): Future[bool] {.async.} =
     peer.getFuture().addCallback(onPeerClosed)
     result = true
 
-  libp2p_peers.set int64(len(network.peerPool))
+  nbc_peers.set int64(len(network.peerPool))
 
 proc handleIncomingPeer*(peer: Peer): Future[bool] {.async.} =
   let network = peer.network
 
   proc onPeerClosed(udata: pointer) {.gcsafe.} =
     debug "Peer (incoming) lost", peer
-    libp2p_peers.set int64(len(network.peerPool))
+    nbc_peers.set int64(len(network.peerPool))
 
   let res = await network.peerPool.addIncomingPeer(peer)
   if res:
@@ -678,7 +678,7 @@ proc handleIncomingPeer*(peer: Peer): Future[bool] {.async.} =
     peer.getFuture().addCallback(onPeerClosed)
     result = true
 
-  libp2p_peers.set int64(len(network.peerPool))
+  nbc_peers.set int64(len(network.peerPool))
 
 proc toPeerInfo*(r: enr.TypedRecord): PeerInfo =
   if r.secp256k1.isSome:
@@ -726,7 +726,7 @@ proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
   debug "Initializing connection"
   await performProtocolHandshakes(peer)
 
-  inc libp2p_successful_dials
+  inc nbc_successful_dials
   debug "Network handshakes completed"
 
 proc connectWorker(network: Eth2Node) {.async.} =
@@ -749,11 +749,11 @@ proc connectWorker(network: Eth2Node) {.async.} =
         if fut.failed() and not(fut.cancelled()):
           debug "Unable to establish connection with peer", peer = pi.id,
                 errMsg = fut.readError().msg
-          inc libp2p_failed_dials
+          inc nbc_failed_dials
           network.addSeen(pi, SeenTableTimeDeadPeer)
         continue
       debug "Connection to remote peer timed out", peer = pi.id
-      inc libp2p_timeout_dials
+      inc nbc_timeout_dials
       network.addSeen(pi, SeenTableTimeTimeout)
     else:
       trace "Peer is already connected or already seen", peer = pi.id,
@@ -1124,7 +1124,7 @@ proc startLookingForPeers*(node: Eth2Node) {.async.} =
 
   proc checkIfConnectedToBootstrapNode {.async.} =
     await sleepAsync(30.seconds)
-    if node.discovery.bootstrapRecords.len > 0 and libp2p_successful_dials.value == 0:
+    if node.discovery.bootstrapRecords.len > 0 and nbc_successful_dials.value == 0:
       fatal "Failed to connect to any bootstrap node. Quitting",
         bootstrapEnrs = node.discovery.bootstrapRecords
       quit 1
@@ -1139,7 +1139,7 @@ proc subscribe*[MsgType](node: Eth2Node,
                          msgHandler: proc(msg: MsgType) {.gcsafe.},
                          msgValidator: proc(msg: MsgType): bool {.gcsafe.} ) {.async, gcsafe.} =
   template execMsgHandler(peerExpr, gossipBytes, gossipTopic, useSnappy) =
-    inc gossip_messages_received
+    inc nbc_gossip_messages_received
     trace "Incoming pubsub message received",
       peer = peerExpr, len = gossipBytes.len, topic = gossipTopic,
       message_id = `$`(sha256.digest(gossipBytes))
@@ -1191,7 +1191,7 @@ proc traceMessage(fut: FutureBase, digest: MDigest[256]) =
       trace "Outgoing pubsub message sent", message_id = `$`(digest)
 
 proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
-  inc gossip_messages_sent
+  inc nbc_gossip_messages_sent
   let broadcastBytes = SSZ.encode(msg)
   var fut = node.switch.publish(topic, broadcastBytes)
   traceMessage(fut, sha256.digest(broadcastBytes))
