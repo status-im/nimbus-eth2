@@ -11,8 +11,7 @@ import
   deques, sequtils, tables, options,
   chronicles, stew/[byteutils], json_serialization/std/sets,
   ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator],
-  ./extras, ./block_pool, ./block_pools/candidate_chains, ./beacon_node_types,
-  ./fork_choice/fork_choice
+  ./extras, ./block_pool, ./block_pools/candidate_chains, ./beacon_node_types
 
 logScope: topics = "attpool"
 
