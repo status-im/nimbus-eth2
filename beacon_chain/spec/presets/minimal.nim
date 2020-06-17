@@ -43,7 +43,7 @@ const
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L58
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L58
 
   # Unchanged
   MIN_DEPOSIT_AMOUNT* = 2'u64^0 * 10'u64^9
@@ -53,14 +53,14 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L70
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L70
 
   GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 1'u8]
   BLS_WITHDRAWAL_PREFIX* = 0'u8
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L77
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L77
   # Changed: Faster to spin up testnets, but does not give validator
   # reasonable warning time for genesis
   GENESIS_DELAY* = 300
@@ -70,8 +70,6 @@ const
 
   # Unchanged
   MIN_ATTESTATION_INCLUSION_DELAY* = 1
-
-  SHARD_COMMITTEE_PERIOD* = 64 # epochs
 
   # Changed
   SLOTS_PER_EPOCH* {.intdefine.} = 8
@@ -86,6 +84,8 @@ const
 
   # Unchanged
   MIN_VALIDATOR_WITHDRAWABILITY_DELAY* = 2'u64^8
+
+  SHARD_COMMITTEE_PERIOD* = 64 # epochs
 
   # Unchanged
   MAX_EPOCHS_PER_CROSSLINK* = 4
@@ -117,7 +117,7 @@ const
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L131
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L131
 
   MAX_PROPOSER_SLASHINGS* = 2^4
   MAX_ATTESTER_SLASHINGS* = 2^1
@@ -178,7 +178,7 @@ const
   MAX_REVEAL_LATENESS_DECREMENT* = 128
 
   # Max operations
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L214
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L214
   MAX_CUSTODY_KEY_REVEALS* = 256
   MAX_EARLY_DERIVED_SECRET_REVEALS* = 1
   MAX_CUSTODY_SLASHINGS* = 1

@@ -53,7 +53,7 @@ declareGauge beacon_current_epoch, "Current epoch"
 # Spec
 # --------------------------------------------------------
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_total_active_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_total_active_balance
 func get_total_active_balance*(state: BeaconState, cache: var StateCache): Gwei =
   # Return the combined effective balance of the active validators.
   # Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei
@@ -145,11 +145,11 @@ proc process_justification_and_finalization*(state: var BeaconState,
   ## matter -- in the next epoch, they'll be 2 epochs old, when BeaconState
   ## tracks current_epoch_attestations and previous_epoch_attestations only
   ## per
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#attestations
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#attestations
   ## and `get_matching_source_attestations(...)` via
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#helper-functions-1
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#helper-functions-1
   ## and
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#final-updates
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#final-updates
   ## after which the state.previous_epoch_attestations is replaced.
   let total_active_balance = get_total_active_balance(state, stateCache)
   trace "Non-attesting indices in previous epoch",
