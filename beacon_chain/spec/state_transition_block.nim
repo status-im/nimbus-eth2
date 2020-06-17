@@ -320,7 +320,7 @@ proc process_voluntary_exit*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#operations
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#operations
 proc process_operations(state: var BeaconState, body: BeaconBlockBody,
     flags: UpdateFlags, stateCache: var StateCache): bool {.nbench.} =
   # Verify that outstanding deposits are processed up to the maximum number of
@@ -355,7 +355,7 @@ proc process_operations(state: var BeaconState, body: BeaconBlockBody,
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#block-processing
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#block-processing
 proc process_block*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.}=

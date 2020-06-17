@@ -377,7 +377,7 @@ proc generateCredentials*(entropy: openarray[byte] = @[],
   let mnemonic = generateMnemonic(englishWords, entropy)
   restoreCredentials(mnemonic, password)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/deposit-contract.md#withdrawal-credentials
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/deposit-contract.md#withdrawal-credentials
 proc makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
   var bytes = eth2digest(k.toRaw())
   bytes.data[0] = BLS_WITHDRAWAL_PREFIX.uint8

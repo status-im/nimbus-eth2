@@ -107,7 +107,7 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L117
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L117
 
   BASE_REWARD_FACTOR* = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
@@ -134,7 +134,7 @@ const
 
   # Validators
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L38
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L38
 
   # Changed
   ETH1_FOLLOW_DISTANCE* = 16 # blocks
@@ -147,14 +147,14 @@ const
 
   # Phase 1: Upgrade from Phase 0
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L161
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L161
   PHASE_1_FORK_VERSION* = 16777217
   PHASE_1_GENESIS_SLOT* = 8
   INITIAL_ACTIVE_SHARDS* = 4
 
   # Phase 1: General
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L169
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L171
   MAX_SHARDS* = 8
   ONLINE_PERIOD* = 8 # epochs ~ 51 minutes
   LIGHT_CLIENT_COMMITTEE_SIZE* = 128
@@ -170,7 +170,7 @@ const
   # Phase 1 - Custody game
   # ---------------------------------------------------------------
   # Time parameters
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L202
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L202
   RANDAO_PENALTY_EPOCHS* = 2
   EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS* = 4096 # epochs
   EPOCHS_PER_CUSTODY_PERIOD* = 2048
@@ -184,6 +184,6 @@ const
   MAX_CUSTODY_SLASHINGS* = 1
 
   # Reward and penalty quotients
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L220
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L220
   EARLY_DERIVED_SECRET_REVEAL_SLOT_REWARD_MULTIPLE* = 2
   MINOR_REWARD_QUOTIENT* = 256
