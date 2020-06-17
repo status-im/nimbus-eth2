@@ -30,10 +30,6 @@ cli do (skipGoerliKey {.
           desc: "The Ethereum 2.0 const preset of the network (optional)"
           name: "const-preset" .} = "",
 
-        devBuild {.
-          desc: "Enables more extensive logging and debugging support"
-          name: "dev-build" .} = false,
-
         nodeID {.
           desc: "Node ID" .} = 0.int,
 
@@ -44,7 +40,7 @@ cli do (skipGoerliKey {.
           desc: "Base metrics port (nodeID will be added to it)" .} = 8008.int,
 
         baseRpcPort {.
-          desc: "Base rpc port (nodeID will be added to it)" .} = 9090.int,
+          desc: "Base rpc port (nodeID will be added to it)" .} = 9190.int,
 
         testnetName {.argument .}: string):
   let
@@ -104,8 +100,8 @@ cli do (skipGoerliKey {.
   var
     nimFlags = "-d:chronicles_log_level=TRACE " & getEnv("NIM_PARAMS")
 
-  if devBuild:
-    nimFlags.add """ -d:"chronicles_sinks=textlines,json[file(nbc.log)]" """
+  # write the logs to a file
+  nimFlags.add """ -d:"chronicles_sinks=textlines,json[file(nbc""" & staticExec("date +\"%Y%m%d%H%M%S\"") & """.log)]" """
 
   let depositContractFile = testnetDir / depositContractFileName
   if system.fileExists(depositContractFile):
@@ -167,6 +163,7 @@ cli do (skipGoerliKey {.
     logLevelOpt = &"""--log-level="{logLevel}" """
 
   mode = Verbose
+  cd dataDir
   execIgnoringExitCode replace(&"""{beaconNodeBinary}
     --data-dir="{dataDir}"
     --dump
