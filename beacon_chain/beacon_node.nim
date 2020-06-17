@@ -705,6 +705,22 @@ proc installDebugApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
 
     return res
 
+  rpcServer.rpc("peers") do () -> JsonNode:
+    var res = newJObject()
+    var peers = newJArray()
+    for id, peer in node.network.peerPool:
+      peers.add(
+        %(
+          info: shortLog(peer.info),
+          wasDialed: peer.wasDialed,
+          connectionState: $peer.connectionState,
+          score: peer.score,
+        )
+      )
+    res.add("peers", peers)
+
+    return res
+
 proc installRpcHandlers(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.installValidatorApiHandlers(node)
   rpcServer.installBeaconApiHandlers(node)
