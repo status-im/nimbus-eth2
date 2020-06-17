@@ -450,17 +450,6 @@ when useNativeSnappy:
 else:
   include libp2p_streams_backend
 
-template awaitWithTimeout[T](operation: Future[T],
-                             deadline: Future[void],
-                             onTimeout: untyped): T =
-  let f = operation
-  await f or deadline
-  if not f.finished:
-    cancel f
-    onTimeout
-  else:
-    f.read
-
 proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
                      ResponseMsg: type,
                      timeout: Duration): Future[NetRes[ResponseMsg]]
