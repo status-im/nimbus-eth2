@@ -101,7 +101,7 @@ cli do (skipGoerliKey {.
     nimFlags = "-d:chronicles_log_level=TRACE " & getEnv("NIM_PARAMS")
 
   # write the logs to a file
-  nimFlags.add """ -d:"chronicles_sinks=textlines,json[file(nbc.log,truncate)]" """
+  nimFlags.add """ -d:"chronicles_sinks=textlines,json[file(nbc""" & staticExec("date +\"%Y%m%d%H%M%S\"") & """.log)]" """
 
   let depositContractFile = testnetDir / depositContractFileName
   if system.fileExists(depositContractFile):
