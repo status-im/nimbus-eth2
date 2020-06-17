@@ -71,8 +71,7 @@ proc process_block_header*(
     return false
 
   # Verify that the parent matches
-  if skipBlockParentRootValidation notin flags and not (blck.parent_root ==
-      hash_tree_root(state.latest_block_header)):
+  if not (blck.parent_root == hash_tree_root(state.latest_block_header)):
     notice "Block header: previous block root mismatch",
       latest_block_header = state.latest_block_header,
       blck = shortLog(blck),

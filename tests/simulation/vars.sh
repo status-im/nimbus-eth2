@@ -19,7 +19,7 @@ cd - &>/dev/null
 
 # When changing these, also update the readme section on running simulation
 # so that the run_node example is correct!
-NUM_VALIDATORS=${VALIDATORS:-192}
+NUM_VALIDATORS=${VALIDATORS:-128}
 TOTAL_NODES=${NODES:-4}
 TOTAL_USER_NODES=${USER_NODES:-0}
 TOTAL_SYSTEM_NODES=$(( TOTAL_NODES - TOTAL_USER_NODES ))

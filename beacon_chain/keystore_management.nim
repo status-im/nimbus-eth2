@@ -109,7 +109,7 @@ proc generateDeposits*(totalValidators: int,
     let credentials = generateCredentials(password = password)
 
     let
-      keyName = $(credentials.signingKey.toPubKey)
+      keyName = intToStr(i, 6) & "_" & $(credentials.signingKey.toPubKey)
       validatorDir = validatorsDir / keyName
       passphraseFile = secretsDir / keyName
       depositFile = validatorDir / depositFileName
