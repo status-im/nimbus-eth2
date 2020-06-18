@@ -101,7 +101,7 @@ proc isSynced(node: BeaconNode, head: BlockRef): bool =
 proc sendAttestation*(node: BeaconNode, attestation: Attestation) =
   logScope: pcs = "send_attestation"
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-attestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/validator.md#broadcast-attestation
   node.network.broadcast(
     getMainnetAttestationTopic(node.forkDigest, attestation.data.index),
     attestation)

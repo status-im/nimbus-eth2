@@ -20,7 +20,7 @@ type
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L4
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L4
 
   # Changed
   MAX_COMMITTEES_PER_SLOT* = 4
@@ -95,7 +95,7 @@ const
 
   # State vector lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L105
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L105
 
   # Changed
   EPOCHS_PER_HISTORICAL_VECTOR* = 64
@@ -127,7 +127,7 @@ const
 
   # Fork choice
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/minimal.yaml#L32
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L32
 
   # Changed
   SAFE_SLOTS_TO_UPDATE_JUSTIFIED* = 2
