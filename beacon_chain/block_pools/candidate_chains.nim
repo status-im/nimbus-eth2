@@ -53,7 +53,7 @@ func parent*(bs: BlockSlot): BlockSlot =
       slot: bs.slot - 1
     )
 
-func populateEpochCache*(state: BeaconState, epoch: Epoch): EpochRef =
+func populateEpochCache(state: BeaconState, epoch: Epoch): EpochRef =
   result = (EpochRef)(
     epoch: state.slot.compute_epoch_at_slot,
     shuffled_active_validator_indices:
@@ -148,7 +148,7 @@ func getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
   if matching_epochinfo.len == 0:
     let cache = populateEpochCache(state, state_epoch)
     blck.epochsInfo.add(cache)
-    trace "candidate_chains.skipAndUpdateState(): back-filling parent.epochInfo",
+    trace "candidate_chains.getEpochInfo: back-filling parent.epochInfo",
       state_slot = state.slot
     cache
   elif matching_epochinfo.len == 1:
