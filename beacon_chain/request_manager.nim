@@ -37,12 +37,16 @@ proc init*(T: type RequestManager, network: Eth2Node,
 proc checkResponse(roots: openArray[Eth2Digest],
                    blocks: openArray[SignedBeaconBlock]): bool =
   ## This procedure checks peer's response.
+  var checks = @roots
   if len(blocks) > len(roots):
     return false
   for blk in blocks:
     let blockRoot = hash_tree_root(blk.message)
-    if blockRoot notin roots:
+    let res = checks.find(blockRoot)
+    if res == -1:
       return false
+    else:
+      checks.del(res)
   return true
 
 proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
