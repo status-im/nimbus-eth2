@@ -213,7 +213,6 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     nickname: nickname,
     network: network,
     netKeys: netKeys,
-    requestManager: RequestManager.init(network),
     db: db,
     config: conf,
     attachedValidators: ValidatorPool.init(),
@@ -225,6 +224,11 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     forkDigest: enrForkId.forkDigest,
     topicBeaconBlocks: topicBeaconBlocks,
     topicAggregateAndProofs: topicAggregateAndProofs,
+  )
+
+  res.requestManager = RequestManager.init(network,
+    proc(signedBlock: SignedBeaconBlock) =
+      onBeaconBlock(res, signedBlock)
   )
 
   traceAsyncErrors res.addLocalValidators()
@@ -501,21 +505,8 @@ proc handleMissingBlocks(node: BeaconNode) =
   let missingBlocks = node.blockPool.checkMissing()
   if missingBlocks.len > 0:
     var left = missingBlocks.len
-
-    info "Requesting detected missing blocks", missingBlocks
-    node.requestManager.fetchAncestorBlocks(missingBlocks) do (b: SignedBeaconBlock):
-      onBeaconBlock(node, b)
-
-      # TODO instead of waiting for a full second to try the next missing block
-      #      fetching, we'll do it here again in case we get all blocks we asked
-      #      for (there might be new parents to fetch). of course, this is not
-      #      good because the onSecond fetching also kicks in regardless but
-      #      whatever - this is just a quick fix for making the testnet easier
-      #      work with while the sync problem is dealt with more systematically
-      # dec left
-      # if left == 0:
-      #   discard setTimer(Moment.now()) do (p: pointer):
-      #     handleMissingBlocks(node)
+    info "Requesting detected missing blocks", blocks = shortLog(missingBlocks)
+    node.requestManager.fetchAncestorBlocks(missingBlocks)
 
 proc onSecond(node: BeaconNode) {.async.} =
   ## This procedure will be called once per second.
@@ -814,6 +805,8 @@ proc run*(node: BeaconNode) =
 
     node.onSecondLoop = runOnSecondLoop(node)
     node.forwardSyncLoop = runForwardSyncLoop(node)
+
+    node.requestManager.start()
 
   # main event loop
   while status == BeaconNodeStatus.Running:
@@ -1163,4 +1156,3 @@ programMain:
         config.depositContractAddress,
         config.depositPrivateKey,
         delayGenerator)
-
