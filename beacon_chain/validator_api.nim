@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  tables, strutils,
+  tables, strutils, parseutils,
 
   # Nimble packages
   stew/[objects],
@@ -31,6 +31,15 @@ logScope: topics = "valapi"
 
 proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
 
+  template withStateForSlot(stateId: string, body: untyped): untyped =
+    var res: BiggestInt
+    if parseBiggestInt(stateId, res) == 0:
+      raise newException(CatchableError, "Not a valid slot number")
+    let head = node.updateHead()
+    let blockSlot = head.atSlot(res.Slot)
+    node.blockPool.withState(node.blockPool.tmpState, blockSlot):
+      body
+
   rpcServer.rpc("get_v1_beacon_genesis") do () -> BeaconGenesisTuple:
     debug "get_v1_beacon_genesis"
     return (genesis_time: node.blockPool.headState.data.data.genesis_time,
@@ -40,9 +49,10 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
 
   rpcServer.rpc("get_v1_beacon_states_root") do (stateId: string) -> Eth2Digest:
     debug "get_v1_beacon_states_root", stateId = stateId
+    # TODO do we need to call node.updateHead() before using headState?
     result = case stateId:
       of "head":
-        raise newException(CatchableError, "Not implemented")
+        node.blockPool.headState.blck.root
       of "genesis":
         node.blockPool.headState.data.data.genesis_validators_root
       of "finalized":
@@ -50,8 +60,14 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       of "justified":
         node.blockPool.headState.data.data.current_justified_checkpoint.root
       else:
-        # should parse `stateId` as either a number (slot) or a hash (stateRoot)
-        raise newException(CatchableError, "Not implemented")
+        if stateId.startsWith("0x"):
+          # TODO not sure if `fromHex` is the right thing here...
+          # https://github.com/ethereum/eth2.0-APIs/issues/37#issuecomment-638566144
+          # we return whatever was passed to us (this is a nonsense request)
+          fromHex(Eth2Digest, stateId[2..stateId.len]) # skip first 2 chars
+        else:
+          withStateForSlot(stateId):
+            hashedState.root
 
   rpcServer.rpc("get_v1_beacon_states_fork") do (stateId: string) -> Fork:
     debug "get_v1_beacon_states_fork", stateId = stateId
@@ -63,13 +79,24 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
              current_version: Version(GENESIS_FORK_VERSION),
              epoch: GENESIS_EPOCH)
       of "finalized":
-        # how? node.blockPool.finalizedHead is not enough...
-        raise newException(CatchableError, "Not implemented")
+        node.blockPool.withState(node.blockPool.tmpState, node.blockPool.finalizedHead):
+          state.fork
       of "justified":
         node.blockPool.justifiedState.data.data.fork
       else:
-        # should parse `stateId` as either a number (slot) or a hash (stateRoot)
-        raise newException(CatchableError, "Not implemented")
+        if stateId.startsWith("0x"):
+          # TODO not sure if `fromHex` is the right thing here...
+          # https://github.com/ethereum/eth2.0-APIs/issues/37#issuecomment-638566144
+          let root = fromHex(Eth2Digest, stateId[2..stateId.len]) # skip first 2 chars
+          let blckRef = node.blockPool.getRef(root)
+          if blckRef.isNil:
+            raise newException(CatchableError, "Block not found")
+          let blckSlot = blckRef.atSlot(blckRef.slot)
+          node.blockPool.withState(node.blockPool.tmpState, blckSlot):
+            state.fork
+        else:
+          withStateForSlot(stateId):
+            state.fork
 
   rpcServer.rpc("post_v1_beacon_pool_attestations") do (
       attestation: Attestation) -> bool:
