@@ -87,8 +87,8 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
         if stateId.startsWith("0x"):
           # TODO not sure if `fromHex` is the right thing here...
           # https://github.com/ethereum/eth2.0-APIs/issues/37#issuecomment-638566144
-          let root = fromHex(Eth2Digest, stateId[2..stateId.len]) # skip first 2 chars
-          let blckRef = node.blockPool.getRef(root)
+          let blckRoot = fromHex(Eth2Digest, stateId[2..stateId.len]) # skip first 2 chars
+          let blckRef = node.blockPool.getRef(blckRoot)
           if blckRef.isNil:
             raise newException(CatchableError, "Block not found")
           let blckSlot = blckRef.atSlot(blckRef.slot)
