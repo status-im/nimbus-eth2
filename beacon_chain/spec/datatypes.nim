@@ -55,18 +55,16 @@ const const_preset* {.strdefine.} = "mainnet"
 
 when const_preset == "mainnet":
   when ETH2_SPEC == "v0.12.1":
-    import ./presets/mainnet
-    export mainnet
+    import ./presets/v0_12_1/mainnet
   else:
-    import ./presets/mainnet_v0_11_3
-    export mainnet_v0_11_3
+    import ./presets/v0_11_3/mainnet
+  export mainnet
 elif const_preset == "minimal":
   when ETH2_SPEC == "v0.12.1":
-    import ./presets/minimal
-    export minimal
+    import ./presets/v0_12_1/minimal
   else:
-    import ./presets/minimal_v0_11_3
-    export minimal_v0_11_3
+    import ./presets/v0_11_3/minimal
+  export minimal
 else:
   type
     Slot* = distinct uint64
