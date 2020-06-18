@@ -58,6 +58,10 @@ task test, "Run all tests":
   # pieces of code get tested regularly. Increased test output verbosity is the
   # price we pay for that.
 
+  # Just the part of minimal config which explicitly differs from mainnet
+  buildAndRunBinary "test_fixture_const_sanity_check", "tests/official/", "-d:const_preset=minimal -d:ETH2_SPEC=\"v0.11.3\""
+  buildAndRunBinary "test_fixture_const_sanity_check", "tests/official/", "-d:const_preset=minimal -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
+
   # Mainnet config
   buildAndRunBinary "proto_array", "beacon_chain/fork_choice/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
   buildAndRunBinary "fork_choice", "beacon_chain/fork_choice/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""

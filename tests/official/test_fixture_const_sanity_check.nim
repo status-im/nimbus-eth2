@@ -83,9 +83,15 @@ macro parseNumConsts(file: static string): untyped =
 const datatypesConsts = @(parseNumConsts(SpecDir/"datatypes.nim"))
 
 when const_preset == "minimal":
-  const minimalConsts = @(parseNumConsts(SpecDir/"presets"/"minimal.nim"))
+  when ETH2_SPEC == "v0.12.1":
+    const minimalConsts = @(parseNumConsts(SpecDir/"presets"/"minimal.nim"))
+  else:
+    const minimalConsts = @(parseNumConsts(SpecDir/"presets"/"minimal_v0_11_3.nim"))
 else:
-  const mainnetConsts = @(parseNumConsts(SpecDir/"presets"/"mainnet.nim"))
+  when ETH2_SPEC == "v0.12.1":
+    const mainnetConsts = @(parseNumConsts(SpecDir/"presets"/"mainnet.nim"))
+  else:
+    const mainnetConsts = @(parseNumConsts(SpecDir/"presets"/"mainnet_v0_11_3.nim"))
 
 const IgnoreKeys = [
   # Ignore all non-numeric types
