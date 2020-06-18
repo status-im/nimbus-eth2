@@ -55,14 +55,14 @@ proc process_deposit*(
   # Process an Eth1 deposit, registering a validator or increasing its balance.
 
   # Verify the Merkle branch
-  if skipMerkleValidation notin flags and not is_valid_merkle_branch(
+  if not is_valid_merkle_branch(
     hash_tree_root(deposit.data),
     deposit.proof,
     DEPOSIT_CONTRACT_TREE_DEPTH + 1,  # Add 1 for the `List` length mix-in
     state.eth1_deposit_index,
     state.eth1_data.deposit_root,
   ):
-    notice "Deposit merkle validation failed",
+    notice "Deposit Merkle validation failed",
       proof = deposit.proof, deposit_root = state.eth1_data.deposit_root,
       deposit_index = state.eth1_deposit_index
     return false

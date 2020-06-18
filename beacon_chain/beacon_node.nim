@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  os, tables, random, strutils, times, math,
+  algorithm, os, tables, random, strutils, times, math,
 
   # Nimble packages
   stew/[objects, byteutils], stew/shims/macros,
@@ -1005,8 +1005,10 @@ programMain:
 
   case config.cmd
   of createTestnet:
-    var deposits: seq[Deposit]
-    var i = -1
+    var
+      depositDirs: seq[string]
+      deposits: seq[Deposit]
+      i = -1
     for kind, dir in walkDir(config.testnetDepositsDir.string):
       if kind != pcDir:
         continue
@@ -1015,6 +1017,12 @@ programMain:
       if i < config.firstValidator.int:
         continue
 
+      depositDirs.add dir
+
+    # Add deposits, in order, to pass Merkle validation
+    sort(depositDirs, system.cmp)
+
+    for dir in depositDirs:
       let depositFile = dir / "deposit.json"
       try:
         deposits.add Json.loadFile(depositFile, Deposit)
@@ -1031,7 +1039,7 @@ programMain:
                  else: waitFor getLatestEth1BlockHash(config.web3Url)
     var
       initialState = initialize_beacon_state_from_eth1(
-        eth1Hash, startTime, deposits, {skipBlsValidation, skipMerkleValidation})
+        eth1Hash, startTime, deposits, {skipBlsValidation})
 
     # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
     initialState.genesis_time = startTime
