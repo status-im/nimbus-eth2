@@ -12,8 +12,8 @@ import
   algorithm, options, sequtils, math, tables,
   ./datatypes, ./digest, ./helpers
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#compute_shuffled_index
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#compute_committee
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#compute_shuffled_index
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#compute_committee
 func get_shuffled_seq*(seed: Eth2Digest,
                       list_size: uint64,
                       ): seq[ValidatorIndex] =
@@ -52,14 +52,14 @@ func get_shuffled_seq*(seed: Eth2Digest,
     source_buffer[32] = round_bytes1
 
     # Only one pivot per round.
-    let pivot = bytes_to_int(eth2hash(pivot_buffer).data.toOpenArray(0, 7)) mod list_size
+    let pivot = bytes_to_int(eth2digest(pivot_buffer).data.toOpenArray(0, 7)) mod list_size
 
     ## Only need to run, per round, position div 256 hashes, so precalculate
     ## them. This consumes memory, but for low-memory devices, it's possible
     ## to mitigate by some light LRU caching and similar.
     for reduced_position in 0 ..< sources.len:
       source_buffer[33..36] = int_to_bytes4(reduced_position.uint64)
-      sources[reduced_position] = eth2hash(source_buffer)
+      sources[reduced_position] = eth2digest(source_buffer)
 
     ## Iterate over all the indices. This was in get_permuted_index, but large
     ## efficiency gains exist in caching and re-using data.
@@ -90,7 +90,7 @@ func get_shuffled_active_validator_indices*(state: BeaconState, epoch: Epoch):
       active_validator_indices.len.uint64),
     active_validator_indices[it])
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_previous_epoch
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(state: BeaconState): Epoch =
   # Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
   let current_epoch = get_current_epoch(state)
@@ -99,7 +99,7 @@ func get_previous_epoch*(state: BeaconState): Epoch =
   else:
     current_epoch - 1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#compute_committee
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#compute_committee
 func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
     index: uint64, count: uint64): seq[ValidatorIndex] =
   ## Return the committee corresponding to ``indices``, ``seed``, ``index``,
@@ -123,7 +123,7 @@ func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
   except KeyError:
     raiseAssert("Cached entries are added before use")
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee*(
     state: BeaconState, slot: Slot, index: CommitteeIndex,
     cache: var StateCache): seq[ValidatorIndex] =
@@ -162,7 +162,7 @@ func get_empty_per_epoch_cache*(): StateCache =
     initTable[Epoch, seq[ValidatorIndex]]()
   result.committee_count_cache = initTable[Epoch, uint64]()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#compute_proposer_index
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#compute_proposer_index
 func compute_proposer_index(state: BeaconState, indices: seq[ValidatorIndex],
     seed: Eth2Digest): Option[ValidatorIndex] =
   # Return from ``indices`` a random index sampled by effective balance.
@@ -185,7 +185,7 @@ func compute_proposer_index(state: BeaconState, indices: seq[ValidatorIndex],
     buffer[32..39] = int_to_bytes8(i.uint64 div 32)
     let
       candidate_index = shuffled_seq[(i.uint64 mod seq_len).int]
-      random_byte = (eth2hash(buffer).data)[i mod 32]
+      random_byte = (eth2digest(buffer).data)[i mod 32]
       effective_balance =
         state.validators[candidate_index].effective_balance
     if effective_balance * MAX_RANDOM_BYTE >=
@@ -193,7 +193,7 @@ func compute_proposer_index(state: BeaconState, indices: seq[ValidatorIndex],
       return some(candidate_index)
     i += 1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_beacon_proposer_index
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: BeaconState, cache: var StateCache, slot: Slot):
     Option[ValidatorIndex] =
   try:
@@ -217,7 +217,7 @@ func get_beacon_proposer_index*(state: BeaconState, cache: var StateCache, slot:
 
   try:
     let
-      seed = eth2hash(buffer)
+      seed = eth2digest(buffer)
       indices =
         sorted(cache.shuffled_active_validator_indices[epoch], system.cmp)
 
@@ -227,12 +227,12 @@ func get_beacon_proposer_index*(state: BeaconState, cache: var StateCache, slot:
   except KeyError:
     raiseAssert("Cached entries are added before use")
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_beacon_proposer_index
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: BeaconState, cache: var StateCache):
     Option[ValidatorIndex] =
   get_beacon_proposer_index(state, cache, state.slot)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/validator.md#validator-assignments
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#validator-assignments
 func get_committee_assignment*(
     state: BeaconState, epoch: Epoch, validator_index: ValidatorIndex):
     Option[tuple[a: seq[ValidatorIndex], b: CommitteeIndex, c: Slot]] {.used.} =
@@ -257,7 +257,7 @@ func get_committee_assignment*(
         return some((committee, idx, slot))
   none(tuple[a: seq[ValidatorIndex], b: CommitteeIndex, c: Slot])
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/validator.md#validator-assignments
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#validator-assignments
 func is_proposer(
     state: BeaconState, validator_index: ValidatorIndex): bool {.used.} =
   var cache = get_empty_per_epoch_cache()

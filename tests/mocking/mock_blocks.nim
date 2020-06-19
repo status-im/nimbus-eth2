@@ -8,7 +8,7 @@
 import
   options,
   # Specs
-  ../../beacon_chain/spec/[datatypes, validator, state_transition_block],
+  ../../beacon_chain/spec/[datatypes, helpers, signatures, validator],
   # Internals
   ../../beacon_chain/[ssz, extras],
   # Mock helpers
@@ -27,7 +27,8 @@ proc signMockBlockImpl(
   let privkey = MockPrivKeys[signedBlock.message.proposer_index]
 
   signedBlock.message.body.randao_reveal = get_epoch_signature(
-    state.fork, state.genesis_validators_root, block_slot, privkey)
+    state.fork, state.genesis_validators_root, block_slot.compute_epoch_at_slot,
+    privkey)
   signedBlock.signature = get_block_signature(
     state.fork, state.genesis_validators_root, block_slot,
     hash_tree_root(signedBlock.message), privkey)

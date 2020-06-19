@@ -40,12 +40,9 @@ type
   TestSizeError* = object of ValueError
 
 const
-  FixturesDir* = currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / "vendor" / "nim-eth2-scenarios"
-  SszTestsDir* =
-    when ETH2_SPEC == "v0.12.1":
-      FixturesDir/"tests-v0.12.1"
-    else:
-      FixturesDir/"tests-v0.11.3"
+  FixturesDir* =
+    currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / "vendor" / "nim-eth2-scenarios"
+  SszTestsDir* = FixturesDir / "tests-v" & SPEC_VERSION
 
 proc parseTest*(path: string, Format: typedesc[Json or SSZ], T: typedesc): T =
   try:

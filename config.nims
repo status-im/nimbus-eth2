@@ -43,18 +43,32 @@ else:
 
 switch("import", "testutils/moduletests")
 
+const useLibStackTrace = not defined(macosx) and
+                         not (defined(windows) and defined(i386)) and
+                         not defined(disable_libbacktrace)
+
+when useLibStackTrace:
+  --define:nimStackTraceOverride
+  switch("import", "libbacktrace")
+else:
+  --stacktrace:on
+  --linetrace:on
+
 # the default open files limit is too low on macOS (512), breaking the
 # "--debugger:native" build. It can be increased with `ulimit -n 1024`.
 if not defined(macosx):
   # add debugging symbols and original files and line numbers
   --debugger:native
-  if not (defined(windows) and defined(i386)) and not defined(disable_libbacktrace):
-    # light-weight stack traces using libbacktrace and libunwind
-    --define:nimStackTraceOverride
-    switch("import", "libbacktrace")
 
 --define:nimOldCaseObjects # https://github.com/status-im/nim-confutils/issues/9
 
 # `switch("warning[CaseTransition]", "off")` fails with "Error: invalid command line option: '--warning[CaseTransition]'"
 switch("warning", "CaseTransition:off")
+
+# The compiler doth protest too much, methinks, about all these cases where it can't
+# do its (N)RVO pass: https://github.com/nim-lang/RFCs/issues/230
+switch("warning", "ObservableStores:off")
+
+# Too many false positives for "Warning: method has lock level <unknown>, but another method has 0 [LockLevel]"
+switch("warning", "LockLevel:off")
 

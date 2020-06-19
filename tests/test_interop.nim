@@ -2,7 +2,7 @@
 
 import
   unittest, stint, ./testutil, stew/byteutils,
-  ../beacon_chain/[extras, interop, ssz],
+  ../beacon_chain/[interop, merkle_minimal, ssz],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes]
 
 # Interop test yaml, found here:
@@ -119,7 +119,7 @@ suiteReport "Interop":
   timedTest "Mocked start private key":
     for i, k in privateKeys:
       let
-        key = makeInteropPrivKey(i)[]
+        key = makeInteropPrivKey(i)
         v = k.parse(UInt256, 16)
 
       check:
@@ -144,16 +144,14 @@ suiteReport "Interop":
     var deposits: seq[Deposit]
 
     for i in 0..<64:
-      let
-        privKey = makeInteropPrivKey(i)[]
-      deposits.add(makeDeposit(privKey.toPubKey(), privKey))
+      let privKey = makeInteropPrivKey(i)
+      deposits.add makeDeposit(privKey.toPubKey(), privKey)
+    attachMerkleProofs(deposits)
 
     const genesis_time = 1570500000
     var
-      # TODO this currently requires skipMerkleValidation to pass the test
-      # makeDeposit doesn't appear to produce a proof?
       initialState = initialize_beacon_state_from_eth1(
-        eth1BlockHash, genesis_time, deposits, {skipMerkleValidation})
+        eth1BlockHash, genesis_time, deposits, {})
 
     # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
     initialState.genesis_time = genesis_time

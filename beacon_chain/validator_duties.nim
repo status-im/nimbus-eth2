@@ -20,7 +20,7 @@ import
   # Local modules
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network],
   conf, time, validator_pool, state_transition,
-  attestation_pool, block_pool, eth2_network,
+  attestation_pool, block_pool, eth2_network, keystore_management,
   beacon_node_common, beacon_node_types, nimbus_binary_common,
   mainchain_monitor, version, ssz/merkleization, interop,
   attestation_aggregation, sync_manager, sszdump
@@ -34,15 +34,15 @@ declareCounter beacon_blocks_proposed,
 logScope: topics = "beacval"
 
 proc saveValidatorKey*(keyName, key: string, conf: BeaconNodeConf) =
-  let validatorsDir = conf.localValidatorsDir
+  let validatorsDir = conf.validatorsDir
   let outputFile = validatorsDir / keyName
   createDir validatorsDir
   writeFile(outputFile, key)
   info "Imported validator key", file = outputFile
 
 proc addLocalValidator*(node: BeaconNode,
-                       state: BeaconState,
-                       privKey: ValidatorPrivKey) =
+                        state: BeaconState,
+                        privKey: ValidatorPrivKey) =
   let pubKey = privKey.toPubKey()
 
   let idx = state.validators.asSeq.findIt(it.pubKey == pubKey)
@@ -53,15 +53,22 @@ proc addLocalValidator*(node: BeaconNode,
 
   node.attachedValidators.addLocalValidator(pubKey, privKey)
 
-proc addLocalValidators*(node: BeaconNode, state: BeaconState) =
-  for validatorKey in node.config.validatorKeys:
-    node.addLocalValidator state, validatorKey
+proc addLocalValidators*(node: BeaconNode) {.async.} =
+  let
+    head = node.blockPool.head
+    bs = BlockSlot(blck: head.blck, slot: head.blck.slot)
 
-  info "Local validators attached ", count = node.attachedValidators.count
+  node.blockPool.withState(node.blockPool.tmpState, bs):
+    for validatorKey in node.config.validatorKeys:
+      node.addLocalValidator state, validatorKey
+      # Allow some network events to be processed:
+      await sleepAsync(0.seconds)
+
+    info "Local validators attached ", count = node.attachedValidators.count
 
 func getAttachedValidator*(node: BeaconNode,
-                          state: BeaconState,
-                          idx: ValidatorIndex): AttachedValidator =
+                           state: BeaconState,
+                           idx: ValidatorIndex): AttachedValidator =
   let validatorKey = state.validators[idx].pubkey
   node.attachedValidators.getValidator(validatorKey)
 
@@ -94,7 +101,7 @@ proc isSynced(node: BeaconNode, head: BlockRef): bool =
 proc sendAttestation*(node: BeaconNode, attestation: Attestation) =
   logScope: pcs = "send_attestation"
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-attestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/validator.md#broadcast-attestation
   node.network.broadcast(
     getMainnetAttestationTopic(node.forkDigest, attestation.data.index),
     attestation)
@@ -115,7 +122,7 @@ proc createAndSendAttestation(node: BeaconNode,
   node.sendAttestation(attestation)
 
   if node.config.dumpEnabled:
-    dump(node.config.dumpDir, attestation.data, validator.pubKey)
+    dump(node.config.dumpDirOutgoing, attestation.data, validator.pubKey)
 
   info "Attestation sent",
     attestation = shortLog(attestation),
@@ -169,7 +176,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       #      `state_transition` that takes a `StateData` instead and updates
       #      the block as well
       doAssert v.addr == addr poolPtr.tmpState.data
-      poolPtr.tmpState = poolPtr.headState
+      assign(poolPtr.tmpState, poolPtr.headState)
 
     var cache = get_empty_per_epoch_cache()
     let message = makeBeaconBlock(
@@ -214,10 +221,7 @@ proc proposeSignedBlock*(node: BeaconNode,
     cat = "consensus"
 
   if node.config.dumpEnabled:
-    dump(node.config.dumpDir, newBlock, newBlockRef[])
-    node.blockPool.withState(
-        node.blockPool.tmpState, newBlockRef[].atSlot(newBlockRef[].slot)):
-      dump(node.config.dumpDir, hashedState, newBlockRef[])
+    dump(node.config.dumpDirOutgoing, newBlock, newBlockRef[])
 
   node.network.broadcast(node.topicBeaconBlocks, newBlock)
 
@@ -450,7 +454,7 @@ proc handleValidatorDuties*(
   #      with any clock discrepancies once only, at the start of slot timer
   #      processing..
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#attesting
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#attesting
   # A validator should create and broadcast the attestation to the associated
   # attestation subnet when either (a) the validator has received a valid
   # block from the expected block proposer for the assigned slot or
@@ -466,7 +470,7 @@ proc handleValidatorDuties*(
 
   handleAttestations(node, head, slot)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#broadcast-aggregate
   # If the validator is selected to aggregate (is_aggregator), then they
   # broadcast their best aggregate as a SignedAggregateAndProof to the global
   # aggregate channel (beacon_aggregate_and_proof) two-thirds of the way

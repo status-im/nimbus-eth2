@@ -1,5 +1,5 @@
-data/
-validators/
-prometheus/
-beacon-chain-sim-all-nodes-Grafana-dashboard.json
+/data
+/validators
+/prometheus
+/secrets
 

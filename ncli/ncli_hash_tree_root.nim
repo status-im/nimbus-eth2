@@ -17,13 +17,17 @@ cli do(kind: string, file: string):
         echo "Unknown file type: ", ext
         quit 1
     )
-    echo hash_tree_root(v[]).data.toHex()
+    when t is SignedBeaconBlock:
+      echo hash_tree_root(v.message).data.toHex()
+    else:
+      echo hash_tree_root(v[]).data.toHex()
 
   let ext = splitFile(file).ext
 
   case kind
   of "attester_slashing": printit(AttesterSlashing)
   of "attestation": printit(Attestation)
+  of "signed_block": printit(SignedBeaconBlock)
   of "block": printit(BeaconBlock)
   of "block_body": printit(BeaconBlockBody)
   of "block_header": printit(BeaconBlockHeader)

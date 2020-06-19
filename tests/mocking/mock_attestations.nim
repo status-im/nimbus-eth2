@@ -13,7 +13,7 @@ import
   sets,
   # Specs
   ../../beacon_chain/spec/[datatypes, beaconstate, helpers, validator, crypto,
-     state_transition_block],
+    signatures],
   # Internals
   ../../beacon_chain/[ssz, extras, state_transition],
   # Mocking procs

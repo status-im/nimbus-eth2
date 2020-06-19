@@ -1,7 +1,7 @@
 import
   tables,
   chronos, chronicles,
-  spec/[datatypes, crypto, digest, state_transition_block],
+  spec/[datatypes, crypto, digest, signatures, helpers],
   beacon_node_types
 
 func init*(T: type ValidatorPool): T =
@@ -80,10 +80,11 @@ proc signAggregateAndProof*(v: AttachedValidator,
     error "Out of process signAggregateAndProof not implemented"
     quit 1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#randao-reveal
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#randao-reveal
 func genRandaoReveal*(k: ValidatorPrivKey, fork: Fork,
     genesis_validators_root: Eth2Digest, slot: Slot): ValidatorSig =
-  get_epoch_signature(fork, genesis_validators_root, slot, k)
+  get_epoch_signature(
+    fork, genesis_validators_root, slot.compute_epoch_at_slot, k)
 
 func genRandaoReveal*(v: AttachedValidator, fork: Fork,
     genesis_validators_root: Eth2Digest, slot: Slot): ValidatorSig =

@@ -22,7 +22,7 @@
 {.push raises: [Defect].}
 
 import
-  macros, hashes, json, strutils, tables,
+  macros, hashes, json, strutils, tables, typetraits,
   stew/[byteutils], chronicles,
   json_serialization/types as jsonTypes,
   ../ssz/types as sszTypes, ./crypto, ./digest
@@ -98,7 +98,7 @@ const
     # TODO: This needs revisiting.
     # Why was the validator WITHDRAWAL_PERIOD altered in the spec?
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#configuration
   ATTESTATION_PROPAGATION_SLOT_RANGE* = 32
 
   SLOTS_PER_ETH1_VOTING_PERIOD* = Slot(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)
@@ -111,7 +111,7 @@ template maxSize*(n: int) {.pragma.}
 type
   # Domains
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#domain-types
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#domain-types
   DomainType* = enum
     DOMAIN_BEACON_PROPOSER = 0
     DOMAIN_BEACON_ATTESTER = 1
@@ -121,15 +121,15 @@ type
     DOMAIN_SELECTION_PROOF = 5
     DOMAIN_AGGREGATE_AND_PROOF = 6
     # Phase 1 - Sharding
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase1/beacon-chain.md#misc
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase1/beacon-chain.md#misc
     DOMAIN_SHARD_PROPOSAL = 128
     DOMAIN_SHARD_COMMITTEE = 129
     DOMAIN_LIGHT_CLIENT = 130
     # Phase 1 - Custody game
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase1/custody-game.md#signature-domain-types
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase1/custody-game.md#signature-domain-types
     DOMAIN_CUSTODY_BIT_SLASHING = 0x83
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#custom-types
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#custom-types
   Domain* = array[32, byte]
 
   # https://github.com/nim-lang/Nim/issues/574 and be consistent across
@@ -143,17 +143,17 @@ type
   Gwei* = uint64
   CommitteeIndex* = distinct uint64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#proposerslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     signed_header_1*: SignedBeaconBlockHeader
     signed_header_2*: SignedBeaconBlockHeader
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#attesterslashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#attesterslashing
   AttesterSlashing* = object
     attestation_1*: IndexedAttestation
     attestation_2*: IndexedAttestation
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#indexedattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#indexedattestation
   IndexedAttestation* = object
     # TODO ValidatorIndex, but that doesn't serialize properly
     attesting_indices*: List[uint64, MAX_VALIDATORS_PER_COMMITTEE]
@@ -162,7 +162,7 @@ type
 
   CommitteeValidatorsBits* = BitList[MAX_VALIDATORS_PER_COMMITTEE]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#attestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#attestation
   Attestation* = object
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
@@ -171,17 +171,17 @@ type
   Version* = distinct array[4, byte]
   ForkDigest* = distinct array[4, byte]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#forkdata
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#forkdata
   ForkData* = object
     current_version*: Version
     genesis_validators_root*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#checkpoint
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#checkpoint
   Checkpoint* = object
     epoch*: Epoch
     root*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#AttestationData
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#AttestationData
   AttestationData* = object
     slot*: Slot
 
@@ -196,27 +196,27 @@ type
     source*: Checkpoint
     target*: Checkpoint
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#deposit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#deposit
   Deposit* = object
     proof*: array[DEPOSIT_CONTRACT_TREE_DEPTH + 1, Eth2Digest] ##\
     ## Merkle path to deposit root
 
     data*: DepositData
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#depositmessage
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#depositmessage
   DepositMessage* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
     amount*: Gwei
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#depositdata
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#depositdata
   DepositData* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
-    amount*: uint64
+    amount*: Gwei
     signature*: ValidatorSig  # Signing over DepositMessage
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#voluntaryexit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
     epoch*: Epoch ##\
     ## Earliest epoch when voluntary exit can be processed
@@ -242,7 +242,7 @@ type
 
     body*: BeaconBlockBody
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#beaconblockheader
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot
     proposer_index*: uint64
@@ -263,7 +263,7 @@ type
     deposits*: List[Deposit, MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, MAX_VOLUNTARY_EXITS]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beaconstate
   BeaconStateObj* = object
     # Versioning
     genesis_time*: uint64
@@ -320,7 +320,7 @@ type
   BeaconStateRef* = ref BeaconStateObj not nil
   NilableBeaconStateRef* = ref BeaconStateObj
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#validator
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#validator
   Validator* = object
     pubkey*: ValidatorPubKey
 
@@ -342,7 +342,7 @@ type
     withdrawable_epoch*: Epoch ##\
     ## When validator can withdraw or transfer funds
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#pendingattestation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#pendingattestation
   PendingAttestation* = object
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
@@ -352,12 +352,12 @@ type
 
     proposer_index*: uint64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#historicalbatch
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#historicalbatch
   HistoricalBatch* = object
     block_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     state_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#fork
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#fork
   Fork* = object
     # TODO: Spec introduced an alias for Version = array[4, byte]
     #       and a default parameter to compute_domain
@@ -367,13 +367,13 @@ type
     epoch*: Epoch ##\
     ## Epoch of latest fork
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#eth1data
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#eth1data
   Eth1Data* = object
     deposit_root*: Eth2Digest
     deposit_count*: uint64
     block_hash*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#signedvoluntaryexit
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#signedvoluntaryexit
   SignedVoluntaryExit* = object
     message*: VoluntaryExit
     signature*: ValidatorSig
@@ -388,13 +388,13 @@ type
     message*: BeaconBlockHeader
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase0/validator.md#aggregateandproof
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#aggregateandproof
   AggregateAndProof* = object
     aggregator_index*: uint64
     aggregate*: Attestation
     selection_proof*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase0/validator.md#signedaggregateandproof
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#signedaggregateandproof
   SignedAggregateAndProof* = object
     message*: AggregateAndProof
     signature*: ValidatorSig
@@ -622,6 +622,14 @@ func shortLog*(v: SignedBeaconBlock): auto =
     signature: shortLog(v.signature)
   )
 
+func shortLog*(v: DepositData): auto =
+  (
+    pubkey: shortLog(v.pubkey),
+    withdrawal_credentials: shortlog(v.withdrawal_credentials),
+    amount: v.amount,
+    signature: shortLog(v.signature)
+  )
+
 func shortLog*(v: AttestationData): auto =
   (
     slot: shortLog(v.slot),
@@ -649,3 +657,39 @@ chronicles.formatIt Attestation: it.shortLog
 import json_serialization
 export json_serialization
 export writeValue, readValue
+
+static:
+  # Sanity checks - these types should be trivial enough to copy with memcpy
+  doAssert supportsCopyMem(Validator)
+  doAssert supportsCopyMem(Eth2Digest)
+
+func assign*[T](tgt: var T, src: T) =
+  # The default `genericAssignAux` that gets generated for assignments in nim
+  # is ridiculously slow. When syncing, the application was spending 50%+ CPU
+  # time in it - `assign`, in the same test, doesn't even show in the perf trace
+
+  when supportsCopyMem(T):
+    when sizeof(src) <= sizeof(int):
+      tgt = src
+    else:
+      copyMem(addr tgt, unsafeAddr src, sizeof(tgt))
+  elif T is object|tuple:
+    for t, s in fields(tgt, src):
+      when supportsCopyMem(type s) and sizeof(s) <= sizeof(int) * 2:
+        t = s # Shortcut
+      else:
+        assign(t, s)
+  elif T is List|BitList:
+    assign(distinctBase tgt, distinctBase src)
+  elif T is seq:
+    tgt.setLen(src.len)
+    when supportsCopyMem(type(tgt[0])):
+      if tgt.len > 0:
+        copyMem(addr tgt[0], unsafeAddr src[0], sizeof(tgt[0]) * tgt.len)
+    else:
+      for i in 0..<tgt.len:
+        assign(tgt[i], src[i])
+  elif T is ref:
+    tgt = src
+  else:
+    unsupported T

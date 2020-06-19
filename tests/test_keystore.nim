@@ -9,10 +9,13 @@
 
 import
   unittest, ./testutil, json,
-  stew/byteutils,
-  ../beacon_chain/spec/keystore
+  stew/byteutils, blscurve,
+  ../beacon_chain/spec/[crypto, keystore]
 
 from strutils import replace
+
+template `==`*(a, b: ValidatorPrivKey): bool =
+  blscurve.SecretKey(a) == blscurve.SecretKey(b)
 
 const
   scryptVector = """{
@@ -79,23 +82,27 @@ const
 }""" #"
 
   password = "testpassword"
-  secret = hexToSeqByte("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f")
+  secretBytes = hexToSeqByte("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f")
   salt = hexToSeqByte("d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3")
   iv = hexToSeqByte("264daa3f303d7259501c93d997d84fe6")
 
 suiteReport "Keystore":
+  setup:
+    let secret = ValidatorPrivKey.fromRaw(secretBytes).get
+
   timedTest "Pbkdf2 decryption":
-    let decrypt = decryptKeystore(pbkdf2Vector, password)
+    let decrypt = decryptKeystore(KeyStoreContent pbkdf2Vector,
+                                  KeyStorePass password)
     check decrypt.isOk
     check secret == decrypt.get()
 
   timedTest "Pbkdf2 encryption":
-    let encrypt = encryptKeystore[KdfPbkdf2](secret, password, salt=salt, iv=iv,
-                                             path="m/12381/60/0/0")
-    check encrypt.isOk
-
+    let encrypt = encryptKeystore(KdfPbkdf2, secret,
+                                  KeyStorePass password,
+                                  salt=salt, iv=iv,
+                                  path = validateKeyPath "m/12381/60/0/0")
     var
-      encryptJson = parseJson(encrypt.get())
+      encryptJson = parseJson(encrypt.string)
       pbkdf2Json = parseJson(pbkdf2Vector)
     encryptJson{"uuid"} = %""
     pbkdf2Json{"uuid"} = %""
@@ -103,16 +110,27 @@ suiteReport "Keystore":
     check encryptJson == pbkdf2Json
 
   timedTest "Pbkdf2 errors":
-    check encryptKeystore[KdfPbkdf2](secret, "", salt = [byte 1]).isErr
-    check encryptKeystore[KdfPbkdf2](secret, "", iv = [byte 1]).isErr
+    expect Defect:
+      echo encryptKeystore(KdfPbkdf2, secret, salt = [byte 1]).string
 
-    check decryptKeystore(pbkdf2Vector, "wrong pass").isErr
-    check decryptKeystore(pbkdf2Vector, "").isErr
-    check decryptKeystore("{\"a\": 0}", "").isErr
-    check decryptKeystore("", "").isErr
+    expect Defect:
+      echo encryptKeystore(KdfPbkdf2, secret, iv = [byte 1]).string
+
+    check decryptKeystore(KeyStoreContent pbkdf2Vector,
+                          KeyStorePass "wrong pass").isErr
+
+    check decryptKeystore(KeyStoreContent pbkdf2Vector,
+                          KeyStorePass "").isErr
+
+    check decryptKeystore(KeyStoreContent "{\"a\": 0}",
+                          KeyStorePass "").isErr
+
+    check decryptKeystore(KeyStoreContent "",
+                          KeyStorePass "").isErr
 
     template checkVariant(remove): untyped =
-      check decryptKeystore(pbkdf2Vector.replace(remove, ""), password).isErr
+      check decryptKeystore(KeyStoreContent pbkdf2Vector.replace(remove, ""),
+                            KeyStorePass password).isErr
 
     checkVariant "d4e5" # salt
     checkVariant "18b1" # checksum
@@ -122,4 +140,5 @@ suiteReport "Keystore":
     var badKdf = parseJson(pbkdf2Vector)
     badKdf{"crypto", "kdf", "function"} = %"invalid"
 
-    check decryptKeystore($badKdf, password).iserr
+    check decryptKeystore(KeyStoreContent $badKdf,
+                          KeyStorePass password).iserr

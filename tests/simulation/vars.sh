@@ -19,7 +19,7 @@ cd - &>/dev/null
 
 # When changing these, also update the readme section on running simulation
 # so that the run_node example is correct!
-NUM_VALIDATORS=${VALIDATORS:-192}
+NUM_VALIDATORS=${VALIDATORS:-128}
 TOTAL_NODES=${NODES:-4}
 TOTAL_USER_NODES=${USER_NODES:-0}
 TOTAL_SYSTEM_NODES=$(( TOTAL_NODES - TOTAL_USER_NODES ))
@@ -28,6 +28,7 @@ MASTER_NODE=$(( TOTAL_NODES - 1 ))
 SIMULATION_DIR="${SIM_ROOT}/data"
 METRICS_DIR="${SIM_ROOT}/prometheus"
 VALIDATORS_DIR="${SIM_ROOT}/validators"
+SECRETS_DIR="${SIM_ROOT}/secrets"
 SNAPSHOT_FILE="${SIMULATION_DIR}/state_snapshot.ssz"
 NETWORK_BOOTSTRAP_FILE="${SIMULATION_DIR}/bootstrap_nodes.txt"
 BEACON_NODE_BIN="${GIT_ROOT}/build/beacon_node"
@@ -45,6 +46,3 @@ else
   WEB3_ARG=""
   DEPOSIT_CONTRACT_ADDRESS="0x"
 fi
-
-# uncomment to enable the use of VCs in addition to BNs - will split the validators equally
-#SPLIT_VALIDATORS_BETWEEN_BN_AND_VC="yes"

@@ -89,6 +89,8 @@ p2pProtocol BeaconSync(version = 1,
                        peerState = BeaconSyncPeerState):
 
   onPeerConnected do (peer: Peer) {.async.}:
+    debug "Peer connected",
+      peer, peerInfo = shortLog(peer.info), wasDialed = peer.wasDialed
     if peer.wasDialed:
       let
         ourStatus = peer.networkState.getCurrentStatus()
@@ -100,7 +102,7 @@ p2pProtocol BeaconSync(version = 1,
         await peer.handleStatus(peer.networkState,
                                 ourStatus, theirStatus.get())
       else:
-        warn "Status response not received in time", peer = peer
+        warn "Status response not received in time", peer
 
   proc status(peer: Peer,
               theirStatus: StatusMsg,
@@ -169,7 +171,7 @@ p2pProtocol BeaconSync(version = 1,
   proc goodbye(peer: Peer,
                reason: DisconnectionReason)
     {.async, libp2pProtocol("goodbye", 1).} =
-    debug "Received Goodbye message", reason
+    debug "Received Goodbye message", reason, peer
 
 proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) =
   debug "Peer status", peer, statusMsg

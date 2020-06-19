@@ -35,7 +35,7 @@ func get_attesting_indices*(
     result = result.union(get_attesting_indices(
       state, a.data, a.aggregation_bits, stateCache))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#helper-functions-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#helper-functions-1
 func get_unslashed_attesting_indices*(
     state: BeaconState, attestations: openarray[PendingAttestation],
     stateCache: var StateCache): HashSet[ValidatorIndex] =

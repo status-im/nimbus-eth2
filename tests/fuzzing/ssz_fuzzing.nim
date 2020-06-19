@@ -19,6 +19,9 @@ template sszFuzzingTest*(T: type) =
 
       let reEncoded = SSZ.encode(decoded)
 
+      when T isnot SignedBeaconBlock:
+        let hash = hash_tree_root(decoded)
+
       if payload != reEncoded:
         when hasSerializationTracing:
           # Run deserialization again to produce a seriazation trace
@@ -29,6 +32,9 @@ template sszFuzzingTest*(T: type) =
         echo payload
         echo "Re-encoided payload with len = ", reEncoded.len
         echo reEncoded
+
+        when T isnot SignedBeaconBlock:
+          echo "HTR: ", hash
 
         echo repr(decoded)
 

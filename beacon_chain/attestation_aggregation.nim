@@ -9,9 +9,12 @@
 
 import
   options, chronicles,
-  ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator,
-    state_transition_block],
+  ./spec/[
+    beaconstate, datatypes, crypto, digest, helpers, validator, signatures],
   ./block_pool, ./attestation_pool, ./beacon_node_types, ./ssz
+
+logScope:
+  topics = "att_aggr"
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#aggregation-selection
 func is_aggregator(state: BeaconState, slot: Slot, index: CommitteeIndex,
@@ -21,7 +24,7 @@ func is_aggregator(state: BeaconState, slot: Slot, index: CommitteeIndex,
   let
     committee = get_beacon_committee(state, slot, index, cache)
     modulo = max(1, len(committee) div TARGET_AGGREGATORS_PER_COMMITTEE).uint64
-  bytes_to_int(eth2hash(slot_signature.toRaw()).data[0..7]) mod modulo == 0
+  bytes_to_int(eth2digest(slot_signature.toRaw()).data[0..7]) mod modulo == 0
 
 proc aggregate_attestations*(
     pool: AttestationPool, state: BeaconState, index: CommitteeIndex,
@@ -75,17 +78,20 @@ proc aggregate_attestations*(
 proc isValidAttestation*(
     pool: AttestationPool, attestation: Attestation, current_slot: Slot,
     topicCommitteeIndex: uint64): bool =
+  logScope:
+    topics = "att_aggr valid_att"
+    received_attestation = shortLog(attestation)
+
   # The attestation's committee index (attestation.data.index) is for the
   # correct subnet.
   if attestation.data.index != topicCommitteeIndex:
-    debug "isValidAttestation: attestation's committee index not for the correct subnet",
-      topicCommitteeIndex = topicCommitteeIndex,
-      attestation_data_index = attestation.data.index
+    debug "attestation's committee index not for the correct subnet",
+      topicCommitteeIndex = topicCommitteeIndex
     return false
 
   if not (attestation.data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >=
       current_slot and current_slot >= attestation.data.slot):
-    debug "isValidAttestation: attestation.data.slot not within ATTESTATION_PROPAGATION_SLOT_RANGE"
+    debug "attestation.data.slot not within ATTESTATION_PROPAGATION_SLOT_RANGE"
     return false
 
   # The attestation is unaggregated -- that is, it has exactly one
@@ -100,11 +106,10 @@ proc isValidAttestation*(
       continue
     onesCount += 1
     if onesCount > 1:
-      debug "isValidAttestation: attestation has too many aggregation bits",
-        aggregation_bits = attestation.aggregation_bits
+      debug "attestation has too many aggregation bits"
       return false
   if onesCount != 1:
-    debug "isValidAttestation: attestation has too few aggregation bits"
+    debug "attestation has too few aggregation bits"
     return false
 
   # The attestation is the first valid attestation received for the
@@ -117,9 +122,7 @@ proc isValidAttestation*(
       # Attestations might be aggregated eagerly or lazily; allow for both.
       for validation in attestationEntry.validations:
         if attestation.aggregation_bits.isSubsetOf(validation.aggregation_bits):
-          debug "isValidAttestation: attestation already exists at slot",
-            attestation_data_slot = attestation.data.slot,
-            attestation_aggregation_bits = attestation.aggregation_bits,
+          debug "attestation already exists at slot",
             attestation_pool_validation = validation.aggregation_bits
           return false
 
@@ -131,8 +134,7 @@ proc isValidAttestation*(
   # propagated - i.e. imagine that attestations are smaller than blocks and
   # therefore propagate faster, thus reordering their arrival in some nodes
   if pool.blockPool.get(attestation.data.beacon_block_root).isNone():
-    debug "isValidAttestation: block doesn't exist in block pool",
-      attestation_data_beacon_block_root = attestation.data.beacon_block_root
+    debug "block doesn't exist in block pool"
     return false
 
   # The signature of attestation is valid.
@@ -143,7 +145,7 @@ proc isValidAttestation*(
       pool.blockPool.headState.data.data,
       get_indexed_attestation(
         pool.blockPool.headState.data.data, attestation, cache), {}):
-    debug "isValidAttestation: signature verification failed"
+    debug "signature verification failed"
     return false
 
   true

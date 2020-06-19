@@ -5,13 +5,14 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [Defect].}
+
 import
   chronicles, sequtils, tables,
   metrics, stew/results,
   ../ssz/merkleization, ../state_transition, ../extras,
-  ../spec/[crypto, datatypes, digest, helpers],
-
-  block_pools_types, candidate_chains
+  ../spec/[crypto, datatypes, digest, helpers, signatures],
+  block_pools_types, candidate_chains, quarantine
 
 export results
 
@@ -22,8 +23,8 @@ export results
 # "quarantined" network blocks
 # pass the firewall and be stored in the blockpool
 
-logScope: topics = "clearblk"
-{.push raises: [Defect].}
+logScope:
+  topics = "clearance"
 
 func getOrResolve*(dag: CandidateChains, quarantine: var Quarantine, root: Eth2Digest): BlockRef =
   ## Fetch a block ref, or nil if not found (will be added to list of
@@ -31,7 +32,7 @@ func getOrResolve*(dag: CandidateChains, quarantine: var Quarantine, root: Eth2D
   result = dag.getRef(root)
 
   if result.isNil:
-    quarantine.missing[root] = MissingBlock(slots: 1)
+    quarantine.missing[root] = MissingBlock()
 
 proc add*(
     dag: var CandidateChains, quarantine: var Quarantine,
@@ -98,12 +99,12 @@ proc addResolvedBlock(
     defer: quarantine.inAdd = false
     var keepGoing = true
     while keepGoing:
-      let retries = quarantine.pending
+      let retries = quarantine.orphans
       for k, v in retries:
         discard add(dag, quarantine, k, v)
       # Keep going for as long as the pending dag is shrinking
       # TODO inefficient! so what?
-      keepGoing = quarantine.pending.len < retries.len
+      keepGoing = quarantine.orphans.len < retries.len
   blockRef
 
 proc add*(
@@ -164,9 +165,9 @@ proc add*(
 
       return err Invalid
 
-    # The block might have been in either of pending or missing - we don't want
-    # any more work done on its behalf
-    quarantine.pending.del(blockRoot)
+    # The block might have been in either of `orphans` or `missing` - we don't
+    # want any more work done on its behalf
+    quarantine.orphans.del(blockRoot)
 
     # The block is resolved, now it's time to validate it to ensure that the
     # blocks we add to the database are clean for the given state
@@ -183,7 +184,7 @@ proc add*(
       #      `state_transition` that takes a `StateData` instead and updates
       #      the block as well
       doAssert v.addr == addr poolPtr.tmpState.data
-      poolPtr.tmpState = poolPtr.headState
+      assign(poolPtr.tmpState, poolPtr.headState)
 
     var stateCache = getEpochCache(parent, dag.tmpState.data.data)
     if not state_transition(
@@ -208,7 +209,7 @@ proc add*(
   # the pending dag calls this function back later in a loop, so as long
   # as dag.add(...) requires a SignedBeaconBlock, easier to keep them in
   # pending too.
-  quarantine.pending[blockRoot] = signedBlock
+  quarantine.add(dag, signedBlock, some(blockRoot))
 
   # TODO possibly, it makes sense to check the database - that would allow sync
   #      to simply fill up the database with random blocks the other clients
@@ -216,7 +217,7 @@ proc add*(
   #      junk that's not part of the block graph
 
   if blck.parent_root in quarantine.missing or
-      blck.parent_root in quarantine.pending:
+      blck.parent_root in quarantine.orphans:
     return err MissingParent
 
   # This is an unresolved block - put its parent on the missing list for now...
@@ -231,24 +232,11 @@ proc add*(
   #      filter.
   # TODO when we receive the block, we don't know how many others we're missing
   #      from that branch, so right now, we'll just do a blind guess
-  let parentSlot = blck.slot - 1
-
-  quarantine.missing[blck.parent_root] = MissingBlock(
-    slots:
-      # The block is at least two slots ahead - try to grab whole history
-      if parentSlot > dag.head.blck.slot:
-        parentSlot - dag.head.blck.slot
-      else:
-        # It's a sibling block from a branch that we're missing - fetch one
-        # epoch at a time
-        max(1.uint64, SLOTS_PER_EPOCH.uint64 -
-          (parentSlot.uint64 mod SLOTS_PER_EPOCH.uint64))
-  )
 
   debug "Unresolved block (parent missing)",
     blck = shortLog(blck),
     blockRoot = shortLog(blockRoot),
-    pending = quarantine.pending.len,
+    orphans = quarantine.orphans.len,
     missing = quarantine.missing.len,
     cat = "filtering"
 
@@ -258,7 +246,11 @@ proc add*(
 proc isValidBeaconBlock*(
        dag: CandidateChains, quarantine: var Quarantine,
        signed_beacon_block: SignedBeaconBlock, current_slot: Slot,
-       flags: UpdateFlags): bool =
+       flags: UpdateFlags): Result[void, BlockError] =
+  logScope:
+    topics = "clearance valid_blck"
+    received_block = shortLog(signed_beacon_block.message)
+
   # In general, checks are ordered from cheap to expensive. Especially, crypto
   # verification could be quite a bit more expensive than the rest. This is an
   # externally easy-to-invoke function by tossing network packets at the node.
@@ -266,25 +258,26 @@ proc isValidBeaconBlock*(
   # The block is not from a future slot
   # TODO allow `MAXIMUM_GOSSIP_CLOCK_DISPARITY` leniency, especially towards
   # seemingly future slots.
-  if not (signed_beacon_block.message.slot <= current_slot):
-    debug "isValidBeaconBlock: block is from a future slot",
-      signed_beacon_block_message_slot = signed_beacon_block.message.slot,
-      current_slot = current_slot
-    return false
+  # TODO using +1 here while this is being sorted - should queue these until
+  #      they're within the DISPARITY limit
+  if not (signed_beacon_block.message.slot <= current_slot + 1):
+    debug "block is from a future slot",
+      current_slot
+    return err(Invalid)
 
   # The block is from a slot greater than the latest finalized slot (with a
   # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. validate that
   # signed_beacon_block.message.slot >
   # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)
   if not (signed_beacon_block.message.slot > dag.finalizedHead.slot):
-    debug "isValidBeaconBlock: block is not from a slot greater than the latest finalized slot"
-    return false
+    debug "block is not from a slot greater than the latest finalized slot"
+    return err(Invalid)
 
   # The block is the first block with valid signature received for the proposer
   # for the slot, signed_beacon_block.message.slot.
   #
   # While this condition is similar to the proposer slashing condition at
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#proposer-slashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#proposer-slashing
   # it's not identical, and this check does not address slashing:
   #
   # (1) The beacon blocks must be conflicting, i.e. different, for the same
@@ -315,12 +308,10 @@ proc isValidBeaconBlock*(
           signed_beacon_block.message.proposer_index and
         blck.message.slot == signed_beacon_block.message.slot and
         blck.signature.toRaw() != signed_beacon_block.signature.toRaw():
-      debug "isValidBeaconBlock: block isn't first block with valid signature received for the proposer",
-        signed_beacon_block_message_slot = signed_beacon_block.message.slot,
+      debug "block isn't first block with valid signature received for the proposer",
         blckRef = slotBlockRef,
-        received_block = shortLog(signed_beacon_block.message),
-        existing_block = shortLog(dag.get(slotBlockRef).data.message)
-      return false
+        existing_block = shortLog(blck.message)
+      return err(Invalid)
 
   # If this block doesn't have a parent we know about, we can't/don't really
   # trace it back to a known-good state/checkpoint to verify its prevenance;
@@ -340,27 +331,35 @@ proc isValidBeaconBlock*(
     # CandidateChains.add(...) directly, with no additional validity checks. TODO,
     # not specific to this, but by the pending dag keying on the htr of the
     # BeaconBlock, not SignedBeaconBlock, opens up certain spoofing attacks.
-    quarantine.pending[hash_tree_root(signed_beacon_block.message)] =
-      signed_beacon_block
-    return false
+    debug "parent unknown, putting block in quarantine"
+    quarantine.add(dag, signed_beacon_block)
+    return err(MissingParent)
 
   # The proposer signature, signed_beacon_block.signature, is valid with
   # respect to the proposer_index pubkey.
-  let bs =
-    BlockSlot(blck: parent_ref, slot: dag.get(parent_ref).data.message.slot)
-  dag.withState(dag.tmpState, bs):
-    let
-      blockRoot = hash_tree_root(signed_beacon_block.message)
-      domain = get_domain(dag.headState.data.data, DOMAIN_BEACON_PROPOSER,
-        compute_epoch_at_slot(signed_beacon_block.message.slot))
-      signing_root = compute_signing_root(blockRoot, domain)
-      proposer_index = signed_beacon_block.message.proposer_index
+  let
+    proposer = getProposer(dag, parent_ref, signed_beacon_block.message.slot)
 
-    if proposer_index >= dag.headState.data.data.validators.len.uint64:
-      return false
-    if not blsVerify(dag.headState.data.data.validators[proposer_index].pubkey,
-        signing_root.data, signed_beacon_block.signature):
-      debug "isValidBeaconBlock: block failed signature verification"
-      return false
+  if proposer.isNone:
+    notice "cannot compute proposer for message"
+    return err(Invalid)
 
-  true
+  if proposer.get()[0] !=
+      ValidatorIndex(signed_beacon_block.message.proposer_index):
+    debug "block had unexpected proposer",
+      expected_proposer = proposer.get()[0]
+    return err(Invalid)
+
+  if not verify_block_signature(
+      dag.headState.data.data.fork,
+      dag.headState.data.data.genesis_validators_root,
+      signed_beacon_block.message.slot,
+      signed_beacon_block.message,
+      proposer.get()[1],
+      signed_beacon_block.signature):
+    debug "block failed signature verification",
+      signature = shortLog(signed_beacon_block.signature)
+
+    return err(Invalid)
+
+  ok()

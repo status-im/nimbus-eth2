@@ -7,7 +7,7 @@
 
 # Serenity hash function / digest
 #
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#hash
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#hash
 #
 # In Phase 0 the beacon chain is deployed with SHA256 (SHA2-256).
 # Note that is is different from Keccak256 (often mistakenly called SHA3-256)
@@ -17,7 +17,7 @@
 #
 # In our code base, to enable a smooth transition
 # (already did Blake2b --> Keccak256 --> SHA2-256),
-# we call this function `eth2hash`, and it outputs a `Eth2Digest`. Easy to sed :)
+# we call this function `eth2digest`, and it outputs a `Eth2Digest`. Easy to sed :)
 
 {.push raises: [Defect].}
 
@@ -44,7 +44,7 @@ chronicles.formatIt Eth2Digest:
 # TODO: expose an in-place digest function
 #       when hashing in loop or into a buffer
 #       See: https://github.com/cheatfate/nimcrypto/blob/b90ba3abd/nimcrypto/sha2.nim#L570
-func eth2hash*(v: openArray[byte]): Eth2Digest {.inline.} =
+func eth2digest*(v: openArray[byte]): Eth2Digest {.inline.} =
   # We use the init-update-finish interface to avoid
   # the expensive burning/clearing memory (20~30% perf)
   # TODO: security implication?
@@ -63,8 +63,7 @@ template withEth2Hash*(body: untyped): Eth2Digest =
   var h  {.inject.}: sha256
   init(h)
   body
-  var res = finish(h)
-  res
+  finish(h)
 
 func hash*(x: Eth2Digest): Hash =
   ## Hash for digests for Nim hash tables

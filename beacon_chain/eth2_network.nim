@@ -63,6 +63,7 @@ type
     connQueue: AsyncQueue[PeerInfo]
     seenTable: Table[PeerID, SeenItem]
     connWorkers: seq[Future[void]]
+    forkId: ENRForkID
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
 
@@ -124,8 +125,8 @@ type
     # Private fields:
     peerStateInitializer*: PeerStateInitializer
     networkStateInitializer*: NetworkStateInitializer
-    handshake*: HandshakeStep
-    disconnectHandler*: DisconnectionHandler
+    onPeerConnected*: OnPeerConnectedHandler
+    onPeerDisconnected*: OnPeerDisconnectedHandler
 
   ProtocolInfo* = ptr ProtocolInfoObj
 
@@ -136,8 +137,8 @@ type
 
   PeerStateInitializer* = proc(peer: Peer): RootRef {.gcsafe.}
   NetworkStateInitializer* = proc(network: EthereumNode): RootRef {.gcsafe.}
-  HandshakeStep* = proc(peer: Peer, conn: Connection): Future[void] {.gcsafe.}
-  DisconnectionHandler* = proc(peer: Peer): Future[void] {.gcsafe.}
+  OnPeerConnectedHandler* = proc(peer: Peer, conn: Connection): Future[void] {.gcsafe.}
+  OnPeerDisconnectedHandler* = proc(peer: Peer): Future[void] {.gcsafe.}
   ThunkProc* = LPProtoHandler
   MounterProc* = proc(network: Eth2Node) {.gcsafe.}
   MessageContentPrinter* = proc(msg: pointer): string {.gcsafe.}
@@ -191,8 +192,6 @@ const
   TTFB_TIMEOUT* = 5.seconds
   RESP_TIMEOUT* = 10.seconds
 
-  readTimeoutErrorMsg = "Exceeded read timeout for a request"
-
   NewPeerScore* = 200
     ## Score which will be assigned to new connected Peer
   PeerScoreLowLimit* = 0
@@ -218,22 +217,22 @@ template neterr(kindParam: Eth2NetworkingErrorKind): auto =
   err(type(result), Eth2NetworkingError(kind: kindParam))
 
 # Metrics for tracking attestation and beacon block loss
-declareCounter gossip_messages_sent,
+declareCounter nbc_gossip_messages_sent,
   "Number of gossip messages sent by this peer"
 
-declareCounter gossip_messages_received,
+declareCounter nbc_gossip_messages_received,
   "Number of gossip messages received by this peer"
 
-declarePublicGauge libp2p_successful_dials,
+declarePublicCounter nbc_successful_dials,
   "Number of successfully dialed peers"
 
-declarePublicGauge libp2p_failed_dials,
+declarePublicCounter nbc_failed_dials,
   "Number of dialing attempts that failed"
 
-declarePublicGauge libp2p_timeout_dials,
+declarePublicCounter nbc_timeout_dials,
   "Number of dialing attempts that exceeded timeout"
 
-declarePublicGauge libp2p_peers,
+declarePublicGauge nbc_peers,
   "Number of active libp2p peers"
 
 proc safeClose(conn: Connection) {.async.} =
@@ -272,10 +271,6 @@ proc openStream(node: Eth2Node,
       return await openStream(node, peer, protocolId)
     else:
       raise
-
-func peerId(conn: Connection): PeerID =
-  # TODO: Can this be `nil`?
-  conn.peerInfo.peerId
 
 proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer {.gcsafe.}
 
@@ -504,13 +499,10 @@ template send*[M](r: SingleChunkResponse[M], val: auto): untyped =
 proc performProtocolHandshakes*(peer: Peer) {.async.} =
   var subProtocolsHandshakes = newSeqOfCap[Future[void]](allProtocols.len)
   for protocol in allProtocols:
-    if protocol.handshake != nil:
-      subProtocolsHandshakes.add((protocol.handshake)(peer, nil))
+    if protocol.onPeerConnected != nil:
+      subProtocolsHandshakes.add protocol.onPeerConnected(peer, nil)
 
   await allFuturesThrowing(subProtocolsHandshakes)
-
-template initializeConnection*(peer: Peer): auto =
-  performProtocolHandshakes(peer)
 
 proc initProtocol(name: string,
                   peerInit: PeerStateInitializer,
@@ -528,10 +520,10 @@ proc registerProtocol(protocol: ProtocolInfo) =
     gProtocols[i].index = i
 
 proc setEventHandlers(p: ProtocolInfo,
-                      handshake: HandshakeStep,
-                      disconnectHandler: DisconnectionHandler) =
-  p.handshake = handshake
-  p.disconnectHandler = disconnectHandler
+                      onPeerConnected: OnPeerConnectedHandler,
+                      onPeerDisconnected: OnPeerDisconnectedHandler) =
+  p.onPeerConnected = onPeerConnected
+  p.onPeerDisconnected = onPeerDisconnected
 
 proc implementSendProcBody(sendProc: SendProc) =
   let
@@ -573,6 +565,11 @@ proc handleIncomingStream(network: Eth2Node,
 
   try:
     let peer = peerFromStream(network, conn)
+
+    # TODO peer connection setup is broken, update info in some better place
+    #      whenever race is fix:
+    #      https://github.com/status-im/nim-beacon-chain/issues/1157
+    peer.info = conn.peerInfo
 
     template returnInvalidRequest(msg: ErrorMsg) =
       await sendErrorResponse(peer, conn, noSnappy, InvalidRequest, msg)
@@ -654,33 +651,33 @@ proc handleOutgoingPeer*(peer: Peer): Future[bool] {.async.} =
   let network = peer.network
 
   proc onPeerClosed(udata: pointer) {.gcsafe.} =
-    debug "Peer (outgoing) lost", peer = $peer.info
-    libp2p_peers.set int64(len(network.peerPool))
+    debug "Peer (outgoing) lost", peer
+    nbc_peers.set int64(len(network.peerPool))
 
   let res = await network.peerPool.addOutgoingPeer(peer)
   if res:
     peer.updateScore(NewPeerScore)
-    debug "Peer (outgoing) has been added to PeerPool", peer = $peer.info
+    debug "Peer (outgoing) has been added to PeerPool", peer
     peer.getFuture().addCallback(onPeerClosed)
     result = true
 
-  libp2p_peers.set int64(len(network.peerPool))
+  nbc_peers.set int64(len(network.peerPool))
 
 proc handleIncomingPeer*(peer: Peer): Future[bool] {.async.} =
   let network = peer.network
 
   proc onPeerClosed(udata: pointer) {.gcsafe.} =
-    debug "Peer (incoming) lost", peer = $peer.info
-    libp2p_peers.set int64(len(network.peerPool))
+    debug "Peer (incoming) lost", peer
+    nbc_peers.set int64(len(network.peerPool))
 
   let res = await network.peerPool.addIncomingPeer(peer)
   if res:
     peer.updateScore(NewPeerScore)
-    debug "Peer (incoming) has been added to PeerPool", peer = $peer.info
+    debug "Peer (incoming) has been added to PeerPool", peer
     peer.getFuture().addCallback(onPeerClosed)
     result = true
 
-  libp2p_peers.set int64(len(network.peerPool))
+  nbc_peers.set int64(len(network.peerPool))
 
 proc toPeerInfo*(r: enr.TypedRecord): PeerInfo =
   if r.secp256k1.isSome:
@@ -713,7 +710,7 @@ proc toPeerInfo(r: Option[enr.TypedRecord]): PeerInfo =
     return r.get.toPeerInfo
 
 proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
-  logScope: peer = $peerInfo
+  logScope: peer = peerInfo.id
 
   debug "Connecting to discovered peer"
   await node.switch.connect(peerInfo)
@@ -726,9 +723,9 @@ proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
   #debug "Supported protocols", ls
 
   debug "Initializing connection"
-  await initializeConnection(peer)
+  await performProtocolHandshakes(peer)
 
-  inc libp2p_successful_dials
+  inc nbc_successful_dials
   debug "Network handshakes completed"
 
 proc connectWorker(network: Eth2Node) {.async.} =
@@ -749,28 +746,30 @@ proc connectWorker(network: Eth2Node) {.async.} =
       # will be stored in PeerPool.
       if fut.finished():
         if fut.failed() and not(fut.cancelled()):
-          debug "Unable to establish connection with peer", peer = $pi,
+          debug "Unable to establish connection with peer", peer = pi.id,
                 errMsg = fut.readError().msg
-          inc libp2p_failed_dials
+          inc nbc_failed_dials
           network.addSeen(pi, SeenTableTimeDeadPeer)
         continue
-      debug "Connection to remote peer timed out", peer = $pi
-      inc libp2p_timeout_dials
+      debug "Connection to remote peer timed out", peer = pi.id
+      inc nbc_timeout_dials
       network.addSeen(pi, SeenTableTimeTimeout)
     else:
-      trace "Peer is already connected or already seen", peer = $pi,
+      trace "Peer is already connected or already seen", peer = pi.id,
             peer_pool_has_peer = $r1, seen_table_has_peer = $r2,
             seen_table_size = len(network.seenTable)
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
 
+  let enrField = ("eth2", SSZ.encode(node.forkId))
   while true:
     let currentPeerCount = node.peerPool.len
     if currentPeerCount < node.wantedPeers:
       try:
         let discoveredPeers =
-          node.discovery.randomNodes(node.wantedPeers - currentPeerCount)
+          node.discovery.randomNodes(node.wantedPeers - currentPeerCount,
+            enrField)
         for peer in discoveredPeers:
           try:
             let peerRecord = peer.record.toTypedRecord
@@ -811,9 +810,10 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
   result.seenTable = initTable[PeerID, SeenItem]()
   result.connQueue = newAsyncQueue[PeerInfo](ConcurrentConnections)
   result.metadata = getPersistentNetMetadata(conf)
+  result.forkId = enrForkId
   result.discovery = Eth2DiscoveryProtocol.new(
     conf, ip, tcpPort, udpPort, privKey.toRaw,
-    {"eth2": SSZ.encode(enrForkId), "attnets": SSZ.encode(result.metadata.attnets)})
+    {"eth2": SSZ.encode(result.forkId), "attnets": SSZ.encode(result.metadata.attnets)})
 
   newSeq result.protocolStates, allProtocols.len
   for proto in allProtocols:
@@ -824,19 +824,21 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
       if msg.protocolMounter != nil:
         msg.protocolMounter result
 
-  for i in 0 ..< ConcurrentConnections:
-    result.connWorkers.add(connectWorker(result))
-
 template publicKey*(node: Eth2Node): keys.PublicKey =
   node.discovery.privKey.toPublicKey.tryGet()
 
 template addKnownPeer*(node: Eth2Node, peer: enr.Record) =
   node.discovery.addNode peer
 
-proc start*(node: Eth2Node) {.async.} =
+proc startListening*(node: Eth2Node) =
   node.discovery.open()
-  node.discovery.start()
+
+proc start*(node: Eth2Node) {.async.} =
+  for i in 0 ..< ConcurrentConnections:
+    node.connWorkers.add connectWorker(node)
+
   node.libp2pTransportLoops = await node.switch.start()
+  node.discovery.start()
   node.discoveryLoop = node.runDiscoveryLoop()
   traceAsyncErrors node.discoveryLoop
 
@@ -1116,19 +1118,17 @@ proc announcedENR*(node: Eth2Node): enr.Record =
 proc shortForm*(id: KeyPair): string =
   $PeerID.init(id.pubkey)
 
-proc connectToNetwork*(node: Eth2Node) {.async.} =
+proc startLookingForPeers*(node: Eth2Node) {.async.} =
   await node.start()
 
   proc checkIfConnectedToBootstrapNode {.async.} =
     await sleepAsync(30.seconds)
-    if node.discovery.bootstrapRecords.len > 0 and libp2p_successful_dials.value == 0:
+    if node.discovery.bootstrapRecords.len > 0 and nbc_successful_dials.value == 0:
       fatal "Failed to connect to any bootstrap node. Quitting",
         bootstrapEnrs = node.discovery.bootstrapRecords
       quit 1
 
-  # TODO: The initial sync forces this to time out.
-  #       Revisit when the new Sync manager is integrated.
-  # traceAsyncErrors checkIfConnectedToBootstrapNode()
+  traceAsyncErrors checkIfConnectedToBootstrapNode()
 
 func peersCount*(node: Eth2Node): int =
   len(node.peerPool)
@@ -1138,7 +1138,7 @@ proc subscribe*[MsgType](node: Eth2Node,
                          msgHandler: proc(msg: MsgType) {.gcsafe.},
                          msgValidator: proc(msg: MsgType): bool {.gcsafe.} ) {.async, gcsafe.} =
   template execMsgHandler(peerExpr, gossipBytes, gossipTopic, useSnappy) =
-    inc gossip_messages_received
+    inc nbc_gossip_messages_received
     trace "Incoming pubsub message received",
       peer = peerExpr, len = gossipBytes.len, topic = gossipTopic,
       message_id = `$`(sha256.digest(gossipBytes))
@@ -1190,7 +1190,7 @@ proc traceMessage(fut: FutureBase, digest: MDigest[256]) =
       trace "Outgoing pubsub message sent", message_id = `$`(digest)
 
 proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
-  inc gossip_messages_sent
+  inc nbc_gossip_messages_sent
   let broadcastBytes = SSZ.encode(msg)
   var fut = node.switch.publish(topic, broadcastBytes)
   traceMessage(fut, sha256.digest(broadcastBytes))

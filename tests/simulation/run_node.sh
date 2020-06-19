@@ -31,7 +31,10 @@ source "${SIM_ROOT}/../../env.sh"
 
 cd "$GIT_ROOT"
 
-DATA_DIR="${SIMULATION_DIR}/node-$NODE_ID"
+NODE_DATA_DIR="${SIMULATION_DIR}/node-$NODE_ID"
+NODE_VALIDATORS_DIR=$NODE_DATA_DIR/validators/
+NODE_SECRETS_DIR=$NODE_DATA_DIR/secrets/
+
 PORT=$(( BASE_P2P_PORT + NODE_ID ))
 
 NAT_ARG="--nat:extip:127.0.0.1"
@@ -39,41 +42,47 @@ if [ "${NAT:-}" == "1" ]; then
   NAT_ARG="--nat:any"
 fi
 
-mkdir -p "$DATA_DIR/validators"
-rm -f $DATA_DIR/validators/*
+rm -rf "$NODE_VALIDATORS_DIR"
+mkdir -p "$NODE_VALIDATORS_DIR"
+
+rm -rf "$NODE_SECRETS_DIR"
+mkdir -p "$NODE_SECRETS_DIR"
+
+VALIDATORS_PER_NODE=$((NUM_VALIDATORS / TOTAL_NODES))
 
 if [[ $NODE_ID -lt $TOTAL_NODES ]]; then
-  VALIDATORS_PER_NODE=$((NUM_VALIDATORS / TOTAL_NODES))
-  VALIDATORS_PER_NODE_HALF=$((VALIDATORS_PER_NODE / 2))
-  FIRST_VALIDATOR_IDX=$(( VALIDATORS_PER_NODE * NODE_ID ))
   # if using validator client binaries in addition to beacon nodes
   # we will split the keys for this instance in half between the BN and the VC
-  if [ "${SPLIT_VALIDATORS_BETWEEN_BN_AND_VC:-}" == "yes" ]; then
-    LAST_VALIDATOR_IDX=$(( FIRST_VALIDATOR_IDX + VALIDATORS_PER_NODE_HALF - 1 ))
+  if [ "${BN_VC_VALIDATOR_SPLIT:-}" == "yes" ]; then
+    ATTACHED_VALIDATORS=$((VALIDATORS_PER_NODE / 2))
   else
-    LAST_VALIDATOR_IDX=$(( FIRST_VALIDATOR_IDX + VALIDATORS_PER_NODE - 1 ))
+    ATTACHED_VALIDATORS=$VALIDATORS_PER_NODE
   fi
 
   pushd "$VALIDATORS_DIR" >/dev/null
-    cp $(seq -s " " -f v%07g.privkey $FIRST_VALIDATOR_IDX $LAST_VALIDATOR_IDX) "$DATA_DIR/validators"
+  for VALIDATOR in $(ls | tail -n +$(( ($VALIDATORS_PER_NODE * $NODE_ID) + 1 )) | head -n $ATTACHED_VALIDATORS); do
+      cp -a "$VALIDATOR" "$NODE_VALIDATORS_DIR"
+      cp -a "$SECRETS_DIR/$VALIDATOR" "$NODE_SECRETS_DIR"
+    done
   popd >/dev/null
 fi
 
-rm -rf "$DATA_DIR/dump"
-mkdir -p "$DATA_DIR/dump"
+rm -rf "$NODE_DATA_DIR/dump"
+mkdir -p "$NODE_DATA_DIR/dump"
 
 SNAPSHOT_ARG=""
 if [ -f "${SNAPSHOT_FILE}" ]; then
   SNAPSHOT_ARG="--state-snapshot=${SNAPSHOT_FILE}"
 fi
 
-cd "$DATA_DIR"
+cd "$NODE_DATA_DIR"
 
 # if you want tracing messages, add "--log-level=TRACE" below
 $BEACON_NODE_BIN \
   --log-level=${LOG_LEVEL:-DEBUG} \
   --bootstrap-file=$BOOTSTRAP_ADDRESS_FILE \
-  --data-dir=$DATA_DIR \
+  --data-dir=$NODE_DATA_DIR \
+  --secrets-dir=$NODE_SECRETS_DIR \
   --node-name=$NODE_ID \
   --tcp-port=$PORT \
   --udp-port=$PORT \

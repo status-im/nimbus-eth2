@@ -9,6 +9,7 @@ source "$(dirname "$0")/vars.sh"
 cd "$SIM_ROOT"
 mkdir -p "$SIMULATION_DIR"
 mkdir -p "$VALIDATORS_DIR"
+mkdir -p "$SECRETS_DIR"
 
 cd "$GIT_ROOT"
 
@@ -19,9 +20,6 @@ DEFS=""
 DEFS+="-d:MAX_COMMITTEES_PER_SLOT=${MAX_COMMITTEES_PER_SLOT:-1} "      # Spec default: 64
 DEFS+="-d:SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH:-6} "   # Spec default: 32
 DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-6} "  # Spec default: 12
-
-LAST_VALIDATOR_NUM=$(( NUM_VALIDATORS - 1 ))
-LAST_VALIDATOR="$VALIDATORS_DIR/v$(printf '%07d' $LAST_VALIDATOR_NUM).deposit.json"
 
 # Windows detection
 if uname | grep -qiE "mingw|msys"; then
@@ -41,36 +39,30 @@ WAIT_GENESIS="${WAIT_GENESIS:-no}"
 
 # Using tmux or multitail is an opt-in
 USE_MULTITAIL="${USE_MULTITAIL:-no}"
-type "$MULTITAIL" &>/dev/null || { echo "${MULTITAIL}" is missing; USE_MULTITAIL="no"; }
+if [[ "$USE_MULTITAIL" != "no" ]]; then
+  type "$MULTITAIL" &>/dev/null || { echo "${MULTITAIL}" is missing; USE_MULTITAIL="no"; }
+fi
 
 USE_TMUX="${USE_TMUX:-no}"
-type "$TMUX" &>/dev/null || { echo "${TMUX}" is missing; USE_TMUX="no"; }
+if [[ "$USE_TMUX" != "no" ]]; then
+  type "$TMUX" &>/dev/null || { echo "${TMUX}" is missing; USE_TMUX="no"; }
+fi
 
 USE_GANACHE="${USE_GANACHE:-no}"
-type "$GANACHE" &>/dev/null || { echo $GANACHE is missing; USE_GANACHE="no"; }
+if [[ "$USE_GANACHE" != "no" ]]; then
+  type "$GANACHE" &>/dev/null || { echo $GANACHE is missing; USE_GANACHE="no"; }
+fi
 
-USE_PROMETHEUS="${LAUNCH_PROMETHEUS:-no}"
-type "$PROMETHEUS" &>/dev/null || { echo $PROMETHEUS is missing; USE_PROMETHEUS="no"; }
+USE_PROMETHEUS="${USE_PROMETHEUS:-no}"
+if [[ "$USE_PROMETHEUS" != "no" ]]; then
+  type "$PROMETHEUS" &>/dev/null || { echo $PROMETHEUS is missing; USE_PROMETHEUS="no"; }
+fi
 
-# Prometheus config (continued inside the loop)
 mkdir -p "${METRICS_DIR}"
-cat > "${METRICS_DIR}/prometheus.yml" <<EOF
-global:
-  scrape_interval: 1s
-
-scrape_configs:
-  - job_name: "nimbus"
-    static_configs:
-EOF
-
-for i in $(seq $MASTER_NODE -1 $TOTAL_USER_NODES); do
-  # Prometheus config
-  cat >> "${METRICS_DIR}/prometheus.yml" <<EOF
-      - targets: ['127.0.0.1:$(( BASE_METRICS_PORT + i ))']
-        labels:
-          node: '$i'
-EOF
-done
+./scripts/make_prometheus_config.sh \
+	--nodes ${TOTAL_NODES} \
+	--base-metrics-port ${BASE_METRICS_PORT} \
+	--config-file "${METRICS_DIR}/prometheus.yml"
 
 COMMANDS=()
 
@@ -110,10 +102,20 @@ if [[ "$USE_TMUX" != "no" ]]; then
   $TMUX select-window -t "${TMUX_SESSION_NAME}:sim"
 fi
 
-$MAKE -j3 --no-print-directory NIMFLAGS="$CUSTOM_NIMFLAGS $DEFS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" beacon_node validator_client process_dashboard deposit_contract
+$MAKE -j3 --no-print-directory NIMFLAGS="$CUSTOM_NIMFLAGS $DEFS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" beacon_node validator_client
 
-if [ ! -f "${LAST_VALIDATOR}" ]; then
+count_files () {
+  { ls -1q $1 2> /dev/null || true ; } | wc -l
+}
+
+EXISTING_VALIDATORS=$(count_files "$VALIDATORS_DIR/*/deposit.json")
+
+if [[ $EXISTING_VALIDATORS -lt $NUM_VALIDATORS ]]; then
+  rm -rf "$VALIDATORS_DIR"
+  rm -rf "$SECRETS_DIR"
+
   if [ "$WEB3_ARG" != "" ]; then
+    make deposit_contract
     echo Deploying the validator deposit contract...
     DEPOSIT_CONTRACT_ADDRESS=$($DEPLOY_DEPOSIT_CONTRACT_BIN deploy $WEB3_ARG)
     echo Contract deployed at $DEPOSIT_CONTRACT_ADDRESS
@@ -133,8 +135,9 @@ if [ ! -f "${LAST_VALIDATOR}" ]; then
   fi
 
   $BEACON_NODE_BIN makeDeposits \
-    --quickstart-deposits="${NUM_VALIDATORS}" \
-    --deposits-dir="$VALIDATORS_DIR" \
+    --count="${NUM_VALIDATORS}" \
+    --out-validators-dir="$VALIDATORS_DIR" \
+    --out-secrets-dir="$SECRETS_DIR" \
     $MAKE_DEPOSITS_WEB3_ARG $DELAY_ARGS \
     --deposit-contract="${DEPOSIT_CONTRACT_ADDRESS}"
 
@@ -164,12 +167,6 @@ if [ -f "${MASTER_NODE_ADDRESS_FILE}" ]; then
   rm "${MASTER_NODE_ADDRESS_FILE}"
 fi
 
-# use the exported Grafana dashboard for a single node to create one for all nodes
-echo Creating grafana dashboards...
-./build/process_dashboard \
-  --in="${SIM_ROOT}/beacon-chain-sim-node0-Grafana-dashboard.json" \
-  --out="${SIM_ROOT}/beacon-chain-sim-all-nodes-Grafana-dashboard.json"
-
 # Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
 # instance as the parent and the target process name as a pattern to the
 # "pkill" command.
@@ -182,6 +179,7 @@ LAST_WAITING_NODE=0
 function run_cmd {
   i=$1
   CMD=$2
+  bin_name=$3
   if [[ "$USE_TMUX" != "no" ]]; then
     echo "Starting node $i..."
     echo $TMUX split-window -t "${TMUX_SESSION_NAME}" "$CMD"
@@ -194,7 +192,7 @@ function run_cmd {
       SLEEP="3"
     fi
     # "multitail" closes the corresponding panel when a command exits, so let's make sure it doesn't exit
-    COMMANDS+=( " -cT ansi -t 'node #$i' -l 'sleep $SLEEP; $CMD; echo [node execution completed]; while true; do sleep 100; done'" )
+    COMMANDS+=( " -cT ansi -t '$bin_name #$i' -l 'sleep $SLEEP; $CMD; echo [node execution completed]; while true; do sleep 100; done'" )
   else
     eval "${CMD}" &
   fi
@@ -212,11 +210,11 @@ for i in $(seq $MASTER_NODE -1 $TOTAL_USER_NODES); do
     done
   fi
 
-  run_cmd $i "${SIM_ROOT}/run_node.sh ${i} --verify-finalization"
+  run_cmd $i "${SIM_ROOT}/run_node.sh ${i} --verify-finalization" "node"
 
-  if [ "${SPLIT_VALIDATORS_BETWEEN_BN_AND_VC:-}" == "yes" ]; then
+  if [ "${BN_VC_VALIDATOR_SPLIT:-}" == "yes" ]; then
     # start the VC with a few seconds of delay so that we can connect through RPC
-    run_cmd $i "sleep 3 && ${SIM_ROOT}/run_validator.sh ${i}"
+    run_cmd $i "sleep 3 && ${SIM_ROOT}/run_validator.sh ${i}" "validator"
   fi
 done
 

@@ -1,5 +1,5 @@
 import
-  strformat, os, confutils
+  strformat, os, confutils, algorithm
 
 type
   Command = enum
@@ -18,12 +18,13 @@ type
         defaultValue: "deposits"
         name: "deposits-dir" }: string
 
+      secretsDir {.
+        defaultValue: "secrets"
+        name: "secrets-dir" }: string
+
       networkDataDir {.
         defaultValue: "data"
         name: "network-data-dir" }: string
-
-      totalValidators {.
-        name: "total-validators" }: int
 
       totalUserValidators {.
         defaultValue: 0
@@ -39,6 +40,9 @@ var conf = load CliConfig
 var
   serverCount = 10
   instancesCount = 2
+  validators = listDirs(conf.depositsDir)
+
+sort(validators)
 
 proc findOrDefault[K, V](tupleList: openarray[(K, V)], key: K, default: V): V =
   for t in tupleList:
@@ -60,7 +64,7 @@ iterator nodes: Node =
 
 iterator validatorAssignments: tuple[node: Node; firstValidator, lastValidator: int] =
   let
-    systemValidators = conf.totalValidators - conf.totalUserValidators
+    systemValidators = validators.len - conf.totalUserValidators
 
     defaultValidatorAssignment = proc (nodeIdx: int): int =
       (systemValidators div serverCount) div instancesCount
@@ -110,26 +114,26 @@ of restart_nodes:
 of reset_network:
   for n, firstValidator, lastValidator in validatorAssignments():
     var
-      keysList = ""
+      validatorDirs = ""
       networkDataFiles = conf.networkDataDir & "/{genesis.ssz,bootstrap_nodes.txt}"
 
     for i in firstValidator ..< lastValidator:
-      let validatorKey = fmt"v{i:07}.privkey"
-      keysList.add " "
-      keysList.add conf.depositsDir / validatorKey
+      validatorDirs.add " "
+      validatorDirs.add conf.depositsDir / validators[i]
+      secretFiles.add " "
+      secretFiles.add conf.secretsDir / validators[i]
 
     let dockerPath = &"/docker/{n.container}/data/BeaconNode"
     echo &"echo Syncing {lastValidator - firstValidator} keys starting from {firstValidator} to container {n.container}@{n.server} ... && \\"
-    echo &"  ssh {n.server} 'sudo rm -rf /tmp/nimbus && mkdir -p /tmp/nimbus/' && \\"
+    echo &"  ssh {n.server} 'sudo rm -rf /tmp/nimbus && mkdir -p /tmp/nimbus/{{validators,secrets}}' && \\"
     echo &"  rsync -a -zz {networkDataFiles} {n.server}:/tmp/nimbus/net-data/ && \\"
-    if keysList.len > 0:
-      echo &"  rsync -a -zz {keysList} {n.server}:/tmp/nimbus/keys/ && \\"
+    if validator.len > 0:
+      echo &"  rsync -a -zz {validatorDirs} {n.server}:/tmp/nimbus/validators/ && \\"
+      echo &"  rsync -a -zz {secretFiles} {n.server}:/tmp/nimbus/secrets/ && \\"
 
     echo &"  ssh {n.server} 'sudo docker container stop {n.container}; " &
-                         &"sudo mkdir -p {dockerPath}/validators && " &
-                         &"sudo rm -rf {dockerPath}/validators/* && " &
-                         &"sudo rm -rf {dockerPath}/db && " &
-                         (if keysList.len > 0: &"sudo mv /tmp/nimbus/keys/* {dockerPath}/validators/ && " else: "") &
+                         &"sudo rm -rf {dockerPath}/{{db,validators,secrets}}* && " &
+                         (if validators.len > 0: &"sudo mv /tmp/nimbus/* {dockerPath}/ && " else: "") &
                          &"sudo mv /tmp/nimbus/net-data/* {dockerPath}/ && " &
                          &"sudo chown dockremap:docker -R {dockerPath}'"
 

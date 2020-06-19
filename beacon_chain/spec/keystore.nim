@@ -6,13 +6,14 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  json, math, strutils,
-  eth/keyfile/uuid,
-  stew/[results, byteutils],
+  json, math, strutils, strformat,
+  stew/[results, byteutils, bitseqs, bitops2], stew/shims/macros,
+  eth/keyfile/uuid, blscurve,
   nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, sysrand],
-  ./crypto
+  ./datatypes, ./crypto, ./digest, ./signatures
 
-export results
+export
+  results
 
 {.push raises: [Defect].}
 
@@ -64,6 +65,22 @@ type
 
   KsResult*[T] = Result[T, cstring]
 
+  Eth2KeyKind* = enum
+    signingKeyKind # Also known as voting key
+    withdrawalKeyKind
+
+  Mnemonic* = distinct string
+  KeyPath* = distinct string
+  KeyStorePass* = distinct string
+  KeyStoreContent* = distinct JsonString
+  KeySeed* = distinct seq[byte]
+
+  Credentials* = object
+    mnemonic*: Mnemonic
+    keyStore*: KeyStoreContent
+    signingKey*: ValidatorPrivKey
+    withdrawalKey*: ValidatorPrivKey
+
 const
   saltSize = 32
 
@@ -79,6 +96,127 @@ const
     c: 2^18,
     prf: "hmac-sha256"
   )
+
+  # https://eips.ethereum.org/EIPS/eip-2334
+  eth2KeyPurpose = 12381
+  eth2CoinType* = 3600
+
+  # https://github.com/bitcoin/bips/blob/master/bip-0039/bip-0039-wordlists.md
+  wordListLen = 2048
+
+macro wordListArray(filename: static string): array[wordListLen, cstring] =
+  result = newTree(nnkBracket)
+  var words = slurp(filename).split()
+  words.setLen wordListLen
+  for word in words:
+    result.add newCall("cstring", newLit(word))
+
+const
+  englishWords = wordListArray "english_word_list.txt"
+
+iterator pathNodesImpl(path: string): Natural
+                      {.raises: [ValueError].} =
+  for elem in path.split("/"):
+    if elem == "m": continue
+    yield parseInt(elem)
+
+func append*(path: KeyPath, pathNode: Natural): KeyPath =
+  KeyPath(path.string & "/" & $pathNode)
+
+func validateKeyPath*(path: TaintedString): KeyPath
+                     {.raises: [ValueError].} =
+  for elem in pathNodesImpl(path.string): discard elem
+  KeyPath path
+
+iterator pathNodes(path: KeyPath): Natural =
+  try:
+    for elem in pathNodesImpl(path.string):
+      yield elem
+  except ValueError:
+    doAssert false, "Make sure you've validated the key path with `validateKeyPath`"
+
+func makeKeyPath*(validatorIdx: Natural,
+                  keyType: Eth2KeyKind): KeyPath =
+  # https://eips.ethereum.org/EIPS/eip-2334
+  let use = case keyType
+            of withdrawalKeyKind: "0"
+            of signingKeyKind: "0/0"
+
+  try:
+    KeyPath &"m/{eth2KeyPurpose}/{eth2CoinType}/{validatorIdx}/{use}"
+  except ValueError:
+    raiseAssert "All values above can be converted successfully to strings"
+
+func getSeed*(mnemonic: Mnemonic, password: KeyStorePass): KeySeed =
+  # https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#from-mnemonic-to-seed
+  let salt = "mnemonic-" & password.string
+  KeySeed sha512.pbkdf2(mnemonic.string, salt, 2048, 64)
+
+proc generateMnemonic*(words: openarray[cstring],
+                       entropyParam: openarray[byte] = @[]): Mnemonic =
+  # https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#generating-the-mnemonic
+  doAssert words.len == wordListLen
+
+  var entropy: seq[byte]
+  if entropyParam.len == 0:
+    entropy = getRandomBytesOrPanic(32)
+  else:
+    doAssert entropyParam.len >= 128 and
+             entropyParam.len <= 256 and
+             entropyParam.len mod 32 == 0
+    entropy = @entropyParam
+
+  let
+    checksumBits = entropy.len div 4 # ranges from 4 to 8
+    mnemonicWordCount = 12 + (checksumBits - 4) * 3
+    checksum = sha256.digest(entropy)
+
+  entropy.add byte(checksum.data.getBitsBE(0 ..< checksumBits))
+
+  var res = ""
+  res.add words[entropy.getBitsBE(0..10)]
+
+  for i in 1 ..< mnemonicWordCount:
+    let
+      firstBit = i*11
+      lastBit = firstBit + 10
+    res.add " "
+    res.add words[entropy.getBitsBE(firstBit..lastBit)]
+
+  Mnemonic res
+
+proc deriveChildKey*(parentKey: ValidatorPrivKey,
+                     index: Natural): ValidatorPrivKey =
+  let success = derive_child_secretKey(SecretKey result,
+                                       SecretKey parentKey,
+                                       uint32 index)
+  # TODO `derive_child_secretKey` is reporting pre-condition
+  #       failures with return values. We should turn the checks
+  #       into asserts inside the function.
+  doAssert success
+
+proc deriveMasterKey*(seed: KeySeed): ValidatorPrivKey =
+  let success = derive_master_secretKey(SecretKey result,
+                                        seq[byte] seed)
+  # TODO `derive_master_secretKey` is reporting pre-condition
+  #       failures with return values. We should turn the checks
+  #       into asserts inside the function.
+  doAssert success
+
+proc deriveMasterKey*(mnemonic: Mnemonic,
+                      password: KeyStorePass): ValidatorPrivKey =
+  deriveMasterKey(getSeed(mnemonic, password))
+
+proc deriveChildKey*(masterKey: ValidatorPrivKey,
+                     path: KeyPath): ValidatorPrivKey =
+  result = masterKey
+  for idx in pathNodes(path):
+    result = deriveChildKey(result, idx)
+
+proc keyFromPath*(mnemonic: Mnemonic,
+                  password: KeyStorePass,
+                  path: KeyPath): ValidatorPrivKey =
+  deriveChildKey(deriveMasterKey(mnemonic, password), path)
 
 proc shaChecksum(key, cipher: openarray[byte]): array[32, byte] =
   var ctx: sha256
@@ -100,12 +238,11 @@ template hexToBytes(data, name: string): untyped =
   except ValueError:
     return err "ks: failed to parse " & name
 
-proc decryptKeystore*(data, passphrase: string): KsResult[seq[byte]] =
-  let ks =
-    try:
-      parseJson(data)
-    except Exception:
-      return err "ks: failed to parse keystore"
+proc decryptKeystore*(data: KeyStoreContent,
+                      password: KeyStorePass): KsResult[ValidatorPrivKey] =
+  # TODO: `parseJson` can raise a general `Exception`
+  let ks = try: parseJson(data.string)
+           except Exception: return err "ks: failed to parse keystore"
 
   var
     decKey: seq[byte]
@@ -126,7 +263,7 @@ proc decryptKeystore*(data, passphrase: string): KsResult[seq[byte]] =
       kdfParams = crypto.kdf.params
 
     salt = hexToBytes(kdfParams.salt, "salt")
-    decKey = sha256.pbkdf2(passphrase, salt, kdfParams.c, kdfParams.dklen)
+    decKey = sha256.pbkdf2(password.string, salt, kdfParams.c, kdfParams.dklen)
     iv = hexToBytes(crypto.cipher.params.iv, "iv")
     cipherMsg = hexToBytes(crypto.cipher.message, "cipher")
     checksumMsg = hexToBytes(crypto.checksum.message, "checksum")
@@ -151,41 +288,41 @@ proc decryptKeystore*(data, passphrase: string): KsResult[seq[byte]] =
   aesCipher.decrypt(cipherMsg, secret)
   aesCipher.clear()
 
-  result = ok secret
+  ValidatorPrivKey.fromRaw(secret)
 
-proc encryptKeystore*[T: KdfParams](secret: openarray[byte];
-                                    passphrase: string;
-                                    path="";
-                                    salt: openarray[byte] = @[];
-                                    iv: openarray[byte] = @[];
-                                    ugly=true): KsResult[string] =
+proc encryptKeystore*(T: type[KdfParams],
+                      privKey: ValidatorPrivkey,
+                      password = KeyStorePass "",
+                      path = KeyPath "",
+                      salt: openarray[byte] = @[],
+                      iv: openarray[byte] = @[],
+                      pretty = true): KeyStoreContent =
   var
+    secret = privKey.toRaw[^32..^1]
     decKey: seq[byte]
     aesCipher: CTR[aes128]
     aesIv = newSeq[byte](aes128.sizeBlock)
     kdfSalt = newSeq[byte](saltSize)
     cipherMsg = newSeq[byte](secret.len)
 
-  if salt.len == saltSize:
+  if salt.len > 0:
+    doAssert salt.len == saltSize
     kdfSalt = @salt
-  elif salt.len > 0:
-    return err "ks: invalid salt"
-  elif randomBytes(kdfSalt) != saltSize:
-    return err "ks: no random bytes for salt"
+  else:
+    getRandomBytesOrPanic(kdfSalt)
 
-  if iv.len == aes128.sizeBlock:
+  if iv.len > 0:
+    doAssert iv.len == aes128.sizeBlock
     aesIv = @iv
-  elif iv.len > 0:
-    return err "ks: invalid iv"
-  elif randomBytes(aesIv) != aes128.sizeBlock:
-    return err "ks: no random bytes for iv"
+  else:
+    getRandomBytesOrPanic(aesIv)
 
   when T is KdfPbkdf2:
-    decKey = sha256.pbkdf2(passphrase, kdfSalt, pbkdf2Params.c,
+    decKey = sha256.pbkdf2(password.string, kdfSalt, pbkdf2Params.c,
                            pbkdf2Params.dklen)
 
     var kdf = Kdf[KdfPbkdf2](function: "pbkdf2", params: pbkdf2Params, message: "")
-    kdf.params.salt = kdfSalt.toHex()
+    kdf.params.salt = byteutils.toHex(kdfSalt)
   else:
     return
 
@@ -193,29 +330,72 @@ proc encryptKeystore*[T: KdfParams](secret: openarray[byte];
   aesCipher.encrypt(secret, cipherMsg)
   aesCipher.clear()
 
-  let pubkey = (? ValidatorPrivkey.fromRaw(secret)).toPubKey()
+  let pubkey = privKey.toPubKey()
 
   let
     sum = shaChecksum(decKey.toOpenArray(16, 31), cipherMsg)
+    uuid = uuidGenerate().get
 
     keystore = Keystore[T](
       crypto: Crypto[T](
         kdf: kdf,
         checksum: Checksum(
           function: "sha256",
-          message: sum.toHex()
+          message: byteutils.toHex(sum)
         ),
         cipher: Cipher(
           function: "aes-128-ctr",
-          params: CipherParams(iv: aesIv.toHex()),
-          message: cipherMsg.toHex()
+          params: CipherParams(iv: byteutils.toHex(aesIv)),
+          message: byteutils.toHex(cipherMsg)
         )
       ),
-      pubkey: pubkey.toHex(),
-      path: path,
-      uuid: $(? uuidGenerate()),
-      version: 4
-    )
+      pubkey: toHex(pubkey),
+      path: path.string,
+      uuid: $uuid,
+      version: 4)
 
-  result = ok(if ugly: $(%keystore)
-              else: pretty(%keystore, indent=4))
+  KeyStoreContent if pretty: json.pretty(%keystore, indent=4)
+                  else: $(%keystore)
+
+proc restoreCredentials*(mnemonic: Mnemonic,
+                         password = KeyStorePass ""): Credentials =
+  let
+    withdrawalKeyPath = makeKeyPath(0, withdrawalKeyKind)
+    withdrawalKey = keyFromPath(mnemonic, password, withdrawalKeyPath)
+
+    signingKeyPath = withdrawalKeyPath.append 0
+    signingKey = deriveChildKey(withdrawalKey, 0)
+
+  Credentials(
+    mnemonic: mnemonic,
+    keyStore: encryptKeystore(KdfPbkdf2, signingKey, password, signingKeyPath),
+    signingKey: signingKey,
+    withdrawalKey: withdrawalKey)
+
+proc generateCredentials*(entropy: openarray[byte] = @[],
+                          password = KeyStorePass ""): Credentials =
+  let mnemonic = generateMnemonic(englishWords, entropy)
+  restoreCredentials(mnemonic, password)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/deposit-contract.md#withdrawal-credentials
+proc makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
+  var bytes = eth2digest(k.toRaw())
+  bytes.data[0] = BLS_WITHDRAWAL_PREFIX.uint8
+  bytes
+
+proc prepareDeposit*(credentials: Credentials,
+                     amount = MAX_EFFECTIVE_BALANCE.Gwei): Deposit =
+  let
+    withdrawalPubKey = credentials.withdrawalKey.toPubKey
+    signingPubKey = credentials.signingKey.toPubKey
+
+  var
+    ret = Deposit(
+      data: DepositData(
+        amount: amount,
+        pubkey: signingPubKey,
+        withdrawal_credentials: makeWithdrawalCredentials(withdrawalPubKey)))
+
+  ret.data.signature = get_deposit_signature(ret.data, credentials.signingKey)
+
+  ret

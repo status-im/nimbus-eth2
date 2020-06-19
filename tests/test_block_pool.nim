@@ -13,6 +13,9 @@ import
   ../beacon_chain/spec/[datatypes, digest, validator],
   ../beacon_chain/[beacon_node_types, block_pool, state_transition, ssz]
 
+when isMainModule:
+  import chronicles # or some random compile error happens...
+
 suiteReport "BlockRef and helpers" & preset():
   timedTest "isAncestorOf sanity" & preset():
     let
@@ -175,7 +178,7 @@ suiteReport "Block pool processing" & preset():
 
     check:
       pool.get(b2Root).isNone() # Unresolved, shouldn't show up
-      FetchRecord(root: b1Root, historySlots: 1) in pool.checkMissing()
+      FetchRecord(root: b1Root) in pool.checkMissing()
 
     check: pool.add(b1Root, b1).isOk
 
@@ -367,3 +370,4 @@ when const_preset == "minimal":  # These require some minutes in mainnet
           hash_tree_root(pool.headState.data.data)
         hash_tree_root(pool2.justifiedState.data.data) ==
           hash_tree_root(pool.justifiedState.data.data)
+

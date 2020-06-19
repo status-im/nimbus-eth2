@@ -13,6 +13,9 @@ proc `$`*(peer: SomeTPeer): string =
 proc updateScore(peer: SomeTPeer, score: int) =
   discard
 
+proc getFirstSlotAtFinalizedEpoch(): Slot =
+  Slot(0)
+
 suite "SyncManager test suite":
   proc createChain(start, finish: Slot): seq[SignedBeaconBlock] =
     doAssert(start <= finish)
@@ -30,7 +33,8 @@ suite "SyncManager test suite":
 
   test "[SyncQueue] Start and finish slots equal":
     let p1 = SomeTPeer()
-    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(0), 1'u64, syncUpdate)
+    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(0), 1'u64, syncUpdate,
+                               getFirstSlotAtFinalizedEpoch)
     check len(queue) == 1
     var r11 = queue.pop(Slot(0), p1)
     check len(queue) == 0
@@ -45,7 +49,8 @@ suite "SyncManager test suite":
       r11.slot == Slot(0) and r11.count == 1'u64 and r11.step == 1'u64
 
   test "[SyncQueue] Two full requests success/fail":
-    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(1), 1'u64, syncUpdate)
+    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(1), 1'u64, syncUpdate,
+                               getFirstSlotAtFinalizedEpoch)
     let p1 = SomeTPeer()
     let p2 = SomeTPeer()
     check len(queue) == 2
@@ -72,7 +77,8 @@ suite "SyncManager test suite":
       r22.slot == Slot(1) and r22.count == 1'u64 and r22.step == 1'u64
 
   test "[SyncQueue] Full and incomplete success/fail start from zero":
-    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 2'u64, syncUpdate)
+    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 2'u64, syncUpdate,
+                               getFirstSlotAtFinalizedEpoch)
     let p1 = SomeTPeer()
     let p2 = SomeTPeer()
     let p3 = SomeTPeer()
@@ -110,7 +116,8 @@ suite "SyncManager test suite":
       r33.slot == Slot(4) and r33.count == 1'u64 and r33.step == 1'u64
 
   test "[SyncQueue] Full and incomplete success/fail start from non-zero":
-    var queue = SyncQueue.init(SomeTPeer, Slot(1), Slot(5), 3'u64, syncUpdate)
+    var queue = SyncQueue.init(SomeTPeer, Slot(1), Slot(5), 3'u64, syncUpdate,
+                               getFirstSlotAtFinalizedEpoch)
     let p1 = SomeTPeer()
     let p2 = SomeTPeer()
     check len(queue) == 5
@@ -137,7 +144,8 @@ suite "SyncManager test suite":
       r42.slot == Slot(4) and r42.count == 2'u64 and r42.step == 1'u64
 
   test "[SyncQueue] Smart and stupid success/fail":
-    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 5'u64, syncUpdate)
+    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 5'u64, syncUpdate,
+                               getFirstSlotAtFinalizedEpoch)
     let p1 = SomeTPeer()
     let p2 = SomeTPeer()
     check len(queue) == 5
@@ -164,7 +172,8 @@ suite "SyncManager test suite":
       r52.slot == Slot(4) and r52.count == 1'u64 and r52.step == 1'u64
 
   test "[SyncQueue] One smart and one stupid + debt split + empty":
-    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 5'u64, syncUpdate)
+    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 5'u64, syncUpdate,
+                               getFirstSlotAtFinalizedEpoch)
     let p1 = SomeTPeer()
     let p2 = SomeTPeer()
     let p3 = SomeTPeer()
@@ -210,7 +219,7 @@ suite "SyncManager test suite":
 
       var chain = createChain(Slot(0), Slot(2))
       var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(2), 1'u64,
-                                 syncReceiver, 1)
+                                 syncReceiver, getFirstSlotAtFinalizedEpoch, 1)
       let p1 = SomeTPeer()
       let p2 = SomeTPeer()
       let p3 = SomeTPeer()
@@ -253,7 +262,7 @@ suite "SyncManager test suite":
 
       var chain = createChain(Slot(5), Slot(11))
       var queue = SyncQueue.init(SomeTPeer, Slot(5), Slot(11), 2'u64,
-                                 syncReceiver, 2)
+                                 syncReceiver, getFirstSlotAtFinalizedEpoch, 2)
       let p1 = SomeTPeer()
       let p2 = SomeTPeer()
       let p3 = SomeTPeer()
@@ -303,7 +312,7 @@ suite "SyncManager test suite":
 
       var chain = createChain(Slot(5), Slot(18))
       var queue = SyncQueue.init(SomeTPeer, Slot(5), Slot(18), 2'u64,
-                                 syncReceiver, 2)
+                                 syncReceiver, getFirstSlotAtFinalizedEpoch, 2)
       let p1 = SomeTPeer()
       let p2 = SomeTPeer()
       let p3 = SomeTPeer()
