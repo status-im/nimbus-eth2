@@ -1,6 +1,6 @@
 # Installation
 
-Beacon chain can run on Linux, macOS, Windows, and Andriod. At the moment, Nimbus has to be built from source.
+Beacon chain can run on Linux, macOS, Windows, and Android. At the moment, Nimbus has to be built from source.
 
 ## External Dependencies
 

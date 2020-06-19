@@ -17,12 +17,10 @@ It is obvious that you must have enough computing power or dedicated hardware in
 1. A special smart contract named **_deposit contract_** is deployed on the original Ethereum blockchain. Note that in this case, the new beacon chain and the original blockchain co-exists.
 2. To "register" as a validator, you have to first deposit **_32 Ether_** from your account to this smart contract.
 3. Run the beacon node and wait for the network to sync before your validator is activated.
-4. That's all! Remember to stay connected to the network, or you may lose your deposit. :P
+4. That's all! Remember to stay connected to the network, or you may lose some of your deposit, as punishment, depending on how long you're offline. :P
 
 ## 4. What is Nimbus?
 
 In a sentence, Nimbus is an Ethereum 1.0 & 2.0 Client for Resource-Restricted Devices.
 
 It is open sourced at [github.com/status-im/nimbus](github.com/status-im/nimbus). Development progress and updates can be viewed at the [Nimbus blog](https://our.status.im/tag/nimbus/).
-
-## 5. Why should you choose Nimbus?
