@@ -179,6 +179,7 @@ LAST_WAITING_NODE=0
 function run_cmd {
   i=$1
   CMD=$2
+  bin_name=$3
   if [[ "$USE_TMUX" != "no" ]]; then
     echo "Starting node $i..."
     echo $TMUX split-window -t "${TMUX_SESSION_NAME}" "$CMD"
@@ -191,7 +192,7 @@ function run_cmd {
       SLEEP="3"
     fi
     # "multitail" closes the corresponding panel when a command exits, so let's make sure it doesn't exit
-    COMMANDS+=( " -cT ansi -t 'node #$i' -l 'sleep $SLEEP; $CMD; echo [node execution completed]; while true; do sleep 100; done'" )
+    COMMANDS+=( " -cT ansi -t '$bin_name #$i' -l 'sleep $SLEEP; $CMD; echo [node execution completed]; while true; do sleep 100; done'" )
   else
     eval "${CMD}" &
   fi
@@ -209,11 +210,11 @@ for i in $(seq $MASTER_NODE -1 $TOTAL_USER_NODES); do
     done
   fi
 
-  run_cmd $i "${SIM_ROOT}/run_node.sh ${i} --verify-finalization"
+  run_cmd $i "${SIM_ROOT}/run_node.sh ${i} --verify-finalization" "node"
 
-  if [ "${SPLIT_VALIDATORS_BETWEEN_BN_AND_VC:-}" == "yes" ]; then
+  if [ "${BN_VC_VALIDATOR_SPLIT:-}" == "yes" ]; then
     # start the VC with a few seconds of delay so that we can connect through RPC
-    run_cmd $i "sleep 3 && ${SIM_ROOT}/run_validator.sh ${i}"
+    run_cmd $i "sleep 3 && ${SIM_ROOT}/run_validator.sh ${i}" "validator"
   fi
 done
 
