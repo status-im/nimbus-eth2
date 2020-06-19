@@ -298,7 +298,9 @@ After cloning the repo:
 ```bash
 # The first `make` invocation will update all Git submodules.
 # You'll run `make update` after each `git pull`, in the future, to keep those submodules up to date.
-make
+
+# Build beacon_node and all the tools, using 4 parallel Make jobs
+make -j4
 
 # Run tests
 make test
