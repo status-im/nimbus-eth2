@@ -4,7 +4,7 @@
 
 A complete introduction about the beacon chain can be found in the [Ethereum 2.0 blog series](https://our.status.im/two-point-oh-the-beacon-chain/).
 
-In short, the beacon chain is a **new type of blockchain** to help the Ethereum blockchain to smoothly transfer its consensus algorithm from PoW (Proof of Work) to PoS (Proof of Stake), aka Ethereum 2.0. You can also see it as a PoS + PoW solution.
+In short, the beacon chain is a **new type of blockchain** to help the Ethereum blockchain to smoothly transfer its consensus algorithm from PoW (Proof of Work) to PoS (Proof of Stake), aka Ethereum 2.0.
 
 ## 2. Differences Between Beacon Chain and Ethereum 1.0
 

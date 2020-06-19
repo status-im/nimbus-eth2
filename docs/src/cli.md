@@ -1,4 +1,4 @@
-# Command-line Options
+# CLI
 
 You can run your customized beacon node using the beacon_node CLI. The available options are shown below.
 

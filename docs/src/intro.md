@@ -14,7 +14,7 @@ In this book, we will cover:
 1. [What is beacon chain](./faq.md#1-what-is-beacon-chain) and [what is Nimbus](./faq.md#4-what-is-nimbus) to equip you with some basic knowledge.
 2. How to [become a validator](./validator.md) in Ethereum 2.0 as a user.
 3. [Installation steps](./install.md) for nimbus beacon chain.
-4. [Command-line options](./cli.md) for running your customized nimbus beacon node.
+4. [CLI](./cli.md) for running your customized nimbus beacon node.
 5. [Advanced usage](./advanced.md) for developers.
 6. Common [questions and answers](./faq.md) to satisfy your curiosity.
 7. How to [contribute](./contribute.md) to this book.
