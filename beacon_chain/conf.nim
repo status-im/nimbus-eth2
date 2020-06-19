@@ -5,7 +5,7 @@ import
   chronicles, confutils, json_serialization,
   confutils/defs, confutils/std/net,
   chronicles/options as chroniclesOptions,
-  spec/[crypto, keystore]
+  spec/[crypto, keystore, digest]
 
 export
   defs, enabledLogLevel, parseCmdArg, completeCmdArg
@@ -61,6 +61,10 @@ type
       defaultValue: ""
       desc: "Address of the deposit contract."
       name: "deposit-contract" }: string
+
+    depositContractDeployedAt* {.
+      desc: "The Eth1 block hash where the deposit contract has been deployed."
+      name: "deposit-contract-block" }: Option[Eth2Digest]
 
     nonInteractive* {.
       desc: "Do not display interative prompts. Quit on missing configuration."
@@ -365,6 +369,13 @@ proc createDumpDirs*(conf: BeaconNodeConf) =
     except CatchableError as err:
       # Dumping is mainly a debugging feature, so ignore these..
       warn "Cannot create dump directories", msg = err.msg
+
+func parseCmdArg*(T: type Eth2Digest, input: TaintedString): T
+                 {.raises: [ValueError, Defect].} =
+  fromHex(T, string input)
+
+func completeCmdArg*(T: type Eth2Digest, input: TaintedString): seq[string] =
+  return @[]
 
 func validatorsDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
   string conf.validatorsDirFlag.get(InputDir(conf.dataDir / "validators"))

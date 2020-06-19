@@ -6,6 +6,7 @@ const
   bootstrapTxtFileName = "bootstrap_nodes.txt"
   bootstrapYamlFileName = "boot_enr.yaml"
   depositContractFileName = "deposit_contract.txt"
+  depositContractBlockFileName = "deposit_contract_block.txt"
   genesisFile = "genesis.ssz"
   configFile = "config.yaml"
   testnetsRepo = "eth2-testnets"
@@ -25,6 +26,10 @@ proc validateTestnetName(parts: openarray[string]): auto =
 
 cli do (skipGoerliKey {.
           desc: "Don't prompt for an Eth1 Goerli key to become a validator" .}: bool,
+
+        specVersion {.
+          desc: "Spec version"
+          name: "spec" .}: string = "v0.11.3",
 
         constPreset {.
           desc: "The Ethereum 2.0 const preset of the network (optional)"
@@ -60,19 +65,18 @@ cli do (skipGoerliKey {.
   var
     depositContractOpt = ""
     bootstrapFileOpt = ""
+    genesisFileOpt = ""
 
-  let testnetDir = allTestnetsDir / team / testnet
+  let
+    testnetDir = allTestnetsDir / team / testnet
+    genesisFilePath = testnetDir / genesisFile
+
   if not system.dirExists(testnetDir):
     echo &"No metadata files exists for the '{testnetName}' testnet"
     quit 1
 
-  proc checkRequiredFile(fileName: string) =
-    let filePath = testnetDir / fileName
-    if not system.fileExists(filePath):
-      echo &"The required file {fileName} is not present in '{testnetDir}'."
-      quit 1
-
-  checkRequiredFile genesisFile
+  if system.fileExists(genesisFilePath):
+    genesisFileOpt = &"--state-snapshot=\"{genesisFilePath}\""
 
   let bootstrapTxtFile = testnetDir / bootstrapTxtFileName
   if system.fileExists(bootstrapTxtFile):
@@ -98,7 +102,7 @@ cli do (skipGoerliKey {.
     secretsDir = dataDir / "secrets"
     beaconNodeBinary = buildDir / "beacon_node_" & dataDirName
   var
-    nimFlags = "-d:chronicles_log_level=TRACE " & getEnv("NIM_PARAMS")
+    nimFlags = &"-d:chronicles_log_level=TRACE -d:ETH2_SPEC={specVersion} " & getEnv("NIM_PARAMS")
 
   # write the logs to a file
   nimFlags.add """ -d:"chronicles_sinks=textlines,json[file(nbc""" & staticExec("date +\"%Y%m%d%H%M%S\"") & """.log)]" """
@@ -106,6 +110,10 @@ cli do (skipGoerliKey {.
   let depositContractFile = testnetDir / depositContractFileName
   if system.fileExists(depositContractFile):
     depositContractOpt = "--deposit-contract=" & readFile(depositContractFile).strip
+
+  let depositContractBlockFile = testnetDir / depositContractBlockFileName
+  if system.fileExists(depositContractBlockFile):
+    depositContractOpt.add " --deposit-contract-block=" & readFile(depositContractBlockFile).strip
 
   if system.dirExists(dataDir):
     block resetDataDir:
@@ -177,5 +185,5 @@ cli do (skipGoerliKey {.
     {bootstrapFileOpt}
     {logLevelOpt}
     {depositContractOpt}
-    --state-snapshot="{testnetDir/genesisFile}" """, "\n", " ")
+    {genesisFileOpt} """, "\n", " ")
 

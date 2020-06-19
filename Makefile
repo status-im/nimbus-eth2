@@ -133,7 +133,7 @@ $(TOOLS): | build deps
 		$(ENV_SCRIPT) nim c -o:build/$@ $(NIM_PARAMS) "$${TOOL_DIR}/$@.nim"
 
 clean_eth2_network_simulation_data:
-	rm -rf tests/simulation/{data}
+	rm -rf tests/simulation/data
 
 clean_eth2_network_simulation_all:
 	rm -rf tests/simulation/{data,validators}
@@ -153,14 +153,14 @@ testnet0 testnet1: | build deps
 	source scripts/$@.env; \
 		NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) --const-preset=$$CONST_PRESET --dev-build $@
 
-clean-schlesi:
-	rm -rf build/data/shared_schlesi*
+clean-altona:
+	rm -rf build/data/shared_altona*
 
-schlesi: | build deps
-	NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/schlesi
+altona: | build deps
+	NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims --spec=v0.12.1 $(SCRIPT_PARAMS) shared/altona
 
-schlesi-dev: | build deps
-	NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/schlesi
+altona-dev: | build deps
+	NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/altona
 
 clean-witti:
 	rm -rf build/data/shared_witti*

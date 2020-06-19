@@ -18,7 +18,7 @@ import
   eth/p2p/enode, eth/[keys, async_utils], eth/p2p/discoveryv5/[protocol, enr],
 
   # Local modules
-  spec/[datatypes, digest, crypto, beaconstate, helpers, network],
+  spec/[datatypes, digest, crypto, beaconstate, helpers, network, signatures],
   spec/presets/custom,
   conf, time, beacon_chain_db, validator_pool, extras,
   attestation_pool, block_pool, eth2_network, eth2_discovery,
@@ -153,7 +153,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
         mainchainMonitor = MainchainMonitor.init(
           web3Provider(conf.web3Url),
           conf.depositContractAddress,
-          Eth2Digest())
+          conf.depositContractDeployedAt)
         mainchainMonitor.start()
       else:
         error "No initial state, need genesis state or deposit contract address"
@@ -195,7 +195,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     mainchainMonitor = MainchainMonitor.init(
       web3Provider(conf.web3Url),
       conf.depositContractAddress,
-      blockPool.headState.data.data.eth1_data.block_hash)
+      some blockPool.headState.data.data.eth1_data.block_hash)
     # TODO if we don't have any validators attached, we don't need a mainchain
     #      monitor
     mainchainMonitor.start()
@@ -838,7 +838,7 @@ proc createPidFile(filename: string) =
 proc initializeNetworking(node: BeaconNode) {.async.} =
   node.network.startListening()
 
-  let addressFile = node.config.dataDir / "beacon_node.address"
+  let addressFile = node.config.dataDir / "beacon_node.enr"
   writeFile(addressFile, node.network.announcedENR.toURI)
 
   await node.network.startLookingForPeers()

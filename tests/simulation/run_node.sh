@@ -20,12 +20,12 @@ BOOTSTRAP_ARG=""
 
 if [[ ! -z "$1" ]]; then
   BOOTSTRAP_NODE_ID=$1
-  BOOTSTRAP_ADDRESS_FILE="${SIMULATION_DIR}/node-${BOOTSTRAP_NODE_ID}/beacon_node.address"
   shift
 else
   BOOTSTRAP_NODE_ID=$MASTER_NODE
-  BOOTSTRAP_ADDRESS_FILE=$NETWORK_BOOTSTRAP_FILE
 fi
+
+BOOTSTRAP_ADDRESS_FILE="${SIMULATION_DIR}/node-${BOOTSTRAP_NODE_ID}/beacon_node.enr"
 
 if [[ "$NODE_ID" != "$MASTER_NODE" ]]; then
   BOOTSTRAP_ARG="--bootstrap-file=$BOOTSTRAP_ADDRESS_FILE"
@@ -88,7 +88,6 @@ fi
 
 cd "$NODE_DATA_DIR"
 
-# if you want tracing messages, add "--log-level=TRACE" below
 $BEACON_NODE_BIN \
   --log-level=${LOG_LEVEL:-DEBUG} \
   $BOOTSTRAP_ARG \
