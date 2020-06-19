@@ -71,7 +71,7 @@ type
 
       bootstrapNodesFile* {.
         defaultValue: ""
-        desc: "Specifies a line-delimited file of bootsrap Ethereum network addresses."
+        desc: "Specifies a line-delimited file of bootstrap Ethereum network addresses."
         name: "bootstrap-file" }: InputFile
 
       libp2pAddress* {.
@@ -121,7 +121,7 @@ type
       nodeName* {.
         defaultValue: ""
         desc: "A name for this node that will appear in the logs. " &
-              "If you set this to 'auto', a persistent automatically generated ID will be seleceted for each --dataDir folder."
+              "If you set this to 'auto', a persistent automatically generated ID will be selected for each --dataDir folder."
         name: "node-name" }: string
 
       verifyFinalization* {.
