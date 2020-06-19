@@ -35,7 +35,7 @@ DEPOSIT_CONTRACT_FILE="${SIMULATION_DIR}/deposit_contract.txt"
 BEACON_NODE_BIN="${GIT_ROOT}/build/beacon_node"
 VALIDATOR_CLIENT_BIN="${GIT_ROOT}/build/validator_client"
 DEPLOY_DEPOSIT_CONTRACT_BIN="${GIT_ROOT}/build/deposit_contract"
-MASTER_NODE_ADDRESS_FILE="${SIMULATION_DIR}/node-${MASTER_NODE}/beacon_node.address"
+MASTER_NODE_ADDRESS_FILE="${SIMULATION_DIR}/node-${MASTER_NODE}/beacon_node.enr"
 
 WEB3_ARG="--web3-url=ws://localhost:8545"
 

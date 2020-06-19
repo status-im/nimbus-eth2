@@ -195,7 +195,7 @@ for NUM_NODE in $(seq 0 $((NUM_NODES - 1))); do
 		BOOTSTRAP_ARG="--bootstrap-file=${NETWORK_DIR}/bootstrap_nodes.txt"
 		# Wait for the master node to write out its address file
 		START_TIMESTAMP=$(date +%s)
-		while [ ! -f "${DATA_DIR}/node0/beacon_node.address" ]; do
+		while [ ! -f "${DATA_DIR}/node0/beacon_node.enr" ]; do
 			sleep 0.1
 			NOW_TIMESTAMP=$(date +%s)
 			if [[ "$(( NOW_TIMESTAMP - START_TIMESTAMP - GENESIS_OFFSET ))" -ge "$BOOTSTRAP_TIMEOUT" ]]; then

@@ -51,7 +51,7 @@ proc loadBootstrapFile*(bootstrapFile: string,
                         localPubKey: PublicKey) =
   if bootstrapFile.len == 0: return
   let ext = splitFile(bootstrapFile).ext
-  if cmpIgnoreCase(ext, ".txt") == 0:
+  if cmpIgnoreCase(ext, ".txt") == 0 or cmpIgnoreCase(ext, ".enr") == 0 :
     try:
       for ln in lines(bootstrapFile):
         addBootstrapNode(ln, bootstrapEnrs, localPubKey)

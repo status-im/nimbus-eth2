@@ -35,7 +35,7 @@ fi
 
 USE_CTAIL="${USE_CTAIL:-yes}"
 if [[ "$USE_CTAIL" == "yes" ]]; then
-  type "$CTAIL_CMD" &>/dev/null || { echo $CTAIL_CMD is missing; USE_CTAIL="no"; }
+  type "$CTAIL_CMD" &>/dev/null || { USE_CTAIL="no"; }
 fi
 
 # Read in variables
@@ -53,7 +53,7 @@ CUSTOM_NIMFLAGS="${NIMFLAGS} -d:useSysAsserts -d:chronicles_sinks:textlines,json
 
 # Run with "SLOTS_PER_EPOCH=8 ./start.sh" to change these
 DEFS=""
-DEFS+="-d:MIN_GENESIS_ACTIVE_VALIDATOR_COUNT=${NUM_VALIDATORS} "
+DEFS+="-d:MIN_GENESIS_ACTIVE_VALIDATOR_COUNT=${NUM_VALIDATORS} -d:MIN_GENESIS_TIME=0 "
 DEFS+="-d:MAX_COMMITTEES_PER_SLOT=${MAX_COMMITTEES_PER_SLOT:-1} "      # Spec default: 64
 DEFS+="-d:SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH:-6} "   # Spec default: 32
 DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-6} "  # Spec default: 12
@@ -75,7 +75,7 @@ COMMANDS=()
 
 if [[ "$USE_GANACHE" == "yes" ]]; then
   if [[ "$USE_TMUX" == "yes" ]]; then
-    $TMUX_CMD new-window -d -t $TMUX_SESSION_NAME -n "$GANACHE_CMD" "$GANACHE_CMD --blockTime 5 --gasLimit 100000000 -e 100000"
+    $TMUX_CMD new-window -d -t $TMUX_SESSION_NAME -n "$GANACHE_CMD" "$GANACHE_CMD --blockTime 5 --gasLimit 100000000 -e 100000 --verbose"
   else
     echo NOTICE: $GANACHE_CMD will be started automatically only with USE_TMUX=1
     USE_GANACHE="no"
