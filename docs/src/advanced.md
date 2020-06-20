@@ -36,9 +36,8 @@ mingw32-make test # run the test suite
 After cloning the repo:
 
 ```bash
-make # The first `make` invocation will update all Git submodules and prompt you to run `make` again.
-     # It's only required once per Git clone. You'll run `make update` after each `git pull`, in the future,
-     # to keep those submodules up to date.
+# Build beacon_node and all the tools, using 4 parallel Make jobs
+make -j4
 
 # Run tests
 make test

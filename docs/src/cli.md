@@ -1,16 +1,16 @@
-# CLI
+# Command-line Options
 
-You can run your customized beacon node using the beacon_node CLI. The available options are shown below.
+You can run your customized beacon node using the beacon_node executable. The available options are shown below.
 
 ## Prerequisites
 
-Specifying a genesis file is mandatory to run this CLI. You can either get it from the official eth2 repository [here](https://github.com/eth2-clients/eth2-testnets/blob/master/shared/witti/genesis.ssz) or generate your own like [this](https://github.com/status-im/nim-beacon-chain/blob/db92c2f2549a339be60896c3907cefdb394b5e11/scripts/launch_local_testnet.sh#L154) when starting a local testnet. You can also specify the path of your genesis file like [this](https://github.com/status-im/nim-beacon-chain/blob/db92c2f2549a339be60896c3907cefdb394b5e11/scripts/launch_local_testnet.sh#L229).
+Specifying a genesis file is mandatory to run this executable. You can either get it from the official eth2 repository [here](https://github.com/eth2-clients/eth2-testnets/blob/master/shared/witti/genesis.ssz) or generate your own like [this](https://github.com/status-im/nim-beacon-chain/blob/db92c2f2549a339be60896c3907cefdb394b5e11/scripts/launch_local_testnet.sh#L154) when starting a local testnet. You can also specify the path of your genesis file like [this](https://github.com/status-im/nim-beacon-chain/blob/db92c2f2549a339be60896c3907cefdb394b5e11/scripts/launch_local_testnet.sh#L229).
 
 For example, download a genesis file and then run the following command to start the node:
 
 <img src="./img/beacon_node_example.PNG" alt="" style="margin: 0 40 0 40"/>
 
-## CLI Help Message
+## Usage
 
 ```
 $ ./build/beacon_node --help
