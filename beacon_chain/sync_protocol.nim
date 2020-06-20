@@ -59,6 +59,13 @@ proc shortLog*(s: StatusMsg): auto =
   )
 chronicles.formatIt(StatusMsg): shortLog(it)
 
+func disconnectReasonName(reason: uint64): string =
+  # haha, nim doesn't support uint64 in `case`!
+  if reason == uint64(ClientShutDown): "Client shutdown"
+  elif reason == uint64(IrrelevantNetwork): "Irrelevant network"
+  elif reason == uint64(FaultOrError): "Fault or error"
+  else: "Disconnected (" & $reason & ")"
+
 proc importBlocks(state: BeaconSyncNetworkState,
                   blocks: openarray[SignedBeaconBlock]) {.gcsafe.} =
   for blk in blocks:
@@ -169,9 +176,9 @@ p2pProtocol BeaconSync(version = 1,
       peer, roots = blockRoots.len, count, found
 
   proc goodbye(peer: Peer,
-               reason: DisconnectionReason)
+               reason: uint64)
     {.async, libp2pProtocol("goodbye", 1).} =
-    debug "Received Goodbye message", reason, peer
+    debug "Received Goodbye message", reason = disconnectReasonName(reason), peer
 
 proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) =
   debug "Peer status", peer, statusMsg

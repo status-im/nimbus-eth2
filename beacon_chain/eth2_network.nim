@@ -144,9 +144,10 @@ type
   MessageContentPrinter* = proc(msg: pointer): string {.gcsafe.}
 
   DisconnectionReason* = enum
-    ClientShutDown
-    IrrelevantNetwork
-    FaultOrError
+    # might see other values on the wire!
+    ClientShutDown = 1
+    IrrelevantNetwork = 2
+    FaultOrError = 3
 
   PeerDisconnected* = object of CatchableError
     reason*: DisconnectionReason
