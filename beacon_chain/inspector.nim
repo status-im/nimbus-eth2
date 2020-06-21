@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 import strutils, os, tables, options
 import confutils, chronicles, chronos
-import libp2p/[switch, standard_setup, connection, multiaddress, multicodec,
+import libp2p/[switch, standard_setup, multiaddress, multicodec,
                peer, peerinfo, peer]
 import libp2p/crypto/crypto as lcrypto
 import libp2p/crypto/secp as lsecp

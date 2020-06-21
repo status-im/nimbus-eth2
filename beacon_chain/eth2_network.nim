@@ -11,7 +11,7 @@ import
   json_serialization, json_serialization/std/[net, options],
   chronos, chronicles, metrics,
   # TODO: create simpler to use libp2p modules that use re-exports
-  libp2p/[switch, standard_setup, peerinfo, peer, connection, errors,
+  libp2p/[switch, standard_setup, peerinfo, peer, errors,
           multiaddress, multicodec, crypto/crypto, crypto/secp,
           protocols/identify, protocols/protocol],
   libp2p/protocols/secure/[secure, secio],
