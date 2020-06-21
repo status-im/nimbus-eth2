@@ -164,7 +164,7 @@ proc sendDeposits*(deposits: seq[Deposit],
                    delayGenerator: DelayGenerator = nil) {.async.} =
   var web3 = await newWeb3(web3Url)
   if privateKey.len != 0:
-    web3.privateKey = PrivateKey.fromHex(privateKey).tryGet
+    web3.privateKey = some(PrivateKey.fromHex(privateKey).tryGet)
   else:
     let accounts = await web3.provider.eth_accounts()
     if accounts.len == 0:

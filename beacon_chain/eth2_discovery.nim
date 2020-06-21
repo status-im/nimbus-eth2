@@ -75,7 +75,7 @@ proc loadBootstrapFile*(bootstrapFile: string,
 proc new*(T: type Eth2DiscoveryProtocol,
           conf: BeaconNodeConf,
           ip: Option[ValidIpAddress], tcpPort, udpPort: Port,
-          rawPrivKeyBytes: openarray[byte],
+          pk: PrivateKey,
           enrFields: openarray[(string, seq[byte])]):
           T {.raises: [Exception, Defect].} =
   # TODO
@@ -83,8 +83,7 @@ proc new*(T: type Eth2DiscoveryProtocol,
   # * for setting up a specific key
   # * for using a persistent database
   let
-    pk = PrivateKey.fromRaw(rawPrivKeyBytes).expect("Valid private key")
-    ourPubKey = pk.toPublicKey().expect("Public key from valid private key")
+    ourPubKey = pk.toPublicKey()
     # TODO: `newMemoryDB()` causes raises: [Exception]
     db = DiscoveryDB.init(newMemoryDB())
 
