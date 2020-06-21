@@ -76,7 +76,7 @@ proc aggregate_attestations*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#attestation-subnets
 proc isValidAttestation*(
-    pool: AttestationPool, attestation: Attestation, current_slot: Slot,
+    pool: var AttestationPool, attestation: Attestation, current_slot: Slot,
     topicCommitteeIndex: uint64): bool =
   logScope:
     topics = "att_aggr valid_att"
@@ -135,6 +135,7 @@ proc isValidAttestation*(
   # therefore propagate faster, thus reordering their arrival in some nodes
   if pool.blockPool.get(attestation.data.beacon_block_root).isNone():
     debug "block doesn't exist in block pool"
+    pool.blockPool.addMissing(attestation.data.beacon_block_root)
     return false
 
   # The signature of attestation is valid.
