@@ -100,7 +100,7 @@ else
 NIM_PARAMS := $(NIM_PARAMS) -d:release
 endif
 
-deps: | deps-common beacon_chain.nims
+deps: | deps-common nat-libs beacon_chain.nims
 ifneq ($(USE_LIBBACKTRACE), 0)
 deps: | libbacktrace
 endif
