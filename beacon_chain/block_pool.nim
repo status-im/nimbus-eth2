@@ -152,13 +152,24 @@ template justifiedState*(pool: BlockPool): StateData =
   pool.dag.justifiedState
 
 template withState*(
-    pool: BlockPool, cache: var StateData, blockSlot: BlockSlot, body: untyped): untyped =
+    pool: BlockPool, cache: var StateData, blockSlot: BlockSlot, body: untyped):
+    untyped =
   ## Helper template that updates state to a particular BlockSlot - usage of
   ## cache is unsafe outside of block.
   ## TODO async transformations will lead to a race where cache gets updated
   ##      while waiting for future to complete - catch this here somehow?
 
   withState(pool.dag, cache, blockSlot, body)
+
+template withEpochState*(
+    pool: BlockPool, cache: var StateData, blockSlot: BlockSlot, body: untyped):
+    untyped =
+  ## Helper template that updates state to a particular BlockSlot - usage of
+  ## cache is unsafe outside of block.
+  ## TODO async transformations will lead to a race where cache gets updated
+  ##      while waiting for future to complete - catch this here somehow?
+
+  withEpochState(pool.dag, cache, blockSlot, body)
 
 proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
   ## Rewind or advance state such that it matches the given block and slot -
