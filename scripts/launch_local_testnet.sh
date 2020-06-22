@@ -23,14 +23,15 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
 	exit 1
 fi
 
-OPTS="ht:n:d:"
-LONGOPTS="help,testnet:,nodes:,data-dir:,disable-htop,log-level:,base-port:,base-metrics-port:"
+OPTS="hgt:n:d:"
+LONGOPTS="help,testnet:,nodes:,data-dir:,disable-htop,log-level:,base-port:,base-metrics-port:,with-ganache"
 
 # default values
 TESTNET="1"
 NUM_NODES="10"
 DATA_DIR="local_testnet_data"
 USE_HTOP="1"
+USE_GANACHE="0"
 LOG_LEVEL="DEBUG"
 BASE_PORT="9000"
 BASE_METRICS_PORT="8008"
@@ -44,8 +45,9 @@ CI run: $(basename $0) --disable-htop -- --verify-finalization --stop-at-epoch=5
   -h, --help			this help message
   -t, --testnet			testnet number (default: ${TESTNET})
   -n, --nodes			number of nodes to launch (default: ${NUM_NODES})
+  -g, --with-ganache  simulate a genesis event based on a deposit contract
   -d, --data-dir		directory where all the node data and logs will end up
-				(default: "${DATA_DIR}")
+                    (default: "${DATA_DIR}")
       --base-port		bootstrap node's Eth2 traffic port (default: ${BASE_PORT})
       --base-metrics-port	bootstrap node's metrics server port (default: ${BASE_METRICS_PORT})
       --disable-htop		don't use "htop" to see the beacon_node processes
@@ -81,6 +83,10 @@ while true; do
 			;;
 		--disable-htop)
 			USE_HTOP="0"
+			shift
+			;;
+		-g|--with-ganache)
+			USE_GANACHE="1"
 			shift
 			;;
 		--log-level)
@@ -138,30 +144,65 @@ fi
 NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh ${NETWORK})
 $MAKE LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node
 
+PIDS=""
+WEB3_ARG=""
+DEPOSIT_CONTRACT_ARG=""
+STATE_SNAPSHOT_ARG=""
+BOOTSTRAP_TIMEOUT=10 # in seconds
+
 ./build/beacon_node deposits create \
 	--count=${TOTAL_VALIDATORS} \
 	--out-deposits-dir="${DEPOSITS_DIR}" \
 	--out-secrets-dir="${SECRETS_DIR}" \
 	--dont-send
 
-GENESIS_OFFSET=30
+if [[ $USE_GANACHE == "0" ]]; then
+	GENESIS_OFFSET=30
+	BOOTSTRAP_IP="127.0.0.1"
 
-BOOTSTRAP_IP="127.0.0.1"
-./build/beacon_node createTestnet \
-	--data-dir="${DATA_DIR}/node0" \
-	--validators-dir="${DEPOSITS_DIR}" \
-	--total-validators=${TOTAL_VALIDATORS} \
-	--last-user-validator=${USER_VALIDATORS} \
-	--output-genesis="${NETWORK_DIR}/genesis.ssz" \
-	--output-bootstrap-file="${NETWORK_DIR}/bootstrap_nodes.txt" \
-	--bootstrap-address=${BOOTSTRAP_IP} \
-	--bootstrap-port=${BASE_PORT} \
-	--genesis-offset=${GENESIS_OFFSET} # Delay in seconds
+	./build/beacon_node createTestnet \
+		--data-dir="${DATA_DIR}/node0" \
+		--validators-dir="${DEPOSITS_DIR}" \
+		--total-validators=${TOTAL_VALIDATORS} \
+		--last-user-validator=${USER_VALIDATORS} \
+		--output-genesis="${NETWORK_DIR}/genesis.ssz" \
+		--output-bootstrap-file="${NETWORK_DIR}/bootstrap_nodes.txt" \
+		--bootstrap-address=${BOOTSTRAP_IP} \
+		--bootstrap-port=${BASE_PORT} \
+		--genesis-offset=${GENESIS_OFFSET} # Delay in seconds
+
+	STATE_SNAPSHOT_ARG="--state-snapshot=${NETWORK_DIR}/genesis.ssz"
+else
+	make deposit_contract
+
+  echo "Launching ganache"
+	ganache-cli --blockTime 17 --gasLimit 100000000 -e 100000 --verbose > "${DATA_DIR}/log_ganache.txt" 2>&1 &
+	PIDS="${PIDS},$!"
+
+  echo "Deploying deposit contract"
+	WEB3_ARG="--web3-url=ws://localhost:8545"
+	DEPOSIT_CONTRACT_ADDRESS=$(./build/deposit_contract deploy $WEB3_ARG)
+	DEPOSIT_CONTRACT_ARG="--deposit-contract=$DEPOSIT_CONTRACT_ADDRESS"
+
+	MIN_DELAY=1
+	MAX_DELAY=5
+
+	BOOTSTRAP_TIMEOUT=$(( MAX_DELAY * TOTAL_VALIDATORS ))
+
+	./build/beacon_node deposits send \
+		--non-interactive \
+		--deposits-dir="${DEPOSITS_DIR}" \
+		--min-delay=$MIN_DELAY --max-delay=$MAX_DELAY \
+		$WEB3_ARG \
+		$DEPOSIT_CONTRACT_ARG > "${DATA_DIR}/log_deposit_maker.txt" 2>&1 &
+
+	PIDS="${PIDS},$!"
+fi
 
 ./scripts/make_prometheus_config.sh \
-	--nodes ${NUM_NODES} \
-	--base-metrics-port ${BASE_METRICS_PORT} \
-	--config-file "${DATA_DIR}/prometheus.yml"
+		--nodes ${NUM_NODES} \
+		--base-metrics-port ${BASE_METRICS_PORT} \
+		--config-file "${DATA_DIR}/prometheus.yml"
 
 # Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
 # instance as the parent and the target process name as a pattern to the
@@ -182,20 +223,20 @@ dump_logs() {
 	done
 }
 
-PIDS=""
 NODES_WITH_VALIDATORS=${NODES_WITH_VALIDATORS:-4}
+BOOTSTRAP_NODE=$(( NUM_NODES - 1 ))
 SYSTEM_VALIDATORS=$(( TOTAL_VALIDATORS - USER_VALIDATORS ))
 VALIDATORS_PER_NODE=$(( SYSTEM_VALIDATORS / NODES_WITH_VALIDATORS ))
-BOOTSTRAP_TIMEOUT=10 # in seconds
 
-for NUM_NODE in $(seq 0 $((NUM_NODES - 1))); do
-	if [[ ${NUM_NODE} == 0 ]]; then
+for NUM_NODE in $(seq $BOOTSTRAP_NODE -1 0); do
+	if [[ ${NUM_NODE} == ${BOOTSTRAP_NODE} ]]; then
 		BOOTSTRAP_ARG=""
 	else
-		BOOTSTRAP_ARG="--bootstrap-file=${NETWORK_DIR}/bootstrap_nodes.txt"
+		BOOTSTRAP_ENR="${DATA_DIR}/node${BOOTSTRAP_NODE}/beacon_node.enr"
+		BOOTSTRAP_ARG="--bootstrap-file=${BOOTSTRAP_ENR}"
 		# Wait for the master node to write out its address file
 		START_TIMESTAMP=$(date +%s)
-		while [ ! -f "${DATA_DIR}/node0/beacon_node.enr" ]; do
+		while [ ! -f "${BOOTSTRAP_ENR}" ]; do
 			sleep 0.1
 			NOW_TIMESTAMP=$(date +%s)
 			if [[ "$(( NOW_TIMESTAMP - START_TIMESTAMP - GENESIS_OFFSET ))" -ge "$BOOTSTRAP_TIMEOUT" ]]; then
@@ -221,13 +262,15 @@ for NUM_NODE in $(seq 0 $((NUM_NODES - 1))); do
 
 	./build/beacon_node \
 		--non-interactive \
-    --nat:extip:127.0.0.1 \
+		--nat:extip:127.0.0.1 \
 		--log-level="${LOG_LEVEL}" \
 		--tcp-port=$(( BASE_PORT + NUM_NODE )) \
 		--udp-port=$(( BASE_PORT + NUM_NODE )) \
 		--data-dir="${NODE_DATA_DIR}" \
 		${BOOTSTRAP_ARG} \
-		--state-snapshot="${NETWORK_DIR}/genesis.ssz" \
+		${STATE_SNAPSHOT_ARG} \
+		${WEB3_ARG} \
+		${DEPOSIT_CONTRACT_ARG} \
 		--metrics \
 		--metrics-address="127.0.0.1" \
 		--metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
