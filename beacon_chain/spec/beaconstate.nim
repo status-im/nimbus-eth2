@@ -392,21 +392,31 @@ proc process_registry_updates*(state: var BeaconState,
     validator.activation_epoch =
       compute_activation_exit_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
-proc is_valid_indexed_attestation*(
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+func is_valid_indexed_attestation*(
     state: BeaconState, indexed_attestation: IndexedAttestation,
     flags: UpdateFlags): bool =
-  # Check if ``indexed_attestation`` has sorted and unique indices and a valid
-  # aggregate signature.
-  # TODO: this is noSideEffect besides logging
-  #       https://github.com/status-im/nim-chronicles/issues/62
+  # Check if ``indexed_attestation`` is not empty, has sorted and unique
+  # indices and has a valid aggregate signature.
+
+  template is_sorted_and_unique(s: untyped): bool =
+    for i in 1 ..< s.len:
+      if s[i - 1].uint64 >= s[i].uint64:
+        return false
+
+    true
+
+  # Not from spec, but this function gets used in front-line roles, not just
+  # behind firewall.
+  let num_validators = state.validators.len.uint64
+  if anyIt(indexed_attestation.attesting_indices, it >= num_validators):
+    trace "indexed attestation: not all indices valid validators"
+    return false
 
   # Verify indices are sorted and unique
-  # TODO: A simple loop can verify that the indicates are monotonically
-  #       increasing and non-repeating here!
-  let indices = indexed_attestation.attesting_indices
-  if indices.asSeq != sorted(toHashSet(indices.asSeq).toSeq, system.cmp):
-    notice "indexed attestation: indices not sorted"
+  let indices = indexed_attestation.attesting_indices.asSeq
+  if len(indices) == 0 or not is_sorted_and_unique(indices):
+    trace "indexed attestation: indices not sorted and unique"
     return false
 
   # Verify aggregate signature
@@ -416,7 +426,7 @@ proc is_valid_indexed_attestation*(
     if not verify_attestation_signature(
         state.fork, state.genesis_validators_root, indexed_attestation.data,
         pubkeys, indexed_attestation.signature):
-      notice "indexed attestation: signature verification failure"
+      trace "indexed attestation: signature verification failure"
       return false
 
   true
