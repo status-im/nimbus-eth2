@@ -22,12 +22,12 @@ if [[ ! -z "$1" ]]; then
   BOOTSTRAP_NODE_ID=$1
   shift
 else
-  BOOTSTRAP_NODE_ID=$MASTER_NODE
+  BOOTSTRAP_NODE_ID=$BOOTSTRAP_NODE
 fi
 
 BOOTSTRAP_ADDRESS_FILE="${SIMULATION_DIR}/node-${BOOTSTRAP_NODE_ID}/beacon_node.enr"
 
-if [[ "$NODE_ID" != "$MASTER_NODE" ]]; then
+if [[ "$NODE_ID" != "$BOOTSTRAP_NODE" ]]; then
   BOOTSTRAP_ARG="--bootstrap-file=$BOOTSTRAP_ADDRESS_FILE"
 fi
 
@@ -54,9 +54,9 @@ mkdir -p "$NODE_VALIDATORS_DIR"
 rm -rf "$NODE_SECRETS_DIR"
 mkdir -p "$NODE_SECRETS_DIR"
 
-VALIDATORS_PER_NODE=$((NUM_VALIDATORS / TOTAL_NODES))
+VALIDATORS_PER_NODE=$(( NUM_VALIDATORS / (TOTAL_NODES - 1) ))
 
-if [[ $NODE_ID -lt $TOTAL_NODES ]]; then
+if [[ $NODE_ID -lt $BOOTSTRAP_NODE ]]; then
   # if using validator client binaries in addition to beacon nodes
   # we will split the keys for this instance in half between the BN and the VC
   if [ "${BN_VC_VALIDATOR_SPLIT:-}" == "yes" ]; then

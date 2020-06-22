@@ -122,14 +122,14 @@ if [ ! -f "${SNAPSHOT_FILE}" ]; then
   if [[ "${WAIT_GENESIS}" != "yes" ]]; then
     echo Creating testnet genesis...
     $BEACON_NODE_BIN \
-      --data-dir="${SIMULATION_DIR}/node-$MASTER_NODE" \
+      --data-dir="${SIMULATION_DIR}/node-$BOOTSTRAP_NODE" \
       createTestnet \
       --validators-dir="${VALIDATORS_DIR}" \
       --total-validators="${NUM_VALIDATORS}" \
       --output-genesis="${SNAPSHOT_FILE}" \
       --output-bootstrap-file="${NETWORK_BOOTSTRAP_FILE}" \
       --bootstrap-address=127.0.0.1 \
-      --bootstrap-port=$(( BASE_P2P_PORT + MASTER_NODE )) \
+      --bootstrap-port=$(( BASE_P2P_PORT + BOOTSTRAP_NODE )) \
       --genesis-offset=15 # Delay in seconds
   fi
 fi
@@ -144,7 +144,7 @@ function run_cmd {
     $TMUX_CMD split-window -t "${TMUX_SESSION_NAME}" "if ! $CMD; then; read; fi"
     $TMUX_CMD select-layout -t "${TMUX_SESSION_NAME}:sim" tiled
   elif [[ "$USE_MULTITAIL" != "no" ]]; then
-    if [[ "$i" == "$MASTER_NODE" ]]; then
+    if [[ "$i" == "$BOOTSTRAP_NODE" ]]; then
       SLEEP="0"
     else
       SLEEP="3"
@@ -179,8 +179,8 @@ if [[ "$USE_TMUX" == "yes" ]]; then
 fi
 
 # Delete any leftover address files from a previous session
-if [ -f "${MASTER_NODE_ADDRESS_FILE}" ]; then
-  rm "${MASTER_NODE_ADDRESS_FILE}"
+if [ -f "${BOOTSTRAP_ENR_FILE}" ]; then
+  rm "${BOOTSTRAP_ENR_FILE}"
 fi
 
 # Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
@@ -192,12 +192,12 @@ fi
 
 LAST_WAITING_NODE=0
 
-for i in $(seq $MASTER_NODE -1 $TOTAL_USER_NODES); do
-  if [[ "$i" != "$MASTER_NODE" && "$USE_MULTITAIL" == "no" ]]; then
+for i in $(seq $BOOTSTRAP_NODE -1 $TOTAL_USER_NODES); do
+  if [[ "$i" != "$BOOTSTRAP_NODE" && "$USE_MULTITAIL" == "no" ]]; then
     # Wait for the master node to write out its address file
-    while [ ! -f "${MASTER_NODE_ADDRESS_FILE}" ]; do
+    while [ ! -f "${BOOTSTRAP_ENR_FILE}" ]; do
       if (( LAST_WAITING_NODE != i )); then
-        echo Waiting for $MASTER_NODE_ADDRESS_FILE to appear...
+        echo Waiting for $BOOTSTRAP_ENR_FILE to appear...
         LAST_WAITING_NODE=i
       fi
       sleep 0.1
