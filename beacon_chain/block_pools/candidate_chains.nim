@@ -136,7 +136,7 @@ iterator get_ancestors*(blockSlot: BlockSlot): BlockSlot =
   while true:
     let parent_slot =
       if blockSlot.blck.parent.isNil:
-        min_epoch.compute_start_slot_at_epoch
+        min_epoch.compute_start_slot_at_epoch - 1
       else:
         blockSlot.blck.parent.slot
 
