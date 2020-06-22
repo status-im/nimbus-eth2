@@ -809,7 +809,7 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
   result.metadata = getPersistentNetMetadata(conf)
   result.forkId = enrForkId
   result.discovery = Eth2DiscoveryProtocol.new(
-    conf, ip, tcpPort, udpPort, privKey.toRaw,
+    conf, ip, tcpPort, udpPort, privKey,
     {"eth2": SSZ.encode(result.forkId), "attnets": SSZ.encode(result.metadata.attnets)})
 
   newSeq result.protocolStates, allProtocols.len
@@ -822,7 +822,7 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
         msg.protocolMounter result
 
 template publicKey*(node: Eth2Node): keys.PublicKey =
-  node.discovery.privKey.toPublicKey.tryGet()
+  node.discovery.privKey.toPublicKey
 
 template addKnownPeer*(node: Eth2Node, peer: enr.Record) =
   node.discovery.addNode peer
