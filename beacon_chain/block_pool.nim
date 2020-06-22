@@ -166,8 +166,6 @@ template withEpochState*(
     untyped =
   ## Helper template that updates state to a particular BlockSlot - usage of
   ## cache is unsafe outside of block.
-  ## TODO async transformations will lead to a race where cache gets updated
-  ##      while waiting for future to complete - catch this here somehow?
 
   withEpochState(pool.dag, cache, blockSlot, body)
 
