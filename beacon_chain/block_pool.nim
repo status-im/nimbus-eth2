@@ -164,7 +164,12 @@ template withState*(
 template withEpochState*(
     pool: BlockPool, cache: var StateData, blockSlot: BlockSlot, body: untyped):
     untyped =
-  ## Helper template that updates state to a particular BlockSlot - usage of
+  ## Helper template that updates state to a state with an epoch matching the
+  ## epoch of blockSlot. This aims to be at least as fast as withState, quick
+  ## enough to expose to unautheticated, remote use, but trades off that it's
+  ## possible for it to decide that finding a state from a matching epoch may
+  ## provide too expensive for such use cases.
+  ##
   ## cache is unsafe outside of block.
 
   withEpochState(pool.dag, cache, blockSlot, body)

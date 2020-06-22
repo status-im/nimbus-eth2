@@ -130,24 +130,20 @@ func get_ancestor*(blck: BlockRef, slot: Slot): BlockRef =
     blck = blck.parent
 
 iterator get_ancestors*(blockSlot: BlockSlot): BlockSlot =
-  let min_epoch = blockSlot.slot.compute_epoch_at_slot
+  let min_slot =
+    blockSlot.slot.compute_epoch_at_slot.compute_start_slot_at_epoch
   var blockSlot = blockSlot
 
   while true:
-    let parent_slot =
-      if blockSlot.blck.parent.isNil:
-        min_epoch.compute_start_slot_at_epoch - 1
-      else:
-        blockSlot.blck.parent.slot
-
-    for slot in countdown(blockSlot.slot, parent_slot + 1):
+    for slot in countdown(blockSlot.slot, max(blockSlot.blck.slot, min_slot)):
       yield BlockSlot(blck: blockSlot.blck, slot: slot)
 
-    if parent_slot.compute_epoch_at_slot < min_epoch or
-        blockSlot.blck.parent.isNil:
+    if blockSlot.blck.parent.isNil or blockSlot.blck.slot <= min_slot:
       break
 
-    blockSlot = BlockSlot(blck: blockSlot.blck.parent, slot: parent_slot)
+    doAssert blockSlot.blck.slot > blockSlot.blck.parent.slot
+    blockSlot =
+      BlockSlot(blck: blockSlot.blck.parent, slot: blockSlot.blck.slot - 1)
 
 func atSlot*(blck: BlockRef, slot: Slot): BlockSlot =
   ## Return a BlockSlot at a given slot, with the block set to the closest block
@@ -645,10 +641,8 @@ template withEpochState*(
   ## TODO async transformations will lead to a race where cache gets updated
   ##      while waiting for future to complete - catch this here somehow?
 
-  var isStateValid {.inject, used.} = false
   for ancestor in get_ancestors(blockSlot):
     if getStateDataCached(dag, cache, ancestor):
-      isStateValid = true
       break
 
   template hashedState(): HashedBeaconState {.inject, used.} = cache.data
