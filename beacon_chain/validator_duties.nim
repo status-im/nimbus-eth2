@@ -116,8 +116,7 @@ proc sendAttestation*(
   beacon_attestations_sent.inc()
 
 proc sendAttestation*(node: BeaconNode, attestation: Attestation) =
-  # This version is for the validator API, which doesn't supply either
-  # num_active_validators or have direct access itself to it.
+  # For the validator API, which doesn't supply num_active_validators.
   let attestationBlck =
     node.blockPool.getRef(attestation.data.beacon_block_root)
   if attestationBlck.isNil:
