@@ -69,15 +69,15 @@ template RecType*(MSG: type beaconBlocksByRootObj): untyped =
   BlockRootsList
 
 type
-  goodbyeObj* = distinct uint64
+  goodbyeObj* = distinct DisconnectionReason
 template goodbye*(PROTO: type BeaconSync): type =
-  uint64
+  DisconnectionReason
 
 template msgProtocol*(MSG: type goodbyeObj): type =
   BeaconSync
 
 template RecType*(MSG: type goodbyeObj): untyped =
-  uint64
+  DisconnectionReason
 
 var BeaconSyncProtocolObj = initProtocol("BeaconSync", createPeerState[Peer,
     ref[BeaconSyncPeerState:ObjectType]], createNetworkState[Eth2Node,
@@ -136,7 +136,7 @@ proc beaconBlocksByRoot*(peer: Peer; blockRoots: BlockRootsList;
   makeEth2Request(peer, "/eth2/beacon_chain/req/beacon_blocks_by_root/1/",
                   msgBytes, seq[SignedBeaconBlock], timeout)
 
-proc goodbye*(peer: Peer; reason: uint64): Future[void] {.gcsafe,
+proc goodbye*(peer: Peer; reason: DisconnectionReason): Future[void] {.gcsafe,
     libp2pProtocol("goodbye", 1).} =
   var outputStream = memoryOutput()
   var writer = init(WriterType(SSZ), outputStream)
@@ -238,7 +238,7 @@ proc beaconBlocksByRootUserHandler(peer: Peer; blockRoots: BlockRootsList; respo
       inc found
   debug "Block root request done", peer, roots = blockRoots.len, count, found
 
-proc goodbyeUserHandler(peer: Peer; reason: uint64) {.async,
+proc goodbyeUserHandler(peer: Peer; reason: DisconnectionReason) {.async,
     libp2pProtocol("goodbye", 1), gcsafe.} =
   type
     CurrentProtocol = BeaconSync
@@ -338,7 +338,7 @@ proc beaconBlocksByRootMounter(network: Eth2Node) =
       "ssz_snappy", handler: snappyThunk)
 
 template callUserHandler(MSG: type goodbyeObj; peer: Peer; stream: Connection;
-                        noSnappy: bool; msg: uint64): untyped =
+                        noSnappy: bool; msg: DisconnectionReason): untyped =
   goodbyeUserHandler(peer, msg)
 
 proc goodbyeMounter(network: Eth2Node) =
