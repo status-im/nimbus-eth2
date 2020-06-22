@@ -161,7 +161,7 @@ proc isValidAttestation*(
         return false
 
     # The signature of attestation is valid.
-    var cache = get_empty_per_epoch_cache()
+    var cache = getEpochCache(blck, state)
     if not is_valid_indexed_attestation(
         state, get_indexed_attestation(state, attestation, cache), {}):
       debug "signature verification failed"
