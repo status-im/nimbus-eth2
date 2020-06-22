@@ -176,7 +176,7 @@ p2pProtocol BeaconSync(version = 1,
       peer, roots = blockRoots.len, count, found
 
   proc goodbye(peer: Peer,
-               reason: uint64)
+               reason: DisconnectionReason)
     {.async, libp2pProtocol("goodbye", 1).} =
     debug "Received Goodbye message", reason = disconnectReasonName(reason), peer
 

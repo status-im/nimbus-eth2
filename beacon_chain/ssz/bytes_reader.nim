@@ -57,8 +57,9 @@ func fromSszBytes*(T: type Version, bytes: openarray[byte]): T {.raisesssz.} =
     raiseIncorrectSize T
   copyMem(result.addr, unsafeAddr bytes[0], sizeof(result))
 
-template fromSszBytes*(T: type enum, bytes: openarray[byte]): auto  =
-  T fromSszBytes(uint64, bytes)
+func fromSszBytes*(T: type enum, bytes: openarray[byte]): T {.raisesssz.} =
+  if not checkedEnumAssign(result, fromSszBytes(uint64, bytes)):
+    raise newException(MalformedSszError, "SSZ enum value outside of range")
 
 template fromSszBytes*(T: type BitSeq, bytes: openarray[byte]): auto =
   BitSeq @bytes
