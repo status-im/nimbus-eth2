@@ -136,7 +136,7 @@ proc isValidAttestation*(
       pool.blockPool.tmpState,
       BlockSlot(blck: attestationBlck, slot: attestation.data.slot)):
     when ETH2_SPEC == "v0.12.1":
-      # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md
+      # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#attestation-subnets
       # [REJECT] The attestation is for the correct subnet (i.e.
       # compute_subnet_for_attestation(state, attestation) == subnet_id).
       let
