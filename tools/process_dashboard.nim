@@ -1,6 +1,9 @@
 import json, parseopt, strutils
 
-# usage: process_dashboard --in=local_dashboard.json --out=remote_dashboard.json --testnet=0
+# Usage: process_dashboard --in=local_dashboard.json --out=remote_dashboard.json --testnet=0
+
+# Import the result on metrics.status.im
+
 var
   p = initOptParser()
   inputFileName, outputFilename: string
@@ -41,7 +44,7 @@ outputData["templating"]["list"] = parseJson("""
         "text": "beacon-node-testnet""" & $testnet & """-1",
         "value": "beacon-node-testnet""" & $testnet & """-1"
       },
-      "datasource": "master-01.do-ams3.metrics.hq",
+      "datasource": "node-01.do-ams3.public.hq",
       "definition": "label_values(process_virtual_memory_bytes{job=\"beacon-node-metrics\"},container)",
       "hide": 0,
       "includeAll": false,
@@ -68,7 +71,7 @@ outputData["templating"]["list"] = parseJson("""
         "text": "master-01.aws-eu-central-1a.nimbus.test",
         "value": "master-01.aws-eu-central-1a.nimbus.test"
       },
-      "datasource": "master-01.do-ams3.metrics.hq",
+      "datasource": "node-01.do-ams3.public.hq",
       "definition": "label_values(process_virtual_memory_bytes{job=\"beacon-node-metrics\"},instance)",
       "hide": 0,
       "includeAll": false,
