@@ -98,7 +98,8 @@ proc isSynced(node: BeaconNode, head: BlockRef): bool =
   else:
     true
 
-proc sendAttestation*(node: BeaconNode, attestation: Attestation, num_active_validators: uint64) =
+proc sendAttestation*(
+  node: BeaconNode, attestation: Attestation, num_active_validators: uint64) =
   logScope: pcs = "send_attestation"
 
   when ETH2_SPEC == "v0.12.1":
