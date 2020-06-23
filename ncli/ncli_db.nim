@@ -1,8 +1,8 @@
   import
   confutils, stats, chronicles, strformat, tables,
   stew/byteutils,
-  ../beacon_chain/[beacon_chain_db, block_pool, extras, state_transition],
-  ../beacon_chain/spec/[crypto, datatypes, digest, helpers],
+  ../beacon_chain/[beacon_chain_db, block_pool, extras],
+  ../beacon_chain/spec/[crypto, datatypes, digest, helpers, state_transition],
   ../beacon_chain/sszdump,
   ../research/simutils,
   eth/db/[kvstore, kvstore_sqlite3]

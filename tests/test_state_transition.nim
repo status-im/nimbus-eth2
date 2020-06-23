@@ -10,8 +10,9 @@
 import
   unittest,
   ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[beaconstate, datatypes, digest, validator],
-  ../beacon_chain/[state_transition, ssz]
+  ../beacon_chain/spec/[
+    beaconstate, datatypes, digest, validator, state_transition],
+  ../beacon_chain/ssz
 
 suiteReport "Block processing" & preset():
   ## For now just test that we can compile and execute block processing with

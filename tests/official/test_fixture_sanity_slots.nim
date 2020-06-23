@@ -11,8 +11,7 @@ import
   # Standard library
   os, strutils, unittest,
   # Beacon chain internals
-  ../../beacon_chain/spec/datatypes,
-  ../../beacon_chain/state_transition,
+  ../../beacon_chain/spec/[datatypes, state_transition],
   # Test utilities
   ../testutil,
   ./fixtures_utils,

@@ -10,8 +10,8 @@
 import
   options, sequtils, unittest,
   ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[datatypes, digest, validator],
-  ../beacon_chain/[beacon_node_types, block_pool, state_transition, ssz]
+  ../beacon_chain/spec/[datatypes, digest, validator, state_transition],
+  ../beacon_chain/[beacon_node_types, block_pool, ssz]
 
 when isMainModule:
   import chronicles # or some random compile error happens...

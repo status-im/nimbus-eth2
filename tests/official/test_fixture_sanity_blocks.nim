@@ -11,8 +11,8 @@ import
   # Standard library
   os, sequtils, unittest,
   # Beacon chain internals
-  ../../beacon_chain/spec/[crypto, datatypes],
-  ../../beacon_chain/[ssz, state_transition],
+  ../../beacon_chain/spec/[crypto, datatypes, state_transition],
+  ../../beacon_chain/ssz,
   # Test utilities
   ../testutil,
   ./fixtures_utils

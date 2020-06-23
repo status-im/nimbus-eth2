@@ -10,8 +10,8 @@
 import
   chronicles, options, sequtils, tables,
   metrics,
-  ../ssz/merkleization, ../beacon_chain_db, ../state_transition, ../extras,
-  ../spec/[crypto, datatypes, digest, helpers, validator],
+  ../ssz/merkleization, ../beacon_chain_db, ../extras,
+  ../spec/[crypto, datatypes, digest, helpers, validator, state_transition],
   block_pools_types
 
 declareCounter beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # On fork choice

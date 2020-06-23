@@ -31,10 +31,10 @@ import
   tables,
   chronicles,
   stew/results,
-  ./extras, ./ssz/merkleization, metrics,
-  ./spec/[datatypes, crypto, digest, helpers, signatures, validator],
-  ./spec/[state_transition_block, state_transition_epoch],
-  ../nbench/bench_lab
+  ../extras, ../ssz/merkleization, metrics,
+  datatypes, crypto, digest, helpers, signatures, validator,
+  state_transition_block, state_transition_epoch,
+  ../../nbench/bench_lab
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
 declareGauge beacon_current_validators, """Number of status="pending|active|exited|withdrawable" validators in current epoch""" # On epoch transition
