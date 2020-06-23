@@ -30,7 +30,7 @@ TOOLS := \
 	process_dashboard \
 	stack_sizes \
 	state_sim \
-	validator_client \
+	validator_client
 	# bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes
 
 TOOLS_DIRS := \
