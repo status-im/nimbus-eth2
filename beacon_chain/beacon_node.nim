@@ -18,7 +18,7 @@ import
   eth/p2p/enode, eth/[keys, async_utils], eth/p2p/discoveryv5/[protocol, enr],
 
   # Local modules
-  spec/[datatypes, digest, crypto, beaconstate, helpers, network, signatures],
+  spec/[datatypes, digest, crypto, beaconstate, helpers, network],
   spec/state_transition, spec/presets/custom,
   conf, time, beacon_chain_db, validator_pool, extras,
   attestation_pool, block_pool, eth2_network, eth2_discovery,

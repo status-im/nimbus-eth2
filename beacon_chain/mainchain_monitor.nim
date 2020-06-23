@@ -1,7 +1,7 @@
 import
   deques, tables, hashes, options, strformat,
   chronos, web3, web3/ethtypes, json, chronicles, eth/async_utils,
-  spec/[datatypes, digest, crypto, beaconstate, helpers, signatures],
+  spec/[datatypes, digest, crypto, beaconstate, helpers],
   merkle_minimal
 
 export
