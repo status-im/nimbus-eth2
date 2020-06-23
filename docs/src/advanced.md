@@ -8,7 +8,7 @@ The following sections explain how to setup your build environment on your platf
 Install Mingw-w64 for your architecture using the "[MinGW-W64 Online
 Installer](https://sourceforge.net/projects/mingw-w64/files/)" (first link
 under the directory listing). Run it and select your architecture in the setup
-menu ("i686" on 32-bit, "x86\_64" on 64-bit), set the threads to "win32" and
+menu (`i686` on 32-bit, `x86_64` on 64-bit), set the threads to `win32` and
 the exceptions to "dwarf" on 32-bit and "seh" on 64-bit. Change the
 installation directory to "C:\mingw-w64" and add it to your system PATH in "My
 Computer"/"This PC" -> Properties -> Advanced system settings -> Environment
@@ -17,6 +17,7 @@ Variables -> Path -> Edit -> New -> C:\mingw-w64\mingw64\bin (it's "C:\mingw-w64
 Install [Git for Windows](https://gitforwindows.org/) and use a "Git Bash" shell to clone and build nim-beacon-chain.
 
 If you don't want to compile PCRE separately, you can fetch pre-compiled DLLs with:
+
 ```bash
 mingw32-make # this first invocation will update the Git submodules
 mingw32-make fetch-dlls # this will place the right DLLs for your architecture in the "build/" directory
@@ -30,14 +31,13 @@ You can now follow those instructions in the previous section by replacing `make
 mingw32-make test # run the test suite
 ```
 
-### Linux, MacOS
+### Linux, macOS
 
 After cloning the repo:
 
 ```bash
-make # The first `make` invocation will update all Git submodules and prompt you to run `make` again.
-     # It's only required once per Git clone. You'll run `make update` after each `git pull`, in the future,
-     # to keep those submodules up to date.
+# Build beacon_node and all the tools, using 4 parallel Make jobs
+make -j4
 
 # Run tests
 make test
@@ -48,6 +48,7 @@ make update
 ```
 
 To run a command that might use binaries from the Status Nim fork:
+
 ```bash
 ./env.sh bash # start a new interactive shell with the right env vars set
 which nim
@@ -62,9 +63,9 @@ nim --version # Nimbus is tested and supported on 1.0.2 at the moment
 
 We recommend you remove any cover or use a fan; the Raspberry Pi will get hot (85°C) and throttle.
 
-* Raspberry PI 3b+ or Raspberry Pi 4b.
-* 64gb SD Card (less might work too, but the default recommended 4-8GB will probably be too small)
-* [Rasbian Buster Lite](https://www.raspberrypi.org/downloads/raspbian/) - Lite version is enough to get going and will save some disk space!
+- Raspberry PI 3b+ or Raspberry Pi 4b.
+- 64gb SD Card (less might work too, but the default recommended 4-8GB will probably be too small)
+- [Raspbian Buster Lite](https://www.raspberrypi.org/downloads/raspbian/) - Lite version is enough to get going and will save some disk space!
 
 Assuming you're working with a freshly written image:
 
@@ -129,4 +130,3 @@ make -j$(nproc) NIMFLAGS="-d:release" USE_MULTITAIL=yes eth2_network_simulation
 ```bash
 make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower
 ```
-

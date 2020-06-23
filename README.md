@@ -1,4 +1,5 @@
 # Nimbus Eth2 (Beacon Chain)
+
 [![Build Status (Travis)](https://img.shields.io/travis/status-im/nim-beacon-chain/master.svg?label=Linux%20/%20macOS "Linux/macOS build status (Travis)")](https://travis-ci.org/status-im/nim-beacon-chain)
 [![Build Status (Azure)](https://dev.azure.com/nimbus-dev/nim-beacon-chain/_apis/build/status/status-im.nim-beacon-chain?branchName=master)](https://dev.azure.com/nimbus-dev/nim-beacon-chain/_build/latest?definitionId=3&branchName=master)
 [![License: Apache](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -13,6 +14,12 @@ Welcome to Nimbus for Ethereum 2.0.
 
 Nimbus beacon chain is a research implementation of the beacon chain component of the upcoming Ethereum Serenity upgrade, aka Eth2.
 
+
+## Manual
+
+Please see the complete documentation at [The nim-beacon-chain Book](https://status-im.github.io/nim-beacon-chain/).
+
+
 ## Related
 
 * [status-im/nimbus](https://github.com/status-im/nimbus/): Nimbus for Ethereum 1
@@ -23,6 +30,7 @@ You can check where the beacon chain fits in the Ethereum ecosystem our Two-Poin
 ## Table of Contents
 
 - [Nimbus Eth2 (Beacon Chain)](#nimbus-eth2-beacon-chain)
+  - [Manual](#manual)
   - [Related](#related)
   - [Table of Contents](#table-of-contents)
   - [Prerequisites for everyone](#prerequisites-for-everyone)
