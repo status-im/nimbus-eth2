@@ -84,7 +84,7 @@ cli do (skipGoerliKey {.
   else:
     let bootstrapYamlFile = testnetDir / bootstrapYamlFileName
     if system.fileExists(bootstrapYamlFile):
-      bootstrapFileOpt = &"--enr-bootstrap-file=\"{bootstrapYamlFile}\""
+      bootstrapFileOpt = &"--bootstrap-file=\"{bootstrapYamlFile}\""
     else:
       echo "Warning: the network metadata doesn't include a bootstrap file"
 

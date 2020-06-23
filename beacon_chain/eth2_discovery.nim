@@ -64,7 +64,7 @@ proc loadBootstrapFile*(bootstrapFile: string,
     # removal of YAML metadata.
     try:
       for ln in lines(bootstrapFile):
-        addBootstrapNode(string(ln[3..^2]), bootstrapEnrs, localPubKey)
+        addBootstrapNode(string(ln.strip()[3..^2]), bootstrapEnrs, localPubKey)
     except IOError as e:
       error "Could not read bootstrap file", msg = e.msg
       quit 1
