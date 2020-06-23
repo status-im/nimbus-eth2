@@ -129,7 +129,7 @@ func get_ancestor*(blck: BlockRef, slot: Slot): BlockRef =
 
     blck = blck.parent
 
-iterator get_ancestors*(blockSlot: BlockSlot): BlockSlot =
+iterator get_ancestors_in_epoch(blockSlot: BlockSlot): BlockSlot =
   let min_slot =
     blockSlot.slot.compute_epoch_at_slot.compute_start_slot_at_epoch
   var blockSlot = blockSlot
@@ -641,7 +641,7 @@ template withEpochState*(
   ## TODO async transformations will lead to a race where cache gets updated
   ##      while waiting for future to complete - catch this here somehow?
 
-  for ancestor in get_ancestors(blockSlot):
+  for ancestor in get_ancestors_in_epoch(blockSlot):
     if getStateDataCached(dag, cache, ancestor):
       break
 
