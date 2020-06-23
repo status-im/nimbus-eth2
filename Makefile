@@ -31,7 +31,8 @@ TOOLS := \
 	stack_sizes \
 	state_sim \
 	validator_client
-	# bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes
+
+# bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes
 
 TOOLS_DIRS := \
 	beacon_chain \

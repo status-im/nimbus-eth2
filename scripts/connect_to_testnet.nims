@@ -24,6 +24,73 @@ proc validateTestnetName(parts: openarray[string]): auto =
     quit 1
   (parts[0], parts[1])
 
+# reduces the error output when interrupting an external command with Ctrl+C
+proc execIgnoringExitCode(s: string) =
+  try:
+    exec s
+  except OsError:
+    discard
+
+proc updateTestnetsRepo(allTestnetsDir, buildDir: string) =
+  rmDir(allTestnetsDir)
+  let cwd = system.getCurrentDir()
+  cd buildDir
+  exec &"git clone --quiet --depth=1 {testnetsGitUrl}"
+  cd cwd
+
+proc makePrometheusConfig(nodeID, baseMetricsPort: int, dataDir: string) =
+  # macOS may not have gnu-getopts installed and in the PATH
+  execIgnoringExitCode &"""./scripts/make_prometheus_config.sh --nodes """ & $(1 + nodeID) & &""" --base-metrics-port {baseMetricsPort} --config-file "{dataDir}/prometheus.yml""""
+
+proc buildNode(nimFlags, preset, beaconNodeBinary: string) =
+  exec &"""nim c {nimFlags} -d:"const_preset={preset}" -o:"{beaconNodeBinary}" beacon_chain/beacon_node.nim"""
+
+proc becomeValidator(validatorsDir, beaconNodeBinary, secretsDir, depositContractOpt: string) =
+  mode = Silent
+  echo "\nPlease enter your Goerli Eth1 private key in hex form (e.g. 0x1a2...f3c) in order to become a validator (you'll need access to 32 GoETH)."
+  echo "Hit Enter to skip this."
+  # is there no other way to print without a trailing newline?
+  exec "printf '> '"
+  let privKey = readLineFromStdin()
+  if privKey.len > 0:
+    mkDir validatorsDir
+    mode = Verbose
+    exec replace(&"""{beaconNodeBinary} deposits create
+      --count=1
+      --out-deposits-dir="{validatorsDir}"
+      --out-secrets-dir="{secretsDir}"
+      --deposit-private-key={privKey}
+      --web3-url={web3Url}
+      {depositContractOpt}
+      """, "\n", " ")
+    mode = Silent
+    echo "\nDeposit sent, wait for confirmation then press enter to continue"
+    discard readLineFromStdin()
+
+proc runNode(dataDir, beaconNodeBinary, bootstrapFileOpt, depositContractOpt, genesisFileOpt: string,
+            basePort, nodeID, baseMetricsPort, baseRpcPort: int) =
+  let logLevel = getEnv("LOG_LEVEL")
+  var logLevelOpt = ""
+  if logLevel.len > 0:
+    logLevelOpt = &"""--log-level="{logLevel}" """
+
+  mode = Verbose
+  cd dataDir
+  execIgnoringExitCode replace(&"""{beaconNodeBinary}
+    --data-dir="{dataDir}"
+    --dump
+    --web3-url={web3Url}
+    --tcp-port=""" & $(basePort + nodeID) & &"""
+    --udp-port=""" & $(basePort + nodeID) & &"""
+    --metrics
+    --metrics-port=""" & $(baseMetricsPort + nodeID) & &"""
+    --rpc
+    --rpc-port=""" & $(baseRpcPort + nodeID) & &"""
+    {bootstrapFileOpt}
+    {logLevelOpt}
+    {depositContractOpt}
+    {genesisFileOpt} """, "\n", " ")
+
 cli do (skipGoerliKey {.
           desc: "Don't prompt for an Eth1 Goerli key to become a validator" .}: bool,
 
@@ -47,6 +114,15 @@ cli do (skipGoerliKey {.
         baseRpcPort {.
           desc: "Base rpc port (nodeID will be added to it)" .} = 9190.int,
 
+        writeLogFile {.
+          desc: "Write a log file in dataDir" .} = true,
+
+        buildOnly {.
+          desc: "Just the build, please." .} = false,
+
+        runOnly {.
+          desc: "Just run it." .} = false,
+
         testnetName {.argument .}: string):
   let
     nameParts = testnetName.split "/"
@@ -57,10 +133,8 @@ cli do (skipGoerliKey {.
     buildDir = rootDir / "build"
     allTestnetsDir = buildDir / testnetsRepo
 
-  rmDir(allTestnetsDir)
-  cd buildDir
-
-  exec &"git clone --quiet --depth=1 {testnetsGitUrl}"
+  if not runOnly:
+    updateTestnetsRepo(allTestnetsDir, buildDir)
 
   var
     depositContractOpt = ""
@@ -111,8 +185,9 @@ cli do (skipGoerliKey {.
   var
     nimFlags = &"-d:chronicles_log_level=TRACE {specDefines} " & getEnv("NIM_PARAMS")
 
-  # write the logs to a file
-  nimFlags.add """ -d:"chronicles_sinks=textlines,json[file(nbc""" & staticExec("date +\"%Y%m%d%H%M%S\"") & """.log)]" """
+  if writeLogFile:
+    # write the logs to a file
+    nimFlags.add """ -d:"chronicles_sinks=textlines,json[file(nbc""" & staticExec("date +\"%Y%m%d%H%M%S\"") & """.log)]" """
 
   let depositContractFile = testnetDir / depositContractFileName
   if system.fileExists(depositContractFile):
@@ -135,62 +210,17 @@ cli do (skipGoerliKey {.
       echo "Detected testnet restart. Deleting previous database..."
       rmDir dataDir
 
-  proc execIgnoringExitCode(s: string) =
-    # reduces the error output when interrupting an external command with Ctrl+C
-    try:
-      exec s
-    except OsError:
-      discard
-
   cd rootDir
   mkDir dataDir
 
-  # macOS may not have gnu-getopts installed and in the PATH
-  execIgnoringExitCode &"""./scripts/make_prometheus_config.sh --nodes """ & $(1 + nodeID) & &""" --base-metrics-port {baseMetricsPort} --config-file "{dataDir}/prometheus.yml""""
-
-  exec &"""nim c {nimFlags} -d:"const_preset={preset}" -o:"{beaconNodeBinary}" beacon_chain/beacon_node.nim"""
+  if not runOnly:
+    makePrometheusConfig(nodeID, baseMetricsPort, dataDir)
+    buildNode(nimFlags, preset, beaconNodeBinary)
 
   if not skipGoerliKey and depositContractOpt.len > 0 and not system.dirExists(validatorsDir):
-    mode = Silent
-    echo "\nPlease enter your Goerli Eth1 private key in hex form (e.g. 0x1a2...f3c) in order to become a validator (you'll need access to 32 GoETH)."
-    echo "Hit Enter to skip this."
-    # is there no other way to print without a trailing newline?
-    exec "printf '> '"
-    let privKey = readLineFromStdin()
-    if privKey.len > 0:
-      mkDir validatorsDir
-      mode = Verbose
-      exec replace(&"""{beaconNodeBinary} deposits create
-        --count=1
-        --out-deposits-dir="{validatorsDir}"
-        --out-secrets-dir="{secretsDir}"
-        --deposit-private-key={privKey}
-        --web3-url={web3Url}
-        {depositContractOpt}
-        """, "\n", " ")
-      mode = Silent
-      echo "\nDeposit sent, wait for confirmation then press enter to continue"
-      discard readLineFromStdin()
+    becomeValidator(validatorsDir, beaconNodeBinary, secretsDir, depositContractOpt)
 
-  let logLevel = getEnv("LOG_LEVEL")
-  var logLevelOpt = ""
-  if logLevel.len > 0:
-    logLevelOpt = &"""--log-level="{logLevel}" """
-
-  mode = Verbose
-  cd dataDir
-  execIgnoringExitCode replace(&"""{beaconNodeBinary}
-    --data-dir="{dataDir}"
-    --dump
-    --web3-url={web3Url}
-    --tcp-port=""" & $(basePort + nodeID) & &"""
-    --udp-port=""" & $(basePort + nodeID) & &"""
-    --metrics
-    --metrics-port=""" & $(baseMetricsPort + nodeID) & &"""
-    --rpc
-    --rpc-port=""" & $(baseRpcPort + nodeID) & &"""
-    {bootstrapFileOpt}
-    {logLevelOpt}
-    {depositContractOpt}
-    {genesisFileOpt} """, "\n", " ")
+  if not buildOnly:
+    runNode(dataDir, beaconNodeBinary, bootstrapFileOpt, depositContractOpt, genesisFileOpt,
+            basePort, nodeID, baseMetricsPort, baseRpcPort)
 
