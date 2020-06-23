@@ -7,9 +7,8 @@
 
 import
   # Specs
-  ../../beacon_chain/spec/[datatypes, state_transition_epoch, validator],
-  # Internals
-  ../../beacon_chain/[state_transition]
+  ../../beacon_chain/spec/[
+    datatypes, state_transition_epoch, validator, state_transition]
 
 proc processSlotsUntilEndCurrentEpoch(state: var HashedBeaconState) =
   # Process all slots until the end of the last slot of the current epoch

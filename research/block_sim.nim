@@ -20,10 +20,11 @@ import
   options, random, tables,
   ../tests/[testblockutil],
   ../beacon_chain/spec/[
-    beaconstate, crypto, datatypes, digest, helpers, validator, signatures],
+    beaconstate, crypto, datatypes, digest, helpers, validator, signatures,
+    state_transition],
   ../beacon_chain/[
     attestation_pool, block_pool, beacon_node_types, beacon_chain_db,
-    interop, state_transition, validator_pool],
+    interop, validator_pool],
   eth/db/[kvstore, kvstore_sqlite3],
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils

@@ -3,9 +3,9 @@
 
 import
   stew/ptrops, stew/ranges/ptr_arith,
-  ../beacon_chain/[extras, state_transition],
+  ../beacon_chain/extras,
   ../beacon_chain/spec/[crypto, datatypes, digest, validator, beaconstate,
-      state_transition_block],
+      state_transition_block, state_transition],
   ../beacon_chain/ssz/[merkleization, ssz_serialization]
 
 type

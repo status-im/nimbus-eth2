@@ -4,8 +4,8 @@ import
   typetraits, stew/[results, objects, endians2],
   serialization, chronicles, snappy,
   eth/db/kvstore,
-  ./spec/[datatypes, digest, crypto],
-  ./ssz/[ssz_serialization, merkleization], ./state_transition
+  ./spec/[datatypes, digest, crypto, state_transition],
+  ./ssz/[ssz_serialization, merkleization]
 
 type
   BeaconChainDB* = ref object

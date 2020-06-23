@@ -19,7 +19,8 @@ import
 
   # Local modules
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network],
-  conf, time, validator_pool, state_transition,
+  spec/state_transition,
+  conf, time, validator_pool,
   attestation_pool, block_pool, block_pools/candidate_chains, eth2_network,
   keystore_management, beacon_node_common, beacon_node_types,
   nimbus_binary_common, mainchain_monitor, version, ssz/merkleization, interop,

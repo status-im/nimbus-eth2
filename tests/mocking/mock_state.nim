@@ -10,9 +10,7 @@
 
 import
   # Specs
-  ../../beacon_chain/spec/[datatypes],
-  # Internals
-  ../../beacon_chain/state_transition
+  ../../beacon_chain/spec/[datatypes, state_transition]
 
 proc nextEpoch*(state: var HashedBeaconState) =
   ## Transition to the start of the next epoch

@@ -19,15 +19,14 @@ import
 
   # Local modules
   spec/[datatypes, digest, crypto, beaconstate, helpers, network, signatures],
-  spec/presets/custom,
+  spec/state_transition, spec/presets/custom,
   conf, time, beacon_chain_db, validator_pool, extras,
   attestation_pool, block_pool, eth2_network, eth2_discovery,
   beacon_node_common, beacon_node_types, block_pools/block_pools_types,
   nimbus_binary_common,
   mainchain_monitor, version, ssz/[merkleization], sszdump,
   sync_protocol, request_manager, keystore_management, interop, statusbar,
-  sync_manager, state_transition,
-  validator_duties, validator_api, attestation_aggregation
+  sync_manager, validator_duties, validator_api, attestation_aggregation
 
 const
   genesisFile* = "genesis.ssz"

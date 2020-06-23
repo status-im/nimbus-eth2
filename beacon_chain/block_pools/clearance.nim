@@ -10,8 +10,8 @@
 import
   chronicles, sequtils, tables,
   metrics, stew/results,
-  ../ssz/merkleization, ../state_transition, ../extras,
-  ../spec/[crypto, datatypes, digest, helpers, signatures],
+  ../ssz/merkleization, ../extras,
+  ../spec/[crypto, datatypes, digest, helpers, signatures, state_transition],
   block_pools_types, candidate_chains, quarantine
 
 export results

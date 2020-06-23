@@ -16,8 +16,8 @@ import
   chronicles,
   stew/byteutils,
   ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[digest, validator],
-  ../beacon_chain/[beacon_node_types, attestation_pool, block_pool, state_transition]
+  ../beacon_chain/spec/[digest, validator, state_transition],
+  ../beacon_chain/[beacon_node_types, attestation_pool, block_pool]
 
 suiteReport "Attestation pool processing" & preset():
   ## For now just test that we can compile and execute block processing with
