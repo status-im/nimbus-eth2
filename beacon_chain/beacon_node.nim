@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  algorithm, os, tables, random, strutils, times, math,
+  algorithm, os, tables, random, strutils, times, math, terminal,
 
   # Nimble packages
   stew/[objects, byteutils], stew/shims/macros,
@@ -889,7 +889,7 @@ func formatGwei(amount: uint64): string =
 
 when hasPrompt:
   from unicode import Rune
-  import terminal, prompt
+  import prompt
 
   proc providePromptCompletions*(line: seq[Rune], cursorPos: int): seq[string] =
     # TODO
@@ -1016,6 +1016,104 @@ when hasPrompt:
       # var t: Thread[ptr Prompt]
       # createThread(t, processPromptCommands, addr p)
 
+proc createWalletInteractively(conf: BeaconNodeConf): OutFile {.raises: [Defect].} =
+  if conf.nonInteractive:
+    fatal "Wallets can be created only in interactive mode"
+    quit 1
+
+  var mnemonic = generateMnemonic()
+  defer: keystore_management.burnMem(mnemonic)
+
+  template readLine: string =
+    try: stdin.readLine()
+    except IOError:
+      fatal "Failed to read data from stdin"
+      quit 1
+
+  echo "The created wallet will be protected with a password " &
+       "that applies only to the current Nimbus installation. " &
+       "In case you lose your wallet and you need to restore " &
+       "it on a different machine, you must use the following " &
+       "seed recovery phrase: \n"
+
+  echo $mnemonic
+
+  echo "Please back up the seed phrase now to a safe location as " &
+       "if you are protecting a sensitive password. The seed phrase " &
+       "be used to withdrawl funds from your wallet.\n"
+
+  echo "Did you back up your seed recovery phrase? (please type 'yes' to continue or press enter to quit)"
+  while true:
+    let answer = readLine()
+    if answer == "":
+      quit 1
+    elif answer != "yes":
+      echo "To continue, please type 'yes' (without the quotes) or press enter to quit"
+    else:
+      break
+
+  echo "When you perform operations with your wallet such as withdrawals " &
+       "and additional deposits, you'll be asked to enter a password. " &
+       "Please note that this password is local to the current Nimbus " &
+       "installation and can be changed at any time."
+
+  while true:
+    var password, confirmedPassword: TaintedString
+    try:
+      let status = try:
+        readPasswordFromStdin("Please enter a password:", password) and
+        readPasswordFromStdin("Please repeat the password:", confirmedPassword)
+      except IOError:
+        fatal "Failed to read password interactively"
+        quit 1
+
+      if status:
+        if password != confirmedPassword:
+          echo "Passwords don't match, please try again"
+        else:
+          var name: WalletName
+          if conf.createdWalletName.isSome:
+            name = conf.createdWalletName.get
+          else:
+            echo "For your convenience, the wallet can be identified with a name " &
+                 "of your choice. Please enter a wallet name below or press ENTER " &
+                 "to continue with a machine-generated name."
+
+            while true:
+              var enteredName = readLine()
+              if enteredName.len > 0:
+                name = try: WalletName.parseCmdArg(enteredName)
+                       except CatchableError as err:
+                         echo err.msg & ". Please try again."
+                         continue
+              break
+
+          let (uuid, walletContent) = KdfPbkdf2.createWalletContent(mnemonic, name)
+          try:
+            var outWalletFile: OutFile
+
+            if conf.createdWalletFile.isSome:
+              outWalletFile = conf.createdWalletFile.get
+              createDir splitFile(string outWalletFile).dir
+            else:
+              let walletsDir = conf.walletsDir
+              createDir walletsDir
+              outWalletFile = OutFile(walletsDir / addFileExt(string uuid, "json"))
+
+            writeFile(string outWalletFile, string walletContent)
+            return outWalletFile
+          except CatchableError as err:
+            fatal "Failed to write wallet file", err = err.msg
+            quit 1
+
+      if not status:
+        fatal "Failed to read a password from stdin"
+        quit 1
+
+    finally:
+      keystore_management.burnMem(password)
+      keystore_management.burnMem(confirmedPassword)
+
 programMain:
   let config = makeBannerAndConfig(clientId, BeaconNodeConf)
 
@@ -1090,22 +1188,6 @@ programMain:
       writeFile(bootstrapFile, bootstrapEnr.tryGet().toURI)
       echo "Wrote ", bootstrapFile
 
-  of importValidator:
-    template reportFailureFor(keyExpr) =
-      error "Failed to import validator key", key = keyExpr
-      programResult = 1
-
-    if config.keyFiles.len == 0:
-      stderr.write "Please specify at least one keyfile to import."
-      quit 1
-
-    for keyFile in config.keyFiles:
-      try:
-        saveValidatorKey(keyFile.string.extractFilename,
-                         readFile(keyFile.string), config)
-      except:
-        reportFailureFor keyFile.string
-
   of noCommand:
     debug "Launching beacon node",
           version = fullVersionStr,
@@ -1168,3 +1250,19 @@ programMain:
         config.depositContractAddress,
         config.depositPrivateKey,
         delayGenerator)
+
+    of DepositsCmd.status:
+      # TODO
+      echo "The status command is not implemented yet"
+      quit 1
+
+  of wallets:
+    case config.walletsCmd:
+    of WalletsCmd.create:
+      let walletFile = createWalletInteractively(config)
+    of WalletsCmd.list:
+      # TODO
+      discard
+    of WalletsCmd.restore:
+      # TODO
+      discard

@@ -15,16 +15,19 @@ type
 
   BNStartUpCmd* = enum
     noCommand
-    importValidator
     createTestnet
     deposits
+    wallets
 
-  DepositsCmd* = enum
-    create = "Create validator keystores and deposits"
-    send   = "Send prepared deposits to the validator deposit contract"
+  WalletsCmd* {.pure.} = enum
+    create  = "Creates a new EIP-2386 wallet"
+    restore = "Restores a wallet from cold storage"
+    list    = "Lists details about all wallets"
 
-    # TODO
-    # status = "Display status information about all deposits"
+  DepositsCmd* {.pure.} = enum
+    create = "Creates validator keystores and deposits"
+    send   = "Sends prepared deposits to the validator deposit contract"
+    status = "Displays status information about all deposits"
 
   VCStartUpCmd* = enum
     VCNoCommand
@@ -38,36 +41,36 @@ type
   BeaconNodeConf* = object
     logLevel* {.
       defaultValue: "DEBUG"
-      desc: "Sets the log level."
+      desc: "Sets the log level"
       name: "log-level" }: string
 
     eth1Network* {.
       defaultValue: goerli
-      desc: "The Eth1 network tracked by the beacon node."
+      desc: "The Eth1 network tracked by the beacon node"
       name: "eth1-network" }: Eth1Network
 
     dataDir* {.
       defaultValue: config.defaultDataDir()
-      desc: "The directory where nimbus will store all blockchain data."
+      desc: "The directory where nimbus will store all blockchain data"
       abbr: "d"
       name: "data-dir" }: OutDir
 
     web3Url* {.
       defaultValue: ""
-      desc: "URL of the Web3 server to observe Eth1."
+      desc: "URL of the Web3 server to observe Eth1"
       name: "web3-url" }: string
 
     depositContractAddress* {.
       defaultValue: ""
-      desc: "Address of the deposit contract."
+      desc: "Address of the deposit contract"
       name: "deposit-contract" }: string
 
     depositContractDeployedAt* {.
-      desc: "The Eth1 block hash where the deposit contract has been deployed."
+      desc: "The Eth1 block hash where the deposit contract has been deployed"
       name: "deposit-contract-block" }: Option[Eth2Digest]
 
     nonInteractive* {.
-      desc: "Do not display interative prompts. Quit on missing configuration."
+      desc: "Do not display interative prompts. Quit on missing configuration"
       name: "non-interactive" }: bool
 
     case cmd* {.
@@ -76,28 +79,28 @@ type
 
     of noCommand:
       bootstrapNodes* {.
-        desc: "Specifies one or more bootstrap nodes to use when connecting to the network."
+        desc: "Specifies one or more bootstrap nodes to use when connecting to the network"
         abbr: "b"
         name: "bootstrap-node" }: seq[string]
 
       bootstrapNodesFile* {.
         defaultValue: ""
-        desc: "Specifies a line-delimited file of bootstrap Ethereum network addresses."
+        desc: "Specifies a line-delimited file of bootstrap Ethereum network addresses"
         name: "bootstrap-file" }: InputFile
 
       libp2pAddress* {.
         defaultValue: defaultListenAddress(config)
-        desc: "Listening address for the Ethereum LibP2P traffic."
+        desc: "Listening address for the Ethereum LibP2P traffic"
         name: "listen-address" }: ValidIpAddress
 
       tcpPort* {.
         defaultValue: defaultEth2TcpPort
-        desc: "Listening TCP port for Ethereum LibP2P traffic."
+        desc: "Listening TCP port for Ethereum LibP2P traffic"
         name: "tcp-port" }: Port
 
       udpPort* {.
         defaultValue: defaultEth2TcpPort
-        desc: "Listening UDP port for node discovery."
+        desc: "Listening UDP port for node discovery"
         name: "udp-port" }: Port
 
       maxPeers* {.
@@ -107,7 +110,7 @@ type
 
       nat* {.
         desc: "Specify method to use for determining public address. " &
-              "Must be one of: any, none, upnp, pmp, extip:<IP>."
+              "Must be one of: any, none, upnp, pmp, extip:<IP>"
         defaultValue: "any" }: string
 
       validators* {.
@@ -117,52 +120,56 @@ type
         name: "validator" }: seq[ValidatorKeyPath]
 
       validatorsDirFlag* {.
-        desc: "A directory containing validator keystores."
+        desc: "A directory containing validator keystores"
         name: "validators-dir" }: Option[InputDir]
 
       secretsDirFlag* {.
-        desc: "A directory containing validator keystore passwords."
+        desc: "A directory containing validator keystore passwords"
         name: "secrets-dir" }: Option[InputDir]
 
+      walletsDirFlag* {.
+        desc: "A directory containing wallet files"
+        name: "wallets-dir" }: Option[InputDir]
+
       stateSnapshot* {.
-        desc: "Json file specifying a recent state snapshot."
+        desc: "Json file specifying a recent state snapshot"
         abbr: "s"
         name: "state-snapshot" }: Option[InputFile]
 
       nodeName* {.
         defaultValue: ""
         desc: "A name for this node that will appear in the logs. " &
-              "If you set this to 'auto', a persistent automatically generated ID will be selected for each --dataDir folder."
+              "If you set this to 'auto', a persistent automatically generated ID will be selected for each --data-dir folder"
         name: "node-name" }: string
 
       verifyFinalization* {.
         defaultValue: false
-        desc: "Specify whether to verify finalization occurs on schedule, for testing."
+        desc: "Specify whether to verify finalization occurs on schedule, for testing"
         name: "verify-finalization" }: bool
 
       stopAtEpoch* {.
         defaultValue: 0
-        desc: "A positive epoch selects the epoch at which to stop."
+        desc: "A positive epoch selects the epoch at which to stop"
         name: "stop-at-epoch" }: uint64
 
       metricsEnabled* {.
         defaultValue: false
-        desc: "Enable the metrics server."
+        desc: "Enable the metrics server"
         name: "metrics" }: bool
 
       metricsAddress* {.
         defaultValue: defaultAdminListenAddress(config)
-        desc: "Listening address of the metrics server."
+        desc: "Listening address of the metrics server"
         name: "metrics-address" }: ValidIpAddress
 
       metricsPort* {.
         defaultValue: 8008
-        desc: "Listening HTTP port of the metrics server."
+        desc: "Listening HTTP port of the metrics server"
         name: "metrics-port" }: Port
 
       statusBarEnabled* {.
         defaultValue: true
-        desc: "Display a status bar at the bottom of the terminal screen."
+        desc: "Display a status bar at the bottom of the terminal screen"
         name: "status-bar" }: bool
 
       statusBarContents* {.
@@ -171,7 +178,7 @@ type
                       "head: $head_root:$head_epoch:$head_epoch_slot;" &
                       "time: $epoch:$epoch_slot ($slot)|" &
                       "ETH: $attached_validators_balance"
-        desc: "Textual template for the contents of the status bar."
+        desc: "Textual template for the contents of the status bar"
         name: "status-bar-contents" }: string
 
       rpcEnabled* {.
@@ -181,7 +188,7 @@ type
 
       rpcPort* {.
         defaultValue: defaultEth2RpcPort
-        desc: "HTTP port for the JSON-RPC service."
+        desc: "HTTP port for the JSON-RPC service"
         name: "rpc-port" }: Port
 
       rpcAddress* {.
@@ -196,77 +203,109 @@ type
 
     of createTestnet:
       testnetDepositsDir* {.
-        desc: "Directory containing validator keystores."
+        desc: "Directory containing validator keystores"
         name: "validators-dir" }: InputDir
 
       totalValidators* {.
-        desc: "The number of validator deposits in the newly created chain."
+        desc: "The number of validator deposits in the newly created chain"
         name: "total-validators" }: uint64
 
       firstValidator* {.
         defaultValue: 0
-        desc: "Index of first validator to add to validator list."
+        desc: "Index of first validator to add to validator list"
         name: "first-validator" }: uint64
 
       lastUserValidator* {.
         defaultValue: config.totalValidators - 1,
-        desc: "The last validator index that will free for taking from a testnet participant."
+        desc: "The last validator index that will free for taking from a testnet participant"
         name: "last-user-validator" }: uint64
 
       bootstrapAddress* {.
         defaultValue: ValidIpAddress.init("127.0.0.1")
-        desc: "The public IP address that will be advertised as a bootstrap node for the testnet."
+        desc: "The public IP address that will be advertised as a bootstrap node for the testnet"
         name: "bootstrap-address" }: ValidIpAddress
 
       bootstrapPort* {.
         defaultValue: defaultEth2TcpPort
-        desc: "The TCP/UDP port that will be used by the bootstrap node."
+        desc: "The TCP/UDP port that will be used by the bootstrap node"
         name: "bootstrap-port" }: Port
 
       genesisOffset* {.
         defaultValue: 5
-        desc: "Seconds from now to add to genesis time."
+        desc: "Seconds from now to add to genesis time"
         name: "genesis-offset" }: int
 
       outputGenesis* {.
-        desc: "Output file where to write the initial state snapshot."
+        desc: "Output file where to write the initial state snapshot"
         name: "output-genesis" }: OutFile
 
       withGenesisRoot* {.
         defaultValue: false
-        desc: "Include a genesis root in 'network.json'."
+        desc: "Include a genesis root in 'network.json'"
         name: "with-genesis-root" }: bool
 
       outputBootstrapFile* {.
-        desc: "Output file with list of bootstrap nodes for the network."
+        desc: "Output file with list of bootstrap nodes for the network"
         name: "output-bootstrap-file" }: OutFile
 
-    of importValidator:
-      keyFiles* {.
-        desc: "File with validator key to be imported (in hex form)."
-        name: "keyfile" }: seq[ValidatorKeyPath]
+    of wallets:
+      case walletsCmd* {.command.}: WalletsCmd
+      of WalletsCmd.create:
+        createdWalletName* {.
+          desc: "An easy-to-remember name for the wallet of your choice"
+          name: "name"}: Option[WalletName]
+
+        nextAccount* {.
+          desc: "Initial value for the 'nextaccount' property of the wallet"
+          name: "next-account" }: Option[Natural]
+
+        createdWalletFile* {.
+          desc: "Output wallet file"
+          name: "out" }: Option[OutFile]
+
+      of WalletsCmd.restore:
+        restoredWalletName* {.
+          desc: "An easy-to-remember name for the wallet of your choice"
+          name: "name"}: Option[WalletName]
+
+        restoredDepositsCount* {.
+          desc: "Expected number of deposits to recover. If not specified, " &
+                "Nimbus will try to guess the number by inspecting the latest " &
+                "beacon state"
+          name: "deposits".}: Option[Natural]
+
+        restoredWalletFile* {.
+          desc: "Output wallet file"
+          name: "out" }: Option[OutFile]
+
+      of WalletsCmd.list:
+        discard
 
     of deposits:
       case depositsCmd* {.command.}: DepositsCmd
-      of create:
+      of DepositsCmd.create:
         totalDeposits* {.
           defaultValue: 1
-          desc: "Number of deposits to generate."
+          desc: "Number of deposits to generate"
           name: "count" }: int
+
+        existingWalletId* {.
+          desc: "An existing wallet ID. If not specified, a new wallet will be created"
+          name: "wallet" }: Option[WalletName]
 
         outValidatorsDir* {.
           defaultValue: "validators"
-          desc: "Output folder for validator keystores and deposits."
+          desc: "Output folder for validator keystores and deposits"
           name: "out-deposits-dir" }: string
 
         outSecretsDir* {.
           defaultValue: "secrets"
-          desc: "Output folder for randomly generated keystore passphrases."
+          desc: "Output folder for randomly generated keystore passphrases"
           name: "out-secrets-dir" }: string
 
         depositPrivateKey* {.
           defaultValue: ""
-          desc: "Private key of the controlling (sending) account.",
+          desc: "Private key of the controlling (sending) account",
           name: "deposit-private-key" }: string
 
         dontSend* {.
@@ -274,24 +313,27 @@ type
           desc: "By default, all created deposits are also immediately sent " &
                 "to the validator deposit contract. You can use this option to " &
                 "prevent this behavior. Use the `deposits send` command to send " &
-                "the deposit transactions at your convenience later."
+                "the deposit transactions at your convenience later"
           name: "dont-send" .}: bool
 
-      of send:
+      of DepositsCmd.send:
         depositsDir* {.
           defaultValue: "validators"
-          desc: "A folder with validator metadata created by the `deposits create` command."
+          desc: "A folder with validator metadata created by the `deposits create` command"
           name: "deposits-dir" }: string
 
         minDelay* {.
           defaultValue: 0.0
-          desc: "Minimum possible delay between making two deposits (in seconds)."
+          desc: "Minimum possible delay between making two deposits (in seconds)"
           name: "min-delay" }: float
 
         maxDelay* {.
           defaultValue: 0.0
-          desc: "Maximum possible delay between making two deposits (in seconds)."
+          desc: "Maximum possible delay between making two deposits (in seconds)"
           name: "max-delay" }: float
+
+      of DepositsCmd.status:
+        discard
 
   ValidatorClientConf* = object
     logLevel* {.
@@ -301,12 +343,12 @@ type
 
     dataDir* {.
       defaultValue: config.defaultDataDir()
-      desc: "The directory where nimbus will store all blockchain data."
+      desc: "The directory where nimbus will store all blockchain data"
       abbr: "d"
       name: "data-dir" }: OutDir
 
     nonInteractive* {.
-      desc: "Do not display interative prompts. Quit on missing configuration."
+      desc: "Do not display interative prompts. Quit on missing configuration"
       name: "non-interactive" }: bool
 
     case cmd* {.
@@ -316,26 +358,26 @@ type
     of VCNoCommand:
       rpcPort* {.
         defaultValue: defaultEth2RpcPort
-        desc: "HTTP port of the server to connect to for RPC."
+        desc: "HTTP port of the server to connect to for RPC"
         name: "rpc-port" }: Port
 
       rpcAddress* {.
         defaultValue: defaultAdminListenAddress(config)
-        desc: "Address of the server to connect to for RPC."
+        desc: "Address of the server to connect to for RPC"
         name: "rpc-address" }: ValidIpAddress
 
       validators* {.
         required
-        desc: "Attach a validator by supplying a keystore path."
+        desc: "Attach a validator by supplying a keystore path"
         abbr: "v"
         name: "validator" }: seq[ValidatorKeyPath]
 
       validatorsDirFlag* {.
-        desc: "A directory containing validator keystores."
+        desc: "A directory containing validator keystores"
         name: "validators-dir" }: Option[InputDir]
 
       secretsDirFlag* {.
-        desc: "A directory containing validator keystore passwords."
+        desc: "A directory containing validator keystore passwords"
         name: "secrets-dir" }: Option[InputDir]
 
 proc defaultDataDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
@@ -377,11 +419,25 @@ func parseCmdArg*(T: type Eth2Digest, input: TaintedString): T
 func completeCmdArg*(T: type Eth2Digest, input: TaintedString): seq[string] =
   return @[]
 
+func parseCmdArg*(T: type WalletName, input: TaintedString): T
+                 {.raises: [ValueError, Defect].} =
+  if input.len == 0:
+    raise newException(ValueError, "The wallet name should not be empty")
+  if input[0] == '_':
+    raise newException(ValueError, "The wallet name should not start with an underscore")
+  return T(input)
+
+func completeCmdArg*(T: type WalletName, input: TaintedString): seq[string] =
+  return @[]
+
 func validatorsDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
   string conf.validatorsDirFlag.get(InputDir(conf.dataDir / "validators"))
 
 func secretsDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
   string conf.secretsDirFlag.get(InputDir(conf.dataDir / "secrets"))
+
+func walletsDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
+  string conf.walletsDirFlag.get(InputDir(conf.dataDir / "wallets"))
 
 func databaseDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
   conf.dataDir / "db"

@@ -6,10 +6,10 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  json, math, strutils, strformat,
+  json, math, strutils, strformat, typetraits,
   stew/[results, byteutils, bitseqs, bitops2], stew/shims/macros,
-  eth/keyfile/uuid, blscurve,
-  nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, sysrand],
+  eth/keyfile/uuid, blscurve, json_serialization,
+  nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, sysrand, utils],
   ./datatypes, ./crypto, ./digest, ./signatures
 
 export
@@ -44,6 +44,17 @@ type
     prf: string
     salt: string
 
+  # https://github.com/ethereum/EIPs/blob/4494da0966afa7318ec0157948821b19c4248805/EIPS/eip-2386.md#specification
+  Wallet* = object
+    uuid*: UUID
+    name*: WalletName
+    version*: uint
+    walletType* {.serializedFieldName: "type"}: string
+    # TODO: The use of `JsonString` can be removed once we
+    #       solve the serialization problem for `Crypto[T]`
+    crypto*: JsonString
+    nextAccount* {.serializedFieldName: "nextaccount".}: Natural
+
   KdfParams = KdfPbkdf2 | KdfScrypt
 
   Kdf[T: KdfParams] = object
@@ -69,11 +80,17 @@ type
     signingKeyKind # Also known as voting key
     withdrawalKeyKind
 
+  UUID* = distinct string
+  WalletName* = distinct string
   Mnemonic* = distinct string
   KeyPath* = distinct string
   KeyStorePass* = distinct string
-  KeyStoreContent* = distinct JsonString
   KeySeed* = distinct seq[byte]
+
+  KeyStoreContent* = distinct JsonString
+  WalletContent* = distinct JsonString
+
+  SensitiveData = Mnemonic|KeyStorePass|KeySeed
 
   Credentials* = object
     mnemonic*: Mnemonic
@@ -103,6 +120,17 @@ const
 
   # https://github.com/bitcoin/bips/blob/master/bip-0039/bip-0039-wordlists.md
   wordListLen = 2048
+
+UUID.serializesAsBaseIn Json
+WalletName.serializesAsBaseIn Json
+
+template `$`*(m: Mnemonic): string =
+  string(m)
+
+template burnMem*(m: var (SensitiveData|TaintedString)) =
+  # TODO: `burnMem` in nimcrypto could use distinctBase
+  #       to make its usage less error-prone.
+  utils.burnMem(string m)
 
 macro wordListArray(filename: static string): array[wordListLen, cstring] =
   result = newTree(nnkBracket)
@@ -152,7 +180,7 @@ func getSeed*(mnemonic: Mnemonic, password: KeyStorePass): KeySeed =
   let salt = "mnemonic-" & password.string
   KeySeed sha512.pbkdf2(mnemonic.string, salt, 2048, 64)
 
-proc generateMnemonic*(words: openarray[cstring],
+proc generateMnemonic*(words: openarray[cstring] = englishWords,
                        entropyParam: openarray[byte] = @[]): Mnemonic =
   # https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#generating-the-mnemonic
   doAssert words.len == wordListLen
@@ -226,9 +254,9 @@ proc shaChecksum(key, cipher: openarray[byte]): array[32, byte] =
   result = ctx.finish().data
   ctx.clear()
 
-template tryJsonToCrypto(ks: JsonNode; crypto: typedesc): untyped =
+template tryJsonToCrypto(json: JsonNode; crypto: typedesc): untyped =
   try:
-    ks{"crypto"}.to(Crypto[crypto])
+    json.to(Crypto[crypto])
   except Exception:
     return err "ks: failed to parse crypto"
 
@@ -238,12 +266,8 @@ template hexToBytes(data, name: string): untyped =
   except ValueError:
     return err "ks: failed to parse " & name
 
-proc decryptKeystore*(data: KeyStoreContent,
-                      password: KeyStorePass): KsResult[ValidatorPrivKey] =
-  # TODO: `parseJson` can raise a general `Exception`
-  let ks = try: parseJson(data.string)
-           except Exception: return err "ks: failed to parse keystore"
-
+proc decryptoCryptoField*(json: JsonNode,
+                          password:  KeyStorePass): KsResult[seq[byte]] =
   var
     decKey: seq[byte]
     salt: seq[byte]
@@ -251,15 +275,15 @@ proc decryptKeystore*(data: KeyStoreContent,
     cipherMsg: seq[byte]
     checksumMsg: seq[byte]
 
-  let kdf = ks{"crypto", "kdf", "function"}.getStr
+  let kdf = json{"kdf", "function"}.getStr
 
   case kdf
   of "scrypt":
-    let crypto = tryJsonToCrypto(ks, KdfScrypt)
+    let crypto = tryJsonToCrypto(json, KdfScrypt)
     return err "ks: scrypt not supported"
   of "pbkdf2":
     let
-      crypto = tryJsonToCrypto(ks, KdfPbkdf2)
+      crypto = tryJsonToCrypto(json, KdfPbkdf2)
       kdfParams = crypto.kdf.params
 
     salt = hexToBytes(kdfParams.salt, "salt")
@@ -288,34 +312,41 @@ proc decryptKeystore*(data: KeyStoreContent,
   aesCipher.decrypt(cipherMsg, secret)
   aesCipher.clear()
 
-  ValidatorPrivKey.fromRaw(secret)
+  ok secret
 
-proc encryptKeystore*(T: type[KdfParams],
-                      privKey: ValidatorPrivkey,
-                      password = KeyStorePass "",
-                      path = KeyPath "",
-                      salt: openarray[byte] = @[],
-                      iv: openarray[byte] = @[],
-                      pretty = true): KeyStoreContent =
+proc decryptKeystore*(data: KeyStoreContent,
+                      password: KeyStorePass): KsResult[ValidatorPrivKey] =
+  # TODO: `parseJson` can raise a general `Exception`
+  let
+    ks = try: parseJson(data.string)
+         except Exception: return err "ks: failed to parse keystore"
+    secret = decryptoCryptoField(ks{"crypto"}, password)
+
+  ValidatorPrivKey.fromRaw(? secret)
+
+proc createCryptoField(T: type[KdfParams],
+                       secret: openarray[byte],
+                       password = KeyStorePass "",
+                       salt: openarray[byte] = @[],
+                       iv: openarray[byte] = @[]): Crypto[T] =
+  type AES = aes128
+
   var
-    secret = privKey.toRaw[^32..^1]
     decKey: seq[byte]
-    aesCipher: CTR[aes128]
-    aesIv = newSeq[byte](aes128.sizeBlock)
-    kdfSalt = newSeq[byte](saltSize)
+    aesCipher: CTR[AES]
     cipherMsg = newSeq[byte](secret.len)
 
-  if salt.len > 0:
+  let kdfSalt = if salt.len > 0:
     doAssert salt.len == saltSize
-    kdfSalt = @salt
+    @salt
   else:
-    getRandomBytesOrPanic(kdfSalt)
+    getRandomBytesOrPanic(saltSize)
 
-  if iv.len > 0:
-    doAssert iv.len == aes128.sizeBlock
-    aesIv = @iv
+  let aesIv = if iv.len > 0:
+    doAssert iv.len == AES.sizeBlock
+    @iv
   else:
-    getRandomBytesOrPanic(aesIv)
+    getRandomBytesOrPanic(AES.sizeBlock)
 
   when T is KdfPbkdf2:
     decKey = sha256.pbkdf2(password.string, kdfSalt, pbkdf2Params.c,
@@ -324,38 +355,82 @@ proc encryptKeystore*(T: type[KdfParams],
     var kdf = Kdf[KdfPbkdf2](function: "pbkdf2", params: pbkdf2Params, message: "")
     kdf.params.salt = byteutils.toHex(kdfSalt)
   else:
-    return
+    {.fatal: "Other KDFs are supported yet".}
 
   aesCipher.init(decKey.toOpenArray(0, 15), aesIv)
   aesCipher.encrypt(secret, cipherMsg)
   aesCipher.clear()
 
-  let pubkey = privKey.toPubKey()
+  let sum = shaChecksum(decKey.toOpenArray(16, 31), cipherMsg)
 
+  Crypto[T](
+    kdf: kdf,
+    checksum: Checksum(
+      function: "sha256",
+      message: byteutils.toHex(sum)),
+    cipher: Cipher(
+      function: "aes-128-ctr",
+      params: CipherParams(iv: byteutils.toHex(aesIv)),
+      message: byteutils.toHex(cipherMsg)))
+
+proc encryptKeystore*(T: type[KdfParams],
+                      privKey: ValidatorPrivkey,
+                      password = KeyStorePass "",
+                      path = KeyPath "",
+                      salt: openarray[byte] = @[],
+                      iv: openarray[byte] = @[],
+                      pretty = true): KeyStoreContent =
   let
-    sum = shaChecksum(decKey.toOpenArray(16, 31), cipherMsg)
-    uuid = uuidGenerate().get
-
+    secret = privKey.toRaw[^32..^1]
+    cryptoField = createCryptoField(T, secret, password, salt, iv)
+    pubkey = privKey.toPubKey()
+    uuid = uuidGenerate().expect("Random bytes should be available")
     keystore = Keystore[T](
-      crypto: Crypto[T](
-        kdf: kdf,
-        checksum: Checksum(
-          function: "sha256",
-          message: byteutils.toHex(sum)
-        ),
-        cipher: Cipher(
-          function: "aes-128-ctr",
-          params: CipherParams(iv: byteutils.toHex(aesIv)),
-          message: byteutils.toHex(cipherMsg)
-        )
-      ),
+      crypto: cryptoField,
       pubkey: toHex(pubkey),
       path: path.string,
       uuid: $uuid,
       version: 4)
 
-  KeyStoreContent if pretty: json.pretty(%keystore, indent=4)
+  KeyStoreContent if pretty: json.pretty(%keystore)
                   else: $(%keystore)
+
+proc createWallet*(T: type[KdfParams],
+                   mnemonic: Mnemonic,
+                   name = WalletName "",
+                   salt: openarray[byte] = @[],
+                   iv: openarray[byte] = @[],
+                   password = KeyStorePass "",
+                   nextAccount = none(Natural),
+                   pretty = true): Wallet =
+  let
+    uuid = UUID $(uuidGenerate().expect("Random bytes should be available"))
+    # Please note that we are passing an empty password here because
+    # we want the wallet restoration procedure to depend only on the
+    # mnemonic (the user is asked to treat the mnemonic as a password).
+    seed = getSeed(mnemonic, KeyStorePass"")
+    cryptoField = %createCryptoField(T, distinctBase seed, password, salt, iv)
+
+  Wallet(
+    uuid: uuid,
+    name: if name.string.len > 0: name
+          else: WalletName(uuid),
+    version: 1,
+    walletType: "hierarchical deterministic",
+    crypto: JsonString(if pretty: json.pretty(cryptoField)
+                       else: $cryptoField),
+    nextAccount: nextAccount.get(0))
+
+proc createWalletContent*(T: type[KdfParams],
+                          mnemonic: Mnemonic,
+                          name = WalletName "",
+                          salt: openarray[byte] = @[],
+                          iv: openarray[byte] = @[],
+                          password = KeyStorePass "",
+                          nextAccount = none(Natural),
+                          pretty = true): (UUID, WalletContent) =
+  let wallet = createWallet(T, mnemonic, name, salt, iv, password, nextAccount, pretty)
+  (wallet.uuid, WalletContent Json.encode(wallet, pretty = pretty))
 
 proc restoreCredentials*(mnemonic: Mnemonic,
                          password = KeyStorePass ""): Credentials =
