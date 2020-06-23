@@ -689,7 +689,9 @@ func makeAttestationData*(
       if start_slot == state.slot: beacon_block_root
       else: get_block_root_at_slot(state, start_slot)
 
-  doAssert slot.compute_epoch_at_slot == current_epoch
+  doAssert slot.compute_epoch_at_slot == current_epoch,
+    "Computed epoch was " & $slot.compute_epoch_at_slot &
+    "  while the state current_epoch was " & $current_epoch
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase0/validator.md#attestation-data
   AttestationData(

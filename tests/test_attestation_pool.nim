@@ -16,8 +16,9 @@ import
   chronicles,
   stew/byteutils,
   ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[digest, validator, state_transition],
-  ../beacon_chain/[beacon_node_types, attestation_pool, block_pool]
+  ../beacon_chain/spec/[digest, validator, state_transition, helpers, beaconstate],
+  ../beacon_chain/[beacon_node_types, attestation_pool, block_pool, extras],
+  ../beacon_chain/fork_choice/[fork_choice_types, fork_choice]
 
 suiteReport "Attestation pool processing" & preset():
   ## For now just test that we can compile and execute block processing with
@@ -234,3 +235,110 @@ suiteReport "Attestation pool processing" & preset():
     check:
       # Two votes for b11
       head4 == b11Add
+
+  timedTest "Adding a block twice doesn't crash":
+    var cache = get_empty_per_epoch_cache()
+    let
+      b10 = makeTestBlock(state.data, blockPool[].tail.root, cache)
+      b10Root = hash_tree_root(b10.message)
+      b10Add = blockpool[].add(b10Root, b10)[]
+
+    pool[].addForkChoice_v2(b10Add)
+    let head = pool[].selectHead()
+
+    check:
+      head == b10Add
+
+    # -------------------------------------------------------------
+    let b10_clone = b10 # Assumes deep copy
+    let b10Add_clone = blockpool[].add(b10Root, b10_clone)[]
+
+    pool[].addForkChoice_v2(b10Add_clone)
+    let head2 = pool[].selectHead()
+
+    check:
+      head2 == b10Add
+
+  timedTest "Adding a duplicate block from an old epoch after it was pruned away doesn't crash":
+    var cache = get_empty_per_epoch_cache()
+
+    blockpool[].addFlags {skipBLSValidation}
+    pool.forkChoice_v2.proto_array.prune_threshold = 1
+
+    let
+      b10 = makeTestBlock(state.data, blockPool[].tail.root, cache)
+      b10Root = hash_tree_root(b10.message)
+      b10Add = blockpool[].add(b10Root, b10)[]
+
+    pool[].addForkChoice_v2(b10Add)
+    let head = pool[].selectHead()
+
+    check:
+      head == b10Add
+
+    let block_ok = state_transition(state.data, b10, {}, noRollback)
+    check:
+      block_ok
+
+    # -------------------------------------------------------------
+    let b10_clone = b10 # Assumes deep copy
+
+    # -------------------------------------------------------------
+    # Pass an epoch
+    var block_root = b10Root
+
+    var attestations: seq[Attestation]
+
+    for epoch in 0 ..< 5:
+      let start_slot = compute_start_slot_at_epoch(Epoch epoch)
+      for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
+
+        let new_block = makeTestBlock(state.data, block_root, cache, attestations = attestations)
+        let block_ok = state_transition(state.data, new_block, {skipBLSValidation}, noRollback)
+        check:
+          block_ok
+
+        block_root = hash_tree_root(new_block.message)
+        let blockRef = blockpool[].add(block_root, new_block)[]
+
+        pool[].addForkChoice_v2(blockRef)
+
+        let head = pool[].selectHead()
+        check:
+          head == blockRef
+        blockPool[].updateHead(head)
+
+        attestations.setlen(0)
+        for index in 0 ..< get_committee_count_at_slot(state.data.data, slot.Slot):
+          let committee = get_beacon_committee(
+              state.data.data, state.data.data.slot, index.CommitteeIndex, cache)
+
+          # Create a bitfield filled with the given count per attestation,
+          # exactly on the right-most part of the committee field.
+          var aggregation_bits = init(CommitteeValidatorsBits, committee.len)
+          for v in 0 ..< committee.len * 2 div 3 + 1:
+            aggregation_bits[v] = true
+
+          attestations.add Attestation(
+            aggregation_bits: aggregation_bits,
+            data: makeAttestationData(
+              state.data.data, state.data.data.slot,
+              index, blockroot
+            )
+            # signature: ValidatorSig()
+          )
+
+      cache = get_empty_per_epoch_cache()
+
+    # -------------------------------------------------------------
+    # Prune
+
+    echo "\nPruning all blocks before: ", shortlog(blockPool[].finalizedHead), '\n'
+    doAssert blockPool[].finalizedHead.slot != 0
+
+    pool[].pruneBefore(blockPool[].finalizedHead)
+    doAssert: b10Root notin pool.forkChoice_v2
+
+    # Add back the old block to ensure we don't crash the fork choice
+    let b10Add_clone = blockpool[].add(b10Root, b10_clone)[]
+    pool[].addForkChoice_v2(b10Add_clone)

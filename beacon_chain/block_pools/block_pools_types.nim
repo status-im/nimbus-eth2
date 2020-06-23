@@ -36,6 +36,8 @@ type
     Invalid ##\
       ## Block is broken / doesn't apply cleanly - whoever sent it is fishy (or
       ## we're buggy)
+    Old
+    Duplicate
 
   Quarantine* = object
     ## Keeps track of unsafe blocks coming from the network
