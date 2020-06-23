@@ -8,7 +8,7 @@ The following sections explain how to setup your build environment on your platf
 Install Mingw-w64 for your architecture using the "[MinGW-W64 Online
 Installer](https://sourceforge.net/projects/mingw-w64/files/)" (first link
 under the directory listing). Run it and select your architecture in the setup
-menu ("i686" on 32-bit, "x86_64" on 64-bit), set the threads to "win32" and
+menu (`i686` on 32-bit, `x86_64` on 64-bit), set the threads to `win32` and
 the exceptions to "dwarf" on 32-bit and "seh" on 64-bit. Change the
 installation directory to "C:\mingw-w64" and add it to your system PATH in "My
 Computer"/"This PC" -> Properties -> Advanced system settings -> Environment
