@@ -10,8 +10,10 @@
 import
   options, chronicles,
   ./spec/[
-    beaconstate, datatypes, crypto, digest, helpers, validator, signatures],
-  ./block_pool, ./attestation_pool, ./beacon_node_types, ./ssz
+    beaconstate, datatypes, crypto, digest, helpers, network, validator,
+    signatures],
+  ./block_pool, ./block_pools/candidate_chains, ./attestation_pool,
+  ./beacon_node_types, ./ssz
 
 logScope:
   topics = "att_aggr"
@@ -73,7 +75,6 @@ proc aggregate_attestations*(
 
   none(AggregateAndProof)
 
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#attestation-subnets
 proc isValidAttestation*(
     pool: var AttestationPool, attestation: Attestation, current_slot: Slot,
@@ -81,13 +82,6 @@ proc isValidAttestation*(
   logScope:
     topics = "att_aggr valid_att"
     received_attestation = shortLog(attestation)
-
-  # The attestation's committee index (attestation.data.index) is for the
-  # correct subnet.
-  if attestation.data.index != topicCommitteeIndex:
-    debug "attestation's committee index not for the correct subnet",
-      topicCommitteeIndex = topicCommitteeIndex
-    return false
 
   if not (attestation.data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >=
       current_slot and current_slot >= attestation.data.slot):
@@ -133,20 +127,45 @@ proc isValidAttestation*(
   # TODO: consider a "slush pool" of attestations whose blocks have not yet
   # propagated - i.e. imagine that attestations are smaller than blocks and
   # therefore propagate faster, thus reordering their arrival in some nodes
-  if pool.blockPool.get(attestation.data.beacon_block_root).isNone():
+  let attestationBlck = pool.blockPool.getRef(attestation.data.beacon_block_root)
+  if attestationBlck.isNil:
     debug "block doesn't exist in block pool"
     pool.blockPool.addMissing(attestation.data.beacon_block_root)
     return false
 
-  # The signature of attestation is valid.
-  # TODO need to know above which validator anyway, and this is too general
-  # as it supports aggregated attestations (which this can't be)
-  var cache = get_empty_per_epoch_cache()
-  if not is_valid_indexed_attestation(
-      pool.blockPool.headState.data.data,
-      get_indexed_attestation(
-        pool.blockPool.headState.data.data, attestation, cache), {}):
-    debug "signature verification failed"
-    return false
+  pool.blockPool.withEpochState(
+      pool.blockPool.tmpState,
+      BlockSlot(blck: attestationBlck, slot: attestation.data.slot)):
+    when ETH2_SPEC == "v0.12.1":
+      # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#attestation-subnets
+      # [REJECT] The attestation is for the correct subnet (i.e.
+      # compute_subnet_for_attestation(state, attestation) == subnet_id).
+      let
+        epochInfo = blck.getEpochInfo(state)
+        requiredSubnetIndex =
+          compute_subnet_for_attestation(
+            epochInfo.shuffled_active_validator_indices.len.uint64, attestation)
+
+      if requiredSubnetIndex != topicCommitteeIndex:
+        debug "isValidAttestation: attestation's committee index not for the correct subnet",
+          topicCommitteeIndex = topicCommitteeIndex,
+          attestation_data_index = attestation.data.index,
+          requiredSubnetIndex = requiredSubnetIndex
+        return false
+    else:
+      # The attestation's committee index (attestation.data.index) is for the
+      # correct subnet.
+      if attestation.data.index != topicCommitteeIndex:
+        debug "isValidAttestation: attestation's committee index not for the correct subnet",
+          topicCommitteeIndex = topicCommitteeIndex,
+          attestation_data_index = attestation.data.index
+        return false
+
+    # The signature of attestation is valid.
+    var cache = getEpochCache(blck, state)
+    if not is_valid_indexed_attestation(
+        state, get_indexed_attestation(state, attestation, cache), {}):
+      debug "signature verification failed"
+      return false
 
   true
