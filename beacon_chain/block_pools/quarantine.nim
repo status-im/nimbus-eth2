@@ -39,6 +39,9 @@ func checkMissing*(quarantine: var Quarantine): seq[FetchRecord] =
     if countOnes(v.tries.uint64) == 1:
       result.add(FetchRecord(root: k))
 
+func addMissing*(quarantine: var Quarantine, broot: Eth2Digest) {.inline.} =
+  discard quarantine.missing.hasKeyOrPut(broot, MissingBlock())
+
 func add*(quarantine: var Quarantine, dag: CandidateChains,
           sblck: SignedBeaconBlock,
           broot: Option[Eth2Digest] = none[Eth2Digest]()) =
@@ -51,5 +54,4 @@ func add*(quarantine: var Quarantine, dag: CandidateChains,
   quarantine.orphans[blockRoot] = sblck
 
   let parentRoot = sblck.message.parent_root
-  if parentRoot notin quarantine.missing:
-    quarantine.missing[parentRoot] = MissingBlock()
+  quarantine.addMissing(parentRoot)

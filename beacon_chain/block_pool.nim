@@ -127,6 +127,9 @@ proc latestJustifiedBlock*(pool: BlockPool): BlockSlot =
   ## as the latest finalized block
   latestJustifiedBlock(pool.dag)
 
+proc addMissing*(pool: var BlockPool, broot: Eth2Digest) {.inline.} =
+  pool.quarantine.addMissing(broot)
+
 proc isInitialized*(T: type BlockPool, db: BeaconChainDB): bool =
   isInitialized(CandidateChains, db)
 
