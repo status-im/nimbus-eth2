@@ -59,7 +59,7 @@ task test, "Run all tests":
   # price we pay for that.
 
   # Just the part of minimal config which explicitly differs from mainnet
-  buildAndRunBinary "test_fixture_const_sanity_check", "tests/official/", "-d:const_preset=minimal -d:ETH2_SPEC=\"v0.11.3\""
+  buildAndRunBinary "test_fixture_const_sanity_check", "tests/official/", "-d:const_preset=minimal -d:ETH2_SPEC=\"v0.11.3\" -d:BLS_ETH2_SPEC=\"v0.11.x\""
   buildAndRunBinary "test_fixture_const_sanity_check", "tests/official/", "-d:const_preset=minimal -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
 
   # Mainnet config
@@ -72,13 +72,13 @@ task test, "Run all tests":
 
   # Consensus object SSZ tests
   # 0.11.3
-  buildAndRunBinary "test_fixture_ssz_consensus_objects", "tests/official/", "-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC=\"v0.11.3\""
+  buildAndRunBinary "test_fixture_ssz_consensus_objects", "tests/official/", "-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC=\"v0.11.3\" -d:BLS_ETH2_SPEC=\"v0.11.x\""
 
   # 0.12.1
   buildAndRunBinary "test_fixture_ssz_consensus_objects", "tests/official/", "-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
 
   # 0.11.3
-  buildAndRunBinary "all_fixtures_require_ssz", "tests/official/", "-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC=\"v0.11.3\""
+  buildAndRunBinary "all_fixtures_require_ssz", "tests/official/", "-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC=\"v0.11.3\" -d:BLS_ETH2_SPEC=\"v0.11.x\""
 
   # 0.12.1
   buildAndRunBinary "all_fixtures_require_ssz", "tests/official/", "-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
