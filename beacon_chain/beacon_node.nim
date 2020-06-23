@@ -556,7 +556,10 @@ proc runForwardSyncLoop(node: BeaconNode) {.async.} =
       # We going to ignore `BlockError.Old` errors because we have working
       # backward sync and it can happens that we can perform overlapping
       # requests.
-      if res.isErr and res.error != BlockError.Old:
+      # For the same reason we ignore Duplicate blocks as if they are duplicate
+      # from before the current finalized epoch, we can drop them
+      # (and they may have no parents anymore in the fork choice if it was pruned)
+      if res.isErr and res.error notin {BlockError.Old, BLockError.Duplicate}:
         return res
     discard node.updateHead()
 

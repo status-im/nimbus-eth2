@@ -236,7 +236,7 @@ suiteReport "Attestation pool processing" & preset():
       # Two votes for b11
       head4 == b11Add
 
-  timedTest "Adding a block twice doesn't crash":
+  timedTest "Trying to add a block twice tags the second as an error":
     var cache = get_empty_per_epoch_cache()
     let
       b10 = makeTestBlock(state.data, blockPool[].tail.root, cache)
@@ -250,16 +250,12 @@ suiteReport "Attestation pool processing" & preset():
       head == b10Add
 
     # -------------------------------------------------------------
+    # Add back the old block to ensure we have a duplicate error
     let b10_clone = b10 # Assumes deep copy
-    let b10Add_clone = blockpool[].add(b10Root, b10_clone)[]
+    let b10Add_clone = blockpool[].add(b10Root, b10_clone)
+    doAssert: b10Add_clone.error == Duplicate
 
-    pool[].addForkChoice_v2(b10Add_clone)
-    let head2 = pool[].selectHead()
-
-    check:
-      head2 == b10Add
-
-  timedTest "Adding a duplicate block from an old epoch after it was pruned away doesn't crash":
+  timedTest "Trying to add a duplicate block from an old pruned epoch is tagged as an error":
     var cache = get_empty_per_epoch_cache()
 
     blockpool[].addFlags {skipBLSValidation}
@@ -339,6 +335,6 @@ suiteReport "Attestation pool processing" & preset():
     pool[].pruneBefore(blockPool[].finalizedHead)
     doAssert: b10Root notin pool.forkChoice_v2
 
-    # Add back the old block to ensure we don't crash the fork choice
-    let b10Add_clone = blockpool[].add(b10Root, b10_clone)[]
-    pool[].addForkChoice_v2(b10Add_clone)
+    # Add back the old block to ensure we have a duplicate error
+    let b10Add_clone = blockpool[].add(b10Root, b10_clone)
+    doAssert: b10Add_clone.error == Duplicate
