@@ -4,6 +4,9 @@ import
   web3, stint, eth/keys, confutils,
   spec/[datatypes, digest, crypto, keystore], conf, ssz/merkleization, merkle_minimal
 
+export
+  keystore
+
 contract(DepositContract):
   proc deposit(pubkey: Bytes48, withdrawalCredentials: Bytes32, signature: Bytes96, deposit_data_root: FixedBytes[32])
 
