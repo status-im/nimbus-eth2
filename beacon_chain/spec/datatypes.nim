@@ -47,7 +47,7 @@ export
 # internal state that's gone through sanity checks already.
 
 
-const ETH2_SPEC* {.strdefine.} = "v0.11.3"
+const ETH2_SPEC* {.strdefine.} = "v0.12.1"
 static: doAssert: ETH2_SPEC == "v0.11.3" or ETH2_SPEC == "v0.12.1"
 
 # Constant presets
@@ -81,7 +81,7 @@ const
       "0.11.3" ## \
   ## Spec version we're aiming to be compatible with, right now
 
-  GENESIS_SLOT* = Slot(0)
+  #GENESIS_SLOT* = Slot(0)
   GENESIS_EPOCH* = (GENESIS_SLOT.int div SLOTS_PER_EPOCH).Epoch ##\
   ## compute_epoch_at_slot(GENESIS_SLOT)
 
@@ -101,8 +101,8 @@ const
 
   SLOTS_PER_ETH1_VOTING_PERIOD* = Slot(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)
 
-  DEPOSIT_CONTRACT_TREE_DEPTH* = 32
-  BASE_REWARDS_PER_EPOCH* = 4
+  #DEPOSIT_CONTRACT_TREE_DEPTH* = 32
+  #BASE_REWARDS_PER_EPOCH* = 4
 
 template maxSize*(n: int) {.pragma.}
 
@@ -132,7 +132,7 @@ type
 
   # https://github.com/nim-lang/Nim/issues/574 and be consistent across
   # 32-bit and 64-bit word platforms.
-  # TODO VALIDATOR_REGISTRY_LIMIT is 1 shl 40 in 0.8.3, and
+  # TODO VALIDATOR_REGISTRY_LIMIT is 1 shl 40 in 0.12.1, and
   # proc newSeq(typ: PNimType, len: int): pointer {.compilerRtl.}
   # in Nim/lib/system/gc.nim quite tightly ties seq addressibility
   # to the system wordsize. This lifts smaller, and now incorrect,
@@ -514,23 +514,23 @@ proc readValue*(reader: var JsonReader, value: var ForkDigest)
     raiseUnexpectedValue(reader, "Hex string of 4 bytes expected")
 
 # `ValidatorIndex` seq handling.
-proc max*(a: ValidatorIndex, b: int) : auto =
+func max*(a: ValidatorIndex, b: int) : auto =
   max(a.int, b)
 
-proc `[]`*[T](a: var seq[T], b: ValidatorIndex): var T =
+func `[]`*[T](a: var seq[T], b: ValidatorIndex): var T =
   a[b.int]
 
-proc `[]`*[T](a: seq[T], b: ValidatorIndex): auto =
+func `[]`*[T](a: seq[T], b: ValidatorIndex): auto =
   a[b.int]
 
-proc `[]=`*[T](a: var seq[T], b: ValidatorIndex, c: T) =
+func `[]=`*[T](a: var seq[T], b: ValidatorIndex, c: T) =
   a[b.int] = c
 
 # `ValidatorIndex` Nim integration
 proc `==`*(x, y: ValidatorIndex) : bool {.borrow.}
 proc `<`*(x, y: ValidatorIndex) : bool {.borrow.}
 proc hash*(x: ValidatorIndex): Hash {.borrow.}
-proc `$`*(x: ValidatorIndex): auto = $(x.int64)
+func `$`*(x: ValidatorIndex): auto = $(x.int64)
 
 ethTimeUnit Slot
 ethTimeUnit Epoch

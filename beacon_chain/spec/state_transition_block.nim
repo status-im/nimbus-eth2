@@ -285,6 +285,7 @@ proc process_voluntary_exit*(
 
   # Verify the validator has been active long enough
   when ETH2_SPEC == "v0.12.1":
+    const SHARD_COMMITTEE_PERIOD = 256
     if not (get_current_epoch(state) >= validator.activation_epoch +
         SHARD_COMMITTEE_PERIOD):
       notice "Exit: not in validator set long enough"

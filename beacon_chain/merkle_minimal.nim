@@ -98,7 +98,7 @@ proc attachMerkleProofs*(deposits: var seq[Deposit]) =
 
     doAssert is_valid_merkle_branch(
       deposit_data_roots[val_idx], deposits[val_idx].proof,
-      DEPOSIT_CONTRACT_TREE_DEPTH + 1, val_idx.uint64,
+      DEPOSIT_CONTRACT_TREE_DEPTH.uint64 + 1, val_idx.uint64,
       deposit_data_sums[val_idx])
 
 proc testMerkleMinimal*(): bool =

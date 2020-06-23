@@ -84,7 +84,7 @@ cli do (skipGoerliKey {.
   else:
     let bootstrapYamlFile = testnetDir / bootstrapYamlFileName
     if system.fileExists(bootstrapYamlFile):
-      bootstrapFileOpt = &"--enr-bootstrap-file=\"{bootstrapYamlFile}\""
+      bootstrapFileOpt = &"--bootstrap-file=\"{bootstrapYamlFile}\""
     else:
       echo "Warning: the network metadata doesn't include a bootstrap file"
 
@@ -92,6 +92,8 @@ cli do (skipGoerliKey {.
   if not system.fileExists(preset):
     preset = constPreset
     if preset.len == 0: preset = "minimal"
+
+  doAssert specVersion in ["v0.11.3", "v0.12.1"]
 
   let
     dataDirName = testnetName.replace("/", "_")
@@ -101,8 +103,13 @@ cli do (skipGoerliKey {.
     validatorsDir = dataDir / "validators"
     secretsDir = dataDir / "secrets"
     beaconNodeBinary = buildDir / "beacon_node_" & dataDirName
+    specDefines =
+      if specVersion == "v0.12.1":
+        &"-d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
+      else:
+        &"-d:ETH2_SPEC=\"v0.11.3\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
   var
-    nimFlags = &"-d:chronicles_log_level=TRACE -d:ETH2_SPEC={specVersion} " & getEnv("NIM_PARAMS")
+    nimFlags = &"-d:chronicles_log_level=TRACE {specDefines} " & getEnv("NIM_PARAMS")
 
   # write the logs to a file
   nimFlags.add """ -d:"chronicles_sinks=textlines,json[file(nbc""" & staticExec("date +\"%Y%m%d%H%M%S\"") & """.log)]" """

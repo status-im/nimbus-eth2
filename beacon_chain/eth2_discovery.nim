@@ -54,6 +54,7 @@ proc loadBootstrapFile*(bootstrapFile: string,
   if cmpIgnoreCase(ext, ".txt") == 0 or cmpIgnoreCase(ext, ".enr") == 0 :
     try:
       for ln in lines(bootstrapFile):
+        debugEcho "FOOOOOBAR: ", ln
         addBootstrapNode(ln, bootstrapEnrs, localPubKey)
     except IOError as e:
       error "Could not read bootstrap file", msg = e.msg

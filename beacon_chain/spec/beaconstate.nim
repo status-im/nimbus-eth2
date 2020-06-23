@@ -58,7 +58,7 @@ proc process_deposit*(
   if not is_valid_merkle_branch(
     hash_tree_root(deposit.data),
     deposit.proof,
-    DEPOSIT_CONTRACT_TREE_DEPTH + 1,  # Add 1 for the `List` length mix-in
+    DEPOSIT_CONTRACT_TREE_DEPTH.uint64 + 1,  # Add 1 for the `List` length mix-in
     state.eth1_deposit_index,
     state.eth1_data.deposit_root,
   ):
