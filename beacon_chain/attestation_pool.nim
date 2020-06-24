@@ -27,10 +27,11 @@ func init*(T: type AttestationPool, blockPool: BlockPool): T =
   # TODO: In tests, on blockpool.init the finalized root
   #       from the `headState` and `justifiedState` is zero
   let forkChoice = initForkChoice(
-    finalized_block_slot = default(Slot),             # This is unnecessary for fork choice but may help external components
-    finalized_block_state_root = default(Eth2Digest), # This is unnecessary for fork choice but may help external components
+    finalized_block_slot = default(Slot),             # This is unnecessary for fork choice but may help external components for example logging/debugging
+    finalized_block_state_root = default(Eth2Digest), # This is unnecessary for fork choice but may help external components for example logging/debugging
     justified_epoch = blockPool.headState.data.data.current_justified_checkpoint.epoch,
     finalized_epoch = blockPool.headState.data.data.finalized_checkpoint.epoch,
+    # We should use the checkpoint, but at genesis the headState finalized checkpoint is 0x0000...0000
     # finalized_root = blockPool.headState.data.data.finalized_checkpoint.root
     finalized_root = blockPool.finalizedHead.blck.root
   ).get()
