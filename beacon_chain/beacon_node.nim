@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  algorithm, os, tables, random, strutils, times, math, terminal,
+  algorithm, os, tables, strutils, times, math, terminal,
 
   # Nimble packages
   stew/[objects, byteutils], stew/shims/macros,
@@ -1233,10 +1233,17 @@ programMain:
       createDir(config.outValidatorsDir)
       createDir(config.outSecretsDir)
 
-      discard generateDeposits(
+      let deposits = generateDeposits(
         config.totalDeposits,
         config.outValidatorsDir,
         config.outSecretsDir)
+
+      if deposits.isErr:
+        fatal "Failed to generate deposits", err = deposits.error
+        quit 1
+
+      if not config.dontSend:
+        waitFor sendDeposits(config, deposits.value)
 
     of DepositsCmd.send:
       if config.minDelay > config.maxDelay:
@@ -1244,22 +1251,7 @@ programMain:
         quit 1
 
       let deposits = loadDeposits(config.depositsDir)
-
-      var delayGenerator: DelayGenerator
-      if config.maxDelay > 0.0:
-        delayGenerator = proc (): chronos.Duration {.gcsafe.} =
-          chronos.milliseconds (rand(config.minDelay..config.maxDelay)*1000).int
-
-      info "Sending deposits",
-        web3 = config.web3Url,
-        depositContract = config.depositContractAddress
-
-      waitFor sendDeposits(
-        deposits,
-        config.web3Url,
-        config.depositContractAddress,
-        config.depositPrivateKey,
-        delayGenerator)
+      waitFor sendDeposits(config, deposits)
 
     of DepositsCmd.status:
       # TODO

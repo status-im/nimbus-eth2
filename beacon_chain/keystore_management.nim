@@ -1,5 +1,5 @@
 import
-  os, strutils, terminal,
+  os, strutils, terminal, random,
   chronicles, chronos, blscurve, nimcrypto, json_serialization, serialization,
   web3, stint, eth/keys, confutils,
   spec/[datatypes, digest, crypto, keystore], conf, ssz/merkleization, merkle_minimal
@@ -162,6 +162,8 @@ proc loadDeposits*(depositsDir: string): seq[Deposit] =
 
 {.pop.}
 
+# TODO: async functions should note take `seq` inputs because
+#       this leads to full copies.
 proc sendDeposits*(deposits: seq[Deposit],
                    web3Url, depositContractAddress, privateKey: string,
                    delayGenerator: DelayGenerator = nil) {.async.} =
@@ -189,4 +191,22 @@ proc sendDeposits*(deposits: seq[Deposit],
 
     if delayGenerator != nil:
       await sleepAsync(delayGenerator())
+
+proc sendDeposits*(config: BeaconNodeConf,
+                   deposits: seq[Deposit]) {.async.} =
+  var delayGenerator: DelayGenerator
+  if config.maxDelay > 0.0:
+    delayGenerator = proc (): chronos.Duration {.gcsafe.} =
+      chronos.milliseconds (rand(config.minDelay..config.maxDelay)*1000).int
+
+  info "Sending deposits",
+    web3 = config.web3Url,
+    depositContract = config.depositContractAddress
+
+  await sendDeposits(
+    deposits,
+    config.web3Url,
+    config.depositContractAddress,
+    config.depositPrivateKey,
+    delayGenerator)
 
