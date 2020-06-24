@@ -44,8 +44,8 @@ declareGauge beacon_processed_deposits_total, "Number of total deposits included
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#block-header
 proc process_block_header*(
-    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
-    stateCache: var StateCache): bool {.nbench.}=
+    state: var BeaconState, blck: SomeBeaconBlock, flags: UpdateFlags,
+    stateCache: var StateCache): bool {.nbench.} =
   logScope:
     blck = shortLog(blck)
   # Verify that the slots match
@@ -100,8 +100,8 @@ proc `xor`[T: array](a, b: T): T =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#randao
 proc process_randao(
-    state: var BeaconState, body: BeaconBlockBody, flags: UpdateFlags,
-    stateCache: var StateCache): bool {.nbench.}=
+    state: var BeaconState, body: SomeBeaconBlockBody, flags: UpdateFlags,
+    stateCache: var StateCache): bool {.nbench.} =
   let
     proposer_index = get_beacon_proposer_index(state, stateCache)
 
@@ -136,7 +136,7 @@ proc process_randao(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#eth1-data
-func process_eth1_data(state: var BeaconState, body: BeaconBlockBody) {.nbench.}=
+func process_eth1_data(state: var BeaconState, body: SomeBeaconBlockBody) {.nbench.}=
   state.eth1_data_votes.add body.eth1_data
 
   if state.eth1_data_votes.asSeq.count(body.eth1_data) * 2 > SLOTS_PER_ETH1_VOTING_PERIOD.int:
@@ -319,7 +319,7 @@ proc process_voluntary_exit*(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#operations
-proc process_operations(state: var BeaconState, body: BeaconBlockBody,
+proc process_operations(state: var BeaconState, body: SomeBeaconBlockBody,
     flags: UpdateFlags, stateCache: var StateCache): bool {.nbench.} =
   # Verify that outstanding deposits are processed up to the maximum number of
   # deposits
@@ -355,7 +355,7 @@ proc process_operations(state: var BeaconState, body: BeaconBlockBody,
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#block-processing
 proc process_block*(
-    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
+    state: var BeaconState, blck: SomeBeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.}=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly

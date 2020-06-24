@@ -33,10 +33,6 @@ type
       .}: DbCmd
 
     of bench:
-      validate* {.
-        defaultValue: true
-        desc: "Enable BLS validation" }: bool
-
       slots* {.
         defaultValue: 50000
         desc: "Number of slots to run benchmark for".}: uint64
@@ -80,7 +76,7 @@ proc cmdBench(conf: DbConf) =
 
   var
     blockRefs: seq[BlockRef]
-    blocks: seq[SignedBeaconBlock]
+    blocks: seq[TrustedSignedBeaconBlock]
     cur = pool.head.blck
 
   while cur != nil:
@@ -101,18 +97,17 @@ proc cmdBench(conf: DbConf) =
   withTimer(timers[tLoadState]):
     discard db.getState(state[].root, state[].data, noRollback)
 
-  let flags = if conf.validate: {} else: {skipBlsValidation}
   for b in blocks:
     let
       isEpoch = state[].data.slot.compute_epoch_at_slot !=
         b.message.slot.compute_epoch_at_slot
     withTimer(timers[if isEpoch: tApplyEpochBlock else: tApplyBlock]):
-      if not state_transition(state[], b, flags, noRollback):
+      if not state_transition(state[], b, {}, noRollback):
         dump("./", b, hash_tree_root(b.message))
         echo "State transition failed (!)"
         quit 1
 
-  printTimers(conf.validate, timers)
+  printTimers(false, timers)
 
 proc cmdDumpState(conf: DbConf) =
   let

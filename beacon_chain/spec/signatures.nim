@@ -10,6 +10,12 @@
 import
   ./crypto, ./digest, ./datatypes, ./helpers, ../ssz/merkleization
 
+template withTrust(sig: SomeSig, body: untyped): bool =
+  when sig is TrustedSig:
+    true
+  else:
+    body
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#aggregation-selection
 func get_slot_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
@@ -34,12 +40,13 @@ func get_epoch_signature*(
 
 func verify_epoch_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
-    pubkey: ValidatorPubKey, signature: ValidatorSig): bool =
-  let
-    domain = get_domain(fork, DOMAIN_RANDAO, epoch, genesis_validators_root)
-    signing_root = compute_signing_root(epoch, domain)
+    pubkey: ValidatorPubKey, signature: SomeSig): bool =
+  withTrust(signature):
+    let
+      domain = get_domain(fork, DOMAIN_RANDAO, epoch, genesis_validators_root)
+      signing_root = compute_signing_root(epoch, domain)
 
-  blsVerify(pubkey, signing_root.data, signature)
+    blsVerify(pubkey, signing_root.data, signature)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#signature
 func get_block_signature*(
@@ -55,15 +62,17 @@ func get_block_signature*(
 
 func verify_block_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    blck: Eth2Digest | BeaconBlock | BeaconBlockHeader, pubkey: ValidatorPubKey,
-    signature: ValidatorSig): bool =
-  let
-    epoch = compute_epoch_at_slot(slot)
-    domain = get_domain(
-      fork, DOMAIN_BEACON_PROPOSER, epoch, genesis_validators_root)
-    signing_root = compute_signing_root(blck, domain)
+    blck: Eth2Digest | SomeBeaconBlock | BeaconBlockHeader,
+    pubkey: ValidatorPubKey,
+    signature: SomeSig): bool =
+  withTrust(signature):
+    let
+      epoch = compute_epoch_at_slot(slot)
+      domain = get_domain(
+        fork, DOMAIN_BEACON_PROPOSER, epoch, genesis_validators_root)
+      signing_root = compute_signing_root(blck, domain)
 
-  blsVerify(pubKey, signing_root.data, signature)
+    blsVerify(pubKey, signing_root.data, signature)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#broadcast-aggregate
 func get_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth2Digest,
@@ -94,14 +103,15 @@ func verify_attestation_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     attestation_data: AttestationData,
     pubkeys: openArray[ValidatorPubKey],
-    signature: ValidatorSig): bool =
-  let
-    epoch = attestation_data.target.epoch
-    domain = get_domain(
-      fork, DOMAIN_BEACON_ATTESTER, epoch, genesis_validators_root)
-    signing_root = compute_signing_root(attestation_data, domain)
+    signature: SomeSig): bool =
+  withTrust(signature):
+    let
+      epoch = attestation_data.target.epoch
+      domain = get_domain(
+        fork, DOMAIN_BEACON_ATTESTER, epoch, genesis_validators_root)
+      signing_root = compute_signing_root(attestation_data, domain)
 
-  blsFastAggregateVerify(pubkeys, signing_root.data, signature)
+    blsFastAggregateVerify(pubkeys, signing_root.data, signature)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#deposits
 func get_deposit_signature*(
@@ -128,10 +138,11 @@ func verify_deposit_signature*(deposit: DepositData): bool =
 func verify_voluntary_exit_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     voluntary_exit: VoluntaryExit,
-    pubkey: ValidatorPubKey, signature: ValidatorSig): bool =
-  let
-    domain = get_domain(
-      fork, DOMAIN_VOLUNTARY_EXIT, voluntary_exit.epoch, genesis_validators_root)
-    signing_root = compute_signing_root(voluntary_exit, domain)
+    pubkey: ValidatorPubKey, signature: SomeSig): bool =
+  withTrust(signature):
+    let
+      domain = get_domain(
+        fork, DOMAIN_VOLUNTARY_EXIT, voluntary_exit.epoch, genesis_validators_root)
+      signing_root = compute_signing_root(voluntary_exit, domain)
 
-  blsVerify(pubkey, signing_root.data, signature)
+    blsVerify(pubkey, signing_root.data, signature)

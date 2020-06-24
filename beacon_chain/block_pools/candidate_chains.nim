@@ -186,7 +186,7 @@ func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
     slot: slot
   )
 
-func init*(T: type BlockRef, root: Eth2Digest, blck: BeaconBlock): BlockRef =
+func init*(T: type BlockRef, root: Eth2Digest, blck: SomeBeaconBlock): BlockRef =
   BlockRef.init(root, blck.slot)
 
 proc init*(T: type CandidateChains, db: BeaconChainDB,
@@ -509,10 +509,10 @@ proc skipAndUpdateState(
   ok
 
 proc rewindState(dag: CandidateChains, state: var StateData, bs: BlockSlot):
-    seq[BlockData] =
+    seq[BlockRef] =
   logScope: pcs = "replay_state"
 
-  var ancestors = @[dag.get(bs.blck)]
+  var ancestors = @[bs.blck]
   # Common case: the last block applied is the parent of the block to apply:
   if not bs.blck.parent.isNil and state.blck.root == bs.blck.parent.root and
       state.data.data.slot < bs.blck.slot:
@@ -539,7 +539,7 @@ proc rewindState(dag: CandidateChains, state: var StateData, bs: BlockSlot):
       break # Bug probably!
 
     if parBs.blck != curBs.blck:
-      ancestors.add(dag.get(parBs.blck))
+      ancestors.add(parBs.blck)
 
     # TODO investigate replacing with getStateCached, by refactoring whole
     # function. Empirically, this becomes pretty rare once good caches are
@@ -548,12 +548,12 @@ proc rewindState(dag: CandidateChains, state: var StateData, bs: BlockSlot):
     if idx >= 0:
       assign(state.data, dag.cachedStates[idx].state[])
       let ancestor = ancestors.pop()
-      state.blck = ancestor.refs
+      state.blck = ancestor
 
       beacon_state_data_cache_hits.inc()
       trace "Replaying state transitions via in-memory cache",
         stateSlot = shortLog(state.data.data.slot),
-        ancestorStateRoot = shortLog(ancestor.data.message.state_root),
+        ancestorStateRoot = shortLog(state.data.root),
         ancestorStateSlot = shortLog(state.data.data.slot),
         slot = shortLog(bs.slot),
         blockRoot = shortLog(bs.blck.root),
@@ -585,7 +585,7 @@ proc rewindState(dag: CandidateChains, state: var StateData, bs: BlockSlot):
   let
     ancestor = ancestors.pop()
     root = stateRoot.get()
-    found = dag.getState(dag.db, root, ancestor.refs, state)
+    found = dag.getState(dag.db, root, ancestor, state)
 
   if not found:
     # TODO this should only happen if the database is corrupt - we walked the
@@ -601,7 +601,6 @@ proc rewindState(dag: CandidateChains, state: var StateData, bs: BlockSlot):
 
   trace "Replaying state transitions",
     stateSlot = shortLog(state.data.data.slot),
-    ancestorStateRoot = shortLog(ancestor.data.message.state_root),
     ancestorStateSlot = shortLog(state.data.data.slot),
     slot = shortLog(bs.slot),
     blockRoot = shortLog(bs.blck.root),
@@ -690,10 +689,7 @@ proc updateStateData*(dag: CandidateChains, state: var StateData, bs: BlockSlot)
     # no state root calculation will take place here, because we can load
     # the final state root from the block itself.
     let ok =
-      dag.skipAndUpdateState(
-        state, ancestors[i],
-        {skipBlsValidation, skipStateRootValidation},
-        false)
+      dag.skipAndUpdateState(state, dag.get(ancestors[i]), {}, false)
     doAssert ok, "Blocks in database should never fail to apply.."
 
   # We save states here - blocks were guaranteed to have passed through the save

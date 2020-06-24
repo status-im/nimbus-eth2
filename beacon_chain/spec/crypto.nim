@@ -71,6 +71,11 @@ type
 
   RandomSourceDepleted* = object of CatchableError
 
+  TrustedSig* = object
+    data*: array[RawSigSize, byte]
+
+  SomeSig* = TrustedSig | ValidatorSig
+
 func `==`*(a, b: BlsValue): bool =
   if a.kind != b.kind: return false
   if a.kind == Real:
@@ -218,6 +223,9 @@ func toRaw*(x: BlsValue): auto =
   else:
     x.blob
 
+func toRaw*(x: TrustedSig): auto =
+  x.data
+
 func toHex*(x: BlsCurveType): string =
   toHex(toRaw(x))
 
@@ -324,6 +332,9 @@ func shortLog*(x: BlsValue): string =
 func shortLog*(x: ValidatorPrivKey): string =
   ## Logging for raw unwrapped BLS types
   x.toRaw()[0..3].toHex()
+
+func shortLog*(x: TrustedSig): string =
+  x.data[0..3].toHex()
 
 # Initialization
 # ----------------------------------------------------------------------

@@ -143,7 +143,7 @@ type
   BlockData* = object
     ## Body and graph in one
 
-    data*: SignedBeaconBlock
+    data*: TrustedSignedBeaconBlock # We trust all blocks we have a ref for
     refs*: BlockRef
 
   StateData* = object

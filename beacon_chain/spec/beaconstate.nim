@@ -394,7 +394,7 @@ proc process_registry_updates*(state: var BeaconState,
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 func is_valid_indexed_attestation*(
-    state: BeaconState, indexed_attestation: IndexedAttestation,
+    state: BeaconState, indexed_attestation: SomeIndexedAttestation,
     flags: UpdateFlags): bool =
   # Check if ``indexed_attestation`` is not empty, has sorted and unique
   # indices and has a valid aggregate signature.
@@ -474,6 +474,22 @@ func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
     signature: attestation.signature
   )
 
+func get_indexed_attestation*(state: BeaconState, attestation: TrustedAttestation,
+    stateCache: var StateCache): TrustedIndexedAttestation =
+  # Return the indexed attestation corresponding to ``attestation``.
+  let
+    attesting_indices =
+      get_attesting_indices(
+        state, attestation.data, attestation.aggregation_bits, stateCache)
+
+  TrustedIndexedAttestation(
+    attesting_indices:
+      List[uint64, MAX_VALIDATORS_PER_COMMITTEE].init(
+        sorted(mapIt(attesting_indices.toSeq, it.uint64), system.cmp)),
+    data: attestation.data,
+    signature: attestation.signature
+  )
+
 # Attestation validation
 # ------------------------------------------------------------------------------------------
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#attestations
@@ -546,7 +562,7 @@ proc isValidAttestationTargetEpoch*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase0/beacon-chain.md#attestations
 proc check_attestation*(
-    state: BeaconState, attestation: Attestation, flags: UpdateFlags,
+    state: BeaconState, attestation: SomeAttestation, flags: UpdateFlags,
     stateCache: var StateCache): bool =
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
@@ -609,7 +625,7 @@ proc check_attestation*(
   true
 
 proc process_attestation*(
-    state: var BeaconState, attestation: Attestation, flags: UpdateFlags,
+    state: var BeaconState, attestation: SomeAttestation, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.}=
   # In the spec, attestation validation is mixed with state mutation, so here
   # we've split it into two functions so that the validation logic can be
