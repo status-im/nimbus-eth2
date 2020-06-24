@@ -152,25 +152,25 @@ clean-testnet1:
 # - try SCRIPT_PARAMS="--skipGoerliKey"
 testnet0 testnet1: | build deps
 	source scripts/$@.env; \
-		NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) --const-preset=$$CONST_PRESET --dev-build $@
+		NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) --const-preset=$$CONST_PRESET --dev-build $@
 
 clean-altona:
 	rm -rf build/data/shared_altona*
 
 altona: | build deps
-	NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims --spec=v0.12.1 $(SCRIPT_PARAMS) shared/altona
+	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims --spec=v0.12.1 $(SCRIPT_PARAMS) shared/altona
 
 altona-dev: | build deps
-	NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/altona
+	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/altona
 
 clean-witti:
 	rm -rf build/data/shared_witti*
 
 witti: | build deps
-	NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims --spec=v0.11.3 $(SCRIPT_PARAMS) shared/witti
+	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims --spec=v0.11.3 $(SCRIPT_PARAMS) shared/witti
 
 witti-dev: | build deps
-	NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims --spec=v0.11.3 $(SCRIPT_PARAMS) shared/witti
+	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims --spec=v0.11.3 $(SCRIPT_PARAMS) shared/witti
 
 ctail: | build deps
 	mkdir -p vendor/.nimble/bin/
