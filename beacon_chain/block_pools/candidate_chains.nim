@@ -20,7 +20,8 @@ declareCounter beacon_state_data_cache_misses, "dag.cachedStates misses"
 
 logScope: topics = "hotdb"
 
-proc putBlock*(dag: var CandidateChains, blockRoot: Eth2Digest, signedBlock: SignedBeaconBlock) {.inline.} =
+proc putBlock*(
+    dag: var CandidateChains, blockRoot: Eth2Digest, signedBlock: SignedBeaconBlock) =
   dag.db.putBlock(blockRoot, signedBlock)
 
 proc updateStateData*(

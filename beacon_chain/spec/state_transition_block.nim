@@ -46,10 +46,11 @@ declareGauge beacon_processed_deposits_total, "Number of total deposits included
 proc process_block_header*(
     state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.}=
+  logScope:
+    blck = shortLog(blck)
   # Verify that the slots match
   if not (blck.slot == state.slot):
     notice "Block header: slot mismatch",
-      block_slot = shortLog(blck.slot),
       state_slot = shortLog(state.slot)
     return false
 
@@ -66,7 +67,6 @@ proc process_block_header*(
 
   if not (blck.proposer_index.ValidatorIndex == proposer_index.get):
     notice "Block header: proposer index incorrect",
-      block_proposer_index = blck.proposer_index.ValidatorIndex,
       proposer_index = proposer_index.get
     return false
 
@@ -74,7 +74,6 @@ proc process_block_header*(
   if not (blck.parent_root == hash_tree_root(state.latest_block_header)):
     notice "Block header: previous block root mismatch",
       latest_block_header = state.latest_block_header,
-      blck = shortLog(blck),
       latest_block_header_root = shortLog(hash_tree_root(state.latest_block_header))
     return false
 
@@ -382,8 +381,8 @@ proc process_block*(
     notice "Block header not valid", slot = shortLog(state.slot)
     return false
 
-  if not processRandao(state, blck.body, flags, stateCache):
-    debug "[Block processing] Randao failure", slot = shortLog(state.slot)
+  if not process_randao(state, blck.body, flags, stateCache):
+    debug "Randao failure", slot = shortLog(state.slot)
     return false
 
   process_eth1_data(state, blck.body)

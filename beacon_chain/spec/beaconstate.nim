@@ -504,7 +504,7 @@ proc isValidAttestationSlot*(attestationSlot, stateSlot: Slot): bool =
 
 # TODO remove/merge with p2p-interface validation
 proc isValidAttestationTargetEpoch*(
-    state: BeaconState, attestation: Attestation): bool =
+    state: BeaconState, data: AttestationData): bool =
   # TODO what constitutes a valid attestation when it's about to be added to
   #      the pool? we're interested in attestations that will become viable
   #      for inclusion in blocks in the future and on any fork, so we need to
@@ -517,7 +517,6 @@ proc isValidAttestationTargetEpoch*(
   #      include an attestation in a block even if the corresponding validator
   #      was slashed in the same epoch - there's no penalty for doing this and
   #      the vote counting logic will take care of any ill effects (TODO verify)
-  let data = attestation.data
   # TODO re-enable check
   #if not (data.crosslink.shard < SHARD_COUNT):
   #  notice "Attestation shard too high",
@@ -572,7 +571,7 @@ proc check_attestation*(
       committee_count = get_committee_count_at_slot(state, data.slot))
     return
 
-  if not isValidAttestationTargetEpoch(state, attestation):
+  if not isValidAttestationTargetEpoch(state, data):
     # Logging in isValidAttestationTargetEpoch
     return
 

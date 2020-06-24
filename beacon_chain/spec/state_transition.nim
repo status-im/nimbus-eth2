@@ -88,7 +88,7 @@ proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   let state_root = hash_tree_root(state)
   if state_root != blck.state_root:
     notice "Block: root verification failed",
-      block_state_root = blck.state_root, state_root
+      block_state_root = shortLog(blck.state_root), state_root = shortLog(state_root)
     false
   else:
     true

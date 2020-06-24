@@ -35,7 +35,7 @@ type
 # Quarantine dispatch
 # --------------------------------------------
 
-func checkMissing*(pool: var BlockPool): seq[FetchRecord] {.noInit.} =
+func checkMissing*(pool: var BlockPool): seq[FetchRecord] =
   checkMissing(pool.quarantine)
 
 # CandidateChains
