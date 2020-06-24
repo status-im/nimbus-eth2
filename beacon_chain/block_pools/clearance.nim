@@ -135,7 +135,11 @@ proc add*(
       blockRoot = shortLog(blockRoot),
       cat = "filtering"
 
-    return ok blockRef[]
+    # There can be a scenario where we receive a block we already received.
+    # However this block was before the last finalized epoch and so its parent
+    # was pruned from the ForkChoice. Trying to add it again, even if the fork choice
+    # supports duplicate will lead to a crash.
+    return err Duplicate
 
   quarantine.missing.del(blockRoot)
 

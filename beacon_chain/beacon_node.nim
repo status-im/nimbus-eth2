@@ -322,8 +322,15 @@ proc storeBlock(
 
   node.dumpBlock(signedBlock, blck)
 
+  # There can be a scenario where we receive a block we already received.
+  # However this block was before the last finalized epoch and so its parent
+  # was pruned from the ForkChoice.
   if blck.isErr:
     return err(blck.error)
+
+  # Still here? This means we received a valid block and we need to add it
+  # to the fork choice
+  node.attestationPool.addForkChoice_v2(blck.get())
 
   # The block we received contains attestations, and we might not yet know about
   # all of them. Let's add them to the attestation pool.
@@ -549,7 +556,10 @@ proc runForwardSyncLoop(node: BeaconNode) {.async.} =
       # We going to ignore `BlockError.Old` errors because we have working
       # backward sync and it can happens that we can perform overlapping
       # requests.
-      if res.isErr and res.error != BlockError.Old:
+      # For the same reason we ignore Duplicate blocks as if they are duplicate
+      # from before the current finalized epoch, we can drop them
+      # (and they may have no parents anymore in the fork choice if it was pruned)
+      if res.isErr and res.error notin {BlockError.Old, BLockError.Duplicate}:
         return res
     discard node.updateHead()
 
