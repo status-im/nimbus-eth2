@@ -9,7 +9,7 @@ import
   # Standard library
   os, tables,
   # Status libraries
-  confutils/defs, serialization,
+  confutils/defs, serialization, chronicles,
   # Beacon-chain
   ../beacon_chain/spec/[
       datatypes, crypto, helpers, beaconstate, validator,
