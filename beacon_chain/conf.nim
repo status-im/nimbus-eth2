@@ -282,6 +282,11 @@ type
         discard
 
     of deposits:
+      depositPrivateKey* {.
+        defaultValue: ""
+        desc: "Private key of the controlling (sending) account",
+        name: "deposit-private-key" }: string
+
       case depositsCmd* {.command.}: DepositsCmd
       of DepositsCmd.create:
         totalDeposits* {.
@@ -302,11 +307,6 @@ type
           defaultValue: "secrets"
           desc: "Output folder for randomly generated keystore passphrases"
           name: "out-secrets-dir" }: string
-
-        depositPrivateKey* {.
-          defaultValue: ""
-          desc: "Private key of the controlling (sending) account",
-          name: "deposit-private-key" }: string
 
         dontSend* {.
           defaultValue: false,
