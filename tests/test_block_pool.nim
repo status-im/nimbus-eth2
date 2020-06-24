@@ -213,13 +213,13 @@ suiteReport "Block pool processing" & preset():
       pool2.heads.len == 1
       pool2.heads[0].blck.root == b2Root
 
-  timedTest "Can add same block twice" & preset():
+  timedTest "Adding the same block twice returns a Duplicate error" & preset():
     let
       b10 = pool.add(b1Root, b1)[]
-      b11 = pool.add(b1Root, b1)[]
+      b11 = pool.add(b1Root, b1)
 
     check:
-      b10 == b11
+      b11.error == Duplicate
       not b10.isNil
 
   timedTest "updateHead updates head and headState" & preset():
@@ -379,4 +379,3 @@ suiteReport "BlockPool finalization tests" & preset():
         hash_tree_root(pool.headState.data.data)
       hash_tree_root(pool2.justifiedState.data.data) ==
         hash_tree_root(pool.justifiedState.data.data)
-

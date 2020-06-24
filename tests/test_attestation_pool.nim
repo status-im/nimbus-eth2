@@ -20,6 +20,14 @@ import
   ../beacon_chain/[beacon_node_types, attestation_pool, block_pool, extras],
   ../beacon_chain/fork_choice/[fork_choice_types, fork_choice]
 
+template wrappedTimedTest(name: string, body: untyped) =
+  # `check` macro takes a copy of whatever it's checking, on the stack!
+  block: # Symbol namespacing
+    proc wrappedTest() =
+      timedTest name:
+        body
+    wrappedTest()
+
 suiteReport "Attestation pool processing" & preset():
   ## For now just test that we can compile and execute block processing with
   ## mock data.
@@ -255,7 +263,7 @@ suiteReport "Attestation pool processing" & preset():
     let b10Add_clone = blockpool[].add(b10Root, b10_clone)
     doAssert: b10Add_clone.error == Duplicate
 
-  timedTest "Trying to add a duplicate block from an old pruned epoch is tagged as an error":
+  wrappedTimedTest "Trying to add a duplicate block from an old pruned epoch is tagged as an error":
     var cache = get_empty_per_epoch_cache()
 
     blockpool[].addFlags {skipBLSValidation}
@@ -269,12 +277,10 @@ suiteReport "Attestation pool processing" & preset():
     pool[].addForkChoice_v2(b10Add)
     let head = pool[].selectHead()
 
-    check:
-      head == b10Add
+    doAssert: head == b10Add
 
     let block_ok = state_transition(state.data, b10, {}, noRollback)
-    check:
-      block_ok
+    doAssert: block_ok
 
     # -------------------------------------------------------------
     let b10_clone = b10 # Assumes deep copy
@@ -291,8 +297,7 @@ suiteReport "Attestation pool processing" & preset():
 
         let new_block = makeTestBlock(state.data, block_root, cache, attestations = attestations)
         let block_ok = state_transition(state.data, new_block, {skipBLSValidation}, noRollback)
-        check:
-          block_ok
+        doAssert: block_ok
 
         block_root = hash_tree_root(new_block.message)
         let blockRef = blockpool[].add(block_root, new_block)[]
@@ -300,8 +305,7 @@ suiteReport "Attestation pool processing" & preset():
         pool[].addForkChoice_v2(blockRef)
 
         let head = pool[].selectHead()
-        check:
-          head == blockRef
+        doassert: head == blockRef
         blockPool[].updateHead(head)
 
         attestations.setlen(0)
@@ -330,7 +334,7 @@ suiteReport "Attestation pool processing" & preset():
     # Prune
 
     echo "\nPruning all blocks before: ", shortlog(blockPool[].finalizedHead), '\n'
-    doAssert blockPool[].finalizedHead.slot != 0
+    doAssert: blockPool[].finalizedHead.slot != 0
 
     pool[].pruneBefore(blockPool[].finalizedHead)
     doAssert: b10Root notin pool.forkChoice_v2
