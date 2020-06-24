@@ -182,11 +182,19 @@ func purgeChain*(eth1Chain: var Eth1Chain, blockHash: BlockHash) =
 template purgeDescendants*(eth1CHain: Eth1Chain, blk: Eth1Block) =
   trimHeight(eth1Chain, blk.number)
 
-func addBlock*(eth1Chain: var Eth1Chain, newBlock: Eth1Block) =
-  if eth1Chain.blocks.len > 0:
-    doAssert eth1Chain.blocks.peekLast.number + 1 == newBlock.number
-  eth1Chain.blocks.addLast newBlock
-  eth1Chain.blocksByHash[newBlock.voteData.block_hash.asBlockHash] = newBlock
+func isSuccessorBlock(eth1Chain: Eth1Chain, newBlock: Eth1Block): bool =
+  if eth1Chain.blocks.len == 0:
+    return newBlock.deposits.len.uint64 == newBlock.voteData.deposit_count
+
+  let lastBlock = eth1Chain.blocks.peekLast
+  lastBlock.number < newBlock.number and
+  (lastBlock.voteData.deposit_count + newBlock.deposits.len.uint64) == newBlock.voteData.deposit_count
+
+func addSuccessorBlock*(eth1Chain: var Eth1Chain, newBlock: Eth1Block): bool =
+  result = isSuccessorBlock(eth1Chain, newBlock)
+  if result:
+    eth1Chain.blocks.addLast newBlock
+    eth1Chain.blocksByHash[newBlock.voteData.block_hash.asBlockHash] = newBlock
 
 func totalDeposits*(eth1Chain: Eth1Chain): int =
   for blk in eth1Chain.blocks:
@@ -372,8 +380,8 @@ proc processDeposits(m: MainchainMonitor,
     let (blockHash, eventType) = await m.depositQueue.popFirst()
 
     if eventType == RemovedEvent:
-      info "New Eth1 head selected. Purging history of deposits",
-            purgedBlock = $blockHash
+      debug "New Eth1 head selected. Purging history of deposits",
+             purgedBlock = $blockHash
       m.eth1Chain.purgeChain(blockHash)
       continue
 
@@ -384,11 +392,20 @@ proc processDeposits(m: MainchainMonitor,
         doAssert Eth1BlockNumber(web3Block.number) > startBlkNum
         let eth1Block = await dataProvider.fetchDepositData(web3Block)
 
-        var cachedParent = m.eth1Chain.findParent(web3Block)
-        if cachedParent == nil:
+        if m.eth1Chain.addSuccessorBlock(eth1Block):
+          # TODO: We may check that the new deposits produce a merkle
+          #       root matching the `deposit_root` value from the block.
+          #       Not doing this is equivalent to trusting the Eth1
+          #       execution engine and data provider.
+          info "Eth1 block processed", eth1data = eth1Block.voteData
+          m.checkForGenesisEvent()
+        else:
           # We are missing the parent block.
           # This shouldn't be happening if the deposits events are reported in
           # proper order, but nevertheless let's try to repair our chain:
+          var cachedParent = m.eth1Chain.findParent(web3Block)
+          doAssert cachedParent == nil
+
           var chainOfParents = newSeq[Eth1Block]()
           var parentHash = web3Block.parentHash
 
@@ -417,7 +434,8 @@ proc processDeposits(m: MainchainMonitor,
               # No more deposit events are expected
               m.eth1Chain.clear()
               for i in countdown(chainOfParents.len - 1, 0):
-                m.eth1Chain.addBlock chainOfParents[i]
+                let isSuccessor = m.eth1Chain.addSuccessorBlock chainOfParents[i]
+                doAssert isSuccessor
               cachedParent = m.eth1Chain.blocks.peekLast
               break
 
@@ -426,22 +444,15 @@ proc processDeposits(m: MainchainMonitor,
             if localParent != nil:
               m.eth1Chain.purgeDescendants(localParent)
               for i in countdown(chainOfParents.len - 1, 0):
-                m.eth1Chain.addBlock chainOfParents[i]
+                let isSuccessor = m.eth1Chain.addSuccessorBlock chainOfParents[i]
+                doAssert isSuccessor
               cachedParent = m.eth1Chain.blocks.peekLast
               break
 
             dec expectedParentBlockNumber
             parentHash = parentWeb3Block.parentHash
 
-        m.eth1Chain.purgeDescendants(cachedParent)
-
-        # TODO: We may check that the new deposits produce a merkle
-        #       root matching the `deposit_root` value from the block.
-        #       Not doing this is equivalent to trusting the Eth1
-        #       execution engine and data provider.
-        info "Eth1 block processed", eth1data = eth1Block.voteData
-        m.eth1Chain.addBlock eth1Block
-        m.checkForGenesisEvent()
+          m.eth1Chain.purgeDescendants(cachedParent)
 
       except CatchableError as err:
         # Connection problem? Put the unprocessed deposit back to queue.
@@ -550,6 +561,9 @@ func web3Provider*(web3Url: string): DataProviderFactory =
 
   DataProviderFactory(desc: "web3(" & web3Url & ")", new: factory)
 
+func `===`(json: JsonNode, boolean: bool): bool =
+  json.kind == JBool and json.bval == boolean
+
 proc run(m: MainchainMonitor, delayBeforeStart: Duration) {.async.} =
   if delayBeforeStart != ZeroDuration:
     await sleepAsync(delayBeforeStart)
@@ -580,7 +594,7 @@ proc run(m: MainchainMonitor, delayBeforeStart: Duration) {.async.} =
       try:
         let
           blockHash = BlockHash.fromHex(j["blockHash"].getStr())
-          eventType = if j.hasKey("removed"): RemovedEvent
+          eventType = if j{"removed"} === true: RemovedEvent
                       else: NewEvent
 
         m.depositQueue.addLastNoWait((blockHash, eventType))
