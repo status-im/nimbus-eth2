@@ -178,9 +178,6 @@ func on_block*(
       # Genesis (but Genesis might not be default(Eth2Digest))
     parent_index = none(int)
   elif parent notin self.indices:
-    {.noSideEffect.}:
-
-      writeStackTrace()
     return ForkChoiceError(
       kind: fcErrUnknownParent,
       child_root: root,
