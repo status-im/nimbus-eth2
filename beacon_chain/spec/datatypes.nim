@@ -254,6 +254,22 @@ type
     body*: BeaconBlockBody
 
   TrustedBeaconBlock* = object
+    ## When we receive blocks from outside sources, they are untrusted and go
+    ## through several layers of validation. Blocks that have gone through
+    ## validations can be trusted to be well-formed, with a correct signature,
+    ## having a parent and applying cleanly to the state that their parent
+    ## left them with.
+    ##
+    ## When loading such blocks from the database, to rewind states for example,
+    ## it is expensive to redo the validations (in particular, the signature
+    ## checks), thus `TrustedBlock` uses a `TrustedSig` type to mark that these
+    ## checks can be skipped.
+    ##
+    ## TODO this could probably be solved with some type trickery, but there
+    ##      too many bugs in nim around generics handling, and we've used up
+    ##      the trickery budget in the serialization library already. Until
+    ##      then, the type must be manually kept compatible with its untrusted
+    ##      cousin.
     slot*: Slot
     proposer_index*: uint64
     parent_root*: Eth2Digest ##\
