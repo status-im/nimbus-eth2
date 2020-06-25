@@ -6,17 +6,19 @@ else:
   switch("nimcache", "nimcache/debug/$projectName")
 
 const stack_size {.intdefine.}: int = 0
-
-# conservative compile-time estimation for single functions
-when defined(stack_size) and defined(gcc):
-  switch("passC", "-Werror=stack-usage=" & $stack_size)
+when defined(stack_size):
+  when defined(gcc):
+    # conservative compile-time estimation for single functions
+    switch("passC", "-Werror=stack-usage=" & $stack_size)
+  when defined(posix):
+    # limit the stack at runtime, on POSIX systems
+    switch("import", "stew/rlimits")
+  when defined(windows):
+    switch("passL", "-Wl,--stack," & $stack_size)
 
 if defined(windows):
   # disable timestamps in Windows PE headers - https://wiki.debian.org/ReproducibleBuilds/TimestampsInPEBinaries
   switch("passL", "-Wl,--no-insert-timestamp")
-  # set stack size
-  when defined(stack_size):
-    switch("passL", "-Wl,--stack," & $stack_size)
   # https://github.com/nim-lang/Nim/issues/4057
   --tlsEmulation:off
   if defined(i386):
@@ -86,11 +88,7 @@ if defined(macosx):
 # in Git Bash is apparently ignored by the OS, and on Linux where the default of
 # 1024 is good enough for us.
 
-# - macOS: "--debugger:native" fails on static libraries, because it tries to
-#   run dsymutil on them: https://github.com/nim-lang/Nim/issues/14132
-#   TODO: allow it to run on macOS when this compiler bug is fixed in our
-#   version
-if not defined(macosx) and canEnableDebuggingSymbols:
+if canEnableDebuggingSymbols:
   # add debugging symbols and original files and line numbers
   --debugger:native
 
