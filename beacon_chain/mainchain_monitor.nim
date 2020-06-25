@@ -36,9 +36,14 @@ type
     deposits*: seq[Deposit]
     voteData*: Eth1Data
 
+  StartKind* = enum
+    FromContractDeploymentBlock
+    FromSnapshot
+
   Eth1Chain* = object
     blocks: Deque[Eth1Block]
     blocksByHash: Table[BlockHash, Eth1Block]
+    startKind: StartKind
 
   MainchainMonitor* = ref object
     depositContractAddress: Address
@@ -184,7 +189,8 @@ template purgeDescendants*(eth1CHain: Eth1Chain, blk: Eth1Block) =
 
 func isSuccessorBlock(eth1Chain: Eth1Chain, newBlock: Eth1Block): bool =
   if eth1Chain.blocks.len == 0:
-    return newBlock.deposits.len.uint64 == newBlock.voteData.deposit_count
+    return eth1Chain.startKind == FromSnapshot or
+           newBlock.deposits.len.uint64 == newBlock.voteData.deposit_count
 
   let lastBlock = eth1Chain.blocks.peekLast
   lastBlock.number < newBlock.number and
@@ -304,11 +310,13 @@ template getBlockProposalData*(m: MainchainMonitor, state: BeaconState): untyped
 proc init*(T: type MainchainMonitor,
            dataProviderFactory: DataProviderFactory,
            depositContractAddress: string,
-           startBlock: Option[Eth2Digest]): T =
+           startBlock: Option[Eth2Digest],
+           startKind: StartKind): T =
   T(depositQueue: newAsyncQueue[DepositQueueElem](),
     dataProviderFactory: dataProviderFactory,
     depositContractAddress: Address.fromHex(depositContractAddress),
-    startBlock: startBlock)
+    startBlock: startBlock,
+    eth1Chain: Eth1Chain(startKind: startKind))
 
 proc readJsonDeposits(depositsList: JsonNode): seq[Deposit] =
   if depositsList.kind != JArray:
@@ -389,7 +397,11 @@ proc processDeposits(m: MainchainMonitor,
     if cachedBlock == nil:
       try:
         let web3Block = await dataProvider.getBlockByHash(blockHash)
-        doAssert Eth1BlockNumber(web3Block.number) > startBlkNum
+        if Eth1BlockNumber(web3Block.number) < startBlkNum:
+          warn "Invalid deposit reported from the web3 end-point",
+               reportedBlock = web3Block.number.uint64, minExpectedBlock = startBlkNum
+          continue
+
         let eth1Block = await dataProvider.fetchDepositData(web3Block)
 
         if m.eth1Chain.addSuccessorBlock(eth1Block):
@@ -524,6 +536,8 @@ method onDepositEvent*(p: Web3DataProviderRef,
 .} =
   if p.subscription != nil:
     await p.subscription.unsubscribe()
+
+  debug "Subsribing for deposit events", startBlock
 
   p.subscription = await p.ns.subscribe(
     DepositEvent, %*{"fromBlock": &"0x{startBlock:X}"}, handler)

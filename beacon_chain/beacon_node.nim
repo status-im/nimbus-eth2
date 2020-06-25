@@ -152,7 +152,8 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
         mainchainMonitor = MainchainMonitor.init(
           web3Provider(conf.web3Url),
           conf.depositContractAddress,
-          conf.depositContractDeployedAt)
+          conf.depositContractDeployedAt,
+          FromContractDeploymentBlock)
         mainchainMonitor.start()
       else:
         error "No initial state, need genesis state or deposit contract address"
@@ -194,7 +195,8 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     mainchainMonitor = MainchainMonitor.init(
       web3Provider(conf.web3Url),
       conf.depositContractAddress,
-      some blockPool.headState.data.data.eth1_data.block_hash)
+      some blockPool.headState.data.data.eth1_data.block_hash,
+      FromSnapshot)
     # TODO if we don't have any validators attached, we don't need a mainchain
     #      monitor
     mainchainMonitor.start()
