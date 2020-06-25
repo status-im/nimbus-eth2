@@ -480,7 +480,7 @@ proc init*[MsgType](T: type SingleChunkResponse[MsgType],
                     peer: Peer, conn: Connection, noSnappy: bool): T =
   T(UntypedResponse(peer: peer, stream: conn, noSnappy: noSnappy))
 
-template write*[M](r: MultipleChunksResponse[M], val: M): untyped =
+template write*[M](r: MultipleChunksResponse[M], val: auto): untyped =
   sendResponseChunkObj(UntypedResponse(r), val)
 
 template send*[M](r: SingleChunkResponse[M], val: auto): untyped =

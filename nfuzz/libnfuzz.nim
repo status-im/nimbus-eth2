@@ -2,7 +2,7 @@
 # https://github.com/nim-lang/Nim/issues/11225
 
 import
-  stew/ptrops, stew/ranges/ptr_arith,
+  stew/ptrops, stew/ranges/ptr_arith, chronicles,
   ../beacon_chain/extras,
   ../beacon_chain/spec/[crypto, datatypes, digest, validator, beaconstate,
       state_transition_block, state_transition],
@@ -33,8 +33,8 @@ type
   FuzzCrashError = object of CatchableError
 
 # TODO: change ptr uint to ptr csize_t when available in newer Nim version.
-proc copyState(state: BeaconState, output: ptr byte,
-    output_size: ptr uint): bool {.raises: [FuzzCrashError, Defect].} =
+proc copyState(state: BeaconState, xoutput: ptr byte,
+    xoutput_size: ptr uint): bool {.raises: [FuzzCrashError, Defect].} =
   var resultState =
     try:
       SSZ.encode(state)
@@ -42,18 +42,18 @@ proc copyState(state: BeaconState, output: ptr byte,
       # Shouldn't occur as the writer isn't a file
       raise newException(FuzzCrashError, "Unexpected failure to serialize.", e)
 
-  if unlikely(resultState.len.uint > output_size[]):
+  if unlikely(resultState.len.uint > xoutput_size[]):
     let msg = (
-      "Not enough output buffer provided to nimbus harness. Provided: " &
-      $(output_size[]) &
+      "Not enough xoutput buffer provided to nimbus harness. Provided: " &
+      $(xoutput_size[]) &
       "Required: " &
       $resultState.len.uint
     )
     raise newException(FuzzCrashError, msg)
-  output_size[] = resultState.len.uint
-  # TODO: improvement might be to write directly to buffer with OutputStream
+  xoutput_size[] = resultState.len.uint
+  # TODO: improvement might be to write directly to buffer with xoutputStream
   # and SszWriter (but then need to ensure length doesn't overflow)
-  copyMem(output, unsafeAddr resultState[0], output_size[])
+  copyMem(xoutput, unsafeAddr resultState[0], xoutput_size[])
   result = true
 
 template decodeAndProcess(typ, process: untyped): bool =
@@ -90,22 +90,22 @@ template decodeAndProcess(typ, process: untyped): bool =
       raise newException(FuzzCrashError, "Unexpected Exception in state transition", e)
 
   if processOk:
-    copyState(data.state, output, output_size)
+    copyState(data.state, xoutput, xoutput_size)
   else:
     false
 
-proc nfuzz_attestation(input: openArray[byte], output: ptr byte,
-    output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+proc nfuzz_attestation(input: openArray[byte], xoutput: ptr byte,
+    xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(AttestationInput):
     process_attestation(data.state, data.attestation, flags, cache)
 
-proc nfuzz_attester_slashing(input: openArray[byte], output: ptr byte,
-    output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+proc nfuzz_attester_slashing(input: openArray[byte], xoutput: ptr byte,
+    xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(AttesterSlashingInput):
     process_attester_slashing(data.state, data.attesterSlashing, flags, cache)
 
-proc nfuzz_block(input: openArray[byte], output: ptr byte,
-    output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+proc nfuzz_block(input: openArray[byte], xoutput: ptr byte,
+    xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   # There's not a perfect approach here, but it's not worth switching the rest
   # and requiring HashedBeaconState (yet). So to keep consistent, puts wrapper
   # only in one function.
@@ -120,35 +120,35 @@ proc nfuzz_block(input: openArray[byte], output: ptr byte,
   decodeAndProcess(BlockInput):
     state_transition(data, data.beaconBlock, flags, noRollback)
 
-proc nfuzz_block_header(input: openArray[byte], output: ptr byte,
-    output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+proc nfuzz_block_header(input: openArray[byte], xoutput: ptr byte,
+    xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(BlockHeaderInput):
     process_block_header(data.state, data.beaconBlock.message, flags, cache)
 
-proc nfuzz_deposit(input: openArray[byte], output: ptr byte,
-    output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+proc nfuzz_deposit(input: openArray[byte], xoutput: ptr byte,
+    xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(DepositInput):
     process_deposit(data.state, data.deposit, flags)
 
-proc nfuzz_proposer_slashing(input: openArray[byte], output: ptr byte,
-    output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+proc nfuzz_proposer_slashing(input: openArray[byte], xoutput: ptr byte,
+    xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(ProposerSlashingInput):
     process_proposer_slashing(data.state, data.proposerSlashing, flags, cache)
 
-proc nfuzz_voluntary_exit(input: openArray[byte], output: ptr byte,
-    output_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+proc nfuzz_voluntary_exit(input: openArray[byte], xoutput: ptr byte,
+    xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(VoluntaryExitInput):
     process_voluntary_exit(data.state, data.exit, flags)
 
 # Note: Could also accept raw input pointer and access list_size + seed here.
-# However, list_size needs to be known also outside this proc to allocate output.
+# However, list_size needs to be known also outside this proc to allocate xoutput.
 # TODO: rework to copy immediatly in an uint8 openArray, considering we have to
 # go over the list anyhow?
-proc nfuzz_shuffle(input_seed: ptr byte, output: var openArray[uint64]): bool
+proc nfuzz_shuffle(input_seed: ptr byte, xoutput: var openArray[uint64]): bool
     {.exportc, raises: [Defect].} =
   var seed: Eth2Digest
   # Should be OK as max 2 bytes are passed by the framework.
-  let list_size = output.len.uint64
+  let list_size = xoutput.len.uint64
 
   copyMem(addr(seed.data), input_seed, sizeof(seed.data))
 
@@ -162,8 +162,8 @@ proc nfuzz_shuffle(input_seed: ptr byte, output: var openArray[uint64]): bool
 
   for i in 0..<list_size:
     # ValidatorIndex is currently wrongly uint32 so we copy this 1 by 1,
-    # assumes passed output is zeroed.
-    copyMem(offset(addr output, i.int), shuffled_seq[i.int].unsafeAddr,
+    # assumes passed xoutput is zeroed.
+    copyMem(offset(addr xoutput, i.int), shuffled_seq[i.int].unsafeAddr,
       sizeof(ValidatorIndex))
 
   result = true

@@ -163,7 +163,7 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
 
   # TODO: stateCache usage
   var stateCache = get_empty_per_epoch_cache()
-  if not isValidAttestationTargetEpoch(state, attestation):
+  if not isValidAttestationTargetEpoch(state, attestation.data):
     notice "Invalid attestation",
       attestation = shortLog(attestation),
       current_epoch = get_current_epoch(state),

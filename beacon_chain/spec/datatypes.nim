@@ -158,6 +158,12 @@ type
     data*: AttestationData
     signature*: ValidatorSig
 
+  TrustedIndexedAttestation* = object
+    # TODO ValidatorIndex, but that doesn't serialize properly
+    attesting_indices*: List[uint64, MAX_VALIDATORS_PER_COMMITTEE]
+    data*: AttestationData
+    signature*: TrustedSig
+
   CommitteeValidatorsBits* = BitList[MAX_VALIDATORS_PER_COMMITTEE]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#attestation
@@ -165,6 +171,11 @@ type
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
     signature*: ValidatorSig
+
+  TrustedAttestation* = object
+    aggregation_bits*: CommitteeValidatorsBits
+    data*: AttestationData
+    signature*: TrustedSig
 
   Version* = distinct array[4, byte]
   ForkDigest* = distinct array[4, byte]
@@ -212,6 +223,8 @@ type
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
     amount*: Gwei
+    # Cannot use TrustedSig here as invalid signatures are possible and determine
+    # if the deposit should be added or not during processing
     signature*: ValidatorSig  # Signing over DepositMessage
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#voluntaryexit
@@ -240,6 +253,29 @@ type
 
     body*: BeaconBlockBody
 
+  TrustedBeaconBlock* = object
+    ## When we receive blocks from outside sources, they are untrusted and go
+    ## through several layers of validation. Blocks that have gone through
+    ## validations can be trusted to be well-formed, with a correct signature,
+    ## having a parent and applying cleanly to the state that their parent
+    ## left them with.
+    ##
+    ## When loading such blocks from the database, to rewind states for example,
+    ## it is expensive to redo the validations (in particular, the signature
+    ## checks), thus `TrustedBlock` uses a `TrustedSig` type to mark that these
+    ## checks can be skipped.
+    ##
+    ## TODO this could probably be solved with some type trickery, but there
+    ##      too many bugs in nim around generics handling, and we've used up
+    ##      the trickery budget in the serialization library already. Until
+    ##      then, the type must be manually kept compatible with its untrusted
+    ##      cousin.
+    slot*: Slot
+    proposer_index*: uint64
+    parent_root*: Eth2Digest ##\
+    state_root*: Eth2Digest ##\
+    body*: TrustedBeaconBlockBody
+
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot
@@ -261,8 +297,26 @@ type
     deposits*: List[Deposit, MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, MAX_VOLUNTARY_EXITS]
 
+  TrustedBeaconBlockBody* = object
+    randao_reveal*: TrustedSig
+    eth1_data*: Eth1Data
+    graffiti*: Eth2Digest # TODO make that raw bytes
+
+    # Operations
+    proposer_slashings*: List[ProposerSlashing, MAX_PROPOSER_SLASHINGS]
+    attester_slashings*: List[AttesterSlashing, MAX_ATTESTER_SLASHINGS]
+    attestations*: List[TrustedAttestation, MAX_ATTESTATIONS]
+    deposits*: List[Deposit, MAX_DEPOSITS]
+    voluntary_exits*: List[SignedVoluntaryExit, MAX_VOLUNTARY_EXITS]
+
+  SomeSignedBeaconBlock* = SignedBeaconBlock | TrustedSignedBeaconBlock
+  SomeBeaconBlock* = BeaconBlock | TrustedBeaconBlock
+  SomeBeaconBlockBody* = BeaconBlockBody | TrustedBeaconBlockBody
+  SomeAttestation* = Attestation | TrustedAttestation
+  SomeIndexedAttestation* = IndexedAttestation | TrustedIndexedAttestation
+
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beaconstate
-  BeaconStateObj* = object
+  BeaconState* = object
     # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
@@ -314,9 +368,8 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
-  BeaconState* = BeaconStateObj
-  BeaconStateRef* = ref BeaconStateObj not nil
-  NilableBeaconStateRef* = ref BeaconStateObj
+  BeaconStateRef* = ref BeaconState not nil
+  NilableBeaconStateRef* = ref BeaconState
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#validator
   Validator* = object
@@ -380,6 +433,10 @@ type
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: ValidatorSig
+
+  TrustedSignedBeaconBlock* = object
+    message*: TrustedBeaconBlock
+    signature*: TrustedSig
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#signedbeaconblockheader
   SignedBeaconBlockHeader* = object
@@ -599,7 +656,7 @@ func shortLog*(s: Slot): uint64 =
 func shortLog*(e: Epoch): uint64 =
   e - GENESIS_EPOCH
 
-func shortLog*(v: BeaconBlock): auto =
+func shortLog*(v: SomeBeaconBlock): auto =
   (
     slot: shortLog(v.slot),
     proposer_index: v.proposer_index,
@@ -612,7 +669,7 @@ func shortLog*(v: BeaconBlock): auto =
     voluntary_exits_len: v.body.voluntary_exits.len(),
   )
 
-func shortLog*(v: SignedBeaconBlock): auto =
+func shortLog*(v: SomeSignedBeaconBlock): auto =
   (
     blck: shortLog(v.message),
     signature: shortLog(v.signature)
@@ -637,7 +694,7 @@ func shortLog*(v: AttestationData): auto =
     target_root: shortLog(v.target.root)
   )
 
-func shortLog*(v: Attestation): auto =
+func shortLog*(v: SomeAttestation): auto =
   (
     aggregation_bits: v.aggregation_bits,
     data: shortLog(v.data),

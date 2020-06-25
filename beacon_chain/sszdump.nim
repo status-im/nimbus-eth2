@@ -22,7 +22,11 @@ proc dump*(dir: string, v: SignedBeaconBlock, root: Eth2Digest) =
   logErrors:
     SSZ.saveFile(dir / &"block-{v.message.slot}-{shortLog(root)}.ssz", v)
 
-proc dump*(dir: string, v: SignedBeaconBlock, blck: BlockRef) =
+proc dump*(dir: string, v: TrustedSignedBeaconBlock, root: Eth2Digest) =
+  logErrors:
+    SSZ.saveFile(dir / &"block-{v.message.slot}-{shortLog(root)}.ssz", v)
+
+proc dump*(dir: string, v: SomeSignedBeaconBlock, blck: BlockRef) =
   dump(dir, v, blck.root)
 
 proc dump*(dir: string, v: HashedBeaconState, blck: BlockRef) =
