@@ -134,13 +134,14 @@ iterator get_ancestors_in_epoch(blockSlot: BlockSlot): BlockSlot =
     blockSlot.slot.compute_epoch_at_slot.compute_start_slot_at_epoch
   var blockSlot = blockSlot
 
-  while true:
+  while not blockSlot.blck.isNil:
     for slot in countdown(blockSlot.slot, max(blockSlot.blck.slot, min_slot)):
       yield BlockSlot(blck: blockSlot.blck, slot: slot)
 
     if blockSlot.blck.parent.isNil or blockSlot.blck.slot <= min_slot:
       break
 
+    doAssert not blockSlot.blck.parent.isNil
     doAssert blockSlot.blck.slot > blockSlot.blck.parent.slot
     blockSlot =
       BlockSlot(blck: blockSlot.blck.parent, slot: blockSlot.blck.slot - 1)
