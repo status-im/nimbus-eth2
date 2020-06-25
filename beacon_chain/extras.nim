@@ -20,16 +20,12 @@
 
 type
   UpdateFlag* = enum
-    skipMerkleValidation ##\
-    ## When processing deposits, skip verifying the Merkle proof trees of each
-    ## deposit.
     skipBlsValidation ##\
     ## Skip verification of BLS signatures in block processing.
     ## Predominantly intended for use in testing, e.g. to allow extra coverage.
     ## Also useful to avoid unnecessary work when replaying known, good blocks.
     skipStateRootValidation ##\
     ## Skip verification of block state root.
-    skipBlockParentRootValidation ##\
-    ## Skip verification that the block's parent root matches the previous block header.
+    verifyFinalization
 
   UpdateFlags* = set[UpdateFlag]

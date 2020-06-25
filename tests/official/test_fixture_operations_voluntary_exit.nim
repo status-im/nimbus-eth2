@@ -38,13 +38,13 @@ proc runTest(identifier: string) =
 
     timedTest prefix & identifier:
       let voluntaryExit = parseTest(testDir/"voluntary_exit.ssz", SSZ, SignedVoluntaryExit)
-      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconStateRef)
+      var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
 
       if existsFile(testDir/"post.ssz"):
-        let postState = parseTest(testDir/"post.ssz", SSZ, BeaconStateRef)
+        let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
         let done = process_voluntary_exit(preState[], voluntaryExit, {})
         doAssert done, "Valid voluntary exit not processed"
-        check: preState.hash_tree_root() == postState.hash_tree_root()
+        check: preState[].hash_tree_root() == postState[].hash_tree_root()
         reportDiff(preState, postState)
       else:
         let done = process_voluntary_exit(preState[], voluntaryExit, {})

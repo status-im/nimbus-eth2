@@ -10,6 +10,7 @@ import
   os, strutils, typetraits,
   # Internals
   ../../beacon_chain/ssz,
+  ../../beacon_chain/spec/datatypes,
   # Status libs
   stew/byteutils,
   serialization, json_serialization
@@ -34,9 +35,14 @@ proc readValue*(r: var JsonReader, a: var seq[byte]) {.inline.} =
 # #######################
 # Test helpers
 
+type
+  UnconsumedInput* = object of CatchableError
+  TestSizeError* = object of ValueError
+
 const
-  FixturesDir* = currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / "vendor" / "nim-eth2-scenarios"
-  SszTestsDir* = FixturesDir/"tests-v0.11.1"
+  FixturesDir* =
+    currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / "vendor" / "nim-eth2-scenarios"
+  SszTestsDir* = FixturesDir / "tests-v" & SPEC_VERSION
 
 proc parseTest*(path: string, Format: typedesc[Json or SSZ], T: typedesc): T =
   try:
@@ -47,3 +53,14 @@ proc parseTest*(path: string, Format: typedesc[Json or SSZ], T: typedesc): T =
     stderr.write $Format & " load issue for file \"", path, "\"\n"
     stderr.write err.formatMsg(path), "\n"
     quit 1
+
+template readFileBytes*(path: string): seq[byte] =
+  cast[seq[byte]](readFile(path))
+
+proc sszDecodeEntireInput*(input: openarray[byte], Decoded: type): Decoded =
+  var stream = unsafeMemoryInput(input)
+  var reader = init(SszReader, stream)
+  reader.readValue(result)
+
+  if stream.readable:
+    raise newException(UnconsumedInput, "Remaining bytes in the input")

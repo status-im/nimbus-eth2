@@ -1,16 +1,21 @@
 import
   confutils, chronicles,
-  ../beacon_chain/spec/[crypto, datatypes],
-  ../beacon_chain/[extras, state_transition, ssz]
+  ../beacon_chain/spec/[crypto, datatypes, state_transition],
+  ../beacon_chain/extras,
+  ../beacon_chain/ssz/[merkleization, ssz_serialization]
 
-cli do(pre: string, blck: string, post: string, verifyStateRoot = false):
+cli do(pre: string, blck: string, post: string, verifyStateRoot = true):
   let
-    stateX = SSZ.loadFile(pre, BeaconStateRef)
+    stateY = (ref HashedBeaconState)(
+      data: SSZ.loadFile(pre, BeaconState),
+    )
     blckX = SSZ.loadFile(blck, SignedBeaconBlock)
-    flags = if verifyStateRoot: {skipStateRootValidation} else: {}
+    flags = if not verifyStateRoot: {skipStateRootValidation} else: {}
 
-  var stateY = HashedBeaconState(data: stateX, root: hash_tree_root(stateX))
-  if not state_transition(stateY, blckX, flags, noRollback):
+  stateY.root = hash_tree_root(stateY.data)
+
+  if not state_transition(stateY[], blckX, flags, noRollback):
     error "State transition failed"
+    quit 1
   else:
     SSZ.saveFile(post, stateY.data)

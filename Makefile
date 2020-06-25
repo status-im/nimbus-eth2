@@ -16,20 +16,31 @@ BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 # unconditionally built by the default Make target
 TOOLS := \
 	beacon_node \
+	block_sim \
+	deposit_contract \
 	inspector \
 	logtrace \
-	deposit_contract \
+	nbench \
+	nbench_spec_scenarios \
+	ncli_db \
 	ncli_hash_tree_root \
 	ncli_pretty \
+	ncli_query \
 	ncli_transition \
-	process_dashboard
-	# bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes
+	process_dashboard \
+	stack_sizes \
+	state_sim \
+	validator_client
+
+# bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes
+
 TOOLS_DIRS := \
 	beacon_chain \
 	benchmarks \
 	ncli \
+	nbench \
 	research \
-	tests/simulation
+	tools
 TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 
 .PHONY: \
@@ -38,14 +49,22 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	update \
 	test \
 	$(TOOLS) \
-	clean_eth2_network_simulation_files \
+	clean_eth2_network_simulation_all \
 	eth2_network_simulation \
 	clean-testnet0 \
 	testnet0 \
 	clean-testnet1 \
 	testnet1 \
 	clean \
-	libbacktrace
+	libbacktrace \
+	clean-schlesi \
+	schlesi \
+	schlesi-dev \
+	clean-witti \
+	witti \
+	witti-dev \
+	book \
+	publish-book
 
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
@@ -68,6 +87,13 @@ all: | $(TOOLS) libnfuzz.so libnfuzz.a
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
 
+ifeq ($(OS), Windows_NT)
+  ifeq ($(ARCH), x86)
+    # 32-bit Windows is not supported by libbacktrace/libunwind
+    USE_LIBBACKTRACE := 0
+  endif
+endif
+
 # "--define:release" implies "--stacktrace:off" and it cannot be added to config.nims
 ifeq ($(USE_LIBBACKTRACE), 0)
 NIM_PARAMS := $(NIM_PARAMS) -d:debug -d:disable_libbacktrace
@@ -75,7 +101,7 @@ else
 NIM_PARAMS := $(NIM_PARAMS) -d:release
 endif
 
-deps: | deps-common beacon_chain.nims
+deps: | deps-common nat-libs beacon_chain.nims
 ifneq ($(USE_LIBBACKTRACE), 0)
 deps: | libbacktrace
 endif
@@ -110,29 +136,55 @@ $(TOOLS): | build deps
 		echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim c -o:build/$@ $(NIM_PARAMS) "$${TOOL_DIR}/$@.nim"
 
-clean_eth2_network_simulation_files:
+clean_eth2_network_simulation_data:
+	rm -rf tests/simulation/data
+
+clean_eth2_network_simulation_all:
 	rm -rf tests/simulation/{data,validators}
 
-eth2_network_simulation: | build deps clean_eth2_network_simulation_files process_dashboard
-	+ GIT_ROOT="$$PWD" NIMFLAGS="$(NIMFLAGS)" LOG_LEVEL="$(LOG_LEVEL)" tests/simulation/start.sh
+eth2_network_simulation: | build deps clean_eth2_network_simulation_data
+	+ GIT_ROOT="$$PWD" NIMFLAGS="$(NIMFLAGS)" LOG_LEVEL="$(LOG_LEVEL)" tests/simulation/start-in-tmux.sh
 
 clean-testnet0:
-	rm -rf build/data/testnet0
+	rm -rf build/data/testnet0*
 
 clean-testnet1:
-	rm -rf build/data/testnet1
+	rm -rf build/data/testnet1*
 
 # - we're getting the preset from a testnet-specific .env file
 # - try SCRIPT_PARAMS="--skipGoerliKey"
 testnet0 testnet1: | build deps
 	source scripts/$@.env; \
-		NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) --const-preset=$$CONST_PRESET $@
+		NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) --const-preset=$$CONST_PRESET --dev-build $@
 
-schlesi: | build deps
-	LOG_LEVEL="DEBUG" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/schlesi
+clean-altona:
+	rm -rf build/data/shared_altona*
+
+altona: | build deps
+	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims --spec=v0.12.1 $(SCRIPT_PARAMS) shared/altona
+
+altona-dev: | build deps
+	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/altona
+
+clean-witti:
+	rm -rf build/data/shared_witti*
+
+witti: | build deps
+	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims --spec=v0.11.3 $(SCRIPT_PARAMS) shared/witti
+
+witti-dev: | build deps
+	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims --spec=v0.11.3 $(SCRIPT_PARAMS) shared/witti
+
+ctail: | build deps
+	mkdir -p vendor/.nimble/bin/
+	$(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ctail c vendor/nim-chronicles-tail/ctail.nim
+
+ntu: | build deps
+	mkdir -p vendor/.nimble/bin/
+	$(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ntu c vendor/nim-testutils/ntu.nim
 
 clean: | clean-common
-	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,beacon_node_testnet*,state_sim,transition*}
+	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,beacon_node_*,block_sim,state_sim,transition*}
 ifneq ($(USE_LIBBACKTRACE), 0)
 	+ $(MAKE) -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
 endif
@@ -149,5 +201,20 @@ libnfuzz.a: | build deps
 		$(ENV_SCRIPT) nim c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static -o:build/$@ $(NIM_PARAMS) nfuzz/libnfuzz.nim && \
 		[[ -e "$@" ]] && mv "$@" build/ # workaround for https://github.com/nim-lang/Nim/issues/12745
 
-endif # "variables.mk" was not included
+book:
+	cd docs && \
+	mdbook build
 
+publish-book: | book
+	git worktree add tmp-book gh-pages && \
+	rm -rf tmp-book/* && \
+	cp -a docs/book/* tmp-book/ && \
+	cd tmp-book && \
+	git add . && { \
+		git commit -m "make publish-book" && \
+		git push origin gh-pages || true; } && \
+	cd .. && \
+	git worktree remove -f tmp-book && \
+	rm -rf tmp-book
+
+endif # "variables.mk" was not included

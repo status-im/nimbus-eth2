@@ -19,7 +19,7 @@ import
 const
   SpecDir = currentSourcePath.rsplit(DirSep, 1)[0] /
                   ".."/".."/"beacon_chain"/"spec"
-  Config = FixturesDir/"tests-v0.11.1"/const_preset/"config.yaml"
+  Config = SszTestsDir/const_preset/"config.yaml"
 
 type
   CheckedType = SomeInteger or Slot or Epoch
@@ -80,12 +80,14 @@ macro parseNumConsts(file: static string): untyped =
 
   result = quote do: `constsToCheck`
 
-const datatypesConsts = @(parseNumConsts(SpecDir/"datatypes.nim"))
+const
+  datatypesConsts = @(parseNumConsts(SpecDir/"datatypes.nim"))
+  specVersionPresetDir = SpecDir/"presets"/("v"&replace(SPEC_VERSION, ".", "_"))
 
 when const_preset == "minimal":
-  const minimalConsts = @(parseNumConsts(SpecDir/"presets"/"minimal.nim"))
+  const minimalConsts = @(parseNumConsts(specVersionPresetDir/"minimal.nim"))
 else:
-  const mainnetConsts = @(parseNumConsts(SpecDir/"presets"/"mainnet.nim"))
+  const mainnetConsts = @(parseNumConsts(specVersionPresetDir/"mainnet.nim"))
 
 const IgnoreKeys = [
   # Ignore all non-numeric types
@@ -114,8 +116,8 @@ proc checkConfig() =
     timedTest &"{constant:<50}{value:<20}{preset()}":
       if constant in IgnoreKeys:
         echo &"        ↶↶ Skipping {constant}"
-        continue
-      if constant.startsWith("DOMAIN"):
+        skip()
+      elif constant.startsWith("DOMAIN"):
         let domain = parseEnum[DomainType](constant)
         let value = parseU32LEHex(value.getStr())
         check: uint32(domain) == value
@@ -125,5 +127,5 @@ proc checkConfig() =
       else:
         check: ConstsToCheck[constant] == value.getBiggestInt().uint64()
 
-suiteReport "Official - 0.11.1 - constants & config " & preset():
+suiteReport "Official - constants & config " & preset():
   checkConfig()

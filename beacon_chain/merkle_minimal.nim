@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/tests/core/pyspec/eth2spec/utils/merkle_minimal.py
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/tests/core/pyspec/eth2spec/utils/merkle_minimal.py
 
 # Merkle tree helpers
 # ---------------------------------------------------------------
@@ -16,7 +16,15 @@ import
   sequtils, strutils, macros, bitops,
   # Specs
   ../../beacon_chain/spec/[beaconstate, datatypes, digest, helpers],
-  ../../beacon_chain/ssz
+  ../../beacon_chain/ssz/merkleization
+
+# TODO
+#
+# This module currently represents a direct translation of the Python
+# code, appearing in the spec. We need to review it to ensure that it
+# doesn't duplicate any code defined in ssz.nim already.
+#
+# All tests need to be moved to the test suite.
 
 func round_step_down*(x: Natural, step: static Natural): int {.inline.} =
   ## Round the input to the previous multiple of "step"
@@ -25,16 +33,6 @@ func round_step_down*(x: Natural, step: static Natural): int {.inline.} =
     result = x and not(step - 1)
   else:
     result = x - x mod step
-
-let ZeroHashes = block:
-  # hashes for a merkle tree full of zeros for leafs
-  var zh = @[Eth2Digest()]
-  for i in 1 ..< DEPOSIT_CONTRACT_TREE_DEPTH:
-    let nodehash = withEth2Hash:
-      h.update zh[i-1]
-      h.update zh[i-1]
-    zh.add nodehash
-  zh
 
 type SparseMerkleTree*[Depth: static int] = object
   ## Sparse Merkle tree
@@ -67,13 +65,11 @@ proc merkleTreeFromLeaves*(
       # with the zeroHash corresponding to the current depth
       let nodeHash = withEth2Hash:
         h.update result.nnznodes[depth-1][^1]
-        h.update ZeroHashes[depth-1]
+        h.update zeroHashes[depth-1]
       result.nnznodes[depth].add nodeHash
 
-proc getMerkleProof*[Depth: static int](
-        tree: SparseMerkleTree[Depth],
-        index: int,
-      ): array[Depth, Eth2Digest] =
+proc getMerkleProof*[Depth: static int](tree: SparseMerkleTree[Depth],
+                                        index: int): array[Depth, Eth2Digest] =
 
   # Descend down the tree according to the bit representation
   # of the index:
@@ -85,7 +81,7 @@ proc getMerkleProof*[Depth: static int](
     if nodeIdx < tree.nnznodes[depth].len:
       result[depth] = tree.nnznodes[depth][nodeIdx]
     else:
-      result[depth] = ZeroHashes[depth]
+      result[depth] = zeroHashes[depth]
 
 proc attachMerkleProofs*(deposits: var seq[Deposit]) =
   let deposit_data_roots = mapIt(deposits, it.data.hash_tree_root)
@@ -115,17 +111,17 @@ proc testMerkleMinimal*(): bool =
 
   block: # SSZ Sanity checks vs Python impl
     block: # 3 leaves
-      let leaves = sszList(@[a, b, c], 3'i64)
+      let leaves = List[Eth2Digest, 3](@[a, b, c])
       let root = hash_tree_root(leaves)
       doAssert $root == "9ff412e827b7c9d40fc7df2725021fd579ab762581d1ff5c270316682868456e".toUpperAscii
 
     block: # 2^3 leaves
-      let leaves = sszList(@[a, b, c], int64(1 shl 3))
+      let leaves = List[Eth2Digest, int64(1 shl 3)](@[a, b, c])
       let root = hash_tree_root(leaves)
       doAssert $root == "5248085b588fab1dd1e03f3cd62201602b12e6560665935964f46e805977e8c5".toUpperAscii
 
     block: # 2^10 leaves
-      let leaves = sszList(@[a, b, c], int64(1 shl 10))
+      let leaves = List[Eth2Digest, int64(1 shl 10)](@[a, b, c])
       let root = hash_tree_root(leaves)
       doAssert $root == "9fb7d518368dc14e8cc588fb3fd2749beef9f493fef70ae34af5721543c67173".toUpperAscii
 

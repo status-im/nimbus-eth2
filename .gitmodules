@@ -153,3 +153,28 @@
 	url = https://github.com/status-im/nim-rocksdb.git
 	ignore = dirty
 	branch = master
+[submodule "vendor/asynctools"]
+	path = vendor/asynctools
+	url = https://github.com/cheatfate/asynctools.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/karax"]
+	path = vendor/karax
+	url = https://github.com/pragmagic/karax.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/jswebsockets"]
+	path = vendor/jswebsockets
+	url = https://github.com/stisa/jswebsockets.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/websocket.nim"]
+	path = vendor/websocket.nim
+	url = https://github.com/niv/websocket.nim.git
+	ignore = dirty
+	branch = master
+[submodule "vendor/nim-chronicles-tail"]
+	path = vendor/nim-chronicles-tail
+	url = https://github.com/status-im/nim-chronicles-tail.git
+	ignore = dirty
+	branch = master

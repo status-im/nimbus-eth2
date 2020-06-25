@@ -17,14 +17,14 @@ import
   ./mock_deposits
 
 
-proc initGenesisState*(num_validators: uint64, genesis_time: uint64 = 0): BeaconStateRef =
+proc initGenesisState*(num_validators: uint64, genesis_time: uint64 = 0): HashedBeaconState =
   let deposits = mockGenesisBalancedDeposits(
       validatorCount = num_validators,
       amountInEth = 32, # We create canonical validators with 32 Eth
       flags = {skipBlsValidation}
     )
 
-  initialize_beacon_state_from_eth1(
+  initialize_hashed_beacon_state_from_eth1(
     eth1BlockHash, 0, deposits, {skipBlsValidation})
 
 when isMainModule:

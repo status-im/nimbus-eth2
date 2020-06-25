@@ -9,6 +9,9 @@ build/
 # ntags/ctags output
 /tags
 
+# vscode
+.vscode
+
 # Ignore dynamic, static libs and libtool archive files
 *.so
 *.dylib
@@ -24,6 +27,14 @@ build/
 
 # State sim # TODO - move in another folder
 0000-*.json
+*.ssz
+*.log
+*.sqlite3
 
-/local_testnet_data
+/local_testnet_data*/
+
+# Prometheus db
+/data
+# Grafana dashboards
+/docker/*.json
 

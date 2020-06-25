@@ -8,7 +8,7 @@
 import
   algorithm, strformat, stats, times, tables, std/monotimes, stew/endians2,
   testutils/markdown_reports, chronicles,
-  ../beacon_chain/[beacon_chain_db, block_pool, extras, ssz,  beacon_node_types],
+  ../beacon_chain/[beacon_chain_db, block_pool, extras, ssz],
   ../beacon_chain/spec/[digest, beaconstate, datatypes],
   eth/db/kvstore,
   testblockutil
@@ -73,8 +73,11 @@ proc summarizeLongTests*(name: string) =
 template suiteReport*(name, body) =
   last = name
   status[last] = initOrderedTable[string, Status]()
-  suite name:
-    body
+  block: # namespacing
+    proc runSuite() =
+      suite name:
+        body
+    runSuite()
 
 template timedTest*(name, body) =
   var f: float
@@ -93,7 +96,7 @@ template timedTest*(name, body) =
   # TODO noto thread-safe as-is
   testTimes.add (f, name)
 
-proc makeTestDB*(tailState: BeaconStateRef, tailBlock: SignedBeaconBlock): BeaconChainDB =
+proc makeTestDB*(tailState: BeaconState, tailBlock: SignedBeaconBlock): BeaconChainDB =
   result = init(BeaconChainDB, kvStore MemStoreRef.init())
   BlockPool.preInit(result, tailState, tailBlock)
 
@@ -104,6 +107,6 @@ proc makeTestDB*(validators: int): BeaconChainDB =
       makeInitialDeposits(validators, flags = {skipBlsValidation}),
         {skipBlsValidation})
     genBlock = get_initial_beacon_block(genState[])
-  makeTestDB(genState, genBlock)
+  makeTestDB(genState[], genBlock)
 
 export inMicroseconds

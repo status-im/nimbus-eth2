@@ -1,7 +1,7 @@
 import
   tables,
   chronos, chronicles,
-  spec/[datatypes, crypto, digest, state_transition_block], ssz,
+  spec/[datatypes, crypto, digest, signatures, helpers],
   beacon_node_types
 
 func init*(T: type ValidatorPool): T =
@@ -57,6 +57,19 @@ proc signAttestation*(v: AttachedValidator,
     error "Unimplemented"
     quit 1
 
+proc produceAndSignAttestation*(validator: AttachedValidator,
+                                attestationData: AttestationData,
+                                committeeLen: int, indexInCommittee: int,
+                                fork: Fork, genesis_validators_root: Eth2Digest):
+                                Future[Attestation] {.async.} =
+  let validatorSignature = await validator.signAttestation(attestationData,
+    fork, genesis_validators_root)
+
+  var aggregationBits = CommitteeValidatorsBits.init(committeeLen)
+  aggregationBits.setBit indexInCommittee
+
+  return Attestation(data: attestationData, signature: validatorSignature, aggregation_bits: aggregationBits)
+
 proc signAggregateAndProof*(v: AttachedValidator,
                             aggregate_and_proof: AggregateAndProof,
                             fork: Fork, genesis_validators_root: Eth2Digest): ValidatorSig =
@@ -67,10 +80,11 @@ proc signAggregateAndProof*(v: AttachedValidator,
     error "Out of process signAggregateAndProof not implemented"
     quit 1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#randao-reveal
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#randao-reveal
 func genRandaoReveal*(k: ValidatorPrivKey, fork: Fork,
     genesis_validators_root: Eth2Digest, slot: Slot): ValidatorSig =
-  get_epoch_signature(fork, genesis_validators_root, slot, k)
+  get_epoch_signature(
+    fork, genesis_validators_root, slot.compute_epoch_at_slot, k)
 
 func genRandaoReveal*(v: AttachedValidator, fork: Fork,
     genesis_validators_root: Eth2Digest, slot: Slot): ValidatorSig =

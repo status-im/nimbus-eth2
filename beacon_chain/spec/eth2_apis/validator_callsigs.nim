@@ -1,36 +1,40 @@
 import
+  # Standard library
   options,
-  ../datatypes
+  # Local modules
+  ../[datatypes, digest, crypto],
+  json_rpc/jsonmarshal,
+  callsigs_types
 
-# https://github.com/ethereum/eth2.0-APIs/tree/master/apis/validator
 
-type
-  SyncStatus* = object
-    starting_slot*: Slot
-    current_slot*: Slot
-    highest_slot*: Slot
+# calls that return a bool are actually without a return type in the main REST API
+# spec but nim-json-rpc requires that all RPC calls have a return type.
 
-  SyncingStatusResponse* = object
-    is_syncing*: bool
-    sync_status*: SyncStatus
+proc post_v1_beacon_pool_attestations(attestation: Attestation): bool
 
-  ValidatorDuty* = object
-    validator_pubkey: ValidatorPubKey
-    attestation_slot: Slot
-    attestation_shard: uint
-    block_proposal_slot: Slot
+# TODO slot is part of the REST path
+proc get_v1_validator_blocks(slot: Slot, graffiti: Eth2Digest, randao_reveal: ValidatorSig): BeaconBlock
 
-proc getNodeVersion(): string
-proc getGenesisTime(): uint64
-proc getSyncingStatus(): SyncingStatusResponse
-proc getValidator(key: ValidatorPubKey): Validator
-proc getValidatorDuties(validators: openarray[ValidatorPubKey], epoch: Epoch): seq[ValidatorDuty]
-proc getBlockForSigning(slot: Slot, randaoReveal: string): BeaconBlock
-proc postBlock(blk: BeaconBlock)
-proc getAttestationForSigning(validatorKey: ValidatorPubKey, pocBit: int, slot: Slot, shard: uint): Attestation
-proc postAttestation(attestation: Attestation)
+proc post_v1_beacon_blocks(body: SignedBeaconBlock): bool
 
-# Optional RPCs
+proc get_v1_validator_attestation_data(slot: Slot, committee_index: CommitteeIndex): AttestationData
 
-proc getForkId()
+# TODO at the time of writing (10.06.2020) the API specifies this call to have a hash of
+# the attestation data instead of the object itself but we also need the slot.. see here:
+# https://docs.google.com/spreadsheets/d/1kVIx6GvzVLwNYbcd-Fj8YUlPf4qGrWUlS35uaTnIAVg/edit?disco=AAAAGh7r_fQ
+proc get_v1_validator_aggregate_attestation(attestation_data: AttestationData): Attestation
 
+proc post_v1_validator_aggregate_and_proof(payload: SignedAggregateAndProof): bool
+
+# this is a POST instead of a GET because of this: https://docs.google.com/spreadsheets/d/1kVIx6GvzVLwNYbcd-Fj8YUlPf4qGrWUlS35uaTnIAVg/edit?disco=AAAAJk5rbKA
+# TODO epoch is part of the REST path
+proc post_v1_validator_duties_attester(epoch: Epoch, public_keys: seq[ValidatorPubKey]): seq[AttesterDuties]
+
+# TODO epoch is part of the REST path
+proc get_v1_validator_duties_proposer(epoch: Epoch): seq[ValidatorPubkeySlotPair]
+
+proc post_v1_validator_beacon_committee_subscriptions(committee_index: CommitteeIndex,
+                                                      slot: Slot,
+                                                      aggregator: bool,
+                                                      validator_pubkey: ValidatorPubKey,
+                                                      slot_signature: ValidatorSig): bool

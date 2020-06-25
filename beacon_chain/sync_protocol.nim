@@ -1,11 +1,17 @@
 import
   options, tables, sets, macros,
   chronicles, chronos, stew/ranges/bitranges, libp2p/switch,
-  spec/[datatypes, crypto, digest, helpers],
-  beacon_node_types, eth2_network, block_pool, ssz
+  spec/[datatypes, crypto, digest],
+  beacon_node_types, eth2_network, block_pool
 
 logScope:
   topics = "sync"
+
+const
+  MAX_REQUESTED_BLOCKS = SLOTS_PER_EPOCH  * 4
+    # A boundary on the number of blocks we'll allow in any single block
+    # request - typically clients will ask for an epoch or so at a time, but we
+    # allow a little bit more in case they want to stream blocks faster
 
 type
   StatusMsg* = object
@@ -41,11 +47,24 @@ type
     blockRoot: Eth2Digest
     slot: Slot
 
-const
-  MAX_REQUESTED_BLOCKS = SLOTS_PER_EPOCH  * 4
-    # A boundary on the number of blocks we'll allow in any single block
-    # request - typically clients will ask for an epoch or so at a time, but we
-    # allow a little bit more in case they want to stream blocks faster
+  BlockRootsList* = List[Eth2Digest, MAX_REQUESTED_BLOCKS]
+
+proc shortLog*(s: StatusMsg): auto =
+  (
+    forkDigest: s.forkDigest,
+    finalizedRoot: shortLog(s.finalizedRoot),
+    finalizedEpoch: shortLog(s.finalizedEpoch),
+    headRoot: shortLog(s.headRoot),
+    headSlot: shortLog(s.headSlot)
+  )
+chronicles.formatIt(StatusMsg): shortLog(it)
+
+func disconnectReasonName(reason: uint64): string =
+  # haha, nim doesn't support uint64 in `case`!
+  if reason == uint64(ClientShutDown): "Client shutdown"
+  elif reason == uint64(IrrelevantNetwork): "Irrelevant network"
+  elif reason == uint64(FaultOrError): "Fault or error"
+  else: "Disconnected (" & $reason & ")"
 
 proc importBlocks(state: BeaconSyncNetworkState,
                   blocks: openarray[SignedBeaconBlock]) {.gcsafe.} =
@@ -53,33 +72,32 @@ proc importBlocks(state: BeaconSyncNetworkState,
     state.onBeaconBlock(blk)
   info "Forward sync imported blocks", len = blocks.len
 
-proc getCurrentStatus(state: BeaconSyncNetworkState): StatusMsg {.gcsafe.} =
+proc getCurrentStatus*(state: BeaconSyncNetworkState): StatusMsg {.gcsafe.} =
   let
     blockPool = state.blockPool
-    finalizedHead = blockPool.finalizedHead
     headBlock = blockPool.head.blck
-    headRoot = headBlock.root
-    headSlot = headBlock.slot
-    finalizedEpoch = finalizedHead.slot.compute_epoch_at_slot()
 
   StatusMsg(
     forkDigest: state.forkDigest,
-    finalizedRoot: finalizedHead.blck.root,
-    finalizedEpoch: finalizedEpoch,
-    headRoot: headRoot,
-    headSlot: headSlot)
+    finalizedRoot: blockPool.headState.data.data.finalized_checkpoint.root,
+    finalizedEpoch: blockPool.headState.data.data.finalized_checkpoint.epoch,
+    headRoot: headBlock.root,
+    headSlot: headBlock.slot)
 
-proc handleInitialStatus(peer: Peer,
-                         state: BeaconSyncNetworkState,
-                         ourStatus: StatusMsg,
-                         theirStatus: StatusMsg): Future[bool] {.async, gcsafe.}
+proc handleStatus(peer: Peer,
+                  state: BeaconSyncNetworkState,
+                  ourStatus: StatusMsg,
+                  theirStatus: StatusMsg): Future[void] {.gcsafe.}
+
+proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) {.gcsafe.}
 
 p2pProtocol BeaconSync(version = 1,
-                       rlpxName = "bcs",
                        networkState = BeaconSyncNetworkState,
                        peerState = BeaconSyncPeerState):
 
-  onPeerConnected do (peer: Peer):
+  onPeerConnected do (peer: Peer) {.async.}:
+    debug "Peer connected",
+      peer, peerInfo = shortLog(peer.info), wasDialed = peer.wasDialed
     if peer.wasDialed:
       let
         ourStatus = peer.networkState.getCurrentStatus()
@@ -87,112 +105,136 @@ p2pProtocol BeaconSync(version = 1,
         # respond in time due to high CPU load in our single thread.
         theirStatus = await peer.status(ourStatus, timeout = 60.seconds)
 
-      if theirStatus.isSome:
-        let tstatus = theirStatus.get()
-        let res = await peer.handleInitialStatus(peer.networkState,
-                                                 ourStatus, tstatus)
-        if res:
-          peer.state(BeaconSync).statusMsg = tstatus
+      if theirStatus.isOk:
+        await peer.handleStatus(peer.networkState,
+                                ourStatus, theirStatus.get())
       else:
-        warn "Status response not received in time"
+        warn "Status response not received in time", peer
 
-  requestResponse:
-    proc status(peer: Peer, theirStatus: StatusMsg) {.libp2pProtocol("status", 1).} =
-      let
-        ourStatus = peer.networkState.getCurrentStatus()
+  proc status(peer: Peer,
+              theirStatus: StatusMsg,
+              response: SingleChunkResponse[StatusMsg])
+    {.async, libp2pProtocol("status", 1).} =
+    let ourStatus = peer.networkState.getCurrentStatus()
+    trace "Sending status message", peer = peer, status = ourStatus
+    await response.send(ourStatus)
+    await peer.handleStatus(peer.networkState, ourStatus, theirStatus)
 
-      trace "Sending status msg", ourStatus
-      await response.send(ourStatus)
+  proc ping(peer: Peer, value: uint64): uint64
+    {.libp2pProtocol("ping", 1).} =
+    return peer.network.metadata.seq_number
 
-      if not peer.state.initialStatusReceived:
-        peer.state.initialStatusReceived = true
-        let res = await peer.handleInitialStatus(peer.networkState,
-                                                 ourStatus, theirStatus)
-        if res:
-          peer.state(BeaconSync).statusMsg = theirStatus
+  proc getMetadata(peer: Peer): Eth2Metadata
+    {.libp2pProtocol("metadata", 1).} =
+    return peer.network.metadata
 
-    proc statusResp(peer: Peer, msg: StatusMsg)
+  proc beaconBlocksByRange(
+      peer: Peer,
+      startSlot: Slot,
+      count: uint64,
+      step: uint64,
+      response: MultipleChunksResponse[SignedBeaconBlock])
+      {.async, libp2pProtocol("beacon_blocks_by_range", 1).} =
+    trace "got range request", peer, startSlot, count, step
 
-  proc goodbye(peer: Peer, reason: DisconnectionReason) {.libp2pProtocol("goodbye", 1).}
-
-  requestResponse:
-    proc ping(peer: Peer, value: uint64) {.libp2pProtocol("ping", 1).} =
-      await response.write(peer.network.metadata.seq_number)
-
-    proc pingResp(peer: Peer, value: uint64)
-
-  requestResponse:
-    proc getMetadata(peer: Peer) {.libp2pProtocol("metadata", 1).} =
-      await response.write(peer.network.metadata)
-
-    proc metadataReps(peer: Peer, metadata: Eth2Metadata)
-
-  requestResponse:
-    proc beaconBlocksByRange(
-            peer: Peer,
-            startSlot: Slot,
-            count: uint64,
-            step: uint64) {.
-            libp2pProtocol("beacon_blocks_by_range", 1).} =
-      trace "got range request", peer, startSlot, count, step
-
-      if count > 0'u64:
-        var blocks: array[MAX_REQUESTED_BLOCKS, BlockRef]
-        let
-          pool = peer.networkState.blockPool
-          # Limit number of blocks in response
-          count = min(count.Natural, blocks.len)
-
-        let
-          endIndex = count - 1
-          startIndex =
-            pool.getBlockRange(startSlot, step, blocks.toOpenArray(0, endIndex))
-
-        for b in blocks[startIndex..endIndex]:
-          doAssert not b.isNil, "getBlockRange should return non-nil blocks only"
-          trace "wrote response block", slot = b.slot, roor = shortLog(b.root)
-          await response.write(pool.get(b).data)
-
-        debug "Block range request done",
-          peer, startSlot, count, step, found = count - startIndex
-
-    proc beaconBlocksByRoot(
-            peer: Peer,
-            blockRoots: openarray[Eth2Digest]) {.
-            libp2pProtocol("beacon_blocks_by_root", 1).} =
+    if count > 0'u64:
+      var blocks: array[MAX_REQUESTED_BLOCKS, BlockRef]
       let
         pool = peer.networkState.blockPool
-        count = min(blockRoots.len, MAX_REQUESTED_BLOCKS)
+        # Limit number of blocks in response
+        count = min(count.Natural, blocks.len)
 
-      var found = 0
+      let
+        endIndex = count - 1
+        startIndex =
+          pool.getBlockRange(startSlot, step, blocks.toOpenArray(0, endIndex))
 
-      for root in blockRoots[0..<count]:
-        let blockRef = pool.getRef(root)
-        if not isNil(blockRef):
-          await response.write(pool.get(blockRef).data)
-          inc found
+      for b in blocks[startIndex..endIndex]:
+        doAssert not b.isNil, "getBlockRange should return non-nil blocks only"
+        trace "wrote response block", slot = b.slot, roor = shortLog(b.root)
+        await response.write(pool.get(b).data)
 
-      debug "Block root request done",
-        peer, roots = blockRoots.len, count, found
+      debug "Block range request done",
+        peer, startSlot, count, step, found = count - startIndex
 
-    proc beaconBlocks(
-            peer: Peer,
-            blocks: openarray[SignedBeaconBlock])
+  proc beaconBlocksByRoot(
+      peer: Peer,
+      blockRoots: BlockRootsList,
+      response: MultipleChunksResponse[SignedBeaconBlock])
+      {.async, libp2pProtocol("beacon_blocks_by_root", 1).} =
+    let
+      pool = peer.networkState.blockPool
+      count = blockRoots.len
 
-proc handleInitialStatus(peer: Peer,
-                         state: BeaconSyncNetworkState,
-                         ourStatus: StatusMsg,
-                       theirStatus: StatusMsg): Future[bool] {.async, gcsafe.} =
+    var found = 0
+
+    for root in blockRoots[0..<count]:
+      let blockRef = pool.getRef(root)
+      if not isNil(blockRef):
+        await response.write(pool.get(blockRef).data)
+        inc found
+
+    debug "Block root request done",
+      peer, roots = blockRoots.len, count, found
+
+  proc goodbye(peer: Peer,
+               reason: uint64)
+    {.async, libp2pProtocol("goodbye", 1).} =
+    debug "Received Goodbye message", reason = disconnectReasonName(reason), peer
+
+proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) =
+  debug "Peer status", peer, statusMsg
+  peer.state(BeaconSync).initialStatusReceived = true
+  peer.state(BeaconSync).statusMsg = statusMsg
+
+proc updateStatus*(peer: Peer): Future[bool] {.async.} =
+  ## Request `status` of remote peer ``peer``.
+  let
+    nstate = peer.networkState(BeaconSync)
+    ourStatus = getCurrentStatus(nstate)
+
+  let theirFut = awaitne peer.status(ourStatus,
+                                     timeout = chronos.seconds(60))
+  if theirFut.failed():
+    result = false
+  else:
+    let theirStatus = theirFut.read()
+    if theirStatus.isOk:
+      peer.setStatusMsg(theirStatus.get)
+      result = true
+
+proc hasInitialStatus*(peer: Peer): bool {.inline.} =
+  ## Returns head slot for specific peer ``peer``.
+  peer.state(BeaconSync).initialStatusReceived
+
+proc getHeadSlot*(peer: Peer): Slot {.inline.} =
+  ## Returns head slot for specific peer ``peer``.
+  result = peer.state(BeaconSync).statusMsg.headSlot
+
+proc handleStatus(peer: Peer,
+                  state: BeaconSyncNetworkState,
+                  ourStatus: StatusMsg,
+                  theirStatus: StatusMsg) {.async, gcsafe.} =
   if theirStatus.forkDigest != state.forkDigest:
-    notice "Irrelevant peer",
-      peer, theirFork = theirStatus.forkDigest, ourFork = state.forkDigest
+    notice "Irrelevant peer", peer, theirStatus, ourStatus
     await peer.disconnect(IrrelevantNetwork)
-    return false
-  debug "Peer connected", peer,
-                          localHeadSlot = ourStatus.headSlot,
-                          remoteHeadSlot = theirStatus.headSlot,
-                          remoteHeadRoot = theirStatus.headRoot
-  return true
+  else:
+    if not peer.state(BeaconSync).initialStatusReceived:
+      # Initial/handshake status message handling
+      peer.state(BeaconSync).initialStatusReceived = true
+      debug "Peer connected", peer, ourStatus = shortLog(ourStatus),
+                              theirStatus = shortLog(theirStatus)
+      var res: bool
+      if peer.wasDialed:
+        res = await handleOutgoingPeer(peer)
+      else:
+        res = await handleIncomingPeer(peer)
+
+      if not res:
+        debug "Peer is dead or already in pool", peer
+        await peer.disconnect(ClientShutDown)
+
+    peer.setStatusMsg(theirStatus)
 
 proc initBeaconSync*(network: Eth2Node,
                      blockPool: BlockPool,

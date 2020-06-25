@@ -11,7 +11,6 @@ RUN apt-get -qq update \
 RUN cd /root \
  && git clone https://github.com/status-im/nim-beacon-chain.git \
  && cd nim-beacon-chain \
- && { make &>/dev/null || true; } \
  && make -j$(nproc) update \
  && make deps
 
@@ -33,7 +32,7 @@ RUN cd /root/nim-beacon-chain \
 # --------------------------------- #
 # Starting new image to reduce size #
 # --------------------------------- #
-FROM debian:bullseye-slim
+FROM debian:bullseye-slim as deploy
 
 SHELL ["/bin/bash", "-c"]
 

@@ -8,9 +8,9 @@
 import
   options,
   # Specs
-  ../../beacon_chain/spec/[datatypes, validator, state_transition_block],
+  ../../beacon_chain/spec/[datatypes, helpers, signatures, validator],
   # Internals
-  ../../beacon_chain/[ssz, extras, state_transition],
+  ../../beacon_chain/[ssz, extras],
   # Mock helpers
   ./mock_validator_keys
 
@@ -27,7 +27,8 @@ proc signMockBlockImpl(
   let privkey = MockPrivKeys[signedBlock.message.proposer_index]
 
   signedBlock.message.body.randao_reveal = get_epoch_signature(
-    state.fork, state.genesis_validators_root, block_slot, privkey)
+    state.fork, state.genesis_validators_root, block_slot.compute_epoch_at_slot,
+    privkey)
   signedBlock.signature = get_block_signature(
     state.fork, state.genesis_validators_root, block_slot,
     hash_tree_root(signedBlock.message), privkey)
@@ -60,10 +61,3 @@ proc mockBlock(
 proc mockBlockForNextSlot*(state: BeaconState, flags: UpdateFlags = {}):
     SignedBeaconBlock =
   mockBlock(state, state.slot + 1, flags)
-
-proc applyEmptyBlock*(state: var BeaconState) =
-  ## Do a state transition with an empty signed block
-  ## on the current slot
-  let signedBlock = mockBlock(state, state.slot, flags = {})
-  doAssert state_transition(
-    state, signedBlock, {skipStateRootValidation}, noRollback)

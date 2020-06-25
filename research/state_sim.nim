@@ -5,13 +5,18 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+# `state_sim` runs the state transition function in isolation, creating blocks
+# and attesting to them as if the network was running as a whole.
+
 import
-  confutils, stats, times, std/monotimes,
+  confutils, stats, times,
   strformat,
   options, sequtils, random, tables,
   ../tests/[testblockutil],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
-  ../beacon_chain/[attestation_pool, extras, ssz]
+  ../beacon_chain/[attestation_pool, extras],
+  ../beacon_chain/ssz/[merkleization, ssz_serialization],
+  ./simutils
 
 type Timers = enum
   tBlock = "Process non-epoch slot with block"
@@ -19,24 +24,6 @@ type Timers = enum
   tHashBlock = "Tree-hash block"
   tShuffle = "Retrieve committee once using get_beacon_committee"
   tAttest = "Combine committee attestations"
-
-template withTimer(stats: var RunningStat, body: untyped) =
-  let start = cpuTime()
-
-  block:
-    body
-
-  let stop = cpuTime()
-  stats.push stop - start
-
-template withTimerRet(stats: var RunningStat, body: untyped): untyped =
-  let start = cpuTime()
-  let tmp = block:
-    body
-  let stop = cpuTime()
-  stats.push stop - start
-
-  tmp
 
 proc jsonName(prefix, slot: auto): string =
   fmt"{prefix:04}-{shortLog(slot):08}.json"
@@ -46,40 +33,17 @@ proc writeJson*(fn, v: auto) =
   defer: close(f)
   Json.saveFile(fn, v, pretty = true)
 
-func verifyConsensus(state: BeaconState, attesterRatio: auto) =
-  if attesterRatio < 0.63:
-    doAssert state.current_justified_checkpoint.epoch == 0
-    doAssert state.finalized_checkpoint.epoch == 0
-
-  # Quorum is 2/3 of validators, and at low numbers, quantization effects
-  # can dominate, so allow for play above/below attesterRatio of 2/3.
-  if attesterRatio < 0.72:
-    return
-
-  let current_epoch = get_current_epoch(state)
-  if current_epoch >= 3:
-    doAssert state.current_justified_checkpoint.epoch + 1 >= current_epoch
-  if current_epoch >= 4:
-    doAssert state.finalized_checkpoint.epoch + 2 >= current_epoch
-
 cli do(slots = SLOTS_PER_EPOCH * 6,
-       validators = SLOTS_PER_EPOCH * 30, # One per shard is minimum
+       validators = SLOTS_PER_EPOCH * 100, # One per shard is minimum
        json_interval = SLOTS_PER_EPOCH,
        write_last_json = false,
        prefix = 0,
        attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.73,
        validate = true):
-  echo "Preparing validators..."
   let
-    # TODO should we include other skipXXXValidation flags here (e.g. StateRoot)?
     flags = if validate: {} else: {skipBlsValidation}
-    deposits = makeInitialDeposits(validators, flags)
-
-  echo "Generating Genesis..."
-
-  let
-    state = initialize_beacon_state_from_eth1(Eth2Digest(), 0, deposits, flags)
-  let genesisBlock = get_initial_beacon_block(state[])
+    state = loadGenesis(validators, validate)
+    genesisBlock = get_initial_beacon_block(state.data)
 
   echo "Starting simulation..."
 
@@ -88,13 +52,13 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     latest_block_root = hash_tree_root(genesisBlock.message)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
-    r: Rand
+    r = initRand(1)
     signedBlock: SignedBeaconBlock
     cache = get_empty_per_epoch_cache()
 
   proc maybeWrite(last: bool) =
     if write_last_json:
-      if state.slot mod json_interval.uint64 == 0:
+      if state[].data.slot mod json_interval.uint64 == 0:
         write(stdout, ":")
       else:
         write(stdout, ".")
@@ -102,8 +66,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       if last:
         writeJson("state.json", state[])
     else:
-      if state[].slot mod json_interval.uint64 == 0:
-        writeJson(jsonName(prefix, state.slot), state[])
+      if state[].data.slot mod json_interval.uint64 == 0:
+        writeJson(jsonName(prefix, state[].data.slot), state[].data)
         write(stdout, ":")
       else:
         write(stdout, ".")
@@ -114,10 +78,10 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
   for i in 0..<slots:
     maybeWrite(false)
-    verifyConsensus(state[], attesterRatio)
+    verifyConsensus(state[].data, attesterRatio)
 
     let
-      attestations_idx = state.slot
+      attestations_idx = state[].data.slot
       blockAttestations = attestations.getOrDefault(attestations_idx)
 
     attestations.del attestations_idx
@@ -125,13 +89,14 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       (SLOTS_PER_EPOCH.int + MIN_ATTESTATION_INCLUSION_DELAY.int)
 
     let t =
-      if (state.slot > GENESIS_SLOT and
-        (state.slot + 1) mod SLOTS_PER_EPOCH == 0): tEpoch
+      if (state[].data.slot > GENESIS_SLOT and
+        (state[].data.slot + 1).isEpoch): tEpoch
       else: tBlock
 
     withTimer(timers[t]):
       signedBlock = addTestBlock(
-        state[], latest_block_root, attestations = blockAttestations, flags = flags)
+        state[], latest_block_root, cache, attestations = blockAttestations,
+        flags = flags)
     latest_block_root = withTimerRet(timers[tHashBlock]):
       hash_tree_root(signedBlock.message)
 
@@ -140,11 +105,14 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       # work for every slot - we'll randomize it deterministically to give
       # some variation
       let
-        target_slot = state.slot + MIN_ATTESTATION_INCLUSION_DELAY - 1
+        target_slot = state[].data.slot + MIN_ATTESTATION_INCLUSION_DELAY - 1
+        commitee_count = get_committee_count_at_slot(state[].data, target_slot)
+
+      let
         scass = withTimerRet(timers[tShuffle]):
           mapIt(
-            0'u64 ..< get_committee_count_at_slot(state[], target_slot),
-            get_beacon_committee(state[], target_slot, it.CommitteeIndex, cache))
+            0 ..< commitee_count.int,
+            get_beacon_committee(state[].data, target_slot, it.CommitteeIndex, cache))
 
       for i, scas in scass:
         var
@@ -158,12 +126,12 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             if (rand(r, high(int)).float * attesterRatio).int <= high(int):
               if first:
                 attestation =
-                  makeAttestation(state[], latest_block_root, scas, target_slot,
+                  makeAttestation(state[].data, latest_block_root, scas, target_slot,
                     i.uint64, v, cache, flags)
                 first = false
               else:
                 attestation.combine(
-                  makeAttestation(state[], latest_block_root, scas, target_slot,
+                  makeAttestation(state[].data, latest_block_root, scas, target_slot,
                     i.uint64, v, cache, flags),
                   flags)
 
@@ -182,28 +150,13 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     flushFile(stdout)
 
-    if (state.slot) mod SLOTS_PER_EPOCH == 0:
-      echo &" slot: {shortLog(state.slot)} ",
-        &"epoch: {shortLog(state.slot.compute_epoch_at_slot)}"
+    if (state[].data.slot) mod SLOTS_PER_EPOCH == 0:
+      echo &" slot: {shortLog(state[].data.slot)} ",
+        &"epoch: {shortLog(state[].data.slot.compute_epoch_at_slot)}"
 
 
   maybeWrite(true) # catch that last state as well..
 
   echo "Done!"
 
-  echo "Validators: ", validators, ", epoch length: ", SLOTS_PER_EPOCH
-  echo "Validators per attestation (mean): ", attesters.mean
-
-  proc fmtTime(t: float): string = &"{t * 1000 :>12.3f}, "
-
-  echo "All time are ms"
-  echo &"{\"Average\" :>12}, {\"StdDev\" :>12}, {\"Min\" :>12}, " &
-    &"{\"Max\" :>12}, {\"Samples\" :>12}, {\"Test\" :>12}"
-
-  if not validate:
-    echo "Validation is turned off meaning that no BLS operations are performed"
-
-  for t in Timers:
-    echo fmtTime(timers[t].mean), fmtTime(timers[t].standardDeviationS),
-      fmtTime(timers[t].min), fmtTime(timers[t].max), &"{timers[t].n :>12}, ",
-      $t
+  printTimers(state[].data, attesters, validate, timers)

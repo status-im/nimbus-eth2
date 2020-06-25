@@ -19,29 +19,27 @@ cd - &>/dev/null
 
 # When changing these, also update the readme section on running simulation
 # so that the run_node example is correct!
-NUM_VALIDATORS=${VALIDATORS:-192}
+NUM_VALIDATORS=${VALIDATORS:-128}
 TOTAL_NODES=${NODES:-4}
 TOTAL_USER_NODES=${USER_NODES:-0}
 TOTAL_SYSTEM_NODES=$(( TOTAL_NODES - TOTAL_USER_NODES ))
-MASTER_NODE=$(( TOTAL_NODES - 1 ))
+BOOTSTRAP_NODE=$(( TOTAL_NODES - 1 ))
 
 SIMULATION_DIR="${SIM_ROOT}/data"
 METRICS_DIR="${SIM_ROOT}/prometheus"
 VALIDATORS_DIR="${SIM_ROOT}/validators"
+SECRETS_DIR="${SIM_ROOT}/secrets"
 SNAPSHOT_FILE="${SIMULATION_DIR}/state_snapshot.ssz"
 NETWORK_BOOTSTRAP_FILE="${SIMULATION_DIR}/bootstrap_nodes.txt"
-BEACON_NODE_BIN="${SIMULATION_DIR}/beacon_node"
-DEPLOY_DEPOSIT_CONTRACT_BIN="${SIMULATION_DIR}/deploy_deposit_contract"
-MASTER_NODE_ADDRESS_FILE="${SIMULATION_DIR}/node-${MASTER_NODE}/beacon_node.address"
+DEPOSIT_CONTRACT_FILE="${SIMULATION_DIR}/deposit_contract.txt"
+BEACON_NODE_BIN="${GIT_ROOT}/build/beacon_node"
+VALIDATOR_CLIENT_BIN="${GIT_ROOT}/build/validator_client"
+DEPLOY_DEPOSIT_CONTRACT_BIN="${GIT_ROOT}/build/deposit_contract"
+BOOTSTRAP_ENR_FILE="${SIMULATION_DIR}/node-${BOOTSTRAP_NODE}/beacon_node.enr"
+
+WEB3_ARG="--web3-url=ws://localhost:8545"
 
 BASE_P2P_PORT=30000
 BASE_RPC_PORT=7000
 BASE_METRICS_PORT=8008
-
-if [[ "$USE_GANACHE" == "yes" ]]; then
-  WEB3_ARG=--web3-url=ws://localhost:8545
-else
-  WEB3_ARG=""
-  DEPOSIT_CONTRACT_ADDRESS="0x"
-fi
 

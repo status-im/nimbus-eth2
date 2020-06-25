@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  strformat,
+  strformat, tables,
   # Specs
   ../../beacon_chain/spec/[datatypes, state_transition_epoch, validator, helpers],
   # Test helpers
@@ -27,14 +27,17 @@ proc addMockAttestations*(
   # Alias the attestations container
   var attestations: ptr seq[PendingAttestation]
   if state.get_current_epoch() == epoch:
-    attestations = state.current_epoch_attestations.addr
+    attestations = state.current_epoch_attestations.asSeq.addr
   elif state.get_previous_epoch() == epoch:
-    attestations = state.previous_epoch_attestations.addr
+    attestations = state.previous_epoch_attestations.asSeq.addr
   else:
     raise newException(ValueError, &"Cannot include attestations from epoch {state.get_current_epoch()} in epoch {epoch}")
 
   # TODO: Working with an unsigned Gwei balance is a recipe for underflows to happen
-  var remaining_balance = state.get_total_active_balance().int64 * 2 div 3
+  var cache = get_empty_per_epoch_cache()
+  cache.shuffled_active_validator_indices[epoch] =
+    get_shuffled_active_validator_indices(state, epoch)
+  var remaining_balance = state.get_total_active_balance(cache).int64 * 2 div 3
 
   let start_slot = compute_start_slot_at_epoch(epoch)
 

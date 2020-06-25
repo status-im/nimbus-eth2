@@ -50,7 +50,23 @@ else:
 # for heap-usage-by-instance-type metrics and object base-type strings
 --define:nimTypeNames
 
+# switch("define", "snappy_implementation=libp2p")
+
+const currentDir = currentSourcePath()[0 .. ^(len("config.nims") + 1)]
+switch("define", "nim_compiler_path=" & currentDir & "env.sh nim")
+
 switch("import", "testutils/moduletests")
+
+const useLibStackTrace = not defined(macosx) and
+                         not (defined(windows) and defined(i386)) and
+                         not defined(disable_libbacktrace)
+
+when useLibStackTrace:
+  --define:nimStackTraceOverride
+  switch("import", "libbacktrace")
+else:
+  --stacktrace:on
+  --linetrace:on
 
 var canEnableDebuggingSymbols = true
 if defined(macosx):
@@ -77,13 +93,16 @@ if defined(macosx):
 if not defined(macosx) and canEnableDebuggingSymbols:
   # add debugging symbols and original files and line numbers
   --debugger:native
-  if not (defined(windows) and defined(i386)) and not defined(disable_libbacktrace):
-    # lightweight stack traces using libbacktrace and libunwind (32-bit Windows not supported)
-    --define:nimStackTraceOverride
-    switch("import", "libbacktrace")
 
 --define:nimOldCaseObjects # https://github.com/status-im/nim-confutils/issues/9
 
 # `switch("warning[CaseTransition]", "off")` fails with "Error: invalid command line option: '--warning[CaseTransition]'"
 switch("warning", "CaseTransition:off")
+
+# The compiler doth protest too much, methinks, about all these cases where it can't
+# do its (N)RVO pass: https://github.com/nim-lang/RFCs/issues/230
+switch("warning", "ObservableStores:off")
+
+# Too many false positives for "Warning: method has lock level <unknown>, but another method has 0 [LockLevel]"
+switch("warning", "LockLevel:off")
 

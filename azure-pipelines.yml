@@ -1,7 +1,7 @@
 jobs:
   - job: Windows
 
-    timeoutInMinutes: 80
+    timeoutInMinutes: 90
 
     pool:
       vmImage: windows-latest
@@ -16,7 +16,7 @@ jobs:
       - task: CacheBeta@1
         displayName: 'cache Nim binaries'
         inputs:
-          key: NimBinaries | $(Agent.OS) | $(PLATFORM) | "$(Build.SourceBranchName)" | "v4"
+          key: NimBinaries | $(Agent.OS) | $(PLATFORM) | "$(Build.SourceBranchName)" | "v7"
           path: NimBinaries
 
       - task: CacheBeta@1
@@ -65,10 +65,14 @@ jobs:
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} CI_CACHE=NimBinaries update
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} fetch-dlls
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} LOG_LEVEL=TRACE
-          mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image"
+          if [[ $PLATFORM == "x64" ]]; then
+            # everything builds more slowly on 32-bit, since there's no libbacktrace support
+            mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image"
+          fi
           file build/beacon_node
           # fail fast
           export NIMTEST_ABORT_ON_ERROR=1
           scripts/setup_official_tests.sh jsonTestsCache
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} DISABLE_TEST_FIXTURES_SCRIPT=1 test
         displayName: 'build and test'
+

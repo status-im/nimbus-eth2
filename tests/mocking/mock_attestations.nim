@@ -13,9 +13,9 @@ import
   sets,
   # Specs
   ../../beacon_chain/spec/[datatypes, beaconstate, helpers, validator, crypto,
-     state_transition_block],
+    signatures, state_transition],
   # Internals
-  ../../beacon_chain/[ssz, extras, state_transition],
+  ../../beacon_chain/[ssz, extras],
   # Mocking procs
   ./mock_blocks,
   ./mock_validator_keys
@@ -123,12 +123,12 @@ proc fillAggregateAttestation*(state: BeaconState, attestation: var Attestation)
   for i in 0 ..< beacon_committee.len:
     attestation.aggregation_bits[i] = true
 
-proc add*(state: var BeaconState, attestation: Attestation, slot: Slot) =
-  var signedBlock = mockBlockForNextSlot(state)
+proc add*(state: var HashedBeaconState, attestation: Attestation, slot: Slot) =
+  var signedBlock = mockBlockForNextSlot(state.data)
   signedBlock.message.slot = slot
   signedBlock.message.body.attestations.add attestation
-  process_slots(state, slot)
-  signMockBlock(state, signedBlock)
+  doAssert process_slots(state, slot)
+  signMockBlock(state.data, signedBlock)
 
   doAssert state_transition(
     state, signedBlock, flags = {skipStateRootValidation}, noRollback)

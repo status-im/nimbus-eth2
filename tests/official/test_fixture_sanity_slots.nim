@@ -11,8 +11,7 @@ import
   # Standard library
   os, strutils, unittest,
   # Beacon chain internals
-  ../../beacon_chain/spec/datatypes,
-  ../../beacon_chain/state_transition,
+  ../../beacon_chain/spec/[datatypes, state_transition],
   # Test utilities
   ../testutil,
   ./fixtures_utils,
@@ -31,13 +30,19 @@ proc runTest(identifier: string) =
 
   proc `testImpl _ slots _ identifier`() =
     timedTest "Slots - " & identifier:
-      var preState = parseTest(testDir/"pre.ssz", SSZ, BeaconStateRef)
-      let postState = parseTest(testDir/"post.ssz", SSZ, BeaconStateRef)
+      var
+        preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
+        hashedPreState = (ref HashedBeaconState)(
+          data: preState[], root: hash_tree_root(preState[]))
+      let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
 
-      process_slots(preState[], preState.slot + num_slots)
+      check:
+        process_slots(
+          hashedPreState[], hashedPreState.data.slot + num_slots)
 
-      # check: preState.hash_tree_root() == postState.hash_tree_root()
-      reportDiff(preState, postState)
+        hashedPreState.root == postState[].hash_tree_root()
+      let newPreState = newClone(hashedPreState.data)
+      reportDiff(newPreState, postState)
 
   `testImpl _ slots _ identifier`()
 
