@@ -5,8 +5,7 @@ import
   stew/endians2,
   spec/[datatypes, crypto, digest],
   block_pools/block_pools_types,
-  block_pool, # TODO: refactoring compat shim
-  fork_choice/fork_choice_types
+  block_pool # TODO: refactoring compat shim
 
 export block_pools_types
 
@@ -75,9 +74,6 @@ type
     latestAttestations*: Table[ValidatorPubKey, BlockRef] ##\
     ## Map that keeps track of the most recent vote of each attester - see
     ## fork_choice
-    forkChoice_v2*: ForkChoice ##\
-    ## The alternative fork choice "proto_array" that will ultimately
-    ## replace the original one
 
   # #############################################
   #
