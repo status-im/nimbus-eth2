@@ -19,7 +19,7 @@ if [[ "$USE_MULTITAIL" != "no" ]]; then
 fi
 
 USE_TMUX="${USE_TMUX:-no}"
-if [[ "$USE_TMUX" != "no" ]]; then
+if [[ "$USE_TMUX" == "yes" ]]; then
   type "$TMUX_CMD" &>/dev/null || { echo "${TMUX_CMD}" is missing; USE_TMUX="no"; }
 fi
 
@@ -78,7 +78,7 @@ if [[ "$USE_GANACHE" == "yes" ]]; then
   if [[ "$USE_TMUX" == "yes" ]]; then
     $TMUX_CMD new-window -d -t $TMUX_SESSION_NAME -n "$GANACHE_CMD" "$GANACHE_CMD --blockTime 5 --gasLimit 100000000 -e 100000 --verbose"
   else
-    echo NOTICE: $GANACHE_CMD will be started automatically only with USE_TMUX=1
+    echo NOTICE: $GANACHE_CMD will be started automatically only with USE_TMUX=yes
     USE_GANACHE="no"
   fi
 fi
@@ -92,7 +92,7 @@ if [[ "$USE_PROMETHEUS" == "yes" ]]; then
     PROMETHEUS_FLAGS="--config.file=./prometheus.yml --storage.tsdb.path=./data"
     $TMUX_CMD new-window -d -t $TMUX_SESSION_NAME -n "$PROMETHEUS_CMD" "cd '$METRICS_DIR' && $PROMETHEUS_CMD $PROMETHEUS_FLAGS"
   else
-    echo NOTICE: $PROMETHEUS_CMD will be started automatically only with USE_TMUX=1
+    echo NOTICE: $PROMETHEUS_CMD will be started automatically only with USE_TMUX=yes
     USE_PROMETHEUS="no"
   fi
 fi

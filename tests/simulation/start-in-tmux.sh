@@ -18,11 +18,8 @@ fi
 if [[ "$USE_TMUX" != "no" ]]; then
   TMUX_SESSION_NAME="${TMUX_SESSION_NAME:-nbc-sim}"
 
-  export USE_TMUX=yes
-  export TMUX_CMD
-  export TMUX_SESSION_NAME
-
   $TMUX_CMD new-session -s "${TMUX_SESSION_NAME}" -d
+  $TMUX_CMD setenv -t "${TMUX_SESSION_NAME}" USE_TMUX yes
 
   $TMUX_CMD bind-key -n q kill-session
 
