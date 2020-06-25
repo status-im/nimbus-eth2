@@ -10,6 +10,8 @@
 import
   # Standard library
   std/tables, std/options, std/typetraits,
+  # Status libraries
+  chronicles,
   # Internal
   ../spec/[datatypes, digest],
   # Fork choice
@@ -176,6 +178,9 @@ func on_block*(
       # Genesis (but Genesis might not be default(Eth2Digest))
     parent_index = none(int)
   elif parent notin self.indices:
+    {.noSideEffect.}:
+
+      writeStackTrace()
     return ForkChoiceError(
       kind: fcErrUnknownParent,
       child_root: root,
@@ -297,6 +302,11 @@ func maybe_prune*(
       kind: fcErrInvalidNodeIndex,
       index: finalized_index
     )
+
+  {.noSideEffect.}:
+    debug "Pruning blocks from fork choice",
+      finalizedRoot = shortlog(finalized_root)
+
   for node_index in 0 ..< finalized_index:
     self.indices.del(self.nodes[node_index].root)
 

@@ -34,7 +34,7 @@ func getOrResolve*(dag: CandidateChains, quarantine: var Quarantine, root: Eth2D
   if result.isNil:
     quarantine.missing[root] = MissingBlock()
 
-proc add*(
+proc addRawBlock*(
     dag: var CandidateChains, quarantine: var Quarantine,
     blockRoot: Eth2Digest,
     signedBlock: SignedBeaconBlock): Result[BlockRef, BlockError] {.gcsafe.}
@@ -101,13 +101,13 @@ proc addResolvedBlock(
     while keepGoing:
       let retries = quarantine.orphans
       for k, v in retries:
-        discard add(dag, quarantine, k, v)
+        discard addRawBlock(dag, quarantine, k, v)
       # Keep going for as long as the pending dag is shrinking
       # TODO inefficient! so what?
       keepGoing = quarantine.orphans.len < retries.len
   blockRef
 
-proc add*(
+proc addRawBlock*(
     dag: var CandidateChains, quarantine: var Quarantine,
     blockRoot: Eth2Digest,
     signedBlock: SignedBeaconBlock): Result[BlockRef, BlockError] {.gcsafe.} =

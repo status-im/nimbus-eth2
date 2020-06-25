@@ -20,8 +20,7 @@ import
   conf, time, beacon_chain_db,
   attestation_pool, block_pool, eth2_network,
   beacon_node_types, mainchain_monitor, request_manager,
-  sync_manager,
-  fork_choice/fork_choice
+  sync_manager
 
 # This removes an invalid Nim warning that the digest module is unused here
 # It's currently used for `shortLog(head.blck.root)`

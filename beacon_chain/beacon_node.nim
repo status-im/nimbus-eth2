@@ -303,7 +303,7 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
       attestationSlot = attestation.data.slot, headSlot = head.blck.slot
     return
 
-  node.attestationPool.add(attestation)
+  node.attestationPool.addAttestation(attestation)
 
 proc dumpBlock[T](
     node: BeaconNode, signedBlock: SignedBeaconBlock,
@@ -331,7 +331,7 @@ proc storeBlock(
     pcs = "receive_block"
 
   beacon_blocks_received.inc()
-  let blck = node.blockPool.add(blockRoot, signedBlock)
+  let blck = node.blockPool.addRawBlock(blockRoot, signedBlock)
 
   node.dumpBlock(signedBlock, blck)
 

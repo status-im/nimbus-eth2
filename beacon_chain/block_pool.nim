@@ -53,9 +53,9 @@ template head*(pool: BlockPool): Head =
 template finalizedHead*(pool: BlockPool): BlockSlot =
   pool.dag.finalizedHead
 
-proc add*(pool: var BlockPool, blockRoot: Eth2Digest,
+proc addRawBlock*(pool: var BlockPool, blockRoot: Eth2Digest,
           signedBlock: SignedBeaconBlock): Result[BlockRef, BlockError] {.gcsafe.} =
-  add(pool.dag, pool.quarantine, blockRoot, signedBlock)
+  addRawBlock(pool.dag, pool.quarantine, blockRoot, signedBlock)
 
 export parent        # func parent*(bs: BlockSlot): BlockSlot
 export isAncestorOf  # func isAncestorOf*(a, b: BlockRef): bool

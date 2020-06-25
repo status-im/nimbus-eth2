@@ -110,7 +110,7 @@ suiteReport "Block pool processing" & preset():
 
   timedTest "Simple block add&get" & preset():
     let
-      b1Add = pool.add(b1Root, b1)[]
+      b1Add = pool.addRawBlock(b1Root, b1)[]
       b1Get = pool.get(b1Root)
 
     check:
@@ -121,7 +121,7 @@ suiteReport "Block pool processing" & preset():
       pool.heads[0].blck == b1Add
 
     let
-      b2Add = pool.add(b2Root, b2)[]
+      b2Add = pool.addRawBlock(b2Root, b2)[]
       b2Get = pool.get(b2Root)
 
     check:
@@ -138,7 +138,7 @@ suiteReport "Block pool processing" & preset():
     let
       b4 = addTestBlock(stateData.data, b2Root, cache)
       b4Root = hash_tree_root(b4.message)
-      b4Add = pool.add(b4Root, b4)[]
+      b4Add = pool.addRawBlock(b4Root, b4)[]
 
     check:
       b4Add.parent == b2Add
@@ -174,13 +174,13 @@ suiteReport "Block pool processing" & preset():
       blocks[0..<2] == [BlockRef nil, nil] # block 3 is missing!
 
   timedTest "Reverse order block add & get" & preset():
-    check: pool.add(b2Root, b2).error == MissingParent
+    check: pool.addRawBlock(b2Root, b2).error == MissingParent
 
     check:
       pool.get(b2Root).isNone() # Unresolved, shouldn't show up
       FetchRecord(root: b1Root) in pool.checkMissing()
 
-    check: pool.add(b1Root, b1).isOk
+    check: pool.addRawBlock(b1Root, b1).isOk
 
     let
       b1Get = pool.get(b1Root)
@@ -215,8 +215,8 @@ suiteReport "Block pool processing" & preset():
 
   timedTest "Adding the same block twice returns a Duplicate error" & preset():
     let
-      b10 = pool.add(b1Root, b1)[]
-      b11 = pool.add(b1Root, b1)
+      b10 = pool.addRawBlock(b1Root, b1)[]
+      b11 = pool.addRawBlock(b1Root, b1)
 
     check:
       b11.error == Duplicate
@@ -224,7 +224,7 @@ suiteReport "Block pool processing" & preset():
 
   timedTest "updateHead updates head and headState" & preset():
     let
-      b1Add = pool.add(b1Root, b1)[]
+      b1Add = pool.addRawBlock(b1Root, b1)[]
 
     pool.updateHead(b1Add)
 
@@ -234,8 +234,8 @@ suiteReport "Block pool processing" & preset():
 
   timedTest "updateStateData sanity" & preset():
     let
-      b1Add = pool.add(b1Root, b1)[]
-      b2Add = pool.add(b2Root, b2)[]
+      b1Add = pool.addRawBlock(b1Root, b1)[]
+      b2Add = pool.addRawBlock(b2Root, b2)[]
       bs1 = BlockSlot(blck: b1Add, slot: b1.message.slot)
       bs1_3 = b1Add.atSlot(3.Slot)
       bs2_3 = b2Add.atSlot(3.Slot)
@@ -297,7 +297,7 @@ suiteReport "BlockPool finalization tests" & preset():
         tmpState[], tmpState.data.slot + (5 * SLOTS_PER_EPOCH).uint64)
 
     let lateBlock = makeTestBlock(tmpState[], pool.head.blck.root, cache)
-    check: pool.add(hash_tree_root(blck.message), blck).isOk
+    check: pool.addRawBlock(hash_tree_root(blck.message), blck).isOk
 
     for i in 0 ..< (SLOTS_PER_EPOCH * 6):
       if i == 1:
@@ -313,7 +313,7 @@ suiteReport "BlockPool finalization tests" & preset():
           attestations = makeFullAttestations(
             pool.headState.data.data, pool.head.blck.root,
             pool.headState.data.data.slot, cache, {}))
-      let added = pool.add(hash_tree_root(blck.message), blck)[]
+      let added = pool.addRawBlock(hash_tree_root(blck.message), blck)[]
       pool.updateHead(added)
 
     check:
@@ -324,7 +324,7 @@ suiteReport "BlockPool finalization tests" & preset():
     check:
       # The late block is a block whose parent was finalized long ago and thus
       # is no longer a viable head candidate
-      pool.add(hash_tree_root(lateBlock.message), lateBlock).error == Unviable
+      pool.addRawBlock(hash_tree_root(lateBlock.message), lateBlock).error == Unviable
 
     let
       pool2 = BlockPool.init(db)
@@ -349,7 +349,7 @@ suiteReport "BlockPool finalization tests" & preset():
           attestations = makeFullAttestations(
             pool.headState.data.data, pool.head.blck.root,
             pool.headState.data.data.slot, cache, {}))
-      let added = pool.add(hash_tree_root(blck.message), blck)[]
+      let added = pool.addRawBlock(hash_tree_root(blck.message), blck)[]
       pool.updateHead(added)
 
     # Advance past epoch so that the epoch transition is gapped
@@ -363,7 +363,7 @@ suiteReport "BlockPool finalization tests" & preset():
         pool.headState.data.data, pool.head.blck.root,
         pool.headState.data.data.slot, cache, {}))
 
-    let added = pool.add(hash_tree_root(blck.message), blck)[]
+    let added = pool.addRawBlock(hash_tree_root(blck.message), blck)[]
     pool.updateHead(added)
 
     let

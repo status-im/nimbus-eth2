@@ -12,7 +12,7 @@ import
   chronicles, stew/[byteutils], json_serialization/std/sets,
   ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator],
   ./extras, ./block_pool, ./block_pools/candidate_chains, ./beacon_node_types,
-  ./fork_choice/[fork_choice_types, fork_choice]
+  ./fork_choice/fork_choice
 
 logScope: topics = "attpool"
 
@@ -277,7 +277,7 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
       blockSlot = shortLog(blck.slot),
       cat = "filtering"
 
-proc add*(pool: var AttestationPool, attestation: Attestation) =
+proc addAttestation*(pool: var AttestationPool, attestation: Attestation) =
   ## Add a verified attestation to the fork choice context
   logScope: pcs = "atp_add_attestation"
 
