@@ -133,7 +133,7 @@ proc isValidAttestation*(
     pool.blockPool.addMissing(attestation.data.beacon_block_root)
     return false
 
-  pool.blockPool.withEpochState(
+  pool.blockPool.withState(
       pool.blockPool.tmpState,
       BlockSlot(blck: attestationBlck, slot: attestation.data.slot)):
     when ETH2_SPEC == "v0.12.1":
