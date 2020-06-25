@@ -27,7 +27,6 @@ type
     MissingParent
     Old
     Invalid
-    Duplicate
 
   Quarantine* = object
     ## Keeps track of unsafe blocks coming from the network

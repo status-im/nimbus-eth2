@@ -68,13 +68,7 @@ proc init*(T: type BlockPools, db: BeaconChainDB,
     updateFlags: UpdateFlags = {}): BlockPools =
   result.dag = init(CandidateChains, db, updateFlags)
 
-func addFlags*(pool: BlockPool, flags: UpdateFlags) =
-  ## Add a flag to the block processing
-  ## This is destined for testing to add skipBLSValidation flag
-  pool.dag.updateFlags.incl flags
-
 export init          # func init*(T: type BlockRef, root: Eth2Digest, blck: BeaconBlock): BlockRef
-export addFlags
 
 func getRef*(pool: BlockPool, root: Eth2Digest): BlockRef =
   ## Retrieve a resolved block reference, if available
