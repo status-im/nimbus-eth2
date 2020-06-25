@@ -67,9 +67,10 @@ fi
 
 mkdir -p "${METRICS_DIR}"
 ./scripts/make_prometheus_config.sh \
-	--nodes ${TOTAL_NODES} \
-	--base-metrics-port ${BASE_METRICS_PORT} \
-	--config-file "${METRICS_DIR}/prometheus.yml"
+  --nodes ${TOTAL_NODES} \
+  --base-metrics-port ${BASE_METRICS_PORT} \
+  --config-file "${METRICS_DIR}/prometheus.yml" || true # TODO: this currently fails on macOS,
+                                                        # but it can be considered non-critical
 
 COMMANDS=()
 
@@ -87,7 +88,7 @@ if [[ "$USE_PROMETHEUS" == "yes" ]]; then
     rm -rf "${METRICS_DIR}/data"
     mkdir -p "${METRICS_DIR}/data"
     # TODO: Prometheus is not shut down properly on tmux kill-session
-    killall prometheus
+    killall prometheus > /dev/null || true
     PROMETHEUS_FLAGS="--config.file=./prometheus.yml --storage.tsdb.path=./data"
     $TMUX_CMD new-window -d -t $TMUX_SESSION_NAME -n "$PROMETHEUS_CMD" "cd '$METRICS_DIR' && $PROMETHEUS_CMD $PROMETHEUS_FLAGS"
   else

@@ -175,11 +175,11 @@ if [[ $USE_GANACHE == "0" ]]; then
 else
 	make deposit_contract
 
-  echo "Launching ganache"
+	echo "Launching ganache"
 	ganache-cli --blockTime 17 --gasLimit 100000000 -e 100000 --verbose > "${DATA_DIR}/log_ganache.txt" 2>&1 &
 	PIDS="${PIDS},$!"
 
-  echo "Deploying deposit contract"
+	echo "Deploying deposit contract"
 	WEB3_ARG="--web3-url=ws://localhost:8545"
 	DEPOSIT_CONTRACT_ADDRESS=$(./build/deposit_contract deploy $WEB3_ARG)
 	DEPOSIT_CONTRACT_ARG="--deposit-contract=$DEPOSIT_CONTRACT_ADDRESS"
@@ -202,7 +202,8 @@ fi
 ./scripts/make_prometheus_config.sh \
 		--nodes ${NUM_NODES} \
 		--base-metrics-port ${BASE_METRICS_PORT} \
-		--config-file "${DATA_DIR}/prometheus.yml"
+		--config-file "${DATA_DIR}/prometheus.yml" || true # TODO: this currently fails on macOS,
+																											 # but it can be considered non-critical
 
 # Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
 # instance as the parent and the target process name as a pattern to the
