@@ -192,7 +192,7 @@ proc slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
   increase_balance(
     state, whistleblower_index, whistleblowing_reward - proposer_reward)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#genesis
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#genesis
 proc initialize_beacon_state_from_eth1*(
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
@@ -221,13 +221,20 @@ proc initialize_beacon_state_from_eth1*(
       current_version: Version(GENESIS_FORK_VERSION),
       epoch: GENESIS_EPOCH),
     genesis_time:
-      eth1_timestamp + 2'u64 * SECONDS_PER_DAY -
-        (eth1_timestamp mod SECONDS_PER_DAY),
+      # TODO: remove once we switch completely to v0.12.1
+      when SPEC_VERSION == "0.12.1":
+        eth1_timestamp + GENESIS_DELAY
+      else:
+        eth1_timestamp + 2'u64 * SECONDS_PER_DAY -
+          (eth1_timestamp mod SECONDS_PER_DAY),
     eth1_data:
       Eth1Data(block_hash: eth1_block_hash, deposit_count: uint64(len(deposits))),
     latest_block_header:
       BeaconBlockHeader(
         body_root: hash_tree_root(BeaconBlockBody(
+          # This differs from the spec intentionally.
+          # We must specify the default value for `ValidatorSig`
+          # in order to get a correct `hash_tree_root`.
           randao_reveal: ValidatorSig(kind: OpaqueBlob)
         ))
       )
