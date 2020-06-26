@@ -68,15 +68,14 @@ proc becomeValidator(validatorsDir, beaconNodeBinary, secretsDir, depositContrac
     discard readLineFromStdin()
 
 proc runNode(dataDir, beaconNodeBinary, bootstrapFileOpt, depositContractOpt, genesisFileOpt: string,
-            basePort, nodeID, baseMetricsPort, baseRpcPort: int) =
+            basePort, nodeID, baseMetricsPort, baseRpcPort: int, printCmdOnly: bool) =
   let logLevel = getEnv("LOG_LEVEL")
   var logLevelOpt = ""
   if logLevel.len > 0:
     logLevelOpt = &"""--log-level="{logLevel}" """
 
   mode = Verbose
-  cd dataDir
-  execIgnoringExitCode replace(&"""{beaconNodeBinary}
+  let cmd = replace(&"""{beaconNodeBinary}
     --data-dir="{dataDir}"
     --dump
     --web3-url={web3Url}
@@ -90,6 +89,12 @@ proc runNode(dataDir, beaconNodeBinary, bootstrapFileOpt, depositContractOpt, ge
     {logLevelOpt}
     {depositContractOpt}
     {genesisFileOpt} """, "\n", " ")
+
+  if printCmdOnly:
+    echo &"cd {dataDir}; exec {cmd}"
+  else:
+    cd dataDir
+    execIgnoringExitCode cmd
 
 cli do (skipGoerliKey {.
           desc: "Don't prompt for an Eth1 Goerli key to become a validator" .}: bool,
@@ -122,6 +127,9 @@ cli do (skipGoerliKey {.
 
         runOnly {.
           desc: "Just run it." .} = false,
+
+        printCmdOnly {.
+          desc: "Just print the commands (suitable for passing to 'eval'; might replace current shell)." .} = false,
 
         testnetName {.argument .}: string):
   let
@@ -222,5 +230,5 @@ cli do (skipGoerliKey {.
 
   if not buildOnly:
     runNode(dataDir, beaconNodeBinary, bootstrapFileOpt, depositContractOpt, genesisFileOpt,
-            basePort, nodeID, baseMetricsPort, baseRpcPort)
+            basePort, nodeID, baseMetricsPort, baseRpcPort, printCmdOnly)
 
