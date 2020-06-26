@@ -331,9 +331,11 @@ proc storeBlock(
     pcs = "receive_block"
 
   beacon_blocks_received.inc()
-  let blck = node.blockPool.addRawBlock(blockRoot, signedBlock) do (validBlock: BlockRef):
-    # Callback add to fork choice if valid
-    node.attestationPool.addForkChoice_v2(validBlock)
+
+  {.gcsafe.}: # TODO: fork choice and blockpool should sync via messages instead of callbacks
+    let blck = node.blockPool.addRawBlock(blockRoot, signedBlock) do (validBlock: BlockRef):
+      # Callback add to fork choice if valid
+      node.attestationPool.addForkChoice_v2(validBlock)
 
   node.dumpBlock(signedBlock, blck)
 

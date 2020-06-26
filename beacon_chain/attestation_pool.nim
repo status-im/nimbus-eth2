@@ -41,6 +41,8 @@ proc init*(T: type AttestationPool, blockPool: BlockPool): T =
     finalized_root = blockPool.finalizedHead.blck.root
   ).get()
 
+  # TODO: this doesn't work when reloading from an in-progress sync
+
   # Load all blocks since finalized head - TODO a proper test
   var sorted = toSeq(blockPool.dag.blocks.values())
   # TODO: topological sort

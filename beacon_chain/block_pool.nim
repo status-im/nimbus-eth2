@@ -64,6 +64,7 @@ proc addRawBlock*(pool: var BlockPool, blockRoot: Eth2Digest,
   # and is in dire need of refactoring
   # - the ugly `inAdd` field
   # - the callback
+  # - callback may be problematic as it's called in async validator duties
   result = addRawBlock(pool.dag, pool.quarantine, blockRoot, signedBlock, callback)
 
 export parent        # func parent*(bs: BlockSlot): BlockSlot

@@ -51,6 +51,7 @@ proc addResolvedBlock(
   # and is in dire need of refactoring
   # - the ugly `quarantine.inAdd` field
   # - the callback
+  # - callback may be problematic as it's called in async validator duties
   logScope: pcs = "block_resolution"
   doAssert state.slot == signedBlock.message.slot, "state must match block"
 
@@ -130,6 +131,7 @@ proc addRawBlock*(
   # and is in dire need of refactoring
   # - the ugly `quarantine.inAdd` field
   # - the callback
+  # - callback may be problematic as it's called in async validator duties
 
   # TODO: to facilitate adding the block to the attestation pool
   #       this should also return justified and finalized epoch corresponding
