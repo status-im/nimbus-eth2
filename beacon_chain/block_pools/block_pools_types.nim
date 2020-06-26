@@ -6,8 +6,11 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  deques, tables,
+  # Standard library
+  deques, tables, hashes,
+  # Status libraries
   stew/[endians2, byteutils], chronicles,
+  # Internals
   ../spec/[datatypes, crypto, digest],
   ../beacon_chain_db, ../extras
 
@@ -91,12 +94,9 @@ type
     # -----------------------------------
     # CandidateChains - DAG of candidate chains
 
-    blocks*: OrderedTable[Eth2Digest, BlockRef] ##\
+    blocks*: Table[Eth2Digest, BlockRef] ##\
     ## Directed acyclic graph of blocks pointing back to a finalized block on the chain we're
     ## interested in - we call that block the tail
-    # TODO: OrderedTable is only needed for init
-    #       (and is even reversed)
-    #       a topological sort would be better instead
 
     tail*: BlockRef ##\
     ## The earliest finalized block we know about
@@ -193,3 +193,6 @@ proc shortLog*(v: BlockRef): string =
 
 chronicles.formatIt BlockSlot: shortLog(it)
 chronicles.formatIt BlockRef: shortLog(it)
+
+func hash*(blockRef: BlockRef): Hash =
+  hash(blockRef.root)

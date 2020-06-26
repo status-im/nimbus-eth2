@@ -41,17 +41,8 @@ proc init*(T: type AttestationPool, blockPool: BlockPool): T =
     finalized_root = blockPool.finalizedHead.blck.root
   ).get()
 
-  # TODO: this doesn't work when reloading from an in-progress sync
-
   # Load all blocks since finalized head - TODO a proper test
-  var sorted = toSeq(blockPool.dag.blocks.values())
-  # TODO: topological sort
-  # We rely on the fact that at BlockPool initialization
-  # the chain is added to the DAG from the head to the tail
-  # and that Attestation Pool is always initialized just after Blockpool
-  sorted.reverse()
-
-  for blck in sorted.items():
+  for blck in blockPool.dag.topoSortedSinceLastFinalization():
     if blck.root == blockPool.finalizedHead.blck.root:
       continue
 
