@@ -129,7 +129,7 @@ proc addRawBlock*(
   logScope: pcs = "block_addition"
 
   # Already seen this block??
-  dag.blocks.withValue(blockRoot, blockRef):
+  if blockRoot in dag.blocks:
     debug "Block already exists",
       blck = shortLog(blck),
       blockRoot = shortLog(blockRoot),

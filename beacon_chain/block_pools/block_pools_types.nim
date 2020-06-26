@@ -91,7 +91,7 @@ type
     # -----------------------------------
     # CandidateChains - DAG of candidate chains
 
-    blocks*: Table[Eth2Digest, BlockRef] ##\
+    blocks*: OrderedTable[Eth2Digest, BlockRef] ##\
     ## Directed acyclic graph of blocks pointing back to a finalized block on the chain we're
     ## interested in - we call that block the tail
 

@@ -36,6 +36,14 @@ func init*(T: type AttestationPool, blockPool: BlockPool): T =
     finalized_root = blockPool.finalizedHead.blck.root
   ).get()
 
+  # TODO: Load all blocks
+
+  {.noSideEffect.}:
+    info "Fork choice initialized",
+      justified_epoch = $blockPool.headState.data.data.current_justified_checkpoint.epoch,
+      finalized_epoch = $blockPool.headState.data.data.finalized_checkpoint.epoch,
+      finalized_root = shortlog(blockPool.finalizedHead.blck.root)
+
   T(
     mapSlotsToAttestations: initDeque[AttestationsSeen](),
     blockPool: blockPool,

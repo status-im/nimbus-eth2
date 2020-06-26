@@ -208,7 +208,7 @@ proc init*(T: type CandidateChains, db: BeaconChainDB,
     headRoot = headBlockRoot.get()
 
   var
-    blocks = {tailRef.root: tailRef}.toTable()
+    blocks = {tailRef.root: tailRef}.toOrderedTable()
     headRef: BlockRef
 
   if headRoot != tailRoot:
