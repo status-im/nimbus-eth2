@@ -178,6 +178,16 @@ func on_block*(
       # Genesis (but Genesis might not be default(Eth2Digest))
     parent_index = none(int)
   elif parent notin self.indices:
+    {.noSideEffect.}:
+      error "Trying to add block with unknown parent",
+        child_root = shortLog(root),
+        parent_root = shortLog(parent),
+        justified_epoch = $justified_epoch,
+        finalized_epoch = $finalized_epoch,
+        slot_optional = $slot
+
+      writeStackTrace()
+
     return ForkChoiceError(
       kind: fcErrUnknownParent,
       child_root: root,

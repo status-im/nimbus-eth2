@@ -54,8 +54,17 @@ template finalizedHead*(pool: BlockPool): BlockSlot =
   pool.dag.finalizedHead
 
 proc addRawBlock*(pool: var BlockPool, blockRoot: Eth2Digest,
-          signedBlock: SignedBeaconBlock): Result[BlockRef, BlockError] {.gcsafe.} =
-  addRawBlock(pool.dag, pool.quarantine, blockRoot, signedBlock)
+          signedBlock: SignedBeaconBlock,
+          callback: proc(blck: BlockRef)
+        ): Result[BlockRef, BlockError] =
+  ## Add a raw block to the blockpool
+  ## Trigger "callback" on success
+  ## Adding a rawblock might unlock a consequent amount of blocks in quarantine
+  # TODO: `addRawBlock` is accumulating significant cruft
+  # and is in dire need of refactoring
+  # - the ugly `inAdd` field
+  # - the callback
+  result = addRawBlock(pool.dag, pool.quarantine, blockRoot, signedBlock, callback)
 
 export parent        # func parent*(bs: BlockSlot): BlockSlot
 export isAncestorOf  # func isAncestorOf*(a, b: BlockRef): bool

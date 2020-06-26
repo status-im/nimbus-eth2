@@ -134,9 +134,11 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           state.fork, state.genesis_validators_root, newBlock.message.slot,
           blockRoot, privKey)
 
-      let added = blockPool.addRawBlock(blockRoot, newBlock).tryGet()
-      blck() = added
-      blockPool.updateHead(added)
+      let added = blockPool.addRawBlock(blockRoot, newBlock) do (validBlock: BlockRef):
+        # Callback Add to fork choice
+        attPool.addForkChoice_v2(validBlock)
+      blck() = added[]
+      blockPool.updateHead(added[])
 
   for i in 0..<slots:
     let

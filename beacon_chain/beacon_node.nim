@@ -331,7 +331,9 @@ proc storeBlock(
     pcs = "receive_block"
 
   beacon_blocks_received.inc()
-  let blck = node.blockPool.addRawBlock(blockRoot, signedBlock)
+  let blck = node.blockPool.addRawBlock(blockRoot, signedBlock) do (validBlock: BlockRef):
+    # Callback add to fork choice if valid
+    node.attestationPool.addForkChoice_v2(validBlock)
 
   node.dumpBlock(signedBlock, blck)
 
@@ -340,10 +342,6 @@ proc storeBlock(
   # was pruned from the ForkChoice.
   if blck.isErr:
     return err(blck.error)
-
-  # Still here? This means we received a valid block and we need to add it
-  # to the fork choice
-  node.attestationPool.addForkChoice_v2(blck.get())
 
   # The block we received contains attestations, and we might not yet know about
   # all of them. Let's add them to the attestation pool.

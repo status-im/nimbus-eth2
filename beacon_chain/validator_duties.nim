@@ -223,7 +223,10 @@ proc proposeSignedBlock*(node: BeaconNode,
                          validator: AttachedValidator,
                          newBlock: SignedBeaconBlock,
                          blockRoot: Eth2Digest): Future[BlockRef] {.async.} =
-  let newBlockRef = node.blockPool.addRawBlock(blockRoot, newBlock)
+  let newBlockRef = node.blockPool.addRawBlock(blockRoot, newBlock) do (validBlock: BlockRef):
+    # Callback Add to fork choice
+    node.attestationPool.addForkChoice_v2(validBlock)
+
   if newBlockRef.isErr:
     warn "Unable to add proposed block to block pool",
       newBlock = shortLog(newBlock.message),
@@ -231,8 +234,6 @@ proc proposeSignedBlock*(node: BeaconNode,
       cat = "bug"
 
     return head
-
-  node.attestationPool.addForkChoice_v2(newBlockRef.get())
 
   info "Block proposed",
     blck = shortLog(newBlock.message),
