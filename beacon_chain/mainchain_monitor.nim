@@ -537,7 +537,7 @@ method onDepositEvent*(p: Web3DataProviderRef,
   if p.subscription != nil:
     await p.subscription.unsubscribe()
 
-  debug "Subsribing for deposit events", startBlock
+  debug "Subscribing for deposit events", startBlock
 
   p.subscription = await p.ns.subscribe(
     DepositEvent, %*{"fromBlock": &"0x{startBlock:X}"}, handler)
