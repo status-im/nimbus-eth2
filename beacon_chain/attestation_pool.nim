@@ -161,8 +161,6 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
   #       on the state and those that don't to cheaply
   #       discard invalid attestations before rewinding state.
 
-  # TODO: stateCache usage
-  var stateCache = get_empty_per_epoch_cache()
   if not isValidAttestationTargetEpoch(state, attestation.data):
     notice "Invalid attestation",
       attestation = shortLog(attestation),
