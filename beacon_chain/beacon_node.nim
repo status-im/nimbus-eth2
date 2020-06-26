@@ -363,7 +363,7 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
 proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
   ## skip a few in case we're running late.
-  ## lastSlot: the last slot that we sucessfully processed, so we know where to
+  ## lastSlot: the last slot that we successfully processed, so we know where to
   ##           start work from
   ## scheduledSlot: the slot that we were aiming for, in terms of timing
 
@@ -563,7 +563,7 @@ proc runForwardSyncLoop(node: BeaconNode) {.async.} =
       # We doing round manually because stdlib.round is deprecated
       storeSpeed = round(v * 10000) / 10000
 
-    info "Forward sync blocks got imported sucessfully", count = len(list),
+    info "Forward sync blocks got imported successfully", count = len(list),
          local_head_slot = getLocalHeadSlot(), store_speed = storeSpeed
     ok()
 
