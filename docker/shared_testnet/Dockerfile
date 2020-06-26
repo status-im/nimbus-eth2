@@ -11,5 +11,7 @@ ARG NETWORK
 ENV NETWORK=${NETWORK}
 
 STOPSIGNAL SIGINT
-ENTRYPOINT ["/root/nim-beacon-chain/docker/shared_testnet/entry_point.sh"]
+
+COPY "entry_point.sh" "/root/"
+ENTRYPOINT ["/root/entry_point.sh"]
 
