@@ -94,6 +94,9 @@ type
     blocks*: OrderedTable[Eth2Digest, BlockRef] ##\
     ## Directed acyclic graph of blocks pointing back to a finalized block on the chain we're
     ## interested in - we call that block the tail
+    # TODO: OrderedTable is only needed for init
+    #       (and is even reversed)
+    #       a topological sort would be better instead
 
     tail*: BlockRef ##\
     ## The earliest finalized block we know about

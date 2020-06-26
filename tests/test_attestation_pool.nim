@@ -42,8 +42,6 @@ suiteReport "Attestation pool processing" & preset():
     check:
       process_slots(state.data, state.data.data.slot + 1)
 
-    pool[].addForkChoice_v2(blockPool[].tail) # Make the tail known to fork choice
-
   timedTest "Can add and retrieve simple attestation" & preset():
     var cache = get_empty_per_epoch_cache()
     let

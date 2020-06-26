@@ -26,7 +26,7 @@ type
   BlockPools* = object
     # TODO: Rename BlockPools
     quarantine: Quarantine
-    dag: CandidateChains
+    dag*: CandidateChains
 
   BlockPool* = BlockPools
 

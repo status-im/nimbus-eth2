@@ -8,15 +8,18 @@
 {.push raises: [Defect].}
 
 import
-  deques, sequtils, tables, options,
+  # Standard libraries
+  deques, sequtils, tables, options, algorithm,
+  # Status libraries
   chronicles, stew/[byteutils], json_serialization/std/sets,
+  # Internal
   ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator],
   ./extras, ./block_pool, ./block_pools/candidate_chains, ./beacon_node_types,
   ./fork_choice/fork_choice
 
 logScope: topics = "attpool"
 
-func init*(T: type AttestationPool, blockPool: BlockPool): T =
+proc init*(T: type AttestationPool, blockPool: BlockPool): T =
   ## Initialize an AttestationPool from the blockPool `headState`
   ## The `finalized_root` works around the finalized_checkpoint of the genesis block
   ## holding a zero_root.
@@ -24,9 +27,11 @@ func init*(T: type AttestationPool, blockPool: BlockPool): T =
   #      probably be removed as a dependency of AttestationPool (or some other
   #      smart refactoring)
 
+  # TODO: Return Value Optimization
+
   # TODO: In tests, on blockpool.init the finalized root
   #       from the `headState` and `justifiedState` is zero
-  let forkChoice = initForkChoice(
+  var forkChoice = initForkChoice(
     finalized_block_slot = default(Slot),             # This is unnecessary for fork choice but may help external components for example logging/debugging
     finalized_block_state_root = default(Eth2Digest), # This is unnecessary for fork choice but may help external components for example logging/debugging
     justified_epoch = blockPool.headState.data.data.current_justified_checkpoint.epoch,
@@ -36,13 +41,55 @@ func init*(T: type AttestationPool, blockPool: BlockPool): T =
     finalized_root = blockPool.finalizedHead.blck.root
   ).get()
 
-  # TODO: Load all blocks
+  # Load all blocks since finalized head - TODO a proper test
+  var sorted = toSeq(blockPool.dag.blocks.values())
+  # TODO: topological sort
+  # We rely on the fact that at BlockPool initialization
+  # the chain is added to the DAG from the head to the tail
+  # and that Attestation Pool is always initialized just after Blockpool
+  sorted.reverse()
 
-  {.noSideEffect.}:
-    info "Fork choice initialized",
-      justified_epoch = $blockPool.headState.data.data.current_justified_checkpoint.epoch,
-      finalized_epoch = $blockPool.headState.data.data.finalized_checkpoint.epoch,
-      finalized_root = shortlog(blockPool.finalizedHead.blck.root)
+  for blck in sorted.items():
+    if blck.root == blockPool.finalizedHead.blck.root:
+      continue
+
+    # BlockRef
+    # should ideally contain the justified_epoch and finalized_epoch
+    # so that we can pass them directly to `process_block` without having to
+    # redo "updateStateData"
+    #
+    # In any case, `updateStateData` should shortcut
+    # to `getStateDataCached`
+
+    updateStateData(
+      blockPool,
+      blockPool.tmpState,
+      BlockSlot(blck: blck, slot: blck.slot)
+    )
+
+    debug "Preloading fork choice with block",
+      block_root = shortlog(blck.root),
+      parent_root = shortlog(blck.parent.root),
+      justified_epoch = $blockPool.tmpState.data.data.current_justified_checkpoint.epoch,
+      finalized_epoch = $blockPool.tmpState.data.data.finalized_checkpoint.epoch,
+      slot = $blck.slot
+
+    let status = forkChoice.process_block(
+      block_root = blck.root,
+      parent_root = blck.parent.root,
+      justified_epoch = blockPool.tmpState.data.data.current_justified_checkpoint.epoch,
+      finalized_epoch = blockPool.tmpState.data.data.finalized_checkpoint.epoch,
+      # Unused in fork choice - i.e. for logging or caching extra metadata
+      slot = blck.slot,
+      state_root = default(Eth2Digest)
+    )
+
+    doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
+
+  info "Fork choice initialized",
+    justified_epoch = $blockPool.headState.data.data.current_justified_checkpoint.epoch,
+    finalized_epoch = $blockPool.headState.data.data.finalized_checkpoint.epoch,
+    finalized_root = shortlog(blockPool.finalizedHead.blck.root)
 
   T(
     mapSlotsToAttestations: initDeque[AttestationsSeen](),
