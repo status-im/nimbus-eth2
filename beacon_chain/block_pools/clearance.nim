@@ -95,6 +95,9 @@ proc addResolvedBlock(
     heads = dag.heads.len(),
     cat = "filtering"
 
+  # This MUST be added before the quarantine
+  callback(blockRef)
+
   # Now that we have the new block, we should see if any of the previously
   # unresolved blocks magically become resolved
   # TODO there are more efficient ways of doing this that don't risk
@@ -116,7 +119,6 @@ proc addResolvedBlock(
       # TODO inefficient! so what?
       keepGoing = quarantine.orphans.len < retries.len
 
-  callback(blockRef)
   blockRef
 
 proc addRawBlock*(
