@@ -81,7 +81,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="beacon-chain.html"><strong aria-hidden="true">1.1.</strong> What is Beacon Chain?</a></li><li class="chapter-item expanded "><a href="nimbus.html"><strong aria-hidden="true">1.2.</strong> What is Nimbus?</a></li></ol></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">2.</strong> Become a Validator</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">3.</strong> Installation</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">4.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html" class="active"><strong aria-hidden="true">5.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">6.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">7.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">2.</strong> Become a Validator</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">3.</strong> Installation</a></li><li class="chapter-item expanded "><a href="cli.html"><strong aria-hidden="true">4.</strong> Command-line Options</a></li><li class="chapter-item expanded "><a href="advanced.html" class="active"><strong aria-hidden="true">5.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">6.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">7.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -154,7 +154,7 @@ The following sections explain how to setup your build environment on your platf
 <p>Install Mingw-w64 for your architecture using the &quot;<a href="https://sourceforge.net/projects/mingw-w64/files/">MinGW-W64 Online
 Installer</a>&quot; (first link
 under the directory listing). Run it and select your architecture in the setup
-menu (&quot;i686&quot; on 32-bit, &quot;x86_64&quot; on 64-bit), set the threads to &quot;win32&quot; and
+menu (<code>i686</code> on 32-bit, <code>x86_64</code> on 64-bit), set the threads to <code>win32</code> and
 the exceptions to &quot;dwarf&quot; on 32-bit and &quot;seh&quot; on 64-bit. Change the
 installation directory to &quot;C:\mingw-w64&quot; and add it to your system PATH in &quot;My
 Computer&quot;/&quot;This PC&quot; -&gt; Properties -&gt; Advanced system settings -&gt; Environment
@@ -170,11 +170,10 @@ mingw32-make fetch-dlls # this will place the right DLLs for your architecture i
 <p>You can now follow those instructions in the previous section by replacing <code>make</code> with <code>mingw32-make</code> (regardless of your 32-bit or 64-bit architecture):</p>
 <pre><code class="language-bash">mingw32-make test # run the test suite
 </code></pre>
-<h3><a class="header" href="#linux-macos" id="linux-macos">Linux, MacOS</a></h3>
+<h3><a class="header" href="#linux-macos" id="linux-macos">Linux, macOS</a></h3>
 <p>After cloning the repo:</p>
-<pre><code class="language-bash">make # The first `make` invocation will update all Git submodules and prompt you to run `make` again.
-     # It's only required once per Git clone. You'll run `make update` after each `git pull`, in the future,
-     # to keep those submodules up to date.
+<pre><code class="language-bash"># Build beacon_node and all the tools, using 4 parallel Make jobs
+make -j4
 
 # Run tests
 make test
@@ -197,7 +196,7 @@ nim --version # Nimbus is tested and supported on 1.0.2 at the moment
 <ul>
 <li>Raspberry PI 3b+ or Raspberry Pi 4b.</li>
 <li>64gb SD Card (less might work too, but the default recommended 4-8GB will probably be too small)</li>
-<li><a href="https://www.raspberrypi.org/downloads/raspbian/">Rasbian Buster Lite</a> - Lite version is enough to get going and will save some disk space!</li>
+<li><a href="https://www.raspberrypi.org/downloads/raspbian/">Raspbian Buster Lite</a> - Lite version is enough to get going and will save some disk space!</li>
 </ul>
 <p>Assuming you're working with a freshly written image:</p>
 <pre><code class="language-bash">
@@ -258,7 +257,7 @@ make LOG_LEVEL=TRACE beacon_node # log everything
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="api.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="cli.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
@@ -276,7 +275,7 @@ make LOG_LEVEL=TRACE beacon_node # log everything
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="api.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="cli.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 

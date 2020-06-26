@@ -81,7 +81,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="beacon-chain.html"><strong aria-hidden="true">1.1.</strong> What is Beacon Chain?</a></li><li class="chapter-item expanded "><a href="nimbus.html"><strong aria-hidden="true">1.2.</strong> What is Nimbus?</a></li></ol></li><li class="chapter-item expanded "><a href="validator.html" class="active"><strong aria-hidden="true">2.</strong> Become a Validator</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">3.</strong> Installation</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">4.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">5.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">6.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">7.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="validator.html" class="active"><strong aria-hidden="true">2.</strong> Become a Validator</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">3.</strong> Installation</a></li><li class="chapter-item expanded "><a href="cli.html"><strong aria-hidden="true">4.</strong> Command-line Options</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">5.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">6.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">7.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -153,20 +153,20 @@
 <p>Though Nimbus can connect to any of the testnets published in the <a href="https://github.com/eth2-clients/eth2-testnets/tree/master/nimbus">eth2-clients/eth2-testnets repo</a>, below are the recommended ones:</p>
 <ul>
 <li>Public Testnet: <a href="https://github.com/goerli/witti">witti</a> (<a href="https://witti.beaconcha.in">explorer</a>)</li>
-<li>Local Testnet: testnet0</li>
+<li>Local Testnet: testnet0 (currently not available)</li>
 </ul>
 <h2><a class="header" href="#connecting-to-testnets" id="connecting-to-testnets">Connecting to Testnets</a></h2>
 <p>Before we start, we have to obtain 32 Ethers on the Goerli testnet. Then, we can deposit 32 Ethers to the registration smart contract to become a validator.</p>
 <ol>
-<li>Open your <a href="https://metamask.io/">MetaMask</a> wallet, switch to the <code>Goerli Test Network</code> option from the top right cornor.</li>
+<li>Open your <a href="https://metamask.io/">MetaMask</a> wallet, switch to the <code>Goerli Test Network</code> option from the top right corner.</li>
 <li>Copy your account address by clicking on one of your accounts.</li>
 <li>Post your account address on a social media platform (Twitter or Facebook). Copy the url to the post.</li>
 <li>Paste your post url on the <a href="https://faucet.goerli.mudit.blog/">Goerli faucet</a> and select <code>Give me Ether &gt; 37.5 Ethers</code> from the top right cornor of the page.</li>
 <li>Wait for a few seconds and return to your MetaMask wallet to check if you have successfully received.</li>
-<li>Once the <a href="./install.html">prerequisites</a> are installed, you can connect to testnet0 with the following commands: <br></li>
+<li>Once the <a href="./install.html">prerequisites</a> are installed, you can connect to the witti testnet with the following commands: <br></li>
 </ol>
 <ul>
-<li>Change <code>testnet0</code> to <code>witti</code> to connect to the witti testnet.</li>
+<li>Change <code>witti</code> to <code>testnet0</code> to connect to testnet0.</li>
 <li><strong><em>Remember to replace <code>make</code> with <code>mingw32-make</code> if using Windows.</em></strong></li>
 </ul>
 <pre><code class="language-bash">git clone https://github.com/status-im/nim-beacon-chain
@@ -174,8 +174,8 @@ cd nim-beacon-chain
 git checkout devel
 git pull
 make update
-make testnet0        # This will build Nimbus and all other dependencies
-                     # and connect you to testnet0
+make witti        # This will build Nimbus and all other dependencies
+                     # and connect you to witti
 </code></pre>
 <img src="./img/connect_testnet.PNG" alt="" style="margin: 0 40 0 40"/>
 <ol start="7">
@@ -195,13 +195,16 @@ make testnet0        # This will build Nimbus and all other dependencies
 <h2><a class="header" href="#trouble-shooting" id="trouble-shooting">Trouble Shooting</a></h2>
 <ol>
 <li>
-<p>The directory that stores the blockchain data of the testnet is <code>build/data/testnet0</code> (replace <code>testnet0</code> with other testnet names). Delete this folder if you want to start over. For example, you can start over with a fresh storage if you entered a wrong private key.</p>
+<p>The directory that stores the blockchain data of the testnet is <code>build/data/shared_witti_0</code> (replace <code>witti</code> with other testnet names). Delete this folder if you want to start over. For example, you can start over with a fresh storage if you entered a wrong private key.</p>
 </li>
 <li>
 <p>Currently, you have to switch to the devel branch in order to run the validator node successfully.</p>
 </li>
 <li>
-<p>Everytime you want to update your node to the latest version, run <code>git pull</code>, <code>make update</code>, and then <code>make testnet0</code>.</p>
+<p>Everytime you want to update your node to the latest version, run <code>git pull</code>, <code>make update</code>, and then <code>make witti</code>.</p>
+</li>
+<li>
+<p>If <code>make update</code> has been running for too long, you can use <code>make update V=1</code> or <code>make update V=2</code> for verbose output.</p>
 </li>
 </ol>
 
@@ -210,7 +213,7 @@ make testnet0        # This will build Nimbus and all other dependencies
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="nimbus.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="intro.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
@@ -228,7 +231,7 @@ make testnet0        # This will build Nimbus and all other dependencies
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="nimbus.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="intro.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 

@@ -81,7 +81,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="beacon-chain.html"><strong aria-hidden="true">1.1.</strong> What is Beacon Chain?</a></li><li class="chapter-item expanded "><a href="nimbus.html"><strong aria-hidden="true">1.2.</strong> What is Nimbus?</a></li></ol></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">2.</strong> Become a Validator</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">3.</strong> Installation</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">4.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">5.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">6.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html" class="active"><strong aria-hidden="true">7.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">2.</strong> Become a Validator</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">3.</strong> Installation</a></li><li class="chapter-item expanded "><a href="cli.html"><strong aria-hidden="true">4.</strong> Command-line Options</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">5.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">6.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html" class="active"><strong aria-hidden="true">7.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -148,7 +148,7 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#contribute" id="contribute">Contribute</a></h1>
-<p>Follow these steps to contribute to this book! </p>
+<p>Follow these steps to contribute to this book!</p>
 <p>We use an utility tool called mdBook to create online books from Markdown files.</p>
 <h2><a class="header" href="#before-you-start" id="before-you-start">Before You Start</a></h2>
 <ol>
@@ -162,10 +162,25 @@
 <li>Preview the book at <a href="http://localhost:3000">http://localhost:3000</a>.</li>
 </ol>
 <h2><a class="header" href="#build-and-deploy" id="build-and-deploy">Build and Deploy</a></h2>
+<p>The first step is to submit a pull request to the <a href="https://github.com/status-im/nim-beacon-chain/tree/devel">devel branch</a>.
+Then, after it is merged, do the following under our main repository:</p>
 <ol>
-<li><code>mdbook build</code></li>
+<li><code>cd nim-beacon-chain</code></li>
+<li><code>git checkout devel</code></li>
+<li><code>git pull</code></li>
+<li><code>make update</code> (This is to update the submodules to the latest version)</li>
 <li><code>make publish-book</code></li>
 </ol>
+<h2><a class="header" href="#trouble-shooting" id="trouble-shooting">Trouble Shooting</a></h2>
+<p>If you see file conflicts in the pull request, this may due to that you have created your new branch from an old version of the <code>devel</code> branch. Update your new branch using the following commands:</p>
+<pre><code>git checkout devel
+git pull
+make update
+git checkout readme
+git merge devel
+# use something like `git mergetool` to resolve conflicts, then read the instructions for completing the merge (usually just a `git commit`)
+# check the output of `git diff devel`
+</code></pre>
 <p>Thank you so much for your help to the decentralized and open source community. :)</p>
 
                     </main>

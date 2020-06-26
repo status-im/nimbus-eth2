@@ -81,7 +81,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="beacon-chain.html"><strong aria-hidden="true">1.1.</strong> What is Beacon Chain?</a></li><li class="chapter-item expanded "><a href="nimbus.html"><strong aria-hidden="true">1.2.</strong> What is Nimbus?</a></li></ol></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">2.</strong> Become a Validator</a></li><li class="chapter-item expanded "><a href="install.html" class="active"><strong aria-hidden="true">3.</strong> Installation</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">4.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">5.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">6.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">7.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">2.</strong> Become a Validator</a></li><li class="chapter-item expanded "><a href="install.html" class="active"><strong aria-hidden="true">3.</strong> Installation</a></li><li class="chapter-item expanded "><a href="cli.html"><strong aria-hidden="true">4.</strong> Command-line Options</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">5.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">6.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">7.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -148,13 +148,13 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#installation" id="installation">Installation</a></h1>
-<p>Nimbus beacon chain can run on Linux, MacOS, Windows, and Andriod. At the moment, Nimbus has to be built from source.</p>
+<p>Beacon chain can run on Linux, macOS, Windows, and Android. At the moment, Nimbus has to be built from source.</p>
 <h2><a class="header" href="#external-dependencies" id="external-dependencies">External Dependencies</a></h2>
 <ul>
 <li>Developer tools (C compiler, Make, Bash, Git)</li>
-<li>PCRE
-Nim is not an external dependency, Nimbus will build its own local copy.</li>
+<li>PCRE</li>
 </ul>
+<p>Nim is not an external dependency, Nimbus will build its own local copy.</p>
 <h2><a class="header" href="#linux" id="linux">Linux</a></h2>
 <p>On common Linux distributions the dependencies can be installed with:</p>
 <pre><code class="language-sh"># Debian and Ubuntu
@@ -166,7 +166,7 @@ dnf install @development-tools pcre
 # Archlinux, using an AUR manager for pcre-static
 yourAURmanager -S base-devel pcre-static
 </code></pre>
-<h3><a class="header" href="#macos" id="macos">MacOS</a></h3>
+<h3><a class="header" href="#macos" id="macos">macOS</a></h3>
 <p>Assuming you use <a href="https://brew.sh/">Homebrew</a> to manage packages</p>
 <pre><code class="language-sh">brew install pcre
 </code></pre>
@@ -176,7 +176,7 @@ It also provides a downloading script for prebuilt PCRE.</p>
 <h3><a class="header" href="#android" id="android">Android</a></h3>
 <ul>
 <li>Install the <a href="https://termux.com">Termux</a> app from FDroid or the Google Play store</li>
-<li>Install a <a href="https://wiki.termux.com/wiki/PRoot">PRoot</a> of your choice following the instructions for your preferred distribution. 
+<li>Install a <a href="https://wiki.termux.com/wiki/PRoot">PRoot</a> of your choice following the instructions for your preferred distribution.
 Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on Arm64 architecture (common architecture for Android devices).</li>
 </ul>
 <p><em>Assuming Ubuntu PRoot is used</em></p>
@@ -194,7 +194,7 @@ Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on 
                         
 
                         
-                            <a rel="next" href="api.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="cli.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -212,7 +212,7 @@ Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on 
                 
 
                 
-                    <a rel="next" href="api.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="cli.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
