@@ -86,7 +86,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             var aggregation_bits = CommitteeValidatorsBits.init(committee.len)
             aggregation_bits.setBit index_in_committee
 
-            attPool.add(
+            attPool.addAttestation(
               Attestation(
                 data: data,
                 aggregation_bits: aggregation_bits,
@@ -134,7 +134,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           state.fork, state.genesis_validators_root, newBlock.message.slot,
           blockRoot, privKey)
 
-      let added = blockPool.add(blockRoot, newBlock).tryGet()
+      let added = blockPool.addRawBlock(blockRoot, newBlock).tryGet()
       blck() = added
       blockPool.updateHead(added)
 
