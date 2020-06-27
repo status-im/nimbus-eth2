@@ -17,7 +17,9 @@ docker stop testnet2
 make -C docker/shared_testnet push
 ```
 
-Setting up the remote servers, from the "infra-nimbus" repo:
+## setting up remote servers
+
+From the "infra-nimbus" repo:
 
 ```text
 git pull
