@@ -46,5 +46,7 @@ COPY --from=build /root/nim-beacon-chain/build/beacon_node /usr/bin/
 MAINTAINER Zahary Karadjov <zahary@status.im>
 LABEL description="Nimbus installation that can act as an ETH2 network bootstrap node."
 
+STOPSIGNAL SIGINT
+
 ENTRYPOINT ["/usr/bin/beacon_node"]
 
