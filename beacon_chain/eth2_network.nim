@@ -1166,6 +1166,8 @@ proc traceMessage(fut: FutureBase, digest: MDigest[256]) =
       trace "Outgoing pubsub message sent", message_id = `$`(digest)
     elif fut.error != nil:
       debug "Gossip message not sent", msg = fut.error.msg
+    else:
+      debug "Unexpected future state for gossip", state = fut.state
 
 proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
   inc nbc_gossip_messages_sent
