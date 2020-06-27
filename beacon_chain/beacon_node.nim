@@ -145,19 +145,27 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
 
     # Try file from command line first
     if genesisState.isNil:
-      # Didn't work, try creating a genesis state using main chain monitor
+      if conf.web3Url.len == 0:
+        fatal "Web3 URL not specified"
+        quit 1
+
+      if conf.depositContractAddress.len == 0:
+        fatal "Deposit contract address not specified"
+        quit 1
+
+      if conf.depositContractDeployedAt.isNone:
+        # When we don't have a known genesis state, the network metadata
+        # must specify the deployment block of the contract.
+        fatal "Deposit contract deployment block not specified"
+        quit 1
+
       # TODO Could move this to a separate "GenesisMonitor" process or task
       #      that would do only this - see Paul's proposal for this.
-      if conf.web3Url.len > 0 and conf.depositContractAddress.len > 0:
-        mainchainMonitor = MainchainMonitor.init(
-          web3Provider(conf.web3Url),
-          conf.depositContractAddress,
-          conf.depositContractDeployedAt,
-          FromContractDeploymentBlock)
-        mainchainMonitor.start()
-      else:
-        error "No initial state, need genesis state or deposit contract address"
-        quit 1
+      mainchainMonitor = MainchainMonitor.init(
+        web3Provider(conf.web3Url),
+        conf.depositContractAddress,
+        Eth1Data(block_hash: conf.depositContractDeployedAt.get, deposit_count: 0))
+      mainchainMonitor.start()
 
       genesisState = await mainchainMonitor.getGenesis()
 
@@ -195,8 +203,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     mainchainMonitor = MainchainMonitor.init(
       web3Provider(conf.web3Url),
       conf.depositContractAddress,
-      some blockPool.headState.data.data.eth1_data.block_hash,
-      FromSnapshot)
+      blockPool.headState.data.data.eth1_data)
     # TODO if we don't have any validators attached, we don't need a mainchain
     #      monitor
     mainchainMonitor.start()
