@@ -83,7 +83,9 @@ proc process_deposit*(
       if not verify_deposit_signature(deposit.data):
         # It's ok that deposits fail - they get included in blocks regardless
         # TODO spec test?
-        debug "Skipping deposit with invalid signature",
+        # TODO: This is temporary set to trace level in order to deal with the
+        #       large number of invalid deposits on Altona
+        trace "Skipping deposit with invalid signature",
           deposit = shortLog(deposit.data)
         return true
 
@@ -192,12 +194,20 @@ proc slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
   increase_balance(
     state, whistleblower_index, whistleblowing_reward - proposer_reward)
 
+func genesis_time_from_eth1_timestamp*(eth1_timestamp: uint64): uint64 =
+  # TODO: remove once we switch completely to v0.12.1
+  when SPEC_VERSION == "0.12.1":
+    eth1_timestamp + GENESIS_DELAY
+  else:
+    const SECONDS_PER_DAY = uint64(60*60*24)
+    eth1_timestamp + 2'u64 * SECONDS_PER_DAY - (eth1_timestamp mod SECONDS_PER_DAY)
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#genesis
 proc initialize_beacon_state_from_eth1*(
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
     deposits: openArray[Deposit],
-    flags: UpdateFlags = {}): BeaconStateRef {.nbench.}=
+    flags: UpdateFlags = {}): BeaconStateRef {.nbench.} =
   ## Get the genesis ``BeaconState``.
   ##
   ## Before the beacon chain starts, validators will register in the Eth1 chain
@@ -214,19 +224,12 @@ proc initialize_beacon_state_from_eth1*(
   # at that point :)
   doAssert deposits.len >= SLOTS_PER_EPOCH
 
-  const SECONDS_PER_DAY = uint64(60*60*24)
   var state = BeaconStateRef(
     fork: Fork(
       previous_version: Version(GENESIS_FORK_VERSION),
       current_version: Version(GENESIS_FORK_VERSION),
       epoch: GENESIS_EPOCH),
-    genesis_time:
-      # TODO: remove once we switch completely to v0.12.1
-      when SPEC_VERSION == "0.12.1":
-        eth1_timestamp + GENESIS_DELAY
-      else:
-        eth1_timestamp + 2'u64 * SECONDS_PER_DAY -
-          (eth1_timestamp mod SECONDS_PER_DAY),
+    genesis_time: genesis_time_from_eth1_timestamp(eth1_timestamp),
     eth1_data:
       Eth1Data(block_hash: eth1_block_hash, deposit_count: uint64(len(deposits))),
     latest_block_header:
@@ -280,11 +283,11 @@ proc initialize_hashed_beacon_state_from_eth1*(
     eth1_block_hash, eth1_timestamp, deposits, flags)
   HashedBeaconState(data: genesisState[], root: hash_tree_root(genesisState[]))
 
-func is_valid_genesis_state*(state: BeaconState): bool =
+func is_valid_genesis_state*(state: BeaconState, active_validator_indices: seq[ValidatorIndex]): bool =
   if state.genesis_time < MIN_GENESIS_TIME:
     return false
   # This is an okay get_active_validator_indices(...) for the time being.
-  if len(get_active_validator_indices(state, GENESIS_EPOCH)) < MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
+  if len(active_validator_indices) < MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
     return false
   return true
 
