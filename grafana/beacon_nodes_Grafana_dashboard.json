@@ -12,7 +12,7 @@
       },
       {
         "datasource": "Prometheus",
-        "enable": true,
+        "enable": false,
         "expr": "changes(beacon_current_epoch{node=\"0\"}[2s])",
         "hide": false,
         "iconColor": "#FFA6B0",
@@ -44,7 +44,8 @@
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": 13,
+  "id": 23,
+  "iteration": 1593300421721,
   "links": [],
   "panels": [
     {
@@ -210,14 +211,10 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "libp2p_open_bufferstream{node=\"${node}\"}",
-          "legendFormat": "BufferStream",
+          "expr": "libp2p_open_streams{node=\"${node}\"}",
+          "interval": "",
+          "legendFormat": "{{type}}",
           "refId": "A"
-        },
-        {
-          "expr": "libp2p_open_connection{node=\"${node}\"}",
-          "legendFormat": "Connection",
-          "refId": "B"
         }
       ],
       "thresholds": [],
@@ -1742,7 +1739,6 @@
       {
         "allValue": null,
         "current": {
-          "tags": [],
           "text": "0",
           "value": "0"
         },
@@ -1792,5 +1788,5 @@
   "variables": {
     "list": []
   },
-  "version": 38
+  "version": 3
 }
