@@ -329,11 +329,12 @@ proc storeBlock(
 
   # The block we received contains attestations, and we might not yet know about
   # all of them. Let's add them to the attestation pool.
-  let currentSlot = node.beaconClock.now.toSlot
-  if currentSlot.afterGenesis and
-    signedBlock.message.slot.epoch + 1 >= currentSlot.slot.epoch:
-    for attestation in signedBlock.message.body.attestations:
-      node.onAttestation(attestation)
+  for attestation in signedBlock.message.body.attestations:
+    debug "Attestation from block",
+      attestation = shortLog(attestation),
+      cat = "consensus" # Tag "consensus|attestation"?
+
+    node.attestationPool.add(attestation)
   ok()
 
 proc onBeaconBlock(node: BeaconNode, signedBlock: SignedBeaconBlock) =

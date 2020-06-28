@@ -61,7 +61,7 @@ proc slotIndex(
 
   doAssert attestationSlot >= pool.startingSlot,
     """
-    We should have checked in validate that attestation is newer than
+    We should have checked in addResolved that attestation is newer than
     finalized_slot and we never prune things before that, per below condition!
     """ &
     ", attestationSlot: " & $shortLog(attestationSlot) &
@@ -145,6 +145,16 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
       attestation = shortLog(attestation),
       blockSlot = shortLog(blck.slot)
     return
+
+  if attestation.data.slot < pool.startingSlot:
+    # It can happen that attestations in blocks for example are included even
+    # though they no longer are relevant for finalization - let's clear
+    # these out
+    debug "Old attestation",
+      attestation = shortLog(attestation),
+      startingSlot = pool.startingSlot
+    return
+
   # if not isValidAttestationSlot(attestation.data.slot, blck.slot):
   #   # Logging in isValidAttestationSlot
   #   return
@@ -161,8 +171,6 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
   #       on the state and those that don't to cheaply
   #       discard invalid attestations before rewinding state.
 
-  # TODO: stateCache usage
-  var stateCache = get_empty_per_epoch_cache()
   if not isValidAttestationTargetEpoch(state, attestation.data):
     notice "Invalid attestation",
       attestation = shortLog(attestation),
