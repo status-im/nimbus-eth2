@@ -31,10 +31,27 @@ ansible nimbus-slaves[5:8] -i ansible/inventory/test -u YOUR_USER -o -m shell -a
 
 # build beacon_node in an external volume
 ansible nimbus-slaves[5:8] -i ansible/inventory/test -u YOUR_USER -o -m shell -a "echo; cd /docker/beacon-node-testnet2-1; docker-compose --compatibility run --rm beacon_node --build; echo '---'" | sed 's/\\n/\n/g'
+```
 
-# TODO: create and copy validator keys
+### create and copy validator keys
 
-# start the containers
+Back up "build/data/shared\_witti\_0", if you need to. It will be deleted.
+
+From the nim-beacon-chain repo:
+
+```bash
+# If you have "ignorespace" or "ignoreboth" in HISTCONTROL in your ".bashrc", you can prevent
+# the key from being stored in your command history by prefixing it with a space.
+# See https://www.linuxjournal.com/content/using-bash-history-more-efficiently-histcontrol
+
+ ./docker/shared_testnet/validator_keys.sh 0xYOUR_ETH1_PRIVATE_GOERLI_KEY
+```
+
+### start the containers
+
+From the "infra-nimbus" repo:
+
+```bash
 ansible nimbus-slaves[5:8] -i ansible/inventory/test -u YOUR_USER -o -m shell -a "echo; cd /docker/beacon-node-testnet2-1; docker-compose --compatibility up -d beacon_node; echo '---'" | sed 's/\\n/\n/g'
 ```
 
