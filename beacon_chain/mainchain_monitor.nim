@@ -414,7 +414,7 @@ method onBlockHeaders*(p: Web3DataProviderRef,
   if p.blockHeadersSubscription != nil:
     await p.blockHeadersSubscription.unsubscribe()
 
-  debug "Subscribing for block headers"
+  info "Waiting for new Eth1 block headers"
 
   let options = newJObject()
   p.blockHeadersSubscription = await p.web3.subscribeForBlockHeaders(
