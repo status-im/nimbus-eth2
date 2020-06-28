@@ -83,7 +83,9 @@ fi
 
 DEPOSIT_CONTRACT_ARGS=""
 if [ -f "${DEPOSIT_CONTRACT_FILE}" ]; then
-  DEPOSIT_CONTRACT_ARGS="--deposit-contract=$(cat $DEPOSIT_CONTRACT_FILE) $WEB3_ARG"
+  DEPOSIT_CONTRACT_ARGS="$WEB3_ARG \
+    --deposit-contract=$(cat $DEPOSIT_CONTRACT_FILE) \
+    --deposit-contract-block=$(cat $DEPOSIT_CONTRACT_BLOCK_FILE)"
 fi
 
 cd "$NODE_DATA_DIR"

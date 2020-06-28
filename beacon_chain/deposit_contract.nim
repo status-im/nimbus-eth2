@@ -40,7 +40,7 @@ type
 contract(Deposit):
   proc drain()
 
-proc deployContract*(web3: Web3, code: string): Future[Address] {.async.} =
+proc deployContract*(web3: Web3, code: string): Future[ReceiptObject] {.async.} =
   var code = code
   if code[1] notin {'x', 'X'}:
     code = "0x" & code
@@ -51,8 +51,7 @@ proc deployContract*(web3: Web3, code: string): Future[Address] {.async.} =
     gasPrice: 1.some)
 
   let r = await web3.send(tr)
-  let receipt = await web3.getMinedTransactionReceipt(r)
-  result = receipt.contractAddress.get
+  result = await web3.getMinedTransactionReceipt(r)
 
 proc sendEth(web3: Web3, to: string, valueEth: int): Future[TxHash] =
   let tr = EthSend(
@@ -75,8 +74,8 @@ proc main() {.async.} =
 
   case cfg.cmd
   of StartUpCommand.deploy:
-    let contractAddress = await web3.deployContract(contractCode)
-    echo "0x", contractAddress
+    let receipt = await web3.deployContract(contractCode)
+    echo "0x", receipt.contractAddress.get, ";", receipt.blockHash
   of StartUpCommand.drain:
     let sender = web3.contractSender(Deposit, Address.fromHex(cfg.contractAddress))
     discard await sender.drain().send(gasPrice = 1)

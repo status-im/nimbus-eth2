@@ -74,9 +74,9 @@ const
   # Time parameters
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/mainnet.yaml#L77
-  GENESIS_DELAY* = 172800 # 172800 seconds (2 days)
+  GENESIS_DELAY* {.intdefine.} = 172800 # 172800 seconds (2 days)
 
-  SECONDS_PER_SLOT*{.intdefine.} = 12'u64 # Compile with -d:SECONDS_PER_SLOT=1 for 12x faster slots
+  SECONDS_PER_SLOT* {.intdefine.} = 12'u64 # Compile with -d:SECONDS_PER_SLOT=1 for 12x faster slots
   ## TODO consistent time unit across projects, similar to C++ chrono?
 
   MIN_ATTESTATION_INCLUSION_DELAY* = 1 ##\
@@ -161,11 +161,11 @@ const
   # Validators
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/mainnet.yaml#L38
-  ETH1_FOLLOW_DISTANCE* = 1024 # blocks ~ 4 hours
+  ETH1_FOLLOW_DISTANCE* {.intdefine.} = 1024 # blocks ~ 4 hours
   TARGET_AGGREGATORS_PER_COMMITTEE* = 16 # validators
   RANDOM_SUBNETS_PER_VALIDATOR* = 1 # subnet
   EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION* = 256 # epochs ~ 27 hours
-  SECONDS_PER_ETH1_BLOCK* = 14 # (estimate from Eth1 mainnet)
+  SECONDS_PER_ETH1_BLOCK* {.intdefine.} = 14 # (estimate from Eth1 mainnet)
 
   # Phase 1: Upgrade from Phase 0
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/mainnet.yaml#L161
