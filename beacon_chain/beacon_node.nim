@@ -30,7 +30,6 @@ import
 
 const
   genesisFile* = "genesis.ssz"
-  timeToInitNetworkingBeforeGenesis = chronos.seconds(30)
   hasPrompt = not defined(withoutPrompt)
 
 type
@@ -861,12 +860,7 @@ proc start(node: BeaconNode) =
   let
     head = node.blockPool.head
     finalizedHead = node.blockPool.finalizedHead
-
-  let genesisTime = node.beaconClock.fromNow(toBeaconTime(Slot 0))
-
-  if genesisTime.inFuture and genesisTime.offset > timeToInitNetworkingBeforeGenesis:
-    info "Waiting for the genesis event", genesisIn = genesisTime.offset
-    waitFor sleepAsync(genesisTime.offset - timeToInitNetworkingBeforeGenesis)
+    genesisTime = node.beaconClock.fromNow(toBeaconTime(Slot 0))
 
   info "Starting beacon node",
     version = fullVersionStr,
@@ -883,6 +877,9 @@ proc start(node: BeaconNode) =
     dataDir = node.config.dataDir.string,
     cat = "init",
     pcs = "start_beacon_node"
+
+  if genesisTime.inFuture:
+    notice "Waiting for genesis", genesisIn = genesisTime.offset
 
   waitFor node.initializeNetworking()
   node.run()
