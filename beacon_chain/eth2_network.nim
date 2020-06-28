@@ -1080,6 +1080,7 @@ proc getPersistentNetKeys*(conf: BeaconNodeConf): KeyPair =
   KeyPair(seckey: privKey, pubkey: privKey.getKey().tryGet())
 
 func gossipId(data: openArray[byte]): string =
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#topics-and-messages
   base64.encode(Base64Url, sha256.digest(data).data)
 
 func msgIdProvider(m: messages.Message): string =
