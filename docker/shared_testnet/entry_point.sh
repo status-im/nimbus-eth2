@@ -63,8 +63,8 @@ while true; do
 	esac
 done
 
-# some old getopt (from util-linux 2.31.1) leaves a '--' option in $@
-if [[ "$1" == "--" ]]; then
+# docker-compose.yml inserts newlines in our options
+if [[ "$(echo $1 | tr -d '[:space:]')" == "--" ]]; then
   shift
 fi
 

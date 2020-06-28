@@ -9,6 +9,8 @@ cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 
 [[ -z "$1" ]] && { echo "Usage: $(basename $0) YOUR_ETH1_PRIVATE_GOERLI_KEY"; exit 1; }
 
+# TODO: make "witti" a parameter
+
 echo -ne "About to delete \"build/data/shared_witti_0\".\nMake a backup, if you need to, then press Enter. >"
 read TMP
 make clean-witti
