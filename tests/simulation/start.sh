@@ -125,6 +125,7 @@ if [ ! -f "${SNAPSHOT_FILE}" ]; then
     $BEACON_NODE_BIN \
       --data-dir="${SIMULATION_DIR}/node-$BOOTSTRAP_NODE" \
       createTestnet \
+      $WEB3_ARG \
       --validators-dir="${VALIDATORS_DIR}" \
       --total-validators="${NUM_VALIDATORS}" \
       --output-genesis="${SNAPSHOT_FILE}" \

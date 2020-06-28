@@ -675,7 +675,8 @@ proc processDeposits(m: MainchainMonitor,
     let eth1Blocks = await dataProvider.fetchDepositData(latestKnownBlock + 1,
                                                          Eth1BlockNumber blk.number)
     if eth1Blocks.len == 0:
-      if m.eth1Chain.maxValidDeposits > totalDepositsNeededForGenesis:
+      if m.eth1Chain.maxValidDeposits > totalDepositsNeededForGenesis and
+         m.eth1Chain.knownStart.deposit_count == 0:
         let latestEth1Data = m.eth1Chain.latestEth1Data
 
         for missingBlockNum in latestKnownBlock + 1 ..< Eth1BlockNumber(blk.number):
@@ -757,7 +758,7 @@ proc run(m: MainchainMonitor, delayBeforeStart: Duration) {.async.} =
     await close(dataProvider)
 
 proc safeCancel(fut: var Future[void]) =
-  if not fut.isNil:
+  if not fut.isNil and not fut.finished:
     fut.cancel()
     fut = nil
 
