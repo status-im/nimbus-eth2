@@ -167,7 +167,11 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
         Eth1Data(block_hash: conf.depositContractDeployedAt.get, deposit_count: 0))
       mainchainMonitor.start()
 
-      genesisState = await mainchainMonitor.getGenesis()
+      genesisState = await mainchainMonitor.waitGenesis()
+      info "Eth2 genesis state detected",
+        genesisTime = genesisState.genesisTime,
+        eth1Block = genesisState.eth1_data.block_hash,
+        totalDeposits = genesisState.eth1_data.deposit_count
 
     # This is needed to prove the not nil property from here on
     if genesisState == nil:
