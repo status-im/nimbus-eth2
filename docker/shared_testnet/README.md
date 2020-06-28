@@ -27,7 +27,7 @@ ansible-galaxy install -g -f -r ansible/requirements.yml
 ansible-playbook ansible/nimbus.yml -i ansible/inventory/test -t beacon-node -u YOUR_USER -K -l nimbus-slaves[5:8]
 
 # faster way to pull the Docker image and recreate the containers
-ansible nimbus-slaves[5:8] -i ansible/inventory/test -u YOUR_USER -o -m shell -a "echo; cd /docker/beacon-node-testnet2-1; docker-compose --compatibility up --no-start beacon_node; echo '---'" | sed 's/\\n/\n/g'
+ansible nimbus-slaves[5:8] -i ansible/inventory/test -u YOUR_USER -o -m shell -a "echo; cd /docker/beacon-node-testnet2-1; docker-compose --compatibility pull; docker-compose --compatibility up --no-start; echo '---'" | sed 's/\\n/\n/g'
 
 # build beacon_node in an external volume
 ansible nimbus-slaves[5:8] -i ansible/inventory/test -u YOUR_USER -o -m shell -a "echo; cd /docker/beacon-node-testnet2-1; docker-compose --compatibility run --rm beacon_node --build; echo '---'" | sed 's/\\n/\n/g'
@@ -52,6 +52,6 @@ From the nim-beacon-chain repo:
 From the "infra-nimbus" repo:
 
 ```bash
-ansible nimbus-slaves[5:8] -i ansible/inventory/test -u YOUR_USER -o -m shell -a "echo; cd /docker/beacon-node-testnet2-1; docker-compose --compatibility up -d beacon_node; echo '---'" | sed 's/\\n/\n/g'
+ansible nimbus-slaves[5:8] -i ansible/inventory/test -u YOUR_USER -o -m shell -a "echo; cd /docker/beacon-node-testnet2-1; docker-compose --compatibility up -d; echo '---'" | sed 's/\\n/\n/g'
 ```
 

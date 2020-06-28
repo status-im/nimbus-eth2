@@ -63,6 +63,11 @@ while true; do
 	esac
 done
 
+# some old getopt (from util-linux 2.31.1) leaves a '--' option in $@
+if [[ "$1" == "--" ]]; then
+  shift
+fi
+
 EXTRA_ARGS="$@"
 
 #########
@@ -87,6 +92,7 @@ fi
 
 if [[ "$RUN" == "1" ]]; then
   cd /root/.cache/nimbus/nim-beacon-chain
+  echo $(make SCRIPT_PARAMS="--skipGoerliKey --writeLogFile=false --runOnly --printCmdOnly" ${NETWORK} | tail -n 1) ${EXTRA_ARGS}
   # make sure Docker's SIGINT reaches the beacon_node binary
   eval $(make SCRIPT_PARAMS="--skipGoerliKey --writeLogFile=false --runOnly --printCmdOnly" ${NETWORK} | tail -n 1) ${EXTRA_ARGS}
 fi
