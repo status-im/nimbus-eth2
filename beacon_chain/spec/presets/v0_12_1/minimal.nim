@@ -63,7 +63,7 @@ const
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L77
   # Changed: Faster to spin up testnets, but does not give validator
   # reasonable warning time for genesis
-  GENESIS_DELAY* = 300
+  GENESIS_DELAY* {.intdefine.} = 300
 
   # Unchanged
   SECONDS_PER_SLOT*{.intdefine.} = 6'u64
@@ -137,13 +137,13 @@ const
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L38
 
   # Changed
-  ETH1_FOLLOW_DISTANCE* = 16 # blocks
+  ETH1_FOLLOW_DISTANCE* {.intdefine.} = 16 # blocks
 
   # Unchanged
   TARGET_AGGREGATORS_PER_COMMITTEE* = 16 # validators
   RANDOM_SUBNETS_PER_VALIDATOR* = 1 # subnet
   EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION* = 256 # epochs ~ 27 hours
-  SECONDS_PER_ETH1_BLOCK* = 14 # estimate from Eth1 mainnet)
+  SECONDS_PER_ETH1_BLOCK* {.intdefine.} = 14 # estimate from Eth1 mainnet)
 
   # Phase 1: Upgrade from Phase 0
   # ---------------------------------------------------------------

@@ -50,10 +50,15 @@ mkdir -p "$SECRETS_DIR"
 cd "$GIT_ROOT"
 
 CUSTOM_NIMFLAGS="${NIMFLAGS} -d:useSysAsserts -d:chronicles_sinks:textlines,json[file] -d:const_preset=mainnet -d:insecure"
+GANACHE_BLOCK_TIME=5
 
 # Run with "SLOTS_PER_EPOCH=8 ./start.sh" to change these
 DEFS=""
-DEFS+="-d:MIN_GENESIS_ACTIVE_VALIDATOR_COUNT=${NUM_VALIDATORS} -d:MIN_GENESIS_TIME=0 "
+DEFS+="-d:MIN_GENESIS_ACTIVE_VALIDATOR_COUNT=${NUM_VALIDATORS} \
+       -d:MIN_GENESIS_TIME=0 \
+       -d:GENESIS_DELAY=10 \
+       -d:SECONDS_PER_ETH1_BLOCK=$GANACHE_BLOCK_TIME \
+       -d:ETH1_FOLLOW_DISTANCE=1 "
 DEFS+="-d:MAX_COMMITTEES_PER_SLOT=${MAX_COMMITTEES_PER_SLOT:-1} "      # Spec default: 64
 DEFS+="-d:SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH:-6} "   # Spec default: 32
 DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-6} "  # Spec default: 12
@@ -76,7 +81,7 @@ COMMANDS=()
 
 if [[ "$USE_GANACHE" == "yes" ]]; then
   if [[ "$USE_TMUX" == "yes" ]]; then
-    $TMUX_CMD new-window -d -t $TMUX_SESSION_NAME -n "$GANACHE_CMD" "$GANACHE_CMD --blockTime 5 --gasLimit 100000000 -e 100000 --verbose"
+    $TMUX_CMD new-window -d -t $TMUX_SESSION_NAME -n "$GANACHE_CMD" "$GANACHE_CMD --blockTime $GANACHE_BLOCK_TIME --gasLimit 100000000 -e 100000 --verbose"
   else
     echo NOTICE: $GANACHE_CMD will be started automatically only with USE_TMUX=yes
     USE_GANACHE="no"
@@ -161,10 +166,16 @@ function run_cmd {
 if [ "$USE_GANACHE" != "no" ]; then
   make deposit_contract
   echo Deploying the validator deposit contract...
-  echo $DEPLOY_DEPOSIT_CONTRACT_BIN deploy $WEB3_ARG
-  DEPOSIT_CONTRACT_ADDRESS=$($DEPLOY_DEPOSIT_CONTRACT_BIN deploy $WEB3_ARG)
-  echo Contract deployed at $DEPOSIT_CONTRACT_ADDRESS
+
+  DEPLOY_CMD_OUTPUT=$($DEPLOY_DEPOSIT_CONTRACT_BIN deploy $WEB3_ARG)
+  # https://stackoverflow.com/questions/918886/how-do-i-split-a-string-on-a-delimiter-in-bash
+  OUTPUT_PIECES=(${DEPLOY_CMD_OUTPUT//;/ })
+  DEPOSIT_CONTRACT_ADDRESS=${OUTPUT_PIECES[0]}
+  DEPOSIT_CONTRACT_BLOCK=${OUTPUT_PIECES[1]}
+
+  echo Contract deployed at $DEPOSIT_CONTRACT_ADDRESS:$DEPOSIT_CONTRACT_BLOCK
   echo $DEPOSIT_CONTRACT_ADDRESS > $DEPOSIT_CONTRACT_FILE
+  echo $DEPOSIT_CONTRACT_BLOCK > $DEPOSIT_CONTRACT_BLOCK_FILE
 
   if [[ "$WAIT_GENESIS" == "yes" ]]; then
     run_cmd "(deposit maker)" "$BEACON_NODE_BIN deposits send \

@@ -168,6 +168,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
       mainchainMonitor.start()
 
       genesisState = await mainchainMonitor.waitGenesis()
+
       info "Eth2 genesis state detected",
         genesisTime = genesisState.genesisTime,
         eth1Block = genesisState.eth1_data.block_hash,
