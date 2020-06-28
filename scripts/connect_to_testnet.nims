@@ -197,19 +197,6 @@ cli do (skipGoerliKey {.
   if system.fileExists(depositContractBlockFile):
     depositContractOpt.add " --deposit-contract-block=" & readFile(depositContractBlockFile).strip
 
-  if system.dirExists(dataDir):
-    block resetDataDir:
-      # We reset the testnet data dir if the existing data dir is
-      # incomplete (it misses a genesis file) or if it has a genesis
-      # file from an older testnet:
-      if system.fileExists(dataDir/genesisFile):
-        let localGenesisContent = readFile(dataDir/genesisFile)
-        let testnetGenesisContent = readFile(testnetDir/genesisFile)
-        if localGenesisContent == testnetGenesisContent:
-          break
-      echo "Detected testnet restart. Deleting previous database..."
-      rmDir dataDir
-
   cd rootDir
   mkDir dataDir
 
