@@ -315,8 +315,6 @@ method getBlockByNumber*(p: Web3DataProviderRef, number: Eth1BlockNumber): Futur
   return p.web3.provider.eth_getBlockByNumber(&"0x{number:X}", false)
 
 proc getBlockNumber(p: DataProviderRef, hash: BlockHash): Future[Eth1BlockNumber] {.async.} =
-  debug "Querying block number", hash = $hash
-
   try:
     let blk = awaitWithTimeout(p.getBlockByHash(hash), web3Timeouts):
                                return 0
@@ -377,6 +375,7 @@ proc readJsonDeposits(depositsList: JsonNode): seq[Eth1Block] =
 method fetchDepositData*(p: Web3DataProviderRef,
                          fromBlock, toBlock: Eth1BlockNumber): Future[seq[Eth1Block]]
                         {.async, locks: 0.} =
+  info "Obtaing deposit log events", fromBlock, toBlock
   return readJsonDeposits(await p.ns.getJsonLogs(DepositEvent,
                                                  fromBlock = some blockId(fromBlock),
                                                  toBlock = some blockId(toBlock)))
@@ -495,35 +494,65 @@ proc minGenesisCandidateBlockIdx(eth1Chain: Eth1Chain): Option[int]
 
   return some(candidatePos)
 
-proc tryCreatingGenesisState(m: MainchainMonitor,
-                             genesisCandidate: Eth1Block,
-                             deposits: var openarray[Deposit]): uint64 =
+proc createBeaconStateAux(eth1Block: Eth1Block,
+                          deposits: var openarray[Deposit]): BeaconStateRef =
   attachMerkleProofs deposits
+  result = initialize_beacon_state_from_eth1(eth1Block.voteData.block_hash,
+                                             eth1Block.timestamp.uint64,
+                                             deposits, {})
+  let activeValidators = get_active_validator_indices(result[], GENESIS_EPOCH)
+  eth1Block.knownGoodDepositsCount = some len(activeValidators).uint64
 
-  let
-    s = initialize_beacon_state_from_eth1(genesisCandidate.voteData.block_hash,
-                                          genesisCandidate.timestamp.uint64,
-                                          deposits, {})
-    active_validator_indices = get_active_validator_indices(s[], GENESIS_EPOCH)
+proc createBeaconState(eth1Chain: var Eth1Chain, eth1Block: Eth1Block): BeaconStateRef =
+  createBeaconStateAux(
+    eth1Block,
+    eth1Chain.allDeposits.toOpenArray(0, int(eth1Block.voteData.deposit_count - 1)))
 
-  if is_valid_genesis_state(s[], active_validator_indices):
-    # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
-    info "Eth2 genesis state detected",
-      genesisTime = s.genesisTime,
-      genesisEth1Block = genesisCandidate.voteData.block_hash
+proc signalGenesis(m: MainchainMonitor, genesisState: BeaconStateRef) =
+  m.genesisState = genesisState
 
-    m.genesisState = s
+  if not m.genesisStateFut.isNil:
+    m.genesisStateFut.complete()
+    m.genesisStateFut = nil
 
-    if not m.genesisStateFut.isNil:
-      m.genesisStateFut.complete()
-      m.genesisStateFut = nil
-  else:
-    info "Eth2 genesis candidate block rejected",
-         `block` = shortLog(genesisCandidate),
-         validDeposits = active_validator_indices.len,
-         needed = totalDepositsNeededForGenesis
+proc findGenesisBlockInRange(m: MainchainMonitor,
+                             startBlock, endBlock: Eth1Block): Future[Eth1Block]
+                            {.async.} =
+  let dataProvider = await m.dataProviderFactory.new(m.depositContractAddress)
+  if dataProvider == nil:
+    error "Failed to initialize Eth1 data provider",
+          provider = m.dataProviderFactory.desc
+    raise newException(CatchableError, "Failed to initialize Eth1 data provider")
 
-  uint64(active_validator_indices.len)
+  var
+    startBlock = startBlock
+    endBlock = endBlock
+    depositData = startBlock.voteData
+
+  while startBlock.number + 1 < endBlock.number:
+    let
+      startBlockTime = genesis_time_from_eth1_timestamp(startBlock.timestamp)
+      secondsPerBlock = float(endBlock.timestamp - startBlock.timestamp) /
+                        float(endBlock.number - startBlock.number)
+      blocksToJump = max(float(MIN_GENESIS_TIME - startBlockTime) / secondsPerBlock, 1.0)
+      candidateNumber = min(endBlock.number - 1, startBlock.number + blocksToJump.uint64)
+      candidateBlock = await dataProvider.getBlockByNumber(candidateNumber)
+
+    var candidateAsEth1Block = Eth1Block(number: candidateBlock.number.uint64,
+                                         timestamp: candidateBlock.timestamp.uint64,
+                                         voteData: depositData)
+    candidateAsEth1Block.voteData.block_hash = candidateBlock.hash.asEth2Digest
+
+    info "Probing possible genesis block",
+      `block` = candidateBlock.number.uint64,
+      timestamp = genesis_time_from_eth1_timestamp(candidateBlock.timestamp.uint64)
+
+    if genesis_time_from_eth1_timestamp(candidateBlock.timestamp.uint64) < MIN_GENESIS_TIME:
+      startBlock = candidateAsEth1Block
+    else:
+      endBlock = candidateAsEth1Block
+
+  return endBlock
 
 proc checkForGenesisLoop(m: MainchainMonitor) {.async.} =
   while true:
@@ -534,12 +563,45 @@ proc checkForGenesisLoop(m: MainchainMonitor) {.async.} =
       let genesisCandidateIdx = m.eth1Chain.minGenesisCandidateBlockIdx
       if genesisCandidateIdx.isSome:
         let
-          genesisCandidate =  m.eth1Chain.blocks[genesisCandidateIdx.get]
-          eligibleDepositCount = genesisCandidate.voteData.deposit_count
+          genesisCandidateIdx = genesisCandidateIdx.get
+          genesisCandidate =  m.eth1Chain.blocks[genesisCandidateIdx]
+          candidateState = m.eth1Chain.createBeaconState(genesisCandidate)
 
-        genesisCandidate.knownGoodDepositsCount = some tryCreatingGenesisState(
-          m, genesisCandidate,
-          m.eth1Chain.allDeposits.toOpenArray(0, int(eligibleDepositCount - 1)))
+        if genesisCandidate.knownGoodDepositsCount.get >= totalDepositsNeededForGenesis:
+          # We have a candidate state on our hands, but our current Eth1Chain
+          # may consist only of blocks that have deposits attached to them
+          # while the real genesis may have happened in a block without any
+          # deposits (triggered by MIN_GENESIS_TIME).
+          #
+          # This can happen when the beacon node is launched after the genesis
+          # event. We take a short cut when constructing the initial Eth1Chain
+          # by downloading only deposit log entries. Thus, we'll see all the
+          # blocks with deposits, but not the regular blocks in between.
+          #
+          # We'll handle this special case below by examing whether we are in
+          # this potential scenario and we'll use a fast guessing algorith to
+          # discover the ETh1 block with minimal valid genesis time.
+          if genesisCandidateIdx > 0:
+            let preceedingEth1Block = m.eth1Chain.blocks[genesisCandidateIdx - 1]
+            if preceedingEth1Block.voteData.deposit_root == genesisCandidate.voteData.deposit_root:
+              preceedingEth1Block.knownGoodDepositsCount = genesisCandidate.knownGoodDepositsCount
+            else:
+              discard m.eth1Chain.createBeaconState(preceedingEth1Block)
+
+            if preceedingEth1Block.knownGoodDepositsCount.get >= totalDepositsNeededForGenesis and
+               genesisCandidate.number - preceedingEth1Block.number > 1:
+              let genesisBlock = await m.findGenesisBlockInRange(preceedingEth1Block, genesisCandidate)
+              if genesisBlock.number != genesisCandidate.number:
+                m.signalGenesis m.eth1Chain.createBeaconState(genesisBlock)
+              return
+
+          m.signalGenesis candidateState
+          return
+        else:
+          info "Eth2 genesis candidate block rejected",
+               `block` = shortLog(genesisCandidate),
+               validDeposits = genesisCandidate.knownGoodDepositsCount.get,
+               needed = totalDepositsNeededForGenesis
       else:
         # TODO: check for a stale monitor
         discard
@@ -548,10 +610,10 @@ proc checkForGenesisLoop(m: MainchainMonitor) {.async.} =
 
     await sleepAsync(1.seconds)
 
-proc getGenesis*(m: MainchainMonitor): Future[BeaconStateRef] {.async.} =
+proc waitGenesis*(m: MainchainMonitor): Future[BeaconStateRef] {.async.} =
   if m.genesisState.isNil:
     if m.genesisStateFut.isNil:
-      m.genesisStateFut = newFuture[void]("getGenesis")
+      m.genesisStateFut = newFuture[void]("waitGenesis")
 
     m.genesisMonitoringFut = m.checkForGenesisLoop()
     await m.genesisStateFut
@@ -673,7 +735,7 @@ proc run(m: MainchainMonitor, delayBeforeStart: Duration) {.async.} =
     raise newException(CatchableError, "Failed to initialize Eth1 data provider")
 
   try:
-    info "Monitoring eth1 deposits",
+    info "Starting Eth1 deposit contract monitoring",
       contract = $m.depositContractAddress,
       url = m.dataProviderFactory.desc
 
