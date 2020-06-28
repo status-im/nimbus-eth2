@@ -45,13 +45,18 @@ proc makePrometheusConfig(nodeID, baseMetricsPort: int, dataDir: string) =
 proc buildNode(nimFlags, preset, beaconNodeBinary: string) =
   exec &"""nim c {nimFlags} -d:"const_preset={preset}" -o:"{beaconNodeBinary}" beacon_chain/beacon_node.nim"""
 
-proc becomeValidator(validatorsDir, beaconNodeBinary, secretsDir, depositContractOpt: string) =
+proc becomeValidator(validatorsDir, beaconNodeBinary, secretsDir, depositContractOpt, privateGoerliKey: string,
+                    becomeValidatorOnly: bool) =
   mode = Silent
-  echo "\nPlease enter your Goerli Eth1 private key in hex form (e.g. 0x1a2...f3c) in order to become a validator (you'll need access to 32 GoETH)."
-  echo "Hit Enter to skip this."
-  # is there no other way to print without a trailing newline?
-  exec "printf '> '"
-  let privKey = readLineFromStdin()
+  var privKey = privateGoerliKey
+
+  if privKey.len == 0:
+    echo "\nPlease enter your Goerli Eth1 private key in hex form (e.g. 0x1a2...f3c) in order to become a validator (you'll need access to 32 GoETH)."
+    echo "Hit Enter to skip this."
+    # is there no other way to print without a trailing newline?
+    exec "printf '> '"
+    privKey = readLineFromStdin()
+
   if privKey.len > 0:
     mkDir validatorsDir
     mode = Verbose
@@ -64,8 +69,11 @@ proc becomeValidator(validatorsDir, beaconNodeBinary, secretsDir, depositContrac
       {depositContractOpt}
       """, "\n", " ")
     mode = Silent
-    echo "\nDeposit sent, wait for confirmation then press enter to continue"
-    discard readLineFromStdin()
+    if becomeValidatorOnly:
+      echo "\nDeposit sent."
+    else:
+      echo "\nDeposit sent, wait for confirmation then press enter to continue"
+      discard readLineFromStdin()
 
 proc runNode(dataDir, beaconNodeBinary, bootstrapFileOpt, depositContractOpt, genesisFileOpt: string,
             basePort, nodeID, baseMetricsPort, baseRpcPort: int, printCmdOnly: bool) =
@@ -75,33 +83,45 @@ proc runNode(dataDir, beaconNodeBinary, bootstrapFileOpt, depositContractOpt, ge
     logLevelOpt = &"""--log-level="{logLevel}" """
 
   mode = Verbose
-  let cmd = replace(&"""{beaconNodeBinary}
-    --data-dir="{dataDir}"
-    --dump
-    --web3-url={web3Url}
-    --tcp-port=""" & $(basePort + nodeID) & &"""
-    --udp-port=""" & $(basePort + nodeID) & &"""
-    --metrics
-    --metrics-port=""" & $(baseMetricsPort + nodeID) & &"""
-    --rpc
-    --rpc-port=""" & $(baseRpcPort + nodeID) & &"""
-    {bootstrapFileOpt}
-    {logLevelOpt}
-    {depositContractOpt}
-    {genesisFileOpt} """, "\n", " ")
 
+  var cmd: string
   if printCmdOnly:
+    # When you reinvent getopt() and you forget to support repeating the same
+    # option to overwrite the old value...
+    cmd = replace(&"""{beaconNodeBinary}
+      --data-dir="{dataDir}"
+      --web3-url={web3Url}
+      {bootstrapFileOpt}
+      {depositContractOpt}
+      {genesisFileOpt} """, "\n", " ")
     echo &"cd {dataDir}; exec {cmd}"
   else:
     cd dataDir
+    cmd = replace(&"""{beaconNodeBinary}
+      --data-dir="{dataDir}"
+      --dump
+      --web3-url={web3Url}
+      --tcp-port=""" & $(basePort + nodeID) & &"""
+      --udp-port=""" & $(basePort + nodeID) & &"""
+      --metrics
+      --metrics-port=""" & $(baseMetricsPort + nodeID) & &"""
+      --rpc
+      --rpc-port=""" & $(baseRpcPort + nodeID) & &"""
+      {bootstrapFileOpt}
+      {logLevelOpt}
+      {depositContractOpt}
+      {genesisFileOpt} """, "\n", " ")
     execIgnoringExitCode cmd
 
 cli do (skipGoerliKey {.
           desc: "Don't prompt for an Eth1 Goerli key to become a validator" .}: bool,
 
+        privateGoerliKey {.
+          desc: "Use this private Eth1 Goerli key to become a validator (careful with this option, the private key will end up in your shell's command history)" .} = "",
+
         specVersion {.
           desc: "Spec version"
-          name: "spec" .}: string = "v0.11.3",
+          name: "spec" .} = "v0.11.3",
 
         constPreset {.
           desc: "The Ethereum 2.0 const preset of the network (optional)"
@@ -125,6 +145,9 @@ cli do (skipGoerliKey {.
         buildOnly {.
           desc: "Just the build, please." .} = false,
 
+        becomeValidatorOnly {.
+          desc: "Just become a validator." .} = false,
+
         runOnly {.
           desc: "Just run it." .} = false,
 
@@ -141,13 +164,27 @@ cli do (skipGoerliKey {.
     buildDir = rootDir / "build"
     allTestnetsDir = buildDir / testnetsRepo
 
-  if not runOnly:
+  if not (runOnly or becomeValidatorOnly):
     updateTestnetsRepo(allTestnetsDir, buildDir)
 
   var
     depositContractOpt = ""
     bootstrapFileOpt = ""
     genesisFileOpt = ""
+    doBuild, doBecomeValidator, doRun = true
+
+  # step-skipping logic
+  if skipGoerliKey:
+    doBecomeValidator = false
+  if buildOnly:
+    doBecomeValidator = false
+    doRun = false
+  if becomeValidatorOnly:
+    doBuild = false
+    doRun = false
+  if runOnly:
+    doBuild = false
+    doBecomeValidator = false
 
   let
     testnetDir = allTestnetsDir / team / testnet
@@ -221,14 +258,14 @@ cli do (skipGoerliKey {.
   cd rootDir
   mkDir dataDir
 
-  if not runOnly:
+  if doBuild:
     makePrometheusConfig(nodeID, baseMetricsPort, dataDir)
     buildNode(nimFlags, preset, beaconNodeBinary)
 
-  if not skipGoerliKey and depositContractOpt.len > 0 and not system.dirExists(validatorsDir):
-    becomeValidator(validatorsDir, beaconNodeBinary, secretsDir, depositContractOpt)
+  if doBecomeValidator and depositContractOpt.len > 0 and not system.dirExists(validatorsDir):
+    becomeValidator(validatorsDir, beaconNodeBinary, secretsDir, depositContractOpt, privateGoerliKey, becomeValidatorOnly)
 
-  if not buildOnly:
+  if doRun:
     runNode(dataDir, beaconNodeBinary, bootstrapFileOpt, depositContractOpt, genesisFileOpt,
             basePort, nodeID, baseMetricsPort, baseRpcPort, printCmdOnly)
 
