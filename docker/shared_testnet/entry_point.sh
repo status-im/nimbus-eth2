@@ -82,8 +82,9 @@ if [[ "$BUILD" == "1" ]]; then
   git config pull.rebase false
   git checkout devel
   git pull
-  make -j$(nproc) update
-  make LOG_LEVEL="TRACE" NIMFLAGS="-d:insecure -d:testnet_servers_image" SCRIPT_PARAMS="--skipGoerliKey --writeLogFile=false --buildOnly" ${NETWORK}
+  # don't use too much RAM
+  make update
+  make LOG_LEVEL="TRACE" NIMFLAGS="-d:insecure -d:testnet_servers_image --parallelBuild:1" SCRIPT_PARAMS="--skipGoerliKey --writeLogFile=false --buildOnly" ${NETWORK}
 fi
 
 #######

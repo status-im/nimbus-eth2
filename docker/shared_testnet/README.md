@@ -26,7 +26,7 @@ git pull
 ansible-galaxy install -g -f -r ansible/requirements.yml
 ansible-playbook ansible/nimbus.yml -i ansible/inventory/test -t beacon-node -u YOUR_USER -K -l nimbus-slaves[5:8]
 
-# faster way to pull the Docker image and recreate the containers
+# faster way to pull the Docker image and recreate the containers (this also stops any running container)
 ansible nimbus-slaves[5:8] -i ansible/inventory/test -u YOUR_USER -o -m shell -a "echo; cd /docker/beacon-node-testnet2-1; docker-compose --compatibility pull; docker-compose --compatibility up --no-start; echo '---'" | sed 's/\\n/\n/g'
 
 # build beacon_node in an external volume
