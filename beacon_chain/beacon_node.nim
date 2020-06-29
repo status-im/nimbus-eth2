@@ -856,6 +856,10 @@ proc initializeNetworking(node: BeaconNode) {.async.} =
 
   await node.network.startLookingForPeers()
 
+  info "Networking initialized",
+    enr = node.network.announcedENR.toURI,
+    libp2p = shortLog(node.network.switch.peerInfo)
+
 proc start(node: BeaconNode) =
   let
     head = node.blockPool.head
