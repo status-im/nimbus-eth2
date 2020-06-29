@@ -59,6 +59,13 @@ proc shortLog*(s: StatusMsg): auto =
   )
 chronicles.formatIt(StatusMsg): shortLog(it)
 
+func disconnectReasonName(reason: uint64): string =
+  # haha, nim doesn't support uint64 in `case`!
+  if reason == uint64(ClientShutDown): "Client shutdown"
+  elif reason == uint64(IrrelevantNetwork): "Irrelevant network"
+  elif reason == uint64(FaultOrError): "Fault or error"
+  else: "Disconnected (" & $reason & ")"
+
 proc importBlocks(state: BeaconSyncNetworkState,
                   blocks: openarray[SignedBeaconBlock]) {.gcsafe.} =
   for blk in blocks:
@@ -121,12 +128,13 @@ p2pProtocol BeaconSync(version = 1,
     {.libp2pProtocol("metadata", 1).} =
     return peer.network.metadata
 
-  proc beaconBlocksByRange(peer: Peer,
-                           startSlot: Slot,
-                           count: uint64,
-                           step: uint64,
-                           response: MultipleChunksResponse[SignedBeaconBlock])
-    {.async, libp2pProtocol("beacon_blocks_by_range", 1).} =
+  proc beaconBlocksByRange(
+      peer: Peer,
+      startSlot: Slot,
+      count: uint64,
+      step: uint64,
+      response: MultipleChunksResponse[SignedBeaconBlock])
+      {.async, libp2pProtocol("beacon_blocks_by_range", 1).} =
     trace "got range request", peer, startSlot, count, step
 
     if count > 0'u64:
@@ -149,10 +157,11 @@ p2pProtocol BeaconSync(version = 1,
       debug "Block range request done",
         peer, startSlot, count, step, found = count - startIndex
 
-  proc beaconBlocksByRoot(peer: Peer,
-                          blockRoots: BlockRootsList,
-                          response: MultipleChunksResponse[SignedBeaconBlock])
-    {.async, libp2pProtocol("beacon_blocks_by_root", 1).} =
+  proc beaconBlocksByRoot(
+      peer: Peer,
+      blockRoots: BlockRootsList,
+      response: MultipleChunksResponse[SignedBeaconBlock])
+      {.async, libp2pProtocol("beacon_blocks_by_root", 1).} =
     let
       pool = peer.networkState.blockPool
       count = blockRoots.len
@@ -169,9 +178,9 @@ p2pProtocol BeaconSync(version = 1,
       peer, roots = blockRoots.len, count, found
 
   proc goodbye(peer: Peer,
-               reason: DisconnectionReason)
+               reason: uint64)
     {.async, libp2pProtocol("goodbye", 1).} =
-    debug "Received Goodbye message", reason, peer
+    debug "Received Goodbye message", reason = disconnectReasonName(reason), peer
 
 proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) =
   debug "Peer status", peer, statusMsg

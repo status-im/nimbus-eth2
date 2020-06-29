@@ -41,6 +41,11 @@ else:
 # for heap-usage-by-instance-type metrics and object base-type strings
 --define:nimTypeNames
 
+# switch("define", "snappy_implementation=libp2p")
+
+const currentDir = currentSourcePath()[0 .. ^(len("config.nims") + 1)]
+switch("define", "nim_compiler_path=" & currentDir & "env.sh nim")
+
 switch("import", "testutils/moduletests")
 
 const useLibStackTrace = not defined(macosx) and

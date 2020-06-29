@@ -13,9 +13,9 @@ import
   sets,
   # Specs
   ../../beacon_chain/spec/[datatypes, beaconstate, helpers, validator, crypto,
-    signatures],
+    signatures, state_transition],
   # Internals
-  ../../beacon_chain/[ssz, extras, state_transition],
+  ../../beacon_chain/[ssz, extras],
   # Mocking procs
   ./mock_blocks,
   ./mock_validator_keys

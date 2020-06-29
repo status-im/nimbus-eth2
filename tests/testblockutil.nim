@@ -9,10 +9,9 @@ import
   options, stew/endians2,
   chronicles, eth/trie/[db],
   ../beacon_chain/[beacon_chain_db, block_pool, extras, merkle_minimal,
-  ../beacon_chain/ssz/merkleization,
-    state_transition, validator_pool],
+  ../beacon_chain/ssz/merkleization, validator_pool],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest,
-    helpers, validator, signatures]
+    helpers, validator, signatures, state_transition]
 
 func makeFakeValidatorPrivKey(i: int): ValidatorPrivKey =
   # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,

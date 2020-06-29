@@ -31,10 +31,10 @@ import
   tables,
   chronicles,
   stew/results,
-  ./extras, ./ssz/merkleization, metrics,
-  ./spec/[datatypes, crypto, digest, helpers, signatures, validator],
-  ./spec/[state_transition_block, state_transition_epoch],
-  ../nbench/bench_lab
+  ../extras, ../ssz/merkleization, metrics,
+  datatypes, crypto, digest, helpers, signatures, validator,
+  state_transition_block, state_transition_epoch,
+  ../../nbench/bench_lab
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
 declareGauge beacon_current_validators, """Number of status="pending|active|exited|withdrawable" validators in current epoch""" # On epoch transition
@@ -64,7 +64,7 @@ func get_epoch_validator_count(state: BeaconState): int64 {.nbench.} =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature*(
-    state: BeaconState, signed_block: SignedBeaconBlock): bool {.nbench.} =
+    state: BeaconState, signed_block: SomeSignedBeaconBlock): bool {.nbench.} =
   let
     proposer_index = signed_block.message.proposer_index
   if proposer_index >= state.validators.len.uint64:
@@ -88,10 +88,14 @@ proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   let state_root = hash_tree_root(state)
   if state_root != blck.state_root:
     notice "Block: root verification failed",
-      block_state_root = blck.state_root, state_root
+      block_state_root = shortLog(blck.state_root), state_root = shortLog(state_root)
     false
   else:
     true
+
+proc verifyStateRoot(state: BeaconState, blck: TrustedBeaconBlock): bool =
+  # This is inlined in state_transition(...) in spec.
+  true
 
 type
   RollbackProc* = proc(v: var BeaconState) {.gcsafe, raises: [Defect].}
@@ -170,7 +174,7 @@ proc noRollback*(state: var HashedBeaconState) =
   trace "Skipping rollback of broken state"
 
 proc state_transition*(
-    state: var HashedBeaconState, signedBlock: SignedBeaconBlock,
+    state: var HashedBeaconState, signedBlock: SomeSignedBeaconBlock,
     # TODO this is ... okay, but not perfect; align with EpochRef
     stateCache: var StateCache,
     flags: UpdateFlags, rollback: RollbackHashedProc): bool {.nbench.} =
@@ -225,7 +229,7 @@ proc state_transition*(
     trace "in state_transition: processing block, signature passed",
       signature = signedBlock.signature,
       blockRoot = hash_tree_root(signedBlock.message)
-    if processBlock(state.data, signedBlock.message, flags, stateCache):
+    if process_block(state.data, signedBlock.message, flags, stateCache):
       if skipStateRootValidation in flags or verifyStateRoot(state.data, signedBlock.message):
         # State root is what it should be - we're done!
 
@@ -245,7 +249,7 @@ proc state_transition*(
   false
 
 proc state_transition*(
-    state: var HashedBeaconState, signedBlock: SignedBeaconBlock,
+    state: var HashedBeaconState, signedBlock: SomeSignedBeaconBlock,
     flags: UpdateFlags, rollback: RollbackHashedProc): bool {.nbench.} =
   # TODO consider moving this to testutils or similar, since non-testing
   # and fuzzing code should always be coming from blockpool which should

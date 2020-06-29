@@ -35,7 +35,7 @@ type
 # Quarantine dispatch
 # --------------------------------------------
 
-func checkMissing*(pool: var BlockPool): seq[FetchRecord] {.noInit.} =
+func checkMissing*(pool: var BlockPool): seq[FetchRecord] =
   checkMissing(pool.quarantine)
 
 # CandidateChains
@@ -127,6 +127,9 @@ proc latestJustifiedBlock*(pool: BlockPool): BlockSlot =
   ## as the latest finalized block
   latestJustifiedBlock(pool.dag)
 
+proc addMissing*(pool: var BlockPool, broot: Eth2Digest) {.inline.} =
+  pool.quarantine.addMissing(broot)
+
 proc isInitialized*(T: type BlockPool, db: BeaconChainDB): bool =
   isInitialized(CandidateChains, db)
 
@@ -152,13 +155,27 @@ template justifiedState*(pool: BlockPool): StateData =
   pool.dag.justifiedState
 
 template withState*(
-    pool: BlockPool, cache: var StateData, blockSlot: BlockSlot, body: untyped): untyped =
+    pool: BlockPool, cache: var StateData, blockSlot: BlockSlot, body: untyped):
+    untyped =
   ## Helper template that updates state to a particular BlockSlot - usage of
   ## cache is unsafe outside of block.
   ## TODO async transformations will lead to a race where cache gets updated
   ##      while waiting for future to complete - catch this here somehow?
 
   withState(pool.dag, cache, blockSlot, body)
+
+template withEpochState*(
+    pool: BlockPool, cache: var StateData, blockSlot: BlockSlot, body: untyped):
+    untyped =
+  ## Helper template that updates state to a state with an epoch matching the
+  ## epoch of blockSlot. This aims to be at least as fast as withState, quick
+  ## enough to expose to unautheticated, remote use, but trades off that it's
+  ## possible for it to decide that finding a state from a matching epoch may
+  ## provide too expensive for such use cases.
+  ##
+  ## cache is unsafe outside of block.
+
+  withEpochState(pool.dag, cache, blockSlot, body)
 
 proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
   ## Rewind or advance state such that it matches the given block and slot -

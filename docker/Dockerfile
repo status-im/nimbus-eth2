@@ -3,7 +3,7 @@ FROM debian:bullseye-slim AS build
 SHELL ["/bin/bash", "-c"]
 
 RUN apt-get -qq update \
- && apt-get -qq -y install build-essential make wget libpcre3-dev golang-go git &>/dev/null \
+ && apt-get -qq -y install build-essential libpcre3-dev git &>/dev/null \
  && apt-get -qq clean \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
@@ -11,8 +11,7 @@ RUN apt-get -qq update \
 RUN cd /root \
  && git clone https://github.com/status-im/nim-beacon-chain.git \
  && cd nim-beacon-chain \
- && make -j$(nproc) update \
- && make deps
+ && make -j$(nproc) update
 
 # Please note that the commands above have the goal of caching the
 # compilation of Nim, but don't depend on the current git revision.
@@ -46,6 +45,8 @@ COPY --from=build /root/nim-beacon-chain/build/beacon_node /usr/bin/
 
 MAINTAINER Zahary Karadjov <zahary@status.im>
 LABEL description="Nimbus installation that can act as an ETH2 network bootstrap node."
+
+STOPSIGNAL SIGINT
 
 ENTRYPOINT ["/usr/bin/beacon_node"]
 

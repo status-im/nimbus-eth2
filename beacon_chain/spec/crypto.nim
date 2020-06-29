@@ -71,6 +71,11 @@ type
 
   RandomSourceDepleted* = object of CatchableError
 
+  TrustedSig* = object
+    data*: array[RawSigSize, byte]
+
+  SomeSig* = TrustedSig | ValidatorSig
+
 func `==`*(a, b: BlsValue): bool =
   if a.kind != b.kind: return false
   if a.kind == Real:
@@ -86,7 +91,7 @@ template `==`*[N, T](a: T, b: BlsValue[N, T]): bool =
 
 # API
 # ----------------------------------------------------------------------
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#bls-signatures
 
 func toPubKey*(privkey: ValidatorPrivKey): ValidatorPubKey =
   ## Create a private key from a public key
@@ -218,6 +223,9 @@ func toRaw*(x: BlsValue): auto =
   else:
     x.blob
 
+func toRaw*(x: TrustedSig): auto =
+  x.data
+
 func toHex*(x: BlsCurveType): string =
   toHex(toRaw(x))
 
@@ -260,30 +268,47 @@ template hash*(x: BlsCurveType): Hash =
 # Serialization
 # ----------------------------------------------------------------------
 
+{.pragma: serializationRaises, raises: [SerializationError, IOError, Defect].}
+
 proc writeValue*(writer: var JsonWriter, value: ValidatorPubKey) {.
     inline, raises: [IOError, Defect].} =
   writer.writeValue(value.toHex())
 
-proc readValue*(reader: var JsonReader, value: var ValidatorPubKey) {.
-    inline, raises: [Exception].} =
-  value = ValidatorPubKey.fromHex(reader.readValue(string)).tryGet()
+proc readValue*(reader: var JsonReader, value: var ValidatorPubKey)
+               {.serializationRaises.} =
+  let key = ValidatorPubKey.fromHex(reader.readValue(string))
+  if key.isOk:
+    value = key.get
+  else:
+    # TODO: Can we provide better diagnostic?
+    raiseUnexpectedValue(reader, "Valid hex-encoded public key expected")
 
 proc writeValue*(writer: var JsonWriter, value: ValidatorSig) {.
     inline, raises: [IOError, Defect].} =
   # Workaround: https://github.com/status-im/nim-beacon-chain/issues/374
   writer.writeValue(value.toHex())
 
-proc readValue*(reader: var JsonReader, value: var ValidatorSig) {.
-    inline, raises: [Exception].} =
-  value = ValidatorSig.fromHex(reader.readValue(string)).tryGet()
+proc readValue*(reader: var JsonReader, value: var ValidatorSig)
+               {.serializationRaises.} =
+  let sig = ValidatorSig.fromHex(reader.readValue(string))
+  if sig.isOk:
+    value = sig.get
+  else:
+    # TODO: Can we provide better diagnostic?
+    raiseUnexpectedValue(reader, "Valid hex-encoded signature expected")
 
 proc writeValue*(writer: var JsonWriter, value: ValidatorPrivKey) {.
     inline, raises: [IOError, Defect].} =
   writer.writeValue(value.toHex())
 
-proc readValue*(reader: var JsonReader, value: var ValidatorPrivKey) {.
-    inline, raises: [Exception].} =
-  value = ValidatorPrivKey.fromHex(reader.readValue(string)).tryGet()
+proc readValue*(reader: var JsonReader, value: var ValidatorPrivKey)
+               {.serializationRaises.} =
+  let key = ValidatorPrivKey.fromHex(reader.readValue(string))
+  if key.isOk:
+    value = key.get
+  else:
+    # TODO: Can we provide better diagnostic?
+    raiseUnexpectedValue(reader, "Valid hex-encoded private key expected")
 
 template fromSszBytes*(T: type BlsValue, bytes: openArray[byte]): auto =
   let v = fromRaw(T, bytes)
@@ -307,6 +332,9 @@ func shortLog*(x: BlsValue): string =
 func shortLog*(x: ValidatorPrivKey): string =
   ## Logging for raw unwrapped BLS types
   x.toRaw()[0..3].toHex()
+
+func shortLog*(x: TrustedSig): string =
+  x.data[0..3].toHex()
 
 # Initialization
 # ----------------------------------------------------------------------

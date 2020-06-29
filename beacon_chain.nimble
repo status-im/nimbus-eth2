@@ -49,7 +49,7 @@ proc buildAndRunBinary(name: string, srcDir = "./", params = "", cmdParams = "",
 task moduleTests, "Run all module tests":
   buildAndRunBinary "beacon_node", "beacon_chain/",
               "-d:chronicles_log_level=TRACE " &
-              "-d:const_preset=minimal -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\" " &
+              "-d:const_preset=minimal " &
               "-d:testutils_test_build"
 
 ### tasks
@@ -58,27 +58,23 @@ task test, "Run all tests":
   # pieces of code get tested regularly. Increased test output verbosity is the
   # price we pay for that.
 
+  # Just the part of minimal config which explicitly differs from mainnet
+  buildAndRunBinary "test_fixture_const_sanity_check", "tests/official/", "-d:const_preset=minimal"
+
   # Mainnet config
-  buildAndRunBinary "proto_array", "beacon_chain/fork_choice/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
-  buildAndRunBinary "fork_choice", "beacon_chain/fork_choice/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
-  buildAndRunBinary "all_tests", "tests/", "-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
+  buildAndRunBinary "proto_array", "beacon_chain/fork_choice/", "-d:const_preset=mainnet"
+  buildAndRunBinary "fork_choice", "beacon_chain/fork_choice/", "-d:const_preset=mainnet"
+  buildAndRunBinary "all_tests", "tests/", "-d:chronicles_log_level=TRACE -d:const_preset=mainnet"
 
   # Generic SSZ test, doesn't use consensus objects minimal/mainnet presets
   buildAndRunBinary "test_fixture_ssz_generic_types", "tests/official/", "-d:chronicles_log_level=TRACE"
 
   # Consensus object SSZ tests
-  # 0.11.3
-  buildAndRunBinary "test_fixture_ssz_consensus_objects", "tests/official/", "-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC=\"v0.11.3\""
+  buildAndRunBinary "test_fixture_ssz_consensus_objects", "tests/official/", "-d:chronicles_log_level=TRACE -d:const_preset=mainnet"
 
   # 0.12.1
-  buildAndRunBinary "test_fixture_ssz_consensus_objects", "tests/official/", "-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
+  buildAndRunBinary "all_fixtures_require_ssz", "tests/official/", "-d:chronicles_log_level=TRACE -d:const_preset=mainnet"
 
-  # 0.11.3
-  buildAndRunBinary "all_fixtures_require_ssz", "tests/official/", "-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC=\"v0.11.3\""
-
-  # 0.12.1
-  buildAndRunBinary "all_fixtures_require_ssz", "tests/official/", "-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
-
-  # State sim; getting into 4th epoch useful to trigger consensus checks
-  buildAndRunBinary "state_sim", "research/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\"", "--validators=2000 --slots=128"
-
+  # State and block sims; getting to 4th epoch triggers consensus checks
+  buildAndRunBinary "state_sim", "research/", "-d:const_preset=mainnet", "--validators=2000 --slots=128"
+  buildAndRunBinary "block_sim", "research/", "-d:const_preset=mainnet", "--validators=2000 --slots=128"

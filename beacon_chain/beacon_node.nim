@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  os, tables, random, strutils, times, math,
+  algorithm, os, tables, strutils, times, math, terminal,
 
   # Nimble packages
   stew/[objects, byteutils], stew/shims/macros,
@@ -19,19 +19,17 @@ import
 
   # Local modules
   spec/[datatypes, digest, crypto, beaconstate, helpers, network],
-  spec/presets/custom,
+  spec/state_transition, spec/presets/custom,
   conf, time, beacon_chain_db, validator_pool, extras,
   attestation_pool, block_pool, eth2_network, eth2_discovery,
   beacon_node_common, beacon_node_types, block_pools/block_pools_types,
   nimbus_binary_common,
   mainchain_monitor, version, ssz/[merkleization], sszdump,
   sync_protocol, request_manager, keystore_management, interop, statusbar,
-  sync_manager, state_transition,
-  validator_duties, validator_api, attestation_aggregation
+  sync_manager, validator_duties, validator_api, attestation_aggregation
 
 const
   genesisFile* = "genesis.ssz"
-  timeToInitNetworkingBeforeGenesis = chronos.seconds(10)
   hasPrompt = not defined(withoutPrompt)
 
 type
@@ -95,12 +93,14 @@ proc getStateFromSnapshot(conf: BeaconNodeConf): NilableBeaconStateRef =
             genesisPath, dataDir = conf.dataDir.string
       writeGenesisFile = true
       genesisPath = snapshotPath
-  else:
-    try:
-      snapshotContents = readFile(genesisPath)
+  elif fileExists(genesisPath):
+    try: snapshotContents = readFile(genesisPath)
     except CatchableError as err:
       error "Failed to read genesis file", err = err.msg
       quit 1
+  else:
+    # No snapshot was provided. We should wait for genesis.
+    return nil
 
   result = try:
     newClone(SSZ.decode(snapshotContents, BeaconState))
@@ -144,20 +144,34 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
 
     # Try file from command line first
     if genesisState.isNil:
-      # Didn't work, try creating a genesis state using main chain monitor
-      # TODO Could move this to a separate "GenesisMonitor" process or task
-      #      that would do only this - see Paul's proposal for this.
-      if conf.web3Url.len > 0 and conf.depositContractAddress.len > 0:
-        mainchainMonitor = MainchainMonitor.init(
-          web3Provider(conf.web3Url),
-          conf.depositContractAddress,
-          Eth2Digest())
-        mainchainMonitor.start()
-      else:
-        error "No initial state, need genesis state or deposit contract address"
+      if conf.web3Url.len == 0:
+        fatal "Web3 URL not specified"
         quit 1
 
-      genesisState = await mainchainMonitor.getGenesis()
+      if conf.depositContractAddress.len == 0:
+        fatal "Deposit contract address not specified"
+        quit 1
+
+      if conf.depositContractDeployedAt.isNone:
+        # When we don't have a known genesis state, the network metadata
+        # must specify the deployment block of the contract.
+        fatal "Deposit contract deployment block not specified"
+        quit 1
+
+      # TODO Could move this to a separate "GenesisMonitor" process or task
+      #      that would do only this - see Paul's proposal for this.
+      mainchainMonitor = MainchainMonitor.init(
+        web3Provider(conf.web3Url),
+        conf.depositContractAddress,
+        Eth1Data(block_hash: conf.depositContractDeployedAt.get, deposit_count: 0))
+      mainchainMonitor.start()
+
+      genesisState = await mainchainMonitor.waitGenesis()
+
+      info "Eth2 genesis state detected",
+        genesisTime = genesisState.genesisTime,
+        eth1Block = genesisState.eth1_data.block_hash,
+        totalDeposits = genesisState.eth1_data.deposit_count
 
     # This is needed to prove the not nil property from here on
     if genesisState == nil:
@@ -193,7 +207,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     mainchainMonitor = MainchainMonitor.init(
       web3Provider(conf.web3Url),
       conf.depositContractAddress,
-      blockPool.headState.data.data.eth1_data.block_hash)
+      blockPool.headState.data.data.eth1_data)
     # TODO if we don't have any validators attached, we don't need a mainchain
     #      monitor
     mainchainMonitor.start()
@@ -213,7 +227,6 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     nickname: nickname,
     network: network,
     netKeys: netKeys,
-    requestManager: RequestManager.init(network),
     db: db,
     config: conf,
     attachedValidators: ValidatorPool.init(),
@@ -227,7 +240,12 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     topicAggregateAndProofs: topicAggregateAndProofs,
   )
 
-  traceAsyncErrors res.addLocalValidators()
+  res.requestManager = RequestManager.init(network,
+    proc(signedBlock: SignedBeaconBlock) =
+      onBeaconBlock(res, signedBlock)
+  )
+
+  await res.addLocalValidators()
 
   # This merely configures the BeaconSync
   # The traffic will be started when we join the network.
@@ -322,11 +340,12 @@ proc storeBlock(
 
   # The block we received contains attestations, and we might not yet know about
   # all of them. Let's add them to the attestation pool.
-  let currentSlot = node.beaconClock.now.toSlot
-  if currentSlot.afterGenesis and
-    signedBlock.message.slot.epoch + 1 >= currentSlot.slot.epoch:
-    for attestation in signedBlock.message.body.attestations:
-      node.onAttestation(attestation)
+  for attestation in signedBlock.message.body.attestations:
+    debug "Attestation from block",
+      attestation = shortLog(attestation),
+      cat = "consensus" # Tag "consensus|attestation"?
+
+    node.attestationPool.add(attestation)
   ok()
 
 proc onBeaconBlock(node: BeaconNode, signedBlock: SignedBeaconBlock) =
@@ -356,7 +375,7 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
 proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
   ## skip a few in case we're running late.
-  ## lastSlot: the last slot that we sucessfully processed, so we know where to
+  ## lastSlot: the last slot that we successfully processed, so we know where to
   ##           start work from
   ## scheduledSlot: the slot that we were aiming for, in terms of timing
 
@@ -501,21 +520,8 @@ proc handleMissingBlocks(node: BeaconNode) =
   let missingBlocks = node.blockPool.checkMissing()
   if missingBlocks.len > 0:
     var left = missingBlocks.len
-
-    info "Requesting detected missing blocks", missingBlocks
-    node.requestManager.fetchAncestorBlocks(missingBlocks) do (b: SignedBeaconBlock):
-      onBeaconBlock(node, b)
-
-      # TODO instead of waiting for a full second to try the next missing block
-      #      fetching, we'll do it here again in case we get all blocks we asked
-      #      for (there might be new parents to fetch). of course, this is not
-      #      good because the onSecond fetching also kicks in regardless but
-      #      whatever - this is just a quick fix for making the testnet easier
-      #      work with while the sync problem is dealt with more systematically
-      # dec left
-      # if left == 0:
-      #   discard setTimer(Moment.now()) do (p: pointer):
-      #     handleMissingBlocks(node)
+    info "Requesting detected missing blocks", blocks = shortLog(missingBlocks)
+    node.requestManager.fetchAncestorBlocks(missingBlocks)
 
 proc onSecond(node: BeaconNode) {.async.} =
   ## This procedure will be called once per second.
@@ -569,7 +575,7 @@ proc runForwardSyncLoop(node: BeaconNode) {.async.} =
       # We doing round manually because stdlib.round is deprecated
       storeSpeed = round(v * 10000) / 10000
 
-    info "Forward sync blocks got imported sucessfully", count = len(list),
+    info "Forward sync blocks got imported successfully", count = len(list),
          local_head_slot = getLocalHeadSlot(), store_speed = storeSpeed
     ok()
 
@@ -705,6 +711,22 @@ proc installDebugApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
 
     return res
 
+  rpcServer.rpc("peers") do () -> JsonNode:
+    var res = newJObject()
+    var peers = newJArray()
+    for id, peer in node.network.peerPool:
+      peers.add(
+        %(
+          info: shortLog(peer.info),
+          wasDialed: peer.wasDialed,
+          connectionState: $peer.connectionState,
+          score: peer.score,
+        )
+      )
+    res.add("peers", peers)
+
+    return res
+
 proc installRpcHandlers(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.installValidatorApiHandlers(node)
   rpcServer.installBeaconApiHandlers(node)
@@ -723,7 +745,7 @@ proc installAttestationHandlers(node: BeaconNode) =
 
   proc attestationValidator(attestation: Attestation,
                             committeeIndex: uint64): bool =
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#attestation-subnets
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#attestation-subnets
     let (afterGenesis, slot) = node.beaconClock.now().toSlot()
     if not afterGenesis:
       return false
@@ -731,26 +753,16 @@ proc installAttestationHandlers(node: BeaconNode) =
 
   var attestationSubscriptions: seq[Future[void]] = @[]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#mainnet-3
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
     closureScope:
       let ci = it
       attestationSubscriptions.add(node.network.subscribe(
-        getMainnetAttestationTopic(node.forkDigest, ci), attestationHandler,
+        getAttestationTopic(node.forkDigest, ci), attestationHandler,
         # This proc needs to be within closureScope; don't lift out of loop.
         proc(attestation: Attestation): bool =
           attestationValidator(attestation, ci)
       ))
-
-  when ETH2_SPEC == "v0.11.3":
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#interop-3
-    attestationSubscriptions.add(node.network.subscribe(
-      getInteropAttestationTopic(node.forkDigest), attestationHandler,
-      proc(attestation: Attestation): bool =
-        # isValidAttestation checks attestation.data.index == topicCommitteeIndex
-        # which doesn't make sense here, so rig that check to vacuously pass.
-        attestationValidator(attestation, attestation.data.index)
-    ))
 
   waitFor allFutures(attestationSubscriptions)
 
@@ -799,6 +811,8 @@ proc run*(node: BeaconNode) =
     node.onSecondLoop = runOnSecondLoop(node)
     node.forwardSyncLoop = runForwardSyncLoop(node)
 
+    node.requestManager.start()
+
   # main event loop
   while status == BeaconNodeStatus.Running:
     try:
@@ -819,21 +833,20 @@ proc createPidFile(filename: string) =
 proc initializeNetworking(node: BeaconNode) {.async.} =
   node.network.startListening()
 
-  let addressFile = node.config.dataDir / "beacon_node.address"
+  let addressFile = node.config.dataDir / "beacon_node.enr"
   writeFile(addressFile, node.network.announcedENR.toURI)
 
   await node.network.startLookingForPeers()
+
+  info "Networking initialized",
+    enr = node.network.announcedENR.toURI,
+    libp2p = shortLog(node.network.switch.peerInfo)
 
 proc start(node: BeaconNode) =
   let
     head = node.blockPool.head
     finalizedHead = node.blockPool.finalizedHead
-
-  let genesisTime = node.beaconClock.fromNow(toBeaconTime(Slot 0))
-
-  if genesisTime.inFuture and genesisTime.offset > timeToInitNetworkingBeforeGenesis:
-    info "Waiting for the genesis event", genesisIn = genesisTime.offset
-    waitFor sleepAsync(genesisTime.offset - timeToInitNetworkingBeforeGenesis)
+    genesisTime = node.beaconClock.fromNow(toBeaconTime(Slot 0))
 
   info "Starting beacon node",
     version = fullVersionStr,
@@ -850,6 +863,9 @@ proc start(node: BeaconNode) =
     dataDir = node.config.dataDir.string,
     cat = "init",
     pcs = "start_beacon_node"
+
+  if genesisTime.inFuture:
+    notice "Waiting for genesis", genesisIn = genesisTime.offset
 
   waitFor node.initializeNetworking()
   node.run()
@@ -871,7 +887,7 @@ func formatGwei(amount: uint64): string =
 
 when hasPrompt:
   from unicode import Rune
-  import terminal, prompt
+  import prompt
 
   proc providePromptCompletions*(line: seq[Rune], cursorPos: int): seq[string] =
     # TODO
@@ -998,6 +1014,104 @@ when hasPrompt:
       # var t: Thread[ptr Prompt]
       # createThread(t, processPromptCommands, addr p)
 
+proc createWalletInteractively(conf: BeaconNodeConf): OutFile {.raises: [Defect].} =
+  if conf.nonInteractive:
+    fatal "Wallets can be created only in interactive mode"
+    quit 1
+
+  var mnemonic = generateMnemonic()
+  defer: keystore_management.burnMem(mnemonic)
+
+  template readLine: string =
+    try: stdin.readLine()
+    except IOError:
+      fatal "Failed to read data from stdin"
+      quit 1
+
+  echo "The created wallet will be protected with a password " &
+       "that applies only to the current Nimbus installation. " &
+       "In case you lose your wallet and you need to restore " &
+       "it on a different machine, you must use the following " &
+       "seed recovery phrase: \n"
+
+  echo $mnemonic
+
+  echo "Please back up the seed phrase now to a safe location as " &
+       "if you are protecting a sensitive password. The seed phrase " &
+       "be used to withdrawl funds from your wallet.\n"
+
+  echo "Did you back up your seed recovery phrase? (please type 'yes' to continue or press enter to quit)"
+  while true:
+    let answer = readLine()
+    if answer == "":
+      quit 1
+    elif answer != "yes":
+      echo "To continue, please type 'yes' (without the quotes) or press enter to quit"
+    else:
+      break
+
+  echo "When you perform operations with your wallet such as withdrawals " &
+       "and additional deposits, you'll be asked to enter a password. " &
+       "Please note that this password is local to the current Nimbus " &
+       "installation and can be changed at any time."
+
+  while true:
+    var password, confirmedPassword: TaintedString
+    try:
+      let status = try:
+        readPasswordFromStdin("Please enter a password:", password) and
+        readPasswordFromStdin("Please repeat the password:", confirmedPassword)
+      except IOError:
+        fatal "Failed to read password interactively"
+        quit 1
+
+      if status:
+        if password != confirmedPassword:
+          echo "Passwords don't match, please try again"
+        else:
+          var name: WalletName
+          if conf.createdWalletName.isSome:
+            name = conf.createdWalletName.get
+          else:
+            echo "For your convenience, the wallet can be identified with a name " &
+                 "of your choice. Please enter a wallet name below or press ENTER " &
+                 "to continue with a machine-generated name."
+
+            while true:
+              var enteredName = readLine()
+              if enteredName.len > 0:
+                name = try: WalletName.parseCmdArg(enteredName)
+                       except CatchableError as err:
+                         echo err.msg & ". Please try again."
+                         continue
+              break
+
+          let (uuid, walletContent) = KdfPbkdf2.createWalletContent(mnemonic, name)
+          try:
+            var outWalletFile: OutFile
+
+            if conf.createdWalletFile.isSome:
+              outWalletFile = conf.createdWalletFile.get
+              createDir splitFile(string outWalletFile).dir
+            else:
+              let walletsDir = conf.walletsDir
+              createDir walletsDir
+              outWalletFile = OutFile(walletsDir / addFileExt(string uuid, "json"))
+
+            writeFile(string outWalletFile, string walletContent)
+            return outWalletFile
+          except CatchableError as err:
+            fatal "Failed to write wallet file", err = err.msg
+            quit 1
+
+      if not status:
+        fatal "Failed to read a password from stdin"
+        quit 1
+
+    finally:
+      keystore_management.burnMem(password)
+      keystore_management.burnMem(confirmedPassword)
+
 programMain:
   let config = makeBannerAndConfig(clientId, BeaconNodeConf)
 
@@ -1005,8 +1119,10 @@ programMain:
 
   case config.cmd
   of createTestnet:
-    var deposits: seq[Deposit]
-    var i = -1
+    var
+      depositDirs: seq[string]
+      deposits: seq[Deposit]
+      i = -1
     for kind, dir in walkDir(config.testnetDepositsDir.string):
       if kind != pcDir:
         continue
@@ -1015,13 +1131,19 @@ programMain:
       if i < config.firstValidator.int:
         continue
 
+      depositDirs.add dir
+
+    # Add deposits, in order, to pass Merkle validation
+    sort(depositDirs, system.cmp)
+
+    for dir in depositDirs:
       let depositFile = dir / "deposit.json"
       try:
         deposits.add Json.loadFile(depositFile, Deposit)
       except SerializationError as err:
         stderr.write "Error while loading a deposit file:\n"
         stderr.write err.formatMsg(depositFile), "\n"
-        stderr.write "Please regenerate the deposit files by running makeDeposits again\n"
+        stderr.write "Please regenerate the deposit files by running 'beacon_node deposits create' again\n"
         quit 1
 
     let
@@ -1031,7 +1153,7 @@ programMain:
                  else: waitFor getLatestEth1BlockHash(config.web3Url)
     var
       initialState = initialize_beacon_state_from_eth1(
-        eth1Hash, startTime, deposits, {skipBlsValidation, skipMerkleValidation})
+        eth1Hash, startTime, deposits, {skipBlsValidation})
 
     # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
     initialState.genesis_time = startTime
@@ -1064,22 +1186,6 @@ programMain:
       writeFile(bootstrapFile, bootstrapEnr.tryGet().toURI)
       echo "Wrote ", bootstrapFile
 
-  of importValidator:
-    template reportFailureFor(keyExpr) =
-      error "Failed to import validator key", key = keyExpr
-      programResult = 1
-
-    if config.keyFiles.len == 0:
-      stderr.write "Please specify at least one keyfile to import."
-      quit 1
-
-    for keyFile in config.keyFiles:
-      try:
-        saveValidatorKey(keyFile.string.extractFilename,
-                         readFile(keyFile.string), config)
-      except:
-        reportFailureFor keyFile.string
-
   of noCommand:
     debug "Launching beacon node",
           version = fullVersionStr,
@@ -1109,34 +1215,44 @@ programMain:
     else:
       node.start()
 
-  of makeDeposits:
-    createDir(config.outValidatorsDir)
-    createDir(config.outSecretsDir)
+  of deposits:
+    case config.depositsCmd
+    of DepositsCmd.create:
+      createDir(config.outValidatorsDir)
+      createDir(config.outSecretsDir)
 
-    let
-      deposits = generateDeposits(
+      let deposits = generateDeposits(
         config.totalDeposits,
         config.outValidatorsDir,
-        config.outSecretsDir).tryGet
+        config.outSecretsDir)
 
-    if config.web3Url.len > 0 and config.depositContractAddress.len > 0:
+      if deposits.isErr:
+        fatal "Failed to generate deposits", err = deposits.error
+        quit 1
+
+      if not config.dontSend:
+        waitFor sendDeposits(config, deposits.value)
+
+    of DepositsCmd.send:
       if config.minDelay > config.maxDelay:
         echo "The minimum delay should not be larger than the maximum delay"
         quit 1
 
-      var delayGenerator: DelayGenerator
-      if config.maxDelay > 0.0:
-        delayGenerator = proc (): chronos.Duration {.gcsafe.} =
-          chronos.milliseconds (rand(config.minDelay..config.maxDelay)*1000).int
+      let deposits = loadDeposits(config.depositsDir)
+      waitFor sendDeposits(config, deposits)
 
-      info "Sending deposits",
-        web3 = config.web3Url,
-        depositContract = config.depositContractAddress
+    of DepositsCmd.status:
+      # TODO
+      echo "The status command is not implemented yet"
+      quit 1
 
-      waitFor sendDeposits(
-        deposits,
-        config.web3Url,
-        config.depositContractAddress,
-        config.depositPrivateKey,
-        delayGenerator)
-
+  of wallets:
+    case config.walletsCmd:
+    of WalletsCmd.create:
+      let walletFile = createWalletInteractively(config)
+    of WalletsCmd.list:
+      # TODO
+      discard
+    of WalletsCmd.restore:
+      # TODO
+      discard

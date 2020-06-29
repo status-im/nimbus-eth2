@@ -1,8 +1,11 @@
 import
-  os, strutils, terminal,
+  os, strutils, terminal, random,
   chronicles, chronos, blscurve, nimcrypto, json_serialization, serialization,
   web3, stint, eth/keys, confutils,
   spec/[datatypes, digest, crypto, keystore], conf, ssz/merkleization, merkle_minimal
+
+export
+  keystore
 
 contract(DepositContract):
   proc deposit(pubkey: Bytes48, withdrawalCredentials: Bytes32, signature: Bytes96, deposit_data_root: FixedBytes[32])
@@ -109,7 +112,7 @@ proc generateDeposits*(totalValidators: int,
     let credentials = generateCredentials(password = password)
 
     let
-      keyName = $(credentials.signingKey.toPubKey)
+      keyName = intToStr(i, 6) & "_" & $(credentials.signingKey.toPubKey)
       validatorDir = validatorsDir / keyName
       passphraseFile = secretsDir / keyName
       depositFile = validatorDir / depositFileName
@@ -139,14 +142,34 @@ proc generateDeposits*(totalValidators: int,
 
   ok deposits
 
+proc loadDeposits*(depositsDir: string): seq[Deposit] =
+  try:
+    for kind, dir in walkDir(depositsDir):
+      if kind == pcDir:
+        let depositFile = dir / depositFileName
+        try:
+          result.add Json.loadFile(depositFile, Deposit)
+        except IOError as err:
+          error "Failed to open deposit file", depositFile, err = err.msg
+          quit 1
+        except SerializationError as err:
+          error "Invalid deposit file", error = formatMsg(err, depositFile)
+          quit 1
+  except OSError as err:
+    error "Deposits directory not accessible",
+           path = depositsDir, err = err.msg
+    quit 1
+
 {.pop.}
 
+# TODO: async functions should note take `seq` inputs because
+#       this leads to full copies.
 proc sendDeposits*(deposits: seq[Deposit],
                    web3Url, depositContractAddress, privateKey: string,
                    delayGenerator: DelayGenerator = nil) {.async.} =
   var web3 = await newWeb3(web3Url)
   if privateKey.len != 0:
-    web3.privateKey = PrivateKey.fromHex(privateKey).tryGet
+    web3.privateKey = some(PrivateKey.fromHex(privateKey).tryGet)
   else:
     let accounts = await web3.provider.eth_accounts()
     if accounts.len == 0:
@@ -158,12 +181,32 @@ proc sendDeposits*(deposits: seq[Deposit],
   let depositContract = web3.contractSender(DepositContract, contractAddress)
 
   for i, dp in deposits:
-    discard await depositContract.deposit(
+    let status = await depositContract.deposit(
       Bytes48(dp.data.pubKey.toRaw()),
       Bytes32(dp.data.withdrawal_credentials.data),
       Bytes96(dp.data.signature.toRaw()),
       FixedBytes[32](hash_tree_root(dp.data).data)).send(value = 32.u256.ethToWei, gasPrice = 1)
 
+    info "Deposit sent", status = $status
+
     if delayGenerator != nil:
       await sleepAsync(delayGenerator())
+
+proc sendDeposits*(config: BeaconNodeConf,
+                   deposits: seq[Deposit]) {.async.} =
+  var delayGenerator: DelayGenerator
+  if config.maxDelay > 0.0:
+    delayGenerator = proc (): chronos.Duration {.gcsafe.} =
+      chronos.milliseconds (rand(config.minDelay..config.maxDelay)*1000).int
+
+  info "Sending deposits",
+    web3 = config.web3Url,
+    depositContract = config.depositContractAddress
+
+  await sendDeposits(
+    deposits,
+    config.web3Url,
+    config.depositContractAddress,
+    config.depositPrivateKey,
+    delayGenerator)
 

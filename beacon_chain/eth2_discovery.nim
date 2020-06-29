@@ -51,7 +51,7 @@ proc loadBootstrapFile*(bootstrapFile: string,
                         localPubKey: PublicKey) =
   if bootstrapFile.len == 0: return
   let ext = splitFile(bootstrapFile).ext
-  if cmpIgnoreCase(ext, ".txt") == 0:
+  if cmpIgnoreCase(ext, ".txt") == 0 or cmpIgnoreCase(ext, ".enr") == 0 :
     try:
       for ln in lines(bootstrapFile):
         addBootstrapNode(ln, bootstrapEnrs, localPubKey)
@@ -64,7 +64,7 @@ proc loadBootstrapFile*(bootstrapFile: string,
     # removal of YAML metadata.
     try:
       for ln in lines(bootstrapFile):
-        addBootstrapNode(string(ln[3..^2]), bootstrapEnrs, localPubKey)
+        addBootstrapNode(string(ln.strip()[3..^2]), bootstrapEnrs, localPubKey)
     except IOError as e:
       error "Could not read bootstrap file", msg = e.msg
       quit 1
@@ -75,7 +75,7 @@ proc loadBootstrapFile*(bootstrapFile: string,
 proc new*(T: type Eth2DiscoveryProtocol,
           conf: BeaconNodeConf,
           ip: Option[ValidIpAddress], tcpPort, udpPort: Port,
-          rawPrivKeyBytes: openarray[byte],
+          pk: PrivateKey,
           enrFields: openarray[(string, seq[byte])]):
           T {.raises: [Exception, Defect].} =
   # TODO
@@ -83,8 +83,7 @@ proc new*(T: type Eth2DiscoveryProtocol,
   # * for setting up a specific key
   # * for using a persistent database
   let
-    pk = PrivateKey.fromRaw(rawPrivKeyBytes).expect("Valid private key")
-    ourPubKey = pk.toPublicKey().expect("Public key from valid private key")
+    ourPubKey = pk.toPublicKey()
     # TODO: `newMemoryDB()` causes raises: [Exception]
     db = DiscoveryDB.init(newMemoryDB())
 

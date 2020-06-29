@@ -64,7 +64,13 @@ func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
     if is_active_validator(val, epoch):
       result.add idx.ValidatorIndex
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_committee_count_at_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_committee_count_at_slot
+func get_committee_count_at_slot*(num_active_validators: auto):
+    uint64 =
+  clamp(
+    num_active_validators div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
+    1, MAX_COMMITTEES_PER_SLOT).uint64
+
 func get_committee_count_at_slot*(state: BeaconState, slot: Slot): uint64 =
   # Return the number of committees at ``slot``.
 
@@ -74,10 +80,7 @@ func get_committee_count_at_slot*(state: BeaconState, slot: Slot): uint64 =
   # CommitteeIndex return type here.
   let epoch = compute_epoch_at_slot(slot)
   let active_validator_indices = get_active_validator_indices(state, epoch)
-  let committees_per_slot = clamp(
-    len(active_validator_indices) div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
-    1, MAX_COMMITTEES_PER_SLOT).uint64
-  result = committees_per_slot
+  result = get_committee_count_at_slot(len(active_validator_indices))
 
   # Otherwise, get_beacon_committee(...) cannot access some committees.
   doAssert (SLOTS_PER_EPOCH * MAX_COMMITTEES_PER_SLOT).uint64 >= result
@@ -163,7 +166,7 @@ func compute_domain*(
   result[0..3] = int_to_bytes4(domain_type.uint64)
   result[4..31] = fork_data_root.data[0..27]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_domain
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_domain
 func get_domain*(
     fork: Fork, domain_type: DomainType, epoch: Epoch, genesis_validators_root: Eth2Digest): Domain =
   ## Return the signature domain (fork version concatenated with domain type)
@@ -185,16 +188,10 @@ func get_domain*(
 func compute_signing_root*(ssz_object: auto, domain: Domain): Eth2Digest =
   # Return the signing root of an object by calculating the root of the
   # object-domain tree.
-  when ETH2_SPEC == "v0.12.1":
-    let domain_wrapped_object = SigningData(
-      object_root: hash_tree_root(ssz_object),
-      domain: domain
-    )
-  else:
-    let domain_wrapped_object = SigningRoot(
-      object_root: hash_tree_root(ssz_object),
-      domain: domain
-    )
+  let domain_wrapped_object = SigningData(
+    object_root: hash_tree_root(ssz_object),
+    domain: domain
+  )
   hash_tree_root(domain_wrapped_object)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_seed

@@ -1,5 +1,5 @@
 import
-  strformat, os, confutils, algorithm
+  strformat, os, confutils, algorithm, sequtils
 
 type
   Command = enum
@@ -9,15 +9,15 @@ type
   CliConfig = object
     network: string
 
+    depositsDir {.
+      defaultValue: "deposits"
+      name: "deposits-dir" }: string
+
     case cmd {.command.}: Command
     of restart_nodes:
       discard
 
     of reset_network:
-      depositsDir {.
-        defaultValue: "deposits"
-        name: "deposits-dir" }: string
-
       secretsDir {.
         defaultValue: "secrets"
         name: "secrets-dir" }: string
@@ -38,9 +38,9 @@ type
 var conf = load CliConfig
 
 var
-  serverCount = 10
-  instancesCount = 2
-  validators = listDirs(conf.depositsDir)
+  serverCount = 6
+  instancesCount = 1
+  validators = listDirs(conf.depositsDir).mapIt(splitPath(it)[1])
 
 sort(validators)
 
@@ -115,6 +115,7 @@ of reset_network:
   for n, firstValidator, lastValidator in validatorAssignments():
     var
       validatorDirs = ""
+      secretFiles = ""
       networkDataFiles = conf.networkDataDir & "/{genesis.ssz,bootstrap_nodes.txt}"
 
     for i in firstValidator ..< lastValidator:
@@ -125,15 +126,14 @@ of reset_network:
 
     let dockerPath = &"/docker/{n.container}/data/BeaconNode"
     echo &"echo Syncing {lastValidator - firstValidator} keys starting from {firstValidator} to container {n.container}@{n.server} ... && \\"
-    echo &"  ssh {n.server} 'sudo rm -rf /tmp/nimbus && mkdir -p /tmp/nimbus/{{validators,secrets}}' && \\"
+    echo &"  ssh {n.server} 'sudo rm -rf /tmp/nimbus && mkdir -p /tmp/nimbus/{{net-data,validators,secrets}}' && \\"
     echo &"  rsync -a -zz {networkDataFiles} {n.server}:/tmp/nimbus/net-data/ && \\"
-    if validator.len > 0:
+    if validators.len > 0:
       echo &"  rsync -a -zz {validatorDirs} {n.server}:/tmp/nimbus/validators/ && \\"
       echo &"  rsync -a -zz {secretFiles} {n.server}:/tmp/nimbus/secrets/ && \\"
 
     echo &"  ssh {n.server} 'sudo docker container stop {n.container}; " &
-                         &"sudo rm -rf {dockerPath}/{{db,validators,secrets}}* && " &
-                         (if validators.len > 0: &"sudo mv /tmp/nimbus/* {dockerPath}/ && " else: "") &
-                         &"sudo mv /tmp/nimbus/net-data/* {dockerPath}/ && " &
+                         &"sudo rm -rf {dockerPath}/{{db,validators,secrets,net-data}}* && " &
+                         &"sudo mv /tmp/nimbus/* {dockerPath}/ && " &
                          &"sudo chown dockremap:docker -R {dockerPath}'"
 

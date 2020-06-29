@@ -4,8 +4,8 @@ import
   typetraits, stew/[results, objects, endians2],
   serialization, chronicles, snappy,
   eth/db/kvstore,
-  ./spec/[datatypes, digest, crypto],
-  ./ssz/[ssz_serialization, merkleization], ./state_transition
+  ./spec/[datatypes, digest, crypto, state_transition],
+  ./ssz/[ssz_serialization, merkleization]
 
 type
   BeaconChainDB* = ref object
@@ -94,24 +94,31 @@ proc get(db: BeaconChainDB, key: openArray[byte], T: type Eth2Digest): Opt[T] =
 
   res
 
-proc get(db: BeaconChainDB, key: openArray[byte], T: typedesc): Opt[T] =
-  var res: Opt[T]
+proc get(db: BeaconChainDB, key: openArray[byte], res: var auto): bool =
+  var found = false
+
+  # TODO address is needed because there's no way to express lifetimes in nim
+  #      we'll use unsafeAddr to find the code later
+  var resPtr = unsafeAddr res # callback is local, ptr wont escape
   proc decode(data: openArray[byte]) =
     try:
-      res.ok SSZ.decode(snappy.decode(data), T)
+      resPtr[] = SSZ.decode(snappy.decode(data), type res)
+      found = true
     except SerializationError as e:
       # If the data can't be deserialized, it could be because it's from a
       # version of the software that uses a different SSZ encoding
       warn "Unable to deserialize data, old database?",
-        err = e.msg, typ = name(T), dataLen = data.len
+        err = e.msg, typ = name(type res), dataLen = data.len
       discard
 
   discard db.backend.get(key, decode).expect("working database")
 
-  res
+  found
 
 proc putBlock*(db: BeaconChainDB, key: Eth2Digest, value: SignedBeaconBlock) =
   db.put(subkey(type value, key), value)
+proc putBlock*(db: BeaconChainDB, key: Eth2Digest, value: TrustedSignedBeaconBlock) =
+  db.put(subkey(SignedBeaconBlock, key), value)
 
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
   # TODO prune old states - this is less easy than it seems as we never know
@@ -126,7 +133,9 @@ proc putStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot,
     value: Eth2Digest) =
   db.put(subkey(root, slot), value)
 
-proc putBlock*(db: BeaconChainDB, value: SignedBeaconBlock) =
+proc putBlock*(db: BeaconChainDB, value: SomeSignedBeaconBlock) =
+  # TODO this should perhaps be a TrustedSignedBeaconBlock, but there's no
+  #      trivial way to coerce one type into the other, as it stands..
   db.putBlock(hash_tree_root(value.message), value)
 
 proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
@@ -145,8 +154,11 @@ proc putHeadBlock*(db: BeaconChainDB, key: Eth2Digest) =
 proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.put(subkey(kTailBlock), key)
 
-proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Opt[SignedBeaconBlock] =
-  db.get(subkey(SignedBeaconBlock, key), SignedBeaconBlock)
+proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Opt[TrustedSignedBeaconBlock] =
+  # We only store blocks that we trust in the database
+  result.ok(TrustedSignedBeaconBlock())
+  if not db.get(subkey(SignedBeaconBlock, key), result.get):
+    result.err()
 
 proc getState*(
     db: BeaconChainDB, key: Eth2Digest, output: var BeaconState,
@@ -159,20 +171,11 @@ proc getState*(
   #      https://github.com/nim-lang/Nim/issues/14126
   # TODO RVO is inefficient for large objects:
   #      https://github.com/nim-lang/Nim/issues/13879
-  # TODO address is needed because there's no way to express lifetimes in nim
-  #      we'll use unsafeAddr to find the code later
-  let outputAddr = unsafeAddr output # callback is local
-  proc decode(data: openArray[byte]) =
-    try:
-      # TODO can't write to output directly..
-      assign(outputAddr[], SSZ.decode(snappy.decode(data), BeaconState))
-    except SerializationError as e:
-      # If the data can't be deserialized, it could be because it's from a
-      # version of the software that uses a different SSZ encoding
-      warn "Unable to deserialize data, old database?", err = e.msg
-      rollback(outputAddr[])
-
-  db.backend.get(subkey(BeaconState, key), decode).expect("working database")
+  if not db.get(subkey(BeaconState, key), output):
+    rollback(output)
+    false
+  else:
+    true
 
 proc getStateRoot*(db: BeaconChainDB,
                    root: Eth2Digest,
@@ -192,14 +195,14 @@ proc containsState*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(BeaconState, key)).expect("working database")
 
 iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
-    tuple[root: Eth2Digest, blck: SignedBeaconBlock] =
+    tuple[root: Eth2Digest, blck: TrustedSignedBeaconBlock] =
   ## Load a chain of ancestors for blck - returns a list of blocks with the
   ## oldest block last (blck will be at result[0]).
   ##
   ## The search will go on until the ancestor cannot be found.
 
-  var root = root
-  while (let blck = db.getBlock(root); blck.isOk()):
-    yield (root, blck.get())
-
-    root = blck.get().message.parent_root
+  var res: tuple[root: Eth2Digest, blck: TrustedSignedBeaconBlock]
+  res.root = root
+  while db.get(subkey(SignedBeaconBlock, res.root), res.blck):
+    yield res
+    res.root = res.blck.message.parent_root

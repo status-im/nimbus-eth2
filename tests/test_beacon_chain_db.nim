@@ -8,8 +8,9 @@
 {.used.}
 
 import  options, unittest, sequtils,
-  ../beacon_chain/[beacon_chain_db, extras, interop, ssz, state_transition],
-  ../beacon_chain/spec/[beaconstate, datatypes, digest, crypto],
+  ../beacon_chain/[beacon_chain_db, extras, interop, ssz],
+  ../beacon_chain/spec/[
+    beaconstate, datatypes, digest, crypto, state_transition],
   eth/db/kvstore,
   # test utilies
   ./testutil, ./testblockutil
@@ -41,7 +42,7 @@ suiteReport "Beacon chain DB" & preset():
       db = init(BeaconChainDB, kvStore MemStoreRef.init())
 
     let
-      signedBlock = SignedBeaconBlock()
+      signedBlock = TrustedSignedBeaconBlock()
       root = hash_tree_root(signedBlock.message)
 
     db.putBlock(signedBlock)
@@ -73,13 +74,14 @@ suiteReport "Beacon chain DB" & preset():
       db = init(BeaconChainDB, kvStore MemStoreRef.init())
 
     let
-      a0 = SignedBeaconBlock(message: BeaconBlock(slot: GENESIS_SLOT + 0))
+      a0 = TrustedSignedBeaconBlock(message:
+        TrustedBeaconBlock(slot: GENESIS_SLOT + 0))
       a0r = hash_tree_root(a0.message)
-      a1 = SignedBeaconBlock(message:
-        BeaconBlock(slot: GENESIS_SLOT + 1, parent_root: a0r))
+      a1 = TrustedSignedBeaconBlock(message:
+        TrustedBeaconBlock(slot: GENESIS_SLOT + 1, parent_root: a0r))
       a1r = hash_tree_root(a1.message)
-      a2 = SignedBeaconBlock(message:
-        BeaconBlock(slot: GENESIS_SLOT + 2, parent_root: a1r))
+      a2 = TrustedSignedBeaconBlock(message:
+        TrustedBeaconBlock(slot: GENESIS_SLOT + 2, parent_root: a1r))
       a2r = hash_tree_root(a2.message)
 
     doAssert toSeq(db.getAncestors(a0r)) == []

@@ -83,7 +83,7 @@ proc getMerkleProof*[Depth: static int](tree: SparseMerkleTree[Depth],
     else:
       result[depth] = zeroHashes[depth]
 
-proc attachMerkleProofs*(deposits: var seq[Deposit]) =
+func attachMerkleProofs*(deposits: var openarray[Deposit]) =
   let deposit_data_roots = mapIt(deposits, it.data.hash_tree_root)
   var
     deposit_data_sums: seq[Eth2Digest]

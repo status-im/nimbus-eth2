@@ -10,8 +10,8 @@
 import
   chronicles, options, sequtils, tables,
   metrics,
-  ../ssz/merkleization, ../beacon_chain_db, ../state_transition, ../extras,
-  ../spec/[crypto, datatypes, digest, helpers, validator],
+  ../ssz/merkleization, ../beacon_chain_db, ../extras,
+  ../spec/[crypto, datatypes, digest, helpers, validator, state_transition],
   block_pools_types
 
 declareCounter beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # On fork choice
@@ -20,7 +20,8 @@ declareCounter beacon_state_data_cache_misses, "dag.cachedStates misses"
 
 logScope: topics = "hotdb"
 
-proc putBlock*(dag: var CandidateChains, blockRoot: Eth2Digest, signedBlock: SignedBeaconBlock) {.inline.} =
+proc putBlock*(
+    dag: var CandidateChains, blockRoot: Eth2Digest, signedBlock: SignedBeaconBlock) =
   dag.db.putBlock(blockRoot, signedBlock)
 
 proc updateStateData*(
@@ -53,7 +54,7 @@ func parent*(bs: BlockSlot): BlockSlot =
       slot: bs.slot - 1
     )
 
-func populateEpochCache*(state: BeaconState, epoch: Epoch): EpochRef =
+func populateEpochCache(state: BeaconState, epoch: Epoch): EpochRef =
   result = (EpochRef)(
     epoch: state.slot.compute_epoch_at_slot,
     shuffled_active_validator_indices:
@@ -129,6 +130,22 @@ func get_ancestor*(blck: BlockRef, slot: Slot): BlockRef =
 
     blck = blck.parent
 
+iterator get_ancestors_in_epoch(blockSlot: BlockSlot): BlockSlot =
+  let min_slot =
+    blockSlot.slot.compute_epoch_at_slot.compute_start_slot_at_epoch
+  var blockSlot = blockSlot
+
+  while true:
+    for slot in countdown(blockSlot.slot, max(blockSlot.blck.slot, min_slot)):
+      yield BlockSlot(blck: blockSlot.blck, slot: slot)
+
+    if blockSlot.blck.parent.isNil or blockSlot.blck.slot <= min_slot:
+      break
+
+    doAssert blockSlot.blck.slot > blockSlot.blck.parent.slot
+    blockSlot =
+      BlockSlot(blck: blockSlot.blck.parent, slot: blockSlot.blck.slot - 1)
+
 func atSlot*(blck: BlockRef, slot: Slot): BlockSlot =
   ## Return a BlockSlot at a given slot, with the block set to the closest block
   ## available. If slot comes from before the block, a suitable block ancestor
@@ -148,7 +165,7 @@ func getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
   if matching_epochinfo.len == 0:
     let cache = populateEpochCache(state, state_epoch)
     blck.epochsInfo.add(cache)
-    trace "candidate_chains.skipAndUpdateState(): back-filling parent.epochInfo",
+    trace "candidate_chains.getEpochInfo: back-filling parent.epochInfo",
       state_slot = state.slot
     cache
   elif matching_epochinfo.len == 1:
@@ -169,7 +186,7 @@ func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
     slot: slot
   )
 
-func init*(T: type BlockRef, root: Eth2Digest, blck: BeaconBlock): BlockRef =
+func init*(T: type BlockRef, root: Eth2Digest, blck: SomeBeaconBlock): BlockRef =
   BlockRef.init(root, blck.slot)
 
 proc init*(T: type CandidateChains, db: BeaconChainDB,
@@ -492,10 +509,10 @@ proc skipAndUpdateState(
   ok
 
 proc rewindState(dag: CandidateChains, state: var StateData, bs: BlockSlot):
-    seq[BlockData] =
+    seq[BlockRef] =
   logScope: pcs = "replay_state"
 
-  var ancestors = @[dag.get(bs.blck)]
+  var ancestors = @[bs.blck]
   # Common case: the last block applied is the parent of the block to apply:
   if not bs.blck.parent.isNil and state.blck.root == bs.blck.parent.root and
       state.data.data.slot < bs.blck.slot:
@@ -522,7 +539,7 @@ proc rewindState(dag: CandidateChains, state: var StateData, bs: BlockSlot):
       break # Bug probably!
 
     if parBs.blck != curBs.blck:
-      ancestors.add(dag.get(parBs.blck))
+      ancestors.add(parBs.blck)
 
     # TODO investigate replacing with getStateCached, by refactoring whole
     # function. Empirically, this becomes pretty rare once good caches are
@@ -531,12 +548,12 @@ proc rewindState(dag: CandidateChains, state: var StateData, bs: BlockSlot):
     if idx >= 0:
       assign(state.data, dag.cachedStates[idx].state[])
       let ancestor = ancestors.pop()
-      state.blck = ancestor.refs
+      state.blck = ancestor
 
       beacon_state_data_cache_hits.inc()
       trace "Replaying state transitions via in-memory cache",
         stateSlot = shortLog(state.data.data.slot),
-        ancestorStateRoot = shortLog(ancestor.data.message.state_root),
+        ancestorStateRoot = shortLog(state.data.root),
         ancestorStateSlot = shortLog(state.data.data.slot),
         slot = shortLog(bs.slot),
         blockRoot = shortLog(bs.blck.root),
@@ -568,7 +585,7 @@ proc rewindState(dag: CandidateChains, state: var StateData, bs: BlockSlot):
   let
     ancestor = ancestors.pop()
     root = stateRoot.get()
-    found = dag.getState(dag.db, root, ancestor.refs, state)
+    found = dag.getState(dag.db, root, ancestor, state)
 
   if not found:
     # TODO this should only happen if the database is corrupt - we walked the
@@ -584,7 +601,6 @@ proc rewindState(dag: CandidateChains, state: var StateData, bs: BlockSlot):
 
   trace "Replaying state transitions",
     stateSlot = shortLog(state.data.data.slot),
-    ancestorStateRoot = shortLog(ancestor.data.message.state_root),
     ancestorStateSlot = shortLog(state.data.data.slot),
     slot = shortLog(bs.slot),
     blockRoot = shortLog(bs.blck.root),
@@ -617,6 +633,24 @@ proc getStateDataCached(dag: CandidateChains, state: var StateData, bs: BlockSlo
     return dag.getState(dag.db, tmp.get(), bs.blck, state)
 
   false
+
+template withEpochState*(
+    dag: CandidateChains, cache: var StateData, blockSlot: BlockSlot, body: untyped): untyped =
+  ## Helper template that updates state to a particular BlockSlot - usage of
+  ## cache is unsafe outside of block.
+  ## TODO async transformations will lead to a race where cache gets updated
+  ##      while waiting for future to complete - catch this here somehow?
+
+  for ancestor in get_ancestors_in_epoch(blockSlot):
+    if getStateDataCached(dag, cache, ancestor):
+      break
+
+  template hashedState(): HashedBeaconState {.inject, used.} = cache.data
+  template state(): BeaconState {.inject, used.} = cache.data.data
+  template blck(): BlockRef {.inject, used.} = cache.blck
+  template root(): Eth2Digest {.inject, used.} = cache.data.root
+
+  body
 
 proc updateStateData*(dag: CandidateChains, state: var StateData, bs: BlockSlot) =
   ## Rewind or advance state such that it matches the given block and slot -
@@ -655,10 +689,7 @@ proc updateStateData*(dag: CandidateChains, state: var StateData, bs: BlockSlot)
     # no state root calculation will take place here, because we can load
     # the final state root from the block itself.
     let ok =
-      dag.skipAndUpdateState(
-        state, ancestors[i],
-        {skipBlsValidation, skipStateRootValidation},
-        false)
+      dag.skipAndUpdateState(state, dag.get(ancestors[i]), {}, false)
     doAssert ok, "Blocks in database should never fail to apply.."
 
   # We save states here - blocks were guaranteed to have passed through the save

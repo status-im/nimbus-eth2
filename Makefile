@@ -15,23 +15,25 @@ BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 
 # unconditionally built by the default Make target
 TOOLS := \
-	validator_client \
 	beacon_node \
+	block_sim \
+	deposit_contract \
 	inspector \
 	logtrace \
-	deposit_contract \
+	nbench \
+	nbench_spec_scenarios \
+	ncli_db \
 	ncli_hash_tree_root \
 	ncli_pretty \
 	ncli_query \
 	ncli_transition \
-	ncli_db \
 	process_dashboard \
 	stack_sizes \
 	state_sim \
-	block_sim \
-	nbench \
-	nbench_spec_scenarios
-	# bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes
+	validator_client
+
+# bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes
+
 TOOLS_DIRS := \
 	beacon_chain \
 	benchmarks \
@@ -47,7 +49,7 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	update \
 	test \
 	$(TOOLS) \
-	clean_eth2_network_simulation_files \
+	clean_eth2_network_simulation_all \
 	eth2_network_simulation \
 	clean-testnet0 \
 	testnet0 \
@@ -55,12 +57,6 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	testnet1 \
 	clean \
 	libbacktrace \
-	clean-schlesi \
-	schlesi \
-	schlesi-dev \
-	clean-witti \
-	witti \
-	witti-dev \
 	book \
 	publish-book
 
@@ -99,7 +95,7 @@ else
 NIM_PARAMS := $(NIM_PARAMS) -d:release
 endif
 
-deps: | deps-common beacon_chain.nims
+deps: | deps-common nat-libs beacon_chain.nims
 ifneq ($(USE_LIBBACKTRACE), 0)
 deps: | libbacktrace
 endif
@@ -131,11 +127,14 @@ $(TOOLS): | build deps
 		echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim c -o:build/$@ $(NIM_PARAMS) "$${TOOL_DIR}/$@.nim"
 
-clean_eth2_network_simulation_files:
+clean_eth2_network_simulation_data:
+	rm -rf tests/simulation/data
+
+clean_eth2_network_simulation_all:
 	rm -rf tests/simulation/{data,validators}
 
-eth2_network_simulation: | build deps clean_eth2_network_simulation_files
-	+ GIT_ROOT="$$PWD" NIMFLAGS="$(NIMFLAGS)" LOG_LEVEL="$(LOG_LEVEL)" tests/simulation/start.sh
+eth2_network_simulation: | build deps clean_eth2_network_simulation_data
+	+ GIT_ROOT="$$PWD" NIMFLAGS="$(NIMFLAGS)" LOG_LEVEL="$(LOG_LEVEL)" tests/simulation/start-in-tmux.sh
 
 clean-testnet0:
 	rm -rf build/data/testnet0*
@@ -147,25 +146,24 @@ clean-testnet1:
 # - try SCRIPT_PARAMS="--skipGoerliKey"
 testnet0 testnet1: | build deps
 	source scripts/$@.env; \
-		NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) --const-preset=$$CONST_PRESET --dev-build $@
+		NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) --const-preset=$$CONST_PRESET --dev-build $@
 
-clean-schlesi:
-	rm -rf build/data/shared_schlesi*
+clean-altona:
+	rm -rf build/data/shared_altona*
 
-schlesi: | build deps
-	NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/schlesi
+altona: | build deps
+	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/altona
 
-schlesi-dev: | build deps
-	NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/schlesi
+altona-dev: | build deps
+	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/altona
 
-clean-witti:
-	rm -rf build/data/shared_witti*
+ctail: | build deps
+	mkdir -p vendor/.nimble/bin/
+	$(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ctail c vendor/nim-chronicles-tail/ctail.nim
 
-witti: | build deps
-	NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/witti
-
-witti-dev: | build deps
-	NIM_PARAMS="$(subst ",\",$(NIM_PARAMS))" LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/witti
+ntu: | build deps
+	mkdir -p vendor/.nimble/bin/
+	$(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ntu c vendor/nim-testutils/ntu.nim
 
 clean: | clean-common
 	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,beacon_node_*,block_sim,state_sim,transition*}

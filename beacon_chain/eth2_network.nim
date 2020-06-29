@@ -4,18 +4,18 @@ import
   options as stdOptions,
 
   # Status libs
-  stew/[varints, base58, endians2, results, byteutils],
+  stew/[varints, base58, base64, endians2, results, byteutils],
   stew/shims/net as stewNet,
   stew/shims/[macros, tables],
   faststreams/[inputs, outputs, buffers], snappy, snappy/framing,
   json_serialization, json_serialization/std/[net, options],
   chronos, chronicles, metrics,
   # TODO: create simpler to use libp2p modules that use re-exports
-  libp2p/[switch, standard_setup, peerinfo, peer, connection, errors,
+  libp2p/[switch, standard_setup, peerinfo, peer, errors,
           multiaddress, multicodec, crypto/crypto, crypto/secp,
           protocols/identify, protocols/protocol],
   libp2p/protocols/secure/[secure, secio],
-  libp2p/protocols/pubsub/[pubsub, floodsub, rpc/messages],
+  libp2p/protocols/pubsub/[pubsub, floodsub, rpc/message, rpc/messages],
   libp2p/transports/tcptransport,
   libp2p/stream/lpstream,
   eth/[keys, async_utils], eth/p2p/p2p_protocol_dsl,
@@ -63,6 +63,7 @@ type
     connQueue: AsyncQueue[PeerInfo]
     seenTable: Table[PeerID, SeenItem]
     connWorkers: seq[Future[void]]
+    connTable: Table[PeerID, PeerInfo]
     forkId: ENRForkID
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
@@ -144,9 +145,10 @@ type
   MessageContentPrinter* = proc(msg: pointer): string {.gcsafe.}
 
   DisconnectionReason* = enum
-    ClientShutDown
-    IrrelevantNetwork
-    FaultOrError
+    # might see other values on the wire!
+    ClientShutDown = 1
+    IrrelevantNetwork = 2
+    FaultOrError = 3
 
   PeerDisconnected* = object of CatchableError
     reason*: DisconnectionReason
@@ -191,8 +193,6 @@ const
   GOSSIP_MAX_SIZE* = 1 * 1024 * 1024 # bytes
   TTFB_TIMEOUT* = 5.seconds
   RESP_TIMEOUT* = 10.seconds
-
-  readTimeoutErrorMsg = "Exceeded read timeout for a request"
 
   NewPeerScore* = 200
     ## Score which will be assigned to new connected Peer
@@ -273,10 +273,6 @@ proc openStream(node: Eth2Node,
       return await openStream(node, peer, protocolId)
     else:
       raise
-
-func peerId(conn: Connection): PeerID =
-  # TODO: Can this be `nil`?
-  conn.peerInfo.peerId
 
 proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer {.gcsafe.}
 
@@ -454,17 +450,6 @@ when useNativeSnappy:
 else:
   include libp2p_streams_backend
 
-template awaitWithTimeout[T](operation: Future[T],
-                             deadline: Future[void],
-                             onTimeout: untyped): T =
-  let f = operation
-  await f or deadline
-  if not f.finished:
-    cancel f
-    onTimeout
-  else:
-    f.read
-
 proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
                      ResponseMsg: type,
                      timeout: Duration): Future[NetRes[ResponseMsg]]
@@ -495,7 +480,7 @@ proc init*[MsgType](T: type SingleChunkResponse[MsgType],
                     peer: Peer, conn: Connection, noSnappy: bool): T =
   T(UntypedResponse(peer: peer, stream: conn, noSnappy: noSnappy))
 
-template write*[M](r: MultipleChunksResponse[M], val: M): untyped =
+template write*[M](r: MultipleChunksResponse[M], val: auto): untyped =
   sendResponseChunkObj(UntypedResponse(r), val)
 
 template send*[M](r: SingleChunkResponse[M], val: auto): untyped =
@@ -571,6 +556,11 @@ proc handleIncomingStream(network: Eth2Node,
 
   try:
     let peer = peerFromStream(network, conn)
+
+    # TODO peer connection setup is broken, update info in some better place
+    #      whenever race is fix:
+    #      https://github.com/status-im/nim-beacon-chain/issues/1157
+    peer.info = conn.peerInfo
 
     template returnInvalidRequest(msg: ErrorMsg) =
       await sendErrorResponse(peer, conn, noSnappy, InvalidRequest, msg)
@@ -735,30 +725,35 @@ proc connectWorker(network: Eth2Node) {.async.} =
     let pi = await network.connQueue.popFirst()
     let r1 = network.peerPool.hasPeer(pi.peerId)
     let r2 = network.isSeen(pi)
+    let r3 = network.connTable.hasKey(pi.peerId)
 
-    if not(r1) and not(r2):
-      # We trying to connect to peers which are not present in our PeerPool and
-      # not present in our SeenTable.
-      var fut = network.dialPeer(pi)
-      # We discarding here just because we going to check future state, to avoid
-      # condition where connection happens and timeout reached.
-      let res = await withTimeout(fut, network.connectTimeout)
-      # We handling only timeout and errors, because successfull connections
-      # will be stored in PeerPool.
-      if fut.finished():
-        if fut.failed() and not(fut.cancelled()):
-          debug "Unable to establish connection with peer", peer = pi.id,
-                errMsg = fut.readError().msg
-          inc nbc_failed_dials
-          network.addSeen(pi, SeenTableTimeDeadPeer)
-        continue
-      debug "Connection to remote peer timed out", peer = pi.id
-      inc nbc_timeout_dials
-      network.addSeen(pi, SeenTableTimeTimeout)
+    if not(r1) and not(r2) and not(r3):
+      network.connTable[pi.peerId] = pi
+      try:
+        # We trying to connect to peers which are not in PeerPool, SeenTable and
+        # ConnTable.
+        var fut = network.dialPeer(pi)
+        # We discarding here just because we going to check future state, to avoid
+        # condition where connection happens and timeout reached.
+        let res = await withTimeout(fut, network.connectTimeout)
+        # We handling only timeout and errors, because successfull connections
+        # will be stored in PeerPool.
+        if fut.finished():
+          if fut.failed() and not(fut.cancelled()):
+            debug "Unable to establish connection with peer", peer = pi.id,
+                  errMsg = fut.readError().msg
+            inc nbc_failed_dials
+            network.addSeen(pi, SeenTableTimeDeadPeer)
+          continue
+        debug "Connection to remote peer timed out", peer = pi.id
+        inc nbc_timeout_dials
+        network.addSeen(pi, SeenTableTimeTimeout)
+      finally:
+        network.connTable.del(pi.peerId)
     else:
-      trace "Peer is already connected or already seen", peer = pi.id,
-            peer_pool_has_peer = $r1, seen_table_has_peer = $r2,
-            seen_table_size = len(network.seenTable)
+      trace "Peer is already connected, connecting or already seen",
+            peer = pi.id, peer_pool_has_peer = $r1, seen_table_has_peer = $r2,
+            connecting_peer = $r3, seen_table_size = len(network.seenTable)
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
@@ -809,11 +804,12 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
   result.connectTimeout = 10.seconds
   result.seenThreshold = 10.minutes
   result.seenTable = initTable[PeerID, SeenItem]()
+  result.connTable = initTable[PeerID, PeerInfo]()
   result.connQueue = newAsyncQueue[PeerInfo](ConcurrentConnections)
   result.metadata = getPersistentNetMetadata(conf)
   result.forkId = enrForkId
   result.discovery = Eth2DiscoveryProtocol.new(
-    conf, ip, tcpPort, udpPort, privKey.toRaw,
+    conf, ip, tcpPort, udpPort, privKey,
     {"eth2": SSZ.encode(result.forkId), "attnets": SSZ.encode(result.metadata.attnets)})
 
   newSeq result.protocolStates, allProtocols.len
@@ -826,7 +822,7 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
         msg.protocolMounter result
 
 template publicKey*(node: Eth2Node): keys.PublicKey =
-  node.discovery.privKey.toPublicKey.tryGet()
+  node.discovery.privKey.toPublicKey
 
 template addKnownPeer*(node: Eth2Node, peer: enr.Record) =
   node.discovery.addNode peer
@@ -1083,6 +1079,13 @@ proc getPersistentNetKeys*(conf: BeaconNodeConf): KeyPair =
 
   KeyPair(seckey: privKey, pubkey: privKey.getKey().tryGet())
 
+func gossipId(data: openArray[byte]): string =
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#topics-and-messages
+  base64.encode(Base64Url, sha256.digest(data).data)
+
+func msgIdProvider(m: messages.Message): string =
+  gossipId(m.data)
+
 proc createEth2Node*(conf: BeaconNodeConf, enrForkId: ENRForkID): Future[Eth2Node] {.async, gcsafe.} =
   var
     (extIp, extTcpPort, extUdpPort) = setupNat(conf)
@@ -1100,7 +1103,8 @@ proc createEth2Node*(conf: BeaconNodeConf, enrForkId: ENRForkID): Future[Eth2Nod
   var switch = newStandardSwitch(some keys.seckey, hostAddress,
                                  triggerSelf = true, gossip = true,
                                  sign = false, verifySignature = false,
-                                 transportFlags = {ServerFlags.ReuseAddr})
+                                 transportFlags = {ServerFlags.ReuseAddr},
+                                 msgIdProvider = msgIdProvider)
   result = Eth2Node.init(conf, enrForkId, switch,
                          extIp, extTcpPort, extUdpPort,
                          keys.seckey.asEthKey)
@@ -1138,69 +1142,47 @@ proc subscribe*[MsgType](node: Eth2Node,
                          topic: string,
                          msgHandler: proc(msg: MsgType) {.gcsafe.},
                          msgValidator: proc(msg: MsgType): bool {.gcsafe.} ) {.async, gcsafe.} =
-  template execMsgHandler(peerExpr, gossipBytes, gossipTopic, useSnappy) =
+  proc execMsgHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
     inc nbc_gossip_messages_received
     trace "Incoming pubsub message received",
-      peer = peerExpr, len = gossipBytes.len, topic = gossipTopic,
-      message_id = `$`(sha256.digest(gossipBytes))
-    when useSnappy:
-      msgHandler SSZ.decode(snappy.decode(gossipBytes), MsgType)
-    else:
-      msgHandler SSZ.decode(gossipBytes, MsgType)
-
-  # All message types which are subscribed to should be validated; putting
-  # this in subscribe(...) ensures that the default approach is correct.
-  template execMsgValidator(gossipBytes, gossipTopic, useSnappy): bool =
-    trace "Incoming pubsub message received for validation",
-      len = gossipBytes.len, topic = gossipTopic,
-      message_id = `$`(sha256.digest(gossipBytes))
-    when useSnappy:
-      msgValidator SSZ.decode(snappy.decode(gossipBytes), MsgType)
-    else:
-      msgValidator SSZ.decode(gossipBytes, MsgType)
+      len = data.len, topic, msgId = gossipId(data)
+    try:
+      msgHandler SSZ.decode(snappy.decode(data), MsgType)
+    except CatchableError as err:
+      debug "Gossip msg handler error",
+        msg = err.msg, len = data.len, topic, msgId = gossipId(data)
 
   # Validate messages as soon as subscribed
-  let incomingMsgValidator = proc(topic: string,
-                                  message: GossipMsg): Future[bool]
-                                 {.async, gcsafe.} =
-    return execMsgValidator(message.data, topic, false)
-  let incomingMsgValidatorSnappy = proc(topic: string,
-                                        message: GossipMsg): Future[bool]
-                                       {.async, gcsafe.} =
-    return execMsgValidator(message.data, topic, true)
+  proc execValidator(
+      topic: string, message: GossipMsg): Future[bool] {.async, gcsafe.} =
+    trace "Validating incoming gossip message",
+      len = message.data.len, topic, msgId = gossipId(message.data)
+    try:
+      return msgValidator SSZ.decode(snappy.decode(message.data), MsgType)
+    except CatchableError as err:
+      debug "Gossip validation error",
+        msg = err.msg, msgId = gossipId(message.data)
+      return false
 
-  node.switch.addValidator(topic, incomingMsgValidator)
-  node.switch.addValidator(topic & "_snappy", incomingMsgValidatorSnappy)
+  node.switch.addValidator(topic & "_snappy", execValidator)
 
-  let incomingMsgHandler = proc(topic: string,
-                                data: seq[byte]) {.async, gcsafe.} =
-    execMsgHandler "unknown", data, topic, false
-  let incomingMsgHandlerSnappy = proc(topic: string,
-                                      data: seq[byte]) {.async, gcsafe.} =
-    execMsgHandler "unknown", data, topic, true
+  await node.switch.subscribe(topic & "_snappy", execMsgHandler)
 
-  var switchSubscriptions: seq[Future[void]] = @[]
-  switchSubscriptions.add(node.switch.subscribe(topic, incomingMsgHandler))
-  switchSubscriptions.add(node.switch.subscribe(topic & "_snappy", incomingMsgHandlerSnappy))
-
-  await allFutures(switchSubscriptions)
-
-proc traceMessage(fut: FutureBase, digest: MDigest[256]) =
+proc traceMessage(fut: FutureBase, msgId: string) =
   fut.addCallback do (arg: pointer):
     if not(fut.failed):
-      trace "Outgoing pubsub message sent", message_id = `$`(digest)
+      trace "Outgoing pubsub message sent", msgId
+    elif fut.error != nil:
+      debug "Gossip message not sent", msgId, err = fut.error.msg
+    else:
+      debug "Unexpected future state for gossip", msgId, state = fut.state
 
 proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
   inc nbc_gossip_messages_sent
-  let broadcastBytes = SSZ.encode(msg)
-  var fut = node.switch.publish(topic, broadcastBytes)
-  traceMessage(fut, sha256.digest(broadcastBytes))
-  traceAsyncErrors(fut)
-  # also publish to the snappy-compressed topics
-  let snappyEncoded = snappy.encode(broadcastBytes)
-  var futSnappy = node.switch.publish(topic & "_snappy", snappyEncoded)
-  traceMessage(futSnappy, sha256.digest(snappyEncoded))
-  traceAsyncErrors(futSnappy)
+  let
+    data = snappy.encode(SSZ.encode(msg))
+  var futSnappy = node.switch.publish(topic & "_snappy", data)
+  traceMessage(futSnappy, gossipId(data))
 
 # TODO:
 # At the moment, this is just a compatiblity shim for the existing RLPx functionality.

@@ -16,13 +16,19 @@ else
   ADDITIONAL_BEACON_NODE_ARGS=""
 fi
 
+BOOTSTRAP_ARG=""
+
 if [[ ! -z "$1" ]]; then
   BOOTSTRAP_NODE_ID=$1
-  BOOTSTRAP_ADDRESS_FILE="${SIMULATION_DIR}/node-${BOOTSTRAP_NODE_ID}/beacon_node.address"
   shift
 else
-  BOOTSTRAP_NODE_ID=$MASTER_NODE
-  BOOTSTRAP_ADDRESS_FILE=$NETWORK_BOOTSTRAP_FILE
+  BOOTSTRAP_NODE_ID=$BOOTSTRAP_NODE
+fi
+
+BOOTSTRAP_ADDRESS_FILE="${SIMULATION_DIR}/node-${BOOTSTRAP_NODE_ID}/beacon_node.enr"
+
+if [[ "$NODE_ID" != "$BOOTSTRAP_NODE" ]]; then
+  BOOTSTRAP_ARG="--bootstrap-file=$BOOTSTRAP_ADDRESS_FILE"
 fi
 
 # set up the environment
@@ -48,12 +54,12 @@ mkdir -p "$NODE_VALIDATORS_DIR"
 rm -rf "$NODE_SECRETS_DIR"
 mkdir -p "$NODE_SECRETS_DIR"
 
-VALIDATORS_PER_NODE=$((NUM_VALIDATORS / TOTAL_NODES))
+VALIDATORS_PER_NODE=$(( NUM_VALIDATORS / (TOTAL_NODES - 1) ))
 
-if [[ $NODE_ID -lt $TOTAL_NODES ]]; then
+if [[ $NODE_ID -lt $BOOTSTRAP_NODE ]]; then
   # if using validator client binaries in addition to beacon nodes
   # we will split the keys for this instance in half between the BN and the VC
-  if [ "${SPLIT_VALIDATORS_BETWEEN_BN_AND_VC:-}" == "yes" ]; then
+  if [ "${BN_VC_VALIDATOR_SPLIT:-}" == "yes" ]; then
     ATTACHED_VALIDATORS=$((VALIDATORS_PER_NODE / 2))
   else
     ATTACHED_VALIDATORS=$VALIDATORS_PER_NODE
@@ -75,12 +81,18 @@ if [ -f "${SNAPSHOT_FILE}" ]; then
   SNAPSHOT_ARG="--state-snapshot=${SNAPSHOT_FILE}"
 fi
 
+DEPOSIT_CONTRACT_ARGS=""
+if [ -f "${DEPOSIT_CONTRACT_FILE}" ]; then
+  DEPOSIT_CONTRACT_ARGS="$WEB3_ARG \
+    --deposit-contract=$(cat $DEPOSIT_CONTRACT_FILE) \
+    --deposit-contract-block=$(cat $DEPOSIT_CONTRACT_BLOCK_FILE)"
+fi
+
 cd "$NODE_DATA_DIR"
 
-# if you want tracing messages, add "--log-level=TRACE" below
 $BEACON_NODE_BIN \
   --log-level=${LOG_LEVEL:-DEBUG} \
-  --bootstrap-file=$BOOTSTRAP_ADDRESS_FILE \
+  $BOOTSTRAP_ARG \
   --data-dir=$NODE_DATA_DIR \
   --secrets-dir=$NODE_SECRETS_DIR \
   --node-name=$NODE_ID \
@@ -88,8 +100,7 @@ $BEACON_NODE_BIN \
   --udp-port=$PORT \
   $SNAPSHOT_ARG \
   $NAT_ARG \
-  $WEB3_ARG \
-  --deposit-contract=$DEPOSIT_CONTRACT_ADDRESS \
+  $DEPOSIT_CONTRACT_ARGS \
   --rpc \
   --rpc-address="127.0.0.1" \
   --rpc-port="$(( $BASE_RPC_PORT + $NODE_ID ))" \

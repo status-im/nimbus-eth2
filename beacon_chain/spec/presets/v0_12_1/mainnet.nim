@@ -24,7 +24,7 @@ const
 
   MAX_COMMITTEES_PER_SLOT* {.intdefine.} = 64
 
-  TARGET_COMMITTEE_SIZE* = 2^7 ##\
+  TARGET_COMMITTEE_SIZE* = 128 ##\
   ## Number of validators in the committee attesting to one shard
   ## Per spec:
   ## For the safety of crosslinks `TARGET_COMMITTEE_SIZE` exceeds
@@ -74,9 +74,9 @@ const
   # Time parameters
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/mainnet.yaml#L77
-  MIN_GENESIS_DELAY* = 86400 # 86400 seconds (1 day)
+  GENESIS_DELAY* {.intdefine.} = 172800 # 172800 seconds (2 days)
 
-  SECONDS_PER_SLOT*{.intdefine.} = 12'u64 # Compile with -d:SECONDS_PER_SLOT=1 for 12x faster slots
+  SECONDS_PER_SLOT* {.intdefine.} = 12'u64 # Compile with -d:SECONDS_PER_SLOT=1 for 12x faster slots
   ## TODO consistent time unit across projects, similar to C++ chrono?
 
   MIN_ATTESTATION_INCLUSION_DELAY* = 1 ##\
@@ -100,6 +100,8 @@ const
   MIN_SEED_LOOKAHEAD* = 1 ##\
   ## epochs (~6.4 minutes)
 
+  SHARD_COMMITTEE_PERIOD* = 256 # epochs (~27 hours)
+
   MAX_SEED_LOOKAHEAD* = 4 ##\
   ## epochs (~25.6 minutes)
 
@@ -111,9 +113,6 @@ const
 
   MIN_VALIDATOR_WITHDRAWABILITY_DELAY* = 2'u64^8 ##\
   ## epochs (~27 hours)
-
-  PERSISTENT_COMMITTEE_PERIOD* = 2'u64^11 ##\
-  ## epochs (9 days)
 
   MAX_EPOCHS_PER_CROSSLINK* = 2'u64^6 ##\
   ## epochs (~7 hours)
@@ -142,14 +141,14 @@ const
   BASE_REWARD_FACTOR* = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT* = 2'u64^9
   PROPOSER_REWARD_QUOTIENT* = 2'u64^3
-  INACTIVITY_PENALTY_QUOTIENT* = 2'u64^25
+  INACTIVITY_PENALTY_QUOTIENT* = 2'u64^24
   MIN_SLASHING_PENALTY_QUOTIENT* = 32 # 2^5
 
   # Max operations per block
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/mainnet.yaml#L131
   MAX_PROPOSER_SLASHINGS* = 2^4
-  MAX_ATTESTER_SLASHINGS* = 2^0
+  MAX_ATTESTER_SLASHINGS* = 2^1
   MAX_ATTESTATIONS* = 2^7
   MAX_DEPOSITS* = 2^4
   MAX_VOLUNTARY_EXITS* = 2^4
@@ -162,15 +161,16 @@ const
   # Validators
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/mainnet.yaml#L38
-  ETH1_FOLLOW_DISTANCE* = 1024 # blocks ~ 4 hours
+  ETH1_FOLLOW_DISTANCE* {.intdefine.} = 1024 # blocks ~ 4 hours
   TARGET_AGGREGATORS_PER_COMMITTEE* = 16 # validators
   RANDOM_SUBNETS_PER_VALIDATOR* = 1 # subnet
   EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION* = 256 # epochs ~ 27 hours
-  SECONDS_PER_ETH1_BLOCK* = 14 # (estimate from Eth1 mainnet)
+  SECONDS_PER_ETH1_BLOCK* {.intdefine.} = 14 # (estimate from Eth1 mainnet)
 
   # Phase 1: Upgrade from Phase 0
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/mainnet.yaml#L161
   PHASE_1_FORK_VERSION* = 1
+  PHASE_1_GENESIS_SLOT* = 32 # [STUB]
   INITIAL_ACTIVE_SHARDS* = 64
 
   # Phase 1: General
@@ -180,7 +180,6 @@ const
   ONLINE_PERIOD* = 8 # epochs (~51 min)
   LIGHT_CLIENT_COMMITTEE_SIZE* = 128
   LIGHT_CLIENT_COMMITTEE_PERIOD* = 256 # epochs (~27 hours)
-  SHARD_COMMITTEE_PERIOD* = 256 # epochs (~27 hours)
   SHARD_BLOCK_CHUNK_SIZE* = 262144
   MAX_SHARD_BLOCK_CHUNKS* = 4
   TARGET_SHARD_BLOCK_SIZE* = 196608

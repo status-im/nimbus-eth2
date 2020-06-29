@@ -44,12 +44,13 @@ declareGauge beacon_processed_deposits_total, "Number of total deposits included
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#block-header
 proc process_block_header*(
-    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
-    stateCache: var StateCache): bool {.nbench.}=
+    state: var BeaconState, blck: SomeBeaconBlock, flags: UpdateFlags,
+    stateCache: var StateCache): bool {.nbench.} =
+  logScope:
+    blck = shortLog(blck)
   # Verify that the slots match
   if not (blck.slot == state.slot):
     notice "Block header: slot mismatch",
-      block_slot = shortLog(blck.slot),
       state_slot = shortLog(state.slot)
     return false
 
@@ -66,16 +67,13 @@ proc process_block_header*(
 
   if not (blck.proposer_index.ValidatorIndex == proposer_index.get):
     notice "Block header: proposer index incorrect",
-      block_proposer_index = blck.proposer_index.ValidatorIndex,
       proposer_index = proposer_index.get
     return false
 
   # Verify that the parent matches
-  if skipBlockParentRootValidation notin flags and not (blck.parent_root ==
-      hash_tree_root(state.latest_block_header)):
+  if not (blck.parent_root == hash_tree_root(state.latest_block_header)):
     notice "Block header: previous block root mismatch",
       latest_block_header = state.latest_block_header,
-      blck = shortLog(blck),
       latest_block_header_root = shortLog(hash_tree_root(state.latest_block_header))
     return false
 
@@ -100,10 +98,10 @@ proc `xor`[T: array](a, b: T): T =
   for i in 0..<result.len:
     result[i] = a[i] xor b[i]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#randao
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#randao
 proc process_randao(
-    state: var BeaconState, body: BeaconBlockBody, flags: UpdateFlags,
-    stateCache: var StateCache): bool {.nbench.}=
+    state: var BeaconState, body: SomeBeaconBlockBody, flags: UpdateFlags,
+    stateCache: var StateCache): bool {.nbench.} =
   let
     proposer_index = get_beacon_proposer_index(state, stateCache)
 
@@ -138,7 +136,7 @@ proc process_randao(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#eth1-data
-func process_eth1_data(state: var BeaconState, body: BeaconBlockBody) {.nbench.}=
+func process_eth1_data(state: var BeaconState, body: SomeBeaconBlockBody) {.nbench.}=
   state.eth1_data_votes.add body.eth1_data
 
   if state.eth1_data_votes.asSeq.count(body.eth1_data) * 2 > SLOTS_PER_ETH1_VOTING_PERIOD.int:
@@ -201,7 +199,7 @@ proc process_proposer_slashing*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#is_slashable_attestation_data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
     data_1: AttestationData, data_2: AttestationData): bool =
   ## Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG
@@ -285,16 +283,10 @@ proc process_voluntary_exit*(
     return false
 
   # Verify the validator has been active long enough
-  when ETH2_SPEC == "v0.12.1":
-    if not (get_current_epoch(state) >= validator.activation_epoch +
-        SHARD_COMMITTEE_PERIOD):
-      notice "Exit: not in validator set long enough"
-      return false
-  else:
-    if not (get_current_epoch(state) >= validator.activation_epoch +
-        PERSISTENT_COMMITTEE_PERIOD):
-      notice "Exit: not in validator set long enough"
-      return false
+  if not (get_current_epoch(state) >= validator.activation_epoch +
+      SHARD_COMMITTEE_PERIOD):
+    notice "Exit: not in validator set long enough"
+    return false
 
   # Verify signature
   if skipBlsValidation notin flags:
@@ -321,7 +313,7 @@ proc process_voluntary_exit*(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#operations
-proc process_operations(state: var BeaconState, body: BeaconBlockBody,
+proc process_operations(state: var BeaconState, body: SomeBeaconBlockBody,
     flags: UpdateFlags, stateCache: var StateCache): bool {.nbench.} =
   # Verify that outstanding deposits are processed up to the maximum number of
   # deposits
@@ -357,7 +349,7 @@ proc process_operations(state: var BeaconState, body: BeaconBlockBody,
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#block-processing
 proc process_block*(
-    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
+    state: var BeaconState, blck: SomeBeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.}=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly
@@ -383,8 +375,8 @@ proc process_block*(
     notice "Block header not valid", slot = shortLog(state.slot)
     return false
 
-  if not processRandao(state, blck.body, flags, stateCache):
-    debug "[Block processing] Randao failure", slot = shortLog(state.slot)
+  if not process_randao(state, blck.body, flags, stateCache):
+    debug "Randao failure", slot = shortLog(state.slot)
     return false
 
   process_eth1_data(state, blck.body)
