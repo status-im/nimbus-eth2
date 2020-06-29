@@ -14,9 +14,10 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
 fi
 
 OPTS="h"
-LONGOPTS="help,build,run"
+LONGOPTS="help,network:,build,run"
 
 # default values
+NETWORK="altona"
 BUILD=0
 RUN=0
 
@@ -25,6 +26,7 @@ print_help() {
 Usage: $(basename $0) <options> -- <beacon_node options>
 
   -h, --help			this help message
+      --network   default: ${NETWORK}
       --build     build the beacon_node
       --run       run the beacon_node
 EOF
@@ -44,6 +46,10 @@ while true; do
 			print_help
 			exit
 			;;
+    --network)
+      NETWORK="$2"
+      shift 2
+      ;;
     --build)
       BUILD=1
       shift
