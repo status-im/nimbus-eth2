@@ -75,8 +75,10 @@ proc becomeValidator(validatorsDir, beaconNodeBinary, secretsDir, depositContrac
       echo "\nDeposit sent, wait for confirmation then press enter to continue"
       discard readLineFromStdin()
 
-proc runNode(dataDir, beaconNodeBinary, bootstrapFileOpt, depositContractOpt, genesisFileOpt: string,
-            basePort, nodeID, baseMetricsPort, baseRpcPort: int, printCmdOnly: bool) =
+proc runNode(dataDir, beaconNodeBinary, bootstrapFileOpt, depositContractOpt,
+             genesisFileOpt, natConfig: string,
+             basePort, nodeID, baseMetricsPort, baseRpcPort: int,
+             printCmdOnly: bool) =
   let logLevel = getEnv("LOG_LEVEL")
   var logLevelOpt = ""
   if logLevel.len > 0:
@@ -101,6 +103,7 @@ proc runNode(dataDir, beaconNodeBinary, bootstrapFileOpt, depositContractOpt, ge
       --data-dir="{dataDir}"
       --dump
       --web3-url={web3Url}
+      --nat={natConfig}
       --tcp-port=""" & $(basePort + nodeID) & &"""
       --udp-port=""" & $(basePort + nodeID) & &"""
       --metrics
@@ -138,6 +141,11 @@ cli do (skipGoerliKey {.
 
         baseRpcPort {.
           desc: "Base rpc port (nodeID will be added to it)" .} = 9190.int,
+
+        natConfig {.
+          desc: "Specify method to use for determining public address. " &
+                "Must be one of: any, none, upnp, pmp, extip:<IP>",
+          name: "nat" .} = "any",
 
         writeLogFile {.
           desc: "Write a log file in dataDir" .} = true,
@@ -253,6 +261,6 @@ cli do (skipGoerliKey {.
     becomeValidator(validatorsDir, beaconNodeBinary, secretsDir, depositContractOpt, privateGoerliKey, becomeValidatorOnly)
 
   if doRun:
-    runNode(dataDir, beaconNodeBinary, bootstrapFileOpt, depositContractOpt, genesisFileOpt,
-            basePort, nodeID, baseMetricsPort, baseRpcPort, printCmdOnly)
-
+    runNode(dataDir, beaconNodeBinary, bootstrapFileOpt, depositContractOpt,
+            genesisFileOpt, natConfig, basePort, nodeID, baseMetricsPort,
+            baseRpcPort, printCmdOnly)
