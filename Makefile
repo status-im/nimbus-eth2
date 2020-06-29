@@ -57,9 +57,6 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	testnet1 \
 	clean \
 	libbacktrace \
-	clean-schlesi \
-	schlesi \
-	schlesi-dev \
 	clean-witti \
 	witti \
 	witti-dev \
