@@ -3,7 +3,7 @@
 From the "nim-beacon-chain" repo (top-level dir):
 
 ```text
-make -C docker/shared_testnet build
+make -C docker/shared_testnet NETWORK=witti build
 mkdir tmp
 docker run --rm --mount type=bind,source="$(pwd)"/tmp,target=/root/.cache/nimbus --name testnet2 statusteam/nimbus_beacon_node:testnet2 --build
 ls -l tmp/nim-beacon-chain/build
@@ -14,7 +14,7 @@ docker ps
 docker stop testnet2
 
 # when you're happy with the Docker image:
-make -C docker/shared_testnet push
+make -C docker/shared_testnet NETWORK=witti push
 ```
 
 ## setting up remote servers
