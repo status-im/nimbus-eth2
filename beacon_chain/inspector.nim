@@ -52,10 +52,8 @@ type
     next_fork_version*: Version
     next_fork_epoch*: Epoch
 
-  # TODO remove InteropAttestations when Altona launches
   TopicFilter* {.pure.} = enum
-    Blocks, Attestations, Exits, ProposerSlashing, AttesterSlashings,
-      InteropAttestations
+    Blocks, Attestations, Exits, ProposerSlashing, AttesterSlashings
 
   BootstrapKind* {.pure.} = enum
     Enr, MultiAddr
