@@ -274,7 +274,7 @@ proc makeBeaconBlock*(
     parent_root: Eth2Digest,
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
-    graffiti: Eth2Digest,
+    graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
     rollback: RollbackHashedProc,

@@ -10,6 +10,7 @@ import
   spec/[datatypes, crypto]
 
 proc fromJson*(n: JsonNode, argName: string, result: var ValidatorPubKey) =
+  n.kind.expect(JString, argName)
   result = ValidatorPubKey.fromHex(n.getStr()).tryGet()
 
 proc `%`*(pubkey: ValidatorPubKey): JsonNode =
@@ -26,12 +27,14 @@ proc fromJson*(n: JsonNode, argName: string, result: var BitList) =
 proc `%`*(bitlist: BitList): JsonNode = %(seq[byte](BitSeq(bitlist)))
 
 proc fromJson*(n: JsonNode, argName: string, result: var ValidatorSig) =
+  n.kind.expect(JString, argName)
   result = ValidatorSig.fromHex(n.getStr()).tryGet()
 
 proc `%`*(value: ValidatorSig): JsonNode =
   result = newJString($value)
 
 proc fromJson*(n: JsonNode, argName: string, result: var Version) =
+  n.kind.expect(JString, argName)
   hexToByteArray(n.getStr(), array[4, byte](result))
 
 proc `%`*(value: Version): JsonNode =
@@ -45,6 +48,13 @@ template genFromJsonForIntType(t: untyped) =
 genFromJsonForIntType(Epoch)
 genFromJsonForIntType(Slot)
 genFromJsonForIntType(CommitteeIndex)
+
+template `%`*(value: GraffitiBytes): JsonNode =
+  %($value)
+
+proc fromJson*(n: JsonNode, argName: string, value: var GraffitiBytes) =
+  n.kind.expect(JString, argName)
+  value = GraffitiBytes.init n.getStr()
 
 proc `%`*(value: CommitteeIndex): JsonNode =
   result = newJInt(value.int)

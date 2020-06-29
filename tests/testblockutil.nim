@@ -91,7 +91,7 @@ proc addTestBlock*(
     eth1_data = Eth1Data(),
     attestations = newSeq[Attestation](),
     deposits = newSeq[Deposit](),
-    graffiti = Eth2Digest(),
+    graffiti = default(GraffitiBytes),
     flags: set[UpdateFlag] = {}): SignedBeaconBlock =
   # Create and add a block to state - state will advance by one slot!
   advance_slot(state, err(Opt[Eth2Digest]), flags, cache)
@@ -140,7 +140,7 @@ proc makeTestBlock*(
     eth1_data = Eth1Data(),
     attestations = newSeq[Attestation](),
     deposits = newSeq[Deposit](),
-    graffiti = Eth2Digest(),
+    graffiti = default(GraffitiBytes),
     flags: set[UpdateFlag] = {}): SignedBeaconBlock =
   # Create a block for `state.slot + 1` - like a block proposer would do!
   # It's a bit awkward - in order to produce a block for N+1, we need to

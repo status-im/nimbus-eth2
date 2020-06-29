@@ -25,7 +25,7 @@ import
   macros, hashes, json, strutils, tables, typetraits,
   stew/[byteutils], chronicles,
   json_serialization/types as jsonTypes,
-  ../ssz/types as sszTypes, ./crypto, ./digest, ./presets
+  ../version, ../ssz/types as sszTypes, ./crypto, ./digest, ./presets
 
 export
   sszTypes, presets
@@ -257,11 +257,13 @@ type
     object_root*: Eth2Digest
     domain*: Domain
 
+  GraffitiBytes* = distinct array[32, byte]
+
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
-    graffiti*: Eth2Digest # TODO make that raw bytes
+    graffiti*: GraffitiBytes
 
     # Operations
     proposer_slashings*: List[ProposerSlashing, MAX_PROPOSER_SLASHINGS]
@@ -273,7 +275,7 @@ type
   TrustedBeaconBlockBody* = object
     randao_reveal*: TrustedSig
     eth1_data*: Eth1Data
-    graffiti*: Eth2Digest # TODO make that raw bytes
+    graffiti*: GraffitiBytes
 
     # Operations
     proposer_slashings*: List[ProposerSlashing, MAX_PROPOSER_SLASHINGS]
@@ -675,6 +677,41 @@ chronicles.formatIt Attestation: it.shortLog
 import json_serialization
 export json_serialization
 export writeValue, readValue
+
+func `$`*(value: GraffitiBytes): string =
+  strip(string.fromBytes(distinctBase value), chars = Whitespace + {'\0'})
+
+func init*(T: type GraffitiBytes, input: string): GraffitiBytes
+          {.raises: [ValueError, Defect].} =
+  if input.len > 2 and input[0] == '0' and input[1] == 'x':
+    if input.len > sizeof(GraffitiBytes) * 2 + 2:
+      raise newException(ValueError, "The graffiti bytes should be less than 32")
+    elif input.len mod 2 != 0:
+      raise newException(ValueError, "The graffiti hex string should have an even length")
+
+    hexToByteArray(string input, distinctBase(result))
+  else:
+    if input.len > 32:
+      raise newException(ValueError, "The graffiti value should be 32 characters or less")
+    distinctBase(result)[0 ..< input.len] = toBytes(input)
+
+func defaultGraffitiBytes*(): GraffitiBytes =
+  let graffityBytes = toBytes("Nimbus " & fullVersionStr)
+  distinctBase(result)[0 ..< graffityBytes.len] = graffityBytes
+
+proc writeValue*(w: var JsonWriter, value: GraffitiBytes)
+                {.raises: [IOError, Defect].} =
+  w.writeValue $value
+
+template `==`*(lhs, rhs: GraffitiBytes): bool =
+  distinctBase(lhs) == distinctBase(rhs)
+
+proc readValue*(r: var JsonReader, T: type GraffitiBytes): T
+               {.raises: [IOError, SerializationError, Defect].} =
+  try:
+    init(GraffitiBytes, r.readValue(string))
+  except ValueError as err:
+    r.raiseUnexpectedValue err.msg
 
 static:
   # Sanity checks - these types should be trivial enough to copy with memcpy

@@ -41,6 +41,11 @@ func fromSszBytes*(T: type Eth2Digest, data: openarray[byte]): T {.raisesssz.} =
     raiseIncorrectSize T
   copyMem(result.data.addr, unsafeAddr data[0], sizeof(result.data))
 
+func fromSszBytes*(T: type GraffitiBytes, data: openarray[byte]): T {.raisesssz.} =
+  if data.len != sizeof(result):
+    raiseIncorrectSize T
+  copyMem(result.addr, unsafeAddr data[0], sizeof(result))
+
 template fromSszBytes*(T: type Slot, bytes: openarray[byte]): Slot =
   Slot fromSszBytes(uint64, bytes)
 

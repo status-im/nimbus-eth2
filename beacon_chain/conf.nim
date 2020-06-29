@@ -4,8 +4,8 @@ import
   os, options,
   chronicles, chronicles/options as chroniclesOptions,
   confutils, confutils/defs, confutils/std/net,
-  json_serialization, web3/ethtypes,
-  network_metadata, spec/[crypto, keystore, digest]
+  stew/byteutils, json_serialization, web3/ethtypes,
+  network_metadata, spec/[crypto, keystore, digest, datatypes]
 
 export
   defs, enabledLogLevel, parseCmdArg, completeCmdArg,
@@ -141,6 +141,11 @@ type
         desc: "A name for this node that will appear in the logs. " &
               "If you set this to 'auto', a persistent automatically generated ID will be selected for each --data-dir folder"
         name: "node-name" }: string
+
+      graffiti* {.
+        desc: "The graffiti value that will appear in proposed blocks. " &
+              "You can use a 0x-prefixed hex encoded string to specify raw bytes."
+        name: "graffiti" }: Option[GraffitiBytes]
 
       verifyFinalization* {.
         defaultValue: false
@@ -361,6 +366,11 @@ type
       defaultValue: VCNoCommand }: VCStartUpCmd
 
     of VCNoCommand:
+      graffiti* {.
+        desc: "The graffiti value that will appear in proposed blocks. " &
+              "You can use a 0x-prefixed hex encoded string to specify raw bytes."
+        name: "graffiti" }: Option[GraffitiBytes]
+
       rpcPort* {.
         defaultValue: defaultEth2RpcPort
         desc: "HTTP port of the server to connect to for RPC"
@@ -429,6 +439,13 @@ func parseCmdArg*(T: type Eth1BlockHash, input: TaintedString): T
   fromHex(T, string input)
 
 func completeCmdArg*(T: type Eth1BlockHash, input: TaintedString): seq[string] =
+  return @[]
+
+func parseCmdArg*(T: type GraffitiBytes, input: TaintedString): T
+                 {.raises: [ValueError, Defect].} =
+  GraffitiBytes.init(string input)
+
+func completeCmdArg*(T: type GraffitiBytes, input: TaintedString): seq[string] =
   return @[]
 
 func parseCmdArg*(T: type WalletName, input: TaintedString): T
