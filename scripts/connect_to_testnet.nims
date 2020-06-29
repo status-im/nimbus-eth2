@@ -76,7 +76,7 @@ proc becomeValidator(validatorsDir, beaconNodeBinary, secretsDir, depositContrac
       discard readLineFromStdin()
 
 proc runNode(dataDir, beaconNodeBinary, bootstrapFileOpt, depositContractOpt,
-             genesisFileOpt, natConfig: string,
+             genesisFileOpt, natConfig, metricsAddress, rpcAddress: string,
              basePort, nodeID, baseMetricsPort, baseRpcPort: int,
              printCmdOnly: bool) =
   let logLevel = getEnv("LOG_LEVEL")
@@ -107,8 +107,10 @@ proc runNode(dataDir, beaconNodeBinary, bootstrapFileOpt, depositContractOpt,
       --tcp-port=""" & $(basePort + nodeID) & &"""
       --udp-port=""" & $(basePort + nodeID) & &"""
       --metrics
+      --metrics-address={metricsAddress}
       --metrics-port=""" & $(baseMetricsPort + nodeID) & &"""
       --rpc
+      --rpc-address={rpcAddress}
       --rpc-port=""" & $(baseRpcPort + nodeID) & &"""
       {bootstrapFileOpt}
       {logLevelOpt}
@@ -136,8 +138,14 @@ cli do (skipGoerliKey {.
         basePort {.
           desc: "Base TCP/UDP port (nodeID will be added to it)" .} = 9000.int,
 
+        metricsAddress {.
+          desc: "Listening address of the metrics server" .} = "127.0.0.1",
+
         baseMetricsPort {.
           desc: "Base metrics port (nodeID will be added to it)" .} = 8008.int,
+
+        rpcAddress {.
+          desc: "Listening address of the RPC server" .} = "127.0.0.1",
 
         baseRpcPort {.
           desc: "Base rpc port (nodeID will be added to it)" .} = 9190.int,
@@ -257,5 +265,5 @@ cli do (skipGoerliKey {.
 
   if doRun:
     runNode(dataDir, beaconNodeBinary, bootstrapFileOpt, depositContractOpt,
-            genesisFileOpt, natConfig, basePort, nodeID, baseMetricsPort,
-            baseRpcPort, printCmdOnly)
+            genesisFileOpt, natConfig, metricsAddress, rpcAddress, basePort,
+            nodeID, baseMetricsPort, baseRpcPort, printCmdOnly)
