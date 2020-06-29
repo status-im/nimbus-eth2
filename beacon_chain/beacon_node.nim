@@ -745,7 +745,7 @@ proc installAttestationHandlers(node: BeaconNode) =
 
   proc attestationValidator(attestation: Attestation,
                             committeeIndex: uint64): bool =
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#attestation-subnets
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#attestation-subnets
     let (afterGenesis, slot) = node.beaconClock.now().toSlot()
     if not afterGenesis:
       return false
@@ -753,7 +753,7 @@ proc installAttestationHandlers(node: BeaconNode) =
 
   var attestationSubscriptions: seq[Future[void]] = @[]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#mainnet-3
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
     closureScope:
       let ci = it
