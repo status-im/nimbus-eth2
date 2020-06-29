@@ -1,6 +1,6 @@
 # Command-line Options
 
-You can run your customized beacon node using the beacon_node executable. The available options are shown below.
+You can run your customized beacon node using the `beacon_node` executable. The available options are shown below - you can also run `beacon_node --help` for a reminder.
 
 ## Prerequisites
 

@@ -24,3 +24,12 @@ It is obvious that you must have enough computing power or dedicated hardware in
 In a sentence, Nimbus is an Ethereum 1.0 & 2.0 Client for Resource-Restricted Devices.
 
 It is open sourced at [github.com/status-im/nimbus](github.com/status-im/nimbus). Development progress and updates can be viewed at the [Nimbus blog](https://our.status.im/tag/nimbus/).
+
+## Why are metrics not working?
+
+Metrics are currently implemented using a HTTP server that hasn't been hardened sufficiently that it can be exposed as a public endpoint - it must thus be enabled specifically during build:
+
+```
+make NIMFLAGS="-d:insecure"
+beacon_node --metrics ...
+```
