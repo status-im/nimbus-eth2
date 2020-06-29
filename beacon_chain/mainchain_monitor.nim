@@ -375,7 +375,7 @@ proc readJsonDeposits(depositsList: JsonNode): seq[Eth1Block] =
 method fetchDepositData*(p: Web3DataProviderRef,
                          fromBlock, toBlock: Eth1BlockNumber): Future[seq[Eth1Block]]
                         {.async, locks: 0.} =
-  info "Obtaing deposit log events", fromBlock, toBlock
+  info "Obtaining deposit log events", fromBlock, toBlock
   return readJsonDeposits(await p.ns.getJsonLogs(DepositEvent,
                                                  fromBlock = some blockId(fromBlock),
                                                  toBlock = some blockId(toBlock)))
