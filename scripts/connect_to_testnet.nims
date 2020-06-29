@@ -10,7 +10,7 @@ const
   genesisFile = "genesis.ssz"
   configFile = "config.yaml"
   testnetsRepo = "eth2-testnets"
-  web3Url = "wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
+  web3Url = "wss://goerli.infura.io/ws/v3/6224f3c792cc443fafb64e70a98f871e"
 
 let
   testnetsOrg = getEnv("ETH2_TESTNETS_ORG", "eth2-clients")
