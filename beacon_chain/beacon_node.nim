@@ -245,7 +245,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
       onBeaconBlock(res, signedBlock)
   )
 
-  traceAsyncErrors res.addLocalValidators()
+  await res.addLocalValidators()
 
   # This merely configures the BeaconSync
   # The traffic will be started when we join the network.
