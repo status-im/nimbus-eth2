@@ -393,122 +393,25 @@ func get_inactivity_penalty_deltas(state: BeaconState, cache: var StateCache):
   # Spec constructs rewards anyway; this doesn't
   penalties
 
-when ETH2_SPEC == "v0.12.1":
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_attestation_deltas
-  func get_attestation_deltas(state: BeaconState, cache: var StateCache): tuple[a: seq[Gwei], b: seq[Gwei]] =
-    # Return attestation reward/penalty deltas for each validator.
-    let
-      (source_rewards, source_penalties) = get_source_deltas(state, cache)
-      (target_rewards, target_penalties) = get_target_deltas(state, cache)
-      (head_rewards, head_penalties) = get_head_deltas(state, cache)
-      inclusion_delay_rewards = get_inclusion_delay_deltas(state, cache)
-      inactivity_penalties = get_inactivity_penalty_deltas(state, cache)
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_attestation_deltas
+func get_attestation_deltas(state: BeaconState, cache: var StateCache): tuple[a: seq[Gwei], b: seq[Gwei]] =
+  # Return attestation reward/penalty deltas for each validator.
+  let
+    (source_rewards, source_penalties) = get_source_deltas(state, cache)
+    (target_rewards, target_penalties) = get_target_deltas(state, cache)
+    (head_rewards, head_penalties) = get_head_deltas(state, cache)
+    inclusion_delay_rewards = get_inclusion_delay_deltas(state, cache)
+    inactivity_penalties = get_inactivity_penalty_deltas(state, cache)
 
-    let rewards = mapIt(0 ..< len(state.validators),
-      source_rewards[it] + target_rewards[it] + head_rewards[it] +
-        inclusion_delay_rewards[it])
+  let rewards = mapIt(0 ..< len(state.validators),
+    source_rewards[it] + target_rewards[it] + head_rewards[it] +
+      inclusion_delay_rewards[it])
 
-    let penalties = mapIt(0 ..< len(state.validators),
-      source_penalties[it] + target_penalties[it] + head_penalties[it] +
-        inactivity_penalties[it])
+  let penalties = mapIt(0 ..< len(state.validators),
+    source_penalties[it] + target_penalties[it] + head_penalties[it] +
+      inactivity_penalties[it])
 
-    (rewards, penalties)
-else:
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#rewards-and-penalties-1
-  func get_attestation_deltas(state: BeaconState, stateCache: var StateCache):
-      tuple[a: seq[Gwei], b: seq[Gwei]] {.nbench.}=
-    let
-      previous_epoch = get_previous_epoch(state)
-      total_balance = get_total_active_balance(state, stateCache)
-    var
-      rewards = repeat(0'u64, len(state.validators))
-      penalties = repeat(0'u64, len(state.validators))
-      eligible_validator_indices : seq[ValidatorIndex] = @[]
-
-    for index, v in state.validators:
-      if is_active_validator(v, previous_epoch) or
-          (v.slashed and previous_epoch + 1 < v.withdrawable_epoch):
-        eligible_validator_indices.add index.ValidatorIndex
-
-    # Micro-incentives for matching FFG source, FFG target, and head
-    let
-      matching_source_attestations =
-        get_matching_source_attestations(state, previous_epoch)
-      matching_target_attestations =
-        get_matching_target_attestations(state, previous_epoch)
-      matching_head_attestations =
-        get_matching_head_attestations(state, previous_epoch)
-
-    for attestations in
-        [matching_source_attestations, matching_target_attestations,
-         matching_head_attestations]:
-      let
-        unslashed_attesting_indices =
-          get_unslashed_attesting_indices(state, attestations, stateCache)
-        attesting_balance = get_total_balance(state, unslashed_attesting_indices)
-      for index in eligible_validator_indices:
-        if index in unslashed_attesting_indices:
-          # Factored out from balance totals to avoid uint64 overflow
-          const increment = EFFECTIVE_BALANCE_INCREMENT
-          let reward_numerator = get_base_reward(state, index, total_balance) *
-            (attesting_balance div increment)
-          rewards[index] += reward_numerator div (total_balance div increment)
-        else:
-          penalties[index] += get_base_reward(state, index, total_balance)
-
-    # Proposer and inclusion delay micro-rewards
-    ## This depends on matching_source_attestations being an indexable seq, not a
-    ## set, hash table, etc.
-    let source_attestation_attesting_indices =
-      mapIt(
-        matching_source_attestations,
-        get_attesting_indices(state, it.data, it.aggregation_bits, stateCache))
-
-    for index in get_unslashed_attesting_indices(
-        state, matching_source_attestations, stateCache):
-      # Translation of attestation = min([...])
-      doAssert matching_source_attestations.len > 0
-
-      # Start by filtering the right attestations
-      var filtered_matching_source_attestations: seq[PendingAttestation]
-
-      for source_attestation_index, a in matching_source_attestations:
-        if index notin
-            source_attestation_attesting_indices[source_attestation_index]:
-          continue
-        filtered_matching_source_attestations.add a
-
-      # The first filtered attestation serves as min until we find something
-      # better
-      var attestation = filtered_matching_source_attestations[0]
-      for source_attestation_index, a in filtered_matching_source_attestations:
-        if a.inclusion_delay < attestation.inclusion_delay:
-          attestation = a
-
-      let
-        base_reward = get_base_reward(state, index, total_balance)
-        proposer_reward = (base_reward div PROPOSER_REWARD_QUOTIENT).Gwei
-
-      rewards[attestation.proposer_index.int] += proposer_reward
-      let max_attester_reward = base_reward - proposer_reward
-
-      rewards[index] += max_attester_reward div attestation.inclusion_delay
-
-    # Inactivity penalty
-    let finality_delay = previous_epoch - state.finalized_checkpoint.epoch
-    if finality_delay > MIN_EPOCHS_TO_INACTIVITY_PENALTY:
-      let matching_target_attesting_indices =
-        get_unslashed_attesting_indices(
-          state, matching_target_attestations, stateCache)
-      for index in eligible_validator_indices:
-        penalties[index] +=
-          BASE_REWARDS_PER_EPOCH.uint64 * get_base_reward(state, index, total_balance)
-        if index notin matching_target_attesting_indices:
-          penalties[index] +=
-            state.validators[index].effective_balance *
-              finality_delay div INACTIVITY_PENALTY_QUOTIENT
-
-    (rewards, penalties)
+  (rewards, penalties)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#process_rewards_and_penalties
 func process_rewards_and_penalties(

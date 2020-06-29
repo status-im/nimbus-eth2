@@ -46,24 +46,14 @@ export
 # Eventually, we could also differentiate between user/tainted data and
 # internal state that's gone through sanity checks already.
 
-
-const ETH2_SPEC* {.strdefine.} = "v0.12.1"
-static: doAssert: ETH2_SPEC == "v0.11.3" or ETH2_SPEC == "v0.12.1"
-
 # Constant presets
 const const_preset* {.strdefine.} = "mainnet"
 
 when const_preset == "mainnet":
-  when ETH2_SPEC == "v0.12.1":
-    import ./presets/v0_12_1/mainnet
-  else:
-    import ./presets/v0_11_3/mainnet
+  import ./presets/v0_12_1/mainnet
   export mainnet
 elif const_preset == "minimal":
-  when ETH2_SPEC == "v0.12.1":
-    import ./presets/v0_12_1/minimal
-  else:
-    import ./presets/v0_11_3/minimal
+  import ./presets/v0_12_1/minimal
   export minimal
 else:
   type
@@ -74,11 +64,7 @@ else:
   loadCustomPreset const_preset
 
 const
-  SPEC_VERSION* =
-    when ETH2_SPEC == "v0.12.1":
-      "0.12.1"
-    else:
-      "0.11.3" ## \
+  SPEC_VERSION* = "0.12.1" ## \
   ## Spec version we're aiming to be compatible with, right now
 
   GENESIS_SLOT* = Slot(0)
@@ -284,6 +270,11 @@ type
     state_root*: Eth2Digest
     body_root*: Eth2Digest
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#signingdata
+  SigningData* = object
+    object_root*: Eth2Digest
+    domain*: Domain
+
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
@@ -424,6 +415,13 @@ type
     deposit_count*: uint64
     block_hash*: Eth2Digest
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#eth1block
+  Eth1Block* = object
+    timestamp*: uint64
+    deposit_root*: Eth2Digest
+    deposit_count*: uint64
+    # All other eth1 block fields
+
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#signedvoluntaryexit
   SignedVoluntaryExit* = object
     message*: VoluntaryExit
@@ -464,29 +462,6 @@ type
       Table[Epoch, seq[ValidatorIndex]]
     committee_count_cache*: Table[Epoch, uint64]
     beacon_proposer_indices*: Table[Slot, Option[ValidatorIndex]]
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#signingdata
-# TODO move back into big `type` block
-when ETH2_SPEC == "v0.12.1":
-  type SigningData* = object
-    object_root*: Eth2Digest
-    domain*: Domain
-else:
-  type SigningRoot* = object
-    object_root*: Eth2Digest
-    domain*: Domain
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#eth1block
-when ETH2_SPEC == "v0.12.1":
-  type Eth1Block* = object
-    timestamp*: uint64
-    deposit_root*: Eth2Digest
-    deposit_count*: uint64
-    # All other eth1 block fields
-else:
-  type Eth1Block* = object
-    timestamp*: uint64
-    # All other eth1 block fields
 
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
     ($state.validators[validatorIdx].pubkey)[0..7]

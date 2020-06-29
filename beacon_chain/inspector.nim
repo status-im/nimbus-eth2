@@ -52,10 +52,8 @@ type
     next_fork_version*: Version
     next_fork_epoch*: Epoch
 
-  # TODO remove InteropAttestations when Altona launches
   TopicFilter* {.pure.} = enum
-    Blocks, Attestations, Exits, ProposerSlashing, AttesterSlashings,
-      InteropAttestations
+    Blocks, Attestations, Exits, ProposerSlashing, AttesterSlashings
 
   BootstrapKind* {.pure.} = enum
     Enr, MultiAddr
@@ -197,22 +195,12 @@ func getTopics(forkDigest: ForkDigest,
   of TopicFilter.AttesterSlashings:
     let topic = getAttesterSlashingsTopic(forkDigest)
     @[topic, topic & "_snappy"]
-  of TopicFilter.InteropAttestations:
-    when ETH2_SPEC == "v0.11.3":
-      let topic = getInteropAttestationTopic(forkDigest)
-      @[topic, topic & "_snappy"]
-    else:
-      @[]
   of TopicFilter.Attestations:
     var topics = newSeq[string](ATTESTATION_SUBNET_COUNT * 2)
     var offset = 0
     for i in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
-      when ETH2_SPEC == "v0.12.1":
-        topics[offset] = getAttestationTopic(forkDigest, i)
-        topics[offset + 1] = getAttestationTopic(forkDigest, i) & "_snappy"
-      else:
-        topics[offset] = getMainnetAttestationTopic(forkDigest, i)
-        topics[offset + 1] = getMainnetAttestationTopic(forkDigest, i) & "_snappy"
+      topics[offset] = getAttestationTopic(forkDigest, i)
+      topics[offset + 1] = getAttestationTopic(forkDigest, i) & "_snappy"
       offset += 2
     topics
 
@@ -541,10 +529,6 @@ proc pubsubLogger(conf: InspectorConf, switch: Switch,
       elif topic.endsWith(topicAggregateAndProofsSuffix) or
            topic.endsWith(topicAggregateAndProofsSuffix & "_snappy"):
         info "AggregateAndProof", msg = SSZ.decode(buffer, AggregateAndProof)
-      when ETH2_SPEC == "v0.11.3":
-        if topic.endsWith(topicInteropAttestationSuffix) or
-           topic.endsWith(topicInteropAttestationSuffix & "_snappy"):
-          info "Attestation", msg = SSZ.decode(buffer, Attestation)
 
     except CatchableError as exc:
       info "Unable to decode message", errMsg = exc.msg
@@ -712,8 +696,6 @@ proc run(conf: InspectorConf) {.async.} =
         topics.incl({TopicFilter.Blocks, TopicFilter.Attestations,
                      TopicFilter.Exits, TopicFilter.ProposerSlashing,
                      TopicFilter.AttesterSlashings})
-        when ETH2_SPEC == "v0.11.3":
-          topics.incl({TopicFilter.AttesterSlashings})
         break
       elif lcitem == "a":
         topics.incl(TopicFilter.Attestations)
@@ -727,16 +709,10 @@ proc run(conf: InspectorConf) {.async.} =
         topics.incl(TopicFilter.AttesterSlashings)
       else:
         discard
-
-      when ETH2_SPEC == "v0.11.3":
-        if lcitem == "ia":
-          topics.incl(TopicFilter.InteropAttestations)
   else:
     topics.incl({TopicFilter.Blocks, TopicFilter.Attestations,
                  TopicFilter.Exits, TopicFilter.ProposerSlashing,
                  TopicFilter.AttesterSlashings})
-    when ETH2_SPEC == "v0.11.3":
-      topics.incl({TopicFilter.AttesterSlashings})
 
   proc pubsubTrampoline(topic: string,
                         data: seq[byte]): Future[void] {.gcsafe.} =

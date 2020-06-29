@@ -230,13 +230,8 @@ cli do (skipGoerliKey {.
     validatorsDir = dataDir / "validators"
     secretsDir = dataDir / "secrets"
     beaconNodeBinary = buildDir / "beacon_node_" & dataDirName
-    specDefines =
-      if specVersion == "v0.12.1":
-        &"-d:ETH2_SPEC=\"v0.12.1\" -d:BLS_ETH2_SPEC=\"v0.12.x\""
-      else:
-        &"-d:ETH2_SPEC=\"v0.11.3\" -d:BLS_ETH2_SPEC=\"v0.11.x\""
   var
-    nimFlags = &"-d:chronicles_log_level=TRACE {specDefines} " & getEnv("NIM_PARAMS")
+    nimFlags = &"-d:chronicles_log_level=TRACE " & getEnv("NIM_PARAMS")
 
   if writeLogFile:
     # write the logs to a file
