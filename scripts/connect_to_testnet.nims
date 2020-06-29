@@ -139,13 +139,15 @@ cli do (skipGoerliKey {.
           desc: "Base TCP/UDP port (nodeID will be added to it)" .} = 9000.int,
 
         metricsAddress {.
-          desc: "Listening address of the metrics server" .} = "127.0.0.1",
+          desc: "Listening address of the metrics server"
+          name: "metrics-address" .} = "127.0.0.1",
 
         baseMetricsPort {.
           desc: "Base metrics port (nodeID will be added to it)" .} = 8008.int,
 
         rpcAddress {.
-          desc: "Listening address of the RPC server" .} = "127.0.0.1",
+          desc: "Listening address of the RPC server"
+          name: "rpc-address" .} = "127.0.0.1",
 
         baseRpcPort {.
           desc: "Base rpc port (nodeID will be added to it)" .} = 9190.int,
