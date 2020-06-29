@@ -5,15 +5,15 @@ _Documentation for Nimbus Beacon Chain users and developers._
 Nimbus beacon chain is a research implementation of the beacon chain component of the upcoming Ethereum Serenity upgrade, aka Eth2.
 
 - Open sourced at [github.com/status-im/nim-beacon-chain](https://github.com/status-im/nim-beacon-chain/tree/master).
-- Specification of our implementation can be found at [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/tree/v0.11.1#phase-0).
+- Specification of our implementation can be found at [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/tree/v0.12.1#phase-0).
 
 ## Overview
 
 In this book, we will cover:
 
 1. [What is beacon chain](./faq.md#1-what-is-beacon-chain) and [what is Nimbus](./faq.md#4-what-is-nimbus) to equip you with some basic knowledge.
-2. How to [become a validator](./validator.md) in Ethereum 2.0 as a user.
-3. [Installation steps](./install.md) for nimbus beacon chain.
+2. [Installation steps](./install.md) outline the prerequisites to get started.
+3. How to [become a validator](./validator.md) in Ethereum 2.0 as a user, for example on the Altona testnet.
 4. [CLI](./cli.md) for running your customized nimbus beacon node.
 5. [API](./api.md) for monitoring your node through `http`.
 6. [Advanced usage](./advanced.md) for developers.

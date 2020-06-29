@@ -48,3 +48,7 @@ _Assuming Ubuntu PRoot is used_
 ```sh
 apt install build-essential git libpcre3-dev
 ```
+
+## Next steps
+
+Once you've installed build tools, you're ready to move on to launching the beacon node and becoming a [validator](./validator.md)

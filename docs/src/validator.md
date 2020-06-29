@@ -1,17 +1,21 @@
 # Become a Validator
 
-To become a validator, you have to first connect to a testnet, deposit your Ethers, and sync with the network.
+To become a validator, you need to install the beacon chain software, acquire 32 ETH, set up your validator account and register with the deposit contract on Ethereum.
+
+There is currently no Eth2 mainnet - all networks are testnets.
 
 ## Recommended Testnets
 
 Though Nimbus can connect to any of the testnets published in the [eth2-clients/eth2-testnets repo](https://github.com/eth2-clients/eth2-testnets/tree/master/nimbus), below are the recommended ones:
 
-- Public Testnet: [altona](https://github.com/goerli/altona) ([explorer](https://altona.beaconcha.in))
-- Local Testnet: testnet0 (currently not available)
+- Multi-client Testnet: [altona](https://github.com/goerli/altona) ([explorer](https://altona.beaconcha.in))
+- Nimbus Testnet: testnet0 (experimental, not always active)
 
-## Connecting to Testnets
+## Altona
 
-Before we start, we have to obtain 32 Ethers on the Goerli testnet. Then, we can deposit 32 Ethers to the registration smart contract to become a validator.
+### Initial setup
+
+Before we start, we have to obtain 32 ETH on the Goerli testnet. Then, we can deposit 32 Ethers to the registration smart contract to become a validator.
 
 1. Open your [MetaMask](https://metamask.io/) wallet, switch to the `Goerli Test Network` option from the top right corner.
 2. Copy your account address by clicking on one of your accounts.
@@ -20,7 +24,6 @@ Before we start, we have to obtain 32 Ethers on the Goerli testnet. Then, we can
 5. Wait for a few seconds and return to your MetaMask wallet to check if you have successfully received.
 6. Once the [prerequisites](./install.md) are installed, you can connect to the altona testnet with the following commands: <br>
 
-- Change `altona` to `testnet0` to connect to testnet0.
 - **_Remember to replace `make` with `mingw32-make` if using Windows._**
 
 ```bash
@@ -35,7 +38,7 @@ make altona        # This will build Nimbus and all other dependencies
 
 <img src="./img/connect_testnet.PNG" alt="" style="margin: 0 40 0 40"/>
 
-7. The testnet should now be up and running. Then, you will be prompted to enter your private key of the account you want to deposit the 32 Ether from. Find your private key from MetaMask as below:
+7. You will be prompted to enter your private key of the account you want to deposit the 32 Ether from. Find your private key from MetaMask as below:
 
 <img src="./img/export_pkey.PNG" alt="" width="200" style="margin: 0 40 0 40"/>
 
@@ -45,11 +48,40 @@ make altona        # This will build Nimbus and all other dependencies
 
 <img src="./img/deposit_sent.PNG" alt="" style="margin: 0 40 0 40"/>
 
-9. Now you should be syncing with the network. It may take a while (may be quite a few hours). You can know that you are synced if you see the following output.
+9. The beacon chain client will start syncing the network while your deposit is being processed. As soon as the deposit has been added, the client will start performing validation duties.
 
 <img src="./img/success.PNG" alt="" style="margin: 0 40 0 40"/>
 
 You can also get a brief estimate of the time remaining until your network gets synced by comparing the output `epoch` value and the one in the blockchain explorer (the [altona explorer](https://altona.beaconcha.in) for example).
+
+### Upgrading
+
+When restarting the beacon node, the software will resume from where it left off, using your previous deposits.
+
+```
+cd nim-beacon-chain
+git pull
+make update # Update dependencies
+make altona # Restart using same keys as last run
+```
+
+## Key management
+
+Keys are stored in the `build/data/testnet_name/` folder, under `secrets` and `validators` - make sure to keep these folders backed up.
+
+## Metrics
+
+Metrics are not included in the binary by default - to enable them, use the following options when starting the client:
+
+```
+make NIMFLAGS="-d:insecure" altona
+```
+
+You can now browse the metrics using a browser and connecting to:
+
+http://localhost:8008/metrics
+
+Make sure to protect this port as the http server used is not considered secure and should not be used by untrusted peers.
 
 ## Troubleshooting
 

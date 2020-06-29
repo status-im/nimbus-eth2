@@ -7,52 +7,51 @@
 ![Stability: experimental](https://img.shields.io/badge/stability-experimental-orange.svg)
 
 [![Discord: Nimbus](https://img.shields.io/badge/discord-nimbus-orange.svg)](https://discord.gg/XRxWahP)
-[![Gitter: #status-im/nimbus](https://img.shields.io/badge/gitter-status--im%2Fnimbus-orange.svg)](https://gitter.im/status-im/nimbus)
 [![Status: #nimbus-general](https://img.shields.io/badge/status-nimbus--general-orange.svg)](https://join.status.im/nimbus-general)
-
-Welcome to Nimbus for Ethereum 2.0.
 
 Nimbus beacon chain is a research implementation of the beacon chain component of the upcoming Ethereum Serenity upgrade, aka Eth2.
 
-
-## Manual
-
-Please see the complete documentation at [The nim-beacon-chain Book](https://status-im.github.io/nim-beacon-chain/).
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 
-## Related
+- [Documentation](#documentation)
+- [Related](#related)
+- [Prerequisites for everyone](#prerequisites-for-everyone)
+  - [Linux](#linux)
+  - [MacOS](#macos)
+  - [Windows](#windows)
+  - [Android](#android)
+- [For users](#for-users)
+  - [Connecting to testnets](#connecting-to-testnets)
+  - [Getting metrics from a local testnet client](#getting-metrics-from-a-local-testnet-client)
+- [Interop (for other Eth2 clients)](#interop-for-other-eth2-clients)
+- [For researchers](#for-researchers)
+  - [State transition simulation](#state-transition-simulation)
+  - [Local network simulation](#local-network-simulation)
+  - [Visualising simulation metrics](#visualising-simulation-metrics)
+  - [Network inspection](#network-inspection)
+- [For developers](#for-developers)
+  - [Windows dev environment](#windows-dev-environment)
+  - [Linux, MacOS](#linux-macos)
+  - [Raspberry Pi](#raspberry-pi)
+  - [Makefile tips and tricks for developers](#makefile-tips-and-tricks-for-developers)
+  - [CI setup](#ci-setup)
+- [License](#license)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
+
+## Documentation
+
+You can find complete information about running a beacon node and operating as a validator in [The Book](https://status-im.github.io/nim-beacon-chain/).
+
+## Related projects
 
 * [status-im/nimbus](https://github.com/status-im/nimbus/): Nimbus for Ethereum 1
 * [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/tree/v0.12.1#phase-0): Serenity specification that this project implements
 
 You can check where the beacon chain fits in the Ethereum ecosystem our Two-Point-Oh series: https://our.status.im/tag/two-point-oh/
-
-## Table of Contents
-
-- [Nimbus Eth2 (Beacon Chain)](#nimbus-eth2-beacon-chain)
-  - [Manual](#manual)
-  - [Related](#related)
-  - [Table of Contents](#table-of-contents)
-  - [Prerequisites for everyone](#prerequisites-for-everyone)
-    - [Linux](#linux)
-    - [MacOS](#macos)
-    - [Windows](#windows)
-  - [For users](#for-users)
-    - [Connecting to testnets](#connecting-to-testnets)
-    - [Getting metrics from a local testnet client](#getting-metrics-from-a-local-testnet-client)
-  - [Interop (for other Eth2 clients)](#interop-for-other-eth2-clients)
-  - [For researchers](#for-researchers)
-    - [State transition simulation](#state-transition-simulation)
-    - [Local network simulation](#local-network-simulation)
-    - [Visualising simulation metrics](#visualising-simulation-metrics)
-    - [Network inspection](#network-inspection)
-  - [For developers](#for-developers)
-    - [Windows dev environment](#windows-dev-environment)
-    - [Linux, MacOS](#linux-macos)
-    - [Raspberry Pi](#raspberry-pi)
-    - [Makefile tips and tricks for developers](#makefile-tips-and-tricks-for-developers)
-    - [CI setup](#ci-setup)
-  - [License](#license)
 
 ## Prerequisites for everyone
 
