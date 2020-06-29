@@ -103,16 +103,10 @@ proc sendAttestation*(
   node: BeaconNode, attestation: Attestation, num_active_validators: uint64) =
   logScope: pcs = "send_attestation"
 
-  when ETH2_SPEC == "v0.12.1":
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
-    node.network.broadcast(
-      getAttestationTopic(node.forkDigest, attestation, num_active_validators),
-      attestation)
-  else:
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/validator.md#broadcast-attestation
-    node.network.broadcast(
-      getMainnetAttestationTopic(node.forkDigest, attestation.data.index),
-      attestation)
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  node.network.broadcast(
+    getAttestationTopic(node.forkDigest, attestation, num_active_validators),
+    attestation)
 
   beacon_attestations_sent.inc()
 

@@ -757,30 +757,12 @@ proc installAttestationHandlers(node: BeaconNode) =
   for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
     closureScope:
       let ci = it
-      when ETH2_SPEC == "v0.12.1":
-        attestationSubscriptions.add(node.network.subscribe(
-          getAttestationTopic(node.forkDigest, ci), attestationHandler,
-          # This proc needs to be within closureScope; don't lift out of loop.
-          proc(attestation: Attestation): bool =
-            attestationValidator(attestation, ci)
-        ))
-      else:
-        attestationSubscriptions.add(node.network.subscribe(
-          getMainnetAttestationTopic(node.forkDigest, ci), attestationHandler,
-          # This proc needs to be within closureScope; don't lift out of loop.
-          proc(attestation: Attestation): bool =
-            attestationValidator(attestation, ci)
-        ))
-
-  when ETH2_SPEC == "v0.11.3":
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#interop-3
-    attestationSubscriptions.add(node.network.subscribe(
-      getInteropAttestationTopic(node.forkDigest), attestationHandler,
-      proc(attestation: Attestation): bool =
-        # isValidAttestation checks attestation.data.index == topicCommitteeIndex
-        # which doesn't make sense here, so rig that check to vacuously pass.
-        attestationValidator(attestation, attestation.data.index)
-    ))
+      attestationSubscriptions.add(node.network.subscribe(
+        getAttestationTopic(node.forkDigest, ci), attestationHandler,
+        # This proc needs to be within closureScope; don't lift out of loop.
+        proc(attestation: Attestation): bool =
+          attestationValidator(attestation, ci)
+      ))
 
   waitFor allFutures(attestationSubscriptions)
 

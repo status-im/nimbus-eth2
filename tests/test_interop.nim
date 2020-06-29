@@ -156,21 +156,12 @@ suiteReport "Interop":
     # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
     initialState.genesis_time = genesis_time
 
-    when ETH2_SPEC == "v0.12.1":
-      let expected =
-        when const_preset == "minimal":
-          "051d1a9c0fb61fce627e3990b930791fd17cb9fa7fb84a9a0051e55bf1759ec8"
-        elif const_preset == "mainnet":
-          "ffe85e9b0e3af1b86a177e5b9dc28d5e1237ff5a046482cb45cbd036e918c676"
-        else:
-          "unimplemented"
-    else:
-      let expected =
-        when const_preset == "minimal":
-          "410c8758710155b49208d52c9e4bd2f11aa16a7c7521e560a2d05dcd69a023b3"
-        elif const_preset == "mainnet":
-          "95a0b1e7b0b77d0cbe2bcd12c90469e68edb141424b1a6126f1d55498afe3ae6"
-        else:
-          "unimplemented"
+    let expected =
+      when const_preset == "minimal":
+        "051d1a9c0fb61fce627e3990b930791fd17cb9fa7fb84a9a0051e55bf1759ec8"
+      elif const_preset == "mainnet":
+        "ffe85e9b0e3af1b86a177e5b9dc28d5e1237ff5a046482cb45cbd036e918c676"
+      else:
+        "unimplemented"
     check:
       hash_tree_root(initialState[]).data.toHex() == expected

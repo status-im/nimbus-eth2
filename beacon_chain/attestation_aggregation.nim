@@ -136,30 +136,21 @@ proc isValidAttestation*(
   pool.blockPool.withState(
       pool.blockPool.tmpState,
       BlockSlot(blck: attestationBlck, slot: attestation.data.slot)):
-    when ETH2_SPEC == "v0.12.1":
-      # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#attestation-subnets
-      # [REJECT] The attestation is for the correct subnet (i.e.
-      # compute_subnet_for_attestation(state, attestation) == subnet_id).
-      let
-        epochInfo = blck.getEpochInfo(state)
-        requiredSubnetIndex =
-          compute_subnet_for_attestation(
-            epochInfo.shuffled_active_validator_indices.len.uint64, attestation)
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#attestation-subnets
+    # [REJECT] The attestation is for the correct subnet (i.e.
+    # compute_subnet_for_attestation(state, attestation) == subnet_id).
+    let
+      epochInfo = blck.getEpochInfo(state)
+      requiredSubnetIndex =
+        compute_subnet_for_attestation(
+          epochInfo.shuffled_active_validator_indices.len.uint64, attestation)
 
-      if requiredSubnetIndex != topicCommitteeIndex:
-        debug "isValidAttestation: attestation's committee index not for the correct subnet",
-          topicCommitteeIndex = topicCommitteeIndex,
-          attestation_data_index = attestation.data.index,
-          requiredSubnetIndex = requiredSubnetIndex
-        return false
-    else:
-      # The attestation's committee index (attestation.data.index) is for the
-      # correct subnet.
-      if attestation.data.index != topicCommitteeIndex:
-        debug "isValidAttestation: attestation's committee index not for the correct subnet",
-          topicCommitteeIndex = topicCommitteeIndex,
-          attestation_data_index = attestation.data.index
-        return false
+    if requiredSubnetIndex != topicCommitteeIndex:
+      debug "isValidAttestation: attestation's committee index not for the correct subnet",
+        topicCommitteeIndex = topicCommitteeIndex,
+        attestation_data_index = attestation.data.index,
+        requiredSubnetIndex = requiredSubnetIndex
+      return false
 
     # The signature of attestation is valid.
     var cache = getEpochCache(blck, state)

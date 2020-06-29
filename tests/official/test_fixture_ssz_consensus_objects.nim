@@ -117,11 +117,7 @@ proc runSSZtests() =
             checkSSZ(SignedBeaconBlockHeader, path, hash)
           of "SignedVoluntaryExit": checkSSZ(SignedVoluntaryExit, path, hash)
           of "SigningData":
-            when ETH2_SPEC == "v0.12.1":
-              checkSSZ(SigningData, path, hash)
-          of "SigningRoot":
-            when ETH2_SPEC == "v0.11.3":
-              checkSSZ(SigningRoot, path, hash)
+            checkSSZ(SigningData, path, hash)
           of "Validator": checkSSZ(Validator, path, hash)
           of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash)
           else:
