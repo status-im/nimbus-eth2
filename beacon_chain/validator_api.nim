@@ -300,10 +300,9 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       return state
 
   rpcServer.rpc("get_v1_validator_block") do (
-      slot: Slot, graffiti: Eth2Digest, randao_reveal: ValidatorSig) -> BeaconBlock:
+      slot: Slot, graffiti: GraffitiBytes, randao_reveal: ValidatorSig) -> BeaconBlock:
     debug "get_v1_validator_block", slot = slot
     let head = node.doChecksAndGetCurrentHead(slot)
-    
     let proposer = node.blockPool.getProposer(head, slot)
     if proposer.isNone():
       raise newException(CatchableError, "could not retrieve block for slot: " & $slot)

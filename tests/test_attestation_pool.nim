@@ -204,7 +204,7 @@ suiteReport "Attestation pool processing" & preset():
 
     let
       b11 = makeTestBlock(state.data, blockPool[].tail.root, cache,
-        graffiti = Eth2Digest(data: [1'u8, 0, 0, 0 ,0 ,0 ,0 ,0 ,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        graffiti = GraffitiBytes [1'u8, 0, 0, 0 ,0 ,0 ,0 ,0 ,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
       )
       b11Root = hash_tree_root(b11.message)
       b11Add = blockpool[].addRawBlock(b11Root, b11) do (validBlock: BlockRef):

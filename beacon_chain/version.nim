@@ -37,3 +37,4 @@ func shortNimBanner*(): string =
     tmp[0] & " (" & gitHash & ")"
   else:
     tmp[0]
+

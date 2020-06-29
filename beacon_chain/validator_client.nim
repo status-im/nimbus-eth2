@@ -17,7 +17,7 @@ import
 
   # Local modules
   spec/[datatypes, digest, crypto, helpers, network],
-  conf, time,
+  conf, time, version,
   eth2_network, eth2_discovery, validator_pool, beacon_node_types,
   nimbus_binary_common,
   version, ssz/merkleization,
@@ -36,6 +36,7 @@ createRpcSigs(RpcClient, sourceDir / "spec" / "eth2_apis" / "beacon_callsigs.nim
 type
   ValidatorClient = ref object
     config: ValidatorClientConf
+    graffitiBytes: GraffitiBytes
     client: RpcHttpClient
     beaconClock: BeaconClock
     attachedValidators: ValidatorPool
@@ -136,10 +137,8 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
       let randao_reveal = validator.genRandaoReveal(
         vc.fork, vc.beaconGenesis.genesis_validators_root, slot)
 
-      var graffiti: Eth2Digest
-      graffiti.data[0..<5] = toBytes("quack")
       var newBlock = SignedBeaconBlock(
-          message: await vc.client.get_v1_validator_block(slot, graffiti, randao_reveal)
+          message: await vc.client.get_v1_validator_block(slot, vc.graffitiBytes, randao_reveal)
         )
 
       let blockRoot = hash_tree_root(newBlock.message)
@@ -212,8 +211,9 @@ programMain:
 
     var vc = ValidatorClient(
       config: config,
-      client: newRpcHttpClient()
-    )
+      client: newRpcHttpClient(),
+      graffitiBytes: if config.graffiti.isSome: config.graffiti.get.GraffitiBytes
+                     else: defaultGraffitiBytes())
 
     # load all the validators from the data dir into memory
     for curr in vc.config.validatorKeys:

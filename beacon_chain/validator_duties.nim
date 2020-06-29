@@ -10,7 +10,7 @@ import
   os, tables, strutils,
 
   # Nimble packages
-  stew/[byteutils, objects], stew/shims/macros,
+  stew/[objects], stew/shims/macros,
   chronos, metrics, json_rpc/[rpcserver, jsonmarshal],
   chronicles,
   json_serialization/std/[options, sets, net], serialization/errors,
@@ -160,7 +160,7 @@ type
 proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     val_info: ValidatorInfoForMakeBeaconBlock,
                                     validator_index: ValidatorIndex,
-                                    graffiti: Eth2Digest,
+                                    graffiti: GraffitiBytes,
                                     head: BlockRef,
                                     slot: Slot):
     tuple[message: Option[BeaconBlock], fork: Fork, genesis_validators_root: Eth2Digest] =
@@ -271,11 +271,8 @@ proc proposeBlock(node: BeaconNode,
       cat = "fastforward"
     return head
 
-  var graffiti: Eth2Digest
-  graffiti.data[0..<5] = toBytes("quack")
   let valInfo = ValidatorInfoForMakeBeaconBlock(kind: viValidator, validator: validator)
-  let beaconBlockTuple = makeBeaconBlockForHeadAndSlot(node, valInfo, validator_index, graffiti, head, slot)
-
+  let beaconBlockTuple = makeBeaconBlockForHeadAndSlot(node, valInfo, validator_index, node.graffitiBytes, head, slot)
   if not beaconBlockTuple.message.isSome():
     return head # already logged elsewhere!
   var

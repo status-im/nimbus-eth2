@@ -134,9 +134,9 @@ func enrForkIdFromState(state: BeaconState): ENRForkID =
     next_fork_version: forkVer,
     next_fork_epoch: FAR_FUTURE_EPOCH)
 
-proc init*(
-    T: type BeaconNode, rng: ref BrHmacDrbgContext,
-    conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
+proc init*(T: type BeaconNode,
+           rng: ref BrHmacDrbgContext,
+           conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
   let
     netKeys = getPersistentNetKeys(rng[], conf)
     nickname = if conf.nodeName == "auto": shortForm(netKeys)
@@ -237,6 +237,8 @@ proc init*(
 
   var res = BeaconNode(
     nickname: nickname,
+    graffitiBytes: if conf.graffiti.isSome: conf.graffiti.get.GraffitiBytes
+                   else: defaultGraffitiBytes(),
     network: network,
     netKeys: netKeys,
     db: db,
@@ -634,11 +636,6 @@ proc currentSlot(node: BeaconNode): Slot =
 
 proc connectedPeersCount(node: BeaconNode): int =
   nbc_peers.value.int
-
-func fromJson(n: JsonNode; argName: string; result: var Slot) =
-  var i: int
-  fromJson(n, argName, i)
-  result = Slot(i)
 
 proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("getBeaconHead") do () -> Slot:

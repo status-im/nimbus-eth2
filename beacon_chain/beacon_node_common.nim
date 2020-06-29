@@ -32,6 +32,7 @@ type
 
   BeaconNode* = ref object
     nickname*: string
+    graffitiBytes*: GraffitiBytes
     network*: Eth2Node
     netKeys*: KeyPair
     requestManager*: RequestManager
