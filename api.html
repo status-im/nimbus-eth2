@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Contribute - The Nimbus Beacon Chain Book</title>
+        <title>API - The Nimbus Beacon Chain Book</title>
         
         
 
@@ -89,7 +89,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">3.</strong> Become a Validator</a></li><li class="chapter-item expanded "><a href="cli.html"><strong aria-hidden="true">4.</strong> Command-line Options</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">5.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">6.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">7.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html" class="active"><strong aria-hidden="true">8.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">3.</strong> Become a Validator</a></li><li class="chapter-item expanded "><a href="cli.html"><strong aria-hidden="true">4.</strong> Command-line Options</a></li><li class="chapter-item expanded "><a href="api.html" class="active"><strong aria-hidden="true">5.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">6.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">7.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">8.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -155,52 +155,63 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#contribute" id="contribute">Contribute</a></h1>
-<p>Follow these steps to contribute to this book!</p>
-<p>We use an utility tool called mdBook to create online books from Markdown files.</p>
-<h2><a class="header" href="#before-you-start" id="before-you-start">Before You Start</a></h2>
-<ol>
-<li>Install mdBook from <a href="https://github.com/rust-lang/mdBook">here</a>.</li>
-<li>Clone the repository by <code>git clone https://github.com/status-im/nim-beacon-chain.git</code>.</li>
-<li>Go to where the Markdown files are located by <code>cd docs</code>.</li>
-</ol>
-<h2><a class="header" href="#real-time-update-and-preview-changes" id="real-time-update-and-preview-changes">Real-Time Update and Preview Changes</a></h2>
-<ol>
-<li>Run <code>mdbook serve</code> in the terminal.</li>
-<li>Preview the book at <a href="http://localhost:3000">http://localhost:3000</a>.</li>
-</ol>
-<h2><a class="header" href="#build-and-deploy" id="build-and-deploy">Build and Deploy</a></h2>
-<p>The first step is to submit a pull request to the <a href="https://github.com/status-im/nim-beacon-chain/tree/devel">devel branch</a>.
-Then, after it is merged, do the following under our main repository:</p>
-<ol>
-<li><code>cd nim-beacon-chain</code></li>
-<li><code>git checkout devel</code></li>
-<li><code>git pull</code></li>
-<li><code>make update</code> (This is to update the submodules to the latest version)</li>
-<li><code>make publish-book</code></li>
-</ol>
-<h2><a class="header" href="#trouble-shooting" id="trouble-shooting">Trouble Shooting</a></h2>
-<p>If you see file conflicts in the pull request, this may due to that you have created your new branch from an old version of the <code>devel</code> branch. Update your new branch using the following commands:</p>
-<pre><code>git checkout devel
-git pull
-make update
-git checkout readme
-git merge devel
-# use something like `git mergetool` to resolve conflicts, then read the instructions for completing the merge (usually just a `git commit`)
-# check the output of `git diff devel`
+                        <p>NBC exposes API:s for querying the state of the application at runtime.</p>
+<p>:note: Where applicable, this API mimics https://github.com/ethereum/eth2.0-APIs with the exception that JSON-RPC is used instead of http rest - method names, parameters and results are equivalent except for the encoding / access method.</p>
+<h2><a class="header" href="#introduction" id="introduction">Introduction</a></h2>
+<p>The NBC API is implemented using JSON-RPC 2.0. To query it, you can use a JSON-RPC library in the language of your choice, or a tool like <code>curl</code> to access it from the command line. A tool like <a href="https://stedolan.github.io/jq/">jq</a> is helpful to pretty-print the responses.</p>
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;peers&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<p>Thank you so much for your help to the decentralized and open source community. :)</p>
+<p>Before you can access the API, make sure it's enabled using the RPC flag (<code>beacon_node --rpc</code>):</p>
+<pre><code>     --rpc                     Enable the JSON-RPC server.
+     --rpc-port                HTTP port for the JSON-RPC service.
+     --rpc-address             Listening address of the RPC server.
+</code></pre>
+<h2><a class="header" href="#beacon-node-api" id="beacon-node-api">Beacon Node API</a></h2>
+<h3><a class="header" href="#getbeaconhead" id="getbeaconhead">getBeaconHead</a></h3>
+<p>The latest head slot, as chosen by the latest fork choice.</p>
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getBeaconHead&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
+</code></pre>
+<h3><a class="header" href="#getchainhead" id="getchainhead">getChainHead</a></h3>
+<p>Show chain head information, including head, justified and finalized checkpoints.</p>
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getChainHead&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
+</code></pre>
+<h3><a class="header" href="#getsyncing" id="getsyncing">getSyncing</a></h3>
+<h3><a class="header" href="#getbeaconblock" id="getbeaconblock">getBeaconBlock</a></h3>
+<h3><a class="header" href="#getbeaconstate" id="getbeaconstate">getBeaconState</a></h3>
+<h3><a class="header" href="#getnetworkpeerid" id="getnetworkpeerid">getNetworkPeerId</a></h3>
+<h3><a class="header" href="#getnetworkpeers" id="getnetworkpeers">getNetworkPeers</a></h3>
+<h3><a class="header" href="#getnetworkenr" id="getnetworkenr">getNetworkEnr</a></h3>
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getNetworkEnr&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
+</code></pre>
+<h2><a class="header" href="#valdiator-api" id="valdiator-api">Valdiator API</a></h2>
+<h2><a class="header" href="#administrative--debug-api" id="administrative--debug-api">Administrative / Debug API</a></h2>
+<h3><a class="header" href="#getnodeversion" id="getnodeversion">getNodeVersion</a></h3>
+<p>Show version of the software</p>
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getNodeVersion&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
+</code></pre>
+<h3><a class="header" href="#getspecpreset" id="getspecpreset">getSpecPreset</a></h3>
+<p>Show spec constants in use.</p>
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getSpecPreset&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
+</code></pre>
+<h3><a class="header" href="#peers" id="peers">peers</a></h3>
+<p>Show a list of peers that the beacon node is connected to.</p>
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;peers&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
+</code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="faq.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="cli.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
+                        
+                            <a rel="next" href="advanced.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
                         
 
                         <div style="clear: both"></div>
@@ -210,11 +221,15 @@ git merge devel
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="faq.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="cli.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
+                
+                    <a rel="next" href="advanced.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
                 
             </nav>
 

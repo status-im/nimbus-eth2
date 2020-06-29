@@ -5,12 +5,19 @@
         <meta charset="UTF-8">
         <title>Introduction - The Nimbus Beacon Chain Book</title>
         
+        
+
+
+        <!-- Custom HTML head -->
+        
+
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        <link rel="icon" href="favicon.svg">
         <link rel="shortcut icon" href="favicon.png">
         <link rel="stylesheet" href="css/variables.css">
         <link rel="stylesheet" href="css/general.css">
@@ -19,8 +26,9 @@
 
         <!-- Fonts -->
         <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
-        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
 
         <!-- Highlight.js Stylesheets -->
         <link rel="stylesheet" href="highlight.css">
@@ -36,7 +44,7 @@
         <!-- Provide site root to javascript -->
         <script type="text/javascript">
             var path_to_root = "";
-            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "light";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
         </script>
 
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
@@ -81,7 +89,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">2.</strong> Become a Validator</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">3.</strong> Installation</a></li><li class="chapter-item expanded "><a href="cli.html"><strong aria-hidden="true">4.</strong> Command-line Options</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">5.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">6.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">7.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">3.</strong> Become a Validator</a></li><li class="chapter-item expanded "><a href="cli.html"><strong aria-hidden="true">4.</strong> Command-line Options</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">5.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">6.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">7.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">8.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -152,15 +160,16 @@
 <p>Nimbus beacon chain is a research implementation of the beacon chain component of the upcoming Ethereum Serenity upgrade, aka Eth2.</p>
 <ul>
 <li>Open sourced at <a href="https://github.com/status-im/nim-beacon-chain/tree/master">github.com/status-im/nim-beacon-chain</a>.</li>
-<li>Specification of our implementation can be found at <a href="https://github.com/ethereum/eth2.0-specs/tree/v0.11.1#phase-0">ethereum/eth2.0-specs</a>.</li>
+<li>Specification of our implementation can be found at <a href="https://github.com/ethereum/eth2.0-specs/tree/v0.12.1#phase-0">ethereum/eth2.0-specs</a>.</li>
 </ul>
 <h2><a class="header" href="#overview" id="overview">Overview</a></h2>
 <p>In this book, we will cover:</p>
 <ol>
 <li><a href="./faq.html#1-what-is-beacon-chain">What is beacon chain</a> and <a href="./faq.html#4-what-is-nimbus">what is Nimbus</a> to equip you with some basic knowledge.</li>
-<li>How to <a href="./validator.html">become a validator</a> in Ethereum 2.0 as a user.</li>
-<li><a href="./install.html">Installation steps</a> for nimbus beacon chain.</li>
+<li><a href="./install.html">Installation steps</a> outline the prerequisites to get started.</li>
+<li>How to <a href="./validator.html">become a validator</a> in Ethereum 2.0 as a user, for example on the Altona testnet.</li>
 <li><a href="./cli.html">CLI</a> for running your customized nimbus beacon node.</li>
+<li><a href="./api.html">API</a> for monitoring your node through <code>http</code>.</li>
 <li><a href="./advanced.html">Advanced usage</a> for developers.</li>
 <li>Common <a href="./faq.html">questions and answers</a> to satisfy your curiosity.</li>
 <li>How to <a href="./contribute.html">contribute</a> to this book.</li>
@@ -180,7 +189,7 @@
                         
 
                         
-                            <a rel="next" href="validator.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="install.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -194,7 +203,7 @@
                 
 
                 
-                    <a rel="next" href="validator.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="install.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
@@ -207,10 +216,10 @@
         
 
         
-        
+
         
         <script type="text/javascript">
-            window.playpen_copyable = true;
+            window.playground_copyable = true;
         </script>
         
 

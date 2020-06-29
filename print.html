@@ -7,12 +7,19 @@
         
         <meta name="robots" content="noindex" />
         
+        
+
+
+        <!-- Custom HTML head -->
+        
+
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        <link rel="icon" href="favicon.svg">
         <link rel="shortcut icon" href="favicon.png">
         <link rel="stylesheet" href="css/variables.css">
         <link rel="stylesheet" href="css/general.css">
@@ -21,8 +28,9 @@
 
         <!-- Fonts -->
         <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
-        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
 
         <!-- Highlight.js Stylesheets -->
         <link rel="stylesheet" href="highlight.css">
@@ -38,7 +46,7 @@
         <!-- Provide site root to javascript -->
         <script type="text/javascript">
             var path_to_root = "";
-            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "light";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
         </script>
 
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
@@ -83,7 +91,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">2.</strong> Become a Validator</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">3.</strong> Installation</a></li><li class="chapter-item expanded "><a href="cli.html"><strong aria-hidden="true">4.</strong> Command-line Options</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">5.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">6.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">7.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">3.</strong> Become a Validator</a></li><li class="chapter-item expanded "><a href="cli.html"><strong aria-hidden="true">4.</strong> Command-line Options</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">5.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">6.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">7.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">8.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -154,15 +162,16 @@
 <p>Nimbus beacon chain is a research implementation of the beacon chain component of the upcoming Ethereum Serenity upgrade, aka Eth2.</p>
 <ul>
 <li>Open sourced at <a href="https://github.com/status-im/nim-beacon-chain/tree/master">github.com/status-im/nim-beacon-chain</a>.</li>
-<li>Specification of our implementation can be found at <a href="https://github.com/ethereum/eth2.0-specs/tree/v0.11.1#phase-0">ethereum/eth2.0-specs</a>.</li>
+<li>Specification of our implementation can be found at <a href="https://github.com/ethereum/eth2.0-specs/tree/v0.12.1#phase-0">ethereum/eth2.0-specs</a>.</li>
 </ul>
 <h2><a class="header" href="#overview" id="overview">Overview</a></h2>
 <p>In this book, we will cover:</p>
 <ol>
 <li><a href="./faq.html#1-what-is-beacon-chain">What is beacon chain</a> and <a href="./faq.html#4-what-is-nimbus">what is Nimbus</a> to equip you with some basic knowledge.</li>
-<li>How to <a href="./validator.html">become a validator</a> in Ethereum 2.0 as a user.</li>
-<li><a href="./install.html">Installation steps</a> for nimbus beacon chain.</li>
+<li><a href="./install.html">Installation steps</a> outline the prerequisites to get started.</li>
+<li>How to <a href="./validator.html">become a validator</a> in Ethereum 2.0 as a user, for example on the Altona testnet.</li>
 <li><a href="./cli.html">CLI</a> for running your customized nimbus beacon node.</li>
+<li><a href="./api.html">API</a> for monitoring your node through <code>http</code>.</li>
 <li><a href="./advanced.html">Advanced usage</a> for developers.</li>
 <li>Common <a href="./faq.html">questions and answers</a> to satisfy your curiosity.</li>
 <li>How to <a href="./contribute.html">contribute</a> to this book.</li>
@@ -174,66 +183,6 @@
 
 1. fill up the gitbook content
 2. write questions in the faq.md page -->
-<h1><a class="header" href="#become-a-validator" id="become-a-validator">Become a Validator</a></h1>
-<p>To become a validator, you have to first connect to a testnet, deposit your Ethers, and sync with the network.</p>
-<h2><a class="header" href="#recommended-testnets" id="recommended-testnets">Recommended Testnets</a></h2>
-<p>Though Nimbus can connect to any of the testnets published in the <a href="https://github.com/eth2-clients/eth2-testnets/tree/master/nimbus">eth2-clients/eth2-testnets repo</a>, below are the recommended ones:</p>
-<ul>
-<li>Public Testnet: <a href="https://github.com/goerli/witti">witti</a> (<a href="https://witti.beaconcha.in">explorer</a>)</li>
-<li>Local Testnet: testnet0 (currently not available)</li>
-</ul>
-<h2><a class="header" href="#connecting-to-testnets" id="connecting-to-testnets">Connecting to Testnets</a></h2>
-<p>Before we start, we have to obtain 32 Ethers on the Goerli testnet. Then, we can deposit 32 Ethers to the registration smart contract to become a validator.</p>
-<ol>
-<li>Open your <a href="https://metamask.io/">MetaMask</a> wallet, switch to the <code>Goerli Test Network</code> option from the top right corner.</li>
-<li>Copy your account address by clicking on one of your accounts.</li>
-<li>Post your account address on a social media platform (Twitter or Facebook). Copy the url to the post.</li>
-<li>Paste your post url on the <a href="https://faucet.goerli.mudit.blog/">Goerli faucet</a> and select <code>Give me Ether &gt; 37.5 Ethers</code> from the top right cornor of the page.</li>
-<li>Wait for a few seconds and return to your MetaMask wallet to check if you have successfully received.</li>
-<li>Once the <a href="./install.html">prerequisites</a> are installed, you can connect to the witti testnet with the following commands: <br></li>
-</ol>
-<ul>
-<li>Change <code>witti</code> to <code>testnet0</code> to connect to testnet0.</li>
-<li><strong><em>Remember to replace <code>make</code> with <code>mingw32-make</code> if using Windows.</em></strong></li>
-</ul>
-<pre><code class="language-bash">git clone https://github.com/status-im/nim-beacon-chain
-cd nim-beacon-chain
-git checkout devel
-git pull
-make update
-make witti        # This will build Nimbus and all other dependencies
-                     # and connect you to witti
-</code></pre>
-<img src="./img/connect_testnet.PNG" alt="" style="margin: 0 40 0 40"/>
-<ol start="7">
-<li>The testnet should now be up and running. Then, you will be prompted to enter your private key of the account you want to deposit the 32 Ether from. Find your private key from MetaMask as below:</li>
-</ol>
-<img src="./img/export_pkey.PNG" alt="" width="200" style="margin: 0 40 0 40"/>
-<img src="./img/enter_private_key.PNG" alt="" style="margin: 0 40 0 40"/>
-<ol start="8">
-<li>Wait for a few seconds until you see that your deposit has been sent:</li>
-</ol>
-<img src="./img/deposit_sent.PNG" alt="" style="margin: 0 40 0 40"/>
-<ol start="9">
-<li>Now you should be syncing with the network. It may take a while (may be quite a few hours). You can know that you are synced if you see the following output.</li>
-</ol>
-<img src="./img/success.PNG" alt="" style="margin: 0 40 0 40"/>
-<p>You can also get a brief estimate of the time remaining until your network gets synced by comparing the output <code>epoch</code> value and the one in the blockchain explorer (the <a href="https://witti.beaconcha.in">witti explorer</a> for example).</p>
-<h2><a class="header" href="#trouble-shooting" id="trouble-shooting">Trouble Shooting</a></h2>
-<ol>
-<li>
-<p>The directory that stores the blockchain data of the testnet is <code>build/data/shared_witti_0</code> (replace <code>witti</code> with other testnet names). Delete this folder if you want to start over. For example, you can start over with a fresh storage if you entered a wrong private key.</p>
-</li>
-<li>
-<p>Currently, you have to switch to the devel branch in order to run the validator node successfully.</p>
-</li>
-<li>
-<p>Everytime you want to update your node to the latest version, run <code>git pull</code>, <code>make update</code>, and then <code>make witti</code>.</p>
-</li>
-<li>
-<p>If <code>make update</code> has been running for too long, you can use <code>make update V=1</code> or <code>make update V=2</code> for verbose output.</p>
-</li>
-</ol>
 <h1><a class="header" href="#installation" id="installation">Installation</a></h1>
 <p>Beacon chain can run on Linux, macOS, Windows, and Android. At the moment, Nimbus has to be built from source.</p>
 <h2><a class="header" href="#external-dependencies" id="external-dependencies">External Dependencies</a></h2>
@@ -269,8 +218,87 @@ Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on 
 <p><em>Assuming Ubuntu PRoot is used</em></p>
 <pre><code class="language-sh">apt install build-essential git libpcre3-dev
 </code></pre>
+<h2><a class="header" href="#next-steps" id="next-steps">Next steps</a></h2>
+<p>Once you've installed build tools, you're ready to move on to launching the beacon node and becoming a <a href="./validator.html">validator</a></p>
+<h1><a class="header" href="#become-a-validator" id="become-a-validator">Become a Validator</a></h1>
+<p>To become a validator, you need to install the beacon chain software, acquire 32 ETH, set up your validator account and register with the deposit contract on Ethereum.</p>
+<p>There is currently no Eth2 mainnet - all networks are testnets.</p>
+<h2><a class="header" href="#recommended-testnets" id="recommended-testnets">Recommended Testnets</a></h2>
+<p>Though Nimbus can connect to any of the testnets published in the <a href="https://github.com/eth2-clients/eth2-testnets/tree/master/nimbus">eth2-clients/eth2-testnets repo</a>, below are the recommended ones:</p>
+<ul>
+<li>Multi-client Testnet: <a href="https://github.com/goerli/altona">altona</a> (<a href="https://altona.beaconcha.in">explorer</a>)</li>
+<li>Nimbus Testnet: testnet0 (experimental, not always active)</li>
+</ul>
+<h2><a class="header" href="#altona" id="altona">Altona</a></h2>
+<h3><a class="header" href="#initial-setup" id="initial-setup">Initial setup</a></h3>
+<p>Before we start, we have to obtain 32 ETH on the Goerli testnet. Then, we can deposit 32 Ethers to the registration smart contract to become a validator.</p>
+<ol>
+<li>Open your <a href="https://metamask.io/">MetaMask</a> wallet, switch to the <code>Goerli Test Network</code> option from the top right corner.</li>
+<li>Copy your account address by clicking on one of your accounts.</li>
+<li>Post your account address on a social media platform (Twitter or Facebook). Copy the url to the post.</li>
+<li>Paste your post url on the <a href="https://faucet.goerli.mudit.blog/">Goerli faucet</a> and select <code>Give me Ether &gt; 37.5 Ethers</code> from the top right cornor of the page.</li>
+<li>Wait for a few seconds and return to your MetaMask wallet to check if you have successfully received.</li>
+<li>Once the <a href="./install.html">prerequisites</a> are installed, you can connect to the altona testnet with the following commands: <br></li>
+</ol>
+<ul>
+<li><strong><em>Remember to replace <code>make</code> with <code>mingw32-make</code> if using Windows.</em></strong></li>
+</ul>
+<pre><code class="language-bash">git clone https://github.com/status-im/nim-beacon-chain
+cd nim-beacon-chain
+git checkout devel
+git pull
+make update
+make altona        # This will build Nimbus and all other dependencies
+                   # and connect you to altona
+</code></pre>
+<img src="./img/connect_testnet.PNG" alt="" style="margin: 0 40 0 40"/>
+<ol start="7">
+<li>You will be prompted to enter your private key of the account you want to deposit the 32 Ether from. Find your private key from MetaMask as below:</li>
+</ol>
+<img src="./img/export_pkey.PNG" alt="" width="200" style="margin: 0 40 0 40"/>
+<img src="./img/enter_private_key.PNG" alt="" style="margin: 0 40 0 40"/>
+<ol start="8">
+<li>Wait for a few seconds until you see that your deposit has been sent:</li>
+</ol>
+<img src="./img/deposit_sent.PNG" alt="" style="margin: 0 40 0 40"/>
+<ol start="9">
+<li>The beacon chain client will start syncing the network while your deposit is being processed. As soon as the deposit has been added, the client will start performing validation duties.</li>
+</ol>
+<img src="./img/success.PNG" alt="" style="margin: 0 40 0 40"/>
+<p>You can also get a brief estimate of the time remaining until your network gets synced by comparing the output <code>epoch</code> value and the one in the blockchain explorer (the <a href="https://altona.beaconcha.in">altona explorer</a> for example).</p>
+<h3><a class="header" href="#upgrading" id="upgrading">Upgrading</a></h3>
+<p>When restarting the beacon node, the software will resume from where it left off, using your previous deposits.</p>
+<pre><code>cd nim-beacon-chain
+git pull
+make update # Update dependencies
+make altona # Restart using same keys as last run
+</code></pre>
+<h2><a class="header" href="#key-management" id="key-management">Key management</a></h2>
+<p>Keys are stored in the <code>build/data/testnet_name/</code> folder, under <code>secrets</code> and <code>validators</code> - make sure to keep these folders backed up.</p>
+<h2><a class="header" href="#metrics" id="metrics">Metrics</a></h2>
+<p>Metrics are not included in the binary by default - to enable them, use the following options when starting the client:</p>
+<pre><code>make NIMFLAGS=&quot;-d:insecure&quot; altona
+</code></pre>
+<p>You can now browse the metrics using a browser and connecting to:</p>
+<p>http://localhost:8008/metrics</p>
+<p>Make sure to protect this port as the http server used is not considered secure and should not be used by untrusted peers.</p>
+<h2><a class="header" href="#troubleshooting" id="troubleshooting">Troubleshooting</a></h2>
+<ol>
+<li>
+<p>The directory that stores the blockchain data of the testnet is <code>build/data/shared_altona_0</code> (replace <code>altona</code> with other testnet names). Delete this folder if you want to start over. For example, you can start over with a fresh storage if you entered a wrong private key.</p>
+</li>
+<li>
+<p>Currently, you have to switch to the devel branch in order to run the validator node successfully.</p>
+</li>
+<li>
+<p>Everytime you want to update your node to the latest version, run <code>git pull</code>, <code>make update</code>, and then <code>make altona</code>.</p>
+</li>
+<li>
+<p>If <code>make update</code> has been running for too long, you can use <code>make update V=1</code> or <code>make update V=2</code> for verbose output.</p>
+</li>
+</ol>
 <h1><a class="header" href="#command-line-options" id="command-line-options">Command-line Options</a></h1>
-<p>You can run your customized beacon node using the beacon_node executable. The available options are shown below.</p>
+<p>You can run your customized beacon node using the <code>beacon_node</code> executable. The available options are shown below - you can also run <code>beacon_node --help</code> for a reminder.</p>
 <h2><a class="header" href="#prerequisites" id="prerequisites">Prerequisites</a></h2>
 <p>Specifying a genesis file is mandatory to run this executable. You can either get it from the official eth2 repository <a href="https://github.com/eth2-clients/eth2-testnets/blob/master/shared/witti/genesis.ssz">here</a> or generate your own like <a href="https://github.com/status-im/nim-beacon-chain/blob/db92c2f2549a339be60896c3907cefdb394b5e11/scripts/launch_local_testnet.sh#L154">this</a> when starting a local testnet. You can also specify the path of your genesis file like <a href="https://github.com/status-im/nim-beacon-chain/blob/db92c2f2549a339be60896c3907cefdb394b5e11/scripts/launch_local_testnet.sh#L229">this</a>.</p>
 <p>For example, download a genesis file and then run the following command to start the node:</p>
@@ -369,6 +397,48 @@ Available sub-commands:
 
 beacon_node query get &lt;getQueryPath&gt;
 &lt;getQueryPath&gt;                REST API path to evaluate
+</code></pre>
+<p>NBC exposes API:s for querying the state of the application at runtime.</p>
+<p>:note: Where applicable, this API mimics https://github.com/ethereum/eth2.0-APIs with the exception that JSON-RPC is used instead of http rest - method names, parameters and results are equivalent except for the encoding / access method.</p>
+<h2><a class="header" href="#introduction" id="introduction">Introduction</a></h2>
+<p>The NBC API is implemented using JSON-RPC 2.0. To query it, you can use a JSON-RPC library in the language of your choice, or a tool like <code>curl</code> to access it from the command line. A tool like <a href="https://stedolan.github.io/jq/">jq</a> is helpful to pretty-print the responses.</p>
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;peers&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
+</code></pre>
+<p>Before you can access the API, make sure it's enabled using the RPC flag (<code>beacon_node --rpc</code>):</p>
+<pre><code>     --rpc                     Enable the JSON-RPC server.
+     --rpc-port                HTTP port for the JSON-RPC service.
+     --rpc-address             Listening address of the RPC server.
+</code></pre>
+<h2><a class="header" href="#beacon-node-api" id="beacon-node-api">Beacon Node API</a></h2>
+<h3><a class="header" href="#getbeaconhead" id="getbeaconhead">getBeaconHead</a></h3>
+<p>The latest head slot, as chosen by the latest fork choice.</p>
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getBeaconHead&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
+</code></pre>
+<h3><a class="header" href="#getchainhead" id="getchainhead">getChainHead</a></h3>
+<p>Show chain head information, including head, justified and finalized checkpoints.</p>
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getChainHead&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
+</code></pre>
+<h3><a class="header" href="#getsyncing" id="getsyncing">getSyncing</a></h3>
+<h3><a class="header" href="#getbeaconblock" id="getbeaconblock">getBeaconBlock</a></h3>
+<h3><a class="header" href="#getbeaconstate" id="getbeaconstate">getBeaconState</a></h3>
+<h3><a class="header" href="#getnetworkpeerid" id="getnetworkpeerid">getNetworkPeerId</a></h3>
+<h3><a class="header" href="#getnetworkpeers" id="getnetworkpeers">getNetworkPeers</a></h3>
+<h3><a class="header" href="#getnetworkenr" id="getnetworkenr">getNetworkEnr</a></h3>
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getNetworkEnr&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
+</code></pre>
+<h2><a class="header" href="#valdiator-api" id="valdiator-api">Valdiator API</a></h2>
+<h2><a class="header" href="#administrative--debug-api" id="administrative--debug-api">Administrative / Debug API</a></h2>
+<h3><a class="header" href="#getnodeversion" id="getnodeversion">getNodeVersion</a></h3>
+<p>Show version of the software</p>
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getNodeVersion&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
+</code></pre>
+<h3><a class="header" href="#getspecpreset" id="getspecpreset">getSpecPreset</a></h3>
+<p>Show spec constants in use.</p>
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getSpecPreset&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
+</code></pre>
+<h3><a class="header" href="#peers" id="peers">peers</a></h3>
+<p>Show a list of peers that the beacon node is connected to.</p>
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;peers&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
 <h1><a class="header" href="#advanced-usage-for-developers" id="advanced-usage-for-developers">Advanced Usage for Developers</a></h1>
 <p>Latest updates happen in the <code>devel</code> branch which is merged into <code>master</code> every week on Tuesday before deploying a new testnets
@@ -491,6 +561,11 @@ make LOG_LEVEL=TRACE beacon_node # log everything
 <h2><a class="header" href="#4-what-is-nimbus" id="4-what-is-nimbus">4. What is Nimbus?</a></h2>
 <p>In a sentence, Nimbus is an Ethereum 1.0 &amp; 2.0 Client for Resource-Restricted Devices.</p>
 <p>It is open sourced at <a href="github.com/status-im/nimbus">github.com/status-im/nimbus</a>. Development progress and updates can be viewed at the <a href="https://our.status.im/tag/nimbus/">Nimbus blog</a>.</p>
+<h2><a class="header" href="#why-are-metrics-not-working" id="why-are-metrics-not-working">Why are metrics not working?</a></h2>
+<p>Metrics are currently implemented using a HTTP server that hasn't been hardened sufficiently that it can be exposed as a public endpoint - it must thus be enabled specifically during build:</p>
+<pre><code>make NIMFLAGS=&quot;-d:insecure&quot;
+beacon_node --metrics ...
+</code></pre>
 <h1><a class="header" href="#contribute" id="contribute">Contribute</a></h1>
 <p>Follow these steps to contribute to this book!</p>
 <p>We use an utility tool called mdBook to create online books from Markdown files.</p>
@@ -515,7 +590,7 @@ Then, after it is merged, do the following under our main repository:</p>
 <li><code>make update</code> (This is to update the submodules to the latest version)</li>
 <li><code>make publish-book</code></li>
 </ol>
-<h2><a class="header" href="#trouble-shooting-1" id="trouble-shooting-1">Trouble Shooting</a></h2>
+<h2><a class="header" href="#trouble-shooting" id="trouble-shooting">Trouble Shooting</a></h2>
 <p>If you see file conflicts in the pull request, this may due to that you have created your new branch from an old version of the <code>devel</code> branch. Update your new branch using the following commands:</p>
 <pre><code>git checkout devel
 git pull
@@ -553,10 +628,10 @@ git merge devel
         
 
         
-        
+
         
         <script type="text/javascript">
-            window.playpen_copyable = true;
+            window.playground_copyable = true;
         </script>
         
 
