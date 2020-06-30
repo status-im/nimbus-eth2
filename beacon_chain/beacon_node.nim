@@ -850,6 +850,7 @@ proc start(node: BeaconNode) =
 
   info "Starting beacon node",
     version = fullVersionStr,
+    nim = shortNimBanner(),
     timeSinceFinalization =
       int64(finalizedHead.slot.toBeaconTime()) -
       int64(node.beaconClock.now()),
