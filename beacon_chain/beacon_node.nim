@@ -352,7 +352,7 @@ proc storeBlock(
       attestation = shortLog(attestation),
       cat = "consensus" # Tag "consensus|attestation"?
 
-    node.attestationPool.add(attestation)
+    node.attestationPool.addAttestation(attestation)
   ok()
 
 proc onBeaconBlock(node: BeaconNode, signedBlock: SignedBeaconBlock) =
