@@ -55,8 +55,14 @@ template ctrlCHandling*(extraCode: untyped) =
   setControlCHook(controlCHandler)
 
 template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =
-  let banner = clientId & "\p" & copyrights & "\p\p" & nimBanner
-  ConfType.load(version = banner, copyrightBanner = banner)
+  let
+    version = clientId & "\p" & copyrights & "\p\p" &
+      "eth2 specification v" & SPEC_VERSION & "\p\p" &
+      nimBanner
+  # TODO for some reason, copyrights are printed when doing `--help`
+  ConfType.load(
+    version = version,
+    copyrightBanner = clientId) # but a short version string makes more sense...
 
 # TODO not sure if this belongs here but it doesn't belong in `time.nim` either
 proc sleepToSlotOffset*(clock: BeaconClock, extra: chronos.Duration,
