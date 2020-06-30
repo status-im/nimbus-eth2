@@ -579,7 +579,7 @@ proc runForwardSyncLoop(node: BeaconNode) {.async.} =
          local_head_slot = getLocalHeadSlot(), store_speed = storeSpeed
     ok()
 
-  func scoreCheck(peer: Peer): bool =
+  proc scoreCheck(peer: Peer): bool =
     if peer.score < PeerScoreLowLimit:
       try:
         debug "Peer score is too low, removing it from PeerPool", peer = peer,
