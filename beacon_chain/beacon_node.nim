@@ -119,7 +119,7 @@ proc getStateFromSnapshot(conf: BeaconNodeConf): NilableBeaconStateRef =
         err = err.msg, genesisFile = conf.dataDir/genesisFile
       quit 1
 
-proc enrForkIdFromState(state: BeaconState): ENRForkID =
+func enrForkIdFromState(state: BeaconState): ENRForkID =
   let
     forkVer = state.fork.current_version
     forkDigest = compute_fork_digest(forkVer, state.genesis_validators_root)
@@ -542,7 +542,7 @@ proc runOnSecondLoop(node: BeaconNode) {.async.} =
       sleepTime = chronos.seconds(1) - (finish - start)
 
 proc runForwardSyncLoop(node: BeaconNode) {.async.} =
-  proc getLocalHeadSlot(): Slot =
+  func getLocalHeadSlot(): Slot =
     result = node.blockPool.head.blck.slot
 
   proc getLocalWallSlot(): Slot {.gcsafe.} =
@@ -550,7 +550,7 @@ proc runForwardSyncLoop(node: BeaconNode) {.async.} =
                 1'u64
     result = epoch.compute_start_slot_at_epoch()
 
-  proc getFirstSlotAtFinalizedEpoch(): Slot {.gcsafe.} =
+  func getFirstSlotAtFinalizedEpoch(): Slot {.gcsafe.} =
     let fepoch = node.blockPool.headState.data.data.finalized_checkpoint.epoch
     compute_start_slot_at_epoch(fepoch)
 
@@ -612,7 +612,7 @@ proc currentSlot(node: BeaconNode): Slot =
 proc connectedPeersCount(node: BeaconNode): int =
   nbc_peers.value.int
 
-proc fromJson(n: JsonNode; argName: string; result: var Slot) =
+func fromJson(n: JsonNode; argName: string; result: var Slot) =
   var i: int
   fromJson(n, argName, i)
   result = Slot(i)
@@ -890,7 +890,7 @@ when hasPrompt:
   from unicode import Rune
   import prompt
 
-  proc providePromptCompletions*(line: seq[Rune], cursorPos: int): seq[string] =
+  func providePromptCompletions*(line: seq[Rune], cursorPos: int): seq[string] =
     # TODO
     # The completions should be generated with the general-purpose command-line
     # parsing API of Confutils
