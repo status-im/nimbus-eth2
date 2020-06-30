@@ -76,7 +76,7 @@ proc becomeValidator(validatorsDir, beaconNodeBinary, secretsDir, depositContrac
       discard readLineFromStdin()
 
 proc runNode(dataDir, beaconNodeBinary, bootstrapFileOpt, depositContractOpt,
-             genesisFileOpt, natConfig, metricsAddress, rpcAddress: string,
+             genesisFileOpt, extraBeaconNodeOptions: string,
              basePort, nodeID, baseMetricsPort, baseRpcPort: int,
              printCmdOnly: bool) =
   let logLevel = getEnv("LOG_LEVEL")
@@ -103,19 +103,17 @@ proc runNode(dataDir, beaconNodeBinary, bootstrapFileOpt, depositContractOpt,
       --data-dir="{dataDir}"
       --dump
       --web3-url={web3Url}
-      --nat={natConfig}
       --tcp-port=""" & $(basePort + nodeID) & &"""
       --udp-port=""" & $(basePort + nodeID) & &"""
       --metrics
-      --metrics-address={metricsAddress}
       --metrics-port=""" & $(baseMetricsPort + nodeID) & &"""
       --rpc
-      --rpc-address={rpcAddress}
       --rpc-port=""" & $(baseRpcPort + nodeID) & &"""
       {bootstrapFileOpt}
       {logLevelOpt}
       {depositContractOpt}
-      {genesisFileOpt} """, "\n", " ")
+      {genesisFileOpt}
+      {extraBeaconNodeOptions}""", "\n", " ")
     execIgnoringExitCode cmd
 
 cli do (skipGoerliKey {.
@@ -138,24 +136,14 @@ cli do (skipGoerliKey {.
         basePort {.
           desc: "Base TCP/UDP port (nodeID will be added to it)" .} = 9000.int,
 
-        metricsAddress {.
-          desc: "Listening address of the metrics server"
-          name: "metrics-address" .} = "127.0.0.1",
-
         baseMetricsPort {.
           desc: "Base metrics port (nodeID will be added to it)" .} = 8008.int,
-
-        rpcAddress {.
-          desc: "Listening address of the RPC server"
-          name: "rpc-address" .} = "127.0.0.1",
 
         baseRpcPort {.
           desc: "Base rpc port (nodeID will be added to it)" .} = 9190.int,
 
-        natConfig {.
-          desc: "Specify method to use for determining public address. " &
-                "Must be one of: any, none, upnp, pmp, extip:<IP>",
-          name: "nat" .} = "any",
+        extraBeaconNodeOptions {.
+          desc: "Extra options to pass to our beacon_node instance" .} = "",
 
         writeLogFile {.
           desc: "Write a log file in dataDir" .} = true,
@@ -265,7 +253,10 @@ cli do (skipGoerliKey {.
   if doBecomeValidator and depositContractOpt.len > 0 and not system.dirExists(validatorsDir):
     becomeValidator(validatorsDir, beaconNodeBinary, secretsDir, depositContractOpt, privateGoerliKey, becomeValidatorOnly)
 
+  echo &"extraBeaconNodeOptions = '{extraBeaconNodeOptions}'"
+
   if doRun:
     runNode(dataDir, beaconNodeBinary, bootstrapFileOpt, depositContractOpt,
-            genesisFileOpt, natConfig, metricsAddress, rpcAddress, basePort,
-            nodeID, baseMetricsPort, baseRpcPort, printCmdOnly)
+            genesisFileOpt, extraBeaconNodeOptions,
+            basePort, nodeID, baseMetricsPort, baseRpcPort,
+            printCmdOnly)
