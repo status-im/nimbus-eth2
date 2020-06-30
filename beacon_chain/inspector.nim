@@ -156,15 +156,15 @@ type
 
   StrRes[T] = Result[T, string]
 
-proc `==`*(a, b: ENRFieldPair): bool {.inline.} =
+func `==`*(a, b: ENRFieldPair): bool {.inline.} =
   result = (a.eth2 == b.eth2)
 
-proc hasTCP(a: PeerInfo): bool =
+func hasTCP(a: PeerInfo): bool =
   for ma in a.addrs:
     if TCP.match(ma):
       return true
 
-proc toNodeId(a: PeerID): Option[NodeId] =
+func toNodeId(a: PeerID): Option[NodeId] =
   var buffer: array[64, byte]
   if a.hasPublicKey():
     var pubkey: lcrypto.PublicKey
@@ -185,23 +185,20 @@ func getTopics(forkDigest: ForkDigest,
   case filter
   of TopicFilter.Blocks:
     let topic = getBeaconBlocksTopic(forkDigest)
-    @[topic, topic & "_snappy"]
+    @[topic & "_snappy"]
   of TopicFilter.Exits:
     let topic = getVoluntaryExitsTopic(forkDigest)
-    @[topic, topic & "_snappy"]
+    @[topic & "_snappy"]
   of TopicFilter.ProposerSlashing:
     let topic = getProposerSlashingsTopic(forkDigest)
-    @[topic, topic & "_snappy"]
+    @[topic & "_snappy"]
   of TopicFilter.AttesterSlashings:
     let topic = getAttesterSlashingsTopic(forkDigest)
-    @[topic, topic & "_snappy"]
+    @[topic & "_snappy"]
   of TopicFilter.Attestations:
-    var topics = newSeq[string](ATTESTATION_SUBNET_COUNT * 2)
-    var offset = 0
+    var topics = newSeq[string](ATTESTATION_SUBNET_COUNT)
     for i in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
-      topics[offset] = getAttestationTopic(forkDigest, i)
-      topics[offset + 1] = getAttestationTopic(forkDigest, i) & "_snappy"
-      offset += 2
+      topics[i] = getAttestationTopic(forkDigest, i) & "_snappy"
     topics
 
 proc loadBootFile(name: string): seq[string] =
@@ -210,7 +207,7 @@ proc loadBootFile(name: string): seq[string] =
   except:
     discard
 
-proc unpackYmlLine(line: string): string =
+func unpackYmlLine(line: string): string =
   result = line
   let stripped = line.strip()
   var parts = stripped.split({'"'})
@@ -244,7 +241,7 @@ proc getBootstrapAddress(bootnode: string): Option[BootstrapAddress] =
   except CatchableError as exc:
     warn "Incorrect bootstrap address", address = bootnode, errMsg = exc.msg
 
-proc tryGetForkDigest(bootnode: enr.Record): Option[ForkDigest] =
+func tryGetForkDigest(bootnode: enr.Record): Option[ForkDigest] =
   var forkId: ENRForkID
   var sszForkData = bootnode.tryGet("eth2", seq[byte])
   if sszForkData.isSome():
@@ -254,14 +251,14 @@ proc tryGetForkDigest(bootnode: enr.Record): Option[ForkDigest] =
     except CatchableError:
       discard
 
-proc tryGetFieldPairs(bootnode: enr.Record): Option[ENRFieldPair] =
+func tryGetFieldPairs(bootnode: enr.Record): Option[ENRFieldPair] =
   var sszEth2 = bootnode.tryGet("eth2", seq[byte])
   var sszAttnets = bootnode.tryGet("attnets", seq[byte])
   if sszEth2.isSome() and sszAttnets.isSome():
     result = some(ENRFieldPair(eth2: sszEth2.get(),
                                attnets: sszAttnets.get()))
 
-proc tryGetForkDigest(hexdigest: string): Option[ForkDigest] =
+func tryGetForkDigest(hexdigest: string): Option[ForkDigest] =
   var res: ForkDigest
   if len(hexdigest) > 0:
     try:
@@ -270,7 +267,7 @@ proc tryGetForkDigest(hexdigest: string): Option[ForkDigest] =
     except CatchableError:
       discard
 
-proc tryGetMultiAddress(address: string): Option[MultiAddress] =
+func tryGetMultiAddress(address: string): Option[MultiAddress] =
   let maRes = MultiAddress.init(address)
   let ma = if maRes.isOk: maRes.get
            else: return
@@ -389,7 +386,7 @@ proc connectLoop*(switch: Switch,
     for item in infos:
       peerTable[item.peerId] = item
 
-proc toIpAddress*(ma: MultiAddress): Option[ValidIpAddress] =
+func toIpAddress*(ma: MultiAddress): Option[ValidIpAddress] =
   if IP4.match(ma):
     let addressRes = ma.protoAddress()
     let address = if addressRes.isOk: addressRes.get
@@ -486,7 +483,7 @@ proc logEnrAddress(address: string) =
   else:
     info "ENR bootstrap address is wrong or incomplete", enr_uri = address
 
-proc init*(p: typedesc[PeerInfo],
+func init*(p: typedesc[PeerInfo],
            enruri: EnrUri): Option[PeerInfo] {.inline.} =
   var rec: enr.Record
   if fromURI(rec, enruri):
@@ -510,24 +507,18 @@ proc pubsubLogger(conf: InspectorConf, switch: Switch,
       buffer = data
 
     try:
-      if topic.endsWith(topicBeaconBlocksSuffix) or
-         topic.endsWith(topicBeaconBlocksSuffix & "_snappy"):
+      if topic.endsWith(topicBeaconBlocksSuffix & "_snappy"):
         info "SignedBeaconBlock", msg = SSZ.decode(buffer, SignedBeaconBlock)
-      elif topic.endsWith(topicMainnetAttestationsSuffix) or
-           topic.endsWith(topicMainnetAttestationsSuffix & "_snappy"):
+      elif topic.endsWith(topicMainnetAttestationsSuffix & "_snappy"):
         info "Attestation", msg = SSZ.decode(buffer, Attestation)
-      elif topic.endsWith(topicVoluntaryExitsSuffix) or
-           topic.endsWith(topicVoluntaryExitsSuffix & "_snappy"):
+      elif topic.endsWith(topicVoluntaryExitsSuffix & "_snappy"):
         info "SignedVoluntaryExit", msg = SSZ.decode(buffer,
                                                      SignedVoluntaryExit)
-      elif topic.endsWith(topicProposerSlashingsSuffix) or
-           topic.endsWith(topicProposerSlashingsSuffix & "_snappy"):
+      elif topic.endsWith(topicProposerSlashingsSuffix & "_snappy"):
         info "ProposerSlashing", msg = SSZ.decode(buffer, ProposerSlashing)
-      elif topic.endsWith(topicAttesterSlashingsSuffix) or
-           topic.endsWith(topicAttesterSlashingsSuffix & "_snappy"):
+      elif topic.endsWith(topicAttesterSlashingsSuffix & "_snappy"):
         info "AttesterSlashing", msg = SSZ.decode(buffer, AttesterSlashing)
-      elif topic.endsWith(topicAggregateAndProofsSuffix) or
-           topic.endsWith(topicAggregateAndProofsSuffix & "_snappy"):
+      elif topic.endsWith(topicAggregateAndProofsSuffix & "_snappy"):
         info "AggregateAndProof", msg = SSZ.decode(buffer, AggregateAndProof)
 
     except CatchableError as exc:
