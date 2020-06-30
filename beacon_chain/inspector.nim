@@ -4,7 +4,7 @@
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
-import strutils, os, tables, options
+import sequtils, strutils, os, tables, options
 import confutils, chronicles, chronos
 import libp2p/[switch, standard_setup, multiaddress, multicodec,
                peer, peerinfo, peer]
@@ -196,10 +196,9 @@ func getTopics(forkDigest: ForkDigest,
     let topic = getAttesterSlashingsTopic(forkDigest)
     @[topic & "_snappy"]
   of TopicFilter.Attestations:
-    var topics = newSeq[string](ATTESTATION_SUBNET_COUNT)
-    for i in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
-      topics[i] = getAttestationTopic(forkDigest, i) & "_snappy"
-    topics
+    mapIt(
+      0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64,
+      getAttestationTopic(forkDigest, it) & "_snappy")
 
 proc loadBootFile(name: string): seq[string] =
   try:
