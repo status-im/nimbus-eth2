@@ -28,6 +28,7 @@ type Eth2Digest = digest.Eth2Digest
 
 type
   RpcServer* = RpcHttpServer
+  KeyPair* = eth2_network.KeyPair
 
   BeaconNode* = ref object
     nickname*: string

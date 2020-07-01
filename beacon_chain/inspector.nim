@@ -6,8 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 import sequtils, strutils, os, tables, options
 import confutils, chronicles, chronos
-import libp2p/[switch, standard_setup, multiaddress, multicodec,
-               peer, peerinfo, peer]
+import libp2p/[switch, standard_setup, multiaddress, multicodec, peerinfo]
 import libp2p/crypto/crypto as lcrypto
 import libp2p/crypto/secp as lsecp
 import eth/p2p/discoveryv5/enr as enr
@@ -294,7 +293,9 @@ proc init*(p: typedesc[PeerInfo],
   ## Initialize PeerInfo using address which includes PeerID.
   if IPFS.match(maddr):
     let peerid = ? protoAddress(? maddr[2])
-    result = ok(PeerInfo.init(PeerID.init(peerid), [(? maddr[0]) & (? maddr[1])]))
+    result = ok(PeerInfo.init(
+      ? (PeerID.init(peerid).mapErr(proc (v: cstring): string = $v)),
+      [(? maddr[0]) & (? maddr[1])]))
 
 proc init*(p: typedesc[PeerInfo],
            enraddr: enr.Record): StrRes[PeerInfo] =
@@ -326,7 +327,7 @@ proc init*(p: typedesc[PeerInfo],
             let ma = (? MultiAddress.init(multiCodec("ip6"), trec.ip6.get())) &
                      (? MultiAddress.init(multiCodec("udp"), trec.udp6.get()))
             mas.add(ma)
-          result = ok PeerInfo.init(peerid, mas)
+          result = ok PeerInfo.init(peerid.tryGet(), mas)
   except CatchableError as exc:
     warn "Error", errMsg = exc.msg, record = enraddr.toUri()
 
