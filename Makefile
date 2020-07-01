@@ -184,13 +184,13 @@ libnfuzz.a: | build deps
 		[[ -e "$@" ]] && mv "$@" build/ # workaround for https://github.com/nim-lang/Nim/issues/12745
 
 book:
-	cd docs && \
+	cd docs/the_nimbus_book && \
 	mdbook build
 
 publish-book: | book
 	git worktree add tmp-book gh-pages && \
 	rm -rf tmp-book/* && \
-	cp -a docs/book/* tmp-book/ && \
+	cp -a docs/the_nimbus_book/book/* tmp-book/ && \
 	cd tmp-book && \
 	git add . && { \
 		git commit -m "make publish-book" && \
