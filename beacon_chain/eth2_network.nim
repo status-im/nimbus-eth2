@@ -11,7 +11,7 @@ import
   json_serialization, json_serialization/std/[net, options],
   chronos, chronicles, metrics,
   # TODO: create simpler to use libp2p modules that use re-exports
-  libp2p/[switch, standard_setup, peerinfo, peer, errors,
+  libp2p/[switch, standard_setup, peerinfo, errors,
           multiaddress, multicodec, crypto/crypto, crypto/secp,
           protocols/identify, protocols/protocol],
   libp2p/protocols/secure/[secure, secio],
@@ -27,7 +27,7 @@ import
 
 export
   version, multiaddress, peer_pool, peerinfo, p2pProtocol,
-  libp2p_json_serialization, ssz_serialization, peer, results
+  libp2p_json_serialization, ssz_serialization, results
 
 logScope:
   topics = "networking"
@@ -694,7 +694,7 @@ proc toPeerInfo*(r: enr.TypedRecord): PeerInfo =
         discard
 
     if addresses.len > 0:
-      return PeerInfo.init(peerId, addresses)
+      return PeerInfo.init(peerId.tryGet(), addresses)
 
 proc toPeerInfo(r: Option[enr.TypedRecord]): PeerInfo =
   if r.isSome:
