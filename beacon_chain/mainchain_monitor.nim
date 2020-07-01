@@ -712,11 +712,13 @@ proc processDeposits(m: MainchainMonitor,
         # properly by the web3 provider. Since this should be an extremely
         # rare event we can afford to handle it in a relatively inefficient
         # manner. Let's delete half of our non-finalized chain and try again.
-        let blocksToPop = max(1, m.eth1Chain.totalNonFinalizedBlocks div 2)
-        warn "Web3 provider responded with a non-continous chain of deposits.",
-              backtrackedDeposits = blocksToPop
-        for i in 0 ..< blocksToPop:
-          m.eth1Chain.popBlock()
+        var blocksToPop = 0
+        if m.eth1Chain.blocks.len > 0:
+          blocksToPop = max(1, m.eth1Chain.totalNonFinalizedBlocks div 2)
+          for i in 0 ..< blocksToPop:
+            m.eth1Chain.popBlock()
+        warn "Web3 provider responded with a non-continous chain of deposits",
+             backtrackedDeposits = blocksToPop
         m.depositQueue.addFirstNoWait blk
 
 proc isRunning*(m: MainchainMonitor): bool =
