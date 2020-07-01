@@ -61,7 +61,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     attesters: RunningStat
     r = initRand(1)
 
-  let replayState = newClone(blockPool.headState)
+  let replayState = assignClone(blockPool.headState)
 
   proc handleAttestations(slot: Slot) =
     let

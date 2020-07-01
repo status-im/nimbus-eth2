@@ -607,8 +607,17 @@ template writeValue*(writer: var JsonWriter, value: BitList) =
 
 template newClone*[T: not ref](x: T): ref T =
   # TODO not nil in return type: https://github.com/nim-lang/Nim/issues/14146
+  # TODO use only when x is a function call that returns a new instance!
   let res = new typeof(x) # TODO safe to do noinit here?
   res[] = x
+  res
+
+template assignClone*[T: not ref](x: T): ref T =
+  # This is a bit of a mess: if x is an rvalue (temporary), RVO kicks in for
+  # newClone - if it's not, `genericAssign` will be called which is ridiculously
+  # slow - so `assignClone` should be used when RVO doesn't work. sigh.
+  let res = new typeof(x) # TODO safe to do noinit here?
+  assign(res[], x)
   res
 
 template newClone*[T](x: ref T not nil): ref T =

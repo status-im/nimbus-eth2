@@ -143,7 +143,7 @@ proc makeTestBlock*(
   # It's a bit awkward - in order to produce a block for N+1, we need to
   # calculate what the state will look like after that block has been applied,
   # because the block includes the state root.
-  var tmpState = newClone(state)
+  var tmpState = asssignClone(state)
   addTestBlock(
     tmpState[], parent_root, cache, eth1_data, attestations, deposits,
     graffiti, flags)
