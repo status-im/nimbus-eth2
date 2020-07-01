@@ -388,6 +388,7 @@ proc addForkChoice_v2*(pool: var AttestationPool, blck: BlockRef) =
         finalizedHead = shortLog(pool.blockPool.finalizedHead),
         justifiedHead = shortLog(pool.blockPool.head.justified),
         head = shortLog(pool.blockPool.head.blck)
+      blockStack.add(current)
       current = BlockSlot(blck: blck.parent, slot: blck.parent.slot)
     elif blockStack.len == 0:
       break
