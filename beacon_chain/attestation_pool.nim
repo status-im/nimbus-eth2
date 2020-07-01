@@ -352,21 +352,54 @@ proc addForkChoice_v2*(pool: var AttestationPool, blck: BlockRef) =
   # In any case, `updateStateData` should shortcut
   # to `getStateDataCached`
 
-  updateStateData(
-    pool.blockPool,
-    pool.blockPool.tmpState,
-    BlockSlot(blck: blck, slot: blck.slot)
-  )
+  var state: Result[void, string]
+  # A stack of block to add in case recovery is needed
+  var blockStack: seq[BlockSlot]
+  var current = BlockSlot(blck: blck, slot: blck.slot)
 
-  let blockData = pool.blockPool.get(blck)
-  pool.forkChoice_v2.process_block(
-    slot = blck.slot,
-    block_root = blck.root,
-    parent_root = if not blck.parent.isNil: blck.parent.root else: default(Eth2Digest),
-    state_root = default(Eth2Digest), # This is unnecessary for fork choice but may help external components
-    justified_epoch = pool.blockPool.tmpState.data.data.current_justified_checkpoint.epoch,
-    finalized_epoch = pool.blockPool.tmpState.data.data.finalized_checkpoint.epoch,
-  ).get()
+  while true: # The while loop should not be needed but it seems a block addition
+              # scenario is unaccounted for
+    updateStateData(
+      pool.blockPool,
+      pool.blockPool.tmpState,
+      current
+    )
+
+    let blockData = pool.blockPool.get(current.blck)
+    state = pool.forkChoice_v2.process_block(
+      slot = current.blck.slot,
+      block_root = current.blck.root,
+      parent_root = if not current.blck.parent.isNil: current.blck.parent.root else: default(Eth2Digest),
+      state_root = default(Eth2Digest), # This is unnecessary for fork choice but may help external components
+      justified_epoch = pool.blockPool.tmpState.data.data.current_justified_checkpoint.epoch,
+      finalized_epoch = pool.blockPool.tmpState.data.data.finalized_checkpoint.epoch,
+    )
+
+    # This should not happen and might lead to unresponsive networking while processing occurs
+    if state.isErr:
+      # TODO investigate, potential sources:
+      # - Pruning
+      # - Quarantine adding multiple blocks at once
+      # - Own block proposal
+      error "Desync between fork_choice and blockpool services, trying to recover.",
+        msg = state.error,
+        blck = shortlog(current.blck),
+        parent = shortlog(current.blck.parent),
+        finalizedHead = shortLog(pool.blockPool.finalizedHead),
+        justifiedHead = shortLog(pool.blockPool.head.justified),
+        head = shortLog(pool.blockPool.head.blck)
+      current = BlockSlot(blck: blck.parent, slot: blck.parent.slot)
+    elif blockStack.len == 0:
+      break
+    else:
+      info "Re-added missing or pruned block to fork choice",
+        msg = state.error,
+        blck = shortlog(current.blck),
+        parent = shortlog(current.blck.parent),
+        finalizedHead = shortLog(pool.blockPool.finalizedHead),
+        justifiedHead = shortLog(pool.blockPool.head.justified),
+        head = shortLog(pool.blockPool.head.blck)
+      current = blockStack.pop()
 
 proc getAttestationsForSlot*(pool: AttestationPool, newBlockSlot: Slot):
     Option[AttestationsSeen] =
