@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  algorithm, os, tables, strutils, times, math, terminal,
+  algorithm, os, tables, strutils, times, math, terminal, random,
 
   # Nimble packages
   stew/[objects, byteutils], stew/shims/macros,
@@ -1235,12 +1235,17 @@ programMain:
         waitFor sendDeposits(config, deposits.value)
 
     of DepositsCmd.send:
+      var delayGenerator: DelayGenerator
+      if config.maxDelay > 0.0:
+        delayGenerator = proc (): chronos.Duration {.gcsafe.} =
+          chronos.milliseconds (rand(config.minDelay..config.maxDelay)*1000).int
+
       if config.minDelay > config.maxDelay:
         echo "The minimum delay should not be larger than the maximum delay"
         quit 1
 
       let deposits = loadDeposits(config.depositsDir)
-      waitFor sendDeposits(config, deposits)
+      waitFor sendDeposits(config, deposits, delayGenerator)
 
     of DepositsCmd.status:
       # TODO

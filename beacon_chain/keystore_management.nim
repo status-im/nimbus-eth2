@@ -1,5 +1,5 @@
 import
-  os, strutils, terminal, random,
+  os, strutils, terminal,
   chronicles, chronos, blscurve, nimcrypto, json_serialization, serialization,
   web3, stint, eth/keys, confutils,
   spec/[datatypes, digest, crypto, keystore], conf, ssz/merkleization, merkle_minimal
@@ -193,12 +193,8 @@ proc sendDeposits*(deposits: seq[Deposit],
       await sleepAsync(delayGenerator())
 
 proc sendDeposits*(config: BeaconNodeConf,
-                   deposits: seq[Deposit]) {.async.} =
-  var delayGenerator: DelayGenerator
-  if config.maxDelay > 0.0:
-    delayGenerator = proc (): chronos.Duration {.gcsafe.} =
-      chronos.milliseconds (rand(config.minDelay..config.maxDelay)*1000).int
-
+                   deposits: seq[Deposit],
+                   delayGenerator: DelayGenerator = nil) {.async.} =
   info "Sending deposits",
     web3 = config.web3Url,
     depositContract = config.depositContractAddress
