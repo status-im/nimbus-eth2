@@ -10,7 +10,7 @@
 import
   options, sequtils, unittest,
   ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[datatypes, digest, validator, state_transition],
+  ../beacon_chain/spec/[datatypes, digest, helpers, validator, state_transition],
   ../beacon_chain/[beacon_node_types, block_pool, ssz]
 
 when isMainModule:
@@ -240,7 +240,7 @@ suiteReport "Block pool processing" & preset():
       bs1_3 = b1Add.atSlot(3.Slot)
       bs2_3 = b2Add.atSlot(3.Slot)
 
-    var tmpState = newClone(pool.headState)
+    var tmpState = assignClone(pool.headState)
 
     # move to specific block
     pool.updateStateData(tmpState[], bs1)
@@ -280,94 +280,103 @@ suiteReport "Block pool processing" & preset():
       tmpState.blck == b1Add.parent
       tmpState.data.data.slot == bs1.parent.slot
 
-when const_preset == "minimal":  # These require some minutes in mainnet
-  import ../beacon_chain/spec/helpers
+suiteReport "BlockPool finalization tests" & preset():
+  setup:
+    var
+      db = makeTestDB(SLOTS_PER_EPOCH)
+      pool = BlockPool.init(db)
+      cache = get_empty_per_epoch_cache()
 
-  suiteReport "BlockPool finalization tests" & preset():
-    setup:
+  timedTest "prune heads on finalization" & preset():
+    # Create a fork that will not be taken
+    var
+      blck = makeTestBlock(pool.headState.data, pool.head.blck.root, cache)
+      tmpState = assignClone(pool.headState.data)
+    check:
+      process_slots(
+        tmpState[], tmpState.data.slot + (5 * SLOTS_PER_EPOCH).uint64)
+
+    let lateBlock = makeTestBlock(tmpState[], pool.head.blck.root, cache)
+    check: pool.add(hash_tree_root(blck.message), blck).isOk
+
+    for i in 0 ..< (SLOTS_PER_EPOCH * 6):
+      if i == 1:
+        # There are 2 heads now because of the fork at slot 1
+        check:
+          pool.tail.children.len == 2
+          pool.heads.len == 2
       var
-        db = makeTestDB(SLOTS_PER_EPOCH)
-        pool = BlockPool.init(db)
         cache = get_empty_per_epoch_cache()
 
-    timedTest "prune heads on finalization" & preset():
-      block:
-        # Create a fork that will not be taken
-        var
-          blck = makeTestBlock(pool.headState.data, pool.head.blck.root, cache)
-        check: pool.add(hash_tree_root(blck.message), blck).isOk
-
-      for i in 0 ..< (SLOTS_PER_EPOCH * 6):
-        if i == 1:
-          # There are 2 heads now because of the fork at slot 1
-          check:
-            pool.tail.children.len == 2
-            pool.heads.len == 2
-        var
-          blck = makeTestBlock(
-            pool.headState.data, pool.head.blck.root, cache,
-            attestations = makeFullAttestations(
-              pool.headState.data.data, pool.head.blck.root,
-              pool.headState.data.data.slot, cache, {}))
-        let added = pool.add(hash_tree_root(blck.message), blck)[]
-        pool.updateHead(added)
-
-      check:
-        pool.heads.len() == 1
-        pool.head.justified.slot.compute_epoch_at_slot() == 5
-        pool.tail.children.len == 1
-
-      let
-        pool2 = BlockPool.init(db)
-
-      # check that the state reloaded from database resembles what we had before
-      check:
-        pool2.tail.root == pool.tail.root
-        pool2.head.blck.root == pool.head.blck.root
-        pool2.finalizedHead.blck.root == pool.finalizedHead.blck.root
-        pool2.finalizedHead.slot == pool.finalizedHead.slot
-        hash_tree_root(pool2.headState.data.data) ==
-          hash_tree_root(pool.headState.data.data)
-        hash_tree_root(pool2.justifiedState.data.data) ==
-          hash_tree_root(pool.justifiedState.data.data)
-
-    timedTest "init with gaps" & preset():
-      var cache = get_empty_per_epoch_cache()
-      for i in 0 ..< (SLOTS_PER_EPOCH * 6 - 2):
-        var
-          blck = makeTestBlock(
-            pool.headState.data, pool.head.blck.root, cache,
-            attestations = makeFullAttestations(
-              pool.headState.data.data, pool.head.blck.root,
-              pool.headState.data.data.slot, cache, {}))
-        let added = pool.add(hash_tree_root(blck.message), blck)[]
-        pool.updateHead(added)
-
-      # Advance past epoch so that the epoch transition is gapped
-      check:
-        process_slots(
-          pool.headState.data, Slot(SLOTS_PER_EPOCH * 6 + 2) )
-
-      var blck = makeTestBlock(
-        pool.headState.data, pool.head.blck.root, cache,
-        attestations = makeFullAttestations(
-          pool.headState.data.data, pool.head.blck.root,
-          pool.headState.data.data.slot, cache, {}))
-
+        blck = makeTestBlock(
+          pool.headState.data, pool.head.blck.root, cache,
+          attestations = makeFullAttestations(
+            pool.headState.data.data, pool.head.blck.root,
+            pool.headState.data.data.slot, cache, {}))
       let added = pool.add(hash_tree_root(blck.message), blck)[]
       pool.updateHead(added)
 
-      let
-        pool2 = BlockPool.init(db)
+    check:
+      pool.heads.len() == 1
+      pool.head.justified.slot.compute_epoch_at_slot() == 5
+      pool.tail.children.len == 1
 
-      # check that the state reloaded from database resembles what we had before
-      check:
-        pool2.tail.root == pool.tail.root
-        pool2.head.blck.root == pool.head.blck.root
-        pool2.finalizedHead.blck.root == pool.finalizedHead.blck.root
-        pool2.finalizedHead.slot == pool.finalizedHead.slot
-        hash_tree_root(pool2.headState.data.data) ==
-          hash_tree_root(pool.headState.data.data)
-        hash_tree_root(pool2.justifiedState.data.data) ==
-          hash_tree_root(pool.justifiedState.data.data)
+    check:
+      # The late block is a block whose parent was finalized long ago and thus
+      # is no longer a viable head candidate
+      pool.add(hash_tree_root(lateBlock.message), lateBlock).error == Unviable
+
+    let
+      pool2 = BlockPool.init(db)
+
+    # check that the state reloaded from database resembles what we had before
+    check:
+      pool2.tail.root == pool.tail.root
+      pool2.head.blck.root == pool.head.blck.root
+      pool2.finalizedHead.blck.root == pool.finalizedHead.blck.root
+      pool2.finalizedHead.slot == pool.finalizedHead.slot
+      hash_tree_root(pool2.headState.data.data) ==
+        hash_tree_root(pool.headState.data.data)
+      hash_tree_root(pool2.justifiedState.data.data) ==
+        hash_tree_root(pool.justifiedState.data.data)
+
+  timedTest "init with gaps" & preset():
+    var cache = get_empty_per_epoch_cache()
+    for i in 0 ..< (SLOTS_PER_EPOCH * 6 - 2):
+      var
+        blck = makeTestBlock(
+          pool.headState.data, pool.head.blck.root, cache,
+          attestations = makeFullAttestations(
+            pool.headState.data.data, pool.head.blck.root,
+            pool.headState.data.data.slot, cache, {}))
+      let added = pool.add(hash_tree_root(blck.message), blck)[]
+      pool.updateHead(added)
+
+    # Advance past epoch so that the epoch transition is gapped
+    check:
+      process_slots(
+        pool.headState.data, Slot(SLOTS_PER_EPOCH * 6 + 2) )
+
+    var blck = makeTestBlock(
+      pool.headState.data, pool.head.blck.root, cache,
+      attestations = makeFullAttestations(
+        pool.headState.data.data, pool.head.blck.root,
+        pool.headState.data.data.slot, cache, {}))
+
+    let added = pool.add(hash_tree_root(blck.message), blck)[]
+    pool.updateHead(added)
+
+    let
+      pool2 = BlockPool.init(db)
+
+    # check that the state reloaded from database resembles what we had before
+    check:
+      pool2.tail.root == pool.tail.root
+      pool2.head.blck.root == pool.head.blck.root
+      pool2.finalizedHead.blck.root == pool.finalizedHead.blck.root
+      pool2.finalizedHead.slot == pool.finalizedHead.slot
+      hash_tree_root(pool2.headState.data.data) ==
+        hash_tree_root(pool.headState.data.data)
+      hash_tree_root(pool2.justifiedState.data.data) ==
+        hash_tree_root(pool.justifiedState.data.data)
 
