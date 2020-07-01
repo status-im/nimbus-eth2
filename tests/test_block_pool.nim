@@ -10,7 +10,7 @@
 import
   options, sequtils, unittest,
   ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[datatypes, digest, validator, state_transition],
+  ../beacon_chain/spec/[datatypes, digest, helpers, validator, state_transition],
   ../beacon_chain/[beacon_node_types, block_pool, ssz]
 
 when isMainModule:
@@ -279,8 +279,6 @@ suiteReport "Block pool processing" & preset():
     check:
       tmpState.blck == b1Add.parent
       tmpState.data.data.slot == bs1.parent.slot
-
-import ../beacon_chain/spec/helpers
 
 suiteReport "BlockPool finalization tests" & preset():
   setup:

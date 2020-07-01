@@ -74,7 +74,7 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
   valid_deposit(MAX_EFFECTIVE_BALANCE + 1, "over")
 
   timedTest "Validator top-up":
-    var state = assignClone(genesisState)
+    var state = assignClone(genesisState[])
 
     # Test configuration
     # ----------------------------------------

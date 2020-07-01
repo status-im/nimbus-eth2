@@ -50,6 +50,12 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 + Passes through epoch update, no block [Preset: mainnet]                                    OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
+## BlockPool finalization tests [Preset: mainnet]
+```diff
++ init with gaps [Preset: mainnet]                                                           OK
++ prune heads on finalization [Preset: mainnet]                                              OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## BlockRef and helpers [Preset: mainnet]
 ```diff
 + getAncestorAt sanity [Preset: mainnet]                                                     OK
@@ -259,4 +265,4 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 158/161 Fail: 0/161 Skip: 3/161
+OK: 160/163 Fail: 0/163 Skip: 3/163
