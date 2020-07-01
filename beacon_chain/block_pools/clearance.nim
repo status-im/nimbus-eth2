@@ -151,19 +151,39 @@ proc add*(
       blockRoot = shortLog(blockRoot),
       cat = "filtering"
 
-    return err Old
+    return err Unviable
 
   let parent = dag.blocks.getOrDefault(blck.parent_root)
 
   if parent != nil:
     if parent.slot >= blck.slot:
-      # TODO Malicious block? inform peer dag?
+      # A block whose parent is newer than the block itself is clearly invalid -
+      # discard it immediately
       notice "Invalid block slot",
         blck = shortLog(blck),
         blockRoot = shortLog(blockRoot),
         parentBlock = shortLog(parent)
 
       return err Invalid
+
+    if parent.slot < dag.finalizedHead.slot:
+      # We finalized a block that's newer than the parent of this block - this
+      # block, although recent, is thus building on a history we're no longer
+      # interested in pursuing. This can happen if a client produces a block
+      # while syncing - ie it's own head block will be old, but it'll create
+      # a block according to the wall clock, in its own little world - this is
+      # correct - from their point of view, the head block they have is the
+      # latest thing that happened on the chain and they're performing their
+      # duty correctly.
+      debug "Unviable block, dropping",
+        blck = shortLog(blck),
+        finalizedHead = shortLog(dag.finalizedHead),
+        tail = shortLog(dag.tail),
+        blockRoot = shortLog(blockRoot),
+        cat = "filtering"
+
+      return err Unviable
+
 
     # The block might have been in either of `orphans` or `missing` - we don't
     # want any more work done on its behalf

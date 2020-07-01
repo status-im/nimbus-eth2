@@ -560,10 +560,10 @@ proc runForwardSyncLoop(node: BeaconNode) {.async.} =
     let sm = now(chronos.Moment)
     for blk in list:
       let res = node.storeBlock(blk)
-      # We going to ignore `BlockError.Old` errors because we have working
+      # We going to ignore `BlockError.Unviable` errors because we have working
       # backward sync and it can happens that we can perform overlapping
       # requests.
-      if res.isErr and res.error != BlockError.Old:
+      if res.isErr and res.error != BlockError.Unviable:
         return res
     discard node.updateHead()
 

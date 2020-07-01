@@ -24,9 +24,18 @@ import
 
 type
   BlockError* = enum
-    MissingParent
-    Old
-    Invalid
+    MissingParent ##\
+      ## We don't know the parent of this block so we can't tell if it's valid
+      ## or not - it'll go into the quarantine and be reexamined when the parent
+      ## appears or be discarded if finality obsoletes it
+
+    Unviable ##\
+      ## Block is from a different history / fork than the one we're interested
+      ## in (based on our finalized checkpoint)
+
+    Invalid ##\
+      ## Block is broken / doesn't apply cleanly - whoever sent it is fishy (or
+      ## we're buggy)
 
   Quarantine* = object
     ## Keeps track of unsafe blocks coming from the network
