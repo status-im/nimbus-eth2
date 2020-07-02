@@ -756,9 +756,7 @@ proc installAttestationHandlers(node: BeaconNode) =
     let (afterGenesis, slot) = node.beaconClock.now().toSlot()
     if not afterGenesis:
       return false
-    # other parts of AggregateAndProof are aggregator_index and selection_proof
-    let aggregateAndProof = signedAggregateAndProof.message
-    # also signature
+    node.attestationPool.isValidAggregatedAttestation(signedAggregateAndProof, slot)
 
   var attestationSubscriptions: seq[Future[void]] = @[]
 
