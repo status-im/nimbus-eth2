@@ -130,22 +130,6 @@ func get_ancestor*(blck: BlockRef, slot: Slot): BlockRef =
 
     blck = blck.parent
 
-iterator get_ancestors_in_epoch(blockSlot: BlockSlot): BlockSlot =
-  let min_slot =
-    blockSlot.slot.compute_epoch_at_slot.compute_start_slot_at_epoch
-  var blockSlot = blockSlot
-
-  while true:
-    for slot in countdown(blockSlot.slot, max(blockSlot.blck.slot, min_slot)):
-      yield BlockSlot(blck: blockSlot.blck, slot: slot)
-
-    if blockSlot.blck.parent.isNil or blockSlot.blck.slot <= min_slot:
-      break
-
-    doAssert blockSlot.blck.slot > blockSlot.blck.parent.slot
-    blockSlot =
-      BlockSlot(blck: blockSlot.blck.parent, slot: blockSlot.blck.slot - 1)
-
 func atSlot*(blck: BlockRef, slot: Slot): BlockSlot =
   ## Return a BlockSlot at a given slot, with the block set to the closest block
   ## available. If slot comes from before the block, a suitable block ancestor
@@ -640,17 +624,10 @@ template withEpochState*(
   ## cache is unsafe outside of block.
   ## TODO async transformations will lead to a race where cache gets updated
   ##      while waiting for future to complete - catch this here somehow?
-
-  for ancestor in get_ancestors_in_epoch(blockSlot):
-    if getStateDataCached(dag, cache, ancestor):
-      break
-
-  template hashedState(): HashedBeaconState {.inject, used.} = cache.data
-  template state(): BeaconState {.inject, used.} = cache.data.data
-  template blck(): BlockRef {.inject, used.} = cache.blck
-  template root(): Eth2Digest {.inject, used.} = cache.data.root
-
-  body
+  # TODO implement the looser constraints allowed by epoch, not precise slot target
+  # allow expressing preference to opt-in to looser constraints regardless
+  dag.withState(cache, blockSlot):
+    body
 
 proc updateStateData*(dag: CandidateChains, state: var StateData, bs: BlockSlot) =
   ## Rewind or advance state such that it matches the given block and slot -
