@@ -178,3 +178,8 @@
 	url = https://github.com/status-im/nim-chronicles-tail.git
 	ignore = dirty
 	branch = master
+[submodule "vendor/eth2-testnets"]
+	path = vendor/eth2-testnets
+	url = https://github.com/eth2-clients/eth2-testnets.git
+	ignore = dirty
+	branch = master

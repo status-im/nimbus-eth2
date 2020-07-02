@@ -2,13 +2,14 @@
 
 import
   os, options,
-  chronicles, confutils, json_serialization,
-  confutils/defs, confutils/std/net,
-  chronicles/options as chroniclesOptions,
-  spec/[crypto, keystore, digest]
+  chronicles, chronicles/options as chroniclesOptions,
+  confutils, confutils/defs, confutils/std/net,
+  json_serialization, web3/ethtypes,
+  network_metadata, spec/[crypto, keystore, digest]
 
 export
-  defs, enabledLogLevel, parseCmdArg, completeCmdArg
+  defs, enabledLogLevel, parseCmdArg, completeCmdArg,
+  network_metadata
 
 type
   ValidatorKeyPath* = TypedInputFile[ValidatorPrivKey, Txt, "privkey"]
@@ -32,11 +33,7 @@ type
   VCStartUpCmd* = enum
     VCNoCommand
 
-  Eth1Network* = enum
-    custom
-    mainnet
-    rinkeby
-    goerli
+  Web3Url* = distinct string
 
   BeaconNodeConf* = object
     logLevel* {.
@@ -44,10 +41,9 @@ type
       desc: "Sets the log level"
       name: "log-level" }: string
 
-    eth1Network* {.
-      defaultValue: goerli
-      desc: "The Eth1 network tracked by the beacon node"
-      name: "eth1-network" }: Eth1Network
+    eth2Network* {.
+      desc: "The Eth2 network to join"
+      name: "network" }: Option[string]
 
     dataDir* {.
       defaultValue: config.defaultDataDir()
@@ -61,9 +57,8 @@ type
       name: "web3-url" }: string
 
     depositContractAddress* {.
-      defaultValue: ""
       desc: "Address of the deposit contract"
-      name: "deposit-contract" }: string
+      name: "deposit-contract" }: Option[Eth1Address]
 
     depositContractDeployedAt* {.
       desc: "The Eth1 block hash where the deposit contract has been deployed"
@@ -412,6 +407,13 @@ proc createDumpDirs*(conf: BeaconNodeConf) =
       # Dumping is mainly a debugging feature, so ignore these..
       warn "Cannot create dump directories", msg = err.msg
 
+func parseCmdArg*(T: type Eth1Address, input: TaintedString): T
+                 {.raises: [ValueError, Defect].} =
+  fromHex(T, string input)
+
+func completeCmdArg*(T: type Eth1Address, input: TaintedString): seq[string] =
+  return @[]
+
 func parseCmdArg*(T: type Eth2Digest, input: TaintedString): T
                  {.raises: [ValueError, Defect].} =
   fromHex(T, string input)
@@ -453,3 +455,4 @@ func defaultAdminListenAddress*(conf: BeaconNodeConf|ValidatorClientConf): Valid
 template writeValue*(writer: var JsonWriter,
                      value: TypedInputFile|InputFile|InputDir|OutPath|OutDir|OutFile) =
   writer.writeValue(string value)
+

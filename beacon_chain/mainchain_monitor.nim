@@ -1,13 +1,14 @@
 import
   deques, tables, hashes, options, strformat,
-  chronos, web3, web3/ethtypes, json, chronicles, eth/async_utils,
+  chronos, web3, web3/ethtypes as web3Types, json, chronicles,
+  eth/common/eth_types, eth/async_utils,
   spec/[datatypes, digest, crypto, beaconstate, helpers],
   merkle_minimal
 
 from times import epochTime
 
 export
-  ethtypes
+  web3Types
 
 contract(DepositContract):
   proc deposit(pubkey: Bytes48,
@@ -28,8 +29,10 @@ contract(DepositContract):
 # Exceptions being reported from Chronos's asyncfutures2.
 
 type
+  Eth1Address = eth_types.EthAddress
   Eth1BlockNumber* = uint64
   Eth1BlockTimestamp* = uint64
+  Eth1BlockHeader = web3Types.BlockHeader
 
   Eth1Block* = ref object
     number*: Eth1BlockNumber
@@ -56,7 +59,7 @@ type
 
     eth1Chain: Eth1Chain
 
-    depositQueue: AsyncQueue[BlockHeader]
+    depositQueue: AsyncQueue[Eth1BlockHeader]
     runFut: Future[void]
 
   DataProvider* = object of RootObj
@@ -458,11 +461,11 @@ template getBlockProposalData*(m: MainchainMonitor, state: BeaconState): untyped
 
 proc init*(T: type MainchainMonitor,
            dataProviderFactory: DataProviderFactory,
-           depositContractAddress: string,
+           depositContractAddress: Eth1Address,
            startPosition: Eth1Data): T =
-  T(depositQueue: newAsyncQueue[BlockHeader](),
+  T(depositQueue: newAsyncQueue[Eth1BlockHeader](),
     dataProviderFactory: dataProviderFactory,
-    depositContractAddress: Address.fromHex(depositContractAddress),
+    depositContractAddress: Address depositContractAddress,
     eth1Chain: Eth1Chain(knownStart: startPosition))
 
 proc isCandidateForGenesis(timeNow: float, blk: Eth1Block): bool =
@@ -742,7 +745,7 @@ proc run(m: MainchainMonitor, delayBeforeStart: Duration) {.async.} =
       contract = $m.depositContractAddress,
       url = m.dataProviderFactory.desc
 
-    await dataProvider.onBlockHeaders do (blk: BlockHeader)
+    await dataProvider.onBlockHeaders do (blk: Eth1BlockHeader)
                                          {.raises: [Defect], gcsafe}:
       try:
         m.depositQueue.addLastNoWait(blk)

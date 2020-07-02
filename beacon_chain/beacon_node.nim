@@ -23,7 +23,7 @@ import
   conf, time, beacon_chain_db, validator_pool, extras,
   attestation_pool, block_pool, eth2_network, eth2_discovery,
   beacon_node_common, beacon_node_types, block_pools/block_pools_types,
-  nimbus_binary_common,
+  nimbus_binary_common, network_metadata,
   mainchain_monitor, version, ssz/[merkleization], sszdump,
   sync_protocol, request_manager, keystore_management, interop, statusbar,
   sync_manager, validator_duties, validator_api, attestation_aggregation
@@ -148,7 +148,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
         fatal "Web3 URL not specified"
         quit 1
 
-      if conf.depositContractAddress.len == 0:
+      if conf.depositContractAddress.isNone:
         fatal "Deposit contract address not specified"
         quit 1
 
@@ -162,7 +162,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
       #      that would do only this - see Paul's proposal for this.
       mainchainMonitor = MainchainMonitor.init(
         web3Provider(conf.web3Url),
-        conf.depositContractAddress,
+        conf.depositContractAddress.get,
         Eth1Data(block_hash: conf.depositContractDeployedAt.get, deposit_count: 0))
       mainchainMonitor.start()
 
@@ -203,10 +203,10 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
 
   if mainchainMonitor.isNil and
      conf.web3Url.len > 0 and
-     conf.depositContractAddress.len > 0:
+     conf.depositContractAddress.isSome:
     mainchainMonitor = MainchainMonitor.init(
       web3Provider(conf.web3Url),
-      conf.depositContractAddress,
+      conf.depositContractAddress.get,
       blockPool.headState.data.data.eth1_data)
     # TODO if we don't have any validators attached, we don't need a mainchain
     #      monitor
@@ -1114,9 +1114,42 @@ proc createWalletInteractively(conf: BeaconNodeConf): OutFile {.raises: [Defect]
       keystore_management.burnMem(confirmedPassword)
 
 programMain:
-  let config = makeBannerAndConfig(clientId, BeaconNodeConf)
+  var config = makeBannerAndConfig(clientId, BeaconNodeConf)
 
   setupMainProc(config.logLevel)
+
+  if config.eth2Network.isSome:
+    let
+      networkName = config.eth2Network.get
+      metadata = case toLowerAscii(networkName)
+        of "altona":
+          altonaMetadata
+        else:
+          if fileExists(networkName):
+            Json.loadFile(networkName, Eth2NetworkMetadata)
+          else:
+            fatal "Unrecognized network name", networkName
+            quit 1
+
+    if config.cmd == noCommand:
+      for node in metadata.bootstrapNodes:
+        config.bootstrapNodes.add node
+
+    template checkForIncompatibleOption(flagName, fieldName) =
+      # TODO: This will have to be reworked slightly when we introduce config files.
+      # We'll need to keep track of the "origin" of the config value, so we can
+      # discriminate between values from config files that can be overridden and
+      # regular command-line options (that may conflict).
+      if config.fieldName.isSome:
+        fatal "Invalid CLI arguments specified. You must not specify '--network' and '" & flagName & "' at the same time",
+            networkParam = networkName, `flagName` = config.fieldName.get
+        quit 1
+
+    checkForIncompatibleOption "deposit-contract", depositContractAddress
+    checkForIncompatibleOption "deposit-contract-block", depositContractDeployedAt
+
+    config.depositContractAddress = some metadata.depositContractAddress
+    config.depositContractDeployedAt = some metadata.depositContractDeployedAt
 
   case config.cmd
   of createTestnet:

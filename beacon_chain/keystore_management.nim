@@ -1,7 +1,7 @@
 import
   os, strutils, terminal,
   chronicles, chronos, blscurve, nimcrypto, json_serialization, serialization,
-  web3, stint, eth/keys, confutils,
+  web3, stint, eth/common/eth_types, eth/keys, confutils,
   spec/[datatypes, digest, crypto, keystore], conf, ssz/merkleization, merkle_minimal
 
 export
@@ -15,7 +15,8 @@ const
   depositFileName* = "deposit.json"
 
 type
- DelayGenerator* = proc(): chronos.Duration {.closure, gcsafe.}
+  Eth1Address* = eth_types.EthAddress
+  DelayGenerator* = proc(): chronos.Duration {.closure, gcsafe.}
 
 {.push raises: [Defect].}
 
@@ -165,7 +166,8 @@ proc loadDeposits*(depositsDir: string): seq[Deposit] =
 # TODO: async functions should note take `seq` inputs because
 #       this leads to full copies.
 proc sendDeposits*(deposits: seq[Deposit],
-                   web3Url, depositContractAddress, privateKey: string,
+                   web3Url, privateKey: string,
+                   depositContractAddress: Eth1Address,
                    delayGenerator: DelayGenerator = nil) {.async.} =
   var web3 = await newWeb3(web3Url)
   if privateKey.len != 0:
@@ -177,8 +179,8 @@ proc sendDeposits*(deposits: seq[Deposit],
       return
     web3.defaultAccount = accounts[0]
 
-  let contractAddress = Address.fromHex(depositContractAddress)
-  let depositContract = web3.contractSender(DepositContract, contractAddress)
+  let depositContract = web3.contractSender(DepositContract,
+                                            Address depositContractAddress)
 
   for i, dp in deposits:
     let status = await depositContract.deposit(
@@ -202,7 +204,7 @@ proc sendDeposits*(config: BeaconNodeConf,
   await sendDeposits(
     deposits,
     config.web3Url,
-    config.depositContractAddress,
     config.depositPrivateKey,
+    config.depositContractAddress.get,
     delayGenerator)
 

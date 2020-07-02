@@ -49,6 +49,7 @@ type
     topicAggregateAndProofs*: string
     forwardSyncLoop*: Future[void]
     onSecondLoop*: Future[void]
+    genesisSnapshotContent*: string
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
