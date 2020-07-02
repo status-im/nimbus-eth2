@@ -186,10 +186,16 @@ proc isValidAggregatedAttestation*(
   # hash_tree_root(aggregate) has not already been seen (via aggregate gossip,
   # within a verified block, or through the creation of an equivalent aggregate
   # locally).
+  #
+  # This is [IGNORE] and already checked by attestation pool when aggregate is
+  # added.
 
   # [IGNORE] The aggregate is the first valid aggregate received for the
   # aggregator with index aggregate_and_proof.aggregator_index for the epoch
   # aggregate.data.target.epoch.
+  #
+  # This is [IGNORE] and already effectively checked by attestation pool upon
+  # attempting to resolve attestations.
 
   # [REJECT] The block being voted for (aggregate.data.beacon_block_root)
   # passes validation.
