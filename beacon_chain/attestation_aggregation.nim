@@ -169,8 +169,6 @@ proc isValidAggregatedAttestation*(
     aggregate_and_proof = signedAggregateAndProof.message
     aggregate = aggregate_and_proof.aggregate
 
-  debug "isValidAggregatedAttestation: beginning"
-
   # There's some overlap between this and isValidAttestation(), but unclear if
   # saving a few lines of code would balance well with losing straightforward,
   # spec-based synchronization.
@@ -253,7 +251,7 @@ proc isValidAggregatedAttestation*(
         state.fork, state.genesis_validators_root, aggregate.data.slot,
         state.validators[aggregate_and_proof.aggregator_index].pubkey,
         aggregate_and_proof.selection_proof):
-      debug "isValidAggregatedAttestation: selection_proof isn't valid signature"
+      debug "isValidAggregatedAttestation: selection_proof signature verification failed"
       return false
 
     # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
@@ -261,14 +259,14 @@ proc isValidAggregatedAttestation*(
         state.fork, state.genesis_validators_root, aggregate_and_proof,
         state.validators[aggregate_and_proof.aggregator_index].pubkey,
         signed_aggregate_and_proof.signature):
-      debug "isValidAggregatedAttestation: unable to verify signature of signed_aggregate_and_proof"
+      debug "isValidAggregatedAttestation: signed_aggregate_and_proof signature verification failed"
       return false
 
     # [REJECT] The signature of aggregate is valid.
-    #if not verify_slot_signature(
-    #    state.fork, state.genesis_validators_root, someslot, ):
-    #  debug "isValidAggregatedAttestation: "
-    #  return false
+    if not is_valid_indexed_attestation(
+        state, get_indexed_attestation(state, aggregate, cache), {}):
+      debug "isValidAggregatedAttestation: aggregate signature verification failed"
+      return false
 
   debug "isValidAggregatedAttestation: succeeded"
   true
