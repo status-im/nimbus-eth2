@@ -98,6 +98,8 @@ proc getStateFromSnapshot(conf: BeaconNodeConf): NilableBeaconStateRef =
     except CatchableError as err:
       error "Failed to read genesis file", err = err.msg
       quit 1
+  elif conf.stateSnapshotContents != nil:
+    swap(snapshotContents, TaintedString conf.stateSnapshotContents[])
   else:
     # No snapshot was provided. We should wait for genesis.
     return nil
@@ -192,6 +194,10 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
       except CatchableError as e:
         error "Failed to initialize database", err = e.msg
         quit 1
+
+  if conf.stateSnapshotContents != nil:
+    # The memory for the initial snapshot won't be needed anymore
+    conf.stateSnapshotContents[] = ""
 
   # TODO check that genesis given on command line (if any) matches database
   let blockPool = BlockPool.init(
@@ -1134,6 +1140,9 @@ programMain:
     if config.cmd == noCommand:
       for node in metadata.bootstrapNodes:
         config.bootstrapNodes.add node
+
+      if config.stateSnapshot.isNone:
+        config.stateSnapshotContents = newClone metadata.genesisData
 
     template checkForIncompatibleOption(flagName, fieldName) =
       # TODO: This will have to be reworked slightly when we introduce config files.

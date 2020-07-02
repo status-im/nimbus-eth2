@@ -127,9 +127,12 @@ type
         name: "wallets-dir" }: Option[InputDir]
 
       stateSnapshot* {.
-        desc: "Json file specifying a recent state snapshot"
+        desc: "SSZ file specifying a recent state snapshot"
         abbr: "s"
         name: "state-snapshot" }: Option[InputFile]
+
+      stateSnapshotContents* {.hidden.}: ref string
+        # This is ref so we can mutate it (to erase it) after the initial loading.
 
       nodeName* {.
         defaultValue: ""
