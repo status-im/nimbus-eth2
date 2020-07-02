@@ -136,6 +136,7 @@ template clearBit*(x: var BitList, idx: int) = clearBit(BitSeq(x), idx)
 template overlaps*(a, b: BitList): bool = overlaps(BitSeq(a), BitSeq(b))
 template combine*(a: var BitList, b: BitList) = combine(BitSeq(a), BitSeq(b))
 template isSubsetOf*(a, b: BitList): bool = isSubsetOf(BitSeq(a), BitSeq(b))
+template isZeros*(x: BitList): bool = isZeros(BitSeq(x))
 template `$`*(a: BitList): string = $(BitSeq(a))
 
 iterator items*(x: BitList): bool =

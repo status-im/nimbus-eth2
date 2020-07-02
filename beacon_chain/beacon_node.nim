@@ -751,6 +751,13 @@ proc installAttestationHandlers(node: BeaconNode) =
       return false
     node.attestationPool.isValidAttestation(attestation, slot, committeeIndex)
 
+  proc aggregatedAttestationValidator(
+      signedAggregateAndProof: SignedAggregateAndProof): bool =
+    let (afterGenesis, slot) = node.beaconClock.now().toSlot()
+    if not afterGenesis:
+      return false
+    node.attestationPool.isValidAggregatedAttestation(signedAggregateAndProof, slot)
+
   var attestationSubscriptions: seq[Future[void]] = @[]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
@@ -763,6 +770,14 @@ proc installAttestationHandlers(node: BeaconNode) =
         proc(attestation: Attestation): bool =
           attestationValidator(attestation, ci)
       ))
+
+  attestationSubscriptions.add(node.network.subscribe(
+    getAggregateAndProofsTopic(node.forkDigest),
+    proc(signedAggregateAndProof: SignedAggregateAndProof) =
+      attestationHandler(signedAggregateAndProof.message.aggregate),
+    proc(signedAggregateAndProof: SignedAggregateAndProof): bool =
+      aggregatedAttestationValidator(signedAggregateAndProof)
+  ))
 
   waitFor allFutures(attestationSubscriptions)
 

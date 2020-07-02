@@ -640,17 +640,10 @@ template withEpochState*(
   ## cache is unsafe outside of block.
   ## TODO async transformations will lead to a race where cache gets updated
   ##      while waiting for future to complete - catch this here somehow?
-
-  for ancestor in get_ancestors_in_epoch(blockSlot):
-    if getStateDataCached(dag, cache, ancestor):
-      break
-
-  template hashedState(): HashedBeaconState {.inject, used.} = cache.data
-  template state(): BeaconState {.inject, used.} = cache.data.data
-  template blck(): BlockRef {.inject, used.} = cache.blck
-  template root(): Eth2Digest {.inject, used.} = cache.data.root
-
-  body
+  # TODO implement the looser constraints allowed by epoch, not precise slot target
+  # allow expressing preference to opt-in to looser constraints regardless
+  dag.withState(cache, blockSlot):
+    body
 
 proc updateStateData*(dag: CandidateChains, state: var StateData, bs: BlockSlot) =
   ## Rewind or advance state such that it matches the given block and slot -
