@@ -10,6 +10,8 @@
 import
   # Standard library
   os, unittest,
+  # Utilities
+  stew/results,
   # Beacon chain internals
   ../../beacon_chain/spec/[datatypes, beaconstate],
   ../../beacon_chain/[ssz, extras],
@@ -48,7 +50,7 @@ proc runTest(identifier: string) =
         discard process_deposit(preState[], deposit, flags)
         reportDiff(preState, postState)
       else:
-        check not process_deposit(preState[], deposit, flags)
+        check process_deposit(preState[], deposit, flags).isErr
 
   `testImpl _ operations_deposits _ identifier`()
 
