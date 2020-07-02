@@ -130,6 +130,22 @@ func get_ancestor*(blck: BlockRef, slot: Slot): BlockRef =
 
     blck = blck.parent
 
+iterator get_ancestors_in_epoch(blockSlot: BlockSlot): BlockSlot =
+  let min_slot =
+    blockSlot.slot.compute_epoch_at_slot.compute_start_slot_at_epoch
+  var blockSlot = blockSlot
+
+  while true:
+    for slot in countdown(blockSlot.slot, max(blockSlot.blck.slot, min_slot)):
+      yield BlockSlot(blck: blockSlot.blck, slot: slot)
+
+    if blockSlot.blck.parent.isNil or blockSlot.blck.slot <= min_slot:
+      break
+
+    doAssert blockSlot.blck.slot > blockSlot.blck.parent.slot
+    blockSlot =
+      BlockSlot(blck: blockSlot.blck.parent, slot: blockSlot.blck.slot - 1)
+
 func atSlot*(blck: BlockRef, slot: Slot): BlockSlot =
   ## Return a BlockSlot at a given slot, with the block set to the closest block
   ## available. If slot comes from before the block, a suitable block ancestor
