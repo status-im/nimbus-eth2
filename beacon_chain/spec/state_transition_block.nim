@@ -342,7 +342,7 @@ proc process_block*(
   let res_block = process_block_header(state, blck, flags, stateCache)
   if res_block.isErr:
     debug "Block header not valid",
-      block_header_error = $res_block,
+      block_header_error = $(res_block.error),
       slot = state.slot
     return false
 
@@ -355,7 +355,7 @@ proc process_block*(
   let res_ops = process_operations(state, blck.body, flags, stateCache)
   if res_ops.isErr:
     debug "process_operations encountered error",
-      operation_error = $res_ops,
+      operation_error = $(res_ops.error),
       slot = state.slot,
       eth1_deposit_index = state.eth1_deposit_index,
       deposit_root = shortLog(state.eth1_data.deposit_root)
