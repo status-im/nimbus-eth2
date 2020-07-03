@@ -44,8 +44,6 @@ declareGauge beacon_processed_deposits_total, "Number of total deposits included
 func process_block_header*(
     state: var BeaconState, blck: SomeBeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): Result[void, cstring] {.nbench.} =
-  logScope:
-    blck = shortLog(blck)
   # Verify that the slots match
   if not (blck.slot == state.slot):
     return err("Block header: slot mismatch")
@@ -339,11 +337,12 @@ proc process_block*(
   beacon_previous_live_validators.set(toHashSet(
     mapIt(state.previous_epoch_attestations, it.proposerIndex)).len.int64)
 
+  logScope:
+    blck = shortLog(blck)
   let res_block = process_block_header(state, blck, flags, stateCache)
   if res_block.isErr:
     debug "Block header not valid",
       block_header_error = $res_block,
-      blck = shortLog(blck),
       slot = state.slot
     return false
 
@@ -357,7 +356,6 @@ proc process_block*(
   if res_ops.isErr:
     debug "process_operations encountered error",
       operation_error = $res_ops,
-      blck = shortLog(blck),
       slot = state.slot,
       eth1_deposit_index = state.eth1_deposit_index,
       deposit_root = shortLog(state.eth1_data.deposit_root)
