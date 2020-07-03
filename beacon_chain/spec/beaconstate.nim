@@ -83,7 +83,7 @@ func process_deposit*(
         # TODO spec test?
         # TODO: This is temporary set to trace level in order to deal with the
         #       large number of invalid deposits on Altona
-        return err("process_deposit: skipping deposit with invalid signature")
+        return ok()
 
     # Add validator and balance entries
     state.validators.add(Validator(
