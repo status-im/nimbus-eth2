@@ -52,7 +52,7 @@ func decrease_balance*(
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#deposits
 func process_deposit*(
     state: var BeaconState, deposit: Deposit, flags: UpdateFlags = {}):
-    Result[void, string] {.nbench.} =
+    Result[void, cstring] {.nbench.} =
   # Process an Eth1 deposit, registering a validator or increasing its balance.
 
   # Verify the Merkle branch
@@ -632,7 +632,7 @@ proc check_attestation*(
 
 proc process_attestation*(
     state: var BeaconState, attestation: SomeAttestation, flags: UpdateFlags,
-    stateCache: var StateCache): Result[void, string] {.nbench.} =
+    stateCache: var StateCache): Result[void, cstring] {.nbench.} =
   # In the spec, attestation validation is mixed with state mutation, so here
   # we've split it into two functions so that the validation logic can be
   # reused when looking for suitable blocks to include in attestations.

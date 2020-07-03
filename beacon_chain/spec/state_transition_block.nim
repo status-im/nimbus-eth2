@@ -43,12 +43,12 @@ declareGauge beacon_processed_deposits_total, "Number of total deposits included
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#block-header
 func process_block_header*(
     state: var BeaconState, blck: SomeBeaconBlock, flags: UpdateFlags,
-    stateCache: var StateCache): Result[void, string] {.nbench.} =
+    stateCache: var StateCache): Result[void, cstring] {.nbench.} =
   logScope:
     blck = shortLog(blck)
   # Verify that the slots match
   if not (blck.slot == state.slot):
-    return err("Block header: slot mismatch; state.slot = " & $state.slot)
+    return err("Block header: slot mismatch")
 
   # Verify that the block is newer than latest block header
   if not (blck.slot > state.latest_block_header.slot):
@@ -60,14 +60,11 @@ func process_block_header*(
     return err("Block header: proposer missing")
 
   if not (blck.proposer_index.ValidatorIndex == proposer_index.get):
-    return err("Block header: proposer index incorrect; proposer_index = " &
-      $proposer_index.get)
+    return err("Block header: proposer index incorrect")
 
   # Verify that the parent matches
   if not (blck.parent_root == hash_tree_root(state.latest_block_header)):
-    return err("Block header: previous block root mismatch; expecting " &
-      shortLog(hash_tree_root(state.latest_block_header)) & " but got " &
-      $state.latest_block_header)
+    return err("Block header: previous block root mismatch")
 
   # Cache current block as the new latest block
   state.latest_block_header = BeaconBlockHeader(
@@ -144,7 +141,7 @@ func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
 proc process_proposer_slashing*(
     state: var BeaconState, proposer_slashing: ProposerSlashing,
     flags: UpdateFlags, stateCache: var StateCache):
-    Result[void, string] {.nbench.} =
+    Result[void, cstring] {.nbench.} =
 
   let
     header_1 = proposer_slashing.signed_header_1.message
@@ -178,7 +175,7 @@ proc process_proposer_slashing*(
       if not verify_block_signature(
           state.fork, state.genesis_validators_root, signed_header.message.slot,
           signed_header.message, proposer.pubkey, signed_header.signature):
-        return err("Proposer slashing: invalid signature " & $i)
+        return err("Proposer slashing: invalid signature")
 
   slashValidator(state, header_1.proposer_index.ValidatorIndex, stateCache)
 
@@ -202,7 +199,7 @@ proc process_attester_slashing*(
        attester_slashing: AttesterSlashing,
        flags: UpdateFlags,
        stateCache: var StateCache
-     ): Result[void, string] {.nbench.}=
+     ): Result[void, cstring] {.nbench.}=
   let
     attestation_1 = attester_slashing.attestation_1
     attestation_2 = attester_slashing.attestation_2
@@ -234,14 +231,13 @@ proc process_attester_slashing*(
 proc process_voluntary_exit*(
     state: var BeaconState,
     signed_voluntary_exit: SignedVoluntaryExit,
-    flags: UpdateFlags): Result[void, string] {.nbench.} =
+    flags: UpdateFlags): Result[void, cstring] {.nbench.} =
 
   let voluntary_exit = signed_voluntary_exit.message
 
   # Not in spec. Check that validator_index is in range
   if voluntary_exit.validator_index >= state.validators.len.uint64:
-    return err("Exit: invalid validator index; " &
-      $voluntary_exit.validator_index & " >= " & $state.validators.len)
+    return err("Exit: invalid validator index")
 
   let validator = state.validators[voluntary_exit.validator_index.int]
 
@@ -289,7 +285,7 @@ proc process_voluntary_exit*(
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#operations
 proc process_operations(state: var BeaconState, body: SomeBeaconBlockBody,
     flags: UpdateFlags, stateCache: var StateCache):
-    Result[void, string] {.nbench.} =
+    Result[void, cstring] {.nbench.} =
   # Verify that outstanding deposits are processed up to the maximum number of
   # deposits
   let
@@ -297,8 +293,7 @@ proc process_operations(state: var BeaconState, body: SomeBeaconBlockBody,
     req_deposits = min(MAX_DEPOSITS,
       state.eth1_data.deposit_count.int64 - state.eth1_deposit_index.int64)
   if not (num_deposits == req_deposits):
-    return err("incorrect number of deposits; expected " & $req_deposits &
-      " and got " & $num_deposits)
+    return err("incorrect number of deposits")
 
   template for_ops_cached(operations: auto, fn: auto) =
     for operation in operations:
@@ -347,7 +342,9 @@ proc process_block*(
   let res_block = process_block_header(state, blck, flags, stateCache)
   if res_block.isErr:
     debug "Block header not valid",
-      block_header_error = $res_block
+      block_header_error = $res_block,
+      state = shortLog(state),
+      blck = shortLog(blck)
     return false
 
   if not process_randao(state, blck.body, flags, stateCache):
@@ -359,7 +356,9 @@ proc process_block*(
   let res_ops = process_operations(state, blck.body, flags, stateCache)
   if res_ops.isErr:
     debug "process_operations encountered error",
-      operation_error = $res_ops
+      operation_error = $res_ops,
+      state = shortLog(state),
+      blck = shortLog(blck)
     return false
 
   true
