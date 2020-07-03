@@ -343,8 +343,8 @@ proc process_block*(
   if res_block.isErr:
     debug "Block header not valid",
       block_header_error = $res_block,
-      state = shortLog(state),
-      blck = shortLog(blck)
+      blck = shortLog(blck),
+      slot = state.slot
     return false
 
   if not process_randao(state, blck.body, flags, stateCache):
@@ -357,8 +357,10 @@ proc process_block*(
   if res_ops.isErr:
     debug "process_operations encountered error",
       operation_error = $res_ops,
-      state = shortLog(state),
-      blck = shortLog(blck)
+      blck = shortLog(blck),
+      slot = state.slot,
+      eth1_deposit_index = state.eth1_deposit_index,
+      deposit_root = shortLog(state.eth1_data.deposit_root)
     return false
 
   true
