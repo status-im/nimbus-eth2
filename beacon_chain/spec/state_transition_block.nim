@@ -46,23 +46,23 @@ func process_block_header*(
     stateCache: var StateCache): Result[void, cstring] {.nbench.} =
   # Verify that the slots match
   if not (blck.slot == state.slot):
-    return err("Block header: slot mismatch")
+    return err("process_block_header: slot mismatch")
 
   # Verify that the block is newer than latest block header
   if not (blck.slot > state.latest_block_header.slot):
-    return err("Block header: block not newer than latest block header")
+    return err("process_block_header: block not newer than latest block header")
 
   # Verify that proposer index is the correct index
   let proposer_index = get_beacon_proposer_index(state, stateCache)
   if proposer_index.isNone:
-    return err("Block header: proposer missing")
+    return err("process_block_header: proposer missing")
 
   if not (blck.proposer_index.ValidatorIndex == proposer_index.get):
-    return err("Block header: proposer index incorrect")
+    return err("process_block_header: proposer index incorrect")
 
   # Verify that the parent matches
   if not (blck.parent_root == hash_tree_root(state.latest_block_header)):
-    return err("Block header: previous block root mismatch")
+    return err("process_block_header: previous block root mismatch")
 
   # Cache current block as the new latest block
   state.latest_block_header = BeaconBlockHeader(
@@ -76,7 +76,7 @@ func process_block_header*(
   # Verify proposer is not slashed
   let proposer = state.validators[proposer_index.get]
   if proposer.slashed:
-    return err("Block header: proposer slashed")
+    return err("process_block_header: proposer slashed")
 
   ok()
 
@@ -147,24 +147,24 @@ proc process_proposer_slashing*(
 
   # Not from spec
   if header_1.proposer_index.int >= state.validators.len:
-    return err("Proposer slashing: invalid proposer index")
+    return err("process_proposer_slashing: invalid proposer index")
 
   # Verify header slots match
   if not (header_1.slot == header_2.slot):
-    return err("Proposer slashing: slot mismatch")
+    return err("process_proposer_slashing: slot mismatch")
 
   # Verify header proposer indices match
   if not (header_1.proposer_index == header_2.proposer_index):
-    return err("Proposer slashing: proposer indices mismatch")
+    return err("process_proposer_slashing: proposer indices mismatch")
 
   # Verify the headers are different
   if not (header_1 != header_2):
-    return err("Proposer slashing: headers not different")
+    return err("process_proposer_slashing: headers not different")
 
   # Verify the proposer is slashable
   let proposer = state.validators[header_1.proposer_index]
   if not is_slashable_validator(proposer, get_current_epoch(state)):
-    return err("Proposer slashing: slashed proposer")
+    return err("process_proposer_slashing: slashed proposer")
 
   # Verify signatures
   if skipBlsValidation notin flags:
@@ -173,7 +173,7 @@ proc process_proposer_slashing*(
       if not verify_block_signature(
           state.fork, state.genesis_validators_root, signed_header.message.slot,
           signed_header.message, proposer.pubkey, signed_header.signature):
-        return err("Proposer slashing: invalid signature")
+        return err("process_proposer_slashing: invalid signature")
 
   slashValidator(state, header_1.proposer_index.ValidatorIndex, stateCache)
 

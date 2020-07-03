@@ -63,7 +63,7 @@ func process_deposit*(
     state.eth1_deposit_index,
     state.eth1_data.deposit_root,
   ):
-    return err("Deposit Merkle validation failed")
+    return err("process_deposit: deposit Merkle validation failed")
 
   # Deposits must be processed in order
   state.eth1_deposit_index += 1
@@ -83,7 +83,7 @@ func process_deposit*(
         # TODO spec test?
         # TODO: This is temporary set to trace level in order to deal with the
         #       large number of invalid deposits on Altona
-        return err("Skipping deposit with invalid signature")
+        return err("process_deposit: skipping deposit with invalid signature")
 
     # Add validator and balance entries
     state.validators.add(Validator(
@@ -641,7 +641,7 @@ proc process_attestation*(
 
   let proposer_index = get_beacon_proposer_index(state, stateCache)
   if proposer_index.isNone:
-    return err("No beacon proposer index and probably no active validators")
+    return err("process_attestation: no beacon proposer index and probably no active validators")
 
   if check_attestation(state, attestation, flags, stateCache):
     let
