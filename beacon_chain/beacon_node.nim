@@ -1128,6 +1128,8 @@ programMain:
     let
       networkName = config.eth2Network.get
       metadata = case toLowerAscii(networkName)
+        of "mainnet":
+          mainnetMetadata
         of "altona":
           altonaMetadata
         else:

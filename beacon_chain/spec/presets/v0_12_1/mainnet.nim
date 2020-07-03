@@ -14,6 +14,7 @@ import
 type
   Slot* = distinct uint64
   Epoch* = distinct uint64
+  Version* = distinct array[4, byte]
 
 {.experimental: "codeReordering".} # SLOTS_PER_EPOCH is use before being defined in spec
 
@@ -41,8 +42,6 @@ const
   MIN_PER_EPOCH_CHURN_LIMIT* = 4
   CHURN_LIMIT_QUOTIENT* = 2^16
   SHUFFLE_ROUND_COUNT* = 90
-  MIN_GENESIS_ACTIVE_VALIDATOR_COUNT* {.intdefine.} = 16384
-  MIN_GENESIS_TIME* {.intdefine.} = 1578009600
 
   HYSTERESIS_QUOTIENT* = 4
   HYSTERESIS_DOWNWARD_MULTIPLIER* = 1
@@ -68,13 +67,11 @@ const
   # Initial values
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/mainnet.yaml#L70
-  GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 0'u8]
   BLS_WITHDRAWAL_PREFIX* = 0'u8
 
   # Time parameters
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/mainnet.yaml#L77
-  GENESIS_DELAY* {.intdefine.} = 172800 # 172800 seconds (2 days)
 
   SECONDS_PER_SLOT* {.intdefine.} = 12'u64 # Compile with -d:SECONDS_PER_SLOT=1 for 12x faster slots
   ## TODO consistent time unit across projects, similar to C++ chrono?
@@ -193,9 +190,7 @@ const
   # Time parameters
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/configs/mainnet.yaml#L199
   RANDAO_PENALTY_EPOCHS* = 2 # epochs (12.8 minutes)
-  EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS* = 16384 # epochs (~73 days)
   EPOCHS_PER_CUSTODY_PERIOD* = 2048 # epochs (~9 days)
-  CUSTODY_PERIOD_TO_RANDAO_PADDING* = 2048 # epochs (~9 days)
   MAX_REVEAL_LATENESS_DECREMENT* = 128 # epochs (~14 hours)
 
   # Max operations

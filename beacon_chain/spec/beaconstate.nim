@@ -226,8 +226,8 @@ proc initialize_beacon_state_from_eth1*(
 
   var state = BeaconStateRef(
     fork: Fork(
-      previous_version: Version(GENESIS_FORK_VERSION),
-      current_version: Version(GENESIS_FORK_VERSION),
+      previous_version: GENESIS_FORK_VERSION,
+      current_version: GENESIS_FORK_VERSION,
       epoch: GENESIS_EPOCH),
     genesis_time: genesis_time_from_eth1_timestamp(eth1_timestamp),
     eth1_data:

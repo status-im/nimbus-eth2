@@ -14,6 +14,7 @@ import
 type
   Slot* = distinct uint64
   Epoch* = distinct uint64
+  Version* = distinct array[4, byte]
 
 {.experimental: "codeReordering".} # SLOTS_PER_EPOCH is use before being defined in spec
 
@@ -33,8 +34,6 @@ const
 
   # Changed
   SHUFFLE_ROUND_COUNT* = 10
-  MIN_GENESIS_ACTIVE_VALIDATOR_COUNT* {.intdefine.} = 64
-  MIN_GENESIS_TIME* {.intdefine.} = 1578009600 # 3 Jan, 2020
 
   # Unchanged
   HYSTERESIS_QUOTIENT* = 4
@@ -55,7 +54,6 @@ const
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L70
 
-  GENESIS_FORK_VERSION* = [0'u8, 0'u8, 0'u8, 1'u8]
   BLS_WITHDRAWAL_PREFIX* = 0'u8
 
   # Time parameters
@@ -63,7 +61,6 @@ const
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L77
   # Changed: Faster to spin up testnets, but does not give validator
   # reasonable warning time for genesis
-  GENESIS_DELAY* {.intdefine.} = 300
 
   # Unchanged
   SECONDS_PER_SLOT*{.intdefine.} = 6'u64
@@ -172,9 +169,7 @@ const
   # Time parameters
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L202
   RANDAO_PENALTY_EPOCHS* = 2
-  EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS* = 4096 # epochs
   EPOCHS_PER_CUSTODY_PERIOD* = 2048
-  CUSTODY_PERIOD_TO_RANDAO_PADDING* = 2048
   MAX_REVEAL_LATENESS_DECREMENT* = 128
 
   # Max operations

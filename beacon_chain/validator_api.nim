@@ -45,7 +45,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     return (genesis_time: node.blockPool.headState.data.data.genesis_time,
              genesis_validators_root:
               node.blockPool.headState.data.data.genesis_validators_root,
-             genesis_fork_version: Version(GENESIS_FORK_VERSION))
+             genesis_fork_version: GENESIS_FORK_VERSION)
 
   rpcServer.rpc("get_v1_beacon_states_root") do (stateId: string) -> Eth2Digest:
     debug "get_v1_beacon_states_root", stateId = stateId
@@ -75,8 +75,8 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       of "head":
         node.blockPool.headState.data.data.fork
       of "genesis":
-        Fork(previous_version: Version(GENESIS_FORK_VERSION),
-             current_version: Version(GENESIS_FORK_VERSION),
+        Fork(previous_version: GENESIS_FORK_VERSION,
+             current_version: GENESIS_FORK_VERSION,
              epoch: GENESIS_EPOCH)
       of "finalized":
         node.blockPool.withState(node.blockPool.tmpState, node.blockPool.finalizedHead):

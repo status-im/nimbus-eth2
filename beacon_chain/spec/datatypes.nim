@@ -61,7 +61,7 @@ else:
     Epoch* = distinct uint64
 
   import ./presets/custom
-  loadCustomPreset const_preset
+  createConstantsFromPreset const_preset
 
 const
   SPEC_VERSION* = "0.12.1" ## \
@@ -163,7 +163,6 @@ type
     data*: AttestationData
     signature*: TrustedSig
 
-  Version* = distinct array[4, byte]
   ForkDigest* = distinct array[4, byte]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#forkdata
