@@ -91,7 +91,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">3.</strong> Become a Validator</a></li><li class="chapter-item expanded "><a href="cli.html"><strong aria-hidden="true">4.</strong> Command-line Options</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">5.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">6.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">7.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">8.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">3.</strong> Running the beacon node</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">4.</strong> Becoming a Validator</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">5.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">6.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">7.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">8.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -169,8 +169,8 @@
 <ol>
 <li><a href="./faq.html#1-what-is-beacon-chain">What is beacon chain</a> and <a href="./faq.html#4-what-is-nimbus">what is Nimbus</a> to equip you with some basic knowledge.</li>
 <li><a href="./install.html">Installation steps</a> outline the prerequisites to get started.</li>
+<li><a href="./beacon_node.html">Running the beacon node</a> describes how to run the beacon node software to sync the beacon chain.</li>
 <li>How to <a href="./validator.html">become a validator</a> in Ethereum 2.0 as a user, for example on the Altona testnet.</li>
-<li><a href="./cli.html">CLI</a> for running your customized nimbus beacon node.</li>
 <li><a href="./api.html">API</a> for monitoring your node through <code>http</code>.</li>
 <li><a href="./advanced.html">Advanced usage</a> for developers.</li>
 <li>Common <a href="./faq.html">questions and answers</a> to satisfy your curiosity.</li>
@@ -185,6 +185,15 @@
 2. write questions in the faq.md page -->
 <h1><a class="header" href="#installation" id="installation">Installation</a></h1>
 <p>Beacon chain can run on Linux, macOS, Windows, and Android. At the moment, Nimbus has to be built from source.</p>
+<h2><a class="header" href="#time" id="time">Time</a></h2>
+<p>The beacon chain relies on your computer having the correct time set, down to at most 0.5 seconds.</p>
+<p>It is recommended that you run a high quality time service on your computer such as:</p>
+<ul>
+<li>GPS</li>
+<li>NTS (network time security, IETF draft)</li>
+<li>Roughtime (google)</li>
+</ul>
+<p>As a minimum, you should run an NTP client on the server - NTP may easily be disrupted however.</p>
 <h2><a class="header" href="#external-dependencies" id="external-dependencies">External Dependencies</a></h2>
 <ul>
 <li>Developer tools (C compiler, Make, Bash, Git)</li>
@@ -219,9 +228,183 @@ Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on 
 <pre><code class="language-sh">apt install build-essential git libpcre3-dev
 </code></pre>
 <h2><a class="header" href="#next-steps" id="next-steps">Next steps</a></h2>
-<p>Once you've installed build tools, you're ready to move on to launching the beacon node and becoming a <a href="./validator.html">validator</a></p>
+<p>Once you've installed the prerequisites, you're ready to move on to launching the <a href="./beacon_node.html">beacon node</a>.</p>
+<h1><a class="header" href="#the-beacon-node" id="the-beacon-node">The beacon node</a></h1>
+<p>The beacon node application connects to an Ethereum 2 network, manages the block chain and provides API's to interact with the beacon chain.</p>
+<p>You can run the beacon node without being a validator - doing so will allow you to sync the network and access its latest state.</p>
+<h2><a class="header" href="#prerequisites" id="prerequisites">Prerequisites</a></h2>
+<p>Before compiling and running the application, make sure you've completed the <a href="./install.html">installation guidelines</a> for the prerequisites.</p>
+<h2><a class="header" href="#running-the-node" id="running-the-node">Running the node</a></h2>
+<p>When running the beacon node, you connect to a specific ethereum 2 network - this may be a private network or a public testnet like <a href="https://github.com/goerli/altona/tree/master/altona">altona</a>.</p>
+<p>When running the node for the first time, you need to specify network parameters, boot nodes and genesis information. This information can typically be found in the <a href="https://github.com/eth2-clients/eth2-testnets">eth2 testnets</a> repository. This information is automatically downloaded when using the simplified startup.</p>
+<p>Once the beacon node is running, it will first connect to the boot nodes in the network, look for more peers and start syncing the chain. Once sync is complete, it will keep following the head of the chain and can be interacted with through the <a href="./api.html">API</a>.</p>
+<p>Before running the beacon node, it is important that computer has the correct time set - preferably from a trusted time source (this can be an NTP server you trust, GPS time or any other precise source of time).</p>
+<p>To start syncing the <code>altona</code> network, run the build process. When asked for a key, just press enter.</p>
+<pre><code>$ make altona
+
+# Build output...
+
+Please enter your Goerli Eth1 private key in hex form (e.g. 0x1a2...f3c) in order to become a validator (you'll need access to 32 GoETH).
+Hit Enter to skip this.
+&gt;
+</code></pre>
+<p>Hit enter above - you will be prompted again if you want to become a validator. Beacon node will launch and start syncing.</p>
+<pre><code>INF 2020-07-03 15:28:15+02:00 Starting beacon node                       topics=&quot;beacnde&quot; tid=176865 file=beacon_node.nim:866 SECONDS_PER_SLOT=12 SLOTS_PER_EPOCH=32 SPEC_VERSION=0.12.1 cat=init dataDir=/home/arnetheduck/status/nim-beacon-chain/build/data/shared_altona_0 finalizedRoot=72e7b21c finalizedSlot=20064 headRoot=f92bf720 headSlot=20142 nim=&quot;Nim Compiler Version 1.2.2 [Linux: amd64] (be34b5ab)&quot; pcs=start_beacon_node timeSinceFinalization=-108322 version=&quot;0.5.0 (c64737e)&quot;
+
+
+ peers: 7 ❯ finalized: 3a806c9f:634 ❯ head: b364f8e9:636:29 ❯ time: 909:7 (29095)              ETH: 0.0
+
+</code></pre>
+<h3><a class="header" href="#status-bar" id="status-bar">Status bar</a></h3>
+<p>The status bar shows important health information about your node:</p>
+<ul>
+<li>peers - The number of peers you're connected to</li>
+<li>finalized - The block root and epoch of the latest finalized checkpoint - when the network is healthy, this value will stay at 2-3 epochs from the wall clock</li>
+<li>head - The block root and time of the head block - as blocks are produced and processed, this will be updated to the latest head block as chosen by the consensus algorithm.</li>
+<li>time - The current wall time according to your computer - when the node is synced, the head block will closely follow this time.</li>
+<li>ETH: the total ETH validators attached to the node have accumulated. When there are no validators attached, this number will be 0.</li>
+</ul>
+<p>Time is shown as <code>epoch:subslot</code>, starting from the block chain genesis time - one epoch is typically 32 slots but this may vary between networks.</p>
+<p>The status bar content may be updated using command line flags.</p>
+<h3><a class="header" href="#metrics" id="metrics">Metrics</a></h3>
+<p>Nimbus includes metrics support using the Prometheus format. To enable it, you need to enable insecure feature when compiling the application. The http server that exports Prometheus metrics should not be exposed to external parties.</p>
+<pre><code># Compile with insecure features enabled
+make NIMFLAGS=&quot;-d:insecure&quot; altona
+</code></pre>
+<h2><a class="header" href="#command-line-options" id="command-line-options">Command line options</a></h2>
+<pre><code>$ ./beacon_node --help
+Nimbus beacon node v0.3.0 (877a358)
+
+Usage:
+
+beacon_node [OPTIONS]... command
+
+The following options are available:
+
+     --log-level               Sets the log level.
+     --eth1-network            The Eth1 network tracked by the beacon node.
+ -d, --data-dir                The directory where nimbus will store all blockchain data.
+     --web3-url                URL of the Web3 server to observe Eth1.
+     --deposit-contract        Address of the deposit contract.
+     --deposit-contract-block  The Eth1 block hash where the deposit contract has been deployed.
+     --non-interactive         Do not display interative prompts. Quit on missing configuration.
+ -b, --bootstrap-node          Specifies one or more bootstrap nodes to use when connecting to the network.
+     --bootstrap-file          Specifies a line-delimited file of bootstrap Ethereum network addresses.
+     --listen-address          Listening address for the Ethereum LibP2P traffic.
+     --tcp-port                Listening TCP port for Ethereum LibP2P traffic.
+     --udp-port                Listening UDP port for node discovery.
+     --max-peers               The maximum number of peers to connect to.
+     --nat                     Specify method to use for determining public address. Must be one of: any, none,
+                               upnp, pmp, extip:&lt;IP&gt;.
+ -v, --validator               Path to a validator keystore.
+     --validators-dir          A directory containing validator keystores.
+     --secrets-dir             A directory containing validator keystore passwords.
+     --wallets-dir             A directory containing wallet files.
+ -s, --state-snapshot          Json file specifying a recent state snapshot.
+     --node-name               A name for this node that will appear in the logs. If you set this to 'auto', a
+                               persistent automatically generated ID will be selected for each --data-dir
+                               folder.
+     --verify-finalization     Specify whether to verify finalization occurs on schedule, for testing.
+     --stop-at-epoch           A positive epoch selects the epoch at which to stop.
+     --metrics                 Enable the metrics server.
+     --metrics-address         Listening address of the metrics server.
+     --metrics-port            Listening HTTP port of the metrics server.
+     --status-bar              Display a status bar at the bottom of the terminal screen.
+     --status-bar-contents     Textual template for the contents of the status bar.
+     --rpc                     Enable the JSON-RPC server.
+     --rpc-port                HTTP port for the JSON-RPC service.
+     --rpc-address             Listening address of the RPC server.
+     --dump                    Write SSZ dumps of blocks, attestations and states to data dir.
+
+Available sub-commands:
+
+beacon_node_shared_altona_0 createTestnet [OPTIONS]...
+
+The following options are available:
+
+     --validators-dir          Directory containing validator keystores.
+     --total-validators        The number of validator deposits in the newly created chain.
+     --first-validator         Index of first validator to add to validator list.
+     --last-user-validator     The last validator index that will free for taking from a testnet participant.
+     --bootstrap-address       The public IP address that will be advertised as a bootstrap node for the
+                               testnet.
+     --bootstrap-port          The TCP/UDP port that will be used by the bootstrap node.
+     --genesis-offset          Seconds from now to add to genesis time.
+     --output-genesis          Output file where to write the initial state snapshot.
+     --with-genesis-root       Include a genesis root in 'network.json'.
+     --output-bootstrap-file   Output file with list of bootstrap nodes for the network.
+
+beacon_node_shared_altona_0 deposits [OPTIONS]... command
+
+The following options are available:
+
+     --deposit-private-key     Private key of the controlling (sending) account.
+
+Available sub-commands:
+
+beacon_node_shared_altona_0 deposits create [OPTIONS]...
+
+Creates validator keystores and deposits.
+
+The following options are available:
+
+     --count                   Number of deposits to generate.
+     --wallet                  An existing wallet ID. If not specified, a new wallet will be created.
+     --out-deposits-dir        Output folder for validator keystores and deposits.
+     --out-secrets-dir         Output folder for randomly generated keystore passphrases.
+     --dont-send               By default, all created deposits are also immediately sent to the validator
+                               deposit contract. You can use this option to prevent this behavior. Use the
+                               `deposits send` command to send the deposit transactions at your convenience
+                               later.
+
+beacon_node_shared_altona_0 deposits send [OPTIONS]...
+
+Sends prepared deposits to the validator deposit contract.
+
+The following options are available:
+
+     --deposits-dir            A folder with validator metadata created by the `deposits create` command.
+     --min-delay               Minimum possible delay between making two deposits (in seconds).
+     --max-delay               Maximum possible delay between making two deposits (in seconds).
+
+beacon_node_shared_altona_0 deposits status
+
+Displays status information about all deposits.
+
+beacon_node_shared_altona_0 wallets command
+
+Available sub-commands:
+
+beacon_node_shared_altona_0 wallets create [OPTIONS]...
+
+Creates a new EIP-2386 wallet.
+
+The following options are available:
+
+     --name                    An easy-to-remember name for the wallet of your choice.
+     --next-account            Initial value for the 'nextaccount' property of the wallet.
+     --out                     Output wallet file.
+
+beacon_node_shared_altona_0 wallets restore [OPTIONS]...
+
+Restores a wallet from cold storage.
+
+The following options are available:
+
+     --name                    An easy-to-remember name for the wallet of your choice.
+     --deposits                Expected number of deposits to recover. If not specified, Nimbus will try to
+                               guess the number by inspecting the latest beacon state.
+     --out                     Output wallet file.
+
+beacon_node_shared_altona_0 wallets list
+
+Lists details about all wallets.
+</code></pre>
+<h2><a class="header" href="#next-steps-1" id="next-steps-1">Next steps</a></h2>
+<p>Once you're synced, you can move on to become a <a href="./validator.html">validator</a>.</p>
 <h1><a class="header" href="#become-a-validator" id="become-a-validator">Become a Validator</a></h1>
 <p>To become a validator, you need to install the beacon chain software, acquire 32 ETH, set up your validator account and register with the deposit contract on Ethereum.</p>
+<p>Before becoming a validator, you can <a href="./beacon_node.html">run the beacon node</a> itself and sync the network.</p>
 <p>There is currently no Eth2 mainnet - all networks are testnets.</p>
 <h2><a class="header" href="#recommended-testnets" id="recommended-testnets">Recommended Testnets</a></h2>
 <p>Though Nimbus can connect to any of the testnets published in the <a href="https://github.com/eth2-clients/eth2-testnets/tree/master/nimbus">eth2-clients/eth2-testnets repo</a>, below are the recommended ones:</p>
@@ -230,6 +413,7 @@ Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on 
 <li>Nimbus Testnet: testnet0 (experimental, not always active)</li>
 </ul>
 <h2><a class="header" href="#altona" id="altona">Altona</a></h2>
+<p>The steps to connect to any testnet are similar - we'll use altona as an example.</p>
 <h3><a class="header" href="#initial-setup" id="initial-setup">Initial setup</a></h3>
 <p>Before we start, we have to obtain 32 ETH on the Goerli testnet. Then, we can deposit 32 Ethers to the registration smart contract to become a validator.</p>
 <ol>
@@ -275,7 +459,7 @@ make altona # Restart using same keys as last run
 </code></pre>
 <h2><a class="header" href="#key-management" id="key-management">Key management</a></h2>
 <p>Keys are stored in the <code>build/data/testnet_name/</code> folder, under <code>secrets</code> and <code>validators</code> - make sure to keep these folders backed up.</p>
-<h2><a class="header" href="#metrics" id="metrics">Metrics</a></h2>
+<h2><a class="header" href="#metrics-1" id="metrics-1">Metrics</a></h2>
 <p>Metrics are not included in the binary by default - to enable them, use the following options when starting the client:</p>
 <pre><code>make NIMFLAGS=&quot;-d:insecure&quot; altona
 </code></pre>
@@ -297,107 +481,6 @@ make altona # Restart using same keys as last run
 <p>If <code>make update</code> has been running for too long, you can use <code>make update V=1</code> or <code>make update V=2</code> for verbose output.</p>
 </li>
 </ol>
-<h1><a class="header" href="#command-line-options" id="command-line-options">Command-line Options</a></h1>
-<p>You can run your customized beacon node using the <code>beacon_node</code> executable. The available options are shown below - you can also run <code>beacon_node --help</code> for a reminder.</p>
-<h2><a class="header" href="#prerequisites" id="prerequisites">Prerequisites</a></h2>
-<p>Specifying a genesis file is mandatory to run this executable. You can either get it from the official eth2 repository <a href="https://github.com/eth2-clients/eth2-testnets/blob/master/shared/witti/genesis.ssz">here</a> or generate your own like <a href="https://github.com/status-im/nim-beacon-chain/blob/db92c2f2549a339be60896c3907cefdb394b5e11/scripts/launch_local_testnet.sh#L154">this</a> when starting a local testnet. You can also specify the path of your genesis file like <a href="https://github.com/status-im/nim-beacon-chain/blob/db92c2f2549a339be60896c3907cefdb394b5e11/scripts/launch_local_testnet.sh#L229">this</a>.</p>
-<p>For example, download a genesis file and then run the following command to start the node:</p>
-<img src="./img/beacon_node_example.PNG" alt="" style="margin: 0 40 0 40"/>
-<h2><a class="header" href="#usage" id="usage">Usage</a></h2>
-<pre><code>$ ./build/beacon_node --help
-Nimbus beacon node v0.3.0 (e537ed9
-)
-Copyright (c) 2019-2020 Status Research &amp; Development GmbH
-
-Nim Compiler Version 1.3.1 [Windows: amd64]
-Compiled at 2020-04-16
-Copyright (c) 2006-2020 by Andreas Rumpf
-
-git hash: b4e9f8e814373fc38741736197d88475663ce758
-active boot switches: -d:release
-
-
-Usage:
-
-beacon_node [OPTIONS]... command
-
-The following options are available:
-
-     --log-level             Sets the log level.
-     --eth1-network          The Eth1 network tracked by the beacon node.
-     --quick-start           Run in quickstart mode
- -d, --data-dir              The directory where nimbus will store all blockchain data.
-     --web3-url              URL of the Web3 server to observe Eth1.
-     --deposit-contract      Address of the deposit contract.
- -b, --bootstrap-node        Specifies one or more bootstrap nodes to use when connecting to the
-                             network.
-     --bootstrap-file        Specifies a line-delimited file of bootstrap Ethereum network addresses.
-     --listen-address        Listening address for the Ethereum LibP2P traffic.
-     --tcp-port              Listening TCP port for Ethereum LibP2P traffic.
-     --udp-port              Listening UDP port for node discovery.
-     --max-peers             The maximum number of peers to connect to
-     --nat                   Specify method to use for determining public address. Must be one of: any,
-                             none, upnp, pmp, extip:&lt;IP&gt;.
- -v, --validator             Path to a validator private key, as generated by makeDeposits.
- -s, --state-snapshot        Json file specifying a recent state snapshot.
-     --node-name             A name for this node that will appear in the logs. If you set this to
-                             'auto', a persistent automatically generated ID will be selected for each
-                             --dataDir folder.
-     --verify-finalization   Specify whether to verify finalization occurs on schedule, for testing.
-     --stop-at-epoch         A positive epoch selects the epoch at which to stop.
-     --metrics               Enable the metrics server.
-     --metrics-address       Listening address of the metrics server.
-     --metrics-port          Listening HTTP port of the metrics server.
-     --status-bar            Display a status bar at the bottom of the terminal screen.
-     --status-bar-contents   Textual template for the contents of the status bar.
-     --rpc                   Enable the JSON-RPC server
-     --rpc-port              HTTP port for the JSON-RPC service.
-     --rpc-address           Listening address of the RPC server
-     --dump                  Write SSZ dumps of blocks, attestations and states to data dir
-
-Available sub-commands:
-
-beacon_node importValidator [OPTIONS]...
-
-The following options are available:
-
-     --keyfile               File with validator key to be imported (in hex form).
-
-beacon_node createTestnet [OPTIONS]...
-
-The following options are available:
-
- -d, --validators-dir        Directory containing validator descriptors named 'vXXXXXXX.deposit.json'.
-     --total-validators      The number of validators in the newly created chain.
-     --first-validator       Index of first validator to add to validator list.
-     --last-user-validator   The last validator index that will free for taking from a testnet
-                             participant.
-     --bootstrap-address     The public IP address that will be advertised as a bootstrap node for the
-                             testnet.
-     --bootstrap-port        The TCP/UDP port that will be used by the bootstrap node.
- -g, --genesis-offset        Seconds from now to add to genesis time.
-     --output-genesis        Output file where to write the initial state snapshot.
-     --with-genesis-root     Include a genesis root in 'network.json'.
-     --output-bootstrap-file  Output file with list of bootstrap nodes for the network.
-
-beacon_node makeDeposits [OPTIONS]...
-
-The following options are available:
-
-     --quickstart-deposits   Number of quick-start deposits to generate.
-     --random-deposits       Number of secure random deposits to generate.
-     --deposits-dir          Folder to write deposits to.
-     --deposit-private-key   Private key of the controlling (sending) account
-     --min-delay             Minimum possible delay between making two deposits (in seconds)
-     --max-delay             Maximum possible delay between making two deposits (in seconds)
-
-beacon_node query command
-
-Available sub-commands:
-
-beacon_node query get &lt;getQueryPath&gt;
-&lt;getQueryPath&gt;                REST API path to evaluate
-</code></pre>
 <p>NBC exposes API:s for querying the state of the application at runtime.</p>
 <p>:note: Where applicable, this API mimics https://github.com/ethereum/eth2.0-APIs with the exception that JSON-RPC is used instead of http rest - method names, parameters and results are equivalent except for the encoding / access method.</p>
 <h2><a class="header" href="#introduction" id="introduction">Introduction</a></h2>
@@ -545,12 +628,12 @@ make LOG_LEVEL=TRACE beacon_node # log everything
 <pre><code class="language-bash">make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower
 </code></pre>
 <h1><a class="header" href="#frequently-asked-questions" id="frequently-asked-questions">Frequently Asked Questions</a></h1>
-<h2><a class="header" href="#1-what-is-beacon-chain" id="1-what-is-beacon-chain">1. What is Beacon Chain?</a></h2>
+<h2><a class="header" href="#what-is-beacon-chain" id="what-is-beacon-chain">What is Beacon Chain?</a></h2>
 <p>A complete introduction about the beacon chain can be found in the <a href="https://our.status.im/two-point-oh-the-beacon-chain/">Ethereum 2.0 blog series</a>.</p>
 <p>In short, the beacon chain is a <strong>new type of blockchain</strong> to help the Ethereum blockchain to smoothly transfer its consensus algorithm from PoW (Proof of Work) to PoS (Proof of Stake), aka Ethereum 2.0.</p>
-<h2><a class="header" href="#2-differences-between-beacon-chain-and-ethereum-10" id="2-differences-between-beacon-chain-and-ethereum-10">2. Differences Between Beacon Chain and Ethereum 1.0</a></h2>
+<h2><a class="header" href="#differences-between-beacon-chain-and-ethereum-10" id="differences-between-beacon-chain-and-ethereum-10">Differences Between Beacon Chain and Ethereum 1.0</a></h2>
 <p>In traditional PoW, those that propose new blocks are called <strong><em>miners</em></strong>, whereas in PoS, they are called <strong><em>validators</em></strong>. In essence, <em>miners</em> rely on actual hardware (such as some specifically manufactured mining machines), while <em>validators</em> rely on just software and a good network connection.</p>
-<h2><a class="header" href="#3-what-it-is-like-to-be-a-validator" id="3-what-it-is-like-to-be-a-validator">3. What it is Like to Be a Validator?</a></h2>
+<h2><a class="header" href="#what-it-is-like-to-be-a-validator" id="what-it-is-like-to-be-a-validator">What it is Like to Be a Validator?</a></h2>
 <p>It is obvious that you must have enough computing power or dedicated hardware in order to be a miner, but how about being a validator? Here is a brief overview:</p>
 <ol>
 <li>A special smart contract named <strong><em>deposit contract</em></strong> is deployed on the original Ethereum blockchain. Note that in this case, the new beacon chain and the original blockchain co-exists.</li>
@@ -558,7 +641,7 @@ make LOG_LEVEL=TRACE beacon_node # log everything
 <li>Run the beacon node and wait for the network to sync before your validator is activated.</li>
 <li>That's all! Remember to stay connected to the network, or you may lose some of your deposit, as punishment, depending on how long you're offline. :P</li>
 </ol>
-<h2><a class="header" href="#4-what-is-nimbus" id="4-what-is-nimbus">4. What is Nimbus?</a></h2>
+<h2><a class="header" href="#what-is-nimbus" id="what-is-nimbus">What is Nimbus?</a></h2>
 <p>In a sentence, Nimbus is an Ethereum 1.0 &amp; 2.0 Client for Resource-Restricted Devices.</p>
 <p>It is open sourced at <a href="github.com/status-im/nimbus">github.com/status-im/nimbus</a>. Development progress and updates can be viewed at the <a href="https://our.status.im/tag/nimbus/">Nimbus blog</a>.</p>
 <h2><a class="header" href="#why-are-metrics-not-working" id="why-are-metrics-not-working">Why are metrics not working?</a></h2>
