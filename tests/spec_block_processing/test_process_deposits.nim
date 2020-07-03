@@ -55,7 +55,7 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
 
       # State transition
       # ----------------------------------------
-      check: process_deposit(state.data, deposit, {skipBlsValidation})
+      check: process_deposit(state.data, deposit, {skipBlsValidation}).isOk
 
       # Check invariants
       # ----------------------------------------
@@ -97,7 +97,7 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
 
     # State transition
     # ----------------------------------------
-    check: process_deposit(state.data, deposit, {skipBlsValidation})
+    check: process_deposit(state.data, deposit, {skipBlsValidation}).isOk
 
     # Check invariants
     # ----------------------------------------

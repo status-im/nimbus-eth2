@@ -228,13 +228,13 @@ template processBlockScenarioImpl(
   var consObj = parseSSZ(consObjPath, ConsensusObjectRefType)
 
   when needFlags and needCache:
-    let success = transitionFn(state.data, consObj[], flags, cache)
+    let success = transitionFn(state.data, consObj[], flags, cache).isOk
   elif needFlags:
-    let success = transitionFn(state.data, consObj[], flags)
+    let success = transitionFn(state.data, consObj[], flags).isOk
   elif needCache:
-    let success = transitionFn(state, consObj[], flags, cache)
+    let success = transitionFn(state, consObj[], flags, cache).isOk
   else:
-    let success = transitionFn(state, consObj[])
+    let success = transitionFn(state, consObj[]).isOk
 
   echo astToStr(transitionFn) & " status: ", if success: "SUCCESS ✓" else: "FAILURE ⚠️"
 

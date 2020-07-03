@@ -14,6 +14,7 @@
 import
   # Standard library
   unittest,
+  stew/results,
   # Specs
   ../../beacon_chain/spec/[beaconstate, datatypes, helpers, validator],
   # Mock helpers
@@ -50,7 +51,7 @@ suiteReport "[Unit - Spec - Block processing] Attestations " & preset():
       var cache = get_empty_per_epoch_cache()
       check process_attestation(
         state.data, attestation, flags = {}, cache
-      )
+      ).isOk
 
       # Check that the attestation was processed
       if attestation.data.target.epoch == get_current_epoch(state.data):
